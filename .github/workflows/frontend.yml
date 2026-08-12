@@ -63,3 +63,6 @@ jobs:
 
       - name: Run svelte-check
         run: pnpm check
+
+      - name: Run Vitest
+        run: pnpm test
