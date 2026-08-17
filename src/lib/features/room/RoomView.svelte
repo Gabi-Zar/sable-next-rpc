@@ -162,8 +162,13 @@
   });
 
   // Returning to live drops the anchor from the URL.
+  /** The `?event=` the effect below has handed to the timeline. */
+  let appliedEventId: string | null = null;
+
   $effect(() => {
-    if (eventId === null || !timelineFollowingLive || timeline.mode.kind !== 'live') return;
+    // A jump restarts the timeline asynchronously, so wait for the target to be applied.
+    if (eventId === null || eventId !== appliedEventId) return;
+    if (!timelineFollowingLive || timeline.mode.kind !== 'live') return;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- same route, only the query changes
     void goto(roomUrl(null), { replaceState: true, noScroll: true, keepFocus: true });
   });
@@ -171,10 +176,12 @@
   $effect(() => {
     const activeRoomId = roomId.startsWith('!') ? roomId : resolvedRoom?.room_id;
     if (!activeRoomId) return;
-    // An event already in the loaded range is reached by scrolling, so only a
-    // target we do not hold restarts the timeline in permalink mode.
-    const loaded = untrack(() => timeline.items.some((item) => item.event_id === eventId));
-    const anchor = loaded ? null : eventId;
+    const anchor = untrack(() => {
+      // A loaded event is reached by scrolling, but only while live.
+      const loaded = timeline.items.some((item) => item.event_id === eventId);
+      return loaded && timeline.mode.kind === 'live' ? null : eventId;
+    });
+    appliedEventId = eventId;
     void untrack(() => activeTimeline.start(timelineOwner, activeRoomId, anchor));
   });
 

@@ -107,6 +107,45 @@ export class RoomTimeline {
     });
   }
 
+  /**
+   * Samples the anchor every frame while `action` runs, to catch jumps between frames.
+   */
+  async sampleAnchorWhile(
+    itemId: string,
+    durationMs: number,
+    action: () => Promise<void>
+  ): Promise<number[]> {
+    const sampling = this.viewport.page().evaluate(
+      async ({ itemId, durationMs }) => {
+        const positions: number[] = [];
+        const sample = (): void => {
+          const anchor = document.querySelector<HTMLElement>(`[data-item-id="${itemId}"]`);
+          if (anchor) positions.push(anchor.getBoundingClientRect().top);
+        };
+        sample();
+        const deadline = performance.now() + durationMs;
+        while (performance.now() < deadline) {
+          await new Promise(requestAnimationFrame);
+          sample();
+        }
+        return positions;
+      },
+      { itemId, durationMs }
+    );
+    await action();
+    return sampling;
+  }
+
+  /** The first and last row on screen, which is what a reader actually notices. */
+  async visibleRange(): Promise<[string, string]> {
+    const visible = this.items.filter({ visible: true });
+    const [first, last] = await Promise.all([
+      visible.first().innerText(),
+      visible.last().innerText(),
+    ]);
+    return [first.trim(), last.trim()];
+  }
+
   async anchorAt(nth: number, { visibleOnly = false } = {}): Promise<TimelineAnchor> {
     const locator = visibleOnly ? this.visibleItems().nth(nth) : this.items.nth(nth);
     const itemId = await locator.getAttribute('data-item-id');
