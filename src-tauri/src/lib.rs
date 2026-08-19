@@ -2,6 +2,8 @@
 
 //! The native carrier. A feature adds a `Command` variant, except to move bytes or reach something only this process has.
 
+#[cfg(target_os = "android")]
+mod mobile;
 mod notifications;
 mod sentry;
 
@@ -234,7 +236,9 @@ pub fn run() {
             upload_media,
             open_auth_url,
             register_push,
-            sentry::set_native_sentry_enabled
+            sentry::set_native_sentry_enabled,
+            #[cfg(target_os = "android")]
+            mobile::set_system_bars_light
         ])
         .run(tauri::generate_context!())
     {
