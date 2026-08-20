@@ -43,6 +43,8 @@ use crate::protocol::{
     UploadProgressView, VectorDiff,
 };
 
+// Independent room capabilities.
+#[allow(clippy::struct_excessive_bools)]
 pub struct RoomInfo {
     pub is_space: bool,
     pub has_space_parent: bool,
