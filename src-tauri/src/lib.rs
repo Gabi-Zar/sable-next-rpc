@@ -29,25 +29,28 @@ struct AppState {
     event_sink: Arc<EventSink>,
 }
 
+/// Most events one `Channel::send` carries: on Android each in-flight send pins a JNI global reference, and 51200 abort the app.
+const EVENT_BATCH_LIMIT: usize = 256;
+
 #[derive(Default)]
-struct EventSink(Mutex<Option<Channel<CoreEvent>>>);
+struct EventSink(Mutex<Option<Channel<Vec<CoreEvent>>>>);
 
 impl EventSink {
-    fn replace(&self, channel: Channel<CoreEvent>) {
+    fn replace(&self, channel: Channel<Vec<CoreEvent>>) {
         *self
             .0
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(channel);
     }
 
-    fn send(&self, event: CoreEvent) {
+    fn send(&self, events: Vec<CoreEvent>) {
         let channel = self
             .0
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
         if let Some(channel) = channel {
-            let _ = channel.send(event);
+            let _ = channel.send(events);
         }
     }
 }
@@ -128,7 +131,7 @@ async fn upload_media(
 
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)] // Tauri extracts command state by value
-fn subscribe_events(state: State<'_, AppState>, channel: Channel<CoreEvent>) {
+fn subscribe_events(state: State<'_, AppState>, channel: Channel<Vec<CoreEvent>>) {
     state.event_sink.replace(channel);
 }
 
@@ -226,11 +229,14 @@ pub fn run() {
             let notifier = app.handle().clone();
             let pushing = app.state::<AppState>().core.clone();
             tauri::async_runtime::spawn(async move {
-                while let Some(event) = events.recv().await {
-                    if let CoreEvent::Notification { notification } = &event {
-                        notifications::show(&notifier, &pushing, notification).await;
+                let mut batch = Vec::new();
+                while events.recv_many(&mut batch, EVENT_BATCH_LIMIT).await > 0 {
+                    for event in &batch {
+                        if let CoreEvent::Notification { notification } = event {
+                            notifications::show(&notifier, &pushing, notification).await;
+                        }
                     }
-                    event_sink.send(event);
+                    event_sink.send(std::mem::take(&mut batch));
                 }
             });
 
@@ -289,9 +295,9 @@ mod tests {
         let sink = EventSink::default();
         sink.replace(first);
         sink.replace(second);
-        sink.send(CoreEvent::SessionEnded {
+        sink.send(vec![CoreEvent::SessionEnded {
             reason: "test".to_owned(),
-        });
+        }]);
 
         assert_eq!(
             *first_messages
