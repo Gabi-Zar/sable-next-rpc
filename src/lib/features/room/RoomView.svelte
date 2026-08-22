@@ -6,6 +6,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
 
+  import type { OutgoingMentions } from '#lib/core/client.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { matrixToUrl, roomSectionPath } from '#lib/rooms/permalink.js';
@@ -319,27 +320,43 @@
   async function sendMessage(
     targetRoomId: string,
     body: string,
-    formatted: string | null = null
+    formatted: string | null = null,
+    mentions: OutgoingMentions = { userIds: [], room: false }
   ): Promise<void> {
     const pending = composerContext;
-    if (body === '') {
-      composerContext = null;
-      return;
-    }
+    if (body === '') return;
+
     if (pending?.kind === 'edit') {
-      await core.editMessage(targetRoomId, pending.eventId, body, formatted);
+      await core.editMessage(targetRoomId, pending.eventId, body, formatted, mentions);
     } else {
-      await core.sendMessage(targetRoomId, body, pending?.eventId ?? null, formatted);
+      await core.sendMessage(targetRoomId, body, pending?.eventId ?? null, formatted, mentions);
     }
     composerContext = null;
   }
 
-  async function sendAttachment(targetRoomId: string, file: File): Promise<void> {
-    await core.sendAttachment(targetRoomId, file);
+  // The reply relation belongs to the first event of a send, which is an
+  // attachment whenever there is one.
+  async function sendAttachment(
+    targetRoomId: string,
+    file: File,
+    options: { caption?: string } = {}
+  ): Promise<void> {
+    const replyTo = composerContext?.kind === 'reply' ? composerContext.eventId : null;
+    await core.sendAttachment(targetRoomId, file, { caption: options.caption, inReplyTo: replyTo });
+    if (replyTo !== null) composerContext = null;
   }
 
   async function sendSticker(targetRoomId: string, url: string, body: string): Promise<void> {
     await core.sendSticker(targetRoomId, url, body);
+  }
+
+  async function createPoll(
+    targetRoomId: string,
+    question: string,
+    answers: string[],
+    undisclosed: boolean
+  ): Promise<void> {
+    await core.createPoll(targetRoomId, question, answers, undisclosed);
   }
 
   async function setTyping(targetRoomId: string, typing: boolean): Promise<void> {
@@ -372,6 +389,14 @@
     void core.toggleReaction(resolvedRoomId, eventId, key);
   }
 
+  function onVotePoll(eventId: string, answers: string[]): void {
+    void core.votePoll(resolvedRoomId, eventId, answers);
+  }
+
+  function onEndPoll(eventId: string): void {
+    void core.endPoll(resolvedRoomId, eventId);
+  }
+
   function onDelete(eventId: string, reason: string | null): void {
     void core.redact(resolvedRoomId, eventId, reason);
   }
@@ -387,8 +412,8 @@
     };
   }
 
-  function onEdit(eventId: string, body: string): void {
-    composerContext = { kind: 'edit', eventId, body };
+  function onEdit(eventId: string, body: string, html: string | null = null): void {
+    composerContext = { kind: 'edit', eventId, body, html };
   }
 
   function editLastOwnMessage(): void {
@@ -399,7 +424,7 @@
       const item = timeline.items[index];
       if (!item.event_id || item.sender !== userId) continue;
       if (item.content.kind !== 'message') continue;
-      onEdit(item.event_id, item.content.body);
+      onEdit(item.event_id, item.content.body, item.content.html);
       return;
     }
   }
@@ -443,6 +468,8 @@
         members={memberLoader.members}
         onJumpToEvent={jumpToEvent}
         onOpenMedia={openMedia}
+        {onVotePoll}
+        {onEndPoll}
         readOnly={permissions ? !permissions.can_post : false}
         canRedactOthers={permissions?.can_redact_others ?? false}
         currentUserId={core.session?.user_id ?? null}
@@ -458,9 +485,11 @@
           onSend={sendMessage}
           onSendAttachment={sendAttachment}
           onSendSticker={sendSticker}
+          onCreatePoll={createPoll}
           onTyping={setTyping}
           {typingLabel}
           {roomName}
+          readOnly={permissions ? !permissions.can_post : false}
           context={composerContext}
           onCancelContext={clearComposerContext}
           onEditLast={editLastOwnMessage}
@@ -557,7 +586,9 @@
     position: relative;
   }
 
+  /* Clears the navigation bar, and the soft keyboard where it overlays. */
   .composer-dock {
     flex: 0 0 auto;
+    padding-bottom: var(--safe-bottom);
   }
 </style>
