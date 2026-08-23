@@ -9,7 +9,7 @@ import {
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
-import { undoInputRule } from 'prosemirror-inputrules';
+import { inputRules, undoInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { DOMParser, type Node as ProseMirrorNode } from 'prosemirror-model';
 import { EditorState, Selection, TextSelection, type Command } from 'prosemirror-state';
@@ -20,13 +20,15 @@ import { untrack } from 'svelte';
 import 'prosemirror-view/style/prosemirror.css';
 import 'prosemirror-gapcursor/style/gapcursor.css';
 
+import type { PackImageView } from '#src/generated/PackImageView';
+
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import type { AutocompleteQuery } from '../autocomplete';
 import {
   activeMarks,
   formatCommands,
+  formattingInputRules,
   formattingKeymap,
-  formattingRules,
   sinkListEntry,
   splitListEntry,
   type FormatAction,
@@ -35,6 +37,7 @@ import type { EmoteMedia } from './node-views';
 import { composerNodeViews } from './node-views';
 import { queryKey, queryPlugin } from './query-plugin';
 import { composerSchema } from './schema';
+import { shortcodeInputRule } from './shortcodes';
 
 const isAndroid = (): boolean => /Android \d/.test(navigator.userAgent);
 
@@ -88,6 +91,7 @@ export type NavigationKey = 'ArrowUp' | 'ArrowDown' | 'Enter' | 'Tab' | 'Escape'
 
 export interface ComposerEditorOptions {
   media: EmoteMedia;
+  emotes: () => readonly PackImageView[];
   label: () => string;
   describedBy?: string;
   listboxId: string;
@@ -162,7 +166,10 @@ export class ComposerEditor {
       plugins: [
         history(),
         queryPlugin(),
-        ...(rich ? [formattingRules(), keymap(formattingKeymap)] : []),
+        inputRules({
+          rules: [shortcodeInputRule(this.options.emotes), ...(rich ? formattingInputRules : [])],
+        }),
+        ...(rich ? [keymap(formattingKeymap)] : []),
         gapCursor(),
         dropCursor(),
         keymap({
