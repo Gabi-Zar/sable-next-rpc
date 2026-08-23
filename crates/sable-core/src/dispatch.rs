@@ -39,6 +39,8 @@ use crate::verification::encryption_status;
 use crate::{Core, SubscriptionKind};
 use crate::{notifications, protocol, session, view};
 
+const MAX_SEARCH_RESULTS: usize = 200;
+
 impl Core {
     /// One match: splitting it needs an unreachable arm, which `clippy::panic` denies.
     ///
@@ -350,6 +352,33 @@ impl Core {
 
                 Ok(CommandOk::FetchEventDetails)
             }
+
+            Command::SearchMessages {
+                query,
+                room_id,
+                limit,
+                offset,
+            } => {
+                let limit = (limit as usize).min(MAX_SEARCH_RESULTS);
+                let offset = offset as usize;
+                let index = self.search_index.lock().await;
+
+                let hits = room_id.map_or_else(
+                    || index.search_all(&query, limit, offset),
+                    |room_id| index.search_room(&room_id, &query, limit, offset),
+                );
+
+                Ok(CommandOk::SearchMessages {
+                    hits: hits.into_iter().map(view::search_hit_view).collect(),
+                })
+            }
+
+            Command::JoinCall {
+                room_id,
+                livekit_service_url,
+            } => self.join_call(room_id, livekit_service_url).await,
+
+            Command::LeaveCall { session } => self.leave_call(session).await,
 
             Command::RoomMembers { room_id } => {
                 let room = self.room(&room_id).await?;
