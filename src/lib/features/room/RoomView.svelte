@@ -227,6 +227,16 @@
     else membersOpen = false;
   }
 
+  function openSearch(): void {
+    const label = resolvedRoom?.canonical_alias ?? resolvedRoom?.name ?? resolvedRoomId;
+    const scope = label.includes(' ') ? `"${label}"` : label;
+    const target = `${resolve('/(app)/search')}?q=${encodeURIComponent(`in:${scope} `)}`;
+
+    goto(target).catch(() => {
+      window.location.assign(target);
+    });
+  }
+
   function closeProfile(): void {
     profileRequestId += 1;
     profileOpen = false;
@@ -475,6 +485,7 @@
       members={memberLoader.members}
       onBack={goBack}
       onMembers={toggleMembers}
+      onSearch={openSearch}
       onSettings={() => (settingsOpen = true)}
       {initials}
     />
