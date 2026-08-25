@@ -745,7 +745,7 @@ export class CoreClient {
       in_reply_to: inReplyTo,
       mentions: mentions.userIds,
       mentions_room: mentions.room,
-      persona,
+      persona: $state.snapshot(persona),
     });
   }
 
@@ -818,7 +818,7 @@ export class CoreClient {
       formatted,
       mentions: mentions.userIds,
       mentions_room: mentions.room,
-      persona,
+      persona: $state.snapshot(persona),
     });
   }
 
