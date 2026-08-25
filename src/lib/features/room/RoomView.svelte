@@ -208,7 +208,7 @@
   });
 
   $effect(() => {
-    const activeRoomId = roomId.startsWith('!') ? roomId : resolvedRoom?.room_id;
+    const activeRoomId = resolvedRoom?.room_id;
     if (!activeRoomId) return;
     const anchor = untrack(() => {
       // A loaded event is reached by scrolling, but only while live.
