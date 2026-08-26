@@ -105,6 +105,7 @@ impl Core {
         caption: Option<String>,
         in_reply_to: Option<String>,
         info: Option<AttachmentInfoView>,
+        thread_root: Option<String>,
     ) -> Result<(), CommandErr> {
         if bytes.len() > MAX_ATTACHMENT_BYTES {
             return Err(CommandErr::InvalidMedia);
@@ -113,6 +114,10 @@ impl Core {
         let mime: Mime = mime.parse().map_err(|_| CommandErr::InvalidMedia)?;
 
         let in_reply_to = match in_reply_to {
+            Some(id) => Some(OwnedEventId::try_from(id).map_err(|_| CommandErr::UnknownRoom)?),
+            None => None,
+        };
+        let thread_root = match thread_root {
             Some(id) => Some(OwnedEventId::try_from(id).map_err(|_| CommandErr::UnknownRoom)?),
             None => None,
         };
@@ -128,8 +133,12 @@ impl Core {
             ..AttachmentConfig::default()
         };
 
-        self.timeline(&room_id)
-            .await?
+        let timeline = match &thread_root {
+            Some(root) => self.thread_timeline(&room_id, root).await?,
+            None => self.timeline(&room_id).await?,
+        };
+
+        timeline
             .send_attachment(AttachmentSource::Data { bytes, filename }, mime, config)
             // Inline, a dropped connection loses the file. Queued, it retries.
             .use_send_queue()

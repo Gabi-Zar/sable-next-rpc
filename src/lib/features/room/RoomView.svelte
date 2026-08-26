@@ -42,6 +42,7 @@
   import JumpToTimeDialog from './JumpToTimeDialog.svelte';
   import LeaveRoomDialog from './LeaveRoomDialog.svelte';
   import MembersDrawer from './MembersDrawer.svelte';
+  import ThreadPanel from './ThreadPanel.svelte';
   import MentionProfile from './MentionProfile.svelte';
   import RoomHeader from './RoomHeader.svelte';
   import RoomHeaderMenu from './RoomHeaderMenu.svelte';
@@ -155,6 +156,16 @@
   });
 
   const bookmarks = useBookmarks();
+  let threadRootId = $state<string | null>(null);
+
+  function openThread(rootEventId: string): void {
+    threadRootId = rootEventId;
+    desktopMembersOpen = false;
+  }
+
+  function closeThread(): void {
+    threadRootId = null;
+  }
   onMount(() => {
     void bookmarks.load();
   });
@@ -691,6 +702,7 @@
         {onToggleReaction}
         {onDelete}
         {onReply}
+        onOpenThread={openThread}
         {onEdit}
         roomId={resolvedRoomId}
         members={memberLoader.members}
@@ -742,6 +754,17 @@
   </div>
 
   {#if desktop}
+    {#if threadRootId !== null}
+      <ThreadPanel
+        roomId={resolvedRoomId}
+        rootEventId={threadRootId}
+        members={memberLoader.members}
+        readOnly={permissions ? !permissions.can_post : false}
+        canRedactOthers={permissions?.can_redact_others ?? false}
+        onClose={closeThread}
+        onSenderProfile={openProfile}
+      />
+    {/if}
     {#if desktopMembersOpen}
       <MembersDrawer
         members={memberLoader.members}
@@ -759,6 +782,29 @@
         onClose={closeMembers}
         onMemberProfile={openProfile}
       />
+    </DialogFrame>
+  {/if}
+
+  {#if !desktop}
+    <DialogFrame
+      open={threadRootId !== null}
+      onOpenChange={(open: boolean) => {
+        if (!open) closeThread();
+      }}
+      variant="drawer"
+    >
+      {#if threadRootId !== null}
+        <ThreadPanel
+          roomId={resolvedRoomId}
+          rootEventId={threadRootId}
+          members={memberLoader.members}
+          readOnly={permissions ? !permissions.can_post : false}
+          canRedactOthers={permissions?.can_redact_others ?? false}
+          modal
+          onClose={closeThread}
+          onSenderProfile={openProfile}
+        />
+      {/if}
     </DialogFrame>
   {/if}
 
