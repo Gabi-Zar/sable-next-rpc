@@ -1,4 +1,5 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import type { CoreCommands } from '#lib/core/commands.svelte.js';
 
 /* Not `SvelteMap`: callers read the cache from inside an effect, so a reactive
    miss re-runs every waiting media element each time any other one resolves. */
@@ -114,8 +115,12 @@ export function cachedMediaUrl(
 /**
  * Fetches media through a command, since the access token stays in the core, and wraps it in an object URL shared per source and size.
  */
+export type MediaFetcher = Pick<CoreClient, 'session'> & {
+  commands: Pick<CoreCommands, 'fetchMedia'>;
+};
+
 export function loadMediaUrl(
-  core: Pick<CoreClient, 'fetchMedia' | 'session'>,
+  core: MediaFetcher,
   source: string,
   width: number,
   height: number,
@@ -125,7 +130,7 @@ export function loadMediaUrl(
   if (unavailable.has(key)) return Promise.reject(new Error('Media unavailable'));
   const request =
     pending.get(key) ??
-    core
+    core.commands
       .fetchMedia(source, width, height)
       .then((bytes) => {
         const type = mime ?? imageMime(bytes) ?? '';
@@ -155,7 +160,7 @@ export function loadMediaUrl(
 }
 
 export function retryMediaUrl(
-  core: Pick<CoreClient, 'fetchMedia' | 'session'>,
+  core: MediaFetcher,
   source: string,
   width: number,
   height: number,
