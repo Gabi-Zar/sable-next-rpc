@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount, untrack } from 'svelte';
+  import type { MemberView } from '#src/generated/MemberView';
+  import type { MembershipView } from '#src/generated/MembershipView';
   import type { ProfileView } from '#src/generated/ProfileView';
   import type { RoomPermissionsView } from '#src/generated/RoomPermissionsView';
   import { goto } from '$app/navigation';
@@ -53,6 +55,11 @@
   import TimelineList from './TimelineList.svelte';
   import MediaViewer from './MediaViewer.svelte';
   import { isPdfAttachment } from '#lib/ui/pdf-attachment.js';
+  import {
+    POWER_LEVEL_TAGS_EVENT_TYPE,
+    parsePowerLevelTags,
+    type PowerLevelTagMap,
+  } from './settings/power-level-tags.js';
   import { readTombstone } from './settings/room-upgrade.js';
   import { splitVia } from './join-address';
   import type { MatrixLink } from './matrix-link';
@@ -91,6 +98,7 @@
   });
   let profileRequestId = 0;
   let permissions = $state<RoomPermissionsView | null>(null);
+  let powerTags = $state.raw<PowerLevelTagMap>({});
   let settingsOpen = $state(false);
   let topicOpen = $state(false);
   let inviteOpen = $state(false);
@@ -285,6 +293,23 @@
 
   $effect(() => {
     const activeRoomId = resolvedRoomId;
+    powerTags = {};
+    let current = true;
+    void core.commands
+      .roomStateEvent(activeRoomId, POWER_LEVEL_TAGS_EVENT_TYPE)
+      .then((content) => {
+        if (current) powerTags = parsePowerLevelTags(content);
+      })
+      .catch((error: unknown) => {
+        console.debug('[sable room] power level tags unavailable', error);
+      });
+    return () => {
+      current = false;
+    };
+  });
+
+  $effect(() => {
+    const activeRoomId = resolvedRoomId;
     const tombstoned = isTombstoned;
     tombstoneReplacementId = null;
     tombstoneBody = null;
@@ -372,6 +397,10 @@
   async function loadMembers(): Promise<void> {
     const activeRoomId = resolvedRoomId;
     await memberLoader.load(activeRoomId, (roomId) => core.commands.roomMembers(roomId));
+  }
+
+  function loadMembership(membership: MembershipView): Promise<MemberView[]> {
+    return core.commands.roomMembers(resolvedRoomId, [membership]);
   }
 
   function toggleMembers(): void {
@@ -607,6 +636,18 @@
 
 <main class="room-view" aria-label={$i18n.t('timeline.label')}>
   <div class="timeline">
+    {#snippet widgetsButton()}
+      {#if widgets.length > 0}
+        <IconButton
+          variant="ghost"
+          size="small"
+          label={$i18n.t('widgets.label')}
+          onclick={toggleWidgets}
+        >
+          <GridFourIcon />
+        </IconButton>
+      {/if}
+    {/snippet}
     <RoomHeader
       {roomName}
       {roomAvatar}
@@ -614,11 +655,13 @@
       isVoice={resolvedRoom?.is_voice ?? false}
       callParticipants={resolvedRoom?.call_participants ?? []}
       members={memberLoader.members}
+      membersOpen={desktop ? desktopMembersOpen : membersOpen}
       onCall={callable ? openPrescreen : null}
       onBack={goBack}
       onMembers={toggleMembers}
       onSearch={openSearch}
       onTopic={() => (topicOpen = true)}
+      widgets={widgetsButton}
     >
       {#snippet pins()}
         <RoomPinMenu
@@ -630,16 +673,6 @@
         />
       {/snippet}
       {#snippet menu()}
-        {#if widgets.length > 0}
-          <IconButton
-            variant="ghost"
-            size="small"
-            label={$i18n.t('widgets.label')}
-            onclick={toggleWidgets}
-          >
-            <GridFourIcon />
-          </IconButton>
-        {/if}
         <RoomHeaderMenu
           room={resolvedRoom ?? null}
           canInvite={permissions?.can_invite ?? false}
@@ -762,6 +795,8 @@
       <MembersDrawer
         members={memberLoader.members}
         loading={memberLoader.loading}
+        {powerTags}
+        {loadMembership}
         onClose={closeMembers}
         onMemberProfile={openProfile}
       />
@@ -784,6 +819,8 @@
         members={memberLoader.members}
         loading={memberLoader.loading}
         modal
+        {powerTags}
+        {loadMembership}
         onClose={closeMembers}
         onMemberProfile={openProfile}
       />
