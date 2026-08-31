@@ -1323,6 +1323,8 @@ fn thread_summary(content: &TimelineItemContent) -> Option<ThreadSummaryView> {
 fn body_of(content: &TimelineItemContent) -> Option<String> {
     match &msg_like(content)?.kind {
         MsgLikeKind::Message(message) => Some(message.body().to_owned()),
+        MsgLikeKind::Sticker(sticker) => Some(sticker.content().body.clone()),
+        MsgLikeKind::Poll(state) => Some(state.results().question),
         _ => None,
     }
 }
