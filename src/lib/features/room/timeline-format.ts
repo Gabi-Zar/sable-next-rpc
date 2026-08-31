@@ -189,6 +189,16 @@ export function latestEventId(items: readonly TimelineItemView[]): string | null
   return null;
 }
 
+export function eventBefore(items: readonly TimelineItemView[], eventId: string): string | null {
+  const index = items.findIndex((item) => item.event_id === eventId);
+  if (index < 0) return null;
+  for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+    const previous = items[cursor].event_id;
+    if (previous) return previous;
+  }
+  return null;
+}
+
 /**
  * The newest event scrolled past, so history loading below the reader never moves the receipt back.
  */
