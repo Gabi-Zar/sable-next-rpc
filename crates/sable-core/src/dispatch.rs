@@ -896,7 +896,7 @@ impl Core {
                     .await?
                     .send(get_media_preview::v1::Request::new(url.clone()))
                     .await
-                    .map_err(|error| self.failed("url_preview", error))?;
+                    .map_err(|error| self.homeserver_http_error("url_preview", error))?;
 
                 let preview = response
                     .data
@@ -1005,7 +1005,9 @@ impl Core {
                     Err(error) if error.client_api_error_kind() == Some(&ErrorKind::NotFound) => {
                         None
                     }
-                    Err(error) => return Err(self.failed("timestamp_to_event", error)),
+                    Err(error) => {
+                        return Err(self.homeserver_http_error("timestamp_to_event", error));
+                    }
                 };
 
                 Ok(CommandOk::TimestampToEvent { event_id })
