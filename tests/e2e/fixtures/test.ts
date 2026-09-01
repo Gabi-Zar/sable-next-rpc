@@ -367,12 +367,22 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       return new MatrixAdmin(homeserver.baseUrl, account.accessToken, account.userId);
     });
   },
-  spacesLogin: async ({ freshLogin }, use) => {
+  // The spaces are created before the UI signs in, so the client's first sync
+  // carries all three. Creating them afterwards leaves the rail waiting on a
+  // live update for rooms that carry no activity to order them by.
+  spacesLogin: async ({ page, homeserver }, use, testInfo) => {
     await use(async () => {
-      const account = await freshLogin();
+      const username = `spaces-${String(testInfo.parallelIndex)}-${String(Date.now())}`;
+      const registered = await registerUser(homeserver.baseUrl, username, LOGIN_PASSWORD);
+      const account = new MatrixAdmin(
+        homeserver.baseUrl,
+        registered.accessToken,
+        registered.userId
+      );
       for (const name of SPACE_NAMES) {
         await account.createRoom({ name, isSpace: true });
       }
+      await signInThroughUi(page, homeserver.baseUrl, username);
       return account;
     });
   },

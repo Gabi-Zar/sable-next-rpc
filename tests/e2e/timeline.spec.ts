@@ -48,18 +48,26 @@ test('loads a real room at latest and preserves the viewport while paginating', 
   await timeline.dispatchWheel(1);
   await timeline.scrollToAndNotify(0);
   await expect.poll(oldestRenderedMessage, { timeout: 15_000 }).toBeLessThan(initialOldestMessage);
-  await timeline.scrollToAndNotify(0);
-
-  await timeline.waitForScrollSettled();
-  await expect.poll(() => timeline.visibleItems().count()).toBeGreaterThan(0);
-  const anchor = await timeline.fullyVisibleAnchor();
 
   const beforeOldestMessage = await oldestRenderedMessage();
 
   await timeline.dispatchWheel(-200);
   await timeline.scrollToAndNotify(0);
-
   await expect.poll(oldestRenderedMessage, { timeout: 15_000 }).toBeLessThan(beforeOldestMessage);
+
+  // The anchor is read only once the reader is settled at the top, and nothing
+  // writes `scrollTop` after it: holding a page scrolls the reader down by the
+  // whole prepended height, so a later write back to 0 moves the anchor by
+  // exactly that much and reads as the timeline having failed to hold it.
+  await timeline.waitForScrollSettled();
+  await expect.poll(() => timeline.visibleItems().count()).toBeGreaterThan(0);
+  // The topmost row is the one a prepend turns into a continuation, which drops
+  // its header, so its own top moves by design.
+  const anchor = await timeline.fullyVisibleAnchor({ skip: 1 });
+
+  await timeline.dispatchWheel(-200);
+  await timeline.notifyScroll();
+
   // Real messages wrap to variable heights; re-measurement settles within a
   // couple of pixels.
   await timeline.expectAnchorHeld(anchor, { tolerance: 2 });

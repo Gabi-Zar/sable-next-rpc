@@ -1,6 +1,9 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-const COLD_BOOT_TIMEOUT = 15_000;
+// A cold boot compiles the wasm, restores the session and waits out the first
+// sync. WebKit is the slowest of the three runtimes and was the only one to
+// miss this budget under CI load.
+const COLD_BOOT_TIMEOUT = 30_000;
 
 export class AppShell {
   readonly primaryNavigation: Locator;
