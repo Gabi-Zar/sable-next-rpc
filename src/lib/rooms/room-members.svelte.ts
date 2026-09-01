@@ -12,7 +12,6 @@ export class RoomMemberLoader {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   private readonly cache = new Map<string, MemberView[]>();
 
-  /** Keeps the cache, so switching back paints names rather than user ids. */
   reset(): void {
     this.generation += 1;
     this.members = [];
@@ -29,8 +28,6 @@ export class RoomMemberLoader {
     const generation = ++this.generation;
     this.attemptedRoomId = roomId;
 
-    // No core event reports a membership change, so a cached list is shown at
-    // once and replaced by the fetch it does not wait for.
     const cached = this.cache.get(roomId);
     if (cached) this.members = cached;
     else this.loading = true;
