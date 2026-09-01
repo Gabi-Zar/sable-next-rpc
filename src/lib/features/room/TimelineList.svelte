@@ -596,7 +596,6 @@
     return true;
   }
 
-  /** Pads out a snapshot too short to fill the viewport. */
   async function fillInitialHistory(): Promise<void> {
     while (initialFillPages < fillPageLimit()) {
       const node = currentViewport();
