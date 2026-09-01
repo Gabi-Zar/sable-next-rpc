@@ -27,9 +27,6 @@ async function openRail(page: Page): Promise<void> {
   await expect(railSpaces(page)).toHaveCount(3, { timeout: 90_000 });
 }
 
-// A drag that starts before the rail has settled drops on nothing, so the drop
-// is retried until the order it asks for is the order the rail renders. Placing
-// a space at a position is idempotent, so a repeat is free.
 async function reorder(
   page: Page,
   source: string,

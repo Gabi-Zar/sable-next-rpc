@@ -21,10 +21,6 @@ function searchField(page: Page) {
   return page.getByRole('combobox', { name: SEARCH_FIELD });
 }
 
-// The index is rebuilt on each page load and a term is only findable once the
-// crawl has reached it, so a test that asserts on one hit's markup has to wait
-// for the corpus first — otherwise it times out on an empty result list rather
-// than on the thing it is checking.
 async function awaitIndexed(page: Page): Promise<void> {
   await searchField(page).fill('welcome');
   await expect(page.getByRole('button', { name: /Welcome to/ }).first()).toBeVisible({

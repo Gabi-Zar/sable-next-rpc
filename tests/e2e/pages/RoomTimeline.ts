@@ -125,12 +125,6 @@ export class RoomTimeline {
     }, offset);
   }
 
-  /**
-   * A scroll event with no offset write. History is asked for by position, so a
-   * test that has already captured an anchor must notify without re-writing
-   * `scrollTop` — the write moves the anchor by whatever the last anchor hold
-   * had scrolled to, which reads as the timeline failing to hold it.
-   */
   async notifyScroll(): Promise<void> {
     await this.viewport.evaluate((element) => {
       element.dispatchEvent(new Event('scroll', { bubbles: true }));
@@ -224,9 +218,7 @@ export class RoomTimeline {
   }
 
   // A partially clipped row shifts on its own as history lands, so an anchor
-  // has to be one the viewport already contains whole. `skip` steps past the
-  // topmost rows: a prepend turns the oldest rendered row into a continuation,
-  // which drops its header, so its own top moves by design.
+  // has to be one the viewport already contains whole.
   async fullyVisibleAnchor({ skip = 0 } = {}): Promise<TimelineAnchor> {
     const deadline = Date.now() + 5_000;
     for (;;) {

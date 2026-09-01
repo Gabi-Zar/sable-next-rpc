@@ -367,9 +367,6 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
       return new MatrixAdmin(homeserver.baseUrl, account.accessToken, account.userId);
     });
   },
-  // The spaces are created before the UI signs in, so the client's first sync
-  // carries all three. Creating them afterwards leaves the rail waiting on a
-  // live update for rooms that carry no activity to order them by.
   spacesLogin: async ({ page, homeserver }, use, testInfo) => {
     await use(async () => {
       const username = `spaces-${String(testInfo.parallelIndex)}-${String(Date.now())}`;
