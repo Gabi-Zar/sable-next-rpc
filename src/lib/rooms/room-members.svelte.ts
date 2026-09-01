@@ -8,7 +8,6 @@ export class RoomMemberLoader {
 
   private attemptedRoomId: string | null = null;
   private generation = 0;
-  // Nothing renders from the cache itself, only from `members`.
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   private readonly cache = new Map<string, MemberView[]>();
 

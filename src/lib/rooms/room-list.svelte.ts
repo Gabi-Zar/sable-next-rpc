@@ -43,7 +43,6 @@ export class RoomList {
     group: 'all',
   });
 
-  // The $derived is the reactive seam; a SvelteSet would add per-key tracking.
   mutedRoomIds: ReadonlySet<string> = $derived(
     // eslint-disable-next-line svelte/prefer-svelte-reactivity
     new Set(
