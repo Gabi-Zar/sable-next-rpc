@@ -546,7 +546,7 @@
       );
       return;
     }
-    void goto(resolve('home'));
+    void goto(resolve('/(app)/rooms'));
   }
 
   function requestHistory(): Promise<boolean> {
