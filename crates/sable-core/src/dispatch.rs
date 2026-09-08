@@ -599,7 +599,8 @@ impl Core {
             Command::JoinCall {
                 room_id,
                 livekit_service_url,
-            } => self.join_call(room_id, livekit_service_url).await,
+                mode,
+            } => self.join_call(room_id, livekit_service_url, mode).await,
 
             Command::CallSupport { room_id } => self.call_support(room_id).await,
 
