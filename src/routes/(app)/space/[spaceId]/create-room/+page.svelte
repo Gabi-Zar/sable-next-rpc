@@ -15,5 +15,5 @@
   title={$i18n.t('room.createTitle')}
   description={$i18n.t('room.createDescription')}
 >
-  <CreateRoomForm parentSpaceId={space?.room_id ?? null} />
+  <CreateRoomForm mode="room" parentSpaceId={space?.room_id ?? null} />
 </AppPageShell>
