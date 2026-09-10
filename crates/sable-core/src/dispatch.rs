@@ -1636,6 +1636,12 @@ impl Core {
                 Ok(CommandOk::SetNotificationContent)
             }
 
+            Command::SetReadRoom { room_id } => {
+                self.set_read_room(room_id);
+
+                Ok(CommandOk::SetReadRoom)
+            }
+
             Command::SetPresence {
                 presence,
                 status_message,
