@@ -34,4 +34,4 @@ runs:
         GIT_REF: ${{ github.ref }}
         GIT_REF_NAME: ${{ github.ref_name }}
         GIT_SHA: ${{ github.sha }}
-      run: node "${{ github.action_path }}/../../scripts/release-meta.mjs" "$GITHUB_OUTPUT"
+      run: node "$GITHUB_WORKSPACE/scripts/ci/release-meta.mjs" "$GITHUB_OUTPUT"
