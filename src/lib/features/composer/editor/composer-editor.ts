@@ -387,7 +387,7 @@ export class ComposerEditor {
           ? [
               keymap(formattingKeymap),
               keymap({
-                'Mod-k': () => {
+                'Mod-Shift-k': () => {
                   this.options.onLinkRequest();
                   return true;
                 },
