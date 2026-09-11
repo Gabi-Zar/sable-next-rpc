@@ -712,6 +712,7 @@
       {/if}
     {/snippet}
     <RoomHeader
+      roomId={resolvedRoomId}
       {roomName}
       {roomAvatar}
       topic={roomTopic}
