@@ -2216,12 +2216,6 @@ impl Core {
 
             Command::RoomViaServers { room_id } => {
                 let room = self.room(&room_id).await?;
-                if room.canonical_alias().is_some() {
-                    return Ok(CommandOk::RoomViaServers {
-                        servers: Vec::new(),
-                    });
-                }
-
                 let members = room
                     .members(RoomMemberships::JOIN)
                     .await
