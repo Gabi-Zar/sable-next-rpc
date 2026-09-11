@@ -556,6 +556,10 @@
     return `${url.pathname}${url.search}`;
   }
 
+  function jumpToLive(): void {
+    void goto(roomUrl(null), { replaceState: true });
+  }
+
   // A history entry, so back is a way out of the anchor.
   function jumpToEvent(eventId: string): void {
     void goto(roomUrl(eventId), { reset: false });
@@ -777,6 +781,7 @@
         roomId={resolvedRoomId}
         members={memberLoader.members}
         onJumpToEvent={jumpToEvent}
+        onJumpToLive={jumpToLive}
         onOpenMedia={openMedia}
         onPersonaAvatarClick={openProfileAvatar}
         onVotePoll={conversation.votePoll}
