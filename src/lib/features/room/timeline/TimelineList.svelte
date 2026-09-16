@@ -1107,7 +1107,7 @@
         role="log"
         aria-live="off"
       >
-        <div class={['items', `layout-${preferences.layout}`]}>
+        <div class={['items', `layout-${preferences.layout}`, {'ignore-groups': preferences.ignoreMessageGroups}]}>
           <div class="window-rows">
             {#each rows as row (row.key)}
               {@const { item, group, collapsed, groupStart } = row.value}
@@ -1361,6 +1361,10 @@
 
   .item.group-start {
     padding-top: calc(var(--timeline-row-padding) + var(--timeline-group-gap));
+  }
+
+  .ignore-groups .item {
+    padding-top: 0;
   }
 
   .unread-bar {
