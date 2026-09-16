@@ -1889,7 +1889,6 @@
   /* Layout modes stay in one block at the end: each overrides a base rule
      above, and a second copy elsewhere would drift out of sync. */
   .message.layout-compact {
-    align-items: baseline;
     gap: var(--space-300);
   }
 
