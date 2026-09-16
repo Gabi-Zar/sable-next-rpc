@@ -102,6 +102,7 @@
     timeAction?: { label: string; run: () => void };
     headerAction?: Snippet;
     alignOwn?: boolean;
+    ignoreGroups?: boolean;
     members?: readonly MemberView[];
     onJumpToEvent?: (eventId: string) => void;
     onOpenMedia?: (eventId: string) => void;
@@ -148,6 +149,7 @@
     timeAction,
     headerAction,
     alignOwn = true,
+    ignoreGroups = true,
     members = [],
     onJumpToEvent,
     onOpenMedia,
@@ -588,7 +590,7 @@
     {#if layout === 'compact'}
       <div class="compact-gutter">
         <time><Skeleton class="placeholder-time" /></time>
-        {#if !collapsed}<Skeleton class="compact-name placeholder-name" />{/if}
+        {#if ignoreGroups || !collapsed}<Skeleton class="compact-name placeholder-name" />{/if}
       </div>
     {:else if !collapsed}
       <Skeleton class="avatar-root avatar-small message-avatar placeholder-avatar" />
@@ -681,7 +683,7 @@
             </time>
           {/snippet}
         </Tooltip>
-        {#if !collapsed}
+        {#if ignoreGroups || !collapsed}
           <SenderName
             displayName={senderName}
             colors={senderColors}

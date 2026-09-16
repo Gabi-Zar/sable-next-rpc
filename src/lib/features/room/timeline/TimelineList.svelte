@@ -977,6 +977,7 @@
     {members}
     layout={preferences.layout}
     alignOwn={preferences.alignOwnMessages}
+    ignoreGroups={preferences.ignoreMessageGroups}
     {onJumpToEvent}
     {onOpenMedia}
     {onVotePoll}

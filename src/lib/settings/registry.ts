@@ -693,6 +693,13 @@ export const settingsCategories: SettingsCategory[] = [
         type: 'boolean',
       },
       {
+        key: 'ignoreMessageGroups',
+        icon: LayoutIcon,
+        name: 'settings.ignoreMessageGroups',
+        description: 'settings.ignoreMessageGroupsHint',
+        type: 'boolean',
+      },
+      {
         key: 'messageSpacing',
         section: 'message-layout',
         icon: ArrowsOutLineVerticalIcon,
