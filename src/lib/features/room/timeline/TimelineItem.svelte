@@ -102,7 +102,6 @@
     timeAction?: { label: string; run: () => void };
     headerAction?: Snippet;
     alignOwn?: boolean;
-    ignoreGroups?: boolean;
     members?: readonly MemberView[];
     onJumpToEvent?: (eventId: string) => void;
     onOpenMedia?: (eventId: string) => void;
@@ -149,7 +148,6 @@
     timeAction,
     headerAction,
     alignOwn = true,
-    ignoreGroups = true,
     members = [],
     onJumpToEvent,
     onOpenMedia,
@@ -590,7 +588,7 @@
     {#if layout === 'compact'}
       <div class="compact-gutter">
         <time><Skeleton class="placeholder-time" /></time>
-        {#if ignoreGroups || !collapsed}<Skeleton class="compact-name placeholder-name" />{/if}
+        <Skeleton class="compact-name placeholder-name" />
       </div>
     {:else if !collapsed}
       <Skeleton class="avatar-root avatar-small message-avatar placeholder-avatar" />
@@ -683,17 +681,15 @@
             </time>
           {/snippet}
         </Tooltip>
-        {#if ignoreGroups || !collapsed}
-          <SenderName
-            displayName={senderName}
-            colors={senderColors}
-            {pronouns}
-            nameClass="compact-name"
-            onMention={nameMentions ? mentionSender : undefined}
-            onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
-            compact={layout === 'compact'}
-          />
-        {/if}
+        <SenderName
+          displayName={senderName}
+          colors={senderColors}
+          {pronouns}
+          nameClass="compact-name"
+          onMention={nameMentions ? mentionSender : undefined}
+          onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
+          compact={layout === 'compact'}
+        />
       </div>
     {:else if !collapsed}
       {#if item.sender && onSenderProfile}

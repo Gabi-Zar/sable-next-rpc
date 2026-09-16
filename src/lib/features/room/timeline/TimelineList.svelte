@@ -977,7 +977,6 @@
     {members}
     layout={preferences.layout}
     alignOwn={preferences.alignOwnMessages}
-    ignoreGroups={preferences.ignoreMessageGroups}
     {onJumpToEvent}
     {onOpenMedia}
     {onVotePoll}
@@ -1107,7 +1106,7 @@
         role="log"
         aria-live="off"
       >
-        <div class={['items', `layout-${preferences.layout}`, {'ignore-groups': preferences.ignoreMessageGroups}]}>
+        <div class={['items', `layout-${preferences.layout}`]}>
           <div class="window-rows">
             {#each rows as row (row.key)}
               {@const { item, group, collapsed, groupStart } = row.value}
@@ -1363,7 +1362,7 @@
     padding-top: calc(var(--timeline-row-padding) + var(--timeline-group-gap));
   }
 
-  .ignore-groups .item {
+  .layout-compact .item {
     padding-top: 0;
   }
 

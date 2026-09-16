@@ -1523,8 +1523,6 @@
     "threadPresentationHint": "On small screens, threads always use the full conversation view.",
     "threadPresentationTimeline": "Full conversation",
     "threadPresentationPanel": "Side panel",
-    "ignoreMessageGroups": "Ignore message groups",
-    "ignoreMessageGroupsHint": "Compact layout only. Always displays user name in message header and does not create extra spacing.",
     "title": "Settings",
     "dialogDescription": "Choose a settings section.",
     "sections": "Settings sections",
