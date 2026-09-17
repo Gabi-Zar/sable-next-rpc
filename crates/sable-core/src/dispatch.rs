@@ -1744,10 +1744,16 @@ impl Core {
                 modes: notifications::room_modes(&self.client().await?, room_ids).await,
             }),
 
-            Command::DefaultNotificationModes => {
-                let (direct, group) = notifications::default_modes(&self.client().await?).await;
+            Command::DefaultNotificationModes => Ok(CommandOk::DefaultNotificationModes {
+                modes: notifications::default_modes(&self.client().await?).await,
+            }),
 
-                Ok(CommandOk::DefaultNotificationModes { direct, group })
+            Command::MentionNotifications => {
+                let modes = notifications::mention_notifications(&self.client().await?)
+                    .await
+                    .map_err(|error| self.failed("mention_notifications", error))?;
+
+                Ok(CommandOk::MentionNotifications { modes })
             }
 
             Command::SetPusher { pusher } => {
@@ -1840,12 +1846,24 @@ impl Core {
                 Ok(CommandOk::SetRoomNotificationMode)
             }
 
-            Command::SetDefaultNotificationMode { direct, mode } => {
-                notifications::set_default_mode(&self.client().await?, direct, mode)
+            Command::SetDefaultNotificationMode {
+                direct,
+                encrypted,
+                mode,
+            } => {
+                notifications::set_default_mode(&self.client().await?, direct, encrypted, mode)
                     .await
                     .map_err(|error| self.failed("set_default_notification_mode", error))?;
 
                 Ok(CommandOk::SetDefaultNotificationMode)
+            }
+
+            Command::SetMentionNotifications { rule, mode } => {
+                notifications::set_mention_notifications(&self.client().await?, rule, mode)
+                    .await
+                    .map_err(|error| self.failed("set_mention_notifications", error))?;
+
+                Ok(CommandOk::SetMentionNotifications)
             }
 
             Command::Notification { room_id, event_id } => {
