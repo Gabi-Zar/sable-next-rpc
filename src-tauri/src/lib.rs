@@ -466,7 +466,6 @@ fn auto_update_supported() -> bool {
     !cfg!(target_os = "linux") || std::env::var_os("APPIMAGE").is_some()
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Silences two SDK sites that log once per room per sync response.
 fn install_logging() {
     let filter = tracing_subscriber::EnvFilter::try_from_env("SABLE_LOG").unwrap_or_else(|_| {
@@ -479,6 +478,7 @@ fn install_logging() {
     }
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     install_logging();
 
