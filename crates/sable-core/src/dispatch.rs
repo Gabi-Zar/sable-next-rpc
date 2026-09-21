@@ -51,10 +51,11 @@ use matrix_sdk::ruma::{
 use matrix_sdk_ui::timeline::{RoomExt, TimelineEventItemId, TimelineFocus};
 
 use crate::protocol::{
-    Command, CommandErr, CommandOk, CreateJoinRuleView, CreateRoomKind, HomeserverSoftwareView,
-    ImageSourcePackReferenceView, ImageSourcePackView, JoinRuleView, MembershipView, MessageKind,
-    MutualRoomView, PackImageInfoView, PaginationDirection, RoomOpenView, RoomStateEventView,
-    RoomTag, RoomVersionView, RoomVersionsView, ThreadRootView, UrlPreviewView,
+    Command, CommandErr, CommandOk, CoreEvent, CreateJoinRuleView, CreateRoomKind,
+    HomeserverSoftwareView, ImageSourcePackReferenceView, ImageSourcePackView, JoinRuleView,
+    MembershipView, MessageKind, MutualRoomView, PackImageInfoView, PaginationDirection,
+    RoomOpenView, RoomStateEventView, RoomTag, RoomVersionView, RoomVersionsView, ThreadRootView,
+    UrlPreviewView,
 };
 use matrix_sdk_ui::notification_client::NotificationProcessSetup;
 
@@ -1860,6 +1861,7 @@ impl Core {
                     .await
                     .map_err(|error| self.failed("set_room_notification_mode", error))?;
 
+                self.emit(CoreEvent::NotificationSettingsChanged);
                 Ok(CommandOk::SetRoomNotificationMode)
             }
 
@@ -1872,6 +1874,7 @@ impl Core {
                     .await
                     .map_err(|error| self.failed("set_default_notification_mode", error))?;
 
+                self.emit(CoreEvent::NotificationSettingsChanged);
                 Ok(CommandOk::SetDefaultNotificationMode)
             }
 
@@ -1880,6 +1883,7 @@ impl Core {
                     .await
                     .map_err(|error| self.failed("set_mention_notifications", error))?;
 
+                self.emit(CoreEvent::NotificationSettingsChanged);
                 Ok(CommandOk::SetMentionNotifications)
             }
 
