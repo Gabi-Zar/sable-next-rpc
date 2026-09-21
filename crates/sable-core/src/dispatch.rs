@@ -1822,6 +1822,12 @@ impl Core {
                 Ok(CommandOk::SetNotificationSounds)
             }
 
+            Command::SetNotifyOnce { enabled } => {
+                self.notify_once.store(enabled, Ordering::Relaxed);
+
+                Ok(CommandOk::SetNotifyOnce)
+            }
+
             Command::SetNotificationsEnabled { enabled } => {
                 self.notifications_enabled.store(enabled, Ordering::Relaxed);
 
