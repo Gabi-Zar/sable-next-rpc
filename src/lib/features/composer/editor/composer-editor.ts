@@ -44,6 +44,7 @@ import { composerNodeViews } from './node-views';
 import { hasAndroidCompositionQuirk } from '#lib/platform/input.js';
 
 import { filesFromSources, pastedImageSources } from './pasted-images';
+import { mfmTimeInputRule } from './mfm';
 import { queryKey, queryPlugin } from './query-plugin';
 import { composerSchema, parseMatrixHtml } from './schema';
 import {
@@ -492,7 +493,12 @@ export class ComposerEditor {
       history(),
       queryPlugin(),
       inputRules({
-        rules: [shortcodeInputRule(this.options.emotes), ...(rich ? formattingInputRules : [])],
+        rules: [
+          shortcodeInputRule(this.options.emotes),
+          ...(rich
+            ? [mfmTimeInputRule(composerSchema.nodes.mfm_time), ...formattingInputRules]
+            : []),
+        ],
       }),
       compositionInputRules(),
       ...(rich
