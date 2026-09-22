@@ -2559,6 +2559,8 @@ impl Core {
                     .await
                     .map_err(|error| self.failed("cancel_send", error))?;
 
+                self.client().await?.send_queue().set_enabled(true).await;
+
                 Ok(CommandOk::CancelSend { cancelled })
             }
         }
