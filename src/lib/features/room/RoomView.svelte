@@ -1123,6 +1123,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      margin-block-start: calc(-1 * var(--space-300));
       min-height: var(--sidebar-footer-height);
       padding-block: var(--space-300);
     }
