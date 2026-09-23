@@ -1697,9 +1697,7 @@ impl Core {
                 let room = self.room(&room_id).await?;
 
                 Ok(CommandOk::NotificationSettings(
-                    notifications::settings(&room)
-                        .await
-                        .map_err(|error| self.failed("notification_settings", error))?,
+                    notifications::settings(&room).await,
                 ))
             }
 
@@ -1826,12 +1824,8 @@ impl Core {
                 Ok(CommandOk::SetRoomNotificationMode)
             }
 
-            Command::SetDefaultNotificationMode {
-                direct,
-                encrypted,
-                mode,
-            } => {
-                notifications::set_default_mode(&self.client().await?, direct, encrypted, mode)
+            Command::SetDefaultNotificationMode { direct, mode } => {
+                notifications::set_default_mode(&self.client().await?, direct, mode)
                     .await
                     .map_err(|error| self.failed("set_default_notification_mode", error))?;
 
