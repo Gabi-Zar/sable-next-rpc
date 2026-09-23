@@ -94,6 +94,7 @@
   let membersOpen = $state(false);
   let desktopMembersOpen = $state(true);
   let composer = $state<RoomComposer>();
+  let timelineList = $state<TimelineList>();
   let profileOpen = $state(false);
   let receiptsOpen = $state(false);
   let profileUserId = $state<string | null>(null);
@@ -812,6 +813,7 @@
     {:else}
       {#key resolvedRoomId}
         <TimelineList
+          bind:this={timelineList}
           {timeline}
           focusEventId={eventId}
           onRequestHistory={requestHistory}
@@ -860,7 +862,7 @@
           {/snippet}
         </TimelineList>
       {/key}
-      <div class="composer-dock">
+      <div class="composer-dock" onfocusin={(event) => timelineList?.composerFocused(event)}>
         {#if isTombstoned}
           <RoomTombstoneBanner
             isSpace={resolvedRoom?.is_space ?? false}
