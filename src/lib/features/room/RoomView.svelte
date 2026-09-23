@@ -1078,6 +1078,9 @@
     failed={profileFailed}
     onAvatarClick={openProfileAvatar}
     onMatrixLink={handleMatrixLink}
+    onPowerLevelChange={(target, userId, level) => {
+      memberLoader.setPowerLevel(target, userId, level);
+    }}
   />
 
   {#if mediaEventId}
