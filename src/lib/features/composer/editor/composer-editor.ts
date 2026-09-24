@@ -480,6 +480,7 @@ function isPlaceholderDoc(doc: ProseMirrorNode): boolean {
 
 export class ComposerEditor {
   private view: EditorView | undefined;
+  private detachedDoc: ProseMirrorNode | undefined;
   private source = false;
   private pillSpace: number | null = null;
 
@@ -700,7 +701,10 @@ export class ComposerEditor {
 
     return () => {
       view.destroy();
-      if (this.view === view) this.view = undefined;
+      if (this.view === view) {
+        this.detachedDoc = view.state.doc;
+        this.view = undefined;
+      }
     };
   }
 
@@ -727,12 +731,12 @@ export class ComposerEditor {
   }
 
   isEmpty(): boolean {
-    const doc = this.view?.state.doc;
+    const doc = this.doc();
     return doc ? isDocEmpty(doc) : true;
   }
 
   doc(): ProseMirrorNode | undefined {
-    return this.view?.state.doc;
+    return this.view ? this.view.state.doc : this.detachedDoc;
   }
 
   text(): string {

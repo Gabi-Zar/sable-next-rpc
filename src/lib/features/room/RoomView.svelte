@@ -645,6 +645,7 @@
       height: null,
       size: null,
       blurhash: null,
+      thumbnail: null,
       spoiler: null,
       eventId,
       sender: displayName,
