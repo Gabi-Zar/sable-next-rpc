@@ -19,6 +19,8 @@ mod cold_push;
 #[cfg(target_os = "android")]
 mod mobile;
 mod notifications;
+#[cfg(all(feature = "cef", target_os = "linux"))]
+mod portal_theme;
 #[cfg(mobile)]
 use tauri_plugin_notifications::NotificationsExt;
 mod sentry;
@@ -402,6 +404,9 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
 
     #[cfg(all(feature = "cef", target_os = "linux"))]
     deep_link_ipc::install_handler(app.handle());
+
+    #[cfg(all(feature = "cef", target_os = "linux"))]
+    portal_theme::follow(app.handle().clone());
 
     let data_dir = app.path().app_data_dir()?;
     // Android resolves that to the app data root, which the app
