@@ -23,6 +23,8 @@ mod notifications;
 use tauri_plugin_notifications::NotificationsExt;
 mod sentry;
 mod share_inbox;
+#[cfg(target_os = "windows")]
+mod snap_layouts;
 #[cfg(desktop)]
 mod tray;
 #[cfg(all(feature = "cef", target_os = "linux"))]
@@ -574,6 +576,21 @@ fn auto_update_supported() -> bool {
     !cfg!(target_os = "linux") || std::env::var_os("APPIMAGE").is_some()
 }
 
+#[cfg(desktop)]
+fn with_updates(builder: tauri::Builder<BrowserEngine>) -> tauri::Builder<BrowserEngine> {
+    builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(
+            tauri::plugin::Builder::<BrowserEngine, ()>::new("sable-updates")
+                .js_init_script(format!(
+                    "window.__SABLE_AUTO_UPDATE__ = {};",
+                    auto_update_supported()
+                ))
+                .build(),
+        )
+}
+
 /// Silences two SDK sites that log once per room per sync response.
 fn install_logging() {
     let filter = tracing_subscriber::EnvFilter::try_from_env("SABLE_LOG").unwrap_or_else(|_| {
@@ -610,17 +627,7 @@ pub fn run() {
         .on_window_event(hide_to_tray_on_close);
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri::plugin::Builder::<BrowserEngine, ()>::new("sable-updates")
-                .js_init_script(format!(
-                    "window.__SABLE_AUTO_UPDATE__ = {};",
-                    auto_update_supported()
-                ))
-                .build(),
-        );
+    let builder = with_updates(builder);
 
     #[cfg(any(target_os = "android", target_os = "ios"))]
     let builder = builder
@@ -681,6 +688,12 @@ pub fn run() {
             apply_desktop_window_settings,
             #[cfg(desktop)]
             set_tray_unread,
+            #[cfg(target_os = "windows")]
+            snap_layouts::show_snap_layouts,
+            #[cfg(target_os = "windows")]
+            snap_layouts::release_snap_layouts,
+            #[cfg(target_os = "windows")]
+            snap_layouts::dismiss_snap_layouts,
             share_inbox::share_inbox_drain,
             share_inbox::share_inbox_read,
             share_inbox::share_inbox_clear,
