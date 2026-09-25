@@ -1034,7 +1034,9 @@ impl RawFields {
     }
 }
 
-fn per_message_profile(content: Option<&serde_json::Value>) -> Option<PerMessageProfileView> {
+pub(crate) fn per_message_profile(
+    content: Option<&serde_json::Value>,
+) -> Option<PerMessageProfileView> {
     let content = content?;
     let profile = PMP_KEYS.iter().find_map(|key| content.get(*key))?;
 
