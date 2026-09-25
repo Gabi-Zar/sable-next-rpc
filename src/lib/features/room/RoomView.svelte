@@ -458,7 +458,7 @@
     // A jump restarts the timeline asynchronously, so wait for the target to be applied.
     if (eventId === null || eventId !== appliedEventId) return;
     if (!timelineFollowingLive || timeline.mode.kind !== 'live') return;
-    void goto(roomUrl(null), { replaceState: true, reset: false });
+    void goto(roomUrl(null), { replace: true, reset: false });
   });
 
   $effect(() => {
@@ -603,7 +603,7 @@
   }
 
   function jumpToLive(): void {
-    void goto(roomUrl(null), { replaceState: true });
+    void goto(roomUrl(null), { replace: true });
   }
 
   // A history entry, so back is a way out of the anchor.
