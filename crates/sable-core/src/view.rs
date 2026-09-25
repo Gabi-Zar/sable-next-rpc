@@ -28,7 +28,7 @@ use matrix_sdk::ruma::room::{
     JoinRuleKind, JoinRuleSummary, RoomSummary as RumaRoomSummary, RoomType,
 };
 use matrix_sdk::ruma::{
-    EventId, OwnedRoomId, OwnedTransactionId, OwnedUserId, TransactionId, UserId,
+    EventId, OwnedEventId, OwnedRoomId, OwnedTransactionId, OwnedUserId, TransactionId, UserId,
 };
 use matrix_sdk::ruma::{Int, UInt};
 use matrix_sdk::send_queue::{LocalEcho, LocalEchoContent, RoomSendQueueUpdate};
@@ -748,6 +748,7 @@ impl LocalContent {
 pub fn aggregation_item(
     event: &AnySyncTimelineEvent,
     content: Option<serde_json::Value>,
+    redacts: Option<OwnedEventId>,
     own_user_id: Option<&UserId>,
 ) -> TimelineItemView {
     let event_id = event.event_id().to_owned();
@@ -764,6 +765,7 @@ pub fn aggregation_item(
         content: TimelineItemContentView::HiddenEvent {
             event_type: event.event_type().to_string(),
             content,
+            redacts,
         },
         sender: Some(sender),
         in_reply_to: None,
@@ -1662,6 +1664,7 @@ fn content(
             MsgLikeKind::Other(other) => TimelineItemContentView::HiddenEvent {
                 event_type: other.event_type().to_string(),
                 content: raw.content.clone(),
+                redacts: None,
             },
         },
 
@@ -1691,6 +1694,7 @@ fn content(
             state_key: state.state_key().to_owned(),
             change: state_change(state, raw.content.as_ref(), raw.prev_content()),
             content: raw.content.clone(),
+            prev_content: raw.prev_content().cloned(),
         },
         TimelineItemContent::CallInvite | TimelineItemContent::RtcNotification { .. } => {
             TimelineItemContentView::CallInvite
