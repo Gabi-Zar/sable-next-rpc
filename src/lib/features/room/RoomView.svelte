@@ -829,11 +829,11 @@
       onMentionUser={mentionUser}
       onRetrySend={conversation.retrySend}
       onCancelSend={conversation.cancelSend}
-      onToggleReaction={conversation.toggleReaction}
+      onToggleReaction={permissions?.can_react === false ? undefined : conversation.toggleReaction}
       onDelete={conversation.redact}
-      onReply={conversation.reply}
+      onReply={permissions?.can_post === false ? undefined : conversation.reply}
       onOpenThread={openThread}
-      onEdit={conversation.edit}
+      onEdit={permissions?.can_post === false ? undefined : conversation.edit}
       roomId={resolvedRoomId}
       members={memberLoader.members}
       onJumpToEvent={jumpToEvent}
@@ -845,6 +845,7 @@
       readOnly={permissions ? !permissions.can_post : false}
       canRedactOwn={permissions?.can_redact_own ?? true}
       canRedactOthers={permissions?.can_redact_others ?? false}
+      canPin={permissions?.can_pin ?? false}
       encrypted={resolvedRoom?.encrypted ?? null}
       currentUserId={core.session?.user_id ?? null}
       scrollLocked={profileOpen || receiptsOpen}
@@ -1100,6 +1101,8 @@
           readOnly={permissions ? !permissions.can_post : false}
           canRedactOwn={permissions?.can_redact_own ?? true}
           canRedactOthers={permissions?.can_redact_others ?? false}
+          canReact={permissions?.can_react ?? true}
+          canPin={permissions?.can_pin ?? false}
           encrypted={resolvedRoom?.encrypted ?? null}
           onClose={closeThread}
           onSenderProfile={openProfile}
@@ -1155,6 +1158,8 @@
           readOnly={permissions ? !permissions.can_post : false}
           canRedactOwn={permissions?.can_redact_own ?? true}
           canRedactOthers={permissions?.can_redact_others ?? false}
+          canReact={permissions?.can_react ?? true}
+          canPin={permissions?.can_pin ?? false}
           encrypted={resolvedRoom?.encrypted ?? null}
           modal
           onClose={closeThread}
