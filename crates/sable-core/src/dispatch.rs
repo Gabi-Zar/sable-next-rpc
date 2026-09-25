@@ -1072,6 +1072,10 @@ impl Core {
                 })
             }
 
+            Command::RoomCosmetics { room_id, space_id } => Ok(CommandOk::RoomCosmetics(
+                self.room_cosmetics(&room_id, space_id).await?,
+            )),
+
             Command::RoomOpen { room_id } => {
                 let (permissions, power_level_tags, widgets, pinned_event_ids) = futures_util::join!(
                     self.room_permissions(&room_id),
@@ -2158,6 +2162,9 @@ impl Core {
                     .lock()
                     .await
                     .forget_room(&room_id, &event_type);
+                if self.note_cosmetic_state(&room_id, &event_type, &state_key, &content) {
+                    self.emit(CoreEvent::RoomCosmeticsChanged { room_id });
+                }
 
                 Ok(CommandOk::SendStateEvent)
             }
