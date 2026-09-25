@@ -2446,7 +2446,7 @@ impl Core {
                     .map_err(|error| self.failed("create_room", error))?;
 
                 if let Some(space_id) = parent_space {
-                    self.add_to_space(&space_id, room.room_id()).await?;
+                    self.add_to_space(&space_id, room.room_id(), None).await?;
                 }
 
                 Ok(CommandOk::CreateRoom {
@@ -2472,8 +2472,12 @@ impl Core {
                 })
             }
 
-            Command::AddToSpace { space_id, room_id } => {
-                self.add_to_space(&space_id, &room_id).await?;
+            Command::AddToSpace {
+                space_id,
+                room_id,
+                suggested,
+            } => {
+                self.add_to_space(&space_id, &room_id, suggested).await?;
 
                 Ok(CommandOk::AddToSpace)
             }
@@ -2483,6 +2487,15 @@ impl Core {
                 room_id,
                 order,
             } => self.set_space_child_order(&space_id, &room_id, order).await,
+
+            Command::SetSpaceChildSuggested {
+                space_id,
+                room_id,
+                suggested,
+            } => {
+                self.set_space_child_suggested(&space_id, &room_id, suggested)
+                    .await
+            }
 
             Command::SpaceHierarchy { space_id, from } => {
                 self.space_hierarchy(&space_id, from).await
