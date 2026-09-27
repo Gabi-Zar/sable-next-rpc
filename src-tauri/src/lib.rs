@@ -709,8 +709,17 @@ pub fn run() {
 
     // Before the threads Tauri spawns, so they inherit the panic handler.
     let _sentry_guard = sentry::init();
+    #[cfg(not(target_os = "ios"))]
+    let _sentry_minidump_guard = _sentry_guard
+        .as_ref()
+        .map(|guard| tauri_plugin_sentry::minidump::init(guard));
 
     let builder = tauri::Builder::<BrowserEngine>::new();
+    let builder = if let Some(client) = _sentry_guard.as_ref() {
+        builder.plugin(tauri_plugin_sentry::init_with_no_injection(client))
+    } else {
+        builder
+    };
 
     // Before every other plugin, as its docs require: it has to win the race
     // with a second process carrying the OIDC redirect.
