@@ -333,7 +333,7 @@ async fn register_push(
     app: AppHandle<BrowserEngine>,
     state: State<'_, AppState>,
     config: notifications::PushConfig,
-) -> Result<(), CommandErr> {
+) -> Result<(), notifications::PushRegistrationError> {
     let core = state.core.clone();
     Box::pin(notifications::register_push(&app, &core, config)).await
 }
