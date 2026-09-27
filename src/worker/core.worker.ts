@@ -8,7 +8,6 @@ import init, {
 } from '#src/generated/wasm/sable_wasm.js';
 import { clearSession, loadSession, saveSession } from '#lib/platform/session-storage.js';
 import { createCoreWorkerBoundary } from './core-worker-boundary';
-import { withPageFetchFallback } from './page-fetch';
 
 declare const self: SharedWorkerGlobalScope;
 
@@ -39,8 +38,6 @@ const boundary = createCoreWorkerBoundary(
     self.close();
   }
 );
-
-self.fetch = withPageFetchFallback(self.fetch.bind(self), boundary.pageFetch, self.location.origin);
 
 // A trap unwinds only its own call, so close the worker rather than keep re-entering a corrupted module; the next connect builds a fresh one.
 function crash(message: string, stack?: string): void {
