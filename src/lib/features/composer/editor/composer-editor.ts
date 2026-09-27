@@ -1,12 +1,10 @@
 import {
   baseKeymap,
   chainCommands,
-  createParagraphNear,
   exitCode,
   liftEmptyBlock,
   newlineInCode,
   splitBlock,
-  splitBlockKeepMarks,
 } from 'prosemirror-commands';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
@@ -51,6 +49,7 @@ import {
   type FormatAction,
 } from './formatting';
 import { markdownColorCommand, markdownFormatCommands, markdownLink } from './markdown-format';
+import { lineDivsAsBreaks } from './pasted-lines';
 import { withPastedMentions } from './pasted-mentions';
 import type { EmoteMedia } from './node-views';
 import { composerNodeViews } from './node-views';
@@ -336,15 +335,6 @@ const softBreak: Command = chainCommands(
   insertHardBreak
 );
 
-/** `baseKeymap`'s Enter, re-chained because ours shadows it. */
-const splitEntry: Command = chainCommands(
-  newlineInCode,
-  splitListEntry,
-  createParagraphNear,
-  liftEmptyBlock,
-  splitBlockKeepMarks
-);
-
 function codeLanguageLabels(): Plugin {
   return new Plugin({
     props: {
@@ -520,6 +510,7 @@ export class ComposerEditor {
   private source = false;
   private pillSpace: number | null = null;
   private androidDelete: { pos: number; at: number } | null = null;
+  private iosShiftEnter = false;
   private keyboardReset: HTMLTextAreaElement | undefined;
   private keyboardResetFrame: number | undefined;
 
@@ -540,7 +531,14 @@ export class ComposerEditor {
     return true;
   }
 
+  private shiftEnter: Command = (state, dispatch, view) =>
+    preferences.enterForNewline ? this.submit() : softBreak(state, dispatch, view);
+
   private enter: Command = (state, dispatch, view) => {
+    if (this.iosShiftEnter) {
+      this.iosShiftEnter = false;
+      return this.shiftEnter(state, dispatch, view);
+    }
     if (this.options.onNavigate('Enter')) return true;
     const rich = preferences.richTextComposer && !this.source;
     if (rich && openFence(state, dispatch, view)) return true;
@@ -549,7 +547,9 @@ export class ComposerEditor {
     if (splitListEntry(state, dispatch, view)) return true;
     if (insideListItem(state) && liftEmptyBlock(state, dispatch, view)) return true;
     if (!preferences.enterForNewline) return this.submit();
-    return rich ? splitEntry(state, dispatch, view) : insertHardBreak(state, dispatch, view);
+    return rich
+      ? chainCommands(liftEmptyBlock, softBreak)(state, dispatch, view)
+      : insertHardBreak(state, dispatch, view);
   };
 
   private domAttributes(): Record<string, string> {
@@ -625,8 +625,7 @@ export class ComposerEditor {
           sinkListEntry(state, dispatch, view),
         Escape: () => this.options.onNavigate('Escape'),
         Enter: this.enter,
-        'Shift-Enter': (state, dispatch, view) =>
-          preferences.enterForNewline ? this.submit() : softBreak(state, dispatch, view),
+        'Shift-Enter': this.shiftEnter,
         'Mod-Enter': () => this.submit(),
         'Mod-Shift-m': () => {
           this.options.onSourceToggle(this.toggleSource());
@@ -682,6 +681,7 @@ export class ComposerEditor {
             this.handlePastedImages(slice) ||
             this.linkSelection(pasteView, slice) ||
             this.pasteAsText(pasteView, event),
+          transformPastedHTML: lineDivsAsBreaks,
           transformPasted: (slice, pasteView) => this.pastedMentions(pasteView.state, slice),
           clipboardTextParser: (text, _context, plain) =>
             plain || this.source || !preferences.richTextComposer
@@ -695,6 +695,12 @@ export class ComposerEditor {
           clipboardTextSerializer: (slice) => markdownFromSlice(slice),
           handleDrop: (_view, event) => this.handleFiles(filesFrom(event.dataTransfer)),
           handleDOMEvents: {
+            keydown: (_view, event) => {
+              if (event.key === 'Enter' && hasIosKeyboardContextQuirk()) {
+                this.iosShiftEnter = event.shiftKey;
+              }
+              return false;
+            },
             beforeinput: (view, event) => {
               if (event.inputType === 'deleteContentBackward') {
                 if (hasAndroidCompositionQuirk()) {
@@ -737,7 +743,7 @@ export class ComposerEditor {
               if (!hasAndroidCompositionQuirk()) return false;
               if (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') {
                 event.preventDefault();
-                return this.enter(
+                return (event.inputType === 'insertLineBreak' ? this.shiftEnter : this.enter)(
                   view.state,
                   (tr) => {
                     view.dispatch(tr);
