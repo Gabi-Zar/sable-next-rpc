@@ -52,7 +52,7 @@ import { markdownColorCommand, markdownFormatCommands, markdownLink } from './ma
 import { lineDivsAsBreaks } from './pasted-lines';
 import { withPastedMentions } from './pasted-mentions';
 import type { EmoteMedia } from './node-views';
-import { composerNodeViews } from './node-views';
+import { composerMarkViews, composerNodeViews } from './node-views';
 import { hasAndroidCompositionQuirk, hasIosKeyboardContextQuirk } from '#lib/platform/input.js';
 
 import { filesFromSources, pastedImageSources } from './pasted-images';
@@ -675,6 +675,7 @@ export class ComposerEditor {
           state,
           editable: () => this.options.editable(),
           nodeViews: composerNodeViews(this.options.media),
+          markViews: composerMarkViews,
           attributes: () => this.domAttributes(),
           handlePaste: (pasteView, event, slice) =>
             this.handleFiles(filesFrom(event.clipboardData)) ||
