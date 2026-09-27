@@ -988,8 +988,12 @@
         {/if}
       {/if}
       {#if widgets.length > 0}
-        <PanelHeaderButton label={$i18n.t('widgets.label')} onclick={toggleWidgets}>
-          <GridFourIcon />
+        <PanelHeaderButton
+          label={$i18n.t('widgets.label')}
+          aria-pressed={widgetsOpen}
+          onclick={toggleWidgets}
+        >
+          <GridFourIcon weight={widgetsOpen ? 'fill' : 'regular'} />
         </PanelHeaderButton>
       {/if}
     {/snippet}
@@ -1002,6 +1006,7 @@
       callParticipants={resolvedRoom?.call_participants ?? []}
       members={memberLoader.members}
       membersOpen={desktop ? desktopMembersOpen : membersOpen}
+      searchOpen={desktop && searchOpen}
       onCall={callOffered && !isVoiceRoom ? startCall : null}
       onToggleChat={isVoiceRoom ? () => (voiceChatOpen = !voiceChatOpen) : null}
       chatOpen={voiceChatOpen}
@@ -1411,6 +1416,19 @@
   }
 
   @media (width >= 48rem) {
+    .room-view {
+      overflow-x: clip;
+    }
+
+    .timeline {
+      min-width: var(--room-column-min-width);
+    }
+
+    .room-view.room-view > :global(aside) {
+      flex-shrink: 1;
+      min-width: var(--side-panel-min-width);
+    }
+
     .composer-dock {
       box-sizing: border-box;
       display: flex;
