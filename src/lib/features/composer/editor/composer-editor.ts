@@ -36,7 +36,9 @@ import type { AutocompleteQuery } from '../autocomplete';
 import { filesFrom } from '../composer-files';
 import { compositionInputRules } from './composition-rules';
 import {
+  activeColors,
   activeMarks,
+  colorCommand,
   formatCommands,
   formattingInputRules,
   formattingKeymap,
@@ -44,9 +46,11 @@ import {
   joinListItemBackward,
   sinkListEntry,
   splitListEntry,
+  type ActiveColors,
+  type ColorKind,
   type FormatAction,
 } from './formatting';
-import { markdownFormatCommands, markdownLink } from './markdown-format';
+import { markdownColorCommand, markdownFormatCommands, markdownLink } from './markdown-format';
 import type { EmoteMedia } from './node-views';
 import { composerNodeViews } from './node-views';
 import { hasAndroidCompositionQuirk, hasIosKeyboardContextQuirk } from '#lib/platform/input.js';
@@ -465,6 +469,7 @@ export interface ComposerChange {
   empty: boolean;
   placeholder: boolean;
   active: FormatAction[];
+  colors: ActiveColors;
   docChanged: boolean;
 }
 
@@ -523,6 +528,7 @@ export class ComposerEditor {
       empty: isDocEmpty(state.doc),
       placeholder: isPlaceholderDoc(state.doc),
       active: activeMarks(state),
+      colors: activeColors(state),
       docChanged,
     });
   }
@@ -1012,6 +1018,17 @@ export class ComposerEditor {
       return;
     }
     formatCommands[action](view.state, view.dispatch, view);
+    view.focus();
+  }
+
+  applyColor(kind: ColorKind, value: string | null): void {
+    const view = this.view;
+    if (!view) return;
+    if (this.markdownMode()) {
+      if (value) markdownColorCommand(kind, value)(view.state, view.dispatch, view);
+    } else {
+      colorCommand(kind, value)(view.state, view.dispatch, view);
+    }
     view.focus();
   }
 
