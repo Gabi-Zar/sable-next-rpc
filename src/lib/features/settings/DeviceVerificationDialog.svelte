@@ -65,13 +65,10 @@
   }
 
   async function cancel(mismatch = false): Promise<void> {
-    if (!core.verification || !core.session?.user_id) return;
+    const flow = core.verification;
+    if (!flow || !core.session?.user_id) return;
     try {
-      await core.commands.cancelVerification(
-        core.session.user_id,
-        core.verification.flowId,
-        mismatch
-      );
+      await core.commands.cancelVerification(core.session.user_id, flow.flowId, mismatch);
     } catch (cause) {
       error = verificationErrorMessage(cause);
     }
@@ -79,11 +76,10 @@
 
   function handleOpenChange(next: boolean): void {
     if (next || !core.verification) return;
-    if (core.verification.state.phase === 'done' || core.verification.state.phase === 'cancelled') {
-      core.verification = null;
-    } else {
-      void cancel();
-    }
+    const phase = core.verification.state.phase;
+    if (phase !== 'done' && phase !== 'cancelled') void cancel();
+    // Drop the flow on our own cancel too, or it outlives the dialog and blocks a new request.
+    core.verification = null;
   }
 </script>
 
