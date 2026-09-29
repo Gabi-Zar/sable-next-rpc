@@ -688,12 +688,29 @@ fn with_updates(builder: tauri::Builder<BrowserEngine>) -> tauri::Builder<Browse
 
 /// Silences two SDK sites that log once per room per sync response.
 fn install_logging() {
+    use ::sentry::integrations::tracing::EventFilter;
+    use tracing_subscriber::prelude::*;
+
     let filter = tracing_subscriber::EnvFilter::try_from_env("SABLE_LOG").unwrap_or_else(|_| {
         tracing_subscriber::EnvFilter::new(
             "info,matrix_sdk_base::room::display_name=error,matrix_sdk::latest_events=off,matrix_sdk::http_client=off",
         )
     });
-    if let Err(error) = tracing_subscriber::fmt().with_env_filter(filter).try_init() {
+    let sentry = ::sentry::integrations::tracing::layer()
+        .event_filter(|metadata| match *metadata.level() {
+            tracing::Level::ERROR if metadata.target().starts_with("sable_core") => {
+                EventFilter::Event
+            }
+            tracing::Level::WARN if metadata.target().starts_with("sable_core") => {
+                EventFilter::Breadcrumb
+            }
+            _ => EventFilter::Ignore,
+        })
+        .span_filter(|_| false);
+    let subscriber = tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer().with_filter(filter))
+        .with(sentry);
+    if let Err(error) = subscriber.try_init() {
         eprintln!("could not install the log subscriber: {error}");
     }
 }
@@ -727,10 +744,9 @@ fn with_platform_plugins(builder: tauri::Builder<BrowserEngine>) -> tauri::Build
     reason = "the platform-specific builder remains together"
 )]
 pub fn run() {
-    install_logging();
-
     // Before the threads Tauri spawns, so they inherit the panic handler.
     let sentry_guard = sentry::init();
+    install_logging();
     #[cfg(desktop)]
     let sentry_minidump_guard = sentry_guard
         .as_ref()
