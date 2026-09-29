@@ -1275,7 +1275,11 @@
     onPowerLevelChange={(target, userId, level) => {
       memberLoader.setPowerLevel(target, userId, level);
     }}
-    onOpenMainAccount={() => memberProfile.showMainAccount()}
+    onOpenMainAccount={() => {
+      if (memberProfile.userId && memberProfile.anchor) {
+        openProfile(memberProfile.userId, memberProfile.anchor);
+      }
+    }}
   />
 
   {#if mediaEventId}
