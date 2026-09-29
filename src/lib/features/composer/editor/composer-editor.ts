@@ -36,6 +36,7 @@ import { compositionInputRules } from './composition-rules';
 import {
   activeColors,
   activeMarks,
+  autolinkAtCursor,
   colorCommand,
   formatCommands,
   formattingInputRules,
@@ -99,9 +100,8 @@ function handleAndroidDeleteBackward(view: EditorView): void {
 }
 
 const insertHardBreak: Command = (state, dispatch) => {
-  dispatch?.(
-    state.tr.replaceSelectionWith(composerSchema.nodes.hard_break.create()).scrollIntoView()
-  );
+  const tr = autolinkAtCursor(state) ?? state.tr;
+  dispatch?.(tr.replaceSelectionWith(composerSchema.nodes.hard_break.create()).scrollIntoView());
   return true;
 };
 
