@@ -6,6 +6,7 @@
     MembershipView,
     RoomSummary,
     CallSupportView,
+    PerMessageProfileView,
   } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -52,7 +53,7 @@
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { RoomMemberLoader } from '#lib/rooms/room-members.svelte.js';
   import { provideRoomCosmetics, RoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
-  import { activeRoomTimeline } from '#lib/rooms/timeline.svelte.js';
+  import { activeRoomTimeline, type ResumeAnchor } from '#lib/rooms/timeline.svelte.js';
   import ScheduledMessages from '#lib/features/composer/ScheduledMessages.svelte';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import { composerClearance } from '#lib/ui/composer-clearance.svelte.js';
@@ -139,6 +140,7 @@
     timeline,
     roomId: () => resolvedRoomId,
     encrypted: () => resolvedRoom?.encrypted ?? null,
+    beforeSend: () => timelineList?.resumeLive(false) ?? resumeLive(),
   });
   let settingsOpen = $state(false);
   let topicOpen = $state(false);
@@ -481,6 +483,13 @@
   // Returning to live drops the anchor from the URL.
   /** The `?event=` the effect below has handed to the timeline. */
   let appliedEventId: string | null = null;
+  let openedRoomId: string | null = null;
+  let timelineRoomId = $derived(resolvedRoom?.room_id);
+  let roomHasUnread = $derived(
+    (resolvedRoom?.unread ?? 0) > 0 ||
+      (resolvedRoom?.highlight ?? 0) > 0 ||
+      (resolvedRoom?.marked_unread ?? false)
+  );
 
   $effect(() => {
     // A jump restarts the timeline asynchronously, so wait for the target to be applied.
@@ -490,7 +499,7 @@
   });
 
   $effect(() => {
-    const activeRoomId = resolvedRoom?.room_id;
+    const activeRoomId = timelineRoomId;
     if (!activeRoomId) return;
     const anchor = untrack(() => {
       // A loaded event is reached by scrolling, but only while live.
@@ -498,9 +507,16 @@
       return loaded && timeline.mode.kind === 'live' ? null : eventId;
     });
     appliedEventId = eventId;
+    const openAtUnread = untrack(() => {
+      if (openedRoomId === activeRoomId) return false;
+      openedRoomId = activeRoomId;
+      return eventId === null && notifiedEventId === null && roomHasUnread;
+    });
     // Read outside `untrack`: the toggle only takes effect by re-subscribing.
     const hiddenEvents = preferences.showHiddenEvents;
-    void untrack(() => activeTimeline.start(timelineOwner, activeRoomId, anchor, hiddenEvents));
+    void untrack(() =>
+      activeTimeline.start(timelineOwner, activeRoomId, anchor, hiddenEvents, openAtUnread)
+    );
     void untrack(() => loadMembers());
   });
 
@@ -546,9 +562,17 @@
     composer?.insertMention(userId, name);
   }
 
-  function openProfile(userId: string, anchor: HTMLElement): void {
-    void loadMembers();
-    void memberProfile.show(userId, anchor);
+  function openProfile(
+    userId: string,
+    anchor: HTMLElement,
+    pmp?: PerMessageProfileView | null
+  ): void {
+    if (pmp) {
+      memberProfile.showPmp(userId, anchor, pmp);
+    } else {
+      void loadMembers();
+      void memberProfile.show(userId, anchor);
+    }
   }
 
   function handleMatrixLink(link: MatrixLink, anchor: HTMLAnchorElement): void {
@@ -602,6 +626,7 @@
   }
 
   function jumpToLive(): void {
+    void activeTimeline.start(timelineOwner, resolvedRoomId, null, preferences.showHiddenEvents);
     void goto(roomUrl(null), { replace: true });
   }
 
@@ -637,11 +662,34 @@
   }
 
   function markRoomRead(): void {
-    void core.commands
-      .markRead(resolvedRoomId, null, readReceiptIsPrivate())
-      .catch((error: unknown) => {
-        console.warn('[sable room] mark as read failed', error);
-      });
+    void markAllRead().catch((error: unknown) => {
+      console.warn('[sable room] mark as read failed', error);
+    });
+  }
+
+  async function markAllRead(): Promise<void> {
+    const list = timelineList;
+    await core.commands.markRead(resolvedRoomId, null, readReceiptIsPrivate());
+    list?.dismissUnread();
+  }
+
+  async function loadReadMarker(): Promise<string | null> {
+    const content = await core.commands.roomAccountData(resolvedRoomId, 'm.fully_read');
+    const eventId = (content as { event_id?: unknown } | null)?.event_id;
+    return typeof eventId === 'string' ? eventId : null;
+  }
+
+  function requestUnread(eventId: string): Promise<void> {
+    return activeTimeline.startUnread(
+      timelineOwner,
+      resolvedRoomId,
+      eventId,
+      preferences.showHiddenEvents
+    );
+  }
+
+  function resumeLive(anchor?: ResumeAnchor): Promise<void> {
+    return activeTimeline.resumeLive(timelineOwner, anchor);
   }
 
   function markRoomUnread(): void {
@@ -793,6 +841,11 @@
       onRequestHistory={requestHistory}
       onRequestFuture={requestFuture}
       onRead={markRead}
+      hasUnread={resolvedRoom === undefined || roomHasUnread}
+      onLoadReadMarker={loadReadMarker}
+      onRequestUnread={requestUnread}
+      onResumeLive={resumeLive}
+      onMarkRead={markAllRead}
       onMarkUnread={markUnreadFrom}
       onMatrixLink={handleMatrixLink}
       onCopyLink={copyEventLink}
@@ -812,7 +865,6 @@
       onJumpToEvent={jumpToEvent}
       onJumpToLive={jumpToLive}
       onOpenMedia={openMedia}
-      onPersonaAvatarClick={openProfileAvatar}
       onVotePoll={conversation.votePoll}
       onEndPoll={conversation.endPoll}
       readOnly={roomSession.permissions ? !roomSession.permissions.can_post : false}
@@ -1102,7 +1154,6 @@
           onClose={closeThread}
           onSenderProfile={openProfile}
           onCopyLink={copyEventLink}
-          onPersonaAvatarClick={openProfileAvatar}
         />
       {/key}
     {/if}
@@ -1162,7 +1213,6 @@
           onClose={closeThread}
           onSenderProfile={openProfile}
           onCopyLink={copyEventLink}
-          onPersonaAvatarClick={openProfileAvatar}
         />
       {/key}
     {/if}
@@ -1262,11 +1312,17 @@
     permissions={roomSession.permissions}
     powerTags={roomSession.powerTags}
     profile={memberProfile.profile}
+    pmp={memberProfile.pmp}
     failed={memberProfile.failed}
     onAvatarClick={openProfileAvatar}
     onMatrixLink={handleMatrixLink}
     onPowerLevelChange={(target, userId, level) => {
       memberLoader.setPowerLevel(target, userId, level);
+    }}
+    onOpenMainAccount={() => {
+      if (memberProfile.userId && memberProfile.anchor) {
+        openProfile(memberProfile.userId, memberProfile.anchor);
+      }
     }}
   />
 
