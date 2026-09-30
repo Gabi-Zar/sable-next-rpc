@@ -1589,6 +1589,9 @@ impl Core {
                 status: encryption_status(&self.client().await?).await,
             }),
 
+            Command::KeyBackupStatus => self.key_backup_status().await,
+            Command::DownloadKeyBackup { request_id } => self.download_key_backup(request_id).await,
+
             Command::SignOutSafety => Ok(CommandOk::SignOutSafety {
                 safety: sign_out_safety(&self.client().await?).await,
             }),
