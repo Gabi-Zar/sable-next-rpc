@@ -39,6 +39,8 @@ mod share_inbox;
 mod snap_layouts;
 #[cfg(desktop)]
 mod tray;
+#[cfg(desktop)]
+pub mod verbose;
 #[cfg(all(feature = "cef", target_os = "linux"))]
 mod video_transcode;
 mod web_resources;
@@ -784,6 +786,13 @@ pub fn run() {
         }
     }));
 
+    #[cfg(desktop)]
+    let builder = if verbose::enabled() {
+        builder.plugin(verbose::plugin())
+    } else {
+        builder
+    };
+
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder
         .plugin(window_geometry::plugin())
@@ -839,6 +848,8 @@ pub fn run() {
             stop_hdr_share,
             #[cfg(desktop)]
             toggle_devtools,
+            #[cfg(desktop)]
+            verbose::log_console,
             #[cfg(all(feature = "cef", target_os = "linux"))]
             pending_deep_links,
             register_push,
