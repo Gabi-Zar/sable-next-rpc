@@ -593,6 +593,15 @@
     panels.widgetsOpen = false;
   }
 
+  async function addWidget(name: string, url: string): Promise<void> {
+    try {
+      await roomSession.details.addWidget(name, url, core.session?.user_id ?? '');
+    } catch (error) {
+      console.warn('[sable room] add widget failed', error);
+      toasts.error($i18n.t('errors.actionFailed'));
+    }
+  }
+
   async function removeWidget(widgetId: string): Promise<void> {
     try {
       await roomSession.details.removeWidget(widgetId);
@@ -1022,7 +1031,7 @@
           </PanelHeaderButton>
         {/if}
       {/if}
-      {#if roomSession.widgets.length > 0}
+      {#if roomSession.widgets.length > 0 || canManageWidgets}
         <PanelHeaderButton
           label={$i18n.t('widgets.label')}
           aria-pressed={panels.widgetsOpen}
@@ -1086,7 +1095,9 @@
           onThreads={phone && !voiceView ? toggleThreads : undefined}
           onPins={phone ? () => (pinsOpen = true) : undefined}
           {pinsUnread}
-          onWidgets={phone && roomSession.widgets.length > 0 ? toggleWidgets : undefined}
+          onWidgets={phone && (roomSession.widgets.length > 0 || canManageWidgets)
+            ? toggleWidgets
+            : undefined}
           onReport={() => (reportOpen = true)}
           onLeave={() => (leaveOpen = true)}
         />
@@ -1253,6 +1264,7 @@
         avatarUrl={ownMember?.avatar_url ?? ''}
         canManage={canManageWidgets}
         onClose={closeWidgets}
+        onAdd={addWidget}
         onRemove={removeWidget}
       />
     {/if}
@@ -1288,6 +1300,7 @@
         canManage={canManageWidgets}
         modal
         onClose={closeWidgets}
+        onAdd={addWidget}
         onRemove={removeWidget}
       />
     </DialogFrame>
