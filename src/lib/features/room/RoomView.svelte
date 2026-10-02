@@ -626,7 +626,7 @@
       link.kind === 'event' ? link.eventId : null,
       via
     );
-    void goto(target);
+    void afterOverlayPops().then(() => goto(target));
   }
 
   function copyEventLink(eventId: string): void {
@@ -673,7 +673,8 @@
       timelineList?.jumpToEvent(eventId);
       return;
     }
-    void goto(roomUrl(eventId), { reset: false });
+    const target = roomUrl(eventId);
+    void afterOverlayPops().then(() => goto(target, { reset: false }));
   }
 
   function requestHistory(): Promise<boolean> {
