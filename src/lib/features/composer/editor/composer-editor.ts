@@ -29,6 +29,7 @@ import 'prosemirror-gapcursor/style/gapcursor.css';
 
 import type { PackImageView } from '#src/generated/protocol';
 
+import { enterInsertsNewline } from '#lib/settings/enter-key.svelte.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import type { AutocompleteQuery } from '../autocomplete';
 import { filesFrom } from '../composer-files';
@@ -586,7 +587,7 @@ export class ComposerEditor {
     chainCommands(openFence, openHorizontalRule, closeFence)(state, dispatch, view);
 
   private shiftEnter: Command = (state, dispatch, view) =>
-    preferences.enterForNewline
+    enterInsertsNewline()
       ? this.submit()
       : this.blockBreak(state, dispatch, view) || softBreak(state, dispatch, view);
 
@@ -602,7 +603,7 @@ export class ComposerEditor {
     if (newlineInCode(state, dispatch, view)) return true;
     if (splitListEntry(state, dispatch, view)) return true;
     if (insideListItem(state) && liftEmptyBlock(state, dispatch, view)) return true;
-    if (!preferences.enterForNewline) return this.submit();
+    if (!enterInsertsNewline()) return this.submit();
     return rich
       ? chainCommands(liftEmptyBlock, softBreak)(state, dispatch, view)
       : insertHardBreak(state, dispatch, view);
@@ -620,7 +621,7 @@ export class ComposerEditor {
       /* No `aria-multiline`: it is a textbox property, invalid on a combobox. */
       spellcheck: 'true',
       autocapitalize: 'sentences',
-      enterkeyhint: preferences.enterForNewline ? 'enter' : 'send',
+      enterkeyhint: enterInsertsNewline() ? 'enter' : 'send',
       ...(this.options.describedBy ? { 'aria-describedby': this.options.describedBy } : {}),
     };
   }
@@ -774,7 +775,7 @@ export class ComposerEditor {
                 event.cancelable &&
                 hasIosKeyboardContextQuirk() &&
                 (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak') &&
-                !(this.iosEnter?.shift && preferences.enterForNewline) &&
+                !(this.iosEnter?.shift && enterInsertsNewline()) &&
                 (this.blockBreak(view.state, view.dispatch, view) ||
                   (this.iosEnter?.shift
                     ? newlineInCode
@@ -890,7 +891,7 @@ export class ComposerEditor {
   }
 
   syncKeyHint(): void {
-    void preferences.enterForNewline;
+    void enterInsertsNewline();
     this.view?.setProps({});
   }
 
