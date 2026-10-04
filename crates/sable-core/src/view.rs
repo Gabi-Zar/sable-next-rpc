@@ -828,6 +828,7 @@ pub fn aggregation_item(
         thread_summary: None,
         reactions: Vec::new(),
         read_by: Vec::new(),
+        read_timestamps: Default::default(),
         per_message_profile: None,
         bundled_link_previews: Vec::new(),
         link_previews_removed: None,
@@ -914,6 +915,7 @@ pub async fn standalone_item(
         sender: Some(sender),
         reactions: Vec::new(),
         read_by: Vec::new(),
+        read_timestamps: Default::default(),
         bundled_link_previews: bundled_link_previews(raw.message()),
         link_previews_removed: link_previews_removed(raw.message()),
         per_message_profile: message_profile,
@@ -982,6 +984,13 @@ pub fn timeline_item(
                 },
                 is_own: event.is_own(),
                 read_by: event.read_receipts().keys().cloned().collect(),
+                read_timestamps: event
+                    .read_receipts()
+                    .iter()
+                    .filter_map(|(user_id, receipt)| {
+                        receipt.ts.map(|ts| (user_id.to_string(), ts.0.into()))
+                    })
+                    .collect(),
                 per_message_profile: message_profile,
                 bundled_link_previews,
                 link_previews_removed,
@@ -1018,6 +1027,7 @@ pub fn timeline_item(
                 reactions: Vec::new(),
                 is_own: false,
                 read_by: Vec::new(),
+                read_timestamps: Default::default(),
                 per_message_profile: None,
                 bundled_link_previews: Vec::new(),
                 link_previews_removed: None,
