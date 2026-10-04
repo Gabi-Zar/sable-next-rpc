@@ -9,7 +9,7 @@ pub mod deep_link_ipc;
 #[cfg(target_os = "ios")]
 // Objective-C bindings expose PhotoKit calls as unsafe; keep that exception out
 // of the Rust-only application code.
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "FFI call")]
 mod ios;
 mod map_tiles;
 #[cfg(all(feature = "cef", target_os = "linux"))]
@@ -134,7 +134,10 @@ async fn forget_media(state: State<'_, AppState>, source: String) -> Result<(), 
 /// The MIME type [`stream_video`] delivers.
 #[cfg(all(feature = "cef", target_os = "linux"))]
 #[tauri::command]
-#[allow(clippy::unnecessary_wraps)] // The frontend transport expects a Result.
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "the frontend transport expects a Result"
+)]
 async fn video_stream_mime() -> Result<&'static str, CommandErr> {
     Ok(video_transcode::STREAM_MIME)
 }
@@ -290,7 +293,10 @@ async fn upload_media_base64(
 }
 
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)] // Tauri extracts command state by value
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri extracts command state by value"
+)]
 fn subscribe_events(state: State<'_, AppState>, channel: Channel<Vec<CoreEvent>>) {
     state.event_sink.replace(channel);
 }
@@ -306,7 +312,10 @@ async fn register_push(
 }
 
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)] // Tauri extracts command state by value
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri extracts command state by value"
+)]
 fn device_pusher(
     app: AppHandle<BrowserEngine>,
     user_id: String,
@@ -332,7 +341,6 @@ async fn test_notification(
 }
 
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)] // Tauri extracts command state by value
 #[expect(
     clippy::fn_params_excessive_bools,
     reason = "notification preference command arguments"
@@ -478,7 +486,10 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
 
 #[cfg(desktop)]
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "the framework passes this argument by value"
+)]
 fn apply_desktop_window_settings(
     app: AppHandle<BrowserEngine>,
     settings: tray::DesktopWindowSettings,
@@ -488,7 +499,10 @@ fn apply_desktop_window_settings(
 
 #[cfg(desktop)]
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)]
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "the framework passes this argument by value"
+)]
 fn set_tray_unread(app: AppHandle<BrowserEngine>, unread: bool) -> Result<(), String> {
     tray::set_unread_dot(&app, unread).map_err(|error| error.to_string())
 }
@@ -552,7 +566,10 @@ fn pending_deep_links() -> Vec<String> {
 
 #[cfg(desktop)]
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)] // Tauri extracts command inputs by value
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri extracts command inputs by value"
+)]
 fn toggle_devtools(window: tauri::WebviewWindow<BrowserEngine>) {
     if window.is_devtools_open() {
         window.close_devtools();
@@ -639,7 +656,10 @@ async fn stop_screen_audio() {
 }
 
 #[tauri::command]
-#[allow(clippy::needless_pass_by_value)] // Tauri extracts command inputs by value
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "tauri extracts command inputs by value"
+)]
 fn open_external_url(app: AppHandle<BrowserEngine>, url: String) -> Result<(), CommandErr> {
     let parsed = tauri::Url::parse(&url).map_err(|_| CommandErr::Denied)?;
     if !matches!(parsed.scheme(), "http" | "https" | "mailto" | "tel") {
