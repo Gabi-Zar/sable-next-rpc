@@ -1,6 +1,7 @@
 //! MSC4174 web push: the homeserver encrypts and delivers. Requests are hand-rolled because Ruma
 //! cannot express the pusher kind.
 
+use crate::errors::CoreError;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 
@@ -42,11 +43,11 @@ fn vapid(capability: &JsonValue) -> Option<String> {
 /// # Errors
 ///
 /// When the homeserver query fails.
-pub async fn support(client: &Client) -> Result<Option<String>, String> {
+pub async fn support(client: &Client) -> Result<Option<String>, CoreError> {
     let capabilities = client
         .send(get_capabilities::v3::Request::new())
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(CoreError::backend)?;
 
     Ok(CAPABILITIES.iter().find_map(|name| {
         capabilities
@@ -59,7 +60,7 @@ pub async fn support(client: &Client) -> Result<Option<String>, String> {
 /// # Errors
 ///
 /// When the homeserver rejects the registration.
-pub async fn set_pusher(client: &Client, mut pusher: WebPusherView) -> Result<(), String> {
+pub async fn set_pusher(client: &Client, mut pusher: WebPusherView) -> Result<(), CoreError> {
     pusher.device_display_name =
         crate::notifications::pusher_display_name(client, pusher.device_display_name).await;
     let body = pusher_body(&pusher, client.user_id().map(ToString::to_string));
@@ -68,7 +69,7 @@ pub async fn set_pusher(client: &Client, mut pusher: WebPusherView) -> Result<()
         .send(SetWebPusher { body })
         .await
         .map(|EmptyResponse| ())
-        .map_err(|error| error.to_string())
+        .map_err(CoreError::backend)
 }
 
 /// MSC4174's pusher body: `url` is the subscription, not a gateway, and the
@@ -170,7 +171,7 @@ impl IncomingResponse for EmptyResponse {
 /// # Errors
 ///
 /// When the homeserver rejects the read.
-pub async fn pushers(client: &Client) -> Result<Vec<RegisteredPusherView>, String> {
+pub async fn pushers(client: &Client) -> Result<Vec<RegisteredPusherView>, CoreError> {
     Ok(raw_pushers(client)
         .await?
         .into_iter()
@@ -178,11 +179,11 @@ pub async fn pushers(client: &Client) -> Result<Vec<RegisteredPusherView>, Strin
         .collect())
 }
 
-pub(crate) async fn raw_pushers(client: &Client) -> Result<Vec<RawPusher>, String> {
+pub(crate) async fn raw_pushers(client: &Client) -> Result<Vec<RawPusher>, CoreError> {
     let Webpushers { pushers } = client
         .send(ListWebPushers)
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(CoreError::backend)?;
 
     Ok(pushers)
 }
@@ -301,12 +302,12 @@ impl IncomingResponse for Webpushers {
 /// # Errors
 ///
 /// When the homeserver rejects the acknowledgement.
-pub async fn ack(client: &Client, app_id: String, ack_token: String) -> Result<(), String> {
+pub async fn ack(client: &Client, app_id: String, ack_token: String) -> Result<(), CoreError> {
     client
         .send(AckWebPusher { app_id, ack_token })
         .await
         .map(|EmptyResponse| ())
-        .map_err(|error| error.to_string())
+        .map_err(CoreError::backend)
 }
 
 /// Returns the token the validation push carried.
@@ -609,7 +610,7 @@ mod tests {
         )
         .await;
 
-        assert_eq!(support(&client).await, Ok(Some("BRaw".to_owned())));
+        assert_eq!(support(&client).await.unwrap(), Some("BRaw".to_owned()));
     }
 
     #[tokio::test]
@@ -620,14 +621,14 @@ mod tests {
         )
         .await;
 
-        assert_eq!(support(&client).await, Ok(Some("BStable".to_owned())));
+        assert_eq!(support(&client).await.unwrap(), Some("BStable".to_owned()));
     }
 
     #[tokio::test]
     async fn a_feature_without_a_capability_makes_no_homeserver_delivery() {
         let client = homeserver(json!({"org.matrix.msc4174": true}), json!({})).await;
 
-        assert_eq!(support(&client).await, Ok(None));
+        assert_eq!(support(&client).await.unwrap(), None);
     }
 
     #[test]
