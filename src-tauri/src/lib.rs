@@ -2,6 +2,8 @@
 
 //! The native carrier. A feature adds a `Command` variant, except to move bytes or reach something only this process has.
 
+#[cfg(target_os = "linux")]
+mod app_dirs;
 #[cfg(any(all(feature = "cef", target_os = "linux"), test))]
 mod deep_link_delivery;
 #[cfg(any(all(feature = "cef", target_os = "linux"), all(test, unix)))]
