@@ -585,6 +585,14 @@
     );
   });
 
+  $effect(() =>
+    core.onProfileChanged(() => {
+      void untrack(() =>
+        memberLoader.refresh(resolvedRoomId, (roomId) => core.commands.roomMembers(roomId))
+      );
+    })
+  );
+
   function loadMembership(membership: MembershipView): Promise<MemberView[]> {
     return core.commands.roomMembers(resolvedRoomId, [membership]);
   }
