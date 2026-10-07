@@ -1184,6 +1184,7 @@
       {#if !callShown}
         <VoiceLobby
           participants={callParticipants}
+          screenSharers={resolvedRoom?.screen_sharers ?? []}
           members={memberLoader.members}
           media={prescreenMedia}
           joining={call.lifecycle === 'joining'}
