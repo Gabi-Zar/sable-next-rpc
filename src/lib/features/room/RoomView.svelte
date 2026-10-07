@@ -1069,7 +1069,7 @@
         </PanelHeaderButton>
         {#if desktop}
           <PanelHeaderButton
-            label={$i18n.t('timeline.attachmentsOpen')}
+            label={$i18n.t('timeline.attachmentsTitle')}
             aria-pressed={panels.attachmentsOpen}
             onclick={toggleAttachments}
           >
@@ -1385,7 +1385,7 @@
 
   <MessageReportDialog
     bind:open={reportOpen}
-    title={$i18n.t(resolvedRoom?.is_space ? 'room.reportSpaceTitle' : 'room.reportTitle')}
+    title={$i18n.t(resolvedRoom?.is_space ? 'room.menuReportSpace' : 'room.menuReport')}
     hint={$i18n.t('room.reportHint')}
     onReport={(reason) => {
       const target = resolvedRoomId;

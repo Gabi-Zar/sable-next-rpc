@@ -238,7 +238,7 @@
       <Button
         variant="primary"
         class="verification-action"
-        onclick={() => (core.verification = null)}>{$i18n.t('settings.close')}</Button
+        onclick={() => (core.verification = null)}>{$i18n.t('common.close')}</Button
       >
     {:else if core.verification.state.phase === 'cancelled'}
       <Dialog.Description class="verification-description">
@@ -247,7 +247,7 @@
       <Button
         variant="primary"
         class="verification-action"
-        onclick={() => (core.verification = null)}>{$i18n.t('settings.close')}</Button
+        onclick={() => (core.verification = null)}>{$i18n.t('common.close')}</Button
       >
     {/if}
     {#if error}<Alert variant="critical" role="alert">{error}</Alert>{/if}
