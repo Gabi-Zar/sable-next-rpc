@@ -5,7 +5,7 @@ import { MemberProfile } from './member-profile.svelte.js';
 
 test('closing a profile prevents a pending failure from reopening or changing it', async () => {
   const request = Promise.withResolvers<ProfileView>();
-  const profile = new MemberProfile({ userProfile: () => request.promise });
+  const profile = new MemberProfile({ refreshUserProfile: () => request.promise });
   const opening = profile.show('@old', document.createElement('button'));
   profile.close();
   request.reject(new Error('unavailable'));
@@ -20,7 +20,7 @@ test('a later profile remains selected when an earlier request completes', async
   const old = Promise.withResolvers<ProfileView>();
   const next = { display_name: 'Next' } as ProfileView;
   const profile = new MemberProfile({
-    userProfile: vi.fn().mockReturnValueOnce(old.promise).mockResolvedValueOnce(next),
+    refreshUserProfile: vi.fn().mockReturnValueOnce(old.promise).mockResolvedValueOnce(next),
   });
   const anchor = document.createElement('button');
   const first = profile.show('@old', anchor);

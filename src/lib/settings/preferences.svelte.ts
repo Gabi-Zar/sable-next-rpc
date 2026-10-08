@@ -243,6 +243,7 @@ export interface Preferences {
   hideTypingIndicators: boolean;
   memberSort: MemberSort;
   groupMembersByPresence: boolean;
+  richPresenceLargeRooms: boolean;
   filterPronounsByLanguage: boolean;
   showPronouns: boolean;
   showPronounPills: boolean;
@@ -530,6 +531,7 @@ const DEFAULTS: Preferences = {
   hideTypingIndicators: false,
   memberSort: 'name-asc',
   groupMembersByPresence: true,
+  richPresenceLargeRooms: false,
   filterPronounsByLanguage: true,
   showPronouns: true,
   showPronounPills: true,
