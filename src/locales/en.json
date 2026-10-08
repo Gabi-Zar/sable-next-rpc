@@ -2106,6 +2106,8 @@
     "doubleTapReaction": "Double tap reaction",
     "hideTypingIndicators": "Hide typing indicators",
     "groupMembersByPresence": "Group members by presence",
+    "richPresenceLargeRooms": "Show rich presence in large rooms",
+    "richPresenceLargeRoomsHint": "Member lists always show what people are doing in rooms with fewer than 10 members. Turn this on to show it in bigger rooms too, which refreshes more profiles in the background.",
     "showPronouns": "Show pronouns",
     "showPronounPills": "Show pronoun pills",
     "pronounPillLength": "Pronoun pill length",
@@ -3472,6 +3474,18 @@
     "description": "How you appear to other people, and what they see under your name.",
     "statusMessage": "Status message",
     "setStatus": "Set your presence and status"
+  },
+  "richPresence": {
+    "region": "Rich presence",
+    "activity": "Activity",
+    "music": "Listening to music",
+    "on": "on {{player}}",
+    "elapsed": "{{time}} elapsed",
+    "remaining": "{{time}} left",
+    "progress": "{{elapsed}} of {{total}}",
+    "openLinkTitle": "Open this link?",
+    "openLinkDescription": "{{name}} added this link to their activity. Check the address before you continue.",
+    "openLink": "Open link"
   },
   "widgets": {
     "label": "Widgets",

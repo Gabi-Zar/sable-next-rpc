@@ -266,6 +266,7 @@ export interface Preferences {
   roomSort: RoomSort;
   directSort: RoomSort;
   groupMembersByPresence: boolean;
+  richPresenceLargeRooms: boolean;
   filterPronounsByLanguage: boolean;
   showPronouns: boolean;
   showPronounPills: boolean;
@@ -616,6 +617,7 @@ const DEFAULTS: Preferences = {
   roomSort: 'recent',
   directSort: 'recent',
   groupMembersByPresence: true,
+  richPresenceLargeRooms: false,
   filterPronounsByLanguage: true,
   showPronouns: true,
   showPronounPills: true,
