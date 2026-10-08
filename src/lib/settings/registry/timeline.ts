@@ -423,6 +423,14 @@ export const timelineCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'richPresenceLargeRooms',
+      section: 'members-pronouns',
+      icon: UsersIcon,
+      name: 'settings.richPresenceLargeRooms',
+      description: 'settings.richPresenceLargeRoomsHint',
+      type: 'boolean',
+    },
+    {
       key: 'showPronouns',
       section: 'members-pronouns',
       icon: UserCircleIcon,

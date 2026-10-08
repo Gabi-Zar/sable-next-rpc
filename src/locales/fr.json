@@ -1375,6 +1375,8 @@
     "captionPositionHidden": "Masquée",
     "hideTypingIndicators": "Masquer les indicateurs de saisie",
     "groupMembersByPresence": "Regrouper les membres par présence",
+    "richPresenceLargeRooms": "Afficher le rich presence dans les grands salons",
+    "richPresenceLargeRoomsHint": "Les listes de membres montrent toujours ce que font les gens dans les salons de moins de 10 membres. Activez cette option pour l'afficher aussi dans les salons plus grands, ce qui actualise davantage de profils en arrière-plan.",
     "showPronouns": "Afficher les pronoms",
     "pronounPillLength": "Longueur des pastilles de pronoms",
     "pronounPillLengthAll": "Sans limite",
@@ -2291,6 +2293,18 @@
     "title": "Votre présence",
     "description": "La façon dont les autres vous voient, ainsi que ce qui apparaît sous votre nom.",
     "statusMessage": "Message de statut"
+  },
+  "richPresence": {
+    "region": "Rich presence",
+    "activity": "Activité",
+    "music": "Écoute de la musique",
+    "on": "sur {{player}}",
+    "elapsed": "{{time}} écoulé",
+    "remaining": "{{time}} restant",
+    "progress": "{{elapsed}} sur {{total}}",
+    "openLinkTitle": "Ouvrir ce lien ?",
+    "openLinkDescription": "{{name}} a ajouté ce lien à son activité. Vérifiez l'adresse avant de continuer.",
+    "openLink": "Ouvrir le lien"
   },
   "widgets": {
     "label": "Widgets",

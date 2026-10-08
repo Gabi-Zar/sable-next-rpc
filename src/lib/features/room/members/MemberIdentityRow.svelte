@@ -7,6 +7,7 @@
   import { i18n } from '#lib/i18n.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { UserProfile } from '#lib/profile/user-profile.svelte.js';
+  import { useRichPresence } from '#lib/profile/rich-presence.svelte.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
@@ -15,6 +16,7 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   import { findMember, senderDisplayColors } from './members.js';
+  import RichPresenceLine from './RichPresenceLine.svelte';
   import SenderName from './SenderName.svelte';
   import type { PowerLevelTag } from '../settings/power-level-tags.js';
 
@@ -24,6 +26,8 @@
     class?: ClassValue;
     onProfile?: (userId: string, anchor: HTMLElement) => void;
     showStatus?: boolean;
+    /** Shows what the member is doing (MSC4544 rich presence) in place of their status. */
+    richPresence?: boolean;
     powerTag?: PowerLevelTag | null;
     trailing?: Snippet;
     secondary?: Snippet;
@@ -35,6 +39,7 @@
     class: className = '',
     onProfile,
     showStatus = false,
+    richPresence = false,
     powerTag = null,
     trailing,
     secondary,
@@ -44,6 +49,7 @@
   const presenceStore = usePresenceStore();
   const roomCosmetics = useRoomCosmetics();
   const profile = new UserProfile(core, () => userId);
+  const richPresences = useRichPresence();
   let member = $derived(findMember(members, userId));
   let ownIdentity = $derived({
     name: member ? member.display_name : (profile.current?.display_name ?? null),
@@ -58,6 +64,12 @@
   let profileLabel = $derived(i18n.t('timeline.senderProfile', { name: displayName }));
   let presence = $derived(presenceStore.peek(userId));
   let userStatus = $derived(showStatus ? resolveUserStatus(profile.current, presence) : null);
+  let activities = $derived(richPresence ? richPresences.presences(userId) : []);
+
+  $effect(() => {
+    if (!richPresence) return;
+    return richPresences.watch(userId);
+  });
 
   function openProfile(event: MouseEvent & { currentTarget: HTMLButtonElement }): void {
     onProfile?.(userId, event.currentTarget);
@@ -87,7 +99,9 @@
     <span class="member-identity-text">
       <SenderName {displayName} {colors} nameClass="member-name" compact />
       {@render secondary?.()}
-      {#if userStatus}
+      {#if activities.length > 0}
+        <span class="member-identity-status"><RichPresenceLine presences={activities} /></span>
+      {:else if userStatus}
         {@const statusLabel = [userStatus.emoji, userStatus.text].filter(Boolean).join(' ')}
         <Tooltip label={statusLabel}>
           {#snippet trigger({ props })}
