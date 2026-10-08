@@ -366,6 +366,7 @@ const SETTINGS = {
   roomSort: choice<RoomSort>(['recent', 'name-asc', 'name-desc'], 'recent', { account: true }),
   directSort: choice<RoomSort>(['recent', 'name-asc', 'name-desc'], 'recent', { account: true }),
   groupMembersByPresence: toggle(true, { account: true }),
+  richPresenceLargeRooms: toggle(false, { account: true }),
   filterPronounsByLanguage: toggle(true, { account: true }),
   showPronouns: toggle(true, { account: true }),
   showPronounPills: toggle(true, { account: true }),

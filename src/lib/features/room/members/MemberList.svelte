@@ -5,6 +5,7 @@
   import { currentLocale, i18n } from '#lib/i18n.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
+  import { RICH_PRESENCE_SMALL_ROOM_LIMIT } from '#lib/profile/rich-presence.js';
   import { whenVisible } from '#lib/ui/when-visible.js';
   import { roleColorOnDark, roleColorOnLight } from '#lib/ui/primitives/readable-color.js';
 
@@ -73,6 +74,11 @@
 
   let sort = $derived(preferences.memberSort);
   let joined = $derived(members.filter((member) => !member.service));
+  // Rich presences have no push channel, so each listed member with an activity is polled again
+  // whenever it expires. Small rooms get that automatically; larger ones only on request.
+  let richPresence = $derived(
+    preferences.richPresenceLargeRooms || joined.length < RICH_PRESENCE_SMALL_ROOM_LIMIT
+  );
   let listed = $derived(filter === 'join' ? joined : fetched.filter((member) => !member.service));
   let matching = $derived(listed.filter((member) => matchesFilter(member, filter)));
   let searched = $derived.by(() => {
@@ -175,6 +181,7 @@
               powerTag={tag}
               onProfile={onMemberProfile}
               showStatus
+              {richPresence}
             />
           </li>
         {/each}

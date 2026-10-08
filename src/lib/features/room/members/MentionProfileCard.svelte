@@ -2,6 +2,13 @@
   import { serverNameOf } from '#lib/matrix-id.js';
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
   import { SUPPORTER_BADGE_FIELD } from '#lib/profile/fields.js';
+  import {
+    activePresences,
+    ExpiryTimer,
+    isRichPresenceField,
+    nextExpiry,
+    parseRichPresences,
+  } from '#lib/profile/rich-presence.js';
   import type {
     MemberView,
     ProfileView,
@@ -76,6 +83,7 @@
   import MentionProfilePowerMenu from './MentionProfilePowerMenu.svelte';
   import MentionProfilePresenceMenu from './MentionProfilePresenceMenu.svelte';
   import { MemberProfileSource } from './member-profile-source.svelte';
+  import RichPresenceCard from './RichPresenceCard.svelte';
 
   interface Props {
     userId: string;
@@ -201,8 +209,30 @@
     return i18n.t('timeline.animalNeed', { identity, need });
   });
   let extra = $derived(
-    (currentProfile?.extra ?? []).filter((field) => field.key !== SUPPORTER_BADGE_FIELD)
+    (currentProfile?.extra ?? []).filter(
+      (field) => field.key !== SUPPORTER_BADGE_FIELD && !isRichPresenceField(field.key)
+    )
   );
+  let profilePresences = $derived(parseRichPresences(currentProfile?.extra));
+  let presenceClock = $state(Date.now());
+  // Expired presences must stop showing at once, ahead of the re-fetch that looks for a successor.
+  let richPresences = $derived(activePresences(profilePresences, presenceClock));
+
+  $effect(() => {
+    const upcoming = profilePresences;
+    const timer = new ExpiryTimer();
+    const arm = () => {
+      // Read the clock into a local: reading `presenceClock` here would make this effect depend
+      // on the value it writes.
+      const now = Date.now();
+      presenceClock = now;
+      timer.arm(nextExpiry(activePresences(upcoming, now)), arm);
+    };
+    arm();
+    return () => {
+      timer.clear();
+    };
+  });
   let showFailure = $derived(failed && !currentProfile && roomMember === null);
   let profileLoading = $derived(!currentProfile && !failed);
   let isSelf = $derived(core.session?.user_id === userId);
@@ -536,13 +566,20 @@
 {#snippet bioPanel()}
   {#if showFailure}
     <Alert variant="warning" role="status">{i18n.t('timeline.profileUnavailable')}</Alert>
-  {:else if currentProfile?.bio}
-    <FormattedBody
-      html={currentProfile.bio}
-      senderTimezone={currentProfile.timezone}
-      keepMentionText
-      {onMatrixLink}
-    />
+  {:else}
+    {#if currentProfile?.bio}
+      <FormattedBody
+        html={currentProfile.bio}
+        senderTimezone={currentProfile.timezone}
+        keepMentionText
+        {onMatrixLink}
+      />
+    {/if}
+    {#if richPresences.length > 0}
+      <div class="profile-rich-presence" class:divided={Boolean(currentProfile?.bio)}>
+        <RichPresenceCard presences={richPresences} name={displayName} />
+      </div>
+    {/if}
   {/if}
 {/snippet}
 
@@ -602,7 +639,7 @@
     meta={profileLoading || hasMeta ? metaRow : undefined}
     below={profileBelow}
     pronouns={pronounRow}
-    children={showFailure || currentProfile?.bio ? bioPanel : undefined}
+    children={showFailure || currentProfile?.bio || richPresences.length > 0 ? bioPanel : undefined}
     footer={extra.length > 0 ? miscData : undefined}
     headerAction={variant === 'popover' && canMessage ? messageAction : undefined}
     composer={variant === 'sheet' && canMessage ? composer : undefined}
@@ -701,5 +738,14 @@
 
   :global(.profile-card-actions > .pill-icon-only) {
     margin-inline-start: auto;
+  }
+  :global(.profile-card-actions > .pill-icon-only) {
+    margin-inline-start: auto;
+  }
+
+  .profile-rich-presence.divided {
+    border-top: var(--border-width) solid var(--profile-line);
+    margin-top: var(--space-300);
+    padding-top: var(--space-300);
   }
 </style>

@@ -24,6 +24,7 @@
   import { isDeclining } from '#lib/rooms/invites.svelte.js';
   import { dismissedInvites } from '#lib/rooms/dismissed-invites.svelte.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
+  import { richPresenceWhenVisible, useRichPresence } from '#lib/profile/rich-presence.svelte.js';
   import { hasUnread, NO_UNREAD } from '#lib/rooms/unread.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import { whenVisible } from '#lib/ui/when-visible.js';
@@ -168,6 +169,7 @@
   const roomList = useRoomList();
   const core = useCoreClient();
   const presenceStore = usePresenceStore();
+  const richPresences = useRichPresence();
 
   function dmPeerId(room: RoomListItemView): string | null {
     const own = core.session?.user_id;
@@ -506,6 +508,7 @@
     {@const peerPresence = peerId ? presenceStore.peek(peerId) : null}
     {@const peerStatus = peerId ? resolveUserStatus(peerProfiles.get(peerId), peerPresence) : null}
     {@const preview = room ? messagePreview(room) : null}
+    {@const peerActivities = peerId ? richPresences.presences(peerId) : []}
     {@const closed = sectionClosed && !(room !== undefined && (active || hasUnread(counts)))}
     <div class={['room-row-wrap', { 'closed-row': closed }]} data-row-key={item.key}>
       <RoomThreadLines threads={item.threads} {collapsed} />
@@ -544,6 +547,9 @@
             ? whenVisible(() => {
                 peerProfiles.request(peerId);
               })
+            : undefined}
+          {@attach peerId !== null && !collapsed
+            ? richPresenceWhenVisible(richPresences, peerId)
             : undefined}
           {@attach whenVisible(
             () => {
@@ -615,7 +621,7 @@
             </span>
           {/if}
           {#if !collapsed}
-            <RoomRowText {name} {room} {preview} {peerStatus} />
+            <RoomRowText {name} {room} {preview} {peerStatus} {peerActivities}/>
           {/if}
           {#if room && live > 0 && (!collapsed || voicePlacement === 'inline')}
             <RoomVoiceLive

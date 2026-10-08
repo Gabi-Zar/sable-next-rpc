@@ -1,32 +1,40 @@
 <script lang="ts">
   import type { RoomListItemView, StatusView } from '#src/generated/protocol';
+  import type { RichPresence } from '#lib/profile/rich-presence.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import CalendarRowEvent from '#lib/features/calendar/CalendarRowEvent.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
+  import RichPresenceLine from '#lib/features/room/members/RichPresenceLine.svelte';
 
   interface Props {
     name: string;
     room?: RoomListItemView;
     preview?: string | null;
     peerStatus?: StatusView | null;
+    peerActivities?: readonly RichPresence[];
   }
 
-  let { name, room, preview = null, peerStatus = null }: Props = $props();
+  let { name, room, preview = null, peerStatus = null, peerActivities = [] }: Props = $props();
 </script>
 
 <span class="room-text">
   <span class="room-name"><bdi>{name}</bdi></span>
   {#if preview}
     <span class="room-topic"><bdi>{preview}</bdi></span>
+  {:else if peerActivities.length > 0}
+    <span class="room-topic"><RichPresenceLine presences={peerActivities} /></span>
   {:else if room?.is_direct && room.topic && preferences.showDmTopics}
     <span class="room-topic"><bdi>{room.topic}</bdi></span>
   {:else if peerStatus}
-    {@const peerStatusLabel = [peerStatus.emoji, peerStatus.text].filter(Boolean).join(' ')}
+    {@const peerStatusLabel = [peerStatus?.emoji, peerStatus?.text]
+      .filter(Boolean)
+      .join(' ')}
     <Tooltip label={peerStatusLabel}>
       {#snippet trigger({ props })}
         <span {...props} class="room-topic">
-          {#if peerStatus.emoji}<span class="room-status-emoji">{peerStatus.emoji}</span
-            >{/if}{peerStatus.text}
+          {#if peerStatus?.emoji}<span class="room-status-emoji"
+              >{peerStatus.emoji}</span
+            >{/if}{peerStatus?.text}
         </span>
       {/snippet}
     </Tooltip>
