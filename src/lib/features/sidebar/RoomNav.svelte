@@ -28,6 +28,7 @@
   import { isDeclining } from '#lib/rooms/invites.svelte.js';
   import { dismissedInvites } from '#lib/rooms/dismissed-invites.svelte.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
+  import { richPresenceWhenVisible, useRichPresence } from '#lib/profile/rich-presence.svelte.js';
   import { hasUnread, NO_UNREAD } from '#lib/rooms/unread.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import { whenVisible } from '#lib/ui/when-visible.js';
@@ -39,6 +40,7 @@
   import RoomIcon from '#lib/ui/primitives/RoomIcon.svelte';
   import StatusBadge from '#lib/ui/primitives/StatusBadge.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
+  import RichPresenceLine from '#lib/features/room/members/RichPresenceLine.svelte';
   import TypingDots from '#lib/ui/primitives/TypingDots.svelte';
   import UnreadBadge from '#lib/ui/primitives/UnreadBadge.svelte';
   import { rovingFocus } from '#lib/ui/roving-focus.js';
@@ -171,6 +173,7 @@
   const roomList = useRoomList();
   const core = useCoreClient();
   const presenceStore = usePresenceStore();
+  const richPresences = useRichPresence();
 
   function dmPeerId(room: RoomListItemView): string | null {
     const own = core.session?.user_id;
@@ -493,6 +496,7 @@
     {@const peerId = room?.is_direct ? dmPeerId(room) : null}
     {@const peerPresence = peerId ? presenceStore.peek(peerId) : null}
     {@const peerStatus = peerId ? resolveUserStatus(peerProfiles.get(peerId), peerPresence) : null}
+    {@const peerActivities = peerId ? richPresences.presences(peerId) : []}
     {@const closed = sectionClosed && !(room !== undefined && (active || hasUnread(counts)))}
     <div class={['room-row-wrap', { 'closed-row': closed }]}>
       {@render threadLines(item.threads)}
@@ -525,6 +529,9 @@
             ? whenVisible(() => {
                 peerProfiles.request(peerId);
               })
+            : undefined}
+          {@attach peerId !== null && !collapsed
+            ? richPresenceWhenVisible(richPresences, peerId)
             : undefined}
           {@attach whenVisible(
             () => {
@@ -590,7 +597,9 @@
           {#if !collapsed}
             <span class="room-text">
               <span class="room-name">{name}</span>
-              {#if room?.is_direct && room.topic && preferences.showDmTopics}
+              {#if peerActivities.length > 0}
+                <span class="room-topic"><RichPresenceLine presences={peerActivities} /></span>
+              {:else if room?.is_direct && room.topic && preferences.showDmTopics}
                 <span class="room-topic">{room.topic}</span>
               {:else if peerStatus}
                 {@const peerStatusLabel = [peerStatus?.emoji, peerStatus?.text]
