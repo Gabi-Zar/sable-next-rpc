@@ -1,5 +1,6 @@
 <script lang="ts">
   import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
+  import { provideAlertProviders } from './alerts';
   import SidebarNav from './SidebarNav.svelte';
 
   interface Props {
@@ -7,6 +8,8 @@
   }
 
   let { mobile }: Props = $props();
+
+  provideAlertProviders([]);
 </script>
 
 <TooltipProvider>
