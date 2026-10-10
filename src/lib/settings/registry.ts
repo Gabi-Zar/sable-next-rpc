@@ -1077,6 +1077,7 @@ export const settingsCategories: SettingsCategory[] = [
         name: 'settings.alwaysInlineEditor',
         description: 'settings.alwaysInlineEditorHint',
         type: 'boolean',
+        supported: () => preferences.composerForm !== 'tall',
       },
       {
         key: 'enterForNewline',
