@@ -17,6 +17,7 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_RELEASE_DEBUG: '1'
   CARGO_PROFILE_RELEASE_STRIP: none
+  CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO: packed
   CARGO_TERM_COLOR: always
   FORGEJO_URL: https://git.sable.moe
   FORGEJO_REPOSITORY: SableClient/sable-next
@@ -116,6 +117,7 @@ jobs:
             tauri-args: --target universal-apple-darwin
             version-args: ''
             bundle-path: target/universal-apple-darwin/release/bundle
+            symbols-path: target
           - name: Windows x86_64
             runner: windows-latest
             asset-platform: windows-x86_64
@@ -123,6 +125,7 @@ jobs:
             tauri-args: ''
             version-args: --msi
             bundle-path: target/release/bundle
+            symbols-path: target/release
     env:
       TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
@@ -180,8 +183,8 @@ jobs:
       - name: Upload native symbols to Sentry
         shell: bash
         env:
-          BUNDLE_PATH: ${{ matrix.bundle-path }}
-        run: node scripts/ci/upload-sentry-symbols.mjs "$(dirname "$BUNDLE_PATH")"
+          SYMBOLS_PATH: ${{ matrix.symbols-path }}
+        run: node scripts/ci/upload-sentry-symbols.mjs "$SYMBOLS_PATH"
       - name: Normalize bundle names
         shell: bash
         env:
