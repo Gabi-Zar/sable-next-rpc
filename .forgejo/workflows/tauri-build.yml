@@ -888,7 +888,7 @@ jobs:
           serviceAccountJsonPlainText: ${{ env.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: moe.sable.client
           releaseFiles: aab/sable-${{ needs.setup-release.outputs.version }}-android-universal.aab
-          tracks: internal
+          tracks: production
           status: completed
           whatsNewDirectory: ${{ steps.notes.outputs.dir }}
       - name: Report the skipped publish
