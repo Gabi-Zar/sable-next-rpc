@@ -948,10 +948,9 @@
     display: flex;
     flex: 0 0 3.25rem;
     flex-direction: column;
-    gap: var(--space-100);
+    gap: var(--space-200);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: var(--space-200) var(--space-150);
     scrollbar-width: none;
   }
 
@@ -1134,8 +1133,8 @@
   }
 
   .rail :global(.rail-emote) {
-    height: var(--avatar-size-200);
-    width: var(--avatar-size-200);
+    height: var(--avatar-size-300);
+    width: var(--avatar-size-300);
   }
 
   .rail :global(.rail-emote .media-image-content) {
