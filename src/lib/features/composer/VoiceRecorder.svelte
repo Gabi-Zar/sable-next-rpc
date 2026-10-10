@@ -35,6 +35,21 @@
   let sampleTimer: ReturnType<typeof setInterval> | undefined;
   let startedAt = 0;
   let disposeRecorder: (() => void) | undefined;
+  let wakeLock: WakeLockSentinel | null = null;
+
+  async function holdScreenAwake(cancelled: () => boolean): Promise<void> {
+    try {
+      const lock = await navigator.wakeLock?.request('screen');
+      if (!lock) return;
+      if (cancelled()) {
+        void lock.release();
+        return;
+      }
+      wakeLock = lock;
+    } catch (cause) {
+      console.debug('[sable composer] screen wake lock unavailable', cause);
+    }
+  }
 
   function releaseStream(): void {
     stream?.getTracks().forEach((track) => {
@@ -59,6 +74,8 @@
     audioContext = null;
     releaseStream();
     recorder = null;
+    void wakeLock?.release();
+    wakeLock = null;
   }
 
   function sampleLevel(): void {
@@ -122,6 +139,7 @@
         status = 'recording';
         announcement = $i18n.t('composer.voiceStarted');
         sampleTimer = setInterval(sampleLevel, 100);
+        void holdScreenAwake(cancelled);
       };
       recorder.onerror = () => {
         teardown();
