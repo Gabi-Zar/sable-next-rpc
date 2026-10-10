@@ -129,7 +129,11 @@ APKs ship with every build, and [Obtainium](https://obtainium.imranr.dev) update
 
 ### Stable
 
-In Obtainium, tap **Add App**, enter `https://git.sable.moe/SableClient/sable-next`, and set the source to **Codeberg** (it also covers Forgejo). It follows stable releases only. Or [download the APK](https://git.sable.moe/SableClient/sable-next/releases/latest).
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22moe.sable.client%22%2C%22url%22%3A%22https%3A%2F%2Fgit.sable.moe%2FSableClient%2Fsable-next%22%2C%22author%22%3A%22SableClient%22%2C%22name%22%3A%22Sable%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22about%5C%22%3A%5C%22The%20next%20Sable%20Matrix%20client%5C%22%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%7D%22%2C%22overrideSource%22%3A%22Codeberg%22%7D"><img alt="Add to Obtainium" src="https://img.shields.io/badge/Add_to_Obtainium-6750A3?style=for-the-badge"></a>
+&nbsp;
+<a href="https://git.sable.moe/SableClient/sable-next/releases/download/latest/obtainium.json"><img alt="App config" src="https://img.shields.io/badge/App_config-6B7280?style=for-the-badge"></a>
+&nbsp;
+<a href="https://git.sable.moe/SableClient/sable-next/releases/latest"><img alt="Download APK" src="https://img.shields.io/badge/Download_APK-3DDC84?style=for-the-badge&logo=android"></a>
 
 ### Nightly
 
@@ -142,7 +146,7 @@ In Obtainium, tap **Add App**, enter `https://git.sable.moe/SableClient/sable-ne
 ### Setup & install
 
 1. Install [Obtainium](https://github.com/ImranR98/Obtainium/releases/latest).
-2. Tap **Add to Obtainium** above. It enables prereleases and selects the nightly build releases.
+2. Tap **Add to Obtainium** above. The nightly config also enables prereleases and selects the nightly build releases.
 3. Or download `obtainium.json` and import it with **Import/Export → Import from file**.
 
 Apps added before the move to per-build prereleases have to be removed and re-added.
