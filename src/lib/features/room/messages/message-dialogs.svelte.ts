@@ -6,7 +6,7 @@ import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
 import type { MessageActions } from './message-menu-items';
 
 export type MessageDialog =
-  | { kind: 'source'; source: string }
+  | { kind: 'source'; source: string; encrypted: boolean; original: string | null }
   | { kind: 'edit-history'; versions: readonly EditVersionView[]; senderTimezone: string | null }
   | { kind: 'delete'; target: string }
   | { kind: 'reactions'; active: number }

@@ -1703,6 +1703,8 @@ pub enum CommandOk {
     ReportUser,
     EventSource {
         source: String,
+        encrypted: bool,
+        original: Option<String>,
     },
     EditHistory {
         versions: Vec<EditVersionView>,

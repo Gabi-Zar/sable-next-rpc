@@ -1176,6 +1176,8 @@
     "removeLinkPreviews": "Remove embeds",
     "reportMessage": "Report",
     "sourceTitle": "Message source",
+    "sourceOriginal": "Encrypted event",
+    "sourceEncrypted": "This event was end-to-end encrypted. Showing the decrypted content.",
     "editHistory": "Version history",
     "editHistoryTitle": "Message version history",
     "editHistoryOriginal": "Original",

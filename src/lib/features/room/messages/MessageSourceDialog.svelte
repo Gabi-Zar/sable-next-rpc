@@ -10,9 +10,11 @@
   interface Props {
     open?: boolean;
     source: string;
+    encrypted?: boolean;
+    original?: string | null;
   }
 
-  let { open = $bindable(false), source }: Props = $props();
+  let { open = $bindable(false), source, encrypted = false, original = null }: Props = $props();
   let copied = $state(false);
 
   async function copy(): Promise<void> {
@@ -28,7 +30,14 @@
 
 <DialogFrame bind:open variant="verification" label={$i18n.t('timeline.sourceTitle')}>
   <h2>{$i18n.t('timeline.sourceTitle')}</h2>
+  {#if encrypted}
+    <p class="encrypted">{$i18n.t('timeline.sourceEncrypted')}</p>
+  {/if}
   <pre class="source" {@attach scrollHint}>{source}</pre>
+  {#if original}
+    <h3>{$i18n.t('timeline.sourceOriginal')}</h3>
+    <pre class="source" {@attach scrollHint}>{original}</pre>
+  {/if}
   <FormActions>
     <Button variant="secondary" onclick={copy}>
       {copied ? $i18n.t('common.copied') : $i18n.t('common.copy')}
@@ -47,6 +56,19 @@
     font-size: var(--font-size-heading);
     line-height: var(--line-height-heading);
     margin: 0 0 var(--space-300);
+  }
+
+  h3 {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    margin: 0 0 var(--space-200);
+  }
+
+  .encrypted {
+    color: var(--surface-var-on-container);
+    font-size: var(--font-size-small);
+    line-height: var(--line-height-small);
+    margin: 0 0 var(--space-200);
   }
 
   .source {
