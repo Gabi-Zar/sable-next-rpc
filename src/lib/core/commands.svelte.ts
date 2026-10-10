@@ -1139,12 +1139,23 @@ export function createCommands(transport: () => Transport) {
     },
 
     async eventSource(roomId: string, eventId: string): Promise<string> {
+      return (await this.eventSourceDetails(roomId, eventId)).source;
+    },
+
+    async eventSourceDetails(
+      roomId: string,
+      eventId: string
+    ): Promise<{ source: string; encrypted: boolean; original: string | null }> {
       const response = await transport().send({
         type: 'event_source',
         room_id: roomId,
         event_id: eventId,
       });
-      return response.source;
+      return {
+        source: response.source,
+        encrypted: response.encrypted,
+        original: response.original,
+      };
     },
 
     async editHistory(roomId: string, eventId: string): Promise<EditVersionView[]> {

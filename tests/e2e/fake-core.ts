@@ -1341,6 +1341,8 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
                   },
                 })
               : '{}',
+        encrypted: false,
+        original: null,
       }),
       edit_history: () => ({ type: 'edit_history', versions: [] }),
       event_items: (command) => {

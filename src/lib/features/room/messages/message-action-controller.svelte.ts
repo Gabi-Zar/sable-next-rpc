@@ -171,8 +171,11 @@ export class MessageActionExecutor {
 
     async function openSource(eventId: string): Promise<void> {
       try {
-        const source = await core.commands.eventSource(roomId, eventId);
-        dialogs.open(item, { kind: 'source', source });
+        const { source, encrypted, original } = await core.commands.eventSourceDetails(
+          roomId,
+          eventId
+        );
+        dialogs.open(item, { kind: 'source', source, encrypted, original });
       } catch (error) {
         console.warn('[sable timeline] source unavailable', error);
         toasts.error(t('errors.actionFailed'));

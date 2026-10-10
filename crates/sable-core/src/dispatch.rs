@@ -1523,9 +1523,14 @@ impl Core {
                 items: self.event_items(&room_id, &event_ids).await?,
             }),
 
-            Command::EventSource { room_id, event_id } => Ok(CommandOk::EventSource {
-                source: self.event_source(&room_id, &event_id).await?,
-            }),
+            Command::EventSource { room_id, event_id } => {
+                let (source, encrypted, original) = self.event_source(&room_id, &event_id).await?;
+                Ok(CommandOk::EventSource {
+                    source,
+                    encrypted,
+                    original,
+                })
+            }
 
             Command::EditHistory { room_id, event_id } => Ok(CommandOk::EditHistory {
                 versions: self.edit_history(&room_id, &event_id).await?,

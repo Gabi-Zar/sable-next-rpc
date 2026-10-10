@@ -53,13 +53,17 @@ function fixture() {
     onOpenThread: vi.fn(),
     onReply: vi.fn(),
   };
-  const source = Promise.withResolvers<string>();
+  const source = Promise.withResolvers<{
+    source: string;
+    encrypted: boolean;
+    original: string | null;
+  }>();
   const removeLinkPreviews = vi.fn(() => Promise.resolve());
   const deps = {
     core: {
       commands: {
         imagePacks: vi.fn(),
-        eventSource: vi.fn(() => source.promise),
+        eventSourceDetails: vi.fn(() => source.promise),
         removeLinkPreviews,
       },
     } as unknown as CoreClient,
@@ -113,12 +117,18 @@ test('source lookup keeps the event selected when the action began', async () =>
   const selected = context.item;
   executor.actions.onViewSource?.();
   context.item = { ...message(), event_id: '$next', id: 'next' };
-  source.resolve('{"event_id":"$item"}');
+  source.resolve({
+    source: '{"event_id":"$item"}',
+    encrypted: true,
+    original: '{"type":"m.room.encrypted"}',
+  });
   await source.promise;
   await Promise.resolve();
   expect(deps.dialogs.open).toHaveBeenCalledWith(selected, {
     kind: 'source',
     source: '{"event_id":"$item"}',
+    encrypted: true,
+    original: '{"type":"m.room.encrypted"}',
   });
 });
 

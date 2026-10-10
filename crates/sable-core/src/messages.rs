@@ -6,6 +6,7 @@ use matrix_sdk::room::edit::EditedContent;
 use matrix_sdk::room::{IncludeRelations, MessagesOptions, RelationsOptions};
 use matrix_sdk::ruma::api::Direction;
 use matrix_sdk::ruma::api::client::reporting::report_user;
+use matrix_sdk::ruma::api::client::room::get_room_event;
 use matrix_sdk::ruma::api::client::room::{report_content, report_room};
 use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::events::room::message::Relation;
@@ -109,6 +110,13 @@ pub(crate) fn previews_removed_edit(
         serde_json::json!({ "rel_type": "m.replace", "event_id": event_id }),
     );
     Some(serde_json::Value::Object(edit))
+}
+
+fn pretty_json(raw: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|value| serde_json::to_string_pretty(&value).ok())
+        .unwrap_or_else(|| raw.to_owned())
 }
 
 impl Core {
@@ -446,7 +454,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
-    ) -> Result<String, CommandErr> {
+    ) -> Result<(String, bool, Option<String>), CommandErr> {
         let event = self
             .room(room_id)
             .await?
@@ -454,11 +462,27 @@ impl Core {
             .await
             .or_failed(self, "event_source")?;
 
-        let raw = event.raw().json().get().to_owned();
-        Ok(serde_json::from_str::<serde_json::Value>(&raw)
-            .ok()
-            .and_then(|value| serde_json::to_string_pretty(&value).ok())
-            .unwrap_or(raw))
+        let encrypted = event.encryption_info().is_some();
+        let original = if encrypted {
+            match self
+                .client()
+                .await?
+                .send(get_room_event::v3::Request::new(
+                    room_id.clone(),
+                    event_id.clone(),
+                ))
+                .await
+            {
+                Ok(response) => Some(pretty_json(response.event.json().get())),
+                Err(error) => {
+                    tracing::debug!("encrypted original unavailable: {error}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        Ok((pretty_json(event.raw().json().get()), encrypted, original))
     }
 
     pub(crate) async fn forward_message(

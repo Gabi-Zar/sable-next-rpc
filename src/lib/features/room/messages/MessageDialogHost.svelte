@@ -146,7 +146,12 @@
     if (!open) dialogs.close(entry.key);
   }}
   {#if entry.kind === 'source'}
-    <MessageSourceDialog bind:open={() => true, setOpen} source={entry.source} />
+    <MessageSourceDialog
+      bind:open={() => true, setOpen}
+      source={entry.source}
+      encrypted={entry.encrypted}
+      original={entry.original}
+    />
   {:else if entry.kind === 'edit-history'}
     <EditHistoryDialog
       bind:open={() => true, setOpen}
