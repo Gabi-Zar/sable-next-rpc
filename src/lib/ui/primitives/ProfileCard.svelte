@@ -590,7 +590,8 @@
     align-items: baseline;
     display: flex;
     flex-flow: row wrap;
-    gap: var(--space-200);
+    gap: var(--space-100) var(--space-200);
+    margin-bottom: var(--space-100);
   }
 
   .profile-card-heading :global(.btn:last-child) {
