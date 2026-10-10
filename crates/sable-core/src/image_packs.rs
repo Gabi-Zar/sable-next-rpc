@@ -515,7 +515,7 @@ impl Core {
         let mut packs = Vec::new();
 
         let (own, _) = self
-            .pack_account_data(&client, USER_EMOTES, false)
+            .pack_account_data(&client, USER_EMOTES, true)
             .await
             .or_failed(self, "all_image_packs_account")?;
         if let Some(content) =
