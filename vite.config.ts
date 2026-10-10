@@ -10,6 +10,9 @@ import { emojiDataPlugin } from './scripts/emoji-data-plugin.mjs';
 const wasmOutput = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
 
 export default defineConfig({
+  build: {
+    sourcemap: 'hidden',
+  },
   optimizeDeps: {
     exclude: ['phosphor-svelte'],
   },
@@ -56,15 +59,8 @@ export default defineConfig({
       // The plugin detects the adapter from `svelte.config.js`, which this
       // project does not have, and does not know `adapter-static` either.
       adapter: 'other',
-      autoUploadSourceMaps: Boolean(process.env.SENTRY_AUTH_TOKEN),
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-      org: process.env.SENTRY_ORG,
-      project: process.env.SENTRY_PROJECT,
+      autoUploadSourceMaps: false,
       release: { name: process.env.VITE_APP_VERSION },
-      sourcemaps: {
-        // Upload discovery uses SvelteKit's output; neither copy may ship maps.
-        filesToDeleteAfterUpload: ['./.svelte-kit/output/**/*.map', './dist/**/*.map'],
-      },
     }),
     sveltekit({
       compilerOptions: {
