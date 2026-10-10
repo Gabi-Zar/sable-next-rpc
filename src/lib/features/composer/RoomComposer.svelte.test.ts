@@ -355,7 +355,7 @@ test('sends multiple staged files as one gallery', async () => {
     onSendGallery: gallery,
   });
   const first = new File(['one'], 'one.png', { type: 'image/png' });
-  const second = new File(['two'], 'two.pdf', { type: 'application/pdf' });
+  const second = new File(['two'], 'two.mp4', { type: 'video/mp4' });
 
   await pick(first, second);
   submit();
@@ -370,6 +370,26 @@ test('sends multiple staged files as one gallery', async () => {
     mentions: { userIds: [], room: false },
   });
   expect(attachment).not.toHaveBeenCalled();
+});
+
+test('sends staged files on their own when one is not an image or video', async () => {
+  const gallery = vi.fn(async () => {});
+  const attachment = vi.fn(async () => {});
+  setup({
+    roomId: '!room:example.org',
+    onSendAttachment: attachment,
+    onSendGallery: gallery,
+  });
+  const image = new File(['one'], 'one.png', { type: 'image/png' });
+  const pdf = new File(['two'], 'two.pdf', { type: 'application/pdf' });
+
+  await pick(image, pdf);
+  submit();
+
+  await vi.waitFor(() => {
+    expect(attachment).toHaveBeenCalledTimes(2);
+  });
+  expect(gallery).not.toHaveBeenCalled();
 });
 
 test('sends each staged file on its own when galleries are off', async () => {

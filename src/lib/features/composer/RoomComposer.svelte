@@ -76,6 +76,7 @@
   import { clearDraft, readDraft, remoteRevision, writeDraft } from './composer-drafts.svelte';
   import {
     filesFrom,
+    previewKind,
     restoreFile,
     stageFiles,
     setMetadata,
@@ -954,7 +955,7 @@
           preferences.sendAttachmentsAsGallery &&
           onSendGallery !== undefined &&
           unsent.length > 1 &&
-          unsent.every((item) => !item.spoiler);
+          unsent.every((item) => !item.spoiler && previewKind(item.file) !== null);
 
         if (gallery) {
           await onSendGallery(roomId, await Promise.all(unsent.map(outgoing)), {
