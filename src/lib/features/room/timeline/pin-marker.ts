@@ -42,3 +42,16 @@ export function isNewPin(
   if (lastSeen === -1) return index >= Math.max(0, marker.count - 1);
   return index > lastSeen;
 }
+
+export function readPinMarker(stored: unknown): PinReadMarker | null {
+  if (typeof stored !== 'object' || stored === null) return null;
+  const candidate = stored as Partial<PinReadMarker>;
+  if (typeof candidate.hash !== 'string' || typeof candidate.last_seen_id !== 'string') {
+    return null;
+  }
+  return {
+    hash: candidate.hash,
+    count: typeof candidate.count === 'number' ? candidate.count : 0,
+    last_seen_id: candidate.last_seen_id,
+  };
+}
