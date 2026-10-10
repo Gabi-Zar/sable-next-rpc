@@ -65,6 +65,7 @@ pub(crate) struct OutboundKey {
     pub(crate) index: u8,
     pub(crate) created_ts: u64,
     pub(crate) shared_with: Vec<CallMember>,
+    pub(crate) failed: Vec<CallMember>,
 }
 
 impl OutboundKey {
@@ -76,6 +77,7 @@ impl OutboundKey {
             index,
             created_ts,
             shared_with: Vec::new(),
+            failed: Vec::new(),
         })
     }
 
@@ -125,7 +127,7 @@ pub(crate) fn plan_rollout(
         };
     }
 
-    let joined: Vec<CallMember> = members
+    let (retry, fresh): (Vec<CallMember>, Vec<CallMember>) = members
         .iter()
         .filter(|member| {
             !still_valid
@@ -133,14 +135,25 @@ pub(crate) fn plan_rollout(
                 .any(|shared| shared.same_generation(member))
         })
         .cloned()
-        .collect();
+        .partition(|member| {
+            current
+                .failed
+                .iter()
+                .any(|failed| failed.same_generation(member))
+        });
 
-    if joined.is_empty() {
-        return Rollout::Unchanged;
+    if fresh.is_empty() {
+        return if retry.is_empty() {
+            Rollout::Unchanged
+        } else {
+            Rollout::Share { targets: retry }
+        };
     }
 
     if now_ms.saturating_sub(current.created_ts) < grace_ms {
-        Rollout::Share { targets: joined }
+        Rollout::Share {
+            targets: [fresh, retry].concat(),
+        }
     } else {
         Rollout::Rotate {
             targets: members.to_vec(),
@@ -207,6 +220,12 @@ impl KeyDistributor {
                 };
                 let reached = self.send(room, &key, &targets).await;
                 if let Some(outbound) = self.outbound.as_mut() {
+                    let unreached = unreached(&targets, &reached);
+                    warn_unreached(&unreached, &outbound.failed);
+                    outbound.failed.retain(|failed| {
+                        !targets.iter().any(|target| target.same_generation(failed))
+                    });
+                    outbound.failed.extend(unreached);
                     outbound.shared_with.extend(reached);
                 }
                 Rolled::Shared
@@ -226,7 +245,10 @@ impl KeyDistributor {
                     index: key.index,
                     encoded: key.encoded(),
                 };
+                let failed = unreached(&targets, &reached);
+                warn_unreached(&failed, &[]);
                 self.outbound = Some(OutboundKey {
+                    failed,
                     shared_with: reached,
                     ..key
                 });
@@ -270,7 +292,7 @@ impl KeyDistributor {
                     devices.push(device);
                     reached.push(target.clone());
                 }
-                Ok(None) => tracing::debug!(
+                Ok(None) => tracing::warn!(
                     user_id = %target.user_id,
                     device_id = %target.device_id,
                     "call member device is unknown, cannot send it a media key"
@@ -333,6 +355,27 @@ impl KeyDistributor {
     }
 }
 
+fn unreached(targets: &[CallMember], reached: &[CallMember]) -> Vec<CallMember> {
+    targets
+        .iter()
+        .filter(|target| !reached.contains(target))
+        .cloned()
+        .collect()
+}
+
+fn warn_unreached(unreached: &[CallMember], known: &[CallMember]) {
+    for member in unreached
+        .iter()
+        .filter(|member| !known.iter().any(|known| known.same_generation(member)))
+    {
+        tracing::warn!(
+            user_id = %member.user_id,
+            device_id = %member.device_id,
+            "a call member did not receive the media key"
+        );
+    }
+}
+
 pub(crate) fn decode_key(encoded: &str) -> Option<Vec<u8>> {
     STANDARD
         .decode(encoded)
@@ -376,6 +419,7 @@ mod tests {
             index: 3,
             created_ts,
             shared_with: members.to_vec(),
+            failed: Vec::new(),
         }
     }
 
@@ -474,12 +518,49 @@ mod tests {
     }
 
     #[test]
+    fn test_a_member_that_could_not_be_reached_does_not_rotate_the_key_again() {
+        let laptop = member("LAPTOP", 100);
+        let ghost = member("GHOST", 200);
+        let members = vec![laptop.clone(), ghost.clone()];
+        let current = OutboundKey {
+            failed: vec![ghost.clone()],
+            ..key_shared_with(std::slice::from_ref(&laptop), 1_000)
+        };
+
+        assert_eq!(
+            plan_rollout(Some(&current), &members, 20_000, 10_000),
+            Rollout::Share {
+                targets: vec![ghost]
+            },
+            "a retry is not a new joiner, so it must not force a rotation"
+        );
+    }
+
+    #[test]
+    fn test_a_new_joiner_still_rotates_a_stale_key_beside_a_failed_member() {
+        let laptop = member("LAPTOP", 100);
+        let ghost = member("GHOST", 200);
+        let phone = member("PHONE", 300);
+        let members = vec![laptop.clone(), ghost.clone(), phone];
+        let current = OutboundKey {
+            failed: vec![ghost],
+            ..key_shared_with(std::slice::from_ref(&laptop), 1_000)
+        };
+
+        assert_eq!(
+            plan_rollout(Some(&current), &members, 20_000, 10_000),
+            Rollout::Rotate { targets: members }
+        );
+    }
+
+    #[test]
     fn test_the_index_wraps_rather_than_overflowing() {
         let last = OutboundKey {
             key: [0u8; KEY_BYTES],
             index: u8::MAX,
             created_ts: 0,
             shared_with: Vec::new(),
+            failed: Vec::new(),
         };
 
         assert_eq!(OutboundKey::next_index(Some(&last)), 0);
@@ -493,6 +574,7 @@ mod tests {
             index: 0,
             created_ts: 0,
             shared_with: Vec::new(),
+            failed: Vec::new(),
         };
         let encoded = key.encoded();
 
