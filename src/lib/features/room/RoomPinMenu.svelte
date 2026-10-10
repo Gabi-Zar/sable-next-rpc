@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import VirtualList from 'svelte-tiny-virtual-list';
   import PushPinIcon from 'phosphor-svelte/lib/PushPinIcon';
   import PushPinSlashIcon from 'phosphor-svelte/lib/PushPinSlashIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -29,7 +30,10 @@
   import { timelineMediaItems } from './media/media-items.js';
   import type { MediaItem } from './media/media-viewer-types.js';
 
-  const PAGE_SIZE = 20;
+  const ESTIMATED_ROW = 120;
+  const ROW_GAP = 8;
+  const FALLBACK_LIST_HEIGHT = 384;
+  const OVERSCAN_ROWS = 4;
 
   interface Props {
     roomId: string;
@@ -62,13 +66,20 @@
   let shownIds = $state.raw<string[]>([]);
   let entries = $state.raw<ReadonlyMap<string, TimelineItemView>>(new Map());
   let pending = $state.raw<ReadonlySet<string>>(new Set());
+  let settled = $state.raw<ReadonlySet<string>>(new Set());
   let marker = $state.raw<PinReadMarker | null>(null);
   let currentHash = $state<string | null>(null);
-  let visible = $state(PAGE_SIZE);
   let run = 0;
+  let sizeVersion = $state(0);
+  let listHeight = $state(0);
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- sizeVersion is the signal
+  const heights = new Map<string, number>();
 
   let ordered = $derived([...shownIds].reverse());
-  let displayed = $derived(ordered.slice(0, visible));
+  let rowSize = $derived.by(() => {
+    void sizeVersion;
+    return (index: number) => heights.get(ordered[index]) ?? ESTIMATED_ROW;
+  });
   let unreadCount = $derived(unreadPinCount(pinnedIds, marker, currentHash));
   $effect(() => {
     onUnread?.(unreadCount);
@@ -131,16 +142,14 @@
       if (current !== run) return;
       pinnedIds = ids;
       shownIds = ids;
-      visible = PAGE_SIZE;
       entries = new Map(
         ids.flatMap((id) => {
           const item = entries.get(id) ?? eventItems.peek(target, id);
           return item ? [[id, item] as const] : [];
         })
       );
-      const first = [...ids].reverse().slice(0, PAGE_SIZE);
-      pending = new Set(first.filter((id) => !entries.has(id)));
-      void resolve(target, [...pending], current);
+      pending = new Set();
+      settled = new Set(entries.keys());
       await markSeen(target, ids);
     } catch (error) {
       console.debug('[sable room] pins unavailable', error);
@@ -164,25 +173,33 @@
     } catch (error) {
       console.debug('[sable room] pins unavailable', error);
     } finally {
-      if (current === run) pending = new Set([...pending].filter((id) => !ids.includes(id)));
+      if (current === run) {
+        pending = new Set([...pending].filter((id) => !ids.includes(id)));
+        settled = new Set([...settled, ...ids]);
+      }
     }
   }
 
-  function showMore(): void {
-    const next = ordered.slice(visible, visible + PAGE_SIZE);
-    if (next.length === 0) return;
-    visible += PAGE_SIZE;
-    const missing = next.filter((id) => !entries.has(id));
+  function resolveRange(start: number, stop: number): void {
+    const missing = ordered
+      .slice(Math.max(0, start - OVERSCAN_ROWS), stop + OVERSCAN_ROWS + 1)
+      .filter((id) => !settled.has(id) && !pending.has(id));
+    if (missing.length === 0) return;
     pending = new Set([...pending, ...missing]);
     void resolve(roomId, missing, run);
   }
 
-  function nearEnd(node: HTMLElement) {
-    const observer = new IntersectionObserver((hits) => {
-      if (hits.some((hit) => hit.isIntersecting)) showMore();
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
+  function measure(eventId: string) {
+    return (node: HTMLElement) => {
+      const observer = new ResizeObserver(() => {
+        const height = Math.ceil(node.offsetHeight) + ROW_GAP;
+        if (heights.get(eventId) === height) return;
+        heights.set(eventId, height);
+        sizeVersion += 1;
+      });
+      observer.observe(node);
+      return () => observer.disconnect();
+    };
   }
 
   async function markSeen(target: string, ids: readonly string[]): Promise<void> {
@@ -219,7 +236,7 @@
   }
 
   function openMedia(eventId: string): void {
-    const items = timelineMediaItems(displayed.flatMap((id) => entries.get(id) ?? []));
+    const items = timelineMediaItems(ordered.flatMap((id) => entries.get(id) ?? []));
     open = false;
     void afterOverlayPops().then(() => onOpenMedia(items, eventId));
   }
@@ -273,74 +290,92 @@
         <p class="pin-empty-hint">{$i18n.t('room.pinsEmptyHint')}</p>
       </div>
     {:else}
-      <ul class="pin-list">
-        {#each displayed as eventId (eventId)}
-          <li class="pin-item" class:fresh={isNewPin(pinnedIds, marker, eventId)}>
-            {#if pending.has(eventId)}
-              <p class="pin-status" role="status"><Spinner small /></p>
-            {:else}
-              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <div class="pin-list" bind:clientHeight={listHeight}>
+        <VirtualList
+          height={listHeight || FALLBACK_LIST_HEIGHT}
+          width="100%"
+          itemCount={ordered.length}
+          itemSize={rowSize}
+          estimatedItemSize={ESTIMATED_ROW}
+          overscanCount={OVERSCAN_ROWS}
+          getKey={(index) => ordered[index]}
+          onItemsUpdated={(range) => resolveRange(range.start, range.end)}
+        >
+          {#snippet item({ index, style })}
+            {@const eventId = ordered[index]}
+            <div {style} class="pin-row">
               <div
-                class="pin-open"
-                onclick={(event) => {
-                  if (!opensFrom(event)) return;
-                  jump(eventId);
-                }}
+                class="pin-item"
+                class:fresh={isNewPin(pinnedIds, marker, eventId)}
+                {@attach measure(eventId)}
               >
-                <MessagePreview
-                  {roomId}
-                  {eventId}
-                  item={entries.get(eventId) ?? null}
-                  {members}
-                  loadPreviewProfile
-                  timeAction={{ label: $i18n.t('common.jumpToMessage'), run: () => jump(eventId) }}
-                  onJumpToEvent={jump}
-                  onOpenMedia={openMedia}
-                >
-                  {#snippet fallback()}
-                    <div class="pin-unreadable">
-                      <button
-                        class="pin-unreadable-open"
-                        type="button"
-                        aria-label={$i18n.t('common.jumpToMessage')}
-                        onclick={() => jump(eventId)}
-                      >
-                        {$i18n.t('room.pinsUnreadable')}
-                      </button>
-                      {#if canPin}
-                        <IconButton
-                          variant="ghost"
-                          size="small"
-                          label={$i18n.t('timeline.unpinMessage')}
-                          onclick={() => void unpin(eventId)}
-                        >
-                          <PushPinSlashIcon />
-                        </IconButton>
-                      {/if}
-                    </div>
-                  {/snippet}
-                  {#snippet headerAction()}
-                    {#if canPin}
-                      <IconButton
-                        class="pin-unpin"
-                        variant="ghost"
-                        size="small"
-                        label={$i18n.t('timeline.unpinMessage')}
-                        onclick={() => void unpin(eventId)}
-                      >
-                        <PushPinSlashIcon />
-                      </IconButton>
-                    {/if}
-                  {/snippet}
-                </MessagePreview>
+                {#if !settled.has(eventId)}
+                  <p class="pin-status" role="status"><Spinner small /></p>
+                {:else}
+                  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+                  <div
+                    class="pin-open"
+                    onclick={(event) => {
+                      if (!opensFrom(event)) return;
+                      jump(eventId);
+                    }}
+                  >
+                    <MessagePreview
+                      {roomId}
+                      {eventId}
+                      item={entries.get(eventId) ?? null}
+                      {members}
+                      loadPreviewProfile
+                      timeAction={{
+                        label: $i18n.t('common.jumpToMessage'),
+                        run: () => jump(eventId),
+                      }}
+                      onJumpToEvent={jump}
+                      onOpenMedia={openMedia}
+                    >
+                      {#snippet fallback()}
+                        <div class="pin-unreadable">
+                          <button
+                            class="pin-unreadable-open"
+                            type="button"
+                            aria-label={$i18n.t('common.jumpToMessage')}
+                            onclick={() => jump(eventId)}
+                          >
+                            {$i18n.t('room.pinsUnreadable')}
+                          </button>
+                          {#if canPin}
+                            <IconButton
+                              variant="ghost"
+                              size="small"
+                              label={$i18n.t('timeline.unpinMessage')}
+                              onclick={() => void unpin(eventId)}
+                            >
+                              <PushPinSlashIcon />
+                            </IconButton>
+                          {/if}
+                        </div>
+                      {/snippet}
+                      {#snippet headerAction()}
+                        {#if canPin}
+                          <IconButton
+                            class="pin-unpin"
+                            variant="ghost"
+                            size="small"
+                            label={$i18n.t('timeline.unpinMessage')}
+                            onclick={() => void unpin(eventId)}
+                          >
+                            <PushPinSlashIcon />
+                          </IconButton>
+                        {/if}
+                      {/snippet}
+                    </MessagePreview>
+                  </div>
+                {/if}
               </div>
-            {/if}
-          </li>
-        {/each}
-        {#if displayed.length < ordered.length}
-          <li class="pin-status" {@attach nearEnd}><Spinner small /></li>
-        {/if}
-      </ul>
+            </div>
+          {/snippet}
+        </VirtualList>
+      </div>
     {/if}
   </IconContext>
 </ActionMenu>
@@ -424,11 +459,12 @@
   }
 
   .pin-list {
-    display: grid;
-    gap: var(--space-200);
-    list-style: none;
-    margin: 0;
-    padding: 0;
+    height: min(24rem, 60dvh);
+  }
+
+  .pin-row {
+    box-sizing: border-box;
+    padding-bottom: var(--space-200);
   }
 
   .pin-item {
