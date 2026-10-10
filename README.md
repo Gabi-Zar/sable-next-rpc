@@ -42,6 +42,37 @@ services:
       - ./config.json:/app/config.json:ro
 ```
 
+## Download
+
+Stable builds are on the [latest release](https://git.sable.moe/SableClient/sable-next/releases/latest), with build attestations.
+
+### Desktop
+
+<a href="https://git.sable.moe/SableClient/sable-next/releases/latest"><img alt="Download" src="https://img.shields.io/badge/Download-181717?style=for-the-badge&logo=forgejo"></a>
+&nbsp;
+<a href="https://flathub.org/apps/moe.sable.client"><img alt="Flathub" src="https://img.shields.io/badge/Flathub-4A86CF?style=for-the-badge&logo=flathub&logoColor=white"></a>
+&nbsp;
+<a href="https://aur.archlinux.org/packages/sable-bin"><img alt="AUR" src="https://img.shields.io/badge/AUR-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
+&nbsp;
+<a href="https://git.sable.moe/SableClient/homebrew-sable"><img alt="Homebrew" src="https://img.shields.io/badge/Homebrew-FBB040?style=for-the-badge&logo=homebrew&logoColor=black"></a>
+
+```sh
+brew install --cask SableClient/sable/sable   # macOS
+paru -S sable-bin                             # Arch (sable-nightly-bin for nightly)
+```
+
+### Android
+
+<a href="https://play.google.com/store/apps/details?id=moe.sable.client"><img alt="Google Play" src="https://img.shields.io/badge/Google_Play-3DDC84?style=for-the-badge&logo=googleplay&logoColor=white"></a>
+&nbsp;
+<a href="https://git.sable.moe/SableClient/sable-next/releases/latest"><img alt="Download APK" src="https://img.shields.io/badge/Download_APK-6B7280?style=for-the-badge&logo=android&logoColor=white"></a>
+
+### iOS
+
+<a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json"><img alt="Add to AltStore" src="https://img.shields.io/badge/Add_to_AltStore-7C3AED?style=for-the-badge"></a>
+&nbsp;
+<a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json"><img alt="Add to SideStore" src="https://img.shields.io/badge/Add_to_SideStore-2563EB?style=for-the-badge"></a>
+
 ## Apps (Tauri)
 
 Native builds use [Tauri](https://v2.tauri.app). Targets: **Windows**, **macOS**, **Linux**, **Android**, and **iOS**.
@@ -60,7 +91,7 @@ Every push to `main` publishes bundles for all five targets as a distinct
 [nightly prerelease](https://git.sable.moe/SableClient/sable-next/releases).
 Linux x86_64 and Android build here; macOS, Windows, iOS and Linux aarch64
 build on the GitHub mirror and attach their bundles, with attestations, to the
-same release. Tagged releases are not set up yet.
+same release. Pushing a `v*` tag publishes a stable release the same way.
 
 The web build ships with every release as `sable-<version>-web.tar.gz`.
 Extract it into your web root to serve the app yourself; see
@@ -82,7 +113,7 @@ invalid value shows an error and quits rather than starting without the proxy.
 
 ## Linux (Flatpak)
 
-Nightly builds have their own Flatpak remote, rebuilt from `main` on every push:
+Stable builds are on [Flathub](https://flathub.org/apps/moe.sable.client). Nightly builds have their own Flatpak remote, rebuilt from `main` on every push:
 
 ```sh
 flatpak remote-add --if-not-exists sable-next-nightly https://sableclient.github.io/sable-next/sable-next-nightly.flatpakrepo
@@ -94,7 +125,13 @@ Built by the `build-nightly-flatpak` and `publish-nightly-flatpak` jobs in
 
 ## Android (Obtainium)
 
-APKs ship with every build, and [Obtainium](https://obtainium.imranr.dev) updates them straight from Forgejo. Each build also publishes an `obtainium.json` app config.
+APKs ship with every build, and [Obtainium](https://obtainium.imranr.dev) updates them straight from Forgejo. Each nightly also publishes an `obtainium.json` app config.
+
+### Stable
+
+In Obtainium, tap **Add App**, enter `https://git.sable.moe/SableClient/sable-next`, and set the source to **Codeberg** (it also covers Forgejo). It follows stable releases only. Or [download the APK](https://git.sable.moe/SableClient/sable-next/releases/latest).
+
+### Nightly
 
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22moe.sable.next.nightly%22%2C%22url%22%3A%22https%3A%2F%2Fgit.sable.moe%2FSableClient%2Fsable-next%22%2C%22author%22%3A%22SableClient%22%2C%22name%22%3A%22Sable%20Next%20Nightly%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22about%5C%22%3A%5C%22The%20next%20Sable%20Matrix%20client%20(nightly)%5C%22%2C%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22filterReleaseTitlesByRegEx%5C%22%3A%5C%22%5ENightly%20build%20%5C%22%7D%22%2C%22overrideSource%22%3A%22Codeberg%22%7D"><img alt="Add to Obtainium" src="https://img.shields.io/badge/Add_to_Obtainium-6750A3?style=for-the-badge"></a>
 &nbsp;
@@ -112,7 +149,17 @@ Apps added before the move to per-build prereleases have to be removed and re-ad
 
 ## iOS (AltStore / SideStore)
 
-iOS builds are unsigned IPAs distributed through [AltStore](https://altstore.io) and [SideStore](https://sidestore.io). Each nightly publishes its IPA in its own prerelease; `altstore-source.json` lists them.
+iOS builds are unsigned IPAs distributed through [AltStore](https://altstore.io) and [SideStore](https://sidestore.io). Each release publishes its IPA with an `altstore-source.json` that lists it.
+
+### Stable source
+
+<a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json"><img alt="Add to AltStore" src="https://img.shields.io/badge/Add_to_AltStore-7C3AED?style=for-the-badge"></a>
+&nbsp;
+<a href="https://intradeus.github.io/http-protocol-redirector?r=sidestore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json"><img alt="Add to SideStore" src="https://img.shields.io/badge/Add_to_SideStore-2563EB?style=for-the-badge"></a>
+&nbsp;
+<a href="https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json"><img alt="Direct URL" src="https://img.shields.io/badge/Direct_URL-6B7280?style=for-the-badge"></a>
+
+### Nightly source
 
 <a href="https://intradeus.github.io/http-protocol-redirector?r=altstore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/nightly/altstore-source.json"><img alt="Add to AltStore" src="https://img.shields.io/badge/Add_to_AltStore-7C3AED?style=for-the-badge"></a>
 &nbsp;
@@ -123,9 +170,9 @@ iOS builds are unsigned IPAs distributed through [AltStore](https://altstore.io)
 ### Setup & install
 
 1. Set up [AltStore Classic](https://faq.altstore.io/altstore-classic/altserver) or [SideStore](https://docs.sidestore.io) on your device.
-2. Tap a button above, or add the source manually:
-   - AltStore: `altstore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/nightly/altstore-source.json`
-   - SideStore: `sidestore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/nightly/altstore-source.json`
+2. Tap a button above, or add the source manually (swap `latest` for `nightly` in the URL for the nightly channel):
+   - AltStore: `altstore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json`
+   - SideStore: `sidestore://source?url=https://git.sable.moe/SableClient/sable-next/releases/download/latest/altstore-source.json`
 3. Install Sable v2 from the source. AltStore/SideStore re-sign the unsigned IPA with your personal development certificate at install time, so apps refresh every 7 days on a free account.
 
 Both configs come from the `obtainium` and `altstore` jobs in [`tauri-build.yml`](.forgejo/workflows/tauri-build.yml).
