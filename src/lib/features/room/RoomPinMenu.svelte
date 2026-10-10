@@ -29,6 +29,8 @@
   import { timelineMediaItems } from './media/media-items.js';
   import type { MediaItem } from './media/media-viewer-types.js';
 
+  const PAGE_SIZE = 20;
+
   interface Props {
     roomId: string;
     members: readonly MemberView[];
@@ -62,9 +64,11 @@
   let pending = $state.raw<ReadonlySet<string>>(new Set());
   let marker = $state.raw<PinReadMarker | null>(null);
   let currentHash = $state<string | null>(null);
+  let visible = $state(PAGE_SIZE);
   let run = 0;
 
   let ordered = $derived([...shownIds].reverse());
+  let displayed = $derived(ordered.slice(0, visible));
   let unreadCount = $derived(unreadPinCount(pinnedIds, marker, currentHash));
   $effect(() => {
     onUnread?.(unreadCount);
@@ -127,14 +131,16 @@
       if (current !== run) return;
       pinnedIds = ids;
       shownIds = ids;
+      visible = PAGE_SIZE;
       entries = new Map(
         ids.flatMap((id) => {
           const item = entries.get(id) ?? eventItems.peek(target, id);
           return item ? [[id, item] as const] : [];
         })
       );
-      pending = new Set(ids.filter((id) => !entries.has(id)));
-      for (const id of ids) void resolve(target, id, current);
+      const first = [...ids].reverse().slice(0, PAGE_SIZE);
+      pending = new Set(first.filter((id) => !entries.has(id)));
+      void resolve(target, [...pending], current);
       await markSeen(target, ids);
     } catch (error) {
       console.debug('[sable room] pins unavailable', error);
@@ -143,18 +149,40 @@
     }
   }
 
-  async function resolve(target: string, id: string, current: number): Promise<void> {
+  async function resolve(target: string, ids: string[], current: number): Promise<void> {
+    if (ids.length === 0) return;
     try {
-      const items = await core.commands.eventItems(target, [id]);
-      const item = items.find((candidate) => candidate.event_id === id);
-      if (current !== run || !item) return;
-      entries = new Map([...entries, [id, item]]);
-      eventItems.put(target, [item]);
+      const items = await core.commands.eventItems(target, ids);
+      if (current !== run) return;
+      if (items.length > 0) {
+        entries = new Map([
+          ...entries,
+          ...items.flatMap((item) => (item.event_id ? [[item.event_id, item] as const] : [])),
+        ]);
+        eventItems.put(target, items);
+      }
     } catch (error) {
-      console.debug('[sable room] pin unavailable', error);
+      console.debug('[sable room] pins unavailable', error);
     } finally {
-      if (current === run) pending = new Set([...pending].filter((pendingId) => pendingId !== id));
+      if (current === run) pending = new Set([...pending].filter((id) => !ids.includes(id)));
     }
+  }
+
+  function showMore(): void {
+    const next = ordered.slice(visible, visible + PAGE_SIZE);
+    if (next.length === 0) return;
+    visible += PAGE_SIZE;
+    const missing = next.filter((id) => !entries.has(id));
+    pending = new Set([...pending, ...missing]);
+    void resolve(roomId, missing, run);
+  }
+
+  function nearEnd(node: HTMLElement) {
+    const observer = new IntersectionObserver((hits) => {
+      if (hits.some((hit) => hit.isIntersecting)) showMore();
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
   }
 
   async function markSeen(target: string, ids: readonly string[]): Promise<void> {
@@ -191,7 +219,7 @@
   }
 
   function openMedia(eventId: string): void {
-    const items = timelineMediaItems(ordered.flatMap((id) => entries.get(id) ?? []));
+    const items = timelineMediaItems(displayed.flatMap((id) => entries.get(id) ?? []));
     open = false;
     void afterOverlayPops().then(() => onOpenMedia(items, eventId));
   }
@@ -246,7 +274,7 @@
       </div>
     {:else}
       <ul class="pin-list">
-        {#each ordered as eventId (eventId)}
+        {#each displayed as eventId (eventId)}
           <li class="pin-item" class:fresh={isNewPin(pinnedIds, marker, eventId)}>
             {#if pending.has(eventId)}
               <p class="pin-status" role="status"><Spinner small /></p>
@@ -309,6 +337,9 @@
             {/if}
           </li>
         {/each}
+        {#if displayed.length < ordered.length}
+          <li class="pin-status" {@attach nearEnd}><Spinner small /></li>
+        {/if}
       </ul>
     {/if}
   </IconContext>
