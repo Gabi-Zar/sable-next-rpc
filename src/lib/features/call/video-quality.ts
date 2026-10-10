@@ -17,12 +17,18 @@ export function videoResolution(value: CallVideoResolution): VideoResolution | u
   return { width: Math.round((height * 16) / 9), height };
 }
 
-const SCREEN_DEFAULT_RESOLUTION: VideoResolution = { width: 1920, height: 1080 };
+const SCREEN_DEFAULT_HEIGHT = 1080;
 const SCREEN_DEFAULT_BITRATE_KBPS: Record<'15' | '30' | '60', number> = {
   '15': 3000,
   '30': 5000,
   '60': 8000,
 };
+
+function displayResolution(): VideoResolution {
+  const aspect = screen.width / screen.height;
+  const height = Math.min(screen.height * devicePixelRatio, SCREEN_DEFAULT_HEIGHT);
+  return { width: Math.round(height * aspect), height: Math.round(height) };
+}
 
 export function screenCaptureOptions(
   resolution: CallVideoResolution,
@@ -30,7 +36,8 @@ export function screenCaptureOptions(
 ): ScreenShareCaptureOptions {
   const size = videoResolution(resolution);
   if (framerate === 'auto') return size ? { resolution: size } : {};
-  return { resolution: { ...(size ?? SCREEN_DEFAULT_RESOLUTION), frameRate: Number(framerate) } };
+  const frameRate = Number(framerate);
+  return { resolution: { ...(size ?? displayResolution()), frameRate } };
 }
 
 export function videoPublishOptions(
