@@ -1130,8 +1130,6 @@
   {/snippet}
 
   <div class="room-nav-content">
-    <RoomInvites {collapsed} {invites} />
-
     <div class="room-nav-actions" class:collapsed>
       {#snippet action(href: string, label: string, icon: Component)}
         {@const Icon = icon}
@@ -1203,6 +1201,8 @@
         {onNavigate}
       />
     {/if}
+
+    <RoomInvites {collapsed} {invites} />
 
     {#if favourites.length > 0}
       {#if !collapsed}

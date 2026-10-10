@@ -100,7 +100,7 @@
   .invites {
     background: var(--surface-var-container);
     border-radius: var(--radius-inner);
-    margin-bottom: var(--space-100);
+    margin-bottom: var(--space-200);
     padding: var(--space-200);
   }
 
