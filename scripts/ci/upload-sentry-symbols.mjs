@@ -1,5 +1,5 @@
 import { readdir, access } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
@@ -85,18 +85,18 @@ async function main() {
     if (values.ios && !files.some((path) => path.endsWith('.app.dSYM'))) {
       throw new Error(`Missing iOS app dSYM: ${root}`);
     }
-    if (process.platform === 'darwin') {
-      for (const binary of files.filter((path) => binaries.includes(basename(path)))) {
-        execFileSync('dsymutil', [binary, '-o', `${binary}.dSYM`], { stdio: 'inherit' });
-      }
-    }
+    const dsyms = new Set(files.filter((path) => path.endsWith('.dSYM')));
     for (const file of files) {
       let debugFile = file;
       if (file.endsWith('.exe')) {
-        debugFile = file.replace(/\.exe$/, '.pdb');
+        debugFile = join(dirname(file), 'app.pdb');
         await access(debugFile);
       } else if (process.platform === 'darwin' && binaries.includes(basename(file))) {
-        debugFile = `${file}.dSYM`;
+        debugFile = join(dirname(file), 'app.dSYM');
+        if (!dsyms.has(debugFile)) {
+          if (file.split(sep).includes('universal-apple-darwin')) continue;
+          execFileSync('dsymutil', [file, '-o', debugFile], { stdio: 'inherit' });
+        }
       }
       const fileIds = await debugIds(debugFile);
       if (file !== debugFile) {
