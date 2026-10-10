@@ -20,6 +20,7 @@
     isNewPin,
     PIN_MARKER_EVENT_TYPE,
     pinsHash,
+    readPinMarker,
     unreadPinCount,
     type PinReadMarker,
   } from './timeline/pin-marker';
@@ -111,24 +112,11 @@
       if (current !== run) return;
 
       pinnedIds = ids;
-      marker = readMarker(stored);
+      marker = readPinMarker(stored);
       currentHash = await pinsHash(ids);
     } catch (error) {
       console.debug('[sable room] pins unavailable', error);
     }
-  }
-
-  function readMarker(stored: unknown): PinReadMarker | null {
-    if (typeof stored !== 'object' || stored === null) return null;
-    const candidate = stored as Partial<PinReadMarker>;
-    if (typeof candidate.hash !== 'string' || typeof candidate.last_seen_id !== 'string') {
-      return null;
-    }
-    return {
-      hash: candidate.hash,
-      count: typeof candidate.count === 'number' ? candidate.count : 0,
-      last_seen_id: candidate.last_seen_id,
-    };
   }
 
   async function load(): Promise<void> {
