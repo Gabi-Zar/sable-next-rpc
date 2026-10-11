@@ -1131,13 +1131,13 @@ const SPOILER_PLACEHOLDER: &str = "[Spoiler]";
 #[must_use]
 pub fn preview_body(body: &str, formatted: Option<&str>) -> String {
     let Some(formatted) = formatted else {
-        return hide_spoiler_bars(body);
+        return body.to_owned();
     };
     if nests_too_deeply(formatted) {
         return if formatted.contains(SPOILER_ATTRIBUTE) {
             SPOILER_PLACEHOLDER.to_owned()
         } else {
-            hide_spoiler_bars(body)
+            body.to_owned()
         };
     }
     let html = Html::parse(formatted);
@@ -1147,7 +1147,11 @@ pub fn preview_body(body: &str, formatted: Option<&str>) -> String {
         push_preview_text(&node, &mut text);
     }
     let text = text.trim_end_matches('\n');
-    hide_spoiler_bars(if text.is_empty() { body } else { text })
+    if text.is_empty() {
+        body.to_owned()
+    } else {
+        hide_spoiler_bars(text)
+    }
 }
 
 fn push_preview_text(node: &NodeRef, out: &mut String) {
@@ -1241,15 +1245,15 @@ fn render_html(body: &str, formatted: Option<&str>) -> String {
     match sanitized {
         Some(html) if !html.trim().is_empty() => html,
         _ if body.is_empty() => String::new(),
-        _ => format!("<span data-plain-body>{}</span>", render_plain_text(body)),
+        _ => format!("<span data-plain-body>{}</span>", linkify_urls(body)),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        display_html, preview_body, render_plain_text, rewrite_markup, strip_profile_fallback_body,
-        strip_profile_fallback_html,
+        display_html, escape_html, preview_body, render_plain_text, rewrite_markup,
+        strip_profile_fallback_body, strip_profile_fallback_html,
     };
 
     #[test]
@@ -1540,7 +1544,6 @@ mod tests {
                 "{formatted}"
             );
         }
-        assert!(display_html("a ||b|| c", None).contains("data-mx-spoiler"));
     }
 
     #[test]
@@ -1549,7 +1552,22 @@ mod tests {
             preview_body("x", Some("see ||this|| now")),
             "see [Spoiler] now"
         );
-        assert_eq!(preview_body("see ||this|| now", None), "see [Spoiler] now");
+    }
+
+    #[test]
+    fn a_plain_body_is_never_read_as_markup() {
+        for body in [
+            "a **b** and *c* and __d__ and ~~e~~ `f`",
+            "so. ||i could see it|| yes",
+            "see $x^2$ now and $$a<b$$",
+            "at $[unixtime 0] $[fg.color=f00 red]",
+        ] {
+            assert_eq!(
+                display_html(body, None),
+                format!("<span data-plain-body>{}</span>", escape_html(body))
+            );
+            assert_eq!(preview_body(body, None), body);
+        }
     }
 
     #[test]
@@ -1677,14 +1695,14 @@ mod tests {
     }
 
     #[test]
-    fn plain_text_maths_becomes_a_maths_element() {
+    fn formatted_text_maths_becomes_a_maths_element() {
         assert_eq!(
-            display_html("see $x^2$ now", None),
-            "<span data-plain-body>see <span data-mx-maths=\"x^2\"><code>x^2</code></span> now</span>"
+            display_html("", Some("see $x^2$ now")),
+            "see <span data-mx-maths=\"x^2\"><code>x^2</code></span> now"
         );
         assert_eq!(
-            display_html("$$a<b$$", None),
-            "<span data-plain-body><div data-mx-maths=\"a&lt;b\"><code>a&lt;b</code></div></span>"
+            display_html("", Some("$$a&lt;b$$")),
+            "<div data-mx-maths=\"a&lt;b\"><code>a&lt;b</code></div>"
         );
     }
 
@@ -1698,7 +1716,7 @@ mod tests {
             "$[unixtime 1]",
         ] {
             assert!(
-                !display_html(body, None).contains("data-mx-maths"),
+                !display_html("", Some(body)).contains("data-mx-maths"),
                 "{body}"
             );
         }
@@ -1864,17 +1882,17 @@ mod tests {
     }
 
     #[test]
-    fn renders_mfm_time_and_nested_colors_in_plain_text() {
+    fn renders_mfm_time_and_nested_colors_in_formatted_text() {
         let html = display_html(
-            "at $[unixtime 0] $[fg.color=abc bg.color=123456 red $[bg.color=f00 hot]]",
-            None,
+            "",
+            Some("at $[unixtime 0] $[fg.color=abc bg.color=123456 red $[bg.color=f00 hot]]"),
         );
 
         assert!(
             html.contains("<time datetime=\"1970-01-01T00:00:00Z\">1 Jan 1970, 00:00 (UTC)</time>")
         );
         assert!(html.contains(
-            "<span data-mx-color=\"#aabbcc\" data-mx-bg-color=\"#123456\">red <span data-mx-bg-color=\"#ff0000\">hot</span></span>"
+            "<span data-mx-bg-color=\"#123456\" data-mx-color=\"#aabbcc\">red <span data-mx-bg-color=\"#ff0000\">hot</span></span>"
         ));
     }
 
