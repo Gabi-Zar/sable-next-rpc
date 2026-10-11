@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { on } from 'svelte/events';
   import { RoomEvent, Track, type Participant, type RemoteTrack } from 'livekit-client';
   import type { Room as LivekitRoom } from 'livekit-client';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -63,6 +64,9 @@
       const graph: Filtered = { source, gain };
       source.connect(gain).connect(context.destination);
       filtered.set(element, graph);
+      on(element, 'volumechange', () => {
+        if (filtered.get(element) === graph && !element.muted) element.muted = true;
+      });
       void context.resume().catch(ignoreError);
       currentBank
         .create()
