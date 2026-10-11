@@ -55,6 +55,7 @@ import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
 import SmileyIcon from 'phosphor-svelte/lib/SmileyIcon';
 import StickerIcon from 'phosphor-svelte/lib/StickerIcon';
 import SubtitlesIcon from 'phosphor-svelte/lib/SubtitlesIcon';
+import TargetIcon from 'phosphor-svelte/lib/TargetIcon';
 import TextAaIcon from 'phosphor-svelte/lib/TextAaIcon';
 import TextAlignLeftIcon from 'phosphor-svelte/lib/TextAlignLeftIcon';
 import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
@@ -1352,6 +1353,44 @@ export const settingsCategories: SettingsCategory[] = [
         name: 'settings.youtubeEmbeds',
         type: 'boolean',
         gatedBy: 'clientEmbeds',
+      },
+      {
+        key: 'useDearrow',
+        section: 'embeds',
+        icon: TargetIcon,
+        name: 'settings.useDearrow',
+        description: 'settings.useDearrowHint',
+        type: 'boolean',
+        gatedBy: 'youtubeEmbeds',
+      },
+      {
+        key: 'dearrowThumbnailFallback',
+        section: 'embeds',
+        icon: ImageIcon,
+        name: 'settings.dearrowThumbnailFallback',
+        description: 'settings.dearrowThumbnailFallbackHint',
+        type: 'select',
+        gatedBy: 'useDearrow',
+        options: [
+          { value: 'random', label: 'settings.dearrowThumbnailRandom' },
+          { value: 'original', label: 'settings.dearrowThumbnailOriginal' },
+          { value: 'youtube_autogen', label: 'settings.dearrowThumbnailYoutubeAutogen' },
+        ],
+      },
+      {
+        key: 'youtubeThumbnailPosition',
+        section: 'embeds',
+        icon: ImageIcon,
+        name: 'settings.youtubeThumbnailPosition',
+        description: 'settings.youtubeThumbnailPositionHint',
+        type: 'select',
+        gatedBy: 'useDearrow',
+        options: [
+          { value: 'start', label: 'settings.youtubeThumbnailPositionStart' },
+          { value: 'middle', label: 'settings.youtubeThumbnailPositionMiddle' },
+          { value: 'end', label: 'settings.youtubeThumbnailPositionEnd' },
+        ],
+        supported: () => preferences.dearrowThumbnailFallback !== 'original',
       },
       {
         key: 'tiktokEmbeds',
