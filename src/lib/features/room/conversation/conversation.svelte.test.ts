@@ -548,6 +548,17 @@ function encryptedScheduleFailure(): Error {
   return error;
 }
 
+test('an edit that changes nothing sends no event', async () => {
+  const { conversation, editMessage } = setup(
+    [item('$original', '@kris:example.org')],
+    '@kris:example.org'
+  );
+  conversation.edit('$original', 'same');
+  await conversation.sendMessage(ROOM, 'same');
+  expect(editMessage).not.toHaveBeenCalled();
+  expect(conversation.context).toBeNull();
+});
+
 test('an empty caption edit keeps the attachment', async () => {
   const { conversation, editMessage } = setup([], '@kris:example.org');
   conversation.edit('$image', 'caption', null, true);
