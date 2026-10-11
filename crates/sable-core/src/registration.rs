@@ -199,6 +199,7 @@ impl Core {
             &store_id,
             PersistedSession {
                 oauth_issuer: None,
+                oauth_redirect_uri: None,
                 resolved_homeserver: Some(endpoint),
                 homeserver,
                 credentials: Credentials::Password(matrix),

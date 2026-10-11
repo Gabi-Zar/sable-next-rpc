@@ -45,6 +45,7 @@ pub fn current_session(client: &Client, homeserver: String) -> Option<PersistedS
     if let Some(full) = client.oauth().full_session() {
         return Some(PersistedSession {
             oauth_issuer: None,
+            oauth_redirect_uri: None,
             resolved_homeserver: Some(client.homeserver()),
             homeserver,
             credentials: Credentials::oauth(full),
@@ -56,6 +57,7 @@ pub fn current_session(client: &Client, homeserver: String) -> Option<PersistedS
         .session()
         .map(|matrix| PersistedSession {
             oauth_issuer: None,
+            oauth_redirect_uri: None,
             resolved_homeserver: Some(client.homeserver()),
             homeserver,
             credentials: Credentials::Password(matrix),
@@ -78,6 +80,8 @@ pub enum Credentials {
 pub struct PersistedSession {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub oauth_issuer: Option<Url>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub oauth_redirect_uri: Option<Url>,
     #[serde(default)]
     pub resolved_homeserver: Option<Url>,
     pub homeserver: String,
@@ -88,6 +92,10 @@ impl PersistedSession {
     #[must_use]
     pub fn keeping_endpoint_of(mut self, previous: &Self) -> Self {
         self.oauth_issuer.clone_from(&previous.oauth_issuer);
+        if self.oauth_redirect_uri.is_none() {
+            self.oauth_redirect_uri
+                .clone_from(&previous.oauth_redirect_uri);
+        }
         if previous.resolved_homeserver.is_some() {
             self.resolved_homeserver
                 .clone_from(&previous.resolved_homeserver);
@@ -689,17 +697,33 @@ fn metadata_with(redirect_uri: &Url, device_code: bool) -> Raw<ClientMetadata> {
     Raw::new(&metadata).expect("client metadata serializes")
 }
 
+#[must_use]
+pub fn registered_redirect_uri(session: &PersistedSession, requested: &Url) -> Url {
+    if let Some(uri) = &session.oauth_redirect_uri {
+        return uri.clone();
+    }
+    if matches!(requested.scheme(), "http" | "https") {
+        return requested.clone();
+    }
+    let legacy = if session.oauth_issuer.is_some() {
+        "moe.sable.app:/login"
+    } else {
+        "moe.sable.next:/login"
+    };
+    Url::parse(legacy).unwrap_or_else(|_| requested.clone())
+}
+
 fn canonical_client_uri() -> Url {
     #[expect(
         clippy::expect_used,
         reason = "this compile-time URL is part of the OAuth protocol contract"
     )]
     {
-        Url::parse("https://next.sable.moe").expect("static URL is valid")
+        Url::parse("https://app.sable.moe").expect("static URL is valid")
     }
 }
 
-/// `moe.sable.next` -> `https://next.sable.moe`
+/// `moe.sable.app` -> `https://app.sable.moe`
 fn reverse_dns_url(scheme: &str) -> Url {
     let host = scheme.split('.').rev().collect::<Vec<_>>().join(".");
     Url::parse(&format!("https://{host}")).unwrap_or_else(|_| canonical_client_uri())
@@ -784,8 +808,33 @@ mod tests {
 
     use super::{
         AccountRegistry, PROXIED_SESSION_TIMEOUT, SESSION_TIMEOUT, account_store_id,
-        build_account_client, removable_account_store, repair_room_key_sharing, session_timeout,
+        build_account_client, registered_redirect_uri, removable_account_store,
+        repair_room_key_sharing, session_timeout,
     };
+
+    #[test]
+    fn re_authentication_reuses_the_redirect_the_client_was_registered_with() {
+        let (mut registry, _) =
+            AccountRegistry::from_bytes(&registry_json("unused"), "unused").unwrap();
+        let mut session = registry.accounts.remove(0).session;
+        let app = url::Url::parse("moe.sable.app:/login").unwrap();
+        let next = url::Url::parse("moe.sable.next:/login").unwrap();
+        let web = url::Url::parse("https://app.sable.moe/login").unwrap();
+
+        assert_eq!(registered_redirect_uri(&session, &app), next);
+        assert_eq!(registered_redirect_uri(&session, &web), web);
+        session.oauth_issuer = Some(url::Url::parse("https://issuer.example.org").unwrap());
+        assert_eq!(registered_redirect_uri(&session, &next), app);
+        session.oauth_redirect_uri = Some(next.clone());
+        assert_eq!(registered_redirect_uri(&session, &app), next);
+
+        let mut refreshed = session.clone();
+        refreshed.oauth_redirect_uri = None;
+        assert_eq!(
+            refreshed.keeping_endpoint_of(&session).oauth_redirect_uri,
+            Some(next)
+        );
+    }
 
     #[test]
     fn a_proxy_allows_slow_session_requests() {
