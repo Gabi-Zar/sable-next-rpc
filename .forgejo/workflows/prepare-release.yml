@@ -47,6 +47,6 @@ jobs:
           git config user.email 'release@sable.moe'
 
       - name: Prepare release
-        run: mise run knope -- prepare-release --verbose --override-version 2.0.1
+        run: mise run knope -- prepare-release --verbose
         env:
           FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
