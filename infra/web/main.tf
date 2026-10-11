@@ -45,3 +45,15 @@ resource "cloudflare_workers_custom_domain" "site" {
 
   depends_on = [cloudflare_workers_deployment.site]
 }
+
+resource "cloudflare_workers_custom_domain" "alias" {
+  for_each = toset(var.alias_domains)
+
+  account_id  = var.account_id
+  environment = "production"
+  hostname    = each.value
+  service     = cloudflare_worker.site.name
+  zone_id     = var.zone_id
+
+  depends_on = [cloudflare_workers_deployment.site]
+}
