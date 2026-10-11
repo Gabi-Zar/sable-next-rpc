@@ -115,6 +115,7 @@ jobs:
       TF_HTTP_UNLOCK_ADDRESS: ${{ needs.detect.outputs.production == 'true' && secrets.TF_HTTP_UNLOCK_ADDRESS_PRODUCTION || secrets.TF_HTTP_UNLOCK_ADDRESS }}
       TF_VAR_custom_domain: ${{ needs.detect.outputs.production == 'true' && secrets.TF_VAR_CUSTOM_DOMAIN_PRODUCTION || secrets.TF_VAR_CUSTOM_DOMAIN }}
       TF_VAR_worker_name: ${{ needs.detect.outputs.production == 'true' && secrets.TF_VAR_WORKER_NAME_PRODUCTION || secrets.TF_VAR_WORKER_NAME }}
+      TF_VAR_alias_domains: ${{ needs.detect.outputs.production == 'true' && '[]' || '["dev.sable.moe"]' }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -164,6 +165,7 @@ jobs:
       TF_HTTP_UNLOCK_ADDRESS: ${{ needs.detect.outputs.production == 'true' && secrets.TF_HTTP_UNLOCK_ADDRESS_PRODUCTION || secrets.TF_HTTP_UNLOCK_ADDRESS }}
       TF_VAR_custom_domain: ${{ needs.detect.outputs.production == 'true' && secrets.TF_VAR_CUSTOM_DOMAIN_PRODUCTION || secrets.TF_VAR_CUSTOM_DOMAIN }}
       TF_VAR_worker_name: ${{ needs.detect.outputs.production == 'true' && secrets.TF_VAR_WORKER_NAME_PRODUCTION || secrets.TF_VAR_WORKER_NAME }}
+      TF_VAR_alias_domains: ${{ needs.detect.outputs.production == 'true' && '[]' || '["dev.sable.moe"]' }}
     concurrency:
       group: cloudflare-infra-${{ needs.detect.outputs.production == 'true' && 'production' || 'development' }}
       cancel-in-progress: false

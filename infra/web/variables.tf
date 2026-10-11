@@ -4,6 +4,12 @@ variable "account_id" {
   sensitive   = true
 }
 
+variable "alias_domains" {
+  description = "Additional custom domains attached to the Worker"
+  type        = list(string)
+  default     = []
+}
+
 variable "custom_domain" {
   description = "Custom domain attached to the Worker"
   type        = string
