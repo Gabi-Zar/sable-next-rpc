@@ -176,7 +176,8 @@
     if (!file || importing) return;
     await importMembers(
       async () => parsePluralkitExport(await file.text()),
-      'personas.importFileFailed'
+      'personas.importFileFailed',
+      { extractPronouns: pkExtractPronouns }
     );
   }
 
