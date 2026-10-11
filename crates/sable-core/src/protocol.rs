@@ -1367,6 +1367,8 @@ pub enum Command {
         intent: Option<CallIntent>,
     },
 
+    CallCompatibility,
+
     CallSupport {
         #[cfg_attr(feature = "typegen", specta(type = String))]
         room_id: OwnedRoomId,
@@ -1491,11 +1493,15 @@ pub enum CommandOk {
         identity: String,
         encrypt_media: bool,
         mode: CallMode,
+        mode_reason: CallModeReason,
+        sticky_available: bool,
+        peer_modes: Vec<CallMode>,
         can_publish: bool,
         publisher_id: String,
         backends: Vec<CallBackendView>,
     },
     CallSupport(CallSupportView),
+    CallCompatibility(CallCompatibilityView),
     LeaveCall,
     SetCallScreenSharing,
     DeclineCall,
@@ -2568,6 +2574,17 @@ pub enum CallMode {
     Matrix2,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum CallModeReason {
+    Requested,
+    StickyOnly,
+    LegacyPeer,
+    StickyPeer,
+    Fresh,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
@@ -3318,6 +3335,23 @@ pub struct RoomPowerLevelsView {
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct CallCompatibilityView {
+    pub sticky_events: bool,
+    pub delayed_events: bool,
+    pub rtc_transports: RtcTransportSource,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum RtcTransportSource {
+    Endpoint,
+    WellKnown,
+    None,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct CallSupportView {
     pub has_focus: bool,

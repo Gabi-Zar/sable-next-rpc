@@ -25,6 +25,7 @@ import { createNativeTransport } from './native-transport';
 import { hasNativeCalls } from '#lib/platform/calls.js';
 import { commandErrorCode } from './command-error';
 import { CallTelemetry } from './call-telemetry';
+import { recordCallDebug } from './call-debug.svelte.js';
 import { cameraVisible, screenShareVisible, type CallPin } from './call-layout';
 import { participantKeys } from './participant-keys';
 import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
@@ -263,7 +264,11 @@ export class CallSession {
         this.#client.commands.joinCall(
           roomId,
           serviceUrl,
-          hasNativeCalls() || preferences.forceLegacyCalls ? 'legacy' : null,
+          hasNativeCalls()
+            ? 'legacy'
+            : preferences.callMode === 'auto'
+              ? null
+              : preferences.callMode,
           media.camera ? 'video' : 'audio'
         )
       );
@@ -307,13 +312,28 @@ export class CallSession {
       }
       this.#media = transport;
       this.#livekit = isLivekit(transport) ? transport : undefined;
+      const transportKind = this.#livekit
+        ? 'livekit-web'
+        : grant.backends?.length
+          ? 'livekit-multi'
+          : 'native';
+      recordCallDebug({
+        requested: preferences.callMode,
+        nativeForced: hasNativeCalls(),
+        mode: grant.mode ?? 'legacy',
+        reason: grant.modeReason,
+        stickyAvailable: grant.stickyAvailable,
+        peerModes: grant.peerModes ?? [],
+        transport: transportKind,
+        backendCount: grant.backends?.length ?? 0,
+        encrypted: grant.encryptMedia,
+      });
       telemetry.event('call.transport.selected', {
-        'call.transport': this.#livekit
-          ? 'livekit-web'
-          : grant.backends?.length
-            ? 'livekit-multi'
-            : 'native',
+        'call.transport': transportKind,
         'call.mode': grant.mode ?? 'legacy',
+        'call.mode_reason': grant.modeReason ?? 'unknown',
+        'call.sticky_available': grant.stickyAvailable ?? false,
+        'call.peer_modes': (grant.peerModes ?? []).join(',') || 'none',
         'call.backend_count': grant.backends?.length ?? 0,
         'call.encryption_requested': grant.encryptMedia,
       });

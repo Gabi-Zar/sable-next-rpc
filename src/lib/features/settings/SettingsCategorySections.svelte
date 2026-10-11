@@ -85,7 +85,39 @@
         control={setting.type === 'boolean' && !disabled ? `${anchor}-switch` : undefined}
         class={setting.gatedBy !== undefined ? 'gated' : undefined}
       >
-        {#if setting.type === 'select'}
+        {#if setting.type === 'select' && setting.display === 'steps'}
+          {@const key = setting.key}
+          {@const current = String(setting.getValue?.() ?? preferences[key])}
+          {@const index = Math.max(
+            0,
+            setting.options.findIndex((option) => option.value === current)
+          )}
+          <div class="steps">
+            <Slider
+              {disabled}
+              requireThumbForTouch
+              min={0}
+              max={setting.options.length - 1}
+              step={1}
+              label={$i18n.t(setting.name)}
+              value={index}
+              oninput={(next) => {
+                const value = setting.options[next]?.value;
+                if (value === undefined || value === current) return;
+                if (setting.setValue) setting.setValue(value);
+                else setPreference(key, value as Preferences[typeof key]);
+                setting.onChange?.(value);
+              }}
+            />
+            <ol class="step-labels" aria-hidden="true">
+              {#each setting.options as option, position (option.value)}
+                <li class:active={position === index}>
+                  {option.literal ? option.label : $i18n.t(option.label)}
+                </li>
+              {/each}
+            </ol>
+          </div>
+        {:else if setting.type === 'select'}
           {@const key = setting.key}
           <Select
             {disabled}
@@ -205,6 +237,27 @@
     display: grid;
     gap: var(--space-300);
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .steps {
+    display: grid;
+    gap: var(--space-100);
+    inline-size: min(22rem, 100%);
+  }
+
+  .step-labels {
+    display: flex;
+    font-size: var(--font-size-small);
+    justify-content: space-between;
+    list-style: none;
+    margin: 0;
+    opacity: var(--opacity-secondary);
+    padding: 0;
+  }
+
+  .step-labels .active {
+    font-weight: var(--font-weight-medium);
+    opacity: 1;
   }
 
   .settings-card {

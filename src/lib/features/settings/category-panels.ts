@@ -7,6 +7,7 @@ import { preferences } from '#lib/settings/preferences.svelte.js';
 import { SETTINGS_ACCOUNT_SECTION } from '#lib/settings/registry.js';
 
 import AppIconSettings from '#lib/features/settings/AppIconSettings.svelte';
+import CallCompatibilityDebug from '#lib/features/settings/CallCompatibilityDebug.svelte';
 import CallDeviceSettings from '#lib/features/call/CallDeviceSettings.svelte';
 import ComposerButtons from '#lib/features/settings/ComposerButtons.svelte';
 import ComposerEnterSetting from '#lib/features/settings/ComposerEnterSetting.svelte';
@@ -75,6 +76,7 @@ export const categoryPanels: Record<string, CategoryPanel[]> = {
       section: 'call-devices',
       when: () => !hasNativeCalls(),
     },
+    { component: CallCompatibilityDebug, section: 'call-compat' },
   ],
   privacy: [{ component: MediaPreviewPrivacy, section: 'blurring', start: true }],
   personas: [{ component: PersonaSettings }],

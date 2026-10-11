@@ -60,6 +60,9 @@ export type LatchScope = 'off' | 'room' | 'account';
 export type ReplyPreviewStyle = 'connected' | 'compact' | 'expanded';
 export type CaptionPosition = 'above' | 'below' | 'inline' | 'hidden';
 export type UsernameClick = 'mention' | 'profile';
+export const CALL_MODES = ['auto', 'legacy', 'compatibility', 'matrix_2'] as const;
+export type CallModePreference = (typeof CALL_MODES)[number];
+
 export type CallRingtoneVolume = 'quiet' | 'normal' | 'loud';
 export const CALL_VIDEO_RESOLUTIONS = [
   'auto',
@@ -314,7 +317,7 @@ export interface Preferences {
   ringForGroupCalls: boolean;
   alwaysShowCallButton: boolean;
   callScreenPreview: boolean;
-  forceLegacyCalls: boolean;
+  callMode: CallModePreference;
   incomingCallSound: boolean;
   outgoingRingback: boolean;
   callRingtoneVolume: CallRingtoneVolume;
@@ -418,6 +421,7 @@ const ENUMS = {
   replyPreviewStyle: ['connected', 'compact', 'expanded'],
   captionPosition: ['above', 'below', 'inline', 'hidden'],
   usernameClick: ['mention', 'profile'],
+  callMode: CALL_MODES,
   callRingtoneVolume: ['quiet', 'normal', 'loud'],
   callCameraResolution: CALL_VIDEO_RESOLUTIONS,
   callCameraBitrate: CALL_VIDEO_BITRATES,
@@ -600,7 +604,7 @@ const DEFAULTS: Preferences = {
   ringForGroupCalls: false,
   alwaysShowCallButton: false,
   callScreenPreview: true,
-  forceLegacyCalls: false,
+  callMode: 'auto',
   incomingCallSound: true,
   outgoingRingback: true,
   callRingtoneVolume: 'normal',
@@ -671,6 +675,9 @@ export function sanitize(stored: Record<string, unknown>, base: Preferences): Pr
   for (const key of PREFERENCE_KEYS) {
     let value = key === 'enterForNewline' ? legacyEnterKey(stored[key]) : stored[key];
     if (key === 'mediaAutoLoad' && typeof value === 'boolean') value = value ? 'on' : 'off';
+    if (key === 'callMode' && value === undefined && stored.forceLegacyCalls === true) {
+      value = 'legacy';
+    }
     const allowed: readonly string[] | undefined =
       key in ENUMS ? ENUMS[key as keyof typeof ENUMS] : undefined;
     if (allowed) {
