@@ -891,7 +891,7 @@
   }
 
   .board.sheet {
-    height: min(24rem, calc(100dvh - 7rem));
+    height: min(36rem, calc(100dvh - 7rem));
     width: 100%;
   }
 
