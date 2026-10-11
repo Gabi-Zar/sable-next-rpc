@@ -181,6 +181,28 @@ test('pressing Enter in the shortcode field saves the rename', async () => {
   expect(applied[0].images.map((image) => image.shortcode)).toEqual(['hello']);
 });
 
+test('the body of an image can be edited and saved', async () => {
+  const applied: PackDraft[] = [];
+  render(ImagePackEditor, {
+    props: {
+      pack: pack(['sticker']),
+      canEdit: true,
+      onApply: (draft: PackDraft) => {
+        applied.push(draft);
+        return Promise.resolve();
+      },
+    },
+  });
+
+  await userEvent.click(screen.getByRole('button', { name: /rename/i }));
+  await userEvent.type(screen.getByRole('textbox', { name: 'Body' }), 'a waving blob{Enter}');
+
+  await vi.waitFor(() => {
+    expect(applied).toHaveLength(1);
+  });
+  expect(applied[0].images.map((image) => image.body)).toEqual(['a waving blob']);
+});
+
 test('an image can be switched from sticker to emoji and saved', async () => {
   const applied: PackDraft[] = [];
   render(ImagePackEditor, {
