@@ -231,3 +231,9 @@ test('an explicit matrix.to link stays a link and is re-marked on serialise', ()
   expect(mentions).toBe(0);
   expect(html(doc)).toContain('data-org.matrix.msc4550.link');
 });
+
+test('a bare matrix.to link is not marked explicit on serialise', () => {
+  const href = 'https://matrix.to/#/!room:example.org/$event';
+  const doc = parse(`<a href="${href}">${href}</a>`);
+  expect(html(doc)).not.toContain('msc4550');
+});
