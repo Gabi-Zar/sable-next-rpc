@@ -462,7 +462,7 @@
 <style>
   :global(.room-options-menu) {
     --menu-min-width: 12rem;
-    --menu-max-height: 20rem;
+    --menu-max-height: var(--bits-floating-available-height, 100dvh);
   }
 
   :global(.room-options-trigger) {
