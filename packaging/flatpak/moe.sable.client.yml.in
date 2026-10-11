@@ -15,7 +15,6 @@ command: sable
 
 finish-args:
   - --socket=x11
-  - --socket=wayland
   - --env=GDK_BACKEND=x11
   - --share=ipc
   - --device=dri
@@ -26,7 +25,6 @@ finish-args:
   - --system-talk-name=org.freedesktop.RealtimeKit1
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.freedesktop.Notifications
-  - --own-name=moe.sable.client.SingleInstance
   - --talk-name=org.kde.StatusNotifierWatcher
   - --filesystem=xdg-download
   - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
