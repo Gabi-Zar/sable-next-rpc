@@ -7,6 +7,7 @@ import { adminSuggestions, type AdminCommand, type AdminScope } from './admin-co
 import type { AutocompleteQuery, Suggestion } from './autocomplete';
 import { botCommandId, botCommandNames, type BotCommand } from './bot-commands';
 import { descriptionKey, SLASH_COMMANDS } from './slash-commands';
+import { byUsage, usageOf } from './suggestion-usage';
 
 const limit = 8;
 
@@ -51,7 +52,11 @@ function memberSuggestions(needle: string, members: readonly MemberView[]): Sugg
         right.name.toLowerCase().startsWith(needle) ||
           right.localpart.toLowerCase().startsWith(needle)
       );
-      return byPrefix === 0 ? left.name.localeCompare(right.name) : byPrefix;
+      return (
+        byPrefix ||
+        byUsage(left.member.user_id, right.member.user_id) ||
+        left.name.localeCompare(right.name)
+      );
     })
     .slice(0, limit)
     .map(({ member, name }) => {
@@ -75,7 +80,11 @@ function emoteSuggestions(needle: string, emotes: readonly PackImageView[]): Sug
         left.shortcode.toLowerCase().startsWith(needle),
         right.shortcode.toLowerCase().startsWith(needle)
       );
-      return byPrefix === 0 ? left.shortcode.localeCompare(right.shortcode) : byPrefix;
+      return (
+        byPrefix ||
+        byUsage(`pack:${left.shortcode}`, `pack:${right.shortcode}`) ||
+        left.shortcode.localeCompare(right.shortcode)
+      );
     })
     .filter((image) => {
       if (shortcodes.has(image.shortcode)) return false;
@@ -91,9 +100,7 @@ function emoteSuggestions(needle: string, emotes: readonly PackImageView[]): Sug
       imageUrl: image.url,
     }));
 
-  const emojiMatches = needle
-    ? searchReactionEmoji(needle, limit - packs.length)
-    : REACTION_EMOJI.slice(0, limit - packs.length);
+  const emojiMatches = needle ? searchReactionEmoji(needle, Infinity) : REACTION_EMOJI;
   const native = emojiMatches.map((emoji) => ({
     id: `emoji:${emoji.emoji}`,
     insert: emoji.emoji,
@@ -101,7 +108,23 @@ function emoteSuggestions(needle: string, emotes: readonly PackImageView[]): Sug
     detail: `:${emoji.shortcode}:`,
   }));
 
-  return [...packs, ...native];
+  const exact = `:${needle}:`;
+  const isExact = (suggestion: Suggestion) =>
+    suggestion.label === exact || suggestion.detail === exact;
+  const reserved = Math.min(packs.length, 3);
+  const pool = native.filter(
+    (suggestion, index) => index < limit - reserved || usageOf(suggestion.id) > 0
+  );
+  return [...pool, ...packs]
+    .map((suggestion, index) => ({ suggestion, index }))
+    .sort(
+      (left, right) =>
+        byUsage(left.suggestion.id, right.suggestion.id) ||
+        rank(isExact(left.suggestion), isExact(right.suggestion)) ||
+        left.index - right.index
+    )
+    .slice(0, limit)
+    .map(({ suggestion }) => suggestion);
 }
 
 function roomSuggestions(needle: string, rooms: readonly RoomSummary[]): Suggestion[] {
@@ -128,7 +151,14 @@ function roomSuggestions(needle: string, rooms: readonly RoomSummary[]): Suggest
         left.searchName.startsWith(normalizedNeedle),
         right.searchName.startsWith(normalizedNeedle)
       );
-      return byPrefix === 0 ? left.name.localeCompare(right.name) : byPrefix;
+      return (
+        byPrefix ||
+        byUsage(
+          left.room.canonical_alias ?? left.room.room_id,
+          right.room.canonical_alias ?? right.room.room_id
+        ) ||
+        left.name.localeCompare(right.name)
+      );
     })
     .map(({ room, name }) => ({
       id: room.canonical_alias ?? room.room_id,
@@ -186,7 +216,11 @@ function commandSuggestions(
         left.names.some((name) => name.startsWith(needle)),
         right.names.some((name) => name.startsWith(needle))
       );
-      return byPrefix === 0 ? left.name.localeCompare(right.name) : byPrefix;
+      return (
+        byPrefix ||
+        byUsage(left.suggestion.id, right.suggestion.id) ||
+        left.name.localeCompare(right.name)
+      );
     })
     .slice(0, limit)
     .map(({ suggestion }) => suggestion);
