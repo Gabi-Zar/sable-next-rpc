@@ -1,5 +1,12 @@
 # Sable Changelog
 
+## 2.0.2 (2026-10-11)
+
+### Fixes
+
+* Add pronoun extraction to PluralKit imports
+* Add DeArrow support for YouTube embeds
+
 ## 2.0.1 (2026-10-11)
 
 ### Features
