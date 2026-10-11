@@ -60,7 +60,11 @@
     </IconButton>
   {/if}
   {#if rows.length > 0}
-    <ActionMenu label={$i18n.t('timeline.moreActions')} onOpenChange={onOverflowOpenChange}>
+    <ActionMenu
+      class="message-menu"
+      label={$i18n.t('timeline.moreActions')}
+      onOpenChange={onOverflowOpenChange}
+    >
       {#snippet trigger({ props })}
         <IconButton
           {...props}
