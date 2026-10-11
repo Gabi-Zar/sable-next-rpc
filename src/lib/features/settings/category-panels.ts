@@ -35,6 +35,7 @@ import DeveloperPushHistory from '#lib/features/settings/DeveloperPushHistory.sv
 import DeveloperSearchMetrics from '#lib/features/settings/DeveloperSearchMetrics.svelte';
 import DeveloperSentry from '#lib/features/settings/DeveloperSentry.svelte';
 import DeveloperSyncDiagnostics from '#lib/features/settings/DeveloperSyncDiagnostics.svelte';
+import SoundVolumeSettings from '../call/SoundVolumeSettings.svelte';
 
 export interface CategoryPanel {
   component: Component;
@@ -77,6 +78,12 @@ export const categoryPanels: Record<string, CategoryPanel[]> = {
       when: () => !hasNativeCalls(),
     },
     { component: CallCompatibilityDebug, section: 'call-compat' },
+  ],
+  sounds: [
+    {
+      component: SoundVolumeSettings,
+      section: 'volumes',
+    },
   ],
   privacy: [{ component: MediaPreviewPrivacy, section: 'blurring', start: true }],
   personas: [{ component: PersonaSettings }],

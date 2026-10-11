@@ -41,7 +41,7 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'notificationEncryptedContent',
   'richPushPayloads',
   'notificationSounds',
-  'notificationSoundVolume',
+  'soundsNotificationVolume',
   'backgroundNotificationSounds',
   'pushGatewayUrl',
   'pushVapidKey',

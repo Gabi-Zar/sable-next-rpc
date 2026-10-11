@@ -1,5 +1,3 @@
-import type { CallRingtoneVolume } from '#lib/settings/preferences.svelte.js';
-
 import { ignoreError } from './call-transport';
 
 const RING_HZ = [440, 480];
@@ -12,12 +10,6 @@ const RINGBACK_GAIN = 0.4;
 export type Ringtone = { stop: () => void };
 
 const PEAK_GAIN = 0.12;
-
-const VOLUMES: Record<CallRingtoneVolume, number> = { quiet: 0.35, normal: 1, loud: 2 };
-
-export function ringtoneVolume(setting: CallRingtoneVolume): number {
-  return VOLUMES[setting];
-}
 
 export function startRingback(volume = 1): Ringtone {
   return tone(volume * RINGBACK_GAIN, RINGBACK_BURST_MS, RINGBACK_GAP_MS);

@@ -58,7 +58,7 @@ export const settingsNavGroups: SettingsNavGroup[] = [
   {
     id: 'behavior',
     label: 'settings.navGroups.behavior',
-    sections: ['notifications', 'calls', 'developer'],
+    sections: ['notifications', 'calls', 'sounds', 'developer'],
   },
   { id: 'about', sections: ['about'] },
 ];

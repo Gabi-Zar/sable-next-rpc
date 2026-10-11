@@ -3545,5 +3545,13 @@
     "checkCodeLabel": "Two-digit number",
     "announceCheckCode": "Your number is {{code}}. Enter it on the other device.",
     "announceUserCode": "The other device shows {{code}}. Approve the sign-in there."
+  },
+  "sounds": {
+    "notification": "Notification",
+    "ringtone": "Ringtone",
+    "ringback": "Ringback",
+    "volumeRingCategory": "Ringing",
+    "title": "Sounds",
+    "volumeCategory": "Sound Volume"
   }
 }

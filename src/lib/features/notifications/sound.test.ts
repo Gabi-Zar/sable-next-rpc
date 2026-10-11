@@ -49,15 +49,15 @@ afterEach(() => {
 
 test('plays at the chosen volume', async () => {
   const { preferences } = await import('#lib/settings/preferences.svelte.js');
-  preferences.notificationSoundVolume = 0.35;
+  preferences.soundsNotificationVolume = 0.35;
 
-  await playNotificationSound();
+  await playNotificationSound('notification');
 
   expect(gains[0]?.gain.value).toBe(0.35);
 });
 
 test('plays the notification sound', async () => {
-  await playNotificationSound();
+  await playNotificationSound('notification');
 
   expect(fetch).toHaveBeenCalledWith('/sound/notification.ogg');
   expect(start).toHaveBeenCalledOnce();

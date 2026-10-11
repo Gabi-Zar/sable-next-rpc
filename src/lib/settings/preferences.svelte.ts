@@ -63,7 +63,6 @@ export type CaptionPosition = 'above' | 'below' | 'inline' | 'hidden';
 export type UsernameClick = 'mention' | 'profile';
 export const CALL_MODES = ['auto', 'legacy', 'compatibility', 'matrix_2'] as const;
 export type CallModePreference = (typeof CALL_MODES)[number];
-
 export type CallRingtoneVolume = 'quiet' | 'normal' | 'loud';
 export const CALL_VIDEO_RESOLUTIONS = [
   'auto',
@@ -310,7 +309,6 @@ export interface Preferences {
   badgeDefaultDirect: BadgeNotificationMode;
   badgeDefaultGroup: BadgeNotificationMode;
   notificationSounds: boolean;
-  notificationSoundVolume: number;
   notifyOnce: boolean;
   backgroundNotificationSounds: boolean;
   notificationContent: boolean;
@@ -325,7 +323,7 @@ export interface Preferences {
   callMode: CallModePreference;
   incomingCallSound: boolean;
   outgoingRingback: boolean;
-  callRingtoneVolume: CallRingtoneVolume;
+  callRingtoneVolume: number;
   noiseSuppression: boolean;
   voiceIsolation: boolean;
   incomingVoiceIsolation: boolean;
@@ -352,6 +350,8 @@ export interface Preferences {
   sessionReplay: boolean;
   /** Distinguishes a declined prompt from one that was never shown. */
   telemetryAsked: boolean;
+
+  soundsNotificationVolume: number;
 
   autoUpdateCheck: boolean;
   closeToTray: boolean;
@@ -429,7 +429,6 @@ const ENUMS = {
   captionPosition: ['above', 'below', 'inline', 'hidden'],
   usernameClick: ['mention', 'profile'],
   callMode: CALL_MODES,
-  callRingtoneVolume: ['quiet', 'normal', 'loud'],
   callCameraResolution: CALL_VIDEO_RESOLUTIONS,
   callCameraBitrate: CALL_VIDEO_BITRATES,
   callCameraCodec: CALL_VIDEO_CODECS,
@@ -466,7 +465,8 @@ const FREE_TEXT = [
 export type FreeTextPreference = (typeof FREE_TEXT)[number];
 
 export const PREFERENCE_RANGES = {
-  notificationSoundVolume: { min: 0, max: 1 },
+  soundsNotificationVolume: { min: 0, max: 2.0 },
+  callRingtoneVolume: { min: 0, max: 2.0 },
   pageZoom: { min: 0.75, max: 1.5 },
   textScale: { min: 0.75, max: 1.5 },
   roomBannerHeight: { min: 56, max: 500 },
@@ -604,7 +604,6 @@ const DEFAULTS: Preferences = {
   badgeDefaultDirect: 'all',
   badgeDefaultGroup: 'mentions',
   notificationSounds: true,
-  notificationSoundVolume: 1,
   notifyOnce: true,
   backgroundNotificationSounds: true,
   notificationContent: false,
@@ -619,7 +618,7 @@ const DEFAULTS: Preferences = {
   callMode: 'auto',
   incomingCallSound: true,
   outgoingRingback: true,
-  callRingtoneVolume: 'normal',
+  callRingtoneVolume: 1.0,
   noiseSuppression: true,
   voiceIsolation: false,
   incomingVoiceIsolation: false,
@@ -640,6 +639,8 @@ const DEFAULTS: Preferences = {
   pushGatewayUrl: '',
   pushVapidKey: '',
   pushAppId: '',
+
+  soundsNotificationVolume: 1,
 
   errorReporting: false,
   sessionReplay: false,

@@ -101,7 +101,7 @@
     effectiveVolume,
     screenVolumeKey,
   } from '#lib/features/call/participant-volumes.svelte.js';
-  import { ringtoneVolume, startRingback } from '#lib/features/call/ringtone.js';
+  import { startRingback } from '#lib/features/call/ringtone.js';
   import {
     forgetPushSessions,
     putPushContentPolicy,
@@ -347,7 +347,7 @@
     if (answeredCallRoom === callSession.roomId) return;
     if (!roomList.byId(callSession.roomId)?.is_direct) return;
 
-    const ringback = startRingback(ringtoneVolume(preferences.callRingtoneVolume));
+    const ringback = startRingback(preferences.callRingtoneVolume);
     return () => {
       ringback.stop();
     };

@@ -69,7 +69,6 @@ import InstagramLogoIcon from 'phosphor-svelte/lib/InstagramLogoIcon';
 import TiktokLogoIcon from 'phosphor-svelte/lib/TiktokLogoIcon';
 import YoutubeLogoIcon from 'phosphor-svelte/lib/YoutubeLogoIcon';
 
-import { playNotificationSound } from '#lib/features/notifications/sound.js';
 import { currentLocale, setLanguage } from '#lib/i18n.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
 import { mediaPreviewSettings } from './media-previews.svelte.js';
@@ -1502,18 +1501,6 @@ export const settingsCategories: SettingsCategory[] = [
         type: 'boolean',
       },
       {
-        key: 'notificationSoundVolume',
-        section: 'sounds',
-        icon: SpeakerHighIcon,
-        name: 'settings.notificationSoundVolume',
-        type: 'range',
-        gatedBy: 'notificationSounds',
-        step: 0.05,
-        onChange: () => {
-          void playNotificationSound().catch(() => undefined);
-        },
-      },
-      {
         key: 'backgroundNotificationSounds',
         section: 'sounds',
         icon: SpeakerHighIcon,
@@ -1672,19 +1659,6 @@ export const settingsCategories: SettingsCategory[] = [
         type: 'boolean',
       },
       {
-        key: 'callRingtoneVolume',
-        section: 'ringing',
-        icon: SpeakerHighIcon,
-        name: 'settings.callRingtoneVolume',
-        type: 'select',
-        gatedBy: 'incomingCallSound',
-        options: [
-          { value: 'quiet', label: 'settings.callRingtoneVolumeQuiet' },
-          { value: 'normal', label: 'settings.callRingtoneVolumeNormal' },
-          { value: 'loud', label: 'settings.callRingtoneVolumeLoud' },
-        ],
-      },
-      {
         key: 'outgoingRingback',
         section: 'ringing',
         icon: PhoneIcon,
@@ -1728,6 +1702,13 @@ export const settingsCategories: SettingsCategory[] = [
         ],
       },
     ],
+  },
+  {
+    id: 'sounds',
+    name: 'sounds.title',
+    icon: SpeakerHighIcon,
+    sections: [{ id: 'volumes', name: 'sounds.volumeCategory' }],
+    items: [],
   },
   {
     id: 'personas',

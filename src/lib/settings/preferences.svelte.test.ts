@@ -34,10 +34,12 @@ test('defaults to unmetered crawling and keeps the saved preference', () => {
 });
 
 test('keeps a notification volume inside its range', () => {
-  expect(sanitize({ notificationSoundVolume: 0.4 }, preferences).notificationSoundVolume).toBe(0.4);
-  expect(sanitize({ notificationSoundVolume: 3 }, preferences).notificationSoundVolume).toBe(1);
-  expect(sanitize({ notificationSoundVolume: 'loud' }, preferences).notificationSoundVolume).toBe(
-    preferences.notificationSoundVolume
+  expect(sanitize({ soundsNotificationVolume: 0.4 }, preferences).soundsNotificationVolume).toBe(
+    0.4
+  );
+  expect(sanitize({ soundsNotificationVolume: 3 }, preferences).soundsNotificationVolume).toBe(1);
+  expect(sanitize({ soundsNotificationVolume: 'loud' }, preferences).soundsNotificationVolume).toBe(
+    preferences.soundsNotificationVolume
   );
 });
 

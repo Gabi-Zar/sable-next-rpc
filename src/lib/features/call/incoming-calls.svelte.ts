@@ -10,7 +10,7 @@ import {
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import { ignoreError } from './call-transport';
-import { ringtoneVolume, startRingtone, type Ringtone } from './ringtone';
+import { startRingtone, type Ringtone } from './ringtone';
 
 export type IncomingCall = {
   roomId: string;
@@ -192,7 +192,7 @@ export class IncomingCalls {
       preferences.incomingCallSound &&
       this.calls.some((call) => !this.#system.has(call.notificationEventId));
     if (shouldRing && !this.#ringtone) {
-      this.#ringtone = startRingtone(ringtoneVolume(preferences.callRingtoneVolume));
+      this.#ringtone = startRingtone(preferences.callRingtoneVolume);
       return;
     }
     if (!shouldRing && this.#ringtone) {

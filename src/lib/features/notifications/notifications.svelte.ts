@@ -195,7 +195,7 @@ export class NotificationCenter {
       encrypted: view.encrypted,
     });
     if (chime) {
-      void playNotificationSound().catch((error: unknown) => {
+      void playNotificationSound('notification').catch((error: unknown) => {
         console.warn('[sable notification sound] failed', error);
       });
     }
