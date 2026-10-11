@@ -24,7 +24,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('suggests people from the directory and invites the one picked', async () => {
+test('suggests people from the directory and fills the picked one into the field before inviting', async () => {
   vi.stubGlobal('matchMedia', () => ({
     matches: false,
     addEventListener: () => {},
@@ -44,6 +44,11 @@ test('suggests people from the directory and invites the one picked', async () =
   expect(core.searchUserDirectory).toHaveBeenCalledWith('bo', 10);
 
   await user.click(suggestion);
+  expect(core.inviteUser).not.toHaveBeenCalled();
+  expect(screen.getByRole('textbox', { name: 'Invite people' })).toHaveValue('@bob:example.org');
+  expect(screen.queryByRole('button', { name: /@bob:example\.org/ })).toBeNull();
+
+  await user.click(screen.getByRole('button', { name: 'Invite' }));
   await vi.waitFor(() => {
     expect(core.inviteUser).toHaveBeenCalledWith('!room:example.org', '@bob:example.org');
   });

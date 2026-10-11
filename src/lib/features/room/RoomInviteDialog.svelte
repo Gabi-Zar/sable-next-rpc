@@ -36,6 +36,7 @@
 
   let roomId = $derived(room?.room_id ?? null);
   let isDirect = $derived(room?.is_direct ?? false);
+  let suggestions = $derived(directory.filter((entry) => entry.user_id !== draft.trim()));
 
   $effect(() => {
     void roomId;
@@ -161,16 +162,16 @@
         />
       </FormField>
 
-      {#if directory.length > 0}
+      {#if suggestions.length > 0}
         <ul class="suggestions" {@attach scrollHint}>
-          {#each directory as entry (entry.user_id)}
+          {#each suggestions as entry (entry.user_id)}
             <li>
               <button
                 type="button"
                 class="menu-item"
-                disabled={inviting}
                 onclick={() => {
-                  void invite(entry.user_id);
+                  draft = entry.user_id;
+                  document.getElementById('room-invite-user')?.focus();
                 }}
               >
                 <Avatar
