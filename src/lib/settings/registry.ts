@@ -102,6 +102,7 @@ import type {
   Preferences,
   RangePreference,
 } from './preferences.svelte';
+import ListNumbersIcon from 'phosphor-svelte/lib/ListNumbersIcon';
 
 export type BooleanPreference = {
   [K in keyof Preferences]: Preferences[K] extends boolean ? K : never;
@@ -1675,6 +1676,20 @@ export const settingsCategories: SettingsCategory[] = [
         icon: UserSwitchIcon,
         name: 'personas.picker',
         type: 'boolean',
+      },
+      {
+        key: 'personaPickerSortOrder',
+        section: 'persona-sending',
+        icon: ListNumbersIcon,
+        name: 'personas.pickerSortOrder',
+        type: 'select',
+        options: [
+          { value: 'manual', label: 'common.sortManual' },
+          { value: 'alphabetical-asc', label: 'common.sortNameAsc' },
+          { value: 'alphabetical-desc', label: 'common.sortNameDesc' },
+          { value: 'recent', label: 'personas.sortNameRecentlyUsed' },
+        ],
+        gatedBy: 'personaPicker',
       },
       {
         key: 'personaProxying',

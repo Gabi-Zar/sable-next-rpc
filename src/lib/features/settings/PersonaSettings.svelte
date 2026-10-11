@@ -560,9 +560,9 @@
   }
 
   .field div {
-    display: flex;
-    flex: row wrap;
     align-items: center;
+    display: flex;
+    flex-flow: row wrap;
     justify-content: space-between;
   }
 </style>

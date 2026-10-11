@@ -63,6 +63,9 @@
     "setUpRecovery": "Set up recovery",
     "share": "Share",
     "sourceCode": "Source code",
+    "sortManual": "Manual",
+    "sortNameAsc": "A to Z",
+    "sortNameDesc": "Z to A",
     "startingSable": "Starting Sable…",
     "stopTest": "Stop test",
     "supportSable": "Support Sable",
@@ -1008,8 +1011,6 @@
     "powerTagDerived": "{{tag}} {{level}}",
     "powerTagTeam": "Team {{level}}",
     "memberSort": "Sort members",
-    "memberSortNameAsc": "A to Z",
-    "memberSortNameDesc": "Z to A",
     "memberSortNewest": "Newest",
     "memberSortOldest": "Oldest",
     "memberFilter": "Filter members",
@@ -3065,7 +3066,9 @@
     "scopeAccount": "Global",
     "scopeLatchRoom": "Room",
     "scopeLatchAccount": "Global",
-    "sendingAs": "Sending as {{name}}"
+    "sendingAs": "Sending as {{name}}",
+    "pickerSortOrder": "Profile picker sort order",
+    "sortNameRecentlyUsed": "Recently used"
   },
   "call": {
     "participantVolume": "Volume for {{name}}",

@@ -20,8 +20,8 @@ export const DEFAULT_ALWAYS_LISTED_FROM = 1;
 export const MEMBER_ROWS_STEP = 50;
 
 export const MEMBER_SORT_LABELS: Record<MemberSort, string> = {
-  'name-asc': 'timeline.memberSortNameAsc',
-  'name-desc': 'timeline.memberSortNameDesc',
+  'name-asc': 'common.sortNameAsc',
+  'name-desc': 'common.sortNameDesc',
   newest: 'timeline.memberSortNewest',
   oldest: 'timeline.memberSortOldest',
 };

@@ -776,8 +776,6 @@
     "powerTagDerived": "{{tag}} {{level}}",
     "powerTagTeam": "Echipă {{level}}",
     "memberSort": "Sortează memberii",
-    "memberSortNameAsc": "A la Z",
-    "memberSortNameDesc": "Z la A",
     "memberSortNewest": "Noi",
     "memberSortOldest": "Vechi",
     "memberFilter": "Filtrează membri",
@@ -2505,6 +2503,8 @@
     "thisRoom": ", camera asta",
     "searchMessages": "Caută mesaje",
     "chooseAPicture": "Alege o iconiță",
-    "import": "Importă"
+    "import": "Importă",
+    "sortNameAsc": "A la Z",
+    "sortNameDesc": "Z la A"
   }
 }
