@@ -169,6 +169,8 @@ export interface SelectSetting extends BaseSetting {
   type: 'select';
   key: SelectPreference;
   options: SettingOption[];
+  /** Rendered as a slider with one labelled stop per option. */
+  display?: 'steps';
   getValue?: () => string;
   setValue?: (value: string) => void;
   onChange?: (value: string) => void;
@@ -1695,11 +1697,19 @@ export const settingsCategories: SettingsCategory[] = [
         type: 'boolean',
       },
       {
-        key: 'forceLegacyCalls',
+        key: 'callMode',
         section: 'call-compat',
         icon: PhoneIcon,
-        name: 'settings.forceLegacyCalls',
-        type: 'boolean',
+        name: 'settings.callMode',
+        description: 'settings.callModeHint',
+        type: 'select',
+        display: 'steps',
+        options: [
+          { value: 'auto', label: 'settings.callModeAuto' },
+          { value: 'legacy', label: 'settings.callModeLegacy' },
+          { value: 'compatibility', label: 'settings.callModeCompatibility' },
+          { value: 'matrix_2', label: 'settings.callModeMatrix2' },
+        ],
       },
     ],
   },

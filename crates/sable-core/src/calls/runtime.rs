@@ -17,8 +17,8 @@ use super::keys::{self, KeyDistributor, Rolled};
 use super::membership::{self, CallMember, StickyMemberships};
 use super::{HANGUP_DELAY, USE_KEY_DELAY, sfu, sticky};
 use crate::protocol::{
-    CallBackendView, CallIntent, CallMemberView, CallMode, CallSessionId, CommandErr, CommandOk,
-    CoreEvent,
+    CallBackendView, CallIntent, CallMemberView, CallMode, CallModeReason, CallSessionId,
+    CommandErr, CommandOk, CoreEvent,
 };
 use crate::{CallSession, Core};
 
@@ -135,6 +135,29 @@ fn select_mode(
         return Ok(CallMode::Matrix2);
     }
     Ok(CallMode::Compatibility)
+}
+
+fn mode_reason(
+    requested: Option<CallMode>,
+    forced_sticky: bool,
+    members: &[CallMember],
+    sticky_available: bool,
+) -> CallModeReason {
+    if forced_sticky {
+        CallModeReason::StickyOnly
+    } else if requested.is_some() {
+        CallModeReason::Requested
+    } else if members.iter().any(|member| member.mode == CallMode::Legacy) {
+        CallModeReason::LegacyPeer
+    } else if sticky_available
+        && members
+            .iter()
+            .any(|member| member.mode == CallMode::Matrix2)
+    {
+        CallModeReason::StickyPeer
+    } else {
+        CallModeReason::Fresh
+    }
 }
 
 fn content(room_id: &OwnedRoomId, own: &CallMember, intent: Option<CallIntent>) -> Value {
@@ -265,6 +288,12 @@ async fn discover(
     if !slot_closed {
         merge_sticky(&mut members, sticky_members.members(keys::now_ms()));
     }
+    let forced_sticky = requested.is_none()
+        && sticky_sync.is_some()
+        && !room
+            .power_levels_or_default()
+            .await
+            .user_can_send_state(&user, StateEventType::CallMember);
     let requested = if requested.is_none()
         && sticky_sync.is_some()
         && !room
@@ -277,6 +306,14 @@ async fn discover(
         requested
     };
     let mode = select_mode(requested, &members, sticky_sync.is_some())?;
+    let sticky_available = sticky_sync.is_some();
+    let reason = mode_reason(requested, forced_sticky, &members, sticky_available);
+    let mut peer_modes = members
+        .iter()
+        .filter(|member| !member.is_own(&user, &device))
+        .map(|member| member.mode)
+        .collect::<Vec<_>>();
+    peer_modes.dedup();
     members.sort_by_key(|member| member.created_ts);
     let service = core
         .resolve_focus(&members, configured, room)
@@ -315,6 +352,11 @@ async fn discover(
         sticky: sticky_members,
         sticky_sync,
         slot_closed,
+        mode_info: ModeInfo {
+            reason,
+            sticky_available,
+            peer_modes,
+        },
     })
 }
 
@@ -324,6 +366,13 @@ struct Discovered {
     sticky: StickyMemberships,
     sticky_sync: Option<sticky::StickySync>,
     slot_closed: bool,
+    mode_info: ModeInfo,
+}
+
+struct ModeInfo {
+    reason: CallModeReason,
+    sticky_available: bool,
+    peer_modes: Vec<CallMode>,
 }
 
 struct Published {
@@ -566,6 +615,7 @@ pub(super) async fn join(
         sticky,
         sticky_sync,
         slot_closed,
+        mode_info,
     } = discover(core, &room, session, configured.clone(), requested).await?;
     let state = Arc::new(Mutex::new(State::new(
         own.clone(),
@@ -645,6 +695,9 @@ pub(super) async fn join(
         identity: provision.identity,
         encrypt_media,
         mode,
+        mode_reason: mode_info.reason,
+        sticky_available: mode_info.sticky_available,
+        peer_modes: mode_info.peer_modes,
         can_publish: provision.can_publish,
         publisher_id,
         backends,

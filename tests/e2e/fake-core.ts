@@ -1078,6 +1078,9 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         identity: `${session.user_id}:${session.device_id}`,
         encrypt_media: false,
         mode: 'legacy',
+        mode_reason: 'fresh',
+        sticky_available: false,
+        peer_modes: [],
         can_publish: true,
         publisher_id: 'legacy',
         backends: [
@@ -1088,6 +1091,12 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
             identity: `${session.user_id}:${session.device_id}`,
           },
         ],
+      }),
+      call_compatibility: () => ({
+        type: 'call_compatibility',
+        sticky_events: false,
+        delayed_events: false,
+        rtc_transports: 'none',
       }),
       call_support: () => ({ type: 'call_support', has_focus: false, can_join: false }),
       room_permissions: (command) => {

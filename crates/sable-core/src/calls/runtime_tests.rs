@@ -10,7 +10,7 @@ use tokio::sync::Mutex;
 
 use super::{
     CallMember, CallMode, CallSessionId, Core, State, backend_id, content, member_service,
-    own_is_present, refresh, select_mode,
+    mode_reason, own_is_present, refresh, select_mode,
 };
 use crate::{protocol::CallBackendView, session::Session, store::MemorySessionStore};
 
@@ -186,6 +186,22 @@ fn mode_selection_preserves_legacy_and_selects_sticky_only_when_available() {
         select_mode(None, &[member(CallMode::Matrix2, 1, &[])], true),
         Ok(CallMode::Matrix2)
     ));
+}
+
+#[test]
+fn mode_reason_names_what_pinned_the_mode() {
+    use crate::protocol::CallModeReason::{Fresh, LegacyPeer, Requested, StickyOnly, StickyPeer};
+    let legacy = [member(CallMode::Legacy, 1, &[])];
+    let sticky = [member(CallMode::Matrix2, 1, &[])];
+    assert_eq!(mode_reason(None, true, &[], true), StickyOnly);
+    assert_eq!(
+        mode_reason(Some(CallMode::Legacy), false, &legacy, true),
+        Requested
+    );
+    assert_eq!(mode_reason(None, false, &legacy, true), LegacyPeer);
+    assert_eq!(mode_reason(None, false, &sticky, true), StickyPeer);
+    assert_eq!(mode_reason(None, false, &sticky, false), Fresh);
+    assert_eq!(mode_reason(None, false, &[], true), Fresh);
 }
 
 #[test]

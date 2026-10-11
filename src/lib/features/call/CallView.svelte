@@ -25,6 +25,8 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   import CallControls from './CallControls.svelte';
+  import { preferences } from '#lib/settings/preferences.svelte.js';
+  import CallModeDebug from './CallModeDebug.svelte';
   import CallPlayback from './CallPlayback.svelte';
   import CallParticipantTile from './CallParticipantTile.svelte';
   import {
@@ -385,6 +387,10 @@
     {/if}
     <CallPlayback rooms={session.rooms} telemetry={session.telemetry} />
   </div>
+
+  {#if preferences.developerTools}
+    <CallModeDebug overlay />
+  {/if}
 
   <div
     class="media"

@@ -29,7 +29,8 @@ use serde_json::Value;
 
 use crate::ResultExt;
 use crate::protocol::{
-    CallMemberView, CallMode, CallSessionId, CallSupportView, CommandErr, CommandOk, CoreEvent,
+    CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CommandErr,
+    CommandOk, CoreEvent, RtcTransportSource,
 };
 use crate::{CallSession, Core};
 
@@ -254,6 +255,36 @@ impl Core {
         intent: Option<crate::protocol::CallIntent>,
     ) -> Result<CommandOk, CommandErr> {
         runtime::join(self, room_id, livekit_service_url, mode, intent).await
+    }
+
+    pub(crate) async fn call_compatibility(&self) -> Result<CommandOk, CommandErr> {
+        let client = self.client().await?;
+        let features = client
+            .unstable_features()
+            .await
+            .or_failed(self, "call_compatibility")?;
+        let endpoint = client
+            .discover_rtc_transports()
+            .await
+            .ok()
+            .flatten()
+            .is_some_and(|transports| !livekit_service_urls(transports).is_empty());
+        let rtc_transports = if endpoint {
+            RtcTransportSource::Endpoint
+        } else if client
+            .well_known_rtc_transports()
+            .await
+            .is_ok_and(|transports| !livekit_service_urls(transports).is_empty())
+        {
+            RtcTransportSource::WellKnown
+        } else {
+            RtcTransportSource::None
+        };
+        Ok(CommandOk::CallCompatibility(CallCompatibilityView {
+            sticky_events: features.contains(&"org.matrix.msc4354".into()),
+            delayed_events: features.contains(&"org.matrix.msc4140".into()),
+            rtc_transports,
+        }))
     }
 
     pub(crate) async fn call_support(

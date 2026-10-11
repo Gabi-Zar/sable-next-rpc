@@ -3,7 +3,9 @@ import type {
   BotCommandDescriptionView,
   CalendarView,
   CallIntent,
+  CallCompatibilityView,
   CallMode,
+  CallModeReason,
   CallSupportView,
   CreateJoinRuleView,
   CreateRoomKind,
@@ -96,6 +98,9 @@ export type CallGrant = {
   identity: string;
   encryptMedia: boolean;
   mode?: 'legacy' | 'compatibility' | 'matrix_2';
+  modeReason?: CallModeReason;
+  stickyAvailable?: boolean;
+  peerModes?: CallMode[];
   canPublish?: boolean;
   publisherId?: string;
   backends?: CallBackendGrant[];
@@ -312,6 +317,10 @@ export function createCommands(transport: () => Transport) {
         livekit_service_url: livekitServiceUrl,
       });
       return response;
+    },
+
+    async callCompatibility(): Promise<CallCompatibilityView> {
+      return transport().send({ type: 'call_compatibility' });
     },
 
     async roomAliases(roomId: string): Promise<string[]> {
@@ -638,6 +647,9 @@ export function createCommands(transport: () => Transport) {
         identity: response.identity,
         encryptMedia: response.encrypt_media,
         mode: response.mode,
+        modeReason: response.mode_reason,
+        stickyAvailable: response.sticky_available,
+        peerModes: response.peer_modes,
         canPublish: response.can_publish,
         publisherId: response.publisher_id,
         backends: response.backends,
