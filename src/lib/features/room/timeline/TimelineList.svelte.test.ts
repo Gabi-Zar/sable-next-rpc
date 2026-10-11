@@ -170,8 +170,8 @@ function timelineViewport(): HTMLElement {
 test('expanding a member group exposes the original event source', async () => {
   const roomTimeline = timeline();
   const source = JSON.stringify({ event_id: '$first' });
-  const eventSource = vi.fn(() => Promise.resolve(source));
-  Object.assign(core.commands, { eventSource });
+  const eventSource = vi.fn(() => Promise.resolve({ source, encrypted: false, original: null }));
+  Object.assign(core.commands, { eventSourceDetails: eventSource });
   roomTimeline.items = ['first', 'last'].map((id): TimelineItemView => ({
     ...item(id),
     content: {

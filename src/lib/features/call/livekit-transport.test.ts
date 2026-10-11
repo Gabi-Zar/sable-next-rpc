@@ -1,4 +1,4 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ConnectionState, RoomEvent, type Room } from 'livekit-client';
 
 import { createLivekitTransport } from './livekit-transport';
@@ -101,6 +101,11 @@ const connectOptions = {
   cameraEnabled: false,
   encryptionKeys: [],
 };
+
+beforeEach(() => {
+  vi.stubGlobal('screen', { width: 1920, height: 1080 });
+  vi.stubGlobal('devicePixelRatio', 1);
+});
 
 afterEach(() => {
   vi.useRealTimers();
