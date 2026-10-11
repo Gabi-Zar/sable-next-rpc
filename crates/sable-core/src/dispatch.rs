@@ -757,6 +757,22 @@ impl Core {
                 Ok(CommandOk::RemoveLinkPreviews)
             }
 
+            Command::ReprofileMessage {
+                room_id,
+                event_id,
+                thread_root,
+                persona,
+            } => {
+                Box::pin(self.reprofile_message(
+                    &room_id,
+                    &event_id,
+                    thread_root.as_ref(),
+                    persona.as_ref(),
+                ))
+                .await?;
+                Ok(CommandOk::ReprofileMessage)
+            }
+
             Command::EditMessage {
                 room_id,
                 event_id,

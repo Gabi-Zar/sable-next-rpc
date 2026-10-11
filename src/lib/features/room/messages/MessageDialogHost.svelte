@@ -115,13 +115,35 @@
   }
 
   function reproxy(item: TimelineItemView, persona: PersonaView | null): void {
-    if (!item.event_id || item.content.kind !== 'message') return;
+    const content = item.content;
+    if (!item.event_id) return;
+    const media =
+      content.kind === 'image' ||
+      content.kind === 'video' ||
+      content.kind === 'audio' ||
+      content.kind === 'file';
+    if (content.kind === 'gallery' || content.kind === 'location') {
+      void core.commands
+        .reprofileMessage(
+          roomId,
+          item.event_id,
+          persona ? projectPersona(persona, false) : null,
+          item.thread_root ?? null
+        )
+        .catch(failed('reproxy'));
+      return;
+    }
+    if (content.kind !== 'message' && !media) return;
+    const body = content.kind === 'message' ? content.body : (content.caption ?? '');
     void core.commands
-      .editMessage(roomId, item.event_id, item.content.body, {
-        formatted: item.content.html,
-        kind: reproxyKind(item.content),
+      .editMessage(roomId, item.event_id, body, {
+        formatted: content.html,
+        kind: reproxyKind(content),
+        mediaCaption: media,
         threadRoot: item.thread_root ?? null,
-        persona: persona ? projectPersona(persona, preferences.personaFallback) : null,
+        persona: persona
+          ? projectPersona(persona, preferences.personaFallback && body !== '')
+          : null,
       })
       .catch(failed('reproxy'));
   }

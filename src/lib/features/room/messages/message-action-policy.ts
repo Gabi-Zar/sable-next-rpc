@@ -120,7 +120,14 @@ export function messageActionPolicy({
     markUnread: canMarkUnread && eventId !== '',
     reply: canReply,
     edit: editable && canEdit && body !== null,
-    reproxy: editable && canEdit && item.content.kind === 'message' && eventId !== '',
+    reproxy:
+      item.is_own &&
+      canEdit &&
+      eventId !== '' &&
+      (item.content.kind === 'message' ||
+        item.content.kind === 'gallery' ||
+        item.content.kind === 'location' ||
+        media !== null),
     redact: canDelete && canRedact(item, canRedactOwn, canRedactOthers),
     copyText: body !== null,
     openThread: canOpenThread && threadTarget !== null,
