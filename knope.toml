@@ -43,11 +43,19 @@ type = "PrepareRelease"
 
 [[workflows.steps]]
 type = "Command"
-command = "node scripts/fastlane-changelog.mjs $version && git add fastlane/metadata/android/en-US/changelogs"
+command = "node scripts/fastlane-changelog.mjs $version"
 
 [[workflows.steps]]
 type = "Command"
-command = "node scripts/flatpak-metainfo-release.mjs $version && git add packaging/flatpak/moe.sable.client.metainfo.xml"
+command = "git add fastlane/metadata/android/en-US/changelogs"
+
+[[workflows.steps]]
+type = "Command"
+command = "node scripts/flatpak-metainfo-release.mjs $version"
+
+[[workflows.steps]]
+type = "Command"
+command = "git add packaging/flatpak/moe.sable.client.metainfo.xml"
 
 [[workflows.steps]]
 type = "Command"

@@ -1,0 +1,2 @@
+- Add pronoun extraction to PluralKit imports
+- Add DeArrow support for YouTube embeds
