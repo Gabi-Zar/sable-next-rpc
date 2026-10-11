@@ -52,9 +52,9 @@
   let pendingAlerts = $derived(alertPriorities.filter((priority) => priority !== null).length);
 
   $effect(() => {
-    if (pendingAlerts > 0) {
-      hasAlerts = true;
-    } else if (hasAlerts && isCurrentPage) {
+    const hadAlerts = hasAlerts;
+    hasAlerts = pendingAlerts > 0;
+    if (hadAlerts && !hasAlerts && isCurrentPage) {
       void goto(resolve('/(app)/rooms'));
     }
   });
