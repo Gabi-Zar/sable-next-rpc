@@ -10,6 +10,7 @@
   import { personaSpaces } from '#lib/features/composer/persona-spaces.js';
   import { readReceiptIsPrivate } from '#lib/settings/preferences.svelte.js';
   import { i18n } from '#lib/i18n.js';
+  import type { MatrixLink } from '#lib/rooms/matrix-link.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
@@ -49,6 +50,7 @@
     encrypted?: boolean | null;
     onClose: () => void;
     onSenderProfile?: (userId: string, anchor: HTMLElement) => void;
+    onMatrixLink?: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
     onCopyLink?: (eventId: string) => void;
   }
 
@@ -69,6 +71,7 @@
     encrypted = null,
     onClose,
     onSenderProfile,
+    onMatrixLink,
     onCopyLink,
   }: Props = $props();
 
@@ -254,6 +257,7 @@
     {canPin}
     {encrypted}
     {onSenderProfile}
+    {onMatrixLink}
     onMentionUser={(userId, name) => composer?.insertMention(userId, name)}
     {onCopyLink}
     onOpenMedia={(eventId) => (mediaEventId = eventId)}
