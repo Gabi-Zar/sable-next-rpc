@@ -1,3 +1,5 @@
+import { Slice } from 'prosemirror-model';
+
 const BLOCKS =
   'address,article,aside,blockquote,dd,details,div,dl,dt,figure,footer,h1,h2,h3,h4,h5,h6,header,hr,li,main,nav,ol,p,pre,section,table,ul';
 
@@ -15,4 +17,12 @@ export function lineDivsAsBreaks(html: string): string {
     line.replaceWith(...content);
   }
   return body.innerHTML;
+}
+
+export function openLoneParagraph(slice: Slice): Slice {
+  const only = slice.content.childCount === 1 ? slice.content.firstChild : null;
+  if (!only || only.type.name !== 'paragraph' || slice.openStart > 0 || slice.openEnd > 0) {
+    return slice;
+  }
+  return new Slice(slice.content, 1, 1);
 }

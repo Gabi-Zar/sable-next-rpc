@@ -55,7 +55,7 @@ import {
   type FormatAction,
 } from './formatting';
 import { markdownColorCommand, markdownFormatCommands, markdownLink } from './markdown-format';
-import { lineDivsAsBreaks } from './pasted-lines';
+import { lineDivsAsBreaks, openLoneParagraph } from './pasted-lines';
 import { withPastedMentions } from './pasted-mentions';
 import type { EmoteMedia } from './node-views';
 import { composerMarkViews, composerNodeViews } from './node-views';
@@ -880,7 +880,8 @@ export class ComposerEditor {
             this.linkSelection(pasteView, slice) ||
             this.pasteAsText(pasteView, event),
           transformPastedHTML: lineDivsAsBreaks,
-          transformPasted: (slice, pasteView) => this.pastedMentions(pasteView.state, slice),
+          transformPasted: (slice, pasteView) =>
+            this.pastedMentions(pasteView.state, openLoneParagraph(slice)),
           clipboardTextParser: (text, _context, plain) => {
             return plain || this.source || !preferences.richTextComposer
               ? textSlice(text)

@@ -2376,3 +2376,34 @@ test('blurring the editor leaves no DOM selection inside it', () => {
 
   expect(getSelection()?.rangeCount).toBe(0);
 });
+
+describe('pasting what select-all copied', () => {
+  test.each(['start', 'end'])('at the %s of a paragraph adds no paragraph', (where) => {
+    const editor = open();
+    const editorView = view(editor);
+    const emote = composerSchema.nodes.emoticon.create({
+      url: 'mxc://a/b',
+      body: 'x',
+      shortcode: 'emote',
+    });
+    editorView.dispatch(editorView.state.tr.replaceSelectionWith(emote));
+    editorView.dispatch(editorView.state.tr.setSelection(new AllSelection(editorView.state.doc)));
+    const copied = editorView.serializeForClipboard(editorView.state.selection.content());
+
+    const size = editorView.state.doc.content.size;
+    editorView.dispatch(
+      editorView.state.tr.setSelection(
+        TextSelection.create(editorView.state.doc, where === 'end' ? size - 1 : 1)
+      )
+    );
+    const data = new DataTransfer();
+    data.setData('text/plain', copied.text);
+    data.setData('text/html', copied.dom.innerHTML);
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: data });
+    surface().dispatchEvent(event);
+
+    expect(editorView.state.doc.childCount).toBe(1);
+    expect(editorView.state.doc.firstChild?.childCount).toBe(2);
+  });
+});
