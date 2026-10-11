@@ -992,7 +992,6 @@
     flex: 1;
     min-height: 0;
     min-width: 0;
-    padding: var(--space-200);
   }
 
   .grids :global(.virtual-list-wrapper) {
@@ -1025,10 +1024,9 @@
   .grids ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-100);
     justify-content: center;
     list-style: none;
-    margin: 0 0 var(--space-300);
+    margin: 0;
     padding: 0;
   }
 
@@ -1128,7 +1126,6 @@
   /* Rows are real elements for the grid pattern, so the wrap is laid out here. */
   .grids .unicode .row {
     display: grid;
-    gap: var(--space-100);
     padding-bottom: var(--space-100);
   }
 

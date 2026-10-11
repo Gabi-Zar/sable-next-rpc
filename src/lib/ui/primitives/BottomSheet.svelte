@@ -308,7 +308,6 @@
   /* Above sticky headers (z-index 1) in sheet content. */
   :global(.bottom-sheet-grip) {
     display: grid;
-    height: var(--control-height-large);
     left: 50%;
     place-items: center;
     position: absolute;
@@ -347,10 +346,6 @@
   :global(.bottom-sheet-handle):focus-visible {
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
-  }
-
-  .content-inset {
-    padding: var(--control-height-large) 0 var(--space-400);
   }
 
   .expanded {
