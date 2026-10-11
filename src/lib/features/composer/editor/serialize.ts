@@ -354,6 +354,11 @@ function html(doc: ProseMirrorNode): string {
   for (const paragraph of holder.querySelectorAll('li > p:only-child, dd > p:only-child')) {
     paragraph.replaceWith(...paragraph.childNodes);
   }
+  for (const anchor of holder.querySelectorAll('a[data-org\\.matrix\\.msc4550\\.link]')) {
+    if (anchor.textContent === anchor.getAttribute('href')) {
+      anchor.removeAttribute('data-org.matrix.msc4550.link');
+    }
+  }
 
   const spaced = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
   for (let node = spaced.nextNode(); node; node = spaced.nextNode()) {
