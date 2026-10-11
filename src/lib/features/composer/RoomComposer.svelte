@@ -880,8 +880,8 @@
     if (draftLinksTimeout) clearTimeout(draftLinksTimeout);
     draftLinksTimeout = setTimeout(() => {
       const doc = editor.doc();
-      const html = doc ? (richSend ? serializeComposer(doc) : serializePlain(doc)).formatted : null;
-      draftLinks = html ? previewableLinks(html) : [];
+      const message = doc ? (richSend ? serializeComposer(doc) : serializePlain(doc)) : null;
+      draftLinks = message?.formatted ? previewableLinks(message.formatted, message.body) : [];
     }, 300);
   }
 

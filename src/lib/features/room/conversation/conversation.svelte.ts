@@ -126,12 +126,13 @@ export class Conversation {
 
   async #bundledLinkPreviews(
     html: string | null,
+    body: string,
     dismissed: readonly string[]
   ): Promise<{ previews: UrlPreviewView[]; suppressed: boolean }> {
     const sources = previewSources(this.#encrypted());
     if (!sources.server && !sources.client) return { previews: [], suppressed: false };
     if (!html) return { previews: [], suppressed: false };
-    const links = previewableLinks(html);
+    const links = previewableLinks(html, body);
     const wanted = links.filter((url) => !dismissed.includes(url));
     const previews = await Promise.all(
       wanted.map((url) => resolveUrlPreview(this.#core.commands, url, sources))
@@ -218,6 +219,7 @@ export class Conversation {
     this.dismissedPreviews = [];
     const { previews: linkPreviews, suppressed } = await this.#bundledLinkPreviews(
       outgoing.formatted,
+      outgoing.body,
       dismissed
     );
     await this.#core.commands.sendMessage(targetRoomId, outgoing.body, {

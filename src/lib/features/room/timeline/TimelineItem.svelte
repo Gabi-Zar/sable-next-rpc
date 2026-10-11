@@ -379,7 +379,9 @@
   let previewsRemoved = $derived(item.link_previews_removed === true);
   let bundledPreviews = $derived(previewsRemoved ? [] : item.bundled_link_previews);
   let previewUrls = $derived(
-    item.content.kind === 'message' && !previewsRemoved ? previewableLinks(item.content.html) : []
+    item.content.kind === 'message' && !previewsRemoved
+      ? previewableLinks(item.content.html, item.content.body)
+      : []
   );
   let receiptWidth = $state(0);
   let receiptsInline = $derived(

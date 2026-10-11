@@ -41,14 +41,14 @@ function bracketed(anchor: Element): boolean {
   );
 }
 
-export function previewableLinks(html: string): string[] {
+export function previewableLinks(html: string, body = ''): string[] {
   if (!html.includes('<a')) return [];
   const links = new Set<string>();
   const document = new DOMParser().parseFromString(html, 'text/html');
   for (const anchor of document.querySelectorAll('a[href]')) {
     if (anchor.closest('pre, code, span[data-mx-spoiler]') || bracketed(anchor)) continue;
     const href = anchor.getAttribute('href') ?? '';
-    if (isPreviewable(href)) links.add(href);
+    if (isPreviewable(href) && !body.includes(`<${href}>`)) links.add(href);
   }
   return [...links];
 }

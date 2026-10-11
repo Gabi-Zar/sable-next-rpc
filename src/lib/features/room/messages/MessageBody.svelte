@@ -59,7 +59,7 @@
   }: Props = $props();
   let previewLinks = $derived(
     item.content.kind === 'gallery' && item.link_previews_removed !== true
-      ? previewableLinks(item.content.html)
+      ? previewableLinks(item.content.html, item.content.body)
       : []
   );
   let spoiler = $derived(
