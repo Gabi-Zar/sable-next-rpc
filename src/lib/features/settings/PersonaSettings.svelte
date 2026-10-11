@@ -19,6 +19,7 @@
     parsePluralkitExport,
     personaFromPluralkit,
     systemIdFromInput,
+    type PluralkitImportOptions,
     type PluralkitMember,
   } from '#lib/personas/pluralkit.js';
   import { triggerLabel } from '#lib/personas/persona.js';
@@ -31,6 +32,7 @@
   import SettingsSection from '#lib/ui/primitives/SettingsSection.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
+  import Switch from '#lib/ui/primitives/Switch.svelte';
   import '#lib/ui/primitives/settings-row.css';
 
   import PersonaEditor from './PersonaEditor.svelte';
@@ -48,6 +50,7 @@
 
   let systemInput = $state('');
   let token = $state('');
+  let pkExtractPronouns = $state(true);
   let importing = $state(false);
   let importNotice = $state<string | null>(null);
   let exportInput = $state<HTMLInputElement>();
@@ -121,7 +124,8 @@
 
   async function importMembers(
     load: () => Promise<PluralkitMember[]>,
-    failure: string
+    failure: string,
+    options: PluralkitImportOptions = {}
   ): Promise<boolean> {
     importing = true;
     error = null;
@@ -134,7 +138,10 @@
         const existing = matchImported(personas.personas, member);
         const avatar = await avatarFor(member, existing);
         if (avatar.failed) pictures += 1;
-        await personas.save(personaFromPluralkit(member, avatar.url), existing?.id ?? null);
+        await personas.save(
+          personaFromPluralkit(member, avatar.url, options),
+          existing?.id ?? null
+        );
       }
 
       importNotice =
@@ -158,7 +165,8 @@
 
     const imported = await importMembers(
       () => fetchPluralkitMembers(systemId, token.trim() || null),
-      'personas.importFailed'
+      'personas.importFailed',
+      { extractPronouns: pkExtractPronouns }
     );
     if (imported) token = '';
   }
@@ -356,6 +364,12 @@
         <TextInput bind:value={token} type="password" autocomplete="off" />
         <small>{$i18n.t('personas.importTokenHint')}</small>
       </label>
+      <label class="field">
+        <div>
+          <span>{$i18n.t('personas.importPronouns')}</span>
+          <Switch label={$i18n.t('personas.importPronouns')} bind:checked={pkExtractPronouns} />
+        </div>
+      </label>
       <div class="persona-actions">
         <Button
           variant="secondary"
@@ -542,5 +556,12 @@
   .field small {
     color: var(--surface-var-on-container);
     font-size: var(--font-size-small);
+  }
+
+  .field div {
+    display: flex;
+    flex: row wrap;
+    align-items: center;
+    justify-content: space-between;
   }
 </style>
