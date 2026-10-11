@@ -28,7 +28,10 @@ use wiremock::{
 
 use super::{
     Core,
-    protocol::{Command, CommandErr, CommandOk, CoreEvent, Outgoing, TimelineFocusView},
+    protocol::{
+        Command, CommandErr, CommandOk, CoreEvent, Outgoing, PaginationDirection, SubscriptionId,
+        TimelineFocusView,
+    },
     session::{self, Session},
     store::MemorySessionStore,
 };
@@ -4103,4 +4106,135 @@ async fn an_emptied_state_event_is_a_state_event_not_a_deleted_message() {
         }
         other => panic!("expected a state event, got {other:?}"),
     }
+}
+
+#[expect(clippy::unwrap_used, clippy::panic, reason = "test code")]
+async fn subscribe_live(core: &Arc<Core>, room_id: &matrix_sdk::ruma::RoomId) -> SubscriptionId {
+    let CommandOk::SubscribeTimeline { subscription, .. } = core
+        .dispatch(Command::SubscribeTimeline {
+            room_id: room_id.to_owned(),
+            focus: TimelineFocusView::Live,
+            hidden_events: false,
+        })
+        .await
+        .unwrap()
+    else {
+        panic!("wrong response");
+    };
+    subscription
+}
+
+#[expect(clippy::unwrap_used, clippy::panic, reason = "test code")]
+async fn paginate_back(core: &Arc<Core>, subscription: SubscriptionId) -> bool {
+    let CommandOk::Paginate { reached_end, .. } = core
+        .dispatch(Command::Paginate {
+            subscription,
+            direction: PaginationDirection::Backward,
+            count: 20,
+        })
+        .await
+        .unwrap()
+    else {
+        panic!("wrong response");
+    };
+    reached_end
+}
+
+#[tokio::test]
+async fn a_cleared_event_cache_does_not_end_history_at_the_next_arrival() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!cleared:example.org");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    server.mock_room_state_encryption().plain().mount().await;
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .set_timeline_limited()
+                .set_timeline_prev_batch("before-h2")
+                .add_timeline_event(factory.text_msg("h2").event_id(event_id!("$h2"))),
+        )
+        .await;
+    let core = core_for(&server, client.clone()).await;
+    let subscription = subscribe_live(&core, room_id).await;
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg("new1").event_id(event_id!("$new1"))),
+        )
+        .await;
+
+    client.event_cache().clear_all_rooms().await.unwrap();
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg("new2").event_id(event_id!("$new2"))),
+        )
+        .await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/_matrix/client/v3/rooms/.*/messages$"))
+        .and(wiremock::matchers::query_param_is_missing("from"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "start": "live",
+            "end": "before-h2",
+            "chunk": [
+                factory.text_msg("new2").event_id(event_id!("$new2")).into_raw_timeline(),
+                factory.text_msg("new1").event_id(event_id!("$new1")).into_raw_timeline(),
+                factory.text_msg("h2").event_id(event_id!("$h2")).into_raw_timeline(),
+            ],
+        })))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/_matrix/client/v3/rooms/.*/messages$"))
+        .and(wiremock::matchers::query_param("from", "before-h2"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "start": "before-h2",
+            "chunk": [factory.text_msg("h1").event_id(event_id!("$h1")).into_raw_timeline()],
+        })))
+        .mount(server.server())
+        .await;
+
+    paginate_back(&core, subscription).await;
+
+    let timeline = core.timeline(&room_id.to_owned()).await.unwrap();
+    assert_eq!(
+        event_ids(timeline.items().await),
+        ["$h1", "$h2", "$new1", "$new2"]
+    );
+}
+
+#[tokio::test]
+async fn a_room_that_starts_at_its_create_event_is_not_refetched() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!created:example.org");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    server.mock_room_state_encryption().plain().mount().await;
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(
+                    factory
+                        .create(*ALICE, matrix_sdk::ruma::RoomVersionId::V11)
+                        .event_id(event_id!("$create")),
+                )
+                .add_timeline_event(factory.text_msg("first").event_id(event_id!("$first"))),
+        )
+        .await;
+    server
+        .mock_room_messages()
+        .ok(RoomMessagesResponseTemplate::default())
+        .never()
+        .mount()
+        .await;
+    let core = core_for(&server, client).await;
+    let subscription = subscribe_live(&core, room_id).await;
+
+    assert!(paginate_back(&core, subscription).await);
 }
