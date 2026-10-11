@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   uploadMedia: vi.fn<() => Promise<string>>(),
   save: vi.fn<(persona: PersonaView, previousId: string | null) => Promise<void>>(),
   load: vi.fn<(force?: boolean) => Promise<void>>(),
+  removeAll: vi.fn<() => Promise<void>>(),
+  list: [] as PersonaView[],
   accountData: vi.fn<(eventType: string) => Promise<unknown>>(),
   setAccountData: vi.fn<(eventType: string, content: unknown) => Promise<void>>(),
 }));
@@ -31,7 +33,7 @@ Object.assign(core, {
   setAccountData: mocks.setAccountData,
 });
 vi.mock('#lib/personas/personas.svelte.js', () => ({
-  usePersonaStore: () => ({ personas: [], loading: false, error: null, ...mocks }),
+  usePersonaStore: () => ({ personas: mocks.list, loading: false, error: null, ...mocks }),
 }));
 
 import PersonaSettings from './PersonaSettings.svelte';
@@ -42,6 +44,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   mocks.isTauri.mockReturnValue(false);
+  mocks.list = [];
 });
 
 test.each([
@@ -155,4 +158,30 @@ test('rejects a backup without the v3 catalog', async () => {
   expect(await screen.findByText(/not a per-message profile backup/)).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(mocks.setAccountData).not.toHaveBeenCalled();
+});
+
+test('deletes every profile only after confirmation', async () => {
+  mocks.load.mockResolvedValue();
+  mocks.removeAll.mockResolvedValue();
+  mocks.list = [{ id: 'kris', display_name: 'Kris', pronouns: [], triggers: [] } as never];
+  render(PersonaSettings);
+
+  await userEvent.click(screen.getByRole('button', { name: 'Delete all profiles' }));
+  const dialog = await screen.findByRole('dialog');
+  expect(mocks.removeAll).not.toHaveBeenCalled();
+
+  const [confirm] = within(dialog)
+    .getAllByRole('button')
+    .filter((button) => button.classList.contains('btn-danger'));
+  await userEvent.click(confirm);
+  await vi.waitFor(() => {
+    expect(mocks.removeAll).toHaveBeenCalledOnce();
+  });
+});
+
+test('offers no bulk delete without profiles', () => {
+  mocks.load.mockResolvedValue();
+  render(PersonaSettings);
+
+  expect(screen.getByRole('button', { name: 'Delete all profiles' })).toBeDisabled();
 });

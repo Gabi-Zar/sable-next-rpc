@@ -72,6 +72,10 @@ export class PersonaStore {
     this.repoint(id, null);
   }
 
+  async removeAll(): Promise<void> {
+    for (const { id } of this.personas) await this.remove(id);
+  }
+
   async reorder(from: number, to: number): Promise<void> {
     if (to < 0 || to >= this.personas.length || from === to) return;
     const ids = reorderPersonas(this.personas, from, to).map((persona) => persona.id);

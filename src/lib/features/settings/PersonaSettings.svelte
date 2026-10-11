@@ -42,6 +42,8 @@
   let editing = $state<PersonaView | null>(null);
   let removing = $state<string | null>(null);
   let personaToRemove = $state<PersonaView | null>(null);
+  let confirmingRemoveAll = $state(false);
+  let removingAll = $state(false);
   let error = $state<string | null>(null);
 
   let systemInput = $state('');
@@ -87,6 +89,20 @@
     if (!persona) return;
     await remove(persona);
     personaToRemove = null;
+  }
+
+  async function confirmRemoveAll(): Promise<void> {
+    removingAll = true;
+    error = null;
+    try {
+      await personas.removeAll();
+    } catch (cause) {
+      console.warn('[sable personas] deleting every profile failed', cause);
+      error = $i18n.t('personas.removeFailed');
+    } finally {
+      removingAll = false;
+      confirmingRemoveAll = false;
+    }
   }
 
   async function avatarFor(member: PluralkitMember, existing: PersonaView | undefined) {
@@ -298,6 +314,17 @@
         <Button
           variant="secondary"
           size="small"
+          disabled={personas.personas.length === 0 || importing || restoring}
+          onclick={() => {
+            confirmingRemoveAll = true;
+          }}
+        >
+          <TrashIcon />
+          {$i18n.t('personas.removeAll')}
+        </Button>
+        <Button
+          variant="secondary"
+          size="small"
           onclick={() => {
             openEditor(null);
           }}
@@ -420,6 +447,18 @@
   confirmLabel={$i18n.t('personas.remove', { name: personaToRemove?.display_name ?? '' })}
   busy={removing !== null}
   onConfirm={() => void confirmRemoval()}
+/>
+
+<ConfirmDialog
+  open={confirmingRemoveAll}
+  onOpenChange={(next: boolean) => {
+    if (!next && !removingAll) confirmingRemoveAll = false;
+  }}
+  title={$i18n.t('personas.removeAllTitle')}
+  description={$i18n.t('personas.removeAllConfirm')}
+  confirmLabel={$i18n.t('personas.removeAll')}
+  busy={removingAll}
+  onConfirm={() => void confirmRemoveAll()}
 />
 
 <ConfirmDialog
