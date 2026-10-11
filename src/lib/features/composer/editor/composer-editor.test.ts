@@ -1315,6 +1315,20 @@ describe('pasting', () => {
     });
     expect(hrefs).toEqual(['https://example.org']);
   });
+
+  test('an address pasted over a selection in the plain composer is written as markdown', () => {
+    preferences.richTextComposer = false;
+    const editor = open();
+    type(editor, 'the docs');
+    const editorView = view(editor);
+    editorView.dispatch(
+      editorView.state.tr.setSelection(TextSelection.create(editorView.state.doc, 5, 9))
+    );
+    editorView.pasteText('https://example.org');
+
+    expect(editor.doc()?.textContent).toBe('the [docs](https://example.org)');
+    preferences.richTextComposer = true;
+  });
 });
 
 describe('the placeholder', () => {
