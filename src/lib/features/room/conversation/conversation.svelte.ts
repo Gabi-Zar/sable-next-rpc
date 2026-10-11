@@ -165,6 +165,15 @@ export class Conversation {
           entry.event_id === pending.eventId ||
           entry.transaction_id === pending.eventId
       );
+      const unchanged =
+        body === pending.body &&
+        (formatted === null || formatted === pending.html) &&
+        (pending.persona ?? null) === (edited?.per_message_profile ?? null) &&
+        this.forumTitle === (edited?.forum_title ?? '');
+      if (unchanged) {
+        this.context = null;
+        return;
+      }
       await this.#beforeSend();
       await this.#core.commands.editMessage(
         targetRoomId,

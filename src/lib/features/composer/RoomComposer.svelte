@@ -926,6 +926,13 @@
     if (typedLine !== null && (await typedBotCommand(typedLine))) return;
 
     const doc = editor.doc();
+    const untouched =
+      context?.kind === 'edit' &&
+      prefilledDoc !== undefined &&
+      doc?.eq(prefilledDoc) === true &&
+      staged.length === 0
+        ? { body: context.body, formatted: context.html ?? null }
+        : null;
     const rich = richSend;
     const captionEdit = editingCaption;
     const asCaption = preferences.sendAttachmentAsCaption;
@@ -941,7 +948,7 @@
 
     try {
       await queue.enqueue(async () => {
-        const message = doc
+        const serialized = doc
           ? rich
             ? serializeComposer(doc)
             : serializePlain(doc)
@@ -951,6 +958,7 @@
               mentions: { userIds: [], room: false },
               imageSourcePacks: [],
             };
+        const message = untouched ? { ...serialized, ...untouched } : serialized;
         const captioned = asCaption && unsent.length === 1 && message.body !== '';
         const gallery =
           preferences.sendAttachmentsAsGallery &&

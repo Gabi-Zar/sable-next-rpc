@@ -569,6 +569,26 @@ test.each([true, false])(
   }
 );
 
+test('submitting an untouched rich edit hands back the original body and html', async () => {
+  const message = vi.fn(async () => {});
+  const html = 'some <strong>bold</strong> text';
+  setup({
+    roomId: '!room:example.org',
+    onSend: message,
+    context: { kind: 'edit', eventId: '$one:example.org', body: 'some **bold** text', html },
+  });
+  await tick();
+
+  submit();
+
+  await vi.waitFor(() => {
+    expect(message).toHaveBeenCalledWith('!room:example.org', 'some **bold** text', html, {
+      userIds: [],
+      room: false,
+    });
+  });
+});
+
 test('text rides a lone attachment as its caption', async () => {
   const attachment = vi.fn(async () => {});
   const message = vi.fn(async () => {});
