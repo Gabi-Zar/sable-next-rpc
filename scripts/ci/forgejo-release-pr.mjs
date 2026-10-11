@@ -15,7 +15,7 @@ async function request(method, path, body) {
       Authorization: `token ${process.env.FORGEJO_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body: body && JSON.stringify(body),
+    ...(body && { body: JSON.stringify(body) }),
   });
   if (response.status === 404 && method === 'GET') return undefined;
   if (!response.ok) {
