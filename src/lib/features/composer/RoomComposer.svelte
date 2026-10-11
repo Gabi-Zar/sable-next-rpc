@@ -123,6 +123,7 @@
     type BotCommandInvocation,
   } from './bot-commands';
   import { parseSlash } from './slash-commands';
+  import { rememberSuggestion } from './suggestion-usage';
   import { ROOM_MENTION, suggestionsFor } from './suggestions';
   import VoiceRecorder from './VoiceRecorder.svelte';
   import { isVoiceRecordingSupported } from './voice-recorder-support';
@@ -1306,6 +1307,7 @@
       if (quickReactEnabled) void quickReact(suggestion);
       return;
     }
+    if (current.sigil !== '!') rememberSuggestion(suggestion.id);
 
     const slashBot =
       current.sigil === '/'

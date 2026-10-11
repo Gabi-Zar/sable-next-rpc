@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 
 import type { AutocompleteQuery } from './autocomplete';
 import { parseBotCommands } from './bot-commands';
+import { rememberSuggestion } from './suggestion-usage';
 import { suggestionsFor } from './suggestions';
 
 function member(userId: string, displayName: string | null): MemberView {
@@ -95,13 +96,10 @@ test('at most eight suggestions reach the panel', () => {
   expect(suggestionsFor(mentionQuery('member'), members, [], [])).toHaveLength(8);
 });
 
-test('pack emotes come first, then native emoji fill the panel', () => {
-  const suggestions = suggestionsFor(emoteQuery('wa'), [], [emote('unwave'), emote('wave')], []);
+test('an exact pack match is not crowded out by native emoji', () => {
+  const suggestions = suggestionsFor(emoteQuery('wave'), [], [emote('unwave'), emote('wave')], []);
 
-  expect(suggestions.slice(0, 2).map((item) => item.insert)).toEqual([':wave:', ':unwave:']);
-  expect(suggestions[0]?.imageUrl).toBe('mxc://example.org/wave');
-  expect(suggestions).toHaveLength(8);
-  expect(suggestions.slice(2).every((item) => item.id.startsWith('emoji:'))).toBe(true);
+  expect(suggestions.map((item) => item.id)).toContain('pack:wave');
 });
 
 test('duplicate pack shortcodes keep the first matching pack image', () => {
@@ -290,4 +288,14 @@ test('a bot command is offered under its bot, and never over a built-in of the s
       item.id.startsWith('bot:')
     )
   ).toEqual([]);
+});
+
+test('a frequently accepted suggestion comes first, and unicode precedes custom emoji', () => {
+  rememberSuggestion('emoji:🥺');
+  rememberSuggestion('emoji:🥺');
+  const ids = suggestionsFor(emoteQuery('plead'), [], [emote('pleading')], []).map(
+    (item) => item.id
+  );
+  expect(ids[0]).toBe('emoji:🥺');
+  expect(ids.indexOf('pack:pleading')).toBeGreaterThan(ids.indexOf('emoji:🥺'));
 });
