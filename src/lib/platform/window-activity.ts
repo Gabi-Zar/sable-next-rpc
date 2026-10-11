@@ -5,8 +5,32 @@ import { watchWindowFocus } from './window-decorations.js';
 
 let nativeFocused: boolean | null = null;
 let pageShown = true;
+let wasActive = true;
+let inactiveSince = 0;
+let resumedAt = Number.NEGATIVE_INFINITY;
+const RESUME_GRACE_MS = 8000;
+const MIN_INACTIVE_MS = 30000;
 
-const subscribe = createSubscriber((update) => {
+function isActive(): boolean {
+  return (
+    pageShown && document.visibilityState === 'visible' && (nativeFocused ?? document.hasFocus())
+  );
+}
+
+function noteActivity(): void {
+  const now = isActive();
+  if (now === wasActive) return;
+  const at = performance.now();
+  if (now && at - inactiveSince >= MIN_INACTIVE_MS) resumedAt = at;
+  else if (!now) inactiveSince = at;
+  wasActive = now;
+}
+
+const subscribe = createSubscriber((notify) => {
+  const update = (): void => {
+    noteActivity();
+    notify();
+  };
   let stopped = false;
   let unlisten = (): void => {};
   void watchWindowFocus((focused) => {
@@ -57,8 +81,10 @@ export const windowActivity = {
 
   get active(): boolean {
     subscribe();
-    return (
-      pageShown && document.visibilityState === 'visible' && (nativeFocused ?? document.hasFocus())
-    );
+    return isActive();
+  },
+
+  get recentlyResumed(): boolean {
+    return performance.now() - resumedAt < RESUME_GRACE_MS;
   },
 };
