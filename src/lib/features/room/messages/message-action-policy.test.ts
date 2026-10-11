@@ -99,6 +99,19 @@ test('media and threaded events expose their respective actions', () => {
   });
 
   expect(media.download).toBe(true);
+  expect(media.reproxy).toBe(true);
+  expect(
+    policy({
+      content: {
+        kind: 'sticker',
+        body: 's',
+        source: 'mxc://x/y',
+        mime: null,
+        width: null,
+        height: null,
+      },
+    }).reproxy
+  ).toBe(false);
   expect(media.openThread).toBe(true);
   expect(media.threadTarget).toBe('$root');
   expect(media.copyText).toBe(true);

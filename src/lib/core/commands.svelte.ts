@@ -1058,6 +1058,21 @@ export function createCommands(transport: () => Transport) {
       });
     },
 
+    async reprofileMessage(
+      roomId: string,
+      eventId: string,
+      persona: PerMessageProfileView | null,
+      threadRoot: string | null = null
+    ): Promise<void> {
+      await transport().send({
+        type: 'reprofile_message',
+        room_id: roomId,
+        event_id: eventId,
+        thread_root: threadRoot,
+        persona: $state.snapshot(persona),
+      });
+    },
+
     async deleteThread(
       roomId: string,
       rootEventId: string,

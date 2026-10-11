@@ -328,6 +328,17 @@ pub enum Command {
         #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
         thread_root: Option<OwnedEventId>,
     },
+    ReprofileMessage {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        room_id: OwnedRoomId,
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        event_id: OwnedEventId,
+        #[serde(default)]
+        #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+        thread_root: Option<OwnedEventId>,
+        #[serde(default)]
+        persona: Option<PerMessageProfileView>,
+    },
     /// `edited` on the view flips once the server has the replacement.
     EditMessage {
         #[cfg_attr(feature = "typegen", specta(type = String))]
@@ -1590,6 +1601,7 @@ pub enum CommandOk {
     SendLocation,
     EditMessage,
     RemoveLinkPreviews,
+    ReprofileMessage,
     FetchEventDetails,
     Redact,
     DeleteThread,

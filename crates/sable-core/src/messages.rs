@@ -84,14 +84,45 @@ pub(crate) fn previews_removed_edit(
     event_id: &EventId,
     event: &serde_json::Value,
 ) -> Option<serde_json::Value> {
+    replacement_edit(event_id, event, |new_content| {
+        for field in [BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS] {
+            new_content.insert(field.to_owned(), serde_json::json!([]));
+        }
+    })
+}
+
+pub(crate) fn reprofiled_edit(
+    event_id: &EventId,
+    event: &serde_json::Value,
+    persona: Option<&PerMessageProfileView>,
+) -> Option<serde_json::Value> {
+    replacement_edit(event_id, event, |new_content| {
+        new_content.remove(PER_MESSAGE_PROFILE);
+        new_content.remove("m.per_message_profile");
+        if let Some(persona) = persona {
+            let mut content = serde_json::Value::Object(std::mem::take(new_content));
+            crate::personas::stamp_profile(
+                &mut content,
+                &crate::personas::without_fallback(persona),
+            );
+            if let serde_json::Value::Object(object) = content {
+                *new_content = object;
+            }
+        }
+    })
+}
+
+fn replacement_edit(
+    event_id: &EventId,
+    event: &serde_json::Value,
+    update: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>),
+) -> Option<serde_json::Value> {
     if event.get("type").and_then(serde_json::Value::as_str) != Some("m.room.message") {
         return None;
     }
     let mut new_content = latest_message(event)?.as_object()?.clone();
     new_content.remove("m.relates_to");
-    for field in [BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS] {
-        new_content.insert(field.to_owned(), serde_json::json!([]));
-    }
+    update(&mut new_content);
 
     let mut edit = new_content.clone();
     for field in ["body", "formatted_body"] {
@@ -187,6 +218,41 @@ impl Core {
         event_id: &OwnedEventId,
         thread_root: Option<&OwnedEventId>,
     ) -> Result<(), CommandErr> {
+        Box::pin(self.replace_own_message(
+            room_id,
+            event_id,
+            thread_root,
+            "remove_link_previews",
+            |event| previews_removed_edit(event_id, event),
+        ))
+        .await
+    }
+
+    pub(crate) async fn reprofile_message(
+        &self,
+        room_id: &OwnedRoomId,
+        event_id: &OwnedEventId,
+        thread_root: Option<&OwnedEventId>,
+        persona: Option<&PerMessageProfileView>,
+    ) -> Result<(), CommandErr> {
+        Box::pin(self.replace_own_message(
+            room_id,
+            event_id,
+            thread_root,
+            "reprofile_message",
+            |event| reprofiled_edit(event_id, event, persona),
+        ))
+        .await
+    }
+
+    async fn replace_own_message(
+        &self,
+        room_id: &OwnedRoomId,
+        event_id: &OwnedEventId,
+        thread_root: Option<&OwnedEventId>,
+        context: &'static str,
+        build: impl FnOnce(&serde_json::Value) -> Option<serde_json::Value>,
+    ) -> Result<(), CommandErr> {
         let item = self
             .timeline_for(room_id, thread_root)
             .await?
@@ -201,15 +267,15 @@ impl Core {
             .or_else(|| item.original_json())
             .and_then(|raw| raw.deserialize_as_unchecked::<serde_json::Value>().ok())
             .ok_or(CommandErr::Unsupported)?;
-        let edit = previews_removed_edit(event_id, &event).ok_or(CommandErr::Unsupported)?;
+        let edit = build(&event).ok_or(CommandErr::Unsupported)?;
         let raw = Raw::<AnyMessageLikeEventContent>::from_json_string(edit.to_string())
-            .or_failed(self, "remove_link_previews")?;
+            .or_failed(self, context)?;
         self.room(room_id)
             .await?
             .send_queue()
             .send_raw(raw, "m.room.message".to_owned())
             .await
-            .or_failed(self, "remove_link_previews")?;
+            .or_failed(self, context)?;
         Ok(())
     }
 
@@ -793,6 +859,48 @@ mod tests {
     };
 
     use crate::{Core, session::Session, store::MemorySessionStore};
+
+    #[test]
+    fn reprofiling_a_gallery_replaces_its_profile_without_a_name_prefix() {
+        let gallery = json!({
+            "type": "m.room.message",
+            "content": { "msgtype": "dev.mscxxxx.gallery", "body": "trip", "itemtypes": [] },
+        });
+        let persona = crate::protocol::PerMessageProfileView {
+            id: Some("p".to_owned()),
+            display_name: Some("Kris".to_owned()),
+            avatar_url: None,
+            pronouns: Vec::new(),
+            color_on_light: None,
+            color_on_dark: None,
+            has_fallback: true,
+        };
+        let edit = super::reprofiled_edit(event_id!("$event"), &gallery, Some(&persona)).unwrap();
+
+        let new_content = &edit["m.new_content"];
+        assert_eq!(new_content["body"], "trip");
+        assert!(new_content.get("formatted_body").is_none());
+        assert_eq!(
+            new_content[crate::personas::PER_MESSAGE_PROFILE]["displayname"],
+            "Kris"
+        );
+        assert_eq!(
+            edit["m.relates_to"],
+            json!({ "rel_type": "m.replace", "event_id": "$event" })
+        );
+
+        let cleared = super::reprofiled_edit(
+            event_id!("$event"),
+            &json!({ "type": "m.room.message", "content": edit }),
+            None,
+        )
+        .unwrap();
+        assert!(
+            cleared["m.new_content"]
+                .get(crate::personas::PER_MESSAGE_PROFILE)
+                .is_none()
+        );
+    }
 
     #[test]
     fn removing_previews_edits_the_latest_version_with_an_empty_list() {
