@@ -1259,6 +1259,7 @@
         encrypted={resolvedRoom?.encrypted ?? null}
         onClose={closeThread}
         onSenderProfile={openProfile}
+        onMatrixLink={handleMatrixLink}
         onCopyLink={copyEventLink}
       />
     {/key}
