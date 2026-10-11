@@ -223,7 +223,7 @@
     onOpenChange={handleOpenChange}
   >
     <PersonaMenu
-      personas={personas.personas}
+      personas={sortedPersonas}
       {selected}
       {disabled}
       {scope}
