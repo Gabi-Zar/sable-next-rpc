@@ -1202,6 +1202,10 @@ export class ComposerEditor {
     const text = slice.content.textBetween(0, slice.content.size).trim();
     if (!URL_ONLY.test(text) || view.state.selection.empty) return false;
 
+    if (this.markdownMode()) {
+      view.dispatch(view.state.tr.replaceSelectionWith(markdownLink(view.state, text), false));
+      return true;
+    }
     const { from, to } = view.state.selection;
     view.dispatch(
       view.state.tr.addMark(from, to, composerSchema.marks.link.create({ href: text }))
