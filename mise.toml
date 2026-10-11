@@ -78,6 +78,10 @@ run = [
 ]
 tools = { "github:bnjbvr/cargo-machete" = "0.9.2", "aqua:EmbarkStudios/cargo-deny" = "0.20.2" }
 
+[tasks."check:frontend"]
+description = "Run formatter and frontend checks only"
+run = ["pnpm fmt:check", "pnpm lint", "pnpm stylelint", "pnpm check", "pnpm knip"]
+
 [tasks.test]
 description = "Run all frontend and Rust tests"
 alias = "t"
