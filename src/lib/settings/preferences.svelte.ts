@@ -23,6 +23,8 @@ export type WeekStart = 'sunday' | 'monday' | 'saturday';
 export type ThemeMode = 'system' | 'dark' | 'light';
 export type ShowRoomIcon = 'always' | 'sometimes' | 'collapsed' | 'never';
 export type SearchIndexLimit = '128' | '256' | '512' | '1024' | '2048' | '4096';
+export type PersonaPickerSortOrder = 'manual' | 'alphabetical-asc' | 'alphabetical-desc' | 'recent';
+
 export const SEARCH_INDEX_LIMITS: readonly SearchIndexLimit[] = [
   '128',
   '256',
@@ -258,6 +260,7 @@ export interface Preferences {
   imageMetadata: ImageMetadata;
 
   personaPicker: boolean;
+  personaPickerSortOrder: PersonaPickerSortOrder;
   personaProxying: boolean;
   personaLatching: LatchScope;
   personaFallback: boolean;
@@ -538,6 +541,7 @@ const DEFAULTS: Preferences = {
   imageMetadata: 'location',
 
   personaPicker: true,
+  personaPickerSortOrder: 'recent',
   personaProxying: false,
   personaLatching: 'off',
   personaFallback: true,

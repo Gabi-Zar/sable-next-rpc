@@ -21,6 +21,7 @@
 
   import PersonaMenu, { type PersonaScope } from './PersonaMenu.svelte';
   import { personaSpaces } from './persona-spaces.js';
+  import { preferences } from '#lib/settings/preferences.svelte.js';
 
   interface Props {
     roomId: string;
@@ -65,7 +66,13 @@
     }) ?? null
   );
   let sortedPersonas = $derived(
-    personas.personas.slice().sort((a, b) => (b.last_used ?? 0) - (a.last_used ?? 0))
+    preferences.personaPickerSortOrder === 'recent'
+      ? personas.personas.slice().sort((a, b) => (b.last_used ?? 0) - (a.last_used ?? 0))
+      : preferences.personaPickerSortOrder === 'alphabetical-asc'
+        ? personas.personas.slice().sort((a, b) => a.display_name.localeCompare(b.display_name))
+        : preferences.personaPickerSortOrder === 'alphabetical-desc'
+          ? personas.personas.slice().sort((a, b) => b.display_name.localeCompare(a.display_name))
+          : personas.personas
   );
   let shown = $derived(edit ? edit.current : active);
   let label = $derived(

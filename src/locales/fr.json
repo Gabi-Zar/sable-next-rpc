@@ -763,8 +763,6 @@
     "powerTagDerived": "{{tag}} {{level}}",
     "powerTagTeam": "Équipe {{level}}",
     "memberSort": "Trier les membres",
-    "memberSortNameAsc": "A à Z",
-    "memberSortNameDesc": "Z à A",
     "memberSortNewest": "Plus récents",
     "memberSortOldest": "Plus anciens",
     "memberFilter": "Filtrer les membres",
@@ -2545,6 +2543,8 @@
     "import": "Importer",
     "stopTest": "Arrêter le test",
     "edit": "Modifier",
-    "changePicture": "Modifier l’image"
+    "changePicture": "Modifier l’image",
+    "sortNameAsc": "A à Z",
+    "sortNameDesc": "Z à A"
   }
 }
