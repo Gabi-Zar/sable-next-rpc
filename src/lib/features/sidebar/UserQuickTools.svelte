@@ -146,7 +146,7 @@
     <div class="mobile-tool-slot">
       <AccountSwitcher mode="mobile" />
     </div>
-    <div class="mobile-tool-slot">
+    <div class="mobile-tool-slot" style:display={hasAlerts ? undefined : 'none'}>
       <AlertPopover mode="mobile" bind:hasAlerts />
     </div>
   </nav>
