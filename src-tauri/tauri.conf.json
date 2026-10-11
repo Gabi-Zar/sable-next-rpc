@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Sable v2",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "identifier": "moe.sable.next",
   "build": {
     "frontendDist": "../dist",
@@ -38,7 +38,9 @@
         "base-uri": "'self'",
         "form-action": "'self'"
       },
-      "dangerousDisableAssetCspModification": ["style-src"]
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ]
     }
   },
   "bundle": {
@@ -122,11 +124,15 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["moe.sable.next"]
+        "schemes": [
+          "moe.sable.next"
+        ]
       },
       "mobile": [
         {
-          "scheme": ["moe.sable.next"],
+          "scheme": [
+            "moe.sable.next"
+          ],
           "appLink": false
         }
       ]
