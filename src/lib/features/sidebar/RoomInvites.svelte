@@ -57,38 +57,28 @@
             {/if}
           </span>
           <div class="invite-actions">
-            <Tooltip label={$i18n.t('room.inviteAcceptLabel', { room: name })}>
-              {#snippet trigger({ props })}
-                <IconButton
-                  {...props}
-                  variant="ghost"
-                  size="small"
-                  disabled={busy}
-                  label={$i18n.t('room.inviteAcceptLabel', { room: name })}
-                  onclick={() => {
-                    void answers.accept(invite);
-                  }}
-                >
-                  <CheckIcon />
-                </IconButton>
-              {/snippet}
-            </Tooltip>
-            <Tooltip label={$i18n.t('room.inviteDeclineLabel', { room: name })}>
-              {#snippet trigger({ props })}
-                <IconButton
-                  {...props}
-                  variant="ghost"
-                  size="small"
-                  disabled={busy}
-                  label={$i18n.t('room.inviteDeclineLabel', { room: name })}
-                  onclick={() => {
-                    answers.decline(invite);
-                  }}
-                >
-                  <XIcon />
-                </IconButton>
-              {/snippet}
-            </Tooltip>
+            <IconButton
+              variant="ghost"
+              size="medium"
+              disabled={busy}
+              label={$i18n.t('room.inviteAcceptLabel', { room: name })}
+              onclick={() => {
+                void answers.accept(invite);
+              }}
+            >
+              <CheckIcon />
+            </IconButton>
+            <IconButton
+              variant="ghost"
+              size="medium"
+              disabled={busy}
+              label={$i18n.t('room.inviteDeclineLabel', { room: name })}
+              onclick={() => {
+                answers.decline(invite);
+              }}
+            >
+              <XIcon />
+            </IconButton>
           </div>
         </li>
       {/each}
@@ -98,39 +88,22 @@
 
 <style>
   .invites {
-    background: var(--surface-var-container);
-    border-radius: var(--radius-inner);
-    margin-bottom: var(--space-200);
-    padding: var(--space-200);
+    padding: 0 var(--space-200) var(--space-200);
   }
 
   h3 {
     align-items: center;
-    color: var(--bg-on-container);
     display: flex;
-    font-size: var(--font-size-label);
+    font-size: var(--font-size-small);
     font-weight: var(--font-weight-500);
     gap: var(--space-200);
     margin: 0;
-    opacity: var(--opacity-p300);
     padding: 0 var(--space-200);
+    text-transform: uppercase;
   }
 
   .count {
-    align-items: center;
-    background: var(--success-main);
-    border-radius: var(--radii-pill);
-    box-sizing: border-box;
-    color: var(--success-on-main);
-    display: inline-flex;
-    font-size: var(--font-size-small);
     font-variant-numeric: tabular-nums;
-    font-weight: var(--font-weight-medium);
-    height: var(--size-x50);
-    justify-content: center;
-    line-height: var(--size-x50);
-    min-width: var(--size-x50);
-    padding: 0 var(--space-100);
   }
 
   ul {
@@ -161,23 +134,15 @@
     gap: var(--space-200);
   }
 
-  .invite-actions :global(.icon-button:hover) {
-    background: var(--surface-container-hover);
-    color: var(--surface-on-container);
-  }
-
   :global(.avatar-root.invite-icon) {
-    --avatar-size: 1.5rem;
+    --avatar-size: 1.75rem;
 
     font-size: var(--font-size-small);
   }
 
   .invite-text {
-    display: flex;
+    display: grid;
     flex: 1;
-    flex-flow: column nowrap;
-    gap: var(--space-100);
-    justify-content: center;
     min-width: 0;
   }
 
@@ -188,15 +153,8 @@
     white-space: nowrap;
   }
 
-  .invite-name {
-    font-size: var(--font-size-medium);
-    font-weight: var(--font-weight-500);
-    line-height: 1;
-  }
-
   .invite-from {
     color: var(--surface-var-on-container);
     font-size: var(--font-size-small);
-    line-height: 1;
   }
 </style>

@@ -88,10 +88,6 @@ export type ComposerForm = 'short' | 'adaptive' | 'tall';
 export type EnterKey = 'adaptive' | 'newline' | 'send';
 export const COMPOSER_ACTIONS = ['gif', 'sticker', 'emoticon', 'persona', 'format'] as const;
 export type ComposerAction = (typeof COMPOSER_ACTIONS)[number];
-export const DEARROW_THUMBNAIL_FALLBACKS = ['random', 'original', 'youtube_autogen'] as const;
-export type DearrowThumbnailFallback = (typeof DEARROW_THUMBNAIL_FALLBACKS)[number];
-export const YOUTUBE_THUMBNAIL_POSITIONS = ['start', 'middle', 'end'] as const;
-export type YoutubeThumbnailPosition = (typeof YOUTUBE_THUMBNAIL_POSITIONS)[number];
 
 export const COMPOSER_SEPARATOR_MAX = 9;
 export type ComposerSeparatorId = `separator:${number}`;
@@ -288,9 +284,6 @@ export interface Preferences {
   clientEmbeds: boolean;
   encryptedClientEmbeds: boolean;
   youtubeEmbeds: boolean;
-  useDearrow: boolean;
-  dearrowThumbnailFallback: DearrowThumbnailFallback;
-  youtubeThumbnailPosition: YoutubeThumbnailPosition;
   tiktokEmbeds: boolean;
   instagramEmbeds: boolean;
   blueskyEmbeds: boolean;
@@ -571,9 +564,6 @@ const DEFAULTS: Preferences = {
   clientEmbeds: false,
   encryptedClientEmbeds: false,
   youtubeEmbeds: false,
-  useDearrow: false,
-  dearrowThumbnailFallback: 'youtube_autogen',
-  youtubeThumbnailPosition: 'middle',
   tiktokEmbeds: false,
   instagramEmbeds: false,
   blueskyEmbeds: false,

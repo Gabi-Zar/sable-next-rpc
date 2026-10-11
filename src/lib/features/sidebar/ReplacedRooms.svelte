@@ -74,50 +74,34 @@
             href={roomSectionPath(roomList.rooms, room.room_id)}
             draggable="false"
           >
-            <Avatar
-              class="replaced-icon"
-              size="small"
-              id={room.room_id}
-              src={room.avatar_url}
-              {name}
-            />
+            <Avatar class="replaced-icon" id={room.room_id} src={room.avatar_url} {name} />
             <Tooltip label={name}>
               {#snippet trigger({ props })}
                 <span {...props} class="replaced-name">{name}</span>
               {/snippet}
             </Tooltip>
           </a>
-          <Tooltip label={$i18n.t('room.replacedLeaveLabel', { room: name })}>
-            {#snippet trigger({ props })}
-              <IconButton
-                {...props}
-                variant="ghost"
-                size="small"
-                label={$i18n.t('room.replacedLeaveLabel', { room: name })}
-                onclick={() => {
-                  void leave(room);
-                }}
-              >
-                <SignOutIcon />
-              </IconButton>
-            {/snippet}
-          </Tooltip>
+          <IconButton
+            variant="ghost"
+            size="medium"
+            label={$i18n.t('room.replacedLeaveLabel', { room: name })}
+            onclick={() => {
+              void leave(room);
+            }}
+          >
+            <SignOutIcon />
+          </IconButton>
           {#if !handled}
-            <Tooltip label={$i18n.t('room.replacedDismissLabel', { room: name })}>
-              {#snippet trigger({ props })}
-                <IconButton
-                  {...props}
-                  variant="ghost"
-                  size="small"
-                  label={$i18n.t('room.replacedDismissLabel', { room: name })}
-                  onclick={() => {
-                    dismissReplacedRoom(room.room_id);
-                  }}
-                >
-                  <XIcon />
-                </IconButton>
-              {/snippet}
-            </Tooltip>
+            <IconButton
+              variant="ghost"
+              size="medium"
+              label={$i18n.t('room.replacedDismissLabel', { room: name })}
+              onclick={() => {
+                dismissReplacedRoom(room.room_id);
+              }}
+            >
+              <XIcon />
+            </IconButton>
           {/if}
         </li>
       {/each}
@@ -132,31 +116,17 @@
 
   h3 {
     align-items: center;
-    color: var(--bg-on-container);
     display: flex;
-    font-size: var(--font-size-label);
+    font-size: var(--font-size-small);
     font-weight: var(--font-weight-500);
     gap: var(--space-200);
     margin: 0;
-    opacity: var(--opacity-p300);
     padding: 0 var(--space-200);
+    text-transform: uppercase;
   }
 
   .count {
-    align-items: center;
-    background: var(--sec-main);
-    border-radius: var(--radii-pill);
-    box-sizing: border-box;
-    color: var(--sec-on-main);
-    display: inline-flex;
-    font-size: var(--font-size-small);
     font-variant-numeric: tabular-nums;
-    font-weight: var(--font-weight-medium);
-    height: var(--size-x50);
-    justify-content: center;
-    line-height: var(--size-x50);
-    min-width: var(--size-x50);
-    padding: 0 var(--space-100);
   }
 
   ul {
@@ -185,11 +155,6 @@
     background: var(--bg-container-hover);
   }
 
-  li :global(.icon-button:hover) {
-    background: var(--surface-container-hover);
-    color: var(--surface-on-container);
-  }
-
   .replaced-collapsed {
     display: grid;
     gap: var(--space-100);
@@ -204,7 +169,7 @@
   }
 
   :global(.avatar-root.replaced-icon) {
-    --avatar-size: 1.5rem;
+    --avatar-size: 1.75rem;
 
     font-size: var(--font-size-small);
   }
@@ -221,7 +186,6 @@
 
   .replaced-name {
     flex: 1;
-    font-weight: var(--font-weight-500);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
