@@ -78,7 +78,7 @@ test('the extra options go to the fields Settings edits', async () => {
     on_light: '#aa3377',
     on_dark: '#aa3377',
   });
-  expect(core.setProfileField).toHaveBeenCalledWith('m.status', { text: 'on holiday' });
+  expect(core.setProfileField).toHaveBeenCalledWith('m.status', { text: 'on holiday', emoji: '' });
   expect(core.commands.uploadMedia).toHaveBeenCalledWith('image/png', new Uint8Array([1, 2, 3]));
   expect(core.setProfileField).toHaveBeenCalledWith(
     'chat.commet.profile_banner',
@@ -151,7 +151,7 @@ test('a status save deletes the legacy status keys the profile still carries', a
   profile.setStatus('away');
   await profile.save();
 
-  expect(core.setProfileField).toHaveBeenCalledWith('m.status', { text: 'away' });
+  expect(core.setProfileField).toHaveBeenCalledWith('m.status', { text: 'away', emoji: '' });
   expect(core.setProfileField).toHaveBeenCalledWith('chat.commet.profile_status', null);
   expect(core.setProfileField).not.toHaveBeenCalledWith('org.matrix.msc4426.status', null);
   expect(core.setProfileField).not.toHaveBeenCalledWith('moe.sable.app.bio', null);

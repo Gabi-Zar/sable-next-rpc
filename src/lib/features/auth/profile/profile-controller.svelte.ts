@@ -165,7 +165,7 @@ export class ProfileController {
       }
       const status = this.status.trim();
       if (status !== loaded.status) {
-        await core.setProfileField(STATUS_FIELD, status ? { text: status } : null);
+        await core.setProfileField(STATUS_FIELD, status ? { text: status, emoji: '' } : null);
         for (const [field] of legacyDeletes(loaded.legacyFields, LEGACY_STATUS_FIELDS)) {
           await core.setProfileField(field, null);
         }
