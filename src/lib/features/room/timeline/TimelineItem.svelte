@@ -218,15 +218,21 @@
         )
       : []
   );
+  let replyTarget = $derived(
+    item.in_reply_to ? (events?.get(item.in_reply_to.event_id) ?? null) : null
+  );
+  let replySender = $derived(item.in_reply_to?.sender ?? replyTarget?.sender ?? null);
   let replyRoomName = $derived.by(() => {
-    const member = findMember(members, item.in_reply_to?.sender);
-    return member ? member.display_name : (item.in_reply_to?.sender_name ?? null);
+    const member = findMember(members, replySender);
+    return member
+      ? member.display_name
+      : (item.in_reply_to?.sender_name ?? replyTarget?.sender_name ?? null);
   });
   let replyNameBase = $derived(
     replyPersona?.display_name ??
       profileOverrides.name(
-        item.in_reply_to?.sender ?? '',
-        replyRoomName ?? item.in_reply_to?.sender ?? $i18n.t('timeline.unknownSender')
+        replySender ?? '',
+        replyRoomName ?? replySender ?? $i18n.t('timeline.unknownSender')
       )
   );
   let replyIsPinged = $derived(item.in_reply_to?.sender_mentioned ?? false);
@@ -234,7 +240,7 @@
     replyIsPinged && !replyNameBase.startsWith('@') ? `@${replyNameBase}` : replyNameBase
   );
   let replyBody = $derived.by(() => {
-    const target = item.in_reply_to ? events?.get(item.in_reply_to.event_id) : null;
+    const target = replyTarget;
     const kind = target?.content.kind;
     if (
       target &&
@@ -251,7 +257,6 @@
     replyPersona ? null : (roomCosmetics?.for(item.in_reply_to?.sender) ?? null)
   );
   let replyProfile = $derived(itemProfiles.reply);
-  let replySender = $derived(item.in_reply_to?.sender ?? null);
   let replyColors = $derived(
     senderDisplayColors(
       replySender ?? '',
