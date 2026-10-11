@@ -351,7 +351,8 @@
   });
   $effect(() => {
     const focused = windowActivity.active;
-    if (opened && live) untrack(() => unread.trackBackground(eventItems, focused));
+    if (opened && live)
+      untrack(() => unread.trackBackground(eventItems, focused && !windowActivity.recentlyResumed));
     unread.resolve(timeline.items, oldestUnreadLoaded, eventItems);
     if (!reading || !revealed || !focused) return;
     if (unreadInView) unread.observe(unread.firstEventId);
