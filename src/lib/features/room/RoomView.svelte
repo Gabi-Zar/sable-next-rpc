@@ -1112,12 +1112,10 @@
           aria-pressed={panels.widgetsOpen}
           onclick={toggleWidgets}
         >
-          <span class="widgets-button-icon">
-            <GridFourIcon weight={panels.widgetsOpen ? 'fill' : 'regular'} />
-            {#if roomSession.widgets.length > 0}
-              <span class="widgets-count" aria-hidden="true">{roomSession.widgets.length}</span>
-            {/if}
-          </span>
+          <GridFourIcon weight={panels.widgetsOpen ? 'fill' : 'regular'} />
+          {#if roomSession.widgets.length > 0}
+            <span class="widgets-count" aria-hidden="true">{roomSession.widgets.length}</span>
+          {/if}
         </PanelHeaderButton>
       {/if}
     {/snippet}
@@ -1479,32 +1477,23 @@
 </main>
 
 <style>
-  .widgets-button-icon {
-    display: inline-flex;
+  :global(.widgets-button) {
     position: relative;
   }
 
-  .widgets-button-icon > :global(svg) {
-    height: var(--button-icon-size);
-    width: var(--button-icon-size);
-  }
-
   .widgets-count {
-    align-items: center;
-    background: var(--sec-main);
-    border-radius: var(--radii-pill);
-    color: var(--sec-on-main);
-    display: inline-flex;
+    background: var(--surface-container-active);
+    border-radius: var(--radius-pill);
+    color: var(--surface-on-container);
     font-size: var(--font-size-small);
-    font-weight: var(--font-weight-medium);
-    height: var(--size-x50);
-    inset-block-start: calc(var(--space-100) * -1);
-    inset-inline-start: calc(var(--space-100) * -1);
-    justify-content: center;
-    min-width: var(--size-x50);
-    padding: 0 var(--space-100);
-    pointer-events: none;
+    font-weight: var(--font-weight-bold);
+    left: 0;
+    line-height: 1;
+    min-width: 1rem;
+    padding: var(--space-050) var(--space-100);
     position: absolute;
+    text-align: center;
+    top: 0;
   }
 
   .room-view {
