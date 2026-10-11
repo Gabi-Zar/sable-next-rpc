@@ -49,7 +49,7 @@ function fromChangelog() {
   const end = rest.indexOf('\n## ', 1);
   return (end === -1 ? rest : rest.slice(0, end))
     .split('\n')
-    .filter((line) => line.startsWith('* '))
+    .filter((line) => /^[*-] /.test(line))
     .map((line) => `- ${line.slice(2).replace(/ by @\S+( in #\d+)?\.?$/, '')}`);
 }
 
