@@ -700,6 +700,10 @@ impl Core {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
+        self.restored_history_rooms
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
         self.pinned_caches
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

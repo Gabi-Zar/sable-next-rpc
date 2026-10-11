@@ -482,11 +482,22 @@ impl Core {
                     });
                 }
                 let _foreground = self.begin_foreground_pagination();
-                let reached_end = match direction {
+                let mut reached_end = match direction {
                     PaginationDirection::Backward => timeline.paginate_backwards(count).await,
                     PaginationDirection::Forward => timeline.paginate_forwards(count).await,
                 }
                 .or_failed(self, "paginate")?;
+                if reached_end
+                    && matches!(direction, PaginationDirection::Backward)
+                    && !focused
+                    && !thread
+                    && self.restore_history_gap(timeline.room()).await?
+                {
+                    reached_end = timeline
+                        .paginate_backwards(count)
+                        .await
+                        .or_failed(self, "paginate")?;
+                }
 
                 Ok(CommandOk::Paginate {
                     direction,

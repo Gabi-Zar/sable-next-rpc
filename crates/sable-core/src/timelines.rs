@@ -123,6 +123,113 @@ impl Core {
             }
         }
     }
+
+    pub(crate) async fn restore_history_gap(
+        &self,
+        room: &matrix_sdk::Room,
+    ) -> Result<bool, CommandErr> {
+        let room_id = room.room_id().to_owned();
+        if self
+            .restored_history_rooms
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .contains(&room_id)
+        {
+            return Ok(false);
+        }
+        let (cache, _handles) = room
+            .event_cache()
+            .await
+            .or_failed(self, "history_gap_cache")?;
+        let cached = cache.events().await.or_failed(self, "history_gap_events")?;
+        if cached
+            .first()
+            .is_none_or(|event| starts_history(event, room))
+        {
+            return Ok(false);
+        }
+
+        let mut page = None;
+        for _ in 0..HISTORY_GAP_ATTEMPTS {
+            let mut options = matrix_sdk::room::MessagesOptions::backward();
+            options.limit = HISTORY_GAP_PAGE.into();
+            let messages = room
+                .messages(options)
+                .await
+                .or_failed(self, "history_gap_messages")?;
+            let latest = cache
+                .events()
+                .await
+                .or_failed(self, "history_gap_events")?
+                .pop()
+                .and_then(|event| event.event_id().map(ToOwned::to_owned));
+            let covered = latest.is_none_or(|latest| {
+                messages
+                    .chunk
+                    .iter()
+                    .any(|event| event.event_id() == Some(&*latest))
+            });
+            if covered {
+                page = Some(messages);
+                break;
+            }
+        }
+        let Some(page) = page else {
+            return Ok(false);
+        };
+        self.restored_history_rooms
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(room_id.clone());
+        let Some(prev_batch) = page.end else {
+            return Ok(false);
+        };
+
+        tracing::warn!(%room_id, "event cache lost its history gap; re-seeding from the server");
+        let mut events = page.chunk;
+        events.reverse();
+        let mut updates = matrix_sdk::sync::RoomUpdates::default();
+        updates.joined.insert(
+            room_id,
+            matrix_sdk::sync::JoinedRoomUpdate {
+                timeline: matrix_sdk::sync::Timeline {
+                    limited: true,
+                    prev_batch: Some(prev_batch),
+                    events,
+                },
+                ..Default::default()
+            },
+        );
+        room.client()
+            .event_cache()
+            .handle_room_updates(updates)
+            .await
+            .or_failed(self, "history_gap_reseed")?;
+        Ok(true)
+    }
+}
+
+const HISTORY_GAP_PAGE: u32 = 20;
+const HISTORY_GAP_ATTEMPTS: usize = 3;
+
+fn starts_history(event: &Event, room: &matrix_sdk::Room) -> bool {
+    use matrix_sdk::ruma::events::room::history_visibility::HistoryVisibility;
+    let raw = event.raw();
+    match raw.get_field::<String>("type").ok().flatten().as_deref() {
+        Some("m.room.create") => true,
+        Some("m.room.member") => {
+            !matches!(
+                room.history_visibility_or_default(),
+                HistoryVisibility::Shared | HistoryVisibility::WorldReadable
+            ) && raw
+                .get_field::<String>("state_key")
+                .ok()
+                .flatten()
+                .as_deref()
+                == Some(room.own_user_id().as_str())
+        }
+        _ => false,
+    }
 }
 
 impl Core {
