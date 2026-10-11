@@ -453,12 +453,12 @@
 
     const message = preferences.presenceStatusMessage.trim();
     const presence = preferences.sendPresence ? preferences.presence : 'offline';
-    void core.commands
-      .setPresence(
-        presence === 'online' && !active ? 'unavailable' : presence,
-        preferences.sendPresence && message ? message : null
-      )
-      .catch(() => {});
+    const state = presence === 'online' && !active ? 'unavailable' : presence;
+    const status = preferences.sendPresence && message ? message : null;
+    const timer = setTimeout(() => {
+      void core.commands.setPresence(state, status).catch(() => {});
+    }, PRESENCE_SETTLE_MS);
+    return () => clearTimeout(timer);
   });
 
   const pushDeviceName = $derived(pusherDisplayName(core));
@@ -763,6 +763,7 @@
   });
 
   const NOTIFIED_ROOM_WAIT_MS = 10_000;
+  const PRESENCE_SETTLE_MS = 2_000;
 
   $effect(() => {
     const accountId = core.session?.account_id;
