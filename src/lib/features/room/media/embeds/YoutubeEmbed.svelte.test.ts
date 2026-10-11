@@ -323,6 +323,19 @@ const dearrowCases = [
     thumbnailUrl: 'https://i.ytimg.com/vi/1234567890c/hq1.jpg',
   },
   {
+    name: 'no valid details, random start, zero duration',
+    setPreferences: () => {
+      preferences.dearrowThumbnailFallback = 'random';
+      preferences.youtubeThumbnailPosition = 'start';
+    },
+    overrides: {
+      videoDuration: 0,
+    },
+    videoUrl: 'https://youtu.be/1234567890g',
+    title: 'A video',
+    thumbnailUrl: 'https://i.ytimg.com/vi/1234567890g/hq1.jpg',
+  },
+  {
     name: 'no valid details, random middle, no duration',
     setPreferences: () => {
       preferences.dearrowThumbnailFallback = 'random';

@@ -2079,7 +2079,7 @@
     "encryptedClientEmbeds": "Client-side embeds in encrypted rooms",
     "youtubeEmbeds": "Embed YouTube links",
     "useDearrow": "Use DeArrow titles and thumbnails",
-    "useDearrowHint": "Show alternative titles and thumbnails for YouTube embeds. The DeArrow server will see all YouTube videos you are sent. Uses DeArrow data licensed under CC BY-NC-SA 4.0 from https://dearrow.ajay.app.",
+    "useDearrowHint": "Show alternative titles and thumbnails for YouTube embeds. The DeArrow servers (sponsor.ajay.app and dearrow-thumb.ajay.app) will see all YouTube videos you are sent. Uses DeArrow data licensed under CC BY-NC-SA 4.0 from https://dearrow.ajay.app.",
     "dearrowThumbnailFallback": "Fallback thumbnail type",
     "dearrowThumbnailFallbackHint": "If there's no available crowdsourced thumbnail, what thumbnail should be shown?",
     "dearrowThumbnailRandom": "Random",
