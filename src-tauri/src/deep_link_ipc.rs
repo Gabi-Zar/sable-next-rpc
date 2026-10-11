@@ -14,16 +14,29 @@ use std::{
 
 use crate::deep_link_delivery::Delivery;
 
-const SCHEMES: &[&str] = &["moe.sable.app:", "moe.sable.next:", "sable:"];
-const SOCKET_NAME: &str = "moe.sable.next-deeplink.sock";
+const IDENTIFIER: &str = env!("SABLE_IDENTIFIER");
+const STABLE_IDENTIFIER: &str = "moe.sable.client";
+
 const NEW_URL_EVENT: &str = "deep-link://new-url";
 const ACTIVATE: &str = "activate";
 const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
 const READ_TIMEOUT: Duration = Duration::from_secs(3);
 const SOCKET_MODE: u32 = 0o600;
 
+#[must_use]
+pub fn schemes() -> &'static [&'static str] {
+    if IDENTIFIER == STABLE_IDENTIFIER {
+        &["moe.sable.app", "sable"]
+    } else {
+        &["moe.sable.next"]
+    }
+}
+
 fn is_deep_link(arg: &str) -> bool {
-    SCHEMES.iter().any(|scheme| arg.starts_with(scheme))
+    schemes().iter().any(|scheme| {
+        arg.strip_prefix(scheme)
+            .is_some_and(|rest| rest.starts_with(':'))
+    })
 }
 
 fn socket_path() -> Option<PathBuf> {
@@ -31,7 +44,7 @@ fn socket_path() -> Option<PathBuf> {
     if !directory.is_absolute() {
         return None;
     }
-    Some(directory.join(SOCKET_NAME))
+    Some(directory.join(format!("{IDENTIFIER}-deeplink.sock")))
 }
 
 fn deep_link_urls_in_args<I, S>(args: I) -> Vec<String>
@@ -251,12 +264,12 @@ mod tests {
             deep_link_urls_in_args([
                 "sable-next",
                 "--flag",
-                "sable://room/!a:example.org",
+                "moe.sable.next://room/!a:example.org",
                 "moe.sable.next:/login?code=secret",
                 "https://example.org",
             ]),
             vec![
-                "sable://room/!a:example.org".to_owned(),
+                "moe.sable.next://room/!a:example.org".to_owned(),
                 "moe.sable.next:/login?code=secret".to_owned(),
             ]
         );
@@ -264,7 +277,7 @@ mod tests {
 
     #[test]
     fn a_deep_link_in_argv_zero_is_not_a_forwarded_url() {
-        assert!(deep_link_urls_in_args(["sable://room/!a:example.org"]).is_empty());
+        assert!(deep_link_urls_in_args(["moe.sable.next://room/!a:example.org"]).is_empty());
     }
 
     #[test]

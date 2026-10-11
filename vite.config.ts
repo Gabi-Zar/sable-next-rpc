@@ -10,6 +10,9 @@ import { emojiDataPlugin } from './scripts/emoji-data-plugin.mjs';
 const wasmOutput = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
 
 export default defineConfig({
+  define: {
+    __SABLE_STABLE__: JSON.stringify(process.env.SABLE_BUILD_FLAVOR === 'stable'),
+  },
   build: {
     sourcemap: 'hidden',
   },
