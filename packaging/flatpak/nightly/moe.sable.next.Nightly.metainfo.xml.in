@@ -51,6 +51,13 @@
 
   <launchable type="desktop-id">moe.sable.next.Nightly.desktop</launchable>
 
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/SableClient/Sable/dev/docs/screenshots/timeline.png</image>
+      <caption>Catching up on a room timeline</caption>
+    </screenshot>
+  </screenshots>
+
   <releases>
     <release version="@VERSION@" date="@DATE@">
       <url type="details">https://git.sable.moe/SableClient/sable-next/releases</url>
