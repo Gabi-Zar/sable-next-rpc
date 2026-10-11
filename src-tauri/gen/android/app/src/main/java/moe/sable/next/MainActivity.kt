@@ -9,6 +9,8 @@ import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
+import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.IntentCompat
 import androidx.core.view.WindowCompat
@@ -24,12 +26,19 @@ class MainActivity : TauriActivity() {
   private external fun nativeInitSystemBars()
   private external fun nativeNetworkChanged(unmetered: Boolean)
   private var networkCallback: ConnectivityManager.NetworkCallback? = null
+  private var fullscreenClient: FullscreenChromeClient? = null
+  private val fullscreenBackCallback = object : OnBackPressedCallback(false) {
+    override fun handleOnBackPressed() {
+      fullscreenClient?.exitFullscreen()
+    }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     NativeSentry.apply(this, getSharedPreferences("sentry", MODE_PRIVATE).getBoolean("enabled", false))
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     instance = this
+    onBackPressedDispatcher.addCallback(this, fullscreenBackCallback)
     runCatching { nativeInitSystemBars() }
     startNetworkMonitor()
     stageShareIntent(intent)
@@ -70,6 +79,27 @@ class MainActivity : TauriActivity() {
     }.onFailure { error ->
       Log.w("SableNetwork", "Could not monitor network cost", error)
     }
+  }
+
+  override fun onWebViewCreate(webView: WebView) {
+    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
+    webView.post {
+      val inner = webView.webChromeClient ?: return@post
+      val client = FullscreenChromeClient(inner, ::setFullscreenVideo)
+      webView.webChromeClient = client
+      fullscreenClient = client
+    }
+  }
+
+  private fun setFullscreenVideo(active: Boolean) {
+    val controller = WindowCompat.getInsetsController(window, window.decorView)
+    if (active) {
+      controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+      controller.hide(WindowInsetsCompat.Type.systemBars())
+    } else {
+      controller.show(WindowInsetsCompat.Type.systemBars())
+    }
+    fullscreenBackCallback.isEnabled = active
   }
 
   override fun onNewIntent(intent: Intent) {
