@@ -61,6 +61,7 @@
   let failed = $state(false);
   let renaming = $state<string | null>(null);
   let renameDraft = $state('');
+  let bodyDraft = $state('');
   let shortcode = $state('');
   let imageInput = $state<HTMLInputElement | null>(null);
   let avatarInput = $state<HTMLInputElement | null>(null);
@@ -116,16 +117,26 @@
 
   function commitRename(target: PackImageDraft): void {
     const wanted = normalizeShortcode(renameDraft);
+    const body = bodyDraft.trim() === '' ? null : bodyDraft.trim();
     renaming = null;
-    if (wanted === '' || wanted === target.shortcode) return;
+    const next =
+      wanted === '' || wanted === target.shortcode
+        ? target.shortcode
+        : uniqueShortcode(wanted, taken);
+    if (next === target.shortcode && body === target.body) return;
 
-    const next = uniqueShortcode(wanted, taken);
     edit({
       ...current,
       images: current.images.map((image) =>
-        image.shortcode === target.shortcode ? { ...image, shortcode: next } : image
+        image.shortcode === target.shortcode ? { ...image, shortcode: next, body } : image
       ),
     });
+  }
+
+  function leaveFields(event: FocusEvent & { currentTarget: HTMLElement }, image: PackImageDraft) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget.contains(next)) return;
+    commitRename(image);
   }
 
   async function addImages(event: Event & { currentTarget: HTMLInputElement }): Promise<void> {
@@ -392,7 +403,7 @@
     {#if current.images.length > 0}
       <ul class="settings-rows">
         {#each current.images as image (image.shortcode)}
-          <SettingsRow title=":{image.shortcode}:">
+          <SettingsRow title=":{image.shortcode}:" description={image.body ?? undefined}>
             {#snippet before()}
               <MediaImage
                 source={image.url}
@@ -416,20 +427,38 @@
               }}
             />
             {#if renaming === image.shortcode}
-              <TextInput
-                bind:value={renameDraft}
-                aria-label={$i18n.t('emotes.shortcode')}
-                onblur={() => {
-                  commitRename(image);
+              <div
+                class="image-fields"
+                role="group"
+                aria-label={$i18n.t('emotes.rename', { shortcode: image.shortcode })}
+                onfocusout={(event) => {
+                  leaveFields(event, image);
                 }}
-                onkeydown={(event: KeyboardEvent) => {
-                  if (event.key === 'Enter') {
-                    commitRename(image);
-                    if (rejected === null) void apply();
-                  }
-                  if (event.key === 'Escape') renaming = null;
-                }}
-              />
+              >
+                <TextInput
+                  bind:value={renameDraft}
+                  aria-label={$i18n.t('emotes.shortcode')}
+                  onkeydown={(event: KeyboardEvent) => {
+                    if (event.key === 'Enter') {
+                      commitRename(image);
+                      if (rejected === null) void apply();
+                    }
+                    if (event.key === 'Escape') renaming = null;
+                  }}
+                />
+                <TextInput
+                  bind:value={bodyDraft}
+                  aria-label={$i18n.t('emotes.body')}
+                  placeholder={$i18n.t('emotes.body')}
+                  onkeydown={(event: KeyboardEvent) => {
+                    if (event.key === 'Enter') {
+                      commitRename(image);
+                      if (rejected === null) void apply();
+                    }
+                    if (event.key === 'Escape') renaming = null;
+                  }}
+                />
+              </div>
             {:else if canEdit}
               <IconButton
                 variant="ghost"
@@ -439,6 +468,7 @@
                 onclick={() => {
                   renaming = image.shortcode;
                   renameDraft = image.shortcode;
+                  bodyDraft = image.body ?? '';
                 }}
               >
                 <PencilSimpleIcon />
@@ -642,6 +672,11 @@
     display: grid;
     gap: var(--space-300);
     grid-template-columns: 1fr auto;
+  }
+
+  .image-fields {
+    display: grid;
+    gap: var(--space-200);
   }
 
   .file-input {
