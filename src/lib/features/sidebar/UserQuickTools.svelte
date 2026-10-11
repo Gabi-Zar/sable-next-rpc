@@ -120,34 +120,36 @@
     style:--mobile-slot-count={String(mobileSlotCount)}
     aria-label={$i18n.t('nav.quickTools')}
   >
-    {#each mobileTools as item (item.label)}
-      {@const toolActive = isToolActive(item.href)}
-      {@const href = item.href}
-      <div class="mobile-tool-slot">
-        <a
-          class="quick-tool mobile-tool"
-          {href}
-          onclick={(event) => {
-            activateTool(event, href);
-          }}
-          aria-label={toolLabel(item)}
-          aria-current={toolActive ? 'page' : undefined}
-          draggable="false"
-        >
-          <span class="mobile-icon" aria-hidden="true"
-            ><item.icon weight={toolActive ? 'fill' : 'regular'} /></span
+    <div class="mobile-tools-row">
+      {#each mobileTools as item (item.label)}
+        {@const toolActive = isToolActive(item.href)}
+        {@const href = item.href}
+        <div class="mobile-tool-slot">
+          <a
+            class="quick-tool mobile-tool"
+            {href}
+            onclick={(event) => {
+              activateTool(event, href);
+            }}
+            aria-label={toolLabel(item)}
+            aria-current={toolActive ? 'page' : undefined}
+            draggable="false"
           >
-          {#if item.href === '/inbox'}
-            <UnreadBadge counts={inboxCounts} aria-hidden="true" />
-          {/if}
-        </a>
+            <span class="mobile-icon" aria-hidden="true"
+              ><item.icon weight={toolActive ? 'fill' : 'regular'} /></span
+            >
+            {#if item.href === '/inbox'}
+              <UnreadBadge counts={inboxCounts} aria-hidden="true" />
+            {/if}
+          </a>
+        </div>
+      {/each}
+      <div class="mobile-tool-slot">
+        <AccountSwitcher mode="mobile" />
       </div>
-    {/each}
-    <div class="mobile-tool-slot">
-      <AccountSwitcher mode="mobile" />
-    </div>
-    <div class="mobile-tool-slot" style:display={hasAlerts ? undefined : 'none'}>
-      <AlertPopover mode="mobile" bind:hasAlerts />
+      <div class="mobile-tool-slot" style:display={hasAlerts ? undefined : 'none'}>
+        <AlertPopover mode="mobile" bind:hasAlerts />
+      </div>
     </div>
   </nav>
 {:else if compact}
@@ -255,22 +257,28 @@
   }
 
   .mobile-tools {
-    align-items: center;
     background: var(--surface-container);
     border-radius: var(--radius) var(--radius) 0 0;
     border-top: var(--border-width) solid var(--surface-container-line);
     box-sizing: border-box;
     color: var(--surface-on-container);
-    container-type: inline-size;
-    display: grid;
-    grid-template-columns: repeat(var(--mobile-slot-count), minmax(0, 1fr));
+    display: flex;
     min-height: calc(4.25rem + var(--edge-inset-bottom));
     padding: var(--space-100) 0 calc(var(--space-100) + var(--edge-inset-bottom));
-    position: relative;
     width: 100%;
   }
 
-  .mobile-tools::before {
+  .mobile-tools-row {
+    align-items: center;
+    container-type: inline-size;
+    display: grid;
+    flex: 1;
+    grid-template-columns: repeat(var(--mobile-slot-count), minmax(0, 1fr));
+    min-width: 0;
+    position: relative;
+  }
+
+  .mobile-tools-row::before {
     background: var(--primary-container);
     border-radius: var(--radius-pill);
     content: '';
@@ -279,7 +287,7 @@
     opacity: 0;
     pointer-events: none;
     position: absolute;
-    top: calc(50% - var(--edge-inset-bottom) / 2);
+    top: 50%;
     translate: calc(
         (var(--mobile-selected-index) + 0.5) * 100cqi / var(--mobile-slot-count) - 50%
       ) -50%;
@@ -290,7 +298,7 @@
     z-index: 0;
   }
 
-  .mobile-tools.selection-active::before {
+  .mobile-tools.selection-active .mobile-tools-row::before {
     opacity: 1;
   }
 
@@ -304,7 +312,7 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .mobile-tools::before {
+    .mobile-tools-row::before {
       transition:
         translate var(--duration-fast) var(--ease-smooth-out),
         opacity var(--motion-normal) var(--motion-easing-standard);
