@@ -17,6 +17,8 @@ test('stable bundles keep v1 identity, Android package/JNI alignment and callbac
       'src-tauri/gen/android/app/google-services.json',
       'src-tauri/src/mobile.rs',
       'src-tauri/src/main.rs',
+      'src-tauri/gen/android/app/src/main/AndroidManifest.xml',
+      'src-tauri/ios-project.yml',
     ]) {
       cpSync(file, join(root, file), { recursive: true });
     }
@@ -25,7 +27,16 @@ test('stable bundles keep v1 identity, Android package/JNI alignment and callbac
     const config = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'), 'utf8'));
     assert.equal(config.identifier, 'moe.sable.client');
     assert.equal(config.productName, 'Sable');
-    assert.ok(config.plugins['deep-link'].desktop.schemes.includes('moe.sable.app'));
+    assert.deepEqual(config.plugins['deep-link'].desktop.schemes, ['moe.sable.app', 'sable']);
+    const manifest = readFileSync(
+      join(root, 'src-tauri/gen/android/app/src/main/AndroidManifest.xml'),
+      'utf8'
+    );
+    assert.ok(manifest.includes('android:scheme="moe.sable.app"'));
+    assert.ok(manifest.includes('android:scheme="sable"'));
+    assert.ok(!manifest.includes('android:scheme="moe.sable.next"'));
+    const plist = readFileSync(join(root, 'src-tauri/ios-project.yml'), 'utf8');
+    assert.ok(plist.includes('- moe.sable.app') && !plist.includes('- moe.sable.next'));
     const source = join(
       root,
       'src-tauri/gen/android/app/src/main/java/moe/sable/client/MainActivity.kt'

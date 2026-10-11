@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   callbackChannelName,
@@ -44,14 +44,23 @@ describe('redirect authentication', () => {
     expect(createRedirectUri('oidc', 'https://next.sable.moe/login', 'nonce')).toBe(
       'https://next.sable.moe/login'
     );
-    expect(createRedirectUri('oidc', 'moe.sable.next:/login', 'nonce')).toBe(
-      'moe.sable.next:/login'
-    );
+    expect(createRedirectUri('oidc', 'moe.sable.app:/login', 'nonce')).toBe('moe.sable.app:/login');
   });
 
-  test('uses valid native callback URI forms', () => {
-    expect(tauriRedirectUri('oidc')).toBe('moe.sable.next:/login');
-    expect(tauriRedirectUri('sso')).toBe('sable://login');
+  describe('native callback URI forms', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    test('stable keeps the v1 schemes', () => {
+      vi.stubGlobal('__SABLE_STABLE__', true);
+      expect(tauriRedirectUri('oidc')).toBe('moe.sable.app:/login');
+      expect(tauriRedirectUri('sso')).toBe('sable://login');
+    });
+
+    test('nightly and development use their own scheme', () => {
+      vi.stubGlobal('__SABLE_STABLE__', false);
+      expect(tauriRedirectUri('oidc')).toBe('moe.sable.next:/login');
+      expect(tauriRedirectUri('sso')).toBe('moe.sable.next://login');
+    });
   });
 
   test('uses protocol state to isolate callback channels', () => {

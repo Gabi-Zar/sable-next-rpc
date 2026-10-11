@@ -63,6 +63,19 @@ export function prepareV1Release(root) {
   rewrite(join(root, 'src-tauri/gen/android/app/src/main/res/values/strings.xml'), (text) =>
     text.replaceAll('"sable-next"', '"Sable"')
   );
+  const schemes = ['moe.sable.app', 'sable'];
+  config.plugins['deep-link'].desktop.schemes = schemes;
+  config.plugins['deep-link'].mobile[0].scheme = schemes;
+  rewrite(join(root, 'src-tauri/gen/android/app/src/main/AndroidManifest.xml'), (text) =>
+    text.replace(/( *)<data android:scheme="moe\.sable\.next" \/>\n/, (_, indent) =>
+      schemes.map((scheme) => `${indent}<data android:scheme="${scheme}" />\n`).join('')
+    )
+  );
+  rewrite(join(root, 'src-tauri/ios-project.yml'), (text) =>
+    text.replace(/( *)- moe\.sable\.next\n/, (_, indent) =>
+      schemes.map((scheme) => `${indent}- ${scheme}\n`).join('')
+    )
+  );
   config.identifier = v1Identifier;
   config.productName = 'Sable';
   config.mainBinaryName = 'sable';

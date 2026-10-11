@@ -45,7 +45,8 @@ export function createRedirectUri(
 }
 
 export function tauriRedirectUri(loginType: RedirectLoginType): string {
-  return loginType === 'oidc' ? 'moe.sable.next:/login' : 'sable://login';
+  if (__SABLE_STABLE__) return loginType === 'oidc' ? 'moe.sable.app:/login' : 'sable://login';
+  return loginType === 'oidc' ? 'moe.sable.next:/login' : 'moe.sable.next://login';
 }
 
 export function callbackChannelName(callbackUrl: string, windowName: string): string {

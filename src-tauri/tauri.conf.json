@@ -122,11 +122,11 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["moe.sable.app", "moe.sable.next", "sable"]
+        "schemes": ["moe.sable.next"]
       },
       "mobile": [
         {
-          "scheme": ["moe.sable.app", "moe.sable.next", "sable"],
+          "scheme": ["moe.sable.next"],
           "appLink": false
         }
       ]

@@ -7,4 +7,4 @@ Icon=moe.sable.next.Nightly
 Terminal=false
 Categories=Network;InstantMessaging;Chat;
 StartupWMClass=sable-next
-MimeType=x-scheme-handler/sable;x-scheme-handler/moe.sable.next;
+MimeType=x-scheme-handler/moe.sable.next;

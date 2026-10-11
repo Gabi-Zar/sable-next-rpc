@@ -10,6 +10,12 @@ STAGE="${1:-$ROOT/target/cef-stage}"
 DISPLAY_NAME="${2:-Sable v2}"
 PROFILE="${3:-release}"
 
+if [ "${SABLE_BUILD_FLAVOR:-}" = "stable" ]; then
+  MIME_SCHEMES="x-scheme-handler/sable;x-scheme-handler/moe.sable.app;"
+else
+  MIME_SCHEMES="x-scheme-handler/moe.sable.next;"
+fi
+
 RUNTIME="$STAGE/runtime"
 SHARE="$STAGE/share"
 rm -rf "$STAGE"
@@ -27,7 +33,7 @@ Icon=sable-next
 Terminal=false
 Categories=Network;InstantMessaging;Chat;
 StartupWMClass=sable-next
-MimeType=x-scheme-handler/sable;x-scheme-handler/moe.sable.app;x-scheme-handler/moe.sable.next;
+MimeType=$MIME_SCHEMES
 EOF
 
 for size in 32x32 64x64 128x128; do
