@@ -20,6 +20,8 @@ export default {
     // Handlebars behind a .yml extension; oxfmt parses it as YAML and fails.
     'src-tauri/ios-project.yml',
     'package.json',
+    'CHANGELOG.md',
+    'src-tauri/tauri.conf.json',
     'pnpm-lock.yaml',
     'Cargo.lock',
     'LICENSE',
