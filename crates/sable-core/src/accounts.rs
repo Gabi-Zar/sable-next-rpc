@@ -1598,6 +1598,7 @@ mod regression_tests {
             store_id: store_id.clone(),
             session: PersistedSession {
                 oauth_issuer: None,
+                oauth_redirect_uri: None,
                 resolved_homeserver: None,
                 homeserver: server.server().uri(),
                 credentials: Credentials::Password(
@@ -1813,6 +1814,7 @@ mod regression_tests {
             store_id: store_id.clone(),
             session: PersistedSession {
                 oauth_issuer: None,
+                oauth_redirect_uri: None,
                 resolved_homeserver: None,
                 homeserver: server.server().uri(),
                 credentials: Credentials::Password(

@@ -172,6 +172,7 @@ impl Core {
                 &account_store_id,
                 PersistedSession {
                     oauth_issuer: None,
+                    oauth_redirect_uri: None,
                     resolved_homeserver: Some(endpoint),
                     homeserver: homeserver.clone(),
                     credentials: Credentials::Password(matrix),
@@ -311,7 +312,9 @@ impl Core {
             if matches!(intent, AuthIntent::Register) {
                 return Err(CommandErr::Denied);
             }
-            if let Credentials::OAuth { client_id, .. } = &account.session.credentials {
+            if let Credentials::OAuth { client_id, .. } = &account.session.credentials
+                && session::registered_redirect_uri(&account.session, &redirect_uri) == redirect_uri
+            {
                 client.oauth().restore_registered_client(
                     matrix_sdk::authentication::oauth::ClientId::new(client_id.clone()),
                 );
@@ -402,8 +405,14 @@ impl Core {
             .await
             .or_failed(self, "complete_oidc_login")?;
 
-        let Some(PendingLogin::Oidc(account_id, account_store_id, homeserver, _, client, reauth)) =
-            pending.take()
+        let Some(PendingLogin::Oidc(
+            account_id,
+            account_store_id,
+            homeserver,
+            redirect_uri,
+            client,
+            reauth,
+        )) = pending.take()
         else {
             return Err(CommandErr::Unavailable);
         };
@@ -425,6 +434,7 @@ impl Core {
                 &account_store_id,
                 PersistedSession {
                     oauth_issuer: None,
+                    oauth_redirect_uri: Some(redirect_uri),
                     resolved_homeserver: Some(endpoint),
                     homeserver,
                     credentials: Credentials::oauth(full),
@@ -566,6 +576,7 @@ impl Core {
                 &account_store_id,
                 PersistedSession {
                     oauth_issuer: None,
+                    oauth_redirect_uri: None,
                     resolved_homeserver: Some(endpoint),
                     homeserver,
                     credentials: Credentials::Password(matrix),

@@ -240,7 +240,7 @@ impl Core {
             };
             let outcome = match result {
                 Ok(()) => core
-                    .finish_qr_login(client, homeserver, account_id, store_id)
+                    .finish_qr_login(client, homeserver, redirect_uri, account_id, store_id)
                     .await
                     .map_err(|_| QrLoginFailureView::Other),
                 Err(error) => {
@@ -266,6 +266,7 @@ impl Core {
         self: &Arc<Self>,
         client: matrix_sdk::Client,
         homeserver: String,
+        redirect_uri: Url,
         account_id: String,
         store_id: String,
     ) -> Result<String, CommandErr> {
@@ -281,6 +282,7 @@ impl Core {
             &store_id,
             PersistedSession {
                 oauth_issuer: None,
+                oauth_redirect_uri: Some(redirect_uri),
                 resolved_homeserver: Some(endpoint),
                 homeserver,
                 credentials: Credentials::oauth(full),

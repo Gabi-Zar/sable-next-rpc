@@ -183,6 +183,7 @@ impl LegacySession {
             resolved_homeserver: Some(homeserver),
             credentials,
             oauth_issuer,
+            oauth_redirect_uri: None,
         })
     }
 }
