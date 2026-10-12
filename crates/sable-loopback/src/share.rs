@@ -11,10 +11,11 @@ static SESSION: Mutex<Option<Capture>> = Mutex::new(None);
 /// # Errors
 ///
 /// Fails when the selection cannot be captured.
-pub fn start(selection: &Selection, frames: Channel<Response>) -> Result<(), String> {
+pub fn start(selection: &Selection, webview: u32, frames: Channel<Response>) -> Result<(), String> {
     stop();
     let capture = Capture::start(
         selection,
+        webview,
         Box::new(move |chunk| frames.send(Response::new(chunk.to_vec())).is_ok()),
     )?;
     *SESSION.lock().unwrap_or_else(PoisonError::into_inner) = Some(capture);

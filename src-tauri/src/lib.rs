@@ -695,21 +695,48 @@ async fn stop_screen_audio() {
     let _ = tauri::async_runtime::spawn_blocking(screen_audio::stop).await;
 }
 
+/// `WebView2` parents its browser process to Explorer when we run elevated, so
+/// it is not always in our process tree.
 #[cfg(target_os = "windows")]
-#[tauri::command]
-async fn start_screen_audio_stream(
-    selection: sable_loopback::capture::Selection,
-    frames: tauri::ipc::Channel<tauri::ipc::Response>,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || sable_loopback::share::start(&selection, frames))
-        .await
-        .map_err(|error| error.to_string())?
+async fn webview_process(webview: &tauri::Webview<BrowserEngine>) -> Result<u32, String> {
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    webview
+        .with_webview(move |platform| {
+            let mut pid = 0;
+            // SAFETY: `pid` outlives the call, which only writes through it.
+            #[expect(unsafe_code, reason = "FFI call")]
+            let outcome = unsafe {
+                platform
+                    .controller()
+                    .CoreWebView2()
+                    .and_then(|core| core.BrowserProcessId(&raw mut pid))
+            };
+            let _ = sender.send(outcome.map(|()| pid).map_err(|error| error.to_string()));
+        })
+        .map_err(|error| error.to_string())?;
+    receiver.await.map_err(|error| error.to_string())?
 }
 
 #[cfg(target_os = "windows")]
 #[tauri::command]
-async fn screen_audio_apps() -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(sable_loopback::share::list_apps)
+async fn start_screen_audio_stream(
+    webview: tauri::Webview<BrowserEngine>,
+    selection: sable_loopback::capture::Selection,
+    frames: tauri::ipc::Channel<tauri::ipc::Response>,
+) -> Result<(), String> {
+    let browser = webview_process(&webview).await?;
+    tauri::async_runtime::spawn_blocking(move || {
+        sable_loopback::share::start(&selection, browser, frames)
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+async fn screen_audio_apps(webview: tauri::Webview<BrowserEngine>) -> Result<Vec<String>, String> {
+    let browser = webview_process(&webview).await?;
+    tauri::async_runtime::spawn_blocking(move || sable_loopback::share::list_apps(browser))
         .await
         .map_err(|error| error.to_string())?
 }

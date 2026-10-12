@@ -11,7 +11,7 @@ export type ScreenAudioChoice =
 
 export const SCREEN_AUDIO_LABEL = 'Sable screen audio';
 
-const WINDOWS_LOOPBACK_BUILD = 19041;
+const WINDOWS_LOOPBACK_BUILD = 20348;
 const CHOICE_KEY = 'sable-screen-audio-choice';
 const DEVICE_ATTEMPTS = 20;
 const DEVICE_POLL_MS = 100;

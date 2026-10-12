@@ -38,11 +38,11 @@ beforeEach(() => {
   os.version.mockReturnValue('10.0.22631');
 });
 
-test('Windows shares per-application audio from Windows 10 2004', () => {
+test('Windows shares per-application audio from build 20348', () => {
   expect(screenAudioSupported()).toBe(true);
-  os.version.mockReturnValue('10.0.19041');
+  os.version.mockReturnValue('10.0.20348');
   expect(screenAudioSupported()).toBe(true);
-  os.version.mockReturnValue('10.0.18363');
+  os.version.mockReturnValue('10.0.19045');
   expect(screenAudioSupported()).toBe(false);
 });
 

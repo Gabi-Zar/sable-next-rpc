@@ -32,7 +32,7 @@ pub enum Selection {
 }
 
 enum Mode {
-    ExcludeSable(u32),
+    Exclude(u32),
     IncludeApp(u32),
 }
 
@@ -131,13 +131,17 @@ fn on_thread<T: Send + 'static>(
 /// # Errors
 ///
 /// Fails when Windows will not enumerate its audio devices.
-pub fn list_apps() -> Result<Vec<String>, String> {
-    on_thread("screen-audio-list", || {
+pub fn list_apps(webview: u32) -> Result<Vec<String>, String> {
+    on_thread("screen-audio-list", move || {
         let table = processes();
         let own = std::process::id();
         let apps: BTreeSet<String> = playing_pids()?
             .into_iter()
-            .filter(|&pid| pid != own && !descends_from(pid, own, &table))
+            .filter(|&pid| {
+                ![own, webview]
+                    .iter()
+                    .any(|&root| pid == root || descends_from(pid, root, &table))
+            })
             .filter_map(|pid| table.get(&pid))
             .map(|process| app_name(&process.name).to_owned())
             .collect();
@@ -145,9 +149,9 @@ pub fn list_apps() -> Result<Vec<String>, String> {
     })
 }
 
-fn resolve(selection: &Selection) -> Result<Mode, String> {
+fn resolve(selection: &Selection, webview: u32) -> Result<Mode, String> {
     match selection {
-        Selection::System { .. } => Ok(Mode::ExcludeSable(std::process::id())),
+        Selection::System { .. } => Ok(Mode::Exclude(webview)),
         Selection::Apps { include } => {
             let [name] = include.as_slice() else {
                 return Err("Windows can share the sound of one application at a time".to_owned());
@@ -172,7 +176,7 @@ fn run(
 ) -> Result<(), String> {
     let describe = |error: wasapi::WasapiError| error.to_string();
     let (pid, include) = match *mode {
-        Mode::ExcludeSable(pid) => (pid, false),
+        Mode::Exclude(pid) => (pid, false),
         Mode::IncludeApp(pid) => (pid, true),
     };
     let mut client =
@@ -224,8 +228,8 @@ impl Capture {
     ///
     /// Fails when the application is not running or Windows refuses the
     /// loopback.
-    pub fn start(selection: &Selection, mut sink: Sink) -> Result<Self, String> {
-        let mode = resolve(selection)?;
+    pub fn start(selection: &Selection, webview: u32, mut sink: Sink) -> Result<Self, String> {
+        let mode = resolve(selection, webview)?;
         let stopped = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&stopped);
         let (ready, answer) = mpsc::channel();
