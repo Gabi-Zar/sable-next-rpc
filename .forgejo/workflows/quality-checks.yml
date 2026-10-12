@@ -148,7 +148,7 @@ jobs:
     name: Playwright
     needs: build
     # The homeserver fixture needs a daemon; ubuntu-latest has none.
-    runs-on: docker
+    runs-on: docker-arm64
     timeout-minutes: 45
     permissions:
       contents: read

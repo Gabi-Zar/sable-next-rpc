@@ -120,16 +120,12 @@ jobs:
   docker:
     name: Build image (${{ matrix.arch }})
     needs: [setup-release, build-web]
-    runs-on: ${{ matrix.runner }}
+    runs-on: docker-arm64
     timeout-minutes: 60
     strategy:
       fail-fast: true
       matrix:
-        include:
-          - arch: amd64
-            runner: docker-amd64
-          - arch: arm64
-            runner: docker-arm64
+        arch: [amd64, arm64]
     permissions:
       contents: read
       packages: write
@@ -231,7 +227,7 @@ jobs:
   linux:
     name: Linux x86_64 (CEF)
     needs: [setup-release, build-web]
-    runs-on: docker-amd64
+    runs-on: docker
     timeout-minutes: 90
     permissions:
       contents: write
@@ -338,7 +334,7 @@ jobs:
   android:
     name: Build Android
     needs: [setup-release, build-web]
-    runs-on: docker-amd64
+    runs-on: docker
     timeout-minutes: 60
     permissions:
       contents: write
