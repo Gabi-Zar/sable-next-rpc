@@ -4031,6 +4031,11 @@ pub enum TimelineItemContentView {
     },
     CallInvite,
     VerificationRequest,
+    /// The `im.fluffychat.cute_event` msgtype, such as a hug or a wave.
+    Cute {
+        cute_type: Option<String>,
+        body: String,
+    },
     Malformed {
         event_type: String,
     },

@@ -927,6 +927,14 @@
     "newMessagesUnknown": "New messages",
     "callInvite": "{{user}} sent a call invitation",
     "verificationRequest": "{{user}} requested verification",
+    "cute": {
+      "hug": "{{user}} sent a hug {{body}}",
+      "cuddle": "{{user}} sent a cuddle {{body}}",
+      "wave": "{{user}} waved {{body}}",
+      "poke": "{{user}} sent a poke {{body}}",
+      "googly_eyes": "{{user}} sent googly eyes {{body}}",
+      "other": "{{user}} sent {{body}}"
+    },
     "malformedEvent": "Could not read event: {{type}}",
     "liveLocation": "Live location",
     "liveLocationActive": "Sharing live location",

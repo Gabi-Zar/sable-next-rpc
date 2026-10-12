@@ -871,6 +871,7 @@ impl TimelineItemContentView {
             }
             Self::CallInvite
             | Self::VerificationRequest
+            | Self::Cute { .. }
             | Self::Malformed { .. }
             | Self::UnableToDecrypt { .. }
             | Self::Membership { .. }
@@ -2068,8 +2069,21 @@ fn message_content(
                 .collect(),
         },
         MessageType::VerificationRequest(_) => TimelineItemContentView::VerificationRequest,
-        _ => text_message(message, profile, raw),
+        msgtype => cute_event(msgtype).unwrap_or_else(|| text_message(message, profile, raw)),
     }
+}
+
+pub(crate) const CUTE_EVENT_MSGTYPE: &str = "im.fluffychat.cute_event";
+
+fn cute_event(msgtype: &MessageType) -> Option<TimelineItemContentView> {
+    (msgtype.msgtype() == CUTE_EVENT_MSGTYPE).then(|| TimelineItemContentView::Cute {
+        cute_type: msgtype
+            .data()
+            .get("cute_type")
+            .and_then(serde_json::Value::as_str)
+            .map(ToOwned::to_owned),
+        body: msgtype.body().to_owned(),
+    })
 }
 
 fn live_location(state: &LiveLocationState) -> TimelineItemContentView {
@@ -2728,6 +2742,26 @@ mod tests {
         );
         let serialized = serde_json::to_value(view).unwrap();
         assert_eq!(serialized["kind"], "call_invite");
+    }
+
+    #[test]
+    fn fluffychat_cute_events_have_a_dedicated_view() {
+        let msgtype = |content| serde_json::from_value::<super::MessageType>(content).unwrap();
+
+        let hug = super::cute_event(&msgtype(json!({
+            "msgtype": "im.fluffychat.cute_event",
+            "cute_type": "hug",
+            "body": "🤗",
+        })))
+        .unwrap();
+        let serialized = serde_json::to_value(&hug).unwrap();
+        assert_eq!(serialized["kind"], "cute");
+        assert_eq!(serialized["cute_type"], "hug");
+        assert_eq!(serialized["body"], "🤗");
+        assert_eq!(hug.row_kind(), crate::protocol::TimelineRowKind::Event);
+
+        let text = msgtype(json!({ "msgtype": "m.text", "body": "🤗" }));
+        assert!(super::cute_event(&text).is_none());
     }
 
     #[test]

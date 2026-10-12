@@ -77,6 +77,8 @@ export function stateEventIcon(item: TimelineItemView): Component {
       return PhoneIcon;
     case 'verification_request':
       return ShieldCheckIcon;
+    case 'cute':
+      return SmileyIcon;
     case 'redacted':
       return TrashIcon;
     case 'hidden_event':

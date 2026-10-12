@@ -92,6 +92,8 @@ const MODERATED: ReadonlySet<string> = new Set([
   'knock_denied',
 ]);
 
+const CUTE_TYPES: ReadonlySet<string> = new Set(['hug', 'cuddle', 'wave', 'poke', 'googly_eyes']);
+
 function membershipText(
   content: Extract<TimelineItemView['content'], { kind: 'membership' }>,
   item: TimelineItemView,
@@ -121,6 +123,14 @@ export function stateEventText(item: TimelineItemView, t: Translate): string {
       return t('timeline.verificationRequest', {
         user: item.sender_name ?? item.sender ?? t('timeline.unknownSender'),
       });
+    case 'cute': {
+      const type =
+        content.cute_type && CUTE_TYPES.has(content.cute_type) ? content.cute_type : 'other';
+      return t(`timeline.cute.${type}`, {
+        user: item.sender_name ?? item.sender ?? t('timeline.unknownSender'),
+        body: content.body,
+      });
+    }
     case 'malformed':
       return t('timeline.malformedEvent', { type: content.event_type });
     case 'membership':

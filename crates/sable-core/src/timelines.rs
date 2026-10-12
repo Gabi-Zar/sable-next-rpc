@@ -18,7 +18,7 @@ use matrix_sdk_base::event_cache::Event;
 
 use crate::ResultExt;
 use crate::protocol::{CommandErr, SubscriptionId, TimelineFocusView, TimelineItemView};
-use crate::view::aggregation_item;
+use crate::view::{CUTE_EVENT_MSGTYPE, aggregation_item};
 
 use crate::{CachedTimeline, Core, SubscriptionKind, ThreadKey};
 
@@ -399,7 +399,18 @@ pub(crate) fn aggregation_items(
 }
 
 fn timeline_event_filter(event: &AnySyncTimelineEvent, rules: &RoomVersionRules) -> bool {
-    !is_signaling_event(event) && default_event_filter(event, rules)
+    !is_signaling_event(event) && (default_event_filter(event, rules) || is_cute_event(event))
+}
+
+fn is_cute_event(event: &AnySyncTimelineEvent) -> bool {
+    let AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(message)) = event
+    else {
+        return false;
+    };
+    message.as_original().is_some_and(|message| {
+        message.content.msgtype.msgtype() == CUTE_EVENT_MSGTYPE
+            && !matches!(message.content.relates_to, Some(Relation::Replacement(_)))
+    })
 }
 
 fn is_signaling_event(event: &AnySyncTimelineEvent) -> bool {
@@ -521,6 +532,25 @@ mod tests {
         .deserialize()
         .unwrap();
         assert!(super::hidden_event_filter(&ordinary, &rules));
+    }
+
+    #[test]
+    fn fluffychat_cute_events_reach_the_timeline() {
+        let rules = matrix_sdk::ruma::room_version_rules::RoomVersionRules::V11;
+        let event = |content: &str| {
+            Raw::<matrix_sdk::ruma::events::AnySyncTimelineEvent>::from_json_string(format!(
+                r#"{{"type":"m.room.message","event_id":"$cute","sender":"@alice:example.org","origin_server_ts":1,"content":{content},"unsigned":{{}}}}"#
+            ))
+            .unwrap()
+            .deserialize()
+            .unwrap()
+        };
+
+        let hug = event(r#"{"msgtype":"im.fluffychat.cute_event","cute_type":"hug","body":"🤗"}"#);
+        assert!(super::timeline_event_filter(&hug, &rules));
+
+        let other = event(r#"{"msgtype":"com.example.custom","body":"x"}"#);
+        assert!(!super::timeline_event_filter(&other, &rules));
     }
 
     #[test]
