@@ -839,6 +839,8 @@
                 >
                   {@render glyph()}
                 </Avatar>
+              {:else if room && (room.is_direct || unspacedSection)}
+                <Avatar class="room-avatar-icon" id={item.roomId} {name} size="small" />
               {:else}
                 <div
                   class={[

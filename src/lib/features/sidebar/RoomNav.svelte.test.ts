@@ -744,6 +744,25 @@ test('the sometimes icon mode keeps existing avatars in an expanded sidebar', as
   expect(document.querySelectorAll('.room-row .room-icon')).toHaveLength(1);
 });
 
+test('direct messages and unspaced rooms without an avatar show their initial', async () => {
+  roomsFixture.rooms = [
+    makeRoom({ room_id: '!dm:example.org', name: 'alice', is_direct: true }),
+    makeRoom({ room_id: '!room:example.org', name: 'Garden' }),
+  ];
+
+  const home = await mountNav({ collapsed: true });
+  const homeIcons = Array.from(document.querySelectorAll('.room-row .room-avatar-icon'));
+  expect(homeIcons.map((icon) => icon.textContent.trim())).toEqual(['A', '']);
+  expect(homeIcons[1]?.querySelector('svg')).not.toBeNull();
+  home.unmount();
+
+  visit('/rooms');
+  await mountNav({ collapsed: true });
+  const icon = document.querySelector('.room-row .room-avatar-icon');
+  expect(icon?.textContent.trim()).toBe('G');
+  expect(icon?.querySelector('svg')).toBeNull();
+});
+
 test('an active call in a text room shows the live count without the voice icon', async () => {
   roomsFixture.rooms = [
     makeRoom({
