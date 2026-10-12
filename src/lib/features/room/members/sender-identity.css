@@ -45,10 +45,17 @@
 }
 
 .sender-identity-via {
+  align-items: baseline;
+  display: inline-flex;
   font-size: var(--font-size-small);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 3rem;
+  overflow: clip;
+  white-space-collapse: preserve;
+
+  & button {
+    display: inline;
+    white-space: nowrap;
+  }
 }
 
 .sender-identity-pronouns {
@@ -79,10 +86,6 @@
 @media (width <= 25rem) {
   .sender-identity:has(> .sender-identity-via) .sender-identity-pronouns {
     max-width: 6rem;
-  }
-
-  .sender-identity:has(> .sender-identity-pronouns) .sender-identity-via {
-    max-width: 3rem;
   }
 }
 
