@@ -324,6 +324,7 @@ export interface Preferences {
   incomingCallSound: boolean;
   outgoingRingback: boolean;
   callRingtoneVolume: number;
+  callMicrophoneMuted: boolean;
   noiseSuppression: boolean;
   voiceIsolation: boolean;
   incomingVoiceIsolation: boolean;
@@ -620,6 +621,7 @@ const DEFAULTS: Preferences = {
   incomingCallSound: true,
   outgoingRingback: true,
   callRingtoneVolume: 1.0,
+  callMicrophoneMuted: false,
   noiseSuppression: true,
   voiceIsolation: false,
   incomingVoiceIsolation: false,

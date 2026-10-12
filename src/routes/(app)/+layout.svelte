@@ -156,7 +156,7 @@
   const incomingCalls = new IncomingCalls(core, ({ uuid, callId, roomId, hasVideo }) => {
     void goto(roomSectionPath(roomList.rooms, roomId));
     void callSession
-      .join(roomId, { microphone: true, camera: hasVideo })
+      .join(roomId, { microphone: !preferences.callMicrophoneMuted, camera: hasVideo })
       .then(() => {
         systemCall = { callId, roomId };
       })
@@ -218,7 +218,10 @@
 
   async function acceptIncoming(call: IncomingCall): Promise<void> {
     incomingCalls.accept(call);
-    void callSession.join(call.roomId, { microphone: true, camera: call.hasVideo });
+    void callSession.join(call.roomId, {
+      microphone: !preferences.callMicrophoneMuted,
+      camera: call.hasVideo,
+    });
     await afterOverlayPops();
     await goto(roomSectionPath(roomList.rooms, call.roomId));
   }
@@ -255,7 +258,7 @@
       return;
     }
     void goto(roomSectionPath(roomList.rooms, roomId));
-    void callSession.join(roomId, { microphone: true, camera: false });
+    void callSession.join(roomId, { microphone: !preferences.callMicrophoneMuted, camera: false });
   }
   const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
 

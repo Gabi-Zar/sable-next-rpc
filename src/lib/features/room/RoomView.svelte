@@ -125,7 +125,10 @@
   const timeline = activeTimeline.timeline;
   const memberLoader = new RoomMemberLoader();
   const call = useCallSession();
-  let prescreenMedia = $state<CallMedia>({ microphone: true, camera: false });
+  let prescreenMedia = $state<CallMedia>({
+    microphone: !preferences.callMicrophoneMuted,
+    camera: false,
+  });
   let composer = $state<ConversationComposer>();
   let timelineList = $state<TimelineList>();
   let receiptsOpen = $state(false);
@@ -942,7 +945,11 @@
 
   function startCall(): void {
     call.clearFailure();
-    void call.join(resolvedRoomId, { microphone: true, camera: false }, callFallbackUrl);
+    void call.join(
+      resolvedRoomId,
+      { microphone: !preferences.callMicrophoneMuted, camera: false },
+      callFallbackUrl
+    );
   }
 
   function joinCall(): void {

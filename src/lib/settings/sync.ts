@@ -31,6 +31,7 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'messageSpacing',
   'mediaAutoLoad',
   'callRingtoneVolume',
+  'callMicrophoneMuted',
   'noiseSuppression',
   'echoCancellation',
   'autoGainControl',

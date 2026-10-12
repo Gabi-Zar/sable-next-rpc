@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import type { CoreEvent } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { preferences } from '#lib/settings/preferences.svelte.js';
 
 const hdr = vi.hoisted(() => ({
   hdrShareSupported: vi.fn(() => false),
@@ -834,6 +835,20 @@ test('unmuting while deafened undeafens', async () => {
   await session.setMicrophoneEnabled(true);
 
   expect(session.deafened).toBe(false);
+});
+
+test('the microphone mute is remembered for the next call', async () => {
+  const { client, transport } = harness();
+  const session = new CallSession(client, { createTransport: () => transport });
+  await session.join('!room:example.org', { microphone: true, camera: false });
+  expect(preferences.callMicrophoneMuted).toBe(false);
+
+  await session.setMicrophoneEnabled(false);
+  await session.leave();
+  expect(preferences.callMicrophoneMuted).toBe(true);
+
+  await session.join('!room:example.org', { microphone: true, camera: false });
+  expect(preferences.callMicrophoneMuted).toBe(false);
 });
 
 test('a camera that cannot start is reported, not swallowed', async () => {

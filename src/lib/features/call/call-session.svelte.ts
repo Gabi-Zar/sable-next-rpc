@@ -239,6 +239,7 @@ export class CallSession {
 
     this.#lease = lease;
     this.#lastJoin = { roomId, media, serviceUrl };
+    setPreference('callMicrophoneMuted', !media.microphone);
     this.layout = { pinned: null, gridForced: false };
     this.watchedScreenShareIds = [];
     this.clearDeviceError();
@@ -486,6 +487,7 @@ export class CallSession {
       this.deafened = false;
       this.#micBeforeDeafen = undefined;
     }
+    setPreference('callMicrophoneMuted', !enabled);
     await this.#device('microphone', () => this.#media?.setMicrophoneEnabled(enabled));
   }
 
