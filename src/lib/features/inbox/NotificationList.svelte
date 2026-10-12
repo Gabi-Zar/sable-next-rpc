@@ -14,7 +14,9 @@
     countNotifications,
     focusRowAt,
     groupNotifications,
+    notificationCount,
     senderName,
+    unlistedNotifications,
     type NotificationFilter,
   } from './inbox';
   import { InboxFeed } from './inbox-feed.svelte';
@@ -99,6 +101,17 @@
 
   let groups = $derived(groupNotifications(rows).slice(0, size));
 
+  let unlisted = $derived(
+    feed.loaded && feed.checked && !feed.backfilling && !feed.hasMore
+      ? unlistedNotifications(
+          roomList.rooms,
+          filter,
+          roomList.badgeUnreadFor,
+          rows.filter((item) => !item.read).map((item) => item.room_id)
+        ).slice(0, Math.max(0, size - groups.length))
+      : []
+  );
+
   let unreadRooms = $derived(
     roomList.rooms.filter((room) => countNotifications([room], roomList.badgeUnreadFor) > 0)
   );
@@ -156,6 +169,19 @@
   async function loadOlder(): Promise<void> {
     if (!feed.hasMore) await feed.backfill(true);
     pageSize += PAGE_SIZE;
+  }
+
+  async function markRoomRead(roomId: string): Promise<void> {
+    if (marking.has(roomId)) return;
+    marking.add(roomId);
+    try {
+      await core.commands.markRead(roomId, null, readReceiptIsPrivate());
+    } catch (error) {
+      console.warn('[sable inbox] marking the room read failed', error);
+      toasts.error($i18n.t('errors.actionFailed'));
+    } finally {
+      marking.delete(roomId);
+    }
   }
 
   async function markRead(item: InboxItemView, element: HTMLElement): Promise<void> {
@@ -237,7 +263,7 @@
       >
     </div>
   {/if}
-  {#if rows.length === 0}
+  {#if rows.length === 0 && unlisted.length === 0}
     {#if !feed.failed}
       {#if !feed.loaded || !feed.checked || feed.backfilling}
         <p class="empty">{$i18n.t('inbox.checking')}</p>
@@ -310,6 +336,35 @@
                 }}><ChecksIcon /></IconButton
               >
             {/if}
+          {/snippet}
+        </InboxFeedRow>
+      {/each}
+      {#each unlisted as room (room.room_id)}
+        {@const name = roomList.labelFor(room.room_id)}
+        {@const counts = roomList.badgeUnreadFor(room)}
+        <InboxFeedRow
+          compact
+          roomId={room.room_id}
+          eventId={room.latest_event?.event_id ?? ''}
+          {name}
+        >
+          <span class="head">
+            <span class="name">{name}</span>
+            {#if counts.highlight > 0}<AtIcon aria-label={$i18n.t('inbox.mention')} />{/if}
+          </span>
+          {#snippet message()}
+            <p class="preview">
+              {$i18n.t('inbox.unlistedNotifications', { count: notificationCount(counts) })}
+            </p>
+          {/snippet}
+          {#snippet trailing()}
+            <IconButton
+              variant="ghost"
+              size="small"
+              disabled={marking.has(room.room_id)}
+              label={$i18n.t('inbox.markRead', { room: name })}
+              onclick={() => void markRoomRead(room.room_id)}><ChecksIcon /></IconButton
+            >
           {/snippet}
         </InboxFeedRow>
       {/each}

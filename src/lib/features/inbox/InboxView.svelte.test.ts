@@ -113,3 +113,13 @@ test('lands on the invites tab when only invites are waiting', () => {
   render(InboxView);
   expect(screen.getByRole('tab', { name: /Invites/ })).toHaveAttribute('aria-selected', 'true');
 });
+
+test('a room behind the badge with nothing in the feed still gets a row', async () => {
+  roomList.rooms = [{ ...room, is_direct: true, direct_targets: [], unread: 2, notifying: 2 }];
+  render(InboxView);
+  const user = userEvent.setup();
+
+  expect(await screen.findByText('2 unread notifications')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Mark Room as read' }));
+  expect(core.markRead).toHaveBeenCalledWith('!room:example.org', null, false);
+});

@@ -172,6 +172,8 @@
     "showRead": "Show read",
     "loadOlder": "Load older",
     "moreNotifications": "View older messages in this room",
+    "unlistedNotifications_one": "{{count, number}} unread notification",
+    "unlistedNotifications_other": "{{count, number}} unread notifications",
     "openMessage": "Open message in room",
     "checking": "Checking your rooms…",
     "loadFailed": "Could not load notifications.",

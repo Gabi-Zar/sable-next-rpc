@@ -17,6 +17,7 @@ import {
   parseFilter,
   pendingInvites,
   senderName,
+  unlistedNotifications,
 } from './inbox';
 
 function room(overrides: Partial<RoomSummary>): RoomSummary {
@@ -88,6 +89,20 @@ test('the inbox badge counts DMs and mentions, not ordinary room messages', () =
     '!loud-room',
   ]);
   expect(notifications(rooms, 'direct', unreadFor).map((each) => each.room_id)).toEqual(['!chat']);
+});
+
+test('a room the badge counts but the list does not show is unlisted', () => {
+  const rooms = [
+    room({ room_id: '!listed', is_direct: true, unread: 1, notifying: 1 }),
+    room({ room_id: '!stale', is_direct: true, unread: 2, notifying: 2 }),
+    room({ room_id: '!quiet-room', unread: 7, notifying: 7 }),
+  ];
+  const unreadFor = badgeFor();
+
+  expect(
+    unlistedNotifications(rooms, 'all', unreadFor, ['!listed']).map((each) => each.room_id)
+  ).toEqual(['!stale']);
+  expect(unlistedNotifications(rooms, 'mentions', unreadFor, [])).toEqual([]);
 });
 
 test('rooms set to badge every message also count toward the inbox badge', () => {

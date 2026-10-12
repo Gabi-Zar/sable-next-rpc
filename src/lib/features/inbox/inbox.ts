@@ -98,6 +98,17 @@ export function countNotifications(
     .reduce((total, room) => total + notificationCount(unreadFor(room)), 0);
 }
 
+export function unlistedNotifications(
+  rooms: readonly RoomSummary[],
+  filter: NotificationFilter,
+  unreadFor: RoomUnread,
+  listed: readonly string[]
+): RoomSummary[] {
+  return notifications(rooms, filter, unreadFor).filter(
+    (room) => notificationCount(unreadFor(room)) > 0 && !listed.includes(room.room_id)
+  );
+}
+
 export function hasMarkedUnread(
   rooms: readonly RoomSummary[],
   unreadFor: RoomUnread = defaultUnread
