@@ -3595,6 +3595,7 @@
   "sounds": {
     "notification": "Notification",
     "volumeRingCategory": "Ringing",
+    "volumeCallCategory": "Call Controls",
     "title": "Sounds",
     "volumeCategory": "Sound Volume",
     "incoming_call": "Incoming Call",

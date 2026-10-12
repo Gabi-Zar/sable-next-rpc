@@ -28,7 +28,7 @@
     },
     {
       name: 'calls',
-      label: 'sounds.volumeRingCategory',
+      label: 'sounds.volumeCallCategory',
     },
   ];
 
