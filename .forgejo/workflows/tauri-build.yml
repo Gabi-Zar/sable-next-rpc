@@ -784,34 +784,42 @@ jobs:
           node scripts/ci/forgejo-release.mjs download \
             --pattern "sable-${VERSION}-macos-universal.dmg" --dir dmg
           ls dmg | grep -q . || { echo 'The DMG is not on the release' >&2; exit 1; }
-      - name: Push the cask to the tap
+      - name: Push the cask to the taps
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_GITHUB_TAP_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TAP_TOKEN }}
         run: |
-          if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
-            echo '::notice::HOMEBREW_TAP_TOKEN is not set; skipping the Homebrew publish.'
-            exit 0
-          fi
           sha="$(sha256sum "dmg/sable-${VERSION}-macos-universal.dmg" | awk '{print $1}')"
-          git clone --depth 1 \
-            "https://x-access-token:${HOMEBREW_TAP_TOKEN}@git.sable.moe/SableClient/homebrew-sable.git" tap
 
-          mkdir -p tap/Casks
-          sed \
-            -e "s/^  version .*/  version '${VERSION}'/" \
-            -e "s/^  sha256 .*/  sha256 '${sha}'/" \
-            packaging/homebrew/sable.rb > tap/Casks/sable.rb
+          push_tap() {
+            local name="$1" token="$2" url="$3"
+            if [ -z "$token" ]; then
+              echo "::notice::The ${name} tap token is not set; skipping that tap."
+              return 0
+            fi
+            rm -rf tap
+            git clone --depth 1 "https://x-access-token:${token}@${url}" tap
+            mkdir -p tap/Casks
+            sed \
+              -e "s/^  version .*/  version '${VERSION}'/" \
+              -e "s/^  sha256 .*/  sha256 '${sha}'/" \
+              packaging/homebrew/sable.rb > tap/Casks/sable.rb
+            (
+              cd tap
+              git config user.name 'Sable release'
+              git config user.email 'release@sable.moe'
+              git add Casks/sable.rb
+              if git diff --cached --quiet; then
+                echo "Nothing changed on the ${name} tap; skipping the push."
+                exit 0
+              fi
+              git commit -m "sable ${VERSION}"
+              git push origin HEAD:refs/heads/main
+            )
+          }
 
-          cd tap
-          git config user.name 'Sable release'
-          git config user.email 'release@sable.moe'
-          git add Casks/sable.rb
-          if git diff --cached --quiet; then
-            echo 'Nothing changed; skipping the push.'
-            exit 0
-          fi
-          git commit -m "sable ${VERSION}"
-          git push origin HEAD:refs/heads/main
+          push_tap Forgejo "${HOMEBREW_TAP_TOKEN:-}" git.sable.moe/SableClient/homebrew-sable.git
+          push_tap GitHub "${HOMEBREW_GITHUB_TAP_TOKEN:-}" github.com/SableClient/homebrew-sable.git
   distribute-flathub:
     name: Open the Flathub update PR
     needs: [setup-release, github-bundles]
