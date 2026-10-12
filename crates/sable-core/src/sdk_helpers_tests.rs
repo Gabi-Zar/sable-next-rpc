@@ -2436,3 +2436,31 @@ async fn a_sidebar_naming_something_that_is_not_a_room_is_refused() {
 
     assert!(matches!(refused, Err(CommandErr::UnknownRoom)));
 }
+
+#[tokio::test]
+async fn server_features_lists_only_enabled_unstable_features() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().no_server_versions().build().await;
+    Mock::given(method("GET"))
+        .and(path("/_matrix/client/versions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "versions": ["v1.19"],
+            "unstable_features": {
+                "org.matrix.msc4354": true,
+                "org.matrix.msc4140": false,
+                "org.matrix.simplified_msc3575": true,
+            },
+        })))
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+    let Ok(CommandOk::ServerFeatures { unstable_features }) =
+        core.dispatch(Command::ServerFeatures).await
+    else {
+        panic!("server features failed");
+    };
+    assert_eq!(
+        unstable_features,
+        ["org.matrix.msc4354", "org.matrix.simplified_msc3575"]
+    );
+}

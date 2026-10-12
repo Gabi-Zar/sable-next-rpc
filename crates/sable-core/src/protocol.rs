@@ -1646,6 +1646,8 @@ pub enum Command {
 
     CallCompatibility,
 
+    ServerFeatures,
+
     CallSupport {
         #[cfg_attr(feature = "typegen", specta(type = String))]
         room_id: OwnedRoomId,
@@ -1779,6 +1781,9 @@ pub enum CommandOk {
     },
     CallSupport(CallSupportView),
     CallCompatibility(CallCompatibilityView),
+    ServerFeatures {
+        unstable_features: Vec<String>,
+    },
     LeaveCall,
     SetCallScreenSharing,
     DeclineCall,

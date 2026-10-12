@@ -347,6 +347,11 @@ export function createCommands(transport: () => Transport) {
       return transport().send({ type: 'call_compatibility' });
     },
 
+    async serverFeatures(): Promise<string[]> {
+      const response = await transport().send({ type: 'server_features' });
+      return response.unstable_features;
+    },
+
     async roomAliases(roomId: string): Promise<string[]> {
       const response = await transport().send({ type: 'room_aliases', room_id: roomId });
       return response.aliases;

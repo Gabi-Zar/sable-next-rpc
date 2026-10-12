@@ -34,6 +34,7 @@ import DeveloperNotifications from '#lib/features/settings/DeveloperNotification
 import DeveloperPushHistory from '#lib/features/settings/DeveloperPushHistory.svelte';
 import DeveloperSearchMetrics from '#lib/features/settings/DeveloperSearchMetrics.svelte';
 import DeveloperSentry from '#lib/features/settings/DeveloperSentry.svelte';
+import DeveloperServerFeatures from '#lib/features/settings/DeveloperServerFeatures.svelte';
 import DeveloperSyncDiagnostics from '#lib/features/settings/DeveloperSyncDiagnostics.svelte';
 import SoundVolumeSettings from '../call/SoundVolumeSettings.svelte';
 
@@ -105,6 +106,11 @@ export const categoryPanels: Record<string, CategoryPanel[]> = {
     {
       component: DeveloperSyncDiagnostics,
       section: 'developer-sync-diagnostics',
+      when: () => preferences.developerTools,
+    },
+    {
+      component: DeveloperServerFeatures,
+      section: 'developer-server-features',
       when: () => preferences.developerTools,
     },
     {

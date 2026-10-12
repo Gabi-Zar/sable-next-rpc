@@ -1140,6 +1140,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         delayed_events: false,
         rtc_transports: 'none',
       }),
+      server_features: () => ({ type: 'server_features', unstable_features: [] }),
       call_support: () => ({ type: 'call_support', has_focus: false, can_join: false }),
       room_permissions: (command) => {
         const canPost = command.room_id !== secondRoom.room_id;

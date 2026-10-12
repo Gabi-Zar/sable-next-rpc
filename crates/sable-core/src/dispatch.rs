@@ -928,6 +928,7 @@ impl Core {
             } => self.call_support(room_id, livekit_service_url).await,
 
             Command::CallCompatibility => self.call_compatibility().await,
+            Command::ServerFeatures => self.server_features().await,
 
             Command::LeaveCall { session } => self.leave_call(session).await,
             Command::SetCallScreenSharing { session, active } => {

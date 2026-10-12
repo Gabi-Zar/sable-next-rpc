@@ -1780,6 +1780,7 @@ export const settingsCategories: SettingsCategory[] = [
     sections: [
       { id: 'developer-options', name: 'common.developerTools' },
       { id: 'developer-sync-diagnostics', name: 'settings.developerSyncTitle' },
+      { id: 'developer-server-features', name: 'settings.developerServerFeaturesTitle' },
       { id: 'developer-account-data', name: 'settings.developerAccountDataTitle' },
       { id: 'developer-notifications', name: 'settings.developerNotificationsTitle' },
       { id: 'developer-debug-logs', name: 'settings.developerLogsTitle' },
