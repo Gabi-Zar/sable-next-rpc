@@ -487,6 +487,11 @@ jobs:
     name: macOS universal
     needs: [setup-release, build-web]
     runs-on: macos-latest
+    # macOS /bin/sh prints `echo -n` literally, which breaks the runner's
+    # default-shell probe; naming the shell skips it.
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 60
     permissions:
       contents: write
@@ -572,6 +577,11 @@ jobs:
     name: Build iOS
     needs: [setup-release, build-web]
     runs-on: macos-latest
+    # macOS /bin/sh prints `echo -n` literally, which breaks the runner's
+    # default-shell probe; naming the shell skips it.
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 60
     permissions:
       contents: write
