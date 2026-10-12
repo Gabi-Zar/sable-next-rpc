@@ -91,7 +91,7 @@ core.userRelations.mockResolvedValue({ mutualRooms: [], ignored: false });
 
 const user = userEvent.setup();
 
-test('hides sidebar pills without hiding profile pronouns', async () => {
+test('keeps pronouns out of the member list and the profile card', async () => {
   const profile = {
     ...emptyProfile,
     display_name: 'Alice',
@@ -106,19 +106,10 @@ test('hides sidebar pills without hiding profile pronouns', async () => {
     profile,
   });
   await vi.waitFor(() => {
-    expect(
-      document.querySelector('.member-identity-row .sender-identity-pronoun')
-    ).toHaveTextContent('they/them');
+    expect(document.querySelector('.member-identity-row')).toHaveTextContent('Alice');
   });
-
-  try {
-    preferences.showPronounPills = false;
-    await tick();
-    expect(document.querySelector('.member-identity-row .sender-identity-pronoun')).toBeNull();
-    expect(document.querySelector('.profile-pronoun-pill')).toHaveTextContent('they/them');
-  } finally {
-    preferences.showPronounPills = true;
-  }
+  expect(document.querySelector('.sender-identity-pronoun')).toBeNull();
+  expect(document.querySelector('.profile-pronoun-pill')).toBeNull();
 });
 
 async function press(element: Element | null | undefined): Promise<void> {
@@ -194,7 +185,7 @@ test.each(['New Alice', null])(
     request.resolve(stale);
     await card.rerender({ ...props, profile: stale });
     await vi.waitFor(() => {
-      expect(document.querySelector('.member-identity-row')).toHaveTextContent('they/them');
+      expect(document.querySelector('.member-identity-row')).toHaveTextContent(name);
     });
 
     expect(document.querySelector('.profile-card-name')).toHaveTextContent(name);
@@ -405,7 +396,7 @@ test('renders the extended profile fields', async () => {
   await tick();
 
   const meta = document.querySelectorAll('.profile-card-meta .profile-meta-item');
-  expect(document.querySelector('.profile-pronoun-pill')?.textContent.trim()).toBe('she/her');
+  expect(document.querySelector('.profile-pronoun-pill')).toBeNull();
   expect(meta[0].textContent).toContain('(Europe/Paris)');
   expect(meta[1].textContent).toBe('Is cat, give headpats!');
   expect(document.querySelector('.profile-card-status')?.textContent.trim()).toBe(

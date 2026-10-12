@@ -7,7 +7,6 @@
   import { i18n } from '#lib/i18n.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
-  import { preferences } from '#lib/settings/preferences.svelte.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -54,13 +53,6 @@
   let colors = $derived(
     senderDisplayColors(userId, profile, null, false, cosmetics, powerTag?.color ?? null)
   );
-  let pronouns = $derived(
-    preferences.showPronouns && preferences.showPronounPills
-      ? cosmetics?.pronouns.length
-        ? cosmetics.pronouns
-        : (profile?.pronouns ?? [])
-      : []
-  );
   let profileLabel = $derived($i18n.t('timeline.senderProfile', { name: displayName }));
   let presence = $derived(presenceStore.peek(userId));
   let userStatus = $derived(showStatus ? resolveUserStatus(profile, presence) : null);
@@ -98,13 +90,7 @@
   </span>
   <div class="member-identity-main">
     <span class="member-identity-text">
-      <SenderName
-        {displayName}
-        {colors}
-        {pronouns}
-        nameClass="member-name"
-        compact={pronouns.length === 0}
-      />
+      <SenderName {displayName} {colors} nameClass="member-name" compact />
       {@render secondary?.()}
       {#if userStatus}
         {@const statusLabel = [userStatus.emoji, userStatus.text].filter(Boolean).join(' ')}

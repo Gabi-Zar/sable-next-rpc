@@ -1,5 +1,4 @@
 <script lang="ts">
-  import PronounPill from '#lib/ui/primitives/PronounPill.svelte';
   import UserSupporterBadge from '#lib/supporter/UserSupporterBadge.svelte';
   import { profileSupporterAppearance } from '#lib/supporter/variants.js';
   import { SUPPORTER_BADGE_FIELD } from '#lib/profile/fields.js';
@@ -178,10 +177,6 @@
   let securityOpen = $state(false);
   let color = $derived(currentProfile?.hero_color ?? senderColor(userId));
   let cosmetics = $derived(roomCosmetics?.for(userId) ?? null);
-  let pronounSets = $derived(
-    cosmetics?.pronouns.length ? cosmetics.pronouns : (currentProfile?.pronouns ?? [])
-  );
-  let pronouns = $derived(preferences.showPronouns ? pronounSets : []);
   let localTime = $derived.by(() => {
     const timezone = currentProfile?.timezone;
     if (!timezone) return null;
@@ -425,9 +420,6 @@
 </script>
 
 {#snippet pronounRow()}
-  {#if pronouns.length > 0}
-    <PronounPill class="profile-pronoun-pill" {pronouns} />
-  {/if}
   {#if currentProfile?.supporter_awards}
     <UserSupporterBadge
       {userId}
@@ -928,12 +920,6 @@
     align-self: center;
     margin-inline: auto calc(-1 * var(--space-100));
     order: 1;
-  }
-
-  :global(.profile-pronoun-pill) {
-    --pronoun-pill-ground: var(--profile-pronoun-ground, var(--profile-panel-ground));
-
-    color: var(--profile-text-muted);
   }
 
   .profile-meta-item {

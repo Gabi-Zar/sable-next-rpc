@@ -90,9 +90,7 @@ test('tints the name from the profile and opens the profile card from the row', 
   await vi.waitFor(() => {
     expect(within(row).getByText('Bob')).toHaveClass('tinted');
   });
-  expect(within(row).getByText('he/him').closest('.sender-identity-pronouns')).toHaveClass(
-    'tinted'
-  );
+  expect(within(row).queryByText('he/him')).toBeNull();
   await user.click(row);
   expect(onProfile).toHaveBeenCalledWith('@bob:example.org', row);
 });
