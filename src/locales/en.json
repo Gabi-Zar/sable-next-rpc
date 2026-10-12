@@ -1974,6 +1974,8 @@
     "fontScale": "Text size",
     "rangePercent": "{{name}} in percent",
     "pageZoom": "Interface scale",
+    "zoomShortcuts": "Zoom shortcuts",
+    "zoomShortcutsHint": "Change the interface scale with Ctrl (⌘ on macOS) and +, - or 0, or Ctrl and the scroll wheel.",
     "highContrast": "Increase contrast",
     "alwaysShowAltText": "Always show image descriptions",
     "showRoomBanners": "Room banners above the list",

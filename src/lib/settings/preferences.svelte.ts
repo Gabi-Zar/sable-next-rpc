@@ -192,6 +192,7 @@ export interface Preferences {
   renderRoomColors: boolean;
   reducedMotion: boolean;
   pageZoom: number;
+  zoomShortcuts: boolean;
   textScale: number;
   highContrast: boolean;
   alwaysShowAltText: boolean;
@@ -489,6 +490,7 @@ const DEFAULTS: Preferences = {
   renderRoomColors: true,
   reducedMotion: prefersReducedMotion(),
   pageZoom: 1,
+  zoomShortcuts: true,
   textScale: 1,
   highContrast: false,
   alwaysShowAltText: false,

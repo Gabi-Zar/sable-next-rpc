@@ -575,6 +575,15 @@ export const settingsCategories: SettingsCategory[] = [
         applyOnCommit: true,
       },
       {
+        key: 'zoomShortcuts',
+        section: 'accessibility',
+        icon: KeyboardIcon,
+        name: 'settings.zoomShortcuts',
+        description: 'settings.zoomShortcutsHint',
+        type: 'boolean',
+        supported: supportsDesktopWindow,
+      },
+      {
         key: 'textScale',
         section: 'accessibility',
         icon: TextAaIcon,

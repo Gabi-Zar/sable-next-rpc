@@ -17,6 +17,7 @@
   import favicon from '#lib/assets/favicon.png';
   import { trackKeyboardInset } from '#lib/platform/keyboard.js';
   import { trackInspectorShortcut } from '#lib/platform/devtools.js';
+  import { trackZoomShortcuts } from '#lib/platform/zoom-shortcuts.js';
   import { suppressNativeContextMenu } from '#lib/platform/context-menu.js';
   import { blockEdgeNavigation } from '#lib/platform/edge-navigation.js';
   import { hostsServiceWorker, registerServiceWorker } from '#lib/platform/service-worker.js';
@@ -78,6 +79,7 @@
     const stopTrackingKeyboard = trackKeyboardInset();
     const stopGuardingClicks = guardTouchClicks();
     const stopInspectorShortcut = trackInspectorShortcut();
+    const stopZoomShortcuts = trackZoomShortcuts();
     const stopSuppressingContextMenu = suppressNativeContextMenu();
     const stopBlockingEdgeNavigation = blockEdgeNavigation();
     void registerServiceWorker();
@@ -92,6 +94,7 @@
       stopTrackingKeyboard();
       stopGuardingClicks();
       stopInspectorShortcut();
+      stopZoomShortcuts();
       stopSuppressingContextMenu();
       stopBlockingEdgeNavigation();
       core.stop();

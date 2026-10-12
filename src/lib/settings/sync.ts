@@ -18,6 +18,7 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'composerAutocapitalize',
   'reducedMotion',
   'pageZoom',
+  'zoomShortcuts',
   'textScale',
   'roomBannerHeight',
   'searchIndexLimit',
