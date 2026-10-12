@@ -35,21 +35,23 @@ function space(roomId: string, joinRule: RoomJoinRuleView, children: string[]): 
 function mount(
   joinRule: RoomJoinRuleView,
   joinedIds: string[],
-  rights: { canManage?: boolean; canManageOwner?: boolean } = {}
+  rights: { canManage?: boolean; canManageOwner?: boolean } = {},
+  room: HierarchyRoomView | null = null
 ) {
   const onJoin = vi.fn();
-  const [section] = buildHierarchySections(
-    [
-      space('!root:example.org', 'public', ['!sub:example.org']),
-      space('!sub:example.org', joinRule, []),
-    ],
-    '!root:example.org',
-    { joined: joinedIds, keepEmpty: ['!sub:example.org'] }
-  );
+  const onTopic = vi.fn();
+  const rooms = [
+    space('!root:example.org', 'public', room ? [room.room_id] : ['!sub:example.org']),
+    room ?? space('!sub:example.org', joinRule, []),
+  ];
+  const [section] = buildHierarchySections(rooms, '!root:example.org', {
+    joined: joinedIds,
+    keepEmpty: ['!sub:example.org'],
+  });
   const noop = vi.fn();
   render(SpaceLobbySection, {
     section,
-    closed: true,
+    closed: room === null,
     joinedIds: new Set(joinedIds),
     joining: new Set<string>(),
     knocked: new Set<string>(),
@@ -62,6 +64,7 @@ function mount(
     onToggle: noop,
     onVisible: noop,
     onOpen: noop,
+    onTopic,
     onJoin,
     onCopyLink: noop,
     onRemove: noop,
@@ -80,8 +83,23 @@ function mount(
     onRemoveSubspace: noop,
     onMoveTo: noop,
   });
-  return { onJoin, user: userEvent.setup() };
+  return { onJoin, onTopic, user: userEvent.setup() };
 }
+
+test('a room topic opens its full description', async () => {
+  const room = {
+    ...space('!room:example.org', 'public', []),
+    name: 'Room',
+    topic: 'A long description',
+    is_space: false,
+  };
+  const { onJoin, onTopic, user } = mount('public', ['!root:example.org'], {}, room);
+
+  await user.click(screen.getByRole('button', { name: 'A long description' }));
+
+  expect(onTopic).toHaveBeenCalledWith(expect.objectContaining({ room_id: '!room:example.org' }));
+  expect(onJoin).not.toHaveBeenCalled();
+});
 
 test('a subspace members of its parent can join offers a join', async () => {
   const { onJoin, user } = mount('restricted', ['!root:example.org']);

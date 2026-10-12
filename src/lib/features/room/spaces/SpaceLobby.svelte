@@ -114,6 +114,7 @@
   let addKind = $state<AddExistingKind>('rooms');
   let failed = $derived(hierarchy.failed);
   let topicOpen = $state(false);
+  let topicRoom = $state.raw<HierarchyRoomView | null>(null);
   let joinAllOn = $state(false);
   const joinQueue = new JoinQueue((roomId, error) => {
     console.warn('[sable lobby] join failed', error);
@@ -681,6 +682,7 @@
         type="button"
         class="topic"
         onclick={() => {
+          topicRoom = null;
           topicOpen = true;
         }}
       >
@@ -834,6 +836,10 @@
         onToggle={toggle}
         onVisible={(key) => visibleLevels.add(key)}
         onOpen={open}
+        onTopic={(child: HierarchyRoomView) => {
+          topicRoom = child;
+          topicOpen = true;
+        }}
         onJoin={(
           child: HierarchyRoomView,
           via: readonly string[],
@@ -882,9 +888,31 @@
 
 <DialogFrame bind:open={topicOpen} variant="verification" label={$i18n.t('room.lobbyTopicTitle')}>
   <div class="topic-dialog">
-    <h2>{space?.name ?? $i18n.t('nav.space')}</h2>
+    {#if topicRoom}
+      <div class="topic-room">
+        <Avatar id={topicRoom.room_id} src={topicRoom.avatar_url} name={label(topicRoom)} />
+        <div class="topic-room-text">
+          <h2>{label(topicRoom)}</h2>
+          {#if topicRoom.canonical_alias}<span>{topicRoom.canonical_alias}</span>{/if}
+          <span class="topic-room-meta">
+            {#if topicRoom.num_joined_members !== null}
+              <span>{$i18n.t('room.lobbyMembers', { count: topicRoom.num_joined_members })}</span>
+            {/if}
+            {#if topicRoom.join_rule !== 'unknown'}
+              <span>{$i18n.t(`room.joinRule.${topicRoom.join_rule}`)}</span>
+            {/if}
+            {#if topicRoom.is_voice}<span>{$i18n.t('common.voiceRoom')}</span>{/if}
+          </span>
+        </div>
+      </div>
+    {:else}
+      <h2>{space?.name ?? $i18n.t('nav.space')}</h2>
+    {/if}
     <div class="topic-full" {@attach scrollHint}>
-      <FormattedBody html={topicHtml(space?.topic ?? '')} onMatrixLink={openTopicLink} />
+      <FormattedBody
+        html={topicHtml((topicRoom ? topicRoom.topic : space?.topic) ?? '')}
+        onMatrixLink={openTopicLink}
+      />
     </div>
     <DialogActions>
       <Button
@@ -1039,6 +1067,32 @@
     font-size: var(--font-size-heading);
     line-height: 1.3;
     margin: 0;
+  }
+
+  .topic-room {
+    align-items: center;
+    display: flex;
+    gap: var(--space-300);
+    min-width: 0;
+  }
+
+  .topic-room-text {
+    color: var(--surface-var-on-container);
+    display: grid;
+    font-size: var(--font-size-small);
+    gap: var(--space-050);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .topic-room-text h2 {
+    color: var(--surface-on-container);
+  }
+
+  .topic-room-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-050) var(--space-300);
   }
 
   .topic-full {

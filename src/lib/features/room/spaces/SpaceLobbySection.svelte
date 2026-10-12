@@ -53,6 +53,7 @@
     onToggle: (key: string) => void;
     onVisible: (key: string) => void;
     onOpen: (child: HierarchyRoomView) => void;
+    onTopic: (child: HierarchyRoomView) => void;
     onJoin: (
       child: HierarchyRoomView,
       via: readonly string[],
@@ -96,6 +97,7 @@
     onToggle,
     onVisible,
     onOpen,
+    onTopic,
     onJoin,
     onCopyLink,
     onRemove,
@@ -350,7 +352,13 @@
                 {#if child.topic}
                   {#if child.num_joined_members !== null}<span class="divider" aria-hidden="true"
                       >|</span
-                    >{/if}<span class="room-topic">{child.topic}</span>
+                    >{/if}<button
+                    type="button"
+                    class="room-topic"
+                    onclick={() => {
+                      onTopic(child);
+                    }}>{child.topic}</button
+                  >
                 {/if}
               </span>
               {#if joinErrors.has(child.room_id)}
@@ -659,10 +667,27 @@
   }
 
   .room-topic {
+    background: transparent;
+    border: 0;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
     min-width: 0;
     overflow: hidden;
+    padding: 0;
+    text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .room-topic:hover {
+    color: var(--surface-on-container);
+    text-decoration: underline;
+  }
+
+  .room-topic:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   .room-error {
