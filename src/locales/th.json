@@ -143,7 +143,6 @@
     "joinTitle": "เข้าร่วมด้วยที่อยู่",
     "directoryTitle": "สำรวจห้อง",
     "directoryDescription": "เลือกดูห้องที่เผยแพร่ในสารบัญของเซิร์ฟเวอร์ หรือเข้าร่วมห้องโดยระบุที่อยู่",
-    "directoryServerPlaceholder": "เซิร์ฟเวอร์ของคุณ",
     "directoryTotal_other": "{{count, number}} ห้อง",
     "leaveSpaceChildrenRoomsCount_other": "{{count, number}} ห้อง",
     "directoryJoinByAddress": "เข้าร่วมด้วยที่อยู่",

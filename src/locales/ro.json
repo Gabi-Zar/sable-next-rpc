@@ -184,7 +184,6 @@
     "directorySearch": "Caută",
     "directorySearchLabel": "Caută prin registru",
     "directoryServerLabel": "Explorează serverul",
-    "directoryServerPlaceholder": "Serverul tău",
     "directoryFailed": "Acest registru nu a putut fi citit.",
     "directoryInvalidServer": "Adresa acestui server nu este validă.",
     "directoryPrivate": "Registrul de camere al acestui server este privat.",

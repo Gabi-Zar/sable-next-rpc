@@ -43,6 +43,7 @@ export type RuntimeConfig = {
   supporter: SupporterConfig | null;
   gifs: GifsConfig;
   homeservers: HomeserversConfig;
+  exploreServers: string[];
   calls: CallsConfig;
   disableAccountSwitcher: boolean;
   settingsDefaults: Record<string, unknown>;
@@ -73,6 +74,7 @@ const EMPTY: RuntimeConfig = {
   supporter: null,
   gifs: NO_GIFS,
   homeservers: BUILT_IN_HOMESERVERS,
+  exploreServers: [],
   calls: NO_CALLS,
   disableAccountSwitcher: false,
   settingsDefaults: {},
@@ -171,6 +173,14 @@ function parseHomeservers(raw: unknown, allowCustom: unknown): HomeserversConfig
   return { list, default: list[0], allowCustom: custom };
 }
 
+function parseExploreServers(raw: unknown): string[] {
+  if (typeof raw !== 'object' || raw === null) return [];
+  const servers = (raw as Record<string, unknown>).servers;
+  return Array.isArray(servers)
+    ? [...new Set(servers.map(text).filter((server): server is string => server !== null))]
+    : [];
+}
+
 function withDefaultAt(homeservers: HomeserversConfig, index: unknown): HomeserversConfig {
   if (typeof index !== 'number' || !Number.isInteger(index)) return homeservers;
   if (index < 0 || index >= homeservers.list.length) return homeservers;
@@ -191,6 +201,7 @@ export function parseRuntimeConfig(raw: unknown): RuntimeConfig {
       parseHomeservers(source.homeserverList, source.allowCustomHomeservers),
       source.defaultHomeserver
     ),
+    exploreServers: parseExploreServers(source.featuredCommunities),
     calls: parseCalls(source.calls),
     disableAccountSwitcher: source.disableAccountSwitcher === true,
     settingsDefaults:

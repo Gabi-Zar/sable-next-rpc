@@ -126,7 +126,6 @@
     "directorySearch": "Hledat",
     "directorySearchLabel": "Hledat v adresáři",
     "directoryServerLabel": "Server k procházení",
-    "directoryServerPlaceholder": "Váš server",
     "directoryFailed": "Adresář se nepodařilo načíst.",
     "directoryInvalidServer": "Adresa serveru není platná.",
     "directoryPrivate": "Adresář místností tohoto serveru je soukromý.",

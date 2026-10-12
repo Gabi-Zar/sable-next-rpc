@@ -239,3 +239,11 @@ describe('supporterAwards', () => {
     expect(config.supporter?.keys).toEqual({ '1': key });
   });
 });
+
+test('featured explore servers are read from v1 featuredCommunities', () => {
+  expect(
+    parseRuntimeConfig({ featuredCommunities: { servers: ['a.org', ' a.org ', 3, 'b.org'] } })
+      .exploreServers
+  ).toEqual(['a.org', 'b.org']);
+  expect(parseRuntimeConfig({}).exploreServers).toEqual([]);
+});

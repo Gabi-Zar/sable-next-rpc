@@ -125,7 +125,6 @@
     "createInvitePlaceholder": "@някой:сървър",
     "createFailed": "Стаята не можа да бъде създадена.",
     "directoryServerLabel": "Сървър за разглеждане",
-    "directoryServerPlaceholder": "Вашият сървър",
     "directoryEmptyTitle": "Няма намерени стаи",
     "directoryJoinByAddress": "Присъедини се чрез адрес",
     "joinAddressPlaceholder": "#стая:сървър",

@@ -188,7 +188,6 @@
     "directorySearch": "Rechercher",
     "directorySearchLabel": "Rechercher dans l’annuaire",
     "directoryServerLabel": "Serveur à parcourir",
-    "directoryServerPlaceholder": "Votre serveur",
     "directoryFailed": "Impossible de lire cet annuaire.",
     "directoryInvalidServer": "L’adresse de ce serveur n’est pas valide.",
     "directoryPrivate": "L’annuaire de salons de ce serveur est privé.",

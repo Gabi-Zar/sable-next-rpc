@@ -5,9 +5,12 @@
   import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
   import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
   import ArrowRightIcon from 'phosphor-svelte/lib/ArrowRightIcon';
+  import XIcon from 'phosphor-svelte/lib/XIcon';
 
   import { goto } from '$app/navigation';
+  import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
+  import { userIdServer } from '#lib/features/auth/login/login-identifier.js';
   import { i18n } from '#lib/i18n.js';
   import { joinErrorMessage } from '#lib/rooms/join-errors.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
@@ -17,10 +20,18 @@
   import Button from '#lib/ui/primitives/Button.svelte';
   import EmptyState from '#lib/ui/primitives/EmptyState.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
+  import Pill from '#lib/ui/primitives/Pill.svelte';
   import Select from '#lib/ui/primitives/Select.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
 
+  import {
+    addServer,
+    exploreServers,
+    isServerName,
+    readAddedServers,
+    removeServer,
+  } from './explore-servers.js';
   import { RoomDirectory } from './room-directory.svelte.js';
   import { lobbyAction } from '../spaces/space-hierarchy';
 
@@ -31,7 +42,12 @@
   const knocked = new SvelteSet<string>();
 
   let search = $state('');
-  let server = $state('');
+  let server = $state<string | null>(null);
+  let featured = $state<string[]>([]);
+  let added = $state<string[]>([]);
+  let adding = $state(false);
+  let newServer = $state('');
+  let serverError = $state<string | null>(null);
   let kind = $state<'all' | 'rooms' | 'spaces'>('all');
   let failedJoin = $state<string | null>(null);
 
@@ -42,14 +58,52 @@
     new Set(roomList.rooms.filter((room) => room.state === 'invited').map((room) => room.room_id))
   );
 
+  let ownServer = $derived(userIdServer(core.session?.user_id ?? ''));
+  let servers = $derived(exploreServers(ownServer, featured, added));
+
   $effect(() => {
     void directory.search({ server: null, search: '' });
+    void runtimeConfig().then((config) => {
+      featured = config.exploreServers;
+    });
+    readAddedServers(core.commands)
+      .then((servers) => {
+        added = servers;
+      })
+      .catch((error: unknown) => {
+        console.warn('[sable directory] added servers are unavailable', error);
+      });
   });
 
+  function browse(name: string): void {
+    server = name === ownServer ? null : name;
+    runSearch();
+  }
+
+  async function saveServer(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const name = newServer.trim();
+    if (!isServerName(name)) {
+      serverError = 'room.directoryInvalidServer';
+      return;
+    }
+    serverError = null;
+    added = await addServer(core.commands, name);
+    adding = false;
+    newServer = '';
+    browse(name);
+  }
+
+  async function forgetServer(name: string): Promise<void> {
+    added = await removeServer(core.commands, name);
+    if (server !== name) return;
+    server = null;
+    runSearch();
+  }
+
   function runSearch(): void {
-    const trimmed = server.trim();
     void directory.search({
-      server: trimmed === '' ? null : trimmed,
+      server,
       search: search.trim(),
       roomType: kind === 'all' ? null : kind,
     });
@@ -94,6 +148,73 @@
 </script>
 
 <section class="directory">
+  <div class="servers" role="group" aria-label={$i18n.t('room.directoryServerLabel')}>
+    {#each servers as name (name)}
+      {@const selected = (server ?? ownServer) === name}
+      <span class="server">
+        <Pill
+          variant={selected ? 'primary' : 'outline'}
+          aria-pressed={selected}
+          onclick={() => {
+            browse(name);
+          }}>{name}</Pill
+        >
+        {#if added.includes(name) && name !== ownServer}
+          <IconButton
+            variant="ghost"
+            size="small"
+            label={$i18n.t('room.directoryRemoveServer', { server: name })}
+            onclick={() => {
+              forgetServer(name).catch((error: unknown) => {
+                console.warn('[sable directory] the server was not removed', error);
+              });
+            }}
+          >
+            <XIcon />
+          </IconButton>
+        {/if}
+      </span>
+    {/each}
+    {#if adding}
+      <form
+        class="add-server"
+        onsubmit={(event) => {
+          saveServer(event).catch((error: unknown) => {
+            console.warn('[sable directory] the server was not saved', error);
+          });
+        }}
+      >
+        <TextInput
+          bind:value={newServer}
+          autocomplete="off"
+          autocapitalize="none"
+          spellcheck={false}
+          aria-label={$i18n.t('room.directoryAddServerLabel')}
+          placeholder="example.org"
+        />
+        <Button type="submit" size="small">{$i18n.t('common.add')}</Button>
+        <Button
+          variant="ghost"
+          size="small"
+          onclick={() => {
+            adding = false;
+            newServer = '';
+            serverError = null;
+          }}>{$i18n.t('common.cancel')}</Button
+        >
+      </form>
+    {:else}
+      <Pill
+        onclick={() => {
+          adding = true;
+        }}><PlusIcon size={14} />{$i18n.t('room.directoryAddServer')}</Pill
+      >
+    {/if}
+  </div>
+  {#if serverError}
+    <Alert variant="critical" role="alert">{$i18n.t(serverError)}</Alert>
+  {/if}
+
   <form class="filters" onsubmit={submit}>
     <TextInput
       bind:value={search}
@@ -101,14 +222,6 @@
       autocomplete="off"
       aria-label={$i18n.t('room.directorySearchLabel')}
       placeholder={$i18n.t('common.searchRooms')}
-    />
-    <TextInput
-      bind:value={server}
-      autocomplete="off"
-      autocapitalize="none"
-      spellcheck={false}
-      aria-label={$i18n.t('room.directoryServerLabel')}
-      placeholder={$i18n.t('room.directoryServerPlaceholder')}
     />
     <Select
       class="directory-kind"
@@ -232,7 +345,25 @@
     align-items: end;
     display: grid;
     gap: var(--space-300);
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .servers {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-200);
+  }
+
+  .server {
+    align-items: center;
+    display: inline-flex;
+  }
+
+  .add-server {
+    align-items: center;
+    display: flex;
+    gap: var(--space-200);
   }
 
   @media (width < 40rem) {
