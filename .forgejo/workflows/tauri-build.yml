@@ -483,12 +483,188 @@ jobs:
             -name 'sable-*' \( -name '*.apk' -o -name '*.aab' \) -print0)
           [ "${#bundles[@]}" -gt 0 ] || { echo 'No Android bundles found' >&2; exit 1; }
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
+  macos:
+    name: macOS universal
+    needs: [setup-release, build-web]
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.setup-release.outputs.tag }}
+      VERSION: ${{ needs.setup-release.outputs.version }}
+      ASSET_PLATFORM: macos-universal
+      BUNDLE_PATH: target/universal-apple-darwin/release/bundle
+      RUST_TARGETS: aarch64-apple-darwin x86_64-apple-darwin
+      # Read by src-tauri/build.rs, which bakes them into the binary.
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
+      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
+      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
+      UPDATER_ENDPOINT: ${{ needs.setup-release.outputs.nightly == 'true' && 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly/latest.json' || '' }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Download web assets
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          name: web-assets
+      - name: Set up app
+        uses: ./.forgejo/actions/setup
+        with:
+          rust: 'true'
+          rust-cache-key: tauri-desktop
+          install-mise-tools: 'false'
+      - name: Add Rust targets
+        run: |
+          # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
+          rustup target add $RUST_TARGETS
+      - name: Prepare in-place v1 upgrade identity
+        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
+        run: node scripts/ci/prepare-v1-release.mjs
+      - name: Stamp release version into tauri.conf.json
+        run: |
+          args=''
+          [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
+          node scripts/ci/set-tauri-version.mjs "$VERSION" $args
+      - name: Build desktop bundle
+        run: |
+          config_args=(--config src-tauri/tauri.ci.conf.json)
+          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
+          # Bundling an updater artifact without a key is a hard error.
+          [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] \
+            && config_args+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
+          pnpm tauri build "${config_args[@]}" --target universal-apple-darwin
+      - name: Upload native symbols to Sentry
+        run: node scripts/ci/upload-sentry-symbols.mjs target
+      - name: Normalize bundle names
+        run: |
+          test -d "$BUNDLE_PATH" || { echo "Bundle directory not found: $BUNDLE_PATH" >&2; exit 1; }
+          find "$BUNDLE_PATH" -type f -print0 \
+            | while IFS= read -r -d '' path; do
+                case "$path" in
+                  *.app.tar.gz.sig) suffix='.app.tar.gz.sig' ;;
+                  *.app.tar.gz) suffix='.app.tar.gz' ;;
+                  *.dmg) suffix='.dmg' ;;
+                  *) continue ;;
+                esac
+                target="$(dirname "$path")/sable-${VERSION}-${ASSET_PLATFORM}${suffix}"
+                [ "$path" = "$target" ] || mv "$path" "$target"
+              done
+          find "$BUNDLE_PATH" -type f -name 'sable-*' > bundles
+          test -s bundles || { echo "No desktop bundles found in $BUNDLE_PATH" >&2; exit 1; }
+      - name: Attach desktop bundles to release
+        run: |
+          bundles=()
+          while IFS= read -r bundle; do bundles+=("$bundle"); done < bundles
+          node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
+
+  ios:
+    name: Build iOS
+    needs: [setup-release, build-web]
+    runs-on: macos-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    outputs:
+      ipa_size: ${{ steps.ipa.outputs.size }}
+      ipa_version: ${{ steps.ipa.outputs.version }}
+      ipa_build: ${{ steps.ipa.outputs.build }}
+    env:
+      TAG: ${{ needs.setup-release.outputs.tag }}
+      VERSION: ${{ needs.setup-release.outputs.version }}
+      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
+      RUST_TARGETS: aarch64-apple-ios
+      # Read by src-tauri/build.rs, which bakes them into the binary.
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
+      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Download web assets
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          name: web-assets
+      - name: Set up app
+        uses: ./.forgejo/actions/setup
+        with:
+          rust: 'true'
+          rust-cache-key: tauri-ios
+          install-mise-tools: 'false'
+      - name: Prepare in-place v1 upgrade identity
+        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
+        run: node scripts/ci/prepare-v1-release.mjs
+      - name: Set up iOS project
+        run: |
+          command -v pod >/dev/null || brew install cocoapods
+          config_args=()
+          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
+          pnpm tauri ios init --ci "${config_args[@]}"
+      - name: Download iOS frameworks
+        run: pnpm ios:frameworks
+      - name: Add Rust target
+        run: |
+          # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
+          rustup target add $RUST_TARGETS
+      # CFBundleShortVersionString rejects the -nightly suffix, so nightly
+      # builds fold their timestamp into the patch component instead.
+      - name: Stamp release version into tauri.conf.json
+        run: |
+          if [ "$IS_NIGHTLY" = 'true' ]; then
+            node scripts/ci/set-tauri-version.mjs "$VERSION" --apple-short-version
+          else
+            node scripts/ci/set-tauri-version.mjs "$VERSION"
+          fi
+      - name: Build unsigned iOS bundle
+        id: ipa
+        run: |
+          config_args=(--config src-tauri/tauri.ci.conf.json)
+          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
+          pnpm tauri ios build "${config_args[@]}" --no-sign --ci
+          node scripts/ci/upload-sentry-symbols.mjs --ios
+          ipa="$(find src-tauri/gen/apple/build -type f -name '*.ipa' | head -n 1)"
+          [ -n "$ipa" ] || { echo 'No iOS IPA found' >&2; exit 1; }
+          target="$(dirname "$ipa")/sable-${VERSION}-ios-arm64.ipa"
+          [ "$ipa" = "$target" ] || mv "$ipa" "$target"
+
+          unzip -p "$target" 'Payload/*.app/Info.plist' > Info.plist
+          short_version="$(plutil -extract CFBundleShortVersionString raw -o - Info.plist)"
+          bundle_version="$(plutil -extract CFBundleVersion raw -o - Info.plist)"
+
+          {
+            echo "path=$target"
+            echo "size=$(stat -f%z "$target")"
+            echo "version=$short_version"
+            echo "build=$bundle_version"
+          } >> "$GITHUB_OUTPUT"
+      - name: Attach iOS bundle to release
+        env:
+          IPA_PATH: ${{ steps.ipa.outputs.path }}
+        run: node scripts/ci/forgejo-release.mjs upload "$IPA_PATH"
+
   github-bundles:
     name: Wait for GitHub bundles
     needs: setup-release
     runs-on: ubuntu-latest
     # github-bundles.json is published by the GitHub-side handoff job, which
-    # waits on the whole desktop/linux/ios matrix.
+    # waits on the Windows and Linux aarch64 builds.
     timeout-minutes: 120
     steps:
       - name: Check out repository
@@ -524,7 +700,7 @@ jobs:
         run: node scripts/ci/forgejo-release.mjs upload obtainium.json
   altstore:
     name: Publish AltStore source
-    needs: [setup-release, github-bundles]
+    needs: [setup-release, ios]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -533,6 +709,9 @@ jobs:
       TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
       IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
+      IPA_SIZE: ${{ needs.ios.outputs.ipa_size }}
+      IPA_VERSION: ${{ needs.ios.outputs.ipa_version }}
+      IPA_BUILD: ${{ needs.ios.outputs.ipa_build }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -542,11 +721,10 @@ jobs:
       # One asset name for both channels keeps the subscribed URL stable.
       - name: Build AltStore source
         run: |
-          node scripts/ci/forgejo-release.mjs download --pattern github-bundles.json --dir .
-          ipa_name="$(jq -r '.ipa.name' github-bundles.json)"
-          ipa_size="$(jq -r '.ipa.size' github-bundles.json)"
-          ipa_version="$(jq -r '.ipa.version' github-bundles.json)"
-          ipa_build="$(jq -r '.ipa.build' github-bundles.json)"
+          ipa_name="sable-${VERSION}-ios-arm64.ipa"
+          ipa_size="$IPA_SIZE"
+          ipa_version="$IPA_VERSION"
+          ipa_build="$IPA_BUILD"
 
           if [ "$IS_NIGHTLY" = 'true' ]; then
             # Older entries would 404 once their nightly release is pruned.
@@ -585,8 +763,8 @@ jobs:
         run: node scripts/ci/forgejo-release.mjs upload altstore-source.json
   updater-manifest:
     name: Publish updater manifest
-    needs: [setup-release, linux, github-bundles]
-    if: ${{ always() && needs.setup-release.result == 'success' && needs.linux.result == 'success' && needs.github-bundles.result == 'success' }}
+    needs: [setup-release, linux, macos, github-bundles]
+    if: ${{ always() && needs.setup-release.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.github-bundles.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -763,7 +941,7 @@ jobs:
           git push
   distribute-homebrew:
     name: Publish the Homebrew cask
-    needs: [setup-release, github-bundles]
+    needs: [setup-release, macos]
     if: ${{ needs.setup-release.outputs.nightly != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
