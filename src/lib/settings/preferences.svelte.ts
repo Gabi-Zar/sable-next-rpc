@@ -366,6 +366,7 @@ export interface Preferences {
   callStatsOverlay: boolean;
   callDebugOverlay: boolean;
   showHiddenEvents: boolean;
+  hiddenEventsHeaderToggle: boolean;
   hiddenEventEdits: boolean;
   hiddenEventReactions: boolean;
   hiddenEventRedactions: boolean;
@@ -659,6 +660,7 @@ const DEFAULTS: Preferences = {
   callStatsOverlay: false,
   callDebugOverlay: true,
   showHiddenEvents: false,
+  hiddenEventsHeaderToggle: false,
   hiddenEventEdits: true,
   hiddenEventReactions: true,
   hiddenEventRedactions: true,

@@ -1924,6 +1924,7 @@
     "callStatsOverlay": "Show screen share statistics in calls",
     "callDebugOverlay": "Show call debug information in calls",
     "showHiddenEvents": "Show hidden events",
+    "hiddenEventsHeaderToggle": "Show a hidden events toggle in the room header",
     "hiddenEventEdits": "Show edit events",
     "hiddenEventReactions": "Show reaction events",
     "hiddenEventRedactions": "Show redaction events",

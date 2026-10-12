@@ -5,6 +5,7 @@ import { renderWithTooltips } from '#lib/test-support/render-with-tooltips.js';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test } from 'vitest';
 
+import { preferences } from '#lib/settings/preferences.svelte.js';
 import RoomHeader from './RoomHeader.svelte';
 
 const members = [
@@ -108,4 +109,25 @@ test('every header toggle exposes its open state for themes', () => {
   );
   expect(screen.getByRole('button', { name: 'Members' })).toHaveAttribute('data-state', 'closed');
   expect(screen.getByRole('button', { name: 'Back to rooms' })).not.toHaveAttribute('data-state');
+});
+
+test('the hidden events toggle appears only when enabled and flips the preference', async () => {
+  const user = userEvent.setup();
+  mountHeader({ isVoice: false, callParticipants: [] });
+  expect(screen.queryByRole('button', { name: 'Show hidden events' })).not.toBeInTheDocument();
+
+  preferences.developerTools = true;
+  preferences.hiddenEventsHeaderToggle = true;
+  try {
+    const toggle = await screen.findByRole('button', { name: 'Show hidden events' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(toggle);
+    expect(preferences.showHiddenEvents).toBe(true);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  } finally {
+    preferences.developerTools = false;
+    preferences.hiddenEventsHeaderToggle = false;
+    preferences.showHiddenEvents = false;
+  }
 });

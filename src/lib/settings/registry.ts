@@ -1835,6 +1835,14 @@ export const settingsCategories: SettingsCategory[] = [
         gatedBy: 'developerTools',
       },
       {
+        key: 'hiddenEventsHeaderToggle',
+        section: 'developer-options',
+        icon: EyeIcon,
+        name: 'settings.hiddenEventsHeaderToggle',
+        type: 'boolean',
+        gatedBy: 'developerTools',
+      },
+      {
         key: 'hiddenEventEdits',
         section: 'developer-options',
         icon: PencilSimpleIcon,

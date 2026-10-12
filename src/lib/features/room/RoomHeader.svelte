@@ -2,6 +2,7 @@
   import type { Snippet } from 'svelte';
   import { i18n } from '#lib/i18n.js';
   import BackIcon from 'phosphor-svelte/lib/CaretLeftIcon';
+  import BugIcon from 'phosphor-svelte/lib/BugIcon';
   import MagnifyingGlassIcon from 'phosphor-svelte/lib/MagnifyingGlassIcon';
   import ChatCircleIcon from 'phosphor-svelte/lib/ChatCircleIcon';
   import PhoneIcon from 'phosphor-svelte/lib/PhoneIcon';
@@ -15,6 +16,7 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   import { participantKeys } from '#lib/features/call/participant-keys.js';
+  import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
 
   import { memberIdentity } from './members/members.js';
 
@@ -136,6 +138,16 @@
       <MagnifyingGlassIcon weight={searchOpen ? 'fill' : 'regular'} />
     </PanelHeaderButton>
     {@render pins?.()}
+    {#if preferences.developerTools && preferences.hiddenEventsHeaderToggle}
+      <PanelHeaderButton
+        class="hidden-events-toggle"
+        label={$i18n.t('settings.showHiddenEvents')}
+        aria-pressed={preferences.showHiddenEvents}
+        onclick={() => setPreference('showHiddenEvents', !preferences.showHiddenEvents)}
+      >
+        <BugIcon weight={preferences.showHiddenEvents ? 'fill' : 'regular'} />
+      </PanelHeaderButton>
+    {/if}
     {#if onToggleChat}
       <PanelHeaderButton
         class="chat-toggle"
