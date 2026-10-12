@@ -39,9 +39,17 @@ import { goto } from '#lib/test-support/app-navigation.js';
 const toastError = vi.hoisted(() => vi.fn());
 vi.mock('#lib/ui/toasts.svelte.js', () => ({ toasts: { error: toastError } }));
 
-vi.mock('#lib/rooms/room-list.svelte.js', () => ({
+const roomList = vi.hoisted(() => ({ rooms: [] as unknown[] }));
+vi.mock('#lib/rooms/room-list.svelte.js', async () => ({
+  hasDirectRoom: (
+    await vi.importActual<typeof import('#lib/rooms/room-list.svelte.js')>(
+      '#lib/rooms/room-list.svelte.js'
+    )
+  ).hasDirectRoom,
   useRoomList: () => ({
-    rooms: [],
+    get rooms() {
+      return roomList.rooms;
+    },
     byId: (roomId: string) =>
       roomId === '!dm:example.org' ? { room_id: roomId, is_direct: true } : undefined,
   }),
@@ -302,6 +310,14 @@ test('sends a direct message from the sheet composer', async () => {
 
 test('opens the chat without sending from the Message button', async () => {
   core.createDm.mockResolvedValue('!dm:example.org');
+  roomList.rooms = [
+    {
+      room_id: '!dm:example.org',
+      is_direct: true,
+      is_tombstoned: false,
+      direct_targets: ['@alice:example.org'],
+    },
+  ];
   render(MentionProfileCard, {
     props: {
       userId: '@alice:example.org',
@@ -319,6 +335,39 @@ test('opens the chat without sending from the Message button', async () => {
 
   expect(core.createDm).toHaveBeenCalledWith('@alice:example.org');
   expect(core.sendMessage).not.toHaveBeenCalled();
+  roomList.rooms = [];
+});
+
+test('asks before the Message button creates a new chat', async () => {
+  core.createDm.mockClear();
+  core.createDm.mockResolvedValue('!dm:example.org');
+  vi.mocked(goto).mockClear();
+  render(MentionProfileCard, {
+    props: {
+      userId: '@alice:example.org',
+      roomId: '!room:example.org',
+      member: null,
+      profile: emptyProfile,
+    },
+  });
+  await tick();
+
+  await user.click(screen.getByRole('button', { name: 'Message' }));
+  const dialog = await screen.findByRole('dialog');
+  await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+  await vi.waitFor(() => {
+    expect(document.body.style.pointerEvents).toBe('');
+  });
+  expect(core.createDm).not.toHaveBeenCalled();
+
+  await user.click(screen.getByRole('button', { name: 'Message' }));
+  await user.click(
+    within(await screen.findByRole('dialog')).getByRole('button', { name: 'Start chat' })
+  );
+  await vi.waitFor(() => {
+    expect(goto).toHaveBeenCalledWith(expect.stringContaining('/direct/'));
+  });
+  expect(core.createDm).toHaveBeenCalledWith('@alice:example.org');
 });
 
 function extraKeys(): string[] {

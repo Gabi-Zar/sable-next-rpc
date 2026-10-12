@@ -6,7 +6,7 @@ import type { RoomSummary } from '#src/generated/protocol';
 import { countNotifications, notifications } from '#lib/features/inbox/inbox.js';
 
 import { setQuiet } from './quiet-rooms.svelte.js';
-import { RoomList, roomPathId } from './room-list.svelte.js';
+import { RoomList, hasDirectRoom, roomPathId } from './room-list.svelte.js';
 import { withCounts } from './summary-fixtures.js';
 
 afterEach(() => {
@@ -532,4 +532,14 @@ test('a room path uses its alias only when the room is the first live owner of i
   expect(roomPathId(old, rooms)).toBe('!old:x');
   expect(roomPathId(plain, rooms)).toBe('!plain:x');
   expect(roomPathId(copy, [copy, lounge])).toBe('#lounge:x');
+});
+
+test('finds a live direct room with a user', () => {
+  const room = (is_direct: boolean, direct_targets: string[], is_tombstoned = false) =>
+    ({ is_direct, direct_targets, is_tombstoned }) as RoomSummary;
+
+  expect(hasDirectRoom([room(true, ['@alice:x'])], '@alice:x')).toBe(true);
+  expect(hasDirectRoom([room(true, ['@bob:x'])], '@alice:x')).toBe(false);
+  expect(hasDirectRoom([room(false, ['@alice:x'])], '@alice:x')).toBe(false);
+  expect(hasDirectRoom([room(true, ['@alice:x'], true)], '@alice:x')).toBe(false);
 });

@@ -787,7 +787,9 @@
     "userIdPlaceholder": "@someone:server",
     "failed": "The chat could not be created.",
     "encryptionHint": "Turn off for bridged contacts. Cannot be turned on later.",
-    "submit": "Start chat"
+    "submit": "Start chat",
+    "confirmTitle": "Start a chat with {{name}}?",
+    "confirmBody": "You do not have a chat with them yet. A new one will be created and they will be invited."
   },
   "userLink": {
     "action": "Send a message",

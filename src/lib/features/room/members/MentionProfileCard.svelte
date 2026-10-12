@@ -38,7 +38,7 @@
   import { resolve } from '$app/paths';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
-  import { roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
+  import { hasDirectRoom, roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -228,6 +228,7 @@
   let hasDraft = $derived(draft.trim() !== '');
   let sending = $state(false);
   let sendFailed = $state<'send' | 'open' | null>(null);
+  let confirmingDirect = $state(false);
   let homeserver = $derived(userId.slice(userId.indexOf(':') + 1));
   let elevated = $derived(roomMember !== null && roomMember.power_level >= 50);
   let roleTag = $derived(
@@ -410,6 +411,11 @@
     } finally {
       sending = false;
     }
+  }
+
+  function messageUser(): void {
+    if (hasDirectRoom(roomList.rooms, userId)) void openDirectMessage('');
+    else confirmingDirect = true;
   }
 
   function sendDirectMessage(event: SubmitEvent): void {
@@ -604,7 +610,7 @@
 {/snippet}
 
 {#snippet messageAction()}
-  <Pill variant="primary" onclick={() => void openDirectMessage('')}>
+  <Pill variant="primary" onclick={messageUser}>
     <ChatCircleIcon size={14} weight="fill" />
     {$i18n.t('timeline.profileMessage')}
   </Pill>
@@ -837,6 +843,18 @@
   {userId}
   {displayName}
   onOpenChange={(next) => (securityOpen = next)}
+/>
+
+<ConfirmDialog
+  bind:open={confirmingDirect}
+  title={$i18n.t('direct.confirmTitle', { name: displayName })}
+  description={$i18n.t('direct.confirmBody')}
+  confirmLabel={$i18n.t('direct.submit')}
+  confirmVariant="primary"
+  onConfirm={() => {
+    confirmingDirect = false;
+    void openDirectMessage('');
+  }}
 />
 
 <ConfirmDialog

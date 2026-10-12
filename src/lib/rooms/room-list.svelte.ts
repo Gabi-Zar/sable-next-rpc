@@ -80,6 +80,12 @@ export function roomAvatarUrl(room: RoomSummary): string | null {
   return peer === null ? room.avatar_url : profileOverrides.avatar(peer, room.avatar_url);
 }
 
+export function hasDirectRoom(rooms: readonly RoomSummary[], userId: string): boolean {
+  return rooms.some(
+    (room) => room.is_direct && !room.is_tombstoned && room.direct_targets.includes(userId)
+  );
+}
+
 export function findRoomByPathId(
   rooms: readonly RoomSummary[],
   pathId: string | undefined
