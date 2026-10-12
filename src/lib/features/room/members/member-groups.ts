@@ -9,6 +9,7 @@ export type MemberGroupCategory =
   | 'knocked'
   | 'knock_retracted'
   | 'other'
+  | 'name'
   | 'avatar';
 
 const MEMBERSHIP_CATEGORIES: Partial<Record<MembershipChangeView, MemberGroupCategory>> = {
@@ -32,7 +33,8 @@ export function memberGroupCategory(item: TimelineItemView): MemberGroupCategory
     return MEMBERSHIP_CATEGORIES[content.change] ?? null;
   }
   if (content.kind === 'profile_change') {
-    return content.display_name === null && content.avatar !== null ? 'avatar' : null;
+    if (content.display_name !== null) return 'name';
+    return content.avatar !== null ? 'avatar' : null;
   }
   return null;
 }
