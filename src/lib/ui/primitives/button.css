@@ -1,5 +1,5 @@
 .btn {
-  --button-height: var(--control-height-300);
+  --button-height: var(--button-default-height, var(--control-height-300));
   --button-gap: var(--space-200);
   --button-padding-inline: var(--control-padding-400);
   --button-icon-size: var(--size-x200);
@@ -30,12 +30,11 @@
 .btn:not(.icon-button) {
   border-radius: var(--radius);
   border-width: 0;
+  padding-block: var(--space-100);
 }
 
-@media (pointer: coarse) {
-  .btn:not(.icon-button) {
-    --button-height: var(--control-height-large);
-  }
+.btn-medium:not(.icon-button) {
+  --button-default-height: var(--control-height-medium);
 }
 
 .btn > svg {
@@ -96,12 +95,26 @@
 }
 
 .btn-small {
-  --button-height: var(--control-height-300);
+  --button-default-height: var(--control-height-300);
   --button-gap: var(--space-100);
   --button-padding-inline: var(--control-padding-300);
   --button-icon-size: var(--size-x50);
 
   font-size: var(--font-size-small);
+}
+
+@media (pointer: coarse) {
+  .btn-medium:not(.icon-button) {
+    --button-default-height: var(--control-height-touch);
+
+    font-size: var(--font-size-subheading);
+  }
+
+  .btn-small:not(.icon-button) {
+    --button-default-height: calc(var(--control-height-small) + var(--space-100));
+
+    font-size: var(--font-size-label);
+  }
 }
 
 .btn-icon {
