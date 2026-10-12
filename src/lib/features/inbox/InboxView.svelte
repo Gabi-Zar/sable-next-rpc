@@ -41,7 +41,7 @@
   });
 
   const landing: InboxTab = untrack(() =>
-    notificationCounts.highlight === 0 && inviteCounts.highlight > 0 ? 'invites' : 'notifications'
+    inviteCounts.highlight > 0 ? 'invites' : 'notifications'
   );
   let tab = $derived<InboxTab>(parseInboxTab(page.url.searchParams.get('tab'), landing));
   let filter = $derived(parseFilter(page.url.searchParams.get('filter')));

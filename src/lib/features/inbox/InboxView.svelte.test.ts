@@ -116,6 +116,25 @@ test('lands on the invites tab when only invites are waiting', () => {
   expect(screen.getByRole('tab', { name: /Invites/ })).toHaveAttribute('aria-selected', 'true');
 });
 
+test('lands on the invites tab ahead of notifications', () => {
+  roomList.rooms = [
+    withCounts({ ...room, unread: 1, notifying: 1, highlight: 1 }),
+    { ...room, room_id: '!a:example.org', state: 'invited' },
+  ];
+  render(InboxView);
+  expect(screen.getByRole('tab', { name: /Invites/ })).toHaveAttribute('aria-selected', 'true');
+});
+
+test('keeps an explicit tab over pending invites', () => {
+  visit('/inbox?tab=notifications');
+  roomList.rooms = [room, { ...room, room_id: '!a:example.org', state: 'invited' }];
+  render(InboxView);
+  expect(screen.getByRole('tab', { name: /Notifications/ })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  );
+});
+
 test('a room behind the badge with nothing in the feed still gets a row', async () => {
   roomList.rooms = [
     withCounts({
