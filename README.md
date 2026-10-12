@@ -54,7 +54,7 @@ Stable builds are on the [latest release](https://git.sable.moe/SableClient/sabl
 &nbsp;
 <a href="https://aur.archlinux.org/packages/sable-bin"><img alt="AUR" src="https://img.shields.io/badge/AUR-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
 &nbsp;
-<a href="https://github.com/SableClient/homebrew-sable"><img alt="Homebrew" src="https://img.shields.io/badge/Homebrew-FBB040?style=for-the-badge&logo=homebrew&logoColor=black"></a>
+<a href="https://git.sable.moe/SableClient/homebrew-sable"><img alt="Homebrew" src="https://img.shields.io/badge/Homebrew-FBB040?style=for-the-badge&logo=homebrew&logoColor=black"></a>
 
 ```sh
 brew install --cask SableClient/sable/sable   # macOS
