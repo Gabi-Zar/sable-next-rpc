@@ -927,7 +927,7 @@ pub fn run() {
     #[cfg(not(target_os = "linux"))]
     let builder = with_platform_plugins(builder);
 
-    if let Err(error) = builder
+    let app = match builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(
             tauri_plugin_opener::Builder::new()
@@ -1025,9 +1025,35 @@ pub fn run() {
             #[cfg(target_os = "android")]
             mobile::set_window_background
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
     {
-        log::error!("error while running Tauri application: {error}");
+        Ok(app) => app,
+        Err(error) => {
+            log::error!("error while running Tauri application: {error}");
+            return;
+        }
+    };
+    app.run(|app, event| {
+        if matches!(event, tauri::RunEvent::Exit) {
+            hang_up_before_exit(app);
+        }
+    });
+}
+
+const EXIT_HANGUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Quitting mid-call would otherwise leave our membership in the room.
+fn hang_up_before_exit(app: &AppHandle<BrowserEngine>) {
+    let Some(state) = app.try_state::<AppState>() else {
+        return;
+    };
+    let core = state.core.clone();
+    let ended = tauri::async_runtime::block_on(tokio::time::timeout(
+        EXIT_HANGUP_TIMEOUT,
+        core.end_all_calls(),
+    ));
+    if ended.is_err() {
+        log::warn!("calls were still hanging up when the app exited");
     }
 }
 
