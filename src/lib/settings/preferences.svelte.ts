@@ -258,6 +258,8 @@ export interface Preferences {
   formattingToolbar: boolean;
   composerFormatButton: boolean;
   richTextComposer: boolean;
+  composerSpellcheck: boolean;
+  composerAutocapitalize: boolean;
   composerGifButton: boolean;
   composerStickerButton: boolean;
   composerEmoteButton: boolean;
@@ -441,9 +443,9 @@ const ENUMS = {
   badgeDefaultGroup: ['all', 'mentions', 'quiet'],
   memberSort: ['name-asc', 'name-desc', 'newest', 'oldest'],
   personaLatching: ['off', 'room', 'account'],
+  personaPickerSortOrder: ['manual', 'alphabetical-asc', 'alphabetical-desc', 'recent'],
   presence: ['online', 'unavailable', 'offline'],
   profileChangePropagation: ['all', 'unchanged', 'none'],
-  personaPickerSortOrder: ['manual', 'alphabetical-asc', 'alphabetical-desc', 'recent'],
 } as const satisfies { [K in EnumPreference]?: readonly Preferences[K][] };
 
 /** Strings with no fixed set of values, which `load` would otherwise drop and
@@ -550,6 +552,8 @@ const DEFAULTS: Preferences = {
   formattingToolbar: false,
   composerFormatButton: true,
   richTextComposer: false,
+  composerSpellcheck: true,
+  composerAutocapitalize: true,
   composerGifButton: true,
   composerStickerButton: true,
   composerEmoteButton: true,

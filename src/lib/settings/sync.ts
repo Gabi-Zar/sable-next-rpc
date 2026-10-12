@@ -14,6 +14,8 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'settingsSync',
   'syncDrafts',
   'enterForNewline',
+  'composerSpellcheck',
+  'composerAutocapitalize',
   'reducedMotion',
   'pageZoom',
   'textScale',

@@ -1107,6 +1107,22 @@ export const settingsCategories: SettingsCategory[] = [
         type: 'boolean',
       },
       {
+        key: 'composerSpellcheck',
+        section: 'writing',
+        icon: ChecksIcon,
+        name: 'settings.composerSpellcheck',
+        description: 'settings.composerSpellcheckHint',
+        type: 'boolean',
+      },
+      {
+        key: 'composerAutocapitalize',
+        section: 'writing',
+        icon: TextAaIcon,
+        name: 'settings.composerAutocapitalize',
+        description: 'settings.composerAutocapitalizeHint',
+        type: 'boolean',
+      },
+      {
         key: 'formattingToolbar',
         section: 'writing',
         icon: TextAaIcon,

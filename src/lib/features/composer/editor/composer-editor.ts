@@ -751,8 +751,8 @@ export class ComposerEditor {
       'aria-expanded': activeOption === null ? 'false' : 'true',
       ...(activeOption === null ? {} : { 'aria-activedescendant': activeOption }),
       /* No `aria-multiline`: it is a textbox property, invalid on a combobox. */
-      spellcheck: 'true',
-      autocapitalize: 'sentences',
+      spellcheck: preferences.composerSpellcheck ? 'true' : 'false',
+      autocapitalize: preferences.composerAutocapitalize ? 'sentences' : 'off',
       enterkeyhint: !enterInsertsNewline() ? 'send' : 'enter',
       ...(this.options.describedBy ? { 'aria-describedby': this.options.describedBy } : {}),
     };
