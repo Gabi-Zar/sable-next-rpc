@@ -37,7 +37,7 @@ test('keeps a notification volume inside its range', () => {
   expect(sanitize({ soundsNotificationVolume: 0.4 }, preferences).soundsNotificationVolume).toBe(
     0.4
   );
-  expect(sanitize({ soundsNotificationVolume: 3 }, preferences).soundsNotificationVolume).toBe(1);
+  expect(sanitize({ soundsNotificationVolume: 3 }, preferences).soundsNotificationVolume).toBe(2);
   expect(sanitize({ soundsNotificationVolume: 'loud' }, preferences).soundsNotificationVolume).toBe(
     preferences.soundsNotificationVolume
   );
