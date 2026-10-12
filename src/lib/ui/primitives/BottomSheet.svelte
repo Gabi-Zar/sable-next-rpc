@@ -16,6 +16,7 @@
     background?: string;
     contentInset?: boolean;
     fullHeight?: boolean;
+    expandable?: boolean;
     ownsBack?: boolean;
     onOpenChange?: (open: boolean) => void;
     onOpenAutoFocus?: (event: Event) => void;
@@ -31,6 +32,7 @@
     background,
     contentInset = true,
     fullHeight = false,
+    expandable = false,
     ownsBack = false,
     onOpenChange,
     onOpenAutoFocus,
@@ -42,6 +44,8 @@
   let lastTime = 0;
   let velocityY = 0;
   let dragOffset = $state(0);
+  let dragDelta = 0;
+  let expanded = $state(false);
   let dismissing = $state(false);
   let body = $state<HTMLElement | null>(null);
   let suppressClick = false;
@@ -57,6 +61,7 @@
     if (!open) {
       pointerId = null;
       dragOffset = 0;
+      expanded = false;
     } else {
       dismissing = false;
     }
@@ -91,6 +96,7 @@
     lastTime = event.timeStamp;
     velocityY = 0;
     dragOffset = 0;
+    dragDelta = 0;
     suppressClick = false;
   }
 
@@ -105,8 +111,9 @@
   function drag(event: PointerEvent): void {
     if (pointerId !== event.pointerId) return;
     trackVelocity(event);
-    dragOffset = Math.max(0, event.clientY - startY);
-    if (dragOffset <= 0) return;
+    dragDelta = event.clientY - startY;
+    dragOffset = Math.max(0, dragDelta);
+    if (dragOffset <= 0 && !(canExpand() && dragDelta < 0)) return;
     suppressClick = true;
     const target = event.currentTarget;
     if (target instanceof HTMLElement && !target.hasPointerCapture(event.pointerId)) {
@@ -139,9 +146,21 @@
     return false;
   }
 
+  function canExpand(): boolean {
+    return expandable && !expanded;
+  }
+
   function settle(moved: number, velocity: number): void {
-    if (moved >= sheetHeight() * dismissShare || velocity >= dismissVelocity) dismiss();
-    else dragOffset = 0;
+    const threshold = sheetHeight() * dismissShare;
+    if (moved < 0) {
+      if (canExpand() && (-moved >= threshold || velocity <= -dismissVelocity)) expanded = true;
+      dragOffset = 0;
+    } else if (moved >= threshold || velocity >= dismissVelocity) {
+      if (expanded) {
+        expanded = false;
+        dragOffset = 0;
+      } else dismiss();
+    } else dragOffset = 0;
   }
 
   const swipeToDismiss: Attachment<HTMLElement> = (node) => {
@@ -179,7 +198,8 @@
       if (!claimable || !touch) return;
       const deltaY = touch.clientY - originY;
       if (!touchDragging) {
-        if (deltaY <= 0 || Math.abs(touch.clientX - originX) > deltaY) {
+        const up = deltaY < 0 && canExpand();
+        if ((deltaY <= 0 && !up) || Math.abs(touch.clientX - originX) > Math.abs(deltaY)) {
           claimable = false;
           return;
         }
@@ -191,8 +211,8 @@
       if (elapsed > 0) velocity = (touch.clientY - previousY) / elapsed;
       previousY = touch.clientY;
       previousTime = event.timeStamp;
-      moved = Math.max(0, deltaY);
-      dragOffset = moved;
+      moved = deltaY;
+      dragOffset = Math.max(0, deltaY);
     }
 
     function end(): void {
@@ -224,7 +244,7 @@
     if (pointerId !== event.pointerId) return;
     trackVelocity(event);
     pointerId = null;
-    settle(dragOffset, velocityY);
+    settle(dragDelta, velocityY);
   }
 
   function handleClick(event: MouseEvent): void {
@@ -247,13 +267,14 @@
     : dismissing
       ? 'sheet-dismissing'
       : 'sheet-settling'}
-  contentStyle={`${background ? `background: ${background};` : ''} ${fullHeight ? 'height: calc(100dvh - var(--safe-top) - var(--space-300) * 2);' : ''} transform: translateY(${dismissing ? '100%' : `${String(dragOffset)}px`})`}
+  contentStyle={`${background ? `background: ${background};` : ''} ${fullHeight || expanded ? 'height: calc(100dvh - var(--safe-top) - var(--space-300) * 2);' : ''} transform: translateY(${dismissing ? '100%' : `${String(dragOffset)}px`})`}
   {onOpenChange}
   {onOpenAutoFocus}
 >
   <div
     bind:this={body}
     class:content-inset={contentInset}
+    class:expanded
     role="presentation"
     onclickcapture={contentClick}
     onpointerdown={startContentDrag}
@@ -330,5 +351,16 @@
 
   .content-inset {
     padding: var(--control-height-large) 0 var(--space-400);
+  }
+
+  .expanded {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .expanded > :global(*) {
+    flex: 1 1 0;
+    min-height: 0;
   }
 </style>

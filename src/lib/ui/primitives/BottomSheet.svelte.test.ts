@@ -46,3 +46,47 @@ test('leaves a downward swipe to a wrap-reverse list resting at its end', async 
 test('claims a downward swipe once a wrap-reverse list is scrolled to its top', async () => {
   expect(await swipeDownIn(-300)).toBe(true);
 });
+
+async function renderExpandable(expandable: boolean) {
+  const onOpenChange = vi.fn();
+  render(BottomSheet, {
+    open: true,
+    label: 'Sheet',
+    closeLabel: 'Close',
+    expandable,
+    onOpenChange,
+    children: createRawSnippet(() => ({ render: () => '<p>Body</p>' })),
+  });
+  const body = await screen.findByText('Body');
+  const content = body.closest('.dialog-content') as HTMLElement;
+  async function swipe(from: number, to: number): Promise<void> {
+    touch(body, 'touchstart', from);
+    touch(body, 'touchmove', to);
+    touch(body, 'touchend', to);
+    await tick();
+  }
+  return { content, onOpenChange, swipe };
+}
+
+test('expands on an upward swipe and collapses before dismissing', async () => {
+  const { content, onOpenChange, swipe } = await renderExpandable(true);
+  expect(content.style.height).toBe('');
+
+  await swipe(200, 100);
+  expect(content.style.height).not.toBe('');
+
+  await swipe(100, 200);
+  expect(content.style.height).toBe('');
+  expect(onOpenChange).not.toHaveBeenCalled();
+
+  await swipe(100, 200);
+  await vi.waitFor(() => {
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+test('ignores an upward swipe when not expandable', async () => {
+  const { content, swipe } = await renderExpandable(false);
+  await swipe(200, 100);
+  expect(content.style.height).toBe('');
+});

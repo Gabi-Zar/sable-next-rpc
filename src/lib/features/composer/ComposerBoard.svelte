@@ -364,6 +364,7 @@
     bind:open
     label={$i18n.t('composer.emotesAndStickers')}
     closeLabel={$i18n.t('composer.closeBoard')}
+    expandable
   >
     <EmoteBoard
       {roomId}

@@ -1036,6 +1036,10 @@
     --emote-cell: 7rem;
   }
 
+  .board.sheet .grids.sticker {
+    --emote-cell: 5rem;
+  }
+
   .grids.emoji {
     --emote-cell: 3rem;
   }
