@@ -60,3 +60,9 @@ test('yields to an open dialog, menu or listbox', () => {
   mount('<div class="dialog-content"></div>');
   expect(shouldFocusComposer(press('a'))).toBe(false);
 });
+
+test('ignores a keydown that carries no key', () => {
+  const event = press('a');
+  Object.defineProperty(event, 'key', { value: undefined });
+  expect(shouldFocusComposer(event)).toBe(false);
+});

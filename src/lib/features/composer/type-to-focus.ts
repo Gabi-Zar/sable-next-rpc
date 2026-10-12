@@ -7,7 +7,7 @@ function isPaste(event: KeyboardEvent): boolean {
 }
 
 export function shouldFocusComposer(event: KeyboardEvent): boolean {
-  if (event.key.length !== 1 || event.key === ' ') return false;
+  if (typeof event.key !== 'string' || event.key.length !== 1 || event.key === ' ') return false;
   if (!isPaste(event) && (event.ctrlKey || event.metaKey || event.altKey)) return false;
   if (isEditableTarget(event.target)) return false;
 
