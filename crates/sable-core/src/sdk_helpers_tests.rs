@@ -1261,7 +1261,7 @@ async fn cached_sticker_reads_bypass_six_stalled_downloads() {
                 .set_body_bytes(vec![1_u8])
                 .set_delay(std::time::Duration::from_secs(60)),
         )
-        .expect(6)
+        .expect(crate::media::MAX_MEDIA_DOWNLOADS as u64)
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
@@ -1271,7 +1271,7 @@ async fn cached_sticker_reads_bypass_six_stalled_downloads() {
         bytes
     );
 
-    let downloads = (0..7)
+    let downloads = (0..=crate::media::MAX_MEDIA_DOWNLOADS)
         .map(|index| {
             let core = core.clone();
             tokio::spawn(async move {
@@ -1288,7 +1288,7 @@ async fn cached_sticker_reads_bypass_six_stalled_downloads() {
                     .iter()
                     .filter(|request| request.url.path().contains("/stalled-"))
                     .count()
-                    == 6
+                    == crate::media::MAX_MEDIA_DOWNLOADS
                 {
                     break;
                 }
@@ -1449,7 +1449,11 @@ async fn queued_previews_recheck_the_original_cache() {
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
-    let slots = core.media_downloads.acquire_many(6).await.unwrap();
+    let slots = core
+        .media_downloads
+        .acquire_many(u32::try_from(crate::media::MAX_MEDIA_DOWNLOADS).unwrap())
+        .await
+        .unwrap();
     let source = "mxc://example.org/queued".to_owned();
     let mut preview = Box::pin(core.media_thumbnail(source.clone(), 144, 144));
     tokio::time::timeout(std::time::Duration::from_millis(50), &mut preview)
@@ -1461,6 +1465,73 @@ async fn queued_previews_recheck_the_original_cache() {
         tokio::time::timeout(std::time::Duration::from_secs(1), preview)
             .await
             .unwrap()
+            .unwrap(),
+        bytes
+    );
+}
+
+#[tokio::test]
+async fn a_transient_download_failure_is_retried() {
+    let server = MatrixMockServer::new().await;
+    let client = server
+        .client_builder()
+        .server_versions(vec![MatrixVersion::V1_11])
+        .build()
+        .await;
+    let bytes = vec![7_u8; 32];
+    Mock::given(method("GET"))
+        .and(path("/_matrix/client/v1/media/download/example.org/blip"))
+        .respond_with(remote_media_error(502))
+        .with_priority(1)
+        .up_to_n_times(1)
+        .expect(1)
+        .mount(server.server())
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/_matrix/client/v1/media/download/example.org/blip"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(bytes.clone()))
+        .with_priority(2)
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    assert_eq!(
+        core.media_thumbnail("mxc://example.org/blip".to_owned(), 0, 0)
+            .await
+            .unwrap(),
+        bytes
+    );
+}
+
+#[tokio::test]
+async fn a_refused_authenticated_download_falls_back_to_the_legacy_endpoint() {
+    let server = MatrixMockServer::new().await;
+    let client = server
+        .client_builder()
+        .server_versions(vec![MatrixVersion::V1_11])
+        .build()
+        .await;
+    let bytes = vec![7_u8; 32];
+    Mock::given(method("GET"))
+        .and(path(
+            "/_matrix/client/v1/media/download/example.org/legacy-only",
+        ))
+        .respond_with(ResponseTemplate::new(404))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/_matrix/media/v3/download/example.org/legacy-only"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(bytes.clone()))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    assert_eq!(
+        core.media_thumbnail("mxc://example.org/legacy-only".to_owned(), 0, 0)
+            .await
             .unwrap(),
         bytes
     );
@@ -1596,7 +1667,7 @@ async fn a_refused_server_still_serves_what_is_cached() {
             r"^/_matrix/client/v1/media/download/dead\.example/gone",
         ))
         .respond_with(remote_media_error(502))
-        .expect(3)
+        .expect(9)
         .mount(server.server())
         .await;
     let core = core(&server, client).await;

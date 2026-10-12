@@ -6,12 +6,14 @@ test('caps media retry backoff at sixteen seconds', () => {
   expect([1, 2, 3, 4, 5].map(mediaRetryDelay)).toEqual([2_000, 4_000, 8_000, 16_000, 16_000]);
 });
 
-test('limits automatic media retries to four attempts', () => {
-  expect([1, 2, 3, 4, 5].map(automaticMediaRetryDelay)).toEqual([
+test('limits automatic media retries to six attempts, each waiting out its hold', () => {
+  expect([1, 2, 3, 4, 5, 6, 7].map(automaticMediaRetryDelay)).toEqual([
     2_000,
     4_000,
     8_000,
     16_000,
+    32_000,
+    64_000,
     null,
   ]);
 });

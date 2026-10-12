@@ -34,9 +34,13 @@ use crate::{Core, MatrixClient};
 
 const MAX_INITIAL_DOWNLOAD_CAPACITY: usize = 100 * 1024 * 1024;
 const MAX_CACHED_PREVIEW_ORIGINAL_BYTES: usize = 1024 * 1024;
-pub(crate) const MAX_MEDIA_DOWNLOADS: usize = 6;
+pub(crate) const MAX_MEDIA_DOWNLOADS: usize = 12;
 const MEDIA_DOWNLOAD_TIMEOUT: Duration = Duration::from_hours(1);
-const MEDIA_FIRST_BYTE_TIMEOUT: Duration = Duration::from_secs(30);
+/// A remote homeserver may need this long to fetch the file from its origin first.
+const MEDIA_FIRST_BYTE_TIMEOUT: Duration = Duration::from_secs(60);
+const MEDIA_STALL_TIMEOUT: Duration = Duration::from_secs(30);
+const MEDIA_THUMBNAIL_TIMEOUT: Duration = Duration::from_secs(30);
+const MEDIA_RETRY_DELAYS: [Duration; 2] = [Duration::from_millis(500), Duration::from_millis(1500)];
 const UNSIZED_PROGRESS_STEP: u64 = 256 * 1024;
 
 #[derive(serde::Deserialize)]
@@ -202,9 +206,12 @@ impl Core {
             )),
         };
 
-        let thumbnail = media_timeout(fetch_sdk_media(client, &request))
-            .await
-            .and_then(|result| result);
+        let thumbnail = with_retries(|| async {
+            media_timeout(MEDIA_THUMBNAIL_TIMEOUT, fetch_sdk_media(client, &request))
+                .await
+                .and_then(|result| result)
+        })
+        .await;
         match thumbnail {
             Ok(bytes) => Ok(bytes),
             Err(error) if answered_by_server(&error) => {
@@ -279,58 +286,33 @@ impl Core {
         else {
             return fetch_sdk_media(client, &request).await;
         };
-        let mut url = client.homeserver();
-        let Ok(mut segments) = url.path_segments_mut() else {
+        let Some(url) = download_url(client, &AUTHENTICATED_DOWNLOAD, server, media_id) else {
             return fetch_sdk_media(client, &request).await;
         };
-        segments.pop_if_empty().extend([
-            "_matrix",
-            "client",
-            "v1",
-            "media",
-            "download",
-            server.as_str(),
-            media_id,
-        ]);
-        drop(segments);
 
-        let response = media_timeout(
-            client
-                .http_client()
-                .get(url)
-                .bearer_auth(token)
-                .timeout(MEDIA_DOWNLOAD_TIMEOUT)
-                .send(),
-        )
-        .await??;
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            return fetch_sdk_media(client, &request).await;
-        }
-        let response = response.error_for_status()?;
-        let total = response.content_length().unwrap_or(0);
-        let mut content = Vec::with_capacity(
-            usize::try_from(total)
-                .unwrap_or(0)
-                .min(MAX_INITIAL_DOWNLOAD_CAPACITY),
-        );
-        let mut chunks = response.bytes_stream();
-        let mut reported = 0;
-        while let Some(chunk) = media_timeout(chunks.next()).await? {
-            content.extend_from_slice(&chunk?);
-            let current = u64::try_from(content.len()).unwrap_or(u64::MAX);
-            let step = current
-                .saturating_mul(100)
-                .checked_div(total)
-                .unwrap_or(current / UNSIZED_PROGRESS_STEP);
-            if step > reported {
-                reported = step;
-                self.emit(CoreEvent::MediaProgress {
-                    source: key.to_owned(),
-                    current,
-                    total,
-                });
+        let downloaded = with_retries(|| self.download(client, key, &url, Some(&token))).await;
+        let content = match downloaded {
+            Ok(content) => content,
+            Err(error) if status_of(&error) == Some(reqwest::StatusCode::UNAUTHORIZED) => {
+                return fetch_sdk_media(client, &request).await;
             }
-        }
+            Err(error)
+                if status_of(&error)
+                    .is_some_and(|status| status != reqwest::StatusCode::TOO_MANY_REQUESTS) =>
+            {
+                tracing::warn!(
+                    media = %media_label(&request.source),
+                    "authenticated download refused, trying the legacy endpoint: {error}"
+                );
+                let Some(url) = download_url(client, &LEGACY_DOWNLOAD, server, media_id) else {
+                    return Err(error);
+                };
+                self.download(client, key, &url, None)
+                    .await
+                    .map_err(|_| error)?
+            }
+            Err(error) => return Err(error),
+        };
 
         let content = match &request.source {
             MediaSource::Encrypted(file) => {
@@ -346,6 +328,50 @@ impl Core {
             MediaSource::Plain(_) => content,
         };
         store_media(client, &request, &content).await?;
+        Ok(content)
+    }
+
+    async fn download(
+        &self,
+        client: &MatrixClient,
+        key: &str,
+        url: &url::Url,
+        token: Option<&str>,
+    ) -> matrix_sdk::Result<Vec<u8>> {
+        let mut request = client
+            .http_client()
+            .get(url.clone())
+            .timeout(MEDIA_DOWNLOAD_TIMEOUT);
+        if let Some(token) = token {
+            request = request.bearer_auth(token);
+        }
+        let response = media_timeout(MEDIA_FIRST_BYTE_TIMEOUT, request.send())
+            .await??
+            .error_for_status()?;
+        let total = response.content_length().unwrap_or(0);
+        let mut content = Vec::with_capacity(
+            usize::try_from(total)
+                .unwrap_or(0)
+                .min(MAX_INITIAL_DOWNLOAD_CAPACITY),
+        );
+        let mut chunks = response.bytes_stream();
+        let mut reported = 0;
+        while let Some(chunk) = media_timeout(MEDIA_STALL_TIMEOUT, chunks.next()).await? {
+            content.extend_from_slice(&chunk?);
+            let current = u64::try_from(content.len()).unwrap_or(u64::MAX);
+            let step = current
+                .saturating_mul(100)
+                .checked_div(total)
+                .unwrap_or(current / UNSIZED_PROGRESS_STEP);
+            if step > reported {
+                reported = step;
+                self.emit(CoreEvent::MediaProgress {
+                    source: key.to_owned(),
+                    current,
+                    total,
+                });
+            }
+        }
         Ok(content)
     }
 
@@ -725,10 +751,76 @@ impl Drop for ProbeGuard<'_> {
     }
 }
 
-async fn media_timeout<T>(future: impl std::future::Future<Output = T>) -> matrix_sdk::Result<T> {
-    matrix_sdk::timeout::timeout(future, MEDIA_FIRST_BYTE_TIMEOUT)
+async fn media_timeout<T>(
+    limit: Duration,
+    future: impl std::future::Future<Output = T>,
+) -> matrix_sdk::Result<T> {
+    matrix_sdk::timeout::timeout(future, limit)
         .await
         .map_err(|elapsed| matrix_sdk::Error::UnknownError(Box::new(elapsed)))
+}
+
+async fn with_retries<T, Fut>(mut attempt: impl FnMut() -> Fut) -> matrix_sdk::Result<T>
+where
+    Fut: std::future::Future<Output = matrix_sdk::Result<T>>,
+{
+    let mut delays = MEDIA_RETRY_DELAYS.into_iter();
+    loop {
+        match attempt().await {
+            Err(error) if is_transient(&error) => {
+                let Some(delay) = delays.next() else {
+                    return Err(error);
+                };
+                tracing::debug!("media request failed, retrying in {delay:?}: {error}");
+                matrix_sdk::sleep::sleep(delay).await;
+            }
+            result => return result,
+        }
+    }
+}
+
+fn is_transient(error: &matrix_sdk::Error) -> bool {
+    let retryable = |status: reqwest::StatusCode| {
+        status.is_server_error() || matches!(status.as_u16(), 408 | 429)
+    };
+    match error {
+        matrix_sdk::Error::Http(http) => match http.as_ref() {
+            HttpError::Reqwest(error) => error.status().is_none_or(retryable),
+            HttpError::Api(_) => http
+                .as_client_api_error()
+                .is_some_and(|error| retryable(error.status_code)),
+            _ => false,
+        },
+        matrix_sdk::Error::UnknownError(error) => error.is::<matrix_sdk::timeout::ElapsedError>(),
+        _ => false,
+    }
+}
+
+fn status_of(error: &matrix_sdk::Error) -> Option<reqwest::StatusCode> {
+    match error {
+        matrix_sdk::Error::Http(http) => match http.as_ref() {
+            HttpError::Reqwest(error) => error.status(),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+const AUTHENTICATED_DOWNLOAD: [&str; 5] = ["_matrix", "client", "v1", "media", "download"];
+const LEGACY_DOWNLOAD: [&str; 4] = ["_matrix", "media", "v3", "download"];
+
+fn download_url(
+    client: &MatrixClient,
+    endpoint: &[&str],
+    server: &ServerName,
+    media_id: &str,
+) -> Option<url::Url> {
+    let mut url = client.homeserver();
+    url.path_segments_mut()
+        .ok()?
+        .pop_if_empty()
+        .extend(endpoint.iter().copied().chain([server.as_str(), media_id]));
+    Some(url)
 }
 
 async fn fetch_sdk_media(
