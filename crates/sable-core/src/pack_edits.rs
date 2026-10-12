@@ -185,6 +185,14 @@ pub(crate) fn subscriptions_content(addresses: &[PackAddressView]) -> Value {
     json!({ "rooms": rooms })
 }
 
+/// Whether a state key survives a request path; a pasted file path does not.
+fn is_url_safe_key(state_key: &str) -> bool {
+    !state_key.is_empty()
+        && state_key
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | '.' | ' '))
+}
+
 fn is_empty_content(content: Option<&Value>) -> bool {
     content.and_then(Value::as_object).is_none_or(Map::is_empty)
 }
@@ -290,18 +298,45 @@ impl Core {
     }
 
     /// Copies each legacy `im.ponies.room_emotes` pack to `m.room.image_pack`.
+    /// A key a URL cannot carry is replaced by a generated one, and a pack that
+    /// fails does not stop the rest; the first failure is returned at the end.
     pub(crate) async fn convert_legacy_image_packs(
         &self,
         room_id: &OwnedRoomId,
         state_keys: &[String],
     ) -> Result<(), CommandErr> {
+        let mut taken: Option<BTreeSet<String>> = None;
+        let mut first_error = None;
         for state_key in state_keys {
-            if let Some(legacy) = self.legacy_pack(room_id, state_key).await? {
-                self.send_state(room_id.clone(), ROOM_IMAGE_PACK, state_key, &legacy)
+            let result = async {
+                let Some(legacy) = self.legacy_pack(room_id, state_key).await? else {
+                    return Ok(());
+                };
+                let target = if is_url_safe_key(state_key) {
+                    state_key.clone()
+                } else {
+                    let keys = match taken.take() {
+                        Some(keys) => keys,
+                        None => self.room_pack_state_keys(room_id).await?,
+                    };
+                    let target = unique_shortcode(state_key, |candidate| keys.contains(candidate));
+                    taken = Some(keys);
+                    target
+                };
+                self.send_state(room_id.clone(), ROOM_IMAGE_PACK, &target, &legacy)
                     .await?;
+                if let Some(keys) = taken.as_mut() {
+                    keys.insert(target);
+                }
+                Ok(())
+            }
+            .await;
+            if let Err(error) = result {
+                tracing::warn!(?error, "legacy pack not converted");
+                first_error.get_or_insert(error);
             }
         }
-        Ok(())
+        first_error.map_or(Ok(()), Err)
     }
 
     pub(crate) async fn add_account_pack_images(
@@ -347,8 +382,8 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        invalid_shortcode, merged_pack_content, pack_content, subscriptions_content,
-        with_subscriptions,
+        invalid_shortcode, is_url_safe_key, merged_pack_content, pack_content,
+        subscriptions_content, with_subscriptions,
     };
     use crate::protocol::{
         CommandErr, ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView,
@@ -372,6 +407,16 @@ mod tests {
             room_id: room.try_into().expect("room id"),
             state_key: key.to_owned(),
         }
+    }
+
+    #[test]
+    fn a_pasted_file_path_is_not_a_url_safe_key() {
+        assert!(is_url_safe_key("Cat Pack_2.0-é"));
+        assert!(!is_url_safe_key(
+            r"E:\temp\Pictures\Stickers-&-Emoji\Animals"
+        ));
+        assert!(!is_url_safe_key("a/b"));
+        assert!(!is_url_safe_key(""));
     }
 
     #[test]

@@ -817,6 +817,44 @@ async fn a_legacy_pack_is_copied_verbatim_to_the_stable_type() {
 }
 
 #[tokio::test]
+async fn a_legacy_pack_keyed_by_a_file_path_is_copied_under_a_generated_key() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!packs:example.org");
+    server.sync_joined_room(&client, room_id).await;
+    let legacy = json!({ "pack": { "display_name": "Animals" }, "images": {} });
+    Mock::given(method("GET"))
+        .and(path_regex(format!(
+            "^/_matrix/client/v3/rooms/{room_id}/state/im.ponies.room_emotes/.+"
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&legacy))
+        .mount(server.server())
+        .await;
+    Mock::given(method("GET"))
+        .and(path(format!("/_matrix/client/v3/rooms/{room_id}/state")))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .mount(server.server())
+        .await;
+    Mock::given(method("PUT"))
+        .and(path(format!(
+            "/_matrix/client/v3/rooms/{room_id}/state/m.room.image_pack/Etemp"
+        )))
+        .and(wiremock::matchers::body_json(&legacy))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "event_id": "$copy" })))
+        .expect(1)
+        .mount(server.server())
+        .await;
+
+    let core = core_for(&server, client).await;
+    core.dispatch(Command::ConvertLegacyImagePacks {
+        room_id: room_id.to_owned(),
+        state_keys: vec![r"E:\temp".to_owned()],
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
 async fn a_written_state_event_is_read_back_until_sync_delivers_it() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
