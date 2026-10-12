@@ -16,7 +16,7 @@ const RESUME_STALL_MS = 3000;
 
 let context: AudioContext | undefined;
 let playing: AudioBufferSourceNode | undefined;
-let sounds: Map<keyof NotificationSounds, Promise<AudioBuffer> | null> = new Map();
+const sounds: Map<keyof NotificationSounds, Promise<AudioBuffer> | null> = new Map();
 
 export async function playNotificationSound(name: keyof NotificationSounds): Promise<void> {
   const audioContext = (context ??= new AudioContext());

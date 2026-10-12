@@ -13,6 +13,7 @@
   import BellIcon from 'phosphor-svelte/lib/BellIcon';
   import PhoneIcon from 'phosphor-svelte/lib/PhoneIcon';
   import { startRingback, startRingtone } from './ringtone.js';
+  import type { Component } from 'svelte';
 
   const CATEGORIES = [
     {
@@ -24,7 +25,7 @@
   type Sound = {
     label: string;
     preference: RangePreference;
-    icon: any;
+    icon: Component;
     sound: keyof NotificationSounds | '$special/ringtone' | '$special/ringback';
     category?: string;
   };
@@ -82,7 +83,7 @@
 
           if (playing) return;
           playing = true;
-          let callback: Promise<any>;
+          let callback: Promise<void>;
           if (sound.sound === '$special/ringtone') {
             callback = playRingtone();
           } else if (sound.sound === '$special/ringback') {
@@ -127,12 +128,12 @@
 {/snippet}
 <div class="settings-form">
   <div class="device-rows">
-    {#each SOUNDS.filter((sound) => sound.category === undefined) as sound}
+    {#each SOUNDS.filter((sound) => sound.category === undefined) as sound (sound.sound)}
       {@render soundSnippet(sound)}
     {/each}
-    {#each CATEGORIES as category}
+    {#each CATEGORIES as category (category.name)}
       <h3>{$i18n.t(category.label)}</h3>
-      {#each SOUNDS.filter((sound) => sound.category === category.name) as sound}
+      {#each SOUNDS.filter((sound) => sound.category === category.name) as sound (sound.sound)}
         {@render soundSnippet(sound)}
       {/each}
     {/each}

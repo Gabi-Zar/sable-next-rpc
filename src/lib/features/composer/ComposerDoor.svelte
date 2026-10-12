@@ -50,7 +50,7 @@
 </script>
 
 {#if extras}
-  {#each Object.entries(extras) as [_id, extra]}
+  {#each Object.entries(extras) as [id, extra] (id)}
     {@render extra(() => {})}
   {/each}
 {/if}

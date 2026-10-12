@@ -51,11 +51,11 @@ let loading: Promise<unknown> | null = null;
 
 /** Every call below needs this to have settled once; a failed load is retried. */
 export function loadModel(): Promise<unknown> {
-  loading ??= loadWasm().catch((error: unknown) => {
+  const pending = (loading ??= loadWasm().catch((error: unknown) => {
     loading = null;
     throw error;
-  });
-  return loading;
+  }));
+  return pending;
 }
 
 export function parseSearchQuery(input: string): ParsedQuery {
