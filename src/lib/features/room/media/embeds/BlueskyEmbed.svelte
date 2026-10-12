@@ -123,16 +123,16 @@
 {#snippet embedVideo(embed: VideoEmbed)}
   {@const src = blobUrl(embed.video['moe.sable.blob'])}
 
-  {#if embed.presentation === 'default'}
+  {#if embed.presentation !== 'gif'}
     <video
       controls
       class="embed-solo-image"
       {src}
       title={embed.alt}
-      width={embed.aspectRatio.width}
-      height={embed.aspectRatio.height}><track kind="captions" /></video
+      width={embed.aspectRatio?.width}
+      height={embed.aspectRatio?.height}><track kind="captions" /></video
     >
-  {:else if embed.presentation === 'gif'}
+  {:else}
     <video
       autoplay
       loop
@@ -140,8 +140,8 @@
       class="embed-solo-image"
       {src}
       title={embed.alt}
-      width={embed.aspectRatio.width}
-      height={embed.aspectRatio.height}><track kind="captions" /></video
+      width={embed.aspectRatio?.width}
+      height={embed.aspectRatio?.height}><track kind="captions" /></video
     >
   {/if}
 {/snippet}
@@ -156,8 +156,8 @@
       class="embed-solo-image"
       {src}
       alt={image.alt ?? 'No alt text...'}
-      width={image.aspectRatio.width}
-      height={image.aspectRatio.height}
+      width={image.aspectRatio?.width}
+      height={image.aspectRatio?.height}
     />
   {:else}
     <div class="embed-images">
@@ -170,8 +170,8 @@
             class="embed-image"
             {src}
             alt={image.alt ?? 'No alt text...'}
-            width={image.aspectRatio.width}
-            height={image.aspectRatio.height}
+            width={image.aspectRatio?.width}
+            height={image.aspectRatio?.height}
           />
         {/if}
       {/each}

@@ -63,7 +63,7 @@ export type VideoEmbed = {
   $type: 'app.bsky.embed.video';
   presentation?: 'default' | 'gif';
   alt?: string;
-  aspectRatio: { width: number; height: number };
+  aspectRatio?: { width: number; height: number };
   video: ApBlob;
 };
 
@@ -73,7 +73,7 @@ export type ImageEmbed = {
     {
       alt: string;
       image: ApBlob;
-      aspectRatio: { width: number; height: number };
+      aspectRatio?: { width: number; height: number };
     },
   ];
 };
