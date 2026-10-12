@@ -76,7 +76,7 @@
           value={selected}
           disabled={changing}
           aria-label={$i18n.t('settings.appIconTitle')}
-          items={['primary', ...icons].map((icon) => ({
+          items={[...new Set(['primary', ...icons])].map((icon) => ({
             value: icon,
             label: $i18n.t(`settings.appIcons.${icon}`, { defaultValue: icon }),
             image: previews[icon],
