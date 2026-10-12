@@ -71,8 +71,7 @@
     inset-block-start: 0;
     inset-inline: 0;
     justify-content: center;
-    padding: calc(var(--space-300) + var(--safe-top)) calc(var(--space-400) + var(--safe-right))
-      var(--space-300) calc(var(--space-400) + var(--safe-left));
+    padding: var(--space-300) var(--space-400);
     z-index: var(--layer-notify);
   }
 
