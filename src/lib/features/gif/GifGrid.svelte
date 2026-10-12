@@ -70,8 +70,8 @@
               <img
                 src={gif.previewUrl}
                 alt=""
-                width="4"
-                height="3"
+                width={gif.width || 4}
+                height={gif.height || 3}
                 loading="lazy"
                 decoding="async"
                 referrerpolicy="no-referrer"
@@ -143,15 +143,16 @@
   }
 
   .gif-grid ul {
-    display: grid;
-    gap: var(--space-100);
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-100);
+    columns: 2;
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
   .gif-grid li {
+    break-inside: avoid;
+    margin-bottom: var(--space-100);
     position: relative;
   }
 
@@ -167,10 +168,8 @@
   }
 
   .gif-cell img {
-    aspect-ratio: 4 / 3;
     display: block;
     height: auto;
-    object-fit: cover;
     width: 100%;
   }
 
