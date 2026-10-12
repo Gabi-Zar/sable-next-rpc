@@ -63,7 +63,6 @@ export type CaptionPosition = 'above' | 'below' | 'inline' | 'hidden';
 export type UsernameClick = 'mention' | 'profile';
 export const CALL_MODES = ['auto', 'legacy', 'compatibility', 'matrix_2'] as const;
 export type CallModePreference = (typeof CALL_MODES)[number];
-export type CallRingtoneVolume = 'quiet' | 'normal' | 'loud';
 export const CALL_VIDEO_RESOLUTIONS = [
   'auto',
   '360',
@@ -324,7 +323,6 @@ export interface Preferences {
   callMode: CallModePreference;
   incomingCallSound: boolean;
   outgoingRingback: boolean;
-  callRingtoneVolume: number;
   callMicrophoneMuted: boolean;
   noiseSuppression: boolean;
   voiceIsolation: boolean;
@@ -354,6 +352,18 @@ export interface Preferences {
   telemetryAsked: boolean;
 
   soundsNotificationVolume: number;
+  soundsCameraOnVolume: number;
+  soundsCameraOffVolume: number;
+  soundsMicOnVolume: number;
+  soundsMicOffVolume: number;
+  soundsDeafenOnVolume: number;
+  soundsDeafenOffVolume: number;
+  soundsScreenshareStartVolume: number;
+  soundsScreenshareStopVolume: number;
+  soundsCallJoinVolume: number;
+  soundsCallLeaveVolume: number;
+  soundsIncomingCallVolume: number;
+  soundsOutgoingCallVolume: number;
 
   autoUpdateCheck: boolean;
   closeToTray: boolean;
@@ -469,7 +479,18 @@ export type FreeTextPreference = (typeof FREE_TEXT)[number];
 
 export const PREFERENCE_RANGES = {
   soundsNotificationVolume: { min: 0, max: 2.0 },
-  callRingtoneVolume: { min: 0, max: 2.0 },
+  soundsCameraOnVolume: { min: 0, max: 2.0 },
+  soundsCameraOffVolume: { min: 0, max: 2.0 },
+  soundsMicOnVolume: { min: 0, max: 2.0 },
+  soundsMicOffVolume: { min: 0, max: 2.0 },
+  soundsDeafenOnVolume: { min: 0, max: 2.0 },
+  soundsDeafenOffVolume: { min: 0, max: 2.0 },
+  soundsScreenshareStartVolume: { min: 0, max: 2.0 },
+  soundsScreenshareStopVolume: { min: 0, max: 2.0 },
+  soundsCallJoinVolume: { min: 0, max: 2.0 },
+  soundsCallLeaveVolume: { min: 0, max: 2.0 },
+  soundsIncomingCallVolume: { min: 0, max: 2.0 },
+  soundsOutgoingCallVolume: { min: 0, max: 2.0 },
   pageZoom: { min: 0.75, max: 1.5 },
   textScale: { min: 0.75, max: 1.5 },
   roomBannerHeight: { min: 56, max: 500 },
@@ -622,7 +643,6 @@ const DEFAULTS: Preferences = {
   callMode: 'auto',
   incomingCallSound: true,
   outgoingRingback: true,
-  callRingtoneVolume: 1.0,
   callMicrophoneMuted: false,
   noiseSuppression: true,
   voiceIsolation: false,
@@ -646,6 +666,18 @@ const DEFAULTS: Preferences = {
   pushAppId: '',
 
   soundsNotificationVolume: 1,
+  soundsCameraOnVolume: 1,
+  soundsCameraOffVolume: 1,
+  soundsMicOnVolume: 1,
+  soundsMicOffVolume: 1,
+  soundsDeafenOnVolume: 1,
+  soundsDeafenOffVolume: 1,
+  soundsScreenshareStartVolume: 1,
+  soundsScreenshareStopVolume: 1,
+  soundsCallJoinVolume: 1,
+  soundsCallLeaveVolume: 1,
+  soundsIncomingCallVolume: 1,
+  soundsOutgoingCallVolume: 1,
 
   errorReporting: false,
   sessionReplay: false,

@@ -11,13 +11,23 @@
 
   import '#lib/ui/primitives/settings-row.css';
   import BellIcon from 'phosphor-svelte/lib/BellIcon';
+  import VideoCameraSlashIcon from 'phosphor-svelte/lib/VideoCameraSlashIcon';
+  import MicrophoneSlashIcon from 'phosphor-svelte/lib/MicrophoneSlashIcon';
+  import HeadphonesIcon from 'phosphor-svelte/lib/HeadphonesIcon';
+  import SpeakerSlashIcon from 'phosphor-svelte/lib/SpeakerSlashIcon';
+  import MonitorArrowUpIcon from 'phosphor-svelte/lib/MonitorArrowUpIcon';
   import PhoneIcon from 'phosphor-svelte/lib/PhoneIcon';
-  import { startRingback, startRingtone } from './ringtone.js';
+  import VideoCameraIcon from 'phosphor-svelte/lib/VideoCameraIcon';
+  import MicrophoneIcon from 'phosphor-svelte/lib/MicrophoneIcon';
   import type { Component } from 'svelte';
 
   const CATEGORIES = [
     {
       name: 'ring',
+      label: 'sounds.volumeRingCategory',
+    },
+    {
+      name: 'calls',
       label: 'sounds.volumeRingCategory',
     },
   ];
@@ -26,7 +36,7 @@
     label: string;
     preference: RangePreference;
     icon: Component;
-    sound: keyof NotificationSounds | '$special/ringtone' | '$special/ringback';
+    sound: keyof NotificationSounds;
     category?: string;
   };
   const SOUNDS: Sound[] = [
@@ -37,34 +47,92 @@
       sound: 'notification',
     },
     {
-      label: 'sounds.ringtone',
-      preference: 'callRingtoneVolume',
+      label: 'sounds.camera_on',
+      preference: 'soundsCameraOnVolume',
+      icon: VideoCameraIcon,
+      sound: 'camera_on',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.camera_off',
+      preference: 'soundsCameraOffVolume',
+      icon: VideoCameraSlashIcon,
+      sound: 'camera_off',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.mic_on',
+      preference: 'soundsMicOnVolume',
+      icon: MicrophoneIcon,
+      sound: 'mic_on',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.mic_off',
+      preference: 'soundsMicOffVolume',
+      icon: MicrophoneSlashIcon,
+      sound: 'mic_off',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.deafen_on',
+      preference: 'soundsDeafenOnVolume',
+      icon: SpeakerSlashIcon,
+      sound: 'deafen_on',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.deafen_off',
+      preference: 'soundsDeafenOffVolume',
+      icon: HeadphonesIcon,
+      sound: 'deafen_off',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.screenshare_start',
+      preference: 'soundsScreenshareStartVolume',
+      icon: MonitorArrowUpIcon,
+      sound: 'screenshare_start',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.screenshare_stop',
+      preference: 'soundsScreenshareStopVolume',
+      icon: MonitorArrowUpIcon,
+      sound: 'screenshare_stop',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.call_join',
+      preference: 'soundsCallJoinVolume',
       icon: PhoneIcon,
-      sound: '$special/ringtone',
+      sound: 'call_join',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.call_leave',
+      preference: 'soundsCallLeaveVolume',
+      icon: PhoneIcon,
+      sound: 'call_leave',
+      category: 'calls',
+    },
+    {
+      label: 'sounds.incoming_call',
+      preference: 'soundsIncomingCallVolume',
+      icon: PhoneIcon,
+      sound: 'incoming_call',
       category: 'ring',
     },
     {
-      label: 'sounds.ringback',
-      preference: 'callRingtoneVolume',
+      label: 'sounds.outgoing_call',
+      preference: 'soundsOutgoingCallVolume',
       icon: PhoneIcon,
-      sound: '$special/ringback',
+      sound: 'outgoing_call',
       category: 'ring',
     },
   ];
 
   let playing = false;
-
-  async function playRingtone(): Promise<void> {
-    const ringtone = startRingtone(preferences.callRingtoneVolume);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    ringtone.stop();
-  }
-
-  async function playRingback(): Promise<void> {
-    const ringback = startRingback(preferences.callRingtoneVolume);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    ringback.stop();
-  }
 </script>
 
 {#snippet soundSnippet(sound: Sound)}
@@ -83,16 +151,7 @@
 
           if (playing) return;
           playing = true;
-          let callback: Promise<void>;
-          if (sound.sound === '$special/ringtone') {
-            callback = playRingtone();
-          } else if (sound.sound === '$special/ringback') {
-            callback = playRingback();
-          } else {
-            callback = playSound(sound.sound, { blocking: true });
-          }
-
-          callback
+          playSound(sound.sound, { blocking: true })
             .then(() => {
               playing = false;
             })

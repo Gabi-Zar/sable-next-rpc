@@ -3594,10 +3594,20 @@
   },
   "sounds": {
     "notification": "Notification",
-    "ringtone": "Ringtone",
-    "ringback": "Ringback",
     "volumeRingCategory": "Ringing",
     "title": "Sounds",
-    "volumeCategory": "Sound Volume"
+    "volumeCategory": "Sound Volume",
+    "incoming_call": "Incoming Call",
+    "outgoing_call": "Outgoing Call",
+    "camera_on": "Camera On",
+    "camera_off": "Camera Off",
+    "mic_on": "Unmute",
+    "mic_off": "Mute",
+    "deafen_on": "Deafen",
+    "deafen_off": "Undeafen",
+    "screenshare_start": "Start Screensharing",
+    "screenshare_stop": "Stop Screensharing",
+    "call_join": "Call Join",
+    "call_leave": "Call Leave"
   }
 }

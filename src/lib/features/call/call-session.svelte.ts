@@ -31,6 +31,7 @@ import { participantKeys } from './participant-keys';
 import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
 import { DEVICE_PREFERENCE } from './devices';
 import type { CallBackendGrant, CallRemoteVideoOverlay, CallVideoOverlay } from './call-transport';
+import { playSound } from '../notifications/sound';
 
 export type CallLifecycle = 'idle' | 'joining' | 'connecting' | 'active' | 'leaving' | 'failed';
 
@@ -425,6 +426,7 @@ export class CallSession {
 
       this.lifecycle = 'active';
       this.connectedAt = Date.now();
+      void playSound('call_join');
       telemetry.finish('connected');
     } catch (error) {
       if (attempt !== this.#attemptGeneration) return;
@@ -446,6 +448,7 @@ export class CallSession {
     this.roomId = null;
     this.connectedAt = null;
     this.clearDeviceError();
+    void playSound('call_leave');
   }
 
   clearFailure(): void {
@@ -489,6 +492,7 @@ export class CallSession {
     }
     setPreference('callMicrophoneMuted', !enabled);
     await this.#device('microphone', () => this.#media?.setMicrophoneEnabled(enabled));
+    void playSound(enabled ? 'mic_on' : 'mic_off');
   }
 
   async setParticipantVolume(identity: string, volume: number): Promise<void> {
@@ -499,6 +503,8 @@ export class CallSession {
     if (deafened === this.deafened) return;
     this.deafened = deafened;
     if (!this.#media) return;
+
+    void playSound(deafened ? 'deafen_on' : 'deafen_off');
     if (deafened) {
       this.#micBeforeDeafen = this.transport.microphoneEnabled;
       if (this.#micBeforeDeafen) {
@@ -527,16 +533,19 @@ export class CallSession {
 
   async setCameraEnabled(enabled: boolean): Promise<void> {
     await this.#device('camera', () => this.#media?.setCameraEnabled(enabled));
+    void playSound(enabled ? 'camera_on' : 'camera_off');
   }
 
   async toggleScreenShare(): Promise<void> {
     if (this.transport.screenShareEnabled) {
       await this.setScreenShareEnabled(false);
+      void playSound('screenshare_stop');
       return;
     }
     const monitors = hdrShareSupported() ? await listHdrMonitors().catch(() => []) : [];
     if (monitors.length > 0) this.choosingScreenSource = monitors;
     else await this.shareScreenFrom(null);
+    void playSound('screenshare_start');
   }
 
   async shareScreenFrom(source: ScreenSource | null): Promise<void> {

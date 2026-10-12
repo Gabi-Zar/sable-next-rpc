@@ -8,9 +8,9 @@ import {
   systemCallKey,
 } from '#lib/platform/calls.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
-
+import { type NotificationSound } from '../notifications/sound';
 import { ignoreError } from './call-transport';
-import { startRingtone, type Ringtone } from './ringtone';
+import { playSound } from '../notifications/sound';
 
 export type IncomingCall = {
   roomId: string;
@@ -36,7 +36,7 @@ export class IncomingCalls {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered from
   readonly #uuids = new Map<string, { uuid: string; answered: boolean }>();
   readonly #onSystemAnswer: (answer: SystemAnswer) => void;
-  #ringtone: Ringtone | undefined;
+  #ringtone: NotificationSound | undefined;
   #unsubscribe: (() => void) | undefined;
   #stopSystemActions: (() => void) | undefined;
 
@@ -73,7 +73,7 @@ export class IncomingCalls {
     this.#system.clear();
     this.#uuids.clear();
     this.calls = [];
-    this.#syncRingtone();
+    void this.#syncRingtone();
   }
 
   accept(call: IncomingCall): void {
@@ -122,7 +122,7 @@ export class IncomingCalls {
       }, remaining)
     );
     void this.#raiseSystemCall(call);
-    this.#syncRingtone();
+    void this.#syncRingtone();
   }
 
   #systemKey(notificationEventId: string): string {
@@ -170,7 +170,7 @@ export class IncomingCalls {
       return;
     }
     this.#system.add(call.notificationEventId);
-    this.#syncRingtone();
+    void this.#syncRingtone();
   }
 
   #drop(notificationEventId: string): void {
@@ -184,15 +184,15 @@ export class IncomingCalls {
     }
     this.#uuids.delete(notificationEventId);
     this.calls = this.calls.filter((call) => call.notificationEventId !== notificationEventId);
-    this.#syncRingtone();
+    void this.#syncRingtone();
   }
 
-  #syncRingtone(): void {
+  async #syncRingtone(): Promise<void> {
     const shouldRing =
       preferences.incomingCallSound &&
       this.calls.some((call) => !this.#system.has(call.notificationEventId));
     if (shouldRing && !this.#ringtone) {
-      this.#ringtone = startRingtone(preferences.callRingtoneVolume);
+      this.#ringtone = await playSound('incoming_call', { loop: true });
       return;
     }
     if (!shouldRing && this.#ringtone) {

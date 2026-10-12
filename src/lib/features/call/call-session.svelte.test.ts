@@ -15,6 +15,30 @@ vi.mock('#lib/platform/screen-audio.js', async (original) => ({
   screenAudioSupported: screenAudio.supported,
 }));
 
+let gains: { gain: { value: number } }[];
+class MockAudioContext {
+  state: AudioContextState = 'running';
+  destination = {} as AudioDestinationNode;
+  decodeAudioData = vi.fn<() => Promise<AudioBuffer>>().mockResolvedValue({} as AudioBuffer);
+  resume = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  close = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+  createBufferSource = vi.fn<() => AudioBufferSourceNode>(
+    () =>
+      ({
+        addEventListener: vi.fn(),
+        buffer: null,
+        connect: vi.fn((node: AudioNode) => node),
+        start: vi.fn(),
+      }) as unknown as AudioBufferSourceNode
+  );
+  createGain = vi.fn<() => GainNode>(() => {
+    const node = { gain: { value: 1 }, connect: vi.fn((next: AudioNode) => next) };
+    gains.push(node);
+    return node as unknown as GainNode;
+  });
+}
+// vi.stubGlobal('AudioContext', MockAudioContext);
+
 import { CallSession, voiceStates } from './call-session.svelte.js';
 import { MatrixKeyProvider } from './key-provider';
 import type { CallTransportConnectOptions } from './call-transport';
@@ -122,6 +146,11 @@ const ownKey = (session = 7): CoreEvent => ({
 });
 
 beforeEach(() => {
+  globalThis.AudioContext = MockAudioContext as unknown as typeof AudioContext;
+  gains = [];
+  globalThis.fetch = vi.fn<() => Promise<Response>>().mockResolvedValue({
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+  } as Response);
   resetCallOwner();
 });
 

@@ -59,6 +59,6 @@ test('plays at the chosen volume', async () => {
 test('plays the notification sound', async () => {
   await playNotificationSound('notification');
 
-  expect(fetch).toHaveBeenCalledWith('/sound/notification.ogg');
+  expect(fetch).toHaveBeenCalledWith('/sound/msg.webm');
   expect(start).toHaveBeenCalledOnce();
 });

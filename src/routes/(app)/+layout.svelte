@@ -102,7 +102,6 @@
     effectiveVolume,
     screenVolumeKey,
   } from '#lib/features/call/participant-volumes.svelte.js';
-  import { startRingback } from '#lib/features/call/ringtone.js';
   import {
     forgetPushSessions,
     putPushContentPolicy,
@@ -128,6 +127,7 @@
   import { markRoomsRead } from '#lib/features/sidebar/nav-rooms.js';
   import { hasUnread } from '#lib/rooms/unread.js';
   import { roomAtOffset } from '#lib/features/sidebar/visible-rooms.svelte.js';
+  import { playSound, type NotificationSound } from '#lib/features/notifications/sound.js';
 
   interface Props {
     children: Snippet;
@@ -344,17 +344,46 @@
     else if (callSession.transport.participants.length > 0) answeredCallRoom = callSession.roomId;
   });
 
+  let ringback = $state<Promise<NotificationSound> | null>(null);
+  const tryStopRinging = () => {
+    if (ringback) {
+      ringback?.then((sound) => {
+        sound.stop();
+        ringback = null;
+      });
+    }
+  };
+
   $effect(() => {
     if (!preferences.outgoingRingback) return;
-    if (callSession.lifecycle !== 'active') return;
-    if (callSession.transport.participants.length > 0) return;
+    if (callSession.lifecycle !== 'active') {
+      tryStopRinging();
+      return;
+    }
+    if (callSession.transport.participants.length > 0) {
+      tryStopRinging();
+      return;
+    }
     if (answeredCallRoom === callSession.roomId) return;
     if (!roomList.byId(callSession.roomId)?.is_direct) return;
+    if (ringback !== null) return;
+    console.log(ringback);
 
-    const ringback = startRingback(preferences.callRingtoneVolume);
-    return () => {
-      ringback.stop();
-    };
+    ringback = playSound('outgoing_call', { loop: true });
+  });
+
+  let callParticipants = $state<number>(0);
+  $effect(() => {
+    if (callSession.lifecycle !== 'active') {
+      callParticipants = 0;
+      return;
+    }
+    if (callSession.transport.participants.length > callParticipants) {
+      playSound('call_join');
+    } else if (callSession.transport.participants.length < callParticipants) {
+      playSound('call_leave');
+    }
+    callParticipants = callSession.transport.participants.length;
   });
 
   $effect(() => {
