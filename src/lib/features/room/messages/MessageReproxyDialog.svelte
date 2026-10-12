@@ -7,6 +7,7 @@
   import { i18n } from '#lib/i18n.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import ResponsiveDialog from '#lib/ui/primitives/ResponsiveDialog.svelte';
+  import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {
@@ -17,6 +18,15 @@
   }
 
   let { open = $bindable(false), personas, current, onChoose }: Props = $props();
+  let query = $state('');
+  let filteredPersonas = $derived.by(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return personas.filter(
+      (persona) =>
+        persona.display_name.toLocaleLowerCase().includes(needle) ||
+        persona.id.toLocaleLowerCase().includes(needle)
+    );
+  });
 
   function choose(persona: PersonaView | null): void {
     open = false;
@@ -26,6 +36,14 @@
 
 {#snippet content(desktop: boolean)}
   <h2>{$i18n.t('timeline.reproxyMessage')}</h2>
+  <TextInput
+    bind:value={query}
+    class="reproxy-search"
+    type="search"
+    autocomplete="off"
+    placeholder={$i18n.t('personas.search')}
+    aria-label={$i18n.t('personas.search')}
+  />
   <ul class="reproxy-options" class:dialog={desktop} {@attach scrollHint}>
     <li>
       <button
@@ -40,7 +58,7 @@
         {#if !current}<CheckIcon aria-hidden="true" />{/if}
       </button>
     </li>
-    {#each personas as persona (persona.id)}
+    {#each filteredPersonas as persona (persona.id)}
       <li>
         <button
           type="button"
@@ -61,6 +79,9 @@
       </li>
     {/each}
   </ul>
+  {#if filteredPersonas.length === 0 && query.trim()}
+    <p class="reproxy-empty">{$i18n.t('personas.noMatches')}</p>
+  {/if}
 {/snippet}
 
 <ResponsiveDialog
@@ -75,6 +96,10 @@
     font-size: var(--font-size-heading);
     line-height: var(--line-height-heading);
     margin: 0 0 var(--space-200);
+  }
+
+  :global(.reproxy-search) {
+    margin-bottom: var(--space-200);
   }
 
   .reproxy-options {
@@ -116,5 +141,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .reproxy-empty {
+    color: var(--surface-var-on-container);
+    font-size: var(--font-size-small);
+    margin: 0;
+    padding: var(--space-200) var(--space-300);
   }
 </style>
