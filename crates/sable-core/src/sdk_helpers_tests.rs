@@ -526,6 +526,48 @@ async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing()
 }
 
 #[tokio::test]
+async fn an_open_room_is_resubscribed_after_the_sync_session_expires() {
+    use crate::protocol::TimelineFocusView;
+    use futures_util::StreamExt;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!open:example.org");
+    server.sync_joined_room(&client, room_id).await;
+    server.mock_room_state_encryption().plain().mount().await;
+    let core = core(&server, client).await;
+    core.dispatch(Command::SubscribeTimeline {
+        room_id: room_id.to_owned(),
+        focus: TimelineFocusView::Live,
+        hidden_events: false,
+    })
+    .await
+    .unwrap();
+    Mock::given(method("POST"))
+        .and(path_regex(".*sync.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"pos": "p1", "rooms": {}})))
+        .mount(server.server())
+        .await;
+    let sync = core.sync_service().await.unwrap();
+    sync.expire_sessions().await;
+
+    core.resubscribe_timeline_rooms().await;
+    let room_list = sync.room_list_service();
+    let stream = room_list.sync();
+    futures_util::pin_mut!(stream);
+    stream.next().await.unwrap().unwrap();
+
+    let requests = server.server().received_requests().await.unwrap();
+    let request = requests
+        .iter()
+        .rev()
+        .find(|request| request.method == "POST" && request.url.path().contains("sync"))
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+    assert!(body["room_subscriptions"].get(room_id.as_str()).is_some());
+}
+
+#[tokio::test]
 async fn scheduled_listing_refreshes_credentials_and_omits_finalized_events() {
     use matrix_sdk::SessionTokens;
     use wiremock::matchers::header;

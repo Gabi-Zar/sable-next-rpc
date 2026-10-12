@@ -513,6 +513,15 @@ impl Core {
         }
     }
 
+    /// The SDK drops its room subscriptions when the sync session expires.
+    pub(crate) async fn resubscribe_timeline_rooms(&self) {
+        let mut subscribed = self.room_subscriptions.lock().await;
+        subscribed.clear();
+        if let Err(error) = self.sync_timeline_rooms_locked(&mut subscribed).await {
+            tracing::warn!(?error, "failed to restore room subscriptions");
+        }
+    }
+
     pub(crate) async fn sync_timeline_rooms_locked(
         &self,
         subscribed: &mut std::collections::BTreeSet<OwnedRoomId>,

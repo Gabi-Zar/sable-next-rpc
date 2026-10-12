@@ -885,6 +885,7 @@ impl Core {
                     let running = matches!(state, SyncState::Running);
                     core.emit_if_current(generation, CoreEvent::SyncStatus(sync_status(state)));
                     if running {
+                        core.resubscribe_timeline_rooms().await;
                         core.reconcile_memberships().await;
                         core.fill_own_members().await;
                         core.align_notification_rules().await;
