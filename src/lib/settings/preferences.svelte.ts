@@ -443,6 +443,7 @@ const ENUMS = {
   personaLatching: ['off', 'room', 'account'],
   presence: ['online', 'unavailable', 'offline'],
   profileChangePropagation: ['all', 'unchanged', 'none'],
+  personaPickerSortOrder: ['manual', 'alphabetical-asc', 'alphabetical-desc', 'recent'],
 } as const satisfies { [K in EnumPreference]?: readonly Preferences[K][] };
 
 /** Strings with no fixed set of values, which `load` would otherwise drop and
