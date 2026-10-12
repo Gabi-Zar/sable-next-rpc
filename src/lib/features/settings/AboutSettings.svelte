@@ -8,9 +8,11 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { restartSetup } from '#lib/features/auth/setup/setup-record.js';
   import { i18n } from '#lib/i18n.js';
+  import { desktopUpdate, installPendingUpdate } from '#lib/platform/desktop-update.svelte.js';
   import {
     checkForMobileUpdate,
     checkForUpdate,
+    relaunchApp,
     supportsAutoUpdate,
     updatePlatform,
   } from '#lib/platform/updates.js';
@@ -47,6 +49,9 @@
   let updateCheckResult = $state<'available' | 'current' | 'mobile-available' | 'failed' | null>(
     null
   );
+
+  const pendingUpdate = $derived(supportsAutoUpdate() ? desktopUpdate.update : null);
+  const pendingStage = $derived(desktopUpdate.stage);
 
   let versionCopied = $state(false);
   async function copyVersion(): Promise<void> {
@@ -218,11 +223,44 @@
           {$i18n.t('settings.aboutCheckForUpdates')}
         </Button>
       </SettingsRow>
+      {#if pendingUpdate}
+        {@const version = pendingUpdate.version}
+        <SettingsRow
+          id="pending-update"
+          title={pendingStage.name === 'staged'
+            ? $i18n.t('settings.updateBannerStagedTitle')
+            : pendingStage.name === 'failed'
+              ? $i18n.t('settings.updateBannerFailedTitle')
+              : $i18n.t('settings.updateBannerTitle')}
+          description={pendingStage.name === 'staged'
+            ? $i18n.t('settings.updateBannerStagedBody', { version })
+            : pendingStage.name === 'failed'
+              ? pendingStage.message
+              : pendingStage.name === 'downloading'
+                ? $i18n.t('settings.updateBannerProgress', { percent: pendingStage.percent })
+                : $i18n.t('settings.updateBannerBody', { version })}
+        >
+          {#if pendingStage.name === 'staged'}
+            <Button variant="primary" size="small" onclick={() => void relaunchApp()}>
+              {$i18n.t('settings.updateBannerRestart')}
+            </Button>
+          {:else}
+            <Button
+              variant="primary"
+              size="small"
+              loading={pendingStage.name === 'downloading'}
+              onclick={() => void installPendingUpdate()}
+            >
+              {pendingStage.name === 'failed' ? $i18n.t('common.retry') : $i18n.t('common.install')}
+            </Button>
+          {/if}
+        </SettingsRow>
+      {/if}
       {#if updateCheckResult === 'current'}
         <li class="settings-form status" aria-live="polite">
           {$i18n.t('settings.aboutUpToDate')}
         </li>
-      {:else if updateCheckResult === 'available'}
+      {:else if updateCheckResult === 'available' && !pendingUpdate}
         <li class="settings-form status" aria-live="polite">
           {$i18n.t('settings.aboutUpdateAvailable')}
         </li>

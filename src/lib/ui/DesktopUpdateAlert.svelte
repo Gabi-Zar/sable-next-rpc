@@ -1,26 +1,16 @@
 <script lang="ts" module>
-  type Stage =
-    | { name: 'available' }
-    | { name: 'downloading'; percent: number }
-    | { name: 'staged' }
-    | { name: 'failed'; message: string };
-
   export function priorityProvider() {
     const POLL_INTERVAL_MS = 300_000;
 
-    let update = $state<AvailableUpdate | null>(null);
-    let stage = $state<Stage>({ name: 'available' });
     let visible = $state(true);
 
     function showUpdate(found: AvailableUpdate): void {
-      if (found.version !== update?.version) {
-        stage = { name: 'available' };
-        visible = true;
-      }
-      update = found;
+      if (found.version !== desktopUpdate.update?.version) visible = true;
+      setPendingUpdate(found);
     }
 
     async function poll(): Promise<void> {
+      const { stage } = desktopUpdate;
       if (stage.name === 'downloading' || stage.name === 'staged') return;
       try {
         const found = await checkForUpdate();
@@ -46,22 +36,9 @@
       };
     });
 
-    async function install(): Promise<void> {
-      if (!update) return;
-      stage = { name: 'downloading', percent: 0 };
-      try {
-        await update.install((percent) => {
-          stage = { name: 'downloading', percent };
-        });
-        stage = { name: 'staged' };
-      } catch (error) {
-        stage = { name: 'failed', message: error instanceof Error ? error.message : String(error) };
-      }
-    }
-
     return {
       get priority(): Priority {
-        if (update !== null && visible) {
+        if (desktopUpdate.update !== null && visible) {
           return 'update';
         } else {
           return null;
@@ -73,14 +50,14 @@
       },
 
       get update() {
-        return update;
+        return desktopUpdate.update;
       },
 
       get stage() {
-        return stage;
+        return desktopUpdate.stage;
       },
 
-      install,
+      install: installPendingUpdate,
     };
   }
 </script>
@@ -90,6 +67,12 @@
   import ArrowCircleUpIcon from 'phosphor-svelte/lib/ArrowCircleUpIcon';
 
   import { i18n } from '#lib/i18n.js';
+  import {
+    desktopUpdate,
+    installPendingUpdate,
+    setPendingUpdate,
+    type UpdateStage,
+  } from '#lib/platform/desktop-update.svelte.js';
   import {
     checkForUpdate,
     relaunchApp,
@@ -103,7 +86,11 @@
   import Progress from '#lib/ui/primitives/Progress.svelte';
   import type { Priority, PriorityProvider } from '#lib/features/sidebar/alerts.js';
 
-  type UpdateState = { update: AvailableUpdate | null; stage: Stage; install(): Promise<void> };
+  type UpdateState = {
+    update: AvailableUpdate | null;
+    stage: UpdateStage;
+    install(): Promise<void>;
+  };
 
   let { dismiss, update, stage, install }: PriorityProvider<UpdateState> = $props();
 
