@@ -54,6 +54,7 @@
   import { windowActivity } from '#lib/platform/window-activity.js';
   import { setUnreadBadge } from '#lib/platform/badge.js';
   import { keepStorage } from '#lib/platform/persistent-storage.js';
+  import { closeWindow, quitApp } from '#lib/platform/window-decorations.js';
   import { type FaviconState, faviconState, setFavicon } from '#lib/ui/favicon.js';
   import idleFavicon from '#lib/assets/favicon.png';
   import unreadFavicon from '#lib/assets/res/svg/unread.svg';
@@ -914,6 +915,12 @@
       },
       'app.openSettings': () => {
         void goto(resolve('/(app)/settings'));
+      },
+      'app.closeWindow': () => {
+        void closeWindow();
+      },
+      'app.quit': () => {
+        void quitApp();
       },
       'navigation.previousRoom': () => {
         const target = roomAtOffset(openRoomId, -1);

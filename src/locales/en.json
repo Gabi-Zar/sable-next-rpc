@@ -3357,6 +3357,8 @@
     "cyclePreviousUnread": "Go to previous unread room",
     "categoryRoom": "Room",
     "openSettings": "Open settings",
+    "closeWindow": "Close window",
+    "quit": "Quit Sable",
     "previousRoom": "Previous room",
     "nextRoom": "Next room",
     "markRead": "Mark this room as read",

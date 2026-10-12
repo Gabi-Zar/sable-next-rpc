@@ -69,6 +69,11 @@ export async function closeWindow(): Promise<void> {
   await (await currentWindow()).close();
 }
 
+export async function quitApp(): Promise<void> {
+  const { exit } = await import('@tauri-apps/plugin-process');
+  await exit(0);
+}
+
 export async function startWindowResize(edge: WindowEdge): Promise<void> {
   await (await currentWindow()).startResizeDragging(edge);
 }

@@ -11,6 +11,7 @@
     "fs:allow-read-file",
     "updater:default",
     "process:allow-restart",
+    "process:allow-exit",
     "core:window:allow-set-badge-count",
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
