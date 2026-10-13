@@ -51,8 +51,6 @@ jobs:
     name: Build and upload iOS
     needs: build-web
     runs-on: macos-latest
-    # macOS /bin/sh prints `echo -n` literally, which breaks the runner's
-    # default-shell probe; naming the shell skips it.
     defaults:
       run:
         shell: bash
