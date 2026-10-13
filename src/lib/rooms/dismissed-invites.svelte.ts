@@ -45,7 +45,7 @@ class DismissedInvites {
     try {
       const core = this.core;
       if (core === null) return;
-      const roomIds = await core.commands.dismissedInvites();
+      const roomIds = await core.rpc.account.dismissedInvites();
       if (generation === this.generation) this.roomIds = new Set(roomIds);
     } catch (error) {
       console.debug('[sable room] dismissed invites unavailable', error);
@@ -62,7 +62,7 @@ class DismissedInvites {
       : new Set([...previous].filter((entry) => entry !== roomId));
     this.roomIds = next;
     try {
-      const stored = await core.commands.setInviteDismissed(roomId, dismissed);
+      const stored = await core.rpc.account.setInviteDismissed({ room_id: roomId, dismissed });
       if (generation === this.generation) this.roomIds = new Set(stored);
     } catch (error) {
       if (this.roomIds === next) this.roomIds = previous;

@@ -1,6 +1,6 @@
 import escapeStringRegexp from 'escape-string-regexp';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import type { AbbreviationEntry } from './settings/abbreviations';
 
@@ -54,11 +54,14 @@ function resolveMatch(map: AbbreviationMap, text: string): AbbreviationMatch | u
   );
 }
 
-export function ancestorSpaceIds(rooms: readonly RoomSummary[], roomId: string): string[] {
+export function ancestorSpaceIds(rooms: readonly RoomListItemView[], roomId: string): string[] {
   return ancestorSpaceLevels(rooms, roomId).reverse().flat();
 }
 
-export function ancestorSpaceLevels(rooms: readonly RoomSummary[], roomId: string): string[][] {
+export function ancestorSpaceLevels(
+  rooms: readonly RoomListItemView[],
+  roomId: string
+): string[][] {
   const levels: string[][] = [];
   const seen = new Set([roomId]);
   let frontier = [roomId];
@@ -79,7 +82,7 @@ export function ancestorSpaceLevels(rooms: readonly RoomSummary[], roomId: strin
   return levels;
 }
 
-export function descendantRoomIds(rooms: readonly RoomSummary[], spaceId: string): string[] {
+export function descendantRoomIds(rooms: readonly RoomListItemView[], spaceId: string): string[] {
   const joined = new Map(
     rooms.filter((room) => room.state === 'joined').map((room) => [room.room_id, room])
   );

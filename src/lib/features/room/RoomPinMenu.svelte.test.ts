@@ -20,15 +20,18 @@ import RoomPinMenuHarness from './RoomPinMenuHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
 
 const core = Object.assign(baseCore, {
+  roomCosmetics: vi.fn(() => Promise.resolve({ users: [], space_id: null })),
+});
+const timeline = Object.assign(baseCore.rpc.timeline, {
   pinnedEvents: vi.fn(() => Promise.resolve(['$image', '$second'])),
   eventItems: vi.fn(() => Promise.resolve([image, secondImage])),
   pinReadState: vi.fn(() =>
     Promise.resolve({ pinned_ids: ['$image', '$second'], unread: 2, fresh_ids: [] })
   ),
-  markPinsSeen: vi.fn((_roomId: string, pinnedIds: string[]) =>
-    Promise.resolve({ pinned_ids: pinnedIds, unread: 0, fresh_ids: [] })
+  markPinsSeen: vi.fn(({ pinned_ids }: { room_id: string; pinned_ids: string[] }) =>
+    Promise.resolve({ pinned_ids, unread: 0, fresh_ids: [] })
   ),
-  roomCosmetics: vi.fn(() => Promise.resolve({ users: [], space_id: null })),
+  rpc: { account: {} },
 });
 
 const image = {
@@ -136,7 +139,7 @@ test.each([
 });
 
 test('shows the total pin count on the button, even once the pins are read', async () => {
-  core.pinReadState.mockResolvedValueOnce({
+  timeline.pinReadState.mockResolvedValueOnce({
     pinned_ids: ['$image', '$second'],
     unread: 0,
     fresh_ids: [],

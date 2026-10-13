@@ -1,10 +1,10 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { CoreMedia } from '#lib/core/media.svelte.js';
 
 export async function importPersonaAvatar(
   url: string,
-  commands: Pick<CoreCommands, 'uploadMedia'>
+  commands: Pick<CoreMedia, 'uploadMedia'>
 ): Promise<string> {
   if (isTauri()) return invoke<string>('import_persona_avatar', { url });
 

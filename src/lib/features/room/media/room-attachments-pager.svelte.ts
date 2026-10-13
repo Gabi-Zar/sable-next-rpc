@@ -69,7 +69,12 @@ export class RoomAttachmentsPager {
     this.loading = true;
     this.failed = false;
     try {
-      const page = await this.core.commands.roomAttachments(roomId, kind, PAGE_SIZE, cursor);
+      const page = await this.core.rpc.rooms.roomAttachments({
+        room_id: roomId,
+        kind,
+        limit: PAGE_SIZE,
+        from: cursor,
+      });
       if (generation !== this.#generation) return;
       this.items = cursor === null ? page.items : [...this.items, ...this.#unseen(page.items)];
       this.#cursor = page.next_batch;

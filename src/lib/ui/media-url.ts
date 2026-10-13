@@ -3,7 +3,7 @@ import QuickLRU from 'quick-lru';
 import { CoreError } from '#src/transport';
 import { mediaFailureHold } from '#lib/ui/media-retry.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { CoreMedia } from '#lib/core/media.svelte.js';
 
 /* Not `SvelteMap`: callers read the cache from inside an effect, so a reactive
    miss re-runs every waiting media element each time any other one resolves. */
@@ -213,7 +213,7 @@ export function discardMediaUrl(
  * Fetches media through a command, since the access token stays in the core, and wraps it in an object URL shared per source and size.
  */
 export type MediaFetcher = Pick<CoreClient, 'session'> & {
-  commands: Pick<CoreCommands, 'fetchMedia'>;
+  media: Pick<CoreMedia, 'fetchMedia'>;
 };
 
 export function loadMediaUrl(
@@ -229,7 +229,7 @@ export function loadMediaUrl(
   }
   const joined = pending.get(key);
   if (joined !== undefined) return joined;
-  const request = core.commands
+  const request = core.media
     .fetchMedia(source, width, height)
     .then((bytes) => {
       const type = blobType(mime, bytes);

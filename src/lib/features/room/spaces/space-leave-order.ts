@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 export type SpaceChildrenLeaveOrder = {
   order: string[];
@@ -6,12 +6,12 @@ export type SpaceChildrenLeaveOrder = {
   subspaceCount: number;
 };
 
-function isJoinedLive(room: RoomSummary | undefined): room is RoomSummary {
+function isJoinedLive(room: RoomListItemView | undefined): room is RoomListItemView {
   return room !== undefined && room.state === 'joined' && !room.is_tombstoned;
 }
 
 export function joinedSpaceChildrenLeaveOrder(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   rootSpaceId: string
 ): SpaceChildrenLeaveOrder {
   const byId = new Map(rooms.map((candidate) => [candidate.room_id, candidate]));
@@ -54,7 +54,7 @@ export function joinedSpaceChildrenLeaveOrder(
 }
 
 export function recursiveSpaceLeaveOrder(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   rootSpaceId: string
 ): string[] {
   return [...joinedSpaceChildrenLeaveOrder(rooms, rootSpaceId).order, rootSpaceId];

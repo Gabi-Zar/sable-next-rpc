@@ -34,7 +34,10 @@
     loading = true;
     outcome = null;
     try {
-      const existing = await core.commands.roomAccountData(roomId, type);
+      const existing = await core.rpc.room_state.roomAccountData({
+        room_id: roomId,
+        event_type: type,
+      });
       if (existing === null || existing === undefined) {
         content = '{}';
         outcome = 'missing';
@@ -63,7 +66,11 @@
     saving = true;
     outcome = null;
     try {
-      await core.commands.setRoomAccountData(roomId, type, parsed);
+      await core.rpc.room_state.setRoomAccountData({
+        room_id: roomId,
+        event_type: type,
+        content: parsed,
+      });
       outcome = 'saved';
     } catch (error) {
       console.warn('[sable room] room account data rejected', error);

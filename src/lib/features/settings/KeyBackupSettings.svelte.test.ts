@@ -13,12 +13,14 @@ vi.mock('#lib/core/context.js');
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 import KeyBackupSettings from './KeyBackupSettings.svelte';
 
+const keyBackupStatus = vi.fn<() => Promise<KeyBackupStatusView>>();
+const downloadKeyBackup =
+  vi.fn<(params: { request_id: string }) => Promise<KeyBackupDownloadView>>();
 const core = Object.assign(baseCore, {
   session: { account_id: 'a1' },
   encryption: null,
   subscribeEvents: vi.fn<(callback: (event: CoreEvent) => void) => () => void>(),
-  keyBackupStatus: vi.fn<() => Promise<KeyBackupStatusView>>(),
-  downloadKeyBackup: vi.fn<(requestId: string) => Promise<KeyBackupDownloadView>>(),
+  rpc: { encryption: { keyBackupStatus, downloadKeyBackup } },
 });
 let listener: (event: CoreEvent) => void;
 const unsubscribe = vi.fn();
@@ -44,8 +46,8 @@ function progress(overrides: Partial<KeyBackupDownloadView> = {}): KeyBackupDown
 }
 beforeEach(() => {
   core.session = { account_id: 'a1' };
-  core.keyBackupStatus.mockReset().mockResolvedValue(available);
-  core.downloadKeyBackup.mockReset();
+  keyBackupStatus.mockReset().mockResolvedValue(available);
+  downloadKeyBackup.mockReset();
   core.subscribeEvents.mockImplementation((callback: (event: CoreEvent) => void) => {
     listener = callback;
     return unsubscribe;
@@ -62,13 +64,13 @@ test('shows independent cloud, local, and uploaded counts', async () => {
 });
 
 test('offers recovery for a locked backup and no download when no backup exists', async () => {
-  core.keyBackupStatus.mockResolvedValue({ ...available, can_restore: false });
+  keyBackupStatus.mockResolvedValue({ ...available, can_restore: false });
   const { unmount } = render(KeyBackupSettings, { onUnlock });
   await userEvent.click(await screen.findByRole('button', { name: 'Unlock' }));
   expect(onUnlock).toHaveBeenCalledOnce();
-  expect(core.downloadKeyBackup).not.toHaveBeenCalled();
+  expect(downloadKeyBackup).not.toHaveBeenCalled();
   unmount();
-  core.keyBackupStatus.mockResolvedValue({ ...available, cloud_keys: null, can_restore: false });
+  keyBackupStatus.mockResolvedValue({ ...available, cloud_keys: null, can_restore: false });
   render(KeyBackupSettings, { onUnlock });
   expect(await screen.findByText(/No cloud key backup/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Download keys' })).toBeNull();
@@ -76,7 +78,7 @@ test('offers recovery for a locked backup and no download when no backup exists'
 
 test('downloads once, reports progress, and distinguishes existing keys from new imports', async () => {
   let finish!: (download: KeyBackupDownloadView) => void;
-  core.downloadKeyBackup.mockImplementation(
+  downloadKeyBackup.mockImplementation(
     () =>
       new Promise((resolve) => {
         finish = resolve;
@@ -92,19 +94,19 @@ test('downloads once, reports progress, and distinguishes existing keys from new
   });
   expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '33.33333333333333');
   const complete = progress({ state: 'complete', processed: 30, imported: 24 });
-  core.keyBackupStatus.mockResolvedValue({ ...available, download: complete });
+  keyBackupStatus.mockResolvedValue({ ...available, download: complete });
   await act(() => {
     finish(complete);
   });
   expect(await screen.findByText('Restored 30 of 30 keys.')).toBeInTheDocument();
   expect(screen.getByText('24 keys added or updated on this device.')).toBeInTheDocument();
-  expect(core.downloadKeyBackup).toHaveBeenCalledOnce();
+  expect(downloadKeyBackup).toHaveBeenCalledOnce();
   expect(button).not.toBeDisabled();
 });
 
 test('keeps active progress when an older status response arrives', async () => {
   let finish!: (status: KeyBackupStatusView) => void;
-  core.keyBackupStatus.mockImplementation(
+  keyBackupStatus.mockImplementation(
     () =>
       new Promise((resolve) => {
         finish = resolve;
@@ -121,7 +123,7 @@ test('keeps active progress when an older status response arrives', async () => 
 });
 
 test('resumes progress when reopening settings and ignores another account', async () => {
-  core.keyBackupStatus.mockResolvedValue({ ...available, download: progress() });
+  keyBackupStatus.mockResolvedValue({ ...available, download: progress() });
   const { unmount } = render(KeyBackupSettings, { onUnlock });
   await screen.findByText('Restoring 10 of 30 keys…');
   await act(() => {
@@ -137,14 +139,14 @@ test('resumes progress when reopening settings and ignores another account', asy
 
 test('shows unreadable keys without claiming a complete successful restore', async () => {
   const complete = progress({ state: 'complete', processed: 30, imported: 20, failed: 2 });
-  core.keyBackupStatus.mockResolvedValue({ ...available, download: complete });
+  keyBackupStatus.mockResolvedValue({ ...available, download: complete });
   render(KeyBackupSettings, { onUnlock });
   expect(await screen.findByText(/Restored 28 of 30 keys/)).toBeInTheDocument();
   expect(screen.getByText(/2 keys could not be read/)).toBeInTheDocument();
 });
 
 test('can retry a failed download', async () => {
-  core.downloadKeyBackup
+  downloadKeyBackup
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce(progress({ state: 'complete', processed: 30 }));
   render(KeyBackupSettings, { onUnlock });
@@ -155,11 +157,11 @@ test('can retry a failed download', async () => {
     expect(button).not.toBeDisabled();
   });
   await userEvent.click(button);
-  expect(core.downloadKeyBackup).toHaveBeenCalledTimes(2);
+  expect(downloadKeyBackup).toHaveBeenCalledTimes(2);
 });
 
 test('an unavailable server can be retried with refresh', async () => {
-  core.keyBackupStatus.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(available);
+  keyBackupStatus.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(available);
   render(KeyBackupSettings, { onUnlock });
   expect(await screen.findByRole('alert')).toHaveTextContent('Could not load key backup status');
   await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));

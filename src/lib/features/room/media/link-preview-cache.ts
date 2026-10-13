@@ -4,8 +4,7 @@ import { CoreError } from '#src/transport';
 
 import { runtimeConfig } from '#lib/config/runtime-config.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
-import type { UrlPreviewView } from '#src/generated/protocol';
+import type { UrlPreviewView, Rpc } from '#src/generated/protocol';
 
 const previews = new QuickLRU<string, Promise<UrlPreviewView | null>>({ maxSize: 256 });
 let homeserverPreviews = true;
@@ -17,7 +16,7 @@ export function resetUrlPreviews(): void {
 }
 
 export function loadUrlPreview(
-  commands: Pick<CoreCommands, 'urlPreview'>,
+  messages: Pick<Rpc['messages'], 'urlPreview'>,
   url: string,
   service: string | null
 ): Promise<UrlPreviewView | null> {
@@ -27,7 +26,7 @@ export function loadUrlPreview(
   const cached = previews.get(key);
   if (cached) return cached;
 
-  const request = commands.urlPreview(url, service).catch((error: unknown) => {
+  const request = messages.urlPreview({ url, service }).catch((error: unknown) => {
     if (service === null && error instanceof CoreError && error.detail.code === 'unsupported') {
       homeserverPreviews = false;
     }
@@ -62,12 +61,12 @@ export function previewSources(encrypted: boolean | null): PreviewSources {
 }
 
 export async function resolveUrlPreview(
-  commands: Pick<CoreCommands, 'urlPreview'>,
+  messages: Pick<Rpc['messages'], 'urlPreview'>,
   url: string,
   sources: PreviewSources
 ): Promise<UrlPreviewView | null> {
   const service = sources.client ? (await runtimeConfig()).embeds.serviceUrl : null;
-  const fromService = service === null ? null : await loadUrlPreview(commands, url, service);
+  const fromService = service === null ? null : await loadUrlPreview(messages, url, service);
   if (fromService !== null || !sources.server) return fromService;
-  return loadUrlPreview(commands, url, null);
+  return loadUrlPreview(messages, url, null);
 }

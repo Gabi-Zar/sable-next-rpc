@@ -6,6 +6,7 @@
 
   import type { ImagePackView, MemberView, TimelineItemView } from '#src/generated/protocol';
 
+  import { imagePacks as listImagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { shortcodeFor } from '#lib/emoji/emoji.js';
   import { i18n } from '#lib/i18n.js';
@@ -97,7 +98,7 @@
     if (target === null || keys === '') return;
     let current = true;
     void loadReactionShortcodes(roomId, target, keys.split('\n'), () =>
-      core.commands.reactionShortcodes(roomId, target)
+      core.rpc.messages.reactionShortcodes({ room_id: roomId, event_id: target })
     )
       .then((shortcodes) => {
         if (current) sentShortcodes = shortcodes;
@@ -110,7 +111,7 @@
 
   $effect(() => {
     let current = true;
-    void loadReactionEmotePacks(roomId, core.commands.imagePacks)
+    void loadReactionEmotePacks(roomId, (target) => listImagePacks(core.rpc, target))
       .then((packs) => {
         if (current) imagePacks = packs;
       })

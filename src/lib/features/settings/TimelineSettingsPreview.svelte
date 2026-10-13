@@ -19,7 +19,7 @@
   import { preferences } from '#lib/settings/preferences.svelte.js';
 
   const core = useCoreClient();
-  providePinnedEvents(new PinnedEvents(core.commands));
+  providePinnedEvents(new PinnedEvents(core.rpc.timeline));
   provideMessageDialogs(new MessageDialogs());
   provideMessageMenu(new OpenMessageMenu());
 

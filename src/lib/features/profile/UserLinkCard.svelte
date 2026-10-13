@@ -81,7 +81,7 @@
     opening = true;
     failed = false;
     try {
-      const roomId = await core.commands.createDm(userId);
+      const roomId = await core.rpc.rooms.createDm({ user_id: userId, encrypted: null });
       const target = roomSectionPath(roomList.rooms, roomId);
       await goto(target, { replace: true });
     } catch (error) {

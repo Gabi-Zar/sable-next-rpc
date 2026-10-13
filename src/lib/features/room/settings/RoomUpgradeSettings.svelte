@@ -2,9 +2,14 @@
   import { goto } from '$app/navigation';
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
   import { resolve } from '$app/paths';
-  import type { RoomPowerLevelsView, RoomSummary, RoomVersionsView } from '#src/generated/protocol';
+  import type {
+    RoomPowerLevelsView,
+    RoomListItemView,
+    RoomVersionsView,
+  } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
+  import { createRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
   import { roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
@@ -29,7 +34,7 @@
   import { canSendState } from './permission-groups';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     levels: RoomPowerLevelsView | null;
     ownPowerLevel: number;
     onClose: () => void;
@@ -111,8 +116,16 @@
 
     const current = ++run;
     void Promise.all([
-      core.commands.roomStateEvent(id, 'm.room.create'),
-      core.commands.roomStateEvent(id, 'm.room.tombstone'),
+      core.rpc.room_state.roomStateEvent({
+        room_id: id,
+        event_type: 'm.room.create',
+        state_key: '',
+      }),
+      core.rpc.room_state.roomStateEvent({
+        room_id: id,
+        event_type: 'm.room.tombstone',
+        state_key: '',
+      }),
     ])
       .then(([create, tombstone]) => {
         if (current !== run) return;
@@ -142,7 +155,7 @@
 
     if (versions === null) {
       try {
-        versions = await core.commands.roomVersions();
+        versions = await core.rpc.rooms.roomVersions();
       } catch (error) {
         console.warn('[sable room] room versions unavailable', error);
         failed = true;
@@ -166,7 +179,7 @@
 
   async function replaceWithNewRoom(id: string): Promise<string> {
     const kind = isSpace ? 'space' : room?.is_voice ? 'voice' : 'text';
-    const next = await core.commands.createRoom({
+    const next = await createRoom(core.rpc, {
       name: room?.name,
       topic: room?.topic,
       kind,
@@ -175,7 +188,11 @@
       roomVersion: target,
       predecessor: id,
     });
-    await core.commands.setTombstone(id, next, messageDraft.trim() || defaultBody);
+    await core.rpc.rooms.setTombstone({
+      room_id: id,
+      replacement_room: next,
+      body: messageDraft.trim() || defaultBody,
+    });
     return next;
   }
 
@@ -189,11 +206,19 @@
       let next: string;
       if (mode === 'redirect') {
         next = replacementId ?? '';
-        await core.commands.setTombstone(id, next, messageDraft.trim() || defaultBody);
+        await core.rpc.rooms.setTombstone({
+          room_id: id,
+          replacement_room: next,
+          body: messageDraft.trim() || defaultBody,
+        });
       } else if (mode === 'custom') {
         next = await replaceWithNewRoom(id);
       } else {
-        next = await core.commands.upgradeRoom(id, target, allowCreators ? creators : []);
+        next = await core.rpc.rooms.upgradeRoom({
+          room_id: id,
+          new_version: target,
+          additional_creators: allowCreators ? [...creators] : [],
+        });
       }
       open = false;
       onClose();

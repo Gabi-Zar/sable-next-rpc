@@ -21,7 +21,7 @@ const setPusher = vi.fn(() => Promise.resolve());
 const removePusher = vi.fn(() => Promise.resolve());
 const session = { user_id: '@a:example.org', device_id: 'DEV' } as SessionInfo;
 const core = {
-  commands: { setPusher, removePusher },
+  rpc: { push: { setPusher, removePusher } },
   session,
   deviceList: [{ is_own: true, display_name: 'My phone' }],
 } as unknown as CoreClient;
@@ -52,14 +52,14 @@ test('registers a VoIP token once with full events', async () => {
   await registerVoipPusher(core, session);
 
   expect(setPusher).toHaveBeenCalledOnce();
-  expect(setPusher).toHaveBeenCalledWith(
-    expect.objectContaining({
+  expect(setPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({
       pushkey: 'voip-1',
       app_id: 'moe.sable.next.ios.voip',
       event_id_only: false,
       device_display_name: 'My phone',
-    })
-  );
+    }) as unknown,
+  });
 });
 
 test('updates the VoIP pusher after a device rename', async () => {
@@ -69,9 +69,12 @@ test('updates the VoIP pusher after a device rename', async () => {
   await registerVoipPusher(core, session);
 
   expect(setPusher).toHaveBeenCalledTimes(2);
-  expect(setPusher).toHaveBeenLastCalledWith(
-    expect.objectContaining({ pushkey: 'voip-1', device_display_name: 'Work phone' })
-  );
+  expect(setPusher).toHaveBeenLastCalledWith({
+    pusher: expect.objectContaining({
+      pushkey: 'voip-1',
+      device_display_name: 'Work phone',
+    }) as unknown,
+  });
   expect(removePusher).not.toHaveBeenCalled();
 });
 
@@ -82,9 +85,9 @@ test('updates VoIP registrations saved without a device name', async () => {
   );
   await registerVoipPusher(core, session);
 
-  expect(setPusher).toHaveBeenCalledWith(
-    expect.objectContaining({ device_display_name: 'My phone' })
-  );
+  expect(setPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({ device_display_name: 'My phone' }) as unknown,
+  });
   expect(removePusher).not.toHaveBeenCalled();
 });
 
@@ -92,9 +95,17 @@ test('a rotated token replaces the old pusher, and signing off removes it', asyn
   await registerVoipPusher(core, session);
   await registerVoipPusher(core, session, 'voip-2');
 
-  expect(removePusher).toHaveBeenCalledWith('voip-1', 'moe.sable.next.ios.voip');
-  expect(setPusher).toHaveBeenLastCalledWith(expect.objectContaining({ pushkey: 'voip-2' }));
+  expect(removePusher).toHaveBeenCalledWith({
+    pushkey: 'voip-1',
+    app_id: 'moe.sable.next.ios.voip',
+  });
+  expect(setPusher).toHaveBeenLastCalledWith({
+    pusher: expect.objectContaining({ pushkey: 'voip-2' }) as unknown,
+  });
 
   await unregisterVoipPusher(core);
-  expect(removePusher).toHaveBeenLastCalledWith('voip-2', 'moe.sable.next.ios.voip');
+  expect(removePusher).toHaveBeenLastCalledWith({
+    pushkey: 'voip-2',
+    app_id: 'moe.sable.next.ios.voip',
+  });
 });

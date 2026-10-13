@@ -30,8 +30,8 @@
     url = null;
     failed = false;
     loaded = false;
-    core.commands
-      .integrationManagerUrl(roomId)
+    core.rpc.session
+      .integrationManagerUrl({ room_id: roomId })
       .then((next) => {
         if (current) url = next;
       })

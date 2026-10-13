@@ -16,7 +16,21 @@ use wiremock::{
 
 use crate::{
     Core,
-    protocol::{Command, CommandErr, CommandOk, CoreEvent},
+    api::Handler,
+    api::encryption::{
+        CancelIdentityResetParams, ContinueIdentityResetParams, RecoverIdentityParams,
+        RenameDeviceParams, ResetIdentityParams,
+    },
+    api::packs::{AllImagePacksParams, ImagePacksOk, ImagePacksParams},
+    api::spaces::{
+        AddToSpaceParams, SetSpaceChildOrderParams, SetSpaceChildSuggestedParams,
+        SetSpaceSidebarParams,
+    },
+    api::timeline::{
+        SubscribeRoomListOk, SubscribeRoomListParams, SubscribeTimelineOk, SubscribeTimelineParams,
+        UnsubscribeParams,
+    },
+    protocol::{CommandErr, CoreEvent, IdentityResetStep},
     session::Session,
     store::MemorySessionStore,
 };
@@ -68,11 +82,8 @@ async fn room_list_keeps_joined_rooms_redirected_to_a_joined_successor() {
         })
         .await;
     let (core, mut events) = core_with_events(&server, client).await;
-    let CommandOk::SubscribeRoomList { subscription, .. } =
-        core.dispatch(Command::SubscribeRoomList).await.unwrap()
-    else {
-        panic!("wrong response")
-    };
+    let SubscribeRoomListOk { subscription, .. } =
+        core.run(SubscribeRoomListParams {}).await.unwrap();
     let diffs = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             if let Some(CoreEvent::RoomListDiff {
@@ -98,9 +109,7 @@ async fn room_list_keeps_joined_rooms_redirected_to_a_joined_successor() {
     assert!(old.is_tombstoned);
     assert!(matches!(old.state, crate::protocol::RoomStateView::Joined));
     assert!(rooms.iter().any(|room| room.room_id == new_id));
-    core.dispatch(Command::Unsubscribe { subscription })
-        .await
-        .unwrap();
+    core.run(UnsubscribeParams { subscription }).await.unwrap();
 }
 
 #[tokio::test]
@@ -113,11 +122,8 @@ async fn a_synced_room_rule_reaches_the_listed_room() {
     let room_id = room_id!("!chatty:example.org");
     server.sync_joined_room(&client, room_id).await;
     let (core, mut events) = core_with_events(&server, client.clone()).await;
-    let CommandOk::SubscribeRoomList { subscription, .. } =
-        core.dispatch(Command::SubscribeRoomList).await.unwrap()
-    else {
-        panic!("wrong response")
-    };
+    let SubscribeRoomListOk { subscription, .. } =
+        core.run(SubscribeRoomListParams {}).await.unwrap();
     let mut next_room = async || {
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
             loop {
@@ -160,9 +166,7 @@ async fn a_synced_room_rule_reaches_the_listed_room() {
         next_room().await.notification.room,
         Some(crate::protocol::NotificationModeView::Mentions)
     );
-    core.dispatch(Command::Unsubscribe { subscription })
-        .await
-        .unwrap();
+    core.run(UnsubscribeParams { subscription }).await.unwrap();
 }
 
 #[tokio::test]
@@ -228,16 +232,13 @@ async fn room_members_use_cached_or_fetched_power_levels() {
 
         let room = client.get_room(room_id).unwrap();
         let core = core(&server, client).await;
-        let CommandOk::RoomMembers { members } = core
-            .dispatch(Command::RoomMembers {
+        let members = core
+            .run(crate::api::members::RoomMembersParams {
                 room_id: room_id.to_owned(),
                 memberships: vec![],
             })
             .await
-            .unwrap()
-        else {
-            panic!("wrong response")
-        };
+            .unwrap();
         let admin_level = if version == "12" {
             9_007_199_254_740_992
         } else {
@@ -300,7 +301,7 @@ async fn device_rename_updates_pusher_state() {
         oauth: false,
     });
 
-    core.dispatch(Command::RenameDevice {
+    core.run(RenameDeviceParams {
         device_id: device_id.clone(),
         display_name: "Work phone".to_owned(),
     })
@@ -378,16 +379,13 @@ async fn image_pack_listing_fetches_complete_state_when_one_pack_is_cached() {
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
-    let CommandOk::ImagePacks { packs, .. } = core
-        .dispatch(Command::ImagePacks {
+    let ImagePacksOk { packs, .. } = core
+        .run(ImagePacksParams {
             room_id: room_id.to_owned(),
             cached_only: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response")
-    };
+        .unwrap();
     assert_eq!(
         packs
             .iter()
@@ -424,7 +422,8 @@ async fn healthy_space_summary_does_not_fetch_missing_tombstone_state() {
         &mut cache,
     )
     .await;
-    let summary = crate::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
+    let summary =
+        crate::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
     assert!(summary.is_space);
     assert!(!summary.is_tombstoned);
 }
@@ -477,8 +476,8 @@ async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing()
         .mount()
         .await;
     let core = core(&server, client).await;
-    let CommandOk::SubscribeTimeline { subscription, .. } = core
-        .dispatch(Command::SubscribeTimeline {
+    let SubscribeTimelineOk { subscription, .. } = core
+        .run(SubscribeTimelineParams {
             room_id: room_id.to_owned(),
             focus: TimelineFocusView::Event {
                 event_id: target.to_owned(),
@@ -486,10 +485,7 @@ async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing()
             hidden_events: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response")
-    };
+        .unwrap();
     Mock::given(method("POST"))
         .and(path_regex(".*sync.*"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"pos": "p1", "rooms": {}})))
@@ -511,9 +507,7 @@ async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing()
         body["room_subscriptions"][room_id.as_str()]["timeline_limit"],
         20
     );
-    core.dispatch(Command::Unsubscribe { subscription })
-        .await
-        .unwrap();
+    core.run(UnsubscribeParams { subscription }).await.unwrap();
     stream.next().await.unwrap().unwrap();
     let requests = server.server().received_requests().await.unwrap();
     let request = requests
@@ -536,7 +530,7 @@ async fn an_open_room_is_resubscribed_after_the_sync_session_expires() {
     server.sync_joined_room(&client, room_id).await;
     server.mock_room_state_encryption().plain().mount().await;
     let core = core(&server, client).await;
-    core.dispatch(Command::SubscribeTimeline {
+    core.run(SubscribeTimelineParams {
         room_id: room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -663,20 +657,13 @@ async fn cached_image_packs_return_without_waiting_for_room_state() {
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
-    let command = serde_json::from_value(
-        json!({"type": "image_packs", "room_id": room_id, "cached_only": true}),
-    )
-    .unwrap();
-    let response = tokio::time::timeout(
-        std::time::Duration::from_millis(500),
-        core.dispatch(command),
-    )
-    .await
-    .expect("cached emotes do not wait for the server")
-    .unwrap();
-    let CommandOk::ImagePacks { packs, .. } = response else {
-        panic!("wrong response")
-    };
+    let params: ImagePacksParams =
+        serde_json::from_value(json!({"room_id": room_id, "cached_only": true})).unwrap();
+    let ImagePacksOk { packs, .. } =
+        tokio::time::timeout(std::time::Duration::from_millis(500), core.run(params))
+            .await
+            .expect("cached emotes do not wait for the server")
+            .unwrap();
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0].id, "cached");
     assert!(
@@ -718,16 +705,13 @@ async fn all_image_packs_return_without_waiting_for_room_state() {
         .await;
     let core = core(&server, client).await;
 
-    let response = tokio::time::timeout(
+    let packs = tokio::time::timeout(
         std::time::Duration::from_millis(500),
-        core.dispatch(Command::AllImagePacks),
+        core.run(AllImagePacksParams {}),
     )
     .await
     .expect("settings packs do not wait for the homeserver")
     .unwrap();
-    let CommandOk::AllImagePacks { packs } = response else {
-        panic!("wrong response")
-    };
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0].id, "cached");
     assert!(
@@ -759,13 +743,9 @@ async fn a_pack_with_no_images_is_still_listed() {
         )
         .await;
     let core = core(&server, client).await;
-    let command = serde_json::from_value(
-        json!({"type": "image_packs", "room_id": room_id, "cached_only": true}),
-    )
-    .unwrap();
-    let CommandOk::ImagePacks { packs, .. } = core.dispatch(command).await.unwrap() else {
-        panic!("wrong response")
-    };
+    let params: ImagePacksParams =
+        serde_json::from_value(json!({"room_id": room_id, "cached_only": true})).unwrap();
+    let ImagePacksOk { packs, .. } = core.run(params).await.unwrap();
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0].id, "fresh");
     assert!(packs[0].images.is_empty());
@@ -788,13 +768,10 @@ async fn messaging_a_user_reuses_the_dm_that_already_exists() {
         })
         .await;
     let core = core(&server, client).await;
-    let command =
-        serde_json::from_value(json!({"type": "create_dm", "user_id": "@bob:example.org"}))
-            .unwrap();
-    let CommandOk::CreateDm { room_id: found } = core.dispatch(command).await.unwrap() else {
-        panic!("wrong response")
-    };
-    assert_eq!(found, room_id);
+    let params: crate::api::rooms::CreateDmParams =
+        serde_json::from_value(json!({"user_id": "@bob:example.org"})).unwrap();
+    let found = core.run(params).await.unwrap();
+    assert_eq!(found, room_id.as_str());
 }
 
 #[tokio::test]
@@ -814,14 +791,10 @@ async fn an_unencrypted_dm_request_reuses_an_unencrypted_dm() {
         })
         .await;
     let core = core(&server, client).await;
-    let command = serde_json::from_value(
-        json!({"type": "create_dm", "user_id": "@bob:example.org", "encrypted": false}),
-    )
-    .unwrap();
-    let CommandOk::CreateDm { room_id: found } = core.dispatch(command).await.unwrap() else {
-        panic!("wrong response")
-    };
-    assert_eq!(found, room_id);
+    let params: crate::api::rooms::CreateDmParams =
+        serde_json::from_value(json!({"user_id": "@bob:example.org", "encrypted": false})).unwrap();
+    let found = core.run(params).await.unwrap();
+    assert_eq!(found, room_id.as_str());
 }
 
 #[tokio::test]
@@ -951,15 +924,12 @@ async fn a_room_outside_the_list_still_has_a_summary() {
     )).await;
     let core = core(&server, client).await;
 
-    let CommandOk::RoomSummary { room } = core
-        .dispatch(Command::RoomSummary {
+    let room = core
+        .run(crate::api::rooms::RoomListItemParams {
             room_id: room_id.to_owned(),
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response")
-    };
+        .unwrap();
     assert_eq!(room.room_id, room_id);
     assert!(room.is_tombstoned);
 }
@@ -1744,7 +1714,7 @@ async fn forgotten_media_is_fetched_again() {
 #[expect(clippy::unwrap_used, reason = "test code")]
 async fn space_child_writes(
     child: Option<serde_json::Value>,
-    command: Command,
+    command: impl Handler,
 ) -> Vec<serde_json::Value> {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
@@ -1770,7 +1740,7 @@ async fn space_child_writes(
         .await;
     let core = core(&server, client).await;
 
-    core.dispatch(command).await.unwrap();
+    core.run(command).await.unwrap();
 
     server
         .server()
@@ -1783,8 +1753,8 @@ async fn space_child_writes(
         .collect()
 }
 
-fn add_child() -> Command {
-    Command::AddToSpace {
+fn add_child() -> AddToSpaceParams {
+    AddToSpaceParams {
         space_id: room_id!("!space:example.org").to_owned(),
         room_id: room_id!("!child:example.org").to_owned(),
         suggested: None,
@@ -1820,7 +1790,7 @@ async fn adding_a_delisted_child_lists_it_again() {
 async fn adding_a_suggested_child_marks_it() {
     let writes = space_child_writes(
         None,
-        Command::AddToSpace {
+        AddToSpaceParams {
             space_id: room_id!("!space:example.org").to_owned(),
             room_id: room_id!("!child:example.org").to_owned(),
             suggested: Some(true),
@@ -1835,7 +1805,7 @@ async fn adding_a_suggested_child_marks_it() {
 async fn suggesting_a_child_keeps_its_via_and_order() {
     let writes = space_child_writes(
         Some(json!({"via": ["other.org"], "order": "b"})),
-        Command::SetSpaceChildSuggested {
+        SetSpaceChildSuggestedParams {
             space_id: room_id!("!space:example.org").to_owned(),
             room_id: room_id!("!child:example.org").to_owned(),
             suggested: true,
@@ -1853,7 +1823,7 @@ async fn suggesting_a_child_keeps_its_via_and_order() {
 async fn reordering_a_child_keeps_its_via_and_suggestion() {
     let writes = space_child_writes(
         Some(json!({"via": ["other.org"], "order": "b", "suggested": true})),
-        Command::SetSpaceChildOrder {
+        SetSpaceChildOrderParams {
             space_id: room_id!("!space:example.org").to_owned(),
             room_id: room_id!("!child:example.org").to_owned(),
             order: Some("a".to_owned()),
@@ -1948,10 +1918,8 @@ async fn recover_identity_accepts_the_passphrase_as_well_as_the_key() {
         .mount()
         .await;
     let core = core(&server, client).await;
-    let recover = async |recovery_key: String| {
-        core.dispatch(Command::RecoverIdentity { recovery_key })
-            .await
-    };
+    let recover =
+        async |recovery_key: String| core.run(RecoverIdentityParams { recovery_key }).await;
 
     assert!(matches!(
         recover("wrong horse".to_owned()).await,
@@ -2016,9 +1984,7 @@ async fn an_identity_reset_without_authentication_returns_the_new_key() {
     server.mock_upload_cross_signing_keys().ok().mount().await;
     let core = core(&server, client).await;
 
-    let Ok(CommandOk::ResetIdentity {
-        step: crate::protocol::IdentityResetStep::Done { recovery_key },
-    }) = core.dispatch(Command::ResetIdentity).await
+    let Ok(IdentityResetStep::Done { recovery_key }) = core.run(ResetIdentityParams {}).await
     else {
         panic!("the reset needed no authentication")
     };
@@ -2067,20 +2033,18 @@ async fn an_identity_reset_retries_a_wrong_password_and_returns_the_new_key() {
     let core = core(&server, client).await;
 
     assert!(matches!(
-        core.dispatch(Command::ResetIdentity).await,
-        Ok(CommandOk::ResetIdentity {
-            step: crate::protocol::IdentityResetStep::Password
-        })
+        core.run(ResetIdentityParams {}).await,
+        Ok(IdentityResetStep::Password)
     ));
     assert!(matches!(
-        core.dispatch(Command::ContinueIdentityReset {
+        core.run(ContinueIdentityResetParams {
             password: Some("wrong".into())
         })
         .await,
         Err(CommandErr::Denied)
     ));
-    let Ok(CommandOk::ContinueIdentityReset { recovery_key }) = core
-        .dispatch(Command::ContinueIdentityReset {
+    let Ok(recovery_key) = core
+        .run(ContinueIdentityResetParams {
             password: Some("hunter2".into()),
         })
         .await
@@ -2089,7 +2053,7 @@ async fn an_identity_reset_retries_a_wrong_password_and_returns_the_new_key() {
     };
     assert!(!recovery_key.is_empty());
     assert!(matches!(
-        core.dispatch(Command::ContinueIdentityReset { password: None })
+        core.run(ContinueIdentityResetParams { password: None })
             .await,
         Err(CommandErr::Unavailable)
     ));
@@ -2107,19 +2071,16 @@ async fn a_cancelled_oauth_identity_reset_hands_back_no_key() {
         .await;
     let core = core(&server, client).await;
 
-    let Ok(CommandOk::ResetIdentity {
-        step: crate::protocol::IdentityResetStep::Approve { url },
-    }) = core.dispatch(Command::ResetIdentity).await
-    else {
+    let Ok(IdentityResetStep::Approve { url }) = core.run(ResetIdentityParams {}).await else {
         panic!("an OAuth account is sent to approve the reset")
     };
     assert!(url.contains("org.matrix.cross_signing_reset"));
 
     let (waiting, ()) = tokio::join!(
-        core.dispatch(Command::ContinueIdentityReset { password: None }),
+        core.run(ContinueIdentityResetParams { password: None }),
         async {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            core.dispatch(Command::CancelIdentityReset).await.unwrap();
+            core.run(CancelIdentityResetParams {}).await.unwrap();
         }
     );
     assert!(matches!(waiting, Err(CommandErr::Unavailable)));
@@ -2154,16 +2115,13 @@ async fn an_approved_oauth_identity_reset_completes_its_session() {
         .await;
     let core = core(&server, client).await;
 
-    let Ok(CommandOk::ResetIdentity {
-        step: crate::protocol::IdentityResetStep::Approve { url },
-    }) = core.dispatch(Command::ResetIdentity).await
-    else {
+    let Ok(IdentityResetStep::Approve { url }) = core.run(ResetIdentityParams {}).await else {
         panic!("an OAuth account is sent to approve the reset")
     };
     assert_eq!(url, "https://auth.example.org/approve");
 
-    let Ok(CommandOk::ContinueIdentityReset { recovery_key }) = core
-        .dispatch(Command::ContinueIdentityReset { password: None })
+    let Ok(recovery_key) = core
+        .run(ContinueIdentityResetParams { password: None })
         .await
     else {
         panic!("the approved session completes the reset")
@@ -2210,19 +2168,19 @@ async fn profile_updates_send_the_chosen_msc4466_propagation() {
     expect_put(&server, "displayname", query_param_is_missing(PROPAGATE_TO)).await;
     let core = core(&server, client).await;
 
-    core.dispatch(Command::SetDisplayName {
+    core.run(crate::api::account::SetDisplayNameParams {
         name: Some("Quiet".to_owned()),
         propagate_to: ProfilePropagationView::None,
     })
     .await
     .unwrap();
-    core.dispatch(Command::SetAvatarUrl {
+    core.run(crate::api::account::SetAvatarUrlParams {
         url: Some("mxc://example.org/avatar".to_owned()),
         propagate_to: ProfilePropagationView::Unchanged,
     })
     .await
     .unwrap();
-    core.dispatch(Command::SetDisplayName {
+    core.run(crate::api::account::SetDisplayNameParams {
         name: Some("Loud".to_owned()),
         propagate_to: ProfilePropagationView::All,
     })
@@ -2251,11 +2209,10 @@ async fn account_data_types_survive_a_restart_and_include_stored_known_types() {
         .await;
 
     let after = core(&server, client).await;
-    let CommandOk::AccountDataTypes { event_types } =
-        after.dispatch(Command::AccountDataTypes).await.unwrap()
-    else {
-        panic!("wrong response")
-    };
+    let event_types = after
+        .run(crate::api::account::AccountDataTypesParams {})
+        .await
+        .unwrap();
     assert!(
         event_types
             .iter()
@@ -2285,11 +2242,10 @@ async fn account_data_types_include_what_the_server_lists_but_sync_never_deliver
         .await;
 
     let core = core(&server, client).await;
-    let CommandOk::AccountDataTypes { event_types } =
-        core.dispatch(Command::AccountDataTypes).await.unwrap()
-    else {
-        panic!("wrong response")
-    };
+    let event_types = core
+        .run(crate::api::account::AccountDataTypesParams {})
+        .await
+        .unwrap();
     assert!(
         event_types
             .iter()
@@ -2352,7 +2308,7 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
     let core = core(&server, client.clone()).await;
 
     assert!(matches!(
-        core.dispatch(Command::SetSealedAccountData {
+        core.run(crate::api::account::SetSealedAccountDataParams {
             event_type: "m.push_rules".to_owned(),
             content: json!({}),
         })
@@ -2367,7 +2323,7 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
     assert!(stored["encrypted"][key.key_id()]["ciphertext"].is_string());
 
     let draft = json!({ "v": 1, "drafts": { "!room:example.org": "unsent" } });
-    core.dispatch(Command::SetSealedAccountData {
+    core.run(crate::api::account::SetSealedAccountDataParams {
         event_type: DRAFTS.to_owned(),
         content: draft.clone(),
     })
@@ -2385,8 +2341,8 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
         .respond_with(ResponseTemplate::new(200).set_body_json(sealed))
         .mount(server.server())
         .await;
-    let Ok(CommandOk::SealedAccountData { document }) = core
-        .dispatch(Command::SealedAccountData {
+    let Ok(document) = core
+        .run(crate::api::account::SealedAccountDataParams {
             event_type: DRAFTS.to_owned(),
         })
         .await
@@ -2404,8 +2360,8 @@ async fn markdown_to_content_needs_no_session() {
     use crate::protocol::ComposerPill;
 
     let (core, _events) = Core::new("markdown-test", Box::new(MemorySessionStore::default()));
-    let CommandOk::MarkdownToContent(content) = core
-        .dispatch(Command::MarkdownToContent {
+    let content = core
+        .run(crate::api::messages::MarkdownToContentParams {
             markdown: "**hi** \u{FFFC}".to_owned(),
             pills: vec![ComposerPill::Mention {
                 user_id: "@ana:example.org".to_owned(),
@@ -2414,10 +2370,7 @@ async fn markdown_to_content_needs_no_session() {
             }],
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response")
-    };
+        .unwrap();
     assert_eq!(content.body, "**hi** Ana");
     assert_eq!(
         content.formatted_body.as_deref(),
@@ -2469,7 +2422,7 @@ async fn invites_dismissed_at_once_are_all_kept() {
     let core = core(&server, client).await;
 
     let dismiss = |room_id: &'static str| {
-        core.dispatch(Command::SetInviteDismissed {
+        core.run(crate::api::account::SetInviteDismissedParams {
             room_id: room_id.try_into().expect("a room id"),
             dismissed: true,
         })
@@ -2498,7 +2451,7 @@ async fn a_sidebar_naming_something_that_is_not_a_room_is_refused() {
     let core = core(&server, client).await;
 
     let refused = core
-        .dispatch(Command::SetSpaceSidebar {
+        .run(SetSpaceSidebarParams {
             items: vec![sable_model::sidebar::SidebarItemView::Folder {
                 id: "folder".to_owned(),
                 name: None,
@@ -2527,9 +2480,7 @@ async fn server_features_lists_only_enabled_unstable_features() {
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
-    let Ok(CommandOk::ServerFeatures { unstable_features }) =
-        core.dispatch(Command::ServerFeatures).await
-    else {
+    let Ok(unstable_features) = core.run(crate::api::session::ServerFeaturesParams {}).await else {
         panic!("server features failed");
     };
     assert_eq!(

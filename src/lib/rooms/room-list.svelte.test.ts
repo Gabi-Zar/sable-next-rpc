@@ -1,7 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { countNotifications, notifications } from '#lib/features/inbox/inbox.js';
 
@@ -33,14 +33,16 @@ test("reads a room's mode off its summary", async () => {
     withCounts({
       room_id: '!muted:example.org',
       notification: { room: 'mute', default: 'all' },
-    } as RoomSummary),
-    withCounts({ room_id: '!plain:example.org', is_direct: false } as RoomSummary),
+    } as RoomListItemView),
+    withCounts({ room_id: '!plain:example.org', is_direct: false } as RoomListItemView),
   ];
   const core = {
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -63,7 +65,7 @@ test('inbox counts follow badge defaults, and a mute silences it at once', async
     notifying: 2,
     highlight: 0,
     notification: { room: 'all', default: 'all' },
-  } as RoomSummary);
+  } as RoomListItemView);
   const quiet = withCounts({
     room_id: '!quiet',
     state: 'joined',
@@ -71,16 +73,18 @@ test('inbox counts follow badge defaults, and a mute silences it at once', async
     notifying: 0,
     highlight: 0,
     notification: { room: null, default: 'all' },
-  } as RoomSummary);
+  } as RoomListItemView);
   const listeners: ((event: unknown) => void)[] = [];
   const core = {
     subscribeEvents: (listener: (event: unknown) => void) => {
       listeners.push(listener);
       return () => {};
     },
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [loud, quiet] }),
-      unsubscribe: async () => {},
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [loud, quiet] }),
+        unsubscribe: async () => {},
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -106,7 +110,7 @@ test('clears a room avatar when a room-list diff supplies null', async () => {
   const room = {
     room_id: '!room:example.org',
     avatar_url: 'mxc://example.org/avatar',
-  } as RoomSummary;
+  } as RoomListItemView;
   const clearedRoom = { ...room, avatar_url: null };
   const eventListeners: ((event: unknown) => void)[] = [];
   const core = {
@@ -114,9 +118,11 @@ test('clears a room avatar when a room-list diff supplies null', async () => {
       eventListeners.push(listener);
       return () => {};
     }),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -133,16 +139,18 @@ test('clears a room avatar when a room-list diff supplies null', async () => {
 });
 
 test('holds the typing user ids so a room opened later reads them', async () => {
-  const room = { room_id: '!room:example.org' } as RoomSummary;
+  const room = { room_id: '!room:example.org' } as RoomListItemView;
   const eventListeners: ((event: unknown) => void)[] = [];
   const core = {
     subscribeEvents: vi.fn((listener: (event: unknown) => void) => {
       eventListeners.push(listener);
       return () => {};
     }),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -171,23 +179,25 @@ test('paints the persisted room list before the subscription answers', async () 
     notifying: 0,
     highlight: 0,
     marked_unread: false,
-  } as RoomSummary);
+  } as RoomListItemView);
   stubLocalStorage().set('sable.room-list.acct', JSON.stringify([room]));
   let resolveSubscription: (value: {
     subscription: number;
-    rooms: RoomSummary[];
+    rooms: RoomListItemView[];
   }) => void = () => {};
   const core = {
     session: { account_id: 'acct' },
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(
-        () =>
-          new Promise<{ subscription: number; rooms: RoomSummary[] }>((resolve) => {
-            resolveSubscription = resolve;
-          })
-      ),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(
+          () =>
+            new Promise<{ subscription: number; rooms: RoomListItemView[] }>((resolve) => {
+              resolveSubscription = resolve;
+            })
+        ),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -210,9 +220,11 @@ test('a snapshot from a build before resolved counts paints nothing', () => {
   const core = {
     session: { account_id: 'acct' },
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(() => new Promise(() => {})),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => new Promise(() => {})),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -223,23 +235,25 @@ test('a snapshot from a build before resolved counts paints nothing', () => {
 });
 
 test('is not settled on a painted snapshot', async () => {
-  const room = withCounts({ room_id: '!room:example.org' } as RoomSummary);
+  const room = withCounts({ room_id: '!room:example.org' } as RoomListItemView);
   stubLocalStorage().set('sable.room-list.acct', JSON.stringify([room]));
   let resolveSubscription: (value: {
     subscription: number;
-    rooms: RoomSummary[];
+    rooms: RoomListItemView[];
   }) => void = () => {};
   const core = {
     session: { account_id: 'acct' },
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(
-        () =>
-          new Promise<{ subscription: number; rooms: RoomSummary[] }>((resolve) => {
-            resolveSubscription = resolve;
-          })
-      ),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(
+          () =>
+            new Promise<{ subscription: number; rooms: RoomListItemView[] }>((resolve) => {
+              resolveSubscription = resolve;
+            })
+        ),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -254,8 +268,8 @@ test('is not settled on a painted snapshot', async () => {
 });
 
 test('a diff after an empty first answer replaces the painted snapshot rather than joining it', async () => {
-  const first = withCounts({ room_id: '!first:example.org' } as RoomSummary);
-  const second = withCounts({ room_id: '!second:example.org' } as RoomSummary);
+  const first = withCounts({ room_id: '!first:example.org' } as RoomListItemView);
+  const second = withCounts({ room_id: '!second:example.org' } as RoomListItemView);
   stubLocalStorage().set('sable.room-list.acct', JSON.stringify([first, second]));
   const eventListeners: ((event: unknown) => void)[] = [];
   const core = {
@@ -264,9 +278,11 @@ test('a diff after an empty first answer replaces the painted snapshot rather th
       eventListeners.push(listener);
       return () => {};
     }),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -285,17 +301,19 @@ test('a diff after an empty first answer replaces the painted snapshot rather th
 });
 
 test('waits for a room to be listed, and gives up after the timeout', async () => {
-  const listed = { room_id: '!listed:example.org' } as RoomSummary;
-  const late = { room_id: '!late:example.org' } as RoomSummary;
+  const listed = { room_id: '!listed:example.org' } as RoomListItemView;
+  const late = { room_id: '!late:example.org' } as RoomListItemView;
   const eventListeners: ((event: unknown) => void)[] = [];
   const core = {
     subscribeEvents: vi.fn((listener: (event: unknown) => void) => {
       eventListeners.push(listener);
       return () => {};
     }),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [listed] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [listed] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -330,13 +348,15 @@ test('waits for a room to be listed, and gives up after the timeout', async () =
 test('persists the live room list for the next launch', async () => {
   vi.useFakeTimers();
   const stored = stubLocalStorage();
-  const room = { room_id: '!live:example.org', name: 'Live' } as RoomSummary;
+  const room = { room_id: '!live:example.org', name: 'Live' } as RoomListItemView;
   const core = {
     session: { account_id: 'acct' },
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -353,13 +373,15 @@ test('persists the live room list for the next launch', async () => {
 test('defers room-list snapshot writes until presentation resumes', async () => {
   vi.useFakeTimers();
   const stored = stubLocalStorage();
-  const room = { room_id: '!live:example.org', name: 'Live' } as RoomSummary;
+  const room = { room_id: '!live:example.org', name: 'Live' } as RoomListItemView;
   const core = {
     session: { account_id: 'acct' },
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [room] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -382,7 +404,7 @@ test('looks rooms up by id and labels them by name, then alias, then id', () => 
     { room_id: '!named:example.org', name: 'Named', canonical_alias: '#named:example.org' },
     { room_id: '!aliased:example.org', name: null, canonical_alias: '#aliased:example.org' },
     { room_id: '!bare:example.org', name: null, canonical_alias: null },
-  ] as RoomSummary[];
+  ] as RoomListItemView[];
 
   expect(roomList.byId('!aliased:example.org')).toBe(roomList.rooms[1]);
   expect(roomList.byId('!missing:example.org')).toBeUndefined();
@@ -392,7 +414,7 @@ test('looks rooms up by id and labels them by name, then alias, then id', () => 
   expect(roomList.labelFor('!bare:example.org')).toBe('!bare:example.org');
   expect(roomList.labelFor('!missing:example.org')).toBe('!missing:example.org');
 
-  roomList.rooms = [{ room_id: '!missing:example.org', name: 'Arrived' }] as RoomSummary[];
+  roomList.rooms = [{ room_id: '!missing:example.org', name: 'Arrived' }] as RoomListItemView[];
   expect(roomList.labelFor('!missing:example.org')).toBe('Arrived');
 });
 
@@ -405,12 +427,14 @@ test('a hidden room keeps its unread state and badges only its mentions', async 
     marked_unread: false,
     space_children: [],
     notification: { room: null, default: 'all' },
-  } as unknown as RoomSummary);
+  } as unknown as RoomListItemView);
   const core = {
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [quiet] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [quiet] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -445,7 +469,7 @@ test('badge defaults quiet group rooms while push stays all', async () => {
     marked_unread: false,
     space_children: [],
     notification: { room: null, default: 'all' },
-  } as unknown as RoomSummary);
+  } as unknown as RoomListItemView);
   const dm = withCounts({
     room_id: '!dm:example.org',
     is_direct: true,
@@ -455,12 +479,14 @@ test('badge defaults quiet group rooms while push stays all', async () => {
     marked_unread: false,
     space_children: [],
     notification: { room: null, default: 'all' },
-  } as unknown as RoomSummary);
+  } as unknown as RoomListItemView);
   const core = {
     subscribeEvents: vi.fn(() => () => {}),
-    commands: {
-      subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [group, dm] })),
-      unsubscribe: vi.fn(() => Promise.resolve()),
+    rpc: {
+      timeline: {
+        subscribeRoomList: vi.fn(() => Promise.resolve({ subscription: 1, rooms: [group, dm] })),
+        unsubscribe: vi.fn(() => Promise.resolve()),
+      },
     },
   } as unknown as CoreClient;
   const roomList = new RoomList(core);
@@ -486,7 +512,7 @@ test('badge defaults quiet group rooms while push stays all', async () => {
 test('warms each visible room once, batched into one command', () => {
   vi.useFakeTimers();
   const warmRooms = vi.fn(() => Promise.resolve());
-  const roomList = new RoomList({ commands: { warmRooms } } as unknown as CoreClient);
+  const roomList = new RoomList({ rpc: { timeline: { warmRooms } } } as unknown as CoreClient);
 
   roomList.warm('!a:example.org');
   roomList.warm('!b:example.org');
@@ -496,7 +522,7 @@ test('warms each visible room once, batched into one command', () => {
   vi.advanceTimersByTime(100);
 
   expect(warmRooms).toHaveBeenCalledTimes(1);
-  expect(warmRooms).toHaveBeenCalledWith(['!a:example.org', '!b:example.org']);
+  expect(warmRooms).toHaveBeenCalledWith({ room_ids: ['!a:example.org', '!b:example.org'] });
   vi.useRealTimers();
 });
 
@@ -504,7 +530,7 @@ test('stopping drops pending warms and forgets what was warmed', () => {
   vi.useFakeTimers();
   const warmRooms = vi.fn(() => Promise.resolve());
   const roomList = new RoomList({
-    commands: { warmRooms, unsubscribe: vi.fn(() => Promise.resolve()) },
+    rpc: { timeline: { warmRooms, unsubscribe: vi.fn(() => Promise.resolve()) } },
   } as unknown as CoreClient);
 
   roomList.warm('!a:example.org');
@@ -514,13 +540,13 @@ test('stopping drops pending warms and forgets what was warmed', () => {
 
   roomList.warm('!a:example.org');
   vi.advanceTimersByTime(100);
-  expect(warmRooms).toHaveBeenCalledWith(['!a:example.org']);
+  expect(warmRooms).toHaveBeenCalledWith({ room_ids: ['!a:example.org'] });
   vi.useRealTimers();
 });
 
 test('a room path uses its alias only when the room is the first live owner of it', () => {
   const room = (room_id: string, canonical_alias: string | null, is_tombstoned = false) =>
-    ({ room_id, canonical_alias, is_tombstoned }) as RoomSummary;
+    ({ room_id, canonical_alias, is_tombstoned }) as RoomListItemView;
   const old = room('!old:x', '#lounge:x', true);
   const lounge = room('!lounge:x', '#lounge:x');
   const copy = room('!copy:x', '#lounge:x');
@@ -536,7 +562,7 @@ test('a room path uses its alias only when the room is the first live owner of i
 
 test('finds a live direct room with a user', () => {
   const room = (is_direct: boolean, direct_targets: string[], is_tombstoned = false) =>
-    ({ is_direct, direct_targets, is_tombstoned }) as RoomSummary;
+    ({ is_direct, direct_targets, is_tombstoned }) as RoomListItemView;
 
   expect(hasDirectRoom([room(true, ['@alice:x'])], '@alice:x')).toBe(true);
   expect(hasDirectRoom([room(true, ['@bob:x'])], '@alice:x')).toBe(false);

@@ -13,8 +13,10 @@ vi.mock('#lib/settings/preferences.svelte.js', async (importOriginal) => ({
 
 import { core } from '#lib/core/__mocks__/context.js';
 
-const accountData = vi.fn<(type: string) => Promise<unknown>>(() => Promise.resolve(null));
-Object.assign(core, { accountData });
+const accountData = vi.fn<(params: { event_type: string }) => Promise<unknown>>(() =>
+  Promise.resolve(null)
+);
+Object.assign(core, { rpc: { account: { accountData } } });
 
 import SettingsSyncCard from './SettingsSyncCard.svelte';
 
@@ -34,7 +36,7 @@ afterEach(() => {
 test('says the data is unencrypted before offering to turn sync on', async () => {
   const { user, onComplete } = await setup();
 
-  expect(accountData).toHaveBeenCalledWith('moe.sable.next.settings');
+  expect(accountData).toHaveBeenCalledWith({ event_type: 'moe.sable.next.settings' });
   expect(screen.getByText(/unencrypted data/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Turn on sync' }));
   expect(prefs.setPreference).toHaveBeenCalledWith('settingsSync', true);

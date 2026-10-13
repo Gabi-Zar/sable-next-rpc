@@ -398,17 +398,21 @@
     );
     const name =
       known?.name ??
-      (await core.commands.roomPreview(link.room_id, splitVia(anchor.href).via).then(
-        (preview) => preview.name,
-        () => null
-      ));
+      (await core.rpc.rooms
+        .roomPreview({ address: link.room_id, via: splitVia(anchor.href).via })
+        .then(
+          (preview) => preview.name,
+          () => null
+        ));
     const room = name ? (name.startsWith('#') ? name : `#${name}`) : null;
     const snippet =
       link.kind === 'event' && known
-        ? await core.commands.eventItems(known.room_id, [link.event_id]).then(
-            ([item]) => (item ? replyPreviewBody(item.content).replace(/\s+/g, ' ').trim() : ''),
-            () => ''
-          )
+        ? await core.rpc.timeline
+            .eventItems({ room_id: known.room_id, event_ids: [link.event_id] })
+            .then(
+              ([item]) => (item ? replyPreviewBody(item.content).replace(/\s+/g, ' ').trim() : ''),
+              () => ''
+            )
         : '';
     if (!anchor.isConnected || room === null) return;
     const short =

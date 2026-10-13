@@ -1,9 +1,9 @@
 import QuickLRU from 'quick-lru';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
-import type { CoreEvent, ImagePackView } from '#src/generated/protocol';
+import { imagePackListing } from '#lib/core/api/packs.js';
+import type { CoreEvent, ImagePackView, Rpc } from '#src/generated/protocol';
 
-type PackCommands = Pick<CoreCommands, 'imagePackListing'>;
+type PackRpc = Pick<Rpc, 'packs'>;
 
 interface Snapshot {
   packs: ImagePackView[];
@@ -30,21 +30,21 @@ const packAccountDataEvents = new Set([
   'm.image_pack.rooms',
 ]);
 
-function cacheFor(commands: PackCommands): PackCache {
-  let cache = caches.get(commands);
+function cacheFor(rpc: PackRpc): PackCache {
+  let cache = caches.get(rpc);
   if (cache === undefined) {
     cache = {
       snapshots: new QuickLRU({ maxSize: MAX_SNAPSHOTS }),
       refreshes: new Map(),
       generation: 0,
     };
-    caches.set(commands, cache);
+    caches.set(rpc, cache);
   }
   return cache;
 }
 
-export function invalidatePacks(commands: PackCommands): void {
-  const cache = cacheFor(commands);
+export function invalidatePacks(rpc: PackRpc): void {
+  const cache = cacheFor(rpc);
   cache.generation += 1;
   cache.snapshots.clear();
   cache.refreshes.clear();
@@ -62,12 +62,12 @@ export function isPackChange(event: CoreEvent): boolean {
 }
 
 export async function loadPacks(
-  commands: PackCommands,
+  rpc: PackRpc,
   roomId: string,
   apply: (packs: ImagePackView[]) => void,
   accountId: string | null = null
 ): Promise<boolean> {
-  const cache = cacheFor(commands);
+  const cache = cacheFor(rpc);
   const key = `${accountId ?? ''}\u0000${roomId}`;
   const snapshot = cache.snapshots.get(key);
   if (snapshot !== undefined) {
@@ -77,8 +77,7 @@ export async function loadPacks(
 
   const cached =
     snapshot?.packs ??
-    (await commands
-      .imagePackListing(roomId, true)
+    (await imagePackListing(rpc, roomId, true)
       .then((listing) => listing.packs)
       .catch((): ImagePackView[] => []));
   if (snapshot === undefined && cached.length > 0) apply(cached);
@@ -86,8 +85,7 @@ export async function loadPacks(
   let refresh = cache.refreshes.get(key);
   if (refresh === undefined) {
     const generation = cache.generation;
-    const result = commands
-      .imagePackListing(roomId)
+    const result = imagePackListing(rpc, roomId)
       .then((listing) => {
         if (listing.complete && cache.generation === generation) {
           cache.snapshots.set(key, { packs: listing.packs, takenAt: Date.now() });
@@ -103,7 +101,7 @@ export async function loadPacks(
   try {
     const { packs, complete } = await refresh.result;
     if (cache.generation !== refresh.generation) {
-      return await loadPacks(commands, roomId, apply, accountId);
+      return await loadPacks(rpc, roomId, apply, accountId);
     }
     apply(packs);
     return complete;

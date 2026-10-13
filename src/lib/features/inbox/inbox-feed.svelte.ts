@@ -1,9 +1,8 @@
-import type { InboxFilter, InboxItemView } from '#src/generated/protocol';
+import type { InboxFilter, InboxItemView, Rpc } from '#src/generated/protocol';
 import { SvelteSet } from 'svelte/reactivity';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
 import { NOTIFICATION_GROUP_LIMIT } from './inbox';
 
-export type InboxFeedCommands = Pick<CoreCommands, 'inboxNotifications' | 'backfillInbox'>;
+export type InboxFeedCommands = Pick<Rpc['notifications'], 'inboxNotifications' | 'backfillInbox'>;
 
 export class InboxFeed {
   items = $state.raw<InboxItemView[]>([]);
@@ -27,15 +26,20 @@ export class InboxFeed {
     try {
       let queryLimit = limit * NOTIFICATION_GROUP_LIMIT;
       for (;;) {
-        const page = await this.commands.inboxNotifications(filter, includeRead, queryLimit);
+        const page = await this.commands.inboxNotifications({
+          filter,
+          include_read: includeRead,
+          limit: queryLimit,
+          before_ts: null,
+        });
         if (revision !== this.#revision) return;
         const groups = new SvelteSet(page.items.map((item) => item.room_id)).size;
-        if (page.hasMore && groups < limit && page.items.length >= queryLimit) {
+        if (page.has_more && groups < limit && page.items.length >= queryLimit) {
           queryLimit *= 2;
           continue;
         }
         this.items = page.items;
-        this.hasMore = page.hasMore || groups > limit;
+        this.hasMore = page.has_more || groups > limit;
         break;
       }
       this.#loadFailed = false;
@@ -71,8 +75,8 @@ export class InboxFeed {
     try {
       let more: boolean;
       do {
-        const page = await this.commands.backfillInbox(includeRead);
-        more = !includeRead && page.hasMore;
+        const page = await this.commands.backfillInbox({ include_read: includeRead });
+        more = !includeRead && page.has_more;
       } while (more && !this.#disposed);
     } catch (error) {
       console.warn('[sable inbox] backfilling notifications failed', error);

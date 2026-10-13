@@ -1,6 +1,6 @@
 #![recursion_limit = "512"]
 
-//! The native carrier. A feature adds a `Command` variant, except to move bytes or reach something only this process has.
+//! The native carrier. A feature adds an RPC handler in `sable_core::api`, except to move bytes or reach something only this process has.
 
 #[cfg(target_os = "linux")]
 mod app_dirs;
@@ -58,7 +58,7 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use sable_core::{
     Core, GalleryAttachment,
-    protocol::{Command, CommandErr, CommandOk, CoreEvent},
+    protocol::{CommandErr, CoreEvent},
 };
 use tauri::{
     AppHandle, Manager, State,
@@ -120,11 +120,12 @@ impl EventSink {
 }
 
 #[tauri::command]
-async fn submit_command(
+async fn call(
     state: State<'_, AppState>,
-    command: Command,
-) -> Result<CommandOk, CommandErr> {
-    Box::pin(state.core.dispatch(command)).await
+    method: String,
+    params: String,
+) -> Result<Box<serde_json::value::RawValue>, CommandErr> {
+    Box::pin(state.core.call(&method, &params)).await
 }
 
 #[tauri::command]
@@ -783,7 +784,7 @@ async fn restore_ahead_of_webview(core: Arc<Core>) {
     if !matches!(core.v1_migration_complete().await, Ok(true)) {
         return;
     }
-    if let Err(error) = Box::pin(core.dispatch(Command::Restore)).await {
+    if let Err(error) = Box::pin(core.run(sable_core::api::session::RestoreParams {})).await {
         log::warn!("Early session restore failed: {error:?}");
     }
 }
@@ -963,7 +964,7 @@ pub fn run() {
             v1_migration::import_v1_crypto_batch,
             v1_migration::finish_v1_migration,
             v1_migration::skip_v1_migration,
-            submit_command,
+            call,
             subscribe_events,
             fetch_media,
             forget_media,

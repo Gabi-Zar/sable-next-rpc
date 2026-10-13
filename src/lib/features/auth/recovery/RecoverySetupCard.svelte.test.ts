@@ -11,7 +11,7 @@ vi.mock('#lib/platform/files.js', () => files);
 import { core } from '#lib/core/__mocks__/context.js';
 
 const enableRecovery = vi.fn(() => Promise.resolve('EsTa bLiS hEd'));
-Object.assign(core, { enableRecovery });
+Object.assign(core, { rpc: { encryption: { enableRecovery } } });
 
 import RecoverySetupCard from './RecoverySetupCard.svelte';
 

@@ -10,7 +10,7 @@ use matrix_sdk::ruma::{ClientSecret, OwnedClientSecret, OwnedSessionId, UInt};
 
 use crate::ResultExt;
 use crate::errors::retry_delay_ms;
-use crate::protocol::{CommandErr, CommandOk, RegistrationResultView};
+use crate::protocol::{CommandErr, RegistrationResultView};
 use crate::session::{Credentials, PersistedSession};
 use crate::{Core, protocol, session};
 use serde::{Deserialize, Serialize};
@@ -358,7 +358,7 @@ impl Core {
         password: String,
         registration_email: Option<String>,
         registration_token: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<RegistrationResultView, CommandErr> {
         let attempt_id = self
             .next_registration_attempt
             .fetch_add(1, Ordering::AcqRel)
@@ -381,10 +381,10 @@ impl Core {
         let request = registration_request(&username, &password, None);
 
         match client.matrix_auth().register(request).await {
-            Ok(_) => self
-                .finish_registration(client, homeserver, account_id, store_id)
-                .await
-                .map(|result| CommandOk::Register { result }),
+            Ok(_) => {
+                self.finish_registration(client, homeserver, account_id, store_id)
+                    .await
+            }
             Err(error) => {
                 let Some(info) = error.as_uiaa_response().cloned() else {
                     return Err(self.registration_error(error));
@@ -544,7 +544,7 @@ impl Core {
     pub(super) async fn continue_registration(
         self: &Arc<Self>,
         acknowledge_fallback: bool,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<RegistrationResultView, CommandErr> {
         let mut acknowledge_fallback = acknowledge_fallback;
         let mut pending = self
             .pending_registration
@@ -588,7 +588,7 @@ impl Core {
                 } => (auth, used_fallback_acknowledgement),
                 RegistrationAction::View(result) => {
                     self.restore_pending_registration(pending).await;
-                    return Ok(CommandOk::ContinueRegistration { result });
+                    return Ok(result);
                 }
             };
             let request = registration_request(&pending.username, &pending.password, Some(auth));
@@ -603,7 +603,7 @@ impl Core {
                         .finish_registration(client, homeserver, account_id, store_id)
                         .await
                     {
-                        Ok(result) => Ok(CommandOk::ContinueRegistration { result }),
+                        Ok(result) => Ok(result),
                         Err(error) => {
                             self.restore_pending_registration(pending).await;
                             Err(error)
@@ -632,7 +632,7 @@ impl Core {
                                 }
                             };
                             self.restore_pending_registration(pending).await;
-                            return Ok(CommandOk::ContinueRegistration { result });
+                            return Ok(result);
                         }
                         self.restore_pending_registration(pending).await;
                         return Err(CommandErr::RegistrationStageFailed {
@@ -651,7 +651,7 @@ impl Core {
     pub(super) async fn request_registration_email(
         self: &Arc<Self>,
         address: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<RegistrationResultView, CommandErr> {
         let mut pending = self
             .pending_registration
             .lock()
@@ -738,13 +738,13 @@ impl Core {
             }
         };
         self.restore_pending_registration(pending).await;
-        Ok(CommandOk::RequestRegistrationEmail { result })
+        Ok(result)
     }
 
     pub(super) async fn submit_registration_email(
         self: &Arc<Self>,
         token: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<RegistrationResultView, CommandErr> {
         let mut pending = self
             .pending_registration
             .lock()
@@ -835,13 +835,13 @@ impl Core {
             }
         };
         self.restore_pending_registration(pending).await;
-        Ok(CommandOk::SubmitRegistrationEmail { result })
+        Ok(result)
     }
 
     pub(super) async fn discover_registration_flows(
         self: &Arc<Self>,
         homeserver: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<protocol::RegistrationFlowsView, CommandErr> {
         let client = session::discovery_client(&homeserver)
             .await
             .map_err(|error| self.discovery_error(error))?;
@@ -869,15 +869,10 @@ impl Core {
             ));
         }
 
-        Ok(CommandOk::RegistrationFlows {
-            flows: protocol::RegistrationFlowsView {
-                uiaa: !info.flows.is_empty(),
-                email: registration_requirement(&info.flows, &AuthType::EmailIdentity),
-                registration_token: registration_requirement(
-                    &info.flows,
-                    &AuthType::RegistrationToken,
-                ),
-            },
+        Ok(protocol::RegistrationFlowsView {
+            uiaa: !info.flows.is_empty(),
+            email: registration_requirement(&info.flows, &AuthType::EmailIdentity),
+            registration_token: registration_requirement(&info.flows, &AuthType::RegistrationToken),
         })
     }
 }

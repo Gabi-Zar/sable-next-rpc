@@ -4,13 +4,13 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { createCoreStub } from '#lib/core/__mocks__/context.js';
 
 import RoomOptionsMenuHarness from './RoomOptionsMenuHarness.test.svelte';
 
-function room(roomId: string, overrides: Partial<RoomSummary> = {}): RoomSummary {
+function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomListItemView {
   return {
     room_id: roomId,
     canonical_alias: null,
@@ -38,7 +38,7 @@ function room(roomId: string, overrides: Partial<RoomSummary> = {}): RoomSummary
     marked_unread: false,
     latest_event: null,
     ...overrides,
-  } as RoomSummary;
+  } as RoomListItemView;
 }
 
 test('keeps Add to space visible while the room list refreshes', async () => {
@@ -48,14 +48,22 @@ test('keeps Add to space visible while the room list refreshes', async () => {
   const spacePermissions = vi.fn<() => Promise<{ can_manage_children: boolean }>>(() =>
     Promise.resolve({ can_manage_children: true })
   );
-  function roomPermissions(roomId: string): Promise<{ can_manage_children: boolean }> {
-    return roomId === space.room_id
+  function roomPermissions({
+    room_id,
+  }: {
+    room_id: string;
+  }): Promise<{ can_manage_children: boolean }> {
+    return room_id === space.room_id
       ? spacePermissions()
       : Promise.resolve({ can_manage_children: false });
   }
   const core = createCoreStub({
     roomPermissions: vi.fn(roomPermissions),
-    notificationSettings: vi.fn().mockResolvedValue({ room: null, default: 'mentions' }),
+    rpc: {
+      notifications: {
+        notificationSettings: vi.fn().mockResolvedValue({ room: null, default: 'mentions' }),
+      },
+    },
   }) as unknown as CoreClient;
   let refresh = () => {};
 

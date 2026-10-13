@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 export type ThreadKind = 'through' | 'branch' | 'last';
 
@@ -6,7 +6,7 @@ export type Thread = { level: number; kind: ThreadKind };
 
 export type SpaceTreeRoom = {
   kind: 'room';
-  room: RoomSummary;
+  room: RoomListItemView;
   roomId: string;
   parentSpaceId: string;
   depth: number;
@@ -16,7 +16,7 @@ export type SpaceTreeRoom = {
 
 export type SpaceTreeSpace = {
   kind: 'category' | 'link';
-  room: RoomSummary;
+  room: RoomListItemView;
   depth: number;
   key: string;
   threads: Thread[];
@@ -30,13 +30,13 @@ export function indentFor(parentDepth: number): number {
 }
 
 export function spaceTree(
-  root: RoomSummary,
-  roomsById: ReadonlyMap<string, RoomSummary>,
+  root: RoomListItemView,
+  roomsById: ReadonlyMap<string, RoomListItemView>,
   limit: number
 ): SpaceTreeNode[] {
   const holding = new Map<string, boolean>();
 
-  function holdsRoom(space: RoomSummary, seen: Set<string>): boolean {
+  function holdsRoom(space: RoomListItemView, seen: Set<string>): boolean {
     const known = holding.get(space.room_id);
     if (known !== undefined) return known;
     if (seen.has(space.room_id)) return false;
@@ -52,7 +52,7 @@ export function spaceTree(
     return holds;
   }
 
-  function walk(space: RoomSummary, depth: number, ancestry: string[]): SpaceTreeNode[] {
+  function walk(space: RoomListItemView, depth: number, ancestry: string[]): SpaceTreeNode[] {
     const indent = indentFor(depth);
     const nodes: SpaceTreeNode[] = [];
 

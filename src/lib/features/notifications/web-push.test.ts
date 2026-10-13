@@ -150,7 +150,7 @@ function registration(keyed: string): unknown {
 
 function core(vapid: string | null, pushers: unknown[] = []) {
   const commands: Commands = {
-    webPusherSupport: vi.fn().mockResolvedValue({ vapid }),
+    webPusherSupport: vi.fn().mockResolvedValue(vapid),
     webPushers: vi.fn().mockResolvedValue(pushers),
     setPusher: vi.fn().mockResolvedValue(undefined),
     setWebPusher: vi.fn().mockResolvedValue(undefined),
@@ -158,7 +158,7 @@ function core(vapid: string | null, pushers: unknown[] = []) {
   };
   commandsOf = commands;
   return {
-    commands,
+    rpc: { push: commands },
     session: { account_id: 'account-a', device_id: 'LAPTOP' },
     deviceList: [],
   } as unknown as CoreClient;
@@ -182,9 +182,9 @@ test('a web push capability has the homeserver deliver, not the gateway', async 
 
   await syncPushSubscription(client, NONE);
 
-  expect(commandsOf.setWebPusher).toHaveBeenCalledWith(
-    expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId })
-  );
+  expect(commandsOf.setWebPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId }) as unknown,
+  });
   expect(commandsOf.setPusher).not.toHaveBeenCalled();
 });
 
@@ -193,9 +193,9 @@ test('without a capability, the shipped gateway keeps collecting the pusher', as
 
   await syncPushSubscription(client, NONE);
 
-  expect(commandsOf.setPusher).toHaveBeenCalledWith(
-    expect.objectContaining({ url: shipped.gateway, app_id: shipped.appId })
-  );
+  expect(commandsOf.setPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({ url: shipped.gateway, app_id: shipped.appId }) as unknown,
+  });
   expect(commandsOf.setWebPusher).not.toHaveBeenCalled();
 });
 
@@ -206,9 +206,9 @@ test('a complete override beats even a serving homeserver', async () => {
     pushAppId: 'org.example.web',
   });
 
-  expect(commandsOf.setPusher).toHaveBeenCalledWith(
-    expect.objectContaining({ url: shipped.gateway, app_id: 'org.example.web' })
-  );
+  expect(commandsOf.setPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({ url: shipped.gateway, app_id: 'org.example.web' }) as unknown,
+  });
   expect(commandsOf.setWebPusher).not.toHaveBeenCalled();
 });
 
@@ -232,10 +232,13 @@ test('re-keying to the homeserver retires the gateway pusher under the old key',
 
   await syncPushSubscription(client, NONE);
 
-  expect(commandsOf.removePusher).toHaveBeenCalledWith('old-p256dh', shipped.appId);
-  expect(commandsOf.setWebPusher).toHaveBeenCalledWith(
-    expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId })
-  );
+  expect(commandsOf.removePusher).toHaveBeenCalledWith({
+    pushkey: 'old-p256dh',
+    app_id: shipped.appId,
+  });
+  expect(commandsOf.setWebPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId }) as unknown,
+  });
 });
 
 test('taking over the delivery retires the gateway pusher left behind', async () => {
@@ -246,10 +249,13 @@ test('taking over the delivery retires the gateway pusher left behind', async ()
 
   await syncPushSubscription(client, NONE);
 
-  expect(commandsOf.removePusher).toHaveBeenCalledWith('keys-p256dh', shipped.appId);
-  expect(commandsOf.setWebPusher).toHaveBeenCalledWith(
-    expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId })
-  );
+  expect(commandsOf.removePusher).toHaveBeenCalledWith({
+    pushkey: 'keys-p256dh',
+    app_id: shipped.appId,
+  });
+  expect(commandsOf.setWebPusher).toHaveBeenCalledWith({
+    pusher: expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId }) as unknown,
+  });
 });
 
 test('a missing server pusher is recreated even when the local marker matches', async () => {
@@ -292,13 +298,13 @@ test('uses the configured device name', () => {
 test('updates the pusher after a device rename', async () => {
   mocks.activeServiceWorker.mockResolvedValue(registration(SERVER_KEY));
   await syncPushSubscription(client, NONE);
-  expect(commandsOf.setWebPusher).toHaveBeenLastCalledWith(
-    expect.objectContaining({ device_display_name: 'Sable' })
-  );
+  expect(commandsOf.setWebPusher).toHaveBeenLastCalledWith({
+    pusher: expect.objectContaining({ device_display_name: 'Sable' }) as unknown,
+  });
 
   Object.assign(client, { deviceList: [{ is_own: true, display_name: 'Work Firefox' }] });
   await syncPushSubscription(client, NONE);
-  expect(commandsOf.setWebPusher).toHaveBeenLastCalledWith(
-    expect.objectContaining({ device_display_name: 'Work Firefox' })
-  );
+  expect(commandsOf.setWebPusher).toHaveBeenLastCalledWith({
+    pusher: expect.objectContaining({ device_display_name: 'Work Firefox' }) as unknown,
+  });
 });

@@ -2,7 +2,7 @@ import { CoreError } from '#src/transport';
 import { t } from '#lib/i18n.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
 
-export async function sendReport(send: () => Promise<void>): Promise<void> {
+export async function sendReport(send: () => Promise<unknown>): Promise<void> {
   try {
     await send();
     toasts.info(t('timeline.reportSent'));

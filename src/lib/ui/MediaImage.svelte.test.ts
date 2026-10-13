@@ -88,7 +88,7 @@ test('a 2540-emote pack restores an evicted preview while other media is pending
   });
   core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
   for (let index = 0; index < 2540; index += 1) {
-    await loadMediaUrl({ session: null, commands: core }, props(index).source, 144, 144);
+    await loadMediaUrl({ session: null, media: core }, props(index).source, 144, 144);
   }
   expect(core.fetchMedia).toHaveBeenCalledTimes(2540);
   expect(cachedMediaUrl({ session: null }, props(0).source, 144, 144)).toBeUndefined();

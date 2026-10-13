@@ -27,7 +27,9 @@ function registered(): Registered | null {
 export async function unregisterVoipPusher(core: CoreClient): Promise<void> {
   const previous = registered();
   if (!previous) return;
-  await core.commands.removePusher(previous.pushkey, previous.appId).catch(() => undefined);
+  await core.rpc.push
+    .removePusher({ pushkey: previous.pushkey, app_id: previous.appId })
+    .catch(() => undefined);
   localStorage.removeItem(REGISTERED_KEY);
 }
 
@@ -52,14 +54,16 @@ export async function registerVoipPusher(
   }
   if (previous && !samePusher) await unregisterVoipPusher(core);
 
-  await core.commands.setPusher({
-    pushkey,
-    app_id: appId,
-    url: details.pushNotifyUrl,
-    device_display_name: deviceDisplayName,
-    web_push: null,
-    event_id_only: false,
-    append: true,
+  await core.rpc.push.setPusher({
+    pusher: {
+      pushkey,
+      app_id: appId,
+      url: details.pushNotifyUrl,
+      device_display_name: deviceDisplayName,
+      web_push: null,
+      event_id_only: false,
+      append: true,
+    },
   });
   localStorage.setItem(
     REGISTERED_KEY,

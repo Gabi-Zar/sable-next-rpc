@@ -2,7 +2,7 @@
   import type {
     HistoryVisibilityView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -22,7 +22,7 @@
   ];
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     levels: RoomPowerLevelsView | null;
     ownPowerLevel: number;
   }
@@ -45,8 +45,8 @@
     if (!target) return;
 
     const current = ++run;
-    void core.commands
-      .historyVisibility(target)
+    void core.rpc.room_state
+      .historyVisibility({ room_id: target })
       .then((next) => {
         if (current === run) visibility = next;
       })
@@ -65,7 +65,7 @@
     visibility = chosen;
     saving = true;
     try {
-      await core.commands.setHistoryVisibility(target, chosen);
+      await core.rpc.room_state.setHistoryVisibility({ room_id: target, visibility: chosen });
     } catch (error) {
       console.warn('[sable room] history visibility change failed', error);
       visibility = previous;

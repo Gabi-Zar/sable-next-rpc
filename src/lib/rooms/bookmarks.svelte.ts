@@ -1,10 +1,9 @@
 import { createContext } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 
-import type { BookmarkView } from '#src/generated/protocol';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { BookmarkView, Rpc } from '#src/generated/protocol';
 
-export type BookmarkCommands = Pick<CoreCommands, 'bookmarks' | 'setBookmark'>;
+export type BookmarkCommands = Pick<Rpc['account'], 'bookmarks' | 'setBookmark'>;
 
 function bookmarkKey(roomId: string, eventId: string): string {
   return `${roomId}|${eventId}`;
@@ -37,7 +36,12 @@ export class Bookmarks {
 
   async toggle(roomId: string, eventId: string): Promise<void> {
     const key = bookmarkKey(roomId, eventId);
-    const bookmarked = await this.commands.setBookmark(roomId, eventId, !this.#keys.has(key));
+    const bookmarked = await this.commands.setBookmark({
+      room_id: roomId,
+      event_id: eventId,
+      bookmarked: !this.#keys.has(key),
+      now_ms: Date.now(),
+    });
 
     this.#revision += 1;
     if (bookmarked) {

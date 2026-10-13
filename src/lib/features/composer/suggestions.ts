@@ -1,4 +1,4 @@
-import type { MemberView, PackImageView, RoomSummary } from '#src/generated/protocol';
+import type { MemberView, PackImageView, RoomListItemView } from '#src/generated/protocol';
 
 import { REACTION_EMOJI, searchReactionEmoji } from '#lib/emoji/emoji.js';
 import { t } from '#lib/i18n.js';
@@ -135,7 +135,7 @@ function emoteSuggestions(needle: string, emotes: readonly PackImageView[]): Sug
     .map(({ suggestion }) => suggestion);
 }
 
-function roomSuggestions(needle: string, rooms: readonly RoomSummary[]): Suggestion[] {
+function roomSuggestions(needle: string, rooms: readonly RoomListItemView[]): Suggestion[] {
   const normalized = (text: string) => text.toLowerCase().replace(/\s/g, '');
   const normalizedNeedle = normalized(needle);
   if (!normalizedNeedle) return [];
@@ -240,7 +240,7 @@ export function suggestionsFor(
   query: AutocompleteQuery | null,
   members: readonly MemberView[],
   emotes: readonly PackImageView[],
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   translate: Translate = t,
   admin: AdminScope = null,
   adminCommands: readonly AdminCommand[] | null = null,

@@ -8,10 +8,16 @@ vi.mock('#lib/core/context.js');
 
 import { core } from '#lib/core/__mocks__/context.js';
 
+const cancelVerification = vi.fn(() => Promise.resolve());
+
 Object.assign(core, {
-  acceptVerification: vi.fn(() => Promise.resolve()),
-  cancelVerification: vi.fn(() => Promise.resolve()),
-  confirmVerification: vi.fn(() => Promise.resolve()),
+  rpc: {
+    encryption: {
+      acceptVerification: vi.fn(() => Promise.resolve()),
+      cancelVerification,
+      confirmVerification: vi.fn(() => Promise.resolve()),
+    },
+  },
   session: { user_id: '@alice:example.org' },
   verification: {
     userId: '@alice:example.org',
@@ -54,11 +60,11 @@ test('dismissing an active flow cancels it and clears it so a new request can re
   await user.keyboard('{Escape}');
 
   await vi.waitFor(() => {
-    expect(core.commands.cancelVerification).toHaveBeenCalledWith(
-      '@alice:example.org',
-      'flow',
-      false
-    );
+    expect(cancelVerification).toHaveBeenCalledWith({
+      user_id: '@alice:example.org',
+      flow_id: 'flow',
+      mismatch: false,
+    });
     expect(core.verification).toBeNull();
   });
 });

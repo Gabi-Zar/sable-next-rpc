@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import type { BookmarkView, RoomSummary } from '#src/generated/protocol';
+import type { BookmarkView, RoomListItemView } from '#src/generated/protocol';
 
 import { applyBadgeMode, badgeModeFor, roomUnread, type RoomUnread } from '#lib/rooms/unread.js';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
@@ -21,7 +21,7 @@ import {
   unlistedNotifications,
 } from './inbox';
 
-function room(overrides: Partial<RoomSummary>): RoomSummary {
+function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
     room_id: '!room:example.org',
     canonical_alias: null,
@@ -154,7 +154,7 @@ test('a space never notifies, and neither does a room we have left', () => {
 });
 
 test('notifications are ordered by the latest event, undated last', () => {
-  const dated = (id: string, timestamp: number | null): RoomSummary =>
+  const dated = (id: string, timestamp: number | null): RoomListItemView =>
     room({
       room_id: id,
       highlight: 1,
@@ -305,7 +305,7 @@ test('compact timestamps shrink with age', () => {
 });
 
 test('only a room with notifications moves the backfill signal', () => {
-  const latest = (eventId: string) => ({ event_id: eventId }) as RoomSummary['latest_event'];
+  const latest = (eventId: string) => ({ event_id: eventId }) as RoomListItemView['latest_event'];
   const quiet = (eventId: string) =>
     room({ room_id: '!quiet:example.org', latest_event: latest(eventId) });
   const pinged = (eventId: string) =>

@@ -1,7 +1,7 @@
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { CoreMedia } from '#lib/core/media.svelte.js';
 
 export type VideoStreamer = {
-  commands: Partial<Pick<CoreCommands, 'streamVideo' | 'videoStreamMime'>>;
+  media: Partial<Pick<CoreMedia, 'streamVideo' | 'videoStreamMime'>>;
 };
 
 let streamMime = $state<string | null>(null);
@@ -9,7 +9,7 @@ let probed = false;
 
 /** False until the backend answers: the wrappers exist where the command does not. */
 export function videoStreamingSupported(core: VideoStreamer): boolean {
-  const { streamVideo, videoStreamMime } = core.commands;
+  const { streamVideo, videoStreamMime } = core.media;
   if (typeof streamVideo !== 'function' || typeof videoStreamMime !== 'function') return false;
   if (!probed) {
     probed = true;
@@ -38,7 +38,7 @@ export async function videoStreamUrl(
   _currentTime: () => number = () => 0,
   _onUrl: (url: string) => void = () => {}
 ): Promise<string> {
-  const { streamVideo, videoStreamMime } = core.commands;
+  const { streamVideo, videoStreamMime } = core.media;
   if (typeof streamVideo !== 'function' || typeof videoStreamMime !== 'function') {
     throw new Error('no native video re-encoder');
   }

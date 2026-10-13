@@ -1,6 +1,6 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { roomLabel, roomPathParam, useRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -18,7 +18,7 @@
 
   interface Props {
     spaceId: string;
-    rooms: readonly RoomSummary[];
+    rooms: readonly RoomListItemView[];
     onNavigate?: (href: string) => void;
   }
 
@@ -28,7 +28,7 @@
   const roomList = useRoomList();
 
   interface Today {
-    room: RoomSummary;
+    room: RoomListItemView;
     occurrence: Occurrence;
   }
 
@@ -38,7 +38,7 @@
 
   async function load(roomId: string): Promise<void> {
     try {
-      const view = await core.commands.calendarEntries(roomId);
+      const view = await core.rpc.calendar.calendarEntries({ room_id: roomId });
       items = { ...items, [roomId]: readEntries(view.entries) };
       now = Date.now();
     } catch (error) {

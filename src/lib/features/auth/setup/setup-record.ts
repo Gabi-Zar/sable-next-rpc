@@ -96,17 +96,19 @@ export function accountFinishedFrom(content: unknown): AccountStep[] {
 }
 
 export async function readAccountFinished(core: CoreClient): Promise<AccountStep[]> {
-  return accountFinishedFrom(await core.commands.accountData(ONBOARDING_ACCOUNT_DATA_TYPE));
+  return accountFinishedFrom(
+    await core.rpc.account.accountData({ event_type: ONBOARDING_ACCOUNT_DATA_TYPE })
+  );
 }
 
 export async function markAccountFinished(core: CoreClient, step: AccountStep): Promise<void> {
-  const content = await core.commands.accountData(ONBOARDING_ACCOUNT_DATA_TYPE);
+  const content = await core.rpc.account.accountData({ event_type: ONBOARDING_ACCOUNT_DATA_TYPE });
   const finished = finishedNames(content);
   if (finished.includes(step)) return;
   const base = typeof content === 'object' && content !== null ? content : {};
-  await core.commands.setAccountData(ONBOARDING_ACCOUNT_DATA_TYPE, {
-    ...base,
-    finished: [...finished, step],
+  await core.rpc.account.setAccountData({
+    event_type: ONBOARDING_ACCOUNT_DATA_TYPE,
+    content: { ...base, finished: [...finished, step] },
   });
 }
 
@@ -116,9 +118,12 @@ export async function restartSetup(
   userId: string,
   deviceId: string
 ): Promise<void> {
-  const content = await core.commands.accountData(ONBOARDING_ACCOUNT_DATA_TYPE);
+  const content = await core.rpc.account.accountData({ event_type: ONBOARDING_ACCOUNT_DATA_TYPE });
   const base = typeof content === 'object' && content !== null ? content : {};
-  await core.commands.setAccountData(ONBOARDING_ACCOUNT_DATA_TYPE, { ...base, finished: [] });
+  await core.rpc.account.setAccountData({
+    event_type: ONBOARDING_ACCOUNT_DATA_TYPE,
+    content: { ...base, finished: [] },
+  });
   writeSetupRecord(storage, setupRecordKey(userId, deviceId), {
     full: true,
     registering: true,

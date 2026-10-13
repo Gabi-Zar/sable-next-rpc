@@ -96,7 +96,7 @@
 
     const current = ++run;
     try {
-      const state = await core.commands.pinReadState(target);
+      const state = await core.rpc.timeline.pinReadState({ room_id: target });
       if (current !== run) return;
 
       adopt(state);
@@ -112,7 +112,7 @@
     const current = ++run;
     loading = true;
     try {
-      const ids = await core.commands.pinnedEvents(target);
+      const ids = await core.rpc.timeline.pinnedEvents({ room_id: target });
       if (current !== run) return;
       pinnedIds = ids;
       shownIds = ids;
@@ -135,7 +135,7 @@
   async function resolve(target: string, ids: string[], current: number): Promise<void> {
     if (ids.length === 0) return;
     try {
-      const items = await core.commands.eventItems(target, ids);
+      const items = await core.rpc.timeline.eventItems({ room_id: target, event_ids: ids });
       if (current !== run) return;
       if (items.length > 0) {
         entries = new Map([
@@ -186,7 +186,7 @@
     if (ids.length === 0) return;
     unreadCount = 0;
     try {
-      adopt(await core.commands.markPinsSeen(target, ids));
+      adopt(await core.rpc.timeline.markPinsSeen({ room_id: target, pinned_ids: [...ids] }));
     } catch (error) {
       console.debug('[sable room] pin marker not stored', error);
     }
@@ -194,7 +194,11 @@
 
   async function unpin(eventId: string): Promise<void> {
     try {
-      pinnedIds = await core.commands.setPinned(roomId, eventId, false);
+      pinnedIds = await core.rpc.timeline.setPinned({
+        room_id: roomId,
+        event_id: eventId,
+        pinned: false,
+      });
       shownIds = shownIds.filter((id) => id !== eventId);
     } catch (error) {
       console.warn('[sable room] unpin failed', error);

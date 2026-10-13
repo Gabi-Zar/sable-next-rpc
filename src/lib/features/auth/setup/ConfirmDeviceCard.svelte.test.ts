@@ -23,12 +23,17 @@ const live = $state<{ encryption: EncryptionStatusView | null; deviceList: Devic
   deviceList: [],
 });
 
+const resetIdentity = vi.fn(() => Promise.resolve({ step: 'done', recovery_key: 'new key' }));
 const core = Object.assign(baseCore, {
   session: { user_id: '@me:example.org', device_id: 'THIS' },
   requestVerification: vi.fn(() => Promise.resolve()),
-  recoverIdentity: vi.fn(() => Promise.resolve()),
-  resetIdentity: vi.fn(() => Promise.resolve({ step: 'done', recovery_key: 'new key' })),
-  cancelIdentityReset: vi.fn(() => Promise.resolve()),
+  rpc: {
+    encryption: {
+      recoverIdentity: vi.fn(() => Promise.resolve()),
+      resetIdentity,
+      cancelIdentityReset: vi.fn(() => Promise.resolve()),
+    },
+  },
 });
 Object.defineProperties(core, {
   encryption: { get: () => live.encryption },
@@ -155,7 +160,7 @@ test('a reset needs the acknowledgement and hands its recovery key on', async ()
 test('a device confirmed while its reset is running still hands the new key on', async () => {
   live.encryption = status('unverified', 'disabled');
   let finish: (step: { step: 'done'; recovery_key: string }) => void = () => {};
-  core.resetIdentity.mockReturnValueOnce(
+  resetIdentity.mockReturnValueOnce(
     new Promise((resolve) => {
       finish = resolve;
     })

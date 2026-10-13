@@ -10,9 +10,12 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
+const recoverIdentity = vi.fn<(params: { recovery_key: string }) => Promise<void>>(() =>
+  Promise.resolve()
+);
 const core = Object.assign(baseCore, {
   encryption: null as EncryptionStatusView | null,
-  recoverIdentity: vi.fn<(key: string) => Promise<void>>(() => Promise.resolve()),
+  rpc: { encryption: { recoverIdentity } },
 });
 
 import SyncEncryption from './SyncEncryption.svelte';
@@ -32,7 +35,7 @@ function status(overrides: Partial<EncryptionStatusView>): EncryptionStatusView 
 
 afterEach(() => {
   core.encryption = null;
-  core.recoverIdentity.mockClear();
+  recoverIdentity.mockClear();
 });
 
 test('a device without the account data key unlocks it with the recovery key', async () => {
@@ -43,7 +46,7 @@ test('a device without the account data key unlocks it with the recovery key', a
   await user.type(screen.getByLabelText('Use a recovery key'), ' EsT0 abcd ');
   await user.click(screen.getByRole('button', { name: 'Unlock' }));
 
-  expect(core.recoverIdentity).toHaveBeenCalledWith('EsT0 abcd');
+  expect(recoverIdentity).toHaveBeenCalledWith({ recovery_key: 'EsT0 abcd' });
 });
 
 test('asks for nothing once the key is here, or while recovery is off', () => {

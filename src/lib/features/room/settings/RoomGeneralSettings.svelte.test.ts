@@ -7,7 +7,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type {
   RoomPermissionsView,
   RoomPowerLevelsView,
-  RoomSummary,
+  RoomListItemView,
 } from '#src/generated/protocol';
 
 vi.mock('#lib/core/context.js');
@@ -22,15 +22,17 @@ import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
 import RoomGeneralSettings from './RoomGeneralSettings.svelte';
 
-const core = Object.assign(baseCore, {
+const spaces = Object.assign(baseCore.rpc.spaces, {
   roomHasSpaceParent: vi.fn<() => Promise<boolean>>(),
+});
+const core = Object.assign(baseCore, {
   roomAliases: vi.fn<() => Promise<string[]>>(),
   roomStateEventsRaw: vi.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
   roomDirectoryVisibility: vi.fn<() => Promise<boolean>>(),
   setRoomJoinRule: vi.fn<() => Promise<void>>(),
 });
 
-const room: RoomSummary = withCounts({
+const room: RoomListItemView = withCounts({
   room_id: '!room:example.org',
   canonical_alias: null,
   name: 'Example room',
@@ -97,7 +99,7 @@ afterEach(() => {
 });
 
 test('saves an access change with join-rule permission alone', async () => {
-  core.roomHasSpaceParent.mockResolvedValue(false);
+  spaces.roomHasSpaceParent.mockResolvedValue(false);
   core.roomAliases.mockResolvedValue([]);
   core.roomDirectoryVisibility.mockResolvedValue(false);
   core.setRoomJoinRule.mockResolvedValue(undefined);
@@ -108,12 +110,15 @@ test('saves an access change with join-rule permission alone', async () => {
   await user.click(screen.getByRole('button', { name: 'common.save' }));
 
   await vi.waitFor(() => {
-    expect(core.setRoomJoinRule).toHaveBeenCalledWith('!room:example.org', 'public');
+    expect(core.setRoomJoinRule).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      rule: 'public',
+    });
   });
 });
 
 test('an unsaved change raises the save bar, and reset discards it', async () => {
-  core.roomHasSpaceParent.mockResolvedValue(false);
+  spaces.roomHasSpaceParent.mockResolvedValue(false);
   core.roomAliases.mockResolvedValue([]);
   core.roomDirectoryVisibility.mockResolvedValue(false);
   const user = userEvent.setup();

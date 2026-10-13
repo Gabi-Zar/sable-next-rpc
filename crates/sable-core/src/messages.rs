@@ -20,7 +20,7 @@ use matrix_sdk_ui::timeline::TimelineEventItemId;
 
 use crate::Core;
 use crate::ResultExt;
-use crate::dispatch::{BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS};
+use crate::api::support::{BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS};
 use crate::matrix_html::{
     display_html, has_profile_fallback_html, strip_profile_fallback_body,
     strip_profile_fallback_html,
@@ -1347,7 +1347,7 @@ mod tests {
 
     #[tokio::test]
     async fn editing_a_pending_reply_updates_the_queue_and_keeps_the_relation() {
-        use crate::protocol::{Command, MessageKind};
+        use crate::protocol::MessageKind;
         use matrix_sdk::ruma::events::relation::Reply;
         use matrix_sdk::ruma::events::room::message::{Relation, RoomMessageEventContent};
         let server = MatrixMockServer::new().await;
@@ -1378,7 +1378,7 @@ mod tests {
         })
         .await
         .unwrap();
-        core.dispatch(Command::EditMessage {
+        core.run(crate::api::messages::EditMessageParams {
             room_id: room_id.to_owned(),
             event_id: None,
             transaction_id: Some(transaction_id),
@@ -1422,7 +1422,7 @@ mod tests {
 
     #[tokio::test]
     async fn reading_a_thread_sends_only_a_receipt_scoped_to_its_root() {
-        use crate::protocol::Command;
+        use crate::api::timeline::MarkReadParams;
         use matrix_sdk_test::{ALICE, JoinedRoomBuilder, event_factory::EventFactory};
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
@@ -1478,7 +1478,7 @@ mod tests {
         );
         for thread_root in [None, Some(event_id!("$wrong-root").to_owned())] {
             let result = core
-                .dispatch(Command::MarkRead {
+                .run(MarkReadParams {
                     room_id: room_id.to_owned(),
                     event_id: Some(event_id!("$reply").to_owned()),
                     private_receipt: false,
@@ -1492,7 +1492,7 @@ mod tests {
                 Err(crate::protocol::CommandErr::UnknownSubscription)
             ));
         }
-        core.dispatch(Command::MarkRead {
+        core.run(MarkReadParams {
             room_id: room_id.to_owned(),
             event_id: Some(event_id!("$reply").to_owned()),
             private_receipt: false,
@@ -1506,7 +1506,8 @@ mod tests {
 
     #[tokio::test]
     async fn a_thread_timeline_is_already_at_its_end_going_forward() {
-        use crate::protocol::{Command, CommandOk, PaginationDirection};
+        use crate::api::timeline::{PaginateOk, PaginateParams};
+        use crate::protocol::PaginationDirection;
         use matrix_sdk_test::{ALICE, JoinedRoomBuilder, event_factory::EventFactory};
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
@@ -1539,7 +1540,7 @@ mod tests {
         );
 
         let result = core
-            .dispatch(Command::Paginate {
+            .run(PaginateParams {
                 subscription,
                 direction: PaginationDirection::Forward,
                 count: 20,
@@ -1548,7 +1549,7 @@ mod tests {
 
         assert!(matches!(
             result,
-            Ok(CommandOk::Paginate {
+            Ok(PaginateOk {
                 direction: PaginationDirection::Forward,
                 reached_end: true,
             })

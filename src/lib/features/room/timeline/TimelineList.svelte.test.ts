@@ -180,7 +180,7 @@ test('expanding a member group exposes the original event source', async () => {
   const roomTimeline = timeline();
   const source = JSON.stringify({ event_id: '$first' });
   const eventSource = vi.fn(() => Promise.resolve({ source, encrypted: false, original: null }));
-  Object.assign(core.commands, { eventSourceDetails: eventSource });
+  Object.assign(core.rpc.timeline, { eventSource });
   roomTimeline.items = ['first', 'last'].map((id): TimelineItemView =>
     withRowFields({
       ...item(id),
@@ -219,7 +219,11 @@ test('expanding a member group exposes the original event source', async () => {
   await runAnimationFrames();
   await userEvent.click(screen.getByRole('menuitem', { name: 'View source' }));
   await runAnimationFrames();
-  expect(eventSource).toHaveBeenCalledWith('!room:example.org', '$first');
+  expect(eventSource).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_id: '$first',
+    include_original: true,
+  });
   expect(screen.getByRole('dialog', { name: 'Message source' })).toHaveTextContent(source);
 });
 

@@ -1,10 +1,10 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { ancestorSpaceLevels } from '#lib/features/room/abbreviations.js';
 import { findRoomByPathId } from '#lib/rooms/room-list.svelte.js';
 
 export function personaSpaces(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   roomId: string,
   spacePathId: string | undefined
 ): { target: string | null; order: string[] } {

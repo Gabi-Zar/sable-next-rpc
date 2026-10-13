@@ -9,7 +9,9 @@ import { EventItems, MAX_EVENT_ITEMS } from './event-items.svelte';
 const item = (eventId: string) => ({ event_id: eventId }) as TimelineItemView;
 
 function directory() {
-  const eventItems = vi.fn((_roomId: string, ids: string[]) => Promise.resolve(ids.map(item)));
+  const eventItems = vi.fn(({ event_ids }: { room_id: string; event_ids: string[] }) =>
+    Promise.resolve(event_ids.map(item))
+  );
   return { items: new EventItems({ eventItems }, () => '@me:x'), eventItems };
 }
 

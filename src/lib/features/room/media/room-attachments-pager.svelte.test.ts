@@ -20,7 +20,7 @@ test('a retry re-requests the failed page and keeps the loaded ones', async () =
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce({ items: [attachment('$b')], next_batch: null });
   const pager = new RoomAttachmentsPager({
-    commands: { roomAttachments },
+    rpc: { rooms: { roomAttachments } },
   } as unknown as CoreClient);
 
   pager.sync('!room');
@@ -33,7 +33,12 @@ test('a retry re-requests the failed page and keeps the loaded ones', async () =
   pager.retry();
   await settle();
 
-  expect(roomAttachments).toHaveBeenLastCalledWith('!room', 'media', 30, 'page-2');
+  expect(roomAttachments).toHaveBeenLastCalledWith({
+    room_id: '!room',
+    kind: 'media',
+    limit: 30,
+    from: 'page-2',
+  });
   expect(pager.items.map((item) => item.event_id)).toEqual(['$a', '$b']);
   expect(pager.failed).toBe(false);
   expect(pager.exhausted).toBe(true);

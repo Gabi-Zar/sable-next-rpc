@@ -1,8 +1,8 @@
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
 import type {
   RoomPermissionsView,
   RoomPowerLevelsView,
-  RoomSummary,
+  RoomListItemView,
+  Rpc,
 } from '#src/generated/protocol';
 
 const STATE_TYPES = [
@@ -21,8 +21,8 @@ const STATE_TYPES = [
 ] as const;
 
 export async function collectRoomDebugData(
-  commands: Pick<CoreCommands, 'roomStateEventsRaw'>,
-  room: RoomSummary,
+  rpc: { room_state: Pick<Rpc['room_state'], 'roomStateEventsRaw'> },
+  room: RoomListItemView,
   permissions: RoomPermissionsView | null,
   levels: RoomPowerLevelsView | null
 ): Promise<string> {
@@ -33,7 +33,11 @@ export async function collectRoomDebugData(
   const state = await Promise.all(
     STATE_TYPES.map(async (type) => {
       try {
-        const events = await commands.roomStateEventsRaw(room.room_id, type, null);
+        const events = await rpc.room_state.roomStateEventsRaw({
+          room_id: room.room_id,
+          event_type: type,
+          state_key: null,
+        });
         return [type, { events }] as const;
       } catch (error) {
         return [type, { error: error instanceof Error ? error.message : String(error) }] as const;

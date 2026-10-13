@@ -2,7 +2,7 @@ import { expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
@@ -26,7 +26,7 @@ vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
 
 import SearchView from './SearchView.svelte';
 
-function room(overrides: Partial<RoomSummary>): RoomSummary {
+function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
     room_id: '!id:example.org',
     canonical_alias: null,
@@ -69,11 +69,10 @@ async function mount() {
     searchCoverage: null,
     searchCoverageUnavailable: false,
     refreshSearchCoverage: vi.fn().mockResolvedValue(undefined),
-    searchUserDirectory: vi.fn().mockResolvedValue([]),
+    rpc: { account: { searchUserDirectory: vi.fn().mockResolvedValue([]) } },
   });
   core.commands = {
     searchMessages: vi.fn().mockResolvedValue({ hits: [], older: null }),
-    searchUserDirectory: vi.fn().mockResolvedValue([]),
   };
   const screen = await render(SearchView);
   const field = screen.getByRole('combobox', { name: en.common.searchMessages });

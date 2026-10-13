@@ -12,11 +12,12 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
+const encryption = {
   encryptionStatus: vi.fn<() => Promise<EncryptionStatusView>>(),
-  devices: vi.fn<() => Promise<{ devices: DeviceView[]; accountManagement: boolean }>>(),
-  deleteDevice: vi.fn<(deviceId: string, password: string | null) => Promise<string | null>>(),
-  renameDevice: vi.fn<(deviceId: string, displayName: string) => Promise<void>>(),
+  devices: vi.fn<() => Promise<{ devices: DeviceView[]; account_management: boolean }>>(),
+  deleteDevice:
+    vi.fn<(params: { device_id: string; password: string | null }) => Promise<string | null>>(),
+  renameDevice: vi.fn<(params: { device_id: string; display_name: string }) => Promise<void>>(),
   resetRecoveryKey: vi.fn<() => Promise<string>>(),
   keyBackupStatus: vi.fn().mockResolvedValue({
     local_keys: 0,
@@ -25,7 +26,8 @@ const core = Object.assign(baseCore, {
     can_restore: true,
     download: null,
   }),
-});
+};
+Object.assign(baseCore, { rpc: { encryption } });
 
 import DevicesSettings from './DevicesSettings.svelte';
 
@@ -73,8 +75,8 @@ const other2: DeviceView = {
 };
 
 async function renderDevices(devices: DeviceView[]) {
-  core.encryptionStatus.mockResolvedValue(status);
-  core.devices.mockResolvedValue({ devices, accountManagement: false });
+  encryption.encryptionStatus.mockResolvedValue(status);
+  encryption.devices.mockResolvedValue({ devices, account_management: false });
   render(DevicesSettings);
   await vi.waitFor(() => {
     expect(screen.getAllByText(/^(This device|Phone|Tablet)$/).length).toBeGreaterThanOrEqual(
@@ -95,19 +97,19 @@ async function signOutOthers(user: ReturnType<typeof userEvent.setup>): Promise<
 }
 
 test('signs out the selected devices in one batch', async () => {
-  core.deleteDevice.mockResolvedValue(null);
+  encryption.deleteDevice.mockResolvedValue(null);
   const user = await renderDevices([own, other1, other2]);
 
   await signOutOthers(user);
   await vi.waitFor(() => {
-    expect(core.deleteDevice).toHaveBeenCalledWith('DEV1', null);
-    expect(core.deleteDevice).toHaveBeenCalledWith('DEV2', null);
+    expect(encryption.deleteDevice).toHaveBeenCalledWith({ device_id: 'DEV1', password: null });
+    expect(encryption.deleteDevice).toHaveBeenCalledWith({ device_id: 'DEV2', password: null });
   });
 });
 
 test('reports which devices failed instead of a blanket success', async () => {
-  core.deleteDevice.mockImplementation((deviceId: string) =>
-    deviceId === 'DEV2' ? Promise.reject(new Error('denied')) : Promise.resolve(null)
+  encryption.deleteDevice.mockImplementation(({ device_id }) =>
+    device_id === 'DEV2' ? Promise.reject(new Error('denied')) : Promise.resolve(null)
   );
   const user = await renderDevices([own, other1, other2]);
 
@@ -127,21 +129,24 @@ test('renames the current device', async () => {
   );
 
   await vi.waitFor(() => {
-    expect(core.renameDevice).toHaveBeenCalledWith('OWN', 'Laptop');
+    expect(encryption.renameDevice).toHaveBeenCalledWith({
+      device_id: 'OWN',
+      display_name: 'Laptop',
+    });
   });
 });
 
 test('asks for confirmation before resetting the recovery key', async () => {
-  core.resetRecoveryKey.mockResolvedValue('NEW KEY');
+  encryption.resetRecoveryKey.mockResolvedValue('NEW KEY');
   const user = await renderDevices([own]);
 
   await user.click(await screen.findByRole('button', { name: 'Reset recovery key' }));
   const dialog = await screen.findByRole('dialog');
-  expect(core.resetRecoveryKey).not.toHaveBeenCalled();
+  expect(encryption.resetRecoveryKey).not.toHaveBeenCalled();
 
   await user.click(within(dialog).getByRole('button', { name: 'Reset recovery key' }));
   expect(await screen.findByText('NEW KEY')).toBeInTheDocument();
-  expect(core.resetRecoveryKey).toHaveBeenCalledOnce();
+  expect(encryption.resetRecoveryKey).toHaveBeenCalledOnce();
 });
 
 test('a session without device keys says so and offers no verification', async () => {
@@ -159,7 +164,7 @@ test('a session without device keys says so and offers no verification', async (
 test('removing one device shows it is in progress until the list no longer has it', async () => {
   const user = await renderDevices([own, other1]);
   let answer: (value: string | null) => void = () => {};
-  core.deleteDevice.mockImplementation(
+  encryption.deleteDevice.mockImplementation(
     () =>
       new Promise((resolve) => {
         answer = resolve;
@@ -175,12 +180,12 @@ test('removing one device shows it is in progress until the list no longer has i
   const confirm = screen.getByRole('button', { name: 'Remove device' });
   await user.click(confirm);
 
-  expect(core.deleteDevice).toHaveBeenCalledWith('DEV1', 'hunter2');
+  expect(encryption.deleteDevice).toHaveBeenCalledWith({ device_id: 'DEV1', password: 'hunter2' });
   expect(confirm).toHaveAttribute('aria-busy', 'true');
   expect(confirm).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
 
-  core.devices.mockResolvedValue({ devices: [own], accountManagement: false });
+  encryption.devices.mockResolvedValue({ devices: [own], account_management: false });
   answer(null);
   await vi.waitFor(() => {
     expect(screen.queryByRole('button', { name: 'Remove device' })).not.toBeInTheDocument();
@@ -188,13 +193,13 @@ test('removing one device shows it is in progress until the list no longer has i
 });
 
 test('a verified session missing its master key explains it instead of asking to unlock', async () => {
-  core.encryptionStatus.mockResolvedValue({
+  encryption.encryptionStatus.mockResolvedValue({
     ...status,
     recovery: 'incomplete',
     backup_unlocked: true,
     signing_keys: { master: false, self_signing: true, user_signing: true },
   });
-  core.devices.mockResolvedValue({ devices: [own], accountManagement: false });
+  encryption.devices.mockResolvedValue({ devices: [own], account_management: false });
   render(DevicesSettings);
 
   expect(await screen.findByText('Some signing keys are not on this device')).toBeInTheDocument();
@@ -205,13 +210,13 @@ test('a verified session missing its master key explains it instead of asking to
 });
 
 test('a verified session whose key backup is still locked keeps the unlock action', async () => {
-  core.encryptionStatus.mockResolvedValue({
+  encryption.encryptionStatus.mockResolvedValue({
     ...status,
     recovery: 'incomplete',
     backup_unlocked: false,
     signing_keys: { master: false, self_signing: true, user_signing: true },
   });
-  core.devices.mockResolvedValue({ devices: [own], accountManagement: false });
+  encryption.devices.mockResolvedValue({ devices: [own], account_management: false });
   render(DevicesSettings);
 
   expect(await screen.findByRole('button', { name: 'Unlock' })).toBeInTheDocument();

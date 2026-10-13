@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -16,9 +16,9 @@
 
   interface Props {
     open: boolean;
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     onOpenChange: (open: boolean) => void;
-    onLeft?: (room: RoomSummary) => void;
+    onLeft?: (room: RoomListItemView) => void;
   }
 
   let { open, room, onOpenChange, onLeft }: Props = $props();
@@ -54,7 +54,7 @@
     const failures: string[] = [];
     for (const id of ids) {
       try {
-        await core.commands.leaveRoom(id);
+        await core.rpc.rooms.leaveRoom({ room_id: id });
       } catch (error) {
         console.warn('[sable room] leave failed', error);
         failures.push(roomList.labelFor(id));

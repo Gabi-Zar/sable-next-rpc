@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CoreClient } from '#lib/core/client.svelte.js';
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { provideCoreClient } from '#lib/core/context.js';
   import { PersonaStore, providePersonaStore } from '#lib/personas/personas.svelte.js';
   import { provideRoomList, RoomList } from '#lib/rooms/room-list.svelte.js';
@@ -12,7 +12,7 @@
 
   interface Props {
     core: CoreClient;
-    rooms?: RoomSummary[];
+    rooms?: RoomListItemView[];
     composer: ComponentProps<typeof RoomComposer>;
     registerReply?: (reply: () => void) => void;
     registerContext?: (set: (next: ComposerContext | null) => void) => void;

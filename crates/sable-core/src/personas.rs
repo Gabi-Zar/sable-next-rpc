@@ -705,7 +705,7 @@ impl Core {
         forum_title: Option<String>,
     ) -> Result<(), CommandErr> {
         let event_type = content.event_type().to_string();
-        let title = crate::dispatch::forum_title_value(forum_title);
+        let title = crate::api::support::forum_title_value(forum_title);
         let mut value = serde_json::to_value(content).or_failed(self, "edit_with_persona")?;
 
         let update = |content: &mut Value| {

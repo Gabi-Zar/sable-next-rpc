@@ -2,7 +2,7 @@
   import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -34,9 +34,9 @@
     replaced.filter((room) => !isReplacedRoomDismissed(room.room_id)).length
   );
 
-  async function leave(room: RoomSummary): Promise<void> {
+  async function leave(room: RoomListItemView): Promise<void> {
     try {
-      await core.commands.leaveRoom(room.room_id);
+      await core.rpc.rooms.leaveRoom({ room_id: room.room_id });
     } catch {
       toasts.error($i18n.t('room.leaveFailed'));
     }

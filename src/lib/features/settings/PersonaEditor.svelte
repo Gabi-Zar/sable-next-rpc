@@ -61,7 +61,7 @@
     error = null;
     try {
       const upright = await uprightJpeg(file);
-      avatarUrl = await core.commands.uploadMedia(
+      avatarUrl = await core.media.uploadMedia(
         upright.type || 'image/*',
         new Uint8Array(await upright.arrayBuffer())
       );

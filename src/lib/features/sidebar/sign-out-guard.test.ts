@@ -21,7 +21,7 @@ const safe: SignOutSafetyView = {
 };
 
 function guardFor(signOutSafety: () => Promise<SignOutSafetyView>): SignOutGuard {
-  return new SignOutGuard({ commands: { signOutSafety } } as unknown as CoreClient);
+  return new SignOutGuard({ rpc: { encryption: { signOutSafety } } } as unknown as CoreClient);
 }
 
 test.each([

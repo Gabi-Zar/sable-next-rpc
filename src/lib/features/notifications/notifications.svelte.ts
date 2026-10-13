@@ -1,4 +1,4 @@
-import type { NotificationView, RoomSummary } from '#src/generated/protocol';
+import type { NotificationView, RoomListItemView } from '#src/generated/protocol';
 
 import { createContext } from 'svelte';
 
@@ -33,7 +33,7 @@ export class NotificationCenter {
   private reading: string | null = null;
   private retirePosted: ReturnType<typeof setTimeout> | undefined;
   private readRooms: readonly string[] = [];
-  private rooms: readonly RoomSummary[] = [];
+  private rooms: readonly RoomListItemView[] = [];
   private unreadFor: RoomUnread = roomNotifications;
   /* eslint-disable svelte/prefer-svelte-reactivity -- a write from a notification would subscribe whichever effect is running */
   private readonly pushed = new Map<string, string>();
@@ -61,8 +61,8 @@ export class NotificationCenter {
       const validation = webPushValidation(message.message);
       if (validation !== null) {
         if (message.nativeActivation) return;
-        void core.commands
-          .ackWebPusher(validation.app_id, validation.ack_token)
+        void core.rpc.push
+          .ackWebPusher({ app_id: validation.app_id, ack_token: validation.ack_token })
           .catch(() => undefined);
         return;
       }
@@ -100,11 +100,11 @@ export class NotificationCenter {
     if (this.reading === roomId) return;
     this.reading = roomId;
 
-    void this.client?.commands.setReadRoom(roomId).catch(() => undefined);
+    void this.client?.rpc.session.setReadRoom({ room_id: roomId }).catch(() => undefined);
     if (roomId !== null) this.settle(roomId);
   }
 
-  retireRead(rooms: readonly RoomSummary[], unreadFor: RoomUnread = roomNotifications): void {
+  retireRead(rooms: readonly RoomListItemView[], unreadFor: RoomUnread = roomNotifications): void {
     this.rooms = rooms;
     this.unreadFor = unreadFor;
     for (const [roomId, appeared] of this.invites) {
@@ -227,7 +227,7 @@ export class NotificationCenter {
     else this.pushed.set(roomId, notification.event_id);
   }
 
-  private readThrough(room: RoomSummary, eventId: string | undefined): boolean {
+  private readThrough(room: RoomListItemView, eventId: string | undefined): boolean {
     return (
       eventId !== undefined &&
       room.latest_event?.event_id === eventId &&

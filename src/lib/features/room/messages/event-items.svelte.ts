@@ -1,10 +1,8 @@
 import { createContext } from 'svelte';
 import { createSubscriber } from 'svelte/reactivity';
-import type { TimelineItemView } from '#src/generated/protocol';
+import type { TimelineItemView, Rpc } from '#src/generated/protocol';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
-
-export type EventItemCommands = Pick<CoreCommands, 'eventItems'>;
+export type EventItemCommands = Pick<Rpc['timeline'], 'eventItems'>;
 
 export const MAX_EVENT_ITEMS = 512;
 
@@ -102,7 +100,7 @@ export class EventItems {
         if (wanted.length === 0) return;
         for (const id of wanted) this.#slot(this.#key(roomId, id, owner)).value = null;
         try {
-          const items = await this.commands.eventItems(roomId, wanted);
+          const items = await this.commands.eventItems({ room_id: roomId, event_ids: wanted });
           for (const item of items) {
             if (item.event_id !== null)
               this.#slot(this.#key(roomId, item.event_id, owner)).value = item;

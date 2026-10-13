@@ -24,9 +24,10 @@ use tokio::sync::{Mutex, Notify};
 use super::keys::{self, KeyDistributor, Rolled};
 use super::membership::{self, CallMember, StickyMemberships};
 use super::{HANGUP_DELAY, USE_KEY_DELAY, sfu, sticky};
+use crate::api::calls::JoinCallOk;
 use crate::protocol::{
     CallBackendView, CallIntent, CallMemberView, CallMode, CallModeReason, CallSessionId,
-    CommandErr, CommandOk, CoreEvent,
+    CommandErr, CoreEvent,
 };
 use crate::{CallSession, Core};
 
@@ -733,7 +734,7 @@ pub(super) async fn join(
     configured: Option<String>,
     requested: Option<CallMode>,
     intent: Option<CallIntent>,
-) -> Result<CommandOk, CommandErr> {
+) -> Result<JoinCallOk, CommandErr> {
     let generation = core.session_generation.load(Ordering::SeqCst);
     let room = core.room(&room_id).await?;
     let encrypt_media = core.room_is_encrypted(&room).await?;
@@ -817,7 +818,7 @@ pub(super) async fn join(
             sticky_member: own.member_id.filter(|_| mode == CallMode::Matrix2),
         },
     );
-    Ok(CommandOk::JoinCall {
+    Ok(JoinCallOk {
         session,
         url: provision.url,
         jwt: provision.jwt,

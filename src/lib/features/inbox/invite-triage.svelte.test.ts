@@ -1,10 +1,10 @@
 import { expect, test, vi } from 'vitest';
 
-import type { InviteTriageView, RoomSummary } from '#src/generated/protocol';
+import type { InviteTriageView, RoomListItemView } from '#src/generated/protocol';
 
 import { InviteTriage, triageInvite } from './invite-triage.svelte';
 
-function room(fields: Partial<RoomSummary> = {}): RoomSummary {
+function room(fields: Partial<RoomListItemView> = {}): RoomListItemView {
   return {
     room_id: '!room:example.org',
     name: 'Book club',
@@ -12,7 +12,7 @@ function room(fields: Partial<RoomSummary> = {}): RoomSummary {
     state: 'invited',
     latest_event: { sender: '@latest:example.org' },
     ...fields,
-  } as unknown as RoomSummary;
+  } as unknown as RoomListItemView;
 }
 
 function answer(fields: Partial<InviteTriageView> = {}): InviteTriageView {
@@ -62,7 +62,7 @@ test('the inviter comes from the member event, falling back to the latest event'
 
 test('triage asks the core once per set of invites and keeps the latest answer', async () => {
   const inviteTriage = vi.fn(() => Promise.resolve([answer({ shares_room: true })]));
-  const triage = new InviteTriage({ commands: { inviteTriage } } as never);
+  const triage = new InviteTriage({ rpc: { account: { inviteTriage } } } as never);
   expect(triage.ready).toBe(false);
 
   triage.refresh(['!b:example.org', '!room:example.org']);
@@ -78,7 +78,7 @@ test('triage asks the core once per set of invites and keeps the latest answer',
 test('a failed triage still lets the list render', async () => {
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   const triage = new InviteTriage({
-    commands: { inviteTriage: () => Promise.reject(new Error('offline')) },
+    rpc: { account: { inviteTriage: () => Promise.reject(new Error('offline')) } },
   } as never);
 
   triage.refresh(['!room:example.org']);

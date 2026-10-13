@@ -1,7 +1,7 @@
 <script lang="ts">
   import { copyText } from '#lib/platform/clipboard.js';
   import { goto } from '$app/navigation';
-  import type { RoomSummary, RoomTag } from '#src/generated/protocol';
+  import type { RoomListItemView, RoomTag } from '#src/generated/protocol';
   import ArrowLineUpIcon from 'phosphor-svelte/lib/ArrowLineUpIcon';
   import ArrowUpIcon from 'phosphor-svelte/lib/ArrowUpIcon';
   import ArrowDownIcon from 'phosphor-svelte/lib/ArrowDownIcon';
@@ -28,6 +28,7 @@
   import { spaceTimelinePath } from '#lib/features/room/event-timeline.js';
 
   import { useCoreClient } from '#lib/core/context.js';
+  import { joinRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
   import { copyRoomLink } from '#lib/rooms/permalink.js';
   import { isQuiet, setQuiet } from '#lib/rooms/quiet-rooms.svelte.js';
@@ -48,15 +49,15 @@
   import { markRoomUnread, markRoomsRead, spaceDescendantRooms } from './nav-rooms.js';
 
   interface Props {
-    room: RoomSummary;
+    room: RoomListItemView;
     parentSpaceId?: string | null;
     open?: boolean;
     anchor?: HTMLElement | CursorAnchor | null;
     align?: 'start' | 'end';
     side?: 'bottom' | 'right';
-    onSettings: (room: RoomSummary) => void;
-    onLeave: (room: RoomSummary) => void;
-    onLobby?: (room: RoomSummary) => void;
+    onSettings: (room: RoomListItemView) => void;
+    onLeave: (room: RoomListItemView) => void;
+    onLobby?: (room: RoomListItemView) => void;
     onMoveUp?: () => void;
     onMoveDown?: () => void;
     onUnpin?: () => void;
@@ -118,8 +119,8 @@
     const run = ++manageableRun;
     manageable.clear();
     for (const spaceId of candidates) {
-      void core.commands
-        .roomPermissions(spaceId)
+      void core.rpc.members
+        .roomPermissions({ room_id: spaceId })
         .then((permissions) => {
           if (run !== manageableRun || !permissions.can_manage_children) return;
           manageable.add(spaceId);
@@ -133,8 +134,8 @@
   function readInvitePermission(): void {
     const run = ++inviteRun;
     canInvite = false;
-    void core.commands
-      .roomPermissions(room.room_id)
+    void core.rpc.members
+      .roomPermissions({ room_id: room.room_id })
       .then((permissions) => {
         if (run !== inviteRun) return;
         canInvite = permissions.can_invite;
@@ -155,14 +156,14 @@
   function readParents(): void {
     const run = ++parentsRun;
     joinableParents = [];
-    void core.commands
-      .unjoinedSpaceParents(room.room_id)
+    void core.rpc.spaces
+      .unjoinedSpaceParents({ room_id: room.room_id })
       .then((parents) => {
         if (run !== parentsRun) return;
         joinableParents = parents.map((parent) => ({ ...parent, name: null }));
         for (const parent of parents) {
-          void core.commands
-            .roomPreview(parent.room_id, parent.via)
+          void core.rpc.rooms
+            .roomPreview({ address: parent.room_id, via: parent.via })
             .then((preview) => {
               if (run !== parentsRun) return;
               joinableParents = joinableParents.map((entry) =>
@@ -180,7 +181,7 @@
   }
 
   function joinParent(parent: { room_id: string; via: string[] }): void {
-    void core.commands.joinRoom(parent.room_id, parent.via).catch(report);
+    void joinRoom(core.rpc, parent.room_id, parent.via).catch(report);
   }
 
   let opened = $state(false);
@@ -205,33 +206,41 @@
   function toggleTag(tag: RoomTag, current: boolean): void {
     const next = !current;
     pendingTags.set(tag, next);
-    void core.commands.setRoomTag(room.room_id, tag, next).catch((error: unknown) => {
-      pendingTags.delete(tag);
-      report(error);
-    });
+    void core.rpc.rooms
+      .setRoomTag({ room_id: room.room_id, tag, set: next })
+      .catch((error: unknown) => {
+        pendingTags.delete(tag);
+        report(error);
+      });
   }
 
   /** One-directional, like v1: a DM becomes a group. */
   function convertToGroup(): void {
-    void core.commands.setDirect(room.room_id, false).catch(report);
+    void core.rpc.account
+      .setDirect({ room_id: room.room_id, direct: false, user_id: null })
+      .catch(report);
   }
 
   function addToSpaces(spaceIds: string[]): void {
     for (const spaceId of spaceIds) {
-      void core.commands.addToSpace(spaceId, room.room_id).catch(report);
+      void core.rpc.spaces
+        .addToSpace({ space_id: spaceId, room_id: room.room_id, suggested: null })
+        .catch(report);
     }
   }
 
   function removeFromSpace(spaceId: string): void {
-    void core.commands.removeFromSpace(spaceId, room.room_id).catch(report);
+    void core.rpc.spaces
+      .removeFromSpace({ space_id: spaceId, room_id: room.room_id })
+      .catch(report);
   }
 
   function markRead(): void {
-    markRoomsRead(readable, core.commands, readReceiptIsPrivate());
+    markRoomsRead(readable, core.rpc.timeline, readReceiptIsPrivate());
   }
 
   function markUnread(): void {
-    markRoomUnread(room.room_id, core.commands);
+    markRoomUnread(room.room_id, core.rpc.timeline);
   }
 
   async function copyLink(): Promise<void> {

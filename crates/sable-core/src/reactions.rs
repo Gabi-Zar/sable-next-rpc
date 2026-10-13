@@ -10,7 +10,8 @@ use serde_with::{DefaultOnError, serde_as};
 
 use crate::Core;
 use crate::ResultExt;
-use crate::protocol::{CommandErr, CommandOk, ReactionShortcodeView};
+use crate::api::packs::ImagePacksOk;
+use crate::protocol::{CommandErr, ReactionShortcodeView};
 
 const MAX_SHORTCODE_BYTES: usize = 100;
 
@@ -117,8 +118,7 @@ impl Core {
         if !key.starts_with("mxc://") {
             return None;
         }
-        if let Ok(CommandOk::ImagePacks { packs, .. }) =
-            self.image_packs(room_id.clone(), true).await
+        if let Ok(ImagePacksOk { packs, .. }) = self.image_packs(room_id.clone(), true).await
             && let Some(image) = packs
                 .iter()
                 .flat_map(|pack| &pack.images)
@@ -221,7 +221,7 @@ mod tests {
 
         use crate::{
             Core,
-            protocol::{Command, CommandErr, TimelineFocusView},
+            protocol::{CommandErr, TimelineFocusView},
             session::Session,
             store::MemorySessionStore,
         };
@@ -354,7 +354,7 @@ mod tests {
                         .is_empty()
                 );
                 assert!(matches!(
-                    Box::pin(core.dispatch(Command::React {
+                    Box::pin(core.run(crate::api::messages::ReactParams {
                         room_id: room_id.to_owned(),
                         event_id: target.to_owned(),
                         key: "👍".to_owned(),

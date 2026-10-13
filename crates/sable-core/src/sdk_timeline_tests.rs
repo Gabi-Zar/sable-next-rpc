@@ -29,11 +29,17 @@ use wiremock::{
 use super::{
     Core,
     protocol::{
-        Command, CommandErr, CommandOk, CoreEvent, Outgoing, PaginationDirection, SubscriptionId,
-        TimelineFocusView,
+        CommandErr, CoreEvent, Outgoing, PaginationDirection, SubscriptionId, TimelineFocusView,
     },
     session::{self, Session},
     store::MemorySessionStore,
+};
+use crate::api::packs::ConvertLegacyImagePacksParams;
+use crate::api::room_state::{RoomStateEventParams, SendStateEventParams};
+use crate::api::timeline::{
+    MarkReadParams, MarkUnreadParams, PaginateOk, PaginateParams, ReadMarkerParams,
+    SetPinnedParams, SubscribeTimelineOk, SubscribeTimelineParams, UnsubscribeParams,
+    WarmRoomsParams,
 };
 use crate::timelines::build_room_timeline;
 
@@ -383,21 +389,17 @@ async fn custom_room_state_reads_from_the_server_when_not_in_the_store() {
         oauth: false,
     });
 
-    let response = core
-        .dispatch(Command::RoomStateEvent {
+    let content = core
+        .run(RoomStateEventParams {
             room_id: room_id.to_owned(),
             event_type: event_type.to_owned(),
             state_key: String::new(),
         })
         .await
-        .unwrap();
+        .unwrap()
+        .0;
 
-    assert!(matches!(
-        response,
-        CommandOk::RoomStateEvent {
-            content: Some(content)
-        } if content == json!({"url": "mxc://example.org/banner"})
-    ));
+    assert_eq!(content, Some(json!({"url": "mxc://example.org/banner"})));
 }
 
 #[expect(clippy::unwrap_used, reason = "test code")]
@@ -414,24 +416,20 @@ async fn core_for(server: &MatrixMockServer, client: matrix_sdk::Client) -> Arc<
     core
 }
 
-#[expect(clippy::unwrap_used, clippy::panic, reason = "test code")]
+#[expect(clippy::unwrap_used, reason = "test code")]
 async fn read_state(
     core: &Arc<Core>,
     room_id: &matrix_sdk::ruma::RoomId,
     event_type: &str,
 ) -> Option<serde_json::Value> {
-    match core
-        .dispatch(Command::RoomStateEvent {
-            room_id: room_id.to_owned(),
-            event_type: event_type.to_owned(),
-            state_key: String::new(),
-        })
-        .await
-        .unwrap()
-    {
-        CommandOk::RoomStateEvent { content } => content,
-        other => panic!("unexpected response {other:?}"),
-    }
+    core.run(RoomStateEventParams {
+        room_id: room_id.to_owned(),
+        event_type: event_type.to_owned(),
+        state_key: String::new(),
+    })
+    .await
+    .unwrap()
+    .0
 }
 
 #[tokio::test]
@@ -465,13 +463,11 @@ async fn reopening_a_room_reuses_the_state_it_probed() {
 
     let core = core_for(&server, client).await;
     for _ in 0..2 {
-        let response = core
-            .dispatch(Command::RoomOpen {
-                room_id: room_id.to_owned(),
-            })
-            .await
-            .unwrap();
-        assert!(matches!(response, CommandOk::RoomOpen(_)));
+        core.run(crate::api::rooms::RoomOpenParams {
+            room_id: room_id.to_owned(),
+        })
+        .await
+        .unwrap();
     }
 
     assert_eq!(
@@ -518,10 +514,10 @@ async fn opening_a_room_and_its_cosmetics_fetch_its_state_once() {
 
     let core = core_for(&server, client).await;
     let (open, cosmetics) = tokio::join!(
-        core.dispatch(Command::RoomOpen {
+        core.run(crate::api::rooms::RoomOpenParams {
             room_id: room_id.to_owned(),
         }),
-        core.dispatch(Command::RoomCosmetics {
+        core.run(crate::api::rooms::RoomCosmeticsParams {
             room_id: room_id.to_owned(),
             space_id: None,
         })
@@ -575,11 +571,11 @@ async fn a_limited_sync_right_after_a_member_load_does_not_refetch_members() {
     server.mock_room_state_encryption().plain().mount().await;
 
     let core = core_for(&server, client.clone()).await;
-    let members = || Command::RoomMembers {
+    let members = || crate::api::members::RoomMembersParams {
         room_id: room_id.to_owned(),
         memberships: Vec::new(),
     };
-    core.dispatch(members()).await.unwrap();
+    core.run(members()).await.unwrap();
     server
         .sync_room(
             &client,
@@ -587,7 +583,7 @@ async fn a_limited_sync_right_after_a_member_load_does_not_refetch_members() {
         )
         .await;
     assert!(!client.get_room(room_id).unwrap().are_members_synced());
-    core.dispatch(members()).await.unwrap();
+    core.run(members()).await.unwrap();
 }
 
 #[tokio::test]
@@ -619,7 +615,7 @@ async fn missing_room_state_is_remembered_until_it_is_written() {
     assert_eq!(read_state(&core, room_id, event_type).await, None);
     assert_eq!(read_state(&core, room_id, event_type).await, None);
 
-    core.dispatch(Command::SendStateEvent {
+    core.run(SendStateEventParams {
         room_id: room_id.to_owned(),
         event_type: event_type.to_owned(),
         state_key: String::new(),
@@ -690,7 +686,7 @@ async fn a_refused_pin_puts_back_the_marker_it_advanced() {
 
     let core = core_for(&server, client).await;
     let refused = core
-        .dispatch(Command::SetPinned {
+        .run(SetPinnedParams {
             room_id: room_id.to_owned(),
             event_id: event_id!("$b").to_owned(),
             pinned: true,
@@ -700,8 +696,8 @@ async fn a_refused_pin_puts_back_the_marker_it_advanced() {
 }
 
 #[expect(clippy::unwrap_used, reason = "test code")]
-fn clear_override(user_id: &str) -> Command {
-    Command::SetProfileOverride {
+fn clear_override(user_id: &str) -> crate::api::account::SetProfileOverrideParams {
+    crate::api::account::SetProfileOverrideParams {
         user_id: user_id.try_into().unwrap(),
         display_name: crate::protocol::FieldEdit::Clear,
         avatar: crate::protocol::AvatarEditView::Clear,
@@ -738,13 +734,7 @@ async fn a_stable_profile_override_is_written_back_plain() {
         .await;
 
     let core = core_for(&server, client).await;
-    let CommandOk::SetProfileOverride(view) = core
-        .dispatch(clear_override("@s:example.org"))
-        .await
-        .unwrap()
-    else {
-        panic!("unexpected response");
-    };
+    let view = core.run(clear_override("@s:example.org")).await.unwrap();
     assert!(view.overrides.is_empty());
 }
 
@@ -778,7 +768,7 @@ async fn a_locked_profile_override_document_refuses_a_write() {
 
     let core = core_for(&server, client).await;
     assert!(matches!(
-        core.dispatch(clear_override("@s:example.org")).await,
+        core.run(clear_override("@s:example.org")).await,
         Err(crate::protocol::CommandErr::DocumentLocked)
     ));
 }
@@ -808,7 +798,7 @@ async fn a_legacy_pack_is_copied_verbatim_to_the_stable_type() {
         .await;
 
     let core = core_for(&server, client).await;
-    core.dispatch(Command::ConvertLegacyImagePacks {
+    core.run(ConvertLegacyImagePacksParams {
         room_id: room_id.to_owned(),
         state_keys: vec!["stickers".to_owned()],
     })
@@ -846,7 +836,7 @@ async fn a_legacy_pack_keyed_by_a_file_path_is_copied_under_a_generated_key() {
         .await;
 
     let core = core_for(&server, client).await;
-    core.dispatch(Command::ConvertLegacyImagePacks {
+    core.run(ConvertLegacyImagePacksParams {
         room_id: room_id.to_owned(),
         state_keys: vec![r"E:\temp".to_owned()],
     })
@@ -869,7 +859,7 @@ async fn a_written_state_event_is_read_back_until_sync_delivers_it() {
 
     let core = core_for(&server, client.clone()).await;
     core.watch_room_state(&client);
-    core.dispatch(Command::SendStateEvent {
+    core.run(SendStateEventParams {
         room_id: room_id.to_owned(),
         event_type: event_type.to_owned(),
         state_key: String::new(),
@@ -918,20 +908,20 @@ async fn warmed_rooms_join_the_subscription_set_up_to_a_cap() {
     }
 
     let core = core_for(&server, client).await;
-    core.dispatch(Command::SubscribeTimeline {
+    core.run(SubscribeTimelineParams {
         room_id: open_room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
     })
     .await
     .unwrap();
-    core.dispatch(Command::WarmRooms {
+    core.run(WarmRoomsParams {
         room_ids: vec![room_id!("!unknown:example.org").to_owned()],
     })
     .await
     .unwrap();
     for room_id in &warm_ids {
-        core.dispatch(Command::WarmRooms {
+        core.run(WarmRoomsParams {
             room_ids: vec![room_id.clone()],
         })
         .await
@@ -961,26 +951,23 @@ async fn an_opened_room_stays_subscribed_after_another_room_opens() {
     server.mock_room_state_encryption().plain().mount().await;
 
     let core = core_for(&server, client).await;
-    let CommandOk::SubscribeTimeline {
+    let SubscribeTimelineOk {
         subscription: first,
         ..
     } = core
-        .dispatch(Command::SubscribeTimeline {
+        .run(SubscribeTimelineParams {
             room_id: first_room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response");
-    };
-    core.dispatch(Command::Unsubscribe {
+        .unwrap();
+    core.run(UnsubscribeParams {
         subscription: first,
     })
     .await
     .unwrap();
-    core.dispatch(Command::SubscribeTimeline {
+    core.run(SubscribeTimelineParams {
         room_id: second_room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -1013,39 +1000,33 @@ async fn timeline_subscriptions_remain_active_until_each_is_unsubscribed() {
         oauth: false,
     });
 
-    let CommandOk::SubscribeTimeline {
+    let SubscribeTimelineOk {
         subscription: first,
         ..
     } = core
-        .dispatch(Command::SubscribeTimeline {
+        .run(SubscribeTimelineParams {
             room_id: first_room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response");
-    };
-    let CommandOk::SubscribeTimeline {
+        .unwrap();
+    let SubscribeTimelineOk {
         subscription: second,
         ..
     } = core
-        .dispatch(Command::SubscribeTimeline {
+        .run(SubscribeTimelineParams {
             room_id: second_room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response");
-    };
+        .unwrap();
 
     assert!(core.subscriptions.lock().await.contains_key(&first));
     assert!(core.subscriptions.lock().await.contains_key(&second));
 
-    core.dispatch(Command::Unsubscribe {
+    core.run(UnsubscribeParams {
         subscription: first,
     })
     .await
@@ -1054,7 +1035,7 @@ async fn timeline_subscriptions_remain_active_until_each_is_unsubscribed() {
     assert!(core.subscriptions.lock().await.contains_key(&second));
     assert!(core.timelines.lock().await.contains_key(first_room_id));
 
-    core.dispatch(Command::Unsubscribe {
+    core.run(UnsubscribeParams {
         subscription: second,
     })
     .await
@@ -1080,17 +1061,14 @@ async fn live_timeline_reports_its_back_pagination_status() {
         oauth: false,
     });
 
-    let CommandOk::SubscribeTimeline { subscription, .. } = core
-        .dispatch(Command::SubscribeTimeline {
+    let SubscribeTimelineOk { subscription, .. } = core
+        .run(SubscribeTimelineParams {
             room_id: room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response");
-    };
+        .unwrap();
 
     let event = tokio::time::timeout(Duration::from_secs(1), events.recv())
         .await
@@ -1262,7 +1240,7 @@ async fn a_sticker_reaches_the_server_as_an_m_sticker_event() {
         oauth: false,
     });
 
-    core.dispatch(Command::SubscribeTimeline {
+    core.run(SubscribeTimelineParams {
         room_id: room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -1271,7 +1249,7 @@ async fn a_sticker_reaches_the_server_as_an_m_sticker_event() {
     .unwrap();
 
     let result = core
-        .dispatch(Command::SendSticker {
+        .run(crate::api::messages::SendStickerParams {
             room_id: room_id.to_owned(),
             url: "mxc://example.org/blob".to_owned(),
             body: "blobwave".to_owned(),
@@ -1283,7 +1261,7 @@ async fn a_sticker_reaches_the_server_as_an_m_sticker_event() {
         })
         .await;
 
-    assert!(matches!(result, Ok(CommandOk::SendSticker)), "{result:?}");
+    assert!(matches!(result, Ok(())), "{result:?}");
 
     let sent = tokio::time::timeout(Duration::from_secs(3), async {
         loop {
@@ -1360,7 +1338,7 @@ async fn send_media_reply(
             .await?;
         }
         "gif" => {
-            core.dispatch(Command::SendGif {
+            core.run(crate::api::messages::SendGifParams {
                 room_id: room_id.to_owned(),
                 url: "mxc://example.org/gif".to_owned(),
                 body: "cat.gif".to_owned(),
@@ -1376,7 +1354,7 @@ async fn send_media_reply(
             .await?;
         }
         "location" => {
-            core.dispatch(Command::SendLocation {
+            core.run(crate::api::messages::SendLocationParams {
                 room_id: room_id.to_owned(),
                 body: "here".to_owned(),
                 geo_uri: "geo:48,2".to_owned(),
@@ -1435,7 +1413,7 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
                 homeserver: server.server().uri(),
                 oauth: false,
             });
-            core.dispatch(Command::SubscribeTimeline {
+            core.run(SubscribeTimelineParams {
                 room_id: room_id.to_owned(),
                 focus: TimelineFocusView::Live,
                 hidden_events: false,
@@ -1533,10 +1511,11 @@ async fn media_config_is_cached_per_account_and_supports_legacy_servers() {
             oauth: false,
         });
         for _ in 0..2 {
-            let response = core.dispatch(Command::MediaConfig).await.unwrap();
-            assert!(
-                matches!(response, CommandOk::MediaConfig { upload_size: size } if size == upload_size)
-            );
+            let response = core
+                .run(crate::api::messages::MediaConfigParams {})
+                .await
+                .unwrap();
+            assert_eq!(response.upload_size, upload_size);
         }
     }
 }
@@ -1715,7 +1694,7 @@ async fn a_room_read_elsewhere_reports_the_server_unread_count() {
         .await;
 
     let item = matrix_sdk_ui::room_list_service::RoomListItem::from(room);
-    let summary = super::view::room_summary(
+    let summary = super::view::room_list_item(
         &item,
         &std::collections::HashMap::new(),
         &matrix_sdk::ruma::push::Ruleset::new(),
@@ -2921,7 +2900,7 @@ async fn dispatch_mark_read(
         oauth: false,
     });
 
-    core.dispatch(Command::MarkRead {
+    core.run(MarkReadParams {
         room_id,
         event_id,
         private_receipt,
@@ -3082,7 +3061,7 @@ async fn marking_unread_writes_the_room_account_data_flag() {
         oauth: false,
     });
 
-    core.dispatch(Command::MarkUnread {
+    core.run(MarkUnreadParams {
         room_id: room_id.to_owned(),
         read_marker: None,
     })
@@ -3152,7 +3131,7 @@ async fn marking_unread_from_a_message_walks_the_read_marker_back() {
         oauth: false,
     });
 
-    core.dispatch(Command::MarkUnread {
+    core.run(MarkUnreadParams {
         room_id: room_id.to_owned(),
         read_marker: Some(event_id!("$first").to_owned()),
     })
@@ -3263,7 +3242,7 @@ async fn a_receipt_short_of_the_latest_message_leaves_the_marker() {
 }
 
 #[expect(clippy::unwrap_used, clippy::expect_used, reason = "test code")]
-async fn read_marker_for(fully_read: bool) -> CommandOk {
+async fn read_marker_for(fully_read: bool) -> Option<String> {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
     let room_id = room_id!("!marker:example.org");
@@ -3310,7 +3289,7 @@ async fn read_marker_for(fully_read: bool) -> CommandOk {
         homeserver: server.server().uri(),
         oauth: false,
     });
-    core.dispatch(Command::ReadMarker {
+    core.run(ReadMarkerParams {
         room_id: room_id.to_owned(),
     })
     .await
@@ -3319,18 +3298,14 @@ async fn read_marker_for(fully_read: bool) -> CommandOk {
 
 #[tokio::test]
 async fn the_read_marker_is_the_fully_read_event() {
-    let CommandOk::ReadMarker { event_id } = read_marker_for(true).await else {
-        panic!("wrong response");
-    };
-    assert_eq!(event_id.as_deref(), Some(event_id!("$one")));
+    let event_id = read_marker_for(true).await;
+    assert_eq!(event_id.as_deref(), Some("$one"));
 }
 
 #[tokio::test]
 async fn the_read_marker_falls_back_to_the_read_receipt() {
-    let CommandOk::ReadMarker { event_id } = read_marker_for(false).await else {
-        panic!("wrong response");
-    };
-    assert_eq!(event_id.as_deref(), Some(event_id!("$two")));
+    let event_id = read_marker_for(false).await;
+    assert_eq!(event_id.as_deref(), Some("$two"));
 }
 
 async fn sender_names(timeline: &Arc<matrix_sdk_ui::timeline::Timeline>) -> Vec<Option<String>> {
@@ -3389,7 +3364,7 @@ async fn invited_direct_room_summary_is_direct() {
         )
         .await;
         let summary =
-            super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
+            super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
 
         assert!(summary.direct_targets.is_empty());
         assert_eq!(summary.is_direct, expected);
@@ -3434,7 +3409,8 @@ async fn direct_room_summary_uses_the_other_members_avatar() {
         &mut cache,
     )
     .await;
-    let summary = super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
+    let summary =
+        super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
     assert!(summary.is_direct);
     assert_eq!(summary.avatar_url.as_deref(), Some(avatar.as_str()));
 
@@ -3469,7 +3445,7 @@ async fn direct_room_summary_uses_the_other_members_avatar() {
         )
         .await;
         assert_eq!(
-            super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new())
+            super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new())
                 .avatar_url
                 .as_deref(),
             expected
@@ -3494,7 +3470,8 @@ async fn direct_room_summary_uses_the_other_members_avatar() {
         &mut cache,
     )
     .await;
-    let summary = super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
+    let summary =
+        super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
     assert!(!summary.is_direct);
     assert_eq!(summary.avatar_url, None);
 }
@@ -3525,7 +3502,7 @@ async fn room_summary_clears_removed_avatars_when_rooms_are_reinserted() {
     )
     .await;
     assert_eq!(
-        super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new())
+        super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new())
             .avatar_url
             .as_deref(),
         Some(avatar.as_str())
@@ -3558,7 +3535,8 @@ async fn room_summary_clears_removed_avatars_when_rooms_are_reinserted() {
     )
     .await;
 
-    let summary = super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
+    let summary =
+        super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
     assert!(!summary.is_direct);
     assert_eq!(summary.avatar_url, None);
 }
@@ -3654,7 +3632,7 @@ async fn sliding_sync_room_summary_prefers_avatar_state_over_the_avatar_property
         )
         .await;
         assert_eq!(
-            super::view::room_summary(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new())
+            super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new())
                 .avatar_url
                 .as_deref(),
             expected_avatar,
@@ -4128,17 +4106,14 @@ async fn redacting_an_event_outside_the_timeline_redacts_it_in_the_room() {
         oauth: false,
     });
 
-    let response = core
-        .dispatch(Command::Redact {
-            room_id: room_id.to_owned(),
-            event_id: event_id!("$calendar-entry").to_owned(),
-            reason: None,
-            thread_root: None,
-        })
-        .await
-        .unwrap();
-
-    assert!(matches!(response, CommandOk::Redact));
+    core.run(crate::api::messages::RedactParams {
+        room_id: room_id.to_owned(),
+        event_id: event_id!("$calendar-entry").to_owned(),
+        reason: None,
+        thread_root: None,
+    })
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -4182,25 +4157,22 @@ async fn a_new_calendar_room_is_set_up_by_its_creator() {
         oauth: false,
     });
 
-    let response = core
-        .dispatch(Command::CreateRoom {
-            name: Some("Raids".to_owned()),
-            topic: None,
-            kind: crate::protocol::CreateRoomKind::Calendar,
-            public: false,
-            encrypted: false,
-            invite: Vec::new(),
-            parent_space: None,
-            alias: None,
-            room_version: None,
-            join_rule: None,
-            federate: true,
-            predecessor: None,
-        })
-        .await
-        .unwrap();
-
-    assert!(matches!(response, CommandOk::CreateRoom { .. }));
+    core.run(crate::api::rooms::CreateRoomParams {
+        name: Some("Raids".to_owned()),
+        topic: None,
+        kind: crate::protocol::CreateRoomKind::Calendar,
+        public: false,
+        encrypted: false,
+        invite: Vec::new(),
+        parent_space: None,
+        alias: None,
+        room_version: None,
+        join_rule: None,
+        federate: true,
+        predecessor: None,
+    })
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -4234,25 +4206,22 @@ async fn an_encrypted_private_space_includes_encryption_in_its_creation_request(
         oauth: false,
     });
 
-    let response = core
-        .dispatch(Command::CreateRoom {
-            name: Some("Private space".to_owned()),
-            topic: None,
-            kind: crate::protocol::CreateRoomKind::Space,
-            public: false,
-            encrypted: true,
-            invite: Vec::new(),
-            parent_space: None,
-            alias: None,
-            room_version: None,
-            join_rule: None,
-            federate: true,
-            predecessor: None,
-        })
-        .await
-        .unwrap();
-
-    assert!(matches!(response, CommandOk::CreateRoom { .. }));
+    core.run(crate::api::rooms::CreateRoomParams {
+        name: Some("Private space".to_owned()),
+        topic: None,
+        kind: crate::protocol::CreateRoomKind::Space,
+        public: false,
+        encrypted: true,
+        invite: Vec::new(),
+        parent_space: None,
+        alias: None,
+        room_version: None,
+        join_rule: None,
+        federate: true,
+        predecessor: None,
+    })
+    .await
+    .unwrap();
 }
 
 fn calendar_event(event_id: &str, uid: &str) -> serde_json::Value {
@@ -4415,35 +4384,29 @@ async fn an_emptied_state_event_is_a_state_event_not_a_deleted_message() {
     }
 }
 
-#[expect(clippy::unwrap_used, clippy::panic, reason = "test code")]
+#[expect(clippy::unwrap_used, reason = "test code")]
 async fn subscribe_live(core: &Arc<Core>, room_id: &matrix_sdk::ruma::RoomId) -> SubscriptionId {
-    let CommandOk::SubscribeTimeline { subscription, .. } = core
-        .dispatch(Command::SubscribeTimeline {
+    let SubscribeTimelineOk { subscription, .. } = core
+        .run(SubscribeTimelineParams {
             room_id: room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response");
-    };
+        .unwrap();
     subscription
 }
 
-#[expect(clippy::unwrap_used, clippy::panic, reason = "test code")]
+#[expect(clippy::unwrap_used, reason = "test code")]
 async fn paginate_back(core: &Arc<Core>, subscription: SubscriptionId) -> bool {
-    let CommandOk::Paginate { reached_end, .. } = core
-        .dispatch(Command::Paginate {
+    let PaginateOk { reached_end, .. } = core
+        .run(PaginateParams {
             subscription,
             direction: PaginationDirection::Backward,
             count: 20,
         })
         .await
-        .unwrap()
-    else {
-        panic!("wrong response");
-    };
+        .unwrap();
     reached_end
 }
 

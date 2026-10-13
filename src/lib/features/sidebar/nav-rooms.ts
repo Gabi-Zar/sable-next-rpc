@@ -1,7 +1,6 @@
-import type { RoomSummary } from '#src/generated/protocol';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { RoomListItemView, Rpc } from '#src/generated/protocol';
 
-export function claimedRoomIds(rooms: readonly RoomSummary[]): Set<string> {
+export function claimedRoomIds(rooms: readonly RoomListItemView[]): Set<string> {
   return new Set(
     rooms
       .filter(isActiveSpace)
@@ -9,13 +8,13 @@ export function claimedRoomIds(rooms: readonly RoomSummary[]): Set<string> {
   );
 }
 
-export function isActiveSpace(room: RoomSummary): boolean {
+export function isActiveSpace(room: RoomListItemView): boolean {
   return room.is_space && room.state === 'joined' && !room.is_tombstoned;
 }
 
 export function markRoomsRead(
-  rooms: Iterable<RoomSummary | null | undefined>,
-  commands: Pick<CoreCommands, 'markRead'>,
+  rooms: Iterable<RoomListItemView | null | undefined>,
+  timeline: Pick<Rpc['timeline'], 'markRead'>,
   privateReceipt = false
 ): void {
   for (const room of rooms) {
@@ -23,32 +22,44 @@ export function markRoomsRead(
     if (room.unread === 0 && room.highlight === 0 && !room.marked_unread) continue;
     if (!room.latest_event) continue;
 
-    void commands.markRead(room.room_id, null, privateReceipt).catch((error: unknown) => {
-      console.warn('[sable nav] mark as read failed', error);
-    });
+    void timeline
+      .markRead({
+        room_id: room.room_id,
+        event_id: null,
+        private_receipt: privateReceipt,
+        thread_root: null,
+        subscription: null,
+        fully_read: false,
+      })
+      .catch((error: unknown) => {
+        console.warn('[sable nav] mark as read failed', error);
+      });
   }
 }
 
-export function markRoomUnread(roomId: string, commands: Pick<CoreCommands, 'markUnread'>): void {
-  void commands.markUnread(roomId, null).catch((error: unknown) => {
+export function markRoomUnread(
+  roomId: string,
+  timeline: Pick<Rpc['timeline'], 'markUnread'>
+): void {
+  void timeline.markUnread({ room_id: roomId, read_marker: null }).catch((error: unknown) => {
     console.warn('[sable nav] mark as unread failed', error);
   });
 }
 
 export function spaceDescendantRooms(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   spaceId: string
-): RoomSummary[] {
+): RoomListItemView[] {
   return spacesDescendantRooms(rooms, [spaceId]);
 }
 
 export function spacesDescendantRooms(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   spaceIds: Iterable<string>
-): RoomSummary[] {
+): RoomListItemView[] {
   const byId = new Map(rooms.map((room) => [room.room_id, room]));
   const seen = new Set<string>();
-  const found: RoomSummary[] = [];
+  const found: RoomListItemView[] = [];
 
   const walk = (id: string): void => {
     if (seen.has(id)) return;

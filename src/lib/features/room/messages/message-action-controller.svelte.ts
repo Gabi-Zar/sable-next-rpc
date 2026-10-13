@@ -1,5 +1,6 @@
 import { copyText as writeClipboard } from '#lib/platform/clipboard.js';
 import type { TimelineItemView, ImageSourcePackView } from '#src/generated/protocol';
+import { imagePacks } from '#lib/core/api/packs.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import type { PersonaStore } from '#lib/personas/personas.svelte.js';
 import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
@@ -122,7 +123,7 @@ export class MessageActionExecutor {
         this.savingSlow = true;
       }, SAVE_FEEDBACK_DELAY_MS);
       try {
-        const bytes = await core.commands.fetchMedia(media.source, 0, 0).finally(() => {
+        const bytes = await core.media.fetchMedia(media.source, 0, 0).finally(() => {
           clearTimeout(slow);
           this.savingSource = null;
           this.savingSlow = false;
@@ -171,10 +172,11 @@ export class MessageActionExecutor {
 
     async function openSource(eventId: string): Promise<void> {
       try {
-        const { source, encrypted, original } = await core.commands.eventSourceDetails(
-          roomId,
-          eventId
-        );
+        const { source, encrypted, original } = await core.rpc.timeline.eventSource({
+          room_id: roomId,
+          event_id: eventId,
+          include_original: true,
+        });
         dialogs.open(item, { kind: 'source', source, encrypted, original });
       } catch (error) {
         console.warn('[sable timeline] source unavailable', error);
@@ -184,7 +186,10 @@ export class MessageActionExecutor {
 
     async function openEditHistory(eventId: string): Promise<void> {
       try {
-        const versions = await core.commands.editHistory(roomId, eventId);
+        const versions = await core.rpc.timeline.editHistory({
+          room_id: roomId,
+          event_id: eventId,
+        });
         dialogs.open(item, { kind: 'edit-history', versions, senderTimezone });
       } catch (error) {
         console.warn('[sable timeline] edit history unavailable', error);
@@ -194,7 +199,11 @@ export class MessageActionExecutor {
 
     async function removeLinkPreviews(eventId: string): Promise<void> {
       try {
-        await core.commands.removeLinkPreviews(roomId, eventId, item.thread_root);
+        await core.rpc.messages.removeLinkPreviews({
+          room_id: roomId,
+          event_id: eventId,
+          thread_root: item.thread_root,
+        });
       } catch (error) {
         console.warn('[sable timeline] removing link previews failed', error);
         toasts.error(t('errors.actionFailed'));
@@ -205,7 +214,7 @@ export class MessageActionExecutor {
       if (item.content.kind === 'message') await writeClipboard(item.content.body);
     }
     return {
-      loadImagePacks: (targetRoomId: string) => core.commands.imagePacks(targetRoomId),
+      loadImagePacks: (targetRoomId: string) => imagePacks(core.rpc, targetRoomId),
       roomId,
       onReact: policy.react
         ? (

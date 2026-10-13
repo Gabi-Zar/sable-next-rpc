@@ -6,9 +6,10 @@
     ImagePackView,
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
 
+  import { imagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { invalidatePacks } from '#lib/emoji/load-packs.js';
   import ImagePackEditor from '#lib/features/emotes/ImagePackEditor.svelte';
@@ -31,7 +32,7 @@
   import '#lib/ui/primitives/settings-row.css';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
     levels: RoomPowerLevelsView | null;
   }
@@ -71,7 +72,7 @@
     loading = true;
     failed = false;
     try {
-      const loaded = await core.commands.imagePacks(target);
+      const loaded = await imagePacks(core.rpc, target);
       if (current !== run) return;
       packs = loaded;
     } catch (error) {
@@ -83,7 +84,7 @@
   }
 
   async function changed(): Promise<void> {
-    invalidatePacks(core.commands);
+    invalidatePacks(core.rpc);
     await load();
   }
 
@@ -95,7 +96,7 @@
     busy = true;
     failed = false;
     try {
-      await core.commands.createRoomImagePack(target, name);
+      await core.rpc.packs.createRoomImagePack({ room_id: target, name });
       await changed();
       newPackName = '';
     } catch (error) {
@@ -113,7 +114,7 @@
     busy = true;
     failed = false;
     try {
-      await core.commands.deleteRoomImagePack(target, pack.id);
+      await core.rpc.packs.deleteRoomImagePack({ room_id: target, state_key: pack.id });
       await changed();
       if (viewing === pack.id) viewing = null;
     } catch (error) {
@@ -132,7 +133,7 @@
   }
 
   async function updateLegacy(
-    update: (target: string, stateKeys: string[]) => Promise<void>,
+    update: (params: { room_id: string; state_keys: string[] }) => Promise<null>,
     targets: ImagePackView[]
   ): Promise<void> {
     const target = roomId;
@@ -141,10 +142,10 @@
     busy = true;
     failed = false;
     try {
-      await update(
-        target,
-        targets.map((pack) => pack.id)
-      );
+      await update({
+        room_id: target,
+        state_keys: targets.map((pack) => pack.id),
+      });
     } catch (error) {
       console.warn('[sable room] legacy packs not updated', error);
       failed = true;
@@ -155,11 +156,11 @@
   }
 
   function convertLegacyPacks(): Promise<void> {
-    return updateLegacy(core.commands.convertLegacyImagePacks, legacyOnly);
+    return updateLegacy(core.rpc.packs.convertLegacyImagePacks, legacyOnly);
   }
 
   async function removeLegacyCopies(): Promise<void> {
-    await updateLegacy(core.commands.removeLegacyImagePacks, legacyCopies);
+    await updateLegacy(core.rpc.packs.removeLegacyImagePacks, legacyCopies);
     confirmingLegacyRemoval = false;
   }
 
@@ -167,7 +168,10 @@
     const target = roomId;
     if (!target) return;
 
-    await core.commands.saveImagePack({ kind: 'room', room_id: target, state_key: pack.id }, draft);
+    await core.rpc.packs.saveImagePack({
+      target: { kind: 'room', room_id: target, state_key: pack.id },
+      draft: $state.snapshot(draft),
+    });
     await changed();
   }
 </script>

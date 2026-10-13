@@ -30,7 +30,7 @@ export class IdentityReset {
     this.error = null;
     this.cancelled = false;
     try {
-      const step = await this.core.commands.resetIdentity();
+      const step = await this.core.rpc.encryption.resetIdentity();
       if (step.step === 'done') {
         this.finish(step.recovery_key);
       } else if (step.step === 'password') {
@@ -61,14 +61,14 @@ export class IdentityReset {
     this.password = '';
     this.approvalUrl = null;
     this.error = null;
-    await this.core.commands.cancelIdentityReset();
+    await this.core.rpc.encryption.cancelIdentityReset();
   }
 
   private async continue(password: string | null): Promise<void> {
     this.busy = true;
     this.error = null;
     try {
-      const recoveryKey = await this.core.commands.continueIdentityReset(password);
+      const recoveryKey = await this.core.rpc.encryption.continueIdentityReset({ password });
       if (!this.cancelled) this.finish(recoveryKey);
     } catch (cause) {
       if (this.cancelled) return;

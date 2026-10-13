@@ -5,17 +5,19 @@ import type { CoreClient } from '#lib/core/client.svelte.js';
 
 import { SpaceHierarchyLoader } from './space-hierarchy-loader.svelte';
 
-type Page = { rooms: SpaceHierarchyRoomView[]; nextBatch: string | null };
+type Page = { rooms: SpaceHierarchyRoomView[]; next_batch: string | null };
 
 function view(roomId: string): SpaceHierarchyRoomView {
   return { room_id: roomId } as SpaceHierarchyRoomView;
 }
 
-function fakeCore(spaceHierarchy: (spaceId: string, from: string | null) => Promise<Page>) {
-  const commands = { spaceHierarchy: vi.fn(spaceHierarchy) };
+function fakeCore(
+  spaceHierarchy: (params: { space_id: string; from: string | null }) => Promise<Page>
+) {
+  const spaces = { spaceHierarchy: vi.fn(spaceHierarchy) };
   return {
-    core: { session: { account_id: 'account' }, commands } as unknown as CoreClient,
-    spaceHierarchy: commands.spaceHierarchy,
+    core: { session: { account_id: 'account' }, rpc: { spaces } } as unknown as CoreClient,
+    spaceHierarchy: spaces.spaceHierarchy,
   };
 }
 
@@ -32,7 +34,7 @@ afterEach(() => {
 
 test('a revisit paints the cached level without asking again', async () => {
   const { core, spaceHierarchy } = fakeCore(() =>
-    Promise.resolve({ rooms: [view('!child:x')], nextBatch: null })
+    Promise.resolve({ rooms: [view('!child:x')], next_batch: null })
   );
   const first = load(core, '!cached:x');
   await vi.waitFor(() => {
@@ -57,7 +59,7 @@ test('a revisit joins a request that is still running', async () => {
   const first = load(core, '!running:x');
   const second = load(core, '!running:x');
 
-  answer({ rooms: [view('!child:x')], nextBatch: null });
+  answer({ rooms: [view('!child:x')], next_batch: null });
 
   await vi.waitFor(() => {
     expect(second.fetched.map((room) => room.room_id)).toEqual(['!child:x']);
@@ -69,7 +71,7 @@ test('a revisit joins a request that is still running', async () => {
 test('a stale level paints at once and is replaced by the refetch', async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   let rooms = [view('!old:x')];
-  const { core, spaceHierarchy } = fakeCore(() => Promise.resolve({ rooms, nextBatch: null }));
+  const { core, spaceHierarchy } = fakeCore(() => Promise.resolve({ rooms, next_batch: null }));
   const first = load(core, '!stale:x');
   await vi.waitFor(() => {
     expect(first.loadedLevels.has('!stale:x')).toBe(true);
@@ -93,7 +95,7 @@ test('a failed refetch keeps the stale level without failing the lobby', async (
   const { core } = fakeCore(() =>
     fail
       ? Promise.reject(new Error('offline'))
-      : Promise.resolve({ rooms: [view('!kept:x')], nextBatch: null })
+      : Promise.resolve({ rooms: [view('!kept:x')], next_batch: null })
   );
   const first = load(core, '!flaky:x');
   await vi.waitFor(() => {

@@ -26,19 +26,23 @@ test('cloud backup counts, manual restore and the settings layout', async () => 
     session: { account_id: 'a1' },
     encryption: null,
     subscribeEvents: vi.fn(() => () => {}),
-    keyBackupStatus: vi.fn(() => Promise.resolve(status())),
-    downloadKeyBackup: vi.fn((requestId: string) => {
-      download = {
-        account_id: 'a1',
-        request_id: requestId,
-        state: 'complete',
-        total: 200,
-        processed: 200,
-        imported: 80,
-        failed: 0,
-      };
-      return Promise.resolve(download);
-    }),
+    rpc: {
+      encryption: {
+        keyBackupStatus: vi.fn(() => Promise.resolve(status())),
+        downloadKeyBackup: vi.fn(({ request_id }: { request_id: string }) => {
+          download = {
+            account_id: 'a1',
+            request_id,
+            state: 'complete',
+            total: 200,
+            processed: 200,
+            imported: 80,
+            failed: 0,
+          };
+          return Promise.resolve(download);
+        }),
+      },
+    },
   });
   core.commands = core;
 

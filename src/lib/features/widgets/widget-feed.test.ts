@@ -12,7 +12,7 @@ function setup() {
   const unsubscribe = vi.fn();
   const commands = { setWidgetFeed: vi.fn().mockResolvedValue(undefined) };
   const core = {
-    commands,
+    rpc: { widgets: commands },
     subscribeEvents: vi.fn((next: (event: CoreEvent) => void) => {
       listener = next;
       return unsubscribe;
@@ -79,11 +79,11 @@ test('keeps the core feed on while any widget is open', () => {
   const first = setup();
   const stopFirst = first.start();
   const stopSecond = first.start();
-  expect(first.commands.setWidgetFeed).toHaveBeenCalledExactlyOnceWith(true);
+  expect(first.commands.setWidgetFeed).toHaveBeenCalledExactlyOnceWith({ enabled: true });
 
   stopFirst();
   expect(first.commands.setWidgetFeed).toHaveBeenCalledTimes(1);
   stopSecond();
-  expect(first.commands.setWidgetFeed).toHaveBeenLastCalledWith(false);
+  expect(first.commands.setWidgetFeed).toHaveBeenLastCalledWith({ enabled: false });
   expect(first.unsubscribe).toHaveBeenCalledTimes(2);
 });

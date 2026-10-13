@@ -1,4 +1,4 @@
-import type { BookmarkView, InboxItemView, RoomSummary } from '#src/generated/protocol';
+import type { BookmarkView, InboxItemView, RoomListItemView } from '#src/generated/protocol';
 
 import { formatTime } from '#lib/ui/date-time.js';
 import { currentLocale } from '#lib/i18n.js';
@@ -56,7 +56,7 @@ export function notificationCount(counts: UnreadCount): number {
 }
 
 function matchesFilter(
-  room: RoomSummary,
+  room: RoomListItemView,
   filter: NotificationFilter,
   counts: UnreadCount
 ): boolean {
@@ -70,15 +70,15 @@ function matchesFilter(
   }
 }
 
-function byRecency(left: RoomSummary, right: RoomSummary): number {
+function byRecency(left: RoomListItemView, right: RoomListItemView): number {
   return (right.latest_event?.timestamp ?? 0) - (left.latest_event?.timestamp ?? 0);
 }
 
 export function notifications(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   filter: NotificationFilter,
   unreadFor: RoomUnread = roomUnread
-): RoomSummary[] {
+): RoomListItemView[] {
   return rooms
     .filter((room) => {
       if (room.state !== 'joined' || room.is_space) return false;
@@ -88,7 +88,7 @@ export function notifications(
 }
 
 export function countNotifications(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   unreadFor: RoomUnread = roomUnread
 ): number {
   return rooms
@@ -97,18 +97,18 @@ export function countNotifications(
 }
 
 export function unlistedNotifications(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   filter: NotificationFilter,
   unreadFor: RoomUnread,
   listed: readonly string[]
-): RoomSummary[] {
+): RoomListItemView[] {
   return notifications(rooms, filter, unreadFor).filter(
     (room) => notificationCount(unreadFor(room)) > 0 && !listed.includes(room.room_id)
   );
 }
 
 export function hasMarkedUnread(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   unreadFor: RoomUnread = roomUnread
 ): boolean {
   return rooms.some(
@@ -116,7 +116,7 @@ export function hasMarkedUnread(
   );
 }
 
-export function backfillSignal(rooms: readonly RoomSummary[]): string {
+export function backfillSignal(rooms: readonly RoomListItemView[]): string {
   return JSON.stringify(
     rooms
       .filter((room) => room.unread > 0 || room.notifying > 0 || room.highlight > 0)
@@ -130,15 +130,15 @@ export function backfillSignal(rooms: readonly RoomSummary[]): string {
   );
 }
 
-export function pendingInvites(rooms: readonly RoomSummary[]): RoomSummary[] {
+export function pendingInvites(rooms: readonly RoomListItemView[]): RoomListItemView[] {
   return rooms.filter((room) => room.state === 'invited').sort(byRecency);
 }
 
-export function countInvites(rooms: readonly RoomSummary[]): number {
+export function countInvites(rooms: readonly RoomListItemView[]): number {
   return rooms.reduce((total, room) => total + (room.state === 'invited' ? 1 : 0), 0);
 }
 
-export function inviter(room: RoomSummary): string | null {
+export function inviter(room: RoomListItemView): string | null {
   return room.latest_event?.sender ?? null;
 }
 

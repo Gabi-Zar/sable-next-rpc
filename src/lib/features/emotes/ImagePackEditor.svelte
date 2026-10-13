@@ -153,7 +153,7 @@
       const requested = normalizeShortcode(shortcode);
       for (const file of files) {
         const bytes = new Uint8Array(await file.arrayBuffer());
-        const url = await core.commands.uploadMedia(file.type || 'image/*', bytes);
+        const url = await core.media.uploadMedia(file.type || 'image/*', bytes);
         const wanted =
           files.length === 1 && requested !== ''
             ? requested
@@ -191,7 +191,7 @@
     try {
       const upright = await uprightJpeg(file);
       const bytes = new Uint8Array(await upright.arrayBuffer());
-      const avatarUrl = await core.commands.uploadMedia(upright.type || 'image/*', bytes);
+      const avatarUrl = await core.media.uploadMedia(upright.type || 'image/*', bytes);
       await onApply?.({ ...$state.snapshot(saved), avatar_url: avatarUrl });
       if (draft !== null) draft = { ...draft, avatar_url: avatarUrl };
     } catch (error) {

@@ -13,13 +13,12 @@ use matrix_sdk_base::crypto::{
 };
 
 use crate::protocol::{
-    CommandErr, CommandOk, CoreEvent, KeyBackupDownloadState, KeyBackupDownloadView,
-    KeyBackupStatusView,
+    CommandErr, CoreEvent, KeyBackupDownloadState, KeyBackupDownloadView, KeyBackupStatusView,
 };
 use crate::{Core, ResultExt};
 
 impl Core {
-    pub(crate) async fn key_backup_status(&self) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn key_backup_status(&self) -> Result<KeyBackupStatusView, CommandErr> {
         let (account_id, client) = {
             let session = self.session.read().await;
             let session = session.as_ref().ok_or(CommandErr::NotLoggedIn)?;
@@ -36,21 +35,19 @@ impl Core {
             .as_ref()
             .filter(|download| download.account_id == account_id)
             .cloned();
-        Ok(CommandOk::KeyBackupStatus {
-            status: KeyBackupStatusView {
-                local_keys: status.local_keys,
-                backed_up_keys: status.backed_up_keys,
-                cloud_keys: status.cloud_keys,
-                can_restore: status.can_restore,
-                download,
-            },
+        Ok(KeyBackupStatusView {
+            local_keys: status.local_keys,
+            backed_up_keys: status.backed_up_keys,
+            cloud_keys: status.cloud_keys,
+            can_restore: status.can_restore,
+            download,
         })
     }
 
     pub(crate) async fn download_key_backup(
         &self,
         request_id: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<KeyBackupDownloadView, CommandErr> {
         let _permit = self
             .key_backup_downloads
             .try_acquire()
@@ -102,7 +99,7 @@ impl Core {
         };
         self.report_key_backup_download(generation, download.clone());
         result.or_failed(self, "download_key_backup")?;
-        Ok(CommandOk::DownloadKeyBackup { download })
+        Ok(download)
     }
 
     pub(crate) async fn backup_status(&self, client: &Client) -> Result<BackupStatus, CoreError> {

@@ -1,4 +1,5 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { sendMessage } from '#lib/core/api/messages.svelte.js';
 import type {
   NativeNotificationAction,
   NativeNotificationTarget,
@@ -28,7 +29,7 @@ export function inviteNotificationAction(
 }
 
 type AccountSwitcher = Pick<CoreClient, 'session' | 'accounts' | 'switchAccount'>;
-type Replier = AccountSwitcher & Pick<CoreClient, 'commands'>;
+type Replier = AccountSwitcher & Pick<CoreClient, 'rpc'>;
 
 export async function selectNotificationAccount(
   core: AccountSwitcher,
@@ -63,10 +64,17 @@ export async function performNotificationAction(
   if (!(await selectNotificationAccount(core, action.userId))) return;
 
   if (action.text !== null && action.actionId === REPLY_ACTION) {
-    await core.commands.sendMessage(action.roomId, action.text);
+    await sendMessage(core.rpc, action.roomId, action.text);
   }
 
   if (action.eventId !== null) {
-    await core.commands.markRead(action.roomId, action.eventId, readReceiptIsPrivate);
+    await core.rpc.timeline.markRead({
+      room_id: action.roomId,
+      event_id: action.eventId,
+      private_receipt: readReceiptIsPrivate,
+      thread_root: null,
+      subscription: null,
+      fully_read: false,
+    });
   }
 }

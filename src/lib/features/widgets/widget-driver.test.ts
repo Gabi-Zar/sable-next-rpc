@@ -4,13 +4,13 @@ import { CoreError } from '#src/transport';
 import { SableWidgetDriver } from './widget-driver.js';
 
 test('returns the created IDs for messages, state events and redactions', async () => {
-  const commands = {
+  const messages = {
     sendRawEvent: vi.fn().mockResolvedValue('$message'),
-    sendStateEvent: vi.fn().mockResolvedValue('$state'),
     sendRedaction: vi.fn().mockResolvedValue('$redaction'),
   };
+  const rpc = { room_state: { sendStateEvent: vi.fn().mockResolvedValue('$state') } };
   const driver = new SableWidgetDriver(
-    { commands } as unknown as CoreClient,
+    { rpc: { ...rpc, messages } } as unknown as CoreClient,
     '!room:example.org',
     (caps) => Promise.resolve(caps),
     () => Promise.resolve()
@@ -25,105 +25,127 @@ test('returns the created IDs for messages, state events and redactions', async 
   await expect(
     driver.sendEvent('m.room.redaction', { redacts: '$target', reason: 'removed' })
   ).resolves.toEqual({ roomId: '!room:example.org', eventId: '$redaction' });
-  expect(commands.sendRedaction).toHaveBeenCalledExactlyOnceWith(
-    '!room:example.org',
-    '$target',
-    'removed'
-  );
+  expect(messages.sendRedaction).toHaveBeenCalledExactlyOnceWith({
+    room_id: '!room:example.org',
+    event_id: '$target',
+    reason: 'removed',
+  });
   await expect(driver.sendEvent('m.room.redaction', { redacts: 1 })).rejects.toThrow(
     'redaction without a target'
   );
-  expect(commands.sendRedaction).toHaveBeenCalledTimes(1);
+  expect(messages.sendRedaction).toHaveBeenCalledTimes(1);
 });
 
-function driverWith(commands: Record<string, unknown>, navigate = () => Promise.resolve()) {
+function driverWith(
+  media: Record<string, unknown>,
+  navigate = () => Promise.resolve(),
+  rpc: Record<string, Record<string, unknown>> = {}
+) {
   return new SableWidgetDriver(
-    { commands } as unknown as CoreClient,
+    { media, rpc } as unknown as CoreClient,
     '!room:example.org',
     (caps) => Promise.resolve(caps),
     navigate
   );
 }
 
+function driverWithRpc(rpc: Record<string, Record<string, unknown>>) {
+  return new SableWidgetDriver(
+    { rpc } as unknown as CoreClient,
+    '!room:example.org',
+    (caps) => Promise.resolve(caps),
+    () => Promise.resolve()
+  );
+}
+
 test('sends sticky and delayed events to the viewed room unless told otherwise', async () => {
-  const commands = {
+  const widgets = {
     widgetSendStickyEvent: vi.fn().mockResolvedValue('$sticky'),
     widgetSendDelayedEvent: vi.fn().mockResolvedValue('delay-1'),
   };
-  const driver = driverWith(commands);
+  const driver = driverWithRpc({ widgets });
 
   await expect(driver.sendStickyEvent(900_000, 'com.example.member', { a: 1 })).resolves.toEqual({
     roomId: '!room:example.org',
     eventId: '$sticky',
   });
-  expect(commands.widgetSendStickyEvent).toHaveBeenCalledWith(
-    '!room:example.org',
-    'com.example.member',
-    { a: 1 },
-    900_000
-  );
+  expect(widgets.widgetSendStickyEvent).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_type: 'com.example.member',
+    content: { a: 1 },
+    sticky_duration_ms: 900_000,
+  });
 
   await expect(
     driver.sendDelayedEvent(5_000, 'com.example.state', {}, 'key', '!other:example.org')
   ).resolves.toEqual({ roomId: '!other:example.org', delayId: 'delay-1' });
-  expect(commands.widgetSendDelayedEvent).toHaveBeenLastCalledWith(
-    '!other:example.org',
-    'com.example.state',
-    'key',
-    {},
-    5_000,
-    null
-  );
+  expect(widgets.widgetSendDelayedEvent).toHaveBeenLastCalledWith({
+    room_id: '!other:example.org',
+    event_type: 'com.example.state',
+    state_key: 'key',
+    content: {},
+    delay_ms: 5_000,
+    sticky_duration_ms: null,
+  });
 
   await driver.sendDelayedStickyEvent(5_000, 60_000, 'com.example.member', {});
-  expect(commands.widgetSendDelayedEvent).toHaveBeenLastCalledWith(
-    '!room:example.org',
-    'com.example.member',
-    null,
-    {},
-    5_000,
-    60_000
-  );
+  expect(widgets.widgetSendDelayedEvent).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    event_type: 'com.example.member',
+    state_key: null,
+    content: {},
+    delay_ms: 5_000,
+    sticky_duration_ms: 60_000,
+  });
 });
 
 test('cancels, restarts and sends delayed events by id', async () => {
-  const commands = {
+  const widgets = { restartDelayedEvent: vi.fn().mockResolvedValue(undefined) };
+  const messages = {
     cancelScheduledMessage: vi.fn().mockResolvedValue(undefined),
-    restartDelayedEvent: vi.fn().mockResolvedValue(undefined),
     sendScheduledMessage: vi.fn().mockResolvedValue(undefined),
   };
-  const driver = driverWith(commands);
+  const driver = driverWithRpc({ messages, widgets });
 
   await driver.cancelScheduledDelayedEvent('d1');
   await driver.restartScheduledDelayedEvent('d2');
   await driver.sendScheduledDelayedEvent('d3');
 
-  expect(commands.cancelScheduledMessage).toHaveBeenCalledWith('d1');
-  expect(commands.restartDelayedEvent).toHaveBeenCalledWith('d2');
-  expect(commands.sendScheduledMessage).toHaveBeenCalledWith('d3');
+  expect(messages.cancelScheduledMessage).toHaveBeenCalledWith({ delay_id: 'd1' });
+  expect(widgets.restartDelayedEvent).toHaveBeenCalledWith({ delay_id: 'd2' });
+  expect(messages.sendScheduledMessage).toHaveBeenCalledWith({ delay_id: 'd3' });
 });
 
 test('forwards to-device messages with their encryption flag', async () => {
-  const commands = { widgetSendToDevice: vi.fn().mockResolvedValue(undefined) };
-  const driver = driverWith(commands);
+  const widgets = { widgetSendToDevice: vi.fn().mockResolvedValue(undefined) };
+  const driver = driverWithRpc({ widgets });
   const messages = { '@a:x': { '*': { key: 'value' } } };
 
   await driver.sendToDevice('com.example.ping', true, messages);
 
-  expect(commands.widgetSendToDevice).toHaveBeenCalledWith('com.example.ping', true, messages);
+  expect(widgets.widgetSendToDevice).toHaveBeenCalledWith({
+    event_type: 'com.example.ping',
+    encrypted: true,
+    messages,
+  });
 });
 
 test('reads room account data from the viewed room, or from every known room for the wildcard', async () => {
-  const commands = {
-    roomAccountDataRaw: vi.fn((roomId: string) =>
-      Promise.resolve(
-        roomId === '!gap:example.org'
-          ? null
-          : { type: 'com.example.data', room_id: roomId, content: {} }
-      )
-    ),
+  const rpc = {
+    room_state: {
+      roomAccountDataRaw: vi.fn(({ room_id }: { room_id: string }) =>
+        Promise.resolve(
+          room_id === '!gap:example.org' ? null : { type: 'com.example.data', room_id, content: {} }
+        )
+      ),
+    },
   };
-  const driver = driverWith(commands);
+  const driver = new SableWidgetDriver(
+    { rpc } as unknown as CoreClient,
+    '!room:example.org',
+    (caps) => Promise.resolve(caps),
+    () => Promise.resolve()
+  );
   driver.noteRooms(['!a:example.org', '!gap:example.org']);
 
   await expect(driver.readRoomAccountData('com.example.data')).resolves.toEqual([
@@ -139,14 +161,14 @@ test('reads room account data from the viewed room, or from every known room for
 });
 
 test('maps the relations read onto the widget result and the direction onto the core', async () => {
-  const commands = {
+  const timeline = {
     roomEventRelations: vi.fn().mockResolvedValue({
       chunk: [{ event_id: '$reply' }],
       next_batch: 'next',
       prev_batch: null,
     }),
   };
-  const driver = driverWith(commands);
+  const driver = driverWith({}, undefined, { timeline });
 
   await expect(
     driver.readEventRelations('$parent', undefined, 'm.thread', 'm.room.message', 'a', 'b', 5, 'f')
@@ -155,9 +177,11 @@ test('maps the relations read onto the widget result and the direction onto the 
     nextBatch: 'next',
     prevBatch: undefined,
   });
-  expect(commands.roomEventRelations).toHaveBeenCalledWith('!room:example.org', '$parent', {
-    relType: 'm.thread',
-    eventType: 'm.room.message',
+  expect(timeline.roomEventRelations).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_id: '$parent',
+    rel_type: 'm.thread',
+    event_type: 'm.room.message',
     from: 'a',
     to: 'b',
     limit: 5,
@@ -181,7 +205,7 @@ test('navigates with the matrix.to fragment and refuses anything else', async ()
 test('keeps the TURN credentials fresh until the widget stops watching', async () => {
   vi.useFakeTimers();
   try {
-    const commands = {
+    const calls = {
       turnServer: vi
         .fn()
         .mockResolvedValueOnce({
@@ -197,7 +221,7 @@ test('keeps the TURN credentials fresh until the widget stops watching', async (
           ttl_ms: 3_600_000,
         }),
     };
-    const servers = driverWith(commands).getTurnServers();
+    const servers = driverWithRpc({ calls }).getTurnServers();
 
     await expect(servers.next()).resolves.toEqual({
       done: false,
@@ -209,14 +233,16 @@ test('keeps the TURN credentials fresh until the widget stops watching', async (
       done: false,
       value: { uris: ['turn:b'], username: 'u2', password: 'p2' },
     });
-    expect(commands.turnServer).toHaveBeenCalledTimes(2);
+    expect(calls.turnServer).toHaveBeenCalledTimes(2);
   } finally {
     vi.useRealTimers();
   }
 });
 
 test('reports the media limit under the MSC4039 key', async () => {
-  const driver = driverWith({ mediaConfig: vi.fn().mockResolvedValue({ upload_size: 1024 }) });
+  const driver = driverWith({}, undefined, {
+    messages: { mediaConfig: vi.fn().mockResolvedValue({ upload_size: 1024 }) },
+  });
 
   await expect(driver.getMediaConfig()).resolves.toEqual({ 'm.upload.size': 1024 });
 });
@@ -246,11 +272,11 @@ test('downloads the original of a content URI', async () => {
 
 test('relays the RTC requests to the core verbatim', async () => {
   const rtcLivekit = vi.fn().mockResolvedValue({ jwt: 'token' });
-  const commands = {
+  const calls = {
     rtcLivekit,
     rtcTransports: vi.fn().mockResolvedValue({ rtc_transports: [{ type: 'livekit' }] }),
   };
-  const driver = driverWith(commands);
+  const driver = driverWithRpc({ calls });
   const request = {
     server_name: 'example.org',
     url: 'wss://sfu.example.org',
@@ -270,8 +296,11 @@ test('relays the RTC requests to the core verbatim', async () => {
     delay_id: 'd1',
   });
 
-  expect(rtcLivekit).toHaveBeenNthCalledWith(1, 'get_token', request);
-  expect(rtcLivekit).toHaveBeenNthCalledWith(2, 'delegate_delayed_leave', expect.anything());
+  expect(rtcLivekit).toHaveBeenNthCalledWith(1, { endpoint: 'get_token', body: request });
+  expect(rtcLivekit).toHaveBeenNthCalledWith(
+    2,
+    expect.objectContaining({ endpoint: 'delegate_delayed_leave' })
+  );
 });
 
 test('expresses core refusals as Matrix API errors', () => {
@@ -288,8 +317,10 @@ test('expresses core refusals as Matrix API errors', () => {
 });
 
 test('offers no TURN servers when the homeserver has none', async () => {
-  const driver = driverWith({
-    turnServer: vi.fn().mockResolvedValue({ uris: [], username: '', password: '', ttl_ms: 0 }),
+  const driver = driverWithRpc({
+    calls: {
+      turnServer: vi.fn().mockResolvedValue({ uris: [], username: '', password: '', ttl_ms: 0 }),
+    },
   });
 
   await expect(driver.getTurnServers().next()).resolves.toEqual({

@@ -12,7 +12,7 @@ use std::{
 use js_sys::Function;
 use sable_core::{
     Core,
-    protocol::{Command, CommandErr, CoreEvent},
+    protocol::{CommandErr, CoreEvent},
 };
 use session_store::JsSessionStore;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -210,21 +210,18 @@ impl SableCore {
         }
     }
 
-    /// Resolves with the JSON of `CommandOk`, rejects with that of `CommandErr`.
+    /// Runs `"<domain>.<method>"` on JSON params. Resolves with the JSON
+    /// result, rejects with that of `CommandErr`.
     ///
     /// # Errors
     ///
-    /// Returns a JSON-encoded command error when parsing or dispatch fails.
-    #[wasm_bindgen(js_name = submitCommand)]
-    pub async fn submit_command(&self, command: String) -> Result<String, String> {
-        let command: Command = serde_json::from_str(&command)
-            .map_err(|error| js_err(&self.core.failed("submit_command", error)))?;
-
-        match Box::pin(self.core.dispatch(command)).await {
-            Ok(response) => serde_json::to_string(&response)
-                .map_err(|error| js_err(&self.core.failed("submit_command", error))),
-            Err(error) => Err(js_err(&error)),
-        }
+    /// Returns a JSON-encoded command error when parsing or the call fails.
+    #[wasm_bindgen]
+    pub async fn call(&self, method: String, params: String) -> Result<String, String> {
+        Box::pin(self.core.call(&method, &params))
+            .await
+            .map(|json| Box::<str>::from(json).into_string())
+            .map_err(|error| js_err(&error))
     }
 
     /// Resolves with the raw thumbnail bytes.
@@ -359,11 +356,11 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn an_unparseable_command_rejects_with_a_protocol_error() {
+    async fn unparseable_params_reject_with_a_protocol_error() {
         let rejection = core()
-            .submit_command("not json".to_owned())
+            .call("session.restore".to_owned(), "not json".to_owned())
             .await
-            .expect_err("an unparseable command must reject");
+            .expect_err("unparseable params must reject");
 
         let error = command_err(&rejection);
 

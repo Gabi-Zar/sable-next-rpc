@@ -71,7 +71,7 @@ class MediaPreviewSettings {
   async roomConfig(roomId: string): Promise<MediaPreviewConfig> {
     const core = this.core;
     if (core === null) return {};
-    return core.commands.mediaPreviewConfig(roomId);
+    return core.rpc.account.mediaPreviewConfig({ room_id: roomId });
   }
 
   async set(next: MediaPreviewConfig): Promise<void> {
@@ -85,9 +85,11 @@ class MediaPreviewSettings {
     };
     this.global = merged;
     try {
-      await core.commands.setMediaPreviewConfig({
-        media_previews: next.media_previews ?? null,
-        invite_avatars: next.invite_avatars ?? null,
+      await core.rpc.account.setMediaPreviewConfig({
+        config: {
+          media_previews: next.media_previews ?? null,
+          invite_avatars: next.invite_avatars ?? null,
+        },
       });
       if (this.global === merged && next.media_previews) {
         setPreference('mediaAutoLoad', next.media_previews);
@@ -103,7 +105,7 @@ class MediaPreviewSettings {
     try {
       const core = this.core;
       if (core === null) return;
-      const config = await core.commands.mediaPreviewConfig();
+      const config = await core.rpc.account.mediaPreviewConfig({ room_id: null });
       if (generation === this.generation && read === this.reads) {
         this.global = config;
         if (config.media_previews) setPreference('mediaAutoLoad', config.media_previews);

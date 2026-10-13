@@ -12,11 +12,12 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const core = Object.assign(baseCore, {
   notificationKeywords: vi.fn<() => Promise<KeywordNotificationView[]>>(),
-  addNotificationKeyword: vi.fn<(keyword: string) => Promise<void>>(),
-  removeNotificationKeyword: vi.fn<(keyword: string) => Promise<void>>(),
+  addNotificationKeyword: vi.fn<(params: { keyword: string }) => Promise<void>>(),
+  removeNotificationKeyword: vi.fn<(params: { keyword: string }) => Promise<void>>(),
   setNotificationKeywordMode:
-    vi.fn<(keyword: string, mode: MentionNotificationModeView) => Promise<void>>(),
+    vi.fn<(params: { keyword: string; mode: MentionNotificationModeView }) => Promise<void>>(),
 });
+Object.assign(core, { rpc: { notifications: core } });
 
 function listed(...keywords: string[]): KeywordNotificationView[] {
   return keywords.map((keyword) => ({ keyword, mode: 'notify' }));
@@ -55,7 +56,7 @@ test('lists the account keywords and lets one be removed', async () => {
   await confirm();
 
   await vi.waitFor(() => {
-    expect(core.removeNotificationKeyword).toHaveBeenCalledWith('erwan');
+    expect(core.removeNotificationKeyword).toHaveBeenCalledWith({ keyword: 'erwan' });
     expect(keywords()).toEqual(['sable']);
   });
 });
@@ -141,7 +142,7 @@ test('a slow initial load cannot overwrite the list a fresh add produced', async
   await user.click(screen.getByRole('button', { name: 'Add' }));
 
   await vi.waitFor(() => {
-    expect(core.addNotificationKeyword).toHaveBeenCalledWith('urgent');
+    expect(core.addNotificationKeyword).toHaveBeenCalledWith({ keyword: 'urgent' });
   });
 
   releaseInitial();

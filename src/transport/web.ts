@@ -1,10 +1,10 @@
 import * as Sentry from '@sentry/sveltekit';
 
-import type { Command, CommandOk, CoreEvent } from '#src/generated/protocol';
+import type { CoreEvent } from '#src/generated/protocol';
 import type { WorkerMessage, WorkerRequest } from '#src/worker/protocol';
 import wasmVersion from '#src/generated/wasm/sable_wasm_version.js';
 import coreWorkerUrl from '../worker/core.worker.ts?sharedworker&url';
-import { CoreError, type ResponseFor, type Transport } from './index';
+import { CoreError, type Transport } from './index';
 import { on } from 'svelte/events';
 import { recordDebugLog } from '../lib/observability/debug-log.svelte.js';
 import {
@@ -15,13 +15,11 @@ import {
 import { deleteAccountWebStorage, resetWebStorage } from '../lib/platform/session-storage.js';
 import { migrateV1 } from '#lib/migrations/v1/migration.js';
 
-type RequestLabel = Command['type'] | 'media' | 'attachment' | 'upload';
-
 const QUIET_COMMAND_FAILURES = new Set([
   'media:unavailable',
-  'user_profile:unavailable',
-  'unsubscribe:denied',
-  'unsubscribe:unknown_subscription',
+  'account.user_profile:unavailable',
+  'timeline.unsubscribe:denied',
+  'timeline.unsubscribe:unknown_subscription',
 ]);
 
 const reportedCoreErrors = new Set<string>();
@@ -44,8 +42,8 @@ function reportCoreError(line: string, onStorageFailure: () => void): void {
   });
 }
 
-function requestLabel(request: WorkerRequest): RequestLabel | undefined {
-  if ('command' in request) return request.command.type;
+function requestLabel(request: WorkerRequest): string | undefined {
+  if ('call' in request) return request.call.method;
   if ('media' in request) return 'media';
   if ('attachment' in request) return 'attachment';
   if ('upload' in request) return 'upload';
@@ -106,12 +104,12 @@ export function prewarmWebWorker(): void {
 export function createWebTransport(): Transport {
   const listeners = new Set<(event: CoreEvent) => void>();
   // Which reply belongs to which id is a runtime fact, so it cannot be typed.
-  type Reply = CommandOk | Uint8Array<ArrayBuffer> | string | null;
+  type Reply = unknown;
   const pending = new Map<
     number,
     { resolve: (value: Reply) => void; reject: (error: unknown) => void }
   >();
-  const pendingCommands = new Map<number, RequestLabel>();
+  const pendingCommands = new Map<number, string>();
   const crashListeners = new Set<(message: string) => void>();
   const storageFailureListeners = new Set<() => void>();
   const stallListeners = new Set<(stalled: boolean) => void>();
@@ -333,7 +331,7 @@ export function createWebTransport(): Transport {
         const label = requestLabel(request);
         if (label !== undefined) recordDebugLog('debug', 'network', 'transport', label);
         const timeout =
-          label === 'login_flows'
+          label === 'auth.login_flows'
             ? setTimeout(() => {
                 if (!pending.delete(id)) return;
                 pendingCommands.delete(id);
@@ -344,7 +342,7 @@ export function createWebTransport(): Transport {
               }, 20_000)
             : undefined;
         const stall =
-          'command' in request
+          'call' in request
             ? setTimeout(() => {
                 setOverdue(id, true);
               }, stallAfterMs)
@@ -371,8 +369,8 @@ export function createWebTransport(): Transport {
   }
 
   return {
-    send<C extends Command>(command: C) {
-      return request<ResponseFor<C['type']>>((id) => ({ id, command }));
+    call(method, params) {
+      return request<unknown>((id) => ({ id, call: { method, params } }));
     },
 
     fetchMedia(source, width, height, background = false) {

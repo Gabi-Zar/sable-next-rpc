@@ -1,11 +1,11 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { childRouting, quietRoomIds, spaceUnreadCounts, spacesContainingRoom } from './spaces';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
-function room(overrides: Partial<RoomSummary>): RoomSummary {
+function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
     room_id: '!room:example.org',
     canonical_alias: null,

@@ -191,8 +191,7 @@ test('a non-manager sees no add form', () => {
 
 test('the integration manager opens from the manager actions', async () => {
   const integrationManagerUrl = vi.fn().mockReturnValue(new Promise(() => undefined));
-  (core.commands as unknown as Record<string, unknown>).integrationManagerUrl =
-    integrationManagerUrl;
+  (core as unknown as Record<string, unknown>).rpc = { session: { integrationManagerUrl } };
   renderWithTooltips(WidgetsPanel, {
     ...commonProps,
     widgets: [],
@@ -204,5 +203,5 @@ test('the integration manager opens from the manager actions', async () => {
 
   await user.click(screen.getByRole('button', { name: 'Integration manager' }));
 
-  expect(integrationManagerUrl).toHaveBeenCalledWith('!room:example.org');
+  expect(integrationManagerUrl).toHaveBeenCalledWith({ room_id: '!room:example.org' });
 });

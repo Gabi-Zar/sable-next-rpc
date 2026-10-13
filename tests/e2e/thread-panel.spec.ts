@@ -508,11 +508,13 @@ for (const threadPresentation of ['timeline', 'panel']) {
       .poll(() =>
         page.evaluate(
           (subscription) =>
-            window.__e2eCommandPayloads
+            window.__e2eCalls
               .filter(
-                (command) => command.type === 'paginate' && command.subscription === subscription
+                (call) =>
+                  call.method === 'timeline.paginate' &&
+                  (call.params as { subscription: number }).subscription === subscription
               )
-              .map((command) => (command.type === 'paginate' ? command.direction : null)),
+              .map((call) => (call.params as { direction: string }).direction),
           threadSubscription
         )
       )

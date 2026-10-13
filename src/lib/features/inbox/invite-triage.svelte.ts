@@ -1,6 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 
-import type { InviteTriageView, RoomSummary } from '#src/generated/protocol';
+import type { InviteTriageView, RoomListItemView } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { hasBadWords } from './bad-words';
@@ -11,14 +11,14 @@ export type InviteGroup = 'known' | 'strangers' | 'spam';
 export const INVITE_GROUPS: readonly InviteGroup[] = ['known', 'strangers', 'spam'];
 
 export interface TriagedInvite {
-  room: RoomSummary;
+  room: RoomListItemView;
   inviter: string | null;
   reason: string | null;
   group: InviteGroup;
 }
 
 export function triageInvite(
-  room: RoomSummary,
+  room: RoomListItemView,
   triage: InviteTriageView | undefined,
   inviterName: (userId: string) => string
 ): TriagedInvite {
@@ -41,7 +41,7 @@ export class InviteTriage {
   #key: string | null = null;
   #generation = 0;
 
-  constructor(private readonly core: Pick<CoreClient, 'commands'>) {}
+  constructor(private readonly core: Pick<CoreClient, 'rpc'>) {}
 
   get ready(): boolean {
     return this.#ready;
@@ -61,7 +61,7 @@ export class InviteTriage {
       this.#ready = true;
       return;
     }
-    this.core.commands.inviteTriage().then(
+    this.core.rpc.account.inviteTriage().then(
       (invites) => {
         if (generation !== this.#generation) return;
         this.#answers.clear();

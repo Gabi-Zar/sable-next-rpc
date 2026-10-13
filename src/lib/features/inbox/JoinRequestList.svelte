@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SvelteSet } from 'svelte/reactivity';
-  import type { MemberView, RoomPermissionsView, RoomSummary } from '#src/generated/protocol';
+  import type { MemberView, RoomPermissionsView, RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -11,7 +11,7 @@
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
 
   interface JoinRequest {
-    room: RoomSummary;
+    room: RoomListItemView;
     member: MemberView;
     permissions: RoomPermissionsView;
   }
@@ -50,9 +50,12 @@
     );
     const results = await Promise.allSettled(
       rooms.map(async (room): Promise<JoinRequest[]> => {
-        const permissions = await core.commands.roomPermissions(room.room_id);
+        const permissions = await core.rpc.members.roomPermissions({ room_id: room.room_id });
         if (!permissions.can_invite && !permissions.can_kick) return [];
-        const members = await core.commands.roomMembers(room.room_id, ['knock']);
+        const members = await core.rpc.members.roomMembers({
+          room_id: room.room_id,
+          memberships: ['knock'],
+        });
         return members
           .filter((member) => member.membership === 'knock')
           .map((member) => ({ room, member, permissions }));
@@ -72,8 +75,9 @@
     busy = true;
     actionFailed = false;
     try {
-      if (approve) await core.commands.inviteUser(room.room_id, member.user_id);
-      else await core.commands.denyKnock(room.room_id, member.user_id);
+      if (approve)
+        await core.rpc.rooms.inviteUser({ room_id: room.room_id, user_id: member.user_id });
+      else await core.rpc.members.denyKnock({ room_id: room.room_id, user_id: member.user_id });
       answered.add(key(request));
     } catch (error) {
       console.warn('[sable inbox] answering join request failed', error);

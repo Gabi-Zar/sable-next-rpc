@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
@@ -52,7 +52,7 @@
       .catch(() => {});
   });
 
-  let unlisted = $state.raw<RoomSummary | null>(null);
+  let unlisted = $state.raw<RoomListItemView | null>(null);
   let unlistedRoom = $derived(unlisted?.room_id === roomId ? unlisted : undefined);
   $effect(() => {
     const id = roomId;
@@ -60,8 +60,8 @@
     if (!listed || joined || !id.startsWith('!')) return;
 
     let current = true;
-    core.commands
-      .roomSummary(id)
+    core.rpc.rooms
+      .roomListItem({ room_id: id })
       .then((room) => {
         if (current && room.state === 'joined') unlisted = room;
       })

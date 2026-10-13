@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { type RoomUnread, roomUnread } from '#lib/rooms/unread.js';
 
@@ -14,11 +14,11 @@ const PREFIXES = new Map<string, JumpKind>([
   ['@', 'direct'],
 ]);
 
-export function roomDisplayName(room: RoomSummary): string {
+export function roomDisplayName(room: RoomListItemView): string {
   return room.name ?? room.canonical_alias ?? room.room_id;
 }
 
-export function jumpKind(room: RoomSummary): JumpKind {
+export function jumpKind(room: RoomListItemView): JumpKind {
   if (room.is_space) return 'space';
   if (room.is_direct) return 'direct';
   return 'room';
@@ -31,17 +31,17 @@ export function parseJumpQuery(query: string): { kind: JumpKind | null; text: st
   return { kind, text: (kind === null ? trimmed : trimmed.slice(1)).trim() };
 }
 
-function byActivity(rooms: readonly RoomSummary[]): RoomSummary[] {
+function byActivity(rooms: readonly RoomListItemView[]): RoomListItemView[] {
   return rooms
     .slice()
     .sort((a, b) => (b.latest_event?.timestamp ?? 0) - (a.latest_event?.timestamp ?? 0));
 }
 
 export function filterRoomsByQuery(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   query: string,
   limit: number = MAX_RESULTS
-): RoomSummary[] {
+): RoomListItemView[] {
   const { kind, text } = parseJumpQuery(query);
   const joined = rooms.filter((room) => room.state === 'joined');
   const candidates = kind === null ? joined : joined.filter((room) => jumpKind(room) === kind);
@@ -54,7 +54,7 @@ export function filterRoomsByQuery(
   return fuzzyFilter(candidates, text, roomDisplayName, limit);
 }
 
-export function parentSpaceNames(rooms: readonly RoomSummary[]): Map<string, string> {
+export function parentSpaceNames(rooms: readonly RoomListItemView[]): Map<string, string> {
   const parents = new Map<string, string>();
 
   for (const space of rooms) {
@@ -69,10 +69,10 @@ export function parentSpaceNames(rooms: readonly RoomSummary[]): Map<string, str
 }
 
 export function unreadRoomsByPriority(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   excludeRoomId: string | null,
   unreadFor: RoomUnread = roomUnread
-): RoomSummary[] {
+): RoomListItemView[] {
   return rooms
     .map((room) => ({ room, counts: unreadFor(room) }))
     .filter(({ room, counts }) => counts.unread > 0 && room.room_id !== excludeRoomId)

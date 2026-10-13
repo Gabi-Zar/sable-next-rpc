@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
 
+  import { imagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { personaSpaces } from '#lib/features/composer/persona-spaces.js';
   import { eventTimelinePath } from '#lib/features/room/event-timeline.js';
@@ -58,7 +59,7 @@
   const messageMenu = provideMessageMenu(new OpenMessageMenu());
   const forumThreads = new ForumThreads(core);
   const memberLoader = new RoomMemberLoader();
-  const pinnedEvents = new PinnedEvents(core.commands);
+  const pinnedEvents = new PinnedEvents(core.rpc.timeline);
   providePinnedEvents(pinnedEvents);
 
   let resolvedRoom = $derived(findRoomByPathId(roomList.rooms, roomId));
@@ -124,14 +125,16 @@
   $effect(() => {
     if (threadRootId === null) return;
     const activeRoomId = resolvedRoomId;
-    void memberLoader.load(activeRoomId, (id) => core.commands.roomMembers(id));
+    void memberLoader.load(activeRoomId, (id) =>
+      core.rpc.members.roomMembers({ room_id: id, memberships: [] })
+    );
   });
 
   $effect(() => {
     const activeRoomId = resolvedRoomId;
     let current = true;
-    core.commands
-      .roomPermissions(activeRoomId)
+    core.rpc.members
+      .roomPermissions({ room_id: activeRoomId })
       .then((next) => {
         if (current) permissions = next;
       })
@@ -144,13 +147,14 @@
   });
 
   async function markRead(eventId: string): Promise<void> {
-    await core.commands.markRead(
-      resolvedRoomId,
-      eventId,
-      readReceiptIsPrivate(),
-      null,
-      forumThreads.roomTimeline.subscriptionId
-    );
+    await core.rpc.timeline.markRead({
+      room_id: resolvedRoomId,
+      event_id: eventId,
+      private_receipt: readReceiptIsPrivate(),
+      thread_root: null,
+      subscription: forumThreads.roomTimeline.subscriptionId,
+      fully_read: false,
+    });
   }
 
   function openThread(eventId: string): void {
@@ -162,10 +166,12 @@
   }
 
   function deleteThread(eventId: string, reason: string | null): void {
-    void core.commands.deleteThread(resolvedRoomId, eventId, reason).catch((error: unknown) => {
-      console.warn('[sable forum] deleting a thread failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
-    });
+    void core.rpc.messages
+      .deleteThread({ room_id: resolvedRoomId, root_event_id: eventId, reason })
+      .catch((error: unknown) => {
+        console.warn('[sable forum] deleting a thread failed', error);
+        toasts.error($i18n.t('errors.actionFailed'));
+      });
   }
 
   function togglePin(eventId: string): void {
@@ -295,7 +301,7 @@
         onDelete={deleteThread}
         roomId={resolvedRoomId}
         onReact={permissions?.can_react === false ? undefined : conversation.toggleReaction}
-        loadImagePacks={core.commands.imagePacks}
+        loadImagePacks={(target) => imagePacks(core.rpc, target)}
         onCopyLink={copyEventLink}
         onLoadMore={loadMoreThreads}
         isPinned={(eventId) => pinnedEvents.has(eventId)}

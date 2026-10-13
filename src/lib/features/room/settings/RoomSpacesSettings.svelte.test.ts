@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 const goto = vi.hoisted(() => vi.fn());
 
@@ -39,7 +39,7 @@ const core = Object.assign(baseCore, {
   ),
 });
 
-const room = { room_id: '!room:home.example' } as RoomSummary;
+const room = { room_id: '!room:home.example' } as RoomListItemView;
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -60,6 +60,9 @@ test('an unjoined parent space is joined through its via servers, then opened', 
 
   await user.click(await screen.findByRole('button', { name: 'common.join' }));
 
-  expect(core.joinRoom).toHaveBeenCalledWith('!other:far.example', ['far.example']);
+  expect(core.joinRoom).toHaveBeenCalledWith({
+    address: '!other:far.example',
+    via: ['far.example'],
+  });
   expect(goto).toHaveBeenCalledOnce();
 });

@@ -8,7 +8,7 @@ import type {
   ImagePackView,
   RoomPermissionsView,
   RoomPowerLevelsView,
-  RoomSummary,
+  RoomListItemView,
 } from '#src/generated/protocol';
 
 vi.mock('#lib/core/context.js');
@@ -19,7 +19,9 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 import RoomEmojiSettings from './RoomEmojiSettings.svelte';
 
 const core = Object.assign(baseCore, {
-  imagePacks: vi.fn<() => Promise<ImagePackView[]>>(() => Promise.resolve([])),
+  imagePacks: vi.fn<() => Promise<{ packs: ImagePackView[]; complete: boolean }>>(() =>
+    Promise.resolve({ packs: [], complete: true })
+  ),
 });
 
 function pack(overrides: Partial<ImagePackView>): ImagePackView {
@@ -45,11 +47,14 @@ afterEach(() => {
 });
 
 test('a pack enabled for every room is still listed in its own room', async () => {
-  core.imagePacks.mockResolvedValue([
-    pack({ origin: 'global' }),
-    pack({ id: 'parent', name: 'Parent pack', origin: 'space', room_id: '!parent:home.example' }),
-  ]);
-  const room = { room_id: '!space:home.example' } as RoomSummary;
+  core.imagePacks.mockResolvedValue({
+    packs: [
+      pack({ origin: 'global' }),
+      pack({ id: 'parent', name: 'Parent pack', origin: 'space', room_id: '!parent:home.example' }),
+    ],
+    complete: true,
+  });
+  const room = { room_id: '!space:home.example' } as RoomListItemView;
   render(RoomEmojiSettings, { room, permissions: null, levels: null });
 
   expect(await screen.findByText('Stickers')).toBeTruthy();
@@ -58,10 +63,13 @@ test('a pack enabled for every room is still listed in its own room', async () =
 });
 
 test('converting a legacy-only pack asks the core to copy it', async () => {
-  core.imagePacks.mockResolvedValue([pack({ stable_event: false, legacy_event: true })]);
-  const convertLegacyImagePacks = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  core.imagePacks.mockResolvedValue({
+    packs: [pack({ stable_event: false, legacy_event: true })],
+    complete: true,
+  });
+  const convertLegacyImagePacks = vi.fn<() => Promise<null>>(() => Promise.resolve(null));
   Object.assign(core, { convertLegacyImagePacks });
-  const room = { room_id: '!space:home.example' } as RoomSummary;
+  const room = { room_id: '!space:home.example' } as RoomListItemView;
   const levels: RoomPowerLevelsView = {
     ban: 50,
     kick: 50,
@@ -80,6 +88,9 @@ test('converting a legacy-only pack asks the core to copy it', async () => {
   await userEvent.click(await screen.findByRole('button', { name: 'room.emojisLegacyConvert:1' }));
 
   await vi.waitFor(() => {
-    expect(convertLegacyImagePacks).toHaveBeenCalledWith('!space:home.example', ['stickers']);
+    expect(convertLegacyImagePacks).toHaveBeenCalledWith({
+      room_id: '!space:home.example',
+      state_keys: ['stickers'],
+    });
   });
 });

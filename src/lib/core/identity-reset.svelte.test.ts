@@ -14,7 +14,11 @@ function resetWith(overrides: Record<string, unknown>) {
 
 test('a reset the server lets through shows the new key', async () => {
   const reset = resetWith({
-    resetIdentity: () => Promise.resolve({ step: 'done', recovery_key: 'EsTn ew' }),
+    rpc: {
+      encryption: {
+        resetIdentity: () => Promise.resolve({ step: 'done', recovery_key: 'EsTn ew' }),
+      },
+    },
   });
 
   await reset.start();
@@ -29,8 +33,12 @@ test('a wrong password keeps the prompt and a right one finishes', async () => {
     .mockRejectedValueOnce(new CoreError({ code: 'denied' }))
     .mockResolvedValueOnce('EsTn ew');
   const reset = resetWith({
-    resetIdentity: () => Promise.resolve({ step: 'password' }),
-    continueIdentityReset,
+    rpc: {
+      encryption: {
+        resetIdentity: () => Promise.resolve({ step: 'password' }),
+        continueIdentityReset,
+      },
+    },
   });
 
   await reset.start();
@@ -43,7 +51,7 @@ test('a wrong password keeps the prompt and a right one finishes', async () => {
   reset.password = 'hunter2';
   await reset.submitPassword();
 
-  expect(continueIdentityReset).toHaveBeenLastCalledWith('hunter2');
+  expect(continueIdentityReset).toHaveBeenLastCalledWith({ password: 'hunter2' });
   expect(reset.phase).toBe('done');
   expect(reset.recoveryKey).toBe('EsTn ew');
   expect(reset.password).toBe('');
@@ -53,12 +61,17 @@ test('cancelling a pending approval tells the core and ignores the late answer',
   let answer: (key: string) => void = () => {};
   const cancelIdentityReset = vi.fn(() => Promise.resolve());
   const reset = resetWith({
-    resetIdentity: () => Promise.resolve({ step: 'approve', url: 'https://auth.example/approve' }),
-    continueIdentityReset: () =>
-      new Promise<string>((resolve) => {
-        answer = resolve;
-      }),
-    cancelIdentityReset,
+    rpc: {
+      encryption: {
+        resetIdentity: () =>
+          Promise.resolve({ step: 'approve', url: 'https://auth.example/approve' }),
+        continueIdentityReset: () =>
+          new Promise<string>((resolve) => {
+            answer = resolve;
+          }),
+        cancelIdentityReset,
+      },
+    },
   });
 
   await reset.start();

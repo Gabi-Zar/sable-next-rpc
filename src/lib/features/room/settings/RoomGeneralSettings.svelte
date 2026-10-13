@@ -4,7 +4,7 @@
     JoinRuleView,
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
   import DoorOpenIcon from 'phosphor-svelte/lib/DoorOpenIcon';
   import GlobeIcon from 'phosphor-svelte/lib/GlobeIcon';
@@ -43,7 +43,7 @@
   import { canSendState } from './permission-groups';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
     levels: RoomPowerLevelsView | null;
     onClose: () => void;
@@ -74,8 +74,8 @@
     }
 
     let cancelled = false;
-    core.commands
-      .roomHasSpaceParent(target)
+    core.rpc.spaces
+      .roomHasSpaceParent({ room_id: target })
       .then((value) => {
         if (!cancelled) hasSpaceParent = value;
       })
@@ -144,13 +144,16 @@
     if (!target) return;
     await run(async () => {
       if (canEditName && name !== (room?.name ?? '')) {
-        await core.commands.setRoomName(target, name.trim() === '' ? null : name.trim());
+        await core.rpc.room_state.setRoomName({
+          room_id: target,
+          name: name.trim() === '' ? null : name.trim(),
+        });
       }
       if (canEditTopic && topicDraft !== topic) {
-        await core.commands.setRoomTopic(target, topicDraft.trim());
+        await core.rpc.room_state.setRoomTopic({ room_id: target, topic: topicDraft.trim() });
       }
       if (pendingRule !== null && pendingRule !== savedRule) {
-        await core.commands.setRoomJoinRule(target, pendingRule);
+        await core.rpc.room_state.setRoomJoinRule({ room_id: target, rule: pendingRule });
       }
     });
   }
@@ -171,7 +174,7 @@
     const target = roomId;
     if (!target) return;
     void run(async () => {
-      await core.commands.setDirect(target, false);
+      await core.rpc.account.setDirect({ room_id: target, direct: false, user_id: null });
     });
   }
 
@@ -179,7 +182,7 @@
     const target = roomId;
     if (!target || !canEditName) return;
     void run(async () => {
-      await core.commands.setRoomName(target, null);
+      await core.rpc.room_state.setRoomName({ room_id: target, name: null });
       name = '';
     });
   }
@@ -201,7 +204,7 @@
     const target = roomId;
     if (!target || !canEditAvatar) return;
     void run(async () => {
-      await core.commands.setRoomAvatar(target, null);
+      await core.rpc.room_state.setRoomAvatar({ room_id: target, url: null });
     });
   }
 
@@ -230,7 +233,7 @@
 
     await run(async () => {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const uri = await core.commands.uploadMedia(file.type || 'image/*', bytes);
+      const uri = await core.media.uploadMedia(file.type || 'image/*', bytes);
       await setRoomBanner(core, target, uri);
     });
   }

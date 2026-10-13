@@ -1,24 +1,19 @@
 use matrix_sdk::{Client, config::RequestConfig};
 
-use crate::{
-    Core, ResultExt,
-    protocol::{CommandErr, CommandOk},
-};
+use crate::{Core, ResultExt, protocol::CommandErr};
 
 impl Core {
-    pub(crate) async fn server_features(&self) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn server_features(&self) -> Result<Vec<String>, CommandErr> {
         let features = self
             .client()
             .await?
             .unstable_features()
             .await
             .or_failed(self, "server_features")?;
-        Ok(CommandOk::ServerFeatures {
-            unstable_features: features
-                .iter()
-                .map(|feature| feature.as_str().to_owned())
-                .collect(),
-        })
+        Ok(features
+            .iter()
+            .map(|feature| feature.as_str().to_owned())
+            .collect())
     }
 
     pub(crate) async fn require_sliding_sync(&self, client: &Client) -> Result<(), CommandErr> {

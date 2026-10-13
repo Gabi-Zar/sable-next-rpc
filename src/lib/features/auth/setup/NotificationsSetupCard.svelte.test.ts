@@ -21,7 +21,9 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 const setDefaultNotificationMode = vi.fn(() => Promise.resolve());
 const defaultNotificationModes = vi.fn(() => Promise.resolve({ group: 'all', direct: 'all' }));
-Object.assign(core, { setDefaultNotificationMode, defaultNotificationModes });
+Object.assign(core, {
+  rpc: { notifications: { setDefaultNotificationMode, defaultNotificationModes } },
+});
 
 import NotificationsSetupCard from './NotificationsSetupCard.svelte';
 
@@ -52,7 +54,7 @@ test('all messages is the pre-selected group default, written to push rules', as
   await vi.waitFor(() => {
     expect(onComplete).toHaveBeenCalledOnce();
   });
-  expect(setDefaultNotificationMode).toHaveBeenCalledWith(false, 'all');
+  expect(setDefaultNotificationMode).toHaveBeenCalledWith({ direct: false, mode: 'all' });
 });
 
 test('choosing mentions writes mentions instead', async () => {
@@ -61,7 +63,7 @@ test('choosing mentions writes mentions instead', async () => {
   await user.click(screen.getByRole('radio', { name: /Mentions and keywords/ }));
   await user.click(continueButton());
   await vi.waitFor(() => {
-    expect(setDefaultNotificationMode).toHaveBeenCalledWith(false, 'mentions');
+    expect(setDefaultNotificationMode).toHaveBeenCalledWith({ direct: false, mode: 'mentions' });
   });
 });
 

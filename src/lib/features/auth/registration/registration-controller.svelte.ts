@@ -186,7 +186,9 @@ export class RegistrationController {
       );
       if (result.state === 'email' && this.registrationEmail.trim()) {
         await this.handleResult(
-          await this.options.core.commands.requestRegistrationEmail(this.registrationEmail.trim())
+          await this.options.core.rpc.auth.requestRegistrationEmail({
+            email: this.registrationEmail.trim(),
+          })
         );
       } else {
         await this.handleResult(result);
@@ -231,7 +233,7 @@ export class RegistrationController {
     this.isRegistering = true;
     this.error = null;
     try {
-      this.result = await this.options.core.commands.requestRegistrationEmail(address);
+      this.result = await this.options.core.rpc.auth.requestRegistrationEmail({ email: address });
     } catch (value) {
       this.error = registrationError(value);
     } finally {
@@ -247,7 +249,7 @@ export class RegistrationController {
     this.isRegistering = true;
     this.error = null;
     try {
-      this.result = await this.options.core.commands.submitRegistrationEmail(token);
+      this.result = await this.options.core.rpc.auth.submitRegistrationEmail({ token });
     } catch (value) {
       this.error = registrationError(value);
     } finally {

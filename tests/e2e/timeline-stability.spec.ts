@@ -307,7 +307,7 @@ test('an arrival the reader is watching does not bounce the timeline', async ({
   await app.openRoom('!room:example.test');
   await loadScrollableHistory(core, timeline);
   const subscription = await core.subscription();
-  await expect.poll(() => core.commands()).toContain('mark_read');
+  await expect.poll(() => core.commands()).toContain('timeline.mark_read');
   const sample = await startArrivalSample(timeline.viewport);
   for (let index = 0; index < 3; index += 1) {
     await core.emitTimelineDiff(subscription, [
@@ -1320,7 +1320,8 @@ test('a message the reader sends from the bottom is followed on every frame', as
     else await app.composer.press('Enter');
     await expect
       .poll(
-        async () => (await core.commands()).filter((command) => command === 'send_message').length
+        async () =>
+          (await core.commands()).filter((command) => command === 'messages.send_message').length
       )
       .toBe(index + 1);
     await expect(app.composer).toHaveText('');

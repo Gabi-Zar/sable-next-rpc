@@ -2,7 +2,7 @@
   import type {
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
   import PencilIcon from 'phosphor-svelte/lib/PencilIcon';
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
@@ -34,7 +34,7 @@
   import '#lib/ui/primitives/settings-row.css';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
     levels: RoomPowerLevelsView | null;
   }
@@ -71,8 +71,8 @@
     if (!target) return;
 
     const current = ++run;
-    void core.commands
-      .roomAbbreviations(target)
+    void core.rpc.room_state
+      .roomAbbreviations({ room_id: target })
       .then((next) => {
         if (current === run) entries = next;
       })
@@ -98,7 +98,7 @@
       ids.map(async (spaceId) => {
         let list: AbbreviationEntry[] = [];
         try {
-          list = await core.commands.roomAbbreviations(spaceId);
+          list = await core.rpc.room_state.roomAbbreviations({ room_id: spaceId });
         } catch (error) {
           console.debug('[sable room] inherited abbreviations unavailable', error);
         }
@@ -124,7 +124,10 @@
     busy = true;
     failed = false;
     try {
-      await core.commands.setRoomAbbreviations(target, next);
+      await core.rpc.room_state.setRoomAbbreviations({
+        room_id: target,
+        entries: $state.snapshot([...next]),
+      });
       entries = [...next];
       abbreviationsChanged();
       return true;

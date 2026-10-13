@@ -165,14 +165,15 @@
     await timeline.paginateForward(25);
   }
 
-  function markRead(eventId: string): Promise<void> {
-    return core.commands.markRead(
-      roomId,
-      eventId,
-      readReceiptIsPrivate(),
-      rootEventId,
-      timeline.subscriptionId
-    );
+  async function markRead(eventId: string): Promise<void> {
+    await core.rpc.timeline.markRead({
+      room_id: roomId,
+      event_id: eventId,
+      private_receipt: readReceiptIsPrivate(),
+      thread_root: rootEventId,
+      subscription: timeline.subscriptionId,
+      fully_read: false,
+    });
   }
 </script>
 

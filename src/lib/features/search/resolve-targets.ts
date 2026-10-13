@@ -1,4 +1,4 @@
-import type { RoomSummary, SearchRoom } from '#src/generated/protocol';
+import type { RoomListItemView, SearchRoom } from '#src/generated/protocol';
 
 export type { SearchPerson, SearchRoom, TargetSuggestion } from '#src/generated/protocol';
 export {
@@ -8,7 +8,7 @@ export {
   suggestRoomTarget,
 } from '#lib/model/model.js';
 
-export function searchRooms(rooms: readonly RoomSummary[]): SearchRoom[] {
+export function searchRooms(rooms: readonly RoomListItemView[]): SearchRoom[] {
   return rooms.map((room) => ({
     room_id: room.room_id,
     name: room.name,
@@ -22,7 +22,10 @@ export function searchRooms(rooms: readonly RoomSummary[]): SearchRoom[] {
   }));
 }
 
-export function parentSpaceOf(rooms: readonly RoomSummary[], roomId: string): string | undefined {
+export function parentSpaceOf(
+  rooms: readonly RoomListItemView[],
+  roomId: string
+): string | undefined {
   return rooms.find(
     (room) =>
       room.is_space &&

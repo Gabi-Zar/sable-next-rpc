@@ -38,6 +38,7 @@
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import { hasDirectRoom, roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
+  import { sendMessage } from '#lib/core/api/messages.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -129,8 +130,8 @@
     invitedMember = null;
     if (member !== null || targetRoomId === '' || !(permissions?.can_kick ?? false)) return;
 
-    void core.commands
-      .roomMembers(targetRoomId, ['invite'])
+    void core.rpc.members
+      .roomMembers({ room_id: targetRoomId, memberships: ['invite'] })
       .then((members) => {
         if (request !== membershipRequest) return;
         invitedMember = members.find((entry) => entry.user_id === targetUserId) ?? null;
@@ -320,9 +321,9 @@
     }
   }
 
-  function moderate(action: (roomId: string, userId: string) => Promise<void>): () => void {
+  function moderate(action: (roomId: string, userId: string) => Promise<unknown>): () => void {
     return () => {
-      void action.call(core, roomId, userId).catch((error: unknown) => {
+      void action(roomId, userId).catch((error: unknown) => {
         console.warn('[sable profile] moderation action failed', error);
       });
     };
@@ -393,10 +394,10 @@
     sending = true;
     sendFailed = null;
     try {
-      const dmId = await core.commands.createDm(userId);
+      const dmId = await core.rpc.rooms.createDm({ user_id: userId, encrypted: null });
       if (body) {
         step = 'send';
-        await core.commands.sendMessage(dmId, body);
+        await sendMessage(core.rpc, dmId, body);
         draft = '';
         step = 'open';
       }
@@ -527,13 +528,19 @@
         </ActionMenuItem>
       {/if}
       {#if canInvite}
-        <ActionMenuItem onSelect={moderate(core.commands.inviteUser)}>
+        <ActionMenuItem
+          onSelect={moderate((room_id, user_id) => core.rpc.rooms.inviteUser({ room_id, user_id }))}
+        >
           <UserPlusIcon />
           {$i18n.t('timeline.profileInvite')}
         </ActionMenuItem>
       {/if}
       {#if canUnban}
-        <ActionMenuItem onSelect={moderate(core.commands.unbanUser)}>
+        <ActionMenuItem
+          onSelect={moderate((room_id, user_id) =>
+            core.rpc.members.unbanUser({ room_id, user_id, reason: null })
+          )}
+        >
           <LockOpenIcon />
           {$i18n.t('timeline.profileUnban')}
         </ActionMenuItem>
@@ -819,7 +826,9 @@
   hint={$i18n.t('timeline.profileReportHint')}
   onReport={(reason) => {
     const target = userId;
-    void sendReport(() => core.commands.reportUser(target, reason ?? ''));
+    void sendReport(async () => {
+      await core.rpc.account.reportUser({ user_id: target, reason: reason ?? '' });
+    });
   }}
 />
 

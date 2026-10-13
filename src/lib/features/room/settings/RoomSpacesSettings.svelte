@@ -4,9 +4,10 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
+  import { joinRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
   import { roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -15,7 +16,7 @@
   import { toasts } from '#lib/ui/toasts.svelte.js';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
   }
 
   interface ParentEvent {
@@ -67,8 +68,8 @@
     if (!target) return;
 
     const current = ++run;
-    void core.commands
-      .roomStateEventsRaw(target, 'm.space.parent', null)
+    void core.rpc.room_state
+      .roomStateEventsRaw({ room_id: target, event_type: 'm.space.parent', state_key: null })
       .then((events) => {
         if (current !== run) return;
         parents = (events as ParentEvent[]).flatMap((event) =>
@@ -98,7 +99,7 @@
   async function join(entry: Entry): Promise<void> {
     joining = entry.spaceId;
     try {
-      await core.commands.joinRoom(entry.spaceId, entry.via);
+      await joinRoom(core.rpc, entry.spaceId, entry.via);
       open(entry.spaceId);
     } catch (error) {
       console.warn('[sable room] joining a parent space failed', error);

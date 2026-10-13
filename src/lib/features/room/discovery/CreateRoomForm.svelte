@@ -11,6 +11,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { useCoreClient } from '#lib/core/context.js';
+  import { createRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
   import type {
     CreateJoinRuleView,
@@ -103,7 +104,7 @@
 
   $effect(() => {
     let cancelled = false;
-    core.commands
+    core.rpc.rooms
       .roomVersions()
       .then((result) => {
         if (!cancelled) roomVersions = result;
@@ -167,7 +168,7 @@
     submitting = true;
     failed = false;
     try {
-      const roomId = await core.commands.createRoom({
+      const roomId = await createRoom(core.rpc, {
         name: name.trim(),
         topic: topic.trim() === '' ? null : topic.trim(),
         kind: effectiveKind,

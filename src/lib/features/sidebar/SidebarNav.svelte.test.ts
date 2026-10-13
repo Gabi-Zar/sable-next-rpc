@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest';
 
-import type { CoreEvent, RoomSummary } from '#src/generated/protocol';
+import type { CoreEvent, RoomListItemView } from '#src/generated/protocol';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
@@ -51,7 +51,7 @@ afterEach(() => {
   sidebarFixture.items = [];
 });
 
-function space(roomId = '!space:example.org', name = 'Space'): RoomSummary {
+function space(roomId = '!space:example.org', name = 'Space'): RoomListItemView {
   return withCounts({
     room_id: roomId,
     canonical_alias: null,
@@ -135,9 +135,11 @@ test.each([
     ];
     const client = {
       subscribeEvents: () => () => {},
-      commands: {
-        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms }),
-        unsubscribe: () => Promise.resolve(),
+      rpc: {
+        timeline: {
+          subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms }),
+          unsubscribe: () => Promise.resolve(),
+        },
       },
     } as unknown as CoreClient;
     await startRoomList(client);
@@ -164,7 +166,7 @@ test.each([
 );
 
 test('adds an incoming unread DM to the navbar and removes it when read', async () => {
-  const room: RoomSummary = {
+  const room: RoomListItemView = {
     ...space('!dm:example.org', 'Alice'),
     is_space: false,
     is_direct: true,
@@ -178,10 +180,14 @@ test('adds an incoming unread DM to the navbar and removes it when read', async 
         listeners.delete(listener);
       };
     },
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
-      notificationSettings: () => Promise.resolve({ room: null, default: 'all' }),
-      unsubscribe: () => Promise.resolve(),
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
+        unsubscribe: () => Promise.resolve(),
+      },
+      notifications: {
+        notificationSettings: () => Promise.resolve({ room: null, default: 'all' }),
+      },
     },
   } as unknown as CoreClient;
   await startRoomList(core);
@@ -250,9 +256,11 @@ test('keeps the rail order when a room-list reset reorders spaces', async () => 
         listeners.delete(listener);
       };
     },
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [alpha, beta] }),
-      unsubscribe: () => Promise.resolve(),
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [alpha, beta] }),
+        unsubscribe: () => Promise.resolve(),
+      },
     },
   } as unknown as CoreClient;
   await startRoomList(core);
@@ -283,9 +291,11 @@ test('a subspace pinned in the stored layout joins the rail beside its parent', 
   };
   const core = {
     subscribeEvents: () => () => {},
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [parent, child] }),
-      unsubscribe: () => Promise.resolve(),
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [parent, child] }),
+        unsubscribe: () => Promise.resolve(),
+      },
     },
   } as unknown as CoreClient;
   await startRoomList(core);
@@ -302,7 +312,7 @@ test('a subspace pinned in the stored layout joins the rail beside its parent', 
 });
 
 test('a muted direct chat marked unread by hand still reaches the navbar', async () => {
-  const room: RoomSummary = withCounts({
+  const room: RoomListItemView = withCounts({
     ...space('!muted:example.org', 'Bo'),
     is_space: false,
     is_direct: true,
@@ -312,9 +322,11 @@ test('a muted direct chat marked unread by hand still reaches the navbar', async
   });
   const core = {
     subscribeEvents: () => () => {},
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
-      unsubscribe: () => Promise.resolve(),
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
+        unsubscribe: () => Promise.resolve(),
+      },
     },
   } as unknown as CoreClient;
   await startRoomList(core);
@@ -329,7 +341,7 @@ test('a muted direct chat marked unread by hand still reaches the navbar', async
 });
 
 test('a muted room marked unread by hand still marks its section as unread', async () => {
-  const room: RoomSummary = withCounts({
+  const room: RoomListItemView = withCounts({
     ...space('!muted-room:example.org', 'Ops'),
     is_space: false,
     marked_unread: true,
@@ -337,9 +349,11 @@ test('a muted room marked unread by hand still marks its section as unread', asy
   });
   const core = {
     subscribeEvents: () => () => {},
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
-      unsubscribe: () => Promise.resolve(),
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
+        unsubscribe: () => Promise.resolve(),
+      },
     },
   } as unknown as CoreClient;
   await startRoomList(core);
@@ -356,7 +370,7 @@ test('a section totals its notifying rooms in green', async () => {
   onTestFinished(() => {
     setPreference('showUnreadCounts', false);
   });
-  const room: RoomSummary = withCounts({
+  const room: RoomListItemView = withCounts({
     ...space('!loud:example.org', 'Loud'),
     is_space: false,
     unread: 4,
@@ -365,9 +379,11 @@ test('a section totals its notifying rooms in green', async () => {
   });
   const core = {
     subscribeEvents: () => () => {},
-    commands: {
-      subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
-      unsubscribe: () => Promise.resolve(),
+    rpc: {
+      timeline: {
+        subscribeRoomList: () => Promise.resolve({ subscription: 1, rooms: [room] }),
+        unsubscribe: () => Promise.resolve(),
+      },
     },
   } as unknown as CoreClient;
   await startRoomList(core);

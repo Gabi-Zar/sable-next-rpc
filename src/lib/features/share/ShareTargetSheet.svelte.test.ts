@@ -4,13 +4,13 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 vi.mock('#lib/core/context.js');
 
 const mocks = vi.hoisted(() => ({
   afterOverlayPops: vi.fn(() => Promise.resolve()),
-  rooms: [] as RoomSummary[],
+  rooms: [] as RoomListItemView[],
 }));
 
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
@@ -40,7 +40,7 @@ test('picking a room navigates there only once the sheet has popped its history 
     name: 'Alpha',
     state: 'joined',
     latest_event: null,
-  } as unknown as RoomSummary);
+  } as unknown as RoomListItemView);
   let popped!: () => void;
   mocks.afterOverlayPops.mockReturnValue(
     new Promise<void>((resolve) => {

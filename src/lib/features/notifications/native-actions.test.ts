@@ -30,7 +30,7 @@ function core(accountId = 'account-me') {
   const client = {
     session: accounts.find((account) => account.account_id === accountId),
     accounts,
-    commands: { sendMessage, markRead },
+    rpc: { messages: { sendMessage }, timeline: { markRead } },
     switchAccount,
   } as unknown as Replier;
 
@@ -61,8 +61,17 @@ test('a reply is sent and the room is read', async () => {
   const { client, sendMessage, markRead } = core();
   await performNotificationAction(client, action(), false);
 
-  expect(sendMessage).toHaveBeenCalledWith('!room:example.org', 'on my way');
-  expect(markRead).toHaveBeenCalledWith('!room:example.org', '$event:example.org', false);
+  expect(sendMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ room_id: '!room:example.org', body: 'on my way' })
+  );
+  expect(markRead).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_id: '$event:example.org',
+    private_receipt: false,
+    thread_root: null,
+    subscription: null,
+    fully_read: false,
+  });
 });
 
 test('marking read sends no message', async () => {
@@ -74,7 +83,14 @@ test('marking read sends no message', async () => {
   );
 
   expect(sendMessage).not.toHaveBeenCalled();
-  expect(markRead).toHaveBeenCalledWith('!room:example.org', '$event:example.org', true);
+  expect(markRead).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_id: '$event:example.org',
+    private_receipt: true,
+    thread_root: null,
+    subscription: null,
+    fully_read: false,
+  });
 });
 
 test('a blank reply and an unknown action do nothing', async () => {

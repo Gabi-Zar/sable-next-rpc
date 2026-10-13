@@ -34,7 +34,7 @@
 
     let cancelled = false;
     preview = null;
-    void resolveUrlPreview(core.commands, url, sources).then((result) => {
+    void resolveUrlPreview(core.rpc.messages, url, sources).then((result) => {
       if (!cancelled) preview = result;
     });
     return () => {

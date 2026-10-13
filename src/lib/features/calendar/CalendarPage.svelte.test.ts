@@ -105,7 +105,7 @@ test('lists who answered each event, by name', async () => {
     ]);
   });
   expect(screen.getAllByRole('term').map((term) => term.textContent)).toEqual(['Going', 'Maybe']);
-  expect(core.roomMembers).toHaveBeenCalledWith('!cal:x');
+  expect(core.roomMembers).toHaveBeenCalledWith({ room_id: '!cal:x', memberships: [] });
 });
 
 test('reloads when the core reports a change in this calendar, and only this one', async () => {
@@ -118,7 +118,7 @@ test('reloads when the core reports a change in this calendar, and only this one
   expect(core.calendarEntries).not.toHaveBeenCalled();
 
   listener?.({ type: 'calendar_changed', room_id: '!cal:x' });
-  expect(core.calendarEntries).toHaveBeenCalledWith('!cal:x');
+  expect(core.calendarEntries).toHaveBeenCalledWith({ room_id: '!cal:x' });
 });
 
 test('answers and counts each occurrence of a recurring event on its own', async () => {
@@ -166,10 +166,11 @@ test('answers and counts each occurrence of a recurring event on its own', async
   expect(first.queryByRole('definition')).not.toBeInTheDocument();
 
   await user.click(first.getByRole('button', { name: /^Going/ }));
-  expect(core.answerCalendarEvent).toHaveBeenCalledWith('!cal:x', {
-    calendarEventId: '$weekly',
+  expect(core.answerCalendarEvent).toHaveBeenCalledWith({
+    room_id: '!cal:x',
+    calendar_event_id: '$weekly',
     uid: 'weekly',
-    recurrenceId: local(soon),
+    recurrence_id: local(soon),
     status: 'accepted',
   });
 });

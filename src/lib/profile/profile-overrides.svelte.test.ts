@@ -9,9 +9,11 @@ function core(view: ProfileOverridesView) {
   const setProfileOverride = vi.fn(() => Promise.resolve(view));
   const client = {
     subscribeEvents: () => () => {},
-    commands: {
-      profileOverrides: vi.fn(() => Promise.resolve(view)),
-      setProfileOverride,
+    rpc: {
+      account: {
+        profileOverrides: vi.fn(() => Promise.resolve(view)),
+        setProfileOverride,
+      },
     },
   } as unknown as CoreClient;
   return { client, setProfileOverride };
@@ -68,6 +70,6 @@ test('saving hands the edit to the core and adopts what it stored', async () => 
 
   await profileOverrides.set('@sarah:example.org', edit);
 
-  expect(setProfileOverride).toHaveBeenCalledWith('@sarah:example.org', edit);
+  expect(setProfileOverride).toHaveBeenCalledWith({ user_id: '@sarah:example.org', ...edit });
   expect(profileOverrides.of('@sarah:example.org')).toBeUndefined();
 });

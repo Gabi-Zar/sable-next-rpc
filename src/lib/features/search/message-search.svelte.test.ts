@@ -1,9 +1,8 @@
 import { flushSync } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import type { SearchDirectory, SearchHitView } from '#src/generated/protocol';
+import type { SearchDirectory, SearchHitView, Rpc } from '#src/generated/protocol';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 import { MessageSearch } from './message-search.svelte.js';
@@ -30,11 +29,11 @@ function page(
   return { hits, older };
 }
 
-function coreReturning(searchMessages: CoreCommands['searchMessages']): {
+function coreReturning(searchMessages: Rpc['search']['searchMessages']): {
   core: CoreClient;
-  searchMessages: CoreCommands['searchMessages'];
+  searchMessages: Rpc['search']['searchMessages'];
 } {
-  return { core: { commands: { searchMessages } } as unknown as CoreClient, searchMessages };
+  return { core: { rpc: { search: { searchMessages } } } as unknown as CoreClient, searchMessages };
 }
 
 beforeEach(() => {
@@ -79,8 +78,7 @@ test('typing again before the debounce elapses searches once', async () => {
 
   expect(searchMessages).toHaveBeenCalledTimes(1);
   expect(searchMessages).toHaveBeenCalledWith(
-    'deploy',
-    expect.objectContaining({ order: 'rank', limit: 30, offset: 0, context: 1 })
+    expect.objectContaining({ query: 'deploy', order: 'rank', limit: 30, offset: 0, context: 1 })
   );
 });
 
@@ -155,8 +153,7 @@ test('a full page loads more and appends', async () => {
 
   expect(search.hits).toHaveLength(31);
   expect(searchMessages).toHaveBeenLastCalledWith(
-    'deploy',
-    expect.objectContaining({ limit: 30, offset: 30 })
+    expect.objectContaining({ query: 'deploy', limit: 30, offset: 30 })
   );
   expect(search.exhausted).toBe(true);
 });
@@ -177,11 +174,12 @@ test('a short page with messages on disk continues into older pages', async () =
   expect(search.exhausted).toBe(false);
 
   await search.loadMore();
-  expect(searchMessages).toHaveBeenLastCalledWith('deploy', expect.objectContaining({ older: '' }));
+  expect(searchMessages).toHaveBeenLastCalledWith(
+    expect.objectContaining({ query: 'deploy', older: '' })
+  );
   await search.loadMore();
   expect(searchMessages).toHaveBeenLastCalledWith(
-    'deploy',
-    expect.objectContaining({ older: '100:3:!room:example.org' })
+    expect.objectContaining({ query: 'deploy', older: '100:3:!room:example.org' })
   );
 
   expect(search.hits.map((entry) => entry.event_id)).toEqual(['$recent', '$older', '$oldest']);
@@ -288,8 +286,7 @@ test('a hit repeated across pages is kept once and the cursor still advances by 
 
   await search.loadMore();
   expect(searchMessages).toHaveBeenLastCalledWith(
-    'deploy',
-    expect.objectContaining({ offset: 60 })
+    expect.objectContaining({ query: 'deploy', offset: 60 })
   );
 });
 

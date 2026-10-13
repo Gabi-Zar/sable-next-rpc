@@ -77,13 +77,13 @@
           kind: 'encrypted',
           file: {
             ...encrypted,
-            url: await core.commands.uploadMedia('application/octet-stream', ciphertext),
+            url: await core.media.uploadMedia('application/octet-stream', ciphertext),
           },
         };
       } else {
         avatar = {
           kind: 'url',
-          url: await core.commands.uploadMedia(
+          url: await core.media.uploadMedia(
             upright.type || 'image/*',
             new Uint8Array(await upright.arrayBuffer())
           ),

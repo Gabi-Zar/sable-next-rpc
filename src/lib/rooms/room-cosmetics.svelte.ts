@@ -1,7 +1,6 @@
 import { createContext } from 'svelte';
-import type { CoreEvent, PronounView, SenderCosmeticsView } from '#src/generated/protocol';
+import type { CoreEvent, PronounView, SenderCosmeticsView, Rpc } from '#src/generated/protocol';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
 export interface SenderCosmetics {
@@ -11,7 +10,7 @@ export interface SenderCosmetics {
 }
 
 interface CosmeticsCore {
-  commands: Pick<CoreCommands, 'roomCosmetics'>;
+  rpc: { rooms: Pick<Rpc['rooms'], 'roomCosmetics'> };
   subscribeEvents: (onEvent: (event: CoreEvent) => void) => () => void;
 }
 
@@ -51,7 +50,10 @@ export class RoomCosmetics {
     if (roomId === null) return;
     const generation = ++this.#generation;
     try {
-      const found = await this.core.commands.roomCosmetics(roomId, this.#requestedSpace);
+      const found = await this.core.rpc.rooms.roomCosmetics({
+        room_id: roomId,
+        space_id: this.#requestedSpace,
+      });
       if (generation !== this.#generation) return;
       this.#users = new Map(found.users.map((user) => [user.user_id, user]));
       this.#spaceId = found.space_id;

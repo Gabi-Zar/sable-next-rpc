@@ -276,7 +276,8 @@
 
   async function sendAnyway(transactionId: string, userIds: readonly string[]): Promise<void> {
     try {
-      for (const userId of userIds) await core.commands.withdrawVerification(userId);
+      for (const userId of userIds)
+        await core.rpc.encryption.withdrawVerification({ user_id: userId });
       onRetrySend?.(transactionId);
     } catch (error) {
       console.warn('[sable timeline] could not withdraw the verification', error);

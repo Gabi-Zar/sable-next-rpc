@@ -8,7 +8,8 @@ import { createContext } from 'svelte';
 import { hdrShareSupported, listHdrMonitors, type HdrMonitor } from '#lib/platform/hdr-share.js';
 
 import type { CallMemberView, CoreEvent } from '#src/generated/protocol';
-import type { CallGrant, CoreClient } from '#lib/core/client.svelte.js';
+import type { CoreClient } from '#lib/core/client.svelte.js';
+import { joinCall, type CallGrant } from '#lib/core/api/calls.js';
 
 import type {
   CallEncryptionKey,
@@ -263,7 +264,8 @@ export class CallSession {
 
     try {
       const grant = await telemetry.step('call.signaling.join', () =>
-        this.#client.commands.joinCall(
+        joinCall(
+          this.#client.rpc,
           roomId,
           serviceUrl,
           hasNativeCalls()
@@ -275,7 +277,7 @@ export class CallSession {
         )
       );
       if (attempt !== this.#attemptGeneration) {
-        await this.#client.commands.leaveCall(grant.session).catch(ignoreError);
+        await this.#client.rpc.calls.leaveCall({ session: grant.session }).catch(ignoreError);
         return;
       }
       this.#session = grant.session;
@@ -344,8 +346,8 @@ export class CallSession {
         const sharing = state.connection === 'connected' && state.screenShareEnabled;
         if (sharing !== this.#screenSharing && this.#session !== undefined) {
           this.#screenSharing = sharing;
-          void this.#client.commands
-            .setCallScreenSharing(this.#session, sharing)
+          void this.#client.rpc.calls
+            .setCallScreenSharing({ session: this.#session, active: sharing })
             .catch(ignoreError);
         }
         if (state.connection !== this.#transportConnection) {
@@ -752,7 +754,7 @@ export class CallSession {
     if (session !== undefined && !this.#backendEnded) {
       try {
         await this.#telemetry?.step('call.signaling.leave', () =>
-          this.#client.commands.leaveCall(session)
+          this.#client.rpc.calls.leaveCall({ session })
         );
       } catch (error) {
         this.#telemetry?.failure('call.signaling.leave', error);

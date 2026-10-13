@@ -1,13 +1,13 @@
 import type { RoomPowerLevelsView } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import type { PowerLevelTags } from '#lib/core/commands.svelte.js';
+import type { PowerLevelTagMap } from './power-level-tags';
 
 import { readFounders } from './room-upgrade';
 
 export class RoomPermissionsData {
   levels = $state.raw<RoomPowerLevelsView | null>(null);
-  roleTags = $state.raw<PowerLevelTags>({});
+  roleTags = $state.raw<PowerLevelTagMap>({});
   founders = $state.raw<string[]>([]);
   alwaysListedFrom = $state<number | null>(null);
   loading = $state(false);
@@ -41,12 +41,14 @@ export class RoomPermissionsData {
     try {
       void this.#loadFounders(roomId, generation);
       const [levels, tags, memberList] = await Promise.all([
-        this.core.commands.roomPowerLevels(roomId),
-        this.core.commands.powerLevelTags(roomId),
-        this.core.commands.memberListThreshold(roomId).catch((error: unknown) => {
-          console.debug('[sable room] member list settings unavailable', error);
-          return null;
-        }),
+        this.core.rpc.members.roomPowerLevels({ room_id: roomId }),
+        this.core.rpc.members.powerLevelTags({ room_id: roomId }),
+        this.core.rpc.room_state
+          .memberListThreshold({ room_id: roomId })
+          .catch((error: unknown) => {
+            console.debug('[sable room] member list settings unavailable', error);
+            return null;
+          }),
       ]);
       if (generation !== this.#generation) return;
       this.levels = levels;
@@ -62,7 +64,11 @@ export class RoomPermissionsData {
 
   async #loadFounders(roomId: string, generation: number): Promise<void> {
     try {
-      const events = await this.core.commands.roomStateEventsRaw(roomId, 'm.room.create', '');
+      const events = await this.core.rpc.room_state.roomStateEventsRaw({
+        room_id: roomId,
+        event_type: 'm.room.create',
+        state_key: '',
+      });
       if (generation === this.#generation) this.founders = readFounders(events[0]);
     } catch (error) {
       console.debug('[sable room] founders unavailable', error);

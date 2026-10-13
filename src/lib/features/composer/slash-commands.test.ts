@@ -6,6 +6,7 @@ import { CoreError } from '#src/transport';
 
 import type {
   FieldEdit,
+  BulkRedactParams,
   MemberLookEdit,
   MemberView,
   PersonaCatalogView,
@@ -32,48 +33,48 @@ function fakeCommands() {
     kickUser: vi.fn(() => Promise.resolve()),
     knockRoom: vi.fn(() => Promise.resolve('!knocked:example.org')),
     leaveRoom: vi.fn(() => Promise.resolve()),
-    setDisplayName: vi.fn(() => Promise.resolve()),
-    setRoomName: vi.fn(() => Promise.resolve()),
-    setRoomTopic: vi.fn(() => Promise.resolve()),
+    setDisplayName: vi.fn(() => Promise.resolve(null)),
     unbanUser: vi.fn(() => Promise.resolve()),
     createDm: vi.fn(() => Promise.resolve('!dm:example.org')),
-    ignoreUser: vi.fn(() => Promise.resolve()),
-    unignoreUser: vi.fn(() => Promise.resolve()),
-    setDirect: vi.fn(() => Promise.resolve()),
-    discardRoomKey: vi.fn(() => Promise.resolve()),
-    sendLocation: vi.fn(() => Promise.resolve()),
+    ignoreUser: vi.fn(() => Promise.resolve(null)),
+    unignoreUser: vi.fn(() => Promise.resolve(null)),
+    setDirect: vi.fn(() => Promise.resolve(null)),
+    sendLocation: vi.fn(() => Promise.resolve(null)),
     sendRawEvent: vi.fn(() => Promise.resolve('$created')),
-    roomStateEvent: vi.fn(() => Promise.resolve<unknown>({ membership: 'join' })),
-    sendStateEvent: vi.fn((..._args: unknown[]) => Promise.resolve('$created')),
     setMemberLook: vi.fn((..._args: unknown[]) => Promise.resolve()),
     setPronouns: vi.fn((..._args: unknown[]) => Promise.resolve()),
-    updateServerAcl: vi.fn((..._args: unknown[]) => Promise.resolve()),
-    sendGesture: vi.fn((..._args: unknown[]) => Promise.resolve()),
-    addRoomWidget: vi.fn((..._args: unknown[]) => Promise.resolve('widget')),
-    personas: vi.fn(() =>
-      Promise.resolve({
-        personas: [],
-        account: null,
-        rooms: {},
-        disabled_rooms: [],
-      } as PersonaCatalogView)
-    ),
-    savePersona: vi.fn(() => Promise.resolve<PersonaView[]>([])),
-    removePersona: vi.fn(() => Promise.resolve<PersonaView[]>([])),
-    setPersonaSelection: vi.fn(() => Promise.resolve()),
-    disableRoomPersonas: vi.fn(() => Promise.resolve()),
+    sendGesture: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
     accountData: vi.fn(() => Promise.resolve<unknown>(null)),
-    setAccountData: vi.fn(() => Promise.resolve()),
-    bulkRedact: vi.fn<
-      (
-        roomId: string,
-        senders: string[],
-        afterTs: number,
-        eventTypes: string[],
-        reason: string | null
-      ) => Promise<number>
-    >(() => Promise.resolve(0)),
+    setAccountData: vi.fn(() => Promise.resolve(null)),
+    bulkRedact: vi.fn<(params: BulkRedactParams) => Promise<number>>(() => Promise.resolve(0)),
     roomMembers: vi.fn(() => Promise.resolve<MemberView[]>([])),
+  };
+}
+
+function fakeRpc() {
+  return {
+    encryption: { discardRoomKey: vi.fn(() => Promise.resolve(null)) },
+    room_state: {
+      setRoomName: vi.fn(() => Promise.resolve(null)),
+      setRoomTopic: vi.fn(() => Promise.resolve(null)),
+      sendStateEvent: vi.fn((..._args: unknown[]) => Promise.resolve('$created')),
+      updateServerAcl: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
+      addRoomWidget: vi.fn((..._args: unknown[]) => Promise.resolve('widget')),
+    },
+    personas: {
+      personas: vi.fn(() =>
+        Promise.resolve({
+          personas: [],
+          account: null,
+          rooms: {},
+          disabled_rooms: [],
+        } as PersonaCatalogView)
+      ),
+      savePersona: vi.fn((..._args: unknown[]) => Promise.resolve<PersonaView[]>([])),
+      removePersona: vi.fn((..._args: unknown[]) => Promise.resolve<PersonaView[]>([])),
+      setPersonaSelection: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
+      disableRoomPersonas: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
+    },
   };
 }
 
@@ -89,8 +90,24 @@ function look(fields: Partial<MemberLookEdit>): MemberLookEdit {
   };
 }
 
-function context(commands: ReturnType<typeof fakeCommands>): SlashContext {
-  return { roomId: '!room:example.org', userId: '@me:example.org', developerTools: true, commands };
+function context(
+  commands: ReturnType<typeof fakeCommands>,
+  rpc: ReturnType<typeof fakeRpc> = fakeRpc()
+): SlashContext {
+  const { joinRoom, knockRoom, leaveRoom, inviteUser, createDm } = commands;
+  const { roomMembers, kickUser, banUser, unbanUser, setMemberLook, setPronouns } = commands;
+  return {
+    roomId: '!room:example.org',
+    userId: '@me:example.org',
+    developerTools: true,
+    rpc: {
+      ...rpc,
+      account: commands,
+      messages: commands,
+      rooms: { joinRoom, knockRoom, leaveRoom, inviteUser, createDm },
+      members: { roomMembers, kickUser, banUser, unbanUser, setMemberLook, setPronouns },
+    } as unknown as SlashContext['rpc'],
+  };
 }
 
 test('plain text is not a command', () => {
@@ -193,11 +210,11 @@ test.each(['hug', 'cuddle', 'wave', 'poke', 'headpat'] as const)(
 
     await runSlash(`/${name} @someone:example.org`, context(commands));
 
-    expect(commands.sendGesture).toHaveBeenCalledWith(
-      '!room:example.org',
-      name,
-      '@someone:example.org'
-    );
+    expect(commands.sendGesture).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      gesture: name,
+      target: '@someone:example.org',
+    });
   }
 );
 
@@ -206,7 +223,11 @@ test('a gesture without a target is sent at nobody in particular', async () => {
 
   await runSlash('/headpat', context(commands));
 
-  expect(commands.sendGesture).toHaveBeenCalledWith('!room:example.org', 'headpat', null);
+  expect(commands.sendGesture).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    gesture: 'headpat',
+    target: null,
+  });
 });
 
 test('/rawmsg sends a raw message event', async () => {
@@ -214,23 +235,30 @@ test('/rawmsg sends a raw message event', async () => {
 
   await runSlash('/rawmsg {"msgtype":"m.text","body":"hello"}', context(commands));
 
-  expect(commands.sendRawEvent).toHaveBeenCalledWith('!room:example.org', 'm.room.message', {
-    msgtype: 'm.text',
-    body: 'hello',
+  expect(commands.sendRawEvent).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_type: 'm.room.message',
+    content: { msgtype: 'm.text', body: 'hello' },
   });
 });
 
 test('/raw sends either a message or state event', async () => {
   const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/raw m.room.test {"value":1}', context(commands));
-  await runSlash('/raw m.room.topic {"topic":"new"} -s key', context(commands));
+  await runSlash('/raw m.room.test {"value":1}', context(commands, rpc));
+  await runSlash('/raw m.room.topic {"topic":"new"} -s key', context(commands, rpc));
 
-  expect(commands.sendRawEvent).toHaveBeenCalledWith('!room:example.org', 'm.room.test', {
-    value: 1,
+  expect(commands.sendRawEvent).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_type: 'm.room.test',
+    content: { value: 1 },
   });
-  expect(commands.sendStateEvent).toHaveBeenCalledWith('!room:example.org', 'm.room.topic', 'key', {
-    topic: 'new',
+  expect(rpc.room_state.sendStateEvent).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_type: 'm.room.topic',
+    state_key: 'key',
+    content: { topic: 'new' },
   });
 });
 
@@ -241,13 +269,13 @@ test('/rawacc merges and /delacc removes global account data', async () => {
   await runSlash('/rawacc com.example.data {"new":1}', context(commands));
   await runSlash('/delacc com.example.data remove', context(commands));
 
-  expect(commands.setAccountData).toHaveBeenNthCalledWith(1, 'com.example.data', {
-    old: true,
-    remove: true,
-    new: 1,
+  expect(commands.setAccountData).toHaveBeenNthCalledWith(1, {
+    event_type: 'com.example.data',
+    content: { old: true, remove: true, new: 1 },
   });
-  expect(commands.setAccountData).toHaveBeenNthCalledWith(2, 'com.example.data', {
-    old: true,
+  expect(commands.setAccountData).toHaveBeenNthCalledWith(2, {
+    event_type: 'com.example.data',
+    content: { old: true },
   });
 });
 
@@ -268,14 +296,16 @@ test('/delete parses senders, age, event types, and reason', async () => {
     context(commands)
   );
 
-  expect(commands.bulkRedact).toHaveBeenCalledWith(
-    '!room:example.org',
-    ['@someone:example.org'],
-    expect.any(Number),
-    ['m.room.message', 'm.room.encrypted'],
-    'spam'
+  expect(commands.bulkRedact).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    senders: ['@someone:example.org'],
+    after_ts: expect.any(Number) as number,
+    event_types: ['m.room.message', 'm.room.encrypted'],
+    reason: 'spam',
+  });
+  expect(commands.bulkRedact.mock.calls[0]?.[0].after_ts).toBeGreaterThanOrEqual(
+    now - 5 * 60 * 1000
   );
-  expect(commands.bulkRedact.mock.calls[0]?.[2]).toBeGreaterThanOrEqual(now - 5 * 60 * 1000);
 });
 
 test('/me with nothing to say reports its usage', async () => {
@@ -305,7 +335,10 @@ test('/join takes an address and its routing servers', async () => {
   await expect(
     runSlash('/join https://matrix.to/#/%23room%3Aexample.org?via=other.org', context(commands))
   ).resolves.toEqual({ kind: 'done' });
-  expect(commands.joinRoom).toHaveBeenCalledWith('#room:example.org', ['other.org']);
+  expect(commands.joinRoom).toHaveBeenCalledWith({
+    address: '#room:example.org',
+    via: ['other.org'],
+  });
 });
 
 test('/join rejects something that is not an address', async () => {
@@ -318,17 +351,25 @@ test('/knock passes the reason on, and omits it when absent', async () => {
   const commands = fakeCommands();
 
   await runSlash('/knock #room:example.org let me in', context(commands));
-  expect(commands.knockRoom).toHaveBeenCalledWith('#room:example.org', [], 'let me in');
+  expect(commands.knockRoom).toHaveBeenCalledWith({
+    address: '#room:example.org',
+    via: [],
+    reason: 'let me in',
+  });
 
   await runSlash('/knock #room:example.org', context(commands));
-  expect(commands.knockRoom).toHaveBeenLastCalledWith('#room:example.org', [], undefined);
+  expect(commands.knockRoom).toHaveBeenLastCalledWith({
+    address: '#room:example.org',
+    via: [],
+    reason: null,
+  });
 });
 
 test('/leave takes no arguments', async () => {
   const commands = fakeCommands();
 
   await runSlash('/leave', context(commands));
-  expect(commands.leaveRoom).toHaveBeenCalledWith('!room:example.org');
+  expect(commands.leaveRoom).toHaveBeenCalledWith({ room_id: '!room:example.org' });
 
   await expect(runSlash('/leave now', context(commands))).rejects.toMatchObject({
     key: 'composer.slash.leave.usage',
@@ -343,18 +384,18 @@ test.each([
   const commands = fakeCommands();
 
   await runSlash(`/${name} @someone:example.org spamming the room`, context(commands));
-  expect(commands[method]).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@someone:example.org',
-    'spamming the room'
-  );
+  expect(commands[method]).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@someone:example.org',
+    reason: 'spamming the room',
+  });
 
   await runSlash(`/${name} @someone:example.org`, context(commands));
-  expect(commands[method]).toHaveBeenLastCalledWith(
-    '!room:example.org',
-    '@someone:example.org',
-    null
-  );
+  expect(commands[method]).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@someone:example.org',
+    reason: null,
+  });
 });
 
 test.each(['kick', 'ban', 'unban', 'invite'])(
@@ -370,25 +411,40 @@ test('/invite refuses a reason it cannot deliver', async () => {
   const commands = fakeCommands();
 
   await runSlash('/invite @someone:example.org', context(commands));
-  expect(commands.inviteUser).toHaveBeenCalledWith('!room:example.org', '@someone:example.org');
+  expect(commands.inviteUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@someone:example.org',
+  });
 
   await expect(
     runSlash('/invite @someone:example.org come join', context(commands))
   ).rejects.toMatchObject({ key: 'composer.slash.invite.usage' });
 });
 
-test.each([
-  ['nick', 'setDisplayName', ['Marie', 'unchanged']],
-  ['roomname', 'setRoomName', ['!room:example.org', 'The Lounge']],
-  ['topic', 'setRoomTopic', ['!room:example.org', 'The Lounge']],
-] as const)('/%s writes the text it was given', async (name, method, expected) => {
+test('/nick writes the text it was given', async () => {
   const commands = fakeCommands();
-  const text = name === 'nick' ? 'Marie' : 'The Lounge';
 
-  await runSlash(`/${name} ${text}`, context(commands));
-  expect(commands[method]).toHaveBeenCalledWith(...expected);
+  await runSlash('/nick Marie', context(commands));
+  expect(commands.setDisplayName).toHaveBeenCalledWith({
+    name: 'Marie',
+    propagate_to: 'unchanged',
+  });
 
-  await expect(runSlash(`/${name}`, context(commands))).rejects.toMatchObject({
+  await expect(runSlash('/nick', context(commands))).rejects.toMatchObject({
+    key: 'composer.slash.nick.usage',
+  });
+});
+
+test.each([
+  ['roomname', 'setRoomName', { room_id: '!room:example.org', name: 'The Lounge' }],
+  ['topic', 'setRoomTopic', { room_id: '!room:example.org', topic: 'The Lounge' }],
+] as const)('/%s writes the text it was given', async (name, method, expected) => {
+  const rpc = fakeRpc();
+
+  await runSlash(`/${name} The Lounge`, context(fakeCommands(), rpc));
+  expect(rpc.room_state[method]).toHaveBeenCalledWith(expected);
+
+  await expect(runSlash(`/${name}`, context(fakeCommands(), rpc))).rejects.toMatchObject({
     key: `composer.slash.${name}.usage`,
   });
 });
@@ -432,14 +488,18 @@ test('/converttodm optionally sets its direct-message target', async () => {
   const commands = fakeCommands();
 
   await runSlash('/converttodm', context(commands));
-  expect(commands.setDirect).toHaveBeenCalledWith('!room:example.org', true, undefined);
+  expect(commands.setDirect).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    direct: true,
+    user_id: null,
+  });
 
   await runSlash('/converttodm @other:example.org', context(commands));
-  expect(commands.setDirect).toHaveBeenLastCalledWith(
-    '!room:example.org',
-    true,
-    '@other:example.org'
-  );
+  expect(commands.setDirect).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    direct: true,
+    user_id: '@other:example.org',
+  });
 
   await expect(runSlash('/converttodm other', context(commands))).rejects.toMatchObject({
     key: 'composer.slash.converttodm.usage',
@@ -455,56 +515,65 @@ test('/converttoroom clears the direct flag', async () => {
   const commands = fakeCommands();
 
   await runSlash('/converttoroom', context(commands));
-  expect(commands.setDirect).toHaveBeenCalledWith('!room:example.org', false);
+  expect(commands.setDirect).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    direct: false,
+    user_id: null,
+  });
 });
 
 test('/discardsession discards the room key', async () => {
   const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/discardsession', context(commands));
-  expect(commands.discardRoomKey).toHaveBeenCalledWith('!room:example.org');
+  await runSlash('/discardsession', context(commands, rpc));
+  expect(rpc.encryption.discardRoomKey).toHaveBeenCalledWith({ room_id: '!room:example.org' });
 
-  await expect(runSlash('/discardsession now', context(commands))).rejects.toMatchObject({
+  await expect(runSlash('/discardsession now', context(commands, rpc))).rejects.toMatchObject({
     key: 'composer.slash.discardsession.usage',
   });
 });
 
 test('/acl hands the flags to the core', async () => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/acl -a new.example -d worse.example -ra good.example', context(commands));
+  await runSlash(
+    '/acl -a new.example -d worse.example -ra good.example',
+    context(fakeCommands(), rpc)
+  );
 
-  expect(commands.updateServerAcl).toHaveBeenCalledWith('!room:example.org', {
+  expect(rpc.room_state.updateServerAcl).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
     allow: ['new.example'],
     deny: ['worse.example'],
-    removeAllow: ['good.example'],
-    removeDeny: [],
+    remove_allow: ['good.example'],
+    remove_deny: [],
   });
 });
 
 test('/addwidget names the widget after the rest of the line', async () => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/addwidget https://widget.example/app Room Widget', context(commands));
+  await runSlash('/addwidget https://widget.example/app Room Widget', context(fakeCommands(), rpc));
 
-  expect(commands.addRoomWidget).toHaveBeenCalledWith(
-    '!room:example.org',
-    'Room Widget',
-    'https://widget.example/app'
-  );
+  expect(rpc.room_state.addRoomWidget).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    name: 'Room Widget',
+    url: 'https://widget.example/app',
+  });
 });
 
 test('/addwidget shows its usage for a url the core refuses', async () => {
-  const commands = fakeCommands();
-  commands.addRoomWidget.mockRejectedValueOnce(new CoreError({ code: 'invalid_url' }));
+  const rpc = fakeRpc();
+  rpc.room_state.addRoomWidget.mockRejectedValueOnce(new CoreError({ code: 'invalid_url' }));
 
-  await expect(runSlash('/addwidget javascript:alert(1)', context(commands))).rejects.toMatchObject(
-    { key: 'composer.slash.addwidget.usage' }
-  );
+  await expect(
+    runSlash('/addwidget javascript:alert(1)', context(fakeCommands(), rpc))
+  ).rejects.toMatchObject({ key: 'composer.slash.addwidget.usage' });
 });
 
 test('/pmpproxy appends a persona trigger', async () => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
   const persona = {
     id: 'alt',
     display_name: 'Alt',
@@ -516,22 +585,22 @@ test('/pmpproxy appends a persona trigger', async () => {
     pluralkit: null,
     last_used: null,
   } satisfies PersonaView;
-  commands.personas.mockResolvedValueOnce({
+  rpc.personas.personas.mockResolvedValueOnce({
     personas: [persona],
     account: null,
     rooms: {},
     disabled_rooms: [],
   });
 
-  await runSlash('/pmpproxy alt ✨:text', context(commands));
+  await runSlash('/pmpproxy alt ✨:text', context(fakeCommands(), rpc));
 
-  expect(commands.savePersona).toHaveBeenCalledWith(
-    expect.objectContaining({
+  expect(rpc.personas.savePersona).toHaveBeenCalledWith({
+    persona: expect.objectContaining({
       id: 'alt',
       triggers: [{ prefix: '✨:', suffix: null, keep_trigger: false }],
-    }),
-    'alt'
-  );
+    }) as unknown,
+    previous_id: 'alt',
+  });
 });
 
 test('/html sends the markup and a stripped plain-text body', async () => {
@@ -601,11 +670,14 @@ test('/location sends the coordinates it parsed', async () => {
 
   await runSlash('/location 48.8584 2.2945', context(commands));
 
-  expect(commands.sendLocation).toHaveBeenCalledWith(
-    '!room:example.org',
-    '48.8584,2.2945',
-    'geo:48.8584,2.2945'
-  );
+  expect(commands.sendLocation).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    body: '48.8584,2.2945',
+    geo_uri: 'geo:48.8584,2.2945',
+    in_reply_to: null,
+    silent_reply: false,
+    thread_root: null,
+  });
 });
 
 test.each(['/location 91 0', '/location 1', '/location 1 2 3', '/location a b'])(
@@ -625,11 +697,11 @@ test('/myroomnick sets the room display name', async () => {
 
   await runSlash('/myroomnick Marie', context(commands));
 
-  expect(commands.setMemberLook).toHaveBeenCalledWith(
-    '!room:example.org',
-    look({ display_name: { kind: 'set', value: 'Marie' } }),
-    false
-  );
+  expect(commands.setMemberLook).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    in_parent_space: false,
+    ...look({ display_name: { kind: 'set', value: 'Marie' } }),
+  });
 });
 
 test('/myroomavatar insists on an mxc uri', async () => {
@@ -641,11 +713,11 @@ test('/myroomavatar insists on an mxc uri', async () => {
   expect(commands.setMemberLook).not.toHaveBeenCalled();
 
   await runSlash('/myroomavatar mxc://example.org/pic', context(commands));
-  expect(commands.setMemberLook).toHaveBeenCalledWith(
-    '!room:example.org',
-    look({ avatar_url: { kind: 'set', value: 'mxc://example.org/pic' } }),
-    false
-  );
+  expect(commands.setMemberLook).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    in_parent_space: false,
+    ...look({ avatar_url: { kind: 'set', value: 'mxc://example.org/pic' } }),
+  });
 });
 
 test('a per-room profile command needs to know who we are', async () => {
@@ -657,60 +729,69 @@ test('a per-room profile command needs to know who we are', async () => {
 });
 
 test('/addpmp creates a profile from its named fields', async () => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/addpmp alt name=Alt avatar=mxc://example.org/a', context(commands));
+  await runSlash('/addpmp alt name=Alt avatar=mxc://example.org/a', context(fakeCommands(), rpc));
 
-  expect(commands.savePersona).toHaveBeenCalledWith(
-    expect.objectContaining({
+  expect(rpc.personas.savePersona).toHaveBeenCalledWith({
+    persona: expect.objectContaining({
       id: 'alt',
       display_name: 'Alt',
       avatar_url: 'mxc://example.org/a',
-    }),
-    null
-  );
+    }) as unknown,
+    previous_id: null,
+  });
 });
 
 test('/addpmp refuses the reserved id and a non-mxc avatar', async () => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
 
   for (const input of ['/addpmp index', '/addpmp alt avatar=https://example.org/a']) {
-    await expect(runSlash(input, context(commands))).rejects.toMatchObject({
+    await expect(runSlash(input, context(fakeCommands(), rpc))).rejects.toMatchObject({
       key: 'composer.slash.addpmp.usage',
     });
   }
-  expect(commands.savePersona).not.toHaveBeenCalled();
+  expect(rpc.personas.savePersona).not.toHaveBeenCalled();
 });
 
 test('/delpmp removes by id but never the index', async () => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/delpmp alt', context(commands));
-  expect(commands.removePersona).toHaveBeenCalledWith('alt');
+  await runSlash('/delpmp alt', context(fakeCommands(), rpc));
+  expect(rpc.personas.removePersona).toHaveBeenCalledWith({ id: 'alt' });
 
-  await expect(runSlash('/delpmp index', context(commands))).rejects.toMatchObject({
+  await expect(runSlash('/delpmp index', context(fakeCommands(), rpc))).rejects.toMatchObject({
     key: 'composer.slash.delpmp.usage',
   });
 });
 
 test('/usepmp latches a profile and resets it', async () => {
   const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await runSlash('/usepmp alt', context(commands));
-  expect(commands.setPersonaSelection).toHaveBeenCalledWith('!room:example.org', 'alt', null);
+  await runSlash('/usepmp alt', context(commands, rpc));
+  expect(rpc.personas.setPersonaSelection).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    persona_id: 'alt',
+    valid_until: null,
+  });
 
-  await runSlash('/usepmp alt 1700000000000', context(commands));
-  expect(commands.setPersonaSelection).toHaveBeenLastCalledWith(
-    '!room:example.org',
-    'alt',
-    1_700_000_000_000
-  );
+  await runSlash('/usepmp alt 1700000000000', context(commands, rpc));
+  expect(rpc.personas.setPersonaSelection).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    persona_id: 'alt',
+    valid_until: 1_700_000_000_000,
+  });
 
-  await runSlash('/usepmp reset', context(commands));
-  expect(commands.setPersonaSelection).toHaveBeenLastCalledWith('!room:example.org', null);
+  await runSlash('/usepmp reset', context(commands, rpc));
+  expect(rpc.personas.setPersonaSelection).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    persona_id: null,
+    valid_until: null,
+  });
 
-  await runSlash('/usepmp off', context(commands));
-  expect(commands.disableRoomPersonas).toHaveBeenCalledWith('!room:example.org');
+  await runSlash('/usepmp off', context(commands, rpc));
+  expect(rpc.personas.disableRoomPersonas).toHaveBeenCalledWith({ room_id: '!room:example.org' });
 });
 
 function member(userId: string, membership: MemberView['membership'] = 'join'): MemberView {
@@ -730,14 +811,18 @@ test('/pronoun sets and resets your room pronouns', async () => {
   const commands = fakeCommands();
 
   await runSlash('/pronoun they/them', context(commands));
-  expect(commands.setPronouns).toHaveBeenCalledWith(
-    '!room:example.org',
-    [{ language: null, summary: 'they/them' }],
-    false
-  );
+  expect(commands.setPronouns).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    pronouns: [{ language: null, summary: 'they/them' }],
+    in_parent_space: false,
+  });
 
   await runSlash('/pronoun reset', context(commands));
-  expect(commands.setPronouns).toHaveBeenLastCalledWith('!room:example.org', [], false);
+  expect(commands.setPronouns).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    pronouns: [],
+    in_parent_space: false,
+  });
 });
 
 test('/pronoun understands a language-tagged list', async () => {
@@ -745,14 +830,14 @@ test('/pronoun understands a language-tagged list', async () => {
 
   await runSlash('/pronoun en:they/them, de:sie/ihr', context(commands));
 
-  expect(commands.setPronouns).toHaveBeenCalledWith(
-    '!room:example.org',
-    [
+  expect(commands.setPronouns).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    pronouns: [
       { language: 'en', summary: 'they/them' },
       { language: 'de', summary: 'sie/ihr' },
     ],
-    false
-  );
+    in_parent_space: false,
+  });
 });
 
 test('/spronoun targets the parent space', async () => {
@@ -760,11 +845,11 @@ test('/spronoun targets the parent space', async () => {
 
   await runSlash('/spronoun she/her', context(commands));
 
-  expect(commands.setPronouns).toHaveBeenCalledWith(
-    '!room:example.org',
-    [{ language: null, summary: 'she/her' }],
-    true
-  );
+  expect(commands.setPronouns).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    pronouns: [{ language: null, summary: 'she/her' }],
+    in_parent_space: true,
+  });
 });
 
 test.each<[string, FieldEdit | undefined, FieldEdit | undefined]>([
@@ -777,14 +862,14 @@ test.each<[string, FieldEdit | undefined, FieldEdit | undefined]>([
 
   await runSlash(`/color ${args}`, context(commands));
 
-  expect(commands.setMemberLook).toHaveBeenCalledWith(
-    '!room:example.org',
-    look({
+  expect(commands.setMemberLook).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    in_parent_space: false,
+    ...look({
       ...(light && { color_on_light: light }),
       ...(dark && { color_on_dark: dark }),
     }),
-    false
-  );
+  });
 });
 
 test('/colour rejects anything that is not a hex colour', async () => {
@@ -797,12 +882,12 @@ test('/colour rejects anything that is not a hex colour', async () => {
 });
 
 test.each(['font', 'sfont'])('/%s is no longer supported', async (name) => {
-  const commands = fakeCommands();
+  const rpc = fakeRpc();
 
-  await expect(runSlash(`/${name} Georgia`, context(commands))).rejects.toMatchObject({
+  await expect(runSlash(`/${name} Georgia`, context(fakeCommands(), rpc))).rejects.toMatchObject({
     key: 'composer.slashUnknown',
   });
-  expect(commands.sendStateEvent).not.toHaveBeenCalled();
+  expect(rpc.room_state.sendStateEvent).not.toHaveBeenCalled();
 });
 
 test('/scolor targets the parent space', async () => {
@@ -810,14 +895,14 @@ test('/scolor targets the parent space', async () => {
 
   await runSlash('/scolor #ff00ff', context(commands));
 
-  expect(commands.setMemberLook).toHaveBeenCalledWith(
-    '!room:example.org',
-    look({
+  expect(commands.setMemberLook).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    in_parent_space: true,
+    ...look({
       color_on_light: { kind: 'set', value: '#ff00ff' },
       color_on_dark: { kind: 'set', value: '#ff00ff' },
     }),
-    true
-  );
+  });
 });
 
 test('/kick expands a server wildcard to matching members, excluding the already-banned', async () => {
@@ -832,17 +917,20 @@ test('/kick expands a server wildcard to matching members, excluding the already
   await runSlash('/kick @*:evil.example spamming', context(commands));
 
   expect(commands.kickUser).toHaveBeenCalledTimes(2);
-  expect(commands.kickUser).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@one:evil.example',
-    'spamming'
-  );
-  expect(commands.kickUser).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@two:evil.example',
-    'spamming'
-  );
-  expect(commands.roomMembers).toHaveBeenCalledWith('!room:example.org');
+  expect(commands.kickUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@one:evil.example',
+    reason: 'spamming',
+  });
+  expect(commands.kickUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@two:evil.example',
+    reason: 'spamming',
+  });
+  expect(commands.roomMembers).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    memberships: [],
+  });
 });
 
 test('/ban expands a server wildcard to matching members, including the already-banned', async () => {
@@ -855,16 +943,16 @@ test('/ban expands a server wildcard to matching members, including the already-
   await runSlash('/ban @*:evil.example spamming', context(commands));
 
   expect(commands.banUser).toHaveBeenCalledTimes(2);
-  expect(commands.banUser).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@one:evil.example',
-    'spamming'
-  );
-  expect(commands.banUser).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@banned:evil.example',
-    'spamming'
-  );
+  expect(commands.banUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@one:evil.example',
+    reason: 'spamming',
+  });
+  expect(commands.banUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@banned:evil.example',
+    reason: 'spamming',
+  });
 });
 
 test.each(['kick', 'ban'])(
@@ -891,16 +979,16 @@ test('/kick can mix explicit users and a wildcard, deduplicated, with a trailing
   await runSlash('/kick @one:evil.example @*:evil.example being rude', context(commands));
 
   expect(commands.kickUser).toHaveBeenCalledTimes(2);
-  expect(commands.kickUser).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@one:evil.example',
-    'being rude'
-  );
-  expect(commands.kickUser).toHaveBeenCalledWith(
-    '!room:example.org',
-    '@two:evil.example',
-    'being rude'
-  );
+  expect(commands.kickUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@one:evil.example',
+    reason: 'being rude',
+  });
+  expect(commands.kickUser).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@two:evil.example',
+    reason: 'being rude',
+  });
 });
 
 test('/delete expands a server wildcard to matching senders', async () => {
@@ -912,13 +1000,13 @@ test('/delete expands a server wildcard to matching senders', async () => {
 
   await runSlash('/delete @*:evil.example -past 1d', context(commands));
 
-  expect(commands.bulkRedact).toHaveBeenCalledWith(
-    '!room:example.org',
-    expect.arrayContaining(['@one:evil.example', '@two:evil.example']),
-    expect.any(Number),
-    [],
-    null
-  );
+  expect(commands.bulkRedact).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    senders: expect.arrayContaining(['@one:evil.example', '@two:evil.example']) as string[],
+    after_ts: expect.any(Number) as number,
+    event_types: [],
+    reason: null,
+  });
 });
 
 test('/delete reports a wildcard matching nobody as an error', async () => {

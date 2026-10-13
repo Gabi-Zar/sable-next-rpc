@@ -65,8 +65,10 @@ function fixture() {
     core: {
       commands: {
         imagePacks: vi.fn(),
-        eventSourceDetails: vi.fn(() => source.promise),
-        removeLinkPreviews,
+      },
+      rpc: {
+        messages: { removeLinkPreviews },
+        timeline: { eventSource: vi.fn(() => source.promise) },
       },
     } as unknown as CoreClient,
     personaStore: { load: vi.fn(async () => {}) },
@@ -141,5 +143,9 @@ test('removing embeds edits the message in its own thread', () => {
 
   executor.actions.onRemoveLinkPreviews?.();
 
-  expect(removeLinkPreviews).toHaveBeenCalledWith('!room', '$item', '$root');
+  expect(removeLinkPreviews).toHaveBeenCalledWith({
+    room_id: '!room',
+    event_id: '$item',
+    thread_root: '$root',
+  });
 });

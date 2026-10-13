@@ -3,7 +3,7 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
-import type { MemberView, RoomPermissionsView, RoomSummary } from '#src/generated/protocol';
+import type { MemberView, RoomPermissionsView, RoomListItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 vi.mock('#lib/core/context.js');
@@ -17,10 +17,10 @@ import { RoomList } from '#lib/rooms/room-list.svelte.js';
 import JoinRequestList from './JoinRequestList.svelte';
 
 const core = Object.assign(baseCore, {
-  roomMembers: vi.fn<(roomId: string) => Promise<MemberView[]>>(),
-  roomPermissions: vi.fn<(roomId: string) => Promise<RoomPermissionsView>>(),
-  inviteUser: vi.fn<() => Promise<void>>(),
-  denyKnock: vi.fn<(roomId: string, userId: string) => Promise<void>>(),
+  roomMembers: vi.fn<(params: { room_id: string }) => Promise<MemberView[]>>(),
+  roomPermissions: vi.fn<(params: { room_id: string }) => Promise<RoomPermissionsView>>(),
+  inviteUser: vi.fn<() => Promise<null>>(),
+  denyKnock: vi.fn<(params: { room_id: string; user_id: string }) => Promise<null>>(),
 });
 const roomList = new RoomList(core as unknown as CoreClient);
 const room = {
@@ -28,7 +28,7 @@ const room = {
   name: 'Room',
   state: 'joined',
   join_rule: 'knock',
-} as RoomSummary;
+} as RoomListItemView;
 const space = { ...room, room_id: '!space:example.org', name: 'Space', is_space: true };
 const alice: MemberView = {
   user_id: '@alice:example.org',
@@ -49,8 +49,8 @@ const permissions = {
 beforeEach(() => {
   core.roomPermissions.mockReset().mockResolvedValue(permissions);
   core.roomMembers.mockReset().mockResolvedValue([alice]);
-  core.inviteUser.mockReset().mockResolvedValue(undefined);
-  core.denyKnock.mockReset().mockResolvedValue(undefined);
+  core.inviteUser.mockReset().mockResolvedValue(null);
+  core.denyKnock.mockReset().mockResolvedValue(null);
   roomList.rooms = [room];
 });
 
@@ -65,12 +65,12 @@ test('approves room requests and denies space requests', async () => {
   if (!roomRow || !spaceRow) throw new Error('Join request rows missing');
   await user.click(within(roomRow).getByRole('button', { name: 'Approve' }));
   await vi.waitFor(() => {
-    expect(core.inviteUser).toHaveBeenCalledWith(room.room_id, alice.user_id);
+    expect(core.inviteUser).toHaveBeenCalledWith({ room_id: room.room_id, user_id: alice.user_id });
     expect(roomRow).not.toBeInTheDocument();
   });
   await user.click(within(spaceRow).getByRole('button', { name: 'Deny' }));
   await vi.waitFor(() => {
-    expect(core.denyKnock).toHaveBeenCalledWith(space.room_id, alice.user_id);
+    expect(core.denyKnock).toHaveBeenCalledWith({ room_id: space.room_id, user_id: alice.user_id });
     expect(screen.getByText('No pending join requests.')).toBeInTheDocument();
   });
 });
@@ -82,14 +82,19 @@ test('only loads requests in joined knock rooms where we can moderate', async ()
     { ...room, room_id: '!invited:example.org', state: 'invited' },
     { ...room, room_id: '!private:example.org', join_rule: 'invite' },
   ];
-  core.roomPermissions.mockImplementation((roomId) =>
+  core.roomPermissions.mockImplementation(({ room_id }) =>
     Promise.resolve(
-      roomId === room.room_id ? { ...permissions, can_invite: false, can_kick: false } : permissions
+      room_id === room.room_id
+        ? { ...permissions, can_invite: false, can_kick: false }
+        : permissions
     )
   );
   render(JoinRequestList);
   await screen.findByText('Alice');
-  expect(core.roomMembers).toHaveBeenCalledExactlyOnceWith(space.room_id, ['knock']);
+  expect(core.roomMembers).toHaveBeenCalledExactlyOnceWith({
+    room_id: space.room_id,
+    memberships: ['knock'],
+  });
 });
 
 test.each([
@@ -123,8 +128,8 @@ test('keeps a failed request available for retry', async () => {
 
 test('shows requests from other rooms when one fails to load and retries', async () => {
   roomList.rooms = [room, space];
-  core.roomMembers.mockImplementation((roomId) =>
-    roomId === room.room_id ? Promise.reject(new Error('offline')) : Promise.resolve([alice])
+  core.roomMembers.mockImplementation(({ room_id }) =>
+    room_id === room.room_id ? Promise.reject(new Error('offline')) : Promise.resolve([alice])
   );
   render(JoinRequestList);
   expect(await screen.findByRole('alert')).toHaveTextContent('Join requests could not be loaded.');

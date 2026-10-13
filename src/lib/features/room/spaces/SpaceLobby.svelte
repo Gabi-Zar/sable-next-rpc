@@ -3,7 +3,7 @@
   import type {
     LobbyAction,
     RoomPermissionsView,
-    RoomSummary,
+    RoomListItemView,
     SpaceChildEdge,
   } from '#src/generated/protocol';
   import BackIcon from 'phosphor-svelte/lib/CaretLeftIcon';
@@ -21,6 +21,7 @@
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
   import { resolve } from '$app/paths';
   import { useCoreClient } from '#lib/core/context.js';
+  import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { createDragList, type DropEdge, type DropInstruction } from '#lib/ui/drag-list.js';
@@ -87,7 +88,7 @@
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {
-    space: RoomSummary | null;
+    space: RoomListItemView | null;
   }
 
   let { space }: Props = $props();
@@ -274,8 +275,8 @@
     for (const roomId of targets) {
       if (requestedPermissions.has(roomId)) continue;
       requestedPermissions.add(roomId);
-      void core.commands
-        .roomPermissions(roomId)
+      void core.rpc.members
+        .roomPermissions({ room_id: roomId })
         .then((next) => {
           if (permissionsSpace !== current) return;
           permissionsById = new Map([...permissionsById, [roomId, next]]);
@@ -348,7 +349,11 @@
     suggestedOverrides = [...suggestedOverrides.filter(others), override];
 
     try {
-      await core.commands.setSpaceChildSuggested(parentId, roomId, suggested);
+      await core.rpc.spaces.setSpaceChildSuggested({
+        space_id: parentId,
+        room_id: roomId,
+        suggested,
+      });
     } catch (error) {
       console.warn('[sable lobby] suggestion not saved', error);
       suggestedOverrides = suggestedOverrides.filter((candidate) => candidate !== override);
@@ -364,7 +369,7 @@
     let failures = 0;
     for (const roomId of roomIds) {
       try {
-        await core.commands.addToSpace(parentId, roomId, suggested);
+        await core.rpc.spaces.addToSpace({ space_id: parentId, room_id: roomId, suggested });
       } catch (error) {
         failures += 1;
         console.warn('[sable lobby] room not added', error);
@@ -393,19 +398,19 @@
     const address = child.canonical_alias ?? child.room_id;
     let routing = viaFor(address, via);
     if (routing.length === 0 && child.canonical_alias === null) {
-      routing = await core.commands.roomViaServers(parentId);
+      routing = await core.rpc.rooms.roomViaServers({ room_id: parentId });
     }
     if (action === 'knock') {
-      await core.commands.knockRoom(address, routing);
+      await knockRoom(core.rpc, address, routing);
       knocked.add(child.room_id);
       return false;
     }
     try {
-      await core.commands.joinRoom(address, routing);
+      await joinRoom(core.rpc, address, routing);
     } catch (error) {
       if (child.join_rule !== 'knock_restricted' || !(error instanceof CoreError)) throw error;
       if (error.detail.code !== 'denied') throw error;
-      await core.commands.knockRoom(address, routing);
+      await knockRoom(core.rpc, address, routing);
       knocked.add(child.room_id);
       return false;
     }
@@ -447,7 +452,7 @@
     if (!parentId) return;
 
     try {
-      await core.commands.removeFromSpace(parentId, entry.room.room_id);
+      await core.rpc.spaces.removeFromSpace({ space_id: parentId, room_id: entry.room.room_id });
       removed.add(entry.key);
     } catch (error) {
       console.warn('[sable lobby] remove failed', error);
@@ -459,7 +464,10 @@
     if (section.owner_id === null) return;
 
     try {
-      await core.commands.removeFromSpace(section.owner_id, section.parent_id);
+      await core.rpc.spaces.removeFromSpace({
+        space_id: section.owner_id,
+        room_id: section.parent_id,
+      });
     } catch (error) {
       console.warn('[sable lobby] remove failed', error);
       hierarchy.fail();
@@ -468,14 +476,14 @@
 
   async function moveRoom(from: string, roomId: string, target: string): Promise<void> {
     try {
-      await core.commands.addToSpace(target, roomId);
+      await core.rpc.spaces.addToSpace({ space_id: target, room_id: roomId, suggested: null });
     } catch (error) {
       console.warn('[sable lobby] move failed', error);
       hierarchy.fail();
       return;
     }
     try {
-      await core.commands.removeFromSpace(from, roomId);
+      await core.rpc.spaces.removeFromSpace({ space_id: from, room_id: roomId });
       for (const section of sections) {
         if (section.parent_id !== from) continue;
         for (const entry of section.rooms) {
@@ -525,7 +533,11 @@
 
     try {
       for (const change of changes) {
-        await core.commands.setSpaceChildOrder(parentId, change.roomId, change.order);
+        await core.rpc.spaces.setSpaceChildOrder({
+          space_id: parentId,
+          room_id: change.roomId,
+          order: change.order,
+        });
       }
     } catch (error) {
       console.warn('[sable lobby] reorder failed', error);

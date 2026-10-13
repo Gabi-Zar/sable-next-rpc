@@ -1,7 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { expect, test as base, type Page } from '@playwright/test';
-import type { Command, CommandOk } from '#src/generated/protocol';
 import { AuthFlow } from '../pages/AuthFlow';
 import { AppShell } from '../pages/AppShell';
 import { RoomTimeline } from '../pages/RoomTimeline';
@@ -568,22 +567,14 @@ export { expect } from '@playwright/test';
 async function installEmptyCore(page: Page, mode: WorkerMode, session: Session): Promise<void> {
   await page.addInitScript(
     ({ workerMode, workerSession }: { workerMode: WorkerMode; workerSession: Session }) => {
-      type CommandType = Command['type'];
-      type OkFor<T extends CommandType> = Extract<CommandOk, { type: T }>;
-      type BareCommandType = {
-        [T in CommandType]: keyof OkFor<T> extends 'type' ? T : never;
-      }[CommandType];
-
-      const bareReply = <T extends CommandType>(type: T): OkFor<T> => ({ type }) as OkFor<T>;
-
-      const reply = (command: Command): CommandOk =>
-        command.type === 'restore'
-          ? { type: 'restore', session: workerSession }
-          : command.type === 'list_accounts'
-            ? { type: 'list_accounts', accounts: [workerSession] }
-            : command.type === 'subscribe_room_list'
-              ? { type: 'subscribe_room_list', subscription: 1, rooms: [] }
-              : bareReply(command.type as BareCommandType);
+      const callReply = (method: string): unknown =>
+        method === 'session.restore'
+          ? workerSession
+          : method === 'session.list_accounts'
+            ? [workerSession]
+            : method === 'timeline.subscribe_room_list'
+              ? { subscription: 1, rooms: [] }
+              : null;
 
       class FakePort {
         onmessage: ((event: MessageEvent) => void) | null = null;
@@ -593,15 +584,16 @@ async function installEmptyCore(page: Page, mode: WorkerMode, session: Session):
 
         close(): void {}
 
-        postMessage(request: { id: number; command?: Command }): void {
-          const command = request.command;
-          if (!command) return;
-          if (workerMode === 'loading' && command.type === 'restore') return;
+        postMessage(request: { id: number; call?: { method: string; params: unknown } }): void {
+          const { call } = request;
+          if (!call) return;
+          const restoring = call.method === 'session.restore';
+          if (workerMode === 'loading' && restoring) return;
 
           const response =
-            workerMode === 'error' && command.type === 'restore'
+            workerMode === 'error' && restoring
               ? { id: request.id, err: { code: 'unavailable' } }
-              : { id: request.id, ok: reply(command) };
+              : { id: request.id, ok: callReply(call.method) };
 
           window.setTimeout(() => {
             this.onmessage?.({ data: response } as MessageEvent);

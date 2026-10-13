@@ -11,7 +11,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 import UndecryptableNotice from './UndecryptableNotice.svelte';
 
 const retryDecryption = vi.fn(() => Promise.resolve());
-Object.assign(core, { retryDecryption });
+Object.assign(core.rpc.timeline, { retryDecryption });
 
 test('retries only the undecryptable session in its timeline', async () => {
   render(UndecryptableNotice, {
@@ -25,12 +25,12 @@ test('retries only the undecryptable session in its timeline', async () => {
 
   await fireEvent.click(screen.getByRole('button', { name: 'Retry decryption' }));
 
-  expect(retryDecryption).toHaveBeenCalledWith(
-    '!room:example.org',
-    'session',
-    '@alice:example.org',
-    '$thread'
-  );
+  expect(retryDecryption).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    session_id: 'session',
+    sender: '@alice:example.org',
+    thread_root: '$thread',
+  });
 });
 
 test('does not offer a retry without Megolm session metadata', () => {

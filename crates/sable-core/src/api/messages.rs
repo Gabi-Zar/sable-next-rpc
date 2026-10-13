@@ -1,0 +1,1129 @@
+use std::sync::Arc;
+
+use matrix_sdk::ruma::api::client::authenticated_media::get_media_preview;
+use matrix_sdk::ruma::events::relation::{InReplyTo, Reply, Thread};
+use matrix_sdk::ruma::events::room::ImageInfo;
+use matrix_sdk::ruma::events::room::message::Relation;
+use matrix_sdk::ruma::events::sticker::StickerEventContent;
+use matrix_sdk::ruma::{OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId};
+use matrix_sdk_ui::timeline::{Error as TimelineError, RedactError, TimelineEventItemId};
+use serde::{Deserialize, Serialize};
+
+use super::Handler;
+use crate::api::support::{
+    BUNDLED_LINK_PREVIEWS, IMAGE_SOURCE_PACKS, LEGACY_BUNDLED_LINK_PREVIEWS, REACTION_SHORTCODE,
+    bundled_link_previews, empty_mentions, empty_mentions_extra, ensure_empty_mentions,
+    extra_content, forum_title_value, image_source_pack_extra, image_source_pack_references,
+    preview_refused, reaction_shortcode, soliditas_preview, sticker_info, url_preview,
+};
+use crate::outgoing::{gif_content, location_content, message_content, reply_to, thread_reply};
+use crate::protocol::{
+    AttachmentInfoView, CommandErr, ComposerContent, ComposerPill, GestureView,
+    ImageSourcePackReferenceView, ImageSourcePackView, MessageKind, PackImageInfoView,
+    PerMessageProfileView, ReactionShortcodeView, ScheduledMessageView, SubscriptionId,
+    UrlPreviewView,
+};
+use crate::{Core, ResultExt, view};
+
+domain! {
+    markdown_to_content => MarkdownToContentParams,
+    send_message => SendMessageParams,
+    send_raw_event => SendRawEventParams,
+    send_redaction => SendRedactionParams,
+    send_sticker => SendStickerParams,
+    send_gif => SendGifParams,
+    remove_link_previews => RemoveLinkPreviewsParams,
+    reprofile_message => ReprofileMessageParams,
+    edit_message => EditMessageParams,
+    redact => RedactParams,
+    delete_thread => DeleteThreadParams,
+    bulk_redact => BulkRedactParams,
+    react => ReactParams,
+    send_location => SendLocationParams,
+    forward_message => ForwardMessageParams,
+    report_message => ReportMessageParams,
+    retry_send => RetrySendParams,
+    cancel_send => CancelSendParams,
+    schedule_message => ScheduleMessageParams,
+    schedule_attachment => ScheduleAttachmentParams,
+    scheduled_messages => ScheduledMessagesParams,
+    cancel_scheduled_message => CancelScheduledMessageParams,
+    send_scheduled_message => SendScheduledMessageParams,
+    create_poll => CreatePollParams,
+    vote_poll => VotePollParams,
+    end_poll => EndPollParams,
+    send_gesture => SendGestureParams,
+    url_preview => UrlPreviewParams,
+    reaction_shortcodes => ReactionShortcodesParams,
+    set_typing => SetTypingParams,
+    media_config => MediaConfigParams,
+}
+
+/// A typed message as the web composer's plain mode sends it, each
+/// `\u{FFFC}` in `markdown` standing for the next of `pills`.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct MarkdownToContentParams {
+    pub markdown: String,
+    #[serde(default)]
+    pub pills: Vec<ComposerPill>,
+}
+
+impl Handler for MarkdownToContentParams {
+    type Ok = ComposerContent;
+
+    fn run(
+        self,
+        _core: &Arc<Core>,
+    ) -> impl Future<Output = Result<ComposerContent, CommandErr>> {
+        std::future::ready(Ok(sable_model::markdown::markdown_to_content(
+            &self.markdown,
+            &self.pills,
+        )))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendMessageParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub body: String,
+    pub formatted: Option<String>,
+    #[serde(default)]
+    pub kind: MessageKind,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    /// Replying inside a thread needs no extra field: the SDK infers the
+    /// thread from the replied-to event.
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub in_reply_to: Option<OwnedEventId>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
+    pub mentions: Vec<OwnedUserId>,
+    #[serde(default)]
+    pub mentions_room: bool,
+    #[serde(default)]
+    pub silent_reply: bool,
+    #[serde(default)]
+    pub persona: Option<PerMessageProfileView>,
+    #[serde(default)]
+    pub link_previews: Vec<UrlPreviewView>,
+    #[serde(default)]
+    pub no_link_previews: bool,
+    #[serde(default)]
+    pub image_source_packs: Vec<ImageSourcePackReferenceView>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Unknown>))]
+    pub bot_command: Option<serde_json::Value>,
+    #[serde(default)]
+    pub forum_title: Option<String>,
+}
+
+impl Handler for SendMessageParams {
+    /// The local echo arrives on the timeline diff stream.
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let room_id = self.room_id;
+        let thread_root = self.thread_root;
+        let timeline = core.timeline_for(&room_id, thread_root.as_ref()).await?;
+        let (body, formatted, persona) = match self.persona {
+            Some(persona) => {
+                let (body, formatted, persona) = crate::personas::outgoing_with_fallback(
+                    self.body,
+                    self.formatted,
+                    &persona,
+                );
+                (body, formatted, Some(persona))
+            }
+            None => (self.body, self.formatted, None),
+        };
+        let content = message_content(
+            body,
+            formatted,
+            self.kind,
+            self.mentions,
+            self.mentions_room,
+        );
+
+        let reply = thread_reply(self.in_reply_to, thread_root.clone(), self.silent_reply);
+        let content = core
+            .with_reply(&room_id, content, reply, thread_root.clone(), "send_reply")
+            .await?;
+
+        let link_previews = self.link_previews;
+        let opt_out = self
+            .no_link_previews
+            .then(|| serde_json::Value::Array(Vec::new()));
+        let encrypted_images = core
+            .encrypted_preview_images(&room_id, &link_previews)
+            .await;
+        let extra = extra_content(
+            persona.as_ref().map(crate::personas::profile_extra_content),
+            [
+                (
+                    BUNDLED_LINK_PREVIEWS,
+                    bundled_link_previews(&link_previews, &encrypted_images, true)
+                        .or_else(|| opt_out.clone()),
+                ),
+                (
+                    LEGACY_BUNDLED_LINK_PREVIEWS,
+                    bundled_link_previews(&link_previews, &encrypted_images, false)
+                        .or_else(|| opt_out.clone()),
+                ),
+                (
+                    IMAGE_SOURCE_PACKS,
+                    image_source_pack_references(&self.image_source_packs),
+                ),
+                (crate::bot_commands::COMMAND_FIELD, self.bot_command),
+                (view::FORUM_TITLE, forum_title_value(self.forum_title)),
+            ],
+        );
+        timeline
+            .send_with_extra_content(content.into(), extra)
+            .await
+            .or_failed(core, "send_message")?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendRawEventParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub event_type: String,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
+    pub content: serde_json::Value,
+}
+
+impl Handler for SendRawEventParams {
+    type Ok = String;
+
+    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+        let mut content = self.content;
+        ensure_empty_mentions(&mut content);
+        let response = core
+            .room(&self.room_id)
+            .await?
+            .send_raw(&self.event_type, content)
+            .await
+            .or_failed(core, "send_raw_event")?;
+
+        Ok(response.response.event_id.to_string())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendRedactionParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    pub reason: Option<String>,
+}
+
+impl Handler for SendRedactionParams {
+    type Ok = String;
+
+    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+        let response = core
+            .room(&self.room_id)
+            .await?
+            .redact(&self.event_id, self.reason.as_deref(), None)
+            .await
+            .map_err(|error| core.homeserver_http_error("send_redaction", error))?;
+        Ok(response.event_id.to_string())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendStickerParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub url: String,
+    pub body: String,
+    #[serde(default)]
+    pub info: Option<PackImageInfoView>,
+    #[serde(default)]
+    pub source_pack: Option<ImageSourcePackView>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub in_reply_to: Option<OwnedEventId>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    pub persona: Option<PerMessageProfileView>,
+}
+
+impl Handler for SendStickerParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let url = OwnedMxcUri::from(self.url);
+        if url.parts().is_err() {
+            return Err(CommandErr::InvalidMedia);
+        }
+        let source = image_source_pack_extra(url.as_str(), self.source_pack);
+
+        let timeline = core
+            .timeline_for(&self.room_id, self.thread_root.as_ref())
+            .await?;
+        let mut content = StickerEventContent::new(self.body, sticker_info(self.info), url);
+
+        content.relates_to = match (self.thread_root, self.in_reply_to) {
+            (Some(root), reply) => {
+                let fallback = reply.unwrap_or_else(|| root.clone());
+                Some(Relation::Thread(Thread::plain(root, fallback)))
+            }
+            (None, Some(event_id)) => Some(Relation::Reply(Reply::new(InReplyTo::new(event_id)))),
+            (None, None) => None,
+        };
+
+        let extra = extra_content(
+            self.persona.as_ref().map(|persona| {
+                crate::personas::profile_extra_content(&crate::personas::without_fallback(persona))
+            }),
+            [
+                (IMAGE_SOURCE_PACKS, source),
+                ("m.mentions", Some(empty_mentions())),
+            ],
+        );
+        timeline
+            .send_with_extra_content(content.into(), extra)
+            .await
+            .or_failed(core, "send_sticker")?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendGifParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    /// `mxc://` only; the core rejects anything else.
+    pub url: String,
+    pub body: String,
+    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    pub width: Option<u32>,
+    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    pub height: Option<u32>,
+    pub mimetype: String,
+    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    pub size: Option<u32>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub in_reply_to: Option<OwnedEventId>,
+    #[serde(default)]
+    pub silent_reply: bool,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    pub persona: Option<PerMessageProfileView>,
+}
+
+impl Handler for SendGifParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let url = OwnedMxcUri::from(self.url);
+        if url.parts().is_err() {
+            return Err(CommandErr::InvalidMedia);
+        }
+
+        let mut info = ImageInfo::new();
+        info.width = self.width.map(Into::into);
+        info.height = self.height.map(Into::into);
+        info.mimetype = Some(self.mimetype);
+        info.size = self.size.map(Into::into);
+
+        let room_id = self.room_id;
+        let thread_root = self.thread_root;
+        let timeline = core.timeline_for(&room_id, thread_root.as_ref()).await?;
+        let content = gif_content(self.body, url, info);
+
+        let reply = thread_reply(self.in_reply_to, thread_root.clone(), self.silent_reply);
+        let content = core
+            .with_reply(&room_id, content, reply, thread_root, "send_gif_reply")
+            .await?;
+        timeline
+            .send_with_extra_content(
+                content.into(),
+                self.persona.as_ref().map(|persona| {
+                    crate::personas::profile_extra_content(&crate::personas::without_fallback(
+                        persona,
+                    ))
+                }),
+            )
+            .await
+            .or_failed(core, "send_gif")?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct RemoveLinkPreviewsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for RemoveLinkPreviewsParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        Box::pin(core.remove_link_previews(
+            &self.room_id,
+            &self.event_id,
+            self.thread_root.as_ref(),
+        ))
+        .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ReprofileMessageParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    pub persona: Option<PerMessageProfileView>,
+}
+
+impl Handler for ReprofileMessageParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        Box::pin(core.reprofile_message(
+            &self.room_id,
+            &self.event_id,
+            self.thread_root.as_ref(),
+            self.persona.as_ref(),
+        ))
+        .await
+    }
+}
+
+/// `edited` on the view flips once the server has the replacement.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct EditMessageParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub event_id: Option<OwnedEventId>,
+    #[serde(default)]
+    pub transaction_id: Option<String>,
+    pub body: String,
+    pub formatted: Option<String>,
+    #[serde(default)]
+    pub kind: MessageKind,
+    #[serde(default)]
+    pub media_caption: bool,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
+    pub mentions: Vec<OwnedUserId>,
+    #[serde(default)]
+    pub mentions_room: bool,
+    #[serde(default)]
+    pub persona: Option<PerMessageProfileView>,
+    #[serde(default)]
+    pub forum_title: Option<String>,
+}
+
+impl Handler for EditMessageParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.edit_message(
+            &self.room_id,
+            self.event_id,
+            self.transaction_id,
+            self.body,
+            self.formatted,
+            self.kind,
+            self.media_caption,
+            self.thread_root,
+            self.mentions,
+            self.mentions_room,
+            self.persona,
+            self.forum_title,
+        )
+        .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct RedactParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    pub reason: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for RedactParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let redacted = core
+            .timeline_for(&self.room_id, self.thread_root.as_ref())
+            .await?
+            .redact(
+                &TimelineEventItemId::EventId(self.event_id.clone()),
+                self.reason.as_deref(),
+            )
+            .await;
+        match redacted {
+            Err(TimelineError::RedactError(RedactError::ItemNotFound(_))) => {
+                core.room(&self.room_id)
+                    .await?
+                    .redact(&self.event_id, self.reason.as_deref(), None)
+                    .await
+                    .or_failed(core, "redact")?;
+            }
+            other => other.or_failed(core, "redact")?,
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct DeleteThreadParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub root_event_id: OwnedEventId,
+    pub reason: Option<String>,
+}
+
+impl Handler for DeleteThreadParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.delete_thread(&self.room_id, &self.root_event_id, self.reason.as_deref())
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct BulkRedactParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub senders: Vec<String>,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub after_ts: u64,
+    pub event_types: Vec<String>,
+    pub reason: Option<String>,
+}
+
+impl Handler for BulkRedactParams {
+    /// How many events were redacted.
+    type Ok = u32;
+
+    async fn run(self, core: &Arc<Core>) -> Result<u32, CommandErr> {
+        core.bulk_redact(
+            &self.room_id,
+            &self.senders,
+            self.after_ts,
+            &self.event_types,
+            self.reason.as_deref(),
+        )
+        .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ReactParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    pub key: String,
+    #[serde(default)]
+    pub source_pack: Option<ImageSourcePackView>,
+    #[serde(default)]
+    pub shortcode: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    pub subscription: Option<SubscriptionId>,
+}
+
+impl Handler for ReactParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let Self {
+            room_id,
+            event_id,
+            key,
+            source_pack,
+            shortcode,
+            thread_root,
+            subscription,
+        } = self;
+        core.ensure_reaction_target(&room_id, &event_id).await?;
+        let timeline = core
+            .subscribed_timeline(&room_id, thread_root.as_ref(), subscription)
+            .await?;
+        let shortcode =
+            match shortcode.or_else(|| source_pack.as_ref().map(|source| source.shortcode.clone()))
+            {
+                Some(shortcode) => Some(shortcode),
+                None => {
+                    core.known_reaction_shortcode(&room_id, &event_id, &key)
+                        .await
+                }
+            };
+        let shortcode = reaction_shortcode(&key, shortcode.as_deref());
+        if let Some(source) = image_source_pack_extra(&key, source_pack) {
+            timeline
+                .toggle_reaction_with_extra_content(
+                    &TimelineEventItemId::EventId(event_id),
+                    &key,
+                    extra_content(
+                        None,
+                        [
+                            (IMAGE_SOURCE_PACKS, Some(source)),
+                            (REACTION_SHORTCODE, shortcode),
+                            ("m.mentions", Some(empty_mentions())),
+                        ],
+                    ),
+                )
+                .await
+                .or_failed(core, "react")?;
+        } else {
+            timeline
+                .toggle_reaction_with_extra_content(
+                    &TimelineEventItemId::EventId(event_id),
+                    &key,
+                    extra_content(empty_mentions_extra(), [(REACTION_SHORTCODE, shortcode)]),
+                )
+                .await
+                .or_failed(core, "react")?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendLocationParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub body: String,
+    pub geo_uri: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub in_reply_to: Option<OwnedEventId>,
+    #[serde(default)]
+    pub silent_reply: bool,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for SendLocationParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        if view::geo_coordinates(&self.geo_uri).is_none() {
+            return Err(CommandErr::InvalidLocation);
+        }
+
+        let room_id = self.room_id;
+        let thread_root = self.thread_root;
+        let silent_reply = self.silent_reply;
+        let timeline = core.timeline_for(&room_id, thread_root.as_ref()).await?;
+        let content = location_content(self.body, self.geo_uri);
+        let reply = self
+            .in_reply_to
+            .map(|event_id| reply_to(event_id, thread_root.is_some(), silent_reply));
+        let content = core
+            .with_reply(&room_id, content, reply, thread_root, "send_location")
+            .await?;
+        timeline
+            .send(content.into())
+            .await
+            .or_failed(core, "send_location")?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ForwardMessageParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub to_room_id: OwnedRoomId,
+}
+
+impl Handler for ForwardMessageParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.forward_message(&self.room_id, &self.event_id, &self.to_room_id)
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ReportMessageParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    pub reason: Option<String>,
+}
+
+impl Handler for ReportMessageParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.report_message(&self.room_id, self.event_id, self.reason)
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct RetrySendParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub transaction_id: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for RetrySendParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.client().await?.send_queue().set_enabled(true).await;
+
+        core.local_echo(
+            &self.room_id,
+            &self.transaction_id,
+            self.thread_root.as_ref(),
+        )
+        .await?
+        .unwedge()
+        .await
+        .or_failed(core, "retry_send")
+    }
+}
+
+/// A local echo is not on the server, so it cannot be redacted.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct CancelSendParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub transaction_id: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for CancelSendParams {
+    /// False when there was no such echo left to discard.
+    type Ok = bool;
+
+    async fn run(self, core: &Arc<Core>) -> Result<bool, CommandErr> {
+        let cancelled = core
+            .local_echo(
+                &self.room_id,
+                &self.transaction_id,
+                self.thread_root.as_ref(),
+            )
+            .await?
+            .abort()
+            .await
+            .or_failed(core, "cancel_send")?;
+
+        core.client().await?.send_queue().set_enabled(true).await;
+
+        Ok(cancelled)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ScheduleMessageParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub body: String,
+    #[serde(default)]
+    pub formatted: Option<String>,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub delay_ms: u64,
+}
+
+impl Handler for ScheduleMessageParams {
+    /// The delay id.
+    type Ok = String;
+
+    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+        let content = message_content(
+            self.body,
+            self.formatted,
+            MessageKind::Text,
+            Vec::new(),
+            false,
+        );
+        core.schedule_message(&self.room_id, content, self.delay_ms)
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ScheduleAttachmentParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub filename: String,
+    pub mime: String,
+    pub url: String,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub size: u64,
+    #[serde(default)]
+    pub info: Option<AttachmentInfoView>,
+    #[serde(default)]
+    pub spoiler: bool,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub delay_ms: u64,
+}
+
+impl Handler for ScheduleAttachmentParams {
+    /// The delay id.
+    type Ok = String;
+
+    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+        core.schedule_attachment(
+            &self.room_id,
+            self.filename,
+            self.mime,
+            self.url,
+            self.size,
+            self.info,
+            self.spoiler,
+            self.delay_ms,
+        )
+        .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ScheduledMessagesParams {
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub room_id: Option<OwnedRoomId>,
+}
+
+impl Handler for ScheduledMessagesParams {
+    type Ok = Vec<ScheduledMessageView>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<ScheduledMessageView>, CommandErr> {
+        core.scheduled_messages(self.room_id.as_ref()).await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct CancelScheduledMessageParams {
+    pub delay_id: String,
+}
+
+impl Handler for CancelScheduledMessageParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.cancel_scheduled_message(self.delay_id).await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendScheduledMessageParams {
+    pub delay_id: String,
+}
+
+impl Handler for SendScheduledMessageParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.send_scheduled_message_now(self.delay_id).await
+    }
+}
+
+/// MSC3381.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct CreatePollParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub question: String,
+    pub answers: Vec<String>,
+    /// Withholds the tally until the poll closes.
+    pub undisclosed: bool,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub max_selections: u32,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for CreatePollParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let content = crate::polls::start(
+            &self.question,
+            &self.answers,
+            self.undisclosed,
+            self.max_selections,
+        )
+        .ok_or(CommandErr::InvalidPoll)?;
+        let content =
+            matrix_sdk::ruma::events::poll::unstable_start::UnstablePollStartEventContent::from(
+                content,
+            );
+
+        core.timeline_for(&self.room_id, self.thread_root.as_ref())
+            .await?
+            .send_with_extra_content(content.into(), empty_mentions_extra())
+            .await
+            .or_failed(core, "create_poll")?;
+
+        Ok(())
+    }
+}
+
+/// Replaces any earlier vote by this account. An empty selection abstains.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct VotePollParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    /// The poll's start event.
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    /// The ids of the chosen answers.
+    pub answers: Vec<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for VotePollParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let content =
+            matrix_sdk::ruma::events::poll::unstable_response::UnstablePollResponseEventContent::new(
+                self.answers,
+                self.event_id,
+            );
+
+        core.timeline_for(&self.room_id, self.thread_root.as_ref())
+            .await?
+            .send_with_extra_content(content.into(), empty_mentions_extra())
+            .await
+            .or_failed(core, "vote_poll")?;
+
+        Ok(())
+    }
+}
+
+/// Irreversible.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct EndPollParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for EndPollParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let content = matrix_sdk::ruma::events::poll::unstable_end::UnstablePollEndEventContent::new(
+            "The poll has closed.",
+            self.event_id,
+        );
+
+        core.timeline_for(&self.room_id, self.thread_root.as_ref())
+            .await?
+            .send_with_extra_content(content.into(), empty_mentions_extra())
+            .await
+            .or_failed(core, "end_poll")?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SendGestureParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub gesture: GestureView,
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub target: Option<OwnedUserId>,
+}
+
+impl Handler for SendGestureParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.send_gesture(&self.room_id, self.gesture, self.target.as_ref())
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct UrlPreviewParams {
+    pub url: String,
+    pub service: Option<String>,
+}
+
+impl Handler for UrlPreviewParams {
+    type Ok = Option<UrlPreviewView>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Option<UrlPreviewView>, CommandErr> {
+        let url = self.url;
+        if let Some(base) = self.service {
+            let data = soliditas_preview(&base, &url).await?;
+            return Ok(data.and_then(|data| url_preview(url, &data)));
+        }
+
+        let sent = core
+            .client()
+            .await?
+            .send(get_media_preview::v1::Request::new(url.clone()))
+            .await;
+
+        let response = match sent {
+            Ok(response) => response,
+            Err(error) if preview_refused(&error) => {
+                tracing::info!(context = "url_preview", "the homeserver refused the url");
+                return Ok(None);
+            }
+            Err(error) => return Err(core.homeserver_http_error("url_preview", error)),
+        };
+
+        Ok(response
+            .data
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw.get()).ok())
+            .and_then(|data| url_preview(url, &data)))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ReactionShortcodesParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+}
+
+impl Handler for ReactionShortcodesParams {
+    type Ok = Vec<ReactionShortcodeView>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<ReactionShortcodeView>, CommandErr> {
+        core.reaction_shortcodes(&self.room_id, &self.event_id)
+            .await
+    }
+}
+
+/// The server expires it by itself, so a missed `false` is not fatal.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SetTypingParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub typing: bool,
+}
+
+impl Handler for SetTypingParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.room(&self.room_id)
+            .await?
+            .typing_notice(self.typing)
+            .await
+            .or_failed(core, "set_typing")
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct MediaConfigParams {}
+
+/// A struct rather than a bare `u64`, which the TypeScript export refuses.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct MediaConfigOk {
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub upload_size: u64,
+}
+
+impl Handler for MediaConfigParams {
+    type Ok = MediaConfigOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<MediaConfigOk, CommandErr> {
+        Ok(MediaConfigOk {
+            upload_size: core.max_upload_size().await?,
+        })
+    }
+}

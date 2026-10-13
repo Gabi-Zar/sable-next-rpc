@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomPowerLevelsView, RoomSummary } from '#src/generated/protocol';
+  import type { RoomPowerLevelsView, RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -12,7 +12,7 @@
   const CANONICAL_EVENT_TYPE = 'm.room.canonical_alias';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     levels: RoomPowerLevelsView | null;
     ownPowerLevel: number;
   }
@@ -38,8 +38,8 @@
 
     const current = ++run;
     published = null;
-    void core.commands
-      .roomDirectoryVisibility(target)
+    void core.rpc.rooms
+      .roomDirectoryVisibility({ room_id: target })
       .then((next) => {
         if (current === run) published = next;
       })
@@ -57,7 +57,7 @@
     published = next;
     saving = true;
     try {
-      await core.commands.setRoomDirectoryVisibility(target, next);
+      await core.rpc.rooms.setRoomDirectoryVisibility({ room_id: target, public: next });
     } catch (error) {
       console.warn('[sable room] directory visibility change failed', error);
       published = previous;

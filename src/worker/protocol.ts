@@ -1,4 +1,4 @@
-import type { Command, CommandErr, CommandOk, CoreEvent } from '#src/generated/protocol';
+import type { CommandErr, CoreEvent } from '#src/generated/protocol';
 import type { Attachment, Gallery, GalleryAttachment } from '#src/transport';
 
 export type AttachmentRequest = Required<Attachment>;
@@ -7,7 +7,7 @@ export type GalleryRequest = Required<Omit<Gallery, 'attachments'>> & {
 };
 
 export type WorkerRequest =
-  | { id: number; command: Command }
+  | { id: number; call: { method: string; params: unknown } }
   | { id: number; ping: true }
   | { disconnect: true }
   | { id: number; reset: true }
@@ -20,7 +20,7 @@ export type WorkerRequest =
 
 /** Worker → page. Events carry no id because they answer nothing. */
 export type WorkerMessage =
-  | { id: number; ok: CommandOk }
+  | { id: number; ok: unknown }
   | { id: number; pong: true }
   | { id: number; err: CommandErr }
   // Transferred so a thumbnail crosses once.

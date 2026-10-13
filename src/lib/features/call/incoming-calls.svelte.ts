@@ -83,7 +83,10 @@ export class IncomingCalls {
   async decline(call: IncomingCall): Promise<void> {
     this.#drop(call.notificationEventId);
     try {
-      await this.#client.commands.declineCall(call.roomId, call.notificationEventId);
+      await this.#client.rpc.calls.declineCall({
+        room_id: call.roomId,
+        notification_event_id: call.notificationEventId,
+      });
     } catch {
       ignoreError();
     }

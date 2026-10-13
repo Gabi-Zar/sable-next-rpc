@@ -14,13 +14,13 @@ function verificationWith(overrides: Record<string, unknown>) {
 
 test('a recovered identity clears the key and continues', async () => {
   const recoverIdentity = vi.fn(() => Promise.resolve());
-  const { verification } = verificationWith({ recoverIdentity });
+  const { verification } = verificationWith({ rpc: { encryption: { recoverIdentity } } });
   const onRecovered = vi.fn();
   verification.recoveryKey = '  EsTc abcd  ';
 
   await verification.recoverIdentity(onRecovered);
 
-  expect(recoverIdentity).toHaveBeenCalledWith('EsTc abcd');
+  expect(recoverIdentity).toHaveBeenCalledWith({ recovery_key: 'EsTc abcd' });
   expect(verification.recoveryKey).toBe('');
   expect(verification.recovering).toBe(false);
   expect(onRecovered).toHaveBeenCalledOnce();
@@ -28,7 +28,9 @@ test('a recovered identity clears the key and continues', async () => {
 
 test('a denied recovery key reads as an invalid key and keeps what was typed', async () => {
   const { verification } = verificationWith({
-    recoverIdentity: () => Promise.reject(new CoreError({ code: 'denied' })),
+    rpc: {
+      encryption: { recoverIdentity: () => Promise.reject(new CoreError({ code: 'denied' })) },
+    },
   });
   const onRecovered = vi.fn();
   verification.recoveryKey = 'wrong';
@@ -42,7 +44,9 @@ test('a denied recovery key reads as an invalid key and keeps what was typed', a
 
 test('a denied passphrase names both ways to unlock', async () => {
   const { verification } = verificationWith({
-    recoverIdentity: () => Promise.reject(new CoreError({ code: 'denied' })),
+    rpc: {
+      encryption: { recoverIdentity: () => Promise.reject(new CoreError({ code: 'denied' })) },
+    },
   });
   verification.recoveryKey = 'correct horse';
 

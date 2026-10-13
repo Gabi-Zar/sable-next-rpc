@@ -18,7 +18,7 @@ function fakeCore(stored: Record<string, Uint8Array | undefined>): FakeCore {
   const uploads: { mime: string; bytes: Uint8Array }[] = [];
   return {
     uploads,
-    commands: {
+    media: {
       fetchMedia: vi.fn((source: string) => {
         const bytes = stored[source];
         return bytes === undefined
@@ -91,7 +91,7 @@ test('the export asks for the original outside the UI download limit', async () 
   const core = fakeCore(media);
   await buildArchive(core, [packDraft(pack())]);
 
-  for (const call of vi.mocked(core.commands.fetchMedia).mock.calls) {
+  for (const call of vi.mocked(core.media.fetchMedia).mock.calls) {
     expect(call.slice(1)).toEqual([0, 0, true]);
   }
 });
@@ -166,7 +166,7 @@ test('a shared image is fetched and stored once', async () => {
   });
   const files = unzipSync(await buildArchive(core, [packDraft(shared)]));
 
-  expect(vi.mocked(core.commands.fetchMedia).mock.calls).toHaveLength(1);
+  expect(vi.mocked(core.media.fetchMedia).mock.calls).toHaveLength(1);
   expect(Object.keys(files).toSorted()).toEqual(['images/0-blob_wave.png', MANIFEST_NAME]);
 });
 

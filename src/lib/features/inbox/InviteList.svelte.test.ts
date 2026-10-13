@@ -4,18 +4,18 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 vi.mock('#lib/core/context.js');
 
 import { core } from '#lib/core/__mocks__/context.js';
 
-const rooms = vi.hoisted(() => [] as RoomSummary[]);
+const rooms = vi.hoisted(() => [] as RoomListItemView[]);
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({
   useRoomList: () => ({ rooms, byId: () => undefined }),
   roomPathParamFromId: (roomId: string) => roomId,
-  roomLabel: (room: RoomSummary) => room.name ?? room.room_id,
+  roomLabel: (room: RoomListItemView) => room.name ?? room.room_id,
 }));
 
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
@@ -30,15 +30,21 @@ import { dismissedInvites } from '#lib/rooms/dismissed-invites.svelte.js';
 
 import InviteList from './InviteList.svelte';
 
-Object.assign(core, {
+const account = {
   dismissedInvites: vi.fn(() => Promise.resolve([])),
-  setInviteDismissed: vi.fn((roomId: string, dismissed: boolean) =>
-    Promise.resolve(dismissed ? [roomId] : [])
+  setInviteDismissed: vi.fn(({ room_id, dismissed }: { room_id: string; dismissed: boolean }) =>
+    Promise.resolve(dismissed ? [room_id] : [])
   ),
-});
+};
+Object.assign(core, { rpc: { account } });
 
-function invite(roomId: string, name: string): RoomSummary {
-  return { room_id: roomId, name, state: 'invited', latest_event: null } as unknown as RoomSummary;
+function invite(roomId: string, name: string): RoomListItemView {
+  return {
+    room_id: roomId,
+    name,
+    state: 'invited',
+    latest_event: null,
+  } as unknown as RoomListItemView;
 }
 
 afterEach(() => {
@@ -53,7 +59,7 @@ function names(): string[] {
 function triaged(
   entries: [roomId: string, inviter: string, sharesRoom: boolean, banned?: boolean][]
 ): void {
-  Object.assign(core.commands, {
+  Object.assign(account, {
     inviteTriage: vi.fn(() =>
       Promise.resolve(
         entries.map(([room_id, inviter, shares_room, banned = false]) => ({
@@ -108,8 +114,8 @@ test('invites are grouped by sender and accept all only covers people you know',
     ['!c:example.org', '@stranger:example.org', false],
     ['!d:example.org', '@spammer:example.org', false, true],
   ]);
-  const joinRoom = vi.fn((roomId: string) => Promise.resolve(roomId));
-  Object.assign(core.commands, { joinRoom });
+  const joinRoom = vi.fn(({ address }: { address: string }) => Promise.resolve(address));
+  Object.assign(core, { joinRoom });
   dismissedInvites.start(core as unknown as CoreClient);
   render(InviteList);
   await vi.waitFor(() => {
@@ -121,7 +127,7 @@ test('invites are grouped by sender and accept all only covers people you know',
   await vi.waitFor(() => {
     expect(joinRoom).toHaveBeenCalledTimes(2);
   });
-  expect(joinRoom.mock.calls.map(([roomId]) => roomId)).toEqual([
+  expect(joinRoom.mock.calls.map(([params]) => params.address)).toEqual([
     '!a:example.org',
     '!b:example.org',
   ]);

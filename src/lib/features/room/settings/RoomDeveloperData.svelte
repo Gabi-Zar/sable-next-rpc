@@ -3,7 +3,7 @@
   import type {
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -21,7 +21,7 @@
     permissions,
     levels,
   }: {
-    room: RoomSummary;
+    room: RoomListItemView;
     permissions: RoomPermissionsView | null;
     levels: RoomPowerLevelsView | null;
   } = $props();
@@ -37,7 +37,7 @@
     copied = false;
     try {
       data = await collectRoomDebugData(
-        core.commands,
+        core.rpc,
         $state.snapshot(room),
         $state.snapshot(permissions),
         $state.snapshot(levels)

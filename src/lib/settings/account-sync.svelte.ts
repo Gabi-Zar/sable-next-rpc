@@ -1,6 +1,7 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 import { fingerprint } from './fingerprint.js';
+import { setAccountData, setSealedAccountData } from '#lib/core/api/account.svelte.js';
 
 export const ACCOUNT_DATA_KEY_TYPE = 'dev.zirco.msc4483.account_data.key';
 
@@ -140,7 +141,7 @@ export class AccountSync {
     let migrated = false;
     try {
       if (document.sealed) {
-        const sealed = await core.commands.sealedAccountData(document.eventType);
+        const sealed = await core.rpc.account.sealedAccountData({ event_type: document.eventType });
         if (generation !== this.#generation) return;
         state.locked = sealed.state === 'locked';
         if (state.locked) {
@@ -152,9 +153,11 @@ export class AccountSync {
         content = sealed.content;
         unsealed = sealed.state === 'plain' && sealed.can_seal && sealed.content !== null;
       } else {
-        content = await core.commands.accountData(document.eventType);
+        content = await core.rpc.account.accountData({ event_type: document.eventType });
         if (content === null && document.legacy) {
-          const legacy = await core.commands.accountData(document.legacy.eventType);
+          const legacy = await core.rpc.account.accountData({
+            event_type: document.legacy.eventType,
+          });
           if (generation !== this.#generation) return;
           content = document.legacy.convert(legacy);
           migrated = content !== null;
@@ -195,8 +198,8 @@ export class AccountSync {
     this.#refresh();
     try {
       await (document.sealed
-        ? core.commands.setSealedAccountData(document.eventType, sent.content)
-        : core.commands.setAccountData(document.eventType, sent.content));
+        ? setSealedAccountData(core.rpc, document.eventType, sent.content)
+        : setAccountData(core.rpc, document.eventType, sent.content));
     } catch (error) {
       if (generation !== this.#generation) return;
       state.status = 'error';

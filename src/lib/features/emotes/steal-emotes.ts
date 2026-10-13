@@ -81,11 +81,11 @@ export async function uploadCandidates(
 ): Promise<PackImageDraft[]> {
   const added: PackImageDraft[] = [];
   for (const pick of picks) {
-    const bytes = await core.commands.fetchMedia(pick.source, 0, 0, true);
+    const bytes = await core.media.fetchMedia(pick.source, 0, 0, true);
     const mimetype = pick.mime ?? imageMime(bytes) ?? null;
     added.push({
       shortcode: pick.shortcode,
-      url: await core.commands.uploadMedia(mimetype ?? 'application/octet-stream', bytes),
+      url: await core.media.uploadMedia(mimetype ?? 'application/octet-stream', bytes),
       body: pick.body,
       usage: pick.usage,
       info: { width: pick.width, height: pick.height, mimetype, size: bytes.length },
@@ -102,7 +102,7 @@ export async function downloadCandidates(
   const used = new Set<string>();
 
   for (const pick of picks) {
-    const bytes = await core.commands.fetchMedia(pick.source, 0, 0, true);
+    const bytes = await core.media.fetchMedia(pick.source, 0, 0, true);
     const mime = pick.mime ?? imageMime(bytes) ?? null;
     const shortcode = uniqueShortcode(pick.shortcode, used);
     used.add(shortcode);

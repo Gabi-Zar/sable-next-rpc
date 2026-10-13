@@ -12,9 +12,9 @@
 
   let { menu }: { menu: ComponentProps<typeof RoomPinMenu> } = $props();
   const core = useCoreClient();
-  provideEventItems(new EventItems(core.commands, () => core.session?.account_id ?? null));
+  provideEventItems(new EventItems(core.rpc.timeline, () => core.session?.account_id ?? null));
   provideRoomScopes(new RoomScopes(core));
-  provideBookmarks(new Bookmarks(core.commands));
+  provideBookmarks(new Bookmarks(core.rpc.account));
   let items = $state.raw<MediaItem[]>([]);
   let selectedEventId = $state<string | null>(null);
 </script>

@@ -15,8 +15,8 @@ const mocks = vi.hoisted(() => ({
   removeAll: vi.fn<() => Promise<void>>(),
   list: [] as PersonaView[],
   accountData: vi.fn<(eventType: string) => Promise<unknown>>(),
-  checkPersonaBackup: vi.fn<(backup: string) => Promise<void>>(),
-  restorePersonaBackup: vi.fn<(backup: string) => Promise<void>>(),
+  checkPersonaBackup: vi.fn<(params: { backup: string }) => Promise<null>>(),
+  restorePersonaBackup: vi.fn<(params: { backup: string }) => Promise<null>>(),
   setAccountData: vi.fn<(eventType: string, content: unknown) => Promise<void>>(),
 }));
 
@@ -133,8 +133,8 @@ test('reports an export file that holds no members', async () => {
 
 test('restores a backup only after confirmation', async () => {
   mocks.load.mockResolvedValue();
-  mocks.checkPersonaBackup.mockResolvedValue();
-  mocks.restorePersonaBackup.mockResolvedValue();
+  mocks.checkPersonaBackup.mockResolvedValue(null);
+  mocks.restorePersonaBackup.mockResolvedValue(null);
   const backup = JSON.stringify({ catalog: true });
   render(PersonaSettings);
   await choose(1, backup);
@@ -149,7 +149,7 @@ test('restores a backup only after confirmation', async () => {
   await vi.waitFor(() => {
     expect(mocks.load).toHaveBeenCalledWith(true);
   });
-  expect(mocks.restorePersonaBackup).toHaveBeenCalledWith(backup);
+  expect(mocks.restorePersonaBackup).toHaveBeenCalledWith({ backup });
 });
 
 test('a file the core refuses is reported before anything is asked', async () => {

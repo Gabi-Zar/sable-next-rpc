@@ -19,7 +19,7 @@ function sharer(token: string | null) {
   const accessToken = vi.fn(() => Promise.resolve(token));
   const core = {
     session: { user_id: '@me:example.org', homeserver: 'https://hs.example/' },
-    commands: { accessToken },
+    rpc: { session: { accessToken } },
     subscribeEvents: (onEvent: (event: CoreEvent) => void) => {
       listener = onEvent;
       return () => {
@@ -63,7 +63,7 @@ test('a tab only decrypts a push for the account it has open', async () => {
   const pushEvent = vi.fn(() => Promise.resolve({ kind: 'discard' as const }));
   const core = {
     session: { user_id: '@me:example.org' },
-    commands: { pushEvent },
+    rpc: { notifications: { pushEvent } },
   } as unknown as Parameters<typeof answerPushEvent>[0];
 
   expect(

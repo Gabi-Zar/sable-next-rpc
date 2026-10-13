@@ -49,7 +49,10 @@ export class SenderDirectory {
     this.#searched.add(folded);
 
     try {
-      const { results } = await this.#core.commands.searchUserDirectory(folded, DIRECTORY_LIMIT);
+      const { results } = await this.#core.rpc.account.searchUserDirectory({
+        term: folded,
+        limit: DIRECTORY_LIMIT,
+      });
       const fresh = results.filter((entry) => !this.#identities.has(entry.user_id));
       for (const entry of fresh) {
         this.#identities.set(entry.user_id, {

@@ -30,12 +30,14 @@ function client(): CoreClient {
   return {
     subscribeEvents: () => () => {},
     commands: {
-      mediaConfig: () => Promise.resolve({ upload_size: 100 * 1024 * 1024 }),
-      botCommands: () => Promise.resolve([]),
-      personas: () => Promise.resolve({ personas: [], selections: [] }),
       roomMembers: () => Promise.resolve([]),
-      imagePackListing: () => Promise.resolve({ packs: [], complete: true }),
       fetchMedia: () => Promise.resolve(new Uint8Array()),
+    },
+    rpc: {
+      messages: { mediaConfig: () => Promise.resolve({ upload_size: 100 * 1024 * 1024 }) },
+      room_state: { botCommands: () => Promise.resolve([]) },
+      personas: { personas: () => Promise.resolve({ personas: [], selections: [] }) },
+      packs: { imagePacks: () => Promise.resolve({ packs: [], complete: true }) },
     },
   } as unknown as CoreClient;
 }

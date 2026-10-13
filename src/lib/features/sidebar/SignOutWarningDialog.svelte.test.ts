@@ -41,7 +41,7 @@ afterEach(() => {});
 
 async function openWarning(safety: SignOutSafetyView) {
   const guard = new SignOutGuard({
-    commands: { signOutSafety: () => Promise.resolve(safety) },
+    rpc: { encryption: { signOutSafety: () => Promise.resolve(safety) } },
   } as unknown as CoreClient);
   const proceed = vi.fn(() => Promise.resolve());
   render(SignOutWarningDialog, { guard });

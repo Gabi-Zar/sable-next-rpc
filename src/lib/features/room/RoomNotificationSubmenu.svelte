@@ -54,7 +54,7 @@
 
   async function read(): Promise<void> {
     try {
-      const settings = await core.commands.notificationSettings(roomId);
+      const settings = await core.rpc.notifications.notificationSettings({ room_id: roomId });
       mode = settings.room;
       fallback = settings.default ?? 'mentions';
     } catch (error) {
@@ -66,11 +66,13 @@
     if (quiet) setQuiet(roomId, true);
     else if (mode === 'mentions' && isQuiet(roomId)) setQuiet(roomId, false);
     mode = next;
-    core.commands.setRoomNotificationMode(roomId, next).catch((error: unknown) => {
-      console.warn('[sable room] notification mode failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
-      void read();
-    });
+    core.rpc.notifications
+      .setRoomNotificationMode({ room_id: roomId, mode: next })
+      .catch((error: unknown) => {
+        console.warn('[sable room] notification mode failed', error);
+        toasts.error($i18n.t('errors.actionFailed'));
+        void read();
+      });
   }
 </script>
 

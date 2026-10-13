@@ -12,8 +12,9 @@ const core = Object.assign(baseCore, {
   defaultNotificationModes: vi.fn(() => Promise.resolve({ direct: 'all', group: 'mentions' })),
   masterMute: vi.fn(() => Promise.resolve(false)),
   eventNotifications: vi.fn<() => Promise<Record<string, boolean | null>>>(),
-  setEventNotification: vi.fn<(event: string, enabled: boolean) => Promise<void>>(),
+  setEventNotification: vi.fn<(params: { event: string; enabled: boolean }) => Promise<void>>(),
 });
+Object.assign(core, { rpc: { notifications: core } });
 
 import NotificationDefaults from './NotificationDefaults.svelte';
 
@@ -63,5 +64,5 @@ test('turning reactions on saves that one event', async () => {
   await user.click(await screen.findByLabelText('Reactions'));
   await user.click(await screen.findByRole('option', { name: 'Notify' }));
 
-  expect(core.setEventNotification).toHaveBeenCalledWith('reactions', true);
+  expect(core.setEventNotification).toHaveBeenCalledWith({ event: 'reactions', enabled: true });
 });

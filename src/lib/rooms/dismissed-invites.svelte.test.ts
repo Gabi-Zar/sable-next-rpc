@@ -8,16 +8,18 @@ import { DISMISSED_INVITES_EVENT, dismissedInvites } from './dismissed-invites.s
 function fakeCore(stored: string[]) {
   const listeners = new Set<(event: CoreEvent) => void>();
   const dismissedInvitesCommand = vi.fn(() => Promise.resolve(stored));
-  const setInviteDismissed = vi.fn((roomId: string, dismissed: boolean) => {
-    stored = dismissed ? [...stored, roomId] : stored.filter((entry) => entry !== roomId);
-    return Promise.resolve(stored);
-  });
+  const setInviteDismissed = vi.fn(
+    ({ room_id: roomId, dismissed }: { room_id: string; dismissed: boolean }) => {
+      stored = dismissed ? [...stored, roomId] : stored.filter((entry) => entry !== roomId);
+      return Promise.resolve(stored);
+    }
+  );
   const core = {
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    commands: { dismissedInvites: dismissedInvitesCommand, setInviteDismissed },
+    rpc: { account: { dismissedInvites: dismissedInvitesCommand, setInviteDismissed } },
   } as unknown as CoreClient;
   return {
     core,
@@ -55,11 +57,17 @@ test('dismissing and restoring go through the core one room at a time', async ()
   dismissedInvites.start(fake.core);
 
   await dismissedInvites.dismiss('!a:example.org');
-  expect(fake.setInviteDismissed).toHaveBeenLastCalledWith('!a:example.org', true);
+  expect(fake.setInviteDismissed).toHaveBeenLastCalledWith({
+    room_id: '!a:example.org',
+    dismissed: true,
+  });
   expect(dismissedInvites.has('!a:example.org')).toBe(true);
 
   await dismissedInvites.restore('!a:example.org');
-  expect(fake.setInviteDismissed).toHaveBeenLastCalledWith('!a:example.org', false);
+  expect(fake.setInviteDismissed).toHaveBeenLastCalledWith({
+    room_id: '!a:example.org',
+    dismissed: false,
+  });
   expect(dismissedInvites.has('!a:example.org')).toBe(false);
 });
 

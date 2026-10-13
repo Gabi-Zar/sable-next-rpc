@@ -1,8 +1,8 @@
-import type { NotificationModeView, RoomSummary } from '#src/generated/protocol';
+import type { NotificationModeView, RoomListItemView } from '#src/generated/protocol';
 
 import type { UnreadCount } from './spaces.js';
 
-export type RoomUnread = (room: RoomSummary) => UnreadCount;
+export type RoomUnread = (room: RoomListItemView) => UnreadCount;
 
 export const NO_UNREAD: UnreadCount = { unread: 0, highlight: 0, marked: false };
 
@@ -29,7 +29,7 @@ function loudUnread(count: UnreadCount): UnreadCount {
 }
 
 export function badgeModeFor(
-  room: Pick<RoomSummary, 'is_direct'>,
+  room: Pick<RoomListItemView, 'is_direct'>,
   roomOverride: NotificationModeView | null,
   defaults: { direct: BadgeNotificationMode; group: BadgeNotificationMode }
 ): BadgeNotificationMode | 'mute' {

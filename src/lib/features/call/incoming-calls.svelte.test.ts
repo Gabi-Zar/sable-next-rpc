@@ -31,7 +31,7 @@ function harness() {
   const listeners = new Set<(event: CoreEvent) => void>();
   const declineCall = vi.fn(() => Promise.resolve());
   const client = {
-    commands: { declineCall },
+    rpc: { calls: { declineCall } },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -152,7 +152,10 @@ test('declining tells the core and dismisses the prompt', async () => {
 
   await calls.decline(calls.calls[0]);
 
-  expect(declineCall).toHaveBeenCalledWith('!room:example.org', '$notify');
+  expect(declineCall).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    notification_event_id: '$notify',
+  });
   expect(calls.calls).toHaveLength(0);
 });
 
@@ -224,7 +227,10 @@ test('declining in the system call UI declines the Matrix call', async () => {
   await Promise.resolve();
   system.handler?.({ action: 'end', uuid: '$notify' });
 
-  expect(declineCall).toHaveBeenCalledWith('!room:example.org', '$notify');
+  expect(declineCall).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    notification_event_id: '$notify',
+  });
   expect(calls.calls).toEqual([]);
 });
 

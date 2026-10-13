@@ -13,7 +13,7 @@
 
   async function copyToken(): Promise<void> {
     try {
-      const token = await core.commands.accessToken();
+      const token = await core.rpc.session.accessToken();
       if (!token) throw new Error('No access token');
       await copyText(token);
       copied = true;

@@ -4,12 +4,12 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
-const rooms = vi.hoisted(() => [] as RoomSummary[]);
+const rooms = vi.hoisted(() => [] as RoomListItemView[]);
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({
   useRoomList: () => ({ rooms }),
-  roomLabel: (room: RoomSummary) => room.name ?? room.room_id,
+  roomLabel: (room: RoomListItemView) => room.name ?? room.room_id,
 }));
 vi.mock('#lib/rooms/permalink.js', () => ({
   roomSectionPath: (_rooms: unknown, roomId: string, eventId: string) =>
@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 test('a forward from a joined room links to the original', () => {
-  rooms.push({ room_id: '!origin:example.org', name: 'Origin' } as RoomSummary);
+  rooms.push({ room_id: '!origin:example.org', name: 'Origin' } as RoomListItemView);
   render(ForwardedLine, {
     forwarded: { timestamp: null, room_id: '!origin:example.org', event_id: '$event' },
     roomId: '!here:example.org',

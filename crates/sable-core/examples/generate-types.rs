@@ -1,8 +1,7 @@
 use std::{borrow::Cow, error::Error, path::Path};
 
 use sable_core::protocol::{
-    AttachmentInfoView, Command, CommandErr, CommandOk, CoreEvent, SendAttachmentRequest,
-    SendGalleryRequest,
+    AttachmentInfoView, CommandErr, CoreEvent, SendAttachmentRequest, SendGalleryRequest,
 };
 use specta::{Format, FormatError, Types, datatype::DataType};
 
@@ -46,6 +45,33 @@ fn require_named_fields(fields: &mut specta::datatype::Fields) {
     }
 }
 
+fn render(
+    exporter: &specta_typescript::FrameworkExporter<'_>,
+    dt: &DataType,
+) -> Result<String, specta_typescript::Error> {
+    match dt {
+        DataType::Reference(reference) => exporter.reference(reference),
+        DataType::Nullable(inner) => Ok(format!("{} | null", render(exporter, inner)?)),
+        dt => exporter.inline(dt),
+    }
+}
+
+fn camel_case(snake: &str) -> String {
+    let mut out = String::with_capacity(snake.len());
+    let mut upper = false;
+    for character in snake.chars() {
+        if character == '_' {
+            upper = true;
+        } else if upper {
+            out.extend(character.to_uppercase());
+            upper = false;
+        } else {
+            out.push(character);
+        }
+    }
+    out
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = std::env::args().skip(1);
     let check = match (args.next(), args.next()) {
@@ -54,9 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         _ => return Err("usage: generate-types [--check]".into()),
     };
 
-    let types = specta::Types::default()
-        .register::<Command>()
-        .register::<CommandOk>()
+    let mut types = specta::Types::default()
         .register::<CommandErr>()
         .register::<CoreEvent>()
         .register::<AttachmentInfoView>()
@@ -90,7 +114,40 @@ fn main() -> Result<(), Box<dyn Error>> {
         .register::<sable_model::search_filter::ResolvedQuery>()
         .register::<sable_model::search_filter::SearchDirectory>()
         .register::<sable_model::search_filter::TargetSuggestion>();
-    let output = specta_typescript::Typescript::default().export(&types, ProtocolFormat)?;
+    let routes = sable_core::api::routes(&mut types);
+    let output = specta_typescript::Exporter::from(specta_typescript::Typescript::default())
+        .framework_runtime(move |mut exporter| {
+            let mut method_lines = Vec::new();
+            let mut client_lines = Vec::new();
+            for (domain, methods) in &routes {
+                client_lines.push(format!("    {domain}: {{"));
+                for route in methods {
+                    let wire = format!("{domain}.{}", route.method);
+                    let params = render(&exporter, &route.params)?;
+                    let ok = render(&exporter, &route.ok)?;
+                    let empty = exporter.inline(&route.params)? == "Record<string, never>";
+                    let default = if empty { " = {}" } else { "" };
+                    method_lines.push(format!("  '{wire}': [{params}, {ok}];"));
+                    client_lines.push(format!(
+                        "      {}: (params: {params}{default}) => call('{wire}', params) as Promise<{ok}>,",
+                        camel_case(route.method)
+                    ));
+                }
+                client_lines.push("    },".to_owned());
+            }
+            let out = format!(
+                "{}\n/** Each wire method's params and result. */\nexport type RpcMethods = {{\n{}\n}};\n\n\
+                 export type RpcCall = (method: keyof RpcMethods, params: unknown) => Promise<unknown>;\n\n\
+                 /** The core's methods by domain, each one `call` on its wire method. */\n\
+                 export function createRpc(call: RpcCall) {{\n  return {{\n{}\n  }};\n}}\n\n\
+                 export type Rpc = ReturnType<typeof createRpc>;\n",
+                exporter.render_types()?,
+                method_lines.join("\n"),
+                client_lines.join("\n"),
+            );
+            Ok(Cow::Owned(out))
+        })
+        .export(&types, ProtocolFormat)?;
     let output = format!(
         "{}\n",
         output

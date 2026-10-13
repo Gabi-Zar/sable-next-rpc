@@ -163,8 +163,8 @@
   $effect(() => {
     const activeRoomId = resolvedRoomId;
     let current = true;
-    core.commands
-      .roomPermissions(activeRoomId)
+    core.rpc.members
+      .roomPermissions({ room_id: activeRoomId })
       .then((next) => {
         if (current) permissions = next;
       })
@@ -179,8 +179,8 @@
   $effect(() => {
     const activeRoomId = resolvedRoomId;
     let current = true;
-    core.commands
-      .roomMembers(activeRoomId)
+    core.rpc.members
+      .roomMembers({ room_id: activeRoomId, memberships: [] })
       .then((next) => {
         if (current) members = next;
       })
@@ -200,7 +200,7 @@
 
   async function load(activeRoomId: string): Promise<void> {
     try {
-      const next = await core.commands.calendarEntries(activeRoomId);
+      const next = await core.rpc.calendar.calendarEntries({ room_id: activeRoomId });
       if (activeRoomId !== resolvedRoomId) return;
       view = next;
       now = Date.now();
@@ -308,8 +308,15 @@
   }
 
   function markRead(): void {
-    void core.commands
-      .markRead(resolvedRoomId, null, readReceiptIsPrivate())
+    void core.rpc.timeline
+      .markRead({
+        room_id: resolvedRoomId,
+        event_id: null,
+        private_receipt: readReceiptIsPrivate(),
+        thread_root: null,
+        subscription: null,
+        fully_read: false,
+      })
       .catch((error: unknown) => {
         console.warn('[sable calendar] mark as read failed', error);
         toasts.error($i18n.t('errors.actionFailed'));
@@ -317,10 +324,12 @@
   }
 
   function markUnread(): void {
-    void core.commands.markUnread(resolvedRoomId).catch((error: unknown) => {
-      console.warn('[sable calendar] mark as unread failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
-    });
+    void core.rpc.timeline
+      .markUnread({ room_id: resolvedRoomId, read_marker: null })
+      .catch((error: unknown) => {
+        console.warn('[sable calendar] mark as unread failed', error);
+        toasts.error($i18n.t('errors.actionFailed'));
+      });
   }
 
   function openEdit(item: CalendarItem): void {
@@ -338,7 +347,11 @@
       Date.now(),
       timeZone
     );
-    await core.commands.saveCalendarEvent(resolvedRoomId, event, base?.event_id ?? null);
+    await core.rpc.calendar.saveCalendarEvent({
+      room_id: resolvedRoomId,
+      event: $state.snapshot(event),
+      replaces: base?.event_id ?? null,
+    });
     await load(resolvedRoomId);
   }
 
@@ -346,7 +359,12 @@
     if (deleting === null) return;
     deleteBusy = true;
     try {
-      await core.commands.redact(resolvedRoomId, deleting.event_id);
+      await core.rpc.messages.redact({
+        room_id: resolvedRoomId,
+        event_id: deleting.event_id,
+        reason: null,
+        thread_root: null,
+      });
       deleting = null;
       await load(resolvedRoomId);
     } catch (error) {
@@ -360,10 +378,11 @@
   async function answer(occurrence: Occurrence, status: RsvpStatus): Promise<void> {
     const item = occurrence.item;
     try {
-      await core.commands.answerCalendarEvent(resolvedRoomId, {
-        calendarEventId: item.event_id,
+      await core.rpc.calendar.answerCalendarEvent({
+        room_id: resolvedRoomId,
+        calendar_event_id: item.event_id,
         uid: item.uid,
-        recurrenceId: occurrence.recurrenceId,
+        recurrence_id: occurrence.recurrenceId,
         status,
       });
       await load(resolvedRoomId);
@@ -657,7 +676,7 @@
   hint={$i18n.t('room.reportHint')}
   onReport={(reason) => {
     const target = resolvedRoomId;
-    void sendReport(() => core.commands.reportRoom(target, reason ?? ''));
+    void sendReport(() => core.rpc.rooms.reportRoom({ room_id: target, reason: reason ?? '' }));
   }}
 />
 <LeaveRoomDialog

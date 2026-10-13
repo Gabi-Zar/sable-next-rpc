@@ -1,11 +1,11 @@
-import type { NotificationSettingsView, RoomSummary } from '#src/generated/protocol';
+import type { NotificationSettingsView, RoomListItemView } from '#src/generated/protocol';
 
-type RawSummary = Omit<RoomSummary, 'notification' | 'counts'> & {
+type RawSummary = Omit<RoomListItemView, 'notification' | 'counts'> & {
   notification?: NotificationSettingsView;
 };
 
 /** What the core resolves from the raw counts, for summaries a test builds by hand. */
-export function withCounts(room: RawSummary): RoomSummary {
+export function withCounts(room: RawSummary): RoomListItemView {
   const notification = room.notification ?? {
     room: null,
     default: room.is_direct ? 'all' : 'mentions',

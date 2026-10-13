@@ -118,7 +118,9 @@ test.each(['mouse', 'keyboard'])('reaction contextmenu opens only details (%s)',
 });
 
 test('uses a custom emote shortcode rather than its Matrix media URI', async () => {
-  Object.assign(core.commands, { imagePacks: vi.fn(() => Promise.resolve(packs)) });
+  Object.assign(core, {
+    imagePacks: vi.fn(() => Promise.resolve({ packs, complete: true })),
+  });
 
   render(MessageReactionsHarness, {
     reactions: [
@@ -139,8 +141,8 @@ test('uses a custom emote shortcode rather than its Matrix media URI', async () 
 });
 
 test('names an image from a pack we cannot see by the shortcode it was sent with', async () => {
-  Object.assign(core.commands, {
-    imagePacks: vi.fn(() => Promise.resolve([])),
+  Object.assign(core, {
+    imagePacks: vi.fn(() => Promise.resolve({ packs: [], complete: true })),
     reactionShortcodes: vi.fn(() =>
       Promise.resolve([{ key: 'mxc://remote.example/parrot', shortcode: 'partyparrot' }])
     ),
@@ -161,8 +163,8 @@ test('names an image from a pack we cannot see by the shortcode it was sent with
 });
 
 test('shows the shortcode in place of an image that cannot load', async () => {
-  Object.assign(core.commands, {
-    imagePacks: vi.fn(() => Promise.resolve([])),
+  Object.assign(core, {
+    imagePacks: vi.fn(() => Promise.resolve({ packs: [], complete: true })),
     reactionShortcodes: vi.fn(() =>
       Promise.resolve([{ key: 'mxc://dead.example/parrot', shortcode: 'partyparrot' }])
     ),
@@ -184,7 +186,9 @@ test('shows the shortcode in place of an image that cannot load', async () => {
 });
 
 test('a custom emote reaction shows its shortcode where media previews are off (MSC4278)', async () => {
-  Object.assign(core.commands, { imagePacks: vi.fn(() => Promise.resolve(packs)) });
+  Object.assign(core, {
+    imagePacks: vi.fn(() => Promise.resolve({ packs, complete: true })),
+  });
   mediaPreviewSettings.global = { media_previews: 'off' };
 
   render(MessageReactionsHarness, {

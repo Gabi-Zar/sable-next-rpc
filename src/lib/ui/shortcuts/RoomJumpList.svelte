@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { i18n } from '#lib/i18n.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -20,7 +20,7 @@
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {
-    onSelect: (room: RoomSummary) => void;
+    onSelect: (room: RoomListItemView) => void;
     onClose?: () => void;
   }
 

@@ -1,7 +1,7 @@
 import type {
   HierarchyRoomView,
   HierarchySection,
-  RoomSummary,
+  RoomListItemView,
   SpaceChildEdge,
 } from '#src/generated/protocol';
 
@@ -28,7 +28,7 @@ export function sameLobbyItem(left: LobbyDragItem, right: LobbyDragItem): boolea
 }
 
 export function localHierarchyRooms(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   rootId: string
 ): HierarchyRoomView[] {
   const byId = new Map(rooms.map((room) => [room.room_id, room]));

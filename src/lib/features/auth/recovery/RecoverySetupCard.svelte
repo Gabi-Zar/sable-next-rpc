@@ -34,7 +34,7 @@
     creating = true;
     error = null;
     try {
-      createdKey = await core.commands.enableRecovery();
+      createdKey = await core.rpc.encryption.enableRecovery({ passphrase: null });
     } catch {
       error = t('settings.actionFailed');
     } finally {

@@ -1,4 +1,9 @@
-import type { CommandErr, CommandOk, CoreEvent } from '#src/generated/protocol';
+import type {
+  CommandErr,
+  CoreEvent,
+  SubscribeTimelineOk,
+  SubscriptionId,
+} from '#src/generated/protocol';
 import type { WorkerMessage, WorkerRequest } from './protocol';
 import { TimelineEventRouter } from './timeline-event-router';
 
@@ -6,7 +11,7 @@ const logFlushMs = 250;
 const logBufferLimit = 500;
 
 export type WorkerCore = {
-  submitCommand(command: string): Promise<string>;
+  call(method: string, params: string): Promise<string>;
   fetchMedia(
     source: string,
     width: number,
@@ -47,7 +52,7 @@ export function createCoreWorkerBoundary(
     void core.then(async (instance) => {
       for (const subscription of subscriptions) {
         try {
-          await instance.submitCommand(JSON.stringify({ type: 'unsubscribe', subscription }));
+          await instance.call('timeline.unsubscribe', JSON.stringify({ subscription }));
         } catch {
           // The owner is gone, so cleanup errors cannot be reported to a page.
         }
@@ -272,46 +277,50 @@ export function createCoreWorkerBoundary(
           port.postMessage({ id, uri } satisfies WorkerMessage);
           return;
         }
-        if (
-          (request.command.type === 'paginate' || request.command.type === 'unsubscribe') &&
-          !timelineEvents.owns(request.command.subscription, port)
-        ) {
-          port.postMessage({ id, err: { code: 'denied' } } satisfies WorkerMessage);
-          return;
-        }
-
-        if (request.command.type === 'subscribe_timeline') {
-          for (let attempt = 0; attempt < 3; attempt += 1) {
-            if (!ports.has(port)) return;
-            timelineEvents.begin(port);
-            pendingTimeline = true;
-            const ok = JSON.parse(
-              await instance.submitCommand(JSON.stringify(request.command))
-            ) as CommandOk;
-            if (ok.type !== 'subscribe_timeline')
-              throw new Error('Invalid timeline subscription response');
-            const events = timelineEvents.claim(ok.subscription, port);
-            pendingTimeline = false;
-            if (events === null || events === 'overflow' || !ports.has(port)) {
-              await instance.submitCommand(
-                JSON.stringify({ type: 'unsubscribe', subscription: ok.subscription })
-              );
-              if (events === 'overflow' && ports.has(port)) continue;
+        if ('call' in request) {
+          const { method } = request.call;
+          const params = JSON.stringify(request.call.params);
+          if (method === 'timeline.paginate' || method === 'timeline.unsubscribe') {
+            const { subscription } = request.call.params as { subscription: SubscriptionId };
+            if (!timelineEvents.owns(subscription, port)) {
+              port.postMessage({ id, err: { code: 'denied' } } satisfies WorkerMessage);
               return;
             }
-            port.postMessage({ id, ok });
-            if (events.length > 0) port.postMessage({ events });
-            return;
           }
-          throw new Error('Timeline startup overflowed; retry opening the room');
+
+          if (method === 'timeline.subscribe_timeline') {
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              if (!ports.has(port)) return;
+              timelineEvents.begin(port);
+              pendingTimeline = true;
+              const ok = JSON.parse(await instance.call(method, params)) as SubscribeTimelineOk;
+              if (typeof ok.subscription !== 'number')
+                throw new Error('Invalid timeline subscription response');
+              const events = timelineEvents.claim(ok.subscription, port);
+              pendingTimeline = false;
+              if (events === null || events === 'overflow' || !ports.has(port)) {
+                await instance.call(
+                  'timeline.unsubscribe',
+                  JSON.stringify({ subscription: ok.subscription })
+                );
+                if (events === 'overflow' && ports.has(port)) continue;
+                return;
+              }
+              port.postMessage({ id, ok });
+              if (events.length > 0) port.postMessage({ events });
+              return;
+            }
+            throw new Error('Timeline startup overflowed; retry opening the room');
+          }
+          const ok: unknown = JSON.parse(await instance.call(method, params));
+          if (method === 'timeline.unsubscribe') {
+            timelineEvents.release(
+              (request.call.params as { subscription: SubscriptionId }).subscription
+            );
+          }
+          port.postMessage({ id, ok } satisfies WorkerMessage);
+          return;
         }
-        const ok = JSON.parse(
-          await instance.submitCommand(JSON.stringify(request.command))
-        ) as CommandOk;
-        if (request.command.type === 'unsubscribe') {
-          timelineEvents.release(request.command.subscription);
-        }
-        port.postMessage({ id, ok });
       } catch (cause) {
         if (pendingTimeline) {
           timelineEvents.cancelPending(port);

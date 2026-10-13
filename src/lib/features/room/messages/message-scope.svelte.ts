@@ -3,7 +3,7 @@ import { createContext } from 'svelte';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { RoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
 
-import { PinnedEvents } from '../timeline/pinned-events.svelte.js';
+import { PinnedEvents, type PinnedEventCommands } from '../timeline/pinned-events.svelte.js';
 
 export interface RoomScope {
   cosmetics: RoomCosmetics;
@@ -11,7 +11,10 @@ export interface RoomScope {
 }
 
 type ScopeCore = Pick<CoreClient, 'session' | 'subscribeEvents'> & {
-  commands: Pick<CoreClient['commands'], 'roomCosmetics' | 'pinnedEvents' | 'setPinned'>;
+  rpc: {
+    timeline: PinnedEventCommands;
+    rooms: Pick<CoreClient['rpc']['rooms'], 'roomCosmetics'>;
+  };
 };
 
 type Entry = { scope: RoomScope; consumers: number; stop: () => void };
@@ -28,7 +31,7 @@ export class RoomScopes {
     if (!entry) {
       const scope = {
         cosmetics: new RoomCosmetics(this.core),
-        pinned: new PinnedEvents(this.core.commands),
+        pinned: new PinnedEvents(this.core.rpc.timeline),
       };
       entry = { scope, consumers: 0, stop: scope.cosmetics.watch() };
       this.#rooms.set(key, entry);

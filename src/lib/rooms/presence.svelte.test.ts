@@ -7,13 +7,13 @@ import { lastSeenBucket, lastSeenMs, PresenceStore } from './presence.svelte.js'
 
 function harness() {
   const listeners = new Set<(event: CoreEvent) => void>();
-  const fetchPresence = vi.fn(() => Promise.resolve());
+  const fetchPresence = vi.fn(() => Promise.resolve(null));
   const client = {
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    commands: { fetchPresence },
+    rpc: { account: { fetchPresence } },
   } as unknown as CoreClient;
 
   return {
@@ -114,7 +114,9 @@ test('users with no entry are fetched once, in one batch', async () => {
   store.get('@bob:example.org');
   await vi.advanceTimersByTimeAsync(100);
 
-  expect(fetchPresence).toHaveBeenCalledExactlyOnceWith(['@bob:example.org', '@carol:example.org']);
+  expect(fetchPresence).toHaveBeenCalledExactlyOnceWith({
+    user_ids: ['@bob:example.org', '@carol:example.org'],
+  });
 
   emit(presenceEvent());
   store.get('@bob:example.org');

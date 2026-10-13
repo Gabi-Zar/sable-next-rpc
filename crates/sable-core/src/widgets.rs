@@ -901,7 +901,8 @@ mod tests {
     use super::{RelationsFilter, managers_from_account_data, managers_from_well_known};
     use crate::{
         Core,
-        protocol::{Command, CommandErr, CoreEvent, RtcLivekitEndpoint},
+        api::room_state::SendStateEventParams,
+        protocol::{CommandErr, CoreEvent, RtcLivekitEndpoint},
         session::Session,
         store::MemorySessionStore,
     };
@@ -938,28 +939,32 @@ mod tests {
             sync_service: Arc::new(SyncService::builder(client.clone()).build().await.unwrap()),
             client,
         });
-        for command in [
-            Command::SendRawEvent {
-                room_id: room_id.to_owned(),
-                event_type: "com.example.message".to_owned(),
-                content: json!({}),
-            },
-            Command::SendStateEvent {
+        let sent = Box::pin(core.run(crate::api::messages::SendRawEventParams {
+            room_id: room_id.to_owned(),
+            event_type: "com.example.message".to_owned(),
+            content: json!({}),
+        }))
+        .await
+        .unwrap();
+        assert_eq!(sent, "$created");
+        let redaction = Box::pin(core.run(crate::api::messages::SendRedactionParams {
+            room_id: room_id.to_owned(),
+            event_id: "$target".try_into().unwrap(),
+            reason: None,
+        }))
+        .await
+        .unwrap();
+        assert_eq!(redaction, "$created");
+        let event_id = core
+            .run(SendStateEventParams {
                 room_id: room_id.to_owned(),
                 event_type: "com.example.state".to_owned(),
                 state_key: String::new(),
                 content: json!({}),
-            },
-            Command::SendRedaction {
-                room_id: room_id.to_owned(),
-                event_id: "$target".try_into().unwrap(),
-                reason: None,
-            },
-        ] {
-            let response =
-                serde_json::to_value(Box::pin(core.dispatch(command)).await.unwrap()).unwrap();
-            assert_eq!(response["event_id"], "$created");
-        }
+            })
+            .await
+            .unwrap();
+        assert_eq!(event_id, "$created");
     }
 
     async fn core_with(server: &MatrixMockServer, client: matrix_sdk::Client) -> Arc<Core> {

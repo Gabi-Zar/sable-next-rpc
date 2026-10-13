@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -15,7 +15,7 @@
   const DEFAULT = 'default';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
   }
 
   let { room }: Props = $props();

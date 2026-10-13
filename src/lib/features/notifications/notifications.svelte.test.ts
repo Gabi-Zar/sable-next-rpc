@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import type { NotificationView, RoomSummary } from '#src/generated/protocol';
+import type { NotificationView, RoomListItemView } from '#src/generated/protocol';
 
 const mocks = vi.hoisted(() => ({
   retire: vi.fn().mockResolvedValue(undefined),
@@ -47,7 +47,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function room(unread: number): RoomSummary {
+function room(unread: number): RoomListItemView {
   return withCounts({
     room_id: '!room:example.org',
     state: 'joined',
@@ -55,7 +55,7 @@ function room(unread: number): RoomSummary {
     notifying: unread,
     highlight: 0,
     marked_unread: false,
-  } as RoomSummary);
+  } as RoomListItemView);
 }
 
 function center(): NotificationCenter {
@@ -63,7 +63,10 @@ function center(): NotificationCenter {
   notifications.start(
     {
       session: { account_id: 'a1', user_id: '@me:example.org' },
-      commands: { setReadRoom: mocks.setReadRoom, ackWebPusher: mocks.ackWebPusher },
+      rpc: {
+        push: { ackWebPusher: mocks.ackWebPusher },
+        session: { setReadRoom: mocks.setReadRoom },
+      },
       subscribeEvents: () => () => {},
     } as unknown as CoreClient,
     () => {}
@@ -95,7 +98,7 @@ test('opening a room retires its alerts and tells the core to skip it', () => {
 
   notifications.readRoom('!room:example.org');
 
-  expect(mocks.setReadRoom).toHaveBeenCalledWith('!room:example.org');
+  expect(mocks.setReadRoom).toHaveBeenCalledWith({ room_id: '!room:example.org' });
   expect(mocks.retire).toHaveBeenCalledWith('@me:example.org', '!room:example.org');
 });
 
@@ -105,7 +108,7 @@ test('leaving a room clears the core-side gate', () => {
   notifications.readRoom('!room:example.org');
   notifications.readRoom(null);
 
-  expect(mocks.setReadRoom).toHaveBeenLastCalledWith(null);
+  expect(mocks.setReadRoom).toHaveBeenLastCalledWith({ room_id: null });
 });
 
 test('an Android push for the room being read is immediately retired', () => {
@@ -142,8 +145,8 @@ test("a read push for another account retires that account's alert and not the r
   expect(mocks.retire).toHaveBeenCalledExactlyOnceWith('@other:example.org', '!room:example.org');
 });
 
-function readThrough(eventId: string): RoomSummary {
-  return { ...room(0), latest_event: { event_id: eventId } } as RoomSummary;
+function readThrough(eventId: string): RoomListItemView {
+  return { ...room(0), latest_event: { event_id: eventId } } as RoomListItemView;
 }
 
 function push(eventId: string): void {
@@ -202,7 +205,10 @@ test('a native MSC4174 validation push without native handling is acknowledged w
   handler?.({ message: JSON.stringify({ app_id: 'moe.sable.webpush', ack_token: 'token' }) });
 
   await vi.waitFor(() => {
-    expect(mocks.ackWebPusher).toHaveBeenCalledWith('moe.sable.webpush', 'token');
+    expect(mocks.ackWebPusher).toHaveBeenCalledWith({
+      app_id: 'moe.sable.webpush',
+      ack_token: 'token',
+    });
   });
   expect(mocks.retire).not.toHaveBeenCalled();
 });

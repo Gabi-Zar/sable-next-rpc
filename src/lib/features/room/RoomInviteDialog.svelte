@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { RoomSummary, UserDirectoryEntryView } from '#src/generated/protocol';
+  import type { RoomListItemView, UserDirectoryEntryView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -16,7 +16,7 @@
 
   interface Props {
     open: boolean;
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     onOpenChange: (open: boolean) => void;
   }
 
@@ -68,7 +68,7 @@
 
   async function findUsers(query: string, current: number): Promise<void> {
     try {
-      const { results } = await core.commands.searchUserDirectory(query, 10);
+      const { results } = await core.rpc.account.searchUserDirectory({ term: query, limit: 10 });
       if (current === lookup) directory = results;
     } catch (error) {
       console.warn('[sable room] user directory unavailable', error);
@@ -88,7 +88,7 @@
     inviting = true;
     failed = false;
     try {
-      await core.commands.inviteUser(target, candidate);
+      await core.rpc.rooms.inviteUser({ room_id: target, user_id: candidate });
       invited = candidate;
       draft = '';
     } catch (error) {
@@ -106,7 +106,7 @@
     converting = true;
     failed = false;
     try {
-      await core.commands.setDirect(target, false);
+      await core.rpc.account.setDirect({ room_id: target, direct: false, user_id: null });
       convertPrompt = false;
     } catch (error) {
       console.warn('[sable room] convert failed', error);

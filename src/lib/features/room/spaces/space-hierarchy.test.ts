@@ -1,6 +1,10 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary, SpaceChildEdge, SpaceHierarchyRoomView } from '#src/generated/protocol';
+import type {
+  RoomListItemView,
+  SpaceChildEdge,
+  SpaceHierarchyRoomView,
+} from '#src/generated/protocol';
 
 import {
   applyChildOverrides,
@@ -230,7 +234,7 @@ test('a child on a later page does not drop its whole section', () => {
   expect(complete.rooms.map((entry) => entry.room.room_id)).toEqual(['!early', '!late']);
 });
 
-function summary(roomId: string, overrides: Partial<RoomSummary> = {}): RoomSummary {
+function summary(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomListItemView {
   return withCounts({
     room_id: roomId,
     canonical_alias: null,

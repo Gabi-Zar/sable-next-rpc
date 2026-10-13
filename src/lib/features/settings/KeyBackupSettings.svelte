@@ -46,7 +46,7 @@
       fetching = true;
       const updates = downloadUpdates;
       try {
-        const next = await core.commands.keyBackupStatus();
+        const next = await core.rpc.encryption.keyBackupStatus();
         if (!active) return;
         status = next;
         if (updates === downloadUpdates && !requesting) download = next.download;
@@ -95,7 +95,7 @@
       failed: 0,
     };
     try {
-      const result = await core.commands.downloadKeyBackup(requestId);
+      const result = await core.rpc.encryption.downloadKeyBackup({ request_id: requestId });
       if (core.session?.account_id !== accountId) return;
       download = result;
       await refresh();

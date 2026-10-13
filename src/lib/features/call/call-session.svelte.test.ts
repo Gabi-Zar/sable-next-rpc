@@ -100,15 +100,15 @@ function harness(
       url: 'wss://sfu.example.org',
       jwt: 'jwt',
       identity: '@erwan:example.org:LAPTOP',
-      encryptMedia: options.encryptMedia ?? false,
-      canPublish: options.canPublish,
+      encrypt_media: options.encryptMedia ?? false,
+      can_publish: options.canPublish,
     });
   });
   const leaveCall = vi.fn(() => Promise.resolve());
   const setCallScreenSharing = vi.fn(() => Promise.resolve());
 
   const client = {
-    commands: { joinCall, leaveCall, setCallScreenSharing },
+    rpc: { calls: { joinCall, leaveCall, setCallScreenSharing } },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -218,8 +218,8 @@ test('the core is told when the local screen share starts and stops', async () =
   emitTransportState({ ...connected, screenShareEnabled: false });
 
   expect(setCallScreenSharing.mock.calls).toEqual([
-    [7, true],
-    [7, false],
+    [{ session: 7, active: true }],
+    [{ session: 7, active: false }],
   ]);
 });
 
@@ -363,20 +363,22 @@ test('a key emitted during the join is not lost', async () => {
   const transport = harness({ encryptMedia: true }).transport;
 
   const client = {
-    commands: {
-      joinCall: vi.fn(() => {
-        listeners.forEach((listener) => {
-          listener(ownKey());
-        });
-        return Promise.resolve({
-          session: 7,
-          url: 'wss://sfu.example.org',
-          jwt: 'jwt',
-          identity: '@erwan:example.org:LAPTOP',
-          encryptMedia: true,
-        });
-      }),
-      leaveCall: vi.fn(() => Promise.resolve()),
+    rpc: {
+      calls: {
+        joinCall: vi.fn(() => {
+          listeners.forEach((listener) => {
+            listener(ownKey());
+          });
+          return Promise.resolve({
+            session: 7,
+            url: 'wss://sfu.example.org',
+            jwt: 'jwt',
+            identity: '@erwan:example.org:LAPTOP',
+            encrypt_media: true,
+          });
+        }),
+        leaveCall: vi.fn(() => Promise.resolve()),
+      },
     },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
@@ -406,7 +408,7 @@ test('an encrypted call refuses to start where e2ee is unsupported', async () =>
 
   expect(session.failure).toBe('e2ee-unsupported');
   expect(transport.connect).not.toHaveBeenCalled();
-  expect(leaveCall).toHaveBeenCalledWith(7);
+  expect(leaveCall).toHaveBeenCalledWith({ session: 7 });
 });
 
 test('a room with no focus reports it rather than failing generically', async () => {
@@ -475,7 +477,7 @@ test('leaving releases the lease and tells the core', async () => {
   await session.leave();
 
   expect(session.lifecycle).toBe('idle');
-  expect(leaveCall).toHaveBeenCalledWith(7);
+  expect(leaveCall).toHaveBeenCalledWith({ session: 7 });
   expect(transport.disconnect).toHaveBeenCalledOnce();
 
   const next = new CallSession(client, { createTransport: () => transport });
@@ -488,17 +490,19 @@ test('a key arriving while the transport is still being built is not lost', asyn
   const transport = harness({ encryptMedia: true }).transport;
 
   const client = {
-    commands: {
-      joinCall: vi.fn(() =>
-        Promise.resolve({
-          session: 7,
-          url: 'wss://sfu.example.org',
-          jwt: 'jwt',
-          identity: '@erwan:example.org:LAPTOP',
-          encryptMedia: true,
-        })
-      ),
-      leaveCall: vi.fn(() => Promise.resolve()),
+    rpc: {
+      calls: {
+        joinCall: vi.fn(() =>
+          Promise.resolve({
+            session: 7,
+            url: 'wss://sfu.example.org',
+            jwt: 'jwt',
+            identity: '@erwan:example.org:LAPTOP',
+            encrypt_media: true,
+          })
+        ),
+        leaveCall: vi.fn(() => Promise.resolve()),
+      },
     },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
@@ -568,17 +572,19 @@ function livekitHarness() {
   } as unknown as CallTransport;
 
   const client = {
-    commands: {
-      joinCall: vi.fn(() =>
-        Promise.resolve({
-          session: 7,
-          url: 'wss://sfu.example.org',
-          jwt: 'jwt',
-          identity: '@erwan:example.org:LAPTOP',
-          encryptMedia: true,
-        })
-      ),
-      leaveCall: vi.fn(() => Promise.resolve()),
+    rpc: {
+      calls: {
+        joinCall: vi.fn(() =>
+          Promise.resolve({
+            session: 7,
+            url: 'wss://sfu.example.org',
+            jwt: 'jwt',
+            identity: '@erwan:example.org:LAPTOP',
+            encrypt_media: true,
+          })
+        ),
+        leaveCall: vi.fn(() => Promise.resolve()),
+      },
     },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
@@ -658,7 +664,7 @@ test('canceling while the grant is pending retracts the late grant and permits a
     url: string;
     jwt: string;
     identity: string;
-    encryptMedia: boolean;
+    encrypt_media: boolean;
   }) => void;
   h.joinCall.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -676,7 +682,7 @@ test('canceling while the grant is pending retracts the late grant and permits a
     url: 'wss://sfu.example.org',
     jwt: 'jwt',
     identity: '@erwan:example.org:LAPTOP',
-    encryptMedia: false,
+    encrypt_media: false,
   });
   await joining;
   expect(session.lifecycle).toBe('idle');
@@ -804,10 +810,20 @@ test('a join sends the camera intent', async () => {
   const h = harness();
   const session = new CallSession(h.client, { createTransport: () => h.transport });
   await session.join('!room:example.org', { microphone: true, camera: true });
-  expect(h.joinCall).toHaveBeenCalledWith('!room:example.org', null, null, 'video');
+  expect(h.joinCall).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    livekit_service_url: null,
+    mode: null,
+    intent: 'video',
+  });
   await session.leave();
   await session.join('!room:example.org', { microphone: true, camera: false });
-  expect(h.joinCall).toHaveBeenLastCalledWith('!room:example.org', null, null, 'audio');
+  expect(h.joinCall).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    livekit_service_url: null,
+    mode: null,
+    intent: 'audio',
+  });
 });
 
 test('a backend snapshot after connect forwards its publisher id', async () => {

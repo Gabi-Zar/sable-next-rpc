@@ -8,7 +8,8 @@ use matrix_sdk::ruma::{ClientSecret, OwnedClientSecret, OwnedSessionId, SessionI
 
 use std::sync::Arc;
 
-use crate::protocol::{CommandErr, CommandOk};
+use crate::api::auth::PasswordResetEmailOk;
+use crate::protocol::CommandErr;
 use crate::{Core, session};
 
 #[derive(serde::Serialize)]
@@ -86,7 +87,7 @@ impl Core {
         email: String,
         client_secret: Option<String>,
         send_attempt: u32,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<PasswordResetEmailOk, CommandErr> {
         let email = email.trim().to_owned();
         if email.is_empty() || !email.contains('@') {
             return Err(CommandErr::InvalidEmail);
@@ -106,7 +107,7 @@ impl Core {
             .send(request)
             .await
             .map_err(|error| self.password_reset_error("password_reset_email", error))?;
-        Ok(CommandOk::RequestPasswordResetEmail {
+        Ok(PasswordResetEmailOk {
             client_secret: client_secret.to_string(),
             sid: response.sid.to_string(),
         })
@@ -119,7 +120,7 @@ impl Core {
         sid: String,
         new_password: String,
         logout_devices: bool,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<(), CommandErr> {
         let client_secret =
             ClientSecret::parse(&client_secret).map_err(|_| CommandErr::EmailVerificationFailed)?;
         let sid = SessionId::parse(&sid).map_err(|_| CommandErr::EmailVerificationFailed)?;
@@ -131,7 +132,7 @@ impl Core {
             .send(change_password_request(&new_password, logout_devices, None))
             .await
         {
-            Ok(_) => return Ok(CommandOk::ResetPassword),
+            Ok(_) => return Ok(()),
             Err(error) => match error.as_uiaa_response() {
                 Some(info) => info.clone(),
                 None => return Err(self.password_reset_error("reset_password", error)),
@@ -151,7 +152,7 @@ impl Core {
             ))
             .await
         {
-            Ok(_) => Ok(CommandOk::ResetPassword),
+            Ok(_) => Ok(()),
             Err(error) if error.as_uiaa_response().is_some() => {
                 Err(CommandErr::EmailVerificationFailed)
             }
@@ -242,7 +243,7 @@ mod tests {
             .await;
         let (core, directory) = test_core("sable-reset");
 
-        let CommandOk::RequestPasswordResetEmail { client_secret, sid } = core
+        let PasswordResetEmailOk { client_secret, sid } = core
             .request_password_reset_email(
                 server.server().uri(),
                 " alice@example.org ".to_owned(),
@@ -250,10 +251,7 @@ mod tests {
                 1,
             )
             .await
-            .unwrap()
-        else {
-            panic!("expected a password reset email");
-        };
+            .unwrap();
         assert_eq!(sid, "sid-1");
         let result = core
             .reset_password(
@@ -265,7 +263,7 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(result, Ok(CommandOk::ResetPassword)));
+        assert!(matches!(result, Ok(())));
         drop(core);
         drop(server);
         let _ = std::fs::remove_dir_all(directory);

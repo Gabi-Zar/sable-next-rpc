@@ -6,7 +6,7 @@ import { SenderDirectory } from './sender-directory.svelte.js';
 
 function coreWithDirectory(searchUserDirectory: ReturnType<typeof vi.fn>): CoreClient {
   return {
-    commands: { searchUserDirectory },
+    rpc: { account: { searchUserDirectory } },
     userProfile: vi.fn().mockResolvedValue({ display_name: null, avatar_url: null }),
   } as unknown as CoreClient;
 }
@@ -20,7 +20,7 @@ test('a name nobody has seen yet is looked up in the user directory', async () =
 
   expect(await senders.lookup('bob')).toBe(true);
 
-  expect(searchUserDirectory).toHaveBeenCalledWith('bob', expect.any(Number));
+  expect(searchUserDirectory).toHaveBeenCalledWith(expect.objectContaining({ term: 'bob' }));
   expect(senders.known()).toEqual([
     { userId: '@bob:example.org', displayName: 'Bob', avatarUrl: null },
   ]);
@@ -46,11 +46,13 @@ test('a directory result loads its profile for search result styling', async () 
     pronouns: [{ summary: 'they/them', language: null }],
   });
   const core = {
-    commands: {
-      searchUserDirectory: vi.fn().mockResolvedValue({
-        limited: false,
-        results: [{ user_id: '@bob:example.org', display_name: 'Bob', avatar_url: null }],
-      }),
+    rpc: {
+      account: {
+        searchUserDirectory: vi.fn().mockResolvedValue({
+          limited: false,
+          results: [{ user_id: '@bob:example.org', display_name: 'Bob', avatar_url: null }],
+        }),
+      },
     },
     userProfile,
   } as unknown as CoreClient;

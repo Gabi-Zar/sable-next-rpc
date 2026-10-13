@@ -2,10 +2,10 @@
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import type { Command, ImagePackView } from '#src/generated/protocol';
+import { type ImagePackView, createRpc } from '#src/generated/protocol';
 import type { Transport } from '#src/transport';
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import { createCommands } from '#lib/core/commands.svelte.js';
+import { createMedia } from '#lib/core/media.svelte.js';
 import { useCoreClient } from '#lib/core/context.js';
 import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
 import DoubleTapReaction from './DoubleTapReaction.svelte';
@@ -62,19 +62,17 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
       Object.defineProperty(media, 'matches', { value: layout === 'desktop' });
       return media;
     });
-    const send = vi.fn((command: Command) => {
-      if (command.type === 'image_packs' && command.room_id === '') {
+    const call = vi.fn((method: string, params: { room_id?: string }) => {
+      if (method === 'packs.image_packs' && params.room_id === '') {
         return Promise.reject(new Error('invalid room ID'));
       }
-      if (command.type === 'all_image_packs') {
-        return Promise.resolve({ type: 'all_image_packs', packs });
-      }
-      throw new Error(`Unexpected command: ${command.type}`);
+      if (method === 'packs.all_image_packs') return Promise.resolve(packs);
+      throw new Error(`Unexpected call: ${method}`);
     });
-    const transport = { send, fetchMedia: () => new Promise(() => {}) } as unknown as Transport;
-    const commands = createCommands(() => transport);
+    const transport = { call, fetchMedia: () => new Promise(() => {}) } as unknown as Transport;
     vi.mocked(useCoreClient).mockReturnValue({
-      commands,
+      media: createMedia(() => transport),
+      rpc: createRpc((method, params) => transport.call(method, params)),
       session: null,
       subscribeEvents: () => () => {},
     } as unknown as CoreClient);
@@ -87,6 +85,6 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
     await fireEvent.click(choice);
 
     expect(preferences.doubleTapReaction).toBe(reaction);
-    expect(send).toHaveBeenCalledExactlyOnceWith({ type: 'all_image_packs' });
+    expect(call).toHaveBeenCalledExactlyOnceWith('packs.all_image_packs', {});
   });
 });

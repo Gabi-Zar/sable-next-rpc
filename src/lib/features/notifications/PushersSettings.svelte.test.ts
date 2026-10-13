@@ -25,10 +25,11 @@ vi.mock('#lib/config/runtime-config.js', () => ({
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
+const push = {
   webPushers: vi.fn<() => Promise<RegisteredPusherView[]>>(),
-  removePusher: vi.fn<(pushkey: string, appId: string) => Promise<void>>(),
-});
+  removePusher: vi.fn<(params: { pushkey: string; app_id: string }) => Promise<void>>(),
+};
+Object.assign(baseCore, { rpc: { push } });
 
 import PushersSettings from './PushersSettings.svelte';
 
@@ -74,7 +75,7 @@ async function pushers(count: number): Promise<HTMLElement[]> {
 }
 
 test('lists registered pushers and marks the Sable ones', async () => {
-  core.webPushers.mockResolvedValue([gateway, ownServer, unnamed]);
+  push.webPushers.mockResolvedValue([gateway, ownServer, unnamed]);
 
   const [phone, browser, email] = await pushers(3);
 
@@ -104,7 +105,7 @@ test('marks this browser own pusher as this device', async () => {
         }),
     },
   });
-  core.webPushers.mockResolvedValue([gateway, ownServer, unnamed]);
+  push.webPushers.mockResolvedValue([gateway, ownServer, unnamed]);
 
   const [, browser] = await pushers(3);
   expect(await within(browser).findByText('This device')).toHaveClass('status-badge-primary');
@@ -113,8 +114,8 @@ test('marks this browser own pusher as this device', async () => {
 
 test('removes a pusher once the inline confirmation is accepted', async () => {
   const user = userEvent.setup();
-  core.webPushers.mockResolvedValueOnce([gateway, ownServer]).mockResolvedValueOnce([ownServer]);
-  core.removePusher.mockResolvedValue(undefined);
+  push.webPushers.mockResolvedValueOnce([gateway, ownServer]).mockResolvedValueOnce([ownServer]);
+  push.removePusher.mockResolvedValue(undefined);
 
   const [phone] = await pushers(2);
   await user.click(within(phone).getByRole('button', { name: 'Remove' }));
@@ -124,13 +125,16 @@ test('removes a pusher once the inline confirmation is accepted', async () => {
 
   await user.click(within(phone).getByRole('button', { name: 'Remove Element on phone' }));
   await vi.waitFor(() => {
-    expect(core.removePusher).toHaveBeenCalledWith('KEY-GATEWAY', 'im.vector.app');
+    expect(push.removePusher).toHaveBeenCalledWith({
+      pushkey: 'KEY-GATEWAY',
+      app_id: 'im.vector.app',
+    });
   });
 });
 
 test('cancels a removal confirmation', async () => {
   const user = userEvent.setup();
-  core.webPushers.mockResolvedValue([gateway]);
+  push.webPushers.mockResolvedValue([gateway]);
 
   const [phone] = await pushers(1);
   await user.click(within(phone).getByRole('button', { name: 'Remove' }));
@@ -139,11 +143,11 @@ test('cancels a removal confirmation', async () => {
   expect(
     screen.queryByText('Stop sending notifications to Element on phone?')
   ).not.toBeInTheDocument();
-  expect(core.removePusher).not.toHaveBeenCalled();
+  expect(push.removePusher).not.toHaveBeenCalled();
 });
 
 test('shows an empty state when no pusher is registered', async () => {
-  core.webPushers.mockResolvedValue([]);
+  push.webPushers.mockResolvedValue([]);
 
   render(PushersSettings);
   expect(await screen.findByText(/No apps are registered/)).toBeInTheDocument();
@@ -151,7 +155,7 @@ test('shows an empty state when no pusher is registered', async () => {
 
 test('copies the cropped value in full on click', async () => {
   const user = userEvent.setup();
-  core.webPushers.mockResolvedValue([gateway]);
+  push.webPushers.mockResolvedValue([gateway]);
 
   const [phone] = await pushers(1);
   await user.click(within(phone).getByRole('button', { name: 'Copy the push key' }));
@@ -162,7 +166,7 @@ test('copies the cropped value in full on click', async () => {
 
 test('copies the full push provider URL', async () => {
   const user = userEvent.setup();
-  core.webPushers.mockResolvedValue([gateway]);
+  push.webPushers.mockResolvedValue([gateway]);
 
   const [phone] = await pushers(1);
   await user.click(within(phone).getByRole('button', { name: 'Copy the push provider URL' }));
@@ -174,7 +178,7 @@ test('copies the full push provider URL', async () => {
 });
 
 test('reports a load failure instead of an empty list', async () => {
-  core.webPushers.mockRejectedValue(new Error('offline'));
+  push.webPushers.mockRejectedValue(new Error('offline'));
 
   render(PushersSettings);
   await vi.waitFor(() => {

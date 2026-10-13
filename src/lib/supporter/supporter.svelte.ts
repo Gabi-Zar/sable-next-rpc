@@ -2,6 +2,7 @@ import { untrack } from 'svelte';
 
 import type { SupporterConfig } from '#lib/config/runtime-config.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { requestOpenIdToken } from '#lib/core/api/session.js';
 import { openExternalAuthUrl } from '#lib/platform/external-auth.js';
 import { SUPPORTER_FIELD, SUPPORTER_BADGE_FIELD } from '#lib/profile/fields.js';
 
@@ -120,7 +121,7 @@ class Supporter {
     try {
       const url = await startVerification(
         config.serviceUrl,
-        await withTimeout(core.commands.requestOpenIdToken())
+        await withTimeout(requestOpenIdToken(core.rpc))
       );
       await withTimeout(openExternalAuthUrl(url));
 
@@ -164,10 +165,7 @@ class Supporter {
 
     this.status = 'refreshing';
     try {
-      const awards = await refreshAwards(
-        config.serviceUrl,
-        await core.commands.requestOpenIdToken()
-      );
+      const awards = await refreshAwards(config.serviceUrl, await requestOpenIdToken(core.rpc));
       if (awards) await this.adopt(core, config, userId, awards, true);
       this.status = 'idle';
     } catch (error) {

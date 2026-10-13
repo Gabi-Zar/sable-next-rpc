@@ -66,11 +66,11 @@ use crate::protocol::{
     LatestEventView, MemberView, MembershipChangeView, MembershipView, MentionView,
     NotificationModeView, NotificationSettingsView, PerMessageProfileView, PollAnswerView,
     PollView, PredecessorRoomView, PublicRoomView, ReactionGroup, ReplyView, RoomJoinRuleView,
-    RoomPermissionsView, RoomPowerLevelsView, RoomPreviewView, RoomStateView, RoomSummary, RoomTag,
-    RoomUnreadView, SearchContextView, SearchHitView, SendBlockView, SendStateView, SpaceChildEdge,
-    SpaceHierarchyRoomView, StateChangeView, ThreadSummaryView, TimelineItemContentView,
-    TimelineItemView, TimelineRowKind, TimelineVisibility, UploadProgressView, UrlPreviewView,
-    UtdCauseView, VectorDiff,
+    RoomListItemView, RoomPermissionsView, RoomPowerLevelsView, RoomPreviewView, RoomStateView,
+    RoomTag, RoomUnreadView, SearchContextView, SearchHitView, SendBlockView, SendStateView,
+    SpaceChildEdge, SpaceHierarchyRoomView, StateChangeView, ThreadSummaryView,
+    TimelineItemContentView, TimelineItemView, TimelineRowKind, TimelineVisibility,
+    UploadProgressView, UrlPreviewView, UtdCauseView, VectorDiff,
 };
 
 // Independent room capabilities.
@@ -93,11 +93,11 @@ pub struct RoomInfo {
 }
 
 #[must_use]
-pub fn room_summary<S: BuildHasher>(
+pub fn room_list_item<S: BuildHasher>(
     item: &RoomListItem,
     room_cache: &HashMap<OwnedRoomId, RoomInfo, S>,
     rules: &Ruleset,
-) -> RoomSummary {
+) -> RoomListItemView {
     let info = room_cache.get(item.room_id());
     let latest_event = latest_event(item);
     let latest_event_id = latest_event
@@ -112,7 +112,7 @@ pub fn room_summary<S: BuildHasher>(
         item.room_id(),
         crate::notifications::uses_direct_push_rules(item),
     );
-    RoomSummary {
+    RoomListItemView {
         room_id: item.room_id().to_owned(),
         canonical_alias: info.and_then(|info| info.canonical_alias.clone()),
         name: item
@@ -362,10 +362,10 @@ fn latest_items(diffs: &[eyeball_im::VectorDiff<RoomListItem>]) -> Vec<&RoomList
     latest.into_values().collect()
 }
 
-pub async fn listless_room_summary(room: Room, rules: &Ruleset) -> RoomSummary {
+pub async fn listless_room_list_item(room: Room, rules: &Ruleset) -> RoomListItemView {
     let item = RoomListItem::from(room);
     let cache = HashMap::from([(item.room_id().to_owned(), room_info(&item).await)]);
-    room_summary(&item, &cache, rules)
+    room_list_item(&item, &cache, rules)
 }
 
 #[must_use]
@@ -1995,8 +1995,8 @@ fn forum_title(content: Option<&serde_json::Value>) -> Option<String> {
 fn bundled_previews_field(content: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
     let content = content?;
     content
-        .get(crate::dispatch::BUNDLED_LINK_PREVIEWS)
-        .or_else(|| content.get(crate::dispatch::LEGACY_BUNDLED_LINK_PREVIEWS))
+        .get(crate::api::support::BUNDLED_LINK_PREVIEWS)
+        .or_else(|| content.get(crate::api::support::LEGACY_BUNDLED_LINK_PREVIEWS))
 }
 
 fn link_previews_removed(content: Option<&serde_json::Value>) -> Option<bool> {
@@ -2015,7 +2015,7 @@ fn bundled_link_previews(content: Option<&serde_json::Value>) -> Vec<UrlPreviewV
             bundles
                 .iter()
                 .filter_map(|bundle| {
-                    let data = crate::dispatch::PreviewData::read(bundle)?;
+                    let data = crate::api::support::PreviewData::read(bundle)?;
                     let video = data.video();
                     let theme_color = data.valid_theme_color();
                     let card = data.valid_card();

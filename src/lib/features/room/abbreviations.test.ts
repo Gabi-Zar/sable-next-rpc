@@ -2,7 +2,7 @@
 
 import { expect, test } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import {
   abbreviationPattern,
@@ -29,13 +29,13 @@ function markEntries(html: string, entries: AbbreviationEntry[]): string {
   return root.innerHTML;
 }
 
-function space(roomId: string, children: string[]): RoomSummary {
+function space(roomId: string, children: string[]): RoomListItemView {
   return {
     room_id: roomId,
     is_space: true,
     state: 'joined',
     space_children: children.map((child) => ({ room_id: child })),
-  } as unknown as RoomSummary;
+  } as unknown as RoomListItemView;
 }
 
 test('marks a term whole-word and case-insensitively, keeping its casing', () => {
@@ -117,7 +117,7 @@ test('stops on a cycle', () => {
 
 test('walks every joined room and subspace below a space, nearest first', () => {
   const room = (roomId: string) =>
-    ({ room_id: roomId, state: 'joined', space_children: [] }) as unknown as RoomSummary;
+    ({ room_id: roomId, state: 'joined', space_children: [] }) as unknown as RoomListItemView;
   const rooms = [
     space('!root:example.org', ['!mid:example.org', '!a:example.org', '!gone:example.org']),
     space('!mid:example.org', ['!b:example.org', '!root:example.org']),

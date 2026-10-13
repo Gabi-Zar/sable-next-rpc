@@ -1,8 +1,8 @@
 import * as Sentry from '@sentry/sveltekit';
 import { Channel, invoke } from '@tauri-apps/api/core';
 
-import type { Command, CommandErr, CoreEvent } from '#src/generated/protocol';
-import { CoreError, type ResponseFor, type Transport } from './index';
+import type { CommandErr, CoreEvent } from '#src/generated/protocol';
+import { CoreError, type Transport } from './index';
 import { rawInvoke } from '#lib/platform/raw-invoke.js';
 import { resetWebStorage } from '#lib/platform/session-storage.js';
 import { migrateV1 } from '#lib/migrations/v1/migration.js';
@@ -44,11 +44,11 @@ export function createTauriTransport(): Transport {
   const ready = invoke<unknown>('subscribe_events', { channel });
 
   return {
-    async send<C extends Command>(command: C) {
+    async call(method, params) {
       await ready;
       await migrateV1();
       try {
-        return await invoke<ResponseFor<C['type']>>('submit_command', { command });
+        return await invoke<unknown>('call', { method, params: JSON.stringify(params) });
       } catch (error) {
         throw new CoreError(error as CommandErr);
       }
@@ -194,7 +194,7 @@ export function createTauriTransport(): Transport {
     async resetCaches(accountIds) {
       await ready;
       try {
-        await invoke('submit_command', { command: { type: 'reset_local_cache' } });
+        await invoke('call', { method: 'session.reset_local_cache', params: '{}' });
         await resetWebStorage(accountIds);
       } catch (error) {
         Sentry.captureException(error, { tags: { source: 'cache-reset' } });

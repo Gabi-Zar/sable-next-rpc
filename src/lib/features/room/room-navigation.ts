@@ -3,7 +3,7 @@ import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { findRoomByPathId, roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
 import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
@@ -79,7 +79,7 @@ export function goToPage(href: string): void {
 
 export function scopedSearchQuery(
   operator: 'in' | 'space',
-  room: RoomSummary | undefined,
+  room: RoomListItemView | undefined,
   roomId: string
 ): string {
   const label = room?.canonical_alias ?? room?.name ?? roomId;
@@ -89,14 +89,14 @@ export function scopedSearchQuery(
 
 export function scopedSearchPath(
   operator: 'in' | 'space',
-  room: RoomSummary | undefined,
+  room: RoomListItemView | undefined,
   roomId: string
 ): string {
   return `${resolve('/(app)/search')}?q=${encodeURIComponent(scopedSearchQuery(operator, room, roomId))}`;
 }
 
 export function contextSearchPath(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   roomPathId: string | undefined,
   spacePathId: string | undefined
 ): string {
@@ -107,7 +107,7 @@ export function contextSearchPath(
   return resolve('/(app)/search');
 }
 
-export function searchInRoom(room: RoomSummary | undefined, roomId: string): void {
+export function searchInRoom(room: RoomListItemView | undefined, roomId: string): void {
   const target = scopedSearchPath('in', room, roomId);
 
   goto(target).catch(() => {

@@ -1,11 +1,11 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { withCounts } from './summary-fixtures';
 import { applyBadgeMode, badgeModeFor, hasUnread, roomNotifications, roomUnread } from './unread';
 
-function room(overrides: Partial<RoomSummary> = {}): RoomSummary {
+function room(overrides: Partial<RoomListItemView> = {}): RoomListItemView {
   return withCounts({
     room_id: '!room:example.org',
     is_direct: false,
@@ -14,7 +14,7 @@ function room(overrides: Partial<RoomSummary> = {}): RoomSummary {
     highlight: 0,
     marked_unread: false,
     ...overrides,
-  } as RoomSummary);
+  } as RoomListItemView);
 }
 
 test('the inbox counts what notified, not what is unread', () => {

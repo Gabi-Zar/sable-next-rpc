@@ -5,9 +5,9 @@ import { userEvent } from '@testing-library/user-event';
 import { tick, type ComponentProps } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
-const listed = vi.hoisted((): RoomSummary[] => []);
+const listed = vi.hoisted((): RoomListItemView[] => []);
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 
@@ -24,8 +24,8 @@ vi.mock('$app/paths', () => ({
 }));
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({
-  roomPathParam: (room: RoomSummary) => encodeURIComponent(room.room_id),
-  findRoomByPathId: (rooms: RoomSummary[], pathId: string) =>
+  roomPathParam: (room: RoomListItemView) => encodeURIComponent(room.room_id),
+  findRoomByPathId: (rooms: RoomListItemView[], pathId: string) =>
     rooms.find((room) => room.room_id === pathId || room.canonical_alias === pathId),
   useRoomList: () => ({ rooms: listed, quietRoomIds: new Set() }),
 }));
@@ -76,7 +76,7 @@ async function openMenu(target: Element): Promise<HTMLElement[]> {
 
 const labels = (items: HTMLElement[]) => items.map((item) => item.textContent.trim());
 
-function space(roomId = '!space:example.org', name = 'Space'): RoomSummary {
+function space(roomId = '!space:example.org', name = 'Space'): RoomListItemView {
   return withCounts({
     room_id: roomId,
     canonical_alias: null,

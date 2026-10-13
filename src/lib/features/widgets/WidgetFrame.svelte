@@ -39,7 +39,7 @@
     );
     const api = new ClientWidgetApi(new Widget(definition), node, driver);
     api.setViewedRoomId(room);
-    core.commands
+    core.rpc.session
       .knownRooms()
       .then((roomIds) => driver.noteRooms(roomIds))
       .catch(() => undefined);

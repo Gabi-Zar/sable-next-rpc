@@ -19,6 +19,8 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const core = Object.assign(baseCore, {
   roomPreview: vi.fn<() => Promise<{ name: string | null }>>(),
+});
+const timeline = Object.assign(baseCore.rpc.timeline, {
   eventItems: vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([])),
 });
 
@@ -146,9 +148,10 @@ test('resolves a room permalink name through its via server', async () => {
   });
 
   expect(await screen.findByRole('link', { name: '#Sable' })).toBeInTheDocument();
-  expect(core.roomPreview).toHaveBeenCalledWith('!6DYBIzUfDoKmqk53wyRqcod2G7LTcR9fEm9XBfaenNI', [
-    'sable.moe',
-  ]);
+  expect(core.roomPreview).toHaveBeenCalledWith({
+    address: '!6DYBIzUfDoKmqk53wyRqcod2G7LTcR9fEm9XBfaenNI',
+    via: ['sable.moe'],
+  });
 });
 
 test('uses the local room-list name before requesting a preview', async () => {
@@ -661,7 +664,7 @@ test('a time inside a link stays part of the link', async () => {
 
 test('a bare event link names the room and quotes the message, with an icon', async () => {
   roomList.rooms = [{ room_id: '!room:example.org', canonical_alias: null, name: 'Design' }];
-  core.eventItems.mockResolvedValue([
+  timeline.eventItems.mockResolvedValue([
     { content: { kind: 'message', body: `ship it\n${'x'.repeat(100)}`, html: null } },
   ]);
   const url = 'https://matrix.to/#/!room:example.org/$event';
@@ -675,7 +678,10 @@ test('a bare event link names the room and quotes the message, with an icon', as
   });
   expect(anchor.textContent).toHaveLength('#Design: '.length + 72);
   expect(anchor.querySelector('.link-chip-icon svg')).toBeInTheDocument();
-  expect(core.eventItems).toHaveBeenCalledWith('!room:example.org', ['$event']);
+  expect(timeline.eventItems).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_ids: ['$event'],
+  });
 });
 
 test('inline images wait behind a prompt where the media preview setting says so (MSC4278)', async () => {

@@ -4,14 +4,14 @@
   import { provideRoomList, RoomList } from '#lib/rooms/room-list.svelte.js';
   import { untrack } from 'svelte';
 
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import RoomOptionsMenu from './RoomOptionsMenu.svelte';
 
   interface Props {
     core: CoreClient;
-    room: RoomSummary;
-    rooms: RoomSummary[];
+    room: RoomListItemView;
+    rooms: RoomListItemView[];
     registerRefresh: (refresh: () => void) => void;
   }
 

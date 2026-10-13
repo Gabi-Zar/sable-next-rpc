@@ -20,25 +20,33 @@ function stubCore(
 ) {
   const listeners: ((event: CoreEvent) => void)[] = [];
   const core = {
-    commands: {
-      accountData: vi.fn((eventType: string) => Promise.resolve(remote[eventType] ?? null)),
-      setAccountData: vi.fn((eventType: string, content: unknown) => {
-        remote[eventType] = content;
-        return Promise.resolve();
-      }),
-      sealedAccountData: vi.fn((eventType: string) => {
-        const state = sealing.states[eventType] ?? 'plain';
-        return Promise.resolve({
-          content: state === 'locked' ? null : (remote[eventType] ?? null),
-          state,
-          can_seal: sealing.canSeal,
-        });
-      }),
-      setSealedAccountData: vi.fn((eventType: string, content: unknown) => {
-        remote[eventType] = content;
-        sealing.states[eventType] = sealing.canSeal ? 'sealed' : 'plain';
-        return Promise.resolve();
-      }),
+    rpc: {
+      account: {
+        accountData: vi.fn(({ event_type }: { event_type: string }) =>
+          Promise.resolve(remote[event_type] ?? null)
+        ),
+        setAccountData: vi.fn(
+          ({ event_type, content }: { event_type: string; content: unknown }) => {
+            remote[event_type] = content;
+            return Promise.resolve(null);
+          }
+        ),
+        sealedAccountData: vi.fn(({ event_type }: { event_type: string }) => {
+          const state = sealing.states[event_type] ?? 'plain';
+          return Promise.resolve({
+            content: state === 'locked' ? null : (remote[event_type] ?? null),
+            state,
+            can_seal: sealing.canSeal,
+          });
+        }),
+        setSealedAccountData: vi.fn(
+          ({ event_type, content }: { event_type: string; content: unknown }) => {
+            remote[event_type] = content;
+            sealing.states[event_type] = sealing.canSeal ? 'sealed' : 'plain';
+            return Promise.resolve(null);
+          }
+        ),
+      },
     },
     subscribeEvents: vi.fn((listener: (event: CoreEvent) => void) => {
       listeners.push(listener);
@@ -48,7 +56,7 @@ function stubCore(
 
   return {
     core: core as unknown as CoreClient,
-    commands: core.commands,
+    commands: core.rpc.account,
     announce: (eventType: string): void => {
       for (const listener of listeners) {
         listener({ type: 'account_data_changed', event_type: eventType });
@@ -107,9 +115,12 @@ describe('AccountSync', () => {
     await vi.runAllTimersAsync();
     expect(readDraft(roomId)).toBeUndefined();
     stopRestarted();
-    expect(commands.setSealedAccountData).toHaveBeenCalledWith(document.eventType, {
-      v: 1,
-      drafts: {},
+    expect(commands.setSealedAccountData).toHaveBeenCalledWith({
+      event_type: document.eventType,
+      content: {
+        v: 1,
+        drafts: {},
+      },
     });
   });
 
@@ -122,7 +133,10 @@ describe('AccountSync', () => {
     new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
     expect(local.value).toBe('v1');
-    expect(commands.setAccountData).toHaveBeenCalledWith(document.eventType, { v: 1, value: 'v1' });
+    expect(commands.setAccountData).toHaveBeenCalledWith({
+      event_type: document.eventType,
+      content: { v: 1, value: 'v1' },
+    });
     const current = stubCore({
       'old.settings': { v: 1, value: 'stale' },
       [document.eventType]: { v: 1, value: 'v2' },
@@ -130,7 +144,7 @@ describe('AccountSync', () => {
     new AccountSync().start(current.core, [document]);
     await vi.runAllTimersAsync();
     expect(local.value).toBe('v2');
-    expect(current.commands.accountData).not.toHaveBeenCalledWith('old.settings');
+    expect(current.commands.accountData).not.toHaveBeenCalledWith({ event_type: 'old.settings' });
   });
   it('adopts what the account already holds', async () => {
     const local = { value: 'local' };
@@ -150,9 +164,12 @@ describe('AccountSync', () => {
     new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
 
-    expect(commands.setAccountData).toHaveBeenCalledWith(document.eventType, {
-      v: 1,
-      value: 'local',
+    expect(commands.setAccountData).toHaveBeenCalledWith({
+      event_type: document.eventType,
+      content: {
+        v: 1,
+        value: 'local',
+      },
     });
   });
 
@@ -196,9 +213,12 @@ describe('AccountSync', () => {
     expect(commands.setAccountData).not.toHaveBeenCalled();
 
     await vi.runAllTimersAsync();
-    expect(commands.setAccountData).toHaveBeenCalledWith(document.eventType, {
-      v: 1,
-      value: 'changed',
+    expect(commands.setAccountData).toHaveBeenCalledWith({
+      event_type: document.eventType,
+      content: {
+        v: 1,
+        value: 'changed',
+      },
     });
   });
 
@@ -259,9 +279,9 @@ describe('AccountSync', () => {
     await vi.runAllTimersAsync();
 
     expect(sync.status).toBe('idle');
-    expect(commands.setAccountData).toHaveBeenLastCalledWith(document.eventType, {
-      v: 1,
-      value: 'again',
+    expect(commands.setAccountData).toHaveBeenLastCalledWith({
+      event_type: document.eventType,
+      content: { v: 1, value: 'again' },
     });
   });
 
@@ -277,7 +297,7 @@ describe('AccountSync', () => {
     new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
 
-    const content = commands.setAccountData.mock.calls[0]?.[1];
+    const content = commands.setAccountData.mock.calls[0]?.[0].content;
     themes[0].css = 'body { color: red }';
 
     expect(content).toEqual({ v: 1, themes: [{ id: 'one', css: 'body {}' }] });

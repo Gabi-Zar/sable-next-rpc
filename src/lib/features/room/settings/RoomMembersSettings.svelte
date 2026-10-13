@@ -4,7 +4,7 @@
     MemberView,
     ProfileView,
     RoomPermissionsView,
-    RoomSummary,
+    RoomListItemView,
     UserDirectoryEntryView,
   } from '#src/generated/protocol';
 
@@ -45,7 +45,7 @@
   import { FOUNDER_POWER_LEVEL, type PowerLevelTagMap } from './power-level-tags';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
   }
 
@@ -126,8 +126,8 @@
     const target = roomId;
     if (!target) return;
     let current = true;
-    void core.commands
-      .powerLevelTags(target)
+    void core.rpc.members
+      .powerLevelTags({ room_id: target })
       .then((tags) => {
         if (current) powerTags = tags;
       })
@@ -179,7 +179,7 @@
 
   async function findUsers(query: string, current: number): Promise<void> {
     try {
-      const { results } = await core.commands.searchUserDirectory(query, 10);
+      const { results } = await core.rpc.account.searchUserDirectory({ term: query, limit: 10 });
       if (current === lookup) directory = results;
     } catch (error) {
       console.warn('[sable room] user directory unavailable', error);
@@ -196,7 +196,7 @@
     inviting = userId;
     inviteFailed = false;
     try {
-      await core.commands.inviteUser(target, userId);
+      await core.rpc.rooms.inviteUser({ room_id: target, user_id: userId });
       invitedIds = [...invitedIds, userId];
       await load();
     } catch (error) {
@@ -220,7 +220,10 @@
     loading = true;
     failed = false;
     try {
-      const loaded = await core.commands.roomMembers(target, [membershipFor(filter)]);
+      const loaded = await core.rpc.members.roomMembers({
+        room_id: target,
+        memberships: [membershipFor(filter)],
+      });
       if (current !== run) return;
       members = loaded.filter((member) => matchesFilter(member, filter));
     } catch (error) {
@@ -292,7 +295,12 @@
     }
     void act(
       member.user_id,
-      () => core.commands.setUserPowerLevel(target, member.user_id, level),
+      () =>
+        core.rpc.members.setUserPowerLevel({
+          room_id: target,
+          user_id: member.user_id,
+          power_level: level,
+        }),
       (entry) => ({ ...entry, power_level: level })
     );
   }
@@ -330,8 +338,8 @@
     try {
       await act(target.userId, () =>
         target.action === 'kick'
-          ? core.commands.kickUser(room, target.userId, reason)
-          : core.commands.banUser(room, target.userId, reason)
+          ? core.rpc.members.kickUser({ room_id: room, user_id: target.userId, reason })
+          : core.rpc.members.banUser({ room_id: room, user_id: target.userId, reason })
       );
     } finally {
       moderationBusy = false;
@@ -449,7 +457,8 @@
                       if (target)
                         void act(
                           member.user_id,
-                          () => core.commands.inviteUser(target, member.user_id),
+                          () =>
+                            core.rpc.rooms.inviteUser({ room_id: target, user_id: member.user_id }),
                           (entry) => ({ ...entry, membership: 'invite' })
                         );
                     }}
@@ -467,7 +476,12 @@
                       if (target)
                         void act(
                           member.user_id,
-                          () => core.commands.kickUser(target, member.user_id, null),
+                          () =>
+                            core.rpc.members.kickUser({
+                              room_id: target,
+                              user_id: member.user_id,
+                              reason: null,
+                            }),
                           (entry) => ({ ...entry, membership: 'leave' })
                         );
                     }}
@@ -498,7 +512,11 @@
                       const target = roomId;
                       if (target)
                         void act(member.user_id, () =>
-                          core.commands.unbanUser(target, member.user_id)
+                          core.rpc.members.unbanUser({
+                            room_id: target,
+                            user_id: member.user_id,
+                            reason: null,
+                          })
                         );
                     }}
                   >

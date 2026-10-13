@@ -180,7 +180,8 @@ use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 
 use crate::Core;
-use crate::protocol::{CommandErr, CommandOk, CoreEvent};
+use crate::api::packs::ImagePacksOk;
+use crate::protocol::{CommandErr, CoreEvent};
 
 type AccountDataContent = Option<Raw<AnyGlobalAccountDataEventContent>>;
 
@@ -366,7 +367,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         cached_only: bool,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<ImagePacksOk, CommandErr> {
         let client = self.client().await?;
         let network = !cached_only;
         let room = self.room(&room_id).await?;
@@ -448,7 +449,7 @@ impl Core {
 
         let mut seen = BTreeSet::new();
         packs.retain(|pack| seen.insert((pack.room_id.clone(), pack.id.clone())));
-        Ok(CommandOk::ImagePacks { packs, complete })
+        Ok(ImagePacksOk { packs, complete })
     }
 
     async fn space_packs(
@@ -510,7 +511,7 @@ impl Core {
         (packs, complete)
     }
 
-    pub(crate) async fn all_image_packs(&self) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn all_image_packs(&self) -> Result<Vec<ImagePackView>, CommandErr> {
         let client = self.client().await?;
         let mut packs = Vec::new();
 
@@ -548,7 +549,7 @@ impl Core {
             }
         }
 
-        Ok(CommandOk::AllImagePacks { packs })
+        Ok(packs)
     }
 
     pub(crate) async fn copy_room_packs(
@@ -1035,11 +1036,8 @@ mod server_tests {
             homeserver: server.server().uri(),
             oauth: false,
         });
-        let crate::protocol::CommandOk::ImagePacks { packs, .. } =
-            core.image_packs(room_id.to_owned(), true).await.unwrap()
-        else {
-            panic!("unexpected response")
-        };
+        let crate::api::packs::ImagePacksOk { packs, .. } =
+            core.image_packs(room_id.to_owned(), true).await.unwrap();
         assert_eq!(
             packs
                 .iter()
@@ -1114,11 +1112,8 @@ mod server_tests {
             homeserver: server.server().uri(),
             oauth: false,
         });
-        let crate::protocol::CommandOk::ImagePacks { packs, .. } =
-            core.image_packs(room_id.to_owned(), true).await.unwrap()
-        else {
-            panic!("unexpected response")
-        };
+        let crate::api::packs::ImagePacksOk { packs, .. } =
+            core.image_packs(room_id.to_owned(), true).await.unwrap();
         assert_eq!(
             packs
                 .iter()
@@ -1177,11 +1172,8 @@ mod server_tests {
             homeserver: server.server().uri(),
             oauth: false,
         });
-        let crate::protocol::CommandOk::ImagePacks { packs, .. } =
-            core.image_packs(room_id.to_owned(), true).await.unwrap()
-        else {
-            panic!("unexpected response")
-        };
+        let crate::api::packs::ImagePacksOk { packs, .. } =
+            core.image_packs(room_id.to_owned(), true).await.unwrap();
         let summary = packs
             .iter()
             .map(|pack| {

@@ -2,7 +2,7 @@
   import type {
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -25,7 +25,7 @@
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
     levels: RoomPowerLevelsView | null;
   }
@@ -75,7 +75,7 @@
     browsing = true;
     browseFailed = false;
     try {
-      stateEvents = await core.commands.roomFullState(target);
+      stateEvents = await core.rpc.room_state.roomFullState({ room_id: target });
     } catch (error) {
       console.warn('[sable room] full state unavailable', error);
       browseFailed = true;
@@ -109,7 +109,11 @@
     outcome = null;
     sent = false;
     try {
-      const existing = await core.commands.roomStateEvent(target, type, stateKey);
+      const existing = await core.rpc.room_state.roomStateEvent({
+        room_id: target,
+        event_type: type,
+        state_key: stateKey,
+      });
       if (existing === null || existing === undefined) {
         outcome = 'missing';
         content = '{}';
@@ -139,7 +143,12 @@
     outcome = null;
     sent = false;
     try {
-      await core.commands.sendStateEvent(target, eventType.trim(), stateKey, parsed);
+      await core.rpc.room_state.sendStateEvent({
+        room_id: target,
+        event_type: eventType.trim(),
+        state_key: stateKey,
+        content: parsed,
+      });
       sent = true;
     } catch (error) {
       console.warn('[sable room] state event rejected', error);

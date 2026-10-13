@@ -137,7 +137,7 @@ test('a video stream is not whole until the end-of-stream marker arrives', async
 
 test('a cache reset goes through the core and still resolves when the core fails it', async () => {
   invoke.mockImplementation((command: string) =>
-    command === 'submit_command' ? Promise.reject(new Error('failed')) : Promise.resolve(undefined)
+    command === 'call' ? Promise.reject(new Error('failed')) : Promise.resolve(undefined)
   );
   vi.spyOn(console, 'error').mockImplementation(() => {});
   captureException.mockClear();
@@ -145,8 +145,9 @@ test('a cache reset goes through the core and still resolves when the core fails
 
   await expect(transport.resetCaches(['a1'])).resolves.toBeUndefined();
 
-  expect(invoke).toHaveBeenCalledWith('submit_command', {
-    command: { type: 'reset_local_cache' },
+  expect(invoke).toHaveBeenCalledWith('call', {
+    method: 'session.reset_local_cache',
+    params: '{}',
   });
   expect(captureException).toHaveBeenCalledTimes(1);
 });

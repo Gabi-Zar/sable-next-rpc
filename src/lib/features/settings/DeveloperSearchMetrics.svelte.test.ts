@@ -11,9 +11,8 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  searchMetrics: vi.fn<() => Promise<SearchMetricsView>>(),
-});
+const searchMetrics = vi.fn<() => Promise<SearchMetricsView>>();
+const core = Object.assign(baseCore, { rpc: { search: { searchMetrics } } });
 
 import DeveloperSearchMetrics from './DeveloperSearchMetrics.svelte';
 
@@ -43,7 +42,7 @@ const metrics: SearchMetricsView = {
 
 afterEach(() => {
   vi.useRealTimers();
-  core.searchMetrics.mockReset();
+  searchMetrics.mockReset();
   core.session = null;
   document.body.innerHTML = '';
 });
@@ -60,7 +59,7 @@ function row(id: string): string {
 
 test('it shows the crawl rate and budget from the core metrics', async () => {
   core.session = { account_id: 'account' };
-  core.searchMetrics.mockResolvedValue(metrics);
+  searchMetrics.mockResolvedValue(metrics);
 
   render(DeveloperSearchMetrics);
   await settle();
@@ -74,16 +73,16 @@ test('it shows the crawl rate and budget from the core metrics', async () => {
 test('it keeps polling while mounted and stops once unmounted', async () => {
   vi.useFakeTimers();
   core.session = { account_id: 'account' };
-  core.searchMetrics.mockResolvedValue(metrics);
+  searchMetrics.mockResolvedValue(metrics);
 
   const instance = render(DeveloperSearchMetrics);
   await settle();
-  expect(core.searchMetrics).toHaveBeenCalledTimes(1);
+  expect(searchMetrics).toHaveBeenCalledTimes(1);
 
   await vi.advanceTimersByTimeAsync(2000);
-  expect(core.searchMetrics).toHaveBeenCalledTimes(2);
+  expect(searchMetrics).toHaveBeenCalledTimes(2);
 
   instance.unmount();
   await vi.advanceTimersByTimeAsync(4000);
-  expect(core.searchMetrics).toHaveBeenCalledTimes(2);
+  expect(searchMetrics).toHaveBeenCalledTimes(2);
 });

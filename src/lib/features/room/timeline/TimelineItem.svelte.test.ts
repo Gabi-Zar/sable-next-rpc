@@ -23,7 +23,7 @@ const core = Object.assign(baseCore, {
   setPinned: vi.fn(() => Promise.resolve<string[]>([])),
   bookmarks: vi.fn(() => Promise.resolve([])),
   setBookmark: vi.fn(() => Promise.resolve(false)),
-  urlPreview: vi.fn((url: string): Promise<UrlPreviewView> =>
+  urlPreview: vi.fn(({ url }: { url: string }): Promise<UrlPreviewView> =>
     Promise.resolve({
       url,
       title: url,
@@ -1749,20 +1749,22 @@ test.each([
     const userId = '@alice:example.org';
     const expectedName = name ?? userId;
     const cosmeticsCore = {
-      commands: {
-        roomCosmetics: vi.fn().mockResolvedValue({
-          space_id: '!space:example.org',
-          users: [
-            {
-              user_id: userId,
-              color_on_light: null,
-              color_on_dark: null,
-              pronouns: [],
-              space_display_name: 'Other Alice',
-              space_avatar_url: 'mxc://example.org/other-identity',
-            },
-          ],
-        }),
+      rpc: {
+        rooms: {
+          roomCosmetics: vi.fn().mockResolvedValue({
+            space_id: '!space:example.org',
+            users: [
+              {
+                user_id: userId,
+                color_on_light: null,
+                color_on_dark: null,
+                pronouns: [],
+                space_display_name: 'Other Alice',
+                space_avatar_url: 'mxc://example.org/other-identity',
+              },
+            ],
+          }),
+        },
       },
       subscribeEvents: () => () => {},
       userProfile: () => request.promise,

@@ -91,28 +91,35 @@ describe('account progress', () => {
   });
 
   test('a write keeps what another version or device already stored', async () => {
-    const setAccountData = vi.fn(() => Promise.resolve());
+    const setAccountData = vi.fn(() => Promise.resolve(null));
     const core = {
-      commands: {
-        accountData: vi.fn(() => Promise.resolve({ finished: ['future-step'], extra: 1 })),
-        setAccountData,
+      rpc: {
+        account: {
+          accountData: vi.fn(() => Promise.resolve({ finished: ['future-step'], extra: 1 })),
+          setAccountData,
+        },
       },
     } as unknown as CoreClient;
 
     await markAccountFinished(core, 'recovery');
 
-    expect(setAccountData).toHaveBeenCalledWith(ONBOARDING_ACCOUNT_DATA_TYPE, {
-      extra: 1,
-      finished: ['future-step', 'recovery'],
+    expect(setAccountData).toHaveBeenCalledWith({
+      event_type: ONBOARDING_ACCOUNT_DATA_TYPE,
+      content: {
+        extra: 1,
+        finished: ['future-step', 'recovery'],
+      },
     });
   });
 
   test('a step already stored is not written again', async () => {
-    const setAccountData = vi.fn(() => Promise.resolve());
+    const setAccountData = vi.fn(() => Promise.resolve(null));
     const core = {
-      commands: {
-        accountData: vi.fn(() => Promise.resolve({ finished: ['recovery'] })),
-        setAccountData,
+      rpc: {
+        account: {
+          accountData: vi.fn(() => Promise.resolve({ finished: ['recovery'] })),
+          setAccountData,
+        },
       },
     } as unknown as CoreClient;
 
@@ -124,19 +131,24 @@ describe('account progress', () => {
 
 describe('running setup again', () => {
   test('forgets the account steps, keeps unknown fields and starts a full run here', async () => {
-    const setAccountData = vi.fn(() => Promise.resolve());
+    const setAccountData = vi.fn(() => Promise.resolve(null));
     const core = {
-      commands: {
-        accountData: vi.fn(() => Promise.resolve({ finished: ['notifications'], extra: 1 })),
-        setAccountData,
+      rpc: {
+        account: {
+          accountData: vi.fn(() => Promise.resolve({ finished: ['notifications'], extra: 1 })),
+          setAccountData,
+        },
       },
     } as unknown as CoreClient;
 
     await restartSetup(core, localStorage, '@a:x', 'ONE');
 
-    expect(setAccountData).toHaveBeenCalledWith(ONBOARDING_ACCOUNT_DATA_TYPE, {
-      extra: 1,
-      finished: [],
+    expect(setAccountData).toHaveBeenCalledWith({
+      event_type: ONBOARDING_ACCOUNT_DATA_TYPE,
+      content: {
+        extra: 1,
+        finished: [],
+      },
     });
     expect(readSetupRecord(localStorage, setupRecordKey('@a:x', 'ONE'))).toMatchObject({
       full: true,

@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { quietUnread, type RoomUnread, roomUnread } from './unread.js';
 
@@ -10,8 +10,8 @@ export type UnreadCount = {
 };
 
 export function spaceUnreadCounts(
-  spaces: readonly RoomSummary[],
-  rooms: readonly RoomSummary[],
+  spaces: readonly RoomListItemView[],
+  rooms: readonly RoomListItemView[],
   quiet: ReadonlySet<string> = new Set()
 ): Map<string, UnreadCount> {
   return spaceUnreadTotals(spaces, rooms, (room) => {
@@ -21,8 +21,8 @@ export function spaceUnreadCounts(
 }
 
 export function spaceUnreadTotals(
-  spaces: readonly RoomSummary[],
-  rooms: readonly RoomSummary[],
+  spaces: readonly RoomListItemView[],
+  rooms: readonly RoomListItemView[],
   unreadFor: RoomUnread
 ): Map<string, UnreadCount> {
   const roomsById = new Map(
@@ -75,7 +75,7 @@ export function addUnread(left: UnreadCount, right: UnreadCount): UnreadCount {
 }
 
 export function quietRoomIds(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   targets: Iterable<string>
 ): Set<string> {
   const roomsById = new Map(rooms.map((room) => [room.room_id, room]));
@@ -93,7 +93,7 @@ export function quietRoomIds(
 
 export type ChildRouting = { via: string[]; parentId: string | null };
 
-export function childRouting(rooms: readonly RoomSummary[], roomId: string): ChildRouting {
+export function childRouting(rooms: readonly RoomListItemView[], roomId: string): ChildRouting {
   for (const space of rooms) {
     if (!space.is_space || space.state !== 'joined') continue;
     const edge = space.space_children.find((child) => child.room_id === roomId);
@@ -103,8 +103,8 @@ export function childRouting(rooms: readonly RoomSummary[], roomId: string): Chi
 }
 
 export function spacesContainingRoom(
-  spaces: readonly RoomSummary[],
-  rooms: readonly RoomSummary[],
+  spaces: readonly RoomListItemView[],
+  rooms: readonly RoomListItemView[],
   roomId: string | null
 ): Set<string> {
   const found = new Set<string>();

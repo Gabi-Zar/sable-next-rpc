@@ -55,7 +55,11 @@
     searching = true;
     outcome = null;
     try {
-      const eventId = await core.commands.timestampToEvent(roomId, at, 'forward');
+      const eventId = await core.rpc.timeline.timestampToEvent({
+        room_id: roomId,
+        ts: at,
+        direction: 'forward',
+      });
       if (eventId === null) {
         outcome = 'missing';
         return;

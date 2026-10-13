@@ -14,7 +14,7 @@
   import PushPinIcon from 'phosphor-svelte/lib/PushPinIcon';
   import UserCircleIcon from 'phosphor-svelte/lib/UserCircleIcon';
   import UserPlusIcon from 'phosphor-svelte/lib/UserPlusIcon';
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { toasts } from '#lib/ui/toasts.svelte.js';
@@ -28,7 +28,7 @@
   import RoomNotificationSubmenu from './RoomNotificationSubmenu.svelte';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     canInvite: boolean;
     compact: boolean;
     onMarkRead: () => void;

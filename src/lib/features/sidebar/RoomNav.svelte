@@ -6,7 +6,7 @@
     NotificationModeView,
     ProfileView,
     RoomPermissionsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -100,9 +100,9 @@
   } from './space-tree.js';
 
   const MAX_VOICE_FACES = 3;
-  const roomRows = new WeakMap<RoomSummary, RoomNavRow>();
+  const roomRows = new WeakMap<RoomListItemView, RoomNavRow>();
   const WARM_DWELL_MS = 300;
-  let contextRoom = $state<RoomSummary | null>(null);
+  let contextRoom = $state<RoomListItemView | null>(null);
   let contextParentSpaceId = $state<string | null>(null);
   let contextAnchor = $state.raw<HTMLElement | CursorAnchor | null>(null);
   let contextOpen = $state(false);
@@ -114,7 +114,7 @@
 
   function openContextMenu(
     event: MouseEvent,
-    room: RoomSummary,
+    room: RoomListItemView,
     parentSpaceId: string | null
   ): void {
     event.preventDefault();
@@ -127,7 +127,7 @@
 
   function toggleOptionsMenu(
     trigger: HTMLElement,
-    room: RoomSummary,
+    room: RoomListItemView,
     parentSpaceId: string | null
   ): void {
     if (optionsRoomId === room.room_id && contextAnchor === trigger) {
@@ -186,7 +186,7 @@
   const core = useCoreClient();
   const presenceStore = usePresenceStore();
 
-  function dmPeerId(room: RoomSummary): string | null {
+  function dmPeerId(room: RoomListItemView): string | null {
     if (room.direct_targets.length === 0) return null;
     const own = core.session?.user_id;
     return room.direct_targets.find((target) => target !== own) ?? room.direct_targets[0];
@@ -276,7 +276,7 @@
     }
   }
 
-  function openLobby(room: RoomSummary): void {
+  function openLobby(room: RoomListItemView): void {
     navigateTo(
       resolve('/(app)/space/[spaceId]/lobby', { spaceId: roomPathParam(room, roomList.rooms) })
     );
@@ -287,7 +287,7 @@
   let leaveRoom = $derived(roomList.byId(leaveRoomId) ?? null);
 
   type RoomNavRow = {
-    room?: RoomSummary;
+    room?: RoomListItemView;
     roomId: string;
     parentSpaceId?: string;
     depth: number;
@@ -386,7 +386,7 @@
     groupFavourites ? listedRooms.filter((row) => !isFavourite(row)) : listedRooms
   );
   let sectionRooms = $derived([...favourites, ...rooms]);
-  let invites = $derived.by<RoomSummary[]>(() => {
+  let invites = $derived.by<RoomListItemView[]>(() => {
     const pending = roomList.rooms.filter(
       (room) =>
         room.state === 'invited' &&
@@ -451,7 +451,7 @@
     });
   }
 
-  function roomRow(room: RoomSummary): RoomNavRow {
+  function roomRow(room: RoomListItemView): RoomNavRow {
     const cached = roomRows.get(room);
     if (cached) return cached;
     const row: RoomNavRow = {
@@ -571,8 +571,8 @@
 
     let current = true;
     spacePermissions = null;
-    void core.commands
-      .roomPermissions(spaceId)
+    void core.rpc.members
+      .roomPermissions({ room_id: spaceId })
       .then((next) => {
         if (current) spacePermissions = next;
       })
@@ -594,16 +594,16 @@
   function markSectionRead(): void {
     markRoomsRead(
       sectionRooms.map((item) => item.room),
-      core.commands,
+      core.rpc.timeline,
       readReceiptIsPrivate()
     );
   }
 
-  function openSettings(room: RoomSummary): void {
+  function openSettings(room: RoomListItemView): void {
     settingsRoomId = room.room_id;
   }
 
-  function openLeave(room: RoomSummary): void {
+  function openLeave(room: RoomListItemView): void {
     leaveRoomId = room.room_id;
   }
 </script>
@@ -741,7 +741,7 @@
     {/if}
   {/snippet}
 
-  {#snippet optionsButton(room: RoomSummary, parentSpaceId: string | null)}
+  {#snippet optionsButton(room: RoomListItemView, parentSpaceId: string | null)}
     {@const open = optionsRoomId === room.room_id}
     <button
       type="button"

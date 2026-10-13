@@ -3,7 +3,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
-import type { RoomPermissionsView, RoomSummary } from '#src/generated/protocol';
+import type { RoomPermissionsView, RoomListItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
@@ -31,12 +31,16 @@ const room = withCounts({
   notifying: 0,
   highlight: 0,
   marked_unread: false,
-} as RoomSummary);
+} as RoomListItemView);
 
 Object.assign(core, {
-  inboxNotifications: vi.fn(() => Promise.resolve({ items: [], hasMore: false })),
-  backfillInbox: vi.fn(() => Promise.resolve({ hasMore: false })),
-  inviteTriage: vi.fn(() => Promise.resolve([])),
+  rpc: {
+    notifications: {
+      inboxNotifications: vi.fn(() => Promise.resolve({ items: [], has_more: false })),
+      backfillInbox: vi.fn(() => Promise.resolve({ recorded: 0, has_more: false })),
+    },
+    account: { inviteTriage: vi.fn(() => Promise.resolve([])) },
+  },
   roomPermissions: vi.fn(() =>
     Promise.resolve({
       can_invite: true,
@@ -151,5 +155,12 @@ test('a room behind the badge with nothing in the feed still gets a row', async 
 
   expect(await screen.findByText('2 unread notifications')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Mark Room as read' }));
-  expect(core.markRead).toHaveBeenCalledWith('!room:example.org', null, false);
+  expect(core.rpc.timeline.markRead).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    event_id: null,
+    private_receipt: false,
+    thread_root: null,
+    subscription: null,
+    fully_read: false,
+  });
 });

@@ -10,6 +10,7 @@
     TimelineItemView,
   } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
+  import { setMemberLook } from '#lib/core/api/members.js';
   import { COSMETIC_EVENT_TYPES, pronounSets } from '#lib/features/composer/slash-commands.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import MentionProfileCard from '#lib/features/room/members/MentionProfileCard.svelte';
@@ -171,9 +172,9 @@
     setAvatar(null);
     try {
       const [look, nextPermissions, nextLevels] = await Promise.all([
-        core.commands.memberLook(target),
-        core.commands.roomPermissions(target),
-        core.commands.roomPowerLevels(target),
+        core.rpc.members.memberLook({ room_id: target }),
+        core.rpc.members.roomPermissions({ room_id: target }),
+        core.rpc.members.roomPowerLevels({ room_id: target }),
       ]);
       if (current !== run) return;
       permissions = nextPermissions;
@@ -211,7 +212,7 @@
       let avatar = draft.avatar;
       if (avatarFile) {
         const upright = await uprightJpeg(avatarFile);
-        avatar = await core.commands.uploadMedia(
+        avatar = await core.media.uploadMedia(
           upright.type || 'image/*',
           new Uint8Array(await upright.arrayBuffer())
         );
@@ -219,7 +220,7 @@
       const identityChanged = draft.name !== base.name || avatar !== base.avatar;
       const colorsChanged = draft.light !== base.light || draft.dark !== base.dark;
       if (identityChanged || colorsChanged) {
-        await core.commands.setMemberLook(spaceId, {
+        await setMemberLook(core.rpc, spaceId, {
           ...(identityChanged && {
             display_name: field(draft.name.trim() || profileName),
             avatar_url: field(avatar ?? profile.avatar_url),
@@ -231,7 +232,11 @@
         });
       }
       if (draft.pronouns !== base.pronouns) {
-        await core.commands.setPronouns(spaceId, pronounSets(draft.pronouns));
+        await core.rpc.members.setPronouns({
+          room_id: spaceId,
+          pronouns: pronounSets(draft.pronouns),
+          in_parent_space: false,
+        });
       }
       draft = { ...draft, avatar };
       base = $state.snapshot(draft);
@@ -258,7 +263,7 @@
     applied = progress;
     for (const child of applyTargets) {
       try {
-        await core.commands.setMemberLook(child, {
+        await setMemberLook(core.rpc, child, {
           display_name: field(draft.name.trim() || profileName),
           avatar_url: field(draft.avatar ?? profile.avatar_url),
         });

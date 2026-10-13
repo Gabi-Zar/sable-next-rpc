@@ -64,7 +64,7 @@
 
   $effect(() => {
     let cancelled = false;
-    void core.commands
+    void core.rpc.session
       .homeserverInfo()
       .then((next) => {
         if (!cancelled) info = next;

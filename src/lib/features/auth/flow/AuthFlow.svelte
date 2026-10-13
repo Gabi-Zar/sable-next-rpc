@@ -246,7 +246,7 @@
     return () => {
       redirect.cleanup();
       if (!redirect.isCallbackWindow)
-        void core.commands.cancelRegistration().catch(() => undefined);
+        void core.rpc.auth.cancelRegistration().catch(() => undefined);
     };
   });
 

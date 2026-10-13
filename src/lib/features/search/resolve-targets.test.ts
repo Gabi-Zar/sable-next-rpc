@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary, SpaceChildEdge } from '#src/generated/protocol';
+import type { RoomListItemView, SpaceChildEdge } from '#src/generated/protocol';
 
 import {
   parentSpaceOf,
@@ -14,7 +14,7 @@ import {
 import { resolveSearchQuery } from './search-query';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
-function room(overrides: Partial<RoomSummary>): RoomSummary {
+function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
     room_id: '!id:example.org',
     canonical_alias: null,

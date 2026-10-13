@@ -1,17 +1,17 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { personaSpaces } from './persona-spaces.js';
 
-function space(roomId: string, children: string[]): RoomSummary {
+function space(roomId: string, children: string[]): RoomListItemView {
   return {
     room_id: roomId,
     canonical_alias: null,
     is_space: true,
     state: 'joined',
     space_children: children.map((child) => ({ room_id: child })),
-  } as unknown as RoomSummary;
+  } as unknown as RoomListItemView;
 }
 
 const rooms = [

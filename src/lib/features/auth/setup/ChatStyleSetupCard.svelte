@@ -32,8 +32,8 @@
   const core = useCoreClient();
   providePersonaStore(new PersonaStore(core));
   provideRoomList(new RoomList(core));
-  providePinnedEvents(new PinnedEvents(core.commands));
-  provideBookmarks(new Bookmarks(core.commands));
+  providePinnedEvents(new PinnedEvents(core.rpc.timeline));
+  provideBookmarks(new Bookmarks(core.rpc.account));
   provideMessageDialogs(new MessageDialogs());
   provideMessageMenu(new OpenMessageMenu());
 

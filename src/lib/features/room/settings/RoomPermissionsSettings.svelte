@@ -3,7 +3,7 @@
   import type {
     PowerLevelLocation,
     RoomPermissionsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import ListChecksIcon from 'phosphor-svelte/lib/ListChecksIcon';
@@ -42,7 +42,7 @@
   import { RoomPermissionsData } from './room-permissions-data.svelte';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
   }
 
@@ -149,7 +149,12 @@
     saving = true;
     data.failed = false;
     try {
-      data.levels = await core.commands.setPowerLevel(target, current, location, level);
+      data.levels = await core.rpc.members.setPowerLevel({
+        room_id: target,
+        levels: $state.snapshot(current),
+        location,
+        level,
+      });
     } catch (error) {
       console.warn('[sable room] permission change failed', error);
       data.failed = true;
@@ -171,7 +176,11 @@
     syncing = true;
     syncFailed = false;
     try {
-      const next = await core.commands.syncPowerLevelsFromSpace(target, spaceId, current);
+      const next = await core.rpc.members.syncPowerLevelsFromSpace({
+        room_id: target,
+        space_id: spaceId,
+        levels: $state.snapshot(current),
+      });
       data.levels = next.levels;
       data.roleTags = next.tags;
       syncConfirm = false;
@@ -189,7 +198,10 @@
 
     childSyncing = true;
     try {
-      childResult = await core.commands.syncChildPowerLevels(spaceId, childIds);
+      childResult = await core.rpc.members.syncChildPowerLevels({
+        space_id: spaceId,
+        child_ids: childIds,
+      });
     } catch (error) {
       console.warn('[sable room] child permission sync failed', error);
       childResult = { updated: 0, skipped: childIds.length };
@@ -208,7 +220,10 @@
     memberListSaving = true;
     memberListFailed = false;
     try {
-      await core.commands.setMemberListThreshold(target, next);
+      await core.rpc.room_state.setMemberListThreshold({
+        room_id: target,
+        always_listed_from: next,
+      });
       memberListChanged();
     } catch (error) {
       console.warn('[sable room] member list settings not saved', error);
@@ -310,10 +325,14 @@
     roleSaving = true;
     roleFailed = false;
     try {
-      data.roleTags = await core.commands.setPowerLevelTag(target, level, {
-        name,
-        color,
-        icon: roleIconDraft.trim() || null,
+      data.roleTags = await core.rpc.members.setPowerLevelTag({
+        room_id: target,
+        level,
+        tag: {
+          name,
+          color,
+          icon: roleIconDraft.trim() || null,
+        },
       });
       editingLevel = null;
       editingNewRole = false;
@@ -333,7 +352,11 @@
     roleSaving = true;
     roleFailed = false;
     try {
-      data.roleTags = await core.commands.setPowerLevelTag(target, level, null);
+      data.roleTags = await core.rpc.members.setPowerLevelTag({
+        room_id: target,
+        level,
+        tag: null,
+      });
       editingLevel = null;
     } catch (error) {
       console.warn('[sable room] role tag remove failed', error);
@@ -353,7 +376,7 @@
     try {
       const upright = await uprightJpeg(file);
       const bytes = new Uint8Array(await upright.arrayBuffer());
-      roleIconDraft = await core.commands.uploadMedia(upright.type || 'image/*', bytes);
+      roleIconDraft = await core.media.uploadMedia(upright.type || 'image/*', bytes);
     } catch (error) {
       console.warn('[sable room] role icon upload failed', error);
       roleFailed = true;

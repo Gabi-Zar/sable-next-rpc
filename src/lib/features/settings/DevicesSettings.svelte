@@ -106,13 +106,13 @@
     error = null;
     try {
       const [nextStatus, nextDevices] = await Promise.all([
-        core.commands.encryptionStatus(),
-        core.commands.devices(),
+        core.rpc.encryption.encryptionStatus(),
+        core.rpc.encryption.devices(),
       ]);
       if (cancelled) return;
       status = nextStatus;
       devices = nextDevices.devices;
-      accountManagement = nextDevices.accountManagement;
+      accountManagement = nextDevices.account_management;
     } catch (cause) {
       if (!cancelled) error = messageFor(cause);
     } finally {
@@ -151,7 +151,10 @@
 
   async function saveName(deviceId: string): Promise<void> {
     try {
-      await core.commands.renameDevice(deviceId, displayName.trim());
+      await core.rpc.encryption.renameDevice({
+        device_id: deviceId,
+        display_name: displayName.trim(),
+      });
       cancelRename();
       await refresh();
     } catch (cause) {
@@ -167,7 +170,10 @@
     removing = deviceId;
     error = null;
     try {
-      const managementUrl = await core.commands.deleteDevice(deviceId, password || null);
+      const managementUrl = await core.rpc.encryption.deleteDevice({
+        device_id: deviceId,
+        password: password || null,
+      });
       if (managementUrl) {
         if (authWindow) await authWindow.navigate(managementUrl);
         else await openExternalAuthUrl(managementUrl);
@@ -209,10 +215,10 @@
     const failed: string[] = [];
     for (const deviceId of ids) {
       try {
-        const managementUrl = await core.commands.deleteDevice(
-          deviceId,
-          accountManagement ? null : bulkPassword || null
-        );
+        const managementUrl = await core.rpc.encryption.deleteDevice({
+          device_id: deviceId,
+          password: accountManagement ? null : bulkPassword || null,
+        });
         if (managementUrl) await openExternalAuthUrl(managementUrl);
       } catch (cause) {
         console.warn('[sable settings] device removal failed', cause);
@@ -249,8 +255,8 @@
     error = null;
     try {
       newRecoveryKey = reset
-        ? await core.commands.resetRecoveryKey()
-        : await core.commands.enableRecovery();
+        ? await core.rpc.encryption.resetRecoveryKey({ passphrase: null })
+        : await core.rpc.encryption.enableRecovery({ passphrase: null });
       await refresh();
     } catch (cause) {
       error = messageFor(cause);

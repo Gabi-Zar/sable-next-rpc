@@ -25,7 +25,7 @@
     void core.session?.user_id;
     void profile.user_id;
     let cancelled = false;
-    void Promise.all([core.commands.accountContacts(), core.commands.ignoredUsers()]).then(
+    void Promise.all([core.rpc.account.accountContacts(), core.rpc.account.ignoredUsers()]).then(
       ([nextEmails, nextIgnored]) => {
         if (cancelled) return;
         emails = nextEmails;

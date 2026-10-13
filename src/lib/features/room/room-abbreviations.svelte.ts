@@ -1,6 +1,6 @@
 import { createContext } from 'svelte';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { Rpc } from '#src/generated/protocol';
 
 import { abbreviationPattern, buildAbbreviationMap, type AbbreviationMap } from './abbreviations';
 import type { AbbreviationEntry } from './settings/abbreviations';
@@ -17,7 +17,7 @@ export class RoomAbbreviations {
   #roomId: string | null = null;
   #generation = 0;
 
-  constructor(private readonly commands: Pick<CoreCommands, 'roomAbbreviations'>) {}
+  constructor(private readonly rpc: { room_state: Pick<Rpc['room_state'], 'roomAbbreviations'> }) {}
 
   get map(): AbbreviationMap {
     return this.#map;
@@ -41,7 +41,7 @@ export class RoomAbbreviations {
 
   async #entries(roomId: string): Promise<AbbreviationEntry[]> {
     try {
-      return await this.commands.roomAbbreviations(roomId);
+      return await this.rpc.room_state.roomAbbreviations({ room_id: roomId });
     } catch (error) {
       console.debug('[sable room] abbreviations unavailable', error);
       return [];

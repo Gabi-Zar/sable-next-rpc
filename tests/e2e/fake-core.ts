@@ -2,21 +2,26 @@ import type { Page } from '@playwright/test';
 import type {
   AbbreviationView,
   BookmarkView,
-  Command,
-  CommandOk,
   CoreEvent,
   EncryptionStatusView,
   EventNotificationsView,
   ImagePackView,
+  KeyBackupDownloadView,
   KeywordNotificationView,
   MentionNotificationsView,
   ProfileView,
   MemberView,
-  RoomSummary,
+  RoomListItemView,
+  SearchMessagesParams,
+  RpcMethods,
   SessionInfo,
+  SetSpaceChildOrderParams,
   SidebarItemView,
   SpaceChildEdge,
   SpaceHierarchyRoomView,
+  SubscribeTimelineOk,
+  SubscribeTimelineParams,
+  SubscriptionId,
   TimelineItemView,
 } from '#src/generated/protocol';
 
@@ -55,7 +60,7 @@ declare global {
     __e2eAccounts?: SessionInfo[];
     __e2eSwitchAccountError?: boolean;
     __e2eSwitchAccountDelayMs?: number;
-    __e2eCommandPayloads: Command[];
+    __e2eCalls: { method: string; params: unknown }[];
     __e2eProfileSaveError?: boolean;
     __e2eSendError?: string;
     __e2eFetchMedia?: (source: string, width: number, height: number) => Promise<Uint8Array>;
@@ -66,7 +71,7 @@ declare global {
     __e2eAnchorPositions: number[];
     __e2eTimelineRooms: string[];
     __e2eTimelineSubscriptions: number[];
-    __e2eTimelineFocus: Extract<Command, { type: 'subscribe_timeline' }>['focus'][];
+    __e2eTimelineFocus: SubscribeTimelineParams['focus'][];
     __e2ePaginationDirections: string[];
     __e2eRefreshRoom: () => void;
     __e2eReceiveMessage: (body: string) => void;
@@ -79,19 +84,12 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
   await page.addInitScript((workerMode: WorkerMode) => {
     window.__e2ePaginationDirections = [];
     window.__e2eTimelineFocus = [];
-    type CommandType = Command['type'];
-    type CommandFor<T extends CommandType> = Extract<Command, { type: T }>;
-    type OkFor<T extends CommandType> = Extract<CommandOk, { type: T }>;
-    type BareCommandType = {
-      [T in CommandType]: { type: T } extends OkFor<T> ? T : never;
-    }[CommandType];
-    type RichCommandType = Exclude<CommandType, BareCommandType>;
-    type Handler<T extends CommandType> = (
-      command: CommandFor<T>,
-      port: FakePort
-    ) => OkFor<T> | typeof NO_REPLY;
-    type Handlers = { [T in RichCommandType]: Handler<T> } & {
-      [T in BareCommandType]?: Handler<T>;
+    /** Keyed by wire method; a missing one answers `null`. */
+    type RpcHandlers = {
+      [M in keyof RpcMethods]?: (
+        params: RpcMethods[M][0],
+        port: FakePort
+      ) => RpcMethods[M][1] | typeof NO_REPLY;
     };
 
     const NO_REPLY = Symbol('no-reply');
@@ -103,16 +101,16 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
     }
 
     const commandLog: string[] = [];
-    const commandPayloads: Command[] = [];
+    const calls: { method: string; params: unknown }[] = [];
     const timelineRooms: string[] = [];
     const timelineSubscriptions: number[] = [];
     Object.defineProperty(window, '__e2eCommands', {
       configurable: true,
       value: commandLog,
     });
-    Object.defineProperty(window, '__e2eCommandPayloads', {
+    Object.defineProperty(window, '__e2eCalls', {
       configurable: true,
-      value: commandPayloads,
+      value: calls,
     });
     Object.defineProperty(window, '__e2eTimelineRooms', {
       configurable: true,
@@ -147,7 +145,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       supporter_awards: null,
       legacy_fields: [],
     };
-    const summary = (raw: Omit<RoomSummary, 'notification' | 'counts'>): RoomSummary => ({
+    const summary = (raw: Omit<RoomListItemView, 'notification' | 'counts'>): RoomListItemView => ({
       ...raw,
       notification: { room: null, default: raw.is_direct ? 'all' : 'mentions' },
       counts: {
@@ -157,7 +155,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         marked: raw.marked_unread,
       },
     });
-    const room: RoomSummary = summary({
+    const room: RoomListItemView = summary({
       room_id: '!room:example.test',
       canonical_alias: null,
       name: workerMode === 'room_name_overflow' ? 'Room name fits until hover' : 'General',
@@ -203,7 +201,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         event_id: '$general-19:example.test',
       },
     });
-    const secondRoom: RoomSummary = summary({
+    const secondRoom: RoomListItemView = summary({
       ...room,
       room_id: '!second:example.test',
       name: 'Random',
@@ -211,7 +209,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       notifying: 3,
       highlight: 0,
     });
-    const invitedRoom: RoomSummary = summary({
+    const invitedRoom: RoomListItemView = summary({
       ...room,
       room_id: '!invited:example.test',
       name: 'Design crew',
@@ -228,7 +226,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         event_id: null,
       },
     });
-    const alphaSpace: RoomSummary = summary({
+    const alphaSpace: RoomListItemView = summary({
       ...room,
       room_id: '!alpha:example.test',
       name: 'Alpha',
@@ -241,17 +239,17 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       highlight: 0,
       latest_event: null,
     });
-    const betaSpace: RoomSummary = summary({
+    const betaSpace: RoomListItemView = summary({
       ...alphaSpace,
       room_id: '!beta:example.test',
       name: 'Beta',
     });
-    const gammaSpace: RoomSummary = summary({
+    const gammaSpace: RoomListItemView = summary({
       ...alphaSpace,
       room_id: '!gamma:example.test',
       name: 'Gamma',
     });
-    const successorRoom: RoomSummary = summary({
+    const successorRoom: RoomListItemView = summary({
       ...room,
       room_id: '!successor:example.test',
       name: 'Successor',
@@ -259,7 +257,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       notifying: 0,
       highlight: 0,
     });
-    const tombstonedRoom: RoomSummary = summary({
+    const tombstonedRoom: RoomListItemView = summary({
       ...room,
       room_id: '!tombstoned:example.test',
       name: 'Old Room',
@@ -268,7 +266,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       notifying: 0,
       highlight: 0,
     });
-    const voiceRoom: RoomSummary = summary({
+    const voiceRoom: RoomListItemView = summary({
       ...room,
       room_id: '!voice:example.test',
       name: 'Hangout',
@@ -278,7 +276,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       notifying: 0,
       highlight: 0,
     });
-    const joinedRooms: RoomSummary[] =
+    const joinedRooms: RoomListItemView[] =
       workerMode === 'voice'
         ? [room, secondRoom, invitedRoom, voiceRoom]
         : workerMode === 'spaces'
@@ -363,7 +361,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
     };
 
     const CHILD_ORDER_KEY = 'e2e-space-child-order';
-    const recordChildOrder = (command: CommandFor<'set_space_child_order'>): void => {
+    const recordChildOrder = (command: SetSpaceChildOrderParams): void => {
       const stored: unknown = JSON.parse(sessionStorage.getItem(CHILD_ORDER_KEY) ?? '[]');
       const log = Array.isArray(stored) ? stored : [];
       log.push({
@@ -464,7 +462,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         }
       );
 
-    const searchHits = (payload: CommandFor<'search_messages'>) => {
+    const searchHits = (payload: SearchMessagesParams) => {
       const query = payload.query.toLowerCase();
       const filter = payload.filter;
       const offset = payload.offset;
@@ -504,7 +502,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         .slice(offset, offset + payload.limit);
     };
 
-    const rooms = new Map<string, RoomSummary>([
+    const rooms = new Map<string, RoomListItemView>([
       [room.room_id, room],
       [secondRoom.room_id, secondRoom],
       [invitedRoom.room_id, invitedRoom],
@@ -609,7 +607,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       return bytes;
     }
 
-    const subscriptionRoom = (subscription: number): RoomSummary => {
+    const subscriptionRoom = (subscription: number): RoomListItemView => {
       const state = subscriptions.get(subscription);
       if (!state) throw new Error(`unknown timeline subscription ${String(subscription)}`);
       const found = rooms.get(state.roomId);
@@ -785,688 +783,288 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       }
     };
 
-    let backupDownload: Extract<CommandOk, { type: 'download_key_backup' }>['download'] | null =
-      null;
+    let backupDownload: KeyBackupDownloadView | null = null;
 
     const fullyReadEventId = (roomId: string): string =>
       `$${(joinedRooms.find((room) => room.room_id === roomId)?.name ?? 'General').toLowerCase()}-${workerMode === 'unread' || workerMode === 'unread_history' || workerMode === 'unread_context_error' || workerMode === 'unread_catchup' ? '4' : '19'}:example.test`;
-    const handlers: Handlers = {
-      discover_homeserver: () => ({
-        type: 'discover_homeserver',
-        homeserver: 'https://example.test',
-      }),
-      login: () => {
+    const roomStateEvents = (roomId: string, eventType: string) => {
+      const content =
+        eventType === 'im.vector.modular.widgets' ? roomWidgets.get(roomId) : undefined;
+      return content ? [{ state_key: WIDGET_STATE_KEY, content }] : [];
+    };
+
+    const roomPermissions = (roomId: string) => {
+      const canPost = roomId !== secondRoom.room_id;
+      return {
+        own_power_level: canPost ? 100 : 0,
+        can_post: canPost,
+        can_react: canPost,
+        can_redact_own: canPost,
+        can_redact_others: canPost,
+        can_invite: canPost,
+        can_kick: canPost,
+        can_ban: canPost,
+        can_change_settings: canPost,
+        can_pin: canPost,
+        can_change_join_rule: canPost,
+        can_change_power_levels: canPost,
+        can_manage_children: canPost,
+      };
+    };
+
+    const rpcHandlers: RpcHandlers = {
+      'auth.discover_homeserver': () => 'https://example.test',
+      'auth.login': () => {
         signedOut = false;
         saveOnboarding();
-        return { type: 'login', user_id: session.user_id };
+        return session.user_id;
       },
-      login_flows: () => ({
-        type: 'login_flows',
-        flows: {
-          password: true,
-          oidc: false,
-          oidc_registration: false,
-          sso: false,
-          oauth_aware_preferred: false,
-          sso_identity_providers: [],
-        },
+      'auth.login_flows': () => ({
+        password: true,
+        oidc: false,
+        oidc_registration: false,
+        sso: false,
+        oauth_aware_preferred: false,
+        sso_identity_providers: [],
       }),
-      registration_flows: () => ({
-        type: 'registration_flows',
-        flows: { uiaa: true, email: 'unavailable', registration_token: 'unavailable' },
+      'auth.registration_flows': () => ({
+        uiaa: true,
+        email: 'unavailable',
+        registration_token: 'unavailable',
       }),
-      register: () => ({
-        type: 'register',
-        result: { state: 'complete', user_id: session.user_id },
-      }),
-      continue_registration: () => ({
-        type: 'continue_registration',
-        result: { state: 'complete', user_id: session.user_id },
-      }),
-      request_registration_email: () => ({
-        type: 'request_registration_email',
-        result: { state: 'complete', user_id: session.user_id },
-      }),
-      submit_registration_email: () => ({
-        type: 'submit_registration_email',
-        result: { state: 'complete', user_id: session.user_id },
-      }),
-      request_password_reset_email: (command) => ({
-        type: 'request_password_reset_email',
-        client_secret: command.client_secret ?? 'fake-secret',
+      'auth.register': () => ({ state: 'complete', user_id: session.user_id }),
+      'auth.continue_registration': () => ({ state: 'complete', user_id: session.user_id }),
+      'auth.request_registration_email': () => ({ state: 'complete', user_id: session.user_id }),
+      'auth.submit_registration_email': () => ({ state: 'complete', user_id: session.user_id }),
+      'auth.request_password_reset_email': (params) => ({
+        client_secret: params.client_secret ?? 'fake-secret',
         sid: 'fake-sid',
       }),
-      start_oidc_login: () => ({
-        type: 'start_oidc_login',
-        authorization_url: 'https://example.test/authorize',
+      'auth.start_oidc_login': () => 'https://example.test/authorize',
+      'auth.complete_oidc_login': () => session.user_id,
+      'auth.start_sso_login': () => 'https://example.test/sso',
+      'auth.complete_sso_login': () => session.user_id,
+      'encryption.encryption_status': () => encryption(),
+      'encryption.key_backup_status': () => ({
+        local_keys: backupDownload?.state === 'complete' ? 200 : 120,
+        backed_up_keys: backupDownload?.state === 'complete' ? 200 : 120,
+        cloud_keys: 200,
+        can_restore: true,
+        download: backupDownload,
       }),
-      complete_oidc_login: () => ({ type: 'complete_oidc_login', user_id: session.user_id }),
-      start_sso_login: () => ({
-        type: 'start_sso_login',
-        authorization_url: 'https://example.test/sso',
-      }),
-      complete_sso_login: () => ({ type: 'complete_sso_login', user_id: session.user_id }),
-      restore: () => {
-        if (workerMode === 'loading') return NO_REPLY;
-        if (workerMode === 'error') throw new FakeCoreError('failed');
-        return { type: 'restore', session: signedOut ? null : session };
-      },
-      logout: () => {
-        signedOut = true;
-        return { type: 'logout' };
-      },
-      list_accounts: () => ({
-        type: 'list_accounts',
-        accounts: signedOut ? [] : (window.__e2eAccounts ?? [session]),
-      }),
-      switch_account: () => {
-        if (window.__e2eSwitchAccountError) throw new FakeCoreError('unavailable');
-        return { type: 'switch_account', session };
-      },
-      request_open_id_token: () => ({
-        type: 'request_open_id_token',
-        access_token: 'e2e-openid-token',
-        matrix_server_name: 'example.test',
-        expires_in: 3600,
-      }),
-      homeserver_info: () => ({
-        type: 'homeserver_info',
-        homeserver: 'https://example.test',
-        server: { name: 'Sable Test', version: '1.0' },
-      }),
-      subscribe_room_list: () => ({
-        type: 'subscribe_room_list',
-        subscription: 1,
-        rooms: joinedRooms,
-      }),
-      subscribe_timeline: (command) => {
-        window.__e2eTimelineFocus.push(command.focus);
-        if (
-          workerMode === 'thread_error' &&
-          command.focus.kind === 'thread' &&
-          window.__e2eTimelineFocus.filter((focus) => focus.kind === 'thread').length === 1
-        ) {
-          throw new FakeCoreError('load_failed');
-        }
-        if (workerMode === 'unread_context_error' && command.focus.kind === 'event') {
-          throw new FakeCoreError('load_failed');
-        }
-        const subscription = nextSubscription++;
-        subscriptions.set(subscription, {
-          roomId: command.room_id,
-          page: 0,
-          live: command.focus.kind === 'live',
-          thread: command.focus.kind === 'thread',
-          oldest: workerMode === 'unread_catchup' ? 60 : 0,
-        });
-        timelineRooms.push(command.room_id);
-        timelineSubscriptions.push(subscription);
-        const roomName = subscriptionRoom(subscription).name ?? '';
-        const items = timelineItems(roomName);
-        const unreadContext =
-          (workerMode === 'unread_history' || workerMode === 'unread_catchup') &&
-          command.focus.kind === 'event';
-        if (unreadContext) unreadContextOpened = true;
-        const marker: TimelineItemView = {
-          ...items[0],
-          id: `${roomName.toLowerCase()}-read-marker`,
-          event_id: null,
-          sender: null,
-          sender_name: null,
-          content: { kind: 'read_marker' },
-          row: 'annotation',
-          forwardable: false,
-          redactable: false,
-          visibility: 'always',
+      'encryption.download_key_backup': (params) => {
+        backupDownload = {
+          account_id: session.account_id,
+          request_id: params.request_id,
+          state: 'complete',
+          total: 200,
+          processed: 200,
+          imported: 80,
+          failed: 0,
         };
-        return {
-          type: 'subscribe_timeline',
-          subscription,
-          items: unreadContext
-            ? [...items.slice(0, 5), marker, ...items.slice(5, 20)]
-            : workerMode === 'thread_links' && command.focus.kind === 'thread'
-              ? [
-                  { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
-                  ...Array.from({ length: 40 }, (_, index) => ({
-                    ...items[0],
-                    id: `thread-reply-${index}`,
-                    event_id: `$thread-reply-${index}:example.test`,
-                    content: messageContent(`Thread reply ${index}`),
-                    thread_root: '$thread-root:example.test',
-                  })),
-                ]
-              : workerMode === 'thread_links' &&
-                  command.focus.kind === 'event' &&
-                  command.focus.event_id === '$thread-reply-older:example.test'
-                ? [
-                    { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
-                    {
-                      ...items[0],
-                      id: 'thread-reply-older',
-                      event_id: '$thread-reply-older:example.test',
-                      content: messageContent('Older thread reply'),
-                      thread_root: '$thread-root:example.test',
-                    },
-                    ...Array.from({ length: 5 }, (_, index) => ({
-                      ...items[0],
-                      id: `thread-reply-${index}`,
-                      event_id: `$thread-reply-${index}:example.test`,
-                      content: messageContent(`Thread reply ${index}`),
-                      thread_root: '$thread-root:example.test',
-                    })),
-                  ]
-                : timelineSnapshot(roomName),
-          aggregations: [],
-        };
+        return backupDownload;
       },
-      paginate: (command, port) => {
-        window.__e2ePaginationDirections.push(command.direction);
-        const state = subscriptions.get(command.subscription);
-        if (!state) throw new Error('unknown timeline subscription');
-        const paginated = subscriptionRoom(command.subscription);
-        const roomName = paginated.name ?? '';
-        if (workerMode === 'thread_links' && state.thread) {
+      'encryption.sign_out_safety': () => ({
+        encryption: {
+          verification: workerMode === 'unverified' ? 'unverified' : 'verified',
+          recovery: 'enabled',
+          cross_signing_ready: true,
+          backup_unlocked: true,
+          signing_keys: { master: true, self_signing: true, user_signing: true },
+          recovery_passphrase: false,
+          account_data_key: false,
+        },
+        backup_enabled: true,
+        backup_uploaded: true,
+        has_encrypted_rooms: true,
+      }),
+      'encryption.devices': () => ({
+        account_management: false,
+        oauth: false,
+        devices: [
+          {
+            device_id: session.device_id,
+            display_name: 'This browser',
+            is_verified: identityConfirmed,
+            has_keys: true,
+            cross_signed: identityConfirmed,
+            is_own: true,
+            last_seen_ts: null,
+            last_seen_ip: null,
+          },
+          {
+            device_id: 'PHONE',
+            display_name: 'Phone',
+            is_verified: false,
+            has_keys: true,
+            cross_signed: false,
+            is_own: false,
+            last_seen_ts: null,
+            last_seen_ip: null,
+          },
+        ],
+      }),
+      'encryption.user_security': (params) => ({
+        verification: params.user_id === '@alice:example.org' ? 'verified' : 'unverified',
+        verification_violation: false,
+        devices: [
+          {
+            device_id: 'PHONE',
+            display_name: 'Phone',
+            verified: true,
+            cross_signed: true,
+            blocked: false,
+          },
+        ],
+      }),
+      'encryption.enable_recovery': () => 'e2e-recovery-key',
+      'encryption.reset_recovery_key': () => 'e2e-recovery-key',
+      'encryption.reset_identity': (_params, port) => {
+        if (workerMode === 'onboarding') {
+          identityConfirmed = true;
+          saveOnboarding();
           window.setTimeout(() => {
-            port.emit({
-              type: 'timeline_diff',
-              subscription: command.subscription,
-              diffs: [
-                {
-                  op: 'insert',
-                  index: 1,
-                  value: {
-                    ...timelineItems(roomName)[0],
-                    id: 'thread-reply-older',
-                    event_id: '$thread-reply-older:example.test',
-                    content: messageContent('Older thread reply'),
-                    thread_root: '$thread-root:example.test',
-                  },
-                },
-              ],
-            });
-          }, 750);
-          return { type: 'paginate', direction: command.direction, reached_end: true };
-        }
-        if (workerMode === 'unread_catchup') {
-          const items = timelineItems(roomName);
-          if (command.direction === 'backward') {
-            const previous = state.oldest;
-            state.oldest = Math.max(0, previous - 20);
-            port.emit({
-              type: 'timeline_diff',
-              subscription: command.subscription,
-              diffs: items
-                .slice(state.oldest, previous)
-                .map((value, index) => ({ op: 'insert' as const, index, value })),
-            });
-            return {
-              type: 'paginate',
-              direction: command.direction,
-              reached_end: state.oldest === 0,
-            };
-          }
-          state.page += 1;
-          if (state.page === 3) {
-            arrivals.push({
-              ...items[79],
-              id: 'during-handoff',
-              event_id: '$during-handoff:example.test',
-              content: messageContent('Arrived during handoff'),
-            });
-          }
-          window.setTimeout(() => {
-            port.emit({
-              type: 'timeline_diff',
-              subscription: command.subscription,
-              diffs: [
-                { op: 'append', values: items.slice(state.page * 20, (state.page + 1) * 20) },
-              ],
-            });
+            port.emit({ type: 'encryption_status', status: encryption() });
           }, 50);
-          return { type: 'paginate', direction: command.direction, reached_end: state.page >= 3 };
         }
-        if (workerMode === 'unread_history' || workerMode === 'unread_context_error') {
-          if (command.direction === 'backward') {
-            throw new FakeCoreError('load_failed');
-          }
-          state.page += 1;
-          const values = timelineItems(roomName, state.page * 20);
-          port.emit({
-            type: 'timeline_diff',
-            subscription: command.subscription,
-            diffs: [{ op: 'append', values }],
-          });
-          return { type: 'paginate', direction: command.direction, reached_end: false };
-        }
-        if (workerMode === 'forward_history') {
-          if (command.direction === 'backward') {
-            return { type: 'paginate', direction: command.direction, reached_end: true };
-          }
-          state.page += 1;
-          const page = state.page;
-          const items = timelineItems(roomName);
-          const values =
-            page === 1
-              ? [
-                  {
-                    ...items[4],
-                    id: 'filtered-forward',
-                    event_id: '$filtered-forward:example.test',
-                    row: 'event' as const,
-                    forwardable: false,
-                    redactable: true,
-                    visibility: 'profile_change' as const,
-                    content: {
-                      kind: 'profile_change' as const,
-                      user_id: '@alice:example.test',
-                      display_name: { old: 'Alice', new: 'Alicia' },
-                      avatar: null,
-                    },
-                  },
-                ]
-              : items.slice((page - 1) * 5, page * 5);
-          window.setTimeout(() => {
-            port.emit({
-              type: 'timeline_diff',
-              subscription: command.subscription,
-              diffs: values.map((value) => ({ op: 'push_back' as const, value })),
-            });
-          }, 250);
-          return { type: 'paginate', direction: command.direction, reached_end: page >= 16 };
-        }
-        state.page += 1;
-        const page = state.page;
-        const reachedEnd =
-          workerMode === 'endless_history'
-            ? false
-            : workerMode === 'empty_room' || workerMode === 'delayed_history' || page >= 2;
-        port.emit({
-          type: 'timeline_pagination',
-          subscription: command.subscription,
-          loading: true,
-          reached_start: false,
-        });
-        window.setTimeout(() => {
-          port.emit({
-            type: 'timeline_diff',
-            subscription: command.subscription,
-            diffs: paginationDiffs(roomName, page),
-          });
-          port.emit({
-            type: 'timeline_pagination',
-            subscription: command.subscription,
-            loading: false,
-            reached_start: reachedEnd,
-          });
-        }, paginationDelay());
-        return { type: 'paginate', direction: command.direction, reached_end: reachedEnd };
+        return { step: 'done', recovery_key: 'e2e-recovery-key' };
       },
-      room_members: () => ({
-        type: 'room_members',
-        members: window.__e2eMembers ?? [
-          {
-            user_id: '@alice:example.test',
-            display_name: 'Alice',
-            avatar_url:
-              (window as { __e2eProfilePatch?: Partial<ProfileView> }).__e2eProfilePatch
-                ?.avatar_url ?? null,
-            power_level: 100,
-            membership: 'join',
-            member_ts: null,
-            kicked: false,
-            service: false,
-          },
-        ],
-      }),
-      unsubscribe: (command) => {
-        subscriptions.delete(command.subscription);
-        return { type: 'unsubscribe' };
+      'encryption.continue_identity_reset': () => 'e2e-recovery-key',
+      'encryption.export_room_keys': () => {
+        throw new FakeCoreError('unsupported');
       },
-      send_message: (command) => {
-        if (window.__e2eSendError) throw new FakeCoreError(window.__e2eSendError);
-        receiveMessage(command.body, true);
-        return { type: 'send_message' };
+      'encryption.import_room_keys': () => {
+        throw new FakeCoreError('unsupported');
       },
-      search_messages: (command) => ({
-        type: 'search_messages',
-        hits: searchHits(command),
-        older: null,
-      }),
-      join_call: () => ({
-        type: 'join_call',
-        session: 1,
-        url: 'wss://sfu.example.test',
-        jwt: 'e2e-jwt',
-        identity: `${session.user_id}:${session.device_id}`,
-        encrypt_media: false,
-        mode: 'legacy',
-        mode_reason: 'fresh',
-        sticky_available: false,
-        peer_modes: [],
-        can_publish: true,
-        publisher_id: 'legacy',
-        backends: [
-          {
-            id: 'legacy',
-            url: 'wss://sfu.example.test',
-            jwt: 'e2e-jwt',
-            identity: `${session.user_id}:${session.device_id}`,
-          },
-        ],
-      }),
-      call_compatibility: () => ({
-        type: 'call_compatibility',
-        sticky_events: false,
-        delayed_events: false,
-        rtc_transports: 'none',
-      }),
-      server_features: () => ({ type: 'server_features', unstable_features: [] }),
-      call_support: () => ({ type: 'call_support', has_focus: false, can_join: false }),
-      room_permissions: (command) => {
-        const canPost = command.room_id !== secondRoom.room_id;
+      'encryption.delete_device': () => null,
+      'encryption.request_verification': () => 'e2e-flow',
+      'account.user_profile': (params) => {
+        const localpart = params.user_id.replace(/^@/, '').split(':')[0];
         return {
-          type: 'room_permissions',
-          own_power_level: canPost ? 100 : 0,
-          can_post: canPost,
-          can_react: canPost,
-          can_redact_own: canPost,
-          can_redact_others: canPost,
-          can_invite: canPost,
-          can_kick: canPost,
-          can_ban: canPost,
-          can_change_settings: canPost,
-          can_pin: canPost,
-          can_change_join_rule: canPost,
-          can_change_power_levels: canPost,
-          can_manage_children: canPost,
+          ...profile,
+          user_id: params.user_id,
+          display_name:
+            params.user_id === profile.user_id
+              ? profile.display_name
+              : `${localpart.charAt(0).toUpperCase()}${localpart.slice(1)}`,
+          ...(window as { __e2eProfilePatch?: Partial<ProfileView> }).__e2eProfilePatch,
         };
       },
-      markdown_to_content: (command) => ({
-        type: 'markdown_to_content',
-        body: command.markdown,
+      'account.set_profile_field': () => {
+        if (window.__e2eProfileSaveError) throw new FakeCoreError('unavailable');
+        return null;
+      },
+      'account.user_relations': () => ({ mutual_rooms: [], ignored: false }),
+      'account.account_contacts': () => [],
+      'account.ignored_users': () => [],
+      'account.invite_triage': () => [],
+      'account.account_data_types': () => [],
+      'account.account_data': (params) => accountData.get(params.event_type) ?? null,
+      'account.set_account_data': (params) => {
+        if (workerMode === 'onboarding') accountData.set(params.event_type, params.content);
+        saveOnboarding();
+        return null;
+      },
+      'account.sealed_account_data': (params) => ({
+        content: accountData.get(params.event_type) ?? null,
+        state: 'plain',
+        can_seal: false,
+      }),
+      'account.set_sealed_account_data': (params) => {
+        if (workerMode === 'onboarding') accountData.set(params.event_type, params.content);
+        saveOnboarding();
+        return null;
+      },
+      'account.bookmarks': () => readBookmarks(),
+      'account.set_bookmark': (params) => {
+        const entries = readBookmarks().filter(
+          (entry) => !(entry.room_id === params.room_id && entry.event_id === params.event_id)
+        );
+        if (params.bookmarked) {
+          const bookmarkedRoom = rooms.get(params.room_id);
+          const item = bookmarkedRoom
+            ? timelineItems(bookmarkedRoom.name ?? '').find(
+                (candidate) => candidate.event_id === params.event_id
+              )
+            : undefined;
+          entries.push({
+            bookmark_id: `${params.room_id}|${params.event_id}`,
+            room_id: params.room_id,
+            event_id: params.event_id,
+            room_name: bookmarkedRoom?.name ?? null,
+            sender: item?.sender ?? null,
+            body_preview: item?.content.kind === 'message' ? item.content.body : null,
+            event_ts: item?.timestamp ?? params.now_ms,
+            bookmarked_ts: params.now_ms,
+          });
+        }
+        writeBookmarks(entries);
+        return params.bookmarked;
+      },
+      'account.search_user_directory': () => ({ limited: false, results: [] }),
+      'account.media_preview_config': () => ({ media_previews: null, invite_avatars: null }),
+      'account.set_media_preview_config': (params) => params.config,
+      'account.profile_overrides': () => ({ overrides: [], protection: 'plain', can_seal: false }),
+      'account.set_profile_override': () => ({
+        overrides: [],
+        protection: 'plain',
+        can_seal: false,
+      }),
+      'account.dismissed_invites': () => [],
+      'account.set_invite_dismissed': (params) => (params.dismissed ? [params.room_id] : []),
+      'messages.send_message': (params) => {
+        if (window.__e2eSendError) throw new FakeCoreError(window.__e2eSendError);
+        receiveMessage(params.body, true);
+        return null;
+      },
+      'messages.markdown_to_content': (params) => ({
+        body: params.markdown,
         formatted_body: null,
         mentions: { user_ids: [], room: false },
       }),
-      notification_settings: () => ({
-        type: 'notification_settings',
-        room: null,
-        default: 'all',
+      'messages.bulk_redact': () => 0,
+      'messages.delete_thread': () => null,
+      'messages.reaction_shortcodes': () => [],
+      'calendar.calendar_entries': () => ({ entries: [], rsvps: [] }),
+      'messages.url_preview': (params) =>
+        params.url === 'https://example.test/article'
+          ? {
+              url: params.url,
+              title: 'The Example Article',
+              description: 'A short description of the article.',
+              site_name: 'Example',
+              image: null,
+              image_mime: null,
+              image_width: null,
+              image_height: null,
+              video: null,
+              theme_color: null,
+              card: null,
+              author_name: null,
+            }
+          : null,
+      'messages.schedule_message': () => 'e2e-delay',
+      'messages.schedule_attachment': () => 'e2e-attachment',
+      'messages.scheduled_messages': () => [],
+      'messages.media_config': () => ({ upload_size: 100 * 1024 * 1024 }),
+      'messages.cancel_send': () => true,
+      'messages.send_gesture': () => null,
+      'calendar.answer_calendar_event': () => null,
+      'messages.send_raw_event': () => `$message-${crypto.randomUUID()}`,
+      'messages.send_redaction': () => `$redaction-${crypto.randomUUID()}`,
+      'notifications.notification_settings': () => ({ room: null, default: 'all' }),
+      'notifications.default_notification_modes': () => ({
+        direct: 'all',
+        group: defaultGroupMode,
       }),
-      default_notification_modes: () => ({
-        type: 'default_notification_modes',
-        modes: {
-          direct: 'all',
-          group: defaultGroupMode,
-        },
-      }),
-      mention_notifications: () => ({
-        type: 'mention_notifications',
-        modes: mentionNotificationModes,
-      }),
-      event_notifications: () => ({ type: 'event_notifications', events: eventNotifications }),
-      master_mute: () => ({ type: 'master_mute', muted: masterMute }),
-      web_pusher_support: () => ({ type: 'web_pusher_support', vapid: null }),
-      web_pushers: () => ({ type: 'web_pushers', pushers: [] }),
-      ping_push_gateway: () => ({ type: 'ping_push_gateway', reached: null }),
-      send_diagnostic_push: () => ({ type: 'send_diagnostic_push', push: { kind: 'no_pusher' } }),
-      notification: () => ({ type: 'notification', notification: null }),
-      image_packs: () => ({
-        type: 'image_packs',
-        packs: (window as { __e2eImagePacks?: ImagePackView[] }).__e2eImagePacks ?? [],
-        complete: true,
-      }),
-      all_image_packs: () => ({ type: 'all_image_packs', packs: [] }),
-      user_profile: (command) => {
-        const localpart = command.user_id.replace(/^@/, '').split(':')[0];
-        return {
-          type: 'user_profile',
-          profile: {
-            ...profile,
-            user_id: command.user_id,
-            display_name:
-              command.user_id === profile.user_id
-                ? profile.display_name
-                : `${localpart.charAt(0).toUpperCase()}${localpart.slice(1)}`,
-            ...(window as { __e2eProfilePatch?: Partial<ProfileView> }).__e2eProfilePatch,
-          },
-        };
-      },
-      set_profile_field: () => {
-        if (window.__e2eProfileSaveError) throw new FakeCoreError('unavailable');
-        return bareReply('set_profile_field');
-      },
-      user_relations: () => ({ type: 'user_relations', mutual_rooms: [], ignored: false }),
-      account_contacts: () => ({ type: 'account_contacts', emails: [] }),
-      ignored_users: () => ({ type: 'ignored_users', users: [] }),
-      invite_triage: () => ({ type: 'invite_triage', invites: [] }),
-      bulk_redact: () => ({ type: 'bulk_redact', redacted: 0 }),
-      delete_thread: () => ({ type: 'delete_thread' }),
-      pinned_events: () => ({ type: 'pinned_events', event_ids: [] }),
-      reaction_shortcodes: () => ({ type: 'reaction_shortcodes', shortcodes: [] }),
-      calendar_entries: () => ({ type: 'calendar_entries', entries: [], rsvps: [] }),
-      room_has_space_parent: () => ({ type: 'room_has_space_parent', has_space_parent: false }),
-      unjoined_space_parents: () => ({ type: 'unjoined_space_parents', parents: [] }),
-      replaced_rooms: () => ({ type: 'replaced_rooms', rooms: [] }),
-      room_open: (command, port) => {
-        const permissions = handlers.room_permissions(
-          { type: 'room_permissions', room_id: command.room_id },
-          port
-        );
-        const widgets = handlers.room_state_events(
-          {
-            type: 'room_state_events',
-            room_id: command.room_id,
-            event_type: 'im.vector.modular.widgets',
-          },
-          port
-        );
-        if (permissions === NO_REPLY || widgets === NO_REPLY) return NO_REPLY;
-        const { type: _type, ...rest } = permissions;
-        return {
-          type: 'room_open',
-          permissions: rest,
-          power_level_tags: {},
-          widgets: widgets.events,
-          pinned_event_ids: [],
-          predecessor: null,
-        };
-      },
-      room_summary: () => {
-        throw new FakeCoreError('unknown_room');
-      },
-      set_pinned: () => ({ type: 'set_pinned', event_ids: [] }),
-      room_power_levels: () => ({
-        type: 'room_power_levels',
-        ban: 50,
-        kick: 50,
-        redact: 50,
-        invite: 0,
-        events_default: 0,
-        state_default: 50,
-        users_default: 0,
-        events: {},
-        users: { [session.user_id]: 100 },
-        notifications_room: 50,
-      }),
-      set_power_level: (command) => ({
-        type: 'set_power_level',
-        ban: 50,
-        kick: 50,
-        redact: 50,
-        invite: 0,
-        events_default: 0,
-        state_default: 50,
-        users_default: 0,
-        events: {},
-        users: { [session.user_id]: 100 },
-        notifications_room: 50,
-        ...command.levels,
-      }),
-      sync_power_levels_from_space: () => ({
-        type: 'sync_power_levels_from_space',
-        levels: {
-          ban: 50,
-          kick: 50,
-          redact: 50,
-          invite: 0,
-          events_default: 0,
-          state_default: 50,
-          users_default: 0,
-          events: {},
-          users: { [session.user_id]: 100 },
-          notifications_room: 50,
-        },
-        tags: {},
-      }),
-      sync_child_power_levels: (command) => ({
-        type: 'sync_child_power_levels',
-        updated: command.child_ids.length,
-        skipped: 0,
-      }),
-      power_level_tags: () => ({ type: 'power_level_tags', tags: {} }),
-      set_power_level_tag: () => ({ type: 'set_power_level_tag', tags: {} }),
-      room_versions: () => ({
-        type: 'room_versions',
-        default: '10',
-        available: [
-          { id: '10', stable: true },
-          { id: '11', stable: true },
-        ],
-      }),
-      room_aliases: () => ({ type: 'room_aliases', aliases: [] }),
-      public_rooms: () => ({
-        type: 'public_rooms',
-        rooms: [],
-        next_batch: null,
-        total: 0,
-      }),
-      room_directory_visibility: () => ({ type: 'room_directory_visibility', public: false }),
-      upgrade_room: () => ({ type: 'upgrade_room', replacement_room: successorRoom.room_id }),
-      room_state_event: (command) => ({
-        type: 'room_state_event',
-        content:
-          command.event_type === 'moe.sable.room.abbreviations'
-            ? { entries: abbreviations.get(command.room_id) ?? [] }
-            : command.event_type === 'm.room.tombstone' &&
-                command.room_id === tombstonedRoom.room_id
-              ? { replacement_room: successorRoom.room_id, body: null }
-              : null,
-      }),
-      room_state_events: (command) => {
-        const content =
-          command.event_type === 'im.vector.modular.widgets'
-            ? roomWidgets.get(command.room_id)
-            : undefined;
-        return {
-          type: 'room_state_events',
-          events: content ? [{ state_key: WIDGET_STATE_KEY, content }] : [],
-        };
-      },
-      bot_commands: () => ({ type: 'bot_commands', commands: [] }),
-      url_preview: (command) => ({
-        type: 'url_preview',
-        preview:
-          command.url === 'https://example.test/article'
-            ? {
-                url: command.url,
-                title: 'The Example Article',
-                description: 'A short description of the article.',
-                site_name: 'Example',
-                image: null,
-                image_mime: null,
-                image_width: null,
-                image_height: null,
-                video: null,
-                theme_color: null,
-                card: null,
-                author_name: null,
-              }
-            : null,
-      }),
-      list_threads: () => ({ type: 'list_threads', roots: [], next_batch: null }),
-      room_attachments: () => ({ type: 'room_attachments', items: [], next_batch: null }),
-      notification_keywords: () => ({
-        type: 'notification_keywords',
-        keywords: notificationKeywords.map((entry) => ({ ...entry })),
-      }),
-      timestamp_to_event: () => ({ type: 'timestamp_to_event', event_id: null }),
-      room_account_data: (command) => ({
-        type: 'room_account_data',
-        content:
-          command.event_type === 'm.fully_read'
-            ? { event_id: fullyReadEventId(command.room_id) }
-            : null,
-      }),
-      read_marker: (command) => ({
-        type: 'read_marker',
-        event_id: fullyReadEventId(command.room_id),
-      }),
-      account_data_types: () => ({ type: 'account_data_types', event_types: [] }),
-      access_token: () => ({ type: 'access_token', token: 'e2e-access-token' }),
-      push_event: () => ({ type: 'push_event', fetched: { kind: 'unavailable' } }),
-      room_cosmetics: () => ({ type: 'room_cosmetics', space_id: null, users: [] }),
-      account_data: (command) => ({
-        type: 'account_data',
-        content: accountData.get(command.event_type) ?? null,
-      }),
-      set_account_data: (command) => {
-        if (workerMode === 'onboarding') accountData.set(command.event_type, command.content);
-        saveOnboarding();
-        return { type: 'set_account_data' };
-      },
-      sealed_account_data: (command) => ({
-        type: 'sealed_account_data',
-        document: {
-          content: accountData.get(command.event_type) ?? null,
-          state: 'plain',
-          can_seal: false,
-        },
-      }),
-      set_sealed_account_data: (command) => {
-        if (workerMode === 'onboarding') accountData.set(command.event_type, command.content);
-        saveOnboarding();
-        return { type: 'set_sealed_account_data' };
-      },
-      event_source: (command) => ({
-        type: 'event_source',
-        source:
-          workerMode === 'thread_links' && command.event_id.startsWith('$thread-reply-')
-            ? JSON.stringify({
-                type: 'm.room.message',
-                content: {
-                  'm.relates_to': { rel_type: 'm.thread', event_id: '$thread-root:example.test' },
-                },
-              })
-            : command.event_id === '$edit:example.test'
-              ? JSON.stringify({
-                  type: 'm.room.message',
-                  content: {
-                    'm.relates_to': { rel_type: 'm.replace', event_id: '$general-8:example.test' },
-                  },
-                })
-              : '{}',
-        encrypted: false,
-        original: null,
-      }),
-      edit_history: () => ({ type: 'edit_history', versions: [] }),
-      event_items: (command) => {
-        const room = rooms.get(command.room_id);
-        const items = room ? timelineItems(room.name ?? '') : [];
-        return {
-          type: 'event_items',
-          items: command.event_ids.flatMap((eventId) =>
-            items.filter((candidate) => candidate.event_id === eventId)
-          ),
-        };
-      },
-      personas: () => ({
-        type: 'personas',
-        catalog: { personas: [], account: null, rooms: {}, disabled_rooms: [] },
-      }),
-      save_persona: () => ({ type: 'save_persona', personas: [] }),
-      remove_persona: () => ({ type: 'remove_persona', personas: [] }),
-      reorder_personas: () => ({ type: 'reorder_personas', personas: [] }),
-      inbox_notifications: (command) => {
+      'notifications.mention_notifications': () => mentionNotificationModes,
+      'notifications.event_notifications': () => eventNotifications,
+      'notifications.master_mute': () => masterMute,
+      'notifications.notification': () => null,
+      'notifications.notification_keywords': () =>
+        notificationKeywords.map((entry) => ({ ...entry })),
+      'notifications.push_event': () => ({ kind: 'unavailable' }),
+      'notifications.inbox_notifications': (params) => {
         const items = [
           {
             room_id: room.room_id,
@@ -1494,435 +1092,628 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
           },
         ].filter(
           (item) =>
-            (command.include_read || !item.read) &&
-            (command.filter !== 'mentions' || item.highlight) &&
-            (command.filter !== 'direct' || item.is_direct)
+            (params.include_read || !item.read) &&
+            (params.filter !== 'mentions' || item.highlight) &&
+            (params.filter !== 'direct' || item.is_direct)
         );
-        return { type: 'inbox_notifications', items, has_more: false };
+        return { items, has_more: false };
       },
-      backfill_inbox: () => ({ type: 'backfill_inbox', recorded: 0, has_more: false }),
-      bookmarks: () => ({ type: 'bookmarks', bookmarks: readBookmarks() }),
-      set_bookmark: (command) => {
-        const entries = readBookmarks().filter(
-          (entry) => !(entry.room_id === command.room_id && entry.event_id === command.event_id)
-        );
-        if (command.bookmarked) {
-          const bookmarkedRoom = rooms.get(command.room_id);
-          const item = bookmarkedRoom
-            ? timelineItems(bookmarkedRoom.name ?? '').find(
-                (candidate) => candidate.event_id === command.event_id
-              )
-            : undefined;
-          entries.push({
-            bookmark_id: `${command.room_id}|${command.event_id}`,
-            room_id: command.room_id,
-            event_id: command.event_id,
-            room_name: bookmarkedRoom?.name ?? null,
-            sender: item?.sender ?? null,
-            body_preview: item?.content.kind === 'message' ? item.content.body : null,
-            event_ts: item?.timestamp ?? command.now_ms,
-            bookmarked_ts: command.now_ms,
-          });
-        }
-        writeBookmarks(entries);
-        return { type: 'set_bookmark', bookmarked: command.bookmarked };
+      'notifications.backfill_inbox': () => ({ recorded: 0, has_more: false }),
+      'notifications.add_notification_keyword': (params) => {
+        if (params.keyword === 'network-fail') throw new FakeCoreError('failed');
+        const existing = notificationKeywords.find((entry) => entry.keyword === params.keyword);
+        if (existing) existing.mode = 'notify';
+        else notificationKeywords.push({ keyword: params.keyword, mode: 'notify' });
+        return null;
       },
-      room_timeline_events: () => ({ type: 'room_timeline_events', events: [] }),
-      room_state_events_raw: () => ({ type: 'room_state_events_raw', events: [] }),
-      room_full_state: () => ({ type: 'room_full_state', events: [] }),
-      search_user_directory: () => ({
-        type: 'search_user_directory',
-        limited: false,
-        results: [],
-      }),
-      open_id_token: () => ({
-        type: 'open_id_token',
-        token: {
-          access_token: 'e2e-openid',
-          token_type: 'Bearer',
-          matrix_server_name: 'example.test',
-          expires_in_ms: 3_600_000,
-        },
-      }),
-      discover_push_gateway: () => ({ type: 'discover_push_gateway', gateway: null }),
-      widget_send_delayed_event: () => ({
-        type: 'widget_send_delayed_event',
-        delay_id: 'e2e-widget-delay',
-      }),
-      widget_send_sticky_event: () => ({
-        type: 'widget_send_sticky_event',
-        event_id: '$e2e-widget-sticky',
-      }),
-      restart_delayed_event: () => ({ type: 'restart_delayed_event' }),
-      widget_send_to_device: () => ({ type: 'widget_send_to_device' }),
-      room_account_data_raw: () => ({ type: 'room_account_data_raw', event: null }),
-      room_sticky_events: () => ({ type: 'room_sticky_events', events: [] }),
-      room_event_relations: () => ({
-        type: 'room_event_relations',
-        relations: { chunk: window.__e2eRelationEvents ?? [], next_batch: null, prev_batch: null },
-      }),
-      turn_server: () => ({
-        type: 'turn_server',
-        server: { username: 'e2e', password: 'e2e', uris: [], ttl_ms: 3_600_000 },
-      }),
-      rtc_transports: () => ({ type: 'rtc_transports', body: { rtc_transports: [] } }),
-      rtc_livekit: () => ({ type: 'rtc_livekit', body: {} }),
-      set_widget_feed: () => ({ type: 'set_widget_feed' }),
-      known_rooms: () => ({ type: 'known_rooms', room_ids: [] }),
-      integration_manager_url: () => ({
-        type: 'integration_manager_url',
-        url: 'https://integrations.example.test/index.html',
-      }),
-      schedule_message: () => ({ type: 'schedule_message', delay_id: 'e2e-delay' }),
-      schedule_attachment: () => ({ type: 'schedule_attachment', delay_id: 'e2e-attachment' }),
-      scheduled_messages: () => ({ type: 'scheduled_messages', messages: [] }),
-      media_config: () => ({ type: 'media_config', upload_size: 100 * 1024 * 1024 }),
-      delayed_events_supported: () => ({ type: 'delayed_events_supported', supported: true }),
-      cancel_send: () => ({ type: 'cancel_send', cancelled: true }),
-      create_room: () => ({ type: 'create_room', room_id: '!created:example.test' }),
-      create_dm: () => ({ type: 'create_dm', room_id: '!dm:example.test' }),
-      space_hierarchy: (command) => {
-        if (command.space_id === '!refused:example.test') throw new FakeCoreError('failed');
-        const page = hierarchyPages[`${command.space_id}|${command.from ?? ''}`] ?? {
-          rooms: [],
-          next_batch: null,
-        };
-        return { type: 'space_hierarchy', rooms: page.rooms, next_batch: page.next_batch };
+      'notifications.remove_notification_keyword': (params) => {
+        if (params.keyword === 'stuck-keyword') throw new FakeCoreError('failed');
+        const index = notificationKeywords.findIndex((entry) => entry.keyword === params.keyword);
+        if (index !== -1) notificationKeywords.splice(index, 1);
+        return null;
       },
-      space_sidebar: () => ({ type: 'space_sidebar', items: readSidebar() }),
-      room_preview: (command) => ({
-        type: 'room_preview',
-        preview: {
-          room_id: command.address,
-          canonical_alias: null,
-          name: 'Preview Room',
-          topic: null,
-          avatar_url: null,
-          is_space: false,
-          is_voice: false,
-          num_joined_members: 3,
-          join_rule: 'public',
-          state: null,
-        },
-      }),
-      join_room: (command) => ({ type: 'join_room', room_id: command.address }),
-      knock_room: (command) => ({ type: 'knock_room', room_id: command.address }),
-      room_via_servers: () => ({ type: 'room_via_servers', servers: ['example.test'] }),
-      sync_status: () => ({
-        type: 'sync_status',
-        status: { state: 'live' },
-      }),
-      encryption_status: () => ({ type: 'encryption_status', status: encryption() }),
-      key_backup_status: () => ({
-        type: 'key_backup_status',
-        status: {
-          local_keys: backupDownload?.state === 'complete' ? 200 : 120,
-          backed_up_keys: backupDownload?.state === 'complete' ? 200 : 120,
-          cloud_keys: 200,
-          can_restore: true,
-          download: backupDownload,
-        },
-      }),
-      download_key_backup: (command) => {
-        backupDownload = {
-          account_id: session.account_id,
-          request_id: command.request_id,
-          state: 'complete',
-          total: 200,
-          processed: 200,
-          imported: 80,
-          failed: 0,
-        };
-        return { type: 'download_key_backup', download: backupDownload };
+      'notifications.set_notification_keyword_mode': (params) => {
+        const existing = notificationKeywords.find((entry) => entry.keyword === params.keyword);
+        if (existing) existing.mode = params.mode;
+        return null;
       },
-      sign_out_safety: () => ({
-        type: 'sign_out_safety',
-        safety: {
-          encryption: {
-            verification: workerMode === 'unverified' ? 'unverified' : 'verified',
-            recovery: 'enabled',
-            cross_signing_ready: true,
-            backup_unlocked: true,
-            signing_keys: { master: true, self_signing: true, user_signing: true },
-            recovery_passphrase: false,
-            account_data_key: false,
-          },
-          backup_enabled: true,
-          backup_uploaded: true,
-          has_encrypted_rooms: true,
-        },
+      'notifications.set_mention_notifications': (params) => {
+        mentionNotificationModes[params.rule] = params.mode;
+        return null;
+      },
+      'notifications.set_default_notification_mode': (params) => {
+        if (!params.direct && (params.mode === 'all' || params.mode === 'mentions'))
+          defaultGroupMode = params.mode;
+        return null;
+      },
+      'notifications.set_event_notification': (params) => {
+        eventNotifications[params.event] = params.enabled;
+        return null;
+      },
+      'notifications.set_master_mute': (params) => {
+        masterMute = params.muted;
+        return null;
+      },
+      'push.web_pusher_support': () => null,
+      'push.web_pushers': () => [],
+      'push.ping_push_gateway': () => null,
+      'push.send_diagnostic_push': () => ({ kind: 'no_pusher' }),
+      'push.discover_push_gateway': () => null,
+      'session.restore': () => {
+        if (workerMode === 'loading') return NO_REPLY;
+        if (workerMode === 'error') throw new FakeCoreError('failed');
+        return signedOut ? null : session;
+      },
+      'session.logout': () => {
+        signedOut = true;
+        return null;
+      },
+      'session.list_accounts': () => (signedOut ? [] : (window.__e2eAccounts ?? [session])),
+      'session.switch_account': () => {
+        if (window.__e2eSwitchAccountError) throw new FakeCoreError('unavailable');
+        return session;
+      },
+      'session.request_open_id_token': () => ({
+        access_token: 'e2e-openid-token',
+        matrix_server_name: 'example.test',
+        expires_in: 3600,
       }),
-      search_coverage: () => ({
-        type: 'search_coverage',
-        coverage: { documents: 0, rooms_pending: 0, rooms_failed: 0, state: 'complete' },
+      'session.homeserver_info': () => ({
+        homeserver: 'https://example.test',
+        server: { name: 'Sable Test', version: '1.0' },
       }),
-      search_metrics: () => ({
-        type: 'search_metrics',
-        metrics: {
-          phase: 'idle',
-          documents: 0,
-          documents_loaded: 0,
-          memory_bytes: 0,
-          memory_budget: 67108864,
-          disk_bytes: 0,
-          disk_budget: 536870912,
-          rooms_joined: 0,
-          rooms_indexed: 0,
-          rooms_pending: 0,
-          rooms_exhausted: 0,
-          rooms_failed: 0,
-          rooms_blind: 0,
-          rooms_unreadable: 0,
-          events_crawled: 0,
-          event_budget: 20000,
-          batches: 0,
-          pushbacks: 0,
-          last_request_ms: null,
-          average_request_ms: null,
-          running_ms: null,
-        },
+      'session.access_token': () => 'e2e-access-token',
+      'session.open_id_token': () => ({
+        access_token: 'e2e-openid',
+        token_type: 'Bearer',
+        matrix_server_name: 'example.test',
+        expires_in_ms: 3_600_000,
       }),
-      devices: () => ({
-        type: 'devices',
-        account_management: false,
-        oauth: false,
-        devices: [
+      'session.sync_status': () => ({ state: 'live' }),
+      'session.server_features': () => [],
+      'session.delayed_events_supported': () => true,
+      'session.known_rooms': () => [],
+      'session.integration_manager_url': () => 'https://integrations.example.test/index.html',
+      'search.search_messages': (params) => ({ hits: searchHits(params), older: null }),
+      'search.search_coverage': () => ({
+        documents: 0,
+        rooms_pending: 0,
+        rooms_failed: 0,
+        state: 'complete',
+      }),
+      'search.search_metrics': () => ({
+        phase: 'idle',
+        documents: 0,
+        documents_loaded: 0,
+        memory_bytes: 0,
+        memory_budget: 67108864,
+        disk_bytes: 0,
+        disk_budget: 536870912,
+        rooms_joined: 0,
+        rooms_indexed: 0,
+        rooms_pending: 0,
+        rooms_exhausted: 0,
+        rooms_failed: 0,
+        rooms_blind: 0,
+        rooms_unreadable: 0,
+        events_crawled: 0,
+        event_budget: 20000,
+        batches: 0,
+        pushbacks: 0,
+        last_request_ms: null,
+        average_request_ms: null,
+        running_ms: null,
+      }),
+      'calls.join_call': () => ({
+        session: 1,
+        url: 'wss://sfu.example.test',
+        jwt: 'e2e-jwt',
+        identity: `${session.user_id}:${session.device_id}`,
+        encrypt_media: false,
+        mode: 'legacy',
+        mode_reason: 'fresh',
+        sticky_available: false,
+        peer_modes: [],
+        can_publish: true,
+        publisher_id: 'legacy',
+        backends: [
           {
-            device_id: session.device_id,
-            display_name: 'This browser',
-            is_verified: identityConfirmed,
-            has_keys: true,
-            cross_signed: identityConfirmed,
-            is_own: true,
-            last_seen_ts: null,
-            last_seen_ip: null,
-          },
-          {
-            device_id: 'PHONE',
-            display_name: 'Phone',
-            is_verified: false,
-            has_keys: true,
-            cross_signed: false,
-            is_own: false,
-            last_seen_ts: null,
-            last_seen_ip: null,
+            id: 'legacy',
+            url: 'wss://sfu.example.test',
+            jwt: 'e2e-jwt',
+            identity: `${session.user_id}:${session.device_id}`,
           },
         ],
       }),
-      user_security: (command) => ({
-        type: 'user_security',
-        security: {
-          verification: command.user_id === '@alice:example.org' ? 'verified' : 'unverified',
-          verification_violation: false,
-          devices: [
-            {
-              device_id: 'PHONE',
-              display_name: 'Phone',
-              verified: true,
-              cross_signed: true,
-              blocked: false,
-            },
-          ],
-        },
+      'calls.call_compatibility': () => ({
+        sticky_events: false,
+        delayed_events: false,
+        rtc_transports: 'none',
       }),
-      enable_recovery: () => ({ type: 'enable_recovery', recovery_key: 'e2e-recovery-key' }),
-      reset_recovery_key: () => ({ type: 'reset_recovery_key', recovery_key: 'e2e-recovery-key' }),
-      reset_identity: (_command, port) => {
-        if (workerMode === 'onboarding') {
-          identityConfirmed = true;
-          saveOnboarding();
-          window.setTimeout(() => {
-            port.emit({ type: 'encryption_status', status: encryption() });
-          }, 50);
+      'calls.call_support': () => ({ has_focus: false, can_join: false }),
+      'calls.turn_server': () => ({
+        username: 'e2e',
+        password: 'e2e',
+        uris: [],
+        ttl_ms: 3_600_000,
+      }),
+      'calls.rtc_transports': () => ({ rtc_transports: [] }),
+      'calls.rtc_livekit': () => ({}),
+      'widgets.widget_send_delayed_event': () => 'e2e-widget-delay',
+      'widgets.widget_send_sticky_event': () => '$e2e-widget-sticky',
+      'widgets.room_sticky_events': () => [],
+      'timeline.subscribe_room_list': () => ({
+        subscription: 1,
+        rooms: joinedRooms,
+      }),
+      'timeline.subscribe_timeline': (params) => {
+        window.__e2eTimelineFocus.push(params.focus);
+        if (
+          workerMode === 'thread_error' &&
+          params.focus.kind === 'thread' &&
+          window.__e2eTimelineFocus.filter((focus) => focus.kind === 'thread').length === 1
+        ) {
+          throw new FakeCoreError('load_failed');
         }
+        if (workerMode === 'unread_context_error' && params.focus.kind === 'event') {
+          throw new FakeCoreError('load_failed');
+        }
+        const subscription = nextSubscription++;
+        subscriptions.set(subscription, {
+          roomId: params.room_id,
+          page: 0,
+          live: params.focus.kind === 'live',
+          thread: params.focus.kind === 'thread',
+          oldest: workerMode === 'unread_catchup' ? 60 : 0,
+        });
+        timelineRooms.push(params.room_id);
+        timelineSubscriptions.push(subscription);
+        const roomName = subscriptionRoom(subscription).name ?? '';
+        const items = timelineItems(roomName);
+        const unreadContext =
+          (workerMode === 'unread_history' || workerMode === 'unread_catchup') &&
+          params.focus.kind === 'event';
+        if (unreadContext) unreadContextOpened = true;
+        const marker: TimelineItemView = {
+          ...items[0],
+          id: `${roomName.toLowerCase()}-read-marker`,
+          event_id: null,
+          sender: null,
+          sender_name: null,
+          content: { kind: 'read_marker' },
+          row: 'annotation',
+          forwardable: false,
+          redactable: false,
+          visibility: 'always',
+        };
         return {
-          type: 'reset_identity',
-          step: { step: 'done', recovery_key: 'e2e-recovery-key' },
+          subscription,
+          items: unreadContext
+            ? [...items.slice(0, 5), marker, ...items.slice(5, 20)]
+            : workerMode === 'thread_links' && params.focus.kind === 'thread'
+              ? [
+                  { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
+                  ...Array.from({ length: 40 }, (_, index) => ({
+                    ...items[0],
+                    id: `thread-reply-${index}`,
+                    event_id: `$thread-reply-${index}:example.test`,
+                    content: messageContent(`Thread reply ${index}`),
+                    thread_root: '$thread-root:example.test',
+                  })),
+                ]
+              : workerMode === 'thread_links' &&
+                  params.focus.kind === 'event' &&
+                  params.focus.event_id === '$thread-reply-older:example.test'
+                ? [
+                    { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
+                    {
+                      ...items[0],
+                      id: 'thread-reply-older',
+                      event_id: '$thread-reply-older:example.test',
+                      content: messageContent('Older thread reply'),
+                      thread_root: '$thread-root:example.test',
+                    },
+                    ...Array.from({ length: 5 }, (_, index) => ({
+                      ...items[0],
+                      id: `thread-reply-${index}`,
+                      event_id: `$thread-reply-${index}:example.test`,
+                      content: messageContent(`Thread reply ${index}`),
+                      thread_root: '$thread-root:example.test',
+                    })),
+                  ]
+                : timelineSnapshot(roomName),
+          aggregations: [],
         };
       },
-      continue_identity_reset: () => ({
-        type: 'continue_identity_reset',
-        recovery_key: 'e2e-recovery-key',
+      'timeline.unsubscribe': (params) => {
+        subscriptions.delete(params.subscription);
+        return null;
+      },
+      'timeline.paginate': (params, port) => {
+        window.__e2ePaginationDirections.push(params.direction);
+        const state = subscriptions.get(params.subscription);
+        if (!state) throw new Error('unknown timeline subscription');
+        const paginated = subscriptionRoom(params.subscription);
+        const roomName = paginated.name ?? '';
+        if (workerMode === 'thread_links' && state.thread) {
+          window.setTimeout(() => {
+            port.emit({
+              type: 'timeline_diff',
+              subscription: params.subscription,
+              diffs: [
+                {
+                  op: 'insert',
+                  index: 1,
+                  value: {
+                    ...timelineItems(roomName)[0],
+                    id: 'thread-reply-older',
+                    event_id: '$thread-reply-older:example.test',
+                    content: messageContent('Older thread reply'),
+                    thread_root: '$thread-root:example.test',
+                  },
+                },
+              ],
+            });
+          }, 750);
+          return { direction: params.direction, reached_end: true };
+        }
+        if (workerMode === 'unread_catchup') {
+          const items = timelineItems(roomName);
+          if (params.direction === 'backward') {
+            const previous = state.oldest;
+            state.oldest = Math.max(0, previous - 20);
+            port.emit({
+              type: 'timeline_diff',
+              subscription: params.subscription,
+              diffs: items
+                .slice(state.oldest, previous)
+                .map((value, index) => ({ op: 'insert' as const, index, value })),
+            });
+            return {
+              direction: params.direction,
+              reached_end: state.oldest === 0,
+            };
+          }
+          state.page += 1;
+          if (state.page === 3) {
+            arrivals.push({
+              ...items[79],
+              id: 'during-handoff',
+              event_id: '$during-handoff:example.test',
+              content: messageContent('Arrived during handoff'),
+            });
+          }
+          window.setTimeout(() => {
+            port.emit({
+              type: 'timeline_diff',
+              subscription: params.subscription,
+              diffs: [
+                { op: 'append', values: items.slice(state.page * 20, (state.page + 1) * 20) },
+              ],
+            });
+          }, 50);
+          return { direction: params.direction, reached_end: state.page >= 3 };
+        }
+        if (workerMode === 'unread_history' || workerMode === 'unread_context_error') {
+          if (params.direction === 'backward') {
+            throw new FakeCoreError('load_failed');
+          }
+          state.page += 1;
+          const values = timelineItems(roomName, state.page * 20);
+          port.emit({
+            type: 'timeline_diff',
+            subscription: params.subscription,
+            diffs: [{ op: 'append', values }],
+          });
+          return { direction: params.direction, reached_end: false };
+        }
+        if (workerMode === 'forward_history') {
+          if (params.direction === 'backward') {
+            return { direction: params.direction, reached_end: true };
+          }
+          state.page += 1;
+          const page = state.page;
+          const items = timelineItems(roomName);
+          const values =
+            page === 1
+              ? [
+                  {
+                    ...items[4],
+                    id: 'filtered-forward',
+                    event_id: '$filtered-forward:example.test',
+                    row: 'event' as const,
+                    forwardable: false,
+                    redactable: true,
+                    visibility: 'profile_change' as const,
+                    content: {
+                      kind: 'profile_change' as const,
+                      user_id: '@alice:example.test',
+                      display_name: { old: 'Alice', new: 'Alicia' },
+                      avatar: null,
+                    },
+                  },
+                ]
+              : items.slice((page - 1) * 5, page * 5);
+          window.setTimeout(() => {
+            port.emit({
+              type: 'timeline_diff',
+              subscription: params.subscription,
+              diffs: values.map((value) => ({ op: 'push_back' as const, value })),
+            });
+          }, 250);
+          return { direction: params.direction, reached_end: page >= 16 };
+        }
+        state.page += 1;
+        const page = state.page;
+        const reachedEnd =
+          workerMode === 'endless_history'
+            ? false
+            : workerMode === 'empty_room' || workerMode === 'delayed_history' || page >= 2;
+        port.emit({
+          type: 'timeline_pagination',
+          subscription: params.subscription,
+          loading: true,
+          reached_start: false,
+        });
+        window.setTimeout(() => {
+          port.emit({
+            type: 'timeline_diff',
+            subscription: params.subscription,
+            diffs: paginationDiffs(roomName, page),
+          });
+          port.emit({
+            type: 'timeline_pagination',
+            subscription: params.subscription,
+            loading: false,
+            reached_start: reachedEnd,
+          });
+        }, paginationDelay());
+        return { direction: params.direction, reached_end: reachedEnd };
+      },
+      'timeline.event_items': (params) => {
+        const room = rooms.get(params.room_id);
+        const items = room ? timelineItems(room.name ?? '') : [];
+        return params.event_ids.flatMap((eventId) =>
+          items.filter((candidate) => candidate.event_id === eventId)
+        );
+      },
+      'timeline.room_timeline_events': () => [],
+      'timeline.timestamp_to_event': () => null,
+      'timeline.list_threads': () => ({ roots: [], next_batch: null }),
+      'timeline.event_source': (params) => ({
+        source:
+          workerMode === 'thread_links' && params.event_id.startsWith('$thread-reply-')
+            ? JSON.stringify({
+                type: 'm.room.message',
+                content: {
+                  'm.relates_to': { rel_type: 'm.thread', event_id: '$thread-root:example.test' },
+                },
+              })
+            : params.event_id === '$edit:example.test'
+              ? JSON.stringify({
+                  type: 'm.room.message',
+                  content: {
+                    'm.relates_to': { rel_type: 'm.replace', event_id: '$general-8:example.test' },
+                  },
+                })
+              : '{}',
+        encrypted: false,
+        original: null,
       }),
-      export_room_keys: () => {
-        throw new FakeCoreError('unsupported');
-      },
-      import_room_keys: () => {
-        throw new FakeCoreError('unsupported');
-      },
-      delete_device: () => ({ type: 'delete_device', management_url: null }),
-      request_verification: () => ({ type: 'request_verification', flow_id: 'e2e-flow' }),
-      add_notification_keyword: (command) => {
-        if (command.keyword === 'network-fail') throw new FakeCoreError('failed');
-        const existing = notificationKeywords.find((entry) => entry.keyword === command.keyword);
-        if (existing) existing.mode = 'notify';
-        else notificationKeywords.push({ keyword: command.keyword, mode: 'notify' });
-        return { type: 'add_notification_keyword' };
-      },
-      remove_notification_keyword: (command) => {
-        if (command.keyword === 'stuck-keyword') throw new FakeCoreError('failed');
-        const index = notificationKeywords.findIndex((entry) => entry.keyword === command.keyword);
-        if (index !== -1) notificationKeywords.splice(index, 1);
-        return { type: 'remove_notification_keyword' };
-      },
-      set_notification_keyword_mode: (command) => {
-        const existing = notificationKeywords.find((entry) => entry.keyword === command.keyword);
-        if (existing) existing.mode = command.mode;
-        return { type: 'set_notification_keyword_mode' };
-      },
-      set_mention_notifications: (command) => {
-        mentionNotificationModes[command.rule] = command.mode;
-        return { type: 'set_mention_notifications' };
-      },
-      set_default_notification_mode: (command) => {
-        if (!command.direct && (command.mode === 'all' || command.mode === 'mentions'))
-          defaultGroupMode = command.mode;
-        return { type: 'set_default_notification_mode' };
-      },
-      set_event_notification: (command) => {
-        eventNotifications[command.event] = command.enabled;
-        return { type: 'set_event_notification' };
-      },
-      set_master_mute: (command) => {
-        masterMute = command.muted;
-        return { type: 'set_master_mute' };
-      },
-      send_state_event: (command) => {
-        if (command.event_type === 'im.vector.modular.widgets')
-          roomWidgets.set(command.room_id, null);
-        return { type: 'send_state_event', event_id: `$state-${crypto.randomUUID()}` };
-      },
-      media_preview_config: () => ({
-        type: 'media_preview_config',
-        config: { media_previews: null, invite_avatars: null },
+      'timeline.edit_history': () => [],
+      'timeline.read_marker': (params) => fullyReadEventId(params.room_id),
+      'timeline.room_event_relations': () => ({
+        chunk: window.__e2eRelationEvents ?? [],
+        next_batch: null,
+        prev_batch: null,
       }),
-      set_media_preview_config: (command) => ({
-        type: 'set_media_preview_config',
-        config: command.config,
-      }),
-      send_gesture: () => ({ type: 'send_gesture' }),
-      answer_calendar_event: () => ({ type: 'answer_calendar_event' }),
-      add_room_widget: () => ({ type: 'add_room_widget', widget_id: 'widget' }),
-      remove_room_widget: () => ({ type: 'remove_room_widget' }),
-      update_server_acl: () => ({ type: 'update_server_acl' }),
-      pin_read_state: () => ({
-        type: 'pin_read_state',
+      'timeline.pinned_events': () => [],
+      'timeline.set_pinned': () => [],
+      'timeline.pin_read_state': () => ({
         pinned_ids: [],
         unread: 0,
         fresh_ids: [],
       }),
-      mark_pins_seen: (command) => ({
-        type: 'mark_pins_seen',
-        pinned_ids: command.pinned_ids,
+      'timeline.mark_pins_seen': (params) => ({
+        pinned_ids: params.pinned_ids,
         unread: 0,
         fresh_ids: [],
       }),
-      persona_backup: () => ({ type: 'persona_backup', backup: '{}' }),
-      check_persona_backup: () => ({ type: 'check_persona_backup' }),
-      restore_persona_backup: () => ({ type: 'restore_persona_backup' }),
-      profile_overrides: () => ({
-        type: 'profile_overrides',
-        overrides: [],
-        protection: 'plain',
-        can_seal: false,
-      }),
-      set_profile_override: () => ({
-        type: 'set_profile_override',
-        overrides: [],
-        protection: 'plain',
-        can_seal: false,
-      }),
-      dismissed_invites: () => ({ type: 'dismissed_invites', room_ids: [] }),
-      set_invite_dismissed: (command) => ({
-        type: 'set_invite_dismissed',
-        room_ids: command.dismissed ? [command.room_id] : [],
-      }),
-      save_image_pack: () => ({ type: 'save_image_pack' }),
-      create_room_image_pack: () => ({ type: 'create_room_image_pack', state_key: 'pack' }),
-      delete_room_image_pack: () => ({ type: 'delete_room_image_pack' }),
-      convert_legacy_image_packs: () => ({ type: 'convert_legacy_image_packs' }),
-      remove_legacy_image_packs: () => ({ type: 'remove_legacy_image_packs' }),
-      add_account_pack_images: () => ({ type: 'add_account_pack_images' }),
-      pack_subscriptions: () => ({ type: 'pack_subscriptions', subscriptions: [] }),
-      set_pack_subscriptions: (command) => ({
-        type: 'set_pack_subscriptions',
-        subscriptions: command.added,
-      }),
-      history_visibility: () => ({ type: 'history_visibility', visibility: 'shared' }),
-      set_history_visibility: () => ({ type: 'set_history_visibility' }),
-      enable_encryption: () => ({ type: 'enable_encryption' }),
-      canonical_alias: () => ({ type: 'canonical_alias', alias: null, alt_aliases: [] }),
-      set_canonical_alias: (command) => ({
-        type: 'set_canonical_alias',
-        alias: command.alias,
-        alt_aliases: command.alt_aliases,
-      }),
-      room_banner: () => ({ type: 'room_banner', url: null }),
-      set_room_banner: () => ({ type: 'set_room_banner' }),
-      member_list_threshold: () => ({ type: 'member_list_threshold', always_listed_from: null }),
-      set_member_list_threshold: () => ({ type: 'set_member_list_threshold' }),
-      room_abbreviations: (command) => ({
-        type: 'room_abbreviations',
-        entries: abbreviations.get(command.room_id) ?? [],
-      }),
-      set_room_abbreviations: (command) => {
-        abbreviations.set(command.room_id, command.entries);
-        return { type: 'set_room_abbreviations' };
+      'spaces.set_space_child_order': (params) => {
+        recordChildOrder(params);
+        return null;
       },
-      set_tombstone: () => ({ type: 'set_tombstone' }),
-      member_look: () => ({
-        type: 'member_look',
+      'spaces.space_hierarchy': (params) => {
+        if (params.space_id === '!refused:example.test') throw new FakeCoreError('failed');
+        const page = hierarchyPages[`${params.space_id}|${params.from ?? ''}`] ?? {
+          rooms: [],
+          next_batch: null,
+        };
+        return { rooms: page.rooms, next_batch: page.next_batch };
+      },
+      'spaces.space_sidebar': () => readSidebar(),
+      'spaces.set_space_sidebar': (params, port) => {
+        sessionStorage.setItem(SIDEBAR_KEY, JSON.stringify(params.items));
+        window.setTimeout(() => {
+          port.emit({ type: 'space_sidebar_changed', items: params.items });
+        });
+        return null;
+      },
+      'spaces.room_has_space_parent': () => false,
+      'spaces.unjoined_space_parents': () => [],
+      'packs.image_packs': () => ({
+        packs: (window as { __e2eImagePacks?: ImagePackView[] }).__e2eImagePacks ?? [],
+        complete: true,
+      }),
+      'packs.all_image_packs': () => [],
+      'packs.create_room_image_pack': () => 'pack',
+      'packs.pack_subscriptions': () => [],
+      'packs.set_pack_subscriptions': (params) => params.added,
+      'personas.personas': () => ({ personas: [], account: null, rooms: {}, disabled_rooms: [] }),
+      'personas.save_persona': () => [],
+      'personas.remove_persona': () => [],
+      'personas.reorder_personas': () => [],
+      'personas.persona_backup': () => '{}',
+      'room_state.room_state_event': (params) =>
+        params.event_type === 'moe.sable.room.abbreviations'
+          ? { entries: abbreviations.get(params.room_id) ?? [] }
+          : params.event_type === 'm.room.tombstone' && params.room_id === tombstonedRoom.room_id
+            ? { replacement_room: successorRoom.room_id, body: null }
+            : null,
+      'room_state.room_state_events': (params) =>
+        roomStateEvents(params.room_id, params.event_type),
+      'room_state.bot_commands': () => [],
+      'room_state.room_account_data': (params) =>
+        params.event_type === 'm.fully_read'
+          ? { event_id: fullyReadEventId(params.room_id) }
+          : null,
+      'room_state.room_state_events_raw': () => [],
+      'room_state.room_full_state': () => [],
+      'room_state.room_account_data_raw': () => null,
+      'room_state.send_state_event': (params) => {
+        if (params.event_type === 'im.vector.modular.widgets')
+          roomWidgets.set(params.room_id, null);
+        return `$state-${crypto.randomUUID()}`;
+      },
+      'room_state.add_room_widget': () => 'widget',
+      'room_state.history_visibility': () => 'shared',
+      'room_state.room_banner': () => null,
+      'room_state.member_list_threshold': () => null,
+      'room_state.room_abbreviations': (params) => abbreviations.get(params.room_id) ?? [],
+      'room_state.set_room_abbreviations': (params) => {
+        abbreviations.set(params.room_id, params.entries);
+        return null;
+      },
+      'members.room_members': () =>
+        window.__e2eMembers ?? [
+          {
+            user_id: '@alice:example.test',
+            display_name: 'Alice',
+            avatar_url:
+              (window as { __e2eProfilePatch?: Partial<ProfileView> }).__e2eProfilePatch
+                ?.avatar_url ?? null,
+            power_level: 100,
+            membership: 'join',
+            member_ts: null,
+            kicked: false,
+            service: false,
+          },
+        ],
+      'members.room_permissions': (params) => roomPermissions(params.room_id),
+      'members.room_power_levels': () => ({
+        ban: 50,
+        kick: 50,
+        redact: 50,
+        invite: 0,
+        events_default: 0,
+        state_default: 50,
+        users_default: 0,
+        events: {},
+        users: { [session.user_id]: 100 },
+        notifications_room: 50,
+      }),
+      'members.set_power_level': (params) => ({
+        ban: 50,
+        kick: 50,
+        redact: 50,
+        invite: 0,
+        events_default: 0,
+        state_default: 50,
+        users_default: 0,
+        events: {},
+        users: { [session.user_id]: 100 },
+        notifications_room: 50,
+        ...params.levels,
+      }),
+      'members.sync_power_levels_from_space': () => ({
+        levels: {
+          ban: 50,
+          kick: 50,
+          redact: 50,
+          invite: 0,
+          events_default: 0,
+          state_default: 50,
+          users_default: 0,
+          events: {},
+          users: { [session.user_id]: 100 },
+          notifications_room: 50,
+        },
+        tags: {},
+      }),
+      'members.sync_child_power_levels': (params) => ({
+        updated: params.child_ids.length,
+        skipped: 0,
+      }),
+      'members.power_level_tags': () => ({}),
+      'members.set_power_level_tag': () => ({}),
+      'members.member_look': () => ({
         display_name: null,
         avatar_url: null,
         color_on_light: null,
         color_on_dark: null,
         pronouns: [],
       }),
-      set_member_look: () => ({ type: 'set_member_look' }),
-      set_pronouns: () => ({ type: 'set_pronouns' }),
-      send_raw_event: () => ({
-        type: 'send_raw_event',
-        event_id: `$message-${crypto.randomUUID()}`,
+      'rooms.replaced_rooms': () => [],
+      'rooms.room_open': (params) => ({
+        permissions: roomPermissions(params.room_id),
+        power_level_tags: {},
+        widgets: roomStateEvents(params.room_id, 'im.vector.modular.widgets'),
+        pinned_event_ids: [],
+        predecessor: null,
       }),
-      send_redaction: () => ({
-        type: 'send_redaction',
-        event_id: `$redaction-${crypto.randomUUID()}`,
+      'rooms.room_list_item': () => {
+        throw new FakeCoreError('unknown_room');
+      },
+      'rooms.room_versions': () => ({
+        default: '10',
+        available: [
+          { id: '10', stable: true },
+          { id: '11', stable: true },
+        ],
       }),
-      set_space_child_order: (command) => {
-        recordChildOrder(command);
-        return { type: 'set_space_child_order' };
-      },
-      set_space_sidebar: (command, port) => {
-        sessionStorage.setItem(SIDEBAR_KEY, JSON.stringify(command.items));
-        window.setTimeout(() => {
-          port.emit({ type: 'space_sidebar_changed', items: command.items });
-        });
-        return { type: 'set_space_sidebar' };
-      },
+      'rooms.room_aliases': () => [],
+      'rooms.public_rooms': () => ({ rooms: [], next_batch: null, total: 0 }),
+      'rooms.room_directory_visibility': () => false,
+      'rooms.upgrade_room': () => successorRoom.room_id,
+      'rooms.room_attachments': () => ({ items: [], next_batch: null }),
+      'rooms.room_cosmetics': () => ({ space_id: null, users: [] }),
+      'rooms.create_room': () => '!created:example.test',
+      'rooms.create_dm': () => '!dm:example.test',
+      'rooms.room_preview': (params) => ({
+        room_id: params.address,
+        canonical_alias: null,
+        name: 'Preview Room',
+        topic: null,
+        avatar_url: null,
+        is_space: false,
+        is_voice: false,
+        num_joined_members: 3,
+        join_rule: 'public',
+        state: null,
+      }),
+      'rooms.join_room': (params) => params.address,
+      'rooms.knock_room': (params) => params.address,
+      'rooms.room_via_servers': () => ['example.test'],
+      'rooms.canonical_alias': () => ({ alias: null, alt_aliases: [] }),
+      'rooms.set_canonical_alias': (params) => ({
+        alias: params.alias,
+        alt_aliases: params.alt_aliases,
+      }),
     };
 
-    const bareReply = <T extends CommandType>(type: T): OkFor<T> => ({ type }) as OkFor<T>;
-
-    const dispatch = (command: Command, port: FakePort): CommandOk | typeof NO_REPLY => {
-      const handler = (handlers as Record<string, Handler<CommandType> | undefined>)[command.type];
-      if (!handler) return bareReply(command.type);
-      return handler(command, port);
-    };
-
-    const replyDelay = (command: Command): number => {
-      const type = command.type;
-      if (type === 'switch_account') return window.__e2eSwitchAccountDelayMs ?? 0;
-      if (workerMode === 'forward_history' && type === 'paginate') return 0;
+    const replyDelay = (type: string, params: unknown): number => {
+      if (type === 'session.switch_account') return window.__e2eSwitchAccountDelayMs ?? 0;
+      if (workerMode === 'forward_history' && type === 'timeline.paginate') return 0;
       if (
-        type === 'subscribe_timeline' &&
+        type === 'timeline.subscribe_timeline' &&
         workerMode === 'unread_catchup' &&
-        command.focus.kind === 'live' &&
+        (params as SubscribeTimelineParams).focus.kind === 'live' &&
         unreadContextOpened
       )
         return 1_500;
-      if (type === 'paginate') return 500;
+      if (type === 'timeline.paginate') return 500;
       if (
-        type === 'subscribe_timeline' &&
+        type === 'timeline.subscribe_timeline' &&
         (workerMode === 'delayed_snapshot' || workerMode === 'delayed_history')
       )
         return 750;
@@ -1943,7 +1734,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
 
       postMessage(request: {
         id: number;
-        command?: Command;
+        call?: { method: string; params: unknown };
         media?: { source: string; width: number; height: number };
         forget?: { source: string };
         reset?: true;
@@ -1976,53 +1767,65 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
           );
           return;
         }
-        const command = request.command;
-        if (!command) return;
-        commandLog.push(command.type);
-        commandPayloads.push(command);
-
-        let response: { id: number; ok: CommandOk } | { id: number; err: { code: string } };
-        try {
-          const result = dispatch(command, this);
-          if (result === NO_REPLY) return;
-          response = { id: request.id, ok: result };
-        } catch (error) {
-          if (!(error instanceof FakeCoreError)) throw error;
-          response = { id: request.id, err: { code: error.code } };
+        if (request.call) {
+          const { method, params } = request.call;
+          commandLog.push(method);
+          calls.push(request.call);
+          const handler = (
+            rpcHandlers as Record<
+              string,
+              ((params: unknown, port: FakePort) => unknown) | undefined
+            >
+          )[method];
+          let reply: { id: number; ok: unknown } | { id: number; err: { code: string } };
+          try {
+            const ok = handler ? handler(params, this) : null;
+            if (ok === NO_REPLY) return;
+            reply = { id: request.id, ok };
+          } catch (error) {
+            if (!(error instanceof FakeCoreError)) throw error;
+            reply = { id: request.id, err: { code: error.code } };
+          }
+          window.setTimeout(
+            () => {
+              this.onmessage?.({ data: reply } as MessageEvent);
+              if (method !== 'timeline.subscribe_timeline' || !('ok' in reply)) return;
+              this.subscribed((reply.ok as SubscribeTimelineOk).subscription);
+            },
+            replyDelay(method, params)
+          );
+          return;
         }
+      }
 
+      subscribed(subscription: SubscriptionId): void {
+        const subscribed = rooms.get(subscriptions.get(subscription)?.roomId ?? '');
+        if (!subscribed) return;
+        this.emit({
+          type: 'timeline_pagination',
+          subscription,
+          loading: false,
+          reached_start: false,
+        });
+        if (workerMode !== 'delayed_layout_diff') return;
         window.setTimeout(() => {
-          this.onmessage?.({ data: response } as MessageEvent);
-          if (!('ok' in response) || response.ok.type !== 'subscribe_timeline') return;
-          const { subscription } = response.ok;
-          const subscribed = rooms.get(subscriptions.get(subscription)?.roomId ?? '');
-          if (!subscribed) return;
+          const last = timelineItems(subscribed.name ?? '').at(-1);
+          if (!last) return;
           this.emit({
-            type: 'timeline_pagination',
+            type: 'timeline_diff',
             subscription,
-            loading: false,
-            reached_start: false,
-          });
-          if (workerMode !== 'delayed_layout_diff') return;
-          window.setTimeout(() => {
-            const last = timelineItems(subscribed.name ?? '').at(-1);
-            if (!last) return;
-            this.emit({
-              type: 'timeline_diff',
-              subscription,
-              diffs: [
-                {
-                  op: 'set',
-                  index: 19,
-                  value: {
-                    ...last,
-                    content: messageContent(`Delayed layout event ${'wraps '.repeat(80)}`),
-                  },
+            diffs: [
+              {
+                op: 'set',
+                index: 19,
+                value: {
+                  ...last,
+                  content: messageContent(`Delayed layout event ${'wraps '.repeat(80)}`),
                 },
-              ],
-            });
-          }, 750);
-        }, replyDelay(command));
+              },
+            ],
+          });
+        }, 750);
       }
     }
 

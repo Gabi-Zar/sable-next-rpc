@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { i18n } from '#lib/i18n.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -11,8 +11,8 @@
 
   interface Props {
     open: boolean;
-    room: RoomSummary;
-    spaces: readonly RoomSummary[];
+    room: RoomListItemView;
+    spaces: readonly RoomListItemView[];
     onOpenChange: (open: boolean) => void;
     onApply: (spaceIds: string[]) => void;
   }

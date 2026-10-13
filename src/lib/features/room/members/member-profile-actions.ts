@@ -51,11 +51,16 @@ export class MemberProfileActions {
     action: 'kick' | 'ban',
     reason: string | null
   ): Promise<void> {
-    if (action === 'kick') await this.core.commands.kickUser(roomId, userId, reason);
-    else await this.core.commands.banUser(roomId, userId, reason);
+    if (action === 'kick')
+      await this.core.rpc.members.kickUser({ room_id: roomId, user_id: userId, reason });
+    else await this.core.rpc.members.banUser({ room_id: roomId, user_id: userId, reason });
   }
 
   async setPowerLevel(roomId: string, userId: string, level: number): Promise<void> {
-    await this.core.commands.setUserPowerLevel(roomId, userId, level);
+    await this.core.rpc.members.setUserPowerLevel({
+      room_id: roomId,
+      user_id: userId,
+      power_level: level,
+    });
   }
 }

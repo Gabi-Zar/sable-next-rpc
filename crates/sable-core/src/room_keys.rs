@@ -4,11 +4,12 @@ use tempfile::NamedTempFile;
 
 use crate::Core;
 use crate::ResultExt;
-use crate::protocol::{CommandErr, CommandOk};
+use crate::api::encryption::ImportRoomKeysOk;
+use crate::protocol::CommandErr;
 
 impl Core {
     #[cfg(not(target_family = "wasm"))]
-    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, CommandErr> {
         let client = self.client().await?;
         let file = self.room_key_file()?;
 
@@ -23,7 +24,7 @@ impl Core {
             .or_failed(self, "export_room_keys")?;
 
         tracing::info!("room keys exported");
-        Ok(CommandOk::ExportRoomKeys { export })
+        Ok(export)
     }
 
     #[cfg(not(target_family = "wasm"))]
@@ -31,7 +32,7 @@ impl Core {
         &self,
         export: &str,
         passphrase: &str,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<ImportRoomKeysOk, CommandErr> {
         let client = self.client().await?;
         let file = self.room_key_file()?;
 
@@ -50,14 +51,14 @@ impl Core {
             total = result.total_count,
             "room keys imported"
         );
-        Ok(CommandOk::ImportRoomKeys {
+        Ok(ImportRoomKeysOk {
             imported: result.imported_count as u64,
             total: result.total_count as u64,
         })
     }
 
     #[cfg(target_family = "wasm")]
-    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, CommandErr> {
         let base = self.base_client().await?;
         let machine = base.olm_machine().await;
         let machine = machine.as_ref().ok_or(CommandErr::NotLoggedIn)?;
@@ -71,7 +72,7 @@ impl Core {
             .or_failed(self, "export_room_keys")?;
 
         tracing::info!("room keys exported");
-        Ok(CommandOk::ExportRoomKeys { export })
+        Ok(export)
     }
 
     #[cfg(target_family = "wasm")]
@@ -79,7 +80,7 @@ impl Core {
         &self,
         export: &str,
         passphrase: &str,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<ImportRoomKeysOk, CommandErr> {
         let base = self.base_client().await?;
         let machine = base.olm_machine().await;
         let machine = machine.as_ref().ok_or(CommandErr::NotLoggedIn)?;
@@ -97,7 +98,7 @@ impl Core {
             total = result.total_count,
             "room keys imported"
         );
-        Ok(CommandOk::ImportRoomKeys {
+        Ok(ImportRoomKeysOk {
             imported: result.imported_count as u64,
             total: result.total_count as u64,
         })
@@ -146,7 +147,7 @@ impl Core {
 }
 
 #[cfg(all(test, not(target_family = "wasm")))]
-#[expect(clippy::unwrap_used, clippy::panic, reason = "test code")]
+#[expect(clippy::unwrap_used, reason = "test code")]
 mod tests {
     use std::{sync::Arc, time::Duration};
 
@@ -172,7 +173,8 @@ mod tests {
 
     use crate::{
         Core,
-        protocol::{CommandErr, CommandOk, TimelineFocusView},
+        api::encryption::ImportRoomKeysOk,
+        protocol::{CommandErr, TimelineFocusView},
         session::Session,
         store::MemorySessionStore,
         timelines::build_room_timeline,
@@ -302,10 +304,9 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
     }
 
     async fn import(core: &Core, export: &str, passphrase: &str) -> Result<(u64, u64), CommandErr> {
-        match core.import_room_keys(export, passphrase).await? {
-            CommandOk::ImportRoomKeys { imported, total } => Ok((imported, total)),
-            other => panic!("unexpected response {other:?}"),
-        }
+        let ImportRoomKeysOk { imported, total } =
+            core.import_room_keys(export, passphrase).await?;
+        Ok((imported, total))
     }
 
     fn outbound_session(room: &RoomId) -> (OutboundGroupSession, Ed25519PublicKey) {
@@ -476,11 +477,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             (102, 102, Some(103))
         );
         assert!(status.can_restore);
-        let CommandOk::DownloadKeyBackup { download } =
-            core.download_key_backup("retry".to_owned()).await.unwrap()
-        else {
-            panic!("unexpected response")
-        };
+        let download = core.download_key_backup("retry".to_owned()).await.unwrap();
         assert_eq!(
             (download.processed, download.imported, download.failed),
             (103, 0, 1)
@@ -558,9 +555,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             sync_service: Arc::new(SyncService::builder(other.clone()).build().await.unwrap()),
             client: other.clone(),
         });
-        let CommandOk::DownloadKeyBackup { download } = restore.await.unwrap().unwrap() else {
-            panic!("unexpected response")
-        };
+        let download = restore.await.unwrap().unwrap();
         assert_eq!(download.account_id, "a1");
         assert_eq!(
             download.state,
@@ -568,9 +563,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
         );
         assert_eq!(session_ids(&client).await.len(), 1);
         assert!(session_ids(&other).await.is_empty());
-        let CommandOk::KeyBackupStatus { status } = core.key_backup_status().await.unwrap() else {
-            panic!("unexpected response")
-        };
+        let status = core.key_backup_status().await.unwrap();
         assert!(status.download.is_none());
     }
 
@@ -653,11 +646,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             .await
             .unwrap();
 
-        let CommandOk::ExportRoomKeys { export } =
-            source.export_room_keys("correct horse").await.unwrap()
-        else {
-            panic!("unexpected response");
-        };
+        let export = source.export_room_keys("correct horse").await.unwrap();
 
         assert!(export.starts_with("-----BEGIN MEGOLM SESSION DATA-----"));
         assert!(

@@ -16,7 +16,7 @@ const core = Object.assign(baseCore, {
   setPinned: vi.fn(() => Promise.resolve<string[]>([])),
   bookmarks: vi.fn(() => Promise.resolve([])),
   setBookmark: vi.fn(() => Promise.resolve(false)),
-  withdrawVerification,
+  rpc: { encryption: { withdrawVerification } },
 });
 
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({
@@ -94,7 +94,7 @@ test('a send blocked by a changed identity explains why and can go out anyway', 
   expect(screen.getByText(/reset their encryption identity/)).toBeInTheDocument();
   await fireEvent.click(screen.getByRole('button', { name: 'Send anyway' }));
 
-  expect(withdrawVerification).toHaveBeenCalledWith('@bob:example.org');
+  expect(withdrawVerification).toHaveBeenCalledWith({ user_id: '@bob:example.org' });
   await vi.waitFor(() => {
     expect(onRetrySend).toHaveBeenCalledWith('txn');
   });

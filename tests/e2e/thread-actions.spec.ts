@@ -56,18 +56,18 @@ for (const surface of ['room', 'forum'] as const) {
       ]);
       await expect(thread.locator('[data-item-id="own"]')).toBeVisible();
 
-      const commands = () => page.evaluate(() => window.__e2eCommandPayloads);
+      const calls = () => page.evaluate(() => window.__e2eCalls);
       const editor = thread.locator('[contenteditable="true"]').first();
       await editor.fill('New thread reply');
       await thread.getByRole('button', { name: en.timeline.sendMessage, exact: true }).click();
-      await expect.poll(commands).toContainEqual(
-        expect.objectContaining({
-          type: 'send_message',
+      await expect.poll(calls).toContainEqual({
+        method: 'messages.send_message',
+        params: expect.objectContaining({
           room_id: '!room:example.test',
           body: 'New thread reply',
           thread_root: root.event_id,
-        })
-      );
+        }),
+      });
       await expect(editor).toBeEmpty();
 
       const reply = thread.locator('[data-item-id="reply"] .message');
@@ -99,14 +99,14 @@ for (const surface of ['room', 'forum'] as const) {
       await actions.getByRole(actionRole, { name: en.timeline.reply, exact: true }).click();
       await editor.fill('Answer to Alice');
       await thread.getByRole('button', { name: en.timeline.sendMessage, exact: true }).click();
-      await expect.poll(commands).toContainEqual(
-        expect.objectContaining({
-          type: 'send_message',
+      await expect.poll(calls).toContainEqual({
+        method: 'messages.send_message',
+        params: expect.objectContaining({
           body: 'Answer to Alice',
           thread_root: root.event_id,
           in_reply_to: '$reply:example.test',
-        })
-      );
+        }),
+      });
 
       await openActions(thread.locator('[data-item-id="own"] .message'));
       await actions.getByRole(actionRole, { name: en.timeline.editMessage, exact: true }).click();
@@ -114,14 +114,14 @@ for (const surface of ['room', 'forum'] as const) {
       await editor.fill('Edited thread reply');
       await expect(editor).toHaveText('Edited thread reply');
       await editor.press('Enter');
-      await expect.poll(commands).toContainEqual(
-        expect.objectContaining({
-          type: 'edit_message',
+      await expect.poll(calls).toContainEqual({
+        method: 'messages.edit_message',
+        params: expect.objectContaining({
           event_id: '$own:example.test',
           body: 'Edited thread reply',
           thread_root: root.event_id,
-        })
-      );
+        }),
+      });
 
       await openActions(reply);
       await expect(
@@ -135,24 +135,20 @@ for (const surface of ['room', 'forum'] as const) {
 
       await openActions(reply);
       await actions.locator('.quick-reaction').first().click();
-      await expect.poll(commands).toContainEqual(
-        expect.objectContaining({
-          type: 'react',
+      await expect.poll(calls).toContainEqual({
+        method: 'messages.react',
+        params: expect.objectContaining({
           event_id: '$reply:example.test',
           key: '🎉',
           thread_root: root.event_id,
-        })
-      );
+        }),
+      });
       await openActions(reply);
       await actions.getByRole(actionRole, { name: en.timeline.pinMessage, exact: true }).click();
-      await expect.poll(commands).toContainEqual(
-        expect.objectContaining({
-          type: 'set_pinned',
-          room_id: '!room:example.test',
-          event_id: '$reply:example.test',
-          pinned: true,
-        })
-      );
+      await expect.poll(calls).toContainEqual({
+        method: 'timeline.set_pinned',
+        params: { room_id: '!room:example.test', event_id: '$reply:example.test', pinned: true },
+      });
 
       if (presentation === 'panel' && !isMobile) {
         const resize = thread.getByRole('slider', { name: en.timeline.resizeThread });

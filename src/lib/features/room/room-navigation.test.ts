@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ back: vi.fn() }));
@@ -14,7 +14,7 @@ vi.mock('$app/paths', () => ({
 }));
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({
   roomPathParamFromId: (roomId: string) => `param:${roomId}`,
-  findRoomByPathId: (rooms: readonly RoomSummary[], pathId: string | undefined) =>
+  findRoomByPathId: (rooms: readonly RoomListItemView[], pathId: string | undefined) =>
     rooms.find((room) => room.room_id === pathId),
 }));
 
@@ -67,7 +67,7 @@ test('leaving a space room on desktop opens the lobby rather than the index', as
 });
 
 test('searching quotes a room label with a space in it', () => {
-  searchInRoom({ canonical_alias: null, name: 'My room' } as RoomSummary, '!room');
+  searchInRoom({ canonical_alias: null, name: 'My room' } as RoomListItemView, '!room');
 
   expect(goto).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('in:"My room" ')}`);
 });
@@ -82,7 +82,7 @@ test('a space search path scopes by the space alias', () => {
   expect(
     scopedSearchPath(
       'space',
-      { canonical_alias: '#eng:example.org', name: 'Eng' } as RoomSummary,
+      { canonical_alias: '#eng:example.org', name: 'Eng' } as RoomListItemView,
       '!eng'
     )
   ).toBe(`/search?q=${encodeURIComponent('space:#eng:example.org ')}`);
@@ -92,7 +92,7 @@ test('searching from a room scopes to it, from a space to the space, and elsewhe
   const rooms = [
     { room_id: '!room', canonical_alias: '#dev:example.org', name: 'Dev' },
     { room_id: '!space', canonical_alias: null, name: 'Eng' },
-  ] as RoomSummary[];
+  ] as RoomListItemView[];
 
   expect(contextSearchPath(rooms, '!room', '!space')).toBe(
     `/search?q=${encodeURIComponent('in:#dev:example.org ')}`

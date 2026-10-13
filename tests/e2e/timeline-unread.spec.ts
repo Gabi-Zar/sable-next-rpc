@@ -40,12 +40,14 @@ test('the reveal from notifications preserves unread until jumping', async ({
   await expect(timeline.message('General message 5')).not.toBeInViewport();
   // Wait past the receipt coalescing window so an accidental read cannot pass.
   await quietFor(page, RECEIPT_COALESCE_MS);
-  expect((await core.commands()).filter((command) => command === 'mark_read')).toHaveLength(0);
+  expect(
+    (await core.commands()).filter((command) => command === 'timeline.mark_read')
+  ).toHaveLength(0);
   await page.screenshot({ path: testInfo.outputPath('unread-bar.png') });
   await jump.click();
   await expect(timeline.message('General message 5')).toBeInViewport();
   await expect(jump).toHaveCount(0);
-  await expect.poll(() => core.commands()).toContain('mark_read');
+  await expect.poll(() => core.commands()).toContain('timeline.mark_read');
 });
 
 test('the reveal from notifications sends a receipt once the reader reaches the latest message', async ({
@@ -59,11 +61,13 @@ test('the reveal from notifications sends a receipt once the reader reaches the 
   await timeline.expectRevealed();
   await expect(timeline.message('General message 5')).not.toBeInViewport();
   await quietFor(page, RECEIPT_COALESCE_MS);
-  expect((await core.commands()).filter((command) => command === 'mark_read')).toHaveLength(0);
+  expect(
+    (await core.commands()).filter((command) => command === 'timeline.mark_read')
+  ).toHaveLength(0);
   await timeline.scrollToBottomAndNotify();
   await expect(timeline.message('General message 19')).toBeInViewport();
   await expect(timeline.message('General message 5')).not.toBeInViewport();
-  await expect.poll(() => core.commands()).toContain('mark_read');
+  await expect.poll(() => core.commands()).toContain('timeline.mark_read');
 });
 
 test('the reveal offers mark as read', async ({ page, timeline, core, installRoomCore }) => {
@@ -73,7 +77,7 @@ test('the reveal offers mark as read', async ({ page, timeline, core, installRoo
   await page.locator('.unread-bar').getByRole('button', { name: 'Mark as read' }).click();
   await expect(page.locator('.unread-bar')).toHaveCount(0);
   await expect(timeline.message('General message 15')).toBeInViewport();
-  await expect.poll(() => core.commands()).toContain('mark_read');
+  await expect.poll(() => core.commands()).toContain('timeline.mark_read');
 });
 
 test('the reveal loads a large unread backlog from marker context without scanning history', async ({
@@ -110,7 +114,7 @@ test('the reveal stays readable when marker context fails', async ({
     (direction) => direction === 'backward'
   );
   expect(backward.length).toBeLessThanOrEqual(1);
-  await expect.poll(() => core.commands()).toContain('mark_read');
+  await expect.poll(() => core.commands()).toContain('timeline.mark_read');
   await expect(timeline.message('General message 9999')).toBeInViewport();
 });
 
@@ -250,7 +254,9 @@ test('the reveal switches to live before sending from unread context', async ({
   await composer.press('Enter');
   await expect(timeline.message('Sent from unread context')).toBeInViewport();
   const commands = await core.commands();
-  expect(commands.lastIndexOf('subscribe_timeline')).toBeLessThan(commands.indexOf('send_message'));
+  expect(commands.lastIndexOf('timeline.subscribe_timeline')).toBeLessThan(
+    commands.indexOf('messages.send_message')
+  );
 });
 
 test('a notification for an unloaded event opens its context without marking the room read', async ({
@@ -268,7 +274,9 @@ test('a notification for an unloaded event opens its context without marking the
   await expect(timeline.message('General message 12')).toBeInViewport();
   expect(new URL(page.url()).searchParams.has('event')).toBe(false);
   await quietFor(page, RECEIPT_COALESCE_MS);
-  expect((await core.commands()).filter((command) => command === 'mark_read')).toHaveLength(0);
+  expect(
+    (await core.commands()).filter((command) => command === 'timeline.mark_read')
+  ).toHaveLength(0);
 });
 
 test('the reveal jumps from an unloaded notification marker without adding a permalink', async ({

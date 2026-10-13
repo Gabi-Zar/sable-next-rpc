@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary, SpaceChildEdge } from '#src/generated/protocol';
+import type { RoomListItemView, SpaceChildEdge } from '#src/generated/protocol';
 
 import { wouldCreateCycle } from './add-to-space';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
@@ -9,7 +9,7 @@ function edge(roomId: string): SpaceChildEdge {
   return { room_id: roomId, via: [], order: null, origin_server_ts: 0, suggested: false };
 }
 
-function room(roomId: string, overrides: Partial<RoomSummary> = {}): RoomSummary {
+function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomListItemView {
   return withCounts({
     room_id: roomId,
     canonical_alias: null,

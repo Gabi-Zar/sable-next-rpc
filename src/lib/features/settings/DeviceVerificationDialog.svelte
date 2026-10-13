@@ -57,7 +57,10 @@
   async function accept(): Promise<void> {
     if (!core.verification) return;
     try {
-      await core.commands.acceptVerification(core.verification.userId, core.verification.flowId);
+      await core.rpc.encryption.acceptVerification({
+        user_id: core.verification.userId,
+        flow_id: core.verification.flowId,
+      });
     } catch (cause) {
       error = verificationErrorMessage(cause);
     }
@@ -69,7 +72,11 @@
     processingScan = true;
     error = null;
     try {
-      await core.commands.scanVerificationQr(flow.userId, flow.flowId, uint8ArrayToBase64(data));
+      await core.rpc.encryption.scanVerificationQr({
+        user_id: flow.userId,
+        flow_id: flow.flowId,
+        data: uint8ArrayToBase64(data),
+      });
     } catch (cause) {
       if (core.verification?.userId === flow.userId && core.verification.flowId === flow.flowId) {
         processingScan = false;
@@ -81,7 +88,10 @@
   async function compareEmoji(): Promise<void> {
     if (!core.verification) return;
     try {
-      await core.commands.startSasVerification(core.verification.userId, core.verification.flowId);
+      await core.rpc.encryption.startSasVerification({
+        user_id: core.verification.userId,
+        flow_id: core.verification.flowId,
+      });
     } catch (cause) {
       error = verificationErrorMessage(cause);
     }
@@ -90,7 +100,10 @@
   async function confirm(): Promise<void> {
     if (!core.verification) return;
     try {
-      await core.commands.confirmVerification(core.verification.userId, core.verification.flowId);
+      await core.rpc.encryption.confirmVerification({
+        user_id: core.verification.userId,
+        flow_id: core.verification.flowId,
+      });
     } catch (cause) {
       error = verificationErrorMessage(cause);
     }
@@ -100,7 +113,11 @@
     const flow = core.verification;
     if (!flow) return;
     try {
-      await core.commands.cancelVerification(flow.userId, flow.flowId, mismatch);
+      await core.rpc.encryption.cancelVerification({
+        user_id: flow.userId,
+        flow_id: flow.flowId,
+        mismatch,
+      });
     } catch (cause) {
       error = verificationErrorMessage(cause);
     }

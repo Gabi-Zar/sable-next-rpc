@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use matrix_sdk::authentication::oauth::error::OAuthDiscoveryError;
+use matrix_sdk::ruma::OwnedUserId;
 use matrix_sdk::ruma::api::client::session::get_login_types::v3::LoginType;
 use matrix_sdk::ruma::api::client::uiaa::{
     EmailUserIdentifier, MatrixUserIdentifier, UserIdentifier,
@@ -10,7 +11,7 @@ use url::Url;
 
 use crate::ResultExt;
 use crate::errors::CoreError;
-use crate::protocol::{AuthIntent, CommandErr, CommandOk, LoginIdentifier};
+use crate::protocol::{AuthIntent, CommandErr, LoginIdentifier};
 
 use crate::session::{Credentials, PersistedSession};
 
@@ -120,7 +121,7 @@ impl Core {
         identifier: LoginIdentifier,
         password: String,
         reauth_account_id: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<OwnedUserId, CommandErr> {
         let reauth = self.reauthentication_account(reauth_account_id).await?;
         let homeserver = reauth
             .as_ref()
@@ -189,13 +190,13 @@ impl Core {
         self.pending_registration.lock().await.take();
 
         tracing::info!(operation = "password_login", "login completed");
-        Ok(CommandOk::Login { user_id })
+        Ok(user_id)
     }
 
     pub(crate) async fn login_flows(
         self: &Arc<Self>,
         homeserver: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<protocol::LoginFlowsView, CommandErr> {
         tracing::info!(
             operation = "login_flows",
             homeserver,
@@ -282,7 +283,7 @@ impl Core {
             sso = flows.sso,
             "sign-in methods discovered"
         );
-        Ok(CommandOk::LoginFlows { flows })
+        Ok(flows)
     }
 
     /// Parked in `pending_oidc` so step 2 finishes on the same `Client`: the
@@ -293,7 +294,7 @@ impl Core {
         redirect_uri: String,
         intent: AuthIntent,
         reauth_account_id: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<String, CommandErr> {
         let reauth = self.reauthentication_account(reauth_account_id).await?;
         let homeserver = reauth
             .as_ref()
@@ -374,13 +375,13 @@ impl Core {
             operation = "oidc_login",
             "OAuth login ready for browser redirect"
         );
-        Ok(CommandOk::StartOidcLogin { authorization_url })
+        Ok(authorization_url)
     }
 
     pub(crate) async fn complete_oidc_login(
         self: &Arc<Self>,
         callback_url: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<OwnedUserId, CommandErr> {
         tracing::info!(operation = "oidc_login", "completing OAuth login callback");
         let url = Url::parse(&callback_url).or_failed(self, "complete_oidc_login_callback_url")?;
 
@@ -446,7 +447,7 @@ impl Core {
         self.pending_registration.lock().await.take();
 
         tracing::info!(operation = "oidc_login", "OAuth login completed");
-        Ok(CommandOk::CompleteOidcLogin { user_id })
+        Ok(user_id)
     }
 
     pub(crate) async fn start_sso_login(
@@ -456,7 +457,7 @@ impl Core {
         idp_id: Option<String>,
         intent: AuthIntent,
         reauth_account_id: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<String, CommandErr> {
         let reauth = self.reauthentication_account(reauth_account_id).await?;
         let homeserver = reauth
             .as_ref()
@@ -510,15 +511,13 @@ impl Core {
             operation = "sso_login",
             "SSO login ready for browser redirect"
         );
-        Ok(CommandOk::StartSsoLogin {
-            authorization_url: authorization_url.to_string(),
-        })
+        Ok(authorization_url.to_string())
     }
 
     pub(crate) async fn complete_sso_login(
         self: &Arc<Self>,
         callback_url: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<OwnedUserId, CommandErr> {
         tracing::info!(operation = "sso_login", "completing SSO login callback");
         // The login token is single-use, so keep the client that created the
         // redirect and consume the pending flow exactly once.
@@ -588,7 +587,7 @@ impl Core {
         self.pending_registration.lock().await.take();
 
         tracing::info!(operation = "sso_login", "SSO login completed");
-        Ok(CommandOk::CompleteSsoLogin { user_id })
+        Ok(user_id)
     }
 }
 

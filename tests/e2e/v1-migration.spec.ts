@@ -332,20 +332,18 @@ test('v2 WASM restores the copied v1 device and cross-signing secrets', async ({
       'off',
       false
     );
-    const session = JSON.parse(await core.submitCommand(JSON.stringify({ type: 'restore' }))) as {
-      session: unknown;
+    const session: unknown = JSON.parse(await core.call('session.restore', '{}'));
+    const status = JSON.parse(await core.call('encryption.encryption_status', '{}')) as {
+      cross_signing_ready: boolean;
     };
-    const status = JSON.parse(
-      await core.submitCommand(JSON.stringify({ type: 'encryption_status' }))
-    ) as { status: { cross_signing_ready: boolean } };
     return { session, status };
   });
-  expect(restored.session.session).toMatchObject({
+  expect(restored.session).toMatchObject({
     user_id: session.userId,
     device_id: session.deviceId,
     account_id: 'a1',
   });
-  expect(restored.status.status.cross_signing_ready).toBe(true);
+  expect(restored.status.cross_signing_ready).toBe(true);
 });
 
 test('large stores copy all batches before publishing the session', async ({ page }) => {

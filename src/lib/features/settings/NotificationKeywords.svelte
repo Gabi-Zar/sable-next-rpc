@@ -61,7 +61,7 @@
   async function reload(): Promise<void> {
     const token = version;
     try {
-      const result = await core.commands.notificationKeywords();
+      const result = await core.rpc.notifications.notificationKeywords();
       if (!alive || token !== version) return;
       keywords = uniqueKeywords(result);
       error = null;
@@ -89,7 +89,7 @@
     adding = true;
     error = null;
     try {
-      await core.commands.addNotificationKeyword(keyword);
+      await core.rpc.notifications.addNotificationKeyword({ keyword });
       if (!alive) return;
       draft = '';
       commit(
@@ -109,7 +109,7 @@
     removingKeyword = keyword;
     error = null;
     try {
-      await core.commands.removeNotificationKeyword(keyword);
+      await core.rpc.notifications.removeNotificationKeyword({ keyword });
       if (!alive) return;
       commit(keywords.filter((existing) => existing.keyword !== keyword));
     } catch (cause) {
@@ -124,7 +124,7 @@
     error = null;
     commit(keywords.map((entry) => (entry.keyword === keyword ? { keyword, mode } : entry)));
     try {
-      await core.commands.setNotificationKeywordMode(keyword, mode);
+      await core.rpc.notifications.setNotificationKeywordMode({ keyword, mode });
     } catch (cause) {
       console.warn('[sable notifications] changing a keyword failed', cause);
       if (!alive) return;

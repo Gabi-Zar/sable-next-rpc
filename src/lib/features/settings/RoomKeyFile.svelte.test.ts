@@ -25,19 +25,20 @@ vi.mock('#lib/platform/files.js', () => files);
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  exportRoomKeys: vi.fn<(passphrase: string) => Promise<string>>(),
-  importRoomKeys:
-    vi.fn<(exported: string, passphrase: string) => Promise<{ imported: number; total: number }>>(),
-});
+const exportRoomKeys = vi.fn<(params: { passphrase: string }) => Promise<string>>();
+const importRoomKeys =
+  vi.fn<
+    (params: { export: string; passphrase: string }) => Promise<{ imported: number; total: number }>
+  >();
+Object.assign(baseCore, { rpc: { encryption: { exportRoomKeys, importRoomKeys } } });
 
 import RoomKeyFile from './RoomKeyFile.svelte';
 
 const EXPORT = '-----BEGIN MEGOLM SESSION DATA-----\nAAAA\n-----END MEGOLM SESSION DATA-----';
 
 beforeEach(() => {
-  core.exportRoomKeys.mockReset();
-  core.importRoomKeys.mockReset();
+  exportRoomKeys.mockReset();
+  importRoomKeys.mockReset();
   files.pickFiles.mockReset();
   files.saveBytes.mockReset();
 });
@@ -56,7 +57,7 @@ async function pickKeyFile(user: ReturnType<typeof userEvent.setup>): Promise<vo
 
 test('exports only once the passphrase is confirmed, then saves the armored file', async () => {
   const user = userEvent.setup();
-  core.exportRoomKeys.mockResolvedValue(EXPORT);
+  exportRoomKeys.mockResolvedValue(EXPORT);
   files.saveBytes.mockResolvedValue('saved');
   render(RoomKeyFile);
 
@@ -72,7 +73,7 @@ test('exports only once the passphrase is confirmed, then saves the armored file
   await user.click(submit);
 
   expect(await screen.findByRole('status')).toHaveTextContent('sable-keys.txt');
-  expect(core.exportRoomKeys).toHaveBeenCalledWith('secret');
+  expect(exportRoomKeys).toHaveBeenCalledWith({ passphrase: 'secret' });
   const [bytes, filename, mime] = files.saveBytes.mock.calls[0];
   expect(new TextDecoder().decode(bytes)).toBe(EXPORT);
   expect([filename, mime]).toEqual(['sable-keys.txt', 'text/plain']);
@@ -81,7 +82,7 @@ test('exports only once the passphrase is confirmed, then saves the armored file
 
 test('imports the picked file and reports how many keys were new', async () => {
   const user = userEvent.setup();
-  core.importRoomKeys.mockResolvedValue({ imported: 3, total: 5 });
+  importRoomKeys.mockResolvedValue({ imported: 3, total: 5 });
   render(RoomKeyFile);
 
   await pickKeyFile(user);
@@ -89,7 +90,7 @@ test('imports the picked file and reports how many keys were new', async () => {
   await user.click(within(form()).getByRole('button', { name: 'Import' }));
 
   expect(await screen.findByRole('status')).toHaveTextContent('Imported 3 of 5 keys.');
-  expect(core.importRoomKeys).toHaveBeenCalledWith(EXPORT, 'secret');
+  expect(importRoomKeys).toHaveBeenCalledWith({ export: EXPORT, passphrase: 'secret' });
   expect(screen.queryByLabelText('Passphrase')).not.toBeInTheDocument();
 });
 
@@ -99,7 +100,7 @@ test.each([
   ['unavailable', 'The keys could not be imported.'],
 ] as const)('explains a %s import and keeps the file to retry', async (code, message) => {
   const user = userEvent.setup();
-  core.importRoomKeys.mockRejectedValue(new CoreError({ code }));
+  importRoomKeys.mockRejectedValue(new CoreError({ code }));
   render(RoomKeyFile);
 
   await pickKeyFile(user);

@@ -43,7 +43,7 @@
   $effect(() => {
     if (!askDefault) return;
     let alive = true;
-    void core.commands.defaultNotificationModes().then(
+    void core.rpc.notifications.defaultNotificationModes().then(
       ({ group }) => {
         if (alive && !groupModeChanged) groupMode = group === 'all' ? 'all' : 'mentions';
       },
@@ -70,7 +70,7 @@
     saving = true;
     error = null;
     try {
-      await core.commands.setDefaultNotificationMode(false, groupMode);
+      await core.rpc.notifications.setDefaultNotificationMode({ direct: false, mode: groupMode });
       onComplete();
     } catch {
       error = t('setup.notificationsSaveFailed');

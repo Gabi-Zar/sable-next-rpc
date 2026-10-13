@@ -4,11 +4,11 @@
     PronounView,
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
-  import type { MemberLookEdit } from '#lib/core/commands.svelte.js';
+  import { setMemberLook, type MemberLookEdit } from '#lib/core/api/members.js';
   import { COSMETIC_EVENT_TYPES, pronounSets } from '#lib/features/composer/slash-commands.js';
   import ColorSetting from '#lib/features/settings/ColorSetting.svelte';
   import { i18n } from '#lib/i18n.js';
@@ -32,7 +32,7 @@
   const MODERATOR_LEVEL = 50;
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     permissions: RoomPermissionsView | null;
     levels: RoomPowerLevelsView | null;
   }
@@ -71,7 +71,7 @@
   let applyTargets = $derived.by(() => {
     const found: string[] = [];
     const seen: string[] = [];
-    const walk = (space: RoomSummary | undefined) => {
+    const walk = (space: RoomListItemView | undefined) => {
       for (const edge of space?.space_children ?? []) {
         if (seen.includes(edge.room_id)) continue;
         seen.push(edge.room_id);
@@ -135,7 +135,7 @@
     const current = ++run;
     try {
       const [look, profile] = await Promise.all([
-        core.commands.memberLook(target),
+        core.rpc.members.memberLook({ room_id: target }),
         core.refreshUserProfile(self).catch(() => null),
       ]);
       if (current !== run) return;
@@ -172,7 +172,8 @@
   function saveColor(theme: 'on_light' | 'on_dark', value: string | undefined): void {
     const edit = field(value);
     void save(theme, (target) =>
-      core.commands.setMemberLook(
+      setMemberLook(
+        core.rpc,
         target,
         theme === 'on_light' ? { color_on_light: edit } : { color_on_dark: edit }
       )
@@ -184,7 +185,7 @@
   }
 
   function writeMember(target: string, look: MemberLookEdit): Promise<void> {
-    return core.commands.setMemberLook(target, look);
+    return setMemberLook(core.rpc, target, look);
   }
 
   function saveName(): void {
@@ -203,7 +204,7 @@
     void save('avatar', async (target) => {
       const upright = await uprightJpeg(file);
       const bytes = new Uint8Array(await upright.arrayBuffer());
-      const uri = await core.commands.uploadMedia(upright.type || 'image/*', bytes);
+      const uri = await core.media.uploadMedia(upright.type || 'image/*', bytes);
       await writeMember(target, { avatar_url: field(uri) });
       avatar = uri;
     });
@@ -241,7 +242,11 @@
 
   function savePronouns(): void {
     void save('pronouns', async (target) => {
-      await core.commands.setPronouns(target, pronounSets(pronouns));
+      await core.rpc.members.setPronouns({
+        room_id: target,
+        pronouns: pronounSets(pronouns),
+        in_parent_space: false,
+      });
       savedPronouns = pronouns;
     });
   }
@@ -262,7 +267,11 @@
         colorOnDark = '';
       }
       if (canSetPronouns && savedPronouns !== '') {
-        await core.commands.setPronouns(target, []);
+        await core.rpc.members.setPronouns({
+          room_id: target,
+          pronouns: [],
+          in_parent_space: false,
+        });
         pronouns = '';
         savedPronouns = '';
       }
@@ -273,12 +282,12 @@
     const base = effectiveLevels;
     if (!base) return;
     void save(eventType, async (target) => {
-      currentLevels = await core.commands.setPowerLevel(
-        target,
-        base,
-        { kind: 'state', event_type: eventType },
-        allowed ? MEMBER_LEVEL : MODERATOR_LEVEL
-      );
+      currentLevels = await core.rpc.members.setPowerLevel({
+        room_id: target,
+        levels: $state.snapshot(base),
+        location: { kind: 'state', event_type: eventType },
+        level: allowed ? MEMBER_LEVEL : MODERATOR_LEVEL,
+      });
     });
   }
 </script>

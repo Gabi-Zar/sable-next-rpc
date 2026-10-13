@@ -1,4 +1,5 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { sendMessage } from '#lib/core/api/messages.svelte.js';
 
 import { dequeue, dueMessages } from './scheduled-queue.svelte.js';
 
@@ -26,8 +27,9 @@ export function watchScheduledQueue(core: CoreClient): () => void {
     try {
       for (const message of due) {
         if (!isCurrent()) break;
-        await core.commands
-          .sendMessage(message.roomId, message.body, { formatted: message.formatted })
+        await sendMessage(core.rpc, message.roomId, message.body, {
+          formatted: message.formatted,
+        })
           .then(() => {
             dequeue(message.id, accountId);
           })

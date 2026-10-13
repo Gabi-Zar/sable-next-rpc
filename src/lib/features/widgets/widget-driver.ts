@@ -111,12 +111,12 @@ export class SableWidgetDriver extends WidgetDriver {
     const target = roomId ?? this.#roomId;
 
     if (stateKey !== null) {
-      const eventId = await this.#core.commands.sendStateEvent(
-        target,
-        eventType,
-        stateKey,
-        content
-      );
+      const eventId = await this.#core.rpc.room_state.sendStateEvent({
+        room_id: target,
+        event_type: eventType,
+        state_key: stateKey,
+        content,
+      });
       return { roomId: target, eventId };
     }
 
@@ -124,15 +124,19 @@ export class SableWidgetDriver extends WidgetDriver {
       const redacts = (content as { redacts?: unknown }).redacts;
       if (typeof redacts !== 'string') throw new Error('redaction without a target');
       const reason = (content as { reason?: unknown }).reason;
-      const eventId = await this.#core.commands.sendRedaction(
-        target,
-        redacts,
-        typeof reason === 'string' ? reason : null
-      );
+      const eventId = await this.#core.rpc.messages.sendRedaction({
+        room_id: target,
+        event_id: redacts,
+        reason: typeof reason === 'string' ? reason : null,
+      });
       return { roomId: target, eventId };
     }
 
-    const eventId = await this.#core.commands.sendRawEvent(target, eventType, content);
+    const eventId = await this.#core.rpc.messages.sendRawEvent({
+      room_id: target,
+      event_type: eventType,
+      content,
+    });
     return { roomId: target, eventId };
   }
 
@@ -143,12 +147,12 @@ export class SableWidgetDriver extends WidgetDriver {
     roomId: string | null = null
   ): Promise<ISendEventDetails> {
     const target = roomId ?? this.#roomId;
-    const eventId = await this.#core.commands.widgetSendStickyEvent(
-      target,
-      eventType,
+    const eventId = await this.#core.rpc.widgets.widgetSendStickyEvent({
+      room_id: target,
+      event_type: eventType,
       content,
-      stickyDurationMs
-    );
+      sticky_duration_ms: stickyDurationMs,
+    });
     return { roomId: target, eventId };
   }
 
@@ -160,14 +164,14 @@ export class SableWidgetDriver extends WidgetDriver {
     roomId: string | null = null
   ): Promise<ISendDelayedEventDetails> {
     const target = roomId ?? this.#roomId;
-    const delayId = await this.#core.commands.widgetSendDelayedEvent(
-      target,
-      eventType,
-      stateKey,
+    const delayId = await this.#core.rpc.widgets.widgetSendDelayedEvent({
+      room_id: target,
+      event_type: eventType,
+      state_key: stateKey,
       content,
-      delay,
-      null
-    );
+      delay_ms: delay,
+      sticky_duration_ms: null,
+    });
     return { roomId: target, delayId };
   }
 
@@ -179,35 +183,39 @@ export class SableWidgetDriver extends WidgetDriver {
     roomId: string | null = null
   ): Promise<ISendDelayedEventDetails> {
     const target = roomId ?? this.#roomId;
-    const delayId = await this.#core.commands.widgetSendDelayedEvent(
-      target,
-      eventType,
-      null,
+    const delayId = await this.#core.rpc.widgets.widgetSendDelayedEvent({
+      room_id: target,
+      event_type: eventType,
+      state_key: null,
       content,
-      delay,
-      stickyDurationMs
-    );
+      delay_ms: delay,
+      sticky_duration_ms: stickyDurationMs,
+    });
     return { roomId: target, delayId };
   }
 
-  override cancelScheduledDelayedEvent(delayId: string): Promise<void> {
-    return this.#core.commands.cancelScheduledMessage(delayId);
+  override async cancelScheduledDelayedEvent(delayId: string): Promise<void> {
+    await this.#core.rpc.messages.cancelScheduledMessage({ delay_id: delayId });
   }
 
-  override restartScheduledDelayedEvent(delayId: string): Promise<void> {
-    return this.#core.commands.restartDelayedEvent(delayId);
+  override async restartScheduledDelayedEvent(delayId: string): Promise<void> {
+    await this.#core.rpc.widgets.restartDelayedEvent({ delay_id: delayId });
   }
 
-  override sendScheduledDelayedEvent(delayId: string): Promise<void> {
-    return this.#core.commands.sendScheduledMessage(delayId);
+  override async sendScheduledDelayedEvent(delayId: string): Promise<void> {
+    await this.#core.rpc.messages.sendScheduledMessage({ delay_id: delayId });
   }
 
-  override sendToDevice(
+  override async sendToDevice(
     eventType: string,
     encrypted: boolean,
     contentMap: { [userId: string]: { [deviceId: string]: object } }
   ): Promise<void> {
-    return this.#core.commands.widgetSendToDevice(eventType, encrypted, contentMap);
+    await this.#core.rpc.widgets.widgetSendToDevice({
+      event_type: eventType,
+      encrypted,
+      messages: contentMap,
+    });
   }
 
   override async readRoomAccountData(
@@ -216,14 +224,14 @@ export class SableWidgetDriver extends WidgetDriver {
   ): Promise<IRoomAccountData[]> {
     const events = await Promise.all(
       this.#resolveRooms(roomIds).map((roomId) =>
-        this.#core.commands.roomAccountDataRaw(roomId, eventType)
+        this.#core.rpc.room_state.roomAccountDataRaw({ room_id: roomId, event_type: eventType })
       )
     );
     return events.filter((event) => event != null) as IRoomAccountData[];
   }
 
   override async readStickyEvents(roomId: string): Promise<IRoomEvent[]> {
-    return (await this.#core.commands.roomStickyEvents(roomId)) as IRoomEvent[];
+    return (await this.#core.rpc.widgets.roomStickyEvents({ room_id: roomId })) as IRoomEvent[];
   }
 
   override async readEventRelations(
@@ -236,18 +244,16 @@ export class SableWidgetDriver extends WidgetDriver {
     limit?: number,
     direction?: 'f' | 'b'
   ): Promise<IReadEventRelationsResult> {
-    const relations = await this.#core.commands.roomEventRelations(
-      roomId ?? this.#roomId,
-      eventId,
-      {
-        relType: relationType,
-        eventType,
-        from,
-        to,
-        limit,
-        direction: direction === undefined ? undefined : direction === 'f' ? 'forward' : 'backward',
-      }
-    );
+    const relations = await this.#core.rpc.timeline.roomEventRelations({
+      room_id: roomId ?? this.#roomId,
+      event_id: eventId,
+      rel_type: relationType ?? null,
+      event_type: eventType ?? null,
+      from: from ?? null,
+      to: to ?? null,
+      limit: limit ?? null,
+      direction: direction === undefined ? null : direction === 'f' ? 'forward' : 'backward',
+    });
     return {
       chunk: relations.chunk as IRoomEvent[],
       nextBatch: relations.next_batch ?? undefined,
@@ -263,14 +269,14 @@ export class SableWidgetDriver extends WidgetDriver {
     limit: number,
     since: string | undefined
   ): Promise<IRoomEvent[]> {
-    const events = await this.#core.commands.roomTimelineEvents(
-      roomId,
-      eventType,
-      msgtype ?? null,
-      stateKey ?? null,
+    const events = await this.#core.rpc.timeline.roomTimelineEvents({
+      room_id: roomId,
+      event_type: eventType,
+      msgtype: msgtype ?? null,
+      state_key: stateKey ?? null,
       limit,
-      since ?? null
-    );
+      since: since ?? null,
+    });
     return events as IRoomEvent[];
   }
 
@@ -279,11 +285,11 @@ export class SableWidgetDriver extends WidgetDriver {
     eventType: string,
     stateKey: string | undefined
   ): Promise<IRoomEvent[]> {
-    const events = await this.#core.commands.roomStateEventsRaw(
-      roomId,
-      eventType,
-      stateKey ?? null
-    );
+    const events = await this.#core.rpc.room_state.roomStateEventsRaw({
+      room_id: roomId,
+      event_type: eventType,
+      state_key: stateKey ?? null,
+    });
     return events as IRoomEvent[];
   }
 
@@ -291,10 +297,10 @@ export class SableWidgetDriver extends WidgetDriver {
     searchTerm: string,
     limit?: number
   ): Promise<ISearchUserDirectoryResult> {
-    const { limited, results } = await this.#core.commands.searchUserDirectory(
-      searchTerm,
-      limit ?? null
-    );
+    const { limited, results } = await this.#core.rpc.account.searchUserDirectory({
+      term: searchTerm,
+      limit: limit ?? null,
+    });
 
     return {
       limited,
@@ -307,7 +313,7 @@ export class SableWidgetDriver extends WidgetDriver {
   }
 
   override askOpenID(observer: SimpleObservable<IOpenIDUpdate>): void {
-    this.#core.commands
+    this.#core.rpc.session
       .openIdToken()
       .then((token) => {
         observer.update({
@@ -333,7 +339,7 @@ export class SableWidgetDriver extends WidgetDriver {
 
   override async *getTurnServers(): AsyncGenerator<ITurnServer> {
     for (;;) {
-      const server = await this.#core.commands.turnServer();
+      const server = await this.#core.rpc.calls.turnServer();
       if (server.uris.length === 0) return;
       yield { uris: server.uris, username: server.username, password: server.password };
       const refreshIn = Math.max(TURN_MIN_REFRESH_MS, server.ttl_ms * TURN_REFRESH_FRACTION);
@@ -342,40 +348,40 @@ export class SableWidgetDriver extends WidgetDriver {
   }
 
   override async getMediaConfig(): Promise<IGetMediaConfigResult> {
-    const { upload_size } = await this.#core.commands.mediaConfig();
+    const { upload_size } = await this.#core.rpc.messages.mediaConfig();
     return { 'm.upload.size': upload_size };
   }
 
   override async uploadFile(file: XMLHttpRequestBodyInit): Promise<{ contentUri: string }> {
     const { bytes, mime } = await uploadBytes(file);
-    return { contentUri: await this.#core.commands.uploadMedia(mime, bytes) };
+    return { contentUri: await this.#core.media.uploadMedia(mime, bytes) };
   }
 
   override async downloadFile(contentUri: string): Promise<{ file: XMLHttpRequestBodyInit }> {
-    const bytes = await this.#core.commands.fetchMedia(contentUri, 0, 0);
+    const bytes = await this.#core.media.fetchMedia(contentUri, 0, 0);
     return { file: new Blob([bytes]) };
   }
 
   override async getRtcTransports(): Promise<IRtcTransportsResult> {
-    return (await this.#core.commands.rtcTransports()) as IRtcTransportsResult;
+    return (await this.#core.rpc.calls.rtcTransports()) as IRtcTransportsResult;
   }
 
   override async getRtcLivekitToken(
     data: IRtcLivekitGetTokenFromWidgetRequestData
   ): Promise<IRtcLivekitGetTokenFromWidgetResponseData> {
-    return (await this.#core.commands.rtcLivekit(
-      'get_token',
-      data
-    )) as IRtcLivekitGetTokenFromWidgetResponseData;
+    return (await this.#core.rpc.calls.rtcLivekit({
+      endpoint: 'get_token',
+      body: data,
+    })) as IRtcLivekitGetTokenFromWidgetResponseData;
   }
 
   override async delegateRtcLivekitDelayedLeave(
     data: IRtcLivekitDelegateDelayedLeaveFromWidgetRequestData
   ): Promise<IRtcLivekitDelegateDelayedLeaveFromWidgetResponseData> {
-    return (await this.#core.commands.rtcLivekit(
-      'delegate_delayed_leave',
-      data
-    )) as IRtcLivekitDelegateDelayedLeaveFromWidgetResponseData;
+    return (await this.#core.rpc.calls.rtcLivekit({
+      endpoint: 'delegate_delayed_leave',
+      body: data,
+    })) as IRtcLivekitDelegateDelayedLeaveFromWidgetResponseData;
   }
 
   override getKnownRooms(): string[] {

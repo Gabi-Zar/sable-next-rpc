@@ -66,7 +66,7 @@ beforeEach(() => {
     switchAccount,
     removeAccount,
     logout,
-    signOutSafety,
+    rpc: { encryption: { signOutSafety } },
   });
 });
 

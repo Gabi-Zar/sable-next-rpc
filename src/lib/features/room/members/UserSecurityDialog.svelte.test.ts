@@ -35,7 +35,7 @@ const requestVerification = vi.fn(() => Promise.resolve('flow'));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  Object.assign(core, { userSecurity, requestVerification });
+  Object.assign(core, { rpc: { encryption: { userSecurity } }, requestVerification });
 });
 
 test('shows identity and MSC4153 device eligibility, then starts user verification', async () => {

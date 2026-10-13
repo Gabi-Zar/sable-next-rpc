@@ -140,9 +140,9 @@
   const spaceSidebar = new SpaceSidebar();
   provideSpaceSidebar(spaceSidebar);
   providePersonaStore(new PersonaStore(core));
-  const bookmarks = new Bookmarks(core.commands);
+  const bookmarks = new Bookmarks(core.rpc.account);
   provideBookmarks(bookmarks);
-  provideEventItems(new EventItems(core.commands, () => core.session?.user_id ?? null));
+  provideEventItems(new EventItems(core.rpc.timeline, () => core.session?.user_id ?? null));
   const roomScopes = new RoomScopes(core);
   provideRoomScopes(roomScopes);
   onDestroy(() => roomScopes.dispose());
@@ -254,7 +254,11 @@
       return;
     }
     if (outcome === 'decline') {
-      if (eventId !== null) void core.commands.declineCall(roomId, eventId).catch(() => {});
+      if (eventId !== null) {
+        void core.rpc.calls
+          .declineCall({ room_id: roomId, notification_event_id: eventId })
+          .catch(() => {});
+      }
       return;
     }
     void goto(roomSectionPath(roomList.rooms, roomId));
@@ -437,18 +441,22 @@
     void core.accountRevision;
     if (core.status !== 'ready') return;
 
-    void core.commands
-      .setNotificationContent(
-        preferences.notificationContent,
-        preferences.notificationEncryptedContent
-      )
+    void core.rpc.notifications
+      .setNotificationContent({
+        visible: preferences.notificationContent,
+        encrypted: preferences.notificationEncryptedContent,
+      })
       .catch(() => {});
 
-    void core.commands.setNotificationSounds(preferences.notificationSounds).catch(() => {});
+    void core.rpc.notifications
+      .setNotificationSounds({ enabled: preferences.notificationSounds })
+      .catch(() => {});
 
-    void core.commands.setNotifyOnce(preferences.notifyOnce).catch(() => {});
+    void core.rpc.notifications.setNotifyOnce({ enabled: preferences.notifyOnce }).catch(() => {});
 
-    void core.commands.setNotificationsEnabled(preferences.systemNotifications).catch(() => {});
+    void core.rpc.notifications
+      .setNotificationsEnabled({ enabled: preferences.systemNotifications })
+      .catch(() => {});
 
     void setNativeEncryptedContentAllowed(
       preferences.notificationContent && preferences.notificationEncryptedContent,
@@ -471,13 +479,13 @@
     void core.accountRevision;
     if (core.status !== 'ready') return;
 
-    void core.commands
-      .setSearchOptions(
-        Number(preferences.searchIndexLimit),
-        preferences.searchCrawler,
-        preferences.searchUnmeteredOnly,
-        preferences.serverSearch,
-        {
+    void core.rpc.session
+      .setSearchOptions({
+        disk_budget_mb: Number(preferences.searchIndexLimit),
+        crawler: preferences.searchCrawler,
+        unmetered_only: preferences.searchUnmeteredOnly,
+        server_search: preferences.serverSearch,
+        tuning: {
           crawl_pause_ms: Number(preferences.searchCrawlPause) * 1000,
           trickle_pause_ms: Number(preferences.searchTricklePause) * 1000,
           flush_interval_secs: Number(preferences.searchFlushInterval),
@@ -485,8 +493,8 @@
           base_events: Number(preferences.searchBaseEvents),
           max_events: Number(preferences.searchMaxEvents),
         },
-        documentVisible
-      )
+        foreground: documentVisible,
+      })
       .catch(() => {});
   });
 
@@ -499,7 +507,9 @@
     const state = presence === 'online' && !active ? 'unavailable' : presence;
     const status = preferences.sendPresence && message ? message : null;
     const timer = setTimeout(() => {
-      void core.commands.setPresence(state, status).catch(() => {});
+      void core.rpc.account
+        .setPresence({ presence: state, status_message: status })
+        .catch(() => {});
     }, PRESENCE_SETTLE_MS);
     return () => clearTimeout(timer);
   });
@@ -631,7 +641,9 @@
       if (message?.type === 'sable:push-resubscribe') resync();
       if (message?.type === 'sable:webpush-ack') {
         if (message.appId && message.ackToken) {
-          void core.commands.ackWebPusher(message.appId, message.ackToken).catch(() => undefined);
+          void core.rpc.push
+            .ackWebPusher({ app_id: message.appId, ack_token: message.ackToken })
+            .catch(() => undefined);
         }
       }
     });
@@ -966,10 +978,10 @@
       },
       'room.markRead': () => {
         const room = roomList.byId(openRoomId);
-        markRoomsRead([room], core.commands, readReceiptIsPrivate());
+        markRoomsRead([room], core.rpc.timeline, readReceiptIsPrivate());
       },
       'room.markAllRead': () => {
-        markRoomsRead(roomList.rooms, core.commands, readReceiptIsPrivate());
+        markRoomsRead(roomList.rooms, core.rpc.timeline, readReceiptIsPrivate());
       },
       'navigation.nextUnread': () => {
         const unread = unreadRoomsByPriority(roomList.rooms, openRoomId, roomList.unreadFor);

@@ -1,13 +1,13 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { parseMatrixLink } from '#lib/rooms/matrix-link.js';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
 import { copyRoomLink, matrixToUrl, permalinkTarget, roomSectionPath, viaFor } from './permalink';
 
-function room(roomId: string, overrides: Partial<RoomSummary> = {}): RoomSummary {
+function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomListItemView {
   return withCounts({
     room_id: roomId,
     canonical_alias: null,
@@ -261,7 +261,7 @@ function linkCore(via: string[] | Error) {
   const roomViaServers = vi.fn(() =>
     via instanceof Error ? Promise.reject(via) : Promise.resolve(via)
   );
-  return { core: { commands: { roomViaServers } } as never, roomViaServers };
+  return { core: { rpc: { rooms: { roomViaServers } } } as never, roomViaServers };
 }
 
 test('copying a room id link asks for via servers and carries the event', async () => {
@@ -273,7 +273,7 @@ test('copying a room id link asks for via servers and carries the event', async 
     copyRoomLink(core, { room_id: '!room:example.org', canonical_alias: null }, '$event')
   ).resolves.toBe(true);
 
-  expect(roomViaServers).toHaveBeenCalledWith('!room:example.org');
+  expect(roomViaServers).toHaveBeenCalledWith({ room_id: '!room:example.org' });
   expect(writeText).toHaveBeenCalledWith(matrixToUrl('!room:example.org', ['a.example'], '$event'));
 });
 

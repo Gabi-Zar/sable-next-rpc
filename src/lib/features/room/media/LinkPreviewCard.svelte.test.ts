@@ -15,7 +15,8 @@ vi.mock('#lib/config/runtime-config.js', () => ({
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const core = Object.assign(baseCore, {
-  urlPreview: vi.fn<(url: string, service: string | null) => Promise<UrlPreviewView | null>>(),
+  urlPreview:
+    vi.fn<(params: { url: string; service: string | null }) => Promise<UrlPreviewView | null>>(),
 });
 
 import LinkPreviewCard from './LinkPreviewCard.svelte';
@@ -162,7 +163,7 @@ test('an encrypted room needs its own consent, and an unknown one is treated as 
   await Promise.resolve();
   await tick();
 
-  expect(core.urlPreview).toHaveBeenCalledWith('https://example.org/f', null);
+  expect(core.urlPreview).toHaveBeenCalledWith({ url: 'https://example.org/f', service: null });
 });
 
 async function settle(): Promise<void> {
@@ -180,22 +181,25 @@ test('client-side embeds alone preview without asking the homeserver', async () 
   await settle();
 
   expect(core.urlPreview).toHaveBeenCalledTimes(1);
-  expect(core.urlPreview).toHaveBeenCalledWith('https://example.org/c1', 'https://embeds.test');
+  expect(core.urlPreview).toHaveBeenCalledWith({
+    url: 'https://example.org/c1',
+    service: 'https://embeds.test',
+  });
   expect(screen.getByRole('link', { name: /Example/ })).toBeInTheDocument();
 });
 
 test('the homeserver is asked only when the client side has no answer', async () => {
   preferences.clientEmbeds = true;
   preferences.urlPreviews = true;
-  core.urlPreview.mockImplementation((_url, service) =>
+  core.urlPreview.mockImplementation(({ service }) =>
     Promise.resolve(service !== null ? null : preview({ url: 'https://example.org/c2' }))
   );
   render(LinkPreviewCard, { url: 'https://example.org/c2', encrypted: false });
   await settle();
 
   expect(core.urlPreview.mock.calls).toEqual([
-    ['https://example.org/c2', 'https://embeds.test'],
-    ['https://example.org/c2', null],
+    [{ url: 'https://example.org/c2', service: 'https://embeds.test' }],
+    [{ url: 'https://example.org/c2', service: null }],
   ]);
   expect(screen.getByRole('link', { name: /Example/ })).toBeInTheDocument();
 });

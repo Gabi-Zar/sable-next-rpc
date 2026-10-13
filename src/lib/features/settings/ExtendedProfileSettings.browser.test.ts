@@ -40,8 +40,12 @@ test('a long blocked user ID stays inside its settings section', async () => {
   await page.viewport(412, 915);
   Object.assign(core, {
     session: { user_id: '@me:example.org' },
-    accountContacts: vi.fn().mockResolvedValue([]),
-    ignoredUsers: vi.fn().mockResolvedValue([]),
+    rpc: {
+      account: {
+        accountContacts: vi.fn().mockResolvedValue([]),
+        ignoredUsers: vi.fn().mockResolvedValue([]),
+      },
+    },
     setUserIgnored: vi.fn().mockResolvedValue(undefined),
   });
   core.commands = core;

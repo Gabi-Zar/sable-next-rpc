@@ -5,6 +5,7 @@ import { CoreError, type Transport } from '#src/transport';
 
 import { recentSearches, rememberSearch } from '#lib/features/search/recent-searches.svelte.js';
 
+import { joinRoom } from './api/rooms.js';
 import { createCoreClient } from './client.svelte.js';
 import { markVoiceRecording } from './attachment-info.js';
 
@@ -33,9 +34,9 @@ const otherSession: SessionInfo = {
 
 test('a locked account keeps its session and clears the lock after switching accounts', async () => {
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: { accounts: [session, otherSession] },
-    switch_account: { session: otherSession },
+    'session.restore': session,
+    'session.list_accounts': [session, otherSession],
+    'session.switch_account': otherSession,
   });
   const core = createCoreClient(() => fake.transport);
   await core.start();
@@ -52,13 +53,13 @@ test('a locked account keeps its session and clears the lock after switching acc
 });
 
 test('keeps a lock event that arrives before the restored session response', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
-  const send = fake.send.getMockImplementation();
-  if (!send) throw new Error('missing transport handler');
-  fake.send.mockImplementation((command) => {
-    if (command.type === 'restore')
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
+  const call = fake.call.getMockImplementation();
+  if (!call) throw new Error('missing transport handler');
+  fake.call.mockImplementation((method, params) => {
+    if (method === 'session.restore')
       fake.emit({ type: 'account_lock_changed', account_id: session.account_id, locked: true });
-    return send(command);
+    return call(method, params);
   });
   const core = createCoreClient(() => fake.transport);
   await core.start();
@@ -70,21 +71,32 @@ function fakeTransport(responses: Record<string, unknown> = {}) {
   const listeners = new Set<(event: CoreEvent) => void>();
   const storageFailureListeners = new Set<() => void>();
   const sent: { type: string }[] = [];
+  const called: { method: string; params: unknown }[] = [];
   const close = vi.fn();
   const resetCaches = vi.fn().mockResolvedValue(undefined);
   const deleteAccountStore = vi.fn().mockResolvedValue(undefined);
   const send = vi.fn((command: { type: string }) => {
     sent.push(command);
     return Promise.resolve(
-      responses[command.type] ??
-        (command.type === 'list_accounts'
-          ? { accounts: [] }
-          : command.type === 'media_config'
-            ? { upload_size: 100 * 1024 * 1024 }
-            : {})
+      responses[command.type] ?? (command.type === 'list_accounts' ? { accounts: [] } : {})
+    );
+  });
+  const call = vi.fn((method: string, params: unknown) => {
+    called.push({ method, params });
+    const response = responses[method];
+    return Promise.resolve(
+      typeof response === 'function'
+        ? (response as () => unknown)()
+        : (response ??
+            (method === 'session.list_accounts'
+              ? []
+              : method === 'messages.media_config'
+                ? { upload_size: 100 * 1024 * 1024 }
+                : null))
     );
   });
   const transport = {
+    call,
     send,
     resetCaches,
     deleteAccountStore,
@@ -108,6 +120,8 @@ function fakeTransport(responses: Record<string, unknown> = {}) {
 
   return {
     transport,
+    call,
+    called,
     send,
     sent,
     close,
@@ -127,46 +141,40 @@ test.each([false, true])(
   async (silentReply) => {
     const fake = fakeTransport();
     const core = createCoreClient(() => fake.transport);
-    await core.commands.sendGif(
-      '!room:example.org',
-      'mxc://example.org/gif',
-      'cat.gif',
-      null,
-      null,
-      'image/gif',
-      null,
-      '$target',
-      null,
-      null,
-      silentReply
+    await core.rpc.messages.sendGif({
+      room_id: '!room:example.org',
+      url: 'mxc://example.org/gif',
+      body: 'cat.gif',
+      width: null,
+      height: null,
+      mimetype: 'image/gif',
+      size: null,
+      in_reply_to: '$target',
+      silent_reply: silentReply,
+      thread_root: null,
+      persona: null,
+    });
+    expect(fake.call).toHaveBeenLastCalledWith(
+      'messages.send_gif',
+      expect.objectContaining({ in_reply_to: '$target', silent_reply: silentReply })
     );
-    expect(fake.send).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: 'send_gif',
-        in_reply_to: '$target',
-        silent_reply: silentReply,
-      })
-    );
-    await core.commands.sendLocation(
-      '!room:example.org',
-      'here',
-      'geo:48,2',
-      '$target',
-      null,
-      silentReply
-    );
-    expect(fake.send).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: 'send_location',
-        in_reply_to: '$target',
-        silent_reply: silentReply,
-      })
+    await core.rpc.messages.sendLocation({
+      room_id: '!room:example.org',
+      body: 'here',
+      geo_uri: 'geo:48,2',
+      in_reply_to: '$target',
+      silent_reply: silentReply,
+      thread_root: null,
+    });
+    expect(fake.call).toHaveBeenLastCalledWith(
+      'messages.send_location',
+      expect.objectContaining({ in_reply_to: '$target', silent_reply: silentReply })
     );
   }
 );
 
 test('a restore that returns a session leaves the client ready', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -177,7 +185,7 @@ test('a restore that returns a session leaves the client ready', async () => {
 });
 
 test('an interrupted storage connection requires an explicit reload', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -187,7 +195,7 @@ test('an interrupted storage connection requires an explicit reload', async () =
 });
 
 test('resetting caches also drops the persisted room list snapshot', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
   const stored = new Map<string, string>();
   vi.stubGlobal('localStorage', {
@@ -215,10 +223,9 @@ test('resetting caches also drops the persisted room list snapshot', async () =>
 test('logging out selects another saved account instead of returning to sign-in', async () => {
   const accounts = { accounts: [session, otherSession] };
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: accounts,
-    logout: {},
-    switch_account: { session: otherSession },
+    'session.restore': session,
+    'session.list_accounts': () => accounts.accounts,
+    'session.switch_account': otherSession,
   });
   const core = createCoreClient(() => fake.transport);
 
@@ -230,16 +237,18 @@ test('logging out selects another saved account instead of returning to sign-in'
   expect(core.session).toEqual(otherSession);
   expect(core.accounts).toEqual([otherSession]);
   expect(core.status).toBe('ready');
-  expect(fake.sent).toContainEqual({ type: 'switch_account', account_id: otherSession.account_id });
+  expect(fake.called).toContainEqual({
+    method: 'session.switch_account',
+    params: { account_id: otherSession.account_id },
+  });
 });
 
 test("logging out forgets that account's recent searches and keeps the others'", async () => {
   const accounts = { accounts: [session, otherSession] };
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: accounts,
-    logout: {},
-    switch_account: { session: otherSession },
+    'session.restore': session,
+    'session.list_accounts': () => accounts.accounts,
+    'session.switch_account': otherSession,
   });
   const core = createCoreClient(() => fake.transport);
   rememberSearch(session.user_id, 'salary review');
@@ -256,9 +265,8 @@ test("logging out forgets that account's recent searches and keeps the others'",
 test('removing an account forgets its recent searches', async () => {
   const accounts = { accounts: [session, otherSession] };
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: accounts,
-    remove_account: {},
+    'session.restore': session,
+    'session.list_accounts': () => accounts.accounts,
   });
   const core = createCoreClient(() => fake.transport);
   rememberSearch(otherSession.user_id, 'rollback plan');
@@ -272,7 +280,7 @@ test('removing an account forgets its recent searches', async () => {
 
 test("a restore that fails keeps every account's recent searches", async () => {
   const fake = fakeTransport();
-  fake.transport.send = vi.fn(() => Promise.reject(new Error('worker gone')));
+  fake.transport.call = vi.fn(() => Promise.reject(new Error('worker gone')));
   const core = createCoreClient(() => fake.transport);
   rememberSearch(session.user_id, 'rollback plan');
 
@@ -283,7 +291,7 @@ test("a restore that fails keeps every account's recent searches", async () => {
 });
 
 test('a restore that returns no session reports signed out, not an error', async () => {
-  const fake = fakeTransport({ restore: { session: null } });
+  const fake = fakeTransport({ 'session.restore': null });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -294,8 +302,11 @@ test('a restore that returns no session reports signed out, not an error', async
 
 test('a failed restore can retry without logging in or deleting stores', async () => {
   const fake = fakeTransport();
-  fake.transport.send = vi.fn(() => Promise.reject(new Error('worker gone')));
-  const recovered = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  fake.transport.call = vi.fn(() => Promise.reject(new Error('worker gone')));
+  const recovered = fakeTransport({
+    'session.restore': session,
+    'session.list_accounts': [session],
+  });
   const open = vi.fn().mockReturnValueOnce(fake.transport).mockReturnValue(recovered.transport);
   const core = createCoreClient(open);
 
@@ -308,17 +319,20 @@ test('a failed restore can retry without logging in or deleting stores', async (
   await core.start();
   expect(core.status).toBe('ready');
   expect(core.session?.device_id).toBe(session.device_id);
-  expect(recovered.sent.map((command) => command.type)).not.toContain('login');
+  expect(recovered.called.map((call) => call.method)).not.toContain('auth.login');
 });
 
 test('a restored session survives an account-list failure and a retry', async () => {
-  const fake = fakeTransport({ restore: { session } });
-  fake.send.mockImplementation((command) =>
-    command.type === 'list_accounts'
+  const fake = fakeTransport({ 'session.restore': session });
+  fake.call.mockImplementation((method) =>
+    method === 'session.list_accounts'
       ? Promise.reject(new CoreError({ code: 'failed', log_id: 'e1' }))
-      : Promise.resolve({ session })
+      : Promise.resolve(session)
   );
-  const recovered = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const recovered = fakeTransport({
+    'session.restore': session,
+    'session.list_accounts': [session],
+  });
   const core = createCoreClient(
     vi.fn().mockReturnValueOnce(fake.transport).mockReturnValue(recovered.transport)
   );
@@ -336,22 +350,22 @@ test.each(['list_accounts', 'switch_account'])(
     vi.stubGlobal('BroadcastChannel', undefined);
     const retired = { ...session, needs_reauth: true };
     const initial = fakeTransport({
-      restore: { session },
-      list_accounts: { accounts: [session, otherSession] },
+      'session.restore': session,
+      'session.list_accounts': [session, otherSession],
     });
     const retry = fakeTransport({
-      restore: { session: null },
-      list_accounts: { accounts: [retired, otherSession] },
-      switch_account: { session: otherSession },
+      'session.restore': null,
+      'session.list_accounts': [retired, otherSession],
+      'session.switch_account': otherSession,
     });
     const core = createCoreClient(
       vi.fn().mockReturnValueOnce(initial.transport).mockReturnValue(retry.transport)
     );
     await core.start();
-    initial.send.mockImplementation((command) =>
-      command.type === failedCommand
+    initial.call.mockImplementation((method) =>
+      method === `session.${failedCommand}`
         ? Promise.reject(new CoreError({ code: 'failed', log_id: 'e1' }))
-        : Promise.resolve({ accounts: [retired, otherSession] })
+        : Promise.resolve([retired, otherSession])
     );
     initial.emit({ type: 'session_ended', reason: 'soft_logout' });
     await vi.waitFor(() => {
@@ -361,20 +375,20 @@ test.each(['list_accounts', 'switch_account'])(
     expect(core.status).toBe('ready');
     expect(core.session).toEqual(otherSession);
     expect(core.restoreFailed).toBe(false);
-    expect(retry.sent).toContainEqual({
-      type: 'switch_account',
-      account_id: otherSession.account_id,
+    expect(retry.called).toContainEqual({
+      method: 'session.switch_account',
+      params: { account_id: otherSession.account_id },
     });
   }
 );
 
 test('failed crypto restoration exposes saved accounts for deliberate recovery', async () => {
   vi.stubGlobal('BroadcastChannel', undefined);
-  const fake = fakeTransport({ list_accounts: { accounts: [session, otherSession] } });
-  fake.send.mockImplementation((command) =>
-    command.type === 'restore'
+  const fake = fakeTransport({ 'session.list_accounts': [session, otherSession] });
+  fake.call.mockImplementation((method) =>
+    method === 'session.restore'
       ? Promise.reject(new CoreError({ code: 'failed', log_id: 'e1' }))
-      : Promise.resolve({ accounts: [session, otherSession] })
+      : Promise.resolve([session, otherSession])
   );
   const core = createCoreClient(() => fake.transport);
   await core.start();
@@ -384,7 +398,7 @@ test('failed crypto restoration exposes saved accounts for deliberate recovery',
 
 test('fresh sign-in recovery keeps saved account data and avoids old-device reauthentication', async () => {
   vi.stubGlobal('BroadcastChannel', undefined);
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
   await core.start();
   core.restoreFailed = true;
@@ -395,7 +409,7 @@ test('fresh sign-in recovery keeps saved account data and avoids old-device reau
   expect(core.restoreFailed).toBe(false);
   expect(core.reauthenticationAccountId).toBeNull();
   expect(core.accounts).toEqual([session]);
-  expect(fake.sent).not.toContainEqual({ type: 'logout' });
+  expect(fake.called.map((call) => call.method)).not.toContain('session.logout');
   expect(fake.deleteAccountStore).not.toHaveBeenCalled();
   expect(fake.resetCaches).not.toHaveBeenCalled();
 });
@@ -406,11 +420,11 @@ test.each(['password', 'oidc', 'sso', 'qr'])(
     vi.stubGlobal('BroadcastChannel', undefined);
     const fresh = { ...session, account_id: 'new-device', device_id: 'NEW' };
     const fake = fakeTransport({
-      restore: { session: fresh },
-      list_accounts: { accounts: [session, fresh] },
-      login: { user_id: session.user_id },
-      complete_oidc_login: { user_id: session.user_id },
-      complete_sso_login: { user_id: session.user_id },
+      'session.restore': fresh,
+      'session.list_accounts': [session, fresh],
+      'auth.login': session.user_id,
+      'auth.complete_oidc_login': session.user_id,
+      'auth.complete_sso_login': session.user_id,
     });
     const core = createCoreClient(() => fake.transport);
     if (method === 'password') {
@@ -431,69 +445,70 @@ test.each(['password', 'oidc', 'sso', 'qr'])(
 );
 
 test('concurrent starts share one restore', async () => {
-  const fake = fakeTransport({ restore: { session: null } });
+  const fake = fakeTransport({ 'session.restore': null });
   const core = createCoreClient(() => fake.transport);
 
   await Promise.all([core.start(), core.start(), core.start()]);
 
-  expect(fake.sent.filter((command) => command.type === 'restore')).toHaveLength(1);
+  expect(fake.called.filter((call) => call.method === 'session.restore')).toHaveLength(1);
 });
 
-test('commands dispatch through the transport the client was given', async () => {
-  const fake = fakeTransport({ restore: { session: null }, room_aliases: { aliases: ['#a:b'] } });
+test('calls dispatch through the transport the client was given', async () => {
+  const fake = fakeTransport({ 'session.restore': null, 'rooms.room_aliases': ['#a:b'] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
 
-  await expect(core.commands.roomAliases('!room:example.org')).resolves.toEqual(['#a:b']);
-  expect(fake.sent).toContainEqual({ type: 'room_aliases', room_id: '!room:example.org' });
+  await expect(core.rpc.rooms.roomAliases({ room_id: '!room:example.org' })).resolves.toEqual([
+    '#a:b',
+  ]);
+  expect(fake.called).toContainEqual({
+    method: 'rooms.room_aliases',
+    params: { room_id: '!room:example.org' },
+  });
 });
 
-test('commands copy caller-provided arrays, so reactive proxies cannot reach the transport', async () => {
-  const fake = fakeTransport({ restore: { session: null }, join_room: { room_id: '!x:b' } });
+test('joining copies caller-provided arrays, so reactive proxies cannot reach the transport', async () => {
+  const fake = fakeTransport({ 'session.restore': null, 'rooms.join_room': '!x:b' });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
 
   // Any Proxy stands in for a `$state` array, which structured clone refuses.
   const via = new Proxy(['example.org'], {});
-  await core.commands.joinRoom('!room:example.org', via);
+  await joinRoom(core.rpc, '!room:example.org', via);
 
-  const sent = fake.sent.find((command) => command.type === 'join_room');
-  expect(sent).toEqual({
-    type: 'join_room',
-    address: '!room:example.org',
-    via: ['example.org'],
-  });
-  expect(() => structuredClone(sent)).not.toThrow();
+  const call = fake.called.find((entry) => entry.method === 'rooms.join_room');
+  expect(call?.params).toEqual({ address: '!room:example.org', via: ['example.org'] });
+  expect(() => structuredClone(call?.params)).not.toThrow();
 });
 
 test.each(['attachment', 'gallery', 'scheduled'] as const)(
   '%s uploads use the server limit instead of 100 MiB',
   async (kind) => {
     const fake = fakeTransport({
-      media_config: { upload_size: 500 * 1024 * 1024 },
-      delayed_events_supported: { supported: true },
-      schedule_attachment: { delay_id: 'delayed' },
+      'messages.media_config': { upload_size: 500 * 1024 * 1024 },
+      'session.delayed_events_supported': true,
+      'messages.schedule_attachment': 'delayed',
     });
     fake.transport.sendGallery = vi.fn();
     const core = createCoreClient(() => fake.transport);
     const file = new File(['x'], 'large.bin', { type: 'application/octet-stream' });
     Object.defineProperty(file, 'size', { value: 200 * 1024 * 1024 });
 
-    if (kind === 'attachment') await core.commands.sendAttachment('!room:example.org', file);
-    if (kind === 'gallery') await core.commands.sendGallery('!room:example.org', [file, file]);
+    if (kind === 'attachment') await core.media.sendAttachment('!room:example.org', file);
+    if (kind === 'gallery') await core.media.sendGallery('!room:example.org', [file, file]);
     if (kind === 'scheduled')
-      await core.commands.scheduleAttachment('!room:example.org', file, Date.now() + 30_000);
+      await core.media.scheduleAttachment('!room:example.org', file, Date.now() + 30_000);
 
-    expect(fake.sent).toContainEqual({ type: 'media_config' });
+    expect(fake.called).toContainEqual({ method: 'messages.media_config', params: {} });
   }
 );
 
 test.each(['attachment', 'gallery', 'scheduled'] as const)(
   '%s uploads reject files above a smaller server limit before reading them',
   async (kind) => {
-    const fake = fakeTransport({ media_config: { upload_size: 10_000_000 } });
+    const fake = fakeTransport({ 'messages.media_config': { upload_size: 10_000_000 } });
     const sendAttachment = vi.spyOn(fake.transport, 'sendAttachment');
     const uploadMedia = vi.spyOn(fake.transport, 'uploadMedia');
     const sendGallery = vi.fn<Transport['sendGallery']>();
@@ -505,10 +520,10 @@ test.each(['attachment', 'gallery', 'scheduled'] as const)(
 
     const sending =
       kind === 'attachment'
-        ? core.commands.sendAttachment('!room:example.org', file)
+        ? core.media.sendAttachment('!room:example.org', file)
         : kind === 'gallery'
-          ? core.commands.sendGallery('!room:example.org', [file, file])
-          : core.commands.scheduleAttachment('!room:example.org', file, Date.now() + 30_000);
+          ? core.media.sendGallery('!room:example.org', [file, file])
+          : core.media.scheduleAttachment('!room:example.org', file, Date.now() + 30_000);
 
     await expect(sending).rejects.toThrow('10 MB');
     expect(read).not.toHaveBeenCalled();
@@ -526,7 +541,7 @@ test('sending a voice recording forwards its MIME type, duration, waveform and v
   const recording = new File(['recording'], 'voice.ogg', { type: 'audio/ogg' });
   markVoiceRecording(recording, [0, 0.5, 1], 1250);
 
-  await core.commands.sendAttachment('!room:example.org', recording);
+  await core.media.sendAttachment('!room:example.org', recording);
 
   expect(sendAttachment).toHaveBeenCalledOnce();
   expect(sendAttachment.mock.calls[0][0]).toMatchObject({
@@ -543,7 +558,7 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
   const core = createCoreClient(() => fake.transport);
   const file = new File(['pdf'], 'report.pdf', { type: 'application/pdf' });
 
-  await core.commands.sendAttachment('!room:example.org', file, {
+  await core.media.sendAttachment('!room:example.org', file, {
     caption: 'hey Member One :wave:',
     formattedCaption:
       'hey <a href="https://matrix.to/#/@one:example.org">Member One</a> <img data-mx-emoticon>',
@@ -590,8 +605,8 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
 
 test('scheduling an attachment uploads it before creating its delayed event', async () => {
   const fake = fakeTransport({
-    delayed_events_supported: { supported: true },
-    schedule_attachment: { delay_id: 'delayed-image' },
+    'session.delayed_events_supported': true,
+    'messages.schedule_attachment': 'delayed-image',
   });
   const uploadMedia = vi.fn(() => {
     vi.setSystemTime(12_000);
@@ -603,38 +618,40 @@ test('scheduling an attachment uploads it before creating its delayed event', as
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(10_000);
 
-  await expect(core.commands.scheduleAttachment('!room:example.org', file, 40_000)).resolves.toBe(
+  await expect(core.media.scheduleAttachment('!room:example.org', file, 40_000)).resolves.toBe(
     'delayed-image'
   );
   vi.useRealTimers();
 
   expect(uploadMedia).toHaveBeenCalledWith('image/png', new TextEncoder().encode('image'));
-  expect(fake.sent).toContainEqual({
-    type: 'schedule_attachment',
-    room_id: '!room:example.org',
-    filename: 'later.png',
-    mime: 'image/png',
-    url: 'mxc://example.org/later',
-    size: 5,
-    info: null,
-    spoiler: false,
-    delay_ms: 28_000,
+  expect(fake.called).toContainEqual({
+    method: 'messages.schedule_attachment',
+    params: {
+      room_id: '!room:example.org',
+      filename: 'later.png',
+      mime: 'image/png',
+      url: 'mxc://example.org/later',
+      size: 5,
+      info: null,
+      spoiler: false,
+      delay_ms: 28_000,
+    },
   });
 });
 
 test('an attachment is not uploaded when the homeserver cannot schedule it', async () => {
-  const fake = fakeTransport({ delayed_events_supported: { supported: false } });
+  const fake = fakeTransport({ 'session.delayed_events_supported': false });
   const uploadMedia = vi.fn(() => Promise.resolve('mxc://example.org/never'));
   fake.transport.uploadMedia = uploadMedia;
   const core = createCoreClient(() => fake.transport);
   const file = new File(['image'], 'later.png', { type: 'image/png' });
 
   await expect(
-    core.commands.scheduleAttachment('!room:example.org', file, Date.now() + 30_000)
+    core.media.scheduleAttachment('!room:example.org', file, Date.now() + 30_000)
   ).rejects.toMatchObject({ detail: { code: 'delayed_events_unsupported' } });
 
   expect(uploadMedia).not.toHaveBeenCalled();
-  expect(fake.sent.map((command) => command.type)).not.toContain('schedule_attachment');
+  expect(fake.called.map((call) => call.method)).not.toContain('messages.schedule_attachment');
 });
 
 test('sending a gallery forwards shared metadata and every attachment', async () => {
@@ -645,7 +662,7 @@ test('sending a gallery forwards shared metadata and every attachment', async ()
   const first = new File(['one'], 'one.png', { type: 'image/png' });
   const second = new File(['two'], 'two.pdf', { type: 'application/pdf' });
 
-  await core.commands.sendGallery('!room:example.org', [first, second], {
+  await core.media.sendGallery('!room:example.org', [first, second], {
     caption: 'Weekend',
     formattedCaption: '<strong>Weekend</strong>',
     mentions: { userIds: ['@one:example.org'], room: true },
@@ -670,7 +687,7 @@ test('sending a gallery forwards shared metadata and every attachment', async ()
 });
 
 test('stopping clears the session and closes the transport', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -682,7 +699,7 @@ test('stopping clears the session and closes the transport', async () => {
 });
 
 test('core events from the transport reach client state', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -697,9 +714,9 @@ test('core events from the transport reach client state', async () => {
 
 test('the sync status outlives the reset the session replacement performs', async () => {
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: { accounts: [session] },
-    sync_status: { status: { state: 'live' } },
+    'session.restore': session,
+    'session.list_accounts': [session],
+    'session.sync_status': { state: 'live' },
   });
   const core = createCoreClient(() => fake.transport);
 
@@ -715,7 +732,7 @@ async function startGated(fetch: () => Promise<unknown>) {
   const fetchMock = vi.fn(fetch);
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('navigator', { onLine: true });
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
   await core.start();
   return { core, fake, fetchMock };
@@ -773,7 +790,7 @@ test('an offline core the page cannot reach either is just offline', async () =>
 });
 
 test('a cancellation for an unknown verification flow does not open the verification dialog', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -810,7 +827,7 @@ test('a cancellation for an unknown verification flow does not open the verifica
 });
 
 test('verifying while another device is asking accepts its request instead of crossing it', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -826,17 +843,16 @@ test('verifying while another device is asking accepts its request instead of cr
   await expect(core.requestVerification(session.user_id, 'NEWDEVICE')).resolves.toBe(
     'incoming-flow'
   );
-  expect(fake.sent).toContainEqual({
-    type: 'accept_verification',
-    user_id: session.user_id,
-    flow_id: 'incoming-flow',
+  expect(fake.called).toContainEqual({
+    method: 'encryption.accept_verification',
+    params: { user_id: session.user_id, flow_id: 'incoming-flow' },
   });
-  expect(fake.sent.some((command) => command.type === 'request_verification')).toBe(false);
+  expect(fake.called.some((call) => call.method === 'encryption.request_verification')).toBe(false);
   unsubscribe();
 });
 
 test('an incoming verification from another user opens a flow for that user', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -855,19 +871,18 @@ test('an incoming verification from another user opens a flow for that user', as
   });
 
   await expect(core.requestVerification('@alice:example.org')).resolves.toBe('alice-flow');
-  expect(fake.sent).toContainEqual({
-    type: 'accept_verification',
-    user_id: '@alice:example.org',
-    flow_id: 'alice-flow',
+  expect(fake.called).toContainEqual({
+    method: 'encryption.accept_verification',
+    params: { user_id: '@alice:example.org', flow_id: 'alice-flow' },
   });
-  expect(fake.sent.some((command) => command.type === 'request_verification')).toBe(false);
+  expect(fake.called.some((call) => call.method === 'encryption.request_verification')).toBe(false);
   unsubscribe();
 });
 
 test('a session ending clears the session and looks for a fallback account', async () => {
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: { accounts: [session] },
+    'session.restore': session,
+    'session.list_accounts': [session],
   });
   const core = createCoreClient(() => fake.transport);
 
@@ -881,7 +896,10 @@ test('a session ending clears the session and looks for a fallback account', asy
 test('a rejected session with no fallback account leaves the client signed out', async () => {
   const restore: { session: SessionInfo | null } = { session };
   const accounts = { accounts: [session] };
-  const fake = fakeTransport({ restore, list_accounts: accounts });
+  const fake = fakeTransport({
+    'session.restore': () => restore.session,
+    'session.list_accounts': () => accounts.accounts,
+  });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -893,12 +911,15 @@ test('a rejected session with no fallback account leaves the client signed out',
     expect(core.status).toBe('signed-out');
     expect(core.session).toBeNull();
   });
-  expect(fake.sent).not.toContainEqual({ type: 'logout' });
+  expect(fake.called.map((call) => call.method)).not.toContain('session.logout');
 });
 
 test('soft logout retains the account to reauthenticate', async () => {
   const accounts = { accounts: [session] };
-  const fake = fakeTransport({ restore: { session }, list_accounts: accounts });
+  const fake = fakeTransport({
+    'session.restore': session,
+    'session.list_accounts': () => accounts.accounts,
+  });
   const core = createCoreClient(() => fake.transport);
   await core.start();
   accounts.accounts = [{ ...session, needs_reauth: true }];
@@ -913,7 +934,10 @@ test('soft logout retains the account to reauthenticate', async () => {
 
 test('a rejected token retains the account to reauthenticate', async () => {
   const accounts = { accounts: [session] };
-  const fake = fakeTransport({ restore: { session }, list_accounts: accounts });
+  const fake = fakeTransport({
+    'session.restore': session,
+    'session.list_accounts': () => accounts.accounts,
+  });
   const core = createCoreClient(() => fake.transport);
   await core.start();
   accounts.accounts = [{ ...session, needs_reauth: true }];
@@ -927,7 +951,7 @@ test('a rejected token retains the account to reauthenticate', async () => {
 });
 
 test('a transient sync error keeps the current session ready', async () => {
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -946,7 +970,7 @@ test('failed profile lookups cool down across repeated timeline mounts and retry
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
   const failure = new Error('profile unavailable');
-  const send = fake.send;
+  const send = fake.call;
   const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
   send.mockRejectedValue(failure);
   try {
@@ -967,15 +991,15 @@ test('a profile change drops the cached profile and tells listeners once', async
   vi.useFakeTimers();
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send
-    .mockResolvedValueOnce({ profile: { display_name: 'old' } })
-    .mockResolvedValueOnce({ profile: { display_name: 'new' } });
+  fake.call
+    .mockResolvedValueOnce({ display_name: 'old' })
+    .mockResolvedValueOnce({ display_name: 'new' });
   const listener = vi.fn();
   try {
     core.onProfileChanged(listener);
     await core.userProfile('@remote:example.org');
     await core.userProfile('@remote:example.org');
-    expect(fake.send).toHaveBeenCalledTimes(1);
+    expect(fake.call).toHaveBeenCalledTimes(1);
 
     const change: CoreEvent = {
       type: 'profile_changed',
@@ -1003,9 +1027,9 @@ test('a lookup in flight when the profile changes does not refill the cache', as
   vi.useFakeTimers();
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send
-    .mockResolvedValueOnce({ profile: { display_name: 'stale' } })
-    .mockResolvedValueOnce({ profile: { display_name: 'fresh' } });
+  fake.call
+    .mockResolvedValueOnce({ display_name: 'stale' })
+    .mockResolvedValueOnce({ display_name: 'fresh' });
   try {
     const stale = core.userProfile('@remote:example.org');
     fake.emit({
@@ -1031,11 +1055,11 @@ test('profile lookups run a bounded number at a time', async () => {
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
   const release: (() => void)[] = [];
-  fake.send.mockImplementation(
+  fake.call.mockImplementation(
     () =>
       new Promise((resolve) => {
         release.push(() => {
-          resolve({ profile: {} });
+          resolve({});
         });
       })
   );
@@ -1044,10 +1068,10 @@ test('profile lookups run a bounded number at a time', async () => {
       core.userProfile(`@user${index}:example.org`)
     );
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.send).toHaveBeenCalledTimes(24);
+    expect(fake.call).toHaveBeenCalledTimes(24);
     for (const resolve of release.splice(0)) resolve();
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.send).toHaveBeenCalledTimes(26);
+    expect(fake.call).toHaveBeenCalledTimes(26);
     for (const resolve of release.splice(0)) resolve();
     await Promise.all(lookups);
   } finally {
@@ -1061,11 +1085,11 @@ test('the newest queued profile lookup runs first', async () => {
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
   const release: (() => void)[] = [];
-  fake.send.mockImplementation(
+  fake.call.mockImplementation(
     () =>
       new Promise((resolve) => {
         release.push(() => {
-          resolve({ profile: {} });
+          resolve({});
         });
       })
   );
@@ -1074,11 +1098,11 @@ test('the newest queued profile lookup runs first', async () => {
     void core.userProfile('@older:example.org');
     void core.userProfile('@newest:example.org');
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.send).toHaveBeenCalledTimes(24);
+    expect(fake.call).toHaveBeenCalledTimes(24);
     release.shift()?.();
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.send).toHaveBeenCalledTimes(25);
-    expect(fake.send.mock.calls[24]?.[0]).toMatchObject({ user_id: '@newest:example.org' });
+    expect(fake.call).toHaveBeenCalledTimes(25);
+    expect(fake.call.mock.calls[24]?.[1]).toMatchObject({ user_id: '@newest:example.org' });
   } finally {
     core.stop();
     vi.useRealTimers();
@@ -1090,11 +1114,11 @@ test('a cancelled queued profile lookup is never sent', async () => {
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
   const release: (() => void)[] = [];
-  fake.send.mockImplementation(
+  fake.call.mockImplementation(
     () =>
       new Promise((resolve) => {
         release.push(() => {
-          resolve({ profile: {} });
+          resolve({});
         });
       })
   );
@@ -1113,8 +1137,8 @@ test('a cancelled queued profile lookup is never sent', async () => {
     await expect(lonely).rejects.toMatchObject({ name: 'AbortError' });
     for (const resolve of release.splice(0)) resolve();
     await vi.advanceTimersByTimeAsync(0);
-    const requested = fake.send.mock.calls.map(
-      ([command]) => (command as unknown as { user_id: string }).user_id
+    const requested = fake.call.mock.calls.map(
+      ([, params]) => (params as { user_id: string }).user_id
     );
     expect(requested).toContain('@shared:example.org');
     expect(requested).not.toContain('@alone:example.org');
@@ -1130,14 +1154,14 @@ test('an urgent profile lookup skips the queue', async () => {
   vi.useFakeTimers();
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send.mockImplementation(() => new Promise(() => {}));
+  fake.call.mockImplementation(() => new Promise(() => {}));
   try {
     for (let index = 0; index < 26; index += 1) void core.userProfile(`@user${index}:example.org`);
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.send).toHaveBeenCalledTimes(24);
+    expect(fake.call).toHaveBeenCalledTimes(24);
     void core.userProfile('@card:example.org', true);
     await vi.advanceTimersByTimeAsync(0);
-    expect(fake.send).toHaveBeenCalledTimes(25);
+    expect(fake.call).toHaveBeenCalledTimes(25);
   } finally {
     core.stop();
     vi.useRealTimers();
@@ -1148,16 +1172,16 @@ test('a rate-limited profile lookup waits out the hint and retries', async () =>
   vi.useFakeTimers();
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send
+  fake.call
     .mockRejectedValueOnce(new CoreError({ code: 'rate_limited', retry_after_ms: 1000 }))
-    .mockResolvedValueOnce({ profile: { user_id: '@remote:example.org' } });
+    .mockResolvedValueOnce({ user_id: '@remote:example.org' });
   try {
     const lookup = core.userProfile('@remote:example.org');
     await vi.advanceTimersByTimeAsync(999);
-    expect(fake.send).toHaveBeenCalledTimes(1);
+    expect(fake.call).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
     await expect(lookup).resolves.toEqual({ user_id: '@remote:example.org' });
-    expect(fake.send).toHaveBeenCalledTimes(2);
+    expect(fake.call).toHaveBeenCalledTimes(2);
   } finally {
     core.stop();
     vi.useRealTimers();
@@ -1169,10 +1193,10 @@ test('a profile lookup that stayed rate limited is not remembered as failed', as
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
   const limited = new CoreError({ code: 'rate_limited', retry_after_ms: 1000 });
-  fake.send
+  fake.call
     .mockRejectedValueOnce(limited)
     .mockRejectedValueOnce(limited)
-    .mockResolvedValueOnce({ profile: { user_id: '@remote:example.org' } });
+    .mockResolvedValueOnce({ user_id: '@remote:example.org' });
   try {
     const first = core.userProfile('@remote:example.org');
     const failed = expect(first).rejects.toBe(limited);
@@ -1191,18 +1215,18 @@ test('a rate limit without a hint pauses every lookup for a second', async () =>
   vi.useFakeTimers();
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send
+  fake.call
     .mockRejectedValueOnce(new CoreError({ code: 'rate_limited', retry_after_ms: null }))
-    .mockResolvedValue({ profile: {} });
+    .mockResolvedValue({});
   try {
     const first = core.userProfile('@a:example.org');
     await vi.advanceTimersByTimeAsync(0);
     const second = core.userProfile('@b:example.org');
     await vi.advanceTimersByTimeAsync(999);
-    expect(fake.send).toHaveBeenCalledTimes(1);
+    expect(fake.call).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
     await Promise.all([first, second]);
-    expect(fake.send).toHaveBeenCalledTimes(3);
+    expect(fake.call).toHaveBeenCalledTimes(3);
   } finally {
     core.stop();
     vi.useRealTimers();
@@ -1213,14 +1237,14 @@ test('a rate-limit hint longer than 30s is capped', async () => {
   vi.useFakeTimers();
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send
+  fake.call
     .mockRejectedValueOnce(new CoreError({ code: 'rate_limited', retry_after_ms: 3_600_000 }))
-    .mockResolvedValueOnce({ profile: {} });
+    .mockResolvedValueOnce({});
   try {
     const lookup = core.userProfile('@remote:example.org');
     await vi.advanceTimersByTimeAsync(30_000);
     await lookup;
-    expect(fake.send).toHaveBeenCalledTimes(2);
+    expect(fake.call).toHaveBeenCalledTimes(2);
   } finally {
     core.stop();
     vi.useRealTimers();
@@ -1234,10 +1258,10 @@ test('a sign-in the core cannot reach but the page can blames the local network'
     vi.fn(() => Promise.resolve(new Response('{}')))
   );
   const fake = fakeTransport();
-  fake.send.mockImplementation((command: { type: string }) =>
-    command.type === 'login_flows'
+  fake.call.mockImplementation((method: string) =>
+    method === 'auth.login_flows'
       ? Promise.reject(new CoreError({ code: 'unavailable' }))
-      : Promise.resolve({})
+      : Promise.resolve(null)
   );
   const core = createCoreClient(() => fake.transport);
 
@@ -1254,7 +1278,7 @@ test('a sign-in the page cannot reach either stays unavailable', async () => {
     vi.fn(() => Promise.reject(new TypeError('offline')))
   );
   const fake = fakeTransport();
-  fake.send.mockImplementation(() => Promise.reject(new CoreError({ code: 'unavailable' })));
+  fake.call.mockImplementation(() => Promise.reject(new CoreError({ code: 'unavailable' })));
   const core = createCoreClient(() => fake.transport);
 
   await expect(core.loginFlows('https://matrix.lan')).rejects.toBeInstanceOf(CoreError);
@@ -1264,15 +1288,13 @@ test('an onion homeserver leaves discovery to the Matrix core without a browser 
   const fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
   const fake = fakeTransport({
-    login_flows: {
-      flows: {
-        password: true,
-        oidc: false,
-        oidc_registration: false,
-        sso: false,
-        oauth_aware_preferred: false,
-        sso_identity_providers: [],
-      },
+    'auth.login_flows': {
+      password: true,
+      oidc: false,
+      oidc_registration: false,
+      sso: false,
+      oauth_aware_preferred: false,
+      sso_identity_providers: [],
     },
   });
   const core = createCoreClient(() => fake.transport);
@@ -1281,7 +1303,7 @@ test('an onion homeserver leaves discovery to the Matrix core without a browser 
   await core.loginFlows(homeserver);
 
   expect(fetchMock).not.toHaveBeenCalled();
-  expect(fake.sent).toContainEqual({ type: 'login_flows', homeserver });
+  expect(fake.called).toContainEqual({ method: 'auth.login_flows', params: { homeserver } });
 });
 
 test('a status reported while the first read is in flight is not overwritten by it', async () => {
@@ -1297,23 +1319,23 @@ test('a status reported while the first read is in flight is not overwritten by 
   let answer: (value: object) => void = () => {};
   const device = { device_id: 'LAPTOP' };
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: { accounts: [session] },
-    devices: { devices: [device] },
+    'session.restore': session,
+    'session.list_accounts': [session],
+    'encryption.devices': { devices: [device] },
   });
-  const plain = fake.send.getMockImplementation();
-  fake.send.mockImplementation((command: { type: string }) =>
-    command.type === 'encryption_status'
+  const plain = fake.call.getMockImplementation();
+  fake.call.mockImplementation((method: string, params: unknown) =>
+    method === 'encryption.encryption_status'
       ? new Promise<object>((resolve) => {
           answer = resolve;
         })
-      : (plain?.(command) ?? Promise.resolve({}))
+      : (plain?.(method, params) ?? Promise.resolve(null))
   );
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
   fake.emit({ type: 'encryption_status', status: known } as unknown as CoreEvent);
-  answer({ status: unknown });
+  answer(unknown);
   await vi.waitFor(() => {
     expect(core.deviceList).toEqual([device]);
   });
@@ -1334,19 +1356,19 @@ test('a stale login callback that fails does not discard the first status read',
   let answer: (value: object) => void = () => {};
   const device = { device_id: 'LAPTOP' };
   const fake = fakeTransport({
-    restore: { session },
-    list_accounts: { accounts: [session] },
-    devices: { devices: [device] },
+    'session.restore': session,
+    'session.list_accounts': [session],
+    'encryption.devices': { devices: [device] },
   });
-  const plain = fake.send.getMockImplementation();
-  fake.send.mockImplementation((command: { type: string }) => {
-    if (command.type === 'encryption_status')
+  const plain = fake.call.getMockImplementation();
+  fake.call.mockImplementation((method: string, params: unknown) => {
+    if (method === 'encryption.encryption_status')
       return new Promise<object>((resolve) => {
         answer = resolve;
       });
-    if (command.type === 'complete_oidc_login')
+    if (method === 'auth.complete_oidc_login')
       return Promise.reject(new CoreError({ code: 'unavailable' }));
-    return plain?.(command) ?? Promise.resolve({});
+    return plain?.(method, params) ?? Promise.resolve(null);
   });
   const core = createCoreClient(() => fake.transport);
 
@@ -1354,7 +1376,7 @@ test('a stale login callback that fails does not discard the first status read',
   await expect(core.completeOidcLogin('sable://oauth/callback?code=used')).rejects.toBeInstanceOf(
     CoreError
   );
-  answer({ status: known });
+  answer(known);
   await vi.waitFor(() => {
     expect(core.encryption).toEqual(known);
   });
@@ -1367,9 +1389,9 @@ test('a stale login callback that fails does not discard the first status read',
 test('refreshing a profile skips the cached copy and refills it', async () => {
   const fake = fakeTransport();
   const core = createCoreClient(() => fake.transport);
-  fake.send
-    .mockResolvedValueOnce({ profile: { display_name: 'stale' } })
-    .mockResolvedValueOnce({ profile: { display_name: 'live' } });
+  fake.call
+    .mockResolvedValueOnce({ display_name: 'stale' })
+    .mockResolvedValueOnce({ display_name: 'live' });
   try {
     await core.userProfile('@remote:example.org');
     await expect(core.refreshUserProfile('@remote:example.org')).resolves.toEqual({
@@ -1378,7 +1400,7 @@ test('refreshing a profile skips the cached copy and refills it', async () => {
     await expect(core.userProfile('@remote:example.org')).resolves.toEqual({
       display_name: 'live',
     });
-    expect(fake.send).toHaveBeenCalledTimes(2);
+    expect(fake.call).toHaveBeenCalledTimes(2);
   } finally {
     core.stop();
   }
@@ -1386,7 +1408,7 @@ test('refreshing a profile skips the cached copy and refills it', async () => {
 
 test('writing a profile field invalidates the cached profile', async () => {
   vi.useFakeTimers();
-  const fake = fakeTransport({ restore: { session }, list_accounts: { accounts: [session] } });
+  const fake = fakeTransport({ 'session.restore': session, 'session.list_accounts': [session] });
   const core = createCoreClient(() => fake.transport);
   const listener = vi.fn();
   try {
@@ -1397,7 +1419,7 @@ test('writing a profile field invalidates the cached profile', async () => {
     await vi.advanceTimersByTimeAsync(500);
     expect(listener).toHaveBeenCalledExactlyOnceWith(session.user_id);
     await core.userProfile(session.user_id);
-    expect(fake.sent.filter((command) => command.type === 'user_profile')).toHaveLength(2);
+    expect(fake.called.filter((call) => call.method === 'account.user_profile')).toHaveLength(2);
   } finally {
     core.stop();
     vi.useRealTimers();

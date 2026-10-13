@@ -4,7 +4,7 @@
   import type {
     MemberView,
     MembershipView,
-    RoomSummary,
+    RoomListItemView,
     CallSupportView,
     PerMessageProfileView,
   } from '#src/generated/protocol';
@@ -19,6 +19,7 @@
 
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
+  import { joinRoom } from '#lib/core/api/rooms.js';
   import { ancestorSpaceIds } from './abbreviations';
   import {
     abbreviationChanges,
@@ -109,7 +110,7 @@
     roomId: string;
     eventId?: string | null;
     notifiedEventId?: string | null;
-    room?: RoomSummary;
+    room?: RoomListItemView;
   }
 
   let { roomId, eventId = null, notifiedEventId = null, room }: Props = $props();
@@ -185,8 +186,8 @@
     callSupport = null;
     if (typeof RTCPeerConnection === 'undefined') return;
 
-    void core.commands
-      .callSupport(target, fallback)
+    void core.rpc.calls
+      .callSupport({ room_id: target, livekit_service_url: fallback })
       .then((next) => {
         if (current) callSupport = next;
       })
@@ -208,8 +209,8 @@
     )
   );
 
-  const pinnedEvents = new PinnedEvents(core.commands);
-  const roomSession = new RoomSession(core.commands, pinnedEvents);
+  const pinnedEvents = new PinnedEvents(core.rpc.timeline);
+  const roomSession = new RoomSession(core.rpc, pinnedEvents);
   providePinnedEvents(pinnedEvents);
   onDestroy(() => roomSession.dispose());
 
@@ -270,9 +271,9 @@
     const targetRoomId = resolvedRoomId;
     if (targetEventId === null) return;
     let active = true;
-    void core.commands
-      .eventSource(targetRoomId, targetEventId)
-      .then((source) => {
+    void core.rpc.timeline
+      .eventSource({ room_id: targetRoomId, event_id: targetEventId, include_original: false })
+      .then(({ source }) => {
         if (!active) return;
         const relation = notifiedRelation(source);
         const rootEventId = relation?.thread ? relation.eventId : null;
@@ -302,9 +303,9 @@
     const target = resolvedRoomId;
     if (eventId === null) return;
     let active = true;
-    core.commands
-      .eventSource(target, eventId)
-      .then((source) => {
+    core.rpc.timeline
+      .eventSource({ room_id: target, event_id: eventId, include_original: false })
+      .then(({ source }) => {
         const relation = notifiedRelation(source);
         if (!active || relation === null) return;
         notifiedTarget = { eventId, target: relation.eventId };
@@ -419,7 +420,7 @@
   );
   let tombstoneSuccessorJoined = $derived(tombstoneSuccessor?.state === 'joined');
 
-  const abbreviations = new RoomAbbreviations(core.commands);
+  const abbreviations = new RoomAbbreviations(core.rpc);
   provideRoomAbbreviations(abbreviations);
   const mediaPreviews = new RoomMediaPreviews(() => resolvedRoom?.join_rule ?? null);
   provideRoomMediaPreviews(mediaPreviews);
@@ -587,7 +588,9 @@
 
   async function loadMembers(): Promise<void> {
     const activeRoomId = resolvedRoomId;
-    await memberLoader.load(activeRoomId, (roomId) => core.commands.roomMembers(roomId));
+    await memberLoader.load(activeRoomId, (roomId) =>
+      core.rpc.members.roomMembers({ room_id: roomId, memberships: [] })
+    );
   }
 
   let memberChangeKey = $derived.by(() => {
@@ -604,20 +607,24 @@
     if (memberChangeKey === null) return;
     const activeRoomId = untrack(() => resolvedRoomId);
     void untrack(() =>
-      memberLoader.refresh(activeRoomId, (roomId) => core.commands.roomMembers(roomId))
+      memberLoader.refresh(activeRoomId, (roomId) =>
+        core.rpc.members.roomMembers({ room_id: roomId, memberships: [] })
+      )
     );
   });
 
   $effect(() =>
     core.onProfileChanged(() => {
       void untrack(() =>
-        memberLoader.refresh(resolvedRoomId, (roomId) => core.commands.roomMembers(roomId))
+        memberLoader.refresh(resolvedRoomId, (roomId) =>
+          core.rpc.members.roomMembers({ room_id: roomId, memberships: [] })
+        )
       );
     })
   );
 
   function loadMembership(membership: MembershipView): Promise<MemberView[]> {
-    return core.commands.roomMembers(resolvedRoomId, [membership]);
+    return core.rpc.members.roomMembers({ room_id: resolvedRoomId, memberships: [membership] });
   }
 
   function toggleMembers(): void {
@@ -782,25 +789,27 @@
   }
 
   async function markRead(eventId: string, fullyRead: boolean): Promise<void> {
-    await core.commands.markRead(
-      resolvedRoomId,
-      eventId,
-      readReceiptIsPrivate(),
-      null,
-      timeline.subscriptionId,
-      fullyRead
-    );
-  }
-
-  function setFullyRead(roomId: string, eventId: string): void {
-    void core.commands.setFullyRead(roomId, eventId).catch((error: unknown) => {
-      console.warn('[sable room] moving the read marker failed', error);
+    await core.rpc.timeline.markRead({
+      room_id: resolvedRoomId,
+      event_id: eventId,
+      private_receipt: readReceiptIsPrivate(),
+      thread_root: null,
+      subscription: timeline.subscriptionId,
+      fully_read: fullyRead,
     });
   }
 
+  function setFullyRead(roomId: string, eventId: string): void {
+    void core.rpc.timeline
+      .setFullyRead({ room_id: roomId, event_id: eventId })
+      .catch((error: unknown) => {
+        console.warn('[sable room] moving the read marker failed', error);
+      });
+  }
+
   function markUnreadFrom(eventId: string): void {
-    void core.commands
-      .markUnread(resolvedRoomId, eventBefore(timeline.items, eventId))
+    void core.rpc.timeline
+      .markUnread({ room_id: resolvedRoomId, read_marker: eventBefore(timeline.items, eventId) })
       .catch((error: unknown) => {
         console.warn('[sable room] mark as unread failed', error);
         toasts.error($i18n.t('errors.actionFailed'));
@@ -816,12 +825,19 @@
 
   async function markAllRead(): Promise<void> {
     const list = timelineList;
-    await core.commands.markRead(resolvedRoomId, null, readReceiptIsPrivate());
+    await core.rpc.timeline.markRead({
+      room_id: resolvedRoomId,
+      event_id: null,
+      private_receipt: readReceiptIsPrivate(),
+      thread_root: null,
+      subscription: null,
+      fully_read: false,
+    });
     list?.dismissUnread();
   }
 
   function loadReadMarker(): Promise<string | null> {
-    return core.commands.readMarker(resolvedRoomId);
+    return core.rpc.timeline.readMarker({ room_id: resolvedRoomId });
   }
 
   function requestUnread(eventId: string): Promise<void> {
@@ -838,10 +854,12 @@
   }
 
   function markRoomUnread(): void {
-    void core.commands.markUnread(resolvedRoomId).catch((error: unknown) => {
-      console.warn('[sable room] mark as unread failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
-    });
+    void core.rpc.timeline
+      .markUnread({ room_id: resolvedRoomId, read_marker: null })
+      .catch((error: unknown) => {
+        console.warn('[sable room] mark as unread failed', error);
+        toasts.error($i18n.t('errors.actionFailed'));
+      });
   }
 
   function openMedia(eventId: string): void {
@@ -925,8 +943,8 @@
     tombstoneJoining = true;
     tombstoneJoinFailed = false;
     try {
-      const via = await core.commands.roomViaServers(resolvedRoomId);
-      const joinedId = await core.commands.joinRoom(target, via);
+      const via = await core.rpc.rooms.roomViaServers({ room_id: resolvedRoomId });
+      const joinedId = await joinRoom(core.rpc, target, via);
       await roomList.whenListed(joinedId, 10_000);
       void goto(roomSectionPath(roomList.rooms, joinedId));
     } catch (error) {
@@ -1427,7 +1445,7 @@
     hint={$i18n.t('room.reportHint')}
     onReport={(reason) => {
       const target = resolvedRoomId;
-      void sendReport(() => core.commands.reportRoom(target, reason ?? ''));
+      void sendReport(() => core.rpc.rooms.reportRoom({ room_id: target, reason: reason ?? '' }));
     }}
   />
 

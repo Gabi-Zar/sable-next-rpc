@@ -18,7 +18,9 @@ use matrix_sdk_base::{RawStateEventWithKeys, RoomInfo, RoomInfoNotableUpdateReas
 use serde::{Deserialize, Serialize};
 
 use crate::ResultExt;
-use crate::protocol::{CommandErr, CommandOk, DirectoryRoomType, JoinRuleView};
+use crate::api::rooms::PublicRoomsOk;
+use crate::api::spaces::SpaceHierarchyOk;
+use crate::protocol::{CommandErr, DirectoryRoomType, JoinRuleView, RoomPreviewView};
 
 use crate::Core;
 use crate::view;
@@ -420,7 +422,7 @@ impl Core {
         space_id: &OwnedRoomId,
         room_id: &RoomId,
         order: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<(), CommandErr> {
         let space = self.room(space_id).await?;
 
         let mut content = self
@@ -441,7 +443,7 @@ impl Core {
             .await
             .map_err(|error| self.room_error("set_space_child_order", error))?;
 
-        Ok(CommandOk::SetSpaceChildOrder)
+        Ok(())
     }
 
     pub(crate) async fn set_space_child_suggested(
@@ -449,7 +451,7 @@ impl Core {
         space_id: &OwnedRoomId,
         room_id: &RoomId,
         suggested: bool,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<(), CommandErr> {
         let space = self.room(space_id).await?;
 
         let mut content = self
@@ -463,7 +465,7 @@ impl Core {
             .await
             .map_err(|error| self.room_error("set_space_child_suggested", error))?;
 
-        Ok(CommandOk::SetSpaceChildSuggested)
+        Ok(())
     }
 
     pub(crate) async fn knock_room(
@@ -471,7 +473,7 @@ impl Core {
         address: &str,
         via: &[String],
         reason: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<OwnedRoomId, CommandErr> {
         let address = RoomOrAliasId::parse(address).map_err(|_| CommandErr::UnknownRoom)?;
         let via = via
             .iter()
@@ -485,16 +487,14 @@ impl Core {
             .await
             .or_failed(self, "knock_room")?;
 
-        Ok(CommandOk::KnockRoom {
-            room_id: room.room_id().to_owned(),
-        })
+        Ok(room.room_id().to_owned())
     }
 
     pub(crate) async fn room_preview(
         &self,
         address: &str,
         via: &[String],
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<RoomPreviewView, CommandErr> {
         let address = RoomOrAliasId::parse(address).map_err(|_| CommandErr::UnknownRoom)?;
         let via = via
             .iter()
@@ -508,9 +508,7 @@ impl Core {
             .await
             .or_failed(self, "room_preview")?;
 
-        Ok(CommandOk::RoomPreview {
-            preview: view::room_preview_view(&preview),
-        })
+        Ok(view::room_preview_view(&preview))
     }
 
     pub(crate) async fn public_rooms(
@@ -519,7 +517,7 @@ impl Core {
         search: Option<String>,
         since: Option<String>,
         room_type: Option<DirectoryRoomType>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<PublicRoomsOk, CommandErr> {
         let server = match server.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             Some(name) => Some(ServerName::parse(name).map_err(|_| CommandErr::UnknownHomeserver)?),
             None => None,
@@ -548,7 +546,7 @@ impl Core {
             .await
             .map_err(|error| self.room_error("public_rooms", error.into()))?;
 
-        Ok(CommandOk::PublicRooms {
+        Ok(PublicRoomsOk {
             rooms: response.chunk.iter().map(view::public_room).collect(),
             next_batch: response.next_batch,
             total: response.total_room_count_estimate.map(u64::from),
@@ -559,7 +557,7 @@ impl Core {
         &self,
         space_id: &OwnedRoomId,
         from: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<SpaceHierarchyOk, CommandErr> {
         let client = self.client().await?;
 
         let mut request = get_hierarchy::v1::Request::new(space_id.clone());
@@ -584,7 +582,7 @@ impl Core {
             })
             .collect();
 
-        Ok(CommandOk::SpaceHierarchy {
+        Ok(SpaceHierarchyOk {
             rooms,
             next_batch: response.next_batch,
         })

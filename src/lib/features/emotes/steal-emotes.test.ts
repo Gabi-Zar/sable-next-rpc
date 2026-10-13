@@ -93,7 +93,7 @@ test('a sticker is offered with sticker usage', () => {
 
 test('a candidate is re-uploaded rather than aliased to the original media', async () => {
   const core = {
-    commands: {
+    media: {
       fetchMedia: vi.fn(() => Promise.resolve(new Uint8Array(PNG))),
       uploadMedia: vi.fn(() => Promise.resolve('mxc://mine/1')),
     },
@@ -111,13 +111,8 @@ test('a candidate is re-uploaded rather than aliased to the original media', asy
     },
   ]);
 
-  expect(vi.mocked(core.commands.fetchMedia).mock.calls[0]).toEqual([
-    'mxc://theirs/wave',
-    0,
-    0,
-    true,
-  ]);
-  expect(vi.mocked(core.commands.uploadMedia).mock.calls[0]?.[0]).toBe('image/png');
+  expect(vi.mocked(core.media.fetchMedia).mock.calls[0]).toEqual(['mxc://theirs/wave', 0, 0, true]);
+  expect(vi.mocked(core.media.uploadMedia).mock.calls[0]?.[0]).toBe('image/png');
   expect(added.url).toBe('mxc://mine/1');
   expect(added.info).toEqual({
     width: 128,
@@ -142,7 +137,7 @@ function candidate(overrides: Partial<EmoteCandidate> = {}): EmoteCandidate {
 
 function downloadCore(): PackTransferCore {
   return {
-    commands: {
+    media: {
       fetchMedia: vi.fn(() => Promise.resolve(new Uint8Array(PNG))),
       uploadMedia: vi.fn(() => Promise.resolve('mxc://mine/1')),
     },
@@ -164,12 +159,7 @@ test('the download asks for the original, so an animated emote keeps its frames'
   const core = downloadCore();
   await downloadCandidates(core, [candidate()]);
 
-  expect(vi.mocked(core.commands.fetchMedia).mock.calls[0]).toEqual([
-    'mxc://theirs/wave',
-    0,
-    0,
-    true,
-  ]);
+  expect(vi.mocked(core.media.fetchMedia).mock.calls[0]).toEqual(['mxc://theirs/wave', 0, 0, true]);
 });
 
 test('several emotes download as one zip, and a repeated shortcode is suffixed', async () => {

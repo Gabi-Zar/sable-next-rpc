@@ -1,14 +1,9 @@
 import type {
   AttachmentInfoView,
-  Command,
-  CommandOk,
   CommandErr,
   CoreEvent,
   PerMessageProfileView,
 } from '#src/generated/protocol';
-
-/** Resolves a command's response from its tag, so `send` is typed end to end. */
-export type ResponseFor<T extends Command['type']> = Extract<CommandOk, { type: T }>;
 
 export type Attachment = {
   roomId: string;
@@ -48,7 +43,8 @@ export class CoreError extends Error {
 }
 
 export interface Transport {
-  send<C extends Command>(command: C): Promise<ResponseFor<C['type']>>;
+  /** Runs `"<domain>.<method>"`; typed through `createRpc`. */
+  call(method: string, params: unknown): Promise<unknown>;
 
   /** Thumbnail bytes for an `mxc://` URI. */
   fetchMedia(

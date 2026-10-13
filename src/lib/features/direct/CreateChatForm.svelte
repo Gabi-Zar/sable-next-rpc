@@ -30,7 +30,10 @@
 
     opening = true;
     try {
-      const roomId = await core.commands.createDm(candidate, encrypted);
+      const roomId = await core.rpc.rooms.createDm({
+        user_id: candidate,
+        encrypted: encrypted ?? null,
+      });
       await goto(resolve('/(app)/direct/[roomId]', { roomId: roomPathParamFromId(roomId) }));
     } catch (error) {
       console.warn('[sable direct] could not create a chat', error);

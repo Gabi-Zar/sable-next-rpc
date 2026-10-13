@@ -70,7 +70,9 @@ test('toggling a loaded bookmark off passes the current state through', async ()
   await store.load();
   await store.toggle('!a:example.org', '$one');
 
-  expect(setBookmark).toHaveBeenCalledWith('!a:example.org', '$one', false);
+  expect(setBookmark).toHaveBeenCalledWith(
+    expect.objectContaining({ room_id: '!a:example.org', event_id: '$one', bookmarked: false })
+  );
   expect(store.has('!a:example.org', '$one')).toBe(false);
 });
 
@@ -80,7 +82,9 @@ test('toggling on without a load still tracks the new bookmark', async () => {
 
   await store.toggle('!a:example.org', '$one');
 
-  expect(setBookmark).toHaveBeenCalledWith('!a:example.org', '$one', true);
+  expect(setBookmark).toHaveBeenCalledWith(
+    expect.objectContaining({ room_id: '!a:example.org', event_id: '$one', bookmarked: true })
+  );
   expect(store.has('!a:example.org', '$one')).toBe(true);
 });
 

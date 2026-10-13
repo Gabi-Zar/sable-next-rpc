@@ -1,6 +1,6 @@
 <script lang="ts">
   import { copyText } from '#lib/platform/clipboard.js';
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -14,7 +14,7 @@
   import '#lib/ui/primitives/settings-row.css';
 
   interface Props {
-    room: RoomSummary;
+    room: RoomListItemView;
   }
 
   let { room }: Props = $props();
@@ -49,7 +49,10 @@
 
   async function readFullyRead(target: string): Promise<string | null> {
     try {
-      const content = await core.commands.roomAccountData(target, 'm.fully_read');
+      const content = await core.rpc.room_state.roomAccountData({
+        room_id: target,
+        event_type: 'm.fully_read',
+      });
       const eventId = (content as { event_id?: unknown } | null)?.event_id;
       return typeof eventId === 'string' ? eventId : null;
     } catch (error) {

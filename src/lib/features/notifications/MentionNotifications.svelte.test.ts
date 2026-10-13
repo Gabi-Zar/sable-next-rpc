@@ -13,8 +13,9 @@ const core = Object.assign(baseCore, {
   session: { user_id: '@erwan:example.org' },
   userProfile: vi.fn(() => Promise.resolve({ display_name: 'Erwan' })),
   mentionNotifications: vi.fn<() => Promise<Record<string, Mode | null>>>(),
-  setMentionNotifications: vi.fn<(rule: string, mode: Mode) => Promise<void>>(),
+  setMentionNotifications: vi.fn<(params: { rule: string; mode: Mode }) => Promise<void>>(),
 });
+Object.assign(core, { rpc: { notifications: core } });
 
 import MentionNotifications from './MentionNotifications.svelte';
 

@@ -42,7 +42,7 @@ export class PersonaStore {
     const revision = this.revision;
     this.loading = true;
     try {
-      const catalog = await this.core.commands.personas();
+      const catalog = await this.core.rpc.personas.personas();
       if (revision !== this.revision) return;
       this.personas = catalog.personas;
       this.account = catalog.account;
@@ -63,12 +63,15 @@ export class PersonaStore {
   }
 
   async save(persona: PersonaView, previousId: string | null = null): Promise<void> {
-    this.personas = await this.core.commands.savePersona(persona, previousId);
+    this.personas = await this.core.rpc.personas.savePersona({
+      persona: $state.snapshot(persona),
+      previous_id: previousId,
+    });
     if (previousId !== null && previousId !== persona.id) this.repoint(previousId, persona.id);
   }
 
   async remove(id: string): Promise<void> {
-    this.personas = await this.core.commands.removePersona(id);
+    this.personas = await this.core.rpc.personas.removePersona({ id });
     this.repoint(id, null);
   }
 
@@ -79,7 +82,7 @@ export class PersonaStore {
   async reorder(from: number, to: number): Promise<void> {
     if (to < 0 || to >= this.personas.length || from === to) return;
     const ids = reorderPersonas(this.personas, from, to).map((persona) => persona.id);
-    this.personas = await this.core.commands.reorderPersonas(ids);
+    this.personas = await this.core.rpc.personas.reorderPersonas({ ids });
   }
 
   selectionFor(roomId: string | null): PersonaSelectionView | null {
@@ -95,7 +98,7 @@ export class PersonaStore {
   }
 
   async disable(roomId: string): Promise<void> {
-    await this.core.commands.disableRoomPersonas(roomId);
+    await this.core.rpc.personas.disableRoomPersonas({ room_id: roomId });
     this.rooms = Object.fromEntries(Object.entries(this.rooms).filter(([key]) => key !== roomId));
     if (!this.disabledIn(roomId)) this.disabledRooms = [...this.disabledRooms, roomId];
   }
@@ -105,7 +108,11 @@ export class PersonaStore {
     personaId: string | null,
     validUntil: number | null = null
   ): Promise<void> {
-    await this.core.commands.setPersonaSelection(roomId, personaId, validUntil);
+    await this.core.rpc.personas.setPersonaSelection({
+      room_id: roomId,
+      persona_id: personaId,
+      valid_until: validUntil,
+    });
     const selection =
       personaId === null ? null : { persona_id: personaId, valid_until: validUntil };
 

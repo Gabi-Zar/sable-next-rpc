@@ -81,10 +81,10 @@ test.describe('mobile reactions', () => {
     await expect(details).toHaveCount(0);
     await expect(actions).toHaveCount(0);
     await expect(menu(page)).toHaveCount(0);
-    expect(await core.commands()).not.toContain('react');
+    expect(await core.commands()).not.toContain('messages.react');
 
     await reaction.tap();
-    await expect.poll(() => core.commands()).toContain('react');
+    await expect.poll(() => core.commands()).toContain('messages.react');
 
     const body = row.locator('article.message');
     await body.dispatchEvent('pointerdown', { pointerType: 'touch', isPrimary: true });

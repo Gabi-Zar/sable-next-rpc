@@ -30,7 +30,12 @@
     if (!sessionId || !sender || !roomId || retrying) return;
     retrying = true;
     try {
-      await core.commands.retryDecryption(roomId, sessionId, sender, threadRoot);
+      await core.rpc.timeline.retryDecryption({
+        room_id: roomId,
+        session_id: sessionId,
+        sender,
+        thread_root: threadRoot,
+      });
     } catch (error) {
       console.warn('[sable timeline] could not retry decryption', error);
       toasts.error($i18n.t('errors.actionFailed'));

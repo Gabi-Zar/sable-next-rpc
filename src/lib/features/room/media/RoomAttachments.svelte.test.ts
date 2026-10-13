@@ -79,16 +79,31 @@ test('files are grouped by month, page on demand and open in the viewer', async 
   const onOpenMedia = vi.fn();
   setup({ onOpenMedia });
   await vi.waitFor(() => {
-    expect(roomAttachments).toHaveBeenCalledWith('!room:example.org', 'media', 30, null);
+    expect(roomAttachments).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      kind: 'media',
+      limit: 30,
+      from: null,
+    });
   });
 
   await user.click(tab('Files'));
   expect(await screen.findByRole('button', { name: /notes\.pdf/ })).toBeInTheDocument();
-  expect(roomAttachments).toHaveBeenLastCalledWith('!room:example.org', 'file', 30, null);
+  expect(roomAttachments).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    kind: 'file',
+    limit: 30,
+    from: null,
+  });
 
   await user.click(screen.getByRole('button', { name: 'Load more' }));
   expect(await screen.findByRole('button', { name: /slides\.pdf/ })).toBeInTheDocument();
-  expect(roomAttachments).toHaveBeenLastCalledWith('!room:example.org', 'file', 30, 'next');
+  expect(roomAttachments).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    kind: 'file',
+    limit: 30,
+    from: 'next',
+  });
   expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(2);
   expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
 

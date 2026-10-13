@@ -43,7 +43,7 @@
     loading = true;
     failed = false;
     try {
-      const page = await core.commands.listThreads(roomId, from);
+      const page = await core.rpc.timeline.listThreads({ room_id: roomId, from });
       if (run !== generation) return;
       roots = from === null ? page.roots : [...roots, ...page.roots];
       nextBatch = page.next_batch;

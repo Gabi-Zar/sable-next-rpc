@@ -18,13 +18,13 @@ vi.mock('./VerificationQrScanner.svelte', async () => ({
 import { core } from '#lib/core/__mocks__/context.js';
 import { isNativeMobile } from '#lib/platform/os.js';
 
-const commands = {
+const encryption = {
   scanVerificationQr: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   startSasVerification: vi.fn(() => Promise.resolve()),
   confirmVerification: vi.fn(() => Promise.resolve()),
   cancelVerification: vi.fn(() => Promise.resolve()),
 };
-Object.assign(core, commands, { session: { user_id: '@alice:example.org' } });
+Object.assign(core, { rpc: { encryption }, session: { user_id: '@alice:example.org' } });
 
 import DeviceVerificationDialog from './DeviceVerificationDialog.svelte';
 
@@ -43,7 +43,7 @@ const qr = () => screen.queryByRole('img', { name: 'Verification code' });
 
 afterEach(() => {
   vi.clearAllMocks();
-  commands.scanVerificationQr.mockReset().mockResolvedValue();
+  encryption.scanVerificationQr.mockReset().mockResolvedValue();
   vi.mocked(isNativeMobile).mockReturnValue(false);
 });
 
@@ -53,7 +53,10 @@ test('shows this device’s code with the logo, and offers the other ways', asyn
   expect(qr()?.querySelector('image')).toBeInTheDocument();
   expect(button(/Scan their code instead/)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: /Compare emoji instead/ }));
-  expect(commands.startSasVerification).toHaveBeenCalledWith('@alice:example.org', 'flow');
+  expect(encryption.startSasVerification).toHaveBeenCalledWith({
+    user_id: '@alice:example.org',
+    flow_id: 'flow',
+  });
 });
 
 test('a scanned code goes to the core as base64', async () => {
@@ -64,7 +67,11 @@ test('a scanned code goes to the core as base64', async () => {
   await user.click(screen.getByRole('button', { name: 'scan stub' }));
 
   await vi.waitFor(() => {
-    expect(commands.scanVerificationQr).toHaveBeenCalledWith('@alice:example.org', 'flow', 'TUH/');
+    expect(encryption.scanVerificationQr).toHaveBeenCalledWith({
+      user_id: '@alice:example.org',
+      flow_id: 'flow',
+      data: 'TUH/',
+    });
   });
   expect(qr()).not.toBeInTheDocument();
   expect(button(/scan stub/)).not.toBeInTheDocument();
@@ -73,7 +80,7 @@ test('a scanned code goes to the core as base64', async () => {
 
 test('hides QR actions while a scan is pending', async () => {
   let finish!: () => void;
-  commands.scanVerificationQr.mockImplementationOnce(
+  encryption.scanVerificationQr.mockImplementationOnce(
     () =>
       new Promise<void>((resolve) => {
         finish = resolve;
@@ -91,7 +98,7 @@ test('hides QR actions while a scan is pending', async () => {
 });
 
 test('shows scan errors and allows retry', async () => {
-  commands.scanVerificationQr.mockRejectedValueOnce(
+  encryption.scanVerificationQr.mockRejectedValueOnce(
     new CoreError({ code: 'invalid_verification_code' })
   );
   const user = setup({ phase: 'choose', qr: code, can_scan: true, can_compare: true });
@@ -102,7 +109,7 @@ test('shows scan errors and allows retry', async () => {
   expect(button(/scan stub/)).toBeInTheDocument();
   expect(qr()).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'scan stub' }));
-  expect(commands.scanVerificationQr).toHaveBeenCalledTimes(2);
+  expect(encryption.scanVerificationQr).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
@@ -143,7 +150,14 @@ test('the other device scanning our code needs our confirmation', async () => {
   const user = setup({ phase: 'scanned' });
 
   await user.click(screen.getByRole('button', { name: /Yes, it worked/ }));
-  expect(commands.confirmVerification).toHaveBeenCalledWith('@alice:example.org', 'flow');
+  expect(encryption.confirmVerification).toHaveBeenCalledWith({
+    user_id: '@alice:example.org',
+    flow_id: 'flow',
+  });
   await user.click(screen.getByRole('button', { name: /^No$/ }));
-  expect(commands.cancelVerification).toHaveBeenCalledWith('@alice:example.org', 'flow', true);
+  expect(encryption.cancelVerification).toHaveBeenCalledWith({
+    user_id: '@alice:example.org',
+    flow_id: 'flow',
+    mismatch: true,
+  });
 });

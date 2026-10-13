@@ -807,7 +807,10 @@ async fn a_pending_invite_does_not_make_a_room_one_to_one() {
 async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
     use std::collections::BTreeSet;
 
-    use crate::protocol::{Command, CommandOk, NotificationModeView};
+    use crate::api::notifications::{
+        NotificationSettingsParams, SetDefaultNotificationModeParams, SetRoomNotificationModeParams,
+    };
+    use crate::protocol::NotificationModeView;
     use matrix_sdk::ruma::push::{PredefinedUnderrideRuleId, RuleKind, Ruleset};
 
     let server = MatrixMockServer::new().await;
@@ -846,7 +849,7 @@ async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
             .await;
     }
     let (core, _events) = watching(&server, &client).await;
-    core.dispatch(Command::SetRoomNotificationMode {
+    core.run(SetRoomNotificationModeParams {
         room_id: room_id.to_owned(),
         mode: None,
     })
@@ -861,40 +864,34 @@ async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
         }),
         "resetting to default must not install a room override"
     );
-    let CommandOk::NotificationSettings(settings) = core
-        .dispatch(Command::NotificationSettings {
+    let settings = core
+        .run(NotificationSettingsParams {
             room_id: room_id.to_owned(),
         })
         .await
-        .unwrap()
-    else {
-        panic!("notification settings");
-    };
+        .unwrap();
     assert!(settings.room.is_none());
     assert_eq!(settings.default, NotificationModeView::Mentions);
 
-    core.dispatch(Command::SetRoomNotificationMode {
+    core.run(SetRoomNotificationModeParams {
         room_id: room_id.to_owned(),
         mode: Some(NotificationModeView::All),
     })
     .await
     .unwrap();
     for direct in [true, false] {
-        core.dispatch(Command::SetDefaultNotificationMode {
+        core.run(SetDefaultNotificationModeParams {
             direct,
             mode: NotificationModeView::Mentions,
         })
         .await
         .unwrap();
-        let CommandOk::NotificationSettings(settings) = core
-            .dispatch(Command::NotificationSettings {
+        let settings = core
+            .run(NotificationSettingsParams {
                 room_id: room_id.to_owned(),
             })
             .await
-            .unwrap()
-        else {
-            panic!("notification settings");
-        };
+            .unwrap();
         assert_eq!(settings.room, Some(NotificationModeView::All));
     }
     core.session_tasks.lock().unwrap().clear();

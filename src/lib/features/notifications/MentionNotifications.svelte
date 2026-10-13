@@ -72,7 +72,7 @@
     void settingsChanges.version;
 
     let alive = true;
-    void core.commands
+    void core.rpc.notifications
       .mentionNotifications()
       .then((modes) => {
         if (!alive) return;
@@ -95,7 +95,7 @@
   ): void {
     if (current) current = { ...current, [key]: mode };
 
-    void core.commands.setMentionNotifications(rule, mode).catch(() => {
+    void core.rpc.notifications.setMentionNotifications({ rule, mode }).catch(() => {
       failed = true;
       settingsChanges.version += 1;
     });

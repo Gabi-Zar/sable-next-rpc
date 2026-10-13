@@ -3,6 +3,7 @@
   import type { ImagePackView, MemberView, ReactionGroup } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
+  import { imagePacks as listImagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
@@ -54,7 +55,7 @@
     if (!eventId || !canRemove(sender) || deleting) return;
     deleting = { key, sender };
     try {
-      await redactReaction(core.commands, roomId, eventId, key, sender);
+      await redactReaction(core, roomId, eventId, key, sender);
     } catch (error) {
       console.warn('[sable timeline] reaction redaction failed', error);
       toasts.error($i18n.t('errors.actionFailed'));
@@ -65,7 +66,7 @@
 
   $effect(() => {
     let current = true;
-    void loadReactionEmotePacks(roomId, core.commands.imagePacks)
+    void loadReactionEmotePacks(roomId, (target) => listImagePacks(core.rpc, target))
       .then((packs) => {
         if (current) imagePacks = packs;
       })

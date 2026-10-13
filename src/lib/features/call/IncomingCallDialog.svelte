@@ -34,16 +34,22 @@
     if (!incoming) return;
 
     let current = true;
-    void core.commands.roomStateEvent(incoming.roomId, 'm.room.member', incoming.sender).then(
-      (content) => {
-        if (!current || !isRecord(content)) return;
-        profile = {
-          name: typeof content.displayname === 'string' ? content.displayname : incoming.sender,
-          avatar: typeof content.avatar_url === 'string' ? content.avatar_url : null,
-        };
-      },
-      () => undefined
-    );
+    void core.rpc.room_state
+      .roomStateEvent({
+        room_id: incoming.roomId,
+        event_type: 'm.room.member',
+        state_key: incoming.sender,
+      })
+      .then(
+        (content) => {
+          if (!current || !isRecord(content)) return;
+          profile = {
+            name: typeof content.displayname === 'string' ? content.displayname : incoming.sender,
+            avatar: typeof content.avatar_url === 'string' ? content.avatar_url : null,
+          };
+        },
+        () => undefined
+      );
     return () => {
       current = false;
     };

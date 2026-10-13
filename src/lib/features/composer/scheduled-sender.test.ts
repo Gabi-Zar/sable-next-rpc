@@ -25,7 +25,10 @@ test('a rejected send stays queued and retries on the next tick', async () => {
     .fn()
     .mockRejectedValueOnce(new Error('unavailable'))
     .mockResolvedValue(undefined);
-  const core = { session: { device_id: 'A' }, commands: { sendMessage } } as unknown as CoreClient;
+  const core = {
+    session: { device_id: 'A' },
+    rpc: { messages: { sendMessage } },
+  } as unknown as CoreClient;
   stop = watchScheduledQueue(core);
   await vi.advanceTimersByTimeAsync(0);
   expect(scheduledQueue()).toEqual([message]);
@@ -44,7 +47,10 @@ test('disposing while a send is pending prevents the rest of the batch', async (
         finish = resolve;
       })
   );
-  const core = { session: { device_id: 'A' }, commands: { sendMessage } } as unknown as CoreClient;
+  const core = {
+    session: { device_id: 'A' },
+    rpc: { messages: { sendMessage } },
+  } as unknown as CoreClient;
   stop = watchScheduledQueue(core);
   stop();
   finish();
@@ -64,7 +70,7 @@ test('an account switch cannot send the remainder of an in-flight batch', async 
         finish = resolve;
       })
   );
-  const core = { session, commands: { sendMessage } } as unknown as CoreClient;
+  const core = { session, rpc: { messages: { sendMessage } } } as unknown as CoreClient;
   stop = watchScheduledQueue(core);
   session.account_id = 'b';
   finish();

@@ -98,8 +98,8 @@
   async function load(): Promise<void> {
     try {
       const [loaded, subscribed] = await Promise.all([
-        core.commands.allImagePacks(),
-        core.commands.packSubscriptions(),
+        core.rpc.packs.allImagePacks(),
+        core.rpc.packs.packSubscriptions(),
       ]);
       if (!alive) return;
       packs = loaded;
@@ -117,9 +117,9 @@
     failed = false;
     try {
       chosen = wanted
-        ? await core.commands.setPackSubscriptions(target, [])
-        : await core.commands.setPackSubscriptions([], target);
-      invalidatePacks(core.commands);
+        ? await core.rpc.packs.setPackSubscriptions({ added: target, removed: [] })
+        : await core.rpc.packs.setPackSubscriptions({ added: [], removed: target });
+      invalidatePacks(core.rpc);
     } catch (error) {
       console.warn('[sable emotes] the pack selection could not be saved', error);
       failed = true;
@@ -151,9 +151,9 @@
     failed = false;
     try {
       chosen = all
-        ? await core.commands.setPackSubscriptions([], addresses)
-        : await core.commands.setPackSubscriptions(addresses, []);
-      invalidatePacks(core.commands);
+        ? await core.rpc.packs.setPackSubscriptions({ added: [], removed: addresses })
+        : await core.rpc.packs.setPackSubscriptions({ added: addresses, removed: [] });
+      invalidatePacks(core.rpc);
     } catch (error) {
       console.warn('[sable emotes] the pack selection could not be saved', error);
       failed = true;

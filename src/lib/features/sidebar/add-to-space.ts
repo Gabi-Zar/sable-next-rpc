@@ -1,7 +1,7 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 export function wouldCreateCycle(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   targetSpaceId: string,
   memberId: string
 ): boolean {

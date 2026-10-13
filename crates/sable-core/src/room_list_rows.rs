@@ -4,17 +4,17 @@
 use matrix_sdk::ruma::RoomId;
 use matrix_sdk::ruma::push::Ruleset;
 
-use crate::protocol::{RoomSummary, VectorDiff};
+use crate::protocol::{RoomListItemView, VectorDiff};
 use crate::push_rules::room_settings;
 use crate::view::{apply_diff, room_counts};
 
 #[derive(Debug, Default)]
 pub(crate) struct RoomListRows {
-    rows: Vec<RoomSummary>,
+    rows: Vec<RoomListItemView>,
 }
 
 impl RoomListRows {
-    pub(crate) fn apply(&mut self, diff: &VectorDiff<RoomSummary>) {
+    pub(crate) fn apply(&mut self, diff: &VectorDiff<RoomListItemView>) {
         apply_diff(&mut self.rows, diff);
     }
 
@@ -24,7 +24,7 @@ impl RoomListRows {
         &mut self,
         rules: &Ruleset,
         direct: impl Fn(&RoomId) -> bool,
-    ) -> Vec<VectorDiff<RoomSummary>> {
+    ) -> Vec<VectorDiff<RoomListItemView>> {
         let mut diffs = Vec::new();
         for (index, row) in self.rows.iter_mut().enumerate() {
             let notification = room_settings(rules, &row.room_id, direct(&row.room_id));
@@ -58,9 +58,9 @@ mod tests {
     use super::*;
     use crate::protocol::{NotificationModeView, RoomJoinRuleView, RoomStateView};
 
-    fn summary(room_id: &RoomId, rules: &Ruleset) -> RoomSummary {
+    fn summary(room_id: &RoomId, rules: &Ruleset) -> RoomListItemView {
         let notification = room_settings(rules, room_id, false);
-        RoomSummary {
+        RoomListItemView {
             room_id: room_id.to_owned(),
             canonical_alias: None,
             name: None,

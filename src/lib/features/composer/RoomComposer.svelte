@@ -20,8 +20,8 @@
   import { onDestroy, tick, untrack } from 'svelte';
 
   import type { OutgoingMentions } from '#lib/core/client.svelte.js';
-  import type { SendAttachmentOptions } from '#lib/core/commands.svelte.js';
-  import type { SendGalleryOptions } from '#lib/core/commands.svelte.js';
+  import type { SendAttachmentOptions } from '#lib/core/media.svelte.js';
+  import type { SendGalleryOptions } from '#lib/core/media.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import type { ConversationSendResult } from '#lib/features/room/conversation/conversation.svelte.js';
   import type { ReplyDirection } from '#lib/features/room/timeline/timeline-format.js';
@@ -732,7 +732,7 @@
     if (roomMembers?.length || loadedMembersFor === roomId) return;
     loadedMembersFor = roomId;
     try {
-      loadedMembers = await core.commands.roomMembers(roomId);
+      loadedMembers = await core.rpc.members.roomMembers({ room_id: roomId, memberships: [] });
     } catch {
       loadedMembersFor = null;
     }
@@ -745,7 +745,7 @@
     if (emotesFor !== target) emotes = [];
     try {
       const complete = await loadPacks(
-        core.commands,
+        core.rpc,
         target,
         (packs) => {
           if (roomId !== target) return;
@@ -768,7 +768,7 @@
     loadedBotCommandsFor = target;
     if (botCommandsFor !== target) botCommands = [];
     try {
-      const commands = await core.commands.botCommands(target);
+      const commands = await core.rpc.room_state.botCommands({ room_id: target });
       if (roomId !== target) return;
       botCommandsFor = target;
       botCommands = commands;
@@ -1062,7 +1062,7 @@
     try {
       for (const attachment of attachments) {
         delayIds.push(
-          await core.commands.scheduleAttachment(
+          await core.media.scheduleAttachment(
             roomId,
             await outgoing(attachment),
             dueTs,
@@ -1078,7 +1078,7 @@
     } catch (cause) {
       console.debug('[sable composer] schedule failed', cause);
       await Promise.allSettled(
-        delayIds.map((delayId) => core.commands.cancelScheduledMessage(delayId))
+        delayIds.map((delayId) => core.rpc.messages.cancelScheduledMessage({ delay_id: delayId }))
       );
       if (cause instanceof ScheduledOriginalKept) {
         editor.clearHistory();
@@ -1191,7 +1191,7 @@
     const current = () => roomId === targetRoom && core.session?.account_id === accountId;
 
     try {
-      const { upload_size } = await core.commands.mediaConfig();
+      const { upload_size } = await core.rpc.messages.mediaConfig();
       if (!current() || readOnly) return;
       const tooLarge = files.find((file) => file.size > upload_size);
       if (tooLarge) {
@@ -1317,7 +1317,7 @@
   async function attachVia(address: string): Promise<void> {
     if (!address.startsWith('!')) return;
     try {
-      editor.attachVia(address, await core.commands.roomViaServers(address));
+      editor.attachVia(address, await core.rpc.rooms.roomViaServers({ room_id: address }));
     } catch (error) {
       console.debug('[sable composer] via servers unavailable', error);
     }

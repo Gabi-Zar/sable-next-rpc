@@ -1,7 +1,7 @@
 <script lang="ts">
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
 
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -17,7 +17,7 @@
 
   interface Props {
     open?: boolean;
-    space: RoomSummary;
+    space: RoomListItemView;
     kind: AddExistingKind;
     onAdd: (roomIds: string[], suggested: boolean) => void;
   }

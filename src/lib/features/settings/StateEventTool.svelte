@@ -49,7 +49,12 @@
     error = null;
     sent = false;
     try {
-      await core.commands.sendStateEvent(roomId, eventType.trim(), stateKey, parsed);
+      await core.rpc.room_state.sendStateEvent({
+        room_id: roomId,
+        event_type: eventType.trim(),
+        state_key: stateKey,
+        content: parsed,
+      });
       sent = true;
     } catch (failure) {
       console.warn('[sable settings] state event rejected', failure);

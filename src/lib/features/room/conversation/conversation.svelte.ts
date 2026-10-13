@@ -14,7 +14,8 @@ import { resolve } from '$app/paths';
 import { runtimeConfig } from '#lib/config/runtime-config.js';
 import { t } from '#lib/i18n.js';
 import type { CoreClient, OutgoingMentions } from '#lib/core/client.svelte.js';
-import type { SendAttachmentOptions, SendGalleryOptions } from '#lib/core/commands.svelte.js';
+import type { SendAttachmentOptions, SendGalleryOptions } from '#lib/core/media.svelte.js';
+import { editMessage, sendMessage } from '#lib/core/api/messages.svelte.js';
 import type { BotCommandInvocation } from '#lib/features/composer/bot-commands.js';
 import { readReply, writeReply } from '#lib/features/composer/composer-drafts.svelte.js';
 import type { ComposerContext, ScheduledTarget } from '#lib/features/composer/composer-context.js';
@@ -140,7 +141,7 @@ export class Conversation {
     const links = previewableLinks(html, body);
     const wanted = links.filter((url) => !dismissed.includes(url));
     const previews = await Promise.all(
-      wanted.map((url) => resolveUrlPreview(this.#core.commands, url, sources))
+      wanted.map((url) => resolveUrlPreview(this.#core.rpc.messages, url, sources))
     );
     return {
       previews: previews.filter((preview) => preview !== null),
@@ -180,7 +181,8 @@ export class Conversation {
         return;
       }
       await this.#beforeSend();
-      await this.#core.commands.editMessage(
+      await editMessage(
+        this.#core.rpc,
         targetRoomId,
         edited?.event_id ?? (pending.eventId.startsWith('$') ? pending.eventId : null),
         body,
@@ -206,7 +208,7 @@ export class Conversation {
       userId: this.#core.session?.user_id ?? null,
       formatted,
       developerTools: preferences.developerTools,
-      commands: this.#core.commands,
+      rpc: this.#core.rpc,
     });
     if (outcome.kind === 'done') {
       this.context = null;
@@ -236,7 +238,7 @@ export class Conversation {
       outgoing.body,
       dismissed
     );
-    await this.#core.commands.sendMessage(targetRoomId, outgoing.body, {
+    await sendMessage(this.#core.rpc, targetRoomId, outgoing.body, {
       inReplyTo: pending?.eventId ?? null,
       threadRoot: this.#threadRoot,
       formatted: outgoing.formatted,
@@ -261,7 +263,7 @@ export class Conversation {
   ): Promise<void> => {
     const pending = this.context?.kind === 'reply' ? this.context : null;
     await this.#beforeSend();
-    await this.#core.commands.sendMessage(targetRoomId, body, {
+    await sendMessage(this.#core.rpc, targetRoomId, body, {
       inReplyTo: pending?.eventId ?? null,
       threadRoot: this.#threadRoot,
       mentions: { userIds: [bot], room: false },
@@ -283,7 +285,7 @@ export class Conversation {
       options.formattedCaption ?? null
     );
     const reply = this.#consumeReply();
-    await this.#core.commands.sendAttachment(targetRoomId, file, {
+    await this.#core.media.sendAttachment(targetRoomId, file, {
       ...options,
       caption: options.caption == null ? options.caption : outgoing.body,
       formattedCaption: outgoing.formatted,
@@ -301,7 +303,7 @@ export class Conversation {
   ): Promise<void> => {
     await this.#beforeSend();
     const reply = this.#consumeReply();
-    await this.#core.commands.sendGallery(targetRoomId, files, {
+    await this.#core.media.sendGallery(targetRoomId, files, {
       ...options,
       inReplyTo: reply?.eventId ?? null,
       silentReply: reply?.silentReply ?? options.silentReply ?? false,
@@ -317,16 +319,16 @@ export class Conversation {
     sourcePack: ImageSourcePackView | null = null
   ): Promise<void> => {
     await this.#beforeSend();
-    await this.#core.commands.sendSticker(
-      targetRoomId,
+    await this.#core.rpc.messages.sendSticker({
+      room_id: targetRoomId,
       url,
       body,
       info,
-      sourcePack,
-      this.#consumeReply()?.eventId ?? null,
-      this.#threadRoot,
-      this.#personaFor(targetRoomId, '', null).persona
-    );
+      source_pack: $state.snapshot(sourcePack),
+      in_reply_to: this.#consumeReply()?.eventId ?? null,
+      thread_root: this.#threadRoot,
+      persona: $state.snapshot(this.#personaFor(targetRoomId, '', null).persona),
+    });
   };
 
   readonly sendGif = async (targetRoomId: string, gif: GifResult): Promise<void> => {
@@ -336,19 +338,19 @@ export class Conversation {
     if (!proxied) throw new Error('no GIF proxy route for this result');
 
     const reply = this.#consumeReply();
-    await this.#core.commands.sendGif(
-      targetRoomId,
-      proxied.mxcUrl,
-      gifFilename(gif.title, proxied.mimetype),
-      gif.width || null,
-      gif.height || null,
-      proxied.mimetype,
-      gif.size > 0 ? gif.size : null,
-      reply?.eventId ?? null,
-      this.#threadRoot,
-      this.#personaFor(targetRoomId, '', null).persona,
-      reply?.silentReply ?? false
-    );
+    await this.#core.rpc.messages.sendGif({
+      room_id: targetRoomId,
+      url: proxied.mxcUrl,
+      body: gifFilename(gif.title, proxied.mimetype),
+      width: gif.width || null,
+      height: gif.height || null,
+      mimetype: proxied.mimetype,
+      size: gif.size > 0 ? gif.size : null,
+      in_reply_to: reply?.eventId ?? null,
+      silent_reply: reply?.silentReply ?? false,
+      thread_root: this.#threadRoot,
+      persona: $state.snapshot(this.#personaFor(targetRoomId, '', null).persona),
+    });
   };
 
   readonly createPoll = async (
@@ -359,14 +361,14 @@ export class Conversation {
     maxSelections: number = 1
   ): Promise<void> => {
     await this.#beforeSend();
-    await this.#core.commands.createPoll(
-      targetRoomId,
+    await this.#core.rpc.messages.createPoll({
+      room_id: targetRoomId,
       question,
-      answers,
+      answers: [...answers],
       undisclosed,
-      this.#threadRoot,
-      maxSelections
-    );
+      max_selections: maxSelections,
+      thread_root: this.#threadRoot,
+    });
   };
 
   readonly sendLocation = async (
@@ -376,14 +378,14 @@ export class Conversation {
   ): Promise<void> => {
     await this.#beforeSend();
     const reply = this.#consumeReply();
-    await this.#core.commands.sendLocation(
-      targetRoomId,
+    await this.#core.rpc.messages.sendLocation({
+      room_id: targetRoomId,
       body,
-      geoUri,
-      reply?.eventId ?? null,
-      this.#threadRoot,
-      reply?.silentReply ?? false
-    );
+      geo_uri: geoUri,
+      in_reply_to: reply?.eventId ?? null,
+      silent_reply: reply?.silentReply ?? false,
+      thread_root: this.#threadRoot,
+    });
   };
 
   readonly schedule = async (
@@ -406,7 +408,7 @@ export class Conversation {
     this.context = null;
     try {
       if (replacing.scheduled?.source === 'queue') dequeue(replacing.eventId, accountId);
-      else await this.#core.commands.cancelScheduledMessage(replacing.eventId);
+      else await this.#core.rpc.messages.cancelScheduledMessage({ delay_id: replacing.eventId });
     } catch (error) {
       throw new ScheduledOriginalKept(error);
     } finally {
@@ -424,7 +426,12 @@ export class Conversation {
     const accountId = this.#core.session?.account_id ?? '';
     const deviceId = this.#core.session?.device_id ?? '';
     try {
-      await this.#core.commands.scheduleMessage(targetRoomId, body, formatted, delayMs);
+      await this.#core.rpc.messages.scheduleMessage({
+        room_id: targetRoomId,
+        body,
+        formatted,
+        delay_ms: delayMs,
+      });
       return;
     } catch (error) {
       if (!isServerScheduleUnsupported(error)) throw error;
@@ -457,18 +464,26 @@ export class Conversation {
 
   readonly setTyping = async (targetRoomId: string, typing: boolean): Promise<void> => {
     if (!preferences.sendTypingNotifications) return;
-    await this.#core.commands.setTyping(targetRoomId, typing);
+    await this.#core.rpc.messages.setTyping({ room_id: targetRoomId, typing });
   };
 
   readonly retrySend = (transactionId: string): void => {
-    void this.#core.commands
-      .retrySend(this.#roomId(), transactionId, this.#threadRoot)
+    void this.#core.rpc.messages
+      .retrySend({
+        room_id: this.#roomId(),
+        transaction_id: transactionId,
+        thread_root: this.#threadRoot,
+      })
       .catch(failed('retry'));
   };
 
   readonly cancelSend = (transactionId: string): void => {
-    void this.#core.commands
-      .cancelSend(this.#roomId(), transactionId, this.#threadRoot)
+    void this.#core.rpc.messages
+      .cancelSend({
+        room_id: this.#roomId(),
+        transaction_id: transactionId,
+        thread_root: this.#threadRoot,
+      })
       .catch(failed('cancel'));
   };
 
@@ -512,31 +527,42 @@ export class Conversation {
         (reaction) =>
           reaction.key === key && reaction.senders.includes(this.#core.session?.user_id ?? '')
       );
-    await this.#core.commands.toggleReaction(
-      this.#roomId(),
-      eventId,
+    await this.#core.rpc.messages.react({
+      room_id: this.#roomId(),
+      event_id: eventId,
       key,
-      this.#threadRoot,
-      mine ? null : sourcePack,
-      this.#timeline.subscriptionId
-    );
+      source_pack: $state.snapshot(mine ? null : sourcePack),
+      shortcode: null,
+      thread_root: this.#threadRoot,
+      subscription: this.#timeline.subscriptionId,
+    });
   }
 
   readonly votePoll = (eventId: string, answers: string[]): void => {
-    void this.#core.commands
-      .votePoll(this.#roomId(), eventId, answers, this.#threadRoot)
+    void this.#core.rpc.messages
+      .votePoll({
+        room_id: this.#roomId(),
+        event_id: eventId,
+        answers: [...answers],
+        thread_root: this.#threadRoot,
+      })
       .catch(failed('vote'));
   };
 
   readonly endPoll = (eventId: string): void => {
-    void this.#core.commands
-      .endPoll(this.#roomId(), eventId, this.#threadRoot)
+    void this.#core.rpc.messages
+      .endPoll({ room_id: this.#roomId(), event_id: eventId, thread_root: this.#threadRoot })
       .catch(failed('end poll'));
   };
 
   readonly redact = (eventId: string, reason: string | null): void => {
-    void this.#core.commands
-      .redact(this.#roomId(), eventId, reason, this.#threadRoot)
+    void this.#core.rpc.messages
+      .redact({
+        room_id: this.#roomId(),
+        event_id: eventId,
+        reason,
+        thread_root: this.#threadRoot,
+      })
       .catch(failed('redaction'));
   };
 
@@ -665,8 +691,8 @@ export class Conversation {
       if (eventId === null || this.#requestedDetails.has(eventId)) continue;
 
       this.#requestedDetails.add(eventId);
-      void this.#core.commands
-        .fetchEventDetails(roomId, eventId, this.#threadRoot)
+      void this.#core.rpc.timeline
+        .fetchEventDetails({ room_id: roomId, event_id: eventId, thread_root: this.#threadRoot })
         .catch((error: unknown) => {
           console.debug('[sable room] reply details unavailable', error);
         });

@@ -54,9 +54,10 @@
         if (!session) return null;
         return (await nativeDevicePusher(session.user_id, session.device_id))?.pushkey ?? null;
       },
-      pushers: () => core.commands.webPushers(),
-      pingGateway: (url) => core.commands.pingPushGateway(url),
-      sendDiagnostic: (pushkey, appId) => core.commands.sendDiagnosticPush(pushkey, appId),
+      pushers: () => core.rpc.push.webPushers(),
+      pingGateway: (url) => core.rpc.push.pingPushGateway({ url }),
+      sendDiagnostic: (pushkey, appId) =>
+        core.rpc.push.sendDiagnosticPush({ pushkey, app_id: appId }),
       history: loadPushHistory,
       registrationFailure: lastPushFailure,
       wait: (ms) =>

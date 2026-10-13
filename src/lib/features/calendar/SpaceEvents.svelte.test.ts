@@ -3,7 +3,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { expect, test, vi } from 'vitest';
 
-import type { CalendarView, RoomSummary } from '#src/generated/protocol';
+import type { CalendarView, RoomListItemView } from '#src/generated/protocol';
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
@@ -70,7 +70,7 @@ Object.assign(baseCore, {
   ),
 });
 
-const room = { room_id: '!cal:x', name: 'Events' } as RoomSummary;
+const room = { room_id: '!cal:x', name: 'Events' } as RoomListItemView;
 
 test('lists the events that fall on today and leaves later days out', async () => {
   render(SpaceEvents, { spaceId: '!space:x', rooms: [room] });

@@ -11,7 +11,7 @@ import JumpToTimeDialog from './JumpToTimeDialog.svelte';
 
 vi.mock('#lib/core/context.js');
 
-const core = Object.assign(baseCore, {
+const timeline = Object.assign(baseCore.rpc.timeline, {
   timestampToEvent: vi.fn<(...args: never[]) => Promise<string | null>>(() =>
     Promise.resolve('$found')
   ),
@@ -49,5 +49,9 @@ test('shows the moment in the reader format and jumps on Enter', async () => {
   await vi.waitFor(() => {
     expect(onJump).toHaveBeenCalledWith('$found');
   });
-  expect(core.timestampToEvent).toHaveBeenCalledWith('!r:x', midnight.getTime(), 'forward');
+  expect(timeline.timestampToEvent).toHaveBeenCalledWith({
+    room_id: '!r:x',
+    ts: midnight.getTime(),
+    direction: 'forward',
+  });
 });

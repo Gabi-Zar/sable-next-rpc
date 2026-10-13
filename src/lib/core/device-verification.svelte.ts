@@ -32,7 +32,7 @@ export class DeviceVerification {
     this.recovering = true;
     this.error = null;
     try {
-      await this.core.commands.recoverIdentity(key);
+      await this.core.rpc.encryption.recoverIdentity({ recovery_key: key });
       this.recoveryKey = '';
       await onRecovered?.();
     } catch (cause) {

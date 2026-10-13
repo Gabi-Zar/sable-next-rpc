@@ -1,13 +1,13 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 export type AddExistingKind = 'rooms' | 'spaces';
 
 export function addableChildren(
-  rooms: readonly RoomSummary[],
-  space: RoomSummary,
+  rooms: readonly RoomListItemView[],
+  space: RoomListItemView,
   kind: AddExistingKind,
   query: string
-): RoomSummary[] {
+): RoomListItemView[] {
   const listed = new Set(space.space_children.map((edge) => edge.room_id));
   const needle = query.trim().toLowerCase();
 

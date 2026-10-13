@@ -1,0 +1,716 @@
+use std::sync::Arc;
+
+use matrix_sdk::room::{ListThreadsOptions, Receipts};
+use matrix_sdk::ruma::api::Direction;
+use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
+use matrix_sdk::ruma::api::client::room::get_event_by_timestamp;
+use matrix_sdk::ruma::api::error::ErrorKind;
+use matrix_sdk::ruma::events::fully_read::FullyReadEventContent;
+use matrix_sdk::ruma::{MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedUserId, UInt};
+use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
+use serde::{Deserialize, Serialize};
+
+use super::Handler;
+use crate::protocol::{
+    CommandErr, EditVersionView, PaginationDirection, PinReadStateView, RelationsView,
+    RoomListItemView, SubscriptionId, TimelineFocusView, TimelineItemView,
+};
+use crate::widgets::RelationsFilter;
+use crate::{Core, ResultExt, SubscriptionKind, view};
+
+domain! {
+    subscribe_room_list => SubscribeRoomListParams,
+    subscribe_timeline => SubscribeTimelineParams,
+    unsubscribe => UnsubscribeParams,
+    warm_rooms => WarmRoomsParams,
+    paginate => PaginateParams,
+    fetch_event_details => FetchEventDetailsParams,
+    event_items => EventItemsParams,
+    room_timeline_events => RoomTimelineEventsParams,
+    timestamp_to_event => TimestampToEventParams,
+    list_threads => ListThreadsParams,
+    event_source => EventSourceParams,
+    edit_history => EditHistoryParams,
+    mark_read => MarkReadParams,
+    set_fully_read => SetFullyReadParams,
+    mark_unread => MarkUnreadParams,
+    read_marker => ReadMarkerParams,
+    retry_decryption => RetryDecryptionParams,
+    room_event_relations => RoomEventRelationsParams,
+    pinned_events => PinnedEventsParams,
+    set_pinned => SetPinnedParams,
+    pin_read_state => PinReadStateParams,
+    mark_pins_seen => MarkPinsSeenParams,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SubscribeRoomListParams {}
+
+/// The snapshot. Everything after it carries the same `subscription`.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SubscribeRoomListOk {
+    pub subscription: SubscriptionId,
+    pub rooms: Vec<RoomListItemView>,
+}
+
+impl Handler for SubscribeRoomListParams {
+    type Ok = SubscribeRoomListOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<SubscribeRoomListOk, CommandErr> {
+        core.subscribe_room_list().await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SubscribeTimelineParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[serde(default)]
+    pub focus: TimelineFocusView,
+    /// Relaxes the event filter so events the SDK would otherwise drop
+    /// arrive as `HiddenEvent`. Baked into the timeline, so flipping it
+    /// means re-subscribing.
+    pub hidden_events: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SubscribeTimelineOk {
+    pub subscription: SubscriptionId,
+    pub items: Vec<TimelineItemView>,
+    pub aggregations: Vec<TimelineItemView>,
+}
+
+impl Handler for SubscribeTimelineParams {
+    type Ok = SubscribeTimelineOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<SubscribeTimelineOk, CommandErr> {
+        core.subscribe_timeline(self.room_id, self.focus, self.hidden_events)
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct UnsubscribeParams {
+    pub subscription: SubscriptionId,
+}
+
+impl Handler for UnsubscribeParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let mut subscribed = core.room_subscriptions.lock().await;
+        let Some(removed) = core.subscriptions.lock().await.remove(&self.subscription) else {
+            return Err(CommandErr::UnknownSubscription);
+        };
+        let has_room = !matches!(removed.kind, SubscriptionKind::Other);
+        drop(removed);
+        if has_room {
+            core.sync_timeline_rooms_locked(&mut subscribed).await?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct WarmRoomsParams {
+    #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
+    pub room_ids: Vec<OwnedRoomId>,
+}
+
+impl Handler for WarmRoomsParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.warm_rooms(self.room_ids).await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct PaginateParams {
+    pub subscription: SubscriptionId,
+    pub direction: PaginationDirection,
+    pub count: u16,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct PaginateOk {
+    pub direction: PaginationDirection,
+    pub reached_end: bool,
+}
+
+impl Handler for PaginateParams {
+    type Ok = PaginateOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<PaginateOk, CommandErr> {
+        let Self {
+            subscription,
+            direction,
+            count,
+        } = self;
+        let (timeline, focused, thread) = core
+            .subscriptions
+            .lock()
+            .await
+            .get(&subscription)
+            .and_then(|subscription| {
+                subscription.timeline.clone().map(|timeline| {
+                    (
+                        timeline,
+                        matches!(subscription.kind, SubscriptionKind::FocusedTimeline(_)),
+                        subscription.thread_root.is_some(),
+                    )
+                })
+            })
+            .ok_or(CommandErr::UnknownSubscription)?;
+        if matches!(direction, PaginationDirection::Forward) && !focused {
+            return Err(CommandErr::InvalidPaginationDirection);
+        }
+        if matches!(direction, PaginationDirection::Forward) && thread {
+            return Ok(PaginateOk {
+                direction,
+                reached_end: true,
+            });
+        }
+        let _foreground = core.begin_foreground_pagination();
+        let mut reached_end = match direction {
+            PaginationDirection::Backward => timeline.paginate_backwards(count).await,
+            PaginationDirection::Forward => timeline.paginate_forwards(count).await,
+        }
+        .or_failed(core, "paginate")?;
+        if reached_end
+            && matches!(direction, PaginationDirection::Backward)
+            && !focused
+            && !thread
+            && core.restore_history_gap(timeline.room()).await?
+        {
+            reached_end = timeline
+                .paginate_backwards(count)
+                .await
+                .or_failed(core, "paginate")?;
+        }
+
+        Ok(PaginateOk {
+            direction,
+            reached_end,
+        })
+    }
+}
+
+/// The details arrive as a timeline diff.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct FetchEventDetailsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for FetchEventDetailsParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.fetch_event_details(&self.room_id, &self.event_id, self.thread_root.as_ref())
+            .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct EventItemsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
+    pub event_ids: Vec<OwnedEventId>,
+}
+
+impl Handler for EventItemsParams {
+    type Ok = Vec<TimelineItemView>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<TimelineItemView>, CommandErr> {
+        core.event_items(&self.room_id, &self.event_ids).await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct RoomTimelineEventsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub event_type: String,
+    #[serde(default)]
+    pub msgtype: Option<String>,
+    #[serde(default)]
+    pub state_key: Option<String>,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub limit: u32,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub since: Option<OwnedEventId>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(transparent))]
+pub struct RoomTimelineEventsOk(
+    #[cfg_attr(feature = "typegen", specta(type = Vec<specta_typescript::Unknown>))]
+    pub  Vec<serde_json::Value>,
+);
+
+impl Handler for RoomTimelineEventsParams {
+    type Ok = RoomTimelineEventsOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<RoomTimelineEventsOk, CommandErr> {
+        core.room_timeline_events(
+            &self.room_id,
+            &self.event_type,
+            self.msgtype.as_deref(),
+            self.state_key.as_deref(),
+            self.limit,
+            self.since.as_ref(),
+        )
+        .await
+        .map(RoomTimelineEventsOk)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct TimestampToEventParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
+    pub ts: u64,
+    pub direction: PaginationDirection,
+}
+
+impl Handler for TimestampToEventParams {
+    type Ok = Option<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+        let request = get_event_by_timestamp::v1::Request::new(
+            self.room_id,
+            MilliSecondsSinceUnixEpoch(UInt::new_saturating(self.ts)),
+            match self.direction {
+                PaginationDirection::Backward => Direction::Backward,
+                PaginationDirection::Forward => Direction::Forward,
+            },
+        );
+
+        match core.client().await?.send(request).await {
+            Ok(response) => Ok(Some(response.event_id.to_string())),
+            Err(error) if error.client_api_error_kind() == Some(&ErrorKind::NotFound) => Ok(None),
+            Err(error) => Err(core.homeserver_http_error("timestamp_to_event", error)),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ListThreadsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub from: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ListThreadsOk {
+    pub roots: Vec<TimelineItemView>,
+    pub next_batch: Option<String>,
+}
+
+impl Handler for ListThreadsParams {
+    type Ok = ListThreadsOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<ListThreadsOk, CommandErr> {
+        let room = core.room(&self.room_id).await?;
+        let options = ListThreadsOptions {
+            from: self.from,
+            ..ListThreadsOptions::default()
+        };
+        let threads = room
+            .list_threads(options)
+            .await
+            .map_err(|error| core.room_error("list_threads", error))?;
+
+        let push = room.push_context().await.ok().flatten();
+        let roots = futures_util::future::join_all(
+            threads
+                .chunk
+                .into_iter()
+                .map(|event| view::standalone_item(&room, event, None, push.as_ref())),
+        )
+        .await
+        .into_iter()
+        .flatten()
+        .collect();
+
+        Ok(ListThreadsOk {
+            roots,
+            next_batch: threads.prev_batch_token,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct EventSourceParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    pub include_original: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct EventSourceOk {
+    pub source: String,
+    pub encrypted: bool,
+    pub original: Option<String>,
+}
+
+impl Handler for EventSourceParams {
+    type Ok = EventSourceOk;
+
+    async fn run(self, core: &Arc<Core>) -> Result<EventSourceOk, CommandErr> {
+        let (source, encrypted, original) = core
+            .event_source(&self.room_id, &self.event_id, self.include_original)
+            .await?;
+        Ok(EventSourceOk {
+            source,
+            encrypted,
+            original,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct EditHistoryParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+}
+
+impl Handler for EditHistoryParams {
+    type Ok = Vec<EditVersionView>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<EditVersionView>, CommandErr> {
+        core.edit_history(&self.room_id, &self.event_id).await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct MarkReadParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub event_id: Option<OwnedEventId>,
+    #[serde(default)]
+    pub private_receipt: bool,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+    #[serde(default)]
+    pub subscription: Option<SubscriptionId>,
+    #[serde(default)]
+    pub fully_read: bool,
+}
+
+impl Handler for MarkReadParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let receipt_type = if self.private_receipt {
+            ReceiptType::ReadPrivate
+        } else {
+            ReceiptType::Read
+        };
+
+        let Some(event_id) = self.event_id else {
+            let room = core.room(&self.room_id).await?;
+            let timeline = room
+                .timeline_builder()
+                .with_focus(TimelineFocus::Live {
+                    hide_threaded_events: false,
+                })
+                .build()
+                .await
+                .or_failed(core, "build_mark_read_timeline")?;
+            timeline
+                .mark_as_read(receipt_type.clone())
+                .await
+                .or_failed(core, "mark_read")?;
+            let main = room
+                .timeline_builder()
+                .with_focus(TimelineFocus::Live {
+                    hide_threaded_events: true,
+                })
+                .build()
+                .await
+                .or_failed(core, "build_mark_read_timeline")?;
+            main.mark_as_read(receipt_type)
+                .await
+                .or_failed(core, "mark_read")?;
+            timeline
+                .mark_as_read(ReceiptType::FullyRead)
+                .await
+                .or_failed(core, "mark_read")?;
+            return Ok(());
+        };
+
+        let timeline = core
+            .subscribed_timeline(&self.room_id, self.thread_root.as_ref(), self.subscription)
+            .await?;
+        timeline
+            .send_single_receipt(receipt_type, event_id.clone())
+            .await
+            .or_failed(core, "mark_read")?;
+        if self.fully_read && self.thread_root.is_none() {
+            timeline
+                .send_multiple_receipts(Receipts::new().fully_read_marker(event_id))
+                .await
+                .or_failed(core, "mark_read")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SetFullyReadParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+}
+
+impl Handler for SetFullyReadParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        core.room(&self.room_id)
+            .await?
+            .send_multiple_receipts(Receipts::new().fully_read_marker(self.event_id))
+            .await
+            .map_err(|error| core.room_error("set_fully_read", error))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct MarkUnreadParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub read_marker: Option<OwnedEventId>,
+}
+
+impl Handler for MarkUnreadParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let room = core.room(&self.room_id).await?;
+
+        if let Some(event_id) = self.read_marker {
+            room.send_multiple_receipts(Receipts::new().fully_read_marker(event_id))
+                .await
+                .map_err(|error| core.room_error("mark_unread_marker", error))?;
+        }
+
+        room.set_unread_flag(true)
+            .await
+            .map_err(|error| core.room_error("mark_unread", error))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ReadMarkerParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+}
+
+impl Handler for ReadMarkerParams {
+    type Ok = Option<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+        let room = core.room(&self.room_id).await?;
+        let fully_read = room
+            .account_data_static::<FullyReadEventContent>()
+            .await
+            .map_err(|error| core.room_error("read_marker", error))?
+            .and_then(|raw| raw.deserialize().ok())
+            .map(|event| event.content.event_id);
+        let event_id = fully_read.or_else(|| {
+            room.read_receipts()
+                .latest_active
+                .map(|receipt| receipt.event_id)
+        });
+        Ok(event_id.map(|event_id| event_id.to_string()))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct RetryDecryptionParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    pub session_id: String,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub sender: OwnedUserId,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub thread_root: Option<OwnedEventId>,
+}
+
+impl Handler for RetryDecryptionParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+        let sender = self.sender;
+        let timeline = core
+            .timeline_for(&self.room_id, self.thread_root.as_ref())
+            .await?;
+        if let Err(error) = core
+            .client()
+            .await?
+            .encryption()
+            .request_user_identity(&sender)
+            .await
+        {
+            tracing::warn!(%error, %sender, "refreshing sender identity before decryption retry failed");
+        }
+        timeline.retry_decryption([self.session_id]).await;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct RoomEventRelationsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    #[serde(default)]
+    pub rel_type: Option<String>,
+    #[serde(default)]
+    pub event_type: Option<String>,
+    #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub to: Option<String>,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub direction: Option<PaginationDirection>,
+}
+
+impl Handler for RoomEventRelationsParams {
+    type Ok = RelationsView;
+
+    async fn run(self, core: &Arc<Core>) -> Result<RelationsView, CommandErr> {
+        core.room_event_relations(
+            &self.room_id,
+            &self.event_id,
+            RelationsFilter {
+                rel_type: self.rel_type.as_deref(),
+                event_type: self.event_type.as_deref(),
+                from: self.from.as_deref(),
+                to: self.to.as_deref(),
+                limit: self.limit,
+                direction: self.direction,
+            },
+        )
+        .await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct PinnedEventsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+}
+
+impl Handler for PinnedEventsParams {
+    type Ok = Vec<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+        let event_ids = core.pinned_events(&self.room_id).await?;
+        Ok(event_ids.iter().map(ToString::to_string).collect())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SetPinnedParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub event_id: OwnedEventId,
+    pub pinned: bool,
+}
+
+impl Handler for SetPinnedParams {
+    type Ok = Vec<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+        let event_ids = core
+            .set_pinned_with_marker(&self.room_id, self.event_id, self.pinned)
+            .await?;
+        Ok(event_ids.iter().map(ToString::to_string).collect())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct PinReadStateParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+}
+
+impl Handler for PinReadStateParams {
+    type Ok = PinReadStateView;
+
+    async fn run(self, core: &Arc<Core>) -> Result<PinReadStateView, CommandErr> {
+        core.pin_read_state(&self.room_id).await
+    }
+}
+
+/// Marks `pinned_ids`, the list the reader is looking at, as seen.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct MarkPinsSeenParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
+    pub pinned_ids: Vec<OwnedEventId>,
+}
+
+impl Handler for MarkPinsSeenParams {
+    type Ok = PinReadStateView;
+
+    async fn run(self, core: &Arc<Core>) -> Result<PinReadStateView, CommandErr> {
+        core.mark_pins_seen(&self.room_id, self.pinned_ids).await
+    }
+}

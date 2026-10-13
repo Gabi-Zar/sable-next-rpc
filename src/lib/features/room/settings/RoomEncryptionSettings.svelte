@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomPowerLevelsView, RoomSummary } from '#src/generated/protocol';
+  import type { RoomPowerLevelsView, RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -13,7 +13,7 @@
   const EVENT_TYPE = 'm.room.encryption';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     levels: RoomPowerLevelsView | null;
     ownPowerLevel: number;
   }
@@ -36,7 +36,7 @@
     enabling = true;
     failed = false;
     try {
-      await core.commands.enableEncryption(target);
+      await core.rpc.room_state.enableEncryption({ room_id: target });
       confirming = false;
     } catch (error) {
       console.warn('[sable room] enabling encryption failed', error);

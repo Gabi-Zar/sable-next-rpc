@@ -150,7 +150,7 @@ export class ProfileController {
       const name = this.displayName.trim();
       const propagateTo = preferences.profileChangePropagation;
       if (name && name !== loaded.displayName) {
-        await this.options.core.commands.setDisplayName(name, propagateTo);
+        await this.options.core.rpc.account.setDisplayName({ name, propagate_to: propagateTo });
       }
       const core = this.options.core;
       if (this.pronouns.trim() !== loaded.pronouns) {
@@ -171,7 +171,7 @@ export class ProfileController {
         }
       }
       if (this.bannerFile) {
-        const url = await core.commands.uploadMedia(
+        const url = await core.media.uploadMedia(
           this.bannerFile.type || 'image/*',
           new Uint8Array(await this.bannerFile.arrayBuffer())
         );
@@ -184,7 +184,7 @@ export class ProfileController {
         const bytes = new Uint8Array(await upright.arrayBuffer());
         await this.options.core.uploadAvatar(upright.type || 'image/*', bytes, propagateTo);
       } else if (this.avatarCleared) {
-        await this.options.core.commands.setAvatarUrl(null, propagateTo);
+        await this.options.core.rpc.account.setAvatarUrl({ url: null, propagate_to: propagateTo });
       }
       await this.finish();
     } catch {

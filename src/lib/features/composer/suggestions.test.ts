@@ -1,4 +1,4 @@
-import type { MemberView, PackImageView, RoomSummary } from '#src/generated/protocol';
+import type { MemberView, PackImageView, RoomListItemView } from '#src/generated/protocol';
 import { expect, test } from 'vitest';
 
 import type { AutocompleteQuery } from './autocomplete';
@@ -46,8 +46,12 @@ function commandQuery(text: string): AutocompleteQuery {
   return { sigil: '/', query: text, start: 0, end: text.length + 1 };
 }
 
-function room(room_id: string, name: string, canonical_alias: string | null = null): RoomSummary {
-  return { room_id, name, canonical_alias, avatar_url: null } as RoomSummary;
+function room(
+  room_id: string,
+  name: string,
+  canonical_alias: string | null = null
+): RoomListItemView {
+  return { room_id, name, canonical_alias, avatar_url: null } as RoomListItemView;
 }
 
 test('a member matches on display name or localpart, never on the homeserver', () => {

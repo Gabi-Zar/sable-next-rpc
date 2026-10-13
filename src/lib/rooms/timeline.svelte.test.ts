@@ -90,8 +90,17 @@ class FakeCore {
     for (const listener of this.listeners) listener(event);
   }
 
-  get commands(): this {
-    return this;
+  get rpc() {
+    return {
+      timeline: {
+        subscribeTimeline: (params: { room_id: string; focus: TimelineFocusView }) =>
+          this.subscribeTimeline(params.room_id, params.focus),
+        paginate: (params: { subscription: number; direction: 'backward' | 'forward' }) =>
+          this.paginate(params.subscription, params.direction),
+        unsubscribe: () => this.unsubscribe(),
+        readMarker: (params: { room_id: string }) => this.readMarker(params.room_id),
+      },
+    };
   }
 }
 
@@ -786,8 +795,15 @@ class SwitchingCore {
     for (const listener of this.listeners) listener(event);
   }
 
-  get commands(): this {
-    return this;
+  get rpc() {
+    return {
+      timeline: {
+        subscribeTimeline: (params: { room_id: string }) => this.subscribeTimeline(params.room_id),
+        paginate: (params: { subscription: number; direction: 'backward' | 'forward' }) =>
+          this.paginate(params.subscription, params.direction),
+        unsubscribe: (params: { subscription: number }) => this.unsubscribe(params.subscription),
+      },
+    };
   }
 }
 

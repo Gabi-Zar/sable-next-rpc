@@ -14,10 +14,9 @@ use matrix_sdk_ui::timeline::{
 use tokio::sync::broadcast::error::RecvError;
 
 use crate::ResultExt;
+use crate::api::timeline::{SubscribeRoomListOk, SubscribeTimelineOk};
 use crate::notifications;
-use crate::protocol::{
-    CommandErr, CommandOk, CoreEvent, SubscriptionId, TimelineFocusView, TimelineItemView,
-};
+use crate::protocol::{CommandErr, CoreEvent, SubscriptionId, TimelineFocusView, TimelineItemView};
 use crate::room_list_rows::RoomListRows;
 use crate::timeline_overlay::{ReplyFallback, TimelineOverlay};
 use crate::timelines::{aggregation_items, build_room_timeline, fill_sender_profiles};
@@ -54,7 +53,9 @@ pub(crate) fn abort_rejected_redaction(timeline: &Arc<Timeline>, item: &Timeline
 }
 
 impl Core {
-    pub(crate) async fn subscribe_room_list(self: &Arc<Self>) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn subscribe_room_list(
+        self: &Arc<Self>,
+    ) -> Result<SubscribeRoomListOk, CommandErr> {
         let sync_service = {
             let guard = self.session.read().await;
             guard
@@ -112,7 +113,7 @@ impl Core {
                             .into_iter()
                             .map(|diff| {
                                 view::map_diff(diff, |item| {
-                                    view::room_summary(item, &room_cache, &rules)
+                                    view::room_list_item(item, &room_cache, &rules)
                                 })
                             })
                             .collect();
@@ -157,7 +158,7 @@ impl Core {
         );
 
         // The filter makes the stream open with a `Reset` carrying everything.
-        Ok(CommandOk::SubscribeRoomList {
+        Ok(SubscribeRoomListOk {
             subscription,
             rooms: Vec::new(),
         })
@@ -179,7 +180,7 @@ impl Core {
         room_id: OwnedRoomId,
         focus: TimelineFocusView,
         hidden_events: bool,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<SubscribeTimelineOk, CommandErr> {
         let subscription = self.allocate_subscription();
         let live = matches!(focus, TimelineFocusView::Live);
         let room = self.room(&room_id).await?;
@@ -338,10 +339,10 @@ impl Core {
             self.emit(timeline_pagination_event(subscription, status));
         }
 
-        Ok(CommandOk::SubscribeTimeline {
+        Ok(SubscribeTimelineOk {
             subscription,
-            aggregations,
             items,
+            aggregations,
         })
     }
 
@@ -483,10 +484,7 @@ impl Core {
         (items, Some(task))
     }
 
-    pub(crate) async fn warm_rooms(
-        &self,
-        room_ids: Vec<OwnedRoomId>,
-    ) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn warm_rooms(&self, room_ids: Vec<OwnedRoomId>) -> Result<(), CommandErr> {
         let client = self.client().await?;
         let mut subscribed = self.room_subscriptions.lock().await;
         for room_id in room_ids {
@@ -498,7 +496,7 @@ impl Core {
             }
         }
         self.sync_timeline_rooms_locked(&mut subscribed).await?;
-        Ok(CommandOk::WarmRooms)
+        Ok(())
     }
 
     fn remember_warm(&self, room_id: OwnedRoomId) {

@@ -60,7 +60,11 @@ test('incoming calls show the room profile instead of the global profile', async
   await tick();
   expect(screen.getByText('Room Alice is calling')).toBeInTheDocument();
   expect(screen.getByRole('dialog')).toHaveClass('dialog-content-fullscreen');
-  expect(core.roomStateEvent).toHaveBeenCalledWith(call.roomId, 'm.room.member', call.sender);
+  expect(core.roomStateEvent).toHaveBeenCalledWith({
+    room_id: call.roomId,
+    event_type: 'm.room.member',
+    state_key: call.sender,
+  });
   request.resolve({
     membership: 'join',
     displayname: 'Room Alice',

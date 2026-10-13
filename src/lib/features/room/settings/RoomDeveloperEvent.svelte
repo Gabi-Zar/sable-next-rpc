@@ -45,7 +45,7 @@
     sending = true;
     outcome = null;
     try {
-      await core.commands.sendRawEvent(roomId, type, parsed);
+      await core.rpc.messages.sendRawEvent({ room_id: roomId, event_type: type, content: parsed });
       outcome = 'sent';
     } catch (error) {
       console.warn('[sable room] message event rejected', error);

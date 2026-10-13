@@ -4,7 +4,7 @@
 
   import RoomOptionsMenu from './RoomOptionsMenu.svelte';
   import type { Component } from 'svelte';
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { resolve } from '$app/paths';
   import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -76,12 +76,12 @@
 
   interface Props {
     pathname?: string;
-    spaces: readonly RoomSummary[];
+    spaces: readonly RoomListItemView[];
     spaceUnread?: ReadonlyMap<string, UnreadCount>;
     callSpaces?: ReadonlySet<string>;
     homeUnread?: UnreadCount;
     unspacedUnread?: UnreadCount;
-    directRooms?: readonly RoomSummary[];
+    directRooms?: readonly RoomListItemView[];
     directUnread?: UnreadCount;
     unreadFor?: RoomUnread;
     mobile?: boolean;
@@ -308,7 +308,7 @@
     { key: 'uniformIcons', label: 'settings.uniformIcons' },
   ] as const;
 
-  let contextSpace = $state<RoomSummary | null>(null);
+  let contextSpace = $state<RoomListItemView | null>(null);
   let contextAnchor = $state.raw<CursorAnchor | null>(null);
   let contextOpen = $state(false);
   let sectionMenu = $state.raw<{ section: RailSection; unread: UnreadCount; dm: boolean } | null>(
@@ -951,10 +951,10 @@
     align="start"
     side="right"
     bind:open={contextOpen}
-    onSettings={(room: RoomSummary) => {
+    onSettings={(room: RoomListItemView) => {
       settingsRoomId = room.room_id;
     }}
-    onLeave={(room: RoomSummary) => {
+    onLeave={(room: RoomListItemView) => {
       leaveRoomId = room.room_id;
     }}
     onMoveUp={mobile && contextIndex > 0

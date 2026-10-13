@@ -9,13 +9,13 @@ const consumers = new WeakMap<CoreClient, number>();
 function acquire(core: CoreClient): void {
   const count = consumers.get(core) ?? 0;
   consumers.set(core, count + 1);
-  if (count === 0) core.commands.setWidgetFeed(true).catch(() => undefined);
+  if (count === 0) core.rpc.widgets.setWidgetFeed({ enabled: true }).catch(() => undefined);
 }
 
 function release(core: CoreClient): void {
   const count = (consumers.get(core) ?? 1) - 1;
   consumers.set(core, count);
-  if (count === 0) core.commands.setWidgetFeed(false).catch(() => undefined);
+  if (count === 0) core.rpc.widgets.setWidgetFeed({ enabled: false }).catch(() => undefined);
 }
 
 export function startWidgetFeed(

@@ -4,6 +4,7 @@ mod account_data;
 mod account_documents;
 mod account_lock;
 mod accounts;
+pub mod api;
 mod attachments;
 mod auth;
 mod bookmarks;
@@ -11,7 +12,6 @@ mod bot_commands;
 mod calendar;
 mod calls;
 mod cosmetics;
-mod dispatch;
 mod errors;
 mod gestures;
 pub use errors::CoreError;
@@ -704,7 +704,7 @@ impl Core {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::{Command, CommandErr, CommandOk};
+    use crate::protocol::CommandErr;
 
     struct FailingClearSessionStore;
 
@@ -765,7 +765,8 @@ mod tests {
     async fn commands_before_login_are_rejected() {
         let (core, _rx) = Core::new("test", Box::new(store::MemorySessionStore::default()));
         assert!(matches!(
-            core.dispatch(Command::SubscribeRoomList).await,
+            core.run(crate::api::timeline::SubscribeRoomListParams {})
+                .await,
             Err(CommandErr::NotLoggedIn)
         ));
     }
@@ -950,10 +951,7 @@ mod tests {
         )));
         let (core, _events) = Core::new("test", Box::new(TestSessionStore { bytes }));
 
-        assert!(matches!(
-            core.restore().await,
-            Ok(CommandOk::Restore { session: None })
-        ));
+        assert!(matches!(core.restore().await, Ok(None)));
         assert!(matches!(
             core.switch_account("a1".to_owned()).await,
             Err(CommandErr::NotLoggedIn)
@@ -1017,7 +1015,7 @@ mod sdk_verification_tests;
 #[cfg(test)]
 mod live_tests {
     use super::*;
-    use crate::protocol::{Command, CommandErr, CommandOk};
+    use crate::protocol::CommandErr;
 
     #[tokio::test]
     #[ignore = "hits matrix.org"]
@@ -1026,16 +1024,13 @@ mod live_tests {
             "sable-next-discover",
             Box::new(store::MemorySessionStore::default()),
         );
-        let result = core
-            .dispatch(Command::DiscoverHomeserver {
+        let homeserver = core
+            .run(api::auth::DiscoverHomeserverParams {
                 server_name: "matrix.org".into(),
             })
             .await
             .expect("discovery should succeed");
 
-        let CommandOk::DiscoverHomeserver { homeserver } = result else {
-            panic!("wrong response variant");
-        };
         assert!(homeserver.contains("matrix.org"), "got {homeserver}");
     }
 
@@ -1048,7 +1043,7 @@ mod live_tests {
             Box::new(store::MemorySessionStore::default()),
         );
         let error = core
-            .dispatch(Command::Login {
+            .run(api::auth::LoginParams {
                 homeserver: "https://matrix.org".into(),
                 identifier: crate::protocol::LoginIdentifier::User {
                     user: "sable-next-does-not-exist".into(),

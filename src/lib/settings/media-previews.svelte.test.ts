@@ -8,11 +8,15 @@ import type { MediaPreviewConfigView } from '#src/generated/protocol';
 import { mediaPreviewSettings, previewsShown } from './media-previews.svelte';
 
 function fakeCore(stored: MediaPreviewConfigView) {
-  const setMediaPreviewConfig = vi.fn((config: MediaPreviewConfigView) => Promise.resolve(config));
+  const setMediaPreviewConfig = vi.fn(({ config }: { config: MediaPreviewConfigView }) =>
+    Promise.resolve(config)
+  );
   const core = {
-    commands: {
-      mediaPreviewConfig: vi.fn(() => Promise.resolve(stored)),
-      setMediaPreviewConfig,
+    rpc: {
+      account: {
+        mediaPreviewConfig: vi.fn(() => Promise.resolve(stored)),
+        setMediaPreviewConfig,
+      },
     },
     subscribeEvents: vi.fn(() => () => {}),
   };
@@ -53,8 +57,7 @@ test('a change sends only the fields it sets and keeps the rest locally', async 
   await mediaPreviewSettings.set({ invite_avatars: 'off' });
 
   expect(setMediaPreviewConfig).toHaveBeenCalledWith({
-    media_previews: null,
-    invite_avatars: 'off',
+    config: { media_previews: null, invite_avatars: 'off' },
   });
   expect(mediaPreviewSettings.inviteAvatars).toBe('off');
   preferences.mediaAutoLoad = 'off';
@@ -62,8 +65,7 @@ test('a change sends only the fields it sets and keeps the rest locally', async 
   await mediaPreviewSettings.set({ media_previews: 'on' });
   expect(preferences.mediaAutoLoad).toBe('on');
   expect(setMediaPreviewConfig).toHaveBeenLastCalledWith({
-    media_previews: 'on',
-    invite_avatars: null,
+    config: { media_previews: 'on', invite_avatars: null },
   });
   expect(mediaPreviewSettings.inviteAvatars).toBe('off');
 });

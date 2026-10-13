@@ -74,7 +74,7 @@
     void settingsChanges.version;
 
     let alive = true;
-    void core.commands
+    void core.rpc.notifications
       .defaultNotificationModes()
       .then((modes) => {
         if (!alive) return;
@@ -84,13 +84,13 @@
       .catch(() => {
         if (alive) failed = true;
       });
-    void core.commands.eventNotifications().then(
+    void core.rpc.notifications.eventNotifications().then(
       (view) => {
         if (alive) events = view;
       },
       () => undefined
     );
-    void core.commands.masterMute().then(
+    void core.rpc.notifications.masterMute().then(
       (value) => {
         if (alive) muted = value;
       },
@@ -109,7 +109,7 @@
   ): void {
     if (current) current = { ...current, [key]: mode };
 
-    void core.commands.setDefaultNotificationMode(isDirect, mode).then(
+    void core.rpc.notifications.setDefaultNotificationMode({ direct: isDirect, mode }).then(
       () => {
         settingsChanges.version += 1;
       },
@@ -123,7 +123,7 @@
   function saveMute(value: boolean): void {
     muted = value;
 
-    void core.commands.setMasterMute(value).catch(() => {
+    void core.rpc.notifications.setMasterMute({ muted: value }).catch(() => {
       failed = true;
       settingsChanges.version += 1;
     });
@@ -132,7 +132,7 @@
   function saveEvent(event: EventNotificationView, enabled: boolean): void {
     if (events) events = { ...events, [event]: enabled };
 
-    void core.commands.setEventNotification(event, enabled).catch(() => {
+    void core.rpc.notifications.setEventNotification({ event, enabled }).catch(() => {
       failed = true;
       settingsChanges.version += 1;
     });

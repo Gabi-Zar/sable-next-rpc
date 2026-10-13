@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import {
   filterRoomsByQuery,
@@ -11,7 +11,7 @@ import {
 } from './room-jump';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
-function room(overrides: Partial<RoomSummary> & { room_id: string }): RoomSummary {
+function room(overrides: Partial<RoomListItemView> & { room_id: string }): RoomListItemView {
   return withCounts({
     canonical_alias: null,
     name: null,
@@ -42,7 +42,7 @@ function room(overrides: Partial<RoomSummary> & { room_id: string }): RoomSummar
   });
 }
 
-function latest(timestamp: number): RoomSummary['latest_event'] {
+function latest(timestamp: number): RoomListItemView['latest_event'] {
   return { sender: null, body: '', timestamp, sending: false, event_id: null };
 }
 

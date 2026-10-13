@@ -124,7 +124,7 @@
     packs = [];
     const load = (): void => {
       void loadPacks(
-        core.commands,
+        core.rpc,
         roomId,
         (loaded) => {
           if (cancelled) return;

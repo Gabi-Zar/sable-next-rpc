@@ -71,7 +71,7 @@
 
   async function reload(): Promise<void> {
     try {
-      const next = await core.commands.webPushers();
+      const next = await core.rpc.push.webPushers();
       if (!alive) return;
       pushers = next;
       error = null;
@@ -123,7 +123,7 @@
     removing = key;
     error = null;
     try {
-      await core.commands.removePusher(pusher.pushkey, pusher.app_id);
+      await core.rpc.push.removePusher({ pushkey: pusher.pushkey, app_id: pusher.app_id });
       if (!alive) return;
       section?.focus({ preventScroll: true });
       confirming = null;
@@ -144,7 +144,7 @@
     let failed = false;
     for (const pusher of [...pushers]) {
       try {
-        await core.commands.removePusher(pusher.pushkey, pusher.app_id);
+        await core.rpc.push.removePusher({ pushkey: pusher.pushkey, app_id: pusher.app_id });
         removed.push(keyOf(pusher));
       } catch (cause) {
         console.warn('[sable notifications] removing a pusher failed', cause);

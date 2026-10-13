@@ -10,7 +10,7 @@ export function bannerChanged(): void {
 
 export async function readRoomBanner(core: CoreClient, roomId: string): Promise<string | null> {
   try {
-    return await core.commands.roomBanner(roomId);
+    return await core.rpc.room_state.roomBanner({ room_id: roomId });
   } catch (error) {
     console.debug('[sable room] banner unavailable', error);
     return null;
@@ -22,6 +22,6 @@ export async function setRoomBanner(
   roomId: string,
   url: string | null
 ): Promise<void> {
-  await core.commands.setRoomBanner(roomId, url);
+  await core.rpc.room_state.setRoomBanner({ room_id: roomId, url });
   bannerChanged();
 }

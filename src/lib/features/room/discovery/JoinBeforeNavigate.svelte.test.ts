@@ -16,8 +16,9 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const core = Object.assign(baseCore, {
   roomPreview: vi.fn<() => Promise<RoomPreviewView>>(),
-  knockRoom: vi.fn<(address: string, via: string[], reason?: string) => Promise<string>>(),
-  leaveRoom: vi.fn<(roomId: string) => Promise<void>>(),
+  knockRoom:
+    vi.fn<(params: { address: string; via: string[]; reason: string | null }) => Promise<string>>(),
+  leaveRoom: vi.fn<(params: { room_id: string }) => Promise<null>>(),
 });
 
 import JoinBeforeNavigate from './JoinBeforeNavigate.svelte';
@@ -56,7 +57,11 @@ test('sends the optional message with the request to join', async () => {
   );
   await user.click(screen.getByRole('button', { name: 'Ask to join' }));
 
-  expect(core.knockRoom).toHaveBeenCalledWith('!room:example.org', [], 'a friend of Ana');
+  expect(core.knockRoom).toHaveBeenCalledWith({
+    address: '!room:example.org',
+    via: [],
+    reason: 'a friend of Ana',
+  });
   expect(screen.getByRole('status')).toHaveTextContent('Your request to join has been sent.');
 });
 
@@ -68,17 +73,21 @@ test('a blank message sends no reason', async () => {
 
   await user.click(await screen.findByRole('button', { name: 'Ask to join' }));
 
-  expect(core.knockRoom).toHaveBeenCalledWith('!room:example.org', [], undefined);
+  expect(core.knockRoom).toHaveBeenCalledWith({
+    address: '!room:example.org',
+    via: [],
+    reason: null,
+  });
 });
 
 test('a pending request can be withdrawn', async () => {
   const user = userEvent.setup();
   core.roomPreview.mockResolvedValue(preview({ state: 'knocked' }));
-  core.leaveRoom.mockResolvedValue();
+  core.leaveRoom.mockResolvedValue(null);
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
   await user.click(await screen.findByRole('button', { name: 'Withdraw request' }));
 
-  expect(core.leaveRoom).toHaveBeenCalledWith('!room:example.org');
+  expect(core.leaveRoom).toHaveBeenCalledWith({ room_id: '!room:example.org' });
   expect(screen.getByRole('button', { name: 'Ask to join' })).toBeInTheDocument();
 });

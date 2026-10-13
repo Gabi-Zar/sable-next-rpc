@@ -1,6 +1,6 @@
 <script lang="ts">
   import { i18n } from '#lib/i18n.js';
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
   import { onMount } from 'svelte';
   import { afterNavigate, goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -151,7 +151,7 @@
     )
   );
 
-  function unreadCounts(rooms: readonly RoomSummary[]): UnreadCount {
+  function unreadCounts(rooms: readonly RoomListItemView[]): UnreadCount {
     return rooms.reduce((total, room) => addUnread(total, roomList.badgeUnreadFor(room)), {
       unread: 0,
       highlight: 0,
@@ -160,13 +160,13 @@
 
   function markSectionRead(section: 'home' | 'unspaced' | 'direct'): void {
     const rooms = { home: homeRooms, unspaced: unspacedRooms, direct: allDirectRooms }[section];
-    markRoomsRead(rooms, core.commands, readReceiptIsPrivate());
+    markRoomsRead(rooms, core.rpc.timeline, readReceiptIsPrivate());
   }
 
   function markFolderRead(folder: SidebarFolder): void {
     markRoomsRead(
       spacesDescendantRooms(roomList.rooms, folder.content),
-      core.commands,
+      core.rpc.timeline,
       readReceiptIsPrivate()
     );
   }

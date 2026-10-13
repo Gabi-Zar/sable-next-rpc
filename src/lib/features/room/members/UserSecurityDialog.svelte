@@ -43,8 +43,8 @@
     loading = true;
     error = false;
     security = null;
-    core.commands
-      .userSecurity(wanted)
+    core.rpc.encryption
+      .userSecurity({ user_id: wanted })
       .then((value) => {
         if (active) security = value;
       })
@@ -78,7 +78,11 @@
     blocking = device.device_id;
     error = false;
     try {
-      await core.commands.setDeviceBlocked(userId, device.device_id, !device.blocked);
+      await core.rpc.encryption.setDeviceBlocked({
+        user_id: userId,
+        device_id: device.device_id,
+        blocked: !device.blocked,
+      });
       device.blocked = !device.blocked;
     } catch {
       error = true;
@@ -92,7 +96,7 @@
     accepting = true;
     error = false;
     try {
-      await core.commands.withdrawVerification(userId);
+      await core.rpc.encryption.withdrawVerification({ user_id: userId });
       revision += 1;
     } catch {
       error = true;

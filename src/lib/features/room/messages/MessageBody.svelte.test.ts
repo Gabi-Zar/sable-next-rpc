@@ -30,7 +30,7 @@ import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
 
 afterEach(() => {
   setPreference('captionPosition', 'below');
-  core.commands.fetchMedia.mockClear();
+  core.media.fetchMedia.mockClear();
 });
 
 function item(content: TimelineItemContentView): TimelineItemView {
@@ -420,7 +420,7 @@ test('hides video spoilers until revealed but keeps their captions', async () =>
   const content = { ...attachment('video'), spoiler: 'Ending' } as TimelineItemContentView;
   render(MessageBody, { item: item(content), canRedactOthers: false });
   await tick();
-  expect(core.commands.fetchMedia).not.toHaveBeenCalled();
+  expect(core.media.fetchMedia).not.toHaveBeenCalled();
   expect(document.querySelector('video')).not.toBeInTheDocument();
   expect(document.querySelector('.formatted-body')).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: /Ending/ }));

@@ -113,7 +113,7 @@ test('reports worker panics once with their fingerprint', async () => {
   );
   const { createWebTransport } = await import('./transport/web');
   const transport = createWebTransport();
-  const restored = transport.send({ type: 'restore' }).catch(() => undefined);
+  const restored = transport.call('session.restore', {}).catch(() => undefined);
   port.onmessage?.({
     data: { panic: { message: 'worker error: Uncaught RangeError' } },
   } as MessageEvent);

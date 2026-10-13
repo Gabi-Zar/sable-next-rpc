@@ -23,7 +23,7 @@ test('a homeserver without the endpoint is asked once, not once per link', async
 });
 
 test('a url the server refuses does not silence the rest', async () => {
-  const urlPreview = vi.fn((url: string) =>
+  const urlPreview = vi.fn(({ url }: { url: string }) =>
     url.endsWith('/refused')
       ? Promise.reject(new CoreError({ code: 'unavailable' }))
       : Promise.resolve(null)
@@ -37,7 +37,7 @@ test('a url the server refuses does not silence the rest', async () => {
 });
 
 test('a client-side answer does not stand in for the homeserver one, and cannot silence it', async () => {
-  const urlPreview = vi.fn((_url: string, service: string | null) =>
+  const urlPreview = vi.fn(({ service }: { url: string; service: string | null }) =>
     service !== null
       ? Promise.reject(new CoreError({ code: 'unsupported' }))
       : Promise.resolve(null)
@@ -53,7 +53,7 @@ test('a client-side answer does not stand in for the homeserver one, and cannot 
 test('a hung request resolves to nothing, frees its slot, and lets the next source answer', async () => {
   vi.useFakeTimers();
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-  const urlPreview = vi.fn((_url: string, service: string | null) =>
+  const urlPreview = vi.fn(({ service }: { url: string; service: string | null }) =>
     service !== null ? new Promise<never>(() => undefined) : Promise.resolve(null)
   );
 
@@ -65,8 +65,8 @@ test('a hung request resolves to nothing, frees its slot, and lets the next sour
 
   await expect(pending).resolves.toBeNull();
   expect(urlPreview.mock.calls).toEqual([
-    ['https://example.org/hung', 'https://embeds.test'],
-    ['https://example.org/hung', null],
+    [{ url: 'https://example.org/hung', service: 'https://embeds.test' }],
+    [{ url: 'https://example.org/hung', service: null }],
   ]);
   void loadUrlPreview({ urlPreview }, 'https://example.org/hung', 'https://embeds.test');
   expect(urlPreview).toHaveBeenCalledTimes(3);

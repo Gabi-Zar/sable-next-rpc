@@ -30,7 +30,7 @@ export class SignOutGuard {
     this.checking = true;
     let risk: SignOutRisk | null;
     try {
-      risk = signOutRisk(await this.#core.commands.signOutSafety());
+      risk = signOutRisk(await this.#core.rpc.encryption.signOutSafety());
     } catch {
       risk = 'unknown';
     } finally {

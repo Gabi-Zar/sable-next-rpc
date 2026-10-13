@@ -1,25 +1,29 @@
 import { readTombstone } from './settings/room-upgrade.js';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
 import type {
   PredecessorRoomView,
   RoomPermissionsView,
   RoomPowerLevelsView,
   RoomStateEventView,
+  Rpc,
 } from '#src/generated/protocol';
 import { parseRoomWidget, type RoomWidget } from '#lib/features/widgets/widget-content.js';
 import type { PowerLevelTagMap } from './settings/power-level-tags.js';
 import type { PinnedEvents } from './timeline/pinned-events.svelte.js';
 
-type RoomDetailCommands = Pick<
-  CoreCommands,
+type RoomStateRpc<M extends keyof Rpc['room_state']> = {
+  room_state: Pick<Rpc['room_state'], M>;
+};
+
+type RoomDetailRpc = RoomStateRpc<
   | 'memberListThreshold'
   | 'roomStateEvent'
-  | 'roomOpen'
-  | 'roomPowerLevels'
   | 'roomStateEvents'
   | 'addRoomWidget'
   | 'removeRoomWidget'
->;
+> & {
+  rooms: Pick<Rpc['rooms'], 'roomOpen'>;
+  members: Pick<Rpc['members'], 'roomPowerLevels'>;
+};
 
 function parseWidgets(events: readonly RoomStateEventView[]): RoomWidget[] {
   return events.flatMap((event) => {
@@ -38,7 +42,7 @@ export class RoomDetails {
   #roomId = '';
 
   constructor(
-    private readonly commands: RoomDetailCommands,
+    private readonly rpc: RoomDetailRpc,
     private readonly pins: Pick<PinnedEvents, 'set'>
   ) {}
 
@@ -50,8 +54,8 @@ export class RoomDetails {
     this.powerTags = null;
     this.widgets = [];
     this.predecessor = null;
-    void this.commands
-      .roomOpen(roomId)
+    void this.rpc.rooms
+      .roomOpen({ room_id: roomId })
       .then((opened) => {
         if (generation !== this.#generation) return;
         this.permissions = opened.permissions;
@@ -64,8 +68,8 @@ export class RoomDetails {
         console.debug('[sable room] room details unavailable', error);
         if (generation === this.#generation) this.powerTags = {};
       });
-    void this.commands
-      .roomPowerLevels(roomId)
+    void this.rpc.members
+      .roomPowerLevels({ room_id: roomId })
       .then((levels) => {
         if (generation === this.#generation) this.powerLevels = levels;
       })
@@ -78,18 +82,28 @@ export class RoomDetails {
   }
 
   async addWidget(name: string, url: string): Promise<void> {
-    await this.commands.addRoomWidget(this.#roomId, name, url);
+    await this.rpc.room_state.addRoomWidget({
+      room_id: this.#roomId,
+      name,
+      url,
+    });
     await this.refreshWidgets();
   }
 
   async removeWidget(widgetId: string): Promise<void> {
-    await this.commands.removeRoomWidget(this.#roomId, widgetId);
+    await this.rpc.room_state.removeRoomWidget({
+      room_id: this.#roomId,
+      widget_id: widgetId,
+    });
     await this.refreshWidgets();
   }
 
   async refreshWidgets(): Promise<void> {
     const generation = this.#generation;
-    const widgets = await this.commands.roomStateEvents(this.#roomId, 'im.vector.modular.widgets');
+    const widgets = await this.rpc.room_state.roomStateEvents({
+      room_id: this.#roomId,
+      event_type: 'im.vector.modular.widgets',
+    });
     if (generation === this.#generation) this.widgets = parseWidgets(widgets);
   }
 }
@@ -98,14 +112,14 @@ export class RoomMemberList {
   alwaysListedFrom = $state<number | null>(null);
   #roomId: string | null = null;
 
-  constructor(private readonly commands: Pick<RoomDetailCommands, 'memberListThreshold'>) {}
+  constructor(private readonly rpc: RoomStateRpc<'memberListThreshold'>) {}
 
   start(roomId: string): () => void {
     if (roomId !== this.#roomId) this.alwaysListedFrom = null;
     this.#roomId = roomId;
     let current = true;
-    void this.commands
-      .memberListThreshold(roomId)
+    void this.rpc.room_state
+      .memberListThreshold({ room_id: roomId })
       .then((level) => {
         if (current) this.alwaysListedFrom = level;
       })
@@ -124,7 +138,7 @@ export class RoomTombstone {
   body = $state<string | null>(null);
   checked = $state(false);
 
-  constructor(private readonly commands: Pick<RoomDetailCommands, 'roomStateEvent'>) {}
+  constructor(private readonly rpc: RoomStateRpc<'roomStateEvent'>) {}
 
   start(roomId: string, tombstoned: boolean): () => void {
     this.replacementId = null;
@@ -133,8 +147,12 @@ export class RoomTombstone {
     if (!tombstoned) return () => {};
 
     let current = true;
-    void this.commands
-      .roomStateEvent(roomId, 'm.room.tombstone')
+    void this.rpc.room_state
+      .roomStateEvent({
+        room_id: roomId,
+        event_type: 'm.room.tombstone',
+        state_key: '',
+      })
       .then((content) => {
         if (!current) return;
         const grave = readTombstone(content);
@@ -164,10 +182,10 @@ export class RoomSession {
   #stopMemberList: (() => void) | null = null;
   #stopTombstone: (() => void) | null = null;
 
-  constructor(commands: RoomDetailCommands, pins: Pick<PinnedEvents, 'set'>) {
-    this.details = new RoomDetails(commands, pins);
-    this.memberList = new RoomMemberList(commands);
-    this.tombstone = new RoomTombstone(commands);
+  constructor(rpc: RoomDetailRpc, pins: Pick<PinnedEvents, 'set'>) {
+    this.details = new RoomDetails(rpc, pins);
+    this.memberList = new RoomMemberList(rpc);
+    this.tombstone = new RoomTombstone(rpc);
   }
 
   get permissions(): RoomPermissionsView | null {

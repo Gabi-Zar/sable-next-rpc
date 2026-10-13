@@ -30,9 +30,10 @@ use serde_json::Value;
 use serde_with::{DefaultOnError, serde_as};
 
 use crate::ResultExt;
+use crate::api::calls::JoinCallOk;
 use crate::protocol::{
     CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CommandErr,
-    CommandOk, CoreEvent, RtcTransportSource,
+    CoreEvent, RtcTransportSource,
 };
 use crate::{CallSession, Core};
 
@@ -312,11 +313,11 @@ impl Core {
         livekit_service_url: Option<String>,
         mode: Option<CallMode>,
         intent: Option<crate::protocol::CallIntent>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<JoinCallOk, CommandErr> {
         runtime::join(self, room_id, livekit_service_url, mode, intent).await
     }
 
-    pub(crate) async fn call_compatibility(&self) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn call_compatibility(&self) -> Result<CallCompatibilityView, CommandErr> {
         let client = self.client().await?;
         let features = client
             .unstable_features()
@@ -339,18 +340,18 @@ impl Core {
         } else {
             RtcTransportSource::None
         };
-        Ok(CommandOk::CallCompatibility(CallCompatibilityView {
+        Ok(CallCompatibilityView {
             sticky_events: features.contains(&"org.matrix.msc4354".into()),
             delayed_events: features.contains(&"org.matrix.msc4140".into()),
             rtc_transports,
-        }))
+        })
     }
 
     pub(crate) async fn call_support(
         &self,
         room_id: OwnedRoomId,
         livekit_service_url: Option<String>,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<CallSupportView, CommandErr> {
         let room = self.room(&room_id).await?;
         let user_id = room
             .client()
@@ -389,10 +390,10 @@ impl Core {
             levels.user_can_send_message(&user_id, membership::RTC_MEMBER_EVENT_TYPE.into()),
         );
 
-        Ok(CommandOk::CallSupport(CallSupportView {
+        Ok(CallSupportView {
             has_focus,
             can_join,
-        }))
+        })
     }
 
     async fn resolve_focus(
@@ -556,7 +557,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         notification_event_id: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<(), CommandErr> {
         let event_id = EventId::parse(&notification_event_id).or_failed(self, "decline_call")?;
         let room = self.room(&room_id).await?;
         let content = notify::make_decline_event(&room, &event_id)
@@ -572,7 +573,7 @@ impl Core {
             .await
             .or_failed(self, "decline_call")?;
 
-        Ok(CommandOk::DeclineCall)
+        Ok(())
     }
 
     fn provision_error(&self, service_url: &str, error: &ProvisionError) -> CommandErr {
@@ -613,7 +614,7 @@ impl Core {
         }
     }
 
-    pub(crate) async fn leave_call(&self, session: CallSessionId) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn leave_call(&self, session: CallSessionId) -> Result<(), CommandErr> {
         let mut call = self
             .call_sessions
             .lock()
@@ -636,7 +637,7 @@ impl Core {
         &self,
         session: CallSessionId,
         active: bool,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<(), CommandErr> {
         let (room_id, state) = {
             let calls = self.call_sessions.lock().await;
             let call = calls.get(&session).ok_or(CommandErr::UnknownCall)?;
@@ -646,10 +647,10 @@ impl Core {
         runtime::set_screen_sharing(&room, &state, active)
             .await
             .map_err(|error| self.room_error("set_call_screen_sharing", error))?;
-        Ok(CommandOk::SetCallScreenSharing)
+        Ok(())
     }
 
-    async fn fire_hangup(&self, delay_id: String) -> Result<CommandOk, CommandErr> {
+    async fn fire_hangup(&self, delay_id: String) -> Result<(), CommandErr> {
         self.client()
             .await?
             .send(update_delayed_event::unstable_v1::Request::new(
@@ -659,10 +660,10 @@ impl Core {
             .await
             .or_failed(self, "leave_call")?;
 
-        Ok(CommandOk::LeaveCall)
+        Ok(())
     }
 
-    async fn send_left_membership(&self, call: &CallSession) -> Result<CommandOk, CommandErr> {
+    async fn send_left_membership(&self, call: &CallSession) -> Result<(), CommandErr> {
         if let Some(member_id) = &call.sticky_member {
             let room = self.room(&call.room_id).await?;
             sticky::send(
@@ -674,7 +675,7 @@ impl Core {
             )
             .await
             .map_err(|error| self.room_error("leave_call", error))?;
-            return Ok(CommandOk::LeaveCall);
+            return Ok(());
         }
         self.room(&call.room_id)
             .await?
@@ -682,7 +683,7 @@ impl Core {
             .await
             .map_err(|error| self.room_error("leave_call", error))?;
 
-        Ok(CommandOk::LeaveCall)
+        Ok(())
     }
 
     async fn schedule_hangup(

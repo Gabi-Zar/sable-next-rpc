@@ -26,10 +26,10 @@ function fetchLevel(
     const rooms: SpaceHierarchyRoomView[] = [];
     let cursor: string | null = null;
     for (let page = 0; page < MAX_LEVEL_PAGES; page += 1) {
-      const next = await core.commands.spaceHierarchy(levelId, cursor);
+      const next = await core.rpc.spaces.spaceHierarchy({ space_id: levelId, from: cursor });
       rooms.push(...next.rooms);
       onPage(next.rooms);
-      cursor = next.nextBatch;
+      cursor = next.next_batch;
       if (cursor === null) break;
     }
     if (cursor !== null) console.warn('[sable lobby] level truncated', levelId);

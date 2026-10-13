@@ -22,8 +22,7 @@ afterEach(() => {
 });
 
 async function mount() {
-  Object.assign(core, { webPusherSupport: vi.fn().mockResolvedValue({ vapid: null }) });
-  core.commands = core;
+  Object.assign(core, { rpc: { push: { webPusherSupport: vi.fn().mockResolvedValue(null) } } });
   const screen = await render(PushGateway);
   return {
     screen,

@@ -5,21 +5,21 @@ import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, expect, onTestFinished, test, vi } from 'vitest';
 
-import type { NotificationSettingsView, RoomSummary } from '#src/generated/protocol';
+import type { NotificationSettingsView, RoomListItemView } from '#src/generated/protocol';
 
 import { roomNotifications, roomUnread } from '#lib/rooms/unread.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
 
 const roomsFixture = vi.hoisted(() => {
   const fixture = {
-    rooms: [] as RoomSummary[],
+    rooms: [] as RoomListItemView[],
     typingUsers: new Map<string, readonly string[]>(),
     byId: (roomId: string | null) => fixture.rooms.find((room) => room.room_id === roomId),
     notificationOverride: () => null,
-    unreadFor: (room: RoomSummary) => roomUnread(room),
-    badgeUnreadFor: (room: RoomSummary) => roomUnread(room),
+    unreadFor: (room: RoomListItemView) => roomUnread(room),
+    badgeUnreadFor: (room: RoomListItemView) => roomUnread(room),
     quietRoomIds: new Set<string>(),
-    notificationsFor: (room: RoomSummary) => roomNotifications(room),
+    notificationsFor: (room: RoomListItemView) => roomNotifications(room),
   };
   return fixture;
 });
@@ -32,8 +32,9 @@ vi.mock('#lib/core/context.js');
 
 import { core } from '#lib/core/__mocks__/context.js';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
-const notificationSettings = vi.fn<(roomId: string) => Promise<NotificationSettingsView>>();
-Object.assign(core, { notificationSettings });
+const notificationSettings =
+  vi.fn<(params: { room_id: string }) => Promise<NotificationSettingsView>>();
+Object.assign(core, { rpc: { notifications: { notificationSettings } } });
 vi.mock('$app/paths', () => ({
   resolve: (path: string, params: Record<string, string> = {}) => {
     const resolved = (path.startsWith('/') ? path : `/${path}`).replace(
@@ -47,8 +48,8 @@ vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useRoomList: () => roomsFixture,
-  roomLabel: (room: RoomSummary) => room.name ?? room.canonical_alias ?? room.room_id,
-  roomAvatarUrl: (room: RoomSummary) => room.avatar_url,
+  roomLabel: (room: RoomListItemView) => room.name ?? room.canonical_alias ?? room.room_id,
+  roomAvatarUrl: (room: RoomListItemView) => room.avatar_url,
 }));
 const presenceFixture = vi.hoisted(() => ({
   entry: null as { statusMessage: string | null } | null,
@@ -63,7 +64,7 @@ import RoomNavHarness from './RoomNavHarness.test.svelte';
 
 const realObserver = globalThis.IntersectionObserver;
 
-function makeRoom(overrides: Partial<RoomSummary>): RoomSummary {
+function makeRoom(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
     room_id: '!room:example.org',
     canonical_alias: null,
@@ -95,7 +96,7 @@ function makeRoom(overrides: Partial<RoomSummary>): RoomSummary {
   });
 }
 
-function latestAt(timestamp: number): RoomSummary['latest_event'] {
+function latestAt(timestamp: number): RoomListItemView['latest_event'] {
   return { sender: null, body: 'hi', timestamp, sending: false, event_id: null };
 }
 
@@ -181,7 +182,7 @@ test.each([
   await openMenu('Plain');
 
   await vi.waitFor(() => {
-    expect(core.roomPermissions).toHaveBeenCalledWith('!plain:example.org');
+    expect(core.roomPermissions).toHaveBeenCalledWith({ room_id: '!plain:example.org' });
   });
   const invite = await screen.findByRole('menuitem', { name: /room\.menuInvite/ });
   await vi.waitFor(() => {
@@ -649,7 +650,7 @@ test('a space list header shows the space banner above it', async () => {
   await tick();
   await tick();
 
-  expect(core.roomBanner).toHaveBeenCalledWith('!space:example.org');
+  expect(core.roomBanner).toHaveBeenCalledWith({ room_id: '!space:example.org' });
   expect(document.querySelector('.room-banner')).not.toBeNull();
   expect(document.querySelector('.room-nav-header')).toHaveClass('on-banner');
 
@@ -1010,7 +1011,8 @@ test('a room whose parent space we are not in offers to join it', async () => {
   );
   const roomPreview = vi.fn(() => Promise.resolve({ name: 'Parent' }));
   const joinRoom = vi.fn(() => Promise.resolve('!parent:example.org'));
-  Object.assign(core, { unjoinedSpaceParents, roomPreview, joinRoom });
+  Object.assign(core, { roomPreview, joinRoom });
+  Object.assign(core.rpc.spaces, { unjoinedSpaceParents });
   await mountNav();
 
   await openMenu('Plain');
@@ -1019,10 +1021,13 @@ test('a room whose parent space we are not in offers to join it', async () => {
   });
   await user.click(join);
 
-  expect(unjoinedSpaceParents).toHaveBeenCalledWith('!plain:example.org');
-  expect(roomPreview).toHaveBeenCalledWith('!parent:example.org', ['example.org']);
+  expect(unjoinedSpaceParents).toHaveBeenCalledWith({ room_id: '!plain:example.org' });
+  expect(roomPreview).toHaveBeenCalledWith({
+    address: '!parent:example.org',
+    via: ['example.org'],
+  });
   await vi.waitFor(() => {
-    expect(joinRoom).toHaveBeenCalledWith('!parent:example.org', ['example.org']);
+    expect(joinRoom).toHaveBeenCalledWith({ address: '!parent:example.org', via: ['example.org'] });
   });
 });
 
@@ -1043,7 +1048,7 @@ test('a row options button opens the shared room menu and closes it again', asyn
   const menu = await screen.findByRole('menu');
   expect(second).toHaveAttribute('aria-expanded', 'true');
   await vi.waitFor(() => {
-    expect(core.roomPermissions).toHaveBeenCalledWith('!second:example.org');
+    expect(core.roomPermissions).toHaveBeenCalledWith({ room_id: '!second:example.org' });
   });
   expect(within(menu).getByRole('menuitem', { name: /room\.menuSettings/ })).toBeInTheDocument();
 

@@ -1,6 +1,7 @@
 import type { SearchHitView, SearchOrder } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { searchMessages } from '#lib/core/api/search.svelte.js';
 
 import {
   parseSearchQuery,
@@ -131,7 +132,7 @@ export class MessageSearch {
     const { text } = this.parsed;
 
     try {
-      const page = await this.#core.commands.searchMessages(text, {
+      const page = await searchMessages(this.#core.rpc, text, {
         filter: this.resolved.filter,
         order: this.order,
         limit: PAGE_SIZE,
@@ -167,7 +168,7 @@ export class MessageSearch {
 
   async #runOlder(generation: number, cursor: string): Promise<void> {
     try {
-      const page = await this.#core.commands.searchMessages(this.parsed.text, {
+      const page = await searchMessages(this.#core.rpc, this.parsed.text, {
         filter: this.resolved.filter,
         order: this.order,
         limit: PAGE_SIZE,

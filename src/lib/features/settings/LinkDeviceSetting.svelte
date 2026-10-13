@@ -14,7 +14,7 @@
   let linkingDevice = $state(false);
 
   $effect(() => {
-    void core.commands.devices().then(
+    void core.rpc.encryption.devices().then(
       ({ oauth: supported }) => {
         oauth = supported;
       },

@@ -66,7 +66,7 @@ test('deleting waits for the toast to close before cancelling on the server', as
   const toast = toasts.items.at(-1);
   if (toast) toasts.dismiss(toast.id);
   await vi.waitFor(() => {
-    expect(cancelScheduledMessage).toHaveBeenCalledWith('d1');
+    expect(cancelScheduledMessage).toHaveBeenCalledWith({ delay_id: 'd1' });
   });
 });
 
@@ -124,7 +124,9 @@ test('sending a queued message now takes it off the queue, and a failure puts it
   await choose('queued', 'Send now');
 
   expect(await screen.findByRole('alert')).toBeInTheDocument();
-  expect(sendMessage).toHaveBeenCalledWith(ROOM, 'queued', { formatted: null });
+  expect(sendMessage).toHaveBeenCalledWith(
+    expect.objectContaining({ room_id: ROOM, body: 'queued', formatted: null })
+  );
   expect(scheduledQueue()).toEqual([queued]);
 });
 

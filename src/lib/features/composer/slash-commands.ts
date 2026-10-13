@@ -1,7 +1,8 @@
-import type { MemberView, MessageKind, SlashInvocation } from '#src/generated/protocol';
+import type { MemberView, MessageKind, SlashInvocation, Rpc } from '#src/generated/protocol';
 import { CoreError } from '#src/transport';
 
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
+import { setMemberLook } from '#lib/core/api/members.js';
 import { parseSlash } from '#lib/model/model.js';
 import { currentFix } from '#lib/platform/geolocation.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -11,49 +12,33 @@ import { rainbowFormatted, rainbowHtml } from './rainbow.js';
 
 export { parseSlash, pronounSets, slashCommandNames } from '#lib/model/model.js';
 
-export type SlashCommandApi = Pick<
-  CoreCommands,
-  | 'accountData'
-  | 'addRoomWidget'
-  | 'banUser'
-  | 'bulkRedact'
-  | 'createDm'
-  | 'disableRoomPersonas'
-  | 'discardRoomKey'
-  | 'ignoreUser'
-  | 'inviteUser'
-  | 'joinRoom'
-  | 'kickUser'
-  | 'knockRoom'
-  | 'leaveRoom'
-  | 'personas'
-  | 'removePersona'
-  | 'roomMembers'
-  | 'roomStateEvent'
-  | 'sendRawEvent'
-  | 'savePersona'
-  | 'setMemberLook'
-  | 'setPronouns'
-  | 'setAccountData'
-  | 'sendGesture'
-  | 'sendLocation'
-  | 'sendStateEvent'
-  | 'setDirect'
-  | 'setDisplayName'
-  | 'setPersonaSelection'
-  | 'setRoomName'
-  | 'setRoomTopic'
-  | 'unbanUser'
-  | 'unignoreUser'
-  | 'updateServerAcl'
+export type SlashAccountApi = Pick<
+  Rpc['account'],
+  'accountData' | 'ignoreUser' | 'setAccountData' | 'setDirect' | 'setDisplayName' | 'unignoreUser'
 >;
+
+export type SlashRpc = {
+  members: Rpc['members'];
+  rooms: Rpc['rooms'];
+  account: SlashAccountApi;
+  encryption: Pick<Rpc['encryption'], 'discardRoomKey'>;
+  messages: Pick<Rpc['messages'], 'bulkRedact' | 'sendGesture' | 'sendLocation' | 'sendRawEvent'>;
+  room_state: Pick<
+    Rpc['room_state'],
+    'addRoomWidget' | 'sendStateEvent' | 'setRoomName' | 'setRoomTopic' | 'updateServerAcl'
+  >;
+  personas: Pick<
+    Rpc['personas'],
+    'disableRoomPersonas' | 'personas' | 'removePersona' | 'savePersona' | 'setPersonaSelection'
+  >;
+};
 
 export type SlashContext = {
   roomId: string;
   userId: string | null;
   formatted?: string | null;
   developerTools?: boolean;
-  commands: SlashCommandApi;
+  rpc: SlashRpc;
 };
 
 export type SlashOutcome =
@@ -117,7 +102,7 @@ const DONE: SlashOutcome = { kind: 'done' };
 async function resolveTargets(
   tokens: readonly string[],
   roomId: string,
-  commands: SlashCommandApi,
+  rpc: SlashContext['rpc'],
   excludeBanned: boolean
 ): Promise<{ userIds: string[] } | SlashOutcome> {
   const userIds = new Set<string>();
@@ -130,7 +115,7 @@ async function resolveTargets(
     }
 
     const server = token.slice('@*:'.length);
-    members ??= await commands.roomMembers(roomId);
+    members ??= await rpc.members.roomMembers({ room_id: roomId, memberships: [] });
     const matches = members
       .filter((member) => member.user_id.endsWith(`:${server}`))
       .filter((member) => !excludeBanned || member.membership !== 'ban');
@@ -143,20 +128,22 @@ async function resolveTargets(
   return { userIds: [...userIds] };
 }
 
-type ModerationVerb = Extract<keyof SlashCommandApi, 'banUser' | 'kickUser'>;
+type ModerationVerb = 'banUser' | 'kickUser';
 
 async function moderate(
   name: string,
   invocation: { targets: string[]; reason: string | null },
   verb: ModerationVerb,
   excludeBanned: boolean,
-  { roomId, commands }: SlashContext
+  { roomId, rpc }: SlashContext
 ): Promise<SlashOutcome> {
-  const resolved = await resolveTargets(invocation.targets, roomId, commands, excludeBanned);
+  const resolved = await resolveTargets(invocation.targets, roomId, rpc, excludeBanned);
   if (!('userIds' in resolved)) return resolved;
   if (resolved.userIds.length === 0) return usageError(name);
 
-  for (const userId of resolved.userIds) await commands[verb](roomId, userId, invocation.reason);
+  for (const userId of resolved.userIds) {
+    await rpc.members[verb]({ room_id: roomId, user_id: userId, reason: invocation.reason });
+  }
   return DONE;
 }
 
@@ -174,16 +161,27 @@ function objectValue(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function locationParams(roomId: string, geoUri: string) {
+  return {
+    room_id: roomId,
+    body: geoUri.slice('geo:'.length),
+    geo_uri: geoUri,
+    in_reply_to: null,
+    silent_reply: false,
+    thread_root: null,
+  };
+}
+
 async function sendLocation(
   name: string,
   latitude: number,
   longitude: number,
-  { roomId, commands }: SlashContext
+  { roomId, rpc }: SlashContext
 ): Promise<SlashOutcome> {
   const geoUri = geoUriFor(latitude, longitude);
   if (geoUri === null) return usageError(name);
 
-  await commands.sendLocation(roomId, geoUri.slice('geo:'.length), geoUri);
+  await rpc.messages.sendLocation(locationParams(roomId, geoUri));
   return DONE;
 }
 
@@ -194,18 +192,18 @@ async function shareMyLocation(context: SlashContext): Promise<SlashOutcome> {
   const geoUri = geoUriFor(result.fix.latitude, result.fix.longitude);
   if (geoUri === null) return { kind: 'error', key: 'composer.slashFix.unavailable' };
 
-  await context.commands.sendLocation(context.roomId, geoUri.slice('geo:'.length), geoUri);
+  await context.rpc.messages.sendLocation(locationParams(context.roomId, geoUri));
   return DONE;
 }
 
 async function addWidget(
   name: string,
   widget: { url: string; name: string },
-  { roomId, userId, commands }: SlashContext
+  { roomId, userId, rpc }: SlashContext
 ): Promise<SlashOutcome> {
   if (userId === null) return usageError(name);
   try {
-    await commands.addRoomWidget(roomId, widget.name, widget.url);
+    await rpc.room_state.addRoomWidget({ room_id: roomId, name: widget.name, url: widget.url });
   } catch (error) {
     if (error instanceof CoreError && error.detail.code === 'invalid_url') {
       return usageError(name);
@@ -218,15 +216,15 @@ async function addWidget(
 async function addPersona(
   name: string,
   persona: { id: string; name: string | null; avatar: string | null },
-  { commands }: SlashContext
+  { rpc }: SlashContext
 ): Promise<SlashOutcome> {
   const { id } = persona;
-  const existing = (await commands.personas()).personas.find((entry) => entry.id === id);
+  const existing = (await rpc.personas.personas()).personas.find((entry) => entry.id === id);
   const avatar = persona.avatar ?? existing?.avatar_url ?? null;
   if (avatar !== null && !MXC_URI.test(avatar)) return usageError(name);
 
-  await commands.savePersona(
-    {
+  await rpc.personas.savePersona({
+    persona: {
       id,
       display_name: persona.name ?? existing?.display_name ?? id,
       avatar_url: avatar,
@@ -237,62 +235,62 @@ async function addPersona(
       pluralkit: existing?.pluralkit ?? null,
       last_used: existing?.last_used ?? null,
     },
-    existing ? id : null
-  );
+    previous_id: existing ? id : null,
+  });
   return DONE;
 }
 
 async function addPersonaProxy(
   name: string,
   proxy: { id: string; prefix: string | null; suffix: string | null },
-  { commands }: SlashContext
+  { rpc }: SlashContext
 ): Promise<SlashOutcome> {
-  const persona = (await commands.personas()).personas.find((entry) => entry.id === proxy.id);
+  const persona = (await rpc.personas.personas()).personas.find((entry) => entry.id === proxy.id);
   if (persona === undefined) return usageError(name);
 
-  await commands.savePersona(
-    {
+  await rpc.personas.savePersona({
+    persona: {
       ...persona,
       triggers: [
         ...persona.triggers,
         { prefix: proxy.prefix, suffix: proxy.suffix, keep_trigger: false },
       ],
     },
-    proxy.id
-  );
+    previous_id: proxy.id,
+  });
   return DONE;
 }
 
 async function deleteAccountDataKey(
   name: string,
   { event_type: eventType, key }: { event_type: string; key: string },
-  { commands }: SlashContext
+  { rpc }: SlashContext
 ): Promise<SlashOutcome> {
-  const content = objectValue(await commands.accountData(eventType));
+  const content = objectValue(await rpc.account.accountData({ event_type: eventType }));
   if (!(key in content)) return usageError(name);
 
   const updated = { ...content };
   Reflect.deleteProperty(updated, key);
-  await commands.setAccountData(eventType, updated);
+  await rpc.account.setAccountData({ event_type: eventType, content: updated });
   return DONE;
 }
 
 async function bulkRedact(
   name: string,
   redaction: Extract<SlashInvocation, { command: 'bulk_redact' }>,
-  { roomId, commands }: SlashContext
+  { roomId, rpc }: SlashContext
 ): Promise<SlashOutcome> {
-  const resolved = await resolveTargets(redaction.targets, roomId, commands, false);
+  const resolved = await resolveTargets(redaction.targets, roomId, rpc, false);
   if (!('userIds' in resolved)) return resolved;
   if (resolved.userIds.length === 0) return usageError(name);
 
-  await commands.bulkRedact(
-    roomId,
-    resolved.userIds,
-    redaction.after_ts,
-    redaction.event_types,
-    redaction.reason
-  );
+  await rpc.messages.bulkRedact({
+    room_id: roomId,
+    senders: [...resolved.userIds],
+    after_ts: redaction.after_ts,
+    event_types: [...redaction.event_types],
+    reason: redaction.reason,
+  });
   return DONE;
 }
 
@@ -301,14 +299,18 @@ async function run(
   invocation: SlashInvocation,
   context: SlashContext
 ): Promise<SlashOutcome> {
-  const { roomId, userId, commands } = context;
+  const { roomId, userId, rpc } = context;
   switch (invocation.command) {
     case 'bug_report':
       return { kind: 'bugReport' };
     case 'gif_search':
       return { kind: 'gifSearch', query: invocation.query };
     case 'gesture':
-      await commands.sendGesture(roomId, invocation.gesture, invocation.target);
+      await rpc.messages.sendGesture({
+        room_id: roomId,
+        gesture: invocation.gesture,
+        target: invocation.target,
+      });
       return DONE;
     case 'message': {
       const { body, msgtype, formatted } = invocation;
@@ -327,64 +329,86 @@ async function run(
     case 'html':
       return message(plainTextFrom(invocation.html), 'text', invocation.html);
     case 'join':
-      await commands.joinRoom(invocation.address, invocation.via);
+      await joinRoom(rpc, invocation.address, invocation.via);
       return DONE;
     case 'knock':
-      await commands.knockRoom(invocation.address, invocation.via, invocation.reason ?? undefined);
+      await knockRoom(rpc, invocation.address, invocation.via, invocation.reason ?? undefined);
       return DONE;
     case 'leave':
-      await commands.leaveRoom(roomId);
+      await rpc.rooms.leaveRoom({ room_id: roomId });
       return DONE;
     case 'invite':
-      await commands.inviteUser(roomId, invocation.user_id);
+      await rpc.rooms.inviteUser({ room_id: roomId, user_id: invocation.user_id });
       return DONE;
     case 'kick':
       return moderate(name, invocation, 'kickUser', true, context);
     case 'ban':
       return moderate(name, invocation, 'banUser', false, context);
     case 'unban':
-      await commands.unbanUser(roomId, invocation.user_id, invocation.reason);
+      await rpc.members.unbanUser({
+        room_id: roomId,
+        user_id: invocation.user_id,
+        reason: invocation.reason,
+      });
       return DONE;
     case 'display_name':
-      await commands.setDisplayName(invocation.name, preferences.profileChangePropagation);
+      await rpc.account.setDisplayName({
+        name: invocation.name,
+        propagate_to: preferences.profileChangePropagation,
+      });
       return DONE;
     case 'member_look':
       if (userId === null) return usageError(name);
-      await commands.setMemberLook(roomId, invocation.look, invocation.in_parent_space);
+      await setMemberLook(rpc, roomId, invocation.look, invocation.in_parent_space);
       return DONE;
     case 'pronouns':
       if (userId === null) return usageError(name);
-      await commands.setPronouns(roomId, invocation.pronouns, invocation.in_parent_space);
+      await rpc.members.setPronouns({
+        room_id: roomId,
+        pronouns: invocation.pronouns,
+        in_parent_space: invocation.in_parent_space,
+      });
       return DONE;
     case 'room_name':
-      await commands.setRoomName(roomId, invocation.name);
+      await rpc.room_state.setRoomName({ room_id: roomId, name: invocation.name });
       return DONE;
     case 'topic':
-      await commands.setRoomTopic(roomId, invocation.topic);
+      await rpc.room_state.setRoomTopic({ room_id: roomId, topic: invocation.topic });
       return DONE;
     case 'disinvite':
-      return eachUser(invocation.user_ids, (target) => commands.kickUser(roomId, target));
+      return eachUser(invocation.user_ids, (target) =>
+        rpc.members.kickUser({ room_id: roomId, user_id: target, reason: null })
+      );
     case 'ignore':
-      return eachUser(invocation.user_ids, (target) => commands.ignoreUser(target));
+      return eachUser(invocation.user_ids, (target) => rpc.account.ignoreUser({ user_id: target }));
     case 'unignore':
-      return eachUser(invocation.user_ids, (target) => commands.unignoreUser(target));
+      return eachUser(invocation.user_ids, (target) =>
+        rpc.account.unignoreUser({ user_id: target })
+      );
     case 'start_dm':
-      return eachUser(invocation.user_ids, (target) => commands.createDm(target));
+      return eachUser(invocation.user_ids, (target) =>
+        rpc.rooms.createDm({ user_id: target, encrypted: null })
+      );
     case 'convert_to_dm':
-      await commands.setDirect(roomId, true, invocation.user_id ?? undefined);
+      await rpc.account.setDirect({
+        room_id: roomId,
+        direct: true,
+        user_id: invocation.user_id ?? null,
+      });
       return DONE;
     case 'convert_to_room':
-      await commands.setDirect(roomId, false);
+      await rpc.account.setDirect({ room_id: roomId, direct: false, user_id: null });
       return DONE;
     case 'discard_session':
-      await commands.discardRoomKey(roomId);
+      await rpc.encryption.discardRoomKey({ room_id: roomId });
       return DONE;
     case 'acl':
-      await commands.updateServerAcl(roomId, {
+      await rpc.room_state.updateServerAcl({
+        room_id: roomId,
         allow: invocation.allow,
         deny: invocation.deny,
-        removeAllow: invocation.remove_allow,
-        removeDeny: invocation.remove_deny,
+        remove_allow: invocation.remove_allow,
+        remove_deny: invocation.remove_deny,
       });
       return DONE;
     case 'add_widget':
@@ -396,39 +420,57 @@ async function run(
     case 'add_persona':
       return addPersona(name, invocation, context);
     case 'remove_persona':
-      await commands.removePersona(invocation.id);
+      await rpc.personas.removePersona({ id: invocation.id });
       return DONE;
     case 'use_persona':
-      await commands.setPersonaSelection(roomId, invocation.id, invocation.valid_until);
+      await rpc.personas.setPersonaSelection({
+        room_id: roomId,
+        persona_id: invocation.id,
+        valid_until: invocation.valid_until,
+      });
       return DONE;
     case 'reset_persona':
-      await commands.setPersonaSelection(roomId, null);
+      await rpc.personas.setPersonaSelection({
+        room_id: roomId,
+        persona_id: null,
+        valid_until: null,
+      });
       return DONE;
     case 'disable_room_personas':
-      await commands.disableRoomPersonas(roomId);
+      await rpc.personas.disableRoomPersonas({ room_id: roomId });
       return DONE;
     case 'persona_proxy':
       return addPersonaProxy(name, invocation, context);
     case 'raw_message':
-      await commands.sendRawEvent(roomId, 'm.room.message', invocation.content);
+      await rpc.messages.sendRawEvent({
+        room_id: roomId,
+        event_type: 'm.room.message',
+        content: invocation.content,
+      });
       return DONE;
     case 'raw_event':
       if (invocation.state_key === null) {
-        await commands.sendRawEvent(roomId, invocation.event_type, invocation.content);
+        await rpc.messages.sendRawEvent({
+          room_id: roomId,
+          event_type: invocation.event_type,
+          content: invocation.content,
+        });
       } else {
-        await commands.sendStateEvent(
-          roomId,
-          invocation.event_type,
-          invocation.state_key,
-          invocation.content
-        );
+        await rpc.room_state.sendStateEvent({
+          room_id: roomId,
+          event_type: invocation.event_type,
+          state_key: invocation.state_key,
+          content: invocation.content,
+        });
       }
       return DONE;
     case 'raw_account_data': {
-      const existing = objectValue(await commands.accountData(invocation.event_type));
-      await commands.setAccountData(invocation.event_type, {
-        ...existing,
-        ...invocation.content,
+      const existing = objectValue(
+        await rpc.account.accountData({ event_type: invocation.event_type })
+      );
+      await rpc.account.setAccountData({
+        event_type: invocation.event_type,
+        content: { ...existing, ...invocation.content },
       });
       return DONE;
     }

@@ -5,6 +5,7 @@
   import type { RoomPreviewView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
+  import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
   import { roomSectionPath, viaFor } from '#lib/rooms/permalink.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -46,14 +47,14 @@
     preview = null;
     failed = false;
 
-    core.commands
-      .roomPreview(
+    core.rpc.rooms
+      .roomPreview({
         address,
-        viaFor(
+        via: viaFor(
           address,
           untrack(() => listed)
-        )
-      )
+        ),
+      })
       .then((result) => {
         if (active) preview = result;
       })
@@ -85,7 +86,7 @@
   async function routingFor(): Promise<string[]> {
     const known = viaFor(address, listed);
     if (known.length > 0 || parent.parentId === null) return known;
-    return core.commands.roomViaServers(parent.parentId);
+    return core.rpc.rooms.roomViaServers({ room_id: parent.parentId });
   }
 
   async function join(): Promise<void> {
@@ -93,7 +94,7 @@
     busy = true;
     failedAction = null;
     try {
-      const joined = await core.commands.joinRoom(address, await routingFor());
+      const joined = await joinRoom(core.rpc, address, await routingFor());
       const target = roomSectionPath(roomList.rooms, joined, eventId);
       await goto(target, { replace: true });
     } catch (error) {
@@ -109,7 +110,7 @@
     busy = true;
     failedAction = null;
     try {
-      await core.commands.knockRoom(address, await routingFor(), reason.trim() || undefined);
+      await knockRoom(core.rpc, address, await routingFor(), reason.trim() || undefined);
       sentKnock = true;
     } catch (error) {
       console.warn('[sable room] knock failed', error);
@@ -124,7 +125,7 @@
     busy = true;
     failedAction = null;
     try {
-      await core.commands.leaveRoom(preview.room_id);
+      await core.rpc.rooms.leaveRoom({ room_id: preview.room_id });
       sentKnock = false;
       withdrew = true;
     } catch (error) {

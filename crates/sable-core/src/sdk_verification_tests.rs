@@ -8,7 +8,11 @@ use tokio::sync::mpsc;
 
 use crate::{
     Core,
-    protocol::{Command, CoreEvent, VerificationView},
+    api::encryption::{
+        AcceptVerificationParams, ConfirmVerificationParams, RequestVerificationParams,
+        ScanVerificationQrParams, StartSasVerificationParams,
+    },
+    protocol::{CoreEvent, VerificationView},
     session::Session,
     store::MemorySessionStore,
 };
@@ -225,14 +229,14 @@ async fn crossed_self_verification_requests_are_cancelled_without_retrying() {
         .await;
 
     old.core
-        .dispatch(Command::RequestVerification {
+        .run(RequestVerificationParams {
             user_id: user_id.clone(),
             device_id: Some(device_id!("BBBBBBBB").to_owned()),
         })
         .await
         .unwrap();
     new.core
-        .dispatch(Command::RequestVerification {
+        .run(RequestVerificationParams {
             user_id: user_id.clone(),
             device_id: Some(device_id!("AAAAAAAA").to_owned()),
         })
@@ -266,7 +270,7 @@ async fn a_self_verification_completes_with_a_qr_code() {
         .await;
 
     new.core
-        .dispatch(Command::RequestVerification {
+        .run(RequestVerificationParams {
             user_id: user_id.clone(),
             device_id: Some(device_id!("AAAAAAAA").to_owned()),
         })
@@ -276,7 +280,7 @@ async fn a_self_verification_completes_with_a_qr_code() {
 
     let (flow_id, _) = old.last_live().unwrap().clone();
     old.core
-        .dispatch(Command::AcceptVerification {
+        .run(AcceptVerificationParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
         })
@@ -301,7 +305,7 @@ async fn a_self_verification_completes_with_a_qr_code() {
 
     let code = old.core.qr(&user_id, &flow_id).await.unwrap();
     new.core
-        .dispatch(Command::ScanVerificationQr {
+        .run(ScanVerificationQrParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
             data: base64::engine::general_purpose::STANDARD.encode(code.to_bytes().unwrap()),
@@ -320,7 +324,7 @@ async fn a_self_verification_completes_with_a_qr_code() {
     ));
 
     old.core
-        .dispatch(Command::ConfirmVerification { user_id, flow_id })
+        .run(ConfirmVerificationParams { user_id, flow_id })
         .await
         .unwrap();
     deliver(&server, &queue, &mut [&mut old, &mut new]).await;
@@ -343,7 +347,7 @@ async fn the_requester_accepts_an_emoji_start_from_the_other_device() {
         .await;
 
     new.core
-        .dispatch(Command::RequestVerification {
+        .run(RequestVerificationParams {
             user_id: user_id.clone(),
             device_id: Some(device_id!("AAAAAAAA").to_owned()),
         })
@@ -353,7 +357,7 @@ async fn the_requester_accepts_an_emoji_start_from_the_other_device() {
 
     let (flow_id, _) = old.last_live().unwrap().clone();
     old.core
-        .dispatch(Command::AcceptVerification {
+        .run(AcceptVerificationParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
         })
@@ -362,7 +366,7 @@ async fn the_requester_accepts_an_emoji_start_from_the_other_device() {
     deliver(&server, &queue, &mut [&mut old, &mut new]).await;
 
     old.core
-        .dispatch(Command::StartSasVerification { user_id, flow_id })
+        .run(StartSasVerificationParams { user_id, flow_id })
         .await
         .unwrap();
     deliver(&server, &queue, &mut [&mut old, &mut new]).await;
@@ -387,7 +391,7 @@ async fn both_devices_choosing_emoji_at_once_converge_on_one_comparison() {
         .await;
 
     new.core
-        .dispatch(Command::RequestVerification {
+        .run(RequestVerificationParams {
             user_id: user_id.clone(),
             device_id: Some(device_id!("AAAAAAAA").to_owned()),
         })
@@ -397,7 +401,7 @@ async fn both_devices_choosing_emoji_at_once_converge_on_one_comparison() {
 
     let (flow_id, _) = old.last_live().unwrap().clone();
     old.core
-        .dispatch(Command::AcceptVerification {
+        .run(AcceptVerificationParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
         })
@@ -408,7 +412,7 @@ async fn both_devices_choosing_emoji_at_once_converge_on_one_comparison() {
     for device in [&old, &new] {
         device
             .core
-            .dispatch(Command::StartSasVerification {
+            .run(StartSasVerificationParams {
                 user_id: user_id.clone(),
                 flow_id: flow_id.clone(),
             })
@@ -436,7 +440,7 @@ async fn both_devices_choosing_emoji_at_once_converge_on_one_comparison() {
     for device in [&old, &new] {
         device
             .core
-            .dispatch(Command::ConfirmVerification {
+            .run(ConfirmVerificationParams {
                 user_id: user_id.clone(),
                 flow_id: flow_id.clone(),
             })
@@ -466,7 +470,7 @@ async fn choosing_emoji_after_a_qr_scan_does_not_leave_either_side_waiting() {
         .await;
 
     new.core
-        .dispatch(Command::RequestVerification {
+        .run(RequestVerificationParams {
             user_id: user_id.clone(),
             device_id: Some(device_id!("AAAAAAAA").to_owned()),
         })
@@ -475,7 +479,7 @@ async fn choosing_emoji_after_a_qr_scan_does_not_leave_either_side_waiting() {
     deliver(&server, &queue, &mut [&mut old, &mut new]).await;
     let (flow_id, _) = old.last_live().unwrap().clone();
     old.core
-        .dispatch(Command::AcceptVerification {
+        .run(AcceptVerificationParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
         })
@@ -485,7 +489,7 @@ async fn choosing_emoji_after_a_qr_scan_does_not_leave_either_side_waiting() {
 
     let code = old.core.qr(&user_id, &flow_id).await.unwrap();
     new.core
-        .dispatch(Command::ScanVerificationQr {
+        .run(ScanVerificationQrParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
             data: base64::engine::general_purpose::STANDARD.encode(code.to_bytes().unwrap()),
@@ -496,7 +500,7 @@ async fn choosing_emoji_after_a_qr_scan_does_not_leave_either_side_waiting() {
 
     let _ = new
         .core
-        .dispatch(Command::StartSasVerification {
+        .run(StartSasVerificationParams {
             user_id: user_id.clone(),
             flow_id: flow_id.clone(),
         })

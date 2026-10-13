@@ -34,7 +34,11 @@ function makeCore(awards: unknown[] | null) {
     userProfile: vi.fn(() =>
       Promise.resolve({ supporter_awards: awards && JSON.stringify(awards) })
     ),
-    requestOpenIdToken: vi.fn(() => Promise.resolve(openId)),
+    rpc: {
+      session: {
+        requestOpenIdToken: vi.fn(() => Promise.resolve({ ...openId, expires_in: 3600 })),
+      },
+    },
     setProfileField: vi.fn(() => Promise.resolve()),
   });
   return { stub, core: stub as unknown as CoreClient };
@@ -86,7 +90,7 @@ describe('start', () => {
     await vi.waitFor(() => {
       expect(supporter.badge?.label).toBe('Donor');
     });
-    expect(stub.requestOpenIdToken).toHaveBeenCalledOnce();
+    expect(stub.rpc.session.requestOpenIdToken).toHaveBeenCalledOnce();
     expect(stub.setProfileField).toHaveBeenCalledWith(SUPPORTER_FIELD, [VALID]);
     expect(supporter.status).toBe('idle');
   });
@@ -218,7 +222,7 @@ describe('verify', () => {
   test('reports an error when the homeserver cannot issue an OpenID token', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { stub, core } = makeCore(null);
-    stub.requestOpenIdToken.mockRejectedValueOnce(new Error('offline'));
+    stub.rpc.session.requestOpenIdToken.mockRejectedValueOnce(new Error('offline'));
     supporter.start(core);
     await vi.waitFor(() => {
       expect(stub.userProfile).toHaveBeenCalled();

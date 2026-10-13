@@ -8,7 +8,7 @@ import type {
   MemberView,
   PowerLevelTagView,
   RoomPermissionsView,
-  RoomSummary,
+  RoomListItemView,
   UserDirectoryEntryView,
 } from '#src/generated/protocol';
 
@@ -16,19 +16,20 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
+const searchUserDirectory =
+  vi.fn<() => Promise<{ limited: boolean; results: UserDirectoryEntryView[] }>>();
 const core = Object.assign(baseCore, {
   roomMembers: vi.fn<() => Promise<MemberView[]>>(),
-  kickUser: vi.fn<(roomId: string, userId: string, reason?: string | null) => Promise<void>>(),
-  banUser: vi.fn<(roomId: string, userId: string, reason?: string | null) => Promise<void>>(),
-  unbanUser: vi.fn<() => Promise<void>>(),
-  setUserPowerLevel: vi.fn<() => Promise<void>>(),
-  inviteUser: vi.fn<(roomId: string, userId: string) => Promise<void>>(),
+  kickUser: vi.fn<(params: object) => Promise<null>>(),
+  banUser: vi.fn<(params: object) => Promise<null>>(),
+  unbanUser: vi.fn<() => Promise<null>>(),
+  setUserPowerLevel: vi.fn<() => Promise<null>>(),
+  inviteUser: vi.fn<(params: object) => Promise<null>>(),
   sendStateEvent: vi.fn<() => Promise<string>>(),
   powerLevelTags: vi.fn<() => Promise<Record<string, PowerLevelTagView>>>(() =>
     Promise.resolve({})
   ),
-  searchUserDirectory:
-    vi.fn<() => Promise<{ limited: boolean; results: UserDirectoryEntryView[] }>>(),
+  rpc: { account: { searchUserDirectory } },
 });
 
 vi.mock('#lib/rooms/presence.svelte.js', () => ({
@@ -48,7 +49,7 @@ const alice: MemberView = {
   service: false,
 };
 
-const room: RoomSummary = { room_id: '!room:example.org' } as RoomSummary;
+const room: RoomListItemView = { room_id: '!room:example.org' } as RoomListItemView;
 
 const permissions: RoomPermissionsView = {
   own_power_level: 100,
@@ -85,13 +86,16 @@ test('offers approval and denial for join requests', async () => {
   await screen.findByText('Alice');
   expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
-  expect(core.roomMembers).toHaveBeenLastCalledWith('!room:example.org', ['knock']);
+  expect(core.roomMembers).toHaveBeenLastCalledWith({
+    room_id: '!room:example.org',
+    memberships: ['knock'],
+  });
 });
 
 test.each(['Approve', 'Deny'])('answers a join request with %s', async (action) => {
   core.roomMembers.mockResolvedValue([{ ...alice, membership: 'knock' }]);
-  core.inviteUser.mockResolvedValue(undefined);
-  core.kickUser.mockResolvedValue(undefined);
+  core.inviteUser.mockResolvedValue(null);
+  core.kickUser.mockResolvedValue(null);
   render(RoomMembersSettings, { room, permissions: { ...permissions, can_invite: true } });
   const user = userEvent.setup();
   await user.click(screen.getByRole('radio', { name: 'Requests' }));
@@ -100,15 +104,23 @@ test.each(['Approve', 'Deny'])('answers a join request with %s', async (action) 
 
   await vi.waitFor(() => {
     if (action === 'Approve')
-      expect(core.inviteUser).toHaveBeenCalledWith(room.room_id, alice.user_id);
-    else expect(core.kickUser).toHaveBeenCalledWith(room.room_id, alice.user_id, null);
+      expect(core.inviteUser).toHaveBeenCalledWith({
+        room_id: room.room_id,
+        user_id: alice.user_id,
+      });
+    else
+      expect(core.kickUser).toHaveBeenCalledWith({
+        room_id: room.room_id,
+        user_id: alice.user_id,
+        reason: null,
+      });
     expect(screen.queryByText('Alice')).not.toBeInTheDocument();
   });
 });
 
 test('collects an optional reason before kicking a member', async () => {
   core.roomMembers.mockResolvedValue([alice]);
-  core.kickUser.mockResolvedValue(undefined);
+  core.kickUser.mockResolvedValue(null);
   const user = await renderMembers();
 
   await user.click(screen.getByRole('button', { name: 'Remove from room' }));
@@ -120,17 +132,17 @@ test('collects an optional reason before kicking a member', async () => {
   await user.click(within(dialog).getByRole('button', { name: 'Remove from room' }));
 
   await vi.waitFor(() => {
-    expect(core.kickUser).toHaveBeenCalledWith(
-      '!room:example.org',
-      '@alice:example.org',
-      'spamming links'
-    );
+    expect(core.kickUser).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@alice:example.org',
+      reason: 'spamming links',
+    });
   });
 });
 
 test('sends no reason when the moderation reason is left blank', async () => {
   core.roomMembers.mockResolvedValue([alice]);
-  core.banUser.mockResolvedValue(undefined);
+  core.banUser.mockResolvedValue(null);
   const user = await renderMembers();
 
   await user.click(screen.getByRole('button', { name: 'Ban from room' }));
@@ -138,26 +150,30 @@ test('sends no reason when the moderation reason is left blank', async () => {
   await user.click(within(dialog).getByRole('button', { name: 'Ban from room' }));
 
   await vi.waitFor(() => {
-    expect(core.banUser).toHaveBeenCalledWith('!room:example.org', '@alice:example.org', null);
+    expect(core.banUser).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@alice:example.org',
+      reason: null,
+    });
   });
 });
 
 test('searches the directory and invites from the members list', async () => {
   core.roomMembers.mockResolvedValue([alice]);
-  core.searchUserDirectory.mockResolvedValue({
+  searchUserDirectory.mockResolvedValue({
     limited: false,
     results: [
       { user_id: '@alice:example.org', display_name: 'Alice', avatar_url: null },
       { user_id: '@bob:example.org', display_name: 'Bob', avatar_url: null },
     ],
   });
-  core.inviteUser.mockResolvedValue(undefined);
+  core.inviteUser.mockResolvedValue(null);
   const user = await renderMembers({ ...permissions, can_invite: true });
 
   await user.type(search(), 'bo');
 
   await vi.waitFor(() => {
-    expect(core.searchUserDirectory).toHaveBeenCalledWith('bo', 10);
+    expect(searchUserDirectory).toHaveBeenCalledWith({ term: 'bo', limit: 10 });
     expect(invites()).toHaveTextContent('@bob:example.org');
   });
   const section = within(invites() ?? document.body);
@@ -166,7 +182,10 @@ test('searches the directory and invites from the members list', async () => {
 
   await user.click(section.getByRole('button', { name: 'Invite' }));
   await vi.waitFor(() => {
-    expect(core.inviteUser).toHaveBeenCalledWith('!room:example.org', '@bob:example.org');
+    expect(core.inviteUser).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@bob:example.org',
+    });
     expect(section.queryByRole('button', { name: 'Invite' })).not.toBeInTheDocument();
     expect(section.getByText('Invited')).toBeInTheDocument();
   });
@@ -174,7 +193,7 @@ test('searches the directory and invites from the members list', async () => {
 
 test('offers a typed user id the directory does not know', async () => {
   core.roomMembers.mockResolvedValue([alice]);
-  core.searchUserDirectory.mockResolvedValue({ limited: false, results: [] });
+  searchUserDirectory.mockResolvedValue({ limited: false, results: [] });
   const user = await renderMembers({ ...permissions, can_invite: true });
 
   await user.type(search(), '@carol:elsewhere.org');
@@ -194,7 +213,7 @@ test('offers no invite without the permission', async () => {
 test('keeps a changed power level when the reload still returns the old one', async () => {
   const bob: MemberView = { ...alice, user_id: '@bob:example.org', display_name: 'Bob' };
   core.roomMembers.mockResolvedValue([alice, bob]);
-  core.setUserPowerLevel.mockResolvedValue(undefined);
+  core.setUserPowerLevel.mockResolvedValue(null);
   const user = await renderMembers({ ...permissions, can_change_power_levels: true });
   const names = () =>
     Array.from(document.querySelectorAll('.setting-row'), (row) =>
@@ -207,11 +226,11 @@ test('keeps a changed power level when the reload still returns the old one', as
   await user.click(await screen.findByRole('option', { name: /Moderator/ }));
 
   await vi.waitFor(() => {
-    expect(core.setUserPowerLevel).toHaveBeenCalledWith(
-      '!room:example.org',
-      '@bob:example.org',
-      50
-    );
+    expect(core.setUserPowerLevel).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@bob:example.org',
+      power_level: 50,
+    });
   });
   await vi.waitFor(() => {
     expect(names()).toEqual(['Bob', 'Alice']);
@@ -221,7 +240,7 @@ test('keeps a changed power level when the reload still returns the old one', as
 test('offers the roles created in the room alongside the default ones', async () => {
   const bob: MemberView = { ...alice, user_id: '@bob:example.org', display_name: 'Bob' };
   core.roomMembers.mockResolvedValue([alice, bob]);
-  core.setUserPowerLevel.mockResolvedValue(undefined);
+  core.setUserPowerLevel.mockResolvedValue(null);
   core.powerLevelTags.mockResolvedValue({ '75': { name: 'Helper', color: null, icon: null } });
   const user = await renderMembers({ ...permissions, can_change_power_levels: true });
 
@@ -230,11 +249,11 @@ test('offers the roles created in the room alongside the default ones', async ()
   await user.click(await screen.findByRole('option', { name: /Helper/ }));
 
   await vi.waitFor(() => {
-    expect(core.setUserPowerLevel).toHaveBeenCalledWith(
-      '!room:example.org',
-      '@bob:example.org',
-      75
-    );
+    expect(core.setUserPowerLevel).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@bob:example.org',
+      power_level: 75,
+    });
   });
 });
 
@@ -247,7 +266,7 @@ test('offers no role above your own and asks before lowering your own', async ()
   };
   core.session = { user_id: '@me:example.org' };
   core.roomMembers.mockResolvedValue([alice, me]);
-  core.setUserPowerLevel.mockReset().mockResolvedValue(undefined);
+  core.setUserPowerLevel.mockReset().mockResolvedValue(null);
   const user = await renderMembers({
     ...permissions,
     own_power_level: 50,
@@ -270,7 +289,11 @@ test('offers no role above your own and asks before lowering your own', async ()
 
   await user.click(within(dialog).getByRole('button', { name: 'Lower my role' }));
   await vi.waitFor(() => {
-    expect(core.setUserPowerLevel).toHaveBeenCalledWith('!room:example.org', '@me:example.org', 0);
+    expect(core.setUserPowerLevel).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@me:example.org',
+      power_level: 0,
+    });
   });
   core.session = null;
 });

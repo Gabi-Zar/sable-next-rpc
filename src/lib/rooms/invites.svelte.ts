@@ -1,10 +1,11 @@
 import { SvelteSet } from 'svelte/reactivity';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import { goto } from '$app/navigation';
 import { resolve } from '$app/paths';
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { joinRoom } from '#lib/core/api/rooms.js';
 import { t } from '#lib/i18n.js';
 import { roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
@@ -25,20 +26,20 @@ export class InviteActions {
     return this.answering.has(roomId);
   }
 
-  async accept(room: RoomSummary): Promise<void> {
+  async accept(room: RoomListItemView): Promise<void> {
     await this.answer(room, async () => {
-      const roomId = await this.core.commands.joinRoom(room.room_id);
+      const roomId = await joinRoom(this.core.rpc, room.room_id);
       await goto(roomHref(room, roomId));
     });
   }
 
-  async acceptAll(rooms: readonly RoomSummary[]): Promise<void> {
+  async acceptAll(rooms: readonly RoomListItemView[]): Promise<void> {
     const pending = rooms.filter((room) => !this.answering.has(room.room_id));
     for (const room of pending) this.answering.add(room.room_id);
     let failed = 0;
     for (const room of pending) {
       try {
-        await this.core.commands.joinRoom(room.room_id);
+        await joinRoom(this.core.rpc, room.room_id);
       } catch (error) {
         failed += 1;
         console.warn('[sable room] accepting the invitation failed', error);
@@ -49,7 +50,7 @@ export class InviteActions {
     if (failed > 0) toasts.error(t('inbox.acceptAllFailed', { count: failed }));
   }
 
-  decline(room: RoomSummary): void {
+  decline(room: RoomListItemView): void {
     const roomId = room.room_id;
     if (this.answering.has(roomId) || declining.has(roomId)) return;
     declining.add(roomId);
@@ -61,15 +62,17 @@ export class InviteActions {
           declining.delete(roomId);
         },
         onClose: () => {
-          void this.answer(room, () => this.core.commands.leaveRoom(roomId)).then(() => {
-            declining.delete(roomId);
-          });
+          void this.answer(room, () => this.core.rpc.rooms.leaveRoom({ room_id: roomId })).then(
+            () => {
+              declining.delete(roomId);
+            }
+          );
         },
       }
     );
   }
 
-  declineAll(rooms: readonly RoomSummary[]): void {
+  declineAll(rooms: readonly RoomListItemView[]): void {
     const pending = rooms.filter(
       (room) => !this.answering.has(room.room_id) && !declining.has(room.room_id)
     );
@@ -86,11 +89,14 @@ export class InviteActions {
     });
   }
 
-  async blockAndDecline(rooms: readonly RoomSummary[], senders: readonly string[]): Promise<void> {
+  async blockAndDecline(
+    rooms: readonly RoomListItemView[],
+    senders: readonly string[]
+  ): Promise<void> {
     let failed = 0;
     for (const sender of senders) {
       try {
-        await this.core.commands.ignoreUser(sender);
+        await this.core.rpc.account.ignoreUser({ user_id: sender });
       } catch (error) {
         failed += 1;
         console.warn('[sable room] blocking an inviter failed', error);
@@ -104,12 +110,12 @@ export class InviteActions {
     await this.leaveAll(pending);
   }
 
-  private async leaveAll(rooms: readonly RoomSummary[]): Promise<void> {
+  private async leaveAll(rooms: readonly RoomListItemView[]): Promise<void> {
     for (const room of rooms) this.answering.add(room.room_id);
     let failed = 0;
     for (const room of rooms) {
       try {
-        await this.core.commands.leaveRoom(room.room_id);
+        await this.core.rpc.rooms.leaveRoom({ room_id: room.room_id });
       } catch (error) {
         failed += 1;
         console.warn('[sable room] declining the invitation failed', error);
@@ -121,7 +127,7 @@ export class InviteActions {
     if (failed > 0) toasts.error(t('inbox.declineAllFailed', { count: failed }));
   }
 
-  private async answer(room: RoomSummary, run: () => Promise<void>): Promise<void> {
+  private async answer(room: RoomListItemView, run: () => Promise<unknown>): Promise<void> {
     if (this.answering.has(room.room_id)) return;
     this.answering.add(room.room_id);
     try {
@@ -135,7 +141,7 @@ export class InviteActions {
   }
 }
 
-function roomHref(room: RoomSummary, roomId: string): string {
+function roomHref(room: RoomListItemView, roomId: string): string {
   const param = roomPathParamFromId(roomId);
   if (room.is_space) return resolve('/(app)/space/[spaceId]', { spaceId: param });
   if (room.is_direct) return resolve('/(app)/direct/[roomId]', { roomId: param });

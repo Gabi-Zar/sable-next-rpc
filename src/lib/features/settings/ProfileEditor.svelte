@@ -89,7 +89,7 @@
 
   let { profile, userId, onSaved }: Props = $props();
   const core = useCoreClient();
-  providePinnedEvents(new PinnedEvents(core.commands));
+  providePinnedEvents(new PinnedEvents(core.rpc.timeline));
   provideMessageDialogs(new MessageDialogs());
   provideMessageMenu(new OpenMessageMenu());
 
@@ -255,7 +255,7 @@
     uploadingBanner = true;
     error = null;
     try {
-      draft.banner = await core.commands.uploadMedia(
+      draft.banner = await core.media.uploadMedia(
         file.type || 'image/*',
         new Uint8Array(await file.arrayBuffer())
       );
@@ -347,7 +347,10 @@
     try {
       const name = draft.name.trim();
       if (name !== base.name.trim()) {
-        await core.commands.setDisplayName(name || null, preferences.profileChangePropagation);
+        await core.rpc.account.setDisplayName({
+          name: name || null,
+          propagate_to: preferences.profileChangePropagation,
+        });
       }
       if (avatarFile) {
         const upright = await uprightJpeg(avatarFile);
@@ -357,7 +360,10 @@
           preferences.profileChangePropagation
         );
       } else if (draft.avatarRemoved) {
-        await core.commands.setAvatarUrl(null, preferences.profileChangePropagation);
+        await core.rpc.account.setAvatarUrl({
+          url: null,
+          propagate_to: preferences.profileChangePropagation,
+        });
       }
       for (const [field, value] of fields()) await core.setProfileField(field, value);
       base = $state.snapshot(draft);

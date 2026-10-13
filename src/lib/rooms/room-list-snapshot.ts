@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 const KEY_PREFIX = 'sable.room-list.';
 
@@ -15,20 +15,20 @@ function isCurrentSummary(room: unknown): boolean {
   return typeof room === 'object' && room !== null && 'counts' in room;
 }
 
-export function readRoomListSnapshot(accountId: string): RoomSummary[] | null {
+export function readRoomListSnapshot(accountId: string): RoomListItemView[] | null {
   const raw = storage()?.getItem(KEY_PREFIX + accountId);
   if (!raw) return null;
   try {
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) && parsed.every(isCurrentSummary)
-      ? (parsed as RoomSummary[])
+      ? (parsed as RoomListItemView[])
       : null;
   } catch {
     return null;
   }
 }
 
-export function writeRoomListSnapshot(accountId: string, rooms: readonly RoomSummary[]): void {
+export function writeRoomListSnapshot(accountId: string, rooms: readonly RoomListItemView[]): void {
   try {
     storage()?.setItem(KEY_PREFIX + accountId, JSON.stringify(rooms));
   } catch {

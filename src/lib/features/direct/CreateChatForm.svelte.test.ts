@@ -41,7 +41,7 @@ test('creates the chat and navigates to it under the direct section', async () =
 
   await submit('@alice:example.org');
   await vi.waitFor(() => {
-    expect(core.createDm).toHaveBeenCalledWith('@alice:example.org', true);
+    expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: true });
   });
 
   expect(goto).toHaveBeenCalledWith('/(app)/direct/!dm%3Aexample.org');
@@ -54,7 +54,7 @@ test('creates an unencrypted chat when the switch is turned off', async () => {
   await userEvent.setup().click(screen.getByRole('switch', { name: 'common.endtoendEncryption' }));
   await submit('@alice:example.org');
   await vi.waitFor(() => {
-    expect(core.createDm).toHaveBeenCalledWith('@alice:example.org', false);
+    expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: false });
   });
 });
 

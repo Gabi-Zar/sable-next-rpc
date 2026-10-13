@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RoomPowerLevelsView, RoomSummary } from '#src/generated/protocol';
+  import type { RoomPowerLevelsView, RoomListItemView } from '#src/generated/protocol';
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
@@ -21,7 +21,7 @@
   const CANONICAL_EVENT_TYPE = 'm.room.canonical_alias';
 
   interface Props {
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     levels: RoomPowerLevelsView | null;
     ownPowerLevel: number;
   }
@@ -62,15 +62,15 @@
     const current = ++run;
     try {
       const [local, published] = await Promise.all([
-        core.commands.roomAliases(target).catch(() => [] as string[]),
-        core.commands.canonicalAlias(target),
+        core.rpc.rooms.roomAliases({ room_id: target }).catch(() => [] as string[]),
+        core.rpc.rooms.canonicalAlias({ room_id: target }),
       ]);
       if (current !== run) return;
 
       aliases = local;
       selected = new Set([...selected].filter((alias) => local.includes(alias)));
       canonical = published.alias;
-      alternatives = published.alternatives;
+      alternatives = published.alt_aliases;
     } catch (error) {
       console.debug('[sable room] addresses unavailable', error);
     }
@@ -103,9 +103,13 @@
     const target = roomId;
     if (!target) return;
 
-    const written = await core.commands.setCanonicalAlias(target, alias, alt);
+    const written = await core.rpc.rooms.setCanonicalAlias({
+      room_id: target,
+      alias,
+      alt_aliases: [...alt],
+    });
     canonical = written.alias;
-    alternatives = written.alternatives;
+    alternatives = written.alt_aliases;
   }
 
   function add(): void {
@@ -118,7 +122,7 @@
     }
 
     void change(async () => {
-      await core.commands.createRoomAlias(target, alias);
+      await core.rpc.rooms.createRoomAlias({ room_id: target, alias });
       draft = '';
     }, 'alias creation');
   }
@@ -156,7 +160,7 @@
           alternatives.filter((alias) => !targets.includes(alias))
         );
       }
-      for (const alias of targets) await core.commands.deleteRoomAlias(alias);
+      for (const alias of targets) await core.rpc.rooms.deleteRoomAlias({ alias });
       selected = new Set();
     }, 'alias removal');
     pendingRemoval = [];

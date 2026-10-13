@@ -38,7 +38,10 @@
     if (previous !== null || !target || !roomId) return;
     let current = true;
     original = null;
-    const read = (room: string, id: string) => core.commands.eventSource(room, id);
+    const read = (room: string, id: string) =>
+      core.rpc.timeline
+        .eventSource({ room_id: room, event_id: id, include_original: false })
+        .then(({ source }) => source);
     void readEventSource(read, roomId, target).then((event) => {
       const content = event?.content;
       if (current && isRecord(content) && typeof content.body === 'string') original = content.body;

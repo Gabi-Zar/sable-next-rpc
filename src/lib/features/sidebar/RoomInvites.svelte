@@ -3,7 +3,7 @@
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
-  import type { RoomSummary } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { inviter, senderName } from '#lib/features/inbox/inbox.js';
@@ -14,7 +14,7 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   interface Props {
-    invites: readonly RoomSummary[];
+    invites: readonly RoomListItemView[];
     collapsed?: boolean;
   }
 

@@ -56,7 +56,7 @@
     error = null;
     notice = null;
     try {
-      const armored = await core.commands.exportRoomKeys(exportPassphrase);
+      const armored = await core.rpc.encryption.exportRoomKeys({ passphrase: exportPassphrase });
       const outcome = await saveBytes(new TextEncoder().encode(armored), EXPORT_NAME, 'text/plain');
       if (outcome === 'failed') {
         error = t('settings.roomKeysExportFailed');
@@ -94,10 +94,10 @@
     error = null;
     notice = null;
     try {
-      const { imported, total } = await core.commands.importRoomKeys(
-        await file.text(),
-        importPassphrase
-      );
+      const { imported, total } = await core.rpc.encryption.importRoomKeys({
+        export: await file.text(),
+        passphrase: importPassphrase,
+      });
       notice = t('settings.roomKeysImported', { imported, total });
       closeImport();
     } catch (cause) {

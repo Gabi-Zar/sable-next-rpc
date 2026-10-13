@@ -3,7 +3,7 @@ import { createContext, untrack } from 'svelte';
 import type {
   CoreEvent,
   NotificationModeView,
-  RoomSummary,
+  RoomListItemView,
   SubscriptionId,
 } from '#src/generated/protocol';
 import { applyDiffs } from '#src/transport';
@@ -32,9 +32,9 @@ const WARM_ROOM_LIMIT = 32;
 const WARM_BATCH_MS = 100;
 
 /** Only use an alias when it resolves locally to this room. */
-const aliasOwners = new WeakMap<readonly RoomSummary[], Map<string, string>>();
+const aliasOwners = new WeakMap<readonly RoomListItemView[], Map<string, string>>();
 
-function aliasOwner(rooms: readonly RoomSummary[], alias: string): string | undefined {
+function aliasOwner(rooms: readonly RoomListItemView[], alias: string): string | undefined {
   let owners = aliasOwners.get(rooms);
   if (owners === undefined) {
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a lookup index for one immutable rooms array
@@ -48,7 +48,7 @@ function aliasOwner(rooms: readonly RoomSummary[], alias: string): string | unde
   return owners.get(alias);
 }
 
-export function roomPathId(room: RoomSummary, rooms: readonly RoomSummary[]): string {
+export function roomPathId(room: RoomListItemView, rooms: readonly RoomListItemView[]): string {
   const alias = room.canonical_alias;
   if (!room.is_tombstoned && alias && aliasOwner(rooms, alias) === room.room_id) {
     return alias;
@@ -61,35 +61,35 @@ export function roomPathParamFromId(roomId: string): string {
   return encodeURIComponent(roomId);
 }
 
-export function roomPathParam(room: RoomSummary, rooms: readonly RoomSummary[]): string {
+export function roomPathParam(room: RoomListItemView, rooms: readonly RoomListItemView[]): string {
   return roomPathParamFromId(roomPathId(room, rooms));
 }
 
-function directPeer(room: RoomSummary): string | null {
+function directPeer(room: RoomListItemView): string | null {
   return room.is_direct && room.direct_targets.length === 1 ? room.direct_targets[0] : null;
 }
 
-export function roomLabel(room: RoomSummary): string {
+export function roomLabel(room: RoomListItemView): string {
   const label = room.name ?? room.canonical_alias ?? room.room_id;
   const peer = directPeer(room);
   return peer === null ? label : profileOverrides.name(peer, label);
 }
 
-export function roomAvatarUrl(room: RoomSummary): string | null {
+export function roomAvatarUrl(room: RoomListItemView): string | null {
   const peer = directPeer(room);
   return peer === null ? room.avatar_url : profileOverrides.avatar(peer, room.avatar_url);
 }
 
-export function hasDirectRoom(rooms: readonly RoomSummary[], userId: string): boolean {
+export function hasDirectRoom(rooms: readonly RoomListItemView[], userId: string): boolean {
   return rooms.some(
     (room) => room.is_direct && !room.is_tombstoned && room.direct_targets.includes(userId)
   );
 }
 
 export function findRoomByPathId(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   pathId: string | undefined
-): RoomSummary | undefined {
+): RoomListItemView | undefined {
   if (pathId === undefined) return undefined;
   return rooms.find(
     (room) => room.room_id === pathId || (!room.is_tombstoned && room.canonical_alias === pathId)
@@ -99,7 +99,7 @@ export function findRoomByPathId(
 const NOBODY_TYPING: readonly string[] = [];
 
 export class RoomList {
-  rooms = $state.raw<RoomSummary[]>([]);
+  rooms = $state.raw<RoomListItemView[]>([]);
   // eslint-disable-next-line svelte/prefer-svelte-reactivity
   typingUsers = $state.raw<ReadonlyMap<string, readonly string[]>>(new Map());
 
@@ -129,7 +129,7 @@ export class RoomList {
     return this.live;
   }
 
-  byId(roomId: string | null | undefined): RoomSummary | undefined {
+  byId(roomId: string | null | undefined): RoomListItemView | undefined {
     return roomId === null || roomId === undefined ? undefined : this.roomsById.get(roomId);
   }
 
@@ -162,7 +162,7 @@ export class RoomList {
       this.warmTimer = undefined;
       const roomIds = this.pendingWarm;
       this.pendingWarm = [];
-      this.core.commands.warmRooms(roomIds).catch(() => {});
+      this.core.rpc.timeline.warmRooms({ room_ids: roomIds }).catch(() => {});
     }, WARM_BATCH_MS);
   }
 
@@ -239,12 +239,12 @@ export class RoomList {
 
     const subscription = this.subscription;
     this.subscription = null;
-    if (subscription !== null) this.core.commands.unsubscribe(subscription).catch(() => {});
+    if (subscription !== null) this.core.rpc.timeline.unsubscribe({ subscription }).catch(() => {});
   }
 
   private async startSubscription(): Promise<void> {
     const generation = this.generation;
-    const buffered = bufferSubscription<CoreEvent, RoomListDiffs[number], RoomSummary>(
+    const buffered = bufferSubscription<CoreEvent, RoomListDiffs[number], RoomListItemView>(
       (listener) => this.core.subscribeEvents(listener),
       (event) => (event.type === 'room_list_diff' ? event : null),
       applyDiffs,
@@ -255,14 +255,14 @@ export class RoomList {
 
     let response;
     try {
-      response = await this.core.commands.subscribeRoomList();
+      response = await this.core.rpc.timeline.subscribeRoomList();
     } catch (error) {
       buffered.stop();
       throw error;
     }
 
     if (generation !== this.generation) {
-      this.core.commands.unsubscribe(response.subscription).catch(() => {});
+      this.core.rpc.timeline.unsubscribe({ subscription: response.subscription }).catch(() => {});
       buffered.stop();
       return;
     }
@@ -321,7 +321,7 @@ export class RoomList {
     this.snapshotDirty = false;
   }
 
-  private setRooms(rooms: RoomSummary[]): void {
+  private setRooms(rooms: RoomListItemView[]): void {
     this.live = true;
     this.rooms = rooms;
     for (const waiter of this.listedWaiters) {

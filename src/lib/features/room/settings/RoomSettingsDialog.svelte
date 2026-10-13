@@ -3,7 +3,7 @@
   import type {
     RoomPermissionsView,
     RoomPowerLevelsView,
-    RoomSummary,
+    RoomListItemView,
   } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -30,7 +30,7 @@
 
   interface Props {
     open: boolean;
-    room: RoomSummary | null;
+    room: RoomListItemView | null;
     initialSection?: RoomSettingsSectionId | null;
     onOpenChange: (open: boolean) => void;
   }
@@ -66,16 +66,16 @@
     let current = true;
     permissions = null;
     levels = null;
-    void core.commands
-      .roomPermissions(target)
+    void core.rpc.members
+      .roomPermissions({ room_id: target })
       .then((next) => {
         if (current) permissions = next;
       })
       .catch((error: unknown) => {
         console.debug('[sable room] permissions unavailable', error);
       });
-    void core.commands
-      .roomPowerLevels(target)
+    void core.rpc.members
+      .roomPowerLevels({ room_id: target })
       .then((next) => {
         if (current) levels = next;
       })

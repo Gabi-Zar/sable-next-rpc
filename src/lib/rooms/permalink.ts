@@ -1,7 +1,7 @@
 import { copyText } from '#lib/platform/clipboard.js';
 import { resolve } from '$app/paths';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
@@ -10,7 +10,10 @@ import { parseMatrixLink } from '#lib/rooms/matrix-link.js';
 
 import { findRoomByPathId, roomPathParam, roomPathParamFromId } from './room-list.svelte';
 
-function parentSpaceOf(rooms: readonly RoomSummary[], roomId: string): RoomSummary | undefined {
+function parentSpaceOf(
+  rooms: readonly RoomListItemView[],
+  roomId: string
+): RoomListItemView | undefined {
   return rooms.find(
     (space) =>
       space.is_space &&
@@ -20,7 +23,10 @@ function parentSpaceOf(rooms: readonly RoomSummary[], roomId: string): RoomSumma
   );
 }
 
-function rootSpaceOf(rooms: readonly RoomSummary[], roomId: string): RoomSummary | undefined {
+function rootSpaceOf(
+  rooms: readonly RoomListItemView[],
+  roomId: string
+): RoomListItemView | undefined {
   const seen = new Set<string>([roomId]);
   let space = parentSpaceOf(rooms, roomId);
 
@@ -36,8 +42,8 @@ function rootSpaceOf(rooms: readonly RoomSummary[], roomId: string): RoomSummary
 
 /** Mirrors RoomNav's sectioning, so a permalink lands where the sidebar links. */
 function sectionPath(
-  rooms: readonly RoomSummary[],
-  room: RoomSummary | undefined,
+  rooms: readonly RoomListItemView[],
+  room: RoomListItemView | undefined,
   roomParam: string
 ): string {
   if (room?.is_space) return resolve('/(app)/space/[spaceId]/lobby', { spaceId: roomParam });
@@ -57,7 +63,7 @@ function sectionPath(
 }
 
 export function roomSectionPath(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   roomIdOrAlias: string,
   eventId?: string | null,
   via: readonly string[] = []
@@ -105,12 +111,14 @@ export function matrixToUrl(
 }
 
 export async function copyRoomLink(
-  core: Pick<CoreClient, 'commands'>,
-  room: Pick<RoomSummary, 'room_id' | 'canonical_alias'>,
+  core: Pick<CoreClient, 'rpc'>,
+  room: Pick<RoomListItemView, 'room_id' | 'canonical_alias'>,
   eventId?: string | null
 ): Promise<boolean> {
   try {
-    const via = room.canonical_alias ? [] : await core.commands.roomViaServers(room.room_id);
+    const via = room.canonical_alias
+      ? []
+      : await core.rpc.rooms.roomViaServers({ room_id: room.room_id });
     await copyText(matrixToUrl(room.canonical_alias ?? room.room_id, via, eventId));
     return true;
   } catch (error) {
@@ -126,7 +134,7 @@ export type PermalinkTarget = { kind: 'room'; path: string } | { kind: 'user'; u
  * Resolves the tail of a `/to/...` URL, still percent-encoded so the matrix.to parser decodes it.
  */
 export function permalinkTarget(
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   encodedFragment: string
 ): PermalinkTarget | null {
   // `?via=` sits inside the fragment, where it would otherwise be parsed as

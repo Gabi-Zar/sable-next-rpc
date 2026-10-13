@@ -8,6 +8,7 @@ import type {
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { ACCOUNT_DATA_KEY_TYPE } from '#lib/settings/account-sync.svelte.js';
+import { setProfileOverride } from '#lib/core/api/account.svelte.js';
 
 export const PROFILE_OVERRIDES_EVENT = 'm.profile_overrides';
 export const UNSTABLE_PROFILE_OVERRIDES_EVENT = 'org.matrix.msc4529.profile_overrides';
@@ -87,7 +88,7 @@ class ProfileOverrides {
     const core = this.core;
     if (core === null) return;
     const generation = this.generation;
-    const view = await core.commands.setProfileOverride(userId, edit);
+    const view = await setProfileOverride(core.rpc, userId, edit);
     if (generation === this.generation) this.apply(view);
   }
 
@@ -101,7 +102,7 @@ class ProfileOverrides {
     const core = this.core;
     if (core === null) return;
     try {
-      const view = await core.commands.profileOverrides();
+      const view = await core.rpc.account.profileOverrides();
       if (generation === this.generation) this.apply(view);
     } catch (error) {
       console.debug('[sable profile] profile overrides unavailable', error);

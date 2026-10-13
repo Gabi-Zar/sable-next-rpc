@@ -5,12 +5,12 @@ import type {
   ImagePackView,
   ImageSourcePackView,
   MemberView,
-  RoomSummary,
+  RoomListItemView,
 } from '#src/generated/protocol';
 import { SCHEDULE_PRESS_MS } from '#lib/ui/long-press.svelte.js';
 import { guardTouchClicks } from '#lib/ui/trailing-click.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import type { SendAttachmentOptions, SendGalleryOptions } from '#lib/core/commands.svelte.js';
+import type { SendAttachmentOptions, SendGalleryOptions } from '#lib/core/media.svelte.js';
 import {
   cleanup,
   fireEvent,
@@ -121,14 +121,16 @@ const botCommands: BotCommand[] = parseBotCommands([
 function core(): CoreClient {
   return {
     subscribeEvents: () => () => {},
-    commands: {
+    media: {
       scheduleAttachment,
-      mediaConfig,
-      botCommands: () => Promise.resolve(botCommands),
-      personas: () => Promise.resolve({ personas: [], selections: [] }),
-      roomMembers: () => Promise.resolve(members),
-      imagePackListing: () => Promise.resolve({ packs, complete: true }),
       fetchMedia: () => Promise.resolve(new Uint8Array()),
+    },
+    rpc: {
+      members: { roomMembers: () => Promise.resolve(members) },
+      messages: { mediaConfig },
+      room_state: { botCommands: () => Promise.resolve(botCommands) },
+      personas: { personas: () => Promise.resolve({ personas: [], selections: [] }) },
+      packs: { imagePacks: () => Promise.resolve({ packs, complete: true }) },
     },
   } as unknown as CoreClient;
 }
@@ -186,7 +188,7 @@ interface ComposerProps {
 function setup(
   { registerReply, registerContext, registerRoom, ...composer }: ComposerProps,
   client: CoreClient = core(),
-  rooms: RoomSummary[] = []
+  rooms: RoomListItemView[] = []
 ): RenderResult<typeof Harness> {
   return render(Harness, {
     props: {
@@ -2107,8 +2109,8 @@ test('clicking a custom quick reaction sends its media URL and source pack', asy
     via: ['example.org'],
   };
   const client = core();
-  Object.assign(client.commands, {
-    imagePackListing: () =>
+  Object.assign(client.rpc.packs, {
+    imagePacks: () =>
       Promise.resolve({
         packs: [{ ...packs[0], images: [{ ...packs[0].images[0], source_pack: sourcePack }] }],
         complete: true,
@@ -2319,7 +2321,7 @@ test('a bot command lookup does not clear a newer draft', async () => {
         resolveCommands = resolve;
       })
   );
-  Object.assign(client.commands, { botCommands: lookup });
+  Object.assign(client.rpc.room_state, { botCommands: lookup });
   const onSendBotCommand = vi.fn(async () => {});
   draftText('/register payload');
   setup({ roomId: '!room:example.org', onSendBotCommand }, client);
@@ -2441,7 +2443,7 @@ test('a bot command change clears stale suggestions', async () => {
 test('mention suggestions use the members the room already loaded', async () => {
   const client = core();
   const roomMembers = vi.fn(() => new Promise<MemberView[]>(() => {}));
-  Object.assign(client.commands, { roomMembers });
+  Object.assign(client.rpc.members, { roomMembers });
   draftText('@mem');
   render(Harness, {
     props: {
@@ -2470,8 +2472,8 @@ test('a pack change refreshes open emote suggestions', async () => {
       return () => {};
     },
   });
-  Object.assign(client.commands, {
-    imagePackListing: () => Promise.resolve({ packs: listed, complete: true }),
+  Object.assign(client.rpc.packs, {
+    imagePacks: () => Promise.resolve({ packs: listed, complete: true }),
   });
   draftText(':wa');
   render(Harness, {
@@ -2493,7 +2495,7 @@ test('a pack change refreshes open emote suggestions', async () => {
       images: [...packs[0].images, { ...packs[0].images[0], shortcode: 'wave2' }],
     },
   ];
-  invalidatePacks(client.commands);
+  invalidatePacks(client.rpc);
   for (const listener of listeners)
     listener({ type: 'image_packs_changed', room_id: '!space:example.org' });
 
@@ -2527,7 +2529,12 @@ test.each([
       { roomId: '!room:example.org', onSendBotCommand },
       client,
       admin
-        ? [{ room_id: '!room:example.org', canonical_alias: '#admins:example.org' } as RoomSummary]
+        ? [
+            {
+              room_id: '!room:example.org',
+              canonical_alias: '#admins:example.org',
+            } as RoomListItemView,
+          ]
         : []
     );
     await tick();

@@ -4,7 +4,7 @@ import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 const rendered = vi.hoisted(() => [] as { kind: string; roomId: string; extra: unknown }[]);
 const roomList = vi.hoisted(() => ({ start: () => Promise.resolve() }));
@@ -52,18 +52,18 @@ async function settle(): Promise<void> {
 }
 
 test('a joined room the list filters out still opens', async () => {
-  const room = { room_id: '!old:example.org', state: 'joined' } as RoomSummary;
-  const roomSummary = vi.fn(() => Promise.resolve(room));
-  Object.assign(core, { roomSummary });
+  const room = { room_id: '!old:example.org', state: 'joined' } as RoomListItemView;
+  const roomListItem = vi.fn(() => Promise.resolve(room));
+  Object.assign(core, { roomListItem });
   render(RoomPage);
   await settle();
 
-  expect(roomSummary).toHaveBeenCalledWith('!old:example.org');
+  expect(roomListItem).toHaveBeenCalledWith({ room_id: '!old:example.org' });
   expect(rendered.at(-1)).toEqual({ kind: 'view', roomId: '!old:example.org', extra: room });
 });
 
 test('a room we are not in goes through the join, with its via', async () => {
-  Object.assign(core, { roomSummary: vi.fn(() => Promise.reject(new Error('unknown_room'))) });
+  Object.assign(core, { roomListItem: vi.fn(() => Promise.reject(new Error('unknown_room'))) });
   render(RoomPage);
   await settle();
 
@@ -75,8 +75,8 @@ test('a room we are not in goes through the join, with its via', async () => {
 });
 
 test('a room we left goes through the join', async () => {
-  const room = { room_id: '!old:example.org', state: 'left' } as RoomSummary;
-  Object.assign(core, { roomSummary: vi.fn(() => Promise.resolve(room)) });
+  const room = { room_id: '!old:example.org', state: 'left' } as RoomListItemView;
+  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(room)) });
   render(RoomPage);
   await settle();
 
@@ -93,8 +93,12 @@ test('an alias waits for the room list rather than opening with the alias', asyn
 });
 
 test('a space opened as a room is sent to its lobby', async () => {
-  const space = { room_id: '!old:example.org', state: 'joined', is_space: true } as RoomSummary;
-  Object.assign(core, { roomSummary: vi.fn(() => Promise.resolve(space)) });
+  const space = {
+    room_id: '!old:example.org',
+    state: 'joined',
+    is_space: true,
+  } as RoomListItemView;
+  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(space)) });
   render(RoomPage);
   await settle();
 
@@ -106,8 +110,12 @@ test('a space opened as a room is sent to its lobby', async () => {
 
 test('the event timeline opens a space as a normal room', async () => {
   visit('/rooms/!old:example.org?timeline=events', { roomId: '!old:example.org' });
-  const space = { room_id: '!old:example.org', state: 'joined', is_space: true } as RoomSummary;
-  Object.assign(core, { roomSummary: vi.fn(() => Promise.resolve(space)) });
+  const space = {
+    room_id: '!old:example.org',
+    state: 'joined',
+    is_space: true,
+  } as RoomListItemView;
+  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(space)) });
   render(RoomPage);
   await settle();
 
@@ -120,8 +128,8 @@ test('on the mobile layout the room mounts a frame after the route, behind the d
     happyDOM: { setViewport: (viewport: { width: number }) => void };
   };
   happyDOM.setViewport({ width: 400 });
-  const room = { room_id: '!old:example.org', state: 'joined' } as RoomSummary;
-  Object.assign(core, { roomSummary: vi.fn(() => Promise.resolve(room)) });
+  const room = { room_id: '!old:example.org', state: 'joined' } as RoomListItemView;
+  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(room)) });
   render(RoomPage);
   await settle();
 

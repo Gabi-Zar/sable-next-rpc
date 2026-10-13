@@ -2,10 +2,10 @@ import { createContext } from 'svelte';
 import { SvelteSet } from 'svelte/reactivity';
 
 import { CoreError } from '#src/transport';
-import type { CoreCommands } from '#lib/core/commands.svelte.js';
+import type { Rpc } from '#src/generated/protocol';
 import { t } from '#lib/i18n.js';
 
-export type PinnedEventCommands = Pick<CoreCommands, 'pinnedEvents' | 'setPinned'>;
+export type PinnedEventCommands = Pick<Rpc['timeline'], 'pinnedEvents' | 'setPinned'>;
 
 export function pinErrorMessage(cause: unknown): string {
   return cause instanceof CoreError && cause.detail.code === 'denied'
@@ -32,7 +32,7 @@ export class PinnedEvents {
     }
 
     try {
-      const ids = await this.commands.pinnedEvents(roomId);
+      const ids = await this.commands.pinnedEvents({ room_id: roomId });
       if (generation !== this.#generation) return;
       this.#replace(ids);
     } catch (error) {
@@ -48,7 +48,11 @@ export class PinnedEvents {
 
   async toggle(roomId: string, eventId: string): Promise<void> {
     const generation = ++this.#generation;
-    const ids = await this.commands.setPinned(roomId, eventId, !this.has(eventId));
+    const ids = await this.commands.setPinned({
+      room_id: roomId,
+      event_id: eventId,
+      pinned: !this.has(eventId),
+    });
     if (generation !== this.#generation || this.#roomId !== roomId) return;
     this.#replace(ids);
   }

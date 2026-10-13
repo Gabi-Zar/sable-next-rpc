@@ -61,7 +61,7 @@
       return;
     }
     try {
-      serverPush = (await core.commands.webPusherSupport()).vapid !== null;
+      serverPush = (await core.rpc.push.webPusherSupport()) !== null;
     } catch {
       serverPush = false;
     }

@@ -22,13 +22,11 @@ const core = Object.assign(baseCore, {
   createDm: vi.fn<() => Promise<string>>(),
   userRelations: vi.fn<() => Promise<{ mutualRooms: MutualRoomView[]; ignored: boolean }>>(),
   setUserIgnored: vi.fn<() => Promise<void>>(),
-  sendMessage: vi.fn<() => Promise<void>>(),
-  kickUser: vi.fn<(roomId: string, userId: string, reason?: string | null) => Promise<void>>(),
-  banUser: vi.fn<(roomId: string, userId: string, reason?: string | null) => Promise<void>>(),
-  setUserPowerLevel: vi.fn<(roomId: string, userId: string, level: number) => Promise<void>>(),
-  roomMembers: vi.fn<(roomId: string, memberships?: readonly string[]) => Promise<MemberView[]>>(
-    () => Promise.resolve([])
-  ),
+  sendMessage: vi.fn<(params: unknown) => Promise<void>>(),
+  kickUser: vi.fn<(params: object) => Promise<null>>(),
+  banUser: vi.fn<(params: object) => Promise<null>>(),
+  setUserPowerLevel: vi.fn<(params: object) => Promise<null>>(),
+  roomMembers: vi.fn<(params: object) => Promise<MemberView[]>>(() => Promise.resolve([])),
 });
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
@@ -290,10 +288,12 @@ test('sends a direct message from the sheet composer', async () => {
 
   await user.type(screen.getByRole('textbox'), 'hi there{Enter}');
   await vi.waitFor(() => {
-    expect(core.sendMessage).toHaveBeenCalledWith('!dm:example.org', 'hi there');
+    expect(core.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ room_id: '!dm:example.org', body: 'hi there' })
+    );
   });
 
-  expect(core.createDm).toHaveBeenCalledWith('@alice:example.org');
+  expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: null });
   await vi.waitFor(() => {
     expect(goto).toHaveBeenCalledWith(expect.stringContaining('/direct/'));
   });
@@ -324,7 +324,7 @@ test('opens the chat without sending from the Message button', async () => {
     expect(goto).toHaveBeenCalledWith(expect.stringContaining('/direct/'));
   });
 
-  expect(core.createDm).toHaveBeenCalledWith('@alice:example.org');
+  expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: null });
   expect(core.sendMessage).not.toHaveBeenCalled();
   roomList.rooms = [];
 });
@@ -358,7 +358,7 @@ test('asks before the Message button creates a new chat', async () => {
   await vi.waitFor(() => {
     expect(goto).toHaveBeenCalledWith(expect.stringContaining('/direct/'));
   });
-  expect(core.createDm).toHaveBeenCalledWith('@alice:example.org');
+  expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: null });
 });
 
 function extraKeys(): string[] {
@@ -517,7 +517,7 @@ test('keeps a failed profile silent when the room member still names the user', 
 });
 
 test('collects an optional reason before kicking a member', async () => {
-  core.kickUser.mockResolvedValue(undefined);
+  core.kickUser.mockResolvedValue(null);
   render(MentionProfileCard, {
     props: {
       userId: '@alice:example.org',
@@ -562,16 +562,16 @@ test('collects an optional reason before kicking a member', async () => {
   );
   await user.click(within(dialog).getByRole('button', { name: 'Remove from room' }));
   await vi.waitFor(() => {
-    expect(core.kickUser).toHaveBeenCalledWith(
-      '!room:example.org',
-      '@alice:example.org',
-      'spamming links'
-    );
+    expect(core.kickUser).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@alice:example.org',
+      reason: 'spamming links',
+    });
   });
 });
 
 test('sends no reason when the moderation reason is left blank', async () => {
-  core.banUser.mockResolvedValue(undefined);
+  core.banUser.mockResolvedValue(null);
   render(MentionProfileCard, {
     props: {
       userId: '@alice:example.org',
@@ -612,7 +612,11 @@ test('sends no reason when the moderation reason is left blank', async () => {
   const dialog = await screen.findByRole('dialog');
   await user.click(within(dialog).getByRole('button', { name: 'Ban from room' }));
   await vi.waitFor(() => {
-    expect(core.banUser).toHaveBeenCalledWith('!room:example.org', '@alice:example.org', null);
+    expect(core.banUser).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@alice:example.org',
+      reason: null,
+    });
   });
 });
 
@@ -689,7 +693,10 @@ test('offers to remove a user whose pending invite is loaded from the room', asy
   await user.click(screen.getByRole('button', { name: 'More actions' }));
 
   expect(await screen.findByRole('menuitem', { name: /Remove from room/ })).toBeInTheDocument();
-  expect(core.roomMembers).toHaveBeenCalledWith('!room:example.org', ['invite']);
+  expect(core.roomMembers).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    memberships: ['invite'],
+  });
 });
 
 test('does not load room membership outside a room profile', async () => {
@@ -848,18 +855,18 @@ async function changeRoleToModerator(onPowerLevelChange: () => void): Promise<vo
   const instance = await openRoleMenu(onPowerLevelChange);
   await user.click(await screen.findByRole('menuitem', { name: /Moderator/ }));
   await vi.waitFor(() => {
-    expect(core.setUserPowerLevel).toHaveBeenCalledWith(
-      '!room:example.org',
-      '@alice:example.org',
-      50
-    );
+    expect(core.setUserPowerLevel).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@alice:example.org',
+      power_level: 50,
+    });
   });
   await Promise.resolve();
   instance.unmount();
 }
 
 test('reports a successful role change so the member list can follow it', async () => {
-  core.setUserPowerLevel.mockReset().mockResolvedValue(undefined);
+  core.setUserPowerLevel.mockReset().mockResolvedValue(null);
   toastError.mockClear();
   const onPowerLevelChange = vi.fn();
 
@@ -893,7 +900,7 @@ test('toasts a failed role change and reports nothing', async () => {
 });
 
 test('asks before lowering your own role', async () => {
-  core.setUserPowerLevel.mockReset().mockResolvedValue(undefined);
+  core.setUserPowerLevel.mockReset().mockResolvedValue(null);
   render(MentionProfileCard, {
     props: {
       userId: '@me:example.org',
@@ -925,7 +932,11 @@ test('asks before lowering your own role', async () => {
 
   await user.click(within(dialog).getByRole('button', { name: 'Lower my role' }));
   await vi.waitFor(() => {
-    expect(core.setUserPowerLevel).toHaveBeenCalledWith('!room:example.org', '@me:example.org', 50);
+    expect(core.setUserPowerLevel).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      user_id: '@me:example.org',
+      power_level: 50,
+    });
   });
 });
 

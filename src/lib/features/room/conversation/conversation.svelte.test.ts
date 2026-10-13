@@ -14,7 +14,11 @@ import { ScheduledOriginalKept } from '#lib/features/composer/send-failure.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
 import * as runtime from '#lib/config/runtime-config.js';
 
+import * as messagesApi from '#lib/core/api/messages.svelte.js';
+
 import { Conversation } from './conversation.svelte';
+
+vi.mock('#lib/core/api/messages.svelte.js', () => ({ sendMessage: vi.fn(), editMessage: vi.fn() }));
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
 
 const ROOM = '!room:example.org';
@@ -37,8 +41,10 @@ function setup(
   beforeSend?: () => Promise<void>,
   threadRoot: string | null = null
 ) {
-  const sendMessage = vi.fn(() => Promise.resolve());
-  const editMessage = vi.fn(() => Promise.resolve());
+  const sendMessage = vi.fn((..._args: unknown[]) => Promise.resolve());
+  const editMessage = vi.fn((..._args: unknown[]) => Promise.resolve());
+  vi.mocked(messagesApi.sendMessage).mockImplementation((_rpc, ...args) => sendMessage(...args));
+  vi.mocked(messagesApi.editMessage).mockImplementation((_rpc, ...args) => editMessage(...args));
   const sendAttachment = vi.fn(() => Promise.resolve());
   const sendGallery = vi.fn(() => Promise.resolve());
   const sendGif = vi.fn(() => Promise.resolve());
@@ -47,15 +53,18 @@ function setup(
   const urlPreview = vi.fn(() => Promise.resolve(null));
   const core = {
     session: { user_id: userId },
-    commands: {
-      sendMessage,
-      editMessage,
+    media: {
       sendAttachment,
       sendGallery,
-      sendGif,
-      sendLocation,
-      toggleReaction,
-      urlPreview,
+    },
+    rpc: {
+      messages: {
+        sendGif,
+        sendLocation,
+        react: toggleReaction,
+        urlPreview,
+      },
+      account: {},
     },
   } as unknown as CoreClient;
   const stub = {
@@ -118,7 +127,15 @@ test('quick reactions resume live before choosing the latest message', async () 
   ];
   live.resolve(undefined);
   await reacting;
-  expect(fixture.toggleReaction).toHaveBeenCalledWith(ROOM, '$latest', '😂', null, null, 7);
+  expect(fixture.toggleReaction).toHaveBeenCalledWith({
+    room_id: ROOM,
+    event_id: '$latest',
+    key: '😂',
+    source_pack: null,
+    shortcode: null,
+    thread_root: null,
+    subscription: 7,
+  });
   expect(fixture.sendMessage).not.toHaveBeenCalled();
 });
 
@@ -137,7 +154,15 @@ test.each(['message', 'image', 'sticker', 'unable_to_decrypt'] as const)(
     } as TimelineItemView);
     const fixture = setup([item('$old', '@ana:example.org'), latest], '@kris:example.org');
     await fixture.conversation.quickReact(ROOM, '😂');
-    expect(fixture.toggleReaction).toHaveBeenCalledWith(ROOM, '$latest', '😂', null, null, 7);
+    expect(fixture.toggleReaction).toHaveBeenCalledWith({
+      room_id: ROOM,
+      event_id: '$latest',
+      key: '😂',
+      source_pack: null,
+      shortcode: null,
+      thread_root: null,
+      subscription: 7,
+    });
   }
 );
 
@@ -151,14 +176,15 @@ test('quick reactions in a thread target its latest message and preserve the sou
     '$root'
   );
   await fixture.conversation.quickReact(ROOM, 'mxc://example.org/wave', sourcePack);
-  expect(fixture.toggleReaction).toHaveBeenCalledWith(
-    ROOM,
-    '$reply',
-    'mxc://example.org/wave',
-    '$root',
-    sourcePack,
-    7
-  );
+  expect(fixture.toggleReaction).toHaveBeenCalledWith({
+    room_id: ROOM,
+    event_id: '$reply',
+    key: 'mxc://example.org/wave',
+    source_pack: sourcePack,
+    shortcode: null,
+    thread_root: '$root',
+    subscription: 7,
+  });
 });
 
 test('toggling an existing custom quick reaction omits its source pack', async () => {
@@ -170,7 +196,15 @@ test('toggling an existing custom quick reaction omits its source pack', async (
   };
   const fixture = setup([latest], '@kris:example.org');
   await fixture.conversation.quickReact(ROOM, key, sourcePack);
-  expect(fixture.toggleReaction).toHaveBeenCalledWith(ROOM, '$latest', key, null, null, 7);
+  expect(fixture.toggleReaction).toHaveBeenCalledWith({
+    room_id: ROOM,
+    event_id: '$latest',
+    key: key,
+    source_pack: null,
+    shortcode: null,
+    thread_root: null,
+    subscription: 7,
+  });
 });
 
 test('reaction failures reach the composer', async () => {
@@ -351,28 +385,30 @@ test.each([
           mimetype: 'image/gif',
         });
         expect(fixture.sendGif.mock.lastCall).toEqual([
-          ROOM,
-          expect.any(String),
-          'cat.gif',
-          320,
-          240,
-          'image/gif',
-          1000,
-          '$one:example.org',
-          threadRoot,
-          null,
-          silentReply,
+          {
+            room_id: ROOM,
+            url: expect.any(String) as string,
+            body: 'cat.gif',
+            width: 320,
+            height: 240,
+            mimetype: 'image/gif',
+            size: 1000,
+            in_reply_to: '$one:example.org',
+            silent_reply: silentReply,
+            thread_root: threadRoot,
+            persona: null,
+          },
         ]);
       } else {
         await conversation.sendLocation(ROOM, 'here', 'geo:48,2');
-        expect(fixture.sendLocation).toHaveBeenLastCalledWith(
-          ROOM,
-          'here',
-          'geo:48,2',
-          '$one:example.org',
-          threadRoot,
-          silentReply
-        );
+        expect(fixture.sendLocation).toHaveBeenLastCalledWith({
+          room_id: ROOM,
+          body: 'here',
+          geo_uri: 'geo:48,2',
+          in_reply_to: '$one:example.org',
+          silent_reply: silentReply,
+          thread_root: threadRoot,
+        });
       }
       expect(conversation.context).toBeNull();
     }
@@ -672,7 +708,7 @@ function scheduling() {
   const scheduleMessage = vi.fn(() => Promise.reject(encryptedScheduleFailure()));
   const core = {
     session: { user_id: '@kris:example.org', device_id: 'DEV' },
-    commands: { scheduleMessage },
+    rpc: { messages: { scheduleMessage } },
   } as unknown as CoreClient;
 
   return new Conversation({
@@ -716,13 +752,13 @@ function rescheduling(
     calls.push('schedule');
     return scheduleMessage();
   });
-  const cancel = vi.fn((_delayId: string) => {
+  const cancel = vi.fn((_params: { delay_id: string }) => {
     calls.push('cancel');
     return cancelScheduledMessage();
   });
   const core = {
     session: { user_id: '@kris:example.org', device_id: 'DEV' },
-    commands: { scheduleMessage: schedule, cancelScheduledMessage: cancel },
+    rpc: { messages: { scheduleMessage: schedule, cancelScheduledMessage: cancel } },
   } as unknown as CoreClient;
   const conversation = new Conversation({
     core,
@@ -742,7 +778,7 @@ test('saving an edited server-side schedule books the new one before cancelling 
   await conversation.schedule(ROOM, 'fixed', null, dueTs + 60_000);
 
   expect(calls).toEqual(['schedule', 'cancel']);
-  expect(cancel).toHaveBeenCalledWith('old');
+  expect(cancel).toHaveBeenCalledWith({ delay_id: 'old' });
   expect(conversation.context).toBeNull();
   expect(conversation.scheduledRevision).toBe(1);
 });
@@ -805,7 +841,7 @@ test('a reply the SDK has not filled asks the core for its details once', async 
   const fetchEventDetails = vi.fn(() => Promise.reject(new Error('unsupported')));
   const core = {
     session: { user_id: '@kris:example.org' },
-    commands: { fetchEventDetails },
+    rpc: { timeline: { fetchEventDetails } },
   } as unknown as CoreClient;
   const timeline = { items: [reply, filled] } as unknown as RoomTimeline;
   const conversation = new Conversation({
@@ -820,7 +856,11 @@ test('a reply the SDK has not filled asks the core for its details once', async 
   await vi.waitFor(() => {
     expect(fetchEventDetails).toHaveBeenCalledOnce();
   });
-  expect(fetchEventDetails).toHaveBeenCalledWith(ROOM, '$reply:example.org', null);
+  expect(fetchEventDetails).toHaveBeenCalledWith({
+    room_id: ROOM,
+    event_id: '$reply:example.org',
+    thread_root: null,
+  });
 });
 
 test('editing steps back to the own message before the one being edited', () => {
@@ -896,8 +936,8 @@ test('a dismissed link is not previewed and the dismissal is spent by the send',
   await fixture.conversation.sendMessage(ROOM, 'a b', LINKS);
 
   expect(fixture.urlPreview).toHaveBeenCalledTimes(1);
-  expect(fixture.urlPreview).toHaveBeenCalledWith('https://b.example/', null);
-  expect((fixture.sendMessage.mock.calls as unknown[][])[0]?.[2]).toMatchObject({
+  expect(fixture.urlPreview).toHaveBeenCalledWith({ url: 'https://b.example/', service: null });
+  expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
     noLinkPreviews: false,
   });
   expect(fixture.conversation.dismissedPreviews).toEqual([]);
@@ -911,7 +951,7 @@ test('dismissing every link sends an explicit opt-out', async () => {
   await fixture.conversation.sendMessage(ROOM, 'a b', LINKS);
 
   expect(fixture.urlPreview).not.toHaveBeenCalled();
-  expect((fixture.sendMessage.mock.calls as unknown[][])[0]?.[2]).toMatchObject({
+  expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
     linkPreviews: [],
     noLinkPreviews: true,
   });

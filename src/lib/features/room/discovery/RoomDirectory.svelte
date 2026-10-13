@@ -10,6 +10,7 @@
   import { goto } from '$app/navigation';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
+  import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
   import { userIdServer } from '#lib/features/auth/login/login-identifier.js';
   import { i18n } from '#lib/i18n.js';
   import { joinErrorMessage } from '#lib/rooms/join-errors.js';
@@ -37,7 +38,7 @@
 
   const core = useCoreClient();
   const roomList = useRoomList();
-  const directory = new RoomDirectory(core.commands);
+  const directory = new RoomDirectory(core.rpc.rooms);
   const joining = new SvelteSet<string>();
   const knocked = new SvelteSet<string>();
 
@@ -66,7 +67,7 @@
     void runtimeConfig().then((config) => {
       featured = config.exploreServers;
     });
-    readAddedServers(core.commands)
+    readAddedServers(core.rpc.account)
       .then((servers) => {
         added = servers;
       })
@@ -88,14 +89,14 @@
       return;
     }
     serverError = null;
-    added = await addServer(core.commands, name);
+    added = await addServer(core.rpc.account, name);
     adding = false;
     newServer = '';
     browse(name);
   }
 
   async function forgetServer(name: string): Promise<void> {
-    added = await removeServer(core.commands, name);
+    added = await removeServer(core.rpc.account, name);
     if (server !== name) return;
     server = null;
     runSearch();
@@ -131,12 +132,12 @@
     failedJoin = null;
     try {
       if (knocking) {
-        await core.commands.knockRoom(address);
+        await knockRoom(core.rpc, address);
         knocked.add(room.room_id);
         return;
       }
 
-      const roomId = await core.commands.joinRoom(address);
+      const roomId = await joinRoom(core.rpc, address);
       await goto(roomSectionPath(roomList.rooms, roomId));
     } catch (error) {
       console.warn('[sable directory] join failed', error);

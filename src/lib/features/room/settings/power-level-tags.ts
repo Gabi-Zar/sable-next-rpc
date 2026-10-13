@@ -1,7 +1,5 @@
 import type { PowerLevelTagView } from '#src/generated/protocol';
 
-import type { PowerLevelTags } from '#lib/core/commands.svelte.js';
-
 export const POWER_LEVEL_TAGS_EVENT_TYPE = 'in.cinny.room.power_level_tags';
 
 export const MIN_POWER_LEVEL = Number.MIN_SAFE_INTEGER;
@@ -10,7 +8,7 @@ export const FOUNDER_POWER_LEVEL = MAX_POWER_LEVEL + 1;
 
 export type PowerLevelTag = PowerLevelTagView;
 
-export type PowerLevelTagMap = PowerLevelTags;
+export type PowerLevelTagMap = Readonly<Record<string, PowerLevelTagView>>;
 
 export type PowerLevelInputResult =
   | { valid: true; level: number }

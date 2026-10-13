@@ -1,4 +1,4 @@
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 import type { Suggestion } from './autocomplete';
 import { parseBotCommand, type BotCommand } from './bot-commands';
@@ -77,7 +77,7 @@ export function adminBotCommands(
 
 export function adminScope(
   roomId: string,
-  rooms: readonly RoomSummary[],
+  rooms: readonly RoomListItemView[],
   userId: string | null | undefined
 ): AdminScope {
   if (!userId) return null;

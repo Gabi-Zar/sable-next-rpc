@@ -49,7 +49,7 @@
   const memberProfile = new MemberProfile(core);
   let profileRoomId = $state('');
   const headingId = $props.id();
-  const feed = new InboxFeed(core.commands);
+  const feed = new InboxFeed(core.rpc.notifications);
   onDestroy(() => {
     feed.dispose();
     memberProfile.close();
@@ -117,7 +117,7 @@
   );
 
   function markAllRead(): void {
-    markRoomsRead(unreadRooms, core.commands, readReceiptIsPrivate());
+    markRoomsRead(unreadRooms, core.rpc.timeline, readReceiptIsPrivate());
   }
 
   function openMessage(roomId: string, eventId: string): void {
@@ -175,7 +175,14 @@
     if (marking.has(roomId)) return;
     marking.add(roomId);
     try {
-      await core.commands.markRead(roomId, null, readReceiptIsPrivate());
+      await core.rpc.timeline.markRead({
+        room_id: roomId,
+        event_id: null,
+        private_receipt: readReceiptIsPrivate(),
+        thread_root: null,
+        subscription: null,
+        fully_read: false,
+      });
     } catch (error) {
       console.warn('[sable inbox] marking the room read failed', error);
       toasts.error($i18n.t('errors.actionFailed'));
@@ -193,7 +200,14 @@
     );
     marking.add(item.event_id);
     try {
-      await core.commands.markRead(item.room_id, item.event_id, readReceiptIsPrivate());
+      await core.rpc.timeline.markRead({
+        room_id: item.room_id,
+        event_id: item.event_id,
+        private_receipt: readReceiptIsPrivate(),
+        thread_root: null,
+        subscription: null,
+        fully_read: false,
+      });
       for (const candidate of covered) readNow.add(candidate.event_id);
       await tick();
       if (hadFocus)
@@ -202,7 +216,7 @@
         label: $i18n.t('common.undo'),
         onUndo: () => {
           for (const candidate of covered) readNow.delete(candidate.event_id);
-          markRoomUnread(item.room_id, core.commands);
+          markRoomUnread(item.room_id, core.rpc.timeline);
         },
       });
     } catch (error) {

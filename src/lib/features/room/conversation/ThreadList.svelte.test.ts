@@ -51,7 +51,7 @@ import ThreadList from './ThreadList.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
 
 const listThreads = vi.fn();
-Object.assign(core, { listThreads });
+Object.assign(core.rpc.timeline, { listThreads });
 
 afterEach(() => {
   listThreads.mockReset();
@@ -117,7 +117,7 @@ test('lists thread roots page by page and opens the one picked', async () => {
   await vi.waitFor(() => {
     expect(rows()).toHaveLength(2);
   });
-  expect(listThreads).toHaveBeenLastCalledWith('!room:example.org', 'next');
+  expect(listThreads).toHaveBeenLastCalledWith({ room_id: '!room:example.org', from: 'next' });
   expect(screen.queryByRole('button', { name: 'Load more threads' })).not.toBeInTheDocument();
 
   await user.click(within(rows()[1]).getByText('Second topic'));

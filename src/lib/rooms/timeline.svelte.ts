@@ -1,5 +1,6 @@
 import type {
   CoreEvent,
+  SubscribeTimelineOk,
   SubscriptionId,
   TimelineFocusView,
   TimelineItemView,
@@ -260,7 +261,7 @@ export class RoomTimeline {
       generation === this.paginationGeneration;
     this[state] = 'loading';
     try {
-      const response = await this.core.commands.paginate(subscription, direction, count);
+      const response = await this.core.rpc.timeline.paginate({ subscription, direction, count });
       if (current()) {
         this.error = null;
         this[state] = response.reached_end ? 'end' : 'idle';
@@ -304,7 +305,9 @@ export class RoomTimeline {
     if (subscription !== null) {
       this.hasPendingUnsubscribe = true;
       this.unsubscribePromise = this.unsubscribePromise
-        .then(() => this.core.commands.unsubscribe(subscription))
+        .then(async () => {
+          await this.core.rpc.timeline.unsubscribe({ subscription });
+        })
         .catch(() => {})
         .finally(() => {
           this.hasPendingUnsubscribe = false;
@@ -373,7 +376,11 @@ export class RoomTimeline {
       response =
         mode.kind === 'unread'
           ? await this.subscribeUnreadContext(roomId, mode.eventId, hiddenEvents, session, pending)
-          : await this.core.commands.subscribeTimeline(roomId, focusFor(mode), hiddenEvents);
+          : await this.core.rpc.timeline.subscribeTimeline({
+              room_id: roomId,
+              focus: focusFor(mode),
+              hidden_events: hiddenEvents,
+            });
       const snapshot = response.items;
       const loaded = (eventId: string) => snapshot.some((item) => item.event_id === eventId);
       let eventId: string | null = null;
@@ -390,7 +397,7 @@ export class RoomTimeline {
         eventId = marker !== null && !loaded(marker) ? marker : null;
       }
       if (session === this.session && eventId !== null) {
-        await this.core.commands.unsubscribe(response.subscription);
+        await this.core.rpc.timeline.unsubscribe({ subscription: response.subscription });
         if (session !== this.session) {
           stopEvents();
           return;
@@ -413,7 +420,7 @@ export class RoomTimeline {
     }
 
     if (session !== this.session) {
-      this.core.commands.unsubscribe(response.subscription).catch(() => {});
+      this.core.rpc.timeline.unsubscribe({ subscription: response.subscription }).catch(() => {});
       stopEvents();
       return;
     }
@@ -432,7 +439,7 @@ export class RoomTimeline {
   }
 
   private readMarker(roomId: string): Promise<string | null> {
-    return this.core.commands.readMarker(roomId).catch(() => null);
+    return this.core.rpc.timeline.readMarker({ room_id: roomId }).catch(() => null);
   }
 
   private async subscribeUnreadContext(
@@ -441,18 +448,22 @@ export class RoomTimeline {
     hiddenEvents: boolean,
     session: number,
     pending: unknown[]
-  ): ReturnType<CoreClient['commands']['subscribeTimeline']> {
+  ): Promise<SubscribeTimelineOk> {
     try {
-      return await this.core.commands.subscribeTimeline(
-        roomId,
-        { kind: 'event', event_id: eventId },
-        hiddenEvents
-      );
+      return await this.core.rpc.timeline.subscribeTimeline({
+        room_id: roomId,
+        focus: { kind: 'event', event_id: eventId },
+        hidden_events: hiddenEvents,
+      });
     } catch (error) {
       if (session !== this.session) throw error;
       pending.length = 0;
       this.mode = { kind: 'live' };
-      return this.core.commands.subscribeTimeline(roomId, { kind: 'live' }, hiddenEvents);
+      return this.core.rpc.timeline.subscribeTimeline({
+        room_id: roomId,
+        focus: { kind: 'live' },
+        hidden_events: hiddenEvents,
+      });
     }
   }
 }

@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import type { MemberLookView, RoomSummary } from '#src/generated/protocol';
+import type { MemberLookView, RoomListItemView } from '#src/generated/protocol';
 
 vi.mock('#lib/core/context.js');
 vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
@@ -19,8 +19,8 @@ import RoomCosmeticsSettings from './RoomCosmeticsSettings.svelte';
 
 const core = Object.assign(baseCore, {
   memberLook: vi.fn<(...args: never[]) => Promise<MemberLookView>>(() => Promise.resolve(look())),
-  setMemberLook: vi.fn<(...args: never[]) => Promise<void>>(() => Promise.resolve()),
-  setPronouns: vi.fn<(...args: never[]) => Promise<void>>(() => Promise.resolve()),
+  setMemberLook: vi.fn<(...args: never[]) => Promise<null>>(() => Promise.resolve(null)),
+  setPronouns: vi.fn<(...args: never[]) => Promise<null>>(() => Promise.resolve(null)),
 });
 
 function look(overrides: Partial<MemberLookView> = {}): MemberLookView {
@@ -38,7 +38,7 @@ const room = {
   room_id: '!room:example.org',
   is_space: false,
   space_children: [],
-} as unknown as RoomSummary;
+} as unknown as RoomListItemView;
 
 beforeEach(() => {
   core.session = { user_id: '@me:example.org' };
@@ -69,9 +69,13 @@ test('reset writes the live profile when the room profile only matches a stale o
   await user.click(reset);
 
   await vi.waitFor(() => {
-    expect(core.setMemberLook).toHaveBeenCalledWith('!room:example.org', {
+    expect(core.setMemberLook).toHaveBeenCalledWith({
+      room_id: '!room:example.org',
+      in_parent_space: false,
       display_name: { kind: 'set', value: 'Live' },
       avatar_url: { kind: 'set', value: 'mxc://example.org/live' },
+      color_on_light: { kind: 'keep' },
+      color_on_dark: { kind: 'keep' },
     });
   });
 });
@@ -103,7 +107,9 @@ test('reset writes the member event once and drops the colours with it', async (
   await vi.waitFor(() => {
     expect(core.setMemberLook).toHaveBeenCalledTimes(1);
   });
-  expect(core.setMemberLook).toHaveBeenCalledWith('!room:example.org', {
+  expect(core.setMemberLook).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    in_parent_space: false,
     display_name: { kind: 'set', value: 'Live' },
     avatar_url: { kind: 'set', value: 'mxc://example.org/live' },
     color_on_light: { kind: 'clear' },

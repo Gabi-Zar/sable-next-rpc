@@ -2,7 +2,7 @@
   import XIcon from 'phosphor-svelte/lib/XIcon';
   import { untrack } from 'svelte';
 
-  import type { MemberView, RoomSummary } from '#src/generated/protocol';
+  import type { MemberView, RoomListItemView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -31,7 +31,7 @@
     command: BotCommand;
     drafts: ArgumentDrafts;
     members: readonly MemberView[];
-    rooms: readonly RoomSummary[];
+    rooms: readonly RoomListItemView[];
     prefix: string;
     sending?: boolean;
     onSubmit: (body: string, invocation: BotCommandInvocation) => void;

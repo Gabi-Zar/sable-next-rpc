@@ -2,14 +2,14 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
-import type { NotificationModeView, RoomSummary } from '#src/generated/protocol';
+import type { NotificationModeView, RoomListItemView } from '#src/generated/protocol';
 
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 import { roomNotifications, roomUnread } from '#lib/rooms/unread.js';
 
 const roomsFixture = vi.hoisted(() => {
   const fixture = {
-    rooms: [] as RoomSummary[],
+    rooms: [] as RoomListItemView[],
     typingUsers: new Map<string, readonly string[]>(),
     warm: () => {},
     byId: (roomId: string | null) => fixture.rooms.find((room) => room.room_id === roomId),
@@ -17,9 +17,9 @@ const roomsFixture = vi.hoisted(() => {
     notificationMode: (): NotificationModeView => 'all',
     mutedRoomIds: new Set<string>(),
     quietRoomIds: new Set<string>(),
-    unreadFor: (room: RoomSummary) => roomUnread(room),
-    badgeUnreadFor: (room: RoomSummary) => roomUnread(room),
-    notificationsFor: (room: RoomSummary) => roomNotifications(room),
+    unreadFor: (room: RoomListItemView) => roomUnread(room),
+    badgeUnreadFor: (room: RoomListItemView) => roomUnread(room),
+    notificationsFor: (room: RoomListItemView) => roomNotifications(room),
   };
   return fixture;
 });
@@ -33,8 +33,8 @@ vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('#lib/rooms/room-list.svelte.js')>()),
   useRoomList: () => roomsFixture,
-  roomLabel: (room: RoomSummary) => room.name ?? room.canonical_alias ?? room.room_id,
-  roomAvatarUrl: (room: RoomSummary) => room.avatar_url,
+  roomLabel: (room: RoomListItemView) => room.name ?? room.canonical_alias ?? room.room_id,
+  roomAvatarUrl: (room: RoomListItemView) => room.avatar_url,
 }));
 vi.mock('#lib/rooms/presence.svelte.js', async () => {
   const actual = await vi.importActual<typeof import('#lib/rooms/presence.svelte.js')>(
@@ -52,7 +52,7 @@ afterEach(async () => {
   await page.viewport(414, 800);
 });
 
-function room(overrides: Partial<RoomSummary>): RoomSummary {
+function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
     room_id: '!room:example.org',
     canonical_alias: null,
@@ -86,7 +86,11 @@ function room(overrides: Partial<RoomSummary>): RoomSummary {
 
 async function mountNav(props: { collapsed?: boolean; width?: number } = {}) {
   Object.assign(core, {
-    notificationSettings: vi.fn().mockResolvedValue({ mode: 'all', default: 'all' }),
+    rpc: {
+      notifications: {
+        notificationSettings: vi.fn().mockResolvedValue({ mode: 'all', default: 'all' }),
+      },
+    },
   });
   await page.viewport(1280, 900);
   return render(RoomNavHarness, props);

@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomSummary } from '#src/generated/protocol';
+import type { RoomListItemView } from '#src/generated/protocol';
 
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 
@@ -15,10 +15,14 @@ afterEach(() => {
   for (const toast of [...toasts.items]) toasts.dismiss(toast.id);
 });
 
-const room = { room_id: '!room:example.org', is_space: false, is_direct: false } as RoomSummary;
+const room = {
+  room_id: '!room:example.org',
+  is_space: false,
+  is_direct: false,
+} as RoomListItemView;
 
 function actions(commands: Record<string, unknown>): InviteActions {
-  return new InviteActions({ commands } as unknown as CoreClient);
+  return new InviteActions({ commands, rpc: { rooms: commands } } as unknown as CoreClient);
 }
 
 test('a join the server rejects raises a toast and releases the room', async () => {
@@ -43,7 +47,7 @@ test('a decline waits for its undo toast to close before leaving', async () => {
   await vi.waitFor(() => {
     expect(isDeclining(room.room_id)).toBe(false);
   });
-  expect(leaveRoom).toHaveBeenCalledWith(room.room_id);
+  expect(leaveRoom).toHaveBeenCalledWith({ room_id: room.room_id });
 });
 
 test('undoing a decline never leaves the room', () => {
@@ -82,15 +86,15 @@ test('an accepted invitation raises nothing', async () => {
 test('accepting all joins every invite without leaving the page and reports failures once', async () => {
   const other = { ...room, room_id: '!other:example.org' };
   const third = { ...room, room_id: '!third:example.org' };
-  const joinRoom = vi.fn((roomId: string) =>
-    roomId === room.room_id ? Promise.resolve(roomId) : Promise.reject(new Error('no via'))
+  const joinRoom = vi.fn(({ address }: { address: string }) =>
+    address === room.room_id ? Promise.resolve(address) : Promise.reject(new Error('no via'))
   );
   const answers = actions({ joinRoom });
   goto.mockClear();
 
   await answers.acceptAll([room, other, third]);
 
-  expect(joinRoom.mock.calls.map(([roomId]) => roomId)).toEqual([
+  expect(joinRoom.mock.calls.map(([params]) => params.address)).toEqual([
     room.room_id,
     other.room_id,
     third.room_id,

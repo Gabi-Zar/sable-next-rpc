@@ -9,6 +9,7 @@
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 
   import type { ScheduledMessageView } from '#src/generated/protocol';
+  import { sendMessage } from '#lib/core/api/messages.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
@@ -49,8 +50,8 @@
     void revision;
     let alive = true;
 
-    void core.commands
-      .scheduledMessages(room)
+    void core.rpc.messages
+      .scheduledMessages({ room_id: room })
       .then((messages) => {
         if (alive) fetched = messages ?? [];
       })
@@ -87,7 +88,7 @@
 
   async function cancelRemote(delayId: string): Promise<void> {
     try {
-      await core.commands.cancelScheduledMessage(delayId);
+      await core.rpc.messages.cancelScheduledMessage({ delay_id: delayId });
       fetched = fetched.filter((message) => message.delay_id !== delayId);
     } catch (error) {
       console.warn('[sable composer] cancelling a scheduled message failed', error);
@@ -113,7 +114,7 @@
   async function sendRemote(delayId: string): Promise<void> {
     hold(delayId);
     try {
-      await core.commands.sendScheduledMessage(delayId);
+      await core.rpc.messages.sendScheduledMessage({ delay_id: delayId });
       fetched = fetched.filter((message) => message.delay_id !== delayId);
     } catch (error) {
       console.warn('[sable composer] sending a scheduled message failed', error);
@@ -128,7 +129,7 @@
     const accountId = core.session?.account_id ?? '';
     dequeue(message.id, accountId);
     try {
-      await core.commands.sendMessage(message.roomId, message.body, {
+      await sendMessage(core.rpc, message.roomId, message.body, {
         formatted: message.formatted,
       });
     } catch (error) {

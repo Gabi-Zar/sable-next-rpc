@@ -19,7 +19,7 @@
 
   $effect(() => {
     let stale = false;
-    core.commands
+    core.rpc.session
       .serverFeatures()
       .then((flags) => {
         if (!stale) features = flags;

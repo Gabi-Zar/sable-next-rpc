@@ -17,7 +17,7 @@
 
   async function load(): Promise<void> {
     try {
-      const view = await core.commands.calendarEntries(roomId);
+      const view = await core.rpc.calendar.calendarEntries({ room_id: roomId });
       items = readEntries(view.entries);
       now = Date.now();
     } catch (error) {

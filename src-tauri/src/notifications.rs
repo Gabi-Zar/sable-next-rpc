@@ -851,10 +851,12 @@ async fn distributor_gateway(
 
 #[cfg(mobile)]
 async fn discover_gateway(core: &Arc<sable_core::Core>, endpoint: &str) -> Option<String> {
-    let command = sable_core::protocol::Command::DiscoverPushGateway {
+    core.run(sable_core::api::push::DiscoverPushGatewayParams {
         endpoint: endpoint.to_owned(),
-    };
-    gateway_from_response(Box::pin(core.dispatch(command)).await)
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 #[cfg(any(mobile, test))]
@@ -889,16 +891,6 @@ fn without_keys(registration: Registration) -> Registration {
         token: registration.token,
         p256dh: None,
         auth: None,
-    }
-}
-
-#[cfg(any(mobile, test))]
-fn gateway_from_response(
-    response: Result<sable_core::protocol::CommandOk, CommandErr>,
-) -> Option<String> {
-    match response {
-        Ok(sable_core::protocol::CommandOk::DiscoverPushGateway { gateway }) => gateway,
-        _ => None,
     }
 }
 
@@ -954,7 +946,8 @@ pub async fn register_push<R: Runtime>(
     core: &Arc<sable_core::Core>,
     config: PushConfig,
 ) -> Result<(), PushRegistrationError> {
-    use sable_core::protocol::{Command, PusherView};
+    use sable_core::api::push::{SetPusherParams, WebPusherSupportParams};
+    use sable_core::protocol::PusherView;
     let _guard = PUSH_REGISTRATION_LOCK.lock().await;
     let root = push_store(app).map_err(|_| PushRegistrationError::Ledger)?;
     let (Some(user_id), Some(device_id)) = (config.user_id.clone(), config.device_id.clone())
@@ -970,7 +963,8 @@ pub async fn register_push<R: Runtime>(
     let server_vapid = if config.gateway_override || cfg!(target_os = "ios") {
         None
     } else {
-        server_vapid_from_response(Box::pin(core.dispatch(Command::WebPusherSupport)).await)
+        core.run(WebPusherSupportParams {})
+            .await
             .map_err(|_| PushRegistrationError::Capabilities)?
     };
     let (registration, distributor_gateway) =
@@ -1011,7 +1005,7 @@ pub async fn register_push<R: Runtime>(
         return Err(PushRegistrationError::NoAppId);
     };
 
-    let command = Command::SetPusher {
+    let params = SetPusherParams {
         pusher: PusherView {
             pushkey: pushkey.clone(),
             app_id: app_id.clone(),
@@ -1023,7 +1017,7 @@ pub async fn register_push<R: Runtime>(
         },
     };
 
-    Box::pin(core.dispatch(command))
+    core.run(params)
         .await
         .map_err(|error| PushRegistrationError::Homeserver { error })?;
     remember_pusher(
@@ -1070,8 +1064,9 @@ async fn register_server_pusher(
 ) -> Result<(), PushRegistrationError> {
     let pushkey = pusher.pushkey.clone();
     let app_id = pusher.app_id.clone();
-    if let Err(error) =
-        Box::pin(core.dispatch(sable_core::protocol::Command::SetWebPusher { pusher })).await
+    if let Err(error) = core
+        .run(sable_core::api::push::SetWebPusherParams { pusher })
+        .await
     {
         log::warn!("homeserver rejected the MSC4174 pusher: {error:?}");
         return Err(PushRegistrationError::Homeserver { error });
@@ -1081,16 +1076,6 @@ async fn register_server_pusher(
         .map_err(|_| PushRegistrationError::Ledger)?;
     retire_old_pushers(root, identity).await;
     Ok(())
-}
-
-#[cfg(any(mobile, test))]
-fn server_vapid_from_response(
-    response: Result<sable_core::protocol::CommandOk, CommandErr>,
-) -> Result<Option<String>, CommandErr> {
-    match response? {
-        sable_core::protocol::CommandOk::WebPusherSupport { vapid } => Ok(vapid),
-        _ => Err(CommandErr::Unavailable),
-    }
 }
 
 #[cfg(any(mobile, test))]
@@ -1210,17 +1195,6 @@ mod tests {
     };
 
     #[test]
-    fn failed_capability_lookup_does_not_select_a_fallback_gateway() {
-        super::server_vapid_from_response(Err(super::CommandErr::Unavailable)).unwrap_err();
-        assert!(matches!(
-            super::server_vapid_from_response(Ok(
-                sable_core::protocol::CommandOk::WebPusherSupport { vapid: None }
-            )),
-            Ok(None)
-        ));
-    }
-
-    #[test]
     fn only_a_direct_unifiedpush_endpoint_asks_its_distributor_for_a_gateway() {
         let mut config: super::PushConfig = serde_json::from_value(serde_json::json!({
             "gateway_url": "https://sygnal.example/_matrix/push/v1/notify",
@@ -1322,24 +1296,6 @@ mod tests {
         let keyed = super::rotated_registration("web", &registration);
         assert_eq!(keyed.p256dh.as_deref(), Some("key"));
         assert_eq!(keyed.auth.as_deref(), Some("auth"));
-    }
-
-    #[test]
-    fn a_failed_discovery_falls_back_to_the_configured_gateway() {
-        assert_eq!(
-            super::gateway_from_response(Ok(
-                sable_core::protocol::CommandOk::DiscoverPushGateway {
-                    gateway: Some("https://ntfy.example/_matrix/push/v1/notify".to_owned())
-                }
-            ))
-            .as_deref(),
-            Some("https://ntfy.example/_matrix/push/v1/notify")
-        );
-        assert!(super::gateway_from_response(Err(super::CommandErr::Unavailable)).is_none());
-        assert!(
-            super::gateway_from_response(Ok(sable_core::protocol::CommandOk::SetWebPusher))
-                .is_none()
-        );
     }
 
     #[test]

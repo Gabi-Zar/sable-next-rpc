@@ -6,7 +6,7 @@ use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, Password, UserIden
 use matrix_sdk_ui::sync_service::State as SyncState;
 
 use crate::ResultExt;
-use crate::protocol::{CommandErr, CommandOk, CoreEvent, SessionInfo};
+use crate::protocol::{CommandErr, CoreEvent, SessionInfo};
 
 #[cfg(not(target_family = "wasm"))]
 use crate::session::AccountRegistry;
@@ -96,17 +96,15 @@ impl Core {
         }
     }
 
-    pub(crate) async fn restore(self: &Arc<Self>) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn restore(self: &Arc<Self>) -> Result<Option<SessionInfo>, CommandErr> {
         let _restore = self.restore_lock.lock().await;
         if let Some(session) = self.active_session_info().await {
-            return Ok(CommandOk::Restore {
-                session: Some(session),
-            });
+            return Ok(Some(session));
         }
 
         let accounts = self.accounts().await?;
         let Some(account_id) = accounts.active_account_id else {
-            return Ok(CommandOk::Restore { session: None });
+            return Ok(None);
         };
         let Some(account) = accounts
             .accounts
@@ -116,7 +114,7 @@ impl Core {
             return Err(self.failed("restore", "active account is missing"));
         };
         if account.needs_reauth {
-            return Ok(CommandOk::Restore { session: None });
+            return Ok(None);
         }
         let client = self.saved_account_client(&account).await?;
         let persisted = account.session;
@@ -142,9 +140,7 @@ impl Core {
         )
         .await?;
 
-        Ok(CommandOk::Restore {
-            session: Some(info),
-        })
+        Ok(Some(info))
     }
 
     async fn active_session_info(&self) -> Option<SessionInfo> {
@@ -159,7 +155,7 @@ impl Core {
         })
     }
 
-    pub(crate) async fn list_accounts(&self) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn list_accounts(&self) -> Result<Vec<SessionInfo>, CommandErr> {
         let accounts = self.accounts().await?;
         let accounts = accounts
             .accounts
@@ -179,18 +175,18 @@ impl Core {
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(CommandOk::ListAccounts { accounts })
+        Ok(accounts)
     }
 
     pub(crate) async fn switch_account(
         self: &Arc<Self>,
         account_id: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<SessionInfo, CommandErr> {
         let _restore = self.restore_lock.lock().await;
         if let Some(session) = self.active_session_info().await
             && session.account_id == account_id
         {
-            return Ok(CommandOk::SwitchAccount { session });
+            return Ok(session);
         }
         let accounts = self.accounts().await?;
         let account = accounts
@@ -225,10 +221,10 @@ impl Core {
             generation.value(),
         )
         .await?;
-        Ok(CommandOk::SwitchAccount { session: info })
+        Ok(info)
     }
 
-    pub(crate) async fn logout(self: &Arc<Self>) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn logout(self: &Arc<Self>) -> Result<(), CommandErr> {
         let _activation = self.session_activation_lock.lock().await;
         let _swap = self.session_swap_lock.lock().await;
         let invalidated = self
@@ -265,9 +261,7 @@ impl Core {
             session.sync_service.stop().await;
         }
 
-        self.remove_account(account_id.as_deref()).await?;
-
-        Ok(CommandOk::Logout)
+        self.remove_account(account_id.as_deref()).await
     }
 
     /// The active session must be signed out through `logout` so its sync
@@ -275,7 +269,7 @@ impl Core {
     pub(crate) async fn remove_inactive_account(
         &self,
         account_id: String,
-    ) -> Result<CommandOk, CommandErr> {
+    ) -> Result<(), CommandErr> {
         if self
             .active_session_info()
             .await
@@ -295,12 +289,11 @@ impl Core {
             return Err(CommandErr::NotLoggedIn);
         }
 
-        self.remove_account(Some(&account_id)).await?;
-        Ok(CommandOk::RemoveAccount)
+        self.remove_account(Some(&account_id)).await
     }
 
     #[cfg(not(target_family = "wasm"))]
-    pub(crate) async fn reset_local_cache(self: &Arc<Self>) -> Result<CommandOk, CommandErr> {
+    pub(crate) async fn reset_local_cache(self: &Arc<Self>) -> Result<(), CommandErr> {
         let outcome = {
             let _restore = self.restore_lock.lock().await;
             let _activation = self.session_activation_lock.lock().await;
@@ -336,7 +329,7 @@ impl Core {
             outcome
         };
         self.restore().await?;
-        outcome.map(|()| CommandOk::ResetLocalCache)
+        outcome
     }
 
     pub(crate) async fn persist(

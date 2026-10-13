@@ -37,7 +37,12 @@ test('a search asks the directory with the query it was given', async () => {
 
   await directory.search({ server: 'other.org', search: 'rust' });
 
-  expect(publicRooms).toHaveBeenCalledWith({ server: 'other.org', search: 'rust', since: null });
+  expect(publicRooms).toHaveBeenCalledWith({
+    server: 'other.org',
+    search: 'rust',
+    since: null,
+    room_type: null,
+  });
   expect(directory.rooms.map((entry) => entry.room_id)).toEqual(['!a']);
   expect(directory.total).toBe(7);
   expect(directory.hasMore).toBe(false);
@@ -56,7 +61,12 @@ test('a next batch is paged in and appended', async () => {
 
   await directory.loadMore();
 
-  expect(publicRooms).toHaveBeenLastCalledWith({ server: null, search: '', since: 'page-2' });
+  expect(publicRooms).toHaveBeenLastCalledWith({
+    server: null,
+    search: '',
+    since: 'page-2',
+    room_type: null,
+  });
   expect(directory.rooms.map((entry) => entry.room_id)).toEqual(['!a', '!b']);
   expect(directory.hasMore).toBe(false);
 });
@@ -179,6 +189,6 @@ test('a room type filter is sent to the server and enforced on what comes back',
 
   await directory.search({ server: null, search: '', roomType: 'spaces' });
 
-  expect(publicRooms).toHaveBeenCalledWith(expect.objectContaining({ roomType: 'spaces' }));
+  expect(publicRooms).toHaveBeenCalledWith(expect.objectContaining({ room_type: 'spaces' }));
   expect(directory.rooms.map((entry) => entry.room_id)).toEqual(['!space']);
 });
