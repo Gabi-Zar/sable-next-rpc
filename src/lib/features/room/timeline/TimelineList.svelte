@@ -977,6 +977,7 @@
     {members}
     layout={preferences.layout}
     alignOwn={preferences.alignOwnMessages}
+    avatarsInHeaders={preferences.avatarsInMessageHeaders}
     {onJumpToEvent}
     {onOpenMedia}
     {onVotePoll}

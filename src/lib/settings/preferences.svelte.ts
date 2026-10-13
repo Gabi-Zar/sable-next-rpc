@@ -183,6 +183,7 @@ export interface Preferences {
   layout: TimelineLayout;
   threadPresentation: ThreadPresentation;
   alignOwnMessages: boolean;
+  avatarsInMessageHeaders: boolean;
   messageSpacing: MessageSpacing;
   timelineEmoteSize: TimelineEmoteSize;
   theme: ThemeMode;
@@ -503,6 +504,7 @@ const DEFAULTS: Preferences = {
   layout: 'modern',
   threadPresentation: 'timeline',
   alignOwnMessages: true,
+  avatarsInMessageHeaders: true,
   messageSpacing: 'cozy',
   timelineEmoteSize: 'default',
   theme: 'system',

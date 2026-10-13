@@ -148,6 +148,7 @@
     timeAction,
     headerAction,
     alignOwn = true,
+    avatarsInHeaders = true,
     members = [],
     onJumpToEvent,
     onOpenMedia,
@@ -682,13 +683,23 @@
           {/snippet}
         </Tooltip>
         <div class="compact-user">
-          {#if item.sender && onSenderProfile}
-            <button
-              class="avatar-button"
-              type="button"
-              aria-label={$i18n.t('timeline.senderProfile', { name: senderName })}
-              onclick={openSenderProfile}
-            >
+          {#if avatarsInHeaders}
+            {#if item.sender && onSenderProfile}
+              <button
+                class="avatar-button"
+                type="button"
+                aria-label={$i18n.t('timeline.senderProfile', { name: senderName })}
+                onclick={openSenderProfile}
+              >
+                <Avatar
+                  class="message-avatar"
+                  src={senderAvatar}
+                  size="tiny"
+                  id={personaTint ? null : item.sender}
+                  name={senderName}
+                />
+              </button>
+            {:else}
               <Avatar
                 class="message-avatar"
                 src={senderAvatar}
@@ -696,15 +707,7 @@
                 id={personaTint ? null : item.sender}
                 name={senderName}
               />
-            </button>
-          {:else}
-            <Avatar
-              class="message-avatar"
-              src={senderAvatar}
-              size="tiny"
-              id={personaTint ? null : item.sender}
-              name={senderName}
-            />
+            {/if}
           {/if}
           <SenderName
             displayName={senderName}
