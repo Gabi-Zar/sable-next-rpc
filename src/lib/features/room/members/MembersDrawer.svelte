@@ -33,7 +33,7 @@
     memberName,
     membershipFor,
     type MembershipFilter,
-  } from './member-listing';
+  } from '#lib/rooms/member-listing.js';
   import { powerTag } from './power-tags';
   import type { PowerLevelTagMap } from '../settings/power-level-tags';
   import { scrollHint } from '#lib/ui/scroll-hint.js';

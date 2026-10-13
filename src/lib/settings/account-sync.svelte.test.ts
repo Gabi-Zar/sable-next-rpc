@@ -3,11 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CoreEvent } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import {
-  clearDraft,
-  clearDrafts,
-  readDraft,
-} from '#lib/features/composer/composer-drafts.svelte.js';
+import { clearDraft, clearDrafts, readDraft } from '#lib/composer/composer-drafts.svelte.js';
 
 import { ACCOUNT_DATA_KEY_TYPE, AccountSync, type SyncedDocument } from './account-sync.svelte';
 import { draftsDocumentFor } from './sync-documents';

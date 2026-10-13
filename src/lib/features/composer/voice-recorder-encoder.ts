@@ -1,7 +1,7 @@
 import OpusRecorder from 'opus-recorder';
 import encoderUrl from 'opus-recorder/dist/encoderWorker.min.js?url';
 
-import type { VoiceMediaRecorder, VoiceRecordingSession } from './voice-recorder-support';
+import type { VoiceMediaRecorder, VoiceRecordingSession } from './voice-recorder-types';
 
 export function createOggRecorder(
   stream: MediaStream,

@@ -6,7 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-import type { CalendarDraft, CalendarItem } from './calendar-events.js';
+import type { CalendarDraft, CalendarItem } from '#lib/calendar/calendar-events.js';
 import CalendarEventDialog from './CalendarEventDialog.svelte';
 
 afterEach(() => {

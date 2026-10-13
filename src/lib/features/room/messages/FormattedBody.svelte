@@ -494,7 +494,7 @@
     const source = code?.textContent;
     if (!code || !source || language === null || source.length > CODE_HIGHLIGHT_LIMIT) return;
 
-    const html = await import('./code-highlight')
+    const html = await import('#lib/ui/code-highlight.js')
       .then(({ highlightCode }) => highlightCode(source, language))
       .catch((error: unknown) => {
         console.debug('[sable code] highlighter chunk unavailable', error);

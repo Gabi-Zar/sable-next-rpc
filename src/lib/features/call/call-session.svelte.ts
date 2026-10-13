@@ -1,8 +1,5 @@
-import {
-  rememberScreenAudioChoice,
-  type ScreenAudioChoice,
-  screenAudioSupported,
-} from '#lib/platform/screen-audio.js';
+import { rememberScreenAudioChoice, screenAudioSupported } from '#lib/platform/screen-audio.js';
+import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
 import { createContext } from 'svelte';
 
 import { hdrShareSupported, listHdrMonitors, type HdrMonitor } from '#lib/platform/hdr-share.js';

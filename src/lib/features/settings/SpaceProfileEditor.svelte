@@ -24,7 +24,7 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import TimelineItem from '#lib/features/room/timeline/TimelineItem.svelte';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
-  import ColorSetting from './ColorSetting.svelte';
+  import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { type SenderCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import './profile-editor.css';
 

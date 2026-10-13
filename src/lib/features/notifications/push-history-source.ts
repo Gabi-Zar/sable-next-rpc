@@ -1,7 +1,7 @@
 import { clearNativePushHistory, nativePushHistory } from '#lib/platform/native-notifications.js';
 
-import { type PushHistoryEntry, readPushHistory } from './push-history';
-import { clearPushHistory, pushHistory } from './room-names';
+import { type PushHistoryEntry, readPushHistory } from '#lib/notifications/push-history.js';
+import { clearPushHistory, pushHistory } from '#lib/notifications/room-names.js';
 
 export async function loadPushHistory(): Promise<PushHistoryEntry[]> {
   const native = await nativePushHistory();

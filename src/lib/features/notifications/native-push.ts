@@ -9,7 +9,11 @@ import {
 } from '#lib/platform/push.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-import { hasCompleteOverride, pushConfig, type PushOverride } from './push-config';
+import {
+  hasCompleteOverride,
+  pushConfig,
+  type PushOverride,
+} from '#lib/notifications/push-config.js';
 import { clearPushFailure, PushConfigMissing, recordPushFailure } from './push-failure';
 
 export type PushProvider = 'auto' | 'fcm' | 'unifiedpush' | 'embedded';

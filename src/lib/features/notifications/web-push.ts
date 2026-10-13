@@ -7,8 +7,13 @@ import { activeServiceWorker } from '#lib/platform/service-worker.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import { unregisterNativePush } from './native-push';
-import { hasCompleteOverride, pushConfig, type PushOverride, trimmed } from './push-config';
-import { forgetPushSession } from './room-names';
+import {
+  hasCompleteOverride,
+  pushConfig,
+  type PushOverride,
+  trimmed,
+} from '#lib/notifications/push-config.js';
+import { forgetPushSession } from '#lib/notifications/room-names.js';
 
 const REGISTERED_ENDPOINT = 'sable-push-endpoint';
 

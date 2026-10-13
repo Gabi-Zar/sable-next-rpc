@@ -1,6 +1,11 @@
 import type { NotificationModeView, RoomListItemView } from '#src/generated/protocol';
 
-import type { UnreadCount } from './spaces.js';
+export type UnreadCount = {
+  unread: number;
+  highlight: number;
+  marked?: boolean;
+  notifying?: number;
+};
 
 export type RoomUnread = (room: RoomListItemView) => UnreadCount;
 

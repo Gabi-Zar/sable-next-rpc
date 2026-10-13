@@ -28,7 +28,7 @@ import QuickLRU from 'quick-lru';
 import { on } from 'svelte/events';
 import { onDebugLogCapture, recordDebugLog } from '#lib/observability/debug-log.svelte.js';
 import { clearRoomListSnapshot } from '#lib/rooms/room-list-snapshot.js';
-import { clearRecentSearches } from '#lib/features/search/recent-searches.svelte.js';
+import { clearRecentSearches } from '#lib/search/recent-searches.svelte.js';
 import { reportSessionFailure } from '#lib/observability/session-telemetry.js';
 import {
   browserGatesCoreNetwork,

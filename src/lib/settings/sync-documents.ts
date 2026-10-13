@@ -1,29 +1,22 @@
-import {
-  adoptDraftDocuments,
-  draftDocuments,
-} from '#lib/features/composer/composer-drafts.svelte.js';
+import { adoptDraftDocuments, draftDocuments } from '#lib/composer/composer-drafts.svelte.js';
 import {
   adoptFavorites,
   adoptRecentGifs,
   favoriteGifs,
   parseFavorites,
   recentGifs,
-} from '#lib/features/gif/favorites.svelte.js';
+} from '#lib/gif/favorites.svelte.js';
 import {
   adoptRoomIconOverrides,
   parseRoomIconOverrides,
   roomIconOverrides,
-} from '#lib/features/room/settings/room-appearance.svelte.js';
+} from '#lib/rooms/room-appearance.svelte.js';
 import {
   adoptUngroupedFavourites,
   parseUngroupedFavourites,
   ungroupedFavourites,
-} from '#lib/features/sidebar/favourite-grouping.svelte.js';
-import {
-  adoptQueue,
-  parseQueue,
-  scheduledQueue,
-} from '#lib/features/composer/scheduled-queue.svelte.js';
+} from '#lib/rooms/favourite-grouping.svelte.js';
+import { adoptQueue, parseQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { adoptQuietRooms, parseQuietRooms, quietRooms } from '#lib/rooms/quiet-rooms.svelte.js';
 import { parseShortcodes, readRecent, writeRecent } from '#lib/emoji/recent-packs.svelte.js';
 import {

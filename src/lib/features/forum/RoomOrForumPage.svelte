@@ -1,12 +1,12 @@
 <script lang="ts">
   import { page } from '$app/state';
 
-  import { CALENDAR_ROOM_TYPE } from '#lib/features/calendar/calendar-events.js';
+  import { CALENDAR_ROOM_TYPE } from '#lib/calendar/calendar-events.js';
   import CalendarPage from '#lib/features/calendar/CalendarPage.svelte';
   import RoomPage from '#lib/features/room/RoomPage.svelte';
   import { findRoomByPathId, useRoomList } from '#lib/rooms/room-list.svelte.js';
 
-  import { FORUM_ROOM_TYPE } from './forum-detection.js';
+  import { FORUM_ROOM_TYPE } from '#lib/rooms/forum-detection.js';
   import ForumPage from './ForumPage.svelte';
 
   const roomList = useRoomList();

@@ -5,7 +5,7 @@
   import { i18n } from '#lib/i18n.js';
   import { formatClockDuration } from '#lib/ui/clock-duration.js';
 
-  import { objectSource, type PreviewKind } from './composer-files';
+  import { objectSource, type PreviewKind } from '#lib/composer/composer-files.js';
 
   interface Props {
     file: File;

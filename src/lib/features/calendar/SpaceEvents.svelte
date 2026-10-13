@@ -12,7 +12,7 @@
     startOfDay,
     type CalendarItem,
     type Occurrence,
-  } from './calendar-events.js';
+  } from '#lib/calendar/calendar-events.js';
 
   const LIMIT = 3;
 

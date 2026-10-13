@@ -52,6 +52,23 @@ export default defineConfig([
     },
   },
   {
+    files: ['src/lib/**/*.{ts,svelte}'],
+    ignores: ['src/lib/features/**', 'src/lib/**/*.test.ts', 'src/lib/**/*.test.svelte'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['#lib/features/*', '**/features/*'],
+              message: 'Shared lib must not import from a feature; move the module down instead.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.svelte'],
     languageOptions: {
       parserOptions: {

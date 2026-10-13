@@ -14,7 +14,7 @@
   import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
   import TitleBar from '#lib/ui/TitleBar.svelte';
   import SessionRestoreError from '#lib/ui/SessionRestoreError.svelte';
-  import AccountLocked from '#lib/ui/AccountLocked.svelte';
+  import AccountLocked from '#lib/features/sidebar/AccountLocked.svelte';
   import favicon from '#lib/assets/favicon.png';
   import { trackKeyboardInset } from '#lib/platform/keyboard.js';
   import { trackInspectorShortcut } from '#lib/platform/devtools.js';

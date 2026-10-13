@@ -26,7 +26,11 @@
   import { formatFullTimestamp, formatMessageTimestamp } from '#lib/ui/date-time.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import { MESSAGE_SEARCH_FIELD_ID, MessageSearch } from './message-search.svelte.js';
-  import { clearRecentSearches, recentSearches, rememberSearch } from './recent-searches.svelte.js';
+  import {
+    clearRecentSearches,
+    recentSearches,
+    rememberSearch,
+  } from '#lib/search/recent-searches.svelte.js';
   import {
     resolveRoomTarget,
     resolveSpaceTarget,

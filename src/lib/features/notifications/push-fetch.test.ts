@@ -8,7 +8,7 @@ import {
   type PushFetcher,
   readPushFetch,
 } from './push-fetch';
-import { pushNotification } from './push-fixtures';
+import { pushNotification } from '#lib/notifications/push-fixtures.js';
 
 const ROOM = '!room:example.org';
 const bare = pushNotification({ room_id: ROOM, event_id: '$event', user_id: '@me:example.org' });

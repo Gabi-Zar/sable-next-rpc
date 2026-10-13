@@ -9,12 +9,8 @@
   import StickerIcon from 'phosphor-svelte/lib/StickerIcon';
 
   import { runtimeConfig } from '#lib/config/runtime-config.js';
-  import { rememberGif } from '#lib/features/gif/favorites.svelte.js';
-  import {
-    gifSearchAvailable,
-    type GifResult,
-    type GifsConfig,
-  } from '#lib/features/gif/providers.js';
+  import { rememberGif } from '#lib/gif/favorites.svelte.js';
+  import { gifSearchAvailable, type GifResult, type GifsConfig } from '#lib/gif/providers.js';
   import { i18n } from '#lib/i18n.js';
   import {
     isComposerSeparator,

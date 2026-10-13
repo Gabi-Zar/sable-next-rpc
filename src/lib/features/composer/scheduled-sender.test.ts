@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import { adoptQueue, scheduledQueue } from './scheduled-queue.svelte';
+import { adoptQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { watchScheduledQueue } from './scheduled-sender';
 
 const message = {

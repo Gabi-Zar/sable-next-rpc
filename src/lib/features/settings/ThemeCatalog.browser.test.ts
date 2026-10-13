@@ -12,7 +12,7 @@ vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 import { clearThemePreview, replaceCustomThemes } from '#lib/settings/custom-themes.svelte.js';
 
 import CustomThemes from './CustomThemes.svelte';
-import { CATALOG_URL, resetCatalog } from './theme-catalog';
+import { CATALOG_URL, resetCatalog } from '#lib/settings/theme-catalog.js';
 
 const FILES = 'https://git.sable.moe/SableClient/themes/raw/branch/main/';
 const NAMES = Array.from({ length: 60 }, (_, index) => `Theme ${String(index).padStart(2, '0')}`);

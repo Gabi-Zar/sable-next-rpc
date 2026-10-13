@@ -17,8 +17,8 @@ vi.mock('#lib/platform/push.js', () => ({
 }));
 vi.mock('#lib/platform/notifications.js', () => ({ deliversNativePush: mocks.native }));
 vi.mock('#lib/settings/preferences.svelte.js', () => ({ preferences: { richPushPayloads: true } }));
-vi.mock('./push-config', async (original) => ({
-  ...(await original<typeof import('./push-config')>()),
+vi.mock('#lib/notifications/push-config.js', async (original) => ({
+  ...(await original<typeof import('#lib/notifications/push-config.js')>()),
   pushConfig: mocks.config,
 }));
 

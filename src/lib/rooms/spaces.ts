@@ -1,13 +1,6 @@
 import type { RoomListItemView } from '#src/generated/protocol';
 
-import { quietUnread, type RoomUnread, roomUnread } from './unread.js';
-
-export type UnreadCount = {
-  unread: number;
-  highlight: number;
-  marked?: boolean;
-  notifying?: number;
-};
+import { quietUnread, type RoomUnread, roomUnread, type UnreadCount } from './unread.js';
 
 export function spaceUnreadCounts(
   spaces: readonly RoomListItemView[],

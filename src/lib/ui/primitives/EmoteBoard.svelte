@@ -2,8 +2,8 @@
   import { MediaQuery } from 'svelte/reactivity';
   import type { ImagePackView, ImageUsageView, PackImageView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
-  import GifGrid from '#lib/features/gif/GifGrid.svelte';
-  import type { GifProviderSetting, GifResult, GifsConfig } from '#lib/features/gif/providers.js';
+  import GifGrid from '#lib/gif/GifGrid.svelte';
+  import type { GifProviderSetting, GifResult, GifsConfig } from '#lib/gif/providers.js';
   import { i18n } from '#lib/i18n.js';
   import { shouldReduceMotion } from '#lib/ui/motion.js';
   import { isPackChange, loadPacks } from '#lib/emoji/load-packs.js';

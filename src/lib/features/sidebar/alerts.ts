@@ -1,7 +1,7 @@
-import * as DesktopUpdateAlert from '#lib/ui/DesktopUpdateAlert.svelte';
-import * as RecoveryIncompleteAlert from '#lib/ui/RecoveryIncompleteAlert.svelte';
-import * as UnverifiedDeviceAlert from '#lib/ui/UnverifiedDeviceAlert.svelte';
-import * as WebUpdateAlert from '#lib/ui/WebUpdateAlert.svelte';
+import * as DesktopUpdateAlert from '#lib/features/sidebar/DesktopUpdateAlert.svelte';
+import * as RecoveryIncompleteAlert from '#lib/features/sidebar/RecoveryIncompleteAlert.svelte';
+import * as UnverifiedDeviceAlert from '#lib/features/sidebar/UnverifiedDeviceAlert.svelte';
+import * as WebUpdateAlert from '#lib/features/sidebar/WebUpdateAlert.svelte';
 import { createContext, type Component } from 'svelte';
 
 export type Priority = null | 'update' | 'warning' | 'security';

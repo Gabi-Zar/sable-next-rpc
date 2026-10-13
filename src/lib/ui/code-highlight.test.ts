@@ -5,7 +5,7 @@ import { getConfig, pluginVersion } from '@arborium/arborium';
 
 test('desktop CSP permits the highlighter host and grammar modules', () => {
   const config = JSON.parse(
-    readFileSync(new URL('../../../../../src-tauri/tauri.conf.json', import.meta.url), 'utf8')
+    readFileSync(new URL('../../../src-tauri/tauri.conf.json', import.meta.url), 'utf8')
   ) as { app: { security: { csp: { 'script-src': string } } } };
   const sources: string[] = config.app.security.csp['script-src'].split(/\s+/);
   const cdn = getConfig().cdn;

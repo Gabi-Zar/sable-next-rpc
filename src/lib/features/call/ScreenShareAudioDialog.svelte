@@ -10,8 +10,8 @@
     lastScreenAudioChoice,
     listScreenAudioApps,
     screenAudioPicksMany,
-    type ScreenAudioChoice,
   } from '#lib/platform/screen-audio.js';
+  import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import DialogActions from '#lib/ui/primitives/DialogActions.svelte';

@@ -7,7 +7,7 @@
   import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
   import { untrack, type ComponentProps } from 'svelte';
 
-  import type { ComposerContext } from './composer-context';
+  import type { ComposerContext } from '#lib/composer/composer-context.js';
   import RoomComposer from './RoomComposer.svelte';
 
   interface Props {

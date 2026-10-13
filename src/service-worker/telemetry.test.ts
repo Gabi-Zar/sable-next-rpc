@@ -2,7 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({ consent: vi.fn(), envelopes: [] as unknown[] }));
 
-vi.mock('#lib/features/notifications/room-names.js', () => ({ telemetryConsent: state.consent }));
+vi.mock('#lib/notifications/room-names.js', () => ({ telemetryConsent: state.consent }));
 vi.mock('@sentry/sveltekit', async () => {
   const { createRequire } = await import('node:module');
   const require = createRequire(import.meta.url);

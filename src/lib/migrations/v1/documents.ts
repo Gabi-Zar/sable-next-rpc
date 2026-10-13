@@ -1,4 +1,4 @@
-import { parseFavorites } from '#lib/features/gif/favorites.svelte.js';
+import { parseFavorites } from '#lib/gif/favorites.svelte.js';
 import { V1_MIGRATION_ENABLED } from './config.js';
 import { convertV1SyncedSettings } from './preferences.js';
 

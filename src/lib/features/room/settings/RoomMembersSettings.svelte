@@ -30,7 +30,7 @@
     matchesFilter,
     membershipFor,
     type MembershipFilter,
-  } from '../members/member-listing';
+  } from '#lib/rooms/member-listing.js';
   import MentionProfile from '../members/MentionProfile.svelte';
   import { powerTag } from '../members/power-tags';
   import RoleTagIcon from '../members/RoleTagIcon.svelte';

@@ -17,16 +17,16 @@ import type { CoreClient, OutgoingMentions } from '#lib/core/client.svelte.js';
 import type { SendAttachmentOptions, SendGalleryOptions } from '#lib/core/media.svelte.js';
 import { editMessage, sendMessage } from '#lib/core/api/messages.svelte.js';
 import type { BotCommandInvocation } from '#lib/features/composer/bot-commands.js';
-import { readReply, writeReply } from '#lib/features/composer/composer-drafts.svelte.js';
-import type { ComposerContext, ScheduledTarget } from '#lib/features/composer/composer-context.js';
-import { dequeue, enqueue } from '#lib/features/composer/scheduled-queue.svelte.js';
+import { readReply, writeReply } from '#lib/composer/composer-drafts.svelte.js';
+import type { ComposerContext, ScheduledTarget } from '#lib/composer/composer-context.js';
+import { dequeue, enqueue } from '#lib/composer/scheduled-queue.svelte.js';
 import {
   isEncryptedScheduleUnsupported,
   isServerScheduleUnsupported,
   ScheduledOriginalKept,
 } from '#lib/features/composer/send-failure.js';
 import { runSlash } from '#lib/features/composer/slash-commands.js';
-import { gifFilename, proxiedGif, type GifResult } from '#lib/features/gif/providers.js';
+import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
 import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages/reply-preview.js';
 import { previewableLinks } from '#lib/features/room/media/link-preview.js';
 import { previewSources, resolveUrlPreview } from '#lib/features/room/media/link-preview-cache.js';

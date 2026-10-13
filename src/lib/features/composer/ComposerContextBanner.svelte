@@ -7,7 +7,7 @@
   import { i18n } from '#lib/i18n.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
 
-  import type { ComposerContext } from './composer-context';
+  import type { ComposerContext } from '#lib/composer/composer-context.js';
 
   interface Props {
     context: ComposerContext;

@@ -22,7 +22,7 @@ import {
   silencedByRoomMode,
   type WebPushValidation,
   webPushValidation,
-} from '#lib/features/notifications/push-payload.js';
+} from '#lib/notifications/push-payload.js';
 import {
   completePushPayload,
   namesOnlyItsEvent,
@@ -32,14 +32,14 @@ import {
   isDiagnosticPush,
   pushTrace,
   type PushHistoryEntry,
-} from '#lib/features/notifications/push-history.js';
+} from '#lib/notifications/push-history.js';
 import {
   pushContentPolicy,
   pushSession,
   recordPush,
   roomMode,
   roomName,
-} from '#lib/features/notifications/room-names.js';
+} from '#lib/notifications/room-names.js';
 import { loadModel, roomTag } from '#lib/model/model.js';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';

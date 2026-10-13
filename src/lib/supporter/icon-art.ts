@@ -1,13 +1,13 @@
 import logo from '#lib/assets/res/svg/logo.svg?raw';
 import ghost from './ghost.svg?raw';
-import agender from '#lib/features/settings/app-icons/agender.svg?raw';
-import bisexual from '#lib/features/settings/app-icons/bisexual.svg?raw';
-import pansexual from '#lib/features/settings/app-icons/pansexual.svg?raw';
-import transgradient from '#lib/features/settings/app-icons/transgradient.svg?raw';
-import intersex from '#lib/features/settings/app-icons/intersex.svg?raw';
-import lesbian from '#lib/features/settings/app-icons/lesbian.svg?raw';
-import mlm from '#lib/features/settings/app-icons/mlm.svg?raw';
-import pride from '#lib/features/settings/app-icons/pride.svg?raw';
+import agender from '#lib/supporter/app-icons/agender.svg?raw';
+import bisexual from '#lib/supporter/app-icons/bisexual.svg?raw';
+import pansexual from '#lib/supporter/app-icons/pansexual.svg?raw';
+import transgradient from '#lib/supporter/app-icons/transgradient.svg?raw';
+import intersex from '#lib/supporter/app-icons/intersex.svg?raw';
+import lesbian from '#lib/supporter/app-icons/lesbian.svg?raw';
+import mlm from '#lib/supporter/app-icons/mlm.svg?raw';
+import pride from '#lib/supporter/app-icons/pride.svg?raw';
 
 export const SABLE_PATHS = [...logo.matchAll(/\bd="([^"]+)"/g)].map((match) => match[1]);
 export const GHOST_SABLE_PATH = /\bd="([^"]+)"/.exec(ghost)?.[1] ?? SABLE_PATHS[0];

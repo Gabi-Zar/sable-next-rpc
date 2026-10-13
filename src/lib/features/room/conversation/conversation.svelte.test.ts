@@ -8,8 +8,8 @@ import type { CoreClient } from '#lib/core/client.svelte.js';
 import type { PersonaStore } from '#lib/personas/personas.svelte.js';
 import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
 
-import { clearDrafts } from '#lib/features/composer/composer-drafts.svelte.js';
-import { adoptQueue, scheduledQueue } from '#lib/features/composer/scheduled-queue.svelte.js';
+import { clearDrafts } from '#lib/composer/composer-drafts.svelte.js';
+import { adoptQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { ScheduledOriginalKept } from '#lib/features/composer/send-failure.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
 import * as runtime from '#lib/config/runtime-config.js';

@@ -7,7 +7,7 @@ const stored = vi.hoisted(() => ({
   forget: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('./room-names', () => ({
+vi.mock('#lib/notifications/room-names.js', () => ({
   putPushSession: stored.put,
   forgetPushSession: stored.forget,
 }));

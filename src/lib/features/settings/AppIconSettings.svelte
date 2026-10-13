@@ -7,16 +7,16 @@
   import Select from '#lib/ui/primitives/Select.svelte';
   import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
 
-  import defaultIcon from './app-icons/default.png';
-  import propeller from './app-icons/propeller.png';
-  import agender from './app-icons/agender.svg';
-  import bisexual from './app-icons/bisexual.svg';
-  import trans from './app-icons/trans.png';
-  import transgradient from './app-icons/transgradient.svg';
-  import intersex from './app-icons/intersex.svg';
-  import lesbian from './app-icons/lesbian.svg';
-  import mlm from './app-icons/mlm.svg';
-  import pride from './app-icons/pride.svg';
+  import defaultIcon from '#lib/supporter/app-icons/default.png';
+  import propeller from '#lib/supporter/app-icons/propeller.png';
+  import agender from '#lib/supporter/app-icons/agender.svg';
+  import bisexual from '#lib/supporter/app-icons/bisexual.svg';
+  import trans from '#lib/supporter/app-icons/trans.png';
+  import transgradient from '#lib/supporter/app-icons/transgradient.svg';
+  import intersex from '#lib/supporter/app-icons/intersex.svg';
+  import lesbian from '#lib/supporter/app-icons/lesbian.svg';
+  import mlm from '#lib/supporter/app-icons/mlm.svg';
+  import pride from '#lib/supporter/app-icons/pride.svg';
   import '#lib/ui/primitives/settings-row.css';
 
   const previews: Record<string, string> = {

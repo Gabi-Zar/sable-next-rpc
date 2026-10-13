@@ -10,7 +10,7 @@ import { preferences } from '#lib/settings/preferences.svelte.js';
 import { loadMediaUrl } from '#lib/ui/media-url.js';
 
 import { appendLine, type ConversationLine, summarise } from './conversation';
-import { parsePushPayload, webPushValidation } from './push-payload';
+import { parsePushPayload, webPushValidation } from '#lib/notifications/push-payload.js';
 import { enabled, line, tag, title } from './present';
 import { retireReadAlerts, retireRoomAlerts } from './retire';
 import { playNotificationSound } from './sound';

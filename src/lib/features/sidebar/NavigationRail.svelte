@@ -10,7 +10,8 @@
   import { page } from '$app/state';
   import { i18n } from '#lib/i18n.js';
   import { findRoomByPathId, roomPathParam, useRoomList } from '#lib/rooms/room-list.svelte.js';
-  import { addUnread, type UnreadCount } from '#lib/rooms/spaces.js';
+  import { addUnread } from '#lib/rooms/spaces.js';
+  import type { UnreadCount } from '#lib/rooms/unread.js';
   import { NO_UNREAD, roomUnread, type RoomUnread } from '#lib/rooms/unread.js';
   import {
     folderName,

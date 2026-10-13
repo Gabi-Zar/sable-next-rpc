@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, test } from 'vitest';
-import { adoptFavorites, favoriteGifs } from '#lib/features/gif/favorites.svelte.js';
+import { adoptFavorites, favoriteGifs } from '#lib/gif/favorites.svelte.js';
 import { SpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
 import { workspaceDocument } from '#lib/settings/sync-documents.js';
 import { convertV1Workspace } from './documents.js';

@@ -26,7 +26,7 @@
     overrideProblem,
     type PushOverride,
     pushOverride,
-  } from './push-config';
+  } from '#lib/notifications/push-config.js';
   import '#lib/ui/primitives/settings-row.css';
 
   const problemLabels: Record<OverrideProblem, string> = {

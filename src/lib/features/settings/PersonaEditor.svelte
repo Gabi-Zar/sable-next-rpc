@@ -17,7 +17,7 @@
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Switch from '#lib/ui/primitives/Switch.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
-  import ColorSetting from './ColorSetting.svelte';
+  import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
 
   interface Props {

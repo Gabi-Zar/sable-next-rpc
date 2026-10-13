@@ -7,17 +7,14 @@ import {
   clearDrafts,
   readDraft,
   writeDraft,
-} from '#lib/features/composer/composer-drafts.svelte.js';
+} from '#lib/composer/composer-drafts.svelte.js';
 import {
   adoptFavorites,
   adoptRecentGifs,
   favoriteGifs,
   recentGifs,
-} from '#lib/features/gif/favorites.svelte.js';
-import {
-  adoptRoomIconOverrides,
-  roomIconOverrides,
-} from '#lib/features/room/settings/room-appearance.svelte.js';
+} from '#lib/gif/favorites.svelte.js';
+import { adoptRoomIconOverrides, roomIconOverrides } from '#lib/rooms/room-appearance.svelte.js';
 import { adoptQuietRooms, quietRooms } from '#lib/rooms/quiet-rooms.svelte.js';
 import { readRecent, writeRecent } from '#lib/emoji/recent-packs.svelte.js';
 import { adoptRecentReactions, recentReactionEntries } from '#lib/emoji/recents.svelte.js';

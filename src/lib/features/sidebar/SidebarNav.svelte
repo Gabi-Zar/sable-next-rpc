@@ -9,12 +9,8 @@
   import { useCallSession } from '#lib/features/call/call-session.svelte.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { findRoomByPathId, useRoomList } from '#lib/rooms/room-list.svelte.js';
-  import {
-    addUnread,
-    spacesContainingRoom,
-    spaceUnreadTotals,
-    type UnreadCount,
-  } from '#lib/rooms/spaces.js';
+  import { addUnread, spacesContainingRoom, spaceUnreadTotals } from '#lib/rooms/spaces.js';
+  import type { UnreadCount } from '#lib/rooms/unread.js';
   import { hasUnread } from '#lib/rooms/unread.js';
   import {
     applyDrop,

@@ -35,7 +35,7 @@ import { toProseMirrorKey } from '#lib/ui/shortcuts/binding.js';
 import { bindingFor } from '#lib/ui/shortcuts/bindings.svelte.js';
 import type { ShortcutId } from '#lib/ui/shortcuts/shortcuts.js';
 import type { AutocompleteQuery } from '../autocomplete';
-import { filesFrom } from '../composer-files';
+import { filesFrom } from '#lib/composer/composer-files.js';
 import { autolinks } from './autolinks';
 import { compositionInputRules } from './composition-rules';
 import {

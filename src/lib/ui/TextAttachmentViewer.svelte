@@ -85,7 +85,7 @@
 
   async function highlight(source: string): Promise<string | null> {
     if (language === null) return null;
-    const { highlightCode } = await import('#lib/features/room/messages/code-highlight.js');
+    const { highlightCode } = await import('#lib/ui/code-highlight.js');
     return highlightCode(source, language);
   }
 

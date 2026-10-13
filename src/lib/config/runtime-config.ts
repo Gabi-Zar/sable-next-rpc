@@ -1,10 +1,6 @@
 import { asset } from '$app/paths';
 
-import {
-  gifProviderIds,
-  type GifProviderId,
-  type GifsConfig,
-} from '#lib/features/gif/providers.js';
+import { gifProviderIds, type GifProviderId, type GifsConfig } from '#lib/gif/providers.js';
 
 /** Key names follow v1's `config.json` so a deployment can carry its file over. */
 export type PushDetails = {

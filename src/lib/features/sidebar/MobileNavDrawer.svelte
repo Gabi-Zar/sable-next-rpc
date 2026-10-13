@@ -15,10 +15,10 @@
     startSwipeGesture,
     updateSwipeGesture,
     type SwipeGesture,
-  } from './swipe-gesture';
-  import { BREAKPOINTS } from './breakpoints';
+  } from '#lib/ui/swipe-gesture.js';
+  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import { backToRoomList, goToPage, isRoomSwitch } from '#lib/features/room/room-navigation.js';
-  import CoreHealthBanner from './CoreHealthBanner.svelte';
+  import CoreHealthBanner from '#lib/ui/CoreHealthBanner.svelte';
 
   interface Props {
     children: Snippet;

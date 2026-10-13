@@ -9,7 +9,7 @@
 
   import { downsampleWaveform } from './voice-waveform';
   import { extensionForMimeType, loadVoiceRecorder } from './voice-recorder-support';
-  import type { VoiceMediaRecorder } from './voice-recorder-support';
+  import type { VoiceMediaRecorder } from './voice-recorder-types';
 
   interface Props {
     onSend: (file: File) => void;

@@ -4,8 +4,8 @@ import type { PushFetchView } from '#src/generated/protocol';
 
 import { isRecord } from '#lib/guards.js';
 
-import { pushContent, type PushNotification } from './push-payload';
-import type { PushSession } from './room-names';
+import { pushContent, type PushNotification } from '#lib/notifications/push-payload.js';
+import type { PushSession } from '#lib/notifications/room-names.js';
 
 const REQUEST_TIMEOUT_MS = 8000;
 const AVATAR_SIZE = 96;

@@ -1,6 +1,6 @@
 import { BrowserClient, defaultStackParser, makeFetchTransport } from '@sentry/sveltekit';
 
-import { telemetryConsent } from '#lib/features/notifications/room-names.js';
+import { telemetryConsent } from '#lib/notifications/room-names.js';
 import { scrubSentryEvent } from '#lib/observability/sentry-event.js';
 
 let client: BrowserClient | undefined;

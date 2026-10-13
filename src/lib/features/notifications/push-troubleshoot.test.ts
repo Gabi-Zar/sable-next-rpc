@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { RegisteredPusherView } from '#src/generated/protocol';
 
-import type { PushHistoryEntry } from './push-history';
+import type { PushHistoryEntry } from '#lib/notifications/push-history.js';
 import {
   type TroubleshootCheck,
   type TroubleshootDeps,

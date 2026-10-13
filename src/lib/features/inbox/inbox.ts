@@ -3,7 +3,7 @@ import type { BookmarkView, InboxItemView, RoomListItemView } from '#src/generat
 import { formatTime } from '#lib/ui/date-time.js';
 import { currentLocale } from '#lib/i18n.js';
 import { hasUnread, type RoomUnread, roomUnread } from '#lib/rooms/unread.js';
-import type { UnreadCount } from '#lib/rooms/spaces.js';
+import type { UnreadCount } from '#lib/rooms/unread.js';
 
 export type NotificationFilter = 'all' | 'mentions' | 'direct';
 export type InboxTab = 'notifications' | 'invites' | 'requests';

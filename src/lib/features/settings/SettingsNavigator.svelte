@@ -5,7 +5,7 @@
   import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
 
   import { useCoreClient } from '#lib/core/context.js';
-  import { pushOverride } from '#lib/features/notifications/push-config.js';
+  import { pushOverride } from '#lib/notifications/push-config.js';
   import { logoutWithPush } from '#lib/features/notifications/web-push.js';
   import SignOutWarningDialog from '#lib/features/sidebar/SignOutWarningDialog.svelte';
   import { SignOutGuard } from '#lib/features/sidebar/sign-out-guard.svelte.js';

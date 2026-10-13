@@ -22,7 +22,7 @@
     VELOCITY_THRESHOLD,
   } from '#lib/ui/swipe-gesture.js';
 
-  import { objectSource, previewKind, type StagedFile } from './composer-files';
+  import { objectSource, previewKind, type StagedFile } from '#lib/composer/composer-files.js';
   import StagedImageOptions from './StagedImageOptions.svelte';
   import { canStrip } from './strip-metadata';
 

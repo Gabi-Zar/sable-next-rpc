@@ -30,7 +30,7 @@ const safeAreaOwners = new Set([
   'src/lib/ui/BannerDock.svelte',
   'src/lib/ui/CoreHealthBanner.svelte',
   'src/lib/ui/ToastRegion.svelte',
-  'src/lib/ui/MobileNavDrawer.svelte',
+  'src/lib/features/sidebar/MobileNavDrawer.svelte',
   'src/lib/ui/primitives/BottomSheet.svelte',
   'src/lib/ui/primitives/DialogFrame.svelte',
   'src/lib/features/room/media/MediaViewer.svelte',

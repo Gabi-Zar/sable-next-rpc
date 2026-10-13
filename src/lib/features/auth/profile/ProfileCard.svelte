@@ -1,7 +1,7 @@
 <script lang="ts">
   import CameraIcon from 'phosphor-svelte/lib/CameraIcon';
 
-  import ColorSetting from '#lib/features/settings/ColorSetting.svelte';
+  import ColorSetting from '#lib/ui/ColorSetting.svelte';
 
   import { i18n } from '#lib/i18n.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';

@@ -5,8 +5,8 @@ import {
   writeDraft,
   draftDocuments,
   adoptDraftDocuments,
-} from './composer-drafts.svelte';
-import { adoptQueue, scheduledQueue, dueMessages } from './scheduled-queue.svelte';
+} from '#lib/composer/composer-drafts.svelte.js';
+import { adoptQueue, scheduledQueue, dueMessages } from '#lib/composer/scheduled-queue.svelte.js';
 
 const room = '!shared:test';
 const draft = { doc: { text: 'private' }, staged: [], nextStagedId: 0 };

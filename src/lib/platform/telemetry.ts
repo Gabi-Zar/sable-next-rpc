@@ -1,7 +1,7 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
 import { preferences } from '#lib/settings/preferences.svelte.js';
-import { putTelemetryConsent } from '#lib/features/notifications/room-names.js';
+import { putTelemetryConsent } from '#lib/notifications/room-names.js';
 
 export function telemetryConsentPending(): boolean {
   return Boolean(import.meta.env.VITE_SENTRY_DSN) && !preferences.telemetryAsked;

@@ -18,9 +18,14 @@
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
 
-  import type { ScheduledTarget } from './composer-context';
+  import type { ScheduledTarget } from '#lib/composer/composer-context.js';
   import { scheduledTimeLabel } from './schedule-time.js';
-  import { dequeue, enqueue, queueFor, type QueuedMessage } from './scheduled-queue.svelte.js';
+  import {
+    dequeue,
+    enqueue,
+    queueFor,
+    type QueuedMessage,
+  } from '#lib/composer/scheduled-queue.svelte.js';
 
   interface Props {
     roomId: string;

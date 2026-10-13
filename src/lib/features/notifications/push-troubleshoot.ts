@@ -2,7 +2,7 @@ import type { DiagnosticPushView, RegisteredPusherView } from '#src/generated/pr
 import type { PushPlatform } from '#lib/platform/notifications.js';
 
 import { describePushFailure, type PushFailure } from './push-failure';
-import type { PushHistoryEntry } from './push-history';
+import type { PushHistoryEntry } from '#lib/notifications/push-history.js';
 
 export type TroubleshootCheck =
   | 'permission'

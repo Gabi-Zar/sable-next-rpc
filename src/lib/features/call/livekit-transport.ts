@@ -16,10 +16,10 @@ import {
 
 import {
   captureScreenAudio,
-  type ScreenAudioChoice,
   screenAudioSupported,
   stopScreenAudio,
 } from '#lib/platform/screen-audio.js';
+import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
 import { startHdrShare, stopHdrShare } from '#lib/platform/hdr-share.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 

@@ -5,7 +5,7 @@
   import type { PresenceView, ProfileView } from '#src/generated/protocol';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
-  import { pushOverride } from '#lib/features/notifications/push-config.js';
+  import { pushOverride } from '#lib/notifications/push-config.js';
   import { logoutWithPush } from '#lib/features/notifications/web-push.js';
   import { i18n } from '#lib/i18n.js';
   import DotsThreeVerticalIcon from 'phosphor-svelte/lib/DotsThreeVerticalIcon';

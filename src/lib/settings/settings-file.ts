@@ -3,7 +3,7 @@ import {
   overrideProblem,
   type PushOverride,
   trimmed,
-} from '#lib/features/notifications/push-config.js';
+} from '#lib/notifications/push-config.js';
 
 import type { StoredThemes } from './custom-themes.svelte.js';
 import type { Preferences } from './preferences.svelte.js';

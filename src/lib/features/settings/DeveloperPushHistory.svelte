@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PushHistoryEntry } from '#lib/features/notifications/push-history.js';
+  import type { PushHistoryEntry } from '#lib/notifications/push-history.js';
   import {
     forgetPushHistory,
     loadPushHistory,

@@ -19,7 +19,7 @@
     type Frequency,
     epochToLocal,
     localToEpoch,
-  } from './calendar-events.js';
+  } from '#lib/calendar/calendar-events.js';
 
   const HOUR = 3_600_000;
   const DAY = 86_400_000;

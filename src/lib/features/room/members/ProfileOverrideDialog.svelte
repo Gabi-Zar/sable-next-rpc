@@ -2,7 +2,7 @@
   import type { AvatarEditView, FieldEdit } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
-  import ColorSetting from '#lib/features/settings/ColorSetting.svelte';
+  import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { i18n } from '#lib/i18n.js';
   import { downscaledAvatar, encryptAttachment } from '#lib/profile/encrypted-file.js';
   import { profileOverrides, type OverrideEdit } from '#lib/profile/profile-overrides.svelte.js';

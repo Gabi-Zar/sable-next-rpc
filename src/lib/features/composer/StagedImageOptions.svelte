@@ -8,7 +8,7 @@
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
   import ActionMenuSub from '#lib/ui/primitives/ActionMenuSub.svelte';
 
-  import type { StagedFile } from './composer-files';
+  import type { StagedFile } from '#lib/composer/composer-files.js';
 
   interface Props {
     item: StagedFile;

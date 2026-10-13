@@ -11,7 +11,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n, t } from '#lib/i18n.js';
   import SettingsAnchorLink from '#lib/ui/primitives/SettingsAnchorLink.svelte';
-  import { pushOverride, trimmed } from '#lib/features/notifications/push-config.js';
+  import { pushOverride, trimmed } from '#lib/notifications/push-config.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';

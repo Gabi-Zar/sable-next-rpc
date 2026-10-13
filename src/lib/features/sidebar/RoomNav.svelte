@@ -63,15 +63,12 @@
     readReceiptIsPrivate,
     setPreference,
   } from '#lib/settings/preferences.svelte.js';
-  import {
-    roomIconOverride,
-    showsRoomAvatar,
-  } from '#lib/features/room/settings/room-appearance.svelte.js';
+  import { roomIconOverride, showsRoomAvatar } from '#lib/rooms/room-appearance.svelte.js';
   import RoomSettingsDialog from '#lib/features/room/settings/RoomSettingsDialog.svelte';
   import { bannerChanges, readRoomBanner } from '#lib/features/room/room-banner.svelte.js';
   import { goToPage, scopedSearchPath } from '#lib/features/room/room-navigation.js';
-  import { CALENDAR_ROOM_TYPE } from '#lib/features/calendar/calendar-events.js';
-  import { FORUM_ROOM_TYPE } from '#lib/features/forum/forum-detection.js';
+  import { CALENDAR_ROOM_TYPE } from '#lib/calendar/calendar-events.js';
+  import { FORUM_ROOM_TYPE } from '#lib/rooms/forum-detection.js';
   import CalendarRowEvent from '#lib/features/calendar/CalendarRowEvent.svelte';
   import SpaceEvents from '#lib/features/calendar/SpaceEvents.svelte';
 
@@ -83,7 +80,7 @@
   import RoomInvites from './RoomInvites.svelte';
   import RoomOptionsMenu from './RoomOptionsMenu.svelte';
   import ChecksIcon from 'phosphor-svelte/lib/ChecksIcon';
-  import { groupsFavourites, setGroupsFavourites } from './favourite-grouping.svelte.js';
+  import { groupsFavourites, setGroupsFavourites } from '#lib/rooms/favourite-grouping.svelte.js';
   import DotsThreeVerticalIcon from 'phosphor-svelte/lib/DotsThreeVerticalIcon';
   import GearIcon from 'phosphor-svelte/lib/GearIcon';
   import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';

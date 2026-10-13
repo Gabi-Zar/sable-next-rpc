@@ -8,7 +8,7 @@
   import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import SettingsSection from '#lib/ui/primitives/SettingsSection.svelte';
 
-  import { roomIconOverride, setRoomIconOverride } from './room-appearance.svelte';
+  import { roomIconOverride, setRoomIconOverride } from '#lib/rooms/room-appearance.svelte.js';
 
   import '#lib/ui/primitives/settings-row.css';
 

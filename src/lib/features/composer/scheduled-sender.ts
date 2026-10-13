@@ -1,7 +1,7 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { sendMessage } from '#lib/core/api/messages.svelte.js';
 
-import { dequeue, dueMessages } from './scheduled-queue.svelte.js';
+import { dequeue, dueMessages } from '#lib/composer/scheduled-queue.svelte.js';
 
 const TICK_MS = 15_000;
 

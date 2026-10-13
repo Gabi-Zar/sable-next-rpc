@@ -10,7 +10,7 @@ vi.mock('#lib/core/context.js');
 import { core } from '#lib/core/__mocks__/context.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
 
-import { adoptQueue, scheduledQueue } from './scheduled-queue.svelte.js';
+import { adoptQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import ScheduledMessages from './ScheduledMessages.svelte';
 
 const ROOM = '!room:example.org';

@@ -2,7 +2,10 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 
 import workletUrl from './screen-audio-worklet.js?url&no-inline';
 
-import type { ScreenAudioChoice } from './screen-audio';
+export type ScreenAudioChoice =
+  | { kind: 'none' }
+  | { kind: 'system'; exclude: string[] }
+  | { kind: 'apps'; include: string[] };
 
 const SAMPLE_RATE = 48_000;
 

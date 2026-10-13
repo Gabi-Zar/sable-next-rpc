@@ -6,7 +6,7 @@
 
   import SupporterMark from './SupporterMark.svelte';
   import SupporterBadge from './SupporterBadge.svelte';
-  import ColorSetting from '#lib/features/settings/ColorSetting.svelte';
+  import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Slider from '#lib/ui/primitives/Slider.svelte';

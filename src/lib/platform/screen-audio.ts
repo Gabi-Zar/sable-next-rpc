@@ -2,12 +2,11 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { type as osType, version as osVersion } from '@tauri-apps/plugin-os';
 
 import { readJson, writeJson } from './local-json';
-import { startScreenAudioStream, stopScreenAudioStream } from './screen-audio-stream';
-
-export type ScreenAudioChoice =
-  | { kind: 'none' }
-  | { kind: 'system'; exclude: string[] }
-  | { kind: 'apps'; include: string[] };
+import {
+  type ScreenAudioChoice,
+  startScreenAudioStream,
+  stopScreenAudioStream,
+} from './screen-audio-stream';
 
 export const SCREEN_AUDIO_LABEL = 'Sable screen audio';
 

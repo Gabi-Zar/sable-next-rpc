@@ -55,7 +55,7 @@
     readEntries,
     startOfDay,
     tallyRsvps,
-  } from './calendar-events.js';
+  } from '#lib/calendar/calendar-events.js';
   import CalendarEventDialog from './CalendarEventDialog.svelte';
 
   const DAY = 86_400_000;

@@ -3,7 +3,7 @@ import type { PushFetchView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { isRecord } from '#lib/guards.js';
 
-import { forgetPushSession, putPushSession } from './room-names';
+import { forgetPushSession, putPushSession } from '#lib/notifications/room-names.js';
 
 type SessionSharer = Pick<CoreClient, 'rpc' | 'session' | 'subscribeEvents'>;
 

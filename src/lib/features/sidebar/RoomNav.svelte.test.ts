@@ -60,7 +60,7 @@ vi.mock('#lib/rooms/presence.svelte.js', () => ({
   usePresenceStore: () => ({ get: () => presenceFixture.entry, peek: () => presenceFixture.entry }),
 }));
 
-import { setGroupsFavourites } from './favourite-grouping.svelte.js';
+import { setGroupsFavourites } from '#lib/rooms/favourite-grouping.svelte.js';
 import RoomNavHarness from './RoomNavHarness.test.svelte';
 
 const realObserver = globalThis.IntersectionObserver;

@@ -24,7 +24,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { flushed } from '#lib/ui/flushed.js';
 
 import { parseBotCommands, type BotCommandInvocation } from './bot-commands';
-import type { ComposerContext } from './composer-context';
+import type { ComposerContext } from '#lib/composer/composer-context.js';
 import { invalidatePacks } from '#lib/emoji/load-packs.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
 import { REORDER_DRAG_TYPE } from '#lib/ui/drag-list.js';
@@ -34,7 +34,7 @@ import {
   clearDrafts,
   readDraft,
   writeDraft,
-} from './composer-drafts.svelte';
+} from '#lib/composer/composer-drafts.svelte.js';
 import { ComposerEditor } from './editor/composer-editor';
 import { composerSchema } from './editor/schema';
 import { textDoc } from './editor/serialize';

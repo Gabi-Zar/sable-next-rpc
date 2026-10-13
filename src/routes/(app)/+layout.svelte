@@ -4,7 +4,7 @@
   import { onDestroy, onMount, tick, type Snippet, untrack } from 'svelte';
   import { on } from 'svelte/events';
   import { page } from '$app/state';
-  import AppShell from '#lib/ui/AppShell.svelte';
+  import AppShell from '#lib/features/sidebar/AppShell.svelte';
   import SettingsPanel from '#lib/features/settings/SettingsPanel.svelte';
   import { followSettingsLink } from '#lib/features/settings/settings-navigation.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
@@ -34,7 +34,7 @@
   import { i18n } from '#lib/i18n.js';
   import Button from '#lib/ui/primitives/Button.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
-  import { clearDrafts } from '#lib/features/composer/composer-drafts.svelte.js';
+  import { clearDrafts } from '#lib/composer/composer-drafts.svelte.js';
   import { resetUrlPreviews } from '#lib/features/room/media/link-preview-cache.js';
   import { rememberAfterLogin } from '#lib/auth/after-login.js';
   import { hasPendingSetup } from '#lib/features/auth/setup/setup-record.js';
@@ -77,7 +77,7 @@
     registerNativePush,
     unregisterNativePush,
   } from '#lib/features/notifications/native-push.js';
-  import { pushOverride } from '#lib/features/notifications/push-config.js';
+  import { pushOverride } from '#lib/notifications/push-config.js';
   import {
     registerVoipPusher,
     unregisterVoipPusher,
@@ -110,7 +110,7 @@
     putPushContentPolicy,
     putRoomModes,
     RoomNameWriter,
-  } from '#lib/features/notifications/room-names.js';
+  } from '#lib/notifications/room-names.js';
   import {
     dropPushSubscription,
     pusherDisplayName,

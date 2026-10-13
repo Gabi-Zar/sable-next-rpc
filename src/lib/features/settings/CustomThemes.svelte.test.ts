@@ -15,7 +15,7 @@ import {
 import { toasts } from '#lib/ui/toasts.svelte.js';
 
 import CustomThemes from './CustomThemes.svelte';
-import { CATALOG_URL } from './theme-catalog';
+import { CATALOG_URL } from '#lib/settings/theme-catalog.js';
 
 const FILES = 'https://git.sable.moe/SableClient/themes/raw/branch/main/';
 const NIGHT_URL = `${FILES}themes/night.sable.css`;

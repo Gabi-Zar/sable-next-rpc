@@ -16,7 +16,7 @@
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
 
-  import { previewKind, type StagedFile } from './composer-files';
+  import { previewKind, type StagedFile } from '#lib/composer/composer-files.js';
   import StagedImageOptions from './StagedImageOptions.svelte';
   import { canStrip } from './strip-metadata';
   import StagedMediaViewer from './StagedMediaViewer.svelte';

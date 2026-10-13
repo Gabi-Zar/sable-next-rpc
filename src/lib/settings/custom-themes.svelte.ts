@@ -1,4 +1,4 @@
-import { catalogFileUrl, fetchCatalogFile } from '#lib/features/settings/theme-catalog.js';
+import { catalogFileUrl, fetchCatalogFile } from '#lib/settings/theme-catalog.js';
 import { readJson, writeJson } from '#lib/platform/local-json.js';
 
 import type { ResolvedTheme } from './theme.js';

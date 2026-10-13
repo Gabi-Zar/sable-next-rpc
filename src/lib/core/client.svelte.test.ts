@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import type { CoreEvent, SessionInfo } from '#src/generated/protocol';
 import { CoreError, type Transport } from '#src/transport';
 
-import { recentSearches, rememberSearch } from '#lib/features/search/recent-searches.svelte.js';
+import { recentSearches, rememberSearch } from '#lib/search/recent-searches.svelte.js';
 
 import { joinRoom } from './api/rooms.js';
 import { createCoreClient } from './client.svelte.js';

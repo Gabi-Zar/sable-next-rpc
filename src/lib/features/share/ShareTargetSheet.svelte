@@ -3,8 +3,8 @@
   import { goto } from '$app/navigation';
 
   import { useCoreClient } from '#lib/core/context.js';
-  import { injectDraft, readDraft } from '#lib/features/composer/composer-drafts.svelte.js';
-  import { stageFiles } from '#lib/features/composer/composer-files.js';
+  import { injectDraft, readDraft } from '#lib/composer/composer-drafts.svelte.js';
+  import { stageFiles } from '#lib/composer/composer-files.js';
   import { i18n } from '#lib/i18n.js';
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';

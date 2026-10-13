@@ -26,7 +26,7 @@
     resetCatalog,
     type CatalogEntry,
     type CatalogFilter,
-  } from './theme-catalog';
+  } from '#lib/settings/theme-catalog.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {

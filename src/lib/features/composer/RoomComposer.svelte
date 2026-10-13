@@ -59,7 +59,7 @@
   import BotCommandForm from './BotCommandForm.svelte';
   import ComposerAttachments from './ComposerAttachments.svelte';
   import ComposerAutocomplete from './ComposerAutocomplete.svelte';
-  import type { GifResult } from '#lib/features/gif/providers.js';
+  import type { GifResult } from '#lib/gif/providers.js';
   import ComposerBoard from './ComposerBoard.svelte';
   import ComposerContextBanner from './ComposerContextBanner.svelte';
   import ComposerLinkPreviews from './ComposerLinkPreviews.svelte';
@@ -73,8 +73,13 @@
   import LocationComposer from './LocationComposer.svelte';
   import ScheduleComposer from './ScheduleComposer.svelte';
   import type { AutocompleteQuery, Suggestion } from './autocomplete';
-  import { formattedForEditing, type ComposerContext } from './composer-context';
-  import { clearDraft, readDraft, remoteRevision, writeDraft } from './composer-drafts.svelte';
+  import { formattedForEditing, type ComposerContext } from '#lib/composer/composer-context.js';
+  import {
+    clearDraft,
+    readDraft,
+    remoteRevision,
+    writeDraft,
+  } from '#lib/composer/composer-drafts.svelte.js';
   import {
     filesFrom,
     previewKind,
@@ -84,7 +89,7 @@
     toggleSpoiler,
     unstageFile,
     type StagedFile,
-  } from './composer-files';
+  } from '#lib/composer/composer-files.js';
   import { isMultiline } from './composer-multiline';
   import { shouldFocusComposer } from './type-to-focus';
   import ComposerEditorView from './editor/ComposerEditor.svelte';

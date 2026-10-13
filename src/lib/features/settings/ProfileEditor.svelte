@@ -45,7 +45,7 @@
   import SpaceProfileEditor from './SpaceProfileEditor.svelte';
   import { isActiveSpace } from '#lib/features/sidebar/nav-rooms.js';
   import { bioHtml, bioMarkdown, bioTexts } from './bio-markdown.js';
-  import ColorSetting from './ColorSetting.svelte';
+  import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { type SenderCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
 
   import {

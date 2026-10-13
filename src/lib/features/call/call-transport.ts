@@ -1,6 +1,6 @@
 import { base64ToUint8Array } from 'uint8array-extras';
 
-import type { ScreenAudioChoice } from '#lib/platform/screen-audio.js';
+import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
 
 export type CallEncryptionKey = {
   backendId?: string;

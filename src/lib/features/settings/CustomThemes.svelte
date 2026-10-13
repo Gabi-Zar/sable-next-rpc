@@ -40,7 +40,7 @@
 
   import ThemeCatalog from './ThemeCatalog.svelte';
   import ThemeTile from './ThemeTile.svelte';
-  import { fetchCatalogFile, type CatalogEntry } from './theme-catalog';
+  import { fetchCatalogFile, type CatalogEntry } from '#lib/settings/theme-catalog.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   const SLOTS: readonly ResolvedTheme[] = ['light', 'dark'];
