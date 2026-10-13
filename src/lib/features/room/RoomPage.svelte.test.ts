@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
 import { render } from '@testing-library/svelte';
-import { tick } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { flushed } from '#lib/ui/flushed.js';
 
 import type { RoomListItemView } from '#src/generated/protocol';
 
@@ -52,7 +52,7 @@ afterEach(() => {
 async function settle(): Promise<void> {
   for (let index = 0; index < 5; index += 1) {
     await Promise.resolve();
-    await tick();
+    await flushed();
   }
 }
 

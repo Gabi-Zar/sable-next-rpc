@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { onDestroy, tick, untrack, type Snippet } from 'svelte';
+  import { onDestroy, untrack, type Snippet } from 'svelte';
   import { on } from 'svelte/events';
   import { fade, fly } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
@@ -24,6 +24,7 @@
     type TimelineRow,
     type TimelineWindowState,
   } from '#lib/timeline/timeline-window.js';
+  import { flushed } from '#lib/ui/flushed.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import EmptyState from '#lib/ui/primitives/EmptyState.svelte';
@@ -485,7 +486,7 @@
       content,
       render: async (next) => {
         rows = next;
-        await tick();
+        await flushed();
         if (!disposed) measureMediaColumn();
       },
       onChange: windowChanged,
@@ -548,7 +549,7 @@
   async function openTimeline(engine: TimelineWindow<RowValue>): Promise<void> {
     if (opening || disposed) return;
     opening = true;
-    await tick();
+    await flushed();
     await new Promise(requestAnimationFrame);
     if (disposed) return;
     if (timeline.loading || (!timeline.hasSnapshot && !timeline.error)) {
@@ -708,7 +709,7 @@
     });
   }
   async function jumpToLiveEnd(): Promise<void> {
-    await tick();
+    await flushed();
     if (!disposed) await controller?.jumpTo(null, 'start');
   }
   $effect(() => {
@@ -749,7 +750,7 @@
       switchingToUnread = false;
     }
     if (disposed) return true;
-    await tick();
+    await flushed();
     await engine.update(entries);
     const threadRoot = entryFor(target)?.value.item.thread_root ?? null;
     const landing = threadRoot ?? target;
@@ -852,7 +853,7 @@
         } finally {
           switchingToUnread = false;
         }
-        await tick();
+        await flushed();
       }
       if (!current()) return;
       unread.resolve(timeline.items, oldestUnreadLoaded, eventItems);
@@ -896,7 +897,7 @@
   let replayingEventId = $state<string | null>(null);
   async function replayHighlight(eventId: string): Promise<void> {
     replayingEventId = eventId;
-    await tick();
+    await flushed();
     await new Promise(requestAnimationFrame);
     if (replayingEventId === eventId) replayingEventId = null;
   }

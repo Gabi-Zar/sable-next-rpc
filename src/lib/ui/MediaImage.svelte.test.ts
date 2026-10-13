@@ -2,8 +2,9 @@
 
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { tick, type ComponentProps } from 'svelte';
+import { type ComponentProps } from 'svelte';
 import { afterEach, expect, test, vi } from 'vitest';
+import { flushed } from '#lib/ui/flushed.js';
 
 vi.mock('#lib/core/context.js');
 
@@ -71,7 +72,7 @@ test('scrolling back through a sticker pack reuses loaded previews', async () =>
   expect(core.fetchMedia).toHaveBeenCalledTimes(stickerCount);
 
   render(MediaImage, { props: props(0) });
-  await tick();
+  await flushed();
 
   expect(core.fetchMedia).toHaveBeenCalledTimes(stickerCount);
   expect(screen.getByAltText('Sticker 0')).toHaveAttribute('src', firstUrl);
@@ -135,7 +136,7 @@ test('does not re-request media that the homeserver cannot provide', async () =>
   first.unmount();
 
   render(MediaImage, { props });
-  await tick();
+  await flushed();
 
   expect(core.fetchMedia).toHaveBeenCalledTimes(1);
 });
@@ -220,15 +221,15 @@ test('counts the retry backoff down while it waits', async () => {
   });
 
   await vi.advanceTimersByTimeAsync(0);
-  await tick();
+  await flushed();
   await user.click(retryButton());
   await vi.advanceTimersByTimeAsync(0);
-  await tick();
+  await flushed();
 
   expect(retryButton()).toHaveTextContent('Retry in 2 seconds');
 
   await vi.advanceTimersByTimeAsync(1000);
-  await tick();
+  await flushed();
 
   expect(retryButton()).toHaveTextContent('Retry in 1 second');
 
@@ -252,11 +253,11 @@ test('keeps the unavailable state while an automatic retry is in flight', async 
   });
 
   await vi.advanceTimersByTimeAsync(0);
-  await tick();
+  await flushed();
   expect(document.querySelector('.media-image-unavailable')).not.toBeNull();
 
   await vi.advanceTimersByTimeAsync(2_000);
-  await tick();
+  await flushed();
 
   expect(core.fetchMedia).toHaveBeenCalledTimes(2);
   expect(document.querySelector('.media-image-unavailable')).not.toBeNull();
@@ -313,11 +314,11 @@ test('a manual retry shows its progress instead of the unavailable state', async
   });
 
   await vi.advanceTimersByTimeAsync(0);
-  await tick();
+  await flushed();
   expect(document.querySelector('.media-image-unavailable')).not.toBeNull();
 
   await fireEvent.click(retryButton());
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-unavailable')).toBeNull();
   expect(document.querySelector('.media-image-progress')).not.toBeNull();
@@ -363,7 +364,7 @@ test('shares a pending media request across component instances', async () => {
 
   const first = render(MediaImage, { props });
   render(MediaImage, { props });
-  await tick();
+  await flushed();
 
   expect(core.fetchMedia).toHaveBeenCalledTimes(1);
   resolve(new Uint8Array(new ArrayBuffer()));
@@ -384,7 +385,7 @@ test('loads SVG images from the original rather than a thumbnail', async () => {
     },
   });
 
-  await tick();
+  await flushed();
   await Promise.resolve();
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/vector', 0, 0);
 });
@@ -430,7 +431,7 @@ test('loads GIFs from the original so they animate', async () => {
     },
   });
 
-  await tick();
+  await flushed();
   await Promise.resolve();
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/autoplayed', 0, 0);
 });
@@ -448,7 +449,7 @@ test('a GIF its sender flagged as still loads the thumbnail (MSC4230)', async ()
     },
   });
 
-  await tick();
+  await flushed();
   await Promise.resolve();
   expect(core.fetchMedia).not.toHaveBeenCalledWith('mxc://example.org/still', 0, 0);
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/still', 800, 600);
@@ -467,7 +468,7 @@ test('a PNG its sender flagged as animated loads the original (MSC4230)', async 
     },
   });
 
-  await tick();
+  await flushed();
   await Promise.resolve();
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/apng', 0, 0);
 });
@@ -494,7 +495,7 @@ test('shows a static GIF preview until its play button is pressed', async () => 
   const preview = container.querySelector<HTMLImageElement>('.gif-preview-source');
   if (!preview) throw new Error('GIF preview source was not rendered');
   void fireEvent.load(preview);
-  await tick();
+  await flushed();
 
   expect(container.querySelector('canvas')).not.toBeNull();
   expect(container.querySelector('.play-gif')).not.toBeNull();
@@ -567,7 +568,7 @@ test('stops a playing GIF instead of opening the viewer', async () => {
     expect(document.querySelector('.gif-preview-source')).not.toBeNull();
   });
   void fireEvent.load(find('.gif-preview-source'));
-  await tick();
+  await flushed();
   await user.click(screen.getByRole('button', { name: 'Play GIF' }));
 
   const playing = screen.getByRole('button', { name: 'Stop GIF' });
@@ -615,8 +616,8 @@ test('keeps the GIF on screen until the decoder has painted a frame', async () =
   await vi.waitFor(() => {
     expect(document.querySelector('.gif-preview-source')).not.toBeNull();
   });
-  await tick();
-  await tick();
+  await flushed();
+  await flushed();
 
   expect(document.querySelector<HTMLImageElement>('.gif-preview-source')?.src).toBe('blob:pending');
   expect(document.querySelector('.gif-preview-source.ready')).toBeNull();
@@ -682,12 +683,12 @@ test('steps GIF frames itself and stops on the frame it held', async () => {
 });
 
 async function settle(): Promise<void> {
-  await tick();
+  await flushed();
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
-  await tick();
+  await flushed();
 }
 
 async function mountAndLoad(
@@ -764,7 +765,7 @@ test.each([
       intrinsicHeight: size.intrinsicHeight,
     },
   });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image')?.getAttribute('style')).toContain(
     `--media-ratio: ${String(size.expected)}`
@@ -786,12 +787,12 @@ test('a cached image does not come back blurred', async () => {
     expect(document.querySelector('img.media-image-content')).not.toBeNull();
   });
   void fireEvent.load(find('img.media-image-content'));
-  await tick();
+  await flushed();
   first.unmount();
 
   render(MediaImage, { props });
-  await tick();
-  await tick();
+  await flushed();
+  await flushed();
 
   const placeholder = document.querySelector('.media-image-blurhash');
   expect(placeholder === null || placeholder.classList.contains('loaded')).toBe(true);
@@ -807,7 +808,7 @@ test('holds a placeholder until the image paints', async () => {
       height: 240,
     },
   });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-placeholder.loaded')).toBeNull();
   expect(document.querySelector('.media-image-placeholder')).not.toBeNull();
@@ -816,7 +817,7 @@ test('holds a placeholder until the image paints', async () => {
     expect(document.querySelector('img.media-image-content')).not.toBeNull();
   });
   void fireEvent.load(find('img.media-image-content'));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-placeholder.loaded')).not.toBeNull();
 });
@@ -840,7 +841,7 @@ test('an undecodable file falls back instead of spinning forever', async () => {
       expect(document.querySelector('img.media-image-content'), request).not.toBeNull();
     });
     void fireEvent.error(find('img.media-image-content'));
-    await tick();
+    await flushed();
   }
 
   expect(onfailed).toHaveBeenCalledOnce();
@@ -915,7 +916,7 @@ test('a manual retry of an undecodable image drops the stored copy first', async
       expect(document.querySelector('img.media-image-content')).not.toBeNull();
     });
     void fireEvent.error(find('img.media-image-content'));
-    await tick();
+    await flushed();
   };
 
   await breakImage();
@@ -941,10 +942,10 @@ test('a GIF pressed while it downloads keeps its placeholder', async () => {
       mime: 'image/gif',
     },
   });
-  await tick();
+  await flushed();
 
   await user.click(find('button.media-image'));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-placeholder.loaded')).toBeNull();
   expect(document.querySelector('.media-image-progress')).not.toBeNull();
@@ -961,7 +962,7 @@ test('shows a spinner and the byte size until the image paints', async () => {
       size: 2_761_335,
     },
   });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-progress')).not.toBeNull();
   expect(document.querySelector('.media-image-size')?.textContent).toBe('2.8 MB');
@@ -970,7 +971,7 @@ test('shows a spinner and the byte size until the image paints', async () => {
     expect(document.querySelector('img.media-image-content')).not.toBeNull();
   });
   void fireEvent.load(find('img.media-image-content'));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-progress')).toBeNull();
   expect(document.querySelector('.media-image-size')).toBeNull();
@@ -988,7 +989,7 @@ test('loads animation-capable formats from the original', async () => {
     },
   });
 
-  await tick();
+  await flushed();
   await Promise.resolve();
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/animated-webp', 0, 0);
 });
@@ -1007,7 +1008,7 @@ test('a held GIF with no blurhash is covered while it downloads', async () => {
       mime: 'image/gif',
     },
   });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-placeholder.loaded')).toBeNull();
   expect(document.querySelector('.media-image-placeholder')).not.toBeNull();
@@ -1016,7 +1017,7 @@ test('a held GIF with no blurhash is covered while it downloads', async () => {
     expect(document.querySelector('.gif-preview-source')).not.toBeNull();
   });
   void fireEvent.load(find('.gif-preview-source'));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-placeholder.loaded')).not.toBeNull();
 });
@@ -1034,7 +1035,7 @@ test('a held GIF is covered while it downloads', async () => {
       blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
     },
   });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-blurhash.loaded')).toBeNull();
   expect(document.querySelector('.media-image-blurhash')).not.toBeNull();
@@ -1043,7 +1044,7 @@ test('a held GIF is covered while it downloads', async () => {
     expect(document.querySelector('.gif-preview-source')).not.toBeNull();
   });
   void fireEvent.load(find('.gif-preview-source'));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-blurhash.loaded')).not.toBeNull();
 });
@@ -1145,7 +1146,7 @@ test('does not flash the loading overlay over a GIF it has already fetched', asy
   first.unmount();
 
   render(MediaImage, { props });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.media-image-progress')).toBeNull();
   expect(document.querySelector('.media-image-size')).toBeNull();
@@ -1197,7 +1198,7 @@ async function mountLoadedEmote(source: string): Promise<{
   Object.defineProperty(loaded, 'naturalWidth', { value: 32 });
   Object.defineProperty(loaded, 'naturalHeight', { value: 32 });
   void fireEvent.load(loaded);
-  await tick();
+  await flushed();
   return { image };
 }
 
@@ -1211,13 +1212,13 @@ test('holds an animated emote on a still frame while the window is inactive', as
 
   focused = false;
   window.dispatchEvent(new Event('blur'));
-  await tick();
+  await flushed();
   expect(image()).toBe(element);
   expect(element?.getAttribute('src')).toBe('data:image/png;still');
 
   focused = true;
   window.dispatchEvent(new Event('focus'));
-  await tick();
+  await flushed();
   expect(element?.getAttribute('src')).toBe('blob:mxc://example.org/inactive-emote');
 });
 
@@ -1228,7 +1229,7 @@ test('keeps animating while the window is inactive when the preference is off', 
 
   focused = false;
   window.dispatchEvent(new Event('blur'));
-  await tick();
+  await flushed();
 
   expect(image()?.getAttribute('src')).toBe('blob:mxc://example.org/unpaused-emote');
 });
@@ -1278,7 +1279,7 @@ test('a GIF played by hand holds its frame while the window is inactive', async 
 
   focused = false;
   window.dispatchEvent(new Event('blur'));
-  await tick();
+  await flushed();
   await new Promise((resolve) => setTimeout(resolve, 40));
   const held = decoded.length;
   await new Promise((resolve) => setTimeout(resolve, 120));

@@ -11,6 +11,21 @@ export default mergeConfig(
     resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
     test: {
       maxWorkers: 4,
+      // Async mode schedules updates on animation frames, which would never fire if faked.
+      fakeTimers: {
+        toFake: [
+          'setTimeout',
+          'clearTimeout',
+          'setInterval',
+          'clearInterval',
+          'setImmediate',
+          'clearImmediate',
+          'Date',
+          'performance',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+        ],
+      },
       alias: {
         '$app/paths/internal/client': new URL(
           './node_modules/@sveltejs/kit/src/runtime/app/paths/internal/client.js',

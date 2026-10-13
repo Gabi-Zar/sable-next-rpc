@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import '@testing-library/svelte/vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tick } from 'svelte';
 import { afterAll, afterEach } from 'vitest';
 
 import { initSync } from '#src/generated/wasm/sable_model.js';
@@ -11,8 +12,12 @@ import { resetPage } from '#lib/test-support/app-state.js';
 
 initSync({ module: readFileSync(join(process.cwd(), 'src/generated/wasm/sable_model_bg.wasm')) });
 
-afterEach(() => {
-  if (typeof document !== 'undefined') document.body.removeAttribute('style');
+afterEach(async () => {
+  if (typeof document !== 'undefined') {
+    // Overlay libraries style the body after a tick, which async mode defers to the next frame.
+    await tick();
+    document.body.removeAttribute('style');
+  }
   resetPage();
   resetNavigation();
 });

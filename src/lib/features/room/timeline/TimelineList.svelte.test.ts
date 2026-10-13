@@ -2,8 +2,9 @@
 
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { createRawSnippet, tick } from 'svelte';
+import { createRawSnippet } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { flushed } from '#lib/ui/flushed.js';
 
 import type { TimelineItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
@@ -90,7 +91,7 @@ function timeline(): RoomTimeline {
 async function finishWheelGesture(element?: HTMLElement): Promise<void> {
   element?.dispatchEvent(new Event('scrollend'));
   await new Promise((resolve) => setTimeout(resolve, 160));
-  await tick();
+  await flushed();
 }
 
 function item(id: string): TimelineItemView {
@@ -148,7 +149,7 @@ async function runAnimationFrames(): Promise<void> {
   for (let index = 0; index < 10; index += 1) {
     await Promise.resolve();
     for (const callback of animationFrames.splice(0)) callback(0);
-    await tick();
+    await flushed();
   }
 }
 
@@ -249,7 +250,7 @@ test('fills a short live timeline until the server reports the timeline start', 
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history).toHaveBeenCalledTimes(3);
@@ -308,7 +309,7 @@ test('a permalink whose context does not fill the viewport paginates on its own'
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(future).toHaveBeenCalled();
@@ -333,7 +334,7 @@ test('a permalink that reached the newest messages keeps loading older ones', as
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history).toHaveBeenCalled();
@@ -472,7 +473,7 @@ test('an empty opening page stops after a few attempts until new items arrive', 
   });
 
   viewport();
-  await tick();
+  await flushed();
   for (let page = 0; page < 30; page += 1) {
     await runAnimationFrames();
   }
@@ -502,7 +503,7 @@ test('keeps filling past pages that only bring hidden events', async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await runAnimationFrames();
 
@@ -530,7 +531,7 @@ test('the opening fill asks for larger pages after the first one', async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await runAnimationFrames();
 
@@ -557,13 +558,13 @@ test('a reset that leaves one message refills the viewport on its own', async ()
     clientHeight: { configurable: true, value: 100 },
     scrollHeight: { configurable: true, value: 900 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
   const opening = history.mock.calls.length;
 
   roomTimeline.items = [item('latest')];
   Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 100 });
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history.mock.calls.length).toBeGreaterThan(opening);
@@ -591,7 +592,7 @@ test('an empty snapshot keeps the skeleton until the first page decides', async 
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('.timeline-empty')).toBeNull();
@@ -621,7 +622,7 @@ test('an empty room reports it once the start is reached', async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('.timeline-empty')).not.toBeNull();
@@ -648,7 +649,7 @@ test("the timeline start renders the caller's notice in its row", async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   const start = document.querySelector('[data-item-id="start"]');
@@ -675,7 +676,7 @@ test('the timeline start keeps its separator without a notice', async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('[data-item-id="start"] .separator')).not.toBeNull();
@@ -701,7 +702,7 @@ test('a permalink that fails to load says so and offers the way back', async () 
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   const empty = document.querySelector<HTMLElement>('.timeline-empty');
@@ -728,7 +729,7 @@ test('a live timeline that fails to load does not read as an empty room', async 
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   const empty = document.querySelector('.timeline-empty');
@@ -760,7 +761,7 @@ test('reveals a short timeline at once and pads it out behind the reader', async
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   // Nothing to land on, so the reader sees the latest message while the fill runs.
@@ -790,7 +791,7 @@ test('a timeline with an unread marker reveals on it without waiting for history
   });
 
   Object.defineProperty(viewport(), 'clientHeight', { configurable: true, value: 10_000 });
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(timelineViewport().classList.contains('initial')).toBe(false);
@@ -817,7 +818,7 @@ test('a notification lands on its event in the live timeline, not on the unread 
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(jumps).toHaveBeenCalledWith(expect.stringContaining('notified'), 'center');
@@ -847,13 +848,13 @@ test('a notification lands on its event once it arrives after the room opened', 
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(jumps).toHaveBeenCalledWith(expect.stringContaining('marker'), 'start');
   expect(landed).not.toHaveBeenCalled();
 
   roomTimeline.items = [...roomTimeline.items, item('late')];
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(jumps).toHaveBeenCalledWith(
@@ -884,13 +885,13 @@ test('a notification whose event arrives after the reader scrolled leaves them a
   });
 
   const element = viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   element.dispatchEvent(new WheelEvent('wheel', { deltaY: -50 }));
   expect(landed).toHaveBeenCalledTimes(1);
 
   roomTimeline.items = [...roomTimeline.items, item('late')];
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(jumps).not.toHaveBeenCalledWith(
@@ -918,7 +919,7 @@ test('a notification whose event is not loaded falls back to the unread marker',
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(jumps).toHaveBeenCalledWith(expect.stringContaining('marker'), 'start');
@@ -950,7 +951,7 @@ test('a notification whose event is not loaded opens its context and lands on it
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(requestUnread).toHaveBeenCalledWith('$elsewhere');
@@ -990,7 +991,7 @@ test('a notification context stays put at its forward end until the reader jumps
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(document.querySelector('.message.highlighted')?.textContent).toContain('elsewhere');
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1023,7 +1024,7 @@ test('a notification for an unloaded thread reply lands on its root', async () =
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(requestUnread).toHaveBeenCalledTimes(1);
@@ -1052,7 +1053,7 @@ test('does not eagerly paginate a scrollable initial timeline', async () => {
     scrollHeight: { configurable: true, value: 1_000 },
     scrollTop: { configurable: true, writable: true, value: 0 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history).not.toHaveBeenCalled();
@@ -1073,7 +1074,7 @@ test('does not read a viewport removed during initial positioning', async () => 
   });
 
   viewport();
-  await tick();
+  await flushed();
   instance.unmount();
   await runAnimationFrames();
 });
@@ -1099,12 +1100,12 @@ test('leaves follow mode for a scroll it did not write, whatever produced it', a
     scrollHeight: { configurable: true, value: 1_000 },
     scrollTop: { configurable: true, writable: true, value: 0 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   element.scrollTop = 700;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.jump-to-latest')).not.toBeNull();
   expect(history).not.toHaveBeenCalled();
@@ -1131,7 +1132,7 @@ test('requests one history page until the viewport leaves the top threshold', as
     scrollHeight: { configurable: true, value: 1_000 },
     scrollTop: { configurable: true, writable: true, value: 0 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
   history.mockClear();
   element.scrollTop = 0;
@@ -1166,7 +1167,7 @@ test('requests history from upward input when already at the top', async () => {
     scrollHeight: { configurable: true, value: 1_000 },
     scrollTop: { configurable: true, writable: true, value: 0 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
   history.mockClear();
   element.scrollTop = 0;
@@ -1198,19 +1199,19 @@ test('requests history before an upward wheel gesture settles', async () => {
     scrollHeight: { configurable: true, value: 1_000 },
     scrollTop: { configurable: true, writable: true, value: 200 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
   history.mockClear();
 
   element.dispatchEvent(new WheelEvent('wheel', { deltaY: -200 }));
   element.scrollTop = 0;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(history).toHaveBeenCalledTimes(1);
   element.dispatchEvent(new Event('scrollend'));
   await vi.advanceTimersByTimeAsync(160);
-  await tick();
+  await flushed();
   expect(history).toHaveBeenCalledTimes(1);
 });
 
@@ -1234,7 +1235,7 @@ test('a fresh upward input requests the next settled history page', async () => 
     scrollHeight: { configurable: true, value: 1_000 },
     scrollTop: { configurable: true, writable: true, value: 0 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
   history.mockClear();
   element.scrollTop = 0;
@@ -1243,11 +1244,11 @@ test('a fresh upward input requests the next settled history page', async () => 
   await finishWheelGesture(element);
   expect(history).toHaveBeenCalledTimes(1);
   roomTimeline.items = [item('older'), ...roomTimeline.items];
-  await tick();
+  await flushed();
   await runAnimationFrames();
   element.scrollTop = 20;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
   element.scrollTop = 0;
   element.dispatchEvent(new WheelEvent('wheel', { deltaY: -200 }));
   await finishWheelGesture(element);
@@ -1277,13 +1278,13 @@ test('rate limits sparse history fill and continues until the server reports the
       scrollHeight: { configurable: true, value: 1_000 },
       scrollTop: { configurable: true, writable: true, value: 0 },
     });
-    await tick();
+    await flushed();
     await runAnimationFrames();
     history.mockClear();
     element.scrollTop = 0;
 
     element.dispatchEvent(new WheelEvent('wheel', { deltaY: -200 }));
-    await tick();
+    await flushed();
     await Promise.resolve();
     expect(history).toHaveBeenCalledTimes(1);
 
@@ -1324,13 +1325,13 @@ test('cancels sparse history fill on downward input', async () => {
       scrollHeight: { configurable: true, value: 1_000 },
       scrollTop: { configurable: true, writable: true, value: 0 },
     });
-    await tick();
+    await flushed();
     await runAnimationFrames();
     history.mockClear();
     element.scrollTop = 0;
 
     element.dispatchEvent(new WheelEvent('wheel', { deltaY: -200 }));
-    await tick();
+    await flushed();
     element.dispatchEvent(new WheelEvent('wheel', { deltaY: 200 }));
     await vi.advanceTimersByTimeAsync(1_000);
 
@@ -1362,7 +1363,7 @@ test('retries marking the latest event read after a failed request', async () =>
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await vi.advanceTimersByTimeAsync(500);
   expect(read).toHaveBeenCalledTimes(1);
@@ -1412,10 +1413,10 @@ async function mountLive(roomTimeline: RoomTimeline): Promise<LiveTimeline> {
     scrollHeight: { configurable: true, get: () => scrollHeight },
     scrollTop: { configurable: true, writable: true, value: 0 },
   });
-  await tick();
+  await flushed();
   await runAnimationFrames();
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
   await runAnimationFrames();
   return {
     instance,
@@ -1469,7 +1470,7 @@ test('scrolling reuses media width until the column resizes', async () => {
   for (let index = 0; index < 3; index++) {
     element.scrollTop -= 50;
     element.dispatchEvent(new Event('scroll'));
-    await tick();
+    await flushed();
   }
   expect(width).not.toHaveBeenCalled();
 
@@ -1487,7 +1488,7 @@ test('a backward pagination keeps its loading pill between pages, then fades it 
   expect(document.querySelector('.history-loading')).toBeNull();
 
   roomTimeline.backwardPagination = 'loading';
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('.history-loading')).not.toBeNull();
@@ -1498,7 +1499,7 @@ test('a backward pagination keeps its loading pill between pages, then fades it 
   expect(element.scrollTop).toBe(beforeScroll);
 
   roomTimeline.backwardPagination = 'idle';
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('.history-loading')).not.toBeNull();
@@ -1507,12 +1508,12 @@ test('a backward pagination keeps its loading pill between pages, then fades it 
 
   roomTimeline.backwardPagination = 'loading';
   await new Promise((resolve) => setTimeout(resolve, TIMELINE_LAYOUT.historyLoadingLinger));
-  await tick();
+  await flushed();
   expect(document.querySelector('.history-loading')).not.toBeNull();
 
   roomTimeline.backwardPagination = 'idle';
   await new Promise((resolve) => setTimeout(resolve, TIMELINE_LAYOUT.historyLoadingLinger + 50));
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(document.querySelector('.history-loading')?.hasAttribute('inert')).toBe(true);
 });
@@ -1520,11 +1521,11 @@ test('a backward pagination keeps its loading pill between pages, then fades it 
 async function dragTo(element: HTMLDivElement, from: number, to: number): Promise<void> {
   touch(element, 'touchstart', from < to ? 200 : 100);
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
   touch(element, 'touchmove', from < to ? 160 : 140);
   element.scrollTop = to;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 }
 
 function followingLive(): boolean {
@@ -1586,7 +1587,7 @@ test('follows an own echo appended while the reader is still near latest', async
 
   touch(element, 'touchend', 170);
   await new Promise((resolve) => setTimeout(resolve, 160));
-  await tick();
+  await flushed();
 
   const ownEcho = {
     ...item('own-echo'),
@@ -1597,7 +1598,7 @@ test('follows an own echo appended while the reader is still near latest', async
   };
   roomTimeline.items = [...roomTimeline.items, ownEcho];
   setScrollHeight(2_100);
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelectorAll('.item')).toHaveLength(21);
@@ -1610,7 +1611,7 @@ test('follows an own message sent in a thread while the reader is near latest', 
   roomTimeline.items = liveItems(20);
   const { element, end, setScrollHeight } = await mountLive(roomTimeline);
   roomTimeline.mode = { kind: 'thread', rootEventId: '$root' };
-  await tick();
+  await flushed();
 
   await dragTo(element, end, end - 30);
   touch(element, 'touchend', 170);
@@ -1631,7 +1632,7 @@ test('follows an own message that arrives already sent while the reader is near 
   await dragTo(element, end, end - 30);
   touch(element, 'touchend', 170);
   await new Promise((resolve) => setTimeout(resolve, 160));
-  await tick();
+  await flushed();
   expect(followingLive()).toBe(false);
 
   roomTimeline.items = [
@@ -1639,7 +1640,7 @@ test('follows an own message that arrives already sent while the reader is near 
     { ...item('own-sent'), event_id: '$own-sent', transaction_id: 'txn-own-sent', is_own: true },
   ];
   setScrollHeight(2_100);
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(element.scrollHeight - element.clientHeight - element.scrollTop).toBe(0);
@@ -1661,11 +1662,11 @@ test('focusing the composer near latest follows the latest message', async () =>
   await dragTo(element, end, end - 30);
   touch(element, 'touchend', 170);
   await new Promise((resolve) => setTimeout(resolve, 160));
-  await tick();
+  await flushed();
   expect(followingLive()).toBe(false);
 
   focusComposer();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(element.scrollHeight - element.clientHeight - element.scrollTop).toBe(0);
@@ -1680,10 +1681,10 @@ test('focusing the composer leaves a reader past the band where they are', async
   await dragTo(element, end, end - 900);
   touch(element, 'touchend', 170);
   await new Promise((resolve) => setTimeout(resolve, 160));
-  await tick();
+  await flushed();
 
   focusComposer();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(element.scrollTop).toBe(end - 900);
@@ -1700,7 +1701,7 @@ test('leaves a reader deep in history where they are when they send', async () =
 
   touch(element, 'touchend', 170);
   await new Promise((resolve) => setTimeout(resolve, 160));
-  await tick();
+  await flushed();
 
   roomTimeline.items = [
     ...roomTimeline.items,
@@ -1713,7 +1714,7 @@ test('leaves a reader deep in history where they are when they send', async () =
     },
   ];
   setScrollHeight(2_100);
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(followingLive()).toBe(false);
@@ -1743,7 +1744,7 @@ test('hides the jump control when a content shrink clamps an anchored reader to 
   setScrollHeight(1_000);
   element.scrollTop = element.scrollHeight - element.clientHeight;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(followingLive()).toBe(true);
 });
@@ -1795,7 +1796,7 @@ test('a wheel notch inside the band also leaves follow mode', async () => {
   element.dispatchEvent(new WheelEvent('wheel', { deltaY: -30 }));
   element.scrollTop = end - 30;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(followingLive()).toBe(false);
 });
@@ -1808,7 +1809,7 @@ test('a repeated scroll notification near latest preserves the reading position'
   await dragTo(element, end, end - 30);
   expect(followingLive()).toBe(false);
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(followingLive()).toBe(false);
 });
@@ -1821,7 +1822,7 @@ test('middle-button autoscroll leaves follow mode', async () => {
   element.dispatchEvent(new PointerEvent('pointerdown', { button: 1 }));
   element.scrollTop = end - 900;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(followingLive()).toBe(false);
 });
@@ -1834,7 +1835,7 @@ test('a scrollbar drag leaves follow mode like any other reading back', async ()
   element.dispatchEvent(new PointerEvent('pointerdown', { button: 0 }));
   element.scrollTop = end - 900;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
 
   expect(followingLive()).toBe(false);
 });
@@ -1855,7 +1856,7 @@ test('a hidden-only opening page stops after a few attempts until new items arri
   });
 
   viewport();
-  await tick();
+  await flushed();
   for (let round = 0; round < 30; round += 1) {
     await runAnimationFrames();
   }
@@ -1879,14 +1880,14 @@ test('a window of hidden events keeps the skeleton rather than the filtered noti
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('.timeline-empty')).toBeNull();
   expect(document.querySelector('.timeline-placeholder')).not.toBeNull();
 
   roomTimeline.backwardPagination = 'end';
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('.timeline-empty')).not.toBeNull();
@@ -1909,13 +1910,13 @@ test('requests history once a page in flight at opening is done', async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history).not.toHaveBeenCalled();
 
   roomTimeline.backwardPagination = 'idle';
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history).toHaveBeenCalled();
@@ -1937,13 +1938,13 @@ test('asks for history again when the timeline is cleared mid-session', async ()
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await runAnimationFrames();
   const opening = history.mock.calls.length;
 
   roomTimeline.items = [];
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history.mock.calls.length).toBeGreaterThan(opening);
@@ -1965,13 +1966,13 @@ test('a cleared timeline is not held back by the start it reached before', async
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   const opening = history.mock.calls.length;
   expect(opening).toBeGreaterThan(0);
 
   roomTimeline.items = [];
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history.mock.calls.length).toBeGreaterThan(opening);
@@ -1993,20 +1994,20 @@ test('an empty timeline stops when its refill reports the timeline start', async
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   roomTimeline.items = [];
-  await tick();
+  await flushed();
   await runAnimationFrames();
-  await tick();
+  await flushed();
   const afterClear = history.mock.calls.length;
   expect(afterClear).toBeGreaterThan(0);
 
   roomTimeline.backwardPagination = 'loading';
-  await tick();
+  await flushed();
   roomTimeline.backwardPagination = 'idle';
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history).toHaveBeenCalledTimes(afterClear);
@@ -2030,12 +2031,12 @@ test('a failed history request does not pass for the timeline start', async () =
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(history).toHaveBeenCalledTimes(MAX_EMPTY_REFILLS);
 
   roomTimeline.items = [item('arrived')];
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(history.mock.calls.length).toBeGreaterThan(MAX_EMPTY_REFILLS);
@@ -2056,7 +2057,7 @@ test('a reset during a held touch does not paint placeholders over the rendered 
   });
 
   const element = viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(document.querySelectorAll('.window-rows > .item').length).toBeGreaterThan(0);
 
@@ -2064,7 +2065,7 @@ test('a reset during a held touch does not paint placeholders over the rendered 
   element.scrollTop = 10;
   element.dispatchEvent(new Event('scroll'));
   roomTimeline.items = [];
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect({
@@ -2093,7 +2094,7 @@ test('a permalink offers a way back to the live timeline', async () => {
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   const jump = screen.queryByRole('button', { name: 'Jump to latest' });
@@ -2119,12 +2120,12 @@ test('paginating forward out of a permalink reports that it is loading', async (
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(document.querySelector('.future-loading')).toBeNull();
 
   roomTimeline.forwardPagination = 'loading';
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.future-loading')).not.toBeNull();
 });
@@ -2149,14 +2150,14 @@ test.each(['success', 'failure'] as const)(
     });
 
     viewport();
-    await tick();
+    await flushed();
     await runAnimationFrames();
     await vi.waitFor(() => {
       expect(read).toHaveBeenCalled();
     });
 
     roomTimeline.items = [...roomTimeline.items, readMarker('marker'), item('arrival')];
-    await tick();
+    await flushed();
     await runAnimationFrames();
 
     expect(document.querySelector('.unread')).toBeNull();
@@ -2194,7 +2195,7 @@ test('a reader at the latest message also reads the hidden events after it', asy
   });
 
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   expect(document.querySelector('[data-item-id="join"]')).toBeNull();
@@ -2224,7 +2225,7 @@ test('the read marker waits for the latest message or for the reader to leave', 
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await vi.waitFor(() => {
     expect(read).toHaveBeenCalled();
@@ -2258,7 +2259,7 @@ test('with open-at-unread off the room opens at the latest message and keeps rec
   });
   unreadViewport();
   const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await new Promise((resolve) => setTimeout(resolve, 550));
 
@@ -2302,7 +2303,7 @@ test('opening a large unread backlog reveals the room before an older page finis
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(timelineViewport()).not.toHaveClass('initial');
   expect(history).not.toHaveBeenCalled();
@@ -2328,7 +2329,7 @@ test('a slow marker lookup leaves messages visible and receipts blocked', async 
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(timelineViewport()).not.toHaveClass('initial');
   expect(read).not.toHaveBeenCalled();
@@ -2361,7 +2362,7 @@ test('jumping to an unloaded marker requests event context instead of scanning h
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await userEvent.click(screen.getByRole('button', { name: 'Jump to unread' }));
   expect(jump).toHaveBeenCalledWith('$old-marker');
@@ -2393,12 +2394,12 @@ test('unread stays in its context at forward end while the reader is above the b
     },
   });
   const node = unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(node.scrollTop).toBeLessThan(node.scrollHeight - node.clientHeight);
   expect(resume).not.toHaveBeenCalled();
   roomTimeline.forwardPagination = 'end';
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(resume).not.toHaveBeenCalled();
   expect(roomTimeline.mode.kind).toBe('unread');
@@ -2439,13 +2440,13 @@ test('a failed return to live offers a translated retry', async () => {
     },
   });
   const node = unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   scrollToBottom(node);
   await runAnimationFrames();
   const retry = await screen.findByRole('button', { name: 'Try again' });
   await userEvent.click(retry);
-  await tick();
+  await flushed();
   expect(resume).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
 });
@@ -2470,7 +2471,7 @@ test('a notification below unread keeps the bar and blocks receipts until jumpin
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await new Promise((resolve) => setTimeout(resolve, 550));
   expect(read).not.toHaveBeenCalled();
@@ -2511,14 +2512,14 @@ test('a notification below unread sends the receipt once the reader reaches the 
     },
   });
   const element = unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await new Promise((resolve) => setTimeout(resolve, 550));
   expect(read).not.toHaveBeenCalled();
 
   element.scrollTop = element.scrollHeight - element.clientHeight;
   element.dispatchEvent(new Event('scroll'));
-  await tick();
+  await flushed();
   await runAnimationFrames();
 
   await vi.waitFor(() => {
@@ -2555,7 +2556,7 @@ test('an unread context without an SDK marker lands before returning to live', a
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(order[0]).toBe('jump:item:unread-marker');
   expect(order).toContain('resume');
@@ -2577,7 +2578,7 @@ test('the unread marker stays where the room opened while receipts move the read
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   const markerFollows = (): string | null | undefined =>
     document
@@ -2592,13 +2593,13 @@ test('the unread marker stays where the room opened while receipts move the read
     readMarker('moved'),
     ...unread.slice(6),
   ];
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(document.querySelectorAll('.unread')).toHaveLength(1);
   expect(markerFollows()).toBe('new-0');
 
   roomTimeline.items = [item('read'), ...unread];
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(markerFollows()).toBe('new-0');
 });
@@ -2623,13 +2624,13 @@ test('marking the unread bar as read keeps it on failure and clears it on succes
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await userEvent.click(screen.getByRole('button', { name: 'Mark as read' }));
   expect(screen.getByRole('alert')).toHaveTextContent('Could not mark this room as read');
   expect(screen.getByRole('button', { name: 'Jump to unread' })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Mark as read' }));
-  await tick();
+  await flushed();
   expect(screen.queryByRole('button', { name: 'Jump to unread' })).not.toBeInTheDocument();
 });
 
@@ -2654,11 +2655,11 @@ test('Escape jumps to the latest message and marks the room read', async () => {
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   jumps.mockClear();
   await userEvent.keyboard('{Escape}');
-  await tick();
+  await flushed();
   expect(jumps).toHaveBeenCalledWith(null, 'start', expect.anything());
   expect(mark).toHaveBeenCalledOnce();
 });
@@ -2681,7 +2682,7 @@ test('an unread jump that cannot load its boundary reports it without paging his
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(timelineViewport()).not.toHaveClass('initial');
   await userEvent.click(screen.getByRole('button', { name: 'Jump to unread' }));
@@ -2712,7 +2713,7 @@ test('a notification at the snapshot edge loads newer pages without needing anot
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(future).toHaveBeenCalledTimes(2);
   expect(document.querySelector('[data-item-id="newer-2"]')).not.toBeNull();
@@ -2738,13 +2739,13 @@ test('switching into a notification snapshot preserves the timeline attachment d
     },
   });
   unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   roomTimeline.mode = { kind: 'focused', eventId: '$notification' };
   roomTimeline.items = [item('older'), item('notification')];
   roomTimeline.loading = false;
   roomTimeline.hasSnapshot = true;
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(document.querySelector('.timeline-viewport')?.classList.contains('initial')).toBe(false);
   expect(future).toHaveBeenCalledTimes(1);
@@ -2778,7 +2779,7 @@ test.each(['wheel', 'touch', 'keyboard'] as const)(
       },
     });
     const node = unreadViewport();
-    await tick();
+    await flushed();
     await runAnimationFrames();
     expect(future).toHaveBeenCalledTimes(1);
     const top = node.scrollTop;
@@ -2818,7 +2819,7 @@ test('empty newer pages can resume on a wheel gesture without needing scroll mov
     },
   });
   const node = unreadViewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   expect(future).toHaveBeenCalledTimes(1);
   const top = node.scrollTop;
@@ -2850,7 +2851,7 @@ test.each(['scrolling', 'settled'])(
       },
     });
     const element = unreadViewport();
-    await tick();
+    await flushed();
     await runAnimationFrames();
     read.mockClear();
 
@@ -2858,14 +2859,14 @@ test.each(['scrolling', 'settled'])(
     element.dispatchEvent(new WheelEvent('wheel', { deltaY: -50 }));
     element.dispatchEvent(new Event('scroll'));
     if (phase === 'scrolling') touch(element, 'touchstart', 0);
-    await tick();
+    await flushed();
     await runAnimationFrames();
 
     roomTimeline.items = roomTimeline.items.slice(1);
-    await tick();
+    await flushed();
     await runAnimationFrames();
     await vi.advanceTimersByTimeAsync(600);
-    await tick();
+    await flushed();
     await runAnimationFrames();
 
     expect(read).toHaveBeenCalledWith('$5', false);
@@ -2890,7 +2891,7 @@ async function readsWhileSettings(open: boolean): Promise<ReturnType<typeof vi.f
     },
   });
   viewport();
-  await tick();
+  await flushed();
   await runAnimationFrames();
   await new Promise((resolve) => setTimeout(resolve, 700));
   return read;

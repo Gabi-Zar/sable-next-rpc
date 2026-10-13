@@ -20,8 +20,8 @@ import {
   type RenderResult,
 } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { tick } from 'svelte';
 import { afterEach, expect, test, vi } from 'vitest';
+import { flushed } from '#lib/ui/flushed.js';
 
 import { parseBotCommands, type BotCommandInvocation } from './bot-commands';
 import type { ComposerContext } from './composer-context';
@@ -236,12 +236,12 @@ function stagedNames(): (string | null)[] {
 
 async function pick(...files: File[]): Promise<void> {
   await user.upload(fileInput(), files);
-  await tick();
+  await flushed();
 }
 
 test('the editor mounts as a labelled combobox surface', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   const editable = document.querySelector('[role="combobox"]');
   expect(editable?.getAttribute('aria-label')).toBe('Send a message…');
@@ -253,7 +253,7 @@ test.each(['send', 'newline'] as const)(
   async (newline) => {
     setPreference('enterForNewline', newline);
     setup({ roomId: '!room:example.org' });
-    await tick();
+    await flushed();
 
     expect(document.querySelector('.screen-reader-only[id^="composer-hint"]')).toHaveTextContent(
       newline === 'newline'
@@ -268,7 +268,7 @@ test('editing names the save action and its keyboard hint', async () => {
     roomId: '!room:example.org',
     context: { kind: 'edit', eventId: '$one:example.org', body: 'original' },
   });
-  await tick();
+  await flushed();
 
   expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument();
   expect(document.querySelector('.screen-reader-only[id^="composer-hint"]')).toHaveTextContent(
@@ -278,7 +278,7 @@ test('editing names the save action and its keyboard hint', async () => {
 
 test('a staged attachment names caption mode and changes its placeholder with the toggle', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   await pick(new File(['one'], 'one.txt', { type: 'text/plain' }));
 
   const toggle = screen.getByRole('button', { name: 'Caption' });
@@ -308,7 +308,7 @@ test.each([
   });
   const send = vi.fn(async () => {});
   setup({ roomId: '!room:example.org', onSend: send });
-  await tick();
+  await flushed();
   expect(editorText()).toBe(source);
 
   submit();
@@ -324,7 +324,7 @@ test.each([
 test('an unmount stops the typing notice for the room it was mounted with', async () => {
   const typing = vi.fn(async () => {});
   const instance = setup({ roomId: '!first:example.org', onTyping: typing });
-  await tick();
+  await flushed();
 
   instance.unmount();
 
@@ -361,7 +361,7 @@ test('sends multiple staged files as one gallery', async () => {
 
   await pick(first, second);
   submit();
-  await tick();
+  await flushed();
 
   await vi.waitFor(() => {
     expect(gallery).toHaveBeenCalledTimes(1);
@@ -408,7 +408,7 @@ test('sends each staged file on its own when galleries are off', async () => {
 
   await pick(first, second);
   submit();
-  await tick();
+  await flushed();
 
   expect(gallery).not.toHaveBeenCalled();
   await vi.waitFor(() => {
@@ -428,7 +428,7 @@ test('a file dragged anywhere over the window opens the drop overlay', async () 
   setup({ roomId: '!room:example.org', roomName: 'Design' });
 
   window.dispatchEvent(dragEvent('dragover'));
-  await tick();
+  await flushed();
 
   const overlay = document.querySelector('.drop-overlay');
   expect(overlay?.textContent).toContain('Design');
@@ -436,7 +436,7 @@ test('a file dragged anywhere over the window opens the drop overlay', async () 
   const leave = new Event('dragleave', { bubbles: true });
   Object.defineProperty(leave, 'relatedTarget', { value: null });
   window.dispatchEvent(leave);
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.drop-overlay')).toBeNull();
 });
@@ -445,7 +445,7 @@ test('dragging something that is not a file does not open the overlay', async ()
   setup({ roomId: '!room:example.org' });
 
   window.dispatchEvent(dragEvent('dragover', ['text/plain']));
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.drop-overlay')).toBeNull();
 });
@@ -459,14 +459,14 @@ test('a read-only room shows no overlay and stages nothing', async () => {
   });
 
   window.dispatchEvent(dragEvent('dragover'));
-  await tick();
+  await flushed();
   expect(document.querySelector('.drop-overlay')).toBeNull();
 
   const drop = new Event('drop', { bubbles: true, cancelable: true });
   const file = new File(['one'], 'one.png', { type: 'image/png' });
   Object.defineProperty(drop, 'dataTransfer', { value: { files: [file], types: ['Files'] } });
   window.dispatchEvent(drop);
-  await tick();
+  await flushed();
 
   expect(drop.defaultPrevented).toBe(false);
   expect(stagedNames()).toEqual([]);
@@ -476,7 +476,7 @@ test('a sidebar reorder drag opens no drop overlay and stages nothing', async ()
   setup({ roomId: '!room:example.org', roomName: 'Design' });
 
   window.dispatchEvent(dragEvent('dragover', ['Files', REORDER_DRAG_TYPE]));
-  await tick();
+  await flushed();
   expect(document.querySelector('.drop-overlay')).toBeNull();
 
   const file = new File(['one'], 'one.png', { type: 'image/png' });
@@ -485,7 +485,7 @@ test('a sidebar reorder drag opens no drop overlay and stages nothing', async ()
     value: { files: [file], types: ['Files', REORDER_DRAG_TYPE] },
   });
   window.dispatchEvent(drop);
-  await tick();
+  await flushed();
 
   expect(drop.defaultPrevented).toBe(false);
   expect(stagedNames()).toEqual([]);
@@ -509,7 +509,7 @@ test('a file dropped outside the composer is staged', async () => {
   Object.defineProperty(drop, 'dataTransfer', { value: { files: [file], types: ['Files'] } });
 
   window.dispatchEvent(drop);
-  await tick();
+  await flushed();
 
   expect(drop.defaultPrevented).toBe(true);
   expect(stagedNames()).toEqual(['one.png']);
@@ -526,7 +526,7 @@ test('stages files dropped on the composer, and drops one on demand', async () =
   });
 
   document.querySelector('.composer')?.dispatchEvent(drop);
-  await tick();
+  await flushed();
 
   expect(drop.defaultPrevented).toBe(true);
   expect(stagedNames()).toEqual(['one.png', 'two.png']);
@@ -534,10 +534,10 @@ test('stages files dropped on the composer, and drops one on demand', async () =
   const remove = document.querySelector('.staged-remove');
   if (!(remove instanceof HTMLButtonElement)) throw new Error('remove control not found');
   await press(remove);
-  await tick();
+  await flushed();
 
   submit();
-  await tick();
+  await flushed();
 
   await vi.waitFor(() => {
     expect(attachment).toHaveBeenCalledTimes(1);
@@ -558,7 +558,7 @@ test.each([true, false])(
       onSend: message,
       context: { kind: 'edit', eventId: '$one:example.org', body, html },
     });
-    await tick();
+    await flushed();
 
     submit();
 
@@ -579,7 +579,7 @@ test('submitting an untouched rich edit hands back the original body and html', 
     onSend: message,
     context: { kind: 'edit', eventId: '$one:example.org', body: 'some **bold** text', html },
   });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -600,12 +600,12 @@ test('text rides a lone attachment as its caption', async () => {
     onSend: message,
     context: { kind: 'edit', eventId: '$one:example.org', body: 'look at this' },
   });
-  await tick();
+  await flushed();
   const file = new File(['one'], 'one.png', { type: 'image/png' });
 
   await pick(file);
   submit();
-  await tick();
+  await flushed();
 
   await vi.waitFor(() => {
     expect(attachment).toHaveBeenCalledTimes(1);
@@ -639,7 +639,7 @@ test.each([true, false])(
       onSendAttachment: attachment,
     });
 
-    await tick();
+    await flushed();
     await pick(file);
     submit();
 
@@ -665,7 +665,7 @@ test('the caption toggle sends text beside a lone attachment', async () => {
     onSend: message,
     context: { kind: 'edit', eventId: '$one:example.org', body: 'look at this' },
   });
-  await tick();
+  await flushed();
   const file = new File(['one'], 'one.png', { type: 'image/png' });
 
   await pick(file);
@@ -673,7 +673,7 @@ test('the caption toggle sends text beside a lone attachment', async () => {
   if (!(toggle instanceof HTMLButtonElement)) throw new Error('caption toggle not found');
   expect(toggle).toHaveTextContent('Caption');
   await press(toggle);
-  await tick();
+  await flushed();
   expect(toggle).toHaveTextContent('Separate message');
 
   submit();
@@ -690,7 +690,7 @@ test('the caption toggle sends text beside a lone attachment', async () => {
 
 test('the caption toggle only offers itself for a lone attachment', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   await pick(new File(['one'], 'one.png', { type: 'image/png' }));
   expect(document.querySelector('.staged-caption')).not.toBeNull();
@@ -708,7 +708,7 @@ test('text follows two attachments as its own message', async () => {
     onSend: message,
     context: { kind: 'edit', eventId: '$one:example.org', body: 'both of these' },
   });
-  await tick();
+  await flushed();
 
   await pick(
     new File(['one'], 'one.png', { type: 'image/png' }),
@@ -734,7 +734,7 @@ test('text follows two attachments as its own message', async () => {
 
 test('a drop the editor already took is not staged a second time', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   const editable = document.querySelector('[role="combobox"]');
   if (!editable) throw new Error('editor surface not found');
@@ -747,7 +747,7 @@ test('a drop the editor already took is not staged a second time', async () => {
   });
 
   editable.dispatchEvent(drop);
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual([]);
 });
@@ -766,7 +766,7 @@ test('the send verb stays disabled until there is something to send', async () =
 
 test('the editor stays editable after a send', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   await pick(new File(['one'], 'one.png', { type: 'image/png' }));
   submit();
@@ -804,7 +804,7 @@ test('replying to the same event restores focus to the editor', async () => {
       reply = next;
     },
   });
-  await tick();
+  await flushed();
 
   const editor = document.querySelector('[role="combobox"]');
   if (!(editor instanceof HTMLElement)) throw new Error('editor not found');
@@ -828,7 +828,7 @@ test('a restored reply does not take focus', async () => {
     body: 'Hello',
   };
   setup({ roomId: '!room:example.org', context: restored, restoredContext: restored });
-  await tick();
+  await flushed();
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
   const editor = document.querySelector('[role="combobox"]');
@@ -844,7 +844,7 @@ test('finishing an edit keeps focus in the editor', async () => {
       setContext = set;
     },
   });
-  await tick();
+  await flushed();
 
   const editor = document.querySelector('[role="combobox"]');
   if (!(editor instanceof HTMLElement)) throw new Error('editor not found');
@@ -853,7 +853,7 @@ test('finishing an edit keeps focus in the editor', async () => {
   });
 
   setContext?.(null);
-  await tick();
+  await flushed();
   await new Promise((resolve) => requestAnimationFrame(resolve));
 
   expect(document.activeElement).toBe(editor);
@@ -861,7 +861,7 @@ test('finishing an edit keeps focus in the editor', async () => {
 
 test('staging files returns focus to the editor', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   const editor = document.querySelector('[role="combobox"]');
   if (!(editor instanceof HTMLElement)) throw new Error('editor not found');
@@ -882,7 +882,7 @@ test('a long reply sender keeps both context actions in the composer', async () 
       body: 'Hello',
     },
   });
-  await tick();
+  await flushed();
 
   const contextKind = document.querySelector('.context-kind');
   expect(contextKind).not.toBeNull();
@@ -898,14 +898,14 @@ test('the editor keeps focus while a send is pending', async () => {
         resolveSend = resolve;
       }),
   });
-  await tick();
+  await flushed();
 
   const editor = document.querySelector('[role="combobox"]');
   if (!(editor instanceof HTMLElement)) throw new Error('editor not found');
   await pick(new File(['one'], 'one.png', { type: 'image/png' }));
   editor.focus();
   submit();
-  await tick();
+  await flushed();
 
   expect(document.activeElement).toBe(editor);
   expect(editor.getAttribute('contenteditable')).toBe('true');
@@ -929,7 +929,7 @@ test.each([
         onSend,
         context: { kind: 'edit', eventId: '$one:example.org', body: 'hold on' },
       });
-      await tick();
+      await flushed();
       submit();
 
       if (expectedCalls === 0) {
@@ -963,7 +963,7 @@ test('recording a voice message keeps the typed draft', async () => {
       nextStagedId: 0,
     });
     setup({ roomId: '!room:example.org' });
-    await tick();
+    await flushed();
 
     await press(screen.getByRole('button', { name: 'Record a voice message' }));
     await vi.waitFor(() => {
@@ -987,7 +987,7 @@ test('a failed send puts the message back in the editor', async () => {
     onSend: () => Promise.reject(new Error('offline')),
     context: { kind: 'edit', eventId: '$one:example.org', body: 'hold on' },
   });
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('hold on');
 
@@ -1010,7 +1010,7 @@ test('a failed send offers a retry that sends the restored message', async () =>
     nextStagedId: 0,
   });
   setup({ roomId: '!room:example.org', onSend: send });
-  await tick();
+  await flushed();
 
   submit();
   await press(await screen.findByRole('button', { name: 'Retry' }));
@@ -1033,7 +1033,7 @@ test('a refused send can be dismissed but not retried', async () => {
     nextStagedId: 0,
   });
   setup({ roomId: '!room:example.org', onSend: () => Promise.reject(refused) });
-  await tick();
+  await flushed();
 
   submit();
   const alert = await screen.findByRole('alert');
@@ -1082,7 +1082,7 @@ test('a failed attachment keeps the file staged and reports the failure', async 
 
 test('a read-only room offers an empty box in place of the composer', async () => {
   setup({ roomId: '!room:example.org', readOnly: true });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('p.locked')?.textContent).toBe(
     'You do not have permission to post in this room'
@@ -1093,24 +1093,24 @@ test('a read-only room offers an empty box in place of the composer', async () =
 
 test('a staged file survives leaving the room and coming back', async () => {
   const first = setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   await pick(new File(['one'], 'one.png', { type: 'image/png' }));
 
   first.unmount();
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual(['one.png']);
 });
 
 test('another room does not inherit the draft', async () => {
   const first = setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   await pick(new File(['one'], 'one.png', { type: 'image/png' }));
 
   first.unmount();
   setup({ roomId: '!other:example.org' });
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual([]);
 });
@@ -1127,15 +1127,15 @@ test('switching rooms saves the active draft under its original room', async () 
       switchRoom = set;
     },
   });
-  await tick();
+  await flushed();
   clearDraft('!first:example.org');
 
   switchRoom?.('!second:example.org');
-  await tick();
+  await flushed();
   first.unmount();
 
   setup({ roomId: '!first:example.org' });
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('half a thought');
 });
@@ -1146,11 +1146,11 @@ test('an unmount keeps the typed draft for the next mount', async () => {
   ]);
   writeDraft('!room:example.org', { doc: draft.toJSON(), staged: [], nextStagedId: 0 });
   const first = setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   first.unmount();
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('half a thought');
 });
@@ -1162,7 +1162,7 @@ test('typing saves the draft without leaving the room', async () => {
   ]);
   writeDraft('!room:example.org', { doc: draft.toJSON(), staged: [], nextStagedId: 0 });
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   clearEditor();
   await vi.advanceTimersByTimeAsync(1000);
@@ -1173,30 +1173,30 @@ test('typing saves the draft without leaving the room', async () => {
 
 test('a draft from another device appears in the open composer', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   const draft = composerSchema.node('doc', null, [
     composerSchema.node('paragraph', null, [composerSchema.text('from the desktop')]),
   ]);
   adoptDraftDocuments({ '!room:example.org': draft.toJSON() as unknown });
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('from the desktop');
 });
 
 test('a thread keeps its draft out of the room it hangs off', async () => {
   const thread = setup({ roomId: '!room:example.org', threadRoot: '$root:example.org' });
-  await tick();
+  await flushed();
   await pick(new File(['one'], 'thread.png', { type: 'image/png' }));
 
   thread.unmount();
   const room = setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual([]);
   room.unmount();
   setup({ roomId: '!room:example.org', threadRoot: '$root:example.org' });
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual(['thread.png']);
 });
@@ -1213,14 +1213,14 @@ test('an edit hands back the draft it interrupted', async () => {
       setContext = set;
     },
   });
-  await tick();
+  await flushed();
   setContext?.({ kind: 'edit', eventId: '$one:example.org', body: 'the older message' });
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('the older message');
 
   setContext?.(null);
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('half a thought');
 });
@@ -1233,12 +1233,12 @@ test('cancelling an edit clears the message being edited', async () => {
       setContext = set;
     },
   });
-  await tick();
+  await flushed();
   setContext?.({ kind: 'edit', eventId: '$one:example.org', body: 'never mind' });
-  await tick();
+  await flushed();
 
   setContext?.(null);
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('');
 });
@@ -1268,17 +1268,17 @@ test('emptying an edit offers to delete the message instead of sending nothing',
     onDeleteEdited: deleted,
     context: { kind: 'edit', eventId: '$one:example.org', body: 'never mind' },
   });
-  await tick();
+  await flushed();
 
   clearEditor();
-  await tick();
+  await flushed();
   expect(editorText()).toBe('');
 
   submit();
-  await tick();
+  await flushed();
 
   await press(deleteDialogButton());
-  await tick();
+  await flushed();
 
   expect(deleted).toHaveBeenCalledWith('$one:example.org', null);
   expect(message).not.toHaveBeenCalled();
@@ -1287,10 +1287,10 @@ test('emptying an edit offers to delete the message instead of sending nothing',
 test('an empty composer only offers to delete while an edit is in flight', async () => {
   const deleted = vi.fn();
   setup({ roomId: '!room:example.org', onDeleteEdited: deleted });
-  await tick();
+  await flushed();
 
   submit();
-  await tick();
+  await flushed();
 
   expect(document.body.textContent).not.toContain('Delete message');
   expect(deleted).not.toHaveBeenCalled();
@@ -1298,7 +1298,7 @@ test('an empty composer only offers to delete while an edit is in flight', async
 
 test('an oversized file is refused before it is staged', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   const huge = new File(['x'], 'huge.bin', { type: 'application/octet-stream' });
   Object.defineProperty(huge, 'size', { value: 101 * 1024 * 1024 });
 
@@ -1380,9 +1380,9 @@ test('files awaiting the server limit do not move into another room', async () =
 
   await pick(new File(['x'], 'private.bin'));
   switchRoom?.('!second:example.org');
-  await tick();
+  await flushed();
   resolveConfig?.({ upload_size: 500 * 1024 * 1024 });
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual([]);
 });
@@ -1411,9 +1411,9 @@ test('files awaiting the server limit do not move into another account', async (
 
   await pick(new File(['x'], 'private.bin'));
   session.account_id = 'b';
-  await tick();
+  await flushed();
   resolveConfig?.({ upload_size: 500 * 1024 * 1024 });
-  await tick();
+  await flushed();
 
   expect(stagedNames()).toEqual([]);
 });
@@ -1430,25 +1430,25 @@ function formattingBar(): Element | null {
 
 test('the formatting toolbar follows its setting', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   expect(formattingBar()).toBeNull();
 
   setPreference('formattingToolbar', true);
-  await tick();
+  await flushed();
   expect(formattingBar()).not.toBeNull();
 });
 
 test('the toolbar toggle writes the setting back, so it survives a remount', async () => {
   const first = setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   await press(formattingToggle());
-  await tick();
+  await flushed();
 
   expect(formattingToggle().getAttribute('aria-pressed')).toBe('true');
   first.unmount();
 
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   expect(formattingBar()).not.toBeNull();
 });
 
@@ -1456,7 +1456,7 @@ test('without rich text the toolbar offers only what markdown can write', async 
   setPreference('formattingToolbar', true);
   setPreference('richTextComposer', false);
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.composer-format')).not.toBeNull();
   const labels = [...(formattingBar()?.querySelectorAll('button') ?? [])].map((button) =>
@@ -1470,7 +1470,7 @@ test('without rich text the toolbar offers only what markdown can write', async 
 test('the formatting button can be hidden on its own', async () => {
   setPreference('composerFormatButton', false);
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.composer-format')).toBeNull();
 });
@@ -1486,11 +1486,11 @@ test('a staged picture marked as a spoiler is sent as one', async () => {
   if (!(toggle instanceof HTMLButtonElement)) throw new Error('spoiler control not found');
   expect(toggle.getAttribute('aria-pressed')).toBe('false');
   await press(toggle);
-  await tick();
+  await flushed();
   expect(document.querySelector('.staged-spoiler')?.getAttribute('aria-pressed')).toBe('true');
 
   submit();
-  await tick();
+  await flushed();
 
   await vi.waitFor(() => {
     expect(attachment).toHaveBeenCalledTimes(1);
@@ -1582,7 +1582,7 @@ test('a send tap sends immediately', async () => {
   });
 
   try {
-    await tick();
+    await flushed();
     const button = sendButton();
     const down = new PointerEvent('pointerdown', {
       bubbles: true,
@@ -1624,7 +1624,7 @@ test('a send hold schedules after 800ms', async () => {
     onSend: send,
     onSchedule: async () => {},
   });
-  await tick();
+  await flushed();
 
   const button = document.querySelector('.composer-send');
   if (!(button instanceof HTMLButtonElement)) throw new Error('send button not found');
@@ -1632,7 +1632,7 @@ test('a send hold schedules after 800ms', async () => {
   await vi.advanceTimersByTimeAsync(SCHEDULE_PRESS_MS - 1);
   expect(document.body.textContent).not.toContain('Schedule this message');
   await vi.advanceTimersByTimeAsync(1);
-  await tick();
+  await flushed();
 
   expect(document.body.textContent).toContain('Schedule this message');
   expect(send).not.toHaveBeenCalled();
@@ -1649,7 +1649,7 @@ test('a touch contextmenu leaves the schedule dialog to the long press', async (
   ]);
   writeDraft('!room:example.org', { doc: draft.toJSON(), staged: [], nextStagedId: 0 });
   setup({ roomId: '!room:example.org', onSchedule: async () => {} });
-  await tick();
+  await flushed();
 
   const button = document.querySelector('.composer-send');
   if (!(button instanceof HTMLButtonElement)) throw new Error('send button not found');
@@ -1659,7 +1659,7 @@ test('a touch contextmenu leaves the schedule dialog to the long press', async (
     pointerType: 'touch',
   });
   button.dispatchEvent(menu);
-  await tick();
+  await flushed();
 
   expect(menu.defaultPrevented).toBe(true);
   expect(document.body.textContent).not.toContain('Schedule this message');
@@ -1679,7 +1679,7 @@ for (const [pointerType, afterReleaseMs] of [
     const instance = setup({ roomId: '!room:example.org', onSchedule: async () => {} });
 
     try {
-      await tick();
+      await flushed();
       const button = sendButton();
       await fireEvent.pointerDown(button, { pointerType: 'touch', isPrimary: true });
       await vi.advanceTimersByTimeAsync(100);
@@ -1692,7 +1692,7 @@ for (const [pointerType, afterReleaseMs] of [
           ? new MouseEvent('contextmenu', init)
           : new PointerEvent('contextmenu', { ...init, pointerType });
       button.dispatchEvent(menu);
-      await tick();
+      await flushed();
 
       expect(menu.defaultPrevented).toBe(true);
       expect(document.body.textContent).not.toContain('Schedule this message');
@@ -1719,7 +1719,7 @@ test.each([false, true])(
       onSend: send,
       onSchedule: async () => {},
     });
-    await tick();
+    await flushed();
 
     const button = document.querySelector('.composer-send');
     if (!(button instanceof HTMLButtonElement)) throw new Error('send button not found');
@@ -1740,7 +1740,7 @@ test.each(['ContextMenu', 'F10'])('the %s key opens scheduling after a touch', a
   ]);
   writeDraft('!room:example.org', { doc: draft.toJSON(), staged: [], nextStagedId: 0 });
   setup({ roomId: '!room:example.org', onSchedule: async () => {} });
-  await tick();
+  await flushed();
 
   const button = sendButton();
   await fireEvent.pointerDown(button, { pointerType: 'touch', isPrimary: true });
@@ -1770,7 +1770,7 @@ for (const encrypted of [true, null]) {
     const scheduleForm = screen.getByRole('button', { name: 'Schedule' }).closest('form');
     if (!scheduleForm) throw new Error('schedule form not found');
     await fireEvent.submit(scheduleForm);
-    await tick();
+    await flushed();
 
     expect(scheduleAttachment).not.toHaveBeenCalled();
     expect(schedule).not.toHaveBeenCalled();
@@ -1788,7 +1788,7 @@ test('an attachment is scheduled in an unencrypted room', async () => {
 
   await fireEvent.contextMenu(sendButton());
   await press(screen.getByRole('button', { name: 'In an hour' }));
-  await tick();
+  await flushed();
 
   expect(scheduleAttachment).toHaveBeenCalledOnce();
   expect(stagedNames()).toEqual([]);
@@ -1809,12 +1809,12 @@ test('an edited scheduled message loads its text and saves through its own time'
       scheduled: { source: 'server', dueTs },
     },
   });
-  await tick();
+  await flushed();
 
   expect(editorText()).toBe('see you tomorow');
 
   submit();
-  await tick();
+  await flushed();
 
   expect(send).not.toHaveBeenCalled();
   const segment = (part: string) =>
@@ -1830,7 +1830,7 @@ test('an edited scheduled message loads its text and saves through its own time'
 
 test('a press beside the text focuses the editor, and one on a button does not', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   const row = document.querySelector('form');
   const editable = document.querySelector('[role="combobox"]');
@@ -1849,7 +1849,7 @@ test('a press beside the text focuses the editor, and one on a button does not',
 test('the format button follows the configured button order', async () => {
   setPreference('composerButtonOrder', ['format', 'emoticon', 'gif', 'sticker', 'persona']);
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
 
   const after = document.querySelector('.composer-after');
   const first = after?.firstElementChild;
@@ -1868,29 +1868,29 @@ function pressInEditor(init: KeyboardEventInit): void {
 
 test('typing hides the pointer over the composer and a real mouse move shows it again', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   const stack = document.querySelector('.composer-stack');
 
   pressInEditor({ key: 'ArrowLeft' });
-  await tick();
+  await flushed();
   expect(stack).not.toHaveClass('pointer-hidden');
 
   pressInEditor({ key: 'a' });
-  await tick();
+  await flushed();
   expect(stack).toHaveClass('pointer-hidden');
 
   window.dispatchEvent(new MouseEvent('mousemove', { movementX: 0, movementY: 0 }));
-  await tick();
+  await flushed();
   expect(stack).toHaveClass('pointer-hidden');
 
   window.dispatchEvent(new MouseEvent('mousemove', { movementX: 3, movementY: 0 }));
-  await tick();
+  await flushed();
   expect(stack).not.toHaveClass('pointer-hidden');
 });
 
 test('the expand button makes the editor taller and keeps focus in it', async () => {
   setup({ roomId: '!room:example.org' });
-  await tick();
+  await flushed();
   const toggle = screen.getByRole('button', { name: 'Expand composer' });
 
   await press(toggle);
@@ -1907,7 +1907,7 @@ test('the insert menu offers scheduling once there is something to send', async 
     nextStagedId: 0,
   });
   setup({ roomId: '!room:example.org', onSchedule: vi.fn(async () => {}) });
-  await tick();
+  await flushed();
 
   await press(screen.getByRole('button', { name: 'Insert' }));
   await press(await screen.findByRole('menuitem', { name: 'Schedule message' }));
@@ -1917,7 +1917,7 @@ test('the insert menu offers scheduling once there is something to send', async 
 
 test('the placeholder names the room', async () => {
   setup({ roomId: '!room:example.org', roomName: 'General' });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.editor')).toHaveAttribute('data-placeholder', 'Message General…');
 });
@@ -1928,7 +1928,7 @@ test('a reply names its target in the placeholder and announces itself', async (
     roomName: 'General',
     context: { kind: 'reply', eventId: '$one:example.org', sender: 'Alice', body: 'Hello' },
   });
-  await tick();
+  await flushed();
 
   expect(document.querySelector('.editor')).toHaveAttribute('data-placeholder', 'Reply to Alice…');
   expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent('Replying to Alice');
@@ -1941,7 +1941,7 @@ test('Escape cancels a reply context', async () => {
     context: { kind: 'reply', eventId: '$one:example.org', sender: 'Alice', body: 'Hello' },
     onCancelContext: cancel,
   });
-  await tick();
+  await flushed();
 
   pressInEditor({ key: 'Escape' });
 
@@ -1958,14 +1958,14 @@ test('Ctrl+Up and Ctrl+Down step the reply unless an edit is in flight', async (
       setContext = set;
     },
   });
-  await tick();
+  await flushed();
 
   pressInEditor({ key: 'ArrowUp', ctrlKey: true });
   pressInEditor({ key: 'ArrowDown', ctrlKey: true });
   expect(step.mock.calls).toEqual([['older'], ['newer']]);
 
   setContext?.({ kind: 'edit', eventId: '$one:example.org', body: 'never mind' });
-  await tick();
+  await flushed();
   pressInEditor({ key: 'ArrowUp', ctrlKey: true });
   expect(step).toHaveBeenCalledTimes(2);
 });
@@ -1980,17 +1980,17 @@ test('Up in an untouched edit moves to the previous message, a changed one stays
       setContext = set;
     },
   });
-  await tick();
+  await flushed();
 
   setContext?.({ kind: 'edit', eventId: '$two:example.org', body: 'second' });
-  await tick();
+  await flushed();
   pressInEditor({ key: 'ArrowUp' });
   expect(editLast).toHaveBeenCalledWith('$two:example.org');
 
   editLast.mockClear();
   const editable = document.querySelector<HTMLElement>('[role="combobox"]');
   if (editable) editable.textContent = 'second changed';
-  await tick();
+  await flushed();
   await new Promise((resolve) => setTimeout(resolve, 0));
   pressInEditor({ key: 'ArrowUp' });
   expect(editLast).not.toHaveBeenCalled();
@@ -2006,17 +2006,17 @@ test('Down in an untouched edit moves to the next message, a changed one stays',
       setContext = set;
     },
   });
-  await tick();
+  await flushed();
 
   setContext?.({ kind: 'edit', eventId: '$one:example.org', body: 'first' });
-  await tick();
+  await flushed();
   pressInEditor({ key: 'ArrowDown' });
   expect(editNext).toHaveBeenCalledWith('$one:example.org');
 
   editNext.mockClear();
   const editable = document.querySelector<HTMLElement>('[role="combobox"]');
   if (editable) editable.textContent = 'first changed';
-  await tick();
+  await flushed();
   await new Promise((resolve) => setTimeout(resolve, 0));
   pressInEditor({ key: 'ArrowDown' });
   expect(editNext).not.toHaveBeenCalled();
@@ -2040,14 +2040,14 @@ test('switching accounts in the same room restores only that account draft', asy
       },
     },
   });
-  await tick();
+  await flushed();
   expect(editorText()).toBe('A private draft');
   session.account_id = 'b';
-  await tick();
+  await flushed();
   expect(editorText()).toBe('');
   expect(readDraft('!room:example.org', 'b')).toBeUndefined();
   session.account_id = 'a';
-  await tick();
+  await flushed();
   expect(editorText()).toBe('A private draft');
 });
 
@@ -2067,7 +2067,7 @@ test('clearing an attachment caption sends an edit without asking to delete', as
     onSend,
     onDeleteEdited,
   });
-  await tick();
+  await flushed();
   submit();
   await vi.waitFor(() => {
     expect(onSend).toHaveBeenCalledWith('!room:example.org', '', null, {
@@ -2150,7 +2150,7 @@ test.each([
   const onQuickReact = vi.fn(async () => {});
   draftText('+:joy');
   setup({ roomId: '!room:example.org', onQuickReact, canReact, readOnly });
-  await tick();
+  await flushed();
   expect(screen.queryByRole('listbox')).toBeNull();
   expect(onQuickReact).not.toHaveBeenCalled();
   if (!readOnly) expect(editorText()).toBe('+:joy');
@@ -2172,7 +2172,7 @@ test('a complete bot command typed in the composer is sent as a structured comma
   const onSendBotCommand = vi.fn(async () => {});
   draftText('/warn @spam:example.org 7');
   setup({ roomId: '!room:example.org', onSend, onSendBotCommand });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -2213,7 +2213,7 @@ test.each(['command', 'argument'])('formatting a bot %s keeps its invocation', a
   ]);
   writeDraft('!room:example.org', { doc: draft.toJSON(), staged: [], nextStagedId: 0 });
   setup({ roomId: '!room:example.org', onSendBotCommand });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -2237,7 +2237,7 @@ test('a failed bot command restores its code block', async () => {
     roomId: '!room:example.org',
     onSendBotCommand: () => Promise.reject(new Error('offline')),
   });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -2260,7 +2260,7 @@ test.each(['/register payload', '/warn @spam:example.org 7'])(
     );
     draftText(command);
     setup({ roomId: '!room:example.org', onSendBotCommand });
-    await tick();
+    await flushed();
 
     submit();
     await vi.waitFor(() => {
@@ -2296,14 +2296,14 @@ test('a failed bot command does not restore into another room', async () => {
       setRoom = set;
     },
   });
-  await tick();
+  await flushed();
 
   submit();
   await vi.waitFor(() => {
     expect(onSendBotCommand).toHaveBeenCalledOnce();
   });
   setRoom?.('!other:example.org');
-  await tick();
+  await flushed();
   rejectSend?.(new Error('offline'));
 
   await vi.waitFor(() => {
@@ -2325,7 +2325,7 @@ test('a bot command lookup does not clear a newer draft', async () => {
   const onSendBotCommand = vi.fn(async () => {});
   draftText('/register payload');
   setup({ roomId: '!room:example.org', onSendBotCommand }, client);
-  await tick();
+  await flushed();
 
   submit();
   await vi.waitFor(() => {
@@ -2360,7 +2360,7 @@ test('a queued bot command keeps its room', async () => {
       setRoom = set;
     },
   });
-  await tick();
+  await flushed();
 
   submit();
   await vi.waitFor(() => {
@@ -2373,7 +2373,7 @@ test('a queued bot command keeps its room', async () => {
     expect(editorText()).toBe('');
   });
   setRoom?.('!other:example.org');
-  await tick();
+  await flushed();
   resolveSend?.();
 
   await vi.waitFor(() => {
@@ -2395,7 +2395,7 @@ test('a bot command fences code containing backticks', async () => {
   ]);
   writeDraft('!room:example.org', { doc: draft.toJSON(), staged: [], nextStagedId: 0 });
   setup({ roomId: '!room:example.org', onSendBotCommand });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -2537,7 +2537,7 @@ test.each([
           ]
         : []
     );
-    await tick();
+    await flushed();
 
     submit();
 
@@ -2559,7 +2559,7 @@ test('a zero-parameter bot command preserves raw trailing input', async () => {
   const onSendBotCommand = vi.fn(async () => {});
   draftText('/register ```yaml\nid: bridge\n```');
   setup({ roomId: '!room:example.org', onSendBotCommand });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -2578,7 +2578,7 @@ test('an incomplete bot command opens its form, which sends once it is filled in
   const onSendBotCommand = vi.fn(async () => {});
   draftText('/warn @spam:example.org');
   setup({ roomId: '!room:example.org', onSend, onSendBotCommand });
-  await tick();
+  await flushed();
 
   submit();
 
@@ -2609,7 +2609,7 @@ test('without bot command support an unknown command still goes to the slash han
   const onSend = vi.fn(async () => {});
   draftText('/warn @spam:example.org 7');
   setup({ roomId: '!room:example.org', onSend });
-  await tick();
+  await flushed();
 
   submit();
 
