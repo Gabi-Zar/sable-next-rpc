@@ -259,8 +259,31 @@
   ></div>
 {/if}
 <div class="rail-shell">
+  <div
+    bind:this={railElement}
+    class="rail"
+    class:motion-ready={motionReady}
+    class:is-navigating={isNavigating}
+    class:is-dragging={isDragging}
+    style:height={activeCardHeight === null
+      ? undefined
+      : `calc(${activeCardHeight}px + var(--space-100) + var(--space-400))`}
+    style:--active-card-height={activeCardHeight === null ? undefined : `${activeCardHeight}px`}
+    role="presentation"
+    ontouchstart={handleTouchStart}
+    ontouchmove={handleTouchMove}
+    ontouchend={() => {
+      finishTouchGesture(false);
+    }}
+    ontouchcancel={() => {
+      finishTouchGesture(true);
+    }}
+    onscroll={handleScroll}
+  >
+    {@render children()}
+  </div>
   {#if total > 1}
-    <nav class="mobile-nav" aria-label={$i18n.t('auth.stageNavigation')}>
+    <div class="mobile-nav" role="group" aria-label={$i18n.t('auth.stageNavigation')}>
       {#if canBack}
         <button
           class="panel-nav previous"
@@ -277,32 +300,8 @@
           aria-label={$i18n.t('auth.next')}><CaretRightIcon /></button
         >
       {/if}
-    </nav>
+    </div>
   {/if}
-  <div
-    bind:this={railElement}
-    class="rail"
-    class:motion-ready={motionReady}
-    class:is-navigating={isNavigating}
-    class:is-dragging={isDragging}
-    style:height={activeCardHeight === null
-      ? undefined
-      : `calc(${activeCardHeight}px + var(--space-100) + var(--space-400))`}
-    style:--active-card-height={activeCardHeight === null ? undefined : `${activeCardHeight}px`}
-    role="group"
-    aria-label={$i18n.t('auth.stageNavigation')}
-    ontouchstart={handleTouchStart}
-    ontouchmove={handleTouchMove}
-    ontouchend={() => {
-      finishTouchGesture(false);
-    }}
-    ontouchcancel={() => {
-      finishTouchGesture(true);
-    }}
-    onscroll={handleScroll}
-  >
-    {@render children()}
-  </div>
 </div>
 
 <style>

@@ -1328,6 +1328,7 @@
     "enterEmail": "Enter your email address.",
     "enterRegistrationToken": "Enter your registration token.",
     "createAccount": "Create account",
+    "noAccountYet": "Don't have an account yet?",
     "createServerAccount": "Create a {{server}} account",
     "createAccountOnServer": "Create an account on {{server}}",
     "registeringWith": "Registering with",

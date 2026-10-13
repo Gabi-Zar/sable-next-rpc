@@ -306,6 +306,7 @@
       {$i18n.t('auth.cancelAddingAccount')}
     </Button>
   {:else if onCreateAccount}
+    <span>{$i18n.t('auth.noAccountYet')}</span>
     <Button
       variant="ghost"
       type="button"

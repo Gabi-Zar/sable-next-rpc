@@ -56,14 +56,14 @@
     type="button"
     onclick={onActivate}
     aria-label={accessibilityLabel}
-    aria-hidden={active}
+    aria-hidden="true"
     disabled={!reachable}
-    tabindex={active || !reachable ? -1 : 0}
+    tabindex="-1"
   ></button>
   {#if !active && !reachable && unavailableLabel}
     <Tooltip label={unavailableLabel}>
       {#snippet trigger({ props })}
-        <span {...props} class="unavailable-cue" role="img" aria-label={unavailableLabel}>
+        <span {...props} class="unavailable-cue" tabindex="-1" aria-hidden="true">
           <LockSimpleIcon aria-hidden="true" />
         </span>
       {/snippet}
