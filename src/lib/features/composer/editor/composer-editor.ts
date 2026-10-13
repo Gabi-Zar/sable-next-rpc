@@ -917,7 +917,9 @@ export class ComposerEditor {
                 if (this.options.onNavigate('Escape')) event.preventDefault();
                 return true;
               }
+              /* iOS can drop the Shift keyup. */
               if (event.key === 'Shift') this.shiftHeld = true;
+              else if (!event.shiftKey) this.shiftHeld = false;
               if (event.key === 'Enter' && hasIosKeyboardContextQuirk()) {
                 this.iosEnter = { shift: event.shiftKey && this.shiftHeld, handled: false };
               }

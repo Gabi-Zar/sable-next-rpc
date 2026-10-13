@@ -91,3 +91,20 @@ test('on iOS the auto-capitalise shift is not a Shift press', () => {
   expect(submit).not.toHaveBeenCalled();
   expect(editor.doc()?.firstChild?.toString()).toBe('paragraph("hi", hard_break)');
 });
+
+test('on iOS a dropped Shift keyup does not make later Enters sends', () => {
+  vi.useFakeTimers();
+  preferences.enterForNewline = 'newline';
+  const submit = vi.fn();
+  const editor = open(submit);
+  editor.setText('hi');
+  const surface = document.querySelector<HTMLElement>('[contenteditable]');
+  if (!surface) throw new Error('editor surface not found');
+
+  surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift', bubbles: true }));
+  surface.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+  pressEnter(true, false);
+
+  expect(submit).not.toHaveBeenCalled();
+  expect(editor.doc()?.firstChild?.toString()).toBe('paragraph("hi", hard_break)');
+});
