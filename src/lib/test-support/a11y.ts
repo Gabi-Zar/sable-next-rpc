@@ -6,18 +6,8 @@ const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-prac
 // A component rendered alone has no page around it.
 const STANDALONE_RULES_OFF = ['region', 'landmark-one-main', 'page-has-heading-one'];
 
-export interface A11yOptions {
-  /** Rule ids to skip, each with the reason it cannot apply. */
-  disable?: readonly string[];
-}
-
-export async function a11yViolations(
-  root: Element,
-  { disable = [] }: A11yOptions = {}
-): Promise<string[]> {
-  const rules = Object.fromEntries(
-    [...STANDALONE_RULES_OFF, ...disable].map((id) => [id, { enabled: false }])
-  );
+export async function a11yViolations(root: Element): Promise<string[]> {
+  const rules = Object.fromEntries(STANDALONE_RULES_OFF.map((id) => [id, { enabled: false }]));
   const result = await axe.run(root, { runOnly: { type: 'tag', values: TAGS }, rules });
   return result.violations.flatMap((violation) =>
     violation.nodes.map(
@@ -26,8 +16,8 @@ export async function a11yViolations(
   );
 }
 
-export async function expectNoA11yViolations(root: Element, options?: A11yOptions): Promise<void> {
-  const violations = await a11yViolations(root, options);
+export async function expectNoA11yViolations(root: Element): Promise<void> {
+  const violations = await a11yViolations(root);
   if (violations.length) {
     throw new Error(`Accessibility violations:\n${violations.join('\n')}`);
   }

@@ -1,5 +1,4 @@
-// Tab-stop budgets and per-page axe runs for #960. A test.fail() marks a gap the
-// issue describes: it turns red once the gap closes, so the annotation gets removed.
+// A test.fail() marks a gap from #960; it goes red once the gap closes.
 
 import { violations, tabStops } from './fixtures/a11y';
 import { TIMELINE_ROOM_NAME } from './fixtures/continuwuity';

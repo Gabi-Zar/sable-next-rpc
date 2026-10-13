@@ -1,26 +1,16 @@
 import type { Attachment } from 'svelte/attachments';
 
-const ITEM = 'button, a[href], input, select, textarea, [role="tab"], [role="menuitem"]';
+const ITEM = 'button, a[href], [role="tab"]';
 
 interface Options {
   orientation?: 'horizontal' | 'vertical';
-  /** Elements that take part; defaults to every control inside the container. */
   selector?: string;
-  /** Wrap from the last control to the first and back. */
   loop?: boolean;
 }
 
-// Where Tab lands first when nothing inside has had focus yet.
 const SELECTED = '[aria-current="page"], [aria-selected="true"]';
 
-// Arrow keys keep their text-editing meaning in these.
-const EDITABLE =
-  'input:not([type="radio"]):not([type="checkbox"]):not([type="button"]), textarea, select, [contenteditable="true"]';
-
-/**
- * Makes a container one tab stop: arrows, Home and End move between its controls
- * (the WAI-ARIA toolbar pattern), and Tab leaves it. Controls added later are picked up.
- */
+/** Makes a container one tab stop; arrows, Home and End move between its controls. */
 export function rovingFocus({
   orientation = 'horizontal',
   selector = ITEM,
@@ -62,7 +52,7 @@ export function rovingFocus({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-      if (!(event.target instanceof HTMLElement) || event.target.matches(EDITABLE)) return;
+      if (!(event.target instanceof HTMLElement)) return;
       const all = items();
       const index = all.indexOf(event.target);
       if (index < 0) return;

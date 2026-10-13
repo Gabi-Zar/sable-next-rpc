@@ -1,5 +1,3 @@
-// The sign-in and setup screens for #960: what a screen reader meets, and in what order.
-
 import en from '../../src/locales/en.json' with { type: 'json' };
 import { violations } from './fixtures/a11y';
 import { LOGIN_PASSWORD, LOGIN_USERNAME } from './fixtures/loginAccount';

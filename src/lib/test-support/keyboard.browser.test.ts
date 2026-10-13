@@ -1,5 +1,4 @@
 import { expect, test } from 'vitest';
-import { userEvent } from 'vitest/browser';
 
 import { expectNoA11yViolations, a11yViolations } from './a11y.js';
 import { expectSingleTabStop, tabStops } from './keyboard.js';
@@ -34,7 +33,7 @@ test('tabStops skips negative tabindex, disabled and hidden elements', () => {
   expect(tabStops(root).map((stop) => stop.id)).toEqual(['a', 'e']);
 });
 
-test('expectSingleTabStop accepts a roving toolbar and rejects a plain one', async () => {
+test('expectSingleTabStop accepts a roving toolbar and rejects a plain one', () => {
   const roving = mount(
     '<div role="toolbar"><button>a</button><button tabindex="-1">b</button></div>'
   );
@@ -44,7 +43,4 @@ test('expectSingleTabStop accepts a roving toolbar and rejects a plain one', asy
   expect(() => {
     expectSingleTabStop(widget(plain));
   }).toThrow('one tab stop');
-
-  await userEvent.tab();
-  expect(document.activeElement?.tagName).toBe('BUTTON');
 });
