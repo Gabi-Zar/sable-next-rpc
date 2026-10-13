@@ -1,6 +1,8 @@
-use sable_core::protocol::{CommandErr, NotificationView};
 #[cfg(any(mobile, test))]
-use sable_core::protocol::{WebPushKeys, WebPusherView};
+use sable_core::api::push::WebPusherView;
+#[cfg(any(mobile, test))]
+use sable_core::protocol::WebPushKeys;
+use sable_core::protocol::{NotificationView, RpcError};
 use sable_core::ruma::{EventId, owned_room_id, owned_user_id};
 #[cfg(not(target_os = "android"))]
 use std::collections::HashMap;
@@ -74,7 +76,7 @@ pub enum PushRegistrationError {
     Platform { message: String },
     NoGateway,
     NoAppId,
-    Homeserver { error: CommandErr },
+    Homeserver { error: RpcError },
     Ledger,
 }
 
@@ -90,20 +92,20 @@ struct RegisteredPusher {
     event_id_only: bool,
 }
 
-fn push_store<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, CommandErr> {
+fn push_store<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, RpcError> {
     use tauri::Manager;
     app.try_state::<PushStore>()
         .map(|store| store.0.clone())
-        .ok_or(CommandErr::Unavailable)
+        .ok_or(RpcError::Unavailable)
 }
 
 pub struct PushStore(pub std::path::PathBuf);
 
-fn registered_pushers(root: &std::path::Path) -> Result<Vec<RegisteredPusher>, CommandErr> {
+fn registered_pushers(root: &std::path::Path) -> Result<Vec<RegisteredPusher>, RpcError> {
     match std::fs::read(root.join("pushers.json")) {
-        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| CommandErr::Unavailable),
+        Ok(bytes) => serde_json::from_slice(&bytes).map_err(|_| RpcError::Unavailable),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
-        Err(_) => Err(CommandErr::Unavailable),
+        Err(_) => Err(RpcError::Unavailable),
     }
 }
 
@@ -120,7 +122,7 @@ pub fn device_pusher<R: Runtime>(
     app: &AppHandle<R>,
     user_id: &str,
     device_id: &str,
-) -> Result<Option<DevicePusher>, CommandErr> {
+) -> Result<Option<DevicePusher>, RpcError> {
     Ok(registered_pushers(&push_store(app)?)?
         .into_iter()
         .rev()
@@ -131,18 +133,18 @@ pub fn device_pusher<R: Runtime>(
         }))
 }
 
-fn save_pushers(root: &std::path::Path, pushers: &[RegisteredPusher]) -> Result<(), CommandErr> {
-    std::fs::create_dir_all(root).map_err(|_| CommandErr::Unavailable)?;
-    let bytes = serde_json::to_vec(pushers).map_err(|_| CommandErr::Unavailable)?;
-    std::fs::write(root.join("pushers.tmp"), bytes).map_err(|_| CommandErr::Unavailable)?;
+fn save_pushers(root: &std::path::Path, pushers: &[RegisteredPusher]) -> Result<(), RpcError> {
+    std::fs::create_dir_all(root).map_err(|_| RpcError::Unavailable)?;
+    let bytes = serde_json::to_vec(pushers).map_err(|_| RpcError::Unavailable)?;
+    std::fs::write(root.join("pushers.tmp"), bytes).map_err(|_| RpcError::Unavailable)?;
     std::fs::rename(root.join("pushers.tmp"), root.join("pushers.json"))
-        .map_err(|_| CommandErr::Unavailable)
+        .map_err(|_| RpcError::Unavailable)
 }
 
 async fn remove_saved_pusher(
     root: &std::path::Path,
     pusher: &RegisteredPusher,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let client = pusher_client(root, pusher).await?;
     client
         .retry(|| {
@@ -153,16 +155,16 @@ async fn remove_saved_pusher(
             )
         })
         .await
-        .map_err(|_| CommandErr::Unavailable)
+        .map_err(|_| RpcError::Unavailable)
 }
 
 async fn pusher_client(
     root: &std::path::Path,
     pusher: &RegisteredPusher,
-) -> Result<sable_core::notifications::PushClient, CommandErr> {
+) -> Result<sable_core::notifications::PushClient, RpcError> {
     sable_core::notifications::restore_push_client(root, &pusher.user_id, &pusher.device_id)
         .await
-        .ok_or(CommandErr::Unavailable)
+        .ok_or(RpcError::Unavailable)
 }
 
 #[cfg(target_os = "android")]
@@ -186,7 +188,7 @@ pub enum BackgroundPush {
 pub async fn maintain_background_push(
     root: &std::path::Path,
     operation: BackgroundPush,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let _guard = PUSH_REGISTRATION_LOCK.lock().await;
     let pushers = registered_pushers(root)?;
     match operation {
@@ -207,7 +209,7 @@ pub async fn maintain_background_push(
                     return Ok(());
                 }
             }
-            Err(CommandErr::Unavailable)
+            Err(RpcError::Unavailable)
         }
         BackgroundPush::Rotate {
             user_id,
@@ -220,7 +222,7 @@ pub async fn maintain_background_push(
                 .iter()
                 .any(|pusher| pusher.user_id == user_id && pusher.device_id == device_id);
             if !known || !is_unified_push_endpoint(&endpoint) {
-                return Err(CommandErr::Unavailable);
+                return Err(RpcError::Unavailable);
             }
             let registration = Registration {
                 token: endpoint,
@@ -240,8 +242,9 @@ async fn rotate_pusher(
     root: &std::path::Path,
     pusher: &RegisteredPusher,
     registration: &Registration,
-) -> Result<(), CommandErr> {
-    use sable_core::protocol::{PusherView, WebPushKeys};
+) -> Result<(), RpcError> {
+    use sable_core::api::push::PusherView;
+    use sable_core::protocol::WebPushKeys;
     let client = pusher_client(root, pusher).await?;
     let registration = &rotated_registration(&pusher.app_id, registration);
     let pushkey = if let Some(gateway) = &pusher.gateway {
@@ -256,7 +259,7 @@ async fn rotate_pusher(
                 auth: auth.clone(),
             }),
             (None, None) => None,
-            _ => return Err(CommandErr::Unavailable),
+            _ => return Err(RpcError::Unavailable),
         };
         client
             .retry(|| {
@@ -274,16 +277,16 @@ async fn rotate_pusher(
                 )
             })
             .await
-            .map_err(|_| CommandErr::Unavailable)?;
+            .map_err(|_| RpcError::Unavailable)?;
         key
     } else {
         let rotated = server_web_pusher(registration, &pusher.app_id, pusher.event_id_only)
-            .ok_or(CommandErr::Unavailable)?;
+            .ok_or(RpcError::Unavailable)?;
         let key = rotated.pushkey.clone();
         client
             .retry(|| sable_core::webpush::set_pusher(&client, rotated.clone()))
             .await
-            .map_err(|_| CommandErr::Unavailable)?;
+            .map_err(|_| RpcError::Unavailable)?;
         key
     };
     let identity = (pusher.user_id.clone(), pusher.device_id.clone());
@@ -946,8 +949,7 @@ pub async fn register_push<R: Runtime>(
     core: &Arc<sable_core::Core>,
     config: PushConfig,
 ) -> Result<(), PushRegistrationError> {
-    use sable_core::api::push::{SetPusherParams, WebPusherSupportParams};
-    use sable_core::protocol::PusherView;
+    use sable_core::api::push::{PusherView, SetPusherParams, WebPusherSupportParams};
     let _guard = PUSH_REGISTRATION_LOCK.lock().await;
     let root = push_store(app).map_err(|_| PushRegistrationError::Ledger)?;
     let (Some(user_id), Some(device_id)) = (config.user_id.clone(), config.device_id.clone())
@@ -1086,7 +1088,7 @@ fn remember_pusher(
     app_id: String,
     gateway: Option<String>,
     event_id_only: bool,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let mut pushers = registered_pushers(root)?;
     pushers.retain(|p| {
         !(p.user_id == identity.0
@@ -1140,13 +1142,13 @@ async fn retire_old_pushers(root: &std::path::Path, identity: &(String, String))
 /// # Errors
 ///
 /// When the homeserver refuses to delete the pusher.
-pub async fn unregister_push<R: Runtime>(app: &AppHandle<R>) -> Result<(), CommandErr> {
+pub async fn unregister_push<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcError> {
     let _guard = PUSH_REGISTRATION_LOCK.lock().await;
     #[cfg(mobile)]
     app.notifications()
         .unregister_for_push_notifications()
         .await
-        .map_err(|_| CommandErr::Unavailable)?;
+        .map_err(|_| RpcError::Unavailable)?;
     #[cfg(target_os = "android")]
     {
         use tauri_plugin_sable_push::SablePushExt;

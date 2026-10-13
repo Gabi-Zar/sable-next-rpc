@@ -28,7 +28,7 @@ use crate::matrix_html::{
 use crate::outgoing::message_content;
 use crate::personas::PER_MESSAGE_PROFILE;
 use crate::protocol::{
-    CommandErr, EditVersionView, MessageKind, PerMessageProfileView, TimelineItemView,
+    EditVersionView, MessageKind, PerMessageProfileView, RpcError, TimelineItemView,
 };
 use crate::view::{per_message_profile, standalone_item};
 use serde_with::{DefaultOnError, serde_as};
@@ -166,7 +166,7 @@ impl Core {
         mentions_room: bool,
         persona: Option<PerMessageProfileView>,
         forum_title: Option<String>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let edited = edit_content(
             body,
             formatted,
@@ -181,7 +181,7 @@ impl Core {
             (None, Some(transaction_id)) => {
                 TimelineEventItemId::TransactionId(transaction_id.into())
             }
-            _ => return Err(CommandErr::Unsupported),
+            _ => return Err(RpcError::Unsupported),
         };
         if let TimelineEventItemId::TransactionId(transaction_id) = &item_id {
             let queued = match (&persona, &edited) {
@@ -217,7 +217,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         thread_root: Option<&OwnedEventId>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         Box::pin(self.replace_own_message(
             room_id,
             event_id,
@@ -234,7 +234,7 @@ impl Core {
         event_id: &OwnedEventId,
         thread_root: Option<&OwnedEventId>,
         persona: Option<&PerMessageProfileView>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         Box::pin(self.replace_own_message(
             room_id,
             event_id,
@@ -252,22 +252,22 @@ impl Core {
         thread_root: Option<&OwnedEventId>,
         context: &'static str,
         build: impl FnOnce(&serde_json::Value) -> Option<serde_json::Value>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let item = self
             .timeline_for(room_id, thread_root)
             .await?
             .item_by_event_id(event_id)
             .await
-            .ok_or(CommandErr::Unsupported)?;
+            .ok_or(RpcError::Unsupported)?;
         if !item.is_own() {
-            return Err(CommandErr::Denied);
+            return Err(RpcError::Denied);
         }
         let event = item
             .latest_json()
             .or_else(|| item.original_json())
             .and_then(|raw| raw.deserialize_as_unchecked::<serde_json::Value>().ok())
-            .ok_or(CommandErr::Unsupported)?;
-        let edit = build(&event).ok_or(CommandErr::Unsupported)?;
+            .ok_or(RpcError::Unsupported)?;
+        let edit = build(&event).ok_or(RpcError::Unsupported)?;
         let raw = Raw::<AnyMessageLikeEventContent>::from_json_string(edit.to_string())
             .or_failed(self, context)?;
         self.room(room_id)
@@ -284,7 +284,7 @@ impl Core {
         room_id: &OwnedRoomId,
         root_event_id: &OwnedEventId,
         reason: Option<&str>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let room = self.room(room_id).await?;
         let mut event_ids = vec![root_event_id.clone()];
         let mut seen = HashSet::from([root_event_id.clone()]);
@@ -342,7 +342,7 @@ impl Core {
         after_ts: u64,
         event_types: &[String],
         reason: Option<&str>,
-    ) -> Result<u32, CommandErr> {
+    ) -> Result<u32, RpcError> {
         let room = self.room(room_id).await?;
         let mut from: Option<String> = None;
         let mut redacted = 0;
@@ -405,7 +405,7 @@ impl Core {
     pub(crate) async fn pinned_events(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<Vec<OwnedEventId>, CommandErr> {
+    ) -> Result<Vec<OwnedEventId>, RpcError> {
         let room = self.room(room_id).await?;
         if let Some(events) = room.pinned_event_ids() {
             return Ok(unique_pins(events));
@@ -440,7 +440,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: OwnedEventId,
         pinned: bool,
-    ) -> Result<Vec<OwnedEventId>, CommandErr> {
+    ) -> Result<Vec<OwnedEventId>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let room = self.room(room_id).await?;
         if pinned {
@@ -465,7 +465,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: OwnedEventId,
         reason: Option<String>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let room = self.room(room_id).await?;
         let mut request = report_content::v3::Request::new(room.room_id().to_owned(), event_id);
         request.reason = reason;
@@ -482,7 +482,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         reason: String,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.client()
             .await?
             .send(report_room::v3::Request::new(room_id, reason))
@@ -495,7 +495,7 @@ impl Core {
         &self,
         user_id: OwnedUserId,
         reason: String,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.client()
             .await?
             .send(report_user::v3::Request::new(user_id, reason))
@@ -509,7 +509,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         include_original: bool,
-    ) -> Result<(String, bool, Option<String>), CommandErr> {
+    ) -> Result<(String, bool, Option<String>), RpcError> {
         let event = self
             .room(room_id)
             .await?
@@ -545,7 +545,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         to_room_id: &OwnedRoomId,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let source = self.room(room_id).await?;
         let (event, replacements) = source
             .load_or_fetch_event_with_relations(
@@ -562,13 +562,13 @@ impl Core {
             .or_failed(self, "forward_message")?;
 
         let AnySyncTimelineEvent::MessageLike(message) = raw else {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         };
         let origin_server_ts = message.origin_server_ts().0;
         let AnyMessageLikeEventContent::RoomMessage(original) =
-            message.original_content().ok_or(CommandErr::Unsupported)?
+            message.original_content().ok_or(RpcError::Unsupported)?
         else {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         };
 
         let latest = valid_replacements(&event, &replacements)
@@ -592,7 +592,7 @@ impl Core {
         let original = latest.map_or(original, |(_, content)| content.with_relation(None));
         let mut content = serde_json::to_value(&original).or_failed(self, "forward_message")?;
         let Some(object) = content.as_object_mut() else {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         };
 
         object.remove("m.relates_to");
@@ -641,7 +641,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
-    ) -> Result<Vec<EditVersionView>, CommandErr> {
+    ) -> Result<Vec<EditVersionView>, RpcError> {
         let (event, replacements) = self
             .room(room_id)
             .await?
@@ -725,7 +725,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_ids: &[OwnedEventId],
-    ) -> Result<Vec<TimelineItemView>, CommandErr> {
+    ) -> Result<Vec<TimelineItemView>, RpcError> {
         let room = self.room(room_id).await?;
         let push = room.push_context().await.ok().flatten();
         let cached = self.pinned_snapshot(room_id).await;
@@ -1489,7 +1489,7 @@ mod tests {
                 .await;
             assert!(matches!(
                 result,
-                Err(crate::protocol::CommandErr::UnknownSubscription)
+                Err(crate::protocol::RpcError::UnknownSubscription)
             ));
         }
         core.run(MarkReadParams {

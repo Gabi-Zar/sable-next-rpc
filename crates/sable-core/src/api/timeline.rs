@@ -11,36 +11,49 @@ use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::protocol::{
-    CommandErr, EditVersionView, PaginationDirection, PinReadStateView, RelationsView,
-    RoomListItemView, SubscriptionId, TimelineFocusView, TimelineItemView,
-};
+use crate::protocol::{RpcError, EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView, SubscriptionId, TimelineItemView};
 use crate::widgets::RelationsFilter;
 use crate::{Core, ResultExt, SubscriptionKind, view};
 
 domain! {
-    subscribe_room_list => SubscribeRoomListParams,
-    subscribe_timeline => SubscribeTimelineParams,
-    unsubscribe => UnsubscribeParams,
-    warm_rooms => WarmRoomsParams,
-    paginate => PaginateParams,
-    fetch_event_details => FetchEventDetailsParams,
-    event_items => EventItemsParams,
-    room_timeline_events => RoomTimelineEventsParams,
-    timestamp_to_event => TimestampToEventParams,
-    list_threads => ListThreadsParams,
-    event_source => EventSourceParams,
-    edit_history => EditHistoryParams,
-    mark_read => MarkReadParams,
-    set_fully_read => SetFullyReadParams,
-    mark_unread => MarkUnreadParams,
-    read_marker => ReadMarkerParams,
-    retry_decryption => RetryDecryptionParams,
-    room_event_relations => RoomEventRelationsParams,
-    pinned_events => PinnedEventsParams,
-    set_pinned => SetPinnedParams,
-    pin_read_state => PinReadStateParams,
-    mark_pins_seen => MarkPinsSeenParams,
+    subscribe_room_list,
+    subscribe_timeline,
+    unsubscribe,
+    warm_rooms,
+    paginate,
+    fetch_event_details,
+    event_items,
+    room_timeline_events,
+    timestamp_to_event,
+    list_threads,
+    event_source,
+    edit_history,
+    mark_read,
+    set_fully_read,
+    mark_unread,
+    read_marker,
+    retry_decryption,
+    room_event_relations,
+    pinned_events,
+    set_pinned,
+    pin_read_state,
+    mark_pins_seen,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum TimelineFocusView {
+    #[default]
+    Live,
+    Event {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        event_id: OwnedEventId,
+    },
+    Thread {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        root_event_id: OwnedEventId,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,7 +71,7 @@ pub struct SubscribeRoomListOk {
 impl Handler for SubscribeRoomListParams {
     type Ok = SubscribeRoomListOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SubscribeRoomListOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SubscribeRoomListOk, RpcError> {
         core.subscribe_room_list().await
     }
 }
@@ -87,7 +100,7 @@ pub struct SubscribeTimelineOk {
 impl Handler for SubscribeTimelineParams {
     type Ok = SubscribeTimelineOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SubscribeTimelineOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SubscribeTimelineOk, RpcError> {
         core.subscribe_timeline(self.room_id, self.focus, self.hidden_events)
             .await
     }
@@ -102,10 +115,10 @@ pub struct UnsubscribeParams {
 impl Handler for UnsubscribeParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let mut subscribed = core.room_subscriptions.lock().await;
         let Some(removed) = core.subscriptions.lock().await.remove(&self.subscription) else {
-            return Err(CommandErr::UnknownSubscription);
+            return Err(RpcError::UnknownSubscription);
         };
         let has_room = !matches!(removed.kind, SubscriptionKind::Other);
         drop(removed);
@@ -126,7 +139,7 @@ pub struct WarmRoomsParams {
 impl Handler for WarmRoomsParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.warm_rooms(self.room_ids).await
     }
 }
@@ -149,7 +162,7 @@ pub struct PaginateOk {
 impl Handler for PaginateParams {
     type Ok = PaginateOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PaginateOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PaginateOk, RpcError> {
         let Self {
             subscription,
             direction,
@@ -169,9 +182,9 @@ impl Handler for PaginateParams {
                     )
                 })
             })
-            .ok_or(CommandErr::UnknownSubscription)?;
+            .ok_or(RpcError::UnknownSubscription)?;
         if matches!(direction, PaginationDirection::Forward) && !focused {
-            return Err(CommandErr::InvalidPaginationDirection);
+            return Err(RpcError::InvalidPaginationDirection);
         }
         if matches!(direction, PaginationDirection::Forward) && thread {
             return Ok(PaginateOk {
@@ -220,7 +233,7 @@ pub struct FetchEventDetailsParams {
 impl Handler for FetchEventDetailsParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.fetch_event_details(&self.room_id, &self.event_id, self.thread_root.as_ref())
             .await
     }
@@ -238,7 +251,7 @@ pub struct EventItemsParams {
 impl Handler for EventItemsParams {
     type Ok = Vec<TimelineItemView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<TimelineItemView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<TimelineItemView>, RpcError> {
         core.event_items(&self.room_id, &self.event_ids).await
     }
 }
@@ -271,7 +284,7 @@ pub struct RoomTimelineEventsOk(
 impl Handler for RoomTimelineEventsParams {
     type Ok = RoomTimelineEventsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomTimelineEventsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomTimelineEventsOk, RpcError> {
         core.room_timeline_events(
             &self.room_id,
             &self.event_type,
@@ -298,7 +311,7 @@ pub struct TimestampToEventParams {
 impl Handler for TimestampToEventParams {
     type Ok = Option<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         let request = get_event_by_timestamp::v1::Request::new(
             self.room_id,
             MilliSecondsSinceUnixEpoch(UInt::new_saturating(self.ts)),
@@ -334,7 +347,7 @@ pub struct ListThreadsOk {
 impl Handler for ListThreadsParams {
     type Ok = ListThreadsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ListThreadsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<ListThreadsOk, RpcError> {
         let room = core.room(&self.room_id).await?;
         let options = ListThreadsOptions {
             from: self.from,
@@ -385,7 +398,7 @@ pub struct EventSourceOk {
 impl Handler for EventSourceParams {
     type Ok = EventSourceOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<EventSourceOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<EventSourceOk, RpcError> {
         let (source, encrypted, original) = core
             .event_source(&self.room_id, &self.event_id, self.include_original)
             .await?;
@@ -409,7 +422,7 @@ pub struct EditHistoryParams {
 impl Handler for EditHistoryParams {
     type Ok = Vec<EditVersionView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<EditVersionView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<EditVersionView>, RpcError> {
         core.edit_history(&self.room_id, &self.event_id).await
     }
 }
@@ -436,7 +449,7 @@ pub struct MarkReadParams {
 impl Handler for MarkReadParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let receipt_type = if self.private_receipt {
             ReceiptType::ReadPrivate
         } else {
@@ -504,7 +517,7 @@ pub struct SetFullyReadParams {
 impl Handler for SetFullyReadParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .send_multiple_receipts(Receipts::new().fully_read_marker(self.event_id))
@@ -526,7 +539,7 @@ pub struct MarkUnreadParams {
 impl Handler for MarkUnreadParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let room = core.room(&self.room_id).await?;
 
         if let Some(event_id) = self.read_marker {
@@ -551,7 +564,7 @@ pub struct ReadMarkerParams {
 impl Handler for ReadMarkerParams {
     type Ok = Option<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         let room = core.room(&self.room_id).await?;
         let fully_read = room
             .account_data_static::<FullyReadEventContent>()
@@ -584,7 +597,7 @@ pub struct RetryDecryptionParams {
 impl Handler for RetryDecryptionParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let sender = self.sender;
         let timeline = core
             .timeline_for(&self.room_id, self.thread_root.as_ref())
@@ -628,7 +641,7 @@ pub struct RoomEventRelationsParams {
 impl Handler for RoomEventRelationsParams {
     type Ok = RelationsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RelationsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RelationsView, RpcError> {
         core.room_event_relations(
             &self.room_id,
             &self.event_id,
@@ -655,7 +668,7 @@ pub struct PinnedEventsParams {
 impl Handler for PinnedEventsParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         let event_ids = core.pinned_events(&self.room_id).await?;
         Ok(event_ids.iter().map(ToString::to_string).collect())
     }
@@ -674,7 +687,7 @@ pub struct SetPinnedParams {
 impl Handler for SetPinnedParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         let event_ids = core
             .set_pinned_with_marker(&self.room_id, self.event_id, self.pinned)
             .await?;
@@ -692,7 +705,7 @@ pub struct PinReadStateParams {
 impl Handler for PinReadStateParams {
     type Ok = PinReadStateView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PinReadStateView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PinReadStateView, RpcError> {
         core.pin_read_state(&self.room_id).await
     }
 }
@@ -710,7 +723,7 @@ pub struct MarkPinsSeenParams {
 impl Handler for MarkPinsSeenParams {
     type Ok = PinReadStateView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PinReadStateView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PinReadStateView, RpcError> {
         core.mark_pins_seen(&self.room_id, self.pinned_ids).await
     }
 }

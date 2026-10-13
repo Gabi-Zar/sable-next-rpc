@@ -10,7 +10,7 @@ use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::Core;
-use crate::protocol::{AbbreviationView, CommandErr, HistoryVisibilityView};
+use crate::protocol::{AbbreviationView, HistoryVisibilityView, RpcError};
 
 const HISTORY_VISIBILITY_EVENT: &str = "m.room.history_visibility";
 const ENCRYPTION_EVENT: &str = "m.room.encryption";
@@ -267,7 +267,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_type: &str,
-    ) -> Result<Option<Value>, CommandErr> {
+    ) -> Result<Option<Value>, RpcError> {
         self.room_state_event_content(room_id.clone(), event_type.to_owned(), String::new())
             .await
     }
@@ -277,7 +277,7 @@ impl Core {
         room_id: OwnedRoomId,
         event_type: &str,
         content: &impl Serialize,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.send_state(room_id, event_type, "", content).await?;
         Ok(())
     }
@@ -285,7 +285,7 @@ impl Core {
     pub(crate) async fn history_visibility(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<HistoryVisibilityView, CommandErr> {
+    ) -> Result<HistoryVisibilityView, RpcError> {
         Ok(history_visibility(
             self.room_state(room_id, HISTORY_VISIBILITY_EVENT)
                 .await?
@@ -297,7 +297,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         visibility: HistoryVisibilityView,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             HISTORY_VISIBILITY_EVENT,
@@ -311,7 +311,7 @@ impl Core {
         .await
     }
 
-    pub(crate) async fn enable_encryption(&self, room_id: OwnedRoomId) -> Result<(), CommandErr> {
+    pub(crate) async fn enable_encryption(&self, room_id: OwnedRoomId) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             ENCRYPTION_EVENT,
@@ -323,7 +323,7 @@ impl Core {
     pub(crate) async fn canonical_alias(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<(Option<String>, Vec<String>), CommandErr> {
+    ) -> Result<(Option<String>, Vec<String>), RpcError> {
         Ok(canonical_alias(
             self.room_state(room_id, CANONICAL_ALIAS_EVENT)
                 .await?
@@ -336,7 +336,7 @@ impl Core {
         room_id: OwnedRoomId,
         alias: Option<&str>,
         alternatives: &[String],
-    ) -> Result<(Option<String>, Vec<String>), CommandErr> {
+    ) -> Result<(Option<String>, Vec<String>), RpcError> {
         let content = canonical_alias_content(alias, alternatives);
         self.write_room_state(room_id, CANONICAL_ALIAS_EVENT, &content)
             .await?;
@@ -346,7 +346,7 @@ impl Core {
     pub(crate) async fn room_banner(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<Option<String>, CommandErr> {
+    ) -> Result<Option<String>, RpcError> {
         Ok(banner_url(
             self.room_state(room_id, BANNER_EVENT).await?.as_ref(),
         ))
@@ -356,7 +356,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         url: Option<&str>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             BANNER_EVENT,
@@ -370,7 +370,7 @@ impl Core {
     pub(crate) async fn member_list_threshold(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<Option<i64>, CommandErr> {
+    ) -> Result<Option<i64>, RpcError> {
         Ok(always_listed_from(
             self.room_state(room_id, MEMBER_LIST_EVENT).await?.as_ref(),
         ))
@@ -380,7 +380,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         level: Option<i64>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             MEMBER_LIST_EVENT,
@@ -395,7 +395,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         edit: &AclEdit,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let stored = self.room_state(&room_id, SERVER_ACL_EVENT).await?;
         self.write_room_state(room_id, SERVER_ACL_EVENT, &server_acl_content(stored, edit))
             .await
@@ -404,7 +404,7 @@ impl Core {
     pub(crate) async fn room_abbreviations(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<Vec<AbbreviationView>, CommandErr> {
+    ) -> Result<Vec<AbbreviationView>, RpcError> {
         Ok(abbreviations(
             self.room_state(room_id, ABBREVIATIONS_EVENT)
                 .await?
@@ -416,7 +416,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         entries: &[AbbreviationView],
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             ABBREVIATIONS_EVENT,
@@ -430,7 +430,7 @@ impl Core {
         room_id: OwnedRoomId,
         replacement_room: &OwnedRoomId,
         body: &str,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             TOMBSTONE_EVENT,

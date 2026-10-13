@@ -321,49 +321,6 @@ export type CheckPersonaBackupParams = {
 	backup: string,
 };
 
-/**
- *  Stable serialized codes. Source chains, inputs and bodies stay native-side
- *  and are logged there, so nothing leaks across the wire. The last four words
- *  match the platform ports, so a core failure and a capability failure read
- *  alike.
- */
-export type CommandErr = { code: "not_logged_in" } | { code: "unknown_subscription" } | { code: "unknown_call" } | { code: "no_call_focus" } | { code: "invalid_pagination_direction" } | { code: "unknown_room" } | { code: "unknown_homeserver" } | { code: "unknown_local_echo" } |
-/**
- *  `stages` are the `m.login.*` types offered. With `m.login.password` the
- *  command can be retried carrying one, otherwise the user must finish on
- *  the homeserver.
- */
-{ code: "interactive_auth_required"; stages: string[] } | { code: "unknown_verification" } |
-/**  A scanned code that is not a Matrix verification code. */
-{ code: "invalid_verification_code" } | { code: "invalid_media" } |
-/**  A poll needs a question and between 1 and 20 answers. */
-{ code: "invalid_poll" } | { code: "invalid_location" } | { code: "invalid_key_export" } | { code: "encrypted_schedule_unsupported" } | { code: "delayed_events_unsupported" } | { code: "sliding_sync_unsupported" } | { code: "account_locked" } | { code: "account_suspended" } |
-/**  MSC2545 allows `[a-zA-Z0-9-_]`, at most 100 bytes, each once per pack. */
-{ code: "invalid_shortcode"; shortcode: string } |
-/**  A file that is not a backup this app wrote. */
-{ code: "invalid_backup" } |
-/**  Not an `http` or `https` URL. */
-{ code: "invalid_url" } |
-/**  A search filter naming something that is not a room or user id. */
-{ code: "invalid_search_filter" } |
-/**
- *  A sealed document this device cannot open, so writing it would erase
- *  what the other devices stored.
- */
-{ code: "document_locked" } |
-/**  Static: safe to hide UI. */
-{ code: "unsupported" } |
-/**  Retryable: keep UI. */
-{ code: "unavailable" } |
-/**  The media's server keeps failing; asking again before this is pointless. */
-{ code: "media_server_unavailable"; retry_after_ms: number } |
-/**  Refused, recoverable by user action. */
-{ code: "denied" } | { code: "rate_limited"; retry_after_ms: number | null } | { code: "registration_unavailable" } | { code: "username_taken" } | { code: "invalid_username" } | { code: "invalid_email" } | { code: "unknown_email" } | { code: "email_verification_failed" } | { code: "weak_password" } | { code: "registration_stage_failed"; stage: string } |
-/**  The homeserver advertises OAuth endpoints that cannot be reached. */
-{ code: "auth_provider_unreachable" } |
-/**  Detail is in the core's log under `log_id`. */
-{ code: "failed"; log_id: string };
-
 export type CompleteOidcLoginParams = {
 	callback_url: string,
 };
@@ -2276,6 +2233,49 @@ export type RoomVersionsView = {
 export type RoomViaServersParams = {
 	room_id: string,
 };
+
+/**
+ *  Stable serialized codes. Source chains, inputs and bodies stay native-side
+ *  and are logged there, so nothing leaks across the wire. The last four words
+ *  match the platform ports, so a core failure and a capability failure read
+ *  alike.
+ */
+export type RpcError = { code: "not_logged_in" } | { code: "unknown_subscription" } | { code: "unknown_call" } | { code: "no_call_focus" } | { code: "invalid_pagination_direction" } | { code: "unknown_room" } | { code: "unknown_homeserver" } | { code: "unknown_local_echo" } |
+/**
+ *  `stages` are the `m.login.*` types offered. With `m.login.password` the
+ *  command can be retried carrying one, otherwise the user must finish on
+ *  the homeserver.
+ */
+{ code: "interactive_auth_required"; stages: string[] } | { code: "unknown_verification" } |
+/**  A scanned code that is not a Matrix verification code. */
+{ code: "invalid_verification_code" } | { code: "invalid_media" } |
+/**  A poll needs a question and between 1 and 20 answers. */
+{ code: "invalid_poll" } | { code: "invalid_location" } | { code: "invalid_key_export" } | { code: "encrypted_schedule_unsupported" } | { code: "delayed_events_unsupported" } | { code: "sliding_sync_unsupported" } | { code: "account_locked" } | { code: "account_suspended" } |
+/**  MSC2545 allows `[a-zA-Z0-9-_]`, at most 100 bytes, each once per pack. */
+{ code: "invalid_shortcode"; shortcode: string } |
+/**  A file that is not a backup this app wrote. */
+{ code: "invalid_backup" } |
+/**  Not an `http` or `https` URL. */
+{ code: "invalid_url" } |
+/**  A search filter naming something that is not a room or user id. */
+{ code: "invalid_search_filter" } |
+/**
+ *  A sealed document this device cannot open, so writing it would erase
+ *  what the other devices stored.
+ */
+{ code: "document_locked" } |
+/**  Static: safe to hide UI. */
+{ code: "unsupported" } |
+/**  Retryable: keep UI. */
+{ code: "unavailable" } |
+/**  The media's server keeps failing; asking again before this is pointless. */
+{ code: "media_server_unavailable"; retry_after_ms: number } |
+/**  Refused, recoverable by user action. */
+{ code: "denied" } | { code: "rate_limited"; retry_after_ms: number | null } | { code: "registration_unavailable" } | { code: "username_taken" } | { code: "invalid_username" } | { code: "invalid_email" } | { code: "unknown_email" } | { code: "email_verification_failed" } | { code: "weak_password" } | { code: "registration_stage_failed"; stage: string } |
+/**  The homeserver advertises OAuth endpoints that cannot be reached. */
+{ code: "auth_provider_unreachable" } |
+/**  Detail is in the core's log under `log_id`. */
+{ code: "failed"; log_id: string };
 
 export type RsvpPeople = {
 	accepted: string[],

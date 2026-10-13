@@ -5,11 +5,11 @@ use tempfile::NamedTempFile;
 use crate::Core;
 use crate::ResultExt;
 use crate::api::encryption::ImportRoomKeysOk;
-use crate::protocol::CommandErr;
+use crate::protocol::RpcError;
 
 impl Core {
     #[cfg(not(target_family = "wasm"))]
-    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, CommandErr> {
+    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, RpcError> {
         let client = self.client().await?;
         let file = self.room_key_file()?;
 
@@ -32,7 +32,7 @@ impl Core {
         &self,
         export: &str,
         passphrase: &str,
-    ) -> Result<ImportRoomKeysOk, CommandErr> {
+    ) -> Result<ImportRoomKeysOk, RpcError> {
         let client = self.client().await?;
         let file = self.room_key_file()?;
 
@@ -58,10 +58,10 @@ impl Core {
     }
 
     #[cfg(target_family = "wasm")]
-    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, CommandErr> {
+    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, RpcError> {
         let base = self.base_client().await?;
         let machine = base.olm_machine().await;
-        let machine = machine.as_ref().ok_or(CommandErr::NotLoggedIn)?;
+        let machine = machine.as_ref().ok_or(RpcError::NotLoggedIn)?;
 
         let keys = machine
             .store()
@@ -80,10 +80,10 @@ impl Core {
         &self,
         export: &str,
         passphrase: &str,
-    ) -> Result<ImportRoomKeysOk, CommandErr> {
+    ) -> Result<ImportRoomKeysOk, RpcError> {
         let base = self.base_client().await?;
         let machine = base.olm_machine().await;
-        let machine = machine.as_ref().ok_or(CommandErr::NotLoggedIn)?;
+        let machine = machine.as_ref().ok_or(RpcError::NotLoggedIn)?;
 
         let keys = matrix_sdk_base::crypto::decrypt_room_key_export(export.as_bytes(), passphrase)
             .map_err(|error| self.room_key_import_error(RoomKeyImportError::Export(error)))?;
@@ -104,13 +104,13 @@ impl Core {
         })
     }
 
-    pub(crate) async fn base_client(&self) -> Result<crate::session::SharedBaseClient, CommandErr> {
+    pub(crate) async fn base_client(&self) -> Result<crate::session::SharedBaseClient, RpcError> {
         let account_id = self
             .session
             .read()
             .await
             .as_ref()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .account_id
             .clone();
         let store_id = self
@@ -125,22 +125,22 @@ impl Core {
                     .find(|account| account.account_id == account_id)
                     .map(|account| account.store_id.clone())
             })
-            .ok_or(CommandErr::NotLoggedIn)?;
-        crate::session::base_client(&store_id).ok_or(CommandErr::Unavailable)
+            .ok_or(RpcError::NotLoggedIn)?;
+        crate::session::base_client(&store_id).ok_or(RpcError::Unavailable)
     }
 
     #[cfg(not(target_family = "wasm"))]
-    fn room_key_file(&self) -> Result<NamedTempFile, CommandErr> {
+    fn room_key_file(&self) -> Result<NamedTempFile, RpcError> {
         tempfile::Builder::new()
             .prefix(".room-keys-")
             .tempfile_in(&self.store_id)
             .or_failed(self, "room_key_file")
     }
 
-    fn room_key_import_error(&self, error: RoomKeyImportError) -> CommandErr {
+    fn room_key_import_error(&self, error: RoomKeyImportError) -> RpcError {
         match error {
-            RoomKeyImportError::Export(KeyExportError::InvalidMac) => CommandErr::Denied,
-            RoomKeyImportError::Export(_) => CommandErr::InvalidKeyExport,
+            RoomKeyImportError::Export(KeyExportError::InvalidMac) => RpcError::Denied,
+            RoomKeyImportError::Export(_) => RpcError::InvalidKeyExport,
             error => self.failed("import_room_keys", error),
         }
     }
@@ -172,11 +172,8 @@ mod tests {
     use tempfile::TempDir;
 
     use crate::{
-        Core,
-        api::encryption::ImportRoomKeysOk,
-        protocol::{CommandErr, TimelineFocusView},
-        session::Session,
-        store::MemorySessionStore,
+        Core, api::encryption::ImportRoomKeysOk, api::timeline::TimelineFocusView,
+        protocol::RpcError, session::Session, store::MemorySessionStore,
         timelines::build_room_timeline,
     };
 
@@ -303,7 +300,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             .collect()
     }
 
-    async fn import(core: &Core, export: &str, passphrase: &str) -> Result<(u64, u64), CommandErr> {
+    async fn import(core: &Core, export: &str, passphrase: &str) -> Result<(u64, u64), RpcError> {
         let ImportRoomKeysOk { imported, total } =
             core.import_room_keys(export, passphrase).await?;
         Ok((imported, total))
@@ -586,7 +583,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
         let _permit = core.key_backup_downloads.acquire().await.unwrap();
         assert!(matches!(
             core.download_key_backup("duplicate".to_owned()).await,
-            Err(CommandErr::Unavailable)
+            Err(RpcError::Unavailable)
         ));
         assert!(
             !server
@@ -686,17 +683,17 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
 
         assert!(matches!(
             import(&core, ELEMENT_EXPORT, "wrong").await,
-            Err(CommandErr::Denied)
+            Err(RpcError::Denied)
         ));
         assert!(matches!(
             import(&core, "not a key export", "element passphrase").await,
-            Err(CommandErr::InvalidKeyExport)
+            Err(RpcError::InvalidKeyExport)
         ));
         let damaged =
             "-----BEGIN MEGOLM SESSION DATA-----\nnot*base64\n-----END MEGOLM SESSION DATA-----";
         assert!(matches!(
             import(&core, damaged, "element passphrase").await,
-            Err(CommandErr::InvalidKeyExport)
+            Err(RpcError::InvalidKeyExport)
         ));
         assert!(session_ids(&client).await.is_empty());
         assert_eq!(std::fs::read_dir(store.path()).unwrap().count(), 0);

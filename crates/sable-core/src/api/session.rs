@@ -6,29 +6,38 @@ use matrix_sdk::ruma::api::federation::discovery::get_server_version;
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::protocol::{
-    CommandErr, HomeserverSoftwareView, OpenIdTokenView, SearchTuning, SessionInfo, SyncStatus,
-};
+use crate::protocol::{RpcError, HomeserverSoftwareView, OpenIdTokenView, SessionInfo, SyncStatus};
 use crate::{Core, ResultExt};
 
 domain! {
-    restore => RestoreParams,
-    list_accounts => ListAccountsParams,
-    switch_account => SwitchAccountParams,
-    remove_account => RemoveAccountParams,
-    logout => LogoutParams,
-    reset_local_cache => ResetLocalCacheParams,
-    homeserver_info => HomeserverInfoParams,
-    request_open_id_token => RequestOpenIdTokenParams,
-    access_token => AccessTokenParams,
-    open_id_token => OpenIdTokenParams,
-    sync_status => SyncStatusParams,
-    server_features => ServerFeaturesParams,
-    delayed_events_supported => DelayedEventsSupportedParams,
-    set_search_options => SetSearchOptionsParams,
-    set_read_room => SetReadRoomParams,
-    integration_manager_url => IntegrationManagerUrlParams,
-    known_rooms => KnownRoomsParams,
+    restore,
+    list_accounts,
+    switch_account,
+    remove_account,
+    logout,
+    reset_local_cache,
+    homeserver_info,
+    request_open_id_token,
+    access_token,
+    open_id_token,
+    sync_status,
+    server_features,
+    delayed_events_supported,
+    set_search_options,
+    set_read_room,
+    integration_manager_url,
+    known_rooms,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct SearchTuning {
+    pub crawl_pause_ms: u32,
+    pub trickle_pause_ms: u32,
+    pub flush_interval_secs: u32,
+    pub batch: u32,
+    pub base_events: u32,
+    pub max_events: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,7 +47,7 @@ pub struct RestoreParams {}
 impl Handler for RestoreParams {
     type Ok = Option<SessionInfo>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<SessionInfo>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<SessionInfo>, RpcError> {
         core.restore().await
     }
 }
@@ -50,7 +59,7 @@ pub struct ListAccountsParams {}
 impl Handler for ListAccountsParams {
     type Ok = Vec<SessionInfo>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<SessionInfo>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<SessionInfo>, RpcError> {
         core.list_accounts().await
     }
 }
@@ -64,7 +73,7 @@ pub struct SwitchAccountParams {
 impl Handler for SwitchAccountParams {
     type Ok = SessionInfo;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SessionInfo, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SessionInfo, RpcError> {
         core.switch_account(self.account_id).await
     }
 }
@@ -78,7 +87,7 @@ pub struct RemoveAccountParams {
 impl Handler for RemoveAccountParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.remove_inactive_account(self.account_id).await
     }
 }
@@ -90,7 +99,7 @@ pub struct LogoutParams {}
 impl Handler for LogoutParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.logout().await
     }
 }
@@ -103,13 +112,13 @@ impl Handler for ResetLocalCacheParams {
     type Ok = ();
 
     #[cfg(not(target_family = "wasm"))]
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.reset_local_cache().await
     }
 
     #[cfg(target_family = "wasm")]
-    fn run(self, _core: &Arc<Core>) -> impl Future<Output = Result<(), CommandErr>> {
-        std::future::ready(Err(CommandErr::Unsupported))
+    fn run(self, _core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
+        std::future::ready(Err(RpcError::Unsupported))
     }
 }
 
@@ -127,7 +136,7 @@ pub struct HomeserverInfoOk {
 impl Handler for HomeserverInfoParams {
     type Ok = HomeserverInfoOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<HomeserverInfoOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<HomeserverInfoOk, RpcError> {
         let client = core.client().await?;
         let server = match client.send(get_server_version::v1::Request::new()).await {
             Ok(response) => response.server.map(|server| HomeserverSoftwareView {
@@ -162,7 +171,7 @@ pub struct RequestOpenIdTokenOk {
 impl Handler for RequestOpenIdTokenParams {
     type Ok = RequestOpenIdTokenOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RequestOpenIdTokenOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RequestOpenIdTokenOk, RpcError> {
         let response = core
             .client()
             .await?
@@ -186,7 +195,7 @@ pub struct AccessTokenParams {}
 impl Handler for AccessTokenParams {
     type Ok = Option<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         Ok(core.client().await?.access_token())
     }
 }
@@ -198,7 +207,7 @@ pub struct OpenIdTokenParams {}
 impl Handler for OpenIdTokenParams {
     type Ok = OpenIdTokenView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<OpenIdTokenView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<OpenIdTokenView, RpcError> {
         core.openid_token().await
     }
 }
@@ -210,7 +219,7 @@ pub struct SyncStatusParams {}
 impl Handler for SyncStatusParams {
     type Ok = SyncStatus;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SyncStatus, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SyncStatus, RpcError> {
         Ok(crate::watchers::sync_status(
             core.sync_service().await?.state().get(),
         ))
@@ -224,7 +233,7 @@ pub struct ServerFeaturesParams {}
 impl Handler for ServerFeaturesParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         core.server_features().await
     }
 }
@@ -236,7 +245,7 @@ pub struct DelayedEventsSupportedParams {}
 impl Handler for DelayedEventsSupportedParams {
     type Ok = bool;
 
-    async fn run(self, core: &Arc<Core>) -> Result<bool, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<bool, RpcError> {
         core.delayed_events_supported().await
     }
 }
@@ -259,7 +268,7 @@ pub struct SetSearchOptionsParams {
 impl Handler for SetSearchOptionsParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.search_foreground
             .store(self.foreground, Ordering::Relaxed);
         core.search_network
@@ -287,7 +296,7 @@ pub struct SetReadRoomParams {
 impl Handler for SetReadRoomParams {
     type Ok = ();
 
-    fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), CommandErr>> {
+    fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
         core.set_read_room(self.room_id);
         std::future::ready(Ok(()))
     }
@@ -303,7 +312,7 @@ pub struct IntegrationManagerUrlParams {
 impl Handler for IntegrationManagerUrlParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.integration_manager_url(&self.room_id).await
     }
 }
@@ -315,7 +324,7 @@ pub struct KnownRoomsParams {}
 impl Handler for KnownRoomsParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         Ok(core
             .known_room_ids()
             .await?

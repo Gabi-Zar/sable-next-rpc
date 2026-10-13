@@ -28,9 +28,8 @@ use wiremock::{
 
 use super::{
     Core,
-    protocol::{
-        CommandErr, CoreEvent, Outgoing, PaginationDirection, SubscriptionId, TimelineFocusView,
-    },
+    api::timeline::TimelineFocusView,
+    protocol::{CoreEvent, Outgoing, PaginationDirection, RpcError, SubscriptionId},
     session::{self, Session},
     store::MemorySessionStore,
 };
@@ -700,7 +699,7 @@ fn clear_override(user_id: &str) -> crate::api::account::SetProfileOverrideParam
     crate::api::account::SetProfileOverrideParams {
         user_id: user_id.try_into().unwrap(),
         display_name: crate::protocol::FieldEdit::Clear,
-        avatar: crate::protocol::AvatarEditView::Clear,
+        avatar: crate::api::account::AvatarEditView::Clear,
         color: crate::protocol::FieldEdit::Clear,
     }
 }
@@ -769,7 +768,7 @@ async fn a_locked_profile_override_document_refuses_a_write() {
     let core = core_for(&server, client).await;
     assert!(matches!(
         core.run(clear_override("@s:example.org")).await,
-        Err(crate::protocol::CommandErr::DocumentLocked)
+        Err(crate::protocol::RpcError::DocumentLocked)
     ));
 }
 
@@ -1293,7 +1292,7 @@ async fn send_media_reply(
     room_id: &matrix_sdk::ruma::RoomId,
     kind: &str,
     outgoing: crate::protocol::Outgoing,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     use crate::protocol::{SendAttachmentRequest, SendGalleryRequest};
 
     match kind {
@@ -1552,7 +1551,7 @@ async fn attachments_use_the_server_upload_limit_instead_of_100_mib() {
         .unwrap();
         let result = core.send_attachment(request, vec![0; file_size]).await;
         if u64::try_from(file_size).unwrap() > upload_size {
-            assert!(matches!(result, Err(CommandErr::InvalidMedia)));
+            assert!(matches!(result, Err(RpcError::InvalidMedia)));
         } else {
             result.unwrap();
         }
@@ -2760,7 +2759,7 @@ async fn joining_a_call_is_worded_as_a_join() {
 
 /// The UI branches on these variants, so the mapping is a contract.
 /// `None` when the mocked server accepted the write.
-async fn room_command_error(response: ResponseTemplate) -> Option<crate::protocol::CommandErr> {
+async fn room_command_error(response: ResponseTemplate) -> Option<crate::protocol::RpcError> {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
     let room_id = room_id!("!errors:example.org");
@@ -2789,7 +2788,7 @@ async fn a_forbidden_room_write_is_reported_as_denied() {
     .expect("the mocked server rejects the write");
 
     assert!(
-        matches!(error, CommandErr::Denied),
+        matches!(error, RpcError::Denied),
         "expected Denied, got {error:?}"
     );
 }
@@ -2807,7 +2806,7 @@ async fn a_rate_limited_room_write_carries_the_delay_in_milliseconds() {
     assert!(
         matches!(
             error,
-            CommandErr::RateLimited {
+            RpcError::RateLimited {
                 retry_after_ms: Some(5000)
             }
         ),
@@ -2822,7 +2821,7 @@ async fn an_unavailable_homeserver_is_retryable_rather_than_a_logged_failure() {
         .expect("the mocked server rejects the write");
 
     assert!(
-        matches!(error, CommandErr::Unavailable),
+        matches!(error, RpcError::Unavailable),
         "expected Unavailable, got {error:?}"
     );
 }
@@ -4160,7 +4159,7 @@ async fn a_new_calendar_room_is_set_up_by_its_creator() {
     core.run(crate::api::rooms::CreateRoomParams {
         name: Some("Raids".to_owned()),
         topic: None,
-        kind: crate::protocol::CreateRoomKind::Calendar,
+        kind: crate::api::rooms::CreateRoomKind::Calendar,
         public: false,
         encrypted: false,
         invite: Vec::new(),
@@ -4209,7 +4208,7 @@ async fn an_encrypted_private_space_includes_encryption_in_its_creation_request(
     core.run(crate::api::rooms::CreateRoomParams {
         name: Some("Private space".to_owned()),
         topic: None,
-        kind: crate::protocol::CreateRoomKind::Space,
+        kind: crate::api::rooms::CreateRoomKind::Space,
         public: false,
         encrypted: true,
         invite: Vec::new(),

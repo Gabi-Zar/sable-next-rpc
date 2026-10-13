@@ -1,4 +1,4 @@
-import type { CommandErr, CoreEvent } from '#src/generated/protocol';
+import type { RpcError, CoreEvent } from '#src/generated/protocol';
 import type { Attachment, Gallery, GalleryAttachment } from '#src/transport';
 
 export type AttachmentRequest = Required<Attachment>;
@@ -22,7 +22,7 @@ export type WorkerRequest =
 export type WorkerMessage =
   | { id: number; ok: unknown }
   | { id: number; pong: true }
-  | { id: number; err: CommandErr }
+  | { id: number; err: RpcError }
   // Transferred so a thumbnail crosses once.
   | { id: number; bytes: Uint8Array<ArrayBuffer> }
   /** An `mxc:` URI from `uploadMedia`, or nothing from `sendAttachment` and `forgetMedia`. */

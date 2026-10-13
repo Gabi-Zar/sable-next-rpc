@@ -4,19 +4,19 @@ use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::protocol::{CommandErr, SidebarItemView, SpaceHierarchyRoomView, SpaceParentView};
+use crate::protocol::{RpcError, SidebarItemView, SpaceHierarchyRoomView, SpaceParentView};
 use crate::{Core, view};
 
 domain! {
-    add_to_space => AddToSpaceParams,
-    set_space_child_order => SetSpaceChildOrderParams,
-    set_space_child_suggested => SetSpaceChildSuggestedParams,
-    space_hierarchy => SpaceHierarchyParams,
-    remove_from_space => RemoveFromSpaceParams,
-    space_sidebar => SpaceSidebarParams,
-    set_space_sidebar => SetSpaceSidebarParams,
-    room_has_space_parent => RoomHasSpaceParentParams,
-    unjoined_space_parents => UnjoinedSpaceParentsParams,
+    add_to_space,
+    set_space_child_order,
+    set_space_child_suggested,
+    space_hierarchy,
+    remove_from_space,
+    space_sidebar,
+    set_space_sidebar,
+    room_has_space_parent,
+    unjoined_space_parents,
 }
 
 #[derive(Debug, Deserialize)]
@@ -32,7 +32,7 @@ pub struct AddToSpaceParams {
 impl Handler for AddToSpaceParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.add_to_space(&self.space_id, &self.room_id, self.suggested)
             .await
     }
@@ -51,7 +51,7 @@ pub struct SetSpaceChildOrderParams {
 impl Handler for SetSpaceChildOrderParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_space_child_order(&self.space_id, &self.room_id, self.order)
             .await
     }
@@ -70,7 +70,7 @@ pub struct SetSpaceChildSuggestedParams {
 impl Handler for SetSpaceChildSuggestedParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_space_child_suggested(&self.space_id, &self.room_id, self.suggested)
             .await
     }
@@ -95,7 +95,7 @@ pub struct SpaceHierarchyOk {
 impl Handler for SpaceHierarchyParams {
     type Ok = SpaceHierarchyOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SpaceHierarchyOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SpaceHierarchyOk, RpcError> {
         core.space_hierarchy(&self.space_id, self.from).await
     }
 }
@@ -112,7 +112,7 @@ pub struct RemoveFromSpaceParams {
 impl Handler for RemoveFromSpaceParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         // The spec delists by omitting `via`. The typed content has it
         // non-optional and would send `{"via": []}`, a valid array.
         core.room(&self.space_id)
@@ -135,7 +135,7 @@ pub struct SpaceSidebarParams {}
 impl Handler for SpaceSidebarParams {
     type Ok = Vec<SidebarItemView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<SidebarItemView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<SidebarItemView>, RpcError> {
         core.space_sidebar().await
     }
 }
@@ -149,12 +149,12 @@ pub struct SetSpaceSidebarParams {
 impl Handler for SetSpaceSidebarParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         if sable_model::sidebar::layout_space_ids(&self.items)
             .iter()
             .any(|room_id| RoomId::parse(room_id).is_err())
         {
-            return Err(CommandErr::UnknownRoom);
+            return Err(RpcError::UnknownRoom);
         }
         core.set_space_sidebar(&self.items).await
     }
@@ -170,7 +170,7 @@ pub struct RoomHasSpaceParentParams {
 impl Handler for RoomHasSpaceParentParams {
     type Ok = bool;
 
-    async fn run(self, core: &Arc<Core>) -> Result<bool, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<bool, RpcError> {
         let client = core.client().await?;
         let room = core.room(&self.room_id).await?;
         Ok(!view::restricted_parents(&client, &room).await.is_empty())
@@ -187,7 +187,7 @@ pub struct UnjoinedSpaceParentsParams {
 impl Handler for UnjoinedSpaceParentsParams {
     type Ok = Vec<SpaceParentView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<SpaceParentView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<SpaceParentView>, RpcError> {
         let client = core.client().await?;
         let room = core.room(&self.room_id).await?;
         Ok(crate::cosmetics::unjoined_space_parents(&client, &room).await)

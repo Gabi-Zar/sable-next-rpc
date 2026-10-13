@@ -12,7 +12,7 @@ use std::{
 use js_sys::Function;
 use sable_core::{
     Core,
-    protocol::{CommandErr, CoreEvent},
+    protocol::{CoreEvent, RpcError},
 };
 use session_store::JsSessionStore;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -43,7 +43,7 @@ fn encode_batch(batch: &[CoreEvent]) -> Option<String> {
     serde_json::to_string(&kept).ok()
 }
 
-fn js_err(error: &CommandErr) -> String {
+fn js_err(error: &RpcError) -> String {
     serde_json::to_string(error)
         .unwrap_or_else(|_| r#"{"code":"failed","log_id":"serialization failed"}"#.to_owned())
 }
@@ -211,7 +211,7 @@ impl SableCore {
     }
 
     /// Runs `"<domain>.<method>"` on JSON params. Resolves with the JSON
-    /// result, rejects with that of `CommandErr`.
+    /// result, rejects with that of `RpcError`.
     ///
     /// # Errors
     ///
@@ -279,7 +279,7 @@ impl SableCore {
     pub async fn send_gallery(&self, request: String, items: String) -> Result<(), String> {
         let request = serde_json::from_str(&request)
             .map_err(|error| js_err(&self.core.failed("send_gallery", error)))?;
-        let items = serde_json::from_str(&items).map_err(|_| js_err(&CommandErr::InvalidMedia))?;
+        let items = serde_json::from_str(&items).map_err(|_| js_err(&RpcError::InvalidMedia))?;
         self.core
             .send_gallery(request, items)
             .await
@@ -336,7 +336,7 @@ mod tests {
 
     wasm_bindgen_test_configure!(run_in_shared_worker);
 
-    /// `CommandErr` is serialize-only, so the page's decoding is mirrored here
+    /// `RpcError` is serialize-only, so the page's decoding is mirrored here
     /// rather than reused.
     fn command_err(json: &str) -> serde_json::Value {
         let error: serde_json::Value = serde_json::from_str(json).expect("JSON");

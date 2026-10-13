@@ -27,7 +27,7 @@ use super::{HANGUP_DELAY, USE_KEY_DELAY, sfu, sticky};
 use crate::api::calls::JoinCallOk;
 use crate::protocol::{
     CallBackendView, CallIntent, CallMemberView, CallMode, CallModeReason, CallSessionId,
-    CommandErr, CoreEvent,
+    CoreEvent, RpcError,
 };
 use crate::{CallSession, Core};
 
@@ -129,10 +129,10 @@ fn select_mode(
     requested: Option<CallMode>,
     members: &[CallMember],
     sticky_available: bool,
-) -> Result<CallMode, CommandErr> {
+) -> Result<CallMode, RpcError> {
     if let Some(mode) = requested {
         return if mode == CallMode::Matrix2 && !sticky_available {
-            Err(CommandErr::Unsupported)
+            Err(RpcError::Unsupported)
         } else {
             Ok(mode)
         };
@@ -387,13 +387,10 @@ async fn discover(
     session: CallSessionId,
     configured: Option<String>,
     requested: Option<CallMode>,
-) -> Result<Discovered, CommandErr> {
+) -> Result<Discovered, RpcError> {
     let client = room.client();
-    let user = client.user_id().ok_or(CommandErr::NotLoggedIn)?.to_owned();
-    let device = client
-        .device_id()
-        .ok_or(CommandErr::NotLoggedIn)?
-        .to_owned();
+    let user = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
+    let device = client.device_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
     let mut sticky_members = StickyMemberships::default();
     let mut sticky_sync = None;
     let features = client.unstable_features().await.unwrap_or_default();
@@ -446,7 +443,7 @@ async fn discover(
     let service = core
         .resolve_focus(&members, configured, room)
         .await
-        .ok_or(CommandErr::NoCallFocus)?;
+        .ok_or(RpcError::NoCallFocus)?;
     let member_id = if mode == CallMode::Matrix2 {
         TransactionId::new().to_string()
     } else {
@@ -517,7 +514,7 @@ async fn publish(
     service: &str,
     encrypted: bool,
     intent: Option<CallIntent>,
-) -> Result<Published, CommandErr> {
+) -> Result<Published, RpcError> {
     let state_key = state_key(room, own);
     let delay = if own.mode == CallMode::Matrix2 {
         if !super::ensure_open_slot(room, encrypted).await {
@@ -639,12 +636,12 @@ async fn publish_where_allowed(
     state: &Mutex<State>,
     encrypted: bool,
     configured: Option<String>,
-) -> Result<(CallMember, Published), CommandErr> {
+) -> Result<(CallMember, Published), RpcError> {
     let (mut own, intent) = {
         let state = state.lock().await;
         (state.own.clone(), state.intent)
     };
-    let service = own.foci.first().cloned().ok_or(CommandErr::NoCallFocus)?;
+    let service = own.foci.first().cloned().ok_or(RpcError::NoCallFocus)?;
     let mut published = publish(core, room, &own, &service, encrypted, intent).await?;
     if !published.provision.can_publish
         && let Some((moved, provision)) =
@@ -734,7 +731,7 @@ pub(super) async fn join(
     configured: Option<String>,
     requested: Option<CallMode>,
     intent: Option<CallIntent>,
-) -> Result<JoinCallOk, CommandErr> {
+) -> Result<JoinCallOk, RpcError> {
     let generation = core.session_generation.load(Ordering::SeqCst);
     let room = core.room(&room_id).await?;
     let encrypt_media = core.room_is_encrypted(&room).await?;
@@ -771,7 +768,7 @@ pub(super) async fn join(
     if core.session_generation.load(Ordering::SeqCst) != generation {
         drop(postpone);
         retract(core, &room, &own, delay).await;
-        return Err(CommandErr::NotLoggedIn);
+        return Err(RpcError::NotLoggedIn);
     }
     let Some((publisher_id, backends)) = confirm_join(
         core,
@@ -793,7 +790,7 @@ pub(super) async fn join(
         drop(calls);
         drop(postpone);
         retract(core, &room, &own, delay).await;
-        return Err(CommandErr::NotLoggedIn);
+        return Err(RpcError::NotLoggedIn);
     }
     let shared = state.clone();
     let updates = updates(

@@ -1,7 +1,7 @@
 use std::{borrow::Cow, error::Error, path::Path};
 
 use sable_core::protocol::{
-    AttachmentInfoView, CommandErr, CoreEvent, SendAttachmentRequest, SendGalleryRequest,
+    AttachmentInfoView, CoreEvent, RpcError, SendAttachmentRequest, SendGalleryRequest,
 };
 use specta::{Format, FormatError, Types, datatype::DataType};
 
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mut types = specta::Types::default()
-        .register::<CommandErr>()
+        .register::<RpcError>()
         .register::<CoreEvent>()
         .register::<AttachmentInfoView>()
         .register::<SendAttachmentRequest>()

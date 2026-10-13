@@ -1,3 +1,4 @@
+use crate::api::push::PusherView;
 use crate::errors::CoreError;
 use matrix_sdk::Client;
 #[cfg(not(target_family = "wasm"))]
@@ -20,7 +21,7 @@ use matrix_sdk_ui::notification_client::{
 use url::Url;
 
 use crate::preview;
-use crate::protocol::{NotificationView, PushEventView, PushFetchView, PusherView};
+use crate::protocol::{NotificationView, PushEventView, PushFetchView};
 #[cfg(not(target_family = "wasm"))]
 use crate::session::{AccountRegistry, PersistedAccount};
 #[cfg(not(target_family = "wasm"))]
@@ -798,6 +799,7 @@ fn body(event: &NotificationEvent) -> String {
 
 #[cfg(test)]
 mod tests {
+    use crate::api::push::{PusherView, WebPusherView};
     use matrix_sdk::ruma::events::AnySyncTimelineEvent;
     use matrix_sdk::ruma::push::{ConditionalPushRule, RuleKind, Ruleset};
     use matrix_sdk::ruma::serde::Raw;
@@ -860,7 +862,6 @@ mod tests {
 
     #[tokio::test]
     async fn pushers_use_the_current_device_name() {
-        use crate::protocol::{PusherView, WebPusherView};
         use matrix_sdk::test_utils::client::MockClientBuilder;
         use wiremock::matchers::{body_partial_json, method, path};
         use wiremock::{Mock, ResponseTemplate};

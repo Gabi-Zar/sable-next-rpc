@@ -1,3 +1,4 @@
+use crate::api::packs::PackTargetView;
 use std::collections::{BTreeMap, BTreeSet};
 
 use matrix_sdk::ruma::OwnedRoomId;
@@ -9,8 +10,7 @@ use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::image_packs::{EmoteRooms, IMAGE_PACK_ROOMS, ROOM_EMOTES, ROOM_IMAGE_PACK, USER_EMOTES};
 use crate::protocol::{
-    CommandErr, ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView,
-    PackImageInfoView, PackTargetView,
+    ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView, PackImageInfoView, RpcError,
 };
 use crate::room_settings::EmptyContent;
 use crate::{Core, ResultExt};
@@ -88,9 +88,9 @@ pub(crate) struct PackContentOut {
     images: BTreeMap<String, ImageOut>,
 }
 
-pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut, CommandErr> {
+pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut, RpcError> {
     if let Some(shortcode) = invalid_shortcode(&draft.images) {
-        return Err(CommandErr::InvalidShortcode {
+        return Err(RpcError::InvalidShortcode {
             shortcode: shortcode.to_owned(),
         });
     }
@@ -237,7 +237,7 @@ impl Core {
     async fn room_pack_state_keys(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<BTreeSet<String>, CommandErr> {
+    ) -> Result<BTreeSet<String>, RpcError> {
         let mut keys = BTreeSet::new();
         for event_type in [ROOM_IMAGE_PACK, ROOM_EMOTES] {
             for event in self.room_state_events(room_id, event_type).await? {
@@ -253,7 +253,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         state_key: &str,
-    ) -> Result<Option<Value>, CommandErr> {
+    ) -> Result<Option<Value>, RpcError> {
         Ok(self
             .room_state_event_content(
                 room_id.clone(),
@@ -268,7 +268,7 @@ impl Core {
         &self,
         target: PackTargetView,
         draft: &PackDraftView,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let content = pack_content(draft)?;
         match target {
             PackTargetView::Room { room_id, state_key } => {
@@ -284,7 +284,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         name: &str,
-    ) -> Result<String, CommandErr> {
+    ) -> Result<String, RpcError> {
         let taken = self.room_pack_state_keys(&room_id).await?;
         let wanted = match normalize_shortcode(name).to_lowercase() {
             wanted if wanted.is_empty() => "pack".to_owned(),
@@ -306,7 +306,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         state_key: &str,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         if let Err(error) = self.remove_legacy_pack(&room_id, state_key).await {
             tracing::warn!(?error, "legacy pack not cleared");
         }
@@ -319,7 +319,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         state_key: &str,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         if self.legacy_pack(room_id, state_key).await?.is_some() {
             self.send_state(room_id.clone(), ROOM_EMOTES, state_key, &EmptyContent {})
                 .await?;
@@ -331,7 +331,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         state_keys: &[String],
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         for state_key in state_keys {
             self.remove_legacy_pack(room_id, state_key).await?;
         }
@@ -345,7 +345,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         state_keys: &[String],
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let mut taken: Option<BTreeSet<String>> = None;
         let mut first_error = None;
         for state_key in state_keys {
@@ -383,7 +383,7 @@ impl Core {
     pub(crate) async fn add_account_pack_images(
         &self,
         images: &[PackImageDraftView],
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let current = self
             .global_account_data(USER_EMOTES.into(), "add_account_pack_images")
@@ -394,7 +394,7 @@ impl Core {
         self.set_account_data(USER_EMOTES, &merged).await
     }
 
-    pub(crate) async fn pack_subscriptions(&self) -> Result<Vec<PackAddressView>, CommandErr> {
+    pub(crate) async fn pack_subscriptions(&self) -> Result<Vec<PackAddressView>, RpcError> {
         let client = self.client().await?;
         let (raw, _) = self
             .subscribed_pack_rooms(&client, true)
@@ -410,7 +410,7 @@ impl Core {
         &self,
         added: &[PackAddressView],
         removed: &[PackAddressView],
-    ) -> Result<Vec<PackAddressView>, CommandErr> {
+    ) -> Result<Vec<PackAddressView>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let next = with_subscriptions(&self.pack_subscriptions().await?, added, removed);
         self.set_account_data(IMAGE_PACK_ROOMS, &subscriptions_content(&next))
@@ -428,8 +428,8 @@ mod tests {
         subscriptions_content, with_subscriptions,
     };
     use crate::protocol::{
-        CommandErr, ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView,
-        PackImageInfoView,
+        ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView, PackImageInfoView,
+        RpcError,
     };
 
     fn to_json(content: impl serde::Serialize) -> serde_json::Value {
@@ -571,7 +571,7 @@ mod tests {
 
         assert!(matches!(
             pack_content(&draft),
-            Err(CommandErr::InvalidShortcode { shortcode }) if shortcode == "bad code"
+            Err(RpcError::InvalidShortcode { shortcode }) if shortcode == "bad code"
         ));
     }
 

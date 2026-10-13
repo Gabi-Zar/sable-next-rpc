@@ -1,3 +1,4 @@
+use crate::api::rooms::DirectoryRoomType;
 use matrix_sdk::config::RequestConfig;
 use matrix_sdk::deserialized_responses::SyncOrStrippedState;
 use matrix_sdk::room::Room;
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::ResultExt;
 use crate::api::rooms::PublicRoomsOk;
 use crate::api::spaces::SpaceHierarchyOk;
-use crate::protocol::{CommandErr, DirectoryRoomType, JoinRuleView, RoomPreviewView};
+use crate::protocol::{JoinRuleView, RoomPreviewView, RpcError};
 
 use crate::Core;
 use crate::view;
@@ -170,7 +171,7 @@ impl Core {
         room_id: &OwnedRoomId,
         direct: bool,
         user_id: Option<matrix_sdk::ruma::OwnedUserId>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let client = self.client().await?;
         let room = self.room(room_id).await?;
 
@@ -186,7 +187,7 @@ impl Core {
                 {
                     vec![user_id]
                 }
-                Some(_) => return Err(CommandErr::Denied),
+                Some(_) => return Err(RpcError::Denied),
                 None => members
                     .iter()
                     .map(|member| member.user_id().to_owned())
@@ -211,7 +212,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         rule: JoinRuleView,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let room = self.room(room_id).await?;
         let (supports_knock, supports_restricted, supports_knock_restricted) =
             join_rule_support(&room);
@@ -221,12 +222,12 @@ impl Core {
             JoinRuleView::Knock if supports_knock => {
                 RoomJoinRulesEventContent::new(JoinRule::Knock)
             }
-            JoinRuleView::Knock => return Err(CommandErr::Unsupported),
+            JoinRuleView::Knock => return Err(RpcError::Unsupported),
             JoinRuleView::Restricted if !supports_restricted => {
-                return Err(CommandErr::Unsupported);
+                return Err(RpcError::Unsupported);
             }
             JoinRuleView::KnockRestricted if !supports_knock_restricted => {
-                return Err(CommandErr::Unsupported);
+                return Err(RpcError::Unsupported);
             }
             JoinRuleView::Restricted | JoinRuleView::KnockRestricted => {
                 let client = self.client().await?;
@@ -236,7 +237,7 @@ impl Core {
                     .map(AllowRule::room_membership)
                     .collect();
                 if allow.is_empty() {
-                    return Err(CommandErr::Denied);
+                    return Err(RpcError::Denied);
                 }
                 if matches!(rule, JoinRuleView::Restricted) {
                     RoomJoinRulesEventContent::restricted(allow)
@@ -283,7 +284,7 @@ impl Core {
         }
     }
 
-    pub(crate) async fn room_is_encrypted(&self, room: &Room) -> Result<bool, CommandErr> {
+    pub(crate) async fn room_is_encrypted(&self, room: &Room) -> Result<bool, RpcError> {
         match room
             .latest_encryption_state()
             .await
@@ -291,7 +292,7 @@ impl Core {
         {
             matrix_sdk::EncryptionState::Encrypted => Ok(true),
             matrix_sdk::EncryptionState::NotEncrypted => Ok(false),
-            matrix_sdk::EncryptionState::Unknown => Err(CommandErr::Unavailable),
+            matrix_sdk::EncryptionState::Unknown => Err(RpcError::Unavailable),
         }
     }
 
@@ -302,7 +303,7 @@ impl Core {
         space_id: &OwnedRoomId,
         room_id: &RoomId,
         suggested: Option<bool>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let space = self.room(space_id).await?;
         if let Some(mut content) = self
             .space_child_content(&space, room_id, "add_to_space")
@@ -337,11 +338,11 @@ impl Core {
         Ok(())
     }
 
-    async fn child_via(&self, room_id: &RoomId) -> Result<Vec<String>, CommandErr> {
+    async fn child_via(&self, room_id: &RoomId) -> Result<Vec<String>, RpcError> {
         let client = self.client().await?;
         let own = client
             .user_id()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .server_name()
             .to_string();
 
@@ -356,7 +357,7 @@ impl Core {
         Ok(if via.is_empty() { vec![own] } else { via })
     }
 
-    pub(crate) async fn room_via_servers(&self, room: &Room) -> Result<Vec<String>, CommandErr> {
+    pub(crate) async fn room_via_servers(&self, room: &Room) -> Result<Vec<String>, RpcError> {
         let members = room
             .members(RoomMemberships::JOIN)
             .await
@@ -398,7 +399,7 @@ impl Core {
         space: &Room,
         room_id: &RoomId,
         context: &str,
-    ) -> Result<Option<SpaceChildEventContent>, CommandErr> {
+    ) -> Result<Option<SpaceChildEventContent>, RpcError> {
         let Some(raw) = space
             .get_state_event_static_for_key::<SpaceChildEventContent, _>(room_id)
             .await
@@ -422,13 +423,13 @@ impl Core {
         space_id: &OwnedRoomId,
         room_id: &RoomId,
         order: Option<String>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let space = self.room(space_id).await?;
 
         let mut content = self
             .space_child_content(&space, room_id, "set_space_child_order: read")
             .await?
-            .ok_or(CommandErr::UnknownRoom)?;
+            .ok_or(RpcError::UnknownRoom)?;
 
         content.order = match order {
             Some(order) => Some(
@@ -451,13 +452,13 @@ impl Core {
         space_id: &OwnedRoomId,
         room_id: &RoomId,
         suggested: bool,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let space = self.room(space_id).await?;
 
         let mut content = self
             .space_child_content(&space, room_id, "set_space_child_suggested: read")
             .await?
-            .ok_or(CommandErr::UnknownRoom)?;
+            .ok_or(RpcError::UnknownRoom)?;
         content.suggested = suggested;
 
         space
@@ -473,8 +474,8 @@ impl Core {
         address: &str,
         via: &[String],
         reason: Option<String>,
-    ) -> Result<OwnedRoomId, CommandErr> {
-        let address = RoomOrAliasId::parse(address).map_err(|_| CommandErr::UnknownRoom)?;
+    ) -> Result<OwnedRoomId, RpcError> {
+        let address = RoomOrAliasId::parse(address).map_err(|_| RpcError::UnknownRoom)?;
         let via = via
             .iter()
             .filter_map(|server| ServerName::parse(server).ok())
@@ -494,8 +495,8 @@ impl Core {
         &self,
         address: &str,
         via: &[String],
-    ) -> Result<RoomPreviewView, CommandErr> {
-        let address = RoomOrAliasId::parse(address).map_err(|_| CommandErr::UnknownRoom)?;
+    ) -> Result<RoomPreviewView, RpcError> {
+        let address = RoomOrAliasId::parse(address).map_err(|_| RpcError::UnknownRoom)?;
         let via = via
             .iter()
             .filter_map(|server| ServerName::parse(server).ok())
@@ -517,9 +518,9 @@ impl Core {
         search: Option<String>,
         since: Option<String>,
         room_type: Option<DirectoryRoomType>,
-    ) -> Result<PublicRoomsOk, CommandErr> {
+    ) -> Result<PublicRoomsOk, RpcError> {
         let server = match server.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-            Some(name) => Some(ServerName::parse(name).map_err(|_| CommandErr::UnknownHomeserver)?),
+            Some(name) => Some(ServerName::parse(name).map_err(|_| RpcError::UnknownHomeserver)?),
             None => None,
         };
 
@@ -557,7 +558,7 @@ impl Core {
         &self,
         space_id: &OwnedRoomId,
         from: Option<String>,
-    ) -> Result<SpaceHierarchyOk, CommandErr> {
+    ) -> Result<SpaceHierarchyOk, RpcError> {
         let client = self.client().await?;
 
         let mut request = get_hierarchy::v1::Request::new(space_id.clone());
@@ -594,7 +595,7 @@ impl Core {
         room_id: &OwnedRoomId,
         transaction_id: &str,
         thread_root: Option<&OwnedEventId>,
-    ) -> Result<SendHandle, CommandErr> {
+    ) -> Result<SendHandle, RpcError> {
         self.timeline_for(room_id, thread_root)
             .await?
             .items()
@@ -607,7 +608,7 @@ impl Core {
                     .is_some_and(|id| id == transaction_id)
             })
             .and_then(matrix_sdk_ui::timeline::EventTimelineItem::local_echo_send_handle)
-            .ok_or(CommandErr::UnknownLocalEcho)
+            .ok_or(RpcError::UnknownLocalEcho)
     }
 }
 

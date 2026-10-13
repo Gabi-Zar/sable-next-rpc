@@ -1,3 +1,4 @@
+use crate::api::notifications::InboxFilter;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::Ordering;
 
@@ -16,7 +17,7 @@ use crate::Core;
 use crate::ResultExt;
 use crate::notifications;
 use crate::preview;
-use crate::protocol::{CommandErr, CoreEvent, InboxFilter, InboxItemView};
+use crate::protocol::{CoreEvent, InboxItemView, RpcError};
 use crate::push_rules;
 
 const SCHEMA: u32 = 1;
@@ -125,13 +126,13 @@ const fn matches(entry: &Entry, filter: InboxFilter) -> bool {
     }
 }
 
-async fn load(client: &matrix_sdk::Client) -> Result<Stored, CommandErr> {
+async fn load(client: &matrix_sdk::Client) -> Result<Stored, RpcError> {
     let bytes = match client.state_store().get_custom_value(KEY).await {
         Ok(Some(bytes)) => bytes,
         Ok(None) => return Ok(Stored::default()),
         Err(error) => {
             warn!("reading the inbox store failed: {error}");
-            return Err(CommandErr::Unavailable);
+            return Err(RpcError::Unavailable);
         }
     };
     match serde_json::from_slice::<Stored>(&bytes) {
@@ -144,13 +145,13 @@ async fn load(client: &matrix_sdk::Client) -> Result<Stored, CommandErr> {
     }
 }
 
-async fn save(client: &matrix_sdk::Client, stored: &mut Stored) -> Result<(), CommandErr> {
+async fn save(client: &matrix_sdk::Client, stored: &mut Stored) -> Result<(), RpcError> {
     stored.version = SCHEMA;
     let bytes = match serde_json::to_vec(stored) {
         Ok(bytes) => bytes,
         Err(error) => {
             warn!("serialising the inbox store failed: {error}");
-            return Err(CommandErr::Unavailable);
+            return Err(RpcError::Unavailable);
         }
     };
     if let Err(error) = client
@@ -159,7 +160,7 @@ async fn save(client: &matrix_sdk::Client, stored: &mut Stored) -> Result<(), Co
         .await
     {
         warn!("persisting the inbox store failed: {error}");
-        return Err(CommandErr::Unavailable);
+        return Err(RpcError::Unavailable);
     }
     Ok(())
 }
@@ -254,7 +255,7 @@ const fn is_dm_message(event: &AnySyncTimelineEvent) -> bool {
     )
 }
 
-async fn read_state(room: &Room) -> Result<RoomReadState, CommandErr> {
+async fn read_state(room: &Room) -> Result<RoomReadState, RpcError> {
     let remaining = notified(room).await;
     if remaining == 0 {
         return Ok(RoomReadState {
@@ -265,7 +266,7 @@ async fn read_state(room: &Room) -> Result<RoomReadState, CommandErr> {
     Ok(RoomReadState {
         receipt_ts: receipt_ts(room).await.map_err(|error| {
             warn!("resolving the inbox read receipt failed: {error}");
-            CommandErr::Unavailable
+            RpcError::Unavailable
         })?,
         remaining,
     })
@@ -275,7 +276,7 @@ async fn backfill_candidates(
     client: &matrix_sdk::Client,
     stored: &Stored,
     include_read: bool,
-) -> Result<Vec<(Room, UnreadScan)>, CommandErr> {
+) -> Result<Vec<(Room, UnreadScan)>, RpcError> {
     let mut candidates = Vec::new();
     for room in client.joined_rooms() {
         if room.is_space() {
@@ -380,7 +381,7 @@ impl Core {
         fresh: Vec<Entry>,
         cursors: BTreeMap<OwnedRoomId, Option<String>>,
         unread_scans: BTreeMap<OwnedRoomId, UnreadScan>,
-    ) -> Result<usize, CommandErr> {
+    ) -> Result<usize, RpcError> {
         if fresh.is_empty() && cursors.is_empty() && unread_scans.is_empty() {
             return Ok(0);
         }
@@ -424,7 +425,7 @@ impl Core {
         include_read: bool,
         limit: u32,
         before_ts: Option<u64>,
-    ) -> Result<(Vec<InboxItemView>, bool), CommandErr> {
+    ) -> Result<(Vec<InboxItemView>, bool), RpcError> {
         let client = self.client().await?;
         let stored = load(&client).await?;
         let mut rooms: HashMap<OwnedRoomId, Option<(bool, RoomReadState)>> = HashMap::new();
@@ -478,10 +479,7 @@ impl Core {
         Ok((items, has_more))
     }
 
-    pub(crate) async fn backfill_inbox(
-        &self,
-        include_read: bool,
-    ) -> Result<(u32, bool), CommandErr> {
+    pub(crate) async fn backfill_inbox(&self, include_read: bool) -> Result<(u32, bool), RpcError> {
         let client = self.client().await?;
         crate::rooms::fill_own_members(&client)
             .await
@@ -532,7 +530,7 @@ impl Core {
                 }
                 let exhausted = messages.end.is_none() || messages.chunk.is_empty();
                 if !exhausted && messages.end == scan.from {
-                    failure = Some(CommandErr::Unavailable);
+                    failure = Some(RpcError::Unavailable);
                     continue 'rooms;
                 }
                 scan.from = messages.end.clone();
@@ -603,7 +601,9 @@ mod tests {
     };
 
     use super::{Entry, MAX_ENTRIES, RoomReadState, UnreadScan, is_unread, merge, preview};
-    use crate::{Core, protocol::InboxFilter, session::Session, store::MemorySessionStore};
+    use crate::{
+        Core, api::notifications::InboxFilter, session::Session, store::MemorySessionStore,
+    };
 
     async fn setup(server: &MatrixMockServer, notified: u64) -> (Arc<Core>, Client, Room) {
         let client = server.client_builder().build().await;

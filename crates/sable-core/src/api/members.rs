@@ -8,29 +8,26 @@ use serde::{Deserialize, Serialize};
 
 use super::Handler;
 use crate::api::support::membership_filter;
-use crate::protocol::{
-    CommandErr, FieldEdit, MemberLookView, MemberView, MembershipView, PowerLevelLocation,
-    PowerLevelTagView, PowerLevelTagsView, PronounView, RoomPermissionsView, RoomPowerLevelsView,
-};
+use crate::protocol::{RpcError, FieldEdit, MemberLookView, MemberView, MembershipView, PowerLevelLocation, PowerLevelTagView, PowerLevelTagsView, PronounView, RoomPermissionsView, RoomPowerLevelsView};
 use crate::{Core, ResultExt, view};
 
 domain! {
-    room_members => RoomMembersParams,
-    room_permissions => RoomPermissionsParams,
-    room_power_levels => RoomPowerLevelsParams,
-    set_power_level => SetPowerLevelParams,
-    sync_power_levels_from_space => SyncPowerLevelsFromSpaceParams,
-    sync_child_power_levels => SyncChildPowerLevelsParams,
-    power_level_tags => PowerLevelTagsParams,
-    set_power_level_tag => SetPowerLevelTagParams,
-    set_user_power_level => SetUserPowerLevelParams,
-    kick_user => KickUserParams,
-    deny_knock => DenyKnockParams,
-    ban_user => BanUserParams,
-    unban_user => UnbanUserParams,
-    member_look => MemberLookParams,
-    set_member_look => SetMemberLookParams,
-    set_pronouns => SetPronounsParams,
+    room_members,
+    room_permissions,
+    room_power_levels,
+    set_power_level,
+    sync_power_levels_from_space,
+    sync_child_power_levels,
+    power_level_tags,
+    set_power_level_tag,
+    set_user_power_level,
+    kick_user,
+    deny_knock,
+    ban_user,
+    unban_user,
+    member_look,
+    set_member_look,
+    set_pronouns,
 }
 
 /// Keyed by the power level, as JSON object keys are.
@@ -54,7 +51,7 @@ pub struct RoomMembersParams {
 impl Handler for RoomMembersParams {
     type Ok = Vec<MemberView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<MemberView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<MemberView>, RpcError> {
         let room_id = self.room_id;
         let room = core.room(&room_id).await?;
         let filter = membership_filter(&self.memberships);
@@ -111,7 +108,7 @@ pub struct RoomPermissionsParams {
 impl Handler for RoomPermissionsParams {
     type Ok = RoomPermissionsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomPermissionsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomPermissionsView, RpcError> {
         core.room_permissions(&self.room_id).await
     }
 }
@@ -126,7 +123,7 @@ pub struct RoomPowerLevelsParams {
 impl Handler for RoomPowerLevelsParams {
     type Ok = RoomPowerLevelsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomPowerLevelsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomPowerLevelsView, RpcError> {
         let power_levels = core
             .room(&self.room_id)
             .await?
@@ -153,7 +150,7 @@ pub struct SetPowerLevelParams {
 impl Handler for SetPowerLevelParams {
     type Ok = RoomPowerLevelsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomPowerLevelsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomPowerLevelsView, RpcError> {
         core.set_power_level(self.room_id, self.levels, &self.location, self.level)
             .await
     }
@@ -183,7 +180,7 @@ pub struct SyncPowerLevelsFromSpaceOk {
 impl Handler for SyncPowerLevelsFromSpaceParams {
     type Ok = SyncPowerLevelsFromSpaceOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SyncPowerLevelsFromSpaceOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SyncPowerLevelsFromSpaceOk, RpcError> {
         let (levels, tags) = core
             .sync_power_levels_from_space(self.room_id, self.space_id, self.levels)
             .await?;
@@ -210,7 +207,7 @@ pub struct SyncChildPowerLevelsOk {
 impl Handler for SyncChildPowerLevelsParams {
     type Ok = SyncChildPowerLevelsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SyncChildPowerLevelsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SyncChildPowerLevelsOk, RpcError> {
         let result = core
             .sync_child_power_levels(self.space_id, &self.child_ids)
             .await?;
@@ -231,7 +228,7 @@ pub struct PowerLevelTagsParams {
 impl Handler for PowerLevelTagsParams {
     type Ok = PowerLevelTagsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PowerLevelTagsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PowerLevelTagsOk, RpcError> {
         core.power_level_tags(&self.room_id).await.map(tags_ok)
     }
 }
@@ -250,7 +247,7 @@ pub struct SetPowerLevelTagParams {
 impl Handler for SetPowerLevelTagParams {
     type Ok = PowerLevelTagsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PowerLevelTagsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PowerLevelTagsOk, RpcError> {
         core.set_power_level_tag(self.room_id, self.level, self.tag.as_ref())
             .await
             .map(tags_ok)
@@ -271,7 +268,7 @@ pub struct SetUserPowerLevelParams {
 impl Handler for SetUserPowerLevelParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .update_power_levels(vec![(&self.user_id, self.power_level.into())])
@@ -295,7 +292,7 @@ pub struct KickUserParams {
 impl Handler for KickUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .kick_user(&self.user_id, self.reason.as_deref())
@@ -320,7 +317,7 @@ pub struct DenyKnockParams {
 impl Handler for DenyKnockParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.send_state(
             self.room_id,
             "m.room.member",
@@ -346,7 +343,7 @@ pub struct BanUserParams {
 impl Handler for BanUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .ban_user(&self.user_id, self.reason.as_deref())
@@ -370,7 +367,7 @@ pub struct UnbanUserParams {
 impl Handler for UnbanUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .unban_user(&self.user_id, self.reason.as_deref())
@@ -392,7 +389,7 @@ pub struct MemberLookParams {
 impl Handler for MemberLookParams {
     type Ok = MemberLookView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<MemberLookView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<MemberLookView, RpcError> {
         core.member_look(self.room_id).await
     }
 }
@@ -419,7 +416,7 @@ pub struct SetMemberLookParams {
 impl Handler for SetMemberLookParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let edit = crate::member_look::LookEdit {
             display_name: self.display_name,
             avatar_url: self.avatar_url,
@@ -444,7 +441,7 @@ pub struct SetPronounsParams {
 impl Handler for SetPronounsParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_pronouns(self.room_id, self.in_parent_space, &self.pronouns)
             .await
     }

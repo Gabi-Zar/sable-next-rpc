@@ -5,15 +5,15 @@ use serde::{Deserialize, Serialize};
 
 use super::Handler;
 use crate::Core;
-use crate::protocol::CommandErr;
+use crate::protocol::RpcError;
 
 domain! {
-    widget_send_delayed_event => WidgetSendDelayedEventParams,
-    widget_send_sticky_event => WidgetSendStickyEventParams,
-    restart_delayed_event => RestartDelayedEventParams,
-    widget_send_to_device => WidgetSendToDeviceParams,
-    room_sticky_events => RoomStickyEventsParams,
-    set_widget_feed => SetWidgetFeedParams,
+    widget_send_delayed_event,
+    widget_send_sticky_event,
+    restart_delayed_event,
+    widget_send_to_device,
+    room_sticky_events,
+    set_widget_feed,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,7 +37,7 @@ impl Handler for WidgetSendDelayedEventParams {
     /// The delay id.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.widget_send_delayed_event(
             &self.room_id,
             &self.event_type,
@@ -66,7 +66,7 @@ impl Handler for WidgetSendStickyEventParams {
     /// The event id.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.widget_send_sticky_event(
             &self.room_id,
             &self.event_type,
@@ -87,7 +87,7 @@ pub struct RestartDelayedEventParams {
 impl Handler for RestartDelayedEventParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.restart_delayed_event(self.delay_id).await
     }
 }
@@ -104,7 +104,7 @@ pub struct WidgetSendToDeviceParams {
 impl Handler for WidgetSendToDeviceParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.widget_send_to_device(&self.event_type, self.encrypted, self.messages)
             .await
     }
@@ -129,7 +129,7 @@ pub struct StickyEvents(
 impl Handler for RoomStickyEventsParams {
     type Ok = StickyEvents;
 
-    async fn run(self, core: &Arc<Core>) -> Result<StickyEvents, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<StickyEvents, RpcError> {
         core.room_sticky_events(&self.room_id)
             .await
             .map(StickyEvents)
@@ -145,7 +145,7 @@ pub struct SetWidgetFeedParams {
 impl Handler for SetWidgetFeedParams {
     type Ok = ();
 
-    fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), CommandErr>> {
+    fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
         core.set_widget_feed(self.enabled);
         std::future::ready(Ok(()))
     }

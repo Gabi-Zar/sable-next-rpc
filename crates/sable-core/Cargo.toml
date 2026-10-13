@@ -25,6 +25,7 @@ matrix-sdk-ui = { workspace = true }
 matrix-sdk-base = { workspace = true }
 ruma.workspace = true
 mime = "0.3"
+pastey = "0.2.3"
 http = "1.5"
 web-time = "1"
 serde = { workspace = true }

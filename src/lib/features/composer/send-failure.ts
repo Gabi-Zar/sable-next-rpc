@@ -1,4 +1,4 @@
-import type { CommandErr } from '#src/generated/protocol';
+import type { RpcError } from '#src/generated/protocol';
 
 import { SlashError } from './slash-commands';
 
@@ -10,11 +10,11 @@ export class ScheduledOriginalKept extends Error {
   }
 }
 
-function detailOf(cause: unknown): CommandErr | null {
+function detailOf(cause: unknown): RpcError | null {
   if (!(cause instanceof Error) || !('detail' in cause)) return null;
   const detail = (cause as { detail: unknown }).detail;
   if (typeof detail !== 'object' || detail === null || !('code' in detail)) return null;
-  return detail as CommandErr;
+  return detail as RpcError;
 }
 
 export function isServerScheduleUnsupported(cause: unknown): boolean {

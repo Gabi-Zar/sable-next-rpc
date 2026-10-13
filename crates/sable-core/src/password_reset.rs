@@ -9,7 +9,7 @@ use matrix_sdk::ruma::{ClientSecret, OwnedClientSecret, OwnedSessionId, SessionI
 use std::sync::Arc;
 
 use crate::api::auth::PasswordResetEmailOk;
-use crate::protocol::CommandErr;
+use crate::protocol::RpcError;
 use crate::{Core, session};
 
 #[derive(serde::Serialize)]
@@ -65,17 +65,17 @@ fn change_password_request(
 }
 
 impl Core {
-    fn password_reset_error(&self, context: &str, error: matrix_sdk::HttpError) -> CommandErr {
+    fn password_reset_error(&self, context: &str, error: matrix_sdk::HttpError) -> RpcError {
         match error.client_api_error_kind() {
-            Some(ErrorKind::ThreepidNotFound | ErrorKind::NotFound) => CommandErr::UnknownEmail,
+            Some(ErrorKind::ThreepidNotFound | ErrorKind::NotFound) => RpcError::UnknownEmail,
             Some(
                 ErrorKind::ThreepidMediumNotSupported
                 | ErrorKind::ThreepidDenied
                 | ErrorKind::Unrecognized,
-            ) => CommandErr::Unsupported,
-            Some(ErrorKind::WeakPassword) => CommandErr::WeakPassword,
+            ) => RpcError::Unsupported,
+            Some(ErrorKind::WeakPassword) => RpcError::WeakPassword,
             Some(kind) if kind.errcode().as_str().starts_with("M_PASSWORD_") => {
-                CommandErr::WeakPassword
+                RpcError::WeakPassword
             }
             _ => self.homeserver_http_error(context, error),
         }
@@ -87,14 +87,14 @@ impl Core {
         email: String,
         client_secret: Option<String>,
         send_attempt: u32,
-    ) -> Result<PasswordResetEmailOk, CommandErr> {
+    ) -> Result<PasswordResetEmailOk, RpcError> {
         let email = email.trim().to_owned();
         if email.is_empty() || !email.contains('@') {
-            return Err(CommandErr::InvalidEmail);
+            return Err(RpcError::InvalidEmail);
         }
         let client_secret = match client_secret {
             Some(secret) => {
-                ClientSecret::parse(&secret).map_err(|_| CommandErr::EmailVerificationFailed)?
+                ClientSecret::parse(&secret).map_err(|_| RpcError::EmailVerificationFailed)?
             }
             None => ClientSecret::new(),
         };
@@ -120,10 +120,10 @@ impl Core {
         sid: String,
         new_password: String,
         logout_devices: bool,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let client_secret =
-            ClientSecret::parse(&client_secret).map_err(|_| CommandErr::EmailVerificationFailed)?;
-        let sid = SessionId::parse(&sid).map_err(|_| CommandErr::EmailVerificationFailed)?;
+            ClientSecret::parse(&client_secret).map_err(|_| RpcError::EmailVerificationFailed)?;
+        let sid = SessionId::parse(&sid).map_err(|_| RpcError::EmailVerificationFailed)?;
         let client = session::discovery_client(&homeserver)
             .await
             .map_err(|error| self.discovery_error(error))?;
@@ -139,7 +139,7 @@ impl Core {
             },
         };
         if !offers_email_identity(&info) {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         }
         let auth = email_identity_auth(&sid, &client_secret, info.session.as_deref())
             .ok_or_else(|| self.failed("reset_password", "email identity auth did not build"))?;
@@ -154,7 +154,7 @@ impl Core {
         {
             Ok(_) => Ok(()),
             Err(error) if error.as_uiaa_response().is_some() => {
-                Err(CommandErr::EmailVerificationFailed)
+                Err(RpcError::EmailVerificationFailed)
             }
             Err(error) => Err(self.password_reset_error("reset_password", error)),
         }
@@ -302,7 +302,7 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(result, Err(CommandErr::EmailVerificationFailed)));
+        assert!(matches!(result, Err(RpcError::EmailVerificationFailed)));
         drop(core);
         drop(server);
         let _ = std::fs::remove_dir_all(directory);
@@ -341,8 +341,8 @@ mod tests {
             .request_password_reset_email(server.server().uri(), "bob".to_owned(), None, 1)
             .await;
 
-        assert!(matches!(unknown, Err(CommandErr::UnknownEmail)));
-        assert!(matches!(invalid, Err(CommandErr::InvalidEmail)));
+        assert!(matches!(unknown, Err(RpcError::UnknownEmail)));
+        assert!(matches!(invalid, Err(RpcError::InvalidEmail)));
         drop(core);
         drop(server);
         let _ = std::fs::remove_dir_all(directory);
@@ -394,8 +394,8 @@ mod tests {
             )
             .await;
 
-        assert!(matches!(unsupported, Err(CommandErr::Unsupported)));
-        assert!(matches!(weak, Err(CommandErr::WeakPassword)));
+        assert!(matches!(unsupported, Err(RpcError::Unsupported)));
+        assert!(matches!(weak, Err(RpcError::WeakPassword)));
         drop(core);
         drop(server);
         let _ = std::fs::remove_dir_all(directory);

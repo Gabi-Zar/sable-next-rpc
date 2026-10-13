@@ -58,7 +58,7 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use sable_core::{
     Core, GalleryAttachment,
-    protocol::{CommandErr, CoreEvent},
+    protocol::{CoreEvent, RpcError},
 };
 use tauri::{
     AppHandle, Manager, State,
@@ -124,7 +124,7 @@ async fn call(
     state: State<'_, AppState>,
     method: String,
     params: String,
-) -> Result<Box<serde_json::value::RawValue>, CommandErr> {
+) -> Result<Box<serde_json::value::RawValue>, RpcError> {
     Box::pin(state.core.call(&method, &params)).await
 }
 
@@ -135,7 +135,7 @@ async fn fetch_media(
     width: u32,
     height: u32,
     background: Option<bool>,
-) -> Result<Response, CommandErr> {
+) -> Result<Response, RpcError> {
     let bytes = state
         .core
         .fetch_media(source, width, height, background.unwrap_or(false))
@@ -144,7 +144,7 @@ async fn fetch_media(
 }
 
 #[tauri::command]
-async fn forget_media(state: State<'_, AppState>, source: String) -> Result<(), CommandErr> {
+async fn forget_media(state: State<'_, AppState>, source: String) -> Result<(), RpcError> {
     state.core.forget_media(source).await
 }
 
@@ -155,7 +155,7 @@ async fn forget_media(state: State<'_, AppState>, source: String) -> Result<(), 
     clippy::unnecessary_wraps,
     reason = "the frontend transport expects a Result"
 )]
-async fn video_stream_mime() -> Result<&'static str, CommandErr> {
+async fn video_stream_mime() -> Result<&'static str, RpcError> {
     Ok(video_transcode::STREAM_MIME)
 }
 
@@ -168,7 +168,7 @@ async fn stream_video(
     source: String,
     id: u64,
     chunks: tauri::ipc::Channel<Response>,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     tracing::info!(%source, id, "video stream requested");
     let input = state
         .core
@@ -184,7 +184,7 @@ async fn stream_video(
     .await
     .map_err(|error| {
         tracing::error!(%error, "video encode task did not finish");
-        CommandErr::Unavailable
+        RpcError::Unavailable
     })?
 }
 
@@ -197,7 +197,7 @@ pub(crate) fn decode_header(request: &Request<'_>, name: &str) -> Option<String>
 async fn import_persona_avatar(
     state: State<'_, AppState>,
     url: String,
-) -> Result<String, CommandErr> {
+) -> Result<String, RpcError> {
     state.core.import_persona_avatar(url).await
 }
 
@@ -218,14 +218,14 @@ struct Base64Invoke {
 
 trait Carried {
     fn header(&self, name: &str) -> Option<String>;
-    fn bytes(&self) -> Result<Vec<u8>, CommandErr>;
+    fn bytes(&self) -> Result<Vec<u8>, RpcError>;
 }
 
 impl Carried for Base64Invoke {
-    fn bytes(&self) -> Result<Vec<u8>, CommandErr> {
+    fn bytes(&self) -> Result<Vec<u8>, RpcError> {
         STANDARD
             .decode(&self.bytes)
-            .map_err(|_| CommandErr::InvalidMedia)
+            .map_err(|_| RpcError::InvalidMedia)
     }
 
     fn header(&self, name: &str) -> Option<String> {
@@ -240,9 +240,9 @@ impl Carried for Request<'_> {
         decode_header(self, name)
     }
 
-    fn bytes(&self) -> Result<Vec<u8>, CommandErr> {
+    fn bytes(&self) -> Result<Vec<u8>, RpcError> {
         let InvokeBody::Raw(bytes) = self.body() else {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         };
         Ok(bytes.clone())
     }
@@ -251,19 +251,19 @@ impl Carried for Request<'_> {
 async fn carried_attachment(
     core: &sable_core::Core,
     request: &impl Carried,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let attachment = request
         .header("request")
         .and_then(|json| serde_json::from_str(&json).ok())
-        .ok_or(CommandErr::InvalidMedia)?;
+        .ok_or(RpcError::InvalidMedia)?;
     core.send_attachment(attachment, request.bytes()?).await
 }
 
 async fn carried_upload(
     core: &sable_core::Core,
     request: &impl Carried,
-) -> Result<String, CommandErr> {
-    let mime = request.header("mime").ok_or(CommandErr::InvalidMedia)?;
+) -> Result<String, RpcError> {
+    let mime = request.header("mime").ok_or(RpcError::InvalidMedia)?;
     core.upload_media(mime, request.bytes()?).await
 }
 
@@ -272,15 +272,12 @@ async fn send_gallery(
     state: State<'_, AppState>,
     request: sable_core::protocol::SendGalleryRequest,
     items: Vec<GalleryAttachment>,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     state.core.send_gallery(request, items).await
 }
 
 #[tauri::command]
-async fn send_attachment(
-    state: State<'_, AppState>,
-    request: Request<'_>,
-) -> Result<(), CommandErr> {
+async fn send_attachment(state: State<'_, AppState>, request: Request<'_>) -> Result<(), RpcError> {
     carried_attachment(&state.core, &request).await
 }
 
@@ -289,7 +286,7 @@ async fn send_attachment(
 async fn upload_media(
     state: State<'_, AppState>,
     request: Request<'_>,
-) -> Result<String, CommandErr> {
+) -> Result<String, RpcError> {
     carried_upload(&state.core, &request).await
 }
 
@@ -297,7 +294,7 @@ async fn upload_media(
 async fn send_attachment_base64(
     state: State<'_, AppState>,
     request: Base64Invoke,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     carried_attachment(&state.core, &request).await
 }
 
@@ -310,7 +307,7 @@ const fn has_geolocation() -> bool {
 async fn upload_media_base64(
     state: State<'_, AppState>,
     request: Base64Invoke,
-) -> Result<String, CommandErr> {
+) -> Result<String, RpcError> {
     carried_upload(&state.core, &request).await
 }
 
@@ -345,12 +342,12 @@ fn device_pusher(
     app: AppHandle<BrowserEngine>,
     user_id: String,
     device_id: String,
-) -> Result<Option<notifications::DevicePusher>, CommandErr> {
+) -> Result<Option<notifications::DevicePusher>, RpcError> {
     notifications::device_pusher(&app, &user_id, &device_id)
 }
 
 #[tauri::command]
-async fn unregister_push(app: AppHandle<BrowserEngine>) -> Result<(), CommandErr> {
+async fn unregister_push(app: AppHandle<BrowserEngine>) -> Result<(), RpcError> {
     Box::pin(notifications::unregister_push(&app)).await
 }
 
@@ -359,7 +356,7 @@ async fn test_notification(
     app: AppHandle<BrowserEngine>,
     state: State<'_, AppState>,
     sequence: u32,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let core = state.core.clone();
     notifications::show_test(&app, &core, sequence).await;
     Ok(())
@@ -378,7 +375,7 @@ async fn set_notification_encrypted_content(
     sounds: bool,
     notify_once: bool,
     clear_on_read: bool,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     #[cfg(target_os = "android")]
     {
         use tauri_plugin_sable_push::SablePushExt;
@@ -392,7 +389,7 @@ async fn set_notification_encrypted_content(
                 clear_on_read,
             })
             .await
-            .map_err(|_| CommandErr::Unavailable)?;
+            .map_err(|_| RpcError::Unavailable)?;
     }
     #[cfg(target_os = "ios")]
     ios::write_push_policy(
@@ -403,7 +400,7 @@ async fn set_notification_encrypted_content(
         notify_once,
         clear_on_read,
     )
-    .map_err(|_| CommandErr::Unavailable)?;
+    .map_err(|_| RpcError::Unavailable)?;
     #[cfg(not(target_os = "android"))]
     let _ = &app;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -769,15 +766,15 @@ async fn stop_screen_audio() {
     clippy::needless_pass_by_value,
     reason = "tauri extracts command inputs by value"
 )]
-fn open_external_url(app: AppHandle<BrowserEngine>, url: String) -> Result<(), CommandErr> {
-    let parsed = tauri::Url::parse(&url).map_err(|_| CommandErr::Denied)?;
+fn open_external_url(app: AppHandle<BrowserEngine>, url: String) -> Result<(), RpcError> {
+    let parsed = tauri::Url::parse(&url).map_err(|_| RpcError::Denied)?;
     if !matches!(parsed.scheme(), "http" | "https" | "mailto" | "tel") {
-        return Err(CommandErr::Denied);
+        return Err(RpcError::Denied);
     }
 
     app.opener()
         .open_url(parsed.to_string(), None::<String>)
-        .map_err(|_| CommandErr::Unavailable)
+        .map_err(|_| RpcError::Unavailable)
 }
 
 async fn restore_ahead_of_webview(core: Arc<Core>) {

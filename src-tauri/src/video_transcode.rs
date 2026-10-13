@@ -9,7 +9,7 @@ use std::{
 };
 
 use ffmpeg_sidecar::{command::FfmpegCommand, event::FfmpegEvent, event::LogLevel};
-use sable_core::protocol::CommandErr;
+use sable_core::protocol::RpcError;
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Manager, Runtime, ipc::Channel, ipc::Response};
 
@@ -43,16 +43,16 @@ const ENCODE_ARGS: &[&str] = &[
 
 /// # Errors
 ///
-/// [`CommandErr::Unsupported`] when no ffmpeg is installed,
-/// [`CommandErr::InvalidMedia`] when it rejects the input,
-/// [`CommandErr::Unavailable`] for cache IO failures.
+/// [`RpcError::Unsupported`] when no ffmpeg is installed,
+/// [`RpcError::InvalidMedia`] when it rejects the input,
+/// [`RpcError::Unavailable`] for cache IO failures.
 pub fn stream_to<R: Runtime>(
     app: &AppHandle<R>,
     source: &str,
     input: &[u8],
     chunks: &Channel<Response>,
     id: u64,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let dir = cache_dir(app)?;
     let key = hex(&Sha256::digest(source.as_bytes()));
     let cached = dir.join(format!("{key}.v2.webm"));
@@ -70,9 +70,9 @@ pub fn stream_to<R: Runtime>(
         return end_of_stream(chunks);
     }
 
-    fs::create_dir_all(&dir).map_err(|_| CommandErr::Unavailable)?;
+    fs::create_dir_all(&dir).map_err(|_| RpcError::Unavailable)?;
     let source_path = dir.join(format!("{key}.src"));
-    fs::write(&source_path, input).map_err(|_| CommandErr::Unavailable)?;
+    fs::write(&source_path, input).map_err(|_| RpcError::Unavailable)?;
     let partial = dir.join(format!("{key}.part"));
 
     let encoded = encode(&source_path, &partial, chunks, id, has_audio(&source_path));
@@ -94,19 +94,17 @@ pub fn stream_to<R: Runtime>(
 
 /// The command resolving does not mean the channel has drained, so the last
 /// chunk is empty: the renderer knows the stream is whole when it arrives.
-fn end_of_stream(chunks: &Channel<Response>) -> Result<(), CommandErr> {
+fn end_of_stream(chunks: &Channel<Response>) -> Result<(), RpcError> {
     chunks
         .send(Response::new(Vec::new()))
-        .map_err(|_| CommandErr::Unavailable)
+        .map_err(|_| RpcError::Unavailable)
 }
 
-fn replay(path: &Path, chunks: &Channel<Response>) -> Result<(), CommandErr> {
-    let mut file = File::open(path).map_err(|_| CommandErr::Unavailable)?;
+fn replay(path: &Path, chunks: &Channel<Response>) -> Result<(), RpcError> {
+    let mut file = File::open(path).map_err(|_| RpcError::Unavailable)?;
     let mut buffer = vec![0_u8; CHUNK];
     loop {
-        let read = file
-            .read(&mut buffer)
-            .map_err(|_| CommandErr::Unavailable)?;
+        let read = file.read(&mut buffer).map_err(|_| RpcError::Unavailable)?;
         let Some(chunk) = buffer.get(..read).filter(|chunk| !chunk.is_empty()) else {
             return Ok(());
         };
@@ -122,7 +120,7 @@ fn encode(
     chunks: &Channel<Response>,
     id: u64,
     audio: bool,
-) -> Result<(), CommandErr> {
+) -> Result<(), RpcError> {
     let mut command = FfmpegCommand::new();
     command.arg("-y").input(source);
     // STREAM_MIME always promises Opus, so a silent track stands in for one the
@@ -142,15 +140,15 @@ fn encode(
     let mut child = command.spawn().map_err(|error| {
         tracing::warn!(?error, audio, "ffmpeg would not start");
         if error.kind() == std::io::ErrorKind::NotFound {
-            CommandErr::Unsupported
+            RpcError::Unsupported
         } else {
-            CommandErr::Unavailable
+            RpcError::Unavailable
         }
     })?;
 
     let events = child.iter().map_err(|error| {
         tracing::warn!(%error, "ffmpeg events unavailable");
-        CommandErr::Unavailable
+        RpcError::Unavailable
     })?;
     tracing::info!(audio, "ffmpeg started");
     let mut problems: Vec<String> = Vec::new();
@@ -168,7 +166,7 @@ fn encode(
     let bytes = fs::metadata(partial).map_or(0, |meta| meta.len());
     if !finished || bytes == 0 {
         tracing::warn!(bytes, ?problems, "video re-encode failed");
-        return Err(CommandErr::InvalidMedia);
+        return Err(RpcError::InvalidMedia);
     }
     tracing::info!(bytes, id, "video re-encode complete");
     replay(partial, chunks)
@@ -206,11 +204,11 @@ fn has_audio(path: &Path) -> bool {
         .is_ok_and(|probe| !probe.stdout.is_empty())
 }
 
-fn cache_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, CommandErr> {
+fn cache_dir<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, RpcError> {
     app.path()
         .app_cache_dir()
         .map(|dir| dir.join(CACHE_SUBDIR))
-        .map_err(|_| CommandErr::Unavailable)
+        .map_err(|_| RpcError::Unavailable)
 }
 
 fn is_fresh(path: &Path) -> bool {

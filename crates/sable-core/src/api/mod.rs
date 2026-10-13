@@ -11,24 +11,29 @@ use serde_json::value::RawValue;
 use web_time::Instant;
 
 use crate::Core;
-use crate::protocol::CommandErr;
+use crate::protocol::RpcError;
 
+/// Registers a domain's methods by wire name; `user_profile` is handled by `UserProfileParams`.
 macro_rules! domain {
-    ($($method:ident => $params:ty),* $(,)?) => {
-        pub(super) async fn call(
-            core: &std::sync::Arc<crate::Core>,
-            method: &str,
-            params: &str,
-        ) -> Option<Result<Box<serde_json::value::RawValue>, crate::protocol::CommandErr>> {
-            Some(match method {
-                $(stringify!($method) => Box::pin(super::invoke::<$params>(core, params)).await,)*
-                _ => return None,
-            })
-        }
+    ($($method:ident),* $(,)?) => {
+        pastey::paste! {
+            pub(super) async fn call(
+                core: &std::sync::Arc<crate::Core>,
+                method: &str,
+                params: &str,
+            ) -> Option<Result<Box<serde_json::value::RawValue>, crate::protocol::RpcError>> {
+                Some(match method {
+                    $(stringify!($method) => {
+                        Box::pin(super::invoke::<[<$method:camel Params>]>(core, params)).await
+                    })*
+                    _ => return None,
+                })
+            }
 
-        #[cfg(feature = "typegen")]
-        pub(super) fn routes(types: &mut specta::Types) -> Vec<super::Route> {
-            vec![$(super::Route::new::<$params>(stringify!($method), types)),*]
+            #[cfg(feature = "typegen")]
+            pub(super) fn routes(types: &mut specta::Types) -> Vec<super::Route> {
+                vec![$(super::Route::new::<[<$method:camel Params>]>(stringify!($method), types)),*]
+            }
         }
     };
 }
@@ -42,7 +47,7 @@ macro_rules! domains {
             domain: &str,
             method: &str,
             params: &str,
-        ) -> Option<Result<Box<RawValue>, CommandErr>> {
+        ) -> Option<Result<Box<RawValue>, RpcError>> {
             match domain {
                 $(stringify!($domain) => $domain::call(core, method, params).await,)*
                 _ => None,
@@ -84,7 +89,7 @@ domains! {
 pub trait Handler: DeserializeOwned {
     type Ok: Serialize;
 
-    fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<Self::Ok, CommandErr>>;
+    fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<Self::Ok, RpcError>>;
 }
 
 #[cfg(feature = "typegen")]
@@ -111,7 +116,7 @@ impl Route {
 
 const SLOW_CALL: Duration = Duration::from_secs(2);
 
-async fn invoke<H: Handler>(core: &Arc<Core>, params: &str) -> Result<Box<RawValue>, CommandErr> {
+async fn invoke<H: Handler>(core: &Arc<Core>, params: &str) -> Result<Box<RawValue>, RpcError> {
     let handler: H = serde_json::from_str(params).map_err(|error| core.failed("call", error))?;
     let ok = handler.run(core).await?;
     serde_json::value::to_raw_value(&ok).map_err(|error| core.failed("call", error))
@@ -119,8 +124,8 @@ async fn invoke<H: Handler>(core: &Arc<Core>, params: &str) -> Result<Box<RawVal
 
 async fn timed<T>(
     method: &str,
-    call: impl Future<Output = Result<T, CommandErr>>,
-) -> Result<T, CommandErr> {
+    call: impl Future<Output = Result<T, RpcError>>,
+) -> Result<T, RpcError> {
     let started = Instant::now();
     let result = call.await;
     let elapsed = started.elapsed();
@@ -146,14 +151,14 @@ impl Core {
         self: &Arc<Self>,
         method: &str,
         params: &str,
-    ) -> Result<Box<RawValue>, CommandErr> {
+    ) -> Result<Box<RawValue>, RpcError> {
         let Some((domain, name)) = method.split_once('.') else {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         };
         timed(method, async {
             route(self, domain, name, params)
                 .await
-                .unwrap_or(Err(CommandErr::Unsupported))
+                .unwrap_or(Err(RpcError::Unsupported))
         })
         .await
     }
@@ -163,7 +168,7 @@ impl Core {
     /// # Errors
     ///
     /// Returns the handler's error.
-    pub async fn run<H: Handler>(self: &Arc<Self>, handler: H) -> Result<H::Ok, CommandErr> {
+    pub async fn run<H: Handler>(self: &Arc<Self>, handler: H) -> Result<H::Ok, RpcError> {
         timed(std::any::type_name::<H>(), Box::pin(handler.run(self))).await
     }
 }

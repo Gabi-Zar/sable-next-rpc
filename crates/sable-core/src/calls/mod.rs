@@ -32,8 +32,8 @@ use serde_with::{DefaultOnError, serde_as};
 use crate::ResultExt;
 use crate::api::calls::JoinCallOk;
 use crate::protocol::{
-    CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CommandErr,
-    CoreEvent, RtcTransportSource,
+    CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CoreEvent,
+    RpcError, RtcTransportSource,
 };
 use crate::{CallSession, Core};
 
@@ -313,11 +313,11 @@ impl Core {
         livekit_service_url: Option<String>,
         mode: Option<CallMode>,
         intent: Option<crate::protocol::CallIntent>,
-    ) -> Result<JoinCallOk, CommandErr> {
+    ) -> Result<JoinCallOk, RpcError> {
         runtime::join(self, room_id, livekit_service_url, mode, intent).await
     }
 
-    pub(crate) async fn call_compatibility(&self) -> Result<CallCompatibilityView, CommandErr> {
+    pub(crate) async fn call_compatibility(&self) -> Result<CallCompatibilityView, RpcError> {
         let client = self.client().await?;
         let features = client
             .unstable_features()
@@ -351,12 +351,12 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         livekit_service_url: Option<String>,
-    ) -> Result<CallSupportView, CommandErr> {
+    ) -> Result<CallSupportView, RpcError> {
         let room = self.room(&room_id).await?;
         let user_id = room
             .client()
             .user_id()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .to_owned();
 
         let members = membership::active_members(&room).await;
@@ -557,7 +557,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         notification_event_id: String,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let event_id = EventId::parse(&notification_event_id).or_failed(self, "decline_call")?;
         let room = self.room(&room_id).await?;
         let content = notify::make_decline_event(&room, &event_id)
@@ -576,12 +576,12 @@ impl Core {
         Ok(())
     }
 
-    fn provision_error(&self, service_url: &str, error: &ProvisionError) -> CommandErr {
+    fn provision_error(&self, service_url: &str, error: &ProvisionError) -> RpcError {
         match error {
-            ProvisionError::NotLoggedIn => CommandErr::NotLoggedIn,
+            ProvisionError::NotLoggedIn => RpcError::NotLoggedIn,
             ProvisionError::Unreachable | ProvisionError::OpenIdUnavailable => {
                 tracing::warn!(service_url, "{error}");
-                CommandErr::Unavailable
+                RpcError::Unavailable
             }
             ProvisionError::Refused(_) | ProvisionError::MalformedResponse => {
                 self.failed("join_call_provision", format!("{service_url}: {error}"))
@@ -614,13 +614,13 @@ impl Core {
         }
     }
 
-    pub(crate) async fn leave_call(&self, session: CallSessionId) -> Result<(), CommandErr> {
+    pub(crate) async fn leave_call(&self, session: CallSessionId) -> Result<(), RpcError> {
         let mut call = self
             .call_sessions
             .lock()
             .await
             .remove(&session)
-            .ok_or(CommandErr::UnknownCall)?;
+            .ok_or(RpcError::UnknownCall)?;
 
         drop(call.updates.take());
         drop(call.postpone.take());
@@ -637,10 +637,10 @@ impl Core {
         &self,
         session: CallSessionId,
         active: bool,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let (room_id, state) = {
             let calls = self.call_sessions.lock().await;
-            let call = calls.get(&session).ok_or(CommandErr::UnknownCall)?;
+            let call = calls.get(&session).ok_or(RpcError::UnknownCall)?;
             (call.room_id.clone(), call.state.clone())
         };
         let room = self.room(&room_id).await?;
@@ -650,7 +650,7 @@ impl Core {
         Ok(())
     }
 
-    async fn fire_hangup(&self, delay_id: String) -> Result<(), CommandErr> {
+    async fn fire_hangup(&self, delay_id: String) -> Result<(), RpcError> {
         self.client()
             .await?
             .send(update_delayed_event::unstable_v1::Request::new(
@@ -663,7 +663,7 @@ impl Core {
         Ok(())
     }
 
-    async fn send_left_membership(&self, call: &CallSession) -> Result<(), CommandErr> {
+    async fn send_left_membership(&self, call: &CallSession) -> Result<(), RpcError> {
         if let Some(member_id) = &call.sticky_member {
             let room = self.room(&call.room_id).await?;
             sticky::send(

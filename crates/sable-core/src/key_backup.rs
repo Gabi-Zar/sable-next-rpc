@@ -13,15 +13,15 @@ use matrix_sdk_base::crypto::{
 };
 
 use crate::protocol::{
-    CommandErr, CoreEvent, KeyBackupDownloadState, KeyBackupDownloadView, KeyBackupStatusView,
+    CoreEvent, KeyBackupDownloadState, KeyBackupDownloadView, KeyBackupStatusView, RpcError,
 };
 use crate::{Core, ResultExt};
 
 impl Core {
-    pub(crate) async fn key_backup_status(&self) -> Result<KeyBackupStatusView, CommandErr> {
+    pub(crate) async fn key_backup_status(&self) -> Result<KeyBackupStatusView, RpcError> {
         let (account_id, client) = {
             let session = self.session.read().await;
-            let session = session.as_ref().ok_or(CommandErr::NotLoggedIn)?;
+            let session = session.as_ref().ok_or(RpcError::NotLoggedIn)?;
             (session.account_id.clone(), session.client.clone())
         };
         let status = self
@@ -47,14 +47,14 @@ impl Core {
     pub(crate) async fn download_key_backup(
         &self,
         request_id: String,
-    ) -> Result<KeyBackupDownloadView, CommandErr> {
+    ) -> Result<KeyBackupDownloadView, RpcError> {
         let _permit = self
             .key_backup_downloads
             .try_acquire()
-            .map_err(|_| CommandErr::Unavailable)?;
+            .map_err(|_| RpcError::Unavailable)?;
         let (account_id, client, generation) = {
             let session = self.session.read().await;
-            let session = session.as_ref().ok_or(CommandErr::NotLoggedIn)?;
+            let session = session.as_ref().ok_or(RpcError::NotLoggedIn)?;
             (
                 session.account_id.clone(),
                 session.client.clone(),

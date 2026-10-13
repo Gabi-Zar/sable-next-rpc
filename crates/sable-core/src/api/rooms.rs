@@ -23,42 +23,59 @@ use super::Handler;
 use crate::api::support::{
     MAX_SEARCH_RESULTS, StateEventOut, join_rule_content, voice_power_level_override,
 };
-use crate::protocol::{
-    CommandErr, CreateJoinRuleView, CreateRoomKind, DirectoryRoomType, PublicRoomView,
-    RoomAttachmentKind, RoomAttachmentView, RoomCosmeticsView, RoomOpenView, RoomPreviewView,
-    RoomListItemView, RoomTag, RoomVersionView, RoomVersionsView,
-};
+use crate::protocol::{RpcError, CreateJoinRuleView, PublicRoomView, RoomAttachmentKind, RoomAttachmentView, RoomCosmeticsView, RoomOpenView, RoomPreviewView, RoomListItemView, RoomTag, RoomVersionView, RoomVersionsView};
 use crate::{Core, ResultExt, power_levels, view};
 
 const WIDGETS_EVENT_TYPE: &str = "im.vector.modular.widgets";
 
 domain! {
-    room_open => RoomOpenParams,
-    room_list_item => RoomListItemParams,
-    room_preview => RoomPreviewParams,
-    join_room => JoinRoomParams,
-    knock_room => KnockRoomParams,
-    room_via_servers => RoomViaServersParams,
-    leave_room => LeaveRoomParams,
-    invite_user => InviteUserParams,
-    create_room => CreateRoomParams,
-    create_dm => CreateDmParams,
-    room_versions => RoomVersionsParams,
-    upgrade_room => UpgradeRoomParams,
-    public_rooms => PublicRoomsParams,
-    room_directory_visibility => RoomDirectoryVisibilityParams,
-    set_room_directory_visibility => SetRoomDirectoryVisibilityParams,
-    room_aliases => RoomAliasesParams,
-    create_room_alias => CreateRoomAliasParams,
-    delete_room_alias => DeleteRoomAliasParams,
-    canonical_alias => CanonicalAliasParams,
-    set_canonical_alias => SetCanonicalAliasParams,
-    replaced_rooms => ReplacedRoomsParams,
-    set_tombstone => SetTombstoneParams,
-    report_room => ReportRoomParams,
-    set_room_tag => SetRoomTagParams,
-    room_attachments => RoomAttachmentsParams,
-    room_cosmetics => RoomCosmeticsParams,
+    room_open,
+    room_list_item,
+    room_preview,
+    join_room,
+    knock_room,
+    room_via_servers,
+    leave_room,
+    invite_user,
+    create_room,
+    create_dm,
+    room_versions,
+    upgrade_room,
+    public_rooms,
+    room_directory_visibility,
+    set_room_directory_visibility,
+    room_aliases,
+    create_room_alias,
+    delete_room_alias,
+    canonical_alias,
+    set_canonical_alias,
+    replaced_rooms,
+    set_tombstone,
+    report_room,
+    set_room_tag,
+    room_attachments,
+    room_cosmetics,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryRoomType {
+    Rooms,
+    Spaces,
+}
+
+/// The `m.room.create` type to ask for: `m.space`, the MSC3417 call type, the
+/// forum type, or none at all.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum CreateRoomKind {
+    Text,
+    Space,
+    Voice,
+    Forum,
+    Calendar,
 }
 
 #[derive(Debug, Deserialize)]
@@ -71,7 +88,7 @@ pub struct RoomOpenParams {
 impl Handler for RoomOpenParams {
     type Ok = RoomOpenView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomOpenView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomOpenView, RpcError> {
         let room_id = self.room_id;
         let (permissions, power_level_tags, widgets, pinned_event_ids) = futures_util::join!(
             core.room_permissions(&room_id),
@@ -124,7 +141,7 @@ pub struct RoomListItemParams {
 impl Handler for RoomListItemParams {
     type Ok = RoomListItemView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomListItemView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomListItemView, RpcError> {
         let room = core.room(&self.room_id).await?;
         Ok(view::listless_room_list_item(room, &core.push_rules().await?.snapshot().await).await)
     }
@@ -146,7 +163,7 @@ pub struct RoomPreviewParams {
 impl Handler for RoomPreviewParams {
     type Ok = RoomPreviewView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomPreviewView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomPreviewView, RpcError> {
         core.room_preview(&self.address, &self.via).await
     }
 }
@@ -164,8 +181,8 @@ impl Handler for JoinRoomParams {
     /// Resolved, since the caller may have joined by alias.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
-        let address = RoomOrAliasId::parse(&self.address).map_err(|_| CommandErr::UnknownRoom)?;
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
+        let address = RoomOrAliasId::parse(&self.address).map_err(|_| RpcError::UnknownRoom)?;
 
         let via = self
             .via
@@ -197,7 +214,7 @@ pub struct KnockRoomParams {
 impl Handler for KnockRoomParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.knock_room(&self.address, &self.via, self.reason)
             .await
             .map(|room_id| room_id.to_string())
@@ -217,7 +234,7 @@ pub struct RoomViaServersParams {
 impl Handler for RoomViaServersParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         let room = core.room(&self.room_id).await?;
         core.room_via_servers(&room).await
     }
@@ -233,7 +250,7 @@ pub struct LeaveRoomParams {
 impl Handler for LeaveRoomParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .leave()
@@ -259,7 +276,7 @@ pub struct InviteUserParams {
 impl Handler for InviteUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .invite_user_by_id(&self.user_id)
@@ -297,7 +314,7 @@ pub struct CreateRoomParams {
 impl Handler for CreateRoomParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let client = core.client().await?;
         let mut request = create_room::v3::Request::new();
         request.name = self.name;
@@ -412,7 +429,7 @@ pub struct CreateDmParams {
 impl Handler for CreateDmParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let Self { user_id, encrypted } = self;
         let client = core.client().await?;
         let existing = client.get_dm_rooms(&user_id).find(|room| {
@@ -448,7 +465,7 @@ pub struct RoomVersionsParams {}
 impl Handler for RoomVersionsParams {
     type Ok = RoomVersionsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomVersionsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomVersionsView, RpcError> {
         let response = core
             .client()
             .await?
@@ -485,7 +502,7 @@ impl Handler for UpgradeRoomParams {
     /// The replacement room.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let mut request = upgrade_room::v3::Request::new(
             self.room_id,
             RoomVersionId::try_from(self.new_version).or_failed(core, "upgrade_room")?,
@@ -526,7 +543,7 @@ pub struct PublicRoomsOk {
 impl Handler for PublicRoomsParams {
     type Ok = PublicRoomsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PublicRoomsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PublicRoomsOk, RpcError> {
         core.public_rooms(self.server, self.search, self.since, self.room_type)
             .await
     }
@@ -543,7 +560,7 @@ impl Handler for RoomDirectoryVisibilityParams {
     /// Whether the room is published.
     type Ok = bool;
 
-    async fn run(self, core: &Arc<Core>) -> Result<bool, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<bool, RpcError> {
         let response = core
             .client()
             .await?
@@ -566,7 +583,7 @@ pub struct SetRoomDirectoryVisibilityParams {
 impl Handler for SetRoomDirectoryVisibilityParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let visibility = if self.public {
             Visibility::Public
         } else {
@@ -596,7 +613,7 @@ pub struct RoomAliasesParams {
 impl Handler for RoomAliasesParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         let response = core
             .client()
             .await?
@@ -623,7 +640,7 @@ pub struct CreateRoomAliasParams {
 impl Handler for CreateRoomAliasParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let alias = RoomAliasId::parse(self.alias).or_failed(core, "create_room_alias")?;
 
         core.client()
@@ -645,7 +662,7 @@ pub struct DeleteRoomAliasParams {
 impl Handler for DeleteRoomAliasParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let alias = RoomAliasId::parse(self.alias).or_failed(core, "delete_room_alias")?;
 
         core.client()
@@ -675,7 +692,7 @@ pub struct CanonicalAliasOk {
 impl Handler for CanonicalAliasParams {
     type Ok = CanonicalAliasOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<CanonicalAliasOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<CanonicalAliasOk, RpcError> {
         let (alias, alt_aliases) = core.canonical_alias(&self.room_id).await?;
         Ok(CanonicalAliasOk { alias, alt_aliases })
     }
@@ -693,7 +710,7 @@ pub struct SetCanonicalAliasParams {
 impl Handler for SetCanonicalAliasParams {
     type Ok = CanonicalAliasOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<CanonicalAliasOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<CanonicalAliasOk, RpcError> {
         let (alias, alt_aliases) = core
             .set_canonical_alias(self.room_id, self.alias.as_deref(), &self.alt_aliases)
             .await?;
@@ -708,7 +725,7 @@ pub struct ReplacedRoomsParams {}
 impl Handler for ReplacedRoomsParams {
     type Ok = Vec<RoomListItemView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<RoomListItemView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<RoomListItemView>, RpcError> {
         let client = core.client().await?;
         let rules = core.push_rules().await?.snapshot().await;
         let mut rooms = Vec::new();
@@ -735,7 +752,7 @@ pub struct SetTombstoneParams {
 impl Handler for SetTombstoneParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_tombstone(self.room_id, &self.replacement_room, &self.body)
             .await
     }
@@ -752,7 +769,7 @@ pub struct ReportRoomParams {
 impl Handler for ReportRoomParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.report_room(self.room_id, self.reason).await
     }
 }
@@ -770,7 +787,7 @@ pub struct SetRoomTagParams {
 impl Handler for SetRoomTagParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let room = core.room(&self.room_id).await?;
         let name = match self.tag {
             RoomTag::Favourite => TagName::Favorite,
@@ -810,7 +827,7 @@ pub struct RoomAttachmentsOk {
 impl Handler for RoomAttachmentsParams {
     type Ok = RoomAttachmentsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomAttachmentsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomAttachmentsOk, RpcError> {
         let (items, next_batch) = core
             .room_attachments(
                 &self.room_id,
@@ -836,7 +853,7 @@ pub struct RoomCosmeticsParams {
 impl Handler for RoomCosmeticsParams {
     type Ok = RoomCosmeticsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomCosmeticsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomCosmeticsView, RpcError> {
         core.room_cosmetics(&self.room_id, self.space_id).await
     }
 }

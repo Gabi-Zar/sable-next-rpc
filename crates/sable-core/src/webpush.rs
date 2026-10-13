@@ -1,6 +1,7 @@
 //! MSC4174 web push: the homeserver encrypts and delivers. Requests are hand-rolled because Ruma
 //! cannot express the pusher kind.
 
+use crate::api::push::WebPusherView;
 use crate::errors::CoreError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -17,7 +18,7 @@ use ruma::api::{
 use ruma::http_headers::APPLICATION_JSON;
 use ruma::push::PushFormat;
 
-use crate::protocol::{RegisteredPusherView, WebPusherView};
+use crate::protocol::RegisteredPusherView;
 
 /// The capability name once upstreamed, and the unstable one meanwhile.
 const CAPABILITIES: [&str; 2] = ["m.webpush", "org.matrix.msc4174.webpush"];

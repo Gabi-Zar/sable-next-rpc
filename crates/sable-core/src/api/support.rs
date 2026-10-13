@@ -15,8 +15,9 @@ use matrix_sdk::ruma::{OwnedEventId, OwnedMxcUri, OwnedRoomId, RoomId};
 use crate::ResultExt;
 use crate::probed_state::Probed;
 use crate::protocol::{
-    CommandErr, CoreEvent, CreateJoinRuleView, ImageSourcePackReferenceView, ImageSourcePackView,
-    MembershipView, PackImageInfoView, RoomStateEventView, UrlPreviewVideoView, UrlPreviewView,
+    CoreEvent, CreateJoinRuleView, ImageSourcePackReferenceView, ImageSourcePackView,
+    MembershipView, PackImageInfoView, RoomStateEventView, RpcError, UrlPreviewVideoView,
+    UrlPreviewView,
 };
 
 use crate::Core;
@@ -34,21 +35,21 @@ pub(crate) fn preview_refused(error: &matrix_sdk::HttpError) -> bool {
 pub(crate) async fn soliditas_preview(
     base: &str,
     target: &str,
-) -> Result<Option<serde_json::Value>, CommandErr> {
+) -> Result<Option<serde_json::Value>, RpcError> {
     let mut endpoint = url::Url::parse(&format!(
         "{}/_soliditas/preview_url",
         base.trim_end_matches('/')
     ))
-    .map_err(|_| CommandErr::Unavailable)?;
+    .map_err(|_| RpcError::Unavailable)?;
     endpoint.query_pairs_mut().append_pair("url", target);
 
     let builder = crate::tls::apply(matrix_sdk::reqwest::Client::builder());
     #[cfg(not(target_family = "wasm"))]
     let builder = builder.timeout(std::time::Duration::from_secs(10));
-    let http = builder.build().map_err(|_| CommandErr::Unavailable)?;
+    let http = builder.build().map_err(|_| RpcError::Unavailable)?;
     let response = http.get(endpoint).send().await.map_err(|error| {
         tracing::warn!("soliditas preview failed: {}", error.without_url());
-        CommandErr::Unavailable
+        RpcError::Unavailable
     })?;
 
     let status = response.status();
@@ -57,12 +58,9 @@ pub(crate) async fn soliditas_preview(
     }
     if !status.is_success() {
         tracing::warn!("soliditas preview answered {status}");
-        return Err(CommandErr::Unavailable);
+        return Err(RpcError::Unavailable);
     }
-    let body = response
-        .bytes()
-        .await
-        .map_err(|_| CommandErr::Unavailable)?;
+    let body = response.bytes().await.map_err(|_| RpcError::Unavailable)?;
     Ok(serde_json::from_slice(&body).ok())
 }
 
@@ -529,7 +527,7 @@ impl Core {
         &self,
         event_type: &str,
         content: &impl serde::Serialize,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.remember_account_data_type(event_type).await;
         self.put_global_account_data(event_type.into(), content, "set_account_data")
             .await?;
@@ -545,7 +543,7 @@ impl Core {
         event_type: &str,
         state_key: &str,
         content: &impl serde::Serialize,
-    ) -> Result<OwnedEventId, CommandErr> {
+    ) -> Result<OwnedEventId, RpcError> {
         let content = &serde_json::to_value(content).or_failed(self, "send_state")?;
         let response = self
             .room(&room_id)
@@ -597,7 +595,7 @@ impl Core {
     pub(crate) async fn room_permissions(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<crate::protocol::RoomPermissionsView, CommandErr> {
+    ) -> Result<crate::protocol::RoomPermissionsView, RpcError> {
         let room = self.room(room_id).await?;
         let user_id = room
             .client()
@@ -615,7 +613,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_type: &str,
-    ) -> Result<Vec<RoomStateEventView>, CommandErr> {
+    ) -> Result<Vec<RoomStateEventView>, RpcError> {
         let client = self.client().await?;
         let room = self.room(room_id).await?;
         let stored = room
@@ -667,7 +665,7 @@ impl Core {
         room_id: OwnedRoomId,
         event_type: String,
         state_key: String,
-    ) -> Result<Option<serde_json::Value>, CommandErr> {
+    ) -> Result<Option<serde_json::Value>, RpcError> {
         let written = self.probed_state().written(
             &room_id,
             &event_type,
@@ -1336,7 +1334,7 @@ mod tests {
         let error = super::soliditas_preview(&server.uri(), "https://example.org/a")
             .await
             .unwrap_err();
-        assert!(matches!(error, super::CommandErr::Unavailable));
+        assert!(matches!(error, super::RpcError::Unavailable));
     }
 }
 

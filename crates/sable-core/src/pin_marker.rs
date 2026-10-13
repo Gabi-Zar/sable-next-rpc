@@ -6,7 +6,7 @@ use serde_json::Value;
 use serde_with::{DefaultOnError, serde_as};
 use sha2::{Digest, Sha256};
 
-use crate::protocol::{CommandErr, PinReadStateView};
+use crate::protocol::{PinReadStateView, RpcError};
 use crate::{Core, ResultExt};
 
 /// Which pins this account has seen, per room. Not specced; v1 wrote it too.
@@ -130,7 +130,7 @@ impl Core {
     async fn stored_pin_marker(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<Option<PinMarker>, CommandErr> {
+    ) -> Result<Option<PinMarker>, RpcError> {
         let content = self
             .room(room_id)
             .await?
@@ -145,7 +145,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         marker: &PinMarker,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let raw = matrix_sdk::ruma::serde::Raw::new(&marker_content(marker))
             .or_failed(self, "pin_marker")?
             .cast_unchecked();
@@ -160,7 +160,7 @@ impl Core {
     pub(crate) async fn pin_read_state(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<PinReadStateView, CommandErr> {
+    ) -> Result<PinReadStateView, RpcError> {
         let pinned = self.pinned_events(room_id).await?;
         let marker = self.stored_pin_marker(room_id).await?;
         Ok(read_state(pinned, marker.as_ref()))
@@ -170,7 +170,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         pinned: Vec<OwnedEventId>,
-    ) -> Result<PinReadStateView, CommandErr> {
+    ) -> Result<PinReadStateView, RpcError> {
         let marker = marker_for(&pinned);
         if let Some(marker) = &marker {
             self.write_pin_marker(room_id, marker).await?;
@@ -185,7 +185,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: OwnedEventId,
         pinned: bool,
-    ) -> Result<Vec<OwnedEventId>, CommandErr> {
+    ) -> Result<Vec<OwnedEventId>, RpcError> {
         let previous_marker = if pinned {
             self.advance_marker_for_own_pin(room_id, &event_id).await
         } else {
@@ -210,7 +210,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
     ) -> Option<Option<PinMarker>> {
-        let result: Result<Option<Option<PinMarker>>, CommandErr> = async {
+        let result: Result<Option<Option<PinMarker>>, RpcError> = async {
             let mut previous = self.pinned_events(room_id).await?;
             let stored = self.stored_pin_marker(room_id).await?;
             let caught_up = previous.is_empty() || unread_pins(&previous, stored.as_ref()) == 0;

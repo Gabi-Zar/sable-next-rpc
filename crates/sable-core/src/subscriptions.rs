@@ -1,3 +1,4 @@
+use crate::api::timeline::TimelineFocusView;
 use std::{collections::HashMap, sync::Arc};
 
 use futures_util::{StreamExt, pin_mut};
@@ -16,7 +17,7 @@ use tokio::sync::broadcast::error::RecvError;
 use crate::ResultExt;
 use crate::api::timeline::{SubscribeRoomListOk, SubscribeTimelineOk};
 use crate::notifications;
-use crate::protocol::{CommandErr, CoreEvent, SubscriptionId, TimelineFocusView, TimelineItemView};
+use crate::protocol::{CoreEvent, RpcError, SubscriptionId, TimelineItemView};
 use crate::room_list_rows::RoomListRows;
 use crate::timeline_overlay::{ReplyFallback, TimelineOverlay};
 use crate::timelines::{aggregation_items, build_room_timeline, fill_sender_profiles};
@@ -55,12 +56,12 @@ pub(crate) fn abort_rejected_redaction(timeline: &Arc<Timeline>, item: &Timeline
 impl Core {
     pub(crate) async fn subscribe_room_list(
         self: &Arc<Self>,
-    ) -> Result<SubscribeRoomListOk, CommandErr> {
+    ) -> Result<SubscribeRoomListOk, RpcError> {
         let sync_service = {
             let guard = self.session.read().await;
             guard
                 .as_ref()
-                .ok_or(CommandErr::NotLoggedIn)?
+                .ok_or(RpcError::NotLoggedIn)?
                 .sync_service
                 .clone()
         };
@@ -180,7 +181,7 @@ impl Core {
         room_id: OwnedRoomId,
         focus: TimelineFocusView,
         hidden_events: bool,
-    ) -> Result<SubscribeTimelineOk, CommandErr> {
+    ) -> Result<SubscribeTimelineOk, RpcError> {
         let subscription = self.allocate_subscription();
         let live = matches!(focus, TimelineFocusView::Live);
         let room = self.room(&room_id).await?;
@@ -328,7 +329,7 @@ impl Core {
 
         let mut subscriptions = self.subscriptions.lock().await;
         let Some(entry) = subscriptions.get_mut(&subscription) else {
-            return Err(CommandErr::Unavailable);
+            return Err(RpcError::Unavailable);
         };
         entry.tasks = status_task
             .into_iter()
@@ -408,7 +409,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         thread_root: Option<&OwnedEventId>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let timeline = self.timeline_for(room_id, thread_root).await?;
         let fetched = timeline.fetch_details_for_event(event_id).await;
         if let Err(TimelineError::EventNotInTimeline(_)) = fetched {
@@ -416,7 +417,7 @@ impl Core {
                 context = "fetch_event_details",
                 "the event left the timeline"
             );
-            return Err(CommandErr::Unavailable);
+            return Err(RpcError::Unavailable);
         }
         let unresolved = timeline
             .item_by_event_id(event_id)
@@ -484,7 +485,7 @@ impl Core {
         (items, Some(task))
     }
 
-    pub(crate) async fn warm_rooms(&self, room_ids: Vec<OwnedRoomId>) -> Result<(), CommandErr> {
+    pub(crate) async fn warm_rooms(&self, room_ids: Vec<OwnedRoomId>) -> Result<(), RpcError> {
         let client = self.client().await?;
         let mut subscribed = self.room_subscriptions.lock().await;
         for room_id in room_ids {
@@ -523,7 +524,7 @@ impl Core {
     pub(crate) async fn sync_timeline_rooms_locked(
         &self,
         subscribed: &mut std::collections::BTreeSet<OwnedRoomId>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let subscriptions = self.subscriptions.lock().await;
         let room_ids = subscriptions
             .values()

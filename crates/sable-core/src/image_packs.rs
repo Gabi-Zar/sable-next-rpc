@@ -181,7 +181,7 @@ use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 
 use crate::Core;
 use crate::api::packs::ImagePacksOk;
-use crate::protocol::{CommandErr, CoreEvent};
+use crate::protocol::{CoreEvent, RpcError};
 
 type AccountDataContent = Option<Raw<AnyGlobalAccountDataEventContent>>;
 
@@ -367,7 +367,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         cached_only: bool,
-    ) -> Result<ImagePacksOk, CommandErr> {
+    ) -> Result<ImagePacksOk, RpcError> {
         let client = self.client().await?;
         let network = !cached_only;
         let room = self.room(&room_id).await?;
@@ -511,7 +511,7 @@ impl Core {
         (packs, complete)
     }
 
-    pub(crate) async fn all_image_packs(&self) -> Result<Vec<ImagePackView>, CommandErr> {
+    pub(crate) async fn all_image_packs(&self) -> Result<Vec<ImagePackView>, RpcError> {
         let client = self.client().await?;
         let mut packs = Vec::new();
 

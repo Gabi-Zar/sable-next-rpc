@@ -22,7 +22,7 @@ use sha2::Sha256;
 
 use crate::Core;
 use crate::ResultExt;
-use crate::protocol::{CommandErr, CoreEvent, SealStateView, SealedAccountDataView};
+use crate::protocol::{CoreEvent, RpcError, SealStateView, SealedAccountDataView};
 
 pub(crate) const ADK_SECRET: &str = "dev.zirco.msc4483.account_data.key";
 const CACHE_KEY: &[u8] = b"sable.msc4483.account_data_key";
@@ -223,9 +223,9 @@ impl Core {
     pub(crate) async fn sealed_account_data(
         &self,
         event_type: &str,
-    ) -> Result<SealedAccountDataView, CommandErr> {
+    ) -> Result<SealedAccountDataView, RpcError> {
         if !sealable(event_type) {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         }
         let client = self.client().await?;
         let key = cached_key(&client).await;
@@ -254,9 +254,9 @@ impl Core {
         &self,
         event_type: &str,
         content: &serde_json::Value,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         if !sealable(event_type) {
-            return Err(CommandErr::Unsupported);
+            return Err(RpcError::Unsupported);
         }
         let client = self.client().await?;
         let content = match cached_key(&client).await {

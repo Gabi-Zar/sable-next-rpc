@@ -5,21 +5,26 @@ use serde::{Deserialize, Serialize};
 
 use super::Handler;
 use crate::Core;
-use crate::protocol::{
-    CallBackendView, CallCompatibilityView, CallIntent, CallMode, CallModeReason, CallSessionId,
-    CallSupportView, CommandErr, RtcLivekitEndpoint, TurnServerView,
-};
+use crate::protocol::{CallBackendView, CallCompatibilityView, CallIntent, CallMode, CallModeReason, CallSessionId, CallSupportView, RpcError, TurnServerView};
 
 domain! {
-    turn_server => TurnServerParams,
-    rtc_transports => RtcTransportsParams,
-    rtc_livekit => RtcLivekitParams,
-    join_call => JoinCallParams,
-    call_compatibility => CallCompatibilityParams,
-    call_support => CallSupportParams,
-    leave_call => LeaveCallParams,
-    set_call_screen_sharing => SetCallScreenSharingParams,
-    decline_call => DeclineCallParams,
+    turn_server,
+    rtc_transports,
+    rtc_livekit,
+    join_call,
+    call_compatibility,
+    call_support,
+    leave_call,
+    set_call_screen_sharing,
+    decline_call,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum RtcLivekitEndpoint {
+    GetToken,
+    DelegateDelayedLeave,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,7 +34,7 @@ pub struct TurnServerParams {}
 impl Handler for TurnServerParams {
     type Ok = TurnServerView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<TurnServerView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<TurnServerView, RpcError> {
         core.turn_server().await
     }
 }
@@ -50,7 +55,7 @@ pub struct RtcBody(
 impl Handler for RtcTransportsParams {
     type Ok = RtcBody;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RtcBody, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RtcBody, RpcError> {
         core.rtc_transports().await.map(RtcBody)
     }
 }
@@ -66,7 +71,7 @@ pub struct RtcLivekitParams {
 impl Handler for RtcLivekitParams {
     type Ok = RtcBody;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RtcBody, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RtcBody, RpcError> {
         core.rtc_livekit(self.endpoint, &self.body).await.map(RtcBody)
     }
 }
@@ -103,7 +108,7 @@ pub struct JoinCallOk {
 impl Handler for JoinCallParams {
     type Ok = JoinCallOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<JoinCallOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<JoinCallOk, RpcError> {
         core.join_call(
             self.room_id,
             self.livekit_service_url,
@@ -121,7 +126,7 @@ pub struct CallCompatibilityParams {}
 impl Handler for CallCompatibilityParams {
     type Ok = CallCompatibilityView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<CallCompatibilityView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<CallCompatibilityView, RpcError> {
         core.call_compatibility().await
     }
 }
@@ -138,7 +143,7 @@ pub struct CallSupportParams {
 impl Handler for CallSupportParams {
     type Ok = CallSupportView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<CallSupportView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<CallSupportView, RpcError> {
         core.call_support(self.room_id, self.livekit_service_url)
             .await
     }
@@ -153,7 +158,7 @@ pub struct LeaveCallParams {
 impl Handler for LeaveCallParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.leave_call(self.session).await
     }
 }
@@ -168,7 +173,7 @@ pub struct SetCallScreenSharingParams {
 impl Handler for SetCallScreenSharingParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_call_screen_sharing(self.session, self.active)
             .await
     }
@@ -185,7 +190,7 @@ pub struct DeclineCallParams {
 impl Handler for DeclineCallParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.decline_call(self.room_id, self.notification_event_id)
             .await
     }

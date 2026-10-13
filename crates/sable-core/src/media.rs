@@ -25,7 +25,7 @@ use crate::messages::outgoing_mentions;
 use crate::outgoing::thread_reply;
 use crate::personas::profile_extra_content;
 use crate::protocol::{
-    AttachmentInfoView, AudioMetadataView, CommandErr, CoreEvent, PerMessageProfileView,
+    AttachmentInfoView, AudioMetadataView, CoreEvent, PerMessageProfileView, RpcError,
     SendAttachmentRequest, SendGalleryRequest,
 };
 use crate::view::SPOILER_PROPERTY;
@@ -52,7 +52,7 @@ pub struct GalleryAttachment {
 }
 
 impl Core {
-    pub(crate) async fn max_upload_size(&self) -> Result<u64, CommandErr> {
+    pub(crate) async fn max_upload_size(&self) -> Result<u64, RpcError> {
         self.client()
             .await?
             .load_or_fetch_max_upload_size()
@@ -67,7 +67,7 @@ impl Core {
     ///
     /// Returns an error if the download or Matrix upload fails.
     #[cfg(not(target_family = "wasm"))]
-    pub async fn import_persona_avatar(&self, url: String) -> Result<String, CommandErr> {
+    pub async fn import_persona_avatar(&self, url: String) -> Result<String, RpcError> {
         self.client().await?;
         let (mime, bytes) = download_persona_avatar(&url).await?;
         self.upload_media(mime, bytes).await
@@ -84,7 +84,7 @@ impl Core {
         source: String,
         width: u32,
         height: u32,
-    ) -> Result<Vec<u8>, CommandErr> {
+    ) -> Result<Vec<u8>, RpcError> {
         self.fetch_media(source, width, height, false).await
     }
 
@@ -97,14 +97,14 @@ impl Core {
         width: u32,
         height: u32,
         background: bool,
-    ) -> Result<Vec<u8>, CommandErr> {
+    ) -> Result<Vec<u8>, RpcError> {
         let key = source;
         let source: MediaSource = serde_json::from_str(&key)
             .unwrap_or_else(|_| MediaSource::Plain(OwnedMxcUri::from(key.clone())));
         if let MediaSource::Plain(uri) = &source
             && uri.parts().is_err()
         {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
 
         let client = self.client().await?;
@@ -121,13 +121,13 @@ impl Core {
                         .media_downloads
                         .acquire()
                         .await
-                        .map_err(|_| CommandErr::Unavailable)?;
+                        .map_err(|_| RpcError::Unavailable)?;
                     if let Some(bytes) = cached_media(&client, &source, width, height).await {
                         return Ok(bytes);
                     }
                     permit
                 }
-                Err(tokio::sync::TryAcquireError::Closed) => return Err(CommandErr::Unavailable),
+                Err(tokio::sync::TryAcquireError::Closed) => return Err(RpcError::Unavailable),
             };
             Some(permit)
         };
@@ -147,7 +147,7 @@ impl Core {
                 .admit(server, media_id, now);
             match admission {
                 Admission::Refused { retry_after_ms } => {
-                    return Err(CommandErr::MediaServerUnavailable { retry_after_ms });
+                    return Err(RpcError::MediaServerUnavailable { retry_after_ms });
                 }
                 Admission::Probe => {
                     probe = Some(ProbeGuard {
@@ -179,7 +179,7 @@ impl Core {
         if let Some(probe) = probe.as_mut() {
             probe.armed = false;
         }
-        result.map_err(|_| CommandErr::Unavailable)
+        result.map_err(|_| RpcError::Unavailable)
     }
 
     async fn media_bytes(
@@ -235,7 +235,7 @@ impl Core {
     ///
     /// Returns an error when the media URI is invalid, the user is logged out,
     /// or the media store cannot be written.
-    pub async fn forget_media(&self, source: String) -> Result<(), CommandErr> {
+    pub async fn forget_media(&self, source: String) -> Result<(), RpcError> {
         let source: MediaSource = serde_json::from_str(&source)
             .unwrap_or_else(|_| MediaSource::Plain(OwnedMxcUri::from(source)));
         let uri = match source {
@@ -243,7 +243,7 @@ impl Core {
             MediaSource::Encrypted(file) => file.url,
         };
         if uri.parts().is_err() {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
         let client = self.client().await?;
         client
@@ -381,8 +381,8 @@ impl Core {
     ///
     /// Returns an error when the MIME type is invalid, the user is logged out,
     /// or the upload fails.
-    pub async fn upload_media(&self, mime: String, bytes: Vec<u8>) -> Result<String, CommandErr> {
-        let mime: Mime = mime.parse().map_err(|_| CommandErr::InvalidMedia)?;
+    pub async fn upload_media(&self, mime: String, bytes: Vec<u8>) -> Result<String, RpcError> {
+        let mime: Mime = mime.parse().map_err(|_| RpcError::InvalidMedia)?;
 
         let response = self
             .client()
@@ -406,11 +406,11 @@ impl Core {
         &self,
         request: SendAttachmentRequest,
         bytes: Vec<u8>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > self.max_upload_size().await? {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
-        let mime: Mime = request.mime.parse().map_err(|_| CommandErr::InvalidMedia)?;
+        let mime: Mime = request.mime.parse().map_err(|_| RpcError::InvalidMedia)?;
         let reply = thread_reply(
             request.outgoing.in_reply_to.clone(),
             request.outgoing.thread_root.clone(),
@@ -476,16 +476,16 @@ impl Core {
         &self,
         request: SendGalleryRequest,
         attachments: Vec<GalleryAttachment>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         if attachments.len() != request.attachments.len() || attachments.len() < 2 {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
         let max_upload_size = self.max_upload_size().await?;
         if attachments
             .iter()
             .any(|item| u64::try_from(item.bytes.len()).unwrap_or(u64::MAX) > max_upload_size)
         {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
         let mut gallery = GalleryConfig::new()
             .caption(attachment_caption(
@@ -502,7 +502,7 @@ impl Core {
                 request.outgoing.silent_reply,
             ));
         for item in attachments {
-            let mime: Mime = item.mime.parse().map_err(|_| CommandErr::InvalidMedia)?;
+            let mime: Mime = item.mime.parse().map_err(|_| RpcError::InvalidMedia)?;
             let info = attachment_info(&mime, &item.info.unwrap_or_default(), item.bytes.len());
             gallery = gallery.add_item(GalleryItemInfo {
                 filename: item.filename,
@@ -526,14 +526,14 @@ impl Core {
 }
 
 #[cfg(not(target_family = "wasm"))]
-async fn download_persona_avatar(url: &str) -> Result<(String, Vec<u8>), CommandErr> {
+async fn download_persona_avatar(url: &str) -> Result<(String, Vec<u8>), RpcError> {
     const MAX_AVATAR_BYTES: usize = 20 * 1024 * 1024;
-    let url = url::Url::parse(url).map_err(|_| CommandErr::InvalidMedia)?;
+    let url = url::Url::parse(url).map_err(|_| RpcError::InvalidMedia)?;
     if !matches!(url.scheme(), "http" | "https")
         || !url.username().is_empty()
         || url.password().is_some()
     {
-        return Err(CommandErr::InvalidMedia);
+        return Err(RpcError::InvalidMedia);
     }
     // Do not send Matrix credentials to avatar hosts.
     let http = crate::tls::apply(matrix_sdk::reqwest::Client::builder())
@@ -541,7 +541,7 @@ async fn download_persona_avatar(url: &str) -> Result<(String, Vec<u8>), Command
         .timeout(Duration::from_secs(30))
         .redirect(matrix_sdk::reqwest::redirect::Policy::limited(5))
         .build()
-        .map_err(|_| CommandErr::Unavailable)?;
+        .map_err(|_| RpcError::Unavailable)?;
     let mut response = http
         .get(url)
         .send()
@@ -549,13 +549,13 @@ async fn download_persona_avatar(url: &str) -> Result<(String, Vec<u8>), Command
         .and_then(matrix_sdk::reqwest::Response::error_for_status)
         .map_err(|error| {
             tracing::warn!("persona avatar download failed: {}", error.without_url());
-            CommandErr::Unavailable
+            RpcError::Unavailable
         })?;
     if response
         .content_length()
         .is_some_and(|size| size > MAX_AVATAR_BYTES as u64)
     {
-        return Err(CommandErr::InvalidMedia);
+        return Err(RpcError::InvalidMedia);
     }
     let mime = response
         .headers()
@@ -564,18 +564,14 @@ async fn download_persona_avatar(url: &str) -> Result<(String, Vec<u8>), Command
         .unwrap_or("image/*")
         .to_owned();
     let mut bytes = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| CommandErr::Unavailable)?
-    {
+    while let Some(chunk) = response.chunk().await.map_err(|_| RpcError::Unavailable)? {
         if chunk.len() > MAX_AVATAR_BYTES - bytes.len() {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
         bytes.extend_from_slice(&chunk);
     }
     if bytes.is_empty() {
-        return Err(CommandErr::InvalidMedia);
+        return Err(RpcError::InvalidMedia);
     }
     Ok((mime, bytes))
 }
@@ -941,10 +937,10 @@ fn media_label(source: &MediaSource) -> String {
     }
 }
 
-pub(crate) fn mxc_uri(url: &str) -> Result<OwnedMxcUri, CommandErr> {
+pub(crate) fn mxc_uri(url: &str) -> Result<OwnedMxcUri, RpcError> {
     let uri = OwnedMxcUri::from(url);
     if uri.parts().is_err() {
-        return Err(CommandErr::InvalidMedia);
+        return Err(RpcError::InvalidMedia);
     }
     Ok(uri)
 }

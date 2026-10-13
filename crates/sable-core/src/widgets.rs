@@ -1,3 +1,4 @@
+use crate::api::calls::RtcLivekitEndpoint;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -35,8 +36,8 @@ use serde_with::{DefaultOnError, serde_as};
 
 use crate::calls::{is_rtc_member_type, sticky};
 use crate::protocol::{
-    CommandErr, CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RtcLivekitEndpoint,
-    TurnServerView, UserDirectoryEntryView,
+    CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RpcError, TurnServerView,
+    UserDirectoryEntryView,
 };
 use crate::view::ObjectOnly;
 use crate::{Core, ResultExt};
@@ -253,7 +254,7 @@ impl Core {
         state_key: Option<&str>,
         limit: u32,
         since: Option<&OwnedEventId>,
-    ) -> Result<Vec<serde_json::Value>, CommandErr> {
+    ) -> Result<Vec<serde_json::Value>, RpcError> {
         let client = self.client().await?;
         let Ok((cache, _drop_handles)) = client.event_cache().room(room_id).await else {
             return Ok(Vec::new());
@@ -313,7 +314,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_type: &str,
         state_key: Option<&str>,
-    ) -> Result<Vec<serde_json::Value>, CommandErr> {
+    ) -> Result<Vec<serde_json::Value>, RpcError> {
         let room = self.room(room_id).await?;
         let events = room
             .get_state_events(event_type.into())
@@ -342,7 +343,7 @@ impl Core {
         &self,
         term: &str,
         limit: Option<u32>,
-    ) -> Result<(bool, Vec<UserDirectoryEntryView>), CommandErr> {
+    ) -> Result<(bool, Vec<UserDirectoryEntryView>), RpcError> {
         let mut request = search_users::v3::Request::new(term.to_owned());
         if let Some(limit) = limit {
             request.limit = UInt::from(limit);
@@ -377,10 +378,10 @@ impl Core {
         content: Value,
         delay_ms: u64,
         sticky_duration_ms: Option<u32>,
-    ) -> Result<String, CommandErr> {
+    ) -> Result<String, RpcError> {
         const LABEL: &str = "widget_send_delayed_event";
         if !self.delayed_events_supported().await? {
-            return Err(CommandErr::DelayedEventsUnsupported);
+            return Err(RpcError::DelayedEventsUnsupported);
         }
         let room = self.room(room_id).await?;
         let client = self.client().await?;
@@ -404,7 +405,7 @@ impl Core {
         }
         if let Some(duration) = sticky_duration_ms {
             if !is_rtc_member_type(event_type) && self.room_is_encrypted(&room).await? {
-                return Err(CommandErr::EncryptedScheduleUnsupported);
+                return Err(RpcError::EncryptedScheduleUnsupported);
             }
             return sticky::send_delayed_event(
                 &client, &room, event_type, content, delay, duration,
@@ -413,7 +414,7 @@ impl Core {
             .or_failed(self, LABEL);
         }
         if self.room_is_encrypted(&room).await? {
-            return Err(CommandErr::EncryptedScheduleUnsupported);
+            return Err(RpcError::EncryptedScheduleUnsupported);
         }
         let request = delayed_message_event::unstable::Request::new_raw(
             room_id.clone(),
@@ -435,7 +436,7 @@ impl Core {
         event_type: &str,
         content: Value,
         sticky_duration_ms: u32,
-    ) -> Result<OwnedEventId, CommandErr> {
+    ) -> Result<OwnedEventId, RpcError> {
         let response = self
             .room(room_id)
             .await?
@@ -446,7 +447,7 @@ impl Core {
         Ok(response.response.event_id)
     }
 
-    pub(crate) async fn restart_delayed_event(&self, delay_id: String) -> Result<(), CommandErr> {
+    pub(crate) async fn restart_delayed_event(&self, delay_id: String) -> Result<(), RpcError> {
         let request = update_delayed_event::unstable_v1::Request::new(
             delay_id,
             update_delayed_event::UpdateAction::Restart,
@@ -464,7 +465,7 @@ impl Core {
         event_type: &str,
         encrypted: bool,
         messages: Value,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         const LABEL: &str = "widget_send_to_device";
         if is_internal_to_device_type(event_type) {
             tracing::warn!(
@@ -554,7 +555,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_type: &str,
-    ) -> Result<Option<Value>, CommandErr> {
+    ) -> Result<Option<Value>, RpcError> {
         let event = self
             .room(room_id)
             .await?
@@ -572,7 +573,7 @@ impl Core {
     pub(crate) async fn room_sticky_events(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<Vec<Value>, CommandErr> {
+    ) -> Result<Vec<Value>, RpcError> {
         let room = self.room(room_id).await?;
         Ok(sticky::live_events(&room)
             .into_iter()
@@ -585,7 +586,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         filter: RelationsFilter<'_>,
-    ) -> Result<RelationsView, CommandErr> {
+    ) -> Result<RelationsView, RpcError> {
         const LABEL: &str = "room_event_relations";
         let room = self.room(room_id).await?;
         let client = room.client();
@@ -661,7 +662,7 @@ impl Core {
         })
     }
 
-    pub(crate) async fn turn_server(&self) -> Result<TurnServerView, CommandErr> {
+    pub(crate) async fn turn_server(&self) -> Result<TurnServerView, RpcError> {
         let response = self
             .client()
             .await?
@@ -676,7 +677,7 @@ impl Core {
         })
     }
 
-    pub(crate) async fn rtc_transports(&self) -> Result<Value, CommandErr> {
+    pub(crate) async fn rtc_transports(&self) -> Result<Value, RpcError> {
         let transports = self
             .client()
             .await?
@@ -693,7 +694,7 @@ impl Core {
         &self,
         endpoint: RtcLivekitEndpoint,
         body: &Value,
-    ) -> Result<Value, CommandErr> {
+    ) -> Result<Value, RpcError> {
         const LABEL: &str = "rtc_livekit";
         let client = self.client().await?;
         let content_type = "application/json".to_owned();
@@ -715,7 +716,7 @@ impl Core {
     pub(crate) async fn integration_manager_url(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<String, CommandErr> {
+    ) -> Result<String, RpcError> {
         const LABEL: &str = "integration_manager_url";
         let client = self.client().await?;
 
@@ -783,7 +784,7 @@ impl Core {
             .map(str::to_owned)
     }
 
-    pub(crate) async fn known_room_ids(&self) -> Result<Vec<OwnedRoomId>, CommandErr> {
+    pub(crate) async fn known_room_ids(&self) -> Result<Vec<OwnedRoomId>, RpcError> {
         Ok(self
             .client()
             .await?
@@ -878,9 +879,9 @@ impl Core {
         );
     }
 
-    pub(crate) async fn openid_token(&self) -> Result<OpenIdTokenView, CommandErr> {
+    pub(crate) async fn openid_token(&self) -> Result<OpenIdTokenView, RpcError> {
         let client = self.client().await?;
-        let user_id = client.user_id().ok_or(CommandErr::NotLoggedIn)?.to_owned();
+        let user_id = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
 
         let response = client
             .send(request_openid_token::v3::Request::new(user_id))
@@ -901,8 +902,9 @@ mod tests {
     use super::{RelationsFilter, managers_from_account_data, managers_from_well_known};
     use crate::{
         Core,
+        api::calls::RtcLivekitEndpoint,
         api::room_state::SendStateEventParams,
-        protocol::{CommandErr, CoreEvent, RtcLivekitEndpoint},
+        protocol::{CoreEvent, RpcError},
         session::Session,
         store::MemorySessionStore,
     };
@@ -1073,7 +1075,7 @@ mod tests {
             .await;
         assert!(matches!(
             refused,
-            Err(CommandErr::EncryptedScheduleUnsupported)
+            Err(RpcError::EncryptedScheduleUnsupported)
         ));
         let refused = core
             .widget_send_delayed_event(
@@ -1087,7 +1089,7 @@ mod tests {
             .await;
         assert!(matches!(
             refused,
-            Err(CommandErr::EncryptedScheduleUnsupported)
+            Err(RpcError::EncryptedScheduleUnsupported)
         ));
     }
 
@@ -1277,7 +1279,7 @@ mod tests {
             .rtc_livekit(RtcLivekitEndpoint::GetToken, &json!({}))
             .await;
 
-        assert!(matches!(result, Err(CommandErr::Unsupported)));
+        assert!(matches!(result, Err(RpcError::Unsupported)));
     }
 
     #[tokio::test]

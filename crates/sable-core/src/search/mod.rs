@@ -12,6 +12,7 @@ pub(crate) use crawl::CrawlProgress;
 pub(crate) use persist::reset_state_cache;
 pub(crate) use server::ServerSearch;
 
+use crate::api::search::SearchOrder;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -46,8 +47,8 @@ use self::persist::ChunkId;
 use crate::Core;
 use crate::attachments::{attachment_contents, fits, link_urls};
 use crate::protocol::{
-    self, CommandErr, RoomAttachmentContentView, RoomAttachmentKind, RoomAttachmentView,
-    SearchAttachment, SearchOrder,
+    self, RoomAttachmentContentView, RoomAttachmentKind, RoomAttachmentView, RpcError,
+    SearchAttachment,
 };
 
 const BODY_FIELD_COUNT: usize = 1;
@@ -81,16 +82,16 @@ pub(crate) struct IndexFilter {
     pub(crate) state_events: Option<bool>,
 }
 
-fn parsed_ids<T: TryFrom<String>>(ids: Vec<String>) -> Result<Vec<T>, CommandErr> {
+fn parsed_ids<T: TryFrom<String>>(ids: Vec<String>) -> Result<Vec<T>, RpcError> {
     ids.into_iter()
-        .map(|id| T::try_from(id).map_err(|_| CommandErr::InvalidSearchFilter))
+        .map(|id| T::try_from(id).map_err(|_| RpcError::InvalidSearchFilter))
         .collect()
 }
 
 impl TryFrom<protocol::SearchFilter> for IndexFilter {
-    type Error = CommandErr;
+    type Error = RpcError;
 
-    fn try_from(filter: protocol::SearchFilter) -> Result<Self, CommandErr> {
+    fn try_from(filter: protocol::SearchFilter) -> Result<Self, RpcError> {
         Ok(Self {
             rooms: parsed_ids(filter.rooms)?,
             senders: parsed_ids(filter.senders)?,
@@ -3935,7 +3936,7 @@ mod tests {
 
         let timeline = crate::timelines::build_room_timeline(
             &room,
-            &crate::protocol::TimelineFocusView::Live,
+            &crate::api::timeline::TimelineFocusView::Live,
             false,
         )
         .await

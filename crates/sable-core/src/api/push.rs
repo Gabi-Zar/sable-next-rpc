@@ -3,21 +3,48 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use super::Handler;
-use crate::protocol::{
-    CommandErr, DiagnosticPushView, PusherView, RegisteredPusherView, WebPusherView,
-};
+use crate::protocol::{DiagnosticPushView, RegisteredPusherView, RpcError, WebPushKeys};
 use crate::{Core, ResultExt, notifications, push_check, webpush};
 
 domain! {
-    set_pusher => SetPusherParams,
-    remove_pusher => RemovePusherParams,
-    web_pusher_support => WebPusherSupportParams,
-    set_web_pusher => SetWebPusherParams,
-    web_pushers => WebPushersParams,
-    ping_push_gateway => PingPushGatewayParams,
-    discover_push_gateway => DiscoverPushGatewayParams,
-    send_diagnostic_push => SendDiagnosticPushParams,
-    ack_web_pusher => AckWebPusherParams,
+    set_pusher,
+    remove_pusher,
+    web_pusher_support,
+    set_web_pusher,
+    web_pushers,
+    ping_push_gateway,
+    discover_push_gateway,
+    send_diagnostic_push,
+    ack_web_pusher,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct PusherView {
+    pub pushkey: String,
+    pub app_id: String,
+    /// The gateway's `_matrix/push/v1/notify`.
+    pub url: String,
+    pub device_display_name: String,
+    /// Web push delivery, as `UnifiedPush` and a browser use: `pushkey` is then
+    /// the `p256dh` and the gateway encrypts to these.
+    pub web_push: Option<WebPushKeys>,
+    pub event_id_only: bool,
+    /// False replaces any pusher already holding this key.
+    pub append: bool,
+}
+
+/// MSC4174 web push: the homeserver encrypts and delivers, so no gateway.
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct WebPusherView {
+    pub pushkey: String,
+    pub app_id: String,
+    pub device_display_name: String,
+    /// The browser subscription, where a gateway pusher carries a `url`.
+    pub endpoint: String,
+    pub auth: String,
+    pub event_id_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,7 +56,7 @@ pub struct SetPusherParams {
 impl Handler for SetPusherParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         notifications::set_pusher(&core.client().await?, self.pusher)
             .await
             .or_failed(core, "set_pusher")
@@ -46,7 +73,7 @@ pub struct RemovePusherParams {
 impl Handler for RemovePusherParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         notifications::remove_pusher(&core.client().await?, self.pushkey, self.app_id)
             .await
             .or_failed(core, "remove_pusher")
@@ -62,7 +89,7 @@ impl Handler for WebPusherSupportParams {
     /// `Some` carries the VAPID key subscriptions must be minted under.
     type Ok = Option<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         webpush::support(&core.client().await?)
             .await
             .or_failed(core, "webpusher_support")
@@ -78,7 +105,7 @@ pub struct SetWebPusherParams {
 impl Handler for SetWebPusherParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         webpush::set_pusher(&core.client().await?, self.pusher)
             .await
             .or_failed(core, "set_webpusher")
@@ -92,7 +119,7 @@ pub struct WebPushersParams {}
 impl Handler for WebPushersParams {
     type Ok = Vec<RegisteredPusherView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<RegisteredPusherView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<RegisteredPusherView>, RpcError> {
         webpush::pushers(&core.client().await?)
             .await
             .or_failed(core, "webpushers")
@@ -108,7 +135,7 @@ pub struct PingPushGatewayParams {
 impl Handler for PingPushGatewayParams {
     type Ok = Option<bool>;
 
-    async fn run(self, _core: &Arc<Core>) -> Result<Option<bool>, CommandErr> {
+    async fn run(self, _core: &Arc<Core>) -> Result<Option<bool>, RpcError> {
         Ok(push_check::ping_gateway(&self.url).await)
     }
 }
@@ -122,7 +149,7 @@ pub struct DiscoverPushGatewayParams {
 impl Handler for DiscoverPushGatewayParams {
     type Ok = Option<String>;
 
-    async fn run(self, _core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, _core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         Ok(push_check::discover_gateway(&self.endpoint).await)
     }
 }
@@ -137,7 +164,7 @@ pub struct SendDiagnosticPushParams {
 impl Handler for SendDiagnosticPushParams {
     type Ok = DiagnosticPushView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<DiagnosticPushView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<DiagnosticPushView, RpcError> {
         push_check::send_diagnostic_push(&core.client().await?, &self.pushkey, &self.app_id)
             .await
             .or_failed(core, "send_diagnostic_push")
@@ -154,7 +181,7 @@ pub struct AckWebPusherParams {
 impl Handler for AckWebPusherParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         webpush::ack(&core.client().await?, self.app_id, self.ack_token)
             .await
             .or_failed(core, "ack_webpusher")

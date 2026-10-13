@@ -12,7 +12,7 @@ use serde::Serialize;
 
 use crate::Core;
 use crate::ResultExt;
-use crate::protocol::{AttachmentInfoView, CommandErr, ScheduledMessageView};
+use crate::protocol::{AttachmentInfoView, RpcError, ScheduledMessageView};
 
 const MSC4140: &str = "org.matrix.msc4140";
 
@@ -91,7 +91,7 @@ fn attachment_content(
 }
 
 impl Core {
-    pub(crate) async fn delayed_events_supported(&self) -> Result<bool, CommandErr> {
+    pub(crate) async fn delayed_events_supported(&self) -> Result<bool, RpcError> {
         let client = self.client().await?;
         let features = client
             .unstable_features()
@@ -105,13 +105,13 @@ impl Core {
         room_id: &OwnedRoomId,
         content: RoomMessageEventContent,
         delay_ms: u64,
-    ) -> Result<String, CommandErr> {
+    ) -> Result<String, RpcError> {
         if !self.delayed_events_supported().await? {
-            return Err(CommandErr::DelayedEventsUnsupported);
+            return Err(RpcError::DelayedEventsUnsupported);
         }
         let room = self.room(room_id).await?;
         if self.room_is_encrypted(&room).await? {
-            return Err(CommandErr::EncryptedScheduleUnsupported);
+            return Err(RpcError::EncryptedScheduleUnsupported);
         }
 
         let request = delayed_message_event::unstable::Request::new(
@@ -144,11 +144,11 @@ impl Core {
         info: Option<AttachmentInfoView>,
         spoiler: bool,
         delay_ms: u64,
-    ) -> Result<String, CommandErr> {
-        let mime: Mime = mime.parse().map_err(|_| CommandErr::InvalidMedia)?;
+    ) -> Result<String, RpcError> {
+        let mime: Mime = mime.parse().map_err(|_| RpcError::InvalidMedia)?;
         let url = OwnedMxcUri::from(url);
         if url.parts().is_err() {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
 
         let info = info.unwrap_or_default();
@@ -160,10 +160,7 @@ impl Core {
         self.schedule_message(room_id, content, delay_ms).await
     }
 
-    pub(crate) async fn cancel_scheduled_message(
-        &self,
-        delay_id: String,
-    ) -> Result<(), CommandErr> {
+    pub(crate) async fn cancel_scheduled_message(&self, delay_id: String) -> Result<(), RpcError> {
         let request = update_delayed_event::unstable_v1::Request::new(
             delay_id,
             update_delayed_event::UpdateAction::Cancel,
@@ -179,7 +176,7 @@ impl Core {
     pub(crate) async fn send_scheduled_message_now(
         &self,
         delay_id: String,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let request = update_delayed_event::unstable_v1::Request::new(
             delay_id,
             update_delayed_event::UpdateAction::Send,
@@ -195,7 +192,7 @@ impl Core {
     pub(crate) async fn scheduled_messages(
         &self,
         room_id: Option<&OwnedRoomId>,
-    ) -> Result<Vec<ScheduledMessageView>, CommandErr> {
+    ) -> Result<Vec<ScheduledMessageView>, RpcError> {
         if !self.delayed_events_supported().await? {
             return Ok(Vec::new());
         }

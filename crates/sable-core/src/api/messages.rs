@@ -17,46 +17,41 @@ use crate::api::support::{
     preview_refused, reaction_shortcode, soliditas_preview, sticker_info, url_preview,
 };
 use crate::outgoing::{gif_content, location_content, message_content, reply_to, thread_reply};
-use crate::protocol::{
-    AttachmentInfoView, CommandErr, ComposerContent, ComposerPill, GestureView,
-    ImageSourcePackReferenceView, ImageSourcePackView, MessageKind, PackImageInfoView,
-    PerMessageProfileView, ReactionShortcodeView, ScheduledMessageView, SubscriptionId,
-    UrlPreviewView,
-};
+use crate::protocol::{AttachmentInfoView, RpcError, ComposerContent, ComposerPill, GestureView, ImageSourcePackReferenceView, ImageSourcePackView, MessageKind, PackImageInfoView, PerMessageProfileView, ReactionShortcodeView, ScheduledMessageView, SubscriptionId, UrlPreviewView};
 use crate::{Core, ResultExt, view};
 
 domain! {
-    markdown_to_content => MarkdownToContentParams,
-    send_message => SendMessageParams,
-    send_raw_event => SendRawEventParams,
-    send_redaction => SendRedactionParams,
-    send_sticker => SendStickerParams,
-    send_gif => SendGifParams,
-    remove_link_previews => RemoveLinkPreviewsParams,
-    reprofile_message => ReprofileMessageParams,
-    edit_message => EditMessageParams,
-    redact => RedactParams,
-    delete_thread => DeleteThreadParams,
-    bulk_redact => BulkRedactParams,
-    react => ReactParams,
-    send_location => SendLocationParams,
-    forward_message => ForwardMessageParams,
-    report_message => ReportMessageParams,
-    retry_send => RetrySendParams,
-    cancel_send => CancelSendParams,
-    schedule_message => ScheduleMessageParams,
-    schedule_attachment => ScheduleAttachmentParams,
-    scheduled_messages => ScheduledMessagesParams,
-    cancel_scheduled_message => CancelScheduledMessageParams,
-    send_scheduled_message => SendScheduledMessageParams,
-    create_poll => CreatePollParams,
-    vote_poll => VotePollParams,
-    end_poll => EndPollParams,
-    send_gesture => SendGestureParams,
-    url_preview => UrlPreviewParams,
-    reaction_shortcodes => ReactionShortcodesParams,
-    set_typing => SetTypingParams,
-    media_config => MediaConfigParams,
+    markdown_to_content,
+    send_message,
+    send_raw_event,
+    send_redaction,
+    send_sticker,
+    send_gif,
+    remove_link_previews,
+    reprofile_message,
+    edit_message,
+    redact,
+    delete_thread,
+    bulk_redact,
+    react,
+    send_location,
+    forward_message,
+    report_message,
+    retry_send,
+    cancel_send,
+    schedule_message,
+    schedule_attachment,
+    scheduled_messages,
+    cancel_scheduled_message,
+    send_scheduled_message,
+    create_poll,
+    vote_poll,
+    end_poll,
+    send_gesture,
+    url_preview,
+    reaction_shortcodes,
+    set_typing,
+    media_config,
 }
 
 /// A typed message as the web composer's plain mode sends it, each
@@ -75,7 +70,7 @@ impl Handler for MarkdownToContentParams {
     fn run(
         self,
         _core: &Arc<Core>,
-    ) -> impl Future<Output = Result<ComposerContent, CommandErr>> {
+    ) -> impl Future<Output = Result<ComposerContent, RpcError>> {
         std::future::ready(Ok(sable_model::markdown::markdown_to_content(
             &self.markdown,
             &self.pills,
@@ -126,7 +121,7 @@ impl Handler for SendMessageParams {
     /// The local echo arrives on the timeline diff stream.
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let room_id = self.room_id;
         let thread_root = self.thread_root;
         let timeline = core.timeline_for(&room_id, thread_root.as_ref()).await?;
@@ -204,7 +199,7 @@ pub struct SendRawEventParams {
 impl Handler for SendRawEventParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let mut content = self.content;
         ensure_empty_mentions(&mut content);
         let response = core
@@ -231,7 +226,7 @@ pub struct SendRedactionParams {
 impl Handler for SendRedactionParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let response = core
             .room(&self.room_id)
             .await?
@@ -266,10 +261,10 @@ pub struct SendStickerParams {
 impl Handler for SendStickerParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let url = OwnedMxcUri::from(self.url);
         if url.parts().is_err() {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
         let source = image_source_pack_extra(url.as_str(), self.source_pack);
 
@@ -335,10 +330,10 @@ pub struct SendGifParams {
 impl Handler for SendGifParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let url = OwnedMxcUri::from(self.url);
         if url.parts().is_err() {
-            return Err(CommandErr::InvalidMedia);
+            return Err(RpcError::InvalidMedia);
         }
 
         let mut info = ImageInfo::new();
@@ -387,7 +382,7 @@ pub struct RemoveLinkPreviewsParams {
 impl Handler for RemoveLinkPreviewsParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         Box::pin(core.remove_link_previews(
             &self.room_id,
             &self.event_id,
@@ -414,7 +409,7 @@ pub struct ReprofileMessageParams {
 impl Handler for ReprofileMessageParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         Box::pin(core.reprofile_message(
             &self.room_id,
             &self.event_id,
@@ -458,7 +453,7 @@ pub struct EditMessageParams {
 impl Handler for EditMessageParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.edit_message(
             &self.room_id,
             self.event_id,
@@ -493,7 +488,7 @@ pub struct RedactParams {
 impl Handler for RedactParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let redacted = core
             .timeline_for(&self.room_id, self.thread_root.as_ref())
             .await?
@@ -530,7 +525,7 @@ pub struct DeleteThreadParams {
 impl Handler for DeleteThreadParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.delete_thread(&self.room_id, &self.root_event_id, self.reason.as_deref())
             .await
     }
@@ -552,7 +547,7 @@ impl Handler for BulkRedactParams {
     /// How many events were redacted.
     type Ok = u32;
 
-    async fn run(self, core: &Arc<Core>) -> Result<u32, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<u32, RpcError> {
         core.bulk_redact(
             &self.room_id,
             &self.senders,
@@ -586,7 +581,7 @@ pub struct ReactParams {
 impl Handler for ReactParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let Self {
             room_id,
             event_id,
@@ -661,9 +656,9 @@ pub struct SendLocationParams {
 impl Handler for SendLocationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         if view::geo_coordinates(&self.geo_uri).is_none() {
-            return Err(CommandErr::InvalidLocation);
+            return Err(RpcError::InvalidLocation);
         }
 
         let room_id = self.room_id;
@@ -700,7 +695,7 @@ pub struct ForwardMessageParams {
 impl Handler for ForwardMessageParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.forward_message(&self.room_id, &self.event_id, &self.to_room_id)
             .await
     }
@@ -719,7 +714,7 @@ pub struct ReportMessageParams {
 impl Handler for ReportMessageParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.report_message(&self.room_id, self.event_id, self.reason)
             .await
     }
@@ -739,7 +734,7 @@ pub struct RetrySendParams {
 impl Handler for RetrySendParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.client().await?.send_queue().set_enabled(true).await;
 
         core.local_echo(
@@ -770,7 +765,7 @@ impl Handler for CancelSendParams {
     /// False when there was no such echo left to discard.
     type Ok = bool;
 
-    async fn run(self, core: &Arc<Core>) -> Result<bool, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<bool, RpcError> {
         let cancelled = core
             .local_echo(
                 &self.room_id,
@@ -804,7 +799,7 @@ impl Handler for ScheduleMessageParams {
     /// The delay id.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let content = message_content(
             self.body,
             self.formatted,
@@ -839,7 +834,7 @@ impl Handler for ScheduleAttachmentParams {
     /// The delay id.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.schedule_attachment(
             &self.room_id,
             self.filename,
@@ -865,7 +860,7 @@ pub struct ScheduledMessagesParams {
 impl Handler for ScheduledMessagesParams {
     type Ok = Vec<ScheduledMessageView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<ScheduledMessageView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<ScheduledMessageView>, RpcError> {
         core.scheduled_messages(self.room_id.as_ref()).await
     }
 }
@@ -879,7 +874,7 @@ pub struct CancelScheduledMessageParams {
 impl Handler for CancelScheduledMessageParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.cancel_scheduled_message(self.delay_id).await
     }
 }
@@ -893,7 +888,7 @@ pub struct SendScheduledMessageParams {
 impl Handler for SendScheduledMessageParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.send_scheduled_message_now(self.delay_id).await
     }
 }
@@ -918,14 +913,14 @@ pub struct CreatePollParams {
 impl Handler for CreatePollParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let content = crate::polls::start(
             &self.question,
             &self.answers,
             self.undisclosed,
             self.max_selections,
         )
-        .ok_or(CommandErr::InvalidPoll)?;
+        .ok_or(RpcError::InvalidPoll)?;
         let content =
             matrix_sdk::ruma::events::poll::unstable_start::UnstablePollStartEventContent::from(
                 content,
@@ -960,7 +955,7 @@ pub struct VotePollParams {
 impl Handler for VotePollParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let content =
             matrix_sdk::ruma::events::poll::unstable_response::UnstablePollResponseEventContent::new(
                 self.answers,
@@ -993,7 +988,7 @@ pub struct EndPollParams {
 impl Handler for EndPollParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let content = matrix_sdk::ruma::events::poll::unstable_end::UnstablePollEndEventContent::new(
             "The poll has closed.",
             self.event_id,
@@ -1022,7 +1017,7 @@ pub struct SendGestureParams {
 impl Handler for SendGestureParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.send_gesture(&self.room_id, self.gesture, self.target.as_ref())
             .await
     }
@@ -1038,7 +1033,7 @@ pub struct UrlPreviewParams {
 impl Handler for UrlPreviewParams {
     type Ok = Option<UrlPreviewView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<UrlPreviewView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<UrlPreviewView>, RpcError> {
         let url = self.url;
         if let Some(base) = self.service {
             let data = soliditas_preview(&base, &url).await?;
@@ -1079,7 +1074,7 @@ pub struct ReactionShortcodesParams {
 impl Handler for ReactionShortcodesParams {
     type Ok = Vec<ReactionShortcodeView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<ReactionShortcodeView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<ReactionShortcodeView>, RpcError> {
         core.reaction_shortcodes(&self.room_id, &self.event_id)
             .await
     }
@@ -1097,7 +1092,7 @@ pub struct SetTypingParams {
 impl Handler for SetTypingParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .typing_notice(self.typing)
@@ -1121,7 +1116,7 @@ pub struct MediaConfigOk {
 impl Handler for MediaConfigParams {
     type Ok = MediaConfigOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<MediaConfigOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<MediaConfigOk, RpcError> {
         Ok(MediaConfigOk {
             upload_size: core.max_upload_size().await?,
         })

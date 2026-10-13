@@ -1,3 +1,4 @@
+use crate::api::session::SearchTuning;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
@@ -20,7 +21,6 @@ use super::persist::{self, StoredCrawlRoom};
 use crate::Core;
 use crate::protocol::{
     CoreEvent, SearchCoverageState, SearchCoverageView, SearchCrawlPhase, SearchMetricsView,
-    SearchTuning,
 };
 
 const CRAWL_BATCH: u16 = 100;
@@ -916,7 +916,7 @@ mod tests {
 
     #[test]
     fn test_tuning_is_clamped_so_the_crawl_cannot_be_driven_out_of_bounds() {
-        let wild = crate::protocol::SearchTuning {
+        let wild = crate::api::session::SearchTuning {
             crawl_pause_ms: 0,
             trickle_pause_ms: u32::MAX,
             flush_interval_secs: 0,
@@ -931,21 +931,21 @@ mod tests {
         assert_eq!(tuning.batch, u32::from(CRAWL_BATCH));
         assert!(tuning.max_events >= tuning.base_events);
         assert_eq!(
-            crate::protocol::SearchTuning::default().clamped(),
-            crate::protocol::SearchTuning::default()
+            crate::api::session::SearchTuning::default().clamped(),
+            crate::api::session::SearchTuning::default()
         );
     }
 
     #[test]
     fn test_only_a_batch_with_an_undecryptable_event_earns_the_long_pause() {
-        let tuning = crate::protocol::SearchTuning {
+        let tuning = crate::api::session::SearchTuning {
             crawl_pause_ms: 1_000,
-            ..crate::protocol::SearchTuning::default()
+            ..crate::api::session::SearchTuning::default()
         };
         assert_eq!(outcome(true).pause(&tuning), Duration::from_secs(1));
         assert_eq!(outcome(false).pause(&tuning), CRAWL_PAUSE);
         assert_eq!(
-            outcome(true).pause(&crate::protocol::SearchTuning::default()),
+            outcome(true).pause(&crate::api::session::SearchTuning::default()),
             CRAWL_READABLE_PAUSE
         );
     }

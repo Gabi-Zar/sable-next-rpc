@@ -80,7 +80,7 @@ pub struct GalleryAttachmentView {
 #[derive(Debug, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(tag = "code", rename_all = "snake_case")]
-pub enum CommandErr {
+pub enum RpcError {
     NotLoggedIn,
     UnknownSubscription,
     UnknownCall,
@@ -154,49 +154,12 @@ pub enum CommandErr {
     },
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum LoginIdentifier {
-    User { user: String },
-    Email { address: String },
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum DirectoryRoomType {
-    Rooms,
-    Spaces,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum AuthIntent {
-    Login,
-    Register,
-}
-
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
 pub enum PaginationDirection {
     Backward,
     Forward,
-}
-
-/// The `m.room.create` type to ask for: `m.space`, the MSC3417 call type, the
-/// forum type, or none at all.
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum CreateRoomKind {
-    Text,
-    Space,
-    Voice,
-    Forum,
-    Calendar,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -432,15 +395,6 @@ pub enum CoreEvent {
     },
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum ProfilePropagationView {
-    All,
-    Unchanged,
-    None,
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
@@ -499,16 +453,6 @@ pub struct SubscriptionId(pub u32);
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct CallSessionId(pub u32);
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum SearchOrder {
-    #[default]
-    Rank,
-    Recent,
-    Oldest,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
@@ -529,17 +473,6 @@ pub struct SearchCoverageView {
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub rooms_failed: usize,
     pub state: SearchCoverageState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SearchTuning {
-    pub crawl_pause_ms: u32,
-    pub trickle_pause_ms: u32,
-    pub flush_interval_secs: u32,
-    pub batch: u32,
-    pub base_events: u32,
-    pub max_events: u32,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -1405,22 +1338,6 @@ pub struct RoomVersionView {
     pub stable: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum TimelineFocusView {
-    #[default]
-    Live,
-    Event {
-        #[cfg_attr(feature = "typegen", specta(type = String))]
-        event_id: OwnedEventId,
-    },
-    Thread {
-        #[cfg_attr(feature = "typegen", specta(type = String))]
-        root_event_id: OwnedEventId,
-    },
-}
-
 #[derive(Debug, Clone, Default, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(default)]
@@ -1935,14 +1852,6 @@ pub struct UserDirectoryEntryView {
     pub avatar_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum RtcLivekitEndpoint {
-    GetToken,
-    DelegateDelayedLeave,
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct TurnServerView {
@@ -2063,39 +1972,10 @@ pub struct ReactionGroup {
 
 #[derive(Debug, Clone, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PusherView {
-    pub pushkey: String,
-    pub app_id: String,
-    /// The gateway's `_matrix/push/v1/notify`.
-    pub url: String,
-    pub device_display_name: String,
-    /// Web push delivery, as `UnifiedPush` and a browser use: `pushkey` is then
-    /// the `p256dh` and the gateway encrypts to these.
-    pub web_push: Option<WebPushKeys>,
-    pub event_id_only: bool,
-    /// False replaces any pusher already holding this key.
-    pub append: bool,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct WebPushKeys {
     pub endpoint: String,
     pub p256dh: String,
     pub auth: String,
-}
-
-/// MSC4174 web push: the homeserver encrypts and delivers, so no gateway.
-#[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct WebPusherView {
-    pub pushkey: String,
-    pub app_id: String,
-    pub device_display_name: String,
-    /// The browser subscription, where a gateway pusher carries a `url`.
-    pub endpoint: String,
-    pub auth: String,
-    pub event_id_only: bool,
 }
 
 /// Read raw: ruma's `Pusher` carries neither a custom kind nor `activated`.
@@ -2518,22 +2398,6 @@ pub struct ProfileOverridesView {
     pub can_seal: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum AvatarEditView {
-    Keep,
-    Clear,
-    Url {
-        url: String,
-    },
-    /// Encrypted in the webview with the account data key in hand.
-    Encrypted {
-        #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
-        file: serde_json::Value,
-    },
-}
-
 /// MSC4278. `None` means the event does not say.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -2579,19 +2443,6 @@ pub struct PackImageDraftView {
     pub body: Option<String>,
     pub usage: Vec<ImageUsageView>,
     pub info: Option<PackImageInfoView>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum PackTargetView {
-    Room {
-        #[cfg_attr(feature = "typegen", specta(type = String))]
-        room_id: OwnedRoomId,
-        state_key: String,
-    },
-    /// `im.ponies.user_emotes`, the account's own pack.
-    Account,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -2715,15 +2566,6 @@ pub enum SyncStatus {
     Syncing,
     Live,
     Error { message: String },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum InboxFilter {
-    All,
-    Mentions,
-    Direct,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

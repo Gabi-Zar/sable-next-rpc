@@ -8,39 +8,37 @@ use serde::{Deserialize, Serialize};
 use sable_model::bot_commands::BotCommand;
 
 use super::Handler;
-use crate::protocol::{
-    AbbreviationView, CommandErr, HistoryVisibilityView, JoinRuleView, RoomStateEventView,
-};
+use crate::protocol::{AbbreviationView, RpcError, HistoryVisibilityView, JoinRuleView, RoomStateEventView};
 use crate::{Core, ResultExt};
 use crate::media::mxc_uri;
 use crate::room_settings::AclEdit;
 
 domain! {
-    set_room_name => SetRoomNameParams,
-    set_room_topic => SetRoomTopicParams,
-    set_room_avatar => SetRoomAvatarParams,
-    set_room_join_rule => SetRoomJoinRuleParams,
-    history_visibility => HistoryVisibilityParams,
-    set_history_visibility => SetHistoryVisibilityParams,
-    enable_encryption => EnableEncryptionParams,
-    room_banner => RoomBannerParams,
-    set_room_banner => SetRoomBannerParams,
-    member_list_threshold => MemberListThresholdParams,
-    set_member_list_threshold => SetMemberListThresholdParams,
-    update_server_acl => UpdateServerAclParams,
-    room_abbreviations => RoomAbbreviationsParams,
-    set_room_abbreviations => SetRoomAbbreviationsParams,
-    room_state_event => RoomStateEventParams,
-    room_state_events => RoomStateEventsParams,
-    room_state_events_raw => RoomStateEventsRawParams,
-    room_full_state => RoomFullStateParams,
-    send_state_event => SendStateEventParams,
-    room_account_data => RoomAccountDataParams,
-    set_room_account_data => SetRoomAccountDataParams,
-    room_account_data_raw => RoomAccountDataRawParams,
-    add_room_widget => AddRoomWidgetParams,
-    remove_room_widget => RemoveRoomWidgetParams,
-    bot_commands => BotCommandsParams,
+    set_room_name,
+    set_room_topic,
+    set_room_avatar,
+    set_room_join_rule,
+    history_visibility,
+    set_history_visibility,
+    enable_encryption,
+    room_banner,
+    set_room_banner,
+    member_list_threshold,
+    set_member_list_threshold,
+    update_server_acl,
+    room_abbreviations,
+    set_room_abbreviations,
+    room_state_event,
+    room_state_events,
+    room_state_events_raw,
+    room_full_state,
+    send_state_event,
+    room_account_data,
+    set_room_account_data,
+    room_account_data_raw,
+    add_room_widget,
+    remove_room_widget,
+    bot_commands,
 }
 
 #[derive(Debug, Deserialize)]
@@ -54,7 +52,7 @@ pub struct SetRoomNameParams {
 impl Handler for SetRoomNameParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         // The spec clears a name with an empty one.
         core.room(&self.room_id)
             .await?
@@ -76,7 +74,7 @@ pub struct SetRoomTopicParams {
 impl Handler for SetRoomTopicParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .set_room_topic(&self.topic)
@@ -97,7 +95,7 @@ pub struct SetRoomAvatarParams {
 impl Handler for SetRoomAvatarParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let room = core.room(&self.room_id).await?;
 
         match self.url {
@@ -129,7 +127,7 @@ pub struct SetRoomJoinRuleParams {
 impl Handler for SetRoomJoinRuleParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_room_join_rule(&self.room_id, self.rule).await
     }
 }
@@ -144,7 +142,7 @@ pub struct HistoryVisibilityParams {
 impl Handler for HistoryVisibilityParams {
     type Ok = HistoryVisibilityView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<HistoryVisibilityView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<HistoryVisibilityView, RpcError> {
         core.history_visibility(&self.room_id).await
     }
 }
@@ -160,7 +158,7 @@ pub struct SetHistoryVisibilityParams {
 impl Handler for SetHistoryVisibilityParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_history_visibility(self.room_id, self.visibility)
             .await
     }
@@ -177,7 +175,7 @@ pub struct EnableEncryptionParams {
 impl Handler for EnableEncryptionParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.enable_encryption(self.room_id).await
     }
 }
@@ -192,7 +190,7 @@ pub struct RoomBannerParams {
 impl Handler for RoomBannerParams {
     type Ok = Option<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         core.room_banner(&self.room_id).await
     }
 }
@@ -208,7 +206,7 @@ pub struct SetRoomBannerParams {
 impl Handler for SetRoomBannerParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_room_banner(self.room_id, self.url.as_deref())
             .await
     }
@@ -233,7 +231,7 @@ pub struct MemberListThresholdOk(
 impl Handler for MemberListThresholdParams {
     type Ok = MemberListThresholdOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<MemberListThresholdOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<MemberListThresholdOk, RpcError> {
         core.member_list_threshold(&self.room_id)
             .await
             .map(MemberListThresholdOk)
@@ -252,7 +250,7 @@ pub struct SetMemberListThresholdParams {
 impl Handler for SetMemberListThresholdParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_member_list_threshold(self.room_id, self.always_listed_from)
             .await
     }
@@ -273,7 +271,7 @@ pub struct UpdateServerAclParams {
 impl Handler for UpdateServerAclParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let edit = AclEdit {
             allow: self.allow,
             deny: self.deny,
@@ -294,7 +292,7 @@ pub struct RoomAbbreviationsParams {
 impl Handler for RoomAbbreviationsParams {
     type Ok = Vec<AbbreviationView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<AbbreviationView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<AbbreviationView>, RpcError> {
         core.room_abbreviations(&self.room_id).await
     }
 }
@@ -310,7 +308,7 @@ pub struct SetRoomAbbreviationsParams {
 impl Handler for SetRoomAbbreviationsParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_room_abbreviations(self.room_id, &self.entries)
             .await
     }
@@ -336,7 +334,7 @@ pub struct RoomStateEventOk(
 impl Handler for RoomStateEventParams {
     type Ok = RoomStateEventOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventOk, RpcError> {
         core.room_state_event_content(self.room_id, self.event_type, self.state_key)
             .await
             .map(RoomStateEventOk)
@@ -354,7 +352,7 @@ pub struct RoomStateEventsParams {
 impl Handler for RoomStateEventsParams {
     type Ok = Vec<RoomStateEventView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<RoomStateEventView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<RoomStateEventView>, RpcError> {
         core.room_state_events(&self.room_id, &self.event_type)
             .await
     }
@@ -381,7 +379,7 @@ pub struct RoomStateEventsRawOk(
 impl Handler for RoomStateEventsRawParams {
     type Ok = RoomStateEventsRawOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventsRawOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventsRawOk, RpcError> {
         core.room_state_events_raw(&self.room_id, &self.event_type, self.state_key.as_deref())
             .await
             .map(RoomStateEventsRawOk)
@@ -398,7 +396,7 @@ pub struct RoomFullStateParams {
 impl Handler for RoomFullStateParams {
     type Ok = RoomStateEventsRawOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventsRawOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventsRawOk, RpcError> {
         let client = core.client().await?;
         let response = client
             .send(get_state_events::v3::Request::new(self.room_id))
@@ -430,7 +428,7 @@ pub struct SendStateEventParams {
 impl Handler for SendStateEventParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.send_state(self.room_id, &self.event_type, &self.state_key, &self.content)
             .await
             .map(|event_id| event_id.to_string())
@@ -456,7 +454,7 @@ pub struct RoomAccountDataOk(
 impl Handler for RoomAccountDataParams {
     type Ok = RoomAccountDataOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomAccountDataOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomAccountDataOk, RpcError> {
         let event = core
             .room(&self.room_id)
             .await?
@@ -483,7 +481,7 @@ pub struct SetRoomAccountDataParams {
 impl Handler for SetRoomAccountDataParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let raw = Raw::new(&self.content)
             .or_failed(core, "set_room_account_data")?
             .cast_unchecked();
@@ -507,7 +505,7 @@ pub struct RoomAccountDataRawParams {
 impl Handler for RoomAccountDataRawParams {
     type Ok = RoomAccountDataOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomAccountDataOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RoomAccountDataOk, RpcError> {
         core.room_account_data_raw(&self.room_id, &self.event_type)
             .await
             .map(RoomAccountDataOk)
@@ -527,7 +525,7 @@ pub struct AddRoomWidgetParams {
 impl Handler for AddRoomWidgetParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.add_room_widget(self.room_id, &self.name, &self.url)
             .await
     }
@@ -544,7 +542,7 @@ pub struct RemoveRoomWidgetParams {
 impl Handler for RemoveRoomWidgetParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.remove_room_widget(self.room_id, &self.widget_id)
             .await
     }
@@ -560,7 +558,7 @@ pub struct BotCommandsParams {
 impl Handler for BotCommandsParams {
     type Ok = Vec<BotCommand>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<BotCommand>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<BotCommand>, RpcError> {
         let client = core.client().await?;
         let room = core.room(&self.room_id).await?;
         core.bot_commands_for(&client, &room)

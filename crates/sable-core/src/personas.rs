@@ -17,8 +17,8 @@ use crate::Core;
 use crate::ResultExt;
 use crate::profiles::pronoun_sets;
 use crate::protocol::{
-    CommandErr, PerMessageProfileView, PersonaCatalogView, PersonaSelectionView,
-    PersonaTriggerView, PersonaView, PluralkitImportView, PronounView,
+    PerMessageProfileView, PersonaCatalogView, PersonaSelectionView, PersonaTriggerView,
+    PersonaView, PluralkitImportView, PronounView, RpcError,
 };
 
 const CATALOG_V3: &str = "fi.mau.msc4461.per_message_profiles.v3";
@@ -650,7 +650,7 @@ impl Core {
         transaction_id: &TransactionId,
         message: RoomMessageEventContentWithoutRelation,
         profile: &PerMessageProfileView,
-    ) -> Result<bool, CommandErr> {
+    ) -> Result<bool, RpcError> {
         let (echoes, _updates) = room
             .send_queue()
             .subscribe()
@@ -703,7 +703,7 @@ impl Core {
         content: &AnyMessageLikeEventContent,
         profile: Option<&PerMessageProfileView>,
         forum_title: Option<String>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let event_type = content.event_type().to_string();
         let title = crate::api::support::forum_title_value(forum_title);
         let mut value = serde_json::to_value(content).or_failed(self, "edit_with_persona")?;
@@ -739,7 +739,7 @@ impl Core {
     async fn persona_account_data(
         &self,
         event_type: GlobalAccountDataEventType,
-    ) -> Result<Option<Value>, CommandErr> {
+    ) -> Result<Option<Value>, RpcError> {
         let Some(raw) = self
             .global_account_data(event_type, "personas: fetch_account_data")
             .await?
@@ -752,7 +752,7 @@ impl Core {
             .or_failed(self, "personas_deserialize")
     }
 
-    async fn load_personas(&self) -> Result<Vec<PersonaView>, CommandErr> {
+    async fn load_personas(&self) -> Result<Vec<PersonaView>, RpcError> {
         if let Some(content) = self
             .persona_account_data(GlobalAccountDataEventType::from(CATALOG_V3))
             .await?
@@ -778,7 +778,7 @@ impl Core {
     }
 
     /// A backup file is the v3 catalog event wrapped under its own type.
-    pub(crate) async fn persona_backup(&self) -> Result<String, CommandErr> {
+    pub(crate) async fn persona_backup(&self) -> Result<String, RpcError> {
         let content = self
             .persona_account_data(GlobalAccountDataEventType::from(CATALOG_V3))
             .await?;
@@ -786,14 +786,14 @@ impl Core {
             .or_failed(self, "persona_backup")
     }
 
-    pub(crate) fn check_persona_backup(backup: &str) -> Result<(), CommandErr> {
+    pub(crate) fn check_persona_backup(backup: &str) -> Result<(), RpcError> {
         catalog_from_backup(backup)
             .map(drop)
-            .ok_or(CommandErr::InvalidBackup)
+            .ok_or(RpcError::InvalidBackup)
     }
 
-    pub(crate) async fn restore_persona_backup(&self, backup: &str) -> Result<(), CommandErr> {
-        let catalog = catalog_from_backup(backup).ok_or(CommandErr::InvalidBackup)?;
+    pub(crate) async fn restore_persona_backup(&self, backup: &str) -> Result<(), RpcError> {
+        let catalog = catalog_from_backup(backup).ok_or(RpcError::InvalidBackup)?;
         self.put_global_account_data(
             GlobalAccountDataEventType::from(CATALOG_V3),
             &catalog,
@@ -802,7 +802,7 @@ impl Core {
         .await
     }
 
-    async fn save_personas(&self, personas: &[PersonaView]) -> Result<(), CommandErr> {
+    async fn save_personas(&self, personas: &[PersonaView]) -> Result<(), RpcError> {
         self.put_global_account_data(
             GlobalAccountDataEventType::from(CATALOG_V3),
             &CatalogOut {
@@ -813,7 +813,7 @@ impl Core {
         .await
     }
 
-    async fn account_selection(&self) -> Result<Option<PersonaSelectionView>, CommandErr> {
+    async fn account_selection(&self) -> Result<Option<PersonaSelectionView>, RpcError> {
         Ok(self
             .persona_account_data(selection_event("globalassociation"))
             .await?
@@ -826,7 +826,7 @@ impl Core {
             }))
     }
 
-    async fn room_selections(&self) -> Result<BTreeMap<String, RoomAssociation>, CommandErr> {
+    async fn room_selections(&self) -> Result<BTreeMap<String, RoomAssociation>, RpcError> {
         Ok(self
             .persona_account_data(selection_event("roomassociation"))
             .await?
@@ -835,7 +835,7 @@ impl Core {
             .unwrap_or_default())
     }
 
-    pub(crate) async fn personas(&self) -> Result<PersonaCatalogView, CommandErr> {
+    pub(crate) async fn personas(&self) -> Result<PersonaCatalogView, RpcError> {
         let mut rooms = BTreeMap::new();
         let mut disabled_rooms = Vec::new();
         for (room_id, association) in self.room_selections().await? {
@@ -859,7 +859,7 @@ impl Core {
         &self,
         persona: PersonaView,
         previous_id: Option<String>,
-    ) -> Result<Vec<PersonaView>, CommandErr> {
+    ) -> Result<Vec<PersonaView>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let replaced = previous_id.unwrap_or_else(|| persona.id.clone());
         let mut personas = self.load_personas().await?;
@@ -879,7 +879,7 @@ impl Core {
         Ok(personas)
     }
 
-    pub(crate) async fn remove_persona(&self, id: &str) -> Result<Vec<PersonaView>, CommandErr> {
+    pub(crate) async fn remove_persona(&self, id: &str) -> Result<Vec<PersonaView>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let mut personas = self.load_personas().await?;
         personas.retain(|persona| persona.id != id);
@@ -893,7 +893,7 @@ impl Core {
     pub(crate) async fn reorder_personas(
         &self,
         ids: Vec<String>,
-    ) -> Result<Vec<PersonaView>, CommandErr> {
+    ) -> Result<Vec<PersonaView>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let personas = self.load_personas().await?;
         let mut reordered = Vec::with_capacity(personas.len());
@@ -915,7 +915,7 @@ impl Core {
         Ok(reordered)
     }
 
-    async fn repoint_selections(&self, from: &str, to: Option<&str>) -> Result<(), CommandErr> {
+    async fn repoint_selections(&self, from: &str, to: Option<&str>) -> Result<(), RpcError> {
         if let Some(account) = self.account_selection().await?
             && account.persona_id == from
         {
@@ -964,7 +964,7 @@ impl Core {
     async fn write_room_selections(
         &self,
         rooms: BTreeMap<String, RoomAssociation>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         self.put_global_account_data(
             selection_event("roomassociation"),
             &RoomAssociationsOut {
@@ -980,7 +980,7 @@ impl Core {
         room_id: Option<OwnedRoomId>,
         persona_id: Option<String>,
         valid_until: Option<u64>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let selection = persona_id.map(|persona_id| PersonaSelectionView {
             persona_id,
@@ -1012,10 +1012,7 @@ impl Core {
         self.write_room_selections(rooms).await
     }
 
-    pub(crate) async fn disable_room_personas(
-        &self,
-        room_id: OwnedRoomId,
-    ) -> Result<(), CommandErr> {
+    pub(crate) async fn disable_room_personas(&self, room_id: OwnedRoomId) -> Result<(), RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let mut rooms = self.room_selections().await?;
         rooms.insert(room_id.to_string(), RoomAssociation::Disabled);

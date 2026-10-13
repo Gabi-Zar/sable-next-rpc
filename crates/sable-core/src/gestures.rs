@@ -1,7 +1,7 @@
 use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId};
 use serde::Serialize;
 
-use crate::protocol::{CommandErr, GestureView};
+use crate::protocol::{GestureView, RpcError};
 use crate::{Core, ResultExt};
 
 #[derive(Serialize)]
@@ -72,7 +72,7 @@ impl Core {
         room_id: &OwnedRoomId,
         gesture: GestureView,
         target: Option<&OwnedUserId>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let content = serde_json::value::to_raw_value(&gesture_content(gesture, target))
             .or_failed(self, "send_gesture")?;
         self.room(room_id)

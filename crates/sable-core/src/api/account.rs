@@ -13,42 +13,63 @@ use crate::api::support::state_event_content;
 use crate::media::mxc_uri;
 use crate::profile_overrides::OverrideEdit;
 use crate::profiles::profile_view;
-use crate::protocol::{
-    AvatarEditView, BookmarkView, CommandErr, FieldEdit, InviteTriageView, MediaPreviewConfigView,
-    MutualRoomView, PresenceView, ProfileOverridesView, ProfilePropagationView, ProfileView,
-    SealedAccountDataView, UserDirectoryEntryView,
-};
+use crate::protocol::{BookmarkView, RpcError, FieldEdit, InviteTriageView, MediaPreviewConfigView, MutualRoomView, PresenceView, ProfileOverridesView, ProfileView, SealedAccountDataView, UserDirectoryEntryView};
 use crate::{Core, ResultExt, presence};
 
 domain! {
-    user_profile => UserProfileParams,
-    user_relations => UserRelationsParams,
-    account_data_types => AccountDataTypesParams,
-    account_data => AccountDataParams,
-    set_account_data => SetAccountDataParams,
-    sealed_account_data => SealedAccountDataParams,
-    set_sealed_account_data => SetSealedAccountDataParams,
-    set_display_name => SetDisplayNameParams,
-    set_avatar_url => SetAvatarUrlParams,
-    set_profile_field => SetProfileFieldParams,
-    account_contacts => AccountContactsParams,
-    ignored_users => IgnoredUsersParams,
-    invite_triage => InviteTriageParams,
-    set_direct => SetDirectParams,
-    ignore_user => IgnoreUserParams,
-    unignore_user => UnignoreUserParams,
-    report_user => ReportUserParams,
-    set_presence => SetPresenceParams,
-    fetch_presence => FetchPresenceParams,
-    search_user_directory => SearchUserDirectoryParams,
-    dismissed_invites => DismissedInvitesParams,
-    set_invite_dismissed => SetInviteDismissedParams,
-    bookmarks => BookmarksParams,
-    set_bookmark => SetBookmarkParams,
-    media_preview_config => MediaPreviewConfigParams,
-    set_media_preview_config => SetMediaPreviewConfigParams,
-    profile_overrides => ProfileOverridesParams,
-    set_profile_override => SetProfileOverrideParams,
+    user_profile,
+    user_relations,
+    account_data_types,
+    account_data,
+    set_account_data,
+    sealed_account_data,
+    set_sealed_account_data,
+    set_display_name,
+    set_avatar_url,
+    set_profile_field,
+    account_contacts,
+    ignored_users,
+    invite_triage,
+    set_direct,
+    ignore_user,
+    unignore_user,
+    report_user,
+    set_presence,
+    fetch_presence,
+    search_user_directory,
+    dismissed_invites,
+    set_invite_dismissed,
+    bookmarks,
+    set_bookmark,
+    media_preview_config,
+    set_media_preview_config,
+    profile_overrides,
+    set_profile_override,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum ProfilePropagationView {
+    All,
+    Unchanged,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum AvatarEditView {
+    Keep,
+    Clear,
+    Url {
+        url: String,
+    },
+    /// Encrypted in the webview with the account data key in hand.
+    Encrypted {
+        #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
+        file: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +82,7 @@ pub struct UserProfileParams {
 impl Handler for UserProfileParams {
     type Ok = ProfileView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ProfileView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<ProfileView, RpcError> {
         let response = core
             .client()
             .await?
@@ -90,7 +111,7 @@ pub struct UserRelationsOk {
 impl Handler for UserRelationsParams {
     type Ok = UserRelationsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<UserRelationsOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<UserRelationsOk, RpcError> {
         let client = core.client().await?;
         let ignored = client
             .subscribe_to_ignore_user_list_changes()
@@ -155,7 +176,7 @@ pub struct AccountDataTypesParams {}
 impl Handler for AccountDataTypesParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         core.account_data_types().await
     }
 }
@@ -178,7 +199,7 @@ pub struct AccountDataContent(
 impl Handler for AccountDataParams {
     type Ok = AccountDataContent;
 
-    async fn run(self, core: &Arc<Core>) -> Result<AccountDataContent, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<AccountDataContent, RpcError> {
         core.remember_account_data_type(self.event_type.as_str())
             .await;
         let content = core
@@ -200,7 +221,7 @@ pub struct SetAccountDataParams {
 impl Handler for SetAccountDataParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_account_data(&self.event_type, &self.content).await
     }
 }
@@ -214,7 +235,7 @@ pub struct SealedAccountDataParams {
 impl Handler for SealedAccountDataParams {
     type Ok = SealedAccountDataView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SealedAccountDataView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SealedAccountDataView, RpcError> {
         core.remember_account_data_type(self.event_type.as_str())
             .await;
         core.sealed_account_data(&self.event_type).await
@@ -232,7 +253,7 @@ pub struct SetSealedAccountDataParams {
 impl Handler for SetSealedAccountDataParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.remember_account_data_type(self.event_type.as_str())
             .await;
         core.set_sealed_account_data(&self.event_type, &self.content)
@@ -251,7 +272,7 @@ pub struct SetDisplayNameParams {
 impl Handler for SetDisplayNameParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let client = core.client().await?;
         if client
             .unstable_features()
@@ -267,7 +288,7 @@ impl Handler for SetDisplayNameParams {
             )
             .or_failed(core, "set_display_name")?;
             let mut request = set_profile_field::v3::Request::new(
-                client.user_id().ok_or(CommandErr::NotLoggedIn)?.to_owned(),
+                client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned(),
                 value,
             );
             request.propagate_to = profile_propagation(self.propagate_to);
@@ -298,7 +319,7 @@ pub struct SetAvatarUrlParams {
 impl Handler for SetAvatarUrlParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let url = match self.url {
             Some(url) => Some(mxc_uri(&url)?),
             None => None,
@@ -319,7 +340,7 @@ impl Handler for SetAvatarUrlParams {
             )
             .or_failed(core, "set_avatar_url")?;
             let mut request = set_profile_field::v3::Request::new(
-                client.user_id().ok_or(CommandErr::NotLoggedIn)?.to_owned(),
+                client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned(),
                 value,
             );
             request.propagate_to = profile_propagation(self.propagate_to);
@@ -358,7 +379,7 @@ pub struct SetProfileFieldParams {
 impl Handler for SetProfileFieldParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let account = core.client().await?.account();
         match self.value {
             Some(value) => {
@@ -389,7 +410,7 @@ impl Handler for AccountContactsParams {
     /// The account's email addresses.
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         Ok(core
             .client()
             .await?
@@ -412,7 +433,7 @@ pub struct IgnoredUsersParams {}
 impl Handler for IgnoredUsersParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         let mut users = core
             .client()
             .await?
@@ -431,7 +452,7 @@ pub struct InviteTriageParams {}
 impl Handler for InviteTriageParams {
     type Ok = Vec<InviteTriageView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<InviteTriageView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<InviteTriageView>, RpcError> {
         Ok(crate::invites::triage(&core.client().await?).await)
     }
 }
@@ -450,7 +471,7 @@ pub struct SetDirectParams {
 impl Handler for SetDirectParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_direct(&self.room_id, self.direct, self.user_id)
             .await
     }
@@ -467,7 +488,7 @@ pub struct IgnoreUserParams {
 impl Handler for IgnoreUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.client()
             .await?
             .account()
@@ -487,7 +508,7 @@ pub struct UnignoreUserParams {
 impl Handler for UnignoreUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.client()
             .await?
             .account()
@@ -508,7 +529,7 @@ pub struct ReportUserParams {
 impl Handler for ReportUserParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.report_user(self.user_id, self.reason).await
     }
 }
@@ -523,7 +544,7 @@ pub struct SetPresenceParams {
 impl Handler for SetPresenceParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_desired_presence(self.presence);
 
         core.client()
@@ -545,7 +566,7 @@ pub struct FetchPresenceParams {
 impl Handler for FetchPresenceParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.fetch_presence(self.user_ids).await;
         Ok(())
     }
@@ -570,7 +591,7 @@ pub struct SearchUserDirectoryOk {
 impl Handler for SearchUserDirectoryParams {
     type Ok = SearchUserDirectoryOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SearchUserDirectoryOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SearchUserDirectoryOk, RpcError> {
         let (limited, results) = core.search_user_directory(&self.term, self.limit).await?;
         Ok(SearchUserDirectoryOk { limited, results })
     }
@@ -583,7 +604,7 @@ pub struct DismissedInvitesParams {}
 impl Handler for DismissedInvitesParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         Ok(room_id_strings(core.dismissed_invites().await?))
     }
 }
@@ -599,7 +620,7 @@ pub struct SetInviteDismissedParams {
 impl Handler for SetInviteDismissedParams {
     type Ok = Vec<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
         Ok(room_id_strings(
             core.set_invite_dismissed(self.room_id, self.dismissed)
                 .await?,
@@ -618,7 +639,7 @@ pub struct BookmarksParams {}
 impl Handler for BookmarksParams {
     type Ok = Vec<BookmarkView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<BookmarkView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<BookmarkView>, RpcError> {
         core.bookmarks().await
     }
 }
@@ -639,7 +660,7 @@ impl Handler for SetBookmarkParams {
     /// Whether the event is bookmarked now.
     type Ok = bool;
 
-    async fn run(self, core: &Arc<Core>) -> Result<bool, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<bool, RpcError> {
         core.set_bookmark(&self.room_id, &self.event_id, self.bookmarked, self.now_ms)
             .await
     }
@@ -657,7 +678,7 @@ pub struct MediaPreviewConfigParams {
 impl Handler for MediaPreviewConfigParams {
     type Ok = MediaPreviewConfigView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<MediaPreviewConfigView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<MediaPreviewConfigView, RpcError> {
         core.media_preview_settings(self.room_id.as_ref()).await
     }
 }
@@ -672,7 +693,7 @@ pub struct SetMediaPreviewConfigParams {
 impl Handler for SetMediaPreviewConfigParams {
     type Ok = MediaPreviewConfigView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<MediaPreviewConfigView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<MediaPreviewConfigView, RpcError> {
         core.set_media_preview_settings(self.config).await
     }
 }
@@ -684,7 +705,7 @@ pub struct ProfileOverridesParams {}
 impl Handler for ProfileOverridesParams {
     type Ok = ProfileOverridesView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ProfileOverridesView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<ProfileOverridesView, RpcError> {
         core.profile_overrides().await
     }
 }
@@ -702,7 +723,7 @@ pub struct SetProfileOverrideParams {
 impl Handler for SetProfileOverrideParams {
     type Ok = ProfileOverridesView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ProfileOverridesView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<ProfileOverridesView, RpcError> {
         let edit = OverrideEdit {
             display_name: self.display_name,
             avatar: self.avatar,

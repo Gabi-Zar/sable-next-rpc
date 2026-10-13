@@ -5,7 +5,7 @@ use serde_with::{DefaultOnError, NoneAsEmptyString, VecSkipError, serde_as};
 
 use crate::Core;
 use crate::cosmetics::{COLOR_EVENT, MEMBER_COLOR_FIELD, MEMBER_EVENT, PRONOUNS_EVENT};
-use crate::protocol::{CommandErr, FieldEdit, MemberLookView, PronounView};
+use crate::protocol::{FieldEdit, MemberLookView, PronounView, RpcError};
 use crate::room_settings::EmptyContent;
 
 pub(crate) struct LookEdit {
@@ -164,7 +164,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         in_parent_space: bool,
-    ) -> Result<OwnedRoomId, CommandErr> {
+    ) -> Result<OwnedRoomId, RpcError> {
         if !in_parent_space {
             return Ok(room_id);
         }
@@ -175,19 +175,19 @@ impl Core {
             .unwrap_or(room_id))
     }
 
-    async fn own_user(&self) -> Result<String, CommandErr> {
+    async fn own_user(&self) -> Result<String, RpcError> {
         Ok(self
             .client()
             .await?
             .user_id()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .to_string())
     }
 
     pub(crate) async fn member_look(
         &self,
         room_id: OwnedRoomId,
-    ) -> Result<MemberLookView, CommandErr> {
+    ) -> Result<MemberLookView, RpcError> {
         let user_id = self.own_user().await?;
         let member = self
             .room_state_event_content(room_id.clone(), MEMBER_EVENT.to_owned(), user_id.clone())
@@ -203,7 +203,7 @@ impl Core {
         room_id: OwnedRoomId,
         in_parent_space: bool,
         edit: LookEdit,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let target = self.look_target(room_id, in_parent_space).await?;
         let user_id = self.own_user().await?;
         let member = self
@@ -224,7 +224,7 @@ impl Core {
         room_id: OwnedRoomId,
         in_parent_space: bool,
         pronouns: &[PronounView],
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let target = self.look_target(room_id, in_parent_space).await?;
         let user_id = self.own_user().await?;
         self.send_state(

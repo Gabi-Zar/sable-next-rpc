@@ -9,7 +9,7 @@ use matrix_sdk::ruma::{
 
 use crate::Core;
 use crate::protocol::{
-    CommandErr, RoomAttachmentContentView, RoomAttachmentKind, RoomAttachmentView,
+    RoomAttachmentContentView, RoomAttachmentKind, RoomAttachmentView, RpcError,
 };
 use crate::view::{image_thumbnail, media_source, spoiler_reason, video_thumbnail};
 
@@ -20,7 +20,7 @@ impl Core {
         kind: RoomAttachmentKind,
         limit: usize,
         from: Option<&str>,
-    ) -> Result<(Vec<RoomAttachmentView>, Option<String>), CommandErr> {
+    ) -> Result<(Vec<RoomAttachmentView>, Option<String>), RpcError> {
         self.room(room_id).await?;
         let before = from.and_then(parse_cursor);
         let ignored = self.ignored_senders().await;

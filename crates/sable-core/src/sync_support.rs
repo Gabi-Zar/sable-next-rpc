@@ -1,9 +1,9 @@
 use matrix_sdk::{Client, config::RequestConfig};
 
-use crate::{Core, ResultExt, protocol::CommandErr};
+use crate::{Core, ResultExt, protocol::RpcError};
 
 impl Core {
-    pub(crate) async fn server_features(&self) -> Result<Vec<String>, CommandErr> {
+    pub(crate) async fn server_features(&self) -> Result<Vec<String>, RpcError> {
         let features = self
             .client()
             .await?
@@ -16,7 +16,7 @@ impl Core {
             .collect())
     }
 
-    pub(crate) async fn require_sliding_sync(&self, client: &Client) -> Result<(), CommandErr> {
+    pub(crate) async fn require_sliding_sync(&self, client: &Client) -> Result<(), RpcError> {
         let versions = client
             .fetch_server_versions(Some(
                 RequestConfig::new()
@@ -32,7 +32,7 @@ impl Core {
         {
             Ok(())
         } else {
-            Err(CommandErr::SlidingSyncUnsupported)
+            Err(RpcError::SlidingSyncUnsupported)
         }
     }
 }
@@ -73,7 +73,7 @@ mod tests {
             if supported != Some(true) {
                 assert!(matches!(
                     outcome,
-                    Err(crate::protocol::CommandErr::SlidingSyncUnsupported)
+                    Err(crate::protocol::RpcError::SlidingSyncUnsupported)
                 ));
             }
         }
@@ -93,7 +93,7 @@ mod tests {
         );
         assert!(matches!(
             core.require_sliding_sync(&client).await,
-            Err(crate::protocol::CommandErr::Unavailable)
+            Err(crate::protocol::RpcError::Unavailable)
         ));
     }
 }

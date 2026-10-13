@@ -1,3 +1,4 @@
+use crate::api::account::AvatarEditView;
 use matrix_sdk::ruma::OwnedUserId;
 use serde::Deserialize;
 use serde_json::{Map, Value};
@@ -6,8 +7,8 @@ use serde_with::{DefaultOnError, serde_as};
 use crate::Core;
 use crate::cosmetics::MEMBER_COLOR_FIELD;
 use crate::protocol::{
-    AvatarEditView, CommandErr, FieldEdit, OverrideColorView, OverrideTextView,
-    ProfileOverrideView, ProfileOverridesView, SealStateView,
+    FieldEdit, OverrideColorView, OverrideTextView, ProfileOverrideView, ProfileOverridesView,
+    RpcError, SealStateView,
 };
 
 const PROFILE_OVERRIDES_EVENT: &str = "m.profile_overrides";
@@ -218,7 +219,7 @@ struct StoredOverrides {
 impl Core {
     /// MSC4529's stable type wins and stays plain; otherwise the unstable type
     /// is read through the account data key.
-    async fn stored_overrides(&self) -> Result<StoredOverrides, CommandErr> {
+    async fn stored_overrides(&self) -> Result<StoredOverrides, RpcError> {
         let stable = self
             .global_account_data(PROFILE_OVERRIDES_EVENT.into(), "profile_overrides")
             .await?
@@ -256,7 +257,7 @@ impl Core {
     }
 
     /// A plaintext unstable document read while the key is at hand is sealed.
-    pub(crate) async fn profile_overrides(&self) -> Result<ProfileOverridesView, CommandErr> {
+    pub(crate) async fn profile_overrides(&self) -> Result<ProfileOverridesView, RpcError> {
         let stored = self.stored_overrides().await?;
         let view = Self::overrides_view(&stored);
         if stored.sealed_type
@@ -277,11 +278,11 @@ impl Core {
         &self,
         user_id: &OwnedUserId,
         edit: &OverrideEdit,
-    ) -> Result<ProfileOverridesView, CommandErr> {
+    ) -> Result<ProfileOverridesView, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let stored = self.stored_overrides().await?;
         if stored.protection == SealStateView::Locked {
-            return Err(CommandErr::DocumentLocked);
+            return Err(RpcError::DocumentLocked);
         }
         let content = edited_overrides(stored.content, user_id.as_str(), edit);
         if stored.sealed_type {
@@ -300,10 +301,11 @@ impl Core {
 
 #[cfg(test)]
 mod tests {
+    use crate::api::account::AvatarEditView;
     use serde_json::json;
 
     use super::{OverrideEdit, edited_overrides, overrides};
-    use crate::protocol::{AvatarEditView, FieldEdit, OverrideColorView, OverrideTextView};
+    use crate::protocol::{FieldEdit, OverrideColorView, OverrideTextView};
 
     fn keep() -> OverrideEdit {
         OverrideEdit {

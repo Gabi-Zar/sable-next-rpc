@@ -5,33 +5,46 @@ use serde::{Deserialize, Serialize};
 
 use super::Handler;
 use crate::Core;
-use crate::protocol::{
-    AuthIntent, CommandErr, LoginFlowsView, LoginIdentifier, RegistrationFlowsView,
-    RegistrationResultView,
-};
+use crate::protocol::{RpcError, LoginFlowsView, RegistrationFlowsView, RegistrationResultView};
 use crate::session;
 
 domain! {
-    discover_homeserver => DiscoverHomeserverParams,
-    login => LoginParams,
-    login_flows => LoginFlowsParams,
-    registration_flows => RegistrationFlowsParams,
-    register => RegisterParams,
-    request_registration_email => RequestRegistrationEmailParams,
-    submit_registration_email => SubmitRegistrationEmailParams,
-    continue_registration => ContinueRegistrationParams,
-    cancel_registration => CancelRegistrationParams,
-    request_password_reset_email => RequestPasswordResetEmailParams,
-    reset_password => ResetPasswordParams,
-    start_oidc_login => StartOidcLoginParams,
-    complete_oidc_login => CompleteOidcLoginParams,
-    start_sso_login => StartSsoLoginParams,
-    complete_sso_login => CompleteSsoLoginParams,
-    start_qr_login => StartQrLoginParams,
-    start_qr_grant => StartQrGrantParams,
-    qr_check_code => QrCheckCodeParams,
-    qr_grant_continue => QrGrantContinueParams,
-    cancel_qr => CancelQrParams,
+    discover_homeserver,
+    login,
+    login_flows,
+    registration_flows,
+    register,
+    request_registration_email,
+    submit_registration_email,
+    continue_registration,
+    cancel_registration,
+    request_password_reset_email,
+    reset_password,
+    start_oidc_login,
+    complete_oidc_login,
+    start_sso_login,
+    complete_sso_login,
+    start_qr_login,
+    start_qr_grant,
+    qr_check_code,
+    qr_grant_continue,
+    cancel_qr,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum LoginIdentifier {
+    User { user: String },
+    Email { address: String },
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum AuthIntent {
+    Login,
+    Register,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,10 +56,10 @@ pub struct DiscoverHomeserverParams {
 impl Handler for DiscoverHomeserverParams {
     type Ok = String;
 
-    async fn run(self, _core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, _core: &Arc<Core>) -> Result<String, RpcError> {
         let client = session::discovery_client(&self.server_name)
             .await
-            .map_err(|_| CommandErr::UnknownHomeserver)?;
+            .map_err(|_| RpcError::UnknownHomeserver)?;
         Ok(client.homeserver().to_string())
     }
 }
@@ -63,7 +76,7 @@ pub struct LoginParams {
 impl Handler for LoginParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.login(
             self.homeserver,
             self.identifier,
@@ -84,7 +97,7 @@ pub struct LoginFlowsParams {
 impl Handler for LoginFlowsParams {
     type Ok = LoginFlowsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<LoginFlowsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<LoginFlowsView, RpcError> {
         core.login_flows(self.homeserver).await
     }
 }
@@ -98,7 +111,7 @@ pub struct RegistrationFlowsParams {
 impl Handler for RegistrationFlowsParams {
     type Ok = RegistrationFlowsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RegistrationFlowsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RegistrationFlowsView, RpcError> {
         core.discover_registration_flows(self.homeserver).await
     }
 }
@@ -116,7 +129,7 @@ pub struct RegisterParams {
 impl Handler for RegisterParams {
     type Ok = RegistrationResultView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, RpcError> {
         core.register(
             self.homeserver,
             self.username,
@@ -137,7 +150,7 @@ pub struct RequestRegistrationEmailParams {
 impl Handler for RequestRegistrationEmailParams {
     type Ok = RegistrationResultView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, RpcError> {
         core.request_registration_email(self.email).await
     }
 }
@@ -151,7 +164,7 @@ pub struct SubmitRegistrationEmailParams {
 impl Handler for SubmitRegistrationEmailParams {
     type Ok = RegistrationResultView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, RpcError> {
         core.submit_registration_email(self.token).await
     }
 }
@@ -163,7 +176,7 @@ pub struct ContinueRegistrationParams {}
 impl Handler for ContinueRegistrationParams {
     type Ok = RegistrationResultView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, RpcError> {
         core.continue_registration(true).await
     }
 }
@@ -175,7 +188,7 @@ pub struct CancelRegistrationParams {}
 impl Handler for CancelRegistrationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.next_registration_attempt
             .fetch_add(1, Ordering::AcqRel);
         core.pending_registration.lock().await.take();
@@ -203,7 +216,7 @@ pub struct PasswordResetEmailOk {
 impl Handler for RequestPasswordResetEmailParams {
     type Ok = PasswordResetEmailOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PasswordResetEmailOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PasswordResetEmailOk, RpcError> {
         core.request_password_reset_email(
             self.homeserver,
             self.email,
@@ -227,7 +240,7 @@ pub struct ResetPasswordParams {
 impl Handler for ResetPasswordParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.reset_password(
             self.homeserver,
             self.client_secret,
@@ -252,7 +265,7 @@ impl Handler for StartOidcLoginParams {
     /// The authorization URL to open.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.start_oidc_login(
             self.homeserver,
             self.redirect_uri,
@@ -272,7 +285,7 @@ pub struct CompleteOidcLoginParams {
 impl Handler for CompleteOidcLoginParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.complete_oidc_login(self.callback_url).await
             .map(|user_id| user_id.to_string())
     }
@@ -292,7 +305,7 @@ impl Handler for StartSsoLoginParams {
     /// The authorization URL to open.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.start_sso_login(
             self.homeserver,
             self.redirect_uri,
@@ -313,7 +326,7 @@ pub struct CompleteSsoLoginParams {
 impl Handler for CompleteSsoLoginParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.complete_sso_login(self.callback_url).await
             .map(|user_id| user_id.to_string())
     }
@@ -332,7 +345,7 @@ pub struct StartQrLoginParams {
 impl Handler for StartQrLoginParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.start_qr_login(self.homeserver, self.redirect_uri, self.scanned)
             .await
     }
@@ -348,7 +361,7 @@ pub struct StartQrGrantParams {
 impl Handler for StartQrGrantParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.start_qr_grant(self.scanned).await
     }
 }
@@ -362,7 +375,7 @@ pub struct QrCheckCodeParams {
 impl Handler for QrCheckCodeParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.qr_check_code(self.code).await
     }
 }
@@ -376,7 +389,7 @@ pub struct QrGrantContinueParams {
 impl Handler for QrGrantContinueParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.qr_grant_continue(self.confirm).await
     }
 }
@@ -388,7 +401,7 @@ pub struct CancelQrParams {}
 impl Handler for CancelQrParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.cancel_qr().await;
         Ok(())
     }

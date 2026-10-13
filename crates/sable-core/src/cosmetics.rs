@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use crate::Core;
 use crate::profiles::{profile_hex_color, pronoun_sets};
-use crate::protocol::{CommandErr, CoreEvent, PronounView, RoomCosmeticsView, SenderCosmeticsView};
+use crate::protocol::{CoreEvent, PronounView, RoomCosmeticsView, RpcError, SenderCosmeticsView};
 
 pub(crate) const MEMBER_EVENT: &str = "m.room.member";
 pub(crate) const MEMBER_COLOR_FIELD: &str = "eu.she-a.color";
@@ -332,9 +332,9 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         space_id: Option<OwnedRoomId>,
-    ) -> Result<RoomCosmeticsView, CommandErr> {
+    ) -> Result<RoomCosmeticsView, RpcError> {
         let client = self.client().await?;
-        let room = client.get_room(room_id).ok_or(CommandErr::UnknownRoom)?;
+        let room = client.get_room(room_id).ok_or(RpcError::UnknownRoom)?;
         Ok(self.cosmetics_for(&client, &room, space_id).await)
     }
 

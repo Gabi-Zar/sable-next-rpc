@@ -7,8 +7,8 @@ use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, serde_as};
 
 use crate::protocol::{
-    CommandErr, PowerLevelAction, PowerLevelLocation, PowerLevelTagView, PowerLevelTagsView,
-    RoomPowerLevelsView,
+    PowerLevelAction, PowerLevelLocation, PowerLevelTagView, PowerLevelTagsView,
+    RoomPowerLevelsView, RpcError,
 };
 use crate::view;
 use crate::{Core, ResultExt};
@@ -294,19 +294,19 @@ impl Core {
     async fn power_levels_view(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<RoomPowerLevelsView, CommandErr> {
+    ) -> Result<RoomPowerLevelsView, RpcError> {
         let room = self.room(room_id).await?;
         Ok(view::room_power_levels(
             &room.power_levels_or_default().await,
         ))
     }
 
-    async fn own_power_level(&self, room_id: &OwnedRoomId) -> Result<(String, i64), CommandErr> {
+    async fn own_power_level(&self, room_id: &OwnedRoomId) -> Result<(String, i64), RpcError> {
         let room = self.room(room_id).await?;
         let user_id = room
             .client()
             .user_id()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .to_owned();
         let levels = room.power_levels_or_default().await;
         Ok((
@@ -319,7 +319,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_type: &str,
-    ) -> Result<Option<Value>, CommandErr> {
+    ) -> Result<Option<Value>, RpcError> {
         self.room_state_event_content(room_id.clone(), event_type.to_owned(), String::new())
             .await
     }
@@ -328,7 +328,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         levels: &RoomPowerLevelsView,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let stored = self.state_content(room_id, POWER_LEVELS_EVENT).await?;
         self.send_state(
             room_id.clone(),
@@ -348,7 +348,7 @@ impl Core {
         base: Option<RoomPowerLevelsView>,
         location: &PowerLevelLocation,
         level: i64,
-    ) -> Result<RoomPowerLevelsView, CommandErr> {
+    ) -> Result<RoomPowerLevelsView, RpcError> {
         let current = match base {
             Some(levels) => levels,
             None => self.power_levels_view(&room_id).await?,
@@ -361,7 +361,7 @@ impl Core {
     pub(crate) async fn power_level_tags(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<PowerLevelTagsView, CommandErr> {
+    ) -> Result<PowerLevelTagsView, RpcError> {
         Ok(parse_tags(
             self.state_content(room_id, TAGS_EVENT).await?.as_ref(),
         ))
@@ -372,7 +372,7 @@ impl Core {
         room_id: OwnedRoomId,
         level: i64,
         tag: Option<&PowerLevelTagView>,
-    ) -> Result<PowerLevelTagsView, CommandErr> {
+    ) -> Result<PowerLevelTagsView, RpcError> {
         let next = with_tag(self.state_content(&room_id, TAGS_EVENT).await?, level, tag)
             .or_failed(self, "power_level_tag")?;
         self.send_state(room_id, TAGS_EVENT, "", &next).await?;
@@ -383,7 +383,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         source: Option<Value>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let stored = self.state_content(room_id, TAGS_EVENT).await?;
         self.send_state(
             room_id.clone(),
@@ -400,7 +400,7 @@ impl Core {
         room_id: OwnedRoomId,
         space_id: OwnedRoomId,
         base: Option<RoomPowerLevelsView>,
-    ) -> Result<(RoomPowerLevelsView, PowerLevelTagsView), CommandErr> {
+    ) -> Result<(RoomPowerLevelsView, PowerLevelTagsView), RpcError> {
         let current = match base {
             Some(levels) => levels,
             None => self.power_levels_view(&room_id).await?,
@@ -425,7 +425,7 @@ impl Core {
         child_id: &OwnedRoomId,
         space_levels: &RoomPowerLevelsView,
         space_tags: Option<&Value>,
-    ) -> Result<bool, CommandErr> {
+    ) -> Result<bool, RpcError> {
         let (user_id, own_level) = self.own_power_level(child_id).await?;
         let levels = self.power_levels_view(child_id).await?;
         if own_level < level_at(&levels, &PowerLevelLocation::state(POWER_LEVELS_EVENT)) {
@@ -447,7 +447,7 @@ impl Core {
         &self,
         space_id: OwnedRoomId,
         child_ids: &[OwnedRoomId],
-    ) -> Result<ChildSync, CommandErr> {
+    ) -> Result<ChildSync, RpcError> {
         let space_levels = self.power_levels_view(&space_id).await?;
         let space_tags = self.state_content(&space_id, TAGS_EVENT).await?;
         let mut result = ChildSync::default();

@@ -1,5 +1,5 @@
 import type {
-  CommandErr,
+  RpcError,
   CoreEvent,
   SubscribeTimelineOk,
   SubscriptionId,
@@ -325,10 +325,10 @@ export function createCoreWorkerBoundary(
         if (pendingTimeline) {
           timelineEvents.cancelPending(port);
         }
-        let err: CommandErr = { code: 'failed', log_id: String(cause) };
+        let err: RpcError = { code: 'failed', log_id: String(cause) };
         if (typeof cause === 'string') {
           try {
-            err = JSON.parse(cause) as CommandErr;
+            err = JSON.parse(cause) as RpcError;
           } catch {
             console.error('[sable worker] core rejected with a non-protocol error', cause);
           }

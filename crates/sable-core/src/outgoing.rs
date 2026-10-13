@@ -10,7 +10,7 @@ use matrix_sdk::ruma::{OwnedEventId, OwnedMxcUri, OwnedRoomId, OwnedUserId};
 
 use crate::Core;
 use crate::messages::outgoing_mentions;
-use crate::protocol::{CommandErr, MessageKind};
+use crate::protocol::{MessageKind, RpcError};
 
 pub(crate) fn thread_reply(
     in_reply_to: Option<OwnedEventId>,
@@ -51,7 +51,7 @@ impl Core {
         reply: Option<SdkReply>,
         thread_root: Option<OwnedEventId>,
         label: &str,
-    ) -> Result<RoomMessageEventContent, CommandErr> {
+    ) -> Result<RoomMessageEventContent, RpcError> {
         let Some(reply) = reply else {
             return Ok(content);
         };

@@ -1,3 +1,4 @@
+use crate::api::search::SearchOrder;
 use std::collections::HashMap;
 
 use matrix_sdk::EncryptionState;
@@ -13,7 +14,6 @@ use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId, UInt};
 use super::IndexFilter;
 use super::{ContextLine, Hit, indexable_body};
 use crate::Core;
-use crate::protocol::SearchOrder;
 
 const MAX_ROUND_TRIPS: usize = 8;
 

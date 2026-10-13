@@ -6,12 +6,12 @@ use serde::Deserialize;
 use super::Handler;
 use crate::Core;
 use crate::calendar::CalendarAnswer;
-use crate::protocol::{CalendarView, CommandErr, RsvpStatusView};
+use crate::protocol::{CalendarView, RpcError, RsvpStatusView};
 
 domain! {
-    calendar_entries => CalendarEntriesParams,
-    save_calendar_event => SaveCalendarEventParams,
-    answer_calendar_event => AnswerCalendarEventParams,
+    calendar_entries,
+    save_calendar_event,
+    answer_calendar_event,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,7 +24,7 @@ pub struct CalendarEntriesParams {
 impl Handler for CalendarEntriesParams {
     type Ok = CalendarView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<CalendarView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<CalendarView, RpcError> {
         core.calendar_entries(&self.room_id).await
     }
 }
@@ -43,7 +43,7 @@ pub struct SaveCalendarEventParams {
 impl Handler for SaveCalendarEventParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.save_calendar_event(&self.room_id, self.event, self.replaces)
             .await
     }
@@ -65,7 +65,7 @@ pub struct AnswerCalendarEventParams {
 impl Handler for AnswerCalendarEventParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let answer = CalendarAnswer {
             calendar_event_id: self.calendar_event_id,
             uid: self.uid,

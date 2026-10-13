@@ -5,21 +5,32 @@ use serde::{Deserialize, Serialize};
 
 use super::Handler;
 use crate::Core;
-use crate::protocol::{
-    CommandErr, ImagePackView, PackAddressView, PackDraftView, PackImageDraftView, PackTargetView,
-};
+use crate::protocol::{RpcError, ImagePackView, PackAddressView, PackDraftView, PackImageDraftView};
 
 domain! {
-    image_packs => ImagePacksParams,
-    all_image_packs => AllImagePacksParams,
-    save_image_pack => SaveImagePackParams,
-    create_room_image_pack => CreateRoomImagePackParams,
-    delete_room_image_pack => DeleteRoomImagePackParams,
-    convert_legacy_image_packs => ConvertLegacyImagePacksParams,
-    remove_legacy_image_packs => RemoveLegacyImagePacksParams,
-    add_account_pack_images => AddAccountPackImagesParams,
-    pack_subscriptions => PackSubscriptionsParams,
-    set_pack_subscriptions => SetPackSubscriptionsParams,
+    image_packs,
+    all_image_packs,
+    save_image_pack,
+    create_room_image_pack,
+    delete_room_image_pack,
+    convert_legacy_image_packs,
+    remove_legacy_image_packs,
+    add_account_pack_images,
+    pack_subscriptions,
+    set_pack_subscriptions,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum PackTargetView {
+    Room {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        room_id: OwnedRoomId,
+        state_key: String,
+    },
+    /// `im.ponies.user_emotes`, the account's own pack.
+    Account,
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,7 +52,7 @@ pub struct ImagePacksOk {
 impl Handler for ImagePacksParams {
     type Ok = ImagePacksOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ImagePacksOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<ImagePacksOk, RpcError> {
         core.image_packs(self.room_id, self.cached_only).await
     }
 }
@@ -53,7 +64,7 @@ pub struct AllImagePacksParams {}
 impl Handler for AllImagePacksParams {
     type Ok = Vec<ImagePackView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<ImagePackView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<ImagePackView>, RpcError> {
         core.all_image_packs().await
     }
 }
@@ -68,7 +79,7 @@ pub struct SaveImagePackParams {
 impl Handler for SaveImagePackParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.save_image_pack(self.target, &self.draft).await
     }
 }
@@ -85,7 +96,7 @@ pub struct CreateRoomImagePackParams {
 impl Handler for CreateRoomImagePackParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.create_room_image_pack(self.room_id, &self.name)
             .await
     }
@@ -103,7 +114,7 @@ pub struct DeleteRoomImagePackParams {
 impl Handler for DeleteRoomImagePackParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.delete_room_image_pack(self.room_id, &self.state_key)
             .await
     }
@@ -120,7 +131,7 @@ pub struct ConvertLegacyImagePacksParams {
 impl Handler for ConvertLegacyImagePacksParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.convert_legacy_image_packs(&self.room_id, &self.state_keys)
             .await
     }
@@ -137,7 +148,7 @@ pub struct RemoveLegacyImagePacksParams {
 impl Handler for RemoveLegacyImagePacksParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.remove_legacy_image_packs(&self.room_id, &self.state_keys)
             .await
     }
@@ -153,7 +164,7 @@ pub struct AddAccountPackImagesParams {
 impl Handler for AddAccountPackImagesParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.add_account_pack_images(&self.images).await
     }
 }
@@ -165,7 +176,7 @@ pub struct PackSubscriptionsParams {}
 impl Handler for PackSubscriptionsParams {
     type Ok = Vec<PackAddressView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<PackAddressView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<PackAddressView>, RpcError> {
         core.pack_subscriptions().await
     }
 }
@@ -180,7 +191,7 @@ pub struct SetPackSubscriptionsParams {
 impl Handler for SetPackSubscriptionsParams {
     type Ok = Vec<PackAddressView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<PackAddressView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<PackAddressView>, RpcError> {
         core.set_pack_subscriptions(&self.added, &self.removed)
             .await
     }

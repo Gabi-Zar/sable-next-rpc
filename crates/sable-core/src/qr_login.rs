@@ -10,7 +10,7 @@ use matrix_sdk::executor::{JoinHandleExt, spawn};
 use url::Url;
 
 use crate::ResultExt;
-use crate::protocol::{CommandErr, CoreEvent, QrLoginFailureView, QrLoginProgressView};
+use crate::protocol::{CoreEvent, QrLoginFailureView, QrLoginProgressView, RpcError};
 use crate::session::{self, Credentials, PersistedSession};
 use crate::verification::level_h_code;
 use crate::{Core, Task};
@@ -56,8 +56,8 @@ pub(crate) struct QrFlow {
     _task: Task,
 }
 
-fn decode(data: &str) -> Result<QrCodeData, CommandErr> {
-    QrCodeData::from_base64(data).map_err(|_| CommandErr::Denied)
+fn decode(data: &str) -> Result<QrCodeData, RpcError> {
+    QrCodeData::from_base64(data).map_err(|_| RpcError::Denied)
 }
 
 fn reciprocating_homeserver(data: &QrCodeData) -> Option<String> {
@@ -203,11 +203,11 @@ impl Core {
         homeserver: Option<String>,
         redirect_uri: String,
         scanned_code: Option<String>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let scanned_code = scanned_code.as_deref().map(decode).transpose()?;
         let homeserver = match &scanned_code {
-            Some(data) => reciprocating_homeserver(data).ok_or(CommandErr::Denied)?,
-            None => homeserver.ok_or(CommandErr::Denied)?,
+            Some(data) => reciprocating_homeserver(data).ok_or(RpcError::Denied)?,
+            None => homeserver.ok_or(RpcError::Denied)?,
         };
         let redirect_uri =
             Url::parse(&redirect_uri).or_failed(self, "start_qr_login_redirect_uri")?;
@@ -269,7 +269,7 @@ impl Core {
         redirect_uri: Url,
         account_id: String,
         store_id: String,
-    ) -> Result<String, CommandErr> {
+    ) -> Result<String, RpcError> {
         let full = client
             .oauth()
             .full_session()
@@ -296,13 +296,13 @@ impl Core {
     pub(crate) async fn start_qr_grant(
         self: &Arc<Self>,
         scanned_code: Option<String>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let scanned_code = scanned_code.as_deref().map(decode).transpose()?;
         if scanned_code
             .as_ref()
             .is_some_and(|data| data.intent() != QrCodeIntent::Login)
         {
-            return Err(CommandErr::Denied);
+            return Err(RpcError::Denied);
         }
         let client = self.client().await?;
 
@@ -343,21 +343,21 @@ impl Core {
         Ok(())
     }
 
-    pub(crate) async fn qr_check_code(&self, code: u8) -> Result<(), CommandErr> {
+    pub(crate) async fn qr_check_code(&self, code: u8) -> Result<(), RpcError> {
         let sender = self
             .qr_slots()
             .await?
             .take_check_code()
-            .ok_or(CommandErr::Unavailable)?;
+            .ok_or(RpcError::Unavailable)?;
         sender.send(code).await.or_failed(self, "qr_check_code")
     }
 
-    pub(crate) async fn qr_grant_continue(&self, confirm: bool) -> Result<(), CommandErr> {
+    pub(crate) async fn qr_grant_continue(&self, confirm: bool) -> Result<(), RpcError> {
         let sender = self
             .qr_slots()
             .await?
             .take_continuation()
-            .ok_or(CommandErr::Unavailable)?;
+            .ok_or(RpcError::Unavailable)?;
         let sent = if confirm {
             sender.confirm().await
         } else {
@@ -370,13 +370,13 @@ impl Core {
         self.qr_flow.lock().await.take();
     }
 
-    async fn qr_slots(&self) -> Result<Arc<QrSlots>, CommandErr> {
+    async fn qr_slots(&self) -> Result<Arc<QrSlots>, RpcError> {
         self.qr_flow
             .lock()
             .await
             .as_ref()
             .map(|flow| flow.slots.clone())
-            .ok_or(CommandErr::Unavailable)
+            .ok_or(RpcError::Unavailable)
     }
 }
 

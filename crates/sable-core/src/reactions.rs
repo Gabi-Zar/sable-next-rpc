@@ -11,7 +11,7 @@ use serde_with::{DefaultOnError, serde_as};
 use crate::Core;
 use crate::ResultExt;
 use crate::api::packs::ImagePacksOk;
-use crate::protocol::{CommandErr, ReactionShortcodeView};
+use crate::protocol::{ReactionShortcodeView, RpcError};
 
 const MAX_SHORTCODE_BYTES: usize = 100;
 
@@ -68,7 +68,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let event = self
             .room(room_id)
             .await?
@@ -78,7 +78,7 @@ impl Core {
         if can_annotate(event.raw()) && !is_redacted(event.raw()) {
             Ok(())
         } else {
-            Err(CommandErr::Unsupported)
+            Err(RpcError::Unsupported)
         }
     }
 
@@ -91,7 +91,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
-    ) -> Result<Vec<ReactionShortcodeView>, CommandErr> {
+    ) -> Result<Vec<ReactionShortcodeView>, RpcError> {
         let room = self.room(room_id).await?;
         let (cache, _handles) = room
             .event_cache()
@@ -220,9 +220,7 @@ mod tests {
         use std::{collections::BTreeSet, sync::Arc};
 
         use crate::{
-            Core,
-            protocol::{CommandErr, TimelineFocusView},
-            session::Session,
+            Core, api::timeline::TimelineFocusView, protocol::RpcError, session::Session,
             store::MemorySessionStore,
         };
         use matrix_sdk::{
@@ -364,7 +362,7 @@ mod tests {
                         subscription: None,
                     }))
                     .await,
-                    Err(CommandErr::Unsupported)
+                    Err(RpcError::Unsupported)
                 ));
             }
         }

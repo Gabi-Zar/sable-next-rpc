@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Core;
 use crate::ResultExt;
-use crate::protocol::{CommandErr, SidebarItemView};
+use crate::protocol::{RpcError, SidebarItemView};
 
 /// The sidebar written over whatever else the account data already carries.
 #[derive(Serialize)]
@@ -132,7 +132,7 @@ fn stored_items(items: &[SidebarItemView]) -> Vec<StoredItem> {
 }
 
 impl Core {
-    pub(crate) async fn space_sidebar(&self) -> Result<Vec<SidebarItemView>, CommandErr> {
+    pub(crate) async fn space_sidebar(&self) -> Result<Vec<SidebarItemView>, RpcError> {
         sidebar(&self.client().await?)
             .await
             .or_failed(self, "space_sidebar")
@@ -141,7 +141,7 @@ impl Core {
     pub(crate) async fn set_space_sidebar(
         &self,
         items: &[SidebarItemView],
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         set_sidebar(&self.client().await?, items)
             .await
             .or_failed(self, "set_space_sidebar")

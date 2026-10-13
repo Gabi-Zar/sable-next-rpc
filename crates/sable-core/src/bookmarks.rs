@@ -7,7 +7,7 @@ use serde_with::{DefaultOnError, VecSkipError, serde_as};
 use crate::Core;
 use crate::ResultExt;
 use crate::protocol::BookmarkView;
-use crate::protocol::CommandErr;
+use crate::protocol::RpcError;
 use crate::room_settings::EmptyContent;
 
 const INDEX_EVENT: &str = "pl.chrome.bookmarks.index";
@@ -139,7 +139,7 @@ impl Core {
             .collect()
     }
 
-    pub(crate) async fn bookmarks(&self) -> Result<Vec<BookmarkView>, CommandErr> {
+    pub(crate) async fn bookmarks(&self) -> Result<Vec<BookmarkView>, RpcError> {
         let mut bookmarks = Vec::new();
 
         for id in self.bookmark_ids().await {
@@ -172,7 +172,7 @@ impl Core {
         event_id: &OwnedEventId,
         bookmarked: bool,
         now_ms: u64,
-    ) -> Result<bool, CommandErr> {
+    ) -> Result<bool, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let id = bookmark_id(room_id.as_str(), event_id.as_str());
         let mut ids = self.bookmark_ids().await;
@@ -219,7 +219,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         now_ms: u64,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let room = self.room(room_id).await?;
         let encrypted = self.room_is_encrypted(&room).await?;
         let event = room

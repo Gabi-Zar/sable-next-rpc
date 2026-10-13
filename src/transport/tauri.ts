@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/sveltekit';
 import { Channel, invoke } from '@tauri-apps/api/core';
 
-import type { CommandErr, CoreEvent } from '#src/generated/protocol';
+import type { RpcError, CoreEvent } from '#src/generated/protocol';
 import { CoreError, type Transport } from './index';
 import { rawInvoke } from '#lib/platform/raw-invoke.js';
 import { resetWebStorage } from '#lib/platform/session-storage.js';
@@ -15,7 +15,7 @@ async function carry<T>(
   try {
     return await rawInvoke<T>(command, bytes, headers);
   } catch (error) {
-    throw new CoreError(error as CommandErr);
+    throw new CoreError(error as RpcError);
   }
 }
 
@@ -50,7 +50,7 @@ export function createTauriTransport(): Transport {
       try {
         return await invoke<unknown>('call', { method, params: JSON.stringify(params) });
       } catch (error) {
-        throw new CoreError(error as CommandErr);
+        throw new CoreError(error as RpcError);
       }
     },
 
@@ -65,7 +65,7 @@ export function createTauriTransport(): Transport {
         });
         return new Uint8Array(bytes);
       } catch (error) {
-        throw new CoreError(error as CommandErr);
+        throw new CoreError(error as RpcError);
       }
     },
 
@@ -73,7 +73,7 @@ export function createTauriTransport(): Transport {
       try {
         await invoke('forget_media', { source });
       } catch (error) {
-        throw new CoreError(error as CommandErr);
+        throw new CoreError(error as RpcError);
       }
     },
 
@@ -81,7 +81,7 @@ export function createTauriTransport(): Transport {
       try {
         return await invoke<string>('video_stream_mime');
       } catch (error) {
-        throw new CoreError(error as CommandErr);
+        throw new CoreError(error as RpcError);
       }
     },
 
@@ -103,7 +103,7 @@ export function createTauriTransport(): Transport {
       try {
         await invoke('stream_video', { source, id, chunks });
       } catch (error) {
-        throw new CoreError(error as CommandErr);
+        throw new CoreError(error as RpcError);
       }
       await complete;
     },
@@ -168,7 +168,7 @@ export function createTauriTransport(): Transport {
           })),
         });
       } catch (error) {
-        throw new CoreError(error as CommandErr);
+        throw new CoreError(error as RpcError);
       }
     },
 

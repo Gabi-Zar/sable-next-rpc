@@ -91,7 +91,7 @@ use matrix_sdk_ui::timeline::Timeline;
 use tokio::sync::{Mutex, RwLock, mpsc};
 use url::Url;
 
-use protocol::{CommandErr, CoreEvent, SubscriptionId};
+use protocol::{CoreEvent, RpcError, SubscriptionId};
 use session::{AccountRegistry, Session};
 use store::SessionStore;
 
@@ -482,7 +482,7 @@ impl Core {
         self.next_timeline_access.fetch_add(1, Ordering::Relaxed)
     }
 
-    pub(crate) async fn accounts(&self) -> Result<AccountRegistry, CommandErr> {
+    pub(crate) async fn accounts(&self) -> Result<AccountRegistry, RpcError> {
         let mut accounts = self.accounts.lock().await;
         if let Some(accounts) = accounts.as_ref() {
             return Ok(accounts.clone());
@@ -553,7 +553,7 @@ impl Core {
         }
     }
 
-    pub(crate) async fn allocate_account(&self) -> Result<(String, String), CommandErr> {
+    pub(crate) async fn allocate_account(&self) -> Result<(String, String), RpcError> {
         let mut accounts = self.accounts.lock().await;
         if accounts.is_none() {
             drop(accounts);
@@ -566,16 +566,12 @@ impl Core {
         Ok(accounts.allocate_account(&self.store_id))
     }
 
-    pub(crate) async fn client(&self) -> Result<matrix_sdk::Client, CommandErr> {
+    pub(crate) async fn client(&self) -> Result<matrix_sdk::Client, RpcError> {
         let guard = self.session.read().await;
-        Ok(guard
-            .as_ref()
-            .ok_or(CommandErr::NotLoggedIn)?
-            .client
-            .clone())
+        Ok(guard.as_ref().ok_or(RpcError::NotLoggedIn)?.client.clone())
     }
 
-    pub(crate) async fn account_data_types(&self) -> Result<Vec<String>, CommandErr> {
+    pub(crate) async fn account_data_types(&self) -> Result<Vec<String>, RpcError> {
         let client = self.client().await?;
         let store = client.state_store();
         let mut types = self.account_data_types.lock().await.clone();
@@ -635,7 +631,7 @@ impl Core {
         &self,
         event_type: GlobalAccountDataEventType,
         label: &str,
-    ) -> Result<Option<Raw<AnyGlobalAccountDataEventContent>>, CommandErr> {
+    ) -> Result<Option<Raw<AnyGlobalAccountDataEventContent>>, RpcError> {
         self.client()
             .await?
             .account()
@@ -649,7 +645,7 @@ impl Core {
         event_type: GlobalAccountDataEventType,
         content: &impl serde::Serialize,
         label: &str,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let raw = serde_json::value::to_raw_value(content)
             .map(Raw::<AnyGlobalAccountDataEventContent>::from_json)
             .or_failed(self, label)?;
@@ -664,7 +660,7 @@ impl Core {
         Ok(())
     }
 
-    pub(crate) async fn push_rules(&self) -> Result<Arc<push_rules::PushRules>, CommandErr> {
+    pub(crate) async fn push_rules(&self) -> Result<Arc<push_rules::PushRules>, RpcError> {
         let client = self.client().await?;
         let mut cached = self.push_rules.lock().await;
         if let Some(rules) = cached.as_ref() {
@@ -684,27 +680,27 @@ impl Core {
 
     pub(crate) async fn sync_service(
         &self,
-    ) -> Result<Arc<matrix_sdk_ui::sync_service::SyncService>, CommandErr> {
+    ) -> Result<Arc<matrix_sdk_ui::sync_service::SyncService>, RpcError> {
         let guard = self.session.read().await;
         Ok(guard
             .as_ref()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .sync_service
             .clone())
     }
 
-    pub(crate) async fn room(&self, room_id: &OwnedRoomId) -> Result<matrix_sdk::Room, CommandErr> {
+    pub(crate) async fn room(&self, room_id: &OwnedRoomId) -> Result<matrix_sdk::Room, RpcError> {
         self.client()
             .await?
             .get_room(room_id)
-            .ok_or(CommandErr::UnknownRoom)
+            .ok_or(RpcError::UnknownRoom)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::CommandErr;
+    use crate::protocol::RpcError;
 
     struct FailingClearSessionStore;
 
@@ -767,7 +763,7 @@ mod tests {
         assert!(matches!(
             core.run(crate::api::timeline::SubscribeRoomListParams {})
                 .await,
-            Err(CommandErr::NotLoggedIn)
+            Err(RpcError::NotLoggedIn)
         ));
     }
 
@@ -776,7 +772,7 @@ mod tests {
         let (core, _rx) = Core::new("test", Box::new(FailingClearSessionStore));
         assert!(matches!(
             core.clear_persisted_session().await,
-            Err(CommandErr::Failed { .. })
+            Err(RpcError::Failed { .. })
         ));
     }
 
@@ -954,7 +950,7 @@ mod tests {
         assert!(matches!(core.restore().await, Ok(None)));
         assert!(matches!(
             core.switch_account("a1".to_owned()).await,
-            Err(CommandErr::NotLoggedIn)
+            Err(RpcError::NotLoggedIn)
         ));
     }
 
@@ -1015,7 +1011,7 @@ mod sdk_verification_tests;
 #[cfg(test)]
 mod live_tests {
     use super::*;
-    use crate::protocol::CommandErr;
+    use crate::protocol::RpcError;
 
     #[tokio::test]
     #[ignore = "hits matrix.org"]
@@ -1045,7 +1041,7 @@ mod live_tests {
         let error = core
             .run(api::auth::LoginParams {
                 homeserver: "https://matrix.org".into(),
-                identifier: crate::protocol::LoginIdentifier::User {
+                identifier: crate::api::auth::LoginIdentifier::User {
                     user: "sable-next-does-not-exist".into(),
                 },
                 password: "definitely-wrong".into(),
@@ -1054,6 +1050,6 @@ mod live_tests {
             .await
             .expect_err("login should fail");
 
-        assert!(matches!(error, CommandErr::Denied), "got {error:?}");
+        assert!(matches!(error, RpcError::Denied), "got {error:?}");
     }
 }

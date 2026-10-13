@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::Core;
-use crate::protocol::{CommandErr, InviteAvatarsView, MediaPreviewConfigView, MediaPreviewsView};
+use crate::protocol::{InviteAvatarsView, MediaPreviewConfigView, MediaPreviewsView, RpcError};
 
 const MEDIA_PREVIEW_EVENT: &str = "m.media_preview_config";
 const UNSTABLE_MEDIA_PREVIEW_EVENT: &str = "io.element.msc4278.media_preview_config";
@@ -98,14 +98,14 @@ struct DismissedInvitesOut {
 }
 
 impl Core {
-    async fn account_document(&self, event_type: &str) -> Result<Option<Value>, CommandErr> {
+    async fn account_document(&self, event_type: &str) -> Result<Option<Value>, RpcError> {
         Ok(self
             .global_account_data(event_type.into(), "account_document")
             .await?
             .and_then(|raw| raw.deserialize_as::<Value>().ok()))
     }
 
-    async fn stored_media_preview_config(&self) -> Result<Option<Value>, CommandErr> {
+    async fn stored_media_preview_config(&self) -> Result<Option<Value>, RpcError> {
         match self.account_document(MEDIA_PREVIEW_EVENT).await? {
             Some(stable) => Ok(Some(stable)),
             None => self.account_document(UNSTABLE_MEDIA_PREVIEW_EVENT).await,
@@ -116,7 +116,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_type: &str,
-    ) -> Result<Option<Value>, CommandErr> {
+    ) -> Result<Option<Value>, RpcError> {
         Ok(self
             .room(room_id)
             .await?
@@ -130,7 +130,7 @@ impl Core {
     pub(crate) async fn media_preview_settings(
         &self,
         room_id: Option<&OwnedRoomId>,
-    ) -> Result<MediaPreviewConfigView, CommandErr> {
+    ) -> Result<MediaPreviewConfigView, RpcError> {
         let content = match room_id {
             None => self.stored_media_preview_config().await?,
             Some(room_id) => match self.room_document(room_id, MEDIA_PREVIEW_EVENT).await? {
@@ -148,7 +148,7 @@ impl Core {
     pub(crate) async fn set_media_preview_settings(
         &self,
         update: MediaPreviewConfigView,
-    ) -> Result<MediaPreviewConfigView, CommandErr> {
+    ) -> Result<MediaPreviewConfigView, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let content = media_preview_content(self.stored_media_preview_config().await?, update);
         self.set_account_data(MEDIA_PREVIEW_EVENT, &content).await?;
@@ -157,7 +157,7 @@ impl Core {
         Ok(media_preview_config(Some(&content)))
     }
 
-    pub(crate) async fn dismissed_invites(&self) -> Result<Vec<OwnedRoomId>, CommandErr> {
+    pub(crate) async fn dismissed_invites(&self) -> Result<Vec<OwnedRoomId>, RpcError> {
         Ok(dismissed_invites(
             self.account_document(DISMISSED_INVITES_EVENT)
                 .await?
@@ -169,7 +169,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         dismissed: bool,
-    ) -> Result<Vec<OwnedRoomId>, CommandErr> {
+    ) -> Result<Vec<OwnedRoomId>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let mut room_ids = self.dismissed_invites().await?;
         room_ids.retain(|known| *known != room_id);

@@ -1,6 +1,6 @@
 import type {
   AttachmentInfoView,
-  CommandErr,
+  RpcError,
   CoreEvent,
   PerMessageProfileView,
 } from '#src/generated/protocol';
@@ -37,7 +37,7 @@ export type Gallery = {
 export type GalleryAttachment = Pick<Attachment, 'filename' | 'mime' | 'bytes' | 'info'>;
 
 export class CoreError extends Error {
-  constructor(readonly detail: CommandErr) {
+  constructor(readonly detail: RpcError) {
     super(detail.code);
   }
 }

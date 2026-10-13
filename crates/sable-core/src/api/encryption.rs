@@ -5,39 +5,36 @@ use matrix_sdk::ruma::{OwnedDeviceId, OwnedRoomId, OwnedUserId};
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::protocol::{
-    CommandErr, DeviceView, EncryptionStatusView, IdentityResetStep, KeyBackupDownloadView,
-    KeyBackupStatusView, SignOutSafetyView, UserSecurityView,
-};
+use crate::protocol::{RpcError, DeviceView, EncryptionStatusView, IdentityResetStep, KeyBackupDownloadView, KeyBackupStatusView, SignOutSafetyView, UserSecurityView};
 use crate::verification::{self, VERIFICATION_METHODS, encryption_status, sign_out_safety};
 use crate::{Core, ResultExt};
 
 domain! {
-    encryption_status => EncryptionStatusParams,
-    key_backup_status => KeyBackupStatusParams,
-    download_key_backup => DownloadKeyBackupParams,
-    sign_out_safety => SignOutSafetyParams,
-    devices => DevicesParams,
-    user_security => UserSecurityParams,
-    recover_identity => RecoverIdentityParams,
-    enable_recovery => EnableRecoveryParams,
-    reset_recovery_key => ResetRecoveryKeyParams,
-    reset_identity => ResetIdentityParams,
-    continue_identity_reset => ContinueIdentityResetParams,
-    cancel_identity_reset => CancelIdentityResetParams,
-    export_room_keys => ExportRoomKeysParams,
-    import_room_keys => ImportRoomKeysParams,
-    delete_device => DeleteDeviceParams,
-    rename_device => RenameDeviceParams,
-    discard_room_key => DiscardRoomKeyParams,
-    request_verification => RequestVerificationParams,
-    withdraw_verification => WithdrawVerificationParams,
-    set_device_blocked => SetDeviceBlockedParams,
-    accept_verification => AcceptVerificationParams,
-    scan_verification_qr => ScanVerificationQrParams,
-    start_sas_verification => StartSasVerificationParams,
-    confirm_verification => ConfirmVerificationParams,
-    cancel_verification => CancelVerificationParams,
+    encryption_status,
+    key_backup_status,
+    download_key_backup,
+    sign_out_safety,
+    devices,
+    user_security,
+    recover_identity,
+    enable_recovery,
+    reset_recovery_key,
+    reset_identity,
+    continue_identity_reset,
+    cancel_identity_reset,
+    export_room_keys,
+    import_room_keys,
+    delete_device,
+    rename_device,
+    discard_room_key,
+    request_verification,
+    withdraw_verification,
+    set_device_blocked,
+    accept_verification,
+    scan_verification_qr,
+    start_sas_verification,
+    confirm_verification,
+    cancel_verification,
 }
 
 #[derive(Debug, Deserialize)]
@@ -47,7 +44,7 @@ pub struct EncryptionStatusParams {}
 impl Handler for EncryptionStatusParams {
     type Ok = EncryptionStatusView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<EncryptionStatusView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<EncryptionStatusView, RpcError> {
         Ok(encryption_status(&core.client().await?).await)
     }
 }
@@ -59,7 +56,7 @@ pub struct KeyBackupStatusParams {}
 impl Handler for KeyBackupStatusParams {
     type Ok = KeyBackupStatusView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<KeyBackupStatusView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<KeyBackupStatusView, RpcError> {
         core.key_backup_status().await
     }
 }
@@ -73,7 +70,7 @@ pub struct DownloadKeyBackupParams {
 impl Handler for DownloadKeyBackupParams {
     type Ok = KeyBackupDownloadView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<KeyBackupDownloadView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<KeyBackupDownloadView, RpcError> {
         core.download_key_backup(self.request_id).await
     }
 }
@@ -85,7 +82,7 @@ pub struct SignOutSafetyParams {}
 impl Handler for SignOutSafetyParams {
     type Ok = SignOutSafetyView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SignOutSafetyView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SignOutSafetyView, RpcError> {
         Ok(sign_out_safety(&core.client().await?).await)
     }
 }
@@ -106,7 +103,7 @@ pub struct DevicesOk {
 impl Handler for DevicesParams {
     type Ok = DevicesOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<DevicesOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<DevicesOk, RpcError> {
         let client = core.client().await?;
         let oauth = client.oauth().full_session().is_some();
         let account_management = oauth
@@ -136,7 +133,7 @@ pub struct UserSecurityParams {
 impl Handler for UserSecurityParams {
     type Ok = UserSecurityView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<UserSecurityView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<UserSecurityView, RpcError> {
         verification::user_security(core, &self.user_id).await
     }
 }
@@ -150,7 +147,7 @@ pub struct RecoverIdentityParams {
 impl Handler for RecoverIdentityParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let client = core.client().await?;
         client
             .encryption()
@@ -178,7 +175,7 @@ impl Handler for EnableRecoveryParams {
     /// Unrecoverable once discarded.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let client = core.client().await?;
         let recovery = client.encryption().recovery();
         let enable = recovery.enable();
@@ -202,7 +199,7 @@ pub struct ResetRecoveryKeyParams {
 impl Handler for ResetRecoveryKeyParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let client = core.client().await?;
         let recovery = client.encryption().recovery();
         let reset = recovery.reset_key();
@@ -226,7 +223,7 @@ pub struct ResetIdentityParams {}
 impl Handler for ResetIdentityParams {
     type Ok = IdentityResetStep;
 
-    async fn run(self, core: &Arc<Core>) -> Result<IdentityResetStep, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<IdentityResetStep, RpcError> {
         core.reset_identity().await
     }
 }
@@ -242,7 +239,7 @@ impl Handler for ContinueIdentityResetParams {
     /// The new recovery key.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.continue_identity_reset(self.password).await
     }
 }
@@ -254,7 +251,7 @@ pub struct CancelIdentityResetParams {}
 impl Handler for CancelIdentityResetParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.cancel_identity_reset().await;
         Ok(())
     }
@@ -270,7 +267,7 @@ impl Handler for ExportRoomKeysParams {
     /// The passphrase-encrypted export file.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.export_room_keys(&self.passphrase).await
     }
 }
@@ -294,7 +291,7 @@ pub struct ImportRoomKeysOk {
 impl Handler for ImportRoomKeysParams {
     type Ok = ImportRoomKeysOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ImportRoomKeysOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<ImportRoomKeysOk, RpcError> {
         core.import_room_keys(&self.export, &self.passphrase).await
     }
 }
@@ -313,7 +310,7 @@ impl Handler for DeleteDeviceParams {
     /// Under OAuth, the account page that deletes the device.
     type Ok = Option<String>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         core.delete_device(self.device_id, self.password).await
     }
 }
@@ -329,7 +326,7 @@ pub struct RenameDeviceParams {
 impl Handler for RenameDeviceParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let client = core.client().await?;
         let generation = core.session_generation.load(Ordering::SeqCst);
         client
@@ -351,7 +348,7 @@ pub struct DiscardRoomKeyParams {
 impl Handler for DiscardRoomKeyParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.room(&self.room_id)
             .await?
             .discard_room_key()
@@ -378,14 +375,14 @@ impl Handler for RequestVerificationParams {
     /// verification.
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         let encryption = core.client().await?.encryption();
         let request = match self.device_id {
             Some(device_id) => encryption
                 .get_device(&self.user_id, &device_id)
                 .await
                 .or_failed(core, "request_verification_device")?
-                .ok_or(CommandErr::Unavailable)?
+                .ok_or(RpcError::Unavailable)?
                 .request_verification_with_methods(VERIFICATION_METHODS.to_vec())
                 .await
                 .or_failed(core, "request_verification")?,
@@ -393,7 +390,7 @@ impl Handler for RequestVerificationParams {
                 .get_user_identity(&self.user_id)
                 .await
                 .or_failed(core, "request_verification_identity")?
-                .ok_or(CommandErr::Unavailable)?
+                .ok_or(RpcError::Unavailable)?
                 .request_verification_with_methods(VERIFICATION_METHODS.to_vec())
                 .await
                 .or_failed(core, "request_verification")?,
@@ -422,14 +419,14 @@ pub struct WithdrawVerificationParams {
 impl Handler for WithdrawVerificationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.client()
             .await?
             .encryption()
             .get_user_identity(&self.user_id)
             .await
             .or_failed(core, "withdraw_verification_identity")?
-            .ok_or(CommandErr::Unavailable)?
+            .ok_or(RpcError::Unavailable)?
             .withdraw_verification()
             .await
             .or_failed(core, "withdraw_verification")?;
@@ -450,7 +447,7 @@ pub struct SetDeviceBlockedParams {
 impl Handler for SetDeviceBlockedParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         verification::set_device_blocked(core, &self.user_id, &self.device_id, self.blocked).await
     }
 }
@@ -467,7 +464,7 @@ pub struct AcceptVerificationParams {
 impl Handler for AcceptVerificationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.verification_request(&self.user_id, &self.flow_id)
             .await?
             .accept_with_methods(VERIFICATION_METHODS.to_vec())
@@ -490,7 +487,7 @@ pub struct ScanVerificationQrParams {
 impl Handler for ScanVerificationQrParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.scan_verification_qr(self.user_id, self.flow_id, &self.data)
             .await
     }
@@ -508,13 +505,13 @@ pub struct StartSasVerificationParams {
 impl Handler for StartSasVerificationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.verification_request(&self.user_id, &self.flow_id)
             .await?
             .start_sas()
             .await
             .or_failed(core, "start_sas_verification")?
-            .ok_or(CommandErr::Unavailable)?;
+            .ok_or(RpcError::Unavailable)?;
         Ok(())
     }
 }
@@ -531,7 +528,7 @@ pub struct ConfirmVerificationParams {
 impl Handler for ConfirmVerificationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         match core.sas(&self.user_id, &self.flow_id).await {
             Ok(sas) => sas.confirm().await,
             Err(_) => core.qr(&self.user_id, &self.flow_id).await?.confirm().await,
@@ -555,7 +552,7 @@ pub struct CancelVerificationParams {
 impl Handler for CancelVerificationParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         let (user_id, flow_id) = (&self.user_id, &self.flow_id);
         // No SAS to report a mismatch on before the emoji show.
         match core.sas(user_id, flow_id).await {

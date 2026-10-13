@@ -8,7 +8,7 @@ use matrix_sdk::ruma::api::error::{ErrorKind, RetryAfter};
 use matrix_sdk::{SendOutsideWasm, SyncOutsideWasm};
 use web_time::SystemTime;
 
-use crate::protocol::CommandErr;
+use crate::protocol::RpcError;
 
 use crate::Core;
 
@@ -82,27 +82,27 @@ pub(crate) fn retry_delay_ms(retry_after: &RetryAfter) -> Option<u64> {
 }
 
 pub(crate) trait ResultExt<T> {
-    fn or_failed(self, core: &Core, label: &str) -> Result<T, CommandErr>;
+    fn or_failed(self, core: &Core, label: &str) -> Result<T, RpcError>;
 }
 
 impl<T, E: Display> ResultExt<T> for Result<T, E> {
-    fn or_failed(self, core: &Core, label: &str) -> Result<T, CommandErr> {
+    fn or_failed(self, core: &Core, label: &str) -> Result<T, RpcError> {
         self.map_err(|error| core.failed(label, error))
     }
 }
 
 impl Core {
-    pub fn failed(&self, context: &str, error: impl Display) -> CommandErr {
+    pub fn failed(&self, context: &str, error: impl Display) -> RpcError {
         let log_id = format!("e{}", self.next_log_id.fetch_add(1, Ordering::Relaxed));
         tracing::error!(log_id, context, "{error}");
-        CommandErr::Failed { log_id }
+        RpcError::Failed { log_id }
     }
 
     pub(crate) fn failed_with_source(
         &self,
         context: &str,
         error: &dyn std::error::Error,
-    ) -> CommandErr {
+    ) -> RpcError {
         let mut message = error.to_string();
         let mut source = error.source();
         while let Some(cause) = source {
@@ -113,7 +113,7 @@ impl Core {
         self.failed(context, message)
     }
 
-    pub(crate) fn oauth_login_error(&self, context: &str, error: &OAuthError) -> CommandErr {
+    pub(crate) fn oauth_login_error(&self, context: &str, error: &OAuthError) -> RpcError {
         if matches!(
             error,
             OAuthError::ClientRegistration(OAuthClientRegistrationError::OAuth(
@@ -125,18 +125,18 @@ impl Core {
                 category = "auth_provider_unreachable",
                 "the authorization server did not answer: {error}"
             );
-            return CommandErr::AuthProviderUnreachable;
+            return RpcError::AuthProviderUnreachable;
         }
         self.failed_with_source(context, error)
     }
 
-    pub(crate) fn login_error(&self, error: matrix_sdk::Error) -> CommandErr {
+    pub(crate) fn login_error(&self, error: matrix_sdk::Error) -> RpcError {
         if error.client_api_error_kind() == Some(&ErrorKind::Forbidden) {
             tracing::warn!(
                 operation = "password_login",
                 "homeserver rejected the credentials"
             );
-            return CommandErr::Denied;
+            return RpcError::Denied;
         }
 
         match error {
@@ -145,24 +145,24 @@ impl Core {
         }
     }
 
-    pub(crate) fn recovery_error(&self, error: RecoveryError) -> CommandErr {
+    pub(crate) fn recovery_error(&self, error: RecoveryError) -> RpcError {
         if matches!(
             error,
             RecoveryError::SecretStorage(SecretStorageError::SecretStorageKey(_))
         ) {
-            return CommandErr::Denied;
+            return RpcError::Denied;
         }
         self.failed("recover_identity", error)
     }
 
-    pub(crate) fn profile_error(&self, error: matrix_sdk::Error) -> CommandErr {
+    pub(crate) fn profile_error(&self, error: matrix_sdk::Error) -> RpcError {
         if error.client_api_error_kind() == Some(&ErrorKind::NotFound) {
             tracing::debug!(context = "user_profile", "the user has no profile");
-            return CommandErr::Unavailable;
+            return RpcError::Unavailable;
         }
         if error.client_api_error_kind() == Some(&ErrorKind::Forbidden) {
             tracing::debug!(context = "user_profile", "the profile is not visible to us");
-            return CommandErr::Unavailable;
+            return RpcError::Unavailable;
         }
 
         match error {
@@ -171,16 +171,16 @@ impl Core {
         }
     }
 
-    pub(crate) fn room_error(&self, context: &str, error: matrix_sdk::Error) -> CommandErr {
+    pub(crate) fn room_error(&self, context: &str, error: matrix_sdk::Error) -> RpcError {
         match error.client_api_error_kind() {
             Some(ErrorKind::Forbidden) => {
                 tracing::warn!(context, category = "denied", "room operation refused");
-                return CommandErr::Denied;
+                return RpcError::Denied;
             }
             Some(ErrorKind::LimitExceeded(limit)) => {
                 let retry_after_ms = limit.retry_after.as_ref().and_then(retry_delay_ms);
                 tracing::warn!(context, category = "rate_limited", "room operation refused");
-                return CommandErr::RateLimited { retry_after_ms };
+                return RpcError::RateLimited { retry_after_ms };
             }
             _ => {}
         }
@@ -195,17 +195,17 @@ impl Core {
         &self,
         context: &str,
         error: matrix_sdk::HttpError,
-    ) -> CommandErr {
+    ) -> RpcError {
         match error.client_api_error_kind() {
-            Some(ErrorKind::UserLocked) => CommandErr::AccountLocked,
-            Some(ErrorKind::UserSuspended) => CommandErr::AccountSuspended,
+            Some(ErrorKind::UserLocked) => RpcError::AccountLocked,
+            Some(ErrorKind::UserSuspended) => RpcError::AccountSuspended,
             Some(ErrorKind::LimitExceeded(limit)) => {
                 tracing::warn!(
                     context,
                     category = "rate_limited",
                     "homeserver request failed"
                 );
-                CommandErr::RateLimited {
+                RpcError::RateLimited {
                     retry_after_ms: limit.retry_after.as_ref().and_then(retry_delay_ms),
                 }
             }
@@ -218,7 +218,7 @@ impl Core {
                     category = "rate_limited",
                     "homeserver request failed"
                 );
-                CommandErr::RateLimited {
+                RpcError::RateLimited {
                     retry_after_ms: None,
                 }
             }
@@ -228,7 +228,7 @@ impl Core {
                     category = "unsupported",
                     "homeserver does not implement this endpoint"
                 );
-                CommandErr::Unsupported
+                RpcError::Unsupported
             }
             _ if matches!(error, matrix_sdk::HttpError::Reqwest(_)) => {
                 tracing::warn!(
@@ -237,7 +237,7 @@ impl Core {
                     "homeserver request failed: {}",
                     error_chain(&error)
                 );
-                CommandErr::Unavailable
+                RpcError::Unavailable
             }
             _ if error
                 .as_client_api_error()
@@ -248,18 +248,18 @@ impl Core {
                     category = "server",
                     "homeserver request failed: {error}"
                 );
-                CommandErr::Unavailable
+                RpcError::Unavailable
             }
             _ => self.failed(context, error),
         }
     }
 
-    pub(crate) fn discovery_error(&self, error: matrix_sdk::ClientBuildError) -> CommandErr {
+    pub(crate) fn discovery_error(&self, error: matrix_sdk::ClientBuildError) -> RpcError {
         match error {
             matrix_sdk::ClientBuildError::Http(error) => {
                 self.homeserver_http_error("login_flows_discovery", error)
             }
-            _ => CommandErr::UnknownHomeserver,
+            _ => RpcError::UnknownHomeserver,
         }
     }
 }
@@ -288,7 +288,7 @@ mod tests {
     use super::error_chain;
 
     use crate::Core;
-    use crate::protocol::CommandErr;
+    use crate::protocol::RpcError;
     use crate::store::MemorySessionStore;
 
     use super::{ResultExt, retry_delay_ms};
@@ -328,7 +328,7 @@ mod tests {
             Err::<(), _>("problem").or_failed(&core, "test_label")
         });
 
-        assert!(matches!(result, Err(CommandErr::Failed { .. })));
+        assert!(matches!(result, Err(RpcError::Failed { .. })));
         assert!(
             String::from_utf8(output.lock().unwrap().clone())
                 .unwrap()

@@ -1,3 +1,4 @@
+use crate::api::timeline::TimelineFocusView;
 use std::sync::Arc;
 
 use matrix_sdk::executor::spawn;
@@ -17,7 +18,7 @@ use matrix_sdk_ui::timeline::{
 use matrix_sdk_base::event_cache::Event;
 
 use crate::ResultExt;
-use crate::protocol::{CommandErr, SubscriptionId, TimelineFocusView, TimelineItemView};
+use crate::protocol::{RpcError, SubscriptionId, TimelineItemView};
 use crate::view::{CUTE_EVENT_MSGTYPE, aggregation_item};
 
 use crate::{CachedTimeline, Core, SubscriptionKind, ThreadKey};
@@ -27,13 +28,10 @@ const MAX_CACHED_THREAD_TIMELINES: usize = 4;
 
 impl Core {
     /// Cached: a second subscriber would give the UI two streams for one room.
-    pub(crate) async fn timeline(
-        &self,
-        room_id: &OwnedRoomId,
-    ) -> Result<Arc<Timeline>, CommandErr> {
+    pub(crate) async fn timeline(&self, room_id: &OwnedRoomId) -> Result<Arc<Timeline>, RpcError> {
         {
             let session = self.session.read().await;
-            session.as_ref().ok_or(CommandErr::NotLoggedIn)?;
+            session.as_ref().ok_or(RpcError::NotLoggedIn)?;
             if let Some(cached) = self.timelines.lock().await.get(room_id) {
                 return Ok(cached.timeline.clone());
             }
@@ -54,15 +52,15 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         hidden_events: bool,
-    ) -> Result<Arc<Timeline>, CommandErr> {
+    ) -> Result<Arc<Timeline>, RpcError> {
         tracing::info!(%room_id, "live_timeline: waiting for session");
         let session = self.session.read().await;
         let room = session
             .as_ref()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .client
             .get_room(room_id)
-            .ok_or(CommandErr::UnknownRoom)?;
+            .ok_or(RpcError::UnknownRoom)?;
         {
             let mut timelines = self.timelines.lock().await;
             if let Some(cached) = timelines.get_mut(room_id)
@@ -127,7 +125,7 @@ impl Core {
     pub(crate) async fn restore_history_gap(
         &self,
         room: &matrix_sdk::Room,
-    ) -> Result<bool, CommandErr> {
+    ) -> Result<bool, RpcError> {
         let room_id = room.room_id().to_owned();
         if self
             .restored_history_rooms
@@ -237,7 +235,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         thread_root: Option<&OwnedEventId>,
-    ) -> Result<Arc<Timeline>, CommandErr> {
+    ) -> Result<Arc<Timeline>, RpcError> {
         match thread_root {
             Some(root) => self.thread_timeline(room_id, root).await,
             None => self.timeline(room_id).await,
@@ -249,7 +247,7 @@ impl Core {
         room_id: &OwnedRoomId,
         thread_root: Option<&OwnedEventId>,
         subscription: Option<SubscriptionId>,
-    ) -> Result<Arc<Timeline>, CommandErr> {
+    ) -> Result<Arc<Timeline>, RpcError> {
         let Some(subscription) = subscription else {
             return self.timeline_for(room_id, thread_root).await;
         };
@@ -260,9 +258,9 @@ impl Core {
             .get(&subscription)
             .filter(|subscription| subscription.thread_root.as_ref() == thread_root)
             .and_then(|subscription| subscription.timeline.clone())
-            .ok_or(CommandErr::UnknownSubscription)?;
+            .ok_or(RpcError::UnknownSubscription)?;
         if timeline.room().room_id() != room_id {
-            return Err(CommandErr::UnknownSubscription);
+            return Err(RpcError::UnknownSubscription);
         }
         Ok(timeline)
     }
@@ -278,14 +276,14 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         root_event_id: &OwnedEventId,
-    ) -> Result<Arc<Timeline>, CommandErr> {
+    ) -> Result<Arc<Timeline>, RpcError> {
         let session = self.session.read().await;
         let room = session
             .as_ref()
-            .ok_or(CommandErr::NotLoggedIn)?
+            .ok_or(RpcError::NotLoggedIn)?
             .client
             .get_room(room_id)
-            .ok_or(CommandErr::UnknownRoom)?;
+            .ok_or(RpcError::UnknownRoom)?;
         let key: ThreadKey = (room_id.clone(), root_event_id.clone());
         {
             let mut threads = self.thread_timelines.lock().await;

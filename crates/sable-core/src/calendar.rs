@@ -15,7 +15,7 @@ use serde_json::value::to_raw_value;
 use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::protocol::{
-    CalendarEntryView, CalendarRsvpView, CalendarView, CommandErr, CoreEvent, RsvpStatusView,
+    CalendarEntryView, CalendarRsvpView, CalendarView, CoreEvent, RpcError, RsvpStatusView,
 };
 use crate::room_settings::EmptyContent;
 use crate::{Core, ResultExt};
@@ -109,7 +109,7 @@ impl Core {
     pub(crate) async fn calendar_entries(
         &self,
         room_id: &OwnedRoomId,
-    ) -> Result<CalendarView, CommandErr> {
+    ) -> Result<CalendarView, RpcError> {
         let room = self.room(room_id).await?;
         let cached = self
             .calendars
@@ -202,7 +202,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event: Value,
         replaces: Option<OwnedEventId>,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let room = self.room(room_id).await?;
         let calendar_id = self.calendar_id(&room).await?;
         let content = to_raw_value(&CalendarEventsOut {
@@ -228,7 +228,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         answer: &CalendarAnswer,
-    ) -> Result<(), CommandErr> {
+    ) -> Result<(), RpcError> {
         let content =
             to_raw_value(&rsvp_content(answer)).or_failed(self, "answer_calendar_event")?;
         self.room(room_id)
@@ -239,7 +239,7 @@ impl Core {
         Ok(())
     }
 
-    pub(crate) async fn calendar_id(&self, room: &matrix_sdk::Room) -> Result<String, CommandErr> {
+    pub(crate) async fn calendar_id(&self, room: &matrix_sdk::Room) -> Result<String, RpcError> {
         let existing = self
             .room_state_event_content(
                 room.room_id().to_owned(),

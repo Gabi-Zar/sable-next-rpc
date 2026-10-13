@@ -4,17 +4,25 @@ use serde::{Deserialize, Serialize};
 
 use super::Handler;
 use crate::api::support::MAX_SEARCH_RESULTS;
-use crate::protocol::{
-    CommandErr, SearchCoverageView, SearchFilter, SearchHitView, SearchMetricsView, SearchOrder,
-};
+use crate::protocol::{RpcError, SearchCoverageView, SearchFilter, SearchHitView, SearchMetricsView};
 use crate::{Core, view};
 
 const MAX_SEARCH_CONTEXT: usize = 3;
 
 domain! {
-    search_messages => SearchMessagesParams,
-    search_coverage => SearchCoverageParams,
-    search_metrics => SearchMetricsParams,
+    search_messages,
+    search_coverage,
+    search_metrics,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum SearchOrder {
+    #[default]
+    Rank,
+    Recent,
+    Oldest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,7 +51,7 @@ pub struct SearchMessagesOk {
 impl Handler for SearchMessagesParams {
     type Ok = SearchMessagesOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SearchMessagesOk, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SearchMessagesOk, RpcError> {
         let Self {
             query,
             filter,
@@ -85,7 +93,7 @@ pub struct SearchCoverageParams {}
 impl Handler for SearchCoverageParams {
     type Ok = SearchCoverageView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SearchCoverageView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SearchCoverageView, RpcError> {
         Ok(core.search_coverage(&core.client().await?).await)
     }
 }
@@ -97,7 +105,7 @@ pub struct SearchMetricsParams {}
 impl Handler for SearchMetricsParams {
     type Ok = SearchMetricsView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SearchMetricsView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<SearchMetricsView, RpcError> {
         Ok(core.search_metrics(&core.client().await?).await)
     }
 }

@@ -6,18 +6,18 @@ use serde::Deserialize;
 
 use super::Handler;
 use crate::Core;
-use crate::protocol::{CommandErr, PersonaCatalogView, PersonaView};
+use crate::protocol::{RpcError, PersonaCatalogView, PersonaView};
 
 domain! {
-    personas => PersonasParams,
-    save_persona => SavePersonaParams,
-    remove_persona => RemovePersonaParams,
-    reorder_personas => ReorderPersonasParams,
-    set_persona_selection => SetPersonaSelectionParams,
-    disable_room_personas => DisableRoomPersonasParams,
-    persona_backup => PersonaBackupParams,
-    check_persona_backup => CheckPersonaBackupParams,
-    restore_persona_backup => RestorePersonaBackupParams,
+    personas,
+    save_persona,
+    remove_persona,
+    reorder_personas,
+    set_persona_selection,
+    disable_room_personas,
+    persona_backup,
+    check_persona_backup,
+    restore_persona_backup,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,7 +27,7 @@ pub struct PersonasParams {}
 impl Handler for PersonasParams {
     type Ok = PersonaCatalogView;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PersonaCatalogView, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<PersonaCatalogView, RpcError> {
         core.personas().await
     }
 }
@@ -43,7 +43,7 @@ pub struct SavePersonaParams {
 impl Handler for SavePersonaParams {
     type Ok = Vec<PersonaView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, RpcError> {
         core.save_persona(self.persona, self.previous_id).await
     }
 }
@@ -57,7 +57,7 @@ pub struct RemovePersonaParams {
 impl Handler for RemovePersonaParams {
     type Ok = Vec<PersonaView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, RpcError> {
         core.remove_persona(&self.id).await
     }
 }
@@ -71,7 +71,7 @@ pub struct ReorderPersonasParams {
 impl Handler for ReorderPersonasParams {
     type Ok = Vec<PersonaView>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, RpcError> {
         core.reorder_personas(self.ids).await
     }
 }
@@ -89,7 +89,7 @@ pub struct SetPersonaSelectionParams {
 impl Handler for SetPersonaSelectionParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_persona_selection(self.room_id, self.persona_id, self.valid_until)
             .await
     }
@@ -105,7 +105,7 @@ pub struct DisableRoomPersonasParams {
 impl Handler for DisableRoomPersonasParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.disable_room_personas(self.room_id).await
     }
 }
@@ -118,7 +118,7 @@ pub struct PersonaBackupParams {}
 impl Handler for PersonaBackupParams {
     type Ok = String;
 
-    async fn run(self, core: &Arc<Core>) -> Result<String, CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.persona_backup().await
     }
 }
@@ -133,7 +133,7 @@ pub struct CheckPersonaBackupParams {
 impl Handler for CheckPersonaBackupParams {
     type Ok = ();
 
-    fn run(self, _core: &Arc<Core>) -> impl Future<Output = Result<(), CommandErr>> {
+    fn run(self, _core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
         future::ready(Core::check_persona_backup(&self.backup))
     }
 }
@@ -148,7 +148,7 @@ pub struct RestorePersonaBackupParams {
 impl Handler for RestorePersonaBackupParams {
     type Ok = ();
 
-    async fn run(self, core: &Arc<Core>) -> Result<(), CommandErr> {
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.restore_persona_backup(&self.backup).await
     }
 }

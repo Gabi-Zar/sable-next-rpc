@@ -1,3 +1,5 @@
+use crate::api::account::ProfilePropagationView;
+use crate::api::timeline::TimelineFocusView;
 use std::{collections::HashMap, sync::Arc};
 
 use matrix_sdk::{
@@ -30,7 +32,7 @@ use crate::{
         SubscribeRoomListOk, SubscribeRoomListParams, SubscribeTimelineOk, SubscribeTimelineParams,
         UnsubscribeParams,
     },
-    protocol::{CommandErr, CoreEvent, IdentityResetStep},
+    protocol::{CoreEvent, IdentityResetStep, RpcError},
     session::Session,
     store::MemorySessionStore,
 };
@@ -450,7 +452,6 @@ fn space_child_ties_follow_ruma_room_id_order() {
 
 #[tokio::test]
 async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing() {
-    use crate::protocol::TimelineFocusView;
     use futures_util::StreamExt;
     use matrix_sdk::{ruma::event_id, test_utils::mocks::RoomContextResponseTemplate};
     use matrix_sdk_test::{ALICE, event_factory::EventFactory};
@@ -521,7 +522,6 @@ async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing()
 
 #[tokio::test]
 async fn an_open_room_is_resubscribed_after_the_sync_session_expires() {
-    use crate::protocol::TimelineFocusView;
     use futures_util::StreamExt;
 
     let server = MatrixMockServer::new().await;
@@ -1079,7 +1079,7 @@ async fn corrupt_encrypted_media_is_rejected_before_returning_plaintext() {
     .unwrap();
     assert!(matches!(
         core.media_thumbnail(source, 0, 0).await,
-        Err(CommandErr::Unavailable)
+        Err(RpcError::Unavailable)
     ));
 }
 
@@ -1606,14 +1606,14 @@ async fn a_server_whose_media_keeps_failing_is_refused_without_a_request() {
         assert!(matches!(
             core.media_thumbnail(format!("mxc://dead.example/{id}"), 64, 64)
                 .await,
-            Err(CommandErr::Unavailable)
+            Err(RpcError::Unavailable)
         ));
     }
 
     assert!(matches!(
         core.media_thumbnail("mxc://dead.example/four".to_owned(), 64, 64)
             .await,
-        Err(CommandErr::MediaServerUnavailable { retry_after_ms }) if retry_after_ms > 0
+        Err(RpcError::MediaServerUnavailable { retry_after_ms }) if retry_after_ms > 0
     ));
 }
 
@@ -1681,7 +1681,7 @@ async fn forbidden_media_never_opens_the_circuit() {
         assert!(matches!(
             core.media_thumbnail(format!("mxc://policy.example/{id}"), 0, 0)
                 .await,
-            Err(CommandErr::Unavailable)
+            Err(RpcError::Unavailable)
         ));
     }
 }
@@ -1843,7 +1843,7 @@ async fn forgetting_an_invalid_uri_is_refused() {
 
     assert!(matches!(
         core.forget_media("not-a-uri".to_owned()).await,
-        Err(CommandErr::InvalidMedia)
+        Err(RpcError::InvalidMedia)
     ));
 }
 
@@ -1923,15 +1923,15 @@ async fn recover_identity_accepts_the_passphrase_as_well_as_the_key() {
 
     assert!(matches!(
         recover("wrong horse".to_owned()).await,
-        Err(CommandErr::Denied)
+        Err(RpcError::Denied)
     ));
     assert!(matches!(
         recover("correct horse".to_owned()).await,
-        Err(CommandErr::Failed { .. })
+        Err(RpcError::Failed { .. })
     ));
     assert!(matches!(
         recover(key.to_base58()).await,
-        Err(CommandErr::Failed { .. })
+        Err(RpcError::Failed { .. })
     ));
 }
 
@@ -2041,7 +2041,7 @@ async fn an_identity_reset_retries_a_wrong_password_and_returns_the_new_key() {
             password: Some("wrong".into())
         })
         .await,
-        Err(CommandErr::Denied)
+        Err(RpcError::Denied)
     ));
     let Ok(recovery_key) = core
         .run(ContinueIdentityResetParams {
@@ -2055,7 +2055,7 @@ async fn an_identity_reset_retries_a_wrong_password_and_returns_the_new_key() {
     assert!(matches!(
         core.run(ContinueIdentityResetParams { password: None })
             .await,
-        Err(CommandErr::Unavailable)
+        Err(RpcError::Unavailable)
     ));
 }
 
@@ -2083,7 +2083,7 @@ async fn a_cancelled_oauth_identity_reset_hands_back_no_key() {
             core.run(CancelIdentityResetParams {}).await.unwrap();
         }
     );
-    assert!(matches!(waiting, Err(CommandErr::Unavailable)));
+    assert!(matches!(waiting, Err(RpcError::Unavailable)));
 }
 
 #[tokio::test]
@@ -2131,7 +2131,6 @@ async fn an_approved_oauth_identity_reset_completes_its_session() {
 
 #[tokio::test]
 async fn profile_updates_send_the_chosen_msc4466_propagation() {
-    use crate::protocol::ProfilePropagationView;
     use wiremock::matchers::{path_regex, query_param, query_param_is_missing};
 
     const PROPAGATE_TO: &str = "computer.gingershaped.msc4466.propagate_to";
@@ -2313,7 +2312,7 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
             content: json!({}),
         })
         .await,
-        Err(CommandErr::Unsupported)
+        Err(RpcError::Unsupported)
     ));
 
     core.adopt_account_data_key(&client, &key.to_base58()).await;
@@ -2460,7 +2459,7 @@ async fn a_sidebar_naming_something_that_is_not_a_room_is_refused() {
         })
         .await;
 
-    assert!(matches!(refused, Err(CommandErr::UnknownRoom)));
+    assert!(matches!(refused, Err(RpcError::UnknownRoom)));
 }
 
 #[tokio::test]
