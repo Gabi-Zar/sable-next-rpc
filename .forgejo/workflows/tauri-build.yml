@@ -165,7 +165,7 @@ jobs:
             --label "org.opencontainers.image.revision=$REVISION" \
             --label "org.opencontainers.image.version=$VERSION" \
             --cache-from "type=registry,ref=$image:buildcache-$ARCH" \
-            --cache-to "type=registry,ref=$image:buildcache-$ARCH,mode=max" \
+            --cache-to "type=registry,ref=$image:buildcache-$ARCH,mode=max,ignore-error=true" \
             --output "type=image,name=$image,push-by-digest=true,name-canonical=true,push=true" \
             --metadata-file "$RUNNER_TEMP/build-metadata.json"
           mkdir digests
