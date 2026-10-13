@@ -1048,6 +1048,7 @@ jobs:
               echo '-'
             fi
           }
+          node scripts/flatpak-metainfo-release.mjs "$VERSION"
           node scripts/ci/render-flatpak-stable.mjs "$VERSION" "$(arch_args x86_64)" "$(arch_args aarch64)"
 
           src=packaging/flatpak
