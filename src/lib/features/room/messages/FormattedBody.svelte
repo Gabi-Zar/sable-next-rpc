@@ -263,7 +263,6 @@
           return label;
         };
         for (const anchor of node.querySelectorAll('a')) {
-          anchor.setAttribute('draggable', 'false');
           anchor.target = '_blank';
           anchor.rel = 'noopener noreferrer';
 
