@@ -65,6 +65,10 @@ export async function toggleMaximizeWindow(): Promise<void> {
   await (await currentWindow()).toggleMaximize();
 }
 
+export async function setWindowFullscreen(fullscreen: boolean): Promise<void> {
+  await (await currentWindow()).setFullscreen(fullscreen);
+}
+
 export async function closeWindow(): Promise<void> {
   await (await currentWindow()).close();
 }

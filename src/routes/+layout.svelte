@@ -25,6 +25,8 @@
   import { guardTouchClicks } from '#lib/ui/trailing-click.js';
   import {
     applyDesktopWindowSettings,
+    setWindowFullscreen,
+    supportsDesktopWindow,
     titleBarKind,
     type TitleBarKind,
   } from '#lib/platform/window-decorations.js';
@@ -125,6 +127,16 @@
       useCustomTitleBar: preferences.useCustomTitleBar,
     }).catch((error: unknown) => {
       console.debug('[sable window] the desktop window settings were not applied', error);
+    });
+  });
+
+  $effect(() => {
+    if (!supportsDesktopWindow()) return;
+
+    return on(document, 'fullscreenchange', () => {
+      setWindowFullscreen(document.fullscreenElement !== null).catch((error: unknown) => {
+        console.debug('[sable window] the window fullscreen state was not applied', error);
+      });
     });
   });
 

@@ -245,8 +245,8 @@
     if (event.pointerType === 'mouse') rest();
   }}
   onkeydown={wake}
-  onfocusin={() => {
-    chromeHeld = true;
+  onfocusin={(event) => {
+    chromeHeld = (event.target as HTMLElement).matches(':focus-visible');
     wake();
   }}
   onfocusout={() => (chromeHeld = false)}
@@ -535,7 +535,8 @@
   }
 
   .resting .chrome,
-  .resting :global(.tile .actions:not(:focus-within)) {
+  .resting :global(.tile .actions:not(:has(:focus-visible))),
+  .resting :global(.tile .tag) {
     opacity: 0;
     pointer-events: none;
   }

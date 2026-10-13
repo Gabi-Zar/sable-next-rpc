@@ -496,6 +496,7 @@
     max-inline-size: calc(100% - var(--space-400));
     padding: var(--space-050) var(--space-200);
     position: absolute;
+    transition: opacity var(--motion-slow) var(--motion-easing-emphasized);
   }
 
   .tag :global(svg) {
