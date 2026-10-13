@@ -115,7 +115,6 @@ test('uses the timeline context menu for a forum thread', async () => {
     onDelete,
     roomId: '!forum:example.org',
     onReact: vi.fn(),
-    loadImagePacks: vi.fn(() => Promise.resolve([])),
     onCopyLink: vi.fn(),
   });
 
@@ -149,7 +148,6 @@ test('renders the thread root through the timeline renderer', async () => {
     canDelete: false,
     onDelete: vi.fn(),
     roomId: '!forum:example.org',
-    loadImagePacks: vi.fn(() => Promise.resolve([])),
     onCopyLink: vi.fn(),
   });
 

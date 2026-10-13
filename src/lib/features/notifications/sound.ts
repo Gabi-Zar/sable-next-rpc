@@ -52,32 +52,35 @@ const RESUME_STALL_MS = 3000;
 
 let context: AudioContext | undefined;
 let playing: AudioBufferSourceNode | undefined;
-const sounds: Map<keyof NotificationSounds, Promise<AudioBuffer> | null> = new Map();
+const sounds = new Map<keyof NotificationSounds, Promise<AudioBuffer>>();
 
 export type NotificationSound = { stop: () => void };
 
-/** Buffers  */
-export async function playNotificationSound(name: keyof NotificationSounds): Promise<void> {
-  const { path, volumePreference } = SOUNDS[name];
-  const audioContext = (context ??= new AudioContext());
-
-  let soundPromise;
-  if (sounds.has(name)) {
-    soundPromise = sounds.get(name);
-  } else {
-    soundPromise = fetch(path)
+function load(name: keyof NotificationSounds, audioContext: AudioContext): Promise<AudioBuffer> {
+  let sound = sounds.get(name);
+  if (!sound) {
+    sound = fetch(SOUNDS[name].path)
       .then((response) => response.arrayBuffer())
       .then((bytes) => audioContext.decodeAudioData(bytes));
+    sounds.set(name, sound);
+    sound.catch(() => sounds.delete(name));
   }
+  return sound;
+}
 
+async function start(
+  name: keyof NotificationSounds,
+  options: { exclusive: boolean; loop?: boolean }
+): Promise<AudioBufferSourceNode | null> {
+  const audioContext = (context ??= new AudioContext());
   try {
-    const buffer = await soundPromise;
-    if (context !== audioContext || playing !== undefined) {
+    const buffer = await load(name, audioContext);
+    if (options.exclusive && (context !== audioContext || playing !== undefined)) {
       recordDebugLog('debug', 'notification', 'sound', 'skipped', {
         replaced: context !== audioContext,
         playing: playing !== undefined,
       });
-      return;
+      return null;
     }
     if (audioContext.state !== 'running') {
       recordDebugLog('debug', 'notification', 'sound', 'resuming', { state: audioContext.state });
@@ -90,12 +93,16 @@ export async function playNotificationSound(name: keyof NotificationSounds): Pro
         clearTimeout(stalled);
       }
     }
-    if (context !== audioContext) return;
+    if (context !== audioContext) {
+      if (options.exclusive) return null;
+      throw new Error('AudioContext was changed mid-playback');
+    }
 
     const source = audioContext.createBufferSource();
-    source.buffer = buffer ?? null;
+    source.buffer = buffer;
+    source.loop = options.loop ?? false;
     const gain = audioContext.createGain();
-    gain.gain.value = preferences[volumePreference] * GAIN_MODIFIER;
+    gain.gain.value = preferences[SOUNDS[name].volumePreference] * GAIN_MODIFIER;
     source.connect(gain).connect(audioContext.destination);
     playing = source;
     source.addEventListener('ended', () => {
@@ -106,71 +113,32 @@ export async function playNotificationSound(name: keyof NotificationSounds): Pro
       state: audioContext.state,
       volume: gain.gain.value,
     });
+    return source;
   } catch (error) {
     if (context === audioContext) {
       context = undefined;
       playing = undefined;
-      sounds.set(name, null);
     }
     if (audioContext.state !== 'closed') void audioContext.close();
     throw error;
   }
 }
 
+/** Skipped while another sound is playing. */
+export async function playNotificationSound(name: keyof NotificationSounds): Promise<void> {
+  await start(name, { exclusive: true });
+}
+
 export async function playSound(
   name: keyof NotificationSounds,
   options: { blocking?: boolean; loop?: boolean } = {}
 ): Promise<NotificationSound> {
-  const { path, volumePreference } = SOUNDS[name];
-  const audioContext = (context ??= new AudioContext());
-
-  let soundPromise;
-  if (sounds.has(name)) {
-    soundPromise = sounds.get(name);
-  } else {
-    soundPromise = fetch(path)
-      .then((response) => response.arrayBuffer())
-      .then((bytes) => audioContext.decodeAudioData(bytes));
-  }
-
-  try {
-    const buffer = await soundPromise;
-    if (audioContext.state !== 'running') {
-      recordDebugLog('debug', 'notification', 'sound', 'resuming', { state: audioContext.state });
-      await audioContext.resume();
-    }
-    if (context !== audioContext) throw new Error('AudioContext was changed mid-playback');
-
-    const source = audioContext.createBufferSource();
-    source.buffer = buffer ?? null;
-    const gain = audioContext.createGain();
-    gain.gain.value = preferences[volumePreference] * GAIN_MODIFIER;
-    source.connect(gain).connect(audioContext.destination);
-    playing = source;
-    source.addEventListener('ended', () => {
-      if (playing === source) playing = undefined;
-    });
-
-    if (options.loop) source.loop = true;
-    source.start();
-    recordDebugLog('debug', 'notification', 'sound', 'started', {
-      state: audioContext.state,
-      volume: gain.gain.value,
-    });
-
-    if (options.blocking) await new Promise((resolve) => (source.onended = resolve));
-    return {
-      stop: () => {
-        source.stop();
-      },
-    };
-  } catch (error) {
-    if (context === audioContext) {
-      context = undefined;
-      playing = undefined;
-      sounds.set(name, null);
-    }
-    if (audioContext.state !== 'closed') void audioContext.close();
-    throw error;
-  }
+  const source = await start(name, { exclusive: false, loop: options.loop });
+  if (!source) throw new Error('AudioContext was changed mid-playback');
+  if (options.blocking) await new Promise((resolve) => (source.onended = resolve));
+  return {
+    stop: () => {
+      source.stop();
+    },
+  };
 }

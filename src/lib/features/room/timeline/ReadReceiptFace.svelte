@@ -1,8 +1,7 @@
 <script lang="ts">
-  import type { ProfileView } from '#src/generated/protocol';
-
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
@@ -24,26 +23,10 @@
 
   const core = useCoreClient();
   const roomCosmetics = useRoomCosmetics();
-  let profile = $state<ProfileView | null>(null);
+  const profile = new UserProfile(core, () => userId);
   let colors = $derived(
-    senderDisplayColors(userId, profile, null, false, roomCosmetics?.for(userId) ?? null)
+    senderDisplayColors(userId, profile.current, null, false, roomCosmetics?.for(userId) ?? null)
   );
-
-  $effect(() => {
-    profile = null;
-    let current = true;
-    void core.userProfile(userId).then(
-      (next) => {
-        if (current) profile = next;
-      },
-      (error: unknown) => {
-        console.debug('[sable profile] profile unavailable', userId, error);
-      }
-    );
-    return () => {
-      current = false;
-    };
-  });
 </script>
 
 {#snippet faceTrigger({ props }: { props: Record<string, unknown> })}

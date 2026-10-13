@@ -1,19 +1,15 @@
 <script lang="ts">
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
-  import type { ImagePackView, MemberView, ReactionGroup } from '#src/generated/protocol';
+  import type { MemberView, ReactionGroup } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
-  import { imagePacks as listImagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
+  import { RoomPacks } from '#lib/emoji/room-packs.svelte.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
 
-  import {
-    isCustomReaction,
-    loadReactionEmotePacks,
-    reactionEmoteLabel,
-  } from './reaction-emote-label.js';
+  import { isCustomReaction, reactionEmoteLabel } from './reaction-emote-label.js';
   import TabbedMemberListDialog from '../members/TabbedMemberListDialog.svelte';
   import { memberName } from '../members/members.js';
   import { redactReaction } from './redact-reaction.js';
@@ -44,7 +40,7 @@
     onMemberProfile,
   }: Props = $props();
   const core = useCoreClient();
-  let imagePacks = $state.raw<ImagePackView[]>([]);
+  const packs = new RoomPacks(core, () => roomId);
   let deleting = $state<{ key: string; sender: string } | null>(null);
 
   function canRemove(sender: string): boolean {
@@ -63,20 +59,6 @@
       deleting = null;
     }
   }
-
-  $effect(() => {
-    let current = true;
-    void loadReactionEmotePacks(roomId, (target) => listImagePacks(core.rpc, target))
-      .then((packs) => {
-        if (current) imagePacks = packs;
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable emotes] image packs unavailable', error);
-      });
-    return () => {
-      current = false;
-    };
-  });
 </script>
 
 <TabbedMemberListDialog
@@ -94,7 +76,7 @@
       <MediaImage
         class="reaction-image"
         source={reaction.key}
-        alt={reactionEmoteLabel(reaction.key, imagePacks, $i18n.t('timeline.customEmote'))}
+        alt={reactionEmoteLabel(reaction.key, packs.current, $i18n.t('timeline.customEmote'))}
         width={64}
         height={64}
         original

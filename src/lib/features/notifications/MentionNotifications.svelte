@@ -8,6 +8,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import SettingsAnchorLink from '#lib/ui/primitives/SettingsAnchorLink.svelte';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Select from '#lib/ui/primitives/Select.svelte';
@@ -25,9 +26,10 @@
   };
   let current = $state<MentionNotificationsView | null>(null);
   let failed = $state(false);
-  let displayName = $state('');
 
   let userId = $derived(core.session?.user_id ?? '');
+  const ownProfile = new UserProfile(core, () => userId || null);
+  let displayName = $derived(ownProfile.current?.display_name ?? '');
   let username = $derived(userId.replace(/^@/, '').split(':')[0] ?? '');
   let rules = $derived<
     { rule: MentionRuleView; key: keyof MentionNotificationsView; label: string; hint?: string }[]
@@ -51,22 +53,6 @@
     },
   ]);
   let shown = $derived(rules.filter(({ key }) => current?.[key] !== null));
-
-  $effect(() => {
-    if (!userId) return;
-
-    let alive = true;
-    void core.userProfile(userId).then(
-      (profile) => {
-        if (alive) displayName = profile.display_name ?? '';
-      },
-      (error: unknown) => console.debug('[sable notifications] own profile unavailable', error)
-    );
-
-    return () => {
-      alive = false;
-    };
-  });
 
   $effect(() => {
     void settingsChanges.version;

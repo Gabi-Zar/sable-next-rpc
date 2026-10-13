@@ -1,8 +1,7 @@
 <script lang="ts">
-  import type { ProfileView } from '#src/generated/protocol';
-
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
 
   import { senderDisplayColors } from './members.js';
@@ -19,33 +18,17 @@
   const core = useCoreClient();
   const roomCosmetics = useRoomCosmetics();
   const senderRoles = hasSenderRoles() ? useSenderRoles() : null;
-  let profile = $state<ProfileView | null>(null);
+  const profile = new UserProfile(core, () => userId);
   let colors = $derived(
     senderDisplayColors(
       userId,
-      profile,
+      profile.current,
       null,
       false,
       roomCosmetics?.for(userId) ?? null,
       senderRoles?.(userId)?.color ?? null
     )
   );
-
-  $effect(() => {
-    profile = null;
-    let current = true;
-    void core.userProfile(userId).then(
-      (next) => {
-        if (current) profile = next;
-      },
-      (error: unknown) => {
-        console.debug('[sable profile] profile unavailable', error);
-      }
-    );
-    return () => {
-      current = false;
-    };
-  });
 
   function openProfile(anchor: HTMLElement): void {
     onProfile?.(userId, anchor);

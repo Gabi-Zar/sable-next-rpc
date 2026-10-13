@@ -3,13 +3,14 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
-  import type { ProfileView, SessionInfo } from '#src/generated/protocol';
+  import type { SessionInfo } from '#src/generated/protocol';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { defaultSettingsSection } from '#lib/features/settings/settings-navigation.js';
   import { pushOverride } from '#lib/features/notifications/push-config.js';
   import { logoutWithPush } from '#lib/features/notifications/web-push.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -45,8 +46,8 @@
   let accountToLogout = $derived(
     core.accounts.find((account) => account.account_id === logoutAccountId) ?? null
   );
-  let profile = $state<ProfileView | null>(null);
-  let activeProfile = $derived(profile?.user_id === core.session?.user_id ? profile : null);
+  const ownProfile = new UserProfile(core, () => core.session?.user_id);
+  let activeProfile = $derived(ownProfile.current);
   let displayName = $derived(activeProfile?.display_name ?? core.session?.user_id ?? '?');
   let userStatus = $derived(
     resolveUserStatus(activeProfile, presenceStore.get(core.session?.user_id ?? ''))
@@ -58,27 +59,6 @@
     void runtimeConfig().then((config) => {
       accountSwitching = !config.disableAccountSwitcher;
     });
-  });
-
-  $effect(() => {
-    const userId = core.session?.user_id;
-    if (!userId) return;
-    let cancelled = false;
-    const load = () =>
-      core.userProfile(userId).then(
-        (nextProfile) => {
-          if (!cancelled) profile = nextProfile;
-        },
-        (error: unknown) => console.debug('[sable nav] own profile unavailable', error)
-      );
-    void load();
-    const unsubscribe = core.onProfileChanged((changed) => {
-      if (changed === userId) void load();
-    });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
   });
 
   async function switchAccount(accountId: string): Promise<void> {

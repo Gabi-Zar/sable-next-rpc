@@ -2,8 +2,6 @@ import QuickLRU from 'quick-lru';
 
 import type { ImagePackView, ReactionShortcodeView } from '#src/generated/protocol';
 
-const packs = new Map<string, ImagePackView[]>();
-const pending = new Map<string, Promise<ImagePackView[]>>();
 const sentShortcodes = new QuickLRU<string, Promise<ReadonlyMap<string, string>>>({
   maxSize: 512,
 });
@@ -52,28 +50,6 @@ export function loadReactionShortcodes(
       }
     );
     sentShortcodes.set(cacheKey, load);
-  }
-  return load;
-}
-
-export async function loadReactionEmotePacks(
-  roomId: string,
-  imagePacks: (roomId: string) => Promise<ImagePackView[]>
-): Promise<ImagePackView[]> {
-  const cached = packs.get(roomId);
-  if (cached !== undefined) return cached;
-
-  let load = pending.get(roomId);
-  if (load === undefined) {
-    load = imagePacks(roomId)
-      .then((loaded) => {
-        packs.set(roomId, loaded);
-        return loaded;
-      })
-      .finally(() => {
-        pending.delete(roomId);
-      });
-    pending.set(roomId, load);
   }
   return load;
 }

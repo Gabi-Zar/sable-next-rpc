@@ -4,7 +4,6 @@ import type { ImagePackView } from '#src/generated/protocol';
 
 import {
   isCustomReaction,
-  loadReactionEmotePacks,
   loadReactionShortcodes,
   reactionEmoteLabel,
   reactionShortcode,
@@ -43,18 +42,6 @@ test('does not expose an unknown custom emote media URI', () => {
   expect(reactionEmoteLabel('mxc://remote.example/unknown', imagePacks, 'custom emote')).toBe(
     'custom emote'
   );
-});
-
-test('retries a room pack read after a transient failure', async () => {
-  let attempts = 0;
-  const load = (): Promise<ImagePackView[]> => {
-    attempts += 1;
-    return attempts === 1 ? Promise.reject(new Error('offline')) : Promise.resolve(imagePacks);
-  };
-
-  await expect(loadReactionEmotePacks('!retry:example.org', load)).rejects.toThrow('offline');
-  await expect(loadReactionEmotePacks('!retry:example.org', load)).resolves.toBe(imagePacks);
-  expect(attempts).toBe(2);
 });
 
 test('prefers the shortcode the reaction was sent with over the local pack name', () => {

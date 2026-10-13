@@ -1,6 +1,5 @@
 import { copyText as writeClipboard } from '#lib/platform/clipboard.js';
 import type { TimelineItemView, ImageSourcePackView } from '#src/generated/protocol';
-import { imagePacks } from '#lib/core/api/packs.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import type { PersonaStore } from '#lib/personas/personas.svelte.js';
 import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
@@ -214,7 +213,6 @@ export class MessageActionExecutor {
       if (item.content.kind === 'message') await writeClipboard(item.content.body);
     }
     return {
-      loadImagePacks: (targetRoomId: string) => imagePacks(core.rpc, targetRoomId),
       roomId,
       onReact: policy.react
         ? (

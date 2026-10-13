@@ -4,7 +4,6 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
 
-  import { imagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { personaSpaces } from '#lib/features/composer/persona-spaces.js';
   import { eventTimelinePath } from '#lib/features/room/event-timeline.js';
@@ -305,7 +304,6 @@
         onDelete={deleteThread}
         roomId={resolvedRoomId}
         onReact={permissions?.can_react === false ? undefined : conversation.toggleReaction}
-        loadImagePacks={(target) => imagePacks(core.rpc, target)}
         onCopyLink={copyEventLink}
         onLoadMore={loadMoreThreads}
         isPinned={(eventId) => pinnedEvents.has(eventId)}

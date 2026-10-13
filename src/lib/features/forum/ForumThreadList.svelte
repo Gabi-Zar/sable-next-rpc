@@ -19,7 +19,6 @@
     onDelete: (eventId: string, reason: string | null) => void;
     roomId: string;
     onReact?: (eventId: string, key: string) => void;
-    loadImagePacks: (roomId: string) => Promise<import('#src/generated/protocol').ImagePackView[]>;
     onCopyLink: (eventId: string) => void;
     onLoadMore: () => void;
     isPinned?: (eventId: string) => boolean;
@@ -36,7 +35,6 @@
     onDelete,
     roomId,
     onReact,
-    loadImagePacks,
     onCopyLink,
     onLoadMore,
     isPinned = () => false,
@@ -65,7 +63,6 @@
             {onDelete}
             {roomId}
             {onReact}
-            {loadImagePacks}
             {onCopyLink}
             {onPin}
             pinned
@@ -83,7 +80,6 @@
           {onDelete}
           {roomId}
           {onReact}
-          {loadImagePacks}
           {onCopyLink}
           {onPin}
           pinned={isPinned(thread.eventId)}

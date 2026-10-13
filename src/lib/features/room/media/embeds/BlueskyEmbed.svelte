@@ -44,7 +44,14 @@
     const repo = record?.repo;
     const key = record?.key;
 
+    authorHandle = null;
     details = null;
+    profile = null;
+    likes = null;
+    reposts = null;
+    comments = null;
+    quote = null;
+    quoteProfile = null;
     if (repo === undefined || key === undefined) return;
 
     let cancelled = false;
@@ -57,7 +64,7 @@
   async function loadPost(repo: string, key: string, live: () => boolean): Promise<void> {
     try {
       const miniDoc = await resolveMiniDoc(repo);
-      if (!miniDoc) return;
+      if (!miniDoc || !live()) return;
       const { did, pds, handle } = miniDoc;
       authorHandle = handle;
       await Promise.all([

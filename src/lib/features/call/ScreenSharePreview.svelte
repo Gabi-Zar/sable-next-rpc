@@ -8,6 +8,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
 
@@ -57,24 +58,9 @@
     const identity = shown.participant.identity;
     return session.members.find((member) => member.identity === identity)?.user_id ?? identity;
   });
-  let sharerName = $state<string | null>(null);
+  const sharerProfile = new UserProfile(core, () => sharerId);
+  let sharerName = $derived(sharerProfile.current?.display_name ?? null);
   let label = $derived($i18n.t('call.screenOf', { name: sharerName ?? sharerId ?? '' }));
-
-  $effect(() => {
-    const userId = sharerId;
-    sharerName = null;
-    if (userId === null) return;
-    let current = true;
-    core.userProfile(userId).then(
-      (profile) => {
-        if (current) sharerName = profile.display_name ?? null;
-      },
-      (error: unknown) => console.debug('[sable call] sharer profile unavailable', error)
-    );
-    return () => {
-      current = false;
-    };
-  });
 
   let video = $state<HTMLVideoElement | null>(null);
   let popped = $state<'document' | 'video' | null>(null);

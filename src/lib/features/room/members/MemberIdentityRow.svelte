@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
   import type { ClassValue } from 'svelte/elements';
-  import type { MemberView, ProfileView } from '#src/generated/protocol';
+  import type { MemberView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
@@ -41,37 +42,21 @@
   const core = useCoreClient();
   const presenceStore = usePresenceStore();
   const roomCosmetics = useRoomCosmetics();
-  let profile = $state<ProfileView | null>(null);
+  const profile = new UserProfile(core, () => userId);
   let member = $derived(findMember(members, userId));
   let ownIdentity = $derived({
-    name: member ? member.display_name : (profile?.display_name ?? null),
-    avatar: member ? member.avatar_url : (profile?.avatar_url ?? null),
+    name: member ? member.display_name : (profile.current?.display_name ?? null),
+    avatar: member ? member.avatar_url : (profile.current?.avatar_url ?? null),
   });
   let displayName = $derived(profileOverrides.name(userId, ownIdentity.name ?? userId));
   let avatarUrl = $derived(profileOverrides.avatar(userId, ownIdentity.avatar));
   let cosmetics = $derived(roomCosmetics?.for(userId) ?? null);
   let colors = $derived(
-    senderDisplayColors(userId, profile, null, false, cosmetics, powerTag?.color ?? null)
+    senderDisplayColors(userId, profile.current, null, false, cosmetics, powerTag?.color ?? null)
   );
   let profileLabel = $derived($i18n.t('timeline.senderProfile', { name: displayName }));
   let presence = $derived(presenceStore.peek(userId));
-  let userStatus = $derived(showStatus ? resolveUserStatus(profile, presence) : null);
-
-  $effect(() => {
-    profile = null;
-    let current = true;
-    void core.userProfile(userId).then(
-      (next) => {
-        if (current) profile = next;
-      },
-      (error: unknown) => {
-        console.debug('[sable profile] profile unavailable', error);
-      }
-    );
-    return () => {
-      current = false;
-    };
-  });
+  let userStatus = $derived(showStatus ? resolveUserStatus(profile.current, presence) : null);
 
   function openProfile(event: MouseEvent & { currentTarget: HTMLButtonElement }): void {
     onProfile?.(userId, event.currentTarget);

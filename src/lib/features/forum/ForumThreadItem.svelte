@@ -22,7 +22,6 @@
     onDelete: (eventId: string, reason: string | null) => void;
     roomId: string;
     onReact?: (eventId: string, key: string) => void;
-    loadImagePacks: (roomId: string) => Promise<import('#src/generated/protocol').ImagePackView[]>;
     onCopyLink: (eventId: string) => void;
     pinned?: boolean;
     onPin?: (eventId: string) => void;
@@ -36,7 +35,6 @@
     onDelete,
     roomId,
     onReact,
-    loadImagePacks,
     onCopyLink,
     pinned = false,
     onPin,
@@ -56,7 +54,6 @@
       : $i18n.t('forum.thread', { name: displayName, preview: thread.preview })
   );
   let actions = $derived({
-    loadImagePacks,
     roomId,
     onReact: onReact ? (key: string) => onReact(thread.eventId, key) : undefined,
     onOpenThread: () => onOpen(thread.eventId),

@@ -4,10 +4,10 @@
   import { onDestroy } from 'svelte';
   import { SvelteSet } from 'svelte/reactivity';
 
-  import type { ImagePackView, MemberView, TimelineItemView } from '#src/generated/protocol';
+  import type { MemberView, TimelineItemView } from '#src/generated/protocol';
 
-  import { imagePacks as listImagePacks } from '#lib/core/api/packs.js';
   import { useCoreClient } from '#lib/core/context.js';
+  import { RoomPacks } from '#lib/emoji/room-packs.svelte.js';
   import { shortcodeFor } from '#lib/emoji/emoji.js';
   import { i18n } from '#lib/i18n.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
@@ -24,7 +24,6 @@
   } from '../media/room-media-previews.svelte.js';
   import {
     isCustomReaction,
-    loadReactionEmotePacks,
     loadReactionShortcodes,
     reactionEmoteLabel,
     reactionShortcode,
@@ -64,7 +63,7 @@
   let pressIndex = 0;
   let tapAnimation: Animation | undefined;
   const core = useCoreClient();
-  let imagePacks = $state.raw<ImagePackView[]>([]);
+  const packs = new RoomPacks(core, () => (customKeys.length > 0 ? roomId : undefined));
   let sentShortcodes = $state.raw<ReadonlyMap<string, string>>(new Map());
   let customKeys = $derived(
     reactions
@@ -111,19 +110,6 @@
     };
   });
 
-  $effect(() => {
-    let current = true;
-    void loadReactionEmotePacks(roomId, (target) => listImagePacks(core.rpc, target))
-      .then((packs) => {
-        if (current) imagePacks = packs;
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable emotes] image packs unavailable', error);
-      });
-    return () => {
-      current = false;
-    };
-  });
   const roomMedia = hasRoomMediaPreviews() ? useRoomMediaPreviews() : null;
   let mediaHidden = $derived(roomMedia?.hidden ?? false);
 </script>
@@ -133,11 +119,11 @@
     {@const mine = currentUserId !== null && reaction.senders.includes(currentUserId)}
     {@const label = reactionEmoteLabel(
       reaction.key,
-      imagePacks,
+      packs.current,
       $i18n.t('timeline.customEmote'),
       sentShortcodes
     )}
-    {@const shortcode = reactionShortcode(reaction.key, imagePacks, sentShortcodes)}
+    {@const shortcode = reactionShortcode(reaction.key, packs.current, sentShortcodes)}
     {#snippet reactionTrigger({ props }: { props: Record<string, unknown> })}
       <button
         {...props}

@@ -383,18 +383,17 @@
     ringback = playSound('outgoing_call', { loop: true });
   });
 
-  let callParticipants = 0;
+  // Joining and leaving our own call is announced by the session itself.
+  let callParticipants: number | null = null;
   $effect(() => {
     if (callSession.lifecycle !== 'active') {
-      callParticipants = 0;
+      callParticipants = null;
       return;
     }
-    if (callSession.transport.participants.length > callParticipants) {
-      void playSound('call_join');
-    } else if (callSession.transport.participants.length < callParticipants) {
-      void playSound('call_leave');
-    }
-    callParticipants = callSession.transport.participants.length;
+    const count = callSession.transport.participants.length;
+    if (callParticipants !== null && count > callParticipants) void playSound('call_join');
+    else if (callParticipants !== null && count < callParticipants) void playSound('call_leave');
+    callParticipants = count;
   });
 
   $effect(() => {

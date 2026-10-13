@@ -4,12 +4,11 @@
   import LockSimpleIcon from 'phosphor-svelte/lib/LockSimpleIcon';
   import { SvelteSet } from 'svelte/reactivity';
 
-  import type { ProfileView } from '#src/generated/protocol';
-
   import { useCoreClient } from '#lib/core/context.js';
   import MentionProfile from '#lib/features/room/members/MentionProfile.svelte';
   import { formatDate } from '#lib/ui/date-time.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import { dismissedInvites } from '#lib/rooms/dismissed-invites.svelte.js';
   import { InviteActions, isDeclining } from '#lib/rooms/invites.svelte.js';
   import { roomLabel, useRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -77,18 +76,11 @@
 
   let profileOpen = $state(false);
   let profileTarget = $state.raw<{ userId: string; anchor: HTMLElement } | null>(null);
-  let profile = $state.raw<ProfileView | null>(null);
+  const profile = new UserProfile(core, () => profileTarget?.userId);
 
   function openProfile(userId: string, anchor: HTMLElement): void {
     profileTarget = { userId, anchor };
-    profile = null;
     profileOpen = true;
-    void core.userProfile(userId).then(
-      (loaded) => {
-        if (profileTarget?.userId === userId) profile = loaded;
-      },
-      (error: unknown) => console.debug('[sable inbox] inviter profile unavailable', error)
-    );
   }
 
   $effect(() => {
@@ -254,7 +246,7 @@
     userId={profileTarget.userId}
     member={null}
     roomId=""
-    {profile}
+    profile={profile.current}
     anchor={profileTarget.anchor}
   />
 {/if}

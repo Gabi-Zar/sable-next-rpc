@@ -9,6 +9,7 @@ vi.mock('#lib/core/context.js');
 
 const bluesky = vi.hoisted(() => ({
   fetchPostDetails: vi.fn(),
+  getPostRelationCount: vi.fn(),
 }));
 
 vi.mock('./bluesky', async (importOriginal) => ({
@@ -18,7 +19,7 @@ vi.mock('./bluesky', async (importOriginal) => ({
   ),
   fetchPostDetails: bluesky.fetchPostDetails,
   fetchProfile: vi.fn(() => Promise.resolve(null)),
-  getPostRelationCount: vi.fn(() => Promise.resolve(null)),
+  getPostRelationCount: bluesky.getPostRelationCount,
 }));
 
 import BlueskyEmbed from './BlueskyEmbed.svelte';
@@ -49,6 +50,7 @@ function renderPost(embed: ApEmbed) {
 
 beforeEach(() => {
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:media');
+  bluesky.getPostRelationCount.mockResolvedValue(null);
 });
 
 test('an image without an aspect ratio still renders', async () => {
@@ -64,4 +66,24 @@ test('a video without a presentation or aspect ratio plays with controls', async
   const video = container.querySelector('video');
   expect(video).toHaveAttribute('controls');
   expect(video).not.toHaveAttribute('width');
+});
+
+test('a new link does not show the previous post counts', async () => {
+  const { rerender } = renderPost({
+    $type: 'app.bsky.embed.images',
+    images: [{ alt: 'a cat', image: blob }],
+  });
+  bluesky.getPostRelationCount.mockResolvedValueOnce({ likes: 7, comments: 3, reposts: 2 });
+  await rerender({ url: 'https://bsky.app/profile/alice.test/post/3first', encrypted: false });
+  expect(await screen.findByText('7')).toBeInTheDocument();
+
+  bluesky.getPostRelationCount.mockReturnValueOnce(new Promise(() => {}));
+  bluesky.fetchPostDetails.mockResolvedValue({
+    ...post({ $type: 'app.bsky.embed.images', images: [{ alt: 'a cat', image: blob }] }),
+    value: { text: 'second post', createdAt: '2026-10-12T00:00:00.000Z' },
+  });
+  await rerender({ url: 'https://bsky.app/profile/alice.test/post/3second', encrypted: false });
+
+  expect(await screen.findByText('second post')).toBeInTheDocument();
+  expect(screen.queryByText('7')).not.toBeInTheDocument();
 });

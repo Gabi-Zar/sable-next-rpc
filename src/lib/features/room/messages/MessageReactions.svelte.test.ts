@@ -9,6 +9,8 @@ vi.mock('#lib/core/context.js');
 
 import { core } from '#lib/core/__mocks__/context.js';
 
+import { invalidatePacks } from '#lib/emoji/load-packs.js';
+
 import { mediaPreviewSettings } from '#lib/settings/media-previews.svelte.js';
 import { LONG_PRESS_MS } from '#lib/ui/long-press.svelte.js';
 import { guardTouchClicks } from '#lib/ui/trailing-click.js';
@@ -204,4 +206,21 @@ test('a custom emote reaction shows its shortcode where media previews are off (
   expect(await screen.findByText(':neocat:')).toHaveClass('reaction-shortcode');
   expect(document.querySelector('.reaction-image')).toBeNull();
   mediaPreviewSettings.global = {};
+});
+
+test('plain emoji reactions do not load the room packs', async () => {
+  invalidatePacks(core.rpc);
+  core.rpc.packs.list.mockClear();
+  render(MessageReactionsHarness, {
+    reactions: [{ key: '👍', senders: ['@alice:example.org'] }],
+    eventId: '$event',
+    currentUserId: null,
+    members: [],
+    roomId: '!room:example.org',
+    actionable: false,
+  });
+
+  await screen.findByRole('button', { name: /👍/ });
+  await Promise.resolve();
+  expect(core.rpc.packs.list).not.toHaveBeenCalled();
 });

@@ -2,10 +2,11 @@
   import type { Component, Snippet } from 'svelte';
   import ArrowBendUpLeftIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
 
-  import type { MemberView, ProfileView, TimelineItemView } from '#src/generated/protocol';
+  import type { MemberView, TimelineItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { UserProfile } from '#lib/profile/user-profile.svelte.js';
   import { useRoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
 
@@ -61,12 +62,12 @@
 
   let persona = $derived(loaded?.per_message_profile ?? null);
   let cosmetics = $derived(persona ? null : (roomCosmetics?.for(preview?.sender) ?? null));
-  let profile = $state<ProfileView | null>(null);
   let sender = $derived(preview?.sender ?? null);
+  const profile = new UserProfile(core, () => sender);
   let colors = $derived(
     senderDisplayColors(
       sender ?? '',
-      profile,
+      profile.current,
       persona,
       currentUserId !== null && sender === currentUserId,
       cosmetics,
@@ -74,24 +75,6 @@
     )
   );
   let replyStyle = $derived(reply ? preferences.replyPreviewStyle : null);
-
-  $effect(() => {
-    const userId = sender;
-    profile = null;
-    if (!userId) return;
-    let current = true;
-    void core.userProfile(userId).then(
-      (next) => {
-        if (current) profile = next;
-      },
-      (error: unknown) => {
-        console.debug('[sable profile] profile unavailable', userId, error);
-      }
-    );
-    return () => {
-      current = false;
-    };
-  });
 
   function previewOf(item: TimelineItemView, t: Translate): Preview {
     const content = item.content;

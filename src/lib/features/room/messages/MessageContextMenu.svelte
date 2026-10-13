@@ -45,7 +45,6 @@
             {@const react = actions.onReact}
             <MessageQuickReactions
               count={4}
-              loadImagePacks={actions.loadImagePacks}
               onReact={(emoji) => {
                 react(emoji);
                 menu.close();

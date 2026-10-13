@@ -62,3 +62,22 @@ test('plays the notification sound', async () => {
   expect(fetch).toHaveBeenCalledWith('/sound/msg.webm');
   expect(start).toHaveBeenCalledOnce();
 });
+
+test('decodes each sound once', async () => {
+  const { playSound } = await import('./sound');
+  await playSound('call_join');
+  await playSound('call_join');
+
+  expect(fetch).toHaveBeenCalledOnce();
+  expect(start).toHaveBeenCalledTimes(2);
+});
+
+test('loads the sound again after a failed fetch', async () => {
+  vi.mocked(fetch).mockRejectedValueOnce(new Error('offline'));
+
+  await expect(playNotificationSound('notification')).rejects.toThrow('offline');
+  await playNotificationSound('notification');
+
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(start).toHaveBeenCalledOnce();
+});
