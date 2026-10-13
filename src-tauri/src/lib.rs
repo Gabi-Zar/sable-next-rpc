@@ -394,8 +394,15 @@ async fn set_notification_encrypted_content(
             .map_err(|_| CommandErr::Unavailable)?;
     }
     #[cfg(target_os = "ios")]
-    ios::write_push_policy(enabled, content, allowed, sounds, notify_once)
-        .map_err(|_| CommandErr::Unavailable)?;
+    ios::write_push_policy(
+        enabled,
+        content,
+        allowed,
+        sounds,
+        notify_once,
+        clear_on_read,
+    )
+    .map_err(|_| CommandErr::Unavailable)?;
     #[cfg(not(target_os = "android"))]
     let _ = &app;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]

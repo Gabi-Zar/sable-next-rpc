@@ -121,6 +121,21 @@
               "foreground": false
             }
           ]
+        },
+        {
+          "id": "sable-invite",
+          "actions": [
+            {
+              "id": "sable-invite-accept",
+              "title": "Accept",
+              "foreground": true
+            },
+            {
+              "id": "sable-invite-decline",
+              "title": "Decline",
+              "foreground": false
+            }
+          ]
         }
       ],
       "windows": {

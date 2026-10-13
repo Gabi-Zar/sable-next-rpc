@@ -1,5 +1,6 @@
 import CallKit
 import Foundation
+import Intents
 import UserNotifications
 
 final class NotificationService: UNNotificationServiceExtension {
@@ -9,6 +10,9 @@ final class NotificationService: UNNotificationServiceExtension {
     private var policyRoot: String?
     private var originalSound: UNNotificationSound?
     private var noisy = false
+    private var communication: INSendMessageIntent?
+    private static let messageCategory = "sable-message"
+    private static let inviteCategory = "sable-invite"
     private static let alertedAtKey = "sable_alerted_at"
     private static let notifyOnceWindow: TimeInterval = 5 * 60
 
@@ -32,6 +36,7 @@ final class NotificationService: UNNotificationServiceExtension {
         fallback = content
         originalSound = request.content.sound
         noisy = false
+        communication = nil
         policyRoot = nil
         lock.unlock()
 
@@ -61,25 +66,98 @@ final class NotificationService: UNNotificationServiceExtension {
                 self?.ring(ring, room: room, fallback: content)
                 return
             }
-            guard let body = rendered["body"] as? String else {
+            if let read = rendered["read"] as? [String: Any], let user = rendered["user_id"] as? String {
+                self?.clearRead(read, user: user)
+                return
+            }
+            guard let body = rendered["body"] as? String,
+                  let updated = content.mutableCopy() as? UNMutableNotificationContent else {
                 self?.finish(content)
                 return
             }
-            guard let updated = content.mutableCopy() as? UNMutableNotificationContent else {
-                self?.finish(content)
-                return
-            }
+            if let title = rendered["title"] as? String { updated.title = title }
             updated.body = body
+            let invite = rendered["invite"] as? Bool == true
+            updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
             if rendered["noisy"] as? Bool == true {
                 self?.lock.lock()
                 self?.noisy = true
                 self?.lock.unlock()
             }
-            if let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String {
-                updated.threadIdentifier = user + "\u{0}" + room
+            guard let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String else {
+                self?.finish(updated)
+                return
             }
-            self?.finish(updated)
+            updated.threadIdentifier = user + "\u{0}" + room
+            guard !invite, let intent = Self.intent(rendered, conversation: updated.threadIdentifier) else {
+                self?.finish(updated)
+                return
+            }
+            let interaction = INInteraction(intent: intent, response: nil)
+            interaction.direction = .incoming
+            interaction.donate { [weak self] error in
+                if error == nil {
+                    self?.lock.lock()
+                    self?.communication = intent
+                    self?.lock.unlock()
+                }
+                self?.finish(updated)
+            }
         }
+    }
+
+    private static func intent(_ rendered: [String: Any], conversation: String) -> INSendMessageIntent? {
+        guard let name = (rendered["sender"] as? String).flatMap({ $0.isEmpty ? nil : $0 }),
+              let text = rendered["text"] as? String else { return nil }
+        let id = (rendered["sender_id"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? name
+        let sender = INPerson(
+            personHandle: INPersonHandle(value: id, type: .unknown),
+            nameComponents: nil,
+            displayName: name,
+            image: nil,
+            contactIdentifier: nil,
+            customIdentifier: id
+        )
+        let group = rendered["group"] as? Bool == true
+            ? (rendered["title"] as? String).map { INSpeakableString(spokenPhrase: $0) }
+            : nil
+        return INSendMessageIntent(
+            recipients: nil,
+            outgoingMessageType: .outgoingMessageText,
+            content: text,
+            speakableGroupName: group,
+            conversationIdentifier: conversation,
+            serviceName: nil,
+            sender: sender,
+            attachments: nil
+        )
+    }
+
+    private func clearRead(_ read: [String: Any], user: String) {
+        guard read["clear"] as? Bool == true else {
+            suppress()
+            return
+        }
+        let room = read["room_id"] as? String
+        UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] delivered in
+            let identifiers = delivered.filter { notification in
+                let parts = notification.request.content.threadIdentifier
+                    .split(separator: "\u{0}", maxSplits: 1, omittingEmptySubsequences: false)
+                return parts.count == 2 && parts[0] == user && (room == nil || String(parts[1]) == room)
+            }.map { $0.request.identifier }
+            if !identifiers.isEmpty {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+            }
+            self?.suppress()
+        }
+    }
+
+    private func suppress() {
+        lock.lock()
+        let handler = completion
+        completion = nil
+        lock.unlock()
+        handler?(UNNotificationContent())
     }
 
     private func ring(_ ring: [String: Any], room: String, fallback: UNMutableNotificationContent) {
@@ -97,7 +175,7 @@ final class NotificationService: UNNotificationServiceExtension {
         if let expiresAt = ring["expires_at"] as? Double { payload["expires_at"] = expiresAt }
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self] error in
             if error == nil {
-                self?.complete(UNNotificationContent())
+                self?.suppress()
             } else {
                 self?.finish(alert)
             }
@@ -171,6 +249,8 @@ final class NotificationService: UNNotificationServiceExtension {
         let root = policyRoot
         let sound = originalSound
         let noisy = self.noisy
+        let intent = communication
+        communication = nil
         lock.unlock()
         guard let handler else { return }
         guard let updated = content.mutableCopy() as? UNMutableNotificationContent else {
@@ -188,12 +268,13 @@ final class NotificationService: UNNotificationServiceExtension {
         if !duplicates.isEmpty {
             UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: duplicates)
         }
-        handler(updated)
+        handler(intent.flatMap { try? updated.updating(from: $0) } ?? updated)
     }
 
     override func serviceExtensionTimeWillExpire() {
         lock.lock()
         let content = fallback
+        communication = nil
         lock.unlock()
         if let content { complete(content) }
     }

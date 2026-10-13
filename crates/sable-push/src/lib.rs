@@ -5,9 +5,9 @@ use std::path::Path;
 
 use sable_core::session::AccountRegistry;
 use sable_core::store::{FileSessionStore, SessionStore};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 #[derive(Default, Deserialize)]
 #[serde(default)]
@@ -21,6 +21,7 @@ struct Policy {
     encrypted_content: bool,
     sounds: bool,
     notify_once: bool,
+    clear_on_read: bool,
 }
 
 fn policy(root: &Path) -> Policy {
@@ -94,21 +95,35 @@ struct RingPushOut<'a> {
 }
 
 #[derive(Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors the alert flags the extension reads"
+)]
 struct ContentPushOut<'a> {
-    body: &'a str,
+    title: String,
+    body: String,
+    text: String,
+    sender: String,
+    sender_id: Option<String>,
+    event_id: Option<String>,
     room_id: &'a str,
     user_id: &'a str,
     sounds: bool,
     noisy: bool,
+    invite: bool,
+    group: bool,
 }
 
-/// A field that is absent, or `None` when it is the wrong type.
-fn lenient<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: DeserializeOwned,
-{
-    Ok(serde_json::from_value(Value::deserialize(deserializer)?).ok())
+#[derive(Serialize)]
+struct ReadOut<'a> {
+    clear: bool,
+    room_id: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+struct ReadPushOut<'a> {
+    read: ReadOut<'a>,
+    user_id: &'a str,
 }
 
 /// A field kept as received when present, `null` included.
@@ -116,23 +131,28 @@ fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, 
     Value::deserialize(deserializer).map(Some)
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct RingEvent {
     #[serde(rename = "type")]
     kind: String,
     content: RingContent,
-    #[serde(default, deserialize_with = "lenient")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     origin_server_ts: Option<u64>,
     #[serde(default, deserialize_with = "present")]
     sender: Option<Value>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct RingContent {
     notification_type: String,
-    #[serde(default, deserialize_with = "lenient")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     sender_ts: Option<u64>,
-    #[serde(default, deserialize_with = "lenient")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     lifetime: Option<u64>,
 }
 
@@ -169,26 +189,20 @@ fn ring(event: &Value, notification: &Value) -> Option<Value> {
     .ok()
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct Device {
-    #[serde(default, deserialize_with = "lenient")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     tweaks: Option<Map<String, Value>>,
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct Devices {
-    #[serde(default, deserialize_with = "lenient_devices")]
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
     devices: Vec<Device>,
-}
-
-fn lenient_devices<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Device>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::Array(devices) => devices
-            .into_iter()
-            .filter_map(|device| serde_json::from_value(device).ok())
-            .collect(),
-        _ => Vec::new(),
-    })
 }
 
 fn rings(notification: &Value) -> bool {
@@ -202,13 +216,40 @@ fn rings(notification: &Value) -> bool {
         })
 }
 
+#[serde_as]
 #[derive(Deserialize)]
-struct PushTarget<'a> {
+struct PushTarget {
     #[serde(default, deserialize_with = "present")]
     user_id: Option<Value>,
-    room_id: &'a str,
-    #[serde(rename = "type")]
-    kind: &'a str,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    room_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    room_name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender_display_name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    counts: Option<Counts>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct Counts {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    unread: Option<u64>,
 }
 
 #[derive(Default, Deserialize)]
@@ -226,6 +267,100 @@ struct ClearEvent<'a> {
 #[derive(Deserialize)]
 struct ClearContent<'a> {
     body: &'a str,
+}
+
+#[derive(Deserialize)]
+struct InviteEvent {
+    #[serde(rename = "type")]
+    kind: String,
+    content: InviteContent,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct InviteContent {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    membership: Option<String>,
+}
+
+const HIDDEN_BODY: &str = "New message";
+const ENCRYPTED_BODY: &str = "Encrypted message";
+const INVITE_TITLE: &str = "New Invitation";
+
+fn is_invite(event: &Value) -> bool {
+    InviteEvent::deserialize(event).is_ok_and(|event| {
+        event.kind == "m.room.member" && event.content.membership.as_deref() == Some("invite")
+    })
+}
+
+fn invite_body(sender: &str, room_name: &str) -> String {
+    match (sender.is_empty(), room_name.is_empty()) {
+        (false, false) => format!("{sender} invites you to {room_name}"),
+        (false, true) => format!("from {sender}"),
+        (true, false) => format!("to {room_name}"),
+        (true, true) => String::new(),
+    }
+}
+
+fn message_text(settings: &Policy, event: Option<&Value>, encrypted: bool) -> String {
+    let fallback = if encrypted {
+        ENCRYPTED_BODY
+    } else {
+        HIDDEN_BODY
+    };
+    if !settings.content {
+        return HIDDEN_BODY.to_owned();
+    }
+    if encrypted && !settings.encrypted_content {
+        return ENCRYPTED_BODY.to_owned();
+    }
+    event
+        .and_then(|event| ClearEvent::deserialize(event).ok())
+        .map_or(fallback, |event| event.content.body)
+        .to_owned()
+}
+
+async fn signed_in(root: &Path, user: &str) -> Option<(String, String)> {
+    let bytes = FileSessionStore::new(root).load().await.ok()??;
+    let (registry, _) = AccountRegistry::from_bytes(&bytes, root.to_str()?).ok()?;
+    // Never select an arbitrary saved account for a push, including after logout.
+    let account = registry.accounts.iter().find(|account| {
+        !account.needs_reauth
+            && registry.active_account_id.as_deref() == Some(account.account_id.as_str())
+            && account.session.credentials.user_id() == user
+    })?;
+    Some((
+        account.account_id.clone(),
+        account.session.credentials.device_id(),
+    ))
+}
+
+async fn clear_event(
+    root: &Path,
+    user: &str,
+    device_id: &str,
+    room_id: &str,
+    notification: &Value,
+    encrypted: bool,
+) -> Option<Value> {
+    if !encrypted {
+        return Some(notification.clone());
+    }
+    let mut event = notification.clone();
+    event
+        .as_object_mut()?
+        .entry("origin_server_ts")
+        .or_insert(Value::from(0));
+    let clear = sable_core::notifications::decrypt_push_from_store(
+        root,
+        user,
+        device_id,
+        room_id,
+        &event.to_string(),
+    )
+    .await?;
+    serde_json::from_str(&clear).ok()
 }
 
 async fn render(root: &Path, payload: &Value) -> Option<Value> {
@@ -246,35 +381,22 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .as_str()?
         .to_owned();
     let user = user.as_str();
-    let room_id = target.room_id;
-    let bytes = FileSessionStore::new(root).load().await.ok()??;
-    let (registry, _) = AccountRegistry::from_bytes(&bytes, root.to_str()?).ok()?;
-    // Never select an arbitrary saved account for a push, including after logout.
-    let account = registry.accounts.iter().find(|account| {
-        !account.needs_reauth
-            && registry.active_account_id.as_deref() == Some(account.account_id.as_str())
-            && account.session.credentials.user_id() == user
-    })?;
-    let encrypted = target.kind == "m.room.encrypted";
-    let event = if encrypted {
-        let mut event = notification.clone();
-        event
-            .as_object_mut()?
-            .entry("origin_server_ts")
-            .or_insert(Value::from(0));
-        let clear = sable_core::notifications::decrypt_push_from_store(
-            root,
-            user,
-            &account.session.credentials.device_id(),
-            room_id,
-            &event.to_string(),
-        )
-        .await?;
-        serde_json::from_str::<Value>(&clear).ok()?
-    } else {
-        notification.clone()
-    };
-    if let Some(ring) = ring(&event, notification) {
+    let room_id = target.room_id.as_deref().filter(|room| !room.is_empty());
+    let (account_id, device_id) = signed_in(root, user).await?;
+    if target.counts.and_then(|counts| counts.unread) == Some(0) {
+        return serde_json::to_value(ReadPushOut {
+            read: ReadOut {
+                clear: settings.clear_on_read,
+                room_id,
+            },
+            user_id: user,
+        })
+        .ok();
+    }
+    let room_id = room_id?;
+    let encrypted = target.kind.as_deref() == Some("m.room.encrypted");
+    let event = clear_event(root, user, &device_id, room_id, notification, encrypted).await;
+    if let Some(ring) = event.as_ref().and_then(|event| ring(event, notification)) {
         return serde_json::to_value(RingPushOut {
             ring,
             room_id,
@@ -282,37 +404,60 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         })
         .ok();
     }
-    if !settings.content || (encrypted && !settings.encrypted_content) {
-        return None;
+    let sender_id = target.sender.filter(|sender| !sender.is_empty());
+    let sender = target
+        .sender_display_name
+        .filter(|name| !name.is_empty())
+        .or_else(|| sender_id.clone())
+        .unwrap_or_default();
+    let room_name = target.room_name.unwrap_or_default();
+    let invite = event.as_ref().is_some_and(is_invite);
+    let title = if invite {
+        INVITE_TITLE
+    } else {
+        [room_name.as_str(), sender.as_str()]
+            .into_iter()
+            .find(|name| !name.is_empty())
+            .unwrap_or(HIDDEN_BODY)
     }
-    let body = ClearEvent::deserialize(&event).ok()?.content.body;
+    .to_owned();
     // Recheck policy after decryption, which may overlap a settings change.
     let current = policy(root);
-    if !current.enabled || !current.content || (encrypted && !current.encrypted_content) {
+    if !current.enabled {
         return None;
     }
-    let latest = FileSessionStore::new(root).load().await.ok()??;
-    let (latest, _) = AccountRegistry::from_bytes(&latest, root.to_str()?).ok()?;
-    if !latest.accounts.iter().any(|saved| {
-        saved.account_id == account.account_id
-            && !saved.needs_reauth
-            && latest.active_account_id.as_deref() == Some(saved.account_id.as_str())
-            && saved.session.credentials.user_id() == user
-            && saved.session.credentials.device_id() == account.session.credentials.device_id()
-    }) {
+    let text = if invite {
+        invite_body(&sender, &room_name)
+    } else {
+        message_text(&current, event.as_ref(), encrypted)
+    };
+    let body = if invite || sender.is_empty() {
+        text.clone()
+    } else {
+        format!("{sender}: {text}")
+    };
+    if signed_in(root, user).await != Some((account_id, device_id)) {
         return None;
     }
     let noisy = event
-        .get(sable_core::notifications::NOISY_KEY)
+        .as_ref()
+        .and_then(|event| event.get(sable_core::notifications::NOISY_KEY))
         .and_then(Value::as_bool)
         .unwrap_or(false)
         || rings(notification);
     serde_json::to_value(ContentPushOut {
+        title,
         body,
+        text,
+        sender,
+        sender_id,
+        event_id: target.event_id.filter(|event| !event.is_empty()),
         room_id,
         user_id: user,
         sounds: current.sounds,
         noisy,
+        invite,
+        group: !room_name.is_empty(),
     })
     .ok()
 }
@@ -484,17 +629,17 @@ mod tests {
         let mut payload = json!({"user_id":"@alice:example.org","notification":{
             "room_id":"!room:example.org","type":"m.room.message","content":{"body":"private"}
         }});
-        assert_eq!(
-            render(&root, &payload)
+        let body = async |payload: &Value| {
+            render(&root, payload)
                 .await
-                .and_then(|value| value.get("body").cloned()),
-            Some(json!("private"))
-        );
+                .and_then(|value| value.get("body").cloned())
+        };
+        assert_eq!(body(&payload).await, Some(json!("private")));
         payload["user_id"] = json!("@other:example.org");
         assert!(render(&root, &payload).await.is_none());
         payload["user_id"] = json!("@alice:example.org");
         payload["notification"]["type"] = json!("m.room.encrypted");
-        assert!(render(&root, &payload).await.is_none());
+        assert_eq!(body(&payload).await, Some(json!("Encrypted message")));
         payload["notification"]["type"] = json!("m.room.message");
         let mut expired = registry.clone();
         expired["accounts"][0]["needs_reauth"] = json!(true);
@@ -506,7 +651,7 @@ mod tests {
             r#"{"enabled":true,"content":false}"#,
         )
         .unwrap();
-        assert!(render(&root, &payload).await.is_none());
+        assert_eq!(body(&payload).await, Some(json!("New message")));
         let ringing = json!({"user_id":"@alice:example.org","notification":{
             "room_id":"!room:example.org","type":"m.rtc.notification","sender":"@bob:example.org",
             "content":{"notification_type":"ring","sender_ts":1_000,"lifetime":30_000}
@@ -519,6 +664,97 @@ mod tests {
         );
         store.clear().await.unwrap();
         assert!(render(&root, &payload).await.is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn titles_invites_and_read_pushes_follow_the_android_alerts() {
+        let root =
+            std::env::temp_dir().join(format!("sable-push-shape-test-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let policy = |clear_on_read: bool| json!({"enabled":true,"content":true,"encrypted_content":false,"sounds":true,"clear_on_read":clear_on_read});
+        std::fs::write(root.join("push-policy.json"), policy(true).to_string()).unwrap();
+        let registry = json!({"version":1,"active_account_id":"a1","next_account_id":2,"accounts":[{
+            "account_id":"a1","store_id":"old","needs_reauth":false,
+            "session":{"homeserver":"https://example.org","credentials":{
+                "kind":"password","user_id":"@alice:example.org","device_id":"A","access_token":"test"
+            }}
+        }]});
+        FileSessionStore::new(&root)
+            .save(registry.to_string().into_bytes())
+            .await
+            .unwrap();
+        let push = |notification: Value| json!({"user_id":"@alice:example.org","notification":notification});
+
+        let message = render(
+            &root,
+            &push(json!({
+                "room_id":"!room:example.org","type":"m.room.message","event_id":"$e",
+                "room_name":"Lounge","sender":"@bob:example.org","sender_display_name":"Bob",
+                "content":{"body":"hi"}
+            })),
+        )
+        .await
+        .unwrap();
+        assert_eq!(message["title"], "Lounge");
+        assert_eq!(message["body"], "Bob: hi");
+        assert_eq!(message["event_id"], "$e");
+        assert_eq!(message["group"], true);
+        assert_eq!(message["invite"], false);
+
+        let unnamed = render(
+            &root,
+            &push(json!({
+                "room_id":"!dm:example.org","type":"m.room.message","sender":"@bob:example.org",
+                "content":{"body":"hi"}
+            })),
+        )
+        .await
+        .unwrap();
+        assert_eq!(unnamed["title"], "@bob:example.org");
+        assert_eq!(unnamed["group"], false);
+
+        let invite = render(
+            &root,
+            &push(json!({
+                "room_id":"!room:example.org","type":"m.room.member","room_name":"Lounge",
+                "sender":"@bob:example.org","sender_display_name":"Bob",
+                "content":{"membership":"invite"}
+            })),
+        )
+        .await
+        .unwrap();
+        assert_eq!(invite["title"], "New Invitation");
+        assert_eq!(invite["body"], "Bob invites you to Lounge");
+        assert_eq!(invite["invite"], true);
+
+        let read = render(
+            &root,
+            &push(json!({"room_id":"!room:example.org","counts":{"unread":0}})),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            read["read"],
+            json!({"clear":true,"room_id":"!room:example.org"})
+        );
+        let account_read = render(&root, &push(json!({"counts":{"unread":0}})))
+            .await
+            .unwrap();
+        assert_eq!(account_read["read"], json!({"clear":true,"room_id":null}));
+        std::fs::write(root.join("push-policy.json"), policy(false).to_string()).unwrap();
+        let kept = render(&root, &push(json!({"counts":{"unread":0}})))
+            .await
+            .unwrap();
+        assert_eq!(kept["read"]["clear"], false);
+        assert!(
+            render(
+                &root,
+                &json!({"user_id":"@other:example.org","notification":{"counts":{"unread":0}}})
+            )
+            .await
+            .is_none()
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 

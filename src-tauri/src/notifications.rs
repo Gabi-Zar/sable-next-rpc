@@ -1767,6 +1767,32 @@ mod tests {
     }
 
     #[test]
+    fn the_invite_category_the_ios_extension_names_is_declared() {
+        let config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("a Tauri config");
+        let parsed: tauri_plugin_notifications::PluginConfig = serde_json::from_value(
+            config
+                .pointer("/plugins/notifications")
+                .expect("a notifications plugin config")
+                .clone(),
+        )
+        .expect("the plugin reads its own config");
+
+        let category = parsed
+            .action_types
+            .iter()
+            .find(|action_type| action_type.id() == "sable-invite")
+            .expect("the category the iOS extension sets on invites");
+        let ids: Vec<_> = category
+            .actions()
+            .iter()
+            .map(|action| action.id())
+            .collect();
+
+        assert_eq!(ids, ["sable-invite-accept", "sable-invite-decline"]);
+    }
+
+    #[test]
     fn hashes_as_java_does() {
         assert_eq!(java_hash(""), 0);
         assert_eq!(java_hash("a"), 97);

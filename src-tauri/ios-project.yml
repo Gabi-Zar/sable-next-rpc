@@ -52,6 +52,7 @@ targets:
         CFBundleDisplayName: Sable
         CFBundleShortVersionString: {{apple.bundle-version-short}}
         CFBundleVersion: "{{apple.bundle-version}}"
+        NSUserActivityTypes: [INSendMessageIntent]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
@@ -60,6 +61,8 @@ targets:
       properties:
         com.apple.security.application-groups: [group.{{app.identifier}}]
         com.apple.developer.default-data-protection: NSFileProtectionCompleteUntilFirstUserAuthentication
+        com.apple.developer.usernotifications.filtering: true
+        com.apple.developer.usernotifications.communication: true
     settings:
       groups: [app]
       base:
@@ -71,6 +74,7 @@ targets:
         OTHER_LDFLAGS: ["$(inherited)", "$(DERIVED_FILE_DIR)/libsable_push.a", "-lc++", "-lz", "-liconv"]
     dependencies:
       - sdk: CallKit.framework
+      - sdk: Intents.framework
       - sdk: Security.framework
       - sdk: SystemConfiguration.framework
     preBuildScripts:
@@ -114,6 +118,7 @@ targets:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIBackgroundModes: [audio, voip, remote-notification]
+        NSUserActivityTypes: [INSendMessageIntent]
         ITSAppUsesNonExemptEncryption: true
         NSMicrophoneUsageDescription: Sable uses your microphone for calls and videos.
         NSCameraUsageDescription: Sable uses your camera for video calls, photos and videos.
@@ -145,6 +150,7 @@ targets:
       path: {{app.name}}_iOS/{{app.name}}_iOS.entitlements
       properties:
         aps-environment: development
+        com.apple.developer.usernotifications.communication: true
         com.apple.security.application-groups: [group.{{app.identifier}}]
         com.apple.developer.default-data-protection: NSFileProtectionCompleteUntilFirstUserAuthentication
     scheme:
