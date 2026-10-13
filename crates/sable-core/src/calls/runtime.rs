@@ -179,16 +179,14 @@ fn content_at<'a>(
     intent: Option<CallIntent>,
     now_ms: u64,
 ) -> MembershipContent<'a> {
-    let screen_sharing = own
-        .screen_sharing
-        .then(|| BTreeMap::from([(membership::SCREEN_SHARING_FIELD, true)]));
+    let screen_sharing = own.screen_sharing.then_some(ScreenSharing { active: true });
     if own.mode == CallMode::Matrix2 {
         MembershipContent::Matrix2(Matrix2Out {
             application: Matrix2Application {
-                kind: "m.call",
+                kind: CallApplication::Call,
                 intent,
             },
-            slot_id: "m.call#ROOM",
+            slot_id: SlotId::CallRoom,
             member: Matrix2Member {
                 user_id: &own.user_id,
                 device_id: &own.device_id,
@@ -199,12 +197,12 @@ fn content_at<'a>(
                     .foci
                     .iter()
                     .map(|service| LivekitFocus {
-                        kind: "livekit",
+                        kind: TransportKind::Livekit,
                         livekit_service_url: service,
                         livekit_alias: None,
                     })
                     .collect(),
-                can_subscribe: ["livekit"],
+                can_subscribe: [TransportKind::Livekit],
             },
             versions: [],
             msc4354_sticky_key: own.member_id.as_deref(),
@@ -212,9 +210,9 @@ fn content_at<'a>(
         })
     } else {
         MembershipContent::Legacy(LegacyOut {
-            application: "m.call",
-            call_id: "",
-            scope: "m.room",
+            application: CallApplication::Call,
+            call_id: CallId::Room,
+            scope: Scope::Room,
             device_id: &own.device_id,
             membership_id: &own.identity,
             created_ts: own.created_ts,
@@ -222,18 +220,18 @@ fn content_at<'a>(
                 .saturating_sub(own.created_ts)
                 .saturating_add(14_400_000),
             focus_active: FocusActive {
-                kind: "livekit",
+                kind: TransportKind::Livekit,
                 focus_selection: if own.mode == CallMode::Compatibility {
-                    "multi_sfu"
+                    FocusSelection::MultiSfu
                 } else {
-                    "oldest_membership"
+                    FocusSelection::OldestMembership
                 },
             },
             foci_preferred: own
                 .foci
                 .iter()
                 .map(|service| LivekitFocus {
-                    kind: "livekit",
+                    kind: TransportKind::Livekit,
                     livekit_service_url: service,
                     livekit_alias: Some(room_id),
                 })
@@ -251,10 +249,53 @@ enum MembershipContent<'a> {
     Legacy(LegacyOut<'a>),
 }
 
+#[derive(Clone, Copy, Serialize)]
+enum TransportKind {
+    #[serde(rename = "livekit")]
+    Livekit,
+}
+
+#[derive(Serialize)]
+enum CallApplication {
+    #[serde(rename = "m.call")]
+    Call,
+}
+
+#[derive(Serialize)]
+enum SlotId {
+    #[serde(rename = "m.call#ROOM")]
+    CallRoom,
+}
+
+#[derive(Serialize)]
+enum CallId {
+    #[serde(rename = "")]
+    Room,
+}
+
+#[derive(Serialize)]
+enum Scope {
+    #[serde(rename = "m.room")]
+    Room,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum FocusSelection {
+    MultiSfu,
+    OldestMembership,
+}
+
+#[derive(Clone, Copy, Serialize)]
+struct ScreenSharing {
+    #[serde(rename = "org.sable.screen_sharing")]
+    active: bool,
+}
+
 #[derive(Serialize)]
 struct LivekitFocus<'a> {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: TransportKind,
     livekit_service_url: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     livekit_alias: Option<&'a OwnedRoomId>,
@@ -263,7 +304,7 @@ struct LivekitFocus<'a> {
 #[derive(Serialize)]
 struct Matrix2Application {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: CallApplication,
     #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
     intent: Option<CallIntent>,
 }
@@ -278,33 +319,33 @@ struct Matrix2Member<'a> {
 #[derive(Serialize)]
 struct Matrix2Transports<'a> {
     published: Vec<LivekitFocus<'a>>,
-    can_subscribe: [&'static str; 1],
+    can_subscribe: [TransportKind; 1],
 }
 
 #[derive(Serialize)]
 struct Matrix2Out<'a> {
     application: Matrix2Application,
-    slot_id: &'static str,
+    slot_id: SlotId,
     member: Matrix2Member<'a>,
     transports: Matrix2Transports<'a>,
     versions: [(); 0],
     msc4354_sticky_key: Option<&'a str>,
     #[serde(flatten)]
-    screen_sharing: Option<BTreeMap<&'static str, bool>>,
+    screen_sharing: Option<ScreenSharing>,
 }
 
 #[derive(Serialize)]
 struct FocusActive {
     #[serde(rename = "type")]
-    kind: &'static str,
-    focus_selection: &'static str,
+    kind: TransportKind,
+    focus_selection: FocusSelection,
 }
 
 #[derive(Serialize)]
 struct LegacyOut<'a> {
-    application: &'static str,
-    call_id: &'static str,
-    scope: &'static str,
+    application: CallApplication,
+    call_id: CallId,
+    scope: Scope,
     device_id: &'a OwnedDeviceId,
     #[serde(rename = "membershipID")]
     membership_id: &'a str,
@@ -315,7 +356,7 @@ struct LegacyOut<'a> {
     #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
     intent: Option<CallIntent>,
     #[serde(flatten)]
-    screen_sharing: Option<BTreeMap<&'static str, bool>>,
+    screen_sharing: Option<ScreenSharing>,
 }
 
 fn state_key(

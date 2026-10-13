@@ -27,8 +27,14 @@ pub struct NotifyBodyOut<D> {
 struct NotificationOut<D> {
     event_id: String,
     room_id: &'static str,
-    prio: &'static str,
+    prio: PrioOut,
     devices: [DeviceOut<D>; 1],
+}
+
+#[derive(Serialize)]
+enum PrioOut {
+    #[serde(rename = "high")]
+    High,
 }
 
 #[derive(Serialize)]
@@ -49,7 +55,7 @@ pub fn notify_body<D: Serialize>(
         notification: NotificationOut {
             event_id: event_id.to_owned(),
             room_id: DIAGNOSTIC_ROOM,
-            prio: "high",
+            prio: PrioOut::High,
             devices: [DeviceOut {
                 app_id: app_id.to_owned(),
                 pushkey: pushkey.to_owned(),

@@ -23,17 +23,6 @@ fn same_usage(left: &[ImageUsageView], right: &[ImageUsageView]) -> bool {
     left.len() == right.len() && left.iter().all(|usage| right.contains(usage))
 }
 
-const fn usage_name(usage: ImageUsageView) -> &'static str {
-    match usage {
-        ImageUsageView::Emoticon => "emoticon",
-        ImageUsageView::Sticker => "sticker",
-    }
-}
-
-fn usage_names(usage: &[ImageUsageView]) -> Vec<&'static str> {
-    usage.iter().map(|usage| usage_name(*usage)).collect()
-}
-
 #[derive(Serialize)]
 struct InfoOut<'a> {
     #[serde(rename = "w", skip_serializing_if = "Option::is_none")]
@@ -64,7 +53,7 @@ struct ImageOut<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     body: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    usage: Option<Vec<&'static str>>,
+    usage: Option<&'a [ImageUsageView]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     info: Option<InfoOut<'a>>,
 }
@@ -74,7 +63,7 @@ fn image_content<'a>(image: &'a PackImageDraftView, pack_usage: &[ImageUsageView
     ImageOut {
         url: &image.url,
         body: image.body.as_deref(),
-        usage: (!same_usage(&image.usage, pack_usage)).then(|| usage_names(&image.usage)),
+        usage: (!same_usage(&image.usage, pack_usage)).then_some(image.usage.as_slice()),
         info: info_content(image.info.as_ref()),
     }
 }
@@ -88,7 +77,7 @@ struct PackOut<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     attribution: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    usage: Option<Vec<&'static str>>,
+    usage: Option<&'a [ImageUsageView]>,
 }
 
 #[derive(Serialize)]
@@ -108,7 +97,7 @@ pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut<'_>, 
             display_name: (!draft.name.is_empty()).then_some(draft.name.as_str()),
             avatar_url: draft.avatar_url.as_deref(),
             attribution: (!draft.attribution.is_empty()).then_some(draft.attribution.as_str()),
-            usage: (draft.usage.len() != ALL_USAGES.len()).then(|| usage_names(&draft.usage)),
+            usage: (draft.usage.len() != ALL_USAGES.len()).then_some(draft.usage.as_slice()),
         },
         images: draft
             .images
@@ -126,9 +115,9 @@ fn declared_usage(pack: Option<&Value>) -> Vec<ImageUsageView> {
             ALL_USAGES
                 .into_iter()
                 .filter(|wanted| {
-                    usage
-                        .iter()
-                        .any(|entry| entry.as_str() == Some(usage_name(*wanted)))
+                    usage.iter().any(|entry| {
+                        ImageUsageView::deserialize(entry).is_ok_and(|usage| usage == *wanted)
+                    })
                 })
                 .collect()
         })

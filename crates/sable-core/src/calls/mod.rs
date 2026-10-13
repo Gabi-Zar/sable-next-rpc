@@ -160,20 +160,38 @@ pub(super) async fn slot_closed(room: &Room) -> bool {
 }
 
 #[derive(Serialize)]
+enum SlotStatus {
+    #[serde(rename = "open")]
+    Open,
+}
+
+#[derive(Serialize)]
+enum SlotApplicationKind {
+    #[serde(rename = "m.call")]
+    Call,
+}
+
+#[derive(Serialize)]
+enum SlotEncryptionKind {
+    #[serde(rename = "org.matrix.msc4143.per_member")]
+    PerMember,
+}
+
+#[derive(Serialize)]
 struct SlotApplication {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: SlotApplicationKind,
 }
 
 #[derive(Serialize)]
 struct SlotEncryption {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: SlotEncryptionKind,
 }
 
 #[derive(Serialize)]
 struct OpenSlot {
-    status: &'static str,
+    status: SlotStatus,
     application: SlotApplication,
     #[serde(skip_serializing_if = "Option::is_none")]
     encryption: Option<SlotEncryption>,
@@ -195,12 +213,12 @@ pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
         return false;
     }
     let content = OpenSlot {
-        status: "open",
+        status: SlotStatus::Open,
         application: SlotApplication {
-            kind: APPLICATION_SUFFIX,
+            kind: SlotApplicationKind::Call,
         },
         encryption: encrypted.then_some(SlotEncryption {
-            kind: "org.matrix.msc4143.per_member",
+            kind: SlotEncryptionKind::PerMember,
         }),
     };
     let Ok(raw) = Raw::new(&content) else {
@@ -767,10 +785,12 @@ mod tests {
     fn test_open_slot_serializes_with_optional_encryption() {
         let slot = |encrypted: bool| {
             serde_json::to_value(super::OpenSlot {
-                status: "open",
-                application: super::SlotApplication { kind: "m.call" },
+                status: super::SlotStatus::Open,
+                application: super::SlotApplication {
+                    kind: super::SlotApplicationKind::Call,
+                },
                 encryption: encrypted.then_some(super::SlotEncryption {
-                    kind: "org.matrix.msc4143.per_member",
+                    kind: super::SlotEncryptionKind::PerMember,
                 }),
             })
             .unwrap()

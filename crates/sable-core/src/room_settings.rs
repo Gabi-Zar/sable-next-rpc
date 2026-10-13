@@ -1,4 +1,4 @@
-use matrix_sdk::ruma::OwnedRoomId;
+use matrix_sdk::ruma::{EventEncryptionAlgorithm, OwnedRoomId};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
@@ -7,7 +7,6 @@ use crate::protocol::{AbbreviationView, CommandErr, HistoryVisibilityView};
 
 const HISTORY_VISIBILITY_EVENT: &str = "m.room.history_visibility";
 const ENCRYPTION_EVENT: &str = "m.room.encryption";
-const MEGOLM: &str = "m.megolm.v1.aes-sha2";
 const CANONICAL_ALIAS_EVENT: &str = "m.room.canonical_alias";
 const TOMBSTONE_EVENT: &str = "m.room.tombstone";
 const SERVER_ACL_EVENT: &str = "m.room.server_acl";
@@ -27,15 +26,6 @@ pub(crate) fn history_visibility(content: Option<&Value>) -> HistoryVisibilityVi
         Some("joined") => HistoryVisibilityView::Joined,
         Some("world_readable") => HistoryVisibilityView::WorldReadable,
         _ => HistoryVisibilityView::Shared,
-    }
-}
-
-const fn history_visibility_name(visibility: HistoryVisibilityView) -> &'static str {
-    match visibility {
-        HistoryVisibilityView::Shared => "shared",
-        HistoryVisibilityView::Invited => "invited",
-        HistoryVisibilityView::Joined => "joined",
-        HistoryVisibilityView::WorldReadable => "world_readable",
     }
 }
 
@@ -65,12 +55,12 @@ pub(crate) struct EmptyContent {}
 
 #[derive(Serialize)]
 struct HistoryVisibilityOut {
-    history_visibility: &'static str,
+    history_visibility: HistoryVisibilityView,
 }
 
 #[derive(Serialize)]
 struct EncryptionOut {
-    algorithm: &'static str,
+    algorithm: EventEncryptionAlgorithm,
 }
 
 #[derive(Serialize)]
@@ -269,7 +259,7 @@ impl Core {
             room_id,
             HISTORY_VISIBILITY_EVENT,
             &HistoryVisibilityOut {
-                history_visibility: history_visibility_name(visibility),
+                history_visibility: visibility,
             },
         )
         .await
@@ -279,7 +269,9 @@ impl Core {
         self.write_room_state(
             room_id,
             ENCRYPTION_EVENT,
-            &EncryptionOut { algorithm: MEGOLM },
+            &EncryptionOut {
+                algorithm: EventEncryptionAlgorithm::MegolmV1AesSha2,
+            },
         )
         .await
     }

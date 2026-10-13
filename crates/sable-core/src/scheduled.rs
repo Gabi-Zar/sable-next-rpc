@@ -34,8 +34,20 @@ struct MediaInfoOut<'a> {
 }
 
 #[derive(Serialize)]
+enum AttachmentMsgType {
+    #[serde(rename = "m.image")]
+    Image,
+    #[serde(rename = "m.video")]
+    Video,
+    #[serde(rename = "m.audio")]
+    Audio,
+    #[serde(rename = "m.file")]
+    File,
+}
+
+#[derive(Serialize)]
 struct AttachmentOut<'a> {
-    msgtype: &'static str,
+    msgtype: AttachmentMsgType,
     body: &'a str,
     url: &'a str,
     info: MediaInfoOut<'a>,
@@ -55,10 +67,10 @@ fn attachment_content<'a>(
     spoiler: bool,
 ) -> AttachmentOut<'a> {
     let msgtype = match mime.type_() {
-        mime::IMAGE => "m.image",
-        mime::VIDEO => "m.video",
-        mime::AUDIO => "m.audio",
-        _ => "m.file",
+        mime::IMAGE => AttachmentMsgType::Image,
+        mime::VIDEO => AttachmentMsgType::Video,
+        mime::AUDIO => AttachmentMsgType::Audio,
+        _ => AttachmentMsgType::File,
     };
     AttachmentOut {
         msgtype,

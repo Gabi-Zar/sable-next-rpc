@@ -41,9 +41,15 @@ pub(crate) fn widget_url(raw: &str) -> Option<Url> {
 }
 
 #[derive(Serialize)]
+enum WidgetKind {
+    #[serde(rename = "m.custom")]
+    Custom,
+}
+
+#[derive(Serialize)]
 struct WidgetOut<'a> {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: WidgetKind,
     url: &'a str,
     name: &'a str,
     id: &'a str,
@@ -67,7 +73,7 @@ impl Core {
             .to_owned();
         let id = TransactionId::new().to_string();
         let content = WidgetOut {
-            kind: "m.custom",
+            kind: WidgetKind::Custom,
             url: &enrich_widget_url(&url),
             name,
             id: &id,
@@ -91,13 +97,13 @@ impl Core {
 
 #[cfg(test)]
 mod tests {
-    use super::{TEMPLATE_PARAMS, WidgetOut, enrich_widget_url, widget_url};
+    use super::{TEMPLATE_PARAMS, WidgetKind, WidgetOut, enrich_widget_url, widget_url};
 
     #[test]
     fn widget_content_keeps_the_state_event_shape() {
         let user_id = matrix_sdk::ruma::owned_user_id!("@a:example.org");
         let content = serde_json::to_value(WidgetOut {
-            kind: "m.custom",
+            kind: WidgetKind::Custom,
             url: "https://example.org/w",
             name: "Board",
             id: "w1",

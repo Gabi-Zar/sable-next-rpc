@@ -136,7 +136,7 @@ fn replacement_edit(
         mentions: serde_json::Map::new(),
         new_content,
         relates_to: ReplaceRelationOut {
-            rel_type: "m.replace",
+            rel_type: RelationType::Replacement,
             event_id: event_id.as_str(),
         },
     })
@@ -859,7 +859,7 @@ struct ReplacementEditOut<'a> {
 
 #[derive(serde::Serialize)]
 struct ReplaceRelationOut<'a> {
-    rel_type: &'static str,
+    rel_type: RelationType,
     event_id: &'a str,
 }
 

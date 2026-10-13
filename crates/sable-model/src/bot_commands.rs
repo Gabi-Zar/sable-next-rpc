@@ -917,7 +917,7 @@ pub fn drafts_from_text(command: &BotCommand, args: &str) -> ArgumentDrafts {
 #[derive(Serialize)]
 struct RoomReferenceOut<'a> {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: RoomReferenceKind,
     id: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
     via: Option<&'a [String]>,
@@ -930,19 +930,13 @@ fn literal_json(value: &LiteralValue) -> Value {
         LiteralValue::Boolean(flag) => Value::from(*flag),
         LiteralValue::Integer(number) => Value::from(*number),
         LiteralValue::Text(text) => Value::from(text.as_str()),
-        LiteralValue::Room(reference) => {
-            let kind = match reference.kind {
-                RoomReferenceKind::RoomId => "room_id",
-                RoomReferenceKind::EventId => "event_id",
-            };
-            serde_json::to_value(RoomReferenceOut {
-                kind,
-                id: &reference.id,
-                via: reference.via.as_deref(),
-                event_id: reference.event_id.as_deref(),
-            })
-            .unwrap_or_default()
-        }
+        LiteralValue::Room(reference) => serde_json::to_value(RoomReferenceOut {
+            kind: reference.kind,
+            id: &reference.id,
+            via: reference.via.as_deref(),
+            event_id: reference.event_id.as_deref(),
+        })
+        .unwrap_or_default(),
     }
 }
 

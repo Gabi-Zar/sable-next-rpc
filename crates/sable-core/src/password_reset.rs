@@ -12,7 +12,7 @@ use crate::{Core, session};
 #[derive(serde::Serialize)]
 struct EmailIdentityOut<'a, C> {
     #[serde(rename = "type")]
-    auth_type: &'static str,
+    auth_type: AuthType,
     threepid_creds: &'a C,
     session: Option<&'a str>,
 }
@@ -29,7 +29,7 @@ pub(crate) fn email_identity<C: serde::Serialize>(
     session: Option<&str>,
 ) -> Option<AuthData> {
     let wire = serde_json::to_value(EmailIdentityOut {
-        auth_type: "m.login.email.identity",
+        auth_type: AuthType::EmailIdentity,
         threepid_creds: creds,
         session,
     })

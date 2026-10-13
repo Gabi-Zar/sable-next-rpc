@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use matrix_sdk::room::MessagesOptions;
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
+use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::room::RoomType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, UInt};
@@ -23,7 +24,6 @@ pub(crate) const RSVP_EVENT: &str = "moe.sable.calendar.rsvp";
 const CALENDAR_EVENTS: &str = "chat.commet.calendar_events";
 const CALENDAR_CREATE: &str = "chat.commet.calendar_create";
 const CALENDARS: &str = "chat.commet.calendars";
-const EVENT_FORMAT: &str = "chat.commet.calendar.event.rfc8984";
 const RSVP_STATUSES: [&str; 3] = ["accepted", "tentative", "declined"];
 const PAGE_SIZE: u32 = 100;
 const MAX_PAGES: usize = 100;
@@ -55,7 +55,7 @@ pub(crate) struct CalendarAnswer {
 
 #[derive(Serialize)]
 struct ReferenceOut<'a> {
-    rel_type: &'static str,
+    rel_type: RelationType,
     event_id: &'a OwnedEventId,
 }
 
@@ -75,7 +75,7 @@ fn rsvp_content(answer: &CalendarAnswer) -> RsvpOut<'_> {
         uid: &answer.uid,
         status: answer.status,
         relates_to: ReferenceOut {
-            rel_type: "m.reference",
+            rel_type: RelationType::Reference,
             event_id: &answer.calendar_event_id,
         },
         recurrence_id: answer.recurrence_id.as_deref(),
@@ -83,17 +83,23 @@ fn rsvp_content(answer: &CalendarAnswer) -> RsvpOut<'_> {
 }
 
 #[derive(Serialize)]
+enum CalendarFormat {
+    #[serde(rename = "chat.commet.calendar.event.rfc8984")]
+    Rfc8984,
+}
+
+#[derive(Serialize)]
 struct CalendarEventsOut<'a> {
     #[serde(rename = "m.relates_to")]
     relates_to: CalendarRefOut<'a>,
-    format: &'static str,
+    format: CalendarFormat,
     events: [CalendarItemOut<'a>; 1],
 }
 
 #[derive(Serialize)]
 struct CalendarRefOut<'a> {
     event_id: &'a str,
-    rel_type: &'static str,
+    rel_type: RelationType,
 }
 
 #[derive(Serialize)]
@@ -206,9 +212,9 @@ impl Core {
         let content = to_raw_value(&CalendarEventsOut {
             relates_to: CalendarRefOut {
                 event_id: &calendar_id,
-                rel_type: "m.reference",
+                rel_type: RelationType::Reference,
             },
-            format: EVENT_FORMAT,
+            format: CalendarFormat::Rfc8984,
             events: [CalendarItemOut { event: &event }],
         })
         .or_failed(self, "save_calendar_event")?;

@@ -663,21 +663,27 @@ pub fn tally_rsvps(
     tally
 }
 
-const fn frequency_name(frequency: Frequency) -> &'static str {
-    match frequency {
-        Frequency::Daily => "daily",
-        Frequency::Weekly => "weekly",
-        Frequency::Monthly => "monthly",
-        Frequency::Yearly => "yearly",
-    }
+#[derive(Serialize)]
+enum RuleKind {
+    RecurrenceRule,
+}
+
+#[derive(Serialize)]
+enum LocationKind {
+    Location,
+}
+
+#[derive(Serialize)]
+enum EventKind {
+    Event,
 }
 
 /// A recurrence rule to send; `extra` carries the parts of an existing rule the dialog does not edit.
 #[derive(Serialize)]
 struct RuleOut {
     #[serde(rename = "@type")]
-    kind: &'static str,
-    frequency: &'static str,
+    kind: RuleKind,
+    frequency: Frequency,
     #[serde(skip_serializing_if = "Option::is_none")]
     until: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -697,7 +703,9 @@ fn recurrence_rule(
         .and_then(|rules| rules.first())
         .and_then(Value::as_object)
         .filter(|rule| {
-            rule.get("frequency").and_then(Value::as_str) == Some(frequency_name(frequency))
+            rule.get("frequency").is_some_and(|value| {
+                Frequency::deserialize(value).is_ok_and(|rule| rule == frequency)
+            })
         });
     let mut extra = previous.cloned().unwrap_or_default();
     let count = extra.remove("count");
@@ -708,8 +716,8 @@ fn recurrence_rule(
         .filter(|until| !until.is_empty())
         .map(|until| format!("{until}T23:59:59"));
     RuleOut {
-        kind: "RecurrenceRule",
-        frequency: frequency_name(frequency),
+        kind: RuleKind::RecurrenceRule,
+        frequency,
         count: if until.is_some() { None } else { count },
         until,
         extra,
@@ -719,7 +727,7 @@ fn recurrence_rule(
 #[derive(Serialize)]
 struct LocationOut<'a> {
     #[serde(rename = "@type")]
-    kind: &'static str,
+    kind: LocationKind,
     name: &'a str,
 }
 
@@ -731,7 +739,7 @@ struct LocationsOut<'a> {
 #[derive(Serialize)]
 struct EventOut<'a> {
     #[serde(rename = "@type")]
-    kind: &'static str,
+    kind: EventKind,
     uid: &'a str,
     updated: String,
     title: &'a str,
@@ -779,7 +787,7 @@ pub fn build_event(
         format_duration(draft.duration_ms)
     };
     let fields = EventOut {
-        kind: "Event",
+        kind: EventKind::Event,
         uid,
         updated: format!("{}Z", format_ms(now_ms).unwrap_or_default()),
         title: &draft.title,
@@ -790,7 +798,7 @@ pub fn build_event(
         description: (!draft.description.is_empty()).then_some(draft.description.as_str()),
         locations: (!draft.location.is_empty()).then(|| LocationsOut {
             main: LocationOut {
-                kind: "Location",
+                kind: LocationKind::Location,
                 name: &draft.location,
             },
         }),

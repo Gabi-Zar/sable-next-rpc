@@ -37,6 +37,7 @@ use matrix_sdk::ruma::events::room::{ImageInfo, MediaSource};
 use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk::ruma::events::tag::{TagInfo, TagName};
 use matrix_sdk::ruma::profile::{ProfileFieldName, ProfileFieldValue};
+use matrix_sdk::ruma::room::JoinRuleKind;
 use matrix_sdk::ruma::room::RoomType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{
@@ -196,37 +197,61 @@ struct StateEventOut<'a, C> {
 }
 
 #[derive(serde::Serialize)]
-struct TypeOut {
+enum SlotStatus {
+    #[serde(rename = "open")]
+    Open,
+}
+
+#[derive(serde::Serialize)]
+enum SlotApplicationKind {
+    #[serde(rename = "m.call")]
+    Call,
+}
+
+#[derive(serde::Serialize)]
+enum SlotEncryptionKind {
+    #[serde(rename = "org.matrix.msc4143.per_member")]
+    PerMember,
+}
+
+#[derive(serde::Serialize)]
+struct TypeOut<K> {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: K,
 }
 
 #[derive(serde::Serialize)]
 struct JoinRuleOut<'a> {
-    join_rule: &'a str,
+    join_rule: JoinRuleKind,
     #[serde(skip_serializing_if = "Option::is_none")]
     allow: Option<[JoinRuleAllowOut<'a>; 1]>,
 }
 
 #[derive(serde::Serialize)]
+enum JoinRuleAllowKind {
+    #[serde(rename = "m.room_membership")]
+    RoomMembership,
+}
+
+#[derive(serde::Serialize)]
 struct JoinRuleAllowOut<'a> {
     #[serde(rename = "type")]
-    kind: &'static str,
+    kind: JoinRuleAllowKind,
     room_id: &'a RoomId,
 }
 
 #[derive(serde::Serialize)]
 struct RtcSlotOut {
-    status: &'static str,
-    application: TypeOut,
+    status: SlotStatus,
+    application: TypeOut<SlotApplicationKind>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    encryption: Option<TypeOut>,
+    encryption: Option<TypeOut<SlotEncryptionKind>>,
 }
 
-fn join_rule_event<'a>(
-    join_rule: &'a str,
-    allow: Option<&'a RoomId>,
-) -> StateEventOut<'a, JoinRuleOut<'a>> {
+fn join_rule_event(
+    join_rule: JoinRuleKind,
+    allow: Option<&RoomId>,
+) -> StateEventOut<'_, JoinRuleOut<'_>> {
     StateEventOut {
         kind: "m.room.join_rules",
         state_key: "",
@@ -234,7 +259,7 @@ fn join_rule_event<'a>(
             join_rule,
             allow: allow.map(|room_id| {
                 [JoinRuleAllowOut {
-                    kind: "m.room_membership",
+                    kind: JoinRuleAllowKind::RoomMembership,
                     room_id,
                 }]
             }),
@@ -250,15 +275,15 @@ fn join_rule_content(
     let plain = |kind| join_rule_event(kind, None);
 
     match rule? {
-        CreateJoinRuleView::Public => Some(plain("public")),
-        CreateJoinRuleView::Invite => Some(plain("invite")),
-        CreateJoinRuleView::Knock => Some(plain("knock")),
+        CreateJoinRuleView::Public => Some(plain(JoinRuleKind::Public)),
+        CreateJoinRuleView::Invite => Some(plain(JoinRuleKind::Invite)),
+        CreateJoinRuleView::Knock => Some(plain(JoinRuleKind::Knock)),
         CreateJoinRuleView::Restricted => {
-            Some(allow("restricted").unwrap_or_else(|| plain("invite")))
+            Some(allow(JoinRuleKind::Restricted).unwrap_or_else(|| plain(JoinRuleKind::Invite)))
         }
-        CreateJoinRuleView::KnockRestricted => {
-            Some(allow("knock_restricted").unwrap_or_else(|| plain("invite")))
-        }
+        CreateJoinRuleView::KnockRestricted => Some(
+            allow(JoinRuleKind::KnockRestricted).unwrap_or_else(|| plain(JoinRuleKind::Invite)),
+        ),
     }
 }
 
@@ -3059,7 +3084,7 @@ impl Core {
                     "m.room.member",
                     user_id.as_str(),
                     &MemberLeaveOut {
-                        membership: "leave",
+                        membership: MembershipState::Leave,
                     },
                 )
                 .await?;
@@ -3345,10 +3370,12 @@ impl Core {
                             kind: view::RTC_SLOT_TYPE,
                             state_key: view::CALL_SLOT_ID,
                             content: RtcSlotOut {
-                                status: "open",
-                                application: TypeOut { kind: "m.call" },
+                                status: SlotStatus::Open,
+                                application: TypeOut {
+                                    kind: SlotApplicationKind::Call,
+                                },
                                 encryption: (encrypted && !public).then_some(TypeOut {
-                                    kind: "org.matrix.msc4143.per_member",
+                                    kind: SlotEncryptionKind::PerMember,
                                 }),
                             },
                         })
@@ -3689,7 +3716,7 @@ impl Core {
 
 #[derive(serde::Serialize)]
 struct MemberLeaveOut {
-    membership: &'static str,
+    membership: MembershipState,
 }
 
 #[derive(serde::Serialize)]
@@ -4346,7 +4373,7 @@ mod tests {
     fn a_denied_knock_is_a_bare_leave() {
         assert_eq!(
             serde_json::to_value(super::MemberLeaveOut {
-                membership: "leave"
+                membership: MembershipState::Leave
             })
             .unwrap(),
             serde_json::json!({ "membership": "leave" })
@@ -4501,8 +4528,10 @@ mod tests {
                 kind: view::RTC_SLOT_TYPE,
                 state_key: view::CALL_SLOT_ID,
                 content: RtcSlotOut {
-                    status: "open",
-                    application: TypeOut { kind: "m.call" },
+                    status: SlotStatus::Open,
+                    application: TypeOut {
+                        kind: SlotApplicationKind::Call,
+                    },
                     encryption,
                 },
             })
@@ -4519,7 +4548,7 @@ mod tests {
         );
         assert_eq!(
             slot(Some(TypeOut {
-                kind: "org.matrix.msc4143.per_member"
+                kind: SlotEncryptionKind::PerMember
             }))["content"]["encryption"],
             serde_json::json!({ "type": "org.matrix.msc4143.per_member" })
         );
@@ -4530,8 +4559,11 @@ mod tests {
         assert!(super::join_rule_content(None, None).is_none());
     }
 
-    use super::{RtcSlotOut, StateEventOut, TypeOut};
+    use super::{
+        RtcSlotOut, SlotApplicationKind, SlotEncryptionKind, SlotStatus, StateEventOut, TypeOut,
+    };
     use crate::view;
+    use matrix_sdk::ruma::events::room::member::MembershipState;
     use matrix_sdk::ruma::owned_user_id;
 
     #[test]

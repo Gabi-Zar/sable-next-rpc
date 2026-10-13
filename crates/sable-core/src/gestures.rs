@@ -10,8 +10,20 @@ struct MentionsOut<'a> {
 }
 
 #[derive(Serialize)]
+enum CuteMsgType {
+    #[serde(rename = "im.fluffychat.cute_event")]
+    CuteEvent,
+}
+
+#[derive(Serialize)]
+enum HeadpatMsgType {
+    #[serde(rename = "m.emote")]
+    Emote,
+}
+
+#[derive(Serialize)]
 pub(crate) struct CuteEventOut<'a> {
-    msgtype: &'static str,
+    msgtype: CuteMsgType,
     #[serde(rename = "m.mentions")]
     mentions: MentionsOut<'a>,
     cute_type: &'a str,
@@ -20,7 +32,7 @@ pub(crate) struct CuteEventOut<'a> {
 
 #[derive(Serialize)]
 pub(crate) struct HeadpatOut<'a> {
-    msgtype: &'static str,
+    msgtype: HeadpatMsgType,
     #[serde(rename = "m.mentions")]
     mentions: MentionsOut<'a>,
     body: String,
@@ -49,7 +61,7 @@ pub(crate) fn gesture_content(
 ) -> GestureOut<'_> {
     let cute = |kind: &'static str, body: &'static str| {
         GestureOut::Cute(CuteEventOut {
-            msgtype: "im.fluffychat.cute_event",
+            msgtype: CuteMsgType::CuteEvent,
             mentions: mentions(target),
             cute_type: kind,
             body,
@@ -61,7 +73,7 @@ pub(crate) fn gesture_content(
         GestureView::Wave => cute("wave", "👋"),
         GestureView::Poke => cute("poke", "🫵"),
         GestureView::Headpat => GestureOut::Headpat(HeadpatOut {
-            msgtype: "m.emote",
+            msgtype: HeadpatMsgType::Emote,
             mentions: mentions(target),
             body: format!("pats {}", target.map_or("you", |user| user.as_str())),
             headpat: true,

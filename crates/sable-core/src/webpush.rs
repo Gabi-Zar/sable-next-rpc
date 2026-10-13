@@ -15,6 +15,7 @@ use ruma::api::{
     path_builder::{PathBuilder, StablePathSelector, VersionHistory},
 };
 use ruma::http_headers::APPLICATION_JSON;
+use ruma::push::PushFormat;
 
 use crate::protocol::{RegisteredPusherView, WebPusherView};
 
@@ -85,11 +86,28 @@ fn pusher_body(
     }
 
     #[derive(Serialize)]
+    enum PusherKindOut {
+        #[serde(rename = "org.matrix.msc4174.webpush")]
+        WebPush,
+    }
+
+    #[derive(Serialize)]
+    enum AppDisplayNameOut {
+        Sable,
+    }
+
+    #[derive(Serialize)]
+    enum LangOut {
+        #[serde(rename = "en")]
+        English,
+    }
+
+    #[derive(Serialize)]
     struct DataOut<'a> {
         url: &'a str,
         auth: &'a str,
         #[serde(skip_serializing_if = "Option::is_none")]
-        format: Option<&'static str>,
+        format: Option<PushFormat>,
         #[serde(skip_serializing_if = "Option::is_none")]
         default_payload: Option<DefaultPayloadOut>,
     }
@@ -98,10 +116,10 @@ fn pusher_body(
     struct BodyOut<'a> {
         pushkey: &'a str,
         app_id: &'a str,
-        kind: &'static str,
-        app_display_name: &'static str,
+        kind: PusherKindOut,
+        app_display_name: AppDisplayNameOut,
         device_display_name: &'a str,
-        lang: &'static str,
+        lang: LangOut,
         data: DataOut<'a>,
         append: bool,
     }
@@ -109,14 +127,14 @@ fn pusher_body(
     serde_json::to_value(BodyOut {
         pushkey: &pusher.pushkey,
         app_id: &pusher.app_id,
-        kind: PUSHER_KIND,
-        app_display_name: "Sable",
+        kind: PusherKindOut::WebPush,
+        app_display_name: AppDisplayNameOut::Sable,
         device_display_name: &pusher.device_display_name,
-        lang: "en",
+        lang: LangOut::English,
         data: DataOut {
             url: &pusher.endpoint,
             auth: &pusher.auth,
-            format: pusher.event_id_only.then_some("event_id_only"),
+            format: pusher.event_id_only.then_some(PushFormat::EventIdOnly),
             default_payload: user_id.map(|user_id| DefaultPayloadOut { user_id }),
         },
         append: false,
