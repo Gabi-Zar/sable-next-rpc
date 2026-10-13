@@ -27,7 +27,7 @@
         (pathId) => findRoomByPathId(roomList.rooms, pathId)?.state === 'joined'
       );
     });
-    if (target !== null) void goto(target, { replaceState: true });
+    if (target !== null) void goto(target, { replace: true });
   });
 </script>
 

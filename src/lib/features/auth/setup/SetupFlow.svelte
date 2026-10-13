@@ -162,7 +162,7 @@
     const target = stepRoute(upcoming);
     if (reload) location.assign(target);
     else if (page.url.pathname !== target)
-      void goto(target, { replaceState: requestedIndex < 0, reset: false });
+      void goto(target, { replace: requestedIndex < 0, reset: false });
   }
 
   function leave(target: string, reload: boolean): void {
@@ -211,7 +211,7 @@
   $effect(() => {
     if (!record || !pending || leaving) return;
     if (requestedIndex >= 0 && requestedIndex <= pendingIndex) return;
-    void goto(stepRoute(pending), { replaceState: true, reset: false });
+    void goto(stepRoute(pending), { replace: true, reset: false });
   });
 </script>
 
