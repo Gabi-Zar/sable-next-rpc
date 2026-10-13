@@ -37,6 +37,23 @@ test('every settings category has no accessibility violations', async ({ page })
   expect(failing).toEqual({});
 });
 
+test('the settings categories are one tab stop', async ({ page }) => {
+  await page.goto('/settings/appearance');
+  await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible();
+  const categories = page.locator('.settings-nav-item');
+  const total = await categories.count();
+  expect(total).toBeGreaterThan(3);
+
+  const reachable = await categories.evaluateAll(
+    (items) => items.filter((item) => (item as HTMLElement).tabIndex >= 0).length
+  );
+  expect(reachable).toBe(1);
+
+  await categories.first().focus();
+  await page.keyboard.press('ArrowDown');
+  await expect(categories.nth(1)).toBeFocused();
+});
+
 test.describe('room view tab stops', () => {
   test.beforeEach(async ({ app, homeserver, page, timeline }) => {
     await app.openRooms();

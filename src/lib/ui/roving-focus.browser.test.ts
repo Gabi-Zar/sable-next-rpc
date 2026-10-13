@@ -84,3 +84,12 @@ test('focus moves to a neighbour when the focused control is removed', async () 
   });
   expect(tabStops(root).map((stop) => stop.id)).toEqual(['c']);
 });
+
+test('Tab first lands on the current item', async () => {
+  const root = mount(
+    '<a href="#a" id="a">a</a><a href="#b" id="b" aria-current="page">b</a><a href="#c" id="c">c</a>'
+  );
+  await userEvent.tab();
+  expect(document.activeElement?.id).toBe('b');
+  expect(tabStops(root).map((stop) => stop.id)).toEqual(['b']);
+});

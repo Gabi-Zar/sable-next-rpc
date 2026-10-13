@@ -10,6 +10,9 @@ interface Options {
   loop?: boolean;
 }
 
+// Where Tab lands first when nothing inside has had focus yet.
+const SELECTED = '[aria-current="page"], [aria-selected="true"]';
+
 // Arrow keys keep their text-editing meaning in these.
 const EDITABLE =
   'input:not([type="radio"]):not([type="checkbox"]):not([type="button"]), textarea, select, [contenteditable="true"]';
@@ -44,7 +47,7 @@ export function rovingFocus({
         current = replacement;
         if (focusLost) replacement?.focus();
       }
-      current ??= all[0];
+      current ??= all.find((item) => item.matches(SELECTED)) ?? all[0];
       order = all;
       for (const item of all) item.tabIndex = item === current ? 0 : -1;
     };
