@@ -48,7 +48,7 @@
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { RoomMemberLoader } from '#lib/rooms/room-members.svelte.js';
   import { provideRoomCosmetics, RoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
-  import { activeRoomTimeline, type ResumeAnchor } from '#lib/rooms/timeline.svelte.js';
+  import { activeRoomTimeline } from '#lib/rooms/timeline.svelte.js';
   import ScheduledMessages from '#lib/features/composer/ScheduledMessages.svelte';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import { composerClearance } from '#lib/ui/composer-clearance.svelte.js';
@@ -141,7 +141,7 @@
     roomId: () => resolvedRoomId,
     spaceIds: (id) => personaSpaces(roomList.rooms, id, page.params.spaceId).order,
     encrypted: () => resolvedRoom?.encrypted ?? null,
-    beforeSend: () => timelineList?.resumeLive(false) ?? resumeLive(),
+    beforeSend: () => timelineList?.resumeLive() ?? resumeLive(),
   });
   let settingsOpen = $state(false);
   let topicOpen = $state(false);
@@ -553,7 +553,6 @@
   $effect(() => {
     const activeRoomId = timelineRoomId;
     if (!activeRoomId) return;
-    if (eventId !== null && resolvedPermalink === null) return;
     const targetEventId = timelineEventId;
     const anchor = untrack(() => {
       // A loaded event is reached by scrolling, but only while live.
@@ -574,7 +573,14 @@
     // Read outside `untrack`: the toggle only takes effect by re-subscribing.
     const hiddenEvents = preferences.showHiddenEvents;
     void untrack(() =>
-      activeTimeline.start(timelineOwner, activeRoomId, anchor, hiddenEvents, openAtUnread)
+      activeTimeline.start(
+        timelineOwner,
+        activeRoomId,
+        anchor,
+        hiddenEvents,
+        openAtUnread,
+        landingEventId
+      )
     );
     void untrack(() => loadMembers());
   });
@@ -827,8 +833,8 @@
     );
   }
 
-  function resumeLive(anchor?: ResumeAnchor): Promise<void> {
-    return activeTimeline.resumeLive(timelineOwner, anchor);
+  function resumeLive(): Promise<void> {
+    return activeTimeline.resumeLive(timelineOwner);
   }
 
   function markRoomUnread(): void {

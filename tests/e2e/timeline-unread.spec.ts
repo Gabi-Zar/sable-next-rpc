@@ -158,7 +158,7 @@ test('the reveal keeps unread context when the room summary changes', async ({
   await timeline.expectAnchorHeld(reader);
 });
 
-test('the reveal resumes live at forward end without moving the reader or losing arrivals', async ({
+test('the reveal keeps the unread context while the reader is above the bottom', async ({
   app,
   page,
   timeline,
@@ -173,20 +173,16 @@ test('the reveal resumes live at forward end without moving the reader or losing
   for (const body of ['General message 40', 'General message 60']) {
     await expect
       .poll(async () => {
-        await timeline.wheelDown(2_000);
+        await timeline.wheelDown(400);
         return timeline.message(body).count();
       })
       .toBeGreaterThan(0);
   }
   await timeline.waitForScrollSettled();
   const reader = await timeline.fullyVisibleAnchor();
-  await expect.poll(() => core.subscribeCount()).toBe(subscriptions + 1);
-  await expect(timeline.message('Arrived during handoff')).toBeAttached();
+  await quietFor(page, RECEIPT_COALESCE_MS);
+  expect(await core.subscribeCount()).toBe(subscriptions);
   await timeline.expectAnchorHeld(reader);
-  await page.evaluate(() => {
-    window.__e2eReceiveMessage('New live message');
-  });
-  await expect(timeline.message('New live message')).toBeAttached();
 });
 
 test('a notification context stays put at forward end until the reader jumps to latest', async ({
@@ -216,7 +212,7 @@ test('a notification context stays put at forward end until the reader jumps to 
   await expect(timeline.message('Arrived during handoff')).toBeInViewport();
 });
 
-test('the reveal keeps the row the reader scrolled to during the live handoff', async ({
+test('the reveal switches to live at the latest when the reader reaches the bottom', async ({
   app,
   page,
   timeline,
@@ -228,21 +224,14 @@ test('the reveal keeps the row the reader scrolled to during the live handoff', 
   await timeline.expectRevealed();
   await expect(timeline.message('General message 5')).toBeInViewport();
   const subscriptions = await core.subscribeCount();
-  for (const body of ['General message 40', 'General message 60']) {
-    await expect
-      .poll(async () => {
-        await timeline.wheelDown(2_000);
-        return timeline.message(body).count();
-      })
-      .toBeGreaterThan(0);
-  }
-  await expect.poll(() => core.subscribeCount()).toBe(subscriptions + 1);
-  await timeline.wheelUp(600);
-  await timeline.waitForScrollSettled();
-  const reader = await timeline.fullyVisibleAnchor();
-  await expect(timeline.message('Arrived during handoff')).toBeAttached();
-  await timeline.expectAnchorHeld(reader);
-  expect(await page.evaluate(() => window.__e2ePaginationDirections)).toContain('backward');
+  await expect
+    .poll(async () => {
+      await timeline.wheelDown(2_000);
+      return core.subscribeCount();
+    })
+    .toBe(subscriptions + 1);
+  await expect(timeline.message('Arrived during handoff')).toBeInViewport();
+  expect(await page.evaluate(() => window.__e2ePaginationDirections)).not.toContain('backward');
 });
 
 test('the reveal switches to live before sending from unread context', async ({

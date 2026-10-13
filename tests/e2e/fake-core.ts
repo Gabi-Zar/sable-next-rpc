@@ -935,7 +935,27 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
                     thread_root: '$thread-root:example.test',
                   })),
                 ]
-              : timelineSnapshot(roomName),
+              : workerMode === 'thread_links' &&
+                  command.focus.kind === 'event' &&
+                  command.focus.event_id === '$thread-reply-older:example.test'
+                ? [
+                    { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
+                    {
+                      ...items[0],
+                      id: 'thread-reply-older',
+                      event_id: '$thread-reply-older:example.test',
+                      content: messageContent('Older thread reply'),
+                      thread_root: '$thread-root:example.test',
+                    },
+                    ...Array.from({ length: 5 }, (_, index) => ({
+                      ...items[0],
+                      id: `thread-reply-${index}`,
+                      event_id: `$thread-reply-${index}:example.test`,
+                      content: messageContent(`Thread reply ${index}`),
+                      thread_root: '$thread-root:example.test',
+                    })),
+                  ]
+                : timelineSnapshot(roomName),
           aggregations: [],
         };
       },
@@ -1370,7 +1390,6 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         keywords: notificationKeywords.map((entry) => ({ ...entry })),
       }),
       timestamp_to_event: () => ({ type: 'timestamp_to_event', event_id: null }),
-      event_cached: () => ({ type: 'event_cached', cached: false }),
       room_account_data: (command) => ({
         type: 'room_account_data',
         content:

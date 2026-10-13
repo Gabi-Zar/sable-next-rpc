@@ -15,7 +15,7 @@
   } from '#src/generated/protocol';
   import { i18n } from '#lib/i18n.js';
   import { windowActivity } from '#lib/platform/window-activity.js';
-  import type { ResumeAnchor, RoomTimeline } from '#lib/rooms/timeline.svelte.js';
+  import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { MOTION_MS, motionMs, shouldReduceMotion } from '#lib/ui/motion.js';
   import {
@@ -60,7 +60,7 @@
     withReadMarkerBefore,
     type ReplyDirection,
   } from './timeline-format';
-  import { MAX_EMPTY_REFILLS, TimelinePagination } from './timeline-pagination.svelte.js';
+  import { TimelinePagination } from './timeline-pagination.svelte.js';
   import { TimelineFocus } from './timeline-focus.svelte.js';
   import { TimelineFuture } from './timeline-future.svelte.js';
   import { TimelineHistoryController } from './timeline-history';
@@ -92,7 +92,7 @@
     hasUnread?: boolean;
     onLoadReadMarker?: () => Promise<string | null>;
     onRequestUnread?: (eventId: string) => Promise<void>;
-    onResumeLive?: (anchor: ResumeAnchor) => Promise<void>;
+    onResumeLive?: () => Promise<void>;
     onMarkRead?: () => Promise<void>;
     onMatrixLink?: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
     onSenderProfile?: (
@@ -285,7 +285,7 @@
   let filling = $state(false);
   let opened = $state(false);
   let disposed = false;
-  let refillPending = false;
+  let refillPending = $state(false);
   const fetchedItems = useEventItems();
   let personas = $derived(
     personaLookup(timeline.items, (eventId) =>
@@ -540,13 +540,6 @@
     if (!future.canRefill()) return;
     void requestFuture().catch(() => {});
   });
-  async function awaitPagination(): Promise<void> {
-    const deadline = performance.now() + TIMELINE_LAYOUT.initialFillSettleTimeout;
-    while (!disposed && timeline.backwardPagination === 'loading' && performance.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, TIMELINE_LAYOUT.initialFillPollInterval));
-    }
-    await tick();
-  }
   async function openTimeline(engine: TimelineWindow<RowValue>): Promise<void> {
     if (opening || disposed) return;
     opening = true;
@@ -589,23 +582,6 @@
     if (!unreadEntry && !landingEntry() && !landingPending) revealed = true;
     filling = true;
     try {
-      while (!disposed && engine.state.pinned && timeline.backwardPagination !== 'end') {
-        const node = viewport;
-        if (!node || timeline.items.length === 0) break;
-        if (engine.contentHeight >= node.clientHeight || node.scrollHeight > node.clientHeight)
-          break;
-        if (timeline.backwardPagination === 'loading') {
-          await awaitPagination();
-          if (timeline.backwardPagination === 'loading') break;
-        } else {
-          if (!pagination.canRefill()) break;
-          pagination.exhausted = await requestFill();
-          await awaitPagination();
-          await engine.update(entries);
-          await new Promise(requestAnimationFrame);
-          if (pagination.exhausted) break;
-        }
-      }
       const notified = landingEntry();
       const landing = notified ?? (landingPending ? undefined : unreadEntry);
       if (landing && !disposed && engine.state.pinned) {
@@ -641,7 +617,7 @@
     if (
       timeline.loading ||
       timeline.resumingLive ||
-      timeline.mode.kind === 'focused' ||
+      (timeline.mode.kind === 'focused' && timeline.forwardPagination !== 'end') ||
       timeline.error !== null ||
       !engine ||
       !revealed ||
@@ -696,29 +672,18 @@
       timeline.loading ||
       timeline.resumingLive ||
       !revealed ||
-      !onResumeLive
+      !onResumeLive ||
+      !nearLatest
     )
       return;
     void resumeLive().catch(() => {});
   });
-  export function resumeLive(keepAnchor = true): Promise<void> {
-    if (resumeTask) {
-      if (keepAnchor) return resumeTask;
-      return resumeTask
-        .catch(() => {})
-        .then(() => (timeline.canResumeLive ? resumeLive(false) : jumpToLiveEnd()));
-    }
+  export function resumeLive(): Promise<void> {
+    if (resumeTask) return resumeTask;
     if (!onResumeLive || !timeline.canResumeLive) return Promise.resolve();
-    if (keepAnchor) controller?.holdAnchor();
-    const anchor = () => {
-      const key = keepAnchor && !disposed ? controller?.anchorKey(restorableAnchor) : null;
-      return entries.find((entry) => entry.key === key)?.value.item.event_id ?? null;
-    };
     resumeFailed = false;
-    const task = onResumeLive(anchor)
-      .then(async () => {
-        if (!keepAnchor) await jumpToLiveEnd();
-      })
+    const task = onResumeLive()
+      .then(jumpToLiveEnd)
       .catch((error: unknown) => {
         if (!disposed) resumeFailed = true;
         throw error;
@@ -728,9 +693,6 @@
       });
     resumeTask = task;
     return task;
-  }
-  function restorableAnchor({ item }: RowValue): boolean {
-    return item.thread_root === null;
   }
   async function jumpToLiveEnd(): Promise<void> {
     await tick();
@@ -779,7 +741,6 @@
     const landing = threadRoot ?? target;
     const entry = entryFor(landing);
     if (!entry) return threadRoot !== null && !root && landOnUnloaded(engine, threadRoot, true);
-    if (timeline.mode.kind === 'unread') heldContext = timeline.mode.eventId;
     markLanded(landing);
     await engine.jumpTo(entry.key, 'center');
     return true;
@@ -787,6 +748,7 @@
   let handledLanding: string | null = null;
   let landedEventId = $state<string | null>(null);
   function markLanded(eventId: string | null): void {
+    if (timeline.mode.kind === 'unread') heldContext = timeline.mode.eventId;
     handledLanding = landingEventId;
     landedEventId = eventId;
     onLanded?.();
@@ -856,10 +818,7 @@
     jumpingUnread = true;
     holdAtLatest = false;
     unreadError = null;
-    let mode = timeline.mode;
-    const current = () => !disposed && !navigation.signal.aborted && timeline.mode === mode;
-    const deadline = performance.now() + 30_000;
-    let emptyPages = 0;
+    const current = () => !disposed && !navigation.signal.aborted;
     try {
       await unread.initialize(
         timeline.items,
@@ -876,42 +835,21 @@
         switchingToUnread = true;
         try {
           await onRequestUnread(unread.readEventId);
-          mode = timeline.mode;
         } finally {
           switchingToUnread = false;
         }
+        await tick();
       }
-      while (current()) {
-        unread.resolve(timeline.items, oldestUnreadLoaded, eventItems);
-        if (!unread.active) return;
-        const target = entryFor(unread.firstEventId);
-        if (target) {
-          await engine.update(entries);
-          if (current()) await engine.jumpTo(target.key, 'start', false, navigation.signal);
-          return;
-        }
-        if (
-          emptyPages >= MAX_EMPTY_REFILLS ||
-          performance.now() >= deadline ||
-          oldestUnreadLoaded
-        ) {
-          unreadError = 'jump';
-          return;
-        }
-        const before = timeline.items;
-        if (!live && timeline.forwardPagination !== 'end') {
-          await requestFuture(true);
-          await tick();
-        } else {
-          const end = await requestHistory();
-          if (!current()) return;
-          pagination.exhausted = end;
-          await awaitPagination();
-        }
-        if (!current()) return;
-        emptyPages = timeline.items === before ? emptyPages + 1 : 0;
-        await engine.update(entries);
+      if (!current()) return;
+      unread.resolve(timeline.items, oldestUnreadLoaded, eventItems);
+      if (!unread.active) return;
+      const target = entryFor(unread.firstEventId);
+      if (!target) {
+        unreadError = 'jump';
+        return;
       }
+      await engine.update(entries);
+      if (current()) await engine.jumpTo(target.key, 'start', false, navigation.signal);
     } catch {
       if (current()) unreadError = 'jump';
     } finally {
@@ -975,7 +913,7 @@
     unreadNavigation?.abort();
     historyController.finishHistoryFill();
     if (timeline.canResumeLive) {
-      void resumeLive(false).catch(() => {});
+      void resumeLive().catch(() => {});
       return;
     }
     if (!live) {

@@ -221,19 +221,6 @@ export class TimelineWindow<T> {
     return this.drain();
   }
 
-  holdAnchor(): void {
-    this.pinned = false;
-    this.publish(this.capture());
-  }
-
-  anchorKey(accept: (value: T) => boolean = () => true): string | null {
-    const anchor = this.anchors.find(({ key }) => {
-      const row = this.rows.find((candidate) => candidate.key === key);
-      return row !== undefined && accept(row.value);
-    });
-    return anchor?.key ?? null;
-  }
-
   async jumpTo(
     key: string | null,
     align: 'start' | 'center' = 'center',

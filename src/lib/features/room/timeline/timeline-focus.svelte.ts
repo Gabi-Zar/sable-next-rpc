@@ -1,7 +1,6 @@
 import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
 import type { TimelineEntry, TimelineWindow } from '#lib/timeline/timeline-window.js';
-import { TIMELINE_LAYOUT } from './timeline-layout';
-import { MAX_EMPTY_REFILLS, type TimelinePagination } from './timeline-pagination.svelte.js';
+import type { TimelinePagination } from './timeline-pagination.svelte.js';
 
 interface FocusDependencies<T> {
   timeline: () => RoomTimeline;
@@ -24,8 +23,6 @@ export class TimelineFocus<T> {
   }
 
   async #fillViewport(engine: TimelineWindow<T>, current: () => boolean): Promise<void> {
-    let emptyPages = 0;
-    let deadline = performance.now() + TIMELINE_LAYOUT.initialFillSettleTimeout;
     while (
       current() &&
       this.deps.timeline().mode.kind === 'focused' &&
@@ -36,14 +33,8 @@ export class TimelineFocus<T> {
       if (
         this.deps.timeline().forwardPagination === 'loading' ||
         this.deps.timeline().backwardPagination === 'loading'
-      ) {
-        if (performance.now() >= deadline) break;
-        await new Promise((resolve) =>
-          setTimeout(resolve, TIMELINE_LAYOUT.initialFillPollInterval)
-        );
-        continue;
-      }
-      if (emptyPages >= MAX_EMPTY_REFILLS) break;
+      )
+        break;
       const before = this.deps.timeline().items;
       if (this.deps.timeline().forwardPagination !== 'end') {
         if (this.deps.canRequestFuture?.() === false) break;
@@ -57,8 +48,7 @@ export class TimelineFocus<T> {
         this.deps.history.exhausted = end;
       } else break;
       if (!current() || this.deps.timeline().error !== null) break;
-      emptyPages = this.deps.timeline().items === before ? emptyPages + 1 : 0;
-      deadline = performance.now() + TIMELINE_LAYOUT.initialFillSettleTimeout;
+      if (this.deps.timeline().items === before) break;
       await engine.update(this.deps.entries());
       await new Promise(requestAnimationFrame);
     }

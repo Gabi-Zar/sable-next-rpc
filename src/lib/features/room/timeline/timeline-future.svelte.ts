@@ -1,13 +1,11 @@
 import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
 import type { TimelineItemView } from '#src/generated/protocol';
-import { MAX_EMPTY_REFILLS } from './timeline-pagination.svelte.js';
 
 export class TimelineFuture {
   pending = $state(false);
   failed = $state(false);
   #task: Promise<void> | null = null;
-  #items: readonly TimelineItemView[] | null = null;
-  #emptyRequests = 0;
+  #requestedItems: readonly TimelineItemView[] | null = null;
 
   constructor(
     private readonly timeline: () => RoomTimeline,
@@ -15,22 +13,17 @@ export class TimelineFuture {
   ) {}
 
   canRefill(): boolean {
-    const items = this.timeline().items;
-    if (items !== this.#items) {
-      this.#items = items;
-      this.#emptyRequests = 0;
-    }
-    return !this.failed && this.#emptyRequests < MAX_EMPTY_REFILLS;
+    return !this.failed && this.timeline().items !== this.#requestedItems;
   }
 
   request(manual = false): Promise<void> {
     if (this.#task) return this.#task;
     if (manual) {
       this.failed = false;
-      this.#emptyRequests = 0;
+      this.#requestedItems = null;
     }
     if (!this.canRefill()) return Promise.resolve();
-    this.#emptyRequests += 1;
+    this.#requestedItems = this.timeline().items;
     this.pending = true;
     const task: Promise<void> = Promise.resolve()
       .then(() => (this.#task === task ? this.load() : undefined))
@@ -49,8 +42,7 @@ export class TimelineFuture {
 
   reset(): void {
     this.#task = null;
-    this.#items = null;
-    this.#emptyRequests = 0;
+    this.#requestedItems = null;
     this.pending = false;
     this.failed = false;
   }

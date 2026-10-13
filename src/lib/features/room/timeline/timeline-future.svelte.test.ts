@@ -2,7 +2,6 @@ import { expect, test, vi } from 'vitest';
 import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
 import type { TimelineItemView } from '#src/generated/protocol';
 import { TimelineFuture } from './timeline-future.svelte.js';
-import { MAX_EMPTY_REFILLS } from './timeline-pagination.svelte.js';
 
 function fixture(load = vi.fn(async () => {})) {
   const timeline = { items: [] } as unknown as RoomTimeline;
@@ -22,18 +21,18 @@ test('coalesces requests while a forward page is pending', async () => {
   expect(future.pending).toBe(false);
 });
 
-test('bounds pages without raw progress and lets interaction retry', async () => {
+test('an automatic page waits for new items and interaction can still retry', async () => {
   const { future, load } = fixture();
-  for (let i = 0; i < MAX_EMPTY_REFILLS + 3; i++) await future.request();
-  expect(load).toHaveBeenCalledTimes(MAX_EMPTY_REFILLS);
+  for (let i = 0; i < 4; i++) await future.request();
+  expect(load).toHaveBeenCalledTimes(1);
   expect(future.canRefill()).toBe(false);
   await future.request(true);
-  expect(load).toHaveBeenCalledTimes(MAX_EMPTY_REFILLS + 1);
+  expect(load).toHaveBeenCalledTimes(2);
 });
 
 test('raw progress continues paging even when events are hidden', async () => {
   const { timeline, future, load } = fixture();
-  for (let i = 0; i < MAX_EMPTY_REFILLS * 2; i++) {
+  for (let i = 0; i < 10; i++) {
     timeline.items = [
       ...timeline.items,
       {
@@ -44,7 +43,7 @@ test('raw progress continues paging even when events are hidden', async () => {
     ];
     await future.request();
   }
-  expect(load).toHaveBeenCalledTimes(MAX_EMPTY_REFILLS * 2);
+  expect(load).toHaveBeenCalledTimes(10);
 });
 
 test('a failed page pauses automatic loading until the reader retries', async () => {

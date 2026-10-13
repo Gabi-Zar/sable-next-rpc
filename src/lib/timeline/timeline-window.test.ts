@@ -135,16 +135,6 @@ function fixture(
   };
 }
 
-test('holding an anchor skips rows the caller cannot restore', async () => {
-  const { window } = fixture();
-  await window.update(entries(200));
-  await window.jumpTo('80', 'start');
-  window.holdAnchor();
-  expect(window.state.pinned).toBe(false);
-  expect(window.anchorKey()).toBe('80');
-  expect(window.anchorKey((value) => value !== 80)).toBe('81');
-});
-
 test('a jump that clamps to the end re-pins when the offset rounds down to a whole pixel', async () => {
   const { window, viewport, resizeViewport } = fixture();
   await window.update(entries(10));

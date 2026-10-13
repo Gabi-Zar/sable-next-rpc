@@ -53,7 +53,7 @@ test('a link to a thread reply opens and highlights it in the thread', async ({
   await expect(page.locator('.room-view > .timeline')).toBeVisible();
 });
 
-test('a direct link loads an older reply from thread history', async ({
+test('a direct link to an unloaded thread reply opens on its context', async ({
   page,
   installRoomCore,
 }) => {
@@ -66,7 +66,7 @@ test('a direct link loads an older reply from thread history', async ({
     thread.locator('[data-event-id="$thread-reply-older:example.test"]')
   ).toBeInViewport();
   await expect(thread.locator('.highlighted')).toContainText('Older thread reply');
-  expect(await page.evaluate(() => window.__e2eTimelineFocus)).not.toContainEqual({
+  expect(await page.evaluate(() => window.__e2eTimelineFocus)).toContainEqual({
     kind: 'event',
     event_id: '$thread-reply-older:example.test',
   });

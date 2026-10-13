@@ -98,7 +98,14 @@
     spaceIds: (id) => personaSpaces(roomList.rooms, id, page.params.spaceId).order,
     encrypted: () => encrypted,
     threadRoot: untrack(() => rootEventId),
+    beforeSend: () => returnToThread(),
   });
+
+  function returnToThread(): Promise<void> {
+    return timeline.mode.kind === 'focused'
+      ? timeline.startThread(roomId, rootEventId)
+      : Promise.resolve();
+  }
 
   $effect(() => {
     const target = focusEventId;
@@ -109,7 +116,9 @@
     const navigation = new AbortController();
     void (async () => {
       await timeline.startThread(roomId, rootEventId);
-      await timeline.loadThreadEvent(target, navigation.signal);
+      if (navigation.signal.aborted || timeline.items.some((item) => item.event_id === target))
+        return;
+      await timeline.start(roomId, target);
     })().catch((error: unknown) => {
       console.debug('[sable thread] linked reply unavailable', error);
     });
@@ -249,6 +258,7 @@
     {focusEventId}
     threadRootId={rootEventId}
     onRetryLoad={() => timeline.startThread(roomId, rootEventId)}
+    onJumpToLive={timeline.mode.kind === 'focused' ? () => void returnToThread() : undefined}
     {roomId}
     {members}
     {readOnly}
