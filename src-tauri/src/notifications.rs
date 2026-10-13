@@ -1786,7 +1786,7 @@ mod tests {
         let ids: Vec<_> = category
             .actions()
             .iter()
-            .map(|action| action.id())
+            .map(tauri_plugin_notifications::Action::id)
             .collect();
 
         assert_eq!(ids, ["sable-invite-accept", "sable-invite-decline"]);
