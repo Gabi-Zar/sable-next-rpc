@@ -91,3 +91,21 @@ export function visiblePronouns(
   }));
   return { visible: clamped.slice(0, limit), overflow: clamped.slice(limit) };
 }
+
+export function fittingPillCount(
+  widths: readonly number[],
+  overflowWidth: number,
+  gap: number,
+  available: number,
+  forceOverflow = false
+): number {
+  let used = 0;
+  let count = 0;
+  for (const [index, width] of widths.entries()) {
+    used += width + (index > 0 ? gap : 0);
+    const needsOverflow = forceOverflow || index < widths.length - 1;
+    const total = used + (needsOverflow ? gap + overflowWidth : 0);
+    if (total <= available) count = index + 1;
+  }
+  return count;
+}

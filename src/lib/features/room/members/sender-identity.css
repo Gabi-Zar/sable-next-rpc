@@ -10,11 +10,15 @@
 .sender-identity-name {
   font-weight: var(--font-weight-500);
   letter-spacing: -0.005em;
-  max-width: 24ch;
+  max-width: min(24ch, 100%);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sender-identity:has(> .sender-identity-pronouns, > .sender-identity-via) > .sender-identity-name {
+  flex-shrink: 0;
 }
 
 .sender-identity-name.state-subject {
@@ -45,11 +49,14 @@
 }
 
 .sender-identity-via {
-  align-items: baseline;
-  display: inline-flex;
+  display: block;
+  flex-shrink: 100;
   font-size: var(--font-size-small);
+  max-width: 16ch;
   min-width: 3rem;
   overflow: clip;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   white-space-collapse: preserve;
 
   & button {
@@ -59,8 +66,8 @@
 }
 
 .sender-identity-pronouns {
+  flex-shrink: 1000;
   min-width: 0;
-  overflow: hidden;
 }
 
 :root[data-high-contrast='off'] .sender-identity-via {
@@ -81,16 +88,4 @@
 
 :root.dark :is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns).tinted {
   color: var(--name-color-on-dark);
-}
-
-@media (width <= 25rem) {
-  .sender-identity:has(> .sender-identity-via) .sender-identity-pronouns {
-    max-width: 6rem;
-  }
-}
-
-@media (width <= 20rem) {
-  .sender-identity:has(> .sender-identity-via) .sender-identity-pronouns {
-    display: none;
-  }
 }

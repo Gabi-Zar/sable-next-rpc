@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  fittingPillCount,
   parsePronouns,
   preferredPronouns,
   pronounPillLimit,
@@ -136,5 +137,43 @@ describe('visiblePronouns', () => {
       visible: pronouns,
       overflow: [],
     });
+  });
+});
+
+describe('fittingPillCount', () => {
+  const widths = [50, 60, 70];
+
+  it('shows every pill when they all fit without an overflow pill', () => {
+    expect(fittingPillCount(widths, 20, 4, 188)).toBe(3);
+  });
+
+  it('reserves room for the overflow pill when pills are hidden', () => {
+    expect(fittingPillCount(widths, 20, 4, 130)).toBe(1);
+    expect(fittingPillCount(widths, 20, 4, 138)).toBe(2);
+  });
+
+  it('shows nothing when not even one pill and the overflow pill fit', () => {
+    expect(fittingPillCount(widths, 20, 4, 73)).toBe(0);
+  });
+
+  it('always needs the overflow pill when pills were already cut by the limit', () => {
+    expect(fittingPillCount(widths, 20, 4, 188, true)).toBe(2);
+  });
+
+  it('does not fit a pill that is under a pixel too wide', () => {
+    expect(fittingPillCount(widths, 20, 4, 187.9)).toBe(2);
+  });
+
+  it('counts the gap between pills and before the overflow pill', () => {
+    expect(fittingPillCount([10, 10, 10], 10, 0, 39)).toBe(3);
+    expect(fittingPillCount([10, 10, 10], 10, 5, 39)).toBe(1);
+  });
+
+  it('shows everything when the overflow pill would be wider than the last pill', () => {
+    expect(fittingPillCount([10, 10, 10], 50, 0, 30)).toBe(3);
+  });
+
+  it('returns 0 for no pills', () => {
+    expect(fittingPillCount([], 20, 4, 500)).toBe(0);
   });
 });
