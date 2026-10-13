@@ -681,15 +681,41 @@
             </time>
           {/snippet}
         </Tooltip>
-        <SenderName
-          displayName={senderName}
-          colors={senderColors}
-          {pronouns}
-          nameClass="compact-name"
-          onMention={nameMentions ? mentionSender : undefined}
-          onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
-          compact={layout === 'compact'}
-        />
+        <div class="compact-user">
+          {#if item.sender && onSenderProfile}
+            <button
+              class="avatar-button"
+              type="button"
+              aria-label={$i18n.t('timeline.senderProfile', { name: senderName })}
+              onclick={openSenderProfile}
+            >
+              <Avatar
+                class="message-avatar"
+                src={senderAvatar}
+                size="tiny"
+                id={personaTint ? null : item.sender}
+                name={senderName}
+              />
+            </button>
+          {:else}
+            <Avatar
+              class="message-avatar"
+              src={senderAvatar}
+              size="tiny"
+              id={personaTint ? null : item.sender}
+              name={senderName}
+            />
+          {/if}
+          <SenderName
+            displayName={senderName}
+            colors={senderColors}
+            {pronouns}
+            nameClass="compact-name"
+            onMention={nameMentions ? mentionSender : undefined}
+            onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
+            compact={layout === 'compact'}
+          />
+        </div>
       </div>
     {:else if !collapsed}
       {#if item.sender && onSenderProfile}
@@ -1893,12 +1919,13 @@
   }
 
   .compact-gutter {
-    align-items: baseline;
+    align-items: center;
     display: flex;
     flex: 0 0 clamp(7.5rem, 20%, 10.625rem);
     gap: var(--space-200);
     justify-content: space-between;
     min-width: 0;
+    height: fit-content;
     overflow: hidden;
     white-space: nowrap;
   }
@@ -1913,6 +1940,12 @@
   .message.layout-compact .reply-connected::before {
     left: calc(var(--space-050) - var(--space-300));
     width: calc(var(--space-300) - var(--space-150));
+  }
+
+  .compact-user {
+    display: flex;
+    font-size: inherit;
+    gap: var(--space-100);
   }
 
   .message.layout-bubble .message-main {
