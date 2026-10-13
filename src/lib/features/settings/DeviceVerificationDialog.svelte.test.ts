@@ -7,6 +7,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 vi.mock('#lib/core/context.js');
 
 import { core } from '#lib/core/__mocks__/context.js';
+import { flushed } from '#lib/ui/flushed.js';
 
 const cancelVerification = vi.fn(() => Promise.resolve());
 
@@ -64,5 +65,36 @@ test('dismissing an active flow cancels it and clears it so a new request can re
       mismatch: false,
     });
     expect(core.verification).toBeNull();
+  });
+});
+
+test('an error stays with its flow and clears when another flow takes over', async () => {
+  const compare = {
+    phase: 'compare' as const,
+    emojis: [{ symbol: '🐶', description: 'Dog' }],
+    decimals: [1, 2, 3] as [number, number, number],
+  };
+  const active = $state<{ current: unknown }>({
+    current: { userId: '@alice:example.org', flowId: 'first', state: compare },
+  });
+  Object.defineProperty(core, 'verification', {
+    configurable: true,
+    get: () => active.current,
+    set: (next: unknown) => (active.current = next),
+  });
+  vi.mocked(core.rpc.encryption.confirmVerification).mockRejectedValueOnce(new Error('nope'));
+  render(DeviceVerificationDialog);
+
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'They match' }));
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+
+  active.current = { userId: '@alice:example.org', flowId: 'first', state: { ...compare } };
+  await flushed();
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+
+  active.current = { userId: '@alice:example.org', flowId: 'second', state: { ...compare } };
+  await vi.waitFor(() => {
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

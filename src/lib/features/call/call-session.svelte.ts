@@ -114,7 +114,7 @@ export class CallSession {
   deafened = $state(false);
   connectedAt = $state<number | null>(null);
   layout = $state.raw<CallPin>({ pinned: null, gridForced: false });
-  watchedScreenShareIds = $state<string[]>([]);
+  watchedScreenShareIds = $state.raw<string[]>([]);
   views = $state(0);
   deviceError = $state<CallDeviceError | null>(null);
   listenOnly = $state(false);

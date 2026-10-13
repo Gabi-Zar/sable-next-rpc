@@ -41,7 +41,7 @@ function detach(snapshot: SyncedSnapshot): SyncedSnapshot {
 export class AccountSync {
   status = $state<AccountSyncStatus>('idle');
   lastSyncedAt = $state<number | null>(null);
-  skipped = $state<string[]>([]);
+  skipped = $state.raw<string[]>([]);
 
   #core: CoreClient | null = null;
   #generation = 0;

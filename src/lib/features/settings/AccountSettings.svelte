@@ -16,7 +16,7 @@
   const category = findCategory(SETTINGS_ACCOUNT_SECTION);
 
   const core = useCoreClient();
-  let profile = $state<ProfileView | null>(null);
+  let profile = $state.raw<ProfileView | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
 

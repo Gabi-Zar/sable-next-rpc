@@ -22,7 +22,7 @@
   } from './devices.js';
   import '#lib/ui/primitives/settings-row.css';
 
-  let devices = $state<CallDevice[]>([]);
+  let devices = $state.raw<CallDevice[]>([]);
   let denied = $state(false);
   let unlockError = $state<string | null>(null);
   let level = $state(0);

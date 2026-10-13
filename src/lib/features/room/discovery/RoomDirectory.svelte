@@ -44,8 +44,8 @@
 
   let search = $state('');
   let server = $state<string | null>(null);
-  let featured = $state<string[]>([]);
-  let added = $state<string[]>([]);
+  let featured = $state.raw<string[]>([]);
+  let added = $state.raw<string[]>([]);
   let adding = $state(false);
   let newServer = $state('');
   let serverError = $state<string | null>(null);

@@ -90,7 +90,7 @@
 
   let view = $state.raw<CalendarView | null>(null);
   let failed = $state(false);
-  let permissions = $state<RoomPermissionsView | null>(null);
+  let permissions = $state.raw<RoomPermissionsView | null>(null);
   let members = $state.raw<MemberView[]>([]);
   let showPast = $state(false);
   let mode = $state(remembered.mode);

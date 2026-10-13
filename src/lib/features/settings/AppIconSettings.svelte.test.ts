@@ -88,6 +88,7 @@ test('disables choices during a native change', async () => {
   await user.click(choices[1]);
   await tick();
   expect(trigger).toBeDisabled();
+  expect(trigger).toHaveTextContent('Propeller');
   complete();
   await tick();
   expect(trigger).toHaveTextContent('Propeller');

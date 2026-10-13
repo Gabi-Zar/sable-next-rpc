@@ -1,6 +1,5 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { onMount } from 'svelte';
   import ChatCircleDotsIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
   import CompassIcon from 'phosphor-svelte/lib/CompassIcon';
   import GithubLogoIcon from 'phosphor-svelte/lib/GithubLogoIcon';
@@ -20,7 +19,7 @@
   }
 
   let { titleKey = 'nav.home' }: Props = $props();
-  let hasLoggedInBefore = $state(false);
+  const hasLoggedInBefore = readReturningUser(localStorage);
   const supportHref = resolve('/(app)/to/[...permalink]', {
     permalink: roomPathParamFromId(SABLE_SUPPORT_ROOM),
   });
@@ -45,10 +44,6 @@
       description: 'home.joinConversationDescription',
     },
   ];
-
-  onMount(() => {
-    hasLoggedInBefore = readReturningUser(localStorage);
-  });
 </script>
 
 <svelte:head>

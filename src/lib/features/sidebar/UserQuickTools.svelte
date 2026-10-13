@@ -20,6 +20,7 @@
   import '#lib/ui/primitives/nav-tab.css';
   import './sidebar-tools.css';
   import AlertPopover from './AlertPopover.svelte';
+  import { useAlertProviders } from './alerts.js';
 
   interface Props {
     mobile?: boolean;
@@ -29,6 +30,7 @@
 
   let { mobile = false, compact = false, onNavigate }: Props = $props();
   const roomList = useRoomList();
+  const alertProviders = useAlertProviders();
 
   let inboxCount = $derived(
     countNotifications(roomList.rooms, roomList.badgeUnreadFor) +
@@ -44,7 +46,7 @@
     marked: hasMarkedUnread(roomList.rooms, roomList.badgeUnreadFor),
   });
 
-  let hasAlerts = $state(false);
+  let hasAlerts = $derived(alertProviders.some((provider) => provider.priority !== null));
 
   const mobileTools = [
     { href: '/rooms', icon: ChatsIcon, label: 'nav.messages' },
@@ -147,7 +149,7 @@
         <AccountSwitcher mode="mobile" />
       </div>
       <div class="mobile-tool-slot" style:display={hasAlerts ? undefined : 'none'}>
-        <AlertPopover mode="mobile" bind:hasAlerts />
+        <AlertPopover mode="mobile" />
       </div>
     </div>
   </nav>

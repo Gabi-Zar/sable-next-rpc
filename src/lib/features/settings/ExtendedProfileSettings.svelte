@@ -15,8 +15,8 @@
 
   let { profile }: Props = $props();
   const core = useCoreClient();
-  let emails = $state<string[]>([]);
-  let ignored = $state<string[]>([]);
+  let emails = $state.raw<string[]>([]);
+  let ignored = $state.raw<string[]>([]);
   let userToBlock = $state('');
   let saving = $state<string | null>(null);
   let error = $state<string | null>(null);

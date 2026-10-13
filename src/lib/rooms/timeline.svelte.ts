@@ -108,7 +108,7 @@ export class RoomTimeline {
   readMarkerEventId = $state<string | null>(null);
   forwardPagination = $state<ForwardPaginationState>('idle');
   error = $state<string | null>(null);
-  mode = $state<TimelineMode>({ kind: 'live' });
+  mode = $state.raw<TimelineMode>({ kind: 'live' });
   backwardPagination = $state<BackwardPaginationState>('idle');
 
   get subscriptionId(): SubscriptionId | null {

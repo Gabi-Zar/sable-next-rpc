@@ -31,11 +31,10 @@
     mlm,
     pride,
   };
-  let icons = $state<string[]>([]);
+  let icons = $state.raw<string[]>([]);
   let selected = $state('primary');
   let changing = $state(false);
   let failed = $state(false);
-  let selectVersion = $state(0);
   let android = $state(false);
 
   onMount(() => {
@@ -54,16 +53,17 @@
 
   async function select(icon: string): Promise<void> {
     if (changing || selected === icon) return;
+    const previous = selected;
     changing = true;
     failed = false;
+    selected = icon;
     try {
       await setAppIcon(icon === 'primary' ? null : icon);
-      selected = icon;
     } catch {
+      selected = previous;
       failed = true;
     } finally {
       changing = false;
-      selectVersion += 1;
     }
   }
 </script>
@@ -71,20 +71,17 @@
 {#if icons.length}
   <ul class={['app-icons', { android }]} aria-busy={changing}>
     <SettingsRow id="app-icon" title={$i18n.t('settings.appIconTitle')} wide>
-      {#key selectVersion}
-        <Select
-          value={selected}
-          disabled={changing}
-          aria-label={$i18n.t('settings.appIconTitle')}
-          items={[...new Set(['primary', ...icons])].map((icon) => ({
-            value: icon,
-            label: $i18n.t(`settings.appIcons.${icon}`, { defaultValue: icon }),
-            image: previews[icon],
-            imageClass: android ? 'app-icon-image-android' : undefined,
-          }))}
-          onValueChange={(icon) => void select(icon)}
-        />
-      {/key}
+      <Select
+        bind:value={() => selected, (icon) => void select(icon)}
+        disabled={changing}
+        aria-label={$i18n.t('settings.appIconTitle')}
+        items={[...new Set(['primary', ...icons])].map((icon) => ({
+          value: icon,
+          label: $i18n.t(`settings.appIcons.${icon}`, { defaultValue: icon }),
+          image: previews[icon],
+          imageClass: android ? 'app-icon-image-android' : undefined,
+        }))}
+      />
     </SettingsRow>
   </ul>
   {#if failed}<div class="settings-form">

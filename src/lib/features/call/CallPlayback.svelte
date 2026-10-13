@@ -1,5 +1,6 @@
 <script lang="ts">
   import { RoomEvent } from 'livekit-client';
+  import { createSubscriber } from 'svelte/reactivity';
   import type { CallTelemetry } from './call-telemetry';
   import type { CallTransportRoom } from './call-transport';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -11,24 +12,23 @@
   }
 
   let { rooms, telemetry }: Props = $props();
-  let hasBlockedAudio = $state(false);
-
-  $effect(() => {
+  let subscribe = $derived.by(() => {
     const currentRooms = rooms;
-    const update = (): void => {
-      hasBlockedAudio = currentRooms.some(({ room }) => !room.canPlaybackAudio);
-    };
-
-    for (const { room } of currentRooms) {
-      room.on(RoomEvent.AudioPlaybackStatusChanged, update);
-    }
-    update();
-
-    return () => {
+    return createSubscriber((update) => {
       for (const { room } of currentRooms) {
-        room.off(RoomEvent.AudioPlaybackStatusChanged, update);
+        room.on(RoomEvent.AudioPlaybackStatusChanged, update);
       }
-    };
+
+      return () => {
+        for (const { room } of currentRooms) {
+          room.off(RoomEvent.AudioPlaybackStatusChanged, update);
+        }
+      };
+    });
+  });
+  let hasBlockedAudio = $derived.by(() => {
+    subscribe();
+    return rooms.some(({ room }) => !room.canPlaybackAudio);
   });
 
   function enableAudio(): void {

@@ -25,11 +25,12 @@
 
   let { open = $bindable(false), onCreate }: Props = $props();
   let question = $state('');
-  let answers = $state(['', '']);
+  let answerIds = 0;
+  let answers = $state([blankAnswer(), blankAnswer()]);
   let undisclosed = $state(false);
   let maxSelections = $state(1);
   let filled = $derived(
-    answers.map((answer) => answer.trim()).filter((answer) => answer.length > 0)
+    answers.map(({ text }) => text.trim()).filter((answer) => answer.length > 0)
   );
   let valid = $derived(
     question.trim().length > 0 &&
@@ -38,9 +39,14 @@
       maxSelections <= answers.length
   );
 
+  function blankAnswer(): { id: number; text: string } {
+    answerIds += 1;
+    return { id: answerIds, text: '' };
+  }
+
   function reset(): void {
     question = '';
-    answers = ['', ''];
+    answers = [blankAnswer(), blankAnswer()];
     undisclosed = false;
   }
 
@@ -69,11 +75,11 @@
 
     <fieldset class="answers">
       <legend>{$i18n.t('composer.pollAnswers')}</legend>
-      {#each answers.map((_, at) => at) as index (index)}
+      {#each answers as answer, index (answer.id)}
         <div class="answer">
           <TextInput
             id={`poll-answer-${String(index)}`}
-            bind:value={answers[index]}
+            bind:value={answer.text}
             autocomplete="off"
             aria-label={$i18n.t('composer.pollAnswerNumber', { number: index + 1 })}
           />
@@ -83,7 +89,7 @@
             aria-label={$i18n.t('composer.pollRemoveAnswer', { number: index + 1 })}
             onclick={() => {
               if (maxSelections === answers.length) maxSelections -= 1;
-              answers = answers.filter((_, at) => at !== index);
+              answers = answers.filter((other) => other !== answer);
             }}
           >
             <TrashIcon />
@@ -96,7 +102,7 @@
           class="add-answer"
           onclick={() => {
             if (maxSelections === answers.length) maxSelections += 1;
-            answers = [...answers, ''];
+            answers = [...answers, blankAnswer()];
           }}
         >
           {$i18n.t('composer.pollAddAnswer')}

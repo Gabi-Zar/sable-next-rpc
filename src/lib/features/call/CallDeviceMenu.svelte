@@ -30,7 +30,7 @@
     videoinput: 'settings.callCameraDevice',
   } as const;
 
-  let devices = $state<CallDevice[]>([]);
+  let devices = $state.raw<CallDevice[]>([]);
 
   $effect(() => {
     if (!open) return;

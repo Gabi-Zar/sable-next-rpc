@@ -78,8 +78,9 @@
   let composer = $state<ConversationComposer>();
   let timelineList = $state<TimelineList>();
   let panel = $state<HTMLElement>();
-  let width = $state(27.5);
   const widthStorageKey = 'sable-thread-panel-width';
+  const storedWidth = Number.parseFloat(localStorage.getItem(widthStorageKey) ?? '');
+  let width = $state(Number.isFinite(storedWidth) ? clampThreadPanelWidth(storedWidth) : 27.5);
   const swipe = new SwipeBack({
     width: () => panel?.clientWidth ?? 0,
     onDismiss: () => onClose(),
@@ -132,8 +133,6 @@
   });
 
   onMount(() => {
-    const stored = Number.parseFloat(localStorage.getItem(widthStorageKey) ?? '');
-    if (Number.isFinite(stored)) width = clampThreadPanelWidth(stored);
     const previousFocus = document.activeElement;
     panel?.focus({ preventScroll: true });
     return () => {

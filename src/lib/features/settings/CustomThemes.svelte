@@ -1,6 +1,6 @@
 <script lang="ts">
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
-  import { onDestroy, tick, untrack } from 'svelte';
+  import { onDestroy, tick } from 'svelte';
   import { MediaQuery } from 'svelte/reactivity';
 
   import {
@@ -176,11 +176,12 @@
     install(preview.css, preview.name, preview.source, true);
   }
 
-  $effect(() => {
-    if (catalogOpen) return;
-    untrack(revertPreview);
+  function setCatalogOpen(next: boolean): void {
+    catalogOpen = next;
+    if (next) return;
+    revertPreview();
     failed = null;
-  });
+  }
 
   onDestroy(revertPreview);
 
@@ -464,7 +465,7 @@
 
 {#if catalogOpen}
   <ThemeCatalog
-    bind:open={catalogOpen}
+    bind:open={() => catalogOpen, setCatalogOpen}
     {installing}
     {previewing}
     failedEntry={failed}

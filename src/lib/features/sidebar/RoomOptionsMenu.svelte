@@ -150,7 +150,7 @@
     parentSpace !== null && manageable.has(parentSpace.room_id) ? parentSpace : null
   );
 
-  let joinableParents = $state<{ room_id: string; via: string[]; name: string | null }[]>([]);
+  let joinableParents = $state.raw<{ room_id: string; via: string[]; name: string | null }[]>([]);
   let parentsRun = 0;
 
   function readParents(): void {

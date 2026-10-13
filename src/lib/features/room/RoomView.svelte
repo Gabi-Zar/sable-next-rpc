@@ -126,7 +126,7 @@
   const timeline = activeTimeline.timeline;
   const memberLoader = new RoomMemberLoader();
   const call = useCallSession();
-  let prescreenMedia = $state<CallMedia>({
+  let prescreenMedia = $state.raw<CallMedia>({
     microphone: !preferences.callMicrophoneMuted,
     camera: false,
   });
@@ -150,7 +150,10 @@
   let jumpOpen = $state(false);
   let leaveOpen = $state(false);
   let reportOpen = $state(false);
-  let timelineAtBottom = $state(true);
+  let timelineAtBottom = $derived.by(() => {
+    void roomId;
+    return eventId === null;
+  });
   let timelineFollowingLive = $state<boolean>(false);
   let mediaEventId = $state<string | null>(null);
   let standaloneMediaItem = $state<MediaItem | null>(null);
@@ -159,7 +162,11 @@
   let callSupport = $state<CallSupportView | null>(null);
   let callFallbackUrl = $state<string | null>(null);
   let tombstoneJoining = $state(false);
-  let tombstoneJoinFailed = $state(false);
+  let tombstoneJoinFailed = $derived.by(() => {
+    void resolvedRoomId;
+    void isTombstoned;
+    return false;
+  });
 
   let ownMember = $derived(
     memberLoader.members.find((member) => member.user_id === core.session?.user_id) ?? null
@@ -229,16 +236,6 @@
     panels.openThread(rootEventId);
   }
 
-  function trackTimelineHeight(node: HTMLElement): () => void {
-    const observer = new ResizeObserver(() => {
-      timelineHeight = node.clientHeight;
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-    };
-  }
-
   function publishComposerClearance(node: HTMLElement): () => void {
     const update = (): void => {
       composerClearance.px = Math.max(0, window.innerHeight - node.getBoundingClientRect().top);
@@ -278,13 +275,13 @@
         const relation = notifiedRelation(source);
         const rootEventId = relation?.thread ? relation.eventId : null;
         permalinkTarget = { roomId: targetRoomId, eventId: targetEventId, rootEventId };
-        if (rootEventId !== null) untrack(() => openThread(rootEventId, targetEventId));
-        else untrack(closeThread);
+        if (rootEventId !== null) openThread(rootEventId, targetEventId);
+        else closeThread();
       })
       .catch((error: unknown) => {
         if (!active) return;
         permalinkTarget = { roomId: targetRoomId, eventId: targetEventId, rootEventId: null };
-        untrack(closeThread);
+        closeThread();
         console.debug('[sable room] linked event unavailable', error);
       });
     return () => {
@@ -320,14 +317,6 @@
   });
   onMount(() => {
     void bookmarks.load();
-    const storedWidth = Number.parseInt(localStorage.getItem(VOICE_CHAT_WIDTH_KEY) ?? '', 10);
-    if (Number.isFinite(storedWidth)) voiceChatWidth = clampVoiceChatWidth(storedWidth);
-    const storedRatio = Number.parseFloat(localStorage.getItem(CALL_STAGE_RATIO_KEY) ?? '');
-    callStageRatio = Number.isFinite(storedRatio)
-      ? clampCallStageRatio(storedRatio)
-      : sidePanels.current
-        ? CALL_STAGE_DEFAULT_RATIO
-        : CALL_STAGE_MOBILE_RATIO;
   });
   let showReceiptFooter = $derived(
     !preferences.hideReadReceipts && preferences.readReceiptPlacement === 'room'
@@ -404,10 +393,21 @@
   function clampCallStageRatio(ratio: number): number {
     return Math.min(CALL_STAGE_MAX_RATIO, Math.max(CALL_STAGE_MIN_RATIO, ratio));
   }
-  let callStageRatio = $state(CALL_STAGE_DEFAULT_RATIO);
+  const sidePanels = new MediaQuery(BREAKPOINTS.sidePanels);
+  const storedRatio = Number.parseFloat(localStorage.getItem(CALL_STAGE_RATIO_KEY) ?? '');
+  let callStageRatio = $state(
+    Number.isFinite(storedRatio)
+      ? clampCallStageRatio(storedRatio)
+      : sidePanels.current
+        ? CALL_STAGE_DEFAULT_RATIO
+        : CALL_STAGE_MOBILE_RATIO
+  );
   let timelineHeight = $state(0);
   let isVoiceRoom = $derived(resolvedRoom?.is_voice ?? false);
-  let voiceChatWidth = $state(VOICE_CHAT_DEFAULT_WIDTH);
+  const storedWidth = Number.parseInt(localStorage.getItem(VOICE_CHAT_WIDTH_KEY) ?? '', 10);
+  let voiceChatWidth = $state(
+    Number.isFinite(storedWidth) ? clampVoiceChatWidth(storedWidth) : VOICE_CHAT_DEFAULT_WIDTH
+  );
   let callShown = $derived(call.roomId === resolvedRoomId && (call.active || call.failure));
   let roomName = $derived(resolvedRoom ? roomLabel(resolvedRoom) : roomId);
   let roomAvatar = $derived(resolvedRoom?.avatar_url ?? null);
@@ -473,7 +473,6 @@
   let pageTitle = $derived(
     mentionCount > 0 ? `(${mentionCount}) ${roomName} - Sable` : `${roomName} - Sable`
   );
-  const sidePanels = new MediaQuery(BREAKPOINTS.sidePanels);
   const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
   let phone = $derived(!appLayout.current);
   let pinsOpen = $state(false);
@@ -503,12 +502,6 @@
     roomSession.sync(resolvedRoomId, isTombstoned, memberListChanges.version);
   });
 
-  $effect(() => {
-    void resolvedRoomId;
-    void isTombstoned;
-    tombstoneJoinFailed = false;
-  });
-
   let canManageWidgets = $derived(
     canSendState(
       roomSession.powerLevels,
@@ -525,11 +518,6 @@
   // until it is asked for.
   $effect(() => {
     conversation.fetchMissingReplyDetails();
-  });
-
-  $effect(() => {
-    void roomId;
-    timelineAtBottom = eventId === null;
   });
 
   // Returning to live drops the anchor from the URL.
@@ -615,10 +603,8 @@
 
   $effect(() =>
     core.onProfileChanged(() => {
-      void untrack(() =>
-        memberLoader.refresh(resolvedRoomId, (roomId) =>
-          core.rpc.members.list({ room_id: roomId, memberships: [] })
-        )
+      void memberLoader.refresh(resolvedRoomId, (roomId) =>
+        core.rpc.members.list({ room_id: roomId, memberships: [] })
       );
     })
   );
@@ -1112,7 +1098,7 @@
   <div
     class={['timeline', { 'thread-covered': panels.threadRootId !== null && !threadInPanel }]}
     inert={panels.threadRootId !== null && !threadInPanel}
-    {@attach trackTimelineHeight}
+    bind:clientHeight={timelineHeight}
   >
     {#snippet headerActions()}
       {#if !voiceView}

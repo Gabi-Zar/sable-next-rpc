@@ -798,6 +798,31 @@ test('a cached image does not come back blurred', async () => {
   expect(placeholder === null || placeholder.classList.contains('loaded')).toBe(true);
 });
 
+test('paints the blurhash onto its placeholder canvas', async () => {
+  core.fetchMedia.mockReturnValue(new Promise(() => {}));
+  const putImageData = vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    createImageData: (width: number, height: number) => ({
+      data: new Uint8ClampedArray(width * height * 4),
+    }),
+    putImageData,
+  } as unknown as CanvasRenderingContext2D);
+  render(MediaImage, {
+    props: {
+      source: 'mxc://example.org/blurred-photo',
+      alt: 'photo',
+      width: 320,
+      height: 240,
+      blurhash: 'LEHV6nWB2yk8pyo0adR*.7kCMdnj',
+    },
+  });
+  await flushed();
+
+  const canvas = find('canvas.media-image-blurhash');
+  expect(putImageData).toHaveBeenCalledOnce();
+  expect([canvas.getAttribute('width'), canvas.getAttribute('height')]).toEqual(['32', '24']);
+});
+
 test('holds a placeholder until the image paints', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer(4)));
   render(MediaImage, {

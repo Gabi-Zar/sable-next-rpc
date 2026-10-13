@@ -19,7 +19,7 @@
   let { open = $bindable(false), fromRoomId, onForward }: Props = $props();
   const roomList = useRoomList();
   let search = $state('');
-  let selected = $state<string[]>([]);
+  let selected = $state.raw<string[]>([]);
   const fieldId = $props.id();
 
   let targets = $derived(

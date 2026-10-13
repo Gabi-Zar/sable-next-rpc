@@ -160,3 +160,26 @@ test('shows the total pin count on the button, even once the pins are read', asy
     expect(button).toHaveTextContent('2');
   });
 });
+
+test('reports the unread pin count and clears it once the pins are seen', async () => {
+  const user = userEvent.setup({ delay: null });
+  const onUnread = vi.fn();
+  render(RoomPinMenuHarness, {
+    menu: {
+      roomId: '!room:example.org',
+      members: [],
+      canPin: false,
+      onJump: vi.fn(),
+      onOpenMedia: vi.fn(),
+      onUnread,
+    },
+  });
+
+  await vi.waitFor(() => {
+    expect(onUnread).toHaveBeenLastCalledWith(2);
+  });
+  await user.click(screen.getByRole('button', { name: 'Pinned messages' }));
+  await vi.waitFor(() => {
+    expect(onUnread).toHaveBeenLastCalledWith(0);
+  });
+});

@@ -34,7 +34,10 @@
   let alternatives = $state.raw<string[]>([]);
   let draft = $state('');
   let busy = $state(false);
-  let selected = $state.raw<ReadonlySet<string>>(new Set());
+  let selected = $derived.by<ReadonlySet<string>>(() => {
+    void roomId;
+    return new Set();
+  });
   let pendingRemoval = $state.raw<readonly string[]>([]);
   let outcome = $state<'invalid' | 'failed' | null>(null);
   let run = 0;
@@ -51,7 +54,6 @@
 
   $effect(() => {
     void roomId;
-    selected = new Set();
     void load();
   });
 

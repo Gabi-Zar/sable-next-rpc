@@ -34,7 +34,7 @@
     via: string[];
   }
 
-  let parents = $state<Entry[]>([]);
+  let parents = $state.raw<Entry[]>([]);
   let joining = $state<string | null>(null);
   let run = 0;
 

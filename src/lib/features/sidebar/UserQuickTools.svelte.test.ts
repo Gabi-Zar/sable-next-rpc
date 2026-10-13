@@ -1,12 +1,14 @@
 // @vitest-environment happy-dom
 
 import { fireEvent, render, screen } from '@testing-library/svelte';
+import { flushSync } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 
 import { visit } from '#lib/test-support/app-state.js';
+import { goto, resetNavigation } from '#lib/test-support/app-navigation.js';
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({
   useRoomList: () => ({ rooms: [], notificationMode: () => 'all_messages' }),
@@ -20,6 +22,7 @@ vi.mock('#lib/rooms/presence.svelte.js', async (importOriginal) => ({
 import { paletteState } from '#lib/ui/shortcuts/palette-state.svelte.js';
 import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
 import UserQuickToolsHarness from './UserQuickToolsHarness.test.svelte';
+import type { Priority, PriorityProvider } from './alerts';
 
 beforeEach(() => {
   visit('/rooms');
@@ -27,9 +30,14 @@ beforeEach(() => {
 
 afterEach(() => {
   paletteState.open = false;
+  resetNavigation();
 });
 
-function setup(props: { mobile?: boolean; compact?: boolean } = { mobile: true }): void {
+function setup(
+  props: { mobile?: boolean; compact?: boolean; alertProviders?: PriorityProvider[] } = {
+    mobile: true,
+  }
+): void {
   render(UserQuickToolsHarness, props, { wrapper: TooltipProvider });
 }
 
@@ -54,6 +62,38 @@ test('the mobile bar keeps a slot per tool', () => {
   // but there are 5 tool elements
   expect(bar.style.getPropertyValue('--mobile-slot-count')).toBe('4');
   expect(bar.querySelectorAll('.mobile-tool-slot')).toHaveLength(5);
+});
+
+test('the mobile bar gives a pending alert its own slot', () => {
+  setup({ mobile: true, alertProviders: [{ priority: 'update', dismiss: () => {} }] });
+
+  const bar = screen.getByRole('navigation', { name: 'nav.quickTools' });
+  expect(bar.style.getPropertyValue('--mobile-slot-count')).toBe('5');
+  expect(screen.getByRole('link', { name: 'nav.alerts' })).toBeInTheDocument();
+});
+
+test('clearing the last alert leaves the alerts page for the rooms list', () => {
+  visit('/alerts');
+  let priority = $state<Priority>('update');
+  setup({
+    mobile: true,
+    alertProviders: [
+      {
+        get priority() {
+          return priority;
+        },
+        dismiss: () => {
+          priority = null;
+        },
+      },
+    ],
+  });
+  expect(goto).not.toHaveBeenCalled();
+
+  priority = null;
+  flushSync();
+
+  expect(goto).toHaveBeenCalledWith('/rooms');
 });
 
 test.each([{ compact: false }, { compact: true }])(

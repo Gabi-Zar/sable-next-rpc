@@ -14,11 +14,24 @@
   import VerificationQrScanner from './VerificationQrScanner.svelte';
 
   const core = useCoreClient();
-  let error = $state<string | null>(null);
-  let scanning = $state<boolean | null>(null);
+  let activeFlow = $derived(
+    core.verification ? JSON.stringify([core.verification.userId, core.verification.flowId]) : null
+  );
+  let error = $derived.by<string | null>(() => {
+    void activeFlow;
+    return null;
+  });
+  let scanning = $derived.by<boolean | null>(() => {
+    void activeFlow;
+    return null;
+  });
   let prefersScan = $state(isNativeMobile());
-  let processingScan = $state(false);
-  let activeFlow = $state<string | null>(null);
+  let choosing = $derived(core.verification?.state.phase === 'choose');
+  let processingScan = $derived.by(() => {
+    void activeFlow;
+    void choosing;
+    return false;
+  });
   let scanMode = $derived(
     core.verification?.state.phase === 'choose' &&
       core.verification.state.can_scan &&
@@ -29,20 +42,6 @@
   // This app-level component keeps verification events flowing even when no
   // route-specific feature currently subscribes to the core transport.
   $effect(() => core.subscribeEvents(() => {}));
-
-  $effect(() => {
-    const flow = core.verification;
-    const key = flow ? JSON.stringify([flow.userId, flow.flowId]) : null;
-    if (key === activeFlow) return;
-    activeFlow = key;
-    scanning = null;
-    processingScan = false;
-    error = null;
-  });
-
-  $effect(() => {
-    if (core.verification?.state.phase !== 'choose') processingScan = false;
-  });
 
   onMount(() => {
     if (prefersScan || !window.matchMedia('(pointer: coarse)').matches) return;

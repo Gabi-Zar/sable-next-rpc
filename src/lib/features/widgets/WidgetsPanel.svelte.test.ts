@@ -12,6 +12,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 core.session = { account_id: 'a', user_id: '@erwan:example.org', device_id: 'DEV' };
 
+import IntegrationManagerDialog from './IntegrationManagerDialog.svelte';
 import WidgetsPanel from './WidgetsPanel.svelte';
 import type { RoomWidget } from './widget-content.js';
 
@@ -204,4 +205,25 @@ test('the integration manager opens from the manager actions', async () => {
   await user.click(screen.getByRole('button', { name: 'Integration manager' }));
 
   expect(integrationManagerUrl).toHaveBeenCalledWith({ room_id: '!room:example.org' });
+});
+
+test('the integration manager closes when its own origin asks to', async () => {
+  const integrationManagerUrl = vi.fn().mockResolvedValue('https://manager.example/open');
+  (core as unknown as Record<string, unknown>).rpc = { session: { integrationManagerUrl } };
+  const onClose = vi.fn();
+  renderWithTooltips(IntegrationManagerDialog, {
+    open: true,
+    roomId: '!room:example.org',
+    onClose,
+  });
+  await vi.waitFor(() => {
+    expect(screen.getByTitle('Integration manager')).toBeInTheDocument();
+  });
+
+  const send = (origin: string) =>
+    window.dispatchEvent(new MessageEvent('message', { origin, data: { action: 'close_scalar' } }));
+  send('https://elsewhere.example');
+  expect(onClose).not.toHaveBeenCalled();
+  send('https://manager.example');
+  expect(onClose).toHaveBeenCalledOnce();
 });

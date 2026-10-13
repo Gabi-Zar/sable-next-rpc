@@ -35,7 +35,7 @@
   let pronouns = $state('');
   let colorLight = $state('');
   let colorDark = $state('');
-  let triggers = $state<PersonaTriggerView[]>([]);
+  let triggers = $state<(PersonaTriggerView & { id: string })[]>([]);
   let saving = $state(false);
   let error = $state<string | null>(null);
 
@@ -47,7 +47,8 @@
       pronouns = pronounText(persona?.pronouns ?? []);
       colorLight = persona?.color_on_light ?? '';
       colorDark = persona?.color_on_dark ?? '';
-      triggers = persona?.triggers.map((trigger) => ({ ...trigger })) ?? [];
+      triggers =
+        persona?.triggers.map((trigger) => ({ ...trigger, id: crypto.randomUUID() })) ?? [];
       error = null;
     });
   });
@@ -74,7 +75,10 @@
   }
 
   function addTrigger(): void {
-    triggers = [...triggers, { prefix: '', suffix: null, keep_trigger: false }];
+    triggers = [
+      ...triggers,
+      { prefix: '', suffix: null, keep_trigger: false, id: crypto.randomUUID() },
+    ];
   }
 
   function removeTrigger(index: number): void {
@@ -188,7 +192,7 @@
     <fieldset class="triggers">
       <legend>{$i18n.t('personas.triggers')}</legend>
       <p>{$i18n.t('personas.triggersHint')}</p>
-      {#each triggers as trigger, index (index)}
+      {#each triggers as trigger, index (trigger.id)}
         <div class="trigger-row">
           <label class="field">
             <span>{$i18n.t('personas.triggerPrefix')}</span>

@@ -185,9 +185,7 @@
     else settleToCard(activeIndex);
   }
 
-  $effect(() => {
-    const rail = railElement;
-    if (!rail) return;
+  function keepActiveCardCentred(rail: HTMLDivElement): () => void {
     const observer = new ResizeObserver(() => {
       if (isDragging || isNavigating || swipeGesture) return;
       const card = cardElements(rail)[untrack(() => activeIndex)] as HTMLElement | undefined;
@@ -197,7 +195,7 @@
     return () => {
       observer.disconnect();
     };
-  });
+  }
 
   $effect(() => {
     const index = activeIndex;
@@ -261,6 +259,7 @@
 <div class="rail-shell">
   <div
     bind:this={railElement}
+    {@attach keepActiveCardCentred}
     class={[
       'rail',
       { 'motion-ready': motionReady, 'is-navigating': isNavigating, 'is-dragging': isDragging },

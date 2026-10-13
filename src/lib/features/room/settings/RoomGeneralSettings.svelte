@@ -52,12 +52,27 @@
   let { room, permissions, levels, onClose }: Props = $props();
   const core = useCoreClient();
 
-  let name = $state('');
-  let topicDraft = $state('');
-  let pendingRule = $state<JoinRuleView | null>(null);
+  let name = $derived.by(() => {
+    void roomId;
+    return untrack(() => room?.name ?? '');
+  });
+  let topicDraft = $derived.by(() => {
+    void roomId;
+    return untrack(() => topic);
+  });
+  let pendingRule = $derived.by<JoinRuleView | null>(() => {
+    void roomId;
+    return null;
+  });
   let saving = $state(false);
-  let saved = $state(false);
-  let failed = $state(false);
+  let saved = $derived.by(() => {
+    void roomId;
+    return false;
+  });
+  let failed = $derived.by(() => {
+    void roomId;
+    return false;
+  });
   let avatarInput = $state<HTMLInputElement | null>(null);
   let bannerInput = $state<HTMLInputElement | null>(null);
   let banner = $state<string | null>(null);
@@ -113,17 +128,6 @@
       (canEditTopic && topicDraft !== topic) ||
       (pendingRule !== null && pendingRule !== savedRule)
   );
-
-  $effect(() => {
-    void roomId;
-    untrack(() => {
-      name = room?.name ?? '';
-      topicDraft = topic;
-      pendingRule = null;
-      saved = false;
-      failed = false;
-    });
-  });
 
   async function run(action: () => Promise<void>): Promise<void> {
     saving = true;

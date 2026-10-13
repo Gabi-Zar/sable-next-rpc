@@ -42,7 +42,7 @@
   let sendToSentry = $state(true);
   let includeDebugLogs = $state(true);
   let openOnForge = $state(!sentryEnabled);
-  let similarIssues = $state<ForgeIssue[]>([]);
+  let similarIssues = $state.raw<ForgeIssue[]>([]);
   let searching = $state(false);
   let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let searchController: AbortController | undefined;

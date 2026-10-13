@@ -52,13 +52,11 @@
     }}
   >
     <span class="password-toggle-icon" aria-hidden="true">
-      {#key showPassword}
-        {#if showPassword}
-          <EyeSlashIcon />
-        {:else}
-          <EyeIcon />
-        {/if}
-      {/key}
+      {#if showPassword}
+        <EyeSlashIcon />
+      {:else}
+        <EyeIcon />
+      {/if}
     </span>
   </button>
 </div>

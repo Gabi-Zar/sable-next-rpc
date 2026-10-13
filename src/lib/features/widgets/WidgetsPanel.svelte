@@ -3,7 +3,6 @@
   import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
   import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
-  import { onMount } from 'svelte';
 
   import { i18n } from '#lib/i18n.js';
   import ConfirmDialog from '#lib/ui/primitives/ConfirmDialog.svelte';
@@ -52,7 +51,8 @@
   const MAX_WIDTH = 48;
   const WIDTH_STEP = 1;
 
-  let width = $state(22);
+  const storedWidth = Number.parseFloat(localStorage.getItem(WIDTH_STORAGE_KEY) ?? '');
+  let width = $state(Number.isFinite(storedWidth) ? clampWidth(storedWidth) : 22);
   let activeId = $state<string | null>(null);
 
   function clampWidth(next: number): number {
@@ -62,11 +62,6 @@
   function remFromPixels(pixels: number): number {
     return pixels / Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
   }
-
-  onMount(() => {
-    const stored = Number.parseFloat(localStorage.getItem(WIDTH_STORAGE_KEY) ?? '');
-    if (Number.isFinite(stored)) width = clampWidth(stored);
-  });
   let pendingRemoval = $state<RoomWidget | null>(null);
   let newName = $state('');
   let newUrl = $state('');

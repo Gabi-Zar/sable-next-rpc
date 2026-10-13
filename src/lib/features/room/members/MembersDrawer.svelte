@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { MemberView } from '#src/generated/protocol';
   import { Dialog } from 'bits-ui';
-  import { onMount } from 'svelte';
+  import { innerWidth } from 'svelte/reactivity/window';
   import ArrowsDownUpIcon from 'phosphor-svelte/lib/ArrowsDownUpIcon';
   import FunnelIcon from 'phosphor-svelte/lib/FunnelIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -77,7 +77,12 @@
   let filter = $state<MembershipFilter>('join');
   let fetched = $state.raw<MemberView[]>([]);
   let fetching = $state(false);
-  let limit = $state(INITIAL_MEMBER_ROWS);
+  let limit = $derived.by(() => {
+    void members;
+    void search;
+    void filter;
+    return INITIAL_MEMBER_ROWS;
+  });
   let generation = 0;
 
   let sort = $derived(preferences.memberSort);
@@ -103,18 +108,8 @@
   const MAX_WIDTH = 640;
   let currentWidth = $derived(width ?? DEFAULT_WIDTH);
   let maxWidth = $derived(
-    Math.max(
-      MIN_WIDTH,
-      Math.min(MAX_WIDTH, typeof window === 'undefined' ? MAX_WIDTH : window.innerWidth / 2)
-    )
+    Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, (innerWidth.current ?? Infinity) / 2))
   );
-
-  $effect(() => {
-    void members;
-    void search;
-    void filter;
-    limit = INITIAL_MEMBER_ROWS;
-  });
 
   $effect(() => {
     const load = loadMembership;
@@ -140,10 +135,8 @@
     width = Math.min(maxWidth, Math.max(MIN_WIDTH, next));
   }
 
-  onMount(() => {
-    const stored = Number.parseInt(localStorage.getItem(WIDTH_STORAGE_KEY) ?? '', 10);
-    if (Number.isFinite(stored)) resize(stored);
-  });
+  const storedWidth = Number.parseInt(localStorage.getItem(WIDTH_STORAGE_KEY) ?? '', 10);
+  if (Number.isFinite(storedWidth)) resize(storedWidth);
 </script>
 
 <aside
@@ -274,13 +267,14 @@
           </ul>
         {/each}
         {#if hidden > 0}
-          {#key limit}
-            <div
-              class="load-sentinel"
-              aria-hidden="true"
-              {@attach whenVisible(() => (limit += MEMBER_ROWS_STEP))}
-            ></div>
-          {/key}
+          <div
+            class="load-sentinel"
+            aria-hidden="true"
+            {@attach (node) => {
+              void limit;
+              return whenVisible(() => (limit += MEMBER_ROWS_STEP))(node);
+            }}
+          ></div>
         {/if}
       </div>
     {:else if search.trim() !== ''}

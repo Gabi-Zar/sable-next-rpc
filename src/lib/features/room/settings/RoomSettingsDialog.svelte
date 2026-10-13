@@ -38,7 +38,7 @@
   let { open, room, initialSection = null, onOpenChange }: Props = $props();
   const core = useCoreClient();
 
-  let permissions = $state<RoomPermissionsView | null>(null);
+  let permissions = $state.raw<RoomPermissionsView | null>(null);
   let levels = $state<RoomPowerLevelsView | null>(null);
   let section = $state<RoomSettingsSectionId | null>(null);
 

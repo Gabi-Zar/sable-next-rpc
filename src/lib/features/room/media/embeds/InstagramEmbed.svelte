@@ -17,13 +17,11 @@
 
   let { url, encrypted, bundled = null }: Props = $props();
   let post = $derived(parseInstagramLink(url));
-  let playing = $state(false);
-  const title = 'Instagram';
-
-  $effect(() => {
+  let playing = $derived.by(() => {
     void url;
-    playing = false;
+    return false;
   });
+  const title = 'Instagram';
 </script>
 
 {#if post}

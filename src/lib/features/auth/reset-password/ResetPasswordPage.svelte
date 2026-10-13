@@ -32,7 +32,7 @@
   let { homeserver }: Props = $props();
 
   const core = useCoreClient();
-  const reset = untrack(() => new ResetPasswordController(core, homeserver));
+  let reset = $derived(new ResetPasswordController(core, homeserver));
   const errorId = $props.id();
   const fieldIds: Record<ResetPasswordField, string> = {
     email: 'reset-email',
@@ -40,13 +40,14 @@
     confirmPassword: 'reset-confirm-password',
   };
   let hasLoggedInBefore = $state(false);
-  let checked = false;
+  let checked: ResetPasswordController | null = null;
   let starting = $derived(core.status === 'idle' || core.status === 'starting');
 
   $effect(() => {
-    if (starting || checked) return;
-    checked = true;
-    void untrack(() => reset.checkHomeserver());
+    const current = reset;
+    if (starting || checked === current) return;
+    checked = current;
+    void untrack(() => current.checkHomeserver());
   });
 
   onMount(() => {

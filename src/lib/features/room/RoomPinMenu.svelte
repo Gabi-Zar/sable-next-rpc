@@ -74,10 +74,6 @@
     return (index: number) => heights.get(ordered[index]) ?? ESTIMATED_ROW;
   });
   $effect(() => {
-    onUnread?.(unreadCount);
-  });
-
-  $effect(() => {
     void roomId;
     void revision;
     void refreshCount();
@@ -179,12 +175,14 @@
   function adopt(state: PinReadStateView): void {
     pinnedIds = state.pinned_ids;
     unreadCount = state.unread;
+    onUnread?.(unreadCount);
     freshIds = new Set(state.fresh_ids);
   }
 
   async function markSeen(target: string, ids: readonly string[]): Promise<void> {
     if (ids.length === 0) return;
     unreadCount = 0;
+    onUnread?.(unreadCount);
     try {
       adopt(await core.rpc.timeline.markPinsSeen({ room_id: target, pinned_ids: [...ids] }));
     } catch (error) {

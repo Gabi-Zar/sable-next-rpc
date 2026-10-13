@@ -77,7 +77,7 @@
   let powerTags = $state.raw<PowerLevelTagMap>({});
   let profileUserId = $state<string | null>(null);
   let profileAnchor = $state<HTMLElement | null>(null);
-  let profile = $state<ProfileView | null>(null);
+  let profile = $state.raw<ProfileView | null>(null);
   let profileFailed = $state(false);
   let run = 0;
   let lookup = 0;

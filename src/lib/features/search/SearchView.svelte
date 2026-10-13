@@ -145,12 +145,6 @@
 
   onMount(() => void core.refreshSearchCoverage());
 
-  $effect(() => {
-    if (!input || untrack(() => compact.current)) return;
-    input.focus();
-    suggestionsOpen = false;
-  });
-
   let coverage = $derived(
     coverageMessage(core.searchCoverage, core.searchCoverageUnavailable, (key, options) =>
       $i18n.t(key, options)
@@ -478,13 +472,14 @@
 {#snippet loadMore()}
   {#if !search.exhausted}
     <div class="load-more">
-      {#key search.pages}
-        <div
-          class="load-sentinel"
-          aria-hidden="true"
-          {@attach whenVisible(() => void search.loadMore())}
-        ></div>
-      {/key}
+      <div
+        class="load-sentinel"
+        aria-hidden="true"
+        {@attach (node) => {
+          void search.pages;
+          return whenVisible(() => void search.loadMore())(node);
+        }}
+      ></div>
       <Button
         variant="ghost"
         size="small"
@@ -558,6 +553,11 @@
 
           <input
             bind:this={input}
+            {@attach (node) => {
+              if (untrack(() => compact.current)) return;
+              node.focus();
+              suggestionsOpen = false;
+            }}
             id={MESSAGE_SEARCH_FIELD_ID}
             class="token-input"
             value={field.draft}

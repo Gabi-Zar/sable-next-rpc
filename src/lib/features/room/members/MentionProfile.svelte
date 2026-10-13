@@ -51,10 +51,9 @@
     onOpenChange,
     onOpenMainAccount,
   }: Props = $props();
-  let nestedMenuOpen = $state(false);
-
-  $effect(() => {
-    if (!open) nestedMenuOpen = false;
+  let nestedMenuOpen = $derived.by(() => {
+    void open;
+    return false;
   });
 
   let side = $derived.by((): 'left' | 'right' => {

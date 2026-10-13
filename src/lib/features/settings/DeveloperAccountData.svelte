@@ -12,7 +12,7 @@
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   const core = useCoreClient();
-  let types = $state<string[]>([]);
+  let types = $state.raw<string[]>([]);
   let selected = $state<string | null | undefined>(undefined);
   let eventType = $state('');
   let content = $state('{}');

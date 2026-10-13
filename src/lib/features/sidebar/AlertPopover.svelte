@@ -28,10 +28,9 @@
 
   interface Props {
     mode: Mode;
-    hasAlerts?: boolean;
   }
 
-  let { mode, hasAlerts = $bindable(false) }: Props = $props();
+  let { mode }: Props = $props();
 
   let popoverOpen = $state(false);
   let isCurrentPage = $derived(page.url.pathname === '/alerts');
@@ -51,12 +50,14 @@
 
   let pendingAlerts = $derived(alertPriorities.filter((priority) => priority !== null).length);
 
+  let hadAlerts = false;
+
   $effect(() => {
-    const hadAlerts = hasAlerts;
-    hasAlerts = pendingAlerts > 0;
+    const hasAlerts = pendingAlerts > 0;
     if (hadAlerts && !hasAlerts && isCurrentPage) {
       void goto(resolve('/(app)/rooms'));
     }
+    hadAlerts = hasAlerts;
   });
 </script>
 

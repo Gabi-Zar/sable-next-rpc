@@ -255,7 +255,7 @@
   let loadedMembersFor = $state<string | null>(null);
   let loadedEmotesFor = $state<string | null>(null);
   let typingTimeout: ReturnType<typeof setTimeout> | undefined;
-  let draftLinks = $state<string[]>([]);
+  let draftLinks = $state.raw<string[]>([]);
   let draftLinksTimeout: ReturnType<typeof setTimeout> | undefined;
   let draftTimeout: ReturnType<typeof setTimeout> | undefined;
   let seenRemoteDraft = 0;
@@ -278,7 +278,7 @@
     );
   }
 
-  let staged = $state<StagedFile[]>([]);
+  let staged = $state.raw<StagedFile[]>([]);
   let inFlight = $state(0);
   let error = $state<string | null>(null);
   let retry = $state<{ text: string; run: () => void } | null>(null);
@@ -320,11 +320,14 @@
   let botCommands = $state.raw<BotCommand[]>([]);
   let loadedBotCommandsFor = $state<string | null>(null);
   let botCommandsFor: string | null = null;
-  let activeBotCommand = $state.raw<{
+  let activeBotCommand = $derived.by<{
     command: BotCommand;
     drafts: ArgumentDrafts;
     prefix: string;
-  } | null>(null);
+  } | null>(() => {
+    void roomId;
+    return null;
+  });
 
   let desktop = $derived(appLayout.current);
   let sending = $derived(inFlight > 0);
@@ -449,11 +452,6 @@
         botCommands = [];
       }
     });
-  });
-
-  $effect(() => {
-    void roomId;
-    activeBotCommand = null;
   });
 
   $effect(() =>

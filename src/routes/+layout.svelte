@@ -116,16 +116,6 @@
   });
 
   $effect(() => {
-    if (!supportsDesktopWindow()) return;
-
-    return on(document, 'fullscreenchange', () => {
-      setWindowFullscreen(document.fullscreenElement !== null).catch((error: unknown) => {
-        console.debug('[sable window] the window fullscreen state was not applied', error);
-      });
-    });
-  });
-
-  $effect(() => {
     document.documentElement.style.setProperty('--font-scale', String(preferences.pageZoom));
     document.documentElement.style.setProperty('--text-scale', String(preferences.textScale));
     document.documentElement.dataset.highContrast = preferences.highContrast ? 'on' : 'off';
@@ -160,6 +150,12 @@
 <svelte:document
   onvisibilitychange={() => {
     if (document.visibilityState === 'visible') void updateCatalogThemes();
+  }}
+  onfullscreenchange={() => {
+    if (!supportsDesktopWindow()) return;
+    setWindowFullscreen(document.fullscreenElement !== null).catch((error: unknown) => {
+      console.debug('[sable window] the window fullscreen state was not applied', error);
+    });
   }}
 />
 

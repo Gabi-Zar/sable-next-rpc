@@ -177,7 +177,10 @@
     else void stage?.requestFullscreen();
   }
 
-  let chromeVisible = $state(true);
+  let chromeVisible = $derived.by(() => {
+    void settled;
+    return true;
+  });
   let chromeHeld = $state(false);
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -193,10 +196,6 @@
     clearTimeout(idleTimer);
     if (settled && !chromeHeld) chromeVisible = false;
   }
-
-  $effect(() => {
-    if (!settled) chromeVisible = true;
-  });
 
   function trackOverflow(node: HTMLElement) {
     const observer = new ResizeObserver(() => {

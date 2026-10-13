@@ -172,9 +172,11 @@
     volumeOpen = true;
   }
 
-  let participantTarget = $state<{ userId: string; roomId: string; anchor: HTMLElement } | null>(
-    null
-  );
+  let participantTarget = $state.raw<{
+    userId: string;
+    roomId: string;
+    anchor: HTMLElement;
+  } | null>(null);
   let participantOpen = $state(false);
 
   function openParticipant(event: MouseEvent, roomId: string, userId: string): void {

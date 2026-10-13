@@ -1,16 +1,18 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
-  import { provideAlertProviders } from './alerts';
+  import { provideAlertProviders, type PriorityProvider } from './alerts';
   import UserQuickTools from './UserQuickTools.svelte';
 
   interface Props {
     mobile?: boolean;
     compact?: boolean;
+    alertProviders?: PriorityProvider[];
   }
 
-  let { mobile, compact }: Props = $props();
+  let { mobile, compact, alertProviders = [] }: Props = $props();
 
-  provideAlertProviders([]);
+  provideAlertProviders(untrack(() => alertProviders));
 </script>
 
 <TooltipProvider>

@@ -22,7 +22,7 @@
   const core = useCoreClient();
   const roomList = useRoomList();
 
-  let profile = $state<ProfileView | null>(null);
+  let profile = $state.raw<ProfileView | null>(null);
   let loaded = $state(false);
   let opening = $state(false);
   let failed = $state(false);

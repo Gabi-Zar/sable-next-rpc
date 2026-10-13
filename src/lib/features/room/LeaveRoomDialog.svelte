@@ -25,7 +25,7 @@
   const core = useCoreClient();
   const roomList = useRoomList();
   let leaving = $state(false);
-  let failedNames = $state<string[]>([]);
+  let failedNames = $state.raw<string[]>([]);
 
   let children = $derived(
     room?.is_space ? joinedSpaceChildrenLeaveOrder(roomList.rooms, room.room_id) : null

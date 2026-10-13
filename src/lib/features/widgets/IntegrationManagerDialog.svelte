@@ -1,6 +1,5 @@
 <script lang="ts">
   import XIcon from 'phosphor-svelte/lib/XIcon';
-  import { on } from 'svelte/events';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -44,17 +43,14 @@
     };
   });
 
-  $effect(() => {
-    if (!open || url === null) return;
-    const origin = new URL(url).origin;
-    const onMessage = (event: MessageEvent): void => {
-      if (event.origin !== origin) return;
-      const action = (event.data as { action?: unknown } | null)?.action;
-      if (action === 'close_scalar' || action === 'close') onClose();
-    };
-    return on(window, 'message', onMessage);
-  });
+  function onMessage(event: MessageEvent): void {
+    if (!open || url === null || event.origin !== new URL(url).origin) return;
+    const action = (event.data as { action?: unknown } | null)?.action;
+    if (action === 'close_scalar' || action === 'close') onClose();
+  }
 </script>
+
+<svelte:window onmessage={onMessage} />
 
 <DialogFrame
   {open}

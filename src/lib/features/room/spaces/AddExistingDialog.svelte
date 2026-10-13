@@ -26,7 +26,7 @@
   const roomList = useRoomList();
   const fieldId = $props.id();
   let search = $state('');
-  let selected = $state<string[]>([]);
+  let selected = $state.raw<string[]>([]);
   let suggested = $state(false);
 
   let title = $derived(

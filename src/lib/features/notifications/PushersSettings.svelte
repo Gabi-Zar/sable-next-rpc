@@ -31,7 +31,7 @@
   let confirming = $state<string | null>(null);
   let removing = $state<string | null>(null);
   let copied = $state<string | null>(null);
-  let ownApps = $state<string[]>([]);
+  let ownApps = $state.raw<string[]>([]);
   let ownKey = $state<string | null>(null);
   let section = $state<HTMLElement>();
 

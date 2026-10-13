@@ -31,7 +31,7 @@
     loud: 'settings.mentionsLoud',
   };
 
-  let keywords = $state<KeywordNotificationView[]>([]);
+  let keywords = $state.raw<KeywordNotificationView[]>([]);
   let loading = $state(true);
   let draft = $state('');
   let adding = $state(false);

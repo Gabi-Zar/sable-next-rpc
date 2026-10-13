@@ -68,7 +68,7 @@ export class Conversation {
   readonly restored: ComposerContext | null;
   scheduledRevision = $state(0);
   forumTitle = $state('');
-  dismissedPreviews = $state<string[]>([]);
+  dismissedPreviews = $state.raw<string[]>([]);
 
   readonly #core: CoreClient;
   readonly #personas: PersonaStore;

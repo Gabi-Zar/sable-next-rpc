@@ -48,7 +48,7 @@
   let removing = $state(false);
   let removeAccountId = $state<string | null>(null);
   let error = $state<string | null>(null);
-  let profile = $state<ProfileView | null>(null);
+  let profile = $state.raw<ProfileView | null>(null);
   let activeAccountId = $derived(core.session?.account_id);
   let activeUserId = $derived(core.session?.user_id ?? '');
   let displayName = $derived(profile?.display_name ?? activeUserId);

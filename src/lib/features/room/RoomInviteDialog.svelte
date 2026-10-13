@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
+  import { onDestroy, untrack } from 'svelte';
   import type { RoomListItemView, UserDirectoryEntryView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -33,6 +33,7 @@
   let converting = $state(false);
   let directory = $state.raw<UserDirectoryEntryView[]>([]);
   let lookup = 0;
+  let lookupTimer: ReturnType<typeof setTimeout> | undefined;
 
   let roomId = $derived(room?.room_id ?? null);
   let isDirect = $derived(room?.is_direct ?? false);
@@ -42,7 +43,7 @@
     void roomId;
     if (!open) return;
     untrack(() => {
-      draft = '';
+      setDraft('');
       invalid = false;
       invited = null;
       failed = false;
@@ -51,19 +52,22 @@
     });
   });
 
-  $effect(() => {
-    const query = draft.trim();
+  function setDraft(next: string): void {
+    draft = next;
+    clearTimeout(lookupTimer);
+    const query = next.trim();
     const current = ++lookup;
     if (!query) {
       directory = [];
       return;
     }
-    const timer = setTimeout(() => {
+    lookupTimer = setTimeout(() => {
       void findUsers(query, current);
     }, 300);
-    return () => {
-      clearTimeout(timer);
-    };
+  }
+
+  onDestroy(() => {
+    clearTimeout(lookupTimer);
   });
 
   async function findUsers(query: string, current: number): Promise<void> {
@@ -90,7 +94,7 @@
     try {
       await core.rpc.rooms.invite({ room_id: target, user_id: candidate });
       invited = candidate;
-      draft = '';
+      setDraft('');
     } catch (error) {
       console.warn('[sable room] invite failed', error);
       failed = true;
@@ -152,7 +156,7 @@
       <FormField fieldId="room-invite-user" label={$i18n.t('common.invitePeople')}>
         <TextInput
           id="room-invite-user"
-          bind:value={draft}
+          bind:value={() => draft, setDraft}
           placeholder={$i18n.t('room.createInvitePlaceholder')}
           onkeydown={(event: KeyboardEvent) => {
             if (event.key !== 'Enter') return;
@@ -170,7 +174,7 @@
                 type="button"
                 class="menu-item"
                 onclick={() => {
-                  draft = entry.user_id;
+                  setDraft(entry.user_id);
                   document.getElementById('room-invite-user')?.focus();
                 }}
               >

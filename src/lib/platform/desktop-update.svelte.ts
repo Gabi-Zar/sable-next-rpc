@@ -7,7 +7,7 @@ export type UpdateStage =
   | { name: 'failed'; message: string };
 
 let update = $state<AvailableUpdate | null>(null);
-let stage = $state<UpdateStage>({ name: 'available' });
+let stage = $state.raw<UpdateStage>({ name: 'available' });
 
 export const desktopUpdate = {
   get update(): AvailableUpdate | null {

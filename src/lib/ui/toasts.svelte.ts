@@ -17,7 +17,7 @@ const DISMISS_AFTER_MS = 5_000;
 const UNDO_AFTER_MS = 8_000;
 
 export class ToastStore {
-  items = $state<Toast[]>([]);
+  items = $state.raw<Toast[]>([]);
   #nextId = 1;
   #timers = new SvelteMap<number, ReturnType<typeof setTimeout>>();
   /* eslint-disable svelte/prefer-svelte-reactivity */

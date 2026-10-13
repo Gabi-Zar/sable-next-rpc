@@ -65,10 +65,13 @@
   let resolvedRoomId = $derived(resolvedRoom?.room_id ?? roomId);
   let roomName = $derived(resolvedRoom?.name ?? roomId);
   let roomAvatar = $derived(resolvedRoom?.avatar_url ?? null);
-  let threadRootId = $state<string | null>(null);
+  let threadRootId = $derived.by<string | null>(() => {
+    void resolvedRoomId;
+    return null;
+  });
   const sidePanels = new MediaQuery(BREAKPOINTS.sidePanels);
   let threadInPanel = $derived(sidePanels.current && preferences.threadPresentation === 'panel');
-  let permissions = $state<RoomPermissionsView | null>(null);
+  let permissions = $state.raw<RoomPermissionsView | null>(null);
   let latestEventId = $derived.by(() => {
     const items = forumThreads.roomTimeline.items;
     for (let index = items.length - 1; index >= 0; index -= 1) {
@@ -108,7 +111,6 @@
 
   $effect(() => {
     void resolvedRoomId;
-    threadRootId = null;
     memberLoader.reset();
   });
 

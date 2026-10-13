@@ -340,6 +340,27 @@ test('a failed catalogue install says so on its own card', async () => {
   expect(customThemes.themes).toEqual([]);
 });
 
+test('reopening the catalogue forgets an earlier failed install', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((url: string) =>
+      Promise.resolve(url === DAWN_URL ? new Response('', { status: 500 }) : respond(url))
+    )
+  );
+  render(CustomThemes);
+  await openCatalog();
+  await user.click(installButton('Dawn') ?? document.body);
+  expect(await catalogCard('Dawn').findByRole('alert')).toBeInTheDocument();
+
+  await user.click(button('Close catalogue'));
+  await vi.waitFor(() => {
+    expect(document.body.style.pointerEvents).not.toBe('none');
+  });
+  await openCatalog();
+
+  expect(catalogCard('Dawn').queryByRole('alert')).not.toBeInTheDocument();
+});
+
 test('closing the catalogue discards a preview that is still downloading', async () => {
   stubCatalog();
   render(CustomThemes);

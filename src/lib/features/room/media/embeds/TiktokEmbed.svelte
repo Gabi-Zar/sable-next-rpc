@@ -26,13 +26,15 @@
   let short = $derived(direct === null && isTiktokShortLink(url));
   let resolved = $state<TiktokPost | null | undefined>(undefined);
   let post = $derived(direct ?? resolved ?? null);
-  let playing = $state(false);
+  let playing = $derived.by(() => {
+    void url;
+    return false;
+  });
   let title = $derived(post?.author ?? 'TikTok');
 
   $effect(() => {
     const target = url;
     const shortLink = short;
-    playing = false;
     resolved = undefined;
     if (!shortLink) return;
 

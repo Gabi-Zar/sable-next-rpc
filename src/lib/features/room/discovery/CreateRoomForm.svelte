@@ -61,7 +61,7 @@
   let federate = $state(true);
   let roomVersions = $state.raw<RoomVersionsView | null>(null);
   let inviteDraft = $state('');
-  let invites = $state<string[]>([]);
+  let invites = $state.raw<string[]>([]);
   let inviteInvalid = $state(false);
   let submitting = $state(false);
   let failed = $state(false);

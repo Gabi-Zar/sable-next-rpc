@@ -114,21 +114,49 @@
   );
   let videoEl = $state<HTMLVideoElement>();
   let failed = $derived(resource.failed);
-  let zoom = $state(1);
-  let rotation = $state(0);
-  let pan = $state<Vector2>({ x: 0, y: 0 });
-  let pixelated = $state(false);
+  let zoom = $derived.by(() => {
+    void source;
+    return 1;
+  });
+  let rotation = $derived.by(() => {
+    void source;
+    return 0;
+  });
+  let pan = $derived.by<Vector2>(() => {
+    void source;
+    return { x: 0, y: 0 };
+  });
+  let pixelated = $derived.by(() => {
+    void source;
+    return untrack(() =>
+      item?.kind === 'image' || item?.kind === 'sticker'
+        ? pixelatedImage(preferences.pixelatedImages, item.width, item.height)
+        : false
+    );
+  });
   let canSaveToPhotos = $state(false);
   let stageEl: HTMLElement | null = $state(null);
   let imageEl: HTMLImageElement | null = $state(null);
-  let fitRatio = $state(1);
-  let fitsWindow = $state(true);
+  let fitRatio = $derived.by(() => {
+    void source;
+    return 1;
+  });
+  let fitsWindow = $derived.by(() => {
+    void source;
+    return true;
+  });
   let dragging = $state(false);
   let instant = $state(false);
-  let imageReady = $state(false);
+  let imageReady = $derived.by(() => {
+    void source;
+    return false;
+  });
   let imageMenuOpen = $state(false);
   let imageMenuAnchor = $state.raw<CursorAnchor | null>(null);
-  let editingZoom = $state(false);
+  let editingZoom = $derived.by(() => {
+    void source;
+    return false;
+  });
   let zoomInput = $state('100');
   let swipeX = $state(0);
   let swipeY = $state(0);
@@ -170,8 +198,14 @@
       videoStreamingSupported(core)
   );
   let isPdf = $derived(item?.kind === 'file');
-  let pdfPages = $state(0);
-  let pdfPage = $state(1);
+  let pdfPages = $derived.by(() => {
+    void source;
+    return 0;
+  });
+  let pdfPage = $derived.by(() => {
+    void source;
+    return 1;
+  });
   let downloadLabel = $derived(
     item?.kind === 'video'
       ? $i18n.t('viewer.downloadVideo')
@@ -185,28 +219,7 @@
     return clampPan(next, stageEl.getBoundingClientRect(), imageEl.getBoundingClientRect());
   }
 
-  $effect(() => {
-    void source;
-    untrack(() => {
-      zoom = 1;
-      rotation = 0;
-      pan = { x: 0, y: 0 };
-      pdfPage = 1;
-      pdfPages = 0;
-      fitRatio = 1;
-      fitsWindow = true;
-      imageReady = false;
-      editingZoom = false;
-      pixelated =
-        item?.kind === 'image' || item?.kind === 'sticker'
-          ? pixelatedImage(preferences.pixelatedImages, item.width, item.height)
-          : false;
-    });
-  });
-
-  $effect(() => {
-    const stage = stageEl;
-    if (!stage) return;
+  function refitOnResize(stage: HTMLElement): () => void {
     const observer = new ResizeObserver(() => {
       if (fitsWindow && isImage) fitToStage();
     });
@@ -214,7 +227,7 @@
     return () => {
       observer.disconnect();
     };
-  });
+  }
 
   $effect(() => {
     if (item === undefined) onClose();
@@ -833,6 +846,7 @@
             },
           ]}
           bind:this={stageEl}
+          {@attach refitOnResize}
           onwheel={handleWheel}
           onpointerdown={startPan}
           ondblclick={toggleFileZoom}

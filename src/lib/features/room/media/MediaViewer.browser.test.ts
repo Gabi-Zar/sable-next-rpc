@@ -234,3 +234,16 @@ test('viewer backdrop clicks on mobile', async () => {
   await expect.element(viewer).toBeVisible();
   expect(onClose).not.toHaveBeenCalled();
 });
+
+test('viewer refits a fitted image when the stage resizes', async () => {
+  const { viewer } = await openViewer(1280, 900);
+  const scale = () =>
+    viewer
+      .element()
+      .querySelector<HTMLElement>('.stage img')
+      ?.style.transform.match(/scale\(([\d.]+)\)/)?.[1];
+  await expect.poll(scale).toBe('1');
+
+  await page.viewport(390, 800);
+  await expect.poll(() => Number(scale())).toBeLessThan(1);
+});

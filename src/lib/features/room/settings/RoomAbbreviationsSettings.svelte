@@ -51,7 +51,11 @@
   let definition = $state('');
   let cased = $state(false);
   let editingKey = $state<string | null>(null);
-  let duplicate = $state(false);
+  let duplicate = $derived.by(() => {
+    void term;
+    void definition;
+    return false;
+  });
   let pendingRemoval = $state<AbbreviationEntry | null>(null);
   let busy = $state(false);
   let failed = $state(false);
@@ -109,12 +113,6 @@
       if (current !== inheritedRun) return;
       inheritedGroups = groups.filter((group) => group.entries.length > 0);
     });
-  });
-
-  $effect(() => {
-    void term;
-    void definition;
-    duplicate = false;
   });
 
   async function save(next: readonly AbbreviationEntry[]): Promise<boolean> {

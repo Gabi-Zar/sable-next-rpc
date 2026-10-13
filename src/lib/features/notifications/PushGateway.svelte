@@ -45,7 +45,7 @@
   const core = useCoreClient();
   let android = $state(false);
   let native = $state(false);
-  let distributors = $state<string[]>([]);
+  let distributors = $state.raw<string[]>([]);
   let selected = $state('');
   let switching = $state(false);
   let distributorError = $state(false);
@@ -179,20 +179,17 @@
     />
     {#if provider === 'unifiedpush'}
       <p class="hint">{$i18n.t('settings.pushDistributorHint')}</p>
-      {#key selected + String(switching)}
-        <Select
-          value={selected}
-          items={distributors.map((value) => ({
-            value,
-            label:
-              value === 'embedded-websocket' ? $i18n.t('settings.pushDistributorBuiltIn') : value,
-          }))}
-          aria-label={$i18n.t('settings.pushDistributor')}
-          placeholder={$i18n.t('settings.pushDistributorChoose')}
-          disabled={switching || core.status !== 'ready'}
-          onValueChange={(value) => void changeDistributor(value)}
-        />
-      {/key}
+      <Select
+        bind:value={() => selected, (value) => void changeDistributor(value)}
+        items={distributors.map((value) => ({
+          value,
+          label:
+            value === 'embedded-websocket' ? $i18n.t('settings.pushDistributorBuiltIn') : value,
+        }))}
+        aria-label={$i18n.t('settings.pushDistributor')}
+        placeholder={$i18n.t('settings.pushDistributorChoose')}
+        disabled={switching || core.status !== 'ready'}
+      />
     {/if}
     {#if distributorError}
       <Alert variant="critical">{$i18n.t('settings.pushDistributorFailed')}</Alert>

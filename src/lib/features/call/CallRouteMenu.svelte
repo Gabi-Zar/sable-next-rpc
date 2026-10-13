@@ -16,7 +16,7 @@
 
   let { label, list, onSelect, open = $bindable(false) }: Props = $props();
 
-  let routes = $state<CallAudioRoute[]>([]);
+  let routes = $state.raw<CallAudioRoute[]>([]);
 
   async function load(): Promise<void> {
     try {

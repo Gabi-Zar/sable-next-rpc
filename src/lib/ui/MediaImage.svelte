@@ -106,7 +106,6 @@
   let gifFrameMs = DEFAULT_FRAME_MS;
   let paintedCanvas: HTMLCanvasElement | undefined;
   let paintedIndex = -1;
-  let blurhashCanvas = $state<HTMLCanvasElement>();
   let loadedUrl = $state<string | null>(null);
   let imageElement = $state<HTMLImageElement>();
   let renderedWidth = $state(0);
@@ -355,10 +354,9 @@
     void paintFrame(playback, gifFrameIndex);
   });
 
-  $effect(() => {
-    const canvas = blurhashCanvas;
+  function paintBlurhash(canvas: HTMLCanvasElement): void {
     const pixels = blurhashPixels;
-    if (!canvas || !pixels) return;
+    if (!pixels) return;
     const context = canvas.getContext('2d');
     if (!context) return;
     canvas.width = BLURHASH_DECODE_WIDTH;
@@ -366,7 +364,7 @@
     const image = context.createImageData(canvas.width, canvas.height);
     image.data.set(pixels);
     context.putImageData(image, 0, 0);
-  });
+  }
 
   function named(extension: string): boolean {
     return alt.toLowerCase().endsWith(extension) || source.toLowerCase().endsWith(extension);
@@ -515,7 +513,7 @@
 {#snippet content()}
   {#if blurhashPixels && !showUnavailable}
     <canvas
-      bind:this={blurhashCanvas}
+      {@attach paintBlurhash}
       class={['media-image-blurhash', { loaded: painted }]}
       aria-hidden="true"
     ></canvas>

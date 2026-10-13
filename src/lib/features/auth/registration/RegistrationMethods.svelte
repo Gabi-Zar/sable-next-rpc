@@ -63,11 +63,9 @@
   }: Props = $props();
 
   const methodSlotId = $props.id();
-  let showAllRegistrationMethods = $state(false);
-
-  $effect(() => {
+  let showAllRegistrationMethods = $derived.by(() => {
     void homeserver;
-    showAllRegistrationMethods = false;
+    return false;
   });
 
   let uiaaAvailable = $derived(registrationFlows?.uiaa === true && !passwordFields.hidden);
