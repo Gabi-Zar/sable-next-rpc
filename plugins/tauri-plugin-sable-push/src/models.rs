@@ -33,6 +33,7 @@ pub struct Policy {
     pub encrypted_content: bool,
     pub sounds: bool,
     pub notify_once: bool,
+    pub clear_on_read: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -455,13 +455,15 @@
       preferences.notificationContent,
       preferences.systemNotifications,
       preferences.notificationSounds,
-      preferences.notifyOnce
+      preferences.notifyOnce,
+      preferences.clearNotificationsOnRead
     ).catch(() => {});
 
     void putPushContentPolicy({
       content: preferences.notificationContent,
       encryptedContent: preferences.notificationEncryptedContent,
       notifyOnce: preferences.notifyOnce,
+      clearOnRead: preferences.clearNotificationsOnRead,
     });
   });
 

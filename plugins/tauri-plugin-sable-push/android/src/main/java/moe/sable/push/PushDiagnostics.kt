@@ -12,6 +12,7 @@ internal enum class PushOutcome {
     WRONG_RECIPIENT,
     READ_DISMISSED,
     ACCOUNT_READ_DISMISSED,
+    READ_KEPT,
     DECRYPTED,
     PLAINTEXT,
     HIDDEN_BY_SETTING,

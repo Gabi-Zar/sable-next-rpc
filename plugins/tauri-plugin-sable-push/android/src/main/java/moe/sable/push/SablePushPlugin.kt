@@ -49,6 +49,7 @@ class PolicyArgs {
     var encryptedContent: Boolean = false
     var sounds: Boolean = true
     var notifyOnce: Boolean = true
+    var clearOnRead: Boolean = true
 }
 
 @TauriPlugin
@@ -111,6 +112,7 @@ class SablePushPlugin(private val activity: Activity) : Plugin(activity) {
         policy.showEncryptedContent = args.encryptedContent
         policy.notificationSounds = args.sounds
         policy.notifyOnce = args.notifyOnce
+        policy.clearOnRead = args.clearOnRead
         if (!args.enabled || !args.content) dismissAll()
         invoke.resolve()
     }

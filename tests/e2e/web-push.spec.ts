@@ -149,3 +149,65 @@ test('a push for an invitation reads as an invitation with accept and decline', 
   expect(await shownActions(page)).toEqual([['Accept', 'Decline']]);
   await away.close();
 });
+
+test('a push saying everything is read closes the notification it had shown', async ({
+  page,
+  app,
+  context,
+  admin,
+}) => {
+  await context.grantPermissions(['notifications']);
+
+  const roomName = `Read ${String(Date.now())}`;
+  const roomId = await admin.createRoom({ name: roomName });
+  const eventId = await admin.sendMessage(roomId, 'A message read elsewhere.');
+
+  await app.openRooms();
+  await expect(app.roomLink(roomName)).toBeVisible({ timeout: 30_000 });
+
+  const session = await context.newCDPSession(page);
+  const activated = new Promise<string>((resolve) => {
+    session.on('ServiceWorker.workerVersionUpdated', (event) => {
+      const running = event.versions.find((version) => version.status === 'activated');
+      if (running) resolve(running.registrationId);
+    });
+  });
+  await session.send('ServiceWorker.enable');
+  const registrationId = await activated;
+
+  const push = (unread: number) =>
+    session.send('ServiceWorker.deliverPushMessage', {
+      origin: 'http://127.0.0.1',
+      registrationId,
+      data: JSON.stringify({
+        notification: {
+          room_id: roomId,
+          event_id: eventId,
+          user_id: admin.userId,
+          counts: { unread },
+        },
+      }),
+    });
+  const open = () =>
+    page.evaluate(async () => {
+      const ready = await navigator.serviceWorker.ready;
+      return (await ready.getNotifications()).length;
+    });
+
+  const away = await context.newPage();
+  await away.bringToFront();
+
+  await expect
+    .poll(
+      async () => {
+        await push(3);
+        return open();
+      },
+      { timeout: 60_000 }
+    )
+    .toBe(1);
+
+  await push(0);
+  await expect.poll(open, { timeout: 30_000 }).toBe(0);
+  await away.close();
+});

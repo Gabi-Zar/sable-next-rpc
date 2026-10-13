@@ -37,5 +37,6 @@ class PushPolicyTest {
         assertFalse(policy.showEncryptedContent)
         assertTrue(policy.notificationSounds)
         assertTrue(policy.notifyOnce)
+        assertTrue(policy.clearOnRead)
     }
 }

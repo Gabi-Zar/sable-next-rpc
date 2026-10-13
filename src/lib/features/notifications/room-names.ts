@@ -131,6 +131,7 @@ export interface PushContentPolicy {
   content: boolean;
   encryptedContent: boolean;
   notifyOnce: boolean;
+  clearOnRead: boolean;
 }
 
 const POLICY_KEY = '\u0000push-content-policy';
@@ -152,9 +153,10 @@ export async function pushContentPolicy(): Promise<PushContentPolicy> {
       content: stored?.content === true,
       encryptedContent: stored?.encryptedContent === true,
       notifyOnce: stored?.notifyOnce === true,
+      clearOnRead: stored?.clearOnRead === true,
     };
   } catch {
-    return { content: false, encryptedContent: false, notifyOnce: false };
+    return { content: false, encryptedContent: false, notifyOnce: false, clearOnRead: false };
   }
 }
 

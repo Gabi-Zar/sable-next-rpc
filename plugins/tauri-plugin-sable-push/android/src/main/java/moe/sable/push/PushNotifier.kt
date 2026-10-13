@@ -72,6 +72,10 @@ object PushNotifier {
         val deviceId = store.deviceIdFor(userId)
         if (roomId.isEmpty()) {
             if (deviceId != null && notification.optJSONObject("counts")?.optInt("unread", -1) == 0) {
+                if (!store.clearOnRead) {
+                    PushDiagnostics.record(context, PushOutcome.READ_KEPT, trace)
+                    return
+                }
                 PushDiagnostics.record(context, PushOutcome.ACCOUNT_READ_DISMISSED, trace)
                 dismissAccount(context, userId)
                 return
@@ -87,6 +91,10 @@ object PushNotifier {
         val id = if (userId.isNotEmpty()) roomNotificationId(userId, roomId) else fallbackNotificationId(roomId)
         val revision = queuedRevision ?: PushNotificationGate.revision(context, id)
         if (notification.optJSONObject("counts")?.optInt("unread", -1) == 0) {
+            if (!store.clearOnRead) {
+                PushDiagnostics.record(context, PushOutcome.READ_KEPT, trace)
+                return
+            }
             PushDiagnostics.record(context, PushOutcome.READ_DISMISSED, trace)
             PushNotificationGate.dismiss(context, id) { manager.cancel(id) }
             return

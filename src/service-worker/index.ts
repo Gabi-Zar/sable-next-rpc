@@ -40,7 +40,7 @@ import {
   roomMode,
   roomName,
 } from '#lib/features/notifications/room-names.js';
-import { loadModel } from '#lib/model/model.js';
+import { loadModel, roomTag } from '#lib/model/model.js';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
 
@@ -167,6 +167,11 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
   if (pushed.unread !== null && 'setAppBadge' in navigator) {
     await navigator.setAppBadge(pushed.unread).catch(() => undefined);
   }
+  if (pushed.unread === 0 && (await pushContentPolicy()).clearOnRead) {
+    await closeRead(pushed);
+    await record('READ_DISMISSED', trace);
+    return;
+  }
 
   if (await focused()) {
     await record('APP_FOCUSED', trace);
@@ -274,6 +279,14 @@ async function decryptInTab(
     if (answer !== null) return answer;
   }
   return null;
+}
+
+async function closeRead(pushed: PushNotification): Promise<void> {
+  if (!('getNotifications' in worker.registration)) return;
+  const tag = pushed.room_id ? roomTag(pushed.user_id, pushed.room_id) : undefined;
+  for (const notification of await worker.registration.getNotifications(tag ? { tag } : {})) {
+    notification.close();
+  }
 }
 
 async function focused(): Promise<boolean> {

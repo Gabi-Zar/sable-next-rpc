@@ -626,6 +626,18 @@ class PushNotifierTest {
     }
 
     @Test
+    fun showFromPush_keepsReadAlertsWhenClearingIsOff() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        PushPolicy(context).clearOnRead = false
+        PushNotifier.showFromPush(context, pushPayload("!read:example.org", "\$read"))
+
+        PushNotifier.showFromPush(context, """{"notification":{"user_id":"@alice:example.org","room_id":"!read:example.org","counts":{"unread":0}}}""")
+        PushNotifier.showFromPush(context, accountReadPayload("@alice:example.org"))
+
+        assertEquals(1, notificationManager.activeNotifications.size)
+    }
+
+    @Test
     fun showFromPush_accountReadClearsThatAccountsAlertsOnly() {
         PushPolicy(context).accounts =
             mapOf("@alice:example.org" to "ALICE", "@bob:example.org" to "BOB")

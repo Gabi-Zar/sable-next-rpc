@@ -376,6 +376,7 @@ async fn set_notification_encrypted_content(
     enabled: bool,
     sounds: bool,
     notify_once: bool,
+    clear_on_read: bool,
 ) -> Result<(), CommandErr> {
     #[cfg(target_os = "android")]
     {
@@ -387,6 +388,7 @@ async fn set_notification_encrypted_content(
                 encrypted_content: allowed,
                 sounds,
                 notify_once,
+                clear_on_read,
             })
             .await
             .map_err(|_| CommandErr::Unavailable)?;
@@ -397,7 +399,14 @@ async fn set_notification_encrypted_content(
     #[cfg(not(target_os = "android"))]
     let _ = &app;
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let _ = (allowed, content, enabled, sounds, notify_once);
+    let _ = (
+        allowed,
+        content,
+        enabled,
+        sounds,
+        notify_once,
+        clear_on_read,
+    );
     Ok(())
 }
 
