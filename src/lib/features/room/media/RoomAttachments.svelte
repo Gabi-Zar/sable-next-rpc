@@ -277,7 +277,7 @@
   }
 
   function itemLabel(item: RoomAttachmentView, name: string): string {
-    return $i18n.t('timeline.attachmentsOpenItem', {
+    return i18n.t('timeline.attachmentsOpenItem', {
       name,
       sender: senderOf(item),
       date: formatDate(item.timestamp),
@@ -288,11 +288,11 @@
     if (content.kind === 'link') return '';
     if ((content.kind === 'image' || content.kind === 'video') && content.spoiler !== null) {
       return content.spoiler
-        ? $i18n.t('timeline.attachmentsSpoilerReason', { reason: content.spoiler })
-        : $i18n.t('timeline.attachmentsSpoiler');
+        ? i18n.t('timeline.attachmentsSpoilerReason', { reason: content.spoiler })
+        : i18n.t('timeline.attachmentsSpoiler');
     }
     if (content.kind === 'video') {
-      return $i18n.t('timeline.attachmentsVideoNamed', { name: content.filename });
+      return i18n.t('timeline.attachmentsVideoNamed', { name: content.filename });
     }
     return content.filename;
   }
@@ -370,7 +370,7 @@
       {:else if preview === null}
         <span class="tile-placeholder">
           <FileVideoIcon aria-hidden="true" />
-          <span class="tile-placeholder-label">{$i18n.t('timeline.attachmentsVideo')}</span>
+          <span class="tile-placeholder-label">{i18n.t('timeline.attachmentsVideo')}</span>
         </span>
       {:else}
         <MediaImage
@@ -451,7 +451,7 @@
         {/each}
         {#if content.urls.length > LINKS_PER_ROW}
           <span class="link-more">
-            {$i18n.t('timeline.attachmentsMoreLinks', {
+            {i18n.t('timeline.attachmentsMoreLinks', {
               count: content.urls.length - LINKS_PER_ROW,
             })}
           </span>
@@ -465,7 +465,7 @@
         class="link-jump"
         variant="ghost"
         size="small"
-        label={`${$i18n.t('common.jumpToMessage')}: ${senderOf(item)}, ${formatDate(item.timestamp)}`}
+        label={`${i18n.t('common.jumpToMessage')}: ${senderOf(item)}, ${formatDate(item.timestamp)}`}
         onclick={() => {
           jump(item.event_id);
         }}
@@ -479,7 +479,7 @@
 {#snippet body()}
   <aside
     class={['attachments', { modal }]}
-    aria-label={$i18n.t('timeline.attachmentsTitle')}
+    aria-label={i18n.t('timeline.attachmentsTitle')}
     style:width={modal ? null : `${panelWidth.width}rem`}
   >
     {#if !modal}
@@ -487,7 +487,7 @@
         value={panelWidth.width}
         min={panelWidth.min}
         max={panelWidth.max}
-        label={$i18n.t('timeline.attachmentsResize')}
+        label={i18n.t('timeline.attachmentsResize')}
         grow="left"
         step={1}
         fromPixels={remFromPixels}
@@ -495,18 +495,18 @@
         onCommit={() => panelWidth.commit()}
       />
     {/if}
-    <PanelHeader class="attachments-header" title={$i18n.t('timeline.attachmentsTitle')}>
+    <PanelHeader class="attachments-header" title={i18n.t('timeline.attachmentsTitle')}>
       {#snippet prefix()}
         <ImagesIcon aria-hidden="true" />
       {/snippet}
       {#snippet suffix()}
-        <PanelHeaderButton label={$i18n.t('timeline.attachmentsClose')} onclick={onClose}>
+        <PanelHeaderButton label={i18n.t('timeline.attachmentsClose')} onclick={onClose}>
           <XIcon />
         </PanelHeaderButton>
       {/snippet}
     </PanelHeader>
 
-    <div class="tabs" role="tablist" aria-label={$i18n.t('timeline.attachmentsTitle')}>
+    <div class="tabs" role="tablist" aria-label={i18n.t('timeline.attachmentsTitle')}>
       {#each tabs as tab (tab.id)}
         <Button
           size="small"
@@ -522,15 +522,15 @@
             selectTab(tab.id, false);
           }}
         >
-          {$i18n.t(tab.label)}
+          {i18n.t(tab.label)}
         </Button>
       {/each}
     </div>
     {#if !showEmpty}
-      <p class="attachments-scope">{$i18n.t('timeline.attachmentsIndexed')}</p>
+      <p class="attachments-scope">{i18n.t('timeline.attachmentsIndexed')}</p>
     {/if}
     <p class="screen-reader-only" aria-live="polite">
-      {items.length > 0 ? $i18n.t('timeline.attachmentsLoaded', { count: items.length }) : ''}
+      {items.length > 0 ? i18n.t('timeline.attachmentsLoaded', { count: items.length }) : ''}
     </p>
 
     <div
@@ -563,14 +563,14 @@
       {:else if loading}
         {@render skeleton()}
       {:else if showEmpty}
-        <p class="attachments-status">{$i18n.t(emptyLabel)}</p>
+        <p class="attachments-status">{i18n.t(emptyLabel)}</p>
       {/if}
 
       {#if failed}
         <div class="attachments-failure" role="alert">
-          <p>{$i18n.t('timeline.attachmentsFailed')}</p>
+          <p>{i18n.t('timeline.attachmentsFailed')}</p>
           <Button size="small" variant="secondary" onclick={() => pager.retry()}>
-            {$i18n.t('common.tryAgain')}
+            {i18n.t('common.tryAgain')}
           </Button>
         </div>
       {:else if loading && items.length > 0}
@@ -578,7 +578,7 @@
       {:else if !exhausted && !loading}
         <div class="attachments-more" {@attach nearEnd}>
           <Button size="small" variant="secondary" onclick={loadMore}>
-            {$i18n.t('common.loadMore')}
+            {i18n.t('common.loadMore')}
           </Button>
         </div>
       {/if}
@@ -593,7 +593,7 @@
       if (!open) onClose();
     }}
     variant="drawer"
-    label={$i18n.t('timeline.attachmentsTitle')}
+    label={i18n.t('timeline.attachmentsTitle')}
   >
     {@render body()}
   </DialogFrame>

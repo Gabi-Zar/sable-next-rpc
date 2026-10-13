@@ -65,7 +65,7 @@
 
 <div
   class={['timeline-placeholder', 'initial', 'items', `layout-${layout}`]}
-  aria-label={$i18n.t('timeline.loading')}
+  aria-label={i18n.t('timeline.loading')}
   role="status"
 >
   {#each rows as row (row.id)}

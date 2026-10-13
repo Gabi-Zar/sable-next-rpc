@@ -50,10 +50,10 @@
 
 {#if next}
   <span class="calendar-row-event">
-    {next.item.all_day ? $i18n.t('calendar.allDay') : formatTime(next.start)}
-    {next.item.title || $i18n.t('calendar.untitled')}
+    {next.item.all_day ? i18n.t('calendar.allDay') : formatTime(next.start)}
+    {next.item.title || i18n.t('calendar.untitled')}
     {#if today.length > 1}
-      · {$i18n.t('calendar.more', { count: today.length - 1 })}
+      · {i18n.t('calendar.more', { count: today.length - 1 })}
     {/if}
   </span>
 {/if}

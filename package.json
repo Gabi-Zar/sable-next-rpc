@@ -91,7 +91,6 @@
     "prosemirror-transform": "^1.12.1",
     "prosemirror-view": "^1.42.5",
     "quick-lru": "7.3.0",
-    "svelte-i18next": "^2.2.2",
     "svelte-tiny-virtual-list": "^4.0.0",
     "tauri-plugin-android-fs-api": "29.0.0",
     "uint8array-extras": "1.6.0"

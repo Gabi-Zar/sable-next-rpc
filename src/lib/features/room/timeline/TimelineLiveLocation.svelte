@@ -25,15 +25,15 @@
   });
 </script>
 
-<p class="status">{$i18n.t(live ? 'timeline.liveLocationActive' : 'timeline.liveLocationEnded')}</p>
+<p class="status">{i18n.t(live ? 'timeline.liveLocationActive' : 'timeline.liveLocationEnded')}</p>
 <TimelineLocation
-  body={location.body || $i18n.t('timeline.liveLocation')}
+  body={location.body || i18n.t('timeline.liveLocation')}
   latitude={location.latitude}
   longitude={location.longitude}
 />
 {#if updated && Number.isFinite(updated.getTime())}
   <time class="status" datetime={updated.toISOString()}>
-    {$i18n.t('timeline.liveLocationUpdated', { time: formatTime(updated.getTime()) })}
+    {i18n.t('timeline.liveLocationUpdated', { time: formatTime(updated.getTime()) })}
   </time>
 {/if}
 

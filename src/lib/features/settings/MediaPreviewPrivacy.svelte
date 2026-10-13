@@ -14,17 +14,17 @@
   function save(next: MediaPreviewConfig): void {
     mediaPreviewSettings.set(next).catch((error: unknown) => {
       console.warn('[sable settings] media preview settings not saved', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     });
   }
 </script>
 
 <ul class="settings-rows">
-  <SettingsRow id="invite-avatars" title={$i18n.t('settings.inviteAvatars')} control={avatarsId}>
+  <SettingsRow id="invite-avatars" title={i18n.t('settings.inviteAvatars')} control={avatarsId}>
     <Switch
       id={avatarsId}
       checked={mediaPreviewSettings.inviteAvatars === 'on'}
-      label={$i18n.t('settings.inviteAvatars')}
+      label={i18n.t('settings.inviteAvatars')}
       onCheckedChange={(checked) => {
         save({ invite_avatars: checked ? 'on' : 'off' });
       }}

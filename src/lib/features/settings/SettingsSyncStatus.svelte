@@ -8,24 +8,24 @@
   const status = $derived.by(() => {
     switch (accountSync.status) {
       case 'syncing':
-        return $i18n.t('settings.syncStatusSyncing');
+        return i18n.t('settings.syncStatusSyncing');
       case 'partial':
-        return $i18n.t('settings.syncStatusPartial', {
+        return i18n.t('settings.syncStatusPartial', {
           names: accountSync.skipped.join(', '),
           limit: SYNCED_THEME_LIMIT_MIB,
         });
       case 'error':
-        return $i18n.t('settings.syncStatusError');
+        return i18n.t('settings.syncStatusError');
       default:
         return accountSync.lastSyncedAt === null
-          ? $i18n.t('settings.syncStatusNever')
-          : $i18n.t('settings.syncStatusIdle', { time: formatTime(accountSync.lastSyncedAt) });
+          ? i18n.t('settings.syncStatusNever')
+          : i18n.t('settings.syncStatusIdle', { time: formatTime(accountSync.lastSyncedAt) });
     }
   });
 </script>
 
 <ul class="settings">
-  <SettingsRow id="sync-status" title={$i18n.t('settings.syncStatusTitle')} description={status} />
+  <SettingsRow id="sync-status" title={i18n.t('settings.syncStatusTitle')} description={status} />
 </ul>
 
 <style>

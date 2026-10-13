@@ -25,7 +25,7 @@
 <TabbedMemberListDialog
   bind:open
   bind:active
-  title={$i18n.t('timeline.pollVoters')}
+  title={i18n.t('timeline.pollVoters')}
   tabs={answers}
   tabKey={(answer) => answer.id}
   userIds={(answer) => answer.voters ?? []}

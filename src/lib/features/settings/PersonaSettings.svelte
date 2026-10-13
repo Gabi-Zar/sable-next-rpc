@@ -81,7 +81,7 @@
       await personas.remove(persona.id);
     } catch (cause) {
       console.warn('[sable personas] deleting failed', cause);
-      error = $i18n.t('personas.removeFailed');
+      error = i18n.t('personas.removeFailed');
     } finally {
       removing = null;
     }
@@ -101,7 +101,7 @@
       await personas.removeAll();
     } catch (cause) {
       console.warn('[sable personas] deleting every profile failed', cause);
-      error = $i18n.t('personas.removeFailed');
+      error = i18n.t('personas.removeFailed');
     } finally {
       removingAll = false;
       confirmingRemoveAll = false;
@@ -146,12 +146,12 @@
 
       importNotice =
         pictures === 0
-          ? $i18n.t('personas.importDone', { count: members.length })
-          : $i18n.t('personas.importAvatarFailed', { count: pictures });
+          ? i18n.t('personas.importDone', { count: members.length })
+          : i18n.t('personas.importAvatarFailed', { count: pictures });
       return true;
     } catch (cause) {
       console.warn('[sable personas] the PluralKit import failed', cause);
-      error = $i18n.t(failure);
+      error = i18n.t(failure);
       return false;
     } finally {
       importing = false;
@@ -193,11 +193,11 @@
     try {
       const bytes = new TextEncoder().encode(await core.rpc.personas.backup());
       if ((await saveBytes(bytes, backupFileName(), 'application/json')) === 'failed') {
-        error = $i18n.t('personas.backupFailed');
+        error = i18n.t('personas.backupFailed');
       }
     } catch (cause) {
       console.warn('[sable personas] the backup failed', cause);
-      error = $i18n.t('personas.backupFailed');
+      error = i18n.t('personas.backupFailed');
     } finally {
       backingUp = false;
     }
@@ -213,7 +213,7 @@
       restoreContent = backup;
     } catch (cause) {
       console.warn('[sable personas] the backup file could not be read', cause);
-      error = $i18n.t('personas.restoreInvalid');
+      error = i18n.t('personas.restoreInvalid');
     }
   }
 
@@ -232,7 +232,7 @@
       await personas.load(true);
     } catch (cause) {
       console.warn('[sable personas] the restore failed', cause);
-      error = $i18n.t('personas.restoreFailed');
+      error = i18n.t('personas.restoreFailed');
     } finally {
       restoring = false;
       restoreContent = null;
@@ -242,18 +242,18 @@
 
 <div class="persona-stack">
   {#if error}<Alert variant="critical" aria-live="polite">{error}</Alert>{/if}
-  {#if personas.error}<Alert variant="critical">{$i18n.t(personas.error)}</Alert>{/if}
+  {#if personas.error}<Alert variant="critical">{i18n.t(personas.error)}</Alert>{/if}
 
   <SettingsSection
-    title={$i18n.t('personas.manageTitle')}
-    description={$i18n.t('personas.manageDescription')}
+    title={i18n.t('personas.manageTitle')}
+    description={i18n.t('personas.manageDescription')}
     headingId="settings-personas"
   >
     <div class="settings-form">
       {#if personas.loading && personas.personas.length === 0}
-        <p class="persona-empty"><Spinner small label={$i18n.t('a11y.loading')} /></p>
+        <p class="persona-empty"><Spinner small label={i18n.t('a11y.loading')} /></p>
       {:else if personas.personas.length === 0}
-        <p class="persona-empty">{$i18n.t('personas.empty')}</p>
+        <p class="persona-empty">{i18n.t('personas.empty')}</p>
       {:else}
         <ul class="persona-list">
           {#each personas.personas as persona (persona.id)}
@@ -279,7 +279,7 @@
               <IconButton
                 variant="subtle"
                 size="small"
-                label={$i18n.t('personas.edit', { name: persona.display_name })}
+                label={i18n.t('personas.edit', { name: persona.display_name })}
                 onclick={() => {
                   openEditor(persona);
                 }}
@@ -290,7 +290,7 @@
                 variant="subtle"
                 size="small"
                 disabled={index === 0}
-                label={$i18n.t('personas.moveUp', { name: persona.display_name })}
+                label={i18n.t('personas.moveUp', { name: persona.display_name })}
                 onclick={() => void personas.reorder(index, index - 1)}
               >
                 <ArrowUpIcon />
@@ -299,7 +299,7 @@
                 variant="subtle"
                 size="small"
                 disabled={index === personas.personas.length - 1}
-                label={$i18n.t('personas.moveDown', { name: persona.display_name })}
+                label={i18n.t('personas.moveDown', { name: persona.display_name })}
                 onclick={() => void personas.reorder(index, index + 1)}
               >
                 <ArrowDownIcon />
@@ -308,7 +308,7 @@
                 variant="subtle"
                 size="small"
                 disabled={removing === persona.id}
-                label={$i18n.t('personas.remove', { name: persona.display_name })}
+                label={i18n.t('personas.remove', { name: persona.display_name })}
                 onclick={() => {
                   personaToRemove = persona;
                 }}
@@ -330,7 +330,7 @@
           }}
         >
           <TrashIcon />
-          {$i18n.t('personas.removeAll')}
+          {i18n.t('personas.removeAll')}
         </Button>
         <Button
           variant="secondary"
@@ -340,36 +340,36 @@
           }}
         >
           <PlusIcon />
-          {$i18n.t('personas.add')}
+          {i18n.t('personas.add')}
         </Button>
       </div>
     </div>
   </SettingsSection>
 
   <SettingsSection
-    title={$i18n.t('personas.importTitle')}
-    description={$i18n.t('personas.importDescription')}
+    title={i18n.t('personas.importTitle')}
+    description={i18n.t('personas.importDescription')}
     headingId="settings-personas-pluralkit"
   >
     <form class="settings-form import-form" onsubmit={(event) => void runImport(event)}>
       {#if importNotice}<Alert variant="info" aria-live="polite">{importNotice}</Alert>{/if}
       <label class="field">
-        <span>{$i18n.t('personas.importSystem')}</span>
+        <span>{i18n.t('personas.importSystem')}</span>
         <TextInput
           bind:value={systemInput}
           required
-          placeholder={$i18n.t('personas.importSystemPlaceholder')}
+          placeholder={i18n.t('personas.importSystemPlaceholder')}
         />
       </label>
       <label class="field">
-        <span>{$i18n.t('personas.importToken')}</span>
+        <span>{i18n.t('personas.importToken')}</span>
         <TextInput bind:value={token} type="password" autocomplete="off" />
-        <small>{$i18n.t('personas.importTokenHint')}</small>
+        <small>{i18n.t('personas.importTokenHint')}</small>
       </label>
       <label class="field">
         <div>
-          <span>{$i18n.t('personas.importPronouns')}</span>
-          <Switch label={$i18n.t('personas.importPronouns')} bind:checked={pkExtractPronouns} />
+          <span>{i18n.t('personas.importPronouns')}</span>
+          <Switch label={i18n.t('personas.importPronouns')} bind:checked={pkExtractPronouns} />
         </div>
       </label>
       <div class="persona-actions">
@@ -379,10 +379,10 @@
           disabled={importing}
           onclick={() => void chooseExport()}
         >
-          {$i18n.t('personas.importFile')}
+          {i18n.t('personas.importFile')}
         </Button>
         <Button type="submit" size="small" loading={importing}>
-          {$i18n.t('common.import')}
+          {i18n.t('common.import')}
         </Button>
       </div>
       <input
@@ -402,8 +402,8 @@
   </SettingsSection>
 
   <SettingsSection
-    title={$i18n.t('personas.backupTitle')}
-    description={$i18n.t('personas.backupDescription')}
+    title={i18n.t('personas.backupTitle')}
+    description={i18n.t('personas.backupDescription')}
     headingId="settings-personas-backup"
   >
     <div class="settings-form">
@@ -414,7 +414,7 @@
           disabled={importing || restoring}
           onclick={() => void chooseBackup()}
         >
-          {$i18n.t('common.restore')}
+          {i18n.t('common.restore')}
         </Button>
         <Button
           variant="secondary"
@@ -423,7 +423,7 @@
           disabled={personas.personas.length === 0}
           onclick={() => void backUp()}
         >
-          {$i18n.t('personas.backup')}
+          {i18n.t('personas.backup')}
         </Button>
       </div>
       <input
@@ -458,9 +458,9 @@
   onOpenChange={(next: boolean) => {
     if (!next && removing === null) personaToRemove = null;
   }}
-  title={$i18n.t('personas.removeTitle', { name: personaToRemove?.display_name ?? '' })}
-  description={$i18n.t('personas.removeConfirm')}
-  confirmLabel={$i18n.t('personas.remove', { name: personaToRemove?.display_name ?? '' })}
+  title={i18n.t('personas.removeTitle', { name: personaToRemove?.display_name ?? '' })}
+  description={i18n.t('personas.removeConfirm')}
+  confirmLabel={i18n.t('personas.remove', { name: personaToRemove?.display_name ?? '' })}
   busy={removing !== null}
   onConfirm={() => void confirmRemoval()}
 />
@@ -470,9 +470,9 @@
   onOpenChange={(next: boolean) => {
     if (!next && !removingAll) confirmingRemoveAll = false;
   }}
-  title={$i18n.t('personas.removeAllTitle')}
-  description={$i18n.t('personas.removeAllConfirm')}
-  confirmLabel={$i18n.t('personas.removeAll')}
+  title={i18n.t('personas.removeAllTitle')}
+  description={i18n.t('personas.removeAllConfirm')}
+  confirmLabel={i18n.t('personas.removeAll')}
   busy={removingAll}
   onConfirm={() => void confirmRemoveAll()}
 />
@@ -482,9 +482,9 @@
   onOpenChange={(next: boolean) => {
     if (!next && !restoring) restoreContent = null;
   }}
-  title={$i18n.t('personas.restoreTitle')}
-  description={$i18n.t('personas.restoreConfirm')}
-  confirmLabel={$i18n.t('common.restore')}
+  title={i18n.t('personas.restoreTitle')}
+  description={i18n.t('personas.restoreConfirm')}
+  confirmLabel={i18n.t('common.restore')}
   busy={restoring}
   onConfirm={() => void confirmRestore()}
 />

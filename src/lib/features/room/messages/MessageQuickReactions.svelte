@@ -27,9 +27,9 @@
 </script>
 
 {#if recents.length > 0}
-  <div class={['quick-strip', { roomy }]} role="group" aria-label={$i18n.t('timeline.addReaction')}>
+  <div class={['quick-strip', { roomy }]} role="group" aria-label={i18n.t('timeline.addReaction')}>
     {#each recents as emoji (emoji)}
-      {@const label = reactionEmoteLabel(emoji, packs.current, $i18n.t('timeline.customEmote'))}
+      {@const label = reactionEmoteLabel(emoji, packs.current, i18n.t('timeline.customEmote'))}
       <button
         type="button"
         class="quick-reaction"

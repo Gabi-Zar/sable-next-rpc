@@ -18,28 +18,28 @@
 
   const notice = $derived.by(() => {
     if (core.crashed !== null) {
-      return { kind: 'crash' as const, text: $i18n.t('errors.coreCrashed') };
+      return { kind: 'crash' as const, text: i18n.t('errors.coreCrashed') };
     }
     if (core.storageInterrupted) {
-      return { kind: 'crash' as const, text: $i18n.t('errors.storageInterrupted') };
+      return { kind: 'crash' as const, text: i18n.t('errors.storageInterrupted') };
     }
     if (core.unresponsive) {
-      return { kind: 'warn' as const, text: $i18n.t('errors.coreUnresponsive') };
+      return { kind: 'warn' as const, text: i18n.t('errors.coreUnresponsive') };
     }
     if (core.localNetworkBlocked !== null) {
       return {
         kind: 'warn' as const,
-        text: $i18n.t('errors.localNetworkBlocked', { host: core.localNetworkBlocked }),
+        text: i18n.t('errors.localNetworkBlocked', { host: core.localNetworkBlocked }),
       };
     }
     if (core.sync?.state === 'error') {
       return {
         kind: 'warn' as const,
-        text: $i18n.t('errors.syncFailed', { message: core.sync.message }),
+        text: i18n.t('errors.syncFailed', { message: core.sync.message }),
       };
     }
     if (offlineSettled) {
-      return { kind: 'warn' as const, text: $i18n.t('errors.offline') };
+      return { kind: 'warn' as const, text: i18n.t('errors.offline') };
     }
     return null;
   });
@@ -54,7 +54,7 @@
     <p class="message">{notice.text}</p>
     {#if notice.kind === 'crash'}
       <Button class="reload-button" size="small" variant="danger" onclick={reload}
-        >{$i18n.t('common.reload')}</Button
+        >{i18n.t('common.reload')}</Button
       >
     {/if}
   </div>

@@ -34,7 +34,7 @@
     {...props}
     class={['t-avatar', 'face', { interactive: onProfile }]}
     type="button"
-    aria-label={onProfile ? $i18n.t('timeline.senderProfile', { name }) : name}
+    aria-label={onProfile ? i18n.t('timeline.senderProfile', { name }) : name}
     onmouseenter={onHover}
     onclick={(event) => onProfile?.(userId, event.currentTarget)}
   >

@@ -42,7 +42,7 @@
 
 {#snippet content(desktop: boolean)}
   <div class={['edit-history', { sheet: !desktop }]}>
-    <h2>{$i18n.t('timeline.editHistoryTitle')}</h2>
+    <h2>{i18n.t('timeline.editHistoryTitle')}</h2>
     <ol class="edit-history-versions" {@attach scrollHint}>
       {#each versions as version, index (version.event_id)}
         <li class="edit-history-version">
@@ -51,7 +51,7 @@
               {formatMessageTimestamp(version.timestamp)}
             </time>
             {#if index === 0}
-              <span class="edit-history-original">{$i18n.t('timeline.editHistoryOriginal')}</span>
+              <span class="edit-history-original">{i18n.t('timeline.editHistoryOriginal')}</span>
             {/if}
             <span class="edit-history-actions">
               {#if onReply}
@@ -59,7 +59,7 @@
                   class="edit-history-reply"
                   size="small"
                   variant="ghost"
-                  label={$i18n.t('timeline.reply')}
+                  label={i18n.t('timeline.reply')}
                   onclick={() => {
                     act(version, onReply);
                   }}
@@ -72,7 +72,7 @@
                   class="edit-history-thread"
                   size="small"
                   variant="ghost"
-                  label={$i18n.t('timeline.replyInThread')}
+                  label={i18n.t('timeline.replyInThread')}
                   onclick={() => {
                     act(version, onThread);
                   }}
@@ -85,7 +85,7 @@
                   class="edit-history-delete"
                   size="small"
                   variant="ghost"
-                  label={$i18n.t('timeline.deleteMessage')}
+                  label={i18n.t('timeline.deleteMessage')}
                   onclick={() => {
                     act(version, onDelete);
                   }}
@@ -104,8 +104,8 @@
 
 <ResponsiveDialog
   bind:open
-  label={$i18n.t('timeline.editHistoryTitle')}
-  closeLabel={$i18n.t('timeline.closeEditHistory')}
+  label={i18n.t('timeline.editHistoryTitle')}
+  closeLabel={i18n.t('timeline.closeEditHistory')}
   children={content}
 />
 

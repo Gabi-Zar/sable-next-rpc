@@ -46,16 +46,16 @@
 <ul class="settings settings-rows">
   <SettingsRow
     id="push-history"
-    title={$i18n.t('settings.developerPushHistoryTitle')}
-    description={$i18n.t('settings.developerPushHistoryDescription')}
+    title={i18n.t('settings.developerPushHistoryTitle')}
+    description={i18n.t('settings.developerPushHistoryDescription')}
   >
     <div class="actions">
       <Button variant="secondary" size="small" onclick={() => void load()}>
-        {$i18n.t('settings.developerPushHistoryLoad')}
+        {i18n.t('settings.developerPushHistoryLoad')}
       </Button>
       {#if entries && entries.length > 0}
         <Button variant="secondary" size="small" onclick={() => void clear()}>
-          {$i18n.t('common.clear')}
+          {i18n.t('common.clear')}
         </Button>
       {/if}
     </div>
@@ -64,15 +64,15 @@
 {#if entries || failed}
   <div class="settings-form history">
     {#if failed}
-      <Alert variant="critical">{$i18n.t('settings.developerPushHistoryFailed')}</Alert>
+      <Alert variant="critical">{i18n.t('settings.developerPushHistoryFailed')}</Alert>
     {:else if entries && entries.length === 0}
-      <Alert variant="info">{$i18n.t('settings.developerPushHistoryEmpty')}</Alert>
+      <Alert variant="info">{i18n.t('settings.developerPushHistoryEmpty')}</Alert>
     {:else if entries}
       <Select
-        aria-label={$i18n.t('settings.developerPushHistoryFilter')}
+        aria-label={i18n.t('settings.developerPushHistoryFilter')}
         value={filter}
         items={[
-          { value: ALL, label: $i18n.t('settings.developerPushHistoryAll') },
+          { value: ALL, label: i18n.t('settings.developerPushHistoryAll') },
           ...outcomes.map((outcome) => ({ value: outcome, label: outcome })),
         ]}
         onValueChange={(value) => {

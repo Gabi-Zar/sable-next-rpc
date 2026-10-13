@@ -8,7 +8,7 @@
 
 <div class="quick-css settings-form">
   <div class="settings-heading-row">
-    <label for="quick-css">{$i18n.t('settings.quickCss')}</label>
+    <label for="quick-css">{i18n.t('settings.quickCss')}</label>
     <SettingsAnchorLink anchor="quick-css" />
   </div>
   <TextArea
@@ -21,7 +21,7 @@
       setPreference('quickCss', event.currentTarget.value);
     }}
   />
-  <p id="quick-css-hint">{$i18n.t('settings.quickCssHint')}</p>
+  <p id="quick-css-hint">{i18n.t('settings.quickCssHint')}</p>
 </div>
 
 <style>

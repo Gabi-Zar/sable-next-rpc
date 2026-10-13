@@ -78,13 +78,13 @@
   }}
 >
   {#if recoveryKey}
-    <AuthField labelId="recovery-setup-title" label={$i18n.t('settings.saveRecoveryKey')}>
+    <AuthField labelId="recovery-setup-title" label={i18n.t('settings.saveRecoveryKey')}>
       <AuthInfoBox id="new-account-recovery-key-help">
-        {$i18n.t('setup.recoverySaveDescription')}
+        {i18n.t('setup.recoverySaveDescription')}
       </AuthInfoBox>
     </AuthField>
 
-    <FormField dense fieldId="new-account-recovery-key" label={$i18n.t('settings.recoveryKey')}>
+    <FormField dense fieldId="new-account-recovery-key" label={i18n.t('settings.recoveryKey')}>
       <TextInput
         id="new-account-recovery-key"
         value={recoveryKey}
@@ -99,26 +99,26 @@
     <div class="recovery-keep">
       <Button onclick={() => void copy()}>
         <CopyIcon aria-hidden="true" />
-        {$i18n.t(kept === 'copied' ? 'common.copied' : 'common.copy')}
+        {i18n.t(kept === 'copied' ? 'common.copied' : 'common.copy')}
       </Button>
       <Button onclick={() => void download()}>
         <DownloadSimpleIcon aria-hidden="true" />
-        {$i18n.t(kept === 'downloaded' ? 'setup.recoveryDownloaded' : 'common.download')}
+        {i18n.t(kept === 'downloaded' ? 'setup.recoveryDownloaded' : 'common.download')}
       </Button>
     </div>
 
     <label class="recovery-written">
       <input type="checkbox" bind:checked={writtenDown} />
-      {$i18n.t('setup.recoveryWrittenDown')}
+      {i18n.t('setup.recoveryWrittenDown')}
     </label>
   {:else}
-    <AuthField labelId="recovery-setup-title" label={$i18n.t('common.setUpRecovery')}>
-      <AuthInfoBox>{$i18n.t('auth.recoverySetupDescription')}</AuthInfoBox>
+    <AuthField labelId="recovery-setup-title" label={i18n.t('common.setUpRecovery')}>
+      <AuthInfoBox>{i18n.t('auth.recoverySetupDescription')}</AuthInfoBox>
     </AuthField>
   {/if}
 
   <AuthStatusSlot
-    message={error ?? (recoveryKey && !saved ? $i18n.t('setup.recoverySaveFirst') : null)}
+    message={error ?? (recoveryKey && !saved ? i18n.t('setup.recoverySaveFirst') : null)}
     tone={error ? 'error' : 'muted'}
   />
 
@@ -129,12 +129,12 @@
     loading={creating}
     disabled={Boolean(recoveryKey) && !saved}
   >
-    {recoveryKey ? $i18n.t('auth.continue') : $i18n.t('auth.createRecoveryKey')}
+    {recoveryKey ? i18n.t('auth.continue') : i18n.t('auth.createRecoveryKey')}
   </Button>
 </form>
 
 {#if !recoveryKey}
-  <AuthSecondaryAction label={$i18n.t('auth.skipForNow')} onclick={onSkip} />
+  <AuthSecondaryAction label={i18n.t('auth.skipForNow')} onclick={onSkip} />
 {/if}
 
 <style>

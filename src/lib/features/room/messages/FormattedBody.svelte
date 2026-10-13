@@ -313,7 +313,7 @@
           element.ariaPressed = 'true';
           if (!element.textContent?.trim()) {
             const image = element.querySelector('img');
-            element.ariaLabel = image?.alt || $i18n.t('timeline.spoilerMedia');
+            element.ariaLabel = image?.alt || i18n.t('timeline.spoilerMedia');
           }
         }
 
@@ -377,13 +377,13 @@
       ? formatTimeInZone(zoned.instant, senderTimezone, preferences.hour24Clock)
       : null;
     return sender
-      ? $i18n.t('timeline.timeMarkupDetailWithSender', {
+      ? i18n.t('timeline.timeMarkupDetailWithSender', {
           local,
           sender,
           timezone: senderTimezone,
           utc,
         })
-      : $i18n.t('timeline.timeMarkupDetail', { local, utc });
+      : i18n.t('timeline.timeMarkupDetail', { local, utc });
   }
 
   const EVENT_SNIPPET_LENGTH = 72;
@@ -464,14 +464,14 @@
 
       const label = document.createElement('span');
       label.className = 'code-language';
-      label.textContent = language ?? $i18n.t('timeline.codeLabel');
+      label.textContent = language ?? i18n.t('timeline.codeLabel');
       header.append(label);
 
       const copy = document.createElement('button');
       copy.type = 'button';
       copy.className = 'code-action';
       copy.dataset.codeCopy = '';
-      copy.textContent = $i18n.t('common.copy');
+      copy.textContent = i18n.t('common.copy');
       header.append(copy);
 
       if (long) {
@@ -479,7 +479,7 @@
         toggle.type = 'button';
         toggle.className = 'code-action';
         toggle.dataset.codeToggle = '';
-        toggle.textContent = $i18n.t('timeline.expandCode');
+        toggle.textContent = i18n.t('timeline.expandCode');
         header.append(toggle);
       }
 
@@ -516,8 +516,8 @@
       if (collapsed) delete figure.dataset.collapsed;
       else figure.dataset.collapsed = '';
       button.textContent = collapsed
-        ? $i18n.t('timeline.collapseCode')
-        : $i18n.t('timeline.expandCode');
+        ? i18n.t('timeline.collapseCode')
+        : i18n.t('timeline.expandCode');
       return true;
     }
 
@@ -525,14 +525,14 @@
     const label = button;
     void copyText(block.textContent)
       .then(() => {
-        label.textContent = $i18n.t('common.copied');
+        label.textContent = i18n.t('common.copied');
         setTimeout(() => {
-          if (label.isConnected) label.textContent = $i18n.t('common.copy');
+          if (label.isConnected) label.textContent = i18n.t('common.copy');
         }, 1500);
       })
       .catch((error: unknown) => {
         console.debug('[sable code] clipboard unavailable', error);
-        toasts.error($i18n.t('errors.actionFailed'));
+        toasts.error(i18n.t('errors.actionFailed'));
       });
     return true;
   }
@@ -653,7 +653,7 @@
       revealedImages = true;
     }}
   >
-    {$i18n.t('timeline.showImages')}
+    {i18n.t('timeline.showImages')}
   </Button>
 {/if}
 

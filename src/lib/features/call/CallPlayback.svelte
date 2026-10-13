@@ -43,6 +43,5 @@
 </script>
 
 {#if hasBlockedAudio}
-  <Button variant="primary" size="small" onclick={enableAudio}>{$i18n.t('call.enableAudio')}</Button
-  >
+  <Button variant="primary" size="small" onclick={enableAudio}>{i18n.t('call.enableAudio')}</Button>
 {/if}

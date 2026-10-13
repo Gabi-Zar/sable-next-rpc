@@ -309,16 +309,14 @@
 <div class="pack-editor">
   {#if transferFailed !== null}
     <Alert variant="critical" role="alert">
-      {transferFailed === 'export'
-        ? $i18n.t('emotes.exportFailed')
-        : $i18n.t('emotes.importFailed')}
+      {transferFailed === 'export' ? i18n.t('emotes.exportFailed') : i18n.t('emotes.importFailed')}
     </Alert>
   {/if}
 
   <SettingsSection
     headingId="pack-meta"
-    title={$i18n.t('emotes.packDetails')}
-    description={$i18n.t('emotes.packDetailsHint')}
+    title={i18n.t('emotes.packDetails')}
+    description={i18n.t('emotes.packDetailsHint')}
   >
     <div class="settings-form">
       <div class="meta">
@@ -337,7 +335,7 @@
             loading={avatarUploading}
             onclick={() => avatarInput?.click()}
           >
-            {$i18n.t('common.changePicture')}
+            {i18n.t('common.changePicture')}
           </Button>
           <input
             bind:this={avatarInput}
@@ -353,7 +351,7 @@
         {/if}
       </div>
 
-      <FormField fieldId="pack-name" label={$i18n.t('emotes.packName')}>
+      <FormField fieldId="pack-name" label={i18n.t('emotes.packName')}>
         <TextInput
           id="pack-name"
           value={current.name}
@@ -364,7 +362,7 @@
           }}
         />
       </FormField>
-      <FormField fieldId="pack-attribution" label={$i18n.t('emotes.packAttribution')}>
+      <FormField fieldId="pack-attribution" label={i18n.t('emotes.packAttribution')}>
         <TextArea
           id="pack-attribution"
           value={current.attribution}
@@ -380,7 +378,7 @@
     <ul class="settings-rows">
       {#each ALL_USAGES as usage (usage)}
         {@const label =
-          usage === 'emoticon' ? $i18n.t('emotes.useAsEmoji') : $i18n.t('emotes.useAsSticker')}
+          usage === 'emoticon' ? i18n.t('emotes.useAsEmoji') : i18n.t('emotes.useAsSticker')}
         <SettingsRow title={label}>
           <Switch
             {label}
@@ -397,8 +395,8 @@
 
   <SettingsSection
     headingId="pack-images"
-    title={$i18n.t('emotes.images')}
-    description={$i18n.t('emotes.imageCount', { count: current.images.length })}
+    title={i18n.t('emotes.images')}
+    description={i18n.t('emotes.imageCount', { count: current.images.length })}
   >
     {#if current.images.length > 0}
       <ul class="settings-rows">
@@ -414,13 +412,13 @@
               />
             {/snippet}
             <Switcher
-              label={$i18n.t('emotes.imageUsage', { shortcode: image.shortcode })}
+              label={i18n.t('emotes.imageUsage', { shortcode: image.shortcode })}
               value={imageUsageChoice(image)}
               disabled={!canEdit || busy}
               items={[
-                { value: 'emoticon', label: $i18n.t('emotes.usageEmoji') },
-                { value: 'sticker', label: $i18n.t('emotes.usageSticker') },
-                { value: 'both', label: $i18n.t('emotes.usageBoth') },
+                { value: 'emoticon', label: i18n.t('emotes.usageEmoji') },
+                { value: 'sticker', label: i18n.t('emotes.usageSticker') },
+                { value: 'both', label: i18n.t('emotes.usageBoth') },
               ]}
               onValueChange={(choice) => {
                 chooseImageUsage(image, choice);
@@ -430,14 +428,14 @@
               <div
                 class="image-fields"
                 role="group"
-                aria-label={$i18n.t('emotes.rename', { shortcode: image.shortcode })}
+                aria-label={i18n.t('emotes.rename', { shortcode: image.shortcode })}
                 onfocusout={(event) => {
                   leaveFields(event, image);
                 }}
               >
                 <TextInput
                   bind:value={renameDraft}
-                  aria-label={$i18n.t('emotes.shortcode')}
+                  aria-label={i18n.t('emotes.shortcode')}
                   onkeydown={(event: KeyboardEvent) => {
                     if (event.key === 'Enter') {
                       commitRename(image);
@@ -448,8 +446,8 @@
                 />
                 <TextInput
                   bind:value={bodyDraft}
-                  aria-label={$i18n.t('emotes.body')}
-                  placeholder={$i18n.t('emotes.body')}
+                  aria-label={i18n.t('emotes.body')}
+                  placeholder={i18n.t('emotes.body')}
                   onkeydown={(event: KeyboardEvent) => {
                     if (event.key === 'Enter') {
                       commitRename(image);
@@ -463,7 +461,7 @@
               <IconButton
                 variant="ghost"
                 size="small"
-                label={$i18n.t('emotes.rename', { shortcode: image.shortcode })}
+                label={i18n.t('emotes.rename', { shortcode: image.shortcode })}
                 disabled={busy}
                 onclick={() => {
                   renaming = image.shortcode;
@@ -476,7 +474,7 @@
               <IconButton
                 variant="ghost"
                 size="small"
-                label={$i18n.t('emotes.remove', { shortcode: image.shortcode })}
+                label={i18n.t('emotes.remove', { shortcode: image.shortcode })}
                 disabled={busy}
                 onclick={() => {
                   removeImage(image);
@@ -489,7 +487,7 @@
         {/each}
       </ul>
     {:else}
-      <p class="status settings-form">{$i18n.t('emotes.noImages')}</p>
+      <p class="status settings-form">{i18n.t('emotes.noImages')}</p>
     {/if}
 
     {#if canEdit}
@@ -497,11 +495,11 @@
         <div class="inline">
           <TextInput
             bind:value={shortcode}
-            placeholder={$i18n.t('emotes.shortcodePlaceholder')}
-            aria-label={$i18n.t('emotes.shortcode')}
+            placeholder={i18n.t('emotes.shortcodePlaceholder')}
+            aria-label={i18n.t('emotes.shortcode')}
           />
           <Button disabled={busy} onclick={() => imageInput?.click()}>
-            {$i18n.t('emotes.upload')}
+            {i18n.t('emotes.upload')}
           </Button>
         </div>
         <input
@@ -522,8 +520,8 @@
 
   <SettingsSection
     headingId="pack-transfer"
-    title={$i18n.t('emotes.transfer')}
-    description={$i18n.t('emotes.transferHint')}
+    title={i18n.t('emotes.transfer')}
+    description={i18n.t('emotes.transferHint')}
   >
     <div class="transfer settings-form">
       <Button
@@ -534,7 +532,7 @@
         }}
       >
         <DownloadSimpleIcon />
-        {$i18n.t('emotes.export')}
+        {i18n.t('emotes.export')}
       </Button>
       {#if canEdit}
         <Button
@@ -545,7 +543,7 @@
           }}
         >
           <UploadSimpleIcon />
-          {$i18n.t('emotes.import')}
+          {i18n.t('emotes.import')}
         </Button>
         <input
           bind:this={archiveInput}
@@ -567,16 +565,16 @@
 
   {#if canEdit}
     {#if rejected !== null}
-      <Alert variant="warning" role="alert" title={$i18n.t('emotes.invalidShortcodeTitle')}>
-        <p>{$i18n.t('emotes.invalidShortcode', { shortcode: rejected })}</p>
+      <Alert variant="warning" role="alert" title={i18n.t('emotes.invalidShortcodeTitle')}>
+        <p>{i18n.t('emotes.invalidShortcode', { shortcode: rejected })}</p>
       </Alert>
     {/if}
     {#if failed}
-      <Alert variant="critical" role="alert">{$i18n.t('emotes.saveFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('emotes.saveFailed')}</Alert>
     {/if}
     <div class={['save-bar', { pending: dirty }]}>
       {#if dirty}
-        <p class="save-status" role="status">{$i18n.t('common.youHaveUnsavedChanges')}</p>
+        <p class="save-status" role="status">{i18n.t('common.youHaveUnsavedChanges')}</p>
       {/if}
       <Button
         size="small"
@@ -587,7 +585,7 @@
         }}
       >
         <ArrowCounterClockwiseIcon />
-        {$i18n.t('common.reset')}
+        {i18n.t('common.reset')}
       </Button>
       <Button
         size="small"
@@ -598,7 +596,7 @@
           void apply();
         }}
       >
-        {$i18n.t('emotes.apply')}
+        {i18n.t('emotes.apply')}
       </Button>
     </div>
   {/if}
@@ -608,21 +606,21 @@
   <DialogFrame
     open
     variant="verification"
-    label={$i18n.t('emotes.leaveTitle')}
+    label={i18n.t('emotes.leaveTitle')}
     onOpenChange={(next) => {
       if (!next) stay();
     }}
   >
     <div class="leave">
-      <h2>{$i18n.t('emotes.leaveTitle')}</h2>
-      <p>{$i18n.t('emotes.leaveHint')}</p>
+      <h2>{i18n.t('emotes.leaveTitle')}</h2>
+      <p>{i18n.t('emotes.leaveHint')}</p>
       {#if failed}
-        <Alert variant="critical" role="alert">{$i18n.t('emotes.saveFailed')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('emotes.saveFailed')}</Alert>
       {/if}
       <DialogActions>
-        <Button onclick={stay} disabled={busy}>{$i18n.t('emotes.leaveStay')}</Button>
+        <Button onclick={stay} disabled={busy}>{i18n.t('emotes.leaveStay')}</Button>
         <Button variant="danger" onclick={discardAndLeave} disabled={busy}>
-          {$i18n.t('emotes.leaveDiscard')}
+          {i18n.t('emotes.leaveDiscard')}
         </Button>
         <Button
           variant="primary"
@@ -632,7 +630,7 @@
             void saveAndLeave();
           }}
         >
-          {$i18n.t('common.save')}
+          {i18n.t('common.save')}
         </Button>
       </DialogActions>
     </div>

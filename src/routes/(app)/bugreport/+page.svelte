@@ -11,9 +11,9 @@
 </script>
 
 <AppPageShell
-  title={$i18n.t('bugReport.titlePage')}
-  description={$i18n.t('bugReport.descriptionPage')}
-  eyebrow={$i18n.t('bugReport.eyebrow')}
+  title={i18n.t('bugReport.titlePage')}
+  description={i18n.t('bugReport.descriptionPage')}
+  eyebrow={i18n.t('bugReport.eyebrow')}
 >
   <BugReportForm onDone={close} />
 </AppPageShell>

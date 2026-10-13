@@ -19,19 +19,19 @@
 </script>
 
 <div class="telemetry-consent-card auth-card-surface">
-  <AuthField labelId="telemetry-consent-title" label={$i18n.t('settings.telemetryBannerTitle')}>
+  <AuthField labelId="telemetry-consent-title" label={i18n.t('settings.telemetryBannerTitle')}>
     <AuthInfoBox>
       <div class="telemetry-consent-copy">
-        <p>{$i18n.t('settings.telemetryBannerHelp')}</p>
-        <p>{$i18n.t('settings.telemetryBannerBody')}</p>
-        <p>{$i18n.t('settings.telemetryBannerSent')}</p>
+        <p>{i18n.t('settings.telemetryBannerHelp')}</p>
+        <p>{i18n.t('settings.telemetryBannerBody')}</p>
+        <p>{i18n.t('settings.telemetryBannerSent')}</p>
       </div>
     </AuthInfoBox>
   </AuthField>
 
   <div class="telemetry-consent-policies">
     <a href="https://sable.moe/privacy" rel="noopener noreferrer" target="_blank">
-      {$i18n.t('settings.telemetryBannerSablePolicy')}
+      {i18n.t('settings.telemetryBannerSablePolicy')}
     </a>
   </div>
 
@@ -43,7 +43,7 @@
         answer(true);
       }}
     >
-      {$i18n.t('settings.telemetryBannerAccept')}
+      {i18n.t('settings.telemetryBannerAccept')}
     </Button>
     <Button
       block
@@ -51,7 +51,7 @@
         answer(false);
       }}
     >
-      {$i18n.t('settings.telemetryBannerDecline')}
+      {i18n.t('settings.telemetryBannerDecline')}
     </Button>
   </div>
 </div>

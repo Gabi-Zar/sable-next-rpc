@@ -18,17 +18,17 @@
   let isMac = $derived(isMacPlatform());
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('shortcuts.helpTitle')}>
+<DialogFrame bind:open variant="verification" label={i18n.t('shortcuts.helpTitle')}>
   <div class="help">
-    <h2>{$i18n.t('shortcuts.helpTitle')}</h2>
+    <h2>{i18n.t('shortcuts.helpTitle')}</h2>
     {#each SHORTCUT_CATEGORIES as category (category.id)}
       {@const items = shortcuts.filter((shortcut) => shortcut.category === category.id)}
       <section aria-labelledby="shortcuts-{category.id}">
-        <h3 id="shortcuts-{category.id}">{$i18n.t(category.labelKey)}</h3>
+        <h3 id="shortcuts-{category.id}">{i18n.t(category.labelKey)}</h3>
         <ul>
           {#each items as shortcut (shortcut.id)}
             <li>
-              <span class="label">{$i18n.t(shortcut.labelKey)}</span>
+              <span class="label">{i18n.t(shortcut.labelKey)}</span>
               <kbd>{formatBinding(shortcut.binding, isMac)}</kbd>
             </li>
           {/each}

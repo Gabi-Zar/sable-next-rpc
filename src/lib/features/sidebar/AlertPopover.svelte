@@ -69,7 +69,7 @@
         ? 'current'
         : ''}"
       href={resolve('/(app)/alerts')}
-      aria-label={$i18n.t('nav.alerts')}
+      aria-label={i18n.t('nav.alerts')}
       aria-current={isCurrentPage ? 'page' : undefined}
       draggable="false"
     >
@@ -85,8 +85,8 @@
   {:else}
     {#snippet profileTrigger({ props: tooltipProps }: { props: Record<string, unknown> })}
       <ResponsivePopover
-        label={$i18n.t('nav.alerts')}
-        closeLabel={$i18n.t('common.close')}
+        label={i18n.t('nav.alerts')}
+        closeLabel={i18n.t('common.close')}
         side={mode === 'compact' ? 'right' : 'top'}
         align="center"
         class="sidebar-popover alert-popover menu-surface {mode === 'compact'
@@ -103,7 +103,7 @@
             'compact'
               ? 'compact-tool nav-tab-side'
               : 'desktop-tool nav-tab-bottom'}"
-            aria-label={$i18n.t('nav.alerts')}
+            aria-label={i18n.t('nav.alerts')}
           >
             <Icon weight={popoverOpen ? 'fill' : 'regular'} />
             {#if pendingAlerts > 1}
@@ -119,7 +119,7 @@
       </ResponsivePopover>
     {/snippet}
     <Tooltip
-      label={$i18n.t('nav.alerts')}
+      label={i18n.t('nav.alerts')}
       side={mode === 'compact' ? 'right' : 'top'}
       align="center"
       trigger={profileTrigger}

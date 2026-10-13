@@ -169,13 +169,12 @@
   {#if roomId}
     <SettingsSection
       headingId="room-developer-state-browser"
-      title={$i18n.t('room.devBrowserTitle')}
-      description={$i18n.t('room.devBrowserDescription')}
+      title={i18n.t('room.devBrowserTitle')}
+      description={i18n.t('room.devBrowserDescription')}
     >
       {#if browseFailed}
         <div class="settings-form">
-          <Alert variant="critical" role="alert">{$i18n.t('common.theStateEventWasRejected')}</Alert
-          >
+          <Alert variant="critical" role="alert">{i18n.t('common.theStateEventWasRejected')}</Alert>
         </div>
       {/if}
       {#if stateTypes.length > 0}
@@ -183,15 +182,15 @@
           <TextInput
             type="search"
             bind:value={typeFilter}
-            placeholder={$i18n.t('room.devBrowserFilter')}
-            aria-label={$i18n.t('room.devBrowserFilter')}
+            placeholder={i18n.t('room.devBrowserFilter')}
+            aria-label={i18n.t('room.devBrowserFilter')}
           />
         </div>
         <ul class="settings-rows">
           {#each shownTypes as [type, keys] (type)}
             <SettingsRow
               title={type}
-              description={$i18n.t('room.devBrowserCount', { count: keys.length })}
+              description={i18n.t('room.devBrowserCount', { count: keys.length })}
             >
               <Button
                 size="small"
@@ -201,9 +200,7 @@
                   openType = openType === type ? null : type;
                 }}
               >
-                {openType === type
-                  ? $i18n.t('room.devBrowserHide')
-                  : $i18n.t('room.devBrowserShow')}
+                {openType === type ? i18n.t('room.devBrowserHide') : i18n.t('room.devBrowserShow')}
               </Button>
             </SettingsRow>
             {#if openType === type}
@@ -218,7 +215,7 @@
                           edit(type, key);
                         }}
                       >
-                        {key === '' ? $i18n.t('room.devBrowserEmptyKey') : key}
+                        {key === '' ? i18n.t('room.devBrowserEmptyKey') : key}
                       </button>
                     </li>
                   {/each}
@@ -231,7 +228,7 @@
       <div class="settings-form">
         <div class="actions">
           <Button variant="secondary" loading={browsing} onclick={() => void browse()}>
-            {stateTypes.length > 0 ? $i18n.t('common.reload') : $i18n.t('room.devBrowserLoad')}
+            {stateTypes.length > 0 ? i18n.t('common.reload') : i18n.t('room.devBrowserLoad')}
           </Button>
           <Button
             variant="secondary"
@@ -239,7 +236,7 @@
               edit('', '');
             }}
           >
-            {$i18n.t('room.devBrowserNew')}
+            {i18n.t('room.devBrowserNew')}
           </Button>
         </div>
       </div>
@@ -247,8 +244,8 @@
   {/if}
   <SettingsSection
     headingId="room-developer-state"
-    title={$i18n.t('room.devStateTitle')}
-    description={$i18n.t('room.devStateDescription')}
+    title={i18n.t('room.devStateTitle')}
+    description={i18n.t('room.devStateDescription')}
   >
     <form
       class="settings-form"
@@ -257,7 +254,7 @@
       }}
       {@attach revealEditor}
     >
-      <FormField fieldId="room-dev-type" label={$i18n.t('room.devEventType')}>
+      <FormField fieldId="room-dev-type" label={i18n.t('room.devEventType')}>
         <TextInput
           id="room-dev-type"
           bind:value={eventType}
@@ -267,22 +264,22 @@
         />
       </FormField>
 
-      <FormField fieldId="room-dev-key" label={$i18n.t('room.devStateKey')}>
+      <FormField fieldId="room-dev-key" label={i18n.t('room.devStateKey')}>
         <TextInput id="room-dev-key" bind:value={stateKey} autocomplete="off" spellcheck="false" />
       </FormField>
 
-      <FormField fieldId="room-dev-content" label={$i18n.t('room.devContent')}>
+      <FormField fieldId="room-dev-content" label={i18n.t('room.devContent')}>
         <TextArea id="room-dev-content" bind:value={content} rows={10} spellcheck="false" />
       </FormField>
 
       {#if outcome === 'json'}
-        <Alert variant="critical" role="alert">{$i18n.t('room.devInvalidJson')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('room.devInvalidJson')}</Alert>
       {:else if outcome === 'failed'}
-        <Alert variant="critical" role="alert">{$i18n.t('common.theStateEventWasRejected')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('common.theStateEventWasRejected')}</Alert>
       {:else if outcome === 'missing'}
-        <Alert variant="info" role="status">{$i18n.t('room.devMissing')}</Alert>
+        <Alert variant="info" role="status">{i18n.t('room.devMissing')}</Alert>
       {:else if sent}
-        <Alert variant="success" role="status">{$i18n.t('room.devSent')}</Alert>
+        <Alert variant="success" role="status">{i18n.t('room.devSent')}</Alert>
       {/if}
 
       <div class="actions">
@@ -295,7 +292,7 @@
             void load();
           }}
         >
-          {$i18n.t('room.devLoad')}
+          {i18n.t('room.devLoad')}
         </Button>
         {#if canEditState}
           <Button
@@ -306,7 +303,7 @@
               void send();
             }}
           >
-            {$i18n.t('room.devSend')}
+            {i18n.t('room.devSend')}
           </Button>
         {/if}
       </div>

@@ -13,16 +13,16 @@
 
 <section class="auth-card-surface summary-card" aria-labelledby="account-created-title">
   <p class="eyebrow">
-    {$i18n.t('auth.accountCreated')}
+    {i18n.t('auth.accountCreated')}
   </p>
   <h2 id="account-created-title">
-    {$i18n.t('auth.accountReady')}
+    {i18n.t('auth.accountReady')}
   </h2>
-  <p>{$i18n.t('auth.accountProviderSummary', { server: homeserver })}</p>
+  <p>{i18n.t('auth.accountProviderSummary', { server: homeserver })}</p>
   <p class="user-id">{userId}</p>
-  <p>{$i18n.t('auth.addressExplainedAfter')}</p>
+  <p>{i18n.t('auth.addressExplainedAfter')}</p>
   <div class="summary-actions">
-    <Button onclick={onContinue}>{$i18n.t('auth.continue')}</Button>
+    <Button onclick={onContinue}>{i18n.t('auth.continue')}</Button>
   </div>
 </section>
 

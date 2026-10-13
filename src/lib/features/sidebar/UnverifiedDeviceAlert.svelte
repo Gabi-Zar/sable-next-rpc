@@ -58,8 +58,8 @@
 
   const bannerTitle = $derived(
     selfUnverified
-      ? $i18n.t('settings.unverifiedBannerTitle')
-      : $i18n.t('settings.unverifiedOthersTitle', { count: otherUnverified })
+      ? i18n.t('settings.unverifiedBannerTitle')
+      : i18n.t('settings.unverifiedOthersTitle', { count: otherUnverified })
   );
 
   function verify(event: MouseEvent): void {
@@ -73,15 +73,15 @@
   {/snippet}
   {#snippet body()}
     {selfUnverified
-      ? $i18n.t('settings.unverifiedBannerBody')
-      : $i18n.t('settings.unverifiedOthersBody', { count: otherUnverified })}
+      ? i18n.t('settings.unverifiedBannerBody')
+      : i18n.t('settings.unverifiedOthersBody', { count: otherUnverified })}
   {/snippet}
   {#snippet actions()}
     <Button variant="ghost" size="small" onclick={dismiss}>
-      {$i18n.t('common.dismiss')}
+      {i18n.t('common.dismiss')}
     </Button>
     <Button variant="primary" size="small" onclick={verify}>
-      {$i18n.t('common.verify')}
+      {i18n.t('common.verify')}
     </Button>
   {/snippet}
 </Banner>

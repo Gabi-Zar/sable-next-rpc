@@ -26,19 +26,17 @@
   const eventsId = $props.id();
   let expanded = $state(false);
   let toggleLabel = $derived(
-    $i18n.t(`timeline.memberGroup.${expanded ? 'hideEvents' : 'showEvents'}`, {
+    i18n.t(`timeline.memberGroup.${expanded ? 'hideEvents' : 'showEvents'}`, {
       count: items.length,
     })
   );
   let segments = $derived(memberGroupSegments(items));
-  let tokens = $derived(memberGroupSummary(segments, $i18n.t, currentLocale()));
+  let tokens = $derived(memberGroupSummary(segments, i18n.t, currentLocale()));
   let open = $state(false);
   let openSegment = $state(0);
   let listed = $derived(segments.at(openSegment));
   let title = $derived(
-    listed
-      ? $i18n.t(`timeline.memberGroup.heading.${listed.category}`)
-      : $i18n.t('timeline.members')
+    listed ? i18n.t(`timeline.memberGroup.heading.${listed.category}`) : i18n.t('timeline.members')
   );
 </script>
 
@@ -84,7 +82,7 @@
           onclick={() => {
             openSegment = token.segment;
             open = true;
-          }}>{$i18n.t('timeline.memberGroup.others', { count: token.count })}</button
+          }}>{i18n.t('timeline.memberGroup.others', { count: token.count })}</button
         >{/if}{/each}</span
   >
 </p>
@@ -106,7 +104,7 @@
   <ResponsiveDialog
     bind:open
     label={title}
-    closeLabel={$i18n.t('timeline.closeMembers')}
+    closeLabel={i18n.t('timeline.closeMembers')}
     children={list}
   />
 {/if}

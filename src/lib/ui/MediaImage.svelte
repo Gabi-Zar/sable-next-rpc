@@ -223,20 +223,20 @@
   let sizeLabel = $derived(size !== null && size > 0 ? formatByteSize(size) : null);
   let mediaLabel = $derived(
     manualGif
-      ? $i18n.t(gifPlaying ? 'timeline.stopGif' : 'timeline.playGif')
+      ? i18n.t(gifPlaying ? 'timeline.stopGif' : 'timeline.playGif')
       : alt
-        ? $i18n.t('timeline.openMedia', { name: alt })
-        : $i18n.t('timeline.openMediaUnnamed')
+        ? i18n.t('timeline.openMedia', { name: alt })
+        : i18n.t('timeline.openMediaUnnamed')
   );
   let retryLabel = $derived(
     retryWait === 0
-      ? $i18n.t('common.retry')
-      : $i18n.t('timeline.retryMediaIn', { count: Math.ceil(retryWait / 1000) })
+      ? i18n.t('common.retry')
+      : i18n.t('timeline.retryMediaIn', { count: Math.ceil(retryWait / 1000) })
   );
   let unavailableLabel = $derived(
     alt && !spoilerHidden
-      ? `${alt}: ${$i18n.t('timeline.mediaUnavailable')}`
-      : $i18n.t('timeline.mediaUnavailable')
+      ? `${alt}: ${i18n.t('timeline.mediaUnavailable')}`
+      : i18n.t('timeline.mediaUnavailable')
   );
 
   $effect(() => {
@@ -573,7 +573,7 @@
     <span class="media-image-progress"><Spinner small /></span>
     {#if loading.percent !== null}
       <span class="media-image-size">
-        {$i18n.t('timeline.downloadProgress', { percent: loading.percent })}
+        {i18n.t('timeline.downloadProgress', { percent: loading.percent })}
       </span>
     {:else if sizeLabel}<span class="media-image-size">{sizeLabel}</span>{/if}
   {/if}

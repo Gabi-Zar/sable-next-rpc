@@ -55,28 +55,28 @@
 
 <ul class="settings">
   {#each rows as row (row.id)}
-    <SettingsRow id={row.id} title={$i18n.t(row.label)}>
+    <SettingsRow id={row.id} title={i18n.t(row.label)}>
       <StatusBadge
-        label={$i18n.t(row.value ? 'settings.callCompatSupported' : 'settings.callCompatMissing')}
+        label={i18n.t(row.value ? 'settings.callCompatSupported' : 'settings.callCompatMissing')}
         variant={row.value ? 'success' : 'warning'}
       />
     </SettingsRow>
   {/each}
   {#if compatibility}
-    <SettingsRow id="call-compat-transports" title={$i18n.t('settings.callCompatTransports')}>
+    <SettingsRow id="call-compat-transports" title={i18n.t('settings.callCompatTransports')}>
       <StatusBadge
-        label={$i18n.t(TRANSPORT_LABELS[compatibility.rtc_transports])}
+        label={i18n.t(TRANSPORT_LABELS[compatibility.rtc_transports])}
         variant={compatibility.rtc_transports === 'none' ? 'warning' : 'success'}
       />
     </SettingsRow>
   {/if}
   {#if failed}
-    <SettingsRow id="call-compat-failed" title={$i18n.t('settings.callCompatFailed')} />
+    <SettingsRow id="call-compat-failed" title={i18n.t('settings.callCompatFailed')} />
   {/if}
 </ul>
 {#if callDebug.current}
   <div class="settings-form">
-    <p class="last">{$i18n.t('settings.callCompatLast')}</p>
+    <p class="last">{i18n.t('settings.callCompatLast')}</p>
     <CallModeDebug />
   </div>
 {/if}

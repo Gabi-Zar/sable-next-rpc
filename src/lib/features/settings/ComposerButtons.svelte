@@ -22,8 +22,8 @@
 </script>
 
 <ul class="settings-rows">
-  <SettingsRow title={$i18n.t('settings.groups.buttons')} wide>
-    <div class="chip-wrap" role="group" aria-label={$i18n.t('settings.groups.buttons')}>
+  <SettingsRow title={i18n.t('settings.groups.buttons')} wide>
+    <div class="chip-wrap" role="group" aria-label={i18n.t('settings.groups.buttons')}>
       {#each chips as chip (chip.key)}
         {@const on = preferences[chip.key]}
         {@const chipAnchor = settingFocusId(chip.key)}
@@ -33,9 +33,9 @@
           data-settings-focus={chipAnchor}
           variant={on ? 'primary' : 'outline'}
           aria-pressed={on}
-          aria-label={$i18n.t(chip.name)}
+          aria-label={i18n.t(chip.name)}
         >
-          <chip.icon />{$i18n.t('settings.composerChipLabels.' + chip.key)}
+          <chip.icon />{i18n.t('settings.composerChipLabels.' + chip.key)}
         </Pill>
       {/each}
     </div>
@@ -43,7 +43,7 @@
   <SettingsRow
     id={anchor}
     data-settings-focus={anchor}
-    title={$i18n.t('settings.composerSeparatorCount')}
+    title={i18n.t('settings.composerSeparatorCount')}
     control="{anchor}-count"
   >
     <label class="form-control range-reading">
@@ -56,7 +56,7 @@
         max={COMPOSER_SEPARATOR_MAX}
         step={1}
         value={separatorCount}
-        aria-label={$i18n.t('settings.composerSeparatorCount')}
+        aria-label={i18n.t('settings.composerSeparatorCount')}
         onchange={(event) => {
           const typed = Number(event.currentTarget.value);
           if (event.currentTarget.value !== '' && Number.isFinite(typed)) {

@@ -63,7 +63,7 @@
 <DialogFrame
   {open}
   {variant}
-  label={$i18n.t('call.incomingTitle')}
+  label={i18n.t('call.incomingTitle')}
   onOpenChange={(next: boolean) => {
     if (!next && call) onDecline(call);
   }}
@@ -72,8 +72,8 @@
     <div class={['incoming', { 'incoming-fullscreen': variant === 'fullscreen' }]}>
       <div class="who">
         <Avatar src={senderAvatar} name={senderName} id={call.sender} size="large" />
-        <p class="name">{$i18n.t('call.incomingFrom', { name: senderName })}</p>
-        <p class="where">{$i18n.t('call.incomingInRoom', { room: roomName })}</p>
+        <p class="name">{i18n.t('call.incomingFrom', { name: senderName })}</p>
+        <p class="where">{i18n.t('call.incomingInRoom', { room: roomName })}</p>
       </div>
 
       <div class="actions">
@@ -84,7 +84,7 @@
           }}
         >
           <PhoneDisconnectIcon aria-hidden="true" />
-          {$i18n.t('common.decline')}
+          {i18n.t('common.decline')}
         </Button>
         <Button
           variant="primary"
@@ -97,7 +97,7 @@
           {:else}
             <PhoneIcon aria-hidden="true" />
           {/if}
-          {$i18n.t('common.accept')}
+          {i18n.t('common.accept')}
         </Button>
       </div>
     </div>

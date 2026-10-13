@@ -29,19 +29,19 @@
 </script>
 
 <ul class="settings">
-  <SettingsRow id="access-token" title={$i18n.t('settings.developerAccessTokenTitle')}>
+  <SettingsRow id="access-token" title={i18n.t('settings.developerAccessTokenTitle')}>
     <Button
       variant="secondary"
       size="small"
       onclick={() => void copyToken()}
       disabled={!core.session}
     >
-      {$i18n.t(copied ? 'common.copied' : 'settings.developerAccessTokenCopy')}
+      {i18n.t(copied ? 'common.copied' : 'settings.developerAccessTokenCopy')}
     </Button>
   </SettingsRow>
 </ul>
 {#if error}<div class="settings-form">
-    <Alert variant="critical">{$i18n.t('settings.developerAccessTokenFailed')}</Alert>
+    <Alert variant="critical">{i18n.t('settings.developerAccessTokenFailed')}</Alert>
   </div>{/if}
 
 <style>

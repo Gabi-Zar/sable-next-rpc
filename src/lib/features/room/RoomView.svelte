@@ -436,7 +436,7 @@
       memberLoader.members.flatMap((member) => {
         const tag = tagForLevel(tags, member.power_level);
         const icon = tag?.icon ?? null;
-        const color = powerTag(member.power_level, $i18n.t, tags).color;
+        const color = powerTag(member.power_level, i18n.t, tags).color;
         return icon || color ? [[member.user_id, { icon, name: tag?.name ?? null, color }]] : [];
       })
     );
@@ -645,7 +645,7 @@
       await roomSession.details.addWidget(name, url);
     } catch (error) {
       console.warn('[sable room] add widget failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
 
@@ -654,7 +654,7 @@
       await roomSession.details.removeWidget(widgetId);
     } catch (error) {
       console.warn('[sable room] remove widget failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
 
@@ -721,7 +721,7 @@
       room_id: resolvedRoomId,
       canonical_alias: resolvedRoom?.canonical_alias ?? null,
     };
-    if (!(await copyRoomLink(core, room, eventId))) toasts.error($i18n.t('errors.copyFailed'));
+    if (!(await copyRoomLink(core, room, eventId))) toasts.error(i18n.t('errors.copyFailed'));
   }
 
   function memberDisplayName(userId: string): string | null {
@@ -798,14 +798,14 @@
       .markUnread({ room_id: resolvedRoomId, read_marker: eventBefore(timeline.items, eventId) })
       .catch((error: unknown) => {
         console.warn('[sable room] mark as unread failed', error);
-        toasts.error($i18n.t('errors.actionFailed'));
+        toasts.error(i18n.t('errors.actionFailed'));
       });
   }
 
   function markRoomRead(): void {
     void markAllRead().catch((error: unknown) => {
       console.warn('[sable room] mark as read failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     });
   }
 
@@ -844,7 +844,7 @@
       .markUnread({ room_id: resolvedRoomId, read_marker: null })
       .catch((error: unknown) => {
         console.warn('[sable room] mark as unread failed', error);
-        toasts.error($i18n.t('errors.actionFailed'));
+        toasts.error(i18n.t('errors.actionFailed'));
       });
   }
 
@@ -1092,7 +1092,7 @@
 
 <main
   class="room-view"
-  aria-label={$i18n.t('timeline.label')}
+  aria-label={i18n.t('timeline.label')}
   data-inset-owner={voiceView ? 'top' : 'top bottom'}
 >
   <div
@@ -1103,7 +1103,7 @@
     {#snippet headerActions()}
       {#if !voiceView}
         <PanelHeaderButton
-          label={$i18n.t('timeline.threadsOpen')}
+          label={i18n.t('timeline.threadsOpen')}
           aria-pressed={panels.threadsOpen}
           onclick={toggleThreads}
         >
@@ -1111,7 +1111,7 @@
         </PanelHeaderButton>
         {#if desktop}
           <PanelHeaderButton
-            label={$i18n.t('timeline.attachmentsTitle')}
+            label={i18n.t('timeline.attachmentsTitle')}
             aria-pressed={panels.attachmentsOpen}
             onclick={toggleAttachments}
           >
@@ -1121,7 +1121,7 @@
       {/if}
       {#if roomSession.widgets.length > 0 || canManageWidgets}
         <PanelHeaderButton
-          label={$i18n.t('widgets.label')}
+          label={i18n.t('widgets.label')}
           aria-pressed={panels.widgetsOpen}
           onclick={toggleWidgets}
         >
@@ -1207,8 +1207,8 @@
             value={callStageRatio}
             min={CALL_STAGE_MIN_RATIO}
             max={CALL_STAGE_MAX_RATIO}
-            label={$i18n.t('call.resizeStage')}
-            valueText={$i18n.t('call.stageShare', { percent: Math.round(callStageRatio * 100) })}
+            label={i18n.t('call.resizeStage')}
+            valueText={i18n.t('call.stageShare', { percent: Math.round(callStageRatio * 100) })}
             grow="down"
             step={0.05}
             shiftStep={0.15}
@@ -1271,23 +1271,23 @@
       class={['voice-chat', { 'thread-covered': panels.threadRootId !== null && !threadInPanel }]}
       inert={panels.threadRootId !== null && !threadInPanel}
       style:width="{voiceChatWidth}px"
-      aria-label={$i18n.t('call.chat')}
+      aria-label={i18n.t('call.chat')}
     >
       <ResizeHandle
         value={voiceChatWidth}
         min={VOICE_CHAT_MIN_WIDTH}
         max={VOICE_CHAT_MAX_WIDTH}
-        label={$i18n.t('call.chat')}
+        label={i18n.t('call.chat')}
         grow="left"
         step={16}
         shiftStep={64}
         onResize={(next) => (voiceChatWidth = clampVoiceChatWidth(next))}
         onCommit={() => localStorage.setItem(VOICE_CHAT_WIDTH_KEY, String(voiceChatWidth))}
       />
-      <PanelHeader class="voice-chat-header" title={$i18n.t('call.chat')}>
+      <PanelHeader class="voice-chat-header" title={i18n.t('call.chat')}>
         {#snippet suffix()}
           <PanelHeaderButton
-            label={$i18n.t('call.closeChat')}
+            label={i18n.t('call.closeChat')}
             onclick={() => (voiceChat.open = false)}
           >
             <XIcon />
@@ -1424,8 +1424,8 @@
 
   <MessageReportDialog
     bind:open={reportOpen}
-    title={$i18n.t(resolvedRoom?.is_space ? 'room.menuReportSpace' : 'room.menuReport')}
-    hint={$i18n.t('room.reportHint')}
+    title={i18n.t(resolvedRoom?.is_space ? 'room.menuReportSpace' : 'room.menuReport')}
+    hint={i18n.t('room.reportHint')}
     onReport={(reason) => {
       const target = resolvedRoomId;
       void sendReport(() => core.rpc.rooms.report({ room_id: target, reason: reason ?? '' }));

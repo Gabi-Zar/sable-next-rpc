@@ -29,7 +29,7 @@
   let failed = $state(false);
   let attempt = $state(0);
 
-  let canvasLabel = $derived($i18n.t('pdf.documentLabel', { name, page, pages: numPages }));
+  let canvasLabel = $derived(i18n.t('pdf.documentLabel', { name, page, pages: numPages }));
 
   $effect(() => {
     void attempt;
@@ -120,12 +120,12 @@
 <div class="pdf-viewer" bind:contentRect>
   <div class="pdf-page-frame">
     {#if loading}
-      <Spinner label={$i18n.t('a11y.loading')} />
+      <Spinner label={i18n.t('a11y.loading')} />
     {:else if failed}
       <div class="pdf-error">
         <WarningIcon />
-        <p>{$i18n.t('pdf.loadFailed')}</p>
-        <Button size="small" onclick={retry}>{$i18n.t('common.retry')}</Button>
+        <p>{i18n.t('pdf.loadFailed')}</p>
+        <Button size="small" onclick={retry}>{i18n.t('common.retry')}</Button>
       </div>
     {:else}
       <div class="pdf-canvas-frame" role="img" aria-label={canvasLabel}>

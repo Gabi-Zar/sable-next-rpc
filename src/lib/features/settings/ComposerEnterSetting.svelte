@@ -16,11 +16,11 @@
 </script>
 
 <ul class="settings-rows">
-  <SettingsRow id={anchor} data-settings-focus={anchor} title={$i18n.t('settings.enterKey')}>
+  <SettingsRow id={anchor} data-settings-focus={anchor} title={i18n.t('settings.enterKey')}>
     <Switcher
-      label={$i18n.t('settings.enterKey')}
+      label={i18n.t('settings.enterKey')}
       value={mode}
-      items={options.map((option) => ({ value: option.value, label: $i18n.t(option.label) }))}
+      items={options.map((option) => ({ value: option.value, label: i18n.t(option.label) }))}
       onValueChange={(value) => setPreference('enterForNewline', value as EnterKey)}
     />
   </SettingsRow>

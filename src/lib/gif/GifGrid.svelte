@@ -83,7 +83,7 @@
           type="button"
           class="gif-star choice"
           aria-pressed={kept}
-          aria-label={kept ? $i18n.t('composer.gifUnfavorite') : $i18n.t('composer.gifFavorite')}
+          aria-label={kept ? i18n.t('composer.gifUnfavorite') : i18n.t('composer.gifFavorite')}
           onclick={(event) => {
             star(event, gif);
           }}
@@ -101,28 +101,28 @@
 
 <div class="gif-grid" {@attach scrollHint}>
   {#if search.loading}
-    <div class="gif-note"><Spinner label={$i18n.t('a11y.loading')} /></div>
+    <div class="gif-note"><Spinner label={i18n.t('a11y.loading')} /></div>
   {:else if search.failed}
-    <div class="gif-note">{$i18n.t('composer.gifSearchFailed')}</div>
+    <div class="gif-note">{i18n.t('composer.gifSearchFailed')}</div>
   {:else if empty}
     <div class="gif-note">
-      {searching ? $i18n.t('composer.gifNoMatches') : $i18n.t('composer.gifEmptyFavorites')}
+      {searching ? i18n.t('composer.gifNoMatches') : i18n.t('composer.gifEmptyFavorites')}
     </div>
   {:else}
     {#if searching}
       {@render tiles(search.results)}
     {:else}
       {#if favorites.length > 0}
-        <h3>{$i18n.t('composer.gifFavorites')}</h3>
+        <h3>{i18n.t('composer.gifFavorites')}</h3>
         {@render tiles(favorites)}
       {/if}
       {#if recent.length > 0}
-        <h3>{$i18n.t('composer.gifRecent')}</h3>
+        <h3>{i18n.t('composer.gifRecent')}</h3>
         {@render tiles(recent)}
       {/if}
     {/if}
     <p class="gif-attribution">
-      {$i18n.t('composer.gifAttribution', { provider: provider.label })}
+      {i18n.t('composer.gifAttribution', { provider: provider.label })}
     </p>
   {/if}
 </div>

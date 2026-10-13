@@ -238,7 +238,7 @@
     const failures = joinQueue.failed;
     joinAllOn = false;
     joinQueue.cancel();
-    if (failures > 0) toasts.error($i18n.t('room.lobbyJoinAllFailed', { count: failures }));
+    if (failures > 0) toasts.error(i18n.t('room.lobbyJoinAllFailed', { count: failures }));
   }
 
   function stopJoinAll(): void {
@@ -356,7 +356,7 @@
     } catch (error) {
       console.warn('[sable lobby] suggestion not saved', error);
       suggestedOverrides = suggestedOverrides.filter((candidate) => candidate !== override);
-      toasts.error($i18n.t('room.lobbySuggestedFailed'));
+      toasts.error(i18n.t('room.lobbySuggestedFailed'));
     }
   }
 
@@ -374,7 +374,7 @@
         console.warn('[sable lobby] room not added', error);
       }
     }
-    if (failures > 0) toasts.error($i18n.t('room.lobbyAddFailed', { count: failures }));
+    if (failures > 0) toasts.error(i18n.t('room.lobbyAddFailed', { count: failures }));
   }
 
   function retry(levelId: string): void {
@@ -455,7 +455,7 @@
       removed.add(entry.key);
     } catch (error) {
       console.warn('[sable lobby] remove failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
 
@@ -621,7 +621,7 @@
   }
 </script>
 
-<section class="lobby" aria-label={$i18n.t('nav.lobby')}>
+<section class="lobby" aria-label={i18n.t('nav.lobby')}>
   <header
     class="hero"
     role="presentation"
@@ -642,7 +642,7 @@
         <IconButton
           variant="ghost"
           size="small"
-          label={$i18n.t('timeline.back')}
+          label={i18n.t('timeline.back')}
           onclick={backToRoomList}
         >
           <BackIcon />
@@ -652,13 +652,13 @@
     {#if space}
       <div class="hero-menu">
         {#if preferences.developerTools}
-          <Tooltip label={$i18n.t('room.menuShowSpaceTimeline')} side="bottom">
+          <Tooltip label={i18n.t('room.menuShowSpaceTimeline')} side="bottom">
             {#snippet trigger({ props })}
               <IconButton
                 {...props}
                 variant="ghost"
                 size="small"
-                label={$i18n.t('room.menuShowSpaceTimeline')}
+                label={i18n.t('room.menuShowSpaceTimeline')}
                 onclick={() => {
                   void goto(spaceTimelinePath(space, roomList.rooms));
                 }}
@@ -671,7 +671,7 @@
         <IconButton
           variant="ghost"
           size="small"
-          label={$i18n.t('room.menuLabel')}
+          label={i18n.t('room.menuLabel')}
           onclick={(event) => {
             openOptions(event.currentTarget instanceof HTMLElement ? event.currentTarget : null);
           }}
@@ -687,7 +687,7 @@
       size="large"
       uniform
     />
-    <h1>{space?.name ?? $i18n.t('nav.space')}</h1>
+    <h1>{space?.name ?? i18n.t('nav.space')}</h1>
     {#if space?.topic}
       <button
         type="button"
@@ -703,11 +703,11 @@
     {#if canManage && space}
       {@const managed = space}
       <div class="hero-actions">
-        <ActionMenu label={$i18n.t('common.add')}>
+        <ActionMenu label={i18n.t('common.add')}>
           {#snippet trigger({ props })}
             <Button {...props} variant="primary" size="small" class="hero-action">
               <PlusIcon />
-              {$i18n.t('common.add')}
+              {i18n.t('common.add')}
             </Button>
           {/snippet}
           <IconContext values={{ 'aria-hidden': 'true', size: 16 }}>
@@ -720,7 +720,7 @@
                 );
               }}
             >
-              <PlusIcon />{$i18n.t('nav.createRoomInSpace')}
+              <PlusIcon />{i18n.t('nav.createRoomInSpace')}
             </ActionMenuItem>
             <ActionMenuItem
               onSelect={() => {
@@ -731,7 +731,7 @@
                 );
               }}
             >
-              <UsersThreeIcon />{$i18n.t('nav.createSubspace')}
+              <UsersThreeIcon />{i18n.t('nav.createSubspace')}
             </ActionMenuItem>
             <ActionMenuItem
               onSelect={() => {
@@ -739,7 +739,7 @@
                 addOpen = true;
               }}
             >
-              <HashIcon />{$i18n.t('room.lobbyAddExistingRooms')}
+              <HashIcon />{i18n.t('room.lobbyAddExistingRooms')}
             </ActionMenuItem>
             <ActionMenuItem
               onSelect={() => {
@@ -747,7 +747,7 @@
                 addOpen = true;
               }}
             >
-              <SquaresFourIcon />{$i18n.t('room.lobbyAddExistingSpaces')}
+              <SquaresFourIcon />{i18n.t('room.lobbyAddExistingSpaces')}
             </ActionMenuItem>
           </IconContext>
         </ActionMenu>
@@ -767,13 +767,13 @@
       <div class="join-all" role="status">
         <Spinner small />
         <span>
-          {$i18n.t(joinQueue.waiting ? 'room.lobbyJoinWaiting' : 'room.lobbyJoinProgress', {
+          {i18n.t(joinQueue.waiting ? 'room.lobbyJoinWaiting' : 'room.lobbyJoinProgress', {
             done: joinQueue.done,
             total: joinQueue.total,
           })}
         </span>
         <Button variant="ghost" size="small" onclick={stopJoinAll}
-          >{$i18n.t('room.lobbyJoinStop')}</Button
+          >{i18n.t('room.lobbyJoinStop')}</Button
         >
       </div>
     {:else if candidates.length > 0}
@@ -787,7 +787,7 @@
           }}
         >
           <PlusIcon />
-          {$i18n.t('room.lobbyJoinAll', { count: candidates.length })}
+          {i18n.t('room.lobbyJoinAll', { count: candidates.length })}
         </Button>
       </div>
     {/if}
@@ -795,7 +795,7 @@
 
   {#if failed}
     <Alert variant="critical" role="alert">
-      <p>{$i18n.t('room.lobbyFailed')}</p>
+      <p>{i18n.t('room.lobbyFailed')}</p>
       {#if spaceId}
         {@const target = spaceId}
         <div>
@@ -804,7 +804,7 @@
             size="small"
             onclick={() => {
               retry(target);
-            }}>{$i18n.t('common.retry')}</Button
+            }}>{i18n.t('common.retry')}</Button
           >
         </div>
       {/if}
@@ -812,23 +812,23 @@
   {/if}
 
   {#if phase === 'loading'}
-    <div class="placeholder" role="status" aria-label={$i18n.t('room.lobbyLoading')}>
+    <div class="placeholder" role="status" aria-label={i18n.t('room.lobbyLoading')}>
       <LobbyRoomPlaceholder rows={3} />
     </div>
   {:else if phase === 'empty'}
     {#if canManage}
-      <EmptyState title={$i18n.t('room.lobbyEmpty')} description={$i18n.t('room.lobbyEmptyManage')}>
+      <EmptyState title={i18n.t('room.lobbyEmpty')} description={i18n.t('room.lobbyEmptyManage')}>
         {#snippet actions()}
           <Button
             onclick={() => {
               addKind = 'rooms';
               addOpen = true;
-            }}>{$i18n.t('room.lobbyAddRooms')}</Button
+            }}>{i18n.t('room.lobbyAddRooms')}</Button
           >
         {/snippet}
       </EmptyState>
     {:else}
-      <p class="empty">{$i18n.t('room.lobbyEmpty')}</p>
+      <p class="empty">{i18n.t('room.lobbyEmpty')}</p>
     {/if}
   {:else}
     {#each sections as section (section.key)}
@@ -891,13 +891,13 @@
     {#if hierarchy.pendingLevels.size > 0}
       <p class="loading-note" role="status">
         <Spinner small />
-        <span>{$i18n.t('room.lobbyLoadingMore')}</span>
+        <span>{i18n.t('room.lobbyLoadingMore')}</span>
       </p>
     {/if}
   {/if}
 </section>
 
-<DialogFrame bind:open={topicOpen} variant="verification" label={$i18n.t('room.lobbyTopicTitle')}>
+<DialogFrame bind:open={topicOpen} variant="verification" label={i18n.t('room.lobbyTopicTitle')}>
   <div class="topic-dialog">
     {#if topicRoom}
       <div class="topic-room">
@@ -907,17 +907,17 @@
           {#if topicRoom.canonical_alias}<span>{topicRoom.canonical_alias}</span>{/if}
           <span class="topic-room-meta">
             {#if topicRoom.num_joined_members !== null}
-              <span>{$i18n.t('room.lobbyMembers', { count: topicRoom.num_joined_members })}</span>
+              <span>{i18n.t('room.lobbyMembers', { count: topicRoom.num_joined_members })}</span>
             {/if}
             {#if topicRoom.join_rule !== 'unknown'}
-              <span>{$i18n.t(`room.joinRule.${topicRoom.join_rule}`)}</span>
+              <span>{i18n.t(`room.joinRule.${topicRoom.join_rule}`)}</span>
             {/if}
-            {#if topicRoom.is_voice}<span>{$i18n.t('common.voiceRoom')}</span>{/if}
+            {#if topicRoom.is_voice}<span>{i18n.t('common.voiceRoom')}</span>{/if}
           </span>
         </div>
       </div>
     {:else}
-      <h2>{space?.name ?? $i18n.t('nav.space')}</h2>
+      <h2>{space?.name ?? i18n.t('nav.space')}</h2>
     {/if}
     <div class="topic-full" {@attach scrollHint}>
       <FormattedBody
@@ -930,7 +930,7 @@
         variant="ghost"
         onclick={() => {
           topicOpen = false;
-        }}>{$i18n.t('common.close')}</Button
+        }}>{i18n.t('common.close')}</Button
       >
     </DialogActions>
   </div>

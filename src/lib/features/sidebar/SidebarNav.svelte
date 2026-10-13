@@ -237,7 +237,7 @@
   {#if call.active}
     <ActiveCallBar
       session={call}
-      roomName={callRoom?.name ?? $i18n.t('call.title')}
+      roomName={callRoom?.name ?? i18n.t('call.title')}
       collapsed={!mobile && collapsed}
       onReturn={() => {
         if (call.roomId === null) return;
@@ -249,7 +249,7 @@
 
 <aside class="sidebar">
   {#if mobile}
-    <nav class="mobile-navigation" aria-label={$i18n.t('nav.primary')}>
+    <nav class="mobile-navigation" aria-label={i18n.t('nav.primary')}>
       <CoreHealthBanner />
       <div class="navigation-main">
         <NavigationRail
@@ -279,7 +279,7 @@
       <UserQuickTools mobile {onNavigate} />
     </nav>
   {:else}
-    <nav class="desktop-navigation" aria-label={$i18n.t('nav.primary')}>
+    <nav class="desktop-navigation" aria-label={i18n.t('nav.primary')}>
       <div class="desktop-navigation-main">
         <NavigationRail
           {pathname}
@@ -307,7 +307,7 @@
           value={roomNavWidth}
           min={MIN_ROOM_NAV_WIDTH}
           max={MAX_ROOM_NAV_WIDTH}
-          label={$i18n.t('nav.resizeRooms')}
+          label={i18n.t('nav.resizeRooms')}
           grow="right"
           step={ROOM_NAV_WIDTH_STEP}
           onResize={(next) => (roomNavWidth = clampRoomNavWidth(next))}

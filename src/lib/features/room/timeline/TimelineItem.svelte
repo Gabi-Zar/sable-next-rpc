@@ -187,7 +187,7 @@
       roomIdentity.name ??
         (senderMember ? null : profile?.display_name) ??
         item.sender ??
-        $i18n.t('timeline.unknownSender')
+        i18n.t('timeline.unknownSender')
     )
   );
   let persona = $derived(item.per_message_profile);
@@ -230,7 +230,7 @@
     replyPersona?.display_name ??
       profileOverrides.name(
         replySender ?? '',
-        replyRoomName ?? replySender ?? $i18n.t('timeline.unknownSender')
+        replyRoomName ?? replySender ?? i18n.t('timeline.unknownSender')
       )
   );
   let replyIsPinged = $derived(item.in_reply_to?.sender_mentioned ?? false);
@@ -247,9 +247,9 @@
         kind === 'state_event' ||
         kind === 'hidden_event')
     ) {
-      return stateEventText(target, $i18n.t);
+      return stateEventText(target, i18n.t);
     }
-    return stripReplyFallback(replyText(item.in_reply_to, $i18n.t), replyPersona);
+    return stripReplyFallback(replyText(item.in_reply_to, i18n.t), replyPersona);
   });
   let replyCosmetics = $derived(
     replyPersona ? null : (roomCosmetics?.for(item.in_reply_to?.sender) ?? null)
@@ -283,7 +283,7 @@
       onRetrySend?.(transactionId);
     } catch (error) {
       console.warn('[sable timeline] could not withdraw the verification', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
   let pending = $derived(item.send_state?.status === 'sending');
@@ -571,7 +571,7 @@
         onCancelSend?.(transactionId);
       }}
     >
-      {$i18n.t('common.cancel')}
+      {i18n.t('common.cancel')}
     </button>
   {/if}
 {/snippet}
@@ -729,7 +729,7 @@
         <button
           class="avatar-button"
           type="button"
-          aria-label={$i18n.t('timeline.senderProfile', { name: senderName })}
+          aria-label={i18n.t('timeline.senderProfile', { name: senderName })}
           onclick={openSenderProfile}
         >
           <Avatar
@@ -804,7 +804,7 @@
               <button
                 class="via via-hidden"
                 type="button"
-                aria-label={$i18n.t('timeline.senderProfile', { name: item.sender })}
+                aria-label={i18n.t('timeline.senderProfile', { name: item.sender })}
                 onclick={openSenderProfile}>{item.sender}</button
               >
             {/if}
@@ -883,14 +883,14 @@
             <FormattedBody html={item.content.html} {senderTimezone} {onMatrixLink} />
             <!-- After the body, where the edit happened. -->
             {#if item.content.edited}
-              <span class="edited">{$i18n.t('timeline.edited')}</span>
+              <span class="edited">{i18n.t('timeline.edited')}</span>
             {/if}
             {#if pending}
               <ClockIcon
                 class="send-pending"
                 size={12}
                 role="img"
-                aria-label={$i18n.t('timeline.sending')}
+                aria-label={i18n.t('timeline.sending')}
               />
             {/if}
             {#if inlineReceipts}
@@ -951,7 +951,7 @@
           >
             <ThreadIcon size={14} aria-hidden="true" />
             <span class="thread-count"
-              >{$i18n.t('timeline.threadReplies', { count: threadSummary.num_replies })}</span
+              >{i18n.t('timeline.threadReplies', { count: threadSummary.num_replies })}</span
             >
             {#if threadSummary.latest_body}
               <span class="thread-latest"
@@ -969,7 +969,7 @@
             }}
           >
             <ThreadIcon size={14} aria-hidden="true" />
-            <span class="thread-count">{$i18n.t('timeline.thread')}</span>
+            <span class="thread-count">{i18n.t('timeline.thread')}</span>
           </button>
         {/if}
         {#if item.reactions.length > 0}
@@ -993,18 +993,18 @@
               class="upload"
               max="1"
               value={uploadFraction}
-              aria-label={$i18n.t('timeline.uploading')}
+              aria-label={i18n.t('timeline.uploading')}
             ></progress>
             {#if uploadItem !== null}
               <span class="transfer-count">
-                {$i18n.t('timeline.uploadingItem', { current: uploadItem, count: galleryCount })}
+                {i18n.t('timeline.uploadingItem', { current: uploadItem, count: galleryCount })}
               </span>
             {/if}
             {@render cancelUpload()}
           </div>
         {:else if uploading}
           <div class="transfer">
-            <progress class="upload" aria-label={$i18n.t('timeline.uploading')}></progress>
+            <progress class="upload" aria-label={i18n.t('timeline.uploading')}></progress>
             {@render cancelUpload()}
           </div>
         {:else if saving.percent !== null}
@@ -1013,19 +1013,19 @@
               class="upload"
               max="100"
               value={saving.percent}
-              aria-label={$i18n.t('timeline.downloading')}
+              aria-label={i18n.t('timeline.downloading')}
             ></progress>
           </div>
         {:else if actionExecutor.savingSlow}
           <div class="transfer">
-            <progress class="upload" aria-label={$i18n.t('timeline.downloading')}></progress>
+            <progress class="upload" aria-label={i18n.t('timeline.downloading')}></progress>
           </div>
         {/if}
         {#if stalled}
           <p class="send-failure">
             <Tooltip label={stalled.error} multiline>
               {#snippet trigger({ props })}
-                <span {...props}>{$i18n.t('timeline.sendFailed')}</span>
+                <span {...props}>{i18n.t('timeline.sendFailed')}</span>
               {/snippet}
             </Tooltip>
             {#if item.transaction_id && blocked?.kind === 'identity_changed'}
@@ -1037,7 +1037,7 @@
                   void sendAnyway(transactionId, userIds);
                 }}
               >
-                {$i18n.t('timeline.sendAnyway')}
+                {i18n.t('timeline.sendAnyway')}
               </button>
             {/if}
             {#if item.transaction_id}
@@ -1048,7 +1048,7 @@
                   onRetrySend?.(transactionId);
                 }}
               >
-                {$i18n.t('common.retry')}
+                {i18n.t('common.retry')}
               </button>
               <button
                 type="button"
@@ -1056,14 +1056,14 @@
                   onCancelSend?.(transactionId);
                 }}
               >
-                {$i18n.t('common.delete')}
+                {i18n.t('common.delete')}
               </button>
             {/if}
             <span class="send-failure-reason">
               {#if blocked?.kind === 'identity_changed'}
-                {$i18n.t('timeline.sendBlockedIdentity', { names: changedNames })}
+                {i18n.t('timeline.sendBlockedIdentity', { names: changedNames })}
               {:else if blocked?.kind === 'verify_this_device'}
-                {$i18n.t('timeline.sendBlockedVerify')}
+                {i18n.t('timeline.sendBlockedVerify')}
               {:else}
                 {stalled.error}
               {/if}

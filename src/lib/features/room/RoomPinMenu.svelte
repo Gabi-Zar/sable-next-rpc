@@ -217,7 +217,7 @@
 </script>
 
 {#snippet pinTrigger({ props }: { props: Record<string, unknown> })}
-  <PanelHeaderButton {...props} class="pin-button selection-open" label={$i18n.t('room.pinsTitle')}>
+  <PanelHeaderButton {...props} class="pin-button selection-open" label={i18n.t('room.pinsTitle')}>
     <PushPinIcon weight={open ? 'fill' : 'regular'} />
     {#if pinnedIds.length > 0}
       <span class={['pin-badge', { unread: unreadCount > 0 }]} aria-hidden="true"
@@ -229,7 +229,7 @@
 
 <ActionMenu
   bind:open
-  label={$i18n.t('room.pinsTitle')}
+  label={i18n.t('room.pinsTitle')}
   class="pin-menu"
   side="bottom"
   align="center"
@@ -242,11 +242,11 @@
 >
   <IconContext values={{ 'aria-hidden': 'true' }}>
     <header class="pin-header">
-      <h2>{$i18n.t('room.pinsTitle')}</h2>
+      <h2>{i18n.t('room.pinsTitle')}</h2>
       <IconButton
         variant="ghost"
         size="small"
-        label={$i18n.t('room.pinsClose')}
+        label={i18n.t('room.pinsClose')}
         onclick={() => {
           open = false;
         }}
@@ -260,8 +260,8 @@
     {:else if ordered.length === 0}
       <div class="pin-empty">
         <PushPinIcon />
-        <p class="pin-empty-title">{$i18n.t('room.pinsEmpty')}</p>
-        <p class="pin-empty-hint">{$i18n.t('room.pinsEmptyHint')}</p>
+        <p class="pin-empty-title">{i18n.t('room.pinsEmpty')}</p>
+        <p class="pin-empty-hint">{i18n.t('room.pinsEmptyHint')}</p>
       </div>
     {:else}
       <div class="pin-list" bind:clientHeight={listHeight}>
@@ -300,7 +300,7 @@
                       {members}
                       loadPreviewProfile
                       timeAction={{
-                        label: $i18n.t('common.jumpToMessage'),
+                        label: i18n.t('common.jumpToMessage'),
                         run: () => jump(eventId),
                       }}
                       onJumpToEvent={jump}
@@ -311,16 +311,16 @@
                           <button
                             class="pin-unreadable-open"
                             type="button"
-                            aria-label={$i18n.t('common.jumpToMessage')}
+                            aria-label={i18n.t('common.jumpToMessage')}
                             onclick={() => jump(eventId)}
                           >
-                            {$i18n.t('room.pinsUnreadable')}
+                            {i18n.t('room.pinsUnreadable')}
                           </button>
                           {#if canPin}
                             <IconButton
                               variant="ghost"
                               size="small"
-                              label={$i18n.t('timeline.unpinMessage')}
+                              label={i18n.t('timeline.unpinMessage')}
                               onclick={() => void unpin(eventId)}
                             >
                               <PushPinSlashIcon />
@@ -334,7 +334,7 @@
                             class="pin-unpin"
                             variant="ghost"
                             size="small"
-                            label={$i18n.t('timeline.unpinMessage')}
+                            label={i18n.t('timeline.unpinMessage')}
                             onclick={() => void unpin(eventId)}
                           >
                             <PushPinSlashIcon />

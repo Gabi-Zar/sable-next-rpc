@@ -119,19 +119,19 @@
     <h1 id="user-link-title">{name}</h1>
     <p class="user-link-id">{userId}</p>
     {#if failed}
-      <p role="alert">{$i18n.t('userLink.failed')}</p>
+      <p role="alert">{i18n.t('userLink.failed')}</p>
     {/if}
     <Button onclick={requestMessage} disabled={opening}>
-      {opening ? $i18n.t('userLink.opening') : $i18n.t('userLink.action')}
+      {opening ? i18n.t('userLink.opening') : i18n.t('userLink.action')}
     </Button>
   {/if}
 </section>
 
 <ConfirmDialog
   bind:open={confirming}
-  title={$i18n.t('direct.confirmTitle', { name })}
-  description={$i18n.t('direct.confirmBody')}
-  confirmLabel={$i18n.t('direct.submit')}
+  title={i18n.t('direct.confirmTitle', { name })}
+  description={i18n.t('direct.confirmBody')}
+  confirmLabel={i18n.t('direct.submit')}
   confirmVariant="primary"
   onConfirm={() => {
     confirming = false;

@@ -61,25 +61,25 @@
 <DialogFrame
   bind:open
   variant="verification"
-  label={$i18n.t('composer.scheduleTitle')}
+  label={i18n.t('composer.scheduleTitle')}
   onConfirm={submit}
 >
   <div class="schedule">
-    <h2>{$i18n.t('composer.scheduleTitle')}</h2>
+    <h2>{i18n.t('composer.scheduleTitle')}</h2>
     {#if encrypted !== true}
-      <p class="explain">{$i18n.t('composer.scheduleExplain')}</p>
+      <p class="explain">{i18n.t('composer.scheduleExplain')}</p>
     {/if}
 
     {#if empty}
-      <Alert variant="warning">{$i18n.t('composer.scheduleEmpty')}</Alert>
+      <Alert variant="warning">{i18n.t('composer.scheduleEmpty')}</Alert>
     {/if}
 
     {#if attachmentsBlocked}
-      <Alert variant="warning">{$i18n.t('composer.scheduleAttachmentEncrypted')}</Alert>
+      <Alert variant="warning">{i18n.t('composer.scheduleAttachmentEncrypted')}</Alert>
     {:else if blocked}
-      <Alert variant="warning">{$i18n.t('composer.scheduleEncryptedBlocked')}</Alert>
+      <Alert variant="warning">{i18n.t('composer.scheduleEncryptedBlocked')}</Alert>
     {:else if encrypted === true}
-      <Alert>{$i18n.t('composer.scheduleEncryptedNote')}</Alert>
+      <Alert>{i18n.t('composer.scheduleEncryptedNote')}</Alert>
     {/if}
 
     <div class="presets">
@@ -91,23 +91,23 @@
             confirm(preset.at(Date.now()));
           }}
         >
-          {$i18n.t(`composer.schedule${preset.key}`)}
+          {i18n.t(`composer.schedule${preset.key}`)}
         </Button>
       {/each}
     </div>
 
-    <DateTimeField label={$i18n.t('common.dateAndTime')} bind:value={moment} />
+    <DateTimeField label={i18n.t('common.dateAndTime')} bind:value={moment} />
 
     {#if moment !== '' && chosen === null}
-      <Alert variant="critical" role="alert">{$i18n.t('composer.schedulePast')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('composer.schedulePast')}</Alert>
     {/if}
 
     <DialogActions>
       <Button type="button" variant="ghost" onclick={cancel}>
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
       <Button type="submit" disabled={unavailable || chosen === null}>
-        {$i18n.t('composer.scheduleConfirm')}
+        {i18n.t('composer.scheduleConfirm')}
       </Button>
     </DialogActions>
   </div>

@@ -47,24 +47,24 @@
 </script>
 
 <svelte:head>
-  <title>{$i18n.t(titleKey)} - Sable</title>
+  <title>{i18n.t(titleKey)} - Sable</title>
 </svelte:head>
 
 <main class="home-page" aria-labelledby="home-title">
   <section class="hero">
     <SableBrandMark />
     <h1 id="home-title">
-      {$i18n.t(hasLoggedInBefore ? 'auth.welcomeBack' : 'auth.welcome')}
+      {i18n.t(hasLoggedInBefore ? 'auth.welcomeBack' : 'auth.welcome')}
     </h1>
 
-    <div class="hero-actions" aria-label={$i18n.t('home.resourcesLabel')}>
+    <div class="hero-actions" aria-label={i18n.t('home.resourcesLabel')}>
       <LinkButton href={supportHref} variant="primary">
         <ChatCircleDotsIcon aria-hidden="true" />
-        {$i18n.t('home.getSupport')}
+        {i18n.t('home.getSupport')}
       </LinkButton>
       <LinkButton href={SABLE_SOURCE_URL} target="_blank" rel="noreferrer noopener" variant="ghost">
         <GithubLogoIcon aria-hidden="true" />
-        {$i18n.t('common.viewSource')}
+        {i18n.t('common.viewSource')}
       </LinkButton>
       <LinkButton
         href={SABLE_DONATE_URL}
@@ -73,22 +73,22 @@
         variant="secondary"
       >
         <HeartIcon aria-hidden="true" />
-        {$i18n.t('home.supportDevelopment')}
+        {i18n.t('home.supportDevelopment')}
       </LinkButton>
     </div>
   </section>
 
   <section class="start-section" aria-labelledby="start-title">
     <div class="section-heading">
-      <h2 id="start-title">{$i18n.t('home.nextStepsTitle')}</h2>
+      <h2 id="start-title">{i18n.t('home.nextStepsTitle')}</h2>
     </div>
 
     <div class="start-grid">
       {#each startCards as card (card.title)}
         <ActionCard
           icon={card.icon}
-          title={$i18n.t(card.title)}
-          description={$i18n.t(card.description)}
+          title={i18n.t(card.title)}
+          description={i18n.t(card.description)}
           href={card.href}
           disabled={!card.href}
         />

@@ -76,8 +76,8 @@
   collisionPadding={12}
   sideOffset={10}
   closeOnAnchorHidden={!nestedMenuOpen}
-  label={$i18n.t('timeline.userProfile')}
-  closeLabel={$i18n.t('timeline.closeProfile')}
+  label={i18n.t('timeline.userProfile')}
+  closeLabel={i18n.t('timeline.closeProfile')}
   handleColor="var(--bg-container)"
   handleOpacity={1}
   contentInset={false}

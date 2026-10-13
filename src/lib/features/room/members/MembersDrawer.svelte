@@ -58,7 +58,7 @@
     modal = false,
     compact = false,
     searchable = true,
-    title = $i18n.t('timeline.members'),
+    title = i18n.t('timeline.members'),
     powerTags = {},
     alwaysListedFrom = null,
     loadMembership = null,
@@ -160,15 +160,15 @@
       }}
     />
   {/if}
-  <PanelHeader {modal} {title} subtitle={$i18n.t('timeline.memberCount', { count: joined.length })}>
+  <PanelHeader {modal} {title} subtitle={i18n.t('timeline.memberCount', { count: joined.length })}>
     {#snippet suffix()}
       {#if modal}
         <Dialog.Close
           class="btn btn-ghost icon-button icon-button-small"
-          aria-label={$i18n.t('timeline.closeMembers')}><XIcon /></Dialog.Close
+          aria-label={i18n.t('timeline.closeMembers')}><XIcon /></Dialog.Close
         >
       {:else}
-        <PanelHeaderButton label={$i18n.t('timeline.closeMembers')} onclick={onClose}
+        <PanelHeaderButton label={i18n.t('timeline.closeMembers')} onclick={onClose}
           ><XIcon /></PanelHeaderButton
         >
       {/if}
@@ -179,16 +179,16 @@
     <div class="controls">
       <div class="filters">
         {#if loadMembership}
-          <ActionMenu label={$i18n.t('timeline.memberFilter')} align="start">
+          <ActionMenu label={i18n.t('timeline.memberFilter')} align="start">
             {#snippet trigger({ props })}
               <button
                 {...props}
                 type="button"
                 class="chip selection-open"
-                aria-label={$i18n.t('timeline.memberFilter')}
+                aria-label={i18n.t('timeline.memberFilter')}
               >
                 <FunnelIcon aria-hidden="true" />
-                <span>{$i18n.t(MEMBERSHIP_FILTER_LABELS[filter])}</span>
+                <span>{i18n.t(MEMBERSHIP_FILTER_LABELS[filter])}</span>
               </button>
             {/snippet}
             {#each MEMBERSHIP_FILTERS as option (option)}
@@ -199,20 +199,20 @@
                 }}
               >
                 <span class="menu-check" aria-hidden="true">{filter === option ? '✓' : ''}</span>
-                {$i18n.t(MEMBERSHIP_FILTER_LABELS[option])}
+                {i18n.t(MEMBERSHIP_FILTER_LABELS[option])}
               </ActionMenuItem>
             {/each}
           </ActionMenu>
         {/if}
-        <ActionMenu label={$i18n.t('timeline.memberSort')}>
+        <ActionMenu label={i18n.t('timeline.memberSort')}>
           {#snippet trigger({ props })}
             <button
               {...props}
               type="button"
               class="chip selection-open"
-              aria-label={$i18n.t('timeline.memberSort')}
+              aria-label={i18n.t('timeline.memberSort')}
             >
-              <span>{$i18n.t(MEMBER_SORT_LABELS[sort])}</span>
+              <span>{i18n.t(MEMBER_SORT_LABELS[sort])}</span>
               <ArrowsDownUpIcon aria-hidden="true" />
             </button>
           {/snippet}
@@ -224,7 +224,7 @@
               }}
             >
               <span class="menu-check" aria-hidden="true">{sort === option ? '✓' : ''}</span>
-              {$i18n.t(MEMBER_SORT_LABELS[option])}
+              {i18n.t(MEMBER_SORT_LABELS[option])}
             </ActionMenuItem>
           {/each}
         </ActionMenu>
@@ -232,22 +232,22 @@
       <TextInput
         bind:value={search}
         class="member-search-input"
-        placeholder={$i18n.t('timeline.searchMembers')}
-        aria-label={$i18n.t('timeline.searchMembers')}
+        placeholder={i18n.t('timeline.searchMembers')}
+        aria-label={i18n.t('timeline.searchMembers')}
       />
     </div>
   {/if}
 
   {#if busy}
-    <p class="status">{$i18n.t('timeline.loadingMembers')}</p>
+    <p class="status">{i18n.t('timeline.loadingMembers')}</p>
   {:else}
     {#if groups.length > 0}
       <div class="member-groups" {@attach scrollHint}>
         {#each shown as group (group.key)}
           {@const tag =
             group.level === null
-              ? { name: $i18n.t('timeline.memberGroupOffline'), color: null, icon: null }
-              : powerTag(group.level, $i18n.t, powerTags ?? {})}
+              ? { name: i18n.t('timeline.memberGroupOffline'), color: null, icon: null }
+              : powerTag(group.level, i18n.t, powerTags ?? {})}
           <h3 class="group-label" style:color={tag.color ?? undefined}>
             {#if tag.icon}<RoleTagIcon icon={tag.icon} class="group-icon" />{/if}{tag.name}
           </h3>
@@ -278,11 +278,11 @@
         {/if}
       </div>
     {:else if search.trim() !== ''}
-      <p class="status">{$i18n.t('timeline.noMembersFound')}</p>
+      <p class="status">{i18n.t('timeline.noMembersFound')}</p>
     {:else}
       <p class="status">
-        {$i18n.t('timeline.noMembersForFilter', {
-          filter: $i18n.t(MEMBERSHIP_FILTER_LABELS[filter]),
+        {i18n.t('timeline.noMembersForFilter', {
+          filter: i18n.t(MEMBERSHIP_FILTER_LABELS[filter]),
         })}
       </p>
     {/if}

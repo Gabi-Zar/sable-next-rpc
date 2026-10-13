@@ -39,13 +39,13 @@
       await core.rpc.rooms.leave({ room_id: room.room_id });
     } catch (error) {
       console.warn('[sable nav] leaving replaced room failed', error);
-      toasts.error($i18n.t('room.leaveFailed'));
+      toasts.error(i18n.t('room.leaveFailed'));
     }
   }
 </script>
 
 {#if replaced.length > 0 && collapsed}
-  <ul class="replaced-collapsed" aria-label={$i18n.t('room.replacedTitle')}>
+  <ul class="replaced-collapsed" aria-label={i18n.t('room.replacedTitle')}>
     {#each replaced as room (room.room_id)}
       {@const name = room.name ?? room.room_id}
       <li aria-label={name}>
@@ -62,7 +62,7 @@
 {:else if replaced.length > 0}
   <section class="replaced" aria-labelledby={headingId}>
     <h3 id={headingId}>
-      {$i18n.t('room.replacedTitle')}
+      {i18n.t('room.replacedTitle')}
       {#if pendingCount > 0}<span class="count">{pendingCount}</span>{/if}
     </h3>
     <ul>
@@ -88,13 +88,13 @@
               {/snippet}
             </Tooltip>
           </a>
-          <Tooltip label={$i18n.t('room.replacedLeaveLabel', { room: name })}>
+          <Tooltip label={i18n.t('room.replacedLeaveLabel', { room: name })}>
             {#snippet trigger({ props })}
               <IconButton
                 {...props}
                 variant="ghost"
                 size="small"
-                label={$i18n.t('room.replacedLeaveLabel', { room: name })}
+                label={i18n.t('room.replacedLeaveLabel', { room: name })}
                 onclick={() => {
                   void leave(room);
                 }}
@@ -104,13 +104,13 @@
             {/snippet}
           </Tooltip>
           {#if !handled}
-            <Tooltip label={$i18n.t('room.replacedDismissLabel', { room: name })}>
+            <Tooltip label={i18n.t('room.replacedDismissLabel', { room: name })}>
               {#snippet trigger({ props })}
                 <IconButton
                   {...props}
                   variant="ghost"
                   size="small"
-                  label={$i18n.t('room.replacedDismissLabel', { room: name })}
+                  label={i18n.t('room.replacedDismissLabel', { room: name })}
                   onclick={() => {
                     dismissReplacedRoom(room.room_id);
                   }}

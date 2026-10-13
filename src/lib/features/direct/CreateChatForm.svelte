@@ -47,8 +47,8 @@
 <form class="create-chat" onsubmit={submit}>
   <FormField
     fieldId="create-chat-user"
-    label={$i18n.t('direct.userIdLabel')}
-    error={invalid ? $i18n.t('common.aUserIdLooksLikeSomeoneserver') : null}
+    label={i18n.t('direct.userIdLabel')}
+    error={invalid ? i18n.t('common.aUserIdLooksLikeSomeoneserver') : null}
   >
     <TextInput
       id="create-chat-user"
@@ -58,18 +58,18 @@
       spellcheck={false}
       aria-invalid={invalid}
       aria-describedby={invalid ? 'create-chat-user-error' : undefined}
-      placeholder={$i18n.t('direct.userIdPlaceholder')}
+      placeholder={i18n.t('direct.userIdPlaceholder')}
     />
   </FormField>
 
   <div class="row">
     <div class="row-text">
-      <span class="field-label">{$i18n.t('common.endtoendEncryption')}</span>
-      <p class="hint">{$i18n.t('direct.encryptionHint')}</p>
+      <span class="field-label">{i18n.t('common.endtoendEncryption')}</span>
+      <p class="hint">{i18n.t('direct.encryptionHint')}</p>
     </div>
     <Switch
       checked={encrypted}
-      label={$i18n.t('common.endtoendEncryption')}
+      label={i18n.t('common.endtoendEncryption')}
       onCheckedChange={(next: boolean) => {
         encrypted = next;
       }}
@@ -77,11 +77,11 @@
   </div>
 
   {#if failed}
-    <Alert variant="critical" role="alert">{$i18n.t('direct.failed')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('direct.failed')}</Alert>
   {/if}
 
   <Button type="submit" variant="primary" loading={opening} disabled={userId.trim() === ''}>
-    {$i18n.t('direct.submit')}
+    {i18n.t('direct.submit')}
   </Button>
 </form>
 

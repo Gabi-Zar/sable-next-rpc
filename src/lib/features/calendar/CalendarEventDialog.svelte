@@ -118,7 +118,7 @@
   {onOpenChange}
   variant="verification"
   contentStyle="max-width: min(40rem, calc(100vw - 3rem))"
-  label={$i18n.t(item ? 'calendar.editTitle' : 'calendar.newTitle')}
+  label={i18n.t(item ? 'calendar.editTitle' : 'calendar.newTitle')}
 >
   <form
     class="calendar-form"
@@ -127,21 +127,21 @@
       void save();
     }}
   >
-    <h2>{$i18n.t(item ? 'calendar.editTitle' : 'calendar.newTitle')}</h2>
+    <h2>{i18n.t(item ? 'calendar.editTitle' : 'calendar.newTitle')}</h2>
 
-    <FormField fieldId="{fieldId}-title" label={$i18n.t('calendar.title')}>
+    <FormField fieldId="{fieldId}-title" label={i18n.t('calendar.title')}>
       <TextInput id="{fieldId}-title" bind:value={title} maxlength={255} required />
     </FormField>
 
     <div class="calendar-times">
       <DateTimeField
-        label={$i18n.t('calendar.start')}
+        label={i18n.t('calendar.start')}
         bind:value={start}
         granularity={allDay ? 'day' : 'minute'}
         required
       />
       <DateTimeField
-        label={$i18n.t('calendar.end')}
+        label={i18n.t('calendar.end')}
         bind:value={end}
         granularity={allDay ? 'day' : 'minute'}
         required
@@ -149,38 +149,38 @@
     </div>
 
     <div class="calendar-all-day">
-      <span>{$i18n.t('calendar.allDay')}</span>
-      <Switch label={$i18n.t('calendar.allDay')} bind:checked={allDay} />
+      <span>{i18n.t('calendar.allDay')}</span>
+      <Switch label={i18n.t('calendar.allDay')} bind:checked={allDay} />
     </div>
 
-    <FormField fieldId="{fieldId}-repeat" label={$i18n.t('calendar.repeat')}>
+    <FormField fieldId="{fieldId}-repeat" label={i18n.t('calendar.repeat')}>
       <Select
         id="{fieldId}-repeat"
         bind:value={frequency}
         items={[
-          { value: NEVER, label: $i18n.t('common.never') },
-          { value: 'daily', label: $i18n.t('calendar.repeatDaily') },
-          { value: 'weekly', label: $i18n.t('calendar.repeatWeekly') },
-          { value: 'monthly', label: $i18n.t('calendar.repeatMonthly') },
-          { value: 'yearly', label: $i18n.t('calendar.repeatYearly') },
+          { value: NEVER, label: i18n.t('common.never') },
+          { value: 'daily', label: i18n.t('calendar.repeatDaily') },
+          { value: 'weekly', label: i18n.t('calendar.repeatWeekly') },
+          { value: 'monthly', label: i18n.t('calendar.repeatMonthly') },
+          { value: 'yearly', label: i18n.t('calendar.repeatYearly') },
         ]}
       />
     </FormField>
 
     {#if frequency !== NEVER}
-      <DateTimeField label={$i18n.t('calendar.repeatUntil')} bind:value={until} granularity="day" />
+      <DateTimeField label={i18n.t('calendar.repeatUntil')} bind:value={until} granularity="day" />
     {/if}
 
-    <FormField fieldId="{fieldId}-location" label={$i18n.t('calendar.location')}>
+    <FormField fieldId="{fieldId}-location" label={i18n.t('calendar.location')}>
       <TextInput id="{fieldId}-location" bind:value={location} />
     </FormField>
 
-    <FormField fieldId="{fieldId}-description" label={$i18n.t('calendar.description')}>
+    <FormField fieldId="{fieldId}-description" label={i18n.t('calendar.description')}>
       <TextArea id="{fieldId}-description" bind:value={description} />
     </FormField>
 
     {#if failed}
-      <Alert variant="critical" role="alert">{$i18n.t('errors.actionFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('errors.actionFailed')}</Alert>
     {/if}
 
     <DialogActions>
@@ -188,9 +188,9 @@
         variant="ghost"
         onclick={() => {
           onOpenChange(false);
-        }}>{$i18n.t('common.cancel')}</Button
+        }}>{i18n.t('common.cancel')}</Button
       >
-      <Button type="submit" loading={saving} disabled={!valid}>{$i18n.t('common.save')}</Button>
+      <Button type="submit" loading={saving} disabled={!valid}>{i18n.t('common.save')}</Button>
     </DialogActions>
   </form>
 </DialogFrame>

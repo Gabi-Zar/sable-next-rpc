@@ -75,10 +75,10 @@
 </script>
 
 {#if shown.length > 0}
-  <section class="space-events" aria-label={$i18n.t('calendar.spaceEvents')}>
+  <section class="space-events" aria-label={i18n.t('calendar.spaceEvents')}>
     <h3 class="space-events-heading">
       <CalendarBlankIcon aria-hidden="true" />
-      <span>{$i18n.t('common.today')}</span>
+      <span>{i18n.t('common.today')}</span>
     </h3>
     <ul class="space-events-list">
       {#each shown as { room, occurrence } (`${room.room_id}|${occurrence.item.event_id}|${String(occurrence.start)}`)}
@@ -89,10 +89,10 @@
         <li>
           <a class="space-event selection-layer" {href} onclick={() => onNavigate?.(href)}>
             <span class="space-event-time">
-              {occurrence.item.all_day ? $i18n.t('calendar.allDay') : formatTime(occurrence.start)}
+              {occurrence.item.all_day ? i18n.t('calendar.allDay') : formatTime(occurrence.start)}
             </span>
             <span class="space-event-title">
-              {occurrence.item.title || $i18n.t('calendar.untitled')}
+              {occurrence.item.title || i18n.t('calendar.untitled')}
             </span>
             {#if rooms.length > 1}
               <span class="space-event-room">{roomLabel(room)}</span>
@@ -103,7 +103,7 @@
     </ul>
     {#if today.length > shown.length}
       <p class="space-events-more">
-        {$i18n.t('calendar.more', { count: today.length - shown.length })}
+        {i18n.t('calendar.more', { count: today.length - shown.length })}
       </p>
     {/if}
   </section>

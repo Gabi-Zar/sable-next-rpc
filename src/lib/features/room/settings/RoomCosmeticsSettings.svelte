@@ -72,19 +72,19 @@
   let applyTargets = $derived(joinedSpaceRooms(room, (id) => roomList.byId(id)));
   let applyDescription = $derived.by(() => {
     if (saving === 'apply' && applied)
-      return $i18n.t('room.cosmeticsApplying', {
+      return i18n.t('room.cosmeticsApplying', {
         done: applied.done + applied.failed,
         total: applied.total,
       });
     if (applied?.failed)
-      return $i18n.t('room.cosmeticsAppliedPartial', {
+      return i18n.t('room.cosmeticsAppliedPartial', {
         count: applied.done,
         failed: applied.failed,
       });
-    if (applied) return $i18n.t('room.cosmeticsApplied', { count: applied.done });
-    if (applyTargets.length === 0) return $i18n.t('room.cosmeticsApplyRoomsNone');
-    if (name !== savedName) return $i18n.t('room.cosmeticsApplyRoomsSaveFirst');
-    return $i18n.t('room.cosmeticsApplyRoomsHint', { count: applyTargets.length });
+    if (applied) return i18n.t('room.cosmeticsApplied', { count: applied.done });
+    if (applyTargets.length === 0) return i18n.t('room.cosmeticsApplyRoomsNone');
+    if (name !== savedName) return i18n.t('room.cosmeticsApplyRoomsSaveFirst');
+    return i18n.t('room.cosmeticsApplyRoomsHint', { count: applyTargets.length });
   });
   let canManage = $derived(permissions?.can_change_power_levels ?? false);
   let membersSetPronouns = $derived(
@@ -280,33 +280,31 @@
 
 <div class="section">
   {#if failed}
-    <Alert variant="critical" role="alert">{$i18n.t('room.settingsFailed')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('room.settingsFailed')}</Alert>
   {/if}
 
   <SettingsSection
     headingId="room-settings-cosmetics"
-    title={$i18n.t(isSpace ? 'room.cosmeticsTitleSpace' : 'room.cosmeticsTitleRoom')}
-    description={$i18n.t(isSpace ? 'room.cosmeticsHintSpace' : 'room.cosmeticsHintRoom')}
+    title={i18n.t(isSpace ? 'room.cosmeticsTitleSpace' : 'room.cosmeticsTitleRoom')}
+    description={i18n.t(isSpace ? 'room.cosmeticsHintSpace' : 'room.cosmeticsHintRoom')}
   >
     <div class="preview" aria-hidden="true">
       <SenderName displayName={previewName} colors={previewColors} pronouns={previewPronouns} />
     </div>
     <ul class="settings-rows">
       <SettingsRow
-        title={$i18n.t(isSpace ? 'room.cosmeticsAvatarSpace' : 'room.cosmeticsAvatar')}
-        description={$i18n.t(
-          isSpace ? 'room.cosmeticsAvatarHintSpace' : 'room.cosmeticsAvatarHint'
-        )}
+        title={i18n.t(isSpace ? 'room.cosmeticsAvatarSpace' : 'room.cosmeticsAvatar')}
+        description={i18n.t(isSpace ? 'room.cosmeticsAvatarHintSpace' : 'room.cosmeticsAvatarHint')}
       >
         {#snippet before()}
           <Avatar id={userId} src={avatar ?? profileAvatar} name={previewName} />
         {/snippet}
         <Button size="small" disabled={saving !== null} onclick={() => avatarInput?.click()}>
-          {$i18n.t('common.changePicture')}
+          {i18n.t('common.changePicture')}
         </Button>
         {#if avatar}
           <Button size="small" variant="ghost" disabled={saving !== null} onclick={resetAvatar}>
-            {$i18n.t('room.cosmeticsAvatarReset')}
+            {i18n.t('room.cosmeticsAvatarReset')}
           </Button>
         {/if}
         <input
@@ -320,8 +318,8 @@
         />
       </SettingsRow>
       <SettingsRow
-        title={$i18n.t(isSpace ? 'room.cosmeticsNameSpace' : 'room.cosmeticsName')}
-        description={$i18n.t(isSpace ? 'room.cosmeticsNameHintSpace' : 'room.cosmeticsNameHint')}
+        title={i18n.t(isSpace ? 'room.cosmeticsNameSpace' : 'room.cosmeticsName')}
+        description={i18n.t(isSpace ? 'room.cosmeticsNameHintSpace' : 'room.cosmeticsNameHint')}
         wide
       >
         <div class="inline-field">
@@ -329,18 +327,18 @@
             id={`${uid}-name`}
             bind:value={name}
             placeholder={profileName ?? userId ?? ''}
-            aria-label={$i18n.t(isSpace ? 'room.cosmeticsNameSpace' : 'room.cosmeticsName')}
+            aria-label={i18n.t(isSpace ? 'room.cosmeticsNameSpace' : 'room.cosmeticsName')}
           />
           <Button
             variant="secondary"
             disabled={name === savedName || saving === 'name'}
-            onclick={saveName}>{$i18n.t('common.save')}</Button
+            onclick={saveName}>{i18n.t('common.save')}</Button
           >
         </div>
       </SettingsRow>
       {#if isSpace}
         <SettingsRow
-          title={$i18n.t('room.cosmeticsApplyRooms')}
+          title={i18n.t('room.cosmeticsApplyRooms')}
           description={applyDescription}
           disabled={applyTargets.length === 0 || name !== savedName}
         >
@@ -349,14 +347,14 @@
             disabled={saving !== null || applyTargets.length === 0 || name !== savedName}
             onclick={applyToRooms}
           >
-            {$i18n.t('common.apply')}
+            {i18n.t('common.apply')}
           </Button>
         </SettingsRow>
       {/if}
       {#if canSetColor}
         <li class="settings-form form-stack">
           <ColorSetting
-            label={$i18n.t('room.cosmeticsColorLight')}
+            label={i18n.t('room.cosmeticsColorLight')}
             bind:value={colorOnLight}
             onCommit={() => {
               saveColor('on_light', colorOnLight);
@@ -367,7 +365,7 @@
             }}
           />
           <ColorSetting
-            label={$i18n.t('room.cosmeticsColorDark')}
+            label={i18n.t('room.cosmeticsColorDark')}
             bind:value={colorOnDark}
             onCommit={() => {
               saveColor('on_dark', colorOnDark);
@@ -380,10 +378,10 @@
         </li>
       {/if}
       <SettingsRow
-        title={$i18n.t('room.cosmeticsPronouns')}
+        title={i18n.t('room.cosmeticsPronouns')}
         description={canSetPronouns
-          ? $i18n.t('room.cosmeticsPronounsHint')
-          : $i18n.t('room.cosmeticsNotAllowed')}
+          ? i18n.t('room.cosmeticsPronounsHint')
+          : i18n.t('room.cosmeticsNotAllowed')}
         disabled={!canSetPronouns}
         wide
       >
@@ -392,22 +390,22 @@
             id={`${uid}-pronouns`}
             bind:value={pronouns}
             disabled={!canSetPronouns}
-            placeholder={$i18n.t('room.cosmeticsPronounsPlaceholder')}
-            aria-label={$i18n.t('room.cosmeticsPronouns')}
+            placeholder={i18n.t('room.cosmeticsPronounsPlaceholder')}
+            aria-label={i18n.t('room.cosmeticsPronouns')}
           />
           <Button
             variant="secondary"
             disabled={!canSetPronouns || pronouns === savedPronouns || saving === 'pronouns'}
-            onclick={savePronouns}>{$i18n.t('common.save')}</Button
+            onclick={savePronouns}>{i18n.t('common.save')}</Button
           >
         </div>
       </SettingsRow>
       <SettingsRow
-        title={$i18n.t('room.cosmeticsReset')}
-        description={$i18n.t('room.cosmeticsResetHint')}
+        title={i18n.t('room.cosmeticsReset')}
+        description={i18n.t('room.cosmeticsResetHint')}
       >
         <Button size="small" disabled={saving !== null} onclick={resetLook}>
-          {$i18n.t('common.reset')}
+          {i18n.t('common.reset')}
         </Button>
       </SettingsRow>
     </ul>
@@ -416,19 +414,19 @@
   {#if canManage}
     <SettingsSection
       headingId="room-settings-cosmetics-members"
-      title={$i18n.t('room.cosmeticsMembersTitle')}
+      title={i18n.t('room.cosmeticsMembersTitle')}
     >
       <ul class="settings-rows">
         <SettingsRow
-          title={$i18n.t('room.cosmeticsMembersPronouns')}
-          description={$i18n.t(
+          title={i18n.t('room.cosmeticsMembersPronouns')}
+          description={i18n.t(
             isSpace ? 'room.cosmeticsMembersPronounsSpace' : 'room.cosmeticsMembersPronounsRoom'
           )}
         >
           <Switch
             checked={membersSetPronouns}
             disabled={saving !== null}
-            label={$i18n.t('room.cosmeticsMembersPronouns')}
+            label={i18n.t('room.cosmeticsMembersPronouns')}
             onCheckedChange={(allowed) => {
               allowMembers(COSMETIC_EVENT_TYPES.pronoun, allowed);
             }}

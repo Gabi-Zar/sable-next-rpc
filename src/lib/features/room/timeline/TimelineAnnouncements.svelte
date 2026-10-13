@@ -33,7 +33,7 @@
 </script>
 
 <div class="announcements" data-timeline-announcements aria-live="polite" aria-atomic="true">
-  {#key sequence}{#if count > 0}{$i18n.t('timeline.newMessages', { count })}{/if}{/key}
+  {#key sequence}{#if count > 0}{i18n.t('timeline.newMessages', { count })}{/if}{/key}
 </div>
 
 <style>

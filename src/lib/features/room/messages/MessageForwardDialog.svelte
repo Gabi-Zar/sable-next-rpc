@@ -42,17 +42,17 @@
   }
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('timeline.forwardTitle')}>
+<DialogFrame bind:open variant="verification" label={i18n.t('timeline.forwardTitle')}>
   <div class="forward">
-    <h2>{$i18n.t('timeline.forwardTitle')}</h2>
+    <h2>{i18n.t('timeline.forwardTitle')}</h2>
     <TextInput
       id={fieldId}
       bind:value={search}
-      placeholder={$i18n.t('common.searchRooms')}
-      aria-label={$i18n.t('common.searchRooms')}
+      placeholder={i18n.t('common.searchRooms')}
+      aria-label={i18n.t('common.searchRooms')}
     />
     {#if targets.length === 0}
-      <p class="empty">{$i18n.t('common.noRoomsMatchThatSearch')}</p>
+      <p class="empty">{i18n.t('common.noRoomsMatchThatSearch')}</p>
     {:else}
       <RoomChecklist
         class="targets"
@@ -66,11 +66,11 @@
       <span class="count" aria-live="polite">
         {selected.length === 0
           ? ''
-          : $i18n.t('timeline.forwardSelected', { count: selected.length })}
+          : i18n.t('timeline.forwardSelected', { count: selected.length })}
       </span>
-      <Button variant="ghost" onclick={cancel}>{$i18n.t('common.cancel')}</Button>
+      <Button variant="ghost" onclick={cancel}>{i18n.t('common.cancel')}</Button>
       <Button disabled={selected.length === 0} onclick={send}>
-        {$i18n.t('timeline.forwardSend')}
+        {i18n.t('timeline.forwardSend')}
       </Button>
     </div>
   </div>

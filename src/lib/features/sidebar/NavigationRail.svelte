@@ -136,9 +136,9 @@
 
   function unreadLabel(count: UnreadCount | undefined): string | undefined {
     if (!count) return undefined;
-    if (count.highlight > 0) return $i18n.t('nav.unreadMentions', { count: count.highlight });
-    if (count.unread > 0) return $i18n.t('nav.unreadMessages', { count: count.unread });
-    return count.marked ? $i18n.t('nav.markedUnread') : undefined;
+    if (count.highlight > 0) return i18n.t('nav.unreadMentions', { count: count.highlight });
+    if (count.unread > 0) return i18n.t('nav.unreadMessages', { count: count.unread });
+    return count.marked ? i18n.t('nav.markedUnread') : undefined;
   }
 
   function describedBy(props: Record<string, unknown>, id: string): string {
@@ -417,7 +417,7 @@
 
   function folderLabel(folder: SidebarFolder): string {
     return (
-      folderName(folder, (roomId) => spacesById.get(roomId)?.name ?? null) ?? $i18n.t('nav.folder')
+      folderName(folder, (roomId) => spacesById.get(roomId)?.name ?? null) ?? i18n.t('nav.folder')
     );
   }
 
@@ -571,7 +571,7 @@
           navigate(item);
         }
       : undefined}
-    aria-label={$i18n.t(item.label)}
+    aria-label={i18n.t(item.label)}
     aria-describedby={describedBy(props, unreadId(item.roomId ?? item.href))}
     aria-current={active ? 'page' : undefined}
   >
@@ -583,7 +583,7 @@
   {#if mobile}
     {@render itemLink(item, {}, held)}
   {:else}
-    {@const label = $i18n.t(item.label)}
+    {@const label = i18n.t(item.label)}
     {#snippet trigger({ props }: { props: Record<string, unknown> })}
       {@render itemLink(item, props, held)}
     {/snippet}
@@ -596,7 +596,7 @@
     {...props}
     type="button"
     class="rail-item nav-tab nav-tab-side nav-tab-outlined selection-layer"
-    aria-label={$i18n.t('nav.add')}
+    aria-label={i18n.t('nav.add')}
     aria-haspopup="menu"
     aria-expanded={createOpen}
     onclick={openCreateMenu}
@@ -704,7 +704,7 @@
     class="rail-item folder-preview nav-tab nav-tab-side selection-layer"
     data-current={folderActive(folder) ? 'true' : undefined}
     aria-expanded="false"
-    aria-label={$i18n.t('nav.folderExpand', { name: folderLabel(folder) })}
+    aria-label={i18n.t('nav.folderExpand', { name: folderLabel(folder) })}
     aria-describedby={describedBy(props, unreadId(folder.id))}
     onclick={() => {
       onToggleFolder?.(folder.id);
@@ -765,7 +765,7 @@
         type="button"
         class="folder-collapse"
         aria-expanded="true"
-        aria-label={$i18n.t('nav.folderCollapse', { name: folderLabel(folder) })}
+        aria-label={i18n.t('nav.folderCollapse', { name: folderLabel(folder) })}
         onclick={() => {
           onToggleFolder?.(folder.id);
         }}
@@ -826,7 +826,7 @@
           {#snippet trigger({ props }: { props: Record<string, unknown> })}
             {@render createButton(props)}
           {/snippet}
-          <Tooltip label={$i18n.t('nav.add')} side="right" {trigger} />
+          <Tooltip label={i18n.t('nav.add')} side="right" {trigger} />
         {/if}
       </li>
     </ul>
@@ -839,7 +839,7 @@
 {#if !mobile}
   <ActionMenu
     bind:open={displayOpen}
-    label={$i18n.t('nav.displayOptions')}
+    label={i18n.t('nav.displayOptions')}
     class="rail-display-menu"
     anchor={displayAnchor}
     side="right"
@@ -856,7 +856,7 @@
         }}
       >
         <span class="menu-check" aria-hidden="true">{on ? '✓' : ''}</span>
-        {$i18n.t(toggle.label)}
+        {i18n.t(toggle.label)}
       </ActionMenuItem>
     {/each}
 
@@ -872,7 +872,7 @@
         }}
       >
         <span class="menu-check" aria-hidden="true">{on ? '✓' : ''}</span>
-        {$i18n.t(toggle.label)}
+        {i18n.t(toggle.label)}
       </ActionMenuItem>
     {/each}
   </ActionMenu>
@@ -880,7 +880,7 @@
 
 <ActionMenu
   bind:open={createOpen}
-  label={$i18n.t('nav.add')}
+  label={i18n.t('nav.add')}
   anchor={createAnchor}
   side="right"
   align="end"
@@ -892,7 +892,7 @@
       }}
     >
       <entry.icon />
-      {$i18n.t(entry.label)}
+      {i18n.t(entry.label)}
     </ActionMenuItem>
   {/each}
 </ActionMenu>
@@ -901,7 +901,7 @@
   {@const menu = sectionMenu}
   <ActionMenu
     bind:open={sectionOpen}
-    label={$i18n.t('nav.listOptions')}
+    label={i18n.t('nav.listOptions')}
     anchor={sectionAnchor}
     side="right"
     align="start"
@@ -913,7 +913,7 @@
       }}
     >
       <ChecksIcon />
-      {$i18n.t('common.markAsRead')}
+      {i18n.t('common.markAsRead')}
     </ActionMenuItem>
   </ActionMenu>
 {/if}
@@ -922,7 +922,7 @@
   {@const folder = folderMenu}
   <ActionMenu
     bind:open={folderOptionsOpen}
-    label={$i18n.t('nav.listOptions')}
+    label={i18n.t('nav.listOptions')}
     anchor={folderAnchor}
     side="right"
     align="start"
@@ -933,7 +933,7 @@
       }}
     >
       <ChecksIcon />
-      {$i18n.t('common.markAsRead')}
+      {i18n.t('common.markAsRead')}
     </ActionMenuItem>
     <ActionMenuSeparator />
     <ActionMenuItem
@@ -942,7 +942,7 @@
       }}
     >
       <PencilSimpleIcon />
-      {$i18n.t('nav.folderRename')}
+      {i18n.t('nav.folderRename')}
     </ActionMenuItem>
     <ActionMenuItem
       onSelect={() => {
@@ -950,7 +950,7 @@
       }}
     >
       <FolderOpenIcon />
-      {$i18n.t('nav.folderUngroup')}
+      {i18n.t('nav.folderUngroup')}
     </ActionMenuItem>
   </ActionMenu>
 {/if}

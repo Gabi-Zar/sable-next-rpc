@@ -38,7 +38,7 @@
       });
     } catch (error) {
       console.warn('[sable timeline] could not retry decryption', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     } finally {
       retrying = false;
     }
@@ -62,12 +62,12 @@
 
 <p class={['undecryptable', { waiting }]}>
   {#if waiting}
-    {$i18n.t('timeline.utdWaiting')}
+    {i18n.t('timeline.utdWaiting')}
   {:else}
-    {$i18n.t(utdCauseKey(cause))}
+    {i18n.t(utdCauseKey(cause))}
     {#if sessionId && sender && roomId}
       <button type="button" disabled={retrying} onclick={() => void retry()}>
-        {$i18n.t('timeline.retryDecryption')}
+        {i18n.t('timeline.retryDecryption')}
       </button>
     {/if}
     {#if utdIsRecoverable(cause)}
@@ -76,7 +76,7 @@
         draggable="false"
         data-settings-link={SETTINGS_DEVICES_SECTION}
       >
-        {$i18n.t('common.setUpRecovery')}
+        {i18n.t('common.setUpRecovery')}
       </a>
     {/if}
   {/if}

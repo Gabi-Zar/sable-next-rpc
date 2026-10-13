@@ -26,9 +26,9 @@
 
 {#snippet content(desktop: boolean)}
   <div class={['receipts-dialog', { sheet: !desktop }]}>
-    <h2>{$i18n.t('common.readReceipts')}</h2>
+    <h2>{i18n.t('common.readReceipts')}</h2>
     <MemberUserList
-      title={$i18n.t('common.readReceipts')}
+      title={i18n.t('common.readReceipts')}
       userIds={readers}
       {members}
       {onMemberProfile}
@@ -43,8 +43,8 @@
 
 <ResponsiveDialog
   bind:open
-  label={$i18n.t('common.readReceipts')}
-  closeLabel={$i18n.t('timeline.closeReadReceipts')}
+  label={i18n.t('common.readReceipts')}
+  closeLabel={i18n.t('timeline.closeReadReceipts')}
   children={content}
 />
 

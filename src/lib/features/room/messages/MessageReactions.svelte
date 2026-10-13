@@ -114,13 +114,13 @@
   let mediaHidden = $derived(roomMedia?.hidden ?? false);
 </script>
 
-<div class="reactions" aria-label={$i18n.t('timeline.reactions')}>
+<div class="reactions" aria-label={i18n.t('timeline.reactions')}>
   {#each reactions as reaction, index (reaction.key)}
     {@const mine = currentUserId !== null && reaction.senders.includes(currentUserId)}
     {@const label = reactionEmoteLabel(
       reaction.key,
       packs.current,
-      $i18n.t('timeline.customEmote'),
+      i18n.t('timeline.customEmote'),
       sentShortcodes
     )}
     {@const shortcode = reactionShortcode(reaction.key, packs.current, sentShortcodes)}
@@ -130,7 +130,7 @@
         class="reaction choice"
         type="button"
         aria-pressed={mine}
-        aria-label={$i18n.t('timeline.toggleReaction', {
+        aria-label={i18n.t('timeline.toggleReaction', {
           key: label,
           count: reaction.senders.length,
         })}
@@ -192,7 +192,7 @@
       reaction.senders,
       emojiShortcode ? `:${emojiShortcode}:` : label,
       members,
-      $i18n.t
+      i18n.t
     )}
     {#snippet emoteCard()}
       <EmoteCard label={summary} variant="reaction">
@@ -221,7 +221,7 @@
     <button
       type="button"
       class="add-reaction"
-      aria-label={$i18n.t('timeline.addReaction')}
+      aria-label={i18n.t('timeline.addReaction')}
       bind:this={addReactionButton}
       onclick={() => (addReactionOpen = true)}
     >

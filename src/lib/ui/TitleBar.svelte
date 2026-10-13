@@ -91,7 +91,7 @@
     <div class="controls">
       <button
         type="button"
-        aria-label={$i18n.t('window.minimize')}
+        aria-label={i18n.t('window.minimize')}
         onclick={() => {
           dismissSnap();
           void minimizeWindow();
@@ -103,7 +103,7 @@
       </button>
       <button
         type="button"
-        aria-label={maximized ? $i18n.t('common.restore') : $i18n.t('window.maximize')}
+        aria-label={maximized ? i18n.t('common.restore') : i18n.t('window.maximize')}
         onmouseenter={hoverMaximize}
         onmouseleave={leaveMaximize}
         onclick={() => {
@@ -123,7 +123,7 @@
       <button
         type="button"
         class="close"
-        aria-label={$i18n.t('common.close')}
+        aria-label={i18n.t('common.close')}
         onclick={() => {
           dismissSnap();
           void closeWindow();

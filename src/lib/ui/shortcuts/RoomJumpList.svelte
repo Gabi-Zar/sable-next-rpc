@@ -37,7 +37,7 @@
   let results = $derived(filterRoomsByQuery(roomList.rooms, query));
   let parents = $derived(parentSpaceNames(roomList.rooms));
   let active = $derived(Math.min(activeIndex, Math.max(0, results.length - 1)));
-  let heading = $derived(parsed.text === '' ? $i18n.t('shortcuts.paletteRecents') : null);
+  let heading = $derived(parsed.text === '' ? i18n.t('shortcuts.paletteRecents') : null);
 
   function optionId(index: number): string {
     return `${uid}-option-${index}`;
@@ -74,19 +74,19 @@
     aria-controls={listboxId}
     aria-activedescendant={results.length > 0 ? optionId(active) : undefined}
     aria-autocomplete="list"
-    aria-label={$i18n.t('shortcuts.paletteTitle')}
-    placeholder={$i18n.t('common.searchRooms')}
+    aria-label={i18n.t('shortcuts.paletteTitle')}
+    placeholder={i18n.t('common.searchRooms')}
     autocomplete="off"
   />
-  <p class="hint">{$i18n.t('shortcuts.paletteHint')}</p>
+  <p class="hint">{i18n.t('shortcuts.paletteHint')}</p>
   {#if results.length === 0}
-    <p class="empty">{$i18n.t('shortcuts.paletteEmpty')}</p>
+    <p class="empty">{i18n.t('shortcuts.paletteEmpty')}</p>
   {:else}
     {#if heading}<p class="heading">{heading}</p>{/if}
     <ul
       id={listboxId}
       role="listbox"
-      aria-label={$i18n.t('shortcuts.paletteTitle')}
+      aria-label={i18n.t('shortcuts.paletteTitle')}
       {@attach keepActiveInView}
       {@attach scrollHint}
     >

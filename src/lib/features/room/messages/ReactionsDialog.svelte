@@ -54,7 +54,7 @@
       await redactReaction(core, roomId, eventId, key, sender);
     } catch (error) {
       console.warn('[sable timeline] reaction redaction failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     } finally {
       deleting = null;
     }
@@ -64,7 +64,7 @@
 <TabbedMemberListDialog
   bind:open
   bind:active
-  title={$i18n.t('timeline.viewReactions')}
+  title={i18n.t('timeline.viewReactions')}
   tabs={reactions}
   tabKey={(reaction) => reaction.key}
   userIds={(reaction) => reaction.senders}
@@ -76,7 +76,7 @@
       <MediaImage
         class="reaction-image"
         source={reaction.key}
-        alt={reactionEmoteLabel(reaction.key, packs.current, $i18n.t('timeline.customEmote'))}
+        alt={reactionEmoteLabel(reaction.key, packs.current, i18n.t('timeline.customEmote'))}
         width={64}
         height={64}
         original
@@ -90,7 +90,7 @@
       <IconButton
         class="reaction-delete"
         variant="ghost"
-        label={$i18n.t('timeline.removeReaction', { name: memberName(members, sender) })}
+        label={i18n.t('timeline.removeReaction', { name: memberName(members, sender) })}
         loading={deleting?.key === reaction.key && deleting.sender === sender}
         disabled={deleting !== null}
         onclick={() => {

@@ -6,11 +6,11 @@
 <footer class="auth-footer">
   <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external project URL -->
   <a href={SABLE_SOURCE_URL} rel="noopener noreferrer" target="_blank">
-    {$i18n.t('common.sourceCode')}
+    {i18n.t('common.sourceCode')}
   </a>
   <span aria-hidden="true">·</span>
   <span
-    >{$i18n.t('footer.poweredBy')}
+    >{i18n.t('footer.poweredBy')}
     <a href="https://matrix.org" rel="noopener noreferrer" target="_blank">Matrix</a></span
   >
 </footer>

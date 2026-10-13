@@ -93,11 +93,11 @@
 <section class="troubleshoot settings-form" aria-labelledby="notification-troubleshoot">
   <div class="settings-heading-row">
     <h3 id="notification-troubleshoot" data-settings-outline>
-      {$i18n.t('settings.troubleshootTitle')}
+      {i18n.t('settings.troubleshootTitle')}
     </h3>
     <SettingsAnchorLink anchor="notification-troubleshoot" />
   </div>
-  <p class="hint settings-description">{$i18n.t('settings.troubleshootHint')}</p>
+  <p class="hint settings-description">{i18n.t('settings.troubleshootHint')}</p>
 
   {#if started}
     <ol class="checks">
@@ -118,11 +118,11 @@
             {/if}
           </span>
           <span class="copy">
-            <span class="label">{$i18n.t(label)}</span>
+            <span class="label">{i18n.t(label)}</span>
             {#if result}
-              <span class="message">{$i18n.t(result.message, result.params ?? {})}</span>
+              <span class="message">{i18n.t(result.message, result.params ?? {})}</span>
               {#if result.detail}
-                <span class="message">{$i18n.t(result.detail.message, result.detail.params)}</span>
+                <span class="message">{i18n.t(result.detail.message, result.detail.params)}</span>
               {/if}
             {/if}
           </span>
@@ -133,7 +133,7 @@
               disabled={running}
               onclick={() => void allow()}
             >
-              {$i18n.t('settings.troubleshootAllow')}
+              {i18n.t('settings.troubleshootAllow')}
             </Button>
           {:else if result?.state === 'fail' && check === 'alerts'}
             <Button
@@ -142,7 +142,7 @@
               disabled={running}
               onclick={() => void enableAlerts()}
             >
-              {$i18n.t('settings.troubleshootEnable')}
+              {i18n.t('settings.troubleshootEnable')}
             </Button>
           {/if}
         </li>
@@ -152,7 +152,7 @@
 
   <div>
     <Button variant="secondary" size="small" disabled={running} onclick={() => void run()}>
-      {$i18n.t(started ? 'settings.troubleshootRunAgain' : 'settings.troubleshootRun')}
+      {i18n.t(started ? 'settings.troubleshootRunAgain' : 'settings.troubleshootRun')}
     </Button>
   </div>
 </section>

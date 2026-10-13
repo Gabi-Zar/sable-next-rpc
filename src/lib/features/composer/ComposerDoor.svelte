@@ -56,13 +56,13 @@
 {/if}
 {#if desktop}
   <DropdownMenu.Root>
-    <Tooltip label={$i18n.t('composer.insert')}>
+    <Tooltip label={i18n.t('composer.insert')}>
       {#snippet trigger({ props })}
         <DropdownMenu.Trigger
           {...props}
           class="composer-door selection-open"
           {disabled}
-          aria-label={$i18n.t('composer.insert')}
+          aria-label={i18n.t('composer.insert')}
         >
           <PlusIcon />
         </DropdownMenu.Trigger>
@@ -83,7 +83,7 @@
           }}
         >
           <ImageIcon />
-          {$i18n.t('composer.photoOrVideo')}
+          {i18n.t('composer.photoOrVideo')}
         </DropdownMenu.Item>
         <DropdownMenu.Item
           class="menu-item"
@@ -92,30 +92,30 @@
           }}
         >
           <PaperclipIcon />
-          {$i18n.t('composer.attachFile')}
+          {i18n.t('composer.attachFile')}
         </DropdownMenu.Item>
         {#if onVoice}
           <DropdownMenu.Item class="menu-item" onclick={onVoice}>
             <MicrophoneIcon />
-            {$i18n.t('composer.voiceRecord')}
+            {i18n.t('composer.voiceRecord')}
           </DropdownMenu.Item>
         {/if}
         {#if onPoll}
           <DropdownMenu.Item class="menu-item" onclick={onPoll}>
             <ChartBarIcon />
-            {$i18n.t('composer.poll')}
+            {i18n.t('composer.poll')}
           </DropdownMenu.Item>
         {/if}
         {#if onLocation}
           <DropdownMenu.Item class="menu-item" onclick={onLocation}>
             <MapPinIcon />
-            {$i18n.t('composer.location')}
+            {i18n.t('composer.location')}
           </DropdownMenu.Item>
         {/if}
         {#if onSchedule}
           <DropdownMenu.Item class="menu-item" onclick={onSchedule}>
             <ClockIcon />
-            {$i18n.t('composer.scheduleMessage')}
+            {i18n.t('composer.scheduleMessage')}
           </DropdownMenu.Item>
         {/if}
       </DropdownMenu.Content>
@@ -127,7 +127,7 @@
     class="composer-door selection-open"
     {disabled}
     data-state={open ? 'open' : 'closed'}
-    aria-label={$i18n.t('composer.insert')}
+    aria-label={i18n.t('composer.insert')}
     onpointerdown={onBeforeOpen}
     onclick={() => {
       open = true;
@@ -137,8 +137,8 @@
   </button>
   <BottomSheet
     bind:open
-    label={$i18n.t('composer.insert')}
-    closeLabel={$i18n.t('composer.closeInsert')}
+    label={i18n.t('composer.insert')}
+    closeLabel={i18n.t('composer.closeInsert')}
   >
     <div class="door-sheet">
       <Button
@@ -150,7 +150,7 @@
         }}
       >
         <ImageIcon />
-        {$i18n.t('composer.photoOrVideo')}
+        {i18n.t('composer.photoOrVideo')}
       </Button>
       {#if onCapture}
         <Button
@@ -162,7 +162,7 @@
           }}
         >
           <CameraIcon />
-          {$i18n.t('composer.takePhoto')}
+          {i18n.t('composer.takePhoto')}
         </Button>
         <Button
           variant="ghost"
@@ -173,7 +173,7 @@
           }}
         >
           <VideoCameraIcon />
-          {$i18n.t('composer.recordVideo')}
+          {i18n.t('composer.recordVideo')}
         </Button>
       {/if}
       <Button
@@ -185,7 +185,7 @@
         }}
       >
         <PaperclipIcon />
-        {$i18n.t('composer.attachFile')}
+        {i18n.t('composer.attachFile')}
       </Button>
       {#if onVoice}
         <Button
@@ -197,7 +197,7 @@
           }}
         >
           <MicrophoneIcon />
-          {$i18n.t('composer.voiceRecord')}
+          {i18n.t('composer.voiceRecord')}
         </Button>
       {/if}
       {#if onPoll}
@@ -210,7 +210,7 @@
           }}
         >
           <ChartBarIcon />
-          {$i18n.t('composer.poll')}
+          {i18n.t('composer.poll')}
         </Button>
       {/if}
       {#if onLocation}
@@ -223,7 +223,7 @@
           }}
         >
           <MapPinIcon />
-          {$i18n.t('composer.location')}
+          {i18n.t('composer.location')}
         </Button>
       {/if}
       {#if onSchedule}
@@ -236,7 +236,7 @@
           }}
         >
           <ClockIcon />
-          {$i18n.t('composer.scheduleMessage')}
+          {i18n.t('composer.scheduleMessage')}
         </Button>
       {/if}
     </div>

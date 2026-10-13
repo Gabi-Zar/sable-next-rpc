@@ -70,13 +70,13 @@
 </script>
 
 <div class="chat-style-card auth-card-surface">
-  <AuthField labelId="chat-style-title" label={$i18n.t('setup.layoutTitle')}>
-    <p class="hint">{$i18n.t('setup.layoutDescription')}</p>
+  <AuthField labelId="chat-style-title" label={i18n.t('setup.layoutTitle')}>
+    <p class="hint">{i18n.t('setup.layoutDescription')}</p>
   </AuthField>
 
   <TooltipProvider>
     <fieldset>
-      <legend>{$i18n.t('settings.layout')}</legend>
+      <legend>{i18n.t('settings.layout')}</legend>
       <div class="sample" inert aria-hidden="true">
         <TimelineItem item={message} collapsed={false} layout={preferences.layout} preview />
       </div>
@@ -89,14 +89,14 @@
               checked={preferences.layout === value}
               onchange={() => setPreference('layout', value)}
             />
-            {$i18n.t(layoutLabels[value])}
+            {i18n.t(layoutLabels[value])}
           </label>
         {/each}
       </div>
     </fieldset>
 
     <fieldset>
-      <legend>{$i18n.t('settings.replyPreviewStyle')}</legend>
+      <legend>{i18n.t('settings.replyPreviewStyle')}</legend>
       <div class="sample" inert aria-hidden="true">
         <TimelineItem item={reply} collapsed={false} layout={preferences.layout} preview />
       </div>
@@ -109,14 +109,14 @@
               checked={preferences.replyPreviewStyle === value}
               onchange={() => setPreference('replyPreviewStyle', value)}
             />
-            {$i18n.t(replyLabels[value])}
+            {i18n.t(replyLabels[value])}
           </label>
         {/each}
       </div>
     </fieldset>
   </TooltipProvider>
 
-  <Button variant="primary" block onclick={onComplete}>{$i18n.t('auth.continue')}</Button>
+  <Button variant="primary" block onclick={onComplete}>{i18n.t('auth.continue')}</Button>
 </div>
 
 <style>

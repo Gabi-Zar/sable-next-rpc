@@ -100,18 +100,18 @@
   }
 
   function sectionLabel(id: string): string {
-    return $i18n.t(sections.find((entry) => entry.id === id)?.label ?? 'room.settingsTitle');
+    return i18n.t(sections.find((entry) => entry.id === id)?.label ?? 'room.settingsTitle');
   }
 </script>
 
-<DialogFrame {open} {onOpenChange} variant="settings" label={$i18n.t('room.settingsTitle')}>
+<DialogFrame {open} {onOpenChange} variant="settings" label={i18n.t('room.settingsTitle')}>
   <SettingsShell
     {section}
     fallback={() => sections[0]?.id ?? null}
-    label={$i18n.t('room.settingsTitle')}
-    description={$i18n.t('room.settingsDialogDescription')}
-    closeLabel={$i18n.t('room.settingsClose')}
-    backLabel={$i18n.t('common.back')}
+    label={i18n.t('room.settingsTitle')}
+    description={i18n.t('room.settingsDialogDescription')}
+    closeLabel={i18n.t('room.settingsClose')}
+    backLabel={i18n.t('common.back')}
     {sectionLabel}
     {heading}
     {nav}
@@ -132,9 +132,9 @@
 
 {#snippet nav(state: SettingsShellNav)}
   <SettingsNav
-    entries={sections.map((entry) => ({ ...entry, label: $i18n.t(entry.label) }))}
+    entries={sections.map((entry) => ({ ...entry, label: i18n.t(entry.label) }))}
     activeId={state.openSection}
-    ariaLabel={$i18n.t('room.settingsSections')}
+    ariaLabel={i18n.t('room.settingsSections')}
     onSelect={(_, id) => {
       show(id as RoomSettingsSectionId);
     }}

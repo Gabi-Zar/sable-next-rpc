@@ -41,21 +41,21 @@
   <div class="fallback-step" aria-live="polite">
     <div class="fallback-icon" aria-hidden="true"><ArrowSquareOutIcon /></div>
     {#if fallback}
-      <h3>{$i18n.t('auth.finishInBrowser')}</h3>
-      <p>{$i18n.t('auth.finishInBrowserDescription', { server: homeserver })}</p>
+      <h3>{i18n.t('auth.finishInBrowser')}</h3>
+      <p>{i18n.t('auth.finishInBrowserDescription', { server: homeserver })}</p>
       <FormActions>
         <Button onclick={onOpenFallback} disabled={isRegistering} variant="primary">
-          {$i18n.t('auth.openServerPage')}
+          {i18n.t('auth.openServerPage')}
         </Button>
         <Button onclick={onContinueFallback} disabled={isRegistering} variant="primary">
           {#if isRegistering}<Spinner />{/if}
-          {$i18n.t('auth.iFinished')}
+          {i18n.t('auth.iFinished')}
         </Button>
       </FormActions>
     {:else if emailStep}
       {#if !emailStep.email}
-        <h3>{$i18n.t('auth.verifyEmail')}</h3>
-        <p>{$i18n.t('auth.verifyEmailDescription')}</p>
+        <h3>{i18n.t('auth.verifyEmail')}</h3>
+        <p>{i18n.t('auth.verifyEmailDescription')}</p>
         <form
           class="email-form"
           onsubmit={(event) => {
@@ -63,7 +63,7 @@
             onRequestRegistrationEmail(emailAddress);
           }}
         >
-          <FormField dense fieldId="registration-email" label={$i18n.t('auth.email')}>
+          <FormField dense fieldId="registration-email" label={i18n.t('auth.email')}>
             <TextInput
               id="registration-email"
               type="email"
@@ -77,12 +77,12 @@
           </FormField>
           <Button type="submit" disabled={isRegistering} variant="primary">
             {#if isRegistering}<Spinner />{/if}
-            {$i18n.t('auth.sendVerificationEmail')}
+            {i18n.t('auth.sendVerificationEmail')}
           </Button>
         </form>
       {:else if emailStep.submit_url && !emailStep.verified}
-        <h3>{$i18n.t('auth.enterEmailCode')}</h3>
-        <p>{$i18n.t('auth.enterEmailCodeDescription', { email: emailStep.email })}</p>
+        <h3>{i18n.t('auth.enterEmailCode')}</h3>
+        <p>{i18n.t('auth.enterEmailCodeDescription', { email: emailStep.email })}</p>
         <form
           class="email-form"
           onsubmit={(event) => {
@@ -90,7 +90,7 @@
             onSubmitRegistrationEmail(emailToken);
           }}
         >
-          <FormField dense fieldId="registration-email-token" label={$i18n.t('auth.emailCode')}>
+          <FormField dense fieldId="registration-email-token" label={i18n.t('auth.emailCode')}>
             <TextInput
               id="registration-email-token"
               value={emailToken}
@@ -105,28 +105,28 @@
           </FormField>
           <Button type="submit" disabled={isRegistering} variant="primary">
             {#if isRegistering}<Spinner />{/if}
-            {$i18n.t('auth.verifyEmail')}
+            {i18n.t('auth.verifyEmail')}
           </Button>
         </form>
       {:else if emailStep.verified || emailStep.can_complete_out_of_band}
-        <h3>{$i18n.t(emailStep.verified ? 'auth.emailVerified' : 'auth.checkYourEmail')}</h3>
+        <h3>{i18n.t(emailStep.verified ? 'auth.emailVerified' : 'auth.checkYourEmail')}</h3>
         <p>
-          {$i18n.t(
+          {i18n.t(
             emailStep.verified ? 'auth.emailVerifiedDescription' : 'auth.checkYourEmailDescription',
             { email: emailStep.email }
           )}
         </p>
         <Button onclick={onContinueFallback} disabled={isRegistering} variant="primary">
           {#if isRegistering}<Spinner />{/if}
-          {$i18n.t('auth.iFinished')}
+          {i18n.t('auth.iFinished')}
         </Button>
       {:else}
-        <h3>{$i18n.t('auth.emailVerificationUnavailable')}</h3>
-        <p>{$i18n.t('auth.emailVerificationUnavailableDescription')}</p>
+        <h3>{i18n.t('auth.emailVerificationUnavailable')}</h3>
+        <p>{i18n.t('auth.emailVerificationUnavailableDescription')}</p>
       {/if}
     {/if}
     <p class="stage-progress">
-      {$i18n.t('auth.registrationStage', {
+      {i18n.t('auth.registrationStage', {
         stage,
         current: completedStages + 1,
         total: totalStages,

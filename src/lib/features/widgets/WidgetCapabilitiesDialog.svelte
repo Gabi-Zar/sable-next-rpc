@@ -36,11 +36,11 @@
     if (!next) decide([]);
   }}
   variant="verification"
-  label={$i18n.t('widgets.capabilitiesTitle', { name: widgetName })}
+  label={i18n.t('widgets.capabilitiesTitle', { name: widgetName })}
 >
   <div class="capabilities">
-    <h2>{$i18n.t('widgets.capabilitiesTitle', { name: widgetName })}</h2>
-    <p class="explain">{$i18n.t('widgets.capabilitiesExplain')}</p>
+    <h2>{i18n.t('widgets.capabilitiesTitle', { name: widgetName })}</h2>
+    <p class="explain">{i18n.t('widgets.capabilitiesExplain')}</p>
 
     <ul {@attach scrollHint}>
       {#each requested as capability (capability)}
@@ -55,9 +55,9 @@
               }}
             />
             <span class="label">
-              {$i18n.t(capabilityLabel(capability), { capability })}
+              {i18n.t(capabilityLabel(capability), { capability })}
               {#if sensitive}
-                <span class="warning">{$i18n.t('widgets.capabilitySensitive')}</span>
+                <span class="warning">{i18n.t('widgets.capabilitySensitive')}</span>
               {/if}
             </span>
           </label>
@@ -72,14 +72,14 @@
           decide([]);
         }}
       >
-        {$i18n.t('widgets.capabilitiesDeny')}
+        {i18n.t('widgets.capabilitiesDeny')}
       </Button>
       <Button
         onclick={() => {
           decide(granted);
         }}
       >
-        {$i18n.t('widgets.capabilitiesAllow')}
+        {i18n.t('widgets.capabilitiesAllow')}
       </Button>
     </DialogActions>
   </div>

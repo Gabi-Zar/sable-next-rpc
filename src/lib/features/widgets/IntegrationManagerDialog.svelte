@@ -55,32 +55,32 @@
 <DialogFrame
   {open}
   variant="fullscreen"
-  label={$i18n.t('widgets.integrationManager')}
+  label={i18n.t('widgets.integrationManager')}
   onOpenChange={(next) => {
     if (!next) onClose();
   }}
 >
   <div class="manager">
-    <PanelHeader title={$i18n.t('widgets.integrationManager')}>
+    <PanelHeader title={i18n.t('widgets.integrationManager')}>
       {#snippet suffix()}
-        <PanelHeaderButton label={$i18n.t('widgets.close')} onclick={onClose}>
+        <PanelHeaderButton label={i18n.t('widgets.close')} onclick={onClose}>
           <XIcon />
         </PanelHeaderButton>
       {/snippet}
     </PanelHeader>
     <div class="body">
       {#if failed}
-        <Alert variant="critical">{$i18n.t('widgets.integrationManagerFailed')}</Alert>
+        <Alert variant="critical">{i18n.t('widgets.integrationManagerFailed')}</Alert>
       {:else if url === null}
-        <Spinner label={$i18n.t('widgets.integrationManagerLoading')} />
+        <Spinner label={i18n.t('widgets.integrationManagerLoading')} />
       {:else}
         {#if !loaded}
           <div class="loading">
-            <Spinner label={$i18n.t('widgets.integrationManagerLoading')} />
+            <Spinner label={i18n.t('widgets.integrationManagerLoading')} />
           </div>
         {/if}
         <iframe
-          title={$i18n.t('widgets.integrationManager')}
+          title={i18n.t('widgets.integrationManager')}
           src={url}
           sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           allow="microphone; camera; encrypted-media; autoplay; clipboard-write; display-capture"

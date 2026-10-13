@@ -93,18 +93,18 @@
 </script>
 
 {#snippet accountProviderInfo()}
-  <Tooltip variant="icon" label={$i18n.t('auth.accountProviderHint')}><InfoIcon /></Tooltip>
+  <Tooltip variant="icon" label={i18n.t('auth.accountProviderHint')}><InfoIcon /></Tooltip>
 {/snippet}
 
 <section class="registration-card auth-card-surface" aria-labelledby="registration-title">
-  <AuthField labelId="registration-title" label={$i18n.t('auth.createAccount')}>
+  <AuthField labelId="registration-title" label={i18n.t('auth.createAccount')}>
     {#if !fallback && !emailStep}
       <AuthInfoBox trailing={accountProviderInfo}>
         <span class="provider-name">
           <!-- mustache required so formatter doesn't delete the space -->
           <!-- eslint-disable-next-line svelte/no-useless-mustaches -->
-          {$i18n.t('auth.registeringWith')}{' '}
-          <Tooltip variant="inline" label={$i18n.t('auth.changeProviderHint')}>
+          {i18n.t('auth.registeringWith')}{' '}
+          <Tooltip variant="inline" label={i18n.t('auth.changeProviderHint')}>
             {homeserver || homeservers.default}
           </Tooltip>
         </span>
@@ -125,7 +125,7 @@
     />
   {:else}
     {#if isEditingHomeserver}
-      <FormField dense fieldId="registration-homeserver" label={$i18n.t('auth.accountProvider')}>
+      <FormField dense fieldId="registration-homeserver" label={i18n.t('auth.accountProvider')}>
         <HomeserverPicker
           id="registration-homeserver"
           value={homeserver}
@@ -146,7 +146,7 @@
 
     <AuthStatusSlot
       loading={isCheckingHomeserver}
-      loadingMessage={$i18n.t('auth.checkingProvider')}
+      loadingMessage={i18n.t('auth.checkingProvider')}
       message={invalidRegistrationField === 'homeserver' && registrationFieldError
         ? registrationFieldError
         : error && !registrationFieldError

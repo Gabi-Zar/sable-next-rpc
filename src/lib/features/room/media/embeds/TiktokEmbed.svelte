@@ -66,7 +66,7 @@
         <button
           type="button"
           class="tiktok-poster"
-          aria-label={$i18n.t('timeline.playVideo', { name: title })}
+          aria-label={i18n.t('timeline.playVideo', { name: title })}
           onclick={() => (playing = true)}
         >
           <span class="tiktok-play" aria-hidden="true"><PlayIcon /></span>

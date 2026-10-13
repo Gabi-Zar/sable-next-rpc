@@ -74,10 +74,10 @@
     if (!open) dismiss();
   }}
   variant="verification"
-  label={$i18n.t('share.title')}
+  label={i18n.t('share.title')}
 >
   <div class="share">
-    <h2>{$i18n.t('share.title')}</h2>
+    <h2>{i18n.t('share.title')}</h2>
 
     {#if inbox.text !== ''}
       <p class="preview">{inbox.text}</p>
@@ -85,16 +85,16 @@
     {#if inbox.fileCount > 0}
       <p class="files">
         <PaperclipIcon size={16} aria-hidden="true" />
-        {$i18n.t('share.files', { count: inbox.fileCount })}
+        {i18n.t('share.files', { count: inbox.fileCount })}
       </p>
     {/if}
 
     {#if failed}
-      <Alert variant="critical" role="alert">{$i18n.t('share.failed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('share.failed')}</Alert>
     {/if}
 
     {#if staging}
-      <p class="staging"><Spinner small /> {$i18n.t('share.staging')}</p>
+      <p class="staging"><Spinner small /> {i18n.t('share.staging')}</p>
     {:else}
       <RoomJumpList
         onSelect={(room) => {

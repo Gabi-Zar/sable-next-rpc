@@ -19,17 +19,17 @@
   <SettingsRow
     id={anchor}
     data-settings-focus={anchor}
-    title={$i18n.t('settings.doubleTapReaction')}
+    title={i18n.t('settings.doubleTapReaction')}
     {disabled}
     badge={disabled
-      ? $i18n.t('settings.needsSetting', { name: $i18n.t('settings.doubleTapReact') })
+      ? i18n.t('settings.needsSetting', { name: i18n.t('settings.doubleTapReact') })
       : undefined}
     class="gated"
   >
     <span class="trigger" bind:this={trigger}>
       <Button
         {disabled}
-        aria-label={$i18n.t('settings.doubleTapReaction')}
+        aria-label={i18n.t('settings.doubleTapReaction')}
         onclick={() => {
           open = true;
         }}

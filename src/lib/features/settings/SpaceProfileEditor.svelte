@@ -271,7 +271,7 @@
         void save();
       }}
     >
-      <div class="profile-hero" aria-label={$i18n.t('settings.profilePreview')}>
+      <div class="profile-hero" aria-label={i18n.t('settings.profilePreview')}>
         <ProfileCard
           {userId}
           displayName={draft.name.trim() || profile.display_name || userId}
@@ -286,7 +286,7 @@
           {#snippet nameField()}
             <div class="caption-field">
               <label class="caption" for="space-display-name"
-                >{$i18n.t('room.cosmeticsNameSpace')}</label
+                >{i18n.t('room.cosmeticsNameSpace')}</label
               >
               <TextInput
                 id="space-display-name"
@@ -300,17 +300,17 @@
           {/snippet}
           {#snippet pronouns()}
             <div class="caption-field">
-              <label class="caption" for="space-pronouns">{$i18n.t('settings.pronouns')}</label>
+              <label class="caption" for="space-pronouns">{i18n.t('settings.pronouns')}</label>
               {#if canSetPronouns}
                 <TextInput
                   id="space-pronouns"
                   class="inline-edit hero-pronouns"
                   bind:value={draft.pronouns}
                   disabled={loading}
-                  placeholder={$i18n.t('room.cosmeticsPronounsPlaceholder')}
+                  placeholder={i18n.t('room.cosmeticsPronounsPlaceholder')}
                 />
               {:else}
-                <Tooltip label={$i18n.t('room.cosmeticsNotAllowed')}>
+                <Tooltip label={i18n.t('room.cosmeticsNotAllowed')}>
                   {#snippet trigger({ props })}
                     <span {...props} class="pronouns-tooltip-trigger">
                       <TextInput
@@ -318,7 +318,7 @@
                         class="inline-edit hero-pronouns"
                         bind:value={draft.pronouns}
                         disabled
-                        placeholder={$i18n.t('room.cosmeticsPronounsPlaceholder')}
+                        placeholder={i18n.t('room.cosmeticsPronounsPlaceholder')}
                       />
                     </span>
                   {/snippet}
@@ -338,7 +338,7 @@
                   if (file) setAvatar(file);
                 }}
               />
-              {$i18n.t('common.changePicture')}
+              {i18n.t('common.changePicture')}
             </label>
             {#if draft.avatar || avatarFile}
               <Button
@@ -347,7 +347,7 @@
                 onclick={() => {
                   setAvatar(null);
                   draft.avatar = null;
-                }}>{$i18n.t('room.cosmeticsAvatarReset')}</Button
+                }}>{i18n.t('room.cosmeticsAvatarReset')}</Button
               >
             {/if}
           {/snippet}
@@ -356,9 +356,9 @@
       <div class="settings-form">
         {#if canSetColor}
           <fieldset class="group">
-            <legend>{$i18n.t('settings.profileColors')}</legend>
+            <legend>{i18n.t('settings.profileColors')}</legend>
             <ColorSetting
-              label={$i18n.t('room.cosmeticsColorDark')}
+              label={i18n.t('room.cosmeticsColorDark')}
               bind:value={draft.dark}
               onCommit={() => {}}
               onReset={() => {
@@ -366,7 +366,7 @@
               }}
             />
             <ColorSetting
-              label={$i18n.t('room.cosmeticsColorLight')}
+              label={i18n.t('room.cosmeticsColorLight')}
               bind:value={draft.light}
               onCommit={() => {}}
               onReset={() => {
@@ -376,13 +376,13 @@
           </fieldset>
         {/if}
         <fieldset class="group">
-          <legend>{$i18n.t('room.cosmeticsApplyRooms')}</legend>
+          <legend>{i18n.t('room.cosmeticsApplyRooms')}</legend>
           <p class="settings-note">{applyNote}</p>
           <div>
             <Button
               size="small"
               disabled={saving || dirty || applyTargets.length === 0}
-              onclick={() => void applyToRooms()}>{$i18n.t('common.apply')}</Button
+              onclick={() => void applyToRooms()}>{i18n.t('common.apply')}</Button
             >
           </div>
         </fieldset>
@@ -390,12 +390,12 @@
       <div class="actions">
         {#if error}<p class="actions-note critical" role="alert">{error}</p>
         {:else if dirty}<p class="actions-note" role="status">
-            {$i18n.t('settings.unsavedChanges')}
+            {i18n.t('settings.unsavedChanges')}
           </p>{/if}
         <Button type="submit" variant="primary" disabled={!dirty || loading} loading={saving}
-          >{$i18n.t('common.save')}</Button
+          >{i18n.t('common.save')}</Button
         >
-        <Button disabled={!dirty || saving} onclick={cancel}>{$i18n.t('common.cancel')}</Button>
+        <Button disabled={!dirty || saving} onclick={cancel}>{i18n.t('common.cancel')}</Button>
       </div>
     </form>
   </div>

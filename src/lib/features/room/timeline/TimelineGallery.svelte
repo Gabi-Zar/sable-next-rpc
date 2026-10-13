@@ -46,7 +46,7 @@
     <div class="cell">
       {#if item.kind === 'video' && spoiler !== null && !revealed.has(item.source)}
         <Button class="spoiler-reveal" onclick={() => revealed.add(item.source)}>
-          {spoiler ? `${spoiler} — ` : ''}{$i18n.t('timeline.spoilerMedia')}
+          {spoiler ? `${spoiler} — ` : ''}{i18n.t('timeline.spoilerMedia')}
         </Button>
       {:else if item.kind === 'image'}
         <MediaImage

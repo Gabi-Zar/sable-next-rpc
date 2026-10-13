@@ -5,8 +5,8 @@
 </script>
 
 <AppPageShell
-  title={$i18n.t('room.createSpaceTitle')}
-  description={$i18n.t('room.createSpaceDescription')}
+  title={i18n.t('room.createSpaceTitle')}
+  description={i18n.t('room.createSpaceDescription')}
 >
   <CreateRoomForm mode="space" />
 </AppPageShell>

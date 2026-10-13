@@ -200,7 +200,7 @@
 
   function report(error: unknown): void {
     console.warn('[sable room] room action failed', error);
-    toasts.error($i18n.t('errors.actionFailed'));
+    toasts.error(i18n.t('errors.actionFailed'));
   }
 
   function toggleTag(tag: RoomTag, current: boolean): void {
@@ -242,7 +242,7 @@
   }
 
   async function copyLink(): Promise<void> {
-    if (!(await copyRoomLink(core, room))) toasts.error($i18n.t('errors.copyFailed'));
+    if (!(await copyRoomLink(core, room))) toasts.error(i18n.t('errors.copyFailed'));
   }
 
   async function copyId(): Promise<void> {
@@ -250,7 +250,7 @@
       await copyText(room.room_id);
     } catch (error) {
       console.debug('[sable room] copy id failed', error);
-      toasts.error($i18n.t('errors.copyFailed'));
+      toasts.error(i18n.t('errors.copyFailed'));
     }
   }
 </script>
@@ -260,7 +260,7 @@
     {...props}
     type="button"
     class="room-options-trigger selection-open"
-    aria-label={$i18n.t('room.menuLabel')}
+    aria-label={i18n.t('room.menuLabel')}
   >
     <DotsThreeVerticalIcon />
   </button>
@@ -268,7 +268,7 @@
 
 <ActionMenu
   bind:open
-  label={$i18n.t('room.menuLabel')}
+  label={i18n.t('room.menuLabel')}
   class="room-options-menu"
   {anchor}
   {side}
@@ -280,12 +280,12 @@
     {#if room.is_space || unread}
       <ActionMenuItem disabled={!unread} onSelect={markRead}>
         <ChecksIcon />
-        {$i18n.t('common.markAsRead')}
+        {i18n.t('common.markAsRead')}
       </ActionMenuItem>
     {:else}
       <ActionMenuItem onSelect={markUnread}>
         <CircleDashedIcon />
-        {$i18n.t('room.menuMarkUnread')}
+        {i18n.t('room.menuMarkUnread')}
       </ActionMenuItem>
     {/if}
     <ActionMenuSeparator />
@@ -295,7 +295,7 @@
       }}
     >
       <StarIcon weight={favourite ? 'fill' : 'regular'} />
-      {$i18n.t('room.menuFavourite')}
+      {i18n.t('room.menuFavourite')}
     </ActionMenuItem>
     <ActionMenuItem
       disabled={quietBySpace}
@@ -309,16 +309,16 @@
         <EyeSlashIcon />
       {/if}
       {quietBySpace
-        ? $i18n.t('room.menuUnreadHiddenBySpace')
+        ? i18n.t('room.menuUnreadHiddenBySpace')
         : quiet
-          ? $i18n.t('room.menuShowUnread')
-          : $i18n.t('room.menuHideUnread')}
+          ? i18n.t('room.menuShowUnread')
+          : i18n.t('room.menuHideUnread')}
     </ActionMenuItem>
 
     {#if room.is_direct}
       <ActionMenuItem onSelect={convertToGroup}>
         <ChatCircleIcon />
-        {$i18n.t('room.menuConvertToGroup')}
+        {i18n.t('room.menuConvertToGroup')}
       </ActionMenuItem>
     {/if}
 
@@ -331,7 +331,7 @@
       }}
     >
       <UserPlusIcon />
-      {$i18n.t('room.menuInvite')}
+      {i18n.t('room.menuInvite')}
     </ActionMenuItem>
     {#if room.is_space && onLobby}
       <ActionMenuItem
@@ -340,7 +340,7 @@
         }}
       >
         <FlagIcon />
-        {$i18n.t('nav.lobby')}
+        {i18n.t('nav.lobby')}
       </ActionMenuItem>
     {/if}
     {#if room.is_space}
@@ -350,17 +350,17 @@
         }}
       >
         <ListBulletsIcon />
-        {$i18n.t('room.menuShowSpaceTimeline')}
+        {i18n.t('room.menuShowSpaceTimeline')}
       </ActionMenuItem>
     {/if}
     <ActionMenuItem onSelect={copyLink}>
       <LinkIcon />
-      {$i18n.t('room.menuCopyLink')}
+      {i18n.t('room.menuCopyLink')}
     </ActionMenuItem>
     {#if preferences.developerTools}
       <ActionMenuItem onSelect={copyId}>
         <FingerprintIcon />
-        {$i18n.t('room.menuCopyId')}
+        {i18n.t('room.menuCopyId')}
       </ActionMenuItem>
     {/if}
     <ActionMenuItem
@@ -369,31 +369,31 @@
       }}
     >
       <GearIcon />
-      {$i18n.t('room.menuSettings')}
+      {i18n.t('room.menuSettings')}
     </ActionMenuItem>
 
     {#if onMoveUp}
       <ActionMenuItem onSelect={onMoveUp}>
         <ArrowUpIcon />
-        {$i18n.t('room.menuMoveUp')}
+        {i18n.t('room.menuMoveUp')}
       </ActionMenuItem>
     {/if}
     {#if onMoveDown}
       <ActionMenuItem onSelect={onMoveDown}>
         <ArrowDownIcon />
-        {$i18n.t('room.menuMoveDown')}
+        {i18n.t('room.menuMoveDown')}
       </ActionMenuItem>
     {/if}
     {#if onUnpin}
       <ActionMenuItem onSelect={onUnpin}>
         <PushPinSlashIcon />
-        {$i18n.t('nav.unpinFromSidebar')}
+        {i18n.t('nav.unpinFromSidebar')}
       </ActionMenuItem>
     {/if}
     {#if onRemoveFromFolder}
       <ActionMenuItem onSelect={onRemoveFromFolder}>
         <ArrowLineUpIcon />
-        {$i18n.t('nav.folderRemoveSpace')}
+        {i18n.t('nav.folderRemoveSpace')}
       </ActionMenuItem>
     {/if}
 
@@ -408,7 +408,7 @@
         }}
       >
         <UsersThreeIcon />
-        {$i18n.t('room.createParentLabel')}
+        {i18n.t('room.createParentLabel')}
       </ActionMenuItem>
     {/if}
 
@@ -419,7 +419,7 @@
         }}
       >
         <SignInIcon />
-        {$i18n.t('room.menuJoinParentSpace', { space: parent.name ?? parent.room_id })}
+        {i18n.t('room.menuJoinParentSpace', { space: parent.name ?? parent.room_id })}
       </ActionMenuItem>
     {/each}
 
@@ -430,7 +430,7 @@
         }}
       >
         <UsersThreeIcon />
-        {$i18n.t('room.menuRemoveFromSpace', {
+        {i18n.t('room.menuRemoveFromSpace', {
           space: removableParent.name ?? removableParent.room_id,
         })}
       </ActionMenuItem>
@@ -443,7 +443,7 @@
       }}
     >
       <SignOutIcon />
-      {room.is_space ? $i18n.t('room.menuLeaveSpace') : $i18n.t('room.menuLeave')}
+      {room.is_space ? i18n.t('room.menuLeaveSpace') : i18n.t('room.menuLeave')}
     </ActionMenuItem>
   </IconContext>
 </ActionMenu>

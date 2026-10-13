@@ -45,13 +45,13 @@
   let displayName = $derived(thread.senderName ?? thread.sender ?? '');
   let replyLabel = $derived(
     thread.replyCount === 1
-      ? $i18n.t('forum.replyCount_one', { count: thread.replyCount })
-      : $i18n.t('forum.replyCount_other', { count: thread.replyCount })
+      ? i18n.t('forum.replyCount_one', { count: thread.replyCount })
+      : i18n.t('forum.replyCount_other', { count: thread.replyCount })
   );
   let accessibleLabel = $derived(
     thread.unread
-      ? $i18n.t('forum.threadUnread', { name: displayName, preview: thread.preview })
-      : $i18n.t('forum.thread', { name: displayName, preview: thread.preview })
+      ? i18n.t('forum.threadUnread', { name: displayName, preview: thread.preview })
+      : i18n.t('forum.thread', { name: displayName, preview: thread.preview })
   );
   let actions = $derived({
     roomId,
@@ -136,9 +136,9 @@
 <DeleteMessageDialog
   bind:open={deleteOpen}
   preview={thread.preview}
-  title={$i18n.t('forum.deleteThreadTitle')}
-  description={$i18n.t('forum.deleteThreadExplain')}
-  confirmLabel={$i18n.t('forum.deleteThread')}
+  title={i18n.t('forum.deleteThreadTitle')}
+  description={i18n.t('forum.deleteThreadExplain')}
+  confirmLabel={i18n.t('forum.deleteThread')}
   onConfirm={(reason) => onDelete(thread.eventId, reason)}
 />
 

@@ -54,9 +54,9 @@
 
   let fetched = $state<Preview | null>(null);
   let loaded = $derived(events?.get(eventId) ?? null);
-  let preview = $derived(loaded ? previewOf(loaded, $i18n.t) : fetched);
+  let preview = $derived(loaded ? previewOf(loaded, i18n.t) : fetched);
   let name = $derived.by(() => {
-    if (!preview?.sender) return $i18n.t('timeline.unknownSender');
+    if (!preview?.sender) return i18n.t('timeline.unknownSender');
     return (loaded?.sender_name ?? null) || memberName(members, preview.sender);
   });
 
@@ -103,7 +103,7 @@
       const preview = eventPreview(event);
       fetched = preview && {
         sender: preview.sender,
-        body: fallbackText(preview.body, preview.fallback, $i18n.t),
+        body: fallbackText(preview.body, preview.fallback, i18n.t),
       };
     });
     return () => {

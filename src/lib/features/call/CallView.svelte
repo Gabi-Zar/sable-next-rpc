@@ -55,7 +55,7 @@
   const CHROME_IDLE_MS = 3500;
 
   let statusLabel = $derived(
-    $i18n.t(
+    i18n.t(
       callStatusKey({
         lifecycle: session.lifecycle,
         connection: session.transport.connection,
@@ -85,9 +85,9 @@
           (tile) => tile.participant.identity === identity && tile.participant.local === true
         );
         const device = local
-          ? $i18n.t('call.thisDevice')
+          ? i18n.t('call.thisDevice')
           : (session.members.find((member) => member.identity === identity)?.device_id ?? identity);
-        return [identity, $i18n.t('call.nameOnDevice', { name, device })];
+        return [identity, i18n.t('call.nameOnDevice', { name, device })];
       })
     );
   });
@@ -228,7 +228,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
   class={['stage', { resting: !chromeVisible }]}
-  aria-label={$i18n.t('call.title')}
+  aria-label={i18n.t('call.title')}
   bind:this={stage}
   onpointermove={wake}
   onpointerdown={wake}
@@ -252,7 +252,7 @@
       <span>{statusLabel}</span>
       {#if session.startedAt !== null && !failed}
         {@const startedAt = session.startedAt}
-        {@const durationLabel = $i18n.t('call.duration')}
+        {@const durationLabel = i18n.t('call.duration')}
         <Tooltip label={durationLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="meta">
@@ -264,7 +264,7 @@
         </Tooltip>
       {/if}
       {#if ready && others > 0}
-        {@const othersLabel = $i18n.t('call.others', { count: others })}
+        {@const othersLabel = i18n.t('call.others', { count: others })}
         <Tooltip label={othersLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="meta">
@@ -276,7 +276,7 @@
         </Tooltip>
       {/if}
       {#if session.encryptsMedia && !failed}
-        {@const encryptedLabel = $i18n.t('call.encrypted')}
+        {@const encryptedLabel = i18n.t('call.encrypted')}
         <Tooltip label={encryptedLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="encrypted">
@@ -292,7 +292,7 @@
         <IconButton
           variant="secondary"
           size="small"
-          label={$i18n.t(spotlight ? 'call.gridView' : 'call.focusView')}
+          label={i18n.t(spotlight ? 'call.gridView' : 'call.focusView')}
           onclick={toggleLayout}
         >
           {#if spotlight}
@@ -306,7 +306,7 @@
         <IconButton
           variant="secondary"
           size="small"
-          label={$i18n.t(fullscreen ? 'call.exitFullscreen' : 'call.fullscreen')}
+          label={i18n.t(fullscreen ? 'call.exitFullscreen' : 'call.fullscreen')}
           onclick={toggleFullscreen}
         >
           {#if fullscreen}
@@ -343,7 +343,7 @@
         onOpenSettings={onOpenSettings ? openCallSettings : undefined}
       />
       {#if busy}
-        <p class="securing">{$i18n.t('call.controlsLocked')}</p>
+        <p class="securing">{i18n.t('call.controlsLocked')}</p>
       {/if}
     </div>
   {/if}
@@ -351,16 +351,16 @@
   <div class="notices" bind:clientHeight={noticeHeight}>
     {#if session.listenOnly}
       <Alert variant="warning" class="notice">
-        <p>{$i18n.t('call.listenOnly')}</p>
+        <p>{i18n.t('call.listenOnly')}</p>
       </Alert>
     {/if}
     {#if session.deviceError}
       <Alert variant="critical" class="notice" role="alert">
         <WarningCircleIcon aria-hidden="true" weight="fill" />
-        <p>{$i18n.t(DEVICE_ERROR_KEY[session.deviceError])}</p>
+        <p>{i18n.t(DEVICE_ERROR_KEY[session.deviceError])}</p>
         <div class="notice-actions">
           <Button variant="ghost" onclick={() => session.clearDeviceError()}>
-            {$i18n.t('common.dismiss')}
+            {i18n.t('common.dismiss')}
           </Button>
           {#if onOpenSettings}
             <Button
@@ -370,7 +370,7 @@
                 openCallSettings(event);
               }}
             >
-              {$i18n.t('call.openSettings')}
+              {i18n.t('call.openSettings')}
             </Button>
           {/if}
         </div>
@@ -394,21 +394,21 @@
     {#if session.failure}
       {@const failure = session.failure}
       <div class="failed" role="alert">
-        <EmptyState title={$i18n.t('call.failed')} description={$i18n.t(callFailureKey(failure))}>
+        <EmptyState title={i18n.t('call.failed')} description={i18n.t(callFailureKey(failure))}>
           {#snippet actions()}
             <Button variant="secondary" onclick={() => session.clearFailure()}>
-              {$i18n.t('call.leave')}
+              {i18n.t('call.leave')}
             </Button>
             {#if failure !== 'busy'}
               <Button variant="primary" onclick={() => void session.retry()}>
-                {$i18n.t('common.tryAgain')}
+                {i18n.t('common.tryAgain')}
               </Button>
             {/if}
           {/snippet}
         </EmptyState>
       </div>
     {:else if tiles.length === 0}
-      <p class="empty">{$i18n.t('call.noParticipants')}</p>
+      <p class="empty">{i18n.t('call.noParticipants')}</p>
     {:else if spotlight}
       <div class="focus">
         <ul
@@ -425,7 +425,7 @@
         {#if strip.length > 0}
           <ul
             class="strip"
-            aria-label={$i18n.t('call.participants', { count: strip.length })}
+            aria-label={i18n.t('call.participants', { count: strip.length })}
             {@attach trackOverflow}
           >
             {#each strip as item (item.key)}
@@ -446,11 +446,11 @@
         {/each}
         {#if alone}
           <li class="waiting">
-            <p>{$i18n.t('call.noParticipants')}</p>
+            <p>{i18n.t('call.noParticipants')}</p>
             {#if onInvite}
               <Button variant="secondary" onclick={onInvite}>
                 <UserPlusIcon aria-hidden="true" weight="bold" />
-                {$i18n.t('common.invitePeople')}
+                {i18n.t('common.invitePeople')}
               </Button>
             {/if}
           </li>

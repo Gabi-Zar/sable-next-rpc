@@ -46,7 +46,7 @@
   let ownerProfile = $derived(accountProfile?.user_id === accountId ? accountProfile : null);
   let ownerMember = $derived(member?.user_id === accountId ? member : null);
   let roleTag = $derived(
-    ownerMember && powerTags !== null ? powerTag(ownerMember.power_level, $i18n.t, powerTags) : null
+    ownerMember && powerTags !== null ? powerTag(ownerMember.power_level, i18n.t, powerTags) : null
   );
   let elevated = $derived(ownerMember !== null && ownerMember.power_level >= 50);
   let localTime = $derived.by(() => {
@@ -73,7 +73,7 @@
   {variant}
   userId={accountLabel}
   avatarUrl={profile.avatar_url}
-  avatarLabel={$i18n.t('timeline.profileAvatar', { name: displayName })}
+  avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
   {onAvatarClick}
   color={senderColor(profile.id ?? displayName)}
   nameColorLight={profile.color_on_light}

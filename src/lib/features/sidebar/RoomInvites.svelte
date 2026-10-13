@@ -26,7 +26,7 @@
 {#if invites.length > 0 && !collapsed}
   <section class="invites" aria-labelledby={headingId}>
     <h3 id={headingId}>
-      {$i18n.t('room.invitesTitle')}
+      {i18n.t('room.invitesTitle')}
       <span class="count">{invites.length}</span>
     </h3>
     <ul>
@@ -48,7 +48,7 @@
               {/snippet}
             </Tooltip>
             {#if from}
-              {@const invitedBy = $i18n.t('inbox.invitedBy', { name: senderName(from) })}
+              {@const invitedBy = i18n.t('inbox.invitedBy', { name: senderName(from) })}
               <Tooltip label={from}>
                 {#snippet trigger({ props })}
                   <span {...props} class="invite-from">{invitedBy}</span>
@@ -57,14 +57,14 @@
             {/if}
           </span>
           <div class="invite-actions">
-            <Tooltip label={$i18n.t('room.inviteAcceptLabel', { room: name })}>
+            <Tooltip label={i18n.t('room.inviteAcceptLabel', { room: name })}>
               {#snippet trigger({ props })}
                 <IconButton
                   {...props}
                   variant="ghost"
                   size="small"
                   disabled={busy}
-                  label={$i18n.t('room.inviteAcceptLabel', { room: name })}
+                  label={i18n.t('room.inviteAcceptLabel', { room: name })}
                   onclick={() => {
                     void answers.accept(invite);
                   }}
@@ -73,14 +73,14 @@
                 </IconButton>
               {/snippet}
             </Tooltip>
-            <Tooltip label={$i18n.t('room.inviteDeclineLabel', { room: name })}>
+            <Tooltip label={i18n.t('room.inviteDeclineLabel', { room: name })}>
               {#snippet trigger({ props })}
                 <IconButton
                   {...props}
                   variant="ghost"
                   size="small"
                   disabled={busy}
-                  label={$i18n.t('room.inviteDeclineLabel', { room: name })}
+                  label={i18n.t('room.inviteDeclineLabel', { room: name })}
                   onclick={() => {
                     answers.decline(invite);
                   }}

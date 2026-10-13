@@ -257,14 +257,14 @@
         })
   );
   let createSpaceLabel = $derived(
-    activeSpace === null ? $i18n.t('common.createSpace') : $i18n.t('nav.createSubspace')
+    activeSpace === null ? i18n.t('common.createSpace') : i18n.t('nav.createSubspace')
   );
   let browseLabel = $derived(
-    activeSpace === null ? $i18n.t('nav.exploreSpaces') : $i18n.t('nav.lobby')
+    activeSpace === null ? i18n.t('nav.exploreSpaces') : i18n.t('nav.lobby')
   );
 
   let createRoomLabel = $derived(
-    activeSpace === null ? $i18n.t('common.createRoom') : $i18n.t('nav.createRoomInSpace')
+    activeSpace === null ? i18n.t('common.createRoom') : i18n.t('nav.createRoomInSpace')
   );
 
   function navigateTo(href: string): void {
@@ -313,14 +313,14 @@
 
   let section = $derived(navSectionKind(pathname));
   let labels = $derived(navSectionLabels(section));
-  let listLabel = $derived($i18n.t(labels.list));
-  let listEmpty = $derived($i18n.t(labels.empty));
+  let listLabel = $derived(i18n.t(labels.list));
+  let listEmpty = $derived(i18n.t(labels.empty));
   let title = $derived.by(() => {
-    if (section !== 'space') return $i18n.t(labels.title);
+    if (section !== 'space') return i18n.t(labels.title);
 
     const space = findRoomByPathId(roomList.rooms, spaceId);
 
-    return space?.name ?? $i18n.t(labels.title);
+    return space?.name ?? i18n.t(labels.title);
   });
   let TitleIcon = $derived(SECTION_ICONS[section]);
   let spaceTree = $derived.by<SpaceTreeNode[]>(() => {
@@ -626,7 +626,7 @@
           aria-valuemin={PREFERENCE_RANGES.roomBannerHeight.min}
           aria-valuemax={PREFERENCE_RANGES.roomBannerHeight.max}
           aria-valuenow={preferences.roomBannerHeight}
-          aria-label={$i18n.t('nav.resizeRooms')}
+          aria-label={i18n.t('nav.resizeRooms')}
           onpointerdown={startBannerResize}
           onpointermove={resizeBanner}
           onpointerup={finishBannerResize}
@@ -637,13 +637,13 @@
     <header class={['room-nav-header', { collapsed, 'on-banner': bannerShown }]}>
       <h2 aria-label={collapsed ? title : undefined}>
         {#if collapsed}
-          <ActionMenu label={$i18n.t('nav.listOptions')} side="right" align="start">
+          <ActionMenu label={i18n.t('nav.listOptions')} side="right" align="start">
             {#snippet trigger({ props })}
               <button
                 {...props}
                 type="button"
                 class="room-nav-badge selection-open"
-                aria-label={$i18n.t('nav.listOptions')}
+                aria-label={i18n.t('nav.listOptions')}
               >
                 {#if activeSpace}
                   <Avatar
@@ -669,18 +669,18 @@
             <span
               class="title-lock"
               role="img"
-              aria-label={$i18n.t(`room.joinRule.${activeSpace.join_rule}`)}
+              aria-label={i18n.t(`room.joinRule.${activeSpace.join_rule}`)}
             >
               <LockSimpleIcon />
             </span>
           {/if}
-          <ActionMenu label={$i18n.t('nav.listOptions')}>
+          <ActionMenu label={i18n.t('nav.listOptions')}>
             {#snippet trigger({ props })}
               <button
                 {...props}
                 type="button"
                 class="room-nav-menu selection-open"
-                aria-label={$i18n.t('nav.listOptions')}
+                aria-label={i18n.t('nav.listOptions')}
               >
                 <DotsThreeVerticalIcon />
               </button>
@@ -695,7 +695,7 @@
   {#snippet listMenuItems()}
     <ActionMenuItem disabled={!sectionUnread} onSelect={markSectionRead}>
       <ChecksIcon />
-      {$i18n.t('common.markAsRead')}
+      {i18n.t('common.markAsRead')}
     </ActionMenuItem>
     <ActionMenuItem
       closeOnSelect={false}
@@ -705,7 +705,7 @@
       }}
     >
       <span class="menu-check" aria-hidden="true">{groupFavourites ? '✓' : ''}</span>
-      {$i18n.t('nav.groupFavourites')}
+      {i18n.t('nav.groupFavourites')}
     </ActionMenuItem>
     {#if activeSpace}
       <ActionMenuItem
@@ -714,7 +714,7 @@
         }}
       >
         <GearIcon />
-        {$i18n.t('room.menuSettings')}
+        {i18n.t('room.menuSettings')}
       </ActionMenuItem>
       <ActionMenuItem
         destructive
@@ -723,7 +723,7 @@
         }}
       >
         <SignOutIcon />
-        {$i18n.t('room.menuLeaveSpace')}
+        {i18n.t('room.menuLeaveSpace')}
       </ActionMenuItem>
     {/if}
   {/snippet}
@@ -744,7 +744,7 @@
     <button
       type="button"
       class="room-options-trigger selection-open"
-      aria-label={$i18n.t('room.menuLabel')}
+      aria-label={i18n.t('room.menuLabel')}
       aria-haspopup="menu"
       aria-expanded={open}
       data-state={open ? 'open' : 'closed'}
@@ -855,7 +855,7 @@
               {#if peerPresence && peerPresence.presence !== 'offline'}
                 <PresenceDot
                   presence={peerPresence.presence}
-                  label={$i18n.t(`presence.${peerPresence.presence}`)}
+                  label={i18n.t(`presence.${peerPresence.presence}`)}
                   class="room-presence"
                   size="medium"
                 />
@@ -900,7 +900,7 @@
               <span
                 class="voice-live"
                 role="img"
-                aria-label={$i18n.t('nav.voiceLive', { count: live })}
+                aria-label={i18n.t('nav.voiceLive', { count: live })}
                 {@attach whenVisible(() => {
                   for (const userId of faces) requestPeerProfile(userId);
                 })}
@@ -928,15 +928,15 @@
                   dm={room?.is_direct ?? false}
                   role="img"
                   aria-label={mentions > 0
-                    ? $i18n.t('nav.unreadMentions', { count: mentions })
+                    ? i18n.t('nav.unreadMentions', { count: mentions })
                     : unread > 0
-                      ? $i18n.t('nav.unreadMessages', { count: unread })
-                      : $i18n.t('nav.markedUnread')}
+                      ? i18n.t('nav.unreadMessages', { count: unread })
+                      : i18n.t('nav.markedUnread')}
                 />
               {/if}
               {#if notifyMode}
                 {@const chip = notificationChip(notifyMode)}
-                <span class="room-mode" role="img" aria-label={$i18n.t(chip.label)}>
+                <span class="room-mode" role="img" aria-label={i18n.t(chip.label)}>
                   <chip.icon />
                 </span>
               {/if}
@@ -948,10 +948,10 @@
               dm={room?.is_direct ?? false}
               role="img"
               aria-label={mentions > 0
-                ? $i18n.t('nav.unreadMentions', { count: mentions })
+                ? i18n.t('nav.unreadMentions', { count: mentions })
                 : unread > 0
-                  ? $i18n.t('nav.unreadMessages', { count: unread })
-                  : $i18n.t('nav.markedUnread')}
+                  ? i18n.t('nav.unreadMessages', { count: unread })
+                  : i18n.t('nav.markedUnread')}
             />
           {/if}
         </a>
@@ -966,7 +966,7 @@
               <button
                 class="room-options-trigger"
                 type="button"
-                aria-label={$i18n.t(active && voiceChat.open ? 'call.hideChat' : 'call.showChat')}
+                aria-label={i18n.t(active && voiceChat.open ? 'call.hideChat' : 'call.showChat')}
                 aria-pressed={active && voiceChat.open}
                 onclick={() => {
                   voiceChat.open = !(active && voiceChat.open);
@@ -985,7 +985,7 @@
       {@const rowKeys = participantKeys(room.call_participants)}
       <ul
         class={['call-participant-list', { collapsed, 'closed-row': closed }]}
-        aria-label={$i18n.t('nav.voiceLive', { count: live })}
+        aria-label={i18n.t('nav.voiceLive', { count: live })}
       >
         {#each room.call_participants as userId, index (rowKeys[index])}
           {@const profile = peerProfiles.get(userId)}
@@ -1024,10 +1024,10 @@
                 {#if sharing || (voice && (voice.muted || voice.deafened || voice.camera))}
                   <span class="voice-badges">
                     {#if sharing}
-                      <span class="voice-stream">{$i18n.t('call.live')}</span>
+                      <span class="voice-stream">{i18n.t('call.live')}</span>
                     {/if}
                     {#if voice?.camera}
-                      {@const cameraLabel = $i18n.t('call.cameraOnLabel')}
+                      {@const cameraLabel = i18n.t('call.cameraOnLabel')}
                       <Tooltip label={cameraLabel}>
                         {#snippet trigger({ props })}
                           <span {...props}>
@@ -1038,7 +1038,7 @@
                       </Tooltip>
                     {/if}
                     {#if voice?.deafened}
-                      {@const deafenLabel = $i18n.t('call.deafened')}
+                      {@const deafenLabel = i18n.t('call.deafened')}
                       <Tooltip label={deafenLabel}>
                         {#snippet trigger({ props })}
                           <span {...props} class="voice-off">
@@ -1048,7 +1048,7 @@
                         {/snippet}
                       </Tooltip>
                     {:else if voice?.muted}
-                      {@const muteLabel = $i18n.t('call.muted')}
+                      {@const muteLabel = i18n.t('call.muted')}
                       <Tooltip label={muteLabel}>
                         {#snippet trigger({ props })}
                           <span {...props} class="voice-off">
@@ -1174,7 +1174,7 @@
           </ActionMenuItem>
           <ActionMenuItem onSelect={() => navigateTo(joinHref)}>
             <LinkIcon />
-            {$i18n.t('nav.joinWithAddress')}
+            {i18n.t('nav.joinWithAddress')}
           </ActionMenuItem>
           <ActionMenuItem onSelect={() => navigateTo(browseHref)}>
             <CompassIcon />
@@ -1183,14 +1183,14 @@
         </ActionMenu>
       {/snippet}
       {#if directSection}
-        {@render action(newChatHref, $i18n.t('nav.newChat'), PlusIcon)}
-        {@render action(searchHref, $i18n.t('nav.messageSearch'), MagnifyingGlassIcon)}
+        {@render action(newChatHref, i18n.t('nav.newChat'), PlusIcon)}
+        {@render action(searchHref, i18n.t('nav.messageSearch'), MagnifyingGlassIcon)}
       {:else}
         {#if canCreateHere}
           {@render createMenu()}
         {/if}
         {@render action(browseHref, browseLabel, activeSpace === null ? CompassIcon : FlagIcon)}
-        {@render action(searchHref, $i18n.t('nav.messageSearch'), MagnifyingGlassIcon)}
+        {@render action(searchHref, i18n.t('nav.messageSearch'), MagnifyingGlassIcon)}
       {/if}
     </div>
 
@@ -1216,7 +1216,7 @@
             favouritesClosed = !favouritesClosed;
           }}
         >
-          <span class="rooms-heading-label">{$i18n.t('nav.favourites')}</span>
+          <span class="rooms-heading-label">{i18n.t('nav.favourites')}</span>
           <span class={['category-caret', { closed: favouritesClosed }]} aria-hidden="true"
             ><CaretDownIcon /></span
           >
@@ -1279,7 +1279,7 @@
                       },
                     })}
                     style:--room-depth={collapsed ? 0 : item.depth}
-                    aria-label={collapsed ? `${name} (${$i18n.t('nav.space')})` : undefined}
+                    aria-label={collapsed ? `${name} (${i18n.t('nav.space')})` : undefined}
                     aria-expanded={!isClosed}
                     onclick={() => {
                       toggleCategory(item.key);

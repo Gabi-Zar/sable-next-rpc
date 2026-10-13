@@ -73,13 +73,13 @@
       <SettingsRow
         id={anchor}
         data-settings-focus={anchor}
-        title={$i18n.t(setting.name)}
-        description={setting.description ? $i18n.t(setting.description) : undefined}
+        title={i18n.t(setting.name)}
+        description={setting.description ? i18n.t(setting.description) : undefined}
         {disabled}
         badge={setting.unavailable
-          ? $i18n.t('settings.notAvailableYet')
+          ? i18n.t('settings.notAvailableYet')
           : gate
-            ? $i18n.t('settings.needsSetting', { name: $i18n.t(gateName(setting)) })
+            ? i18n.t('settings.needsSetting', { name: i18n.t(gateName(setting)) })
             : undefined}
         wide={setting.type !== 'boolean'}
         control={setting.type === 'boolean' && !disabled ? `${anchor}-switch` : undefined}
@@ -90,11 +90,11 @@
           <Select
             {disabled}
             forceDropdown={setting.key === 'profileChangePropagation'}
-            aria-label={$i18n.t(setting.name)}
+            aria-label={i18n.t(setting.name)}
             value={setting.getValue?.() ?? preferences[key]}
             items={setting.options.map((option) => ({
               value: option.value,
-              label: option.literal ? option.label : $i18n.t(option.label),
+              label: option.literal ? option.label : i18n.t(option.label),
               labelClass: option.literal ? 'literal-label' : undefined,
             }))}
             onValueChange={(value) => {
@@ -112,7 +112,7 @@
               min={PREFERENCE_RANGES[key].min}
               max={PREFERENCE_RANGES[key].max}
               step={setting.step}
-              label={$i18n.t(setting.name)}
+              label={i18n.t(setting.name)}
               value={preferences[key]}
               oninput={(value) => {
                 if (setting.applyOnCommit) onRangeDraft?.(key, value);
@@ -134,7 +134,7 @@
                 max={Math.round(PREFERENCE_RANGES[key].max * 100)}
                 step={Math.round(setting.step * 100)}
                 value={Math.round(preferences[key] * 100)}
-                aria-label={$i18n.t('settings.rangePercent', { name: $i18n.t(setting.name) })}
+                aria-label={i18n.t('settings.rangePercent', { name: i18n.t(setting.name) })}
                 onchange={(event) => {
                   const typed = Number(event.currentTarget.value) / 100;
                   if (event.currentTarget.value !== '' && Number.isFinite(typed)) {
@@ -153,7 +153,7 @@
           <Switch
             id={`${anchor}-switch`}
             {disabled}
-            label={$i18n.t(setting.name)}
+            label={i18n.t(setting.name)}
             checked={gate ? false : preferences[key]}
             onCheckedChange={(checked: boolean) => {
               setPreference(key, checked);
@@ -170,7 +170,7 @@
 <div class="settings-stack">
   {#if reloadPending}
     <Alert variant="info">
-      <p>{$i18n.t('settings.telemetryReloadNotice')}</p>
+      <p>{i18n.t('settings.telemetryReloadNotice')}</p>
       <Button
         variant="secondary"
         size="small"
@@ -178,13 +178,13 @@
           location.reload();
         }}
       >
-        {$i18n.t('common.reload')}
+        {i18n.t('common.reload')}
       </Button>
     </Alert>
   {/if}
 
   {#each sections as { section, rows, panels: sectionPanels } (section.id)}
-    <SettingsSection title={$i18n.t(section.name)} headingId={section.id}>
+    <SettingsSection title={i18n.t(section.name)} headingId={section.id}>
       {#each sectionPanels.filter((panel) => panel.start) as panel (panel.component)}
         <panel.component />
       {/each}

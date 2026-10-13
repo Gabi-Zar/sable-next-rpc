@@ -90,16 +90,16 @@
     void finish();
   }}
 >
-  <AuthField labelId="notifications-setup-title" label={$i18n.t('setup.notificationsTitle')}>
+  <AuthField labelId="notifications-setup-title" label={i18n.t('setup.notificationsTitle')}>
     <AuthInfoBox>
       {#if permission === 'granted'}
-        {$i18n.t('setup.notificationsAllowed')}
+        {i18n.t('setup.notificationsAllowed')}
       {:else if permission === 'denied'}
-        {$i18n.t('setup.notificationsBlocked')}
+        {i18n.t('setup.notificationsBlocked')}
       {:else if permission === 'unsupported'}
-        {$i18n.t('setup.notificationsUnsupported')}
+        {i18n.t('setup.notificationsUnsupported')}
       {:else}
-        {$i18n.t('setup.notificationsDescription')}
+        {i18n.t('setup.notificationsDescription')}
       {/if}
     </AuthInfoBox>
   </AuthField>
@@ -107,27 +107,27 @@
   {#if permission === 'prompt'}
     <Button onclick={allow}>
       <BellRingingIcon aria-hidden="true" />
-      {$i18n.t('common.allowNotifications')}
+      {i18n.t('common.allowNotifications')}
     </Button>
   {/if}
 
   {#if askDefault}
-    <AuthField labelId="notifications-group-title" label={$i18n.t('setup.notificationsGroupLabel')}>
+    <AuthField labelId="notifications-group-title" label={i18n.t('setup.notificationsGroupLabel')}>
       <OptionCards
-        label={$i18n.t('setup.notificationsGroupLabel')}
+        label={i18n.t('setup.notificationsGroupLabel')}
         value={groupMode}
         disabled={saving}
         options={[
           {
             value: 'all',
-            label: $i18n.t('room.notifyAll'),
-            hint: $i18n.t('setup.notificationsAllHint'),
+            label: i18n.t('room.notifyAll'),
+            hint: i18n.t('setup.notificationsAllHint'),
             icon: BellRingingIcon,
           },
           {
             value: 'mentions',
-            label: $i18n.t('room.notifyMentions'),
-            hint: $i18n.t('setup.notificationsMentionsHint'),
+            label: i18n.t('room.notifyMentions'),
+            hint: i18n.t('setup.notificationsMentionsHint'),
             icon: BellSimpleIcon,
           },
         ]}
@@ -142,11 +142,11 @@
   <AuthStatusSlot message={error} />
 
   <Button type="submit" variant="primary" block loading={saving}>
-    {$i18n.t('auth.continue')}
+    {i18n.t('auth.continue')}
   </Button>
 </form>
 
-<AuthSecondaryAction label={$i18n.t('auth.skipForNow')} onclick={onSkip} disabled={saving} />
+<AuthSecondaryAction label={i18n.t('auth.skipForNow')} onclick={onSkip} disabled={saving} />
 
 <style>
   .notifications-setup-card {

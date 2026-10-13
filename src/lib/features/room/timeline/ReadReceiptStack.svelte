@@ -95,7 +95,7 @@
     <button
       class="read-receipt-stack chip selection-open"
       type="button"
-      aria-label={$i18n.t('timeline.seenByNames', { names })}
+      aria-label={i18n.t('timeline.seenByNames', { names })}
       aria-haspopup="dialog"
       aria-expanded={expanded}
       onclick={(event) => onOpen(event.currentTarget)}
@@ -111,7 +111,7 @@
     <div
       class="read-receipt-stack faces"
       role="group"
-      aria-label={$i18n.t('timeline.seenBy')}
+      aria-label={i18n.t('timeline.seenBy')}
       bind:this={root}
       onmouseleave={() => setShifts(null)}
     >
@@ -123,7 +123,7 @@
               {...props}
               class={['t-avatar', 'overflow', 'selection-open']}
               type="button"
-              aria-label={$i18n.t('timeline.seenByNames', { names: overflowNames })}
+              aria-label={i18n.t('timeline.seenByNames', { names: overflowNames })}
               aria-haspopup="dialog"
               aria-expanded={expanded}
               onmouseenter={() => setShifts(faces.length)}

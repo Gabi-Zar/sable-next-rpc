@@ -90,19 +90,19 @@
 <div class="requests" aria-busy={loading}>
   {#if failed}
     <Alert variant="critical" role="alert">
-      <p>{$i18n.t('room.membersRequestsFailed')}</p>
+      <p>{i18n.t('room.membersRequestsFailed')}</p>
       <Button variant="secondary" size="small" onclick={() => void load()}>
-        {$i18n.t('common.tryAgain')}
+        {i18n.t('common.tryAgain')}
       </Button>
     </Alert>
   {/if}
   {#if actionFailed}
-    <Alert variant="critical" role="alert">{$i18n.t('room.membersRequestActionFailed')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('room.membersRequestActionFailed')}</Alert>
   {/if}
   {#if loading && pending.length === 0}
-    <p class="status" role="status"><Spinner small /> {$i18n.t('inbox.checking')}</p>
+    <p class="status" role="status"><Spinner small /> {i18n.t('inbox.checking')}</p>
   {:else if !failed && pending.length === 0}
-    <p class="status">{$i18n.t('room.membersNoRequests')}</p>
+    <p class="status">{i18n.t('room.membersNoRequests')}</p>
   {/if}
   <ul>
     {#each pending as request (key(request))}
@@ -117,7 +117,7 @@
         <div class="actions">
           {#if request.permissions.can_invite}
             <Button size="small" disabled={busy} onclick={() => void answer(request, true)}>
-              {$i18n.t('room.membersApprove')}
+              {i18n.t('room.membersApprove')}
             </Button>
           {/if}
           {#if request.permissions.can_kick && member.power_level < request.permissions.own_power_level}
@@ -127,7 +127,7 @@
               disabled={busy}
               onclick={() => void answer(request, false)}
             >
-              {$i18n.t('room.membersDeny')}
+              {i18n.t('room.membersDeny')}
             </Button>
           {/if}
         </div>

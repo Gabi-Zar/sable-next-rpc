@@ -67,11 +67,11 @@
 {:else}
   <main class="permalink" aria-busy={!unresolved}>
     {#if unresolved}
-      <p role="alert">{$i18n.t('permalink.unresolved')}</p>
+      <p role="alert">{i18n.t('permalink.unresolved')}</p>
     {:else}
       <div role="status">
         <Spinner />
-        <p>{$i18n.t('permalink.opening')}</p>
+        <p>{i18n.t('permalink.opening')}</p>
       </div>
     {/if}
   </main>

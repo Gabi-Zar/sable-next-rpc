@@ -160,7 +160,7 @@
       <button
         class="profile-card-banner-button"
         type="button"
-        aria-label={$i18n.t('timeline.profileBanner', { name: displayName })}
+        aria-label={i18n.t('timeline.profileBanner', { name: displayName })}
         onclick={openBanner}
       >
         <MediaImage
@@ -240,7 +240,7 @@
           <p
             class="profile-card-status-text explicit-scrollbar"
             role="region"
-            aria-label={$i18n.t('settings.status')}
+            aria-label={i18n.t('settings.status')}
             tabindex="0"
           >
             {#if statusEmoji}<span class="profile-card-status-emoji">{statusEmoji}</span
@@ -263,7 +263,7 @@
         {#if pronouns}{@render pronouns()}{/if}
         {#if headerAction}{@render headerAction()}{/if}
       </div>
-      <Tooltip label={$i18n.t(copied ? 'common.copied' : 'common.copy')}>
+      <Tooltip label={i18n.t(copied ? 'common.copied' : 'common.copy')}>
         {#snippet trigger({ props })}
           <button
             {...props}

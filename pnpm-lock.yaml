@@ -328,9 +328,6 @@ importers:
       quick-lru:
         specifier: 7.3.0
         version: 7.3.0
-      svelte-i18next:
-        specifier: ^2.2.2
-        version: 2.2.2(i18next@26.4.2(typescript@6.0.3))(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1))
       svelte-tiny-virtual-list:
         specifier: ^4.0.0
         version: 4.0.0(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1))
@@ -4945,12 +4942,6 @@ packages:
       svelte:
         optional: true
 
-  svelte-i18next@2.2.2:
-    resolution: {integrity: sha512-IpJDZCH5cCgKfHQHgiLmGT4j9HCdg4fqsP3oP2deLu8PxmNj0Ui6khMiDoxAxedAiYEhr0xendv2xqh3Rq+uQQ==}
-    peerDependencies:
-      i18next: '*'
-      svelte: '*'
-
   svelte-tiny-virtual-list@4.0.0:
     resolution: {integrity: sha512-SrsI2dTYBAnzWeOhZ6fUX0qA3olSvsFeonIvEnyzvPL3AEsKropuSdRCPud84oCV53y6ztcawvs83Qnt0lux2A==}
     engines: {node: '>=20.17.0'}
@@ -9561,11 +9552,6 @@ snapshots:
       postcss-selector-parser: 7.1.6
       semver: 7.8.5
     optionalDependencies:
-      svelte: 5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1)
-
-  svelte-i18next@2.2.2(i18next@26.4.2(typescript@6.0.3))(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1)):
-    dependencies:
-      i18next: 26.4.2(typescript@6.0.3)
       svelte: 5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1)
 
   svelte-tiny-virtual-list@4.0.0(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1)):

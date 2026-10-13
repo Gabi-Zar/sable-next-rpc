@@ -37,7 +37,7 @@
   let roomId = $derived(room?.room_id ?? null);
   let canEdit = $derived(canSendState(levels, ownPowerLevel, EVENT_TYPE));
   let options = $derived(
-    VISIBILITIES.map((value) => ({ value, label: $i18n.t(`room.historyVisibility.${value}`) }))
+    VISIBILITIES.map((value) => ({ value, label: i18n.t(`room.historyVisibility.${value}`) }))
   );
 
   $effect(() => {
@@ -52,7 +52,7 @@
       })
       .catch((error: unknown) => {
         console.debug('[sable room] history visibility unavailable', error);
-        toasts.error($i18n.t('errors.actionFailed'));
+        toasts.error(i18n.t('errors.actionFailed'));
       });
   });
 
@@ -75,11 +75,11 @@
   }
 </script>
 
-<SettingsRow title={$i18n.t('room.historyTitle')} description={$i18n.t('room.historyHint')}>
+<SettingsRow title={i18n.t('room.historyTitle')} description={i18n.t('room.historyHint')}>
   {#if canEdit}
     <Select
       value={visibility}
-      aria-label={$i18n.t('room.historyTitle')}
+      aria-label={i18n.t('room.historyTitle')}
       disabled={saving}
       items={options}
       onValueChange={(next: string) => {
@@ -87,7 +87,7 @@
       }}
     />
   {:else}
-    <span class="value">{$i18n.t(`room.historyVisibility.${visibility}`)}</span>
+    <span class="value">{i18n.t(`room.historyVisibility.${visibility}`)}</span>
   {/if}
 </SettingsRow>
 

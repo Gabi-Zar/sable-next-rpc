@@ -13,5 +13,5 @@
 </script>
 
 <Button {disabled} {onclick} variant="primary">
-  {launching ? $i18n.t('auth.opening') : label}
+  {launching ? i18n.t('auth.opening') : label}
 </Button>

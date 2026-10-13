@@ -1,8 +1,12 @@
 import i18next from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import { createI18nStore } from 'svelte-i18next';
 import en from '../locales/en.json';
-import { currentLanguage, setCurrentLanguage } from './language.svelte.js';
+import {
+  currentLanguage,
+  setCurrentLanguage,
+  trackTranslations,
+  translationsChanged,
+} from './language.svelte.js';
 import { availableLocales, loadLocaleBundle, SYSTEM_LANGUAGE } from './locales.js';
 import { preferences } from './settings/preferences.svelte.js';
 
@@ -49,6 +53,9 @@ i18next
   });
 
 i18next.on('languageChanged', applyLanguage);
+i18next.on('initialized', translationsChanged);
+i18next.on('languageChanged', translationsChanged);
+i18next.store.on('added', translationsChanged);
 applyLanguage(i18next.resolvedLanguage ?? i18next.language);
 
 export async function setLanguage(value: string): Promise<void> {
@@ -67,13 +74,18 @@ if (initialLanguage !== undefined) {
   });
 }
 
-export const i18n = createI18nStore(i18next);
+export const i18n = {
+  get t() {
+    trackTranslations();
+    return i18next.t;
+  },
+};
 
 export function currentLocale(): string {
   return currentLanguage() || (i18next.resolvedLanguage ?? i18next.language);
 }
 
 export function t(key: string, options?: Record<string, unknown>): string {
-  currentLanguage();
+  trackTranslations();
   return i18next.t(key, options);
 }

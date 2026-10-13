@@ -48,17 +48,17 @@
 
 <Banner icon={KeyIcon} tone="warning">
   {#snippet title()}
-    {$i18n.t('settings.recoveryIncompleteTitle')}
+    {i18n.t('settings.recoveryIncompleteTitle')}
   {/snippet}
   {#snippet body()}
-    {$i18n.t('settings.recoveryIncompleteBody')}
+    {i18n.t('settings.recoveryIncompleteBody')}
   {/snippet}
   {#snippet actions()}
     <Button variant="ghost" size="small" onclick={dismiss}>
-      {$i18n.t('common.dismiss')}
+      {i18n.t('common.dismiss')}
     </Button>
     <Button variant="primary" size="small" onclick={unlock}>
-      {$i18n.t('settings.recoveryIncompleteAction')}
+      {i18n.t('settings.recoveryIncompleteAction')}
     </Button>
   {/snippet}
 </Banner>

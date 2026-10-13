@@ -34,17 +34,17 @@
   side="right"
   align="center"
   class="call-volume-popover"
-  label={$i18n.t('call.participantVolume', { name })}
-  closeLabel={$i18n.t('common.dismiss')}
+  label={i18n.t('call.participantVolume', { name })}
+  closeLabel={i18n.t('common.dismiss')}
 >
   <div class="volume">
-    <p>{$i18n.t('call.participantVolume', { name })}</p>
+    <p>{i18n.t('call.participantVolume', { name })}</p>
     <div class="row">
       <Slider
         min={0}
         max={MAX_PARTICIPANT_VOLUME}
         step={0.05}
-        label={$i18n.t('call.participantVolume', { name })}
+        label={i18n.t('call.participantVolume', { name })}
         value={volume}
         oninput={apply}
       />

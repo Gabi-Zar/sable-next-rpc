@@ -44,7 +44,7 @@
       style:--name-color-on-light={colors.nameColorLight ?? undefined}
       style:--name-color-on-dark={colors.nameColorDark ?? undefined}
       type="button"
-      aria-label={mentionLabel ?? $i18n.t('timeline.mentionSender', { name: displayName })}
+      aria-label={mentionLabel ?? i18n.t('timeline.mentionSender', { name: displayName })}
       onclick={onMention}>{displayName}</button
     >
   {:else if onProfile}
@@ -54,7 +54,7 @@
       style:--name-color-on-light={colors.nameColorLight ?? undefined}
       style:--name-color-on-dark={colors.nameColorDark ?? undefined}
       type="button"
-      aria-label={profileLabel ?? $i18n.t('timeline.senderProfile', { name: displayName })}
+      aria-label={profileLabel ?? i18n.t('timeline.senderProfile', { name: displayName })}
       onclick={(event) => {
         onProfile(event.currentTarget);
       }}>{displayName}</button
@@ -96,7 +96,7 @@
           <button
             class="name-button"
             type="button"
-            aria-label={$i18n.t('timeline.viaAccount', { user: accountName })}
+            aria-label={i18n.t('timeline.viaAccount', { user: accountName })}
             onclick={(event) => {
               onViaProfile(event.currentTarget);
             }}>{accountName}</button

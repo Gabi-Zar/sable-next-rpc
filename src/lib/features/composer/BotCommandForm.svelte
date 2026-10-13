@@ -137,8 +137,8 @@
     const error = errors[key];
     if (!error) return null;
     return error === 'required'
-      ? $i18n.t('composer.botCommandRequired')
-      : $i18n.t('composer.botCommandInvalid');
+      ? i18n.t('composer.botCommandRequired')
+      : i18n.t('composer.botCommandInvalid');
   }
 
   function describedBy(parameter: BotCommandParameter): string | undefined {
@@ -173,7 +173,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <form
   class="bot-command"
-  aria-label={$i18n.t('composer.botCommandForm', { command: `${prefix}${command.command}` })}
+  aria-label={i18n.t('composer.botCommandForm', { command: `${prefix}${command.command}` })}
   onsubmit={submit}
   onkeydown={(event: KeyboardEvent) => {
     if (event.key !== 'Escape' || event.defaultPrevented) return;
@@ -198,7 +198,7 @@
       size="small"
       variant="ghost"
       class="bot-command-close"
-      label={$i18n.t('composer.botCommandCancel')}
+      label={i18n.t('composer.botCommandCancel')}
       onclick={onCancel}
     >
       <XIcon />
@@ -215,7 +215,7 @@
           <label class="bot-command-label" for={id}>
             {labelOf(parameter.key)}
             {#if parameter.optional}
-              <span class="bot-command-optional">{$i18n.t('composer.botCommandOptional')}</span>
+              <span class="bot-command-optional">{i18n.t('composer.botCommandOptional')}</span>
             {/if}
           </label>
           {#if isBooleanParameter(parameter.schema)}
@@ -248,7 +248,7 @@
                   <IconButton
                     size="small"
                     variant="ghost"
-                    label={$i18n.t('composer.botCommandRemove', { value: entry })}
+                    label={i18n.t('composer.botCommandRemove', { value: entry })}
                     onclick={() => {
                       removeEntry(parameter.key, index);
                     }}
@@ -260,7 +260,7 @@
               <TextInput
                 {id}
                 list="{id}-options"
-                placeholder={placeholderFor(parameter) ?? $i18n.t('composer.botCommandAdd')}
+                placeholder={placeholderFor(parameter) ?? i18n.t('composer.botCommandAdd')}
                 autocomplete="off"
                 aria-invalid={error !== null}
                 aria-describedby={describedBy(parameter)}
@@ -318,7 +318,7 @@
 
   <div class="bot-command-actions">
     <Button type="submit" variant="primary" size="small" loading={sending}>
-      {$i18n.t('composer.botCommandSend')}
+      {i18n.t('composer.botCommandSend')}
     </Button>
   </div>
 </form>

@@ -26,15 +26,15 @@
 </script>
 
 {#if oauth}
-  <SettingsSection headingId="account-devices" title={$i18n.t('settings.signedInDevices')}>
+  <SettingsSection headingId="account-devices" title={i18n.t('settings.signedInDevices')}>
     <ul class="settings-rows">
       <SettingsRow
         id="link-device"
-        title={$i18n.t('qrLogin.titleGrant')}
-        description={$i18n.t('qrLogin.linkDeviceHint')}
+        title={i18n.t('qrLogin.titleGrant')}
+        description={i18n.t('qrLogin.linkDeviceHint')}
       >
         <Button onclick={() => (linkingDevice = true)}>
-          <QrCodeIcon size={16} aria-hidden="true" />{$i18n.t('qrLogin.linkDeviceAction')}
+          <QrCodeIcon size={16} aria-hidden="true" />{i18n.t('qrLogin.linkDeviceAction')}
         </Button>
       </SettingsRow>
     </ul>

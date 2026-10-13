@@ -244,7 +244,7 @@
 <div
   class="drawer-viewport"
   role="group"
-  aria-label={$i18n.t('nav.primary')}
+  aria-label={i18n.t('nav.primary')}
   ontouchstart={handleTouchStart}
   ontouchmove={handleTouchMove}
   ontouchend={() => {
@@ -258,7 +258,7 @@
     id="drawer-toggle"
     class="screen-reader-only"
     type="button"
-    aria-label={open ? $i18n.t('nav.showConversation') : $i18n.t('nav.showRoomList')}
+    aria-label={open ? i18n.t('nav.showConversation') : i18n.t('nav.showRoomList')}
     aria-pressed={open}
     aria-describedby="drawer-instructions"
     onclick={() => {
@@ -267,7 +267,7 @@
     onkeydown={handleKeydown}
   ></button>
   <p id="drawer-instructions" class="screen-reader-only">
-    {$i18n.t('nav.mobilePanelInstructions')}
+    {i18n.t('nav.mobilePanelInstructions')}
   </p>
   <div
     bind:this={track}
@@ -303,7 +303,7 @@
           {#snippet prefix()}
             <PanelHeaderButton
               class="back-button"
-              label={$i18n.t('timeline.back')}
+              label={i18n.t('timeline.back')}
               onclick={backToRoomList}
             >
               <BackIcon />

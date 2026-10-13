@@ -127,7 +127,7 @@
 
 <aside
   class={['widgets-panel', { modal }]}
-  aria-label={$i18n.t('widgets.label')}
+  aria-label={i18n.t('widgets.label')}
   style:width={modal ? null : `${width}rem`}
 >
   {#if !modal}
@@ -135,7 +135,7 @@
       value={width}
       min={MIN_WIDTH}
       max={MAX_WIDTH}
-      label={$i18n.t('widgets.resize')}
+      label={i18n.t('widgets.resize')}
       grow="left"
       step={WIDTH_STEP}
       fromPixels={remFromPixels}
@@ -143,10 +143,10 @@
       onCommit={() => localStorage.setItem(WIDTH_STORAGE_KEY, String(width))}
     />
   {/if}
-  <PanelHeader class="widgets-header" title={activeWidget?.name || $i18n.t('widgets.title')}>
+  <PanelHeader class="widgets-header" title={activeWidget?.name || i18n.t('widgets.title')}>
     {#snippet prefix()}
       {#if activeWidget}
-        <PanelHeaderButton label={$i18n.t('widgets.back')} onclick={() => (activeId = null)}>
+        <PanelHeaderButton label={i18n.t('widgets.back')} onclick={() => (activeId = null)}>
           <ArrowLeftIcon />
         </PanelHeaderButton>
       {:else}
@@ -154,7 +154,7 @@
       {/if}
     {/snippet}
     {#snippet suffix()}
-      <PanelHeaderButton label={$i18n.t('widgets.close')} onclick={onClose}>
+      <PanelHeaderButton label={i18n.t('widgets.close')} onclick={onClose}>
         <XIcon />
       </PanelHeaderButton>
     {/snippet}
@@ -175,7 +175,7 @@
   {:else}
     <div class="widgets-list" {@attach scrollHint}>
       {#if widgets.length === 0}
-        <p class="widgets-empty">{$i18n.t('widgets.empty')}</p>
+        <p class="widgets-empty">{i18n.t('widgets.empty')}</p>
       {/if}
       {#each widgets as widget (widget.id)}
         <div class="widgets-item choice">
@@ -186,7 +186,7 @@
             <IconButton
               variant="ghost"
               size="small"
-              label={$i18n.t('widgets.remove', { name: widget.name })}
+              label={i18n.t('widgets.remove', { name: widget.name })}
               onclick={() => {
                 pendingRemoval = widget;
               }}
@@ -205,27 +205,27 @@
         <form class="widgets-add" onsubmit={submitAdd}>
           <TextInput
             bind:value={newName}
-            placeholder={$i18n.t('widgets.addName')}
-            aria-label={$i18n.t('widgets.addName')}
+            placeholder={i18n.t('widgets.addName')}
+            aria-label={i18n.t('widgets.addName')}
           />
           <TextInput
             bind:value={newUrl}
             type="url"
-            placeholder={$i18n.t('widgets.addUrl')}
-            aria-label={$i18n.t('widgets.addUrl')}
+            placeholder={i18n.t('widgets.addUrl')}
+            aria-label={i18n.t('widgets.addUrl')}
           />
           <Button type="submit" disabled={adding || addUrl === null || newName.trim() === ''}>
-            {$i18n.t('widgets.add')}
+            {i18n.t('widgets.add')}
           </Button>
         </form>
       {:else}
         <Button variant="ghost" onclick={() => (integrationsOpen = true)}>
           <GridFourIcon />
-          {$i18n.t('widgets.integrationManager')}
+          {i18n.t('widgets.integrationManager')}
         </Button>
         <Button variant="ghost" onclick={() => (showAddForm = true)}>
           <PlusIcon />
-          {$i18n.t('widgets.addCustom')}
+          {i18n.t('widgets.addCustom')}
         </Button>
       {/if}
     </div>
@@ -253,9 +253,9 @@
   onOpenChange={(next: boolean) => {
     if (!next) pendingRemoval = null;
   }}
-  title={$i18n.t('widgets.removeConfirm', { name: pendingRemoval?.name ?? '' })}
-  description={$i18n.t('widgets.removeHint')}
-  confirmLabel={$i18n.t('widgets.remove', { name: pendingRemoval?.name ?? '' })}
+  title={i18n.t('widgets.removeConfirm', { name: pendingRemoval?.name ?? '' })}
+  description={i18n.t('widgets.removeHint')}
+  confirmLabel={i18n.t('widgets.remove', { name: pendingRemoval?.name ?? '' })}
   onConfirm={() => {
     onRemove?.(pendingRemoval?.id ?? '');
     pendingRemoval = null;

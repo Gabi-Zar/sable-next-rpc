@@ -31,11 +31,11 @@
 
 <ConfirmDialog
   open={guard.open}
-  title={$i18n.t(guard.risk ? 'settings.logoutWarning.title' : 'settings.logout')}
-  description={$i18n.t(
+  title={i18n.t(guard.risk ? 'settings.logoutWarning.title' : 'settings.logout')}
+  description={i18n.t(
     guard.risk ? `settings.logoutWarning.${guard.risk}` : 'settings.logoutConfirmDescription'
   )}
-  confirmLabel={$i18n.t(guard.risk ? 'settings.logoutWarning.confirm' : 'settings.logout')}
+  confirmLabel={i18n.t(guard.risk ? 'settings.logoutWarning.confirm' : 'settings.logout')}
   busy={guard.signingOut}
   onConfirm={() => void guard.confirm()}
   onCancel={() => guard.dismiss()}
@@ -47,11 +47,11 @@
     <div class="sign-out-recovery">
       {#if recoveryAction}
         <Button type="button" variant="primary" disabled={guard.signingOut} onclick={openSecurity}
-          >{$i18n.t(recoveryAction)}</Button
+          >{i18n.t(recoveryAction)}</Button
         >
       {/if}
       <Button type="button" variant="secondary" disabled={guard.signingOut} onclick={openSecurity}
-        >{$i18n.t('settings.logoutWarning.exportKeys')}</Button
+        >{i18n.t('settings.logoutWarning.exportKeys')}</Button
       >
     </div>
   {/if}

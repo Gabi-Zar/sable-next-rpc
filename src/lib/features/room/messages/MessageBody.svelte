@@ -94,7 +94,7 @@
       revealedSpoiler = spoilerKey;
     }}
   >
-    {spoiler ? `${spoiler} — ` : ''}{$i18n.t(
+    {spoiler ? `${spoiler} — ` : ''}{i18n.t(
       spoiler === null ? 'timeline.hiddenMedia' : 'timeline.spoilerMedia'
     )}
   </Button>
@@ -107,7 +107,7 @@
   {@const reason = item.content.reason ?? redactionReason}
   <p class="redacted">
     <TrashIcon size={14} aria-hidden="true" />
-    {reason ? $i18n.t('timeline.redactedWithReason', { reason }) : $i18n.t('timeline.redacted')}
+    {reason ? i18n.t('timeline.redactedWithReason', { reason }) : i18n.t('timeline.redacted')}
   </p>
 {:else if item.content.kind === 'sticker'}
   {@const sticker = item.content}

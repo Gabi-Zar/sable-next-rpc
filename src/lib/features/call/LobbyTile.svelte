@@ -42,7 +42,7 @@
       autoplay
       muted
       playsinline
-      aria-label={$i18n.t('call.prescreenPreview')}
+      aria-label={i18n.t('call.prescreenPreview')}
       {@attach attachStream}
     ></video>
   {:else}
@@ -53,7 +53,7 @@
   {/if}
   <span class="tag">
     {#if muted}
-      {@const mutedLabel = $i18n.t('call.muted')}
+      {@const mutedLabel = i18n.t('call.muted')}
       <Tooltip label={mutedLabel}>
         {#snippet trigger({ props })}
           <span {...props} class="muted">
@@ -63,7 +63,7 @@
         {/snippet}
       </Tooltip>
     {/if}
-    {#if live}<span class="live">{$i18n.t('call.live')}</span>{/if}
+    {#if live}<span class="live">{i18n.t('call.live')}</span>{/if}
     <span class="name">{name}</span>
   </span>
 </li>

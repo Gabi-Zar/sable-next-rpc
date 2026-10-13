@@ -85,27 +85,27 @@
 
 <SettingsSection
   headingId="room-developer-data"
-  title={$i18n.t(room.is_space ? 'room.devSpaceDataTitle' : 'room.devRoomDataTitle')}
-  description={$i18n.t('room.devDataDescription')}
+  title={i18n.t(room.is_space ? 'room.devSpaceDataTitle' : 'room.devRoomDataTitle')}
+  description={i18n.t('room.devDataDescription')}
 >
   <div class="data settings-form">
     {#if data}
-      <Label for="room-dev-data">{$i18n.t('room.devDataJson')}</Label>
+      <Label for="room-dev-data">{i18n.t('room.devDataJson')}</Label>
       <TextArea id="room-dev-data" value={data} readonly rows={12} spellcheck="false" />
     {/if}
     {#if failed}
-      <Alert variant="critical" role="alert">{$i18n.t('room.devDataFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('room.devDataFailed')}</Alert>
     {/if}
     <div class="actions">
       <Button variant="secondary" {loading} onclick={() => void load()}>
-        {$i18n.t('room.devDataLoad')}
+        {i18n.t('room.devDataLoad')}
       </Button>
       {#if data}
         <Button variant="secondary" disabled={loading} onclick={() => void copy()}>
-          {$i18n.t(copied ? 'common.copied' : 'room.devDataCopy')}
+          {i18n.t(copied ? 'common.copied' : 'room.devDataCopy')}
         </Button>
         <Button variant="secondary" disabled={loading} onclick={() => void download()}>
-          {$i18n.t('room.devDataDownload')}
+          {i18n.t('room.devDataDownload')}
         </Button>
       {/if}
     </div>

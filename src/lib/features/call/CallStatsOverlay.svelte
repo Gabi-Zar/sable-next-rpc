@@ -55,36 +55,36 @@
   function bitrate(bits: number): string {
     const kbps = bits / 1000;
     return kbps >= 1000
-      ? $i18n.t('call.statsMbps', { value: Math.round(kbps / 100) / 10 })
-      : $i18n.t('call.statsKbps', { value: Math.round(kbps) });
+      ? i18n.t('call.statsMbps', { value: Math.round(kbps / 100) / 10 })
+      : i18n.t('call.statsKbps', { value: Math.round(kbps) });
   }
 
   function implementation(name: string, powerEfficient: boolean | undefined): string {
     if (powerEfficient === undefined) return name;
-    return $i18n.t(powerEfficient ? 'call.statsHardware' : 'call.statsSoftware', { name });
+    return i18n.t(powerEfficient ? 'call.statsHardware' : 'call.statsSoftware', { name });
   }
 </script>
 
 {#if stats}
-  <dl class="stats" aria-label={$i18n.t('call.statsLabel')}>
+  <dl class="stats" aria-label={i18n.t('call.statsLabel')}>
     {#if stats.width !== undefined && stats.height !== undefined}
-      <dt>{$i18n.t('call.statsResolution')}</dt>
+      <dt>{i18n.t('call.statsResolution')}</dt>
       <dd>{stats.width}×{stats.height}</dd>
     {/if}
     {#if stats.fps !== undefined}
-      <dt>{$i18n.t('call.statsFramerate')}</dt>
-      <dd>{$i18n.t('call.statsFps', { value: Math.round(stats.fps) })}</dd>
+      <dt>{i18n.t('call.statsFramerate')}</dt>
+      <dd>{i18n.t('call.statsFps', { value: Math.round(stats.fps) })}</dd>
     {/if}
     {#if stats.codec}
-      <dt>{$i18n.t('call.statsCodec')}</dt>
+      <dt>{i18n.t('call.statsCodec')}</dt>
       <dd>{stats.codec}</dd>
     {/if}
     {#if stats.implementation}
-      <dt>{$i18n.t(stats.direction === 'send' ? 'call.statsEncoder' : 'call.statsDecoder')}</dt>
+      <dt>{i18n.t(stats.direction === 'send' ? 'call.statsEncoder' : 'call.statsDecoder')}</dt>
       <dd>{implementation(stats.implementation, stats.powerEfficient)}</dd>
     {/if}
     {#if stats.bitrate !== undefined}
-      <dt>{$i18n.t('call.statsBitrate')}</dt>
+      <dt>{i18n.t('call.statsBitrate')}</dt>
       <dd>{bitrate(stats.bitrate)}</dd>
     {/if}
   </dl>

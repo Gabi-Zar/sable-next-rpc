@@ -44,8 +44,8 @@
   let richText = $derived(preferences.richTextComposer);
   let configuredRich = preferences.richTextComposer;
   let showVoice = $derived(preferences.composerVoiceButton && voiceSupported);
-  let sendLabel = $derived($i18n.t('timeline.sendMessage'));
-  let placeholder = $derived($i18n.t('timeline.messagePlaceholder'));
+  let sendLabel = $derived(i18n.t('timeline.sendMessage'));
+  let placeholder = $derived(i18n.t('timeline.messagePlaceholder'));
 
   const editor = new ComposerEditor({
     media: {
@@ -54,7 +54,7 @@
       hold: () => () => {},
     },
     emotes: () => [],
-    label: () => $i18n.t('timeline.messagePlaceholder'),
+    label: () => i18n.t('timeline.messagePlaceholder'),
     listboxId,
     activeOptionId: () => null,
     editable: () => true,
@@ -100,11 +100,11 @@
   });
 </script>
 
-<aside class="composer-preview" aria-label={$i18n.t('settings.composerPreview')}>
-  <p class="preview-label">{$i18n.t('settings.composerButtonOrderHint')}</p>
+<aside class="composer-preview" aria-label={i18n.t('settings.composerPreview')}>
+  <p class="preview-label">{i18n.t('settings.composerButtonOrderHint')}</p>
   <div class="composer-stack">
     <div class="composer-shell">
-      <div class="composer" role="group" aria-label={$i18n.t('settings.composerPreview')}>
+      <div class="composer" role="group" aria-label={i18n.t('settings.composerPreview')}>
         <form
           class={['composer-row', { short, 'formatting-open': formattingOpen }]}
           onsubmit={(event) => {
@@ -112,7 +112,7 @@
           }}
         >
           {#snippet personaButton(onReorder: () => void)}
-            <Tooltip label={$i18n.t('settings.composerButtonOrderDragHintNone')}>
+            <Tooltip label={i18n.t('settings.composerButtonOrderDragHintNone')}>
               {#snippet trigger({ props })}
                 <IconButton
                   {...props}
@@ -121,7 +121,7 @@
                   class="composer-format selection-open"
                   aria-keyshortcuts="ArrowLeft ArrowRight"
                   onclick={onReorder}
-                  label={$i18n.t('personas.picker')}
+                  label={i18n.t('personas.picker')}
                 >
                   <UserSwitchIcon />
                 </IconButton>
@@ -162,7 +162,7 @@
             </div>
           {/if}
           {#snippet formatButton(onReorder: () => void)}
-            <Tooltip label={$i18n.t('settings.composerButtonOrderDragHintNone')}>
+            <Tooltip label={i18n.t('settings.composerButtonOrderDragHintNone')}>
               {#snippet trigger({ props })}
                 <IconButton
                   {...props}
@@ -173,7 +173,7 @@
                   aria-pressed={formattingOpen}
                   onclick={onReorder}
                   data-state={formattingOpen ? 'open' : 'closed'}
-                  label={$i18n.t('composer.formatting')}
+                  label={i18n.t('composer.formatting')}
                 >
                   <TextAaIcon />
                 </IconButton>
@@ -201,7 +201,7 @@
                 size="small"
                 class="composer-voice"
                 disabled
-                label={$i18n.t('composer.voiceRecord')}><MicrophoneIcon /></IconButton
+                label={i18n.t('composer.voiceRecord')}><MicrophoneIcon /></IconButton
               >
             {/if}
             <IconButton

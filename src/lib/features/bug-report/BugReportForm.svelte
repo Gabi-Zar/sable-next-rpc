@@ -154,34 +154,34 @@
   }}
 >
   <fieldset>
-    <legend>{$i18n.t('bugReport.type')}</legend>
+    <legend>{i18n.t('bugReport.type')}</legend>
     <Select
-      aria-label={$i18n.t('bugReport.type')}
+      aria-label={i18n.t('bugReport.type')}
       value={type}
       items={[
-        { value: 'bug', label: $i18n.t('bugReport.bug') },
-        { value: 'feature', label: $i18n.t('bugReport.feature') },
+        { value: 'bug', label: i18n.t('bugReport.bug') },
+        { value: 'feature', label: i18n.t('bugReport.feature') },
       ]}
       onValueChange={(value) => (type = value as ReportType)}
     />
   </fieldset>
 
-  <FormField fieldId="bug-report-title" label={$i18n.t('bugReport.title')}>
+  <FormField fieldId="bug-report-title" label={i18n.t('bugReport.title')}>
     <TextInput
       id="bug-report-title"
       bind:value={title}
       oninput={(event) =>
         scheduleSimilarIssueSearch((event.currentTarget as HTMLInputElement).value)}
-      placeholder={$i18n.t('bugReport.titlePlaceholder')}
+      placeholder={i18n.t('bugReport.titlePlaceholder')}
       autocomplete="off"
     />
   </FormField>
 
   {#if searching}
-    <p class="search-status"><Spinner small /> {$i18n.t('bugReport.searching')}</p>
+    <p class="search-status"><Spinner small /> {i18n.t('bugReport.searching')}</p>
   {:else if similarIssues.length > 0}
     <div class="similar" role="status">
-      <p>{$i18n.t('bugReport.similarIssues')}</p>
+      <p>{i18n.t('bugReport.similarIssues')}</p>
       {#each similarIssues as issue (issue.number)}
         <a href={issue.html_url} target="_blank" rel="noopener noreferrer"
           >#{issue.number}: {issue.title}</a
@@ -191,68 +191,66 @@
   {/if}
 
   {#if type === 'bug'}
-    <FormField fieldId="bug-report-description" label={$i18n.t('bugReport.description')}>
+    <FormField fieldId="bug-report-description" label={i18n.t('bugReport.description')}>
       <TextArea
         id="bug-report-description"
         bind:value={description}
         rows={4}
-        placeholder={$i18n.t('bugReport.descriptionPlaceholder')}
+        placeholder={i18n.t('bugReport.descriptionPlaceholder')}
       />
     </FormField>
-    <FormField fieldId="bug-report-reproduction" label={$i18n.t('bugReport.reproduction')}>
+    <FormField fieldId="bug-report-reproduction" label={i18n.t('bugReport.reproduction')}>
       <TextArea
         id="bug-report-reproduction"
         bind:value={reproduction}
         rows={3}
-        placeholder={$i18n.t('bugReport.reproductionPlaceholder')}
+        placeholder={i18n.t('bugReport.reproductionPlaceholder')}
       />
     </FormField>
-    <FormField fieldId="bug-report-expected" label={$i18n.t('bugReport.expectedBehavior')}>
+    <FormField fieldId="bug-report-expected" label={i18n.t('bugReport.expectedBehavior')}>
       <TextArea id="bug-report-expected" bind:value={expectedBehavior} rows={2} />
     </FormField>
-    <p class="platform">{$i18n.t('bugReport.platformInfo')}: {version} / {platform}</p>
+    <p class="platform">{i18n.t('bugReport.platformInfo')}: {version} / {platform}</p>
   {:else}
-    <FormField fieldId="bug-report-problem" label={$i18n.t('bugReport.problem')}>
+    <FormField fieldId="bug-report-problem" label={i18n.t('bugReport.problem')}>
       <TextArea id="bug-report-problem" bind:value={problem} rows={4} />
     </FormField>
-    <FormField fieldId="bug-report-solution" label={$i18n.t('bugReport.solution')}>
+    <FormField fieldId="bug-report-solution" label={i18n.t('bugReport.solution')}>
       <TextArea id="bug-report-solution" bind:value={solution} rows={3} />
     </FormField>
-    <FormField fieldId="bug-report-alternatives" label={$i18n.t('bugReport.alternatives')}>
+    <FormField fieldId="bug-report-alternatives" label={i18n.t('bugReport.alternatives')}>
       <TextArea id="bug-report-alternatives" bind:value={alternatives} rows={2} />
     </FormField>
   {/if}
 
-  <FormField fieldId="bug-report-context" label={$i18n.t('bugReport.context')}>
+  <FormField fieldId="bug-report-context" label={i18n.t('bugReport.context')}>
     <TextArea id="bug-report-context" bind:value={context} rows={2} />
   </FormField>
 
   {#if type === 'bug' && sentryEnabled}
     <fieldset class="options">
-      <legend>{$i18n.t('bugReport.errorTracking')}</legend>
+      <legend>{i18n.t('bugReport.errorTracking')}</legend>
       <label class="option">
         <input type="checkbox" bind:checked={sendToSentry} />
-        {$i18n.t('bugReport.sendToSentry')}
+        {i18n.t('bugReport.sendToSentry')}
       </label>
       {#if sendToSentry}
         <label class="option">
           <input type="checkbox" bind:checked={includeDebugLogs} />
-          {$i18n.t('bugReport.includeDebugLogs')}
+          {i18n.t('bugReport.includeDebugLogs')}
         </label>
       {/if}
       <label class="option">
         <input type="checkbox" bind:checked={openOnForge} />
-        {$i18n.t('bugReport.openOnForge')}
+        {i18n.t('bugReport.openOnForge')}
       </label>
     </fieldset>
   {/if}
 
   <div class="actions">
-    <Button variant="ghost" onclick={onDone}>{$i18n.t('common.cancel')}</Button>
+    <Button variant="ghost" onclick={onDone}>{i18n.t('common.cancel')}</Button>
     <Button type="submit" variant="primary" disabled={!canSubmit}>
-      {$i18n.t(
-        type === 'bug' && sentryEnabled ? 'bugReport.submit' : 'bugReport.openOnForgeAction'
-      )}
+      {i18n.t(type === 'bug' && sentryEnabled ? 'bugReport.submit' : 'bugReport.openOnForgeAction')}
     </Button>
   </div>
 </form>

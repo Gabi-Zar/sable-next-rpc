@@ -30,7 +30,7 @@
     try {
       const bytes = new TextEncoder().encode(settingsFileJson(preferences, customThemes));
       if ((await saveBytes(bytes, settingsFileName(), 'application/json')) === 'failed') {
-        error = $i18n.t('settings.settingsExportFailed');
+        error = i18n.t('settings.settingsExportFailed');
       }
     } finally {
       exporting = false;
@@ -45,7 +45,7 @@
       pending = parseSettingsFile(await file.text(), preferences, customThemes);
     } catch (cause) {
       console.warn('[sable settings] the settings file could not be read', cause);
-      error = $i18n.t('settings.settingsImportInvalid');
+      error = i18n.t('settings.settingsImportInvalid');
     }
   }
 
@@ -72,11 +72,11 @@
 <ul class="settings-rows">
   <SettingsRow
     id="settings-file"
-    title={$i18n.t('settings.settingsFileTitle')}
-    description={$i18n.t('settings.settingsFileHint')}
+    title={i18n.t('settings.settingsFileTitle')}
+    description={i18n.t('settings.settingsFileHint')}
   >
     <Button variant="secondary" size="small" onclick={() => void chooseFile()}>
-      {$i18n.t('settings.settingsImport')}
+      {i18n.t('settings.settingsImport')}
     </Button>
     <Button
       variant="secondary"
@@ -84,7 +84,7 @@
       loading={exporting}
       onclick={() => void exportSettings()}
     >
-      {$i18n.t('settings.settingsExport')}
+      {i18n.t('settings.settingsExport')}
     </Button>
     <input
       bind:this={fileInput}
@@ -113,10 +113,10 @@
   onOpenChange={(next: boolean) => {
     if (!next) pending = null;
   }}
-  title={$i18n.t('settings.settingsImportTitle')}
+  title={i18n.t('settings.settingsImportTitle')}
   description={pending?.push
-    ? $i18n.t('settings.settingsImportConfirmGateway', { gateway: pending.push.pushGatewayUrl })
-    : $i18n.t('settings.settingsImportConfirm')}
-  confirmLabel={$i18n.t('settings.settingsImport')}
+    ? i18n.t('settings.settingsImportConfirmGateway', { gateway: pending.push.pushGatewayUrl })
+    : i18n.t('settings.settingsImportConfirm')}
+  confirmLabel={i18n.t('settings.settingsImport')}
   onConfirm={confirmImport}
 />

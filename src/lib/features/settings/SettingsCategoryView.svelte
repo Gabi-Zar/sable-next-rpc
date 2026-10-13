@@ -18,8 +18,8 @@
 </script>
 
 <AppPageShell
-  title={$i18n.t(category.name)}
-  description={category.description ? $i18n.t(category.description) : undefined}
+  title={i18n.t(category.name)}
+  description={category.description ? i18n.t(category.description) : undefined}
   density="compact"
   class={['settings-category', isComposer && 'settings-category-dock']}
 >

@@ -93,17 +93,17 @@
     item === undefined ? '' : item.kind === 'sticker' ? item.body : (item.caption ?? item.filename)
   );
   let visibleLabel = $derived(
-    spoilerHidden ? $i18n.t('composer.spoiler') : mediaLabel || $i18n.t('viewer.untitled')
+    spoilerHidden ? i18n.t('composer.spoiler') : mediaLabel || i18n.t('viewer.untitled')
   );
   const resource = new MediaViewerResource(core, () => videoEl?.currentTime ?? 0);
   let url = $derived(resource.url);
   const mediaActions = new MediaViewerActions(
     () => ({ url, item, fileName }),
     () => ({
-      copied: $i18n.t('viewer.imageCopied'),
-      copyFailed: $i18n.t('viewer.copyFailed'),
-      saved: $i18n.t('viewer.saved'),
-      saveFailed: $i18n.t('errors.actionFailed'),
+      copied: i18n.t('viewer.imageCopied'),
+      copyFailed: i18n.t('viewer.copyFailed'),
+      saved: i18n.t('viewer.saved'),
+      saveFailed: i18n.t('errors.actionFailed'),
     })
   );
   const loading = mediaProgress(core, () => (!url && !failed ? source : null));
@@ -208,10 +208,10 @@
   });
   let downloadLabel = $derived(
     item?.kind === 'video'
-      ? $i18n.t('viewer.downloadVideo')
+      ? i18n.t('viewer.downloadVideo')
       : item?.kind === 'audio'
-        ? $i18n.t('viewer.downloadAudio')
-        : $i18n.t('viewer.downloadImage')
+        ? i18n.t('viewer.downloadAudio')
+        : i18n.t('viewer.downloadImage')
   );
 
   function clampCurrentPan(next: Vector2): Vector2 {
@@ -669,7 +669,7 @@
         class={chromeHidden ? 'viewer immersive' : 'viewer'}
         {...overlayLayer()}
         style={`height: calc(100dvh - var(--titlebar-height)); inset: var(--titlebar-height) 0 0; opacity: ${String(1 - Math.min(0.75, Math.abs(swipeY) / 400))}; position: fixed; width: 100vw;`}
-        aria-label={$i18n.t('viewer.title')}
+        aria-label={i18n.t('viewer.title')}
         onInteractOutside={(event: PointerEvent) => {
           if (event.target instanceof Element && event.target.closest('.titlebar')) {
             event.preventDefault();
@@ -682,7 +682,7 @@
             <Tooltip label={visibleLabel}>
               {#snippet trigger({ props })}
                 <span {...props}
-                  >{$i18n.t('viewer.position', { index: index + 1, total: items.length })} · {visibleLabel}</span
+                  >{i18n.t('viewer.position', { index: index + 1, total: items.length })} · {visibleLabel}</span
                 >
               {/snippet}
             </Tooltip>
@@ -692,14 +692,14 @@
               <div class="zoom-controls">
                 {#if isImage && fitRatio !== 1 && zoom !== 1}
                   <IconButton
-                    label={$i18n.t('viewer.originalSize')}
+                    label={i18n.t('viewer.originalSize')}
                     size="small"
                     variant="ghost"
                     onclick={() => setZoom(1)}><ImageSquareIcon /></IconButton
                   >
                 {/if}
                 <IconButton
-                  label={$i18n.t('viewer.zoomOut')}
+                  label={i18n.t('viewer.zoomOut')}
                   size="small"
                   variant="ghost"
                   onclick={() => setZoom(zoom / (1 + ZOOM_STEP))}><MinusIcon /></IconButton
@@ -710,7 +710,7 @@
                     <input
                       type="text"
                       inputmode="numeric"
-                      aria-label={$i18n.t('viewer.setZoom')}
+                      aria-label={i18n.t('viewer.setZoom')}
                       autofocus
                       bind:value={zoomInput}
                       onblur={commitZoomEdit}
@@ -720,7 +720,7 @@
                     />%
                   </span>
                 {:else}
-                  {@const zoomLabel = $i18n.t('viewer.setZoom')}
+                  {@const zoomLabel = i18n.t('viewer.setZoom')}
                   <Tooltip label={zoomLabel}>
                     {#snippet trigger({ props })}
                       <button {...props} class="zoom-level" type="button" onclick={beginZoomEdit}
@@ -730,7 +730,7 @@
                   </Tooltip>
                 {/if}
                 <IconButton
-                  label={$i18n.t('viewer.zoomIn')}
+                  label={i18n.t('viewer.zoomIn')}
                   size="small"
                   variant="ghost"
                   onclick={() => setZoom(zoom * (1 + ZOOM_STEP))}><PlusIcon /></IconButton
@@ -739,7 +739,7 @@
             {/if}
             {#if canShare}
               <IconButton
-                label={$i18n.t('common.share')}
+                label={i18n.t('common.share')}
                 size="medium"
                 variant="ghost"
                 onclick={(event) => {
@@ -751,11 +751,11 @@
               <ActionMenu label={downloadLabel} trigger={saveTrigger}>
                 <ActionMenuItem onSelect={() => void mediaActions.download()}>
                   <FileArrowDownIcon />
-                  {$i18n.t('viewer.saveToFiles')}
+                  {i18n.t('viewer.saveToFiles')}
                 </ActionMenuItem>
                 <ActionMenuItem onSelect={() => void mediaActions.saveToPhotos()}>
                   <ImagesIcon />
-                  {$i18n.t('viewer.saveToPhotos')}
+                  {i18n.t('viewer.saveToPhotos')}
                 </ActionMenuItem>
               </ActionMenu>
             {:else}
@@ -767,11 +767,11 @@
               >
             {/if}
             {#if isImage || isPdf || onJump}
-              <ActionMenu label={$i18n.t('timeline.moreActions')}>
+              <ActionMenu label={i18n.t('timeline.moreActions')}>
                 {#snippet trigger({ props })}
                   <IconButton
                     {...props}
-                    label={$i18n.t('timeline.moreActions')}
+                    label={i18n.t('timeline.moreActions')}
                     size="medium"
                     variant="ghost"><DotsThreeIcon /></IconButton
                   >
@@ -779,21 +779,21 @@
                 {#if isImage}
                   <ActionMenuItem onSelect={() => void mediaActions.copyImage()}>
                     <CopyIcon />
-                    {$i18n.t('viewer.copyImage')}
+                    {i18n.t('viewer.copyImage')}
                   </ActionMenuItem>
                   <ActionMenuItem onSelect={() => rotateBy(90)}>
                     <ArrowClockwiseIcon />
-                    {$i18n.t('viewer.rotate')}
+                    {i18n.t('viewer.rotate')}
                   </ActionMenuItem>
                   <ActionMenuItem checked={pixelated} onSelect={() => (pixelated = !pixelated)}>
                     <SquaresFourIcon />
-                    {$i18n.t('viewer.pixelate')}
+                    {i18n.t('viewer.pixelate')}
                   </ActionMenuItem>
                   <ActionMenuItem
                     onSelect={() => spoilerVisibility.set(spoilerKey, !spoilerHidden)}
                   >
                     {#if spoilerHidden}<EyeIcon />{:else}<EyeSlashIcon />{/if}
-                    {$i18n.t(
+                    {i18n.t(
                       spoilerHidden ? 'timeline.revealImageUnnamed' : 'timeline.hideImageUnnamed'
                     )}
                   </ActionMenuItem>
@@ -809,7 +809,7 @@
                     }}
                   >
                     <ArrowCounterClockwiseIcon />
-                    {$i18n.t('viewer.reset')}
+                    {i18n.t('viewer.reset')}
                   </ActionMenuItem>
                 {/if}
                 {#if onJump}
@@ -820,14 +820,14 @@
                     }}
                   >
                     <ChatCenteredTextIcon />
-                    {$i18n.t('common.jumpToMessage')}
+                    {i18n.t('common.jumpToMessage')}
                   </ActionMenuItem>
                 {/if}
               </ActionMenu>
             {/if}
             <IconButton
               class="close-button"
-              label={$i18n.t('common.close')}
+              label={i18n.t('common.close')}
               size="medium"
               variant="ghost"
               onclick={onClose}><XIcon /></IconButton
@@ -857,14 +857,14 @@
           {#if index > 0}
             <IconButton
               class="nav previous"
-              label={$i18n.t('viewer.previous')}
+              label={i18n.t('viewer.previous')}
               size="large"
               onclick={previous}><ArrowLeftIcon /></IconButton
             >
           {/if}
           {#if spoilerHidden && !isImage}
             <Button class="spoiler-reveal" onclick={() => spoilerVisibility.set(spoilerKey, false)}>
-              {spoiler ? `${spoiler} — ` : ''}{$i18n.t('timeline.spoilerMedia')}
+              {spoiler ? `${spoiler} — ` : ''}{i18n.t('timeline.spoilerMedia')}
             </Button>
           {:else if url}
             {#if item.kind === 'video'}
@@ -875,7 +875,7 @@
                 class="media-player"
                 controls
                 src={url}
-                aria-label={mediaLabel || $i18n.t('timeline.videoAttachment')}
+                aria-label={mediaLabel || i18n.t('timeline.videoAttachment')}
               >
                 {fileName}
               </video>
@@ -884,7 +884,7 @@
                 class="media-player"
                 controls
                 src={url}
-                aria-label={mediaLabel || $i18n.t('timeline.audioAttachment')}
+                aria-label={mediaLabel || i18n.t('timeline.audioAttachment')}
               >
                 {fileName}
               </audio>
@@ -903,7 +903,7 @@
                 bind:this={imageEl}
                 class={{ pixelated, dragging, instant, spoilered: spoilerHidden }}
                 src={url}
-                alt={spoilerHidden ? '' : mediaLabel || $i18n.t('viewer.imageAlt')}
+                alt={spoilerHidden ? '' : mediaLabel || i18n.t('viewer.imageAlt')}
                 aria-hidden={spoilerHidden ? 'true' : undefined}
                 draggable="false"
                 style:opacity={imageReady ? undefined : 0}
@@ -933,7 +933,7 @@
               {/if}
               <ActionMenu
                 bind:open={imageMenuOpen}
-                label={$i18n.t('viewer.imageMenu')}
+                label={i18n.t('viewer.imageMenu')}
                 anchor={imageMenuAnchor}
                 side="bottom"
                 align="start"
@@ -941,7 +941,7 @@
               >
                 <ActionMenuItem onSelect={() => void mediaActions.copyImage()}>
                   <CopyIcon />
-                  {$i18n.t('viewer.copyImage')}
+                  {i18n.t('viewer.copyImage')}
                 </ActionMenuItem>
                 <ActionMenuItem onSelect={() => void mediaActions.download()}>
                   <DownloadSimpleIcon />
@@ -951,8 +951,8 @@
             {/if}
           {:else if failed}
             <div class="error">
-              <strong>{$i18n.t('timeline.mediaUnavailable')}</strong>
-              <span>{$i18n.t('timeline.mediaUnavailableDetail')}</span>
+              <strong>{i18n.t('timeline.mediaUnavailable')}</strong>
+              <span>{i18n.t('timeline.mediaUnavailableDetail')}</span>
             </div>
           {:else}
             {#if preview}
@@ -974,9 +974,9 @@
               />
             {/if}
             <span class="loading">
-              <Spinner label={$i18n.t('a11y.loading')} />
+              <Spinner label={i18n.t('a11y.loading')} />
               {#if loading.percent !== null}
-                <span>{$i18n.t('timeline.downloadProgress', { percent: loading.percent })}</span>
+                <span>{i18n.t('timeline.downloadProgress', { percent: loading.percent })}</span>
               {/if}
             </span>
           {/if}
@@ -989,7 +989,7 @@
             />
           {/if}
           {#if index < items.length - 1}
-            <IconButton class="nav next" label={$i18n.t('viewer.next')} size="large" onclick={next}
+            <IconButton class="nav next" label={i18n.t('viewer.next')} size="large" onclick={next}
               ><ArrowRightIcon /></IconButton
             >
           {/if}
@@ -999,15 +999,15 @@
           <footer class={['bottom-bar', { 'chrome-hidden': chromeHidden }]}>
             <div class="zoom-controls">
               <IconButton
-                label={$i18n.t('pdf.previousPage')}
+                label={i18n.t('pdf.previousPage')}
                 size="small"
                 variant="ghost"
                 disabled={pdfPage <= 1}
                 onclick={() => (pdfPage -= 1)}><CaretLeftIcon /></IconButton
               >
-              <span>{$i18n.t('pdf.pageIndicator', { page: pdfPage, pages: pdfPages })}</span>
+              <span>{i18n.t('pdf.pageIndicator', { page: pdfPage, pages: pdfPages })}</span>
               <IconButton
-                label={$i18n.t('pdf.nextPage')}
+                label={i18n.t('pdf.nextPage')}
                 size="small"
                 variant="ghost"
                 disabled={pdfPage >= pdfPages}

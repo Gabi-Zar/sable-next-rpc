@@ -146,19 +146,19 @@
 <section class="defaults settings-form" aria-labelledby="notification-badges">
   <div class="settings-heading-row">
     <h3 id="notification-badges" data-settings-outline>
-      {$i18n.t('settings.notificationBadges')}
+      {i18n.t('settings.notificationBadges')}
     </h3>
     <SettingsAnchorLink anchor="notification-badges" />
   </div>
-  <p class="hint settings-description">{$i18n.t('settings.notificationBadgesHint')}</p>
+  <p class="hint settings-description">{i18n.t('settings.notificationBadgesHint')}</p>
 
   <ul class="settings-rows">
     {#each badgeRows as { key, label } (key)}
-      <SettingsRow id={`notification-badge-${key}`} title={$i18n.t(label)}>
+      <SettingsRow id={`notification-badge-${key}`} title={i18n.t(label)}>
         <Select
-          aria-label={`${$i18n.t('settings.notificationBadges')}: ${$i18n.t(label)}`}
+          aria-label={`${i18n.t('settings.notificationBadges')}: ${i18n.t(label)}`}
           value={preferences[key]}
-          items={badgeModes.map((mode) => ({ value: mode, label: $i18n.t(badgeModeLabels[mode]) }))}
+          items={badgeModes.map((mode) => ({ value: mode, label: i18n.t(badgeModeLabels[mode]) }))}
           onValueChange={(value) => {
             setPreference(key, value as BadgeNotificationMode);
           }}
@@ -171,15 +171,15 @@
 <section class="defaults settings-form" aria-labelledby="notification-push">
   <div class="settings-heading-row">
     <h3 id="notification-push" data-settings-outline>
-      {$i18n.t('settings.notificationPush')}
+      {i18n.t('settings.notificationPush')}
     </h3>
     <SettingsAnchorLink anchor="notification-push" />
   </div>
-  <p class="hint settings-description">{$i18n.t('settings.notificationPushHint')}</p>
+  <p class="hint settings-description">{i18n.t('settings.notificationPushHint')}</p>
 
   {#if failed}
     <Alert variant="warning" role="status">
-      <p>{$i18n.t('settings.notificationDefaultsFailed')}</p>
+      <p>{i18n.t('settings.notificationDefaultsFailed')}</p>
     </Alert>
   {/if}
 
@@ -187,23 +187,23 @@
     {#if muted !== null}
       <SettingsRow
         id="notification-master-mute"
-        title={$i18n.t('settings.notificationMasterMute')}
-        description={$i18n.t('settings.notificationMasterMuteHint')}
+        title={i18n.t('settings.notificationMasterMute')}
+        description={i18n.t('settings.notificationMasterMuteHint')}
       >
         <Switch
-          label={$i18n.t('settings.notificationMasterMute')}
+          label={i18n.t('settings.notificationMasterMute')}
           checked={muted}
           onCheckedChange={saveMute}
         />
       </SettingsRow>
     {/if}
     {#each pushRows as { key, label, direct } (key)}
-      <SettingsRow id={`notification-push-${key}`} title={$i18n.t(label)}>
+      <SettingsRow id={`notification-push-${key}`} title={i18n.t(label)}>
         {#if current}
           <Select
-            aria-label={`${$i18n.t('settings.notificationPush')}: ${$i18n.t(label)}`}
+            aria-label={`${i18n.t('settings.notificationPush')}: ${i18n.t(label)}`}
             value={current[key]}
-            items={modes.map((mode) => ({ value: mode, label: $i18n.t(modeLabels[mode]) }))}
+            items={modes.map((mode) => ({ value: mode, label: i18n.t(modeLabels[mode]) }))}
             onValueChange={(value) => {
               savePush(key, direct, value as NotificationModeView);
             }}
@@ -214,11 +214,11 @@
     {#if events}
       {#each eventRows as { key, label } (key)}
         {#if events[key] !== null}
-          <SettingsRow id={`notification-event-${key}`} title={$i18n.t(label)}>
+          <SettingsRow id={`notification-event-${key}`} title={i18n.t(label)}>
             <Select
-              aria-label={$i18n.t(label)}
+              aria-label={i18n.t(label)}
               value={events[key] ? 'on' : 'off'}
-              items={eventItems.map((item) => ({ value: item.value, label: $i18n.t(item.label) }))}
+              items={eventItems.map((item) => ({ value: item.value, label: i18n.t(item.label) }))}
               onValueChange={(value) => {
                 saveEvent(key, value === 'on');
               }}

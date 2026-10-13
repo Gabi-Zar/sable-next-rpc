@@ -8,7 +8,7 @@
 
   let { title, titleKey }: Props = $props();
 
-  let pageTitle = $derived(title ?? (titleKey ? $i18n.t(titleKey) : ''));
+  let pageTitle = $derived(title ?? (titleKey ? i18n.t(titleKey) : ''));
 </script>
 
 <svelte:head>

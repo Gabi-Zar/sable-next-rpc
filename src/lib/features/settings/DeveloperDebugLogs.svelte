@@ -54,11 +54,11 @@
   <ul class="settings">
     <SettingsRow
       id="debug-logs-status"
-      title={$i18n.t('settings.developerLogsStatus')}
-      description={$i18n.t('settings.developerLogsDescription')}
+      title={i18n.t('settings.developerLogsStatus')}
+      description={i18n.t('settings.developerLogsDescription')}
     >
       <Switch
-        label={$i18n.t('settings.developerLogsEnable')}
+        label={i18n.t('settings.developerLogsEnable')}
         checked={debugLog.enabled}
         onCheckedChange={setDebugLogging}
       />
@@ -68,13 +68,13 @@
   <div class="settings-form logs-body">
     <div class="filters">
       <Select
-        aria-label={$i18n.t('settings.developerLogsLevel')}
+        aria-label={i18n.t('settings.developerLogsLevel')}
         value={level}
         items={levels.map((value) => ({ value, label: value }))}
         onValueChange={(value) => (level = value as DebugLogLevel | 'all')}
       />
       <Select
-        aria-label={$i18n.t('settings.developerLogsCategory')}
+        aria-label={i18n.t('settings.developerLogsCategory')}
         value={category}
         items={[
           { value: 'all', label: 'all' },
@@ -85,19 +85,18 @@
     </div>
 
     <div class="actions">
-      <Button variant="ghost" size="small" onclick={clearDebugLogs}
-        >{$i18n.t('common.clear')}</Button
+      <Button variant="ghost" size="small" onclick={clearDebugLogs}>{i18n.t('common.clear')}</Button
       >
       <Button variant="secondary" size="small" onclick={() => void copy()}
-        >{$i18n.t('settings.developerLogsCopy')}</Button
+        >{i18n.t('settings.developerLogsCopy')}</Button
       >
       <Button variant="secondary" size="small" onclick={() => void download()}
-        >{$i18n.t('settings.developerLogsExport')}</Button
+        >{i18n.t('settings.developerLogsExport')}</Button
       >
     </div>
 
     {#if filtered.length === 0}
-      <p class="empty">{$i18n.t('settings.developerLogsEmpty')}</p>
+      <p class="empty">{i18n.t('settings.developerLogsEmpty')}</p>
     {:else}
       <div class="entries" aria-live="polite" {@attach scrollHint}>
         {#each filtered.slice(-200).reverse() as entry (entry.id)}

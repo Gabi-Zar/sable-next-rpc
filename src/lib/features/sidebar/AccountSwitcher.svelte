@@ -137,7 +137,7 @@
   {#if ownPresence}
     <PresenceDot
       presence={ownPresence}
-      label={$i18n.t(`presence.${ownPresence}`)}
+      label={i18n.t(`presence.${ownPresence}`)}
       class="account-presence"
       size="medium"
     />
@@ -148,7 +148,7 @@
   <a
     class="quick-tool mobile-tool account-tool selection-layer"
     href={resolve('/(app)/profile')}
-    aria-label={$i18n.t('nav.manageAccounts')}
+    aria-label={i18n.t('nav.manageAccounts')}
     aria-current={page.url.pathname === '/profile' ? 'page' : undefined}
     draggable="false"
   >
@@ -157,7 +157,7 @@
 {:else}
   {#snippet profileTrigger({ props: tooltipProps }: { props: Record<string, unknown> })}
     <ActionMenu
-      label={$i18n.t('nav.switchAccount')}
+      label={i18n.t('nav.switchAccount')}
       class="sidebar-popover"
       side={mode === 'compact' ? 'right' : 'top'}
       align={mode === 'compact' ? 'center' : 'start'}
@@ -172,7 +172,7 @@
           'compact'
             ? 'compact-tool nav-tab-side'
             : 'desktop-tool nav-tab-bottom'}"
-          aria-label={$i18n.t('nav.switchAccount')}
+          aria-label={i18n.t('nav.switchAccount')}
         >
           {@render ownAvatar()}
         </button>
@@ -196,15 +196,14 @@
             type="button"
             class="account-profile-status-button"
             onclick={openStatusEdit}
-            aria-label={$i18n.t('nav.editStatus')}
+            aria-label={i18n.t('nav.editStatus')}
           >
             <p class="account-profile-status-text explicit-scrollbar" role="region">
               {#if userStatus?.emoji}<span class="account-profile-status-emoji"
                   >{userStatus?.emoji}</span
                 >{/if}
               {#if userStatus?.text}{userStatus?.text}{:else}<span
-                  class="account-profile-status-placeholder"
-                  >{$i18n.t('common.whatAreYouUpTo')}</span
+                  class="account-profile-status-placeholder">{i18n.t('common.whatAreYouUpTo')}</span
                 >{/if}
             </p>
           </button>
@@ -226,7 +225,7 @@
     </ActionMenu>
   {/snippet}
   <Tooltip
-    label={$i18n.t('nav.switchAccount')}
+    label={i18n.t('nav.switchAccount')}
     side={mode === 'compact' ? 'right' : 'top'}
     align={mode === 'compact' ? 'center' : 'start'}
     trigger={profileTrigger}
@@ -236,18 +235,18 @@
 <DialogFrame
   open={accountToLogout !== null}
   variant="verification"
-  label={$i18n.t('settings.logout')}
+  label={i18n.t('settings.logout')}
   onOpenChange={(open) => {
     if (!open && !switching) logoutAccountId = null;
   }}
 >
   {#if accountToLogout}
     <div class="logout-dialog">
-      <h2>{$i18n.t('settings.logout')}</h2>
+      <h2>{i18n.t('settings.logout')}</h2>
       <p>{accountToLogout.user_id}</p>
       <DialogActions>
         <Button variant="ghost" disabled={switching} onclick={() => (logoutAccountId = null)}
-          >{$i18n.t('common.cancel')}</Button
+          >{i18n.t('common.cancel')}</Button
         >
         <Button
           variant="danger"
@@ -255,7 +254,7 @@
           onclick={() => {
             const accountId = accountToLogout?.account_id;
             if (accountId) void logoutAccount(accountId).then(() => (logoutAccountId = null));
-          }}>{$i18n.t('settings.logout')}</Button
+          }}>{i18n.t('settings.logout')}</Button
         >
       </DialogActions>
     </div>

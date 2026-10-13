@@ -18,12 +18,12 @@
 </script>
 
 <div class="appearance-setup-card auth-card-surface">
-  <AuthField labelId="appearance-setup-title" label={$i18n.t('setup.appearanceTitle')}>
+  <AuthField labelId="appearance-setup-title" label={i18n.t('setup.appearanceTitle')}>
     <p class="hint">
-      {$i18n.t(
+      {i18n.t(
         preferences.theme === 'system' ? 'setup.appearanceSystem' : 'setup.appearancePinned',
         {
-          mode: $i18n
+          mode: i18n
             .t(preferences.theme === 'light' ? 'common.light' : 'common.dark')
             .toLowerCase(),
         }
@@ -32,7 +32,7 @@
   </AuthField>
 
   <CustomThemes onboarding onThemeChosen={choose} />
-  <Button variant="primary" block onclick={onComplete}>{$i18n.t('auth.continue')}</Button>
+  <Button variant="primary" block onclick={onComplete}>{i18n.t('auth.continue')}</Button>
 </div>
 
 <style>

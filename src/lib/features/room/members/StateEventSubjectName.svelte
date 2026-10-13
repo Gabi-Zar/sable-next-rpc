@@ -40,6 +40,6 @@
   {colors}
   nameClass="state-subject"
   compact
-  profileLabel={$i18n.t('timeline.senderProfile', { name })}
+  profileLabel={i18n.t('timeline.senderProfile', { name })}
   onProfile={onProfile ? openProfile : undefined}
 />

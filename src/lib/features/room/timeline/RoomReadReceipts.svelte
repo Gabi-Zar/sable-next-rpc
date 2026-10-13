@@ -55,15 +55,15 @@
   {anchor}
   class="read-receipts-popover"
   align="end"
-  label={$i18n.t('common.readReceipts')}
-  closeLabel={$i18n.t('timeline.closeReadReceipts')}
+  label={i18n.t('common.readReceipts')}
+  closeLabel={i18n.t('timeline.closeReadReceipts')}
 >
   <MemberUserList
-    title={$i18n.t('timeline.seenBy')}
+    title={i18n.t('timeline.seenBy')}
     userIds={readers}
     {members}
     {onMemberProfile}
-    closeLabel={$i18n.t('timeline.closeReadReceipts')}
+    closeLabel={i18n.t('timeline.closeReadReceipts')}
     onClose={() => {
       open = false;
     }}

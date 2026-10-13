@@ -14,8 +14,8 @@
   const reasonId = $props.id();
   let label = $derived(
     name
-      ? $i18n.t(hidden ? 'timeline.revealImage' : 'timeline.hideImage', { name })
-      : $i18n.t(hidden ? 'timeline.revealImageUnnamed' : 'timeline.hideImageUnnamed')
+      ? i18n.t(hidden ? 'timeline.revealImage' : 'timeline.hideImage', { name })
+      : i18n.t(hidden ? 'timeline.revealImageUnnamed' : 'timeline.hideImageUnnamed')
   );
 
   function stopPress(event: PointerEvent): void {
@@ -44,8 +44,8 @@
         <EyeSlashIcon aria-hidden="true" />
         {#if hidden}
           <span class="media-image-spoiler-copy">
-            <span id={reasonId}>{reason || $i18n.t('composer.spoiler')}</span>
-            <span class="media-image-spoiler-hint">{$i18n.t('timeline.revealImageUnnamed')}</span>
+            <span id={reasonId}>{reason || i18n.t('composer.spoiler')}</span>
+            <span class="media-image-spoiler-hint">{i18n.t('timeline.revealImageUnnamed')}</span>
           </span>
         {/if}
       </span>

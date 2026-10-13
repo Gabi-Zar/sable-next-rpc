@@ -15,8 +15,8 @@
 
   let {
     open = $bindable(false),
-    title = $i18n.t('timeline.reportTitle'),
-    hint = $i18n.t('timeline.reportReasonHint'),
+    title = i18n.t('timeline.reportTitle'),
+    hint = i18n.t('timeline.reportReasonHint'),
     onReport,
   }: Props = $props();
   let reason = $state('');
@@ -32,16 +32,16 @@
 <DialogFrame bind:open variant="verification" label={title}>
   <h2>{title}</h2>
   <p class="hint">{hint}</p>
-  <FormField {fieldId} label={$i18n.t('timeline.reportReason')}>
+  <FormField {fieldId} label={i18n.t('timeline.reportReason')}>
     <TextArea id={fieldId} bind:value={reason} />
   </FormField>
   <FormActions>
-    <Button variant="danger" onclick={submit}>{$i18n.t('timeline.reportSend')}</Button>
+    <Button variant="danger" onclick={submit}>{i18n.t('timeline.reportSend')}</Button>
     <Button
       variant="ghost"
       onclick={() => {
         open = false;
-      }}>{$i18n.t('common.cancel')}</Button
+      }}>{i18n.t('common.cancel')}</Button
     >
   </FormActions>
 </DialogFrame>

@@ -101,15 +101,15 @@
   let statusError = $derived(
     userServerError ??
       (!isPasswordLoginVisible && (fieldError || loginError || core.status === 'error')
-        ? (fieldError ?? loginError ?? $i18n.t('auth.unableToStart'))
+        ? (fieldError ?? loginError ?? i18n.t('auth.unableToStart'))
         : null)
   );
   let statusMessage = $derived(
     statusError ??
       (loginFlows && availableLoginMethodCount === 0
-        ? $i18n.t('errors.unsupportedSignIn')
+        ? i18n.t('errors.unsupportedSignIn')
         : usernameServer && sameServer(displayedHomeserver, usernameServer)
-          ? $i18n.t('auth.signingInOn', { server: usernameServer })
+          ? i18n.t('auth.signingInOn', { server: usernameServer })
           : null)
   );
 
@@ -133,7 +133,7 @@
     if (!server || server === declinedServer || sameServer(homeserver, server)) return null;
     if (!homeservers.allowCustom && !homeservers.list.includes(server)) {
       declinedServer = server;
-      userServerError = $i18n.t('auth.userServerNotFound', { server });
+      userServerError = i18n.t('auth.userServerNotFound', { server });
       return false;
     }
     const previous = homeserver;
@@ -148,7 +148,7 @@
     homeserver = previous;
     onClearHomeserverValidation();
     declinedServer = server;
-    userServerError = $i18n.t('auth.userServerNotFound', { server });
+    userServerError = i18n.t('auth.userServerNotFound', { server });
     return false;
   }
 
@@ -168,7 +168,7 @@
     void submit();
   }}
 >
-  <FormField dense fieldId="homeserver" label={$i18n.t('auth.accountProvider')}>
+  <FormField dense fieldId="homeserver" label={i18n.t('auth.accountProvider')}>
     <HomeserverPicker
       id="homeserver"
       bind:value={homeserver}
@@ -192,7 +192,7 @@
 
   <AuthStatusSlot
     loading={isCheckingHomeserver}
-    loadingMessage={$i18n.t('auth.checkingProvider')}
+    loadingMessage={i18n.t('auth.checkingProvider')}
     message={statusMessage}
     tone={statusError ? 'error' : 'muted'}
   />
@@ -206,7 +206,7 @@
             disabled={isAuthenticating || isLoginControlsDisabled}
             variant="primary"
           >
-            {isCheckingHomeserver ? $i18n.t('auth.checking') : $i18n.t('auth.continue')}
+            {isCheckingHomeserver ? i18n.t('auth.checking') : i18n.t('auth.continue')}
           </Button>
         </div>
       {/if}
@@ -215,7 +215,7 @@
         <LoginMethod>
           <div class="actions sso-actions">
             <LoginProviderButton
-              label={$i18n.t('auth.signInWithProvider', {
+              label={i18n.t('auth.signInWithProvider', {
                 name: displayedHomeserver || 'matrix.org',
               })}
               launching={isLaunchingLogin}
@@ -228,7 +228,7 @@
                 disabled={isAuthenticating || isLoginControlsDisabled || isLaunchingLogin}
                 onclick={onQrLogin}
               >
-                <QrCodeIcon size={18} aria-hidden="true" />{$i18n.t('qrLogin.titleLogin')}
+                <QrCodeIcon size={18} aria-hidden="true" />{i18n.t('qrLogin.titleLogin')}
               </Button>
             {/if}
           </div>
@@ -241,7 +241,7 @@
             <div class="actions sso-actions">
               {#each loginFlows.sso_identity_providers as provider (provider.id)}
                 <LoginProviderButton
-                  label={$i18n.t('auth.signInWithProvider', { name: provider.name })}
+                  label={i18n.t('auth.signInWithProvider', { name: provider.name })}
                   launching={isLaunchingLogin}
                   disabled={isAuthenticating || isLoginControlsDisabled || isLaunchingLogin}
                   onclick={() => void onLaunchRedirectLogin('sso', provider.id)}
@@ -251,7 +251,7 @@
           {:else}
             <div class="actions">
               <LoginProviderButton
-                label={$i18n.t('auth.signInWithSso')}
+                label={i18n.t('auth.signInWithSso')}
                 launching={isLaunchingLogin}
                 disabled={isAuthenticating || isLoginControlsDisabled || isLaunchingLogin}
                 onclick={() => void onLaunchRedirectLogin('sso')}
@@ -289,8 +289,8 @@
       <AuthMethodToggle
         expanded={showAllLoginMethods}
         controls={methodSlotId}
-        showLabel={$i18n.t('auth.moreWaysToSignIn')}
-        hideLabel={$i18n.t('auth.hideOtherWaysToSignIn')}
+        showLabel={i18n.t('auth.moreWaysToSignIn')}
+        hideLabel={i18n.t('auth.hideOtherWaysToSignIn')}
         disabled={isLoginControlsDisabled}
         onToggle={() => {
           showAllLoginMethods = !showAllLoginMethods;
@@ -303,17 +303,17 @@
 <div class="account-switch">
   {#if onCancel}
     <Button variant="ghost" type="button" onclick={onCancel}>
-      {$i18n.t('auth.cancelAddingAccount')}
+      {i18n.t('auth.cancelAddingAccount')}
     </Button>
   {:else if onCreateAccount}
-    <span>{$i18n.t('auth.noAccountYet')}</span>
+    <span>{i18n.t('auth.noAccountYet')}</span>
     <Button
       variant="ghost"
       type="button"
       disabled={isLoginControlsDisabled}
       onclick={onCreateAccount}
     >
-      {$i18n.t('auth.createAccount')}
+      {i18n.t('auth.createAccount')}
     </Button>
   {/if}
 </div>

@@ -137,7 +137,7 @@
       recorder.onstart = () => {
         startedAt = Date.now();
         status = 'recording';
-        announcement = $i18n.t('composer.voiceStarted');
+        announcement = i18n.t('composer.voiceStarted');
         sampleTimer = setInterval(sampleLevel, 100);
         void holdScreenAwake(cancelled);
       };
@@ -173,7 +173,7 @@
     const activeRecorder = recorder;
     status = 'stopping';
     if (!send) {
-      announcement = $i18n.t('composer.voiceCancelled');
+      announcement = i18n.t('composer.voiceCancelled');
       teardown();
       onCancel();
       return;
@@ -192,23 +192,23 @@
       markVoiceRecording(file, waveform, durationMs);
       onSend(file);
     };
-    announcement = $i18n.t('composer.voiceStopped');
+    announcement = i18n.t('composer.voiceStopped');
     activeRecorder.stop();
   }
 </script>
 
-<div class="voice-recorder" role="group" aria-label={$i18n.t('composer.voiceRecording')}>
+<div class="voice-recorder" role="group" aria-label={i18n.t('composer.voiceRecording')}>
   {#if status === 'denied' || status === 'unavailable'}
     <p class="voice-message">
       {status === 'denied'
-        ? $i18n.t('composer.voicePermissionDenied')
-        : $i18n.t('composer.voiceUnavailable')}
+        ? i18n.t('composer.voicePermissionDenied')
+        : i18n.t('composer.voiceUnavailable')}
     </p>
     <IconButton
       variant="ghost"
       size="small"
       class="voice-close"
-      label={$i18n.t('composer.voiceCancel')}
+      label={i18n.t('composer.voiceCancel')}
       onclick={onCancel}
     >
       <XIcon />
@@ -219,7 +219,7 @@
       size="small"
       class="voice-cancel"
       disabled={status !== 'recording'}
-      label={$i18n.t('composer.voiceCancel')}
+      label={i18n.t('composer.voiceCancel')}
       onclick={() => {
         finish(false);
       }}
@@ -236,7 +236,7 @@
       size="small"
       class="voice-send"
       disabled={status !== 'recording'}
-      label={$i18n.t('composer.voiceSend')}
+      label={i18n.t('composer.voiceSend')}
       onclick={() => {
         finish(true);
       }}

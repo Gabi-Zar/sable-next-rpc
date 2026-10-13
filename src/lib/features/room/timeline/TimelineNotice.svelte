@@ -73,7 +73,7 @@
   let customReactionLabel = $derived(
     reactionLabel !== null && !isCustomReaction(reactionLabel)
       ? reactionLabel
-      : $i18n.t('timeline.customEmote')
+      : i18n.t('timeline.customEmote')
   );
   let redactedReaction = $derived(reaction !== null && reactionLabel === null);
   let targetAbove = $derived(preferences.replyPreviewStyle !== 'expanded');
@@ -186,8 +186,8 @@
     {@render stateGutter()}
     <span class="redacted-label state-text">
       {item.content.kind === 'redacted' && item.content.reason
-        ? $i18n.t('timeline.redactedWithReason', { reason: item.content.reason })
-        : $i18n.t('timeline.redacted')}
+        ? i18n.t('timeline.redactedWithReason', { reason: item.content.reason })
+        : i18n.t('timeline.redacted')}
     </span>
     {@render stateTime()}
   </p>
@@ -213,7 +213,7 @@
       {#if raw !== null}
         <Collapsible.Root bind:open={peekOpen} class="debug-peek-root">
           <Collapsible.Trigger class="debug-peek-trigger">
-            {peekOpen ? $i18n.t('timeline.hidePeek') : $i18n.t('timeline.showPeek')}
+            {peekOpen ? i18n.t('timeline.hidePeek') : i18n.t('timeline.showPeek')}
           </Collapsible.Trigger>
           <Collapsible.Content class="debug-peek-content">
             <pre class="debug-peek">{JSON.stringify(raw, null, 2)}</pre>
@@ -242,21 +242,21 @@
   <p class="state">
     {@render stateGutter()}
     <span class="state-text"
-      >{$i18n.t('timeline.unsupported', { description: item.content.description })}</span
+      >{i18n.t('timeline.unsupported', { description: item.content.description })}</span
     >
     {@render stateTime()}
   </p>
 {:else if item.content.kind === 'date_divider'}
   <p class="date-divider"><span>{formatDate(item.content.timestamp)}</span></p>
 {:else if item.content.kind === 'timeline_start'}
-  <p class="separator">{$i18n.t('timeline.start')}</p>
+  <p class="separator">{i18n.t('timeline.start')}</p>
 {:else if item.content.kind === 'read_marker'}
   {#if unreadCount > 0}
     <p class="unread">
-      <span>{$i18n.t('timeline.unreadCount', { count: unreadCount })}</span>
+      <span>{i18n.t('timeline.unreadCount', { count: unreadCount })}</span>
     </p>
   {:else}
-    <p class="read-marker"><span>{$i18n.t('timeline.readMarker')}</span></p>
+    <p class="read-marker"><span>{i18n.t('timeline.readMarker')}</span></p>
   {/if}
 {/if}
 

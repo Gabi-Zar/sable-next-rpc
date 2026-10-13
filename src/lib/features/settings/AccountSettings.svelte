@@ -36,7 +36,7 @@
           profile = next;
         },
         () => {
-          if (!cancelled) error = $i18n.t('settings.profileSaveFailed');
+          if (!cancelled) error = i18n.t('settings.profileSaveFailed');
         }
       )
       .finally(() => {
@@ -60,7 +60,7 @@
   }
 </script>
 
-<AppPageShell title={$i18n.t('settings.account')} density="compact" class="account-settings">
+<AppPageShell title={i18n.t('settings.account')} density="compact" class="account-settings">
   <div class="settings-stack">
     {#if error}<Alert variant="critical" aria-live="polite">{error}</Alert>{/if}
     {#if loading}

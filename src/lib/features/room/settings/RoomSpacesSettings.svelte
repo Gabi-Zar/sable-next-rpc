@@ -103,7 +103,7 @@
       open(entry.spaceId);
     } catch (error) {
       console.warn('[sable room] joining a parent space failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     } finally {
       joining = null;
     }
@@ -111,17 +111,17 @@
 </script>
 
 {#if entries.length > 0}
-  <SettingsRow title={$i18n.t('room.spacesTitle')} description={$i18n.t('room.spacesHint')}>
+  <SettingsRow title={i18n.t('room.spacesTitle')} description={i18n.t('room.spacesHint')}>
     <ul class="spaces">
       {#each entries as entry (entry.spaceId)}
         <li>
           <span class="name">{roomList.labelFor(entry.spaceId)}</span>
           <span class="kind">
-            {entry.canonical ? $i18n.t('room.spaceCanonical') : $i18n.t('room.spaceOther')}
+            {entry.canonical ? i18n.t('room.spaceCanonical') : i18n.t('room.spaceOther')}
           </span>
           {#if roomList.byId(entry.spaceId)}
             <IconButton
-              label={$i18n.t('room.spaceOpen')}
+              label={i18n.t('room.spaceOpen')}
               size="small"
               onclick={() => open(entry.spaceId)}
             >
@@ -134,7 +134,7 @@
               disabled={entry.via.length === 0}
               onclick={() => join(entry)}
             >
-              {$i18n.t('common.join')}
+              {i18n.t('common.join')}
             </Button>
           {/if}
         </li>

@@ -42,12 +42,12 @@
 <DialogFrame bind:open variant="verification">
   <div class="dialog-heading">
     <div>
-      <Dialog.Title class="dialog-title">{$i18n.t('settings.verifyThisDevice')}</Dialog.Title>
+      <Dialog.Title class="dialog-title">{i18n.t('settings.verifyThisDevice')}</Dialog.Title>
       <Dialog.Description class="dialog-description">
-        {$i18n.t('settings.chooseVerificationMethod')}
+        {i18n.t('settings.chooseVerificationMethod')}
       </Dialog.Description>
     </div>
-    <IconButton variant="ghost" size="small" label={$i18n.t('common.close')} onclick={close}>
+    <IconButton variant="ghost" size="small" label={i18n.t('common.close')} onclick={close}>
       <XIcon />
     </IconButton>
   </div>

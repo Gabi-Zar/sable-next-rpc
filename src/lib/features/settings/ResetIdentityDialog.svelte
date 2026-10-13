@@ -50,7 +50,7 @@
 <DialogFrame
   bind:open
   variant="verification"
-  label={$i18n.t('settings.resetIdentityTitle')}
+  label={i18n.t('settings.resetIdentityTitle')}
   onOpenChange={(next) => {
     if (!next) dismiss();
   }}
@@ -58,26 +58,25 @@
 >
   <div class="reset-identity">
     {#if reset.phase === 'done'}
-      <Dialog.Title class="reset-identity-title">{$i18n.t('settings.saveRecoveryKey')}</Dialog.Title
-      >
-      <p>{$i18n.t('settings.saveRecoveryKeyDescription')}</p>
+      <Dialog.Title class="reset-identity-title">{i18n.t('settings.saveRecoveryKey')}</Dialog.Title>
+      <p>{i18n.t('settings.saveRecoveryKeyDescription')}</p>
       <code>{reset.recoveryKey}</code>
     {:else}
       <Dialog.Title class="reset-identity-title"
-        >{$i18n.t('settings.resetIdentityTitle')}</Dialog.Title
+        >{i18n.t('settings.resetIdentityTitle')}</Dialog.Title
       >
       {#if reset.phase === 'confirm'}
-        <p>{$i18n.t('settings.resetIdentityWhen')}</p>
+        <p>{i18n.t('settings.resetIdentityWhen')}</p>
         <ul>
-          <li>{$i18n.t('settings.resetIdentityHistory')}</li>
-          <li>{$i18n.t('settings.resetIdentityReverify')}</li>
+          <li>{i18n.t('settings.resetIdentityHistory')}</li>
+          <li>{i18n.t('settings.resetIdentityReverify')}</li>
         </ul>
         <label class="understood">
           <input type="checkbox" bind:checked={understood} disabled={reset.busy} />
-          {$i18n.t('common.iUnderstandThisCannotBeUndone')}
+          {i18n.t('common.iUnderstandThisCannotBeUndone')}
         </label>
       {:else if reset.phase === 'password'}
-        <Label for="reset-identity-password">{$i18n.t('settings.resetIdentityPassword')}</Label>
+        <Label for="reset-identity-password">{i18n.t('settings.resetIdentityPassword')}</Label>
         <TextInput
           id="reset-identity-password"
           type="password"
@@ -87,7 +86,7 @@
           autofocus
         />
       {:else}
-        <p>{$i18n.t('settings.resetIdentityApprove')}</p>
+        <p>{i18n.t('settings.resetIdentityApprove')}</p>
       {/if}
     {/if}
 
@@ -95,12 +94,12 @@
 
     <DialogActions>
       {#if reset.phase === 'done'}
-        <Button type="submit">{$i18n.t('settings.savedRecoveryKey')}</Button>
+        <Button type="submit">{i18n.t('settings.savedRecoveryKey')}</Button>
       {:else}
-        <Button type="button" variant="ghost" onclick={close}>{$i18n.t('common.cancel')}</Button>
+        <Button type="button" variant="ghost" onclick={close}>{i18n.t('common.cancel')}</Button>
         {#if reset.phase === 'approve'}
           <Button type="button" variant="danger" loading={reset.busy} onclick={approve}>
-            {$i18n.t('settings.resetIdentityOpenApproval')}
+            {i18n.t('settings.resetIdentityOpenApproval')}
           </Button>
         {:else}
           <Button
@@ -109,7 +108,7 @@
             loading={reset.busy}
             disabled={reset.phase === 'confirm' ? !understood : !reset.password}
           >
-            {$i18n.t('settings.resetIdentity')}
+            {i18n.t('settings.resetIdentity')}
           </Button>
         {/if}
       {/if}

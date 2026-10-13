@@ -7,13 +7,13 @@
 </script>
 
 <AppPageShell
-  title={$i18n.t('room.directoryTitle')}
-  description={$i18n.t('room.directoryDescription')}
+  title={i18n.t('room.directoryTitle')}
+  description={i18n.t('room.directoryDescription')}
 >
   <SettingsSection
     headingId="explore-join-by-address"
-    title={$i18n.t('room.directoryJoinByAddress')}
-    description={$i18n.t('room.joinDescription')}
+    title={i18n.t('room.directoryJoinByAddress')}
+    description={i18n.t('room.joinDescription')}
   >
     <JoinAddressForm />
   </SettingsSection>

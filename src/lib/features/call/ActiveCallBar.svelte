@@ -27,7 +27,7 @@
     session.members.length > 0 ? session.members.length : session.transport.self ? 1 : 0
   );
   let statusLabel = $derived(
-    $i18n.t(
+    i18n.t(
       callStatusKey({
         lifecycle: session.lifecycle,
         connection: session.transport.connection,
@@ -37,7 +37,7 @@
   );
 </script>
 
-<section class={['call-bar', { collapsed, live, reconnecting }]} aria-label={$i18n.t('call.title')}>
+<section class={['call-bar', { collapsed, live, reconnecting }]} aria-label={i18n.t('call.title')}>
   <Tooltip label={roomName} disabled={!collapsed}>
     {#snippet trigger({ props })}
       <button
@@ -53,7 +53,7 @@
           <span class="room">{roomName}</span>
         {/if}
         {#if count > 0}
-          {@const countLabel = $i18n.t('call.participants', { count })}
+          {@const countLabel = i18n.t('call.participants', { count })}
           <Tooltip label={countLabel}>
             {#snippet trigger({ props: countProps })}
               <span {...countProps} class="count">

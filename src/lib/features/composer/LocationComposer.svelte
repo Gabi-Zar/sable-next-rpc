@@ -87,7 +87,7 @@
     locating = false;
 
     if (result.kind !== 'fix') {
-      failure = $i18n.t(`composer.location${result.kind === 'denied' ? 'Denied' : 'Unavailable'}`);
+      failure = i18n.t(`composer.location${result.kind === 'denied' ? 'Denied' : 'Unavailable'}`);
       return;
     }
 
@@ -110,10 +110,10 @@
   }
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('composer.locationTitle')}>
+<DialogFrame bind:open variant="verification" label={i18n.t('composer.locationTitle')}>
   <div class="location-composer">
-    <h2>{$i18n.t('composer.locationTitle')}</h2>
-    <p class="explain">{$i18n.t('composer.locationExplain')}</p>
+    <h2>{i18n.t('composer.locationTitle')}</h2>
+    <p class="explain">{i18n.t('composer.locationExplain')}</p>
 
     {#if offered}
       <Button variant="ghost" class="locate" disabled={locating} onclick={locate}>
@@ -122,7 +122,7 @@
         {:else}
           <CrosshairIcon />
         {/if}
-        {$i18n.t('composer.locationUseCurrent')}
+        {i18n.t('composer.locationUseCurrent')}
       </Button>
     {/if}
 
@@ -131,7 +131,7 @@
     {/if}
 
     <div class="pair">
-      <FormField fieldId="location-latitude" label={$i18n.t('composer.locationLatitude')}>
+      <FormField fieldId="location-latitude" label={i18n.t('composer.locationLatitude')}>
         <TextInput
           id="location-latitude"
           bind:value={latitude}
@@ -139,7 +139,7 @@
           autocomplete="off"
         />
       </FormField>
-      <FormField fieldId="location-longitude" label={$i18n.t('composer.locationLongitude')}>
+      <FormField fieldId="location-longitude" label={i18n.t('composer.locationLongitude')}>
         <TextInput
           id="location-longitude"
           bind:value={longitude}
@@ -161,20 +161,20 @@
     {:else}
       <Button variant="ghost" class="reveal-map" disabled={loadingMap} onclick={showMap}>
         <MapTrifoldIcon />
-        {loadingMap ? $i18n.t('common.loadingMap') : $i18n.t('composer.locationShowMap')}
+        {loadingMap ? i18n.t('common.loadingMap') : i18n.t('composer.locationShowMap')}
       </Button>
       {#if mapFailed}
-        <Alert variant="critical" role="alert">{$i18n.t('common.theMapCouldNotBeLoaded')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('common.theMapCouldNotBeLoaded')}</Alert>
       {/if}
     {/if}
 
-    <FormField fieldId="location-label" label={$i18n.t('composer.locationLabel')}>
+    <FormField fieldId="location-label" label={i18n.t('composer.locationLabel')}>
       <TextInput id="location-label" bind:value={label} autocomplete="off" />
     </FormField>
 
     <DialogActions>
-      <Button variant="ghost" onclick={cancel}>{$i18n.t('common.cancel')}</Button>
-      <Button disabled={geoUri === null} onclick={send}>{$i18n.t('composer.locationSend')}</Button>
+      <Button variant="ghost" onclick={cancel}>{i18n.t('common.cancel')}</Button>
+      <Button disabled={geoUri === null} onclick={send}>{i18n.t('composer.locationSend')}</Button>
     </DialogActions>
   </div>
 </DialogFrame>

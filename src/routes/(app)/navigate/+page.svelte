@@ -20,7 +20,7 @@
   }
 </script>
 
-<AppPageShell class="navigate-page" title={$i18n.t('nav.navigate')} density="compact">
+<AppPageShell class="navigate-page" title={i18n.t('nav.navigate')} density="compact">
   <RoomJumpList onSelect={select} onClose={back} />
 </AppPageShell>
 

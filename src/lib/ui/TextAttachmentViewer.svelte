@@ -102,7 +102,7 @@
       copied = true;
     } catch (error) {
       console.debug('[sable media] clipboard unavailable', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
 </script>
@@ -111,14 +111,14 @@
   <button
     class="text-preview"
     type="button"
-    aria-label={$i18n.t('timeline.openFileNamed', { name })}
+    aria-label={i18n.t('timeline.openFileNamed', { name })}
     onclick={() => {
       open = true;
     }}
   >
     <pre class="text-preview-body"><code {@attach paint(previewHtml)}>{preview}</code></pre>
     {#if truncated}
-      <span class="text-preview-more">{$i18n.t('timeline.openFileMore')}</span>
+      <span class="text-preview-more">{i18n.t('timeline.openFileMore')}</span>
     {/if}
   </button>
 {/if}
@@ -127,7 +127,7 @@
   <div class="text-viewer">
     <header class="text-viewer-head">
       <IconButton
-        label={$i18n.t('timeline.closeFile')}
+        label={i18n.t('timeline.closeFile')}
         size="small"
         variant="ghost"
         onclick={() => {
@@ -138,10 +138,10 @@
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
       <LinkButton href={src} download={name} size="small" onclick={onDownload}>
         <DownloadSimpleIcon aria-hidden="true" />
-        {$i18n.t('common.download')}
+        {i18n.t('common.download')}
       </LinkButton>
       <Button variant="primary" size="small" onclick={copy}>
-        {copied ? $i18n.t('common.copied') : $i18n.t('timeline.copyAll')}
+        {copied ? i18n.t('common.copied') : i18n.t('timeline.copyAll')}
       </Button>
     </header>
     <div class="text-viewer-scroll" {@attach scrollHint}>

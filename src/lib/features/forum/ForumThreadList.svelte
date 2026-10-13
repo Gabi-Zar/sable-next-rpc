@@ -50,10 +50,10 @@
 
 <div class="forum-thread-list" {@attach scrollHint}>
   {#if threads.length === 0 && !loading}
-    <p class="forum-thread-list-empty">{$i18n.t('forum.empty')}</p>
+    <p class="forum-thread-list-empty">{i18n.t('forum.empty')}</p>
   {:else if threads.length > 0}
     {#if pinnedThreads.length > 0}
-      <ul aria-label={$i18n.t('forum.pinned')}>
+      <ul aria-label={i18n.t('forum.pinned')}>
         {#each pinnedThreads as thread (thread.id)}
           <ForumThreadItem
             {thread}
@@ -70,7 +70,7 @@
         {/each}
       </ul>
     {/if}
-    <ul aria-label={$i18n.t('forum.threads')}>
+    <ul aria-label={i18n.t('forum.threads')}>
       {#each otherThreads as thread (thread.id)}
         <ForumThreadItem
           {thread}
@@ -90,12 +90,12 @@
   {#if canLoadMore}
     <div class="forum-thread-list-more">
       <Button variant="ghost" size="small" onclick={onLoadMore} {loading}>
-        {$i18n.t('forum.loadMore')}
+        {i18n.t('forum.loadMore')}
       </Button>
     </div>
   {:else if loading}
     <div class="forum-thread-list-more">
-      <Spinner small label={$i18n.t('a11y.loading')} />
+      <Spinner small label={i18n.t('a11y.loading')} />
     </div>
   {/if}
 </div>

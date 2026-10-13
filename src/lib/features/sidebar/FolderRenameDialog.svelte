@@ -39,17 +39,17 @@
 <ConfirmDialog
   open={folder !== null}
   {onOpenChange}
-  title={$i18n.t('nav.folderRename')}
-  description={$i18n.t('nav.folderRenameDescription')}
-  confirmLabel={$i18n.t('common.save')}
+  title={i18n.t('nav.folderRename')}
+  description={i18n.t('nav.folderRenameDescription')}
+  confirmLabel={i18n.t('common.save')}
   confirmVariant="secondary"
-  cancelLabel={$i18n.t('common.cancel')}
+  cancelLabel={i18n.t('common.cancel')}
   onConfirm={submit}
   onCancel={() => {
     onOpenChange(false);
   }}
 >
-  <FormField {fieldId} label={$i18n.t('nav.folderName')}>
+  <FormField {fieldId} label={i18n.t('nav.folderName')}>
     <TextInput id={fieldId} bind:value={draft} maxlength={FOLDER_NAME_MAX_LENGTH} />
   </FormField>
 </ConfirmDialog>

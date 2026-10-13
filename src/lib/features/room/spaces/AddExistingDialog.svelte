@@ -26,7 +26,7 @@
   let suggested = $state(false);
 
   let title = $derived(
-    $i18n.t(kind === 'spaces' ? 'room.lobbyAddExistingSpaces' : 'room.lobbyAddExistingRooms')
+    i18n.t(kind === 'spaces' ? 'room.lobbyAddExistingSpaces' : 'room.lobbyAddExistingRooms')
   );
   let candidates = $derived(addableChildren(roomList.rooms, space, kind, search));
 
@@ -52,14 +52,14 @@
     <TextInput
       id={fieldId}
       bind:value={search}
-      placeholder={$i18n.t('room.lobbyAddSearch')}
-      aria-label={$i18n.t('room.lobbyAddSearch')}
+      placeholder={i18n.t('room.lobbyAddSearch')}
+      aria-label={i18n.t('room.lobbyAddSearch')}
     />
     {#if candidates.length === 0}
       <p class="empty">
         {search.trim() === ''
-          ? $i18n.t('room.lobbyAddNothing')
-          : $i18n.t('common.noRoomsMatchThatSearch')}
+          ? i18n.t('room.lobbyAddNothing')
+          : i18n.t('common.noRoomsMatchThatSearch')}
       </p>
     {:else}
       <RoomChecklist
@@ -71,21 +71,18 @@
     {/if}
 
     <div class="suggested">
-      <span>{$i18n.t('room.lobbyMarkSuggested')}</span>
-      <Switch bind:checked={suggested} label={$i18n.t('room.lobbyMarkSuggested')} />
+      <span>{i18n.t('room.lobbyMarkSuggested')}</span>
+      <Switch bind:checked={suggested} label={i18n.t('room.lobbyMarkSuggested')} />
     </div>
 
     <div class="actions">
-      <Button variant="ghost" onclick={reset}>{$i18n.t('common.cancel')}</Button>
+      <Button variant="ghost" onclick={reset}>{i18n.t('common.cancel')}</Button>
       <Button disabled={selected.length === 0} onclick={add}>
         {selected.length === 0
-          ? $i18n.t('common.add')
-          : $i18n.t(
-              kind === 'spaces' ? 'room.lobbyAddSpacesConfirm' : 'room.lobbyAddRoomsConfirm',
-              {
-                count: selected.length,
-              }
-            )}
+          ? i18n.t('common.add')
+          : i18n.t(kind === 'spaces' ? 'room.lobbyAddSpacesConfirm' : 'room.lobbyAddRoomsConfirm', {
+              count: selected.length,
+            })}
       </Button>
     </div>
   </div>

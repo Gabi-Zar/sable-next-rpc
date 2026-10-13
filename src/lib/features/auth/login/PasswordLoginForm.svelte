@@ -40,13 +40,13 @@
   let showPassword = $state(false);
   let error = $derived(
     fieldError || loginError || core.status === 'error'
-      ? (fieldError ?? loginError ?? $i18n.t('auth.unableToStart'))
+      ? (fieldError ?? loginError ?? i18n.t('auth.unableToStart'))
       : null
   );
 </script>
 
 <div class="password-form">
-  <FormField dense fieldId="username" label={$i18n.t('auth.loginIdentifier')}>
+  <FormField dense fieldId="username" label={i18n.t('auth.loginIdentifier')}>
     <TextInput
       id="username"
       bind:value={username}
@@ -62,12 +62,12 @@
       }}
       onblur={onUsernameBlur}
     />
-    <p class="username-hint" id={hintId}>{$i18n.t('auth.loginIdentifierHint')}</p>
+    <p class="username-hint" id={hintId}>{i18n.t('auth.loginIdentifierHint')}</p>
   </FormField>
-  <FormField dense fieldId="password" label={$i18n.t('auth.password')}>
+  <FormField dense fieldId="password" label={i18n.t('auth.password')}>
     {#snippet labelSuffix()}
       {#if resetPasswordHref}
-        <a class="forgot-password" href={resetPasswordHref}>{$i18n.t('auth.forgotPassword')}</a>
+        <a class="forgot-password" href={resetPasswordHref}>{i18n.t('auth.forgotPassword')}</a>
       {/if}
     {/snippet}
     <PasswordField
@@ -90,7 +90,7 @@
         disabled={isCheckingHomeserver}
         variant="primary"
       >
-        {isAuthenticating ? $i18n.t('auth.signingIn') : $i18n.t('auth.signInWithPassword')}</Button
+        {isAuthenticating ? i18n.t('auth.signingIn') : i18n.t('auth.signInWithPassword')}</Button
       >
     </FormActions>
   </div>

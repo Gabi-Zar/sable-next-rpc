@@ -35,14 +35,14 @@
 </script>
 
 {#snippet content(desktop: boolean)}
-  <h2>{$i18n.t('timeline.reproxyMessage')}</h2>
+  <h2>{i18n.t('timeline.reproxyMessage')}</h2>
   <TextInput
     bind:value={query}
     class="reproxy-search"
     type="search"
     autocomplete="off"
-    placeholder={$i18n.t('personas.search')}
-    aria-label={$i18n.t('personas.search')}
+    placeholder={i18n.t('personas.search')}
+    aria-label={i18n.t('personas.search')}
   />
   <ul class={['reproxy-options', { dialog: desktop }]} {@attach scrollHint}>
     <li>
@@ -54,7 +54,7 @@
         }}
       >
         <Avatar size="small"><ProhibitIcon /></Avatar>
-        <span class="reproxy-option-name">{$i18n.t('personas.pickerOffGlobal')}</span>
+        <span class="reproxy-option-name">{i18n.t('personas.pickerOffGlobal')}</span>
         {#if !current}<CheckIcon aria-hidden="true" />{/if}
       </button>
     </li>
@@ -80,14 +80,14 @@
     {/each}
   </ul>
   {#if filteredPersonas.length === 0 && query.trim()}
-    <p class="reproxy-empty">{$i18n.t('personas.noMatches')}</p>
+    <p class="reproxy-empty">{i18n.t('personas.noMatches')}</p>
   {/if}
 {/snippet}
 
 <ResponsiveDialog
   bind:open
-  label={$i18n.t('timeline.reproxyMessage')}
-  closeLabel={$i18n.t('timeline.closeMenu')}
+  label={i18n.t('timeline.reproxyMessage')}
+  closeLabel={i18n.t('timeline.closeMenu')}
   children={content}
 />
 

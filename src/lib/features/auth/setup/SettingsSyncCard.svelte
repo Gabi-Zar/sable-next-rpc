@@ -43,24 +43,24 @@
 </script>
 
 <div class="settings-sync-card auth-card-surface">
-  <AuthField labelId="settings-sync-title" label={$i18n.t('settings.settingsSync')}>
-    <AuthInfoBox>{$i18n.t('setup.syncDescription')}</AuthInfoBox>
+  <AuthField labelId="settings-sync-title" label={i18n.t('settings.settingsSync')}>
+    <AuthInfoBox>{i18n.t('setup.syncDescription')}</AuthInfoBox>
   </AuthField>
 
   {#if synced === null}
-    <AuthInfoBox><Spinner small />{$i18n.t('setup.syncChecking')}</AuthInfoBox>
+    <AuthInfoBox><Spinner small />{i18n.t('setup.syncChecking')}</AuthInfoBox>
   {:else if synced}
-    <AuthInfoBox>{$i18n.t('setup.syncFound')}</AuthInfoBox>
+    <AuthInfoBox>{i18n.t('setup.syncFound')}</AuthInfoBox>
   {/if}
 
   <AuthStatusSlot />
 
   <Button variant="primary" block disabled={synced === null} onclick={turnOn}>
-    {$i18n.t(synced ? 'setup.syncAdopt' : 'setup.syncTurnOn')}
+    {i18n.t(synced ? 'setup.syncAdopt' : 'setup.syncTurnOn')}
   </Button>
 </div>
 
-<AuthSecondaryAction label={$i18n.t('setup.syncNotNow')} onclick={onSkip} />
+<AuthSecondaryAction label={i18n.t('setup.syncNotNow')} onclick={onSkip} />
 
 <style>
   .settings-sync-card {

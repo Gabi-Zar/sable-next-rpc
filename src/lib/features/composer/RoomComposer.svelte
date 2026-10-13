@@ -312,7 +312,7 @@
   let richSend = $derived(richText && !sourceMode);
   let configuredRich = preferences.richTextComposer;
   let dragging = $state(false);
-  let dropTarget = $derived(roomName ?? $i18n.t('timeline.thisRoom'));
+  let dropTarget = $derived(roomName ?? i18n.t('timeline.thisRoom'));
   let query = $state.raw<AutocompleteQuery | null>(null);
   let dismissedAt = $state<number | null>(null);
   let activeIndex = $state(0);
@@ -344,20 +344,20 @@
   let showVoice = $derived(preferences.composerVoiceButton && canVoice);
   let sendLabel = $derived(
     editingScheduled
-      ? $i18n.t('composer.scheduledSave')
+      ? i18n.t('composer.scheduledSave')
       : context?.kind === 'edit'
         ? !hasContent && canDeleteEdited
-          ? $i18n.t('timeline.deleteMessage')
-          : $i18n.t('composer.saveChanges')
-        : $i18n.t('timeline.sendMessage')
+          ? i18n.t('timeline.deleteMessage')
+          : i18n.t('composer.saveChanges')
+        : i18n.t('timeline.sendMessage')
   );
   let contextAnnouncement = $derived(
     context?.kind === 'edit'
-      ? $i18n.t('composer.editing')
+      ? i18n.t('composer.editing')
       : context?.kind === 'schedule'
-        ? $i18n.t('composer.editingScheduled')
+        ? i18n.t('composer.editingScheduled')
         : context?.kind === 'reply'
-          ? $i18n.t('composer.replyingTo', { name: context.sender ?? '' })
+          ? i18n.t('composer.replyingTo', { name: context.sender ?? '' })
           : ''
   );
   let showPersonaPicker = $derived(preferences.personaPicker && personas.personas.length > 0);
@@ -365,7 +365,7 @@
   let canSchedule = $derived(onSchedule !== undefined && hasContent && !readOnly);
   let sendShortcut = $derived(!enterInsertsNewline() ? 'Enter' : 'Shift+Enter');
   let keyboardHint = $derived(
-    $i18n.t(
+    i18n.t(
       !hasContent && canDeleteEdited
         ? 'composer.deleteHint'
         : context?.kind === 'edit' || editingScheduled
@@ -379,12 +379,12 @@
   );
   let sendTooltip = $derived(
     desktop
-      ? $i18n.t(canSchedule ? 'composer.sendScheduleTooltip' : 'composer.sendTooltip', {
+      ? i18n.t(canSchedule ? 'composer.sendScheduleTooltip' : 'composer.sendTooltip', {
           action: sendLabel,
           shortcut: sendShortcut,
         })
       : canSchedule
-        ? $i18n.t('composer.scheduleTooltip', { action: sendLabel })
+        ? i18n.t('composer.scheduleTooltip', { action: sendLabel })
         : sendLabel
   );
 
@@ -437,7 +437,7 @@
       members,
       emotes,
       roomList.rooms,
-      $i18n.t,
+      i18n.t,
       admin,
       advertisedAdminCommands.length > 0
         ? adminCommandTree(advertisedAdminCommands)
@@ -482,16 +482,16 @@
   let active = $derived(Math.min(activeIndex, Math.max(0, suggestions.length - 1)));
   let placeholder = $derived(
     staged.length > 0
-      ? $i18n.t(
+      ? i18n.t(
           staged.length === 1 && preferences.sendAttachmentAsCaption
             ? 'composer.addCaptionOrSend'
             : 'composer.addMessageOrSend'
         )
       : context?.kind === 'reply' && context.sender
-        ? $i18n.t('composer.replyPlaceholder', { name: context.sender })
+        ? i18n.t('composer.replyPlaceholder', { name: context.sender })
         : roomName
-          ? $i18n.t('composer.roomPlaceholder', { room: roomName })
-          : $i18n.t('timeline.messagePlaceholder')
+          ? i18n.t('composer.roomPlaceholder', { room: roomName })
+          : i18n.t('timeline.messagePlaceholder')
   );
 
   const media: EmoteMedia = {
@@ -505,7 +505,7 @@
     mentionName: (userId) =>
       members.find((member) => member.user_id === userId)?.display_name ?? null,
     emotes: () => emotes,
-    label: () => $i18n.t('timeline.messagePlaceholder'),
+    label: () => i18n.t('timeline.messagePlaceholder'),
     describedBy: hintId,
     listboxId,
     activeOptionId: () => (panelOpen && suggestions.length > 0 ? optionId(active) : null),
@@ -926,12 +926,12 @@
 
   function failureText(cause: unknown): string {
     const { key, values } = sendFailure(cause);
-    return $i18n.t(key, values);
+    return i18n.t(key, values);
   }
 
   function failRetryably(cause: unknown, run: () => void): void {
     const failure = sendFailure(cause);
-    error = $i18n.t(failure.key, failure.values);
+    error = i18n.t(failure.key, failure.values);
     retry = failure.retryable ? { text: error, run } : null;
   }
 
@@ -1058,7 +1058,7 @@
     if (message.body === '' && staged.length === 0) return;
     if (dueTs <= Date.now()) return;
     if (staged.length > 0 && encrypted !== false) {
-      error = $i18n.t('composer.scheduleAttachmentEncrypted');
+      error = i18n.t('composer.scheduleAttachmentEncrypted');
       return;
     }
 
@@ -1093,12 +1093,12 @@
       );
       if (cause instanceof ScheduledOriginalKept) {
         editor.clearHistory();
-        error = $i18n.t('composer.scheduledOriginalKept');
+        error = i18n.t('composer.scheduledOriginalKept');
         return;
       }
       if (doc && editor.isEmpty()) editor.setDoc(doc);
       staged = [...attachments, ...staged];
-      error = $i18n.t(
+      error = i18n.t(
         attachments.length > 0 && isServerScheduleUnsupported(cause)
           ? 'composer.scheduleAttachmentUnsupported'
           : 'composer.scheduleFailed'
@@ -1206,7 +1206,7 @@
       if (!current() || readOnly) return;
       const tooLarge = files.find((file) => file.size > upload_size);
       if (tooLarge) {
-        error = $i18n.t('composer.tooLarge', {
+        error = i18n.t('composer.tooLarge', {
           name: tooLarge.name,
           limit: formatByteSize(upload_size),
         });
@@ -1219,7 +1219,7 @@
     } catch (cause) {
       if (current()) {
         const failure = sendFailure(cause);
-        error = $i18n.t(failure.key, failure.values);
+        error = i18n.t(failure.key, failure.values);
       }
     }
   }
@@ -1232,7 +1232,7 @@
     void (async () => {
       try {
         const picked = await pickFiles(accept, () => {
-          error = $i18n.t('composer.pickFailed');
+          error = i18n.t('composer.pickFailed');
         });
         if (picked !== null) {
           await stage(picked);
@@ -1529,7 +1529,7 @@
     <div class="drop-overlay" aria-hidden="true">
       <div class="drop-card">
         <FileIcon size={40} weight="light" />
-        <p class="drop-title">{$i18n.t('timeline.dropFiles', { room: dropTarget })}</p>
+        <p class="drop-title">{i18n.t('timeline.dropFiles', { room: dropTarget })}</p>
       </div>
     </div>
   </Portal>
@@ -1542,13 +1542,13 @@
     <div class="composer-shell">
       <div class="composer">
         <div class="composer-row">
-          <p class="locked">{$i18n.t('composer.readOnly')}</p>
+          <p class="locked">{i18n.t('composer.readOnly')}</p>
         </div>
       </div>
     </div>
   {:else}
     <div class="composer-shell">
-      <div class="composer" role="group" aria-label={$i18n.t('timeline.messagePlaceholder')}>
+      <div class="composer" role="group" aria-label={i18n.t('timeline.messagePlaceholder')}>
         {#if context}
           <ComposerContextBanner {context} onCancel={cancelContext} {onToggleSilentReply} />
         {/if}
@@ -1590,8 +1590,8 @@
               const removed = staged[index];
               staged = unstageFile(staged, id);
               if (!removed) return;
-              toasts.undoable($i18n.t('composer.attachmentRemoved', { name: removed.file.name }), {
-                label: $i18n.t('common.undo'),
+              toasts.undoable(i18n.t('composer.attachmentRemoved', { name: removed.file.name }), {
+                label: i18n.t('common.undo'),
                 onUndo: () => {
                   staged = restoreFile(staged, removed, index);
                 },
@@ -1681,7 +1681,7 @@
             />
             <div class="composer-field">
               <ComposerEditorView {editor} {showPlaceholder} {placeholder} {expanded} />
-              <Tooltip label={$i18n.t(expanded ? 'composer.collapse' : 'composer.expand')}>
+              <Tooltip label={i18n.t(expanded ? 'composer.collapse' : 'composer.expand')}>
                 {#snippet trigger({ props })}
                   <IconButton
                     {...mergeProps(props, {
@@ -1694,7 +1694,7 @@
                     size="small"
                     class="composer-expand"
                     aria-pressed={expanded}
-                    label={$i18n.t('composer.expand')}
+                    label={i18n.t('composer.expand')}
                   >
                     {#if expanded}<ArrowsInSimpleIcon />{:else}<ArrowsOutSimpleIcon />{/if}
                   </IconButton>
@@ -1721,7 +1721,7 @@
               </div>
             {/if}
             {#snippet formatButton()}
-              <Tooltip label={$i18n.t('composer.formatting')}>
+              <Tooltip label={i18n.t('composer.formatting')}>
                 {#snippet trigger({ props })}
                   <IconButton
                     {...mergeProps(props, {
@@ -1734,7 +1734,7 @@
                     class="composer-format selection-open"
                     aria-pressed={formattingOpen}
                     data-state={formattingOpen ? 'open' : 'closed'}
-                    label={$i18n.t('composer.formatting')}
+                    label={i18n.t('composer.formatting')}
                   >
                     <TextAaIcon />
                   </IconButton>
@@ -1759,7 +1759,7 @@
                 }}
               />
               {#if showVoice}
-                <Tooltip label={$i18n.t('composer.voiceRecord')}>
+                <Tooltip label={i18n.t('composer.voiceRecord')}>
                   {#snippet trigger({ props })}
                     <IconButton
                       {...mergeProps(props, {
@@ -1768,7 +1768,7 @@
                       variant="ghost"
                       size="small"
                       class="composer-voice"
-                      label={$i18n.t('composer.voiceRecord')}
+                      label={i18n.t('composer.voiceRecord')}
                     >
                       <MicrophoneIcon />
                     </IconButton>
@@ -1835,14 +1835,14 @@
             id={listboxId}
             {optionId}
             heading={query.sigil === '@'
-              ? $i18n.t('composer.membersHeading', { query: query.query })
+              ? i18n.t('composer.membersHeading', { query: query.query })
               : query.sigil === '#'
-                ? $i18n.t('composer.roomsHeading', { query: query.query })
+                ? i18n.t('composer.roomsHeading', { query: query.query })
                 : query.sigil === '+:'
-                  ? $i18n.t('timeline.addReaction')
+                  ? i18n.t('timeline.addReaction')
                   : query.sigil === ':'
-                    ? $i18n.t('composer.emotesHeading', { query: query.query })
-                    : $i18n.t('composer.commandsHeading', { query: query.query })}
+                    ? i18n.t('composer.emotesHeading', { query: query.query })
+                    : i18n.t('composer.commandsHeading', { query: query.query })}
             {suggestions}
             {active}
             onSelect={commit}

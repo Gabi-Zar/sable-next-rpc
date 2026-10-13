@@ -46,7 +46,7 @@
       return true;
     } catch (error) {
       console.warn('[sable inbox] updating the bookmark failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
       return false;
     }
   }
@@ -57,8 +57,8 @@
     if (!(await toggle(bookmark))) return;
     await tick();
     if (hadFocus) focusRowAt(section, heading, index);
-    toasts.undoable($i18n.t('inbox.bookmarkRemoved', { room: name }), {
-      label: $i18n.t('common.undo'),
+    toasts.undoable(i18n.t('inbox.bookmarkRemoved', { room: name }), {
+      label: i18n.t('common.undo'),
       onUndo: () => {
         void toggle(bookmark).then((restored) => {
           if (restored) void bookmarks.load();
@@ -71,7 +71,7 @@
 <section aria-labelledby={headingId} bind:this={section}>
   <InboxSectionHeader
     id={headingId}
-    title={$i18n.t('inbox.bookmarks')}
+    title={i18n.t('inbox.bookmarks')}
     hidden={standalone}
     bind:heading
   />
@@ -84,19 +84,19 @@
       }}
     >
       <MagnifyingGlassIcon aria-hidden="true" />
-      <span class="screen-reader-only">{$i18n.t('inbox.bookmarksSearchLabel')}</span>
+      <span class="screen-reader-only">{i18n.t('inbox.bookmarksSearchLabel')}</span>
       <TextInput
         type="search"
         bind:value={query}
-        placeholder={$i18n.t('inbox.bookmarksSearchLabel')}
+        placeholder={i18n.t('inbox.bookmarksSearchLabel')}
       />
     </label>
   {/if}
 
   {#if bookmarks.entries.length === 0}
-    <p class="empty">{$i18n.t('inbox.bookmarksEmpty')}</p>
+    <p class="empty">{i18n.t('inbox.bookmarksEmpty')}</p>
   {:else if visible.length === 0}
-    <p class="empty">{$i18n.t('inbox.bookmarksNoResults', { query })}</p>
+    <p class="empty">{i18n.t('inbox.bookmarksNoResults', { query })}</p>
   {:else}
     <ul class="feed">
       {#each visible as bookmark (bookmark.bookmark_id)}
@@ -122,7 +122,7 @@
               {#snippet fallback()}
                 <span class="preview">
                   {#if from}<span class="sender">{from}:</span>&nbsp;{/if}{bookmark.body_preview ??
-                    $i18n.t('inbox.bookmarkPreviewEmpty')}
+                    i18n.t('inbox.bookmarkPreviewEmpty')}
                 </span>
               {/snippet}
             </MessagePreview>
@@ -132,7 +132,7 @@
               class="remove"
               variant="ghost"
               size="small"
-              label={$i18n.t('inbox.removeBookmark', { room: name })}
+              label={i18n.t('inbox.removeBookmark', { room: name })}
               onclick={(event) => {
                 const item = event.currentTarget.closest('li');
                 if (item) void remove(bookmark, name, item);

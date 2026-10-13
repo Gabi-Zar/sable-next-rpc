@@ -310,7 +310,7 @@
 
 <svelte:head>
   <title>
-    {$i18n.t(
+    {i18n.t(
       isSetupRoute
         ? 'setup.title'
         : displayedStage === 0
@@ -371,14 +371,14 @@
 <AuthPage
   {hasLoggedInBefore}
   title={isSetupRoute
-    ? $i18n.t('setup.title')
+    ? i18n.t('setup.title')
     : isAddingAccount
-      ? $i18n.t('common.addAccount')
+      ? i18n.t('common.addAccount')
       : undefined}
   status={core.status === 'starting' ||
   core.status === 'idle' ||
   (core.status === 'signed-out' && !hasCompletedInitialHomeserverCheck)
-    ? $i18n.t('common.startingSable')
+    ? i18n.t('common.startingSable')
     : undefined}
 >
   {#if isSetupRoute}
@@ -395,7 +395,7 @@
       <AuthStageCard
         active={displayedStage === 0}
         before={displayedStage > 0}
-        accessibilityLabel={$i18n.t(stages[0].accessibilityLabel)}
+        accessibilityLabel={i18n.t(stages[0].accessibilityLabel)}
         onActivate={() => {
           activateStage(0);
         }}
@@ -410,7 +410,7 @@
           after={displayedStage < 1}
           entering={enteringStage === 1}
           removing={retiringAfter === 0}
-          accessibilityLabel={$i18n.t(stages[1].accessibilityLabel)}
+          accessibilityLabel={i18n.t(stages[1].accessibilityLabel)}
           onActivate={() => {
             activateStage(1);
           }}

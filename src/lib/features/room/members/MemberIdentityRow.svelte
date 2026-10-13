@@ -54,7 +54,7 @@
   let colors = $derived(
     senderDisplayColors(userId, profile.current, null, false, cosmetics, powerTag?.color ?? null)
   );
-  let profileLabel = $derived($i18n.t('timeline.senderProfile', { name: displayName }));
+  let profileLabel = $derived(i18n.t('timeline.senderProfile', { name: displayName }));
   let presence = $derived(presenceStore.peek(userId));
   let userStatus = $derived(showStatus ? resolveUserStatus(profile.current, presence) : null);
 
@@ -69,7 +69,7 @@
     {#if presence && presence.presence !== 'offline'}
       <PresenceDot
         presence={presence.presence}
-        label={$i18n.t(`presence.${presence.presence}`)}
+        label={i18n.t(`presence.${presence.presence}`)}
         class="member-identity-presence"
         size="medium"
       />

@@ -65,17 +65,17 @@
 
 <Banner icon={ArrowCircleUpIcon}>
   {#snippet title()}
-    {$i18n.t('settings.updateBannerTitle')}
+    {i18n.t('settings.updateBannerTitle')}
   {/snippet}
   {#snippet body()}
-    {$i18n.t('settings.webUpdateAlertBody')}
+    {i18n.t('settings.webUpdateAlertBody')}
   {/snippet}
   {#snippet actions()}
     <Button variant="ghost" size="small" onclick={() => dismiss()}>
-      {$i18n.t('settings.updateBannerLater')}
+      {i18n.t('settings.updateBannerLater')}
     </Button>
     <Button variant="primary" size="small" onclick={refresh}>
-      {$i18n.t('common.install')}
+      {i18n.t('common.install')}
     </Button>
   {/snippet}
 </Banner>

@@ -149,7 +149,7 @@
 </script>
 
 <section class="directory">
-  <div class="servers" role="group" aria-label={$i18n.t('room.directoryServerLabel')}>
+  <div class="servers" role="group" aria-label={i18n.t('room.directoryServerLabel')}>
     {#each servers as name (name)}
       {@const selected = (server ?? ownServer) === name}
       <span class="server">
@@ -164,7 +164,7 @@
           <IconButton
             variant="ghost"
             size="small"
-            label={$i18n.t('room.directoryRemoveServer', { server: name })}
+            label={i18n.t('room.directoryRemoveServer', { server: name })}
             onclick={() => {
               forgetServer(name).catch((error: unknown) => {
                 console.warn('[sable directory] the server was not removed', error);
@@ -190,10 +190,10 @@
           autocomplete="off"
           autocapitalize="none"
           spellcheck={false}
-          aria-label={$i18n.t('room.directoryAddServerLabel')}
+          aria-label={i18n.t('room.directoryAddServerLabel')}
           placeholder="example.org"
         />
-        <Button type="submit" size="small">{$i18n.t('common.add')}</Button>
+        <Button type="submit" size="small">{i18n.t('common.add')}</Button>
         <Button
           variant="ghost"
           size="small"
@@ -201,19 +201,19 @@
             adding = false;
             newServer = '';
             serverError = null;
-          }}>{$i18n.t('common.cancel')}</Button
+          }}>{i18n.t('common.cancel')}</Button
         >
       </form>
     {:else}
       <Pill
         onclick={() => {
           adding = true;
-        }}><PlusIcon size={14} />{$i18n.t('room.directoryAddServer')}</Pill
+        }}><PlusIcon size={14} />{i18n.t('room.directoryAddServer')}</Pill
       >
     {/if}
   </div>
   {#if serverError}
-    <Alert variant="critical" role="alert">{$i18n.t(serverError)}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t(serverError)}</Alert>
   {/if}
 
   <form class="filters" onsubmit={submit}>
@@ -221,17 +221,17 @@
       bind:value={search}
       type="search"
       autocomplete="off"
-      aria-label={$i18n.t('room.directorySearchLabel')}
-      placeholder={$i18n.t('common.searchRooms')}
+      aria-label={i18n.t('room.directorySearchLabel')}
+      placeholder={i18n.t('common.searchRooms')}
     />
     <Select
       class="directory-kind"
       value={kind}
-      aria-label={$i18n.t('room.directoryKind')}
+      aria-label={i18n.t('room.directoryKind')}
       items={[
-        { value: 'all', label: $i18n.t('room.directoryKindAll') },
-        { value: 'rooms', label: $i18n.t('room.directoryKindRooms') },
-        { value: 'spaces', label: $i18n.t('room.directoryKindSpaces') },
+        { value: 'all', label: i18n.t('room.directoryKindAll') },
+        { value: 'rooms', label: i18n.t('room.directoryKindRooms') },
+        { value: 'spaces', label: i18n.t('room.directoryKindSpaces') },
       ]}
       onValueChange={(next) => {
         kind = next === 'rooms' || next === 'spaces' ? next : 'all';
@@ -239,16 +239,16 @@
       }}
     />
     <Button type="submit" variant="primary" loading={directory.loading}>
-      <MagnifyingGlassIcon size={16} />{$i18n.t('room.directorySearch')}
+      <MagnifyingGlassIcon size={16} />{i18n.t('room.directorySearch')}
     </Button>
   </form>
 
   {#if directory.total !== null}
-    <p class="count">{$i18n.t('room.directoryTotal', { count: directory.total })}</p>
+    <p class="count">{i18n.t('room.directoryTotal', { count: directory.total })}</p>
   {/if}
 
   {#if directory.error}
-    <Alert variant="critical" role="alert">{$i18n.t(directory.error)}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t(directory.error)}</Alert>
   {/if}
   {#if failedJoin !== null}
     <Alert variant="critical" role="alert">{failedJoin}</Alert>
@@ -264,12 +264,12 @@
           <div class="room-text">
             <span class="room-name">
               {label(room)}
-              {#if room.is_space}<span class="badge">{$i18n.t('nav.space')}</span>{/if}
-              {#if room.is_voice}<span class="badge">{$i18n.t('common.voiceRoom')}</span>{/if}
+              {#if room.is_space}<span class="badge">{i18n.t('nav.space')}</span>{/if}
+              {#if room.is_voice}<span class="badge">{i18n.t('common.voiceRoom')}</span>{/if}
             </span>
             <span class="room-meta">
               <span class="members"
-                >{$i18n.t('room.lobbyMembers', { count: room.num_joined_members })}</span
+                >{i18n.t('room.lobbyMembers', { count: room.num_joined_members })}</span
               >
               {#if room.canonical_alias}
                 <span class="divider" aria-hidden="true">|</span><span class="alias"
@@ -284,7 +284,7 @@
               <IconButton
                 variant="ghost"
                 size="small"
-                label={$i18n.t('room.lobbyOpen')}
+                label={i18n.t('room.lobbyOpen')}
                 onclick={() => {
                   void open(room);
                 }}
@@ -300,7 +300,7 @@
                   void join(room);
                 }}
               >
-                <PlusIcon size={14} />{$i18n.t(
+                <PlusIcon size={14} />{i18n.t(
                   knocked.has(room.room_id)
                     ? 'room.lobbyKnockSent'
                     : action === 'knock'
@@ -322,15 +322,15 @@
           void directory.loadMore();
         }}
       >
-        {$i18n.t('common.loadMore')}
+        {i18n.t('common.loadMore')}
       </Button>
     {/if}
   {:else if directory.loading}
-    <div class="loading"><Spinner label={$i18n.t('a11y.loading')} /></div>
+    <div class="loading"><Spinner label={i18n.t('a11y.loading')} /></div>
   {:else if !directory.error}
     <EmptyState
-      title={$i18n.t('room.directoryEmptyTitle')}
-      description={$i18n.t('room.directoryEmptyBody')}
+      title={i18n.t('room.directoryEmptyTitle')}
+      description={i18n.t('room.directoryEmptyBody')}
     />
   {/if}
 </section>

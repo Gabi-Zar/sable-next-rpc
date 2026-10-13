@@ -117,7 +117,7 @@
             label: query,
             insert: `${query} `,
           })),
-          { id: CLEAR_RECENT, label: $i18n.t('search.clearRecent'), insert: '' },
+          { id: CLEAR_RECENT, label: i18n.t('search.clearRecent'), insert: '' },
         ]
       : suggestionsOpen
         ? suggestionsFor(
@@ -151,29 +151,29 @@
 
   let coverage = $derived(
     coverageMessage(core.searchCoverage, core.searchCoverageUnavailable, (key, options) =>
-      $i18n.t(key, options)
+      i18n.t(key, options)
     )
   );
 
   let countLabel = $derived(
-    $i18n.t(search.exhausted ? 'search.count' : 'search.countMore', { count: search.hits.length })
+    i18n.t(search.exhausted ? 'search.count' : 'search.countMore', { count: search.hits.length })
   );
 
   let showCoverage = $derived(coverage !== '' && core.searchCoverage?.state !== 'complete');
 
   let emptyLabel = $derived(
     search.older
-      ? $i18n.t('search.emptyRecent')
+      ? i18n.t('search.emptyRecent')
       : showCoverage
-        ? $i18n.t('search.emptyIndexing')
-        : $i18n.t('search.empty')
+        ? i18n.t('search.emptyIndexing')
+        : i18n.t('search.empty')
   );
 
   let status = $derived.by(() => {
     if (!search.runnable) return '';
     if (search.failed) return '';
     if (search.searching && (search.hits.length === 0 || search.refining))
-      return $i18n.t('search.searching');
+      return i18n.t('search.searching');
     if (search.hits.length === 0) return showCoverage ? `${emptyLabel} ${coverage}` : emptyLabel;
     return countLabel;
   });
@@ -192,13 +192,13 @@
 
     if (tokens.length > 0)
       hints.push(
-        $i18n.t('search.recoveryFilter', {
+        i18n.t('search.recoveryFilter', {
           filters: tokens.map((token) => `${token.operator}:${token.value}`).join(', '),
         })
       );
-    if (phrases.length > 0) hints.push($i18n.t('search.recoveryPhrase'));
-    if (exclude.length > 0) hints.push($i18n.t('search.recoveryExclude'));
-    if (wordCount > 1) hints.push($i18n.t('search.recoveryTerms'));
+    if (phrases.length > 0) hints.push(i18n.t('search.recoveryPhrase'));
+    if (exclude.length > 0) hints.push(i18n.t('search.recoveryExclude'));
+    if (wordCount > 1) hints.push(i18n.t('search.recoveryTerms'));
     return hints;
   });
 
@@ -467,9 +467,9 @@
   }
 
   let orders = $derived<{ value: SearchOrder; label: string }[]>([
-    { value: 'rank', label: $i18n.t('search.orderRank') },
-    { value: 'recent', label: $i18n.t('search.orderRecent') },
-    { value: 'oldest', label: $i18n.t('search.orderOldest') },
+    { value: 'rank', label: i18n.t('search.orderRank') },
+    { value: 'recent', label: i18n.t('search.orderRecent') },
+    { value: 'oldest', label: i18n.t('search.orderOldest') },
   ]);
 </script>
 
@@ -491,10 +491,10 @@
         onclick={() => void search.loadMore()}
       >
         {search.searching
-          ? $i18n.t('search.searching')
+          ? i18n.t('search.searching')
           : search.older
-            ? $i18n.t('search.loadOlder')
-            : $i18n.t('search.loadMore')}
+            ? i18n.t('search.loadOlder')
+            : i18n.t('search.loadMore')}
       </Button>
     </div>
   {/if}
@@ -510,7 +510,7 @@
 {#if panel}
   {@render content()}
 {:else}
-  <AppPageShell title={$i18n.t('common.searchMessages')} density="compact">
+  <AppPageShell title={i18n.t('common.searchMessages')} density="compact">
     {@render content()}
   </AppPageShell>
 {/if}
@@ -529,19 +529,19 @@
           }}
         >
           {#if field.chips.length > 0}
-            <ul class="chips" aria-label={$i18n.t('search.activeFilters')}>
+            <ul class="chips" aria-label={i18n.t('search.activeFilters')}>
               {#each field.chips as chip (chip.start)}
                 <li class={['chip', { negated: chip.negated, unresolved: isUnresolved(chip) }]}>
                   {#if isUnresolved(chip)}<WarningIcon />{/if}
                   <span class="chip-operator">{chip.negated ? '-' : ''}{chip.operator}:</span>
                   <span class="chip-value">{chipLabel(chip)}</span>
                   {#if isUnresolved(chip)}
-                    <span class="visually-hidden">{$i18n.t('search.chipUnresolved')}</span>
+                    <span class="visually-hidden">{i18n.t('search.chipUnresolved')}</span>
                   {/if}
                   <button
                     class="chip-remove"
                     type="button"
-                    aria-label={$i18n.t('search.removeFilter', {
+                    aria-label={i18n.t('search.removeFilter', {
                       filter: `${chip.negated ? '-' : ''}${chip.operator}:${chipLabel(chip)}`,
                     })}
                     onclick={() => {
@@ -578,8 +578,8 @@
               : undefined}
             placeholder={field.chips.length > 0
               ? ''
-              : $i18n.t(compact.current ? 'common.searchMessages' : 'search.placeholder')}
-            aria-label={$i18n.t('common.searchMessages')}
+              : i18n.t(compact.current ? 'common.searchMessages' : 'search.placeholder')}
+            aria-label={i18n.t('common.searchMessages')}
             oninput={onInput}
             onkeydown={onKeydown}
             onfocus={() => {
@@ -598,7 +598,7 @@
           <button
             class="query-clear"
             type="button"
-            aria-label={$i18n.t('search.clear')}
+            aria-label={i18n.t('search.clear')}
             onclick={clearQuery}
           >
             <XIcon />
@@ -611,8 +611,8 @@
               id={listboxId}
               {optionId}
               heading={showingRecent
-                ? $i18n.t('search.recentSearches')
-                : $i18n.t('search.suggestions')}
+                ? i18n.t('search.recentSearches')
+                : i18n.t('search.suggestions')}
               {suggestions}
               active={suggestionHighlighted ? activeSuggestion : -1}
               onSelect={accept}
@@ -624,7 +624,7 @@
         class="order-select"
         items={orders}
         value={search.order}
-        aria-label={$i18n.t('search.order')}
+        aria-label={i18n.t('search.order')}
         onValueChange={(next: string) => {
           chooseOrder(orderFrom(next));
         }}
@@ -633,7 +633,7 @@
 
     {#if search.parsed.unsupported.length > 0}
       <p class="notice">
-        {$i18n.t('search.unsupported', { operators: search.parsed.unsupported.join(', ') })}
+        {i18n.t('search.unsupported', { operators: search.parsed.unsupported.join(', ') })}
       </p>
     {/if}
 
@@ -646,8 +646,8 @@
     >
       {#if !search.runnable}
         <div class="starter">
-          <p class="hint">{$i18n.t('search.hint')}</p>
-          <ul class="starter-filters" aria-label={$i18n.t('search.startFilter')}>
+          <p class="hint">{i18n.t('search.hint')}</p>
+          <ul class="starter-filters" aria-label={i18n.t('search.startFilter')}>
             {#each STARTER_OPERATORS as operator (operator)}
               <li>
                 <button
@@ -663,29 +663,29 @@
             {/each}
             <li>
               <button class="starter-filter more" type="button" onclick={showAllFilters}>
-                {$i18n.t('search.allFilters')}
+                {i18n.t('search.allFilters')}
               </button>
             </li>
           </ul>
-          <p class="hint">{$i18n.t('search.hintExample')}</p>
-          <p class="hint">{$i18n.t('search.hintSyntax')}</p>
+          <p class="hint">{i18n.t('search.hintExample')}</p>
+          <p class="hint">{i18n.t('search.hintSyntax')}</p>
         </div>
       {:else if search.failed}
         <Alert variant="critical" role="alert">
-          <p>{$i18n.t('search.failed')}</p>
+          <p>{i18n.t('search.failed')}</p>
           <div class="alert-actions">
             <Button size="small" onclick={() => search.schedule()}
-              >{$i18n.t('common.tryAgain')}</Button
+              >{i18n.t('common.tryAgain')}</Button
             >
           </div>
         </Alert>
       {:else if search.searching && search.hits.length === 0}
-        <p class="hint">{$i18n.t('search.searching')}</p>
+        <p class="hint">{i18n.t('search.searching')}</p>
       {:else if search.hits.length === 0}
         <div class="empty">
           {#if search.unresolved.length > 0}
             <p>
-              {$i18n.t('search.unresolved', {
+              {i18n.t('search.unresolved', {
                 targets: search.unresolved
                   .map((token) => `${token.operator}:${token.value}`)
                   .join(', '),
@@ -699,7 +699,7 @@
                   applyFix(token, suggestion);
                 }}
               >
-                {$i18n.t('search.didYouMean', { label: suggestion.label })}
+                {i18n.t('search.didYouMean', { label: suggestion.label })}
               </Button>
             {/each}
           {:else}
@@ -733,7 +733,7 @@
             <ul class="hit-list">
               {#each group.hits as hit (hit.event_id)}
                 {@const snippet = snippetAround(hit.body, terms)}
-                {@const openLabel = $i18n.t('search.openResultFrom', {
+                {@const openLabel = i18n.t('search.openResultFrom', {
                   sender: senders.identity(hit.sender).displayName,
                   room: roomList.labelFor(hit.room_id),
                   time: formatFullTimestamp(hit.origin_server_ts),

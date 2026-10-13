@@ -40,19 +40,19 @@
 </script>
 
 <main class="locked" aria-labelledby="account-locked-title">
-  <h1 id="account-locked-title">{$i18n.t('app.accountLocked')}</h1>
+  <h1 id="account-locked-title">{i18n.t('app.accountLocked')}</h1>
   <p>{core.session?.user_id}</p>
-  <p>{$i18n.t('app.accountLockedDetail')}</p>
+  <p>{i18n.t('app.accountLockedDetail')}</p>
   {#each core.accounts.filter((account) => !account.needs_reauth && account.account_id !== core.session?.account_id) as account (account.account_id)}
     <Button disabled={busy} onclick={() => void switchAccount(account.account_id)}>
-      {$i18n.t('nav.switchAccount')}: {account.user_id}
+      {i18n.t('nav.switchAccount')}: {account.user_id}
     </Button>
   {/each}
   <Button
     disabled={busy || signOut.checking || signOut.signingOut}
-    onclick={() => void signOut.request(logout)}>{$i18n.t('settings.logout')}</Button
+    onclick={() => void signOut.request(logout)}>{i18n.t('settings.logout')}</Button
   >
-  {#if failed}<p role="alert">{$i18n.t('errors.coreError')}</p>{/if}
+  {#if failed}<p role="alert">{i18n.t('errors.coreError')}</p>{/if}
 </main>
 <SignOutWarningDialog guard={signOut} />
 

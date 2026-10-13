@@ -65,28 +65,28 @@
   }
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('composer.pollTitle')}>
+<DialogFrame bind:open variant="verification" label={i18n.t('composer.pollTitle')}>
   <div class="poll-composer">
-    <h2>{$i18n.t('composer.pollTitle')}</h2>
+    <h2>{i18n.t('composer.pollTitle')}</h2>
 
-    <FormField fieldId="poll-question" label={$i18n.t('composer.pollQuestion')}>
+    <FormField fieldId="poll-question" label={i18n.t('composer.pollQuestion')}>
       <TextInput id="poll-question" bind:value={question} autocomplete="off" />
     </FormField>
 
     <fieldset class="answers">
-      <legend>{$i18n.t('composer.pollAnswers')}</legend>
+      <legend>{i18n.t('composer.pollAnswers')}</legend>
       {#each answers as answer, index (answer.id)}
         <div class="answer">
           <TextInput
             id={`poll-answer-${String(index)}`}
             bind:value={answer.text}
             autocomplete="off"
-            aria-label={$i18n.t('composer.pollAnswerNumber', { number: index + 1 })}
+            aria-label={i18n.t('composer.pollAnswerNumber', { number: index + 1 })}
           />
           <Button
             variant="ghost"
             disabled={answers.length <= 1}
-            aria-label={$i18n.t('composer.pollRemoveAnswer', { number: index + 1 })}
+            aria-label={i18n.t('composer.pollRemoveAnswer', { number: index + 1 })}
             onclick={() => {
               if (maxSelections === answers.length) maxSelections -= 1;
               answers = answers.filter((other) => other !== answer);
@@ -105,18 +105,18 @@
             answers = [...answers, blankAnswer()];
           }}
         >
-          {$i18n.t('composer.pollAddAnswer')}
+          {i18n.t('composer.pollAddAnswer')}
         </Button>
       {/if}
     </fieldset>
 
     <div class="undisclosed">
-      <span>{$i18n.t('composer.pollUndisclosed')}</span>
-      <Switch bind:checked={undisclosed} label={$i18n.t('composer.pollUndisclosed')} />
+      <span>{i18n.t('composer.pollUndisclosed')}</span>
+      <Switch bind:checked={undisclosed} label={i18n.t('composer.pollUndisclosed')} />
     </div>
     <div class="max-selection">
       <div class="max-selection-textual">
-        <span>{$i18n.t('composer.pollMaxSelection')}</span>
+        <span>{i18n.t('composer.pollMaxSelection')}</span>
         <input
           class="form-control max-selection-input"
           min="1"
@@ -127,14 +127,14 @@
       </div>
       <Slider
         max={answers.length}
-        label={$i18n.t('composer.pollMaxSelection')}
+        label={i18n.t('composer.pollMaxSelection')}
         bind:value={maxSelections}
       />
     </div>
 
     <DialogActions>
-      <Button variant="ghost" onclick={cancel}>{$i18n.t('common.cancel')}</Button>
-      <Button disabled={!valid} onclick={create}>{$i18n.t('composer.pollCreate')}</Button>
+      <Button variant="ghost" onclick={cancel}>{i18n.t('common.cancel')}</Button>
+      <Button disabled={!valid} onclick={create}>{i18n.t('composer.pollCreate')}</Button>
     </DialogActions>
   </div>
 </DialogFrame>

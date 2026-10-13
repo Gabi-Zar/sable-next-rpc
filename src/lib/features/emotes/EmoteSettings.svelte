@@ -164,10 +164,10 @@
   }
 </script>
 
-<AppPageShell title={$i18n.t('settings.emotes')} density="compact" class="emote-settings-page">
+<AppPageShell title={i18n.t('settings.emotes')} density="compact" class="emote-settings-page">
   <div class="emote-settings" bind:this={root}>
     {#if failed}
-      <Alert variant="critical" role="alert">{$i18n.t('emotes.saveFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('emotes.saveFailed')}</Alert>
     {/if}
 
     {#if viewingPack}
@@ -179,7 +179,7 @@
           }}
         >
           <ArrowLeftIcon />
-          {$i18n.t('common.back')}
+          {i18n.t('common.back')}
         </Button>
       </div>
       {#key viewing}
@@ -191,13 +191,13 @@
 
       <SettingsSection
         headingId="emote-room-packs"
-        title={$i18n.t('emotes.roomPacksTitle')}
-        description={$i18n.t('emotes.roomPacksHint')}
+        title={i18n.t('emotes.roomPacksTitle')}
+        description={i18n.t('emotes.roomPacksHint')}
       >
         {#if loading}
           <p class="status settings-form" role="status"><Spinner small /></p>
         {:else if byRoom.length === 0}
-          <p class="status settings-form">{$i18n.t('emotes.noRoomPacks')}</p>
+          <p class="status settings-form">{i18n.t('emotes.noRoomPacks')}</p>
         {:else}
           {#each byRoom as [roomId, roomsPacks] (roomId)}
             <div class="room-group">
@@ -211,7 +211,7 @@
                       void exportRoom(roomsPacks);
                     }}
                   >
-                    {$i18n.t('emotes.exportAll')}
+                    {i18n.t('emotes.exportAll')}
                   </Button>
                   <Button
                     size="small"
@@ -221,8 +221,8 @@
                     }}
                   >
                     {roomsPacks.every(isChosen)
-                      ? $i18n.t('emotes.unselectAll')
-                      : $i18n.t('common.selectAll')}
+                      ? i18n.t('emotes.unselectAll')
+                      : i18n.t('common.selectAll')}
                   </Button>
                 </div>
               </div>
@@ -230,7 +230,7 @@
                 {#each roomsPacks as pack (pack.id)}
                   <SettingsRow
                     title={pack.name ?? pack.id}
-                    description={$i18n.t('emotes.imageCount', { count: pack.images.length })}
+                    description={i18n.t('emotes.imageCount', { count: pack.images.length })}
                   >
                     {#snippet before()}
                       <MediaImage
@@ -247,10 +247,10 @@
                         void view(pack);
                       }}
                     >
-                      {$i18n.t('emotes.view')}
+                      {i18n.t('emotes.view')}
                     </Button>
                     <Switch
-                      label={$i18n.t('emotes.useEverywhere', { name: pack.name ?? pack.id })}
+                      label={i18n.t('emotes.useEverywhere', { name: pack.name ?? pack.id })}
                       checked={isChosen(pack)}
                       disabled={busy}
                       onCheckedChange={(checked) => {

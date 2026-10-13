@@ -79,14 +79,14 @@
   {open}
   {onOpenChange}
   variant="verification"
-  label={$i18n.t('room.menuJumpToTime')}
+  label={i18n.t('room.menuJumpToTime')}
   onConfirm={() => void jump()}
 >
   <div class="jump">
-    <h2>{$i18n.t('room.menuJumpToTime')}</h2>
-    <p class="explain">{$i18n.t('room.jumpBody')}</p>
+    <h2>{i18n.t('room.menuJumpToTime')}</h2>
+    <p class="explain">{i18n.t('room.jumpBody')}</p>
 
-    <DateTimeField label={$i18n.t('common.dateAndTime')} bind:value />
+    <DateTimeField label={i18n.t('common.dateAndTime')} bind:value />
 
     <div class="shortcuts">
       <Button
@@ -94,28 +94,28 @@
         variant="secondary"
         onclick={() => {
           setDay(0);
-        }}>{$i18n.t('common.today')}</Button
+        }}>{i18n.t('common.today')}</Button
       >
       <Button
         size="small"
         variant="secondary"
         onclick={() => {
           setDay(1);
-        }}>{$i18n.t('common.yesterday')}</Button
+        }}>{i18n.t('common.yesterday')}</Button
       >
       <Button
         size="small"
         variant="secondary"
         onclick={() => {
           setDay(7);
-        }}>{$i18n.t('room.jumpLastWeek')}</Button
+        }}>{i18n.t('room.jumpLastWeek')}</Button
       >
     </div>
 
     {#if outcome === 'missing'}
-      <Alert variant="info" role="status">{$i18n.t('room.jumpMissing')}</Alert>
+      <Alert variant="info" role="status">{i18n.t('room.jumpMissing')}</Alert>
     {:else if outcome === 'failed'}
-      <Alert variant="critical" role="alert">{$i18n.t('room.jumpFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('room.jumpFailed')}</Alert>
     {/if}
 
     <DialogActions>
@@ -123,9 +123,9 @@
         variant="ghost"
         onclick={() => {
           onOpenChange(false);
-        }}>{$i18n.t('common.cancel')}</Button
+        }}>{i18n.t('common.cancel')}</Button
       >
-      <Button type="submit" loading={searching}>{$i18n.t('room.jumpSubmit')}</Button>
+      <Button type="submit" loading={searching}>{i18n.t('room.jumpSubmit')}</Button>
     </DialogActions>
   </div>
 </DialogFrame>

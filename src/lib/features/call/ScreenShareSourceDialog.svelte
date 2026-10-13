@@ -31,15 +31,15 @@
     ...(portal ? monitors.slice(0, 1) : monitors).map((monitor) => ({
       value: `hdr:${String(monitor.index)}`,
       label: portal
-        ? $i18n.t('call.screenSourceHdrPortal')
-        : $i18n.t('call.screenSourceHdr', { name: monitor.name }),
-      hint: $i18n.t(portal ? 'call.screenSourceHdrPortalHint' : 'call.screenSourceHdrHint'),
+        ? i18n.t('call.screenSourceHdrPortal')
+        : i18n.t('call.screenSourceHdr', { name: monitor.name }),
+      hint: i18n.t(portal ? 'call.screenSourceHdrPortalHint' : 'call.screenSourceHdrHint'),
       icon: MonitorIcon,
     })),
     {
       value: 'picker',
-      label: $i18n.t('call.screenSourcePicker'),
-      hint: $i18n.t('call.screenSourcePickerHint'),
+      label: i18n.t('call.screenSourcePicker'),
+      hint: i18n.t('call.screenSourcePickerHint'),
       icon: AppWindowIcon,
     },
   ]);
@@ -59,19 +59,19 @@
     if (!next) onCancel();
   }}
   variant="verification"
-  label={$i18n.t('call.screenSourceTitle')}
+  label={i18n.t('call.screenSourceTitle')}
   onConfirm={share}
 >
   <div class="screen-source">
-    <h2>{$i18n.t('call.screenSourceTitle')}</h2>
+    <h2>{i18n.t('call.screenSourceTitle')}</h2>
     <Dialog.Description>
       {#snippet child({ props })}
-        <p {...props} class="explain">{$i18n.t('call.screenSourceExplain')}</p>
+        <p {...props} class="explain">{i18n.t('call.screenSourceExplain')}</p>
       {/snippet}
     </Dialog.Description>
 
     <OptionCards
-      label={$i18n.t('call.screenSourceTitle')}
+      label={i18n.t('call.screenSourceTitle')}
       {options}
       value={choice}
       onSelect={(next) => {
@@ -81,9 +81,9 @@
 
     <DialogActions>
       <Button type="button" variant="ghost" onclick={onCancel}>
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
-      <Button type="submit">{$i18n.t('common.share')}</Button>
+      <Button type="submit">{i18n.t('common.share')}</Button>
     </DialogActions>
   </div>
 </DialogFrame>

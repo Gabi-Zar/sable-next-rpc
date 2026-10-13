@@ -50,10 +50,10 @@
 </script>
 
 {#if preferences.sendPresence}
-  <ActionMenuSub class="presence-selector" label={$i18n.t('presence.title')}>
+  <ActionMenuSub class="presence-selector" label={i18n.t('presence.title')}>
     {#snippet trigger()}
-      <PresenceDot {presence} size="large" label={$i18n.t(`presence.${presence}`)} />
-      <span class="presence-name">{$i18n.t(`presence.${presence}`)}</span>
+      <PresenceDot {presence} size="large" label={i18n.t(`presence.${presence}`)} />
+      <span class="presence-name">{i18n.t(`presence.${presence}`)}</span>
     {/snippet}
     {#each PRESENCE_OPTIONS as option (option)}
       <ActionMenuItem
@@ -62,22 +62,22 @@
           setPreference('presence', option);
         }}
       >
-        <PresenceDot presence={option} label={$i18n.t(`presence.${option}`)} size="medium" />
-        <span class="presence-name">{$i18n.t(`presence.${option}`)}</span>
+        <PresenceDot presence={option} label={i18n.t(`presence.${option}`)} size="medium" />
+        <span class="presence-name">{i18n.t(`presence.${option}`)}</span>
       </ActionMenuItem>
     {/each}
   </ActionMenuSub>
 {/if}
 <ActionMenuItem onSelect={onProfile}>
   <PencilIcon aria-hidden="true" />
-  <span>{$i18n.t('nav.editProfile')}</span>
+  <span>{i18n.t('nav.editProfile')}</span>
 </ActionMenuItem>
 <ActionMenuSeparator />
 {#if accountSwitching}
-  <ActionMenuSub label={$i18n.t('nav.switchAccount')} class="account-switcher-popover">
+  <ActionMenuSub label={i18n.t('nav.switchAccount')} class="account-switcher-popover">
     {#snippet trigger()}
       <UserIcon aria-hidden="true" />
-      <span>{$i18n.t('nav.switchAccount')}</span>
+      <span>{i18n.t('nav.switchAccount')}</span>
     {/snippet}
     <div class="account-list" role="group">
       {#each accounts as account (account.account_id)}
@@ -110,9 +110,9 @@
               <strong>{account.user_id}</strong>
               <small>
                 {#if account.needs_reauth}
-                  {$i18n.t('nav.accountSignedOut')}
+                  {i18n.t('nav.accountSignedOut')}
                 {:else if active}
-                  {$i18n.t('nav.currentAccount')}
+                  {i18n.t('nav.currentAccount')}
                 {:else}
                   {account.homeserver}
                 {/if}
@@ -120,7 +120,7 @@
             </span>
             {#if active}<CheckIcon
                 class="active-account"
-                aria-label={$i18n.t('nav.currentAccount')}
+                aria-label={i18n.t('nav.currentAccount')}
               />{/if}
           </button>
           <Button
@@ -130,7 +130,7 @@
             onclick={() => {
               onLogoutAccount(account.account_id);
               surface.close();
-            }}>{$i18n.t('settings.logout')}</Button
+            }}>{i18n.t('settings.logout')}</Button
           >
         </div>
       {/each}
@@ -138,13 +138,13 @@
     <ActionMenuSeparator />
     <ActionMenuItem onSelect={onAddAccount}>
       <PlusIcon aria-hidden="true" />
-      <span>{$i18n.t('common.addAccount')}</span>
+      <span>{i18n.t('common.addAccount')}</span>
     </ActionMenuItem>
   </ActionMenuSub>
 {/if}
 <ActionMenuItem destructive onSelect={onLogout}>
   <SignOutIcon aria-hidden="true" />
-  <span>{$i18n.t('settings.logout')}</span>
+  <span>{i18n.t('settings.logout')}</span>
 </ActionMenuItem>
 
 <style>

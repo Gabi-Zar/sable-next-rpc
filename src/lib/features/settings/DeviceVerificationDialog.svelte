@@ -139,36 +139,36 @@
   variant="verification"
 >
   <Dialog.Title class="verification-title">
-    {$i18n.t(selfVerification ? 'settings.verification' : 'settings.userVerification')}
+    {i18n.t(selfVerification ? 'settings.verification' : 'settings.userVerification')}
   </Dialog.Title>
   {#if core.verification}
     {#if core.verification.state.phase === 'requested'}
       {#if core.verification.state.initiated_by_us}
         <Dialog.Description class="verification-description">
-          {$i18n.t(selfVerification ? 'settings.acceptOtherDevice' : 'settings.acceptOtherUser')}
+          {i18n.t(selfVerification ? 'settings.acceptOtherDevice' : 'settings.acceptOtherUser')}
         </Dialog.Description>
-        <p class="verification-wait" role="status">{$i18n.t('settings.waiting')}</p>
+        <p class="verification-wait" role="status">{i18n.t('settings.waiting')}</p>
       {:else}
         <Dialog.Description class="verification-description">
-          {$i18n.t(
+          {i18n.t(
             selfVerification
               ? 'settings.verificationRequested'
               : 'settings.userVerificationRequested'
           )}
         </Dialog.Description>
         <Button variant="primary" class="verification-action" onclick={accept}
-          >{$i18n.t('settings.acceptVerification')}</Button
+          >{i18n.t('settings.acceptVerification')}</Button
         >
       {/if}
     {:else if core.verification.state.phase === 'choose' && processingScan}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.finishing')}
+        {i18n.t('settings.finishing')}
       </Dialog.Description>
-      <p class="verification-wait" role="status">{$i18n.t('settings.waiting')}</p>
+      <p class="verification-wait" role="status">{i18n.t('settings.waiting')}</p>
     {:else if core.verification.state.phase === 'choose'}
       {@const choice = core.verification.state}
       <Dialog.Description class="verification-description">
-        {$i18n.t(
+        {i18n.t(
           scanMode || !choice.qr
             ? 'settings.verificationScanTheirs'
             : 'settings.verificationShowOurs'
@@ -178,51 +178,51 @@
         {#if scanMode || !choice.qr}
           <VerificationQrScanner onScan={(data: Uint8Array) => void scanned(data)} />
         {:else}
-          <VerificationQrCode code={choice.qr} label={$i18n.t('settings.verificationQrLabel')} />
+          <VerificationQrCode code={choice.qr} label={i18n.t('settings.verificationQrLabel')} />
         {/if}
       </div>
       <div class="verification-actions">
         {#if choice.can_scan && choice.qr}
           <Button class="verification-action" onclick={() => (scanning = !scanMode)}>
-            {$i18n.t(scanMode ? 'settings.showOurCode' : 'settings.scanTheirCode')}
+            {i18n.t(scanMode ? 'settings.showOurCode' : 'settings.scanTheirCode')}
           </Button>
         {/if}
         {#if choice.can_compare}
           <Button class="verification-action" onclick={() => void compareEmoji()}>
-            {$i18n.t('settings.compareEmojiInstead')}
+            {i18n.t('settings.compareEmojiInstead')}
           </Button>
         {/if}
       </div>
     {:else if core.verification.state.phase === 'scanned'}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.verificationScannedPrompt')}
+        {i18n.t('settings.verificationScannedPrompt')}
       </Dialog.Description>
       <div class="verification-actions">
         <Button variant="primary" class="verification-action" onclick={confirm}>
-          {$i18n.t('settings.verificationScannedYes')}
+          {i18n.t('settings.verificationScannedYes')}
         </Button>
         <Button
           variant="danger"
           size="small"
           class="verification-action"
-          onclick={() => void cancel(true)}>{$i18n.t('settings.verificationScannedNo')}</Button
+          onclick={() => void cancel(true)}>{i18n.t('settings.verificationScannedNo')}</Button
         >
       </div>
     {:else if core.verification.state.phase === 'reciprocated'}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.verificationScanSucceeded')}
+        {i18n.t('settings.verificationScanSucceeded')}
       </Dialog.Description>
-      <p class="verification-wait" role="status">{$i18n.t('settings.waiting')}</p>
+      <p class="verification-wait" role="status">{i18n.t('settings.waiting')}</p>
     {:else if core.verification.state.phase === 'waiting'}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.startingEmojiComparison')}
+        {i18n.t('settings.startingEmojiComparison')}
       </Dialog.Description>
-      <p class="verification-wait" role="status">{$i18n.t('settings.waiting')}</p>
+      <p class="verification-wait" role="status">{i18n.t('settings.waiting')}</p>
     {:else if core.verification.state.phase === 'compare'}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.compareEmoji')}
+        {i18n.t('settings.compareEmoji')}
       </Dialog.Description>
-      <div class="emoji" aria-label={$i18n.t('settings.verificationEmoji')}>
+      <div class="emoji" aria-label={i18n.t('settings.verificationEmoji')}>
         {#each core.verification.state.emojis as emoji, index (index)}
           <div class="emoji-item">
             <span>{emoji.symbol}</span>
@@ -233,39 +233,39 @@
       <p class="decimals">{core.verification.state.decimals.join(' · ')}</p>
       <div class="verification-actions">
         <Button variant="primary" class="verification-action" onclick={confirm}
-          >{$i18n.t('settings.theyMatch')}</Button
+          >{i18n.t('settings.theyMatch')}</Button
         >
         <Button
           variant="danger"
           size="small"
           class="verification-action"
-          onclick={() => void cancel(true)}>{$i18n.t('settings.theyDoNotMatch')}</Button
+          onclick={() => void cancel(true)}>{i18n.t('settings.theyDoNotMatch')}</Button
         >
       </div>
     {:else if core.verification.state.phase === 'confirmed'}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.finishing')}
+        {i18n.t('settings.finishing')}
       </Dialog.Description>
-      <p class="verification-wait" role="status">{$i18n.t('settings.waiting')}</p>
+      <p class="verification-wait" role="status">{i18n.t('settings.waiting')}</p>
     {:else if core.verification.state.phase === 'done'}
       <Dialog.Description class="verification-description">
-        {$i18n.t(
+        {i18n.t(
           selfVerification ? 'settings.verificationComplete' : 'settings.userVerificationComplete'
         )}
       </Dialog.Description>
       <Button
         variant="primary"
         class="verification-action"
-        onclick={() => (core.verification = null)}>{$i18n.t('common.close')}</Button
+        onclick={() => (core.verification = null)}>{i18n.t('common.close')}</Button
       >
     {:else if core.verification.state.phase === 'cancelled'}
       <Dialog.Description class="verification-description">
-        {$i18n.t('settings.verificationCancelled', { reason: core.verification.state.reason })}
+        {i18n.t('settings.verificationCancelled', { reason: core.verification.state.reason })}
       </Dialog.Description>
       <Button
         variant="primary"
         class="verification-action"
-        onclick={() => (core.verification = null)}>{$i18n.t('common.close')}</Button
+        onclick={() => (core.verification = null)}>{i18n.t('common.close')}</Button
       >
     {/if}
     {#if error}<Alert variant="critical" role="alert">{error}</Alert>{/if}
@@ -274,7 +274,7 @@
         variant="ghost"
         size="small"
         class="verification-action verification-cancel"
-        onclick={() => void cancel()}>{$i18n.t('settings.cancelVerification')}</Button
+        onclick={() => void cancel()}>{i18n.t('settings.cancelVerification')}</Button
       >
     {/if}
   {/if}

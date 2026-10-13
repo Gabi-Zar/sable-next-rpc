@@ -48,11 +48,11 @@
   let query = $state('');
   let trimmedQuery = $derived(query.trim());
   let results = $derived(
-    trimmedQuery ? searchSettings(trimmedQuery, settingsCategories, $i18n.t) : []
+    trimmedQuery ? searchSettings(trimmedQuery, settingsCategories, i18n.t) : []
   );
 
   function sectionLabel(id: string): string {
-    return $i18n.t(sections.find((entry) => entry.id === id)?.label ?? 'settings.title');
+    return i18n.t(sections.find((entry) => entry.id === id)?.label ?? 'settings.title');
   }
 
   function select(event: MouseEvent, nextSection: string, focus?: string): void {
@@ -70,18 +70,18 @@
     onclick={() => void signOut.request(() => logoutWithPush(core, pushOverride()))}
   >
     <SignOutIcon aria-hidden="true" />
-    <span>{$i18n.t('settings.logout')}</span>
+    <span>{i18n.t('settings.logout')}</span>
   </button>
 {/snippet}
 
 {#snippet heading()}
-  {$i18n.t('settings.title')}
+  {i18n.t('settings.title')}
 {/snippet}
 
 {#snippet nav(state: SettingsShellNav)}
   <div class="settings-search">
     <label class="screen-reader-only" for="settings-search-input">
-      {$i18n.t('settings.searchLabel')}
+      {i18n.t('settings.searchLabel')}
     </label>
     <div class="search-field">
       <MagnifyingGlassIcon aria-hidden="true" />
@@ -89,21 +89,21 @@
         id="settings-search-input"
         type="search"
         bind:value={query}
-        placeholder={$i18n.t('settings.searchPlaceholder')}
+        placeholder={i18n.t('settings.searchPlaceholder')}
         autocomplete="off"
       />
     </div>
     <p class={['search-summary', { active: trimmedQuery !== '' }]} aria-live="polite">
       {#if trimmedQuery}
         {results.length > 0
-          ? $i18n.t('settings.searchResultsCount', { count: results.length })
-          : $i18n.t('settings.searchNoResults', { query: trimmedQuery })}
+          ? i18n.t('settings.searchResultsCount', { count: results.length })
+          : i18n.t('settings.searchNoResults', { query: trimmedQuery })}
       {/if}
     </p>
   </div>
 
   {#if trimmedQuery}
-    <ul class="search-results" role="list" aria-label={$i18n.t('settings.searchLabel')}>
+    <ul class="search-results" role="list" aria-label={i18n.t('settings.searchLabel')}>
       {#each results as hit (`${hit.category.id}:${hit.setting.key}`)}
         {@const focus = settingFocusId(hit.setting.key)}
         <li>
@@ -117,10 +117,10 @@
           >
             <span class="icon" aria-hidden="true"><hit.setting.icon /></span>
             <span class="label">
-              <span class="result-name">{$i18n.t(hit.setting.name)}</span>
+              <span class="result-name">{i18n.t(hit.setting.name)}</span>
               <span class="result-category">
-                {$i18n.t('settings.searchResultCategory', {
-                  category: $i18n.t(hit.category.name),
+                {i18n.t('settings.searchResultCategory', {
+                  category: i18n.t(hit.category.name),
                 })}
               </span>
             </span>
@@ -132,11 +132,11 @@
     <SettingsNav
       groups={groups.map((group) => ({
         id: group.id,
-        label: group.label ? $i18n.t(group.label) : undefined,
-        entries: group.entries.map((entry) => ({ ...entry, label: $i18n.t(entry.label) })),
+        label: group.label ? i18n.t(group.label) : undefined,
+        entries: group.entries.map((entry) => ({ ...entry, label: i18n.t(entry.label) })),
       }))}
       activeId={state.openSection}
-      ariaLabel={$i18n.t('settings.sections')}
+      ariaLabel={i18n.t('settings.sections')}
       onSelect={select}
       href={(entry) => resolve(`settings/${entry.id}`)}
       showChevron={!state.desktop}
@@ -150,10 +150,10 @@
 <SettingsShell
   section={section === null ? null : canonicalSection(section)}
   fallback={() => defaultSettingsSection()}
-  label={$i18n.t('settings.title')}
-  description={$i18n.t('settings.dialogDescription')}
-  closeLabel={$i18n.t('common.close')}
-  backLabel={$i18n.t('common.back')}
+  label={i18n.t('settings.title')}
+  description={i18n.t('settings.dialogDescription')}
+  closeLabel={i18n.t('common.close')}
+  backLabel={i18n.t('common.back')}
   {sectionLabel}
   {heading}
   {nav}

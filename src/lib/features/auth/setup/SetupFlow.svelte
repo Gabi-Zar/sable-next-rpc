@@ -218,9 +218,9 @@
 {#if !record}
   <div class="setup-checking" role="status">
     <Spinner />
-    <p>{$i18n.t('setup.checking')}</p>
+    <p>{i18n.t('setup.checking')}</p>
   </div>
-  <AuthSecondaryAction label={$i18n.t('auth.skipForNow')} onclick={skipChecking} />
+  <AuthSecondaryAction label={i18n.t('auth.skipForNow')} onclick={skipChecking} />
 {:else}
   <AuthRail
     {activeIndex}
@@ -228,7 +228,7 @@
     canBack={activeIndex > 0}
     canForward={activeIndex < pendingIndex || (activeIndex === pendingIndex && canSkipAhead)}
     progress={steps.length > 1
-      ? $i18n.t('setup.progress', { current: activeIndex + 1, total: steps.length })
+      ? i18n.t('setup.progress', { current: activeIndex + 1, total: steps.length })
       : undefined}
     onBack={() => {
       activate(activeIndex - 1);
@@ -243,8 +243,8 @@
         reachable={index <= pendingIndex || (index === pendingIndex + 1 && canSkipAhead)}
         before={index < activeIndex}
         after={index > activeIndex}
-        accessibilityLabel={$i18n.t(STAGE_LABELS[step])}
-        unavailableLabel={$i18n.t('setup.finishCurrentStep')}
+        accessibilityLabel={i18n.t(STAGE_LABELS[step])}
+        unavailableLabel={i18n.t('setup.finishCurrentStep')}
         onActivate={() => {
           activate(index);
         }}

@@ -4,6 +4,6 @@
   import AppPageShell from '#lib/ui/primitives/AppPageShell.svelte';
 </script>
 
-<AppPageShell title={$i18n.t('inbox.bookmarks')} density="compact">
+<AppPageShell title={i18n.t('inbox.bookmarks')} density="compact">
   <BookmarkList standalone />
 </AppPageShell>

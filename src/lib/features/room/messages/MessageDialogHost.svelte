@@ -92,7 +92,7 @@
   function failed(action: string): (error: unknown) => void {
     return (error) => {
       console.warn(`[sable timeline] ${action} failed`, error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     };
   }
 

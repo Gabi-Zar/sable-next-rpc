@@ -36,18 +36,18 @@
 
     const rooms =
       children.roomCount > 0
-        ? $i18n.t('room.leaveSpaceChildrenRoomsCount', { count: children.roomCount })
+        ? i18n.t('room.leaveSpaceChildrenRoomsCount', { count: children.roomCount })
         : null;
     const subspaces =
       children.subspaceCount > 0
-        ? $i18n.t('room.leaveSpaceChildrenSubspacesCount', { count: children.subspaceCount })
+        ? i18n.t('room.leaveSpaceChildrenSubspacesCount', { count: children.subspaceCount })
         : null;
 
     if (rooms && subspaces) {
-      return $i18n.t('room.leaveSpaceChildrenWarningBoth', { rooms, subspaces });
+      return i18n.t('room.leaveSpaceChildrenWarningBoth', { rooms, subspaces });
     }
-    if (rooms) return $i18n.t('room.leaveSpaceChildrenWarningRooms', { rooms });
-    return $i18n.t('room.leaveSpaceChildrenWarningSubspaces', { subspaces });
+    if (rooms) return i18n.t('room.leaveSpaceChildrenWarningRooms', { rooms });
+    return i18n.t('room.leaveSpaceChildrenWarningSubspaces', { subspaces });
   });
 
   async function leaveIds(ids: readonly string[]): Promise<string[]> {
@@ -97,16 +97,16 @@
   }
 </script>
 
-<DialogFrame {open} {onOpenChange} variant="verification" label={$i18n.t('room.leaveConfirm')}>
+<DialogFrame {open} {onOpenChange} variant="verification" label={i18n.t('room.leaveConfirm')}>
   <div class="leave">
-    <h2>{$i18n.t('room.leaveTitle', { name: room?.name ?? room?.room_id ?? '' })}</h2>
-    <p class="explain">{$i18n.t('room.leaveBody')}</p>
+    <h2>{i18n.t('room.leaveTitle', { name: room?.name ?? room?.room_id ?? '' })}</h2>
+    <p class="explain">{i18n.t('room.leaveBody')}</p>
     {#if childrenWarning}
       <p class="explain">{childrenWarning}</p>
     {/if}
     {#if failedNames.length > 0}
       <Alert variant="critical" role="alert">
-        {$i18n.t('room.leaveFailedNames', { names: failedNames.join(', ') })}
+        {i18n.t('room.leaveFailedNames', { names: failedNames.join(', ') })}
       </Alert>
     {/if}
     <DialogActions>
@@ -116,15 +116,15 @@
           onOpenChange(false);
         }}
       >
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
       {#if children && children.order.length > 0}
         <Button variant="danger" loading={leaving} onclick={confirmAll}>
-          {$i18n.t('room.leaveAllConfirm')}
+          {i18n.t('room.leaveAllConfirm')}
         </Button>
       {/if}
       <Button variant="danger" loading={leaving} onclick={confirm}>
-        {$i18n.t('room.leaveConfirm')}
+        {i18n.t('room.leaveConfirm')}
       </Button>
     </DialogActions>
   </div>

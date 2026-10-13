@@ -101,14 +101,14 @@
   }
 </script>
 
-<DialogFrame {open} {onOpenChange} variant="verification" label={$i18n.t('room.inviteTitle')}>
+<DialogFrame {open} {onOpenChange} variant="verification" label={i18n.t('room.inviteTitle')}>
   <div class="invite">
-    <h2>{$i18n.t('room.inviteTitle')}</h2>
+    <h2>{i18n.t('room.inviteTitle')}</h2>
 
     {#if convertPrompt}
-      <p class="explain">{$i18n.t('room.inviteConvertBody')}</p>
+      <p class="explain">{i18n.t('room.inviteConvertBody')}</p>
       {#if failed}
-        <Alert variant="critical" role="alert">{$i18n.t('room.inviteSendFailed')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('room.inviteSendFailed')}</Alert>
       {/if}
       <DialogActions>
         <Button
@@ -117,7 +117,7 @@
             onOpenChange(false);
           }}
         >
-          {$i18n.t('common.cancel')}
+          {i18n.t('common.cancel')}
         </Button>
         <Button
           loading={converting}
@@ -125,19 +125,19 @@
             void convertAndInvite();
           }}
         >
-          {$i18n.t('room.inviteConvertConfirm')}
+          {i18n.t('room.inviteConvertConfirm')}
         </Button>
       </DialogActions>
     {:else}
       <p class="explain">
-        {$i18n.t('room.inviteBody', { name: room?.name ?? room?.room_id ?? '' })}
+        {i18n.t('room.inviteBody', { name: room?.name ?? room?.room_id ?? '' })}
       </p>
 
-      <FormField fieldId="room-invite-user" label={$i18n.t('common.invitePeople')}>
+      <FormField fieldId="room-invite-user" label={i18n.t('common.invitePeople')}>
         <TextInput
           id="room-invite-user"
           bind:value={() => draft, setDraft}
-          placeholder={$i18n.t('room.createInvitePlaceholder')}
+          placeholder={i18n.t('room.createInvitePlaceholder')}
           onkeydown={(event: KeyboardEvent) => {
             if (event.key !== 'Enter') return;
             event.preventDefault();
@@ -176,13 +176,13 @@
 
       {#if invalid}
         <Alert variant="critical" role="alert"
-          >{$i18n.t('common.aUserIdLooksLikeSomeoneserver')}</Alert
+          >{i18n.t('common.aUserIdLooksLikeSomeoneserver')}</Alert
         >
       {:else if failed}
-        <Alert variant="critical" role="alert">{$i18n.t('room.inviteSendFailed')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('room.inviteSendFailed')}</Alert>
       {:else if invited}
         <Alert variant="success" role="status">
-          {$i18n.t('room.inviteSent', { user: invited })}
+          {i18n.t('room.inviteSent', { user: invited })}
         </Alert>
       {/if}
 
@@ -193,7 +193,7 @@
             onOpenChange(false);
           }}
         >
-          {$i18n.t('common.close')}
+          {i18n.t('common.close')}
         </Button>
         <Button
           loading={inviting}
@@ -201,7 +201,7 @@
             void invite();
           }}
         >
-          {$i18n.t('room.inviteSubmit')}
+          {i18n.t('room.inviteSubmit')}
         </Button>
       </DialogActions>
     {/if}

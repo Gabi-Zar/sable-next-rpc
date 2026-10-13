@@ -74,7 +74,7 @@
     class={['pdf-thumbnail', { ready }]}
     type="button"
     onclick={onOpen}
-    aria-label={$i18n.t('pdf.openNamed', { name })}
+    aria-label={i18n.t('pdf.openNamed', { name })}
   >
     <canvas bind:this={canvas} class="pdf-thumbnail-canvas"></canvas>
   </button>

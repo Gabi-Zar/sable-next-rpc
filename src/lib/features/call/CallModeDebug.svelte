@@ -19,34 +19,34 @@
   const debug = $derived(callDebug.current);
 
   const yesNo = (value: boolean | undefined): string =>
-    value === undefined ? '-' : $i18n.t(value ? 'settings.developerYes' : 'settings.developerNo');
+    value === undefined ? '-' : i18n.t(value ? 'settings.developerYes' : 'settings.developerNo');
 </script>
 
 {#if debug}
-  <dl class={['debug', { overlay }]} aria-label={$i18n.t('call.debugLabel')}>
-    <dt>{$i18n.t('call.debugMode')}</dt>
-    <dd>{$i18n.t(`call.debugModes.${debug.mode}`)}</dd>
-    <dt>{$i18n.t('call.debugRequested')}</dt>
+  <dl class={['debug', { overlay }]} aria-label={i18n.t('call.debugLabel')}>
+    <dt>{i18n.t('call.debugMode')}</dt>
+    <dd>{i18n.t(`call.debugModes.${debug.mode}`)}</dd>
+    <dt>{i18n.t('call.debugRequested')}</dt>
     <dd>
       {debug.nativeForced
-        ? $i18n.t('call.debugNativeForced')
-        : $i18n.t(REQUESTED_LABELS[debug.requested])}
+        ? i18n.t('call.debugNativeForced')
+        : i18n.t(REQUESTED_LABELS[debug.requested])}
     </dd>
-    <dt>{$i18n.t('call.debugReason')}</dt>
-    <dd>{debug.reason ? $i18n.t(`call.debugReasons.${debug.reason}`) : '-'}</dd>
-    <dt>{$i18n.t('call.debugSticky')}</dt>
+    <dt>{i18n.t('call.debugReason')}</dt>
+    <dd>{debug.reason ? i18n.t(`call.debugReasons.${debug.reason}`) : '-'}</dd>
+    <dt>{i18n.t('call.debugSticky')}</dt>
     <dd>{yesNo(debug.stickyAvailable)}</dd>
-    <dt>{$i18n.t('call.debugPeers')}</dt>
+    <dt>{i18n.t('call.debugPeers')}</dt>
     <dd>
       {debug.peerModes.length > 0
-        ? debug.peerModes.map((mode) => $i18n.t(`call.debugModes.${mode}`)).join(', ')
-        : $i18n.t('call.debugNoPeers')}
+        ? debug.peerModes.map((mode) => i18n.t(`call.debugModes.${mode}`)).join(', ')
+        : i18n.t('call.debugNoPeers')}
     </dd>
-    <dt>{$i18n.t('call.debugTransport')}</dt>
-    <dd>{$i18n.t(`call.debugTransports.${debug.transport}`)}</dd>
-    <dt>{$i18n.t('call.debugBackends')}</dt>
+    <dt>{i18n.t('call.debugTransport')}</dt>
+    <dd>{i18n.t(`call.debugTransports.${debug.transport}`)}</dd>
+    <dt>{i18n.t('call.debugBackends')}</dt>
     <dd>{debug.backendCount}</dd>
-    <dt>{$i18n.t('call.debugEncrypted')}</dt>
+    <dt>{i18n.t('call.debugEncrypted')}</dt>
     <dd>{yesNo(debug.encrypted)}</dd>
   </dl>
 {/if}

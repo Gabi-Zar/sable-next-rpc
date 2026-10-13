@@ -45,12 +45,12 @@
         onclick={() => verification.requestVerification(onRequested)}
       >
         <DesktopTowerIcon aria-hidden="true" />
-        {$i18n.t('settings.anotherSignedInDevice')}
+        {i18n.t('settings.anotherSignedInDevice')}
       </Button>
       {#if recovery !== 'disabled'}
         <Button block variant="secondary" onclick={() => (selectedMethod = 'recovery')}>
           <KeyIcon aria-hidden="true" />
-          {$i18n.t(
+          {i18n.t(
             recoveryPassphrase ? 'settings.useRecoveryKeyOrPassphrase' : 'settings.useRecoveryKey'
           )}
         </Button>
@@ -67,7 +67,7 @@
       }}
     >
       <ArrowLeftIcon aria-hidden="true" />
-      {$i18n.t('common.back')}
+      {i18n.t('common.back')}
     </Button>
 
     <form
@@ -78,7 +78,7 @@
       }}
     >
       <Label for={inputId}
-        >{$i18n.t(
+        >{i18n.t(
           recoveryPassphrase ? 'settings.useRecoveryKeyOrPassphrase' : 'settings.useRecoveryKey'
         )}</Label
       >
@@ -92,7 +92,7 @@
           autofocus
           spellcheck={false}
           type="password"
-          placeholder={$i18n.t(
+          placeholder={i18n.t(
             recoveryPassphrase
               ? 'settings.recoveryKeyOrPassphrasePlaceholder'
               : 'settings.recoveryKeyPlaceholder'
@@ -103,12 +103,12 @@
           loading={verification.recovering}
           disabled={!verification.recoveryKey.trim()}
         >
-          {$i18n.t('common.verify')}
+          {i18n.t('common.verify')}
         </Button>
       </div>
     </form>
     <Button class="method-reset" variant="ghost" size="small" onclick={onReset}>
-      {$i18n.t('settings.resetIdentityLost')}
+      {i18n.t('settings.resetIdentityLost')}
     </Button>
   {/if}
 </div>

@@ -51,9 +51,9 @@
     {/snippet}
     {#each kinds as kind, index (kind)}
       {#if index > 0}<ActionMenuSeparator />{/if}
-      <p class="heading">{$i18n.t(HEADING[kind])}</p>
+      <p class="heading">{i18n.t(HEADING[kind])}</p>
       <ActionMenuItem checked={selected(kind, '')} onSelect={() => onSelect(kind, '')}>
-        {$i18n.t('settings.callDeviceSystemDefault')}
+        {i18n.t('settings.callDeviceSystemDefault')}
       </ActionMenuItem>
       {#each devices.filter((device) => device.kind === kind && device.deviceId !== 'default') as device (device.deviceId)}
         <ActionMenuItem

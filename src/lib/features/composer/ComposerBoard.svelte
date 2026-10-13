@@ -135,18 +135,18 @@
   }
 
   function triggerLabel(id: BoardTab): string {
-    if (id === 'gif') return $i18n.t('composer.openGifPicker');
-    if (id === 'sticker') return $i18n.t('composer.openStickerPicker');
-    return $i18n.t('composer.emotesAndStickers');
+    if (id === 'gif') return i18n.t('composer.openGifPicker');
+    if (id === 'sticker') return i18n.t('composer.openStickerPicker');
+    return i18n.t('composer.emotesAndStickers');
   }
 
   function orderLabel(id: ComposerButton): string {
-    if (isComposerSeparator(id)) return $i18n.t('settings.composerSeparator');
-    if (id === 'persona') return $i18n.t('personas.picker');
-    if (id === 'format') return $i18n.t('composer.formatting');
-    if (id === 'gif') return $i18n.t('settings.composerChipLabels.composerGifButton');
-    if (id === 'sticker') return $i18n.t('settings.composerChipLabels.composerStickerButton');
-    return $i18n.t('settings.composerChipLabels.composerEmoteButton');
+    if (isComposerSeparator(id)) return i18n.t('settings.composerSeparator');
+    if (id === 'persona') return i18n.t('personas.picker');
+    if (id === 'format') return i18n.t('composer.formatting');
+    if (id === 'gif') return i18n.t('settings.composerChipLabels.composerGifButton');
+    if (id === 'sticker') return i18n.t('settings.composerChipLabels.composerStickerButton');
+    return i18n.t('settings.composerChipLabels.composerEmoteButton');
   }
 
   function buttonLabel(id: ComposerButton): string {
@@ -175,7 +175,7 @@
           ? extras[id] !== undefined
           : boardTriggers.includes(id)
     );
-    announcement = $i18n.t('settings.composerOrderChanged', {
+    announcement = i18n.t('settings.composerOrderChanged', {
       name: orderLabel(source),
       position: visible.indexOf(source) + 1,
       total: visible.length,
@@ -186,14 +186,14 @@
     if (!reorderable) return;
     if (selectedForReorder === null) {
       selectedForReorder = id;
-      announcement = $i18n.t('settings.composerOrderMoveSelected', { name: orderLabel(id) });
+      announcement = i18n.t('settings.composerOrderMoveSelected', { name: orderLabel(id) });
       return;
     }
 
     const source = selectedForReorder;
     selectedForReorder = null;
     if (source === id) {
-      announcement = $i18n.t('settings.composerOrderMoveCancelled');
+      announcement = i18n.t('settings.composerOrderMoveCancelled');
       return;
     }
 
@@ -205,7 +205,7 @@
     if (event.key === 'Escape' && selectedForReorder !== null) {
       event.preventDefault();
       selectedForReorder = null;
-      announcement = $i18n.t('settings.composerOrderMoveCancelled');
+      announcement = i18n.t('settings.composerOrderMoveCancelled');
       return;
     }
     if (!reorderable || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
@@ -270,9 +270,7 @@
     aria-keyshortcuts={reorderable ? 'ArrowLeft ArrowRight Escape' : undefined}
     data-state={open && tab === id ? 'open' : 'closed'}
     aria-label={buttonLabel(id)}
-    title={!desktop && reorderable
-      ? $i18n.t('settings.composerButtonOrderDragHintNone')
-      : undefined}
+    title={!desktop && reorderable ? i18n.t('settings.composerButtonOrderDragHintNone') : undefined}
   >
     <Icon />
   </button>
@@ -315,7 +313,7 @@
       {@render extras[id]?.(() => reorderOnClick(id))}
     {:else if desktop}
       <Tooltip
-        label={reorderable ? $i18n.t('settings.composerButtonOrderDragHintNone') : buttonLabel(id)}
+        label={reorderable ? i18n.t('settings.composerButtonOrderDragHintNone') : buttonLabel(id)}
       >
         {#snippet trigger({ props })}{@render boardButton(id, props)}{/snippet}
       </Tooltip>
@@ -362,8 +360,8 @@
   {@render boardSlots()}
   <BottomSheet
     bind:open
-    label={$i18n.t('composer.emotesAndStickers')}
-    closeLabel={$i18n.t('composer.closeBoard')}
+    label={i18n.t('composer.emotesAndStickers')}
+    closeLabel={i18n.t('composer.closeBoard')}
     expandable
   >
     <EmoteBoard

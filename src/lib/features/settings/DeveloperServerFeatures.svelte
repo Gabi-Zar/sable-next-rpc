@@ -37,21 +37,21 @@
   {#if features}
     {#each KNOWN as known (known.flag)}
       {@const supported = features.includes(known.flag)}
-      <SettingsRow id={`server-feature-${known.flag}`} title={$i18n.t(known.label)}>
+      <SettingsRow id={`server-feature-${known.flag}`} title={i18n.t(known.label)}>
         <StatusBadge
-          label={$i18n.t(supported ? 'settings.callCompatSupported' : 'settings.callCompatMissing')}
+          label={i18n.t(supported ? 'settings.callCompatSupported' : 'settings.callCompatMissing')}
           variant={supported ? 'success' : 'warning'}
         />
       </SettingsRow>
     {/each}
   {/if}
   {#if failed}
-    <SettingsRow id="server-features-failed" title={$i18n.t('settings.callCompatFailed')} />
+    <SettingsRow id="server-features-failed" title={i18n.t('settings.callCompatFailed')} />
   {/if}
 </ul>
 {#if features?.length}
   <details class="settings-form">
-    <summary>{$i18n.t('settings.serverFeaturesAll', { count: features.length })}</summary>
+    <summary>{i18n.t('settings.serverFeaturesAll', { count: features.length })}</summary>
     <ul class="flags">
       {#each features as flag (flag)}
         <li><code>{flag}</code></li>

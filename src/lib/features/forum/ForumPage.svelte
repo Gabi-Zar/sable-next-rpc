@@ -174,7 +174,7 @@
       .deleteThread({ room_id: resolvedRoomId, root_event_id: eventId, reason })
       .catch((error: unknown) => {
         console.warn('[sable forum] deleting a thread failed', error);
-        toasts.error($i18n.t('errors.actionFailed'));
+        toasts.error(i18n.t('errors.actionFailed'));
       });
   }
 
@@ -191,7 +191,7 @@
       { room_id: resolvedRoomId, canonical_alias: resolvedRoom?.canonical_alias ?? null },
       eventId
     ).then((copied) => {
-      if (!copied) toasts.error($i18n.t('errors.copyFailed'));
+      if (!copied) toasts.error(i18n.t('errors.copyFailed'));
     });
   }
 
@@ -260,7 +260,7 @@
 />
 <MessageContextMenu menu={messageMenu} />
 
-<main class="forum-page" aria-label={$i18n.t('forum.label')} data-inset-owner="top">
+<main class="forum-page" aria-label={i18n.t('forum.label')} data-inset-owner="top">
   <div
     class={['forum-main', { 'thread-covered': threadRootId !== null && !threadInPanel }]}
     inert={threadRootId !== null && !threadInPanel}
@@ -280,12 +280,12 @@
     <RoomBannerStrip roomId={resolvedRoomId} />
     <div class="forum-content">
       <div class="forum-compose-area">
-        <p class="forum-composer-hint">{$i18n.t('forum.newThreadHint')}</p>
+        <p class="forum-composer-hint">{i18n.t('forum.newThreadHint')}</p>
         <TextInput
           bind:value={conversation.forumTitle}
           maxlength={FORUM_TITLE_MAX}
-          placeholder={$i18n.t('forum.titlePlaceholder')}
-          aria-label={$i18n.t('forum.titleLabel')}
+          placeholder={i18n.t('forum.titlePlaceholder')}
+          aria-label={i18n.t('forum.titleLabel')}
           disabled={permissions ? !permissions.can_post : false}
         />
         <ConversationComposer
@@ -320,7 +320,7 @@
         roomId={resolvedRoomId}
         rootEventId={threadRootId}
         sidePanel={threadInPanel}
-        backLabel={$i18n.t('forum.backToForum')}
+        backLabel={i18n.t('forum.backToForum')}
         rootMessage={forumThreads.roomTimeline.items.find((item) => item.event_id === threadRootId)}
         {roomName}
         members={memberLoader.members}

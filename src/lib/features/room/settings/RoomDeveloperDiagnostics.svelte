@@ -64,21 +64,21 @@
   async function copy(text: string): Promise<void> {
     try {
       await copyText(text);
-      toasts.info($i18n.t('common.copied'));
+      toasts.info(i18n.t('common.copied'));
     } catch (error) {
       console.warn('[sable room] copy failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
 </script>
 
-<SettingsSection headingId="room-developer-room" title={$i18n.t('room.devRoomTitle')}>
+<SettingsSection headingId="room-developer-room" title={i18n.t('room.devRoomTitle')}>
   <ul class="settings-rows">
-    <SettingsRow title={$i18n.t('room.devRoomId')} description={room.room_id}>
+    <SettingsRow title={i18n.t('room.devRoomId')} description={room.room_id}>
       <IconButton
         variant="subtle"
         size="small"
-        label={$i18n.t('room.menuCopyId')}
+        label={i18n.t('room.menuCopyId')}
         onclick={() => void copy(room.room_id)}
       >
         <CopyIcon />
@@ -89,17 +89,17 @@
 
 <SettingsSection
   headingId="room-developer-diagnostics"
-  title={$i18n.t('room.devDiagnosticsTitle')}
-  description={$i18n.t('room.devDiagnosticsDescription')}
+  title={i18n.t('room.devDiagnosticsTitle')}
+  description={i18n.t('room.devDiagnosticsDescription')}
 >
   <ul class="settings-rows">
-    <SettingsRow title={$i18n.t('room.devDiagSync')}>
+    <SettingsRow title={i18n.t('room.devDiagSync')}>
       <code>{diagnostics.sync} · {diagnostics.core_status}</code>
     </SettingsRow>
-    <SettingsRow title={$i18n.t('room.devDiagMembership')}>
+    <SettingsRow title={i18n.t('room.devDiagMembership')}>
       <code>{diagnostics.membership}</code>
     </SettingsRow>
-    <SettingsRow title={$i18n.t('room.devDiagUnread')}>
+    <SettingsRow title={i18n.t('room.devDiagUnread')}>
       <code
         >{diagnostics.unread} / {diagnostics.notifying} / {diagnostics.highlight}{diagnostics.marked_unread
           ? ' · marked'
@@ -107,13 +107,13 @@
       >
     </SettingsRow>
     <SettingsRow
-      title={$i18n.t('room.devDiagFullyRead')}
+      title={i18n.t('room.devDiagFullyRead')}
       description={diagnostics.fully_read ?? '-'}
     />
     <SettingsRow
-      title={$i18n.t('room.devDiagLatest')}
+      title={i18n.t('room.devDiagLatest')}
       description={`${diagnostics.latest_event_id ?? '-'} · ${
-        diagnostics.read_latest ? $i18n.t('room.devDiagRead') : $i18n.t('room.devDiagNotRead')
+        diagnostics.read_latest ? i18n.t('room.devDiagRead') : i18n.t('room.devDiagNotRead')
       }`}
     />
   </ul>
@@ -124,7 +124,7 @@
         variant="secondary"
         onclick={() => void copy(JSON.stringify(diagnostics, null, 2))}
       >
-        {$i18n.t('room.devDiagCopy')}
+        {i18n.t('room.devDiagCopy')}
       </Button>
     </div>
   </div>

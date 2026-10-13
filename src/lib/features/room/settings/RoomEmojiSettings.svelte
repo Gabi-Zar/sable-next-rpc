@@ -178,7 +178,7 @@
 
 <div class="section">
   {#if failed}
-    <Alert variant="critical" role="alert">{$i18n.t('room.membersFailed')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('room.membersFailed')}</Alert>
   {/if}
 
   {#if viewingPack}
@@ -192,7 +192,7 @@
         }}
       >
         <ArrowLeftIcon />
-        {$i18n.t('common.back')}
+        {i18n.t('common.back')}
       </Button>
     </div>
     {#key viewingPack.id}
@@ -206,15 +206,15 @@
     {#if canEdit}
       <SettingsSection
         headingId="room-emojis-create"
-        title={$i18n.t('room.emojisCreateTitle')}
-        description={$i18n.t('room.emojisCreateHint')}
+        title={i18n.t('room.emojisCreateTitle')}
+        description={i18n.t('room.emojisCreateHint')}
       >
         <div class="settings-form">
           <div class="inline">
             <TextInput
               bind:value={newPackName}
-              placeholder={$i18n.t('room.emojisPackNamePlaceholder')}
-              aria-label={$i18n.t('room.emojisPackName')}
+              placeholder={i18n.t('room.emojisPackNamePlaceholder')}
+              aria-label={i18n.t('room.emojisPackName')}
             />
             <Button
               disabled={newPackName.trim() === '' || busy}
@@ -222,7 +222,7 @@
                 void createPack();
               }}
             >
-              {$i18n.t('room.emojisCreate')}
+              {i18n.t('room.emojisCreate')}
             </Button>
           </div>
         </div>
@@ -232,14 +232,14 @@
     {#if loading && packs.length === 0}
       <p class="settings-status" role="status"><Spinner small /></p>
     {:else if roomPacks.length === 0}
-      <p class="settings-status">{$i18n.t('room.emojisEmpty')}</p>
+      <p class="settings-status">{i18n.t('room.emojisEmpty')}</p>
     {:else}
-      <SettingsSection headingId="room-emojis-packs" title={$i18n.t('room.emojisPacks')}>
+      <SettingsSection headingId="room-emojis-packs" title={i18n.t('room.emojisPacks')}>
         <ul class="settings-rows">
           {#each roomPacks as pack (pack.id)}
             <SettingsRow
               title={pack.name ?? pack.id}
-              description={$i18n.t('room.emojisPackCount', { count: pack.images.length })}
+              description={i18n.t('room.emojisPackCount', { count: pack.images.length })}
             >
               {#snippet before()}
                 <MediaImage
@@ -256,13 +256,13 @@
                   viewing = pack.id;
                 }}
               >
-                {$i18n.t('emotes.view')}
+                {i18n.t('emotes.view')}
               </Button>
               {#if canEdit}
                 <IconButton
                   variant="subtle"
                   size="small"
-                  label={$i18n.t('room.emojisDeletePack', { name: pack.name ?? pack.id })}
+                  label={i18n.t('room.emojisDeletePack', { name: pack.name ?? pack.id })}
                   disabled={busy}
                   onclick={() => {
                     packToRemove = pack;
@@ -278,8 +278,8 @@
       {#if canEdit && (legacyOnly.length > 0 || legacyCopies.length > 0)}
         <SettingsSection
           headingId="room-emojis-legacy"
-          title={$i18n.t('room.emojisLegacyTitle')}
-          description={$i18n.t('room.emojisLegacyHint')}
+          title={i18n.t('room.emojisLegacyTitle')}
+          description={i18n.t('room.emojisLegacyHint')}
         >
           <div class="settings-form legacy-actions">
             {#if legacyOnly.length > 0}
@@ -289,7 +289,7 @@
                   void convertLegacyPacks();
                 }}
               >
-                {$i18n.t('room.emojisLegacyConvert', { count: legacyOnly.length })}
+                {i18n.t('room.emojisLegacyConvert', { count: legacyOnly.length })}
               </Button>
             {/if}
             {#if legacyCopies.length > 0}
@@ -299,7 +299,7 @@
                   confirmingLegacyRemoval = true;
                 }}
               >
-                {$i18n.t('room.emojisLegacyRemove', { count: legacyCopies.length })}
+                {i18n.t('room.emojisLegacyRemove', { count: legacyCopies.length })}
               </Button>
             {/if}
           </div>
@@ -314,9 +314,9 @@
   onOpenChange={(next: boolean) => {
     if (!next && busy === false) confirmingLegacyRemoval = false;
   }}
-  title={$i18n.t('room.emojisLegacyRemoveConfirm')}
-  description={$i18n.t('room.emojisLegacyRemoveHint')}
-  confirmLabel={$i18n.t('common.remove')}
+  title={i18n.t('room.emojisLegacyRemoveConfirm')}
+  description={i18n.t('room.emojisLegacyRemoveHint')}
+  confirmLabel={i18n.t('common.remove')}
   {busy}
   onConfirm={() => void removeLegacyCopies()}
 />
@@ -326,11 +326,11 @@
   onOpenChange={(next: boolean) => {
     if (!next && busy === false) packToRemove = null;
   }}
-  title={$i18n.t('room.emojisDeletePackConfirm', {
+  title={i18n.t('room.emojisDeletePackConfirm', {
     name: packToRemove?.name ?? packToRemove?.id ?? '',
   })}
-  description={$i18n.t('room.emojisDeletePackHint')}
-  confirmLabel={$i18n.t('common.remove')}
+  description={i18n.t('room.emojisDeletePackHint')}
+  confirmLabel={i18n.t('common.remove')}
   {busy}
   onConfirm={() => void confirmRemoval()}
 />

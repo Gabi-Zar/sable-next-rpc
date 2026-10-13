@@ -195,7 +195,7 @@
   class={['thread-view', { 'side-panel': sidePanel, swiping: swipe.swiping }]}
   style:width={sidePanel ? `${width}rem` : undefined}
   style:transform={swipe.transform}
-  aria-label={$i18n.t('timeline.thread')}
+  aria-label={i18n.t('timeline.thread')}
   tabindex="-1"
   ontouchstart={swipe.start}
   ontouchmove={swipe.move}
@@ -204,15 +204,15 @@
 >
   <PanelHeader
     class="thread-header"
-    title={topic || $i18n.t('timeline.thread')}
+    title={topic || i18n.t('timeline.thread')}
     titleSize="h1"
     subtitle={roomName ?? ''}
   >
     {#snippet prefix()}
       <PanelHeaderButton
         label={sidePanel
-          ? $i18n.t('timeline.threadClose')
-          : (backLabel ?? $i18n.t('timeline.backToConversation'))}
+          ? i18n.t('timeline.threadClose')
+          : (backLabel ?? i18n.t('timeline.backToConversation'))}
         onclick={onClose}
       >
         {#if sidePanel}<XIcon />{:else}<BackIcon />{/if}
@@ -221,7 +221,7 @@
     {#snippet suffix()}
       {#if timeline.items.some((item) => item.event_id === rootEventId)}
         <PanelHeaderButton
-          label={$i18n.t('timeline.jumpToOriginal')}
+          label={i18n.t('timeline.jumpToOriginal')}
           onclick={() => timelineList?.jumpToEvent(rootEventId)}
         >
           <ArrowUpIcon />
@@ -236,7 +236,7 @@
       min={MIN_THREAD_PANEL_WIDTH}
       max={MAX_THREAD_PANEL_WIDTH}
       step={THREAD_PANEL_WIDTH_STEP}
-      label={$i18n.t('timeline.resizeThread')}
+      label={i18n.t('timeline.resizeThread')}
       grow="left"
       fromPixels={(pixels) =>
         remFromPointerDelta(

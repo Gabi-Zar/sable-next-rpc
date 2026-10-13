@@ -11,12 +11,12 @@
   let syncState = $derived(core.sync?.state ?? 'offline');
   let syncLabel = $derived(
     syncState === 'live'
-      ? $i18n.t('settings.developerSyncLive')
+      ? i18n.t('settings.developerSyncLive')
       : syncState === 'syncing'
-        ? $i18n.t('settings.developerSyncSyncing')
+        ? i18n.t('settings.developerSyncSyncing')
         : syncState === 'error'
-          ? $i18n.t('settings.developerSyncError')
-          : $i18n.t('settings.developerSyncOffline')
+          ? i18n.t('settings.developerSyncError')
+          : i18n.t('settings.developerSyncOffline')
   );
   let badgeVariant: 'success' | 'critical' | 'warning' = $derived(
     syncState === 'live' ? 'success' : syncState === 'error' ? 'critical' : 'warning'
@@ -25,24 +25,24 @@
 
 <div class="diagnostics">
   <ul class="settings">
-    <SettingsRow id="sync-state" title={$i18n.t('settings.developerSyncState')}>
+    <SettingsRow id="sync-state" title={i18n.t('settings.developerSyncState')}>
       <StatusBadge label={syncLabel} variant={badgeVariant} />
     </SettingsRow>
-    <SettingsRow id="sync-core-status" title={$i18n.t('settings.developerSyncCoreStatus')}>
+    <SettingsRow id="sync-core-status" title={i18n.t('settings.developerSyncCoreStatus')}>
       <code>{core.status}</code>
     </SettingsRow>
-    <SettingsRow id="sync-rooms" title={$i18n.t('settings.developerSyncRooms')}>
+    <SettingsRow id="sync-rooms" title={i18n.t('settings.developerSyncRooms')}>
       <code>{roomList.rooms.length}</code>
     </SettingsRow>
-    <SettingsRow id="sync-account" title={$i18n.t('settings.developerSyncAccount')}>
+    <SettingsRow id="sync-account" title={i18n.t('settings.developerSyncAccount')}>
       <code>{core.session?.account_id ?? '-'}</code>
     </SettingsRow>
-    <SettingsRow id="sync-revision" title={$i18n.t('settings.developerSyncRevision')}>
+    <SettingsRow id="sync-revision" title={i18n.t('settings.developerSyncRevision')}>
       <code>{core.accountRevision}</code>
     </SettingsRow>
-    <SettingsRow id="sync-unresponsive" title={$i18n.t('settings.developerSyncUnresponsive')}>
+    <SettingsRow id="sync-unresponsive" title={i18n.t('settings.developerSyncUnresponsive')}>
       <code>
-        {core.unresponsive ? $i18n.t('settings.developerYes') : $i18n.t('settings.developerNo')}
+        {core.unresponsive ? i18n.t('settings.developerYes') : i18n.t('settings.developerNo')}
       </code>
     </SettingsRow>
   </ul>

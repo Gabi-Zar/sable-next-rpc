@@ -75,7 +75,7 @@
   let devices = $derived(compact ? undefined : onSwitchDevice);
   const selectable = supportsDeviceSelection();
   let grouped = $derived(devices !== undefined && selectable);
-  let pending = $derived(ready ? '' : ` · ${$i18n.t('call.waitingForMedia')}`);
+  let pending = $derived(ready ? '' : ` · ${i18n.t('call.waitingForMedia')}`);
   let micMenu = $state(false);
   let outputMenu = $state(false);
   let routes = $derived(compact ? undefined : audioRoutes);
@@ -89,12 +89,12 @@
     return binding ? ` (${formatBinding(binding, isMacPlatform())})` : '';
   }
 
-  let micLabel = $derived($i18n.t(microphoneEnabled ? 'call.microphoneOn' : 'call.microphoneOff'));
-  let cameraLabel = $derived($i18n.t(cameraEnabled ? 'call.cameraOn' : 'call.cameraOff'));
+  let micLabel = $derived(i18n.t(microphoneEnabled ? 'call.microphoneOn' : 'call.microphoneOff'));
+  let cameraLabel = $derived(i18n.t(cameraEnabled ? 'call.cameraOn' : 'call.cameraOff'));
   let screenLabel = $derived(
-    $i18n.t(screenShareEnabled ? 'call.screenShareOn' : 'call.screenShareOff')
+    i18n.t(screenShareEnabled ? 'call.screenShareOn' : 'call.screenShareOff')
   );
-  let deafenLabel = $derived($i18n.t(deafened ? 'call.undeafen' : 'call.deafen'));
+  let deafenLabel = $derived(i18n.t(deafened ? 'call.undeafen' : 'call.deafen'));
 </script>
 
 {#snippet control(
@@ -139,7 +139,7 @@
     {#if inputs}
       <CallRouteMenu
         bind:open={micMenu}
-        label={$i18n.t('call.microphoneDevices')}
+        label={i18n.t('call.microphoneDevices')}
         list={inputs.list}
         onSelect={(inputId) => void inputs?.select(inputId)}
       />
@@ -147,7 +147,7 @@
       <CallDeviceMenu
         bind:open={micMenu}
         kinds={['audioinput']}
-        label={$i18n.t('call.microphoneDevices')}
+        label={i18n.t('call.microphoneDevices')}
         onSelect={devices}
       />
     {/if}
@@ -177,7 +177,7 @@
         {...props}
         variant={outputGrouped ? 'ghost' : neutral}
         {size}
-        label={$i18n.t('call.outputDevices')}
+        label={i18n.t('call.outputDevices')}
         onclick={() => (outputMenu = true)}
       >
         <SpeakerHighIcon />
@@ -188,7 +188,7 @@
     {#if routes}
       <CallRouteMenu
         bind:open={outputMenu}
-        label={$i18n.t('call.outputDevices')}
+        label={i18n.t('call.outputDevices')}
         list={routes.list}
         onSelect={(routeId) => void routes?.select(routeId)}
       />
@@ -196,7 +196,7 @@
       <CallDeviceMenu
         bind:open={outputMenu}
         kinds={['audiooutput']}
-        label={$i18n.t('call.outputDevices')}
+        label={i18n.t('call.outputDevices')}
         onSelect={devices}
       />
     {/if}
@@ -204,7 +204,7 @@
   {@render control(
     onToggleDeafen
       ? `${deafenLabel}${shortcut('call.toggleDeafen')}`
-      : $i18n.t('call.outputDevices'),
+      : i18n.t('call.outputDevices'),
     deafenButton,
     deafenMenu,
     devices || routes ? () => (outputMenu = true) : undefined,
@@ -233,7 +233,7 @@
       <CallDeviceMenu
         bind:open={cameraMenu}
         kinds={['videoinput']}
-        label={$i18n.t('call.cameraDevices')}
+        label={i18n.t('call.cameraDevices')}
         onSelect={devices}
       />
     {/if}
@@ -252,7 +252,7 @@
         {...props}
         variant={neutral}
         {size}
-        label={$i18n.t('call.switchCamera')}
+        label={i18n.t('call.switchCamera')}
         disabled={!cameraEnabled}
         aria-disabled={ready ? undefined : 'true'}
         onclick={ready ? onSwitchCamera : undefined}
@@ -260,7 +260,7 @@
         <CameraRotateIcon />
       </IconButton>
     {/snippet}
-    {@render control($i18n.t('call.switchCamera'), switchCameraButton)}
+    {@render control(i18n.t('call.switchCamera'), switchCameraButton)}
   {/if}
 
   {#if canScreenShare}
@@ -289,13 +289,13 @@
         {...props}
         variant={neutral}
         {size}
-        label={$i18n.t('call.settings')}
+        label={i18n.t('call.settings')}
         onclick={onOpenSettings}
       >
         <GearSixIcon />
       </IconButton>
     {/snippet}
-    {@render control($i18n.t('call.settings'), settingsButton)}
+    {@render control(i18n.t('call.settings'), settingsButton)}
   {/if}
 
   {#snippet hangUpButton(props: Record<string, unknown>)}
@@ -304,7 +304,7 @@
       class="hang-up"
       variant="danger"
       {size}
-      label={$i18n.t('call.hangUp')}
+      label={i18n.t('call.hangUp')}
       onclick={onHangUp}
     >
       <PhoneDisconnectIcon weight="fill" />
@@ -313,7 +313,7 @@
   {#if action}
     <div class="control action">{@render action()}</div>
   {:else if onHangUp}
-    {@render control(`${$i18n.t('call.hangUp')}${shortcut('call.hangUp')}`, hangUpButton)}
+    {@render control(`${i18n.t('call.hangUp')}${shortcut('call.hangUp')}`, hangUpButton)}
   {/if}
 </div>
 

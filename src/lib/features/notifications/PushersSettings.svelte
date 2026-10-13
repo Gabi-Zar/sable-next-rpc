@@ -175,7 +175,7 @@
 >
   <div class="pushers-head">
     <div class="settings-heading-row">
-      <h3 id="pushers-heading" data-settings-outline>{$i18n.t('settings.pushers')}</h3>
+      <h3 id="pushers-heading" data-settings-outline>{i18n.t('settings.pushers')}</h3>
       <SettingsAnchorLink anchor="pushers-heading" />
     </div>
     {#if pushers.length > 0 && confirming !== 'all'}
@@ -188,20 +188,20 @@
           confirming = 'all';
         }}
       >
-        {$i18n.t('settings.pushersRemoveAll')}
+        {i18n.t('settings.pushersRemoveAll')}
       </Button>
     {/if}
     <IconButton
       variant="ghost"
       size="small"
-      label={$i18n.t('settings.pushersRefresh')}
+      label={i18n.t('settings.pushersRefresh')}
       onclick={() => void reload()}
       disabled={loading || removing !== null}
     >
       <ArrowClockwiseIcon />
     </IconButton>
   </div>
-  <p class="hint settings-description">{$i18n.t('settings.pushersHint')}</p>
+  <p class="hint settings-description">{i18n.t('settings.pushersHint')}</p>
 
   {#if confirming === 'all'}
     <form
@@ -211,13 +211,13 @@
         void removeAll();
       }}
     >
-      <span>{$i18n.t('settings.pushersConfirmAll')}</span>
+      <span>{i18n.t('settings.pushersConfirmAll')}</span>
       <div class="pusher-confirm-actions">
         <Button type="submit" variant="danger" size="small" loading={removing === 'all'}>
-          {$i18n.t('settings.pushersRemoveAll')}
+          {i18n.t('settings.pushersRemoveAll')}
         </Button>
         <Button variant="ghost" size="small" disabled={removing !== null} onclick={cancelRemoval}>
-          {$i18n.t('common.cancel')}
+          {i18n.t('common.cancel')}
         </Button>
       </div>
     </form>
@@ -225,14 +225,14 @@
 
   {#if error}
     <Alert variant="warning" role="status">
-      <p>{$i18n.t(error)}</p>
+      <p>{i18n.t(error)}</p>
     </Alert>
   {/if}
 
   {#if loading}
-    <p class="pushers-empty"><Spinner small label={$i18n.t('a11y.loading')} /></p>
+    <p class="pushers-empty"><Spinner small label={i18n.t('a11y.loading')} /></p>
   {:else if pushers.length === 0 && error !== 'settings.pushersLoadFailed'}
-    <p class="pushers-empty">{$i18n.t('settings.pushersEmpty')}</p>
+    <p class="pushers-empty">{i18n.t('settings.pushersEmpty')}</p>
   {:else}
     <ul class="pusher-list">
       {#each pushers as pusher (keyOf(pusher))}
@@ -245,16 +245,16 @@
               <div class="pusher-name-line">
                 <span class="pusher-name">{name}</span>
                 {#if pusher.pushkey === ownKey}
-                  <StatusBadge variant="primary" label={$i18n.t('settings.currentDevice')} />
+                  <StatusBadge variant="primary" label={i18n.t('settings.currentDevice')} />
                 {:else if ownApps.includes(pusher.app_id)}
                   <StatusBadge variant="neutral" label="Sable" />
                 {/if}
                 {#if pusher.activated !== null}
-                  {@const activationLabel = $i18n.t(
+                  {@const activationLabel = i18n.t(
                     pusher.activated ? 'settings.pushersActive' : 'settings.pushersPending'
                   )}
                   <Tooltip
-                    label={$i18n.t('settings.pushersPendingHint')}
+                    label={i18n.t('settings.pushersPendingHint')}
                     disabled={pusher.activated}
                   >
                     {#snippet trigger({ props })}
@@ -276,11 +276,11 @@
                       {...props}
                       class="pusher-value"
                       type="button"
-                      aria-label={$i18n.t('settings.pushersCopyAppId')}
+                      aria-label={i18n.t('settings.pushersCopyAppId')}
                       onclick={() => void copyValue(`app\u0000${key}`, pusher.app_id)}
                     >
                       {#if copied === `app\u0000${key}`}
-                        {$i18n.t('common.copied')}
+                        {i18n.t('common.copied')}
                       {:else}
                         <code>{pusher.app_id}</code>
                       {/if}
@@ -293,11 +293,11 @@
                       {...props}
                       class="pusher-value pusher-key"
                       type="button"
-                      aria-label={$i18n.t('settings.pushersCopyKey')}
+                      aria-label={i18n.t('settings.pushersCopyKey')}
                       onclick={() => void copyValue(`key\u0000${key}`, pusher.pushkey)}
                     >
                       {#if copied === `key\u0000${key}`}
-                        {$i18n.t('common.copied')}
+                        {i18n.t('common.copied')}
                       {:else}
                         <code>{pusher.pushkey}</code>
                       {/if}
@@ -312,7 +312,7 @@
                       {...props}
                       class="pusher-gateway"
                       type="button"
-                      aria-label={$i18n.t(
+                      aria-label={i18n.t(
                         copied === `gateway\u0000${key}`
                           ? 'common.copied'
                           : 'settings.pushersCopyProvider'
@@ -322,7 +322,7 @@
                       <LinkSimpleIcon class="pusher-gateway-link" aria-hidden="true" />
                       <span class="pusher-gateway-copy">
                         <span class="pusher-gateway-label">
-                          {$i18n.t(
+                          {i18n.t(
                             copied === `gateway\u0000${key}`
                               ? 'common.copied'
                               : 'settings.pushersProvider'
@@ -349,7 +349,7 @@
                   startRemoval(pusher, event);
                 }}
               >
-                {$i18n.t('common.remove')}
+                {i18n.t('common.remove')}
               </Button>
             {/if}
           </div>
@@ -362,16 +362,16 @@
                 void remove(pusher);
               }}
             >
-              <span>{$i18n.t('settings.pushersConfirmTitle', { name })}</span>
+              <span>{i18n.t('settings.pushersConfirmTitle', { name })}</span>
               <div class="pusher-confirm-actions">
                 <Button
                   type="submit"
                   variant="danger"
                   size="small"
                   loading={removing === key}
-                  aria-label={$i18n.t('settings.pushersRemoveNamed', { name })}
+                  aria-label={i18n.t('settings.pushersRemoveNamed', { name })}
                 >
-                  {$i18n.t('common.remove')}
+                  {i18n.t('common.remove')}
                 </Button>
                 <Button
                   type="button"
@@ -380,7 +380,7 @@
                   disabled={removing === key}
                   onclick={cancelRemoval}
                 >
-                  {$i18n.t('common.cancel')}
+                  {i18n.t('common.cancel')}
                 </Button>
               </div>
             </form>

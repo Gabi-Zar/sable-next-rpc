@@ -83,11 +83,11 @@
 
 <SettingsSection
   headingId="room-developer-account-data"
-  title={$i18n.t('room.devAccountDataTitle')}
-  description={$i18n.t('room.devAccountDataDescription')}
+  title={i18n.t('room.devAccountDataTitle')}
+  description={i18n.t('room.devAccountDataDescription')}
 >
   <form class="settings-form" onsubmit={save}>
-    <FormField fieldId="room-dev-account-type" label={$i18n.t('room.devEventType')}>
+    <FormField fieldId="room-dev-account-type" label={i18n.t('room.devEventType')}>
       <TextInput
         id="room-dev-account-type"
         bind:value={eventType}
@@ -102,17 +102,17 @@
         {/each}
       </datalist>
     </FormField>
-    <FormField fieldId="room-dev-account-content" label={$i18n.t('room.devContent')}>
+    <FormField fieldId="room-dev-account-content" label={i18n.t('room.devContent')}>
       <TextArea id="room-dev-account-content" bind:value={content} rows={8} spellcheck="false" />
     </FormField>
     {#if outcome === 'json'}
-      <Alert variant="critical" role="alert">{$i18n.t('room.devInvalidJson')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('room.devInvalidJson')}</Alert>
     {:else if outcome === 'failed'}
-      <Alert variant="critical" role="alert">{$i18n.t('common.theStateEventWasRejected')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('common.theStateEventWasRejected')}</Alert>
     {:else if outcome === 'missing'}
-      <Alert variant="info" role="status">{$i18n.t('room.devMissing')}</Alert>
+      <Alert variant="info" role="status">{i18n.t('room.devMissing')}</Alert>
     {:else if outcome === 'saved'}
-      <Alert variant="success" role="status">{$i18n.t('room.devSent')}</Alert>
+      <Alert variant="success" role="status">{i18n.t('room.devSent')}</Alert>
     {/if}
     <div class="actions">
       <Button
@@ -122,10 +122,10 @@
         disabled={eventType.trim() === ''}
         onclick={() => void load()}
       >
-        {$i18n.t('room.devLoad')}
+        {i18n.t('room.devLoad')}
       </Button>
       <Button type="submit" loading={saving} disabled={eventType.trim() === ''}>
-        {$i18n.t('common.save')}
+        {i18n.t('common.save')}
       </Button>
     </div>
   </form>

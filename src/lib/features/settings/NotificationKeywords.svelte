@@ -144,22 +144,22 @@
 <section class="keywords settings-form" aria-labelledby="notification-keywords">
   <div class="settings-heading-row">
     <h3 id="notification-keywords" data-settings-outline>
-      {$i18n.t('settings.notificationKeywords')}
+      {i18n.t('settings.notificationKeywords')}
     </h3>
     <SettingsAnchorLink anchor="notification-keywords" />
   </div>
-  <p class="hint settings-description">{$i18n.t('settings.notificationKeywordsHint')}</p>
+  <p class="hint settings-description">{i18n.t('settings.notificationKeywordsHint')}</p>
 
   {#if error}
     <Alert variant="warning" role="status">
-      <p>{$i18n.t(error)}</p>
+      <p>{i18n.t(error)}</p>
     </Alert>
   {/if}
 
   {#if loading}
-    <p class="keywords-empty"><Spinner small label={$i18n.t('a11y.loading')} /></p>
+    <p class="keywords-empty"><Spinner small label={i18n.t('a11y.loading')} /></p>
   {:else if keywords.length === 0 && error !== 'settings.notificationKeywordsLoadFailed'}
-    <p class="keywords-empty">{$i18n.t('settings.notificationKeywordsEmpty')}</p>
+    <p class="keywords-empty">{i18n.t('settings.notificationKeywordsEmpty')}</p>
   {:else}
     <ul class="keyword-list">
       {#each keywords as { keyword, mode } (keyword)}
@@ -167,9 +167,9 @@
           <span class="keyword-text">{keyword}</span>
           <Select
             class="keyword-mode"
-            aria-label={$i18n.t('settings.notificationKeywordsMode', { keyword })}
+            aria-label={i18n.t('settings.notificationKeywordsMode', { keyword })}
             value={mode}
-            items={modes.map((option) => ({ value: option, label: $i18n.t(modeLabels[option]) }))}
+            items={modes.map((option) => ({ value: option, label: i18n.t(modeLabels[option]) }))}
             onValueChange={(value) => {
               void setMode(keyword, value as MentionNotificationModeView);
             }}
@@ -178,7 +178,7 @@
             variant="subtle"
             size="large"
             disabled={removingKeyword === keyword}
-            label={$i18n.t('settings.notificationKeywordsRemove', { keyword })}
+            label={i18n.t('settings.notificationKeywordsRemove', { keyword })}
             onclick={() => {
               pendingRemoval = keyword;
             }}
@@ -198,19 +198,18 @@
     }}
   >
     <div class="field">
-      <label for="notification-keyword-draft">{$i18n.t('settings.notificationKeywordsLabel')}</label
-      >
+      <label for="notification-keyword-draft">{i18n.t('settings.notificationKeywordsLabel')}</label>
       <div class="keyword-input-row">
         <TextInput
           id="notification-keyword-draft"
           bind:value={draft}
-          placeholder={$i18n.t('settings.notificationKeywordsPlaceholder')}
+          placeholder={i18n.t('settings.notificationKeywordsPlaceholder')}
           autocomplete="off"
           spellcheck="false"
         />
         <Button type="submit" size="small" disabled={!canAdd || adding} loading={adding}>
           <PlusIcon />
-          {$i18n.t('common.add')}
+          {i18n.t('common.add')}
         </Button>
       </div>
     </div>
@@ -222,8 +221,8 @@
   onOpenChange={(next: boolean) => {
     if (!next && removingKeyword === null) pendingRemoval = null;
   }}
-  title={$i18n.t('settings.notificationKeywordsConfirm', { keyword: pendingRemoval ?? '' })}
-  confirmLabel={$i18n.t('common.remove')}
+  title={i18n.t('settings.notificationKeywordsConfirm', { keyword: pendingRemoval ?? '' })}
+  confirmLabel={i18n.t('common.remove')}
   busy={removingKeyword !== null}
   onConfirm={() => void confirmRemoval()}
 />

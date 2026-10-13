@@ -48,11 +48,11 @@
 </script>
 
 <SettingsRow
-  title={$i18n.t('common.endtoendEncryption')}
-  description={enabled ? $i18n.t('room.encryptionOn') : $i18n.t('room.encryptionOff')}
+  title={i18n.t('common.endtoendEncryption')}
+  description={enabled ? i18n.t('room.encryptionOn') : i18n.t('room.encryptionOff')}
 >
   {#if enabled}
-    <StatusBadge variant="success" label={$i18n.t('room.encryptionEnabled')} />
+    <StatusBadge variant="success" label={i18n.t('room.encryptionEnabled')} />
   {:else if canEnable}
     <Button
       size="small"
@@ -60,20 +60,20 @@
         confirming = true;
       }}
     >
-      {$i18n.t('room.permEncryption')}
+      {i18n.t('room.permEncryption')}
     </Button>
   {/if}
 </SettingsRow>
 
 <ConfirmDialog
   bind:open={confirming}
-  title={$i18n.t('room.permEncryption')}
-  description={$i18n.t('room.encryptionConfirm')}
-  confirmLabel={$i18n.t('room.permEncryption')}
+  title={i18n.t('room.permEncryption')}
+  description={i18n.t('room.encryptionConfirm')}
+  confirmLabel={i18n.t('room.permEncryption')}
   confirmVariant="secondary"
-  cancelLabel={$i18n.t('common.cancel')}
+  cancelLabel={i18n.t('common.cancel')}
   busy={enabling}
-  error={failed ? $i18n.t('room.encryptionFailed') : null}
+  error={failed ? i18n.t('room.encryptionFailed') : null}
   onConfirm={() => {
     void enable();
   }}

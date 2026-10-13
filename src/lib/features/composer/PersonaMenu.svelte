@@ -93,17 +93,17 @@
       {:else if kind === 'disable'}
         <Avatar size="small"><ProhibitIcon /></Avatar>
         <span class="persona-option-name"
-          >{$i18n.t(scope === 'room' ? 'personas.pickerOff' : 'personas.pickerOffSpace')}</span
+          >{i18n.t(scope === 'room' ? 'personas.pickerOff' : 'personas.pickerOffSpace')}</span
         >
         {#if disabled}<CheckIcon />{/if}
       {:else if kind === 'offGlobal'}
         <Avatar size="small"><ProhibitIcon /></Avatar>
-        <span class="persona-option-name">{$i18n.t('personas.pickerOffGlobal')}</span>
+        <span class="persona-option-name">{i18n.t('personas.pickerOffGlobal')}</span>
         {#if !selected && !disabled}<CheckIcon />{/if}
       {:else}
         <Avatar size="small"><SyncIcon /></Avatar>
         <span class="persona-option-name"
-          >{$i18n.t(
+          >{i18n.t(
             scope === 'room' && hasSpace ? 'personas.pickerSyncSpace' : 'personas.pickerSyncAccount'
           )}</span
         >
@@ -117,8 +117,8 @@
   {@const label = persona
     ? persona.display_name
     : kind === 'disable'
-      ? $i18n.t(scope === 'room' ? 'personas.pickerOff' : 'personas.pickerOffSpace')
-      : $i18n.t(
+      ? i18n.t(scope === 'room' ? 'personas.pickerOff' : 'personas.pickerOffSpace')
+      : i18n.t(
           scope === 'account'
             ? 'personas.pickerOffGlobal'
             : scope === 'room' && hasSpace
@@ -168,7 +168,7 @@
 {/snippet}
 
 <div class="persona-menu">
-  <div class="persona-scopes" role="tablist" aria-label={$i18n.t('personas.pickerLabel')}>
+  <div class="persona-scopes" role="tablist" aria-label={i18n.t('personas.pickerLabel')}>
     {#each scopes as tab (tab.id)}
       <button
         type="button"
@@ -180,7 +180,7 @@
         }}
       >
         <tab.icon />
-        {$i18n.t(tab.label)}
+        {i18n.t(tab.label)}
       </button>
     {/each}
   </div>
@@ -206,8 +206,8 @@
       bind:value={query}
       type="search"
       autocomplete="off"
-      placeholder={$i18n.t('personas.search')}
-      aria-label={$i18n.t('personas.search')}
+      placeholder={i18n.t('personas.search')}
+      aria-label={i18n.t('personas.search')}
       onkeyup={(event) => {
         if (event.key === 'Enter' && query && filteredPersonas && filteredPersonas.length !== 0) {
           onChoose(filteredPersonas[0]);
@@ -216,12 +216,12 @@
     />
 
     {#if !query}
-      <Tooltip label={grid ? $i18n.t('personas.listView') : $i18n.t('personas.gridView')}>
+      <Tooltip label={grid ? i18n.t('personas.listView') : i18n.t('personas.gridView')}>
         {#snippet trigger({ props })}
           <IconButton
             {...props}
             size="small"
-            label={grid ? $i18n.t('personas.listView') : $i18n.t('personas.gridView')}
+            label={grid ? i18n.t('personas.listView') : i18n.t('personas.gridView')}
             onclick={() => {
               setPreference('personaGrid', !preferences.personaGrid);
             }}

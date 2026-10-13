@@ -93,21 +93,21 @@
 {#snippet backButton()}
   <Button class="confirm-device-back" variant="ghost" size="small" onclick={leaveView}>
     <ArrowLeftIcon aria-hidden="true" />
-    {$i18n.t('common.back')}
+    {i18n.t('common.back')}
   </Button>
 {/snippet}
 
 <div class="confirm-device-card auth-card-surface">
   {#if !prompted}
-    <AuthField labelId="confirm-device-title" label={$i18n.t('setup.confirmTitle')}>
-      <AuthInfoBox><Spinner small />{$i18n.t('setup.checking')}</AuthInfoBox>
+    <AuthField labelId="confirm-device-title" label={i18n.t('setup.confirmTitle')}>
+      <AuthInfoBox><Spinner small />{i18n.t('setup.checking')}</AuthInfoBox>
     </AuthField>
   {:else if verified && !reset.busy}
-    <AuthField labelId="confirm-device-title" label={$i18n.t('setup.confirmedTitle')}>
-      <AuthInfoBox>{$i18n.t('setup.confirmedDescription')}</AuthInfoBox>
+    <AuthField labelId="confirm-device-title" label={i18n.t('setup.confirmedTitle')}>
+      <AuthInfoBox>{i18n.t('setup.confirmedDescription')}</AuthInfoBox>
     </AuthField>
     <AuthStatusSlot />
-    <Button variant="primary" block onclick={onComplete}>{$i18n.t('auth.continue')}</Button>
+    <Button variant="primary" block onclick={onComplete}>{i18n.t('auth.continue')}</Button>
   {:else if view === 'recovery'}
     {@render backButton()}
     <form
@@ -119,12 +119,12 @@
       }}
     >
       <h2 id="confirm-device-title" class="confirm-device-heading">
-        {$i18n.t('setup.confirmTitle')}
+        {i18n.t('setup.confirmTitle')}
       </h2>
       <FormField
         dense
         fieldId="setup-recovery-key"
-        label={$i18n.t(passphrase ? 'settings.recoveryKeyOrPassphrase' : 'settings.recoveryKey')}
+        label={i18n.t(passphrase ? 'settings.recoveryKeyOrPassphrase' : 'settings.recoveryKey')}
       >
         <TextInput
           id="setup-recovery-key"
@@ -135,7 +135,7 @@
           autofocus
           spellcheck={false}
           type="password"
-          placeholder={$i18n.t(
+          placeholder={i18n.t(
             passphrase
               ? 'settings.recoveryKeyOrPassphrasePlaceholder'
               : 'settings.recoveryKeyPlaceholder'
@@ -150,12 +150,12 @@
         loading={verification.recovering}
         disabled={!verification.recoveryKey.trim()}
       >
-        {$i18n.t('auth.continue')}
+        {i18n.t('auth.continue')}
       </Button>
     </form>
   {:else if view === 'reset'}
     {@render backButton()}
-    <AuthField labelId="confirm-device-title" label={$i18n.t('setup.resetTitle')}>
+    <AuthField labelId="confirm-device-title" label={i18n.t('setup.resetTitle')}>
       {#if reset.phase === 'password'}
         <form
           class="confirm-device-form"
@@ -165,7 +165,7 @@
             void runReset(() => reset.submitPassword());
           }}
         >
-          <FormField dense fieldId="setup-reset-password" label={$i18n.t('setup.resetPassword')}>
+          <FormField dense fieldId="setup-reset-password" label={i18n.t('setup.resetPassword')}>
             <TextInput
               id="setup-reset-password"
               type="password"
@@ -183,32 +183,32 @@
             loading={reset.busy}
             disabled={!reset.password}
           >
-            {$i18n.t('setup.resetAction')}
+            {i18n.t('setup.resetAction')}
           </Button>
         </form>
       {:else if reset.phase === 'approve'}
-        <AuthInfoBox>{$i18n.t('setup.resetApprove')}</AuthInfoBox>
+        <AuthInfoBox>{i18n.t('setup.resetApprove')}</AuthInfoBox>
         <AuthStatusSlot
           loading={reset.busy}
-          loadingMessage={$i18n.t('setup.resetWaiting')}
+          loadingMessage={i18n.t('setup.resetWaiting')}
           message={reset.error}
         />
         <Button variant="danger" block disabled={reset.busy} onclick={approve}>
-          {$i18n.t('setup.resetOpenApproval')}
+          {i18n.t('setup.resetOpenApproval')}
         </Button>
       {:else}
         <AuthInfoBox>
           <div class="confirm-device-reset-copy">
-            <p>{$i18n.t('setup.resetWhen')}</p>
+            <p>{i18n.t('setup.resetWhen')}</p>
             <ul>
-              <li>{$i18n.t('setup.resetHistory')}</li>
-              <li>{$i18n.t('setup.resetContacts')}</li>
+              <li>{i18n.t('setup.resetHistory')}</li>
+              <li>{i18n.t('setup.resetContacts')}</li>
             </ul>
           </div>
         </AuthInfoBox>
         <label class="confirm-device-understood">
           <input type="checkbox" bind:checked={understood} disabled={reset.busy} />
-          {$i18n.t('common.iUnderstandThisCannotBeUndone')}
+          {i18n.t('common.iUnderstandThisCannotBeUndone')}
         </label>
         <AuthStatusSlot message={reset.error} />
         <Button
@@ -218,25 +218,25 @@
           disabled={!understood}
           onclick={() => void runReset(() => reset.start())}
         >
-          {$i18n.t('setup.resetAction')}
+          {i18n.t('setup.resetAction')}
         </Button>
       {/if}
     </AuthField>
   {:else if view === 'skip'}
-    <AuthField labelId="confirm-device-title" label={$i18n.t('setup.skipTitle')}>
-      <AuthInfoBox>{$i18n.t('setup.skipBody')}</AuthInfoBox>
+    <AuthField labelId="confirm-device-title" label={i18n.t('setup.skipTitle')}>
+      <AuthInfoBox>{i18n.t('setup.skipBody')}</AuthInfoBox>
     </AuthField>
     <AuthStatusSlot />
     <div class="confirm-device-actions">
       <Button variant="primary" block onclick={leaveView}>
-        {$i18n.t('setup.keepConfirming')}
+        {i18n.t('setup.keepConfirming')}
       </Button>
-      <Button block onclick={() => void skip()}>{$i18n.t('setup.skipAnyway')}</Button>
+      <Button block onclick={() => void skip()}>{i18n.t('setup.skipAnyway')}</Button>
     </div>
   {:else}
-    <AuthField labelId="confirm-device-title" label={$i18n.t('setup.confirmTitle')}>
+    <AuthField labelId="confirm-device-title" label={i18n.t('setup.confirmTitle')}>
       <AuthInfoBox>
-        {$i18n.t(resetOnly ? 'setup.confirmDescriptionResetOnly' : 'setup.confirmDescription')}
+        {i18n.t(resetOnly ? 'setup.confirmDescriptionResetOnly' : 'setup.confirmDescription')}
       </AuthInfoBox>
     </AuthField>
     <AuthStatusSlot message={verification.error} />
@@ -248,18 +248,18 @@
           onclick={() => void verification.requestVerification()}
         >
           <DevicesIcon aria-hidden="true" />
-          {$i18n.t('setup.useAnotherDevice')}
+          {i18n.t('setup.useAnotherDevice')}
         </Button>
       {/if}
       {#if canUseRecovery}
         <Button block onclick={() => (view = 'recovery')}>
           <KeyIcon aria-hidden="true" />
-          {$i18n.t(passphrase ? 'setup.useRecoveryKeyOrPassphrase' : 'setup.useRecoveryKey')}
+          {i18n.t(passphrase ? 'setup.useRecoveryKeyOrPassphrase' : 'setup.useRecoveryKey')}
         </Button>
       {/if}
       {#if resetOnly}
         <Button variant="danger" block onclick={() => (view = 'reset')}>
-          {$i18n.t('setup.resetAction')}
+          {i18n.t('setup.resetAction')}
         </Button>
       {/if}
     </div>
@@ -268,9 +268,9 @@
 
 {#if prompted && !verified && view === 'choices'}
   {#if !resetOnly}
-    <AuthSecondaryAction label={$i18n.t('setup.cantConfirm')} onclick={() => (view = 'reset')} />
+    <AuthSecondaryAction label={i18n.t('setup.cantConfirm')} onclick={() => (view = 'reset')} />
   {/if}
-  <AuthSecondaryAction label={$i18n.t('auth.skipForNow')} onclick={() => (view = 'skip')} />
+  <AuthSecondaryAction label={i18n.t('auth.skipForNow')} onclick={() => (view = 'skip')} />
 {/if}
 
 <style>

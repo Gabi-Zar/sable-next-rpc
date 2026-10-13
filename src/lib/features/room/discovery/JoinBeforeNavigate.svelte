@@ -139,7 +139,7 @@
 
 <main class="join" aria-labelledby="join-title">
   {#if failed}
-    <p role="alert">{$i18n.t('join.unavailable', { room: roomId })}</p>
+    <p role="alert">{i18n.t('join.unavailable', { room: roomId })}</p>
   {:else if preview === null}
     <div role="status"><Spinner /></div>
   {:else}
@@ -149,7 +149,7 @@
       <p class="join-address">{preview.canonical_alias}</p>
     {/if}
     <p class="join-members">
-      {$i18n.t('join.members', { count: preview.num_joined_members })}
+      {i18n.t('join.members', { count: preview.num_joined_members })}
     </p>
     {#if preview.topic}
       <div class="join-topic" {@attach scrollHint}>
@@ -158,7 +158,7 @@
     {/if}
     {#if failedAction}
       <p role="alert">
-        {$i18n.t(
+        {i18n.t(
           failedAction === 'knock'
             ? 'join.knockFailed'
             : failedAction === 'withdraw'
@@ -169,14 +169,14 @@
     {/if}
 
     {#if knocked}
-      <p role="status">{$i18n.t('join.knockSent')}</p>
+      <p role="status">{i18n.t('join.knockSent')}</p>
       <Button variant="ghost" onclick={() => void withdraw()} disabled={busy}>
-        {busy ? $i18n.t('join.withdrawing') : $i18n.t('join.withdraw')}
+        {busy ? i18n.t('join.withdrawing') : i18n.t('join.withdraw')}
       </Button>
     {:else}
       {#if !mustKnock}
         <Button onclick={() => void join()} disabled={busy}>
-          {busy && !offerKnock ? $i18n.t('join.joining') : $i18n.t('common.join')}
+          {busy && !offerKnock ? i18n.t('join.joining') : i18n.t('common.join')}
         </Button>
       {/if}
       {#if offerKnock}
@@ -187,10 +187,10 @@
             void knock();
           }}
         >
-          <label for={reasonId}>{$i18n.t('join.knockReason')}</label>
+          <label for={reasonId}>{i18n.t('join.knockReason')}</label>
           <TextInput id={reasonId} bind:value={reason} maxlength={500} autocomplete="off" />
           <Button type="submit" variant={mustKnock ? 'secondary' : 'ghost'} disabled={busy}>
-            {busy ? $i18n.t('join.knocking') : $i18n.t('common.askToJoin')}
+            {busy ? i18n.t('join.knocking') : i18n.t('common.askToJoin')}
           </Button>
         </form>
       {/if}

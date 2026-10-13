@@ -127,19 +127,19 @@
 <ConfirmDialog
   {open}
   {onOpenChange}
-  title={$i18n.t('timeline.profileOverrideTitle')}
-  description={$i18n.t(
+  title={i18n.t('timeline.profileOverrideTitle')}
+  description={i18n.t(
     locked
       ? 'timeline.profileOverrideLocked'
       : sealed
         ? 'timeline.profileOverrideSealedHint'
         : 'timeline.profileOverrideHint'
   )}
-  confirmLabel={$i18n.t('common.save')}
+  confirmLabel={i18n.t('common.save')}
   confirmVariant="secondary"
-  cancelLabel={$i18n.t('common.cancel')}
+  cancelLabel={i18n.t('common.cancel')}
   busy={busy || locked}
-  error={failed ? $i18n.t('errors.actionFailed') : null}
+  error={failed ? i18n.t('errors.actionFailed') : null}
   onConfirm={confirm}
 >
   <div class="override-avatar">
@@ -153,26 +153,26 @@
           void pickAvatar(event.currentTarget.files?.[0]);
         }}
       />
-      {$i18n.t('common.chooseAPicture')}
+      {i18n.t('common.chooseAPicture')}
     </label>
     {#if avatar.kind !== 'clear'}
       <Button variant="ghost" size="small" onclick={() => (avatar = { kind: 'clear' })}>
-        {$i18n.t('timeline.profileOverrideAvatarReset')}
+        {i18n.t('timeline.profileOverrideAvatarReset')}
       </Button>
     {/if}
   </div>
-  <FormField {fieldId} label={$i18n.t('timeline.profileOverrideName')}>
+  <FormField {fieldId} label={i18n.t('timeline.profileOverrideName')}>
     <TextInput id={fieldId} bind:value={name} placeholder={realName} maxlength={255} />
   </FormField>
   <ColorSetting
-    label={$i18n.t('timeline.profileOverrideColor')}
+    label={i18n.t('timeline.profileOverrideColor')}
     bind:value={color}
     onCommit={() => {}}
     onReset={() => (color = '')}
   />
   {#if profileOverrides.of(userId)}
     <Button variant="ghost" size="small" disabled={busy} onclick={reset}>
-      {$i18n.t('timeline.profileOverrideRemove')}
+      {i18n.t('timeline.profileOverrideRemove')}
     </Button>
   {/if}
 </ConfirmDialog>

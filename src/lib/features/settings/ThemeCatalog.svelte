@@ -94,8 +94,8 @@
   function modeName(kind: ResolvedTheme): string {
     return (
       kind === 'light'
-        ? $i18n.t('settings.customThemesLightSlot')
-        : $i18n.t('settings.customThemesDarkSlot')
+        ? i18n.t('settings.customThemesLightSlot')
+        : i18n.t('settings.customThemesDarkSlot')
     ).toLowerCase();
   }
 
@@ -151,39 +151,39 @@
       entry.kind === 'tweak'
         ? entry.meta.description
         : entry.meta.kind === 'dark'
-          ? $i18n.t('settings.customThemesDarkSlot')
-          : $i18n.t('settings.customThemesLightSlot');
+          ? i18n.t('settings.customThemesDarkSlot')
+          : i18n.t('settings.customThemesLightSlot');
     const author = entry.meta.author
-      ? $i18n.t('settings.themeBy', { author: entry.meta.author })
+      ? i18n.t('settings.themeBy', { author: entry.meta.author })
       : null;
     return [kind, author].filter((part) => part !== null && part !== '').join(' · ');
   }
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('settings.themeCatalogTitle')}>
+<DialogFrame bind:open variant="verification" label={i18n.t('settings.themeCatalogTitle')}>
   <div class="catalog" aria-busy={loading}>
     <header class="catalog-head">
       <div class="catalog-title">
-        <h2>{$i18n.t('settings.themeCatalogTitle')}</h2>
+        <h2>{i18n.t('settings.themeCatalogTitle')}</h2>
         <div class="catalog-actions">
           <IconButton
             variant="ghost"
             size="small"
-            label={$i18n.t('common.refresh')}
+            label={i18n.t('common.refresh')}
             disabled={loading}
             onclick={refresh}><ArrowClockwiseIcon /></IconButton
           >
           <IconButton
             variant="ghost"
             size="small"
-            label={$i18n.t('settings.themeCatalogClose')}
+            label={i18n.t('settings.themeCatalogClose')}
             onclick={() => {
               open = false;
             }}><XIcon /></IconButton
           >
         </div>
       </div>
-      <div class="tabs" role="tablist" aria-label={$i18n.t('settings.themeCatalogTitle')}>
+      <div class="tabs" role="tablist" aria-label={i18n.t('settings.themeCatalogTitle')}>
         {#each tabs as option (option.value)}
           {@const count = option.value === 'theme' ? themes.length : tweaks.length}
           <button
@@ -197,7 +197,7 @@
             onclick={() => (tab = option.value)}
             onkeydown={moveTab}
           >
-            {$i18n.t(option.label)}
+            {i18n.t(option.label)}
             {#if !failed}<span class="tab-count">{count > 0 ? count : ''}</span>{/if}
           </button>
         {/each}
@@ -207,14 +207,14 @@
           <TextInput
             type="search"
             bind:value={filter.query}
-            placeholder={$i18n.t('settings.themeCatalogSearch')}
-            aria-label={$i18n.t('settings.themeCatalogSearch')}
+            placeholder={i18n.t('settings.themeCatalogSearch')}
+            aria-label={i18n.t('settings.themeCatalogSearch')}
           />
         </div>
         {#if tab === 'theme'}<div
             class="chips"
             role="group"
-            aria-label={$i18n.t('settings.themeCatalogFilters')}
+            aria-label={i18n.t('settings.themeCatalogFilters')}
           >
             {#each kinds as option (option.value)}
               <button
@@ -223,7 +223,7 @@
                 aria-pressed={filter.kind === option.value}
                 onclick={() => (filter.kind = option.value)}
               >
-                {$i18n.t(option.label)}
+                {i18n.t(option.label)}
               </button>
             {/each}
             <button
@@ -232,7 +232,7 @@
               aria-pressed={filter.highContrast}
               onclick={() => (filter.highContrast = !filter.highContrast)}
             >
-              {$i18n.t('settings.themeCatalogHighContrast')}
+              {i18n.t('settings.themeCatalogHighContrast')}
             </button>
           </div>{/if}
       </div>
@@ -240,9 +240,9 @@
 
     {#if failed}
       <Alert variant="warning">
-        <p>{$i18n.t('settings.customThemesErrorLoad')}</p>
+        <p>{i18n.t('settings.customThemesErrorLoad')}</p>
         <Button variant="secondary" size="small" onclick={() => void load()}>
-          {$i18n.t('common.tryAgain')}
+          {i18n.t('common.tryAgain')}
         </Button>
       </Alert>
     {:else}
@@ -253,7 +253,7 @@
           aria-labelledby="catalog-tab-theme"
           {@attach scrollHint}
         >
-          <Alert variant="warning"><p>{$i18n.t('settings.themeCatalogTrust')}</p></Alert>
+          <Alert variant="warning"><p>{i18n.t('settings.themeCatalogTrust')}</p></Alert>
           {#if shownThemes.length > 0}
             <ul class="tiles">
               {#each shownThemes as entry (entry.fullUrl)}
@@ -276,8 +276,8 @@
                         <span class="state">
                           <CheckIcon weight="bold" />
                           {selectedCustomThemeId(theme.kind) === theme.id
-                            ? $i18n.t('settings.themeInUseFor', { mode: modeName(theme.kind) })
-                            : $i18n.t('settings.themeFileInstalled')}
+                            ? i18n.t('settings.themeInUseFor', { mode: modeName(theme.kind) })
+                            : i18n.t('settings.themeFileInstalled')}
                         </span>
                       {:else}
                         <Button
@@ -290,11 +290,11 @@
                             oninstall(entry);
                           }}
                         >
-                          {$i18n.t('common.install')}
+                          {i18n.t('common.install')}
                         </Button>
                       {/if}
                       {#if failedEntry === entry.fullUrl}
-                        <p class="failed" role="alert">{$i18n.t('settings.themeCatalogFailed')}</p>
+                        <p class="failed" role="alert">{i18n.t('settings.themeCatalogFailed')}</p>
                       {/if}
                     {/snippet}
                   </ThemeTile>
@@ -309,9 +309,9 @@
             </ul>
           {:else}
             <div class="empty">
-              <p>{$i18n.t('settings.themeCatalogEmpty')}</p>
+              <p>{i18n.t('settings.themeCatalogEmpty')}</p>
               <Button variant="ghost" size="small" onclick={clearFilters}>
-                {$i18n.t('settings.themeCatalogClear')}
+                {i18n.t('settings.themeCatalogClear')}
               </Button>
             </div>
           {/if}
@@ -323,8 +323,8 @@
           id="catalog-panel-tweak"
           aria-labelledby="catalog-tab-tweak"
         >
-          <Alert variant="warning"><p>{$i18n.t('settings.themeCatalogTrust')}</p></Alert>
-          <p class="catalog-hint">{$i18n.t('settings.themeCatalogTweaksHint')}</p>
+          <Alert variant="warning"><p>{i18n.t('settings.themeCatalogTrust')}</p></Alert>
+          <p class="catalog-hint">{i18n.t('settings.themeCatalogTweaksHint')}</p>
           {#if shownTweaks.length > 0}
             <ul class="tweaks">
               {#each shownTweaks as entry (entry.fullUrl)}
@@ -335,14 +335,14 @@
                     <span class="tweak-detail">{detail(entry)}</span>
                     {#if failedEntry === entry.fullUrl}
                       <span class="failed" role="alert"
-                        >{$i18n.t('settings.themeCatalogFailed')}</span
+                        >{i18n.t('settings.themeCatalogFailed')}</span
                       >
                     {/if}
                   </span>
                   {#if installed}
                     <span class="state">
                       <CheckIcon weight="bold" />
-                      {$i18n.t('settings.themeFileInstalled')}
+                      {i18n.t('settings.themeFileInstalled')}
                     </span>
                   {:else}
                     <Button
@@ -354,7 +354,7 @@
                         oninstall(entry);
                       }}
                     >
-                      {$i18n.t('common.install')}
+                      {i18n.t('common.install')}
                     </Button>
                   {/if}
                 </li>
@@ -365,7 +365,7 @@
               {#each [0, 1, 2] as index (index)}<li class="tweak skeleton-row"></li>{/each}
             </ul>
           {:else}
-            <p class="empty">{$i18n.t('settings.themeCatalogEmpty')}</p>
+            <p class="empty">{i18n.t('settings.themeCatalogEmpty')}</p>
           {/if}
         </div>
       {/if}
@@ -374,17 +374,17 @@
     {#if preview}
       <div class="preview-bar" role="status">
         <span class="preview-copy">
-          {$i18n.t('settings.themePreviewing', {
+          {i18n.t('settings.themePreviewing', {
             name: preview.name,
             mode: modeName(preview.kind),
           })}
         </span>
         <span class="preview-actions">
           <Button variant="ghost" size="small" onclick={onrevert}>
-            {$i18n.t('settings.themePreviewRevert')}
+            {i18n.t('settings.themePreviewRevert')}
           </Button>
           <Button variant="primary" size="small" onclick={onkeep}>
-            {$i18n.t('settings.themeUseFor', { mode: modeName(preview.kind) })}
+            {i18n.t('settings.themeUseFor', { mode: modeName(preview.kind) })}
           </Button>
         </span>
       </div>

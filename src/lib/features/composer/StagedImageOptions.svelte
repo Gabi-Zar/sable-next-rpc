@@ -25,11 +25,11 @@
   ];
 </script>
 
-<ActionMenu label={$i18n.t('composer.imageOptions', { name: item.file.name })} {trigger}>
-  <ActionMenuSub label={$i18n.t('composer.metadataGroup')}>
+<ActionMenu label={i18n.t('composer.imageOptions', { name: item.file.name })} {trigger}>
+  <ActionMenuSub label={i18n.t('composer.metadataGroup')}>
     {#snippet trigger()}
       <MapPinIcon aria-hidden="true" />
-      {$i18n.t('composer.metadataGroup')}
+      {i18n.t('composer.metadataGroup')}
     {/snippet}
     {#each METADATA_CHOICES as choice (choice.value)}
       <ActionMenuItem
@@ -41,7 +41,7 @@
         <span class="menu-check" aria-hidden="true">
           {item.metadata === choice.value ? '✓' : ''}
         </span>
-        {$i18n.t(choice.label)}
+        {i18n.t(choice.label)}
       </ActionMenuItem>
     {/each}
   </ActionMenuSub>

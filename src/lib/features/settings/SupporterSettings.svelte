@@ -28,10 +28,10 @@
   }
 </script>
 
-<SettingsSection title={$i18n.t('settings.supporterTitle')} headingId="about-supporter">
+<SettingsSection title={i18n.t('settings.supporterTitle')} headingId="about-supporter">
   <ul class="settings-rows">
     {#if badge}
-      <SettingsRow id="supporter-active" title={$i18n.t('settings.supporterActive')}>
+      <SettingsRow id="supporter-active" title={i18n.t('settings.supporterActive')}>
         <SupporterBadge label={badge.label} {name} isOwnBadge {...supporter.appearance} />
         <Button
           size="small"
@@ -39,45 +39,45 @@
           disabled={supporter.savingAppearance || refreshing}
           onclick={() => void supporter.remove()}
         >
-          {$i18n.t('common.remove')}
+          {i18n.t('common.remove')}
         </Button>
       </SettingsRow>
     {:else}
       <SettingsRow
         id="supporter-verify"
-        title={$i18n.t('settings.supporterVerify')}
-        description={waiting ? $i18n.t('settings.supporterWaiting') : undefined}
+        title={i18n.t('settings.supporterVerify')}
+        description={waiting ? i18n.t('settings.supporterWaiting') : undefined}
       >
         {#if waiting}
           <Button size="small" onclick={() => supporter.cancel()}>
-            {$i18n.t('common.cancel')}
+            {i18n.t('common.cancel')}
           </Button>
         {:else}
           <Button size="small" onclick={() => void supporter.verify()}>
-            {$i18n.t('common.verify')}
+            {i18n.t('common.verify')}
           </Button>
         {/if}
       </SettingsRow>
     {/if}
     {#if !badge}
-      <SettingsRow id="supporter-claim" title={$i18n.t('settings.supporterClaim')}>
+      <SettingsRow id="supporter-claim" title={i18n.t('settings.supporterClaim')}>
         <Button
           size="small"
           loading={checking}
           disabled={waiting}
           onclick={() => void supporter.claim()}
         >
-          {$i18n.t('settings.supporterClaimAction')}
+          {i18n.t('settings.supporterClaimAction')}
         </Button>
       </SettingsRow>
     {/if}
     {#if supporter.status === 'none'}
-      <li class="settings-form status" aria-live="polite">{$i18n.t('settings.supporterNone')}</li>
+      <li class="settings-form status" aria-live="polite">{i18n.t('settings.supporterNone')}</li>
     {/if}
     {#if supporter.status === 'failed'}
-      <li class="settings-form error" role="alert">{$i18n.t('settings.supporterTimedOut')}</li>
+      <li class="settings-form error" role="alert">{i18n.t('settings.supporterTimedOut')}</li>
     {:else if supporter.status === 'error'}
-      <li class="settings-form error" role="alert">{$i18n.t('settings.supporterError')}</li>
+      <li class="settings-form error" role="alert">{i18n.t('settings.supporterError')}</li>
     {/if}
   </ul>
   {#if badge}
@@ -88,7 +88,7 @@
       onChange={selectAppearance}
     />
     {#if variantFailed}<p class="settings-form error" role="alert">
-        {$i18n.t('supporter.badgeSaveFailed')}
+        {i18n.t('supporter.badgeSaveFailed')}
       </p>{/if}
   {/if}
 </SettingsSection>

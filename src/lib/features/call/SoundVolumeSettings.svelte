@@ -138,14 +138,14 @@
 
 {#snippet soundSnippet(sound: Sound)}
   {@const Icon = sound.icon}
-  <SettingsRow id={`sound-volume-${sound.sound}`} title={$i18n.t(sound.label)}>
+  <SettingsRow id={`sound-volume-${sound.sound}`} title={i18n.t(sound.label)}>
     {#snippet before()}<Icon aria-hidden="true" />{/snippet}
     <div class="range" data-max-range={PREFERENCE_RANGES[sound.preference].max}>
       <Slider
         min={PREFERENCE_RANGES[sound.preference].min}
         max={PREFERENCE_RANGES[sound.preference].max}
         step={0.05}
-        label={$i18n.t(sound.label)}
+        label={i18n.t(sound.label)}
         value={preferences[sound.preference]}
         oninput={(value) => {
           preferences[sound.preference] = value;
@@ -171,7 +171,7 @@
           max={Math.round(PREFERENCE_RANGES[sound.preference].max * 100)}
           step={0.05}
           value={Math.round(preferences[sound.preference] * 100)}
-          aria-label={$i18n.t('settings.rangePercent', { name: $i18n.t(sound.label) })}
+          aria-label={i18n.t('settings.rangePercent', { name: i18n.t(sound.label) })}
           onchange={(event) => {
             const typed = Number(event.currentTarget.value) / 100;
             if (event.currentTarget.value !== '' && Number.isFinite(typed)) {
@@ -194,7 +194,7 @@
       {/each}
     </ul>
     {#each CATEGORIES as category (category.name)}
-      <h3>{$i18n.t(category.label)}</h3>
+      <h3>{i18n.t(category.label)}</h3>
       <ul class="settings-rows">
         {#each SOUNDS.filter((sound) => sound.category === category.name) as sound (sound.sound)}
           {@render soundSnippet(sound)}

@@ -220,7 +220,7 @@
           .map((group) => ({
             id: group.id,
             icon: emojiGroupIcons[group.id],
-            label: $i18n.t(`emoji.${group.id}`),
+            label: i18n.t(`emoji.${group.id}`),
             cells: group.emojis.map((entry): Cell => ({ emoji: entry.emoji })),
           }))
       : []
@@ -231,7 +231,7 @@
       ? [
           {
             id: 'search',
-            label: $i18n.t('timeline.emojiResults'),
+            label: i18n.t('timeline.emojiResults'),
             cells: searchEmojis.map((emoji): Cell => ({ emoji })),
           },
         ]
@@ -288,13 +288,13 @@
           rows.push({
             id: 'emoji-recent',
             kind: 'header',
-            label: $i18n.t('timeline.frequentlyUsed'),
+            label: i18n.t('timeline.frequentlyUsed'),
             pack: null,
           });
           addImages('recent', recentImages, null);
         }
       } else {
-        addCells('recent', $i18n.t('timeline.frequentlyUsed'), frequentCells);
+        addCells('recent', i18n.t('timeline.frequentlyUsed'), frequentCells);
       }
       for (const section of sections) {
         const id = sectionId(section.pack);
@@ -323,10 +323,10 @@
   }
 
   let originLabels: Record<ImagePackView['origin'], string> = $derived({
-    account: $i18n.t('composer.packMine'),
-    room: $i18n.t('common.thisRoom'),
-    global: $i18n.t('composer.packGlobal'),
-    space: $i18n.t('composer.packSpace'),
+    account: i18n.t('composer.packMine'),
+    room: i18n.t('common.thisRoom'),
+    global: i18n.t('composer.packGlobal'),
+    space: i18n.t('composer.packSpace'),
   });
 
   function packName(pack: ImagePackView): string {
@@ -555,7 +555,7 @@
     role="slider"
     aria-orientation="horizontal"
     aria-valuenow={readBoardSize()?.width}
-    aria-label={$i18n.t('nav.resizeRooms')}
+    aria-label={i18n.t('nav.resizeRooms')}
     onpointerdown={handleResizeStart}
     onpointermove={handleResizeMove}
     onpointerup={finishResize}
@@ -563,7 +563,7 @@
   ></button>
   <div class="board-head">
     {#if stickers || gifs}
-      <div class="tabs" role="group" aria-label={$i18n.t('composer.emotesAndStickers')}>
+      <div class="tabs" role="group" aria-label={i18n.t('composer.emotesAndStickers')}>
         <button
           type="button"
           class="choice"
@@ -572,7 +572,7 @@
             tab = 'emoticon';
           }}
         >
-          {$i18n.t('composer.emoticons')}
+          {i18n.t('composer.emoticons')}
         </button>
         {#if stickers}
           <button
@@ -583,7 +583,7 @@
               tab = 'sticker';
             }}
           >
-            {$i18n.t('composer.stickers')}
+            {i18n.t('composer.stickers')}
           </button>
         {/if}
         {#if gifs}
@@ -595,7 +595,7 @@
               tab = 'gif';
             }}
           >
-            {$i18n.t('composer.gifs')}
+            {i18n.t('composer.gifs')}
           </button>
         {/if}
       </div>
@@ -604,13 +604,13 @@
       class="board-search"
       type="search"
       bind:value={query}
-      placeholder={gifTab ? $i18n.t('composer.searchGifs') : $i18n.t('composer.searchPacks')}
-      aria-label={gifTab ? $i18n.t('composer.searchGifs') : $i18n.t('composer.searchPacks')}
+      placeholder={gifTab ? i18n.t('composer.searchGifs') : i18n.t('composer.searchPacks')}
+      aria-label={gifTab ? i18n.t('composer.searchGifs') : i18n.t('composer.searchPacks')}
       onkeydown={submitQuery}
       {@attach focusSearch}
     />
     {#if !gifTab && sections.length > 0}
-      <p class="pack-visibility">{$i18n.t('composer.packMediaVisibility')}</p>
+      <p class="pack-visibility">{i18n.t('composer.packMediaVisibility')}</p>
     {/if}
   </div>
 
@@ -624,12 +624,12 @@
       }}
     />
   {:else if loading}
-    <div class="board-note"><Spinner label={$i18n.t('a11y.loading')} /></div>
+    <div class="board-note"><Spinner label={i18n.t('a11y.loading')} /></div>
   {:else if failed}
-    <div class="board-note">{$i18n.t('composer.packsFailed')}</div>
+    <div class="board-note">{i18n.t('composer.packsFailed')}</div>
   {:else if sections.length === 0 && !unicode}
     <div class="board-note">
-      {query.trim() ? $i18n.t('composer.noMatches') : $i18n.t('composer.noPacks')}
+      {query.trim() ? i18n.t('composer.noMatches') : i18n.t('composer.noPacks')}
     </div>
   {:else}
     <div class="board-body">
@@ -669,7 +669,7 @@
                           onPickUnicode?.(text, event.shiftKey);
                         }}
                       >
-                        {$i18n.t('composer.reactWithText', { text })}
+                        {i18n.t('composer.reactWithText', { text })}
                       </button>
                     {/if}
                   </div>
@@ -779,9 +779,9 @@
         {/key}
       </div>
 
-      <nav class={['rail', { hidden: searching }]} aria-label={$i18n.t('composer.packs')}>
+      <nav class={['rail', { hidden: searching }]} aria-label={i18n.t('composer.packs')}>
         {#if frequentCells.length > 0}
-          {@const frequentLabel = $i18n.t('timeline.frequentlyUsed')}
+          {@const frequentLabel = i18n.t('timeline.frequentlyUsed')}
           <Tooltip label={frequentLabel}>
             {#snippet trigger({ props })}
               <button
@@ -865,7 +865,7 @@
         <code>:{preview.image.shortcode}:</code>
         <span class="preview-pack">{packName(preview.pack)}</span>
       {:else}
-        <span class="preview-hint">{$i18n.t('composer.previewHint')}</span>
+        <span class="preview-hint">{i18n.t('composer.previewHint')}</span>
       {/if}
     </div>
   {/if}

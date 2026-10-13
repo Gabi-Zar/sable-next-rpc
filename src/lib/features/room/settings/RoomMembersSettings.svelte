@@ -244,15 +244,15 @@
   }
 
   function powerLabel(level: number): string {
-    if (level >= 100) return $i18n.t('timeline.powerLevelAdmin');
-    if (level >= 50) return $i18n.t('timeline.powerLevelModerator');
-    if (level < 0) return $i18n.t('timeline.powerLevelMuted');
-    return $i18n.t('timeline.powerLevelMember');
+    if (level >= 100) return i18n.t('timeline.powerLevelAdmin');
+    if (level >= 50) return i18n.t('timeline.powerLevelModerator');
+    if (level < 0) return i18n.t('timeline.powerLevelMuted');
+    return i18n.t('timeline.powerLevelMember');
   }
 
   function powerOptions(member: MemberView): { value: string; label: string }[] {
     const labels: Record<string, string> = Object.fromEntries(
-      powerChoices.map((choice) => [String(choice.level), $i18n.t(choice.label)])
+      powerChoices.map((choice) => [String(choice.level), i18n.t(choice.label)])
     );
     for (const [level, tag] of Object.entries(powerTags)) labels[String(Number(level))] = tag.name;
     const known = Object.entries(labels)
@@ -330,10 +330,10 @@
 <div class="section">
   <div class="tabs">
     <Switcher
-      label={$i18n.t('room.settingsMembers')}
+      label={i18n.t('room.settingsMembers')}
       items={MEMBERSHIP_FILTERS.map((entry) => ({
         value: entry,
-        label: $i18n.t(MEMBERSHIP_FILTER_LABELS[entry]),
+        label: i18n.t(MEMBERSHIP_FILTER_LABELS[entry]),
       }))}
       value={tab}
       onValueChange={(next) => {
@@ -342,11 +342,11 @@
       }}
     />
     <div class="sort">
-      <ActionMenu label={$i18n.t('timeline.memberSort')}>
+      <ActionMenu label={i18n.t('timeline.memberSort')}>
         {#snippet trigger({ props })}
-          <Button {...props} variant="secondary" aria-label={$i18n.t('timeline.memberSort')}>
+          <Button {...props} variant="secondary" aria-label={i18n.t('timeline.memberSort')}>
             <ArrowsDownUpIcon aria-hidden="true" />
-            {$i18n.t(MEMBER_SORT_LABELS[sort])}
+            {i18n.t(MEMBER_SORT_LABELS[sort])}
           </Button>
         {/snippet}
         {#each MEMBER_SORTS as option (option)}
@@ -356,7 +356,7 @@
               setPreference('memberSort', option);
             }}
           >
-            {$i18n.t(MEMBER_SORT_LABELS[option])}
+            {i18n.t(MEMBER_SORT_LABELS[option])}
           </ActionMenuItem>
         {/each}
       </ActionMenu>
@@ -368,11 +368,11 @@
       bind:value={search}
       type="search"
       placeholder={canInviteInline
-        ? $i18n.t('room.membersSearchOrInvite')
-        : $i18n.t('timeline.searchMembers')}
+        ? i18n.t('room.membersSearchOrInvite')
+        : i18n.t('timeline.searchMembers')}
       aria-label={canInviteInline
-        ? $i18n.t('room.membersSearchOrInvite')
-        : $i18n.t('timeline.searchMembers')}
+        ? i18n.t('room.membersSearchOrInvite')
+        : i18n.t('timeline.searchMembers')}
     />
     {#if permissions?.can_invite && isDirect}
       <Button
@@ -381,13 +381,13 @@
           inviteOpen = true;
         }}
       >
-        {$i18n.t('room.inviteTitle')}
+        {i18n.t('room.inviteTitle')}
       </Button>
     {/if}
   </div>
 
   {#if failed}
-    <Alert variant="critical" role="alert">{$i18n.t('room.membersFailed')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('room.membersFailed')}</Alert>
   {/if}
 
   {#if loading && members.length === 0}
@@ -395,19 +395,19 @@
   {:else if shown.length === 0}
     <p class="settings-status">
       {tab === 'knock' && !search.trim()
-        ? $i18n.t('room.membersNoRequests')
-        : $i18n.t('timeline.noMembersFound')}
+        ? i18n.t('room.membersNoRequests')
+        : i18n.t('timeline.noMembersFound')}
     </p>
   {:else}
     {#each groups as group (group.key)}
-      {@const tag = powerTag(group.level ?? 0, $i18n.t, powerTags)}
+      {@const tag = powerTag(group.level ?? 0, i18n.t, powerTags)}
       {#snippet tagIcon()}
         <RoleTagIcon icon={tag.icon ?? ''} />
       {/snippet}
       <SettingsSection
         headingId={`room-settings-members-${group.key}`}
         title={tag.name}
-        description={$i18n.t('timeline.memberCount', { count: group.members.length })}
+        description={i18n.t('timeline.memberCount', { count: group.members.length })}
         icon={tag.icon ? tagIcon : undefined}
       >
         <ul class="settings-rows">
@@ -440,7 +440,7 @@
                         );
                     }}
                   >
-                    {$i18n.t('room.membersApprove')}
+                    {i18n.t('room.membersApprove')}
                   </Button>
                 {/if}
                 {#if permissions?.can_kick && !outranked(member)}
@@ -463,7 +463,7 @@
                         );
                     }}
                   >
-                    {$i18n.t('room.membersDeny')}
+                    {i18n.t('room.membersDeny')}
                   </Button>
                 {/if}
               {:else if tab === 'leave' || tab === 'kick'}
@@ -476,7 +476,7 @@
                       openModeration(member.user_id, 'ban');
                     }}
                   >
-                    {$i18n.t('timeline.profileBan')}
+                    {i18n.t('timeline.profileBan')}
                   </Button>
                 {/if}
               {:else if tab === 'ban'}
@@ -497,7 +497,7 @@
                         );
                     }}
                   >
-                    {$i18n.t('timeline.profileUnban')}
+                    {i18n.t('timeline.profileUnban')}
                   </Button>
                 {/if}
               {:else}
@@ -505,7 +505,7 @@
                   {#key powerResets}
                     <Select
                       value={String(member.power_level)}
-                      aria-label={$i18n.t('timeline.profileChangePower')}
+                      aria-label={i18n.t('timeline.profileChangePower')}
                       disabled={busy === member.user_id}
                       items={powerOptions(member)}
                       onValueChange={(next: string) => {
@@ -525,7 +525,7 @@
                       openModeration(member.user_id, 'kick');
                     }}
                   >
-                    {$i18n.t('timeline.profileKick')}
+                    {i18n.t('timeline.profileKick')}
                   </Button>
                 {/if}
                 {#if permissions?.can_ban && !outranked(member)}
@@ -537,7 +537,7 @@
                       openModeration(member.user_id, 'ban');
                     }}
                   >
-                    {$i18n.t('timeline.profileBan')}
+                    {i18n.t('timeline.profileBan')}
                   </Button>
                 {/if}
               {/if}
@@ -549,13 +549,10 @@
   {/if}
 
   {#if inviteQuery}
-    <SettingsSection
-      headingId="room-settings-members-invite"
-      title={$i18n.t('common.invitePeople')}
-    >
+    <SettingsSection headingId="room-settings-members-invite" title={i18n.t('common.invitePeople')}>
       {#if inviteFailed}
         <div class="settings-form">
-          <Alert variant="critical" role="alert">{$i18n.t('room.inviteSendFailed')}</Alert>
+          <Alert variant="critical" role="alert">{i18n.t('room.inviteSendFailed')}</Alert>
         </div>
       {/if}
       {#if candidates.length > 0}
@@ -570,7 +567,7 @@
                 </MemberIdentityRow>
               {/snippet}
               {#if invitedIds.includes(entry.user_id)}
-                <span class="power">{$i18n.t('room.membersInvited')}</span>
+                <span class="power">{i18n.t('room.membersInvited')}</span>
               {:else}
                 <Button
                   size="small"
@@ -581,7 +578,7 @@
                     void invite(entry.user_id);
                   }}
                 >
-                  {$i18n.t('room.inviteSubmit')}
+                  {i18n.t('room.inviteSubmit')}
                 </Button>
               {/if}
             </SettingsRow>
@@ -592,7 +589,7 @@
           {#if directory.searching}
             <p class="settings-note" role="status"><Spinner small /></p>
           {:else}
-            <p class="settings-note">{$i18n.t('room.membersInviteEmpty')}</p>
+            <p class="settings-note">{i18n.t('room.membersInviteEmpty')}</p>
           {/if}
         </div>
       {/if}
@@ -630,9 +627,9 @@
 
 <ConfirmDialog
   open={selfDemotion !== null}
-  title={$i18n.t('timeline.profileDemoteSelfTitle')}
-  description={$i18n.t('timeline.profileDemoteSelfBody')}
-  confirmLabel={$i18n.t('timeline.profileDemoteSelfConfirm')}
+  title={i18n.t('timeline.profileDemoteSelfTitle')}
+  description={i18n.t('timeline.profileDemoteSelfBody')}
+  confirmLabel={i18n.t('timeline.profileDemoteSelfConfirm')}
   onOpenChange={(next: boolean) => {
     if (next || selfDemotion === null) return;
     selfDemotion = null;
@@ -656,32 +653,32 @@
   }}
   variant="verification"
   label={moderationTarget?.action === 'ban'
-    ? $i18n.t('timeline.profileBan')
-    : $i18n.t('timeline.profileKick')}
+    ? i18n.t('timeline.profileBan')
+    : i18n.t('timeline.profileKick')}
   onConfirm={submitModeration}
 >
   {#if moderationTarget}
     <div class="moderation">
       <h2>
         {moderationTarget.action === 'ban'
-          ? $i18n.t('timeline.profileBanConfirm', {
+          ? i18n.t('timeline.profileBanConfirm', {
               name: moderationMember ? memberName(moderationMember) : moderationTarget.userId,
             })
-          : $i18n.t('timeline.profileKickConfirm', {
+          : i18n.t('timeline.profileKickConfirm', {
               name: moderationMember ? memberName(moderationMember) : moderationTarget.userId,
             })}
       </h2>
-      <FormField fieldId="member-moderation-reason" label={$i18n.t('timeline.deleteReason')}>
+      <FormField fieldId="member-moderation-reason" label={i18n.t('timeline.deleteReason')}>
         <TextInput id="member-moderation-reason" bind:value={moderationReason} autocomplete="off" />
       </FormField>
       <div class="moderation-actions">
         <Button type="button" variant="ghost" disabled={moderationBusy} onclick={cancelModeration}>
-          {$i18n.t('common.cancel')}
+          {i18n.t('common.cancel')}
         </Button>
         <Button type="submit" variant="danger" loading={moderationBusy}>
           {moderationTarget.action === 'ban'
-            ? $i18n.t('timeline.profileBan')
-            : $i18n.t('timeline.profileKick')}
+            ? i18n.t('timeline.profileBan')
+            : i18n.t('timeline.profileKick')}
         </Button>
       </div>
     </div>

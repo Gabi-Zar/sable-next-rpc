@@ -28,14 +28,14 @@
 
 <ConfirmDialog
   bind:open
-  title={$i18n.t('composer.linkTitle')}
-  confirmLabel={$i18n.t('composer.linkApply')}
+  title={i18n.t('composer.linkTitle')}
+  confirmLabel={i18n.t('composer.linkApply')}
   confirmVariant="secondary"
-  cancelLabel={$i18n.t('common.cancel')}
+  cancelLabel={i18n.t('common.cancel')}
   onConfirm={apply}
   onCancel={reset}
 >
-  <FormField fieldId="composer-link-url" label={$i18n.t('composer.linkUrl')}>
+  <FormField fieldId="composer-link-url" label={i18n.t('composer.linkUrl')}>
     <TextInput id="composer-link-url" bind:value={draft} type="url" autocomplete="off" />
   </FormField>
 </ConfirmDialog>

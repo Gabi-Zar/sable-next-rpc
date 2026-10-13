@@ -15,13 +15,13 @@
 <div class="alert-list">
   <div class="header">
     <SableBrandMark class="alert-brand" />
-    <h3>{$i18n.t('nav.alerts')}</h3>
+    <h3>{i18n.t('nav.alerts')}</h3>
   </div>
   <div class="banners">
     {#each activeAlerts as { module, provider } (module.default)}
       <module.default {...provider} />
     {:else}
-      <EmptyState title={$i18n.t('nav.noAlerts')} />
+      <EmptyState title={i18n.t('nav.noAlerts')} />
     {/each}
   </div>
 </div>

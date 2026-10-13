@@ -74,13 +74,13 @@
 
   async function copyLink(): Promise<void> {
     if (!room) return;
-    if (!(await copyRoomLink(core, room))) toasts.error($i18n.t('errors.copyFailed'));
+    if (!(await copyRoomLink(core, room))) toasts.error(i18n.t('errors.copyFailed'));
   }
 </script>
 
 <ActionMenu
   bind:open
-  label={$i18n.t('common.moreOptions')}
+  label={i18n.t('common.moreOptions')}
   class="room-options-menu"
   onOpenChange={(next) => {
     if (next) opened = true;
@@ -90,7 +90,7 @@
     <PanelHeaderButton
       {...props}
       class="room-menu-button selection-open"
-      label={$i18n.t('common.moreOptions')}
+      label={i18n.t('common.moreOptions')}
     >
       <DotsThreeVerticalIcon />
     </PanelHeaderButton>
@@ -100,12 +100,12 @@
     {#if unread}
       <ActionMenuItem onSelect={onMarkRead}>
         <ChecksIcon />
-        {$i18n.t('common.markAsRead')}
+        {i18n.t('common.markAsRead')}
       </ActionMenuItem>
     {:else}
       <ActionMenuItem disabled={!room} onSelect={onMarkUnread}>
         <CircleDashedIcon />
-        {$i18n.t('room.menuMarkUnread')}
+        {i18n.t('room.menuMarkUnread')}
       </ActionMenuItem>
     {/if}
     {#if room && !room.is_space}
@@ -116,24 +116,24 @@
 
     <ActionMenuItem disabled={!canInvite} onSelect={onInvite}>
       <UserPlusIcon />
-      {$i18n.t('room.menuInvite')}
+      {i18n.t('room.menuInvite')}
     </ActionMenuItem>
     {#if compact}
       <ActionMenuSeparator />
       <ActionMenuItem onSelect={onMembers}>
         <UserCircleIcon />
-        {$i18n.t('timeline.members')}
+        {i18n.t('timeline.members')}
       </ActionMenuItem>
       {#if onThreads}
         <ActionMenuItem onSelect={onThreads}>
           <ChatsIcon />
-          {$i18n.t('timeline.threadsOpen')}
+          {i18n.t('timeline.threadsOpen')}
         </ActionMenuItem>
       {/if}
       {#if onPins}
         <ActionMenuItem onSelect={onPins}>
           <PushPinIcon />
-          {$i18n.t('room.pinsTitle')}
+          {i18n.t('room.pinsTitle')}
           {#if pinsUnread > 0}
             <span class="menu-count">{pinsUnread}</span>
           {/if}
@@ -142,29 +142,29 @@
       {#if onWidgets}
         <ActionMenuItem onSelect={onWidgets}>
           <GridFourIcon />
-          {$i18n.t('widgets.label')}
+          {i18n.t('widgets.label')}
         </ActionMenuItem>
       {/if}
       {#if onAttachments}
         <ActionMenuItem onSelect={onAttachments}>
           <ImagesIcon />
-          {$i18n.t('timeline.attachmentsTitle')}
+          {i18n.t('timeline.attachmentsTitle')}
         </ActionMenuItem>
       {/if}
       <ActionMenuSeparator />
     {/if}
     <ActionMenuItem onSelect={copyLink}>
       <LinkIcon />
-      {$i18n.t('room.menuCopyLink')}
+      {i18n.t('room.menuCopyLink')}
     </ActionMenuItem>
     <ActionMenuItem onSelect={onSettings}>
       <GearIcon />
-      {$i18n.t('room.menuSettings')}
+      {i18n.t('room.menuSettings')}
     </ActionMenuItem>
     {#if onJumpToTime}
       <ActionMenuItem onSelect={onJumpToTime}>
         <ClockCounterClockwiseIcon />
-        {$i18n.t('room.menuJumpToTime')}
+        {i18n.t('room.menuJumpToTime')}
       </ActionMenuItem>
     {/if}
 
@@ -172,11 +172,11 @@
 
     <ActionMenuItem destructive disabled={!room} onSelect={onReport}>
       <FlagIcon />
-      {room?.is_space ? $i18n.t('room.menuReportSpace') : $i18n.t('room.menuReport')}
+      {room?.is_space ? i18n.t('room.menuReportSpace') : i18n.t('room.menuReport')}
     </ActionMenuItem>
     <ActionMenuItem destructive onSelect={onLeave}>
       <SignOutIcon />
-      {room?.is_space ? $i18n.t('room.menuLeaveSpace') : $i18n.t('room.menuLeave')}
+      {room?.is_space ? i18n.t('room.menuLeaveSpace') : i18n.t('room.menuLeave')}
     </ActionMenuItem>
   </IconContext>
 </ActionMenu>

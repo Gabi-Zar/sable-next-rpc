@@ -37,19 +37,19 @@
   }}
 >
   {#if mode === 'rename'}
-    <Label for={`device-${deviceId}`}>{$i18n.t('settings.deviceName')}</Label>
+    <Label for={`device-${deviceId}`}>{i18n.t('settings.deviceName')}</Label>
     <TextInput id={`device-${deviceId}`} bind:value={displayName} autofocus required />
     <div class="form-actions">
-      <Button type="submit">{$i18n.t('common.save')}</Button>
-      <Button variant="ghost" onclick={onCancel}>{$i18n.t('common.cancel')}</Button>
+      <Button type="submit">{i18n.t('common.save')}</Button>
+      <Button variant="ghost" onclick={onCancel}>{i18n.t('common.cancel')}</Button>
     </div>
   {:else}
     <div class="row-copy">
-      <strong>{$i18n.t('settings.removeDeviceConfirm')}</strong>
-      <p>{$i18n.t('settings.removeDeviceDescription')}</p>
+      <strong>{i18n.t('settings.removeDeviceConfirm')}</strong>
+      <p>{i18n.t('settings.removeDeviceDescription')}</p>
     </div>
     {#if !accountManagement}
-      <Label for={`password-${deviceId}`}>{$i18n.t('settings.password')}</Label>
+      <Label for={`password-${deviceId}`}>{i18n.t('settings.password')}</Label>
       <TextInput
         id={`password-${deviceId}`}
         type="password"
@@ -60,10 +60,10 @@
     {/if}
     <div class="form-actions">
       <Button type="submit" variant="danger" loading={busy}>
-        {$i18n.t('settings.removeDevice')}
+        {i18n.t('settings.removeDevice')}
       </Button>
       <Button variant="ghost" disabled={busy} onclick={onCancel}>
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
     </div>
   {/if}

@@ -71,46 +71,43 @@
 <main class="error-page" aria-labelledby="error-title">
   <div class="error-content">
     <p class="error-code" aria-hidden="true">{page.status}</p>
-    <h1 id="error-title">{page.error?.message ?? $i18n.t('errors.pageTitle')}</h1>
+    <h1 id="error-title">{page.error?.message ?? i18n.t('errors.pageTitle')}</h1>
 
     {#if crash}
       <p class="crash-note">
-        {eventId === undefined
-          ? $i18n.t('errors.crashUnreported')
-          : $i18n.t('errors.crashReported')}
+        {eventId === undefined ? i18n.t('errors.crashUnreported') : i18n.t('errors.crashReported')}
       </p>
 
       {#if detailsSent}
-        <p class="crash-note">{$i18n.t('errors.detailsThanks')}</p>
+        <p class="crash-note">{i18n.t('errors.detailsThanks')}</p>
       {:else}
         <TextArea
           bind:value={details}
           rows={3}
-          aria-label={$i18n.t('errors.detailsLabel')}
-          placeholder={$i18n.t('errors.detailsPlaceholder')}
+          aria-label={i18n.t('errors.detailsLabel')}
+          placeholder={i18n.t('errors.detailsPlaceholder')}
         />
         {#if eventId !== undefined}
           <Button size="medium" disabled={details.trim() === ''} onclick={sendDetails}>
-            {$i18n.t('errors.sendDetails')}
+            {i18n.t('errors.sendDetails')}
           </Button>
         {/if}
       {/if}
 
-      <Button size="medium" onclick={reportOnForge}>{$i18n.t('errors.reportIssue')}</Button>
+      <Button size="medium" onclick={reportOnForge}>{i18n.t('errors.reportIssue')}</Button>
       <Button size="medium" onclick={copyError}>
-        {copied ? $i18n.t('common.copied') : $i18n.t('common.copy')}
+        {copied ? i18n.t('common.copied') : i18n.t('common.copy')}
       </Button>
 
       {#if page.error?.stack}
         <details class="stack">
-          <summary>{$i18n.t('errors.showStack')}</summary>
+          <summary>{i18n.t('errors.showStack')}</summary>
           <pre>{page.error.stack}</pre>
         </details>
       {/if}
     {/if}
 
-    <Button class="error-reload" size="medium" onclick={reloadApp}
-      >{$i18n.t('common.reload')}</Button
+    <Button class="error-reload" size="medium" onclick={reloadApp}>{i18n.t('common.reload')}</Button
     >
   </div>
 </main>

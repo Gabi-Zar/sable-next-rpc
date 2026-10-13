@@ -82,12 +82,12 @@
 </script>
 
 {#if failed}
-  <p class="verification-scanner-failed" role="alert">{$i18n.t('settings.cameraUnavailable')}</p>
+  <p class="verification-scanner-failed" role="alert">{i18n.t('settings.cameraUnavailable')}</p>
 {:else}
   <div class="verification-scanner">
-    <video bind:this={video} muted playsinline aria-label={$i18n.t('settings.scanningQr')}></video>
+    <video bind:this={video} muted playsinline aria-label={i18n.t('settings.scanningQr')}></video>
   </div>
-  <p class="verification-scanner-hint" role="status">{$i18n.t('settings.scanningQr')}</p>
+  <p class="verification-scanner-hint" role="status">{i18n.t('settings.scanningQr')}</p>
 {/if}
 
 <style>

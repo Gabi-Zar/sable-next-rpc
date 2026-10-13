@@ -1036,13 +1036,13 @@
 
 {#if timeline.error && !emptyFailure}
   <Alert class="timeline-error" variant="critical" role="alert"
-    >{$i18n.t('timeline.loadFailed')}</Alert
+    >{i18n.t('timeline.loadFailed')}</Alert
   >
 {/if}
 {#if resumeFailed}
   <Alert variant="critical" role="alert">
-    {$i18n.t('timeline.loadFailed')}
-    <Button type="button" onclick={retryLive}>{$i18n.t('common.tryAgain')}</Button>
+    {i18n.t('timeline.loadFailed')}
+    <Button type="button" onclick={retryLive}>{i18n.t('common.tryAgain')}</Button>
   </Alert>
 {/if}
 
@@ -1057,27 +1057,27 @@
         variant="ghost"
         loading={jumpingUnread}
         disabled={markingRead}
-        aria-label={$i18n.t('timeline.jumpToUnread')}
+        aria-label={i18n.t('timeline.jumpToUnread')}
         onclick={() => void jumpToUnread()}
       >
         <ArrowUpIcon />
         <span
           >{unreadCount > 0
-            ? $i18n.t('timeline.unreadCount', { count: unreadCount })
-            : $i18n.t('timeline.newMessagesUnknown')}</span
+            ? i18n.t('timeline.unreadCount', { count: unreadCount })
+            : i18n.t('timeline.newMessagesUnknown')}</span
         >
-        <span class="unread-action">{$i18n.t('timeline.jumpToUnread')}</span>
+        <span class="unread-action">{i18n.t('timeline.jumpToUnread')}</span>
       </Button>
       {#if onMarkRead}
         <Button variant="ghost" loading={markingRead} onclick={() => void markAllRead()}>
-          <span>{$i18n.t('common.markAsRead')}</span>
+          <span>{i18n.t('common.markAsRead')}</span>
           <CheckIcon />
         </Button>
       {/if}
     </div>
     {#if unreadError !== null}
       <Alert variant="critical" role="alert"
-        >{$i18n.t(
+        >{i18n.t(
           unreadError === 'jump' ? 'timeline.unreadJumpFailed' : 'timeline.markReadFailed'
         )}</Alert
       >
@@ -1094,7 +1094,7 @@
         }}
       >
         <Spinner />
-        <span class="screen-reader-only">{$i18n.t('timeline.loadingHistory')}</span>
+        <span class="screen-reader-only">{i18n.t('timeline.loadingHistory')}</span>
       </div>
     {/if}
     {#if futureLoading}
@@ -1106,7 +1106,7 @@
         }}
       >
         <Spinner />
-        <span class="screen-reader-only">{$i18n.t('timeline.loadingNewer')}</span>
+        <span class="screen-reader-only">{i18n.t('timeline.loadingNewer')}</span>
       </div>
     {/if}
     <div class={['timeline-viewport', { initial: !revealed }]}>
@@ -1114,7 +1114,7 @@
       <div
         bind:this={viewport}
         class="viewport"
-        aria-label={$i18n.t('timeline.label')}
+        aria-label={i18n.t('timeline.label')}
         tabindex="0"
         {@attach mountWindow}
         {@attach userScrollMarker}
@@ -1134,7 +1134,7 @@
                 data-timeline-key={row.key}
               >
                 {#if threadRootId && item.event_id === threadRootId}
-                  <p class="thread-original">{$i18n.t('timeline.originalMessage')}</p>
+                  <p class="thread-original">{i18n.t('timeline.originalMessage')}</p>
                 {/if}
                 {#if timelineStart && item.content.kind === 'timeline_start'}
                   {@render timelineStart()}
@@ -1160,20 +1160,20 @@
     {:else if emptyFailure && timeline.mode.kind === 'focused'}
       <EmptyState
         class="timeline-empty"
-        title={$i18n.t('timeline.focusFailed')}
-        description={$i18n.t('timeline.focusFailedHint')}
+        title={i18n.t('timeline.focusFailed')}
+        description={i18n.t('timeline.focusFailedHint')}
       >
         {#snippet actions()}
           {#if onJumpToLive}
-            <Button type="button" onclick={onJumpToLive}>{$i18n.t('timeline.jumpToLatest')}</Button>
+            <Button type="button" onclick={onJumpToLive}>{i18n.t('timeline.jumpToLatest')}</Button>
           {/if}
         {/snippet}
       </EmptyState>
     {:else if emptyFailure}
-      <EmptyState class="timeline-empty" title={$i18n.t('timeline.loadFailed')}>
+      <EmptyState class="timeline-empty" title={i18n.t('timeline.loadFailed')}>
         {#snippet actions()}
           {#if onRetryLoad}
-            <Button onclick={() => void onRetryLoad?.()}>{$i18n.t('common.tryAgain')}</Button>
+            <Button onclick={() => void onRetryLoad?.()}>{i18n.t('common.tryAgain')}</Button>
           {/if}
         {/snippet}
       </EmptyState>
@@ -1181,15 +1181,15 @@
       <EmptyState
         class="timeline-empty"
         title={timeline.items.length > 0
-          ? $i18n.t('timeline.allFiltered')
-          : $i18n.t('timeline.noMessages')}
-        description={timeline.items.length > 0 ? $i18n.t('timeline.allFilteredHint') : undefined}
+          ? i18n.t('timeline.allFiltered')
+          : i18n.t('timeline.noMessages')}
+        description={timeline.items.length > 0 ? i18n.t('timeline.allFilteredHint') : undefined}
       />
     {/if}
   </div>
 
   {#if revealed && visibleItems.length > 0 && (live ? jumpToLatestVisible : onJumpToLive !== undefined)}
-    {@const jumpLabel = $i18n.t('timeline.jumpToLatest')}
+    {@const jumpLabel = i18n.t('timeline.jumpToLatest')}
     <div
       class="jump-to-latest-motion"
       in:fly={{ y: 4, duration: motionMs(200), easing: cubicOut }}

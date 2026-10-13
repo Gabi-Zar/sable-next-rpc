@@ -26,14 +26,14 @@
       user_id: '@sable:notification.test',
       room_id: '!notification:notification.test',
       event_id: `$notification-test-${String(count)}`,
-      room_name: $i18n.t('settings.developerNotificationsRoom'),
+      room_name: i18n.t('settings.developerNotificationsRoom'),
       room_avatar_url: null,
       is_direct: false,
       encrypted: false,
       sender: '@sable:notification.test',
       sender_name: 'Sable',
       sender_avatar_url: null,
-      body: $i18n.t('settings.developerNotificationsBody', { count }),
+      body: i18n.t('settings.developerNotificationsBody', { count }),
       mention: false,
       noisy: true,
     };
@@ -69,21 +69,21 @@
 <ul class="settings settings-rows">
   <SettingsRow
     id="send-test-notification"
-    title={$i18n.t('settings.developerNotificationsTitle')}
-    description={$i18n.t('settings.developerNotificationsDescription')}
+    title={i18n.t('settings.developerNotificationsTitle')}
+    description={i18n.t('settings.developerNotificationsDescription')}
   >
     <Button variant="secondary" size="small" onclick={() => void alert()}>
-      {$i18n.t('settings.developerNotificationsSend')}
+      {i18n.t('settings.developerNotificationsSend')}
     </Button>
   </SettingsRow>
   {#if alertsNatively()}
     <SettingsRow
       id="push-outcomes"
-      title={$i18n.t('settings.developerPushOutcomesTitle')}
-      description={$i18n.t('settings.developerPushOutcomesDescription')}
+      title={i18n.t('settings.developerPushOutcomesTitle')}
+      description={i18n.t('settings.developerPushOutcomesDescription')}
     >
       <Button variant="secondary" size="small" onclick={() => void readOutcomes()}>
-        {$i18n.t('settings.developerPushOutcomesRead')}
+        {i18n.t('settings.developerPushOutcomesRead')}
       </Button>
     </SettingsRow>
   {/if}
@@ -92,7 +92,7 @@
   <div class="settings-form notes">
     {#if diagnostics}
       {#if outcomes.length === 0}
-        <Alert variant="info">{$i18n.t('settings.developerPushOutcomesEmpty')}</Alert>
+        <Alert variant="info">{i18n.t('settings.developerPushOutcomesEmpty')}</Alert>
       {:else}
         <ul class="outcomes">
           {#each outcomes as [outcome, count] (outcome)}
@@ -102,7 +102,7 @@
       {/if}
     {/if}
     {#if failed}
-      <Alert variant="critical">{$i18n.t('settings.developerNotificationsFailed')}</Alert>
+      <Alert variant="critical">{i18n.t('settings.developerNotificationsFailed')}</Alert>
     {/if}
   </div>
 {/if}

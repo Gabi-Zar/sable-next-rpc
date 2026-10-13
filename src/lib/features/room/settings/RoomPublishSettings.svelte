@@ -45,7 +45,7 @@
       })
       .catch((error: unknown) => {
         console.debug('[sable room] directory visibility unavailable', error);
-        toasts.error($i18n.t('errors.actionFailed'));
+        toasts.error(i18n.t('errors.actionFailed'));
       });
   });
 
@@ -69,14 +69,12 @@
 
 {#if published !== null}
   <SettingsRow
-    title={$i18n.t('room.publishTitle')}
-    description={room?.is_space
-      ? $i18n.t('room.publishSpaceHint')
-      : $i18n.t('room.publishRoomHint')}
+    title={i18n.t('room.publishTitle')}
+    description={room?.is_space ? i18n.t('room.publishSpaceHint') : i18n.t('room.publishRoomHint')}
   >
     {#if canEdit}
       <Switch
-        label={$i18n.t('room.publishTitle')}
+        label={i18n.t('room.publishTitle')}
         checked={published}
         disabled={saving}
         onCheckedChange={(next: boolean) => {
@@ -85,7 +83,7 @@
       />
     {:else}
       <span class="value">
-        {published ? $i18n.t('room.publishOn') : $i18n.t('room.publishOff')}
+        {published ? i18n.t('room.publishOn') : i18n.t('room.publishOff')}
       </span>
     {/if}
   </SettingsRow>

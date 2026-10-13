@@ -113,15 +113,14 @@
 <DialogFrame {open} {onOpenChange} variant="settings" contentClass="user-security-dialog">
   <header class="security-header">
     <div>
-      <Dialog.Title
-        >{$i18n.t('timeline.profileEncryptionTitle', { name: displayName })}</Dialog.Title
+      <Dialog.Title>{i18n.t('timeline.profileEncryptionTitle', { name: displayName })}</Dialog.Title
       >
-      <Dialog.Description>{$i18n.t('timeline.profileEncryptionDescription')}</Dialog.Description>
+      <Dialog.Description>{i18n.t('timeline.profileEncryptionDescription')}</Dialog.Description>
     </div>
     <IconButton
       size="small"
       variant="ghost"
-      label={$i18n.t('common.close')}
+      label={i18n.t('common.close')}
       onclick={() => onOpenChange(false)}
     >
       <XIcon />
@@ -134,9 +133,9 @@
     {:else if security}
       <section class="security-identity" aria-labelledby="security-identity-title">
         <div class="security-row">
-          <h3 id="security-identity-title">{$i18n.t('timeline.profileIdentity')}</h3>
+          <h3 id="security-identity-title">{i18n.t('timeline.profileIdentity')}</h3>
           <StatusBadge
-            label={$i18n.t(
+            label={i18n.t(
               security.verification === 'verified'
                 ? 'settings.verified'
                 : security.verification === 'unverified'
@@ -151,9 +150,9 @@
           />
         </div>
         {#if security.verification_violation}
-          <Alert variant="critical">{$i18n.t('timeline.profileIdentityChanged')}</Alert>
+          <Alert variant="critical">{i18n.t('timeline.profileIdentityChanged')}</Alert>
           <Button onclick={() => void acceptIdentity()} disabled={accepting}>
-            {$i18n.t('timeline.profileAcceptIdentity')}
+            {i18n.t('timeline.profileAcceptIdentity')}
           </Button>
         {/if}
         {#if security.verification !== 'verified'}
@@ -162,35 +161,34 @@
             onclick={() => void verify()}
             disabled={verifying || security.verification === 'unknown'}
           >
-            {$i18n.t('timeline.profileVerify')}
+            {i18n.t('timeline.profileVerify')}
           </Button>
         {/if}
       </section>
 
       <section aria-labelledby="security-devices-title">
-        <h3 id="security-devices-title">{$i18n.t('timeline.profileDevices')}</h3>
-        <p class="security-note">{$i18n.t('timeline.profileDevicePolicy')}</p>
+        <h3 id="security-devices-title">{i18n.t('timeline.profileDevices')}</h3>
+        <p class="security-note">{i18n.t('timeline.profileDevicePolicy')}</p>
         {#if security.devices.length === 0}
-          <p class="security-empty">{$i18n.t('timeline.profileNoDevices')}</p>
+          <p class="security-empty">{i18n.t('timeline.profileNoDevices')}</p>
         {:else}
           <ul class="security-devices">
             {#each security.devices as device (device.device_id)}
               <li>
                 <div class="security-device-name">
-                  <strong>{device.display_name?.trim() || $i18n.t('settings.unnamedDevice')}</strong
-                  >
+                  <strong>{device.display_name?.trim() || i18n.t('settings.unnamedDevice')}</strong>
                   <code>{device.device_id}</code>
                 </div>
                 <div class="security-device-actions">
                   {#if !device.cross_signed}
                     <StatusBadge
-                      label={$i18n.t('timeline.profileDeviceUnsigned')}
+                      label={i18n.t('timeline.profileDeviceUnsigned')}
                       variant="warning"
                     />
                   {/if}
                   {#if device.blocked}
                     <StatusBadge
-                      label={$i18n.t('timeline.profileDeviceBlocked')}
+                      label={i18n.t('timeline.profileDeviceBlocked')}
                       variant="critical"
                     />
                   {/if}
@@ -199,7 +197,7 @@
                     onclick={() => void setBlocked(device)}
                     disabled={blocking !== null}
                   >
-                    {$i18n.t(device.blocked ? 'common.unblock' : 'common.block')}
+                    {i18n.t(device.blocked ? 'common.unblock' : 'common.block')}
                   </Button>
                 </div>
               </li>
@@ -209,8 +207,7 @@
       </section>
     {/if}
 
-    {#if error}<Alert variant="critical" role="alert">{$i18n.t('settings.actionFailed')}</Alert
-      >{/if}
+    {#if error}<Alert variant="critical" role="alert">{i18n.t('settings.actionFailed')}</Alert>{/if}
   </div>
 </DialogFrame>
 

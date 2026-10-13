@@ -28,8 +28,8 @@
 
 <BottomSheet
   bind:open
-  label={$i18n.t('timeline.moreActions')}
-  closeLabel={$i18n.t('timeline.closeMenu')}
+  label={i18n.t('timeline.moreActions')}
+  closeLabel={i18n.t('timeline.closeMenu')}
 >
   {#if preview}
     <p class="sheet-source">{preview}</p>
@@ -51,7 +51,7 @@
           }}
         >
           <RowIcon />
-          <span>{$i18n.t(row.label)}</span>
+          <span>{i18n.t(row.label)}</span>
         </button>
       {/each}
     </div>

@@ -22,27 +22,27 @@
 <Alert
   variant="warning"
   role="region"
-  aria-label={$i18n.t('room.tombstoneBannerLabel')}
+  aria-label={i18n.t('room.tombstoneBannerLabel')}
   class="tombstone-banner"
 >
   <p class="tombstone-body">
-    {body ?? (isSpace ? $i18n.t('room.upgradeReplacedSpace') : $i18n.t('room.upgradeReplacedRoom'))}
+    {body ?? (isSpace ? i18n.t('room.upgradeReplacedSpace') : i18n.t('room.upgradeReplacedRoom'))}
   </p>
   <div class="tombstone-action">
     {#if resolved && successorId === null}
-      <p class="tombstone-unresolvable">{$i18n.t('room.tombstoneUnresolvable')}</p>
+      <p class="tombstone-unresolvable">{i18n.t('room.tombstoneUnresolvable')}</p>
     {:else if successorId !== null && joined}
       <Button onclick={onOpen}>
-        {isSpace ? $i18n.t('room.upgradeOpenSpace') : $i18n.t('room.upgradeOpenRoom')}
+        {isSpace ? i18n.t('room.upgradeOpenSpace') : i18n.t('room.upgradeOpenRoom')}
       </Button>
     {:else if successorId !== null}
       <Button loading={joining} onclick={onJoin}>
-        {isSpace ? $i18n.t('room.tombstoneJoinSpace') : $i18n.t('room.tombstoneJoinRoom')}
+        {isSpace ? i18n.t('room.tombstoneJoinSpace') : i18n.t('room.tombstoneJoinRoom')}
       </Button>
     {/if}
   </div>
   {#if failed}
-    <p class="tombstone-failed" role="alert">{$i18n.t('room.tombstoneJoinFailed')}</p>
+    <p class="tombstone-failed" role="alert">{i18n.t('room.tombstoneJoinFailed')}</p>
   {/if}
 </Alert>
 

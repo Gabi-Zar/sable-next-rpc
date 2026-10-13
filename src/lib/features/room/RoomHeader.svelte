@@ -74,17 +74,17 @@
   let inVoiceKeys = $derived(participantKeys(inVoice.map((entry) => entry.userId)));
   let voiceLabel = $derived(
     inVoice.length > 0
-      ? $i18n.t('timeline.inVoiceNames', {
+      ? i18n.t('timeline.inVoiceNames', {
           names: [...new Set(inVoice.map((entry) => entry.name))].join(', '),
         })
-      : $i18n.t('common.voiceRoom')
+      : i18n.t('common.voiceRoom')
   );
   let topicShown = $derived(topic !== null && topic.trim() !== '' && onTopic !== null);
 </script>
 
-<PanelHeader class="room-header" suffixToolbarLabel={$i18n.t('room.actionsLabel')}>
+<PanelHeader class="room-header" suffixToolbarLabel={i18n.t('room.actionsLabel')}>
   {#snippet prefix()}
-    <PanelHeaderButton class="back-button" label={$i18n.t('timeline.back')} onclick={onBack}>
+    <PanelHeaderButton class="back-button" label={i18n.t('timeline.back')} onclick={onBack}>
       <BackIcon />
     </PanelHeaderButton>
 
@@ -130,7 +130,7 @@
   {#snippet suffix()}
     <PanelHeaderButton
       class="search-button"
-      label={$i18n.t('common.searchMessages')}
+      label={i18n.t('common.searchMessages')}
       aria-pressed={searchOpen}
       onclick={onSearch}
     >
@@ -140,7 +140,7 @@
     {#if preferences.developerTools && preferences.hiddenEventsHeaderToggle}
       <PanelHeaderButton
         class="hidden-events-toggle"
-        label={$i18n.t('settings.showHiddenEvents')}
+        label={i18n.t('settings.showHiddenEvents')}
         aria-pressed={preferences.showHiddenEvents}
         onclick={() => setPreference('showHiddenEvents', !preferences.showHiddenEvents)}
       >
@@ -152,11 +152,11 @@
         class="chat-toggle"
         label={chatBeside
           ? chatOpen
-            ? $i18n.t('call.hideChat')
-            : $i18n.t('call.showChat')
+            ? i18n.t('call.hideChat')
+            : i18n.t('call.showChat')
           : chatOpen
-            ? $i18n.t('call.showCall')
-            : $i18n.t('call.showChat')}
+            ? i18n.t('call.showCall')
+            : i18n.t('call.showChat')}
         aria-pressed={chatOpen}
         onclick={onToggleChat}
       >
@@ -170,7 +170,7 @@
     {#if onCall}
       <PanelHeaderButton
         class="call-button"
-        label={inVoice.length > 0 ? $i18n.t('call.join') : $i18n.t('call.start')}
+        label={inVoice.length > 0 ? i18n.t('call.join') : i18n.t('call.start')}
         onclick={onCall}
       >
         <PhoneIcon />
@@ -180,7 +180,7 @@
       {@render actions?.()}
       <PanelHeaderButton
         class="members-button"
-        label={$i18n.t('timeline.members')}
+        label={i18n.t('timeline.members')}
         aria-pressed={membersOpen}
         onclick={onMembers}
       >

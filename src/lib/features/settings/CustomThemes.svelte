@@ -72,8 +72,8 @@
 
   function slotLabel(kind: ResolvedTheme): string {
     return kind === 'light'
-      ? $i18n.t('settings.customThemesLightSlot')
-      : $i18n.t('settings.customThemesDarkSlot');
+      ? i18n.t('settings.customThemesLightSlot')
+      : i18n.t('settings.customThemesDarkSlot');
   }
 
   function offerUndo(message: string, revert: () => void): void {
@@ -105,11 +105,11 @@
   function install(css: string, fallback: string, source?: string, activate = false): boolean {
     const parsed = parseThemeFile(css, fallback);
     if (parsed === 'size') {
-      error = $i18n.t('settings.customThemesErrorSize');
+      error = i18n.t('settings.customThemesErrorSize');
       return false;
     }
     if (parsed === 'header') {
-      error = $i18n.t('settings.customThemesErrorHeader');
+      error = i18n.t('settings.customThemesErrorHeader');
       return false;
     }
     if (parsed.kind === 'tweak') {
@@ -204,7 +204,7 @@
     error = null;
     for (const file of files) {
       if (!isThemeFileName(file.name)) {
-        error = $i18n.t('settings.customThemesErrorChoose');
+        error = i18n.t('settings.customThemesErrorChoose');
         continue;
       }
       install(await file.text(), themeFileBaseName(file.name));
@@ -311,14 +311,14 @@
     <div
       class="mode-choices"
       role="radiogroup"
-      aria-label={$i18n.t('setup.appearanceTitle')}
+      aria-label={i18n.t('setup.appearanceTitle')}
       tabindex={-1}
       onkeydown={moveMode}
     >
       {#each SLOTS as slot (slot)}
         {@const theme = customThemes.themes.find((item) => item.id === selectedCustomThemeId(slot))}
         <ThemeTile
-          name={$i18n.t(slot === 'light' ? 'common.light' : 'common.dark')}
+          name={i18n.t(slot === 'light' ? 'common.light' : 'common.dark')}
           swatches={theme ? themeSwatches(theme.css) : DEFAULT_THEME_SWATCHES[slot]}
           radius={theme ? themeRadius(theme.css) : undefined}
           innerRadius={theme ? themeRadius(theme.css, 'radius-inner') : undefined}
@@ -329,19 +329,19 @@
       {/each}
     </div>
   {:else}
-    <p class="themes-hint">{$i18n.t('settings.customThemesSlotsHint')}</p>
+    <p class="themes-hint">{i18n.t('settings.customThemesSlotsHint')}</p>
     {#each SLOTS as slot (slot)}
       {@const themes = themesForSlot(slot)}
       {@const selected = selectedCustomThemeId(slot)}
       {@const slotName =
         slot === 'light'
-          ? $i18n.t('settings.customThemesLightSlot')
-          : $i18n.t('settings.customThemesDarkSlot')}
+          ? i18n.t('settings.customThemesLightSlot')
+          : i18n.t('settings.customThemesDarkSlot')}
       <div class="slot">
         <div class="slot-head">
           <span class="slot-name" id={`theme-slot-${slot}`}>{slotName}</span>
           {#if showing === slot}
-            <StatusBadge variant="primary" label={$i18n.t('settings.themeShowingNow')} />
+            <StatusBadge variant="primary" label={i18n.t('settings.themeShowingNow')} />
           {/if}
         </div>
         <ul
@@ -355,7 +355,7 @@
         >
           <li role="none">
             <ThemeTile
-              name={$i18n.t('settings.themeSableDefault')}
+              name={i18n.t('settings.themeSableDefault')}
               swatches={DEFAULT_THEME_SWATCHES[slot]}
               selected={selected === null}
               tabindex={selected === null ? 0 : -1}
@@ -383,7 +383,7 @@
                     variant="ghost"
                     size="small"
                     tabindex={-1}
-                    label={$i18n.t('settings.customThemesRemove', { name: theme.name })}
+                    label={i18n.t('settings.customThemesRemove', { name: theme.name })}
                     onclick={() => {
                       removeTheme(theme);
                     }}
@@ -407,11 +407,11 @@
       aria-expanded={catalogOpen}
       onclick={openCatalog}
     >
-      {onboarding ? $i18n.t('setup.browseThemes') : $i18n.t('settings.themeCatalogTitle')}
+      {onboarding ? i18n.t('setup.browseThemes') : i18n.t('settings.themeCatalogTitle')}
     </Button>
     {#if !onboarding}
       <Button variant="secondary" onclick={() => void importTheme()}>
-        {$i18n.t('settings.customThemesImport')}
+        {i18n.t('settings.customThemesImport')}
       </Button>
       <input
         bind:this={picker}
@@ -436,13 +436,13 @@
               <span class="tweak-name">{tweak.name}</span>
               {#if description}<span class="tweak-detail">{description}</span>{/if}
               {#if tweaksInert}
-                <span class="tweak-note">{$i18n.t('settings.tweakNeedsTheme')}</span>
+                <span class="tweak-note">{i18n.t('settings.tweakNeedsTheme')}</span>
               {/if}
             </span>
             <IconButton
               variant="ghost"
               size="small"
-              label={$i18n.t('settings.customThemesRemove', { name: tweak.name })}
+              label={i18n.t('settings.customThemesRemove', { name: tweak.name })}
               onclick={() => {
                 removeTweak(tweak);
               }}

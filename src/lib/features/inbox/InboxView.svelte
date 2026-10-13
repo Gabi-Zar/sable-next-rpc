@@ -65,25 +65,25 @@
   }
 </script>
 
-<AppPageShell title={$i18n.t('nav.inbox')} density="compact">
+<AppPageShell title={i18n.t('nav.inbox')} density="compact">
   {#snippet actions()}
     <a class="bookmarks-link" href={resolve('bookmarks')} draggable="false">
       <BookmarkSimpleIcon aria-hidden="true" />
-      {$i18n.t('inbox.bookmarks')}
+      {i18n.t('inbox.bookmarks')}
     </a>
   {/snippet}
   <Tabs.Root bind:value={tab} onValueChange={selectTab} class="inbox">
-    <Tabs.List class="inbox-tabs" aria-label={$i18n.t('nav.inbox')}>
+    <Tabs.List class="inbox-tabs" aria-label={i18n.t('nav.inbox')}>
       <Tabs.Trigger value="notifications" class="inbox-tab">
-        {$i18n.t('inbox.notifications')}
+        {i18n.t('inbox.notifications')}
         <UnreadBadge counts={notificationCounts} aria-hidden="true" />
       </Tabs.Trigger>
       <Tabs.Trigger value="invites" class="inbox-tab">
-        {$i18n.t('inbox.invitesTab')}
+        {i18n.t('inbox.invitesTab')}
         <UnreadBadge counts={inviteCounts} aria-hidden="true" />
       </Tabs.Trigger>
       <Tabs.Trigger value="requests" class="inbox-tab">
-        {$i18n.t('room.membersRequests')}
+        {i18n.t('room.membersRequests')}
       </Tabs.Trigger>
     </Tabs.List>
     <Tabs.Content value="notifications">
@@ -92,7 +92,7 @@
     <Tabs.Content value="invites">
       <InviteList />
       {#if pendingInvites(roomList.rooms).length === 0}
-        <p class="empty">{$i18n.t('inbox.invitesEmpty')}</p>
+        <p class="empty">{i18n.t('inbox.invitesEmpty')}</p>
       {/if}
     </Tabs.Content>
     <Tabs.Content value="requests">

@@ -68,7 +68,7 @@
       );
     } catch (cause) {
       console.warn('[sable personas] uploading the picture failed', cause);
-      error = $i18n.t('personas.saveFailed');
+      error = i18n.t('personas.saveFailed');
     } finally {
       saving = false;
     }
@@ -89,7 +89,7 @@
     event.preventDefault();
     const displayName = name.trim();
     if (displayName === '') {
-      error = $i18n.t('personas.nameRequired');
+      error = i18n.t('personas.nameRequired');
       return;
     }
 
@@ -119,16 +119,16 @@
       onOpenChange(false);
     } catch (cause) {
       console.warn('[sable personas] saving failed', cause);
-      error = $i18n.t('personas.saveFailed');
+      error = i18n.t('personas.saveFailed');
     } finally {
       saving = false;
     }
   }
 </script>
 
-<DialogFrame bind:open variant="settings" label={$i18n.t('personas.editorTitle')} {onOpenChange}>
+<DialogFrame bind:open variant="settings" label={i18n.t('personas.editorTitle')} {onOpenChange}>
   <form class="persona-editor" onsubmit={(event) => void submit(event)}>
-    <h2>{$i18n.t('personas.editorTitle')}</h2>
+    <h2>{i18n.t('personas.editorTitle')}</h2>
     {#if error}<Alert variant="critical" aria-live="polite">{error}</Alert>{/if}
 
     <div class="identity">
@@ -136,7 +136,7 @@
       <div class="identity-actions">
         <label class="file-button btn btn-secondary btn-small">
           <input type="file" accept="image/*" onchange={(event) => void pickAvatar(event)} />
-          {$i18n.t('common.chooseAPicture')}
+          {i18n.t('common.chooseAPicture')}
         </label>
         {#if avatarUrl}
           <Button
@@ -146,14 +146,14 @@
               avatarUrl = null;
             }}
           >
-            {$i18n.t('personas.avatarRemove')}
+            {i18n.t('personas.avatarRemove')}
           </Button>
         {/if}
       </div>
     </div>
 
     <label class="field">
-      <span>{$i18n.t('personas.name')}</span>
+      <span>{i18n.t('personas.name')}</span>
       <TextInput
         name="persona-name"
         bind:value={name}
@@ -161,28 +161,28 @@
         required
         maxlength={128}
       />
-      <small>{$i18n.t('personas.nameHint')}</small>
+      <small>{i18n.t('personas.nameHint')}</small>
     </label>
 
     <label class="field">
-      <span>{$i18n.t('personas.pronouns')}</span>
+      <span>{i18n.t('personas.pronouns')}</span>
       <TextInput
         name="persona-pronouns"
         bind:value={pronouns}
         autocomplete="off"
-        placeholder={$i18n.t('common.theythemEnsheher')}
+        placeholder={i18n.t('common.theythemEnsheher')}
       />
     </label>
 
     <div class="colors">
       <ColorSetting
-        label={$i18n.t('personas.colorLight')}
+        label={i18n.t('personas.colorLight')}
         bind:value={colorLight}
         onCommit={() => {}}
         onReset={() => (colorLight = '')}
       />
       <ColorSetting
-        label={$i18n.t('personas.colorDark')}
+        label={i18n.t('personas.colorDark')}
         bind:value={colorDark}
         onCommit={() => {}}
         onReset={() => (colorDark = '')}
@@ -190,12 +190,12 @@
     </div>
 
     <fieldset class="triggers">
-      <legend>{$i18n.t('personas.triggers')}</legend>
-      <p>{$i18n.t('personas.triggersHint')}</p>
+      <legend>{i18n.t('personas.triggers')}</legend>
+      <p>{i18n.t('personas.triggersHint')}</p>
       {#each triggers as trigger, index (trigger.id)}
         <div class="trigger-row">
           <label class="field">
-            <span>{$i18n.t('personas.triggerPrefix')}</span>
+            <span>{i18n.t('personas.triggerPrefix')}</span>
             <TextInput
               name={`persona-trigger-prefix-${String(index)}`}
               value={trigger.prefix ?? ''}
@@ -209,7 +209,7 @@
             />
           </label>
           <label class="field">
-            <span>{$i18n.t('personas.triggerSuffix')}</span>
+            <span>{i18n.t('personas.triggerSuffix')}</span>
             <TextInput
               name={`persona-trigger-suffix-${String(index)}`}
               value={trigger.suffix ?? ''}
@@ -223,7 +223,7 @@
             />
           </label>
           <label class="field wrap">
-            <span>{$i18n.t('personas.triggerKeep')}</span>
+            <span>{i18n.t('personas.triggerKeep')}</span>
             <Switch
               label=""
               checked={trigger.keep_trigger}
@@ -236,7 +236,7 @@
             <IconButton
               variant="subtle"
               size="small"
-              label={$i18n.t('personas.triggerRemove')}
+              label={i18n.t('personas.triggerRemove')}
               onclick={() => {
                 removeTrigger(index);
               }}
@@ -248,7 +248,7 @@
       {/each}
       <Button variant="secondary" size="small" onclick={addTrigger}>
         <PlusIcon />
-        {$i18n.t('personas.triggerAdd')}
+        {i18n.t('personas.triggerAdd')}
       </Button>
     </fieldset>
 
@@ -259,9 +259,9 @@
           onOpenChange(false);
         }}
       >
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
-      <Button type="submit" loading={saving}>{$i18n.t('common.save')}</Button>
+      <Button type="submit" loading={saving}>{i18n.t('common.save')}</Button>
     </DialogActions>
   </form>
 </DialogFrame>

@@ -12,7 +12,7 @@
 </script>
 
 <svelte:head>
-  <title>{space?.name ?? $i18n.t('nav.lobby')} - Sable</title>
+  <title>{space?.name ?? i18n.t('nav.lobby')} - Sable</title>
 </svelte:head>
 
 <main class="lobby-page">

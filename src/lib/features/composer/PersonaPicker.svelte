@@ -77,8 +77,8 @@
   let shown = $derived(edit ? edit.current : active);
   let label = $derived(
     shown
-      ? $i18n.t('personas.sendingAs', { name: shown.display_name })
-      : $i18n.t('personas.pickerLabel')
+      ? i18n.t('personas.sendingAs', { name: shown.display_name })
+      : i18n.t('personas.pickerLabel')
   );
   let editOpen = $state(false);
 
@@ -103,7 +103,7 @@
     open = false;
     personas.select(scopeTarget, persona?.id ?? null).catch((cause: unknown) => {
       console.warn('[sable personas] the selection could not be saved', cause);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     });
   }
 
@@ -112,7 +112,7 @@
     if (scopeTarget === null) return;
     personas.disable(scopeTarget).catch((cause: unknown) => {
       console.warn('[sable personas] the selection could not be saved', cause);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     });
   }
 </script>
@@ -225,8 +225,8 @@
   </IconButton>
   <BottomSheet
     bind:open
-    label={$i18n.t('personas.pickerLabel')}
-    closeLabel={$i18n.t('common.cancel')}
+    label={i18n.t('personas.pickerLabel')}
+    closeLabel={i18n.t('common.cancel')}
     onOpenChange={handleOpenChange}
   >
     <PersonaMenu

@@ -80,7 +80,7 @@
   let spacing = $derived(preferences.messageSpacing);
 </script>
 
-<aside class="timeline-preview" aria-label={$i18n.t('settings.timelinePreview')}>
+<aside class="timeline-preview" aria-label={i18n.t('settings.timelinePreview')}>
   <div
     class={['timeline-preview-sample', `spacing-${spacing}`, `layout-${layout}`]}
     inert

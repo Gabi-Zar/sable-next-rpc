@@ -67,22 +67,22 @@
 </script>
 
 <svelte:head>
-  <title>{$i18n.t('auth.resetPasswordTitle')} - Sable</title>
+  <title>{i18n.t('auth.resetPasswordTitle')} - Sable</title>
 </svelte:head>
 
 <AuthPage
   {hasLoggedInBefore}
   status={starting || reset.step === 'checking'
-    ? $i18n.t(starting ? 'common.startingSable' : 'auth.checkingProvider')
+    ? i18n.t(starting ? 'common.startingSable' : 'auth.checkingProvider')
     : undefined}
 >
   <div class="reset-card-slot">
     <section class="auth-card-surface reset-card" aria-labelledby="reset-password-title">
-      <AuthField labelId="reset-password-title" label={$i18n.t('auth.resetPasswordTitle')}>
+      <AuthField labelId="reset-password-title" label={i18n.t('auth.resetPasswordTitle')}>
         {#if reset.step === 'form'}
           <AuthInfoBox>
             <span class="provider-name">
-              {$i18n.t('auth.resetPasswordWith', { server: homeserver })}
+              {i18n.t('auth.resetPasswordWith', { server: homeserver })}
             </span>
           </AuthInfoBox>
         {/if}
@@ -90,26 +90,26 @@
 
       {#if reset.step === 'unavailable'}
         <div class="reset-step" aria-live="polite">
-          <h3>{$i18n.t('auth.resetPasswordUnavailable')}</h3>
-          <p>{$i18n.t('auth.resetPasswordUnavailableDescription', { server: homeserver })}</p>
+          <h3>{i18n.t('auth.resetPasswordUnavailable')}</h3>
+          <p>{i18n.t('auth.resetPasswordUnavailableDescription', { server: homeserver })}</p>
         </div>
       {:else if reset.step === 'email-sent'}
         <div class="reset-step" aria-live="polite">
-          <h3>{$i18n.t('auth.checkYourEmail')}</h3>
+          <h3>{i18n.t('auth.checkYourEmail')}</h3>
           <p>
-            {$i18n.t('auth.resetPasswordCheckEmailDescription', { email: reset.sentTo })}
+            {i18n.t('auth.resetPasswordCheckEmailDescription', { email: reset.sentTo })}
           </p>
           <AuthStatusSlot message={reset.error} multiline />
           <FormActions>
             <Button onclick={() => void reset.confirm()} loading={reset.isBusy} variant="primary">
-              {$i18n.t('auth.resetPasswordOpenedLink')}
+              {i18n.t('auth.resetPasswordOpenedLink')}
             </Button>
             <Button onclick={() => void reset.resend()} disabled={reset.isBusy}>
-              {$i18n.t('auth.resendEmail')}
+              {i18n.t('auth.resendEmail')}
             </Button>
           </FormActions>
           <AuthSecondaryAction
-            label={$i18n.t('auth.useDifferentEmail')}
+            label={i18n.t('auth.useDifferentEmail')}
             disabled={reset.isBusy}
             onclick={() => {
               reset.startOver();
@@ -118,11 +118,11 @@
         </div>
       {:else if reset.step === 'complete'}
         <div class="reset-step" aria-live="polite">
-          <h3>{$i18n.t('auth.passwordResetComplete')}</h3>
-          <p>{$i18n.t('auth.passwordResetCompleteDescription')}</p>
+          <h3>{i18n.t('auth.passwordResetComplete')}</h3>
+          <p>{i18n.t('auth.passwordResetCompleteDescription')}</p>
           <FormActions>
             <Button onclick={backToSignIn} variant="primary">
-              {$i18n.t('auth.backToSignIn')}
+              {i18n.t('auth.backToSignIn')}
             </Button>
           </FormActions>
         </div>
@@ -135,7 +135,7 @@
             void submit();
           }}
         >
-          <FormField dense fieldId="reset-email" label={$i18n.t('auth.email')}>
+          <FormField dense fieldId="reset-email" label={i18n.t('auth.email')}>
             <TextInput
               id="reset-email"
               type="email"
@@ -150,7 +150,7 @@
               }}
             />
           </FormField>
-          <FormField dense fieldId="reset-password" label={$i18n.t('auth.newPassword')}>
+          <FormField dense fieldId="reset-password" label={i18n.t('auth.newPassword')}>
             <PasswordField
               id="reset-password"
               value={reset.password}
@@ -166,7 +166,7 @@
           <FormField
             dense
             fieldId="reset-confirm-password"
-            label={$i18n.t('auth.confirmNewPassword')}
+            label={i18n.t('auth.confirmNewPassword')}
           >
             <PasswordField
               id="reset-confirm-password"
@@ -181,18 +181,18 @@
             />
           </FormField>
           <div class="logout-row">
-            <span>{$i18n.t('auth.signOutAllDevices')}</span>
+            <span>{i18n.t('auth.signOutAllDevices')}</span>
             <Switch
               bind:checked={reset.logoutDevices}
               disabled={reset.isBusy}
-              label={$i18n.t('auth.signOutAllDevices')}
+              label={i18n.t('auth.signOutAllDevices')}
             />
           </div>
           <div class="submit-area">
             <AuthStatusSlot id={errorId} message={reset.fieldError ?? reset.error} multiline />
             <FormActions>
               <Button type="submit" loading={reset.isBusy} variant="primary">
-                {$i18n.t('auth.sendResetEmail')}
+                {i18n.t('auth.sendResetEmail')}
               </Button>
             </FormActions>
           </div>
@@ -202,9 +202,9 @@
 
     {#if reset.step !== 'complete'}
       <div class="account-switch">
-        <span>{$i18n.t('auth.rememberPassword')}</span>
+        <span>{i18n.t('auth.rememberPassword')}</span>
         <button class="account-switch-button" type="button" onclick={backToSignIn}>
-          {$i18n.t('auth.backToSignIn')}
+          {i18n.t('auth.backToSignIn')}
         </button>
       </div>
     {/if}

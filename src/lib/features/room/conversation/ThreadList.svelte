@@ -69,7 +69,7 @@
 {#snippet body()}
   <aside
     class={['thread-list', { modal }]}
-    aria-label={$i18n.t('timeline.threadsTitle')}
+    aria-label={i18n.t('timeline.threadsTitle')}
     style:width={modal ? null : `${panelWidth.width}rem`}
   >
     {#if !modal}
@@ -77,7 +77,7 @@
         value={panelWidth.width}
         min={panelWidth.min}
         max={panelWidth.max}
-        label={$i18n.t('timeline.threadsResize')}
+        label={i18n.t('timeline.threadsResize')}
         grow="left"
         step={1}
         fromPixels={remFromPixels}
@@ -85,12 +85,12 @@
         onCommit={() => panelWidth.commit()}
       />
     {/if}
-    <PanelHeader class="thread-list-header" title={$i18n.t('timeline.threadsTitle')}>
+    <PanelHeader class="thread-list-header" title={i18n.t('timeline.threadsTitle')}>
       {#snippet prefix()}
         <ChatsIcon aria-hidden="true" />
       {/snippet}
       {#snippet suffix()}
-        <PanelHeaderButton label={$i18n.t('timeline.threadsClose')} onclick={onClose}>
+        <PanelHeaderButton label={i18n.t('timeline.threadsClose')} onclick={onClose}>
           <XIcon />
         </PanelHeaderButton>
       {/snippet}
@@ -101,7 +101,7 @@
         <ul>
           {#each roots as root (root.id)}
             {@const rootId = root.event_id ?? root.id}
-            {@const threadOpenLabel = $i18n.t('timeline.threadOpen')}
+            {@const threadOpenLabel = i18n.t('timeline.threadOpen')}
             <li>
               <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
               <div
@@ -128,7 +128,7 @@
                     <ThreadIcon size={14} aria-hidden="true" />
                     {#if root.thread_summary}
                       <span class="thread-count">
-                        {$i18n.t('timeline.threadReplies', {
+                        {i18n.t('timeline.threadReplies', {
                           count: root.thread_summary.num_replies,
                         })}
                       </span>
@@ -145,18 +145,18 @@
           {/each}
         </ul>
       {:else if !loading && !failed}
-        <p class="thread-list-status">{$i18n.t('timeline.threadsEmpty')}</p>
+        <p class="thread-list-status">{i18n.t('timeline.threadsEmpty')}</p>
       {/if}
 
       {#if failed}
-        <p class="thread-list-status" role="alert">{$i18n.t('timeline.threadsFailed')}</p>
+        <p class="thread-list-status" role="alert">{i18n.t('timeline.threadsFailed')}</p>
       {/if}
       {#if loading}
         <div class="thread-list-loading"><Spinner small /></div>
       {:else if nextBatch !== null || failed}
         <div class="thread-list-more">
           <Button size="small" variant="secondary" onclick={() => void load(nextBatch)}>
-            {failed ? $i18n.t('common.tryAgain') : $i18n.t('timeline.threadsLoadMore')}
+            {failed ? i18n.t('common.tryAgain') : i18n.t('timeline.threadsLoadMore')}
           </Button>
         </div>
       {/if}
@@ -171,7 +171,7 @@
       if (!open) onClose();
     }}
     variant="drawer"
-    label={$i18n.t('timeline.threadsTitle')}
+    label={i18n.t('timeline.threadsTitle')}
   >
     {@render body()}
   </DialogFrame>

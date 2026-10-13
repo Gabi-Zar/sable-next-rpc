@@ -65,7 +65,7 @@
               onclick={row.run}
             >
               <RowIcon />
-              <span>{$i18n.t(row.label)}</span>
+              <span>{i18n.t(row.label)}</span>
             </ContextMenu.Item>
           {/each}
         </IconContext>

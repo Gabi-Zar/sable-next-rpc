@@ -35,7 +35,7 @@
 
   function label(id: ShortcutId): string {
     const shortcut = SHORTCUTS.find((candidate) => candidate.id === id);
-    return shortcut ? $i18n.t(shortcut.labelKey) : id;
+    return shortcut ? i18n.t(shortcut.labelKey) : id;
   }
 
   function capture(id: ShortcutId, event: KeyboardEvent): void {
@@ -61,21 +61,21 @@
   }
 </script>
 
-<AppPageShell title={$i18n.t('settings.keyboard')} density="compact" class="keyboard-settings-page">
+<AppPageShell title={i18n.t('settings.keyboard')} density="compact" class="keyboard-settings-page">
   <div class="keyboard-settings">
     {#if rejected}
-      <Alert variant="warning">{$i18n.t('shortcuts.conflict', { name: rejected })}</Alert>
+      <Alert variant="warning">{i18n.t('shortcuts.conflict', { name: rejected })}</Alert>
     {/if}
 
     {#each SHORTCUT_CATEGORIES as category (category.id)}
       {@const items = shortcuts.filter((shortcut) => shortcut.category === category.id)}
       <SettingsSection
-        title={$i18n.t(category.labelKey)}
+        title={i18n.t(category.labelKey)}
         headingId="shortcuts-settings-{category.id}"
       >
         <ul class="settings-rows">
           {#each items as shortcut (shortcut.id)}
-            <SettingsRow id={shortcutAnchor(shortcut.id)} title={$i18n.t(shortcut.labelKey)}>
+            <SettingsRow id={shortcutAnchor(shortcut.id)} title={i18n.t(shortcut.labelKey)}>
               <div class="binding">
                 <Button
                   size="small"
@@ -91,13 +91,13 @@
                   }}
                 >
                   {capturing === shortcut.id
-                    ? $i18n.t('shortcuts.pressKeys')
+                    ? i18n.t('shortcuts.pressKeys')
                     : formatBinding(shortcut.binding, isMac)}
                 </Button>
                 {#if isRebound(shortcut.id)}
                   <IconButton
                     variant="subtle"
-                    label={$i18n.t('shortcuts.resetOne')}
+                    label={i18n.t('shortcuts.resetOne')}
                     size="small"
                     onclick={() => {
                       resetBinding(shortcut.id);
@@ -125,7 +125,7 @@
           }}
         >
           <ArrowCounterClockwiseIcon />
-          {$i18n.t('shortcuts.resetAll')}
+          {i18n.t('shortcuts.resetAll')}
         </Button>
       </div>
     {/if}

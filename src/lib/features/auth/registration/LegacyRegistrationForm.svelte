@@ -72,7 +72,7 @@
     onStartRegistration();
   }}
 >
-  <FormField dense fieldId="registration-username" label={$i18n.t('auth.username')}>
+  <FormField dense fieldId="registration-username" label={i18n.t('auth.username')}>
     <TextInput
       id="registration-username"
       value={username}
@@ -88,11 +88,11 @@
     />
     <p id={`${errorId}-address`} class="address-hint">
       {localpart && serverName
-        ? $i18n.t('auth.addressPreview', { address: `@${localpart}:${serverName}` })
-        : $i18n.t('auth.addressExplained')}
+        ? i18n.t('auth.addressPreview', { address: `@${localpart}:${serverName}` })
+        : i18n.t('auth.addressExplained')}
     </p>
   </FormField>
-  <FormField dense fieldId="registration-password" label={$i18n.t('auth.password')}>
+  <FormField dense fieldId="registration-password" label={i18n.t('auth.password')}>
     <PasswordField
       id="registration-password"
       value={password}
@@ -106,7 +106,7 @@
       }}
     />
   </FormField>
-  <FormField dense fieldId="registration-confirm-password" label={$i18n.t('auth.confirmPassword')}>
+  <FormField dense fieldId="registration-confirm-password" label={i18n.t('auth.confirmPassword')}>
     <PasswordField
       id="registration-confirm-password"
       value={confirmPassword}
@@ -124,7 +124,7 @@
     <FormField
       dense
       fieldId="registration-email"
-      label={$i18n.t(emailRequirement === 'required' ? 'auth.email' : 'auth.emailOptional')}
+      label={i18n.t(emailRequirement === 'required' ? 'auth.email' : 'auth.emailOptional')}
     >
       <TextInput
         id="registration-email"
@@ -146,7 +146,7 @@
     <FormField
       dense
       fieldId="registration-token"
-      label={$i18n.t(
+      label={i18n.t(
         tokenRequirement === 'required'
           ? 'auth.registrationToken'
           : 'auth.registrationTokenOptional'
@@ -154,7 +154,7 @@
     >
       {#snippet labelSuffix()}
         <Tooltip
-          label={$i18n.t(
+          label={i18n.t(
             tokenRequirement === 'required'
               ? 'auth.registrationTokenRequiredExplanation'
               : 'auth.registrationTokenOptionalExplanation'
@@ -185,7 +185,7 @@
         disabled={isCheckingHomeserver}
         variant="primary"
       >
-        {$i18n.t('auth.createServerAccount', { server: serverLabel })}
+        {i18n.t('auth.createServerAccount', { server: serverLabel })}
       </Button>
     </FormActions>
   </div>

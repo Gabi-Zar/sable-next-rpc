@@ -25,15 +25,15 @@
 
 <ConfirmDialog
   bind:open
-  title={$i18n.t('composer.spoilerTitle')}
-  description={$i18n.t('composer.spoilerExplain')}
-  confirmLabel={$i18n.t('composer.spoilerApply')}
+  title={i18n.t('composer.spoilerTitle')}
+  description={i18n.t('composer.spoilerExplain')}
+  confirmLabel={i18n.t('composer.spoilerApply')}
   confirmVariant="secondary"
-  cancelLabel={$i18n.t('common.cancel')}
+  cancelLabel={i18n.t('common.cancel')}
   onConfirm={apply}
   onCancel={cancel}
 >
-  <FormField fieldId="composer-spoiler-reason" label={$i18n.t('composer.spoilerReason')}>
+  <FormField fieldId="composer-spoiler-reason" label={i18n.t('composer.spoilerReason')}>
     <TextInput id="composer-spoiler-reason" bind:value={draft} autocomplete="off" />
   </FormField>
 </ConfirmDialog>

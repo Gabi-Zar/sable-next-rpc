@@ -57,16 +57,16 @@
 <DialogFrame
   bind:open
   variant="verification"
-  label={$i18n.t('emotes.stealTitle')}
+  label={i18n.t('emotes.stealTitle')}
   onConfirm={() => {
     void add();
   }}
 >
   <div class="steal">
-    <h2>{$i18n.t('emotes.stealTitle')}</h2>
-    <p class="explain">{$i18n.t('emotes.stealExplain')}</p>
+    <h2>{i18n.t('emotes.stealTitle')}</h2>
+    <p class="explain">{i18n.t('emotes.stealExplain')}</p>
     {#if failed}
-      <Alert variant="critical" role="alert">{$i18n.t('emotes.stealFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('emotes.stealFailed')}</Alert>
     {/if}
 
     <ul class="candidates" {@attach scrollHint}>
@@ -75,7 +75,7 @@
           <MediaImage source={candidate.source} alt="" width={32} height={32} original />
           <TextInput
             value={names[candidate.source] ?? candidate.shortcode}
-            aria-label={$i18n.t('emotes.shortcode')}
+            aria-label={i18n.t('emotes.shortcode')}
             disabled={busy}
             oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
               names = { ...names, [candidate.source]: event.currentTarget.value };
@@ -94,10 +94,10 @@
           open = false;
         }}
       >
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
       <Button type="submit" variant="primary" disabled={busy || !ready} loading={busy}>
-        {$i18n.t('common.add')}
+        {i18n.t('common.add')}
       </Button>
     </DialogActions>
   </div>

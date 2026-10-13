@@ -80,13 +80,13 @@
   let memberListSaving = $state(false);
   let memberListFailed = $state(false);
   let memberListChoices = $derived([
-    { value: 'default', label: $i18n.t('room.memberListDefault') },
+    { value: 'default', label: i18n.t('room.memberListDefault') },
     ...[...new Set([...roleLevels, ...(alwaysListedFrom === null ? [] : [alwaysListedFrom])])]
       .filter((level) => level >= 0)
       .sort((left, right) => right - left)
       .map((level) => ({
         value: String(level),
-        label: $i18n.t('room.memberListFrom', { role: levelLabel(level) }),
+        label: i18n.t('room.memberListFrom', { role: levelLabel(level) }),
       })),
   ]);
 
@@ -238,7 +238,7 @@
     const tag = tagForLevel(roleTags, level);
     if (tag) return tag.name;
     const known = namedLevels.find((entry) => entry.level === level);
-    return known ? $i18n.t(known.label) : String(level);
+    return known ? i18n.t(known.label) : String(level);
   }
 
   function options(current: number): { value: string; label: string; disabled?: boolean }[] {
@@ -304,9 +304,9 @@
       const levelInput = parsePowerLevelInput(roleLevelDraft, ownLevel);
       if (!levelInput.valid) {
         const messages = {
-          'not-a-number': $i18n.t('room.permLevelNumberInvalid'),
-          'out-of-range': $i18n.t('room.permLevelNumberOutOfRange'),
-          'exceeds-own': $i18n.t('room.permLevelNumberExceedsOwn'),
+          'not-a-number': i18n.t('room.permLevelNumberInvalid'),
+          'out-of-range': i18n.t('room.permLevelNumberOutOfRange'),
+          'exceeds-own': i18n.t('room.permLevelNumberExceedsOwn'),
         } as const;
         roleLevelError = messages[levelInput.reason];
         return;
@@ -393,20 +393,20 @@
 
 <div class="section">
   {#if failed}
-    <Alert variant="critical" role="alert">{$i18n.t('room.permFailed')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('room.permFailed')}</Alert>
   {/if}
 
   {#if loading && levels === null}
     <p class="settings-status" role="status"><Spinner small /></p>
   {:else if levels}
     {#if !canEdit}
-      <Alert variant="info" role="status">{$i18n.t('room.permReadOnly')}</Alert>
+      <Alert variant="info" role="status">{i18n.t('room.permReadOnly')}</Alert>
     {/if}
     {#if founders.length > 0}
       <SettingsSection
         headingId="room-perm-founders"
-        title={$i18n.t('room.permFounders')}
-        description={$i18n.t('room.permFoundersHint')}
+        title={i18n.t('room.permFounders')}
+        description={i18n.t('room.permFoundersHint')}
       >
         <ul class="settings-rows">
           {#each founders as founder (founder)}
@@ -424,7 +424,7 @@
       </SettingsSection>
     {/if}
 
-    <SettingsSection headingId="room-perm-roles" title={$i18n.t('room.permRoles')}>
+    <SettingsSection headingId="room-perm-roles" title={i18n.t('room.permRoles')}>
       <ul class="settings-rows">
         {#each roleLevels as level (level)}
           {@const tag = tagForLevel(roleTags, level)}
@@ -440,7 +440,7 @@
             <IconButton
               variant="subtle"
               size="small"
-              label={$i18n.t('room.permRolePeek', { role: levelLabel(level) })}
+              label={i18n.t('room.permRolePeek', { role: levelLabel(level) })}
               aria-expanded={peekLevel === level}
               onclick={() => {
                 peekLevel = peekLevel === level ? null : level;
@@ -452,7 +452,7 @@
               <IconButton
                 variant="subtle"
                 size="small"
-                label={$i18n.t('room.permRoleEdit')}
+                label={i18n.t('room.permRoleEdit')}
                 disabled={saving}
                 onclick={() => startEditRole(level)}
               >
@@ -464,7 +464,7 @@
             <li class="settings-form peek">
               {#each groups as group (group.label)}
                 <div class="peek-group">
-                  <p class="peek-title">{$i18n.t(group.label)}</p>
+                  <p class="peek-title">{i18n.t(group.label)}</p>
                   <ul class="peek-items">
                     {#each group.items as item (item.label)}
                       {@const allowed = levelAt(levels, item.location) <= level}
@@ -472,9 +472,9 @@
                         {#if allowed}<CheckIcon aria-hidden="true" />{:else}<XIcon
                             aria-hidden="true"
                           />{/if}
-                        <span>{$i18n.t(item.label)}</span>
+                        <span>{i18n.t(item.label)}</span>
                         <span class="screen-reader-only">
-                          {allowed ? $i18n.t('room.permAllowed') : $i18n.t('room.permDenied')}
+                          {allowed ? i18n.t('room.permAllowed') : i18n.t('room.permDenied')}
                         </span>
                       </li>
                     {/each}
@@ -487,7 +487,7 @@
         {#if canEditRoles}
           <li class="settings-form role-add-row">
             <Button variant="secondary" onclick={startAddRole} disabled={saving}>
-              {$i18n.t('room.permRoleAdd')}
+              {i18n.t('room.permRoleAdd')}
             </Button>
           </li>
         {/if}
@@ -495,7 +495,7 @@
     </SettingsSection>
 
     {#if editingRole}
-      <SettingsSection headingId="room-perm-role-editor" title={$i18n.t('room.permRoleEdit')}>
+      <SettingsSection headingId="room-perm-role-editor" title={i18n.t('room.permRoleEdit')}>
         <form
           class="settings-form"
           {@attach revealRoleEditor}
@@ -505,10 +505,10 @@
           }}
         >
           {#if roleFailed}
-            <Alert variant="critical" role="alert">{$i18n.t('room.permFailed')}</Alert>
+            <Alert variant="critical" role="alert">{i18n.t('room.permFailed')}</Alert>
           {/if}
           {#if editingNewRole}
-            <FormField fieldId="room-perm-role-level" label={$i18n.t('room.permRoleLevel')}>
+            <FormField fieldId="room-perm-role-level" label={i18n.t('room.permRoleLevel')}>
               <TextInput
                 id="room-perm-role-level"
                 inputmode="numeric"
@@ -519,15 +519,15 @@
               {#if roleLevelError}<p class="number-error" role="alert">{roleLevelError}</p>{/if}
             </FormField>
           {/if}
-          <FormField fieldId="room-perm-role-name" label={$i18n.t('room.permRoleName')}>
+          <FormField fieldId="room-perm-role-name" label={i18n.t('room.permRoleName')}>
             <TextInput id="room-perm-role-name" bind:value={roleNameDraft} required />
           </FormField>
-          <FormField fieldId="room-perm-role-color" label={$i18n.t('room.permRoleColor')}>
+          <FormField fieldId="room-perm-role-color" label={i18n.t('room.permRoleColor')}>
             <div class="color-field">
               <input
                 class="color-picker"
                 type="color"
-                aria-label={$i18n.t('room.permRoleColorPick')}
+                aria-label={i18n.t('room.permRoleColorPick')}
                 value={pickedColor}
                 oninput={(event) => {
                   roleColorDraft = event.currentTarget.value;
@@ -537,11 +537,11 @@
                 id="room-perm-role-color"
                 class="color-text"
                 bind:value={roleColorDraft}
-                placeholder={$i18n.t('room.permRoleColorHint')}
+                placeholder={i18n.t('room.permRoleColorHint')}
               />
             </div>
           </FormField>
-          <FormField fieldId="room-perm-role-icon" label={$i18n.t('room.permRoleIcon')}>
+          <FormField fieldId="room-perm-role-icon" label={i18n.t('room.permRoleIcon')}>
             <div class="icon-field">
               <span class="icon-preview" aria-hidden="true">
                 {#if roleIconDraft}<RoleTagIcon icon={roleIconDraft} />{/if}
@@ -554,14 +554,14 @@
                 autocomplete="off"
               />
               <ReactionPicker
-                label={$i18n.t('room.permRoleIconPick')}
+                label={i18n.t('room.permRoleIconPick')}
                 roomId={roomId ?? ''}
                 triggerClass="btn btn-secondary btn-small"
                 onPick={(key: string) => {
                   roleIconDraft = key;
                 }}
               >
-                {$i18n.t('room.permRoleIconPick')}
+                {i18n.t('room.permRoleIconPick')}
               </ReactionPicker>
               <Button
                 type="button"
@@ -570,7 +570,7 @@
                 loading={iconUploading}
                 onclick={() => iconInput?.click()}
               >
-                {$i18n.t('room.permRoleIconUpload')}
+                {i18n.t('room.permRoleIconUpload')}
               </Button>
               {#if roleIconDraft}
                 <Button
@@ -581,7 +581,7 @@
                     roleIconDraft = '';
                   }}
                 >
-                  {$i18n.t('room.permRoleIconClear')}
+                  {i18n.t('room.permRoleIconClear')}
                 </Button>
               {/if}
               <input
@@ -605,29 +605,29 @@
                 }}
                 disabled={roleSaving}
               >
-                {$i18n.t('room.permRoleRemove')}
+                {i18n.t('room.permRoleRemove')}
               </Button>
             {/if}
             <Button type="button" variant="ghost" onclick={cancelEditRole} disabled={roleSaving}>
-              {$i18n.t('common.cancel')}
+              {i18n.t('common.cancel')}
             </Button>
             <Button type="submit" loading={roleSaving} disabled={roleNameDraft.trim() === ''}>
-              {$i18n.t('common.save')}
+              {i18n.t('common.save')}
             </Button>
           </div>
         </form>
       </SettingsSection>
     {/if}
 
-    <SettingsSection headingId="room-perm-member-list" title={$i18n.t('room.memberListTitle')}>
+    <SettingsSection headingId="room-perm-member-list" title={i18n.t('room.memberListTitle')}>
       <ul class="settings-rows">
         <SettingsRow
-          title={$i18n.t('room.memberListRow')}
-          description={$i18n.t('room.memberListHint')}
+          title={i18n.t('room.memberListRow')}
+          description={i18n.t('room.memberListHint')}
         >
           <Select
             value={alwaysListedFrom === null ? 'default' : String(alwaysListedFrom)}
-            aria-label={$i18n.t('room.memberListRow')}
+            aria-label={i18n.t('room.memberListRow')}
             disabled={!canEditMemberList || memberListSaving}
             items={memberListChoices}
             onValueChange={(next: string) => void saveMemberList(next)}
@@ -636,22 +636,22 @@
       </ul>
       {#if memberListFailed}
         <div class="settings-form">
-          <Alert variant="critical" role="alert">{$i18n.t('room.memberListFailed')}</Alert>
+          <Alert variant="critical" role="alert">{i18n.t('room.memberListFailed')}</Alert>
         </div>
       {/if}
     </SettingsSection>
 
     {#if canEdit && syncSpaceId}
-      <SettingsSection headingId="room-perm-sync" title={$i18n.t('room.permSyncTitle')}>
+      <SettingsSection headingId="room-perm-sync" title={i18n.t('room.permSyncTitle')}>
         <ul class="settings-rows">
           <SettingsRow
-            title={$i18n.t('room.permSyncRow', { space: spaceName(syncSpaceId) })}
-            description={$i18n.t('room.permSyncHint')}
+            title={i18n.t('room.permSyncRow', { space: spaceName(syncSpaceId) })}
+            description={i18n.t('room.permSyncHint')}
           >
             {#if syncSpaceIds.length > 1}
               <Select
                 value={syncSpaceId}
-                aria-label={$i18n.t('room.permSyncSpace')}
+                aria-label={i18n.t('room.permSyncSpace')}
                 disabled={syncing}
                 items={syncSpaceIds.map((spaceId) => ({
                   value: spaceId,
@@ -670,7 +670,7 @@
                 syncConfirm = true;
               }}
             >
-              {$i18n.t('room.permSync')}
+              {i18n.t('room.permSync')}
             </Button>
           </SettingsRow>
         </ul>
@@ -678,16 +678,16 @@
     {/if}
 
     {#if canEdit && childIds.length > 0}
-      <SettingsSection headingId="room-perm-children" title={$i18n.t('room.permChildrenTitle')}>
+      <SettingsSection headingId="room-perm-children" title={i18n.t('room.permChildrenTitle')}>
         <ul class="settings-rows">
           <SettingsRow
-            title={$i18n.t('room.permChildrenRow', { count: childIds.length })}
+            title={i18n.t('room.permChildrenRow', { count: childIds.length })}
             description={childResult
-              ? $i18n.t('room.permChildrenDone', {
+              ? i18n.t('room.permChildrenDone', {
                   count: childResult.updated,
                   skipped: childResult.skipped,
                 })
-              : $i18n.t('room.permChildrenHint')}
+              : i18n.t('room.permChildrenHint')}
           >
             <Button
               variant="secondary"
@@ -697,7 +697,7 @@
                 childConfirm = true;
               }}
             >
-              {$i18n.t('common.apply')}
+              {i18n.t('common.apply')}
             </Button>
           </SettingsRow>
         </ul>
@@ -705,16 +705,16 @@
     {/if}
 
     {#each groups as group (group.label)}
-      <SettingsSection headingId={`room-perm-${group.label}`} title={$i18n.t(group.label)}>
+      <SettingsSection headingId={`room-perm-${group.label}`} title={i18n.t(group.label)}>
         <ul class="settings-rows">
           {#each group.items as item (item.label)}
             {@const level = levelAt(levels, item.location)}
             {@const tag = tagForLevel(roleTags, level)}
-            <SettingsRow title={$i18n.t(item.label)}>
+            <SettingsRow title={i18n.t(item.label)}>
               {#if canEdit && level <= ownLevel}
                 <Select
                   value={String(level)}
-                  aria-label={$i18n.t(item.label)}
+                  aria-label={i18n.t(item.label)}
                   disabled={saving}
                   items={options(level)}
                   onValueChange={(next: string) => {
@@ -744,28 +744,28 @@
 
 <ConfirmDialog
   bind:open={syncConfirm}
-  title={$i18n.t('room.permSyncConfirm', { space: syncSpaceId ? spaceName(syncSpaceId) : '' })}
-  description={$i18n.t('room.permSyncConfirmHint')}
-  confirmLabel={$i18n.t('room.permSync')}
+  title={i18n.t('room.permSyncConfirm', { space: syncSpaceId ? spaceName(syncSpaceId) : '' })}
+  description={i18n.t('room.permSyncConfirmHint')}
+  confirmLabel={i18n.t('room.permSync')}
   busy={syncing}
-  error={syncFailed ? $i18n.t('room.permFailed') : null}
+  error={syncFailed ? i18n.t('room.permFailed') : null}
   onConfirm={() => void syncFromSpace()}
 />
 
 <ConfirmDialog
   bind:open={childConfirm}
-  title={$i18n.t('room.permChildrenConfirm', { count: childIds.length })}
-  description={$i18n.t('room.permSyncConfirmHint')}
-  confirmLabel={$i18n.t('common.apply')}
+  title={i18n.t('room.permChildrenConfirm', { count: childIds.length })}
+  description={i18n.t('room.permSyncConfirmHint')}
+  confirmLabel={i18n.t('common.apply')}
   busy={childSyncing}
   onConfirm={() => void syncChildren()}
 />
 
 <ConfirmDialog
   bind:open={roleRemoveConfirm}
-  title={$i18n.t('room.permRoleRemoveConfirm')}
-  description={$i18n.t('room.permRoleRemoveHint')}
-  confirmLabel={$i18n.t('room.permRoleRemove')}
+  title={i18n.t('room.permRoleRemoveConfirm')}
+  description={i18n.t('room.permRoleRemoveHint')}
+  confirmLabel={i18n.t('room.permRoleRemove')}
   busy={roleSaving}
   onConfirm={() => void confirmRemoveRole()}
 />

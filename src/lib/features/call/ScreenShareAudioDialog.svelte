@@ -47,20 +47,20 @@
   let options = $derived([
     {
       value: 'none' as const,
-      label: $i18n.t('call.screenAudioNone'),
-      hint: $i18n.t('call.screenAudioNoneHint'),
+      label: i18n.t('call.screenAudioNone'),
+      hint: i18n.t('call.screenAudioNoneHint'),
       icon: SpeakerSlashIcon,
     },
     {
       value: 'system' as const,
-      label: $i18n.t('call.screenAudioSystem'),
-      hint: $i18n.t('call.screenAudioSystemHint'),
+      label: i18n.t('call.screenAudioSystem'),
+      hint: i18n.t('call.screenAudioSystemHint'),
       icon: SpeakerHighIcon,
     },
     {
       value: 'apps' as const,
-      label: $i18n.t(many ? 'call.screenAudioApps' : 'call.screenAudioAppsOne'),
-      hint: $i18n.t(many ? 'call.screenAudioAppsHint' : 'call.screenAudioAppsOneHint'),
+      label: i18n.t(many ? 'call.screenAudioApps' : 'call.screenAudioAppsOne'),
+      hint: i18n.t(many ? 'call.screenAudioAppsHint' : 'call.screenAudioAppsOneHint'),
       icon: AppWindowIcon,
     },
   ]);
@@ -109,19 +109,19 @@
     if (!next) onCancel();
   }}
   variant="verification"
-  label={$i18n.t('call.screenAudioTitle')}
+  label={i18n.t('call.screenAudioTitle')}
   onConfirm={share}
 >
   <div class="screen-audio">
-    <h2>{$i18n.t('call.screenAudioTitle')}</h2>
+    <h2>{i18n.t('call.screenAudioTitle')}</h2>
     <Dialog.Description>
       {#snippet child({ props })}
-        <p {...props} class="explain">{$i18n.t('call.screenAudioExplain')}</p>
+        <p {...props} class="explain">{i18n.t('call.screenAudioExplain')}</p>
       {/snippet}
     </Dialog.Description>
 
     <OptionCards
-      label={$i18n.t('call.screenAudioChoice')}
+      label={i18n.t('call.screenAudioChoice')}
       {options}
       value={kind}
       onSelect={(next) => {
@@ -133,7 +133,7 @@
       <section class="apps" aria-labelledby="screen-audio-apps">
         <header>
           <h3 id="screen-audio-apps">
-            {$i18n.t(
+            {i18n.t(
               kind === 'system'
                 ? 'call.screenAudioExclude'
                 : many
@@ -144,7 +144,7 @@
           <IconButton
             variant="subtle"
             size="small"
-            label={$i18n.t('call.screenAudioRefresh')}
+            label={i18n.t('call.screenAudioRefresh')}
             {loading}
             onclick={() => void refresh()}
           >
@@ -153,12 +153,12 @@
         </header>
 
         {#if failed}
-          <Alert variant="critical" role="alert">{$i18n.t('call.screenAudioFailed')}</Alert>
+          <Alert variant="critical" role="alert">{i18n.t('call.screenAudioFailed')}</Alert>
         {/if}
         {#if loading && apps.length === 0}
-          <div class="state"><Spinner small label={$i18n.t('call.screenAudioLoading')} /></div>
+          <div class="state"><Spinner small label={i18n.t('call.screenAudioLoading')} /></div>
         {:else if apps.length === 0}
-          {#if !failed}<p class="state">{$i18n.t('call.screenAudioEmpty')}</p>{/if}
+          {#if !failed}<p class="state">{i18n.t('call.screenAudioEmpty')}</p>{/if}
         {:else}
           <ul {@attach scrollHint}>
             {#each apps as app (app)}
@@ -174,7 +174,7 @@
                   />
                   <span class="app-name">{app}</span>
                   {#if !playing.includes(app)}
-                    <span class="quiet">{$i18n.t('call.screenAudioSilent')}</span>
+                    <span class="quiet">{i18n.t('call.screenAudioSilent')}</span>
                   {/if}
                 </label>
               </li>
@@ -186,10 +186,10 @@
 
     <DialogActions>
       <Button type="button" variant="ghost" onclick={onCancel}>
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
       <Button type="submit" disabled={!ready}>
-        {$i18n.t('common.share')}
+        {i18n.t('common.share')}
       </Button>
     </DialogActions>
   </div>

@@ -57,9 +57,9 @@
   );
   let profileColor = $derived(profile?.hero_color ?? 'var(--primary-container)');
   let presenceOptions = $derived<OptionCard<PresenceView>[]>([
-    { value: 'online', label: $i18n.t('presence.online') },
-    { value: 'unavailable', label: $i18n.t('presence.unavailable') },
-    { value: 'offline', label: $i18n.t('presence.offline') },
+    { value: 'online', label: i18n.t('presence.online') },
+    { value: 'unavailable', label: i18n.t('presence.unavailable') },
+    { value: 'offline', label: i18n.t('presence.offline') },
   ]);
   let statusDraft = $state(preferences.presenceStatusMessage);
   let presenceDraft = $state<PresenceView>(preferences.presence);
@@ -115,7 +115,7 @@
       statusOpen = false;
     } catch (cause) {
       console.warn('[sable nav] saving status failed', cause);
-      statusError = $i18n.t('settings.profileSaveFailed');
+      statusError = i18n.t('settings.profileSaveFailed');
     } finally {
       statusSaving = false;
     }
@@ -139,7 +139,7 @@
       await goto(resolve('/(app)/rooms'));
     } catch (cause) {
       console.warn('[sable nav] switching account failed', cause);
-      error = $i18n.t('nav.switchAccountFailed');
+      error = i18n.t('nav.switchAccountFailed');
     } finally {
       switchingAccountId = null;
     }
@@ -155,7 +155,7 @@
       removeAccountId = null;
     } catch (cause) {
       console.warn('[sable nav] removing account failed', cause);
-      error = $i18n.t('nav.removeAccountFailed');
+      error = i18n.t('nav.removeAccountFailed');
     } finally {
       removing = false;
     }
@@ -163,7 +163,7 @@
 </script>
 
 <svelte:head>
-  <title>{$i18n.t('nav.manageAccounts')} - Sable</title>
+  <title>{i18n.t('nav.manageAccounts')} - Sable</title>
 </svelte:head>
 
 {#snippet statusBubble()}
@@ -172,7 +172,7 @@
     type="button"
     aria-haspopup="dialog"
     aria-expanded={statusOpen}
-    aria-label={`${$i18n.t('presence.setStatus')}: ${$i18n.t(`presence.${preferences.presence}`)}${ownStatus ? `, ${ownStatus}` : ''}`}
+    aria-label={`${i18n.t('presence.setStatus')}: ${i18n.t(`presence.${preferences.presence}`)}${ownStatus ? `, ${ownStatus}` : ''}`}
     onclick={() => {
       statusDraft = ownStatus;
       presenceDraft = preferences.presence;
@@ -182,22 +182,22 @@
   >
     <span class="status-bubble-presence">
       <PresenceDot presence={preferences.presence} label="" size="medium" />
-      {$i18n.t(`presence.${preferences.presence}`)}
+      {i18n.t(`presence.${preferences.presence}`)}
     </span>
     <span class={['status-bubble-text', { placeholder: !ownStatus }]}
       >{#if userStatus?.emoji}<span>{userStatus.emoji}</span>
-      {/if}{ownStatus || $i18n.t('common.whatAreYouUpTo')}</span
+      {/if}{ownStatus || i18n.t('common.whatAreYouUpTo')}</span
     >
   </button>
 {/snippet}
 
 {#snippet editProfile()}
   <Button variant="secondary" onclick={() => void goto(resolve('settings/account'))}
-    ><PencilSimpleIcon aria-hidden="true" />{$i18n.t('nav.editProfile')}</Button
+    ><PencilSimpleIcon aria-hidden="true" />{i18n.t('nav.editProfile')}</Button
   >
 {/snippet}
 
-<main class="account-manager" aria-label={$i18n.t('nav.profile')} {@attach scrollHint}>
+<main class="account-manager" aria-label={i18n.t('nav.profile')} {@attach scrollHint}>
   <div class="account-profile">
     <ProfileCard
       variant="sheet"
@@ -216,16 +216,16 @@
       actions={editProfile}
     />
     <Button variant="secondary" block onclick={() => void goto(resolve('settings'))}
-      ><GearIcon aria-hidden="true" />{$i18n.t('nav.settings')}</Button
+      ><GearIcon aria-hidden="true" />{i18n.t('nav.settings')}</Button
     >
   </div>
 
   <section class="account-list" aria-labelledby="account-list-title">
     <header class="account-list-heading">
-      <h2 id="account-list-title">{$i18n.t('nav.accounts')}</h2>
+      <h2 id="account-list-title">{i18n.t('nav.accounts')}</h2>
       {#if accountSwitching}
         <Button variant="secondary" onclick={() => void goto(resolve('login?addAccount=1'))}
-          ><PlusIcon aria-hidden="true" />{$i18n.t('common.addAccount')}</Button
+          ><PlusIcon aria-hidden="true" />{i18n.t('common.addAccount')}</Button
         >
       {/if}
     </header>
@@ -240,7 +240,7 @@
             class="account-select"
             aria-pressed={active}
             aria-busy={switchingAccountId === account.account_id}
-            aria-label={`${$i18n.t(active ? 'nav.activeAccount' : account.needs_reauth ? 'nav.accountSignInAgain' : 'nav.switchAccount')}: ${identity.displayName}, ${account.user_id}`}
+            aria-label={`${i18n.t(active ? 'nav.activeAccount' : account.needs_reauth ? 'nav.accountSignInAgain' : 'nav.switchAccount')}: ${identity.displayName}, ${account.user_id}`}
             disabled={active || switchingAccountId !== null}
             onclick={() =>
               void (account.needs_reauth
@@ -257,15 +257,15 @@
               <span class="account-name">{identity.displayName}</span>
               <span class="account-id">{account.user_id}</span>
               {#if active}
-                <StatusBadge variant="success" label={$i18n.t('nav.activeAccount')} />
+                <StatusBadge variant="success" label={i18n.t('nav.activeAccount')} />
               {:else}
                 <span class="account-status" aria-live="polite">
                   {#if account.needs_reauth}
-                    <StatusBadge variant="neutral" label={$i18n.t('nav.accountSignedOut')} />
+                    <StatusBadge variant="neutral" label={i18n.t('nav.accountSignedOut')} />
                   {/if}
                   {#if switchingAccountId === account.account_id}<Spinner small />{/if}
                   <span
-                    >{$i18n.t(
+                    >{i18n.t(
                       switchingAccountId === account.account_id
                         ? 'nav.switchingAccount'
                         : account.needs_reauth
@@ -279,14 +279,14 @@
             {#if active}<CheckCircleIcon aria-hidden="true" />{/if}
           </Button>
           {#if !active}
-            <ActionMenu label={`${$i18n.t('common.moreOptions')}: ${account.user_id}`}>
+            <ActionMenu label={`${i18n.t('common.moreOptions')}: ${account.user_id}`}>
               {#snippet trigger({ props })}
                 <IconButton
                   {...props}
                   variant="ghost"
                   size="large"
                   class="selection-open"
-                  label={`${$i18n.t('common.moreOptions')}: ${account.user_id}`}
+                  label={`${i18n.t('common.moreOptions')}: ${account.user_id}`}
                 >
                   <DotsThreeVerticalIcon />
                 </IconButton>
@@ -298,7 +298,7 @@
                 }}
               >
                 <TrashIcon aria-hidden="true" />
-                <span>{$i18n.t('nav.removeAccount')}</span>
+                <span>{i18n.t('nav.removeAccount')}</span>
               </ActionMenuItem>
             </ActionMenu>
           {/if}
@@ -312,14 +312,14 @@
     class="sign-out"
     loading={signOut.checking}
     onclick={() => void signOut.request(() => logoutWithPush(core, pushOverride()))}
-    ><SignOutIcon aria-hidden="true" />{$i18n.t('settings.logout')}</Button
+    ><SignOutIcon aria-hidden="true" />{i18n.t('settings.logout')}</Button
   >
 </main>
 
 <BottomSheet
   bind:open={statusOpen}
-  label={$i18n.t('presence.setStatus')}
-  closeLabel={$i18n.t('common.cancel')}
+  label={i18n.t('presence.setStatus')}
+  closeLabel={i18n.t('common.cancel')}
 >
   <form
     class="status-sheet"
@@ -328,33 +328,33 @@
       void saveStatusMessage();
     }}
   >
-    <h2>{$i18n.t('presence.title')}</h2>
+    <h2>{i18n.t('presence.title')}</h2>
     <OptionCards
-      label={$i18n.t('presence.title')}
+      label={i18n.t('presence.title')}
       options={presenceOptions}
       value={presenceDraft}
       disabled={statusSaving}
       onSelect={(value) => (presenceDraft = value)}
     />
-    <FormField fieldId="presence-status-message" label={$i18n.t('presence.statusMessage')}>
+    <FormField fieldId="presence-status-message" label={i18n.t('presence.statusMessage')}>
       <TextInput
         id="presence-status-message"
         bind:value={statusDraft}
         disabled={statusSaving}
         maxlength={120}
-        placeholder={$i18n.t('common.whatAreYouUpTo')}
+        placeholder={i18n.t('common.whatAreYouUpTo')}
       />
     </FormField>
     {#if statusError}<Alert variant="critical" role="alert">{statusError}</Alert>{/if}
     <DialogActions>
       <Button variant="ghost" disabled={statusSaving} onclick={() => (statusOpen = false)}
-        >{$i18n.t('common.cancel')}</Button
+        >{i18n.t('common.cancel')}</Button
       >
       <Button
         type="submit"
         loading={statusSaving}
         disabled={statusDraft.trim() === ownStatus && presenceDraft === preferences.presence}
-        >{$i18n.t('common.save')}</Button
+        >{i18n.t('common.save')}</Button
       >
     </DialogActions>
   </form>
@@ -365,26 +365,26 @@
 <DialogFrame
   open={accountToRemove !== null}
   variant="verification"
-  label={$i18n.t('nav.removeAccountConfirm')}
+  label={i18n.t('nav.removeAccountConfirm')}
   onOpenChange={(open) => {
     if (!open && !removing) removeAccountId = null;
   }}
 >
   <div class="remove-dialog">
-    <h2>{$i18n.t('nav.removeAccountConfirm')}</h2>
+    <h2>{i18n.t('nav.removeAccountConfirm')}</h2>
     {#if accountToRemove}
       <p class="remove-account-identity">
         <strong>{accountProfiles.identity(accountToRemove.user_id).displayName}</strong>
         <span>{accountToRemove.user_id}</span>
       </p>
     {/if}
-    <p>{$i18n.t('nav.removeAccountDescription')}</p>
+    <p>{i18n.t('nav.removeAccountDescription')}</p>
     <DialogActions>
       <Button variant="ghost" disabled={removing} onclick={() => (removeAccountId = null)}
-        >{$i18n.t('common.cancel')}</Button
+        >{i18n.t('common.cancel')}</Button
       >
       <Button variant="danger" loading={removing} onclick={() => void removeAccount()}
-        >{$i18n.t('nav.removeAccount')}</Button
+        >{i18n.t('nav.removeAccount')}</Button
       >
     </DialogActions>
   </div>

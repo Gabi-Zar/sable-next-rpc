@@ -101,7 +101,7 @@
             }}
             variant="primary"
           >
-            {$i18n.t('auth.createAccountOnServer', { server: serverLabel })}
+            {i18n.t('auth.createAccountOnServer', { server: serverLabel })}
           </Button>
         </LoginMethod>
       {/if}
@@ -119,7 +119,7 @@
                   }}
                   variant="primary"
                 >
-                  {$i18n.t('auth.continueWithProvider', { name: provider.name })}
+                  {i18n.t('auth.continueWithProvider', { name: provider.name })}
                 </Button>
               {/each}
             {:else}
@@ -131,7 +131,7 @@
                 }}
                 variant="primary"
               >
-                {$i18n.t('auth.createAccountOnServer', { server: serverLabel })}
+                {i18n.t('auth.createAccountOnServer', { server: serverLabel })}
               </Button>
             {/if}
           </div>
@@ -170,8 +170,8 @@
     <AuthMethodToggle
       expanded={showAllRegistrationMethods}
       controls={methodSlotId}
-      showLabel={$i18n.t('auth.moreWaysToCreateAccount')}
-      hideLabel={$i18n.t('auth.hideOtherWaysToCreateAccount')}
+      showLabel={i18n.t('auth.moreWaysToCreateAccount')}
+      hideLabel={i18n.t('auth.hideOtherWaysToCreateAccount')}
       onToggle={() => {
         showAllRegistrationMethods = !showAllRegistrationMethods;
       }}
@@ -179,7 +179,7 @@
   {/if}
 
   {#if availableRegistrationMethodCount === 0 && !isCheckingHomeserver}
-    <p class="muted">{$i18n.t('errors.registrationUnavailable')}</p>
+    <p class="muted">{i18n.t('errors.registrationUnavailable')}</p>
   {/if}
 </div>
 

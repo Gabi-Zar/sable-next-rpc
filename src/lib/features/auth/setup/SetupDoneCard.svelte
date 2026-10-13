@@ -67,7 +67,7 @@
 </script>
 
 <div class="setup-done-card auth-card-surface">
-  <AuthField labelId="setup-done-title" label={$i18n.t('setup.doneTitle')}>
+  <AuthField labelId="setup-done-title" label={i18n.t('setup.doneTitle')}>
     <ul class="setup-done-list">
       {#each items as item (item.yes)}
         <li class={{ done: item.done }}>
@@ -76,16 +76,16 @@
           {:else}
             <CircleDashedIcon aria-hidden="true" />
           {/if}
-          {$i18n.t(item.done ? item.yes : item.no)}
+          {i18n.t(item.done ? item.yes : item.no)}
         </li>
       {/each}
     </ul>
   </AuthField>
-  <p class="setup-done-hint">{$i18n.t('setup.doneHint')}</p>
+  <p class="setup-done-hint">{i18n.t('setup.doneHint')}</p>
 
   <AuthStatusSlot />
 
-  <Button variant="primary" block onclick={onComplete}>{$i18n.t('setup.doneAction')}</Button>
+  <Button variant="primary" block onclick={onComplete}>{i18n.t('setup.doneAction')}</Button>
 </div>
 
 <style>

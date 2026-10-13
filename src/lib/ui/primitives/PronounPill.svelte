@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { i18n } from '#lib/i18n.js';
+  import { currentLocale, i18n } from '#lib/i18n.js';
   import {
     fittingPillCount,
     formatPronouns,
@@ -22,7 +22,7 @@
 
   let splitPronouns = $derived(
     visiblePronouns(pronouns, {
-      language: $i18n.resolvedLanguage ?? $i18n.language,
+      language: currentLocale(),
       filterByLanguage: preferences.filterPronounsByLanguage,
       limit: pronounPillLimit(preferences.pronounPillLimit),
       maxLength: pronounPillLength(preferences.pronounPillLength),
@@ -37,7 +37,7 @@
   let total = $derived(splitPronouns.visible.length + splitPronouns.overflow.length);
   let shown = $derived(Math.min(fitted, splitPronouns.visible.length));
   let hidden = $derived([...splitPronouns.visible.slice(shown), ...splitPronouns.overflow]);
-  let probeLabel = $derived($i18n.t('timeline.morePronouns', { count: total }));
+  let probeLabel = $derived(i18n.t('timeline.morePronouns', { count: total }));
 
   function measure() {
     if (!container || !sizer || !probe) return;
@@ -88,7 +88,7 @@
         <Tooltip label={formatPronouns(hidden)}>
           {#snippet trigger({ props })}
             <span {...props} class={['pronoun-pill', pillClass]}>
-              {$i18n.t('timeline.morePronouns', { count: hidden.length })}
+              {i18n.t('timeline.morePronouns', { count: hidden.length })}
             </span>
           {/snippet}
         </Tooltip>

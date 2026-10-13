@@ -60,12 +60,12 @@
 
   function badgeLabel(variant: SupporterVariant): string {
     if (variant === 'gold' || variant === 'custom' || variant === 'ghost' || variant === 'evil') {
-      return $i18n.t(`supporter.colors.${variant}`);
+      return i18n.t(`supporter.colors.${variant}`);
     }
     if (variant === 'paw') {
-      return $i18n.t(`supporter.designs.${variant}`);
+      return i18n.t(`supporter.designs.${variant}`);
     }
-    return $i18n.t(`settings.appIcons.${variant}`);
+    return i18n.t(`settings.appIcons.${variant}`);
   }
 
   async function update(patch: Partial<SupporterAppearance>): Promise<void> {
@@ -143,7 +143,7 @@
     <div class="card-color-settings">
       {#each keys as key (key)}
         <ColorSetting
-          label={$i18n.t(`supporter.${colorLabels[key]}`)}
+          label={i18n.t(`supporter.${colorLabels[key]}`)}
           bind:value={draft[key]}
           onCommit={() => void commitColor(key)}
           onReset={() => void commitColor(key, defaults[key])}
@@ -151,7 +151,7 @@
       {/each}
     </div>
     <SupporterBadge
-      label={$i18n.t('supporter.donor')}
+      label={i18n.t('supporter.donor')}
       name={donorName}
       isOwnBadge
       {...draft}
@@ -161,8 +161,8 @@
 {/snippet}
 
 <fieldset class="badge-picker" {disabled}>
-  <legend>{$i18n.t('supporter.chooseBadge')}</legend>
-  <p>{$i18n.t('supporter.chooseBadgeHint')}</p>
+  <legend>{i18n.t('supporter.chooseBadge')}</legend>
+  <p>{i18n.t('supporter.chooseBadgeHint')}</p>
   <div class="badge-options">
     {#each SUPPORTER_VARIANTS as variant (variant)}
       <label class={['badge-option', { selected: draft.variant === variant }]}>
@@ -181,7 +181,7 @@
         <span id={`${name}-${variant}-label`}>{badgeLabel(variant)}</span>
         {#if supportsSupporterColors(variant)}
           <small class="badge-option-customizable" id={`${name}-${variant}-colors`}
-            >{$i18n.t('supporter.customizableColors')}</small
+            >{i18n.t('supporter.customizableColors')}</small
           >
         {/if}
       </label>
@@ -189,19 +189,19 @@
   </div>
   {#if supportsSupporterColors(draft.variant)}
     <div class="custom-badge">
-      <h3>{$i18n.t('supporter.customizeBadge', { badge: badgeLabel(draft.variant) })}</h3>
-      <p>{$i18n.t('supporter.customColorHint')}</p>
+      <h3>{i18n.t('supporter.customizeBadge', { badge: badgeLabel(draft.variant) })}</h3>
+      <p>{i18n.t('supporter.customColorHint')}</p>
       <div class="custom-gradient-toggle">
         <div class="badge-background">
           <span class="custom-copy"
-            ><strong>{$i18n.t('supporter.customGradient')}</strong><small
-              >{$i18n.t('supporter.customGradientHint')}</small
+            ><strong>{i18n.t('supporter.customGradient')}</strong><small
+              >{i18n.t('supporter.customGradientHint')}</small
             ></span
           >
           <Switch
             checked={isGradient}
             {disabled}
-            label={$i18n.t('supporter.customGradient')}
+            label={i18n.t('supporter.customGradient')}
             onCheckedChange={(enabled) => void toggleGradient(enabled)}
           />
         </div>
@@ -216,7 +216,7 @@
                 <div class="gradient-stop-row">
                   <div class="gradient-stop-input">
                     <ColorSetting
-                      label={$i18n.t('supporter.colorIndex', { index: i + 1 })}
+                      label={i18n.t('supporter.colorIndex', { index: i + 1 })}
                       bind:value={draft.colors[i]}
                       onCommit={() => void commitGradientColor(i)}
                       onReset={() => {
@@ -230,7 +230,7 @@
                   </div>
                   {#if draft.colors.length > 2}
                     <IconButton
-                      label={$i18n.t('common.remove')}
+                      label={i18n.t('common.remove')}
                       size="small"
                       variant="ghost"
                       onclick={() => void removeGradientColor(i)}
@@ -244,19 +244,19 @@
             {#if (draft.colors?.length ?? 0) < MAX_SUPPORTER_GRADIENT_COLORS}
               <Button variant="secondary" size="small" onclick={() => void addGradientColor()}>
                 <PlusIcon />
-                {$i18n.t('supporter.addColor')}
+                {i18n.t('supporter.addColor')}
               </Button>
             {/if}
             <div class="gradient-angle-control">
               <div class="gradient-angle-header">
-                <span>{$i18n.t('supporter.gradientAngle')}</span>
+                <span>{i18n.t('supporter.gradientAngle')}</span>
                 <span class="gradient-angle-value">{displayAngle}°</span>
               </div>
               <Slider
                 min={0}
                 max={360}
                 step={5}
-                label={$i18n.t('supporter.gradientAngle')}
+                label={i18n.t('supporter.gradientAngle')}
                 value={displayAngle}
                 oninput={(angle) => {
                   liveAngle = angle;
@@ -269,7 +269,7 @@
             </div>
           </div>
           <SupporterBadge
-            label={$i18n.t('supporter.donor')}
+            label={i18n.t('supporter.donor')}
             name={donorName}
             isOwnBadge
             {...draft}
@@ -280,7 +280,7 @@
     </div>
   {/if}
   <fieldset class="shape-picker">
-    <legend>{$i18n.t('supporter.backgroundShape')}</legend>
+    <legend>{i18n.t('supporter.backgroundShape')}</legend>
     <div class="shape-options badge-options">
       {#each SUPPORTER_SHAPES as shape (shape)}
         <label class={['badge-option', { selected: draft.shape === shape }]}>
@@ -294,7 +294,7 @@
           <span class="badge-option-mark"
             ><SupporterMark {...draft} gradientAngle={displayAngle} {shape} /></span
           >
-          <span>{$i18n.t(`supporter.shapes.${shape}`)}</span>
+          <span>{i18n.t(`supporter.shapes.${shape}`)}</span>
         </label>
       {/each}
     </div>
@@ -302,11 +302,11 @@
   {#if draft.shape !== 'none'}
     <div class="backing-colors">
       <div class="badge-background">
-        <span>{$i18n.t('supporter.customBackground')}</span>
+        <span>{i18n.t('supporter.customBackground')}</span>
         <Switch
           checked={draft.customBackground}
           {disabled}
-          label={$i18n.t('supporter.customBackground')}
+          label={i18n.t('supporter.customBackground')}
           onCheckedChange={(customBackground) => void update({ customBackground })}
         />
       </div>
@@ -318,14 +318,14 @@
   <div class="card-colors">
     <div class="badge-background">
       <span class="custom-copy"
-        ><strong>{$i18n.t('supporter.customCardColors')}</strong><small
-          >{$i18n.t('supporter.customCardColorsHint')}</small
+        ><strong>{i18n.t('supporter.customCardColors')}</strong><small
+          >{i18n.t('supporter.customCardColorsHint')}</small
         ></span
       >
       <Switch
         checked={draft.customCardColors}
         {disabled}
-        label={$i18n.t('supporter.customCardColors')}
+        label={i18n.t('supporter.customCardColors')}
         onCheckedChange={(customCardColors) => void update({ customCardColors })}
       />
     </div>

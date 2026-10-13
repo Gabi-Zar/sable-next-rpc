@@ -43,7 +43,7 @@
 
 <form class="join-address settings-form" onsubmit={submit}>
   <div class="examples">
-    <p>{$i18n.t('room.joinExamplesLabel')}</p>
+    <p>{i18n.t('room.joinExamplesLabel')}</p>
     <ul>
       <li><code>#room:server</code></li>
       <li><code>https://matrix.to/#/#room:server</code></li>
@@ -53,8 +53,8 @@
 
   <FormField
     fieldId="join-address-input"
-    label={$i18n.t('room.joinAddressLabel')}
-    error={invalid ? $i18n.t('room.joinInvalid') : null}
+    label={i18n.t('room.joinAddressLabel')}
+    error={invalid ? i18n.t('room.joinInvalid') : null}
   >
     <TextInput
       id="join-address-input"
@@ -64,16 +64,16 @@
       spellcheck={false}
       aria-invalid={invalid}
       aria-describedby={invalid ? 'join-address-input-error' : undefined}
-      placeholder={$i18n.t('room.joinAddressPlaceholder')}
+      placeholder={i18n.t('room.joinAddressPlaceholder')}
     />
   </FormField>
 
   {#if failed}
-    <Alert variant="critical" role="alert">{$i18n.t('common.theRoomCouldNotBeJoined')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('common.theRoomCouldNotBeJoined')}</Alert>
   {/if}
 
   <Button type="submit" variant="primary" loading={joining} disabled={address.trim() === ''}>
-    {$i18n.t('common.join')}
+    {i18n.t('common.join')}
   </Button>
 </form>
 

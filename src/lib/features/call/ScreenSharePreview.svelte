@@ -60,7 +60,7 @@
   });
   const sharerProfile = new UserProfile(core, () => sharerId);
   let sharerName = $derived(sharerProfile.current?.display_name ?? null);
-  let label = $derived($i18n.t('call.screenOf', { name: sharerName ?? sharerId ?? '' }));
+  let label = $derived(i18n.t('call.screenOf', { name: sharerName ?? sharerId ?? '' }));
 
   let video = $state<HTMLVideoElement | null>(null);
   let popped = $state<'document' | 'video' | null>(null);
@@ -115,7 +115,7 @@
       player.style.cssText = 'width:100%;height:100%;object-fit:contain;min-height:0';
       const back = doc.createElement('button');
       back.type = 'button';
-      back.textContent = $i18n.t('call.returnToCall');
+      back.textContent = i18n.t('call.returnToCall');
       Object.assign(back.style, {
         cursor: 'pointer',
         font: 'inherit',
@@ -206,7 +206,7 @@
         <IconButton
           variant="ghost"
           size="small"
-          label={$i18n.t('call.popOutScreen')}
+          label={i18n.t('call.popOutScreen')}
           onclick={() =>
             void popOut().catch((error: unknown) => {
               console.warn('[sable call] could not pop out screen share', error);
@@ -218,7 +218,7 @@
       <IconButton
         variant="ghost"
         size="small"
-        label={$i18n.t('call.hideScreenPreview')}
+        label={i18n.t('call.hideScreenPreview')}
         onclick={() => {
           if (shown) dismissedPreview.key = shown.key;
         }}

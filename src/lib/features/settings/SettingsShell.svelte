@@ -93,7 +93,7 @@
 
 {#snippet currentOutline(entry: { label: string })}
   {#if outline.entries.length > 0}
-    <SettingsOutline {outline} label={$i18n.t('settings.outlineLabel', { section: entry.label })} />
+    <SettingsOutline {outline} label={i18n.t('settings.outlineLabel', { section: entry.label })} />
   {/if}
 {/snippet}
 

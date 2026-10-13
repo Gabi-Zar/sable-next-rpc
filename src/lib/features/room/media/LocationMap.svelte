@@ -92,8 +92,8 @@
   class="location-map"
   role={onPick ? 'application' : 'img'}
   aria-label={onPick
-    ? $i18n.t('composer.locationPickerAlt')
-    : $i18n.t('timeline.locationMapAlt', { label })}
+    ? i18n.t('composer.locationPickerAlt')
+    : i18n.t('timeline.locationMapAlt', { label })}
   {@attach leaflet}
 ></div>
 

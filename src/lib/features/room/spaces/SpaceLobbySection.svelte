@@ -178,9 +178,9 @@
           size="small"
         />
         <span class="section-name">{label(section.space)}</span>
-        {#if section.suggested}<span class="badge">{$i18n.t('room.lobbySuggested')}</span>{/if}
+        {#if section.suggested}<span class="badge">{i18n.t('room.lobbySuggested')}</span>{/if}
       {:else}
-        <span class="section-name">{$i18n.t('nav.rooms')}</span>
+        <span class="section-name">{i18n.t('nav.rooms')}</span>
       {/if}
       <span class={['caret', { closed }]} aria-hidden="true"><CaretDownIcon /></span>
     </Button>
@@ -198,7 +198,7 @@
             onJoin(sectionSpace, [], ownerId, spaceAction);
           }}
         >
-          <PlusIcon size={14} />{$i18n.t(
+          <PlusIcon size={14} />{i18n.t(
             knocked.has(sectionSpace.room_id)
               ? 'room.lobbyKnockSent'
               : spaceAction === 'knock'
@@ -210,13 +210,13 @@
       {#if joinErrors.has(sectionSpace.room_id)}
         <span class="room-error" role="alert">{joinErrors.get(sectionSpace.room_id)}</span>
       {/if}
-      <ActionMenu label={$i18n.t('room.menuLabel')}>
+      <ActionMenu label={i18n.t('room.menuLabel')}>
         {#snippet trigger({ props })}
           <button
             {...props}
             type="button"
             class="room-menu-trigger selection-open"
-            aria-label={$i18n.t('room.menuLabel')}
+            aria-label={i18n.t('room.menuLabel')}
           >
             <DotsThreeVerticalIcon />
           </button>
@@ -227,14 +227,14 @@
               onOpenLobby(sectionSpace.room_id);
             }}
           >
-            <HouseIcon size={16} />{$i18n.t('room.lobbyOpenSubspace')}
+            <HouseIcon size={16} />{i18n.t('room.lobbyOpenSubspace')}
           </ActionMenuItem>
           <ActionMenuItem
             onSelect={() => {
               onCopyLink(sectionSpace);
             }}
           >
-            <LinkIcon size={16} />{$i18n.t('room.menuCopyLink')}
+            <LinkIcon size={16} />{i18n.t('room.menuCopyLink')}
           </ActionMenuItem>
           {#if joinedSpace}
             <ActionMenuItem
@@ -243,9 +243,9 @@
               }}
             >
               {#if pinned}
-                <PushPinSlashIcon size={16} />{$i18n.t('nav.unpinFromSidebar')}
+                <PushPinSlashIcon size={16} />{i18n.t('nav.unpinFromSidebar')}
               {:else}
-                <PushPinIcon size={16} />{$i18n.t('nav.pinToSidebar')}
+                <PushPinIcon size={16} />{i18n.t('nav.pinToSidebar')}
               {/if}
             </ActionMenuItem>
           {/if}
@@ -258,14 +258,14 @@
                 onCreateIn(sectionSpace.room_id, 'create-room');
               }}
             >
-              <PlusIcon size={16} />{$i18n.t('nav.createRoomInSpace')}
+              <PlusIcon size={16} />{i18n.t('nav.createRoomInSpace')}
             </ActionMenuItem>
             <ActionMenuItem
               onSelect={() => {
                 onCreateIn(sectionSpace.room_id, 'create-space');
               }}
             >
-              <UsersThreeIcon size={16} />{$i18n.t('nav.createSubspace')}
+              <UsersThreeIcon size={16} />{i18n.t('nav.createSubspace')}
             </ActionMenuItem>
           {/if}
           {#if canManageOwner && section.owner_id !== null}
@@ -275,7 +275,7 @@
                 onSetSuggested(ownerId, sectionSpace.room_id, !section.suggested);
               }}
             >
-              <StarFourIcon size={16} />{$i18n.t(
+              <StarFourIcon size={16} />{i18n.t(
                 section.suggested ? 'room.lobbyUnmarkSuggested' : 'room.lobbyMarkSuggested'
               )}
             </ActionMenuItem>
@@ -284,14 +284,14 @@
                 onMoveSubspace(section, -1);
               }}
             >
-              <ArrowUpIcon size={16} />{$i18n.t('room.menuMoveUp')}
+              <ArrowUpIcon size={16} />{i18n.t('room.menuMoveUp')}
             </ActionMenuItem>
             <ActionMenuItem
               onSelect={() => {
                 onMoveSubspace(section, 1);
               }}
             >
-              <ArrowDownIcon size={16} />{$i18n.t('room.menuMoveDown')}
+              <ArrowDownIcon size={16} />{i18n.t('room.menuMoveDown')}
             </ActionMenuItem>
             <ActionMenuItem
               destructive
@@ -299,7 +299,7 @@
                 pendingSubspaceRemoval = true;
               }}
             >
-              <TrashIcon size={16} />{$i18n.t('common.remove')}
+              <TrashIcon size={16} />{i18n.t('common.remove')}
             </ActionMenuItem>
           {/if}
         </IconContext>
@@ -342,14 +342,13 @@
             <div class="room-text">
               <span class="room-name">
                 {label(child)}
-                {#if child.is_voice}<span class="badge">{$i18n.t('common.voiceRoom')}</span>{/if}
-                {#if entry.suggested}<span class="badge">{$i18n.t('room.lobbySuggested')}</span
-                  >{/if}
+                {#if child.is_voice}<span class="badge">{i18n.t('common.voiceRoom')}</span>{/if}
+                {#if entry.suggested}<span class="badge">{i18n.t('room.lobbySuggested')}</span>{/if}
               </span>
               <span class="room-meta">
                 {#if child.num_joined_members !== null}
                   <span class="members"
-                    >{$i18n.t('room.lobbyMembers', { count: child.num_joined_members })}</span
+                    >{i18n.t('room.lobbyMembers', { count: child.num_joined_members })}</span
                   >
                 {/if}
                 {#if child.topic}
@@ -373,7 +372,7 @@
                 <IconButton
                   variant="ghost"
                   size="small"
-                  label={$i18n.t('room.lobbyOpen')}
+                  label={i18n.t('room.lobbyOpen')}
                   onclick={() => {
                     onOpen(child);
                   }}
@@ -389,7 +388,7 @@
                     onJoin(child, entry.via, section.parent_id, action);
                   }}
                 >
-                  <PlusIcon size={14} />{$i18n.t(
+                  <PlusIcon size={14} />{i18n.t(
                     knocked.has(child.room_id)
                       ? 'room.lobbyKnockSent'
                       : action === 'knock'
@@ -398,13 +397,13 @@
                   )}
                 </Button>
               {/if}
-              <ActionMenu label={$i18n.t('room.menuLabel')}>
+              <ActionMenu label={i18n.t('room.menuLabel')}>
                 {#snippet trigger({ props })}
                   <button
                     {...props}
                     type="button"
                     class="room-menu-trigger selection-open"
-                    aria-label={$i18n.t('room.menuLabel')}
+                    aria-label={i18n.t('room.menuLabel')}
                   >
                     <DotsThreeVerticalIcon />
                   </button>
@@ -415,7 +414,7 @@
                       onCopyLink(child);
                     }}
                   >
-                    <LinkIcon size={16} />{$i18n.t('room.menuCopyLink')}
+                    <LinkIcon size={16} />{i18n.t('room.menuCopyLink')}
                   </ActionMenuItem>
                   {#if canManage}
                     <ActionMenuItem
@@ -423,7 +422,7 @@
                         onSetSuggested(section.parent_id, child.room_id, !entry.suggested);
                       }}
                     >
-                      <StarFourIcon size={16} />{$i18n.t(
+                      <StarFourIcon size={16} />{i18n.t(
                         entry.suggested ? 'room.lobbyUnmarkSuggested' : 'room.lobbyMarkSuggested'
                       )}
                     </ActionMenuItem>
@@ -432,19 +431,19 @@
                         onMove(section, child.room_id, -1);
                       }}
                     >
-                      <ArrowUpIcon size={16} />{$i18n.t('room.menuMoveUp')}
+                      <ArrowUpIcon size={16} />{i18n.t('room.menuMoveUp')}
                     </ActionMenuItem>
                     <ActionMenuItem
                       onSelect={() => {
                         onMove(section, child.room_id, 1);
                       }}
                     >
-                      <ArrowDownIcon size={16} />{$i18n.t('room.menuMoveDown')}
+                      <ArrowDownIcon size={16} />{i18n.t('room.menuMoveDown')}
                     </ActionMenuItem>
                     {#if otherTargets.length > 0 && canLeaveParent(child.room_id)}
-                      <ActionMenuSub label={$i18n.t('room.lobbyMoveTo')}>
+                      <ActionMenuSub label={i18n.t('room.lobbyMoveTo')}>
                         {#snippet trigger()}
-                          <ArrowsLeftRightIcon size={16} />{$i18n.t('room.lobbyMoveTo')}
+                          <ArrowsLeftRightIcon size={16} />{i18n.t('room.lobbyMoveTo')}
                         {/snippet}
                         {#each otherTargets as target (target.id)}
                           <ActionMenuItem
@@ -463,7 +462,7 @@
                         removeEntry(entry);
                       }}
                     >
-                      <TrashIcon size={16} />{$i18n.t('common.remove')}
+                      <TrashIcon size={16} />{i18n.t('common.remove')}
                     </ActionMenuItem>
                   {/if}
                 </IconContext>
@@ -477,13 +476,13 @@
       {/if}
       {#if section.failed}
         <p class="section-failed">
-          <span>{$i18n.t('room.lobbyFailed')}</span>
+          <span>{i18n.t('room.lobbyFailed')}</span>
           <Button
             variant="ghost"
             size="small"
             onclick={() => {
               onRetry(section.parent_id);
-            }}>{$i18n.t('common.retry')}</Button
+            }}>{i18n.t('common.retry')}</Button
           >
         </p>
       {/if}
@@ -496,10 +495,10 @@
   onOpenChange={(next: boolean) => {
     pendingSubspaceRemoval = next;
   }}
-  title={$i18n.t('room.lobbyRemoveConfirm', {
+  title={i18n.t('room.lobbyRemoveConfirm', {
     room: section.space ? label(section.space) : '',
   })}
-  confirmLabel={$i18n.t('common.remove')}
+  confirmLabel={i18n.t('common.remove')}
   onConfirm={() => {
     pendingSubspaceRemoval = false;
     onRemoveSubspace(section);
@@ -511,8 +510,8 @@
   onOpenChange={(next: boolean) => {
     if (!next) pendingRemoval = null;
   }}
-  title={$i18n.t('room.lobbyRemoveConfirm', { room: pendingRemoval?.label ?? '' })}
-  confirmLabel={$i18n.t('common.remove')}
+  title={i18n.t('room.lobbyRemoveConfirm', { room: pendingRemoval?.label ?? '' })}
+  confirmLabel={i18n.t('common.remove')}
   onConfirm={confirmRemoval}
 />
 

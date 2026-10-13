@@ -22,7 +22,7 @@
 {#if !granted}
   <div class="settings-form">
     <Alert variant="warning">
-      <p>{$i18n.t('settings.notificationPermission')}</p>
+      <p>{i18n.t('settings.notificationPermission')}</p>
       <Button
         variant="secondary"
         size="small"
@@ -30,7 +30,7 @@
           void grantPermission().then((allowed) => {
             granted = allowed;
           });
-        }}>{$i18n.t('common.allowNotifications')}</Button
+        }}>{i18n.t('common.allowNotifications')}</Button
       >
     </Alert>
   </div>

@@ -21,15 +21,15 @@
 
 <div class="context">
   {#if context.kind === 'edit'}
-    <span class="context-kind">{$i18n.t('composer.editing')}</span>
+    <span class="context-kind">{i18n.t('composer.editing')}</span>
   {:else if context.kind === 'schedule'}
-    <span class="context-kind">{$i18n.t('composer.editingScheduled')}</span>
+    <span class="context-kind">{i18n.t('composer.editingScheduled')}</span>
   {:else}
     <span class="context-kind context-reply">
       <span class="context-reply-icon" aria-hidden="true"><ReplyIcon /></span>
       <span class="context-sender" aria-hidden="true">{context.sender}</span>
       <span class="screen-reader-only"
-        >{$i18n.t('composer.replyingTo', { name: context.sender ?? '' })}</span
+        >{i18n.t('composer.replyingTo', { name: context.sender ?? '' })}</span
       >
     </span>
   {/if}
@@ -40,7 +40,7 @@
     <IconButton
       size="small"
       variant="ghost"
-      label={silent ? $i18n.t('composer.unmuteReply') : $i18n.t('composer.muteReply')}
+      label={silent ? i18n.t('composer.unmuteReply') : i18n.t('composer.muteReply')}
       aria-pressed={silent}
       onclick={onToggleSilentReply}
     >
@@ -51,7 +51,7 @@
       {/if}
     </IconButton>
   {/if}
-  <IconButton size="small" variant="ghost" label={$i18n.t('common.cancel')} onclick={onCancel}>
+  <IconButton size="small" variant="ghost" label={i18n.t('common.cancel')} onclick={onCancel}>
     <XIcon />
   </IconButton>
 </div>

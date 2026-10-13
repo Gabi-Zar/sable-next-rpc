@@ -67,7 +67,7 @@
     variant="ghost"
     size="small"
     class="voice-play"
-    label={playing ? $i18n.t('timeline.pauseVoiceMessage') : $i18n.t('timeline.playVoiceMessage')}
+    label={playing ? i18n.t('timeline.pauseVoiceMessage') : i18n.t('timeline.playVoiceMessage')}
     onclick={toggle}
   >
     {#if playing}
@@ -92,14 +92,14 @@
       max={SCRUB_RESOLUTION}
       value={Math.round(progress * SCRUB_RESOLUTION)}
       oninput={seek}
-      aria-label={$i18n.t('timeline.voiceMessagePosition')}
+      aria-label={i18n.t('timeline.voiceMessagePosition')}
       aria-valuetext={`${formatTime(currentTime)} / ${formatTime(duration)}`}
     />
   </div>
   <span class="voice-time">{formatTime(currentTime)}</span>
   <Pill
     class="voice-speed"
-    aria-label={$i18n.t('timeline.voiceMessageSpeed', { speed: voicePlayback.speed })}
+    aria-label={i18n.t('timeline.voiceMessageSpeed', { speed: voicePlayback.speed })}
     onclick={voicePlayback.cycleSpeed}
   >
     {voicePlayback.speed}×
@@ -119,7 +119,7 @@
       step="0.05"
       value={voicePlayback.volume}
       oninput={setVolume}
-      aria-label={$i18n.t('timeline.voiceMessageVolume')}
+      aria-label={i18n.t('timeline.voiceMessageVolume')}
     />
   </label>
   <audio

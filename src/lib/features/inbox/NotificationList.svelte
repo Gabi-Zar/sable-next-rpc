@@ -149,7 +149,7 @@
   }
 
   function emptyLabel(): string {
-    return $i18n.t(includeRead ? 'inbox.notificationsEmptyHistory' : emptyLabels[filter]);
+    return i18n.t(includeRead ? 'inbox.notificationsEmptyHistory' : emptyLabels[filter]);
   }
 
   async function selectFilter(value: NotificationFilter): Promise<void> {
@@ -157,7 +157,7 @@
     await tick();
     await feed.load(value, includeRead, size);
     announcement =
-      rows.length === 0 ? emptyLabel() : $i18n.t('inbox.filterResults', { count: rows.length });
+      rows.length === 0 ? emptyLabel() : i18n.t('inbox.filterResults', { count: rows.length });
   }
 
   function toggleRead(): void {
@@ -185,7 +185,7 @@
       });
     } catch (error) {
       console.warn('[sable inbox] marking the room read failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     } finally {
       marking.delete(roomId);
     }
@@ -212,8 +212,8 @@
       await tick();
       if (hadFocus)
         focusRowAt(section, heading, includeRead ? index : Math.min(index, groups.length - 1));
-      toasts.undoable($i18n.t('inbox.markedRead', { room: roomList.labelFor(item.room_id) }), {
-        label: $i18n.t('common.undo'),
+      toasts.undoable(i18n.t('inbox.markedRead', { room: roomList.labelFor(item.room_id) }), {
+        label: i18n.t('common.undo'),
         onUndo: () => {
           for (const candidate of covered) readNow.delete(candidate.event_id);
           markRoomUnread(item.room_id, core.rpc.timeline);
@@ -221,7 +221,7 @@
       });
     } catch (error) {
       console.warn('[sable inbox] marking the room read failed', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     } finally {
       marking.delete(item.event_id);
     }
@@ -229,8 +229,8 @@
 </script>
 
 <section aria-labelledby={headingId} aria-busy={feed.backfilling} bind:this={section}>
-  <InboxSectionHeader id={headingId} title={$i18n.t('inbox.notifications')} bind:heading>
-    <div class="filters" role="group" aria-label={$i18n.t('inbox.filterLabel')}>
+  <InboxSectionHeader id={headingId} title={i18n.t('inbox.notifications')} bind:heading>
+    <div class="filters" role="group" aria-label={i18n.t('inbox.filterLabel')}>
       {#each filters as value (value)}
         <Button
           variant="ghost"
@@ -241,12 +241,12 @@
             void selectFilter(value);
           }}
         >
-          {$i18n.t(filterLabels[value])}
+          {i18n.t(filterLabels[value])}
         </Button>
       {/each}
       {#if !compact && unreadRooms.length > 0}
         <Button variant="ghost" size="small" class="filter choice" onclick={markAllRead}>
-          {$i18n.t('inbox.markAllRead')}
+          {i18n.t('inbox.markAllRead')}
         </Button>
       {/if}
       {#if !compact}
@@ -257,7 +257,7 @@
           aria-pressed={includeRead}
           onclick={toggleRead}
         >
-          {$i18n.t('inbox.showRead')}
+          {i18n.t('inbox.showRead')}
         </Button>
       {/if}
     </div>
@@ -267,20 +267,20 @@
 
   {#if feed.failed}
     <div class="notice">
-      <p>{$i18n.t('inbox.loadFailed')}</p>
+      <p>{i18n.t('inbox.loadFailed')}</p>
       <Button
         variant="secondary"
         size="small"
         onclick={() => {
           void feed.backfill(includeRead).then(() => feed.load(filter, includeRead, size));
-        }}>{$i18n.t('common.tryAgain')}</Button
+        }}>{i18n.t('common.tryAgain')}</Button
       >
     </div>
   {/if}
   {#if rows.length === 0 && unlisted.length === 0}
     {#if !feed.failed}
       {#if !feed.loaded || !feed.checked || feed.backfilling}
-        <p class="empty">{$i18n.t('inbox.checking')}</p>
+        <p class="empty">{i18n.t('inbox.checking')}</p>
       {:else}
         <p class="empty">{emptyLabel()}</p>
       {/if}
@@ -298,7 +298,7 @@
         >
           <span class="head">
             <span class="name">{name}</span>
-            {#if group.highlight}<AtIcon aria-label={$i18n.t('inbox.mention')} />{/if}
+            {#if group.highlight}<AtIcon aria-label={i18n.t('inbox.mention')} />{/if}
           </span>
           {#snippet message()}
             {#each group.items as item, index (item.event_id)}
@@ -314,7 +314,7 @@
                 onJumpToEvent={(eventId) => openMessage(group.roomId, eventId)}
                 onOpenMedia={(eventId) => openMessage(group.roomId, eventId)}
                 timeAction={{
-                  label: $i18n.t('inbox.openMessage'),
+                  label: i18n.t('inbox.openMessage'),
                   run: () => openMessage(group.roomId, item.event_id),
                 }}
               >
@@ -322,7 +322,7 @@
                   <p class="preview">
                     <strong>{item.sender_name ?? senderName(item.sender)}</strong>
                     {item.body ??
-                      $i18n.t(item.encrypted ? 'inbox.encryptedMessage' : 'inbox.noPreview')}
+                      i18n.t(item.encrypted ? 'inbox.encryptedMessage' : 'inbox.noPreview')}
                   </p>
                 {/snippet}
               </MessagePreview>
@@ -333,7 +333,7 @@
                 size="small"
                 onclick={() => openMessage(group.roomId, group.firstEventId)}
               >
-                {$i18n.t('inbox.moreNotifications')}
+                {i18n.t('inbox.moreNotifications')}
               </Button>
             {/if}
           {/snippet}
@@ -343,7 +343,7 @@
                 variant="ghost"
                 size="small"
                 disabled={marking.has(group.latest.event_id)}
-                label={$i18n.t('inbox.markRead', { room: name })}
+                label={i18n.t('inbox.markRead', { room: name })}
                 onclick={(event) => {
                   const element = event.currentTarget.closest('li');
                   if (element) void markRead(group.latest, element);
@@ -364,11 +364,11 @@
         >
           <span class="head">
             <span class="name">{name}</span>
-            {#if counts.highlight > 0}<AtIcon aria-label={$i18n.t('inbox.mention')} />{/if}
+            {#if counts.highlight > 0}<AtIcon aria-label={i18n.t('inbox.mention')} />{/if}
           </span>
           {#snippet message()}
             <p class="preview">
-              {$i18n.t('inbox.unlistedNotifications', { count: notificationCount(counts) })}
+              {i18n.t('inbox.unlistedNotifications', { count: notificationCount(counts) })}
             </p>
           {/snippet}
           {#snippet trailing()}
@@ -376,7 +376,7 @@
               variant="ghost"
               size="small"
               disabled={marking.has(room.room_id)}
-              label={$i18n.t('inbox.markRead', { room: name })}
+              label={i18n.t('inbox.markRead', { room: name })}
               onclick={() => void markRoomRead(room.room_id)}><ChecksIcon /></IconButton
             >
           {/snippet}
@@ -394,7 +394,7 @@
         void loadOlder();
       }}
     >
-      {$i18n.t(feed.backfilling ? 'inbox.checking' : 'inbox.loadOlder')}
+      {i18n.t(feed.backfilling ? 'inbox.checking' : 'inbox.loadOlder')}
     </Button>
   {/if}
 </section>

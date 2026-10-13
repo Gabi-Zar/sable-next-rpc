@@ -25,10 +25,10 @@
       : roomList.rooms.find((room) => room.room_id === forwarded.room_id)
   );
   let label = $derived.by(() => {
-    if (sameRoom) return $i18n.t('timeline.forwardedFromEarlier');
-    if (origin) return $i18n.t('timeline.forwardedFromRoom', { room: roomLabel(origin) });
-    if (forwarded.room_id !== null) return $i18n.t('timeline.forwardedFromAnotherRoom');
-    return $i18n.t('timeline.forwarded');
+    if (sameRoom) return i18n.t('timeline.forwardedFromEarlier');
+    if (origin) return i18n.t('timeline.forwardedFromRoom', { room: roomLabel(origin) });
+    if (forwarded.room_id !== null) return i18n.t('timeline.forwardedFromAnotherRoom');
+    return i18n.t('timeline.forwarded');
   });
   let date = $derived(forwarded.timestamp === null ? null : formatDate(forwarded.timestamp));
   let href = $derived(

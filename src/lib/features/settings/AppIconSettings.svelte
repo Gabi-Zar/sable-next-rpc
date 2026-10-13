@@ -70,14 +70,14 @@
 
 {#if icons.length}
   <ul class={['app-icons', { android }]} aria-busy={changing}>
-    <SettingsRow id="app-icon" title={$i18n.t('settings.appIconTitle')} wide>
+    <SettingsRow id="app-icon" title={i18n.t('settings.appIconTitle')} wide>
       <Select
         bind:value={() => selected, (icon) => void select(icon)}
         disabled={changing}
-        aria-label={$i18n.t('settings.appIconTitle')}
+        aria-label={i18n.t('settings.appIconTitle')}
         items={[...new Set(['primary', ...icons])].map((icon) => ({
           value: icon,
-          label: $i18n.t(`settings.appIcons.${icon}`, { defaultValue: icon }),
+          label: i18n.t(`settings.appIcons.${icon}`, { defaultValue: icon }),
           image: previews[icon],
           imageClass: android ? 'app-icon-image-android' : undefined,
         }))}
@@ -85,7 +85,7 @@
     </SettingsRow>
   </ul>
   {#if failed}<div class="settings-form">
-      <Alert variant="critical" role="alert">{$i18n.t('settings.appIconFailed')}</Alert>
+      <Alert variant="critical" role="alert">{i18n.t('settings.appIconFailed')}</Alert>
     </div>{/if}
 {/if}
 

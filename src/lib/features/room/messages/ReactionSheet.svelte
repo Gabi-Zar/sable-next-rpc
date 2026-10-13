@@ -37,8 +37,8 @@
 {#if sheet}
   <BottomSheet
     bind:open
-    label={$i18n.t('timeline.addReaction')}
-    closeLabel={$i18n.t('timeline.closeMenu')}
+    label={i18n.t('timeline.addReaction')}
+    closeLabel={i18n.t('timeline.closeMenu')}
   >
     <EmoteBoard
       {roomId}
@@ -57,7 +57,7 @@
 {:else}
   <ReactionPicker
     bind:open
-    label={$i18n.t('timeline.addReaction')}
+    label={i18n.t('timeline.addReaction')}
     {roomId}
     {anchor}
     onPick={pick}

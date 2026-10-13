@@ -91,18 +91,18 @@
   <ul class="settings">
     <SettingsRow
       id="account-data-add"
-      title={$i18n.t('settings.developerAccountDataAdd')}
-      description={$i18n.t('settings.developerAccountDataDescription')}
+      title={i18n.t('settings.developerAccountDataAdd')}
+      description={i18n.t('settings.developerAccountDataDescription')}
     >
       <Button variant="secondary" size="small" onclick={() => void open(null)}>
-        {$i18n.t('settings.developerAccountDataAdd')}
+        {i18n.t('settings.developerAccountDataAdd')}
       </Button>
     </SettingsRow>
   </ul>
 
   <div class="settings-form account-data-body">
     {#if types.length === 0}
-      <p class="empty">{$i18n.t('settings.developerAccountDataEmpty')}</p>
+      <p class="empty">{i18n.t('settings.developerAccountDataEmpty')}</p>
     {:else}
       <ul class="event-list" {@attach scrollHint}>
         {#each [...types].sort() as type (type)}
@@ -126,7 +126,7 @@
       <form class="editor" onsubmit={save}>
         <FormField
           fieldId="developer-account-data-type"
-          label={$i18n.t('settings.developerAccountDataType')}
+          label={i18n.t('settings.developerAccountDataType')}
         >
           <TextInput
             id="developer-account-data-type"
@@ -138,7 +138,7 @@
         </FormField>
         <FormField
           fieldId="developer-account-data-content"
-          label={$i18n.t('settings.developerAccountDataContent')}
+          label={i18n.t('settings.developerAccountDataContent')}
         >
           <TextArea
             id="developer-account-data-content"
@@ -150,18 +150,18 @@
           />
         </FormField>
         {#if error === 'json'}
-          <Alert variant="critical">{$i18n.t('settings.developerAccountDataInvalidJson')}</Alert>
+          <Alert variant="critical">{i18n.t('settings.developerAccountDataInvalidJson')}</Alert>
         {:else if error === 'failed'}
-          <Alert variant="critical">{$i18n.t('settings.developerAccountDataFailed')}</Alert>
+          <Alert variant="critical">{i18n.t('settings.developerAccountDataFailed')}</Alert>
         {:else if saved}
-          <Alert variant="success">{$i18n.t('settings.developerAccountDataSaved')}</Alert>
+          <Alert variant="success">{i18n.t('settings.developerAccountDataSaved')}</Alert>
         {/if}
         <div class="editor-actions">
           <Button variant="ghost" size="small" onclick={() => (selected = undefined)}>
-            {$i18n.t('common.close')}
+            {i18n.t('common.close')}
           </Button>
           <Button type="submit" variant="primary" size="small" loading={saving}>
-            {$i18n.t('common.save')}
+            {i18n.t('common.save')}
           </Button>
         </div>
       </form>

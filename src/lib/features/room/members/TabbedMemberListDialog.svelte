@@ -37,7 +37,7 @@
   let selected = $derived<T | undefined>(tabs[Math.min(active, tabs.length - 1)]);
 </script>
 
-<ResponsiveDialog bind:open label={title} closeLabel={$i18n.t('timeline.closeMemberList')}>
+<ResponsiveDialog bind:open label={title} closeLabel={i18n.t('timeline.closeMemberList')}>
   {#snippet children(desktop)}
     <div class={['member-list-dialog', { sheet: !desktop }]}>
       <h2>{title}</h2>

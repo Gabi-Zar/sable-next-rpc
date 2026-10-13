@@ -37,7 +37,7 @@
 </script>
 
 <div class="attachments">
-  <ul class="staged" aria-label={$i18n.t('composer.stagedFiles')}>
+  <ul class="staged" aria-label={i18n.t('composer.stagedFiles')}>
     {#each files as item (item.id)}
       {@const kind = previewKind(item.file)}
       <li class={['staged-item', kind ? 'staged-media' : 'staged-file']}>
@@ -57,7 +57,7 @@
             class={['staged-control staged-spoiler', item.spoiler && 'staged-spoiler-on']}
             {disabled}
             aria-pressed={item.spoiler}
-            label={$i18n.t('composer.spoilerAttachment', { name: item.file.name })}
+            label={i18n.t('composer.spoilerAttachment', { name: item.file.name })}
             onclick={() => {
               onToggleSpoiler(item.id);
             }}
@@ -76,7 +76,7 @@
                     item.metadata !== preferences.imageMetadata && 'staged-spoiler-on',
                   ]}
                   {disabled}
-                  label={$i18n.t('composer.imageOptions', { name: item.file.name })}
+                  label={i18n.t('composer.imageOptions', { name: item.file.name })}
                 >
                   <SlidersHorizontalIcon />
                 </IconButton>
@@ -95,7 +95,7 @@
           size="small"
           class="staged-control staged-remove"
           {disabled}
-          label={$i18n.t('composer.removeAttachment', { name: item.file.name })}
+          label={i18n.t('composer.removeAttachment', { name: item.file.name })}
           onclick={() => {
             onRemove(item.id);
           }}
@@ -117,10 +117,10 @@
     >
       {#if preferences.sendAttachmentAsCaption}
         <SubtitlesIcon />
-        {$i18n.t('composer.caption')}
+        {i18n.t('composer.caption')}
       {:else}
         <SubtitlesSlashIcon />
-        {$i18n.t('composer.separateMessage')}
+        {i18n.t('composer.separateMessage')}
       {/if}
     </Button>
   {/if}

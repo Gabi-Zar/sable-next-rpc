@@ -136,7 +136,7 @@
     <div>
       <div class="product-name">
         <h1>Sable</h1>
-        <Tooltip label={$i18n.t(versionCopied ? 'common.copied' : 'common.copy')}>
+        <Tooltip label={i18n.t(versionCopied ? 'common.copied' : 'common.copy')}>
           {#snippet trigger({ props })}
             <button
               {...props}
@@ -154,11 +154,11 @@
           {/snippet}
         </Tooltip>
       </div>
-      <p>{$i18n.t('settings.aboutTagline')}</p>
+      <p>{i18n.t('settings.aboutTagline')}</p>
       <div class="product-actions">
         <LinkButton href={SABLE_SOURCE_URL} target="_blank" rel="noopener noreferrer" size="small">
           <CodeIcon aria-hidden="true" />
-          {$i18n.t('common.sourceCode')}
+          {i18n.t('common.sourceCode')}
         </LinkButton>
         <LinkButton
           href={SABLE_DONATE_URL}
@@ -168,7 +168,7 @@
           size="small"
         >
           <HeartIcon aria-hidden="true" />
-          {$i18n.t('common.supportSable')}
+          {i18n.t('common.supportSable')}
         </LinkButton>
       </div>
     </div>
@@ -179,50 +179,49 @@
   {/if}
 
   {#if info}
-    <SettingsSection title={$i18n.t('settings.aboutHomeserver')} headingId="about-homeserver">
+    <SettingsSection title={i18n.t('settings.aboutHomeserver')} headingId="about-homeserver">
       <ul class="settings">
-        <SettingsRow id="homeserver-url" title={$i18n.t('settings.aboutHomeserverUrl')}>
+        <SettingsRow id="homeserver-url" title={i18n.t('settings.aboutHomeserverUrl')}>
           <span class="value">{info.homeserver.replace(/\/+$/, '')}</span>
         </SettingsRow>
-        <SettingsRow id="homeserver-software" title={$i18n.t('settings.aboutHomeserverSoftware')}>
-          <span class="value"
-            >{info.server?.name ?? $i18n.t('settings.aboutHomeserverUnknown')}</span
+        <SettingsRow id="homeserver-software" title={i18n.t('settings.aboutHomeserverSoftware')}>
+          <span class="value">{info.server?.name ?? i18n.t('settings.aboutHomeserverUnknown')}</span
           >
         </SettingsRow>
-        <SettingsRow id="homeserver-version" title={$i18n.t('settings.aboutHomeserverVersion')}>
+        <SettingsRow id="homeserver-version" title={i18n.t('settings.aboutHomeserverVersion')}>
           <span class="value"
-            >{info.server?.version ?? $i18n.t('settings.aboutHomeserverUnknown')}</span
+            >{info.server?.version ?? i18n.t('settings.aboutHomeserverUnknown')}</span
           >
         </SettingsRow>
       </ul>
     </SettingsSection>
   {/if}
 
-  <SettingsSection title={$i18n.t('settings.aboutOptions')} headingId="about-options">
+  <SettingsSection title={i18n.t('settings.aboutOptions')} headingId="about-options">
     <ul class="settings">
-      <SettingsRow id="report-issue" title={$i18n.t('settings.aboutReportIssue')}>
+      <SettingsRow id="report-issue" title={i18n.t('settings.aboutReportIssue')}>
         <LinkButton href={resolve('bugreport')} size="small">
-          {$i18n.t('settings.aboutReport')}
+          {i18n.t('settings.aboutReport')}
         </LinkButton>
       </SettingsRow>
       {#if automaticUpdateChecksSupported}
         <SettingsRow
           id="auto-update-check"
-          title={$i18n.t('settings.autoUpdateCheck')}
-          description={$i18n.t('settings.autoUpdateCheckHint')}
+          title={i18n.t('settings.autoUpdateCheck')}
+          description={i18n.t('settings.autoUpdateCheckHint')}
           control="auto-update-check-switch"
         >
           <Switch
             id="auto-update-check-switch"
             checked={preferences.autoUpdateCheck}
-            label={$i18n.t('settings.autoUpdateCheck')}
+            label={i18n.t('settings.autoUpdateCheck')}
             onCheckedChange={(checked) => setPreference('autoUpdateCheck', checked)}
           />
         </SettingsRow>
       {/if}
-      <SettingsRow id="check-for-updates" title={$i18n.t('settings.aboutCheckForUpdates')}>
+      <SettingsRow id="check-for-updates" title={i18n.t('settings.aboutCheckForUpdates')}>
         <Button size="small" loading={checkingForUpdate} onclick={() => void checkForUpdates()}>
-          {$i18n.t('settings.aboutCheckForUpdates')}
+          {i18n.t('settings.aboutCheckForUpdates')}
         </Button>
       </SettingsRow>
       {#if pendingUpdate}
@@ -230,21 +229,21 @@
         <SettingsRow
           id="pending-update"
           title={pendingStage.name === 'staged'
-            ? $i18n.t('settings.updateBannerStagedTitle')
+            ? i18n.t('settings.updateBannerStagedTitle')
             : pendingStage.name === 'failed'
-              ? $i18n.t('settings.updateBannerFailedTitle')
-              : $i18n.t('settings.updateBannerTitle')}
+              ? i18n.t('settings.updateBannerFailedTitle')
+              : i18n.t('settings.updateBannerTitle')}
           description={pendingStage.name === 'staged'
-            ? $i18n.t('settings.updateBannerStagedBody', { version })
+            ? i18n.t('settings.updateBannerStagedBody', { version })
             : pendingStage.name === 'failed'
               ? pendingStage.message
               : pendingStage.name === 'downloading'
-                ? $i18n.t('settings.updateBannerProgress', { percent: pendingStage.percent })
-                : $i18n.t('settings.updateBannerBody', { version })}
+                ? i18n.t('settings.updateBannerProgress', { percent: pendingStage.percent })
+                : i18n.t('settings.updateBannerBody', { version })}
         >
           {#if pendingStage.name === 'staged'}
             <Button variant="primary" size="small" onclick={() => void relaunchApp()}>
-              {$i18n.t('settings.updateBannerRestart')}
+              {i18n.t('settings.updateBannerRestart')}
             </Button>
           {:else}
             <Button
@@ -253,44 +252,44 @@
               loading={pendingStage.name === 'downloading'}
               onclick={() => void installPendingUpdate()}
             >
-              {pendingStage.name === 'failed' ? $i18n.t('common.retry') : $i18n.t('common.install')}
+              {pendingStage.name === 'failed' ? i18n.t('common.retry') : i18n.t('common.install')}
             </Button>
           {/if}
         </SettingsRow>
       {/if}
       {#if updateCheckResult === 'current'}
         <li class="settings-form status" aria-live="polite">
-          {$i18n.t('settings.aboutUpToDate')}
+          {i18n.t('settings.aboutUpToDate')}
         </li>
       {:else if updateCheckResult === 'available' && !pendingUpdate}
         <li class="settings-form status" aria-live="polite">
-          {$i18n.t('settings.aboutUpdateAvailable')}
+          {i18n.t('settings.aboutUpdateAvailable')}
         </li>
       {:else if updateCheckResult === 'mobile-available'}
         <li class="settings-form status" aria-live="polite">
-          {$i18n.t('settings.aboutMobileUpdateAvailable')}
+          {i18n.t('settings.aboutMobileUpdateAvailable')}
         </li>
       {:else if updateCheckResult === 'failed'}
         <li class="settings-form error" role="alert">
-          {$i18n.t('settings.aboutUpdateCheckFailed')}
+          {i18n.t('settings.aboutUpdateCheckFailed')}
         </li>
       {/if}
       <SettingsRow
         id="run-setup-again"
-        title={$i18n.t('settings.aboutRunSetup')}
-        description={$i18n.t('settings.aboutRunSetupHint')}
+        title={i18n.t('settings.aboutRunSetup')}
+        description={i18n.t('settings.aboutRunSetupHint')}
       >
         <Button size="small" loading={restarting} onclick={() => void runSetupAgain()}>
-          {$i18n.t('settings.aboutRunSetupAction')}
+          {i18n.t('settings.aboutRunSetupAction')}
         </Button>
       </SettingsRow>
       {#if restartFailed}
-        <li class="settings-form error" role="alert">{$i18n.t('settings.actionFailed')}</li>
+        <li class="settings-form error" role="alert">{i18n.t('settings.actionFailed')}</li>
       {/if}
       <SettingsRow
         id="reset-cache"
-        title={$i18n.t('settings.aboutResetCache')}
-        description={$i18n.t('settings.aboutResetCacheHint')}
+        title={i18n.t('settings.aboutResetCache')}
+        description={i18n.t('settings.aboutResetCacheHint')}
       >
         <Button
           size="small"
@@ -299,11 +298,11 @@
             confirmingReset = true;
           }}
         >
-          {$i18n.t('common.reset')}
+          {i18n.t('common.reset')}
         </Button>
       </SettingsRow>
       {#if resetFailed}
-        <li class="settings-form error" role="alert">{$i18n.t('settings.aboutResetFailed')}</li>
+        <li class="settings-form error" role="alert">{i18n.t('settings.aboutResetFailed')}</li>
       {/if}
     </ul>
   </SettingsSection>
@@ -311,9 +310,9 @@
 
 <ConfirmDialog
   bind:open={confirmingReset}
-  title={$i18n.t('settings.aboutResetCacheConfirmTitle')}
-  description={$i18n.t('settings.aboutResetCacheConfirmDescription')}
-  confirmLabel={$i18n.t('common.reset')}
+  title={i18n.t('settings.aboutResetCacheConfirmTitle')}
+  description={i18n.t('settings.aboutResetCacheConfirmDescription')}
+  confirmLabel={i18n.t('common.reset')}
   busy={resetting}
   onConfirm={() => void resetCaches()}
 />

@@ -23,30 +23,30 @@
       copied = true;
     } catch (error) {
       console.debug('[sable timeline] clipboard unavailable', error);
-      toasts.error($i18n.t('errors.actionFailed'));
+      toasts.error(i18n.t('errors.actionFailed'));
     }
   }
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('timeline.sourceTitle')}>
-  <h2>{$i18n.t('timeline.sourceTitle')}</h2>
+<DialogFrame bind:open variant="verification" label={i18n.t('timeline.sourceTitle')}>
+  <h2>{i18n.t('timeline.sourceTitle')}</h2>
   {#if encrypted}
-    <p class="encrypted">{$i18n.t('timeline.sourceEncrypted')}</p>
+    <p class="encrypted">{i18n.t('timeline.sourceEncrypted')}</p>
   {/if}
   <pre class="source" {@attach scrollHint}>{source}</pre>
   {#if original}
-    <h3>{$i18n.t('timeline.sourceOriginal')}</h3>
+    <h3>{i18n.t('timeline.sourceOriginal')}</h3>
     <pre class="source" {@attach scrollHint}>{original}</pre>
   {/if}
   <FormActions>
     <Button variant="secondary" onclick={copy}>
-      {copied ? $i18n.t('common.copied') : $i18n.t('common.copy')}
+      {copied ? i18n.t('common.copied') : i18n.t('common.copy')}
     </Button>
     <Button
       variant="ghost"
       onclick={() => {
         open = false;
-      }}>{$i18n.t('common.cancel')}</Button
+      }}>{i18n.t('common.cancel')}</Button
     >
   </FormActions>
 </DialogFrame>

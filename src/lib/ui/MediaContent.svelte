@@ -86,10 +86,10 @@
   let mediaLabel = $derived(
     filename ||
       (kind === 'video'
-        ? $i18n.t('timeline.videoAttachment')
+        ? i18n.t('timeline.videoAttachment')
         : kind === 'audio'
-          ? $i18n.t('timeline.audioAttachment')
-          : $i18n.t('timeline.fileAttachment'))
+          ? i18n.t('timeline.audioAttachment')
+          : i18n.t('timeline.fileAttachment'))
   );
   /* Unlatches where no re-encoder answers, so a pessimistic `canPlayType`
      cannot strand the attachment. */
@@ -152,8 +152,8 @@
   const loading = mediaProgress(core, () => (!url && !failed ? source : null));
   let retryLabel = $derived(
     retryWait === 0
-      ? $i18n.t('common.retry')
-      : $i18n.t('timeline.retryMediaIn', { count: Math.ceil(retryWait / 1000) })
+      ? i18n.t('common.retry')
+      : i18n.t('timeline.retryMediaIn', { count: Math.ceil(retryWait / 1000) })
   );
 
   $effect(() => {
@@ -184,8 +184,8 @@
       return;
     }
     void saveFile(objectUrl, mediaLabel).then((outcome) => {
-      if (outcome === 'saved') toasts.info($i18n.t('viewer.saved'));
-      if (outcome === 'failed') toasts.error($i18n.t('errors.actionFailed'));
+      if (outcome === 'saved') toasts.info(i18n.t('viewer.saved'));
+      if (outcome === 'failed') toasts.error(i18n.t('errors.actionFailed'));
     });
   }
 
@@ -304,7 +304,7 @@
 >
   {#if failed}
     <span class="media-error">
-      {mediaLabel}: {$i18n.t('timeline.mediaUnavailable')}
+      {mediaLabel}: {i18n.t('timeline.mediaUnavailable')}
       <Button class="retry-media" size="small" onclick={retry} disabled={retryWait > 0}>
         {retryLabel}
       </Button>
@@ -365,8 +365,8 @@
         >
           <DownloadSimpleIcon aria-hidden="true" />
           {sizeLabel
-            ? $i18n.t('timeline.downloadFileSized', { size: sizeLabel })
-            : $i18n.t('common.download')}
+            ? i18n.t('timeline.downloadFileSized', { size: sizeLabel })
+            : i18n.t('common.download')}
         </LinkButton>
       </div>
     {/if}
@@ -381,8 +381,8 @@
         <Button class="media-download" size="small" onclick={fetchFile}>
           <DownloadSimpleIcon aria-hidden="true" />
           {sizeLabel
-            ? $i18n.t('timeline.downloadFileSized', { size: sizeLabel })
-            : $i18n.t('common.download')}
+            ? i18n.t('timeline.downloadFileSized', { size: sizeLabel })
+            : i18n.t('common.download')}
         </Button>
       </div>
     {/if}
@@ -410,7 +410,7 @@
       type="button"
       class="media-play"
       onclick={play}
-      aria-label={$i18n.t('timeline.playVideo', { name: mediaLabel })}
+      aria-label={i18n.t('timeline.playVideo', { name: mediaLabel })}
     >
       <span class="media-play-badge" aria-hidden="true">
         <PlayIcon weight="fill" />
@@ -421,10 +421,10 @@
       <span class="media-loading-status">
         <Spinner small />
         {#if transcode}
-          <span class="media-loading-label">{$i18n.t('timeline.videoConverting')}</span>
+          <span class="media-loading-label">{i18n.t('timeline.videoConverting')}</span>
         {:else if loading.percent !== null}
           <span class="media-loading-label">
-            {$i18n.t('timeline.downloadProgress', { percent: loading.percent })}
+            {i18n.t('timeline.downloadProgress', { percent: loading.percent })}
           </span>
         {/if}
       </span>

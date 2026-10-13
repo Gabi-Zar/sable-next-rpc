@@ -47,35 +47,35 @@
   let progress = $derived(flow.progress);
   let grant = $derived(mode === 'grant');
   let validCheckCode = $derived(/^\d{2}$/.test(checkCode));
-  let title = $derived($i18n.t(grant ? 'qrLogin.titleGrant' : 'qrLogin.titleLogin'));
-  let otherSide = $derived($i18n.t(grant ? 'qrLogin.titleLogin' : 'qrLogin.titleGrant'));
+  let title = $derived(i18n.t(grant ? 'qrLogin.titleGrant' : 'qrLogin.titleLogin'));
+  let otherSide = $derived(i18n.t(grant ? 'qrLogin.titleLogin' : 'qrLogin.titleGrant'));
   let inProgress = $derived(
     progress === null || (progress.stage !== 'done' && progress.stage !== 'failed')
   );
 
   let description = $derived.by(() => {
     if (flow.scanning) {
-      return $i18n.t(grant ? 'qrLogin.scanHintGrant' : 'qrLogin.scanHintLogin', {
+      return i18n.t(grant ? 'qrLogin.scanHintGrant' : 'qrLogin.scanHintLogin', {
         action: otherSide,
       });
     }
     switch (progress?.stage) {
       case undefined:
-        return $i18n.t(grant ? 'qrLogin.chooseGrant' : 'qrLogin.chooseLogin');
+        return i18n.t(grant ? 'qrLogin.chooseGrant' : 'qrLogin.chooseLogin');
       case 'show_code':
-        return $i18n.t(grant ? 'qrLogin.showHintGrant' : 'qrLogin.showHintLogin', {
+        return i18n.t(grant ? 'qrLogin.showHintGrant' : 'qrLogin.showHintLogin', {
           action: otherSide,
         });
       case 'enter_check_code':
-        return $i18n.t('qrLogin.enterCheckCode');
+        return i18n.t('qrLogin.enterCheckCode');
       case 'show_check_code':
-        return $i18n.t('qrLogin.showCheckCode');
+        return i18n.t('qrLogin.showCheckCode');
       case 'waiting_for_token':
-        return $i18n.t('qrLogin.waitingForToken');
+        return i18n.t('qrLogin.waitingForToken');
       case 'waiting_for_auth':
-        return $i18n.t('qrLogin.waitingForAuth');
+        return i18n.t('qrLogin.waitingForAuth');
       case 'done':
-        return $i18n.t('qrLogin.doneGrant');
+        return i18n.t('qrLogin.doneGrant');
       default:
         return null;
     }
@@ -84,18 +84,18 @@
   let announcement = $derived.by(() => {
     switch (progress?.stage) {
       case 'show_check_code':
-        return $i18n.t('qrLogin.announceCheckCode', { code: progress.check_code });
+        return i18n.t('qrLogin.announceCheckCode', { code: progress.check_code });
       case 'waiting_for_token':
-        return $i18n.t('qrLogin.announceUserCode', { code: progress.user_code });
+        return i18n.t('qrLogin.announceUserCode', { code: progress.user_code });
       case 'waiting_for_auth':
-        return $i18n.t('qrLogin.waiting');
+        return i18n.t('qrLogin.waiting');
       case 'starting':
-        return $i18n.t('qrLogin.starting');
+        return i18n.t('qrLogin.starting');
       case 'syncing_secrets':
       case 'signed_in':
-        return $i18n.t(grant ? 'qrLogin.syncingGrant' : 'qrLogin.syncing');
+        return i18n.t(grant ? 'qrLogin.syncingGrant' : 'qrLogin.syncing');
       case 'done':
-        return $i18n.t('qrLogin.doneGrant');
+        return i18n.t('qrLogin.doneGrant');
       case 'failed':
         return failureText(progress.reason);
       default:
@@ -104,7 +104,7 @@
   });
 
   function failureText(reason: string): string {
-    return $i18n.t(
+    return i18n.t(
       reason === 'other' && grant ? 'qrLogin.failed.otherGrant' : `qrLogin.failed.${reason}`
     );
   }
@@ -146,7 +146,7 @@
         <VerificationQrScanner onScan={(data: Uint8Array) => void flow.scanned(data)} />
       </div>
       <div class="qr-actions">
-        <Button class="qr-action" onclick={restart}>{$i18n.t('common.back')}</Button>
+        <Button class="qr-action" onclick={restart}>{i18n.t('common.back')}</Button>
       </div>
     {:else if progress === null}
       <div class="qr-actions">
@@ -156,15 +156,15 @@
           disabled={flow.pending}
           onclick={() => void flow.showCode()}
         >
-          <QrCodeIcon size={18} aria-hidden="true" />{$i18n.t('qrLogin.showCode')}
+          <QrCodeIcon size={18} aria-hidden="true" />{i18n.t('qrLogin.showCode')}
         </Button>
         <Button class="qr-action" disabled={flow.pending} onclick={() => flow.startScanning()}>
-          <CameraIcon size={18} aria-hidden="true" />{$i18n.t('qrLogin.scanCode')}
+          <CameraIcon size={18} aria-hidden="true" />{i18n.t('qrLogin.scanCode')}
         </Button>
       </div>
     {:else if progress.stage === 'show_code'}
       <div class="code">
-        <VerificationQrCode code={progress.code} label={$i18n.t('qrLogin.codeLabel')} />
+        <VerificationQrCode code={progress.code} label={i18n.t('qrLogin.codeLabel')} />
       </div>
     {:else if progress.stage === 'enter_check_code'}
       <form
@@ -175,7 +175,7 @@
         }}
       >
         <label class="screen-reader-only" for={checkCodeId}>
-          {$i18n.t('qrLogin.checkCodeLabel')}
+          {i18n.t('qrLogin.checkCodeLabel')}
         </label>
         <TextInput
           id={checkCodeId}
@@ -195,7 +195,7 @@
             class="qr-action"
             disabled={!validCheckCode || flow.pending}
           >
-            {$i18n.t('qrLogin.confirm')}
+            {i18n.t('qrLogin.confirm')}
           </Button>
         </div>
       </form>
@@ -203,12 +203,12 @@
       <p class="digits" aria-hidden="true">{String(progress.check_code).padStart(2, '0')}</p>
     {:else if progress.stage === 'waiting_for_token'}
       <p class="digits" aria-hidden="true">{progress.user_code}</p>
-      <p class="wait" aria-hidden="true">{$i18n.t('qrLogin.waiting')}</p>
+      <p class="wait" aria-hidden="true">{i18n.t('qrLogin.waiting')}</p>
     {:else if progress.stage === 'waiting_for_auth'}
       {@const uri = progress.verification_uri}
       <div class="qr-actions">
         <Button variant="primary" class="qr-action" onclick={() => void openExternalUrl(uri)}>
-          {$i18n.t('qrLogin.openApproval')}
+          {i18n.t('qrLogin.openApproval')}
         </Button>
       </div>
     {:else if progress.stage === 'starting' || progress.stage === 'syncing_secrets' || progress.stage === 'signed_in'}
@@ -216,22 +216,22 @@
     {:else if progress.stage === 'done'}
       <div class="qr-actions">
         <Button variant="primary" class="qr-action" onclick={close}>
-          {$i18n.t('common.close')}
+          {i18n.t('common.close')}
         </Button>
       </div>
     {:else if progress.stage === 'failed'}
       <Alert variant="critical">{failureText(progress.reason)}</Alert>
       <div class="qr-actions">
         <Button variant="primary" class="qr-action" onclick={restart}>
-          {$i18n.t('common.tryAgain')}
+          {i18n.t('common.tryAgain')}
         </Button>
-        <Button class="qr-action" onclick={close}>{$i18n.t('common.close')}</Button>
+        <Button class="qr-action" onclick={close}>{i18n.t('common.close')}</Button>
       </div>
     {/if}
 
     {#if inProgress}
       <Button variant="ghost" size="small" class="qr-action qr-cancel" onclick={close}>
-        {$i18n.t('common.cancel')}
+        {i18n.t('common.cancel')}
       </Button>
     {/if}
   </div>

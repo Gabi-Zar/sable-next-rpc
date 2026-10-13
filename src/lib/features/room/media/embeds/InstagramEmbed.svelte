@@ -42,7 +42,7 @@
         <button
           type="button"
           class="instagram-poster"
-          aria-label={$i18n.t('timeline.showEmbed', { name: title })}
+          aria-label={i18n.t('timeline.showEmbed', { name: title })}
           onclick={() => (playing = true)}
         >
           <span class="instagram-play" aria-hidden="true"><InstagramLogoIcon /></span>

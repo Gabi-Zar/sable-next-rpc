@@ -25,26 +25,26 @@
 
 <aside
   class="room-search"
-  aria-label={$i18n.t('common.searchMessages')}
+  aria-label={i18n.t('common.searchMessages')}
   style:width={`${panelWidth.width}rem`}
 >
   <ResizeHandle
     value={panelWidth.width}
     min={panelWidth.min}
     max={panelWidth.max}
-    label={$i18n.t('search.resize')}
+    label={i18n.t('search.resize')}
     grow="left"
     step={1}
     fromPixels={remFromPixels}
     onResize={(next) => panelWidth.resize(next)}
     onCommit={() => panelWidth.commit()}
   />
-  <PanelHeader title={$i18n.t('common.searchMessages')}>
+  <PanelHeader title={i18n.t('common.searchMessages')}>
     {#snippet prefix()}
       <MagnifyingGlassIcon aria-hidden="true" />
     {/snippet}
     {#snippet suffix()}
-      <PanelHeaderButton label={$i18n.t('search.close')} onclick={onClose}>
+      <PanelHeaderButton label={i18n.t('search.close')} onclick={onClose}>
         <XIcon />
       </PanelHeaderButton>
     {/snippet}

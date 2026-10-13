@@ -16,9 +16,9 @@
   let {
     open = $bindable(false),
     preview = null,
-    title = $i18n.t('timeline.deleteTitle'),
-    description = $i18n.t('timeline.deleteExplain'),
-    confirmLabel = $i18n.t('timeline.deleteMessage'),
+    title = i18n.t('timeline.deleteTitle'),
+    description = i18n.t('timeline.deleteExplain'),
+    confirmLabel = i18n.t('timeline.deleteMessage'),
     onConfirm,
   }: Props = $props();
   let reason = $state('');
@@ -40,14 +40,14 @@
   {title}
   {description}
   {confirmLabel}
-  cancelLabel={$i18n.t('common.cancel')}
+  cancelLabel={i18n.t('common.cancel')}
   onConfirm={confirm}
   onCancel={cancel}
 >
   {#if preview}
     <p class="preview">{preview}</p>
   {/if}
-  <FormField fieldId="delete-reason" label={$i18n.t('timeline.deleteReason')}>
+  <FormField fieldId="delete-reason" label={i18n.t('timeline.deleteReason')}>
     <TextInput id="delete-reason" bind:value={reason} autocomplete="off" />
   </FormField>
 </ConfirmDialog>

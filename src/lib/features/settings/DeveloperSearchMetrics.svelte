@@ -64,106 +64,100 @@
   );
 
   function count(value: number): string {
-    return $i18n.t('settings.developerSearchCount', { count: value });
+    return i18n.t('settings.developerSearchCount', { count: value });
   }
 
   function bytes(value: number, total: number): string {
-    return $i18n.t('settings.developerSearchBytes', {
+    return i18n.t('settings.developerSearchBytes', {
       value: formatBinarySize(value),
       total: formatBinarySize(total),
     });
   }
 
   function ratio(value: number, total: number): string {
-    return $i18n.t('settings.developerSearchRatio', { value, total });
+    return i18n.t('settings.developerSearchRatio', { value, total });
   }
 
   function milliseconds(value: number | null): string {
-    return value === null ? '-' : $i18n.t('settings.developerSearchMilliseconds', { count: value });
+    return value === null ? '-' : i18n.t('settings.developerSearchMilliseconds', { count: value });
   }
 
   function minutes(value: number | null): string {
     return value === null
       ? '-'
-      : $i18n.t('settings.developerSearchMinutes', { count: Math.floor(value / 60_000) });
+      : i18n.t('settings.developerSearchMinutes', { count: Math.floor(value / 60_000) });
   }
 </script>
 
 <div class="diagnostics">
   {#if metrics}
     <ul class="settings">
-      <SettingsRow id="search-phase" title={$i18n.t('settings.developerSearchPhase')}>
-        <StatusBadge label={$i18n.t(phaseKeys[metrics.phase])} variant={phaseVariant} />
+      <SettingsRow id="search-phase" title={i18n.t('settings.developerSearchPhase')}>
+        <StatusBadge label={i18n.t(phaseKeys[metrics.phase])} variant={phaseVariant} />
       </SettingsRow>
-      <SettingsRow id="search-documents" title={$i18n.t('settings.developerSearchDocuments')}>
-        <code>{$i18n.t('settings.developerSearchCount', { count: metrics.documents })}</code>
+      <SettingsRow id="search-documents" title={i18n.t('settings.developerSearchDocuments')}>
+        <code>{i18n.t('settings.developerSearchCount', { count: metrics.documents })}</code>
       </SettingsRow>
-      <SettingsRow id="search-loaded" title={$i18n.t('settings.developerSearchLoaded')}>
-        <code>{$i18n.t('settings.developerSearchCount', { count: metrics.documents_loaded })}</code>
+      <SettingsRow id="search-loaded" title={i18n.t('settings.developerSearchLoaded')}>
+        <code>{i18n.t('settings.developerSearchCount', { count: metrics.documents_loaded })}</code>
       </SettingsRow>
-      <SettingsRow id="search-memory" title={$i18n.t('settings.developerSearchMemory')}>
+      <SettingsRow id="search-memory" title={i18n.t('settings.developerSearchMemory')}>
         <code>{bytes(metrics.memory_bytes, metrics.memory_budget)}</code>
       </SettingsRow>
-      <SettingsRow id="search-disk" title={$i18n.t('settings.developerSearchDisk')}>
+      <SettingsRow id="search-disk" title={i18n.t('settings.developerSearchDisk')}>
         <code>{bytes(metrics.disk_bytes, metrics.disk_budget)}</code>
       </SettingsRow>
-      <SettingsRow id="search-events" title={$i18n.t('settings.developerSearchEvents')}>
+      <SettingsRow id="search-events" title={i18n.t('settings.developerSearchEvents')}>
         <code>{ratio(metrics.events_crawled, metrics.event_budget)}</code>
       </SettingsRow>
-      <SettingsRow id="search-rate" title={$i18n.t('settings.developerSearchRate')}>
-        <code>{$i18n.t('settings.developerSearchRateValue', { count: eventsPerMinute })}</code>
+      <SettingsRow id="search-rate" title={i18n.t('settings.developerSearchRate')}>
+        <code>{i18n.t('settings.developerSearchRateValue', { count: eventsPerMinute })}</code>
       </SettingsRow>
-      <SettingsRow id="search-running" title={$i18n.t('settings.developerSearchRunning')}>
+      <SettingsRow id="search-running" title={i18n.t('settings.developerSearchRunning')}>
         <code>{minutes(metrics.running_ms)}</code>
       </SettingsRow>
-      <SettingsRow id="search-batches" title={$i18n.t('settings.developerSearchBatches')}>
+      <SettingsRow id="search-batches" title={i18n.t('settings.developerSearchBatches')}>
         <code>{count(metrics.batches)}</code>
       </SettingsRow>
-      <SettingsRow id="search-pushbacks" title={$i18n.t('settings.developerSearchPushbacks')}>
+      <SettingsRow id="search-pushbacks" title={i18n.t('settings.developerSearchPushbacks')}>
         <code>{count(metrics.pushbacks)}</code>
       </SettingsRow>
-      <SettingsRow id="search-request-last" title={$i18n.t('settings.developerSearchRequestLast')}>
+      <SettingsRow id="search-request-last" title={i18n.t('settings.developerSearchRequestLast')}>
         <code>{milliseconds(metrics.last_request_ms)}</code>
       </SettingsRow>
       <SettingsRow
         id="search-request-average"
-        title={$i18n.t('settings.developerSearchRequestAverage')}
+        title={i18n.t('settings.developerSearchRequestAverage')}
       >
         <code>{milliseconds(metrics.average_request_ms)}</code>
       </SettingsRow>
-      <SettingsRow
-        id="search-rooms-indexed"
-        title={$i18n.t('settings.developerSearchRoomsIndexed')}
-      >
+      <SettingsRow id="search-rooms-indexed" title={i18n.t('settings.developerSearchRoomsIndexed')}>
         <code>{ratio(metrics.rooms_indexed, metrics.rooms_joined)}</code>
       </SettingsRow>
-      <SettingsRow
-        id="search-rooms-pending"
-        title={$i18n.t('settings.developerSearchRoomsPending')}
-      >
+      <SettingsRow id="search-rooms-pending" title={i18n.t('settings.developerSearchRoomsPending')}>
         <code>{count(metrics.rooms_pending)}</code>
       </SettingsRow>
       <SettingsRow
         id="search-rooms-exhausted"
-        title={$i18n.t('settings.developerSearchRoomsExhausted')}
+        title={i18n.t('settings.developerSearchRoomsExhausted')}
       >
         <code>{count(metrics.rooms_exhausted)}</code>
       </SettingsRow>
-      <SettingsRow id="search-rooms-failed" title={$i18n.t('settings.developerSearchRoomsFailed')}>
+      <SettingsRow id="search-rooms-failed" title={i18n.t('settings.developerSearchRoomsFailed')}>
         <code>{count(metrics.rooms_failed)}</code>
       </SettingsRow>
-      <SettingsRow id="search-rooms-blind" title={$i18n.t('settings.developerSearchRoomsBlind')}>
+      <SettingsRow id="search-rooms-blind" title={i18n.t('settings.developerSearchRoomsBlind')}>
         <code>{count(metrics.rooms_blind)}</code>
       </SettingsRow>
       <SettingsRow
         id="search-rooms-unreadable"
-        title={$i18n.t('settings.developerSearchRoomsUnreadable')}
+        title={i18n.t('settings.developerSearchRoomsUnreadable')}
       >
         <code>{count(metrics.rooms_unreadable)}</code>
       </SettingsRow>
     </ul>
   {:else if unavailable}
-    <p class="error">{$i18n.t('settings.developerSearchUnavailable')}</p>
+    <p class="error">{i18n.t('settings.developerSearchUnavailable')}</p>
   {/if}
 </div>
 

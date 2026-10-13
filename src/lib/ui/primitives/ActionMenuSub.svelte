@@ -48,7 +48,7 @@
     <CaretRightIcon class="menu-submenu-chevron" aria-hidden="true" />
   </button>
   {#if open}
-    <BottomSheet bind:open {label} closeLabel={$i18n.t('timeline.closeMenu')}>
+    <BottomSheet bind:open {label} closeLabel={i18n.t('timeline.closeMenu')}>
       <div class="action-menu-rows" role="menu">{@render children()}</div>
     </BottomSheet>
   {/if}

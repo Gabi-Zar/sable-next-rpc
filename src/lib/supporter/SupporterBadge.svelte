@@ -47,7 +47,7 @@
   let donorName = $derived.by(() => {
     let shortened = '';
     let count = 0;
-    for (const { segment } of nameSegments.segment(name?.trim() || $i18n.t('supporter.donor'))) {
+    for (const { segment } of nameSegments.segment(name?.trim() || i18n.t('supporter.donor'))) {
       if (count++ === 24) return `${shortened}…`;
       shortened += segment;
     }
@@ -171,7 +171,7 @@
     class={['supporter-badge', className]}
     data-supporter-variant={variant}
     style={customStyle}
-    aria-label={`${label} · ${title ?? $i18n.t('timeline.profileSupporter')}`}
+    aria-label={`${label} · ${title ?? i18n.t('timeline.profileSupporter')}`}
     openOnHover
     openDelay={180}
     closeDelay={200}
@@ -199,7 +199,7 @@
       </div>
       <h2 id={`${id}-heading`}>{label}</h2>
       <p id={`${id}-description`}>
-        {$i18n.t(
+        {i18n.t(
           isOwnBadge
             ? 'supporter.badgeOwnDescription'
             : donated
@@ -217,10 +217,10 @@
         onclick={() => (open = false)}
       >
         <HeartIcon aria-hidden="true" weight="fill" />
-        {$i18n.t(donated ? 'common.supportSable' : 'supporter.badgeDonate')}
+        {i18n.t(donated ? 'common.supportSable' : 'supporter.badgeDonate')}
       </LinkButton>
       <small class="supporter-card-hint"
-        >{$i18n.t(donated ? 'supporter.badgeDonorHint' : 'supporter.badgeHint')}</small
+        >{i18n.t(donated ? 'supporter.badgeDonorHint' : 'supporter.badgeHint')}</small
       >
     </Popover.Content>
   </Popover.Portal>

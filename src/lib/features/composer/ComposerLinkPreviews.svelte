@@ -12,14 +12,14 @@
   let { urls, onDismiss }: Props = $props();
 </script>
 
-<ul class="previews" aria-label={$i18n.t('composer.linkPreviews')}>
+<ul class="previews" aria-label={i18n.t('composer.linkPreviews')}>
   {#each urls as url (url)}
     <li class="preview">
       <span class="preview-url">{url}</span>
       <IconButton
         size="small"
         variant="ghost"
-        label={$i18n.t('composer.skipLinkPreview', { url })}
+        label={i18n.t('composer.skipLinkPreview', { url })}
         onclick={() => onDismiss(url)}
       >
         <XIcon />

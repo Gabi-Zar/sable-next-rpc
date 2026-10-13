@@ -25,14 +25,14 @@
   let options = $derived([
     {
       value: DEFAULT,
-      label: $i18n.t('room.appearanceIconDefault', {
-        mode: $i18n.t(`settings.showRoomIcon${label(preferences.showRoomIcon)}`),
+      label: i18n.t('room.appearanceIconDefault', {
+        mode: i18n.t(`settings.showRoomIcon${label(preferences.showRoomIcon)}`),
       }),
     },
-    { value: 'always', label: $i18n.t('common.always') },
-    { value: 'sometimes', label: $i18n.t('settings.showRoomIconSometimes') },
-    { value: 'collapsed', label: $i18n.t('settings.showRoomIconCollapsed') },
-    { value: 'never', label: $i18n.t('common.never') },
+    { value: 'always', label: i18n.t('common.always') },
+    { value: 'sometimes', label: i18n.t('settings.showRoomIconSometimes') },
+    { value: 'collapsed', label: i18n.t('settings.showRoomIconCollapsed') },
+    { value: 'never', label: i18n.t('common.never') },
   ]);
 
   function label(mode: ShowRoomIcon): string {
@@ -49,17 +49,17 @@
 <div class="section">
   <SettingsSection
     headingId="room-settings-appearance"
-    title={$i18n.t('room.appearanceVisualTweaks')}
-    description={$i18n.t('room.appearanceHint')}
+    title={i18n.t('room.appearanceVisualTweaks')}
+    description={i18n.t('room.appearanceHint')}
   >
     <ul class="settings-rows">
       <SettingsRow
-        title={$i18n.t('room.appearanceIconTitle')}
-        description={$i18n.t('room.appearanceIconHint')}
+        title={i18n.t('room.appearanceIconTitle')}
+        description={i18n.t('room.appearanceIconHint')}
       >
         <Select
           {value}
-          aria-label={$i18n.t('room.appearanceIconTitle')}
+          aria-label={i18n.t('room.appearanceIconTitle')}
           items={options}
           onValueChange={select}
         />

@@ -286,7 +286,7 @@
   <IconButton
     variant="subtle"
     size="small"
-    label={$i18n.t('common.refresh')}
+    label={i18n.t('common.refresh')}
     onclick={refresh}
     disabled={loading}
   >
@@ -294,7 +294,7 @@
   </IconButton>
 {/snippet}
 
-<AppPageShell title={$i18n.t('settings.devicesTitle')} density="compact" class="devices-settings">
+<AppPageShell title={i18n.t('settings.devicesTitle')} density="compact" class="devices-settings">
   {#if error}<Alert class="settings-error" variant="critical" role="alert">{error}</Alert>{/if}
 
   {#if newRecoveryKey}
@@ -302,18 +302,17 @@
       <div class="recovery-key-heading">
         <KeyIcon aria-hidden="true" />
         <div>
-          <strong>{$i18n.t('settings.saveRecoveryKey')}</strong>
-          <p>{$i18n.t('settings.saveRecoveryKeyDescription')}</p>
+          <strong>{i18n.t('settings.saveRecoveryKey')}</strong>
+          <p>{i18n.t('settings.saveRecoveryKeyDescription')}</p>
         </div>
       </div>
       <code>{newRecoveryKey}</code>
-      <Button onclick={() => (newRecoveryKey = null)}>{$i18n.t('settings.savedRecoveryKey')}</Button
-      >
+      <Button onclick={() => (newRecoveryKey = null)}>{i18n.t('settings.savedRecoveryKey')}</Button>
     </Alert>
   {/if}
 
   <div class="settings-stack" aria-busy={loading}>
-    <SettingsSection headingId="encryption-heading" title={$i18n.t('settings.encryption')}>
+    <SettingsSection headingId="encryption-heading" title={i18n.t('settings.encryption')}>
       {#if status}
         <div class="status-grid">
           <div class="status-item">
@@ -340,7 +339,7 @@
             </div>
             {#if status.verification !== 'verified' || (status.recovery === 'incomplete' && !status.backup_unlocked)}
               <Button variant="primary" onclick={() => (verificationOpen = true)}>
-                {$i18n.t(
+                {i18n.t(
                   status.verification === 'verified'
                     ? 'settings.recoveryIncompleteAction'
                     : 'settings.verifyDevice'
@@ -354,15 +353,15 @@
           <div class="setting-row">
             <span class="row-icon" aria-hidden="true"><KeyIcon /></span>
             <div class="row-copy">
-              <strong>{$i18n.t('settings.signingKeysMissingTitle')}</strong>
+              <strong>{i18n.t('settings.signingKeysMissingTitle')}</strong>
               <p>
-                {$i18n.t('settings.signingKeysMissingBody', {
+                {i18n.t('settings.signingKeysMissingBody', {
                   keys: missingSigningKeys(status.signing_keys).join(', '),
                 })}
               </p>
             </div>
             <Button variant="secondary" onclick={() => (verificationOpen = true)}>
-              {$i18n.t('settings.signingKeysFetch')}
+              {i18n.t('settings.signingKeysFetch')}
             </Button>
           </div>
         {/if}
@@ -372,14 +371,14 @@
             <span class="row-icon" aria-hidden="true"><KeyIcon /></span>
             <div class="row-copy">
               <strong
-                >{$i18n.t(
+                >{i18n.t(
                   status.recovery === 'enabled'
                     ? 'settings.resetRecoveryKey'
                     : 'common.setUpRecovery'
                 )}</strong
               >
               <p>
-                {$i18n.t(
+                {i18n.t(
                   status.recovery === 'enabled'
                     ? 'settings.resetRecoveryKeyDescription'
                     : 'settings.setUpRecoveryDescription'
@@ -394,7 +393,7 @@
                 else void manageRecovery();
               }}
             >
-              {$i18n.t(
+              {i18n.t(
                 status.recovery === 'enabled' ? 'settings.resetRecoveryKey' : 'common.setUpRecovery'
               )}
             </Button>
@@ -404,16 +403,16 @@
         <div class="setting-row">
           <span class="row-icon" aria-hidden="true"><WarningCircleIcon /></span>
           <div class="row-copy">
-            <strong>{$i18n.t('settings.resetIdentity')}</strong>
-            <p>{$i18n.t('settings.resetIdentityDescription')}</p>
+            <strong>{i18n.t('settings.resetIdentity')}</strong>
+            <p>{i18n.t('settings.resetIdentityDescription')}</p>
           </div>
           <Button variant="danger" onclick={() => (resettingIdentity = true)}>
-            {$i18n.t('settings.resetIdentity')}
+            {i18n.t('settings.resetIdentity')}
           </Button>
         </div>
       {:else if loading}
         <div class="settings-form loading-state" role="status">
-          <Spinner /><span>{$i18n.t('settings.loadingEncryption')}</span>
+          <Spinner /><span>{i18n.t('settings.loadingEncryption')}</span>
         </div>
       {/if}
     </SettingsSection>
@@ -422,17 +421,17 @@
 
     <SettingsSection
       headingId="devices-heading"
-      title={$i18n.t('settings.signedInDevices')}
+      title={i18n.t('settings.signedInDevices')}
       titleActions={refreshAction}
     >
       {#if loading}
         <div class="settings-form loading-state" role="status">
-          <Spinner /><span>{$i18n.t('settings.loadingDevices')}</span>
+          <Spinner /><span>{i18n.t('settings.loadingDevices')}</span>
         </div>
       {:else if devices.length === 0}
         <div class="settings-form empty-state">
           <DesktopTowerIcon />
-          <p>{$i18n.t('settings.noDevices')}</p>
+          <p>{i18n.t('settings.noDevices')}</p>
         </div>
       {:else}
         {#if selectableDevices.length > 0}
@@ -444,11 +443,11 @@
                 disabled={bulkBusy}
                 onchange={toggleSelectAll}
               />
-              {$i18n.t('common.selectAll')}
+              {i18n.t('common.selectAll')}
             </label>
             {#if bulkSelected.size > 0}
               <span class="bulk-count"
-                >{$i18n.t('settings.devicesSelectedCount', { count: bulkSelected.size })}</span
+                >{i18n.t('settings.devicesSelectedCount', { count: bulkSelected.size })}</span
               >
               <Button
                 variant="danger"
@@ -458,7 +457,7 @@
                   bulkRemoving = true;
                 }}
               >
-                {$i18n.t('settings.removeSelectedDevices')}
+                {i18n.t('settings.removeSelectedDevices')}
               </Button>
             {/if}
           </div>
@@ -474,14 +473,14 @@
           >
             <div class="row-copy">
               <strong
-                >{$i18n.t('settings.removeSelectedDevicesConfirm', {
+                >{i18n.t('settings.removeSelectedDevicesConfirm', {
                   count: bulkSelected.size,
                 })}</strong
               >
-              <p>{$i18n.t('settings.removeDeviceDescription')}</p>
+              <p>{i18n.t('settings.removeDeviceDescription')}</p>
             </div>
             {#if !accountManagement}
-              <Label for="bulk-device-password">{$i18n.t('settings.password')}</Label>
+              <Label for="bulk-device-password">{i18n.t('settings.password')}</Label>
               <TextInput
                 id="bulk-device-password"
                 type="password"
@@ -492,10 +491,10 @@
             {/if}
             <div class="form-actions">
               <Button type="submit" variant="danger" loading={bulkBusy}>
-                {$i18n.t('settings.removeSelectedDevices')}
+                {i18n.t('settings.removeSelectedDevices')}
               </Button>
               <Button variant="ghost" disabled={bulkBusy} onclick={cancelBulkRemoval}>
-                {$i18n.t('common.cancel')}
+                {i18n.t('common.cancel')}
               </Button>
             </div>
           </form>
@@ -513,7 +512,7 @@
                       type="checkbox"
                       checked={bulkSelected.has(device.device_id)}
                       disabled={bulkBusy}
-                      aria-label={$i18n.t('settings.selectDevice', { name: deviceName(device) })}
+                      aria-label={i18n.t('settings.selectDevice', { name: deviceName(device) })}
                       onchange={() => {
                         toggleSelected(device.device_id);
                       }}
@@ -526,7 +525,7 @@
                     <span class="device-name">{deviceName(device)}</span>
                     {#if device.is_own}<StatusBadge
                         variant="primary"
-                        label={$i18n.t('settings.currentDevice')}
+                        label={i18n.t('settings.currentDevice')}
                       />{/if}
                   </div>
                   <div class="device-meta">
@@ -537,10 +536,10 @@
                           ? 'success'
                           : 'warning'}
                       label={!device.has_keys
-                        ? $i18n.t('settings.noDeviceKeys')
+                        ? i18n.t('settings.noDeviceKeys')
                         : device.is_verified
-                          ? $i18n.t('settings.verified')
-                          : $i18n.t('settings.notVerified')}
+                          ? i18n.t('settings.verified')
+                          : i18n.t('settings.notVerified')}
                     />
                     <Tooltip label={device.device_id} multiline>
                       {#snippet trigger({ props })}
@@ -550,7 +549,7 @@
                   </div>
                   {#if device.last_seen_ts !== null}
                     <span class="device-seen">
-                      {$i18n.t('settings.deviceLastActivity', {
+                      {i18n.t('settings.deviceLastActivity', {
                         when: `${formatDate(device.last_seen_ts)} ${formatTime(device.last_seen_ts)}`,
                       })}
                     </span>
@@ -565,7 +564,7 @@
                           void verifyDevice(device.device_id);
                         }}
                       >
-                        {$i18n.t('settings.verifyDevice')}
+                        {i18n.t('settings.verifyDevice')}
                       </Button>
                     </div>
                   {/if}
@@ -576,21 +575,21 @@
                       <IconButton
                         variant="ghost"
                         size="small"
-                        label={$i18n.t('settings.renameDevice', { name: deviceName(device) })}
+                        label={i18n.t('settings.renameDevice', { name: deviceName(device) })}
                         onclick={() => {
                           beginRename(device);
                         }}><PencilSimpleIcon /></IconButton
                       >
                     {:else}
                       <ActionMenu
-                        label={$i18n.t('settings.deviceOptions', { name: deviceName(device) })}
+                        label={i18n.t('settings.deviceOptions', { name: deviceName(device) })}
                       >
                         {#snippet trigger({ props })}
                           <IconButton
                             {...props}
                             variant="ghost"
                             size="small"
-                            label={$i18n.t('settings.deviceOptions', { name: deviceName(device) })}
+                            label={i18n.t('settings.deviceOptions', { name: deviceName(device) })}
                             ><DotsThreeVerticalIcon /></IconButton
                           >
                         {/snippet}
@@ -600,7 +599,7 @@
                           }}
                         >
                           <PencilSimpleIcon aria-hidden="true" />
-                          {$i18n.t('settings.rename')}
+                          {i18n.t('settings.rename')}
                         </ActionMenuItem>
                         <ActionMenuItem
                           destructive
@@ -609,7 +608,7 @@
                           }}
                         >
                           <TrashIcon aria-hidden="true" />
-                          {$i18n.t('common.remove')}
+                          {i18n.t('common.remove')}
                         </ActionMenuItem>
                       </ActionMenu>
                     {/if}
@@ -650,9 +649,9 @@
 
 <ConfirmDialog
   bind:open={confirmingReset}
-  title={$i18n.t('settings.resetRecoveryKeyConfirmTitle')}
-  description={$i18n.t('settings.resetRecoveryKeyConfirmDescription')}
-  confirmLabel={$i18n.t('settings.resetRecoveryKey')}
+  title={i18n.t('settings.resetRecoveryKeyConfirmTitle')}
+  description={i18n.t('settings.resetRecoveryKeyConfirmDescription')}
+  confirmLabel={i18n.t('settings.resetRecoveryKey')}
   busy={managingRecovery}
   onConfirm={() => void confirmReset()}
 />

@@ -26,7 +26,7 @@
       ? null
       : `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
   );
-  let label = $derived(body.trim() || $i18n.t('timeline.locationFallback'));
+  let label = $derived(body.trim() || i18n.t('timeline.locationFallback'));
 
   interface MapProps {
     latitude: number;
@@ -69,10 +69,10 @@
     {:else}
       <button type="button" class="reveal" disabled={loading} onclick={showMap}>
         <MapTrifoldIcon size={16} aria-hidden="true" />
-        {loading ? $i18n.t('common.loadingMap') : $i18n.t('timeline.locationShowMap')}
+        {loading ? i18n.t('common.loadingMap') : i18n.t('timeline.locationShowMap')}
       </button>
       {#if failed}
-        <p class="failed">{$i18n.t('common.theMapCouldNotBeLoaded')}</p>
+        <p class="failed">{i18n.t('common.theMapCouldNotBeLoaded')}</p>
       {/if}
     {/if}
   {/if}

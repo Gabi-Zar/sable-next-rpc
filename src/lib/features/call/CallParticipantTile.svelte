@@ -84,7 +84,7 @@
       (!screen || (watchingScreen && participant.screenShareAudio !== undefined))
   );
   let volumeLabel = $derived(
-    screen ? $i18n.t('call.screenVolume', { name }) : $i18n.t('call.participantVolume', { name })
+    screen ? i18n.t('call.screenVolume', { name }) : i18n.t('call.participantVolume', { name })
   );
   let videoOn = $derived(
     screen ? participant.local === true || watchingScreen : cameraVisible(participant)
@@ -96,7 +96,7 @@
   let muted = $derived(participant.microphone === undefined || participant.microphone.muted);
   let speaking = $derived(!screen && !muted && participant.speaking === true);
   let quality = $derived(participant.connectionQuality ?? 'unknown');
-  let label = $derived(screen ? $i18n.t('call.screenOf', { name }) : name);
+  let label = $derived(screen ? i18n.t('call.screenOf', { name }) : name);
   let volume = $derived(participantVolume(volumeKey));
   let volumeOpen = $state(false);
   let revealed = $state(false);
@@ -225,10 +225,10 @@
         <Button
           variant="primary"
           size="small"
-          aria-label={$i18n.t('call.watchScreen', { name })}
+          aria-label={i18n.t('call.watchScreen', { name })}
           onclick={onWatchScreen}
         >
-          {$i18n.t('call.watch')}
+          {i18n.t('call.watch')}
         </Button>
       {/if}
     </div>
@@ -244,10 +244,10 @@
         variant="ghost"
         size="small"
         class="tile-action"
-        aria-label={$i18n.t('call.stopWatchingScreen', { name })}
+        aria-label={i18n.t('call.stopWatchingScreen', { name })}
         onclick={onWatchScreen}
       >
-        {$i18n.t('call.stopWatching')}
+        {i18n.t('call.stopWatching')}
       </Button>
     </div>
   {/if}
@@ -258,7 +258,7 @@
         variant="ghost"
         size="small"
         class="tile-action"
-        label={$i18n.t(pinned ? 'call.unpin' : 'call.pin', { name: label })}
+        label={i18n.t(pinned ? 'call.unpin' : 'call.pin', { name: label })}
         aria-pressed={pinned}
         onclick={onPin}
       >
@@ -274,7 +274,7 @@
         variant="ghost"
         size="small"
         class="tile-action"
-        label={$i18n.t(fullscreen ? 'call.exitFullscreen' : 'call.fullscreen')}
+        label={i18n.t(fullscreen ? 'call.exitFullscreen' : 'call.fullscreen')}
         onclick={toggleFullscreen}
       >
         {#if fullscreen}
@@ -308,7 +308,7 @@
       {#if screen}
         <MonitorIcon aria-hidden="true" weight="fill" />
       {:else if muted}
-        {@const mutedLabel = $i18n.t('call.muted')}
+        {@const mutedLabel = i18n.t('call.muted')}
         <Tooltip label={mutedLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="muted">
@@ -320,7 +320,7 @@
       {/if}
       <span class="name">{label}</span>
       {#if quality === 'poor'}
-        {@const qualityLabel = $i18n.t('call.connectionPoor')}
+        {@const qualityLabel = i18n.t('call.connectionPoor')}
         <Tooltip label={qualityLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="quality">
@@ -330,7 +330,7 @@
           {/snippet}
         </Tooltip>
       {:else if quality === 'lost'}
-        {@const qualityLabel = $i18n.t('call.connectionLost')}
+        {@const qualityLabel = i18n.t('call.connectionLost')}
         <Tooltip label={qualityLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="quality lost">
@@ -366,7 +366,7 @@
       <IconButton
         variant="ghost"
         size="small"
-        label={$i18n.t(volume === 0 ? 'call.unmuteParticipant' : 'call.muteParticipant', { name })}
+        label={i18n.t(volume === 0 ? 'call.unmuteParticipant' : 'call.muteParticipant', { name })}
         aria-pressed={volume === 0}
         onclick={toggleMute}
       >

@@ -64,7 +64,7 @@
 <div class="poll">
   <p class="question">
     {poll.question}
-    {#if poll.edited}<span class="edited">{$i18n.t('timeline.edited')}</span>{/if}
+    {#if poll.edited}<span class="edited">{i18n.t('timeline.edited')}</span>{/if}
   </p>
 
   <ul class="answers">
@@ -95,12 +95,12 @@
               onclick={() => {
                 viewVoters(answer.id);
               }}
-              aria-label={$i18n.t('timeline.pollViewVoters', { answer: answer.text })}
+              aria-label={i18n.t('timeline.pollViewVoters', { answer: answer.text })}
             >
-              {$i18n.t('timeline.pollVotes', { count: answer.votes })}
+              {i18n.t('timeline.pollVotes', { count: answer.votes })}
             </button>
           {:else}
-            <span class="count">{$i18n.t('timeline.pollVotes', { count: answer.votes })}</span>
+            <span class="count">{i18n.t('timeline.pollVotes', { count: answer.votes })}</span>
           {/if}
         {/if}
       </li>
@@ -109,15 +109,15 @@
 
   <p class="footer">
     {#if ended}
-      {$i18n.t('timeline.pollClosed')}
+      {i18n.t('timeline.pollClosed')}
     {:else if poll.undisclosed}
-      {$i18n.t('timeline.pollUndisclosed')}
+      {i18n.t('timeline.pollUndisclosed')}
     {:else}
-      {$i18n.t('timeline.pollTotalVotes', { count: total })}
+      {i18n.t('timeline.pollTotalVotes', { count: total })}
     {/if}
     {#if multiple}
       <span class="hint"
-        >{$i18n.t('timeline.pollMaxSelections', { count: poll.max_selections })}</span
+        >{i18n.t('timeline.pollMaxSelections', { count: poll.max_selections })}</span
       >
     {/if}
   </p>
@@ -131,7 +131,7 @@
         onEnd(pollEventId);
       }}
     >
-      {$i18n.t('timeline.pollEnd')}
+      {i18n.t('timeline.pollEnd')}
     </button>
   {/if}
 </div>

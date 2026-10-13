@@ -96,10 +96,10 @@
 
   const bannerTitle = $derived(
     stage.name === 'staged'
-      ? $i18n.t('settings.updateBannerStagedTitle')
+      ? i18n.t('settings.updateBannerStagedTitle')
       : stage.name === 'failed'
-        ? $i18n.t('settings.updateBannerFailedTitle')
-        : $i18n.t('settings.updateBannerTitle')
+        ? i18n.t('settings.updateBannerFailedTitle')
+        : i18n.t('settings.updateBannerTitle')
   );
 
   const version = $derived(update?.version ?? '');
@@ -111,24 +111,24 @@
   {/snippet}
   {#snippet body()}
     {#if stage.name === 'staged'}
-      {$i18n.t('settings.updateBannerStagedBody', { version })}
+      {i18n.t('settings.updateBannerStagedBody', { version })}
     {:else if stage.name === 'failed'}
       {stage.message}
     {:else if stage.name === 'downloading'}
-      {@const label = $i18n.t('settings.updateBannerProgress', { percent: stage.percent })}
+      {@const label = i18n.t('settings.updateBannerProgress', { percent: stage.percent })}
       <Progress value={stage.percent} {label} />
       {label}
     {:else}
-      {$i18n.t('settings.updateBannerBody', { version })}
+      {i18n.t('settings.updateBannerBody', { version })}
     {/if}
   {/snippet}
   {#snippet actions()}
     <Button variant="ghost" size="small" onclick={dismiss}>
-      {$i18n.t('settings.updateBannerLater')}
+      {i18n.t('settings.updateBannerLater')}
     </Button>
     {#if stage.name === 'staged'}
       <Button variant="primary" size="small" onclick={() => void relaunchApp()}>
-        {$i18n.t('settings.updateBannerRestart')}
+        {i18n.t('settings.updateBannerRestart')}
       </Button>
     {:else}
       <Button
@@ -137,7 +137,7 @@
         loading={stage.name === 'downloading'}
         onclick={() => void install()}
       >
-        {stage.name === 'failed' ? $i18n.t('common.retry') : $i18n.t('common.install')}
+        {stage.name === 'failed' ? i18n.t('common.retry') : i18n.t('common.install')}
       </Button>
     {/if}
   {/snippet}

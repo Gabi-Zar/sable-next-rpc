@@ -10,9 +10,9 @@
 </script>
 
 <div class="predecessor">
-  <p>{$i18n.t('timeline.predecessor')}</p>
+  <p>{i18n.t('timeline.predecessor')}</p>
   <Button size="small" variant="secondary" onclick={onOpen}>
-    {$i18n.t('timeline.predecessorOpen')}
+    {i18n.t('timeline.predecessorOpen')}
   </Button>
 </div>
 

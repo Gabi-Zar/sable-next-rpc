@@ -34,12 +34,12 @@
   const SYSTEM_DEFAULT = 'system';
 
   const optionsFor = (kind: MediaDeviceKind) => [
-    { value: SYSTEM_DEFAULT, label: $i18n.t('settings.callDeviceSystemDefault') },
+    { value: SYSTEM_DEFAULT, label: i18n.t('settings.callDeviceSystemDefault') },
     ...devices
       .filter((device) => device.kind === kind)
       .map((device) => ({
         value: device.deviceId,
-        label: device.label || $i18n.t('settings.unnamedDevice'),
+        label: device.label || i18n.t('settings.unnamedDevice'),
       })),
   ];
 
@@ -97,64 +97,64 @@
 
 <div class="settings-form">
   {#if !supported}
-    <Alert variant="info">{$i18n.t('settings.callDevicesUnsupported')}</Alert>
+    <Alert variant="info">{i18n.t('settings.callDevicesUnsupported')}</Alert>
   {:else}
     {#if denied || devices.length === 0}
       <Alert variant="info">
-        <p>{$i18n.t('settings.callDevicesPermission')}</p>
+        <p>{i18n.t('settings.callDevicesPermission')}</p>
         <div>
           <Button variant="secondary" size="small" onclick={() => void unlock()}>
-            {$i18n.t('settings.callDevicesAllow')}
+            {i18n.t('settings.callDevicesAllow')}
           </Button>
         </div>
         {#if unlockError}
-          <p>{$i18n.t('settings.callDevicesFailed', { reason: unlockError })}</p>
+          <p>{i18n.t('settings.callDevicesFailed', { reason: unlockError })}</p>
         {/if}
       </Alert>
     {/if}
 
     <ul class="settings-rows">
-      <SettingsRow id="call-input-device" title={$i18n.t('settings.callInputDevice')}>
+      <SettingsRow id="call-input-device" title={i18n.t('settings.callInputDevice')}>
         {#snippet before()}<MicrophoneIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('audioinput')}
           value={preferences.audioInputDevice || SYSTEM_DEFAULT}
-          aria-label={$i18n.t('settings.callInputDevice')}
+          aria-label={i18n.t('settings.callInputDevice')}
           onValueChange={(value) =>
             setPreference('audioInputDevice', value === SYSTEM_DEFAULT ? '' : value)}
         />
       </SettingsRow>
 
-      <SettingsRow id="call-output-device" title={$i18n.t('settings.callOutputDevice')}>
+      <SettingsRow id="call-output-device" title={i18n.t('settings.callOutputDevice')}>
         {#snippet before()}<SpeakerHighIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('audiooutput')}
           value={preferences.audioOutputDevice || SYSTEM_DEFAULT}
-          aria-label={$i18n.t('settings.callOutputDevice')}
+          aria-label={i18n.t('settings.callOutputDevice')}
           onValueChange={(value) =>
             setPreference('audioOutputDevice', value === SYSTEM_DEFAULT ? '' : value)}
         />
       </SettingsRow>
 
-      <SettingsRow id="call-camera-device" title={$i18n.t('settings.callCameraDevice')}>
+      <SettingsRow id="call-camera-device" title={i18n.t('settings.callCameraDevice')}>
         {#snippet before()}<VideoCameraIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('videoinput')}
           value={preferences.videoInputDevice || SYSTEM_DEFAULT}
-          aria-label={$i18n.t('settings.callCameraDevice')}
+          aria-label={i18n.t('settings.callCameraDevice')}
           onValueChange={(value) =>
             setPreference('videoInputDevice', value === SYSTEM_DEFAULT ? '' : value)}
         />
       </SettingsRow>
 
-      <SettingsRow id="call-output-volume" title={$i18n.t('settings.callOutputVolume')}>
+      <SettingsRow id="call-output-volume" title={i18n.t('settings.callOutputVolume')}>
         {#snippet before()}<SpeakerHighIcon aria-hidden="true" />{/snippet}
         <div class="range">
           <Slider
             min={0}
             max={1}
             step={0.05}
-            label={$i18n.t('settings.callOutputVolume')}
+            label={i18n.t('settings.callOutputVolume')}
             value={outputVolume()}
             oninput={setOutputVolume}
           />
@@ -162,7 +162,7 @@
         </div>
       </SettingsRow>
 
-      <SettingsRow id="call-mic-test" title={$i18n.t('settings.callMicTestLevel')}>
+      <SettingsRow id="call-mic-test" title={i18n.t('settings.callMicTestLevel')}>
         {#snippet before()}<MicrophoneIcon aria-hidden="true" />{/snippet}
         <div class="range">
           <div
@@ -171,12 +171,12 @@
             aria-valuenow={Math.round(level * 100)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={$i18n.t('settings.callMicTestLevel')}
+            aria-label={i18n.t('settings.callMicTestLevel')}
           >
             <div class="fill" style={`inline-size: ${String(Math.round(level * 100))}%`}></div>
           </div>
           <Button variant="secondary" size="small" onclick={() => void toggleTest()}>
-            {$i18n.t(testing ? 'common.stopTest' : 'settings.callMicTest')}
+            {i18n.t(testing ? 'common.stopTest' : 'settings.callMicTest')}
           </Button>
         </div>
       </SettingsRow>

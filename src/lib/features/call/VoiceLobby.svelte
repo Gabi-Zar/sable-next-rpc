@@ -154,13 +154,13 @@
         if (media.microphone) testing = !testing;
       }}
     >
-      {testing && media.microphone ? $i18n.t('common.stopTest') : $i18n.t('call.testMic')}
+      {testing && media.microphone ? i18n.t('common.stopTest') : i18n.t('call.testMic')}
     </Button>
   {/snippet}
   {#if media.microphone}
     {@render testButton({})}
   {:else}
-    <Tooltip label={$i18n.t('call.testMicNeedsMic')}>
+    <Tooltip label={i18n.t('call.testMicNeedsMic')}>
       {#snippet trigger({ props })}{@render testButton(props)}{/snippet}
     </Tooltip>
   {/if}
@@ -169,17 +169,17 @@
 {#snippet joinAction()}
   <Button variant="primary" disabled={joining} loading={joining} onclick={onJoin}>
     <PhoneIcon aria-hidden="true" weight="fill" />
-    {joining ? $i18n.t('call.joining') : $i18n.t('call.joinVoice')}
+    {joining ? i18n.t('call.joining') : i18n.t('call.joinVoice')}
   </Button>
 {/snippet}
 
-<section class="lobby" aria-label={$i18n.t('call.title')}>
+<section class="lobby" aria-label={i18n.t('call.title')}>
   <header class="top">
     <p class="status">
       <span class={['live-dot', { idle: alone }]}></span>
       {#if roomName}<span class="room">{roomName}</span>{/if}
       {#if !alone}
-        {@const lobbyLabel = $i18n.t('call.lobbyInCall', { count: others.length })}
+        {@const lobbyLabel = i18n.t('call.lobbyInCall', { count: others.length })}
         <Tooltip label={lobbyLabel}>
           {#snippet trigger({ props })}
             <span {...props} class="meta">
@@ -210,8 +210,8 @@
             speaking={testing && meterReady && level > SPEAKING_LEVEL}
             stream={wantsCamera ? stream : undefined}
             note={cameraFailed
-              ? $i18n.t('call.cameraUnavailable')
-              : $i18n.t('call.prescreenNoCamera')}
+              ? i18n.t('call.cameraUnavailable')
+              : i18n.t('call.prescreenNoCamera')}
           />
         {/if}
         {#each others as person, index (otherKeys[index])}
@@ -223,16 +223,16 @@
           />
         {/each}
         {#if alone}
-          <li class="waiting"><p>{$i18n.t('call.lobbyEmpty')}</p></li>
+          <li class="waiting"><p>{i18n.t('call.lobbyEmpty')}</p></li>
         {/if}
       </CallTileGrid>
     {:else if !hasPermission}
-      <Alert variant="warning" class="closed" title={$i18n.t('call.lobbyNoPermission')}>
-        <p>{$i18n.t('call.lobbyNoPermissionHint')}</p>
+      <Alert variant="warning" class="closed" title={i18n.t('call.lobbyNoPermission')}>
+        <p>{i18n.t('call.lobbyNoPermissionHint')}</p>
       </Alert>
     {:else if !hasFocus}
-      <Alert variant="warning" class="closed" title={$i18n.t('call.lobbyNoFocus')}>
-        <p>{$i18n.t('call.lobbyNoFocusHint')}</p>
+      <Alert variant="warning" class="closed" title={i18n.t('call.lobbyNoFocus')}>
+        <p>{i18n.t('call.lobbyNoFocusHint')}</p>
       </Alert>
     {/if}
   </div>

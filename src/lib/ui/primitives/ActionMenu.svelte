@@ -69,7 +69,7 @@
 {#if sheet}
   {#if trigger}{@render trigger({ props: sheetTrigger })}{/if}
   {#if open}
-    <BottomSheet bind:open {label} closeLabel={$i18n.t('timeline.closeMenu')} {onOpenChange}>
+    <BottomSheet bind:open {label} closeLabel={i18n.t('timeline.closeMenu')} {onOpenChange}>
       <div class="action-menu-rows" role="menu">{@render children()}</div>
     </BottomSheet>
   {/if}

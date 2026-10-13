@@ -37,8 +37,8 @@
 
 <BottomSheet
   bind:open
-  label={$i18n.t('settings.outlineLabel', { section: title })}
-  closeLabel={$i18n.t('common.close')}
+  label={i18n.t('settings.outlineLabel', { section: title })}
+  closeLabel={i18n.t('common.close')}
 >
   <div class="jump-sheet">
     <p class="jump-title">{title}</p>
@@ -60,7 +60,7 @@
         </li>
       {/each}
     </ul>
-    <p class="jump-hint">{$i18n.t('settings.copyLinkHint')}</p>
+    <p class="jump-hint">{i18n.t('settings.copyLinkHint')}</p>
   </div>
 </BottomSheet>
 

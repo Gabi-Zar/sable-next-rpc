@@ -102,11 +102,11 @@
 <div
   class="formatting"
   role="group"
-  aria-label={$i18n.t('composer.formatting')}
+  aria-label={i18n.t('composer.formatting')}
   onwheel={scrollSideways}
 >
   {#each visible as button (button.action)}
-    <Tooltip label={withShortcut($i18n.t(button.label), `composer.${button.action}`)}>
+    <Tooltip label={withShortcut(i18n.t(button.label), `composer.${button.action}`)}>
       {#snippet trigger({ props })}
         <IconButton
           {...mergeProps(props, {
@@ -117,7 +117,7 @@
           variant="ghost"
           size="small"
           class="format-button choice"
-          label={$i18n.t(button.label)}
+          label={i18n.t(button.label)}
           aria-pressed={active.includes(button.action)}
         >
           <button.icon />
@@ -126,28 +126,28 @@
     </Tooltip>
   {/each}
   <ComposerColorButton
-    label={$i18n.t('composer.textColor')}
+    label={i18n.t('composer.textColor')}
     icon={TextTIcon}
     value={colors.fg}
     removable={!markdown}
     onPick={(value) => onColor('fg', value)}
   />
   <ComposerColorButton
-    label={$i18n.t('composer.highlightColor')}
+    label={i18n.t('composer.highlightColor')}
     icon={HighlighterIcon}
     value={colors.bg}
     removable={!markdown}
     onPick={(value) => onColor('bg', value)}
   />
   {#if source || !markdown}
-    <Tooltip label={withShortcut($i18n.t('composer.markdownSource'), 'composer.toggleSource')}>
+    <Tooltip label={withShortcut(i18n.t('composer.markdownSource'), 'composer.toggleSource')}>
       {#snippet trigger({ props })}
         <IconButton
           {...mergeProps(props, { onclick: onToggleSource })}
           variant="ghost"
           size="small"
           class="format-button choice"
-          label={$i18n.t('composer.markdownSource')}
+          label={i18n.t('composer.markdownSource')}
           aria-pressed={source}
         >
           {#if source}

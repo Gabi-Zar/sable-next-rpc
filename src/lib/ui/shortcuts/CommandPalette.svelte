@@ -29,12 +29,12 @@
   }
 </script>
 
-<DialogFrame bind:open variant="verification" label={$i18n.t('shortcuts.paletteTitle')}>
+<DialogFrame bind:open variant="verification" label={i18n.t('shortcuts.paletteTitle')}>
   <div class="palette">
     <RoomJumpList onSelect={select} onClose={() => (open = false)} />
     <footer>
       <Button variant="ghost" size="small" onclick={openShortcutsHelp}>
-        {$i18n.t('shortcuts.showShortcuts')}
+        {i18n.t('shortcuts.showShortcuts')}
       </Button>
     </footer>
   </div>

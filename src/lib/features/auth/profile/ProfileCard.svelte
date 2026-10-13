@@ -66,8 +66,8 @@
     onContinue();
   }}
 >
-  <AuthField labelId="profile-title" label={$i18n.t('setup.profileTitle')}>
-    <AuthInfoBox>{$i18n.t('auth.profileIntro')}</AuthInfoBox>
+  <AuthField labelId="profile-title" label={i18n.t('setup.profileTitle')}>
+    <AuthInfoBox>{i18n.t('auth.profileIntro')}</AuthInfoBox>
   </AuthField>
 
   <div class="avatar-picker">
@@ -83,19 +83,19 @@
       <span class="avatar-badge" aria-hidden="true"><CameraIcon weight="fill" /></span>
     </label>
     <div class="avatar-actions">
-      <span class="avatar-label">{$i18n.t('auth.avatar')}</span>
+      <span class="avatar-label">{i18n.t('auth.avatar')}</span>
       <div class="avatar-buttons">
         <label class="file-button btn btn-secondary btn-small">
           <input
             id="profile-avatar"
             type="file"
             accept="image/*"
-            aria-label={$i18n.t(avatarPreview ? 'auth.replaceAvatar' : 'settings.uploadAvatar')}
+            aria-label={i18n.t(avatarPreview ? 'auth.replaceAvatar' : 'settings.uploadAvatar')}
             onchange={(event: Event & { currentTarget: HTMLInputElement }) => {
               onAvatar(event.currentTarget.files?.[0] ?? null);
             }}
           />
-          {$i18n.t(avatarPreview ? 'auth.replaceAvatar' : 'settings.uploadAvatar')}
+          {i18n.t(avatarPreview ? 'auth.replaceAvatar' : 'settings.uploadAvatar')}
         </label>
         {#if avatarPreview}
           <Button
@@ -107,14 +107,14 @@
               if (input instanceof HTMLInputElement) input.value = '';
             }}
           >
-            {$i18n.t('common.removeAvatar')}
+            {i18n.t('common.removeAvatar')}
           </Button>
         {/if}
       </div>
     </div>
   </div>
 
-  <FormField dense fieldId="profile-display-name" label={$i18n.t('common.displayName')}>
+  <FormField dense fieldId="profile-display-name" label={i18n.t('common.displayName')}>
     <TextInput
       id="profile-display-name"
       value={displayName}
@@ -126,11 +126,11 @@
     />
   </FormField>
 
-  <FormField dense fieldId="profile-pronouns" label={$i18n.t('settings.pronouns')}>
+  <FormField dense fieldId="profile-pronouns" label={i18n.t('settings.pronouns')}>
     <TextInput
       id="profile-pronouns"
       value={pronouns}
-      placeholder={$i18n.t('common.theythemEnsheher')}
+      placeholder={i18n.t('common.theythemEnsheher')}
       oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
         onPronouns(event.currentTarget.value);
       }}
@@ -138,10 +138,10 @@
   </FormField>
 
   <details class="more-options" bind:open={moreOpen}>
-    <summary>{$i18n.t('auth.moreProfileOptions')}</summary>
+    <summary>{i18n.t('auth.moreProfileOptions')}</summary>
     <div class="more-list">
       <ColorSetting
-        label={$i18n.t('auth.nameColor')}
+        label={i18n.t('auth.nameColor')}
         bind:value={color}
         onCommit={() => {
           onNameColor(color);
@@ -151,19 +151,19 @@
           onNameColor('');
         }}
       />
-      <FormField dense fieldId="profile-status" label={$i18n.t('settings.status')}>
+      <FormField dense fieldId="profile-status" label={i18n.t('settings.status')}>
         <TextInput
           id="profile-status"
           value={status}
           maxlength={255}
-          placeholder={$i18n.t('common.whatAreYouUpTo')}
+          placeholder={i18n.t('common.whatAreYouUpTo')}
           oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
             onStatus(event.currentTarget.value);
           }}
         />
       </FormField>
       <div class="banner-setting">
-        <span class="avatar-label">{$i18n.t('auth.banner')}</span>
+        <span class="avatar-label">{i18n.t('auth.banner')}</span>
         {#if bannerPreview?.startsWith('mxc://')}
           <MediaImage
             class="banner-preview"
@@ -181,12 +181,12 @@
               id="profile-banner"
               type="file"
               accept="image/*"
-              aria-label={$i18n.t(bannerPreview ? 'common.changeBanner' : 'settings.saveBanner')}
+              aria-label={i18n.t(bannerPreview ? 'common.changeBanner' : 'settings.saveBanner')}
               onchange={(event: Event & { currentTarget: HTMLInputElement }) => {
                 onBanner(event.currentTarget.files?.[0] ?? null);
               }}
             />
-            {$i18n.t(bannerPreview ? 'common.changeBanner' : 'settings.saveBanner')}
+            {i18n.t(bannerPreview ? 'common.changeBanner' : 'settings.saveBanner')}
           </label>
           {#if bannerPreview}
             <Button
@@ -198,7 +198,7 @@
                 if (input instanceof HTMLInputElement) input.value = '';
               }}
             >
-              {$i18n.t('common.remove')}
+              {i18n.t('common.remove')}
             </Button>
           {/if}
         </div>
@@ -209,11 +209,11 @@
   <AuthStatusSlot message={error} />
 
   <Button type="submit" variant="primary" block loading={isSaving}>
-    {$i18n.t('auth.continue')}
+    {i18n.t('auth.continue')}
   </Button>
 </form>
 
-<AuthSecondaryAction label={$i18n.t('auth.skipForNow')} onclick={onSkip} disabled={isSaving} />
+<AuthSecondaryAction label={i18n.t('auth.skipForNow')} onclick={onSkip} disabled={isSaving} />
 
 <style>
   .profile-card {

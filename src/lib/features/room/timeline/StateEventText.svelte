@@ -19,8 +19,8 @@
   const REACTION_MARKER = '\u0001';
   const translate: Translate = (key, values) =>
     reaction && key === 'timeline.hiddenReaction'
-      ? $i18n.t(key, { ...values, key: REACTION_MARKER })
-      : $i18n.t(key, values);
+      ? i18n.t(key, { ...values, key: REACTION_MARKER })
+      : i18n.t(key, values);
   let subject = $derived(onSenderProfile ? stateEventSubject(item, translate) : null);
   let subjectName = $derived(
     subject && subject.name === subject.userId ? memberName(members, subject.userId) : subject?.name

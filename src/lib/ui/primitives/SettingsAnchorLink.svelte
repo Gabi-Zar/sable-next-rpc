@@ -37,12 +37,12 @@
       return longPress({
         enabled: (event) => !(event.target instanceof Element && event.target.closest(CONTROLS)),
         onPress: () => {
-          const done = () => toasts.info($i18n.t('settings.linkCopied'));
+          const done = () => toasts.info(i18n.t('settings.linkCopied'));
           const offer = () =>
-            toasts.undoable($i18n.t('errors.copyFailed'), {
-              label: $i18n.t('settings.copyLink'),
+            toasts.undoable(i18n.t('errors.copyFailed'), {
+              label: i18n.t('settings.copyLink'),
               onUndo: () => {
-                copy(build).then(done, () => toasts.error($i18n.t('errors.copyFailed')));
+                copy(build).then(done, () => toasts.error(i18n.t('errors.copyFailed')));
               },
             });
           copy(build).then(done, () => {
@@ -66,7 +66,7 @@
   <button
     type="button"
     class="anchor-link"
-    aria-label={$i18n.t(copied ? 'settings.linkCopied' : 'settings.copyLink')}
+    aria-label={i18n.t(copied ? 'settings.linkCopied' : 'settings.copyLink')}
     onclick={() => void copy(link)}
     {@attach pressToCopy(link)}
   >

@@ -76,8 +76,8 @@
 
   /** The badge is decorative, so the count has to reach the accessible name. */
   function toolLabel(item: { href: string | null; label: string }): string {
-    if (item.href !== '/inbox' || inboxCount === 0) return $i18n.t(item.label);
-    return $i18n.t('inbox.navLabel', { count: inboxCount });
+    if (item.href !== '/inbox' || inboxCount === 0) return i18n.t(item.label);
+    return i18n.t('inbox.navLabel', { count: inboxCount });
   }
 
   function isToolActive(href: string): boolean {
@@ -105,13 +105,13 @@
       {...props}
       type="button"
       class="quick-tool {toolClass} nav-tab nav-tab-outlined selection-layer"
-      aria-label={$i18n.t('shortcuts.paletteTitle')}
+      aria-label={i18n.t('shortcuts.paletteTitle')}
       onclick={() => (paletteState.open = true)}
     >
       <span class="tool-icon" aria-hidden="true"><ListMagnifyingGlassIcon /></span>
     </button>
   {/snippet}
-  <Tooltip label={$i18n.t('shortcuts.paletteTitle')} {side} trigger={switcherTrigger} />
+  <Tooltip label={i18n.t('shortcuts.paletteTitle')} {side} trigger={switcherTrigger} />
 {/snippet}
 
 {#if mobile}
@@ -119,7 +119,7 @@
     class={['mobile-tools', { 'selection-active': mobileSelectedIndex >= 0 }]}
     style:--mobile-selected-index={String(Math.max(mobileSelectedIndex, 0))}
     style:--mobile-slot-count={String(mobileSlotCount)}
-    aria-label={$i18n.t('nav.quickTools')}
+    aria-label={i18n.t('nav.quickTools')}
   >
     <div class="mobile-tools-row">
       {#each mobileTools as item (item.label)}
@@ -154,7 +154,7 @@
     </div>
   </nav>
 {:else if compact}
-  <nav class="compact-tools" aria-label={$i18n.t('nav.quickTools')}>
+  <nav class="compact-tools" aria-label={i18n.t('nav.quickTools')}>
     <AlertPopover mode="compact" />
     {@render roomSwitcher('compact-tool nav-tab-side', 'right')}
     {#each desktopTools as item (item.href)}
@@ -180,12 +180,12 @@
           {/if}
         </a>
       {/snippet}
-      <Tooltip label={$i18n.t(item.label)} side="right" {trigger} />
+      <Tooltip label={i18n.t(item.label)} side="right" {trigger} />
     {/each}
     <AccountSwitcher mode="compact" />
   </nav>
 {:else}
-  <nav class="desktop-tools" aria-label={$i18n.t('nav.quickTools')}>
+  <nav class="desktop-tools" aria-label={i18n.t('nav.quickTools')}>
     <AccountSwitcher mode="desktop" />
     <div class="desktop-tool-actions">
       <AlertPopover mode="desktop" />
@@ -213,7 +213,7 @@
             {/if}
           </a>
         {/snippet}
-        <Tooltip label={$i18n.t(item.label)} {trigger} />
+        <Tooltip label={i18n.t(item.label)} {trigger} />
       {/each}
     </div>
   </nav>

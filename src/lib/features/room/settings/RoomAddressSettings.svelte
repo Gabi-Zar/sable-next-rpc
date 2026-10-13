@@ -184,18 +184,18 @@
 
 <SettingsSection
   headingId="room-settings-published-addresses"
-  title={$i18n.t('room.addressesPublishedTitle')}
-  description={$i18n.t('room.addressesPublishedHint')}
+  title={i18n.t('room.addressesPublishedTitle')}
+  description={i18n.t('room.addressesPublishedHint')}
 >
   {#if published.length > 0}
     <ul class="settings-rows">
       {#each published as alias (alias)}
         <SettingsRow title={alias}>
           {#if alias === canonical}
-            <StatusBadge variant="primary" label={$i18n.t('room.addressesMain')} />
+            <StatusBadge variant="primary" label={i18n.t('room.addressesMain')} />
             {#if canEdit}
               <Button size="small" variant="ghost" disabled={busy} onclick={unsetMain}>
-                {$i18n.t('room.addressesUnsetMain')}
+                {i18n.t('room.addressesUnsetMain')}
               </Button>
             {/if}
           {:else if canEdit}
@@ -207,14 +207,14 @@
                 setMain(alias);
               }}
             >
-              {$i18n.t('room.addressesSetMain')}
+              {i18n.t('room.addressesSetMain')}
             </Button>
           {/if}
           {#if canEdit}
             <IconButton
               variant="subtle"
               size="small"
-              label={$i18n.t('room.addressesUnpublish', { alias })}
+              label={i18n.t('room.addressesUnpublish', { alias })}
               disabled={busy}
               onclick={() => {
                 unpublish([alias]);
@@ -227,24 +227,24 @@
       {/each}
     </ul>
   {:else}
-    <p class="settings-note settings-form">{$i18n.t('room.addressesPublishedEmpty')}</p>
+    <p class="settings-note settings-form">{i18n.t('room.addressesPublishedEmpty')}</p>
   {/if}
 </SettingsSection>
 
 <SettingsSection
   headingId="room-settings-addresses"
-  title={$i18n.t('room.addressesTitle')}
-  description={$i18n.t('room.addressesHint')}
+  title={i18n.t('room.addressesTitle')}
+  description={i18n.t('room.addressesHint')}
 >
   {#if canEdit && aliases.length > 0}
     <div class="bulk-bar">
       <label class="bulk-select-all">
         <input type="checkbox" checked={allSelected} disabled={busy} onchange={toggleAll} />
-        {$i18n.t('common.selectAll')}
+        {i18n.t('common.selectAll')}
       </label>
       {#if chosen.length > 0}
         <span class="bulk-count">
-          {$i18n.t('room.addressesSelectedCount', { count: chosen.length })}
+          {i18n.t('room.addressesSelectedCount', { count: chosen.length })}
         </span>
         <div class="bulk-actions">
           <Button
@@ -255,7 +255,7 @@
               publish(chosen);
             }}
           >
-            {$i18n.t('room.addressesPublish')}
+            {i18n.t('room.addressesPublish')}
           </Button>
           <Button
             size="small"
@@ -265,7 +265,7 @@
               unpublish(chosen);
             }}
           >
-            {$i18n.t('room.addressesUnpublishSelected')}
+            {i18n.t('room.addressesUnpublishSelected')}
           </Button>
           <Button
             size="small"
@@ -275,7 +275,7 @@
               pendingRemoval = chosen;
             }}
           >
-            {$i18n.t('common.delete')}
+            {i18n.t('common.delete')}
           </Button>
         </div>
       {/if}
@@ -293,7 +293,7 @@
                   type="checkbox"
                   checked={selected.has(alias)}
                   disabled={busy}
-                  aria-label={$i18n.t('room.addressesSelect', { alias })}
+                  aria-label={i18n.t('room.addressesSelect', { alias })}
                   onchange={() => {
                     toggle(alias);
                   }}
@@ -302,15 +302,15 @@
             {/if}
           {/snippet}
           {#if alias === canonical}
-            <StatusBadge variant="primary" label={$i18n.t('room.addressesMain')} />
+            <StatusBadge variant="primary" label={i18n.t('room.addressesMain')} />
           {:else if published.includes(alias)}
-            <StatusBadge label={$i18n.t('room.addressesPublished')} />
+            <StatusBadge label={i18n.t('room.addressesPublished')} />
           {/if}
           {#if canEdit}
             <IconButton
               variant="subtle"
               size="small"
-              label={$i18n.t('room.addressesRemove', { alias })}
+              label={i18n.t('room.addressesRemove', { alias })}
               disabled={busy}
               onclick={() => {
                 pendingRemoval = [alias];
@@ -323,21 +323,21 @@
       {/each}
     </ul>
   {:else}
-    <p class="settings-note settings-form">{$i18n.t('room.addressesEmpty')}</p>
+    <p class="settings-note settings-form">{i18n.t('room.addressesEmpty')}</p>
   {/if}
 
   {#if canEdit}
     <div class="settings-form">
       {#if outcome === 'invalid'}
-        <Alert variant="critical" role="alert">{$i18n.t('room.addressesInvalid')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('room.addressesInvalid')}</Alert>
       {:else if outcome === 'failed'}
-        <Alert variant="critical" role="alert">{$i18n.t('room.addressesFailed')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('room.addressesFailed')}</Alert>
       {/if}
       <div class="inline">
         <TextInput
           bind:value={draft}
-          placeholder={$i18n.t('room.addressesPlaceholder')}
-          aria-label={$i18n.t('common.add')}
+          placeholder={i18n.t('room.addressesPlaceholder')}
+          aria-label={i18n.t('common.add')}
           onkeydown={(event: KeyboardEvent) => {
             if (event.key !== 'Enter') return;
             event.preventDefault();
@@ -345,7 +345,7 @@
           }}
         />
         <Button disabled={draft.trim() === '' || busy} onclick={add}>
-          {$i18n.t('common.add')}
+          {i18n.t('common.add')}
         </Button>
       </div>
     </div>
@@ -358,9 +358,9 @@
     if (!next && busy === false) pendingRemoval = [];
   }}
   title={pendingRemoval.length === 1
-    ? $i18n.t('room.addressesRemoveConfirm', { alias: pendingRemoval[0] })
-    : $i18n.t('room.addressesRemoveManyConfirm', { count: pendingRemoval.length })}
-  confirmLabel={$i18n.t('common.remove')}
+    ? i18n.t('room.addressesRemoveConfirm', { alias: pendingRemoval[0] })
+    : i18n.t('room.addressesRemoveManyConfirm', { count: pendingRemoval.length })}
+  confirmLabel={i18n.t('common.remove')}
   {busy}
   onConfirm={() => void confirmRemoval()}
 />

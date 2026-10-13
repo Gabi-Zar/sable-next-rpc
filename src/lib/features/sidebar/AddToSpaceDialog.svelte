@@ -52,17 +52,17 @@
     if (!next) close();
   }}
   variant="verification"
-  label={$i18n.t('room.addToSpaceTitle', { name: room.name ?? room.room_id })}
+  label={i18n.t('room.addToSpaceTitle', { name: room.name ?? room.room_id })}
 >
-  <h2>{$i18n.t('room.addToSpaceTitle', { name: room.name ?? room.room_id })}</h2>
+  <h2>{i18n.t('room.addToSpaceTitle', { name: room.name ?? room.room_id })}</h2>
   <TextInput
     id={fieldId}
     bind:value={search}
-    placeholder={$i18n.t('room.addToSpaceSearch')}
-    aria-label={$i18n.t('room.addToSpaceSearch')}
+    placeholder={i18n.t('room.addToSpaceSearch')}
+    aria-label={i18n.t('room.addToSpaceSearch')}
   />
   {#if targets.length === 0}
-    <p class="empty">{$i18n.t('room.addToSpaceEmpty')}</p>
+    <p class="empty">{i18n.t('room.addToSpaceEmpty')}</p>
   {:else}
     <ul class="targets" {@attach scrollHint}>
       {#each targets as space (space.room_id)}
@@ -83,9 +83,9 @@
     </ul>
   {/if}
   <div class="actions">
-    <Button variant="ghost" onclick={close}>{$i18n.t('common.cancel')}</Button>
+    <Button variant="ghost" onclick={close}>{i18n.t('common.cancel')}</Button>
     <Button variant="primary" disabled={selected.size === 0} onclick={apply}>
-      {$i18n.t('room.addToSpaceApply', { count: selected.size })}
+      {i18n.t('room.addToSpaceApply', { count: selected.size })}
     </Button>
   </div>
 </DialogFrame>

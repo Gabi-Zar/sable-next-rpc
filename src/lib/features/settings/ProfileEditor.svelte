@@ -402,7 +402,7 @@
 <svelte:window onkeydown={saveShortcut} />
 
 <SettingsSection
-  title={$i18n.t('settings.profile')}
+  title={i18n.t('settings.profile')}
   headingId="account-profile"
   class="profile-section"
 >
@@ -410,11 +410,11 @@
     <Select
       bind:value={scope}
       items={scopeItems}
-      aria-label={$i18n.t('settings.profileScope')}
+      aria-label={i18n.t('settings.profileScope')}
       class="scope-select"
     />
   {/snippet}
-  <div class="tabs" role="tablist" aria-label={$i18n.t('settings.profile')}>
+  <div class="tabs" role="tablist" aria-label={i18n.t('settings.profile')}>
     {#each ['edit', 'preview'] as const as id (id)}
       <button
         type="button"
@@ -433,7 +433,7 @@
           document.getElementById(`profile-tab-${tab}`)?.focus();
         }}
       >
-        {$i18n.t(id === 'edit' ? 'common.edit' : 'settings.profilePreviewTab')}
+        {i18n.t(id === 'edit' ? 'common.edit' : 'settings.profilePreviewTab')}
       </button>
     {/each}
   </div>
@@ -470,13 +470,13 @@
         void save();
       }}
     >
-      <div class="profile-hero" aria-label={$i18n.t('settings.profilePreview')}>
+      <div class="profile-hero" aria-label={i18n.t('settings.profilePreview')}>
         <ProfileCard
           {userId}
           displayName={draft.name.trim() || userId}
           avatarUrl={avatarPreview ?? (draft.avatarRemoved ? null : profile.avatar_url)}
           bannerUrl={draft.banner}
-          avatarLabel={$i18n.t(hasAvatar ? 'common.changeAvatar' : 'settings.uploadAvatar')}
+          avatarLabel={i18n.t(hasAvatar ? 'common.changeAvatar' : 'settings.uploadAvatar')}
           onAvatarEdit={() => avatarInput?.click()}
           color={draft.hero || senderColor(userId)}
           heroColor={draft.hero || null}
@@ -489,21 +489,21 @@
               id="account-status"
               class="inline-edit"
               bind:value={draft.status}
-              aria-label={$i18n.t('settings.status')}
-              placeholder={$i18n.t('common.whatAreYouUpTo')}
+              aria-label={i18n.t('settings.status')}
+              placeholder={i18n.t('common.whatAreYouUpTo')}
               maxlength={256}
             />
           {/snippet}
           {#snippet nameField()}
             <div class="caption-field">
               <label class="caption" for="account-display-name"
-                >{$i18n.t('common.displayName')}</label
+                >{i18n.t('common.displayName')}</label
               >
               <TextInput
                 id="account-display-name"
                 class="inline-edit hero-name"
                 bind:value={draft.name}
-                placeholder={$i18n.t('common.displayName')}
+                placeholder={i18n.t('common.displayName')}
                 autocomplete="nickname"
                 maxlength={255}
               />
@@ -511,37 +511,37 @@
           {/snippet}
           {#snippet pronouns()}
             <div class="caption-field">
-              <label class="caption" for="account-pronouns">{$i18n.t('settings.pronouns')}</label>
+              <label class="caption" for="account-pronouns">{i18n.t('settings.pronouns')}</label>
               <TextInput
                 id="account-pronouns"
                 class="inline-edit hero-pronouns"
                 bind:value={draft.pronouns}
                 aria-describedby="account-pronouns-hint"
-                placeholder={$i18n.t('settings.pronounsAdd')}
+                placeholder={i18n.t('settings.pronounsAdd')}
                 maxlength={MAX_PRONOUN_INPUT}
               />
               <span id="account-pronouns-hint" class="sr-only"
-                >{$i18n.t('settings.pronounsHint')}</span
+                >{i18n.t('settings.pronounsHint')}</span
               >
             </div>
           {/snippet}
           {#snippet meta()}
             <div class="caption-field">
-              <label class="caption" for="account-timezone">{$i18n.t('settings.timezone')}</label>
+              <label class="caption" for="account-timezone">{i18n.t('settings.timezone')}</label>
               <div class="timezone-row">
                 <Select
                   id="account-timezone"
                   class="inline-edit timezone-select"
                   items={zoneItems}
                   bind:value={draft.timezone}
-                  placeholder={$i18n.t('settings.timezoneNotSet')}
+                  placeholder={i18n.t('settings.timezoneNotSet')}
                 />
                 {#if draft.timezone}<Button
                     variant="ghost"
                     size="small"
                     onclick={() => {
                       draft.timezone = '';
-                    }}>{$i18n.t('settings.removeTimezone')}</Button
+                    }}>{i18n.t('settings.removeTimezone')}</Button
                   >{/if}
               </div>
             </div>
@@ -558,10 +558,10 @@
                   if (file) stageAvatar(file);
                 }}
               />
-              {$i18n.t(hasAvatar ? 'common.changeAvatar' : 'settings.uploadAvatar')}
+              {i18n.t(hasAvatar ? 'common.changeAvatar' : 'settings.uploadAvatar')}
             </label>
             {#if hasAvatar}<Button variant="secondary" size="small" onclick={removeAvatar}
-                >{$i18n.t('common.removeAvatar')}</Button
+                >{i18n.t('common.removeAvatar')}</Button
               >{/if}
             <label class="file-button btn btn-secondary btn-small">
               <input
@@ -574,7 +574,7 @@
                   if (file) void stageBanner(file);
                 }}
               />
-              {draft.banner ? $i18n.t('common.changeBanner') : $i18n.t('settings.saveBanner')}
+              {draft.banner ? i18n.t('common.changeBanner') : i18n.t('settings.saveBanner')}
             </label>
             {#if draft.banner}<Button
                 variant="secondary"
@@ -582,16 +582,16 @@
                 loading={uploadingBanner}
                 onclick={() => {
                   draft.banner = null;
-                }}>{$i18n.t('common.removeBanner')}</Button
+                }}>{i18n.t('common.removeBanner')}</Button
               >{/if}
           {/snippet}
           {#snippet footer()}
             <div class="card-fields">
               <fieldset class="group">
-                <legend>{$i18n.t('settings.profileColors')}</legend>
+                <legend>{i18n.t('settings.profileColors')}</legend>
                 <div class="field-grid">
                   <ColorSetting
-                    label={$i18n.t('settings.profileColorsBackground')}
+                    label={i18n.t('settings.profileColorsBackground')}
                     bind:value={draft.hero}
                     onCommit={() => {}}
                     onReset={() => {
@@ -600,20 +600,20 @@
                   />
                   <div class="caption-field">
                     <label class="caption" for="account-brightness"
-                      >{$i18n.t('settings.profileColorsBrightness')}</label
+                      >{i18n.t('settings.profileColorsBrightness')}</label
                     >
                     <Select
                       id="account-brightness"
                       class="inline-edit"
                       bind:value={draft.brightness}
                       items={[
-                        { value: 'light', label: $i18n.t('common.light') },
-                        { value: 'dark', label: $i18n.t('common.dark') },
+                        { value: 'light', label: i18n.t('common.light') },
+                        { value: 'dark', label: i18n.t('common.dark') },
                       ]}
                     />
                   </div>
                   <ColorSetting
-                    label={$i18n.t('settings.profileColorsOnDark')}
+                    label={i18n.t('settings.profileColorsOnDark')}
                     bind:value={draft.dark}
                     onCommit={() => {}}
                     onReset={() => {
@@ -621,7 +621,7 @@
                     }}
                   />
                   <ColorSetting
-                    label={$i18n.t('settings.profileColorsOnLight')}
+                    label={i18n.t('settings.profileColorsOnLight')}
                     bind:value={draft.light}
                     onCommit={() => {}}
                     onReset={() => {
@@ -631,39 +631,39 @@
                 </div>
               </fieldset>
               <fieldset class="group">
-                <legend>{$i18n.t('settings.animalIdentity')}</legend>
+                <legend>{i18n.t('settings.animalIdentity')}</legend>
                 <div class="field-grid">
                   <div class="caption-field">
                     <label class="caption" for="account-animal-is"
-                      >{$i18n.t('settings.animalIdentityWhatIs')}</label
+                      >{i18n.t('settings.animalIdentityWhatIs')}</label
                     >
                     <TextInput
                       id="account-animal-is"
                       class="inline-edit"
                       bind:value={draft.isAnimal}
-                      placeholder={$i18n.t('settings.animalIdentityWhatIsPlaceholder')}
+                      placeholder={i18n.t('settings.animalIdentityWhatIsPlaceholder')}
                     />
                   </div>
                   <div class="caption-field">
                     <label class="caption" for="account-animal-has"
-                      >{$i18n.t('settings.animalIdentityWhatHas')}</label
+                      >{i18n.t('settings.animalIdentityWhatHas')}</label
                     >
                     <TextInput
                       id="account-animal-has"
                       class="inline-edit"
                       bind:value={draft.hasAnimal}
-                      placeholder={$i18n.t('settings.animalIdentityWhatHasPlaceholder')}
+                      placeholder={i18n.t('settings.animalIdentityWhatHasPlaceholder')}
                     />
                   </div>
                   <div class="caption-field">
                     <label class="caption" for="account-animal-needs"
-                      >{$i18n.t('settings.animalIdentityWhatNeeds')}</label
+                      >{i18n.t('settings.animalIdentityWhatNeeds')}</label
                     >
                     <TextInput
                       id="account-animal-needs"
                       class="inline-edit"
                       bind:value={draft.animalNeed}
-                      placeholder={$i18n.t('settings.animalIdentityWhatNeedsPlaceholder')}
+                      placeholder={i18n.t('settings.animalIdentityWhatNeedsPlaceholder')}
                     />
                   </div>
                 </div>
@@ -672,13 +672,13 @@
           {/snippet}
 
           <div class="caption-field">
-            <label class="caption" for="account-bio">{$i18n.t('settings.biography')}</label>
-            <div class="bio-toolbar" role="toolbar" aria-label={$i18n.t('settings.bioFormatting')}>
+            <label class="caption" for="account-bio">{i18n.t('settings.biography')}</label>
+            <div class="bio-toolbar" role="toolbar" aria-label={i18n.t('settings.bioFormatting')}>
               {#each bioFormats as format (format.id)}
                 <IconButton
                   variant="ghost"
                   size="small"
-                  label={$i18n.t(`settings.bioFormat.${format.id}`)}
+                  label={i18n.t(`settings.bioFormat.${format.id}`)}
                   onclick={() => formatBio(format)}
                 >
                   <format.icon />
@@ -691,18 +691,18 @@
               bind:value={draft.bio}
               rows={4}
               maxlength={5000}
-              placeholder={$i18n.t('settings.biographyHint')}
+              placeholder={i18n.t('settings.biographyHint')}
             />
           </div>
         </ProfileCard>
       </div>
       <div class="settings-form">
         <fieldset class="group">
-          <legend>{$i18n.t('settings.otherProfileFields')}</legend>
+          <legend>{i18n.t('settings.otherProfileFields')}</legend>
           <p class="settings-note">
-            {$i18n.t('settings.otherProfileFieldsDescription')}
-            <span aria-label={$i18n.t('settings.otherProfileFieldsKaomojiTranslation')}
-              >{$i18n.t('settings.otherProfileFieldsKaomoji')}</span
+            {i18n.t('settings.otherProfileFieldsDescription')}
+            <span aria-label={i18n.t('settings.otherProfileFieldsKaomojiTranslation')}
+              >{i18n.t('settings.otherProfileFieldsKaomoji')}</span
             >
           </p>
           {#if draft.extra.length}
@@ -728,8 +728,8 @@
               <TextInput
                 bind:value={editKey.key}
                 maxlength={256}
-                aria-label={$i18n.t('settings.otherProfileFieldsKeyPlaceholder')}
-                placeholder={$i18n.t('settings.otherProfileFieldsKeyPlaceholder')}
+                aria-label={i18n.t('settings.otherProfileFieldsKeyPlaceholder')}
+                placeholder={i18n.t('settings.otherProfileFieldsKeyPlaceholder')}
                 onkeydown={(event) => {
                   if (event.key !== 'Enter') return;
                   event.preventDefault();
@@ -740,25 +740,25 @@
                 bind:value={editKey.value}
                 rows={5}
                 maxlength={5000}
-                aria-label={$i18n.t('settings.otherProfileFieldsValuePlaceholder')}
-                placeholder={$i18n.t('settings.otherProfileFieldsValuePlaceholder')}
+                aria-label={i18n.t('settings.otherProfileFieldsValuePlaceholder')}
+                placeholder={i18n.t('settings.otherProfileFieldsValuePlaceholder')}
               />
               <div class="extra-buttons">
                 <Button size="small" onclick={commitExtra}
-                  >{$i18n.t('settings.otherProfileFieldsDone')}</Button
+                  >{i18n.t('settings.otherProfileFieldsDone')}</Button
                 >
                 <Button
                   variant="danger"
                   size="small"
-                  aria-label={$i18n.t('settings.otherProfileFieldsRemove')}
-                  onclick={removeExtra}>{$i18n.t('common.remove')}</Button
+                  aria-label={i18n.t('settings.otherProfileFieldsRemove')}
+                  onclick={removeExtra}>{i18n.t('common.remove')}</Button
                 >
                 <Button
                   size="small"
-                  aria-label={$i18n.t('settings.otherProfileFieldsCancel')}
+                  aria-label={i18n.t('settings.otherProfileFieldsCancel')}
                   onclick={() => (editKey = undefined)}
                 >
-                  {$i18n.t('common.cancel')}
+                  {i18n.t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -768,7 +768,7 @@
                 size="small"
                 onclick={() => {
                   editKey = { key: '', value: '', original: '' };
-                }}>{$i18n.t('common.add')}</Button
+                }}>{i18n.t('common.add')}</Button
               >
             </div>
           {/if}
@@ -777,15 +777,15 @@
       <div class="actions">
         {#if error}<p class="actions-note critical" role="alert">{error}</p>
         {:else if dirty}<p class="actions-note" role="status">
-            {$i18n.t('settings.unsavedChanges')}
+            {i18n.t('settings.unsavedChanges')}
           </p>{/if}
         <Button
           type="submit"
           variant="primary"
           disabled={!dirty || uploadingBanner}
-          loading={saving}>{$i18n.t('common.save')}</Button
+          loading={saving}>{i18n.t('common.save')}</Button
         >
-        <Button disabled={!dirty || saving} onclick={cancel}>{$i18n.t('common.cancel')}</Button>
+        <Button disabled={!dirty || saving} onclick={cancel}>{i18n.t('common.cancel')}</Button>
       </div>
     </form>
   </div>

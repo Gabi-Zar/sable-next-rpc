@@ -19,15 +19,15 @@
   let passphrase = $derived(core.encryption?.recovery_passphrase ?? false);
   let description = $derived(
     sealed
-      ? $i18n.t('settings.syncEncryptionOn')
+      ? i18n.t('settings.syncEncryptionOn')
       : recoveryEnabled
-        ? $i18n.t('settings.syncEncryptionLocked')
-        : $i18n.t('settings.syncEncryptionOff')
+        ? i18n.t('settings.syncEncryptionLocked')
+        : i18n.t('settings.syncEncryptionOff')
   );
 </script>
 
 <ul class="settings">
-  <SettingsRow id="sync-encryption" title={$i18n.t('settings.syncEncryptionTitle')} {description} />
+  <SettingsRow id="sync-encryption" title={i18n.t('settings.syncEncryptionTitle')} {description} />
 </ul>
 {#if recoveryEnabled && !sealed}
   <form
@@ -39,7 +39,7 @@
   >
     {#if verification.error}<Alert variant="critical" role="alert">{verification.error}</Alert>{/if}
     <Label for="sync-encryption-key"
-      >{$i18n.t(
+      >{i18n.t(
         passphrase ? 'settings.useRecoveryKeyOrPassphrase' : 'settings.useRecoveryKey'
       )}</Label
     >
@@ -52,7 +52,7 @@
         disabled={verification.recovering}
         spellcheck={false}
         type="password"
-        placeholder={$i18n.t(
+        placeholder={i18n.t(
           passphrase
             ? 'settings.recoveryKeyOrPassphrasePlaceholder'
             : 'settings.recoveryKeyPlaceholder'
@@ -63,7 +63,7 @@
         loading={verification.recovering}
         disabled={!verification.recoveryKey.trim()}
       >
-        {$i18n.t('settings.syncEncryptionUnlock')}
+        {i18n.t('settings.syncEncryptionUnlock')}
       </Button>
     </div>
   </form>

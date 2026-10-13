@@ -248,7 +248,7 @@
   <div
     class="rail-progress"
     role="progressbar"
-    aria-label={$i18n.t('setup.title')}
+    aria-label={i18n.t('setup.title')}
     aria-valuemin="1"
     aria-valuemax={total}
     aria-valuenow={activeIndex + 1}
@@ -282,13 +282,13 @@
     {@render children()}
   </div>
   {#if total > 1}
-    <div class="mobile-nav" role="group" aria-label={$i18n.t('auth.stageNavigation')}>
+    <div class="mobile-nav" role="group" aria-label={i18n.t('auth.stageNavigation')}>
       {#if canBack}
         <button
           class="panel-nav previous"
           type="button"
           onclick={onBack}
-          aria-label={$i18n.t('common.back')}><CaretLeftIcon /></button
+          aria-label={i18n.t('common.back')}><CaretLeftIcon /></button
         >
       {/if}
       {#if canForward}
@@ -296,7 +296,7 @@
           class="panel-nav next"
           type="button"
           onclick={onForward}
-          aria-label={$i18n.t('auth.next')}><CaretRightIcon /></button
+          aria-label={i18n.t('auth.next')}><CaretRightIcon /></button
         >
       {/if}
     </div>
