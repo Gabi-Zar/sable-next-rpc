@@ -228,9 +228,10 @@
     width: 48px;
   }
 
+  /* Real text, not ::placeholder, so it needs 4.5:1; the shared 0.5 gives 2.7:1. */
   :global(.select-placeholder) {
     color: inherit;
-    opacity: var(--opacity-placeholder);
+    opacity: 0.8;
   }
 
   .select-sheet {

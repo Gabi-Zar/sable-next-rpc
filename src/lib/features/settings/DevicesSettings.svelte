@@ -309,7 +309,7 @@
   <div class="settings-stack" aria-busy={loading}>
     <SettingsSection headingId="encryption-heading" title={$i18n.t('settings.encryption')}>
       {#if status}
-        <dl class="status-grid">
+        <div class="status-grid">
           <div class="status-item">
             <span
               class="status-icon"
@@ -321,8 +321,8 @@
                 />{:else}<WarningCircleIcon />{/if}
             </span>
             <div class="status-copy">
-              <dt class="device-name">{deviceName(currentDevice)}</dt>
-              <dd>
+              <div class="device-name">{deviceName(currentDevice)}</div>
+              <div class="status-badge-row">
                 <StatusBadge
                   variant={status.verification === 'verified'
                     ? 'success'
@@ -331,7 +331,7 @@
                       : 'neutral'}
                   label={verificationLabel(status.verification)}
                 />
-              </dd>
+              </div>
             </div>
             {#if status.verification !== 'verified' || (status.recovery === 'incomplete' && !status.backup_unlocked)}
               <Button variant="primary" onclick={() => (verificationOpen = true)}>
@@ -343,7 +343,7 @@
               </Button>
             {/if}
           </div>
-        </dl>
+        </div>
 
         {#if status.verification === 'verified' && status.recovery === 'incomplete' && status.backup_unlocked}
           <div class="setting-row">
@@ -737,7 +737,7 @@
     white-space: nowrap;
   }
 
-  dd {
+  .status-badge-row {
     margin: var(--space-100) 0 0;
   }
 

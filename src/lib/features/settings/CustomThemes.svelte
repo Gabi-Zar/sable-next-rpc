@@ -417,6 +417,8 @@
         class="screen-reader-only"
         type="file"
         accept=".sable.css,text/css"
+        tabindex="-1"
+        aria-hidden="true"
         onchange={(event) => void importFiles(event.currentTarget.files ?? [])}
       />
     {/if}
