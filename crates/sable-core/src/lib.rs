@@ -647,10 +647,11 @@ impl Core {
     pub(crate) async fn put_global_account_data(
         &self,
         event_type: GlobalAccountDataEventType,
-        content: &serde_json::Value,
+        content: &impl serde::Serialize,
         label: &str,
     ) -> Result<(), CommandErr> {
-        let raw = Raw::<AnyGlobalAccountDataEventContent>::from_json_string(content.to_string())
+        let raw = serde_json::value::to_raw_value(content)
+            .map(Raw::<AnyGlobalAccountDataEventContent>::from_json)
             .or_failed(self, label)?;
 
         self.client()

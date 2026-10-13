@@ -9,18 +9,41 @@ use std::sync::Arc;
 use crate::protocol::{CommandErr, CommandOk};
 use crate::{Core, session};
 
+#[derive(serde::Serialize)]
+struct EmailIdentityOut<'a, C> {
+    #[serde(rename = "type")]
+    auth_type: &'static str,
+    threepid_creds: &'a C,
+    session: Option<&'a str>,
+}
+
+#[derive(serde::Serialize)]
+struct ThreepidCredsOut<'a> {
+    sid: &'a OwnedSessionId,
+    client_secret: &'a OwnedClientSecret,
+}
+
+/// ruma gives `EmailIdentity` no constructor, so it is read back from its wire form.
+pub(crate) fn email_identity<C: serde::Serialize>(
+    creds: &C,
+    session: Option<&str>,
+) -> Option<AuthData> {
+    let wire = serde_json::to_value(EmailIdentityOut {
+        auth_type: "m.login.email.identity",
+        threepid_creds: creds,
+        session,
+    })
+    .ok()?;
+    let identity: EmailIdentity = serde_json::from_value(wire).ok()?;
+    Some(AuthData::EmailIdentity(identity))
+}
+
 fn email_identity_auth(
     sid: &OwnedSessionId,
     client_secret: &OwnedClientSecret,
     session: Option<&str>,
 ) -> Option<AuthData> {
-    let identity: EmailIdentity = serde_json::from_value(serde_json::json!({
-        "type": "m.login.email.identity",
-        "threepid_creds": { "sid": sid, "client_secret": client_secret },
-        "session": session,
-    }))
-    .ok()?;
-    Some(AuthData::EmailIdentity(identity))
+    email_identity(&ThreepidCredsOut { sid, client_secret }, session)
 }
 
 fn offers_email_identity(info: &UiaaInfo) -> bool {

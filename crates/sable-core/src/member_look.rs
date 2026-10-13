@@ -1,9 +1,11 @@
 use matrix_sdk::ruma::OwnedRoomId;
-use serde_json::{Map, Value, json};
+use serde::Serialize;
+use serde_json::{Map, Value};
 
 use crate::Core;
 use crate::cosmetics::{COLOR_EVENT, MEMBER_COLOR_FIELD, MEMBER_EVENT, PRONOUNS_EVENT};
 use crate::protocol::{CommandErr, FieldEdit, MemberLookView, PronounView};
+use crate::room_settings::EmptyContent;
 
 pub(crate) struct LookEdit {
     pub(crate) display_name: FieldEdit,
@@ -80,28 +82,34 @@ pub(crate) fn edited_member(member: Option<Value>, edit: &LookEdit) -> Value {
             fields.insert(MEMBER_COLOR_FIELD.to_owned(), Value::Object(colors));
         }
     }
-    fields.insert("membership".to_owned(), json!("join"));
+    fields.insert("membership".to_owned(), Value::from("join"));
     Value::Object(fields)
 }
 
-pub(crate) fn pronouns_content(pronouns: &[PronounView]) -> Value {
-    let sets: Vec<Value> = pronouns
+#[derive(Serialize)]
+struct PronounSetOut<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    language: Option<&'a str>,
+    summary: &'a str,
+}
+
+#[derive(Serialize)]
+pub(crate) struct PronounsOut<'a> {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pronouns: Vec<PronounSetOut<'a>>,
+}
+
+/// No sets serializes as `{}`, which clears the event.
+pub(crate) fn pronouns_content(pronouns: &[PronounView]) -> PronounsOut<'_> {
+    let pronouns: Vec<_> = pronouns
         .iter()
         .filter(|set| !set.summary.trim().is_empty())
-        .map(|set| {
-            let mut entry = Map::new();
-            if let Some(language) = set.language.as_deref().filter(|code| !code.is_empty()) {
-                entry.insert("language".to_owned(), json!(language));
-            }
-            entry.insert("summary".to_owned(), json!(set.summary.trim()));
-            Value::Object(entry)
+        .map(|set| PronounSetOut {
+            language: set.language.as_deref().filter(|code| !code.is_empty()),
+            summary: set.summary.trim(),
         })
         .collect();
-    if sets.is_empty() {
-        json!({})
-    } else {
-        json!({ "pronouns": sets })
-    }
+    PronounsOut { pronouns }
 }
 
 impl Core {
@@ -158,7 +166,7 @@ impl Core {
         self.send_state(target.clone(), MEMBER_EVENT, &user_id, &content)
             .await?;
         if edit.touches_colors() {
-            self.send_state(target, COLOR_EVENT, &user_id, &json!({}))
+            self.send_state(target, COLOR_EVENT, &user_id, &EmptyContent {})
                 .await?;
         }
         Ok(())
@@ -335,12 +343,15 @@ mod tests {
         ];
 
         assert_eq!(
-            pronouns_content(&sets),
+            serde_json::to_value(pronouns_content(&sets)).unwrap(),
             json!({ "pronouns": [
                 { "language": "en", "summary": "they/them" },
                 { "summary": "iel" },
             ]})
         );
-        assert_eq!(pronouns_content(&[]), json!({}));
+        assert_eq!(
+            serde_json::to_value(pronouns_content(&[])).unwrap(),
+            json!({})
+        );
     }
 }

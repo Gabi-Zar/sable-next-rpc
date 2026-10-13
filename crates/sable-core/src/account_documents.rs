@@ -1,5 +1,6 @@
 use matrix_sdk::ruma::OwnedRoomId;
-use serde_json::{Map, Value, json};
+use serde::Serialize;
+use serde_json::{Map, Value};
 
 use crate::Core;
 use crate::protocol::{CommandErr, InviteAvatarsView, MediaPreviewConfigView, MediaPreviewsView};
@@ -39,14 +40,14 @@ pub(crate) fn media_preview_content(
             MediaPreviewsView::Private => "private",
             MediaPreviewsView::Off => "off",
         };
-        content.insert("media_previews".to_owned(), json!(value));
+        content.insert("media_previews".to_owned(), Value::from(value));
     }
     if let Some(avatars) = update.invite_avatars {
         let value = match avatars {
             InviteAvatarsView::On => "on",
             InviteAvatarsView::Off => "off",
         };
-        content.insert("invite_avatars".to_owned(), json!(value));
+        content.insert("invite_avatars".to_owned(), Value::from(value));
     }
     Value::Object(content)
 }
@@ -60,6 +61,12 @@ pub(crate) fn dismissed_invites(content: Option<&Value>) -> Vec<OwnedRoomId> {
         .filter_map(Value::as_str)
         .filter_map(|room_id| OwnedRoomId::try_from(room_id).ok())
         .collect()
+}
+
+#[derive(Serialize)]
+struct DismissedInvitesOut<'a> {
+    #[serde(rename = "roomIds")]
+    room_ids: &'a [OwnedRoomId],
 }
 
 impl Core {
@@ -141,8 +148,13 @@ impl Core {
         if dismissed {
             room_ids.push(room_id);
         }
-        self.set_account_data(DISMISSED_INVITES_EVENT, &json!({ "roomIds": room_ids }))
-            .await?;
+        self.set_account_data(
+            DISMISSED_INVITES_EVENT,
+            &DismissedInvitesOut {
+                room_ids: &room_ids,
+            },
+        )
+        .await?;
         Ok(room_ids)
     }
 }

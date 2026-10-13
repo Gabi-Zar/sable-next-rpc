@@ -46,15 +46,37 @@ pub(crate) fn announcement(
     kind: NotificationKind,
     ring: &[OwnedUserId],
 ) -> Option<matrix_sdk::ruma::serde::Raw<matrix_sdk::ruma::events::AnyMessageLikeEventContent>> {
-    let mut content =
-        serde_json::to_value(notification_content(membership_event_id, kind, ring)).ok()?;
-    content.as_object_mut()?.insert(
-        "m.text".to_owned(),
-        serde_json::json!([{ "body": ANNOUNCEMENT_FALLBACK_TEXT }]),
-    );
-    matrix_sdk::ruma::serde::Raw::new(&content)
-        .ok()
-        .map(matrix_sdk::ruma::serde::Raw::cast_unchecked)
+    let content = notification_content(membership_event_id, kind, ring);
+    matrix_sdk::ruma::serde::Raw::new(&AnnouncementOut {
+        content: &content,
+        text: [TextOut {
+            body: ANNOUNCEMENT_FALLBACK_TEXT,
+        }],
+    })
+    .ok()
+    .map(matrix_sdk::ruma::serde::Raw::cast_unchecked)
+}
+
+#[derive(serde::Serialize)]
+struct TextOut {
+    body: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct AnnouncementOut<'a> {
+    #[serde(flatten)]
+    content: &'a RtcNotificationEventContent,
+    #[serde(rename = "m.text")]
+    text: [TextOut; 1],
+}
+
+/// A decline event stamped with the empty `m.mentions` message events carry.
+#[derive(serde::Serialize)]
+pub(super) struct DeclineOut<'a> {
+    #[serde(flatten)]
+    pub(super) content: &'a matrix_sdk::ruma::events::rtc::decline::RtcDeclineEventContent,
+    #[serde(rename = "m.mentions")]
+    pub(super) mentions: serde_json::Map<String, serde_json::Value>,
 }
 
 pub(crate) fn is_call_event_type<T>(raw: &matrix_sdk::ruma::serde::Raw<T>) -> bool {
@@ -385,6 +407,24 @@ mod tests {
         assert_eq!(
             content["m.mentions"],
             serde_json::json!({ "room": true, "user_ids": ["@bob:localhost"] })
+        );
+    }
+
+    #[test]
+    fn test_a_decline_carries_its_reference_and_an_empty_mentions() {
+        let decline = matrix_sdk::ruma::events::rtc::decline::RtcDeclineEventContent::new(
+            event_id!("$notification").to_owned(),
+        );
+        assert_eq!(
+            serde_json::to_value(super::DeclineOut {
+                content: &decline,
+                mentions: serde_json::Map::new(),
+            })
+            .unwrap(),
+            serde_json::json!({
+                "m.relates_to": { "rel_type": "m.reference", "event_id": "$notification" },
+                "m.mentions": {},
+            })
         );
     }
 

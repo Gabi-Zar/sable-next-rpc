@@ -5,8 +5,9 @@ use std::path::Path;
 
 use sable_core::session::AccountRegistry;
 use sable_core::store::{FileSessionStore, SessionStore};
-use serde::Deserialize;
-use serde_json::{Value, json};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 
 #[derive(Default, Deserialize)]
 #[serde(default)]
@@ -79,43 +80,152 @@ fn notification(payload: &Value) -> &Value {
 const RING_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.notification"];
 const DEFAULT_RING_LIFETIME_MS: u64 = 30_000;
 
+#[derive(Serialize)]
+struct RingOut<'a> {
+    caller_name: &'a str,
+    expires_at: f64,
+}
+
+#[derive(Serialize)]
+struct RingPushOut<'a> {
+    ring: Value,
+    room_id: &'a str,
+    user_id: &'a str,
+}
+
+#[derive(Serialize)]
+struct ContentPushOut<'a> {
+    body: &'a str,
+    room_id: &'a str,
+    user_id: &'a str,
+    sounds: bool,
+    noisy: bool,
+}
+
+/// A field that is absent, or `None` when it is the wrong type.
+fn lenient<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: DeserializeOwned,
+{
+    Ok(serde_json::from_value(Value::deserialize(deserializer)?).ok())
+}
+
+/// A field kept as received when present, `null` included.
+fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
+}
+
+#[derive(Deserialize)]
+struct RingEvent {
+    #[serde(rename = "type")]
+    kind: String,
+    content: RingContent,
+    #[serde(default, deserialize_with = "lenient")]
+    origin_server_ts: Option<u64>,
+    #[serde(default, deserialize_with = "present")]
+    sender: Option<Value>,
+}
+
+#[derive(Deserialize)]
+struct RingContent {
+    notification_type: String,
+    #[serde(default, deserialize_with = "lenient")]
+    sender_ts: Option<u64>,
+    #[serde(default, deserialize_with = "lenient")]
+    lifetime: Option<u64>,
+}
+
+#[derive(Default, Deserialize)]
+struct Named {
+    #[serde(default, deserialize_with = "present")]
+    sender_display_name: Option<Value>,
+}
+
 fn ring(event: &Value, notification: &Value) -> Option<Value> {
-    let kind = event.get("type")?.as_str()?;
-    let content = event.get("content")?;
-    if !RING_TYPES.contains(&kind) || content.get("notification_type")?.as_str()? != "ring" {
+    let event = RingEvent::deserialize(event).ok()?;
+    if !RING_TYPES.contains(&event.kind.as_str()) || event.content.notification_type != "ring" {
         return None;
     }
-    let sent = content
-        .get("sender_ts")
-        .and_then(Value::as_u64)
-        .or_else(|| event.get("origin_server_ts").and_then(Value::as_u64))?;
-    let lifetime = content
-        .get("lifetime")
-        .and_then(Value::as_u64)
-        .unwrap_or(DEFAULT_RING_LIFETIME_MS);
-    let caller = notification
-        .get("sender_display_name")
-        .or_else(|| event.get("sender"))
+    let sent = event.content.sender_ts.or(event.origin_server_ts)?;
+    let lifetime = event.content.lifetime.unwrap_or(DEFAULT_RING_LIFETIME_MS);
+    let caller = Named::deserialize(notification)
+        .unwrap_or_default()
+        .sender_display_name
+        .or(event.sender)
+        .as_ref()
         .and_then(Value::as_str)
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .to_owned();
     #[expect(
         clippy::cast_precision_loss,
         reason = "milliseconds since 1970 fit an f64 exactly for millennia"
     )]
     let expires_at = sent.saturating_add(lifetime) as f64 / 1000.0;
-    Some(json!({"caller_name": caller, "expires_at": expires_at}))
+    serde_json::to_value(RingOut {
+        caller_name: &caller,
+        expires_at,
+    })
+    .ok()
+}
+
+#[derive(Default, Deserialize)]
+struct Device {
+    #[serde(default, deserialize_with = "lenient")]
+    tweaks: Option<Map<String, Value>>,
+}
+
+#[derive(Default, Deserialize)]
+struct Devices {
+    #[serde(default, deserialize_with = "lenient_devices")]
+    devices: Vec<Device>,
+}
+
+fn lenient_devices<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<Device>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::Array(devices) => devices
+            .into_iter()
+            .filter_map(|device| serde_json::from_value(device).ok())
+            .collect(),
+        _ => Vec::new(),
+    })
 }
 
 fn rings(notification: &Value) -> bool {
-    notification
-        .get("devices")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|device| device.get("tweaks"))
+    Devices::deserialize(notification)
+        .unwrap_or_default()
+        .devices
+        .iter()
+        .filter_map(|device| device.tweaks.as_ref())
         .any(|tweaks| {
-            tweaks.get("sound").is_some() || tweaks.get("highlight") == Some(&json!(true))
+            tweaks.contains_key("sound") || tweaks.get("highlight") == Some(&Value::Bool(true))
         })
+}
+
+#[derive(Deserialize)]
+struct PushTarget<'a> {
+    #[serde(default, deserialize_with = "present")]
+    user_id: Option<Value>,
+    room_id: &'a str,
+    #[serde(rename = "type")]
+    kind: &'a str,
+}
+
+#[derive(Default, Deserialize)]
+struct PayloadUser {
+    #[serde(default, deserialize_with = "present")]
+    user_id: Option<Value>,
+}
+
+#[derive(Deserialize)]
+struct ClearEvent<'a> {
+    #[serde(borrow)]
+    content: ClearContent<'a>,
+}
+
+#[derive(Deserialize)]
+struct ClearContent<'a> {
+    body: &'a str,
 }
 
 async fn render(root: &Path, payload: &Value) -> Option<Value> {
@@ -124,11 +234,19 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         return None;
     }
     let notification = notification(payload);
-    let user = notification
-        .get("user_id")
-        .or_else(|| payload.get("user_id"))?
-        .as_str()?;
-    let room_id = notification.get("room_id")?.as_str()?;
+    let target = PushTarget::deserialize(notification).ok()?;
+    let user = target
+        .user_id
+        .or_else(|| {
+            PayloadUser::deserialize(payload)
+                .unwrap_or_default()
+                .user_id
+        })
+        .as_ref()?
+        .as_str()?
+        .to_owned();
+    let user = user.as_str();
+    let room_id = target.room_id;
     let bytes = FileSessionStore::new(root).load().await.ok()??;
     let (registry, _) = AccountRegistry::from_bytes(&bytes, root.to_str()?).ok()?;
     // Never select an arbitrary saved account for a push, including after logout.
@@ -137,13 +255,13 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
             && registry.active_account_id.as_deref() == Some(account.account_id.as_str())
             && account.session.credentials.user_id() == user
     })?;
-    let encrypted = notification.get("type")?.as_str()? == "m.room.encrypted";
+    let encrypted = target.kind == "m.room.encrypted";
     let event = if encrypted {
         let mut event = notification.clone();
         event
             .as_object_mut()?
             .entry("origin_server_ts")
-            .or_insert(json!(0));
+            .or_insert(Value::from(0));
         let clear = sable_core::notifications::decrypt_push_from_store(
             root,
             user,
@@ -157,12 +275,17 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         notification.clone()
     };
     if let Some(ring) = ring(&event, notification) {
-        return Some(json!({"ring": ring, "room_id": room_id, "user_id": user}));
+        return serde_json::to_value(RingPushOut {
+            ring,
+            room_id,
+            user_id: user,
+        })
+        .ok();
     }
     if !settings.content || (encrypted && !settings.encrypted_content) {
         return None;
     }
-    let body = event.get("content")?.get("body")?.as_str()?;
+    let body = ClearEvent::deserialize(&event).ok()?.content.body;
     // Recheck policy after decryption, which may overlap a settings change.
     let current = policy(root);
     if !current.enabled || !current.content || (encrypted && !current.encrypted_content) {
@@ -184,9 +307,14 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .and_then(Value::as_bool)
         .unwrap_or(false)
         || rings(notification);
-    Some(
-        json!({"body": body, "room_id": room_id, "user_id": user, "sounds": current.sounds, "noisy": noisy}),
-    )
+    serde_json::to_value(ContentPushOut {
+        body,
+        room_id,
+        user_id: user,
+        sounds: current.sounds,
+        noisy,
+    })
+    .ok()
 }
 
 /// # Safety
@@ -243,6 +371,8 @@ pub unsafe extern "C" fn sable_push_free(value: *mut c_char) {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     #[test]
@@ -390,5 +520,50 @@ mod tests {
         store.clear().await.unwrap();
         assert!(render(&root, &payload).await.is_none());
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_ring_with_wrong_typed_parts_falls_back_or_is_not_a_ring() {
+        let ring_of = |content: Value, extra: Value| {
+            let mut event = json!({"type": "m.rtc.notification", "sender": "@bob:x", "origin_server_ts": 1_000, "content": content});
+            event
+                .as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().unwrap().clone());
+            ring(&event, &json!({}))
+        };
+        let wrong = ring_of(
+            json!({"notification_type": "ring", "sender_ts": "late", "lifetime": -1}),
+            json!({}),
+        );
+        assert_eq!(
+            wrong,
+            Some(json!({"caller_name": "@bob:x", "expires_at": 31.0}))
+        );
+        assert_eq!(ring_of(json!({"notification_type": 1}), json!({})), None);
+        assert_eq!(ring_of(json!("ring"), json!({})), None);
+        assert_eq!(
+            ring_of(
+                json!({"notification_type": "ring"}),
+                json!({"origin_server_ts": "x"})
+            ),
+            None
+        );
+        let named = ring(
+            &json!({"type": "m.rtc.notification", "sender": "@bob:x", "origin_server_ts": 1_000, "content": {"notification_type": "ring"}}),
+            &json!({"sender_display_name": null}),
+        );
+        assert_eq!(named, Some(json!({"caller_name": "", "expires_at": 31.0})));
+    }
+
+    #[test]
+    fn devices_that_are_not_objects_do_not_make_a_push_ring() {
+        assert!(!rings(
+            &json!({"devices": ["junk", {"tweaks": 3}, {"tweaks": {"highlight": 1}}]})
+        ));
+        assert!(rings(
+            &json!({"devices": ["junk", {"tweaks": {"sound": null}}]})
+        ));
+        assert!(!rings(&json!({"devices": {"tweaks": {"sound": "x"}}})));
     }
 }

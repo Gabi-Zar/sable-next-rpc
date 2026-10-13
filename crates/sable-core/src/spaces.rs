@@ -9,6 +9,27 @@ use crate::Core;
 use crate::ResultExt;
 use crate::protocol::{CommandErr, SidebarItemView};
 
+/// The sidebar written over whatever else the account data already carries.
+#[derive(Serialize)]
+struct SidebarPatch {
+    sidebar: Vec<StoredItem>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl SidebarPatch {
+    fn new(
+        items: &[SidebarItemView],
+        mut extra: serde_json::Map<String, serde_json::Value>,
+    ) -> Self {
+        extra.remove("sidebar");
+        Self {
+            sidebar: stored_items(items),
+            extra,
+        }
+    }
+}
+
 const SIDEBAR_EVENT_TYPE: &str = "in.cinny.spaces";
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize, EventContent)]
@@ -155,7 +176,7 @@ pub async fn set_sidebar(
     items: &[SidebarItemView],
 ) -> Result<(), matrix_sdk::Error> {
     let event_type = GlobalAccountDataEventType::from(SIDEBAR_EVENT_TYPE);
-    let mut content = client
+    let extra = client
         .account()
         .account_data_raw(event_type.clone())
         .await?
@@ -165,10 +186,7 @@ pub async fn set_sidebar(
         })
         .unwrap_or_default();
 
-    content.insert(
-        "sidebar".to_owned(),
-        serde_json::to_value(stored_items(items))?,
-    );
+    let content = SidebarPatch::new(items, extra);
 
     client
         .account()
@@ -393,5 +411,20 @@ mod server_tests {
         )
         .await
         .expect("write");
+    }
+
+    #[test]
+    fn a_sidebar_patch_replaces_the_sidebar_and_keeps_the_rest() {
+        let existing = serde_json::json!({"sidebar": ["!old:x"], "shortcut": ["!kept:x"]});
+        let patch = super::SidebarPatch::new(
+            &[SidebarItemView::Space {
+                room_id: "!new:x".to_owned(),
+            }],
+            existing.as_object().unwrap().clone(),
+        );
+        assert_eq!(
+            serde_json::to_value(&patch).unwrap(),
+            serde_json::json!({"sidebar": ["!new:x"], "shortcut": ["!kept:x"]})
+        );
     }
 }

@@ -140,10 +140,17 @@ impl std::fmt::Display for SealError {
 }
 
 pub(crate) fn is_sealed(content: &serde_json::Value) -> bool {
-    content
-        .get("encrypted")
-        .and_then(|encrypted| encrypted.get("ciphertext"))
-        .is_some_and(serde_json::Value::is_string)
+    #[derive(Deserialize)]
+    struct Sealed {
+        #[serde(rename = "encrypted")]
+        _encrypted: Ciphertext,
+    }
+    #[derive(Deserialize)]
+    struct Ciphertext {
+        #[serde(rename = "ciphertext")]
+        _present: String,
+    }
+    Sealed::deserialize(content).is_ok()
 }
 
 pub(crate) fn sealable(event_type: &str) -> bool {
@@ -537,5 +544,16 @@ mod tests {
         assert!(!sealable("m.push_rules"));
         assert!(!sealable("m.recent_emoji"));
         assert!(!sealable("plain"));
+    }
+
+    #[test]
+    fn only_a_string_ciphertext_marks_content_as_sealed() {
+        assert!(is_sealed(
+            &json!({"encrypted": {"ciphertext": "x", "iv": "y"}})
+        ));
+        assert!(!is_sealed(&json!({"encrypted": {"ciphertext": 1}})));
+        assert!(!is_sealed(&json!({"encrypted": "x"})));
+        assert!(!is_sealed(&json!(["encrypted"])));
+        assert!(!is_sealed(&json!({})));
     }
 }

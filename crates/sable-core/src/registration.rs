@@ -2,8 +2,8 @@ use matrix_sdk::ruma::api::client::account::IdentityServerInfo;
 use matrix_sdk::ruma::api::client::account::register::v3::Request as RegistrationRequest;
 use matrix_sdk::ruma::api::client::account::request_registration_token_via_email::v3::Request as RegistrationEmailRequest;
 use matrix_sdk::ruma::api::client::uiaa::{
-    AuthData, AuthFlow, AuthType, EmailIdentity, MatrixUserIdentifier, Password,
-    ThirdpartyIdCredentials, UiaaInfo, UserIdentifier,
+    AuthData, AuthFlow, AuthType, MatrixUserIdentifier, Password, ThirdpartyIdCredentials,
+    UiaaInfo, UserIdentifier,
 };
 use matrix_sdk::ruma::api::error::ErrorKind;
 use matrix_sdk::ruma::{ClientSecret, OwnedClientSecret, OwnedSessionId, UInt};
@@ -13,7 +13,7 @@ use crate::errors::retry_delay_ms;
 use crate::protocol::{CommandErr, CommandOk, RegistrationResultView};
 use crate::session::{Credentials, PersistedSession};
 use crate::{Core, protocol, session};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::Ordering};
 use url::Url;
 
@@ -25,6 +25,13 @@ struct EmailSubmitResponse {
 #[derive(Debug, Deserialize)]
 struct MatrixEmailError {
     errcode: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SubmitTokenOut<'a> {
+    sid: &'a str,
+    client_secret: &'a str,
+    token: &'a str,
 }
 
 fn map_email_submit_error(body: &[u8]) -> CommandErr {
@@ -328,12 +335,7 @@ impl Core {
         credentials
             .id_access_token
             .clone_from(&email.id_access_token);
-        let identity: EmailIdentity = serde_json::from_value(serde_json::json!({
-            "threepid_creds": credentials,
-            "session": pending.session.clone(),
-        }))
-        .ok()?;
-        Some(AuthData::EmailIdentity(identity))
+        crate::password_reset::email_identity(&credentials, Some(&pending.session))
     }
 
     pub(super) fn registration_password_auth(
@@ -777,11 +779,11 @@ impl Core {
             return Err(CommandErr::EmailVerificationFailed);
         }
 
-        let Ok(payload) = serde_json::to_vec(&serde_json::json!({
-            "sid": sid,
-            "client_secret": client_secret,
-            "token": token,
-        })) else {
+        let Ok(payload) = serde_json::to_vec(&SubmitTokenOut {
+            sid: &sid,
+            client_secret: &client_secret,
+            token: &token,
+        }) else {
             self.restore_pending_registration(pending).await;
             return Err(CommandErr::EmailVerificationFailed);
         };
@@ -884,6 +886,20 @@ impl Core {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn submit_token_payload_keeps_its_wire_shape() {
+        let body = serde_json::to_value(SubmitTokenOut {
+            sid: "s",
+            client_secret: "c",
+            token: "t",
+        })
+        .unwrap();
+        assert_eq!(
+            body,
+            serde_json::json!({ "sid": "s", "client_secret": "c", "token": "t" })
+        );
+    }
 
     #[test]
     fn registration_flows_choose_shortest_flow_stably() {

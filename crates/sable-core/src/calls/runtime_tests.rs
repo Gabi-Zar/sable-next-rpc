@@ -9,10 +9,31 @@ use matrix_sdk_ui::sync_service::SyncService;
 use tokio::sync::Mutex;
 
 use super::{
-    CallMember, CallMode, CallSessionId, Core, State, backend_id, content, member_service,
-    mode_reason, own_is_present, refresh, select_mode,
+    CallMember, CallMode, CallSessionId, Core, State, backend_id, member_service, mode_reason,
+    own_is_present, refresh, select_mode,
 };
-use crate::{protocol::CallBackendView, session::Session, store::MemorySessionStore};
+use crate::{
+    protocol::{CallBackendView, CallIntent},
+    session::Session,
+    store::MemorySessionStore,
+};
+
+fn content(
+    room_id: &matrix_sdk::ruma::OwnedRoomId,
+    own: &CallMember,
+    intent: Option<CallIntent>,
+) -> serde_json::Value {
+    serde_json::to_value(super::content(room_id, own, intent)).unwrap()
+}
+
+fn content_at(
+    room_id: &matrix_sdk::ruma::OwnedRoomId,
+    own: &CallMember,
+    intent: Option<CallIntent>,
+    now_ms: u64,
+) -> serde_json::Value {
+    serde_json::to_value(super::content_at(room_id, own, intent, now_ms)).unwrap()
+}
 
 fn member(mode: CallMode, created_ts: u64, foci: &[&str]) -> CallMember {
     CallMember {
@@ -70,7 +91,7 @@ async fn discover_with_peers(
             },
             "event_id": format!("$peer-{age}"), "sender": peer.user_id,
             "origin_server_ts": peer.created_ts,
-            "content": super::content_at(&room_id, &peer, None, now),
+            "content": content_at(&room_id, &peer, None, now),
         });
         if mode == CallMode::Matrix2 {
             event["msc4354_sticky"] = json!({"duration_ms": 3_600_000});
@@ -707,12 +728,54 @@ async fn schedule_hangup_does_not_write_when_delayed_events_are_unsupported() {
 }
 
 #[test]
+fn membership_content_keeps_each_wire_shape() {
+    let room_id = owned_room_id!("!room:example.org");
+    let mut own = member(CallMode::Matrix2, 1_000, &["https://sfu.example.org"]);
+    own.member_id = Some("m1".to_owned());
+    own.screen_sharing = true;
+    assert_eq!(
+        content_at(&room_id, &own, Some(CallIntent::Video), 2_000),
+        serde_json::json!({
+            "application": {"type": "m.call", "m.call.intent": "video"},
+            "slot_id": "m.call#ROOM",
+            "member": {"user_id": "@user:example.org", "device_id": "DEVICE", "id": "m1"},
+            "transports": {
+                "published": [{"type": "livekit", "livekit_service_url": "https://sfu.example.org"}],
+                "can_subscribe": ["livekit"],
+            },
+            "versions": [],
+            "msc4354_sticky_key": "m1",
+            "org.sable.screen_sharing": true,
+        })
+    );
+    own.mode = CallMode::Compatibility;
+    own.screen_sharing = false;
+    assert_eq!(
+        content_at(&room_id, &own, Some(CallIntent::Audio), 2_000),
+        serde_json::json!({
+            "application": "m.call", "call_id": "", "scope": "m.room",
+            "device_id": "DEVICE",
+            "membershipID": "@user:example.org:DEVICE",
+            "created_ts": 1_000,
+            "expires": 14_401_000,
+            "focus_active": {"type": "livekit", "focus_selection": "multi_sfu"},
+            "foci_preferred": [{
+                "type": "livekit",
+                "livekit_service_url": "https://sfu.example.org",
+                "livekit_alias": "!room:example.org",
+            }],
+            "m.call.intent": "audio",
+        })
+    );
+}
+
+#[test]
 fn renewal_extends_membership_beyond_four_hours_without_changing_session_identity() {
     let created = 1_000;
     let now = created + 5 * 60 * 60 * 1000;
     for mode in [CallMode::Legacy, CallMode::Compatibility] {
         let member = member(mode, created, &["https://sfu.example.org"]);
-        let body = super::content_at(&owned_room_id!("!room:example.org"), &member, None, now);
+        let body = content_at(&owned_room_id!("!room:example.org"), &member, None, now);
         assert_eq!(body["created_ts"], created);
         assert_eq!(body["membershipID"], member.identity);
         assert_eq!(
@@ -772,7 +835,7 @@ fn a_republish_while_sharing_keeps_created_ts() {
     let room_id = owned_room_id!("!room:example.org");
     let mut own = member(CallMode::Compatibility, 4_000, &["https://sfu.example.org"]);
     own.screen_sharing = true;
-    let body = super::content_at(&room_id, &own, None, 9_000);
+    let body = content_at(&room_id, &own, None, 9_000);
     assert_eq!(body["created_ts"], 4_000);
     assert_eq!(body["org.sable.screen_sharing"], true);
 }

@@ -1,5 +1,6 @@
 use matrix_sdk::ruma::OwnedRoomId;
-use serde_json::{Value, json};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 
 use crate::Core;
 use crate::protocol::{AbbreviationView, CommandErr, HistoryVisibilityView};
@@ -58,22 +59,60 @@ pub(crate) fn canonical_alias(content: Option<&Value>) -> (Option<String>, Vec<S
     (alias, alternatives)
 }
 
+/// The `{}` that clears a state event or account-data document.
+#[derive(Serialize)]
+pub(crate) struct EmptyContent {}
+
+#[derive(Serialize)]
+struct HistoryVisibilityOut {
+    history_visibility: &'static str,
+}
+
+#[derive(Serialize)]
+struct EncryptionOut {
+    algorithm: &'static str,
+}
+
+#[derive(Serialize)]
+struct BannerOut<'a> {
+    url: &'a str,
+}
+
+#[derive(Serialize)]
+struct MemberListOut {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    always_listed_from: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct TombstoneOut<'a> {
+    body: &'a str,
+    replacement_room: &'a OwnedRoomId,
+}
+
+#[derive(Serialize)]
+pub(crate) struct CanonicalAliasOut<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    alias: Option<&'a str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    alt_aliases: Vec<&'a str>,
+}
+
 /// Each alternative appears once and never repeats the main address.
-pub(crate) fn canonical_alias_content(alias: Option<&str>, alternatives: &[String]) -> Value {
+pub(crate) fn canonical_alias_content<'a>(
+    alias: Option<&'a str>,
+    alternatives: &'a [String],
+) -> CanonicalAliasOut<'a> {
     let mut rest: Vec<&str> = Vec::new();
     for entry in alternatives {
         if Some(entry.as_str()) != alias && !rest.contains(&entry.as_str()) {
             rest.push(entry);
         }
     }
-    let mut content = serde_json::Map::new();
-    if let Some(alias) = alias {
-        content.insert("alias".to_owned(), json!(alias));
+    CanonicalAliasOut {
+        alias,
+        alt_aliases: rest,
     }
-    if !rest.is_empty() {
-        content.insert("alt_aliases".to_owned(), json!(rest));
-    }
-    Value::Object(content)
 }
 
 /// Older writers nested the url under `content`.
@@ -101,32 +140,48 @@ pub(crate) struct AclEdit {
     pub(crate) remove_deny: Vec<String>,
 }
 
-fn edited_list(current: Option<&Value>, added: &[String], removed: &[String]) -> Vec<String> {
+fn edited_list(current: &[String], added: &[String], removed: &[String]) -> Vec<String> {
     let mut list: Vec<String> = Vec::new();
-    let current = current
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str);
-    for entry in current.chain(added.iter().map(String::as_str)) {
-        if !removed.iter().any(|gone| gone == entry) && !list.iter().any(|kept| kept == entry) {
-            list.push(entry.to_owned());
+    for entry in current.iter().chain(added) {
+        if !removed.contains(entry) && !list.contains(entry) {
+            list.push(entry.clone());
         }
     }
     list
 }
 
+/// A list that is not an array reads as empty and non-string entries are dropped.
+fn lenient_strings<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::Array(entries) => entries
+            .into_iter()
+            .filter_map(|entry| match entry {
+                Value::String(text) => Some(text),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    })
+}
+
+#[derive(Default, Deserialize, Serialize)]
+pub(crate) struct ServerAclContent {
+    #[serde(default, deserialize_with = "lenient_strings")]
+    allow: Vec<String>,
+    #[serde(default, deserialize_with = "lenient_strings")]
+    deny: Vec<String>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
 /// Adds and removes server globs, keeping every other field of the event.
-pub(crate) fn server_acl_content(stored: Option<Value>, edit: &AclEdit) -> Value {
-    let mut content = match stored {
-        Some(Value::Object(map)) => map,
-        _ => serde_json::Map::new(),
-    };
-    let allow = edited_list(content.get("allow"), &edit.allow, &edit.remove_allow);
-    let deny = edited_list(content.get("deny"), &edit.deny, &edit.remove_deny);
-    content.insert("allow".to_owned(), json!(allow));
-    content.insert("deny".to_owned(), json!(deny));
-    Value::Object(content)
+pub(crate) fn server_acl_content(stored: Option<Value>, edit: &AclEdit) -> ServerAclContent {
+    let mut content: ServerAclContent = stored
+        .and_then(|stored| serde_json::from_value(stored).ok())
+        .unwrap_or_default();
+    content.allow = edited_list(&content.allow, &edit.allow, &edit.remove_allow);
+    content.deny = edited_list(&content.deny, &edit.deny, &edit.remove_deny);
+    content
 }
 
 pub(crate) fn abbreviations(content: Option<&Value>) -> Vec<AbbreviationView> {
@@ -147,19 +202,31 @@ pub(crate) fn abbreviations(content: Option<&Value>) -> Vec<AbbreviationView> {
         .collect()
 }
 
+#[derive(Serialize)]
+struct AbbreviationOut<'a> {
+    term: &'a str,
+    definition: &'a str,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    cased: bool,
+}
+
+#[derive(Serialize)]
+pub(crate) struct AbbreviationsOut<'a> {
+    entries: Vec<AbbreviationOut<'a>>,
+}
+
 /// `cased` is written only when set, as other writers of the event expect.
-pub(crate) fn abbreviations_content(entries: &[AbbreviationView]) -> Value {
-    let entries: Vec<Value> = entries
-        .iter()
-        .map(|entry| {
-            if entry.cased {
-                json!({ "term": entry.term, "definition": entry.definition, "cased": true })
-            } else {
-                json!({ "term": entry.term, "definition": entry.definition })
-            }
-        })
-        .collect();
-    json!({ "entries": entries })
+pub(crate) fn abbreviations_content(entries: &[AbbreviationView]) -> AbbreviationsOut<'_> {
+    AbbreviationsOut {
+        entries: entries
+            .iter()
+            .map(|entry| AbbreviationOut {
+                term: &entry.term,
+                definition: &entry.definition,
+                cased: entry.cased,
+            })
+            .collect(),
+    }
 }
 
 impl Core {
@@ -176,7 +243,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         event_type: &str,
-        content: &Value,
+        content: &impl Serialize,
     ) -> Result<(), CommandErr> {
         self.send_state(room_id, event_type, "", content).await?;
         Ok(())
@@ -201,14 +268,20 @@ impl Core {
         self.write_room_state(
             room_id,
             HISTORY_VISIBILITY_EVENT,
-            &json!({ "history_visibility": history_visibility_name(visibility) }),
+            &HistoryVisibilityOut {
+                history_visibility: history_visibility_name(visibility),
+            },
         )
         .await
     }
 
     pub(crate) async fn enable_encryption(&self, room_id: OwnedRoomId) -> Result<(), CommandErr> {
-        self.write_room_state(room_id, ENCRYPTION_EVENT, &json!({ "algorithm": MEGOLM }))
-            .await
+        self.write_room_state(
+            room_id,
+            ENCRYPTION_EVENT,
+            &EncryptionOut { algorithm: MEGOLM },
+        )
+        .await
     }
 
     pub(crate) async fn canonical_alias(
@@ -231,7 +304,14 @@ impl Core {
         let content = canonical_alias_content(alias, alternatives);
         self.write_room_state(room_id, CANONICAL_ALIAS_EVENT, &content)
             .await?;
-        Ok(canonical_alias(Some(&content)))
+        Ok((
+            content.alias.map(ToOwned::to_owned),
+            content
+                .alt_aliases
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
+        ))
     }
 
     pub(crate) async fn room_banner(
@@ -251,7 +331,9 @@ impl Core {
         self.write_room_state(
             room_id,
             BANNER_EVENT,
-            &json!({ "url": url.unwrap_or_default() }),
+            &BannerOut {
+                url: url.unwrap_or_default(),
+            },
         )
         .await
     }
@@ -270,10 +352,14 @@ impl Core {
         room_id: OwnedRoomId,
         level: Option<i64>,
     ) -> Result<(), CommandErr> {
-        let content =
-            level.map_or_else(|| json!({}), |level| json!({ "always_listed_from": level }));
-        self.write_room_state(room_id, MEMBER_LIST_EVENT, &content)
-            .await
+        self.write_room_state(
+            room_id,
+            MEMBER_LIST_EVENT,
+            &MemberListOut {
+                always_listed_from: level,
+            },
+        )
+        .await
     }
 
     pub(crate) async fn update_server_acl(
@@ -319,7 +405,10 @@ impl Core {
         self.write_room_state(
             room_id,
             TOMBSTONE_EVENT,
-            &json!({ "body": body, "replacement_room": replacement_room }),
+            &TombstoneOut {
+                body,
+                replacement_room,
+            },
         )
         .await
     }
@@ -333,6 +422,10 @@ mod tests {
         AclEdit, abbreviations, abbreviations_content, always_listed_from, banner_url,
         canonical_alias, canonical_alias_content, history_visibility, server_acl_content,
     };
+
+    fn to_json(content: impl serde::Serialize) -> serde_json::Value {
+        serde_json::to_value(content).unwrap()
+    }
 
     fn owned(entries: &[&str]) -> Vec<String> {
         entries.iter().map(|entry| (*entry).to_owned()).collect()
@@ -350,7 +443,7 @@ mod tests {
         };
 
         assert_eq!(
-            server_acl_content(Some(stored), &edit),
+            to_json(server_acl_content(Some(stored), &edit)),
             json!({
                 "allow": ["*", "good.example"],
                 "deny": ["worse.example"],
@@ -393,10 +486,10 @@ mod tests {
     #[test]
     fn abbreviations_write_cased_only_when_set() {
         assert_eq!(
-            abbreviations_content(&[
+            to_json(abbreviations_content(&[
                 entry("MSC", "Spec change", false),
                 entry("DO", "Ocean", true)
-            ]),
+            ])),
             json!({ "entries": [
                 { "term": "MSC", "definition": "Spec change" },
                 { "term": "DO", "definition": "Ocean", "cased": true },
@@ -443,10 +536,13 @@ mod tests {
         ];
 
         assert_eq!(
-            canonical_alias_content(Some("#main:example.org"), &alternatives),
+            to_json(canonical_alias_content(
+                Some("#main:example.org"),
+                &alternatives
+            )),
             json!({ "alias": "#main:example.org", "alt_aliases": ["#a:example.org"] })
         );
-        assert_eq!(canonical_alias_content(None, &[]), json!({}));
+        assert_eq!(to_json(canonical_alias_content(None, &[])), json!({}));
     }
 
     #[test]

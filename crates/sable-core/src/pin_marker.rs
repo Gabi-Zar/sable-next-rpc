@@ -1,7 +1,8 @@
 use std::fmt::Write;
 
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::protocol::{CommandErr, PinReadStateView};
@@ -87,12 +88,19 @@ fn marker_for(pinned: &[OwnedEventId]) -> Option<PinMarker> {
     })
 }
 
-fn marker_content(marker: &PinMarker) -> Value {
-    json!({
-        "hash": marker.hash,
-        "count": marker.count,
-        "last_seen_id": marker.last_seen_id,
-    })
+#[derive(Serialize)]
+struct MarkerOut<'a> {
+    hash: &'a str,
+    count: usize,
+    last_seen_id: &'a str,
+}
+
+fn marker_content(marker: &PinMarker) -> MarkerOut<'_> {
+    MarkerOut {
+        hash: &marker.hash,
+        count: marker.count,
+        last_seen_id: &marker.last_seen_id,
+    }
 }
 
 fn read_state(pinned: Vec<OwnedEventId>, marker: Option<&PinMarker>) -> PinReadStateView {
@@ -217,7 +225,7 @@ mod tests {
     use matrix_sdk::ruma::OwnedEventId;
     use serde_json::json;
 
-    use super::{PinMarker, is_new_pin, pins_hash, read_marker, unread_pins};
+    use super::{PinMarker, is_new_pin, marker_content, pins_hash, read_marker, unread_pins};
 
     fn ids(names: &[&str]) -> Vec<OwnedEventId> {
         names
@@ -262,6 +270,14 @@ mod tests {
         assert_eq!(unread_pins(&pinned, Some(&gone)), 2);
         assert!(!is_new_pin(&pinned, Some(&gone), "$x"));
         assert!(is_new_pin(&pinned, Some(&gone), "$y"));
+    }
+
+    #[test]
+    fn the_marker_content_is_the_stored_shape() {
+        assert_eq!(
+            serde_json::to_value(marker_content(&marker(&ids(&["a"]), 1, "a"))).unwrap(),
+            json!({ "hash": pins_hash(&ids(&["a"])), "count": 1, "last_seen_id": "$a" })
+        );
     }
 
     #[test]

@@ -8,7 +8,8 @@ use matrix_sdk::executor::{JoinHandleExt as _, spawn};
 use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::{OwnedDeviceId, OwnedRoomId, OwnedUserId, TransactionId};
 use matrix_sdk::{Client, Room};
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{Mutex, Notify};
@@ -94,9 +95,13 @@ impl State {
 
 fn backend_id(room_id: &OwnedRoomId, service: &str) -> String {
     STANDARD_NO_PAD.encode(Sha256::digest(
-        json!([room_id, "m.call#ROOM", service.trim_end_matches('/')])
-            .to_string()
-            .as_bytes(),
+        Value::from([
+            room_id.as_str(),
+            "m.call#ROOM",
+            service.trim_end_matches('/'),
+        ])
+        .to_string()
+        .as_bytes(),
     ))
 }
 
@@ -160,43 +165,157 @@ fn mode_reason(
     }
 }
 
-fn content(room_id: &OwnedRoomId, own: &CallMember, intent: Option<CallIntent>) -> Value {
+fn content<'a>(
+    room_id: &'a OwnedRoomId,
+    own: &'a CallMember,
+    intent: Option<CallIntent>,
+) -> MembershipContent<'a> {
     content_at(room_id, own, intent, keys::now_ms())
 }
 
-fn content_at(
-    room_id: &OwnedRoomId,
-    own: &CallMember,
+fn content_at<'a>(
+    room_id: &'a OwnedRoomId,
+    own: &'a CallMember,
     intent: Option<CallIntent>,
     now_ms: u64,
-) -> Value {
-    let mut content = if own.mode == CallMode::Matrix2 {
-        json!({
-            "application": {"type": "m.call"}, "slot_id": "m.call#ROOM",
-            "member": {"user_id": own.user_id, "device_id": own.device_id, "id": own.member_id},
-            "transports": {"published": own.foci.iter().map(|service| json!({"type":"livekit", "livekit_service_url": service})).collect::<Vec<_>>(), "can_subscribe": ["livekit"]},
-            "versions": [], "msc4354_sticky_key": own.member_id,
+) -> MembershipContent<'a> {
+    let screen_sharing = own
+        .screen_sharing
+        .then(|| BTreeMap::from([(membership::SCREEN_SHARING_FIELD, true)]));
+    if own.mode == CallMode::Matrix2 {
+        MembershipContent::Matrix2(Matrix2Out {
+            application: Matrix2Application {
+                kind: "m.call",
+                intent,
+            },
+            slot_id: "m.call#ROOM",
+            member: Matrix2Member {
+                user_id: &own.user_id,
+                device_id: &own.device_id,
+                id: own.member_id.as_deref(),
+            },
+            transports: Matrix2Transports {
+                published: own
+                    .foci
+                    .iter()
+                    .map(|service| LivekitFocus {
+                        kind: "livekit",
+                        livekit_service_url: service,
+                        livekit_alias: None,
+                    })
+                    .collect(),
+                can_subscribe: ["livekit"],
+            },
+            versions: [],
+            msc4354_sticky_key: own.member_id.as_deref(),
+            screen_sharing,
         })
     } else {
-        json!({
-            "application":"m.call", "call_id":"", "scope":"m.room", "device_id":own.device_id,
-            "membershipID":own.identity, "created_ts":own.created_ts, "expires":now_ms.saturating_sub(own.created_ts).saturating_add(14_400_000),
-            "focus_active":{"type":"livekit", "focus_selection":if own.mode == CallMode::Compatibility {"multi_sfu"} else {"oldest_membership"}},
-            "foci_preferred":own.foci.iter().map(|service| json!({"type":"livekit", "livekit_service_url":service, "livekit_alias":room_id})).collect::<Vec<_>>()
+        MembershipContent::Legacy(LegacyOut {
+            application: "m.call",
+            call_id: "",
+            scope: "m.room",
+            device_id: &own.device_id,
+            membership_id: &own.identity,
+            created_ts: own.created_ts,
+            expires: now_ms
+                .saturating_sub(own.created_ts)
+                .saturating_add(14_400_000),
+            focus_active: FocusActive {
+                kind: "livekit",
+                focus_selection: if own.mode == CallMode::Compatibility {
+                    "multi_sfu"
+                } else {
+                    "oldest_membership"
+                },
+            },
+            foci_preferred: own
+                .foci
+                .iter()
+                .map(|service| LivekitFocus {
+                    kind: "livekit",
+                    livekit_service_url: service,
+                    livekit_alias: Some(room_id),
+                })
+                .collect(),
+            intent,
+            screen_sharing,
         })
-    };
-    let target = if own.mode == CallMode::Matrix2 {
-        content.get_mut("application")
-    } else {
-        Some(&mut content)
-    };
-    if let (Some(intent), Some(Value::Object(target))) = (intent, target) {
-        target.insert("m.call.intent".to_owned(), json!(intent));
     }
-    if let (true, Some(content)) = (own.screen_sharing, content.as_object_mut()) {
-        content.insert(membership::SCREEN_SHARING_FIELD.to_owned(), json!(true));
-    }
-    content
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum MembershipContent<'a> {
+    Matrix2(Matrix2Out<'a>),
+    Legacy(LegacyOut<'a>),
+}
+
+#[derive(Serialize)]
+struct LivekitFocus<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    livekit_service_url: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    livekit_alias: Option<&'a OwnedRoomId>,
+}
+
+#[derive(Serialize)]
+struct Matrix2Application {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
+    intent: Option<CallIntent>,
+}
+
+#[derive(Serialize)]
+struct Matrix2Member<'a> {
+    user_id: &'a OwnedUserId,
+    device_id: &'a OwnedDeviceId,
+    id: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+struct Matrix2Transports<'a> {
+    published: Vec<LivekitFocus<'a>>,
+    can_subscribe: [&'static str; 1],
+}
+
+#[derive(Serialize)]
+struct Matrix2Out<'a> {
+    application: Matrix2Application,
+    slot_id: &'static str,
+    member: Matrix2Member<'a>,
+    transports: Matrix2Transports<'a>,
+    versions: [(); 0],
+    msc4354_sticky_key: Option<&'a str>,
+    #[serde(flatten)]
+    screen_sharing: Option<BTreeMap<&'static str, bool>>,
+}
+
+#[derive(Serialize)]
+struct FocusActive {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    focus_selection: &'static str,
+}
+
+#[derive(Serialize)]
+struct LegacyOut<'a> {
+    application: &'static str,
+    call_id: &'static str,
+    scope: &'static str,
+    device_id: &'a OwnedDeviceId,
+    #[serde(rename = "membershipID")]
+    membership_id: &'a str,
+    created_ts: u64,
+    expires: u64,
+    focus_active: FocusActive,
+    foci_preferred: Vec<LivekitFocus<'a>>,
+    #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
+    intent: Option<CallIntent>,
+    #[serde(flatten)]
+    screen_sharing: Option<BTreeMap<&'static str, bool>>,
 }
 
 fn state_key(
@@ -217,9 +336,10 @@ async fn publish_membership(
     own: &CallMember,
     intent: Option<CallIntent>,
 ) -> Result<matrix_sdk::ruma::OwnedEventId, matrix_sdk::Error> {
-    let body = content(&room.room_id().to_owned(), own, intent);
+    let room_id = room.room_id().to_owned();
+    let body = content(&room_id, own, intent);
     if own.mode == CallMode::Matrix2 {
-        sticky::send(&room.client(), room, body).await
+        sticky::send(&room.client(), room, &body).await
     } else {
         let key = state_key(room, own);
         let raw = matrix_sdk::ruma::serde::Raw::new(&body)?.cast_unchecked();
@@ -240,7 +360,9 @@ async fn retract(core: &Core, room: &Room, own: &CallMember, delay: Option<Strin
         if sticky::send(
             &room.client(),
             room,
-            json!({"msc4354_sticky_key": own.member_id}),
+            sticky::StickyKeyOut {
+                msc4354_sticky_key: own.member_id.as_deref(),
+            },
         )
         .await
         .is_err()
@@ -399,7 +521,9 @@ async fn publish(
             sticky::send_delayed(
                 &room.client(),
                 room,
-                json!({"msc4354_sticky_key":own.member_id}),
+                sticky::StickyKeyOut {
+                    msc4354_sticky_key: own.member_id.as_deref(),
+                },
                 HANGUP_DELAY,
             )
             .await

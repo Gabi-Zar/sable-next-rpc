@@ -63,6 +63,14 @@ pub(crate) struct Import {
     imported: Vec<BTreeMap<String, u64>>,
 }
 
+/// A v1 inbound group session row; `needs_backup` is a number or a bool depending on the writer.
+#[derive(Deserialize)]
+struct InboundGroupRow {
+    pickled_session: Value,
+    #[serde(default)]
+    needs_backup: Value,
+}
+
 fn decode<T: DeserializeOwned>(value: Value) -> Result<T, CoreError> {
     if value.get("ciphertext").is_some() {
         return Err("v1 crypto is encrypted; the original store key is required".into());
@@ -466,11 +474,9 @@ async fn import_batch(
                 changes.sessions.push(session);
             }
             "inbound_group_sessions3" => {
-                let pickle = value
-                    .get("pickled_session")
-                    .ok_or("invalid v1 room key")?
-                    .clone();
-                let session = InboundGroupSession::from_pickle(decode(pickle)?)
+                let row: InboundGroupRow =
+                    serde_json::from_value(value).map_err(|_| "invalid v1 room key")?;
+                let session = InboundGroupSession::from_pickle(decode(row.pickled_session)?)
                     .map_err(|_| "invalid v1 room key pickle")?;
                 if parts.len() != 2
                     || first != session.room_id().as_str()
@@ -478,10 +484,7 @@ async fn import_batch(
                 {
                     return Err("v1 room key mismatch".into());
                 }
-                if value
-                    .get("needs_backup")
-                    .is_some_and(|value| value == 1 || value == true)
-                {
+                if row.needs_backup == 1 || row.needs_backup == true {
                     session.reset_backup_state();
                 } else {
                     session.mark_as_backed_up();

@@ -671,6 +671,25 @@ pub(crate) fn gateway(url: &str) -> Result<String, CoreError> {
     Ok(parsed.to_string())
 }
 
+#[derive(serde::Serialize)]
+struct DefaultPayloadOut<'a> {
+    user_id: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct PusherDataOut<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    user_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    default_payload: Option<DefaultPayloadOut<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    endpoint: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    p256dh: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auth: Option<&'a str>,
+}
+
 /// A cold platform notification is built from this payload, and it derives its
 /// identity from `user_id`, so leaving it out stops a running app replacing it.
 /// # Errors
@@ -682,24 +701,17 @@ pub async fn set_pusher(client: &Client, pusher: PusherView) -> Result<(), CoreE
     if pusher.event_id_only {
         pusher_data.format = Some(PushFormat::EventIdOnly);
     }
-    if let Some(user_id) = client.user_id() {
-        pusher_data
-            .data
-            .insert("user_id".to_owned(), user_id.as_str().into());
-        pusher_data.data.insert(
-            "default_payload".to_owned(),
-            serde_json::json!({ "user_id": user_id.as_str() }),
-        );
-    }
-    if let Some(keys) = pusher.web_push {
-        pusher_data
-            .data
-            .insert("endpoint".to_owned(), keys.endpoint.into());
-        pusher_data
-            .data
-            .insert("p256dh".to_owned(), keys.p256dh.into());
-        pusher_data.data.insert("auth".to_owned(), keys.auth.into());
-    }
+    let user_id = client.user_id().map(matrix_sdk::ruma::UserId::as_str);
+    let web_push = pusher.web_push.as_ref();
+    pusher_data.data = serde_json::to_value(PusherDataOut {
+        user_id,
+        default_payload: user_id.map(|user_id| DefaultPayloadOut { user_id }),
+        endpoint: web_push.map(|keys| keys.endpoint.as_str()),
+        p256dh: web_push.map(|keys| keys.p256dh.as_str()),
+        auth: web_push.map(|keys| keys.auth.as_str()),
+    })
+    .and_then(serde_json::from_value)
+    .map_err(|error| error.to_string())?;
 
     client
         .pusher()
@@ -807,6 +819,39 @@ mod tests {
 
     fn ts(millis: u32) -> MilliSecondsSinceUnixEpoch {
         MilliSecondsSinceUnixEpoch(UInt::from(millis))
+    }
+
+    #[test]
+    fn pusher_data_omits_what_is_absent_and_nests_the_default_payload() {
+        use super::{DefaultPayloadOut, PusherDataOut};
+        assert_eq!(
+            serde_json::to_value(PusherDataOut {
+                user_id: Some("@a:b"),
+                default_payload: Some(DefaultPayloadOut { user_id: "@a:b" }),
+                endpoint: Some("https://push.example/sub"),
+                p256dh: Some("key"),
+                auth: Some("secret"),
+            })
+            .unwrap(),
+            json!({
+                "user_id": "@a:b",
+                "default_payload": { "user_id": "@a:b" },
+                "endpoint": "https://push.example/sub",
+                "p256dh": "key",
+                "auth": "secret",
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(PusherDataOut {
+                user_id: None,
+                default_payload: None,
+                endpoint: None,
+                p256dh: None,
+                auth: None,
+            })
+            .unwrap(),
+            json!({})
+        );
     }
 
     #[tokio::test]

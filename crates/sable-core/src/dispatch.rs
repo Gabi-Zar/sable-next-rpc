@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{self, Write as _};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
@@ -187,29 +187,67 @@ fn url_preview(url: String, data: &serde_json::Value) -> Option<UrlPreviewView> 
     Some(preview)
 }
 
+#[derive(serde::Serialize)]
+struct StateEventOut<'a, C> {
+    #[serde(rename = "type")]
+    kind: &'a str,
+    state_key: &'a str,
+    content: C,
+}
+
+#[derive(serde::Serialize)]
+struct TypeOut {
+    #[serde(rename = "type")]
+    kind: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct JoinRuleOut<'a> {
+    join_rule: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    allow: Option<[JoinRuleAllowOut<'a>; 1]>,
+}
+
+#[derive(serde::Serialize)]
+struct JoinRuleAllowOut<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    room_id: &'a RoomId,
+}
+
+#[derive(serde::Serialize)]
+struct RtcSlotOut {
+    status: &'static str,
+    application: TypeOut,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    encryption: Option<TypeOut>,
+}
+
+fn join_rule_event<'a>(
+    join_rule: &'a str,
+    allow: Option<&'a RoomId>,
+) -> StateEventOut<'a, JoinRuleOut<'a>> {
+    StateEventOut {
+        kind: "m.room.join_rules",
+        state_key: "",
+        content: JoinRuleOut {
+            join_rule,
+            allow: allow.map(|room_id| {
+                [JoinRuleAllowOut {
+                    kind: "m.room_membership",
+                    room_id,
+                }]
+            }),
+        },
+    }
+}
+
 fn join_rule_content(
     rule: Option<CreateJoinRuleView>,
     parent_space: Option<&RoomId>,
-) -> Option<serde_json::Value> {
-    let allow = |kind: &str| {
-        parent_space.map(|space| {
-            serde_json::json!({
-                "type": "m.room.join_rules",
-                "state_key": "",
-                "content": {
-                    "join_rule": kind,
-                    "allow": [{ "type": "m.room_membership", "room_id": space }],
-                },
-            })
-        })
-    };
-    let plain = |kind: &str| {
-        serde_json::json!({
-            "type": "m.room.join_rules",
-            "state_key": "",
-            "content": { "join_rule": kind },
-        })
-    };
+) -> Option<StateEventOut<'_, JoinRuleOut<'_>>> {
+    let allow = |kind| parent_space.map(|space| join_rule_event(kind, Some(space)));
+    let plain = |kind| join_rule_event(kind, None);
 
     match rule? {
         CreateJoinRuleView::Public => Some(plain("public")),
@@ -602,7 +640,7 @@ impl Core {
                     .with_reply(&room_id, content, reply, thread_root.clone(), "send_reply")
                     .await?;
 
-                let opt_out = no_link_previews.then(|| serde_json::json!([]));
+                let opt_out = no_link_previews.then(|| serde_json::Value::Array(Vec::new()));
                 let encrypted_images = self
                     .encrypted_preview_images(&room_id, &link_previews)
                     .await;
@@ -754,7 +792,7 @@ impl Core {
                     }),
                     [
                         (IMAGE_SOURCE_PACKS, source),
-                        ("m.mentions", Some(serde_json::json!({}))),
+                        ("m.mentions", Some(empty_mentions())),
                     ],
                 );
                 timeline
@@ -1735,7 +1773,7 @@ impl Core {
                                 [
                                     (IMAGE_SOURCE_PACKS, Some(source)),
                                     (REACTION_SHORTCODE, shortcode),
-                                    ("m.mentions", Some(serde_json::json!({}))),
+                                    ("m.mentions", Some(empty_mentions())),
                                 ],
                             ),
                         )
@@ -3020,7 +3058,9 @@ impl Core {
                     room_id,
                     "m.room.member",
                     user_id.as_str(),
-                    &serde_json::json!({ "membership": "leave" }),
+                    &MemberLeaveOut {
+                        membership: "leave",
+                    },
                 )
                 .await?;
                 Ok(CommandOk::DenyKnock)
@@ -3287,49 +3327,31 @@ impl Core {
                     // The override is a shallow merge: naming `events` drops the
                     // server's default map, so it is re-stated.
                     request.power_level_content_override = Some(
-                        Raw::new(&serde_json::json!({
-                            "events": {
-                                "m.room.avatar": 50,
-                                "m.room.canonical_alias": 50,
-                                "m.room.encryption": 100,
-                                "m.room.history_visibility": 100,
-                                "m.room.name": 50,
-                                "m.room.power_levels": 100,
-                                "m.room.server_acl": 100,
-                                "m.room.tombstone": 100,
-                                (view::CALL_MEMBER_TYPE): 0,
-                            },
-                        }))
-                        .or_failed(self, "create_room_call_power_levels")?
-                        .cast_unchecked(),
+                        Raw::new(&voice_power_level_override())
+                            .or_failed(self, "create_room_call_power_levels")?
+                            .cast_unchecked(),
                     );
                     request.initial_state.push(
-                        Raw::new(&serde_json::json!({
-                            "type": view::CALL_TYPE,
-                            "state_key": "",
-                            "content": {},
-                        }))
+                        Raw::new(&StateEventOut {
+                            kind: view::CALL_TYPE,
+                            state_key: "",
+                            content: crate::room_settings::EmptyContent {},
+                        })
                         .or_failed(self, "create_room_call_state")?
                         .cast_unchecked(),
                     );
-                    let mut slot = serde_json::Map::new();
-                    slot.insert("status".to_owned(), serde_json::json!("open"));
-                    slot.insert(
-                        "application".to_owned(),
-                        serde_json::json!({"type": "m.call"}),
-                    );
-                    if encrypted && !public {
-                        slot.insert(
-                            "encryption".to_owned(),
-                            serde_json::json!({"type": "org.matrix.msc4143.per_member"}),
-                        );
-                    }
                     request.initial_state.push(
-                        Raw::new(&serde_json::json!({
-                            "type": view::RTC_SLOT_TYPE,
-                            "state_key": view::CALL_SLOT_ID,
-                            "content": slot,
-                        }))
+                        Raw::new(&StateEventOut {
+                            kind: view::RTC_SLOT_TYPE,
+                            state_key: view::CALL_SLOT_ID,
+                            content: RtcSlotOut {
+                                status: "open",
+                                application: TypeOut { kind: "m.call" },
+                                encryption: (encrypted && !public).then_some(TypeOut {
+                                    kind: "org.matrix.msc4143.per_member",
+                                }),
+                            },
+                        })
                         .or_failed(self, "create_room_call_slot")?
                         .cast_unchecked(),
                     );
@@ -3430,7 +3452,11 @@ impl Core {
                 // non-optional and would send `{"via": []}`, a valid array.
                 self.room(&space_id)
                     .await?
-                    .send_state_event_raw("m.space.child", room_id.as_str(), &serde_json::json!({}))
+                    .send_state_event_raw(
+                        "m.space.child",
+                        room_id.as_str(),
+                        &serde_json::Value::Object(serde_json::Map::new()),
+                    )
                     .await
                     .map_err(|error| self.room_error("remove_from_space", error))?;
 
@@ -3661,6 +3687,32 @@ impl Core {
     }
 }
 
+#[derive(serde::Serialize)]
+struct MemberLeaveOut {
+    membership: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct PowerLevelsOverrideOut {
+    events: BTreeMap<&'static str, i64>,
+}
+
+fn voice_power_level_override() -> PowerLevelsOverrideOut {
+    PowerLevelsOverrideOut {
+        events: BTreeMap::from([
+            ("m.room.avatar", 50),
+            ("m.room.canonical_alias", 50),
+            ("m.room.encryption", 100),
+            ("m.room.history_visibility", 100),
+            ("m.room.name", 50),
+            ("m.room.power_levels", 100),
+            ("m.room.server_acl", 100),
+            ("m.room.tombstone", 100),
+            (view::CALL_MEMBER_TYPE, 0),
+        ]),
+    }
+}
+
 const MAX_PREVIEW_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
 struct EncryptedPreviewImage {
@@ -3693,14 +3745,16 @@ pub(crate) fn forum_title_value(title: Option<String>) -> Option<serde_json::Val
 }
 
 fn empty_mentions_extra() -> Option<serde_json::Map<String, serde_json::Value>> {
-    extra_content(None, [("m.mentions", Some(serde_json::json!({})))])
+    extra_content(None, [("m.mentions", Some(empty_mentions()))])
+}
+
+fn empty_mentions() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
 }
 
 fn ensure_empty_mentions(content: &mut serde_json::Value) {
     if let Some(object) = content.as_object_mut() {
-        object
-            .entry("m.mentions")
-            .or_insert_with(|| serde_json::json!({}));
+        object.entry("m.mentions").or_insert_with(empty_mentions);
     }
 }
 
@@ -3722,7 +3776,7 @@ fn reaction_shortcode(key: &str, shortcode: Option<&str>) -> Option<serde_json::
         .take_while(|end| *end <= budget)
         .last()?;
     name.get(..end)
-        .map(|name| serde_json::json!(format!(":{name}:")))
+        .map(|name| serde_json::Value::from(format!(":{name}:")))
 }
 
 fn image_source_pack_extra(
@@ -3745,76 +3799,105 @@ fn image_source_pack_references(
     })
 }
 
+#[derive(serde::Serialize)]
+struct LinkPreviewBundleOut<'a> {
+    #[serde(rename = "matrix:matched_url", skip_serializing_if = "Option::is_none")]
+    stable_matched_url: Option<&'a str>,
+    #[serde(rename = "matched_url", skip_serializing_if = "Option::is_none")]
+    legacy_matched_url: Option<&'a str>,
+    #[serde(rename = "og:url")]
+    url: &'a str,
+    #[serde(rename = "og:title", skip_serializing_if = "Option::is_none")]
+    title: Option<&'a str>,
+    #[serde(rename = "og:description", skip_serializing_if = "Option::is_none")]
+    description: Option<&'a str>,
+    #[serde(rename = "og:site_name", skip_serializing_if = "Option::is_none")]
+    site_name: Option<&'a str>,
+    #[serde(
+        rename = "matrix:image:encrypted",
+        skip_serializing_if = "Option::is_none"
+    )]
+    encrypted_image: Option<&'a serde_json::Value>,
+    #[serde(rename = "matrix:image:size", skip_serializing_if = "Option::is_none")]
+    encrypted_image_size: Option<u64>,
+    #[serde(rename = "og:image", skip_serializing_if = "Option::is_none")]
+    image: Option<&'a str>,
+    #[serde(rename = "og:image:width", skip_serializing_if = "Option::is_none")]
+    image_width: Option<u64>,
+    #[serde(rename = "og:image:height", skip_serializing_if = "Option::is_none")]
+    image_height: Option<u64>,
+    #[serde(rename = "og:video", skip_serializing_if = "Option::is_none")]
+    video: Option<&'a str>,
+    #[serde(rename = "og:video:type", skip_serializing_if = "Option::is_none")]
+    video_type: Option<&'a str>,
+    #[serde(rename = "og:video:width", skip_serializing_if = "Option::is_none")]
+    video_width: Option<u64>,
+    #[serde(rename = "og:video:height", skip_serializing_if = "Option::is_none")]
+    video_height: Option<u64>,
+    #[serde(
+        rename = "com.sable.theme_color",
+        skip_serializing_if = "Option::is_none"
+    )]
+    theme_color: Option<&'a str>,
+    #[serde(rename = "com.sable.card", skip_serializing_if = "Option::is_none")]
+    card: Option<&'a str>,
+    #[serde(
+        rename = "com.sable.author_name",
+        skip_serializing_if = "Option::is_none"
+    )]
+    author_name: Option<&'a str>,
+}
+
+impl<'a> LinkPreviewBundleOut<'a> {
+    fn new(
+        preview: &'a UrlPreviewView,
+        encrypted: Option<&'a EncryptedPreviewImage>,
+        stable: bool,
+    ) -> Self {
+        let video = preview.video.as_ref();
+        let encrypted_stable = encrypted.filter(|_| stable);
+        Self {
+            stable_matched_url: stable.then_some(preview.url.as_str()),
+            legacy_matched_url: (!stable).then_some(preview.url.as_str()),
+            url: &preview.url,
+            title: preview.title.as_deref(),
+            description: preview.description.as_deref(),
+            site_name: preview.site_name.as_deref(),
+            encrypted_image: encrypted_stable.map(|image| &image.file),
+            encrypted_image_size: encrypted_stable.map(|image| image.size),
+            image: if encrypted.is_some() {
+                None
+            } else {
+                preview.image.as_deref()
+            },
+            image_width: preview.image_width,
+            image_height: preview.image_height,
+            video: video.map(|video| video.source.as_str()),
+            video_type: video.and_then(|video| video.mime.as_deref()),
+            video_width: video.and_then(|video| video.width),
+            video_height: video.and_then(|video| video.height),
+            theme_color: preview.theme_color.as_deref(),
+            card: preview.card.as_deref(),
+            author_name: preview.author_name.as_deref(),
+        }
+    }
+}
+
 fn bundled_link_previews(
     previews: &[UrlPreviewView],
     encrypted_images: &HashMap<String, EncryptedPreviewImage>,
     stable: bool,
 ) -> Option<serde_json::Value> {
-    (!previews.is_empty()).then(|| {
-        serde_json::Value::Array(
-            previews
-                .iter()
-                .map(|preview| {
-                    let mut bundle = serde_json::Map::new();
-                    let matched_key = if stable {
-                        "matrix:matched_url"
-                    } else {
-                        "matched_url"
-                    };
-                    bundle.insert(matched_key.to_owned(), preview.url.clone().into());
-                    bundle.insert("og:url".to_owned(), preview.url.clone().into());
-                    if let Some(title) = &preview.title {
-                        bundle.insert("og:title".to_owned(), title.clone().into());
-                    }
-                    if let Some(description) = &preview.description {
-                        bundle.insert("og:description".to_owned(), description.clone().into());
-                    }
-                    if let Some(site_name) = &preview.site_name {
-                        bundle.insert("og:site_name".to_owned(), site_name.clone().into());
-                    }
-                    if let Some(encrypted) = encrypted_images.get(&preview.url) {
-                        if stable {
-                            bundle.insert(
-                                "matrix:image:encrypted".to_owned(),
-                                encrypted.file.clone(),
-                            );
-                            bundle.insert("matrix:image:size".to_owned(), encrypted.size.into());
-                        }
-                    } else if let Some(image) = &preview.image {
-                        bundle.insert("og:image".to_owned(), image.clone().into());
-                    }
-                    if let Some(width) = preview.image_width {
-                        bundle.insert("og:image:width".to_owned(), width.into());
-                    }
-                    if let Some(height) = preview.image_height {
-                        bundle.insert("og:image:height".to_owned(), height.into());
-                    }
-                    if let Some(video) = &preview.video {
-                        bundle.insert("og:video".to_owned(), video.source.clone().into());
-                        if let Some(mime) = &video.mime {
-                            bundle.insert("og:video:type".to_owned(), mime.clone().into());
-                        }
-                        if let Some(width) = video.width {
-                            bundle.insert("og:video:width".to_owned(), width.into());
-                        }
-                        if let Some(height) = video.height {
-                            bundle.insert("og:video:height".to_owned(), height.into());
-                        }
-                    }
-                    if let Some(color) = &preview.theme_color {
-                        bundle.insert(PREVIEW_THEME_COLOR.to_owned(), color.clone().into());
-                    }
-                    if let Some(card) = &preview.card {
-                        bundle.insert(PREVIEW_CARD.to_owned(), card.clone().into());
-                    }
-                    if let Some(author) = &preview.author_name {
-                        bundle.insert(PREVIEW_AUTHOR.to_owned(), author.clone().into());
-                    }
-                    serde_json::Value::Object(bundle)
-                })
-                .collect(),
-        )
-    })
+    if previews.is_empty() {
+        return None;
+    }
+    let bundles: Vec<_> = previews
+        .iter()
+        .map(|preview| {
+            LinkPreviewBundleOut::new(preview, encrypted_images.get(&preview.url), stable)
+        })
+        .collect();
+    serde_json::to_value(bundles).ok()
 }
 
 fn sticker_info(declared: Option<PackImageInfoView>) -> ImageInfo {
@@ -3906,7 +3989,7 @@ impl Core {
     pub(crate) async fn set_account_data(
         &self,
         event_type: &str,
-        content: &serde_json::Value,
+        content: &impl serde::Serialize,
     ) -> Result<(), CommandErr> {
         self.remember_account_data_type(event_type).await;
         self.put_global_account_data(event_type.into(), content, "set_account_data")
@@ -3922,8 +4005,9 @@ impl Core {
         room_id: OwnedRoomId,
         event_type: &str,
         state_key: &str,
-        content: &serde_json::Value,
+        content: &impl serde::Serialize,
     ) -> Result<OwnedEventId, CommandErr> {
+        let content = &serde_json::to_value(content).or_failed(self, "send_state")?;
         let response = self
             .room(&room_id)
             .await?
@@ -4177,6 +4261,98 @@ mod tests {
     };
     use crate::protocol::{CreateJoinRuleView, MessageKind};
 
+    fn preview(url: &str) -> crate::protocol::UrlPreviewView {
+        crate::protocol::UrlPreviewView {
+            url: url.to_owned(),
+            title: Some("Title".to_owned()),
+            description: None,
+            site_name: None,
+            image: Some("mxc://example.org/image".to_owned()),
+            image_mime: None,
+            image_width: Some(640),
+            image_height: None,
+            video: Some(crate::protocol::UrlPreviewVideoView {
+                source: "https://example.org/v.mp4".to_owned(),
+                mime: Some("video/mp4".to_owned()),
+                width: None,
+                height: Some(360),
+            }),
+            theme_color: Some("#fff".to_owned()),
+            card: None,
+            author_name: None,
+        }
+    }
+
+    #[test]
+    fn link_preview_bundles_keep_their_wire_shape() {
+        let previews = [preview("https://example.org/")];
+        assert_eq!(
+            super::bundled_link_previews(&previews, &std::collections::HashMap::new(), true),
+            Some(serde_json::json!([{
+                "matrix:matched_url": "https://example.org/",
+                "og:url": "https://example.org/",
+                "og:title": "Title",
+                "og:image": "mxc://example.org/image",
+                "og:image:width": 640,
+                "og:video": "https://example.org/v.mp4",
+                "og:video:type": "video/mp4",
+                "og:video:height": 360,
+                "com.sable.theme_color": "#fff",
+            }]))
+        );
+        assert_eq!(
+            super::bundled_link_previews(&previews, &std::collections::HashMap::new(), false)
+                .expect("a bundle")[0]["matched_url"],
+            "https://example.org/"
+        );
+        assert!(
+            super::bundled_link_previews(&[], &std::collections::HashMap::new(), true).is_none()
+        );
+    }
+
+    #[test]
+    fn encrypted_preview_images_replace_the_plain_one_only_in_the_stable_bundle() {
+        let previews = [preview("https://example.org/")];
+        let encrypted = std::collections::HashMap::from([(
+            "https://example.org/".to_owned(),
+            super::EncryptedPreviewImage {
+                file: serde_json::json!({ "url": "mxc://example.org/enc" }),
+                size: 12,
+            },
+        )]);
+        let stable = super::bundled_link_previews(&previews, &encrypted, true).expect("a bundle");
+        assert_eq!(
+            stable[0]["matrix:image:encrypted"],
+            serde_json::json!({ "url": "mxc://example.org/enc" })
+        );
+        assert_eq!(stable[0]["matrix:image:size"], 12);
+        assert!(stable[0].get("og:image").is_none());
+
+        let legacy = super::bundled_link_previews(&previews, &encrypted, false).expect("a bundle");
+        assert!(legacy[0].get("matrix:image:encrypted").is_none());
+        assert!(legacy[0].get("og:image").is_none());
+    }
+
+    #[test]
+    fn the_voice_power_level_override_restates_the_default_events() {
+        let value = serde_json::to_value(super::voice_power_level_override()).unwrap();
+        assert_eq!(value["events"]["m.room.name"], 50);
+        assert_eq!(value["events"]["m.room.encryption"], 100);
+        assert_eq!(value["events"][crate::view::CALL_MEMBER_TYPE], 0);
+        assert_eq!(value.as_object().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_denied_knock_is_a_bare_leave() {
+        assert_eq!(
+            serde_json::to_value(super::MemberLeaveOut {
+                membership: "leave"
+            })
+            .unwrap(),
+            serde_json::json!({ "membership": "leave" })
+        );
+    }
+
     #[test]
     fn a_silent_reply_carries_no_mention() {
         let event_id = <&matrix_sdk::ruma::EventId>::try_from("$one:example.org")
@@ -4285,6 +4461,7 @@ mod tests {
                 Some(kind),
                 space.map(|id| <&RoomId>::try_from(id).expect("a room id")),
             )
+            .map(|rule| serde_json::to_value(rule).expect("serializes"))
             .expect("a rule")["content"]["join_rule"]
                 .as_str()
                 .expect("a string")
@@ -4307,6 +4484,7 @@ mod tests {
             Some(CreateJoinRuleView::Restricted),
             Some(<&RoomId>::try_from("!space:example.org").expect("a room id")),
         )
+        .map(|rule| serde_json::to_value(rule).expect("serializes"))
         .expect("a rule");
 
         assert_eq!(
@@ -4317,10 +4495,42 @@ mod tests {
     }
 
     #[test]
+    fn the_call_slot_state_keeps_its_wire_shape() {
+        let slot = |encryption| {
+            serde_json::to_value(StateEventOut {
+                kind: view::RTC_SLOT_TYPE,
+                state_key: view::CALL_SLOT_ID,
+                content: RtcSlotOut {
+                    status: "open",
+                    application: TypeOut { kind: "m.call" },
+                    encryption,
+                },
+            })
+            .unwrap()
+        };
+
+        assert_eq!(
+            slot(None),
+            serde_json::json!({
+                "type": view::RTC_SLOT_TYPE,
+                "state_key": view::CALL_SLOT_ID,
+                "content": { "status": "open", "application": { "type": "m.call" } },
+            })
+        );
+        assert_eq!(
+            slot(Some(TypeOut {
+                kind: "org.matrix.msc4143.per_member"
+            }))["content"]["encryption"],
+            serde_json::json!({ "type": "org.matrix.msc4143.per_member" })
+        );
+    }
+
+    #[test]
     fn no_join_rule_leaves_the_preset_alone() {
         assert!(super::join_rule_content(None, None).is_none());
     }
 
+    use super::{RtcSlotOut, StateEventOut, TypeOut};
     use crate::view;
     use matrix_sdk::ruma::owned_user_id;
 

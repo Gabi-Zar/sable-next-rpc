@@ -25,6 +25,7 @@ use matrix_sdk::ruma::events::call::member::{CallMemberEventContent, CallMemberS
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{DeviceId, EventId, OwnedRoomId, OwnedUserId, UserId};
 use matrix_sdk::{Client, Room};
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::ResultExt;
@@ -158,6 +159,26 @@ pub(super) async fn slot_closed(room: &Room) -> bool {
     closed
 }
 
+#[derive(Serialize)]
+struct SlotApplication {
+    #[serde(rename = "type")]
+    kind: &'static str,
+}
+
+#[derive(Serialize)]
+struct SlotEncryption {
+    #[serde(rename = "type")]
+    kind: &'static str,
+}
+
+#[derive(Serialize)]
+struct OpenSlot {
+    status: &'static str,
+    application: SlotApplication,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    encryption: Option<SlotEncryption>,
+}
+
 pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
     if has_open_slot(room).await {
         return true;
@@ -173,14 +194,15 @@ pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
     {
         return false;
     }
-    let mut content =
-        serde_json::json!({"status": "open", "application": {"type": APPLICATION_SUFFIX}});
-    if encrypted && let Some(slot) = content.as_object_mut() {
-        slot.insert(
-            "encryption".to_owned(),
-            serde_json::json!({"type": "org.matrix.msc4143.per_member"}),
-        );
-    }
+    let content = OpenSlot {
+        status: "open",
+        application: SlotApplication {
+            kind: APPLICATION_SUFFIX,
+        },
+        encryption: encrypted.then_some(SlotEncryption {
+            kind: "org.matrix.msc4143.per_member",
+        }),
+    };
     let Ok(raw) = Raw::new(&content) else {
         return false;
     };
@@ -503,18 +525,12 @@ impl Core {
         let content = notify::make_decline_event(&room, &event_id)
             .await
             .or_failed(self, "decline_call")?;
-        let mut content = serde_json::to_value(content).or_failed(self, "decline_call")?;
-        if let Some(object) = content.as_object_mut() {
-            object
-                .entry("m.mentions")
-                .or_insert_with(|| serde_json::json!({}));
-        }
-        let content =
-            Raw::<matrix_sdk::ruma::events::AnyMessageLikeEventContent>::from_json_string(
-                content.to_string(),
-            )
-            .or_failed(self, "decline_call")?
-            .cast_unchecked();
+        let content = Raw::new(&notify::DeclineOut {
+            content: &content,
+            mentions: serde_json::Map::new(),
+        })
+        .or_failed(self, "decline_call")?
+        .cast_unchecked();
         room.send_raw(notify::DECLINE_EVENT_TYPE, content)
             .await
             .or_failed(self, "decline_call")?;
@@ -615,7 +631,9 @@ impl Core {
             sticky::send(
                 &room.client(),
                 &room,
-                serde_json::json!({"msc4354_sticky_key": member_id}),
+                sticky::StickyKeyOut {
+                    msc4354_sticky_key: Some(member_id),
+                },
             )
             .await
             .map_err(|error| self.room_error("leave_call", error))?;
@@ -742,6 +760,32 @@ mod tests {
             first.as_ref(),
             second.as_ref(),
             "two devices sharing a state key means the second evicts the first"
+        );
+    }
+
+    #[test]
+    fn test_open_slot_serializes_with_optional_encryption() {
+        let slot = |encrypted: bool| {
+            serde_json::to_value(super::OpenSlot {
+                status: "open",
+                application: super::SlotApplication { kind: "m.call" },
+                encryption: encrypted.then_some(super::SlotEncryption {
+                    kind: "org.matrix.msc4143.per_member",
+                }),
+            })
+            .unwrap()
+        };
+        assert_eq!(
+            slot(false),
+            serde_json::json!({"status": "open", "application": {"type": "m.call"}})
+        );
+        assert_eq!(
+            slot(true),
+            serde_json::json!({
+                "status": "open",
+                "application": {"type": "m.call"},
+                "encryption": {"type": "org.matrix.msc4143.per_member"},
+            })
         );
     }
 

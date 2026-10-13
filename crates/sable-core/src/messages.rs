@@ -86,7 +86,7 @@ pub(crate) fn previews_removed_edit(
 ) -> Option<serde_json::Value> {
     replacement_edit(event_id, event, |new_content| {
         for field in [BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS] {
-            new_content.insert(field.to_owned(), serde_json::json!([]));
+            new_content.insert(field.to_owned(), serde_json::Value::Array(Vec::new()));
         }
     })
 }
@@ -131,16 +131,16 @@ fn replacement_edit(
             edit.insert(field.to_owned(), serde_json::Value::String(fallback));
         }
     }
-    edit.insert("m.mentions".to_owned(), serde_json::json!({}));
-    edit.insert(
-        "m.new_content".to_owned(),
-        serde_json::Value::Object(new_content),
-    );
-    edit.insert(
-        "m.relates_to".to_owned(),
-        serde_json::json!({ "rel_type": "m.replace", "event_id": event_id }),
-    );
-    Some(serde_json::Value::Object(edit))
+    serde_json::to_value(ReplacementEditOut {
+        fields: edit,
+        mentions: serde_json::Map::new(),
+        new_content,
+        relates_to: ReplaceRelationOut {
+            rel_type: "m.replace",
+            event_id: event_id.as_str(),
+        },
+    })
+    .ok()
 }
 
 fn pretty_json(raw: &str) -> String {
@@ -608,29 +608,36 @@ impl Core {
         };
 
         object.remove("m.relates_to");
-        object.insert("m.mentions".to_owned(), serde_json::json!({}));
+        object.insert(
+            "m.mentions".to_owned(),
+            serde_json::Value::Object(serde_json::Map::new()),
+        );
         object.remove(PER_MESSAGE_PROFILE);
 
         let private = !matches!(source.join_rule(), Some(JoinRule::Public));
 
+        let public_event_id = (!private).then(|| event_id.to_string());
+        let public_room_id = (!private).then(|| room_id.to_string());
         object.insert(
             FORWARD_META.to_owned(),
-            serde_json::json!({
-                "origin_server_ts": u64::from(origin_server_ts),
-                "event_id": (!private).then(|| event_id.to_string()),
-                "room_id": (!private).then(|| room_id.to_string()),
-            }),
+            serde_json::to_value(ForwardMetaOut {
+                origin_server_ts: u64::from(origin_server_ts),
+                event_id: public_event_id.as_deref(),
+                room_id: public_room_id.as_deref(),
+            })
+            .or_failed(self, "forward_message")?,
         );
         object.insert(
             SABLE_FORWARD_META.to_owned(),
-            serde_json::json!({
-                "v": 1,
-                "is_forwarded": true,
-                "original_timestamp": u64::from(origin_server_ts),
-                "original_room_id": (!private).then(|| room_id.to_string()),
-                "original_event_id": (!private).then(|| event_id.to_string()),
-                "original_event_private": private,
-            }),
+            serde_json::to_value(SableForwardMetaOut {
+                v: 1,
+                is_forwarded: true,
+                original_timestamp: u64::from(origin_server_ts),
+                original_room_id: public_room_id.as_deref(),
+                original_event_id: public_event_id.as_deref(),
+                original_event_private: private,
+            })
+            .or_failed(self, "forward_message")?,
         );
 
         self.room(to_room_id)
@@ -837,6 +844,42 @@ fn edit_version(event: &TimelineEvent, replacement: bool) -> Option<EditVersionV
     })
 }
 
+/// `fields` comes first so the explicit keys below override any copy of them.
+#[derive(serde::Serialize)]
+struct ReplacementEditOut<'a> {
+    #[serde(flatten)]
+    fields: serde_json::Map<String, serde_json::Value>,
+    #[serde(rename = "m.mentions")]
+    mentions: serde_json::Map<String, serde_json::Value>,
+    #[serde(rename = "m.new_content")]
+    new_content: serde_json::Map<String, serde_json::Value>,
+    #[serde(rename = "m.relates_to")]
+    relates_to: ReplaceRelationOut<'a>,
+}
+
+#[derive(serde::Serialize)]
+struct ReplaceRelationOut<'a> {
+    rel_type: &'static str,
+    event_id: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct ForwardMetaOut<'a> {
+    origin_server_ts: u64,
+    event_id: Option<&'a str>,
+    room_id: Option<&'a str>,
+}
+
+#[derive(serde::Serialize)]
+struct SableForwardMetaOut<'a> {
+    v: u8,
+    is_forwarded: bool,
+    original_timestamp: u64,
+    original_room_id: Option<&'a str>,
+    original_event_id: Option<&'a str>,
+    original_event_private: bool,
+}
+
 const FORWARD_META: &str = "com.famedly.app.forwarded";
 const SABLE_FORWARD_META: &str = "moe.sable.message.forward";
 
@@ -850,6 +893,40 @@ mod tests {
     };
     use matrix_sdk_ui::sync_service::SyncService;
     use serde_json::{Value, json};
+
+    #[test]
+    fn forward_metadata_keeps_its_wire_shape() {
+        let private = serde_json::to_value(super::ForwardMetaOut {
+            origin_server_ts: 7,
+            event_id: None,
+            room_id: None,
+        })
+        .unwrap();
+        assert_eq!(
+            private,
+            json!({ "origin_server_ts": 7, "event_id": null, "room_id": null })
+        );
+        let public = serde_json::to_value(super::SableForwardMetaOut {
+            v: 1,
+            is_forwarded: true,
+            original_timestamp: 7,
+            original_room_id: Some("!r:x"),
+            original_event_id: Some("$e"),
+            original_event_private: false,
+        })
+        .unwrap();
+        assert_eq!(
+            public,
+            json!({
+                "v": 1,
+                "is_forwarded": true,
+                "original_timestamp": 7,
+                "original_room_id": "!r:x",
+                "original_event_id": "$e",
+                "original_event_private": false,
+            })
+        );
+    }
     use wiremock::{
         Mock, ResponseTemplate,
         matchers::{method, path},

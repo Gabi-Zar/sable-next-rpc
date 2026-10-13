@@ -586,23 +586,38 @@ fn attachment_profile(
     profile_extra_content(profile)
 }
 
-const AUDIO_METADATA_KEY: &str = "org.matrix.msc4549.audio_metadata";
+#[derive(serde::Serialize)]
+struct AudioInfoOut<'a> {
+    #[serde(rename = "org.matrix.msc4549.audio_metadata")]
+    audio_metadata: AudioMetadataOut<'a>,
+}
+
+#[derive(serde::Serialize)]
+struct AudioMetadataOut<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    title: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    artist: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    album: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cover_art_blurhash: Option<&'a str>,
+}
 
 fn audio_metadata_content(
     metadata: &AudioMetadataView,
 ) -> serde_json::Map<String, serde_json::Value> {
-    let fields = [
-        ("title", &metadata.title),
-        ("artist", &metadata.artist),
-        ("album", &metadata.album),
-        ("cover_art_blurhash", &metadata.cover_art_blurhash),
-    ]
-    .into_iter()
-    .filter_map(|(key, value)| Some((key.to_owned(), serde_json::Value::String(value.clone()?))))
-    .collect();
+    let info = AudioInfoOut {
+        audio_metadata: AudioMetadataOut {
+            title: metadata.title.as_deref(),
+            artist: metadata.artist.as_deref(),
+            album: metadata.album.as_deref(),
+            cover_art_blurhash: metadata.cover_art_blurhash.as_deref(),
+        },
+    };
     serde_json::Map::from_iter([(
         "info".to_owned(),
-        serde_json::json!({ AUDIO_METADATA_KEY: serde_json::Value::Object(fields) }),
+        serde_json::to_value(info).unwrap_or_default(),
     )])
 }
 

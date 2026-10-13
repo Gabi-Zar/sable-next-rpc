@@ -8,12 +8,15 @@ use matrix_sdk::ruma::events::AnySyncTimelineEvent;
 use matrix_sdk::ruma::room::RoomType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, UInt};
-use serde_json::{Map, Value, json};
+use serde::Serialize;
+use serde_json::Value;
+use serde_json::value::to_raw_value;
 
-use crate::Core;
 use crate::protocol::{
     CalendarEntryView, CalendarRsvpView, CalendarView, CommandErr, CoreEvent, RsvpStatusView,
 };
+use crate::room_settings::EmptyContent;
+use crate::{Core, ResultExt};
 
 pub(crate) const CALENDAR_ROOM_TYPE: &str = "chat.commet.calendar";
 pub(crate) const RSVP_EVENT: &str = "moe.sable.calendar.rsvp";
@@ -50,19 +53,57 @@ pub(crate) struct CalendarAnswer {
     pub(crate) status: RsvpStatusView,
 }
 
+#[derive(Serialize)]
+struct ReferenceOut<'a> {
+    rel_type: &'static str,
+    event_id: &'a OwnedEventId,
+}
+
+#[derive(Serialize)]
+struct RsvpOut<'a> {
+    uid: &'a str,
+    status: RsvpStatusView,
+    #[serde(rename = "m.relates_to")]
+    relates_to: ReferenceOut<'a>,
+    #[serde(rename = "recurrenceId", skip_serializing_if = "Option::is_none")]
+    recurrence_id: Option<&'a str>,
+}
+
 /// One answer per occurrence, related to the event that carries the entry.
-fn rsvp_content(answer: &CalendarAnswer) -> Value {
-    let mut content = Map::new();
-    content.insert("uid".to_owned(), json!(answer.uid));
-    content.insert("status".to_owned(), json!(answer.status));
-    content.insert(
-        "m.relates_to".to_owned(),
-        json!({ "rel_type": "m.reference", "event_id": answer.calendar_event_id }),
-    );
-    if let Some(recurrence_id) = &answer.recurrence_id {
-        content.insert("recurrenceId".to_owned(), json!(recurrence_id));
+fn rsvp_content(answer: &CalendarAnswer) -> RsvpOut<'_> {
+    RsvpOut {
+        uid: &answer.uid,
+        status: answer.status,
+        relates_to: ReferenceOut {
+            rel_type: "m.reference",
+            event_id: &answer.calendar_event_id,
+        },
+        recurrence_id: answer.recurrence_id.as_deref(),
     }
-    Value::Object(content)
+}
+
+#[derive(Serialize)]
+struct CalendarEventsOut<'a> {
+    #[serde(rename = "m.relates_to")]
+    relates_to: CalendarRefOut<'a>,
+    format: &'static str,
+    events: [CalendarItemOut<'a>; 1],
+}
+
+#[derive(Serialize)]
+struct CalendarRefOut<'a> {
+    event_id: &'a str,
+    rel_type: &'static str,
+}
+
+#[derive(Serialize)]
+struct CalendarItemOut<'a> {
+    event: &'a Value,
+}
+
+#[derive(Serialize)]
+struct CalendarsOut<'a> {
+    calendars: [&'a OwnedEventId; 1],
 }
 
 impl Core {
@@ -162,16 +203,18 @@ impl Core {
     ) -> Result<(), CommandErr> {
         let room = self.room(room_id).await?;
         let calendar_id = self.calendar_id(&room).await?;
-        room.send_raw(
-            CALENDAR_EVENTS,
-            json!({
-                "m.relates_to": { "event_id": calendar_id, "rel_type": "m.reference" },
-                "format": EVENT_FORMAT,
-                "events": [{ "event": event }],
-            }),
-        )
-        .await
-        .map_err(|error| self.room_error("save_calendar_event", error))?;
+        let content = to_raw_value(&CalendarEventsOut {
+            relates_to: CalendarRefOut {
+                event_id: &calendar_id,
+                rel_type: "m.reference",
+            },
+            format: EVENT_FORMAT,
+            events: [CalendarItemOut { event: &event }],
+        })
+        .or_failed(self, "save_calendar_event")?;
+        room.send_raw(CALENDAR_EVENTS, content)
+            .await
+            .map_err(|error| self.room_error("save_calendar_event", error))?;
         if let Some(replaces) = replaces {
             room.redact(&replaces, None, None)
                 .await
@@ -185,9 +228,11 @@ impl Core {
         room_id: &OwnedRoomId,
         answer: &CalendarAnswer,
     ) -> Result<(), CommandErr> {
+        let content =
+            to_raw_value(&rsvp_content(answer)).or_failed(self, "answer_calendar_event")?;
         self.room(room_id)
             .await?
-            .send_raw(RSVP_EVENT, rsvp_content(answer))
+            .send_raw(RSVP_EVENT, content)
             .await
             .map_err(|error| self.room_error("answer_calendar_event", error))?;
         Ok(())
@@ -210,17 +255,18 @@ impl Core {
         if let Some(calendar_id) = existing {
             return Ok(calendar_id);
         }
+        let empty = to_raw_value(&EmptyContent {}).or_failed(self, "calendar_id")?;
         let created = room
-            .send_raw(CALENDAR_CREATE, json!({}))
+            .send_raw(CALENDAR_CREATE, empty)
             .await
             .map_err(|error| self.room_error("calendar_id", error))?;
-        room.send_state_event_raw(
-            CALENDARS,
-            "",
-            json!({ "calendars": [created.response.event_id] }),
-        )
-        .await
-        .map_err(|error| self.room_error("calendar_id", error))?;
+        let calendars = to_raw_value(&CalendarsOut {
+            calendars: [&created.response.event_id],
+        })
+        .or_failed(self, "calendar_id")?;
+        room.send_state_event_raw(CALENDARS, "", calendars)
+            .await
+            .map_err(|error| self.room_error("calendar_id", error))?;
         self.forget_room_state(room.room_id(), CALENDARS);
         Ok(created.response.event_id.to_string())
     }
@@ -324,7 +370,31 @@ fn latest_entries(mut entries: Vec<CalendarEntryView>) -> Vec<CalendarEntryView>
 mod tests {
     use serde_json::json;
 
-    use super::{collect, latest_entries};
+    use matrix_sdk::ruma::OwnedEventId;
+
+    use super::{CalendarAnswer, RsvpStatusView, collect, latest_entries, rsvp_content};
+
+    #[test]
+    fn rsvp_content_keeps_the_wire_shape() {
+        let mut answer = CalendarAnswer {
+            calendar_event_id: OwnedEventId::try_from("$new").expect("event id"),
+            uid: "raid".to_owned(),
+            recurrence_id: None,
+            status: RsvpStatusView::Tentative,
+        };
+        assert_eq!(
+            serde_json::to_value(rsvp_content(&answer)).unwrap(),
+            json!({
+                "uid": "raid", "status": "tentative",
+                "m.relates_to": { "rel_type": "m.reference", "event_id": "$new" }
+            })
+        );
+        answer.recurrence_id = Some("2026-10-08T20:00:00".to_owned());
+        assert_eq!(
+            serde_json::to_value(rsvp_content(&answer)).unwrap()["recurrenceId"],
+            "2026-10-08T20:00:00"
+        );
+    }
 
     #[test]
     fn reads_commet_events_and_rsvps_and_keeps_the_latest_edit() {

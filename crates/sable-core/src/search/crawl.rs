@@ -866,17 +866,20 @@ struct CrawlPage {
     end: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+struct EncryptedContent {
+    session_id: String,
+}
+
 fn megolm_session(event: &Raw<AnyTimelineEvent>) -> Option<String> {
     if event.get_field::<String>("type").ok().flatten().as_deref() != Some("m.room.encrypted") {
         return None;
     }
     event
-        .get_field::<serde_json::Value>("content")
+        .get_field::<EncryptedContent>("content")
         .ok()
-        .flatten()?
-        .get("session_id")?
-        .as_str()
-        .map(ToOwned::to_owned)
+        .flatten()
+        .map(|content| content.session_id)
 }
 
 #[cfg(test)]
@@ -1730,5 +1733,35 @@ mod tests {
         );
 
         drop((plain, secret));
+    }
+
+    #[test]
+    fn a_megolm_session_is_read_only_from_an_encrypted_event_with_a_string_id() {
+        let event = |value: serde_json::Value| {
+            super::Raw::<serde_json::Value>::new(&value)
+                .unwrap()
+                .cast_unchecked::<super::AnyTimelineEvent>()
+        };
+        let encrypted = |content: serde_json::Value| {
+            event(serde_json::json!({"type": "m.room.encrypted", "content": content}))
+        };
+        assert_eq!(
+            super::megolm_session(&encrypted(serde_json::json!({"session_id": "s"}))).as_deref(),
+            Some("s")
+        );
+        assert_eq!(
+            super::megolm_session(&encrypted(serde_json::json!({"session_id": 1}))),
+            None
+        );
+        assert_eq!(
+            super::megolm_session(&encrypted(serde_json::json!("x"))),
+            None
+        );
+        assert_eq!(
+            super::megolm_session(&event(
+                serde_json::json!({"type": "m.room.message", "content": {"session_id": "s"}})
+            )),
+            None
+        );
     }
 }

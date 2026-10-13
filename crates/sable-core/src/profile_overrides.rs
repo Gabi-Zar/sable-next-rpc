@@ -96,7 +96,7 @@ fn apply_text(entry: &mut Map<String, Value>, key: &str, edit: &FieldEdit) {
     match edit {
         FieldEdit::Keep => {}
         FieldEdit::Set { value } if !value.is_empty() => {
-            entry.insert(key.to_owned(), json!(value));
+            entry.insert(key.to_owned(), Value::from(value.as_str()));
         }
         FieldEdit::Clear | FieldEdit::Set { .. } => {
             entry.remove(key);
@@ -121,7 +121,7 @@ pub(crate) fn edited_overrides(stored: Option<Value>, user_id: &str, edit: &Over
             entry.remove("avatar_url");
         }
         AvatarEditView::Url { url } => {
-            entry.insert("avatar_url".to_owned(), json!(url));
+            entry.insert("avatar_url".to_owned(), Value::from(url.as_str()));
         }
         AvatarEditView::Encrypted { file } => {
             entry.insert("avatar_url".to_owned(), file.clone());

@@ -121,7 +121,8 @@ pub(crate) fn sticky_member(raw: &str) -> Option<StickyMember> {
 }
 
 pub(crate) fn sticky_identity(user_id: &UserId, device_id: &DeviceId, member_id: &str) -> String {
-    let source = serde_json::json!([user_id.as_str(), device_id.as_str(), member_id]).to_string();
+    let source =
+        serde_json::Value::from([user_id.as_str(), device_id.as_str(), member_id]).to_string();
     STANDARD_NO_PAD.encode(Sha256::digest(source.as_bytes()))
 }
 

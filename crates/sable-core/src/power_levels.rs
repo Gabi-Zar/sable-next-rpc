@@ -1,15 +1,17 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use matrix_sdk::ruma::OwnedRoomId;
 pub(crate) use sable_model::power_levels::{TAGS_EVENT, level_at, with_level};
-use serde_json::{Map, Value, json};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::{Map, Value};
 
-use crate::Core;
 use crate::protocol::{
     CommandErr, PowerLevelAction, PowerLevelLocation, PowerLevelTagView, PowerLevelTagsView,
     RoomPowerLevelsView,
 };
 use crate::view;
+use crate::{Core, ResultExt};
 
 pub(crate) const POWER_LEVELS_EVENT: &str = "m.room.power_levels";
 
@@ -98,33 +100,76 @@ pub(crate) fn synced_from_space(
     next
 }
 
+/// Reads as `T::default()` when the stored value is the wrong shape, which the
+/// edit that follows overwrites anyway.
+#[derive(Debug, Default)]
+struct Lenient<T>(T);
+
+impl<'de, T: DeserializeOwned + Default> Deserialize<'de> for Lenient<T> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(Self(
+            serde_json::from_value(Value::deserialize(deserializer)?).unwrap_or_default(),
+        ))
+    }
+}
+
+impl<T> Lenient<Option<T>> {
+    const fn is_none(&self) -> bool {
+        self.0.is_none()
+    }
+}
+
+impl<T: Serialize> Serialize for Lenient<T> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default)]
+struct NotificationsContent {
+    room: Lenient<i64>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default)]
+pub(crate) struct PowerLevelsContent {
+    ban: Lenient<i64>,
+    kick: Lenient<i64>,
+    redact: Lenient<i64>,
+    invite: Lenient<i64>,
+    events_default: Lenient<i64>,
+    state_default: Lenient<i64>,
+    users_default: Lenient<i64>,
+    events: Lenient<BTreeMap<String, i64>>,
+    users: Lenient<BTreeMap<String, i64>>,
+    notifications: Lenient<NotificationsContent>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
 /// Writes the modelled fields over the stored content so anything we do not
 /// model survives the edit.
-pub(crate) fn power_levels_content(stored: Option<Value>, levels: &RoomPowerLevelsView) -> Value {
-    let mut content = match stored {
-        Some(Value::Object(map)) => map,
-        _ => Map::new(),
-    };
-    for (key, level) in [
-        ("ban", levels.ban),
-        ("kick", levels.kick),
-        ("redact", levels.redact),
-        ("invite", levels.invite),
-        ("events_default", levels.events_default),
-        ("state_default", levels.state_default),
-        ("users_default", levels.users_default),
-    ] {
-        content.insert(key.to_owned(), json!(level));
-    }
-    content.insert("events".to_owned(), json!(levels.events));
-    content.insert("users".to_owned(), json!(levels.users));
-    let mut notifications = match content.remove("notifications") {
-        Some(Value::Object(map)) => map,
-        _ => Map::new(),
-    };
-    notifications.insert("room".to_owned(), json!(levels.notifications_room));
-    content.insert("notifications".to_owned(), Value::Object(notifications));
-    Value::Object(content)
+pub(crate) fn power_levels_content(
+    stored: Option<Value>,
+    levels: &RoomPowerLevelsView,
+) -> PowerLevelsContent {
+    let mut content: PowerLevelsContent = stored
+        .and_then(|stored| serde_json::from_value(stored).ok())
+        .unwrap_or_default();
+    content.ban = Lenient(levels.ban);
+    content.kick = Lenient(levels.kick);
+    content.redact = Lenient(levels.redact);
+    content.invite = Lenient(levels.invite);
+    content.events_default = Lenient(levels.events_default);
+    content.state_default = Lenient(levels.state_default);
+    content.users_default = Lenient(levels.users_default);
+    content.events = Lenient(levels.events.clone());
+    content.users = Lenient(levels.users.clone());
+    content.notifications.0.room = Lenient(levels.notifications_room);
+    content
 }
 
 fn is_hex_color(color: &str) -> bool {
@@ -179,35 +224,52 @@ fn object(value: Option<Value>) -> Map<String, Value> {
     }
 }
 
+#[derive(Default, Deserialize, Serialize)]
+struct IconKey {
+    key: String,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default)]
+struct TagEntry {
+    name: Lenient<String>,
+    #[serde(skip_serializing_if = "Lenient::is_none")]
+    color: Lenient<Option<String>>,
+    #[serde(skip_serializing_if = "Lenient::is_none")]
+    icon: Lenient<Option<IconKey>>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
 /// Unknown fields on the entry are kept; a missing colour or icon removes it.
 pub(crate) fn with_tag(
     stored: Option<Value>,
     level: i64,
     tag: Option<&PowerLevelTagView>,
-) -> Value {
+) -> serde_json::Result<Value> {
     let mut content = object(stored);
     let key = level.to_string();
     let Some(tag) = tag else {
         content.remove(&key);
-        return Value::Object(content);
+        return Ok(Value::Object(content));
     };
-    let mut entry = object(content.remove(&key));
-    entry.insert("name".to_owned(), json!(tag.name));
-    match tag.color.as_deref().filter(|color| is_hex_color(color)) {
-        Some(color) => entry.insert("color".to_owned(), json!(color)),
-        None => entry.remove("color"),
-    };
-    match tag
-        .icon
-        .as_deref()
-        .map(str::trim)
-        .filter(|icon| !icon.is_empty())
-    {
-        Some(icon) => entry.insert("icon".to_owned(), json!({ "key": icon })),
-        None => entry.remove("icon"),
-    };
-    content.insert(key, Value::Object(entry));
-    Value::Object(content)
+    let mut entry: TagEntry = content
+        .remove(&key)
+        .and_then(|stored| serde_json::from_value(stored).ok())
+        .unwrap_or_default();
+    entry.name = Lenient(tag.name.clone());
+    entry.color = Lenient(tag.color.clone().filter(|color| is_hex_color(color)));
+    entry.icon = Lenient(
+        tag.icon
+            .as_deref()
+            .map(str::trim)
+            .filter(|icon| !icon.is_empty())
+            .map(|key| IconKey {
+                key: key.to_owned(),
+            }),
+    );
+    content.insert(key, serde_json::to_value(entry)?);
+    Ok(Value::Object(content))
 }
 
 /// Each level the source names takes the source's role; the rest are kept.
@@ -306,7 +368,8 @@ impl Core {
         level: i64,
         tag: Option<&PowerLevelTagView>,
     ) -> Result<PowerLevelTagsView, CommandErr> {
-        let next = with_tag(self.state_content(&room_id, TAGS_EVENT).await?, level, tag);
+        let next = with_tag(self.state_content(&room_id, TAGS_EVENT).await?, level, tag)
+            .or_failed(self, "power_level_tag")?;
         self.send_state(room_id, TAGS_EVENT, "", &next).await?;
         Ok(parse_tags(Some(&next)))
     }
@@ -413,6 +476,10 @@ mod tests {
     use crate::protocol::{
         PowerLevelAction, PowerLevelLocation, PowerLevelTagView, RoomPowerLevelsView,
     };
+
+    fn to_json(content: impl serde::Serialize) -> serde_json::Value {
+        serde_json::to_value(content).unwrap()
+    }
 
     fn map(entries: &[(&str, i64)]) -> BTreeMap<String, i64> {
         entries
@@ -525,7 +592,7 @@ mod tests {
             "historical": 100,
             "notifications": { "room": 50, "other": 10 },
         });
-        let content = power_levels_content(Some(stored), &room());
+        let content = to_json(power_levels_content(Some(stored), &room()));
 
         assert_eq!(content["historical"], json!(100));
         assert_eq!(content["notifications"], json!({ "room": 50, "other": 10 }));
@@ -535,15 +602,37 @@ mod tests {
     }
 
     #[test]
+    fn unreadable_stored_fields_are_replaced_and_foreign_keys_kept() {
+        let stored = json!({
+            "ban": "high",
+            "events": [1],
+            "notifications": 5,
+            "historical": { "a": null },
+            "x.other": null,
+        });
+        let content = to_json(power_levels_content(Some(stored), &room()));
+
+        assert_eq!(content["historical"], json!({ "a": null }));
+        assert_eq!(content["x.other"], json!(null));
+        assert_eq!(content["notifications"], json!({ "room": 50 }));
+        assert_eq!(content["ban"], json!(50));
+        assert_eq!(content["events"]["m.reaction"], json!(25));
+        assert_eq!(
+            to_json(power_levels_content(Some(json!("junk")), &room())),
+            to_json(power_levels_content(None, &room()))
+        );
+    }
+
+    #[test]
     fn large_levels_survive_an_edit() {
         let mut levels = room();
         levels.ban = MAX_SAFE_LEVEL;
         levels.kick = -MAX_SAFE_LEVEL;
         levels.users = map(&[("@admin:example.org", -3_000_000_000)]);
-        let content = power_levels_content(
+        let content = to_json(power_levels_content(
             None,
             &with_level(&levels, &PowerLevelLocation::state("m.room.name"), 3),
-        );
+        ));
 
         assert_eq!(content["ban"], json!(MAX_SAFE_LEVEL));
         assert_eq!(content["kick"], json!(-MAX_SAFE_LEVEL));
@@ -676,7 +765,7 @@ mod tests {
             "100": { "name": "Admin", "color": "#0088ff", "since": 1 },
             "50": { "name": "Moderator" },
         });
-        let next = with_tag(Some(stored), 100, Some(&tag("Owner", None, Some("✨"))));
+        let next = with_tag(Some(stored), 100, Some(&tag("Owner", None, Some("✨")))).unwrap();
 
         assert_eq!(
             next,
@@ -688,10 +777,32 @@ mod tests {
     }
 
     #[test]
+    fn writing_a_tag_replaces_unreadable_fields_and_drops_stale_ones() {
+        let stored = json!({
+            "100": { "name": 7, "color": 3, "icon": "x", "since": null },
+            "50": { "name": "Moderator", "color": "#112233", "icon": { "key": "a", "z": 1 } },
+        });
+        let next = with_tag(Some(stored), 50, Some(&tag("Mod", Some("nope"), None))).unwrap();
+
+        assert_eq!(
+            next,
+            json!({
+                "100": { "name": 7, "color": 3, "icon": "x", "since": null },
+                "50": { "name": "Mod" },
+            })
+        );
+        let next = with_tag(Some(next), 100, Some(&tag("Admin", Some("#0088ff"), None))).unwrap();
+        assert_eq!(
+            next["100"],
+            json!({ "name": "Admin", "color": "#0088ff", "since": null })
+        );
+    }
+
+    #[test]
     fn writing_no_tag_removes_the_entry_and_hostile_content_starts_fresh() {
         let stored = json!({ "100": { "name": "Admin" }, "50": { "name": "Moderator" } });
         assert_eq!(
-            with_tag(Some(stored), 100, None),
+            with_tag(Some(stored), 100, None).unwrap(),
             json!({ "50": { "name": "Moderator" } })
         );
         assert_eq!(
@@ -699,7 +810,8 @@ mod tests {
                 Some(json!("nonsense")),
                 100,
                 Some(&tag("Admin", None, None))
-            ),
+            )
+            .unwrap(),
             json!({ "100": { "name": "Admin" } })
         );
     }

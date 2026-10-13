@@ -1,8 +1,8 @@
 //! Commet calendar events (RFC 8984 `JSCalendar`), expanded as wall-clock times without a time zone database.
 
 use serde::de::{IntoDeserializer, value};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value, json};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 use time::Date;
 
 use crate::civil::{MS_PER_DAY, date, format_ms, month_length, unix_day, weekday};
@@ -126,10 +126,6 @@ pub struct EventDraft {
     pub frequency: Option<Frequency>,
     /// A date; the series ends after that day.
     pub until: Option<String>,
-}
-
-fn text(value: Option<&Value>) -> String {
-    value.and_then(Value::as_str).unwrap_or_default().to_owned()
 }
 
 fn number_run(text: &str) -> Option<(i64, &str)> {
@@ -288,34 +284,102 @@ fn whole_interval(value: Option<&Value>) -> Option<u32> {
     (interval.fract() == 0.0 && interval <= f64::from(u32::MAX)).then_some(interval as u32)
 }
 
+/// A string, or nothing for a missing or wrong-typed field.
+fn lenient_text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    Ok(crate::lenient::option(deserializer)?.unwrap_or_default())
+}
+
+fn rule_by_day<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Vec<NDay>>, D::Error> {
+    Ok(read_n_days(Some(&Value::deserialize(deserializer)?)))
+}
+
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "serde's default for `rule_by_day`"
+)]
+const fn no_days() -> Option<Vec<NDay>> {
+    Some(Vec::new())
+}
+
+fn rule_by_month_day<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<i64>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::Array(days) => days
+            .iter()
+            .filter_map(whole)
+            .filter(|day| *day != 0)
+            .collect(),
+        _ => Vec::new(),
+    })
+}
+
+fn rule_interval<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<u32>, D::Error> {
+    Ok(whole_interval(Some(&Value::deserialize(deserializer)?)))
+}
+
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "serde's default for `rule_interval`"
+)]
+const fn one() -> Option<u32> {
+    Some(1)
+}
+
+fn rule_weekday<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<u8>, D::Error> {
+    Ok(weekday_index(Some(&Value::deserialize(deserializer)?)))
+}
+
+fn rule_gregorian<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    Ok(Value::deserialize(deserializer)?
+        .as_str()
+        .is_some_and(|rscale| rscale.eq_ignore_ascii_case("gregorian")))
+}
+
+const fn gregorian() -> bool {
+    true
+}
+
+#[derive(Deserialize)]
+struct RuleIn {
+    frequency: String,
+    #[serde(
+        default = "no_days",
+        rename = "byDay",
+        deserialize_with = "rule_by_day"
+    )]
+    by_day: Option<Vec<NDay>>,
+    #[serde(default, rename = "byMonthDay", deserialize_with = "rule_by_month_day")]
+    by_month_day: Vec<i64>,
+    #[serde(default = "one", deserialize_with = "rule_interval")]
+    interval: Option<u32>,
+    #[serde(default = "gregorian", deserialize_with = "rule_gregorian")]
+    rscale: bool,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    count: Option<f64>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    until: Option<String>,
+    #[serde(default, rename = "firstDayOfWeek", deserialize_with = "rule_weekday")]
+    first_day_of_week: Option<u8>,
+    #[serde(flatten)]
+    rest: Map<String, Value>,
+}
+
 fn read_recurrence(value: Option<&Value>) -> Option<Recurrence> {
-    let rule = value?.as_array()?.first()?.as_object()?;
-    let frequency = match rule.get("frequency")?.as_str()? {
+    let rule = value?.as_array()?.first()?;
+    if !rule.is_object() {
+        return None;
+    }
+    let rule = RuleIn::deserialize(rule).ok()?;
+    let frequency = match rule.frequency.as_str() {
         "daily" => Frequency::Daily,
         "weekly" => Frequency::Weekly,
         "monthly" => Frequency::Monthly,
         "yearly" => Frequency::Yearly,
         _ => return None,
     };
-    let by_day = read_n_days(rule.get("byDay"));
-    let by_month_day: Vec<i64> = rule
-        .get("byMonthDay")
-        .and_then(Value::as_array)
-        .map(|days| {
-            days.iter()
-                .filter_map(whole)
-                .filter(|day| *day != 0)
-                .collect()
-        })
-        .unwrap_or_default();
-    let interval = whole_interval(rule.get("interval"));
-    let gregorian = rule.get("rscale").is_none_or(|rscale| {
-        rscale
-            .as_str()
-            .is_some_and(|rscale| rscale.eq_ignore_ascii_case("gregorian"))
-    });
+    let by_day = rule.by_day;
     let unmodelled = UNMODELLED_PARTS.iter().any(|part| {
-        rule.get(*part)
+        rule.rest
+            .get(*part)
             .and_then(Value::as_array)
             .is_some_and(|values| !values.is_empty())
     });
@@ -323,58 +387,90 @@ fn read_recurrence(value: Option<&Value>) -> Option<Recurrence> {
         by_day.is_empty()
             || frequency == Frequency::Monthly
             || (frequency == Frequency::Weekly && by_day.iter().all(|day| day.nth.is_none()))
-    }) && interval.is_some()
-        && gregorian
+    }) && rule.interval.is_some()
+        && rule.rscale
         && !unmodelled
-        && (by_month_day.is_empty() || frequency == Frequency::Monthly);
+        && (rule.by_month_day.is_empty() || frequency == Frequency::Monthly);
     Some(Recurrence {
         frequency,
-        interval: interval.unwrap_or(1),
-        count: rule.get("count").and_then(Value::as_f64),
-        until: rule.get("until").and_then(Value::as_str).map(str::to_owned),
+        interval: rule.interval.unwrap_or(1),
+        count: rule.count,
+        until: rule.until,
         by_day: by_day.unwrap_or_default(),
-        by_month_day,
-        first_day_of_week: weekday_index(rule.get("firstDayOfWeek")).unwrap_or(1),
+        by_month_day: rule.by_month_day,
+        first_day_of_week: rule.first_day_of_week.unwrap_or(1),
         modelled,
     })
 }
 
-fn first_location_name(value: Option<&Value>) -> String {
-    value
-        .and_then(Value::as_object)
-        .and_then(|locations| locations.values().find_map(Value::as_object))
-        .map(|location| text(location.get("name")))
-        .unwrap_or_default()
+fn first_location_name<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    #[derive(Deserialize)]
+    struct Location {
+        #[serde(default, deserialize_with = "lenient_text")]
+        name: String,
+    }
+    Ok(match Value::deserialize(deserializer)? {
+        Value::Object(locations) => locations
+            .into_iter()
+            .find(|(_, location)| location.is_object())
+            .and_then(|(_, location)| serde_json::from_value::<Location>(location).ok())
+            .map(|location| location.name)
+            .unwrap_or_default(),
+        _ => String::new(),
+    })
+}
+
+#[derive(Deserialize)]
+struct EventIn {
+    #[serde(default, deserialize_with = "lenient_text")]
+    uid: String,
+    #[serde(default, deserialize_with = "lenient_text")]
+    start: String,
+    #[serde(default, deserialize_with = "lenient_text")]
+    title: String,
+    #[serde(default, deserialize_with = "lenient_text")]
+    description: String,
+    #[serde(default, deserialize_with = "first_location_name")]
+    locations: String,
+    #[serde(
+        default,
+        rename = "showWithoutTime",
+        deserialize_with = "crate::lenient::option"
+    )]
+    all_day: Option<bool>,
+    #[serde(
+        default,
+        rename = "timeZone",
+        deserialize_with = "crate::lenient::option"
+    )]
+    time_zone: Option<String>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    duration: Option<String>,
+    #[serde(default, rename = "recurrenceRules")]
+    recurrence_rules: Option<Value>,
 }
 
 /// `None` for an event without a uid or a start that is a real date.
 #[must_use]
 pub fn read_entry(event_id: &str, sender: &str, event: &Value) -> Option<CalendarItem> {
-    let event = event.as_object()?;
-    let uid = text(event.get("uid"));
-    let start = text(event.get("start"));
-    if uid.is_empty() || !is_real_date_time(&start) {
+    let raw = event.as_object()?;
+    let fields = EventIn::deserialize(event).ok()?;
+    if fields.uid.is_empty() || !is_real_date_time(&fields.start) {
         return None;
     }
     Some(CalendarItem {
         event_id: event_id.to_owned(),
         sender: sender.to_owned(),
-        uid,
-        title: text(event.get("title")),
-        description: text(event.get("description")),
-        location: first_location_name(event.get("locations")),
-        all_day: event.get("showWithoutTime") == Some(&Value::Bool(true)),
-        start,
-        time_zone: event
-            .get("timeZone")
-            .and_then(Value::as_str)
-            .map(str::to_owned),
-        duration_ms: event
-            .get("duration")
-            .and_then(Value::as_str)
-            .map_or(0, parse_duration),
-        recurrence: read_recurrence(event.get("recurrenceRules")),
-        raw: event.clone(),
+        uid: fields.uid,
+        title: fields.title,
+        description: fields.description,
+        location: fields.locations,
+        all_day: fields.all_day == Some(true),
+        start: fields.start,
+        time_zone: fields.time_zone,
+        duration_ms: fields.duration.as_deref().map_or(0, parse_duration),
+        recurrence: read_recurrence(fields.recurrence_rules.as_ref()),
+        raw: raw.clone(),
     })
 }
 
@@ -576,11 +672,25 @@ const fn frequency_name(frequency: Frequency) -> &'static str {
     }
 }
 
+/// A recurrence rule to send; `extra` carries the parts of an existing rule the dialog does not edit.
+#[derive(Serialize)]
+struct RuleOut {
+    #[serde(rename = "@type")]
+    kind: &'static str,
+    frequency: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    until: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    count: Option<Value>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
 fn recurrence_rule(
     frequency: Frequency,
     until: Option<&str>,
     base: Option<&Map<String, Value>>,
-) -> Value {
+) -> RuleOut {
     let previous = base
         .and_then(|base| base.get("recurrenceRules"))
         .and_then(Value::as_array)
@@ -589,21 +699,54 @@ fn recurrence_rule(
         .filter(|rule| {
             rule.get("frequency").and_then(Value::as_str) == Some(frequency_name(frequency))
         });
-    let mut rule = previous.cloned().unwrap_or_default();
-    rule.remove("until");
-    let count = rule.remove("count");
-    rule.insert("@type".to_owned(), json!("RecurrenceRule"));
-    rule.insert("frequency".to_owned(), json!(frequency_name(frequency)));
-    match (until.filter(|until| !until.is_empty()), count) {
-        (Some(until), _) => {
-            rule.insert("until".to_owned(), json!(format!("{until}T23:59:59")));
-        }
-        (None, Some(count)) => {
-            rule.insert("count".to_owned(), count);
-        }
-        (None, None) => {}
+    let mut extra = previous.cloned().unwrap_or_default();
+    let count = extra.remove("count");
+    for key in ["until", "@type", "frequency"] {
+        extra.remove(key);
     }
-    Value::Object(rule)
+    let until = until
+        .filter(|until| !until.is_empty())
+        .map(|until| format!("{until}T23:59:59"));
+    RuleOut {
+        kind: "RecurrenceRule",
+        frequency: frequency_name(frequency),
+        count: if until.is_some() { None } else { count },
+        until,
+        extra,
+    }
+}
+
+#[derive(Serialize)]
+struct LocationOut<'a> {
+    #[serde(rename = "@type")]
+    kind: &'static str,
+    name: &'a str,
+}
+
+#[derive(Serialize)]
+struct LocationsOut<'a> {
+    main: LocationOut<'a>,
+}
+
+#[derive(Serialize)]
+struct EventOut<'a> {
+    #[serde(rename = "@type")]
+    kind: &'static str,
+    uid: &'a str,
+    updated: String,
+    title: &'a str,
+    start: String,
+    #[serde(rename = "timeZone")]
+    time_zone: Option<&'a str>,
+    duration: String,
+    #[serde(rename = "showWithoutTime")]
+    show_without_time: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    locations: Option<LocationsOut<'a>>,
+    #[serde(rename = "recurrenceRules", skip_serializing_if = "Option::is_none")]
+    recurrence_rules: Option<[RuleOut; 1]>,
 }
 
 /// The event to send for `draft`, keeping what `base` carried that the dialog
@@ -635,49 +778,36 @@ pub fn build_event(
     } else {
         format_duration(draft.duration_ms)
     };
-    let fields = [
-        ("@type", json!("Event")),
-        ("uid", json!(uid)),
-        (
-            "updated",
-            json!(format!("{}Z", format_ms(now_ms).unwrap_or_default())),
-        ),
-        ("title", json!(draft.title)),
-        ("start", json!(start)),
-        (
-            "timeZone",
-            if draft.all_day {
-                Value::Null
-            } else {
-                json!(time_zone)
+    let fields = EventOut {
+        kind: "Event",
+        uid,
+        updated: format!("{}Z", format_ms(now_ms).unwrap_or_default()),
+        title: &draft.title,
+        start,
+        time_zone: (!draft.all_day).then_some(time_zone),
+        duration,
+        show_without_time: draft.all_day,
+        description: (!draft.description.is_empty()).then_some(draft.description.as_str()),
+        locations: (!draft.location.is_empty()).then(|| LocationsOut {
+            main: LocationOut {
+                kind: "Location",
+                name: &draft.location,
             },
-        ),
-        ("duration", json!(duration)),
-        ("showWithoutTime", json!(draft.all_day)),
-    ];
-    for (key, value) in fields {
-        event.insert(key.to_owned(), value);
-    }
-    if !draft.description.is_empty() {
-        event.insert("description".to_owned(), json!(draft.description));
-    }
-    if !draft.location.is_empty() {
-        event.insert(
-            "locations".to_owned(),
-            json!({"main": {"@type": "Location", "name": draft.location}}),
-        );
-    }
-    if let Some(frequency) = draft.frequency {
-        event.insert(
-            "recurrenceRules".to_owned(),
-            json!([recurrence_rule(frequency, draft.until.as_deref(), base)]),
-        );
+        }),
+        recurrence_rules: draft
+            .frequency
+            .map(|frequency| [recurrence_rule(frequency, draft.until.as_deref(), base)]),
+    };
+    if let Ok(Value::Object(fields)) = serde_json::to_value(fields) {
+        event.extend(fields);
     }
     event
 }
 
 #[cfg(test)]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     fn item(event: &Value) -> CalendarItem {
@@ -821,5 +951,75 @@ mod tests {
                 "recurrenceRules": [{"@type": "RecurrenceRule", "frequency": "weekly", "interval": 2, "until": "2026-06-01T23:59:59"}]
             })
         );
+    }
+
+    #[test]
+    fn recurrence_rule_keeps_foreign_parts_and_the_count_without_an_until() {
+        let base = json!({"recurrenceRules": [{"@type": "Old", "frequency": "daily", "count": 4, "until": "x", "byDay": [{"day": "mo"}]}]});
+        let rule = recurrence_rule(Frequency::Daily, None, base.as_object());
+        assert_eq!(
+            serde_json::to_value(rule).unwrap(),
+            json!({"@type": "RecurrenceRule", "frequency": "daily", "count": 4, "byDay": [{"day": "mo"}]})
+        );
+        let other = recurrence_rule(Frequency::Weekly, Some(""), base.as_object());
+        assert_eq!(
+            serde_json::to_value(other).unwrap(),
+            json!({"@type": "RecurrenceRule", "frequency": "weekly"})
+        );
+    }
+
+    #[test]
+    fn wrong_typed_event_fields_read_as_missing() {
+        let event = item(&json!({
+            "uid": "u", "start": "2026-02-01T10:00:00", "title": 3, "description": ["x"],
+            "locations": {"a": "junk", "b": {"name": 7}, "c": {"name": "Later"}},
+            "showWithoutTime": "true", "timeZone": 1, "duration": {}
+        }));
+        assert_eq!(event.title, "");
+        assert_eq!(event.description, "");
+        assert_eq!(event.location, "");
+        assert!(!event.all_day);
+        assert_eq!(event.time_zone, None);
+        assert_eq!(event.duration_ms, 0);
+    }
+
+    #[test]
+    fn a_rule_reads_leniently_and_is_unmodelled_only_for_what_it_cannot_expand() {
+        let rule = |rule: Value| {
+            item(&json!({"uid": "u", "start": "2026-02-01T10:00:00", "recurrenceRules": [rule]}))
+                .recurrence
+        };
+        let weekly = rule(
+            json!({"frequency": "weekly", "count": "x", "until": 4, "interval": null, "firstDayOfWeek": "mo", "byMonthDay": [1, "a", 0]}),
+        );
+        let weekly = weekly.unwrap();
+        assert_eq!(weekly.count, None);
+        assert_eq!(weekly.until, None);
+        assert_eq!(weekly.interval, 1);
+        assert_eq!(weekly.first_day_of_week, 1);
+        assert_eq!(weekly.by_month_day, [1]);
+        assert!(!weekly.modelled);
+        assert!(
+            rule(json!({"frequency": "daily", "rscale": "gregorian"}))
+                .unwrap()
+                .modelled
+        );
+        assert!(
+            !rule(json!({"frequency": "daily", "rscale": null}))
+                .unwrap()
+                .modelled
+        );
+        assert!(
+            !rule(json!({"frequency": "daily", "byHour": [3]}))
+                .unwrap()
+                .modelled
+        );
+        assert!(
+            !rule(json!({"frequency": "daily", "byDay": "mo"}))
+                .unwrap()
+                .modelled
+        );
+        assert!(rule(json!({"frequency": "hourly"})).is_none());
+        assert!(rule(json!(["daily"])).is_none());
     }
 }

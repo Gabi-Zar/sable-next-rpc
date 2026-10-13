@@ -8,13 +8,73 @@ use matrix_sdk::ruma::events::AnyMessageLikeEventContent;
 use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
 use matrix_sdk::ruma::{OwnedMxcUri, OwnedRoomId, TransactionId};
 use mime::Mime;
-use serde_json::{Map, Value, json};
+use serde::Serialize;
 
 use crate::Core;
 use crate::ResultExt;
 use crate::protocol::{AttachmentInfoView, CommandErr, ScheduledMessageView};
 
 const MSC4140: &str = "org.matrix.msc4140";
+
+#[derive(Serialize)]
+struct MediaInfoOut<'a> {
+    mimetype: &'a str,
+    size: u64,
+    #[serde(rename = "w", skip_serializing_if = "Option::is_none")]
+    width: Option<u32>,
+    #[serde(rename = "h", skip_serializing_if = "Option::is_none")]
+    height: Option<u32>,
+    #[serde(rename = "duration", skip_serializing_if = "Option::is_none")]
+    duration_ms: Option<u32>,
+    #[serde(
+        rename = "xyz.amorgan.blurhash",
+        skip_serializing_if = "Option::is_none"
+    )]
+    blurhash: Option<&'a str>,
+}
+
+#[derive(Serialize)]
+struct AttachmentOut<'a> {
+    msgtype: &'static str,
+    body: &'a str,
+    url: &'a str,
+    info: MediaInfoOut<'a>,
+    #[serde(
+        rename = "org.matrix.msc4230.is_spoiler",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    spoiler: bool,
+}
+
+fn attachment_content<'a>(
+    filename: &'a str,
+    mime: &'a Mime,
+    url: &'a OwnedMxcUri,
+    size: u64,
+    info: &'a AttachmentInfoView,
+    spoiler: bool,
+) -> AttachmentOut<'a> {
+    let msgtype = match mime.type_() {
+        mime::IMAGE => "m.image",
+        mime::VIDEO => "m.video",
+        mime::AUDIO => "m.audio",
+        _ => "m.file",
+    };
+    AttachmentOut {
+        msgtype,
+        body: filename,
+        url: url.as_str(),
+        info: MediaInfoOut {
+            mimetype: mime.essence_str(),
+            size,
+            width: info.width,
+            height: info.height,
+            duration_ms: info.duration_ms,
+            blurhash: info.blurhash.as_deref(),
+        },
+        spoiler,
+    }
+}
 
 impl Core {
     pub(crate) async fn delayed_events_supported(&self) -> Result<bool, CommandErr> {
@@ -77,44 +137,12 @@ impl Core {
             return Err(CommandErr::InvalidMedia);
         }
 
-        let mut media_info = Map::from_iter([
-            ("mimetype".to_owned(), json!(mime.essence_str())),
-            ("size".to_owned(), json!(size)),
-        ]);
         let info = info.unwrap_or_default();
-        if let Some(width) = info.width {
-            media_info.insert("w".to_owned(), json!(width));
-        }
-        if let Some(height) = info.height {
-            media_info.insert("h".to_owned(), json!(height));
-        }
-        if let Some(duration) = info.duration_ms {
-            media_info.insert("duration".to_owned(), json!(duration));
-        }
-        if let Some(blurhash) = info.blurhash {
-            media_info.insert("xyz.amorgan.blurhash".to_owned(), json!(blurhash));
-        }
-
-        let msgtype = match mime.type_() {
-            mime::IMAGE => "m.image",
-            mime::VIDEO => "m.video",
-            mime::AUDIO => "m.audio",
-            _ => "m.file",
-        };
-        let mut value = Map::from_iter([
-            ("msgtype".to_owned(), json!(msgtype)),
-            ("body".to_owned(), json!(filename)),
-            ("url".to_owned(), json!(url.as_str())),
-            ("info".to_owned(), Value::Object(media_info)),
-        ]);
-        if spoiler {
-            value.insert(
-                "org.matrix.msc4230.is_spoiler".to_owned(),
-                Value::Bool(true),
-            );
-        }
-        let content = serde_json::from_value::<RoomMessageEventContent>(Value::Object(value))
-            .or_failed(self, "schedule_attachment")?;
+        let content = serde_json::to_value(attachment_content(
+            &filename, &mime, &url, size, &info, spoiler,
+        ))
+        .and_then(serde_json::from_value::<RoomMessageEventContent>)
+        .or_failed(self, "schedule_attachment")?;
         self.schedule_message(room_id, content, delay_ms).await
     }
 
@@ -202,5 +230,65 @@ impl Core {
                 })
             })
             .collect())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn attachment_content_keeps_the_wire_shape() {
+        let mime: Mime = "image/png; charset=binary".parse().expect("mime");
+        let url = OwnedMxcUri::from("mxc://example.org/abc");
+        let info = AttachmentInfoView {
+            width: Some(10),
+            height: Some(20),
+            duration_ms: Some(30),
+            blurhash: Some("LEHV6n".to_owned()),
+            ..AttachmentInfoView::default()
+        };
+        assert_eq!(
+            serde_json::to_value(attachment_content("a.png", &mime, &url, 7, &info, true)).unwrap(),
+            json!({
+                "msgtype": "m.image",
+                "body": "a.png",
+                "url": "mxc://example.org/abc",
+                "info": {
+                    "mimetype": "image/png",
+                    "size": 7,
+                    "w": 10,
+                    "h": 20,
+                    "duration": 30,
+                    "xyz.amorgan.blurhash": "LEHV6n"
+                },
+                "org.matrix.msc4230.is_spoiler": true
+            })
+        );
+    }
+
+    #[test]
+    fn attachment_content_omits_absent_fields() {
+        let mime: Mime = "application/pdf".parse().expect("mime");
+        let url = OwnedMxcUri::from("mxc://example.org/abc");
+        assert_eq!(
+            serde_json::to_value(attachment_content(
+                "a.pdf",
+                &mime,
+                &url,
+                7,
+                &AttachmentInfoView::default(),
+                false
+            ))
+            .unwrap(),
+            json!({
+                "msgtype": "m.file",
+                "body": "a.pdf",
+                "url": "mxc://example.org/abc",
+                "info": { "mimetype": "application/pdf", "size": 7 }
+            })
+        );
     }
 }

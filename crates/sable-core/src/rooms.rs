@@ -15,6 +15,7 @@ use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, RoomId, RoomOrAliasId, ServerN
 use matrix_sdk::send_queue::SendHandle;
 use matrix_sdk::{Client, EncryptionState, RoomMemberships, RoomState};
 use matrix_sdk_base::{RawStateEventWithKeys, RoomInfo, RoomInfoNotableUpdateReasons};
+use serde::{Deserialize, Serialize};
 
 use crate::ResultExt;
 use crate::protocol::{CommandErr, CommandOk, DirectoryRoomType, JoinRuleView};
@@ -28,6 +29,24 @@ const DIRECTORY_PAGE_SIZE: u32 = 30;
 const OWN_MEMBER_FILL_MAX_MEMBERS: u64 = 50;
 const MEMBERSHIP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
+/// A tombstone whose replacement room is empty; everything else in it is kept as received.
+#[derive(Deserialize, Serialize)]
+struct UnreadableTombstone {
+    #[serde(rename = "type")]
+    kind: String,
+    state_key: String,
+    content: TombstoneContent,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct TombstoneContent {
+    replacement_room: String,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
 pub(crate) fn repair_unreadable_tombstones(
     client: &Client,
 ) -> matrix_sdk::event_handler::EventHandlerHandle {
@@ -35,22 +54,16 @@ pub(crate) fn repair_unreadable_tombstones(
         if raw.get_field::<String>("type").ok().flatten().as_deref() != Some("m.room.tombstone") {
             return;
         }
-        let Ok(mut event) = raw.deserialize_as_unchecked::<serde_json::Value>() else {
+        let Ok(mut event) = raw.deserialize_as_unchecked::<UnreadableTombstone>() else {
             return;
         };
-        let empty_replacement = event.get("type").and_then(|kind| kind.as_str())
-            == Some("m.room.tombstone")
-            && event.get("state_key").and_then(|key| key.as_str()) == Some("")
-            && event
-                .pointer("/content/replacement_room")
-                .and_then(|room| room.as_str())
-                == Some("");
+        let empty_replacement = event.kind == "m.room.tombstone"
+            && event.state_key.is_empty()
+            && event.content.replacement_room.is_empty();
         if !empty_replacement || room.is_tombstoned() {
             return;
         }
-        if let Some(content) = event.get_mut("content").and_then(|c| c.as_object_mut()) {
-            content.insert("replacement_room".into(), room.room_id().as_str().into());
-        }
+        event.content.replacement_room = room.room_id().to_string();
         let Ok(sanitized) = Raw::new(&event) else {
             return;
         };

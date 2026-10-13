@@ -1,11 +1,13 @@
 use matrix_sdk::ruma::events::GlobalAccountDataEventType;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
-use serde_json::{Value, json};
+use serde::Serialize;
+use serde_json::Value;
 
 use crate::Core;
 use crate::ResultExt;
 use crate::protocol::BookmarkView;
 use crate::protocol::CommandErr;
+use crate::room_settings::EmptyContent;
 
 const INDEX_EVENT: &str = "pl.chrome.bookmarks.index";
 const ITEM_PREFIX: &str = "pl.chrome.bookmark.";
@@ -20,6 +22,29 @@ pub(crate) fn bookmark_id(room_id: &str, event_id: &str) -> String {
             .wrapping_add(i32::from(ch));
     }
     format!("bmk_{:08x}", hash.cast_unsigned())
+}
+
+#[derive(Serialize)]
+struct IndexOut<'a> {
+    version: u8,
+    revision: u64,
+    updated_ts: u64,
+    bookmark_ids: &'a [String],
+}
+
+#[derive(Serialize)]
+struct ItemOut<'a> {
+    version: u8,
+    bookmark_id: &'a str,
+    uri: String,
+    room_id: &'a OwnedRoomId,
+    event_id: &'a OwnedEventId,
+    event_ts: u64,
+    bookmarked_ts: u64,
+    sender: Option<&'a str>,
+    room_name: Option<String>,
+    body_preview: Option<String>,
+    msgtype: Option<&'a str>,
 }
 
 fn item_event(id: &str) -> GlobalAccountDataEventType {
@@ -110,12 +135,11 @@ impl Core {
         }
 
         if bookmarked {
-            let item = self.bookmark_item(&id, room_id, event_id, now_ms).await?;
-            self.put_global_account_data(item_event(&id), &item, "bookmarks")
+            self.write_bookmark_item(&id, room_id, event_id, now_ms)
                 .await?;
             ids.push(id);
         } else {
-            self.put_global_account_data(item_event(&id), &json!({}), "bookmarks")
+            self.put_global_account_data(item_event(&id), &EmptyContent {}, "bookmarks")
                 .await?;
             ids.retain(|candidate| candidate != &id);
         }
@@ -128,12 +152,12 @@ impl Core {
 
         self.put_global_account_data(
             GlobalAccountDataEventType::from(INDEX_EVENT),
-            &json!({
-                "version": 1,
-                "revision": revision.saturating_add(1),
-                "updated_ts": now_ms,
-                "bookmark_ids": ids,
-            }),
+            &IndexOut {
+                version: 1,
+                revision: revision.saturating_add(1),
+                updated_ts: now_ms,
+                bookmark_ids: &ids,
+            },
             "bookmarks",
         )
         .await?;
@@ -141,13 +165,13 @@ impl Core {
         Ok(bookmarked)
     }
 
-    async fn bookmark_item(
+    async fn write_bookmark_item(
         &self,
         id: &str,
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         now_ms: u64,
-    ) -> Result<Value, CommandErr> {
+    ) -> Result<(), CommandErr> {
         let room = self.room(room_id).await?;
         let encrypted = self.room_is_encrypted(&room).await?;
         let event = room
@@ -168,28 +192,88 @@ impl Core {
                 }
             });
 
-        Ok(json!({
-            "version": 1,
-            "bookmark_id": id,
-            "uri": room_id.matrix_event_uri(event_id.clone()).to_string(),
-            "room_id": room_id,
-            "event_id": event_id,
-            "event_ts": raw
+        let item = ItemOut {
+            version: 1,
+            bookmark_id: id,
+            uri: room_id.matrix_event_uri(event_id.clone()).to_string(),
+            room_id,
+            event_id,
+            event_ts: raw
                 .as_ref()
                 .and_then(|value| value.get("origin_server_ts"))
                 .and_then(Value::as_u64)
                 .unwrap_or(now_ms),
-            "bookmarked_ts": now_ms,
-            "sender": raw
+            bookmarked_ts: now_ms,
+            sender: raw
                 .as_ref()
                 .and_then(|value| value.get("sender"))
                 .and_then(Value::as_str),
-            "room_name": room.cached_display_name().map(|name| name.to_string()),
-            "body_preview": (!encrypted).then_some(body).flatten(),
-            "msgtype": raw
+            room_name: room.cached_display_name().map(|name| name.to_string()),
+            body_preview: (!encrypted).then_some(body).flatten(),
+            msgtype: raw
                 .as_ref()
                 .and_then(|value| value.pointer("/content/msgtype"))
                 .and_then(Value::as_str),
-        }))
+        };
+        self.put_global_account_data(item_event(id), &item, "bookmarks")
+            .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use matrix_sdk::ruma::{owned_event_id, owned_room_id};
+    use serde_json::json;
+
+    use super::{IndexOut, ItemOut};
+
+    #[test]
+    fn the_index_is_the_stored_shape() {
+        let ids = ["bmk_1".to_owned()];
+        assert_eq!(
+            serde_json::to_value(IndexOut {
+                version: 1,
+                revision: 3,
+                updated_ts: 9,
+                bookmark_ids: &ids,
+            })
+            .unwrap(),
+            json!({ "version": 1, "revision": 3, "updated_ts": 9, "bookmark_ids": ["bmk_1"] })
+        );
+    }
+
+    #[test]
+    fn an_item_keeps_absent_fields_as_null() {
+        let room_id = owned_room_id!("!r:example.org");
+        let event_id = owned_event_id!("$e");
+        assert_eq!(
+            serde_json::to_value(ItemOut {
+                version: 1,
+                bookmark_id: "bmk_1",
+                uri: "matrix:roomid/r:example.org/e/e".to_owned(),
+                room_id: &room_id,
+                event_id: &event_id,
+                event_ts: 5,
+                bookmarked_ts: 6,
+                sender: None,
+                room_name: Some("Room".to_owned()),
+                body_preview: None,
+                msgtype: Some("m.text"),
+            })
+            .unwrap(),
+            json!({
+                "version": 1,
+                "bookmark_id": "bmk_1",
+                "uri": "matrix:roomid/r:example.org/e/e",
+                "room_id": "!r:example.org",
+                "event_id": "$e",
+                "event_ts": 5,
+                "bookmarked_ts": 6,
+                "sender": null,
+                "room_name": "Room",
+                "body_preview": null,
+                "msgtype": "m.text",
+            })
+        );
     }
 }

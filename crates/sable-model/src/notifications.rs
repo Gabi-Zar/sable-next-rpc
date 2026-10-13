@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 
 use crate::text::trim;
@@ -77,11 +77,25 @@ pub struct PushAlert {
 const RING_EVENT_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.notification"];
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
-fn text(value: Option<&Value>) -> Option<String> {
-    value
-        .and_then(Value::as_str)
-        .filter(|text| !trim(text).is_empty())
-        .map(str::to_owned)
+/// A non-blank string, or nothing for a missing, blank or wrong-typed field.
+fn text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(text) if !trim(&text).is_empty() => Some(text),
+        _ => None,
+    })
+}
+
+/// A trimmed, non-empty user id, or nothing for anything else.
+fn recipient<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::String(user) => Some(trim(&user).to_owned()).filter(|user| !user.is_empty()),
+        _ => None,
+    })
+}
+
+/// A field kept as received when present, `null` included.
+fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
+    Value::deserialize(deserializer).map(Some)
 }
 
 /// `Number.isSafeInteger(n) && n >= 0`, which a JSON `2.0` passes too.
@@ -102,21 +116,96 @@ fn count(value: &Value) -> Option<u64> {
         .filter(|n| *n <= MAX_SAFE_INTEGER)
 }
 
-#[must_use]
-pub fn push_content(value: &Value) -> PushContent {
-    PushContent {
-        body: text(value.get("body")),
-        membership: text(value.get("membership")),
-        notification_type: text(value.get("notification_type")),
+#[derive(Default, Deserialize)]
+struct ContentIn {
+    #[serde(default, deserialize_with = "text")]
+    body: Option<String>,
+    #[serde(default, deserialize_with = "text")]
+    membership: Option<String>,
+    #[serde(default, deserialize_with = "text")]
+    notification_type: Option<String>,
+}
+
+impl From<ContentIn> for PushContent {
+    fn from(content: ContentIn) -> Self {
+        Self {
+            body: content.body,
+            membership: content.membership,
+            notification_type: content.notification_type,
+        }
     }
 }
 
-fn add_recipient(recipients: &mut Vec<String>, value: Option<&Value>) {
-    let Some(recipient) = value.and_then(Value::as_str).map(trim) else {
-        return;
-    };
-    if !recipient.is_empty() && !recipients.iter().any(|held| held == recipient) {
-        recipients.push(recipient.to_owned());
+#[must_use]
+pub fn push_content(value: &Value) -> PushContent {
+    ContentIn::deserialize(value).unwrap_or_default().into()
+}
+
+#[derive(Default, Deserialize)]
+struct Envelope {
+    #[serde(default, deserialize_with = "recipient")]
+    user_id: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    notification: Option<Value>,
+}
+
+#[derive(Default, Deserialize)]
+struct DefaultPayload {
+    #[serde(default, deserialize_with = "recipient")]
+    user_id: Option<String>,
+}
+
+#[derive(Default, Deserialize)]
+struct DeviceData {
+    #[serde(default, deserialize_with = "recipient")]
+    user_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    default_payload: Option<DefaultPayload>,
+}
+
+#[derive(Deserialize)]
+struct Device {
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    tweaks: Option<Map<String, Value>>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    data: Option<DeviceData>,
+}
+
+#[derive(Default, Deserialize)]
+struct Counts {
+    unread: Option<Value>,
+}
+
+#[derive(Deserialize)]
+struct NotificationIn {
+    #[serde(default, deserialize_with = "recipient")]
+    user_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::lenient::list")]
+    devices: Vec<Device>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    counts: Option<Counts>,
+    unread: Option<Value>,
+    #[serde(default, deserialize_with = "text")]
+    room_id: Option<String>,
+    #[serde(default, deserialize_with = "text")]
+    event_id: Option<String>,
+    #[serde(default, deserialize_with = "text")]
+    room_name: Option<String>,
+    #[serde(default, deserialize_with = "text")]
+    sender_display_name: Option<String>,
+    #[serde(default, rename = "type", deserialize_with = "text")]
+    event_type: Option<String>,
+    #[serde(default, deserialize_with = "text")]
+    membership: Option<String>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    content: Option<ContentIn>,
+}
+
+fn add_recipient(recipients: &mut Vec<String>, recipient: Option<String>) {
+    if let Some(recipient) = recipient
+        && !recipients.contains(&recipient)
+    {
+        recipients.push(recipient);
     }
 }
 
@@ -125,61 +214,60 @@ fn add_recipient(recipients: &mut Vec<String>, value: Option<&Value>) {
 #[must_use]
 pub fn parse_push_payload(raw: &str) -> Option<PushNotification> {
     let envelope: Value = serde_json::from_str(raw).ok()?;
-    let envelope = envelope.as_object()?;
-    let notification = match envelope.get("notification") {
-        Some(Value::String(wrapped)) => serde_json::from_str(wrapped).ok()?,
-        Some(notification) => notification.clone(),
-        None => Value::Object(envelope.clone()),
+    if !envelope.is_object() {
+        return None;
+    }
+    let outer = Envelope::deserialize(&envelope).ok()?;
+    let notification = match outer.notification {
+        Some(Value::String(inner)) => serde_json::from_str(&inner).ok()?,
+        Some(notification) => notification,
+        None => envelope,
     };
-    let notification = notification.as_object()?;
+    if !notification.is_object() {
+        return None;
+    }
+    let notification = NotificationIn::deserialize(&notification).ok()?;
 
     let mut recipients = Vec::new();
     let mut noisy = false;
-    add_recipient(&mut recipients, envelope.get("user_id"));
-    add_recipient(&mut recipients, notification.get("user_id"));
-    let devices = notification.get("devices").and_then(Value::as_array);
-    for device in devices.into_iter().flatten().filter_map(Value::as_object) {
-        if let Some(tweaks) = device.get("tweaks").and_then(Value::as_object) {
+    add_recipient(&mut recipients, outer.user_id);
+    add_recipient(&mut recipients, notification.user_id);
+    for device in notification.devices {
+        if let Some(tweaks) = device.tweaks {
             noisy |=
                 tweaks.contains_key("sound") || tweaks.get("highlight") == Some(&Value::Bool(true));
         }
-        let Some(data) = device.get("data").and_then(Value::as_object) else {
+        let Some(data) = device.data else {
             continue;
         };
-        add_recipient(&mut recipients, data.get("user_id"));
-        let default_payload = data.get("default_payload").and_then(Value::as_object);
+        add_recipient(&mut recipients, data.user_id);
         add_recipient(
             &mut recipients,
-            default_payload.and_then(|payload| payload.get("user_id")),
+            data.default_payload.and_then(|payload| payload.user_id),
         );
     }
     if recipients.len() > 1 {
         return None;
     }
 
-    let counted = notification
-        .get("counts")
-        .and_then(Value::as_object)
-        .and_then(|counts| counts.get("unread"))
-        .filter(|unread| !unread.is_null())
-        .or_else(|| notification.get("unread"));
-    let unread = counted.and_then(count);
-    let room_id = text(notification.get("room_id"));
-    if room_id.is_none() && unread.is_none() {
+    let unread = notification
+        .counts
+        .and_then(|counts| counts.unread)
+        .or(notification.unread)
+        .as_ref()
+        .and_then(count);
+    if notification.room_id.is_none() && unread.is_none() {
         return None;
     }
     Some(PushNotification {
         user_id: recipients.pop(),
-        room_id,
-        event_id: text(notification.get("event_id")),
-        room_name: text(notification.get("room_name")),
-        sender_display_name: text(notification.get("sender_display_name")),
-        event_type: text(notification.get("type")),
-        membership: text(notification.get("membership")),
-        content: notification
-            .get("content")
-            .map(push_content)
-            .unwrap_or_default(),
+        room_id: notification.room_id,
+        event_id: notification.event_id,
+        room_name: notification.room_name,
+        sender_display_name: notification.sender_display_name,
+        event_type: notification.event_type,
+        membership: notification.membership,
+        content: notification.content.unwrap_or_default().into(),
         unread,
         icon: None,
         decrypted: false,
@@ -190,13 +278,21 @@ pub fn parse_push_payload(raw: &str) -> Option<PushNotification> {
 /// The MSC4174 validation handshake, exclusive of a real notification.
 #[must_use]
 pub fn web_push_validation(raw: &str) -> Option<WebPushValidation> {
-    let payload: Map<String, Value> = serde_json::from_str(raw).ok()?;
-    let app_id = text(payload.get("app_id"))?;
-    let ack_token = text(payload.get("ack_token"))?;
+    #[derive(Deserialize)]
+    struct Handshake {
+        #[serde(default, deserialize_with = "text")]
+        app_id: Option<String>,
+        #[serde(default, deserialize_with = "text")]
+        ack_token: Option<String>,
+        #[serde(flatten)]
+        rest: Map<String, Value>,
+    }
+    let payload: Handshake = serde_json::from_str(raw).ok()?;
     let notifies = ["notification", "room_id", "event_id", "type"]
         .iter()
-        .any(|key| payload.contains_key(*key))
-        || payload.get("unread").is_some_and(Value::is_number);
+        .any(|key| payload.rest.contains_key(*key))
+        || payload.rest.get("unread").is_some_and(Value::is_number);
+    let (app_id, ack_token) = (payload.app_id?, payload.ack_token?);
     (!notifies).then_some(WebPushValidation { app_id, ack_token })
 }
 
@@ -480,6 +576,38 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&line).expect("serializes"),
             json!({"sender": null, "body": "hi", "eventId": "$e"})
+        );
+    }
+
+    #[test]
+    fn wrong_typed_parts_of_a_push_are_skipped() {
+        let push = parsed(&json!({
+            "user_id": 4,
+            "notification": {
+                "room_id": "!r:x", "event_id": 3, "room_name": "  ",
+                "devices": ["junk", {"tweaks": "loud", "data": 1}, {"tweaks": {"sound": null}}],
+                "counts": "many", "unread": 2.0, "content": "text"
+            }
+        }));
+        assert_eq!(push.room_id.as_deref(), Some("!r:x"));
+        assert_eq!(push.event_id, None);
+        assert_eq!(push.room_name, None);
+        assert!(push.noisy);
+        assert_eq!(push.unread, Some(2));
+        assert_eq!(push.content, PushContent::default());
+        assert_eq!(push.user_id, None);
+    }
+
+    #[test]
+    fn a_handshake_with_wrong_typed_credentials_is_not_one() {
+        assert!(web_push_validation(r#"{"app_id": 1, "ack_token": "t"}"#).is_none());
+        assert!(web_push_validation(r#"{"app_id": "a", "ack_token": "t", "unread": 1}"#).is_none());
+        assert_eq!(
+            web_push_validation(r#"{"app_id": "a", "ack_token": "t", "unread": "1"}"#),
+            Some(WebPushValidation {
+                app_id: "a".to_owned(),
+                ack_token: "t".to_owned()
+            })
         );
     }
 }

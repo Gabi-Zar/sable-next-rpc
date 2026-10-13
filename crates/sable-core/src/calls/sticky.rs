@@ -89,25 +89,50 @@ pub(crate) fn live_events(room: &Room) -> Vec<Value> {
         .live()
         .iter()
         .filter_map(|event| {
-            let mut json: Value = serde_json::from_str(event.raw().json().get()).ok()?;
-            let object = json.as_object_mut()?;
-            if !object.contains_key("msc4354_sticky") && !object.contains_key("sticky") {
+            let object: serde_json::Map<String, Value> =
+                serde_json::from_str(event.raw().json().get()).ok()?;
+            let sticky = if object.contains_key("msc4354_sticky") || object.contains_key("sticky") {
+                None
+            } else {
                 let sent = object.get("origin_server_ts").and_then(Value::as_u64)?;
                 let expires = u64::from(event.expires_at.get());
-                object.insert(
-                    "msc4354_sticky".to_owned(),
-                    serde_json::json!({ "duration_ms": expires.saturating_sub(sent) }),
-                );
-            }
-            Some(json)
+                Some(StickyOut {
+                    duration_ms: expires.saturating_sub(sent),
+                })
+            };
+            serde_json::to_value(StampedEventOut {
+                event: object,
+                msc4354_sticky: sticky,
+            })
+            .ok()
         })
         .collect()
+}
+
+#[derive(serde::Serialize)]
+struct StickyOut {
+    duration_ms: u64,
+}
+
+/// Only stamped when the event lacks both sticky keys, so `event` never
+/// carries the key that `msc4354_sticky` would override.
+#[derive(serde::Serialize)]
+struct StampedEventOut {
+    #[serde(flatten)]
+    event: serde_json::Map<String, Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    msc4354_sticky: Option<StickyOut>,
+}
+
+#[derive(serde::Serialize)]
+pub(super) struct StickyKeyOut<'a> {
+    pub(super) msc4354_sticky_key: Option<&'a str>,
 }
 
 pub(super) async fn send(
     client: &Client,
     room: &Room,
-    content: Value,
+    content: impl serde::Serialize,
 ) -> Result<ruma::OwnedEventId, matrix_sdk::Error> {
     let mut request = v3::Request::new_raw(
         room.room_id().to_owned(),
@@ -164,7 +189,7 @@ impl ruma::api::OutgoingRequest for DelayedStickyRequest {
 pub(super) async fn send_delayed(
     client: &Client,
     room: &Room,
-    content: Value,
+    content: impl serde::Serialize,
     delay: Duration,
 ) -> Result<String, matrix_sdk::Error> {
     send_delayed_event(
@@ -182,7 +207,7 @@ pub(crate) async fn send_delayed_event(
     client: &Client,
     room: &Room,
     event_type: &str,
-    content: Value,
+    content: impl serde::Serialize,
     delay: Duration,
     duration_ms: u32,
 ) -> Result<String, matrix_sdk::Error> {

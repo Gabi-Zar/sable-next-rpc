@@ -1,14 +1,16 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use matrix_sdk::ruma::OwnedRoomId;
 use sable_model::shortcodes::{self, normalize_shortcode, unique_shortcode};
-use serde_json::{Map, Value, json};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 
 use crate::image_packs::{EmoteRooms, IMAGE_PACK_ROOMS, ROOM_EMOTES, ROOM_IMAGE_PACK, USER_EMOTES};
 use crate::protocol::{
     CommandErr, ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView,
     PackImageInfoView, PackTargetView,
 };
+use crate::room_settings::EmptyContent;
 use crate::{Core, ResultExt};
 
 const ALL_USAGES: [ImageUsageView; 2] = [ImageUsageView::Emoticon, ImageUsageView::Sticker];
@@ -28,74 +30,92 @@ const fn usage_name(usage: ImageUsageView) -> &'static str {
     }
 }
 
-fn usage_json(usage: &[ImageUsageView]) -> Value {
-    json!(
-        usage
-            .iter()
-            .map(|usage| usage_name(*usage))
-            .collect::<Vec<_>>()
-    )
+fn usage_names(usage: &[ImageUsageView]) -> Vec<&'static str> {
+    usage.iter().map(|usage| usage_name(*usage)).collect()
 }
 
-fn info_content(info: Option<&PackImageInfoView>) -> Option<Value> {
+#[derive(Serialize)]
+struct InfoOut<'a> {
+    #[serde(rename = "w", skip_serializing_if = "Option::is_none")]
+    width: Option<u32>,
+    #[serde(rename = "h", skip_serializing_if = "Option::is_none")]
+    height: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mimetype: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size: Option<u32>,
+}
+
+fn info_content(info: Option<&PackImageInfoView>) -> Option<InfoOut<'_>> {
     let info = info?;
-    let mut content = Map::new();
-    if let Some(width) = info.width {
-        content.insert("w".to_owned(), json!(width));
-    }
-    if let Some(height) = info.height {
-        content.insert("h".to_owned(), json!(height));
-    }
-    if let Some(mimetype) = &info.mimetype {
-        content.insert("mimetype".to_owned(), json!(mimetype));
-    }
-    if let Some(size) = info.size {
-        content.insert("size".to_owned(), json!(size));
-    }
-    (!content.is_empty()).then_some(Value::Object(content))
+    let out = InfoOut {
+        width: info.width,
+        height: info.height,
+        mimetype: info.mimetype.as_deref(),
+        size: info.size,
+    };
+    (out.width.is_some() || out.height.is_some() || out.mimetype.is_some() || out.size.is_some())
+        .then_some(out)
+}
+
+#[derive(Serialize)]
+struct ImageOut<'a> {
+    url: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    body: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    usage: Option<Vec<&'static str>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    info: Option<InfoOut<'a>>,
 }
 
 /// An image's usage is written only where it differs from its pack's.
-fn image_content(image: &PackImageDraftView, pack_usage: &[ImageUsageView]) -> Value {
-    let mut content = Map::new();
-    content.insert("url".to_owned(), json!(image.url));
-    if let Some(body) = &image.body {
-        content.insert("body".to_owned(), json!(body));
+fn image_content<'a>(image: &'a PackImageDraftView, pack_usage: &[ImageUsageView]) -> ImageOut<'a> {
+    ImageOut {
+        url: &image.url,
+        body: image.body.as_deref(),
+        usage: (!same_usage(&image.usage, pack_usage)).then(|| usage_names(&image.usage)),
+        info: info_content(image.info.as_ref()),
     }
-    if !same_usage(&image.usage, pack_usage) {
-        content.insert("usage".to_owned(), usage_json(&image.usage));
-    }
-    if let Some(info) = info_content(image.info.as_ref()) {
-        content.insert("info".to_owned(), info);
-    }
-    Value::Object(content)
 }
 
-pub(crate) fn pack_content(draft: &PackDraftView) -> Result<Value, CommandErr> {
+#[derive(Serialize)]
+struct PackOut<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar_url: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    attribution: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    usage: Option<Vec<&'static str>>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct PackContentOut<'a> {
+    pack: PackOut<'a>,
+    images: BTreeMap<&'a str, ImageOut<'a>>,
+}
+
+pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut<'_>, CommandErr> {
     if let Some(shortcode) = invalid_shortcode(&draft.images) {
         return Err(CommandErr::InvalidShortcode {
             shortcode: shortcode.to_owned(),
         });
     }
-    let mut pack = Map::new();
-    if !draft.name.is_empty() {
-        pack.insert("display_name".to_owned(), json!(draft.name));
-    }
-    if let Some(avatar_url) = &draft.avatar_url {
-        pack.insert("avatar_url".to_owned(), json!(avatar_url));
-    }
-    if !draft.attribution.is_empty() {
-        pack.insert("attribution".to_owned(), json!(draft.attribution));
-    }
-    if draft.usage.len() != ALL_USAGES.len() {
-        pack.insert("usage".to_owned(), usage_json(&draft.usage));
-    }
-    let images: Map<String, Value> = draft
-        .images
-        .iter()
-        .map(|image| (image.shortcode.clone(), image_content(image, &draft.usage)))
-        .collect();
-    Ok(json!({ "pack": pack, "images": images }))
+    Ok(PackContentOut {
+        pack: PackOut {
+            display_name: (!draft.name.is_empty()).then_some(draft.name.as_str()),
+            avatar_url: draft.avatar_url.as_deref(),
+            attribution: (!draft.attribution.is_empty()).then_some(draft.attribution.as_str()),
+            usage: (draft.usage.len() != ALL_USAGES.len()).then(|| usage_names(&draft.usage)),
+        },
+        images: draft
+            .images
+            .iter()
+            .map(|image| (image.shortcode.as_str(), image_content(image, &draft.usage)))
+            .collect(),
+    })
 }
 
 fn declared_usage(pack: Option<&Value>) -> Vec<ImageUsageView> {
@@ -120,27 +140,45 @@ fn declared_usage(pack: Option<&Value>) -> Vec<ImageUsageView> {
     }
 }
 
+/// An `images` that is not an object reads as empty.
+fn lenient_images<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Map<String, Value>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::Object(images) => images,
+        _ => Map::new(),
+    })
+}
+
+/// The stored event with room for more images; `pack` and anything else we do
+/// not model rides along in `extra`.
+#[derive(Default, Deserialize, Serialize)]
+pub(crate) struct StoredPackContent {
+    #[serde(default, deserialize_with = "lenient_images")]
+    images: Map<String, Value>,
+    #[serde(flatten)]
+    extra: Map<String, Value>,
+}
+
 /// Adds to the stored event as it is, so whatever we do not model survives.
 pub(crate) fn merged_pack_content(
     current: Option<Value>,
     additions: &[PackImageDraftView],
-) -> Value {
-    let mut pack = match current {
-        Some(Value::Object(map)) => map,
-        _ => Map::new(),
-    };
-    let mut images = match pack.remove("images") {
-        Some(Value::Object(map)) => map,
-        _ => Map::new(),
-    };
-    let pack_usage = declared_usage(pack.get("pack"));
+) -> serde_json::Result<StoredPackContent> {
+    let mut pack: StoredPackContent = current
+        .and_then(|current| serde_json::from_value(current).ok())
+        .unwrap_or_default();
+    let pack_usage = declared_usage(pack.extra.get("pack"));
     for image in additions {
-        let shortcode =
-            unique_shortcode(&image.shortcode, |candidate| images.contains_key(candidate));
-        images.insert(shortcode, image_content(image, &pack_usage));
+        let shortcode = unique_shortcode(&image.shortcode, |candidate| {
+            pack.images.contains_key(candidate)
+        });
+        pack.images.insert(
+            shortcode,
+            serde_json::to_value(image_content(image, &pack_usage))?,
+        );
     }
-    pack.insert("images".to_owned(), Value::Object(images));
-    Value::Object(pack)
+    Ok(pack)
 }
 
 pub(crate) fn subscription_addresses(rooms: &EmoteRooms) -> Vec<PackAddressView> {
@@ -172,17 +210,20 @@ pub(crate) fn with_subscriptions(
     kept
 }
 
-pub(crate) fn subscriptions_content(addresses: &[PackAddressView]) -> Value {
-    let mut rooms: Map<String, Value> = Map::new();
+#[derive(Serialize)]
+pub(crate) struct SubscriptionsOut<'a> {
+    rooms: BTreeMap<String, BTreeMap<&'a str, Map<String, Value>>>,
+}
+
+pub(crate) fn subscriptions_content(addresses: &[PackAddressView]) -> SubscriptionsOut<'_> {
+    let mut rooms: BTreeMap<String, BTreeMap<&str, Map<String, Value>>> = BTreeMap::new();
     for address in addresses {
-        let packs = rooms
+        rooms
             .entry(address.room_id.to_string())
-            .or_insert_with(|| json!({}));
-        if let Some(packs) = packs.as_object_mut() {
-            packs.insert(address.state_key.clone(), json!({}));
-        }
+            .or_default()
+            .insert(&address.state_key, Map::new());
     }
-    json!({ "rooms": rooms })
+    SubscriptionsOut { rooms }
 }
 
 /// Whether a state key survives a request path; a pasted file path does not.
@@ -195,6 +236,17 @@ fn is_url_safe_key(state_key: &str) -> bool {
 
 fn is_empty_content(content: Option<&Value>) -> bool {
     content.and_then(Value::as_object).is_none_or(Map::is_empty)
+}
+
+#[derive(Serialize)]
+struct NewPackInfoOut<'a> {
+    display_name: &'a str,
+}
+
+#[derive(Serialize)]
+struct NewPackOut<'a> {
+    pack: NewPackInfoOut<'a>,
+    images: EmptyContent,
 }
 
 impl Core {
@@ -255,7 +307,12 @@ impl Core {
             wanted => wanted,
         };
         let state_key = unique_shortcode(&wanted, |candidate| taken.contains(candidate));
-        let content = json!({ "pack": { "display_name": name.trim() }, "images": {} });
+        let content = NewPackOut {
+            pack: NewPackInfoOut {
+                display_name: name.trim(),
+            },
+            images: EmptyContent {},
+        };
         self.send_state(room_id, ROOM_IMAGE_PACK, &state_key, &content)
             .await?;
         Ok(state_key)
@@ -269,7 +326,7 @@ impl Core {
         if let Err(error) = self.remove_legacy_pack(&room_id, state_key).await {
             tracing::warn!(?error, "legacy pack not cleared");
         }
-        self.send_state(room_id, ROOM_IMAGE_PACK, state_key, &json!({}))
+        self.send_state(room_id, ROOM_IMAGE_PACK, state_key, &EmptyContent {})
             .await?;
         Ok(())
     }
@@ -280,7 +337,7 @@ impl Core {
         state_key: &str,
     ) -> Result<(), CommandErr> {
         if self.legacy_pack(room_id, state_key).await?.is_some() {
-            self.send_state(room_id.clone(), ROOM_EMOTES, state_key, &json!({}))
+            self.send_state(room_id.clone(), ROOM_EMOTES, state_key, &EmptyContent {})
                 .await?;
         }
         Ok(())
@@ -348,8 +405,9 @@ impl Core {
             .global_account_data(USER_EMOTES.into(), "add_account_pack_images")
             .await?
             .and_then(|raw| raw.deserialize_as::<Value>().ok());
-        self.set_account_data(USER_EMOTES, &merged_pack_content(current, images))
-            .await
+        let merged =
+            merged_pack_content(current, images).or_failed(self, "add_account_pack_images")?;
+        self.set_account_data(USER_EMOTES, &merged).await
     }
 
     pub(crate) async fn pack_subscriptions(&self) -> Result<Vec<PackAddressView>, CommandErr> {
@@ -389,6 +447,10 @@ mod tests {
         CommandErr, ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView,
         PackImageInfoView,
     };
+
+    fn to_json(content: impl serde::Serialize) -> serde_json::Value {
+        serde_json::to_value(content).expect("serializes")
+    }
 
     fn image(shortcode: &str, usage: &[ImageUsageView]) -> PackImageDraftView {
         PackImageDraftView {
@@ -451,7 +513,7 @@ mod tests {
         };
 
         assert_eq!(
-            pack_content(&draft).expect("valid pack"),
+            to_json(pack_content(&draft).expect("valid pack")),
             json!({
                 "pack": { "display_name": "Cats" },
                 "images": {
@@ -481,7 +543,7 @@ mod tests {
         };
 
         assert_eq!(
-            pack_content(&draft).expect("valid pack"),
+            to_json(pack_content(&draft).expect("valid pack")),
             json!({
                 "pack": {
                     "display_name": "Blobs",
@@ -508,7 +570,7 @@ mod tests {
         };
 
         assert_eq!(
-            pack_content(&draft).expect("valid pack"),
+            to_json(pack_content(&draft).expect("valid pack")),
             json!({ "pack": {}, "images": {} })
         );
     }
@@ -536,7 +598,9 @@ mod tests {
             "images": { "cat": { "url": "mxc://example.org/old" } },
         });
         let merged =
-            merged_pack_content(Some(current), &[image("cat", &[ImageUsageView::Emoticon])]);
+            merged_pack_content(Some(current), &[image("cat", &[ImageUsageView::Emoticon])])
+                .map(to_json)
+                .expect("merged");
 
         assert_eq!(
             merged,
@@ -549,8 +613,31 @@ mod tests {
             })
         );
         assert_eq!(
-            merged_pack_content(None, &[image("cat", &BOTH)]),
+            merged_pack_content(None, &[image("cat", &BOTH)])
+                .map(to_json)
+                .expect("merged"),
             json!({ "images": { "cat": { "url": "mxc://example.org/cat" } } })
+        );
+    }
+
+    #[test]
+    fn merging_treats_unreadable_images_as_empty_and_keeps_foreign_keys() {
+        let current = json!({ "images": "nope", "x-extra": [1] });
+
+        assert_eq!(
+            merged_pack_content(Some(current), &[image("cat", &BOTH)])
+                .map(to_json)
+                .expect("merged"),
+            json!({
+                "x-extra": [1],
+                "images": { "cat": { "url": "mxc://example.org/cat" } },
+            })
+        );
+        assert_eq!(
+            merged_pack_content(Some(json!("nonsense")), &[])
+                .map(to_json)
+                .expect("merged"),
+            json!({ "images": {} })
         );
     }
 
@@ -571,7 +658,7 @@ mod tests {
             vec![address("!a:example.org", ""), address("!c:example.org", "")]
         );
         assert_eq!(
-            subscriptions_content(&next),
+            to_json(subscriptions_content(&next)),
             json!({ "rooms": { "!a:example.org": { "": {} }, "!c:example.org": { "": {} } } })
         );
     }

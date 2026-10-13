@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value, json};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::{Map, Value};
 
 use crate::matrix_link::{MatrixLink, parse_matrix_link, split_via};
 use crate::text::{has_space, is_space, trim, trim_start, words};
@@ -241,35 +242,67 @@ pub enum InvocationResult {
     },
 }
 
-fn text_body(value: Option<&Value>) -> Option<String> {
-    value?
-        .get("m.text")?
-        .as_array()?
-        .iter()
-        .filter_map(|entry| entry.get("body")?.as_str())
-        .find(|body| !body.is_empty())
-        .map(ToOwned::to_owned)
+/// Only a JSON object reads as a struct; a list would otherwise fill its fields in order.
+fn object<T: DeserializeOwned>(value: &Value) -> Option<T> {
+    if !value.is_object() {
+        return None;
+    }
+    T::deserialize(value).ok()
+}
+
+#[derive(Deserialize)]
+struct RichText {
+    #[serde(rename = "m.text", deserialize_with = "crate::lenient::list")]
+    text: Vec<Value>,
+}
+
+#[derive(Deserialize)]
+struct RichTextEntry {
+    body: String,
+}
+
+fn text_body<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+    let rich: Option<RichText> = object(&Value::deserialize(deserializer)?);
+    Ok(rich.and_then(|rich| {
+        rich.text
+            .iter()
+            .filter_map(object::<RichTextEntry>)
+            .map(|entry| entry.body)
+            .find(|body| !body.is_empty())
+    }))
+}
+
+#[derive(Deserialize)]
+struct RoomReferenceIn {
+    #[serde(rename = "type")]
+    kind: RoomReferenceKind,
+    id: String,
+    #[serde(default, deserialize_with = "lenient_via")]
+    via: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    event_id: Option<String>,
+}
+
+fn lenient_via<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<String>>, D::Error> {
+    Ok(match Value::deserialize(deserializer)? {
+        Value::Array(via) => Some(
+            via.into_iter()
+                .filter_map(|server| serde_json::from_value(server).ok())
+                .collect(),
+        ),
+        _ => None,
+    })
 }
 
 fn room_reference(value: &Value) -> Option<RoomReference> {
-    let kind = match value.get("type")?.as_str()? {
-        "room_id" => RoomReferenceKind::RoomId,
-        "event_id" => RoomReferenceKind::EventId,
-        _ => return None,
-    };
+    let reference: RoomReferenceIn = object(value)?;
     Some(RoomReference {
-        kind,
-        id: value.get("id")?.as_str()?.to_owned(),
-        via: value.get("via").and_then(Value::as_array).map(|via| {
-            via.iter()
-                .filter_map(Value::as_str)
-                .map(ToOwned::to_owned)
-                .collect()
-        }),
-        event_id: value
-            .get("event_id")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned),
+        kind: reference.kind,
+        id: reference.id,
+        via: reference.via,
+        event_id: reference.event_id,
     })
 }
 
@@ -338,19 +371,80 @@ fn argument_value(value: &Value) -> Option<ArgumentValue> {
     }
 }
 
-fn parameter(value: &Value) -> Option<BotCommandParameter> {
-    let key = value.get("key")?.as_str().filter(|key| !key.is_empty())?;
-    Some(BotCommandParameter {
-        key: key.to_owned(),
-        schema: parameter_schema(value.get("schema")?)?,
-        description: text_body(value.get("description")),
-        optional: value.get("optional").and_then(Value::as_bool) == Some(true),
-        default_value: value.get("fi.mau.default_value").and_then(argument_value),
-        flag: value
-            .get("moe.sable.flag")
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned),
-    })
+fn schema<'de, D: Deserializer<'de>>(deserializer: D) -> Result<ParameterSchema, D::Error> {
+    parameter_schema(&Value::deserialize(deserializer)?)
+        .ok_or_else(|| serde::de::Error::custom("unsupported parameter schema"))
+}
+
+fn default_value<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<ArgumentValue>, D::Error> {
+    Ok(argument_value(&Value::deserialize(deserializer)?))
+}
+
+#[derive(Deserialize)]
+struct ParameterIn {
+    key: String,
+    #[serde(deserialize_with = "schema")]
+    schema: ParameterSchema,
+    #[serde(default, deserialize_with = "text_body")]
+    description: Option<String>,
+    #[serde(default, deserialize_with = "crate::lenient::option")]
+    optional: Option<bool>,
+    #[serde(
+        default,
+        rename = "fi.mau.default_value",
+        deserialize_with = "default_value"
+    )]
+    default_value: Option<ArgumentValue>,
+    #[serde(
+        default,
+        rename = "moe.sable.flag",
+        deserialize_with = "crate::lenient::option"
+    )]
+    flag: Option<String>,
+}
+
+/// Every declared parameter has to parse, or the whole list is refused.
+fn parameters<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<BotCommandParameter>, D::Error> {
+    let Value::Array(declared) = Value::deserialize(deserializer)? else {
+        return Ok(Vec::new());
+    };
+    declared
+        .iter()
+        .map(|entry| {
+            object::<ParameterIn>(entry)
+                .filter(|parameter| !parameter.key.is_empty())
+                .map(|parameter| BotCommandParameter {
+                    key: parameter.key,
+                    schema: parameter.schema,
+                    description: parameter.description,
+                    optional: parameter.optional == Some(true),
+                    default_value: parameter.default_value,
+                    flag: parameter.flag,
+                })
+                .ok_or_else(|| serde::de::Error::custom("invalid parameter"))
+        })
+        .collect()
+}
+
+#[derive(Deserialize)]
+struct CommandIn {
+    command: String,
+    #[serde(default, deserialize_with = "parameters")]
+    parameters: Vec<BotCommandParameter>,
+    #[serde(
+        default,
+        rename = "fi.mau.tail_parameter",
+        deserialize_with = "crate::lenient::option"
+    )]
+    tail_parameter: Option<String>,
+    #[serde(default, deserialize_with = "crate::lenient::list")]
+    aliases: Vec<String>,
+    #[serde(default, deserialize_with = "text_body")]
+    description: Option<String>,
 }
 
 /// `None` for a description that names no command, or whose parameters do not
@@ -362,45 +456,34 @@ pub fn parse_bot_command(
     sender_avatar: Option<&str>,
     content: &Value,
 ) -> Option<BotCommand> {
-    let command = trim(content.get("command")?.as_str()?);
+    let CommandIn {
+        command,
+        parameters,
+        tail_parameter,
+        aliases,
+        description,
+    } = object(content)?;
+    let command = trim(&command);
     if command.is_empty() {
         return None;
     }
-    let parameters = content
-        .get("parameters")
-        .and_then(Value::as_array)
-        .map_or(Some(Vec::new()), |declared| {
-            declared.iter().map(parameter).collect::<Option<Vec<_>>>()
-        })?;
     let mut keys: Vec<&str> = parameters.iter().map(|entry| entry.key.as_str()).collect();
     keys.sort_unstable();
     keys.dedup();
     if keys.len() != parameters.len() {
         return None;
     }
-    let tail = content
-        .get("fi.mau.tail_parameter")
-        .and_then(Value::as_str)
-        .filter(|tail| keys.contains(tail))
-        .map(ToOwned::to_owned);
+    let tail = tail_parameter.filter(|tail| keys.contains(&tail.as_str()));
     Some(BotCommand {
         sender: sender.to_owned(),
         sender_name: sender_name.map(ToOwned::to_owned),
         sender_avatar: sender_avatar.map(ToOwned::to_owned),
         command: command.to_owned(),
-        aliases: content
-            .get("aliases")
-            .and_then(Value::as_array)
-            .map(|aliases| {
-                aliases
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .filter(|alias| !alias.is_empty())
-                    .map(ToOwned::to_owned)
-                    .collect()
-            })
-            .unwrap_or_default(),
-        description: text_body(content.get("description")),
+        aliases: aliases
+            .into_iter()
+            .filter(|alias| !alias.is_empty())
+            .collect(),
+        description,
         parameters,
         tail_parameter: tail,
     })
@@ -831,26 +914,34 @@ pub fn drafts_from_text(command: &BotCommand, args: &str) -> ArgumentDrafts {
     drafts
 }
 
+#[derive(Serialize)]
+struct RoomReferenceOut<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    id: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    via: Option<&'a [String]>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    event_id: Option<&'a str>,
+}
+
 fn literal_json(value: &LiteralValue) -> Value {
     match value {
-        LiteralValue::Boolean(flag) => json!(flag),
-        LiteralValue::Integer(number) => json!(number),
-        LiteralValue::Text(text) => json!(text),
+        LiteralValue::Boolean(flag) => Value::from(*flag),
+        LiteralValue::Integer(number) => Value::from(*number),
+        LiteralValue::Text(text) => Value::from(text.as_str()),
         LiteralValue::Room(reference) => {
-            let mut object = Map::new();
             let kind = match reference.kind {
                 RoomReferenceKind::RoomId => "room_id",
                 RoomReferenceKind::EventId => "event_id",
             };
-            object.insert("type".to_owned(), json!(kind));
-            object.insert("id".to_owned(), json!(reference.id));
-            if let Some(via) = &reference.via {
-                object.insert("via".to_owned(), json!(via));
-            }
-            if let Some(event_id) = &reference.event_id {
-                object.insert("event_id".to_owned(), json!(event_id));
-            }
-            Value::Object(object)
+            serde_json::to_value(RoomReferenceOut {
+                kind,
+                id: &reference.id,
+                via: reference.via.as_deref(),
+                event_id: reference.event_id.as_deref(),
+            })
+            .unwrap_or_default()
         }
     }
 }
@@ -890,7 +981,7 @@ pub fn build_invocation(
             if !flag && parameter.optional {
                 continue;
             }
-            arguments.insert(key, json!(flag));
+            arguments.insert(key, Value::from(*flag));
             body.push(match (&parameter.flag, parameter.optional) {
                 (Some(name), _) => name.clone(),
                 (None, true) => format!("--{}", flag_name(&parameter.key)),
@@ -969,8 +1060,9 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        ArgumentDraft, ArgumentError, InvocationResult, build_invocation, drafts_from_text,
-        is_server_name, match_bot_command, parse_bot_command,
+        ArgumentDraft, ArgumentError, ArgumentValue, InvocationResult, LiteralValue, RoomReference,
+        RoomReferenceKind, build_invocation, drafts_from_text, is_server_name, match_bot_command,
+        parse_bot_command,
     };
 
     fn ban() -> super::BotCommand {
@@ -1074,5 +1166,59 @@ mod tests {
         assert!(is_server_name("[::1]:8448"));
         assert!(!is_server_name("exa mple.org"));
         assert!(!is_server_name("example.org:123456"));
+    }
+
+    #[test]
+    fn a_description_reads_leniently_where_the_spec_allows() {
+        let content = json!({
+            "command": " roll ",
+            "aliases": ["r", 3, ""],
+            "description": {"m.text": [["junk"], {"body": 1}, {"body": ""}, {"body": "Roll dice"}]},
+            "fi.mau.tail_parameter": "n",
+            "parameters": [{
+                "key": "n", "optional": "yes", "moe.sable.flag": 4,
+                "description": {"m.text": "no"},
+                "schema": {"schema_type": "primitive", "type": "integer"}
+            }]
+        });
+        let command = parse_bot_command("@b:x", None, None, &content).unwrap();
+        assert_eq!(command.command, "roll");
+        assert_eq!(command.aliases, ["r"]);
+        assert_eq!(command.description.as_deref(), Some("Roll dice"));
+        assert_eq!(command.tail_parameter.as_deref(), Some("n"));
+        assert!(!command.parameters[0].optional);
+        assert_eq!(command.parameters[0].flag, None);
+        assert_eq!(command.parameters[0].description, None);
+    }
+
+    #[test]
+    fn an_unparsable_or_repeated_parameter_refuses_the_command() {
+        let primitive = json!({"schema_type": "primitive", "type": "string"});
+        let bad = json!({"command": "x", "parameters": [{"key": "a", "schema": {"schema_type": "nope"}}]});
+        assert!(parse_bot_command("@b:x", None, None, &bad).is_none());
+        let twice = json!({"command": "x", "parameters": [
+            {"key": "a", "schema": primitive}, {"key": "a", "schema": primitive}
+        ]});
+        assert!(parse_bot_command("@b:x", None, None, &twice).is_none());
+        assert!(parse_bot_command("@b:x", None, None, &json!(["command"])).is_none());
+    }
+
+    #[test]
+    fn a_room_reference_keeps_the_servers_it_can_read() {
+        let content = json!({
+            "command": "x",
+            "parameters": [{"key": "r", "schema": {"schema_type": "primitive", "type": "room_id"},
+                "fi.mau.default_value": {"type": "room_id", "id": "!r:x", "via": ["a", 1], "event_id": 2}}]
+        });
+        let command = parse_bot_command("@b:x", None, None, &content).unwrap();
+        assert_eq!(
+            command.parameters[0].default_value,
+            Some(ArgumentValue::One(LiteralValue::Room(RoomReference {
+                kind: RoomReferenceKind::RoomId,
+                id: "!r:x".to_owned(),
+                via: Some(vec!["a".to_owned()]),
+                event_id: None,
+            })))
+        );
     }
 }

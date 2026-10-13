@@ -29,6 +29,7 @@ use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::to_device::DeviceIdOrAllDevices;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, OwnedUserId, TransactionId, UInt};
 use matrix_sdk_base::crypto::CollectStrategy;
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::calls::{is_rtc_member_type, sticky};
@@ -124,6 +125,19 @@ fn with_room_id(mut event: Value, room_id: &matrix_sdk::ruma::RoomId) -> Value {
     event
 }
 
+/// `event` comes first so the explicit `room_id` overrides any copy of it.
+#[derive(serde::Serialize)]
+struct RoomScopedEventOut<'a> {
+    #[serde(flatten)]
+    event: serde_json::Map<String, Value>,
+    room_id: &'a str,
+}
+
+#[derive(serde::Serialize)]
+struct RtcTransportsOut<T> {
+    rtc_transports: T,
+}
+
 struct IntegrationManager {
     api_url: String,
     ui_url: String,
@@ -183,6 +197,14 @@ fn integration_manager_page(
         query.append_pair("room_id", room_id.as_str());
     }
     Some(url.to_string())
+}
+
+#[derive(Serialize)]
+struct ScalarRegisterOut<'a> {
+    access_token: &'a str,
+    token_type: &'a str,
+    matrix_server_name: &'a str,
+    expires_in: u64,
 }
 
 impl Core {
@@ -503,10 +525,13 @@ impl Core {
             .await
             .or_failed(self, "room_account_data_raw")?;
         Ok(event.and_then(|raw| {
-            let mut json: Value = serde_json::from_str(raw.json().get()).ok()?;
-            json.as_object_mut()?
-                .insert("room_id".to_owned(), Value::String(room_id.to_string()));
-            Some(json)
+            let event: serde_json::Map<String, Value> =
+                serde_json::from_str(raw.json().get()).ok()?;
+            serde_json::to_value(RoomScopedEventOut {
+                event,
+                room_id: room_id.as_str(),
+            })
+            .ok()
         }))
     }
 
@@ -625,9 +650,10 @@ impl Core {
             .await
             .map_err(|error| self.homeserver_http_error("rtc_transports", error))?
             .unwrap_or_default();
-        serde_json::to_value(transports)
-            .map(|transports| serde_json::json!({ "rtc_transports": transports }))
-            .or_failed(self, "rtc_transports")
+        serde_json::to_value(RtcTransportsOut {
+            rtc_transports: transports,
+        })
+        .or_failed(self, "rtc_transports")
     }
 
     pub(crate) async fn rtc_livekit(
@@ -703,13 +729,13 @@ impl Core {
             .post(format!("{}/register", api_url.trim_end_matches('/')))
             .header("Content-Type", "application/json")
             .body(
-                serde_json::json!({
-                    "access_token": token.access_token,
-                    "token_type": token.token_type,
-                    "matrix_server_name": token.matrix_server_name,
-                    "expires_in": token.expires_in_ms / 1000,
+                serde_json::to_string(&ScalarRegisterOut {
+                    access_token: &token.access_token,
+                    token_type: &token.token_type,
+                    matrix_server_name: &token.matrix_server_name,
+                    expires_in: token.expires_in_ms / 1000,
                 })
-                .to_string(),
+                .ok()?,
             )
             .send()
             .await
@@ -839,7 +865,7 @@ impl Core {
 
 #[cfg(test)]
 mod tests {
-    use super::RelationsFilter;
+    use super::{RelationsFilter, ScalarRegisterOut};
     use crate::{
         Core,
         protocol::{Command, CommandErr, CoreEvent, RtcLivekitEndpoint},
@@ -855,6 +881,26 @@ mod tests {
         Mock, ResponseTemplate,
         matchers::{body_json, method, path, path_regex, query_param},
     };
+
+    #[test]
+    fn scalar_register_body_keeps_the_wire_shape() {
+        let body = serde_json::to_value(ScalarRegisterOut {
+            access_token: "tok",
+            token_type: "Bearer",
+            matrix_server_name: "example.org",
+            expires_in: 3600,
+        })
+        .unwrap();
+        assert_eq!(
+            body,
+            json!({
+                "access_token": "tok",
+                "token_type": "Bearer",
+                "matrix_server_name": "example.org",
+                "expires_in": 3600,
+            })
+        );
+    }
 
     #[tokio::test]
     async fn widget_sends_return_the_created_event_id() {

@@ -1,9 +1,10 @@
-use matrix_sdk::ruma::{OwnedRoomId, TransactionId};
-use serde_json::json;
+use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId, TransactionId};
+use serde::Serialize;
 use url::Url;
 
 use crate::Core;
 use crate::protocol::CommandErr;
+use crate::room_settings::EmptyContent;
 
 const WIDGET_STATE_TYPE: &str = "im.vector.modular.widgets";
 
@@ -39,6 +40,17 @@ pub(crate) fn widget_url(raw: &str) -> Option<Url> {
         .filter(|url| matches!(url.scheme(), "http" | "https"))
 }
 
+#[derive(Serialize)]
+struct WidgetOut<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    url: &'a str,
+    name: &'a str,
+    id: &'a str,
+    #[serde(rename = "creatorUserId")]
+    creator_user_id: &'a OwnedUserId,
+}
+
 impl Core {
     pub(crate) async fn add_room_widget(
         &self,
@@ -54,13 +66,13 @@ impl Core {
             .ok_or(CommandErr::NotLoggedIn)?
             .to_owned();
         let id = TransactionId::new().to_string();
-        let content = json!({
-            "type": "m.custom",
-            "url": enrich_widget_url(&url),
-            "name": name,
-            "id": id,
-            "creatorUserId": user_id,
-        });
+        let content = WidgetOut {
+            kind: "m.custom",
+            url: &enrich_widget_url(&url),
+            name,
+            id: &id,
+            creator_user_id: &user_id,
+        };
         self.send_state(room_id, WIDGET_STATE_TYPE, &id, &content)
             .await?;
         Ok(id)
@@ -71,7 +83,7 @@ impl Core {
         room_id: OwnedRoomId,
         widget_id: &str,
     ) -> Result<(), CommandErr> {
-        self.send_state(room_id, WIDGET_STATE_TYPE, widget_id, &json!({}))
+        self.send_state(room_id, WIDGET_STATE_TYPE, widget_id, &EmptyContent {})
             .await?;
         Ok(())
     }
@@ -79,7 +91,30 @@ impl Core {
 
 #[cfg(test)]
 mod tests {
-    use super::{TEMPLATE_PARAMS, enrich_widget_url, widget_url};
+    use super::{TEMPLATE_PARAMS, WidgetOut, enrich_widget_url, widget_url};
+
+    #[test]
+    fn widget_content_keeps_the_state_event_shape() {
+        let user_id = matrix_sdk::ruma::owned_user_id!("@a:example.org");
+        let content = serde_json::to_value(WidgetOut {
+            kind: "m.custom",
+            url: "https://example.org/w",
+            name: "Board",
+            id: "w1",
+            creator_user_id: &user_id,
+        })
+        .unwrap();
+        assert_eq!(
+            content,
+            serde_json::json!({
+                "type": "m.custom",
+                "url": "https://example.org/w",
+                "name": "Board",
+                "id": "w1",
+                "creatorUserId": "@a:example.org",
+            })
+        );
+    }
 
     fn enriched(raw: &str) -> String {
         enrich_widget_url(&widget_url(raw).expect("valid url"))
