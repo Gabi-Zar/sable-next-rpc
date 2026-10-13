@@ -47,6 +47,11 @@ version = "132"
 backend = "aqua:WebAssembly/binaryen"
 specifiers = ["132"]
 
+[tools."aqua:WebAssembly/binaryen"."platforms.linux-arm64"]
+checksum = "sha256:c58562417836c5d0493d89bdefc434933bdc097db641b483df86bcfa557a107f"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512125148"
+
 [tools."aqua:WebAssembly/binaryen"."platforms.linux-x64"]
 checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
 url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
