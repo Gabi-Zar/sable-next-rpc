@@ -40,6 +40,7 @@ function parseJson(payload: string): Discovery | undefined {
 
 export class HomeserverProxy {
   private readonly log: string[] = [];
+  private readonly sent: string[] = [];
   private readonly faults: Fault[] = [];
   private readonly delays: Delay[] = [];
   private readonly stubs: Stub[] = [];
@@ -96,12 +97,18 @@ export class HomeserverProxy {
     return this.log.filter((entry) => pattern.test(entry)).length;
   }
 
+  countWithBody(pattern: RegExp, text: string): number {
+    return this.sent.filter((entry) => pattern.test(entry) && entry.includes(text)).length;
+  }
+
   clearRequests(): void {
     this.log.length = 0;
+    this.sent.length = 0;
   }
 
   reset(): void {
     this.log.length = 0;
+    this.sent.length = 0;
     this.faults.length = 0;
     this.delays.length = 0;
     this.stubs.length = 0;
@@ -145,6 +152,7 @@ export class HomeserverProxy {
 
     const body: Buffer[] = [];
     for await (const chunk of incoming) body.push(chunk as Buffer);
+    this.sent.push(`${entry} ${Buffer.concat(body).toString('utf8')}`);
 
     const headers = { ...incoming.headers, host: this.upstream.host };
     const forwarded = httpRequest(

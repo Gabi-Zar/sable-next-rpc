@@ -34,11 +34,13 @@ test('holds the anchor through a long scroll back', async ({
   app,
   timeline,
   homeserverProxy,
+  proxiedAccount,
   proxiedLogin,
 }) => {
   test.setTimeout(180_000);
-  const account = await proxiedLogin();
+  const account = await proxiedAccount();
   const roomId = await seedDeepRoom(account, 200);
+  await proxiedLogin(account);
   await page.setViewportSize({ width: 1280, height: 420 });
 
   await app.openRoom(roomId);
@@ -84,11 +86,13 @@ test('holds the reader when a prepend regroups the row above them', async ({
   app,
   timeline,
   homeserverProxy,
+  proxiedAccount,
   proxiedLogin,
 }) => {
   test.setTimeout(180_000);
-  const account = await proxiedLogin();
+  const account = await proxiedAccount();
   const roomId = await seedDeepRoom(account, 200);
+  await proxiedLogin(account);
   await page.setViewportSize({ width: 1280, height: 420 });
 
   await app.openRoom(roomId);

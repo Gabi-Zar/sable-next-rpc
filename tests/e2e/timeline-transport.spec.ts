@@ -110,17 +110,19 @@ test('prefetches history within the oldest timeline items', async ({
   app,
   timeline,
   homeserverProxy,
+  proxiedAccount,
   proxiedLogin,
 }) => {
-  const account = await proxiedLogin();
+  const account = await proxiedAccount();
   const roomId = await account.createRoom({ name: `Prefetch ${String(Date.now())}` });
-  for (let index = 0; index < 80; index += 1) {
+  for (let index = 0; index < 300; index += 1) {
     await account.sendMessage(roomId, `Prefetch message ${String(index)}`);
   }
+  await proxiedLogin(account);
   await page.setViewportSize({ width: 1280, height: 420 });
 
   await app.openRoom(roomId);
-  await expect(timeline.message('Prefetch message 79')).toBeVisible({ timeout: 20_000 });
+  await expect(timeline.message('Prefetch message 299')).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => timeline.distanceFromBottom()).toBe(0);
   homeserverProxy.clearRequests();
 
@@ -137,13 +139,15 @@ test('anchors each history page requested by separate upward gestures', async ({
   app,
   timeline,
   homeserverProxy,
+  proxiedAccount,
   proxiedLogin,
 }) => {
-  const account = await proxiedLogin();
+  const account = await proxiedAccount();
   const roomId = await account.createRoom({ name: `Gestures ${String(Date.now())}` });
   for (let index = 0; index < 120; index += 1) {
     await account.sendMessage(roomId, `Gesture message ${String(index)}`);
   }
+  await proxiedLogin(account);
   await page.setViewportSize({ width: 1280, height: 420 });
 
   await app.openRoom(roomId);

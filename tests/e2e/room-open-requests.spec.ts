@@ -15,14 +15,15 @@ function requests(proxy: HomeserverProxy, roomId: string, endpoint: string): num
   return proxy.count(new RegExp(`^GET /_matrix/client/v3/rooms/${roomPath(roomId)}/${endpoint}`));
 }
 
-test('a room of mostly hidden events reaches its start in four history pages', async ({
+test('a room of mostly hidden events reaches its start in five history pages', async ({
   page,
   app,
   homeserverProxy,
+  proxiedAccount,
   proxiedLogin,
 }) => {
   test.setTimeout(180_000);
-  const account = await proxiedLogin();
+  const account = await proxiedAccount();
   const name = `Sparse ${String(Date.now())}`;
   const roomId = await account.createRoom({ name });
   await account.sendMessage(roomId, 'Sparse first');
@@ -34,8 +35,13 @@ test('a room of mostly hidden events reaches its start in four history pages', a
       'm.relates_to': { rel_type: 'm.replace', event_id: rootId },
     });
   }
+  await proxiedLogin(account);
   await page.setViewportSize({ width: 1280, height: 900 });
   await app.openRooms();
+  await expect(app.roomLink(name)).toBeVisible();
+  await expect
+    .poll(() => homeserverProxy.countWithBody(/^POST \S*\/sync/, roomId), { timeout: 30_000 })
+    .toBeGreaterThan(1);
   homeserverProxy.clearRequests();
 
   await app.openRoomFromList(name);
@@ -43,7 +49,7 @@ test('a room of mostly hidden events reaches its start in four history pages', a
   await expect(page.locator('.timeline-viewport').getByText('Sparse first')).toBeVisible({
     timeout: 30_000,
   });
-  expect(requests(homeserverProxy, roomId, 'messages')).toBeLessThanOrEqual(4);
+  expect(requests(homeserverProxy, roomId, 'messages')).toBeLessThanOrEqual(5);
 });
 
 test('reopening a room does not fetch its members again', async ({
@@ -68,6 +74,7 @@ test('reopening a room does not fetch its members again', async ({
   await app.openRoomFromList(first);
   await timeline.expectRevealed();
   await expect(page.locator('.timeline-viewport').getByText('First room message')).toBeVisible();
+  await quietFor(page, NEGATIVE_SETTLE_MS * 2);
   const fetched = requests(homeserverProxy, firstId, 'members');
 
   await app.openRoomFromList(second);

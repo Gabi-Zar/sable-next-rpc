@@ -107,7 +107,8 @@ type Fixtures = {
   spaceTree: SpaceTree;
   signIn: () => Promise<void>;
   freshLogin: () => Promise<MatrixAdmin>;
-  proxiedLogin: () => Promise<MatrixAdmin>;
+  proxiedAccount: () => Promise<MatrixAdmin>;
+  proxiedLogin: (account?: MatrixAdmin) => Promise<MatrixAdmin>;
   scratchRoom: { roomId: string; name: string };
 };
 
@@ -360,12 +361,19 @@ export const test = base.extend<Fixtures, WorkerFixtures>({
     workerProxy.reset();
   },
 
-  proxiedLogin: async ({ page, homeserver, workerProxy }, use, testInfo) => {
+  proxiedAccount: async ({ homeserver }, use, testInfo) => {
     await use(async () => {
       const username = `proxied-${String(testInfo.parallelIndex)}-${String(Date.now())}`;
       const account = await registerUser(homeserver.baseUrl, username, LOGIN_PASSWORD);
-      await signInThroughUi(page, workerProxy.baseUrl, username);
       return new MatrixAdmin(homeserver.baseUrl, account.accessToken, account.userId);
+    });
+  },
+
+  proxiedLogin: async ({ page, workerProxy, proxiedAccount }, use) => {
+    await use(async (existing) => {
+      const account = existing ?? (await proxiedAccount());
+      await signInThroughUi(page, workerProxy.baseUrl, account.userId.slice(1).split(':')[0]);
+      return account;
     });
   },
 
