@@ -20,12 +20,10 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
+    room_kind: 'text',
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
     supports_knock: true,
     supports_restricted: true,
     supports_knock_restricted: true,
@@ -55,7 +53,10 @@ test('a direct room lands under direct, not rooms', () => {
 
 test('a room reachable from a joined space lands under that space', () => {
   const rooms = [
-    room('!space:example.org', { is_space: true, space_children: [child('!inner:example.org')] }),
+    room('!space:example.org', {
+      room_kind: 'space',
+      space_children: [child('!inner:example.org')],
+    }),
     room('!inner:example.org'),
   ];
   expect(roomSectionPath(rooms, '!inner:example.org')).toBe(
@@ -65,8 +66,8 @@ test('a room reachable from a joined space lands under that space', () => {
 
 test('a room in a subspace lands under the root space the sidebar shows', () => {
   const rooms = [
-    room('!root:example.org', { is_space: true, space_children: [child('!sub:example.org')] }),
-    room('!sub:example.org', { is_space: true, space_children: [child('!inner:example.org')] }),
+    room('!root:example.org', { room_kind: 'space', space_children: [child('!sub:example.org')] }),
+    room('!sub:example.org', { room_kind: 'space', space_children: [child('!inner:example.org')] }),
     room('!inner:example.org'),
   ];
   expect(roomSectionPath(rooms, '!inner:example.org')).toBe(
@@ -76,9 +77,12 @@ test('a room in a subspace lands under the root space the sidebar shows', () => 
 
 test('a cycle between spaces still resolves to one of them', () => {
   const rooms = [
-    room('!left:example.org', { is_space: true, space_children: [child('!right:example.org')] }),
+    room('!left:example.org', {
+      room_kind: 'space',
+      space_children: [child('!right:example.org')],
+    }),
     room('!right:example.org', {
-      is_space: true,
+      room_kind: 'space',
       space_children: [child('!left:example.org'), child('!inner:example.org')],
     }),
     room('!inner:example.org'),
@@ -91,7 +95,7 @@ test('a cycle between spaces still resolves to one of them', () => {
 test.each(['invited', 'tombstoned'])('a %s space does not claim its children', (status) => {
   const rooms = [
     room('!space:example.org', {
-      is_space: true,
+      room_kind: 'space',
       state: status === 'invited' ? 'invited' : 'joined',
       is_tombstoned: status === 'tombstoned',
       space_children: [child('!inner:example.org')],
@@ -102,7 +106,7 @@ test.each(['invited', 'tombstoned'])('a %s space does not claim its children', (
 });
 
 test('a space itself opens at its lobby', () => {
-  const rooms = [room('!space:example.org', { is_space: true })];
+  const rooms = [room('!space:example.org', { room_kind: 'space' })];
   expect(roomSectionPath(rooms, '!space:example.org')).toBe('/space/!space%3Aexample.org/lobby');
 });
 
@@ -117,11 +121,14 @@ test.each([true, false])(
   (tombstoned) => {
     const rooms = [
       room('!old:example.org', {
-        is_space: true,
+        room_kind: 'space',
         canonical_alias: '#community:example.org',
         is_tombstoned: tombstoned,
       }),
-      room('!current:example.org', { is_space: true, canonical_alias: '#community:example.org' }),
+      room('!current:example.org', {
+        room_kind: 'space',
+        canonical_alias: '#community:example.org',
+      }),
     ];
     const aliasPath = '/space/%23community%3Aexample.org/lobby';
     const paths = tombstoned
@@ -150,7 +157,7 @@ test('a focused event rides along as a query param', () => {
 });
 
 test('a space drops a focused event, having no timeline to focus it in', () => {
-  const rooms = [room('!space:example.org', { is_space: true })];
+  const rooms = [room('!space:example.org', { room_kind: 'space' })];
   expect(roomSectionPath(rooms, '!space:example.org', '$abc')).toBe(
     '/space/!space%3Aexample.org/lobby'
   );

@@ -1,9 +1,9 @@
-import type { CreateJoinRuleView, CreateRoomKind, Rpc } from '#src/generated/protocol';
+import type { CreateJoinRuleView, RoomKind, Rpc } from '#src/generated/protocol';
 
 export type CreateRoomOptions = {
   name?: string | null;
   topic?: string | null;
-  kind?: CreateRoomKind;
+  kind?: RoomKind;
   public?: boolean;
   encrypted?: boolean;
   invite?: string[];

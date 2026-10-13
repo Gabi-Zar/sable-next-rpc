@@ -63,7 +63,7 @@
 
   async function download(): Promise<void> {
     failed = false;
-    const filename = `sable-${room.is_space ? 'space' : 'room'}-data-${String(Date.now())}.json`;
+    const filename = `sable-${room.room_kind === 'space' ? 'space' : 'room'}-data-${String(Date.now())}.json`;
     try {
       failed =
         (await saveBytes(new TextEncoder().encode(data), filename, 'application/json')) ===
@@ -77,7 +77,7 @@
 
 <SettingsSection
   headingId="room-developer-data"
-  title={i18n.t(room.is_space ? 'room.devSpaceDataTitle' : 'room.devRoomDataTitle')}
+  title={i18n.t(room.room_kind === 'space' ? 'room.devSpaceDataTitle' : 'room.devRoomDataTitle')}
   description={i18n.t('room.devDataDescription')}
 >
   <div class="data settings-form">

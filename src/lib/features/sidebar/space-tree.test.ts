@@ -18,12 +18,10 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: true,
     supports_restricted: true,
     supports_knock_restricted: true,
@@ -39,7 +37,7 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
 
 function space(roomId: string, children: string[]): RoomListItemView {
   return room(roomId, {
-    is_space: true,
+    room_kind: 'space',
     space_children: children.map((child, index) => ({
       room_id: child,
       via: [],

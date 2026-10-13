@@ -14,8 +14,7 @@ function room(roomId: string): PublicRoomView {
     name: null,
     topic: null,
     avatar_url: null,
-    is_space: false,
-    is_voice: false,
+    room_kind: 'text',
     num_joined_members: 1,
     join_rule: 'public',
     guest_can_join: false,
@@ -178,9 +177,9 @@ test('a room type filter is sent to the server and enforced on what comes back',
   const publicRooms = vi.fn(() =>
     Promise.resolve({
       rooms: [
-        { ...page(['!room'], null).rooms[0], is_space: false },
-        { ...page(['!space'], null).rooms[0], is_space: true },
-      ],
+        { ...page(['!room'], null).rooms[0], room_kind: 'text' },
+        { ...page(['!space'], null).rooms[0], room_kind: 'space' },
+      ] as PublicRoomView[],
       next_batch: null,
       total: null,
     })

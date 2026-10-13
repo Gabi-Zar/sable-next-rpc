@@ -86,7 +86,7 @@
     const target = roomId;
     void roomList.rooms;
     void abbreviationChanges.version;
-    if (!target || room?.is_space) {
+    if (!target || room?.room_kind === 'space') {
       inheritedGroups = [];
       return;
     }

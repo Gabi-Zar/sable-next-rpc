@@ -66,7 +66,7 @@
   });
 
   let resolvedRoom = $derived(listedRoom ?? unlistedRoom);
-  let space = $derived(resolvedRoom?.is_space ? resolvedRoom : null);
+  let space = $derived(resolvedRoom?.room_kind === 'space' ? resolvedRoom : null);
   let eventTimeline = $derived(page.url.searchParams.get('timeline') === 'events');
   $effect(() => {
     if (!space || eventTimeline) return;

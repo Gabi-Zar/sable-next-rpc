@@ -7,24 +7,17 @@
     type RoomIconShape,
   } from './room-icon.js';
 
-  type Props = RoomIconShape & {
+  type Props = Partial<RoomIconShape> & {
     weight?: 'regular' | 'fill';
   };
 
-  let {
-    isCalendar = false,
-    isForum = false,
-    isSpace = false,
-    isVoice = false,
-    joinRule = null,
-    weight = 'regular',
-  }: Props = $props();
+  let { roomKind = null, hasParent = false, joinRule = null, weight = 'regular' }: Props = $props();
 
-  let room = $derived({ isCalendar, isForum, isSpace, isVoice, joinRule });
+  let room = $derived({ roomKind, hasParent, joinRule });
   let overlay = $derived(roomIconOverlay(room));
   let Glyph = $derived(roomIconComponent(room));
   let glyphWeight = $derived(roomIconWeight(room, weight));
-  let Badge = $derived(overlay === undefined ? undefined : roomIconOverlayComponent(overlay));
+  let Badge = $derived(overlay === null ? null : roomIconOverlayComponent(overlay));
 </script>
 
 <span class="room-icon-root">

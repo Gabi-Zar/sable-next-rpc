@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use matrix_sdk::RoomState;
 use matrix_sdk::room_preview::RoomPreview;
 use matrix_sdk::ruma::directory::PublicRoomsChunk;
-use matrix_sdk::ruma::room::{JoinRuleKind, JoinRuleSummary, RoomType};
+use matrix_sdk::ruma::room::{JoinRuleKind, JoinRuleSummary};
 
+use crate::api::rooms::RoomKind;
 use crate::protocol::{PublicRoomView, RoomJoinRuleView, RoomPreviewView, RoomStateView};
 
 #[must_use]
@@ -15,8 +16,7 @@ pub fn public_room(chunk: &PublicRoomsChunk) -> PublicRoomView {
         name: chunk.name.clone(),
         topic: chunk.topic.clone(),
         avatar_url: chunk.avatar_url.as_ref().map(ToString::to_string),
-        is_space: chunk.room_type == Some(RoomType::Space),
-        is_voice: chunk.room_type == Some(RoomType::Call),
+        room_kind: RoomKind::from_room_type(chunk.room_type.as_ref()),
         num_joined_members: u32::try_from(chunk.num_joined_members).unwrap_or(u32::MAX),
         join_rule: join_rule_kind_view(&chunk.join_rule),
         guest_can_join: chunk.guest_can_join,
@@ -96,8 +96,7 @@ pub fn room_preview_view(preview: &RoomPreview) -> RoomPreviewView {
         name: preview.name.clone(),
         topic: preview.topic.clone(),
         avatar_url: preview.avatar_url.as_ref().map(ToString::to_string),
-        is_space: preview.room_type == Some(RoomType::Space),
-        is_voice: preview.room_type == Some(RoomType::Call),
+        room_kind: RoomKind::from_room_type(preview.room_type.as_ref()),
         num_joined_members: u32::try_from(preview.num_joined_members).unwrap_or(u32::MAX),
         join_rule: preview
             .join_rule

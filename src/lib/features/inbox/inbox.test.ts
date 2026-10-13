@@ -34,12 +34,10 @@ function room(overrides: Partial<RoomListItemView>): RoomListItemView {
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: true,
     supports_restricted: true,
     supports_knock_restricted: true,
@@ -145,7 +143,7 @@ test('filters narrow to mentions or to DMs', () => {
 
 test('a space never notifies, and neither does a room we have left', () => {
   const rooms = [
-    room({ room_id: '!space', is_space: true, highlight: 4 }),
+    room({ room_id: '!space', room_kind: 'space', highlight: 4 }),
     room({ room_id: '!left', state: 'left', highlight: 4 }),
   ];
 

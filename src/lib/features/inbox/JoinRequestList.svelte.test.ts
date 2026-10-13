@@ -30,7 +30,12 @@ const room = {
   state: 'joined',
   join_rule: 'knock',
 } as RoomListItemView;
-const space = { ...room, room_id: '!space:example.org', name: 'Space', is_space: true };
+const space: RoomListItemView = {
+  ...room,
+  room_id: '!space:example.org',
+  name: 'Space',
+  room_kind: 'space',
+};
 const alice: MemberView = {
   user_id: '@alice:example.org',
   display_name: 'Alice',

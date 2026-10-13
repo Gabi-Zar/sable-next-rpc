@@ -44,7 +44,6 @@ pub struct HierarchyRoomView {
     pub topic: Option<String>,
     pub avatar_url: Option<String>,
     pub is_space: bool,
-    pub is_voice: bool,
     pub num_joined_members: Option<u32>,
     pub join_rule: RoomJoinRuleView,
     pub allowed_room_ids: Vec<String>,
@@ -410,8 +409,11 @@ mod tests {
             name: None,
             topic: None,
             avatar_url: None,
-            is_space: !children.is_empty() || room_id.starts_with("!space"),
-            is_voice: false,
+            is_space: cfg_select! {
+                // the test harness uses IDs starting with !space for space rooms
+                test => !children.is_empty() || room_id.starts_with("!space"),
+                _ => !children.is_empty(),
+            },
             num_joined_members: None,
             join_rule: RoomJoinRuleView::Public,
             allowed_room_ids: Vec::new(),

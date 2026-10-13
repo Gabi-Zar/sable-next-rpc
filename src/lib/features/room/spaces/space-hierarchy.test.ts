@@ -1,10 +1,6 @@
 import { expect, test } from 'vitest';
 
-import type {
-  RoomListItemView,
-  SpaceChildEdge,
-  SpaceHierarchyRoomView,
-} from '#src/generated/protocol';
+import type { RoomListItemView, SpaceChildEdge, HierarchyRoomView } from '#src/generated/protocol';
 
 import {
   applyChildOverrides,
@@ -34,10 +30,7 @@ function edge(roomId: string, overrides: Partial<SpaceChildEdge> = {}): SpaceChi
   };
 }
 
-function room(
-  roomId: string,
-  overrides: Partial<SpaceHierarchyRoomView> = {}
-): SpaceHierarchyRoomView {
+function room(roomId: string, overrides: Partial<HierarchyRoomView> = {}): HierarchyRoomView {
   return {
     room_id: roomId,
     canonical_alias: null,
@@ -45,7 +38,6 @@ function room(
     topic: null,
     avatar_url: null,
     is_space: false,
-    is_voice: false,
     num_joined_members: 1,
     join_rule: 'public',
     allowed_room_ids: [],
@@ -247,12 +239,10 @@ function summary(roomId: string, overrides: Partial<RoomListItemView> = {}): Roo
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: false,
     supports_restricted: false,
     supports_knock_restricted: false,
@@ -269,9 +259,9 @@ function summary(roomId: string, overrides: Partial<RoomListItemView> = {}): Roo
 test('the local tree is walked from this account own state', () => {
   const local = localHierarchyRooms(
     [
-      summary('!space', { is_space: true, space_children: [edge('!a'), edge('!sub')] }),
+      summary('!space', { room_kind: 'space', space_children: [edge('!a'), edge('!sub')] }),
       summary('!a'),
-      summary('!sub', { is_space: true, space_children: [edge('!nested')] }),
+      summary('!sub', { room_kind: 'space', space_children: [edge('!nested')] }),
       summary('!nested'),
       summary('!elsewhere'),
     ],
@@ -285,7 +275,7 @@ test('the local tree is walked from this account own state', () => {
 test('a space this account has left contributes no children', () => {
   const local = localHierarchyRooms(
     [
-      summary('!space', { is_space: true, state: 'left', space_children: [edge('!a')] }),
+      summary('!space', { room_kind: 'space', state: 'left', space_children: [edge('!a')] }),
       summary('!a'),
     ],
     '!space'
@@ -297,8 +287,8 @@ test('a space this account has left contributes no children', () => {
 test('a local cycle terminates', () => {
   const local = localHierarchyRooms(
     [
-      summary('!space', { is_space: true, space_children: [edge('!sub')] }),
-      summary('!sub', { is_space: true, space_children: [edge('!space')] }),
+      summary('!space', { room_kind: 'space', space_children: [edge('!sub')] }),
+      summary('!sub', { room_kind: 'space', space_children: [edge('!space')] }),
     ],
     '!space'
   );

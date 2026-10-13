@@ -91,7 +91,7 @@
   let addableSpaces = $derived(
     roomList.rooms.filter(
       (candidate) =>
-        candidate.is_space &&
+        candidate.room_kind === 'space' &&
         candidate.state === 'joined' &&
         candidate.room_id !== room.room_id &&
         !candidate.space_children.some((child) => child.room_id === room.room_id) &&
@@ -100,7 +100,7 @@
   );
 
   let readable = $derived(
-    room.is_space ? spaceDescendantRooms(roomList.rooms, room.room_id) : [room]
+    room.room_kind === 'space' ? spaceDescendantRooms(roomList.rooms, room.room_id) : [room]
   );
   let unread = $derived(
     readable.some((entry) => entry.unread > 0 || entry.highlight > 0 || entry.marked_unread)
@@ -277,7 +277,7 @@
   trigger={anchor ? undefined : optionsTrigger}
 >
   <IconContext values={{ 'aria-hidden': 'true' }}>
-    {#if room.is_space || unread}
+    {#if room.room_kind === 'space' || unread}
       <ActionMenuItem disabled={!unread} onSelect={markRead}>
         <ChecksIcon />
         {i18n.t('common.markAsRead')}
@@ -333,7 +333,7 @@
       <UserPlusIcon />
       {i18n.t('room.menuInvite')}
     </ActionMenuItem>
-    {#if room.is_space && onLobby}
+    {#if room.room_kind === 'space' && onLobby}
       <ActionMenuItem
         onSelect={() => {
           onLobby(room);
@@ -343,7 +343,7 @@
         {i18n.t('nav.lobby')}
       </ActionMenuItem>
     {/if}
-    {#if room.is_space}
+    {#if room.room_kind === 'space'}
       <ActionMenuItem
         onSelect={() => {
           void goto(spaceTimelinePath(room, roomList.rooms));
@@ -397,7 +397,7 @@
       </ActionMenuItem>
     {/if}
 
-    {#if !room.is_space}
+    {#if room?.room_kind !== 'space'}
       <RoomNotificationSubmenu roomId={room.room_id} active={opened} />
     {/if}
 
@@ -423,7 +423,7 @@
       </ActionMenuItem>
     {/each}
 
-    {#if !room.is_space && removableParent}
+    {#if room?.room_kind !== 'space' && removableParent}
       <ActionMenuItem
         onSelect={() => {
           removeFromSpace(removableParent.room_id);
@@ -443,7 +443,7 @@
       }}
     >
       <SignOutIcon />
-      {room.is_space ? i18n.t('room.menuLeaveSpace') : i18n.t('room.menuLeave')}
+      {room.room_kind === 'space' ? i18n.t('room.menuLeaveSpace') : i18n.t('room.menuLeave')}
     </ActionMenuItem>
   </IconContext>
 </ActionMenu>

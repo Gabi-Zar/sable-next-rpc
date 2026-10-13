@@ -45,7 +45,7 @@ export function spaceTree(
     const holds = space.space_children.some((edge) => {
       const child = roomsById.get(edge.room_id);
       if (!child) return false;
-      return !child.is_space || holdsRoom(child, seen);
+      return child.room_kind !== 'space' || holdsRoom(child, seen);
     });
     seen.delete(space.room_id);
     holding.set(space.room_id, holds);
@@ -58,7 +58,7 @@ export function spaceTree(
 
     for (const edge of space.space_children) {
       const room = roomsById.get(edge.room_id);
-      if (!room || room.is_space) continue;
+      if (!room || room.room_kind === 'space') continue;
 
       nodes.push({
         kind: 'room',
@@ -73,7 +73,7 @@ export function spaceTree(
 
     for (const edge of space.space_children) {
       const room = roomsById.get(edge.room_id);
-      if (!room?.is_space || ancestry.includes(room.room_id)) continue;
+      if (room?.room_kind !== 'space' || ancestry.includes(room.room_id)) continue;
       if (!holdsRoom(room, new Set())) continue;
 
       const childDepth = depth + 1;

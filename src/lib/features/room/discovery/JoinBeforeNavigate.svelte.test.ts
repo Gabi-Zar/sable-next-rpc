@@ -31,8 +31,7 @@ function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
     name: 'Knock room',
     topic: null,
     avatar_url: null,
-    is_space: false,
-    is_voice: false,
+    room_kind: 'text',
     num_joined_members: 3,
     join_rule: 'knock',
     state: null,
@@ -83,9 +82,9 @@ test('a blank message sends no reason', async () => {
 
 test('a pending request can be withdrawn', async () => {
   const user = userEvent.setup();
-  core.rpc.rooms.preview.mockResolvedValue(preview({ state: 'knocked' }));
+  core.rpc.rooms.preview.mockResolvedValue(preview());
   core.rpc.rooms.leave.mockResolvedValue(null);
-  render(JoinBeforeNavigate, { roomId: '!room:example.org' });
+  render(JoinBeforeNavigate, { roomId: '!room:example.org', membership: "knocked" });
 
   await user.click(await screen.findByRole('button', { name: 'Withdraw request' }));
 

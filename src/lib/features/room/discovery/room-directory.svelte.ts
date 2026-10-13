@@ -64,7 +64,7 @@ export class RoomDirectory {
       if (generation !== this.#generation) return;
 
       const rooms = roomType
-        ? page.rooms.filter((room) => room.is_space === (roomType === 'spaces'))
+        ? page.rooms.filter((room) => roomType !== 'spaces' || room.room_kind === 'space')
         : page.rooms;
       this.rooms = since === null ? rooms : mergeRooms(this.rooms, rooms);
       this.total = page.total;

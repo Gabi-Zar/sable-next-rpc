@@ -76,7 +76,7 @@
 
 <MessageReportDialog
   bind:open={reportOpen}
-  title={i18n.t(room?.is_space ? 'room.menuReportSpace' : 'room.menuReport')}
+  title={i18n.t(room?.room_kind === 'space' ? 'room.menuReportSpace' : 'room.menuReport')}
   hint={i18n.t('room.reportHint')}
   onReport={(reason) => {
     const target = roomId;

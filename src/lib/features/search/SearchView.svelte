@@ -99,7 +99,9 @@
 
   let showOperatorList = $state(false);
 
-  let spaces = $derived(roomList.rooms.filter((room) => room.is_space && room.state === 'joined'));
+  let spaces = $derived(
+    roomList.rooms.filter((room) => room.room_kind === 'space' && room.state === 'joined')
+  );
 
   const CLEAR_RECENT = 'recent:clear';
   let userId = $derived(core.session?.user_id ?? null);

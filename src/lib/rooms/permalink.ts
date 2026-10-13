@@ -16,7 +16,7 @@ function parentSpaceOf(
 ): RoomListItemView | undefined {
   return rooms.find(
     (space) =>
-      space.is_space &&
+      space.room_kind === 'space' &&
       space.state === 'joined' &&
       !space.is_tombstoned &&
       space.space_children.some((child) => child.room_id === roomId)
@@ -46,7 +46,8 @@ function sectionPath(
   room: RoomListItemView | undefined,
   roomParam: string
 ): string {
-  if (room?.is_space) return resolve('/(app)/space/[spaceId]/lobby', { spaceId: roomParam });
+  if (room?.room_kind === 'space')
+    return resolve('/(app)/space/[spaceId]/lobby', { spaceId: roomParam });
   if (room?.is_direct) return resolve('/(app)/direct/[roomId]', { roomId: roomParam });
 
   const parentSpace = room ? rootSpaceOf(rooms, room.room_id) : undefined;
@@ -77,7 +78,7 @@ export function roomSectionPath(
 
   const query = new URLSearchParams();
   // A space has no timeline to focus an event in.
-  if (eventId && !room?.is_space) query.set('event', eventId);
+  if (eventId && room?.room_kind !== 'space') query.set('event', eventId);
   // `via` only helps a join, so it rides along solely for a room the client has
   // never seen. Carrying it further would pin it in the URL of a room already open.
   if (room === undefined) for (const server of via) query.append('via', server);

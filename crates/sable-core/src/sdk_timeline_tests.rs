@@ -4414,7 +4414,7 @@ async fn a_new_calendar_room_is_set_up_by_its_creator() {
     core.run(crate::api::rooms::CreateParams {
         name: Some("Raids".to_owned()),
         topic: None,
-        kind: crate::api::rooms::CreateRoomKind::Calendar,
+        kind: crate::api::rooms::RoomKind::Calendar,
         public: false,
         encrypted: false,
         invite: Vec::new(),
@@ -4463,7 +4463,7 @@ async fn an_encrypted_private_space_includes_encryption_in_its_creation_request(
     core.run(crate::api::rooms::CreateParams {
         name: Some("Private space".to_owned()),
         topic: None,
-        kind: crate::api::rooms::CreateRoomKind::Space,
+        kind: crate::api::rooms::RoomKind::Space,
         public: false,
         encrypted: true,
         invite: Vec::new(),

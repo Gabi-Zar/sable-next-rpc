@@ -25,7 +25,7 @@
     if (!requestedPath && savedRoomId && !roomList.settled) return;
     const room = roomList.byId(savedRoomId);
     const target =
-      room?.state === 'joined' && !room.is_space && !room.is_tombstoned
+      room?.state === 'joined' && room?.room_kind !== 'space' && !room.is_tombstoned
         ? roomSectionPath(roomList.rooms, room.room_id)
         : resolve('/(app)/rooms');
     redirected = true;

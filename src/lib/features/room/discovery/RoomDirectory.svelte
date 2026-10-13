@@ -264,8 +264,9 @@
           <div class="room-text">
             <span class="room-name">
               {label(room)}
-              {#if room.is_space}<span class="badge">{i18n.t('nav.space')}</span>{/if}
-              {#if room.is_voice}<span class="badge">{i18n.t('common.voiceRoom')}</span>{/if}
+              {#if room.room_kind === 'space'}<span class="badge">{i18n.t('nav.space')}</span>{/if}
+              {#if room.room_kind === 'voice'}<span class="badge">{i18n.t('common.voiceRoom')}</span
+                >{/if}
             </span>
             <span class="room-meta">
               <span class="members"

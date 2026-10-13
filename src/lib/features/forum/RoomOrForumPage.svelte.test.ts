@@ -29,7 +29,7 @@ import RoomOrForumPage from './RoomOrForumPage.svelte';
 
 beforeEach(() => {
   state.rooms = [
-    { room_id: '!forum:example.org', room_type: 'pl.chrome.forum' } as RoomListItemView,
+    { room_id: '!forum:example.org', room_kind: 'forum' } as unknown as RoomListItemView,
   ];
   rendered.length = 0;
 });

@@ -19,11 +19,13 @@ use matrix_sdk::ruma::{
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
+use crate::calendar::CALENDAR_ROOM_TYPE;
 use crate::search::MAX_SEARCH_RESULTS;
 use crate::room_settings::StateEventOut;
 use crate::room_settings::join_rule_content;
 use crate::room_settings::voice_power_level_override;
 use crate::protocol::{RpcError, CreateJoinRuleView, PublicRoomView, RoomAttachmentKind, RoomAttachmentView, RoomCosmeticsView, RoomOpenView, RoomPreviewView, RoomListItemView, RoomTag, RoomVersionView, RoomVersionsView};
+use crate::view::FORUM_ROOM_TYPE;
 use crate::{Core, ResultExt, power_levels, view};
 
 const WIDGETS_EVENT_TYPE: &str = "im.vector.modular.widgets";
@@ -65,17 +67,50 @@ pub enum DirectoryRoomType {
     Spaces,
 }
 
-/// The `m.room.create` type to ask for: `m.space`, the MSC3417 call type, the
-/// forum type, or none at all.
-#[derive(Debug, Clone, Copy, Deserialize)]
+/// Room types that Sable supports.
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
-pub enum CreateRoomKind {
+pub enum RoomKind {
+    /// No room type
     Text,
+    /// `m.space`
     Space,
+    /// `org.matrix.msc3417.call`
     Voice,
+    /// `pl.chrome.forum`
     Forum,
+    /// `chat.commet.calendar`
     Calendar,
+}
+
+impl RoomKind {
+    /// Create a [`RoomKind`] from a [`RoomType`].
+    ///
+    /// Returns None if the room type is unsupported by Sable.
+    #[must_use]
+    pub fn from_room_type(room_type: Option<&RoomType>) -> Option<Self> {
+        match room_type {
+            None => Some(Self::Text),
+            Some(RoomType::Space) => Some(Self::Space),
+            Some(RoomType::Call) => Some(Self::Voice),
+            Some(other) if other.as_str() == FORUM_ROOM_TYPE => Some(Self::Forum),
+            Some(other) if other.as_str() == CALENDAR_ROOM_TYPE => Some(Self::Calendar),
+            Some(_) => None,
+        }
+    }
+
+    /// Convert this [`RoomKind`] to a [`RoomType`].
+    #[must_use]
+    pub fn as_room_type(&self) -> Option<RoomType> {
+        match self {
+            Self::Text => None,
+            Self::Space => Some(RoomType::Space),
+            Self::Voice => Some(RoomType::Call),
+            Self::Forum => Some(RoomType::from(FORUM_ROOM_TYPE)),
+            Self::Calendar => Some(RoomType::from(CALENDAR_ROOM_TYPE)),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -294,7 +329,7 @@ pub struct CreateParams {
     #[serde(default)]
     pub name: Option<String>,
     pub topic: Option<String>,
-    pub kind: CreateRoomKind,
+    pub kind: RoomKind,
     /// Published in the directory, joinable by link.
     pub public: bool,
     /// Ignored for a space or a public room.
@@ -359,11 +394,11 @@ impl Handler for CreateParams {
         });
 
         let room_type = match self.kind {
-            CreateRoomKind::Text => None,
-            CreateRoomKind::Space => Some(RoomType::Space),
-            CreateRoomKind::Voice => Some(RoomType::Call),
-            CreateRoomKind::Forum => Some(RoomType::from(view::FORUM_ROOM_TYPE)),
-            CreateRoomKind::Calendar => Some(RoomType::from(crate::calendar::CALENDAR_ROOM_TYPE)),
+            RoomKind::Text => None,
+            RoomKind::Space => Some(RoomType::Space),
+            RoomKind::Voice => Some(RoomType::Call),
+            RoomKind::Forum => Some(RoomType::from(view::FORUM_ROOM_TYPE)),
+            RoomKind::Calendar => Some(RoomType::from(crate::calendar::CALENDAR_ROOM_TYPE)),
         };
         if room_type.is_some() || !self.federate || self.predecessor.is_some() {
             let creation = creation_content(room_type, self.federate, self.predecessor);
@@ -378,7 +413,7 @@ impl Handler for CreateParams {
             request.initial_state.push(rule.to_raw_any());
         }
 
-        if matches!(self.kind, CreateRoomKind::Voice) {
+        if matches!(self.kind, RoomKind::Voice) {
             // The override is a shallow merge: naming `events` drops the
             // server's default map, so it is re-stated.
             request.power_level_content_override = Some(
@@ -422,7 +457,7 @@ impl Handler for CreateParams {
             .await
             .or_failed(core, "create_room")?;
 
-        if matches!(self.kind, CreateRoomKind::Calendar)
+        if matches!(self.kind, RoomKind::Calendar)
             && let Err(error) = core.calendar_id(&room).await
         {
             tracing::warn!(?error, "calendar setup failed");

@@ -11,6 +11,8 @@ pub use sable_model::slash::{GestureView, MessageKind};
 pub use sable_model::spaces::{RoomJoinRuleView, SpaceChildEdge};
 use serde::{Deserialize, Serialize};
 
+use crate::api::rooms::RoomKind;
+
 #[derive(Debug, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct Outgoing {
@@ -655,15 +657,11 @@ pub struct RoomListItemView {
     pub join_rule: RoomJoinRuleView,
     /// Only the tags this client models; others are dropped.
     pub tags: Vec<RoomTag>,
-    /// An `invited` room is an invitation to accept.
     pub state: RoomStateView,
     /// `null` until the state event loads, which is not the same as `false`.
     pub encrypted: Option<bool>,
-    pub is_space: bool,
     pub is_tombstoned: bool,
-    pub room_type: Option<String>,
-    /// An `m.room.create` with the MSC3417 call type.
-    pub is_voice: bool,
+    pub room_kind: Option<RoomKind>,
     /// Members in the room's call, oldest first and one entry per user however
     /// many devices they joined with.
     #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
@@ -963,8 +961,7 @@ pub struct RoomPreviewView {
     pub name: Option<String>,
     pub topic: Option<String>,
     pub avatar_url: Option<String>,
-    pub is_space: bool,
-    pub is_voice: bool,
+    pub room_kind: Option<RoomKind>,
     pub num_joined_members: u32,
     pub join_rule: RoomJoinRuleView,
     /// `null` when this account has no membership in the room.
@@ -973,10 +970,6 @@ pub struct RoomPreviewView {
 
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[expect(
-    clippy::struct_excessive_bools,
-    reason = "wire type mirroring the protocol"
-)]
 pub struct PublicRoomView {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -984,8 +977,7 @@ pub struct PublicRoomView {
     pub name: Option<String>,
     pub topic: Option<String>,
     pub avatar_url: Option<String>,
-    pub is_space: bool,
-    pub is_voice: bool,
+    pub room_kind: Option<RoomKind>,
     pub num_joined_members: u32,
     pub join_rule: RoomJoinRuleView,
     pub guest_can_join: bool,
@@ -1003,8 +995,7 @@ pub struct SpaceHierarchyRoomView {
     pub name: Option<String>,
     pub topic: Option<String>,
     pub avatar_url: Option<String>,
-    pub is_space: bool,
-    pub is_voice: bool,
+    pub room_kind: Option<RoomKind>,
     pub num_joined_members: u32,
     pub join_rule: RoomJoinRuleView,
     /// The rooms a `restricted` or `knock_restricted` join rule admits members of.

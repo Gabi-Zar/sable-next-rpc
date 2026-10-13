@@ -106,7 +106,7 @@
   let roleRemoveConfirm = $state(false);
 
   let roomId = $derived(room?.room_id ?? null);
-  let groups = $derived(permissionGroups(room?.is_space ?? false));
+  let groups = $derived(permissionGroups(room?.room_kind === 'space'));
   let canEdit = $derived(permissions?.can_change_power_levels ?? false);
   let pickedColor = $derived(
     /^#[0-9a-f]{6}$/i.test(roleColorDraft.trim()) ? roleColorDraft.trim() : undefined
@@ -120,7 +120,7 @@
   let syncing = $state(false);
   let syncFailed = $state(false);
   let syncSpaceIds = $derived(
-    roomId && !room?.is_space ? ancestorSpaceIds(roomList.rooms, roomId).reverse() : []
+    roomId && room?.room_kind !== 'space' ? ancestorSpaceIds(roomList.rooms, roomId).reverse() : []
   );
   let syncSpaceId = $derived(
     syncChoice !== null && syncSpaceIds.includes(syncChoice)
@@ -129,7 +129,7 @@
   );
 
   let childIds = $derived(
-    roomId && room?.is_space ? descendantRoomIds(roomList.rooms, roomId) : []
+    roomId && room?.room_kind === 'space' ? descendantRoomIds(roomList.rooms, roomId) : []
   );
   let childConfirm = $state(false);
   let childSyncing = $state(false);

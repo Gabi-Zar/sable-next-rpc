@@ -19,7 +19,7 @@ const { space, extraRooms } = vi.hoisted(() => ({
   space: {
     room_id: '!space:example.org',
     name: 'Guild',
-    is_space: true,
+    room_kind: 'space',
     state: 'joined',
     space_children: [{ room_id: '!room:example.org' }],
   },
@@ -98,7 +98,7 @@ const base: RoomPowerLevelsView = {
   notifications_room: 50,
 };
 
-const room = { room_id: '!room:example.org', is_space: false } as RoomListItemView;
+const room = { room_id: '!room:example.org', room_kind: 'text' } as RoomListItemView;
 
 const permissions = {
   own_power_level: 100,

@@ -22,12 +22,10 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: false,
     supports_restricted: false,
     supports_knock_restricted: false,
@@ -42,27 +40,27 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
 }
 
 test('a space cannot become its own child', () => {
-  const rooms = [room('!a', { is_space: true })];
+  const rooms = [room('!a', { room_kind: 'space' })];
   expect(wouldCreateCycle(rooms, '!a', '!a')).toBe(true);
 });
 
 test('a space cannot be added under one of its own descendants', () => {
   const rooms = [
-    room('!a', { is_space: true, space_children: [edge('!b')] }),
-    room('!b', { is_space: true, space_children: [edge('!c')] }),
-    room('!c', { is_space: true }),
+    room('!a', { room_kind: 'space', space_children: [edge('!b')] }),
+    room('!b', { room_kind: 'space', space_children: [edge('!c')] }),
+    room('!c', { room_kind: 'space' }),
   ];
 
   expect(wouldCreateCycle(rooms, '!c', '!a')).toBe(true);
 });
 
 test('adding an unrelated space is not a cycle', () => {
-  const rooms = [room('!a', { is_space: true }), room('!b', { is_space: true })];
+  const rooms = [room('!a', { room_kind: 'space' }), room('!b', { room_kind: 'space' })];
 
   expect(wouldCreateCycle(rooms, '!a', '!b')).toBe(false);
 });
 
 test('a plain room is never a cycle', () => {
-  const rooms = [room('!a', { is_space: true }), room('!room')];
+  const rooms = [room('!a', { room_kind: 'space' }), room('!room')];
   expect(wouldCreateCycle(rooms, '!a', '!room')).toBe(false);
 });

@@ -33,7 +33,7 @@ export function joinedSpaceChildrenLeaveOrder(
       const child = byId.get(edge.room_id);
       if (!isJoinedLive(child)) continue;
 
-      if (child.is_space) {
+      if (child.room_kind === 'space') {
         visitSpace(child.room_id);
         continue;
       }

@@ -24,12 +24,10 @@ function room(overrides: Partial<RoomListItemView>): RoomListItemView {
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
+    room_kind: 'text',
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
     supports_knock: true,
     supports_restricted: true,
     supports_knock_restricted: true,
@@ -46,7 +44,7 @@ function room(overrides: Partial<RoomListItemView>): RoomListItemView {
 test('does not mark a space unread for a muted child room', () => {
   const space = room({
     room_id: '!space:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       {
         room_id: '!muted:example.org',
@@ -69,7 +67,7 @@ test('does not mark a space unread for a muted child room', () => {
 test('sums the mentions of a space across its nested rooms, counting each room once', () => {
   const root = room({
     room_id: '!root:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       { room_id: '!sub:example.org', via: [], order: null, origin_server_ts: 1, suggested: false },
       {
@@ -83,7 +81,7 @@ test('sums the mentions of a space across its nested rooms, counting each room o
   });
   const sub = room({
     room_id: '!sub:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       { room_id: '!deep:example.org', via: [], order: null, origin_server_ts: 1, suggested: false },
       {
@@ -109,7 +107,7 @@ test('sums the mentions of a space across its nested rooms, counting each room o
 test('a hand-marked room dots its parent space, even muted', () => {
   const root = room({
     room_id: '!root:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       {
         room_id: '!muted:example.org',
@@ -134,7 +132,7 @@ test('a hand-marked room dots its parent space, even muted', () => {
 test('a joined space lends its edge to a room opened from a link', () => {
   const space = room({
     room_id: '!space:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       {
         room_id: '!child',
@@ -163,15 +161,15 @@ test('finds the space holding a call room through a nested space, with cycles', 
   });
   const root = room({
     room_id: '!root:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [child('!sub:example.org')],
   });
   const sub = room({
     room_id: '!sub:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [child('!root:example.org'), child('!voice:example.org')],
   });
-  const other = room({ room_id: '!other:example.org', is_space: true, space_children: [] });
+  const other = room({ room_id: '!other:example.org', room_kind: 'space', space_children: [] });
   const voice = room({ room_id: '!voice:example.org' });
   const rooms = [root, sub, other, voice];
 
@@ -185,7 +183,7 @@ test('finds the space holding a call room through a nested space, with cycles', 
 test('a mentions-only child still marks its space unread', () => {
   const space = room({
     room_id: '!space:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       {
         room_id: '!quiet:example.org',
@@ -206,7 +204,7 @@ test('a mentions-only child still marks its space unread', () => {
 test('a space totals how much of its unread notified', () => {
   const space = room({
     room_id: '!space:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       { room_id: '!loud:example.org', via: [], order: null, origin_server_ts: 1, suggested: false },
       {
@@ -233,12 +231,12 @@ function child(roomId: string) {
 test('a hidden space hides the unread of every room beneath it', () => {
   const root = room({
     room_id: '!root:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [child('!sub:example.org'), child('!top:example.org')],
   });
   const sub = room({
     room_id: '!sub:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [child('!deep:example.org'), child('!root:example.org')],
   });
   const rooms = [
@@ -257,7 +255,7 @@ test('a hidden space hides the unread of every room beneath it', () => {
 test('a hidden room adds only its mentions to its space', () => {
   const space = room({
     room_id: '!space:example.org',
-    is_space: true,
+    room_kind: 'space',
     space_children: [child('!quiet:example.org')],
   });
   const quiet = room({ room_id: '!quiet:example.org', unread: 5, notifying: 5 });
@@ -283,10 +281,10 @@ test('collects joined rooms from nested spaces once, skipping unjoined children'
       suggested: false,
     }));
   const rooms = [
-    room({ room_id: '!root:x', is_space: true, space_children: edges('!a:x', '!sub:x') }),
+    room({ room_id: '!root:x', room_kind: 'space', space_children: edges('!a:x', '!sub:x') }),
     room({
       room_id: '!sub:x',
-      is_space: true,
+      room_kind: 'space',
       space_children: edges('!b:x', '!root:x', '!left:x', '!a:x'),
     }),
     room({ room_id: '!a:x' }),
