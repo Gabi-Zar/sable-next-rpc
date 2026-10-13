@@ -559,12 +559,6 @@ pub enum Command {
         #[cfg_attr(feature = "typegen", specta(type = String))]
         room_id: OwnedRoomId,
     },
-    EventCached {
-        #[cfg_attr(feature = "typegen", specta(type = String))]
-        room_id: OwnedRoomId,
-        #[cfg_attr(feature = "typegen", specta(type = String))]
-        event_id: OwnedEventId,
-    },
     AccountDataTypes,
     AccessToken,
     AccountData {
@@ -612,6 +606,7 @@ pub enum Command {
         room_id: OwnedRoomId,
         #[cfg_attr(feature = "typegen", specta(type = String))]
         event_id: OwnedEventId,
+        include_original: bool,
     },
     EditHistory {
         #[cfg_attr(feature = "typegen", specta(type = String))]
@@ -1965,9 +1960,6 @@ pub enum CommandOk {
     ReadMarker {
         #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
         event_id: Option<OwnedEventId>,
-    },
-    EventCached {
-        cached: bool,
     },
     AccountDataTypes {
         event_types: Vec<String>,

@@ -1503,21 +1503,6 @@ impl Core {
                 Ok(CommandOk::ReadMarker { event_id })
             }
 
-            Command::EventCached { room_id, event_id } => {
-                let (cache, _handles) = self
-                    .room(&room_id)
-                    .await?
-                    .event_cache()
-                    .await
-                    .or_failed(self, "event_cached")?;
-                let cached = cache
-                    .find_event(&event_id)
-                    .await
-                    .or_failed(self, "event_cached")?
-                    .is_some();
-                Ok(CommandOk::EventCached { cached })
-            }
-
             Command::AccountDataTypes => Ok(CommandOk::AccountDataTypes {
                 event_types: self.account_data_types().await?,
             }),
@@ -1599,8 +1584,14 @@ impl Core {
                 items: self.event_items(&room_id, &event_ids).await?,
             }),
 
-            Command::EventSource { room_id, event_id } => {
-                let (source, encrypted, original) = self.event_source(&room_id, &event_id).await?;
+            Command::EventSource {
+                room_id,
+                event_id,
+                include_original,
+            } => {
+                let (source, encrypted, original) = self
+                    .event_source(&room_id, &event_id, include_original)
+                    .await?;
                 Ok(CommandOk::EventSource {
                     source,
                     encrypted,

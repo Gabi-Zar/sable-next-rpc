@@ -520,6 +520,7 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
+        include_original: bool,
     ) -> Result<(String, bool, Option<String>), CommandErr> {
         let event = self
             .room(room_id)
@@ -529,7 +530,7 @@ impl Core {
             .or_failed(self, "event_source")?;
 
         let encrypted = event.encryption_info().is_some();
-        let original = if encrypted {
+        let original = if encrypted && include_original {
             match self
                 .client()
                 .await?

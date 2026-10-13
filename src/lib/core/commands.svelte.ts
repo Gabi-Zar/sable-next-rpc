@@ -547,15 +547,6 @@ export function createCommands(transport: () => Transport) {
       return response.event_id;
     },
 
-    async eventCached(roomId: string, eventId: string): Promise<boolean> {
-      const response = await transport().send({
-        type: 'event_cached',
-        room_id: roomId,
-        event_id: eventId,
-      });
-      return response.cached;
-    },
-
     async roomAccountData(roomId: string, eventType: string): Promise<unknown> {
       const response = await transport().send({
         type: 'room_account_data',
@@ -1199,17 +1190,19 @@ export function createCommands(transport: () => Transport) {
     },
 
     async eventSource(roomId: string, eventId: string): Promise<string> {
-      return (await this.eventSourceDetails(roomId, eventId)).source;
+      return (await this.eventSourceDetails(roomId, eventId, false)).source;
     },
 
     async eventSourceDetails(
       roomId: string,
-      eventId: string
+      eventId: string,
+      includeOriginal = true
     ): Promise<{ source: string; encrypted: boolean; original: string | null }> {
       const response = await transport().send({
         type: 'event_source',
         room_id: roomId,
         event_id: eventId,
+        include_original: includeOriginal,
       });
       return {
         source: response.source,

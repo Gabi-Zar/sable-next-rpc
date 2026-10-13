@@ -422,7 +422,7 @@ impl Core {
             .await
             .and_then(|item| view::reply_without_body(item.content()));
         if let Some(replied) = unresolved {
-            match self.event_source(room_id, &replied).await {
+            match self.event_source(room_id, &replied, false).await {
                 Ok((source, _, _)) => {
                     let stand_in = serde_json::from_str(&source)
                         .ok()

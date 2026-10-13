@@ -436,7 +436,7 @@ pub(crate) async fn build_room_timeline(
         },
         TimelineFocusView::Event { event_id } => TimelineFocus::Event {
             target: event_id.clone(),
-            num_context_events: 20,
+            num_context_events: 50,
             thread_mode: TimelineEventFocusThreadMode::Automatic {
                 hide_threaded_events: false,
             },
