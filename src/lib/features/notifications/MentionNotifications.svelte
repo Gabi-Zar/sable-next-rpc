@@ -117,7 +117,7 @@
 
   <ul class="settings-rows">
     {#each shown as { rule, key, label, hint } (rule)}
-      <SettingsRow title={label} description={hint}>
+      <SettingsRow id={`mention-${rule}`} title={label} description={hint}>
         {#if current}
           <Select
             aria-label={label}

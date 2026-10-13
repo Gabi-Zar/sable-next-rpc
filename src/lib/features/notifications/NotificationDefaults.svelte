@@ -150,7 +150,7 @@
 
   <ul class="settings-rows">
     {#each badgeRows as { key, label } (key)}
-      <SettingsRow title={$i18n.t(label)}>
+      <SettingsRow id={`notification-badge-${key}`} title={$i18n.t(label)}>
         <Select
           aria-label={`${$i18n.t('settings.notificationBadges')}: ${$i18n.t(label)}`}
           value={preferences[key]}
@@ -182,6 +182,7 @@
   <ul class="settings-rows">
     {#if muted !== null}
       <SettingsRow
+        id="notification-master-mute"
         title={$i18n.t('settings.notificationMasterMute')}
         description={$i18n.t('settings.notificationMasterMuteHint')}
       >
@@ -193,7 +194,7 @@
       </SettingsRow>
     {/if}
     {#each pushRows as { key, label, direct } (key)}
-      <SettingsRow title={$i18n.t(label)}>
+      <SettingsRow id={`notification-push-${key}`} title={$i18n.t(label)}>
         {#if current}
           <Select
             aria-label={`${$i18n.t('settings.notificationPush')}: ${$i18n.t(label)}`}
@@ -209,7 +210,7 @@
     {#if events}
       {#each eventRows as { key, label } (key)}
         {#if events[key] !== null}
-          <SettingsRow title={$i18n.t(label)}>
+          <SettingsRow id={`notification-event-${key}`} title={$i18n.t(label)}>
             <Select
               aria-label={$i18n.t(label)}
               value={events[key] ? 'on' : 'off'}

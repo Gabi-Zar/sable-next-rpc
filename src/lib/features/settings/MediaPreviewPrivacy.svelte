@@ -20,7 +20,7 @@
 </script>
 
 <ul class="settings-rows">
-  <SettingsRow title={$i18n.t('settings.inviteAvatars')} control={avatarsId}>
+  <SettingsRow id="invite-avatars" title={$i18n.t('settings.inviteAvatars')} control={avatarsId}>
     <Switch
       id={avatarsId}
       checked={mediaPreviewSettings.inviteAvatars === 'on'}

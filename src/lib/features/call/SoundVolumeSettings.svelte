@@ -7,6 +7,7 @@
     setPreference,
     type RangePreference,
   } from '#lib/settings/preferences.svelte.js';
+  import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import Slider from '#lib/ui/primitives/Slider.svelte';
 
   import '#lib/ui/primitives/settings-row.css';
@@ -137,8 +138,8 @@
 
 {#snippet soundSnippet(sound: Sound)}
   {@const Icon = sound.icon}
-  <div class="row">
-    <span class="label"><Icon aria-hidden="true" />{$i18n.t(sound.label)}</span>
+  <SettingsRow id={`sound-volume-${sound.sound}`} title={$i18n.t(sound.label)}>
+    {#snippet before()}<Icon aria-hidden="true" />{/snippet}
     <div class="control" data-max-range={PREFERENCE_RANGES[sound.preference].max}>
       <Slider
         min={PREFERENCE_RANGES[sound.preference].min}
@@ -183,18 +184,22 @@
         /><span class="range-suffix" aria-hidden="true">%</span>
       </label>
     </div>
-  </div>
+  </SettingsRow>
 {/snippet}
 <div class="settings-form">
   <div class="device-rows">
-    {#each SOUNDS.filter((sound) => sound.category === undefined) as sound (sound.sound)}
-      {@render soundSnippet(sound)}
-    {/each}
-    {#each CATEGORIES as category (category.name)}
-      <h3>{$i18n.t(category.label)}</h3>
-      {#each SOUNDS.filter((sound) => sound.category === category.name) as sound (sound.sound)}
+    <ul class="settings-rows">
+      {#each SOUNDS.filter((sound) => sound.category === undefined) as sound (sound.sound)}
         {@render soundSnippet(sound)}
       {/each}
+    </ul>
+    {#each CATEGORIES as category (category.name)}
+      <h3>{$i18n.t(category.label)}</h3>
+      <ul class="settings-rows">
+        {#each SOUNDS.filter((sound) => sound.category === category.name) as sound (sound.sound)}
+          {@render soundSnippet(sound)}
+        {/each}
+      </ul>
     {/each}
   </div>
 </div>
@@ -204,19 +209,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-200);
-  }
-
-  .row {
-    align-items: center;
-    display: grid;
-    gap: var(--space-200);
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .label {
-    align-items: center;
-    display: inline-flex;
-    gap: var(--space-100);
   }
 
   .control {

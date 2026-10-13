@@ -21,6 +21,10 @@ vi.mock('#lib/platform/calls.js', () => ({
   },
 }));
 
+vi.mock('#lib/features/notifications/sound.js', () => ({
+  playSound: () => Promise.resolve({ stop: () => {} }),
+}));
+
 import { IncomingCalls } from './incoming-calls.svelte.js';
 
 function harness() {

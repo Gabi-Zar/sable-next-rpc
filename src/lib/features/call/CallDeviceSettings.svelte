@@ -10,6 +10,7 @@
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import Select from '#lib/ui/primitives/Select.svelte';
+  import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import Slider from '#lib/ui/primitives/Slider.svelte';
 
   import { outputVolume, setOutputVolume } from './participant-volumes.svelte.js';
@@ -115,11 +116,9 @@
       </Alert>
     {/if}
 
-    <div class="device-rows">
-      <label class="row">
-        <span class="label"
-          ><MicrophoneIcon aria-hidden="true" />{$i18n.t('settings.callInputDevice')}</span
-        >
+    <ul class="settings-rows">
+      <SettingsRow id="call-input-device" title={$i18n.t('settings.callInputDevice')}>
+        {#snippet before()}<MicrophoneIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('audioinput')}
           value={preferences.audioInputDevice || SYSTEM_DEFAULT}
@@ -127,12 +126,10 @@
           onValueChange={(value) =>
             setPreference('audioInputDevice', value === SYSTEM_DEFAULT ? '' : value)}
         />
-      </label>
+      </SettingsRow>
 
-      <label class="row">
-        <span class="label"
-          ><SpeakerHighIcon aria-hidden="true" />{$i18n.t('settings.callOutputDevice')}</span
-        >
+      <SettingsRow id="call-output-device" title={$i18n.t('settings.callOutputDevice')}>
+        {#snippet before()}<SpeakerHighIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('audiooutput')}
           value={preferences.audioOutputDevice || SYSTEM_DEFAULT}
@@ -140,12 +137,10 @@
           onValueChange={(value) =>
             setPreference('audioOutputDevice', value === SYSTEM_DEFAULT ? '' : value)}
         />
-      </label>
+      </SettingsRow>
 
-      <label class="row">
-        <span class="label"
-          ><VideoCameraIcon aria-hidden="true" />{$i18n.t('settings.callCameraDevice')}</span
-        >
+      <SettingsRow id="call-camera-device" title={$i18n.t('settings.callCameraDevice')}>
+        {#snippet before()}<VideoCameraIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('videoinput')}
           value={preferences.videoInputDevice || SYSTEM_DEFAULT}
@@ -153,12 +148,10 @@
           onValueChange={(value) =>
             setPreference('videoInputDevice', value === SYSTEM_DEFAULT ? '' : value)}
         />
-      </label>
+      </SettingsRow>
 
-      <div class="row">
-        <span class="label"
-          ><SpeakerHighIcon aria-hidden="true" />{$i18n.t('settings.callOutputVolume')}</span
-        >
+      <SettingsRow id="call-output-volume" title={$i18n.t('settings.callOutputVolume')}>
+        {#snippet before()}<SpeakerHighIcon aria-hidden="true" />{/snippet}
         <div class="control">
           <Slider
             min={0}
@@ -170,12 +163,10 @@
           />
           <span class="reading">{Math.round(outputVolume() * 100)}%</span>
         </div>
-      </div>
+      </SettingsRow>
 
-      <div class="row">
-        <span class="label"
-          ><MicrophoneIcon aria-hidden="true" />{$i18n.t('settings.callMicTestLevel')}</span
-        >
+      <SettingsRow id="call-mic-test" title={$i18n.t('settings.callMicTestLevel')}>
+        {#snippet before()}<MicrophoneIcon aria-hidden="true" />{/snippet}
         <div class="control">
           <div
             class="meter"
@@ -191,31 +182,12 @@
             {$i18n.t(testing ? 'common.stopTest' : 'settings.callMicTest')}
           </Button>
         </div>
-      </div>
-    </div>
+      </SettingsRow>
+    </ul>
   {/if}
 </div>
 
 <style>
-  .device-rows {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-200);
-  }
-
-  .row {
-    align-items: center;
-    display: grid;
-    gap: var(--space-200);
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
-  }
-
-  .label {
-    align-items: center;
-    display: inline-flex;
-    gap: var(--space-100);
-  }
-
   .control {
     align-items: center;
     display: flex;
