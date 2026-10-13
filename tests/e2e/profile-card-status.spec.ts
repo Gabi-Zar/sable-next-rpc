@@ -20,6 +20,7 @@ test('a hovered status leaves the message action clickable', async ({ page }) =>
   await page.locator('.profile-card-user-id').focus();
   await page.locator('.profile-card-status').hover();
   await page.getByRole('button', { name: 'Message', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Start chat' }).click();
   await expect(page.locator('.profile-card')).toBeHidden();
 });
 

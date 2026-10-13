@@ -202,11 +202,13 @@ for (const choice of [
       await expect
         .poll(() => lastCommand(page, 'set_read_room'))
         .toEqual({ type: 'set_read_room', room_id: focused ? '!room:example.test' : null });
-      expect(await lastCommand(page, 'set_presence')).toEqual({
-        type: 'set_presence',
-        presence: choice.expected,
-        status_message: choice.sendPresence ? 'Back later' : null,
-      });
+      await expect
+        .poll(() => lastCommand(page, 'set_presence'))
+        .toEqual({
+          type: 'set_presence',
+          presence: choice.expected,
+          status_message: choice.sendPresence ? 'Back later' : null,
+        });
     }
   });
 }

@@ -254,7 +254,7 @@ test('formatting uses the footer space', async () => {
   const { screen, composer } = await mount(true);
   await userEvent.click(composer);
   await userEvent.keyboard('draft words');
-  await userEvent.keyboard('{Control>}a{/Control}');
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}');
   const before = boxOf('.composer');
 
   await userEvent.click(screen.getByRole('button', { name: 'Formatting', exact: true }));
@@ -390,7 +390,7 @@ async function colourSelection(
   await userEvent.click(screen.getByRole('button', { name: 'Formatting', exact: true }));
   await userEvent.click(composer);
   await userEvent.keyboard('red words');
-  await userEvent.keyboard('{Control>}a{/Control}');
+  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}');
   await userEvent.click(screen.getByRole('button', { name: 'Text colour' }));
   await userEvent.click(screen.getByRole('button', { name: 'Red', exact: true }));
   await expect.poll(() => editor().textContent).toBe('$[fg.color=e5484d red words]');

@@ -1826,8 +1826,8 @@ test.each([
       expect(document.querySelector('header .sender-identity-pronoun')).toHaveTextContent(
         'they/them'
       );
-      expect(document.querySelector('.member-identity-row')).toHaveTextContent('they/them');
     });
+    expect(document.querySelector('.member-identity-row .sender-identity-pronoun')).toBeNull();
     expect(document.querySelector('header .sender-identity-name')).toHaveTextContent(expectedName);
     expect(document.querySelector('.member-name')).toHaveTextContent(expectedName);
     expect(

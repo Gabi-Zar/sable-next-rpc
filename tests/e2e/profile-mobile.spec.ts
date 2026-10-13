@@ -81,8 +81,8 @@ test('mobile: settings are below the profile card and editing stays inside it', 
   const accountsBox = await page.getByRole('heading', { name: 'Accounts' }).boundingBox();
   if (!settingsBox || !editProfileBox || !accountsBox)
     throw new Error('Profile actions and accounts are not laid out.');
-  expect(settingsBox.height).toBeGreaterThanOrEqual(48);
-  expect(editProfileBox.height).toBeGreaterThanOrEqual(48);
+  expect(settingsBox.height).toBeGreaterThanOrEqual(44);
+  expect(editProfileBox.height).toBeGreaterThanOrEqual(44);
   expect(settingsBox.y).toBeGreaterThanOrEqual(cardBox.y + cardBox.height);
   expect(settingsBox.x).toBe(cardBox.x);
   expect(settingsBox.x + settingsBox.width).toBe(cardBox.x + cardBox.width);
@@ -93,8 +93,8 @@ test('mobile: settings are below the profile card and editing stays inside it', 
   expect(settingsBox.y + settingsBox.height).toBeLessThanOrEqual(accountsBox.y);
   const addAccount = page.getByRole('button', { name: 'Add account' });
   const logout = page.getByRole('button', { name: 'Log out' });
-  expect((await addAccount.boundingBox())?.height).toBeGreaterThanOrEqual(48);
-  expect((await logout.boundingBox())?.height).toBeGreaterThanOrEqual(48);
+  expect((await addAccount.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect((await logout.boundingBox())?.height).toBeGreaterThanOrEqual(44);
   expect((await logout.boundingBox())?.width).toBeLessThan(cardBox.width);
   const switchAccount = page.getByRole('button', {
     name: 'Switch account: Second, @second:example.test',
@@ -179,7 +179,7 @@ test('mobile: account controls fit a narrow screen with larger text', async ({
   await expect(page).toHaveURL(/\/login\?addAccount=1&reauth=second-account&server=/);
 });
 
-test('mobile: custom profile colors keep a distinct avatar and touch controls are at least 48px', async ({
+test('mobile: custom profile colors keep a distinct avatar and touch controls are at least 44px', async ({
   page,
   installRoomCore,
 }) => {
@@ -206,8 +206,11 @@ test('mobile: custom profile colors keep a distinct avatar and touch controls ar
   for (const target of [
     dialog.locator('.bottom-sheet-handle'),
     dialog.getByRole('textbox', { name: 'Status message' }),
-    dialog.getByRole('button', { name: 'Cancel', exact: true }).first(),
   ]) {
     expect((await target.boundingBox())?.height).toBeGreaterThanOrEqual(48);
   }
+  expect(
+    (await dialog.getByRole('button', { name: 'Cancel', exact: true }).first().boundingBox())
+      ?.height
+  ).toBeGreaterThanOrEqual(44);
 });

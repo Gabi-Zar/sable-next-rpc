@@ -19,7 +19,7 @@ test('Ctrl+V pastes into the composer while nothing is focused', async ({
   await page.evaluate(() => navigator.clipboard.writeText('pasted from nowhere'));
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await expect(app.composer).not.toBeFocused();
-  await page.keyboard.press('Control+V');
+  await page.keyboard.press('ControlOrMeta+V');
   await expect(app.composer).toBeFocused();
 
   await expect.poll(() => app.composer.innerText()).toBe('pasted from nowhere');

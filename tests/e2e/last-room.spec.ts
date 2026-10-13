@@ -14,6 +14,7 @@ test('restores the last room on startup', async ({ page }) => {
     timeout: COLD_BOOT_TIMEOUT,
   });
   await page.goto('/rooms');
+  await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
   await page.goto('/');
 
   await expect(page).toHaveURL(roomPath);

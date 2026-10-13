@@ -1286,6 +1286,7 @@ test('a message the reader sends from the bottom is followed on every frame', as
   timeline,
   core,
   installRoomCore,
+  isMobile,
 }) => {
   await installRoomCore('ready');
   await page.setViewportSize({ width: 900, height: 420 });
@@ -1315,7 +1316,7 @@ test('a message the reader sends from the bottom is followed on every frame', as
         .poll(() => app.composer.evaluate((node) => node.getBoundingClientRect().height))
         .toBeGreaterThan(initialComposerHeight);
     }
-    if (send.method === 'button') await app.sendMessage.click();
+    if (send.method === 'button' || isMobile) await app.sendMessage.click();
     else await app.composer.press('Enter');
     await expect
       .poll(
@@ -1444,7 +1445,7 @@ test('deleting the last composer character keeps following latest', async ({
   }
   const body = 'Follow-up after empty draft';
   await app.composer.fill(body);
-  await app.composer.press('Enter');
+  await app.sendMessage.click();
   await expect(app.composer).toHaveText('');
   await core.emitTimelineDiff(subscription, [
     {

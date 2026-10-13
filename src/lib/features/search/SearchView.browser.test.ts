@@ -299,7 +299,9 @@ test('typing in the middle of the draft keeps the space and the caret', async ()
   const { field, chips } = await mount();
 
   await userEvent.fill(field.element(), 'in:Random ');
-  await userEvent.keyboard('deploy{Home} X');
+  await userEvent.keyboard('deploy');
+  (field.element() as HTMLInputElement).setSelectionRange(0, 0);
+  await userEvent.keyboard(' X');
 
   await expect.element(field).toHaveValue(' Xdeploy');
   await expect.element(chips).toHaveLength(1);
