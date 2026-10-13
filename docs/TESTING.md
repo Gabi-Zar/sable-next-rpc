@@ -23,6 +23,16 @@ pnpm knip        # unused files and exports
 
 `pnpm check` runs the repo's own guards, which are described in `CLAUDE.md`.
 
+## Accessibility
+
+Browser component tests (`*.browser.test.ts`) can use `src/lib/test-support/a11y.ts` and `keyboard.ts`:
+
+- `expectNoA11yViolations(element)` runs axe-core (WCAG 2.2 AA and best practices) on a rendered component.
+- `expectSingleTabStop(widget)` asserts a toolbar, tablist, tree or listbox is one tab stop.
+- `tabStops(root)` lists what Tab reaches inside `root`.
+
+`tests/e2e/a11y.spec.ts` runs axe over whole pages. Storybook fails stories on axe violations.
+
 ## End to end
 
 ```sh
