@@ -82,7 +82,7 @@
   let topicShown = $derived(topic !== null && topic.trim() !== '' && onTopic !== null);
 </script>
 
-<PanelHeader class="room-header">
+<PanelHeader class="room-header" suffixToolbarLabel={$i18n.t('room.actionsLabel')}>
   {#snippet prefix()}
     <PanelHeaderButton class="back-button" label={$i18n.t('timeline.back')} onclick={onBack}>
       <BackIcon />

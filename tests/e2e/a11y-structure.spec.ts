@@ -12,14 +12,6 @@ test.beforeEach(async ({ page, signIn }) => {
   await signIn();
 });
 
-// Rule ids per category that fail today. Fix one and the test asks for its entry
-// to be removed; a new violation anywhere fails it.
-const KNOWN_SETTINGS_VIOLATIONS: Record<string, string[]> = {
-  '/settings/account': ['color-contrast'],
-  '/settings/appearance': ['label'],
-  '/settings/devices': ['definition-list', 'dlitem'],
-};
-
 test('every settings category has no accessibility violations', async ({ page }) => {
   await page.goto('/settings/appearance');
   await expect(page.getByRole('navigation', { name: 'Settings sections' })).toBeVisible();
@@ -42,7 +34,7 @@ test('every settings category has no accessibility violations', async ({ page })
     const found = await violations(page);
     if (found.length) failing[href] = found.map((violation) => violation.id);
   }
-  expect(failing).toEqual(KNOWN_SETTINGS_VIOLATIONS);
+  expect(failing).toEqual({});
 });
 
 test.describe('room view tab stops', () => {
@@ -55,10 +47,15 @@ test.describe('room view tab stops', () => {
   });
 
   test('the room header actions are one tab stop', async ({ page }) => {
-    test.fail(true, '#960: header buttons are individual tab stops, not a toolbar');
-    const header = page.locator('header').filter({ has: page.getByRole('heading', { level: 1 }) });
-    const stops = await tabStops(header);
+    const toolbar = page.getByRole('toolbar', { name: 'Room actions' });
+    const stops = await tabStops(toolbar);
     expect(stops, stops.join('\n')).toHaveLength(1);
+
+    await toolbar.getByRole('button').first().focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(toolbar.getByRole('button').nth(1)).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(toolbar.getByRole('button').last()).toBeFocused();
   });
 
   test('the timeline is one tab stop', async ({ page }) => {

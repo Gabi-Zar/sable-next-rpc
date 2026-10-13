@@ -226,6 +226,7 @@
     "bookmarkRemoved": "Removed a bookmark in {{room}}"
   },
   "room": {
+    "actionsLabel": "Room actions",
     "createDescription": "Rooms hold a conversation. A space holds rooms.",
     "createSpaceTitle": "Create a space",
     "createSubspaceTitle": "Create a subspace",

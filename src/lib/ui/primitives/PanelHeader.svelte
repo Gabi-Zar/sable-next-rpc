@@ -4,12 +4,16 @@
   import type { Snippet } from 'svelte';
   import type { ClassValue } from 'svelte/elements';
 
+  import { rovingFocus } from '#lib/ui/roving-focus.js';
+
   interface Props {
     modal?: boolean;
     class?: ClassValue;
     prefix?: Snippet;
     main?: Snippet;
     suffix?: Snippet;
+    /** Makes the suffix a toolbar with this name: one tab stop, arrows move between its controls. */
+    suffixToolbarLabel?: string;
     title?: string;
     titleSize?: 'h1' | 'h2';
     subtitle?: string;
@@ -21,6 +25,7 @@
     prefix,
     main,
     suffix,
+    suffixToolbarLabel,
     title = '',
     titleSize = 'h2',
     subtitle = '',
@@ -46,7 +51,14 @@
     {/if}
   </div>
   {#if suffix}
-    <div class="suffix">{@render suffix()}</div>
+    <div
+      class="suffix"
+      role={suffixToolbarLabel ? 'toolbar' : undefined}
+      aria-label={suffixToolbarLabel}
+      {@attach suffixToolbarLabel ? rovingFocus() : undefined}
+    >
+      {@render suffix()}
+    </div>
   {/if}
 </header>
 
