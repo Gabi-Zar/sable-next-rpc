@@ -305,7 +305,7 @@
   }
 </script>
 
-<div class="custom-themes settings-form" class:compact={onboarding}>
+<div class={['custom-themes settings-form', { compact: onboarding }]}>
   {#if onboarding}
     <div
       class="mode-choices"
@@ -430,7 +430,7 @@
       <ul class="tweaks">
         {#each customThemes.tweaks as tweak (tweak.id)}
           {@const description = themeFileMetadata(tweak.css).description}
-          <li class="tweak" class:inert-tweak={tweaksInert}>
+          <li class={['tweak', { 'inert-tweak': tweaksInert }]}>
             <span class="tweak-copy">
               <span class="tweak-name">{tweak.name}</span>
               {#if description}<span class="tweak-detail">{description}</span>{/if}

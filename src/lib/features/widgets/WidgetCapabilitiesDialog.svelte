@@ -45,7 +45,7 @@
     <ul {@attach scrollHint}>
       {#each requested as capability (capability)}
         {@const sensitive = isSensitiveCapability(capability)}
-        <li class:sensitive>
+        <li class={{ sensitive }}>
           <label>
             <input
               type="checkbox"

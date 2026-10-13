@@ -17,7 +17,9 @@ export class DisplayNames {
         (profile) => {
           if (profile.display_name) this.#names.set(userId, profile.display_name);
         },
-        () => undefined
+        (error: unknown) => {
+          console.debug('[sable inbox] display name unavailable', error);
+        }
       );
     }
     return this.#names.get(userId) ?? senderName(userId);

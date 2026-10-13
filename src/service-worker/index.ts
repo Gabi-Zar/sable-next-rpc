@@ -47,10 +47,16 @@ import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
 const worker = globalThis.self as unknown as ServiceWorkerGlobalScope;
 
 worker.addEventListener('error', (event) => {
-  void reportWorkerError('error', event.error ?? new Error(event.message)).catch(() => undefined);
+  void reportWorkerError('error', event.error ?? new Error(event.message)).catch(
+    (error: unknown) => {
+      console.debug('[sable service-worker] error not reported', error);
+    }
+  );
 });
 worker.addEventListener('unhandledrejection', (event) => {
-  void reportWorkerError('unhandledrejection', event.reason).catch(() => undefined);
+  void reportWorkerError('unhandledrejection', event.reason).catch((error: unknown) => {
+    console.debug('[sable service-worker] rejection not reported', error);
+  });
 });
 
 worker.addEventListener('push', (event) => {
@@ -165,7 +171,9 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
   }
 
   if (pushed.unread !== null && 'setAppBadge' in navigator) {
-    await navigator.setAppBadge(pushed.unread).catch(() => undefined);
+    await navigator.setAppBadge(pushed.unread).catch((error: unknown) => {
+      console.debug('[sable service-worker] app badge not set', error);
+    });
   }
   if (pushed.unread === 0 && (await pushContentPolicy()).clearOnRead) {
     await closeRead(pushed);

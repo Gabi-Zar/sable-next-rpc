@@ -146,7 +146,11 @@ export async function shareFile(
         position: anchor && sharePosition(anchor, os === 'macos'),
       });
     } finally {
-      if (os === 'android' || os === 'ios') await remove(path).catch(() => {});
+      if (os === 'android' || os === 'ios') {
+        await remove(path).catch((error: unknown) => {
+          console.debug('[sable files] shared temp file not removed', path, error);
+        });
+      }
     }
     return 'saved';
   } catch (error) {
@@ -193,7 +197,9 @@ async function saveAndroidFile(
     await AndroidFs.setPublicFilePending(uri, false);
     await AndroidFs.scanPublicFile(uri);
   } catch (error) {
-    await AndroidFs.removeFile(uri).catch(() => {});
+    await AndroidFs.removeFile(uri).catch((removeError: unknown) => {
+      console.debug('[sable files] partial Android file not removed', removeError);
+    });
     throw error;
   }
 }

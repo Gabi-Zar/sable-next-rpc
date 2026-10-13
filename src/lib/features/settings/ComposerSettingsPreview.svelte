@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import MicrophoneIcon from 'phosphor-svelte/lib/MicrophoneIcon';
   import PaperPlaneIcon from 'phosphor-svelte/lib/PaperPlaneTiltIcon';
   import TextAaIcon from 'phosphor-svelte/lib/TextAaIcon';
@@ -20,7 +21,6 @@
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
@@ -28,14 +28,14 @@
   const uid = $props.id();
   const listboxId = `${uid}-listbox`;
   const voiceSupported = isVoiceRecordingSupported();
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
-  const roomyPointer = createMediaQuery('(width >= 32rem) and (any-pointer: fine)');
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const roomyPointer = new MediaQuery('(width >= 32rem) and (any-pointer: fine)');
   const short = $derived(
     preferences.composerForm === 'short' ||
-      (preferences.composerForm === 'adaptive' && roomyPointer.matches)
+      (preferences.composerForm === 'adaptive' && roomyPointer.current)
   );
 
-  let desktop = $derived(appLayout.matches);
+  let desktop = $derived(appLayout.current);
   let showPlaceholder = $state(true);
   let activeFormats = $state.raw<FormatAction[]>([]);
   let activeColors = $state.raw<ActiveColors>({ fg: null, bg: null });
@@ -84,11 +84,10 @@
 
   let previewReady = $state(false);
 
-  onMount(() => {
-    void tick().then(() => {
-      previewReady = true;
-      seedSample();
-    });
+  onMount(async () => {
+    await tick();
+    previewReady = true;
+    seedSample();
   });
 
   $effect(() => {
@@ -107,9 +106,7 @@
     <div class="composer-shell">
       <div class="composer" role="group" aria-label={$i18n.t('settings.composerPreview')}>
         <form
-          class="composer-row"
-          class:short
-          class:formatting-open={formattingOpen}
+          class={['composer-row', { short, 'formatting-open': formattingOpen }]}
           onsubmit={(event) => {
             event.preventDefault();
           }}

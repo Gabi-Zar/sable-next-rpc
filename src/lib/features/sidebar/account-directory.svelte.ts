@@ -23,25 +23,24 @@ export class AccountDirectory {
     const known = this.#identities.get(key);
     if (known) return known;
 
-    this.#request(key, userId);
+    void this.#request(key, userId);
     return { displayName: userId, avatarUrl: null };
   }
 
-  #request(key: string, userId: string): void {
+  async #request(key: string, userId: string): Promise<void> {
     if (this.#requested.has(key)) return;
     this.#requested.add(key);
 
-    void this.#core
-      .userProfile(userId)
-      .then((profile) => {
-        this.#identities.set(key, {
-          displayName: profile.display_name ?? userId,
-          avatarUrl: profile.avatar_url,
-        });
-      })
-      .catch(() => {
-        // Let a later render retry; the core throttles repeat failures.
-        this.#requested.delete(key);
+    try {
+      const profile = await this.#core.userProfile(userId);
+      this.#identities.set(key, {
+        displayName: profile.display_name ?? userId,
+        avatarUrl: profile.avatar_url,
       });
+    } catch (error) {
+      console.debug('[sable nav] account profile unavailable', error);
+      // Let a later render retry; the core throttles repeat failures.
+      this.#requested.delete(key);
+    }
   }
 }

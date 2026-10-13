@@ -103,7 +103,9 @@
       .then((shortcodes) => {
         if (current) sentShortcodes = shortcodes;
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.debug('[sable emotes] reaction shortcodes unavailable', error);
+      });
     return () => {
       current = false;
     };
@@ -115,7 +117,9 @@
       .then((packs) => {
         if (current) imagePacks = packs;
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.debug('[sable emotes] image packs unavailable', error);
+      });
     return () => {
       current = false;
     };

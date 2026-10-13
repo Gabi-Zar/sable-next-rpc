@@ -38,7 +38,7 @@
   let colors = $derived(swatches.map((color) => (safeSwatch(color) ? color : undefined)));
 </script>
 
-<div class="tile" class:selected class:has-trailing={trailing !== undefined}>
+<div class={['tile', { selected, 'has-trailing': trailing !== undefined }]}>
   <Tooltip label={name}>
     {#snippet trigger({ props })}
       <button

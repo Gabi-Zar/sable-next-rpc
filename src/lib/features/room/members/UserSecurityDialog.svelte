@@ -48,7 +48,8 @@
       .then((value) => {
         if (active) security = value;
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
+        console.warn('[sable profile] loading user security failed', cause);
         if (active) error = true;
       })
       .finally(() => {
@@ -66,7 +67,8 @@
     try {
       await core.requestVerification(userId);
       onOpenChange(false);
-    } catch {
+    } catch (cause) {
+      console.warn('[sable profile] requesting verification failed', cause);
       error = true;
     } finally {
       verifying = false;
@@ -84,7 +86,8 @@
         blocked: !device.blocked,
       });
       device.blocked = !device.blocked;
-    } catch {
+    } catch (cause) {
+      console.warn('[sable profile] blocking device failed', cause);
       error = true;
     } finally {
       blocking = null;
@@ -98,7 +101,8 @@
     try {
       await core.rpc.encryption.withdrawVerification({ user_id: userId });
       revision += 1;
-    } catch {
+    } catch (cause) {
+      console.warn('[sable profile] withdrawing verification failed', cause);
       error = true;
     } finally {
       accepting = false;

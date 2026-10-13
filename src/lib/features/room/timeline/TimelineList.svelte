@@ -306,6 +306,11 @@
   function requestFuture(manual = false): Promise<void> {
     return future.request(manual);
   }
+  function loadFuture(manual = false): void {
+    void requestFuture(manual).catch((error: unknown) => {
+      console.warn('[sable timeline] loading newer messages failed', error);
+    });
+  }
   const focus = new TimelineFocus<RowValue>({
     timeline: () => timeline,
     viewport: () => viewport,
@@ -452,7 +457,7 @@
       windowState.lastVisible !== null &&
       windowState.lastVisible >= entries.length - TIMELINE_LAYOUT.historyPrefetchItems
     ) {
-      void requestFuture(true).catch(() => {});
+      loadFuture(true);
     }
   }
   function mountWindow(node: HTMLDivElement): () => void {
@@ -495,7 +500,7 @@
           windowState.lastVisible !== null &&
           windowState.lastVisible >= entries.length - TIMELINE_LAYOUT.historyPrefetchItems
         ) {
-          void requestFuture(true).catch(() => {});
+          loadFuture(true);
         }
         abandonLanding();
       },
@@ -538,7 +543,7 @@
     )
       return;
     if (!future.canRefill()) return;
-    void requestFuture().catch(() => {});
+    loadFuture();
   });
   async function openTimeline(engine: TimelineWindow<RowValue>): Promise<void> {
     if (opening || disposed) return;
@@ -599,7 +604,8 @@
           await jumpToUnread();
         }
       }
-    } catch {
+    } catch (error) {
+      console.warn('[sable timeline] opening the timeline failed', error);
       pagination.exhausted = false;
     } finally {
       filling = false;
@@ -631,16 +637,18 @@
       return;
     if (count > 0 && !(node && windowState.start === 0 && !fillsViewport(engine, node))) return;
     if (!pagination.canRefill()) return;
-    refillPending = true;
-    void requestFill()
-      .then((end) => {
-        pagination.exhausted = end;
-      })
-      .catch(() => {})
-      .finally(() => {
-        refillPending = false;
-      });
+    void refill();
   });
+  async function refill(): Promise<void> {
+    refillPending = true;
+    try {
+      pagination.exhausted = await requestFill();
+    } catch (error) {
+      console.warn('[sable timeline] loading older messages failed', error);
+    } finally {
+      refillPending = false;
+    }
+  }
   let sentEcho: string | null | undefined;
   $effect(() => {
     const engine = controller;
@@ -676,7 +684,7 @@
       !nearLatest
     )
       return;
-    void resumeLive().catch(() => {});
+    retryLive();
   });
   export function resumeLive(): Promise<void> {
     if (resumeTask) return resumeTask;
@@ -693,6 +701,11 @@
       });
     resumeTask = task;
     return task;
+  }
+  function retryLive(): void {
+    void resumeLive().catch((error: unknown) => {
+      console.warn('[sable timeline] resuming the live timeline failed', error);
+    });
   }
   async function jumpToLiveEnd(): Promise<void> {
     await tick();
@@ -729,7 +742,8 @@
     switchingToUnread = true;
     try {
       await onRequestUnread(target);
-    } catch {
+    } catch (error) {
+      console.warn('[sable timeline] loading the notified event failed', error);
       return false;
     } finally {
       switchingToUnread = false;
@@ -850,7 +864,8 @@
       }
       await engine.update(entries);
       if (current()) await engine.jumpTo(target.key, 'start', false, navigation.signal);
-    } catch {
+    } catch (error) {
+      console.warn('[sable timeline] jump to unread failed', error);
       if (current()) unreadError = 'jump';
     } finally {
       if (unreadNavigation === navigation) jumpingUnread = false;
@@ -867,7 +882,8 @@
         unread.clear();
         followingRead = windowState.pinned;
       }
-    } catch {
+    } catch (error) {
+      console.warn('[sable timeline] mark as read failed', error);
       if (!disposed) unreadError = 'read';
     } finally {
       if (!disposed) markingRead = false;
@@ -913,7 +929,7 @@
     unreadNavigation?.abort();
     historyController.finishHistoryFill();
     if (timeline.canResumeLive) {
-      void resumeLive().catch(() => {});
+      retryLive();
       return;
     }
     if (!live) {
@@ -1025,9 +1041,7 @@
 {#if resumeFailed}
   <Alert variant="critical" role="alert">
     {$i18n.t('timeline.loadFailed')}
-    <Button type="button" onclick={() => void resumeLive().catch(() => {})}
-      >{$i18n.t('common.tryAgain')}</Button
-    >
+    <Button type="button" onclick={retryLive}>{$i18n.t('common.tryAgain')}</Button>
   </Alert>
 {/if}
 

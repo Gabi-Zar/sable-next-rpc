@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { i18n } from '#lib/i18n.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { isRecord } from '#lib/guards.js';
@@ -10,7 +11,6 @@
   import Button from '#lib/ui/primitives/Button.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
 
   import type { IncomingCall } from './incoming-calls.svelte.js';
 
@@ -48,16 +48,16 @@
             avatar: typeof content.avatar_url === 'string' ? content.avatar_url : null,
           };
         },
-        () => undefined
+        (error: unknown) => console.debug('[sable call] caller profile unavailable', error)
       );
     return () => {
       current = false;
     };
   });
 
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
   let open = $derived(call !== null);
-  let variant = $derived(appLayout.matches ? ('sheet' as const) : ('fullscreen' as const));
+  let variant = $derived(appLayout.current ? ('sheet' as const) : ('fullscreen' as const));
 </script>
 
 <DialogFrame
@@ -69,7 +69,7 @@
   }}
 >
   {#if call}
-    <div class="incoming" class:incoming-fullscreen={variant === 'fullscreen'}>
+    <div class={['incoming', { 'incoming-fullscreen': variant === 'fullscreen' }]}>
       <div class="who">
         <Avatar src={senderAvatar} name={senderName} id={call.sender} size="large" />
         <p class="name">{$i18n.t('call.incomingFrom', { name: senderName })}</p>

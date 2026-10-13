@@ -222,7 +222,8 @@ export function runtimeConfig(): Promise<RuntimeConfig> {
   loading ??= fetch(asset('config.json'), { cache: 'no-cache' })
     .then((response) => (response.ok ? (response.json() as Promise<unknown>) : null))
     .then(parseRuntimeConfig)
-    .catch(() => {
+    .catch((error: unknown) => {
+      console.debug('[sable config] runtime config unavailable', error);
       loading = null;
       return EMPTY;
     });

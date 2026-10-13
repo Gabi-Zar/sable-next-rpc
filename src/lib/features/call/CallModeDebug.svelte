@@ -23,7 +23,7 @@
 </script>
 
 {#if debug}
-  <dl class="debug" class:overlay aria-label={$i18n.t('call.debugLabel')}>
+  <dl class={['debug', { overlay }]} aria-label={$i18n.t('call.debugLabel')}>
     <dt>{$i18n.t('call.debugMode')}</dt>
     <dd>{$i18n.t(`call.debugModes.${debug.mode}`)}</dd>
     <dt>{$i18n.t('call.debugRequested')}</dt>

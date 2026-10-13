@@ -16,7 +16,9 @@ export async function startScreenAudioStream(
   const frames = new Channel<ArrayBuffer>();
   const stop = async (): Promise<void> => {
     frames.onmessage = () => undefined;
-    await context.close().catch(() => undefined);
+    await context.close().catch((error: unknown) => {
+      console.debug('[sable call] screen audio context not closed', error);
+    });
     await invoke('stop_screen_audio');
   };
   active = { stop };

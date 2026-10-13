@@ -65,8 +65,8 @@
       try {
         const issues = await searchForgeIssues(query, controller.signal);
         if (!controller.signal.aborted) similarIssues = issues;
-      } catch {
-        return;
+      } catch (error) {
+        console.debug('[sable report] similar issue search failed', error);
       } finally {
         if (!controller.signal.aborted) searching = false;
       }

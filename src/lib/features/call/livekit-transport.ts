@@ -315,8 +315,8 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
     for (const listener of listeners) {
       try {
         listener(snapshot);
-      } catch {
-        ignoreError();
+      } catch (error) {
+        console.warn('[sable call] state listener failed', error);
       }
     }
   };

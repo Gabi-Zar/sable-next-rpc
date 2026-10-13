@@ -18,7 +18,9 @@
       ({ oauth: supported }) => {
         oauth = supported;
       },
-      () => {}
+      (error: unknown) => {
+        console.debug('[sable settings] device list unavailable', error);
+      }
     );
   });
 </script>

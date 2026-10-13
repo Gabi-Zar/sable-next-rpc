@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
   import { i18n } from '#lib/i18n.js';
   import type { LoginFlowsView, RegistrationFlowsView } from '#src/generated/protocol';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -68,9 +67,7 @@
 
   $effect(() => {
     void homeserver;
-    untrack(() => {
-      showAllRegistrationMethods = false;
-    });
+    showAllRegistrationMethods = false;
   });
 
   let uiaaAvailable = $derived(registrationFlows?.uiaa === true && !passwordFields.hidden);

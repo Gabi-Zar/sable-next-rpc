@@ -38,7 +38,9 @@
       (next) => {
         if (current) profile = next;
       },
-      () => undefined
+      (error: unknown) => {
+        console.debug('[sable profile] profile unavailable', error);
+      }
     );
     return () => {
       current = false;

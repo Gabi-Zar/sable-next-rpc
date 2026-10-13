@@ -318,8 +318,7 @@
         <div class="status-grid">
           <div class="status-item">
             <span
-              class="status-icon"
-              class:positive={status.verification === 'verified'}
+              class={['status-icon', { positive: status.verification === 'verified' }]}
               aria-hidden="true"
             >
               {#if status.verification === 'verified'}<CheckCircleIcon

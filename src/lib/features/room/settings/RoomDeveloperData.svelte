@@ -42,7 +42,8 @@
         $state.snapshot(permissions),
         $state.snapshot(levels)
       );
-    } catch {
+    } catch (error) {
+      console.warn('[sable room] collecting debug data failed', error);
       failed = true;
     } finally {
       loading = false;
@@ -54,7 +55,8 @@
     try {
       await copyText(data);
       copied = true;
-    } catch {
+    } catch (error) {
+      console.warn('[sable room] copying debug data failed', error);
       failed = true;
     }
   }
@@ -72,7 +74,8 @@
         link.download = filename;
         link.click();
       }
-    } catch {
+    } catch (error) {
+      console.warn('[sable room] saving debug data failed', error);
       failed = true;
     } finally {
       URL.revokeObjectURL(url);

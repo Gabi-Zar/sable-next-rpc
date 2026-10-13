@@ -42,11 +42,15 @@
     core.rpc.session
       .knownRooms()
       .then((roomIds) => driver.noteRooms(roomIds))
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        console.warn('[sable widgets] listing known rooms failed', error);
+      });
     const stopFeed = startWidgetFeed(core, api, driver);
 
     const onReady = (): void => {
-      api.updateVisibility(true).catch(() => undefined);
+      api.updateVisibility(true).catch((error: unknown) => {
+        console.debug('[sable widgets] the widget visibility could not be updated', error);
+      });
     };
     api.once('ready', onReady);
 

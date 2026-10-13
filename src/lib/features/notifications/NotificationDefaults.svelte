@@ -81,20 +81,21 @@
         current = modes;
         failed = false;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.warn('[sable notifications] loading default modes failed', error);
         if (alive) failed = true;
       });
     void core.rpc.notifications.eventNotifications().then(
       (view) => {
         if (alive) events = view;
       },
-      () => undefined
+      (error: unknown) => console.warn('[sable notifications] loading event settings failed', error)
     );
     void core.rpc.notifications.masterMute().then(
       (value) => {
         if (alive) muted = value;
       },
-      () => undefined
+      (error: unknown) => console.warn('[sable notifications] loading master mute failed', error)
     );
 
     return () => {
@@ -113,7 +114,8 @@
       () => {
         settingsChanges.version += 1;
       },
-      () => {
+      (error: unknown) => {
+        console.warn('[sable notifications] saving default mode failed', error);
         failed = true;
         settingsChanges.version += 1;
       }
@@ -123,7 +125,8 @@
   function saveMute(value: boolean): void {
     muted = value;
 
-    void core.rpc.notifications.setMasterMute({ muted: value }).catch(() => {
+    void core.rpc.notifications.setMasterMute({ muted: value }).catch((error: unknown) => {
+      console.warn('[sable notifications] saving master mute failed', error);
       failed = true;
       settingsChanges.version += 1;
     });
@@ -132,7 +135,8 @@
   function saveEvent(event: EventNotificationView, enabled: boolean): void {
     if (events) events = { ...events, [event]: enabled };
 
-    void core.rpc.notifications.setEventNotification({ event, enabled }).catch(() => {
+    void core.rpc.notifications.setEventNotification({ event, enabled }).catch((error: unknown) => {
+      console.warn('[sable notifications] saving event setting failed', error);
       failed = true;
       settingsChanges.version += 1;
     });

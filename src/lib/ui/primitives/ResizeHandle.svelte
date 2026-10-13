@@ -77,9 +77,7 @@
 
 <button
   type="button"
-  class="resize-handle"
-  class:dragging
-  class:vertical
+  class={['resize-handle', { dragging, vertical }]}
   role="slider"
   aria-orientation={vertical ? 'vertical' : 'horizontal'}
   aria-valuemin={min}

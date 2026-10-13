@@ -69,7 +69,7 @@
 </script>
 
 {#if icons.length}
-  <ul class="app-icons" class:android aria-busy={changing}>
+  <ul class={['app-icons', { android }]} aria-busy={changing}>
     <SettingsRow id="app-icon" title={$i18n.t('settings.appIconTitle')} wide>
       {#key selectVersion}
         <Select

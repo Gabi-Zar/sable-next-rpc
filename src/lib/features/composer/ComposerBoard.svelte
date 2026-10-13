@@ -284,14 +284,18 @@
 
 {#snippet boardSlot(id: ComposerButton)}
   <span
-    class="composer-board-slot"
+    class={[
+      'composer-board-slot',
+      {
+        'is-separator': isComposerSeparator(id),
+        'is-reorderable': reorderable,
+        dragging: dragged === id,
+        selected: selectedForReorder === id,
+        'drop-before': dropState?.item === id && dropState.instruction === 'above',
+        'drop-after': dropState?.item === id && dropState.instruction === 'below',
+      },
+    ]}
     role="presentation"
-    class:is-separator={isComposerSeparator(id)}
-    class:is-reorderable={reorderable}
-    class:dragging={dragged === id}
-    class:selected={selectedForReorder === id}
-    class:drop-before={dropState?.item === id && dropState.instruction === 'above'}
-    class:drop-after={dropState?.item === id && dropState.instruction === 'below'}
     onkeydown={(event) => reorderWithKeyboard(event, id)}
     {@attach reorderable ? dragSource(id) : undefined}
     {@attach reorderable ? dropTarget(id) : undefined}

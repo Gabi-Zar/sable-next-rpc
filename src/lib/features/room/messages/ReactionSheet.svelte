@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import type { PackImageView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
   import { rememberReaction } from '#lib/emoji/recents.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import BottomSheet from '#lib/ui/primitives/BottomSheet.svelte';
   import EmoteBoard from '#lib/ui/primitives/EmoteBoard.svelte';
 
@@ -20,8 +20,8 @@
 
   let { open = $bindable(false), roomId, anchor = null, onPick }: Props = $props();
 
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
-  let sheet = $derived(!appLayout.matches);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  let sheet = $derived(!appLayout.current);
 
   function pick(
     key: string,

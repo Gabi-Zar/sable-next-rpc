@@ -50,7 +50,9 @@
       (devices) => {
         prefersScan = devices.some((device) => device.kind === 'videoinput');
       },
-      () => {}
+      (error: unknown) => {
+        console.debug('[sable settings] media devices unavailable', error);
+      }
     );
   });
 

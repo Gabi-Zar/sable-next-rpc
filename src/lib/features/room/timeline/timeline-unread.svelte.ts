@@ -44,7 +44,8 @@ export class TimelineUnread {
       .then((eventId) => {
         if (!this.#disposed) this.#readEventId = eventId;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.warn('[sable timeline] loading the read marker failed', error);
         if (!this.#disposed) this.failed = true;
       })
       .finally(() => {

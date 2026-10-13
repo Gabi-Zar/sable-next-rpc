@@ -80,8 +80,7 @@
     <div class="voice-waveform" aria-hidden="true">
       {#each waveform as level, index (index)}
         <span
-          class="voice-bar"
-          class:played={index < activeBars}
+          class={['voice-bar', { played: index < activeBars }]}
           style:height={`${String(Math.max(0.12, level) * 100)}%`}
         ></span>
       {/each}

@@ -191,7 +191,9 @@
 
   function fetchFile(): void {
     startedSource = source;
-    void loadMediaUrl(core, source, 0, 0, mime).then(save, () => {});
+    void loadMediaUrl(core, source, 0, 0, mime).then(save, (error: unknown) => {
+      console.warn('[sable media] the file could not be fetched', error);
+    });
   }
 
   $effect(() => {

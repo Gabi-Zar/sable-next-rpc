@@ -123,7 +123,9 @@ async function startPortalShare(
   const frames = new Channel<ArrayBuffer>();
   const stop = async (): Promise<void> => {
     frames.onmessage = () => undefined;
-    await writer.close().catch(() => undefined);
+    await writer.close().catch((error: unknown) => {
+      console.debug('[sable hdr] frame writer not closed', error);
+    });
     await invoke('stop_hdr_share');
   };
   frames.onmessage = (data) => {
@@ -189,7 +191,9 @@ async function startWindowsShare(
     unlisten();
     webview.removeEventListener('sharedbufferreceived', onBuffer);
     buffers.clear();
-    await writer.close().catch(() => undefined);
+    await writer.close().catch((error: unknown) => {
+      console.debug('[sable hdr] frame writer not closed', error);
+    });
     await invoke('stop_hdr_share');
   };
   active = { stop };

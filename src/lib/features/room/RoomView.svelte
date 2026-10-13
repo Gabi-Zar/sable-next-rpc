@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { on } from 'svelte/events';
   import type {
@@ -53,7 +54,6 @@
   import ScheduledMessages from '#lib/features/composer/ScheduledMessages.svelte';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import { composerClearance } from '#lib/ui/composer-clearance.svelte.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import PanelHeader from '#lib/ui/primitives/PanelHeader.svelte';
   import PanelHeaderButton from '#lib/ui/primitives/PanelHeaderButton.svelte';
@@ -325,7 +325,7 @@
     const storedRatio = Number.parseFloat(localStorage.getItem(CALL_STAGE_RATIO_KEY) ?? '');
     callStageRatio = Number.isFinite(storedRatio)
       ? clampCallStageRatio(storedRatio)
-      : sidePanels.matches
+      : sidePanels.current
         ? CALL_STAGE_DEFAULT_RATIO
         : CALL_STAGE_MOBILE_RATIO;
   });
@@ -473,12 +473,12 @@
   let pageTitle = $derived(
     mentionCount > 0 ? `(${mentionCount}) ${roomName} - Sable` : `${roomName} - Sable`
   );
-  const sidePanels = createMediaQuery(BREAKPOINTS.sidePanels);
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
-  let phone = $derived(!appLayout.matches);
+  const sidePanels = new MediaQuery(BREAKPOINTS.sidePanels);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  let phone = $derived(!appLayout.current);
   let pinsOpen = $state(false);
   let pinsUnread = $state(0);
-  let desktop = $derived(sidePanels.matches);
+  let desktop = $derived(sidePanels.current);
   let threadInPanel = $derived(desktop && preferences.threadPresentation === 'panel');
   let voiceView = $derived(isVoiceRoom && (!voiceChat.open || desktop));
   let voiceChatBeside = $derived(isVoiceRoom && voiceChat.open && desktop);
@@ -1110,8 +1110,7 @@
   data-inset-owner={voiceView ? 'top' : 'top bottom'}
 >
   <div
-    class="timeline"
-    class:thread-covered={panels.threadRootId !== null && !threadInPanel}
+    class={['timeline', { 'thread-covered': panels.threadRootId !== null && !threadInPanel }]}
     inert={panels.threadRootId !== null && !threadInPanel}
     {@attach trackTimelineHeight}
   >
@@ -1206,8 +1205,7 @@
     </RoomHeader>
     {#if callShown && (voiceView || !isVoiceRoom)}
       <div
-        class="call-stage"
-        class:docked={!voiceView}
+        class={['call-stage', { docked: !voiceView }]}
         style:flex-basis={voiceView ? undefined : `${callStageRatio * 100}%`}
       >
         {#await import('#lib/features/call/CallView.svelte') then { default: CallView }}
@@ -1284,9 +1282,8 @@
 
   {#if voiceChatBeside}
     <aside
-      class:thread-covered={panels.threadRootId !== null && !threadInPanel}
+      class={['voice-chat', { 'thread-covered': panels.threadRootId !== null && !threadInPanel }]}
       inert={panels.threadRootId !== null && !threadInPanel}
-      class="voice-chat"
       style:width="{voiceChatWidth}px"
       aria-label={$i18n.t('call.chat')}
     >

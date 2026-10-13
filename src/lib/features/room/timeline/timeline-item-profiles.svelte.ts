@@ -64,7 +64,8 @@ class ProfileSlot {
       (profile) => {
         if (generation === this.#generation) this.profile = profile;
       },
-      () => {
+      (error: unknown) => {
+        console.debug('[sable profile] profile unavailable', userId, error);
         if (generation !== this.#generation || attempt >= RETRY_DELAYS_MS.length) return;
         this.#retry = setTimeout(() => {
           this.#load(attempt + 1);

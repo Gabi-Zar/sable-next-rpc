@@ -44,7 +44,7 @@
     placeholder={$i18n.t('personas.search')}
     aria-label={$i18n.t('personas.search')}
   />
-  <ul class="reproxy-options" class:dialog={desktop} {@attach scrollHint}>
+  <ul class={['reproxy-options', { dialog: desktop }]} {@attach scrollHint}>
     <li>
       <button
         type="button"

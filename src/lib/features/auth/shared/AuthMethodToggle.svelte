@@ -24,7 +24,7 @@
   onclick={onToggle}
 >
   <span>{expanded ? hideLabel : showLabel}</span>
-  <span class:expanded class="method-toggle-icon" aria-hidden="true"><CaretDownIcon /></span>
+  <span class={['method-toggle-icon', { expanded }]} aria-hidden="true"><CaretDownIcon /></span>
 </Button>
 
 <style>

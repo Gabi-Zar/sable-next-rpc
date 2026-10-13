@@ -70,7 +70,9 @@
       .then((packs) => {
         if (current) imagePacks = packs;
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.debug('[sable emotes] image packs unavailable', error);
+      });
     return () => {
       current = false;
     };

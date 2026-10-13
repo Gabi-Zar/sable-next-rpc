@@ -333,7 +333,8 @@ export class TimelineHistoryController {
         if (reachedEnd) this.finishHistoryFill();
         else this.scheduleHistoryFill();
       },
-      () => {
+      (error: unknown) => {
+        console.warn('[sable timeline] loading older messages failed', error);
         if (this.destroyed) return;
         this.historyRequestPending = false;
         this.finishHistoryFill();

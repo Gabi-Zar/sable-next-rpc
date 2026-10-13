@@ -84,8 +84,7 @@
         {@const dark = persona.color_on_dark ?? persona.color_on_light}
         <Avatar id={persona.id} src={persona.avatar_url} name={persona.display_name} size="small" />
         <span
-          class="persona-option-name sender-identity-name"
-          class:tinted={light !== null}
+          class={['persona-option-name sender-identity-name', { tinted: light !== null }]}
           style:--name-color-on-light={nameColorOnLight(light) ?? undefined}
           style:--name-color-on-dark={nameColorOnDark(dark) ?? undefined}
           >{persona.display_name}</span
@@ -130,12 +129,17 @@
   <li>
     <button
       type="button"
-      class="persona-grid-option"
-      class:selected={kind === 'disable'
-        ? disabled
-        : kind === 'default'
-          ? !!persona && selected?.persona_id === persona.id
-          : !selected && !disabled}
+      class={[
+        'persona-grid-option',
+        {
+          selected:
+            kind === 'disable'
+              ? disabled
+              : kind === 'default'
+                ? !!persona && selected?.persona_id === persona.id
+                : !selected && !disabled,
+        },
+      ]}
       onclick={() => {
         (kind === 'disable' ? onDisable : onChoose)(persona);
       }}
@@ -181,7 +185,7 @@
     {/each}
   </div>
 
-  <ul class="persona-options" class:grid {@attach scrollHint}>
+  <ul class={['persona-options', { grid }]} {@attach scrollHint}>
     {#if scope === 'account'}
       {@render (grid ? gridItem : listItem)(null, 'offGlobal')}
     {/if}

@@ -39,7 +39,7 @@
 
 <ResponsiveDialog bind:open label={title} closeLabel={$i18n.t('timeline.closeMemberList')}>
   {#snippet children(desktop)}
-    <div class="member-list-dialog" class:sheet={!desktop}>
+    <div class={['member-list-dialog', { sheet: !desktop }]}>
       <h2>{title}</h2>
       <div class="tabs" role="tablist" aria-label={title}>
         {#each tabs as item, index (tabKey(item))}

@@ -246,7 +246,9 @@
     return () => {
       redirect.cleanup();
       if (!redirect.isCallbackWindow)
-        void core.rpc.auth.cancelRegistration().catch(() => undefined);
+        void core.rpc.auth.cancelRegistration().catch((error: unknown) => {
+          console.debug('[sable auth] cancelling registration failed', error);
+        });
     };
   });
 

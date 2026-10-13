@@ -131,7 +131,8 @@
       .then((tags) => {
         if (current) powerTags = tags;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.debug('[sable room] power level tags unavailable', error);
         if (current) powerTags = {};
       });
     return () => {
@@ -139,20 +140,19 @@
     };
   });
 
-  function openProfile(userId: string, anchor: HTMLElement): void {
+  async function openProfile(userId: string, anchor: HTMLElement): Promise<void> {
     const request = ++profileRequest;
     profileUserId = userId;
     profileAnchor = anchor;
     profile = null;
     profileFailed = false;
-    void core
-      .userProfile(userId)
-      .then((next) => {
-        if (request === profileRequest) profile = next;
-      })
-      .catch(() => {
-        if (request === profileRequest) profileFailed = true;
-      });
+    try {
+      const next = await core.userProfile(userId);
+      if (request === profileRequest) profile = next;
+    } catch (error) {
+      console.warn('[sable room] loading member profile failed', error);
+      if (request === profileRequest) profileFailed = true;
+    }
   }
 
   function closeProfile(): void {

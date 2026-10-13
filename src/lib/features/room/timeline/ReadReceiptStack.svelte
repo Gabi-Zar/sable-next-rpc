@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { cubicOut } from 'svelte/easing';
   import { scale } from 'svelte/transition';
   import type { MemberView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import { MOTION_MS, motionMs, shouldReduceMotion } from '#lib/ui/motion.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
@@ -27,7 +27,7 @@
 
   let { readers, timestamps = {}, members, expanded = false, onOpen, onProfile }: Props = $props();
 
-  const coarse = createMediaQuery('(pointer: coarse)');
+  const coarse = new MediaQuery('(pointer: coarse)');
   let root = $state<HTMLElement | null>(null);
   let seen = $derived(
     readers.map((userId) => ({
@@ -91,7 +91,7 @@
 {/snippet}
 
 {#if readers.length > 0}
-  {#if coarse.matches}
+  {#if coarse.current}
     <button
       class="read-receipt-stack chip selection-open"
       type="button"

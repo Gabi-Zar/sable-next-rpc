@@ -460,7 +460,12 @@
   }
 
   function engage(event: FocusEvent | PointerEvent): void {
-    if (event instanceof FocusEvent && !(event.target as Element).matches(':focus-visible')) return;
+    if (
+      event instanceof FocusEvent &&
+      event.target instanceof Element &&
+      !event.target.matches(':focus-visible')
+    )
+      return;
     engaged = true;
   }
 
@@ -655,8 +660,7 @@
   >
     {#if swipe.offset > 0}
       <div
-        class="swipe-action"
-        class:armed={swipe.action !== 'none'}
+        class={['swipe-action', { armed: swipe.action !== 'none' }]}
         aria-hidden="true"
         style:width={`${String(swipe.offset)}px`}
         style:transform={`translateX(${String(swipe.offset)}px)`}
@@ -921,7 +925,7 @@
             {/if}
           </div>
         {:else}
-          <div class:content-bubble={layout === 'bubble' && nonTextContent}>
+          <div class={{ 'content-bubble': layout === 'bubble' && nonTextContent }}>
             <MessageBody
               {item}
               {senderTimezone}
@@ -1109,8 +1113,7 @@
   >
     {#if swipe.offset > 0}
       <div
-        class="swipe-action"
-        class:armed={swipe.action !== 'none'}
+        class={['swipe-action', { armed: swipe.action !== 'none' }]}
         aria-hidden="true"
         style:width={`${String(swipe.offset)}px`}
         style:transform={`translateX(${String(swipe.offset)}px)`}

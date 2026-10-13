@@ -54,7 +54,10 @@ export async function openForgeIssueUrl(url: string): Promise<void> {
   if (opensExternalUrls()) {
     const opened = await openExternalUrl(url).then(
       () => true,
-      () => false
+      (error: unknown) => {
+        console.debug('[sable report] opening the issue externally failed', error);
+        return false;
+      }
     );
     if (opened) return;
   }

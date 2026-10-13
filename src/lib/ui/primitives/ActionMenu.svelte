@@ -1,10 +1,10 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { DropdownMenu } from 'bits-ui';
   import type { Snippet } from 'svelte';
 
   import { i18n } from '#lib/i18n.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
   import { overlayLayer } from '#lib/ui/overlay-layer.js';
 
@@ -41,8 +41,8 @@
     children,
   }: Props = $props();
 
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
-  let sheet = $derived(!appLayout.matches);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  let sheet = $derived(!appLayout.current);
 
   setActionMenuSurface({
     get sheet() {

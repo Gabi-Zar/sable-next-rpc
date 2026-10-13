@@ -49,7 +49,7 @@
   {#if userIds.length === 0}
     <EmptyState title={emptyTitle} />
   {:else}
-    <ul class:flush={!showHeader} {@attach scrollHint}>
+    <ul class={{ flush: !showHeader }} {@attach scrollHint}>
       {#each userIds as userId (userId)}
         <li>
           <MemberIdentityRow class="member" {userId} {members} onProfile={onMemberProfile}>

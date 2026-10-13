@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { on } from 'svelte/events';
   import { removeLocalValue } from '#lib/platform/local-json.js';
 
   import {
@@ -35,6 +34,12 @@
     }, 0);
   }
 
+  function handleStorage(event: StorageEvent): void {
+    if (event.key !== 'sable-registration-complete' || !event.newValue) return;
+    removeLocalValue(event.key);
+    onRegistrationComplete();
+  }
+
   async function watchDeepLinks(): Promise<void> {
     const unlisten = await subscribeDeepLinks((urls) => {
       const url = urls.find((candidate) => redirectLoginType(candidate));
@@ -52,12 +57,6 @@
   }
 
   onMount(() => {
-    const offStorage = on(window, 'storage', (event: StorageEvent) => {
-      if (event.key !== 'sable-registration-complete' || !event.newValue) return;
-      removeLocalValue(event.key);
-      onRegistrationComplete();
-    });
-
     const callbackUrl = window.location.href;
     if (deliversDeepLinks()) void watchDeepLinks();
     else if (redirectLoginType(callbackUrl)) handOffCallbackWindow(callbackUrl);
@@ -65,7 +64,8 @@
     return () => {
       disposed = true;
       removeDeepLinkListener?.();
-      offStorage();
     };
   });
 </script>
+
+<svelte:window onstorage={handleStorage} />

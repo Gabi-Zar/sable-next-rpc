@@ -44,7 +44,8 @@ export async function openGifPlayback(url: string): Promise<GifPlayback | null> 
     decoder = new ImageDecoder({ data: await response.arrayBuffer(), type: 'image/gif' });
     await decoder.tracks.ready;
     await decoder.completed;
-  } catch {
+  } catch (error) {
+    console.debug('[sable media] the gif could not be decoded', error);
     return null;
   }
 
@@ -73,7 +74,8 @@ export async function openGifPlayback(url: string): Promise<GifPlayback | null> 
             if (owned) image.close();
           },
         };
-      } catch {
+      } catch (error) {
+        console.debug('[sable media] a gif frame could not be decoded', error);
         return null;
       }
     },

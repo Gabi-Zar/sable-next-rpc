@@ -60,7 +60,7 @@
       (profile) => {
         if (alive) displayName = profile.display_name ?? '';
       },
-      () => undefined
+      (error: unknown) => console.debug('[sable notifications] own profile unavailable', error)
     );
 
     return () => {
@@ -79,7 +79,8 @@
         current = modes;
         failed = false;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.warn('[sable notifications] loading mention settings failed', error);
         if (alive) failed = true;
       });
 
@@ -95,7 +96,8 @@
   ): void {
     if (current) current = { ...current, [key]: mode };
 
-    void core.rpc.notifications.setMentionNotifications({ rule, mode }).catch(() => {
+    void core.rpc.notifications.setMentionNotifications({ rule, mode }).catch((error: unknown) => {
+      console.warn('[sable notifications] saving mention setting failed', error);
       failed = true;
       settingsChanges.version += 1;
     });

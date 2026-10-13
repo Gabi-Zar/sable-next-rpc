@@ -60,7 +60,7 @@
   });
 </script>
 
-<p class="undecryptable" class:waiting>
+<p class={['undecryptable', { waiting }]}>
   {#if waiting}
     {$i18n.t('timeline.utdWaiting')}
   {:else}

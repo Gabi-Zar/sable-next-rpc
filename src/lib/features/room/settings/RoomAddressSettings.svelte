@@ -62,7 +62,10 @@
     const current = ++run;
     try {
       const [local, published] = await Promise.all([
-        core.rpc.rooms.aliases({ room_id: target }).catch(() => [] as string[]),
+        core.rpc.rooms.aliases({ room_id: target }).catch((error: unknown): string[] => {
+          console.debug('[sable room] local aliases unavailable', error);
+          return [];
+        }),
         core.rpc.rooms.canonicalAlias({ room_id: target }),
       ]);
       if (current !== run) return;

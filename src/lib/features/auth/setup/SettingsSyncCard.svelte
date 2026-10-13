@@ -24,7 +24,10 @@
     void core.rpc.account
       .data({ event_type: SETTINGS_ACCOUNT_DATA_TYPE })
       .then((content) => typeof content === 'object' && content !== null)
-      .catch(() => false)
+      .catch((error: unknown) => {
+        console.debug('[sable setup] synced settings unavailable', error);
+        return false;
+      })
       .then((found) => {
         if (alive) synced = found;
       });

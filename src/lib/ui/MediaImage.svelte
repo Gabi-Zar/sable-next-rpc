@@ -410,7 +410,11 @@
   async function retry(event: MouseEvent): Promise<void> {
     event.stopPropagation();
     if (retryWait > 0) return;
-    if (undecodable) await core.media.forgetMedia(requested).catch(() => undefined);
+    if (undecodable) {
+      await core.media.forgetMedia(requested).catch((error: unknown) => {
+        console.debug('[sable media] the undecodable media could not be forgotten', error);
+      });
+    }
     undecodableThumbnail = null;
     outcome = null;
     const next = backoff.attempt + 1;

@@ -1,15 +1,15 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { defaultSettingsSection } from '#lib/features/settings/settings-navigation.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
 
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
 
   // Phones stay on the section list.
   $effect(() => {
-    if (!appLayout.matches) return;
+    if (!appLayout.current) return;
     void goto(resolve(`settings/${defaultSettingsSection()}`), { replace: true });
   });
 </script>

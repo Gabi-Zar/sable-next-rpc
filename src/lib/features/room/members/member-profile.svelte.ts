@@ -37,7 +37,8 @@ export class MemberProfile {
     try {
       const profile = await this.core.userProfile(userId, true);
       if (request === this.#request) this.profile = profile;
-    } catch {
+    } catch (error) {
+      console.warn('[sable profile] loading profile failed', error);
       if (request === this.#request) this.failed = true;
     }
   }

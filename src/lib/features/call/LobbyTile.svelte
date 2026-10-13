@@ -35,7 +35,7 @@
   }
 </script>
 
-<li class="tile" class:video-on={stream !== undefined} class:speaking>
+<li class={['tile', { 'video-on': stream !== undefined, speaking }]}>
   {#if stream}
     <video
       class="video"

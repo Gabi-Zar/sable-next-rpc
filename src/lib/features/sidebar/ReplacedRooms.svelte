@@ -37,7 +37,8 @@
   async function leave(room: RoomListItemView): Promise<void> {
     try {
       await core.rpc.rooms.leave({ room_id: room.room_id });
-    } catch {
+    } catch (error) {
+      console.warn('[sable nav] leaving replaced room failed', error);
       toasts.error($i18n.t('room.leaveFailed'));
     }
   }
@@ -68,7 +69,7 @@
       {#each replaced as room (room.room_id)}
         {@const name = room.name ?? room.room_id}
         {@const handled = isReplacedRoomDismissed(room.room_id)}
-        <li class:handled>
+        <li class={{ handled }}>
           <a
             class="replaced-link"
             href={roomSectionPath(roomList.rooms, room.room_id)}

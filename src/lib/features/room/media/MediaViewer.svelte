@@ -663,7 +663,7 @@
           }
         }}
       >
-        <header class="toolbar" class:chrome-hidden={chromeHidden}>
+        <header class={['toolbar', { 'chrome-hidden': chromeHidden }]}>
           <div class="heading">
             <strong>{item.sender}</strong>
             <Tooltip label={visibleLabel}>
@@ -823,11 +823,15 @@
         </header>
 
         <main
-          class="stage"
-          class:spoilered={spoilerHidden}
-          class:has-nav={items.length > 1}
-          class:chrome-hidden={chromeHidden}
-          class:magnifying={lens !== null}
+          class={[
+            'stage',
+            {
+              spoilered: spoilerHidden,
+              'has-nav': items.length > 1,
+              'chrome-hidden': chromeHidden,
+              magnifying: lens !== null,
+            },
+          ]}
           bind:this={stageEl}
           onwheel={handleWheel}
           onpointerdown={startPan}
@@ -883,10 +887,7 @@
             {:else}
               <img
                 bind:this={imageEl}
-                class:pixelated
-                class:dragging
-                class:instant
-                class:spoilered={spoilerHidden}
+                class={{ pixelated, dragging, instant, spoilered: spoilerHidden }}
                 src={url}
                 alt={spoilerHidden ? '' : mediaLabel || $i18n.t('viewer.imageAlt')}
                 aria-hidden={spoilerHidden ? 'true' : undefined}
@@ -906,7 +907,7 @@
                   style:height={`${String(lensSize)}px`}
                 >
                   <img
-                    class:pixelated
+                    class={{ pixelated }}
                     src={url}
                     alt=""
                     draggable="false"
@@ -981,7 +982,7 @@
         </main>
 
         {#if isPdf && pdfPages > 1}
-          <footer class="bottom-bar" class:chrome-hidden={chromeHidden}>
+          <footer class={['bottom-bar', { 'chrome-hidden': chromeHidden }]}>
             <div class="zoom-controls">
               <IconButton
                 label={$i18n.t('pdf.previousPage')}

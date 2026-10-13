@@ -49,7 +49,10 @@ async function webArchitecture(): Promise<string | undefined> {
 
   const values = await data
     .getHighEntropyValues(['architecture', 'bitness'])
-    .catch(() => undefined);
+    .catch((error: unknown) => {
+      console.debug('[sable diagnostics] architecture unavailable', error);
+      return undefined;
+    });
   if (!values?.architecture) return undefined;
   return values.bitness ? `${values.architecture} ${values.bitness}-bit` : values.architecture;
 }

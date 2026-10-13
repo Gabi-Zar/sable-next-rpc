@@ -17,7 +17,9 @@ export function videoStreamingSupported(core: VideoStreamer): boolean {
       (mime) => {
         streamMime = mime;
       },
-      () => {}
+      (error: unknown) => {
+        console.debug('[sable media] the video re-encoder is unavailable', error);
+      }
     );
   }
   return streamMime !== null;

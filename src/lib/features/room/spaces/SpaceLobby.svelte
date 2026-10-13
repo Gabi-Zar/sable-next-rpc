@@ -15,7 +15,7 @@
   import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
   import UsersThreeIcon from 'phosphor-svelte/lib/UsersThreeIcon';
   import { onDestroy, untrack } from 'svelte';
-  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+  import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
 
   import { goto } from '$app/navigation';
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
@@ -45,7 +45,6 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import { backToRoomList } from '#lib/features/room/room-navigation.js';
 
   import {
@@ -106,7 +105,7 @@
   const closed = new SvelteSet<string>();
   const visibleLevels = new SvelteSet<string>();
 
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
   const hierarchy = new SpaceHierarchyLoader(core);
   let fetched = $derived(hierarchy.fetched);
   let overrides = $state.raw<ChildOrderOverride[]>([]);
@@ -638,7 +637,7 @@
       },
     })}
   >
-    {#if !appLayout.matches}
+    {#if !appLayout.current}
       <div class="mobile-back-menu">
         <IconButton
           variant="ghost"

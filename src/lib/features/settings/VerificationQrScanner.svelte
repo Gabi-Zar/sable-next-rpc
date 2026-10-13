@@ -46,7 +46,9 @@
       const { default: jsQR } = await import('jsqr');
       const element = video;
       element.srcObject = stream;
-      await element.play().catch(() => undefined);
+      await element.play().catch((error: unknown) => {
+        console.debug('[sable settings] camera preview did not start', error);
+      });
 
       timer = setInterval(() => {
         if (!element.videoWidth) return;

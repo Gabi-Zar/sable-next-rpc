@@ -11,8 +11,7 @@
 </script>
 
 <ul
-  class="settings-outline"
-  class:tracking={activeIndex >= 0}
+  class={['settings-outline', { tracking: activeIndex >= 0 }]}
   aria-label={label}
   style:--outline-index={Math.max(0, activeIndex)}
 >

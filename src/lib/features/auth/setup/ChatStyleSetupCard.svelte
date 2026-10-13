@@ -123,7 +123,7 @@
       </div>
       <div class="choices">
         {#each layouts as value (value)}
-          <label class:selected={preferences.layout === value}>
+          <label class={{ selected: preferences.layout === value }}>
             <input
               type="radio"
               name="setup-layout"
@@ -143,7 +143,7 @@
       </div>
       <div class="choices">
         {#each replies as value (value)}
-          <label class:selected={preferences.replyPreviewStyle === value}>
+          <label class={{ selected: preferences.replyPreviewStyle === value }}>
             <input
               type="radio"
               name="setup-reply"

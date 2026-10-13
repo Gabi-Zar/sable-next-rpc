@@ -92,7 +92,7 @@
   {/snippet}
 
   {#snippet main()}
-    <div class="room-identity" class:with-topic={topicShown}>
+    <div class={['room-identity', { 'with-topic': topicShown }]}>
       <h1>{roomName}</h1>
       {#if topicShown}
         <button class="room-topic" type="button" onclick={onTopic}>{topic}</button>
@@ -103,8 +103,7 @@
         {#snippet trigger({ props })}
           <span
             {...props}
-            class="voice-chip"
-            class:live={inVoice.length > 0}
+            class={['voice-chip', { live: inVoice.length > 0 }]}
             role="img"
             aria-label={voiceLabel}
           >

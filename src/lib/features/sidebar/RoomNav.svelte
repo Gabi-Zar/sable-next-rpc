@@ -199,7 +199,7 @@
     peerProfiles.set(userId, null);
     void core.userProfile(userId).then(
       (profile) => peerProfiles.set(userId, profile),
-      () => undefined
+      (error: unknown) => console.debug('[sable nav] peer profile unavailable', error)
     );
   }
   let settingsRoomId = $state<string | null>(null);
@@ -621,8 +621,7 @@
         <MediaImage source={banner} alt="" width={640} height={190} class="room-banner-image" />
         <button
           type="button"
-          class="room-banner-resize"
-          class:dragging={bannerResizing}
+          class={['room-banner-resize', { dragging: bannerResizing }]}
           role="slider"
           aria-orientation="vertical"
           aria-valuemin={PREFERENCE_RANGES.roomBannerHeight.min}
@@ -636,7 +635,7 @@
         ></button>
       </div>
     {/if}
-    <header class="room-nav-header" class:collapsed class:on-banner={bannerShown}>
+    <header class={['room-nav-header', { collapsed, 'on-banner': bannerShown }]}>
       <h2 aria-label={collapsed ? title : undefined}>
         {#if collapsed}
           <ActionMenu label={$i18n.t('nav.listOptions')} side="right" align="start">
@@ -781,7 +780,7 @@
     {@const peerPresence = peerId ? presenceStore.peek(peerId) : null}
     {@const peerStatus = peerId ? resolveUserStatus(peerProfiles.get(peerId), peerPresence) : null}
     {@const closed = sectionClosed && !(room !== undefined && (active || hasUnread(counts)))}
-    <div class="room-row-wrap" class:closed-row={closed}>
+    <div class={['room-row-wrap', { 'closed-row': closed }]}>
       {@render threadLines(item.threads)}
       {#snippet roomTrigger({ props }: { props: Record<string, unknown> })}
         <a
@@ -796,8 +795,10 @@
               if (room) openContextMenu(event, room, item.parentSpaceId ?? null);
             },
           })}
-          class="room-row selection-current selection-layer"
-          class:unread={mentions > 0 || unread > 0 || marked}
+          class={[
+            'room-row selection-current selection-layer',
+            { unread: mentions > 0 || unread > 0 || marked },
+          ]}
           {href}
           style:--room-depth={collapsed ? 0 : item.depth}
           onclick={() => onNavigate?.(href)}
@@ -984,9 +985,7 @@
     {#if room?.is_voice && live > 0}
       {@const rowKeys = participantKeys(room.call_participants)}
       <ul
-        class:collapsed
-        class:closed-row={closed}
-        class="call-participant-list"
+        class={['call-participant-list', { collapsed, 'closed-row': closed }]}
         aria-label={$i18n.t('nav.voiceLive', { count: live })}
       >
         {#each room.call_participants as userId, index (rowKeys[index])}
@@ -999,7 +998,7 @@
             rowKeys[index] ?? userId
           )}
           <li
-            class:speaking={voice?.speaking && !voice.muted}
+            class={{ speaking: voice?.speaking && !voice.muted }}
             oncontextmenu={voice && userId !== core.session?.user_id
               ? (event) => openCallVolume(event, userId, displayName)
               : undefined}
@@ -1132,7 +1131,7 @@
   {/snippet}
 
   <div class="room-nav-content">
-    <div class="room-nav-actions" class:collapsed>
+    <div class={['room-nav-actions', { collapsed }]}>
       {#snippet action(href: string, label: string, icon: Component)}
         {@const Icon = icon}
         {@const active = pathname === href}
@@ -1219,12 +1218,12 @@
           }}
         >
           <span class="rooms-heading-label">{$i18n.t('nav.favourites')}</span>
-          <span class:closed={favouritesClosed} class="category-caret" aria-hidden="true"
+          <span class={['category-caret', { closed: favouritesClosed }]} aria-hidden="true"
             ><CaretDownIcon /></span
           >
         </button>
       {/if}
-      <div id={favouritesListId} class="room-list favourites" class:collapsed>
+      <div id={favouritesListId} class={['room-list favourites', { collapsed }]}>
         {#each favourites as item (item.key)}
           {@render navRoom(item, favouritesClosed)}
         {/each}
@@ -1243,7 +1242,7 @@
         }}
       >
         <span class="rooms-heading-label">{listLabel}</span>
-        <span class:closed={roomsClosed} class="category-caret" aria-hidden="true"
+        <span class={['category-caret', { closed: roomsClosed }]} aria-hidden="true"
           ><CaretDownIcon /></span
         >
       </button>
@@ -1257,7 +1256,7 @@
           </div>
         {/if}
       {:else}
-        <div class="room-list" class:collapsed>
+        <div class={['room-list', { collapsed }]}>
           {#each rooms as item (item.key)}
             {@render navRoom(item, roomsClosed)}
           {/each}
@@ -1271,8 +1270,7 @@
                   <button
                     {...props}
                     type="button"
-                    class="room-category selection-layer"
-                    class:collapsed
+                    class={['room-category selection-layer', { collapsed }]}
                     oncontextmenu={mouseContextMenu((event) => {
                       openContextMenu(event, item.room, null);
                     })}
@@ -1289,7 +1287,7 @@
                     }}
                   >
                     {#if !collapsed}<span class="category-name">{name}</span>{/if}
-                    <span class:closed={isClosed} class="category-caret" aria-hidden="true"
+                    <span class={['category-caret', { closed: isClosed }]} aria-hidden="true"
                       ><CaretDownIcon /></span
                     >
                   </button>

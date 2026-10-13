@@ -95,8 +95,9 @@
         stream = next;
         cameraFailed = false;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (cancelled) return;
+        console.debug('[sable call] lobby camera preview failed', error);
         stream = undefined;
         cameraFailed = true;
       });
@@ -174,7 +175,7 @@
 <section class="lobby" aria-label={$i18n.t('call.title')}>
   <header class="top">
     <p class="status">
-      <span class="live-dot" class:idle={alone}></span>
+      <span class={['live-dot', { idle: alone }]}></span>
       {#if roomName}<span class="room">{roomName}</span>{/if}
       {#if !alone}
         {@const lobbyLabel = $i18n.t('call.lobbyInCall', { count: others.length })}
@@ -194,8 +195,7 @@
   <div class="media" style:--tile-aspect={aspect}>
     {#if canJoin}
       <ul
-        class="grid"
-        class:alone
+        class={['grid', { alone }]}
         bind:clientWidth={mediaWidth}
         bind:clientHeight={mediaHeight}
         style:--tile-width="{Math.floor(grid.width)}px"

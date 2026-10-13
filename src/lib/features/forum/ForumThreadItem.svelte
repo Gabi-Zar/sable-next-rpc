@@ -92,10 +92,7 @@
 
 <li class="forum-thread-item">
   <article
-    class:pressed={rowPress.pressing}
-    class:unread={thread.unread}
-    class:pinned
-    class="forum-thread-card"
+    class={['forum-thread-card', { pressed: rowPress.pressing, unread: thread.unread, pinned }]}
     onpointerdown={rowPress.start}
     onpointermove={rowPress.move}
     onpointerup={rowPress.end}

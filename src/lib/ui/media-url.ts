@@ -111,7 +111,9 @@ function measure(key: string, type: string, blob: Blob): Promise<void> | null {
       }
       bitmap.close();
     })
-    .catch(() => {});
+    .catch((error: unknown) => {
+      console.debug('[sable media] the aspect ratio could not be measured', error);
+    });
 }
 
 export function mediaAspectRatio(

@@ -62,7 +62,8 @@
     }
     try {
       serverPush = (await core.rpc.push.webPusherSupport()) !== null;
-    } catch {
+    } catch (error) {
+      console.warn('[sable notifications] server push support check failed', error);
       serverPush = false;
     }
   }
@@ -76,7 +77,8 @@
       selected = selectedPushDistributor();
       provider = selectedPushProvider();
       distributorError = false;
-    } catch {
+    } catch (error) {
+      console.warn('[sable notifications] listing push distributors failed', error);
       distributorError = true;
     }
   }
@@ -93,7 +95,8 @@
     try {
       await switchPushDistributor(name, pushOverride(), core.session, core.accounts);
       selected = name;
-    } catch {
+    } catch (error) {
+      console.warn('[sable notifications] switching push distributor failed', error);
       distributorError = true;
       selected = selectedPushDistributor();
     } finally {
@@ -109,7 +112,8 @@
       await switchPushProvider(next as PushProvider, pushOverride(), core.session, core.accounts);
       provider = next as PushProvider;
       selected = selectedPushDistributor();
-    } catch {
+    } catch (error) {
+      console.warn('[sable notifications] switching push provider failed', error);
       distributorError = true;
       provider = selectedPushProvider();
     } finally {

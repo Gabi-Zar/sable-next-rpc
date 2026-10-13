@@ -198,7 +198,7 @@
   />
 
   <div class="login-methods">
-    <div class="method-slot" class:action-slot={hasLoginAction} id={methodSlotId}>
+    <div class={['method-slot', { 'action-slot': hasLoginAction }]} id={methodSlotId}>
       {#if !loginFlows}
         <div class="actions">
           <Button

@@ -193,10 +193,8 @@
 
 <section
   bind:this={panel}
-  class="thread-view"
-  class:side-panel={sidePanel}
+  class={['thread-view', { 'side-panel': sidePanel, swiping: swipe.swiping }]}
   style:width={sidePanel ? `${width}rem` : undefined}
-  class:swiping={swipe.swiping}
   style:transform={swipe.transform}
   aria-label={$i18n.t('timeline.thread')}
   tabindex="-1"

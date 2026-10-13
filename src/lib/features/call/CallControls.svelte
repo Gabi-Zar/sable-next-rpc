@@ -118,7 +118,7 @@
   </div>
 {/snippet}
 
-<div class="controls" class:compact>
+<div class={['controls', { compact }]}>
   {#snippet micButton(props: Record<string, unknown>)}
     <IconButton
       {...props}

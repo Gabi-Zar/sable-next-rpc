@@ -38,7 +38,8 @@ export class MediaViewerResource {
           this.#adoptStream(next);
           this.url = next;
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          console.debug('[sable viewer] video stream unavailable', error);
           if (generation === this.#generation) this.streamUnavailable = true;
         });
     } else {
@@ -50,7 +51,8 @@ export class MediaViewerResource {
         .then((url) => {
           if (generation === this.#generation) this.url = url;
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          console.warn('[sable viewer] media load failed', error);
           if (generation === this.#generation) this.failed = true;
         });
     }

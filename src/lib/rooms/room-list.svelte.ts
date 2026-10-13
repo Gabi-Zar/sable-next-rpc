@@ -162,7 +162,9 @@ export class RoomList {
       this.warmTimer = undefined;
       const roomIds = this.pendingWarm;
       this.pendingWarm = [];
-      this.core.rpc.timeline.warmRooms({ room_ids: roomIds }).catch(() => {});
+      this.core.rpc.timeline.warmRooms({ room_ids: roomIds }).catch((error: unknown) => {
+        console.debug('[sable rooms] rooms not warmed', error);
+      });
     }, WARM_BATCH_MS);
   }
 
@@ -239,7 +241,11 @@ export class RoomList {
 
     const subscription = this.subscription;
     this.subscription = null;
-    if (subscription !== null) this.core.rpc.timeline.unsubscribe({ subscription }).catch(() => {});
+    if (subscription !== null) {
+      this.core.rpc.timeline.unsubscribe({ subscription }).catch((error: unknown) => {
+        console.debug('[sable rooms] room list not unsubscribed', error);
+      });
+    }
   }
 
   private async startSubscription(): Promise<void> {
@@ -262,7 +268,11 @@ export class RoomList {
     }
 
     if (generation !== this.generation) {
-      this.core.rpc.timeline.unsubscribe({ subscription: response.subscription }).catch(() => {});
+      this.core.rpc.timeline
+        .unsubscribe({ subscription: response.subscription })
+        .catch((error: unknown) => {
+          console.debug('[sable rooms] stale room list not unsubscribed', error);
+        });
       buffered.stop();
       return;
     }

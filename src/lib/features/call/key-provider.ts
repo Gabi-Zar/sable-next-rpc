@@ -1,6 +1,6 @@
 import { BaseKeyProvider, isE2EESupported } from 'livekit-client';
 
-import { ignoreError, type CallEncryptionKey } from './call-transport';
+import type { CallEncryptionKey } from './call-transport';
 
 export type KeyImportFailure = 'webcrypto-unavailable' | 'import-failed';
 
@@ -125,8 +125,8 @@ export class MatrixKeyProvider extends BaseKeyProvider {
     for (const listener of this.#listeners) {
       try {
         listener(snapshot);
-      } catch {
-        ignoreError();
+      } catch (error) {
+        console.warn('[sable call] state listener failed', error);
       }
     }
   }

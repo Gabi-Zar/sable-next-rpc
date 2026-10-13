@@ -71,8 +71,7 @@
 
 {#if !failed}
   <button
-    class="pdf-thumbnail"
-    class:ready
+    class={['pdf-thumbnail', { ready }]}
     type="button"
     onclick={onOpen}
     aria-label={$i18n.t('pdf.openNamed', { name })}

@@ -153,10 +153,10 @@
           if (playing) return;
           playing = true;
           playSound(sound.sound, { blocking: true })
-            .then(() => {
-              playing = false;
+            .catch((error: unknown) => {
+              console.warn('[sable notification sound] preview failed', error);
             })
-            .catch(() => {
+            .finally(() => {
               playing = false;
             });
         }}

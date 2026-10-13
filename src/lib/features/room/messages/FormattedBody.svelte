@@ -400,7 +400,10 @@
       known?.name ??
       (await core.rpc.rooms.preview({ address: link.room_id, via: splitVia(anchor.href).via }).then(
         (preview) => preview.name,
-        () => null
+        (error: unknown) => {
+          console.debug('[sable timeline] link room preview unavailable', error);
+          return null;
+        }
       ));
     const room = name ? (name.startsWith('#') ? name : `#${name}`) : null;
     const snippet =
@@ -409,7 +412,10 @@
             .eventItems({ room_id: known.room_id, event_ids: [link.event_id] })
             .then(
               ([item]) => (item ? replyPreviewBody(item.content).replace(/\s+/g, ' ').trim() : ''),
-              () => ''
+              (error: unknown) => {
+                console.debug('[sable timeline] link event preview unavailable', error);
+                return '';
+              }
             )
         : '';
     if (!anchor.isConnected || room === null) return;
@@ -654,7 +660,7 @@
 {#snippet emoteCard()}
   <EmoteCard label={definition}>
     {#if emote?.src}
-      <img class:pixelated={emote.classList.contains('pixelated')} src={emote.src} alt="" />
+      <img class={{ pixelated: emote.classList.contains('pixelated') }} src={emote.src} alt="" />
     {/if}
   </EmoteCard>
 {/snippet}
@@ -868,7 +874,6 @@
     padding-left: var(--space-200);
   }
 
-  /* Inline code had no rule at all, so it read as prose. */
   .formatted-body :global(code:not(pre code)) {
     background: var(--surface-var-container);
     border: var(--border-width) solid var(--surface-var-container-line);

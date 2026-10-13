@@ -48,8 +48,9 @@ export function createCoreWorkerBoundary(
       for (const subscription of subscriptions) {
         try {
           await instance.call('timeline.unsubscribe', JSON.stringify({ subscription }));
-        } catch {
+        } catch (error) {
           // The owner is gone, so cleanup errors cannot be reported to a page.
+          console.debug('[sable worker] closed port subscription not released', error);
         }
       }
     });

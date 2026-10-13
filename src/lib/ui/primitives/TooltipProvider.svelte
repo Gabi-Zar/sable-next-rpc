@@ -1,10 +1,10 @@
 <script module lang="ts">
-  import { hasContext, setContext } from 'svelte';
+  import { createContext } from 'svelte';
 
-  const PROVIDED = Symbol('tooltip-provider');
+  const [, setProvided, hasProvided] = createContext<true>();
 
   export function tooltipProvided(): boolean {
-    return hasContext(PROVIDED);
+    return hasProvided();
   }
 </script>
 
@@ -18,7 +18,7 @@
 
   let { children }: Props = $props();
 
-  setContext(PROVIDED, true);
+  setProvided(true);
 </script>
 
 <BitsTooltip.Provider

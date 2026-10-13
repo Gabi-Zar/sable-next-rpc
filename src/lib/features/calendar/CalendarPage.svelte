@@ -168,7 +168,8 @@
       .then((next) => {
         if (current) permissions = next;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.warn('[sable calendar] loading permissions failed', error);
         if (current) permissions = null;
       });
     return () => {
@@ -531,9 +532,7 @@
               <button
                 type="button"
                 role="gridcell"
-                class="calendar-cell"
-                class:outside={!inMonth}
-                class:today={day === startOfDay(now)}
+                class={['calendar-cell', { outside: !inMonth, today: day === startOfDay(now) }]}
                 data-day={day}
                 tabindex={day === activeDay ? 0 : -1}
                 aria-selected={day === activeDay}
@@ -547,7 +546,7 @@
               >
                 <span class="calendar-cell-number">{new Date(day).getDate()}</span>
                 {#each found.slice(0, CHIPS) as entry (`${entry.item.event_id}:${String(entry.start)}`)}
-                  <span class="calendar-chip" class:declined={mineOn(entry) === 'declined'}>
+                  <span class={['calendar-chip', { declined: mineOn(entry) === 'declined' }]}>
                     {#if !entry.item.all_day}<span class="calendar-chip-time"
                         >{formatTime(entry.start)}</span
                       >{/if}

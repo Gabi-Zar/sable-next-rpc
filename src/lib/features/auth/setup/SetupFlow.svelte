@@ -120,8 +120,8 @@
     try {
       const parsed = JSON.parse(marker ?? 'null') as { homeserver?: unknown } | null;
       if (typeof parsed?.homeserver === 'string') homeserver = parsed.homeserver;
-    } catch {
-      homeserver = '';
+    } catch (error) {
+      console.debug('[sable setup] onboarding marker unreadable', error);
     }
     const registering = marker !== null;
     return {

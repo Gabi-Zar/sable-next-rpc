@@ -261,10 +261,10 @@
 <div class="rail-shell">
   <div
     bind:this={railElement}
-    class="rail"
-    class:motion-ready={motionReady}
-    class:is-navigating={isNavigating}
-    class:is-dragging={isDragging}
+    class={[
+      'rail',
+      { 'motion-ready': motionReady, 'is-navigating': isNavigating, 'is-dragging': isDragging },
+    ]}
     style:height={activeCardHeight === null
       ? undefined
       : `calc(${activeCardHeight}px + var(--space-100) + var(--space-400))`}

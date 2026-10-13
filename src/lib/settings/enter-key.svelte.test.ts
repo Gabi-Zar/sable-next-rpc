@@ -1,13 +1,18 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
 const pointer = vi.hoisted(() => ({ coarse: false }));
+const CoarsePointerQuery = vi.hoisted(
+  () =>
+    class {
+      get current() {
+        return pointer.coarse;
+      }
+    }
+);
 
-vi.mock('#lib/ui/media-query.svelte.js', () => ({
-  createMediaQuery: () => ({
-    get matches() {
-      return pointer.coarse;
-    },
-  }),
+vi.mock('svelte/reactivity', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  MediaQuery: CoarsePointerQuery,
 }));
 
 import { enterInsertsNewline } from './enter-key.svelte.js';

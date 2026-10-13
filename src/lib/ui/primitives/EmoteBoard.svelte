@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import type { ImagePackView, ImageUsageView, PackImageView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import GifGrid from '#lib/features/gif/GifGrid.svelte';
@@ -18,7 +19,6 @@
     readBoardSize,
     trackBoardSize,
   } from '#lib/ui/primitives/board-size.svelte.js';
-  import { on } from 'svelte/events';
   import { tick, untrack } from 'svelte';
 
   import { emojiGroups, searchReactionEmoji, shortcodeFor } from '#lib/emoji/emoji.js';
@@ -76,19 +76,8 @@
   const GRID_GAP = 4;
   const EMOJI_CELL = 48;
 
-  let narrowSheet = $state(false);
-
-  $effect(() => {
-    if (variant !== 'sheet') {
-      narrowSheet = false;
-      return;
-    }
-    const mql = window.matchMedia('(width < 24rem)');
-    narrowSheet = mql.matches;
-    return on(mql, 'change', (event) => {
-      narrowSheet = event.matches;
-    });
-  });
+  const narrowViewport = new MediaQuery('(width < 24rem)');
+  let narrowSheet = $derived(variant === 'sheet' && narrowViewport.current);
 
   let emojiRowWidth = $state(0);
   const emojiColumns = $derived(
@@ -133,7 +122,8 @@
           failed = false;
         },
         accountId
-      ).catch(() => {
+      ).catch((error: unknown) => {
+        console.warn('[sable emotes] the packs could not be loaded', error);
         if (cancelled || packs.length > 0) return;
         failed = true;
         loading = false;
@@ -561,8 +551,7 @@
 >
   <button
     type="button"
-    class={resizable ? 'resize-handle' : 'resize-handle-hidden'}
-    class:dragging
+    class={[resizable ? 'resize-handle' : 'resize-handle-hidden', { dragging }]}
     role="slider"
     aria-orientation="horizontal"
     aria-valuenow={readBoardSize()?.width}
@@ -790,7 +779,7 @@
         {/key}
       </div>
 
-      <nav class="rail" class:hidden={searching} aria-label={$i18n.t('composer.packs')}>
+      <nav class={['rail', { hidden: searching }]} aria-label={$i18n.t('composer.packs')}>
         {#if frequentCells.length > 0}
           {@const frequentLabel = $i18n.t('timeline.frequentlyUsed')}
           <Tooltip label={frequentLabel}>

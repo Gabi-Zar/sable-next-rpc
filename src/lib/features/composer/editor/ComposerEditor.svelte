@@ -26,9 +26,7 @@
 </script>
 
 <div
-  class="editor"
-  class:empty={showPlaceholder}
-  class:expanded
+  class={['editor', { empty: showPlaceholder, expanded }]}
   data-placeholder={placeholder}
   {@attach mount}
 ></div>

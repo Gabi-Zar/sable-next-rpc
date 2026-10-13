@@ -162,9 +162,9 @@ export async function watchNativeNotificationActions(
 
   return () => {
     void invoke('plugin:notifications|set_action_listener_active', { active: false }).catch(
-      () => undefined
+      listenerNotReleased
     );
-    void listener.unregister().catch(() => undefined);
+    void listener.unregister().catch(listenerNotReleased);
   };
 }
 
@@ -185,9 +185,9 @@ export async function watchNativeNotificationClicks(
 
   return () => {
     void invoke('plugin:notifications|set_click_listener_active', { active: false }).catch(
-      () => undefined
+      listenerNotReleased
     );
-    void listener.unregister().catch(() => undefined);
+    void listener.unregister().catch(listenerNotReleased);
   };
 }
 
@@ -213,9 +213,9 @@ export async function watchNativePushMessages(
 
   return () => {
     void invoke('plugin:notifications|set_push_message_listener_active', { active: false }).catch(
-      () => undefined
+      listenerNotReleased
     );
-    void listener.unregister().catch(() => undefined);
+    void listener.unregister().catch(listenerNotReleased);
   };
 }
 
@@ -226,8 +226,12 @@ export async function watchNativePushTokens(handler: () => void): Promise<() => 
       handler();
   });
   return () => {
-    void listener.unregister().catch(() => undefined);
+    void listener.unregister().catch(listenerNotReleased);
   };
+}
+
+function listenerNotReleased(error: unknown): void {
+  console.debug('[sable notifications] native listener not released', error);
 }
 
 function text(value: unknown): string | null {

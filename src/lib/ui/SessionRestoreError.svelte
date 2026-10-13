@@ -17,7 +17,8 @@
     try {
       await core.switchAccount(accountId);
       await goto(resolve('/(app)/rooms'));
-    } catch {
+    } catch (error) {
+      console.warn('[sable auth] switching account failed', error);
       switchFailed = true;
     } finally {
       switching = false;
@@ -30,7 +31,8 @@
     try {
       await skipV1Migration();
       await core.start();
-    } catch {
+    } catch (error) {
+      console.warn('[sable auth] skipping the migration failed', error);
       switchFailed = true;
     } finally {
       switching = false;
@@ -43,7 +45,8 @@
     try {
       await goto(resolve('login?addAccount=1'));
       core.beginSignInRecovery();
-    } catch {
+    } catch (error) {
+      console.warn('[sable auth] opening sign-in failed', error);
       switchFailed = true;
     } finally {
       switching = false;

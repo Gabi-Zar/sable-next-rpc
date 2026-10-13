@@ -29,7 +29,9 @@ export async function unregisterVoipPusher(core: CoreClient): Promise<void> {
   if (!previous) return;
   await core.rpc.push
     .removePusher({ pushkey: previous.pushkey, app_id: previous.appId })
-    .catch(() => undefined);
+    .catch((error: unknown) => {
+      console.debug('[sable notifications] removing VoIP pusher failed', error);
+    });
   localStorage.removeItem(REGISTERED_KEY);
 }
 

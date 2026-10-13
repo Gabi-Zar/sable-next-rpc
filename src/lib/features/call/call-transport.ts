@@ -118,7 +118,9 @@ export type CallTransport = {
   roomFor?: (backendId: string | undefined) => import('livekit-client').Room | undefined;
 };
 
-export const ignoreError = (): void => undefined;
+export function ignoreError(error?: unknown): void {
+  console.debug('[sable call] best-effort step failed', error);
+}
 
 export class ScreenAudioError extends Error {
   override name = 'ScreenAudioError';

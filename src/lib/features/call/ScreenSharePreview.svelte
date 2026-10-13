@@ -69,7 +69,7 @@
       (profile) => {
         if (current) sharerName = profile.display_name ?? null;
       },
-      () => undefined
+      (error: unknown) => console.debug('[sable call] sharer profile unavailable', error)
     );
     return () => {
       current = false;
@@ -193,9 +193,11 @@
 
 {#if popped === 'video' || (shown && room && popped !== 'document' && dismissedPreview.key !== shown.key)}
   <section
-    class="screen-preview {previewCorner.value}"
-    class:dragging={drag !== null}
-    class:hidden={popped === 'video'}
+    class={[
+      'screen-preview',
+      previewCorner.value,
+      { dragging: drag !== null, hidden: popped === 'video' },
+    ]}
     aria-label={label}
     style:translate={drag ? `${String(drag.x)}px ${String(drag.y)}px` : undefined}
     onpointerdown={startDrag}
@@ -219,7 +221,10 @@
           variant="ghost"
           size="small"
           label={$i18n.t('call.popOutScreen')}
-          onclick={() => void popOut().catch(() => undefined)}
+          onclick={() =>
+            void popOut().catch((error: unknown) => {
+              console.warn('[sable call] could not pop out screen share', error);
+            })}
         >
           <ArrowSquareOutIcon />
         </IconButton>

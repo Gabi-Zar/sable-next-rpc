@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { goto } from '$app/navigation';
   import { untrack, type Snippet } from 'svelte';
   import { page } from '$app/state';
@@ -16,7 +17,6 @@
     type SwipeGesture,
   } from './swipe-gesture';
   import { BREAKPOINTS } from './breakpoints';
-  import { createMediaQuery } from './media-query.svelte';
   import { backToRoomList, goToPage, isRoomSwitch } from '#lib/features/room/room-navigation.js';
   import CoreHealthBanner from './CoreHealthBanner.svelte';
 
@@ -37,7 +37,7 @@
   let inertOpen = $state<boolean | undefined>();
   let inertTimer: ReturnType<typeof setTimeout> | undefined;
   let focusContentOnSettle = false;
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
   /** Routes whose own index is the room list. Anywhere else the list would
       hide the page that was asked for behind an inert panel. Keyed on the path
       so room-list hydration cannot flash the sidebar over a room. */
@@ -55,7 +55,7 @@
   let pinnedClosed = $derived(MOBILE_QUICK_TOOLS_PATHS.has(pathname));
   let showMobileQuickTools = $derived(MOBILE_QUICK_TOOLS_PATHS.has(pathname));
   let showMobileBackBar = $derived(
-    !appLayout.matches &&
+    !appLayout.current &&
       !pinnedOpen &&
       !showMobileQuickTools &&
       !spaceLobby &&
@@ -162,7 +162,7 @@
 
   function handleTouchStart(event: TouchEvent) {
     cancelSettling();
-    if (appLayout.matches) return;
+    if (appLayout.current) return;
     const target = event.currentTarget;
     if (!(target instanceof HTMLDivElement)) return;
 
@@ -214,7 +214,7 @@
   }
 
   function revealCurrentPage(event: MouseEvent) {
-    if (appLayout.matches || !(event.target instanceof Element)) return;
+    if (appLayout.current || !(event.target instanceof Element)) return;
     const link = event.target.closest('a[href]');
     if (!(link instanceof HTMLAnchorElement)) return;
     if (link.pathname === pathname) {
@@ -271,10 +271,7 @@
   </p>
   <div
     bind:this={track}
-    class="drawer-track"
-    class:open
-    class:dragging
-    class:route-changing={routeChanging}
+    class={['drawer-track', { open, dragging, 'route-changing': routeChanging }]}
     style:transform={position === undefined
       ? undefined
       : `translate3d(${String(position)}px, 0, 0)`}
@@ -286,18 +283,19 @@
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <section
       class="drawer-panel navigation-panel"
-      inert={!panelsOpen || appLayout.matches}
+      inert={!panelsOpen || appLayout.current}
       onclick={revealCurrentPage}
     >
-      {#if !appLayout.matches}
+      {#if !appLayout.current}
         <SidebarNav mobile />
       {/if}
     </section>
     <section
-      class="drawer-panel content-panel"
-      class:with-quick-tools={showMobileQuickTools}
-      class:with-back-bar={showMobileBackBar}
-      inert={panelsOpen && !appLayout.matches}
+      class={[
+        'drawer-panel content-panel',
+        { 'with-quick-tools': showMobileQuickTools, 'with-back-bar': showMobileBackBar },
+      ]}
+      inert={panelsOpen && !appLayout.current}
     >
       <CoreHealthBanner />
       {#if showMobileBackBar}
@@ -316,7 +314,7 @@
       <div id="main-content" class="content" tabindex="-1">
         {@render children()}
       </div>
-      {#if !appLayout.matches}
+      {#if !appLayout.current}
         <div class="mobile-quick-tools"><UserQuickTools mobile /></div>
       {/if}
     </section>

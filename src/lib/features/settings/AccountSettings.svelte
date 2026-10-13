@@ -49,9 +49,14 @@
 
   function refreshProfile(): void {
     if (!userId) return;
-    void core.refreshUserProfile(userId).then((next) => {
-      profile = next;
-    });
+    void core.refreshUserProfile(userId).then(
+      (next) => {
+        profile = next;
+      },
+      (cause: unknown) => {
+        console.warn('[sable settings] profile refresh failed', cause);
+      }
+    );
   }
 </script>
 

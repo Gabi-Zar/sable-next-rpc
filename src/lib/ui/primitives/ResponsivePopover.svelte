@@ -1,9 +1,9 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { Popover } from 'bits-ui';
   import type { Snippet } from 'svelte';
 
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import { overlayLayer } from '#lib/ui/overlay-layer.js';
 
   import BottomSheet from './BottomSheet.svelte';
@@ -50,8 +50,8 @@
     children,
   }: Props = $props();
 
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
-  let desktop = $derived(appLayout.matches);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  let desktop = $derived(appLayout.current);
 
   $effect(() => {
     if (!closeOnAnchorHidden || !open || !desktop || !anchor) return;

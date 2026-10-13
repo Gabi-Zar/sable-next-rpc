@@ -33,7 +33,8 @@ export async function listCallDevices(): Promise<{ devices: CallDevice[]; denied
         label: device.label,
       }));
     return { devices, denied: all.some((device) => device.label === '') };
-  } catch {
+  } catch (error) {
+    console.debug('[sable call] could not enumerate devices', error);
     return { devices: [], denied: true };
   }
 }

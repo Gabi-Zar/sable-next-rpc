@@ -574,7 +574,7 @@
     {#if failed}
       <Alert variant="critical" role="alert">{$i18n.t('emotes.saveFailed')}</Alert>
     {/if}
-    <div class="save-bar" class:pending={dirty}>
+    <div class={['save-bar', { pending: dirty }]}>
       {#if dirty}
         <p class="save-status" role="status">{$i18n.t('common.youHaveUnsavedChanges')}</p>
       {/if}

@@ -80,7 +80,9 @@ export async function listenSystemCallActions(
 
 export async function fulfillSystemAnswer(uuid: string): Promise<void> {
   const plugin = await loadNativeCalls();
-  await plugin?.fulfillAnswerCall(uuid).catch(() => {});
+  await plugin?.fulfillAnswerCall(uuid).catch((error: unknown) => {
+    console.debug('[sable call] system answer not fulfilled', error);
+  });
 }
 
 function hasVoipPush(): boolean {

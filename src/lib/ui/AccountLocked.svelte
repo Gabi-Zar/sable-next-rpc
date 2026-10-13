@@ -20,7 +20,8 @@
     try {
       await core.switchAccount(accountId);
       await goto(resolve('/(app)/rooms'));
-    } catch {
+    } catch (error) {
+      console.warn('[sable auth] switching account failed', error);
       failed = true;
     } finally {
       busy = false;
@@ -31,7 +32,8 @@
     try {
       await logoutWithPush(core, pushOverride());
       await goto(resolve(core.session ? '/(app)/rooms' : '/(auth)/login'));
-    } catch {
+    } catch (error) {
+      console.warn('[sable auth] signing out failed', error);
       failed = true;
     }
   }

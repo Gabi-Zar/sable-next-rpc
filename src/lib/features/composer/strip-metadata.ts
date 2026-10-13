@@ -32,7 +32,8 @@ export async function stripMetadata(file: File, mode: ImageMetadata): Promise<Fi
     const stripped = stripBytes(new Uint8Array(await file.arrayBuffer()), mode);
     if (!stripped) return file;
     return new File([stripped], file.name, { type: file.type, lastModified: file.lastModified });
-  } catch {
+  } catch (error) {
+    console.warn('[sable composer] stripping image metadata failed', error);
     return file;
   }
 }

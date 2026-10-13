@@ -16,7 +16,7 @@ import type {
   CallTransportConnection,
   CallTransportState,
 } from './call-transport';
-import { idleTransportState, ignoreError } from './call-transport';
+import { idleTransportState } from './call-transport';
 
 type Plugin = NonNullable<Awaited<ReturnType<typeof loadNativeCalls>>>;
 
@@ -100,8 +100,8 @@ export async function createNativeTransport(
     for (const listener of listeners) {
       try {
         listener(view);
-      } catch {
-        ignoreError();
+      } catch (error) {
+        console.warn('[sable call] state listener failed', error);
       }
     }
   };
@@ -149,8 +149,8 @@ export async function createNativeTransport(
       if (options.cameraEnabled) {
         try {
           adopt(await plugin.setNativeCallCameraEnabled({ callId, enabled: true }));
-        } catch {
-          ignoreError();
+        } catch (error) {
+          console.warn('[sable call] could not enable camera', error);
         }
       }
     },

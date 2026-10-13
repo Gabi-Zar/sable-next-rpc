@@ -32,8 +32,7 @@
       {#snippet trigger({ props })}
         <p
           {...props}
-          class="auth-status-message auth-status-{tone}"
-          class:multiline
+          class={[`auth-status-message auth-status-${tone}`, { multiline }]}
           {id}
           role={tone === 'error' ? 'alert' : 'status'}
         >

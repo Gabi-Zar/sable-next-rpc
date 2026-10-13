@@ -21,8 +21,7 @@
 </script>
 
 <button
-  class="thumb"
-  class:thumb-spoiler={spoiler}
+  class={['thumb', { 'thumb-spoiler': spoiler }]}
   type="button"
   aria-label={$i18n.t('composer.previewAttachment', { name: file.name })}
   onclick={onOpen}

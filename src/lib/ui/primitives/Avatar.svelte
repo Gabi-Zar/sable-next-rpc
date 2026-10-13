@@ -63,8 +63,13 @@
 
   async function checkAnimated(source: string, url: string | null): Promise<void> {
     if (!url) return;
-    const head = await (await fetch(url)).blob().then((blob) => blob.slice(0, 65536).arrayBuffer());
-    if (isAnimatedImage(new Uint8Array(head))) animatedSrc = source;
+    try {
+      const blob = await (await fetch(url)).blob();
+      const head = await blob.slice(0, 65536).arrayBuffer();
+      if (isAnimatedImage(new Uint8Array(head))) animatedSrc = source;
+    } catch (error) {
+      console.debug('[sable media] the avatar could not be checked for animation', error);
+    }
   }
 
   function playOnHover(node: HTMLElement): () => void {
@@ -116,7 +121,7 @@
         width={96}
         height={96}
         original
-        onloaded={(url) => void checkAnimated(src, url).catch(() => {})}
+        onloaded={(url) => void checkAnimated(src, url)}
       />
     {/if}
   {:else if src}

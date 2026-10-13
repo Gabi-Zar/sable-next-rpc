@@ -184,14 +184,18 @@
 </script>
 
 <li
-  class="tile"
-  class:speaking
-  class:screen
-  class:featured
-  class:revealed
-  class:audible={screen && adjustable}
-  class:video-on={videoOn}
-  class:overlaid={videoOn && remoteSlot !== undefined}
+  class={[
+    'tile',
+    {
+      speaking,
+      screen,
+      featured,
+      revealed,
+      audible: screen && adjustable,
+      'video-on': videoOn,
+      overlaid: videoOn && remoteSlot !== undefined,
+    },
+  ]}
   bind:this={element}
   onfullscreenchange={() => (fullscreen = document.fullscreenElement === element)}
   onpointerup={reveal}
@@ -203,8 +207,7 @@
     <div class="video" {@attach nativeVideoSlot(remoteSlot)}></div>
   {:else if videoOn}
     <video
-      class="video"
-      class:mirrored={participant.local && !screen}
+      class={['video', { mirrored: participant.local && !screen }]}
       autoplay
       muted
       playsinline

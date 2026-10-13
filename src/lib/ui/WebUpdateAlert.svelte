@@ -2,7 +2,8 @@
   export function priorityProvider() {
     const POLL_INTERVAL_MS = 300_000;
 
-    let visible = $state(false);
+    let dismissedGeneration = $state(0);
+    let visible = $derived(webUpdateState.generation > dismissedGeneration);
 
     $effect(() => {
       if (!preferences.autoUpdateCheck || !('serviceWorker' in navigator)) return undefined;
@@ -18,10 +19,6 @@
       return () => clearInterval(timer);
     });
 
-    $effect(() => {
-      if (webUpdateState.generation > 0) visible = true;
-    });
-
     return {
       get priority(): Priority {
         if (visible) {
@@ -32,7 +29,7 @@
       },
 
       dismiss() {
-        visible = false;
+        dismissedGeneration = webUpdateState.generation;
       },
     };
   }

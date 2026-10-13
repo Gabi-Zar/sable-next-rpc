@@ -222,7 +222,7 @@
   <PanelHeaderButton {...props} class="pin-button selection-open" label={$i18n.t('room.pinsTitle')}>
     <PushPinIcon weight={open ? 'fill' : 'regular'} />
     {#if pinnedIds.length > 0}
-      <span class="pin-badge" class:unread={unreadCount > 0} aria-hidden="true"
+      <span class={['pin-badge', { unread: unreadCount > 0 }]} aria-hidden="true"
         >{pinnedIds.length}</span
       >
     {/if}
@@ -280,7 +280,10 @@
           {#snippet item({ index, style })}
             {@const eventId = ordered[index]}
             <div {style} class="pin-row">
-              <div class="pin-item" class:fresh={freshIds.has(eventId)} {@attach measure(eventId)}>
+              <div
+                class={['pin-item', { fresh: freshIds.has(eventId) }]}
+                {@attach measure(eventId)}
+              >
                 {#if !settled.has(eventId)}
                   <p class="pin-status" role="status"><Spinner small /></p>
                 {:else}

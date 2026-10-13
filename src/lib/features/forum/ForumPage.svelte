@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import type { RoomPermissionsView } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -35,7 +36,6 @@
   import { preferences, readReceiptIsPrivate } from '#lib/settings/preferences.svelte.js';
   import { holdOverlayBack } from '#lib/platform/overlay-back.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
 
@@ -67,8 +67,8 @@
   let roomName = $derived(resolvedRoom?.name ?? roomId);
   let roomAvatar = $derived(resolvedRoom?.avatar_url ?? null);
   let threadRootId = $state<string | null>(null);
-  const sidePanels = createMediaQuery(BREAKPOINTS.sidePanels);
-  let threadInPanel = $derived(sidePanels.matches && preferences.threadPresentation === 'panel');
+  const sidePanels = new MediaQuery(BREAKPOINTS.sidePanels);
+  let threadInPanel = $derived(sidePanels.current && preferences.threadPresentation === 'panel');
   let permissions = $state<RoomPermissionsView | null>(null);
   let latestEventId = $derived.by(() => {
     const items = forumThreads.roomTimeline.items;
@@ -102,7 +102,9 @@
     if (forumThreads.loading || forumThreads.backwardPagination !== 'idle') return;
     if (autoFills >= AUTO_FILL_ROUNDS) return;
     autoFills += 1;
-    forumThreads.paginateBackward(50).catch(() => {});
+    forumThreads.paginateBackward(50).catch((error: unknown) => {
+      console.warn('[sable forum] loading threads failed', error);
+    });
   });
 
   $effect(() => {
@@ -138,7 +140,8 @@
       .then((next) => {
         if (current) permissions = next;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.warn('[sable forum] loading permissions failed', error);
         if (current) permissions = null;
       });
     return () => {
@@ -205,7 +208,9 @@
   }
 
   function loadMoreThreads(): void {
-    forumThreads.paginateBackward(30).catch(() => {});
+    forumThreads.paginateBackward(30).catch((error: unknown) => {
+      console.warn('[sable forum] loading threads failed', error);
+    });
   }
 
   async function findJustSent(body: string, sentAfter: number): Promise<string | null> {
@@ -256,8 +261,7 @@
 
 <main class="forum-page" aria-label={$i18n.t('forum.label')} data-inset-owner="top">
   <div
-    class="forum-main"
-    class:thread-covered={threadRootId !== null && !threadInPanel}
+    class={['forum-main', { 'thread-covered': threadRootId !== null && !threadInPanel }]}
     inert={threadRootId !== null && !threadInPanel}
   >
     <ForumHeader

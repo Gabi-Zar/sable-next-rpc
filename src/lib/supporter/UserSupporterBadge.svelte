@@ -17,20 +17,21 @@
   let { userId, awards, name, ...appearance }: Props = $props();
   let badge = $state.raw<SupporterBadgeData | null>(null);
 
+  async function loadBadge(raw: string | null, id: string): Promise<SupporterBadgeData | null> {
+    try {
+      const config = await supporterConfig();
+      return config ? await badgeFor(raw, id, config.keys) : null;
+    } catch (error) {
+      console.warn('[sable supporter] badge not verified', error);
+      return null;
+    }
+  }
+
   $effect(() => {
-    const raw = awards;
-    const id = userId;
     let current = true;
-    void supporterConfig()
-      .then((config) => (config ? badgeFor(raw, id, config.keys) : null))
-      .then(
-        (next) => {
-          if (current) badge = next;
-        },
-        () => {
-          if (current) badge = null;
-        }
-      );
+    void loadBadge(awards, userId).then((next) => {
+      if (current) badge = next;
+    });
     return () => {
       current = false;
     };

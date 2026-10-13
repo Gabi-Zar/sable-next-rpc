@@ -65,8 +65,9 @@ export function writeSetupRecord(
 ): void {
   try {
     storage.setItem(key, JSON.stringify(record));
-  } catch {
+  } catch (error) {
     /* The in-memory setup record remains usable. */
+    console.debug('[sable setup] setup record not persisted', error);
   }
 }
 

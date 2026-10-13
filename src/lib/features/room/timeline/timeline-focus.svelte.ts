@@ -79,8 +79,8 @@ export class TimelineFocus<T> {
       await this.#fillViewport(engine, current);
       if (current() && this.deps.timeline().error === null)
         await engine.jumpTo(key, 'center', smooth, navigation.signal);
-    } catch {
-      return;
+    } catch (error) {
+      console.warn('[sable timeline] positioning the focused event failed', error);
     } finally {
       if (this.#navigation === navigation) this.filling = false;
     }

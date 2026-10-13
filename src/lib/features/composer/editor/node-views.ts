@@ -84,7 +84,9 @@ abstract class MediaNodeView extends AtomNodeView {
       (src) => {
         if (!this.destroyed) this.paint(src, alt);
       },
-      () => {}
+      (error: unknown) => {
+        console.debug('[sable composer] inline image unavailable', error);
+      }
     );
   }
 
@@ -137,7 +139,9 @@ class EmoticonNodeView extends AtomNodeView {
       (src) => {
         if (!this.destroyed) this.paint(src, label);
       },
-      () => {}
+      (error: unknown) => {
+        console.debug('[sable composer] emoticon image unavailable', error);
+      }
     );
   }
 

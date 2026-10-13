@@ -1,14 +1,13 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { mediaPreviewSettings } from '#lib/settings/media-previews.svelte.js';
-  import { onMount } from 'svelte';
-  import { onDestroy, tick, type Snippet, untrack } from 'svelte';
+  import { onDestroy, onMount, tick, type Snippet, untrack } from 'svelte';
   import { on } from 'svelte/events';
   import { page } from '$app/state';
   import AppShell from '#lib/ui/AppShell.svelte';
   import SettingsPanel from '#lib/features/settings/SettingsPanel.svelte';
   import { followSettingsLink } from '#lib/features/settings/settings-navigation.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { findRoomByPathId, provideRoomList, RoomList } from '#lib/rooms/room-list.svelte.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
@@ -96,7 +95,11 @@
     provideNotificationCenter,
   } from '#lib/features/notifications/notifications.svelte.js';
   import IncomingCallDialog from '#lib/features/call/IncomingCallDialog.svelte';
-  import { IncomingCalls, type IncomingCall } from '#lib/features/call/incoming-calls.svelte.js';
+  import {
+    IncomingCalls,
+    type IncomingCall,
+    type SystemAnswer,
+  } from '#lib/features/call/incoming-calls.svelte.js';
   import { CallSession, provideCallSession } from '#lib/features/call/call-session.svelte.js';
   import {
     effectiveVolume,
@@ -153,18 +156,22 @@
   const callSession = new CallSession(core);
   provideCallSession(callSession);
   let systemCall = $state<{ callId: string; roomId: string } | null>(null);
-  const incomingCalls = new IncomingCalls(core, ({ uuid, callId, roomId, hasVideo }) => {
+  const incomingCalls = new IncomingCalls(core, (answer) => void joinSystemAnswer(answer));
+
+  async function joinSystemAnswer({ uuid, callId, roomId, hasVideo }: SystemAnswer): Promise<void> {
     void goto(roomSectionPath(roomList.rooms, roomId));
-    void callSession
-      .join(roomId, { microphone: !preferences.callMicrophoneMuted, camera: hasVideo })
-      .then(() => {
-        systemCall = { callId, roomId };
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable call] system answer not joined', error);
-      })
-      .finally(() => void fulfillSystemAnswer(uuid));
-  });
+    try {
+      await callSession.join(roomId, {
+        microphone: !preferences.callMicrophoneMuted,
+        camera: hasVideo,
+      });
+      systemCall = { callId, roomId };
+    } catch (error) {
+      console.debug('[sable call] system answer not joined', error);
+    } finally {
+      void fulfillSystemAnswer(uuid);
+    }
+  }
 
   $effect(() => {
     const answered = systemCall;
@@ -203,7 +210,9 @@
       .then((profile) => {
         if (!cancelled) setPreference('loadingAnimal', profile.animal?.is_animal ?? '');
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        console.debug('[sable profile] own profile not loaded', error);
+      });
     return () => {
       cancelled = true;
     };
@@ -257,14 +266,16 @@
       if (eventId !== null) {
         void core.rpc.calls
           .decline({ room_id: roomId, notification_event_id: eventId })
-          .catch(() => {});
+          .catch((error: unknown) => {
+            console.warn('[sable call] call not declined', error);
+          });
       }
       return;
     }
     void goto(roomSectionPath(roomList.rooms, roomId));
     void callSession.join(roomId, { microphone: !preferences.callMicrophoneMuted, camera: false });
   }
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
 
   let wasSignedIn = false;
 
@@ -350,12 +361,10 @@
 
   let ringback = $state<Promise<NotificationSound> | null>(null);
   const tryStopRinging = () => {
-    if (ringback) {
-      ringback?.then((sound) => {
-        sound.stop();
-        ringback = null;
-      });
-    }
+    void ringback?.then((sound) => {
+      sound.stop();
+      ringback = null;
+    });
   };
 
   $effect(() => {
@@ -371,21 +380,19 @@
     if (answeredCallRoom === callSession.roomId) return;
     if (!roomList.byId(callSession.roomId)?.is_direct) return;
     if (ringback !== null) return;
-    console.log(ringback);
-
     ringback = playSound('outgoing_call', { loop: true });
   });
 
-  let callParticipants = $state<number>(0);
+  let callParticipants = 0;
   $effect(() => {
     if (callSession.lifecycle !== 'active') {
       callParticipants = 0;
       return;
     }
     if (callSession.transport.participants.length > callParticipants) {
-      playSound('call_join');
+      void playSound('call_join');
     } else if (callSession.transport.participants.length < callParticipants) {
-      playSound('call_leave');
+      void playSound('call_leave');
     }
     callParticipants = callSession.transport.participants.length;
   });
@@ -411,31 +418,21 @@
     ensureAndroidHistoryRoot(resolve('/(app)/rooms'));
   });
 
-  $effect(() => {
-    const shallow = appLayout.matches;
-    const onClick = (event: MouseEvent): void => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
+  const onClick = (event: MouseEvent): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
 
-      const anchor = target.closest<HTMLAnchorElement>('a');
-      if (!anchor) return;
+    const anchor = target.closest<HTMLAnchorElement>('a');
+    if (!anchor) return;
 
-      const section = anchor.dataset.settingsLink;
-      if (section !== undefined) {
-        followSettingsLink(event, section, anchor.dataset.settingsLinkFocus, shallow);
-        return;
-      }
+    const section = anchor.dataset.settingsLink;
+    if (section !== undefined) {
+      followSettingsLink(event, section, anchor.dataset.settingsLinkFocus, appLayout.current);
+      return;
+    }
 
-      followExternalLink(event, anchor);
-    };
-
-    const offClick = on(document, 'click', onClick);
-    const offAuxClick = on(document, 'auxclick', onClick);
-    return () => {
-      offClick();
-      offAuxClick();
-    };
-  });
+    followExternalLink(event, anchor);
+  };
 
   $effect(() => {
     void core.accountRevision;
@@ -446,17 +443,27 @@
         visible: preferences.notificationContent,
         encrypted: preferences.notificationEncryptedContent,
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.warn('[sable notifications] content setting not applied', error);
+      });
 
     void core.rpc.notifications
       .setSounds({ enabled: preferences.notificationSounds })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.warn('[sable notifications] sounds setting not applied', error);
+      });
 
-    void core.rpc.notifications.setNotifyOnce({ enabled: preferences.notifyOnce }).catch(() => {});
+    void core.rpc.notifications
+      .setNotifyOnce({ enabled: preferences.notifyOnce })
+      .catch((error: unknown) => {
+        console.warn('[sable notifications] notify-once setting not applied', error);
+      });
 
     void core.rpc.notifications
       .setEnabled({ enabled: preferences.systemNotifications })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.warn('[sable notifications] enabled setting not applied', error);
+      });
 
     void setNativeEncryptedContentAllowed(
       preferences.notificationContent && preferences.notificationEncryptedContent,
@@ -465,7 +472,9 @@
       preferences.notificationSounds,
       preferences.notifyOnce,
       preferences.clearNotificationsOnRead
-    ).catch(() => {});
+    ).catch((error: unknown) => {
+      console.debug('[sable notifications] native content policy not applied', error);
+    });
 
     void putPushContentPolicy({
       content: preferences.notificationContent,
@@ -495,7 +504,9 @@
         },
         foreground: documentVisible,
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.warn('[sable search] search options not applied', error);
+      });
   });
 
   $effect(() => {
@@ -509,7 +520,9 @@
     const timer = setTimeout(() => {
       void core.rpc.account
         .setPresence({ presence: state, status_message: status })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          console.debug('[sable presence] presence not sent', error);
+        });
     }, PRESENCE_SETTLE_MS);
     return () => clearTimeout(timer);
   });
@@ -571,7 +584,9 @@
         if (disposed) unlisten();
         else stop = unlisten;
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        console.debug('[sable notifications] push token listener not attached', error);
+      });
     return () => {
       disposed = true;
       stop?.();
@@ -643,7 +658,9 @@
         if (message.appId && message.ackToken) {
           void core.rpc.push
             .ackWebPusher({ app_id: message.appId, ack_token: message.ackToken })
-            .catch(() => undefined);
+            .catch((error: unknown) => {
+              console.debug('[sable notifications] web push not acknowledged', error);
+            });
         }
       }
     });
@@ -1007,6 +1024,8 @@
     });
   });
 </script>
+
+<svelte:document onclick={onClick} onauxclick={onClick} />
 
 {#if core.status === 'ready'}
   {#key core.accountRevision}

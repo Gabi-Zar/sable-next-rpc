@@ -63,7 +63,7 @@ export class NotificationCenter {
         if (message.nativeActivation) return;
         void core.rpc.push
           .ackWebPusher({ app_id: validation.app_id, ack_token: validation.ack_token })
-          .catch(() => undefined);
+          .catch(failed('acknowledging web pusher'));
         return;
       }
       this.retirePush(message.message);
@@ -72,7 +72,7 @@ export class NotificationCenter {
         if (generation === this.nativePushGeneration) this.stopNativePush = stop;
         else stop();
       })
-      .catch(() => undefined);
+      .catch(failed('watching native push'));
   }
 
   stop(): void {
@@ -100,7 +100,9 @@ export class NotificationCenter {
     if (this.reading === roomId) return;
     this.reading = roomId;
 
-    void this.client?.rpc.session.setReadRoom({ room_id: roomId }).catch(() => undefined);
+    void this.client?.rpc.session
+      .setReadRoom({ room_id: roomId })
+      .catch(failed('setting read room'));
     if (roomId !== null) this.settle(roomId);
   }
 
@@ -146,7 +148,7 @@ export class NotificationCenter {
       this.retirePosted = undefined;
       const userId = this.client?.session?.user_id;
       if (userId === undefined) return;
-      void retireReadAlerts(userId, this.readRooms).catch(() => undefined);
+      void retireReadAlerts(userId, this.readRooms).catch(failed('retiring read alerts'));
     }, POSTED_RETIRE_DELAY_MS);
   }
 
@@ -169,7 +171,7 @@ export class NotificationCenter {
 
     const userId = this.client?.session?.user_id;
     if (userId === undefined) return;
-    void retireRoomAlerts(userId, roomId).catch(() => undefined);
+    void retireRoomAlerts(userId, roomId).catch(failed('retiring room alerts'));
   }
 
   present(view: NotificationView): void {
@@ -212,7 +214,7 @@ export class NotificationCenter {
     const userId = notification.user_id;
     if (userId !== null && userId !== this.client?.session?.user_id) {
       if (notification.unread === 0) {
-        void retireRoomAlerts(userId, roomId).catch(() => undefined);
+        void retireRoomAlerts(userId, roomId).catch(failed('retiring room alerts'));
       }
       return;
     }
@@ -274,7 +276,10 @@ async function avatar(core: CoreClient, view: NotificationView): Promise<string>
   const source = view.room_avatar_url ?? view.sender_avatar_url;
   if (source === null) return FALLBACK_ICON;
 
-  return loadMediaUrl(core, source, AVATAR_SIZE, AVATAR_SIZE).catch(() => FALLBACK_ICON);
+  return loadMediaUrl(core, source, AVATAR_SIZE, AVATAR_SIZE).catch((error: unknown) => {
+    failed('loading notification avatar')(error);
+    return FALLBACK_ICON;
+  });
 }
 
 async function showFromWorker(title: string, options: NotificationOptions): Promise<void> {
@@ -284,6 +289,12 @@ async function showFromWorker(title: string, options: NotificationOptions): Prom
 }
 
 const FALLBACK_ICON = '/favicon.png';
+
+function failed(what: string): (error: unknown) => void {
+  return (error) => {
+    console.debug(`[sable notifications] ${what} failed`, error);
+  };
+}
 
 function soundsAllowed(): boolean {
   if (preferences.backgroundNotificationSounds) return true;

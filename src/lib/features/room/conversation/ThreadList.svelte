@@ -119,8 +119,7 @@
                   <button
                     {...props}
                     type="button"
-                    class="thread-summary"
-                    class:no-summary={!root.thread_summary}
+                    class={['thread-summary', { 'no-summary': !root.thread_summary }]}
                     aria-label={root.thread_summary ? undefined : threadOpenLabel}
                     onclick={() => {
                       onOpenThread(rootId);

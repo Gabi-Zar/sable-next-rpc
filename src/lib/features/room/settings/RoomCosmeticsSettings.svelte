@@ -136,7 +136,10 @@
     try {
       const [look, profile] = await Promise.all([
         core.rpc.members.look({ room_id: target }),
-        core.refreshUserProfile(self).catch(() => null),
+        core.refreshUserProfile(self).catch((error: unknown) => {
+          console.debug('[sable room] profile unavailable', error);
+          return null;
+        }),
       ]);
       if (current !== run) return;
       colorOnLight = look.color_on_light ?? '';

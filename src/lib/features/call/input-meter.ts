@@ -7,7 +7,8 @@ export async function startInputMeter(
     stream = await navigator.mediaDevices.getUserMedia({
       audio: deviceId ? { deviceId: { exact: deviceId } } : true,
     });
-  } catch {
+  } catch (error) {
+    console.debug('[sable call] input meter could not open microphone', error);
     return null;
   }
 

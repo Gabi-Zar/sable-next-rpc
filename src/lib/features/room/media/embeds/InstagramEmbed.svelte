@@ -32,7 +32,7 @@
       <span class="instagram-site">Instagram</span>
       <span class="instagram-title">{post.kind === 'reel' ? 'Reel' : 'Post'}</span>
     </a>
-    <div class="instagram-player" class:reel={post.kind === 'reel'}>
+    <div class={['instagram-player', { reel: post.kind === 'reel' }]}>
       {#if playing}
         <iframe
           src={instagramEmbedUrl(post)}

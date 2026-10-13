@@ -87,7 +87,7 @@
       (loaded) => {
         if (profileTarget?.userId === userId) profile = loaded;
       },
-      () => undefined
+      (error: unknown) => console.debug('[sable inbox] inviter profile unavailable', error)
     );
   }
 

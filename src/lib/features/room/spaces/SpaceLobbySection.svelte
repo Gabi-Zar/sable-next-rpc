@@ -159,8 +159,7 @@
     : undefined}
 >
   <div
-    class="section-header"
-    class:drop-into={headerDrop}
+    class={['section-header', { 'drop-into': headerDrop }]}
     {@attach canManage ? dropTarget(null) : undefined}
   >
     <Button
@@ -183,7 +182,7 @@
       {:else}
         <span class="section-name">{$i18n.t('nav.rooms')}</span>
       {/if}
-      <span class="caret" class:closed aria-hidden="true"><CaretDownIcon /></span>
+      <span class={['caret', { closed }]} aria-hidden="true"><CaretDownIcon /></span>
     </Button>
     {#if section.space}
       {@const sectionSpace = section.space}
@@ -316,12 +315,16 @@
           {@const joined = joinedIds.has(child.room_id)}
           {@const action = entry.action}
           <li
-            class="room"
-            class:dragging={dragging === child.room_id}
-            class:drop-above={dropState?.item.roomId === child.room_id &&
-              dropState.instruction === 'above'}
-            class:drop-below={dropState?.item.roomId === child.room_id &&
-              dropState.instruction === 'below'}
+            class={[
+              'room',
+              {
+                dragging: dragging === child.room_id,
+                'drop-above':
+                  dropState?.item.roomId === child.room_id && dropState.instruction === 'above',
+                'drop-below':
+                  dropState?.item.roomId === child.room_id && dropState.instruction === 'below',
+              },
+            ]}
             {@attach canManage
               ? dragList.draggable(
                   { parentId: section.parent_id, roomId: child.room_id },

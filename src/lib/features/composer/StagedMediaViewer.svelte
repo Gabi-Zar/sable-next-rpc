@@ -175,8 +175,7 @@
         <!-- Swipes duplicate the arrow keys, the close button and the nav buttons. -->
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-          class="staged-viewer-stage"
-          class:has-nav={files.length > 1}
+          class={['staged-viewer-stage', { 'has-nav': files.length > 1 }]}
           onpointerdown={startSwipe}
           onpointermove={trackSwipe}
           onpointerup={endSwipe}
@@ -204,8 +203,7 @@
               </p>
             {:else if kind === 'video'}
               <video
-                class="staged-viewer-media"
-                class:swiping={swipeX !== 0 || swipeY !== 0}
+                class={['staged-viewer-media', { swiping: swipeX !== 0 || swipeY !== 0 }]}
                 style:translate={`${String(swipeX)}px ${String(swipeY)}px`}
                 controls
                 playsinline
@@ -218,8 +216,7 @@
               ></video>
             {:else}
               <img
-                class="staged-viewer-media"
-                class:swiping={swipeX !== 0 || swipeY !== 0}
+                class={['staged-viewer-media', { swiping: swipeX !== 0 || swipeY !== 0 }]}
                 style:translate={`${String(swipeX)}px ${String(swipeY)}px`}
                 alt={item.file.name}
                 draggable="false"

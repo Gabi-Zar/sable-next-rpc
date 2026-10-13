@@ -113,7 +113,7 @@ export class CallSession {
   encryptsMedia = $state(false);
   deafened = $state(false);
   connectedAt = $state<number | null>(null);
-  layout: CallPin = { pinned: null, gridForced: false };
+  layout = $state.raw<CallPin>({ pinned: null, gridForced: false });
   watchedScreenShareIds = $state<string[]>([]);
   views = $state(0);
   deviceError = $state<CallDeviceError | null>(null);
@@ -544,7 +544,12 @@ export class CallSession {
       void playSound('screenshare_stop');
       return;
     }
-    const monitors = hdrShareSupported() ? await listHdrMonitors().catch(() => []) : [];
+    const monitors = hdrShareSupported()
+      ? await listHdrMonitors().catch((error: unknown) => {
+          console.debug('[sable call] could not list HDR monitors', error);
+          return [];
+        })
+      : [];
     if (monitors.length > 0) this.choosingScreenSource = monitors;
     else await this.shareScreenFrom(null);
     void playSound('screenshare_start');
@@ -747,7 +752,6 @@ export class CallSession {
       );
     } catch (error) {
       this.#telemetry?.failure('call.transport.disconnect', error);
-      ignoreError();
     }
 
     const session = this.#session;
@@ -758,7 +762,6 @@ export class CallSession {
         );
       } catch (error) {
         this.#telemetry?.failure('call.signaling.leave', error);
-        ignoreError();
       }
     }
 

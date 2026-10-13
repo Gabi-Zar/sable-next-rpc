@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import type { SearchContextView, SearchHitView, SearchOrder } from '#src/generated/protocol';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { goto } from '$app/navigation';
@@ -19,7 +20,6 @@
   import Select from '#lib/ui/primitives/Select.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import { whenVisible } from '#lib/ui/when-visible.js';
   import '#lib/ui/primitives/form-control.css';
 
@@ -89,7 +89,7 @@
   let suggestionsOpen = $state(false);
   let activeSuggestion = $state(0);
   let navigated = $state(false);
-  const compact = createMediaQuery(`(width < ${BREAKPOINTS.compactContent})`);
+  const compact = new MediaQuery(`(width < ${BREAKPOINTS.compactContent})`);
   const listboxId = $props.id();
   const optionId = (index: number): string => `${listboxId}-${String(index)}`;
 
@@ -146,7 +146,7 @@
   onMount(() => void core.refreshSearchCoverage());
 
   $effect(() => {
-    if (!input || untrack(() => compact.matches)) return;
+    if (!input || untrack(() => compact.current)) return;
     input.focus();
     suggestionsOpen = false;
   });
@@ -517,7 +517,7 @@
 {/if}
 
 {#snippet content()}
-  <div class="search-view" class:panel>
+  <div class={['search-view', { panel }]}>
     <div class="search-bar">
       <div class="field">
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -532,7 +532,7 @@
           {#if field.chips.length > 0}
             <ul class="chips" aria-label={$i18n.t('search.activeFilters')}>
               {#each field.chips as chip (chip.start)}
-                <li class="chip" class:negated={chip.negated} class:unresolved={isUnresolved(chip)}>
+                <li class={['chip', { negated: chip.negated, unresolved: isUnresolved(chip) }]}>
                   {#if isUnresolved(chip)}<WarningIcon />{/if}
                   <span class="chip-operator">{chip.negated ? '-' : ''}{chip.operator}:</span>
                   <span class="chip-value">{chipLabel(chip)}</span>
@@ -574,7 +574,7 @@
               : undefined}
             placeholder={field.chips.length > 0
               ? ''
-              : $i18n.t(compact.matches ? 'common.searchMessages' : 'search.placeholder')}
+              : $i18n.t(compact.current ? 'common.searchMessages' : 'search.placeholder')}
             aria-label={$i18n.t('common.searchMessages')}
             oninput={onInput}
             onkeydown={onKeydown}
@@ -636,8 +636,7 @@
     <p class="announcement" role="status" aria-live="polite">{status}</p>
 
     <div
-      class="results"
-      class:refining={search.refining && search.hits.length > 0}
+      class={['results', { refining: search.refining && search.hits.length > 0 }]}
       aria-busy={search.refining}
       bind:this={results}
     >
@@ -722,7 +721,7 @@
           {@const room = roomList.byId(group.roomId)}
           {@const label = roomList.labelFor(group.roomId)}
           <section class="group">
-            <h2 class:visually-hidden={panel && search.groups.length === 1}>
+            <h2 class={{ 'visually-hidden': panel && search.groups.length === 1 }}>
               <Avatar id={group.roomId} src={room?.avatar_url ?? null} name={label} size="small" />
               <span class="group-name">{label}</span>
               <span class="group-count">{group.hits.length}</span>

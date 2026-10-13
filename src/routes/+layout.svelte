@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import { onMount } from 'svelte';
   import { on } from 'svelte/events';
   import type { Snippet } from 'svelte';
@@ -28,7 +29,6 @@
     setWindowFullscreen,
     supportsDesktopWindow,
     titleBarKind,
-    type TitleBarKind,
   } from '#lib/platform/window-decorations.js';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { applyDeploymentDefaults, preferences } from '#lib/settings/preferences.svelte.js';
@@ -58,21 +58,11 @@
   provideCoreClient(core);
   const alertProviders = ALERT_MODULES.map((component) => component.priorityProvider());
   provideAlertProviders(alertProviders);
-  let systemPrefersDark = $state(false);
-  let titlebar = $state<TitleBarKind | null>(null);
+  const systemDark = new MediaQuery('(prefers-color-scheme: dark)');
+  let titlebar = $derived(titleBarKind(preferences.useCustomTitleBar));
 
   onMount(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const updateSystemTheme = (): void => {
-      systemPrefersDark = media.matches;
-    };
-    updateSystemTheme();
     void hydrateCatalogThemes().then(updateCatalogThemes);
-    const stopListening = on(media, 'change', updateSystemTheme);
-    const stopHydrating = on(window, 'online', () => void hydrateCatalogThemes());
-    const stopUpdating = on(document, 'visibilitychange', () => {
-      if (document.visibilityState === 'visible') void updateCatalogThemes();
-    });
 
     if (isTauri()) {
       document.documentElement.dataset.tauriOs = osType();
@@ -90,9 +80,6 @@
     });
     void core.start();
     return () => {
-      stopListening();
-      stopHydrating();
-      stopUpdating();
       stopTrackingKeyboard();
       stopGuardingClicks();
       stopInspectorShortcut();
@@ -117,9 +104,7 @@
   });
 
   $effect(() => {
-    const kind = titleBarKind(preferences.useCustomTitleBar);
-    titlebar = kind;
-    document.documentElement.dataset.clientDecorations = kind === null ? 'off' : kind;
+    document.documentElement.dataset.clientDecorations = titlebar ?? 'off';
 
     void applyDesktopWindowSettings({
       closeToTray: preferences.closeToTray,
@@ -154,12 +139,12 @@
   $effect(() => {
     const preview = themePreview.current;
     if (preview) {
-      applyTheme(preview.kind, systemPrefersDark);
+      applyTheme(preview.kind, systemDark.current);
       applyCustomTheme(preview.css);
       return;
     }
-    applyTheme(preferences.theme, systemPrefersDark);
-    applyCustomTheme(activeCustomThemeCss(resolveTheme(preferences.theme, systemPrefersDark)));
+    applyTheme(preferences.theme, systemDark.current);
+    applyCustomTheme(activeCustomThemeCss(resolveTheme(preferences.theme, systemDark.current)));
   });
 
   $effect(() => {
@@ -170,6 +155,13 @@
     applyQuickCss(preferences.quickCss);
   });
 </script>
+
+<svelte:window ononline={() => void hydrateCatalogThemes()} />
+<svelte:document
+  onvisibilitychange={() => {
+    if (document.visibilityState === 'visible') void updateCatalogThemes();
+  }}
+/>
 
 <svelte:head>
   <title>Sable</title>

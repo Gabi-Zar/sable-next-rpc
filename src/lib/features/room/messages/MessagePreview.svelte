@@ -70,8 +70,15 @@
 </script>
 
 <div
-  class={['message-preview', { timeline, collapsed, 'group-start': previousEventId && !collapsed }]}
-  class:clickable={timeline && onJumpToEvent !== undefined}
+  class={[
+    'message-preview',
+    {
+      timeline,
+      collapsed,
+      'group-start': previousEventId && !collapsed,
+      clickable: timeline && onJumpToEvent !== undefined,
+    },
+  ]}
   style={timeline ? timelineLayoutStyle(preferences.messageSpacing) : TIMELINE_LAYOUT_STYLE}
   {@attach timeline && onJumpToEvent ? openMessage : undefined}
 >

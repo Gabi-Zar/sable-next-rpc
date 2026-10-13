@@ -153,7 +153,8 @@ export class MessageSearch {
       this.exhausted = page.hits.length < PAGE_SIZE && !this.older;
       this.failed = false;
       this.pages += 1;
-    } catch {
+    } catch (error) {
+      console.warn('[sable search] searching messages failed', error);
       if (generation !== this.#generation) return;
       if (offset === 0) this.hits = [];
       this.failed = true;
@@ -182,7 +183,8 @@ export class MessageSearch {
       this.exhausted = page.older === null;
       this.failed = false;
       this.pages += 1;
-    } catch {
+    } catch (error) {
+      console.warn('[sable search] loading older results failed', error);
       if (generation !== this.#generation) return;
       this.failed = true;
       this.exhausted = true;

@@ -31,7 +31,7 @@
 
   let { url, encrypted, bundled = null }: Props = $props();
   let record = $derived(parseBlueskyLink(url));
-  let authorHandle = $derived<string | null>(null);
+  let authorHandle = $state<string | null>(null);
   let details = $state<BlueskyPostDetails | null>(null);
   let profile = $state<BlueskyProfileDetails | null>(null);
   let likes = $state<number | null>(null);
@@ -48,58 +48,65 @@
     if (repo === undefined || key === undefined) return;
 
     let cancelled = false;
-    void resolveMiniDoc(repo).then((miniDoc) => {
-      if (!miniDoc) return null;
-      const { did, pds, handle } = miniDoc;
-      authorHandle = handle;
-
-      void fetchPostDetails(pds, did, key).then((result) => {
-        if (!cancelled) details = result;
-        console.info(details);
-
-        let record;
-        if (details?.value.embed?.$type === 'app.bsky.embed.recordWithMedia') {
-          record = details.value.embed.record.record;
-        } else if (details?.value.embed?.$type === 'app.bsky.embed.record') {
-          record = details.value.embed.record;
-        }
-        // if we have a quote post we have to do all of this again. sorry.
-        if (record) {
-          const doc = parseAtUri(record.uri);
-          if (!doc) return null;
-          void resolveMiniDoc(doc.repo).then((miniDoc) => {
-            if (!miniDoc) return null;
-            const { did: quotedid, pds: quotepds } = miniDoc;
-
-            if (doc.key === undefined) return null;
-            void fetchPostDetails(quotepds, quotedid, doc.key).then((result) => {
-              if (!cancelled) quote = result;
-            });
-
-            void fetchProfile(quotepds, quotedid).then((result) => {
-              if (!cancelled) quoteProfile = result;
-            });
-          });
-        }
-      });
-
-      void fetchProfile(pds, did).then((result) => {
-        if (!cancelled) profile = result;
-      });
-
-      void getPostRelationCount(did, key).then((result) => {
-        if (!cancelled) {
-          likes = result?.likes ?? null;
-          comments = result?.comments ?? null;
-          reposts = result?.reposts ?? null;
-        }
-      });
-    });
-
+    void loadPost(repo, key, () => !cancelled);
     return () => {
       cancelled = true;
     };
   });
+
+  async function loadPost(repo: string, key: string, live: () => boolean): Promise<void> {
+    try {
+      const miniDoc = await resolveMiniDoc(repo);
+      if (!miniDoc) return;
+      const { did, pds, handle } = miniDoc;
+      authorHandle = handle;
+      await Promise.all([
+        loadDetails(pds, did, key, live),
+        fetchProfile(pds, did).then((result) => {
+          if (live()) profile = result;
+        }),
+        getPostRelationCount(did, key).then((result) => {
+          if (!live()) return;
+          likes = result?.likes ?? null;
+          comments = result?.comments ?? null;
+          reposts = result?.reposts ?? null;
+        }),
+      ]);
+    } catch (error) {
+      console.debug('[sable bluesky embed] post unavailable', error);
+    }
+  }
+
+  async function loadDetails(
+    pds: string,
+    did: string,
+    key: string,
+    live: () => boolean
+  ): Promise<void> {
+    const result = await fetchPostDetails(pds, did, key);
+    if (!live()) return;
+    details = result;
+
+    const embed = result?.value.embed;
+    let quoted;
+    if (embed?.$type === 'app.bsky.embed.recordWithMedia') {
+      quoted = embed.record.record;
+    } else if (embed?.$type === 'app.bsky.embed.record') {
+      quoted = embed.record;
+    }
+    const doc = quoted ? parseAtUri(quoted.uri) : null;
+    if (doc?.key === undefined) return;
+    const quoteDoc = await resolveMiniDoc(doc.repo);
+    if (!quoteDoc) return;
+    await Promise.all([
+      fetchPostDetails(quoteDoc.pds, quoteDoc.did, doc.key).then((next) => {
+        if (live()) quote = next;
+      }),
+      fetchProfile(quoteDoc.pds, quoteDoc.did).then((next) => {
+        if (live()) quoteProfile = next;
+      }),
+    ]);
+  }
 
   const blobUrls = new WeakMap<Blob, string>();
   const createdUrls: string[] = [];

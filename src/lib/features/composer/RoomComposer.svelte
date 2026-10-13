@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import type {
     ImageUsageView,
     MemberView,
@@ -49,7 +50,6 @@
   import { effectiveShortcuts } from '#lib/ui/shortcuts/bindings.svelte.js';
   import { isMacPlatform } from '#lib/ui/shortcuts/global-shortcuts.js';
   import { cachedMediaUrl, holdMediaUrl, loadMediaUrl } from '#lib/ui/media-url.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
@@ -233,11 +233,11 @@
   const core = useCoreClient();
   const roomList = useRoomList();
   const personas = usePersonaStore();
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
-  const roomyPointer = createMediaQuery('(width >= 32rem) and (any-pointer: fine)');
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const roomyPointer = new MediaQuery('(width >= 32rem) and (any-pointer: fine)');
   const composerShort = $derived(
     preferences.composerForm === 'short' ||
-      (preferences.composerForm === 'adaptive' && roomyPointer.matches)
+      (preferences.composerForm === 'adaptive' && roomyPointer.current)
   );
   const uid = $props.id();
   const hintId = `composer-hint-${uid}`;
@@ -326,7 +326,7 @@
     prefix: string;
   } | null>(null);
 
-  let desktop = $derived(appLayout.matches);
+  let desktop = $derived(appLayout.current);
   let sending = $derived(inFlight > 0);
   let editingCaption = $derived(context?.kind === 'edit' && context.mediaCaption === true);
   let hasContent = $derived(!empty || staged.length > 0 || editingCaption);
@@ -626,7 +626,9 @@
       if (typingTimeout) {
         clearTimeout(typingTimeout);
         typingTimeout = undefined;
-        onTyping(draftRoomId, false).catch(() => {});
+        onTyping(draftRoomId, false).catch((error: unknown) => {
+          console.debug('[sable composer] typing notification failed', error);
+        });
       }
     }
     activeDraftKey = key;
@@ -725,7 +727,9 @@
   });
 
   function stopTyping(): void {
-    onTyping(roomId, false).catch(() => {});
+    onTyping(roomId, false).catch((error: unknown) => {
+      console.debug('[sable composer] typing notification failed', error);
+    });
   }
 
   async function loadMembers(): Promise<void> {
@@ -733,7 +737,8 @@
     loadedMembersFor = roomId;
     try {
       loadedMembers = await core.rpc.members.list({ room_id: roomId, memberships: [] });
-    } catch {
+    } catch (error) {
+      console.warn('[sable composer] loading room members failed', error);
       loadedMembersFor = null;
     }
   }
@@ -757,7 +762,8 @@
         core.session?.account_id ?? null
       );
       if (!complete && loadedEmotesFor === target) loadedEmotesFor = null;
-    } catch {
+    } catch (error) {
+      console.warn('[sable composer] loading emotes failed', error);
       if (roomId === target) loadedEmotesFor = null;
     }
   }
@@ -907,7 +913,9 @@
       return;
     }
 
-    onTyping(roomId, true).catch(() => {});
+    onTyping(roomId, true).catch((error: unknown) => {
+      console.debug('[sable composer] typing notification failed', error);
+    });
     typingTimeout = setTimeout(() => {
       stopTyping();
     }, 4000);
@@ -1525,9 +1533,7 @@
 {/if}
 
 <div
-  class="composer-stack"
-  class:short={composerShort && !readOnly}
-  class:pointer-hidden={pointerHidden}
+  class={['composer-stack', { short: composerShort && !readOnly, 'pointer-hidden': pointerHidden }]}
 >
   {#if readOnly}
     <div class="composer-shell">
@@ -1598,9 +1604,7 @@
         {/if}
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
         <form
-          class="composer-row"
-          class:short={shortLayout}
-          class:formatting-open={formattingOpen}
+          class={['composer-row', { short: shortLayout, 'formatting-open': formattingOpen }]}
           hidden={activeBotCommand !== null}
           bind:this={rowEl}
           onmousedown={focusFromRow}

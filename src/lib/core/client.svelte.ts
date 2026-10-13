@@ -938,8 +938,9 @@ export class CoreClient {
         this.accounts = [];
         this.status = 'signed-out';
       }
-    } catch {
+    } catch (error) {
       // The worker may have closed before this tab receives the broadcast.
+      console.debug('[sable core] session not followed after broadcast', error);
     }
   }
 
@@ -984,8 +985,9 @@ export class CoreClient {
       if (error instanceof CoreError) {
         try {
           await this.refreshAccounts();
-        } catch {
+        } catch (refreshError) {
           // Keep the last known accounts if storage is unavailable.
+          console.debug('[sable core] accounts not refreshed after restore failure', refreshError);
         }
         if (generation !== this.generation) return;
       }
@@ -1166,14 +1168,16 @@ export class CoreClient {
 
     try {
       unsubscribe?.();
-    } catch {
+    } catch (error) {
       // Cleanup should continue even if a transport subscription fails.
+      console.debug('[sable core] transport subscription not released', error);
     }
 
     try {
       transport?.close();
-    } catch {
+    } catch (error) {
       // Closing an already-closed transport is safe to ignore.
+      console.debug('[sable core] transport not closed', error);
     }
   }
 }

@@ -25,7 +25,7 @@
 </script>
 
 {#snippet content(desktop: boolean)}
-  <div class="receipts-dialog" class:sheet={!desktop}>
+  <div class={['receipts-dialog', { sheet: !desktop }]}>
     <h2>{$i18n.t('common.readReceipts')}</h2>
     <MemberUserList
       title={$i18n.t('common.readReceipts')}

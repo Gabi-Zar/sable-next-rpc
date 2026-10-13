@@ -107,10 +107,14 @@ export function watchSharedContent(inbox: ShareInbox): () => void {
     else stops.push(stop);
   };
 
-  void subscribeSharedContent(drain).then(collect, () => undefined);
+  const subscribeFailed = (error: unknown): void => {
+    console.debug('[sable share-target] subscribing failed', error);
+  };
+
+  void subscribeSharedContent(drain).then(collect, subscribeFailed);
   void subscribeDeepLinks((urls) => {
     if (urls.some(isShareDeepLink)) drain();
-  }).then(collect, () => undefined);
+  }).then(collect, subscribeFailed);
 
   const onVisible = (): void => {
     if (document.visibilityState === 'visible') drain();

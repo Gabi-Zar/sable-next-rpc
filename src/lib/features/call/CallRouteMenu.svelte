@@ -18,11 +18,17 @@
 
   let routes = $state<CallAudioRoute[]>([]);
 
+  async function load(): Promise<void> {
+    try {
+      routes = await list();
+    } catch (error) {
+      console.warn('[sable call] could not list audio routes', error);
+      routes = [];
+    }
+  }
+
   $effect(() => {
-    if (!open) return;
-    void list()
-      .then((result) => (routes = result))
-      .catch(() => (routes = []));
+    if (open) void load();
   });
 </script>
 

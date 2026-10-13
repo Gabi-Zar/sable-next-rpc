@@ -21,7 +21,8 @@ export function readEventSource(
       const event: unknown = JSON.parse(source);
       return isRecord(event) ? event : null;
     })
-    .catch(() => {
+    .catch((error: unknown) => {
+      console.debug('[sable timeline] event source unavailable', error);
       sources.delete(key);
       return null;
     });

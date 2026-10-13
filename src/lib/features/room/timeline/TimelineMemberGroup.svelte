@@ -43,7 +43,7 @@
 </script>
 
 {#snippet list(desktop: boolean)}
-  <div class="member-group-dialog" class:sheet={!desktop}>
+  <div class={['member-group-dialog', { sheet: !desktop }]}>
     <h2>{title}</h2>
     <MemberUserList
       {title}

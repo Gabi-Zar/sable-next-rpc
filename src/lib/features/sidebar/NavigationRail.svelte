@@ -559,9 +559,10 @@
   {@const active = isActive(item)}
   <a
     {...props}
-    class="rail-item nav-tab nav-tab-side selection-layer"
-    class:nav-tab-outlined={outlined(item)}
-    class:space-item={Boolean(item.initial)}
+    class={[
+      'rail-item nav-tab nav-tab-side selection-layer',
+      { 'nav-tab-outlined': outlined(item), 'space-item': Boolean(item.initial) },
+    ]}
     href={item.navigateHref ?? item.href}
     draggable={held ? 'false' : undefined}
     onclick={mobile
@@ -624,12 +625,16 @@
 
 {#snippet spaceSlotBody(item: RailItem, ref: LayoutRef, folderId?: string)}
   <div
-    class="rail-slot"
-    class:nested={folderId !== undefined}
-    class:drop-above={dropping(ref, 'above')}
-    class:drop-below={dropping(ref, 'below')}
-    class:drop-into={dropping(ref, 'into')}
-    class:dragged={isDragged(ref)}
+    class={[
+      'rail-slot',
+      {
+        nested: folderId !== undefined,
+        'drop-above': dropping(ref, 'above'),
+        'drop-below': dropping(ref, 'below'),
+        'drop-into': dropping(ref, 'into'),
+        dragged: isDragged(ref),
+      },
+    ]}
     {@attach dragSource(ref)}
     {@attach dropTarget(ref, folderId === undefined)}
   >
@@ -712,11 +717,15 @@
 {#snippet closedFolder(folder: SidebarFolder)}
   {@const ref = { kind: 'folder', folderId: folder.id } satisfies LayoutRef}
   <div
-    class="rail-slot"
-    class:drop-above={dropping(ref, 'above')}
-    class:drop-below={dropping(ref, 'below')}
-    class:drop-into={dropping(ref, 'into')}
-    class:dragged={isDragged(ref)}
+    class={[
+      'rail-slot',
+      {
+        'drop-above': dropping(ref, 'above'),
+        'drop-below': dropping(ref, 'below'),
+        'drop-into': dropping(ref, 'into'),
+        dragged: isDragged(ref),
+      },
+    ]}
     role="presentation"
     oncontextmenu={mouseContextMenu((event) => {
       openFolderMenu(event, folder);
@@ -744,9 +753,10 @@
 {#snippet openFolder(folder: SidebarFolder)}
   {@const ref = { kind: 'folder', folderId: folder.id } satisfies LayoutRef}
   <div
-    class="folder-open"
-    class:drop-above={dropping(ref, 'above')}
-    class:drop-below={dropping(ref, 'below')}
+    class={[
+      'folder-open',
+      { 'drop-above': dropping(ref, 'above'), 'drop-below': dropping(ref, 'below') },
+    ]}
     {@attach dropTarget(ref, false)}
   >
     <div class="folder-card">

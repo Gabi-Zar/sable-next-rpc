@@ -178,7 +178,6 @@ export async function fetchPostDetails(
   return body;
 }
 
-// badly named? fetches full blobs.
 // TODO: make this get partials (especially for video!!) and figure out streaming
 async function hydrateBlobs(embed: ApEmbed, did: string, pds: string) {
   if (embed.$type === 'app.bsky.embed.images') {
@@ -187,7 +186,6 @@ async function hydrateBlobs(embed: ApEmbed, did: string, pds: string) {
       if (blob) embed.images[idx].image['moe.sable.blob'] = blob;
     }
   } else if (embed.$type === 'app.bsky.embed.video') {
-    console.info(embed);
     const blob = await fetchBlob(embed.video.ref.$link, did, pds);
     if (blob) embed.video['moe.sable.blob'] = blob;
   } else if (embed.$type === 'app.bsky.embed.recordWithMedia') {

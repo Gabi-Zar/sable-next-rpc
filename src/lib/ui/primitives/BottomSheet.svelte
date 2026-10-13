@@ -273,8 +273,7 @@
 >
   <div
     bind:this={body}
-    class:content-inset={contentInset}
-    class:expanded
+    class={{ 'content-inset': contentInset, expanded }}
     role="presentation"
     onclickcapture={contentClick}
     onpointerdown={startContentDrag}

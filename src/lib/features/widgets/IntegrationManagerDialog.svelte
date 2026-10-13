@@ -35,7 +35,8 @@
       .then((next) => {
         if (current) url = next;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.warn('[sable widgets] the integration manager could not be opened', error);
         if (current) failed = true;
       });
     return () => {
@@ -87,7 +88,7 @@
           src={url}
           sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           allow="microphone; camera; encrypted-media; autoplay; clipboard-write; display-capture"
-          class:loaded
+          class={{ loaded }}
           onload={() => (loaded = true)}
         ></iframe>
       {/if}

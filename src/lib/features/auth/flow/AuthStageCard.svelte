@@ -33,14 +33,18 @@
 </script>
 
 <div
-  class="auth-card"
-  class:active
-  class:muted={!active}
-  class:unavailable={!active && !reachable}
-  class:before
-  class:after
-  class:entering
-  class:removing
+  class={[
+    'auth-card',
+    {
+      active,
+      muted: !active,
+      unavailable: !active && !reachable,
+      before,
+      after,
+      entering,
+      removing,
+    },
+  ]}
   onanimationend={(event) => {
     if (event.currentTarget === event.target) onMotionComplete?.();
   }}
@@ -51,8 +55,7 @@
   }}
 >
   <button
-    class="stage-activation"
-    class:active
+    class={['stage-activation', { active }]}
     type="button"
     onclick={onActivate}
     aria-label={accessibilityLabel}

@@ -41,7 +41,7 @@
 </script>
 
 {#snippet content(desktop: boolean)}
-  <div class="edit-history" class:sheet={!desktop}>
+  <div class={['edit-history', { sheet: !desktop }]}>
     <h2>{$i18n.t('timeline.editHistoryTitle')}</h2>
     <ol class="edit-history-versions" {@attach scrollHint}>
       {#each versions as version, index (version.event_id)}

@@ -47,7 +47,9 @@
       ({ group }) => {
         if (alive && !groupModeChanged) groupMode = group === 'all' ? 'all' : 'mentions';
       },
-      () => undefined
+      (error: unknown) => {
+        console.debug('[sable setup] default notification modes unavailable', error);
+      }
     );
     return () => {
       alive = false;

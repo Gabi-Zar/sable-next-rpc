@@ -46,7 +46,8 @@ export async function telemetryConsent(): Promise<boolean> {
     } finally {
       database.close();
     }
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] telemetry consent unreadable', error);
     return false;
   }
 }
@@ -107,7 +108,8 @@ export async function roomName(roomId: string): Promise<string | null> {
   try {
     const stored = await transact<unknown>('readonly', (store) => store.get(roomId));
     return typeof stored === 'string' ? stored : null;
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] room name unreadable', error);
     return null;
   }
 }
@@ -122,7 +124,8 @@ export async function roomMode(roomId: string): Promise<NotificationModeView | n
   try {
     const stored = await transact<unknown>('readonly', (store) => store.get(MODE_PREFIX + roomId));
     return stored === 'all' || stored === 'mentions' || stored === 'mute' ? stored : null;
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] room mode unreadable', error);
     return null;
   }
 }
@@ -139,8 +142,8 @@ const POLICY_KEY = '\u0000push-content-policy';
 export async function putPushContentPolicy(policy: PushContentPolicy): Promise<void> {
   try {
     await transact('readwrite', (store) => store.put(policy, POLICY_KEY));
-  } catch {
-    return;
+  } catch (error) {
+    console.debug('[sable notifications] push content policy not stored', error);
   }
 }
 
@@ -155,7 +158,8 @@ export async function pushContentPolicy(): Promise<PushContentPolicy> {
       notifyOnce: stored?.notifyOnce === true,
       clearOnRead: stored?.clearOnRead === true,
     };
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] push content policy unreadable', error);
     return { content: false, encryptedContent: false, notifyOnce: false, clearOnRead: false };
   }
 }
@@ -171,16 +175,16 @@ const SESSION_PREFIX = '\u0000session:';
 export async function putPushSession(session: PushSession): Promise<void> {
   try {
     await transact('readwrite', (store) => store.put(session, SESSION_PREFIX + session.userId));
-  } catch {
-    return;
+  } catch (error) {
+    console.debug('[sable notifications] push session not stored', error);
   }
 }
 
 export async function forgetPushSession(userId: string): Promise<void> {
   try {
     await transact('readwrite', (store) => store.delete(SESSION_PREFIX + userId));
-  } catch {
-    return;
+  } catch (error) {
+    console.debug('[sable notifications] push session not forgotten', error);
   }
 }
 
@@ -189,8 +193,8 @@ export async function forgetPushSessions(): Promise<void> {
     await transact('readwrite', (store) =>
       store.delete(IDBKeyRange.bound(SESSION_PREFIX, `${SESSION_PREFIX}\uffff`))
     );
-  } catch {
-    return;
+  } catch (error) {
+    console.debug('[sable notifications] push sessions not forgotten', error);
   }
 }
 
@@ -202,7 +206,8 @@ export async function pushSession(userId: string | undefined): Promise<PushSessi
         : store.getAll(SESSION_PREFIX + userId)
     );
     return stored.length === 1 ? readPushSession(stored[0]) : null;
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] push session unreadable', error);
     return null;
   }
 }
@@ -249,7 +254,8 @@ export class RoomNameWriter {
     try {
       await this.write(batch);
       for (const [roomId, name] of batch) this.#written.set(roomId, name);
-    } catch {
+    } catch (error) {
+      console.debug('[sable notifications] room names not stored', error);
       for (const [roomId, name] of batch) {
         if (!this.#pending.has(roomId)) this.#pending.set(roomId, name);
       }
@@ -281,15 +287,16 @@ export async function recordPush(entry: PushHistoryEntry): Promise<void> {
         reject(transaction.error ?? new Error('push history unavailable'));
       };
     });
-  } catch {
-    return;
+  } catch (error) {
+    console.debug('[sable notifications] push history not recorded', error);
   }
 }
 
 export async function pushHistory(): Promise<PushHistoryEntry[]> {
   try {
     return readPushHistory(await transact<unknown>('readonly', (store) => store.get(HISTORY_KEY)));
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] push history unreadable', error);
     return [];
   }
 }

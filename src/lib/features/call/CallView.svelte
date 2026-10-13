@@ -12,7 +12,7 @@
   import UserPlusIcon from 'phosphor-svelte/lib/UserPlusIcon';
   import UsersIcon from 'phosphor-svelte/lib/UsersIcon';
   import WarningCircleIcon from 'phosphor-svelte/lib/WarningCircleIcon';
-  import { onDestroy, onMount, untrack } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import type { MemberView } from '#src/generated/protocol';
 
   import { memberIdentity, type MemberIdentity } from '#lib/features/room/members/members.js';
@@ -123,11 +123,8 @@
   let failed = $derived(session.failure !== null);
   let alone = $derived(ready && tiles.length === 1 && tiles[0].participant.local === true);
 
-  let pinned = $state<string | null>(untrack(() => session.layout.pinned));
-  let gridForced = $state(untrack(() => session.layout.gridForced));
-  $effect(() => {
-    session.layout = { pinned, gridForced };
-  });
+  let pinned = $derived(session.layout.pinned);
+  let gridForced = $derived(session.layout.gridForced);
   let featured = $derived(pinned === null && gridForced ? [] : featuredTiles(tiles, pinned));
   let spotlight = $derived(featured.length > 0);
   let strip = $derived(spotlight ? tiles.filter((tile) => !featured.includes(tile)) : []);
@@ -147,16 +144,11 @@
   );
 
   function pin(tile: CallTile): void {
-    ({ pinned, gridForced } = togglePin(tiles, featured, tile));
+    session.layout = togglePin(tiles, featured, tile);
   }
 
   function toggleLayout(): void {
-    if (spotlight) {
-      pinned = null;
-      gridForced = true;
-    } else {
-      gridForced = false;
-    }
+    session.layout = spotlight ? { pinned: null, gridForced: true } : { pinned, gridForced: false };
   }
 
   let now = $state(Date.now());
@@ -235,8 +227,7 @@
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
-  class="stage"
-  class:resting={!chromeVisible}
+  class={['stage', { resting: !chromeVisible }]}
   aria-label={$i18n.t('call.title')}
   bind:this={stage}
   onpointermove={wake}
@@ -393,9 +384,10 @@
   {/if}
 
   <div
-    class="media"
-    class:with-notice={session.deviceError !== null || session.listenOnly}
-    class:locked={busy}
+    class={[
+      'media',
+      { 'with-notice': session.deviceError !== null || session.listenOnly, locked: busy },
+    ]}
     style:--tile-aspect={aspect}
     style:--notice-height="{noticeHeight}px"
   >
@@ -420,8 +412,7 @@
     {:else if spotlight}
       <div class="focus">
         <ul
-          class="featured"
-          class:several={featured.length > 1}
+          class={['featured', { several: featured.length > 1 }]}
           bind:clientWidth={featuredWidth}
           bind:clientHeight={featuredHeight}
           style:--tile-width="{Math.floor(featuredGrid.width)}px"
@@ -445,8 +436,7 @@
       </div>
     {:else}
       <ul
-        class="grid"
-        class:alone
+        class={['grid', { alone }]}
         bind:clientWidth={mediaWidth}
         bind:clientHeight={mediaHeight}
         style:--tile-width="{Math.floor(grid.width)}px"

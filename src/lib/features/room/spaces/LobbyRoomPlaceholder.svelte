@@ -9,7 +9,7 @@
   let { rows, divided = false }: Props = $props();
 </script>
 
-<ul class="rows" class:divided aria-hidden="true">
+<ul class={['rows', { divided }]} aria-hidden="true">
   {#each Array.from({ length: rows }, (_, index) => index) as row (row)}
     <li class="row">
       <Skeleton class="row-avatar" />

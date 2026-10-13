@@ -37,13 +37,7 @@
   );
 </script>
 
-<section
-  class="call-bar"
-  class:collapsed
-  class:live
-  class:reconnecting
-  aria-label={$i18n.t('call.title')}
->
+<section class={['call-bar', { collapsed, live, reconnecting }]} aria-label={$i18n.t('call.title')}>
   <Tooltip label={roomName} disabled={!collapsed}>
     {#snippet trigger({ props })}
       <button

@@ -4,6 +4,7 @@
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
   import LinkSimpleIcon from 'phosphor-svelte/lib/LinkSimpleIcon';
+  import { onMount } from 'svelte';
 
   import type { RegisteredPusherView } from '#src/generated/protocol';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
@@ -52,7 +53,10 @@
   }
 
   async function refreshIdentity(): Promise<void> {
-    const config = await runtimeConfig().catch(() => null);
+    const config = await runtimeConfig().catch((cause: unknown) => {
+      console.debug('[sable notifications] runtime config unavailable', cause);
+      return null;
+    });
     if (!alive) return;
     const override = trimmed(pushOverride());
     const ids = [
@@ -81,7 +85,7 @@
     }
   }
 
-  $effect(() => {
+  onMount(() => {
     void reload().finally(() => {
       if (alive) loading = false;
     });

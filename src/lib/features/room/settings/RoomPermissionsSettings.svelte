@@ -468,7 +468,7 @@
                   <ul class="peek-items">
                     {#each group.items as item (item.label)}
                       {@const allowed = levelAt(levels, item.location) <= level}
-                      <li class:denied={!allowed}>
+                      <li class={{ denied: !allowed }}>
                         {#if allowed}<CheckIcon aria-hidden="true" />{:else}<XIcon
                             aria-hidden="true"
                           />{/if}

@@ -35,7 +35,9 @@
       .then((packs) => {
         if (current) imagePacks = packs;
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.debug('[sable emotes] image packs unavailable', error);
+      });
     return () => {
       current = false;
     };
@@ -48,7 +50,7 @@
 </script>
 
 {#if recents.length > 0}
-  <div class:roomy class="quick-strip" role="group" aria-label={$i18n.t('timeline.addReaction')}>
+  <div class={['quick-strip', { roomy }]} role="group" aria-label={$i18n.t('timeline.addReaction')}>
     {#each recents as emoji (emoji)}
       {@const label = reactionEmoteLabel(emoji, imagePacks, $i18n.t('timeline.customEmote'))}
       <button

@@ -69,7 +69,7 @@
         (nextProfile) => {
           if (!cancelled) profile = nextProfile;
         },
-        () => {}
+        (error: unknown) => console.debug('[sable nav] own profile unavailable', error)
       );
     void load();
     const unsubscribe = core.onProfileChanged((changed) => {

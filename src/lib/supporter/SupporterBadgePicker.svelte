@@ -165,7 +165,7 @@
   <p>{$i18n.t('supporter.chooseBadgeHint')}</p>
   <div class="badge-options">
     {#each SUPPORTER_VARIANTS as variant (variant)}
-      <label class="badge-option" class:selected={draft.variant === variant}>
+      <label class={['badge-option', { selected: draft.variant === variant }]}>
         <input
           type="radio"
           {name}
@@ -283,7 +283,7 @@
     <legend>{$i18n.t('supporter.backgroundShape')}</legend>
     <div class="shape-options badge-options">
       {#each SUPPORTER_SHAPES as shape (shape)}
-        <label class="badge-option" class:selected={draft.shape === shape}>
+        <label class={['badge-option', { selected: draft.shape === shape }]}>
           <input
             type="radio"
             name={`${name}-shape`}

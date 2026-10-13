@@ -122,7 +122,8 @@ async function request(
       }
     );
     return { status: response.status, body: response.ok ? await response.json() : null };
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] push request failed', path, error);
     return { status: null, body: null };
   }
 }
@@ -142,7 +143,8 @@ async function thumbnail(fetcher: PushFetcher, mxc: string): Promise<string | un
     if (!response.ok) return undefined;
     const type = response.headers.get('content-type') ?? 'image/png';
     return `data:${type};base64,${uint8ArrayToBase64(new Uint8Array(await response.arrayBuffer()))}`;
-  } catch {
+  } catch (error) {
+    console.debug('[sable notifications] push thumbnail failed', error);
     return undefined;
   }
 }

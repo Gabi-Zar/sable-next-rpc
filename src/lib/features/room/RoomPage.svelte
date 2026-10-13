@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { MediaQuery } from 'svelte/reactivity';
   import type { RoomListItemView } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -8,14 +9,13 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { findRoomByPathId, roomPathParam, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
-  import { createMediaQuery } from '#lib/ui/media-query.svelte.js';
 
   import JoinBeforeNavigate from './discovery/JoinBeforeNavigate.svelte';
   import RoomView from './RoomView.svelte';
 
   const core = useCoreClient();
   const roomList = useRoomList();
-  const appLayout = createMediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
 
   let roomId = $derived(page.params.roomId ?? '');
   let eventId = $derived(page.url.searchParams.get('event'));
@@ -23,10 +23,10 @@
   let listedRoom = $derived(findRoomByPathId(roomList.rooms, roomId));
   let joined = $derived(listedRoom !== undefined);
 
-  let mountedRoomId = $state(untrack(() => (appLayout.matches ? roomId : null)));
+  let mountedRoomId = $state(untrack(() => (appLayout.current ? roomId : null)));
   $effect(() => {
     const id = roomId;
-    if (appLayout.matches) {
+    if (appLayout.current) {
       mountedRoomId = id;
       return;
     }
@@ -42,15 +42,7 @@
     };
   });
 
-  /* An empty room list means "not loaded yet" as much as "not a member", and
-     only the first justifies withholding the timeline. */
-  let listed = $state(false);
-  $effect(() => {
-    void roomList
-      .start()
-      .then(() => (listed = true))
-      .catch(() => {});
-  });
+  let listed = $derived(roomList.settled);
 
   let unlisted = $state.raw<RoomListItemView | null>(null);
   let unlistedRoom = $derived(unlisted?.room_id === roomId ? unlisted : undefined);

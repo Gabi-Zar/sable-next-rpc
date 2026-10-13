@@ -69,7 +69,9 @@
       .then((next) => {
         if (!cancelled) info = next;
       })
-      .catch(() => {});
+      .catch((error: unknown) => {
+        console.debug('[sable settings] homeserver info unavailable', error);
+      });
 
     return () => {
       cancelled = true;

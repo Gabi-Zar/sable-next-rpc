@@ -22,7 +22,10 @@ export function locates(): boolean {
 
 export function locationOffered(): Promise<boolean> {
   if (!isNativeMobile()) return Promise.resolve(locates());
-  return invoke<boolean>('has_geolocation').catch(() => false);
+  return invoke<boolean>('has_geolocation').catch((error: unknown) => {
+    console.debug('[sable location] geolocation availability unknown', error);
+    return false;
+  });
 }
 
 async function nativeFix(timeoutMs: number): Promise<FixResult> {

@@ -69,8 +69,9 @@ export class GifSearch {
           parsed.findIndex(({ mediaUrl }) => mediaUrl === gif.mediaUrl) === index
       );
       this.failed = false;
-    } catch {
+    } catch (error) {
       if (generation !== this.#generation) return;
+      console.warn('[sable gif] searching gifs failed', error);
       this.results = [];
       this.failed = true;
     } finally {

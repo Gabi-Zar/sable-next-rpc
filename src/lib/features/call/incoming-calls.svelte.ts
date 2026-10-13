@@ -9,7 +9,6 @@ import {
 } from '#lib/platform/calls.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import { type NotificationSound } from '../notifications/sound';
-import { ignoreError } from './call-transport';
 import { playSound } from '../notifications/sound';
 
 export type IncomingCall = {
@@ -87,8 +86,8 @@ export class IncomingCalls {
         room_id: call.roomId,
         notification_event_id: call.notificationEventId,
       });
-    } catch {
-      ignoreError();
+    } catch (error) {
+      console.warn('[sable call] could not decline call', error);
     }
   }
 

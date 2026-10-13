@@ -309,7 +309,9 @@ export class RoomTimeline {
         .then(async () => {
           await this.core.rpc.timeline.unsubscribe({ subscription });
         })
-        .catch(() => {})
+        .catch((error: unknown) => {
+          console.debug('[sable timeline] timeline not unsubscribed', error);
+        })
         .finally(() => {
           this.hasPendingUnsubscribe = false;
         });
@@ -421,7 +423,11 @@ export class RoomTimeline {
     }
 
     if (session !== this.session) {
-      this.core.rpc.timeline.unsubscribe({ subscription: response.subscription }).catch(() => {});
+      this.core.rpc.timeline
+        .unsubscribe({ subscription: response.subscription })
+        .catch((error: unknown) => {
+          console.debug('[sable timeline] stale timeline not unsubscribed', error);
+        });
       stopEvents();
       return;
     }
@@ -440,7 +446,10 @@ export class RoomTimeline {
   }
 
   private readMarker(roomId: string): Promise<string | null> {
-    return this.core.rpc.timeline.readMarker({ room_id: roomId }).catch(() => null);
+    return this.core.rpc.timeline.readMarker({ room_id: roomId }).catch((error: unknown) => {
+      console.debug('[sable timeline] read marker not loaded', error);
+      return null;
+    });
   }
 
   private async subscribeUnreadContext(

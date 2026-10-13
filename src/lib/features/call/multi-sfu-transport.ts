@@ -10,7 +10,7 @@ import type {
   CallTransportRoom,
   CallTransportState,
 } from './call-transport';
-import { idleTransportState } from './call-transport';
+import { idleTransportState, ignoreError } from './call-transport';
 import { createLivekitTransport, type LivekitTransport } from './livekit-transport';
 
 export type MultiSfuTransportDeps = {
@@ -51,7 +51,7 @@ export function createMultiSfuTransport(
     transports.delete(backendId);
     unsubscribes.get(backendId)?.();
     unsubscribes.delete(backendId);
-    await transport.disconnect().catch(() => undefined);
+    await transport.disconnect().catch(ignoreError);
   };
 
   const removeSubscriber = (backendId: string, transport: LivekitTransport): void => {
@@ -63,7 +63,7 @@ export function createMultiSfuTransport(
         transports.delete(backendId);
         unsubscribes.get(backendId)?.();
         unsubscribes.delete(backendId);
-        await transport.disconnect().catch(() => undefined);
+        await transport.disconnect().catch(ignoreError);
         publish();
       });
   };

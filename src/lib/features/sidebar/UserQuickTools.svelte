@@ -114,8 +114,7 @@
 
 {#if mobile}
   <nav
-    class="mobile-tools"
-    class:selection-active={mobileSelectedIndex >= 0}
+    class={['mobile-tools', { 'selection-active': mobileSelectedIndex >= 0 }]}
     style:--mobile-selected-index={String(Math.max(mobileSelectedIndex, 0))}
     style:--mobile-slot-count={String(mobileSlotCount)}
     aria-label={$i18n.t('nav.quickTools')}

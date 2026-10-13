@@ -89,7 +89,10 @@ export async function fetchCatalog(): Promise<{ themes: CatalogRow[]; tweaks: Ca
 }
 
 async function describe(kind: CatalogEntry['kind'], row: CatalogRow): Promise<CatalogEntry> {
-  const css = await fetchCatalogFile(row.previewUrl ?? row.fullUrl).catch(() => '');
+  const css = await fetchCatalogFile(row.previewUrl ?? row.fullUrl).catch((error: unknown) => {
+    console.debug('[sable themes] catalog preview unavailable', row.basename, error);
+    return '';
+  });
   return {
     kind,
     basename: row.basename,

@@ -118,7 +118,8 @@ async function loopback(
   let push: DiagnosticPushView;
   try {
     push = await deps.sendDiagnostic(pusher.pushkey, pusher.app_id);
-  } catch {
+  } catch (error) {
+    console.warn('[sable notifications] diagnostic push failed', error);
     return { check: 'loopback', state: 'fail', message: 'settings.troubleshootLoopbackFailed' };
   }
   switch (push.kind) {
@@ -173,7 +174,8 @@ export async function* troubleshoot(deps: TroubleshootDeps): AsyncGenerator<Trou
   let pushers: RegisteredPusherView[];
   try {
     pushers = await deps.pushers();
-  } catch {
+  } catch (error) {
+    console.warn('[sable notifications] reading pushers failed', error);
     yield { check: 'pusher', state: 'fail', message: 'settings.troubleshootPusherUnreadable' };
     yield* skipped('gateway', 'settings.troubleshootNotApplicable');
     return;

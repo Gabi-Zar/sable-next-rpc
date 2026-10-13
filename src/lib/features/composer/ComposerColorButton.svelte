@@ -62,8 +62,7 @@
           <span class="color-icon">
             <Icon aria-hidden="true" />
             <span
-              class="color-bar"
-              class:set={value !== null}
+              class={['color-bar', { set: value !== null }]}
               style:background={value ?? undefined}
               aria-hidden="true"
             ></span>
@@ -74,7 +73,7 @@
   {/snippet}
 
   {#snippet children(sheet: boolean)}
-    <div class="color-picker" class:sheet>
+    <div class={['color-picker', { sheet }]}>
       <p class="color-title">{label}</p>
       <div class="swatches" role="group" aria-label={$i18n.t('composer.colorPresets')}>
         {#each COLOR_PRESETS as preset (preset.value)}

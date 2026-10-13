@@ -62,7 +62,9 @@ function syncWindowBackground(color: string | undefined, last: string): string {
 
 export function setSystemBarsHidden(hidden: boolean): void {
   if (!isTauri() || (osType() !== 'android' && osType() !== 'ios')) return;
-  void invoke('set_system_bars_hidden', { hidden }).catch(() => undefined);
+  void invoke('set_system_bars_hidden', { hidden }).catch((error: unknown) => {
+    console.debug('[sable window] system bars not toggled', error);
+  });
 }
 
 const SAMPLE_INTERVAL_MS = 200;

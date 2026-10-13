@@ -1,5 +1,8 @@
 <script lang="ts" module>
-  export const settingsChoices = Symbol('settings choices');
+  import { createContext } from 'svelte';
+
+  export const [getSettingsChoices, setSettingsChoices, hasSettingsChoices] =
+    createContext<boolean>();
 </script>
 
 <script lang="ts">

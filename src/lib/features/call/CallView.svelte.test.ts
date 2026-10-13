@@ -12,6 +12,7 @@ import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import { recordCallDebug } from './call-debug.svelte.js';
 import { CallSession } from './call-session.svelte.js';
+import type { CallPin } from './call-layout';
 import type { CallParticipant } from './call-transport';
 import { idleTransportState } from './call-transport';
 import CallViewHarness from './CallViewHarness.test.svelte';
@@ -25,6 +26,7 @@ function mountBothSharing(
   watchedScreenShareIds = [shared.id]
 ) {
   const toggleWatchScreenShare = vi.fn();
+  let layout = $state.raw<CallPin>({ pinned: null, gridForced: false });
   const session = {
     lifecycle: 'active',
     mediaReady: true,
@@ -32,7 +34,12 @@ function mountBothSharing(
     deviceError: null,
     connectedAt: null,
     startedAt: null,
-    layout: { pinned: null, gridForced: false },
+    get layout() {
+      return layout;
+    },
+    set layout(next: CallPin) {
+      layout = next;
+    },
     watchedScreenShareIds,
     views: 0,
     deafened: false,

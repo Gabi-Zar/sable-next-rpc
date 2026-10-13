@@ -113,9 +113,10 @@
   />
 {:else if preview}
   <div
-    class="link-preview"
-    class:compact={compactImage && !preview.video}
-    class:accented={preview.theme_color !== null}
+    class={[
+      'link-preview',
+      { compact: compactImage && !preview.video, accented: preview.theme_color !== null },
+    ]}
     style:--link-preview-accent={preview.theme_color}
   >
     {#if preview.video && !mediaHidden}

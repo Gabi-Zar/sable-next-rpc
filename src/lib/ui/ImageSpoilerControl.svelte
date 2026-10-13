@@ -28,8 +28,7 @@
     <button
       {...props}
       type="button"
-      class="media-image-spoiler"
-      class:hidden
+      class={['media-image-spoiler', { hidden }]}
       aria-label={label}
       aria-describedby={hidden ? reasonId : undefined}
       onclick={(event) => {

@@ -97,7 +97,9 @@ export class PresenceStore {
       this.#flush = null;
       const userIds = [...this.#pending];
       this.#pending.clear();
-      void this.#core?.rpc.account.fetchPresence({ user_ids: userIds }).catch(() => {});
+      void this.#core?.rpc.account.fetchPresence({ user_ids: userIds }).catch((error: unknown) => {
+        console.debug('[sable presence] presence not fetched', error);
+      });
     }, FETCH_DELAY_MS);
   }
 }

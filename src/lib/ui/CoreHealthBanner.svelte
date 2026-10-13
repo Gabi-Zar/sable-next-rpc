@@ -50,7 +50,7 @@
 </script>
 
 {#if notice}
-  <div class="banner" class:crash={notice.kind === 'crash'} role="alert">
+  <div class={['banner', { crash: notice.kind === 'crash' }]} role="alert">
     <p class="message">{notice.text}</p>
     {#if notice.kind === 'crash'}
       <Button class="reload-button" size="small" variant="danger" onclick={reload}

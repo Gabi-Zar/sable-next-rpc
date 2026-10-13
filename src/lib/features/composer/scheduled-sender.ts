@@ -27,15 +27,14 @@ export function watchScheduledQueue(core: CoreClient): () => void {
     try {
       for (const message of due) {
         if (!isCurrent()) break;
-        await sendMessage(core.rpc, message.roomId, message.body, {
-          formatted: message.formatted,
-        })
-          .then(() => {
-            dequeue(message.id, accountId);
-          })
-          .catch((error: unknown) => {
-            console.warn('[sable composer] a scheduled message could not be sent', error);
+        try {
+          await sendMessage(core.rpc, message.roomId, message.body, {
+            formatted: message.formatted,
           });
+          dequeue(message.id, accountId);
+        } catch (error) {
+          console.warn('[sable composer] a scheduled message could not be sent', error);
+        }
       }
     } finally {
       sending = false;

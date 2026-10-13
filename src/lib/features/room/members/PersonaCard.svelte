@@ -106,7 +106,7 @@
     </span>
   {/if}
   {#if roleTag}
-    <span class="profile-meta-item" class:profile-meta-elevated={elevated}>
+    <span class={['profile-meta-item', { 'profile-meta-elevated': elevated }]}>
       <ShieldIcon />
       {#if roleTag.icon}<RoleTagIcon icon={roleTag.icon} class="profile-role-icon" />{/if}
       {roleTag.name}

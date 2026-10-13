@@ -62,7 +62,8 @@ export class SenderDirectory {
         });
       }
       return fresh.length > 0;
-    } catch {
+    } catch (error) {
+      console.debug('[sable search] the user directory lookup failed', error);
       return false;
     }
   }
@@ -81,7 +82,8 @@ export class SenderDirectory {
           profile,
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.debug('[sable search] the sender profile could not be read', error);
         this.#identities.set(userId, { userId, displayName: userId, avatarUrl: null });
       });
   }

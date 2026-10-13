@@ -18,20 +18,23 @@
 
   let { active, onComplete }: Props = $props();
   const core = useCoreClient();
-  let notifying = $state(false);
+  let permission = $state<Awaited<ReturnType<typeof permissionState>> | null>(null);
   let groupMode = $state<NotificationModeView | null>(null);
+  const notifying = $derived(permission === 'granted' && preferences.systemNotifications);
 
   $effect(() => {
     if (!active) return;
     let alive = true;
     void permissionState().then((state) => {
-      if (alive) notifying = state === 'granted' && preferences.systemNotifications;
+      if (alive) permission = state;
     });
     void core.rpc.notifications.defaultModes().then(
       ({ group }) => {
         if (alive) groupMode = group;
       },
-      () => undefined
+      (error: unknown) => {
+        console.debug('[sable setup] default notification modes unavailable', error);
+      }
     );
     return () => {
       alive = false;
@@ -67,7 +70,7 @@
   <AuthField labelId="setup-done-title" label={$i18n.t('setup.doneTitle')}>
     <ul class="setup-done-list">
       {#each items as item (item.yes)}
-        <li class:done={item.done}>
+        <li class={{ done: item.done }}>
           {#if item.done}
             <CheckCircleIcon aria-hidden="true" weight="fill" />
           {:else}

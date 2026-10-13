@@ -9,14 +9,6 @@
   const roomList = useRoomList();
   let spaceId = $derived(page.params.spaceId ?? '');
   let space = $derived(findRoomByPathId(roomList.rooms, spaceId) ?? null);
-
-  let listed = $state(false);
-  $effect(() => {
-    void roomList
-      .start()
-      .then(() => (listed = true))
-      .catch(() => {});
-  });
 </script>
 
 <svelte:head>
@@ -25,7 +17,7 @@
 
 <main class="lobby-page">
   <div class="lobby-column">
-    {#if space !== null || !listed}
+    {#if space !== null || !roomList.settled}
       <SpaceLobby {space} />
     {:else}
       <JoinBeforeNavigate roomId={spaceId} via={page.url.searchParams.getAll('via')} />

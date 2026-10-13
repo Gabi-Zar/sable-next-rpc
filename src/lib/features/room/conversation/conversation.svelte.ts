@@ -725,13 +725,11 @@ export class Conversation {
     if (proxied && preferences.personaLatching !== 'off') {
       void personas
         .select(preferences.personaLatching === 'room' ? targetRoomId : null, proxied.persona.id)
-        .catch(() => {});
+        .catch(failed('latching persona'));
     }
 
-    const personaUpdatedTimestamp = persona;
-    personaUpdatedTimestamp.last_used = Date.now();
-
-    personas.save(personaUpdatedTimestamp, persona.id).catch(failed('updating persona timestamp'));
+    persona.last_used = Date.now();
+    personas.save(persona, persona.id).catch(failed('updating persona timestamp'));
 
     return {
       body: proxied?.body ?? body,

@@ -23,7 +23,7 @@
 </script>
 
 <div class="audio-track" style:--audio-cover={cover ? `url(${cover})` : undefined}>
-  <span class="audio-track-cover" class:empty={!cover} aria-hidden="true">
+  <span class={['audio-track-cover', { empty: !cover }]} aria-hidden="true">
     {#if !cover}<MusicNotesIcon />{/if}
   </span>
   <span class="audio-track-text">

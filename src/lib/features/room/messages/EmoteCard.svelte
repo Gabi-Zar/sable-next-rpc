@@ -8,7 +8,7 @@
   }: { label: string; children: Snippet; variant?: 'emote' | 'reaction' } = $props();
 </script>
 
-<span class="emote-card" class:reaction={variant === 'reaction'}>
+<span class={['emote-card', { reaction: variant === 'reaction' }]}>
   <span class="emote-card-image">{@render children()}</span>
   <span class="emote-card-name">{label}</span>
 </span>

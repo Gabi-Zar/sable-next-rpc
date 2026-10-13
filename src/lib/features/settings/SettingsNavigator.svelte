@@ -93,7 +93,7 @@
         autocomplete="off"
       />
     </div>
-    <p class="search-summary" class:active={trimmedQuery !== ''} aria-live="polite">
+    <p class={['search-summary', { active: trimmedQuery !== '' }]} aria-live="polite">
       {#if trimmedQuery}
         {results.length > 0
           ? $i18n.t('settings.searchResultsCount', { count: results.length })

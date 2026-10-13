@@ -58,6 +58,11 @@
 
   $effect(() => stopTesting);
 
+  async function unlock(): Promise<void> {
+    unlockError = await unlockCallDevices();
+    await refresh();
+  }
+
   function stopTesting(): void {
     testGeneration += 1;
     stopTest?.();
@@ -98,15 +103,7 @@
       <Alert variant="info">
         <p>{$i18n.t('settings.callDevicesPermission')}</p>
         <div>
-          <Button
-            variant="secondary"
-            size="small"
-            onclick={() =>
-              void unlockCallDevices().then((error) => {
-                unlockError = error;
-                return refresh();
-              })}
-          >
+          <Button variant="secondary" size="small" onclick={() => void unlock()}>
             {$i18n.t('settings.callDevicesAllow')}
           </Button>
         </div>

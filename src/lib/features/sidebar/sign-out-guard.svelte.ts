@@ -31,7 +31,8 @@ export class SignOutGuard {
     let risk: SignOutRisk | null;
     try {
       risk = signOutRisk(await this.#core.rpc.encryption.signOutSafety());
-    } catch {
+    } catch (error) {
+      console.warn('[sable nav] sign-out safety check failed', error);
       risk = 'unknown';
     } finally {
       this.checking = false;

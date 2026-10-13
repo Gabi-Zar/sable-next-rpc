@@ -96,7 +96,7 @@
       {:else}
         <ul class="outcomes">
           {#each outcomes as [outcome, count] (outcome)}
-            <li class:last={outcome === diagnostics.lastOutcome}>{outcome}: {count}</li>
+            <li class={{ last: outcome === diagnostics.lastOutcome }}>{outcome}: {count}</li>
           {/each}
         </ul>
       {/if}

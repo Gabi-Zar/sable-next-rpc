@@ -90,7 +90,7 @@
       (next) => {
         if (!cancelled) profile = next;
       },
-      () => {}
+      (cause: unknown) => console.debug('[sable nav] own profile unavailable', cause)
     );
     return () => {
       cancelled = true;
@@ -113,7 +113,8 @@
       setPreference('presenceStatusMessage', text);
       setPreference('presence', presenceDraft);
       statusOpen = false;
-    } catch {
+    } catch (cause) {
+      console.warn('[sable nav] saving status failed', cause);
       statusError = $i18n.t('settings.profileSaveFailed');
     } finally {
       statusSaving = false;
@@ -136,7 +137,8 @@
     try {
       await core.switchAccount(accountId);
       await goto(resolve('/(app)/rooms'));
-    } catch {
+    } catch (cause) {
+      console.warn('[sable nav] switching account failed', cause);
       error = $i18n.t('nav.switchAccountFailed');
     } finally {
       switchingAccountId = null;
@@ -151,7 +153,8 @@
     try {
       await core.removeAccount(accountToRemove.account_id);
       removeAccountId = null;
-    } catch {
+    } catch (cause) {
+      console.warn('[sable nav] removing account failed', cause);
       error = $i18n.t('nav.removeAccountFailed');
     } finally {
       removing = false;
@@ -181,7 +184,7 @@
       <PresenceDot presence={preferences.presence} label="" size="medium" />
       {$i18n.t(`presence.${preferences.presence}`)}
     </span>
-    <span class="status-bubble-text" class:placeholder={!ownStatus}
+    <span class={['status-bubble-text', { placeholder: !ownStatus }]}
       >{#if userStatus?.emoji}<span>{userStatus.emoji}</span>
       {/if}{ownStatus || $i18n.t('common.whatAreYouUpTo')}</span
     >

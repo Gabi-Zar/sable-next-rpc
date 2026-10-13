@@ -79,7 +79,8 @@
       .then((value) => {
         if (!cancelled) hasSpaceParent = value;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        console.debug('[sable room] space parent check failed', error);
         if (!cancelled) hasSpaceParent = false;
       });
 
@@ -433,7 +434,7 @@
   <RoomUpgradeSettings {room} {levels} {ownPowerLevel} {onClose} />
 
   {#if canEditGeneral || canEditAccess}
-    <div class="save-bar" class:pending={dirty}>
+    <div class={['save-bar', { pending: dirty }]}>
       {#if failed}
         <p class="save-status error" role="alert">{$i18n.t('room.settingsFailed')}</p>
       {:else if dirty}

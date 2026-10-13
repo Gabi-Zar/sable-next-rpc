@@ -110,7 +110,8 @@ export function contextSearchPath(
 export function searchInRoom(room: RoomListItemView | undefined, roomId: string): void {
   const target = scopedSearchPath('in', room, roomId);
 
-  goto(target).catch(() => {
+  goto(target).catch((error: unknown) => {
+    console.debug('[sable room] search navigation failed', error);
     window.location.assign(target);
   });
 }

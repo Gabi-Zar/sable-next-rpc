@@ -145,10 +145,8 @@
     `profile-card-${variant}`,
     { 'profile-card-inset-body': insetBody },
     className,
+    { tinted, 'tint-light': ink === BLACK, 'tint-dark': ink === WHITE },
   ]}
-  class:tinted
-  class:tint-light={ink === BLACK}
-  class:tint-dark={ink === WHITE}
   style:--profile-hero={palette?.ground}
   style:--profile-hero-panel={palette?.panel}
   style:--profile-hero-muted={palette?.muted}
@@ -157,7 +155,7 @@
   style:--profile-name-on-hero={nameOnHero}
   data-inset-owner={variant === 'sheet' ? 'bottom' : undefined}
 >
-  <div class="profile-card-cover" class:has-banner={banner} style:background={color}>
+  <div class={['profile-card-cover', { 'has-banner': banner }]} style:background={color}>
     {#if banner && onAvatarClick}
       <button
         class="profile-card-banner-button"
@@ -258,7 +256,7 @@
         {#if nameField}
           <div class="profile-card-name-field">{@render nameField()}</div>
         {:else}
-          <h2 id={nameId} class="profile-card-name" class:tinted={nameColor}>
+          <h2 id={nameId} class={['profile-card-name', { tinted: nameColor }]}>
             {displayName}
           </h2>
         {/if}
@@ -290,7 +288,7 @@
       {/if}
     </div>
     {#if children || footer}
-      <div class="profile-card-panel" class:framed={children}>
+      <div class={['profile-card-panel', { framed: children }]}>
         {#if children}
           <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
           <div
@@ -304,7 +302,7 @@
           </div>
         {/if}
         {#if footer}
-          <div class="profile-card-footer" class:divided={children}>{@render footer()}</div>
+          <div class={['profile-card-footer', { divided: children }]}>{@render footer()}</div>
         {/if}
       </div>
     {/if}

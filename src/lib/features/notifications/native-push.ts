@@ -129,7 +129,8 @@ export function switchPushProvider(
       try {
         if (previousDistributor) await setPushDistributor(previousDistributor);
         await register(override, session, accounts, previousProvider);
-      } catch {
+      } catch (rollbackError) {
+        console.warn('[sable notifications] restoring push provider failed', rollbackError);
         localStorage.removeItem(PROVIDER_KEY);
       }
       throw error;

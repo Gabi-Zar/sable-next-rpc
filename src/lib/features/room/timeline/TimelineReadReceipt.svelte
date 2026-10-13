@@ -27,22 +27,21 @@
   let coalesceTimer: ReturnType<typeof setTimeout> | undefined;
   let failures = 0;
 
-  function send(eventId: string): void {
+  async function send(eventId: string): Promise<void> {
     readingEventId = eventId;
-    void onRead(eventId)
-      .then(() => {
-        lastReadEventId = eventId;
-        failures = 0;
-      })
-      .catch(() => {
-        failures += 1;
-        pendingEventId ??= eventId;
-      })
-      .finally(() => {
-        if (readingEventId === eventId) readingEventId = null;
-        if (failures === 0) flush();
-        else coalesceTimer ??= setTimeout(flush, RETRY_MS[Math.min(failures, RETRY_MS.length) - 1]);
-      });
+    try {
+      await onRead(eventId);
+      lastReadEventId = eventId;
+      failures = 0;
+    } catch (error) {
+      console.debug('[sable timeline] read receipt failed, retrying', error);
+      failures += 1;
+      pendingEventId ??= eventId;
+    } finally {
+      if (readingEventId === eventId) readingEventId = null;
+      if (failures === 0) flush();
+      else coalesceTimer ??= setTimeout(flush, RETRY_MS[Math.min(failures, RETRY_MS.length) - 1]);
+    }
   }
 
   function flush(): void {
@@ -65,7 +64,7 @@
       return;
     }
     pendingEventId = null;
-    send(eventId);
+    void send(eventId);
   }
 
   $effect(() => {
