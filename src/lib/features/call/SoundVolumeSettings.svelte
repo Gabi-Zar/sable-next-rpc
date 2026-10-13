@@ -140,7 +140,7 @@
   {@const Icon = sound.icon}
   <SettingsRow id={`sound-volume-${sound.sound}`} title={$i18n.t(sound.label)}>
     {#snippet before()}<Icon aria-hidden="true" />{/snippet}
-    <div class="control" data-max-range={PREFERENCE_RANGES[sound.preference].max}>
+    <div class="range" data-max-range={PREFERENCE_RANGES[sound.preference].max}>
       <Slider
         min={PREFERENCE_RANGES[sound.preference].min}
         max={PREFERENCE_RANGES[sound.preference].max}
@@ -211,13 +211,7 @@
     gap: var(--space-200);
   }
 
-  .control {
-    align-items: center;
-    display: flex;
-    gap: var(--space-150);
-  }
-
-  .control[data-max-range='2'] :global(.slider-track) {
+  .range[data-max-range='2'] :global(.slider-track) {
     background: linear-gradient(
       to right,
       var(--surface-container) 0%,

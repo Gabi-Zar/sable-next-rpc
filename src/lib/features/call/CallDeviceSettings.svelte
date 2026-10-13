@@ -152,7 +152,7 @@
 
       <SettingsRow id="call-output-volume" title={$i18n.t('settings.callOutputVolume')}>
         {#snippet before()}<SpeakerHighIcon aria-hidden="true" />{/snippet}
-        <div class="control">
+        <div class="range">
           <Slider
             min={0}
             max={1}
@@ -167,7 +167,7 @@
 
       <SettingsRow id="call-mic-test" title={$i18n.t('settings.callMicTestLevel')}>
         {#snippet before()}<MicrophoneIcon aria-hidden="true" />{/snippet}
-        <div class="control">
+        <div class="range">
           <div
             class="meter"
             role="meter"
@@ -188,12 +188,6 @@
 </div>
 
 <style>
-  .control {
-    align-items: center;
-    display: flex;
-    gap: var(--space-150);
-  }
-
   .reading {
     flex: none;
     font-size: var(--font-size-small);
