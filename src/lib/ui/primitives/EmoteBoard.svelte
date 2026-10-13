@@ -891,7 +891,7 @@
   }
 
   .board.sheet {
-    height: min(36rem, calc(100dvh - 7rem));
+    height: min(36rem, calc(100dvh - var(--keyboard-overlap) - 7rem));
     width: 100%;
   }
 
