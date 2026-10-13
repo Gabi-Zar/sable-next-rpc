@@ -51,8 +51,8 @@ test('a pending draft upload is not reused for the next account', async () => {
     session,
     rpc: {
       account: {
-        sealedAccountData: () => Promise.resolve({ content: null, state: 'plain', can_seal: true }),
-        setSealedAccountData,
+        sealedData: () => Promise.resolve({ content: null, state: 'plain', can_seal: true }),
+        setSealedData: setSealedAccountData,
       },
     },
     subscribeEvents: () => () => {},

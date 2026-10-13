@@ -93,7 +93,7 @@ class FakeCore {
   get rpc() {
     return {
       timeline: {
-        subscribeTimeline: (params: { room_id: string; focus: TimelineFocusView }) =>
+        subscribe: (params: { room_id: string; focus: TimelineFocusView }) =>
           this.subscribeTimeline(params.room_id, params.focus),
         paginate: (params: { subscription: number; direction: 'backward' | 'forward' }) =>
           this.paginate(params.subscription, params.direction),
@@ -798,7 +798,7 @@ class SwitchingCore {
   get rpc() {
     return {
       timeline: {
-        subscribeTimeline: (params: { room_id: string }) => this.subscribeTimeline(params.room_id),
+        subscribe: (params: { room_id: string }) => this.subscribeTimeline(params.room_id),
         paginate: (params: { subscription: number; direction: 'backward' | 'forward' }) =>
           this.paginate(params.subscription, params.direction),
         unsubscribe: (params: { subscription: number }) => this.unsubscribe(params.subscription),

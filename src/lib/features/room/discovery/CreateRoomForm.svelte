@@ -105,7 +105,7 @@
   $effect(() => {
     let cancelled = false;
     core.rpc.rooms
-      .roomVersions()
+      .versions()
       .then((result) => {
         if (!cancelled) roomVersions = result;
       })

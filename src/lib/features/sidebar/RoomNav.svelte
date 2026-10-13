@@ -572,7 +572,7 @@
     let current = true;
     spacePermissions = null;
     void core.rpc.members
-      .roomPermissions({ room_id: spaceId })
+      .permissions({ room_id: spaceId })
       .then((next) => {
         if (current) spacePermissions = next;
       })

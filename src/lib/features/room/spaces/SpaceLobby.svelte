@@ -276,7 +276,7 @@
       if (requestedPermissions.has(roomId)) continue;
       requestedPermissions.add(roomId);
       void core.rpc.members
-        .roomPermissions({ room_id: roomId })
+        .permissions({ room_id: roomId })
         .then((next) => {
           if (permissionsSpace !== current) return;
           permissionsById = new Map([...permissionsById, [roomId, next]]);
@@ -349,7 +349,7 @@
     suggestedOverrides = [...suggestedOverrides.filter(others), override];
 
     try {
-      await core.rpc.spaces.setSpaceChildSuggested({
+      await core.rpc.spaces.setChildSuggested({
         space_id: parentId,
         room_id: roomId,
         suggested,
@@ -369,7 +369,7 @@
     let failures = 0;
     for (const roomId of roomIds) {
       try {
-        await core.rpc.spaces.addToSpace({ space_id: parentId, room_id: roomId, suggested });
+        await core.rpc.spaces.add({ space_id: parentId, room_id: roomId, suggested });
       } catch (error) {
         failures += 1;
         console.warn('[sable lobby] room not added', error);
@@ -398,7 +398,7 @@
     const address = child.canonical_alias ?? child.room_id;
     let routing = viaFor(address, via);
     if (routing.length === 0 && child.canonical_alias === null) {
-      routing = await core.rpc.rooms.roomViaServers({ room_id: parentId });
+      routing = await core.rpc.rooms.viaServers({ room_id: parentId });
     }
     if (action === 'knock') {
       await knockRoom(core.rpc, address, routing);
@@ -452,7 +452,7 @@
     if (!parentId) return;
 
     try {
-      await core.rpc.spaces.removeFromSpace({ space_id: parentId, room_id: entry.room.room_id });
+      await core.rpc.spaces.remove({ space_id: parentId, room_id: entry.room.room_id });
       removed.add(entry.key);
     } catch (error) {
       console.warn('[sable lobby] remove failed', error);
@@ -464,7 +464,7 @@
     if (section.owner_id === null) return;
 
     try {
-      await core.rpc.spaces.removeFromSpace({
+      await core.rpc.spaces.remove({
         space_id: section.owner_id,
         room_id: section.parent_id,
       });
@@ -476,14 +476,14 @@
 
   async function moveRoom(from: string, roomId: string, target: string): Promise<void> {
     try {
-      await core.rpc.spaces.addToSpace({ space_id: target, room_id: roomId, suggested: null });
+      await core.rpc.spaces.add({ space_id: target, room_id: roomId, suggested: null });
     } catch (error) {
       console.warn('[sable lobby] move failed', error);
       hierarchy.fail();
       return;
     }
     try {
-      await core.rpc.spaces.removeFromSpace({ space_id: from, room_id: roomId });
+      await core.rpc.spaces.remove({ space_id: from, room_id: roomId });
       for (const section of sections) {
         if (section.parent_id !== from) continue;
         for (const entry of section.rooms) {
@@ -533,7 +533,7 @@
 
     try {
       for (const change of changes) {
-        await core.rpc.spaces.setSpaceChildOrder({
+        await core.rpc.spaces.setChildOrder({
           space_id: parentId,
           room_id: change.roomId,
           order: change.order,

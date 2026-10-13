@@ -10,7 +10,7 @@ test.each([false, true])('loads room packs (cachedOnly=%s)', async (cachedOnly) 
     packs: [],
     complete: !cachedOnly,
   });
-  expect(call).toHaveBeenCalledExactlyOnceWith('packs.image_packs', {
+  expect(call).toHaveBeenCalledExactlyOnceWith('packs.list', {
     room_id: '!room:example.org',
     cached_only: cachedOnly,
   });
@@ -26,5 +26,5 @@ test('leaves account-wide listings uncached', async () => {
   });
   expect(call).not.toHaveBeenCalled();
   await expect(imagePackListing(rpc, '')).resolves.toEqual({ packs: [], complete: false });
-  expect(call).toHaveBeenCalledExactlyOnceWith('packs.all_image_packs', {});
+  expect(call).toHaveBeenCalledExactlyOnceWith('packs.list_all', {});
 });

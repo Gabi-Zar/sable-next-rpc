@@ -85,12 +85,8 @@ function room(overrides: Partial<RoomListItemView>): RoomListItemView {
 }
 
 async function mountNav(props: { collapsed?: boolean; width?: number } = {}) {
-  Object.assign(core, {
-    rpc: {
-      notifications: {
-        notificationSettings: vi.fn().mockResolvedValue({ mode: 'all', default: 'all' }),
-      },
-    },
+  Object.assign(core.rpc.notifications, {
+    settings: vi.fn().mockResolvedValue({ mode: 'all', default: 'all' }),
   });
   await page.viewport(1280, 900);
   return render(RoomNavHarness, props);

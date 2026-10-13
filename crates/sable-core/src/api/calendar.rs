@@ -9,19 +9,19 @@ use crate::calendar::CalendarAnswer;
 use crate::protocol::{CalendarView, RpcError, RsvpStatusView};
 
 domain! {
-    calendar_entries,
-    save_calendar_event,
-    answer_calendar_event,
+    entries,
+    save_event,
+    answer_event,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CalendarEntriesParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct EntriesParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for CalendarEntriesParams {
+impl Handler for EntriesParams {
     type Ok = CalendarView;
 
     async fn run(self, core: &Arc<Core>) -> Result<CalendarView, RpcError> {
@@ -30,17 +30,18 @@ impl Handler for CalendarEntriesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SaveCalendarEventParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SaveEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
     pub event: serde_json::Value,
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub replaces: Option<OwnedEventId>,
 }
 
-impl Handler for SaveCalendarEventParams {
+impl Handler for SaveEventParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -51,18 +52,19 @@ impl Handler for SaveCalendarEventParams {
 
 /// `recurrence_id` picks one occurrence of a repeating event.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AnswerCalendarEventParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AnswerEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub calendar_event_id: OwnedEventId,
     pub uid: String,
+    #[serde(default)]
     pub recurrence_id: Option<String>,
     pub status: RsvpStatusView,
 }
 
-impl Handler for AnswerCalendarEventParams {
+impl Handler for AnswerEventParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {

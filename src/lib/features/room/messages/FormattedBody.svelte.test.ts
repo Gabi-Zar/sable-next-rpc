@@ -1,3 +1,4 @@
+import type { RoomPreviewView } from '#src/generated/protocol';
 // @vitest-environment happy-dom
 
 import { fireEvent, render, screen, type RenderResult } from '@testing-library/svelte';
@@ -17,9 +18,8 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  roomPreview: vi.fn<() => Promise<{ name: string | null }>>(),
-});
+const core = baseCore;
+Object.assign(core.rpc.rooms, { preview: vi.fn<() => Promise<{ name: string | null }>>() });
 const timeline = Object.assign(baseCore.rpc.timeline, {
   eventItems: vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([])),
 });
@@ -50,8 +50,8 @@ test('keeps table semantics inside a keyboard-accessible scroller', async () => 
 
 afterEach(() => {
   core.fetchMedia.mockReset();
-  core.roomPreview.mockReset();
-  core.roomPreview.mockResolvedValue({ name: null });
+  core.rpc.rooms.preview.mockReset();
+  core.rpc.rooms.preview.mockResolvedValue({ name: null } as RoomPreviewView);
   roomList.rooms = [];
   preferences.pauseAnimationsWhenInactive = false;
   preferences.mediaAutoLoad = 'on';
@@ -141,14 +141,14 @@ test('renders an @room mention as a chip', async () => {
 });
 
 test('resolves a room permalink name through its via server', async () => {
-  core.roomPreview.mockResolvedValue({ name: 'Sable' });
+  core.rpc.rooms.preview.mockResolvedValue({ name: 'Sable' } as RoomPreviewView);
   const url = 'https://matrix.to/#/!6DYBIzUfDoKmqk53wyRqcod2G7LTcR9fEm9XBfaenNI?via=sable.moe';
   render(FormattedBody, {
     props: { html: `<a href="${url}">${url}</a>` },
   });
 
   expect(await screen.findByRole('link', { name: '#Sable' })).toBeInTheDocument();
-  expect(core.roomPreview).toHaveBeenCalledWith({
+  expect(core.rpc.rooms.preview).toHaveBeenCalledWith({
     address: '!6DYBIzUfDoKmqk53wyRqcod2G7LTcR9fEm9XBfaenNI',
     via: ['sable.moe'],
   });
@@ -168,7 +168,7 @@ test('uses the local room-list name before requesting a preview', async () => {
   });
 
   expect(await screen.findByRole('link', { name: '#Sable' })).toBeInTheDocument();
-  expect(core.roomPreview).not.toHaveBeenCalled();
+  expect(core.rpc.rooms.preview).not.toHaveBeenCalled();
 });
 
 test('sends external links to a new tab instead of the handler', async () => {

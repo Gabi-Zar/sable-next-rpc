@@ -8,7 +8,7 @@ use wiremock::{
     matchers::{body_json, method, path, path_regex},
 };
 
-use crate::{Core, api::calls::DeclineCallParams, session::Session, store::MemorySessionStore};
+use crate::{Core, api::calls::DeclineParams, session::Session, store::MemorySessionStore};
 
 #[tokio::test]
 async fn core_declines_legacy_notifications_but_rejects_invalid_and_own_events() {
@@ -61,14 +61,14 @@ async fn core_declines_legacy_notifications_but_rejects_invalid_and_own_events()
         .await;
 
     for event_id in ["$own", "$invalid"] {
-        core.run(DeclineCallParams {
+        core.run(DeclineParams {
             room_id: room_id.to_owned(),
             notification_event_id: event_id.to_owned(),
         })
         .await
         .expect_err("own and malformed notifications cannot be declined");
     }
-    core.run(DeclineCallParams {
+    core.run(DeclineParams {
         room_id: room_id.to_owned(),
         notification_event_id: "$legacy".to_owned(),
     })

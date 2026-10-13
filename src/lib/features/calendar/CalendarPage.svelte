@@ -164,7 +164,7 @@
     const activeRoomId = resolvedRoomId;
     let current = true;
     core.rpc.members
-      .roomPermissions({ room_id: activeRoomId })
+      .permissions({ room_id: activeRoomId })
       .then((next) => {
         if (current) permissions = next;
       })
@@ -180,7 +180,7 @@
     const activeRoomId = resolvedRoomId;
     let current = true;
     core.rpc.members
-      .roomMembers({ room_id: activeRoomId, memberships: [] })
+      .list({ room_id: activeRoomId, memberships: [] })
       .then((next) => {
         if (current) members = next;
       })
@@ -200,7 +200,7 @@
 
   async function load(activeRoomId: string): Promise<void> {
     try {
-      const next = await core.rpc.calendar.calendarEntries({ room_id: activeRoomId });
+      const next = await core.rpc.calendar.entries({ room_id: activeRoomId });
       if (activeRoomId !== resolvedRoomId) return;
       view = next;
       now = Date.now();
@@ -347,7 +347,7 @@
       Date.now(),
       timeZone
     );
-    await core.rpc.calendar.saveCalendarEvent({
+    await core.rpc.calendar.saveEvent({
       room_id: resolvedRoomId,
       event: $state.snapshot(event),
       replaces: base?.event_id ?? null,
@@ -378,7 +378,7 @@
   async function answer(occurrence: Occurrence, status: RsvpStatus): Promise<void> {
     const item = occurrence.item;
     try {
-      await core.rpc.calendar.answerCalendarEvent({
+      await core.rpc.calendar.answerEvent({
         room_id: resolvedRoomId,
         calendar_event_id: item.event_id,
         uid: item.uid,
@@ -676,7 +676,7 @@
   hint={$i18n.t('room.reportHint')}
   onReport={(reason) => {
     const target = resolvedRoomId;
-    void sendReport(() => core.rpc.rooms.reportRoom({ room_id: target, reason: reason ?? '' }));
+    void sendReport(() => core.rpc.rooms.report({ room_id: target, reason: reason ?? '' }));
   }}
 />
 <LeaveRoomDialog

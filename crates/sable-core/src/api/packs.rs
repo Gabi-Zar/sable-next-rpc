@@ -8,16 +8,16 @@ use crate::Core;
 use crate::protocol::{RpcError, ImagePackView, PackAddressView, PackDraftView, PackImageDraftView};
 
 domain! {
-    image_packs,
-    all_image_packs,
-    save_image_pack,
-    create_room_image_pack,
-    delete_room_image_pack,
-    convert_legacy_image_packs,
-    remove_legacy_image_packs,
-    add_account_pack_images,
-    pack_subscriptions,
-    set_pack_subscriptions,
+    list,
+    list_all,
+    save,
+    create_room_pack,
+    delete_room_pack,
+    convert_legacy,
+    remove_legacy,
+    add_account_images,
+    subscriptions,
+    set_subscriptions,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -34,8 +34,8 @@ pub enum PackTargetView {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ImagePacksParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ListParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[serde(default)]
@@ -43,25 +43,25 @@ pub struct ImagePacksParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ImagePacksOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ListOk {
     pub packs: Vec<ImagePackView>,
     pub complete: bool,
 }
 
-impl Handler for ImagePacksParams {
-    type Ok = ImagePacksOk;
+impl Handler for ListParams {
+    type Ok = ListOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<ImagePacksOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<ListOk, RpcError> {
         core.image_packs(self.room_id, self.cached_only).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AllImagePacksParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ListAllParams {}
 
-impl Handler for AllImagePacksParams {
+impl Handler for ListAllParams {
     type Ok = Vec<ImagePackView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<ImagePackView>, RpcError> {
@@ -70,13 +70,13 @@ impl Handler for AllImagePacksParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SaveImagePackParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SaveParams {
     pub target: PackTargetView,
     pub draft: PackDraftView,
 }
 
-impl Handler for SaveImagePackParams {
+impl Handler for SaveParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -86,14 +86,14 @@ impl Handler for SaveImagePackParams {
 
 /// The state key is derived from the name and kept unique in the room.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CreateRoomImagePackParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CreateRoomPackParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub name: String,
 }
 
-impl Handler for CreateRoomImagePackParams {
+impl Handler for CreateRoomPackParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
@@ -104,14 +104,14 @@ impl Handler for CreateRoomImagePackParams {
 
 /// Clears the legacy copy too, or the pack would come back from it.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct DeleteRoomImagePackParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DeleteRoomPackParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub state_key: String,
 }
 
-impl Handler for DeleteRoomImagePackParams {
+impl Handler for DeleteRoomPackParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -121,14 +121,14 @@ impl Handler for DeleteRoomImagePackParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ConvertLegacyImagePacksParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ConvertLegacyParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub state_keys: Vec<String>,
 }
 
-impl Handler for ConvertLegacyImagePacksParams {
+impl Handler for ConvertLegacyParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -138,14 +138,14 @@ impl Handler for ConvertLegacyImagePacksParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RemoveLegacyImagePacksParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RemoveLegacyParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub state_keys: Vec<String>,
 }
 
-impl Handler for RemoveLegacyImagePacksParams {
+impl Handler for RemoveLegacyParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -156,12 +156,12 @@ impl Handler for RemoveLegacyImagePacksParams {
 
 /// Merges into the account pack, renaming a shortcode that is taken.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AddAccountPackImagesParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AddAccountImagesParams {
     pub images: Vec<PackImageDraftView>,
 }
 
-impl Handler for AddAccountPackImagesParams {
+impl Handler for AddAccountImagesParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -170,10 +170,10 @@ impl Handler for AddAccountPackImagesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PackSubscriptionsParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SubscriptionsParams {}
 
-impl Handler for PackSubscriptionsParams {
+impl Handler for SubscriptionsParams {
     type Ok = Vec<PackAddressView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<PackAddressView>, RpcError> {
@@ -182,13 +182,13 @@ impl Handler for PackSubscriptionsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetPackSubscriptionsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetSubscriptionsParams {
     pub added: Vec<PackAddressView>,
     pub removed: Vec<PackAddressView>,
 }
 
-impl Handler for SetPackSubscriptionsParams {
+impl Handler for SetSubscriptionsParams {
     type Ok = Vec<PackAddressView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<PackAddressView>, RpcError> {

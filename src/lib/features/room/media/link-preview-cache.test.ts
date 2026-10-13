@@ -37,10 +37,8 @@ test('a url the server refuses does not silence the rest', async () => {
 });
 
 test('a client-side answer does not stand in for the homeserver one, and cannot silence it', async () => {
-  const urlPreview = vi.fn(({ service }: { url: string; service: string | null }) =>
-    service !== null
-      ? Promise.reject(new CoreError({ code: 'unsupported' }))
-      : Promise.resolve(null)
+  const urlPreview = vi.fn(({ service }: { url: string; service?: string | null }) =>
+    service != null ? Promise.reject(new CoreError({ code: 'unsupported' })) : Promise.resolve(null)
   );
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
@@ -53,8 +51,8 @@ test('a client-side answer does not stand in for the homeserver one, and cannot 
 test('a hung request resolves to nothing, frees its slot, and lets the next source answer', async () => {
   vi.useFakeTimers();
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-  const urlPreview = vi.fn(({ service }: { url: string; service: string | null }) =>
-    service !== null ? new Promise<never>(() => undefined) : Promise.resolve(null)
+  const urlPreview = vi.fn(({ service }: { url: string; service?: string | null }) =>
+    service != null ? new Promise<never>(() => undefined) : Promise.resolve(null)
   );
 
   const pending = resolveUrlPreview({ urlPreview }, 'https://example.org/hung', {

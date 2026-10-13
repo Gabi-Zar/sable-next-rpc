@@ -854,7 +854,7 @@ async fn distributor_gateway(
 
 #[cfg(mobile)]
 async fn discover_gateway(core: &Arc<sable_core::Core>, endpoint: &str) -> Option<String> {
-    core.run(sable_core::api::push::DiscoverPushGatewayParams {
+    core.run(sable_core::api::push::DiscoverGatewayParams {
         endpoint: endpoint.to_owned(),
     })
     .await

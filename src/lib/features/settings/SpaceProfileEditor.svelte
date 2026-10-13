@@ -172,9 +172,9 @@
     setAvatar(null);
     try {
       const [look, nextPermissions, nextLevels] = await Promise.all([
-        core.rpc.members.memberLook({ room_id: target }),
-        core.rpc.members.roomPermissions({ room_id: target }),
-        core.rpc.members.roomPowerLevels({ room_id: target }),
+        core.rpc.members.look({ room_id: target }),
+        core.rpc.members.permissions({ room_id: target }),
+        core.rpc.members.powerLevels({ room_id: target }),
       ]);
       if (current !== run) return;
       permissions = nextPermissions;

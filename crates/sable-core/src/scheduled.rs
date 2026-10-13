@@ -1,3 +1,5 @@
+use crate::api::messages::CancelScheduledParams;
+use crate::api::messages::SendScheduledParams;
 use std::time::Duration;
 
 use matrix_sdk::ruma::api::FeatureFlag;
@@ -160,7 +162,10 @@ impl Core {
         self.schedule_message(room_id, content, delay_ms).await
     }
 
-    pub(crate) async fn cancel_scheduled_message(&self, delay_id: String) -> Result<(), RpcError> {
+    pub(crate) async fn cancel_scheduled_message(
+        &self,
+        CancelScheduledParams { delay_id }: CancelScheduledParams,
+    ) -> Result<(), RpcError> {
         let request = update_delayed_event::unstable_v1::Request::new(
             delay_id,
             update_delayed_event::UpdateAction::Cancel,
@@ -175,7 +180,7 @@ impl Core {
 
     pub(crate) async fn send_scheduled_message_now(
         &self,
-        delay_id: String,
+        SendScheduledParams { delay_id }: SendScheduledParams,
     ) -> Result<(), RpcError> {
         let request = update_delayed_event::unstable_v1::Request::new(
             delay_id,

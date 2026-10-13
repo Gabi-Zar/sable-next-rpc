@@ -25,11 +25,14 @@ import RoomGeneralSettings from './RoomGeneralSettings.svelte';
 const spaces = Object.assign(baseCore.rpc.spaces, {
   roomHasSpaceParent: vi.fn<() => Promise<boolean>>(),
 });
-const core = Object.assign(baseCore, {
-  roomAliases: vi.fn<() => Promise<string[]>>(),
-  roomStateEventsRaw: vi.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
-  roomDirectoryVisibility: vi.fn<() => Promise<boolean>>(),
-  setRoomJoinRule: vi.fn<() => Promise<void>>(),
+const core = baseCore;
+Object.assign(core.rpc.rooms, {
+  aliases: vi.fn<() => Promise<string[]>>(),
+  directoryVisibility: vi.fn<() => Promise<boolean>>(),
+});
+Object.assign(core.rpc.room_state, {
+  eventsRaw: vi.fn<() => Promise<unknown[]>>().mockResolvedValue([]),
+  setJoinRule: vi.fn<() => Promise<void>>(),
 });
 
 const room: RoomListItemView = withCounts({
@@ -100,9 +103,9 @@ afterEach(() => {
 
 test('saves an access change with join-rule permission alone', async () => {
   spaces.roomHasSpaceParent.mockResolvedValue(false);
-  core.roomAliases.mockResolvedValue([]);
-  core.roomDirectoryVisibility.mockResolvedValue(false);
-  core.setRoomJoinRule.mockResolvedValue(undefined);
+  core.rpc.rooms.aliases.mockResolvedValue([]);
+  core.rpc.rooms.directoryVisibility.mockResolvedValue(false);
+  core.rpc.room_state.setJoinRule.mockResolvedValue(null);
   const user = userEvent.setup();
   render(RoomGeneralSettings, { room, permissions, levels, onClose: () => {} });
 
@@ -110,7 +113,7 @@ test('saves an access change with join-rule permission alone', async () => {
   await user.click(screen.getByRole('button', { name: 'common.save' }));
 
   await vi.waitFor(() => {
-    expect(core.setRoomJoinRule).toHaveBeenCalledWith({
+    expect(core.rpc.room_state.setJoinRule).toHaveBeenCalledWith({
       room_id: '!room:example.org',
       rule: 'public',
     });
@@ -119,8 +122,8 @@ test('saves an access change with join-rule permission alone', async () => {
 
 test('an unsaved change raises the save bar, and reset discards it', async () => {
   spaces.roomHasSpaceParent.mockResolvedValue(false);
-  core.roomAliases.mockResolvedValue([]);
-  core.roomDirectoryVisibility.mockResolvedValue(false);
+  core.rpc.rooms.aliases.mockResolvedValue([]);
+  core.rpc.rooms.directoryVisibility.mockResolvedValue(false);
   const user = userEvent.setup();
   render(RoomGeneralSettings, { room, permissions, levels, onClose: () => {} });
 
@@ -133,5 +136,5 @@ test('an unsaved change raises the save bar, and reset discards it', async () =>
   await user.click(screen.getByRole('button', { name: 'common.reset' }));
   expect(screen.queryByText('common.youHaveUnsavedChanges')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'common.save' })).toBeDisabled();
-  expect(core.setRoomJoinRule).not.toHaveBeenCalled();
+  expect(core.rpc.room_state.setJoinRule).not.toHaveBeenCalled();
 });

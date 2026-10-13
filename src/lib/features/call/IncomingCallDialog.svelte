@@ -35,7 +35,7 @@
 
     let current = true;
     void core.rpc.room_state
-      .roomStateEvent({
+      .event({
         room_id: incoming.roomId,
         event_type: 'm.room.member',
         state_key: incoming.sender,

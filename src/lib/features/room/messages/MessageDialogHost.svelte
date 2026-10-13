@@ -99,7 +99,7 @@
   function report(item: TimelineItemView, reason: string | null): void {
     if (!item.event_id) return;
     void core.rpc.messages
-      .reportMessage({ room_id: roomId, event_id: item.event_id, reason })
+      .report({ room_id: roomId, event_id: item.event_id, reason })
       .catch(failed('report'));
   }
 
@@ -108,7 +108,7 @@
     if (!eventId) return;
     for (const toRoomId of toRoomIds) {
       void core.rpc.messages
-        .forwardMessage({ room_id: roomId, event_id: eventId, to_room_id: toRoomId })
+        .forward({ room_id: roomId, event_id: eventId, to_room_id: toRoomId })
         .catch(failed('forward'));
     }
   }
@@ -129,7 +129,7 @@
       content.kind === 'file';
     if (content.kind === 'gallery' || content.kind === 'location') {
       void core.rpc.messages
-        .reprofileMessage({
+        .reprofile({
           room_id: roomId,
           event_id: item.event_id,
           thread_root: item.thread_root ?? null,

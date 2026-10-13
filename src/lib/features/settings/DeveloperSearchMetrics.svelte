@@ -22,7 +22,7 @@
     let active = true;
     const refresh = async (): Promise<void> => {
       try {
-        const next = await core.rpc.search.searchMetrics();
+        const next = await core.rpc.search.metrics();
         if (!active) return;
         metrics = next;
         unavailable = false;

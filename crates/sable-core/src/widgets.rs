@@ -1,4 +1,5 @@
 use crate::api::calls::RtcLivekitEndpoint;
+use crate::api::widgets::RestartDelayedEventParams;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -447,7 +448,10 @@ impl Core {
         Ok(response.response.event_id)
     }
 
-    pub(crate) async fn restart_delayed_event(&self, delay_id: String) -> Result<(), RpcError> {
+    pub(crate) async fn restart_delayed_event(
+        &self,
+        RestartDelayedEventParams { delay_id }: RestartDelayedEventParams,
+    ) -> Result<(), RpcError> {
         let request = update_delayed_event::unstable_v1::Request::new(
             delay_id,
             update_delayed_event::UpdateAction::Restart,
@@ -903,7 +907,7 @@ mod tests {
     use crate::{
         Core,
         api::calls::RtcLivekitEndpoint,
-        api::room_state::SendStateEventParams,
+        api::room_state::SendEventParams,
         protocol::{CoreEvent, RpcError},
         session::Session,
         store::MemorySessionStore,
@@ -958,7 +962,7 @@ mod tests {
         .unwrap();
         assert_eq!(redaction, "$created");
         let event_id = core
-            .run(SendStateEventParams {
+            .run(SendEventParams {
                 room_id: room_id.to_owned(),
                 event_type: "com.example.state".to_owned(),
                 state_key: String::new(),
@@ -1137,7 +1141,11 @@ mod tests {
             .await;
         let core = core_with(&server, client).await;
 
-        core.restart_delayed_event("d3".to_owned()).await.unwrap();
+        core.restart_delayed_event(crate::api::widgets::RestartDelayedEventParams {
+            delay_id: "d3".to_owned(),
+        })
+        .await
+        .unwrap();
     }
 
     #[tokio::test]

@@ -18,10 +18,9 @@ impl Format for ProtocolFormat {
         Ok(Cow::Owned(output))
     }
 
+    /// Inline types are RPC params and results, so serde decides which fields may be left out.
     fn map_type(&'_ self, types: &Types, dt: &DataType) -> Result<Cow<'_, DataType>, FormatError> {
-        let mut output = specta_serde::Format.map_type(types, dt)?.into_owned();
-        require_fields(&mut output);
-        Ok(Cow::Owned(output))
+        specta_serde::Format.map_type(types, dt)
     }
 }
 
@@ -72,6 +71,54 @@ fn camel_case(snake: &str) -> String {
     out
 }
 
+/// The `Rpc` type, its wire map and `createRpc`, after the exported types.
+fn rpc_client(
+    mut exporter: specta_typescript::FrameworkExporter<'_>,
+    routes: &[(&'static str, Vec<sable_core::api::Route>)],
+) -> Result<Cow<'static, str>, specta_typescript::Error> {
+    let mut api_lines = Vec::new();
+    let mut wire_lines = Vec::new();
+    let mut client_lines = Vec::new();
+    for (domain, methods) in routes {
+        api_lines.push(format!("  {domain}: {{"));
+        client_lines.push(format!("    {domain}: {{"));
+        for route in methods {
+            let name = camel_case(route.method);
+            let wire = format!("{domain}.{}", route.method);
+            let path = format!("Rpc['{domain}']['{name}']");
+            let params = render(&exporter, &route.params)?;
+            let ok = render(&exporter, &route.ok)?;
+            let empty = exporter.inline(&route.params)? == "Record<string, never>";
+            let (optional, default) = if empty { ("?", " = {}") } else { ("", "") };
+            api_lines.push(format!(
+                "    {name}: (params{optional}: {params}) => Promise<{ok}>;"
+            ));
+            wire_lines.push(format!("  '{wire}': {path};"));
+            client_lines.push(format!(
+                "      {name}: (params{default}) => call('{wire}', params) as ReturnType<{path}>,"
+            ));
+        }
+        api_lines.push("  };".to_owned());
+        client_lines.push("    },".to_owned());
+    }
+    let out = format!(
+        "{}\n/** The core's methods by domain. */\nexport type Rpc = {{\n{}\n}};\n\n\
+         type RpcMethod = (params: never) => Promise<unknown>;\n\n\
+         export type RpcParams<M extends RpcMethod> = NonNullable<Parameters<M>[0]>;\n\n\
+         export type RpcResult<M extends RpcMethod> = Awaited<ReturnType<M>>;\n\n\
+         /** Each method by its wire name, for code that speaks the wire format. */\n\
+         export type RpcMethods = {{\n{}\n}};\n\n\
+         export type RpcCall = (method: keyof RpcMethods, params: unknown) => Promise<unknown>;\n\n\
+         /** Binds every method to `call` on its wire name. */\n\
+         export function createRpc(call: RpcCall): Rpc {{\n  return {{\n{}\n  }};\n}}\n",
+        exporter.render_types()?,
+        api_lines.join("\n"),
+        wire_lines.join("\n"),
+        client_lines.join("\n"),
+    );
+    Ok(Cow::Owned(out))
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut args = std::env::args().skip(1);
     let check = match (args.next(), args.next()) {
@@ -116,37 +163,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .register::<sable_model::search_filter::TargetSuggestion>();
     let routes = sable_core::api::routes(&mut types);
     let output = specta_typescript::Exporter::from(specta_typescript::Typescript::default())
-        .framework_runtime(move |mut exporter| {
-            let mut method_lines = Vec::new();
-            let mut client_lines = Vec::new();
-            for (domain, methods) in &routes {
-                client_lines.push(format!("    {domain}: {{"));
-                for route in methods {
-                    let wire = format!("{domain}.{}", route.method);
-                    let params = render(&exporter, &route.params)?;
-                    let ok = render(&exporter, &route.ok)?;
-                    let empty = exporter.inline(&route.params)? == "Record<string, never>";
-                    let default = if empty { " = {}" } else { "" };
-                    method_lines.push(format!("  '{wire}': [{params}, {ok}];"));
-                    client_lines.push(format!(
-                        "      {}: (params: {params}{default}) => call('{wire}', params) as Promise<{ok}>,",
-                        camel_case(route.method)
-                    ));
-                }
-                client_lines.push("    },".to_owned());
-            }
-            let out = format!(
-                "{}\n/** Each wire method's params and result. */\nexport type RpcMethods = {{\n{}\n}};\n\n\
-                 export type RpcCall = (method: keyof RpcMethods, params: unknown) => Promise<unknown>;\n\n\
-                 /** The core's methods by domain, each one `call` on its wire method. */\n\
-                 export function createRpc(call: RpcCall) {{\n  return {{\n{}\n  }};\n}}\n\n\
-                 export type Rpc = ReturnType<typeof createRpc>;\n",
-                exporter.render_types()?,
-                method_lines.join("\n"),
-                client_lines.join("\n"),
-            );
-            Ok(Cow::Owned(out))
-        })
+        .framework_runtime(move |exporter| rpc_client(exporter, &routes))
         .export(&types, ProtocolFormat)?;
     let output = format!(
         "{}\n",

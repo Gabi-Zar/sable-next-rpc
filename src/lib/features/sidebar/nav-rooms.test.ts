@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 
-import type { MarkReadParams, RoomListItemView } from '#src/generated/protocol';
+import type { RoomListItemView, RpcParams, Rpc } from '#src/generated/protocol';
 
 import {
   claimedRoomIds,
@@ -127,7 +127,7 @@ test('marks a room unread without moving its read marker', () => {
 
 test('a failed mark does not stop the rest', () => {
   const markRead = vi
-    .fn<(params: MarkReadParams) => Promise<null>>()
+    .fn<(params: RpcParams<Rpc['timeline']['markRead']>) => Promise<null>>()
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce(null);
 

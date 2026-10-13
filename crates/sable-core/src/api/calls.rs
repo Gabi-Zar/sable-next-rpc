@@ -3,7 +3,7 @@ use std::sync::Arc;
 use matrix_sdk::ruma::OwnedRoomId;
 use serde::{Deserialize, Serialize};
 
-use super::Handler;
+use super::{Handler, Json};
 use crate::Core;
 use crate::protocol::{CallBackendView, CallCompatibilityView, CallIntent, CallMode, CallModeReason, CallSessionId, CallSupportView, RpcError, TurnServerView};
 
@@ -11,12 +11,12 @@ domain! {
     turn_server,
     rtc_transports,
     rtc_livekit,
-    join_call,
-    call_compatibility,
-    call_support,
-    leave_call,
-    set_call_screen_sharing,
-    decline_call,
+    join,
+    compatibility,
+    support,
+    leave,
+    set_screen_sharing,
+    decline,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -28,7 +28,7 @@ pub enum RtcLivekitEndpoint {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct TurnServerParams {}
 
 impl Handler for TurnServerParams {
@@ -40,28 +40,19 @@ impl Handler for TurnServerParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RtcTransportsParams {}
 
-/// The homeserver's response body, relayed as is.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(transparent)]
-pub struct RtcBody(
-    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
-    pub  serde_json::Value,
-);
-
 impl Handler for RtcTransportsParams {
-    type Ok = RtcBody;
+    type Ok = Json;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RtcBody, RpcError> {
-        core.rtc_transports().await.map(RtcBody)
+    async fn run(self, core: &Arc<Core>) -> Result<Json, RpcError> {
+        core.rtc_transports().await.map(Json)
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RtcLivekitParams {
     pub endpoint: RtcLivekitEndpoint,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
@@ -69,18 +60,19 @@ pub struct RtcLivekitParams {
 }
 
 impl Handler for RtcLivekitParams {
-    type Ok = RtcBody;
+    type Ok = Json;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RtcBody, RpcError> {
-        core.rtc_livekit(self.endpoint, &self.body).await.map(RtcBody)
+    async fn run(self, core: &Arc<Core>) -> Result<Json, RpcError> {
+        core.rtc_livekit(self.endpoint, &self.body).await.map(Json)
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct JoinCallParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct JoinParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub livekit_service_url: Option<String>,
     #[serde(default)]
     pub mode: Option<CallMode>,
@@ -89,8 +81,8 @@ pub struct JoinCallParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct JoinCallOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct JoinOk {
     pub session: CallSessionId,
     pub url: String,
     pub jwt: String,
@@ -105,10 +97,10 @@ pub struct JoinCallOk {
     pub backends: Vec<CallBackendView>,
 }
 
-impl Handler for JoinCallParams {
-    type Ok = JoinCallOk;
+impl Handler for JoinParams {
+    type Ok = JoinOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<JoinCallOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<JoinOk, RpcError> {
         core.join_call(
             self.room_id,
             self.livekit_service_url,
@@ -120,10 +112,10 @@ impl Handler for JoinCallParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CallCompatibilityParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CompatibilityParams {}
 
-impl Handler for CallCompatibilityParams {
+impl Handler for CompatibilityParams {
     type Ok = CallCompatibilityView;
 
     async fn run(self, core: &Arc<Core>) -> Result<CallCompatibilityView, RpcError> {
@@ -132,30 +124,30 @@ impl Handler for CallCompatibilityParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CallSupportParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SupportParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[serde(default)]
     pub livekit_service_url: Option<String>,
 }
 
-impl Handler for CallSupportParams {
+impl Handler for SupportParams {
     type Ok = CallSupportView;
 
     async fn run(self, core: &Arc<Core>) -> Result<CallSupportView, RpcError> {
-        core.call_support(self.room_id, self.livekit_service_url)
+        core.call_support(self)
             .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct LeaveCallParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct LeaveParams {
     pub session: CallSessionId,
 }
 
-impl Handler for LeaveCallParams {
+impl Handler for LeaveParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -164,34 +156,34 @@ impl Handler for LeaveCallParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetCallScreenSharingParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetScreenSharingParams {
     pub session: CallSessionId,
     pub active: bool,
 }
 
-impl Handler for SetCallScreenSharingParams {
+impl Handler for SetScreenSharingParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.set_call_screen_sharing(self.session, self.active)
+        core.set_call_screen_sharing(self)
             .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct DeclineCallParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DeclineParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub notification_event_id: String,
 }
 
-impl Handler for DeclineCallParams {
+impl Handler for DeclineParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.decline_call(self.room_id, self.notification_event_id)
+        core.decline_call(self)
             .await
     }
 }

@@ -42,7 +42,7 @@ test('a long blocked user ID stays inside its settings section', async () => {
     session: { user_id: '@me:example.org' },
     rpc: {
       account: {
-        accountContacts: vi.fn().mockResolvedValue([]),
+        contacts: vi.fn().mockResolvedValue([]),
         ignoredUsers: vi.fn().mockResolvedValue([]),
       },
     },

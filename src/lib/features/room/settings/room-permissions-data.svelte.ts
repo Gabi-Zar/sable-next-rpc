@@ -41,7 +41,7 @@ export class RoomPermissionsData {
     try {
       void this.#loadFounders(roomId, generation);
       const [levels, tags, memberList] = await Promise.all([
-        this.core.rpc.members.roomPowerLevels({ room_id: roomId }),
+        this.core.rpc.members.powerLevels({ room_id: roomId }),
         this.core.rpc.members.powerLevelTags({ room_id: roomId }),
         this.core.rpc.room_state
           .memberListThreshold({ room_id: roomId })
@@ -64,7 +64,7 @@ export class RoomPermissionsData {
 
   async #loadFounders(roomId: string, generation: number): Promise<void> {
     try {
-      const events = await this.core.rpc.room_state.roomStateEventsRaw({
+      const events = await this.core.rpc.room_state.eventsRaw({
         room_id: roomId,
         event_type: 'm.room.create',
         state_key: '',

@@ -1,9 +1,10 @@
 import type {
   CoreEvent,
-  SubscribeTimelineOk,
   SubscriptionId,
   TimelineFocusView,
   TimelineItemView,
+  RpcResult,
+  Rpc,
 } from '#src/generated/protocol';
 import { applyDiffs } from '#src/transport';
 
@@ -376,7 +377,7 @@ export class RoomTimeline {
       response =
         mode.kind === 'unread'
           ? await this.subscribeUnreadContext(roomId, mode.eventId, hiddenEvents, session, pending)
-          : await this.core.rpc.timeline.subscribeTimeline({
+          : await this.core.rpc.timeline.subscribe({
               room_id: roomId,
               focus: focusFor(mode),
               hidden_events: hiddenEvents,
@@ -448,9 +449,9 @@ export class RoomTimeline {
     hiddenEvents: boolean,
     session: number,
     pending: unknown[]
-  ): Promise<SubscribeTimelineOk> {
+  ): Promise<RpcResult<Rpc['timeline']['subscribe']>> {
     try {
-      return await this.core.rpc.timeline.subscribeTimeline({
+      return await this.core.rpc.timeline.subscribe({
         room_id: roomId,
         focus: { kind: 'event', event_id: eventId },
         hidden_events: hiddenEvents,
@@ -459,7 +460,7 @@ export class RoomTimeline {
       if (session !== this.session) throw error;
       pending.length = 0;
       this.mode = { kind: 'live' };
-      return this.core.rpc.timeline.subscribeTimeline({
+      return this.core.rpc.timeline.subscribe({
         room_id: roomId,
         focus: { kind: 'live' },
         hidden_events: hiddenEvents,

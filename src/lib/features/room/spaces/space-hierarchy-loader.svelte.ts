@@ -26,7 +26,7 @@ function fetchLevel(
     const rooms: SpaceHierarchyRoomView[] = [];
     let cursor: string | null = null;
     for (let page = 0; page < MAX_LEVEL_PAGES; page += 1) {
-      const next = await core.rpc.spaces.spaceHierarchy({ space_id: levelId, from: cursor });
+      const next = await core.rpc.spaces.hierarchy({ space_id: levelId, from: cursor });
       rooms.push(...next.rooms);
       onPage(next.rooms);
       cursor = next.next_batch;

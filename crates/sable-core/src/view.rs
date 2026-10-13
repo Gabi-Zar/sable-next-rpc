@@ -1995,8 +1995,8 @@ fn forum_title(content: Option<&serde_json::Value>) -> Option<String> {
 fn bundled_previews_field(content: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
     let content = content?;
     content
-        .get(crate::api::support::BUNDLED_LINK_PREVIEWS)
-        .or_else(|| content.get(crate::api::support::LEGACY_BUNDLED_LINK_PREVIEWS))
+        .get(crate::link_previews::BUNDLED_LINK_PREVIEWS)
+        .or_else(|| content.get(crate::link_previews::LEGACY_BUNDLED_LINK_PREVIEWS))
 }
 
 fn link_previews_removed(content: Option<&serde_json::Value>) -> Option<bool> {
@@ -2015,7 +2015,7 @@ fn bundled_link_previews(content: Option<&serde_json::Value>) -> Vec<UrlPreviewV
             bundles
                 .iter()
                 .filter_map(|bundle| {
-                    let data = crate::api::support::PreviewData::read(bundle)?;
+                    let data = crate::link_previews::PreviewData::read(bundle)?;
                     let video = data.video();
                     let theme_color = data.valid_theme_color();
                     let card = data.valid_card();

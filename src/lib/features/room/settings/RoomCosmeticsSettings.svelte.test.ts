@@ -17,9 +17,10 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 import RoomCosmeticsSettings from './RoomCosmeticsSettings.svelte';
 
-const core = Object.assign(baseCore, {
-  memberLook: vi.fn<(...args: never[]) => Promise<MemberLookView>>(() => Promise.resolve(look())),
-  setMemberLook: vi.fn<(...args: never[]) => Promise<null>>(() => Promise.resolve(null)),
+const core = baseCore;
+Object.assign(core.rpc.members, {
+  look: vi.fn<(...args: never[]) => Promise<MemberLookView>>(() => Promise.resolve(look())),
+  setLook: vi.fn<(...args: never[]) => Promise<null>>(() => Promise.resolve(null)),
   setPronouns: vi.fn<(...args: never[]) => Promise<null>>(() => Promise.resolve(null)),
 });
 
@@ -58,7 +59,7 @@ test('reset writes the live profile when the room profile only matches a stale o
     display_name: 'Live',
     avatar_url: 'mxc://example.org/live',
   });
-  core.memberLook.mockResolvedValue(
+  core.rpc.members.look.mockResolvedValue(
     look({ display_name: 'Stale', avatar_url: 'mxc://example.org/stale' })
   );
   const user = userEvent.setup();
@@ -69,7 +70,7 @@ test('reset writes the live profile when the room profile only matches a stale o
   await user.click(reset);
 
   await vi.waitFor(() => {
-    expect(core.setMemberLook).toHaveBeenCalledWith({
+    expect(core.rpc.members.setLook).toHaveBeenCalledWith({
       room_id: '!room:example.org',
       in_parent_space: false,
       display_name: { kind: 'set', value: 'Live' },
@@ -92,7 +93,7 @@ test('reset writes the member event once and drops the colours with it', async (
     display_name: 'Live',
     avatar_url: 'mxc://example.org/live',
   });
-  core.memberLook.mockResolvedValue(
+  core.rpc.members.look.mockResolvedValue(
     look({
       display_name: 'Custom',
       avatar_url: 'mxc://example.org/custom',
@@ -105,9 +106,9 @@ test('reset writes the member event once and drops the colours with it', async (
   await user.click(await screen.findByRole('button', { name: 'common.reset' }));
 
   await vi.waitFor(() => {
-    expect(core.setMemberLook).toHaveBeenCalledTimes(1);
+    expect(core.rpc.members.setLook).toHaveBeenCalledTimes(1);
   });
-  expect(core.setMemberLook).toHaveBeenCalledWith({
+  expect(core.rpc.members.setLook).toHaveBeenCalledWith({
     room_id: '!room:example.org',
     in_parent_space: false,
     display_name: { kind: 'set', value: 'Live' },

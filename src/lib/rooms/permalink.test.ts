@@ -261,7 +261,7 @@ function linkCore(via: string[] | Error) {
   const roomViaServers = vi.fn(() =>
     via instanceof Error ? Promise.reject(via) : Promise.resolve(via)
   );
-  return { core: { rpc: { rooms: { roomViaServers } } } as never, roomViaServers };
+  return { core: { rpc: { rooms: { viaServers: roomViaServers } } } as never, roomViaServers };
 }
 
 test('copying a room id link asks for via servers and carries the event', async () => {

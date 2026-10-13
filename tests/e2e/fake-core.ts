@@ -12,17 +12,17 @@ import type {
   ProfileView,
   MemberView,
   RoomListItemView,
-  SearchMessagesParams,
   RpcMethods,
+  TimelineFocusView,
+  RpcParams,
+  RpcResult,
   SessionInfo,
-  SetSpaceChildOrderParams,
   SidebarItemView,
   SpaceChildEdge,
   SpaceHierarchyRoomView,
-  SubscribeTimelineOk,
-  SubscribeTimelineParams,
   SubscriptionId,
   TimelineItemView,
+  Rpc,
 } from '#src/generated/protocol';
 
 export type RoomCoreMode =
@@ -71,7 +71,7 @@ declare global {
     __e2eAnchorPositions: number[];
     __e2eTimelineRooms: string[];
     __e2eTimelineSubscriptions: number[];
-    __e2eTimelineFocus: SubscribeTimelineParams['focus'][];
+    __e2eTimelineFocus: TimelineFocusView[];
     __e2ePaginationDirections: string[];
     __e2eRefreshRoom: () => void;
     __e2eReceiveMessage: (body: string) => void;
@@ -87,9 +87,9 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
     /** Keyed by wire method; a missing one answers `null`. */
     type RpcHandlers = {
       [M in keyof RpcMethods]?: (
-        params: RpcMethods[M][0],
+        params: RpcParams<RpcMethods[M]>,
         port: FakePort
-      ) => RpcMethods[M][1] | typeof NO_REPLY;
+      ) => RpcResult<RpcMethods[M]> | typeof NO_REPLY;
     };
 
     const NO_REPLY = Symbol('no-reply');
@@ -361,7 +361,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
     };
 
     const CHILD_ORDER_KEY = 'e2e-space-child-order';
-    const recordChildOrder = (command: SetSpaceChildOrderParams): void => {
+    const recordChildOrder = (command: RpcParams<Rpc['spaces']['setChildOrder']>): void => {
       const stored: unknown = JSON.parse(sessionStorage.getItem(CHILD_ORDER_KEY) ?? '[]');
       const log = Array.isArray(stored) ? stored : [];
       log.push({
@@ -462,7 +462,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         }
       );
 
-    const searchHits = (payload: SearchMessagesParams) => {
+    const searchHits = (payload: RpcParams<Rpc['search']['messages']>) => {
       const query = payload.query.toLowerCase();
       const filter = payload.filter;
       const offset = payload.offset;
@@ -471,8 +471,8 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       return [room, secondRoom]
         .filter(
           (candidate) =>
-            (!filter.rooms.length || filter.rooms.includes(candidate.room_id)) &&
-            !filter.not_rooms.includes(candidate.room_id)
+            (!filter?.rooms.length || filter.rooms.includes(candidate.room_id)) &&
+            !filter?.not_rooms.includes(candidate.room_id)
         )
         .flatMap((candidate) =>
           timelineItems(candidate.name ?? '')
@@ -481,6 +481,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
               const body = item.content.body.toLowerCase();
               if (query !== '' && !query.split(/\s+/).every((word) => body.includes(word)))
                 return false;
+              if (!filter) return true;
               if (filter.senders.length && !filter.senders.includes(item.sender ?? ''))
                 return false;
               if (filter.not_senders.includes(item.sender ?? '')) return false;
@@ -844,7 +845,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       'auth.complete_oidc_login': () => session.user_id,
       'auth.start_sso_login': () => 'https://example.test/sso',
       'auth.complete_sso_login': () => session.user_id,
-      'encryption.encryption_status': () => encryption(),
+      'encryption.status': () => encryption(),
       'encryption.key_backup_status': () => ({
         local_keys: backupDownload?.state === 'complete' ? 200 : 120,
         backed_up_keys: backupDownload?.state === 'complete' ? 200 : 120,
@@ -955,22 +956,22 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         return null;
       },
       'account.user_relations': () => ({ mutual_rooms: [], ignored: false }),
-      'account.account_contacts': () => [],
+      'account.contacts': () => [],
       'account.ignored_users': () => [],
       'account.invite_triage': () => [],
-      'account.account_data_types': () => [],
-      'account.account_data': (params) => accountData.get(params.event_type) ?? null,
-      'account.set_account_data': (params) => {
+      'account.data_types': () => [],
+      'account.data': (params) => accountData.get(params.event_type) ?? null,
+      'account.set_data': (params) => {
         if (workerMode === 'onboarding') accountData.set(params.event_type, params.content);
         saveOnboarding();
         return null;
       },
-      'account.sealed_account_data': (params) => ({
+      'account.sealed_data': (params) => ({
         content: accountData.get(params.event_type) ?? null,
         state: 'plain',
         can_seal: false,
       }),
-      'account.set_sealed_account_data': (params) => {
+      'account.set_sealed_data': (params) => {
         if (workerMode === 'onboarding') accountData.set(params.event_type, params.content);
         saveOnboarding();
         return null;
@@ -1012,7 +1013,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       }),
       'account.dismissed_invites': () => [],
       'account.set_invite_dismissed': (params) => (params.dismissed ? [params.room_id] : []),
-      'messages.send_message': (params) => {
+      'messages.send': (params) => {
         if (window.__e2eSendError) throw new FakeCoreError(window.__e2eSendError);
         receiveMessage(params.body, true);
         return null;
@@ -1025,7 +1026,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       'messages.bulk_redact': () => 0,
       'messages.delete_thread': () => null,
       'messages.reaction_shortcodes': () => [],
-      'calendar.calendar_entries': () => ({ entries: [], rsvps: [] }),
+      'calendar.entries': () => ({ entries: [], rsvps: [] }),
       'messages.url_preview': (params) =>
         params.url === 'https://example.test/article'
           ? {
@@ -1043,17 +1044,17 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
               author_name: null,
             }
           : null,
-      'messages.schedule_message': () => 'e2e-delay',
+      'messages.schedule': () => 'e2e-delay',
       'messages.schedule_attachment': () => 'e2e-attachment',
-      'messages.scheduled_messages': () => [],
+      'messages.scheduled': () => [],
       'messages.media_config': () => ({ upload_size: 100 * 1024 * 1024 }),
       'messages.cancel_send': () => true,
       'messages.send_gesture': () => null,
-      'calendar.answer_calendar_event': () => null,
+      'calendar.answer_event': () => null,
       'messages.send_raw_event': () => `$message-${crypto.randomUUID()}`,
       'messages.send_redaction': () => `$redaction-${crypto.randomUUID()}`,
-      'notifications.notification_settings': () => ({ room: null, default: 'all' }),
-      'notifications.default_notification_modes': () => ({
+      'notifications.settings': () => ({ room: null, default: 'all' }),
+      'notifications.default_modes': () => ({
         direct: 'all',
         group: defaultGroupMode,
       }),
@@ -1061,10 +1062,9 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       'notifications.event_notifications': () => eventNotifications,
       'notifications.master_mute': () => masterMute,
       'notifications.notification': () => null,
-      'notifications.notification_keywords': () =>
-        notificationKeywords.map((entry) => ({ ...entry })),
+      'notifications.keywords': () => notificationKeywords.map((entry) => ({ ...entry })),
       'notifications.push_event': () => ({ kind: 'unavailable' }),
-      'notifications.inbox_notifications': (params) => {
+      'notifications.inbox': (params) => {
         const items = [
           {
             room_id: room.room_id,
@@ -1099,20 +1099,20 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         return { items, has_more: false };
       },
       'notifications.backfill_inbox': () => ({ recorded: 0, has_more: false }),
-      'notifications.add_notification_keyword': (params) => {
+      'notifications.add_keyword': (params) => {
         if (params.keyword === 'network-fail') throw new FakeCoreError('failed');
         const existing = notificationKeywords.find((entry) => entry.keyword === params.keyword);
         if (existing) existing.mode = 'notify';
         else notificationKeywords.push({ keyword: params.keyword, mode: 'notify' });
         return null;
       },
-      'notifications.remove_notification_keyword': (params) => {
+      'notifications.remove_keyword': (params) => {
         if (params.keyword === 'stuck-keyword') throw new FakeCoreError('failed');
         const index = notificationKeywords.findIndex((entry) => entry.keyword === params.keyword);
         if (index !== -1) notificationKeywords.splice(index, 1);
         return null;
       },
-      'notifications.set_notification_keyword_mode': (params) => {
+      'notifications.set_keyword_mode': (params) => {
         const existing = notificationKeywords.find((entry) => entry.keyword === params.keyword);
         if (existing) existing.mode = params.mode;
         return null;
@@ -1121,7 +1121,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         mentionNotificationModes[params.rule] = params.mode;
         return null;
       },
-      'notifications.set_default_notification_mode': (params) => {
+      'notifications.set_default_mode': (params) => {
         if (!params.direct && (params.mode === 'all' || params.mode === 'mentions'))
           defaultGroupMode = params.mode;
         return null;
@@ -1136,9 +1136,9 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       },
       'push.web_pusher_support': () => null,
       'push.web_pushers': () => [],
-      'push.ping_push_gateway': () => null,
-      'push.send_diagnostic_push': () => ({ kind: 'no_pusher' }),
-      'push.discover_push_gateway': () => null,
+      'push.ping_gateway': () => null,
+      'push.send_diagnostic': () => ({ kind: 'no_pusher' }),
+      'push.discover_gateway': () => null,
       'session.restore': () => {
         if (workerMode === 'loading') return NO_REPLY;
         if (workerMode === 'error') throw new FakeCoreError('failed');
@@ -1174,14 +1174,14 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       'session.delayed_events_supported': () => true,
       'session.known_rooms': () => [],
       'session.integration_manager_url': () => 'https://integrations.example.test/index.html',
-      'search.search_messages': (params) => ({ hits: searchHits(params), older: null }),
-      'search.search_coverage': () => ({
+      'search.messages': (params) => ({ hits: searchHits(params), older: null }),
+      'search.coverage': () => ({
         documents: 0,
         rooms_pending: 0,
         rooms_failed: 0,
         state: 'complete',
       }),
-      'search.search_metrics': () => ({
+      'search.metrics': () => ({
         phase: 'idle',
         documents: 0,
         documents_loaded: 0,
@@ -1204,7 +1204,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         average_request_ms: null,
         running_ms: null,
       }),
-      'calls.join_call': () => ({
+      'calls.join': () => ({
         session: 1,
         url: 'wss://sfu.example.test',
         jwt: 'e2e-jwt',
@@ -1225,12 +1225,12 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
           },
         ],
       }),
-      'calls.call_compatibility': () => ({
+      'calls.compatibility': () => ({
         sticky_events: false,
         delayed_events: false,
         rtc_transports: 'none',
       }),
-      'calls.call_support': () => ({ has_focus: false, can_join: false }),
+      'calls.support': () => ({ has_focus: false, can_join: false }),
       'calls.turn_server': () => ({
         username: 'e2e',
         password: 'e2e',
@@ -1239,31 +1239,32 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       }),
       'calls.rtc_transports': () => ({ rtc_transports: [] }),
       'calls.rtc_livekit': () => ({}),
-      'widgets.widget_send_delayed_event': () => 'e2e-widget-delay',
-      'widgets.widget_send_sticky_event': () => '$e2e-widget-sticky',
+      'widgets.send_delayed_event': () => 'e2e-widget-delay',
+      'widgets.send_sticky_event': () => '$e2e-widget-sticky',
       'widgets.room_sticky_events': () => [],
       'timeline.subscribe_room_list': () => ({
         subscription: 1,
         rooms: joinedRooms,
       }),
-      'timeline.subscribe_timeline': (params) => {
-        window.__e2eTimelineFocus.push(params.focus);
+      'timeline.subscribe': (params) => {
+        const focus = params.focus ?? { kind: 'live' };
+        window.__e2eTimelineFocus.push(focus);
         if (
           workerMode === 'thread_error' &&
-          params.focus.kind === 'thread' &&
+          focus.kind === 'thread' &&
           window.__e2eTimelineFocus.filter((focus) => focus.kind === 'thread').length === 1
         ) {
           throw new FakeCoreError('load_failed');
         }
-        if (workerMode === 'unread_context_error' && params.focus.kind === 'event') {
+        if (workerMode === 'unread_context_error' && focus.kind === 'event') {
           throw new FakeCoreError('load_failed');
         }
         const subscription = nextSubscription++;
         subscriptions.set(subscription, {
           roomId: params.room_id,
           page: 0,
-          live: params.focus.kind === 'live',
-          thread: params.focus.kind === 'thread',
+          live: focus.kind === 'live',
+          thread: focus.kind === 'thread',
           oldest: workerMode === 'unread_catchup' ? 60 : 0,
         });
         timelineRooms.push(params.room_id);
@@ -1272,7 +1273,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         const items = timelineItems(roomName);
         const unreadContext =
           (workerMode === 'unread_history' || workerMode === 'unread_catchup') &&
-          params.focus.kind === 'event';
+          focus.kind === 'event';
         if (unreadContext) unreadContextOpened = true;
         const marker: TimelineItemView = {
           ...items[0],
@@ -1290,7 +1291,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
           subscription,
           items: unreadContext
             ? [...items.slice(0, 5), marker, ...items.slice(5, 20)]
-            : workerMode === 'thread_links' && params.focus.kind === 'thread'
+            : workerMode === 'thread_links' && focus.kind === 'thread'
               ? [
                   { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
                   ...Array.from({ length: 40 }, (_, index) => ({
@@ -1302,8 +1303,8 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
                   })),
                 ]
               : workerMode === 'thread_links' &&
-                  params.focus.kind === 'event' &&
-                  params.focus.event_id === '$thread-reply-older:example.test'
+                  focus.kind === 'event' &&
+                  focus.event_id === '$thread-reply-older:example.test'
                 ? [
                     { ...items[0], id: 'thread-root', event_id: '$thread-root:example.test' },
                     {
@@ -1477,7 +1478,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
           items.filter((candidate) => candidate.event_id === eventId)
         );
       },
-      'timeline.room_timeline_events': () => [],
+      'timeline.events': () => [],
       'timeline.timestamp_to_event': () => null,
       'timeline.list_threads': () => ({ roots: [], next_batch: null }),
       'timeline.event_source': (params) => ({
@@ -1519,11 +1520,11 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         unread: 0,
         fresh_ids: [],
       }),
-      'spaces.set_space_child_order': (params) => {
+      'spaces.set_child_order': (params) => {
         recordChildOrder(params);
         return null;
       },
-      'spaces.space_hierarchy': (params) => {
+      'spaces.hierarchy': (params) => {
         if (params.space_id === '!refused:example.test') throw new FakeCoreError('failed');
         const page = hierarchyPages[`${params.space_id}|${params.from ?? ''}`] ?? {
           rooms: [],
@@ -1531,8 +1532,8 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         };
         return { rooms: page.rooms, next_batch: page.next_batch };
       },
-      'spaces.space_sidebar': () => readSidebar(),
-      'spaces.set_space_sidebar': (params, port) => {
+      'spaces.sidebar': () => readSidebar(),
+      'spaces.set_sidebar': (params, port) => {
         sessionStorage.setItem(SIDEBAR_KEY, JSON.stringify(params.items));
         window.setTimeout(() => {
           port.emit({ type: 'space_sidebar_changed', items: params.items });
@@ -1541,50 +1542,49 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       },
       'spaces.room_has_space_parent': () => false,
       'spaces.unjoined_space_parents': () => [],
-      'packs.image_packs': () => ({
+      'packs.list': () => ({
         packs: (window as { __e2eImagePacks?: ImagePackView[] }).__e2eImagePacks ?? [],
         complete: true,
       }),
-      'packs.all_image_packs': () => [],
-      'packs.create_room_image_pack': () => 'pack',
-      'packs.pack_subscriptions': () => [],
-      'packs.set_pack_subscriptions': (params) => params.added,
-      'personas.personas': () => ({ personas: [], account: null, rooms: {}, disabled_rooms: [] }),
-      'personas.save_persona': () => [],
-      'personas.remove_persona': () => [],
-      'personas.reorder_personas': () => [],
-      'personas.persona_backup': () => '{}',
-      'room_state.room_state_event': (params) =>
+      'packs.list_all': () => [],
+      'packs.create_room_pack': () => 'pack',
+      'packs.subscriptions': () => [],
+      'packs.set_subscriptions': (params) => params.added,
+      'personas.list': () => ({ personas: [], account: null, rooms: {}, disabled_rooms: [] }),
+      'personas.save': () => [],
+      'personas.remove': () => [],
+      'personas.reorder': () => [],
+      'personas.backup': () => '{}',
+      'room_state.event': (params) =>
         params.event_type === 'moe.sable.room.abbreviations'
           ? { entries: abbreviations.get(params.room_id) ?? [] }
           : params.event_type === 'm.room.tombstone' && params.room_id === tombstonedRoom.room_id
             ? { replacement_room: successorRoom.room_id, body: null }
             : null,
-      'room_state.room_state_events': (params) =>
-        roomStateEvents(params.room_id, params.event_type),
+      'room_state.events': (params) => roomStateEvents(params.room_id, params.event_type),
       'room_state.bot_commands': () => [],
-      'room_state.room_account_data': (params) =>
+      'room_state.account_data': (params) =>
         params.event_type === 'm.fully_read'
           ? { event_id: fullyReadEventId(params.room_id) }
           : null,
-      'room_state.room_state_events_raw': () => [],
-      'room_state.room_full_state': () => [],
-      'room_state.room_account_data_raw': () => null,
-      'room_state.send_state_event': (params) => {
+      'room_state.events_raw': () => [],
+      'room_state.full_state': () => [],
+      'room_state.account_data_raw': () => null,
+      'room_state.send_event': (params) => {
         if (params.event_type === 'im.vector.modular.widgets')
           roomWidgets.set(params.room_id, null);
         return `$state-${crypto.randomUUID()}`;
       },
-      'room_state.add_room_widget': () => 'widget',
+      'room_state.add_widget': () => 'widget',
       'room_state.history_visibility': () => 'shared',
-      'room_state.room_banner': () => null,
+      'room_state.banner': () => null,
       'room_state.member_list_threshold': () => null,
-      'room_state.room_abbreviations': (params) => abbreviations.get(params.room_id) ?? [],
-      'room_state.set_room_abbreviations': (params) => {
+      'room_state.abbreviations': (params) => abbreviations.get(params.room_id) ?? [],
+      'room_state.set_abbreviations': (params) => {
         abbreviations.set(params.room_id, params.entries);
         return null;
       },
-      'members.room_members': () =>
+      'members.list': () =>
         window.__e2eMembers ?? [
           {
             user_id: '@alice:example.test',
@@ -1599,8 +1599,8 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
             service: false,
           },
         ],
-      'members.room_permissions': (params) => roomPermissions(params.room_id),
-      'members.room_power_levels': () => ({
+      'members.permissions': (params) => roomPermissions(params.room_id),
+      'members.power_levels': () => ({
         ban: 50,
         kick: 50,
         redact: 50,
@@ -1646,7 +1646,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       }),
       'members.power_level_tags': () => ({}),
       'members.set_power_level_tag': () => ({}),
-      'members.member_look': () => ({
+      'members.look': () => ({
         display_name: null,
         avatar_url: null,
         color_on_light: null,
@@ -1654,32 +1654,32 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         pronouns: [],
       }),
       'rooms.replaced_rooms': () => [],
-      'rooms.room_open': (params) => ({
+      'rooms.open': (params) => ({
         permissions: roomPermissions(params.room_id),
         power_level_tags: {},
         widgets: roomStateEvents(params.room_id, 'im.vector.modular.widgets'),
         pinned_event_ids: [],
         predecessor: null,
       }),
-      'rooms.room_list_item': () => {
+      'rooms.list_item': () => {
         throw new FakeCoreError('unknown_room');
       },
-      'rooms.room_versions': () => ({
+      'rooms.versions': () => ({
         default: '10',
         available: [
           { id: '10', stable: true },
           { id: '11', stable: true },
         ],
       }),
-      'rooms.room_aliases': () => [],
+      'rooms.aliases': () => [],
       'rooms.public_rooms': () => ({ rooms: [], next_batch: null, total: 0 }),
-      'rooms.room_directory_visibility': () => false,
-      'rooms.upgrade_room': () => successorRoom.room_id,
-      'rooms.room_attachments': () => ({ items: [], next_batch: null }),
-      'rooms.room_cosmetics': () => ({ space_id: null, users: [] }),
-      'rooms.create_room': () => '!created:example.test',
+      'rooms.directory_visibility': () => false,
+      'rooms.upgrade': () => successorRoom.room_id,
+      'rooms.attachments': () => ({ items: [], next_batch: null }),
+      'rooms.cosmetics': () => ({ space_id: null, users: [] }),
+      'rooms.create': () => '!created:example.test',
       'rooms.create_dm': () => '!dm:example.test',
-      'rooms.room_preview': (params) => ({
+      'rooms.preview': (params) => ({
         room_id: params.address,
         canonical_alias: null,
         name: 'Preview Room',
@@ -1691,12 +1691,12 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         join_rule: 'public',
         state: null,
       }),
-      'rooms.join_room': (params) => params.address,
-      'rooms.knock_room': (params) => params.address,
-      'rooms.room_via_servers': () => ['example.test'],
+      'rooms.join': (params) => params.address,
+      'rooms.knock': (params) => params.address,
+      'rooms.via_servers': () => ['example.test'],
       'rooms.canonical_alias': () => ({ alias: null, alt_aliases: [] }),
       'rooms.set_canonical_alias': (params) => ({
-        alias: params.alias,
+        alias: params.alias ?? null,
         alt_aliases: params.alt_aliases,
       }),
     };
@@ -1705,15 +1705,16 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       if (type === 'session.switch_account') return window.__e2eSwitchAccountDelayMs ?? 0;
       if (workerMode === 'forward_history' && type === 'timeline.paginate') return 0;
       if (
-        type === 'timeline.subscribe_timeline' &&
+        type === 'timeline.subscribe' &&
         workerMode === 'unread_catchup' &&
-        (params as SubscribeTimelineParams).focus.kind === 'live' &&
+        ((params as RpcParams<Rpc['timeline']['subscribe']>).focus ?? { kind: 'live' }).kind ===
+          'live' &&
         unreadContextOpened
       )
         return 1_500;
       if (type === 'timeline.paginate') return 500;
       if (
-        type === 'timeline.subscribe_timeline' &&
+        type === 'timeline.subscribe' &&
         (workerMode === 'delayed_snapshot' || workerMode === 'delayed_history')
       )
         return 750;
@@ -1789,8 +1790,8 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
           window.setTimeout(
             () => {
               this.onmessage?.({ data: reply } as MessageEvent);
-              if (method !== 'timeline.subscribe_timeline' || !('ok' in reply)) return;
-              this.subscribed((reply.ok as SubscribeTimelineOk).subscription);
+              if (method !== 'timeline.subscribe' || !('ok' in reply)) return;
+              this.subscribed((reply.ok as RpcResult<Rpc['timeline']['subscribe']>).subscription);
             },
             replyDelay(method, params)
           );

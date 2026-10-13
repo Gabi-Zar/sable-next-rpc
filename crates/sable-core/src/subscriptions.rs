@@ -1,4 +1,6 @@
+use crate::api::timeline::SubscribeParams;
 use crate::api::timeline::TimelineFocusView;
+use crate::api::timeline::WarmRoomsParams;
 use std::{collections::HashMap, sync::Arc};
 
 use futures_util::{StreamExt, pin_mut};
@@ -15,7 +17,7 @@ use matrix_sdk_ui::timeline::{
 use tokio::sync::broadcast::error::RecvError;
 
 use crate::ResultExt;
-use crate::api::timeline::{SubscribeRoomListOk, SubscribeTimelineOk};
+use crate::api::timeline::{SubscribeOk, SubscribeRoomListOk};
 use crate::notifications;
 use crate::protocol::{CoreEvent, RpcError, SubscriptionId, TimelineItemView};
 use crate::room_list_rows::RoomListRows;
@@ -178,10 +180,12 @@ impl Core {
     )]
     pub(crate) async fn subscribe_timeline(
         self: &Arc<Self>,
-        room_id: OwnedRoomId,
-        focus: TimelineFocusView,
-        hidden_events: bool,
-    ) -> Result<SubscribeTimelineOk, RpcError> {
+        SubscribeParams {
+            room_id,
+            focus,
+            hidden_events,
+        }: SubscribeParams,
+    ) -> Result<SubscribeOk, RpcError> {
         let subscription = self.allocate_subscription();
         let live = matches!(focus, TimelineFocusView::Live);
         let room = self.room(&room_id).await?;
@@ -340,7 +344,7 @@ impl Core {
             self.emit(timeline_pagination_event(subscription, status));
         }
 
-        Ok(SubscribeTimelineOk {
+        Ok(SubscribeOk {
             subscription,
             items,
             aggregations,
@@ -485,7 +489,10 @@ impl Core {
         (items, Some(task))
     }
 
-    pub(crate) async fn warm_rooms(&self, room_ids: Vec<OwnedRoomId>) -> Result<(), RpcError> {
+    pub(crate) async fn warm_rooms(
+        &self,
+        WarmRoomsParams { room_ids }: WarmRoomsParams,
+    ) -> Result<(), RpcError> {
         let client = self.client().await?;
         let mut subscribed = self.room_subscriptions.lock().await;
         for room_id in room_ids {

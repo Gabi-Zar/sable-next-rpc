@@ -21,8 +21,9 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 const setDefaultNotificationMode = vi.fn(() => Promise.resolve());
 const defaultNotificationModes = vi.fn(() => Promise.resolve({ group: 'all', direct: 'all' }));
-Object.assign(core, {
-  rpc: { notifications: { setDefaultNotificationMode, defaultNotificationModes } },
+Object.assign(core.rpc.notifications, {
+  setDefaultMode: setDefaultNotificationMode,
+  defaultModes: defaultNotificationModes,
 });
 
 import NotificationsSetupCard from './NotificationsSetupCard.svelte';

@@ -43,12 +43,18 @@ export function createTauriTransport(): Transport {
 
   const ready = invoke<unknown>('subscribe_events', { channel });
 
+  const encoder = new TextEncoder();
+  const rpc = (method: string, params: unknown) =>
+    invoke<unknown>('call', encoder.encode(JSON.stringify(params)), {
+      headers: { 'rpc-method': method },
+    });
+
   return {
     async call(method, params) {
       await ready;
       await migrateV1();
       try {
-        return await invoke<unknown>('call', { method, params: JSON.stringify(params) });
+        return await rpc(method, params);
       } catch (error) {
         throw new CoreError(error as RpcError);
       }
@@ -194,7 +200,7 @@ export function createTauriTransport(): Transport {
     async resetCaches(accountIds) {
       await ready;
       try {
-        await invoke('call', { method: 'session.reset_local_cache', params: '{}' });
+        await rpc('session.reset_local_cache', {});
         await resetWebStorage(accountIds);
       } catch (error) {
         Sentry.captureException(error, { tags: { source: 'cache-reset' } });

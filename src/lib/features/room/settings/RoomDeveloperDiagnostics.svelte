@@ -49,7 +49,7 @@
 
   async function readFullyRead(target: string): Promise<string | null> {
     try {
-      const content = await core.rpc.room_state.roomAccountData({
+      const content = await core.rpc.room_state.accountData({
         room_id: target,
         event_type: 'm.fully_read',
       });

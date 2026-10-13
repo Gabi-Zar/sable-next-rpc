@@ -19,6 +19,7 @@ pub(crate) use errors::ResultExt;
 pub mod image_packs;
 mod inbox;
 mod invites;
+mod link_previews;
 pub mod matrix_html;
 mod media;
 mod media_health;
@@ -949,7 +950,10 @@ mod tests {
 
         assert!(matches!(core.restore().await, Ok(None)));
         assert!(matches!(
-            core.switch_account("a1".to_owned()).await,
+            core.switch_account(crate::api::session::SwitchAccountParams {
+                account_id: "a1".to_owned()
+            })
+            .await,
             Err(RpcError::NotLoggedIn)
         ));
     }

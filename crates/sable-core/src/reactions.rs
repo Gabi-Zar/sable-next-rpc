@@ -10,7 +10,7 @@ use serde_with::{DefaultOnError, serde_as};
 
 use crate::Core;
 use crate::ResultExt;
-use crate::api::packs::ImagePacksOk;
+use crate::api::packs::ListOk;
 use crate::protocol::{ReactionShortcodeView, RpcError};
 
 const MAX_SHORTCODE_BYTES: usize = 100;
@@ -118,7 +118,7 @@ impl Core {
         if !key.starts_with("mxc://") {
             return None;
         }
-        if let Ok(ImagePacksOk { packs, .. }) = self.image_packs(room_id.clone(), true).await
+        if let Ok(ListOk { packs, .. }) = self.image_packs(room_id.clone(), true).await
             && let Some(image) = packs
                 .iter()
                 .flat_map(|pack| &pack.images)

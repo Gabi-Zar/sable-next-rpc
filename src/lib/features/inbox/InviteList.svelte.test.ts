@@ -36,7 +36,7 @@ const account = {
     Promise.resolve(dismissed ? [room_id] : [])
   ),
 };
-Object.assign(core, { rpc: { account } });
+Object.assign(core.rpc.account, account);
 
 function invite(roomId: string, name: string): RoomListItemView {
   return {
@@ -59,7 +59,7 @@ function names(): string[] {
 function triaged(
   entries: [roomId: string, inviter: string, sharesRoom: boolean, banned?: boolean][]
 ): void {
-  Object.assign(account, {
+  Object.assign(core.rpc.account, {
     inviteTriage: vi.fn(() =>
       Promise.resolve(
         entries.map(([room_id, inviter, shares_room, banned = false]) => ({
@@ -115,7 +115,7 @@ test('invites are grouped by sender and accept all only covers people you know',
     ['!d:example.org', '@spammer:example.org', false, true],
   ]);
   const joinRoom = vi.fn(({ address }: { address: string }) => Promise.resolve(address));
-  Object.assign(core, { joinRoom });
+  Object.assign(core.rpc.rooms, { join: joinRoom });
   dismissedInvites.start(core as unknown as CoreClient);
   render(InviteList);
   await vi.waitFor(() => {

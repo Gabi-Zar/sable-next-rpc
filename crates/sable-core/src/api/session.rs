@@ -41,7 +41,7 @@ pub struct SearchTuning {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RestoreParams {}
 
 impl Handler for RestoreParams {
@@ -53,7 +53,7 @@ impl Handler for RestoreParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ListAccountsParams {}
 
 impl Handler for ListAccountsParams {
@@ -65,7 +65,7 @@ impl Handler for ListAccountsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SwitchAccountParams {
     pub account_id: String,
 }
@@ -74,12 +74,12 @@ impl Handler for SwitchAccountParams {
     type Ok = SessionInfo;
 
     async fn run(self, core: &Arc<Core>) -> Result<SessionInfo, RpcError> {
-        core.switch_account(self.account_id).await
+        core.switch_account(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RemoveAccountParams {
     pub account_id: String,
 }
@@ -88,12 +88,12 @@ impl Handler for RemoveAccountParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.remove_inactive_account(self.account_id).await
+        core.remove_inactive_account(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct LogoutParams {}
 
 impl Handler for LogoutParams {
@@ -105,7 +105,7 @@ impl Handler for LogoutParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ResetLocalCacheParams {}
 
 impl Handler for ResetLocalCacheParams {
@@ -123,11 +123,11 @@ impl Handler for ResetLocalCacheParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct HomeserverInfoParams {}
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct HomeserverInfoOk {
     pub homeserver: String,
     pub server: Option<HomeserverSoftwareView>,
@@ -157,11 +157,11 @@ impl Handler for HomeserverInfoParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RequestOpenIdTokenParams {}
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RequestOpenIdTokenOk {
     pub access_token: String,
     pub matrix_server_name: String,
@@ -189,7 +189,7 @@ impl Handler for RequestOpenIdTokenParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct AccessTokenParams {}
 
 impl Handler for AccessTokenParams {
@@ -201,7 +201,7 @@ impl Handler for AccessTokenParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct OpenIdTokenParams {}
 
 impl Handler for OpenIdTokenParams {
@@ -213,7 +213,7 @@ impl Handler for OpenIdTokenParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SyncStatusParams {}
 
 impl Handler for SyncStatusParams {
@@ -227,7 +227,7 @@ impl Handler for SyncStatusParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ServerFeaturesParams {}
 
 impl Handler for ServerFeaturesParams {
@@ -239,7 +239,7 @@ impl Handler for ServerFeaturesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DelayedEventsSupportedParams {}
 
 impl Handler for DelayedEventsSupportedParams {
@@ -251,7 +251,7 @@ impl Handler for DelayedEventsSupportedParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "wire type mirroring the protocol"
@@ -287,9 +287,10 @@ impl Handler for SetSearchOptionsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetReadRoomParams {
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub room_id: Option<OwnedRoomId>,
 }
 
@@ -303,7 +304,7 @@ impl Handler for SetReadRoomParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct IntegrationManagerUrlParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -318,7 +319,7 @@ impl Handler for IntegrationManagerUrlParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct KnownRoomsParams {}
 
 impl Handler for KnownRoomsParams {

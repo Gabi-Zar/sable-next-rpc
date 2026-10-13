@@ -20,41 +20,42 @@ use matrix_sdk::ruma::{
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::api::support::{
-    MAX_SEARCH_RESULTS, StateEventOut, join_rule_content, voice_power_level_override,
-};
+use crate::search::MAX_SEARCH_RESULTS;
+use crate::room_settings::StateEventOut;
+use crate::room_settings::join_rule_content;
+use crate::room_settings::voice_power_level_override;
 use crate::protocol::{RpcError, CreateJoinRuleView, PublicRoomView, RoomAttachmentKind, RoomAttachmentView, RoomCosmeticsView, RoomOpenView, RoomPreviewView, RoomListItemView, RoomTag, RoomVersionView, RoomVersionsView};
 use crate::{Core, ResultExt, power_levels, view};
 
 const WIDGETS_EVENT_TYPE: &str = "im.vector.modular.widgets";
 
 domain! {
-    room_open,
-    room_list_item,
-    room_preview,
-    join_room,
-    knock_room,
-    room_via_servers,
-    leave_room,
-    invite_user,
-    create_room,
+    open,
+    list_item,
+    preview,
+    join,
+    knock,
+    via_servers,
+    leave,
+    invite,
+    create,
     create_dm,
-    room_versions,
-    upgrade_room,
+    versions,
+    upgrade,
     public_rooms,
-    room_directory_visibility,
-    set_room_directory_visibility,
-    room_aliases,
-    create_room_alias,
-    delete_room_alias,
+    directory_visibility,
+    set_directory_visibility,
+    aliases,
+    create_alias,
+    delete_alias,
     canonical_alias,
     set_canonical_alias,
     replaced_rooms,
     set_tombstone,
-    report_room,
-    set_room_tag,
-    room_attachments,
-    room_cosmetics,
+    report,
+    set_tag,
+    attachments,
+    cosmetics,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -79,13 +80,13 @@ pub enum CreateRoomKind {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomOpenParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct OpenParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomOpenParams {
+impl Handler for OpenParams {
     type Ok = RoomOpenView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomOpenView, RpcError> {
@@ -132,13 +133,13 @@ impl Handler for RoomOpenParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomListItemParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ListItemParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomListItemParams {
+impl Handler for ListItemParams {
     type Ok = RoomListItemView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomListItemView, RpcError> {
@@ -152,15 +153,15 @@ impl Handler for RoomListItemParams {
 /// Describes a room this account has not joined, so a link to one can be
 /// shown before committing to the join.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomPreviewParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct PreviewParams {
     /// A room id or an alias, as `JoinRoom` takes.
     pub address: String,
     /// Servers to try when the id is not resolvable on ours, or empty.
     pub via: Vec<String>,
 }
 
-impl Handler for RoomPreviewParams {
+impl Handler for PreviewParams {
     type Ok = RoomPreviewView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomPreviewView, RpcError> {
@@ -169,15 +170,15 @@ impl Handler for RoomPreviewParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct JoinRoomParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct JoinParams {
     /// A room id or an alias. A pasted address could be either.
     pub address: String,
     /// Servers to try when the id is not resolvable on ours, or empty.
     pub via: Vec<String>,
 }
 
-impl Handler for JoinRoomParams {
+impl Handler for JoinParams {
     /// Resolved, since the caller may have joined by alias.
     type Ok = String;
 
@@ -204,14 +205,15 @@ impl Handler for JoinRoomParams {
 /// Asks to be let into a `knock` room. A separate endpoint from joining, and
 /// the only one that works when the join rule is `knock`.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct KnockRoomParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct KnockParams {
     pub address: String,
     pub via: Vec<String>,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
-impl Handler for KnockRoomParams {
+impl Handler for KnockParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
@@ -225,13 +227,13 @@ impl Handler for KnockRoomParams {
 /// rules in the spec appendices. Empty when the room has a canonical alias,
 /// which is routable on its own.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomViaServersParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ViaServersParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomViaServersParams {
+impl Handler for ViaServersParams {
     type Ok = Vec<String>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
@@ -241,13 +243,13 @@ impl Handler for RoomViaServersParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct LeaveRoomParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct LeaveParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for LeaveRoomParams {
+impl Handler for LeaveParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -265,15 +267,15 @@ impl Handler for LeaveRoomParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct InviteUserParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct InviteParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
 }
 
-impl Handler for InviteUserParams {
+impl Handler for InviteParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -288,8 +290,9 @@ impl Handler for InviteUserParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CreateRoomParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CreateParams {
+    #[serde(default)]
     pub name: Option<String>,
     pub topic: Option<String>,
     pub kind: CreateRoomKind,
@@ -301,9 +304,11 @@ pub struct CreateRoomParams {
     pub invite: Vec<OwnedUserId>,
     /// Adds an `m.space.child` edge from this space.
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub parent_space: Option<OwnedRoomId>,
     pub alias: Option<String>,
     pub room_version: Option<String>,
+    #[serde(default)]
     pub join_rule: Option<CreateJoinRuleView>,
     pub federate: bool,
     #[serde(default)]
@@ -311,7 +316,7 @@ pub struct CreateRoomParams {
     pub predecessor: Option<OwnedRoomId>,
 }
 
-impl Handler for CreateRoomParams {
+impl Handler for CreateParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
@@ -418,7 +423,7 @@ impl Handler for CreateRoomParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CreateDmParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -459,10 +464,10 @@ impl Handler for CreateDmParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomVersionsParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct VersionsParams {}
 
-impl Handler for RoomVersionsParams {
+impl Handler for VersionsParams {
     type Ok = RoomVersionsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomVersionsView, RpcError> {
@@ -489,8 +494,8 @@ impl Handler for RoomVersionsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct UpgradeRoomParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct UpgradeParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub new_version: String,
@@ -498,7 +503,7 @@ pub struct UpgradeRoomParams {
     pub additional_creators: Vec<OwnedUserId>,
 }
 
-impl Handler for UpgradeRoomParams {
+impl Handler for UpgradeParams {
     /// The replacement room.
     type Ok = String;
 
@@ -523,16 +528,18 @@ impl Handler for UpgradeRoomParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PublicRoomsParams {
+    #[serde(default)]
     pub server: Option<String>,
     pub search: Option<String>,
     pub since: Option<String>,
+    #[serde(default)]
     pub room_type: Option<DirectoryRoomType>,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PublicRoomsOk {
     pub rooms: Vec<PublicRoomView>,
     pub next_batch: Option<String>,
@@ -544,19 +551,19 @@ impl Handler for PublicRoomsParams {
     type Ok = PublicRoomsOk;
 
     async fn run(self, core: &Arc<Core>) -> Result<PublicRoomsOk, RpcError> {
-        core.public_rooms(self.server, self.search, self.since, self.room_type)
+        core.public_rooms(self)
             .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomDirectoryVisibilityParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DirectoryVisibilityParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomDirectoryVisibilityParams {
+impl Handler for DirectoryVisibilityParams {
     /// Whether the room is published.
     type Ok = bool;
 
@@ -573,14 +580,14 @@ impl Handler for RoomDirectoryVisibilityParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomDirectoryVisibilityParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetDirectoryVisibilityParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub public: bool,
 }
 
-impl Handler for SetRoomDirectoryVisibilityParams {
+impl Handler for SetDirectoryVisibilityParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -604,13 +611,13 @@ impl Handler for SetRoomDirectoryVisibilityParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomAliasesParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AliasesParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomAliasesParams {
+impl Handler for AliasesParams {
     type Ok = Vec<String>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
@@ -630,14 +637,14 @@ impl Handler for RoomAliasesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CreateRoomAliasParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CreateAliasParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub alias: String,
 }
 
-impl Handler for CreateRoomAliasParams {
+impl Handler for CreateAliasParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -654,12 +661,12 @@ impl Handler for CreateRoomAliasParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct DeleteRoomAliasParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DeleteAliasParams {
     pub alias: String,
 }
 
-impl Handler for DeleteRoomAliasParams {
+impl Handler for DeleteAliasParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -676,14 +683,14 @@ impl Handler for DeleteRoomAliasParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CanonicalAliasParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CanonicalAliasOk {
     pub alias: Option<String>,
     pub alt_aliases: Vec<String>,
@@ -699,10 +706,11 @@ impl Handler for CanonicalAliasParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetCanonicalAliasParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub alias: Option<String>,
     pub alt_aliases: Vec<String>,
 }
@@ -719,7 +727,7 @@ impl Handler for SetCanonicalAliasParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ReplacedRoomsParams {}
 
 impl Handler for ReplacedRoomsParams {
@@ -740,7 +748,7 @@ impl Handler for ReplacedRoomsParams {
 
 /// Points readers of this room at `replacement_room` without upgrading it.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetTombstoneParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -759,24 +767,24 @@ impl Handler for SetTombstoneParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ReportRoomParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ReportParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub reason: String,
 }
 
-impl Handler for ReportRoomParams {
+impl Handler for ReportParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.report_room(self.room_id, self.reason).await
+        core.report_room(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomTagParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetTagParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub tag: RoomTag,
@@ -784,7 +792,7 @@ pub struct SetRoomTagParams {
     pub set: bool,
 }
 
-impl Handler for SetRoomTagParams {
+impl Handler for SetTagParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -808,26 +816,27 @@ impl Handler for SetRoomTagParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomAttachmentsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AttachmentsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub kind: RoomAttachmentKind,
     pub limit: u32,
+    #[serde(default)]
     pub from: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomAttachmentsOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AttachmentsOk {
     pub items: Vec<RoomAttachmentView>,
     pub next_batch: Option<String>,
 }
 
-impl Handler for RoomAttachmentsParams {
-    type Ok = RoomAttachmentsOk;
+impl Handler for AttachmentsParams {
+    type Ok = AttachmentsOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomAttachmentsOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<AttachmentsOk, RpcError> {
         let (items, next_batch) = core
             .room_attachments(
                 &self.room_id,
@@ -836,13 +845,13 @@ impl Handler for RoomAttachmentsParams {
                 self.from.as_deref(),
             )
             .await?;
-        Ok(RoomAttachmentsOk { items, next_batch })
+        Ok(AttachmentsOk { items, next_batch })
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomCosmeticsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CosmeticsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[serde(default)]
@@ -850,7 +859,7 @@ pub struct RoomCosmeticsParams {
     pub space_id: Option<OwnedRoomId>,
 }
 
-impl Handler for RoomCosmeticsParams {
+impl Handler for CosmeticsParams {
     type Ok = RoomCosmeticsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomCosmeticsView, RpcError> {

@@ -61,7 +61,7 @@
 
     let current = true;
     core.rpc.rooms
-      .roomListItem({ room_id: id })
+      .listItem({ room_id: id })
       .then((room) => {
         if (current && room.state === 'joined') unlisted = room;
       })

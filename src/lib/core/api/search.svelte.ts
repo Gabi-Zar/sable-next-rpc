@@ -33,7 +33,7 @@ export async function searchMessages(
     older?: string | null;
   } = {}
 ): Promise<{ hits: SearchHitView[]; older: string | null }> {
-  return rpc.search.searchMessages({
+  return rpc.search.messages({
     query,
     filter: $state.snapshot(options.filter ?? EMPTY_SEARCH_FILTER),
     order: options.order ?? 'rank',

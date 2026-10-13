@@ -1,9 +1,4 @@
-import type {
-  RpcError,
-  CoreEvent,
-  SubscribeTimelineOk,
-  SubscriptionId,
-} from '#src/generated/protocol';
+import type { RpcError, RpcResult, CoreEvent, SubscriptionId, Rpc } from '#src/generated/protocol';
 import type { WorkerMessage, WorkerRequest } from './protocol';
 import { TimelineEventRouter } from './timeline-event-router';
 
@@ -288,12 +283,14 @@ export function createCoreWorkerBoundary(
             }
           }
 
-          if (method === 'timeline.subscribe_timeline') {
+          if (method === 'timeline.subscribe') {
             for (let attempt = 0; attempt < 3; attempt += 1) {
               if (!ports.has(port)) return;
               timelineEvents.begin(port);
               pendingTimeline = true;
-              const ok = JSON.parse(await instance.call(method, params)) as SubscribeTimelineOk;
+              const ok = JSON.parse(await instance.call(method, params)) as RpcResult<
+                Rpc['timeline']['subscribe']
+              >;
               if (typeof ok.subscription !== 'number')
                 throw new Error('Invalid timeline subscription response');
               const events = timelineEvents.claim(ok.subscription, port);

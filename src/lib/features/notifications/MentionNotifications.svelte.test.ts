@@ -12,10 +12,12 @@ type Mode = 'off' | 'notify' | 'loud';
 const core = Object.assign(baseCore, {
   session: { user_id: '@erwan:example.org' },
   userProfile: vi.fn(() => Promise.resolve({ display_name: 'Erwan' })),
+});
+Object.assign(core.rpc.notifications, {
   mentionNotifications: vi.fn<() => Promise<Record<string, Mode | null>>>(),
   setMentionNotifications: vi.fn<(params: { rule: string; mode: Mode }) => Promise<void>>(),
 });
-Object.assign(core, { rpc: { notifications: core } });
+Object.assign(core.rpc.notifications, core);
 
 import MentionNotifications from './MentionNotifications.svelte';
 
@@ -28,7 +30,7 @@ const loaded = { room: 'notify', user: 'loud', display_name: 'off', username: 'l
 const selector = (label: string): HTMLElement => screen.getByLabelText(label);
 
 test('shows every mention rule at its account mode', async () => {
-  core.mentionNotifications.mockResolvedValue(loaded);
+  core.rpc.notifications.mentionNotifications.mockResolvedValue(loaded);
 
   render(MentionNotifications);
 
@@ -41,7 +43,11 @@ test('shows every mention rule at its account mode', async () => {
 });
 
 test('hides the legacy rules a server has removed', async () => {
-  core.mentionNotifications.mockResolvedValue({ ...loaded, display_name: null, username: null });
+  core.rpc.notifications.mentionNotifications.mockResolvedValue({
+    ...loaded,
+    display_name: null,
+    username: null,
+  });
 
   render(MentionNotifications);
 
@@ -53,7 +59,7 @@ test('hides the legacy rules a server has removed', async () => {
 });
 
 test('reports a failed lookup', async () => {
-  core.mentionNotifications.mockRejectedValue(new Error('denied'));
+  core.rpc.notifications.mentionNotifications.mockRejectedValue(new Error('denied'));
 
   render(MentionNotifications);
 

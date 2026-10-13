@@ -135,7 +135,7 @@
     const current = ++run;
     try {
       const [look, profile] = await Promise.all([
-        core.rpc.members.memberLook({ room_id: target }),
+        core.rpc.members.look({ room_id: target }),
         core.refreshUserProfile(self).catch(() => null),
       ]);
       if (current !== run) return;

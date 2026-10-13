@@ -10,7 +10,7 @@ export interface SenderCosmetics {
 }
 
 interface CosmeticsCore {
-  rpc: { rooms: Pick<Rpc['rooms'], 'roomCosmetics'> };
+  rpc: { rooms: Pick<Rpc['rooms'], 'cosmetics'> };
   subscribeEvents: (onEvent: (event: CoreEvent) => void) => () => void;
 }
 
@@ -50,7 +50,7 @@ export class RoomCosmetics {
     if (roomId === null) return;
     const generation = ++this.#generation;
     try {
-      const found = await this.core.rpc.rooms.roomCosmetics({
+      const found = await this.core.rpc.rooms.cosmetics({
         room_id: roomId,
         space_id: this.#requestedSpace,
       });

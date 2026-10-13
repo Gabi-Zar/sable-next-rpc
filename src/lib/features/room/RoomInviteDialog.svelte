@@ -88,7 +88,7 @@
     inviting = true;
     failed = false;
     try {
-      await core.rpc.rooms.inviteUser({ room_id: target, user_id: candidate });
+      await core.rpc.rooms.invite({ room_id: target, user_id: candidate });
       invited = candidate;
       draft = '';
     } catch (error) {

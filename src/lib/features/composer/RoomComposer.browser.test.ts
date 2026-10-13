@@ -36,8 +36,8 @@ function client(): CoreClient {
     rpc: {
       messages: { mediaConfig: () => Promise.resolve({ upload_size: 100 * 1024 * 1024 }) },
       room_state: { botCommands: () => Promise.resolve([]) },
-      personas: { personas: () => Promise.resolve({ personas: [], selections: [] }) },
-      packs: { imagePacks: () => Promise.resolve({ packs: [], complete: true }) },
+      personas: { list: () => Promise.resolve({ personas: [], selections: [] }) },
+      packs: { list: () => Promise.resolve({ packs: [], complete: true }) },
     },
   } as unknown as CoreClient;
 }

@@ -14,7 +14,8 @@ vi.mock('#lib/config/runtime-config.js', () => ({
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
+const core = baseCore;
+Object.assign(core.rpc.messages, {
   urlPreview:
     vi.fn<(params: { url: string; service: string | null }) => Promise<UrlPreviewView | null>>(),
 });
@@ -44,7 +45,7 @@ function preview(overrides: Partial<UrlPreviewView> = {}): UrlPreviewView {
 }
 
 afterEach(() => {
-  core.urlPreview.mockReset();
+  core.rpc.messages.urlPreview.mockReset();
   preferences.urlPreviews = false;
   preferences.encryptedUrlPreviews = false;
   preferences.clientEmbeds = false;
@@ -54,7 +55,7 @@ afterEach(() => {
 
 test('renders the resolved preview as a link', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/render' }));
+  core.rpc.messages.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/render' }));
   render(LinkPreviewCard, {
     url: 'https://example.org/render',
     encrypted: false,
@@ -71,7 +72,7 @@ test('renders the resolved preview as a link', async () => {
 
 test('a second card for the same url does not re-request it', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/cached' }));
+  core.rpc.messages.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/cached' }));
   const first = render(LinkPreviewCard, {
     url: 'https://example.org/cached',
     encrypted: false,
@@ -89,13 +90,13 @@ test('a second card for the same url does not re-request it', async () => {
   await Promise.resolve();
   await tick();
 
-  expect(core.urlPreview).toHaveBeenCalledTimes(1);
+  expect(core.rpc.messages.urlPreview).toHaveBeenCalledTimes(1);
 });
 
 test('an in-flight request does not write into a torn-down component', async () => {
   preferences.urlPreviews = true;
   let resolve: (value: UrlPreviewView | null) => void = () => {};
-  core.urlPreview.mockReturnValue(
+  core.rpc.messages.urlPreview.mockReturnValue(
     new Promise((res) => {
       resolve = res;
     })
@@ -126,20 +127,20 @@ test('renders no bundled preview while url previews are disabled', () => {
 
 test('does nothing while url previews are disabled', async () => {
   preferences.urlPreviews = false;
-  core.urlPreview.mockResolvedValue(preview());
+  core.rpc.messages.urlPreview.mockResolvedValue(preview());
   render(LinkPreviewCard, { url: 'https://example.org/c', encrypted: false });
 
   await tick();
   await Promise.resolve();
   await tick();
 
-  expect(core.urlPreview).not.toHaveBeenCalled();
+  expect(core.rpc.messages.urlPreview).not.toHaveBeenCalled();
   expect(screen.queryByRole('link')).not.toBeInTheDocument();
 });
 
 test('an encrypted room needs its own consent, and an unknown one is treated as encrypted', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(preview());
+  core.rpc.messages.urlPreview.mockResolvedValue(preview());
   const encrypted = render(LinkPreviewCard, {
     url: 'https://example.org/d',
     encrypted: true,
@@ -153,7 +154,7 @@ test('an encrypted room needs its own consent, and an unknown one is treated as 
   await Promise.resolve();
   await tick();
 
-  expect(core.urlPreview).not.toHaveBeenCalled();
+  expect(core.rpc.messages.urlPreview).not.toHaveBeenCalled();
   encrypted.unmount();
   unknown.unmount();
 
@@ -163,7 +164,10 @@ test('an encrypted room needs its own consent, and an unknown one is treated as 
   await Promise.resolve();
   await tick();
 
-  expect(core.urlPreview).toHaveBeenCalledWith({ url: 'https://example.org/f', service: null });
+  expect(core.rpc.messages.urlPreview).toHaveBeenCalledWith({
+    url: 'https://example.org/f',
+    service: null,
+  });
 });
 
 async function settle(): Promise<void> {
@@ -176,12 +180,12 @@ async function settle(): Promise<void> {
 
 test('client-side embeds alone preview without asking the homeserver', async () => {
   preferences.clientEmbeds = true;
-  core.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/c1' }));
+  core.rpc.messages.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/c1' }));
   render(LinkPreviewCard, { url: 'https://example.org/c1', encrypted: false });
   await settle();
 
-  expect(core.urlPreview).toHaveBeenCalledTimes(1);
-  expect(core.urlPreview).toHaveBeenCalledWith({
+  expect(core.rpc.messages.urlPreview).toHaveBeenCalledTimes(1);
+  expect(core.rpc.messages.urlPreview).toHaveBeenCalledWith({
     url: 'https://example.org/c1',
     service: 'https://embeds.test',
   });
@@ -191,13 +195,13 @@ test('client-side embeds alone preview without asking the homeserver', async () 
 test('the homeserver is asked only when the client side has no answer', async () => {
   preferences.clientEmbeds = true;
   preferences.urlPreviews = true;
-  core.urlPreview.mockImplementation(({ service }) =>
+  core.rpc.messages.urlPreview.mockImplementation(({ service }) =>
     Promise.resolve(service !== null ? null : preview({ url: 'https://example.org/c2' }))
   );
   render(LinkPreviewCard, { url: 'https://example.org/c2', encrypted: false });
   await settle();
 
-  expect(core.urlPreview.mock.calls).toEqual([
+  expect(core.rpc.messages.urlPreview.mock.calls).toEqual([
     [{ url: 'https://example.org/c2', service: 'https://embeds.test' }],
     [{ url: 'https://example.org/c2', service: null }],
   ]);
@@ -207,25 +211,25 @@ test('the homeserver is asked only when the client side has no answer', async ()
 test('a client-side answer is not followed by a homeserver request', async () => {
   preferences.clientEmbeds = true;
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/c3' }));
+  core.rpc.messages.urlPreview.mockResolvedValue(preview({ url: 'https://example.org/c3' }));
   render(LinkPreviewCard, { url: 'https://example.org/c3', encrypted: false });
   await settle();
 
-  expect(core.urlPreview).toHaveBeenCalledTimes(1);
+  expect(core.rpc.messages.urlPreview).toHaveBeenCalledTimes(1);
 });
 
 test('an encrypted room needs its own consent for client-side embeds', async () => {
   preferences.clientEmbeds = true;
-  core.urlPreview.mockResolvedValue(preview());
+  core.rpc.messages.urlPreview.mockResolvedValue(preview());
   render(LinkPreviewCard, { url: 'https://example.org/c4', encrypted: true });
   await settle();
 
-  expect(core.urlPreview).not.toHaveBeenCalled();
+  expect(core.rpc.messages.urlPreview).not.toHaveBeenCalled();
 });
 
 test('an image-only preview renders inline instead of as a card', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://media.example/anim.gif',
       title: null,
@@ -253,7 +257,7 @@ test('an image-only preview renders inline instead of as a card', async () => {
 
 test('an image-only preview opens the media viewer instead of the url', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://media.example/anim.gif',
       title: null,
@@ -297,7 +301,7 @@ test('an image-only preview opens the media viewer instead of the url', async ()
 
 test('a preview carrying a title stays a card even with an image', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://example.org/post',
       image: 'mxc://example.org/hero',
@@ -337,7 +341,7 @@ test('uses a site-specific presentation for a recognised URL', () => {
 test('a preview keeps its text but drops its picture where media previews are off (MSC4278)', async () => {
   preferences.urlPreviews = true;
   mediaPreviewSettings.global = { media_previews: 'off' };
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://example.org/pictured',
       image: 'mxc://example.org/thumb',
@@ -388,7 +392,7 @@ test.each([
 
 test('a video-only preview plays inline without the card', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://cdn.example/clip.mp4',
       title: null,
@@ -415,7 +419,7 @@ test('a video-only preview plays inline without the card', async () => {
 
 test('a page with a video keeps its text under the player', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://site.example/watch',
       title: 'A clip',
@@ -444,7 +448,7 @@ test('a page with a video keeps its text under the player', async () => {
 
 test('the theme colour becomes the card accent and a summary card is compact', async () => {
   preferences.urlPreviews = true;
-  core.urlPreview.mockResolvedValue(
+  core.rpc.messages.urlPreview.mockResolvedValue(
     preview({
       url: 'https://site.example/post',
       image: 'mxc://example.org/pic',

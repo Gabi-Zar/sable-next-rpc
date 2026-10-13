@@ -1,3 +1,4 @@
+use crate::api::members::LookParams;
 use matrix_sdk::ruma::OwnedRoomId;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -186,7 +187,7 @@ impl Core {
 
     pub(crate) async fn member_look(
         &self,
-        room_id: OwnedRoomId,
+        LookParams { room_id }: LookParams,
     ) -> Result<MemberLookView, RpcError> {
         let user_id = self.own_user().await?;
         let member = self

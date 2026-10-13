@@ -10,28 +10,28 @@ use crate::protocol::{RpcError, DefaultNotificationModesView, EventNotificationV
 use crate::{Core, ResultExt, notifications, push_rules};
 
 domain! {
-    notification_settings,
-    default_notification_modes,
+    settings,
+    default_modes,
     mention_notifications,
     event_notifications,
     master_mute,
     notification,
     push_event,
-    notification_keywords,
-    add_notification_keyword,
-    remove_notification_keyword,
-    set_notification_keyword_mode,
+    keywords,
+    add_keyword,
+    remove_keyword,
+    set_keyword_mode,
     set_room_notification_mode,
-    set_default_notification_mode,
+    set_default_mode,
     set_mention_notifications,
     set_event_notification,
     set_master_mute,
-    inbox_notifications,
+    inbox,
     backfill_inbox,
-    set_notification_content,
-    set_notification_sounds,
+    set_content,
+    set_sounds,
     set_notify_once,
-    set_notifications_enabled,
+    set_enabled,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -44,13 +44,13 @@ pub enum InboxFilter {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct NotificationSettingsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SettingsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for NotificationSettingsParams {
+impl Handler for SettingsParams {
     type Ok = NotificationSettingsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<NotificationSettingsView, RpcError> {
@@ -66,10 +66,10 @@ impl Handler for NotificationSettingsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct DefaultNotificationModesParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DefaultModesParams {}
 
-impl Handler for DefaultNotificationModesParams {
+impl Handler for DefaultModesParams {
     type Ok = DefaultNotificationModesView;
 
     async fn run(self, core: &Arc<Core>) -> Result<DefaultNotificationModesView, RpcError> {
@@ -80,7 +80,7 @@ impl Handler for DefaultNotificationModesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MentionNotificationsParams {}
 
 impl Handler for MentionNotificationsParams {
@@ -94,7 +94,7 @@ impl Handler for MentionNotificationsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EventNotificationsParams {}
 
 impl Handler for EventNotificationsParams {
@@ -108,7 +108,7 @@ impl Handler for EventNotificationsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MasterMuteParams {}
 
 impl Handler for MasterMuteParams {
@@ -122,7 +122,7 @@ impl Handler for MasterMuteParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct NotificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -145,7 +145,7 @@ impl Handler for NotificationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PushEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -171,10 +171,10 @@ impl Handler for PushEventParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct NotificationKeywordsParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct KeywordsParams {}
 
-impl Handler for NotificationKeywordsParams {
+impl Handler for KeywordsParams {
     type Ok = Vec<KeywordNotificationView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<KeywordNotificationView>, RpcError> {
@@ -185,12 +185,12 @@ impl Handler for NotificationKeywordsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AddNotificationKeywordParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AddKeywordParams {
     pub keyword: String,
 }
 
-impl Handler for AddNotificationKeywordParams {
+impl Handler for AddKeywordParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -207,12 +207,12 @@ impl Handler for AddNotificationKeywordParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RemoveNotificationKeywordParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RemoveKeywordParams {
     pub keyword: String,
 }
 
-impl Handler for RemoveNotificationKeywordParams {
+impl Handler for RemoveKeywordParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -230,13 +230,13 @@ impl Handler for RemoveNotificationKeywordParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetNotificationKeywordModeParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetKeywordModeParams {
     pub keyword: String,
     pub mode: MentionNotificationModeView,
 }
 
-impl Handler for SetNotificationKeywordModeParams {
+impl Handler for SetKeywordModeParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -255,11 +255,12 @@ impl Handler for SetNotificationKeywordModeParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetRoomNotificationModeParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     /// `null` drops the room's own rules so it follows the default again.
+    #[serde(default)]
     pub mode: Option<NotificationModeView>,
 }
 
@@ -282,13 +283,13 @@ impl Handler for SetRoomNotificationModeParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetDefaultNotificationModeParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetDefaultModeParams {
     pub direct: bool,
     pub mode: NotificationModeView,
 }
 
-impl Handler for SetDefaultNotificationModeParams {
+impl Handler for SetDefaultModeParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -306,7 +307,7 @@ impl Handler for SetDefaultNotificationModeParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetMentionNotificationsParams {
     pub rule: MentionRuleView,
     pub mode: MentionNotificationModeView,
@@ -329,7 +330,7 @@ impl Handler for SetMentionNotificationsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetEventNotificationParams {
     pub event: EventNotificationView,
     pub enabled: bool,
@@ -352,7 +353,7 @@ impl Handler for SetEventNotificationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetMasterMuteParams {
     pub muted: bool,
 }
@@ -372,41 +373,42 @@ impl Handler for SetMasterMuteParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct InboxNotificationsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct InboxParams {
     pub filter: InboxFilter,
     pub include_read: bool,
     pub limit: u32,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    #[serde(default)]
     pub before_ts: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct InboxNotificationsOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct InboxOk {
     pub items: Vec<InboxItemView>,
     pub has_more: bool,
 }
 
-impl Handler for InboxNotificationsParams {
-    type Ok = InboxNotificationsOk;
+impl Handler for InboxParams {
+    type Ok = InboxOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<InboxNotificationsOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<InboxOk, RpcError> {
         let (items, has_more) = core
             .inbox_notifications(self.filter, self.include_read, self.limit, self.before_ts)
             .await?;
-        Ok(InboxNotificationsOk { items, has_more })
+        Ok(InboxOk { items, has_more })
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct BackfillInboxParams {
     pub include_read: bool,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct BackfillInboxOk {
     pub recorded: u32,
     pub has_more: bool,
@@ -423,13 +425,13 @@ impl Handler for BackfillInboxParams {
 
 /// Mirrors the reader's choice so a native shell can apply it too.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetNotificationContentParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetContentParams {
     pub visible: bool,
     pub encrypted: bool,
 }
 
-impl Handler for SetNotificationContentParams {
+impl Handler for SetContentParams {
     type Ok = ();
 
     fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
@@ -443,12 +445,12 @@ impl Handler for SetNotificationContentParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetNotificationSoundsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetSoundsParams {
     pub enabled: bool,
 }
 
-impl Handler for SetNotificationSoundsParams {
+impl Handler for SetSoundsParams {
     type Ok = ();
 
     fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
@@ -460,7 +462,7 @@ impl Handler for SetNotificationSoundsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetNotifyOnceParams {
     pub enabled: bool,
 }
@@ -476,12 +478,12 @@ impl Handler for SetNotifyOnceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetNotificationsEnabledParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetEnabledParams {
     pub enabled: bool,
 }
 
-impl Handler for SetNotificationsEnabledParams {
+impl Handler for SetEnabledParams {
     type Ok = ();
 
     fn run(self, core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {

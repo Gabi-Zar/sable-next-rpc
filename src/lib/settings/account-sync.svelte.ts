@@ -141,7 +141,7 @@ export class AccountSync {
     let migrated = false;
     try {
       if (document.sealed) {
-        const sealed = await core.rpc.account.sealedAccountData({ event_type: document.eventType });
+        const sealed = await core.rpc.account.sealedData({ event_type: document.eventType });
         if (generation !== this.#generation) return;
         state.locked = sealed.state === 'locked';
         if (state.locked) {
@@ -153,9 +153,9 @@ export class AccountSync {
         content = sealed.content;
         unsealed = sealed.state === 'plain' && sealed.can_seal && sealed.content !== null;
       } else {
-        content = await core.rpc.account.accountData({ event_type: document.eventType });
+        content = await core.rpc.account.data({ event_type: document.eventType });
         if (content === null && document.legacy) {
-          const legacy = await core.rpc.account.accountData({
+          const legacy = await core.rpc.account.data({
             event_type: document.legacy.eventType,
           });
           if (generation !== this.#generation) return;

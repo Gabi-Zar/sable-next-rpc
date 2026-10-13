@@ -33,22 +33,15 @@ const room = withCounts({
   marked_unread: false,
 } as RoomListItemView);
 
-Object.assign(core, {
-  rpc: {
-    notifications: {
-      inboxNotifications: vi.fn(() => Promise.resolve({ items: [], has_more: false })),
-      backfillInbox: vi.fn(() => Promise.resolve({ recorded: 0, has_more: false })),
-    },
-    account: { inviteTriage: vi.fn(() => Promise.resolve([])) },
-  },
-  roomPermissions: vi.fn(() =>
+Object.assign(core.rpc.members, {
+  permissions: vi.fn(() =>
     Promise.resolve({
       can_invite: true,
       can_kick: true,
       own_power_level: 100,
     } as RoomPermissionsView)
   ),
-  roomMembers: vi.fn(() =>
+  list: vi.fn(() =>
     Promise.resolve([
       {
         user_id: '@alice:example.org',
@@ -59,6 +52,11 @@ Object.assign(core, {
     ])
   ),
 });
+Object.assign(core.rpc.notifications, {
+  inbox: vi.fn(() => Promise.resolve({ items: [], has_more: false })),
+  backfillInbox: vi.fn(() => Promise.resolve({ recorded: 0, has_more: false })),
+});
+Object.assign(core.rpc.account, { inviteTriage: vi.fn(() => Promise.resolve([])) });
 
 beforeEach(() => {
   goto.mockClear();

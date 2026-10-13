@@ -440,7 +440,7 @@ impl Core {
             );
             let content = match client.send(request).await {
                 Ok(response) => {
-                    crate::api::support::state_event_content(response.event_or_content.get())
+                    crate::room_settings::state_event_content(response.event_or_content.get())
                         .unwrap_or(Value::Null)
                 }
                 Err(error) => {

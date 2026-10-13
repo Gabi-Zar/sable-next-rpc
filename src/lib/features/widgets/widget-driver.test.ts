@@ -8,7 +8,7 @@ test('returns the created IDs for messages, state events and redactions', async 
     sendRawEvent: vi.fn().mockResolvedValue('$message'),
     sendRedaction: vi.fn().mockResolvedValue('$redaction'),
   };
-  const rpc = { room_state: { sendStateEvent: vi.fn().mockResolvedValue('$state') } };
+  const rpc = { room_state: { sendEvent: vi.fn().mockResolvedValue('$state') } };
   const driver = new SableWidgetDriver(
     { rpc: { ...rpc, messages } } as unknown as CoreClient,
     '!room:example.org',
@@ -60,8 +60,8 @@ function driverWithRpc(rpc: Record<string, Record<string, unknown>>) {
 
 test('sends sticky and delayed events to the viewed room unless told otherwise', async () => {
   const widgets = {
-    widgetSendStickyEvent: vi.fn().mockResolvedValue('$sticky'),
-    widgetSendDelayedEvent: vi.fn().mockResolvedValue('delay-1'),
+    sendStickyEvent: vi.fn().mockResolvedValue('$sticky'),
+    sendDelayedEvent: vi.fn().mockResolvedValue('delay-1'),
   };
   const driver = driverWithRpc({ widgets });
 
@@ -69,7 +69,7 @@ test('sends sticky and delayed events to the viewed room unless told otherwise',
     roomId: '!room:example.org',
     eventId: '$sticky',
   });
-  expect(widgets.widgetSendStickyEvent).toHaveBeenCalledWith({
+  expect(widgets.sendStickyEvent).toHaveBeenCalledWith({
     room_id: '!room:example.org',
     event_type: 'com.example.member',
     content: { a: 1 },
@@ -79,7 +79,7 @@ test('sends sticky and delayed events to the viewed room unless told otherwise',
   await expect(
     driver.sendDelayedEvent(5_000, 'com.example.state', {}, 'key', '!other:example.org')
   ).resolves.toEqual({ roomId: '!other:example.org', delayId: 'delay-1' });
-  expect(widgets.widgetSendDelayedEvent).toHaveBeenLastCalledWith({
+  expect(widgets.sendDelayedEvent).toHaveBeenLastCalledWith({
     room_id: '!other:example.org',
     event_type: 'com.example.state',
     state_key: 'key',
@@ -89,7 +89,7 @@ test('sends sticky and delayed events to the viewed room unless told otherwise',
   });
 
   await driver.sendDelayedStickyEvent(5_000, 60_000, 'com.example.member', {});
-  expect(widgets.widgetSendDelayedEvent).toHaveBeenLastCalledWith({
+  expect(widgets.sendDelayedEvent).toHaveBeenLastCalledWith({
     room_id: '!room:example.org',
     event_type: 'com.example.member',
     state_key: null,
@@ -102,8 +102,8 @@ test('sends sticky and delayed events to the viewed room unless told otherwise',
 test('cancels, restarts and sends delayed events by id', async () => {
   const widgets = { restartDelayedEvent: vi.fn().mockResolvedValue(undefined) };
   const messages = {
-    cancelScheduledMessage: vi.fn().mockResolvedValue(undefined),
-    sendScheduledMessage: vi.fn().mockResolvedValue(undefined),
+    cancelScheduled: vi.fn().mockResolvedValue(undefined),
+    sendScheduled: vi.fn().mockResolvedValue(undefined),
   };
   const driver = driverWithRpc({ messages, widgets });
 
@@ -111,19 +111,19 @@ test('cancels, restarts and sends delayed events by id', async () => {
   await driver.restartScheduledDelayedEvent('d2');
   await driver.sendScheduledDelayedEvent('d3');
 
-  expect(messages.cancelScheduledMessage).toHaveBeenCalledWith({ delay_id: 'd1' });
+  expect(messages.cancelScheduled).toHaveBeenCalledWith({ delay_id: 'd1' });
   expect(widgets.restartDelayedEvent).toHaveBeenCalledWith({ delay_id: 'd2' });
-  expect(messages.sendScheduledMessage).toHaveBeenCalledWith({ delay_id: 'd3' });
+  expect(messages.sendScheduled).toHaveBeenCalledWith({ delay_id: 'd3' });
 });
 
 test('forwards to-device messages with their encryption flag', async () => {
-  const widgets = { widgetSendToDevice: vi.fn().mockResolvedValue(undefined) };
+  const widgets = { sendToDevice: vi.fn().mockResolvedValue(undefined) };
   const driver = driverWithRpc({ widgets });
   const messages = { '@a:x': { '*': { key: 'value' } } };
 
   await driver.sendToDevice('com.example.ping', true, messages);
 
-  expect(widgets.widgetSendToDevice).toHaveBeenCalledWith({
+  expect(widgets.sendToDevice).toHaveBeenCalledWith({
     event_type: 'com.example.ping',
     encrypted: true,
     messages,
@@ -133,7 +133,7 @@ test('forwards to-device messages with their encryption flag', async () => {
 test('reads room account data from the viewed room, or from every known room for the wildcard', async () => {
   const rpc = {
     room_state: {
-      roomAccountDataRaw: vi.fn(({ room_id }: { room_id: string }) =>
+      accountDataRaw: vi.fn(({ room_id }: { room_id: string }) =>
         Promise.resolve(
           room_id === '!gap:example.org' ? null : { type: 'com.example.data', room_id, content: {} }
         )

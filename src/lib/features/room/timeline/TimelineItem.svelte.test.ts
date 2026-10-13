@@ -23,6 +23,8 @@ const core = Object.assign(baseCore, {
   setPinned: vi.fn(() => Promise.resolve<string[]>([])),
   bookmarks: vi.fn(() => Promise.resolve([])),
   setBookmark: vi.fn(() => Promise.resolve(false)),
+});
+Object.assign(core.rpc.messages, {
   urlPreview: vi.fn(({ url }: { url: string }): Promise<UrlPreviewView> =>
     Promise.resolve({
       url,
@@ -1751,7 +1753,7 @@ test.each([
     const cosmeticsCore = {
       rpc: {
         rooms: {
-          roomCosmetics: vi.fn().mockResolvedValue({
+          cosmetics: vi.fn().mockResolvedValue({
             space_id: '!space:example.org',
             users: [
               {

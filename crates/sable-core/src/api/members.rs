@@ -1,32 +1,33 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use matrix_sdk::RoomMemberships;
+
 use matrix_sdk::ruma::events::room::member::{MembershipState, RoomMemberEventContent};
 use matrix_sdk::ruma::events::room::power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent};
 use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId};
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::api::support::membership_filter;
 use crate::protocol::{RpcError, FieldEdit, MemberLookView, MemberView, MembershipView, PowerLevelLocation, PowerLevelTagView, PowerLevelTagsView, PronounView, RoomPermissionsView, RoomPowerLevelsView};
 use crate::{Core, ResultExt, view};
 
 domain! {
-    room_members,
-    room_permissions,
-    room_power_levels,
+    list,
+    permissions,
+    power_levels,
     set_power_level,
     sync_power_levels_from_space,
     sync_child_power_levels,
     power_level_tags,
     set_power_level_tag,
     set_user_power_level,
-    kick_user,
+    kick,
     deny_knock,
-    ban_user,
-    unban_user,
-    member_look,
-    set_member_look,
+    ban,
+    unban,
+    look,
+    set_look,
     set_pronouns,
 }
 
@@ -40,15 +41,15 @@ fn tags_ok(tags: PowerLevelTagsView) -> PowerLevelTagsOk {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomMembersParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ListParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[serde(default)]
     pub memberships: Vec<MembershipView>,
 }
 
-impl Handler for RoomMembersParams {
+impl Handler for ListParams {
     type Ok = Vec<MemberView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<MemberView>, RpcError> {
@@ -99,13 +100,13 @@ impl Handler for RoomMembersParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomPermissionsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct PermissionsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomPermissionsParams {
+impl Handler for PermissionsParams {
     type Ok = RoomPermissionsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomPermissionsView, RpcError> {
@@ -114,13 +115,13 @@ impl Handler for RoomPermissionsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomPowerLevelsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct PowerLevelsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomPowerLevelsParams {
+impl Handler for PowerLevelsParams {
     type Ok = RoomPowerLevelsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomPowerLevelsView, RpcError> {
@@ -136,7 +137,7 @@ impl Handler for RoomPowerLevelsParams {
 
 /// `levels` is what the reader is editing; the store lags our own writes.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetPowerLevelParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -159,7 +160,7 @@ impl Handler for SetPowerLevelParams {
 /// Copies the space's moderation and settings levels, and its role names,
 /// as far as our own level allows.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SyncPowerLevelsFromSpaceParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -170,7 +171,7 @@ pub struct SyncPowerLevelsFromSpaceParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SyncPowerLevelsFromSpaceOk {
     pub levels: RoomPowerLevelsView,
     #[cfg_attr(feature = "typegen", specta(type = BTreeMap<String, PowerLevelTagView>))]
@@ -189,7 +190,7 @@ impl Handler for SyncPowerLevelsFromSpaceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SyncChildPowerLevelsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub space_id: OwnedRoomId,
@@ -198,7 +199,7 @@ pub struct SyncChildPowerLevelsParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SyncChildPowerLevelsOk {
     pub updated: u32,
     pub skipped: u32,
@@ -219,7 +220,7 @@ impl Handler for SyncChildPowerLevelsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PowerLevelTagsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -235,12 +236,13 @@ impl Handler for PowerLevelTagsParams {
 
 /// No tag removes the role at that level.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetPowerLevelTagParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub level: i64,
+    #[serde(default)]
     pub tag: Option<PowerLevelTagView>,
 }
 
@@ -256,7 +258,7 @@ impl Handler for SetPowerLevelTagParams {
 
 /// Lowering our own cannot be undone. The level to raise it is gone.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetUserPowerLevelParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -280,16 +282,17 @@ impl Handler for SetUserPowerLevelParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct KickUserParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct KickParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
-impl Handler for KickUserParams {
+impl Handler for KickParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -306,7 +309,7 @@ impl Handler for KickUserParams {
 /// Refuses a knock with a `leave` membership; homeservers refuse to kick
 /// a user who only knocked.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DenyKnockParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -331,16 +334,17 @@ impl Handler for DenyKnockParams {
 
 /// Also removes them from the room.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct BanUserParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct BanParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
-impl Handler for BanUserParams {
+impl Handler for BanParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -355,16 +359,17 @@ impl Handler for BanUserParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct UnbanUserParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct UnbanParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
-impl Handler for UnbanUserParams {
+impl Handler for UnbanParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -380,25 +385,25 @@ impl Handler for UnbanUserParams {
 
 /// Our own member event and pronouns in one room or space.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct MemberLookParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct LookParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for MemberLookParams {
+impl Handler for LookParams {
     type Ok = MemberLookView;
 
     async fn run(self, core: &Arc<Core>) -> Result<MemberLookView, RpcError> {
-        core.member_look(self.room_id).await
+        core.member_look(self).await
     }
 }
 
 /// Writes our member event once; a colour change also clears the legacy
 /// colour event other clients still read.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetMemberLookParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetLookParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[serde(default)]
@@ -413,7 +418,7 @@ pub struct SetMemberLookParams {
     pub color_on_dark: FieldEdit,
 }
 
-impl Handler for SetMemberLookParams {
+impl Handler for SetLookParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -429,7 +434,7 @@ impl Handler for SetMemberLookParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetPronounsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -445,4 +450,23 @@ impl Handler for SetPronounsParams {
         core.set_pronouns(self.room_id, self.in_parent_space, &self.pronouns)
             .await
     }
+}
+
+pub(crate) fn membership_filter(memberships: &[MembershipView]) -> RoomMemberships {
+    if memberships.is_empty() {
+        return RoomMemberships::JOIN;
+    }
+
+    memberships
+        .iter()
+        .fold(RoomMemberships::empty(), |filter, membership| {
+            filter
+                | match membership {
+                    MembershipView::Join => RoomMemberships::JOIN,
+                    MembershipView::Invite => RoomMemberships::INVITE,
+                    MembershipView::Knock => RoomMemberships::KNOCK,
+                    MembershipView::Leave => RoomMemberships::LEAVE,
+                    MembershipView::Ban => RoomMemberships::BAN,
+                }
+        })
 }

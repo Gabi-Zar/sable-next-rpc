@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest';
-import type { ImagePackView, ImagePacksParams, Rpc } from '#src/generated/protocol';
+import type { ImagePackView, Rpc, RpcParams } from '#src/generated/protocol';
 import { invalidatePacks, isPackAccountDataEvent, loadPacks } from './load-packs';
 
 interface Listing {
@@ -11,8 +11,8 @@ function listing(packs: ImagePackView[], complete = true): Listing {
   return { packs, complete };
 }
 
-function packRpc(imagePacks: (params: ImagePacksParams) => Promise<Listing>) {
-  const rpc = { packs: { imagePacks: vi.fn(imagePacks) } };
+function packRpc(imagePacks: (params: RpcParams<Rpc['packs']['list']>) => Promise<Listing>) {
+  const rpc = { packs: { list: vi.fn(imagePacks) } };
   return rpc as typeof rpc & Pick<Rpc, 'packs'>;
 }
 
@@ -43,7 +43,7 @@ test('cached packs are available while the full state request remains pending', 
   await vi.waitFor(() => {
     expect(apply).toHaveBeenCalledExactlyOnceWith(cached);
   });
-  expect(rpc.packs.imagePacks).toHaveBeenLastCalledWith({
+  expect(rpc.packs.list).toHaveBeenLastCalledWith({
     room_id: '!room:example.org',
     cached_only: false,
   });
@@ -61,12 +61,12 @@ test('keeps a complete pack snapshot for later picker mounts', async () => {
   const apply = vi.fn();
   await loadPacks(rpc, '!room:example.org', apply);
 
-  expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(2);
-  expect(rpc.packs.imagePacks).toHaveBeenNthCalledWith(1, {
+  expect(rpc.packs.list).toHaveBeenCalledTimes(2);
+  expect(rpc.packs.list).toHaveBeenNthCalledWith(1, {
     room_id: '!room:example.org',
     cached_only: true,
   });
-  expect(rpc.packs.imagePacks).toHaveBeenNthCalledWith(2, {
+  expect(rpc.packs.list).toHaveBeenNthCalledWith(2, {
     room_id: '!room:example.org',
     cached_only: false,
   });
@@ -87,7 +87,7 @@ test('does not keep a snapshot of an incomplete listing', async () => {
   await loadPacks(rpc, '!room:example.org', second);
 
   expect(first).toHaveBeenCalledExactlyOnceWith([]);
-  expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(4);
+  expect(rpc.packs.list).toHaveBeenCalledTimes(4);
   expect(second).toHaveBeenLastCalledWith(cached);
 });
 
@@ -99,7 +99,7 @@ test('does not share a pack snapshot between accounts', async () => {
   await loadPacks(rpc, '!room:example.org', vi.fn(), 'account-one');
   await loadPacks(rpc, '!room:example.org', vi.fn(), 'account-two');
 
-  expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(4);
+  expect(rpc.packs.list).toHaveBeenCalledTimes(4);
 });
 
 test('recognizes account data that changes available packs', () => {
@@ -118,7 +118,7 @@ test('reloads packs after an explicit invalidation', async () => {
   invalidatePacks(rpc);
   await loadPacks(rpc, '!room:example.org', vi.fn());
 
-  expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(4);
+  expect(rpc.packs.list).toHaveBeenCalledTimes(4);
 });
 
 test('a mount whose refresh is invalidated while pending waits for the fresh listing', async () => {
@@ -135,12 +135,12 @@ test('a mount whose refresh is invalidated while pending waits for the fresh lis
   const staleApply = vi.fn();
   const stale = loadPacks(rpc, '!room:example.org', staleApply);
   await vi.waitFor(() => {
-    expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(2);
+    expect(rpc.packs.list).toHaveBeenCalledTimes(2);
   });
   invalidatePacks(rpc);
   first.resolve(listing(cached));
   await vi.waitFor(() => {
-    expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(4);
+    expect(rpc.packs.list).toHaveBeenCalledTimes(4);
   });
   second.resolve(listing(fresh));
   await stale;
@@ -164,12 +164,12 @@ test('shares a full refresh between concurrent picker mounts', async () => {
     loadPacks(rpc, '!room:example.org', second),
   ]);
   await vi.waitFor(() => {
-    expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(3);
+    expect(rpc.packs.list).toHaveBeenCalledTimes(3);
   });
   refresh.resolve(listing(cached));
   await loading;
 
-  expect(rpc.packs.imagePacks).toHaveBeenLastCalledWith({
+  expect(rpc.packs.list).toHaveBeenLastCalledWith({
     room_id: '!room:example.org',
     cached_only: false,
   });
@@ -220,7 +220,7 @@ test('shows a stale snapshot at once and revalidates it', async () => {
   await loadPacks(rpc, '!room:example.org', apply);
   now.mockRestore();
 
-  expect(rpc.packs.imagePacks).toHaveBeenCalledTimes(3);
+  expect(rpc.packs.list).toHaveBeenCalledTimes(3);
   expect(apply).toHaveBeenNthCalledWith(1, cached);
   expect(apply).toHaveBeenLastCalledWith(fresh);
 });

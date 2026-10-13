@@ -22,8 +22,8 @@ function fakeCore(overrides: Partial<Record<string, unknown>> = {}) {
     },
     rpc: {
       spaces: {
-        spaceSidebar: vi.fn(() => Promise.resolve<SidebarItem[]>([])),
-        setSpaceSidebar: vi.fn(() => Promise.resolve()),
+        sidebar: vi.fn(() => Promise.resolve<SidebarItem[]>([])),
+        setSidebar: vi.fn(() => Promise.resolve()),
         ...overrides,
       },
     },
@@ -43,7 +43,7 @@ const folder: SidebarItem = { kind: 'folder', id: 'f', name: 'Work', content: ['
 const lifted: SidebarItem[] = [{ kind: 'space', room_id: '!a:example.org' }];
 
 test('loads the stored layout', async () => {
-  const { core } = fakeCore({ spaceSidebar: vi.fn(() => Promise.resolve([folder])) });
+  const { core } = fakeCore({ sidebar: vi.fn(() => Promise.resolve([folder])) });
   const sidebar = new SpaceSidebar();
 
   await sidebar.start(core);
@@ -69,11 +69,11 @@ test('shows a write before it is stored', async () => {
   sidebar.write([folder]);
 
   expect(sidebar.items).toEqual([folder]);
-  expect(harness.calls.setSpaceSidebar).toHaveBeenCalledWith({ items: [folder] });
+  expect(harness.calls.setSidebar).toHaveBeenCalledWith({ items: [folder] });
 });
 
 test('puts the previous layout back when the write is refused', async () => {
-  const harness = fakeCore({ setSpaceSidebar: vi.fn(() => Promise.reject(new Error('denied'))) });
+  const harness = fakeCore({ setSidebar: vi.fn(() => Promise.reject(new Error('denied'))) });
   const sidebar = new SpaceSidebar();
   await sidebar.start(harness.core);
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -85,7 +85,7 @@ test('puts the previous layout back when the write is refused', async () => {
 });
 
 test('ignores a layout from a sync that predates its own write', async () => {
-  const harness = fakeCore({ spaceSidebar: vi.fn(() => Promise.resolve([folder])) });
+  const harness = fakeCore({ sidebar: vi.fn(() => Promise.resolve([folder])) });
   const sidebar = new SpaceSidebar();
   await sidebar.start(harness.core);
 
@@ -96,7 +96,7 @@ test('ignores a layout from a sync that predates its own write', async () => {
 });
 
 test('settles once its own write comes back', async () => {
-  const harness = fakeCore({ spaceSidebar: vi.fn(() => Promise.resolve([folder])) });
+  const harness = fakeCore({ sidebar: vi.fn(() => Promise.resolve([folder])) });
   const sidebar = new SpaceSidebar();
   await sidebar.start(harness.core);
 
@@ -111,13 +111,13 @@ test('settles once its own write comes back', async () => {
 });
 
 test('takes another device change made after its own write was stored', async () => {
-  const harness = fakeCore({ spaceSidebar: vi.fn(() => Promise.resolve([])) });
+  const harness = fakeCore({ sidebar: vi.fn(() => Promise.resolve([])) });
   const sidebar = new SpaceSidebar();
   await sidebar.start(harness.core);
 
   sidebar.write(lifted);
   await vi.waitFor(() => {
-    expect(harness.calls.setSpaceSidebar).toHaveBeenCalled();
+    expect(harness.calls.setSidebar).toHaveBeenCalled();
   });
   await Promise.resolve();
   harness.emit({ type: 'space_sidebar_changed', items: [folder] });
@@ -128,7 +128,7 @@ test('takes another device change made after its own write was stored', async ()
 test('a rejected write does not undo a newer one', async () => {
   let refuse: ((error: Error) => void) | undefined;
   const harness = fakeCore({
-    setSpaceSidebar: vi
+    setSidebar: vi
       .fn()
       .mockImplementationOnce(
         () =>
@@ -151,7 +151,7 @@ test('a rejected write does not undo a newer one', async () => {
 });
 
 test('persists which folders are open and forgets ones that are gone', async () => {
-  const harness = fakeCore({ spaceSidebar: vi.fn(() => Promise.resolve([folder])) });
+  const harness = fakeCore({ sidebar: vi.fn(() => Promise.resolve([folder])) });
   const sidebar = new SpaceSidebar();
   await sidebar.start(harness.core);
 
@@ -168,7 +168,7 @@ test('persists which folders are open and forgets ones that are gone', async () 
 });
 
 test('drops its subscription and layout on stop', async () => {
-  const harness = fakeCore({ spaceSidebar: vi.fn(() => Promise.resolve([folder])) });
+  const harness = fakeCore({ sidebar: vi.fn(() => Promise.resolve([folder])) });
   const sidebar = new SpaceSidebar();
   await sidebar.start(harness.core);
 
@@ -184,7 +184,7 @@ test('drops its subscription and layout on stop', async () => {
 test('a late read from a previous session does not overwrite the current one', async () => {
   let release: ((items: SidebarItem[]) => void) | undefined;
   const harness = fakeCore({
-    spaceSidebar: vi.fn(
+    sidebar: vi.fn(
       () =>
         new Promise<SidebarItem[]>((resolve) => {
           release = resolve;

@@ -13,7 +13,7 @@ export interface RoomScope {
 type ScopeCore = Pick<CoreClient, 'session' | 'subscribeEvents'> & {
   rpc: {
     timeline: PinnedEventCommands;
-    rooms: Pick<CoreClient['rpc']['rooms'], 'roomCosmetics'>;
+    rooms: Pick<CoreClient['rpc']['rooms'], 'cosmetics'>;
   };
 };
 

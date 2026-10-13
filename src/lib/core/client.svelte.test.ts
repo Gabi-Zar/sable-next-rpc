@@ -454,22 +454,20 @@ test('concurrent starts share one restore', async () => {
 });
 
 test('calls dispatch through the transport the client was given', async () => {
-  const fake = fakeTransport({ 'session.restore': null, 'rooms.room_aliases': ['#a:b'] });
+  const fake = fakeTransport({ 'session.restore': null, 'rooms.aliases': ['#a:b'] });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
 
-  await expect(core.rpc.rooms.roomAliases({ room_id: '!room:example.org' })).resolves.toEqual([
-    '#a:b',
-  ]);
+  await expect(core.rpc.rooms.aliases({ room_id: '!room:example.org' })).resolves.toEqual(['#a:b']);
   expect(fake.called).toContainEqual({
-    method: 'rooms.room_aliases',
+    method: 'rooms.aliases',
     params: { room_id: '!room:example.org' },
   });
 });
 
 test('joining copies caller-provided arrays, so reactive proxies cannot reach the transport', async () => {
-  const fake = fakeTransport({ 'session.restore': null, 'rooms.join_room': '!x:b' });
+  const fake = fakeTransport({ 'session.restore': null, 'rooms.join': '!x:b' });
   const core = createCoreClient(() => fake.transport);
 
   await core.start();
@@ -478,7 +476,7 @@ test('joining copies caller-provided arrays, so reactive proxies cannot reach th
   const via = new Proxy(['example.org'], {});
   await joinRoom(core.rpc, '!room:example.org', via);
 
-  const call = fake.called.find((entry) => entry.method === 'rooms.join_room');
+  const call = fake.called.find((entry) => entry.method === 'rooms.join');
   expect(call?.params).toEqual({ address: '!room:example.org', via: ['example.org'] });
   expect(() => structuredClone(call?.params)).not.toThrow();
 });
@@ -1325,7 +1323,7 @@ test('a status reported while the first read is in flight is not overwritten by 
   });
   const plain = fake.call.getMockImplementation();
   fake.call.mockImplementation((method: string, params: unknown) =>
-    method === 'encryption.encryption_status'
+    method === 'encryption.status'
       ? new Promise<object>((resolve) => {
           answer = resolve;
         })
@@ -1362,7 +1360,7 @@ test('a stale login callback that fails does not discard the first status read',
   });
   const plain = fake.call.getMockImplementation();
   fake.call.mockImplementation((method: string, params: unknown) => {
-    if (method === 'encryption.encryption_status')
+    if (method === 'encryption.status')
       return new Promise<object>((resolve) => {
         answer = resolve;
       });

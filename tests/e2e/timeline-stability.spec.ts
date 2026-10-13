@@ -1320,8 +1320,7 @@ test('a message the reader sends from the bottom is followed on every frame', as
     else await app.composer.press('Enter');
     await expect
       .poll(
-        async () =>
-          (await core.commands()).filter((command) => command === 'messages.send_message').length
+        async () => (await core.commands()).filter((command) => command === 'messages.send').length
       )
       .toBe(index + 1);
     await expect(app.composer).toHaveText('');

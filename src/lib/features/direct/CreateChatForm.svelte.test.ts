@@ -8,7 +8,8 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, { createDm: vi.fn<() => Promise<string>>() });
+const core = baseCore;
+Object.assign(core.rpc.rooms, { createDm: vi.fn<() => Promise<string>>() });
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 
 import { goto } from '#lib/test-support/app-navigation.js';
@@ -32,29 +33,35 @@ async function submit(value: string): Promise<void> {
 }
 
 beforeEach(() => {
-  core.createDm.mockReset();
+  core.rpc.rooms.createDm.mockReset();
 });
 
 test('creates the chat and navigates to it under the direct section', async () => {
-  core.createDm.mockResolvedValue('!dm:example.org');
+  core.rpc.rooms.createDm.mockResolvedValue('!dm:example.org');
   render(CreateChatForm);
 
   await submit('@alice:example.org');
   await vi.waitFor(() => {
-    expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: true });
+    expect(core.rpc.rooms.createDm).toHaveBeenCalledWith({
+      user_id: '@alice:example.org',
+      encrypted: true,
+    });
   });
 
   expect(goto).toHaveBeenCalledWith('/(app)/direct/!dm%3Aexample.org');
 });
 
 test('creates an unencrypted chat when the switch is turned off', async () => {
-  core.createDm.mockResolvedValue('!dm:example.org');
+  core.rpc.rooms.createDm.mockResolvedValue('!dm:example.org');
   render(CreateChatForm);
 
   await userEvent.setup().click(screen.getByRole('switch', { name: 'common.endtoendEncryption' }));
   await submit('@alice:example.org');
   await vi.waitFor(() => {
-    expect(core.createDm).toHaveBeenCalledWith({ user_id: '@alice:example.org', encrypted: false });
+    expect(core.rpc.rooms.createDm).toHaveBeenCalledWith({
+      user_id: '@alice:example.org',
+      encrypted: false,
+    });
   });
 });
 
@@ -63,13 +70,13 @@ test('rejects an input that is not a user id without calling the core', async ()
 
   await submit('alice');
 
-  expect(core.createDm).not.toHaveBeenCalled();
+  expect(core.rpc.rooms.createDm).not.toHaveBeenCalled();
   expect(input()).toBeInvalid();
   expect(input()).toHaveAccessibleDescription('common.aUserIdLooksLikeSomeoneserver');
 });
 
 test('reports a failed creation and stays on the page', async () => {
-  core.createDm.mockRejectedValue(new Error('nope'));
+  core.rpc.rooms.createDm.mockRejectedValue(new Error('nope'));
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   render(CreateChatForm);
 

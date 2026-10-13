@@ -277,7 +277,7 @@ export class CallSession {
         )
       );
       if (attempt !== this.#attemptGeneration) {
-        await this.#client.rpc.calls.leaveCall({ session: grant.session }).catch(ignoreError);
+        await this.#client.rpc.calls.leave({ session: grant.session }).catch(ignoreError);
         return;
       }
       this.#session = grant.session;
@@ -347,7 +347,7 @@ export class CallSession {
         if (sharing !== this.#screenSharing && this.#session !== undefined) {
           this.#screenSharing = sharing;
           void this.#client.rpc.calls
-            .setCallScreenSharing({ session: this.#session, active: sharing })
+            .setScreenSharing({ session: this.#session, active: sharing })
             .catch(ignoreError);
         }
         if (state.connection !== this.#transportConnection) {
@@ -754,7 +754,7 @@ export class CallSession {
     if (session !== undefined && !this.#backendEnded) {
       try {
         await this.#telemetry?.step('call.signaling.leave', () =>
-          this.#client.rpc.calls.leaveCall({ session })
+          this.#client.rpc.calls.leave({ session })
         );
       } catch (error) {
         this.#telemetry?.failure('call.signaling.leave', error);

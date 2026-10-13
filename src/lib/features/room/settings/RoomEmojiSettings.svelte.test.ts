@@ -18,8 +18,9 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 import RoomEmojiSettings from './RoomEmojiSettings.svelte';
 
-const core = Object.assign(baseCore, {
-  imagePacks: vi.fn<() => Promise<{ packs: ImagePackView[]; complete: boolean }>>(() =>
+const core = baseCore;
+Object.assign(core.rpc.packs, {
+  list: vi.fn<() => Promise<{ packs: ImagePackView[]; complete: boolean }>>(() =>
     Promise.resolve({ packs: [], complete: true })
   ),
 });
@@ -47,7 +48,7 @@ afterEach(() => {
 });
 
 test('a pack enabled for every room is still listed in its own room', async () => {
-  core.imagePacks.mockResolvedValue({
+  core.rpc.packs.list.mockResolvedValue({
     packs: [
       pack({ origin: 'global' }),
       pack({ id: 'parent', name: 'Parent pack', origin: 'space', room_id: '!parent:home.example' }),
@@ -63,12 +64,12 @@ test('a pack enabled for every room is still listed in its own room', async () =
 });
 
 test('converting a legacy-only pack asks the core to copy it', async () => {
-  core.imagePacks.mockResolvedValue({
+  core.rpc.packs.list.mockResolvedValue({
     packs: [pack({ stable_event: false, legacy_event: true })],
     complete: true,
   });
   const convertLegacyImagePacks = vi.fn<() => Promise<null>>(() => Promise.resolve(null));
-  Object.assign(core, { convertLegacyImagePacks });
+  Object.assign(core.rpc.packs, { convertLegacy: convertLegacyImagePacks });
   const room = { room_id: '!space:home.example' } as RoomListItemView;
   const levels: RoomPowerLevelsView = {
     ban: 50,

@@ -1,12 +1,16 @@
+use crate::api::personas::DisableRoomParams;
+use crate::api::personas::ReorderParams;
+use crate::api::personas::SaveParams;
+use crate::api::personas::SetSelectionParams;
 use std::collections::{BTreeMap, BTreeSet};
 
 use matrix_sdk::Room;
+use matrix_sdk::ruma::TransactionId;
 use matrix_sdk::ruma::events::room::message::RoomMessageEventContentWithoutRelation;
 use matrix_sdk::ruma::events::{
     AnyMessageLikeEventContent, GlobalAccountDataEventType, MessageLikeEventContent,
 };
 use matrix_sdk::ruma::serde::Raw;
-use matrix_sdk::ruma::{OwnedRoomId, TransactionId};
 use matrix_sdk::send_queue::LocalEchoContent;
 use sable_model::non_blank::NonBlank;
 use serde::{Deserialize, Serialize, Serializer};
@@ -705,7 +709,7 @@ impl Core {
         forum_title: Option<String>,
     ) -> Result<(), RpcError> {
         let event_type = content.event_type().to_string();
-        let title = crate::api::support::forum_title_value(forum_title);
+        let title = crate::outgoing::forum_title_value(forum_title);
         let mut value = serde_json::to_value(content).or_failed(self, "edit_with_persona")?;
 
         let update = |content: &mut Value| {
@@ -857,8 +861,10 @@ impl Core {
 
     pub(crate) async fn save_persona(
         &self,
-        persona: PersonaView,
-        previous_id: Option<String>,
+        SaveParams {
+            persona,
+            previous_id,
+        }: SaveParams,
     ) -> Result<Vec<PersonaView>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let replaced = previous_id.unwrap_or_else(|| persona.id.clone());
@@ -892,7 +898,7 @@ impl Core {
 
     pub(crate) async fn reorder_personas(
         &self,
-        ids: Vec<String>,
+        ReorderParams { ids }: ReorderParams,
     ) -> Result<Vec<PersonaView>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let personas = self.load_personas().await?;
@@ -977,9 +983,11 @@ impl Core {
 
     pub(crate) async fn set_persona_selection(
         &self,
-        room_id: Option<OwnedRoomId>,
-        persona_id: Option<String>,
-        valid_until: Option<u64>,
+        SetSelectionParams {
+            room_id,
+            persona_id,
+            valid_until,
+        }: SetSelectionParams,
     ) -> Result<(), RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let selection = persona_id.map(|persona_id| PersonaSelectionView {
@@ -1012,7 +1020,10 @@ impl Core {
         self.write_room_selections(rooms).await
     }
 
-    pub(crate) async fn disable_room_personas(&self, room_id: OwnedRoomId) -> Result<(), RpcError> {
+    pub(crate) async fn disable_room_personas(
+        &self,
+        DisableRoomParams { room_id }: DisableRoomParams,
+    ) -> Result<(), RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let mut rooms = self.room_selections().await?;
         rooms.insert(room_id.to_string(), RoomAssociation::Disabled);

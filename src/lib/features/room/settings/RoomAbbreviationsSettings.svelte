@@ -72,7 +72,7 @@
 
     const current = ++run;
     void core.rpc.room_state
-      .roomAbbreviations({ room_id: target })
+      .abbreviations({ room_id: target })
       .then((next) => {
         if (current === run) entries = next;
       })
@@ -98,7 +98,7 @@
       ids.map(async (spaceId) => {
         let list: AbbreviationEntry[] = [];
         try {
-          list = await core.rpc.room_state.roomAbbreviations({ room_id: spaceId });
+          list = await core.rpc.room_state.abbreviations({ room_id: spaceId });
         } catch (error) {
           console.debug('[sable room] inherited abbreviations unavailable', error);
         }
@@ -124,7 +124,7 @@
     busy = true;
     failed = false;
     try {
-      await core.rpc.room_state.setRoomAbbreviations({
+      await core.rpc.room_state.setAbbreviations({
         room_id: target,
         entries: $state.snapshot([...next]),
       });

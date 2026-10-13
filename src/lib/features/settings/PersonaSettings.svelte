@@ -191,7 +191,7 @@
     backingUp = true;
     error = null;
     try {
-      const bytes = new TextEncoder().encode(await core.rpc.personas.personaBackup());
+      const bytes = new TextEncoder().encode(await core.rpc.personas.backup());
       if ((await saveBytes(bytes, backupFileName(), 'application/json')) === 'failed') {
         error = $i18n.t('personas.backupFailed');
       }
@@ -209,7 +209,7 @@
     error = null;
     try {
       const backup = await file.text();
-      await core.rpc.personas.checkPersonaBackup({ backup });
+      await core.rpc.personas.checkBackup({ backup });
       restoreContent = backup;
     } catch (cause) {
       console.warn('[sable personas] the backup file could not be read', cause);
@@ -228,7 +228,7 @@
     if (backup === null) return;
     restoring = true;
     try {
-      await core.rpc.personas.restorePersonaBackup({ backup });
+      await core.rpc.personas.restoreBackup({ backup });
       await personas.load(true);
     } catch (cause) {
       console.warn('[sable personas] the restore failed', cause);

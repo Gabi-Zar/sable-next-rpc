@@ -54,7 +54,7 @@
     const failures: string[] = [];
     for (const id of ids) {
       try {
-        await core.rpc.rooms.leaveRoom({ room_id: id });
+        await core.rpc.rooms.leave({ room_id: id });
       } catch (error) {
         console.warn('[sable room] leave failed', error);
         failures.push(roomList.labelFor(id));

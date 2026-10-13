@@ -7,7 +7,7 @@ test('loads space colors and pronouns', async () => {
   const store = new RoomCosmetics({
     rpc: {
       rooms: {
-        roomCosmetics: vi.fn().mockResolvedValue({
+        cosmetics: vi.fn().mockResolvedValue({
           space_id: '!space:example.org',
           users: [
             {

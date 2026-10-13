@@ -7,9 +7,9 @@ export async function imagePackListing(
 ): Promise<{ packs: ImagePackView[]; complete: boolean }> {
   if (roomId === '') {
     if (cachedOnly) return { packs: [], complete: false };
-    return { packs: await rpc.packs.allImagePacks(), complete: false };
+    return { packs: await rpc.packs.listAll(), complete: false };
   }
-  return rpc.packs.imagePacks({ room_id: roomId, cached_only: cachedOnly });
+  return rpc.packs.list({ room_id: roomId, cached_only: cachedOnly });
 }
 
 export async function imagePacks(

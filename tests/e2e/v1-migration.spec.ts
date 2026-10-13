@@ -333,7 +333,7 @@ test('v2 WASM restores the copied v1 device and cross-signing secrets', async ({
       false
     );
     const session: unknown = JSON.parse(await core.call('session.restore', '{}'));
-    const status = JSON.parse(await core.call('encryption.encryption_status', '{}')) as {
+    const status = JSON.parse(await core.call('encryption.status', '{}')) as {
       cross_signing_ready: boolean;
     };
     return { session, status };

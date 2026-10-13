@@ -13,9 +13,10 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 import RoomAddressSettings from './RoomAddressSettings.svelte';
 
-const core = Object.assign(baseCore, {
-  roomAliases: vi.fn<() => Promise<string[]>>(() => Promise.resolve([])),
-  createRoomAlias: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
+const core = baseCore;
+Object.assign(core.rpc.rooms, {
+  aliases: vi.fn<() => Promise<string[]>>(() => Promise.resolve([])),
+  createAlias: vi.fn<() => Promise<null>>(() => Promise.resolve(null)),
 });
 
 const levels: RoomPowerLevelsView = {
@@ -44,7 +45,7 @@ test('a bare address is created on your own server, not the room id', async () =
 
   await user.type(await screen.findByRole('textbox', { name: 'common.add' }), 'lounge{Enter}');
 
-  expect(core.createRoomAlias).toHaveBeenCalledWith({
+  expect(core.rpc.rooms.createAlias).toHaveBeenCalledWith({
     room_id: '!v12roomhashwithoutserver',
     alias: '#lounge:home.example',
   });

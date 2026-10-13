@@ -63,10 +63,10 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
       return media;
     });
     const call = vi.fn((method: string, params: { room_id?: string }) => {
-      if (method === 'packs.image_packs' && params.room_id === '') {
+      if (method === 'packs.list' && params.room_id === '') {
         return Promise.reject(new Error('invalid room ID'));
       }
-      if (method === 'packs.all_image_packs') return Promise.resolve(packs);
+      if (method === 'packs.list_all') return Promise.resolve(packs);
       throw new Error(`Unexpected call: ${method}`);
     });
     const transport = { call, fetchMedia: () => new Promise(() => {}) } as unknown as Transport;
@@ -85,6 +85,6 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
     await fireEvent.click(choice);
 
     expect(preferences.doubleTapReaction).toBe(reaction);
-    expect(call).toHaveBeenCalledExactlyOnceWith('packs.all_image_packs', {});
+    expect(call).toHaveBeenCalledExactlyOnceWith('packs.list_all', {});
   });
 });

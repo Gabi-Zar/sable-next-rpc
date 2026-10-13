@@ -95,8 +95,8 @@ describe('account progress', () => {
     const core = {
       rpc: {
         account: {
-          accountData: vi.fn(() => Promise.resolve({ finished: ['future-step'], extra: 1 })),
-          setAccountData,
+          data: vi.fn(() => Promise.resolve({ finished: ['future-step'], extra: 1 })),
+          setData: setAccountData,
         },
       },
     } as unknown as CoreClient;
@@ -117,8 +117,8 @@ describe('account progress', () => {
     const core = {
       rpc: {
         account: {
-          accountData: vi.fn(() => Promise.resolve({ finished: ['recovery'] })),
-          setAccountData,
+          data: vi.fn(() => Promise.resolve({ finished: ['recovery'] })),
+          setData: setAccountData,
         },
       },
     } as unknown as CoreClient;
@@ -135,8 +135,8 @@ describe('running setup again', () => {
     const core = {
       rpc: {
         account: {
-          accountData: vi.fn(() => Promise.resolve({ finished: ['notifications'], extra: 1 })),
-          setAccountData,
+          data: vi.fn(() => Promise.resolve({ finished: ['notifications'], extra: 1 })),
+          setData: setAccountData,
         },
       },
     } as unknown as CoreClient;

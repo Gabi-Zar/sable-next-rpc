@@ -1,3 +1,5 @@
+use crate::api::auth::RequestPasswordResetEmailParams;
+use crate::api::auth::ResetPasswordParams;
 use matrix_sdk::ruma::api::client::account::change_password::v3::Request as ChangePasswordRequest;
 use matrix_sdk::ruma::api::client::account::request_password_change_token_via_email::v3::Request as PasswordEmailRequest;
 use matrix_sdk::ruma::api::client::uiaa::{
@@ -8,7 +10,7 @@ use matrix_sdk::ruma::{ClientSecret, OwnedClientSecret, OwnedSessionId, SessionI
 
 use std::sync::Arc;
 
-use crate::api::auth::PasswordResetEmailOk;
+use crate::api::auth::RequestPasswordResetEmailOk;
 use crate::protocol::RpcError;
 use crate::{Core, session};
 
@@ -83,11 +85,13 @@ impl Core {
 
     pub(super) async fn request_password_reset_email(
         self: &Arc<Self>,
-        homeserver: String,
-        email: String,
-        client_secret: Option<String>,
-        send_attempt: u32,
-    ) -> Result<PasswordResetEmailOk, RpcError> {
+        RequestPasswordResetEmailParams {
+            homeserver,
+            email,
+            client_secret,
+            send_attempt,
+        }: RequestPasswordResetEmailParams,
+    ) -> Result<RequestPasswordResetEmailOk, RpcError> {
         let email = email.trim().to_owned();
         if email.is_empty() || !email.contains('@') {
             return Err(RpcError::InvalidEmail);
@@ -107,7 +111,7 @@ impl Core {
             .send(request)
             .await
             .map_err(|error| self.password_reset_error("password_reset_email", error))?;
-        Ok(PasswordResetEmailOk {
+        Ok(RequestPasswordResetEmailOk {
             client_secret: client_secret.to_string(),
             sid: response.sid.to_string(),
         })
@@ -115,11 +119,13 @@ impl Core {
 
     pub(super) async fn reset_password(
         self: &Arc<Self>,
-        homeserver: String,
-        client_secret: String,
-        sid: String,
-        new_password: String,
-        logout_devices: bool,
+        ResetPasswordParams {
+            homeserver,
+            client_secret,
+            sid,
+            new_password,
+            logout_devices,
+        }: ResetPasswordParams,
     ) -> Result<(), RpcError> {
         let client_secret =
             ClientSecret::parse(&client_secret).map_err(|_| RpcError::EmailVerificationFailed)?;
@@ -243,24 +249,24 @@ mod tests {
             .await;
         let (core, directory) = test_core("sable-reset");
 
-        let PasswordResetEmailOk { client_secret, sid } = core
-            .request_password_reset_email(
-                server.server().uri(),
-                " alice@example.org ".to_owned(),
-                None,
-                1,
-            )
+        let RequestPasswordResetEmailOk { client_secret, sid } = core
+            .request_password_reset_email(RequestPasswordResetEmailParams {
+                homeserver: server.server().uri(),
+                email: " alice@example.org ".to_owned(),
+                client_secret: None,
+                send_attempt: 1,
+            })
             .await
             .unwrap();
         assert_eq!(sid, "sid-1");
         let result = core
-            .reset_password(
-                server.server().uri(),
+            .reset_password(ResetPasswordParams {
+                homeserver: server.server().uri(),
                 client_secret,
                 sid,
-                "correct horse".to_owned(),
-                false,
-            )
+                new_password: "correct horse".to_owned(),
+                logout_devices: false,
+            })
             .await;
 
         assert!(matches!(result, Ok(())));
@@ -293,13 +299,13 @@ mod tests {
         let (core, directory) = test_core("sable-reset-unvalidated");
 
         let result = core
-            .reset_password(
-                server.server().uri(),
-                "secret-1".to_owned(),
-                "sid-1".to_owned(),
-                "correct horse".to_owned(),
-                true,
-            )
+            .reset_password(ResetPasswordParams {
+                homeserver: server.server().uri(),
+                client_secret: "secret-1".to_owned(),
+                sid: "sid-1".to_owned(),
+                new_password: "correct horse".to_owned(),
+                logout_devices: true,
+            })
             .await;
 
         assert!(matches!(result, Err(RpcError::EmailVerificationFailed)));
@@ -330,15 +336,20 @@ mod tests {
         let (core, directory) = test_core("sable-reset-unknown");
 
         let unknown = core
-            .request_password_reset_email(
-                server.server().uri(),
-                "bob@example.org".to_owned(),
-                None,
-                1,
-            )
+            .request_password_reset_email(RequestPasswordResetEmailParams {
+                homeserver: server.server().uri(),
+                email: "bob@example.org".to_owned(),
+                client_secret: None,
+                send_attempt: 1,
+            })
             .await;
         let invalid = core
-            .request_password_reset_email(server.server().uri(), "bob".to_owned(), None, 1)
+            .request_password_reset_email(RequestPasswordResetEmailParams {
+                homeserver: server.server().uri(),
+                email: "bob".to_owned(),
+                client_secret: None,
+                send_attempt: 1,
+            })
             .await;
 
         assert!(matches!(unknown, Err(RpcError::UnknownEmail)));
@@ -377,21 +388,21 @@ mod tests {
         let (core, directory) = test_core("sable-reset-unsupported");
 
         let unsupported = core
-            .request_password_reset_email(
-                server.server().uri(),
-                "bob@example.org".to_owned(),
-                None,
-                1,
-            )
+            .request_password_reset_email(RequestPasswordResetEmailParams {
+                homeserver: server.server().uri(),
+                email: "bob@example.org".to_owned(),
+                client_secret: None,
+                send_attempt: 1,
+            })
             .await;
         let weak = core
-            .reset_password(
-                server.server().uri(),
-                "secret-1".to_owned(),
-                "sid-1".to_owned(),
-                "a".to_owned(),
-                true,
-            )
+            .reset_password(ResetPasswordParams {
+                homeserver: server.server().uri(),
+                client_secret: "secret-1".to_owned(),
+                sid: "sid-1".to_owned(),
+                new_password: "a".to_owned(),
+                logout_devices: true,
+            })
             .await;
 
         assert!(matches!(unsupported, Err(RpcError::Unsupported)));

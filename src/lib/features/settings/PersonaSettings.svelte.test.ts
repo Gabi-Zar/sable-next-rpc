@@ -29,12 +29,11 @@ vi.mock('#lib/core/context.js');
 
 import { core } from '#lib/core/__mocks__/context.js';
 
-Object.assign(core, {
-  uploadMedia: mocks.uploadMedia,
-  accountData: mocks.accountData,
-  setAccountData: mocks.setAccountData,
-  checkPersonaBackup: mocks.checkPersonaBackup,
-  restorePersonaBackup: mocks.restorePersonaBackup,
+Object.assign(core, { uploadMedia: mocks.uploadMedia });
+Object.assign(core.rpc.account, { data: mocks.accountData, setData: mocks.setAccountData });
+Object.assign(core.rpc.personas, {
+  checkBackup: mocks.checkPersonaBackup,
+  restoreBackup: mocks.restorePersonaBackup,
 });
 vi.mock('#lib/personas/personas.svelte.js', () => ({
   usePersonaStore: () => ({ personas: mocks.list, loading: false, error: null, ...mocks }),

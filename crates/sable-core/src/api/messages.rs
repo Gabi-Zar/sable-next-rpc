@@ -10,40 +10,51 @@ use matrix_sdk_ui::timeline::{Error as TimelineError, RedactError, TimelineEvent
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::api::support::{
-    BUNDLED_LINK_PREVIEWS, IMAGE_SOURCE_PACKS, LEGACY_BUNDLED_LINK_PREVIEWS, REACTION_SHORTCODE,
-    bundled_link_previews, empty_mentions, empty_mentions_extra, ensure_empty_mentions,
-    extra_content, forum_title_value, image_source_pack_extra, image_source_pack_references,
-    preview_refused, reaction_shortcode, soliditas_preview, sticker_info, url_preview,
-};
+use crate::link_previews::BUNDLED_LINK_PREVIEWS;
+use crate::outgoing::IMAGE_SOURCE_PACKS;
+use crate::link_previews::LEGACY_BUNDLED_LINK_PREVIEWS;
+use crate::outgoing::REACTION_SHORTCODE;
+use crate::link_previews::bundled_link_previews;
+use crate::outgoing::empty_mentions;
+use crate::outgoing::empty_mentions_extra;
+use crate::outgoing::ensure_empty_mentions;
+use crate::outgoing::extra_content;
+use crate::outgoing::forum_title_value;
+use crate::outgoing::image_source_pack_extra;
+use crate::outgoing::image_source_pack_references;
+use crate::link_previews::preview_refused;
+use crate::outgoing::reaction_shortcode;
+use crate::link_previews::soliditas_preview;
+use crate::outgoing::sticker_info;
+use crate::link_previews::url_preview;
 use crate::outgoing::{gif_content, location_content, message_content, reply_to, thread_reply};
 use crate::protocol::{AttachmentInfoView, RpcError, ComposerContent, ComposerPill, GestureView, ImageSourcePackReferenceView, ImageSourcePackView, MessageKind, PackImageInfoView, PerMessageProfileView, ReactionShortcodeView, ScheduledMessageView, SubscriptionId, UrlPreviewView};
 use crate::{Core, ResultExt, view};
 
 domain! {
     markdown_to_content,
-    send_message,
+    send,
     send_raw_event,
     send_redaction,
     send_sticker,
     send_gif,
     remove_link_previews,
-    reprofile_message,
-    edit_message,
+    reprofile,
+    edit,
     redact,
     delete_thread,
     bulk_redact,
     react,
     send_location,
-    forward_message,
-    report_message,
+    forward,
+    report,
     retry_send,
     cancel_send,
-    schedule_message,
+    schedule,
     schedule_attachment,
-    scheduled_messages,
-    cancel_scheduled_message,
-    send_scheduled_message,
+    scheduled,
+    cancel_scheduled,
+    send_scheduled,
     create_poll,
     vote_poll,
     end_poll,
@@ -57,7 +68,7 @@ domain! {
 /// A typed message as the web composer's plain mode sends it, each
 /// `\u{FFFC}` in `markdown` standing for the next of `pills`.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MarkdownToContentParams {
     pub markdown: String,
     #[serde(default)]
@@ -79,11 +90,12 @@ impl Handler for MarkdownToContentParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SendMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub body: String,
+    #[serde(default)]
     pub formatted: Option<String>,
     #[serde(default)]
     pub kind: MessageKind,
@@ -117,7 +129,7 @@ pub struct SendMessageParams {
     pub forum_title: Option<String>,
 }
 
-impl Handler for SendMessageParams {
+impl Handler for SendParams {
     /// The local echo arrives on the timeline diff stream.
     type Ok = ();
 
@@ -187,7 +199,7 @@ impl Handler for SendMessageParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SendRawEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -214,12 +226,13 @@ impl Handler for SendRawEventParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SendRedactionParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub event_id: OwnedEventId,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
@@ -238,7 +251,7 @@ impl Handler for SendRedactionParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SendStickerParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -301,7 +314,7 @@ impl Handler for SendStickerParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SendGifParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -309,11 +322,13 @@ pub struct SendGifParams {
     pub url: String,
     pub body: String,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    #[serde(default)]
     pub width: Option<u32>,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
     pub height: Option<u32>,
     pub mimetype: String,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    #[serde(default)]
     pub size: Option<u32>,
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
@@ -368,7 +383,7 @@ impl Handler for SendGifParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RemoveLinkPreviewsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -393,8 +408,8 @@ impl Handler for RemoveLinkPreviewsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ReprofileMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ReprofileParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
@@ -406,7 +421,7 @@ pub struct ReprofileMessageParams {
     pub persona: Option<PerMessageProfileView>,
 }
 
-impl Handler for ReprofileMessageParams {
+impl Handler for ReprofileParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -422,11 +437,12 @@ impl Handler for ReprofileMessageParams {
 
 /// `edited` on the view flips once the server has the replacement.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct EditMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct EditParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub event_id: Option<OwnedEventId>,
     #[serde(default)]
     pub transaction_id: Option<String>,
@@ -450,7 +466,7 @@ pub struct EditMessageParams {
     pub forum_title: Option<String>,
 }
 
-impl Handler for EditMessageParams {
+impl Handler for EditParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -473,12 +489,13 @@ impl Handler for EditMessageParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RedactParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub event_id: OwnedEventId,
+    #[serde(default)]
     pub reason: Option<String>,
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
@@ -513,12 +530,13 @@ impl Handler for RedactParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DeleteThreadParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub root_event_id: OwnedEventId,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
@@ -532,7 +550,7 @@ impl Handler for DeleteThreadParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct BulkRedactParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -540,6 +558,7 @@ pub struct BulkRedactParams {
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub after_ts: u64,
     pub event_types: Vec<String>,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
@@ -560,7 +579,7 @@ impl Handler for BulkRedactParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ReactParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -637,7 +656,7 @@ impl Handler for ReactParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SendLocationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -682,8 +701,8 @@ impl Handler for SendLocationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ForwardMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ForwardParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
@@ -692,7 +711,7 @@ pub struct ForwardMessageParams {
     pub to_room_id: OwnedRoomId,
 }
 
-impl Handler for ForwardMessageParams {
+impl Handler for ForwardParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -702,16 +721,17 @@ impl Handler for ForwardMessageParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ReportMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ReportParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub event_id: OwnedEventId,
+    #[serde(default)]
     pub reason: Option<String>,
 }
 
-impl Handler for ReportMessageParams {
+impl Handler for ReportParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -721,7 +741,7 @@ impl Handler for ReportMessageParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RetrySendParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -751,7 +771,7 @@ impl Handler for RetrySendParams {
 
 /// A local echo is not on the server, so it cannot be redacted.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CancelSendParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -784,8 +804,8 @@ impl Handler for CancelSendParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ScheduleMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ScheduleParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub body: String,
@@ -795,7 +815,7 @@ pub struct ScheduleMessageParams {
     pub delay_ms: u64,
 }
 
-impl Handler for ScheduleMessageParams {
+impl Handler for ScheduleParams {
     /// The delay id.
     type Ok = String;
 
@@ -813,7 +833,7 @@ impl Handler for ScheduleMessageParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ScheduleAttachmentParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -850,14 +870,14 @@ impl Handler for ScheduleAttachmentParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ScheduledMessagesParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ScheduledParams {
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
     pub room_id: Option<OwnedRoomId>,
 }
 
-impl Handler for ScheduledMessagesParams {
+impl Handler for ScheduledParams {
     type Ok = Vec<ScheduledMessageView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<ScheduledMessageView>, RpcError> {
@@ -866,36 +886,36 @@ impl Handler for ScheduledMessagesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CancelScheduledMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CancelScheduledParams {
     pub delay_id: String,
 }
 
-impl Handler for CancelScheduledMessageParams {
+impl Handler for CancelScheduledParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.cancel_scheduled_message(self.delay_id).await
+        core.cancel_scheduled_message(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SendScheduledMessageParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendScheduledParams {
     pub delay_id: String,
 }
 
-impl Handler for SendScheduledMessageParams {
+impl Handler for SendScheduledParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.send_scheduled_message_now(self.delay_id).await
+        core.send_scheduled_message_now(self).await
     }
 }
 
 /// MSC3381.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CreatePollParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -938,7 +958,7 @@ impl Handler for CreatePollParams {
 
 /// Replaces any earlier vote by this account. An empty selection abstains.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct VotePollParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -974,7 +994,7 @@ impl Handler for VotePollParams {
 
 /// Irreversible.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EndPollParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -1005,12 +1025,13 @@ impl Handler for EndPollParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SendGestureParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub gesture: GestureView,
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub target: Option<OwnedUserId>,
 }
 
@@ -1024,9 +1045,10 @@ impl Handler for SendGestureParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UrlPreviewParams {
     pub url: String,
+    #[serde(default)]
     pub service: Option<String>,
 }
 
@@ -1063,7 +1085,7 @@ impl Handler for UrlPreviewParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ReactionShortcodesParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -1082,7 +1104,7 @@ impl Handler for ReactionShortcodesParams {
 
 /// The server expires it by itself, so a missed `false` is not fatal.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetTypingParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -1102,12 +1124,12 @@ impl Handler for SetTypingParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MediaConfigParams {}
 
 /// A struct rather than a bare `u64`, which the TypeScript export refuses.
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MediaConfigOk {
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub upload_size: u64,

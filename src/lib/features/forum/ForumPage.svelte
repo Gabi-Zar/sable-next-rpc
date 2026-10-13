@@ -126,7 +126,7 @@
     if (threadRootId === null) return;
     const activeRoomId = resolvedRoomId;
     void memberLoader.load(activeRoomId, (id) =>
-      core.rpc.members.roomMembers({ room_id: id, memberships: [] })
+      core.rpc.members.list({ room_id: id, memberships: [] })
     );
   });
 
@@ -134,7 +134,7 @@
     const activeRoomId = resolvedRoomId;
     let current = true;
     core.rpc.members
-      .roomPermissions({ room_id: activeRoomId })
+      .permissions({ room_id: activeRoomId })
       .then((next) => {
         if (current) permissions = next;
       })

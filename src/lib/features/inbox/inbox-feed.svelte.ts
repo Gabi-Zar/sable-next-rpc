@@ -2,7 +2,7 @@ import type { InboxFilter, InboxItemView, Rpc } from '#src/generated/protocol';
 import { SvelteSet } from 'svelte/reactivity';
 import { NOTIFICATION_GROUP_LIMIT } from './inbox';
 
-export type InboxFeedCommands = Pick<Rpc['notifications'], 'inboxNotifications' | 'backfillInbox'>;
+export type InboxFeedCommands = Pick<Rpc['notifications'], 'inbox' | 'backfillInbox'>;
 
 export class InboxFeed {
   items = $state.raw<InboxItemView[]>([]);
@@ -26,7 +26,7 @@ export class InboxFeed {
     try {
       let queryLimit = limit * NOTIFICATION_GROUP_LIMIT;
       for (;;) {
-        const page = await this.commands.inboxNotifications({
+        const page = await this.commands.inbox({
           filter,
           include_read: includeRead,
           limit: queryLimit,

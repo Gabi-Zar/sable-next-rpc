@@ -52,8 +52,8 @@ export class MemberProfileActions {
     reason: string | null
   ): Promise<void> {
     if (action === 'kick')
-      await this.core.rpc.members.kickUser({ room_id: roomId, user_id: userId, reason });
-    else await this.core.rpc.members.banUser({ room_id: roomId, user_id: userId, reason });
+      await this.core.rpc.members.kick({ room_id: roomId, user_id: userId, reason });
+    else await this.core.rpc.members.ban({ room_id: roomId, user_id: userId, reason });
   }
 
   async setPowerLevel(roomId: string, userId: string, level: number): Promise<void> {

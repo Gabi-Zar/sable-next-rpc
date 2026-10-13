@@ -12,7 +12,7 @@ export async function setMemberLook(
   edit: MemberLookEdit,
   inParentSpace = false
 ): Promise<void> {
-  await rpc.members.setMemberLook({
+  await rpc.members.setLook({
     room_id: roomId,
     in_parent_space: inParentSpace,
     display_name: edit.display_name ?? KEEP,

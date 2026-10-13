@@ -11,13 +11,6 @@ import { core } from '#lib/core/__mocks__/context.js';
 const cancelVerification = vi.fn(() => Promise.resolve());
 
 Object.assign(core, {
-  rpc: {
-    encryption: {
-      acceptVerification: vi.fn(() => Promise.resolve()),
-      cancelVerification,
-      confirmVerification: vi.fn(() => Promise.resolve()),
-    },
-  },
   session: { user_id: '@alice:example.org' },
   verification: {
     userId: '@alice:example.org',
@@ -31,6 +24,11 @@ Object.assign(core, {
       decimals: [1, 2, 3] as [number, number, number],
     },
   },
+});
+Object.assign(core.rpc.encryption, {
+  acceptVerification: vi.fn(() => Promise.resolve()),
+  cancelVerification,
+  confirmVerification: vi.fn(() => Promise.resolve()),
 });
 
 import DeviceVerificationDialog from './DeviceVerificationDialog.svelte';

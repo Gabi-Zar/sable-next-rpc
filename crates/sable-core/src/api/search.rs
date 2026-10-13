@@ -3,16 +3,16 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::api::support::MAX_SEARCH_RESULTS;
+use crate::search::MAX_SEARCH_RESULTS;
 use crate::protocol::{RpcError, SearchCoverageView, SearchFilter, SearchHitView, SearchMetricsView};
 use crate::{Core, view};
 
 const MAX_SEARCH_CONTEXT: usize = 3;
 
 domain! {
-    search_messages,
-    search_coverage,
-    search_metrics,
+    messages,
+    coverage,
+    metrics,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
@@ -26,8 +26,8 @@ pub enum SearchOrder {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SearchMessagesParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct MessagesParams {
     pub query: String,
     #[serde(default)]
     pub filter: SearchFilter,
@@ -42,16 +42,16 @@ pub struct SearchMessagesParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SearchMessagesOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct MessagesOk {
     pub hits: Vec<SearchHitView>,
     pub older: Option<String>,
 }
 
-impl Handler for SearchMessagesParams {
-    type Ok = SearchMessagesOk;
+impl Handler for MessagesParams {
+    type Ok = MessagesOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SearchMessagesOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<MessagesOk, RpcError> {
         let Self {
             query,
             filter,
@@ -79,7 +79,7 @@ impl Handler for SearchMessagesParams {
             (hits, older)
         };
 
-        Ok(SearchMessagesOk {
+        Ok(MessagesOk {
             hits: hits.into_iter().map(view::search_hit_view).collect(),
             older,
         })
@@ -87,10 +87,10 @@ impl Handler for SearchMessagesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SearchCoverageParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CoverageParams {}
 
-impl Handler for SearchCoverageParams {
+impl Handler for CoverageParams {
     type Ok = SearchCoverageView;
 
     async fn run(self, core: &Arc<Core>) -> Result<SearchCoverageView, RpcError> {
@@ -99,10 +99,10 @@ impl Handler for SearchCoverageParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SearchMetricsParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct MetricsParams {}
 
-impl Handler for SearchMetricsParams {
+impl Handler for MetricsParams {
     type Ok = SearchMetricsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<SearchMetricsView, RpcError> {

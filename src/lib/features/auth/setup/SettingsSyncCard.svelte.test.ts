@@ -16,7 +16,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 const accountData = vi.fn<(params: { event_type: string }) => Promise<unknown>>(() =>
   Promise.resolve(null)
 );
-Object.assign(core, { rpc: { account: { accountData } } });
+Object.assign(core.rpc.account, { data: accountData });
 
 import SettingsSyncCard from './SettingsSyncCard.svelte';
 

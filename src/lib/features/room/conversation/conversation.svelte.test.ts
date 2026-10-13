@@ -708,12 +708,12 @@ function scheduling() {
   const scheduleMessage = vi.fn(() => Promise.reject(encryptedScheduleFailure()));
   const core = {
     session: { user_id: '@kris:example.org', device_id: 'DEV' },
-    rpc: { messages: { scheduleMessage } },
+    rpc: { messages: { schedule: scheduleMessage } },
   } as unknown as CoreClient;
 
   return new Conversation({
     core,
-    personas: { personas: [] } as unknown as PersonaStore,
+    personas: { list: [] } as unknown as PersonaStore,
     timeline: { items: [] } as unknown as RoomTimeline,
     roomId: () => ROOM,
     encrypted: () => true,
@@ -758,11 +758,11 @@ function rescheduling(
   });
   const core = {
     session: { user_id: '@kris:example.org', device_id: 'DEV' },
-    rpc: { messages: { scheduleMessage: schedule, cancelScheduledMessage: cancel } },
+    rpc: { messages: { schedule: schedule, cancelScheduled: cancel } },
   } as unknown as CoreClient;
   const conversation = new Conversation({
     core,
-    personas: { personas: [] } as unknown as PersonaStore,
+    personas: { list: [] } as unknown as PersonaStore,
     timeline: { items: [] } as unknown as RoomTimeline,
     roomId: () => ROOM,
   });

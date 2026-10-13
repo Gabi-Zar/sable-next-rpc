@@ -13,7 +13,7 @@ vi.mock('#lib/core/context.js');
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const encryption = {
-  encryptionStatus: vi.fn<() => Promise<EncryptionStatusView>>(),
+  status: vi.fn<() => Promise<EncryptionStatusView>>(),
   devices: vi.fn<() => Promise<{ devices: DeviceView[]; account_management: boolean }>>(),
   deleteDevice:
     vi.fn<(params: { device_id: string; password: string | null }) => Promise<string | null>>(),
@@ -75,7 +75,7 @@ const other2: DeviceView = {
 };
 
 async function renderDevices(devices: DeviceView[]) {
-  encryption.encryptionStatus.mockResolvedValue(status);
+  encryption.status.mockResolvedValue(status);
   encryption.devices.mockResolvedValue({ devices, account_management: false });
   render(DevicesSettings);
   await vi.waitFor(() => {
@@ -193,7 +193,7 @@ test('removing one device shows it is in progress until the list no longer has i
 });
 
 test('a verified session missing its master key explains it instead of asking to unlock', async () => {
-  encryption.encryptionStatus.mockResolvedValue({
+  encryption.status.mockResolvedValue({
     ...status,
     recovery: 'incomplete',
     backup_unlocked: true,
@@ -210,7 +210,7 @@ test('a verified session missing its master key explains it instead of asking to
 });
 
 test('a verified session whose key backup is still locked keeps the unlock action', async () => {
-  encryption.encryptionStatus.mockResolvedValue({
+  encryption.status.mockResolvedValue({
     ...status,
     recovery: 'incomplete',
     backup_unlocked: false,

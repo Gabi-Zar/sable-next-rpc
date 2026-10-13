@@ -24,7 +24,7 @@
   async function refresh(): Promise<void> {
     if (!core.session) return;
     try {
-      types = await core.rpc.account.accountDataTypes();
+      types = await core.rpc.account.dataTypes();
     } catch {
       types = [];
     }
@@ -51,7 +51,7 @@
     }
     loading = true;
     try {
-      const value = await core.rpc.account.accountData({ event_type: type });
+      const value = await core.rpc.account.data({ event_type: type });
       content = JSON.stringify(value ?? {}, null, 2);
     } catch {
       error = 'failed';
@@ -75,7 +75,7 @@
     error = null;
     saved = false;
     try {
-      await core.rpc.account.setAccountData({ event_type: type, content: parsed });
+      await core.rpc.account.setData({ event_type: type, content: parsed });
       await refresh();
       selected = type;
       saved = true;

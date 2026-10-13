@@ -1,16 +1,32 @@
+use crate::Core;
+use crate::ResultExt;
+use crate::api::room_state::EnableEncryptionParams;
+use crate::api::room_state::SetHistoryVisibilityParams;
+use crate::api::room_state::SetMemberListThresholdParams;
+use crate::probed_state::Probed;
+use crate::protocol::{CoreEvent, CreateJoinRuleView, RoomStateEventView, RpcError};
+use crate::view;
+use matrix_sdk::deserialized_responses::RawAnySyncOrStrippedState;
 use matrix_sdk::ruma::EventEncryptionAlgorithm;
-use matrix_sdk::ruma::OwnedRoomId;
+use matrix_sdk::ruma::api::client::state::get_state_event_for_key;
+use matrix_sdk::ruma::api::error::ErrorKind;
+use matrix_sdk::ruma::events::InitialStateEvent;
 use matrix_sdk::ruma::events::room::encryption::RoomEncryptionEventContent;
 use matrix_sdk::ruma::events::room::history_visibility::{
     HistoryVisibility, RoomHistoryVisibilityEventContent,
 };
+use matrix_sdk::ruma::events::room::join_rules::RoomJoinRulesEventContent;
 use matrix_sdk::ruma::events::room::tombstone::RoomTombstoneEventContent;
+use matrix_sdk::ruma::room::{AllowRule, JoinRule, Restricted};
+use matrix_sdk::ruma::serde::Raw;
+use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, RoomId};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use serde_with::{DefaultOnError, VecSkipError, serde_as};
+use serde_with::VecSkipError;
+use serde_with::{DefaultOnError, serde_as};
+use std::collections::{BTreeMap, HashMap};
 
-use crate::Core;
-use crate::protocol::{AbbreviationView, HistoryVisibilityView, RpcError};
+use crate::protocol::{AbbreviationView, HistoryVisibilityView};
 
 const HISTORY_VISIBILITY_EVENT: &str = "m.room.history_visibility";
 const ENCRYPTION_EVENT: &str = "m.room.encryption";
@@ -295,8 +311,10 @@ impl Core {
 
     pub(crate) async fn set_history_visibility(
         &self,
-        room_id: OwnedRoomId,
-        visibility: HistoryVisibilityView,
+        SetHistoryVisibilityParams {
+            room_id,
+            visibility,
+        }: SetHistoryVisibilityParams,
     ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
@@ -311,7 +329,10 @@ impl Core {
         .await
     }
 
-    pub(crate) async fn enable_encryption(&self, room_id: OwnedRoomId) -> Result<(), RpcError> {
+    pub(crate) async fn enable_encryption(
+        &self,
+        EnableEncryptionParams { room_id }: EnableEncryptionParams,
+    ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
             ENCRYPTION_EVENT,
@@ -378,8 +399,10 @@ impl Core {
 
     pub(crate) async fn set_member_list_threshold(
         &self,
-        room_id: OwnedRoomId,
-        level: Option<i64>,
+        SetMemberListThresholdParams {
+            room_id,
+            always_listed_from: level,
+        }: SetMemberListThresholdParams,
     ) -> Result<(), RpcError> {
         self.write_room_state(
             room_id,
@@ -440,8 +463,309 @@ impl Core {
     }
 }
 
+#[derive(serde::Serialize)]
+pub(crate) struct StateEventOut<C> {
+    #[serde(rename = "type")]
+    pub(crate) kind: &'static str,
+    pub(crate) state_key: &'static str,
+    pub(crate) content: C,
+}
+
+pub(crate) fn join_rule_content(
+    rule: Option<CreateJoinRuleView>,
+    parent_space: Option<&RoomId>,
+) -> Option<InitialStateEvent<RoomJoinRulesEventContent>> {
+    let restricted = || {
+        parent_space
+            .map(|space| Restricted::new(vec![AllowRule::room_membership(space.to_owned())]))
+    };
+    let join_rule = match rule? {
+        CreateJoinRuleView::Public => JoinRule::Public,
+        CreateJoinRuleView::Invite => JoinRule::Invite,
+        CreateJoinRuleView::Knock => JoinRule::Knock,
+        CreateJoinRuleView::Restricted => {
+            restricted().map_or(JoinRule::Invite, JoinRule::Restricted)
+        }
+        CreateJoinRuleView::KnockRestricted => {
+            restricted().map_or(JoinRule::Invite, JoinRule::KnockRestricted)
+        }
+    };
+    Some(InitialStateEvent::with_empty_state_key(
+        RoomJoinRulesEventContent::new(join_rule),
+    ))
+}
+
+pub(crate) fn state_event_content(raw: &str) -> Option<serde_json::Value> {
+    let value = serde_json::from_str::<serde_json::Value>(raw).ok()?;
+    let is_event = value
+        .as_object()
+        .is_some_and(|object| object.contains_key("type") || object.contains_key("event_id"));
+
+    if is_event {
+        value.get("content").cloned()
+    } else {
+        Some(value)
+    }
+}
+
+#[derive(serde::Serialize)]
+pub(crate) struct PowerLevelsOverrideOut {
+    events: BTreeMap<&'static str, i64>,
+}
+
+pub(crate) fn voice_power_level_override() -> PowerLevelsOverrideOut {
+    PowerLevelsOverrideOut {
+        events: BTreeMap::from([
+            ("m.room.avatar", 50),
+            ("m.room.canonical_alias", 50),
+            ("m.room.encryption", 100),
+            ("m.room.history_visibility", 100),
+            ("m.room.name", 50),
+            ("m.room.power_levels", 100),
+            ("m.room.server_acl", 100),
+            ("m.room.tombstone", 100),
+            (view::CALL_MEMBER_TYPE, 0),
+        ]),
+    }
+}
+
+fn room_state_by_type(
+    events: &[Raw<matrix_sdk::ruma::events::AnyStateEvent>],
+) -> HashMap<String, Vec<RoomStateEventView>> {
+    let mut state: HashMap<String, Vec<RoomStateEventView>> = HashMap::new();
+    for raw in events {
+        let Some(event_type) = raw.get_field::<String>("type").ok().flatten() else {
+            continue;
+        };
+        if event_type == "m.room.member" {
+            continue;
+        }
+        let (Some(state_key), Some(content)) = (
+            raw.get_field::<String>("state_key").ok().flatten(),
+            raw.get_field::<serde_json::Value>("content").ok().flatten(),
+        ) else {
+            continue;
+        };
+        state
+            .entry(event_type)
+            .or_default()
+            .push(RoomStateEventView { state_key, content });
+    }
+    state
+}
+
+impl Core {
+    /// Every global account data write goes through here so the pack cache
+    /// never serves what we just replaced.
+    pub(crate) async fn set_account_data(
+        &self,
+        event_type: &str,
+        content: &impl serde::Serialize,
+    ) -> Result<(), RpcError> {
+        self.remember_account_data_type(event_type).await;
+        self.put_global_account_data(event_type.into(), content, "set_account_data")
+            .await?;
+        self.pack_cache.lock().await.forget_account_data(event_type);
+        Ok(())
+    }
+
+    /// Every state write goes through here so the caches that read state back
+    /// are invalidated and the cosmetic and profile listeners hear about it.
+    pub(crate) async fn send_state(
+        &self,
+        room_id: OwnedRoomId,
+        event_type: &str,
+        state_key: &str,
+        content: &impl serde::Serialize,
+    ) -> Result<OwnedEventId, RpcError> {
+        let content = &serde_json::to_value(content).or_failed(self, "send_state")?;
+        let response = self
+            .room(&room_id)
+            .await?
+            .send_state_event_raw(event_type, state_key, content)
+            .await
+            .map_err(|error| self.room_error("send_state_event", error))?;
+        self.pack_cache
+            .lock()
+            .await
+            .forget_room(&room_id, event_type);
+        self.forget_room_state(&room_id, event_type);
+        self.probed_state().remember_written(
+            &room_id,
+            event_type,
+            state_key,
+            content.clone(),
+            crate::probed_state::now_ms(),
+        );
+        if self.note_cosmetic_state(&room_id, event_type, state_key, content) {
+            self.emit(CoreEvent::RoomCosmeticsChanged {
+                room_id: room_id.clone(),
+            });
+        }
+        if event_type == "m.room.member"
+            && content.get("membership").and_then(|value| value.as_str()) == Some("join")
+            && let Ok(user_id) = matrix_sdk::ruma::OwnedUserId::try_from(state_key)
+        {
+            let text = |key| {
+                content
+                    .get(key)
+                    .and_then(|value| value.as_str())
+                    .map(ToOwned::to_owned)
+            };
+            let (display_name, avatar_url) = (text("displayname"), text("avatar_url"));
+            self.overlay_profile(&room_id, &user_id, display_name.clone(), avatar_url.clone())
+                .await;
+            self.emit(CoreEvent::ProfileChanged {
+                room_id,
+                user_id,
+                display_name,
+                avatar_url,
+            });
+        }
+
+        Ok(response.event_id)
+    }
+
+    pub(crate) async fn room_permissions(
+        &self,
+        room_id: &OwnedRoomId,
+    ) -> Result<crate::protocol::RoomPermissionsView, RpcError> {
+        let room = self.room(room_id).await?;
+        let user_id = room
+            .client()
+            .user_id()
+            .ok_or_else(|| self.failed("room_permissions", "no session"))?
+            .to_owned();
+        // An invited room carries only stripped state, so the levels are
+        // often absent. Spec defaults beat failing the whole command.
+        let power_levels = room.power_levels_or_default().await;
+
+        Ok(view::room_permissions(&power_levels, &user_id))
+    }
+
+    pub(crate) async fn room_state_events(
+        &self,
+        room_id: &OwnedRoomId,
+        event_type: &str,
+    ) -> Result<Vec<RoomStateEventView>, RpcError> {
+        let client = self.client().await?;
+        let room = self.room(room_id).await?;
+        let stored = room
+            .get_state_events(event_type.into())
+            .await
+            .map_err(|error| self.room_error("room_state_events", error))?;
+
+        let events: Vec<RoomStateEventView> = stored
+            .iter()
+            .filter_map(|raw| {
+                let (state_key, content) = match raw {
+                    RawAnySyncOrStrippedState::Sync(event) => (
+                        event.get_field::<String>("state_key"),
+                        event.get_field::<serde_json::Value>("content"),
+                    ),
+                    RawAnySyncOrStrippedState::Stripped(event) => (
+                        event.get_field::<String>("state_key"),
+                        event.get_field::<serde_json::Value>("content"),
+                    ),
+                };
+                Some(RoomStateEventView {
+                    state_key: state_key.ok().flatten()?,
+                    content: content.ok().flatten()?,
+                })
+            })
+            .collect();
+
+        if !events.is_empty() {
+            return Ok(events);
+        }
+        let probed = self.probed_state().events(room_id, event_type);
+        if let Some(events) = probed {
+            return Ok(events);
+        }
+
+        let snapshot = self
+            .room_state_snapshot(&client, room.room_id())
+            .await
+            .map_err(|error| self.room_error("room_state_events", error))?;
+        let state = room_state_by_type(&snapshot);
+        let events = state.get(event_type).cloned().unwrap_or_default();
+        self.probed_state().remember_full(room_id, state);
+
+        Ok(events)
+    }
+
+    pub(crate) async fn room_state_event_content(
+        &self,
+        room_id: OwnedRoomId,
+        event_type: String,
+        state_key: String,
+    ) -> Result<Option<serde_json::Value>, RpcError> {
+        let written = self.probed_state().written(
+            &room_id,
+            &event_type,
+            &state_key,
+            crate::probed_state::now_ms(),
+        );
+        if written.is_some() {
+            return Ok(written);
+        }
+        let client = self.client().await?;
+        let room = self.room(&room_id).await?;
+        let event = room
+            .get_state_event(event_type.clone().into(), &state_key)
+            .await
+            .ok()
+            .flatten();
+
+        let content = event.and_then(|raw| {
+            let field = match raw {
+                RawAnySyncOrStrippedState::Sync(event) => event.get_field("content"),
+                RawAnySyncOrStrippedState::Stripped(event) => event.get_field("content"),
+            };
+            field.ok().flatten()
+        });
+
+        if content.is_some() {
+            return Ok(content);
+        }
+        let probed = self
+            .probed_state()
+            .content(&room_id, &event_type, &state_key);
+        match probed {
+            Probed::Present(content) => return Ok(Some(content)),
+            Probed::Absent => return Ok(None),
+            Probed::Unknown => {}
+        }
+
+        let content = match client
+            .send(get_state_event_for_key::v3::Request::new(
+                room_id.clone(),
+                event_type.clone().into(),
+                state_key.clone(),
+            ))
+            .await
+        {
+            Ok(response) => state_event_content(response.event_or_content.get()),
+            Err(error) if error.client_api_error_kind() == Some(&ErrorKind::NotFound) => None,
+            Err(error) => {
+                return Err(self.room_error("room_state_event", error.into()));
+            }
+        };
+        self.probed_state()
+            .remember_content(&room_id, &event_type, &state_key, content.clone());
+
+        Ok(content)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::state_event_content;
+
+    use matrix_sdk::ruma::RoomId;
+
+    use crate::protocol::CreateJoinRuleView;
+
     use serde_json::json;
 
     use super::{
@@ -635,5 +959,73 @@ mod tests {
             (None, Vec::new())
         );
         assert_eq!(always_listed_from(Some(&json!("x"))), None);
+    }
+
+    #[test]
+    fn the_voice_power_level_override_restates_the_default_events() {
+        let value = serde_json::to_value(super::voice_power_level_override()).unwrap();
+        assert_eq!(value["events"]["m.room.name"], 50);
+        assert_eq!(value["events"]["m.room.encryption"], 100);
+        assert_eq!(value["events"][crate::view::CALL_MEMBER_TYPE], 0);
+        assert_eq!(value.as_object().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_restricted_room_without_a_space_falls_back_to_invite() {
+        let rule = |kind, space: Option<&str>| {
+            super::join_rule_content(
+                Some(kind),
+                space.map(|id| <&RoomId>::try_from(id).expect("a room id")),
+            )
+            .map(|rule| serde_json::to_value(rule).expect("serializes"))
+            .expect("a rule")["content"]["join_rule"]
+                .as_str()
+                .expect("a string")
+                .to_owned()
+        };
+
+        assert_eq!(rule(CreateJoinRuleView::Restricted, None), "invite");
+        assert_eq!(rule(CreateJoinRuleView::KnockRestricted, None), "invite");
+        assert_eq!(
+            rule(CreateJoinRuleView::Restricted, Some("!s:example.org")),
+            "restricted"
+        );
+        assert_eq!(rule(CreateJoinRuleView::Knock, None), "knock");
+        assert_eq!(rule(CreateJoinRuleView::Public, None), "public");
+    }
+
+    #[test]
+    fn a_restricted_room_allows_the_parent_space() {
+        let content = super::join_rule_content(
+            Some(CreateJoinRuleView::Restricted),
+            Some(<&RoomId>::try_from("!space:example.org").expect("a room id")),
+        )
+        .map(|rule| serde_json::to_value(rule).expect("serializes"))
+        .expect("a rule");
+
+        assert_eq!(
+            content["content"]["allow"][0]["room_id"],
+            "!space:example.org"
+        );
+        assert_eq!(content["content"]["allow"][0]["type"], "m.room_membership");
+    }
+
+    #[test]
+    fn no_join_rule_leaves_the_preset_alone() {
+        assert!(super::join_rule_content(None, None).is_none());
+    }
+
+    #[test]
+    fn state_event_content_accepts_content_and_full_event_responses() {
+        assert_eq!(
+            state_event_content(r#"{"url":"mxc://example.org/banner"}"#),
+            Some(serde_json::json!({"url": "mxc://example.org/banner"}))
+        );
+        assert_eq!(
+            state_event_content(
+                r#"{"type":"page.codeberg.everypizza.room.banner","content":{"url":"mxc://example.org/banner"}}"#
+            ),
+            Some(serde_json::json!({"url": "mxc://example.org/banner"}))
+        );
     }
 }

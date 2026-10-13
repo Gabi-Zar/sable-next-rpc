@@ -808,7 +808,7 @@ async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
     use std::collections::BTreeSet;
 
     use crate::api::notifications::{
-        NotificationSettingsParams, SetDefaultNotificationModeParams, SetRoomNotificationModeParams,
+        SetDefaultModeParams, SetRoomNotificationModeParams, SettingsParams,
     };
     use crate::protocol::NotificationModeView;
     use matrix_sdk::ruma::push::{PredefinedUnderrideRuleId, RuleKind, Ruleset};
@@ -865,7 +865,7 @@ async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
         "resetting to default must not install a room override"
     );
     let settings = core
-        .run(NotificationSettingsParams {
+        .run(SettingsParams {
             room_id: room_id.to_owned(),
         })
         .await
@@ -880,14 +880,14 @@ async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
     .await
     .unwrap();
     for direct in [true, false] {
-        core.run(SetDefaultNotificationModeParams {
+        core.run(SetDefaultModeParams {
             direct,
             mode: NotificationModeView::Mentions,
         })
         .await
         .unwrap();
         let settings = core
-            .run(NotificationSettingsParams {
+            .run(SettingsParams {
                 room_id: room_id.to_owned(),
             })
             .await

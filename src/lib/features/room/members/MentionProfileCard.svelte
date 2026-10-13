@@ -131,7 +131,7 @@
     if (member !== null || targetRoomId === '' || !(permissions?.can_kick ?? false)) return;
 
     void core.rpc.members
-      .roomMembers({ room_id: targetRoomId, memberships: ['invite'] })
+      .list({ room_id: targetRoomId, memberships: ['invite'] })
       .then((members) => {
         if (request !== membershipRequest) return;
         invitedMember = members.find((entry) => entry.user_id === targetUserId) ?? null;
@@ -529,7 +529,7 @@
       {/if}
       {#if canInvite}
         <ActionMenuItem
-          onSelect={moderate((room_id, user_id) => core.rpc.rooms.inviteUser({ room_id, user_id }))}
+          onSelect={moderate((room_id, user_id) => core.rpc.rooms.invite({ room_id, user_id }))}
         >
           <UserPlusIcon />
           {$i18n.t('timeline.profileInvite')}
@@ -538,7 +538,7 @@
       {#if canUnban}
         <ActionMenuItem
           onSelect={moderate((room_id, user_id) =>
-            core.rpc.members.unbanUser({ room_id, user_id, reason: null })
+            core.rpc.members.unban({ room_id, user_id, reason: null })
           )}
         >
           <LockOpenIcon />

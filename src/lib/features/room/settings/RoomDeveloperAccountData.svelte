@@ -34,7 +34,7 @@
     loading = true;
     outcome = null;
     try {
-      const existing = await core.rpc.room_state.roomAccountData({
+      const existing = await core.rpc.room_state.accountData({
         room_id: roomId,
         event_type: type,
       });
@@ -66,7 +66,7 @@
     saving = true;
     outcome = null;
     try {
-      await core.rpc.room_state.setRoomAccountData({
+      await core.rpc.room_state.setAccountData({
         room_id: roomId,
         event_type: type,
         content: parsed,

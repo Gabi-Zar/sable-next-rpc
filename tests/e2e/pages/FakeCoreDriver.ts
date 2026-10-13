@@ -12,15 +12,14 @@ export class FakeCoreDriver {
   timelineCommands(): Promise<string[]> {
     return this.page.evaluate(() =>
       window.__e2eCommands.filter(
-        (command) => command === 'timeline.subscribe_timeline' || command === 'timeline.paginate'
+        (command) => command === 'timeline.subscribe' || command === 'timeline.paginate'
       )
     );
   }
 
   subscribeCount(): Promise<number> {
     return this.page.evaluate(
-      () =>
-        window.__e2eCommands.filter((command) => command === 'timeline.subscribe_timeline').length
+      () => window.__e2eCommands.filter((command) => command === 'timeline.subscribe').length
     );
   }
 

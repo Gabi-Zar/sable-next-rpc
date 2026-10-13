@@ -1,3 +1,5 @@
+use crate::api::account::ReportUserParams;
+use crate::api::rooms::ReportParams;
 use std::collections::{HashMap, HashSet};
 
 use futures_util::future::join_all;
@@ -20,7 +22,8 @@ use matrix_sdk_ui::timeline::TimelineEventItemId;
 
 use crate::Core;
 use crate::ResultExt;
-use crate::api::support::{BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS};
+use crate::link_previews::BUNDLED_LINK_PREVIEWS;
+use crate::link_previews::LEGACY_BUNDLED_LINK_PREVIEWS;
 use crate::matrix_html::{
     display_html, has_profile_fallback_html, strip_profile_fallback_body,
     strip_profile_fallback_html,
@@ -480,8 +483,7 @@ impl Core {
 
     pub(crate) async fn report_room(
         &self,
-        room_id: OwnedRoomId,
-        reason: String,
+        ReportParams { room_id, reason }: ReportParams,
     ) -> Result<(), RpcError> {
         self.client()
             .await?
@@ -493,8 +495,7 @@ impl Core {
 
     pub(crate) async fn report_user(
         &self,
-        user_id: OwnedUserId,
-        reason: String,
+        ReportUserParams { user_id, reason }: ReportUserParams,
     ) -> Result<(), RpcError> {
         self.client()
             .await?
@@ -1378,7 +1379,7 @@ mod tests {
         })
         .await
         .unwrap();
-        core.run(crate::api::messages::EditMessageParams {
+        core.run(crate::api::messages::EditParams {
             room_id: room_id.to_owned(),
             event_id: None,
             transaction_id: Some(transaction_id),

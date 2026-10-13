@@ -254,8 +254,8 @@ test('the reveal switches to live before sending from unread context', async ({
   await composer.press('Enter');
   await expect(timeline.message('Sent from unread context')).toBeInViewport();
   const commands = await core.commands();
-  expect(commands.lastIndexOf('timeline.subscribe_timeline')).toBeLessThan(
-    commands.indexOf('messages.send_message')
+  expect(commands.lastIndexOf('timeline.subscribe')).toBeLessThan(
+    commands.indexOf('messages.send')
   );
 });
 

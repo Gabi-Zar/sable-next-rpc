@@ -23,7 +23,7 @@
   $effect(() => {
     let stale = false;
     core.rpc.calls
-      .callCompatibility()
+      .compatibility()
       .then((view) => {
         if (!stale) compatibility = view;
       })

@@ -1,24 +1,24 @@
 use std::sync::Arc;
 
 use matrix_sdk::ruma::OwnedRoomId;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use super::Handler;
+use super::{Handler, Json};
 use crate::Core;
 use crate::protocol::RpcError;
 
 domain! {
-    widget_send_delayed_event,
-    widget_send_sticky_event,
+    send_delayed_event,
+    send_sticky_event,
     restart_delayed_event,
-    widget_send_to_device,
+    send_to_device,
     room_sticky_events,
     set_widget_feed,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct WidgetSendDelayedEventParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendDelayedEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
@@ -33,7 +33,7 @@ pub struct WidgetSendDelayedEventParams {
     pub sticky_duration_ms: Option<u32>,
 }
 
-impl Handler for WidgetSendDelayedEventParams {
+impl Handler for SendDelayedEventParams {
     /// The delay id.
     type Ok = String;
 
@@ -51,8 +51,8 @@ impl Handler for WidgetSendDelayedEventParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct WidgetSendStickyEventParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendStickyEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
@@ -62,7 +62,7 @@ pub struct WidgetSendStickyEventParams {
     pub sticky_duration_ms: u32,
 }
 
-impl Handler for WidgetSendStickyEventParams {
+impl Handler for SendStickyEventParams {
     /// The event id.
     type Ok = String;
 
@@ -79,7 +79,7 @@ impl Handler for WidgetSendStickyEventParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RestartDelayedEventParams {
     pub delay_id: String,
 }
@@ -88,20 +88,20 @@ impl Handler for RestartDelayedEventParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.restart_delayed_event(self.delay_id).await
+        core.restart_delayed_event(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct WidgetSendToDeviceParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendToDeviceParams {
     pub event_type: String,
     pub encrypted: bool,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
     pub messages: serde_json::Value,
 }
 
-impl Handler for WidgetSendToDeviceParams {
+impl Handler for SendToDeviceParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -111,33 +111,24 @@ impl Handler for WidgetSendToDeviceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RoomStickyEventsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-/// The room's live sticky events, as raw JSON.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(transparent)]
-pub struct StickyEvents(
-    #[cfg_attr(feature = "typegen", specta(type = Vec<specta_typescript::Unknown>))]
-    pub  Vec<serde_json::Value>,
-);
-
 impl Handler for RoomStickyEventsParams {
-    type Ok = StickyEvents;
+    type Ok = Vec<Json>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<StickyEvents, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<Json>, RpcError> {
         core.room_sticky_events(&self.room_id)
             .await
-            .map(StickyEvents)
+            .map(|events| events.into_iter().map(Json).collect())
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetWidgetFeedParams {
     pub enabled: bool,
 }

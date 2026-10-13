@@ -54,7 +54,7 @@
 
   async function read(): Promise<void> {
     try {
-      const settings = await core.rpc.notifications.notificationSettings({ room_id: roomId });
+      const settings = await core.rpc.notifications.settings({ room_id: roomId });
       mode = settings.room;
       fallback = settings.default ?? 'mentions';
     } catch (error) {

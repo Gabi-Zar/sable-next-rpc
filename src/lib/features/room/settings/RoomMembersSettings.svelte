@@ -196,7 +196,7 @@
     inviting = userId;
     inviteFailed = false;
     try {
-      await core.rpc.rooms.inviteUser({ room_id: target, user_id: userId });
+      await core.rpc.rooms.invite({ room_id: target, user_id: userId });
       invitedIds = [...invitedIds, userId];
       await load();
     } catch (error) {
@@ -220,7 +220,7 @@
     loading = true;
     failed = false;
     try {
-      const loaded = await core.rpc.members.roomMembers({
+      const loaded = await core.rpc.members.list({
         room_id: target,
         memberships: [membershipFor(filter)],
       });
@@ -338,8 +338,8 @@
     try {
       await act(target.userId, () =>
         target.action === 'kick'
-          ? core.rpc.members.kickUser({ room_id: room, user_id: target.userId, reason })
-          : core.rpc.members.banUser({ room_id: room, user_id: target.userId, reason })
+          ? core.rpc.members.kick({ room_id: room, user_id: target.userId, reason })
+          : core.rpc.members.ban({ room_id: room, user_id: target.userId, reason })
       );
     } finally {
       moderationBusy = false;
@@ -457,8 +457,7 @@
                       if (target)
                         void act(
                           member.user_id,
-                          () =>
-                            core.rpc.rooms.inviteUser({ room_id: target, user_id: member.user_id }),
+                          () => core.rpc.rooms.invite({ room_id: target, user_id: member.user_id }),
                           (entry) => ({ ...entry, membership: 'invite' })
                         );
                     }}
@@ -477,7 +476,7 @@
                         void act(
                           member.user_id,
                           () =>
-                            core.rpc.members.kickUser({
+                            core.rpc.members.kick({
                               room_id: target,
                               user_id: member.user_id,
                               reason: null,
@@ -512,7 +511,7 @@
                       const target = roomId;
                       if (target)
                         void act(member.user_id, () =>
-                          core.rpc.members.unbanUser({
+                          core.rpc.members.unban({
                             room_id: target,
                             user_id: member.user_id,
                             reason: null,

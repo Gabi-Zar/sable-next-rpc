@@ -30,7 +30,7 @@ function core(accountId = 'account-me') {
   const client = {
     session: accounts.find((account) => account.account_id === accountId),
     accounts,
-    rpc: { messages: { sendMessage }, timeline: { markRead } },
+    rpc: { messages: { send: sendMessage }, timeline: { markRead } },
     switchAccount,
   } as unknown as Replier;
 

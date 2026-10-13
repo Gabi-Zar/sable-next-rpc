@@ -1,7 +1,7 @@
 import type { AvatarEditView, FieldEdit, ProfileOverridesView, Rpc } from '#src/generated/protocol';
 
 export async function setAccountData(rpc: Rpc, eventType: string, content: unknown): Promise<void> {
-  await rpc.account.setAccountData({ event_type: eventType, content: $state.snapshot(content) });
+  await rpc.account.setData({ event_type: eventType, content: $state.snapshot(content) });
 }
 
 export async function setSealedAccountData(
@@ -9,7 +9,7 @@ export async function setSealedAccountData(
   eventType: string,
   content: unknown
 ): Promise<void> {
-  await rpc.account.setSealedAccountData({
+  await rpc.account.setSealedData({
     event_type: eventType,
     content: $state.snapshot(content),
   });

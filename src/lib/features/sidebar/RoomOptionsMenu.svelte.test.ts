@@ -58,11 +58,11 @@ test('keeps Add to space visible while the room list refreshes', async () => {
       : Promise.resolve({ can_manage_children: false });
   }
   const core = createCoreStub({
-    roomPermissions: vi.fn(roomPermissions),
     rpc: {
       notifications: {
-        notificationSettings: vi.fn().mockResolvedValue({ room: null, default: 'mentions' }),
+        settings: vi.fn().mockResolvedValue({ room: null, default: 'mentions' }),
       },
+      members: { permissions: vi.fn(roomPermissions) },
     },
   }) as unknown as CoreClient;
   let refresh = () => {};

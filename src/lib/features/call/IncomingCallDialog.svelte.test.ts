@@ -25,7 +25,7 @@ const call: IncomingCall = {
 };
 
 beforeEach(() => {
-  core.roomStateEvent.mockReset();
+  core.rpc.room_state.event.mockReset();
   core.userProfile.mockReset();
   core.fetchMedia.mockClear();
   core.userProfile.mockResolvedValue({
@@ -55,12 +55,12 @@ function showCall() {
 
 test('incoming calls show the room profile instead of the global profile', async () => {
   const request = Promise.withResolvers<unknown>();
-  core.roomStateEvent.mockReturnValue(request.promise);
+  core.rpc.room_state.event.mockReturnValue(request.promise);
   showCall();
   await tick();
   expect(screen.getByText('Room Alice is calling')).toBeInTheDocument();
   expect(screen.getByRole('dialog')).toHaveClass('dialog-content-fullscreen');
-  expect(core.roomStateEvent).toHaveBeenCalledWith({
+  expect(core.rpc.room_state.event).toHaveBeenCalledWith({
     room_id: call.roomId,
     event_type: 'm.room.member',
     state_key: call.sender,
@@ -79,7 +79,7 @@ test('incoming calls show the room profile instead of the global profile', async
 });
 
 test('cleared room identity fields do not fall back to the global profile', async () => {
-  core.roomStateEvent.mockResolvedValue({
+  core.rpc.room_state.event.mockResolvedValue({
     membership: 'join',
     displayname: null,
     avatar_url: null,
@@ -92,7 +92,7 @@ test('cleared room identity fields do not fall back to the global profile', asyn
 });
 
 test('retains the call event name when membership cannot be loaded', async () => {
-  core.roomStateEvent.mockRejectedValue(new Error('unavailable'));
+  core.rpc.room_state.event.mockRejectedValue(new Error('unavailable'));
   showCall();
   await tick();
 
@@ -102,7 +102,7 @@ test('retains the call event name when membership cannot be loaded', async () =>
 
 test('a late membership lookup does not replace a newer call from the same sender', async () => {
   const previous = Promise.withResolvers<unknown>();
-  core.roomStateEvent.mockReturnValueOnce(previous.promise).mockResolvedValue({
+  core.rpc.room_state.event.mockReturnValueOnce(previous.promise).mockResolvedValue({
     membership: 'join',
     displayname: 'Other Room Alice',
     avatar_url: 'mxc://example.org/other-room-call-avatar',
@@ -134,7 +134,7 @@ test('a late membership lookup does not replace a newer call from the same sende
 
 test('closing a call ignores its pending membership lookup', async () => {
   const request = Promise.withResolvers<unknown>();
-  core.roomStateEvent.mockReturnValue(request.promise);
+  core.rpc.room_state.event.mockReturnValue(request.promise);
   const view = showCall();
   await tick();
   await view.rerender({ call: null });

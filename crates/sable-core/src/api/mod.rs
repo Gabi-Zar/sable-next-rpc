@@ -62,8 +62,6 @@ macro_rules! domains {
     };
 }
 
-pub(crate) mod support;
-
 domains! {
     account,
     auth,
@@ -84,6 +82,15 @@ domains! {
     timeline,
     widgets,
 }
+
+/// Raw JSON relayed as is; `unknown` in TypeScript.
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+#[serde(transparent)]
+pub struct Json(
+    #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
+    pub  serde_json::Value,
+);
 
 /// One RPC method: its params are `Self`, its result `Self::Ok`.
 pub trait Handler: DeserializeOwned {

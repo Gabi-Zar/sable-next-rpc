@@ -1,3 +1,6 @@
+use crate::api::auth::RegistrationFlowsParams;
+use crate::api::auth::RequestRegistrationEmailParams;
+use crate::api::auth::SubmitRegistrationEmailParams;
 use matrix_sdk::ruma::api::client::account::IdentityServerInfo;
 use matrix_sdk::ruma::api::client::account::register::v3::Request as RegistrationRequest;
 use matrix_sdk::ruma::api::client::account::request_registration_token_via_email::v3::Request as RegistrationEmailRequest;
@@ -650,7 +653,7 @@ impl Core {
     )]
     pub(super) async fn request_registration_email(
         self: &Arc<Self>,
-        address: String,
+        RequestRegistrationEmailParams { email: address }: RequestRegistrationEmailParams,
     ) -> Result<RegistrationResultView, RpcError> {
         let mut pending = self
             .pending_registration
@@ -743,7 +746,7 @@ impl Core {
 
     pub(super) async fn submit_registration_email(
         self: &Arc<Self>,
-        token: String,
+        SubmitRegistrationEmailParams { token }: SubmitRegistrationEmailParams,
     ) -> Result<RegistrationResultView, RpcError> {
         let mut pending = self
             .pending_registration
@@ -840,7 +843,7 @@ impl Core {
 
     pub(super) async fn discover_registration_flows(
         self: &Arc<Self>,
-        homeserver: String,
+        RegistrationFlowsParams { homeserver }: RegistrationFlowsParams,
     ) -> Result<protocol::RegistrationFlowsView, RpcError> {
         let client = session::discovery_client(&homeserver)
             .await

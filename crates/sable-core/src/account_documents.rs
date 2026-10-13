@@ -1,3 +1,4 @@
+use crate::api::account::SetMediaPreviewConfigParams;
 use matrix_sdk::ruma::OwnedRoomId;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
@@ -147,7 +148,7 @@ impl Core {
     /// Written under both types until clients stop reading the unstable one.
     pub(crate) async fn set_media_preview_settings(
         &self,
-        update: MediaPreviewConfigView,
+        SetMediaPreviewConfigParams { config: update }: SetMediaPreviewConfigParams,
     ) -> Result<MediaPreviewConfigView, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let content = media_preview_content(self.stored_media_preview_config().await?, update);

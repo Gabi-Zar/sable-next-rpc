@@ -40,7 +40,7 @@ export async function sendMessage(
   options: SendMessageOptions = {}
 ): Promise<void> {
   const mentions = options.mentions ?? noMentions;
-  await rpc.messages.sendMessage({
+  await rpc.messages.send({
     room_id: roomId,
     body,
     formatted: options.formatted ?? null,
@@ -67,7 +67,7 @@ export async function editMessage(
   options: EditMessageOptions = {}
 ): Promise<void> {
   const mentions = options.mentions ?? noMentions;
-  await rpc.messages.editMessage({
+  await rpc.messages.edit({
     room_id: roomId,
     event_id: eventId,
     transaction_id: options.transactionId ?? null,

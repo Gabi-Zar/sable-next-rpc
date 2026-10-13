@@ -106,7 +106,7 @@
     error = null;
     try {
       const [nextStatus, nextDevices] = await Promise.all([
-        core.rpc.encryption.encryptionStatus(),
+        core.rpc.encryption.status(),
         core.rpc.encryption.devices(),
       ]);
       if (cancelled) return;

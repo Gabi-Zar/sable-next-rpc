@@ -11,8 +11,8 @@ import {
 
 function fakeCommands(content: unknown) {
   return {
-    accountData: vi.fn(() => Promise.resolve(content)),
-    setAccountData: vi.fn(() => Promise.resolve(null)),
+    data: vi.fn(() => Promise.resolve(content)),
+    setData: vi.fn(() => Promise.resolve(null)),
   };
 }
 
@@ -36,7 +36,7 @@ test('adding a server appends it once', async () => {
   const commands = fakeCommands({ servers: ['a.org'] });
 
   expect(await addServer(commands, 'b.org')).toEqual(['a.org', 'b.org']);
-  expect(commands.setAccountData).toHaveBeenCalledWith({
+  expect(commands.setData).toHaveBeenCalledWith({
     event_type: ADDED_SERVERS_ACCOUNT_DATA_TYPE,
     content: {
       servers: ['a.org', 'b.org'],
@@ -44,7 +44,7 @@ test('adding a server appends it once', async () => {
   });
 
   expect(await addServer(commands, 'A.org')).toEqual(['a.org']);
-  expect(commands.setAccountData).toHaveBeenCalledTimes(1);
+  expect(commands.setData).toHaveBeenCalledTimes(1);
 });
 
 test('removing a server ignores case', async () => {

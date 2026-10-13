@@ -23,13 +23,10 @@ use crate::{
         CancelIdentityResetParams, ContinueIdentityResetParams, RecoverIdentityParams,
         RenameDeviceParams, ResetIdentityParams,
     },
-    api::packs::{AllImagePacksParams, ImagePacksOk, ImagePacksParams},
-    api::spaces::{
-        AddToSpaceParams, SetSpaceChildOrderParams, SetSpaceChildSuggestedParams,
-        SetSpaceSidebarParams,
-    },
+    api::packs::{ListAllParams, ListOk, ListParams},
+    api::spaces::{AddParams, SetChildOrderParams, SetChildSuggestedParams, SetSidebarParams},
     api::timeline::{
-        SubscribeRoomListOk, SubscribeRoomListParams, SubscribeTimelineOk, SubscribeTimelineParams,
+        SubscribeOk, SubscribeParams, SubscribeRoomListOk, SubscribeRoomListParams,
         UnsubscribeParams,
     },
     protocol::{CoreEvent, IdentityResetStep, RpcError},
@@ -235,7 +232,7 @@ async fn room_members_use_cached_or_fetched_power_levels() {
         let room = client.get_room(room_id).unwrap();
         let core = core(&server, client).await;
         let members = core
-            .run(crate::api::members::RoomMembersParams {
+            .run(crate::api::members::ListParams {
                 room_id: room_id.to_owned(),
                 memberships: vec![],
             })
@@ -381,8 +378,8 @@ async fn image_pack_listing_fetches_complete_state_when_one_pack_is_cached() {
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
-    let ImagePacksOk { packs, .. } = core
-        .run(ImagePacksParams {
+    let ListOk { packs, .. } = core
+        .run(ListParams {
             room_id: room_id.to_owned(),
             cached_only: false,
         })
@@ -477,8 +474,8 @@ async fn event_focus_clears_its_explicit_sync_subscription_after_unsubscribing()
         .mount()
         .await;
     let core = core(&server, client).await;
-    let SubscribeTimelineOk { subscription, .. } = core
-        .run(SubscribeTimelineParams {
+    let SubscribeOk { subscription, .. } = core
+        .run(SubscribeParams {
             room_id: room_id.to_owned(),
             focus: TimelineFocusView::Event {
                 event_id: target.to_owned(),
@@ -530,7 +527,7 @@ async fn an_open_room_is_resubscribed_after_the_sync_session_expires() {
     server.sync_joined_room(&client, room_id).await;
     server.mock_room_state_encryption().plain().mount().await;
     let core = core(&server, client).await;
-    core.run(SubscribeTimelineParams {
+    core.run(SubscribeParams {
         room_id: room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -657,9 +654,9 @@ async fn cached_image_packs_return_without_waiting_for_room_state() {
         .mount(server.server())
         .await;
     let core = core(&server, client).await;
-    let params: ImagePacksParams =
+    let params: ListParams =
         serde_json::from_value(json!({"room_id": room_id, "cached_only": true})).unwrap();
-    let ImagePacksOk { packs, .. } =
+    let ListOk { packs, .. } =
         tokio::time::timeout(std::time::Duration::from_millis(500), core.run(params))
             .await
             .expect("cached emotes do not wait for the server")
@@ -707,7 +704,7 @@ async fn all_image_packs_return_without_waiting_for_room_state() {
 
     let packs = tokio::time::timeout(
         std::time::Duration::from_millis(500),
-        core.run(AllImagePacksParams {}),
+        core.run(ListAllParams {}),
     )
     .await
     .expect("settings packs do not wait for the homeserver")
@@ -743,9 +740,9 @@ async fn a_pack_with_no_images_is_still_listed() {
         )
         .await;
     let core = core(&server, client).await;
-    let params: ImagePacksParams =
+    let params: ListParams =
         serde_json::from_value(json!({"room_id": room_id, "cached_only": true})).unwrap();
-    let ImagePacksOk { packs, .. } = core.run(params).await.unwrap();
+    let ListOk { packs, .. } = core.run(params).await.unwrap();
     assert_eq!(packs.len(), 1);
     assert_eq!(packs[0].id, "fresh");
     assert!(packs[0].images.is_empty());
@@ -925,7 +922,7 @@ async fn a_room_outside_the_list_still_has_a_summary() {
     let core = core(&server, client).await;
 
     let room = core
-        .run(crate::api::rooms::RoomListItemParams {
+        .run(crate::api::rooms::ListItemParams {
             room_id: room_id.to_owned(),
         })
         .await
@@ -1753,8 +1750,8 @@ async fn space_child_writes(
         .collect()
 }
 
-fn add_child() -> AddToSpaceParams {
-    AddToSpaceParams {
+fn add_child() -> AddParams {
+    AddParams {
         space_id: room_id!("!space:example.org").to_owned(),
         room_id: room_id!("!child:example.org").to_owned(),
         suggested: None,
@@ -1790,7 +1787,7 @@ async fn adding_a_delisted_child_lists_it_again() {
 async fn adding_a_suggested_child_marks_it() {
     let writes = space_child_writes(
         None,
-        AddToSpaceParams {
+        AddParams {
             space_id: room_id!("!space:example.org").to_owned(),
             room_id: room_id!("!child:example.org").to_owned(),
             suggested: Some(true),
@@ -1805,7 +1802,7 @@ async fn adding_a_suggested_child_marks_it() {
 async fn suggesting_a_child_keeps_its_via_and_order() {
     let writes = space_child_writes(
         Some(json!({"via": ["other.org"], "order": "b"})),
-        SetSpaceChildSuggestedParams {
+        SetChildSuggestedParams {
             space_id: room_id!("!space:example.org").to_owned(),
             room_id: room_id!("!child:example.org").to_owned(),
             suggested: true,
@@ -1823,7 +1820,7 @@ async fn suggesting_a_child_keeps_its_via_and_order() {
 async fn reordering_a_child_keeps_its_via_and_suggestion() {
     let writes = space_child_writes(
         Some(json!({"via": ["other.org"], "order": "b", "suggested": true})),
-        SetSpaceChildOrderParams {
+        SetChildOrderParams {
             space_id: room_id!("!space:example.org").to_owned(),
             room_id: room_id!("!child:example.org").to_owned(),
             order: Some("a".to_owned()),
@@ -2209,7 +2206,7 @@ async fn account_data_types_survive_a_restart_and_include_stored_known_types() {
 
     let after = core(&server, client).await;
     let event_types = after
-        .run(crate::api::account::AccountDataTypesParams {})
+        .run(crate::api::account::DataTypesParams {})
         .await
         .unwrap();
     assert!(
@@ -2242,7 +2239,7 @@ async fn account_data_types_include_what_the_server_lists_but_sync_never_deliver
 
     let core = core(&server, client).await;
     let event_types = core
-        .run(crate::api::account::AccountDataTypesParams {})
+        .run(crate::api::account::DataTypesParams {})
         .await
         .unwrap();
     assert!(
@@ -2307,7 +2304,7 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
     let core = core(&server, client.clone()).await;
 
     assert!(matches!(
-        core.run(crate::api::account::SetSealedAccountDataParams {
+        core.run(crate::api::account::SetSealedDataParams {
             event_type: "m.push_rules".to_owned(),
             content: json!({}),
         })
@@ -2322,7 +2319,7 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
     assert!(stored["encrypted"][key.key_id()]["ciphertext"].is_string());
 
     let draft = json!({ "v": 1, "drafts": { "!room:example.org": "unsent" } });
-    core.run(crate::api::account::SetSealedAccountDataParams {
+    core.run(crate::api::account::SetSealedDataParams {
         event_type: DRAFTS.to_owned(),
         content: draft.clone(),
     })
@@ -2341,7 +2338,7 @@ async fn recovery_adopts_an_account_data_key_that_seals_our_documents() {
         .mount(server.server())
         .await;
     let Ok(document) = core
-        .run(crate::api::account::SealedAccountDataParams {
+        .run(crate::api::account::SealedDataParams {
             event_type: DRAFTS.to_owned(),
         })
         .await
@@ -2450,7 +2447,7 @@ async fn a_sidebar_naming_something_that_is_not_a_room_is_refused() {
     let core = core(&server, client).await;
 
     let refused = core
-        .run(SetSpaceSidebarParams {
+        .run(SetSidebarParams {
             items: vec![sable_model::sidebar::SidebarItemView::Folder {
                 id: "folder".to_owned(),
                 name: None,

@@ -8,13 +8,14 @@ vi.mock('#lib/core/context.js');
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  defaultNotificationModes: vi.fn(() => Promise.resolve({ direct: 'all', group: 'mentions' })),
+const core = baseCore;
+Object.assign(core.rpc.notifications, {
+  defaultModes: vi.fn(() => Promise.resolve({ direct: 'all', group: 'mentions' })),
   masterMute: vi.fn(() => Promise.resolve(false)),
   eventNotifications: vi.fn<() => Promise<Record<string, boolean | null>>>(),
   setEventNotification: vi.fn<(params: { event: string; enabled: boolean }) => Promise<void>>(),
 });
-Object.assign(core, { rpc: { notifications: core } });
+Object.assign(core.rpc.notifications, core);
 
 import NotificationDefaults from './NotificationDefaults.svelte';
 
@@ -32,7 +33,7 @@ const loaded = {
 };
 
 test('shows each event kind at its account state', async () => {
-  core.eventNotifications.mockResolvedValue(loaded);
+  core.rpc.notifications.eventNotifications.mockResolvedValue(loaded);
 
   render(NotificationDefaults);
 
@@ -44,7 +45,7 @@ test('shows each event kind at its account state', async () => {
 });
 
 test('hides an event kind the server has no rule for', async () => {
-  core.eventNotifications.mockResolvedValue({ ...loaded, edits: null });
+  core.rpc.notifications.eventNotifications.mockResolvedValue({ ...loaded, edits: null });
 
   render(NotificationDefaults);
 
@@ -55,8 +56,8 @@ test('hides an event kind the server has no rule for', async () => {
 });
 
 test('turning reactions on saves that one event', async () => {
-  core.eventNotifications.mockResolvedValue(loaded);
-  core.setEventNotification.mockResolvedValue();
+  core.rpc.notifications.eventNotifications.mockResolvedValue(loaded);
+  core.rpc.notifications.setEventNotification.mockResolvedValue(null);
   const user = userEvent.setup();
 
   render(NotificationDefaults);
@@ -64,5 +65,8 @@ test('turning reactions on saves that one event', async () => {
   await user.click(await screen.findByLabelText('Reactions'));
   await user.click(await screen.findByRole('option', { name: 'Notify' }));
 
-  expect(core.setEventNotification).toHaveBeenCalledWith({ event: 'reactions', enabled: true });
+  expect(core.rpc.notifications.setEventNotification).toHaveBeenCalledWith({
+    event: 'reactions',
+    enabled: true,
+  });
 });

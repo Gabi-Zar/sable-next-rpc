@@ -38,16 +38,10 @@ vi.mock('#lib/rooms/room-list.svelte.js', () => ({
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  roomPowerLevels: vi.fn<(params: { room_id: string }) => Promise<RoomPowerLevelsView>>(),
-  roomStateEvent: vi.fn<(roomId: string, eventType: string) => Promise<unknown>>(() =>
-    Promise.resolve(null)
-  ),
-  roomPermissions: vi.fn<(params: { room_id: string }) => Promise<RoomPermissionsView>>(),
-  sendStateEvent:
-    vi.fn<
-      (roomId: string, eventType: string, stateKey: string, content: unknown) => Promise<void>
-    >(),
+const core = baseCore;
+Object.assign(core.rpc.members, {
+  powerLevels: vi.fn<(params: { room_id: string }) => Promise<RoomPowerLevelsView>>(),
+  permissions: vi.fn<(params: { room_id: string }) => Promise<RoomPermissionsView>>(),
   powerLevelTags: vi.fn<(params: { room_id: string }) => Promise<Tags>>(() => Promise.resolve({})),
   setPowerLevelTag:
     vi.fn<
@@ -76,6 +70,15 @@ const core = Object.assign(baseCore, {
         space_id: string;
         child_ids: string[];
       }) => Promise<{ updated: number; skipped: number }>
+    >(),
+});
+Object.assign(core.rpc.room_state, {
+  event: vi.fn<(roomId: string, eventType: string) => Promise<unknown>>(() =>
+    Promise.resolve(null)
+  ),
+  sendEvent:
+    vi.fn<
+      (roomId: string, eventType: string, stateKey: string, content: unknown) => Promise<void>
     >(),
 });
 
@@ -108,8 +111,8 @@ afterEach(() => {
 
 test('syncing hands the space to the core and shows what it wrote', async () => {
   core.session = { user_id: '@admin:example.org' };
-  core.roomPowerLevels.mockResolvedValue(base);
-  core.syncPowerLevelsFromSpace.mockResolvedValue({
+  core.rpc.members.powerLevels.mockResolvedValue(base);
+  core.rpc.members.syncPowerLevelsFromSpace.mockResolvedValue({
     levels: { ...base, ban: 75 },
     tags: { '50': { name: 'Moderator', color: null, icon: null } },
   });
@@ -122,7 +125,7 @@ test('syncing hands the space to the core and shows what it wrote', async () => 
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Sync' }));
 
   await vi.waitFor(() => {
-    expect(core.syncPowerLevelsFromSpace).toHaveBeenCalledWith({
+    expect(core.rpc.members.syncPowerLevelsFromSpace).toHaveBeenCalledWith({
       room_id: '!room:example.org',
       space_id: '!space:example.org',
       levels: base,
@@ -133,11 +136,11 @@ test('syncing hands the space to the core and shows what it wrote', async () => 
 
 test('saves a role emoji with its name and colour', async () => {
   core.session = { user_id: '@admin:example.org' };
-  core.roomPowerLevels.mockResolvedValue(base);
-  core.powerLevelTags.mockResolvedValue({
+  core.rpc.members.powerLevels.mockResolvedValue(base);
+  core.rpc.members.powerLevelTags.mockResolvedValue({
     '50': { name: 'Sentinel', color: '#ff0000', icon: null },
   });
-  core.setPowerLevelTag.mockResolvedValue({});
+  core.rpc.members.setPowerLevelTag.mockResolvedValue({});
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room, permissions });
@@ -146,7 +149,7 @@ test('saves a role emoji with its name and colour', async () => {
   await user.type(screen.getByRole('textbox', { name: 'Icon' }), '🛡️{Enter}');
 
   await vi.waitFor(() => {
-    expect(core.setPowerLevelTag).toHaveBeenCalledWith({
+    expect(core.rpc.members.setPowerLevelTag).toHaveBeenCalledWith({
       room_id: '!room:example.org',
       level: 50,
       tag: { name: 'Sentinel', color: '#ff0000', icon: '🛡️' },
@@ -159,11 +162,13 @@ test.each([
   [100, false],
 ])('role editing follows the role-tag event level (%s)', async (tagsLevel, allowed) => {
   core.session = { user_id: '@mod:example.org' };
-  core.roomPowerLevels.mockResolvedValue({
+  core.rpc.members.powerLevels.mockResolvedValue({
     ...base,
     events: tagsLevel === undefined ? {} : { 'in.cinny.room.power_level_tags': tagsLevel },
   });
-  core.powerLevelTags.mockResolvedValue({ '50': { name: 'Sentinel', color: null, icon: null } });
+  core.rpc.members.powerLevelTags.mockResolvedValue({
+    '50': { name: 'Sentinel', color: null, icon: null },
+  });
 
   render(RoomPermissionsSettings, {
     room,
@@ -178,10 +183,10 @@ test.each([
 
 test('lets a founder add colour and an icon to the founder role', async () => {
   core.session = { user_id: '@admin:example.org' };
-  core.roomPowerLevels.mockResolvedValue(base);
-  core.powerLevelTags.mockResolvedValue({});
+  core.rpc.members.powerLevels.mockResolvedValue(base);
+  core.rpc.members.powerLevelTags.mockResolvedValue({});
   const founderTag = { name: 'Founder', color: '#ff0000', icon: '👑' };
-  core.setPowerLevelTag.mockResolvedValue({ [FOUNDER_POWER_LEVEL]: founderTag });
+  core.rpc.members.setPowerLevelTag.mockResolvedValue({ [FOUNDER_POWER_LEVEL]: founderTag });
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, {
@@ -195,7 +200,7 @@ test('lets a founder add colour and an icon to the founder role', async () => {
   await user.type(screen.getByRole('textbox', { name: 'Icon' }), '👑');
   await user.type(screen.getByRole('textbox', { name: 'Role colour' }), '#ff0000{Enter}');
 
-  expect(core.setPowerLevelTag).toHaveBeenCalledWith({
+  expect(core.rpc.members.setPowerLevelTag).toHaveBeenCalledWith({
     room_id: '!room:example.org',
     level: FOUNDER_POWER_LEVEL,
     tag: founderTag,
@@ -211,8 +216,10 @@ test('lets a founder add colour and an icon to the founder role', async () => {
 
 test('uses tagged default roles in permission controls and opens their editor', async () => {
   core.session = { user_id: '@admin:example.org' };
-  core.roomPowerLevels.mockResolvedValue(base);
-  core.powerLevelTags.mockResolvedValue({ '0': { name: 'Test', color: null, icon: null } });
+  core.rpc.members.powerLevels.mockResolvedValue(base);
+  core.rpc.members.powerLevelTags.mockResolvedValue({
+    '0': { name: 'Test', color: null, icon: null },
+  });
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room, permissions });
@@ -240,8 +247,8 @@ test('uses tagged default roles in permission controls and opens their editor', 
 
 test('opens a role editor for a power level that no permission currently uses', async () => {
   core.session = { user_id: '@admin:example.org' };
-  core.roomPowerLevels.mockResolvedValue(base);
-  core.powerLevelTags.mockResolvedValue({});
+  core.rpc.members.powerLevels.mockResolvedValue(base);
+  core.rpc.members.powerLevelTags.mockResolvedValue({});
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room, permissions });
@@ -255,8 +262,8 @@ test('opens a role editor for a power level that no permission currently uses', 
 test('a space applies its levels to the rooms below it that you can edit', async () => {
   core.session = { user_id: '@admin:example.org' };
   extraRooms.push({ room_id: '!room:example.org', state: 'joined', space_children: [] });
-  core.roomPowerLevels.mockResolvedValue(base);
-  core.syncChildPowerLevels.mockResolvedValue({ updated: 1, skipped: 0 });
+  core.rpc.members.powerLevels.mockResolvedValue(base);
+  core.rpc.members.syncChildPowerLevels.mockResolvedValue({ updated: 1, skipped: 0 });
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room: space as RoomListItemView, permissions });
@@ -268,7 +275,7 @@ test('a space applies its levels to the rooms below it that you can edit', async
   );
 
   expect(await screen.findByText(/Updated 1 room, 0 skipped\./)).toBeInTheDocument();
-  expect(core.syncChildPowerLevels).toHaveBeenCalledWith({
+  expect(core.rpc.members.syncChildPowerLevels).toHaveBeenCalledWith({
     space_id: '!space:example.org',
     child_ids: ['!room:example.org'],
   });
@@ -276,11 +283,11 @@ test('a space applies its levels to the rooms below it that you can edit', async
 
 test('sets the level from which members stay listed whatever their presence (#497)', async () => {
   core.session = { user_id: '@admin:example.org' };
-  core.roomPowerLevels.mockResolvedValue(base);
+  core.rpc.members.powerLevels.mockResolvedValue(base);
   const setMemberListThreshold = vi
     .fn<(params: { room_id: string; always_listed_from: number | null }) => Promise<null>>()
     .mockResolvedValue(null);
-  Object.assign(core, { setMemberListThreshold });
+  Object.assign(core.rpc.room_state, { setMemberListThreshold });
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room, permissions });

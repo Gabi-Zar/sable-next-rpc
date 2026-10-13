@@ -14,11 +14,12 @@ vi.mock('#lib/rooms/room-list.svelte.js', () => ({
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  roomPreview: vi.fn<() => Promise<RoomPreviewView>>(),
-  knockRoom:
+const core = baseCore;
+Object.assign(core.rpc.rooms, {
+  preview: vi.fn<() => Promise<RoomPreviewView>>(),
+  knock:
     vi.fn<(params: { address: string; via: string[]; reason: string | null }) => Promise<string>>(),
-  leaveRoom: vi.fn<(params: { room_id: string }) => Promise<null>>(),
+  leave: vi.fn<(params: { room_id: string }) => Promise<null>>(),
 });
 
 import JoinBeforeNavigate from './JoinBeforeNavigate.svelte';
@@ -40,15 +41,15 @@ function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
 }
 
 afterEach(() => {
-  core.roomPreview.mockReset();
-  core.knockRoom.mockReset();
-  core.leaveRoom.mockReset();
+  core.rpc.rooms.preview.mockReset();
+  core.rpc.rooms.knock.mockReset();
+  core.rpc.rooms.leave.mockReset();
 });
 
 test('sends the optional message with the request to join', async () => {
   const user = userEvent.setup();
-  core.roomPreview.mockResolvedValue(preview());
-  core.knockRoom.mockResolvedValue('!room:example.org');
+  core.rpc.rooms.preview.mockResolvedValue(preview());
+  core.rpc.rooms.knock.mockResolvedValue('!room:example.org');
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
   await user.type(
@@ -57,7 +58,7 @@ test('sends the optional message with the request to join', async () => {
   );
   await user.click(screen.getByRole('button', { name: 'Ask to join' }));
 
-  expect(core.knockRoom).toHaveBeenCalledWith({
+  expect(core.rpc.rooms.knock).toHaveBeenCalledWith({
     address: '!room:example.org',
     via: [],
     reason: 'a friend of Ana',
@@ -67,13 +68,13 @@ test('sends the optional message with the request to join', async () => {
 
 test('a blank message sends no reason', async () => {
   const user = userEvent.setup();
-  core.roomPreview.mockResolvedValue(preview());
-  core.knockRoom.mockResolvedValue('!room:example.org');
+  core.rpc.rooms.preview.mockResolvedValue(preview());
+  core.rpc.rooms.knock.mockResolvedValue('!room:example.org');
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
   await user.click(await screen.findByRole('button', { name: 'Ask to join' }));
 
-  expect(core.knockRoom).toHaveBeenCalledWith({
+  expect(core.rpc.rooms.knock).toHaveBeenCalledWith({
     address: '!room:example.org',
     via: [],
     reason: null,
@@ -82,12 +83,12 @@ test('a blank message sends no reason', async () => {
 
 test('a pending request can be withdrawn', async () => {
   const user = userEvent.setup();
-  core.roomPreview.mockResolvedValue(preview({ state: 'knocked' }));
-  core.leaveRoom.mockResolvedValue(null);
+  core.rpc.rooms.preview.mockResolvedValue(preview({ state: 'knocked' }));
+  core.rpc.rooms.leave.mockResolvedValue(null);
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
   await user.click(await screen.findByRole('button', { name: 'Withdraw request' }));
 
-  expect(core.leaveRoom).toHaveBeenCalledWith({ room_id: '!room:example.org' });
+  expect(core.rpc.rooms.leave).toHaveBeenCalledWith({ room_id: '!room:example.org' });
   expect(screen.getByRole('button', { name: 'Ask to join' })).toBeInTheDocument();
 });

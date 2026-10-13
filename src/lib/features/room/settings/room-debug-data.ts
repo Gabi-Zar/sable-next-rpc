@@ -21,7 +21,7 @@ const STATE_TYPES = [
 ] as const;
 
 export async function collectRoomDebugData(
-  rpc: { room_state: Pick<Rpc['room_state'], 'roomStateEventsRaw'> },
+  rpc: { room_state: Pick<Rpc['room_state'], 'eventsRaw'> },
   room: RoomListItemView,
   permissions: RoomPermissionsView | null,
   levels: RoomPowerLevelsView | null
@@ -33,7 +33,7 @@ export async function collectRoomDebugData(
   const state = await Promise.all(
     STATE_TYPES.map(async (type) => {
       try {
-        const events = await rpc.room_state.roomStateEventsRaw({
+        const events = await rpc.room_state.eventsRaw({
           room_id: room.room_id,
           event_type: type,
           state_key: null,

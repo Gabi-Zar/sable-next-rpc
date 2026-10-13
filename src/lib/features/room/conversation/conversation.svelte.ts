@@ -408,7 +408,7 @@ export class Conversation {
     this.context = null;
     try {
       if (replacing.scheduled?.source === 'queue') dequeue(replacing.eventId, accountId);
-      else await this.#core.rpc.messages.cancelScheduledMessage({ delay_id: replacing.eventId });
+      else await this.#core.rpc.messages.cancelScheduled({ delay_id: replacing.eventId });
     } catch (error) {
       throw new ScheduledOriginalKept(error);
     } finally {
@@ -426,7 +426,7 @@ export class Conversation {
     const accountId = this.#core.session?.account_id ?? '';
     const deviceId = this.#core.session?.device_id ?? '';
     try {
-      await this.#core.rpc.messages.scheduleMessage({
+      await this.#core.rpc.messages.schedule({
         room_id: targetRoomId,
         body,
         formatted,

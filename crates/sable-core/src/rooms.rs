@@ -1,4 +1,5 @@
 use crate::api::rooms::DirectoryRoomType;
+use crate::api::rooms::PublicRoomsParams;
 use matrix_sdk::config::RequestConfig;
 use matrix_sdk::deserialized_responses::SyncOrStrippedState;
 use matrix_sdk::room::Room;
@@ -20,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::ResultExt;
 use crate::api::rooms::PublicRoomsOk;
-use crate::api::spaces::SpaceHierarchyOk;
+use crate::api::spaces::HierarchyOk;
 use crate::protocol::{JoinRuleView, RoomPreviewView, RpcError};
 
 use crate::Core;
@@ -514,10 +515,12 @@ impl Core {
 
     pub(crate) async fn public_rooms(
         &self,
-        server: Option<String>,
-        search: Option<String>,
-        since: Option<String>,
-        room_type: Option<DirectoryRoomType>,
+        PublicRoomsParams {
+            server,
+            search,
+            since,
+            room_type,
+        }: PublicRoomsParams,
     ) -> Result<PublicRoomsOk, RpcError> {
         let server = match server.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
             Some(name) => Some(ServerName::parse(name).map_err(|_| RpcError::UnknownHomeserver)?),
@@ -558,7 +561,7 @@ impl Core {
         &self,
         space_id: &OwnedRoomId,
         from: Option<String>,
-    ) -> Result<SpaceHierarchyOk, RpcError> {
+    ) -> Result<HierarchyOk, RpcError> {
         let client = self.client().await?;
 
         let mut request = get_hierarchy::v1::Request::new(space_id.clone());
@@ -583,7 +586,7 @@ impl Core {
             })
             .collect();
 
-        Ok(SpaceHierarchyOk {
+        Ok(HierarchyOk {
             rooms,
             next_batch: response.next_batch,
         })

@@ -126,11 +126,11 @@ function core(): CoreClient {
       fetchMedia: () => Promise.resolve(new Uint8Array()),
     },
     rpc: {
-      members: { roomMembers: () => Promise.resolve(members) },
+      members: { list: () => Promise.resolve(members) },
       messages: { mediaConfig },
       room_state: { botCommands: () => Promise.resolve(botCommands) },
-      personas: { personas: () => Promise.resolve({ personas: [], selections: [] }) },
-      packs: { imagePacks: () => Promise.resolve({ packs, complete: true }) },
+      personas: { list: () => Promise.resolve({ personas: [], selections: [] }) },
+      packs: { list: () => Promise.resolve({ packs, complete: true }) },
     },
   } as unknown as CoreClient;
 }
@@ -2110,7 +2110,7 @@ test('clicking a custom quick reaction sends its media URL and source pack', asy
   };
   const client = core();
   Object.assign(client.rpc.packs, {
-    imagePacks: () =>
+    list: () =>
       Promise.resolve({
         packs: [{ ...packs[0], images: [{ ...packs[0].images[0], source_pack: sourcePack }] }],
         complete: true,
@@ -2443,7 +2443,7 @@ test('a bot command change clears stale suggestions', async () => {
 test('mention suggestions use the members the room already loaded', async () => {
   const client = core();
   const roomMembers = vi.fn(() => new Promise<MemberView[]>(() => {}));
-  Object.assign(client.rpc.members, { roomMembers });
+  Object.assign(client.rpc.members, { list: roomMembers });
   draftText('@mem');
   render(Harness, {
     props: {
@@ -2473,7 +2473,7 @@ test('a pack change refreshes open emote suggestions', async () => {
     },
   });
   Object.assign(client.rpc.packs, {
-    imagePacks: () => Promise.resolve({ packs: listed, complete: true }),
+    list: () => Promise.resolve({ packs: listed, complete: true }),
   });
   draftText(':wa');
   render(Harness, {

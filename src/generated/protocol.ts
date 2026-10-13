@@ -7,67 +7,10 @@ export type AbbreviationView = {
 	cased: boolean,
 };
 
-/**  Also transitions into SAS, so the emoji need no further round trip. */
-export type AcceptVerificationParams = {
-	user_id: string,
-	flow_id: string,
-};
-
-export type AccessTokenParams = Record<string, never>;
-
-export type AccountContactsParams = Record<string, never>;
-
-/**  The event's content, `null` when the account has none. */
-export type AccountDataContent = unknown | null;
-
-export type AccountDataParams = {
-	event_type: string,
-};
-
-export type AccountDataTypesParams = Record<string, never>;
-
-export type AckWebPusherParams = {
-	app_id: string,
-	ack_token: string,
-};
-
-/**  Merges into the account pack, renaming a shortcode that is taken. */
-export type AddAccountPackImagesParams = {
-	images: PackImageDraftView[],
-};
-
-export type AddNotificationKeywordParams = {
-	keyword: string,
-};
-
-/**  A custom widget whose URL is given the template variables hosts fill in. */
-export type AddRoomWidgetParams = {
-	room_id: string,
-	name: string,
-	url: string,
-};
-
-export type AddToSpaceParams = {
-	space_id: string,
-	room_id: string,
-	suggested: boolean | null,
-};
-
-export type AllImagePacksParams = Record<string, never>;
-
 export type AnimalIdentityView = {
 	is_animal: string | null,
 	has_animal: string | null,
 	animal_need: string | null,
-};
-
-/**  `recurrence_id` picks one occurrence of a repeating event. */
-export type AnswerCalendarEventParams = {
-	room_id: string,
-	calendar_event_id: string,
-	uid: string,
-	recurrence_id: string | null,
-	status: RsvpStatusView,
 };
 
 export type ArgumentDraft = boolean | string[] | string;
@@ -106,22 +49,6 @@ export type AvatarEditView = { kind: "keep" } | { kind: "clear" } | { kind: "url
 /**  Encrypted in the webview with the account data key in hand. */
 { kind: "encrypted"; file: unknown };
 
-export type BackfillInboxOk = {
-	recorded: number,
-	has_more: boolean,
-};
-
-export type BackfillInboxParams = {
-	include_read: boolean,
-};
-
-/**  Also removes them from the room. */
-export type BanUserParams = {
-	room_id: string,
-	user_id: string,
-	reason: string | null,
-};
-
 export type BookmarkView = {
 	bookmark_id: string,
 	room_id: string,
@@ -132,8 +59,6 @@ export type BookmarkView = {
 	event_ts: number,
 	bookmarked_ts: number,
 };
-
-export type BookmarksParams = Record<string, never>;
 
 export type BotCommand = {
 	sender: string,
@@ -180,23 +105,7 @@ export type BotCommandParameter = {
 	flag: string | null,
 };
 
-export type BotCommandsParams = {
-	room_id: string,
-};
-
 export type BrightnessView = "light" | "dark";
-
-export type BulkRedactParams = {
-	room_id: string,
-	senders: string[],
-	after_ts: number,
-	event_types: string[],
-	reason: string | null,
-};
-
-export type CalendarEntriesParams = {
-	room_id: string,
-};
 
 /**  One `JSCalendar` event from a `chat.commet.calendar_events` room event. */
 export type CalendarEntryView = {
@@ -243,8 +152,6 @@ export type CallBackendView = {
 	identity: string,
 };
 
-export type CallCompatibilityParams = Record<string, never>;
-
 export type CallCompatibilityView = {
 	sticky_events: boolean,
 	delayed_events: boolean,
@@ -270,63 +177,9 @@ export type CallSessionId = number;
 
 export type CallSignalingStage = "membership" | "sync" | "provision";
 
-export type CallSupportParams = {
-	room_id: string,
-	livekit_service_url: string | null,
-};
-
 export type CallSupportView = {
 	has_focus: boolean,
 	can_join: boolean,
-};
-
-export type CancelIdentityResetParams = Record<string, never>;
-
-export type CancelQrParams = Record<string, never>;
-
-export type CancelRegistrationParams = Record<string, never>;
-
-export type CancelScheduledMessageParams = {
-	delay_id: string,
-};
-
-/**  A local echo is not on the server, so it cannot be redacted. */
-export type CancelSendParams = {
-	room_id: string,
-	transaction_id: string,
-	thread_root: string | null,
-};
-
-export type CancelVerificationParams = {
-	user_id: string,
-	flow_id: string,
-	/**
-	 *  The emoji differed. An attack signal the other side must be told
-	 *  about. A plain cancel is not.
-	 */
-	mismatch: boolean,
-};
-
-export type CanonicalAliasOk = {
-	alias: string | null,
-	alt_aliases: string[],
-};
-
-export type CanonicalAliasParams = {
-	room_id: string,
-};
-
-/**  Refuses a file that is not a persona backup, without touching anything. */
-export type CheckPersonaBackupParams = {
-	backup: string,
-};
-
-export type CompleteOidcLoginParams = {
-	callback_url: string,
-};
-
-export type CompleteSsoLoginParams = {
-	callback_url: string,
 };
 
 export type ComposerContent = {
@@ -343,19 +196,6 @@ export type ComposerMentions = {
 /**  A mention or emote picked from a suggestion rather than typed. */
 export type ComposerPill = { kind: "mention"; user_id: string; name: string; via: string[] } | { kind: "emote"; shortcode: string; url: string; body: string | null };
 
-/**  The emoji matched, or the other device showed that it scanned our code. */
-export type ConfirmVerificationParams = {
-	user_id: string,
-	flow_id: string,
-};
-
-/**  OAuth polls for the approval for up to two minutes. */
-export type ContinueIdentityResetParams = {
-	password: string | null,
-};
-
-export type ContinueRegistrationParams = Record<string, never>;
-
 /**
  *  Held in a shown notification's data and read back by the next push for the
  *  same room, so it keeps the field names notifications already carry.
@@ -364,11 +204,6 @@ export type ConversationLine = {
 	sender: string | null,
 	body: string,
 	eventId: string | null,
-};
-
-export type ConvertLegacyImagePacksParams = {
-	room_id: string,
-	state_keys: string[],
 };
 
 /**  Pushed, unsolicited. Never a reply to a command. */
@@ -391,34 +226,7 @@ export type CoreEvent = ({ type: "account_lock_changed"; account_id: string; loc
 /**  Never arrives on a homeserver with presence disabled. */
 ({ type: "presence"; user_id: string; presence: PresenceView; status_message: string | null; last_active_ago: number | null }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; subscription?: never; total?: never; user_ids?: never };
 
-export type CreateDmParams = {
-	user_id: string,
-	encrypted: boolean | null,
-};
-
 export type CreateJoinRuleView = "public" | "invite" | "knock" | "restricted" | "knock_restricted";
-
-/**  MSC3381. */
-export type CreatePollParams = {
-	room_id: string,
-	question: string,
-	answers: string[],
-	/**  Withholds the tally until the poll closes. */
-	undisclosed: boolean,
-	max_selections: number,
-	thread_root: string | null,
-};
-
-export type CreateRoomAliasParams = {
-	room_id: string,
-	alias: string,
-};
-
-/**  The state key is derived from the name and kept unique in the room. */
-export type CreateRoomImagePackParams = {
-	room_id: string,
-	name: string,
-};
 
 /**
  *  The `m.room.create` type to ask for: `m.space`, the MSC3417 call type, the
@@ -426,70 +234,9 @@ export type CreateRoomImagePackParams = {
  */
 export type CreateRoomKind = "text" | "space" | "voice" | "forum" | "calendar";
 
-export type CreateRoomParams = {
-	name: string | null,
-	topic: string | null,
-	kind: CreateRoomKind,
-	/**  Published in the directory, joinable by link. */
-	public: boolean,
-	/**  Ignored for a space or a public room. */
-	encrypted: boolean,
-	invite: string[],
-	/**  Adds an `m.space.child` edge from this space. */
-	parent_space: string | null,
-	alias: string | null,
-	room_version: string | null,
-	join_rule: CreateJoinRuleView | null,
-	federate: boolean,
-	predecessor: string | null,
-};
-
-export type DeclineCallParams = {
-	room_id: string,
-	notification_event_id: string,
-};
-
-export type DefaultNotificationModesParams = Record<string, never>;
-
 export type DefaultNotificationModesView = {
 	direct: NotificationModeView,
 	group: NotificationModeView,
-};
-
-export type DelayedEventsSupportedParams = Record<string, never>;
-
-/**
- *  Call without a password first: the server states its terms in an
- *  `interactive_auth_required` error, and only then is there a prompt.
- */
-export type DeleteDeviceParams = {
-	device_id: string,
-	password: string | null,
-};
-
-export type DeleteRoomAliasParams = {
-	alias: string,
-};
-
-/**  Clears the legacy copy too, or the pack would come back from it. */
-export type DeleteRoomImagePackParams = {
-	room_id: string,
-	state_key: string,
-};
-
-export type DeleteThreadParams = {
-	room_id: string,
-	root_event_id: string,
-	reason: string | null,
-};
-
-/**
- *  Refuses a knock with a `leave` membership; homeservers refuse to kick
- *  a user who only knocked.
- */
-export type DenyKnockParams = {
-	room_id: string,
-	user_id: string,
 };
 
 export type DeviceView = {
@@ -509,36 +256,9 @@ export type DeviceView = {
 	last_seen_ip: string | null,
 };
 
-export type DevicesOk = {
-	devices: DeviceView[],
-	account_management: boolean,
-	/**  Signed in with OAuth, which is what linking a device by QR code needs. */
-	oauth: boolean,
-};
-
-export type DevicesParams = Record<string, never>;
-
 export type DiagnosticPushView = { kind: "no_pusher" } | { kind: "no_gateway" } | { kind: "rejected" } | { kind: "sent"; event_id: string; accepted: boolean | null };
 
 export type DirectoryRoomType = "rooms" | "spaces";
-
-export type DisableRoomPersonasParams = {
-	room_id: string,
-};
-
-export type DiscardRoomKeyParams = {
-	room_id: string,
-};
-
-export type DiscoverHomeserverParams = {
-	server_name: string,
-};
-
-export type DiscoverPushGatewayParams = {
-	endpoint: string,
-};
-
-export type DismissedInvitesParams = Record<string, never>;
 
 /**
  *  `None` on either side means the name was unset, which reads differently from
@@ -547,31 +267,6 @@ export type DismissedInvitesParams = Record<string, never>;
 export type DisplayNameChangeView = {
 	old: string | null,
 	new: string | null,
-};
-
-export type DownloadKeyBackupParams = {
-	request_id: string,
-};
-
-export type EditHistoryParams = {
-	room_id: string,
-	event_id: string,
-};
-
-/**  `edited` on the view flips once the server has the replacement. */
-export type EditMessageParams = {
-	room_id: string,
-	event_id: string | null,
-	transaction_id: string | null,
-	body: string,
-	formatted: string | null,
-	kind: MessageKind,
-	media_caption: boolean,
-	thread_root: string | null,
-	mentions: string[],
-	mentions_room: boolean,
-	persona: PerMessageProfileView | null,
-	forum_title: string | null,
 };
 
 export type EditVersionView = {
@@ -586,23 +281,6 @@ export type EmojiView = {
 	/**  English, from the spec's table. */
 	description: string,
 };
-
-/**  Cannot be undone. */
-export type EnableEncryptionParams = {
-	room_id: string,
-};
-
-/**
- *  First-time cross-signing and key backup. Without it a lone session can
- *  never verify a second. The returned key is unrecoverable, so a UI must
- *  make the user store it.
- */
-export type EnableRecoveryParams = {
-	/**  A passphrase to unlock the key with. The key is returned either way. */
-	passphrase: string | null,
-};
-
-export type EncryptionStatusParams = Record<string, never>;
 
 export type EncryptionStatusView = {
 	/**  Whether *this* device is signed by our own identity. */
@@ -620,13 +298,6 @@ export type EncryptionStatusView = {
 	account_data_key: boolean,
 };
 
-/**  Irreversible. */
-export type EndPollParams = {
-	room_id: string,
-	event_id: string,
-	thread_root: string | null,
-};
-
 /**  What the event dialog edits, with its start already read as local wall time. */
 export type EventDraft = {
 	title: string,
@@ -640,14 +311,7 @@ export type EventDraft = {
 	until: string | null,
 };
 
-export type EventItemsParams = {
-	room_id: string,
-	event_ids: string[],
-};
-
 export type EventNotificationView = "membership" | "reactions" | "edits" | "notices" | "invites" | "calls";
-
-export type EventNotificationsParams = Record<string, never>;
 
 export type EventNotificationsView = {
 	membership: boolean | null,
@@ -664,45 +328,11 @@ export type EventPreview = {
 	fallback: ReplyFallbackView | null,
 };
 
-export type EventSourceOk = {
-	source: string,
-	encrypted: boolean,
-	original: string | null,
-};
-
-export type EventSourceParams = {
-	room_id: string,
-	event_id: string,
-	include_original: boolean,
-};
-
-export type ExportRoomKeysParams = {
-	passphrase: string,
-};
-
-/**  The details arrive as a timeline diff. */
-export type FetchEventDetailsParams = {
-	room_id: string,
-	event_id: string,
-	thread_root: string | null,
-};
-
-/**  Fills in users the presence poll has not pushed yet. */
-export type FetchPresenceParams = {
-	user_ids: string[],
-};
-
 /**
  *  One field of a state event a command rewrites. `Set` with an empty value
  *  removes the field, as `Clear` does.
  */
 export type FieldEdit = { kind: "keep" } | { kind: "clear" } | { kind: "set"; value: string };
-
-export type ForwardMessageParams = {
-	room_id: string,
-	event_id: string,
-	to_room_id: string,
-};
 
 export type ForwardedView = {
 	timestamp: number | null,
@@ -769,18 +399,7 @@ export type HierarchySection = {
 	space_action: LobbyAction | null,
 };
 
-export type HistoryVisibilityParams = {
-	room_id: string,
-};
-
 export type HistoryVisibilityView = "shared" | "invited" | "joined" | "world_readable";
-
-export type HomeserverInfoOk = {
-	homeserver: string,
-	server: HomeserverSoftwareView | null,
-};
-
-export type HomeserverInfoParams = Record<string, never>;
 
 export type HomeserverSoftwareView = {
 	name: string | null,
@@ -788,13 +407,6 @@ export type HomeserverSoftwareView = {
 };
 
 export type IdentityResetStep = { step: "done"; recovery_key: string } | { step: "password" } | { step: "approve"; url: string };
-
-/**  Server-side, so it survives a reinstall. */
-export type IgnoreUserParams = {
-	user_id: string,
-};
-
-export type IgnoredUsersParams = Record<string, never>;
 
 export type ImagePackOriginView = "account" | "room" | "global" | "space";
 
@@ -817,16 +429,6 @@ export type ImagePackView = {
 	legacy_event: boolean,
 };
 
-export type ImagePacksOk = {
-	packs: ImagePackView[],
-	complete: boolean,
-};
-
-export type ImagePacksParams = {
-	room_id: string,
-	cached_only: boolean,
-};
-
 export type ImageSourcePackReferenceView = {
 	url: string,
 	source: ImageSourcePackView,
@@ -840,16 +442,6 @@ export type ImageSourcePackView = {
 };
 
 export type ImageUsageView = "emoticon" | "sticker";
-
-export type ImportRoomKeysOk = {
-	imported: number,
-	total: number,
-};
-
-export type ImportRoomKeysParams = {
-	export: string,
-	passphrase: string,
-};
 
 export type InboxFilter = "all" | "mentions" | "direct";
 
@@ -866,25 +458,7 @@ export type InboxItemView = {
 	read: boolean,
 };
 
-export type InboxNotificationsOk = {
-	items: InboxItemView[],
-	has_more: boolean,
-};
-
-export type InboxNotificationsParams = {
-	filter: InboxFilter,
-	include_read: boolean,
-	limit: number,
-	before_ts: number | null,
-};
-
-export type IntegrationManagerUrlParams = {
-	room_id: string,
-};
-
 export type InviteAvatarsView = "on" | "off";
-
-export type InviteTriageParams = Record<string, never>;
 
 export type InviteTriageView = {
 	room_id: string,
@@ -892,11 +466,6 @@ export type InviteTriageView = {
 	reason: string | null,
 	shares_room: boolean,
 	inviter_banned: boolean,
-};
-
-export type InviteUserParams = {
-	room_id: string,
-	user_id: string,
 };
 
 export type InvocationResult = { kind: "built"; invocation: BotCommandInvocation; body: string } | { kind: "invalid"; errors: { [key in string]: ArgumentError } };
@@ -908,39 +477,10 @@ export type JoinAddress = {
 	via: string[],
 };
 
-export type JoinCallOk = {
-	session: CallSessionId,
-	url: string,
-	jwt: string,
-	identity: string,
-	encrypt_media: boolean,
-	mode: CallMode,
-	mode_reason: CallModeReason,
-	sticky_available: boolean,
-	peer_modes: CallMode[],
-	can_publish: boolean,
-	publisher_id: string,
-	backends: CallBackendView[],
-};
-
-export type JoinCallParams = {
-	room_id: string,
-	livekit_service_url: string | null,
-	mode: CallMode | null,
-	intent: CallIntent | null,
-};
-
 export type JoinCandidate = {
 	room: HierarchyRoomView,
 	via: string[],
 	parent_id: string,
-};
-
-export type JoinRoomParams = {
-	/**  A room id or an alias. A pasted address could be either. */
-	address: string,
-	/**  Servers to try when the id is not resolvable on ours, or empty. */
-	via: string[],
 };
 
 /**
@@ -963,8 +503,6 @@ export type KeyBackupDownloadView = {
 	failed: number,
 };
 
-export type KeyBackupStatusParams = Record<string, never>;
-
 export type KeyBackupStatusView = {
 	local_keys: number,
 	backed_up_keys: number,
@@ -978,24 +516,6 @@ export type KeywordNotificationView = {
 	mode: MentionNotificationModeView,
 };
 
-export type KickUserParams = {
-	room_id: string,
-	user_id: string,
-	reason: string | null,
-};
-
-/**
- *  Asks to be let into a `knock` room. A separate endpoint from joining, and
- *  the only one that works when the join rule is `knock`.
- */
-export type KnockRoomParams = {
-	address: string,
-	via: string[],
-	reason: string | null,
-};
-
-export type KnownRoomsParams = Record<string, never>;
-
 /**  Structured, so arranging and localising the preview stays with the UI. */
 export type LatestEventView = {
 	sender: string | null,
@@ -1006,33 +526,9 @@ export type LatestEventView = {
 	event_id: string | null,
 };
 
-export type LeaveCallParams = {
-	session: CallSessionId,
-};
-
-export type LeaveRoomParams = {
-	room_id: string,
-};
-
-export type ListAccountsParams = Record<string, never>;
-
-export type ListThreadsOk = {
-	roots: TimelineItemView[],
-	next_batch: string | null,
-};
-
-export type ListThreadsParams = {
-	room_id: string,
-	from: string | null,
-};
-
 export type LiteralValue = boolean | number | string | RoomReference;
 
 export type LobbyAction = "join" | "knock";
-
-export type LoginFlowsParams = {
-	homeserver: string,
-};
 
 export type LoginFlowsView = {
 	password: boolean,
@@ -1045,59 +541,7 @@ export type LoginFlowsView = {
 
 export type LoginIdentifier = { kind: "user"; user: string } | { kind: "email"; address: string };
 
-export type LoginParams = {
-	reauth_account_id: string | null,
-	homeserver: string,
-	identifier: LoginIdentifier,
-	password: string,
-};
-
-export type LogoutParams = Record<string, never>;
-
-/**  Marks `pinned_ids`, the list the reader is looking at, as seen. */
-export type MarkPinsSeenParams = {
-	room_id: string,
-	pinned_ids: string[],
-};
-
-export type MarkReadParams = {
-	room_id: string,
-	event_id: string | null,
-	private_receipt: boolean,
-	thread_root: string | null,
-	subscription: SubscriptionId | null,
-	fully_read: boolean,
-};
-
-export type MarkUnreadParams = {
-	room_id: string,
-	read_marker: string | null,
-};
-
-/**
- *  A typed message as the web composer's plain mode sends it, each
- *  `\u{FFFC}` in `markdown` standing for the next of `pills`.
- */
-export type MarkdownToContentParams = {
-	markdown: string,
-	pills: ComposerPill[],
-};
-
-export type MasterMuteParams = Record<string, never>;
-
 export type MatrixLink = { kind: "user"; user_id: string } | { kind: "room"; room_id: string } | { kind: "event"; room_id: string; event_id: string };
-
-/**  A struct rather than a bare `u64`, which the TypeScript export refuses. */
-export type MediaConfigOk = {
-	upload_size: number,
-};
-
-export type MediaConfigParams = Record<string, never>;
-
-/**  The room's own config when `room_id` is set, the account's otherwise. */
-export type MediaPreviewConfigParams = {
-	room_id: string | null,
-};
 
 /**  MSC4278. `None` means the event does not say. */
 export type MediaPreviewConfigView = {
@@ -1109,23 +553,11 @@ export type MediaPreviewsView = "on" |
 /**  Only in rooms that are not public. */
 "private" | "off";
 
-export type MemberListThresholdOk = number | null;
-
-/**  The power level from which members are listed whatever their presence. */
-export type MemberListThresholdParams = {
-	room_id: string,
-};
-
 export type MemberLookEdit = {
 	display_name: FieldEdit,
 	avatar_url: FieldEdit,
 	color_on_light: FieldEdit,
 	color_on_dark: FieldEdit,
-};
-
-/**  Our own member event and pronouns in one room or space. */
-export type MemberLookParams = {
-	room_id: string,
 };
 
 export type MemberLookView = {
@@ -1156,8 +588,6 @@ export type MembershipChangeView = "joined" | "left" | "banned" | "unbanned" | "
 export type MembershipView = "join" | "invite" | "knock" | "leave" | "ban";
 
 export type MentionNotificationModeView = "off" | "notify" | "loud";
-
-export type MentionNotificationsParams = Record<string, never>;
 
 export type MentionNotificationsView = {
 	room: MentionNotificationModeView | null,
@@ -1203,18 +633,7 @@ export type NDay = {
 	nth: number | null,
 };
 
-export type NotificationKeywordsParams = Record<string, never>;
-
 export type NotificationModeView = "all" | "mentions" | "mute";
-
-export type NotificationParams = {
-	room_id: string,
-	event_id: string,
-};
-
-export type NotificationSettingsParams = {
-	room_id: string,
-};
 
 export type NotificationSettingsView = {
 	/**  The room's own rule. `null` means it follows `default`. */
@@ -1237,8 +656,6 @@ export type NotificationView = {
 	mention: boolean,
 	noisy: boolean | null,
 };
-
-export type OpenIdTokenParams = Record<string, never>;
 
 export type OpenIdTokenView = {
 	access_token: string,
@@ -1302,22 +719,9 @@ export type PackImageView = {
 	source_pack: ImageSourcePackView | null,
 };
 
-export type PackSubscriptionsParams = Record<string, never>;
-
 export type PackTargetView = { kind: "room"; room_id: string; state_key: string } |
 /**  `im.ponies.user_emotes`, the account's own pack. */
 { kind: "account" };
-
-export type PaginateOk = {
-	direction: PaginationDirection,
-	reached_end: boolean,
-};
-
-export type PaginateParams = {
-	subscription: SubscriptionId,
-	direction: PaginationDirection,
-	count: number,
-};
 
 export type PaginationDirection = "backward" | "forward";
 
@@ -1330,11 +734,6 @@ export type ParsedQuery = {
 	tokens: SearchToken[],
 	/**  Negated date bounds, which no filter can express. */
 	unsupported: string[],
-};
-
-export type PasswordResetEmailOk = {
-	client_secret: string,
-	sid: string,
 };
 
 /**
@@ -1372,9 +771,6 @@ export type PermissionItem = {
 	location: PowerLevelLocation,
 };
 
-/**  The persona catalog as a backup file's text. */
-export type PersonaBackupParams = Record<string, never>;
-
 export type PersonaCatalogView = {
 	personas: PersonaView[],
 	account: PersonaSelectionView | null,
@@ -1405,25 +801,11 @@ export type PersonaView = {
 	last_used: number | null,
 };
 
-export type PersonasParams = Record<string, never>;
-
-export type PinReadStateParams = {
-	room_id: string,
-};
-
 export type PinReadStateView = {
 	pinned_ids: string[],
 	unread: number,
 	/**  Pins added since this account last looked. */
 	fresh_ids: string[],
-};
-
-export type PingPushGatewayParams = {
-	url: string,
-};
-
-export type PinnedEventsParams = {
-	room_id: string,
 };
 
 export type PluralkitImportView = {
@@ -1469,10 +851,6 @@ export type PowerLevelTagView = {
 	icon: string | null,
 };
 
-export type PowerLevelTagsParams = {
-	room_id: string,
-};
-
 export type PredecessorRoomView = {
 	room_id: string,
 	via: string[],
@@ -1494,8 +872,6 @@ export type ProfileOverrideView = {
 	avatar: OverrideTextView,
 	color: OverrideColorView,
 };
-
-export type ProfileOverridesParams = Record<string, never>;
 
 export type ProfileOverridesView = {
 	overrides: ProfileOverrideView[],
@@ -1558,19 +934,6 @@ export type PublicRoomView = {
 	world_readable: boolean,
 };
 
-export type PublicRoomsOk = {
-	rooms: PublicRoomView[],
-	next_batch: string | null,
-	total: number | null,
-};
-
-export type PublicRoomsParams = {
-	server: string | null,
-	search: string | null,
-	since: string | null,
-	room_type: DirectoryRoomType | null,
-};
-
 export type PushAlert = {
 	title: string,
 	body: string,
@@ -1586,11 +949,6 @@ export type PushContent = {
 	body: string | null,
 	membership: string | null,
 	notification_type: string | null,
-};
-
-export type PushEventParams = {
-	room_id: string,
-	event_id: string,
 };
 
 export type PushEventView = {
@@ -1639,33 +997,15 @@ export type PusherView = {
 	append: boolean,
 };
 
-export type QrCheckCodeParams = {
-	code: number,
-};
-
 /**  A square of `width` rows, `modules` holding `1` for a dark module. */
 export type QrCodeView = {
 	width: number,
 	modules: string,
 };
 
-export type QrGrantContinueParams = {
-	confirm: boolean,
-};
-
 export type QrLoginFailureView = "unsupported" | "expired" | "check_code" | "declined" | "no_recovery" | "device_in_use" | "other";
 
 export type QrLoginProgressView = { stage: "starting" } | { stage: "show_code"; code: QrCodeView } | { stage: "enter_check_code" } | { stage: "show_check_code"; check_code: number } | { stage: "waiting_for_token"; user_code: string } | { stage: "waiting_for_auth"; verification_uri: string } | { stage: "syncing_secrets" } | { stage: "done" } | { stage: "signed_in"; user_id: string } | { stage: "failed"; reason: QrLoginFailureView };
-
-export type ReactParams = {
-	room_id: string,
-	event_id: string,
-	key: string,
-	source_pack: ImageSourcePackView | null,
-	shortcode: string | null,
-	thread_root: string | null,
-	subscription: SubscriptionId | null,
-};
 
 export type ReactionGroup = {
 	key: string,
@@ -1675,19 +1015,6 @@ export type ReactionGroup = {
 export type ReactionShortcodeView = {
 	key: string,
 	shortcode: string,
-};
-
-export type ReactionShortcodesParams = {
-	room_id: string,
-	event_id: string,
-};
-
-export type ReadMarkerParams = {
-	room_id: string,
-};
-
-export type RecoverIdentityParams = {
-	recovery_key: string,
 };
 
 /**
@@ -1708,21 +1035,6 @@ export type Recurrence = {
 	modelled: boolean,
 };
 
-export type RedactParams = {
-	room_id: string,
-	event_id: string,
-	reason: string | null,
-	thread_root: string | null,
-};
-
-export type RegisterParams = {
-	homeserver: string,
-	username: string,
-	password: string,
-	registration_email: string | null,
-	registration_token: string | null,
-};
-
 /**  Read raw: ruma's `Pusher` carries neither a custom kind nor `activated`. */
 export type RegisteredPusherView = {
 	pushkey: string,
@@ -1733,10 +1045,6 @@ export type RegisteredPusherView = {
 	/**  Some pusher kinds validate through a handshake; absent elsewhere. */
 	activated: boolean | null,
 	gateway: string | null,
-};
-
-export type RegistrationFlowsParams = {
-	homeserver: string,
 };
 
 export type RegistrationFlowsView = {
@@ -1755,55 +1063,6 @@ export type RelationsView = {
 	prev_batch: string | null,
 };
 
-export type RemoveAccountParams = {
-	account_id: string,
-};
-
-export type RemoveFromSpaceParams = {
-	space_id: string,
-	room_id: string,
-};
-
-export type RemoveLegacyImagePacksParams = {
-	room_id: string,
-	state_keys: string[],
-};
-
-export type RemoveLinkPreviewsParams = {
-	room_id: string,
-	event_id: string,
-	thread_root: string | null,
-};
-
-export type RemoveNotificationKeywordParams = {
-	keyword: string,
-};
-
-export type RemovePersonaParams = {
-	id: string,
-};
-
-export type RemovePusherParams = {
-	pushkey: string,
-	app_id: string,
-};
-
-export type RemoveRoomWidgetParams = {
-	room_id: string,
-	widget_id: string,
-};
-
-export type RenameDeviceParams = {
-	device_id: string,
-	display_name: string,
-};
-
-export type ReorderPersonasParams = {
-	ids: string[],
-};
-
-export type ReplacedRoomsParams = Record<string, never>;
-
 /**  What a quoted event was, when it has no body to show. */
 export type ReplyFallbackView = { kind: "redacted" } | { kind: "reaction"; key: string } | { kind: "redaction" } | { kind: "event"; event_type: string };
 
@@ -1821,77 +1080,6 @@ export type ReplyView = {
 	fallback: ReplyFallbackView | null,
 };
 
-export type ReportMessageParams = {
-	room_id: string,
-	event_id: string,
-	reason: string | null,
-};
-
-export type ReportRoomParams = {
-	room_id: string,
-	reason: string,
-};
-
-export type ReportUserParams = {
-	user_id: string,
-	reason: string,
-};
-
-export type ReprofileMessageParams = {
-	room_id: string,
-	event_id: string,
-	thread_root: string | null,
-	persona: PerMessageProfileView | null,
-};
-
-export type RequestOpenIdTokenOk = {
-	access_token: string,
-	matrix_server_name: string,
-	expires_in: number,
-};
-
-export type RequestOpenIdTokenParams = Record<string, never>;
-
-export type RequestPasswordResetEmailParams = {
-	homeserver: string,
-	email: string,
-	client_secret: string | null,
-	send_attempt: number,
-};
-
-export type RequestRegistrationEmailParams = {
-	email: string,
-};
-
-/**
- *  Our own user id self-verifies another session. Progress arrives as
- *  `CoreEvent::Verification`.
- */
-export type RequestVerificationParams = {
-	user_id: string,
-	device_id: string | null,
-};
-
-/**
- *  Destructive from the first call: the key backup and secret storage are
- *  gone before the server is asked for authentication.
- */
-export type ResetIdentityParams = Record<string, never>;
-
-export type ResetLocalCacheParams = Record<string, never>;
-
-export type ResetPasswordParams = {
-	homeserver: string,
-	client_secret: string,
-	sid: string,
-	new_password: string,
-	logout_devices: boolean,
-};
-
-export type ResetRecoveryKeyParams = {
-	passphrase: string | null,
-};
-
 export type ResolvedQuery = {
 	filter: SearchFilter,
 	/**
@@ -1901,50 +1089,6 @@ export type ResolvedQuery = {
 	unresolved: SearchToken[],
 	/**  A space with no joined rooms in it. */
 	matches_nothing: boolean,
-};
-
-export type RestartDelayedEventParams = {
-	delay_id: string,
-};
-
-export type RestoreParams = Record<string, never>;
-
-/**  Replaces the persona catalog with the one in a backup file. */
-export type RestorePersonaBackupParams = {
-	backup: string,
-};
-
-export type RetryDecryptionParams = {
-	room_id: string,
-	session_id: string,
-	sender: string,
-	thread_root: string | null,
-};
-
-export type RetrySendParams = {
-	room_id: string,
-	transaction_id: string,
-	thread_root: string | null,
-};
-
-export type RoomAbbreviationsParams = {
-	room_id: string,
-};
-
-export type RoomAccountDataOk = unknown | null;
-
-export type RoomAccountDataParams = {
-	room_id: string,
-	event_type: string,
-};
-
-export type RoomAccountDataRawParams = {
-	room_id: string,
-	event_type: string,
-};
-
-export type RoomAliasesParams = {
-	room_id: string,
 };
 
 export type RoomAttachmentContentView = { kind: "image"; filename: string; source: string; mime: string | null; width: number | null; height: number | null; blurhash: string | null; thumbnail: string | null; spoiler: string | null } | { kind: "video"; filename: string; source: string; mime: string | null; width: number | null; height: number | null; blurhash: string | null; thumbnail: string | null; spoiler: string | null } | { kind: "file"; filename: string; source: string; mime: string | null; size: number | null } | { kind: "link"; urls: string[]; body: string };
@@ -1959,53 +1103,9 @@ export type RoomAttachmentView = {
 	content: RoomAttachmentContentView,
 };
 
-export type RoomAttachmentsOk = {
-	items: RoomAttachmentView[],
-	next_batch: string | null,
-};
-
-export type RoomAttachmentsParams = {
-	room_id: string,
-	kind: RoomAttachmentKind,
-	limit: number,
-	from: string | null,
-};
-
-export type RoomBannerParams = {
-	room_id: string,
-};
-
-export type RoomCosmeticsParams = {
-	room_id: string,
-	space_id: string | null,
-};
-
 export type RoomCosmeticsView = {
 	space_id: string | null,
 	users: SenderCosmeticsView[],
-};
-
-export type RoomDirectoryVisibilityParams = {
-	room_id: string,
-};
-
-export type RoomEventRelationsParams = {
-	room_id: string,
-	event_id: string,
-	rel_type: string | null,
-	event_type: string | null,
-	from: string | null,
-	to: string | null,
-	limit: number | null,
-	direction: PaginationDirection | null,
-};
-
-export type RoomFullStateParams = {
-	room_id: string,
-};
-
-export type RoomHasSpaceParentParams = {
-	room_id: string,
 };
 
 export type RoomJoinRuleView = "public" | "invite" | "knock" |
@@ -2013,10 +1113,6 @@ export type RoomJoinRuleView = "public" | "invite" | "knock" |
 "restricted" | "knock_restricted" | "private" |
 /**  Not loaded, or a rule this client has no name for. */
 "unknown";
-
-export type RoomListItemParams = {
-	room_id: string,
-};
 
 export type RoomListItemView = {
 	room_id: string,
@@ -2059,25 +1155,12 @@ export type RoomListItemView = {
 	latest_event: LatestEventView | null,
 };
 
-export type RoomMembersParams = {
-	room_id: string,
-	memberships: MembershipView[],
-};
-
-export type RoomOpenParams = {
-	room_id: string,
-};
-
 export type RoomOpenView = {
 	permissions: RoomPermissionsView,
 	power_level_tags: { [key in string]: PowerLevelTagView },
 	widgets: RoomStateEventView[],
 	pinned_event_ids: string[],
 	predecessor: PredecessorRoomView | null,
-};
-
-export type RoomPermissionsParams = {
-	room_id: string,
 };
 
 /**  What this account may do in one room, resolved from `m.room.power_levels`. */
@@ -2104,10 +1187,6 @@ export type RoomPermissionsView = {
 	can_manage_children: boolean,
 };
 
-export type RoomPowerLevelsParams = {
-	room_id: string,
-};
-
 export type RoomPowerLevelsView = {
 	ban: number,
 	kick: number,
@@ -2119,19 +1198,6 @@ export type RoomPowerLevelsView = {
 	events: { [key in string]: number },
 	users: { [key in string]: number },
 	notifications_room: number,
-};
-
-/**
- *  Accepting an invite is `JoinRoom`, declining it `LeaveRoom`.
- *
- *  Describes a room this account has not joined, so a link to one can be
- *  shown before committing to the join.
- */
-export type RoomPreviewParams = {
-	/**  A room id or an alias, as `JoinRoom` takes. */
-	address: string,
-	/**  Servers to try when the id is not resolvable on ours, or empty. */
-	via: string[],
 };
 
 /**  A room as the server describes it to someone who may not be in it. */
@@ -2159,50 +1225,14 @@ export type RoomReference = {
 
 export type RoomReferenceKind = "room_id" | "event_id";
 
-export type RoomStateEventOk = unknown | null;
-
-export type RoomStateEventParams = {
-	room_id: string,
-	event_type: string,
-	state_key: string,
-};
-
 export type RoomStateEventView = {
 	state_key: string,
 	content: unknown,
 };
 
-export type RoomStateEventsParams = {
-	room_id: string,
-	event_type: string,
-};
-
-export type RoomStateEventsRawOk = unknown[];
-
-export type RoomStateEventsRawParams = {
-	room_id: string,
-	event_type: string,
-	state_key: string | null,
-};
-
 export type RoomStateView = "joined" | "invited" | "knocked" | "left" | "banned";
 
-export type RoomStickyEventsParams = {
-	room_id: string,
-};
-
 export type RoomTag = "favourite";
-
-export type RoomTimelineEventsOk = unknown[];
-
-export type RoomTimelineEventsParams = {
-	room_id: string,
-	event_type: string,
-	msgtype: string | null,
-	state_key: string | null,
-	limit: number,
-	since: string | null,
-};
 
 export type RoomUnreadView = {
 	unread: number,
@@ -2218,20 +1248,9 @@ export type RoomVersionView = {
 	stable: boolean,
 };
 
-export type RoomVersionsParams = Record<string, never>;
-
 export type RoomVersionsView = {
 	default: string,
 	available: RoomVersionView[],
-};
-
-/**
- *  The servers to advertise in a permalink to this room, per the routing
- *  rules in the spec appendices. Empty when the room has a canonical alias,
- *  which is routable on its own.
- */
-export type RoomViaServersParams = {
-	room_id: string,
 };
 
 /**
@@ -2293,62 +1312,11 @@ export type RsvpTally = {
 	people: RsvpPeople,
 };
 
-/**  The homeserver's response body, relayed as is. */
-export type RtcBody = unknown;
-
 export type RtcLivekitEndpoint = "get_token" | "delegate_delayed_leave";
-
-export type RtcLivekitParams = {
-	endpoint: RtcLivekitEndpoint,
-	body: unknown,
-};
 
 export type RtcTransportSource = "endpoint" | "well_known" | "none";
 
-export type RtcTransportsParams = Record<string, never>;
-
-export type SaveCalendarEventParams = {
-	room_id: string,
-	event: unknown,
-	replaces: string | null,
-};
-
-export type SaveImagePackParams = {
-	target: PackTargetView,
-	draft: PackDraftView,
-};
-
-export type SavePersonaParams = {
-	persona: PersonaView,
-	previous_id: string | null,
-};
-
 export type ScalarSchema = { schema_type: "primitive"; type: PrimitiveType } | { schema_type: "literal"; value: LiteralValue };
-
-/**  The bytes read from the other device's code, base64 encoded. */
-export type ScanVerificationQrParams = {
-	user_id: string,
-	flow_id: string,
-	data: string,
-};
-
-export type ScheduleAttachmentParams = {
-	room_id: string,
-	filename: string,
-	mime: string,
-	url: string,
-	size: number,
-	info: AttachmentInfoView | null,
-	spoiler: boolean,
-	delay_ms: number,
-};
-
-export type ScheduleMessageParams = {
-	room_id: string,
-	body: string,
-	formatted: string | null,
-	delay_ms: number,
-};
 
 export type ScheduledMessageView = {
 	delay_id: string,
@@ -2359,15 +1327,7 @@ export type ScheduledMessageView = {
 	delivery_ts: number | null,
 };
 
-export type ScheduledMessagesParams = {
-	room_id: string | null,
-};
-
 export type SealStateView = "plain" | "sealed" | "locked";
-
-export type SealedAccountDataParams = {
-	event_type: string,
-};
 
 export type SealedAccountDataView = {
 	content: unknown | null,
@@ -2383,8 +1343,6 @@ export type SearchContextView = {
 	sender: string,
 	origin_server_ts: number,
 };
-
-export type SearchCoverageParams = Record<string, never>;
 
 export type SearchCoverageState = "indexing" | "complete" | "partial" | "stopped";
 
@@ -2433,23 +1391,6 @@ export type SearchHitView = {
 	context_before: SearchContextView[],
 	context_after: SearchContextView[],
 };
-
-export type SearchMessagesOk = {
-	hits: SearchHitView[],
-	older: string | null,
-};
-
-export type SearchMessagesParams = {
-	query: string,
-	filter: SearchFilter,
-	order: SearchOrder,
-	limit: number,
-	offset: number,
-	context: number,
-	older: string | null,
-};
-
-export type SearchMetricsParams = Record<string, never>;
 
 export type SearchMetricsView = {
 	phase: SearchCrawlPhase,
@@ -2517,16 +1458,6 @@ export type SearchTuning = {
 	max_events: number,
 };
 
-export type SearchUserDirectoryOk = {
-	limited: boolean,
-	results: UserDirectoryEntryView[],
-};
-
-export type SearchUserDirectoryParams = {
-	term: string,
-	limit: number | null,
-};
-
 export type SendAttachmentRequest = {
 	room_id: string,
 	filename: string,
@@ -2539,96 +1470,12 @@ export type SendAttachmentRequest = {
 
 export type SendBlockView = { kind: "identity_changed"; user_ids: string[] } | { kind: "verify_this_device" };
 
-export type SendDiagnosticPushParams = {
-	pushkey: string,
-	app_id: string,
-};
-
 export type SendGalleryRequest = {
 	room_id: string,
 	attachments: GalleryAttachmentView[],
 	caption?: string | null,
 	formatted_caption?: string | null,
 } & Outgoing;
-
-export type SendGestureParams = {
-	room_id: string,
-	gesture: GestureView,
-	target: string | null,
-};
-
-export type SendGifParams = {
-	room_id: string,
-	/**  `mxc://` only; the core rejects anything else. */
-	url: string,
-	body: string,
-	width: number | null,
-	height: number | null,
-	mimetype: string,
-	size: number | null,
-	in_reply_to: string | null,
-	silent_reply: boolean,
-	thread_root: string | null,
-	persona: PerMessageProfileView | null,
-};
-
-export type SendLocationParams = {
-	room_id: string,
-	body: string,
-	geo_uri: string,
-	in_reply_to: string | null,
-	silent_reply: boolean,
-	thread_root: string | null,
-};
-
-export type SendMessageParams = {
-	room_id: string,
-	body: string,
-	formatted: string | null,
-	kind: MessageKind,
-	thread_root: string | null,
-	/**
-	 *  Replying inside a thread needs no extra field: the SDK infers the
-	 *  thread from the replied-to event.
-	 */
-	in_reply_to: string | null,
-	mentions: string[],
-	mentions_room: boolean,
-	silent_reply: boolean,
-	persona: PerMessageProfileView | null,
-	link_previews: UrlPreviewView[],
-	no_link_previews: boolean,
-	image_source_packs: ImageSourcePackReferenceView[],
-	bot_command: unknown | null,
-	forum_title: string | null,
-};
-
-export type SendRawEventParams = {
-	room_id: string,
-	event_type: string,
-	content: unknown,
-};
-
-export type SendRedactionParams = {
-	room_id: string,
-	event_id: string,
-	reason: string | null,
-};
-
-export type SendScheduledMessageParams = {
-	delay_id: string,
-};
-
-/**
- *  Escape hatch for unmodelled state. `content` is validated only by the
- *  server, so prefer a typed command.
- */
-export type SendStateEventParams = {
-	room_id: string,
-	event_type: string,
-	state_key: string,
-	content: unknown,
-};
 
 /**  Without this a failed send renders as an ordinary message. */
 export type SendStateView = { status: "sending";
@@ -2642,17 +1489,6 @@ recoverable: boolean; blocked: SendBlockView | null } |
 /**  Accepted, still waiting to arrive through sync. */
 { status: "sent" };
 
-export type SendStickerParams = {
-	room_id: string,
-	url: string,
-	body: string,
-	info: PackImageInfoView | null,
-	source_pack: ImageSourcePackView | null,
-	in_reply_to: string | null,
-	thread_root: string | null,
-	persona: PerMessageProfileView | null,
-};
-
 export type SenderCosmeticsView = {
 	user_id: string,
 	color_on_light: string | null,
@@ -2662,8 +1498,6 @@ export type SenderCosmeticsView = {
 	space_avatar_url: string | null,
 };
 
-export type ServerFeaturesParams = Record<string, never>;
-
 export type SessionInfo = {
 	account_id: string,
 	user_id: string,
@@ -2672,312 +1506,7 @@ export type SessionInfo = {
 	needs_reauth: boolean,
 };
 
-export type SetAccountDataParams = {
-	event_type: string,
-	content: unknown,
-};
-
-/**  An `mxc:` URI from the carrier's `uploadMedia`. `null` clears it. */
-export type SetAvatarUrlParams = {
-	url: string | null,
-	propagate_to: ProfilePropagationView,
-};
-
-export type SetBookmarkParams = {
-	room_id: string,
-	event_id: string,
-	bookmarked: boolean,
-	now_ms: number,
-};
-
-export type SetCallScreenSharingParams = {
-	session: CallSessionId,
-	active: boolean,
-};
-
-export type SetCanonicalAliasParams = {
-	room_id: string,
-	alias: string | null,
-	alt_aliases: string[],
-};
-
-export type SetDefaultNotificationModeParams = {
-	direct: boolean,
-	mode: NotificationModeView,
-};
-
-export type SetDeviceBlockedParams = {
-	user_id: string,
-	device_id: string,
-	blocked: boolean,
-};
-
-/**  `m.direct` is client-owned account data. Nothing else will correct it. */
-export type SetDirectParams = {
-	room_id: string,
-	direct: boolean,
-	user_id: string | null,
-};
-
-/**  `null` clears it. */
-export type SetDisplayNameParams = {
-	name: string | null,
-	propagate_to: ProfilePropagationView,
-};
-
-export type SetEventNotificationParams = {
-	event: EventNotificationView,
-	enabled: boolean,
-};
-
-export type SetFullyReadParams = {
-	room_id: string,
-	event_id: string,
-};
-
-export type SetHistoryVisibilityParams = {
-	room_id: string,
-	visibility: HistoryVisibilityView,
-};
-
-export type SetInviteDismissedParams = {
-	room_id: string,
-	dismissed: boolean,
-};
-
-export type SetMasterMuteParams = {
-	muted: boolean,
-};
-
-/**  Merges into the account's config; a field left `None` is kept. */
-export type SetMediaPreviewConfigParams = {
-	config: MediaPreviewConfigView,
-};
-
-export type SetMemberListThresholdParams = {
-	room_id: string,
-	always_listed_from: number | null,
-};
-
-/**
- *  Writes our member event once; a colour change also clears the legacy
- *  colour event other clients still read.
- */
-export type SetMemberLookParams = {
-	room_id: string,
-	in_parent_space: boolean,
-	display_name: FieldEdit,
-	avatar_url: FieldEdit,
-	color_on_light: FieldEdit,
-	color_on_dark: FieldEdit,
-};
-
-export type SetMentionNotificationsParams = {
-	rule: MentionRuleView,
-	mode: MentionNotificationModeView,
-};
-
-/**  Mirrors the reader's choice so a native shell can apply it too. */
-export type SetNotificationContentParams = {
-	visible: boolean,
-	encrypted: boolean,
-};
-
-export type SetNotificationKeywordModeParams = {
-	keyword: string,
-	mode: MentionNotificationModeView,
-};
-
-export type SetNotificationSoundsParams = {
-	enabled: boolean,
-};
-
-export type SetNotificationsEnabledParams = {
-	enabled: boolean,
-};
-
-export type SetNotifyOnceParams = {
-	enabled: boolean,
-};
-
-export type SetPackSubscriptionsParams = {
-	added: PackAddressView[],
-	removed: PackAddressView[],
-};
-
-export type SetPersonaSelectionParams = {
-	room_id: string | null,
-	persona_id: string | null,
-	valid_until: number | null,
-};
-
-export type SetPinnedParams = {
-	room_id: string,
-	event_id: string,
-	pinned: boolean,
-};
-
-/**  `levels` is what the reader is editing; the store lags our own writes. */
-export type SetPowerLevelParams = {
-	room_id: string,
-	levels: RoomPowerLevelsView | null,
-	location: PowerLevelLocation,
-	level: number,
-};
-
-/**  No tag removes the role at that level. */
-export type SetPowerLevelTagParams = {
-	room_id: string,
-	level: number,
-	tag: PowerLevelTagView | null,
-};
-
-export type SetPresenceParams = {
-	presence: PresenceView,
-	status_message: string | null,
-};
-
-export type SetProfileFieldParams = {
-	field: string,
-	value: unknown | null,
-};
-
-export type SetProfileOverrideParams = {
-	user_id: string,
-	display_name: FieldEdit,
-	avatar: AvatarEditView,
-	color: FieldEdit,
-};
-
-export type SetPronounsParams = {
-	room_id: string,
-	in_parent_space: boolean,
-	pronouns: PronounView[],
-};
-
-export type SetPusherParams = {
-	pusher: PusherView,
-};
-
-export type SetReadRoomParams = {
-	room_id: string | null,
-};
-
-export type SetRoomAbbreviationsParams = {
-	room_id: string,
-	entries: AbbreviationView[],
-};
-
-export type SetRoomAccountDataParams = {
-	room_id: string,
-	event_type: string,
-	content: unknown,
-};
-
-export type SetRoomAvatarParams = {
-	room_id: string,
-	url: string | null,
-};
-
-export type SetRoomBannerParams = {
-	room_id: string,
-	url: string | null,
-};
-
-export type SetRoomDirectoryVisibilityParams = {
-	room_id: string,
-	public: boolean,
-};
-
-export type SetRoomJoinRuleParams = {
-	room_id: string,
-	rule: JoinRuleView,
-};
-
-export type SetRoomNameParams = {
-	room_id: string,
-	name: string | null,
-};
-
-export type SetRoomNotificationModeParams = {
-	room_id: string,
-	/**  `null` drops the room's own rules so it follows the default again. */
-	mode: NotificationModeView | null,
-};
-
-export type SetRoomTagParams = {
-	room_id: string,
-	tag: RoomTag,
-	/**  False removes it. */
-	set: boolean,
-};
-
-export type SetRoomTopicParams = {
-	room_id: string,
-	topic: string,
-};
-
-export type SetSealedAccountDataParams = {
-	event_type: string,
-	content: unknown,
-};
-
-export type SetSearchOptionsParams = {
-	disk_budget_mb: number,
-	crawler: boolean,
-	unmetered_only: boolean,
-	server_search: boolean,
-	tuning: SearchTuning,
-	foreground: boolean,
-};
-
-export type SetSpaceChildOrderParams = {
-	space_id: string,
-	room_id: string,
-	order: string | null,
-};
-
-export type SetSpaceChildSuggestedParams = {
-	space_id: string,
-	room_id: string,
-	suggested: boolean,
-};
-
-export type SetSpaceSidebarParams = {
-	items: SidebarItemView[],
-};
-
-/**  Points readers of this room at `replacement_room` without upgrading it. */
-export type SetTombstoneParams = {
-	room_id: string,
-	replacement_room: string,
-	body: string,
-};
-
-/**  The server expires it by itself, so a missed `false` is not fatal. */
-export type SetTypingParams = {
-	room_id: string,
-	typing: boolean,
-};
-
-/**  Lowering our own cannot be undone. The level to raise it is gone. */
-export type SetUserPowerLevelParams = {
-	room_id: string,
-	user_id: string,
-	power_level: number,
-};
-
-export type SetWebPusherParams = {
-	pusher: WebPusherView,
-};
-
-export type SetWidgetFeedParams = {
-	enabled: boolean,
-};
-
 export type SidebarItemView = { kind: "space"; room_id: string } | { kind: "folder"; id: string; name: string | null; content: string[] };
-
-export type SignOutSafetyParams = Record<string, never>;
 
 export type SignOutSafetyView = {
 	encryption: EncryptionStatusView,
@@ -3010,17 +1539,6 @@ export type SpaceChildEdge = {
 	suggested: boolean,
 };
 
-export type SpaceHierarchyOk = {
-	rooms: SpaceHierarchyRoomView[],
-	/**  Pass back as `from` for the next page; `null` at the end. */
-	next_batch: string | null,
-};
-
-export type SpaceHierarchyParams = {
-	space_id: string,
-	from: string | null,
-};
-
 /**
  *  One room in a space's hierarchy. The root space is included, so a caller can
  *  walk the tree from it.
@@ -3050,49 +1568,11 @@ export type SpaceParentView = {
 	via: string[],
 };
 
-export type SpaceSidebarParams = Record<string, never>;
-
 export type SsoIdentityProviderView = {
 	id: string,
 	name: string,
 	icon: string | null,
 	brand: string | null,
-};
-
-export type StartOidcLoginParams = {
-	reauth_account_id: string | null,
-	homeserver: string,
-	redirect_uri: string,
-	intent: AuthIntent,
-};
-
-/**  Lets another device sign in to this account (MSC4108). */
-export type StartQrGrantParams = {
-	scanned: string | null,
-};
-
-/**
- *  Signs this device in from another one (MSC4108). `scanned` is the
- *  other device's code, base64 encoded; without it this device shows one.
- */
-export type StartQrLoginParams = {
-	homeserver: string | null,
-	redirect_uri: string,
-	scanned: string | null,
-};
-
-/**  Leaves the codes for emoji. */
-export type StartSasVerificationParams = {
-	user_id: string,
-	flow_id: string,
-};
-
-export type StartSsoLoginParams = {
-	reauth_account_id: string | null,
-	homeserver: string,
-	redirect_uri: string,
-	idp_id: string | null,
-	intent: AuthIntent,
 };
 
 export type StateChangeView = { kind: "room_name"; name: string | null; previous: string | null } | { kind: "room_topic"; topic: string | null } | { kind: "room_avatar"; removed: boolean } | { kind: "pinned_events"; added: string[]; removed: string[]; total: number } |
@@ -3108,72 +1588,9 @@ export type StatusView = {
 	emoji: string | null,
 };
 
-/**  The room's live sticky events, as raw JSON. */
-export type StickyEvents = unknown[];
-
-export type SubmitRegistrationEmailParams = {
-	token: string,
-};
-
-/**  The snapshot. Everything after it carries the same `subscription`. */
-export type SubscribeRoomListOk = {
-	subscription: SubscriptionId,
-	rooms: RoomListItemView[],
-};
-
-export type SubscribeRoomListParams = Record<string, never>;
-
-export type SubscribeTimelineOk = {
-	subscription: SubscriptionId,
-	items: TimelineItemView[],
-	aggregations: TimelineItemView[],
-};
-
-export type SubscribeTimelineParams = {
-	room_id: string,
-	focus: TimelineFocusView,
-	/**
-	 *  Relaxes the event filter so events the SDK would otherwise drop
-	 *  arrive as `HiddenEvent`. Baked into the timeline, so flipping it
-	 *  means re-subscribing.
-	 */
-	hidden_events: boolean,
-};
-
 export type SubscriptionId = number;
 
-export type SwitchAccountParams = {
-	account_id: string,
-};
-
-export type SyncChildPowerLevelsOk = {
-	updated: number,
-	skipped: number,
-};
-
-export type SyncChildPowerLevelsParams = {
-	space_id: string,
-	child_ids: string[],
-};
-
-export type SyncPowerLevelsFromSpaceOk = {
-	levels: RoomPowerLevelsView,
-	tags: { [key in string]: PowerLevelTagView },
-};
-
-/**
- *  Copies the space's moderation and settings levels, and its role names,
- *  as far as our own level allows.
- */
-export type SyncPowerLevelsFromSpaceParams = {
-	room_id: string,
-	space_id: string,
-	levels: RoomPowerLevelsView | null,
-};
-
 export type SyncStatus = { state: "offline" } | { state: "syncing" } | { state: "live" } | { state: "error"; message: string };
-
-export type SyncStatusParams = Record<string, never>;
 
 export type TargetSuggestion = {
 	label: string,
@@ -3335,14 +1752,6 @@ export type TimelineVisibility = "always" | "membership" |
 /**  Shown only with hidden events on. */
 "hidden";
 
-export type TimestampToEventParams = {
-	room_id: string,
-	ts: number,
-	direction: PaginationDirection,
-};
-
-export type TurnServerParams = Record<string, never>;
-
 export type TurnServerView = {
 	username: string,
 	password: string,
@@ -3350,48 +1759,10 @@ export type TurnServerView = {
 	ttl_ms: number,
 };
 
-export type UnbanUserParams = {
-	room_id: string,
-	user_id: string,
-	reason: string | null,
-};
-
-export type UnignoreUserParams = {
-	user_id: string,
-};
-
-export type UnjoinedSpaceParentsParams = {
-	room_id: string,
-};
-
-export type UnsubscribeParams = {
-	subscription: SubscriptionId,
-};
-
-/**  Server globs to add to and remove from each list. */
-export type UpdateServerAclParams = {
-	room_id: string,
-	allow: string[],
-	deny: string[],
-	remove_allow: string[],
-	remove_deny: string[],
-};
-
-export type UpgradeRoomParams = {
-	room_id: string,
-	new_version: string,
-	additional_creators: string[],
-};
-
 export type UploadProgressView = {
 	index: number,
 	current: number,
 	total: number,
-};
-
-export type UrlPreviewParams = {
-	url: string,
-	service: string | null,
 };
 
 export type UrlPreviewVideoView = {
@@ -3428,23 +1799,6 @@ export type UserDirectoryEntryView = {
 	user_id: string,
 	display_name: string | null,
 	avatar_url: string | null,
-};
-
-export type UserProfileParams = {
-	user_id: string,
-};
-
-export type UserRelationsOk = {
-	mutual_rooms: MutualRoomView[],
-	ignored: boolean,
-};
-
-export type UserRelationsParams = {
-	user_id: string,
-};
-
-export type UserSecurityParams = {
-	user_id: string,
 };
 
 export type UserSecurityView = {
@@ -3499,20 +1853,6 @@ export type ViaSplit = {
 	via: string[],
 };
 
-/**  Replaces any earlier vote by this account. An empty selection abstains. */
-export type VotePollParams = {
-	room_id: string,
-	/**  The poll's start event. */
-	event_id: string,
-	/**  The ids of the chosen answers. */
-	answers: string[],
-	thread_root: string | null,
-};
-
-export type WarmRoomsParams = {
-	room_ids: string[],
-};
-
 export type WebPushKeys = {
 	endpoint: string,
 	p256dh: string,
@@ -3523,9 +1863,6 @@ export type WebPushValidation = {
 	app_id: string,
 	ack_token: string,
 };
-
-/**  The homeserver's web push support: a VAPID key means server delivery. */
-export type WebPusherSupportParams = Record<string, never>;
 
 /**  MSC4174 web push: the homeserver encrypts and delivers, so no gateway. */
 export type WebPusherView = {
@@ -3538,666 +1875,1921 @@ export type WebPusherView = {
 	event_id_only: boolean,
 };
 
-export type WebPushersParams = Record<string, never>;
-
-export type WidgetSendDelayedEventParams = {
-	room_id: string,
-	event_type: string,
-	state_key: string | null,
-	content: unknown,
-	delay_ms: number,
-	sticky_duration_ms: number | null,
-};
-
-export type WidgetSendStickyEventParams = {
-	room_id: string,
-	event_type: string,
-	content: unknown,
-	sticky_duration_ms: number,
-};
-
-export type WidgetSendToDeviceParams = {
-	event_type: string,
-	encrypted: boolean,
-	messages: unknown,
-};
-
-export type WithdrawVerificationParams = {
-	user_id: string,
-};
-
 export type ZonedInstant = {
 	instant: number,
 	datetime: string,
 };
 
-/** Each wire method's params and result. */
+/** The core's methods by domain. */
+export type Rpc = {
+  account: {
+    userProfile: (params: {
+	user_id: string,
+}) => Promise<ProfileView>;
+    userRelations: (params: {
+	user_id: string,
+}) => Promise<{
+	mutual_rooms: MutualRoomView[],
+	ignored: boolean,
+}>;
+    dataTypes: (params?: Record<string, never>) => Promise<string[]>;
+    data: (params: {
+	event_type: string,
+}) => Promise<unknown | null>;
+    setData: (params: {
+	event_type: string,
+	content: unknown,
+}) => Promise<null>;
+    sealedData: (params: {
+	event_type: string,
+}) => Promise<SealedAccountDataView>;
+    setSealedData: (params: {
+	event_type: string,
+	content: unknown,
+}) => Promise<null>;
+    setDisplayName: (params: {
+	name?: string | null,
+	propagate_to: ProfilePropagationView,
+}) => Promise<null>;
+    setAvatarUrl: (params: {
+	url?: string | null,
+	propagate_to: ProfilePropagationView,
+}) => Promise<null>;
+    setProfileField: (params: {
+	field: string,
+	value?: unknown | null,
+}) => Promise<null>;
+    contacts: (params?: Record<string, never>) => Promise<string[]>;
+    ignoredUsers: (params?: Record<string, never>) => Promise<string[]>;
+    inviteTriage: (params?: Record<string, never>) => Promise<InviteTriageView[]>;
+    setDirect: (params: {
+	room_id: string,
+	direct: boolean,
+	user_id?: string | null,
+}) => Promise<null>;
+    ignoreUser: (params: {
+	user_id: string,
+}) => Promise<null>;
+    unignoreUser: (params: {
+	user_id: string,
+}) => Promise<null>;
+    reportUser: (params: {
+	user_id: string,
+	reason: string,
+}) => Promise<null>;
+    setPresence: (params: {
+	presence: PresenceView,
+	status_message?: string | null,
+}) => Promise<null>;
+    fetchPresence: (params: {
+	user_ids: string[],
+}) => Promise<null>;
+    searchUserDirectory: (params: {
+	term: string,
+	limit?: number | null,
+}) => Promise<{
+	limited: boolean,
+	results: UserDirectoryEntryView[],
+}>;
+    dismissedInvites: (params?: Record<string, never>) => Promise<string[]>;
+    setInviteDismissed: (params: {
+	room_id: string,
+	dismissed: boolean,
+}) => Promise<string[]>;
+    bookmarks: (params?: Record<string, never>) => Promise<BookmarkView[]>;
+    setBookmark: (params: {
+	room_id: string,
+	event_id: string,
+	bookmarked: boolean,
+	now_ms: number,
+}) => Promise<boolean>;
+    mediaPreviewConfig: (params: {
+	room_id?: string | null,
+}) => Promise<MediaPreviewConfigView>;
+    setMediaPreviewConfig: (params: {
+	config: MediaPreviewConfigView,
+}) => Promise<MediaPreviewConfigView>;
+    profileOverrides: (params?: Record<string, never>) => Promise<ProfileOverridesView>;
+    setProfileOverride: (params: {
+	user_id: string,
+	display_name: FieldEdit,
+	avatar: AvatarEditView,
+	color: FieldEdit,
+}) => Promise<ProfileOverridesView>;
+  };
+  auth: {
+    discoverHomeserver: (params: {
+	server_name: string,
+}) => Promise<string>;
+    login: (params: {
+	reauth_account_id?: string | null,
+	homeserver: string,
+	identifier: LoginIdentifier,
+	password: string,
+}) => Promise<string>;
+    loginFlows: (params: {
+	homeserver: string,
+}) => Promise<LoginFlowsView>;
+    registrationFlows: (params: {
+	homeserver: string,
+}) => Promise<RegistrationFlowsView>;
+    register: (params: {
+	homeserver: string,
+	username: string,
+	password: string,
+	registration_email?: string | null,
+	registration_token: string | null,
+}) => Promise<RegistrationResultView>;
+    requestRegistrationEmail: (params: {
+	email: string,
+}) => Promise<RegistrationResultView>;
+    submitRegistrationEmail: (params: {
+	token: string,
+}) => Promise<RegistrationResultView>;
+    continueRegistration: (params?: Record<string, never>) => Promise<RegistrationResultView>;
+    cancelRegistration: (params?: Record<string, never>) => Promise<null>;
+    requestPasswordResetEmail: (params: {
+	homeserver: string,
+	email: string,
+	client_secret?: string | null,
+	send_attempt: number,
+}) => Promise<{
+	client_secret: string,
+	sid: string,
+}>;
+    resetPassword: (params: {
+	homeserver: string,
+	client_secret: string,
+	sid: string,
+	new_password: string,
+	logout_devices: boolean,
+}) => Promise<null>;
+    startOidcLogin: (params: {
+	reauth_account_id?: string | null,
+	homeserver: string,
+	redirect_uri: string,
+	intent: AuthIntent,
+}) => Promise<string>;
+    completeOidcLogin: (params: {
+	callback_url: string,
+}) => Promise<string>;
+    startSsoLogin: (params: {
+	reauth_account_id?: string | null,
+	homeserver: string,
+	redirect_uri: string,
+	idp_id?: string | null,
+	intent: AuthIntent,
+}) => Promise<string>;
+    completeSsoLogin: (params: {
+	callback_url: string,
+}) => Promise<string>;
+    startQrLogin: (params: {
+	homeserver?: string | null,
+	redirect_uri: string,
+	scanned: string | null,
+}) => Promise<null>;
+    startQrGrant: (params: {
+	scanned?: string | null,
+}) => Promise<null>;
+    qrCheckCode: (params: {
+	code: number,
+}) => Promise<null>;
+    qrGrantContinue: (params: {
+	confirm: boolean,
+}) => Promise<null>;
+    cancelQr: (params?: Record<string, never>) => Promise<null>;
+  };
+  calendar: {
+    entries: (params: {
+	room_id: string,
+}) => Promise<CalendarView>;
+    saveEvent: (params: {
+	room_id: string,
+	event: unknown,
+	replaces?: string | null,
+}) => Promise<null>;
+    answerEvent: (params: {
+	room_id: string,
+	calendar_event_id: string,
+	uid: string,
+	recurrence_id?: string | null,
+	status: RsvpStatusView,
+}) => Promise<null>;
+  };
+  calls: {
+    turnServer: (params?: Record<string, never>) => Promise<TurnServerView>;
+    rtcTransports: (params?: Record<string, never>) => Promise<unknown>;
+    rtcLivekit: (params: {
+	endpoint: RtcLivekitEndpoint,
+	body: unknown,
+}) => Promise<unknown>;
+    join: (params: {
+	room_id: string,
+	livekit_service_url?: string | null,
+	mode?: CallMode | null,
+	intent?: CallIntent | null,
+}) => Promise<{
+	session: CallSessionId,
+	url: string,
+	jwt: string,
+	identity: string,
+	encrypt_media: boolean,
+	mode: CallMode,
+	mode_reason: CallModeReason,
+	sticky_available: boolean,
+	peer_modes: CallMode[],
+	can_publish: boolean,
+	publisher_id: string,
+	backends: CallBackendView[],
+}>;
+    compatibility: (params?: Record<string, never>) => Promise<CallCompatibilityView>;
+    support: (params: {
+	room_id: string,
+	livekit_service_url?: string | null,
+}) => Promise<CallSupportView>;
+    leave: (params: {
+	session: CallSessionId,
+}) => Promise<null>;
+    setScreenSharing: (params: {
+	session: CallSessionId,
+	active: boolean,
+}) => Promise<null>;
+    decline: (params: {
+	room_id: string,
+	notification_event_id: string,
+}) => Promise<null>;
+  };
+  encryption: {
+    status: (params?: Record<string, never>) => Promise<EncryptionStatusView>;
+    keyBackupStatus: (params?: Record<string, never>) => Promise<KeyBackupStatusView>;
+    downloadKeyBackup: (params: {
+	request_id: string,
+}) => Promise<KeyBackupDownloadView>;
+    signOutSafety: (params?: Record<string, never>) => Promise<SignOutSafetyView>;
+    devices: (params?: Record<string, never>) => Promise<{
+	devices: DeviceView[],
+	account_management: boolean,
+	/**  Signed in with OAuth, which is what linking a device by QR code needs. */
+	oauth: boolean,
+}>;
+    userSecurity: (params: {
+	user_id: string,
+}) => Promise<UserSecurityView>;
+    recoverIdentity: (params: {
+	recovery_key: string,
+}) => Promise<null>;
+    enableRecovery: (params: {
+	/**  A passphrase to unlock the key with. The key is returned either way. */
+	passphrase?: string | null,
+}) => Promise<string>;
+    resetRecoveryKey: (params: {
+	passphrase?: string | null,
+}) => Promise<string>;
+    resetIdentity: (params?: Record<string, never>) => Promise<IdentityResetStep>;
+    continueIdentityReset: (params: {
+	password?: string | null,
+}) => Promise<string>;
+    cancelIdentityReset: (params?: Record<string, never>) => Promise<null>;
+    exportRoomKeys: (params: {
+	passphrase: string,
+}) => Promise<string>;
+    importRoomKeys: (params: {
+	export: string,
+	passphrase: string,
+}) => Promise<{
+	imported: number,
+	total: number,
+}>;
+    deleteDevice: (params: {
+	device_id: string,
+	password?: string | null,
+}) => Promise<string | null>;
+    renameDevice: (params: {
+	device_id: string,
+	display_name: string,
+}) => Promise<null>;
+    discardRoomKey: (params: {
+	room_id: string,
+}) => Promise<null>;
+    requestVerification: (params: {
+	user_id: string,
+	device_id?: string | null,
+}) => Promise<string>;
+    withdrawVerification: (params: {
+	user_id: string,
+}) => Promise<null>;
+    setDeviceBlocked: (params: {
+	user_id: string,
+	device_id: string,
+	blocked: boolean,
+}) => Promise<null>;
+    acceptVerification: (params: {
+	user_id: string,
+	flow_id: string,
+}) => Promise<null>;
+    scanVerificationQr: (params: {
+	user_id: string,
+	flow_id: string,
+	data: string,
+}) => Promise<null>;
+    startSasVerification: (params: {
+	user_id: string,
+	flow_id: string,
+}) => Promise<null>;
+    confirmVerification: (params: {
+	user_id: string,
+	flow_id: string,
+}) => Promise<null>;
+    cancelVerification: (params: {
+	user_id: string,
+	flow_id: string,
+	/**
+	 *  The emoji differed. An attack signal the other side must be told
+	 *  about. A plain cancel is not.
+	 */
+	mismatch: boolean,
+}) => Promise<null>;
+  };
+  members: {
+    list: (params: {
+	room_id: string,
+	memberships?: MembershipView[],
+}) => Promise<MemberView[]>;
+    permissions: (params: {
+	room_id: string,
+}) => Promise<RoomPermissionsView>;
+    powerLevels: (params: {
+	room_id: string,
+}) => Promise<RoomPowerLevelsView>;
+    setPowerLevel: (params: {
+	room_id: string,
+	levels?: RoomPowerLevelsView | null,
+	location: PowerLevelLocation,
+	level: number,
+}) => Promise<RoomPowerLevelsView>;
+    syncPowerLevelsFromSpace: (params: {
+	room_id: string,
+	space_id: string,
+	levels?: RoomPowerLevelsView | null,
+}) => Promise<{
+	levels: RoomPowerLevelsView,
+	tags: { [key in string]: PowerLevelTagView },
+}>;
+    syncChildPowerLevels: (params: {
+	space_id: string,
+	child_ids: string[],
+}) => Promise<{
+	updated: number,
+	skipped: number,
+}>;
+    powerLevelTags: (params: {
+	room_id: string,
+}) => Promise<{ [key in string]: PowerLevelTagView }>;
+    setPowerLevelTag: (params: {
+	room_id: string,
+	level: number,
+	tag?: PowerLevelTagView | null,
+}) => Promise<{ [key in string]: PowerLevelTagView }>;
+    setUserPowerLevel: (params: {
+	room_id: string,
+	user_id: string,
+	power_level: number,
+}) => Promise<null>;
+    kick: (params: {
+	room_id: string,
+	user_id: string,
+	reason?: string | null,
+}) => Promise<null>;
+    denyKnock: (params: {
+	room_id: string,
+	user_id: string,
+}) => Promise<null>;
+    ban: (params: {
+	room_id: string,
+	user_id: string,
+	reason?: string | null,
+}) => Promise<null>;
+    unban: (params: {
+	room_id: string,
+	user_id: string,
+	reason?: string | null,
+}) => Promise<null>;
+    look: (params: {
+	room_id: string,
+}) => Promise<MemberLookView>;
+    setLook: (params: {
+	room_id: string,
+	in_parent_space?: boolean,
+	display_name?: FieldEdit,
+	avatar_url?: FieldEdit,
+	color_on_light?: FieldEdit,
+	color_on_dark?: FieldEdit,
+}) => Promise<null>;
+    setPronouns: (params: {
+	room_id: string,
+	in_parent_space?: boolean,
+	pronouns: PronounView[],
+}) => Promise<null>;
+  };
+  messages: {
+    markdownToContent: (params: {
+	markdown: string,
+	pills?: ComposerPill[],
+}) => Promise<ComposerContent>;
+    send: (params: {
+	room_id: string,
+	body: string,
+	formatted?: string | null,
+	kind?: MessageKind,
+	thread_root?: string | null,
+	/**
+	 *  Replying inside a thread needs no extra field: the SDK infers the
+	 *  thread from the replied-to event.
+	 */
+	in_reply_to?: string | null,
+	mentions?: string[],
+	mentions_room?: boolean,
+	silent_reply?: boolean,
+	persona?: PerMessageProfileView | null,
+	link_previews?: UrlPreviewView[],
+	no_link_previews?: boolean,
+	image_source_packs?: ImageSourcePackReferenceView[],
+	bot_command?: unknown | null,
+	forum_title?: string | null,
+}) => Promise<null>;
+    sendRawEvent: (params: {
+	room_id: string,
+	event_type: string,
+	content: unknown,
+}) => Promise<string>;
+    sendRedaction: (params: {
+	room_id: string,
+	event_id: string,
+	reason?: string | null,
+}) => Promise<string>;
+    sendSticker: (params: {
+	room_id: string,
+	url: string,
+	body: string,
+	info?: PackImageInfoView | null,
+	source_pack?: ImageSourcePackView | null,
+	in_reply_to?: string | null,
+	thread_root?: string | null,
+	persona?: PerMessageProfileView | null,
+}) => Promise<null>;
+    sendGif: (params: {
+	room_id: string,
+	/**  `mxc://` only; the core rejects anything else. */
+	url: string,
+	body: string,
+	width?: number | null,
+	height: number | null,
+	mimetype: string,
+	size?: number | null,
+	in_reply_to?: string | null,
+	silent_reply?: boolean,
+	thread_root?: string | null,
+	persona?: PerMessageProfileView | null,
+}) => Promise<null>;
+    removeLinkPreviews: (params: {
+	room_id: string,
+	event_id: string,
+	thread_root?: string | null,
+}) => Promise<null>;
+    reprofile: (params: {
+	room_id: string,
+	event_id: string,
+	thread_root?: string | null,
+	persona?: PerMessageProfileView | null,
+}) => Promise<null>;
+    edit: (params: {
+	room_id: string,
+	event_id?: string | null,
+	transaction_id?: string | null,
+	body: string,
+	formatted: string | null,
+	kind?: MessageKind,
+	media_caption?: boolean,
+	thread_root?: string | null,
+	mentions?: string[],
+	mentions_room?: boolean,
+	persona?: PerMessageProfileView | null,
+	forum_title?: string | null,
+}) => Promise<null>;
+    redact: (params: {
+	room_id: string,
+	event_id: string,
+	reason?: string | null,
+	thread_root?: string | null,
+}) => Promise<null>;
+    deleteThread: (params: {
+	room_id: string,
+	root_event_id: string,
+	reason?: string | null,
+}) => Promise<null>;
+    bulkRedact: (params: {
+	room_id: string,
+	senders: string[],
+	after_ts: number,
+	event_types: string[],
+	reason?: string | null,
+}) => Promise<number>;
+    react: (params: {
+	room_id: string,
+	event_id: string,
+	key: string,
+	source_pack?: ImageSourcePackView | null,
+	shortcode?: string | null,
+	thread_root?: string | null,
+	subscription?: SubscriptionId | null,
+}) => Promise<null>;
+    sendLocation: (params: {
+	room_id: string,
+	body: string,
+	geo_uri: string,
+	in_reply_to?: string | null,
+	silent_reply?: boolean,
+	thread_root?: string | null,
+}) => Promise<null>;
+    forward: (params: {
+	room_id: string,
+	event_id: string,
+	to_room_id: string,
+}) => Promise<null>;
+    report: (params: {
+	room_id: string,
+	event_id: string,
+	reason?: string | null,
+}) => Promise<null>;
+    retrySend: (params: {
+	room_id: string,
+	transaction_id: string,
+	thread_root?: string | null,
+}) => Promise<null>;
+    cancelSend: (params: {
+	room_id: string,
+	transaction_id: string,
+	thread_root?: string | null,
+}) => Promise<boolean>;
+    schedule: (params: {
+	room_id: string,
+	body: string,
+	formatted?: string | null,
+	delay_ms: number,
+}) => Promise<string>;
+    scheduleAttachment: (params: {
+	room_id: string,
+	filename: string,
+	mime: string,
+	url: string,
+	size: number,
+	info?: AttachmentInfoView | null,
+	spoiler?: boolean,
+	delay_ms: number,
+}) => Promise<string>;
+    scheduled: (params: {
+	room_id?: string | null,
+}) => Promise<ScheduledMessageView[]>;
+    cancelScheduled: (params: {
+	delay_id: string,
+}) => Promise<null>;
+    sendScheduled: (params: {
+	delay_id: string,
+}) => Promise<null>;
+    createPoll: (params: {
+	room_id: string,
+	question: string,
+	answers: string[],
+	/**  Withholds the tally until the poll closes. */
+	undisclosed: boolean,
+	max_selections: number,
+	thread_root?: string | null,
+}) => Promise<null>;
+    votePoll: (params: {
+	room_id: string,
+	/**  The poll's start event. */
+	event_id: string,
+	/**  The ids of the chosen answers. */
+	answers: string[],
+	thread_root?: string | null,
+}) => Promise<null>;
+    endPoll: (params: {
+	room_id: string,
+	event_id: string,
+	thread_root?: string | null,
+}) => Promise<null>;
+    sendGesture: (params: {
+	room_id: string,
+	gesture: GestureView,
+	target?: string | null,
+}) => Promise<null>;
+    urlPreview: (params: {
+	url: string,
+	service?: string | null,
+}) => Promise<UrlPreviewView | null>;
+    reactionShortcodes: (params: {
+	room_id: string,
+	event_id: string,
+}) => Promise<ReactionShortcodeView[]>;
+    setTyping: (params: {
+	room_id: string,
+	typing: boolean,
+}) => Promise<null>;
+    mediaConfig: (params?: Record<string, never>) => Promise<{
+	upload_size: number,
+}>;
+  };
+  notifications: {
+    settings: (params: {
+	room_id: string,
+}) => Promise<NotificationSettingsView>;
+    defaultModes: (params?: Record<string, never>) => Promise<DefaultNotificationModesView>;
+    mentionNotifications: (params?: Record<string, never>) => Promise<MentionNotificationsView>;
+    eventNotifications: (params?: Record<string, never>) => Promise<EventNotificationsView>;
+    masterMute: (params?: Record<string, never>) => Promise<boolean | null>;
+    notification: (params: {
+	room_id: string,
+	event_id: string,
+}) => Promise<NotificationView | null>;
+    pushEvent: (params: {
+	room_id: string,
+	event_id: string,
+}) => Promise<PushFetchView>;
+    keywords: (params?: Record<string, never>) => Promise<KeywordNotificationView[]>;
+    addKeyword: (params: {
+	keyword: string,
+}) => Promise<null>;
+    removeKeyword: (params: {
+	keyword: string,
+}) => Promise<null>;
+    setKeywordMode: (params: {
+	keyword: string,
+	mode: MentionNotificationModeView,
+}) => Promise<null>;
+    setRoomNotificationMode: (params: {
+	room_id: string,
+	/**  `null` drops the room's own rules so it follows the default again. */
+	mode?: NotificationModeView | null,
+}) => Promise<null>;
+    setDefaultMode: (params: {
+	direct: boolean,
+	mode: NotificationModeView,
+}) => Promise<null>;
+    setMentionNotifications: (params: {
+	rule: MentionRuleView,
+	mode: MentionNotificationModeView,
+}) => Promise<null>;
+    setEventNotification: (params: {
+	event: EventNotificationView,
+	enabled: boolean,
+}) => Promise<null>;
+    setMasterMute: (params: {
+	muted: boolean,
+}) => Promise<null>;
+    inbox: (params: {
+	filter: InboxFilter,
+	include_read: boolean,
+	limit: number,
+	before_ts?: number | null,
+}) => Promise<{
+	items: InboxItemView[],
+	has_more: boolean,
+}>;
+    backfillInbox: (params: {
+	include_read: boolean,
+}) => Promise<{
+	recorded: number,
+	has_more: boolean,
+}>;
+    setContent: (params: {
+	visible: boolean,
+	encrypted: boolean,
+}) => Promise<null>;
+    setSounds: (params: {
+	enabled: boolean,
+}) => Promise<null>;
+    setNotifyOnce: (params: {
+	enabled: boolean,
+}) => Promise<null>;
+    setEnabled: (params: {
+	enabled: boolean,
+}) => Promise<null>;
+  };
+  packs: {
+    list: (params: {
+	room_id: string,
+	cached_only?: boolean,
+}) => Promise<{
+	packs: ImagePackView[],
+	complete: boolean,
+}>;
+    listAll: (params?: Record<string, never>) => Promise<ImagePackView[]>;
+    save: (params: {
+	target: PackTargetView,
+	draft: PackDraftView,
+}) => Promise<null>;
+    createRoomPack: (params: {
+	room_id: string,
+	name: string,
+}) => Promise<string>;
+    deleteRoomPack: (params: {
+	room_id: string,
+	state_key: string,
+}) => Promise<null>;
+    convertLegacy: (params: {
+	room_id: string,
+	state_keys: string[],
+}) => Promise<null>;
+    removeLegacy: (params: {
+	room_id: string,
+	state_keys: string[],
+}) => Promise<null>;
+    addAccountImages: (params: {
+	images: PackImageDraftView[],
+}) => Promise<null>;
+    subscriptions: (params?: Record<string, never>) => Promise<PackAddressView[]>;
+    setSubscriptions: (params: {
+	added: PackAddressView[],
+	removed: PackAddressView[],
+}) => Promise<PackAddressView[]>;
+  };
+  personas: {
+    list: (params?: Record<string, never>) => Promise<PersonaCatalogView>;
+    save: (params: {
+	persona: PersonaView,
+	previous_id?: string | null,
+}) => Promise<PersonaView[]>;
+    remove: (params: {
+	id: string,
+}) => Promise<PersonaView[]>;
+    reorder: (params: {
+	ids: string[],
+}) => Promise<PersonaView[]>;
+    setSelection: (params: {
+	room_id?: string | null,
+	persona_id: string | null,
+	valid_until?: number | null,
+}) => Promise<null>;
+    disableRoom: (params: {
+	room_id: string,
+}) => Promise<null>;
+    backup: (params?: Record<string, never>) => Promise<string>;
+    checkBackup: (params: {
+	backup: string,
+}) => Promise<null>;
+    restoreBackup: (params: {
+	backup: string,
+}) => Promise<null>;
+  };
+  push: {
+    setPusher: (params: {
+	pusher: PusherView,
+}) => Promise<null>;
+    removePusher: (params: {
+	pushkey: string,
+	app_id: string,
+}) => Promise<null>;
+    webPusherSupport: (params?: Record<string, never>) => Promise<string | null>;
+    setWebPusher: (params: {
+	pusher: WebPusherView,
+}) => Promise<null>;
+    webPushers: (params?: Record<string, never>) => Promise<RegisteredPusherView[]>;
+    pingGateway: (params: {
+	url: string,
+}) => Promise<boolean | null>;
+    discoverGateway: (params: {
+	endpoint: string,
+}) => Promise<string | null>;
+    sendDiagnostic: (params: {
+	pushkey: string,
+	app_id: string,
+}) => Promise<DiagnosticPushView>;
+    ackWebPusher: (params: {
+	app_id: string,
+	ack_token: string,
+}) => Promise<null>;
+  };
+  room_state: {
+    setName: (params: {
+	room_id: string,
+	name?: string | null,
+}) => Promise<null>;
+    setTopic: (params: {
+	room_id: string,
+	topic: string,
+}) => Promise<null>;
+    setAvatar: (params: {
+	room_id: string,
+	url?: string | null,
+}) => Promise<null>;
+    setJoinRule: (params: {
+	room_id: string,
+	rule: JoinRuleView,
+}) => Promise<null>;
+    historyVisibility: (params: {
+	room_id: string,
+}) => Promise<HistoryVisibilityView>;
+    setHistoryVisibility: (params: {
+	room_id: string,
+	visibility: HistoryVisibilityView,
+}) => Promise<null>;
+    enableEncryption: (params: {
+	room_id: string,
+}) => Promise<null>;
+    banner: (params: {
+	room_id: string,
+}) => Promise<string | null>;
+    setBanner: (params: {
+	room_id: string,
+	url?: string | null,
+}) => Promise<null>;
+    memberListThreshold: (params: {
+	room_id: string,
+}) => Promise<number | null>;
+    setMemberListThreshold: (params: {
+	room_id: string,
+	always_listed_from?: number | null,
+}) => Promise<null>;
+    updateServerAcl: (params: {
+	room_id: string,
+	allow: string[],
+	deny: string[],
+	remove_allow: string[],
+	remove_deny: string[],
+}) => Promise<null>;
+    abbreviations: (params: {
+	room_id: string,
+}) => Promise<AbbreviationView[]>;
+    setAbbreviations: (params: {
+	room_id: string,
+	entries: AbbreviationView[],
+}) => Promise<null>;
+    event: (params: {
+	room_id: string,
+	event_type: string,
+	state_key: string,
+}) => Promise<unknown | null>;
+    events: (params: {
+	room_id: string,
+	event_type: string,
+}) => Promise<RoomStateEventView[]>;
+    eventsRaw: (params: {
+	room_id: string,
+	event_type: string,
+	state_key?: string | null,
+}) => Promise<unknown[]>;
+    fullState: (params: {
+	room_id: string,
+}) => Promise<unknown[]>;
+    sendEvent: (params: {
+	room_id: string,
+	event_type: string,
+	state_key: string,
+	content: unknown,
+}) => Promise<string>;
+    accountData: (params: {
+	room_id: string,
+	event_type: string,
+}) => Promise<unknown | null>;
+    setAccountData: (params: {
+	room_id: string,
+	event_type: string,
+	content: unknown,
+}) => Promise<null>;
+    accountDataRaw: (params: {
+	room_id: string,
+	event_type: string,
+}) => Promise<unknown | null>;
+    addWidget: (params: {
+	room_id: string,
+	name: string,
+	url: string,
+}) => Promise<string>;
+    removeWidget: (params: {
+	room_id: string,
+	widget_id: string,
+}) => Promise<null>;
+    botCommands: (params: {
+	room_id: string,
+}) => Promise<BotCommand[]>;
+  };
+  rooms: {
+    open: (params: {
+	room_id: string,
+}) => Promise<RoomOpenView>;
+    listItem: (params: {
+	room_id: string,
+}) => Promise<RoomListItemView>;
+    preview: (params: {
+	/**  A room id or an alias, as `JoinRoom` takes. */
+	address: string,
+	/**  Servers to try when the id is not resolvable on ours, or empty. */
+	via: string[],
+}) => Promise<RoomPreviewView>;
+    join: (params: {
+	/**  A room id or an alias. A pasted address could be either. */
+	address: string,
+	/**  Servers to try when the id is not resolvable on ours, or empty. */
+	via: string[],
+}) => Promise<string>;
+    knock: (params: {
+	address: string,
+	via: string[],
+	reason?: string | null,
+}) => Promise<string>;
+    viaServers: (params: {
+	room_id: string,
+}) => Promise<string[]>;
+    leave: (params: {
+	room_id: string,
+}) => Promise<null>;
+    invite: (params: {
+	room_id: string,
+	user_id: string,
+}) => Promise<null>;
+    create: (params: {
+	name?: string | null,
+	topic: string | null,
+	kind: CreateRoomKind,
+	/**  Published in the directory, joinable by link. */
+	public: boolean,
+	/**  Ignored for a space or a public room. */
+	encrypted: boolean,
+	invite: string[],
+	/**  Adds an `m.space.child` edge from this space. */
+	parent_space?: string | null,
+	alias: string | null,
+	room_version: string | null,
+	join_rule?: CreateJoinRuleView | null,
+	federate: boolean,
+	predecessor?: string | null,
+}) => Promise<string>;
+    createDm: (params: {
+	user_id: string,
+	encrypted?: boolean | null,
+}) => Promise<string>;
+    versions: (params?: Record<string, never>) => Promise<RoomVersionsView>;
+    upgrade: (params: {
+	room_id: string,
+	new_version: string,
+	additional_creators: string[],
+}) => Promise<string>;
+    publicRooms: (params: {
+	server?: string | null,
+	search: string | null,
+	since: string | null,
+	room_type?: DirectoryRoomType | null,
+}) => Promise<{
+	rooms: PublicRoomView[],
+	next_batch: string | null,
+	total: number | null,
+}>;
+    directoryVisibility: (params: {
+	room_id: string,
+}) => Promise<boolean>;
+    setDirectoryVisibility: (params: {
+	room_id: string,
+	public: boolean,
+}) => Promise<null>;
+    aliases: (params: {
+	room_id: string,
+}) => Promise<string[]>;
+    createAlias: (params: {
+	room_id: string,
+	alias: string,
+}) => Promise<null>;
+    deleteAlias: (params: {
+	alias: string,
+}) => Promise<null>;
+    canonicalAlias: (params: {
+	room_id: string,
+}) => Promise<{
+	alias: string | null,
+	alt_aliases: string[],
+}>;
+    setCanonicalAlias: (params: {
+	room_id: string,
+	alias?: string | null,
+	alt_aliases: string[],
+}) => Promise<{
+	alias: string | null,
+	alt_aliases: string[],
+}>;
+    replacedRooms: (params?: Record<string, never>) => Promise<RoomListItemView[]>;
+    setTombstone: (params: {
+	room_id: string,
+	replacement_room: string,
+	body: string,
+}) => Promise<null>;
+    report: (params: {
+	room_id: string,
+	reason: string,
+}) => Promise<null>;
+    setTag: (params: {
+	room_id: string,
+	tag: RoomTag,
+	/**  False removes it. */
+	set: boolean,
+}) => Promise<null>;
+    attachments: (params: {
+	room_id: string,
+	kind: RoomAttachmentKind,
+	limit: number,
+	from?: string | null,
+}) => Promise<{
+	items: RoomAttachmentView[],
+	next_batch: string | null,
+}>;
+    cosmetics: (params: {
+	room_id: string,
+	space_id?: string | null,
+}) => Promise<RoomCosmeticsView>;
+  };
+  search: {
+    messages: (params: {
+	query: string,
+	filter?: SearchFilter,
+	order?: SearchOrder,
+	limit: number,
+	offset: number,
+	context?: number,
+	older?: string | null,
+}) => Promise<{
+	hits: SearchHitView[],
+	older: string | null,
+}>;
+    coverage: (params?: Record<string, never>) => Promise<SearchCoverageView>;
+    metrics: (params?: Record<string, never>) => Promise<SearchMetricsView>;
+  };
+  session: {
+    restore: (params?: Record<string, never>) => Promise<SessionInfo | null>;
+    listAccounts: (params?: Record<string, never>) => Promise<SessionInfo[]>;
+    switchAccount: (params: {
+	account_id: string,
+}) => Promise<SessionInfo>;
+    removeAccount: (params: {
+	account_id: string,
+}) => Promise<null>;
+    logout: (params?: Record<string, never>) => Promise<null>;
+    resetLocalCache: (params?: Record<string, never>) => Promise<null>;
+    homeserverInfo: (params?: Record<string, never>) => Promise<{
+	homeserver: string,
+	server: HomeserverSoftwareView | null,
+}>;
+    requestOpenIdToken: (params?: Record<string, never>) => Promise<{
+	access_token: string,
+	matrix_server_name: string,
+	expires_in: number,
+}>;
+    accessToken: (params?: Record<string, never>) => Promise<string | null>;
+    openIdToken: (params?: Record<string, never>) => Promise<OpenIdTokenView>;
+    syncStatus: (params?: Record<string, never>) => Promise<SyncStatus>;
+    serverFeatures: (params?: Record<string, never>) => Promise<string[]>;
+    delayedEventsSupported: (params?: Record<string, never>) => Promise<boolean>;
+    setSearchOptions: (params: {
+	disk_budget_mb: number,
+	crawler: boolean,
+	unmetered_only: boolean,
+	server_search: boolean,
+	tuning: SearchTuning,
+	foreground: boolean,
+}) => Promise<null>;
+    setReadRoom: (params: {
+	room_id?: string | null,
+}) => Promise<null>;
+    integrationManagerUrl: (params: {
+	room_id: string,
+}) => Promise<string>;
+    knownRooms: (params?: Record<string, never>) => Promise<string[]>;
+  };
+  spaces: {
+    add: (params: {
+	space_id: string,
+	room_id: string,
+	suggested?: boolean | null,
+}) => Promise<null>;
+    setChildOrder: (params: {
+	space_id: string,
+	room_id: string,
+	order?: string | null,
+}) => Promise<null>;
+    setChildSuggested: (params: {
+	space_id: string,
+	room_id: string,
+	suggested: boolean,
+}) => Promise<null>;
+    hierarchy: (params: {
+	space_id: string,
+	from?: string | null,
+}) => Promise<{
+	rooms: SpaceHierarchyRoomView[],
+	/**  Pass back as `from` for the next page; `null` at the end. */
+	next_batch: string | null,
+}>;
+    remove: (params: {
+	space_id: string,
+	room_id: string,
+}) => Promise<null>;
+    sidebar: (params?: Record<string, never>) => Promise<SidebarItemView[]>;
+    setSidebar: (params: {
+	items: SidebarItemView[],
+}) => Promise<null>;
+    roomHasSpaceParent: (params: {
+	room_id: string,
+}) => Promise<boolean>;
+    unjoinedSpaceParents: (params: {
+	room_id: string,
+}) => Promise<SpaceParentView[]>;
+  };
+  timeline: {
+    subscribeRoomList: (params?: Record<string, never>) => Promise<{
+	subscription: SubscriptionId,
+	rooms: RoomListItemView[],
+}>;
+    subscribe: (params: {
+	room_id: string,
+	focus?: TimelineFocusView,
+	/**
+	 *  Relaxes the event filter so events the SDK would otherwise drop
+	 *  arrive as `HiddenEvent`. Baked into the timeline, so flipping it
+	 *  means re-subscribing.
+	 */
+	hidden_events: boolean,
+}) => Promise<{
+	subscription: SubscriptionId,
+	items: TimelineItemView[],
+	aggregations: TimelineItemView[],
+}>;
+    unsubscribe: (params: {
+	subscription: SubscriptionId,
+}) => Promise<null>;
+    warmRooms: (params: {
+	room_ids: string[],
+}) => Promise<null>;
+    paginate: (params: {
+	subscription: SubscriptionId,
+	direction: PaginationDirection,
+	count: number,
+}) => Promise<{
+	direction: PaginationDirection,
+	reached_end: boolean,
+}>;
+    fetchEventDetails: (params: {
+	room_id: string,
+	event_id: string,
+	thread_root?: string | null,
+}) => Promise<null>;
+    eventItems: (params: {
+	room_id: string,
+	event_ids: string[],
+}) => Promise<TimelineItemView[]>;
+    events: (params: {
+	room_id: string,
+	event_type: string,
+	msgtype?: string | null,
+	state_key?: string | null,
+	limit: number,
+	since?: string | null,
+}) => Promise<unknown[]>;
+    timestampToEvent: (params: {
+	room_id: string,
+	ts: number,
+	direction: PaginationDirection,
+}) => Promise<string | null>;
+    listThreads: (params: {
+	room_id: string,
+	from?: string | null,
+}) => Promise<{
+	roots: TimelineItemView[],
+	next_batch: string | null,
+}>;
+    eventSource: (params: {
+	room_id: string,
+	event_id: string,
+	include_original: boolean,
+}) => Promise<{
+	source: string,
+	encrypted: boolean,
+	original: string | null,
+}>;
+    editHistory: (params: {
+	room_id: string,
+	event_id: string,
+}) => Promise<EditVersionView[]>;
+    markRead: (params: {
+	room_id: string,
+	event_id?: string | null,
+	private_receipt?: boolean,
+	thread_root?: string | null,
+	subscription?: SubscriptionId | null,
+	fully_read?: boolean,
+}) => Promise<null>;
+    setFullyRead: (params: {
+	room_id: string,
+	event_id: string,
+}) => Promise<null>;
+    markUnread: (params: {
+	room_id: string,
+	read_marker?: string | null,
+}) => Promise<null>;
+    readMarker: (params: {
+	room_id: string,
+}) => Promise<string | null>;
+    retryDecryption: (params: {
+	room_id: string,
+	session_id: string,
+	sender: string,
+	thread_root?: string | null,
+}) => Promise<null>;
+    roomEventRelations: (params: {
+	room_id: string,
+	event_id: string,
+	rel_type?: string | null,
+	event_type?: string | null,
+	from?: string | null,
+	to?: string | null,
+	limit?: number | null,
+	direction?: PaginationDirection | null,
+}) => Promise<RelationsView>;
+    pinnedEvents: (params: {
+	room_id: string,
+}) => Promise<string[]>;
+    setPinned: (params: {
+	room_id: string,
+	event_id: string,
+	pinned: boolean,
+}) => Promise<string[]>;
+    pinReadState: (params: {
+	room_id: string,
+}) => Promise<PinReadStateView>;
+    markPinsSeen: (params: {
+	room_id: string,
+	pinned_ids: string[],
+}) => Promise<PinReadStateView>;
+  };
+  widgets: {
+    sendDelayedEvent: (params: {
+	room_id: string,
+	event_type: string,
+	state_key?: string | null,
+	content: unknown,
+	delay_ms: number,
+	sticky_duration_ms?: number | null,
+}) => Promise<string>;
+    sendStickyEvent: (params: {
+	room_id: string,
+	event_type: string,
+	content: unknown,
+	sticky_duration_ms: number,
+}) => Promise<string>;
+    restartDelayedEvent: (params: {
+	delay_id: string,
+}) => Promise<null>;
+    sendToDevice: (params: {
+	event_type: string,
+	encrypted: boolean,
+	messages: unknown,
+}) => Promise<null>;
+    roomStickyEvents: (params: {
+	room_id: string,
+}) => Promise<unknown[]>;
+    setWidgetFeed: (params: {
+	enabled: boolean,
+}) => Promise<null>;
+  };
+};
+
+type RpcMethod = (params: never) => Promise<unknown>;
+
+export type RpcParams<M extends RpcMethod> = NonNullable<Parameters<M>[0]>;
+
+export type RpcResult<M extends RpcMethod> = Awaited<ReturnType<M>>;
+
+/** Each method by its wire name, for code that speaks the wire format. */
 export type RpcMethods = {
-  'account.user_profile': [UserProfileParams, ProfileView];
-  'account.user_relations': [UserRelationsParams, UserRelationsOk];
-  'account.account_data_types': [AccountDataTypesParams, string[]];
-  'account.account_data': [AccountDataParams, AccountDataContent];
-  'account.set_account_data': [SetAccountDataParams, null];
-  'account.sealed_account_data': [SealedAccountDataParams, SealedAccountDataView];
-  'account.set_sealed_account_data': [SetSealedAccountDataParams, null];
-  'account.set_display_name': [SetDisplayNameParams, null];
-  'account.set_avatar_url': [SetAvatarUrlParams, null];
-  'account.set_profile_field': [SetProfileFieldParams, null];
-  'account.account_contacts': [AccountContactsParams, string[]];
-  'account.ignored_users': [IgnoredUsersParams, string[]];
-  'account.invite_triage': [InviteTriageParams, InviteTriageView[]];
-  'account.set_direct': [SetDirectParams, null];
-  'account.ignore_user': [IgnoreUserParams, null];
-  'account.unignore_user': [UnignoreUserParams, null];
-  'account.report_user': [ReportUserParams, null];
-  'account.set_presence': [SetPresenceParams, null];
-  'account.fetch_presence': [FetchPresenceParams, null];
-  'account.search_user_directory': [SearchUserDirectoryParams, SearchUserDirectoryOk];
-  'account.dismissed_invites': [DismissedInvitesParams, string[]];
-  'account.set_invite_dismissed': [SetInviteDismissedParams, string[]];
-  'account.bookmarks': [BookmarksParams, BookmarkView[]];
-  'account.set_bookmark': [SetBookmarkParams, boolean];
-  'account.media_preview_config': [MediaPreviewConfigParams, MediaPreviewConfigView];
-  'account.set_media_preview_config': [SetMediaPreviewConfigParams, MediaPreviewConfigView];
-  'account.profile_overrides': [ProfileOverridesParams, ProfileOverridesView];
-  'account.set_profile_override': [SetProfileOverrideParams, ProfileOverridesView];
-  'auth.discover_homeserver': [DiscoverHomeserverParams, string];
-  'auth.login': [LoginParams, string];
-  'auth.login_flows': [LoginFlowsParams, LoginFlowsView];
-  'auth.registration_flows': [RegistrationFlowsParams, RegistrationFlowsView];
-  'auth.register': [RegisterParams, RegistrationResultView];
-  'auth.request_registration_email': [RequestRegistrationEmailParams, RegistrationResultView];
-  'auth.submit_registration_email': [SubmitRegistrationEmailParams, RegistrationResultView];
-  'auth.continue_registration': [ContinueRegistrationParams, RegistrationResultView];
-  'auth.cancel_registration': [CancelRegistrationParams, null];
-  'auth.request_password_reset_email': [RequestPasswordResetEmailParams, PasswordResetEmailOk];
-  'auth.reset_password': [ResetPasswordParams, null];
-  'auth.start_oidc_login': [StartOidcLoginParams, string];
-  'auth.complete_oidc_login': [CompleteOidcLoginParams, string];
-  'auth.start_sso_login': [StartSsoLoginParams, string];
-  'auth.complete_sso_login': [CompleteSsoLoginParams, string];
-  'auth.start_qr_login': [StartQrLoginParams, null];
-  'auth.start_qr_grant': [StartQrGrantParams, null];
-  'auth.qr_check_code': [QrCheckCodeParams, null];
-  'auth.qr_grant_continue': [QrGrantContinueParams, null];
-  'auth.cancel_qr': [CancelQrParams, null];
-  'calendar.calendar_entries': [CalendarEntriesParams, CalendarView];
-  'calendar.save_calendar_event': [SaveCalendarEventParams, null];
-  'calendar.answer_calendar_event': [AnswerCalendarEventParams, null];
-  'calls.turn_server': [TurnServerParams, TurnServerView];
-  'calls.rtc_transports': [RtcTransportsParams, RtcBody];
-  'calls.rtc_livekit': [RtcLivekitParams, RtcBody];
-  'calls.join_call': [JoinCallParams, JoinCallOk];
-  'calls.call_compatibility': [CallCompatibilityParams, CallCompatibilityView];
-  'calls.call_support': [CallSupportParams, CallSupportView];
-  'calls.leave_call': [LeaveCallParams, null];
-  'calls.set_call_screen_sharing': [SetCallScreenSharingParams, null];
-  'calls.decline_call': [DeclineCallParams, null];
-  'encryption.encryption_status': [EncryptionStatusParams, EncryptionStatusView];
-  'encryption.key_backup_status': [KeyBackupStatusParams, KeyBackupStatusView];
-  'encryption.download_key_backup': [DownloadKeyBackupParams, KeyBackupDownloadView];
-  'encryption.sign_out_safety': [SignOutSafetyParams, SignOutSafetyView];
-  'encryption.devices': [DevicesParams, DevicesOk];
-  'encryption.user_security': [UserSecurityParams, UserSecurityView];
-  'encryption.recover_identity': [RecoverIdentityParams, null];
-  'encryption.enable_recovery': [EnableRecoveryParams, string];
-  'encryption.reset_recovery_key': [ResetRecoveryKeyParams, string];
-  'encryption.reset_identity': [ResetIdentityParams, IdentityResetStep];
-  'encryption.continue_identity_reset': [ContinueIdentityResetParams, string];
-  'encryption.cancel_identity_reset': [CancelIdentityResetParams, null];
-  'encryption.export_room_keys': [ExportRoomKeysParams, string];
-  'encryption.import_room_keys': [ImportRoomKeysParams, ImportRoomKeysOk];
-  'encryption.delete_device': [DeleteDeviceParams, string | null];
-  'encryption.rename_device': [RenameDeviceParams, null];
-  'encryption.discard_room_key': [DiscardRoomKeyParams, null];
-  'encryption.request_verification': [RequestVerificationParams, string];
-  'encryption.withdraw_verification': [WithdrawVerificationParams, null];
-  'encryption.set_device_blocked': [SetDeviceBlockedParams, null];
-  'encryption.accept_verification': [AcceptVerificationParams, null];
-  'encryption.scan_verification_qr': [ScanVerificationQrParams, null];
-  'encryption.start_sas_verification': [StartSasVerificationParams, null];
-  'encryption.confirm_verification': [ConfirmVerificationParams, null];
-  'encryption.cancel_verification': [CancelVerificationParams, null];
-  'members.room_members': [RoomMembersParams, MemberView[]];
-  'members.room_permissions': [RoomPermissionsParams, RoomPermissionsView];
-  'members.room_power_levels': [RoomPowerLevelsParams, RoomPowerLevelsView];
-  'members.set_power_level': [SetPowerLevelParams, RoomPowerLevelsView];
-  'members.sync_power_levels_from_space': [SyncPowerLevelsFromSpaceParams, SyncPowerLevelsFromSpaceOk];
-  'members.sync_child_power_levels': [SyncChildPowerLevelsParams, SyncChildPowerLevelsOk];
-  'members.power_level_tags': [PowerLevelTagsParams, { [key in string]: PowerLevelTagView }];
-  'members.set_power_level_tag': [SetPowerLevelTagParams, { [key in string]: PowerLevelTagView }];
-  'members.set_user_power_level': [SetUserPowerLevelParams, null];
-  'members.kick_user': [KickUserParams, null];
-  'members.deny_knock': [DenyKnockParams, null];
-  'members.ban_user': [BanUserParams, null];
-  'members.unban_user': [UnbanUserParams, null];
-  'members.member_look': [MemberLookParams, MemberLookView];
-  'members.set_member_look': [SetMemberLookParams, null];
-  'members.set_pronouns': [SetPronounsParams, null];
-  'messages.markdown_to_content': [MarkdownToContentParams, ComposerContent];
-  'messages.send_message': [SendMessageParams, null];
-  'messages.send_raw_event': [SendRawEventParams, string];
-  'messages.send_redaction': [SendRedactionParams, string];
-  'messages.send_sticker': [SendStickerParams, null];
-  'messages.send_gif': [SendGifParams, null];
-  'messages.remove_link_previews': [RemoveLinkPreviewsParams, null];
-  'messages.reprofile_message': [ReprofileMessageParams, null];
-  'messages.edit_message': [EditMessageParams, null];
-  'messages.redact': [RedactParams, null];
-  'messages.delete_thread': [DeleteThreadParams, null];
-  'messages.bulk_redact': [BulkRedactParams, number];
-  'messages.react': [ReactParams, null];
-  'messages.send_location': [SendLocationParams, null];
-  'messages.forward_message': [ForwardMessageParams, null];
-  'messages.report_message': [ReportMessageParams, null];
-  'messages.retry_send': [RetrySendParams, null];
-  'messages.cancel_send': [CancelSendParams, boolean];
-  'messages.schedule_message': [ScheduleMessageParams, string];
-  'messages.schedule_attachment': [ScheduleAttachmentParams, string];
-  'messages.scheduled_messages': [ScheduledMessagesParams, ScheduledMessageView[]];
-  'messages.cancel_scheduled_message': [CancelScheduledMessageParams, null];
-  'messages.send_scheduled_message': [SendScheduledMessageParams, null];
-  'messages.create_poll': [CreatePollParams, null];
-  'messages.vote_poll': [VotePollParams, null];
-  'messages.end_poll': [EndPollParams, null];
-  'messages.send_gesture': [SendGestureParams, null];
-  'messages.url_preview': [UrlPreviewParams, UrlPreviewView | null];
-  'messages.reaction_shortcodes': [ReactionShortcodesParams, ReactionShortcodeView[]];
-  'messages.set_typing': [SetTypingParams, null];
-  'messages.media_config': [MediaConfigParams, MediaConfigOk];
-  'notifications.notification_settings': [NotificationSettingsParams, NotificationSettingsView];
-  'notifications.default_notification_modes': [DefaultNotificationModesParams, DefaultNotificationModesView];
-  'notifications.mention_notifications': [MentionNotificationsParams, MentionNotificationsView];
-  'notifications.event_notifications': [EventNotificationsParams, EventNotificationsView];
-  'notifications.master_mute': [MasterMuteParams, boolean | null];
-  'notifications.notification': [NotificationParams, NotificationView | null];
-  'notifications.push_event': [PushEventParams, PushFetchView];
-  'notifications.notification_keywords': [NotificationKeywordsParams, KeywordNotificationView[]];
-  'notifications.add_notification_keyword': [AddNotificationKeywordParams, null];
-  'notifications.remove_notification_keyword': [RemoveNotificationKeywordParams, null];
-  'notifications.set_notification_keyword_mode': [SetNotificationKeywordModeParams, null];
-  'notifications.set_room_notification_mode': [SetRoomNotificationModeParams, null];
-  'notifications.set_default_notification_mode': [SetDefaultNotificationModeParams, null];
-  'notifications.set_mention_notifications': [SetMentionNotificationsParams, null];
-  'notifications.set_event_notification': [SetEventNotificationParams, null];
-  'notifications.set_master_mute': [SetMasterMuteParams, null];
-  'notifications.inbox_notifications': [InboxNotificationsParams, InboxNotificationsOk];
-  'notifications.backfill_inbox': [BackfillInboxParams, BackfillInboxOk];
-  'notifications.set_notification_content': [SetNotificationContentParams, null];
-  'notifications.set_notification_sounds': [SetNotificationSoundsParams, null];
-  'notifications.set_notify_once': [SetNotifyOnceParams, null];
-  'notifications.set_notifications_enabled': [SetNotificationsEnabledParams, null];
-  'packs.image_packs': [ImagePacksParams, ImagePacksOk];
-  'packs.all_image_packs': [AllImagePacksParams, ImagePackView[]];
-  'packs.save_image_pack': [SaveImagePackParams, null];
-  'packs.create_room_image_pack': [CreateRoomImagePackParams, string];
-  'packs.delete_room_image_pack': [DeleteRoomImagePackParams, null];
-  'packs.convert_legacy_image_packs': [ConvertLegacyImagePacksParams, null];
-  'packs.remove_legacy_image_packs': [RemoveLegacyImagePacksParams, null];
-  'packs.add_account_pack_images': [AddAccountPackImagesParams, null];
-  'packs.pack_subscriptions': [PackSubscriptionsParams, PackAddressView[]];
-  'packs.set_pack_subscriptions': [SetPackSubscriptionsParams, PackAddressView[]];
-  'personas.personas': [PersonasParams, PersonaCatalogView];
-  'personas.save_persona': [SavePersonaParams, PersonaView[]];
-  'personas.remove_persona': [RemovePersonaParams, PersonaView[]];
-  'personas.reorder_personas': [ReorderPersonasParams, PersonaView[]];
-  'personas.set_persona_selection': [SetPersonaSelectionParams, null];
-  'personas.disable_room_personas': [DisableRoomPersonasParams, null];
-  'personas.persona_backup': [PersonaBackupParams, string];
-  'personas.check_persona_backup': [CheckPersonaBackupParams, null];
-  'personas.restore_persona_backup': [RestorePersonaBackupParams, null];
-  'push.set_pusher': [SetPusherParams, null];
-  'push.remove_pusher': [RemovePusherParams, null];
-  'push.web_pusher_support': [WebPusherSupportParams, string | null];
-  'push.set_web_pusher': [SetWebPusherParams, null];
-  'push.web_pushers': [WebPushersParams, RegisteredPusherView[]];
-  'push.ping_push_gateway': [PingPushGatewayParams, boolean | null];
-  'push.discover_push_gateway': [DiscoverPushGatewayParams, string | null];
-  'push.send_diagnostic_push': [SendDiagnosticPushParams, DiagnosticPushView];
-  'push.ack_web_pusher': [AckWebPusherParams, null];
-  'room_state.set_room_name': [SetRoomNameParams, null];
-  'room_state.set_room_topic': [SetRoomTopicParams, null];
-  'room_state.set_room_avatar': [SetRoomAvatarParams, null];
-  'room_state.set_room_join_rule': [SetRoomJoinRuleParams, null];
-  'room_state.history_visibility': [HistoryVisibilityParams, HistoryVisibilityView];
-  'room_state.set_history_visibility': [SetHistoryVisibilityParams, null];
-  'room_state.enable_encryption': [EnableEncryptionParams, null];
-  'room_state.room_banner': [RoomBannerParams, string | null];
-  'room_state.set_room_banner': [SetRoomBannerParams, null];
-  'room_state.member_list_threshold': [MemberListThresholdParams, MemberListThresholdOk];
-  'room_state.set_member_list_threshold': [SetMemberListThresholdParams, null];
-  'room_state.update_server_acl': [UpdateServerAclParams, null];
-  'room_state.room_abbreviations': [RoomAbbreviationsParams, AbbreviationView[]];
-  'room_state.set_room_abbreviations': [SetRoomAbbreviationsParams, null];
-  'room_state.room_state_event': [RoomStateEventParams, RoomStateEventOk];
-  'room_state.room_state_events': [RoomStateEventsParams, RoomStateEventView[]];
-  'room_state.room_state_events_raw': [RoomStateEventsRawParams, RoomStateEventsRawOk];
-  'room_state.room_full_state': [RoomFullStateParams, RoomStateEventsRawOk];
-  'room_state.send_state_event': [SendStateEventParams, string];
-  'room_state.room_account_data': [RoomAccountDataParams, RoomAccountDataOk];
-  'room_state.set_room_account_data': [SetRoomAccountDataParams, null];
-  'room_state.room_account_data_raw': [RoomAccountDataRawParams, RoomAccountDataOk];
-  'room_state.add_room_widget': [AddRoomWidgetParams, string];
-  'room_state.remove_room_widget': [RemoveRoomWidgetParams, null];
-  'room_state.bot_commands': [BotCommandsParams, BotCommand[]];
-  'rooms.room_open': [RoomOpenParams, RoomOpenView];
-  'rooms.room_list_item': [RoomListItemParams, RoomListItemView];
-  'rooms.room_preview': [RoomPreviewParams, RoomPreviewView];
-  'rooms.join_room': [JoinRoomParams, string];
-  'rooms.knock_room': [KnockRoomParams, string];
-  'rooms.room_via_servers': [RoomViaServersParams, string[]];
-  'rooms.leave_room': [LeaveRoomParams, null];
-  'rooms.invite_user': [InviteUserParams, null];
-  'rooms.create_room': [CreateRoomParams, string];
-  'rooms.create_dm': [CreateDmParams, string];
-  'rooms.room_versions': [RoomVersionsParams, RoomVersionsView];
-  'rooms.upgrade_room': [UpgradeRoomParams, string];
-  'rooms.public_rooms': [PublicRoomsParams, PublicRoomsOk];
-  'rooms.room_directory_visibility': [RoomDirectoryVisibilityParams, boolean];
-  'rooms.set_room_directory_visibility': [SetRoomDirectoryVisibilityParams, null];
-  'rooms.room_aliases': [RoomAliasesParams, string[]];
-  'rooms.create_room_alias': [CreateRoomAliasParams, null];
-  'rooms.delete_room_alias': [DeleteRoomAliasParams, null];
-  'rooms.canonical_alias': [CanonicalAliasParams, CanonicalAliasOk];
-  'rooms.set_canonical_alias': [SetCanonicalAliasParams, CanonicalAliasOk];
-  'rooms.replaced_rooms': [ReplacedRoomsParams, RoomListItemView[]];
-  'rooms.set_tombstone': [SetTombstoneParams, null];
-  'rooms.report_room': [ReportRoomParams, null];
-  'rooms.set_room_tag': [SetRoomTagParams, null];
-  'rooms.room_attachments': [RoomAttachmentsParams, RoomAttachmentsOk];
-  'rooms.room_cosmetics': [RoomCosmeticsParams, RoomCosmeticsView];
-  'search.search_messages': [SearchMessagesParams, SearchMessagesOk];
-  'search.search_coverage': [SearchCoverageParams, SearchCoverageView];
-  'search.search_metrics': [SearchMetricsParams, SearchMetricsView];
-  'session.restore': [RestoreParams, SessionInfo | null];
-  'session.list_accounts': [ListAccountsParams, SessionInfo[]];
-  'session.switch_account': [SwitchAccountParams, SessionInfo];
-  'session.remove_account': [RemoveAccountParams, null];
-  'session.logout': [LogoutParams, null];
-  'session.reset_local_cache': [ResetLocalCacheParams, null];
-  'session.homeserver_info': [HomeserverInfoParams, HomeserverInfoOk];
-  'session.request_open_id_token': [RequestOpenIdTokenParams, RequestOpenIdTokenOk];
-  'session.access_token': [AccessTokenParams, string | null];
-  'session.open_id_token': [OpenIdTokenParams, OpenIdTokenView];
-  'session.sync_status': [SyncStatusParams, SyncStatus];
-  'session.server_features': [ServerFeaturesParams, string[]];
-  'session.delayed_events_supported': [DelayedEventsSupportedParams, boolean];
-  'session.set_search_options': [SetSearchOptionsParams, null];
-  'session.set_read_room': [SetReadRoomParams, null];
-  'session.integration_manager_url': [IntegrationManagerUrlParams, string];
-  'session.known_rooms': [KnownRoomsParams, string[]];
-  'spaces.add_to_space': [AddToSpaceParams, null];
-  'spaces.set_space_child_order': [SetSpaceChildOrderParams, null];
-  'spaces.set_space_child_suggested': [SetSpaceChildSuggestedParams, null];
-  'spaces.space_hierarchy': [SpaceHierarchyParams, SpaceHierarchyOk];
-  'spaces.remove_from_space': [RemoveFromSpaceParams, null];
-  'spaces.space_sidebar': [SpaceSidebarParams, SidebarItemView[]];
-  'spaces.set_space_sidebar': [SetSpaceSidebarParams, null];
-  'spaces.room_has_space_parent': [RoomHasSpaceParentParams, boolean];
-  'spaces.unjoined_space_parents': [UnjoinedSpaceParentsParams, SpaceParentView[]];
-  'timeline.subscribe_room_list': [SubscribeRoomListParams, SubscribeRoomListOk];
-  'timeline.subscribe_timeline': [SubscribeTimelineParams, SubscribeTimelineOk];
-  'timeline.unsubscribe': [UnsubscribeParams, null];
-  'timeline.warm_rooms': [WarmRoomsParams, null];
-  'timeline.paginate': [PaginateParams, PaginateOk];
-  'timeline.fetch_event_details': [FetchEventDetailsParams, null];
-  'timeline.event_items': [EventItemsParams, TimelineItemView[]];
-  'timeline.room_timeline_events': [RoomTimelineEventsParams, RoomTimelineEventsOk];
-  'timeline.timestamp_to_event': [TimestampToEventParams, string | null];
-  'timeline.list_threads': [ListThreadsParams, ListThreadsOk];
-  'timeline.event_source': [EventSourceParams, EventSourceOk];
-  'timeline.edit_history': [EditHistoryParams, EditVersionView[]];
-  'timeline.mark_read': [MarkReadParams, null];
-  'timeline.set_fully_read': [SetFullyReadParams, null];
-  'timeline.mark_unread': [MarkUnreadParams, null];
-  'timeline.read_marker': [ReadMarkerParams, string | null];
-  'timeline.retry_decryption': [RetryDecryptionParams, null];
-  'timeline.room_event_relations': [RoomEventRelationsParams, RelationsView];
-  'timeline.pinned_events': [PinnedEventsParams, string[]];
-  'timeline.set_pinned': [SetPinnedParams, string[]];
-  'timeline.pin_read_state': [PinReadStateParams, PinReadStateView];
-  'timeline.mark_pins_seen': [MarkPinsSeenParams, PinReadStateView];
-  'widgets.widget_send_delayed_event': [WidgetSendDelayedEventParams, string];
-  'widgets.widget_send_sticky_event': [WidgetSendStickyEventParams, string];
-  'widgets.restart_delayed_event': [RestartDelayedEventParams, null];
-  'widgets.widget_send_to_device': [WidgetSendToDeviceParams, null];
-  'widgets.room_sticky_events': [RoomStickyEventsParams, StickyEvents];
-  'widgets.set_widget_feed': [SetWidgetFeedParams, null];
+  'account.user_profile': Rpc['account']['userProfile'];
+  'account.user_relations': Rpc['account']['userRelations'];
+  'account.data_types': Rpc['account']['dataTypes'];
+  'account.data': Rpc['account']['data'];
+  'account.set_data': Rpc['account']['setData'];
+  'account.sealed_data': Rpc['account']['sealedData'];
+  'account.set_sealed_data': Rpc['account']['setSealedData'];
+  'account.set_display_name': Rpc['account']['setDisplayName'];
+  'account.set_avatar_url': Rpc['account']['setAvatarUrl'];
+  'account.set_profile_field': Rpc['account']['setProfileField'];
+  'account.contacts': Rpc['account']['contacts'];
+  'account.ignored_users': Rpc['account']['ignoredUsers'];
+  'account.invite_triage': Rpc['account']['inviteTriage'];
+  'account.set_direct': Rpc['account']['setDirect'];
+  'account.ignore_user': Rpc['account']['ignoreUser'];
+  'account.unignore_user': Rpc['account']['unignoreUser'];
+  'account.report_user': Rpc['account']['reportUser'];
+  'account.set_presence': Rpc['account']['setPresence'];
+  'account.fetch_presence': Rpc['account']['fetchPresence'];
+  'account.search_user_directory': Rpc['account']['searchUserDirectory'];
+  'account.dismissed_invites': Rpc['account']['dismissedInvites'];
+  'account.set_invite_dismissed': Rpc['account']['setInviteDismissed'];
+  'account.bookmarks': Rpc['account']['bookmarks'];
+  'account.set_bookmark': Rpc['account']['setBookmark'];
+  'account.media_preview_config': Rpc['account']['mediaPreviewConfig'];
+  'account.set_media_preview_config': Rpc['account']['setMediaPreviewConfig'];
+  'account.profile_overrides': Rpc['account']['profileOverrides'];
+  'account.set_profile_override': Rpc['account']['setProfileOverride'];
+  'auth.discover_homeserver': Rpc['auth']['discoverHomeserver'];
+  'auth.login': Rpc['auth']['login'];
+  'auth.login_flows': Rpc['auth']['loginFlows'];
+  'auth.registration_flows': Rpc['auth']['registrationFlows'];
+  'auth.register': Rpc['auth']['register'];
+  'auth.request_registration_email': Rpc['auth']['requestRegistrationEmail'];
+  'auth.submit_registration_email': Rpc['auth']['submitRegistrationEmail'];
+  'auth.continue_registration': Rpc['auth']['continueRegistration'];
+  'auth.cancel_registration': Rpc['auth']['cancelRegistration'];
+  'auth.request_password_reset_email': Rpc['auth']['requestPasswordResetEmail'];
+  'auth.reset_password': Rpc['auth']['resetPassword'];
+  'auth.start_oidc_login': Rpc['auth']['startOidcLogin'];
+  'auth.complete_oidc_login': Rpc['auth']['completeOidcLogin'];
+  'auth.start_sso_login': Rpc['auth']['startSsoLogin'];
+  'auth.complete_sso_login': Rpc['auth']['completeSsoLogin'];
+  'auth.start_qr_login': Rpc['auth']['startQrLogin'];
+  'auth.start_qr_grant': Rpc['auth']['startQrGrant'];
+  'auth.qr_check_code': Rpc['auth']['qrCheckCode'];
+  'auth.qr_grant_continue': Rpc['auth']['qrGrantContinue'];
+  'auth.cancel_qr': Rpc['auth']['cancelQr'];
+  'calendar.entries': Rpc['calendar']['entries'];
+  'calendar.save_event': Rpc['calendar']['saveEvent'];
+  'calendar.answer_event': Rpc['calendar']['answerEvent'];
+  'calls.turn_server': Rpc['calls']['turnServer'];
+  'calls.rtc_transports': Rpc['calls']['rtcTransports'];
+  'calls.rtc_livekit': Rpc['calls']['rtcLivekit'];
+  'calls.join': Rpc['calls']['join'];
+  'calls.compatibility': Rpc['calls']['compatibility'];
+  'calls.support': Rpc['calls']['support'];
+  'calls.leave': Rpc['calls']['leave'];
+  'calls.set_screen_sharing': Rpc['calls']['setScreenSharing'];
+  'calls.decline': Rpc['calls']['decline'];
+  'encryption.status': Rpc['encryption']['status'];
+  'encryption.key_backup_status': Rpc['encryption']['keyBackupStatus'];
+  'encryption.download_key_backup': Rpc['encryption']['downloadKeyBackup'];
+  'encryption.sign_out_safety': Rpc['encryption']['signOutSafety'];
+  'encryption.devices': Rpc['encryption']['devices'];
+  'encryption.user_security': Rpc['encryption']['userSecurity'];
+  'encryption.recover_identity': Rpc['encryption']['recoverIdentity'];
+  'encryption.enable_recovery': Rpc['encryption']['enableRecovery'];
+  'encryption.reset_recovery_key': Rpc['encryption']['resetRecoveryKey'];
+  'encryption.reset_identity': Rpc['encryption']['resetIdentity'];
+  'encryption.continue_identity_reset': Rpc['encryption']['continueIdentityReset'];
+  'encryption.cancel_identity_reset': Rpc['encryption']['cancelIdentityReset'];
+  'encryption.export_room_keys': Rpc['encryption']['exportRoomKeys'];
+  'encryption.import_room_keys': Rpc['encryption']['importRoomKeys'];
+  'encryption.delete_device': Rpc['encryption']['deleteDevice'];
+  'encryption.rename_device': Rpc['encryption']['renameDevice'];
+  'encryption.discard_room_key': Rpc['encryption']['discardRoomKey'];
+  'encryption.request_verification': Rpc['encryption']['requestVerification'];
+  'encryption.withdraw_verification': Rpc['encryption']['withdrawVerification'];
+  'encryption.set_device_blocked': Rpc['encryption']['setDeviceBlocked'];
+  'encryption.accept_verification': Rpc['encryption']['acceptVerification'];
+  'encryption.scan_verification_qr': Rpc['encryption']['scanVerificationQr'];
+  'encryption.start_sas_verification': Rpc['encryption']['startSasVerification'];
+  'encryption.confirm_verification': Rpc['encryption']['confirmVerification'];
+  'encryption.cancel_verification': Rpc['encryption']['cancelVerification'];
+  'members.list': Rpc['members']['list'];
+  'members.permissions': Rpc['members']['permissions'];
+  'members.power_levels': Rpc['members']['powerLevels'];
+  'members.set_power_level': Rpc['members']['setPowerLevel'];
+  'members.sync_power_levels_from_space': Rpc['members']['syncPowerLevelsFromSpace'];
+  'members.sync_child_power_levels': Rpc['members']['syncChildPowerLevels'];
+  'members.power_level_tags': Rpc['members']['powerLevelTags'];
+  'members.set_power_level_tag': Rpc['members']['setPowerLevelTag'];
+  'members.set_user_power_level': Rpc['members']['setUserPowerLevel'];
+  'members.kick': Rpc['members']['kick'];
+  'members.deny_knock': Rpc['members']['denyKnock'];
+  'members.ban': Rpc['members']['ban'];
+  'members.unban': Rpc['members']['unban'];
+  'members.look': Rpc['members']['look'];
+  'members.set_look': Rpc['members']['setLook'];
+  'members.set_pronouns': Rpc['members']['setPronouns'];
+  'messages.markdown_to_content': Rpc['messages']['markdownToContent'];
+  'messages.send': Rpc['messages']['send'];
+  'messages.send_raw_event': Rpc['messages']['sendRawEvent'];
+  'messages.send_redaction': Rpc['messages']['sendRedaction'];
+  'messages.send_sticker': Rpc['messages']['sendSticker'];
+  'messages.send_gif': Rpc['messages']['sendGif'];
+  'messages.remove_link_previews': Rpc['messages']['removeLinkPreviews'];
+  'messages.reprofile': Rpc['messages']['reprofile'];
+  'messages.edit': Rpc['messages']['edit'];
+  'messages.redact': Rpc['messages']['redact'];
+  'messages.delete_thread': Rpc['messages']['deleteThread'];
+  'messages.bulk_redact': Rpc['messages']['bulkRedact'];
+  'messages.react': Rpc['messages']['react'];
+  'messages.send_location': Rpc['messages']['sendLocation'];
+  'messages.forward': Rpc['messages']['forward'];
+  'messages.report': Rpc['messages']['report'];
+  'messages.retry_send': Rpc['messages']['retrySend'];
+  'messages.cancel_send': Rpc['messages']['cancelSend'];
+  'messages.schedule': Rpc['messages']['schedule'];
+  'messages.schedule_attachment': Rpc['messages']['scheduleAttachment'];
+  'messages.scheduled': Rpc['messages']['scheduled'];
+  'messages.cancel_scheduled': Rpc['messages']['cancelScheduled'];
+  'messages.send_scheduled': Rpc['messages']['sendScheduled'];
+  'messages.create_poll': Rpc['messages']['createPoll'];
+  'messages.vote_poll': Rpc['messages']['votePoll'];
+  'messages.end_poll': Rpc['messages']['endPoll'];
+  'messages.send_gesture': Rpc['messages']['sendGesture'];
+  'messages.url_preview': Rpc['messages']['urlPreview'];
+  'messages.reaction_shortcodes': Rpc['messages']['reactionShortcodes'];
+  'messages.set_typing': Rpc['messages']['setTyping'];
+  'messages.media_config': Rpc['messages']['mediaConfig'];
+  'notifications.settings': Rpc['notifications']['settings'];
+  'notifications.default_modes': Rpc['notifications']['defaultModes'];
+  'notifications.mention_notifications': Rpc['notifications']['mentionNotifications'];
+  'notifications.event_notifications': Rpc['notifications']['eventNotifications'];
+  'notifications.master_mute': Rpc['notifications']['masterMute'];
+  'notifications.notification': Rpc['notifications']['notification'];
+  'notifications.push_event': Rpc['notifications']['pushEvent'];
+  'notifications.keywords': Rpc['notifications']['keywords'];
+  'notifications.add_keyword': Rpc['notifications']['addKeyword'];
+  'notifications.remove_keyword': Rpc['notifications']['removeKeyword'];
+  'notifications.set_keyword_mode': Rpc['notifications']['setKeywordMode'];
+  'notifications.set_room_notification_mode': Rpc['notifications']['setRoomNotificationMode'];
+  'notifications.set_default_mode': Rpc['notifications']['setDefaultMode'];
+  'notifications.set_mention_notifications': Rpc['notifications']['setMentionNotifications'];
+  'notifications.set_event_notification': Rpc['notifications']['setEventNotification'];
+  'notifications.set_master_mute': Rpc['notifications']['setMasterMute'];
+  'notifications.inbox': Rpc['notifications']['inbox'];
+  'notifications.backfill_inbox': Rpc['notifications']['backfillInbox'];
+  'notifications.set_content': Rpc['notifications']['setContent'];
+  'notifications.set_sounds': Rpc['notifications']['setSounds'];
+  'notifications.set_notify_once': Rpc['notifications']['setNotifyOnce'];
+  'notifications.set_enabled': Rpc['notifications']['setEnabled'];
+  'packs.list': Rpc['packs']['list'];
+  'packs.list_all': Rpc['packs']['listAll'];
+  'packs.save': Rpc['packs']['save'];
+  'packs.create_room_pack': Rpc['packs']['createRoomPack'];
+  'packs.delete_room_pack': Rpc['packs']['deleteRoomPack'];
+  'packs.convert_legacy': Rpc['packs']['convertLegacy'];
+  'packs.remove_legacy': Rpc['packs']['removeLegacy'];
+  'packs.add_account_images': Rpc['packs']['addAccountImages'];
+  'packs.subscriptions': Rpc['packs']['subscriptions'];
+  'packs.set_subscriptions': Rpc['packs']['setSubscriptions'];
+  'personas.list': Rpc['personas']['list'];
+  'personas.save': Rpc['personas']['save'];
+  'personas.remove': Rpc['personas']['remove'];
+  'personas.reorder': Rpc['personas']['reorder'];
+  'personas.set_selection': Rpc['personas']['setSelection'];
+  'personas.disable_room': Rpc['personas']['disableRoom'];
+  'personas.backup': Rpc['personas']['backup'];
+  'personas.check_backup': Rpc['personas']['checkBackup'];
+  'personas.restore_backup': Rpc['personas']['restoreBackup'];
+  'push.set_pusher': Rpc['push']['setPusher'];
+  'push.remove_pusher': Rpc['push']['removePusher'];
+  'push.web_pusher_support': Rpc['push']['webPusherSupport'];
+  'push.set_web_pusher': Rpc['push']['setWebPusher'];
+  'push.web_pushers': Rpc['push']['webPushers'];
+  'push.ping_gateway': Rpc['push']['pingGateway'];
+  'push.discover_gateway': Rpc['push']['discoverGateway'];
+  'push.send_diagnostic': Rpc['push']['sendDiagnostic'];
+  'push.ack_web_pusher': Rpc['push']['ackWebPusher'];
+  'room_state.set_name': Rpc['room_state']['setName'];
+  'room_state.set_topic': Rpc['room_state']['setTopic'];
+  'room_state.set_avatar': Rpc['room_state']['setAvatar'];
+  'room_state.set_join_rule': Rpc['room_state']['setJoinRule'];
+  'room_state.history_visibility': Rpc['room_state']['historyVisibility'];
+  'room_state.set_history_visibility': Rpc['room_state']['setHistoryVisibility'];
+  'room_state.enable_encryption': Rpc['room_state']['enableEncryption'];
+  'room_state.banner': Rpc['room_state']['banner'];
+  'room_state.set_banner': Rpc['room_state']['setBanner'];
+  'room_state.member_list_threshold': Rpc['room_state']['memberListThreshold'];
+  'room_state.set_member_list_threshold': Rpc['room_state']['setMemberListThreshold'];
+  'room_state.update_server_acl': Rpc['room_state']['updateServerAcl'];
+  'room_state.abbreviations': Rpc['room_state']['abbreviations'];
+  'room_state.set_abbreviations': Rpc['room_state']['setAbbreviations'];
+  'room_state.event': Rpc['room_state']['event'];
+  'room_state.events': Rpc['room_state']['events'];
+  'room_state.events_raw': Rpc['room_state']['eventsRaw'];
+  'room_state.full_state': Rpc['room_state']['fullState'];
+  'room_state.send_event': Rpc['room_state']['sendEvent'];
+  'room_state.account_data': Rpc['room_state']['accountData'];
+  'room_state.set_account_data': Rpc['room_state']['setAccountData'];
+  'room_state.account_data_raw': Rpc['room_state']['accountDataRaw'];
+  'room_state.add_widget': Rpc['room_state']['addWidget'];
+  'room_state.remove_widget': Rpc['room_state']['removeWidget'];
+  'room_state.bot_commands': Rpc['room_state']['botCommands'];
+  'rooms.open': Rpc['rooms']['open'];
+  'rooms.list_item': Rpc['rooms']['listItem'];
+  'rooms.preview': Rpc['rooms']['preview'];
+  'rooms.join': Rpc['rooms']['join'];
+  'rooms.knock': Rpc['rooms']['knock'];
+  'rooms.via_servers': Rpc['rooms']['viaServers'];
+  'rooms.leave': Rpc['rooms']['leave'];
+  'rooms.invite': Rpc['rooms']['invite'];
+  'rooms.create': Rpc['rooms']['create'];
+  'rooms.create_dm': Rpc['rooms']['createDm'];
+  'rooms.versions': Rpc['rooms']['versions'];
+  'rooms.upgrade': Rpc['rooms']['upgrade'];
+  'rooms.public_rooms': Rpc['rooms']['publicRooms'];
+  'rooms.directory_visibility': Rpc['rooms']['directoryVisibility'];
+  'rooms.set_directory_visibility': Rpc['rooms']['setDirectoryVisibility'];
+  'rooms.aliases': Rpc['rooms']['aliases'];
+  'rooms.create_alias': Rpc['rooms']['createAlias'];
+  'rooms.delete_alias': Rpc['rooms']['deleteAlias'];
+  'rooms.canonical_alias': Rpc['rooms']['canonicalAlias'];
+  'rooms.set_canonical_alias': Rpc['rooms']['setCanonicalAlias'];
+  'rooms.replaced_rooms': Rpc['rooms']['replacedRooms'];
+  'rooms.set_tombstone': Rpc['rooms']['setTombstone'];
+  'rooms.report': Rpc['rooms']['report'];
+  'rooms.set_tag': Rpc['rooms']['setTag'];
+  'rooms.attachments': Rpc['rooms']['attachments'];
+  'rooms.cosmetics': Rpc['rooms']['cosmetics'];
+  'search.messages': Rpc['search']['messages'];
+  'search.coverage': Rpc['search']['coverage'];
+  'search.metrics': Rpc['search']['metrics'];
+  'session.restore': Rpc['session']['restore'];
+  'session.list_accounts': Rpc['session']['listAccounts'];
+  'session.switch_account': Rpc['session']['switchAccount'];
+  'session.remove_account': Rpc['session']['removeAccount'];
+  'session.logout': Rpc['session']['logout'];
+  'session.reset_local_cache': Rpc['session']['resetLocalCache'];
+  'session.homeserver_info': Rpc['session']['homeserverInfo'];
+  'session.request_open_id_token': Rpc['session']['requestOpenIdToken'];
+  'session.access_token': Rpc['session']['accessToken'];
+  'session.open_id_token': Rpc['session']['openIdToken'];
+  'session.sync_status': Rpc['session']['syncStatus'];
+  'session.server_features': Rpc['session']['serverFeatures'];
+  'session.delayed_events_supported': Rpc['session']['delayedEventsSupported'];
+  'session.set_search_options': Rpc['session']['setSearchOptions'];
+  'session.set_read_room': Rpc['session']['setReadRoom'];
+  'session.integration_manager_url': Rpc['session']['integrationManagerUrl'];
+  'session.known_rooms': Rpc['session']['knownRooms'];
+  'spaces.add': Rpc['spaces']['add'];
+  'spaces.set_child_order': Rpc['spaces']['setChildOrder'];
+  'spaces.set_child_suggested': Rpc['spaces']['setChildSuggested'];
+  'spaces.hierarchy': Rpc['spaces']['hierarchy'];
+  'spaces.remove': Rpc['spaces']['remove'];
+  'spaces.sidebar': Rpc['spaces']['sidebar'];
+  'spaces.set_sidebar': Rpc['spaces']['setSidebar'];
+  'spaces.room_has_space_parent': Rpc['spaces']['roomHasSpaceParent'];
+  'spaces.unjoined_space_parents': Rpc['spaces']['unjoinedSpaceParents'];
+  'timeline.subscribe_room_list': Rpc['timeline']['subscribeRoomList'];
+  'timeline.subscribe': Rpc['timeline']['subscribe'];
+  'timeline.unsubscribe': Rpc['timeline']['unsubscribe'];
+  'timeline.warm_rooms': Rpc['timeline']['warmRooms'];
+  'timeline.paginate': Rpc['timeline']['paginate'];
+  'timeline.fetch_event_details': Rpc['timeline']['fetchEventDetails'];
+  'timeline.event_items': Rpc['timeline']['eventItems'];
+  'timeline.events': Rpc['timeline']['events'];
+  'timeline.timestamp_to_event': Rpc['timeline']['timestampToEvent'];
+  'timeline.list_threads': Rpc['timeline']['listThreads'];
+  'timeline.event_source': Rpc['timeline']['eventSource'];
+  'timeline.edit_history': Rpc['timeline']['editHistory'];
+  'timeline.mark_read': Rpc['timeline']['markRead'];
+  'timeline.set_fully_read': Rpc['timeline']['setFullyRead'];
+  'timeline.mark_unread': Rpc['timeline']['markUnread'];
+  'timeline.read_marker': Rpc['timeline']['readMarker'];
+  'timeline.retry_decryption': Rpc['timeline']['retryDecryption'];
+  'timeline.room_event_relations': Rpc['timeline']['roomEventRelations'];
+  'timeline.pinned_events': Rpc['timeline']['pinnedEvents'];
+  'timeline.set_pinned': Rpc['timeline']['setPinned'];
+  'timeline.pin_read_state': Rpc['timeline']['pinReadState'];
+  'timeline.mark_pins_seen': Rpc['timeline']['markPinsSeen'];
+  'widgets.send_delayed_event': Rpc['widgets']['sendDelayedEvent'];
+  'widgets.send_sticky_event': Rpc['widgets']['sendStickyEvent'];
+  'widgets.restart_delayed_event': Rpc['widgets']['restartDelayedEvent'];
+  'widgets.send_to_device': Rpc['widgets']['sendToDevice'];
+  'widgets.room_sticky_events': Rpc['widgets']['roomStickyEvents'];
+  'widgets.set_widget_feed': Rpc['widgets']['setWidgetFeed'];
 };
 
 export type RpcCall = (method: keyof RpcMethods, params: unknown) => Promise<unknown>;
 
-/** The core's methods by domain, each one `call` on its wire method. */
-export function createRpc(call: RpcCall) {
+/** Binds every method to `call` on its wire name. */
+export function createRpc(call: RpcCall): Rpc {
   return {
     account: {
-      userProfile: (params: UserProfileParams) => call('account.user_profile', params) as Promise<ProfileView>,
-      userRelations: (params: UserRelationsParams) => call('account.user_relations', params) as Promise<UserRelationsOk>,
-      accountDataTypes: (params: AccountDataTypesParams = {}) => call('account.account_data_types', params) as Promise<string[]>,
-      accountData: (params: AccountDataParams) => call('account.account_data', params) as Promise<AccountDataContent>,
-      setAccountData: (params: SetAccountDataParams) => call('account.set_account_data', params) as Promise<null>,
-      sealedAccountData: (params: SealedAccountDataParams) => call('account.sealed_account_data', params) as Promise<SealedAccountDataView>,
-      setSealedAccountData: (params: SetSealedAccountDataParams) => call('account.set_sealed_account_data', params) as Promise<null>,
-      setDisplayName: (params: SetDisplayNameParams) => call('account.set_display_name', params) as Promise<null>,
-      setAvatarUrl: (params: SetAvatarUrlParams) => call('account.set_avatar_url', params) as Promise<null>,
-      setProfileField: (params: SetProfileFieldParams) => call('account.set_profile_field', params) as Promise<null>,
-      accountContacts: (params: AccountContactsParams = {}) => call('account.account_contacts', params) as Promise<string[]>,
-      ignoredUsers: (params: IgnoredUsersParams = {}) => call('account.ignored_users', params) as Promise<string[]>,
-      inviteTriage: (params: InviteTriageParams = {}) => call('account.invite_triage', params) as Promise<InviteTriageView[]>,
-      setDirect: (params: SetDirectParams) => call('account.set_direct', params) as Promise<null>,
-      ignoreUser: (params: IgnoreUserParams) => call('account.ignore_user', params) as Promise<null>,
-      unignoreUser: (params: UnignoreUserParams) => call('account.unignore_user', params) as Promise<null>,
-      reportUser: (params: ReportUserParams) => call('account.report_user', params) as Promise<null>,
-      setPresence: (params: SetPresenceParams) => call('account.set_presence', params) as Promise<null>,
-      fetchPresence: (params: FetchPresenceParams) => call('account.fetch_presence', params) as Promise<null>,
-      searchUserDirectory: (params: SearchUserDirectoryParams) => call('account.search_user_directory', params) as Promise<SearchUserDirectoryOk>,
-      dismissedInvites: (params: DismissedInvitesParams = {}) => call('account.dismissed_invites', params) as Promise<string[]>,
-      setInviteDismissed: (params: SetInviteDismissedParams) => call('account.set_invite_dismissed', params) as Promise<string[]>,
-      bookmarks: (params: BookmarksParams = {}) => call('account.bookmarks', params) as Promise<BookmarkView[]>,
-      setBookmark: (params: SetBookmarkParams) => call('account.set_bookmark', params) as Promise<boolean>,
-      mediaPreviewConfig: (params: MediaPreviewConfigParams) => call('account.media_preview_config', params) as Promise<MediaPreviewConfigView>,
-      setMediaPreviewConfig: (params: SetMediaPreviewConfigParams) => call('account.set_media_preview_config', params) as Promise<MediaPreviewConfigView>,
-      profileOverrides: (params: ProfileOverridesParams = {}) => call('account.profile_overrides', params) as Promise<ProfileOverridesView>,
-      setProfileOverride: (params: SetProfileOverrideParams) => call('account.set_profile_override', params) as Promise<ProfileOverridesView>,
+      userProfile: (params) => call('account.user_profile', params) as ReturnType<Rpc['account']['userProfile']>,
+      userRelations: (params) => call('account.user_relations', params) as ReturnType<Rpc['account']['userRelations']>,
+      dataTypes: (params = {}) => call('account.data_types', params) as ReturnType<Rpc['account']['dataTypes']>,
+      data: (params) => call('account.data', params) as ReturnType<Rpc['account']['data']>,
+      setData: (params) => call('account.set_data', params) as ReturnType<Rpc['account']['setData']>,
+      sealedData: (params) => call('account.sealed_data', params) as ReturnType<Rpc['account']['sealedData']>,
+      setSealedData: (params) => call('account.set_sealed_data', params) as ReturnType<Rpc['account']['setSealedData']>,
+      setDisplayName: (params) => call('account.set_display_name', params) as ReturnType<Rpc['account']['setDisplayName']>,
+      setAvatarUrl: (params) => call('account.set_avatar_url', params) as ReturnType<Rpc['account']['setAvatarUrl']>,
+      setProfileField: (params) => call('account.set_profile_field', params) as ReturnType<Rpc['account']['setProfileField']>,
+      contacts: (params = {}) => call('account.contacts', params) as ReturnType<Rpc['account']['contacts']>,
+      ignoredUsers: (params = {}) => call('account.ignored_users', params) as ReturnType<Rpc['account']['ignoredUsers']>,
+      inviteTriage: (params = {}) => call('account.invite_triage', params) as ReturnType<Rpc['account']['inviteTriage']>,
+      setDirect: (params) => call('account.set_direct', params) as ReturnType<Rpc['account']['setDirect']>,
+      ignoreUser: (params) => call('account.ignore_user', params) as ReturnType<Rpc['account']['ignoreUser']>,
+      unignoreUser: (params) => call('account.unignore_user', params) as ReturnType<Rpc['account']['unignoreUser']>,
+      reportUser: (params) => call('account.report_user', params) as ReturnType<Rpc['account']['reportUser']>,
+      setPresence: (params) => call('account.set_presence', params) as ReturnType<Rpc['account']['setPresence']>,
+      fetchPresence: (params) => call('account.fetch_presence', params) as ReturnType<Rpc['account']['fetchPresence']>,
+      searchUserDirectory: (params) => call('account.search_user_directory', params) as ReturnType<Rpc['account']['searchUserDirectory']>,
+      dismissedInvites: (params = {}) => call('account.dismissed_invites', params) as ReturnType<Rpc['account']['dismissedInvites']>,
+      setInviteDismissed: (params) => call('account.set_invite_dismissed', params) as ReturnType<Rpc['account']['setInviteDismissed']>,
+      bookmarks: (params = {}) => call('account.bookmarks', params) as ReturnType<Rpc['account']['bookmarks']>,
+      setBookmark: (params) => call('account.set_bookmark', params) as ReturnType<Rpc['account']['setBookmark']>,
+      mediaPreviewConfig: (params) => call('account.media_preview_config', params) as ReturnType<Rpc['account']['mediaPreviewConfig']>,
+      setMediaPreviewConfig: (params) => call('account.set_media_preview_config', params) as ReturnType<Rpc['account']['setMediaPreviewConfig']>,
+      profileOverrides: (params = {}) => call('account.profile_overrides', params) as ReturnType<Rpc['account']['profileOverrides']>,
+      setProfileOverride: (params) => call('account.set_profile_override', params) as ReturnType<Rpc['account']['setProfileOverride']>,
     },
     auth: {
-      discoverHomeserver: (params: DiscoverHomeserverParams) => call('auth.discover_homeserver', params) as Promise<string>,
-      login: (params: LoginParams) => call('auth.login', params) as Promise<string>,
-      loginFlows: (params: LoginFlowsParams) => call('auth.login_flows', params) as Promise<LoginFlowsView>,
-      registrationFlows: (params: RegistrationFlowsParams) => call('auth.registration_flows', params) as Promise<RegistrationFlowsView>,
-      register: (params: RegisterParams) => call('auth.register', params) as Promise<RegistrationResultView>,
-      requestRegistrationEmail: (params: RequestRegistrationEmailParams) => call('auth.request_registration_email', params) as Promise<RegistrationResultView>,
-      submitRegistrationEmail: (params: SubmitRegistrationEmailParams) => call('auth.submit_registration_email', params) as Promise<RegistrationResultView>,
-      continueRegistration: (params: ContinueRegistrationParams = {}) => call('auth.continue_registration', params) as Promise<RegistrationResultView>,
-      cancelRegistration: (params: CancelRegistrationParams = {}) => call('auth.cancel_registration', params) as Promise<null>,
-      requestPasswordResetEmail: (params: RequestPasswordResetEmailParams) => call('auth.request_password_reset_email', params) as Promise<PasswordResetEmailOk>,
-      resetPassword: (params: ResetPasswordParams) => call('auth.reset_password', params) as Promise<null>,
-      startOidcLogin: (params: StartOidcLoginParams) => call('auth.start_oidc_login', params) as Promise<string>,
-      completeOidcLogin: (params: CompleteOidcLoginParams) => call('auth.complete_oidc_login', params) as Promise<string>,
-      startSsoLogin: (params: StartSsoLoginParams) => call('auth.start_sso_login', params) as Promise<string>,
-      completeSsoLogin: (params: CompleteSsoLoginParams) => call('auth.complete_sso_login', params) as Promise<string>,
-      startQrLogin: (params: StartQrLoginParams) => call('auth.start_qr_login', params) as Promise<null>,
-      startQrGrant: (params: StartQrGrantParams) => call('auth.start_qr_grant', params) as Promise<null>,
-      qrCheckCode: (params: QrCheckCodeParams) => call('auth.qr_check_code', params) as Promise<null>,
-      qrGrantContinue: (params: QrGrantContinueParams) => call('auth.qr_grant_continue', params) as Promise<null>,
-      cancelQr: (params: CancelQrParams = {}) => call('auth.cancel_qr', params) as Promise<null>,
+      discoverHomeserver: (params) => call('auth.discover_homeserver', params) as ReturnType<Rpc['auth']['discoverHomeserver']>,
+      login: (params) => call('auth.login', params) as ReturnType<Rpc['auth']['login']>,
+      loginFlows: (params) => call('auth.login_flows', params) as ReturnType<Rpc['auth']['loginFlows']>,
+      registrationFlows: (params) => call('auth.registration_flows', params) as ReturnType<Rpc['auth']['registrationFlows']>,
+      register: (params) => call('auth.register', params) as ReturnType<Rpc['auth']['register']>,
+      requestRegistrationEmail: (params) => call('auth.request_registration_email', params) as ReturnType<Rpc['auth']['requestRegistrationEmail']>,
+      submitRegistrationEmail: (params) => call('auth.submit_registration_email', params) as ReturnType<Rpc['auth']['submitRegistrationEmail']>,
+      continueRegistration: (params = {}) => call('auth.continue_registration', params) as ReturnType<Rpc['auth']['continueRegistration']>,
+      cancelRegistration: (params = {}) => call('auth.cancel_registration', params) as ReturnType<Rpc['auth']['cancelRegistration']>,
+      requestPasswordResetEmail: (params) => call('auth.request_password_reset_email', params) as ReturnType<Rpc['auth']['requestPasswordResetEmail']>,
+      resetPassword: (params) => call('auth.reset_password', params) as ReturnType<Rpc['auth']['resetPassword']>,
+      startOidcLogin: (params) => call('auth.start_oidc_login', params) as ReturnType<Rpc['auth']['startOidcLogin']>,
+      completeOidcLogin: (params) => call('auth.complete_oidc_login', params) as ReturnType<Rpc['auth']['completeOidcLogin']>,
+      startSsoLogin: (params) => call('auth.start_sso_login', params) as ReturnType<Rpc['auth']['startSsoLogin']>,
+      completeSsoLogin: (params) => call('auth.complete_sso_login', params) as ReturnType<Rpc['auth']['completeSsoLogin']>,
+      startQrLogin: (params) => call('auth.start_qr_login', params) as ReturnType<Rpc['auth']['startQrLogin']>,
+      startQrGrant: (params) => call('auth.start_qr_grant', params) as ReturnType<Rpc['auth']['startQrGrant']>,
+      qrCheckCode: (params) => call('auth.qr_check_code', params) as ReturnType<Rpc['auth']['qrCheckCode']>,
+      qrGrantContinue: (params) => call('auth.qr_grant_continue', params) as ReturnType<Rpc['auth']['qrGrantContinue']>,
+      cancelQr: (params = {}) => call('auth.cancel_qr', params) as ReturnType<Rpc['auth']['cancelQr']>,
     },
     calendar: {
-      calendarEntries: (params: CalendarEntriesParams) => call('calendar.calendar_entries', params) as Promise<CalendarView>,
-      saveCalendarEvent: (params: SaveCalendarEventParams) => call('calendar.save_calendar_event', params) as Promise<null>,
-      answerCalendarEvent: (params: AnswerCalendarEventParams) => call('calendar.answer_calendar_event', params) as Promise<null>,
+      entries: (params) => call('calendar.entries', params) as ReturnType<Rpc['calendar']['entries']>,
+      saveEvent: (params) => call('calendar.save_event', params) as ReturnType<Rpc['calendar']['saveEvent']>,
+      answerEvent: (params) => call('calendar.answer_event', params) as ReturnType<Rpc['calendar']['answerEvent']>,
     },
     calls: {
-      turnServer: (params: TurnServerParams = {}) => call('calls.turn_server', params) as Promise<TurnServerView>,
-      rtcTransports: (params: RtcTransportsParams = {}) => call('calls.rtc_transports', params) as Promise<RtcBody>,
-      rtcLivekit: (params: RtcLivekitParams) => call('calls.rtc_livekit', params) as Promise<RtcBody>,
-      joinCall: (params: JoinCallParams) => call('calls.join_call', params) as Promise<JoinCallOk>,
-      callCompatibility: (params: CallCompatibilityParams = {}) => call('calls.call_compatibility', params) as Promise<CallCompatibilityView>,
-      callSupport: (params: CallSupportParams) => call('calls.call_support', params) as Promise<CallSupportView>,
-      leaveCall: (params: LeaveCallParams) => call('calls.leave_call', params) as Promise<null>,
-      setCallScreenSharing: (params: SetCallScreenSharingParams) => call('calls.set_call_screen_sharing', params) as Promise<null>,
-      declineCall: (params: DeclineCallParams) => call('calls.decline_call', params) as Promise<null>,
+      turnServer: (params = {}) => call('calls.turn_server', params) as ReturnType<Rpc['calls']['turnServer']>,
+      rtcTransports: (params = {}) => call('calls.rtc_transports', params) as ReturnType<Rpc['calls']['rtcTransports']>,
+      rtcLivekit: (params) => call('calls.rtc_livekit', params) as ReturnType<Rpc['calls']['rtcLivekit']>,
+      join: (params) => call('calls.join', params) as ReturnType<Rpc['calls']['join']>,
+      compatibility: (params = {}) => call('calls.compatibility', params) as ReturnType<Rpc['calls']['compatibility']>,
+      support: (params) => call('calls.support', params) as ReturnType<Rpc['calls']['support']>,
+      leave: (params) => call('calls.leave', params) as ReturnType<Rpc['calls']['leave']>,
+      setScreenSharing: (params) => call('calls.set_screen_sharing', params) as ReturnType<Rpc['calls']['setScreenSharing']>,
+      decline: (params) => call('calls.decline', params) as ReturnType<Rpc['calls']['decline']>,
     },
     encryption: {
-      encryptionStatus: (params: EncryptionStatusParams = {}) => call('encryption.encryption_status', params) as Promise<EncryptionStatusView>,
-      keyBackupStatus: (params: KeyBackupStatusParams = {}) => call('encryption.key_backup_status', params) as Promise<KeyBackupStatusView>,
-      downloadKeyBackup: (params: DownloadKeyBackupParams) => call('encryption.download_key_backup', params) as Promise<KeyBackupDownloadView>,
-      signOutSafety: (params: SignOutSafetyParams = {}) => call('encryption.sign_out_safety', params) as Promise<SignOutSafetyView>,
-      devices: (params: DevicesParams = {}) => call('encryption.devices', params) as Promise<DevicesOk>,
-      userSecurity: (params: UserSecurityParams) => call('encryption.user_security', params) as Promise<UserSecurityView>,
-      recoverIdentity: (params: RecoverIdentityParams) => call('encryption.recover_identity', params) as Promise<null>,
-      enableRecovery: (params: EnableRecoveryParams) => call('encryption.enable_recovery', params) as Promise<string>,
-      resetRecoveryKey: (params: ResetRecoveryKeyParams) => call('encryption.reset_recovery_key', params) as Promise<string>,
-      resetIdentity: (params: ResetIdentityParams = {}) => call('encryption.reset_identity', params) as Promise<IdentityResetStep>,
-      continueIdentityReset: (params: ContinueIdentityResetParams) => call('encryption.continue_identity_reset', params) as Promise<string>,
-      cancelIdentityReset: (params: CancelIdentityResetParams = {}) => call('encryption.cancel_identity_reset', params) as Promise<null>,
-      exportRoomKeys: (params: ExportRoomKeysParams) => call('encryption.export_room_keys', params) as Promise<string>,
-      importRoomKeys: (params: ImportRoomKeysParams) => call('encryption.import_room_keys', params) as Promise<ImportRoomKeysOk>,
-      deleteDevice: (params: DeleteDeviceParams) => call('encryption.delete_device', params) as Promise<string | null>,
-      renameDevice: (params: RenameDeviceParams) => call('encryption.rename_device', params) as Promise<null>,
-      discardRoomKey: (params: DiscardRoomKeyParams) => call('encryption.discard_room_key', params) as Promise<null>,
-      requestVerification: (params: RequestVerificationParams) => call('encryption.request_verification', params) as Promise<string>,
-      withdrawVerification: (params: WithdrawVerificationParams) => call('encryption.withdraw_verification', params) as Promise<null>,
-      setDeviceBlocked: (params: SetDeviceBlockedParams) => call('encryption.set_device_blocked', params) as Promise<null>,
-      acceptVerification: (params: AcceptVerificationParams) => call('encryption.accept_verification', params) as Promise<null>,
-      scanVerificationQr: (params: ScanVerificationQrParams) => call('encryption.scan_verification_qr', params) as Promise<null>,
-      startSasVerification: (params: StartSasVerificationParams) => call('encryption.start_sas_verification', params) as Promise<null>,
-      confirmVerification: (params: ConfirmVerificationParams) => call('encryption.confirm_verification', params) as Promise<null>,
-      cancelVerification: (params: CancelVerificationParams) => call('encryption.cancel_verification', params) as Promise<null>,
+      status: (params = {}) => call('encryption.status', params) as ReturnType<Rpc['encryption']['status']>,
+      keyBackupStatus: (params = {}) => call('encryption.key_backup_status', params) as ReturnType<Rpc['encryption']['keyBackupStatus']>,
+      downloadKeyBackup: (params) => call('encryption.download_key_backup', params) as ReturnType<Rpc['encryption']['downloadKeyBackup']>,
+      signOutSafety: (params = {}) => call('encryption.sign_out_safety', params) as ReturnType<Rpc['encryption']['signOutSafety']>,
+      devices: (params = {}) => call('encryption.devices', params) as ReturnType<Rpc['encryption']['devices']>,
+      userSecurity: (params) => call('encryption.user_security', params) as ReturnType<Rpc['encryption']['userSecurity']>,
+      recoverIdentity: (params) => call('encryption.recover_identity', params) as ReturnType<Rpc['encryption']['recoverIdentity']>,
+      enableRecovery: (params) => call('encryption.enable_recovery', params) as ReturnType<Rpc['encryption']['enableRecovery']>,
+      resetRecoveryKey: (params) => call('encryption.reset_recovery_key', params) as ReturnType<Rpc['encryption']['resetRecoveryKey']>,
+      resetIdentity: (params = {}) => call('encryption.reset_identity', params) as ReturnType<Rpc['encryption']['resetIdentity']>,
+      continueIdentityReset: (params) => call('encryption.continue_identity_reset', params) as ReturnType<Rpc['encryption']['continueIdentityReset']>,
+      cancelIdentityReset: (params = {}) => call('encryption.cancel_identity_reset', params) as ReturnType<Rpc['encryption']['cancelIdentityReset']>,
+      exportRoomKeys: (params) => call('encryption.export_room_keys', params) as ReturnType<Rpc['encryption']['exportRoomKeys']>,
+      importRoomKeys: (params) => call('encryption.import_room_keys', params) as ReturnType<Rpc['encryption']['importRoomKeys']>,
+      deleteDevice: (params) => call('encryption.delete_device', params) as ReturnType<Rpc['encryption']['deleteDevice']>,
+      renameDevice: (params) => call('encryption.rename_device', params) as ReturnType<Rpc['encryption']['renameDevice']>,
+      discardRoomKey: (params) => call('encryption.discard_room_key', params) as ReturnType<Rpc['encryption']['discardRoomKey']>,
+      requestVerification: (params) => call('encryption.request_verification', params) as ReturnType<Rpc['encryption']['requestVerification']>,
+      withdrawVerification: (params) => call('encryption.withdraw_verification', params) as ReturnType<Rpc['encryption']['withdrawVerification']>,
+      setDeviceBlocked: (params) => call('encryption.set_device_blocked', params) as ReturnType<Rpc['encryption']['setDeviceBlocked']>,
+      acceptVerification: (params) => call('encryption.accept_verification', params) as ReturnType<Rpc['encryption']['acceptVerification']>,
+      scanVerificationQr: (params) => call('encryption.scan_verification_qr', params) as ReturnType<Rpc['encryption']['scanVerificationQr']>,
+      startSasVerification: (params) => call('encryption.start_sas_verification', params) as ReturnType<Rpc['encryption']['startSasVerification']>,
+      confirmVerification: (params) => call('encryption.confirm_verification', params) as ReturnType<Rpc['encryption']['confirmVerification']>,
+      cancelVerification: (params) => call('encryption.cancel_verification', params) as ReturnType<Rpc['encryption']['cancelVerification']>,
     },
     members: {
-      roomMembers: (params: RoomMembersParams) => call('members.room_members', params) as Promise<MemberView[]>,
-      roomPermissions: (params: RoomPermissionsParams) => call('members.room_permissions', params) as Promise<RoomPermissionsView>,
-      roomPowerLevels: (params: RoomPowerLevelsParams) => call('members.room_power_levels', params) as Promise<RoomPowerLevelsView>,
-      setPowerLevel: (params: SetPowerLevelParams) => call('members.set_power_level', params) as Promise<RoomPowerLevelsView>,
-      syncPowerLevelsFromSpace: (params: SyncPowerLevelsFromSpaceParams) => call('members.sync_power_levels_from_space', params) as Promise<SyncPowerLevelsFromSpaceOk>,
-      syncChildPowerLevels: (params: SyncChildPowerLevelsParams) => call('members.sync_child_power_levels', params) as Promise<SyncChildPowerLevelsOk>,
-      powerLevelTags: (params: PowerLevelTagsParams) => call('members.power_level_tags', params) as Promise<{ [key in string]: PowerLevelTagView }>,
-      setPowerLevelTag: (params: SetPowerLevelTagParams) => call('members.set_power_level_tag', params) as Promise<{ [key in string]: PowerLevelTagView }>,
-      setUserPowerLevel: (params: SetUserPowerLevelParams) => call('members.set_user_power_level', params) as Promise<null>,
-      kickUser: (params: KickUserParams) => call('members.kick_user', params) as Promise<null>,
-      denyKnock: (params: DenyKnockParams) => call('members.deny_knock', params) as Promise<null>,
-      banUser: (params: BanUserParams) => call('members.ban_user', params) as Promise<null>,
-      unbanUser: (params: UnbanUserParams) => call('members.unban_user', params) as Promise<null>,
-      memberLook: (params: MemberLookParams) => call('members.member_look', params) as Promise<MemberLookView>,
-      setMemberLook: (params: SetMemberLookParams) => call('members.set_member_look', params) as Promise<null>,
-      setPronouns: (params: SetPronounsParams) => call('members.set_pronouns', params) as Promise<null>,
+      list: (params) => call('members.list', params) as ReturnType<Rpc['members']['list']>,
+      permissions: (params) => call('members.permissions', params) as ReturnType<Rpc['members']['permissions']>,
+      powerLevels: (params) => call('members.power_levels', params) as ReturnType<Rpc['members']['powerLevels']>,
+      setPowerLevel: (params) => call('members.set_power_level', params) as ReturnType<Rpc['members']['setPowerLevel']>,
+      syncPowerLevelsFromSpace: (params) => call('members.sync_power_levels_from_space', params) as ReturnType<Rpc['members']['syncPowerLevelsFromSpace']>,
+      syncChildPowerLevels: (params) => call('members.sync_child_power_levels', params) as ReturnType<Rpc['members']['syncChildPowerLevels']>,
+      powerLevelTags: (params) => call('members.power_level_tags', params) as ReturnType<Rpc['members']['powerLevelTags']>,
+      setPowerLevelTag: (params) => call('members.set_power_level_tag', params) as ReturnType<Rpc['members']['setPowerLevelTag']>,
+      setUserPowerLevel: (params) => call('members.set_user_power_level', params) as ReturnType<Rpc['members']['setUserPowerLevel']>,
+      kick: (params) => call('members.kick', params) as ReturnType<Rpc['members']['kick']>,
+      denyKnock: (params) => call('members.deny_knock', params) as ReturnType<Rpc['members']['denyKnock']>,
+      ban: (params) => call('members.ban', params) as ReturnType<Rpc['members']['ban']>,
+      unban: (params) => call('members.unban', params) as ReturnType<Rpc['members']['unban']>,
+      look: (params) => call('members.look', params) as ReturnType<Rpc['members']['look']>,
+      setLook: (params) => call('members.set_look', params) as ReturnType<Rpc['members']['setLook']>,
+      setPronouns: (params) => call('members.set_pronouns', params) as ReturnType<Rpc['members']['setPronouns']>,
     },
     messages: {
-      markdownToContent: (params: MarkdownToContentParams) => call('messages.markdown_to_content', params) as Promise<ComposerContent>,
-      sendMessage: (params: SendMessageParams) => call('messages.send_message', params) as Promise<null>,
-      sendRawEvent: (params: SendRawEventParams) => call('messages.send_raw_event', params) as Promise<string>,
-      sendRedaction: (params: SendRedactionParams) => call('messages.send_redaction', params) as Promise<string>,
-      sendSticker: (params: SendStickerParams) => call('messages.send_sticker', params) as Promise<null>,
-      sendGif: (params: SendGifParams) => call('messages.send_gif', params) as Promise<null>,
-      removeLinkPreviews: (params: RemoveLinkPreviewsParams) => call('messages.remove_link_previews', params) as Promise<null>,
-      reprofileMessage: (params: ReprofileMessageParams) => call('messages.reprofile_message', params) as Promise<null>,
-      editMessage: (params: EditMessageParams) => call('messages.edit_message', params) as Promise<null>,
-      redact: (params: RedactParams) => call('messages.redact', params) as Promise<null>,
-      deleteThread: (params: DeleteThreadParams) => call('messages.delete_thread', params) as Promise<null>,
-      bulkRedact: (params: BulkRedactParams) => call('messages.bulk_redact', params) as Promise<number>,
-      react: (params: ReactParams) => call('messages.react', params) as Promise<null>,
-      sendLocation: (params: SendLocationParams) => call('messages.send_location', params) as Promise<null>,
-      forwardMessage: (params: ForwardMessageParams) => call('messages.forward_message', params) as Promise<null>,
-      reportMessage: (params: ReportMessageParams) => call('messages.report_message', params) as Promise<null>,
-      retrySend: (params: RetrySendParams) => call('messages.retry_send', params) as Promise<null>,
-      cancelSend: (params: CancelSendParams) => call('messages.cancel_send', params) as Promise<boolean>,
-      scheduleMessage: (params: ScheduleMessageParams) => call('messages.schedule_message', params) as Promise<string>,
-      scheduleAttachment: (params: ScheduleAttachmentParams) => call('messages.schedule_attachment', params) as Promise<string>,
-      scheduledMessages: (params: ScheduledMessagesParams) => call('messages.scheduled_messages', params) as Promise<ScheduledMessageView[]>,
-      cancelScheduledMessage: (params: CancelScheduledMessageParams) => call('messages.cancel_scheduled_message', params) as Promise<null>,
-      sendScheduledMessage: (params: SendScheduledMessageParams) => call('messages.send_scheduled_message', params) as Promise<null>,
-      createPoll: (params: CreatePollParams) => call('messages.create_poll', params) as Promise<null>,
-      votePoll: (params: VotePollParams) => call('messages.vote_poll', params) as Promise<null>,
-      endPoll: (params: EndPollParams) => call('messages.end_poll', params) as Promise<null>,
-      sendGesture: (params: SendGestureParams) => call('messages.send_gesture', params) as Promise<null>,
-      urlPreview: (params: UrlPreviewParams) => call('messages.url_preview', params) as Promise<UrlPreviewView | null>,
-      reactionShortcodes: (params: ReactionShortcodesParams) => call('messages.reaction_shortcodes', params) as Promise<ReactionShortcodeView[]>,
-      setTyping: (params: SetTypingParams) => call('messages.set_typing', params) as Promise<null>,
-      mediaConfig: (params: MediaConfigParams = {}) => call('messages.media_config', params) as Promise<MediaConfigOk>,
+      markdownToContent: (params) => call('messages.markdown_to_content', params) as ReturnType<Rpc['messages']['markdownToContent']>,
+      send: (params) => call('messages.send', params) as ReturnType<Rpc['messages']['send']>,
+      sendRawEvent: (params) => call('messages.send_raw_event', params) as ReturnType<Rpc['messages']['sendRawEvent']>,
+      sendRedaction: (params) => call('messages.send_redaction', params) as ReturnType<Rpc['messages']['sendRedaction']>,
+      sendSticker: (params) => call('messages.send_sticker', params) as ReturnType<Rpc['messages']['sendSticker']>,
+      sendGif: (params) => call('messages.send_gif', params) as ReturnType<Rpc['messages']['sendGif']>,
+      removeLinkPreviews: (params) => call('messages.remove_link_previews', params) as ReturnType<Rpc['messages']['removeLinkPreviews']>,
+      reprofile: (params) => call('messages.reprofile', params) as ReturnType<Rpc['messages']['reprofile']>,
+      edit: (params) => call('messages.edit', params) as ReturnType<Rpc['messages']['edit']>,
+      redact: (params) => call('messages.redact', params) as ReturnType<Rpc['messages']['redact']>,
+      deleteThread: (params) => call('messages.delete_thread', params) as ReturnType<Rpc['messages']['deleteThread']>,
+      bulkRedact: (params) => call('messages.bulk_redact', params) as ReturnType<Rpc['messages']['bulkRedact']>,
+      react: (params) => call('messages.react', params) as ReturnType<Rpc['messages']['react']>,
+      sendLocation: (params) => call('messages.send_location', params) as ReturnType<Rpc['messages']['sendLocation']>,
+      forward: (params) => call('messages.forward', params) as ReturnType<Rpc['messages']['forward']>,
+      report: (params) => call('messages.report', params) as ReturnType<Rpc['messages']['report']>,
+      retrySend: (params) => call('messages.retry_send', params) as ReturnType<Rpc['messages']['retrySend']>,
+      cancelSend: (params) => call('messages.cancel_send', params) as ReturnType<Rpc['messages']['cancelSend']>,
+      schedule: (params) => call('messages.schedule', params) as ReturnType<Rpc['messages']['schedule']>,
+      scheduleAttachment: (params) => call('messages.schedule_attachment', params) as ReturnType<Rpc['messages']['scheduleAttachment']>,
+      scheduled: (params) => call('messages.scheduled', params) as ReturnType<Rpc['messages']['scheduled']>,
+      cancelScheduled: (params) => call('messages.cancel_scheduled', params) as ReturnType<Rpc['messages']['cancelScheduled']>,
+      sendScheduled: (params) => call('messages.send_scheduled', params) as ReturnType<Rpc['messages']['sendScheduled']>,
+      createPoll: (params) => call('messages.create_poll', params) as ReturnType<Rpc['messages']['createPoll']>,
+      votePoll: (params) => call('messages.vote_poll', params) as ReturnType<Rpc['messages']['votePoll']>,
+      endPoll: (params) => call('messages.end_poll', params) as ReturnType<Rpc['messages']['endPoll']>,
+      sendGesture: (params) => call('messages.send_gesture', params) as ReturnType<Rpc['messages']['sendGesture']>,
+      urlPreview: (params) => call('messages.url_preview', params) as ReturnType<Rpc['messages']['urlPreview']>,
+      reactionShortcodes: (params) => call('messages.reaction_shortcodes', params) as ReturnType<Rpc['messages']['reactionShortcodes']>,
+      setTyping: (params) => call('messages.set_typing', params) as ReturnType<Rpc['messages']['setTyping']>,
+      mediaConfig: (params = {}) => call('messages.media_config', params) as ReturnType<Rpc['messages']['mediaConfig']>,
     },
     notifications: {
-      notificationSettings: (params: NotificationSettingsParams) => call('notifications.notification_settings', params) as Promise<NotificationSettingsView>,
-      defaultNotificationModes: (params: DefaultNotificationModesParams = {}) => call('notifications.default_notification_modes', params) as Promise<DefaultNotificationModesView>,
-      mentionNotifications: (params: MentionNotificationsParams = {}) => call('notifications.mention_notifications', params) as Promise<MentionNotificationsView>,
-      eventNotifications: (params: EventNotificationsParams = {}) => call('notifications.event_notifications', params) as Promise<EventNotificationsView>,
-      masterMute: (params: MasterMuteParams = {}) => call('notifications.master_mute', params) as Promise<boolean | null>,
-      notification: (params: NotificationParams) => call('notifications.notification', params) as Promise<NotificationView | null>,
-      pushEvent: (params: PushEventParams) => call('notifications.push_event', params) as Promise<PushFetchView>,
-      notificationKeywords: (params: NotificationKeywordsParams = {}) => call('notifications.notification_keywords', params) as Promise<KeywordNotificationView[]>,
-      addNotificationKeyword: (params: AddNotificationKeywordParams) => call('notifications.add_notification_keyword', params) as Promise<null>,
-      removeNotificationKeyword: (params: RemoveNotificationKeywordParams) => call('notifications.remove_notification_keyword', params) as Promise<null>,
-      setNotificationKeywordMode: (params: SetNotificationKeywordModeParams) => call('notifications.set_notification_keyword_mode', params) as Promise<null>,
-      setRoomNotificationMode: (params: SetRoomNotificationModeParams) => call('notifications.set_room_notification_mode', params) as Promise<null>,
-      setDefaultNotificationMode: (params: SetDefaultNotificationModeParams) => call('notifications.set_default_notification_mode', params) as Promise<null>,
-      setMentionNotifications: (params: SetMentionNotificationsParams) => call('notifications.set_mention_notifications', params) as Promise<null>,
-      setEventNotification: (params: SetEventNotificationParams) => call('notifications.set_event_notification', params) as Promise<null>,
-      setMasterMute: (params: SetMasterMuteParams) => call('notifications.set_master_mute', params) as Promise<null>,
-      inboxNotifications: (params: InboxNotificationsParams) => call('notifications.inbox_notifications', params) as Promise<InboxNotificationsOk>,
-      backfillInbox: (params: BackfillInboxParams) => call('notifications.backfill_inbox', params) as Promise<BackfillInboxOk>,
-      setNotificationContent: (params: SetNotificationContentParams) => call('notifications.set_notification_content', params) as Promise<null>,
-      setNotificationSounds: (params: SetNotificationSoundsParams) => call('notifications.set_notification_sounds', params) as Promise<null>,
-      setNotifyOnce: (params: SetNotifyOnceParams) => call('notifications.set_notify_once', params) as Promise<null>,
-      setNotificationsEnabled: (params: SetNotificationsEnabledParams) => call('notifications.set_notifications_enabled', params) as Promise<null>,
+      settings: (params) => call('notifications.settings', params) as ReturnType<Rpc['notifications']['settings']>,
+      defaultModes: (params = {}) => call('notifications.default_modes', params) as ReturnType<Rpc['notifications']['defaultModes']>,
+      mentionNotifications: (params = {}) => call('notifications.mention_notifications', params) as ReturnType<Rpc['notifications']['mentionNotifications']>,
+      eventNotifications: (params = {}) => call('notifications.event_notifications', params) as ReturnType<Rpc['notifications']['eventNotifications']>,
+      masterMute: (params = {}) => call('notifications.master_mute', params) as ReturnType<Rpc['notifications']['masterMute']>,
+      notification: (params) => call('notifications.notification', params) as ReturnType<Rpc['notifications']['notification']>,
+      pushEvent: (params) => call('notifications.push_event', params) as ReturnType<Rpc['notifications']['pushEvent']>,
+      keywords: (params = {}) => call('notifications.keywords', params) as ReturnType<Rpc['notifications']['keywords']>,
+      addKeyword: (params) => call('notifications.add_keyword', params) as ReturnType<Rpc['notifications']['addKeyword']>,
+      removeKeyword: (params) => call('notifications.remove_keyword', params) as ReturnType<Rpc['notifications']['removeKeyword']>,
+      setKeywordMode: (params) => call('notifications.set_keyword_mode', params) as ReturnType<Rpc['notifications']['setKeywordMode']>,
+      setRoomNotificationMode: (params) => call('notifications.set_room_notification_mode', params) as ReturnType<Rpc['notifications']['setRoomNotificationMode']>,
+      setDefaultMode: (params) => call('notifications.set_default_mode', params) as ReturnType<Rpc['notifications']['setDefaultMode']>,
+      setMentionNotifications: (params) => call('notifications.set_mention_notifications', params) as ReturnType<Rpc['notifications']['setMentionNotifications']>,
+      setEventNotification: (params) => call('notifications.set_event_notification', params) as ReturnType<Rpc['notifications']['setEventNotification']>,
+      setMasterMute: (params) => call('notifications.set_master_mute', params) as ReturnType<Rpc['notifications']['setMasterMute']>,
+      inbox: (params) => call('notifications.inbox', params) as ReturnType<Rpc['notifications']['inbox']>,
+      backfillInbox: (params) => call('notifications.backfill_inbox', params) as ReturnType<Rpc['notifications']['backfillInbox']>,
+      setContent: (params) => call('notifications.set_content', params) as ReturnType<Rpc['notifications']['setContent']>,
+      setSounds: (params) => call('notifications.set_sounds', params) as ReturnType<Rpc['notifications']['setSounds']>,
+      setNotifyOnce: (params) => call('notifications.set_notify_once', params) as ReturnType<Rpc['notifications']['setNotifyOnce']>,
+      setEnabled: (params) => call('notifications.set_enabled', params) as ReturnType<Rpc['notifications']['setEnabled']>,
     },
     packs: {
-      imagePacks: (params: ImagePacksParams) => call('packs.image_packs', params) as Promise<ImagePacksOk>,
-      allImagePacks: (params: AllImagePacksParams = {}) => call('packs.all_image_packs', params) as Promise<ImagePackView[]>,
-      saveImagePack: (params: SaveImagePackParams) => call('packs.save_image_pack', params) as Promise<null>,
-      createRoomImagePack: (params: CreateRoomImagePackParams) => call('packs.create_room_image_pack', params) as Promise<string>,
-      deleteRoomImagePack: (params: DeleteRoomImagePackParams) => call('packs.delete_room_image_pack', params) as Promise<null>,
-      convertLegacyImagePacks: (params: ConvertLegacyImagePacksParams) => call('packs.convert_legacy_image_packs', params) as Promise<null>,
-      removeLegacyImagePacks: (params: RemoveLegacyImagePacksParams) => call('packs.remove_legacy_image_packs', params) as Promise<null>,
-      addAccountPackImages: (params: AddAccountPackImagesParams) => call('packs.add_account_pack_images', params) as Promise<null>,
-      packSubscriptions: (params: PackSubscriptionsParams = {}) => call('packs.pack_subscriptions', params) as Promise<PackAddressView[]>,
-      setPackSubscriptions: (params: SetPackSubscriptionsParams) => call('packs.set_pack_subscriptions', params) as Promise<PackAddressView[]>,
+      list: (params) => call('packs.list', params) as ReturnType<Rpc['packs']['list']>,
+      listAll: (params = {}) => call('packs.list_all', params) as ReturnType<Rpc['packs']['listAll']>,
+      save: (params) => call('packs.save', params) as ReturnType<Rpc['packs']['save']>,
+      createRoomPack: (params) => call('packs.create_room_pack', params) as ReturnType<Rpc['packs']['createRoomPack']>,
+      deleteRoomPack: (params) => call('packs.delete_room_pack', params) as ReturnType<Rpc['packs']['deleteRoomPack']>,
+      convertLegacy: (params) => call('packs.convert_legacy', params) as ReturnType<Rpc['packs']['convertLegacy']>,
+      removeLegacy: (params) => call('packs.remove_legacy', params) as ReturnType<Rpc['packs']['removeLegacy']>,
+      addAccountImages: (params) => call('packs.add_account_images', params) as ReturnType<Rpc['packs']['addAccountImages']>,
+      subscriptions: (params = {}) => call('packs.subscriptions', params) as ReturnType<Rpc['packs']['subscriptions']>,
+      setSubscriptions: (params) => call('packs.set_subscriptions', params) as ReturnType<Rpc['packs']['setSubscriptions']>,
     },
     personas: {
-      personas: (params: PersonasParams = {}) => call('personas.personas', params) as Promise<PersonaCatalogView>,
-      savePersona: (params: SavePersonaParams) => call('personas.save_persona', params) as Promise<PersonaView[]>,
-      removePersona: (params: RemovePersonaParams) => call('personas.remove_persona', params) as Promise<PersonaView[]>,
-      reorderPersonas: (params: ReorderPersonasParams) => call('personas.reorder_personas', params) as Promise<PersonaView[]>,
-      setPersonaSelection: (params: SetPersonaSelectionParams) => call('personas.set_persona_selection', params) as Promise<null>,
-      disableRoomPersonas: (params: DisableRoomPersonasParams) => call('personas.disable_room_personas', params) as Promise<null>,
-      personaBackup: (params: PersonaBackupParams = {}) => call('personas.persona_backup', params) as Promise<string>,
-      checkPersonaBackup: (params: CheckPersonaBackupParams) => call('personas.check_persona_backup', params) as Promise<null>,
-      restorePersonaBackup: (params: RestorePersonaBackupParams) => call('personas.restore_persona_backup', params) as Promise<null>,
+      list: (params = {}) => call('personas.list', params) as ReturnType<Rpc['personas']['list']>,
+      save: (params) => call('personas.save', params) as ReturnType<Rpc['personas']['save']>,
+      remove: (params) => call('personas.remove', params) as ReturnType<Rpc['personas']['remove']>,
+      reorder: (params) => call('personas.reorder', params) as ReturnType<Rpc['personas']['reorder']>,
+      setSelection: (params) => call('personas.set_selection', params) as ReturnType<Rpc['personas']['setSelection']>,
+      disableRoom: (params) => call('personas.disable_room', params) as ReturnType<Rpc['personas']['disableRoom']>,
+      backup: (params = {}) => call('personas.backup', params) as ReturnType<Rpc['personas']['backup']>,
+      checkBackup: (params) => call('personas.check_backup', params) as ReturnType<Rpc['personas']['checkBackup']>,
+      restoreBackup: (params) => call('personas.restore_backup', params) as ReturnType<Rpc['personas']['restoreBackup']>,
     },
     push: {
-      setPusher: (params: SetPusherParams) => call('push.set_pusher', params) as Promise<null>,
-      removePusher: (params: RemovePusherParams) => call('push.remove_pusher', params) as Promise<null>,
-      webPusherSupport: (params: WebPusherSupportParams = {}) => call('push.web_pusher_support', params) as Promise<string | null>,
-      setWebPusher: (params: SetWebPusherParams) => call('push.set_web_pusher', params) as Promise<null>,
-      webPushers: (params: WebPushersParams = {}) => call('push.web_pushers', params) as Promise<RegisteredPusherView[]>,
-      pingPushGateway: (params: PingPushGatewayParams) => call('push.ping_push_gateway', params) as Promise<boolean | null>,
-      discoverPushGateway: (params: DiscoverPushGatewayParams) => call('push.discover_push_gateway', params) as Promise<string | null>,
-      sendDiagnosticPush: (params: SendDiagnosticPushParams) => call('push.send_diagnostic_push', params) as Promise<DiagnosticPushView>,
-      ackWebPusher: (params: AckWebPusherParams) => call('push.ack_web_pusher', params) as Promise<null>,
+      setPusher: (params) => call('push.set_pusher', params) as ReturnType<Rpc['push']['setPusher']>,
+      removePusher: (params) => call('push.remove_pusher', params) as ReturnType<Rpc['push']['removePusher']>,
+      webPusherSupport: (params = {}) => call('push.web_pusher_support', params) as ReturnType<Rpc['push']['webPusherSupport']>,
+      setWebPusher: (params) => call('push.set_web_pusher', params) as ReturnType<Rpc['push']['setWebPusher']>,
+      webPushers: (params = {}) => call('push.web_pushers', params) as ReturnType<Rpc['push']['webPushers']>,
+      pingGateway: (params) => call('push.ping_gateway', params) as ReturnType<Rpc['push']['pingGateway']>,
+      discoverGateway: (params) => call('push.discover_gateway', params) as ReturnType<Rpc['push']['discoverGateway']>,
+      sendDiagnostic: (params) => call('push.send_diagnostic', params) as ReturnType<Rpc['push']['sendDiagnostic']>,
+      ackWebPusher: (params) => call('push.ack_web_pusher', params) as ReturnType<Rpc['push']['ackWebPusher']>,
     },
     room_state: {
-      setRoomName: (params: SetRoomNameParams) => call('room_state.set_room_name', params) as Promise<null>,
-      setRoomTopic: (params: SetRoomTopicParams) => call('room_state.set_room_topic', params) as Promise<null>,
-      setRoomAvatar: (params: SetRoomAvatarParams) => call('room_state.set_room_avatar', params) as Promise<null>,
-      setRoomJoinRule: (params: SetRoomJoinRuleParams) => call('room_state.set_room_join_rule', params) as Promise<null>,
-      historyVisibility: (params: HistoryVisibilityParams) => call('room_state.history_visibility', params) as Promise<HistoryVisibilityView>,
-      setHistoryVisibility: (params: SetHistoryVisibilityParams) => call('room_state.set_history_visibility', params) as Promise<null>,
-      enableEncryption: (params: EnableEncryptionParams) => call('room_state.enable_encryption', params) as Promise<null>,
-      roomBanner: (params: RoomBannerParams) => call('room_state.room_banner', params) as Promise<string | null>,
-      setRoomBanner: (params: SetRoomBannerParams) => call('room_state.set_room_banner', params) as Promise<null>,
-      memberListThreshold: (params: MemberListThresholdParams) => call('room_state.member_list_threshold', params) as Promise<MemberListThresholdOk>,
-      setMemberListThreshold: (params: SetMemberListThresholdParams) => call('room_state.set_member_list_threshold', params) as Promise<null>,
-      updateServerAcl: (params: UpdateServerAclParams) => call('room_state.update_server_acl', params) as Promise<null>,
-      roomAbbreviations: (params: RoomAbbreviationsParams) => call('room_state.room_abbreviations', params) as Promise<AbbreviationView[]>,
-      setRoomAbbreviations: (params: SetRoomAbbreviationsParams) => call('room_state.set_room_abbreviations', params) as Promise<null>,
-      roomStateEvent: (params: RoomStateEventParams) => call('room_state.room_state_event', params) as Promise<RoomStateEventOk>,
-      roomStateEvents: (params: RoomStateEventsParams) => call('room_state.room_state_events', params) as Promise<RoomStateEventView[]>,
-      roomStateEventsRaw: (params: RoomStateEventsRawParams) => call('room_state.room_state_events_raw', params) as Promise<RoomStateEventsRawOk>,
-      roomFullState: (params: RoomFullStateParams) => call('room_state.room_full_state', params) as Promise<RoomStateEventsRawOk>,
-      sendStateEvent: (params: SendStateEventParams) => call('room_state.send_state_event', params) as Promise<string>,
-      roomAccountData: (params: RoomAccountDataParams) => call('room_state.room_account_data', params) as Promise<RoomAccountDataOk>,
-      setRoomAccountData: (params: SetRoomAccountDataParams) => call('room_state.set_room_account_data', params) as Promise<null>,
-      roomAccountDataRaw: (params: RoomAccountDataRawParams) => call('room_state.room_account_data_raw', params) as Promise<RoomAccountDataOk>,
-      addRoomWidget: (params: AddRoomWidgetParams) => call('room_state.add_room_widget', params) as Promise<string>,
-      removeRoomWidget: (params: RemoveRoomWidgetParams) => call('room_state.remove_room_widget', params) as Promise<null>,
-      botCommands: (params: BotCommandsParams) => call('room_state.bot_commands', params) as Promise<BotCommand[]>,
+      setName: (params) => call('room_state.set_name', params) as ReturnType<Rpc['room_state']['setName']>,
+      setTopic: (params) => call('room_state.set_topic', params) as ReturnType<Rpc['room_state']['setTopic']>,
+      setAvatar: (params) => call('room_state.set_avatar', params) as ReturnType<Rpc['room_state']['setAvatar']>,
+      setJoinRule: (params) => call('room_state.set_join_rule', params) as ReturnType<Rpc['room_state']['setJoinRule']>,
+      historyVisibility: (params) => call('room_state.history_visibility', params) as ReturnType<Rpc['room_state']['historyVisibility']>,
+      setHistoryVisibility: (params) => call('room_state.set_history_visibility', params) as ReturnType<Rpc['room_state']['setHistoryVisibility']>,
+      enableEncryption: (params) => call('room_state.enable_encryption', params) as ReturnType<Rpc['room_state']['enableEncryption']>,
+      banner: (params) => call('room_state.banner', params) as ReturnType<Rpc['room_state']['banner']>,
+      setBanner: (params) => call('room_state.set_banner', params) as ReturnType<Rpc['room_state']['setBanner']>,
+      memberListThreshold: (params) => call('room_state.member_list_threshold', params) as ReturnType<Rpc['room_state']['memberListThreshold']>,
+      setMemberListThreshold: (params) => call('room_state.set_member_list_threshold', params) as ReturnType<Rpc['room_state']['setMemberListThreshold']>,
+      updateServerAcl: (params) => call('room_state.update_server_acl', params) as ReturnType<Rpc['room_state']['updateServerAcl']>,
+      abbreviations: (params) => call('room_state.abbreviations', params) as ReturnType<Rpc['room_state']['abbreviations']>,
+      setAbbreviations: (params) => call('room_state.set_abbreviations', params) as ReturnType<Rpc['room_state']['setAbbreviations']>,
+      event: (params) => call('room_state.event', params) as ReturnType<Rpc['room_state']['event']>,
+      events: (params) => call('room_state.events', params) as ReturnType<Rpc['room_state']['events']>,
+      eventsRaw: (params) => call('room_state.events_raw', params) as ReturnType<Rpc['room_state']['eventsRaw']>,
+      fullState: (params) => call('room_state.full_state', params) as ReturnType<Rpc['room_state']['fullState']>,
+      sendEvent: (params) => call('room_state.send_event', params) as ReturnType<Rpc['room_state']['sendEvent']>,
+      accountData: (params) => call('room_state.account_data', params) as ReturnType<Rpc['room_state']['accountData']>,
+      setAccountData: (params) => call('room_state.set_account_data', params) as ReturnType<Rpc['room_state']['setAccountData']>,
+      accountDataRaw: (params) => call('room_state.account_data_raw', params) as ReturnType<Rpc['room_state']['accountDataRaw']>,
+      addWidget: (params) => call('room_state.add_widget', params) as ReturnType<Rpc['room_state']['addWidget']>,
+      removeWidget: (params) => call('room_state.remove_widget', params) as ReturnType<Rpc['room_state']['removeWidget']>,
+      botCommands: (params) => call('room_state.bot_commands', params) as ReturnType<Rpc['room_state']['botCommands']>,
     },
     rooms: {
-      roomOpen: (params: RoomOpenParams) => call('rooms.room_open', params) as Promise<RoomOpenView>,
-      roomListItem: (params: RoomListItemParams) => call('rooms.room_list_item', params) as Promise<RoomListItemView>,
-      roomPreview: (params: RoomPreviewParams) => call('rooms.room_preview', params) as Promise<RoomPreviewView>,
-      joinRoom: (params: JoinRoomParams) => call('rooms.join_room', params) as Promise<string>,
-      knockRoom: (params: KnockRoomParams) => call('rooms.knock_room', params) as Promise<string>,
-      roomViaServers: (params: RoomViaServersParams) => call('rooms.room_via_servers', params) as Promise<string[]>,
-      leaveRoom: (params: LeaveRoomParams) => call('rooms.leave_room', params) as Promise<null>,
-      inviteUser: (params: InviteUserParams) => call('rooms.invite_user', params) as Promise<null>,
-      createRoom: (params: CreateRoomParams) => call('rooms.create_room', params) as Promise<string>,
-      createDm: (params: CreateDmParams) => call('rooms.create_dm', params) as Promise<string>,
-      roomVersions: (params: RoomVersionsParams = {}) => call('rooms.room_versions', params) as Promise<RoomVersionsView>,
-      upgradeRoom: (params: UpgradeRoomParams) => call('rooms.upgrade_room', params) as Promise<string>,
-      publicRooms: (params: PublicRoomsParams) => call('rooms.public_rooms', params) as Promise<PublicRoomsOk>,
-      roomDirectoryVisibility: (params: RoomDirectoryVisibilityParams) => call('rooms.room_directory_visibility', params) as Promise<boolean>,
-      setRoomDirectoryVisibility: (params: SetRoomDirectoryVisibilityParams) => call('rooms.set_room_directory_visibility', params) as Promise<null>,
-      roomAliases: (params: RoomAliasesParams) => call('rooms.room_aliases', params) as Promise<string[]>,
-      createRoomAlias: (params: CreateRoomAliasParams) => call('rooms.create_room_alias', params) as Promise<null>,
-      deleteRoomAlias: (params: DeleteRoomAliasParams) => call('rooms.delete_room_alias', params) as Promise<null>,
-      canonicalAlias: (params: CanonicalAliasParams) => call('rooms.canonical_alias', params) as Promise<CanonicalAliasOk>,
-      setCanonicalAlias: (params: SetCanonicalAliasParams) => call('rooms.set_canonical_alias', params) as Promise<CanonicalAliasOk>,
-      replacedRooms: (params: ReplacedRoomsParams = {}) => call('rooms.replaced_rooms', params) as Promise<RoomListItemView[]>,
-      setTombstone: (params: SetTombstoneParams) => call('rooms.set_tombstone', params) as Promise<null>,
-      reportRoom: (params: ReportRoomParams) => call('rooms.report_room', params) as Promise<null>,
-      setRoomTag: (params: SetRoomTagParams) => call('rooms.set_room_tag', params) as Promise<null>,
-      roomAttachments: (params: RoomAttachmentsParams) => call('rooms.room_attachments', params) as Promise<RoomAttachmentsOk>,
-      roomCosmetics: (params: RoomCosmeticsParams) => call('rooms.room_cosmetics', params) as Promise<RoomCosmeticsView>,
+      open: (params) => call('rooms.open', params) as ReturnType<Rpc['rooms']['open']>,
+      listItem: (params) => call('rooms.list_item', params) as ReturnType<Rpc['rooms']['listItem']>,
+      preview: (params) => call('rooms.preview', params) as ReturnType<Rpc['rooms']['preview']>,
+      join: (params) => call('rooms.join', params) as ReturnType<Rpc['rooms']['join']>,
+      knock: (params) => call('rooms.knock', params) as ReturnType<Rpc['rooms']['knock']>,
+      viaServers: (params) => call('rooms.via_servers', params) as ReturnType<Rpc['rooms']['viaServers']>,
+      leave: (params) => call('rooms.leave', params) as ReturnType<Rpc['rooms']['leave']>,
+      invite: (params) => call('rooms.invite', params) as ReturnType<Rpc['rooms']['invite']>,
+      create: (params) => call('rooms.create', params) as ReturnType<Rpc['rooms']['create']>,
+      createDm: (params) => call('rooms.create_dm', params) as ReturnType<Rpc['rooms']['createDm']>,
+      versions: (params = {}) => call('rooms.versions', params) as ReturnType<Rpc['rooms']['versions']>,
+      upgrade: (params) => call('rooms.upgrade', params) as ReturnType<Rpc['rooms']['upgrade']>,
+      publicRooms: (params) => call('rooms.public_rooms', params) as ReturnType<Rpc['rooms']['publicRooms']>,
+      directoryVisibility: (params) => call('rooms.directory_visibility', params) as ReturnType<Rpc['rooms']['directoryVisibility']>,
+      setDirectoryVisibility: (params) => call('rooms.set_directory_visibility', params) as ReturnType<Rpc['rooms']['setDirectoryVisibility']>,
+      aliases: (params) => call('rooms.aliases', params) as ReturnType<Rpc['rooms']['aliases']>,
+      createAlias: (params) => call('rooms.create_alias', params) as ReturnType<Rpc['rooms']['createAlias']>,
+      deleteAlias: (params) => call('rooms.delete_alias', params) as ReturnType<Rpc['rooms']['deleteAlias']>,
+      canonicalAlias: (params) => call('rooms.canonical_alias', params) as ReturnType<Rpc['rooms']['canonicalAlias']>,
+      setCanonicalAlias: (params) => call('rooms.set_canonical_alias', params) as ReturnType<Rpc['rooms']['setCanonicalAlias']>,
+      replacedRooms: (params = {}) => call('rooms.replaced_rooms', params) as ReturnType<Rpc['rooms']['replacedRooms']>,
+      setTombstone: (params) => call('rooms.set_tombstone', params) as ReturnType<Rpc['rooms']['setTombstone']>,
+      report: (params) => call('rooms.report', params) as ReturnType<Rpc['rooms']['report']>,
+      setTag: (params) => call('rooms.set_tag', params) as ReturnType<Rpc['rooms']['setTag']>,
+      attachments: (params) => call('rooms.attachments', params) as ReturnType<Rpc['rooms']['attachments']>,
+      cosmetics: (params) => call('rooms.cosmetics', params) as ReturnType<Rpc['rooms']['cosmetics']>,
     },
     search: {
-      searchMessages: (params: SearchMessagesParams) => call('search.search_messages', params) as Promise<SearchMessagesOk>,
-      searchCoverage: (params: SearchCoverageParams = {}) => call('search.search_coverage', params) as Promise<SearchCoverageView>,
-      searchMetrics: (params: SearchMetricsParams = {}) => call('search.search_metrics', params) as Promise<SearchMetricsView>,
+      messages: (params) => call('search.messages', params) as ReturnType<Rpc['search']['messages']>,
+      coverage: (params = {}) => call('search.coverage', params) as ReturnType<Rpc['search']['coverage']>,
+      metrics: (params = {}) => call('search.metrics', params) as ReturnType<Rpc['search']['metrics']>,
     },
     session: {
-      restore: (params: RestoreParams = {}) => call('session.restore', params) as Promise<SessionInfo | null>,
-      listAccounts: (params: ListAccountsParams = {}) => call('session.list_accounts', params) as Promise<SessionInfo[]>,
-      switchAccount: (params: SwitchAccountParams) => call('session.switch_account', params) as Promise<SessionInfo>,
-      removeAccount: (params: RemoveAccountParams) => call('session.remove_account', params) as Promise<null>,
-      logout: (params: LogoutParams = {}) => call('session.logout', params) as Promise<null>,
-      resetLocalCache: (params: ResetLocalCacheParams = {}) => call('session.reset_local_cache', params) as Promise<null>,
-      homeserverInfo: (params: HomeserverInfoParams = {}) => call('session.homeserver_info', params) as Promise<HomeserverInfoOk>,
-      requestOpenIdToken: (params: RequestOpenIdTokenParams = {}) => call('session.request_open_id_token', params) as Promise<RequestOpenIdTokenOk>,
-      accessToken: (params: AccessTokenParams = {}) => call('session.access_token', params) as Promise<string | null>,
-      openIdToken: (params: OpenIdTokenParams = {}) => call('session.open_id_token', params) as Promise<OpenIdTokenView>,
-      syncStatus: (params: SyncStatusParams = {}) => call('session.sync_status', params) as Promise<SyncStatus>,
-      serverFeatures: (params: ServerFeaturesParams = {}) => call('session.server_features', params) as Promise<string[]>,
-      delayedEventsSupported: (params: DelayedEventsSupportedParams = {}) => call('session.delayed_events_supported', params) as Promise<boolean>,
-      setSearchOptions: (params: SetSearchOptionsParams) => call('session.set_search_options', params) as Promise<null>,
-      setReadRoom: (params: SetReadRoomParams) => call('session.set_read_room', params) as Promise<null>,
-      integrationManagerUrl: (params: IntegrationManagerUrlParams) => call('session.integration_manager_url', params) as Promise<string>,
-      knownRooms: (params: KnownRoomsParams = {}) => call('session.known_rooms', params) as Promise<string[]>,
+      restore: (params = {}) => call('session.restore', params) as ReturnType<Rpc['session']['restore']>,
+      listAccounts: (params = {}) => call('session.list_accounts', params) as ReturnType<Rpc['session']['listAccounts']>,
+      switchAccount: (params) => call('session.switch_account', params) as ReturnType<Rpc['session']['switchAccount']>,
+      removeAccount: (params) => call('session.remove_account', params) as ReturnType<Rpc['session']['removeAccount']>,
+      logout: (params = {}) => call('session.logout', params) as ReturnType<Rpc['session']['logout']>,
+      resetLocalCache: (params = {}) => call('session.reset_local_cache', params) as ReturnType<Rpc['session']['resetLocalCache']>,
+      homeserverInfo: (params = {}) => call('session.homeserver_info', params) as ReturnType<Rpc['session']['homeserverInfo']>,
+      requestOpenIdToken: (params = {}) => call('session.request_open_id_token', params) as ReturnType<Rpc['session']['requestOpenIdToken']>,
+      accessToken: (params = {}) => call('session.access_token', params) as ReturnType<Rpc['session']['accessToken']>,
+      openIdToken: (params = {}) => call('session.open_id_token', params) as ReturnType<Rpc['session']['openIdToken']>,
+      syncStatus: (params = {}) => call('session.sync_status', params) as ReturnType<Rpc['session']['syncStatus']>,
+      serverFeatures: (params = {}) => call('session.server_features', params) as ReturnType<Rpc['session']['serverFeatures']>,
+      delayedEventsSupported: (params = {}) => call('session.delayed_events_supported', params) as ReturnType<Rpc['session']['delayedEventsSupported']>,
+      setSearchOptions: (params) => call('session.set_search_options', params) as ReturnType<Rpc['session']['setSearchOptions']>,
+      setReadRoom: (params) => call('session.set_read_room', params) as ReturnType<Rpc['session']['setReadRoom']>,
+      integrationManagerUrl: (params) => call('session.integration_manager_url', params) as ReturnType<Rpc['session']['integrationManagerUrl']>,
+      knownRooms: (params = {}) => call('session.known_rooms', params) as ReturnType<Rpc['session']['knownRooms']>,
     },
     spaces: {
-      addToSpace: (params: AddToSpaceParams) => call('spaces.add_to_space', params) as Promise<null>,
-      setSpaceChildOrder: (params: SetSpaceChildOrderParams) => call('spaces.set_space_child_order', params) as Promise<null>,
-      setSpaceChildSuggested: (params: SetSpaceChildSuggestedParams) => call('spaces.set_space_child_suggested', params) as Promise<null>,
-      spaceHierarchy: (params: SpaceHierarchyParams) => call('spaces.space_hierarchy', params) as Promise<SpaceHierarchyOk>,
-      removeFromSpace: (params: RemoveFromSpaceParams) => call('spaces.remove_from_space', params) as Promise<null>,
-      spaceSidebar: (params: SpaceSidebarParams = {}) => call('spaces.space_sidebar', params) as Promise<SidebarItemView[]>,
-      setSpaceSidebar: (params: SetSpaceSidebarParams) => call('spaces.set_space_sidebar', params) as Promise<null>,
-      roomHasSpaceParent: (params: RoomHasSpaceParentParams) => call('spaces.room_has_space_parent', params) as Promise<boolean>,
-      unjoinedSpaceParents: (params: UnjoinedSpaceParentsParams) => call('spaces.unjoined_space_parents', params) as Promise<SpaceParentView[]>,
+      add: (params) => call('spaces.add', params) as ReturnType<Rpc['spaces']['add']>,
+      setChildOrder: (params) => call('spaces.set_child_order', params) as ReturnType<Rpc['spaces']['setChildOrder']>,
+      setChildSuggested: (params) => call('spaces.set_child_suggested', params) as ReturnType<Rpc['spaces']['setChildSuggested']>,
+      hierarchy: (params) => call('spaces.hierarchy', params) as ReturnType<Rpc['spaces']['hierarchy']>,
+      remove: (params) => call('spaces.remove', params) as ReturnType<Rpc['spaces']['remove']>,
+      sidebar: (params = {}) => call('spaces.sidebar', params) as ReturnType<Rpc['spaces']['sidebar']>,
+      setSidebar: (params) => call('spaces.set_sidebar', params) as ReturnType<Rpc['spaces']['setSidebar']>,
+      roomHasSpaceParent: (params) => call('spaces.room_has_space_parent', params) as ReturnType<Rpc['spaces']['roomHasSpaceParent']>,
+      unjoinedSpaceParents: (params) => call('spaces.unjoined_space_parents', params) as ReturnType<Rpc['spaces']['unjoinedSpaceParents']>,
     },
     timeline: {
-      subscribeRoomList: (params: SubscribeRoomListParams = {}) => call('timeline.subscribe_room_list', params) as Promise<SubscribeRoomListOk>,
-      subscribeTimeline: (params: SubscribeTimelineParams) => call('timeline.subscribe_timeline', params) as Promise<SubscribeTimelineOk>,
-      unsubscribe: (params: UnsubscribeParams) => call('timeline.unsubscribe', params) as Promise<null>,
-      warmRooms: (params: WarmRoomsParams) => call('timeline.warm_rooms', params) as Promise<null>,
-      paginate: (params: PaginateParams) => call('timeline.paginate', params) as Promise<PaginateOk>,
-      fetchEventDetails: (params: FetchEventDetailsParams) => call('timeline.fetch_event_details', params) as Promise<null>,
-      eventItems: (params: EventItemsParams) => call('timeline.event_items', params) as Promise<TimelineItemView[]>,
-      roomTimelineEvents: (params: RoomTimelineEventsParams) => call('timeline.room_timeline_events', params) as Promise<RoomTimelineEventsOk>,
-      timestampToEvent: (params: TimestampToEventParams) => call('timeline.timestamp_to_event', params) as Promise<string | null>,
-      listThreads: (params: ListThreadsParams) => call('timeline.list_threads', params) as Promise<ListThreadsOk>,
-      eventSource: (params: EventSourceParams) => call('timeline.event_source', params) as Promise<EventSourceOk>,
-      editHistory: (params: EditHistoryParams) => call('timeline.edit_history', params) as Promise<EditVersionView[]>,
-      markRead: (params: MarkReadParams) => call('timeline.mark_read', params) as Promise<null>,
-      setFullyRead: (params: SetFullyReadParams) => call('timeline.set_fully_read', params) as Promise<null>,
-      markUnread: (params: MarkUnreadParams) => call('timeline.mark_unread', params) as Promise<null>,
-      readMarker: (params: ReadMarkerParams) => call('timeline.read_marker', params) as Promise<string | null>,
-      retryDecryption: (params: RetryDecryptionParams) => call('timeline.retry_decryption', params) as Promise<null>,
-      roomEventRelations: (params: RoomEventRelationsParams) => call('timeline.room_event_relations', params) as Promise<RelationsView>,
-      pinnedEvents: (params: PinnedEventsParams) => call('timeline.pinned_events', params) as Promise<string[]>,
-      setPinned: (params: SetPinnedParams) => call('timeline.set_pinned', params) as Promise<string[]>,
-      pinReadState: (params: PinReadStateParams) => call('timeline.pin_read_state', params) as Promise<PinReadStateView>,
-      markPinsSeen: (params: MarkPinsSeenParams) => call('timeline.mark_pins_seen', params) as Promise<PinReadStateView>,
+      subscribeRoomList: (params = {}) => call('timeline.subscribe_room_list', params) as ReturnType<Rpc['timeline']['subscribeRoomList']>,
+      subscribe: (params) => call('timeline.subscribe', params) as ReturnType<Rpc['timeline']['subscribe']>,
+      unsubscribe: (params) => call('timeline.unsubscribe', params) as ReturnType<Rpc['timeline']['unsubscribe']>,
+      warmRooms: (params) => call('timeline.warm_rooms', params) as ReturnType<Rpc['timeline']['warmRooms']>,
+      paginate: (params) => call('timeline.paginate', params) as ReturnType<Rpc['timeline']['paginate']>,
+      fetchEventDetails: (params) => call('timeline.fetch_event_details', params) as ReturnType<Rpc['timeline']['fetchEventDetails']>,
+      eventItems: (params) => call('timeline.event_items', params) as ReturnType<Rpc['timeline']['eventItems']>,
+      events: (params) => call('timeline.events', params) as ReturnType<Rpc['timeline']['events']>,
+      timestampToEvent: (params) => call('timeline.timestamp_to_event', params) as ReturnType<Rpc['timeline']['timestampToEvent']>,
+      listThreads: (params) => call('timeline.list_threads', params) as ReturnType<Rpc['timeline']['listThreads']>,
+      eventSource: (params) => call('timeline.event_source', params) as ReturnType<Rpc['timeline']['eventSource']>,
+      editHistory: (params) => call('timeline.edit_history', params) as ReturnType<Rpc['timeline']['editHistory']>,
+      markRead: (params) => call('timeline.mark_read', params) as ReturnType<Rpc['timeline']['markRead']>,
+      setFullyRead: (params) => call('timeline.set_fully_read', params) as ReturnType<Rpc['timeline']['setFullyRead']>,
+      markUnread: (params) => call('timeline.mark_unread', params) as ReturnType<Rpc['timeline']['markUnread']>,
+      readMarker: (params) => call('timeline.read_marker', params) as ReturnType<Rpc['timeline']['readMarker']>,
+      retryDecryption: (params) => call('timeline.retry_decryption', params) as ReturnType<Rpc['timeline']['retryDecryption']>,
+      roomEventRelations: (params) => call('timeline.room_event_relations', params) as ReturnType<Rpc['timeline']['roomEventRelations']>,
+      pinnedEvents: (params) => call('timeline.pinned_events', params) as ReturnType<Rpc['timeline']['pinnedEvents']>,
+      setPinned: (params) => call('timeline.set_pinned', params) as ReturnType<Rpc['timeline']['setPinned']>,
+      pinReadState: (params) => call('timeline.pin_read_state', params) as ReturnType<Rpc['timeline']['pinReadState']>,
+      markPinsSeen: (params) => call('timeline.mark_pins_seen', params) as ReturnType<Rpc['timeline']['markPinsSeen']>,
     },
     widgets: {
-      widgetSendDelayedEvent: (params: WidgetSendDelayedEventParams) => call('widgets.widget_send_delayed_event', params) as Promise<string>,
-      widgetSendStickyEvent: (params: WidgetSendStickyEventParams) => call('widgets.widget_send_sticky_event', params) as Promise<string>,
-      restartDelayedEvent: (params: RestartDelayedEventParams) => call('widgets.restart_delayed_event', params) as Promise<null>,
-      widgetSendToDevice: (params: WidgetSendToDeviceParams) => call('widgets.widget_send_to_device', params) as Promise<null>,
-      roomStickyEvents: (params: RoomStickyEventsParams) => call('widgets.room_sticky_events', params) as Promise<StickyEvents>,
-      setWidgetFeed: (params: SetWidgetFeedParams) => call('widgets.set_widget_feed', params) as Promise<null>,
+      sendDelayedEvent: (params) => call('widgets.send_delayed_event', params) as ReturnType<Rpc['widgets']['sendDelayedEvent']>,
+      sendStickyEvent: (params) => call('widgets.send_sticky_event', params) as ReturnType<Rpc['widgets']['sendStickyEvent']>,
+      restartDelayedEvent: (params) => call('widgets.restart_delayed_event', params) as ReturnType<Rpc['widgets']['restartDelayedEvent']>,
+      sendToDevice: (params) => call('widgets.send_to_device', params) as ReturnType<Rpc['widgets']['sendToDevice']>,
+      roomStickyEvents: (params) => call('widgets.room_sticky_events', params) as ReturnType<Rpc['widgets']['roomStickyEvents']>,
+      setWidgetFeed: (params) => call('widgets.set_widget_feed', params) as ReturnType<Rpc['widgets']['setWidgetFeed']>,
     },
   };
 }
-
-export type Rpc = ReturnType<typeof createRpc>;
 

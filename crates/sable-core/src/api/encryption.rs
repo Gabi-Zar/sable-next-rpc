@@ -10,7 +10,7 @@ use crate::verification::{self, VERIFICATION_METHODS, encryption_status, sign_ou
 use crate::{Core, ResultExt};
 
 domain! {
-    encryption_status,
+    status,
     key_backup_status,
     download_key_backup,
     sign_out_safety,
@@ -38,10 +38,10 @@ domain! {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct EncryptionStatusParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct StatusParams {}
 
-impl Handler for EncryptionStatusParams {
+impl Handler for StatusParams {
     type Ok = EncryptionStatusView;
 
     async fn run(self, core: &Arc<Core>) -> Result<EncryptionStatusView, RpcError> {
@@ -50,7 +50,7 @@ impl Handler for EncryptionStatusParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct KeyBackupStatusParams {}
 
 impl Handler for KeyBackupStatusParams {
@@ -62,7 +62,7 @@ impl Handler for KeyBackupStatusParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DownloadKeyBackupParams {
     pub request_id: String,
 }
@@ -76,7 +76,7 @@ impl Handler for DownloadKeyBackupParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SignOutSafetyParams {}
 
 impl Handler for SignOutSafetyParams {
@@ -88,11 +88,11 @@ impl Handler for SignOutSafetyParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DevicesParams {}
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DevicesOk {
     pub devices: Vec<DeviceView>,
     pub account_management: bool,
@@ -124,7 +124,7 @@ impl Handler for DevicesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UserSecurityParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -139,7 +139,7 @@ impl Handler for UserSecurityParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RecoverIdentityParams {
     pub recovery_key: String,
 }
@@ -165,9 +165,10 @@ impl Handler for RecoverIdentityParams {
 /// never verify a second. The returned key is unrecoverable, so a UI must
 /// make the user store it.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EnableRecoveryParams {
     /// A passphrase to unlock the key with. The key is returned either way.
+    #[serde(default)]
     pub passphrase: Option<String>,
 }
 
@@ -191,8 +192,9 @@ impl Handler for EnableRecoveryParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ResetRecoveryKeyParams {
+    #[serde(default)]
     pub passphrase: Option<String>,
 }
 
@@ -217,7 +219,7 @@ impl Handler for ResetRecoveryKeyParams {
 /// Destructive from the first call: the key backup and secret storage are
 /// gone before the server is asked for authentication.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ResetIdentityParams {}
 
 impl Handler for ResetIdentityParams {
@@ -230,8 +232,9 @@ impl Handler for ResetIdentityParams {
 
 /// OAuth polls for the approval for up to two minutes.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ContinueIdentityResetParams {
+    #[serde(default)]
     pub password: Option<String>,
 }
 
@@ -240,12 +243,12 @@ impl Handler for ContinueIdentityResetParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        core.continue_identity_reset(self.password).await
+        core.continue_identity_reset(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CancelIdentityResetParams {}
 
 impl Handler for CancelIdentityResetParams {
@@ -258,7 +261,7 @@ impl Handler for CancelIdentityResetParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ExportRoomKeysParams {
     pub passphrase: String,
 }
@@ -273,14 +276,14 @@ impl Handler for ExportRoomKeysParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ImportRoomKeysParams {
     pub export: String,
     pub passphrase: String,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ImportRoomKeysOk {
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub imported: u64,
@@ -299,10 +302,11 @@ impl Handler for ImportRoomKeysParams {
 /// Call without a password first: the server states its terms in an
 /// `interactive_auth_required` error, and only then is there a prompt.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DeleteDeviceParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub device_id: OwnedDeviceId,
+    #[serde(default)]
     pub password: Option<String>,
 }
 
@@ -311,12 +315,12 @@ impl Handler for DeleteDeviceParams {
     type Ok = Option<String>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
-        core.delete_device(self.device_id, self.password).await
+        core.delete_device(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RenameDeviceParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub device_id: OwnedDeviceId,
@@ -339,7 +343,7 @@ impl Handler for RenameDeviceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DiscardRoomKeyParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -361,7 +365,7 @@ impl Handler for DiscardRoomKeyParams {
 /// Our own user id self-verifies another session. Progress arrives as
 /// `CoreEvent::Verification`.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RequestVerificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -410,7 +414,7 @@ impl Handler for RequestVerificationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct WithdrawVerificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -435,7 +439,7 @@ impl Handler for WithdrawVerificationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetDeviceBlockedParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -454,7 +458,7 @@ impl Handler for SetDeviceBlockedParams {
 
 /// Also transitions into SAS, so the emoji need no further round trip.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct AcceptVerificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -476,7 +480,7 @@ impl Handler for AcceptVerificationParams {
 
 /// The bytes read from the other device's code, base64 encoded.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ScanVerificationQrParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -495,7 +499,7 @@ impl Handler for ScanVerificationQrParams {
 
 /// Leaves the codes for emoji.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct StartSasVerificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -518,7 +522,7 @@ impl Handler for StartSasVerificationParams {
 
 /// The emoji matched, or the other device showed that it scanned our code.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ConfirmVerificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -539,7 +543,7 @@ impl Handler for ConfirmVerificationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CancelVerificationParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,

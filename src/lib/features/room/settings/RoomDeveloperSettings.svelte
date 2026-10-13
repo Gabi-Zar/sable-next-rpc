@@ -75,7 +75,7 @@
     browsing = true;
     browseFailed = false;
     try {
-      stateEvents = await core.rpc.room_state.roomFullState({ room_id: target });
+      stateEvents = await core.rpc.room_state.fullState({ room_id: target });
     } catch (error) {
       console.warn('[sable room] full state unavailable', error);
       browseFailed = true;
@@ -109,7 +109,7 @@
     outcome = null;
     sent = false;
     try {
-      const existing = await core.rpc.room_state.roomStateEvent({
+      const existing = await core.rpc.room_state.event({
         room_id: target,
         event_type: type,
         state_key: stateKey,
@@ -143,7 +143,7 @@
     outcome = null;
     sent = false;
     try {
-      await core.rpc.room_state.sendStateEvent({
+      await core.rpc.room_state.sendEvent({
         room_id: target,
         event_type: eventType.trim(),
         state_key: stateKey,

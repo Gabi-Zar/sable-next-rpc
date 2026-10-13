@@ -12,10 +12,11 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const searchUserDirectory =
   vi.fn<() => Promise<{ limited: boolean; results: UserDirectoryEntryView[] }>>();
-const core = Object.assign(baseCore, {
-  inviteUser: vi.fn<(params: { room_id: string; user_id: string }) => Promise<null>>(),
-  rpc: { account: { searchUserDirectory } },
+const core = baseCore;
+Object.assign(baseCore.rpc.rooms, {
+  invite: vi.fn<(params: { room_id: string; user_id: string }) => Promise<null>>(),
 });
+Object.assign(baseCore.rpc.account, { searchUserDirectory });
 
 import RoomInviteDialog from './RoomInviteDialog.svelte';
 
@@ -35,7 +36,7 @@ test('suggests people from the directory and fills the picked one into the field
     limited: false,
     results: [{ user_id: '@bob:example.org', display_name: 'Bob', avatar_url: null }],
   });
-  core.inviteUser.mockResolvedValue(null);
+  core.rpc.rooms.invite.mockResolvedValue(null);
   const user = userEvent.setup();
   render(RoomInviteDialog, { open: true, room, onOpenChange: () => {} });
 
@@ -45,13 +46,13 @@ test('suggests people from the directory and fills the picked one into the field
   expect(searchUserDirectory).toHaveBeenCalledWith({ term: 'bo', limit: 10 });
 
   await user.click(suggestion);
-  expect(core.inviteUser).not.toHaveBeenCalled();
+  expect(core.rpc.rooms.invite).not.toHaveBeenCalled();
   expect(screen.getByRole('textbox', { name: 'Invite people' })).toHaveValue('@bob:example.org');
   expect(screen.queryByRole('button', { name: /@bob:example\.org/ })).toBeNull();
 
   await user.click(screen.getByRole('button', { name: 'Invite' }));
   await vi.waitFor(() => {
-    expect(core.inviteUser).toHaveBeenCalledWith({
+    expect(core.rpc.rooms.invite).toHaveBeenCalledWith({
       room_id: '!room:example.org',
       user_id: '@bob:example.org',
     });

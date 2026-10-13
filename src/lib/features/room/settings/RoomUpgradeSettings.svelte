@@ -116,12 +116,12 @@
 
     const current = ++run;
     void Promise.all([
-      core.rpc.room_state.roomStateEvent({
+      core.rpc.room_state.event({
         room_id: id,
         event_type: 'm.room.create',
         state_key: '',
       }),
-      core.rpc.room_state.roomStateEvent({
+      core.rpc.room_state.event({
         room_id: id,
         event_type: 'm.room.tombstone',
         state_key: '',
@@ -155,7 +155,7 @@
 
     if (versions === null) {
       try {
-        versions = await core.rpc.rooms.roomVersions();
+        versions = await core.rpc.rooms.versions();
       } catch (error) {
         console.warn('[sable room] room versions unavailable', error);
         failed = true;
@@ -214,7 +214,7 @@
       } else if (mode === 'custom') {
         next = await replaceWithNewRoom(id);
       } else {
-        next = await core.rpc.rooms.upgradeRoom({
+        next = await core.rpc.rooms.upgrade({
           room_id: id,
           new_version: target,
           additional_creators: allowCreators ? [...creators] : [],

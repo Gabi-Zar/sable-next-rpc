@@ -67,7 +67,7 @@
     permissions = null;
     levels = null;
     void core.rpc.members
-      .roomPermissions({ room_id: target })
+      .permissions({ room_id: target })
       .then((next) => {
         if (current) permissions = next;
       })
@@ -75,7 +75,7 @@
         console.debug('[sable room] permissions unavailable', error);
       });
     void core.rpc.members
-      .roomPowerLevels({ room_id: target })
+      .powerLevels({ room_id: target })
       .then((next) => {
         if (current) levels = next;
       })

@@ -7,6 +7,8 @@ mod persist;
 mod server;
 mod tokenize;
 
+pub(crate) const MAX_SEARCH_RESULTS: usize = 200;
+
 pub(crate) use crawl::CrawlProgress;
 #[cfg(not(target_family = "wasm"))]
 pub(crate) use persist::reset_state_cache;

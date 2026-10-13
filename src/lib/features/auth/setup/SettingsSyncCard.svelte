@@ -22,7 +22,7 @@
   $effect(() => {
     let alive = true;
     void core.rpc.account
-      .accountData({ event_type: SETTINGS_ACCOUNT_DATA_TYPE })
+      .data({ event_type: SETTINGS_ACCOUNT_DATA_TYPE })
       .then((content) => typeof content === 'object' && content !== null)
       .catch(() => false)
       .then((found) => {

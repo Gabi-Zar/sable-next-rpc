@@ -17,7 +17,7 @@ export class RoomAbbreviations {
   #roomId: string | null = null;
   #generation = 0;
 
-  constructor(private readonly rpc: { room_state: Pick<Rpc['room_state'], 'roomAbbreviations'> }) {}
+  constructor(private readonly rpc: { room_state: Pick<Rpc['room_state'], 'abbreviations'> }) {}
 
   get map(): AbbreviationMap {
     return this.#map;
@@ -41,7 +41,7 @@ export class RoomAbbreviations {
 
   async #entries(roomId: string): Promise<AbbreviationEntry[]> {
     try {
-      return await this.rpc.room_state.roomAbbreviations({ room_id: roomId });
+      return await this.rpc.room_state.abbreviations({ room_id: roomId });
     } catch (error) {
       console.debug('[sable room] abbreviations unavailable', error);
       return [];

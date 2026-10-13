@@ -24,8 +24,9 @@ import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 import RoomSpacesSettings from './RoomSpacesSettings.svelte';
 
-const core = Object.assign(baseCore, {
-  roomStateEventsRaw: vi.fn<(...args: never[]) => Promise<unknown[]>>(() =>
+const core = baseCore;
+Object.assign(baseCore.rpc.room_state, {
+  eventsRaw: vi.fn<(...args: never[]) => Promise<unknown[]>>(() =>
     Promise.resolve([
       {
         state_key: '!joined:home.example',
@@ -34,9 +35,9 @@ const core = Object.assign(baseCore, {
       { state_key: '!other:far.example', content: { via: ['far.example'] } },
     ])
   ),
-  joinRoom: vi.fn<(...args: never[]) => Promise<string>>(() =>
-    Promise.resolve('!other:far.example')
-  ),
+});
+Object.assign(baseCore.rpc.rooms, {
+  join: vi.fn<(...args: never[]) => Promise<string>>(() => Promise.resolve('!other:far.example')),
 });
 
 const room = { room_id: '!room:home.example' } as RoomListItemView;
@@ -60,7 +61,7 @@ test('an unjoined parent space is joined through its via servers, then opened', 
 
   await user.click(await screen.findByRole('button', { name: 'common.join' }));
 
-  expect(core.joinRoom).toHaveBeenCalledWith({
+  expect(core.rpc.rooms.join).toHaveBeenCalledWith({
     address: '!other:far.example',
     via: ['far.example'],
   });

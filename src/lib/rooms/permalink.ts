@@ -118,7 +118,7 @@ export async function copyRoomLink(
   try {
     const via = room.canonical_alias
       ? []
-      : await core.rpc.rooms.roomViaServers({ room_id: room.room_id });
+      : await core.rpc.rooms.viaServers({ room_id: room.room_id });
     await copyText(matrixToUrl(room.canonical_alias ?? room.room_id, via, eventId));
     return true;
   } catch (error) {

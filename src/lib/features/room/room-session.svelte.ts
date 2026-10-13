@@ -15,14 +15,10 @@ type RoomStateRpc<M extends keyof Rpc['room_state']> = {
 };
 
 type RoomDetailRpc = RoomStateRpc<
-  | 'memberListThreshold'
-  | 'roomStateEvent'
-  | 'roomStateEvents'
-  | 'addRoomWidget'
-  | 'removeRoomWidget'
+  'memberListThreshold' | 'event' | 'events' | 'addWidget' | 'removeWidget'
 > & {
-  rooms: Pick<Rpc['rooms'], 'roomOpen'>;
-  members: Pick<Rpc['members'], 'roomPowerLevels'>;
+  rooms: Pick<Rpc['rooms'], 'open'>;
+  members: Pick<Rpc['members'], 'powerLevels'>;
 };
 
 function parseWidgets(events: readonly RoomStateEventView[]): RoomWidget[] {
@@ -55,7 +51,7 @@ export class RoomDetails {
     this.widgets = [];
     this.predecessor = null;
     void this.rpc.rooms
-      .roomOpen({ room_id: roomId })
+      .open({ room_id: roomId })
       .then((opened) => {
         if (generation !== this.#generation) return;
         this.permissions = opened.permissions;
@@ -69,7 +65,7 @@ export class RoomDetails {
         if (generation === this.#generation) this.powerTags = {};
       });
     void this.rpc.members
-      .roomPowerLevels({ room_id: roomId })
+      .powerLevels({ room_id: roomId })
       .then((levels) => {
         if (generation === this.#generation) this.powerLevels = levels;
       })
@@ -82,7 +78,7 @@ export class RoomDetails {
   }
 
   async addWidget(name: string, url: string): Promise<void> {
-    await this.rpc.room_state.addRoomWidget({
+    await this.rpc.room_state.addWidget({
       room_id: this.#roomId,
       name,
       url,
@@ -91,7 +87,7 @@ export class RoomDetails {
   }
 
   async removeWidget(widgetId: string): Promise<void> {
-    await this.rpc.room_state.removeRoomWidget({
+    await this.rpc.room_state.removeWidget({
       room_id: this.#roomId,
       widget_id: widgetId,
     });
@@ -100,7 +96,7 @@ export class RoomDetails {
 
   async refreshWidgets(): Promise<void> {
     const generation = this.#generation;
-    const widgets = await this.rpc.room_state.roomStateEvents({
+    const widgets = await this.rpc.room_state.events({
       room_id: this.#roomId,
       event_type: 'im.vector.modular.widgets',
     });
@@ -138,7 +134,7 @@ export class RoomTombstone {
   body = $state<string | null>(null);
   checked = $state(false);
 
-  constructor(private readonly rpc: RoomStateRpc<'roomStateEvent'>) {}
+  constructor(private readonly rpc: RoomStateRpc<'event'>) {}
 
   start(roomId: string, tombstoned: boolean): () => void {
     this.replacementId = null;
@@ -148,7 +144,7 @@ export class RoomTombstone {
 
     let current = true;
     void this.rpc.room_state
-      .roomStateEvent({
+      .event({
         room_id: roomId,
         event_type: 'm.room.tombstone',
         state_key: '',

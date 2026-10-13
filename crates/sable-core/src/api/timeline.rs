@@ -10,20 +10,20 @@ use matrix_sdk::ruma::{MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, Ow
 use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
 use serde::{Deserialize, Serialize};
 
-use super::Handler;
+use super::{Handler, Json};
 use crate::protocol::{RpcError, EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView, SubscriptionId, TimelineItemView};
 use crate::widgets::RelationsFilter;
 use crate::{Core, ResultExt, SubscriptionKind, view};
 
 domain! {
     subscribe_room_list,
-    subscribe_timeline,
+    subscribe,
     unsubscribe,
     warm_rooms,
     paginate,
     fetch_event_details,
     event_items,
-    room_timeline_events,
+    events,
     timestamp_to_event,
     list_threads,
     event_source,
@@ -57,12 +57,12 @@ pub enum TimelineFocusView {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SubscribeRoomListParams {}
 
 /// The snapshot. Everything after it carries the same `subscription`.
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SubscribeRoomListOk {
     pub subscription: SubscriptionId,
     pub rooms: Vec<RoomListItemView>,
@@ -77,8 +77,8 @@ impl Handler for SubscribeRoomListParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SubscribeTimelineParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SubscribeParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[serde(default)]
@@ -90,24 +90,24 @@ pub struct SubscribeTimelineParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SubscribeTimelineOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SubscribeOk {
     pub subscription: SubscriptionId,
     pub items: Vec<TimelineItemView>,
     pub aggregations: Vec<TimelineItemView>,
 }
 
-impl Handler for SubscribeTimelineParams {
-    type Ok = SubscribeTimelineOk;
+impl Handler for SubscribeParams {
+    type Ok = SubscribeOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SubscribeTimelineOk, RpcError> {
-        core.subscribe_timeline(self.room_id, self.focus, self.hidden_events)
+    async fn run(self, core: &Arc<Core>) -> Result<SubscribeOk, RpcError> {
+        core.subscribe_timeline(self)
             .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UnsubscribeParams {
     pub subscription: SubscriptionId,
 }
@@ -130,7 +130,7 @@ impl Handler for UnsubscribeParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct WarmRoomsParams {
     #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
     pub room_ids: Vec<OwnedRoomId>,
@@ -140,12 +140,12 @@ impl Handler for WarmRoomsParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.warm_rooms(self.room_ids).await
+        core.warm_rooms(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PaginateParams {
     pub subscription: SubscriptionId,
     pub direction: PaginationDirection,
@@ -153,7 +153,7 @@ pub struct PaginateParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PaginateOk {
     pub direction: PaginationDirection,
     pub reached_end: bool,
@@ -219,7 +219,7 @@ impl Handler for PaginateParams {
 
 /// The details arrive as a timeline diff.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct FetchEventDetailsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -240,7 +240,7 @@ impl Handler for FetchEventDetailsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EventItemsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -257,8 +257,8 @@ impl Handler for EventItemsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomTimelineEventsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct EventsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
@@ -273,18 +273,10 @@ pub struct RoomTimelineEventsParams {
     pub since: Option<OwnedEventId>,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(transparent)]
-#[cfg_attr(feature = "typegen", derive(specta::Type), specta(transparent))]
-pub struct RoomTimelineEventsOk(
-    #[cfg_attr(feature = "typegen", specta(type = Vec<specta_typescript::Unknown>))]
-    pub  Vec<serde_json::Value>,
-);
+impl Handler for EventsParams {
+    type Ok = Vec<Json>;
 
-impl Handler for RoomTimelineEventsParams {
-    type Ok = RoomTimelineEventsOk;
-
-    async fn run(self, core: &Arc<Core>) -> Result<RoomTimelineEventsOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<Json>, RpcError> {
         core.room_timeline_events(
             &self.room_id,
             &self.event_type,
@@ -294,12 +286,12 @@ impl Handler for RoomTimelineEventsParams {
             self.since.as_ref(),
         )
         .await
-        .map(RoomTimelineEventsOk)
+        .map(|events| events.into_iter().map(Json).collect())
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct TimestampToEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -330,15 +322,16 @@ impl Handler for TimestampToEventParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ListThreadsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub from: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ListThreadsOk {
     pub roots: Vec<TimelineItemView>,
     pub next_batch: Option<String>,
@@ -378,7 +371,7 @@ impl Handler for ListThreadsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EventSourceParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -388,7 +381,7 @@ pub struct EventSourceParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EventSourceOk {
     pub source: String,
     pub encrypted: bool,
@@ -411,7 +404,7 @@ impl Handler for EventSourceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EditHistoryParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -428,7 +421,7 @@ impl Handler for EditHistoryParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MarkReadParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -506,7 +499,7 @@ impl Handler for MarkReadParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetFullyReadParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -527,7 +520,7 @@ impl Handler for SetFullyReadParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MarkUnreadParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -555,7 +548,7 @@ impl Handler for MarkUnreadParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ReadMarkerParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -582,7 +575,7 @@ impl Handler for ReadMarkerParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RetryDecryptionParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -617,7 +610,7 @@ impl Handler for RetryDecryptionParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RoomEventRelationsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -659,7 +652,7 @@ impl Handler for RoomEventRelationsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PinnedEventsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -675,7 +668,7 @@ impl Handler for PinnedEventsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetPinnedParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -696,7 +689,7 @@ impl Handler for SetPinnedParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct PinReadStateParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -712,7 +705,7 @@ impl Handler for PinReadStateParams {
 
 /// Marks `pinned_ids`, the list the reader is looking at, as seen.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MarkPinsSeenParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,

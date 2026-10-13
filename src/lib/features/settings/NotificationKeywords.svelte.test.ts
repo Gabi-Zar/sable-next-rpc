@@ -10,14 +10,15 @@ vi.mock('#lib/core/context.js');
 import type { KeywordNotificationView, MentionNotificationModeView } from '#src/generated/protocol';
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
-const core = Object.assign(baseCore, {
-  notificationKeywords: vi.fn<() => Promise<KeywordNotificationView[]>>(),
-  addNotificationKeyword: vi.fn<(params: { keyword: string }) => Promise<void>>(),
-  removeNotificationKeyword: vi.fn<(params: { keyword: string }) => Promise<void>>(),
-  setNotificationKeywordMode:
+const core = baseCore;
+Object.assign(core.rpc.notifications, {
+  keywords: vi.fn<() => Promise<KeywordNotificationView[]>>(),
+  addKeyword: vi.fn<(params: { keyword: string }) => Promise<void>>(),
+  removeKeyword: vi.fn<(params: { keyword: string }) => Promise<void>>(),
+  setKeywordMode:
     vi.fn<(params: { keyword: string; mode: MentionNotificationModeView }) => Promise<void>>(),
 });
-Object.assign(core, { rpc: { notifications: core } });
+Object.assign(core.rpc.notifications, core);
 
 function listed(...keywords: string[]): KeywordNotificationView[] {
   return keywords.map((keyword) => ({ keyword, mode: 'notify' }));
@@ -42,9 +43,9 @@ async function confirmRemoval(user: ReturnType<typeof userEvent.setup>, keyword:
 
 test('lists the account keywords and lets one be removed', async () => {
   const user = userEvent.setup();
-  core.notificationKeywords.mockResolvedValueOnce(listed('erwan', 'sable'));
-  core.notificationKeywords.mockResolvedValueOnce(listed('sable'));
-  core.removeNotificationKeyword.mockResolvedValue(undefined);
+  core.rpc.notifications.keywords.mockResolvedValueOnce(listed('erwan', 'sable'));
+  core.rpc.notifications.keywords.mockResolvedValueOnce(listed('sable'));
+  core.rpc.notifications.removeKeyword.mockResolvedValue(null);
 
   render(NotificationKeywords);
   await vi.waitFor(() => {
@@ -52,18 +53,18 @@ test('lists the account keywords and lets one be removed', async () => {
   });
 
   const confirm = await confirmRemoval(user, 'erwan');
-  expect(core.removeNotificationKeyword).not.toHaveBeenCalled();
+  expect(core.rpc.notifications.removeKeyword).not.toHaveBeenCalled();
   await confirm();
 
   await vi.waitFor(() => {
-    expect(core.removeNotificationKeyword).toHaveBeenCalledWith({ keyword: 'erwan' });
+    expect(core.rpc.notifications.removeKeyword).toHaveBeenCalledWith({ keyword: 'erwan' });
     expect(keywords()).toEqual(['sable']);
   });
 });
 
 test('refuses a blank or whitespace-only keyword', async () => {
   const user = userEvent.setup();
-  core.notificationKeywords.mockResolvedValue([]);
+  core.rpc.notifications.keywords.mockResolvedValue([]);
 
   render(NotificationKeywords);
   await vi.waitFor(() => {
@@ -73,12 +74,12 @@ test('refuses a blank or whitespace-only keyword', async () => {
   await user.type(input(), '   {Enter}');
 
   expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
-  expect(core.addNotificationKeyword).not.toHaveBeenCalled();
+  expect(core.rpc.notifications.addKeyword).not.toHaveBeenCalled();
 });
 
 test('does not add a keyword already in the list', async () => {
   const user = userEvent.setup();
-  core.notificationKeywords.mockResolvedValue(listed('sable'));
+  core.rpc.notifications.keywords.mockResolvedValue(listed('sable'));
 
   render(NotificationKeywords);
   await vi.waitFor(() => {
@@ -87,11 +88,11 @@ test('does not add a keyword already in the list', async () => {
 
   await user.type(input(), 'sable{Enter}');
 
-  expect(core.addNotificationKeyword).not.toHaveBeenCalled();
+  expect(core.rpc.notifications.addKeyword).not.toHaveBeenCalled();
 });
 
 test('deduplicates an inconsistent keyword response before rendering', async () => {
-  core.notificationKeywords.mockResolvedValue([
+  core.rpc.notifications.keywords.mockResolvedValue([
     { keyword: 'sable', mode: 'notify' },
     { keyword: 'sable', mode: 'loud' },
   ]);
@@ -103,8 +104,8 @@ test('deduplicates an inconsistent keyword response before rendering', async () 
 
 test('does not leave the list showing an add the server rejected', async () => {
   const user = userEvent.setup();
-  core.notificationKeywords.mockResolvedValue(listed('sable'));
-  core.addNotificationKeyword.mockRejectedValue(new Error('denied'));
+  core.rpc.notifications.keywords.mockResolvedValue(listed('sable'));
+  core.rpc.notifications.addKeyword.mockRejectedValue(new Error('denied'));
 
   render(NotificationKeywords);
   await vi.waitFor(() => {
@@ -115,11 +116,11 @@ test('does not leave the list showing an add the server rejected', async () => {
 
   expect(await screen.findByRole('status')).toHaveTextContent('That keyword could not be added.');
   expect(keywords()).toEqual(['sable']);
-  expect(core.notificationKeywords).toHaveBeenCalledTimes(1);
+  expect(core.rpc.notifications.keywords).toHaveBeenCalledTimes(1);
 });
 
 test('reports a load failure instead of showing an empty list', async () => {
-  core.notificationKeywords.mockRejectedValue(new Error('denied'));
+  core.rpc.notifications.keywords.mockRejectedValue(new Error('denied'));
 
   render(NotificationKeywords);
   expect(await screen.findByText('Your keywords could not be loaded.')).toBeInTheDocument();
@@ -134,15 +135,15 @@ test('a slow initial load cannot overwrite the list a fresh add produced', async
       resolve([]);
     };
   });
-  core.notificationKeywords.mockReturnValueOnce(initial);
-  core.addNotificationKeyword.mockResolvedValue(undefined);
+  core.rpc.notifications.keywords.mockReturnValueOnce(initial);
+  core.rpc.notifications.addKeyword.mockResolvedValue(null);
 
   render(NotificationKeywords);
   await user.type(input(), 'urgent');
   await user.click(screen.getByRole('button', { name: 'Add' }));
 
   await vi.waitFor(() => {
-    expect(core.addNotificationKeyword).toHaveBeenCalledWith({ keyword: 'urgent' });
+    expect(core.rpc.notifications.addKeyword).toHaveBeenCalledWith({ keyword: 'urgent' });
   });
 
   releaseInitial();
@@ -152,7 +153,7 @@ test('a slow initial load cannot overwrite the list a fresh add produced', async
   await tick();
 
   expect(keywords()).toEqual(['urgent']);
-  expect(core.notificationKeywords).toHaveBeenCalledTimes(1);
+  expect(core.rpc.notifications.keywords).toHaveBeenCalledTimes(1);
 });
 
 test('a removal survives a load that was already in flight', async () => {
@@ -163,8 +164,8 @@ test('a removal survives a load that was already in flight', async () => {
       resolve(listed('sable'));
     };
   });
-  core.notificationKeywords.mockReturnValueOnce(initial);
-  core.removeNotificationKeyword.mockResolvedValue(undefined);
+  core.rpc.notifications.keywords.mockReturnValueOnce(initial);
+  core.rpc.notifications.removeKeyword.mockResolvedValue(null);
 
   render(NotificationKeywords);
   releaseInitial();
@@ -181,7 +182,7 @@ test('a removal survives a load that was already in flight', async () => {
 });
 
 test('shows each keyword at its own level, including one disabled elsewhere', async () => {
-  core.notificationKeywords.mockResolvedValue([
+  core.rpc.notifications.keywords.mockResolvedValue([
     { keyword: 'quiet', mode: 'off' },
     { keyword: 'urgent', mode: 'loud' },
   ]);

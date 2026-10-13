@@ -49,7 +49,7 @@
     error = null;
     sent = false;
     try {
-      await core.rpc.room_state.sendStateEvent({
+      await core.rpc.room_state.sendEvent({
         room_id: roomId,
         event_type: eventType.trim(),
         state_key: stateKey,

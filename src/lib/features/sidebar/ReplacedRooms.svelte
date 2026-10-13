@@ -36,7 +36,7 @@
 
   async function leave(room: RoomListItemView): Promise<void> {
     try {
-      await core.rpc.rooms.leaveRoom({ room_id: room.room_id });
+      await core.rpc.rooms.leave({ room_id: room.room_id });
     } catch {
       toasts.error($i18n.t('room.leaveFailed'));
     }

@@ -1,3 +1,4 @@
+import type { RoomPermissionsView } from '#src/generated/protocol';
 // @vitest-environment happy-dom
 
 import { cleanup, render, screen, within } from '@testing-library/svelte';
@@ -34,7 +35,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 const notificationSettings =
   vi.fn<(params: { room_id: string }) => Promise<NotificationSettingsView>>();
-Object.assign(core, { rpc: { notifications: { notificationSettings } } });
+Object.assign(core.rpc.notifications, { settings: notificationSettings });
 vi.mock('$app/paths', () => ({
   resolve: (path: string, params: Record<string, string> = {}) => {
     const resolved = (path.startsWith('/') ? path : `/${path}`).replace(
@@ -125,8 +126,11 @@ beforeEach(() => {
   presenceFixture.entry = null;
   core.userProfile.mockReset();
   core.userProfile.mockRejectedValue(new Error('no profile'));
-  core.roomPermissions.mockReset();
-  core.roomPermissions.mockResolvedValue({ can_invite: false, can_manage_children: false });
+  core.rpc.members.permissions.mockReset();
+  core.rpc.members.permissions.mockResolvedValue({
+    can_invite: false,
+    can_manage_children: false,
+  } as RoomPermissionsView);
   notificationSettings.mockReset();
   notificationSettings.mockResolvedValue({ room: null, default: 'mentions' });
 });
@@ -176,13 +180,16 @@ test.each([
   if (isSpace) {
     visit('/space/!root%3Aexample.org', { spaceId: '!root:example.org' });
   }
-  core.roomPermissions.mockResolvedValue({ can_invite: true, can_manage_children: false });
+  core.rpc.members.permissions.mockResolvedValue({
+    can_invite: true,
+    can_manage_children: false,
+  } as RoomPermissionsView);
   await mountNav();
 
   await openMenu('Plain');
 
   await vi.waitFor(() => {
-    expect(core.roomPermissions).toHaveBeenCalledWith({ room_id: '!plain:example.org' });
+    expect(core.rpc.members.permissions).toHaveBeenCalledWith({ room_id: '!plain:example.org' });
   });
   const invite = await screen.findByRole('menuitem', { name: /room\.menuInvite/ });
   await vi.waitFor(() => {
@@ -633,7 +640,10 @@ test('a space you cannot add rooms to does not show a create action', async () =
   expect(screen.queryByRole('button', { name: 'nav.createRoomInSpace' })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'nav.joinWithAddress' })).not.toBeInTheDocument();
 
-  core.roomPermissions.mockResolvedValue({ can_invite: false, can_manage_children: true });
+  core.rpc.members.permissions.mockResolvedValue({
+    can_invite: false,
+    can_manage_children: true,
+  } as RoomPermissionsView);
   cleanup();
   await mountNav();
   expect(await screen.findByRole('button', { name: 'nav.createRoomInSpace' })).toBeInTheDocument();
@@ -644,17 +654,17 @@ test('a space list header shows the space banner above it', async () => {
     makeRoom({ room_id: '!space:example.org', name: 'Design', is_space: true }),
   ];
   visit('/space/!space:example.org', { spaceId: '!space:example.org' });
-  core.roomBanner.mockResolvedValue('mxc://example.org/banner');
+  core.rpc.room_state.banner.mockResolvedValue('mxc://example.org/banner');
 
   await mountNav();
   await tick();
   await tick();
 
-  expect(core.roomBanner).toHaveBeenCalledWith({ room_id: '!space:example.org' });
+  expect(core.rpc.room_state.banner).toHaveBeenCalledWith({ room_id: '!space:example.org' });
   expect(document.querySelector('.room-banner')).not.toBeNull();
   expect(document.querySelector('.room-nav-header')).toHaveClass('on-banner');
 
-  core.roomBanner.mockResolvedValue(null);
+  core.rpc.room_state.banner.mockResolvedValue(null);
 });
 
 test('a space list header wears the space avatar when collapsed', async () => {
@@ -1011,7 +1021,7 @@ test('a room whose parent space we are not in offers to join it', async () => {
   );
   const roomPreview = vi.fn(() => Promise.resolve({ name: 'Parent' }));
   const joinRoom = vi.fn(() => Promise.resolve('!parent:example.org'));
-  Object.assign(core, { roomPreview, joinRoom });
+  Object.assign(core.rpc.rooms, { preview: roomPreview, join: joinRoom });
   Object.assign(core.rpc.spaces, { unjoinedSpaceParents });
   await mountNav();
 
@@ -1048,7 +1058,7 @@ test('a row options button opens the shared room menu and closes it again', asyn
   const menu = await screen.findByRole('menu');
   expect(second).toHaveAttribute('aria-expanded', 'true');
   await vi.waitFor(() => {
-    expect(core.roomPermissions).toHaveBeenCalledWith({ room_id: '!second:example.org' });
+    expect(core.rpc.members.permissions).toHaveBeenCalledWith({ room_id: '!second:example.org' });
   });
   expect(within(menu).getByRole('menuitem', { name: /room\.menuSettings/ })).toBeInTheDocument();
 

@@ -9,6 +9,9 @@ pub(crate) use runtime::State as CallRuntimeState;
 mod sfu;
 pub(crate) mod sticky;
 
+use crate::api::calls::DeclineParams;
+use crate::api::calls::SetScreenSharingParams;
+use crate::api::calls::SupportParams;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -30,7 +33,7 @@ use serde_json::Value;
 use serde_with::{DefaultOnError, serde_as};
 
 use crate::ResultExt;
-use crate::api::calls::JoinCallOk;
+use crate::api::calls::JoinOk;
 use crate::protocol::{
     CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CoreEvent,
     RpcError, RtcTransportSource,
@@ -313,7 +316,7 @@ impl Core {
         livekit_service_url: Option<String>,
         mode: Option<CallMode>,
         intent: Option<crate::protocol::CallIntent>,
-    ) -> Result<JoinCallOk, RpcError> {
+    ) -> Result<JoinOk, RpcError> {
         runtime::join(self, room_id, livekit_service_url, mode, intent).await
     }
 
@@ -349,8 +352,10 @@ impl Core {
 
     pub(crate) async fn call_support(
         &self,
-        room_id: OwnedRoomId,
-        livekit_service_url: Option<String>,
+        SupportParams {
+            room_id,
+            livekit_service_url,
+        }: SupportParams,
     ) -> Result<CallSupportView, RpcError> {
         let room = self.room(&room_id).await?;
         let user_id = room
@@ -555,8 +560,10 @@ impl Core {
 
     pub(crate) async fn decline_call(
         &self,
-        room_id: OwnedRoomId,
-        notification_event_id: String,
+        DeclineParams {
+            room_id,
+            notification_event_id,
+        }: DeclineParams,
     ) -> Result<(), RpcError> {
         let event_id = EventId::parse(&notification_event_id).or_failed(self, "decline_call")?;
         let room = self.room(&room_id).await?;
@@ -635,8 +642,7 @@ impl Core {
 
     pub(crate) async fn set_call_screen_sharing(
         &self,
-        session: CallSessionId,
-        active: bool,
+        SetScreenSharingParams { session, active }: SetScreenSharingParams,
     ) -> Result<(), RpcError> {
         let (room_id, state) = {
             let calls = self.call_sessions.lock().await;

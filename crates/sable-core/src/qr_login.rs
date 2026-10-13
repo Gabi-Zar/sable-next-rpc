@@ -1,3 +1,7 @@
+use crate::api::auth::QrCheckCodeParams;
+use crate::api::auth::QrGrantContinueParams;
+use crate::api::auth::StartQrGrantParams;
+use crate::api::auth::StartQrLoginParams;
 use std::sync::{Arc, PoisonError};
 
 use futures_util::{Stream, StreamExt, pin_mut};
@@ -200,9 +204,11 @@ impl Core {
 
     pub(crate) async fn start_qr_login(
         self: &Arc<Self>,
-        homeserver: Option<String>,
-        redirect_uri: String,
-        scanned_code: Option<String>,
+        StartQrLoginParams {
+            homeserver,
+            redirect_uri,
+            scanned: scanned_code,
+        }: StartQrLoginParams,
     ) -> Result<(), RpcError> {
         let scanned_code = scanned_code.as_deref().map(decode).transpose()?;
         let homeserver = match &scanned_code {
@@ -295,7 +301,9 @@ impl Core {
 
     pub(crate) async fn start_qr_grant(
         self: &Arc<Self>,
-        scanned_code: Option<String>,
+        StartQrGrantParams {
+            scanned: scanned_code,
+        }: StartQrGrantParams,
     ) -> Result<(), RpcError> {
         let scanned_code = scanned_code.as_deref().map(decode).transpose()?;
         if scanned_code
@@ -343,7 +351,10 @@ impl Core {
         Ok(())
     }
 
-    pub(crate) async fn qr_check_code(&self, code: u8) -> Result<(), RpcError> {
+    pub(crate) async fn qr_check_code(
+        &self,
+        QrCheckCodeParams { code }: QrCheckCodeParams,
+    ) -> Result<(), RpcError> {
         let sender = self
             .qr_slots()
             .await?
@@ -352,7 +363,10 @@ impl Core {
         sender.send(code).await.or_failed(self, "qr_check_code")
     }
 
-    pub(crate) async fn qr_grant_continue(&self, confirm: bool) -> Result<(), RpcError> {
+    pub(crate) async fn qr_grant_continue(
+        &self,
+        QrGrantContinueParams { confirm }: QrGrantContinueParams,
+    ) -> Result<(), RpcError> {
         let sender = self
             .qr_slots()
             .await?

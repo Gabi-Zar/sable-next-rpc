@@ -96,7 +96,7 @@
     busy = true;
     failed = false;
     try {
-      await core.rpc.packs.createRoomImagePack({ room_id: target, name });
+      await core.rpc.packs.createRoomPack({ room_id: target, name });
       await changed();
       newPackName = '';
     } catch (error) {
@@ -114,7 +114,7 @@
     busy = true;
     failed = false;
     try {
-      await core.rpc.packs.deleteRoomImagePack({ room_id: target, state_key: pack.id });
+      await core.rpc.packs.deleteRoomPack({ room_id: target, state_key: pack.id });
       await changed();
       if (viewing === pack.id) viewing = null;
     } catch (error) {
@@ -156,11 +156,11 @@
   }
 
   function convertLegacyPacks(): Promise<void> {
-    return updateLegacy(core.rpc.packs.convertLegacyImagePacks, legacyOnly);
+    return updateLegacy(core.rpc.packs.convertLegacy, legacyOnly);
   }
 
   async function removeLegacyCopies(): Promise<void> {
-    await updateLegacy(core.rpc.packs.removeLegacyImagePacks, legacyCopies);
+    await updateLegacy(core.rpc.packs.removeLegacy, legacyCopies);
     confirmingLegacyRemoval = false;
   }
 
@@ -168,7 +168,7 @@
     const target = roomId;
     if (!target) return;
 
-    await core.rpc.packs.saveImagePack({
+    await core.rpc.packs.save({
       target: { kind: 'room', room_id: target, state_key: pack.id },
       draft: $state.snapshot(draft),
     });

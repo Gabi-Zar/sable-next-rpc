@@ -29,11 +29,14 @@ function page(
   return { hits, older };
 }
 
-function coreReturning(searchMessages: Rpc['search']['searchMessages']): {
+function coreReturning(searchMessages: Rpc['search']['messages']): {
   core: CoreClient;
-  searchMessages: Rpc['search']['searchMessages'];
+  searchMessages: Rpc['search']['messages'];
 } {
-  return { core: { rpc: { search: { searchMessages } } } as unknown as CoreClient, searchMessages };
+  return {
+    core: { rpc: { search: { messages: searchMessages } } } as unknown as CoreClient,
+    searchMessages,
+  };
 }
 
 beforeEach(() => {

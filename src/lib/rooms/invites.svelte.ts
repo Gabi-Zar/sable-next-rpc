@@ -62,11 +62,9 @@ export class InviteActions {
           declining.delete(roomId);
         },
         onClose: () => {
-          void this.answer(room, () => this.core.rpc.rooms.leaveRoom({ room_id: roomId })).then(
-            () => {
-              declining.delete(roomId);
-            }
-          );
+          void this.answer(room, () => this.core.rpc.rooms.leave({ room_id: roomId })).then(() => {
+            declining.delete(roomId);
+          });
         },
       }
     );
@@ -115,7 +113,7 @@ export class InviteActions {
     let failed = 0;
     for (const room of rooms) {
       try {
-        await this.core.rpc.rooms.leaveRoom({ room_id: room.room_id });
+        await this.core.rpc.rooms.leave({ room_id: room.room_id });
       } catch (error) {
         failed += 1;
         console.warn('[sable room] declining the invitation failed', error);

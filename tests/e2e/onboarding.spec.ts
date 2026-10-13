@@ -63,10 +63,7 @@ for (const viewport of [
 
     await expect(page).toHaveURL(/\/rooms$/);
     expect(await core.commands()).toEqual(
-      expect.arrayContaining([
-        'notifications.set_default_notification_mode',
-        'account.set_account_data',
-      ])
+      expect.arrayContaining(['notifications.set_default_mode', 'account.set_data'])
     );
     const pending = await page.evaluate(() =>
       Object.keys(localStorage).filter((key) => key.startsWith('sable-setup:'))

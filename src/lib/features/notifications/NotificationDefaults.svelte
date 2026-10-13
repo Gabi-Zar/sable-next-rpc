@@ -75,7 +75,7 @@
 
     let alive = true;
     void core.rpc.notifications
-      .defaultNotificationModes()
+      .defaultModes()
       .then((modes) => {
         if (!alive) return;
         current = modes;
@@ -109,7 +109,7 @@
   ): void {
     if (current) current = { ...current, [key]: mode };
 
-    void core.rpc.notifications.setDefaultNotificationMode({ direct: isDirect, mode }).then(
+    void core.rpc.notifications.setDefaultMode({ direct: isDirect, mode }).then(
       () => {
         settingsChanges.version += 1;
       },

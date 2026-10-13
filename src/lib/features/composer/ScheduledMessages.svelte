@@ -51,7 +51,7 @@
     let alive = true;
 
     void core.rpc.messages
-      .scheduledMessages({ room_id: room })
+      .scheduled({ room_id: room })
       .then((messages) => {
         if (alive) fetched = messages ?? [];
       })
@@ -88,7 +88,7 @@
 
   async function cancelRemote(delayId: string): Promise<void> {
     try {
-      await core.rpc.messages.cancelScheduledMessage({ delay_id: delayId });
+      await core.rpc.messages.cancelScheduled({ delay_id: delayId });
       fetched = fetched.filter((message) => message.delay_id !== delayId);
     } catch (error) {
       console.warn('[sable composer] cancelling a scheduled message failed', error);
@@ -114,7 +114,7 @@
   async function sendRemote(delayId: string): Promise<void> {
     hold(delayId);
     try {
-      await core.rpc.messages.sendScheduledMessage({ delay_id: delayId });
+      await core.rpc.messages.sendScheduled({ delay_id: delayId });
       fetched = fetched.filter((message) => message.delay_id !== delayId);
     } catch (error) {
       console.warn('[sable composer] sending a scheduled message failed', error);

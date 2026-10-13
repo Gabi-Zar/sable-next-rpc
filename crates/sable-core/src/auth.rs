@@ -1,5 +1,10 @@
 use crate::api::auth::AuthIntent;
+use crate::api::auth::CompleteOidcLoginParams;
+use crate::api::auth::CompleteSsoLoginParams;
+use crate::api::auth::LoginFlowsParams;
 use crate::api::auth::LoginIdentifier;
+use crate::api::auth::StartOidcLoginParams;
+use crate::api::auth::StartSsoLoginParams;
 use std::sync::Arc;
 
 use matrix_sdk::authentication::oauth::error::OAuthDiscoveryError;
@@ -197,7 +202,7 @@ impl Core {
 
     pub(crate) async fn login_flows(
         self: &Arc<Self>,
-        homeserver: String,
+        LoginFlowsParams { homeserver }: LoginFlowsParams,
     ) -> Result<protocol::LoginFlowsView, RpcError> {
         tracing::info!(
             operation = "login_flows",
@@ -292,10 +297,12 @@ impl Core {
     /// PKCE verifier and CSRF state live inside it and cannot be rebuilt.
     pub(crate) async fn start_oidc_login(
         self: &Arc<Self>,
-        homeserver: String,
-        redirect_uri: String,
-        intent: AuthIntent,
-        reauth_account_id: Option<String>,
+        StartOidcLoginParams {
+            homeserver,
+            redirect_uri,
+            intent,
+            reauth_account_id,
+        }: StartOidcLoginParams,
     ) -> Result<String, RpcError> {
         let reauth = self.reauthentication_account(reauth_account_id).await?;
         let homeserver = reauth
@@ -382,7 +389,7 @@ impl Core {
 
     pub(crate) async fn complete_oidc_login(
         self: &Arc<Self>,
-        callback_url: String,
+        CompleteOidcLoginParams { callback_url }: CompleteOidcLoginParams,
     ) -> Result<OwnedUserId, RpcError> {
         tracing::info!(operation = "oidc_login", "completing OAuth login callback");
         let url = Url::parse(&callback_url).or_failed(self, "complete_oidc_login_callback_url")?;
@@ -454,11 +461,13 @@ impl Core {
 
     pub(crate) async fn start_sso_login(
         self: &Arc<Self>,
-        homeserver: String,
-        redirect_uri: String,
-        idp_id: Option<String>,
-        intent: AuthIntent,
-        reauth_account_id: Option<String>,
+        StartSsoLoginParams {
+            homeserver,
+            redirect_uri,
+            idp_id,
+            intent,
+            reauth_account_id,
+        }: StartSsoLoginParams,
     ) -> Result<String, RpcError> {
         let reauth = self.reauthentication_account(reauth_account_id).await?;
         let homeserver = reauth
@@ -518,7 +527,7 @@ impl Core {
 
     pub(crate) async fn complete_sso_login(
         self: &Arc<Self>,
-        callback_url: String,
+        CompleteSsoLoginParams { callback_url }: CompleteSsoLoginParams,
     ) -> Result<OwnedUserId, RpcError> {
         tracing::info!(operation = "sso_login", "completing SSO login callback");
         // The login token is single-use, so keep the client that created the

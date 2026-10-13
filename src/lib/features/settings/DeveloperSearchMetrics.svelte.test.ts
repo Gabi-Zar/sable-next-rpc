@@ -12,7 +12,7 @@ vi.mock('#lib/core/context.js');
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const searchMetrics = vi.fn<() => Promise<SearchMetricsView>>();
-const core = Object.assign(baseCore, { rpc: { search: { searchMetrics } } });
+const core = Object.assign(baseCore, { rpc: { search: { metrics: searchMetrics } } });
 
 import DeveloperSearchMetrics from './DeveloperSearchMetrics.svelte';
 

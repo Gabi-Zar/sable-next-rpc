@@ -108,7 +108,7 @@ async function load() {
 
 test('uses a WASM-specific worker URL', async () => {
   const transport = await load();
-  void transport.call('members.room_members', { room_id: '!r:example.org' });
+  void transport.call('members.list', { room_id: '!r:example.org' });
 
   expect(FakeSharedWorker.last?.url.searchParams.get('wasm')).toBeTruthy();
 }, 20_000);
@@ -120,7 +120,7 @@ test('adopts a prewarmed worker instead of opening a second one', async () => {
   expect(FakeSharedWorker.created).toBe(1);
 
   const transport = createWebTransport();
-  void transport.call('members.room_members', { room_id: '!r:example.org' });
+  void transport.call('members.list', { room_id: '!r:example.org' });
 
   expect(FakeSharedWorker.created).toBe(1);
   expect(FakeSharedWorker.last?.port.posted).toHaveLength(1);
@@ -134,9 +134,7 @@ test('a prewarmed worker that failed to load rejects the first request', async (
 
   const transport = createWebTransport();
 
-  await expect(
-    transport.call('members.room_members', { room_id: '!r:example.org' })
-  ).rejects.toThrow();
+  await expect(transport.call('members.list', { room_id: '!r:example.org' })).rejects.toThrow();
 });
 
 test('uses an in-memory event cache in an iOS PWA', async () => {
@@ -145,7 +143,7 @@ test('uses an in-memory event cache in an iOS PWA', async () => {
     standalone: true,
   });
   const transport = await load();
-  void transport.call('members.room_members', { room_id: '!r:example.org' });
+  void transport.call('members.list', { room_id: '!r:example.org' });
 
   expect(FakeSharedWorker.last?.url.searchParams.get('event-cache')).toBe('memory');
 });
@@ -243,7 +241,7 @@ test('sends a gallery as one worker request', async () => {
 test('a slow command reports an unresponsive worker', async () => {
   expect(
     await stalledFor((transport) => {
-      void transport.call('members.room_members', { room_id: '!r:example.org' });
+      void transport.call('members.list', { room_id: '!r:example.org' });
     })
   ).toBe(true);
 });
@@ -251,7 +249,7 @@ test('a slow command reports an unresponsive worker', async () => {
 test('a slow command does not report a responsive worker as unresponsive', async () => {
   expect(
     await stalledFor((transport) => {
-      void transport.call('members.room_members', { room_id: '!r:example.org' });
+      void transport.call('members.list', { room_id: '!r:example.org' });
     }, true)
   ).toBe(false);
 });
@@ -260,7 +258,7 @@ test('a command response clears an unresponsive report while other commands rema
   const transport = await load();
   const stalls: boolean[] = [];
   transport.subscribeStall((stalled) => stalls.push(stalled));
-  void transport.call('members.room_members', { room_id: '!r:example.org' }).catch(() => {});
+  void transport.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
   void transport.call('account.user_profile', { user_id: '@u:example.org' }).catch(() => {});
 
   await vi.advanceTimersByTimeAsync(23_000);
@@ -282,7 +280,7 @@ test('an interrupted IndexedDB transaction requests explicit recovery', async ()
   const transport = await load();
   const interrupted = vi.fn();
   transport.subscribeStorageFailure?.(interrupted);
-  void transport.call('members.room_members', { room_id: '!r:example.org' }).catch(() => {});
+  void transport.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
 
   FakeSharedWorker.last?.port.receive({
     logs: [
@@ -312,7 +310,7 @@ test('resetCaches terminates the worker and drops the cached stores', async () =
   });
 
   const transport = await load();
-  void transport.call('members.room_members', { room_id: '!r:example.org' }).catch(() => {});
+  void transport.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
 
   await transport.resetCaches([]);
 
@@ -322,7 +320,7 @@ test('resetCaches terminates the worker and drops the cached stores', async () =
 
 test('a worker crash reports the stack the worker sent, grouped on its message', async () => {
   const transport = await load();
-  void transport.call('members.room_members', { room_id: '!r:example.org' }).catch(() => {});
+  void transport.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
 
   FakeSharedWorker.last?.port.receive({
     panic: {

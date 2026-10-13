@@ -706,7 +706,7 @@ export class CoreClient {
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
-        const coverage = await this.rpc.search.searchCoverage();
+        const coverage = await this.rpc.search.coverage();
         if (generation !== this.generation) return;
         this.searchCoverage = coverage;
         this.searchCoverageUnavailable = false;
@@ -830,7 +830,7 @@ export class CoreClient {
     bytes: Uint8Array<ArrayBuffer>
   ): Promise<string> {
     const uri = await this.ensureTransport().uploadMedia(mime, bytes);
-    await this.rpc.room_state.setRoomAvatar({ room_id: roomId, url: uri });
+    await this.rpc.room_state.setAvatar({ room_id: roomId, url: uri });
     return uri;
   }
 
@@ -899,7 +899,7 @@ export class CoreClient {
     const reported = this.encryptionEvents;
     try {
       const [status, devices] = await Promise.all([
-        this.rpc.encryption.encryptionStatus(),
+        this.rpc.encryption.status(),
         this.rpc.encryption.devices(),
       ]);
       if (revision !== this.accountRevision) return;

@@ -69,7 +69,7 @@ export class RoomAttachmentsPager {
     this.loading = true;
     this.failed = false;
     try {
-      const page = await this.core.rpc.rooms.roomAttachments({
+      const page = await this.core.rpc.rooms.attachments({
         room_id: roomId,
         kind,
         limit: PAGE_SIZE,

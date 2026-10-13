@@ -62,7 +62,7 @@
     const current = ++run;
     try {
       const [local, published] = await Promise.all([
-        core.rpc.rooms.roomAliases({ room_id: target }).catch(() => [] as string[]),
+        core.rpc.rooms.aliases({ room_id: target }).catch(() => [] as string[]),
         core.rpc.rooms.canonicalAlias({ room_id: target }),
       ]);
       if (current !== run) return;
@@ -122,7 +122,7 @@
     }
 
     void change(async () => {
-      await core.rpc.rooms.createRoomAlias({ room_id: target, alias });
+      await core.rpc.rooms.createAlias({ room_id: target, alias });
       draft = '';
     }, 'alias creation');
   }
@@ -160,7 +160,7 @@
           alternatives.filter((alias) => !targets.includes(alias))
         );
       }
-      for (const alias of targets) await core.rpc.rooms.deleteRoomAlias({ alias });
+      for (const alias of targets) await core.rpc.rooms.deleteAlias({ alias });
       selected = new Set();
     }, 'alias removal');
     pendingRemoval = [];

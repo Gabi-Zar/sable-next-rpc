@@ -41,7 +41,8 @@ const setDisplayName = vi.fn<(...args: unknown[]) => Promise<void>>(() => Promis
 
 beforeEach(() => {
   vi.clearAllMocks();
-  Object.assign(core, { setProfileField, setDisplayName });
+  Object.assign(core, { setProfileField });
+  Object.assign(core.rpc.account, { setDisplayName });
 });
 
 function mount(onSaved = vi.fn()) {

@@ -48,7 +48,7 @@ pub enum AuthIntent {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DiscoverHomeserverParams {
     pub server_name: String,
 }
@@ -65,8 +65,9 @@ impl Handler for DiscoverHomeserverParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct LoginParams {
+    #[serde(default)]
     pub reauth_account_id: Option<String>,
     pub homeserver: String,
     pub identifier: LoginIdentifier,
@@ -89,7 +90,7 @@ impl Handler for LoginParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct LoginFlowsParams {
     pub homeserver: String,
 }
@@ -98,12 +99,12 @@ impl Handler for LoginFlowsParams {
     type Ok = LoginFlowsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<LoginFlowsView, RpcError> {
-        core.login_flows(self.homeserver).await
+        core.login_flows(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RegistrationFlowsParams {
     pub homeserver: String,
 }
@@ -112,16 +113,17 @@ impl Handler for RegistrationFlowsParams {
     type Ok = RegistrationFlowsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RegistrationFlowsView, RpcError> {
-        core.discover_registration_flows(self.homeserver).await
+        core.discover_registration_flows(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RegisterParams {
     pub homeserver: String,
     pub username: String,
     pub password: String,
+    #[serde(default)]
     pub registration_email: Option<String>,
     pub registration_token: Option<String>,
 }
@@ -142,7 +144,7 @@ impl Handler for RegisterParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RequestRegistrationEmailParams {
     pub email: String,
 }
@@ -151,12 +153,12 @@ impl Handler for RequestRegistrationEmailParams {
     type Ok = RegistrationResultView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, RpcError> {
-        core.request_registration_email(self.email).await
+        core.request_registration_email(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SubmitRegistrationEmailParams {
     pub token: String,
 }
@@ -165,12 +167,12 @@ impl Handler for SubmitRegistrationEmailParams {
     type Ok = RegistrationResultView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RegistrationResultView, RpcError> {
-        core.submit_registration_email(self.token).await
+        core.submit_registration_email(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ContinueRegistrationParams {}
 
 impl Handler for ContinueRegistrationParams {
@@ -182,7 +184,7 @@ impl Handler for ContinueRegistrationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CancelRegistrationParams {}
 
 impl Handler for CancelRegistrationParams {
@@ -198,37 +200,33 @@ impl Handler for CancelRegistrationParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RequestPasswordResetEmailParams {
     pub homeserver: String,
     pub email: String,
+    #[serde(default)]
     pub client_secret: Option<String>,
     pub send_attempt: u32,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PasswordResetEmailOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RequestPasswordResetEmailOk {
     pub client_secret: String,
     pub sid: String,
 }
 
 impl Handler for RequestPasswordResetEmailParams {
-    type Ok = PasswordResetEmailOk;
+    type Ok = RequestPasswordResetEmailOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<PasswordResetEmailOk, RpcError> {
-        core.request_password_reset_email(
-            self.homeserver,
-            self.email,
-            self.client_secret,
-            self.send_attempt,
-        )
+    async fn run(self, core: &Arc<Core>) -> Result<RequestPasswordResetEmailOk, RpcError> {
+        core.request_password_reset_email(self)
         .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ResetPasswordParams {
     pub homeserver: String,
     pub client_secret: String,
@@ -241,20 +239,15 @@ impl Handler for ResetPasswordParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.reset_password(
-            self.homeserver,
-            self.client_secret,
-            self.sid,
-            self.new_password,
-            self.logout_devices,
-        )
+        core.reset_password(self)
         .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct StartOidcLoginParams {
+    #[serde(default)]
     pub reauth_account_id: Option<String>,
     pub homeserver: String,
     pub redirect_uri: String,
@@ -266,18 +259,13 @@ impl Handler for StartOidcLoginParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        core.start_oidc_login(
-            self.homeserver,
-            self.redirect_uri,
-            self.intent,
-            self.reauth_account_id,
-        )
+        core.start_oidc_login(self)
         .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CompleteOidcLoginParams {
     pub callback_url: String,
 }
@@ -286,17 +274,19 @@ impl Handler for CompleteOidcLoginParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        core.complete_oidc_login(self.callback_url).await
+        core.complete_oidc_login(self).await
             .map(|user_id| user_id.to_string())
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct StartSsoLoginParams {
+    #[serde(default)]
     pub reauth_account_id: Option<String>,
     pub homeserver: String,
     pub redirect_uri: String,
+    #[serde(default)]
     pub idp_id: Option<String>,
     pub intent: AuthIntent,
 }
@@ -306,19 +296,13 @@ impl Handler for StartSsoLoginParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        core.start_sso_login(
-            self.homeserver,
-            self.redirect_uri,
-            self.idp_id,
-            self.intent,
-            self.reauth_account_id,
-        )
+        core.start_sso_login(self)
         .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CompleteSsoLoginParams {
     pub callback_url: String,
 }
@@ -327,7 +311,7 @@ impl Handler for CompleteSsoLoginParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        core.complete_sso_login(self.callback_url).await
+        core.complete_sso_login(self).await
             .map(|user_id| user_id.to_string())
     }
 }
@@ -335,8 +319,9 @@ impl Handler for CompleteSsoLoginParams {
 /// Signs this device in from another one (MSC4108). `scanned` is the
 /// other device's code, base64 encoded; without it this device shows one.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct StartQrLoginParams {
+    #[serde(default)]
     pub homeserver: Option<String>,
     pub redirect_uri: String,
     pub scanned: Option<String>,
@@ -346,15 +331,16 @@ impl Handler for StartQrLoginParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.start_qr_login(self.homeserver, self.redirect_uri, self.scanned)
+        core.start_qr_login(self)
             .await
     }
 }
 
 /// Lets another device sign in to this account (MSC4108).
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct StartQrGrantParams {
+    #[serde(default)]
     pub scanned: Option<String>,
 }
 
@@ -362,12 +348,12 @@ impl Handler for StartQrGrantParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.start_qr_grant(self.scanned).await
+        core.start_qr_grant(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct QrCheckCodeParams {
     pub code: u8,
 }
@@ -376,12 +362,12 @@ impl Handler for QrCheckCodeParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.qr_check_code(self.code).await
+        core.qr_check_code(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct QrGrantContinueParams {
     pub confirm: bool,
 }
@@ -390,12 +376,12 @@ impl Handler for QrGrantContinueParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.qr_grant_continue(self.confirm).await
+        core.qr_grant_continue(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct CancelQrParams {}
 
 impl Handler for CancelQrParams {

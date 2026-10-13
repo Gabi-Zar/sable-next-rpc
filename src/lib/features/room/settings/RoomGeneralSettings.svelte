@@ -144,16 +144,16 @@
     if (!target) return;
     await run(async () => {
       if (canEditName && name !== (room?.name ?? '')) {
-        await core.rpc.room_state.setRoomName({
+        await core.rpc.room_state.setName({
           room_id: target,
           name: name.trim() === '' ? null : name.trim(),
         });
       }
       if (canEditTopic && topicDraft !== topic) {
-        await core.rpc.room_state.setRoomTopic({ room_id: target, topic: topicDraft.trim() });
+        await core.rpc.room_state.setTopic({ room_id: target, topic: topicDraft.trim() });
       }
       if (pendingRule !== null && pendingRule !== savedRule) {
-        await core.rpc.room_state.setRoomJoinRule({ room_id: target, rule: pendingRule });
+        await core.rpc.room_state.setJoinRule({ room_id: target, rule: pendingRule });
       }
     });
   }
@@ -182,7 +182,7 @@
     const target = roomId;
     if (!target || !canEditName) return;
     void run(async () => {
-      await core.rpc.room_state.setRoomName({ room_id: target, name: null });
+      await core.rpc.room_state.setName({ room_id: target, name: null });
       name = '';
     });
   }
@@ -204,7 +204,7 @@
     const target = roomId;
     if (!target || !canEditAvatar) return;
     void run(async () => {
-      await core.rpc.room_state.setRoomAvatar({ room_id: target, url: null });
+      await core.rpc.room_state.setAvatar({ room_id: target, url: null });
     });
   }
 

@@ -27,7 +27,7 @@
     void permissionState().then((state) => {
       if (alive) notifying = state === 'granted' && preferences.systemNotifications;
     });
-    void core.rpc.notifications.defaultNotificationModes().then(
+    void core.rpc.notifications.defaultModes().then(
       ({ group }) => {
         if (alive) groupMode = group;
       },

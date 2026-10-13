@@ -14,12 +14,8 @@ vi.mock('#lib/features/notifications/present.js', () => present);
 import { core } from '#lib/core/__mocks__/context.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-Object.assign(core, {
-  rpc: {
-    notifications: {
-      defaultNotificationModes: vi.fn(() => Promise.resolve({ group: 'all', direct: 'all' })),
-    },
-  },
+Object.assign(core.rpc.notifications, {
+  defaultModes: vi.fn(() => Promise.resolve({ group: 'all', direct: 'all' })),
 });
 
 import SetupDoneCard from './SetupDoneCard.svelte';

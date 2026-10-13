@@ -1,3 +1,4 @@
+import type { RoomPermissionsView } from '#src/generated/protocol';
 // @vitest-environment happy-dom
 
 import { render, screen, within } from '@testing-library/svelte';
@@ -35,7 +36,9 @@ vi.mock('#lib/rooms/presence.svelte.js', async (importOriginal) => ({
 import { core } from '#lib/core/__mocks__/context.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
 
-core.roomPermissions.mockResolvedValue({ can_manage_children: false });
+core.rpc.members.permissions.mockResolvedValue({
+  can_manage_children: false,
+} as RoomPermissionsView);
 
 import SidebarNav from './SidebarNavHarness.test.svelte';
 import { RoomList } from '#lib/rooms/room-list.svelte.js';
@@ -186,7 +189,7 @@ test('adds an incoming unread DM to the navbar and removes it when read', async 
         unsubscribe: () => Promise.resolve(),
       },
       notifications: {
-        notificationSettings: () => Promise.resolve({ room: null, default: 'all' }),
+        settings: () => Promise.resolve({ room: null, default: 'all' }),
       },
     },
   } as unknown as CoreClient;

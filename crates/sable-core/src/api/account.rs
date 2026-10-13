@@ -8,8 +8,8 @@ use matrix_sdk::ruma::profile::{ProfileFieldName, ProfileFieldValue};
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, OwnedUserId, UserId};
 use serde::{Deserialize, Serialize};
 
-use super::Handler;
-use crate::api::support::state_event_content;
+use super::{Handler, Json};
+use crate::room_settings::state_event_content;
 use crate::media::mxc_uri;
 use crate::profile_overrides::OverrideEdit;
 use crate::profiles::profile_view;
@@ -19,15 +19,15 @@ use crate::{Core, ResultExt, presence};
 domain! {
     user_profile,
     user_relations,
-    account_data_types,
-    account_data,
-    set_account_data,
-    sealed_account_data,
-    set_sealed_account_data,
+    data_types,
+    data,
+    set_data,
+    sealed_data,
+    set_sealed_data,
     set_display_name,
     set_avatar_url,
     set_profile_field,
-    account_contacts,
+    contacts,
     ignored_users,
     invite_triage,
     set_direct,
@@ -73,7 +73,7 @@ pub enum AvatarEditView {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UserProfileParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -95,14 +95,14 @@ impl Handler for UserProfileParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UserRelationsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UserRelationsOk {
     pub mutual_rooms: Vec<MutualRoomView>,
     pub ignored: bool,
@@ -170,10 +170,10 @@ async fn confirmed_member_join(room: &matrix_sdk::Room, user_id: &UserId) -> boo
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AccountDataTypesParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DataTypesParams {}
 
-impl Handler for AccountDataTypesParams {
+impl Handler for DataTypesParams {
     type Ok = Vec<String>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
@@ -182,43 +182,34 @@ impl Handler for AccountDataTypesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AccountDataParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DataParams {
     pub event_type: String,
 }
 
-/// The event's content, `null` when the account has none.
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(transparent)]
-pub struct AccountDataContent(
-    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Unknown>))]
-    pub  Option<serde_json::Value>,
-);
+impl Handler for DataParams {
+    type Ok = Option<Json>;
 
-impl Handler for AccountDataParams {
-    type Ok = AccountDataContent;
-
-    async fn run(self, core: &Arc<Core>) -> Result<AccountDataContent, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<Json>, RpcError> {
         core.remember_account_data_type(self.event_type.as_str())
             .await;
         let content = core
             .global_account_data(self.event_type.into(), "account_data")
             .await?
             .and_then(|raw| raw.deserialize_as::<serde_json::Value>().ok());
-        Ok(AccountDataContent(content))
+        Ok(content.map(Json))
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetAccountDataParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetDataParams {
     pub event_type: String,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
     pub content: serde_json::Value,
 }
 
-impl Handler for SetAccountDataParams {
+impl Handler for SetDataParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -227,12 +218,12 @@ impl Handler for SetAccountDataParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SealedAccountDataParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SealedDataParams {
     pub event_type: String,
 }
 
-impl Handler for SealedAccountDataParams {
+impl Handler for SealedDataParams {
     type Ok = SealedAccountDataView;
 
     async fn run(self, core: &Arc<Core>) -> Result<SealedAccountDataView, RpcError> {
@@ -243,14 +234,14 @@ impl Handler for SealedAccountDataParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetSealedAccountDataParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetSealedDataParams {
     pub event_type: String,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Unknown))]
     pub content: serde_json::Value,
 }
 
-impl Handler for SetSealedAccountDataParams {
+impl Handler for SetSealedDataParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -263,8 +254,9 @@ impl Handler for SetSealedAccountDataParams {
 
 /// `null` clears it.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetDisplayNameParams {
+    #[serde(default)]
     pub name: Option<String>,
     pub propagate_to: ProfilePropagationView,
 }
@@ -310,8 +302,9 @@ impl Handler for SetDisplayNameParams {
 
 /// An `mxc:` URI from the carrier's `uploadMedia`. `null` clears it.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetAvatarUrlParams {
+    #[serde(default)]
     pub url: Option<String>,
     pub propagate_to: ProfilePropagationView,
 }
@@ -369,10 +362,11 @@ const fn profile_propagation(view: ProfilePropagationView) -> PropagateTo {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetProfileFieldParams {
     pub field: String,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Unknown>))]
+    #[serde(default)]
     pub value: Option<serde_json::Value>,
 }
 
@@ -403,10 +397,10 @@ impl Handler for SetProfileFieldParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AccountContactsParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ContactsParams {}
 
-impl Handler for AccountContactsParams {
+impl Handler for ContactsParams {
     /// The account's email addresses.
     type Ok = Vec<String>;
 
@@ -427,7 +421,7 @@ impl Handler for AccountContactsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct IgnoredUsersParams {}
 
 impl Handler for IgnoredUsersParams {
@@ -446,7 +440,7 @@ impl Handler for IgnoredUsersParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct InviteTriageParams {}
 
 impl Handler for InviteTriageParams {
@@ -459,12 +453,13 @@ impl Handler for InviteTriageParams {
 
 /// `m.direct` is client-owned account data. Nothing else will correct it.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetDirectParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub direct: bool,
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub user_id: Option<OwnedUserId>,
 }
 
@@ -479,7 +474,7 @@ impl Handler for SetDirectParams {
 
 /// Server-side, so it survives a reinstall.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct IgnoreUserParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -499,7 +494,7 @@ impl Handler for IgnoreUserParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UnignoreUserParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -519,7 +514,7 @@ impl Handler for UnignoreUserParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ReportUserParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,
@@ -530,14 +525,15 @@ impl Handler for ReportUserParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.report_user(self.user_id, self.reason).await
+        core.report_user(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetPresenceParams {
     pub presence: PresenceView,
+    #[serde(default)]
     pub status_message: Option<String>,
 }
 
@@ -557,7 +553,7 @@ impl Handler for SetPresenceParams {
 
 /// Fills in users the presence poll has not pushed yet.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct FetchPresenceParams {
     #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
     pub user_ids: Vec<OwnedUserId>,
@@ -573,7 +569,7 @@ impl Handler for FetchPresenceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SearchUserDirectoryParams {
     pub term: String,
     #[serde(default)]
@@ -582,7 +578,7 @@ pub struct SearchUserDirectoryParams {
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SearchUserDirectoryOk {
     pub limited: bool,
     pub results: Vec<UserDirectoryEntryView>,
@@ -598,7 +594,7 @@ impl Handler for SearchUserDirectoryParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct DismissedInvitesParams {}
 
 impl Handler for DismissedInvitesParams {
@@ -610,7 +606,7 @@ impl Handler for DismissedInvitesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetInviteDismissedParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -633,7 +629,7 @@ fn room_id_strings(room_ids: Vec<OwnedRoomId>) -> Vec<String> {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct BookmarksParams {}
 
 impl Handler for BookmarksParams {
@@ -645,7 +641,7 @@ impl Handler for BookmarksParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetBookmarkParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -668,7 +664,7 @@ impl Handler for SetBookmarkParams {
 
 /// The room's own config when `room_id` is set, the account's otherwise.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MediaPreviewConfigParams {
     #[serde(default)]
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
@@ -685,7 +681,7 @@ impl Handler for MediaPreviewConfigParams {
 
 /// Merges into the account's config; a field left `None` is kept.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetMediaPreviewConfigParams {
     pub config: MediaPreviewConfigView,
 }
@@ -694,12 +690,12 @@ impl Handler for SetMediaPreviewConfigParams {
     type Ok = MediaPreviewConfigView;
 
     async fn run(self, core: &Arc<Core>) -> Result<MediaPreviewConfigView, RpcError> {
-        core.set_media_preview_settings(self.config).await
+        core.set_media_preview_settings(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ProfileOverridesParams {}
 
 impl Handler for ProfileOverridesParams {
@@ -711,7 +707,7 @@ impl Handler for ProfileOverridesParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetProfileOverrideParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub user_id: OwnedUserId,

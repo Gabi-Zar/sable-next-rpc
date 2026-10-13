@@ -9,22 +9,22 @@ use crate::Core;
 use crate::protocol::{RpcError, PersonaCatalogView, PersonaView};
 
 domain! {
-    personas,
-    save_persona,
-    remove_persona,
-    reorder_personas,
-    set_persona_selection,
-    disable_room_personas,
-    persona_backup,
-    check_persona_backup,
-    restore_persona_backup,
+    list,
+    save,
+    remove,
+    reorder,
+    set_selection,
+    disable_room,
+    backup,
+    check_backup,
+    restore_backup,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PersonasParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ListParams {}
 
-impl Handler for PersonasParams {
+impl Handler for ListParams {
     type Ok = PersonaCatalogView;
 
     async fn run(self, core: &Arc<Core>) -> Result<PersonaCatalogView, RpcError> {
@@ -33,28 +33,28 @@ impl Handler for PersonasParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SavePersonaParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SaveParams {
     pub persona: PersonaView,
     #[serde(default)]
     pub previous_id: Option<String>,
 }
 
-impl Handler for SavePersonaParams {
+impl Handler for SaveParams {
     type Ok = Vec<PersonaView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, RpcError> {
-        core.save_persona(self.persona, self.previous_id).await
+        core.save_persona(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RemovePersonaParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RemoveParams {
     pub id: String,
 }
 
-impl Handler for RemovePersonaParams {
+impl Handler for RemoveParams {
     type Ok = Vec<PersonaView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, RpcError> {
@@ -63,59 +63,61 @@ impl Handler for RemovePersonaParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ReorderPersonasParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ReorderParams {
     pub ids: Vec<String>,
 }
 
-impl Handler for ReorderPersonasParams {
+impl Handler for ReorderParams {
     type Ok = Vec<PersonaView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<PersonaView>, RpcError> {
-        core.reorder_personas(self.ids).await
+        core.reorder_personas(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetPersonaSelectionParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetSelectionParams {
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
     pub room_id: Option<OwnedRoomId>,
     pub persona_id: Option<String>,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    #[serde(default)]
     pub valid_until: Option<u64>,
 }
 
-impl Handler for SetPersonaSelectionParams {
+impl Handler for SetSelectionParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.set_persona_selection(self.room_id, self.persona_id, self.valid_until)
+        core.set_persona_selection(self)
             .await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct DisableRoomPersonasParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DisableRoomParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for DisableRoomPersonasParams {
+impl Handler for DisableRoomParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.disable_room_personas(self.room_id).await
+        core.disable_room_personas(self).await
     }
 }
 
 /// The persona catalog as a backup file's text.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PersonaBackupParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct BackupParams {}
 
-impl Handler for PersonaBackupParams {
+impl Handler for BackupParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
@@ -125,12 +127,12 @@ impl Handler for PersonaBackupParams {
 
 /// Refuses a file that is not a persona backup, without touching anything.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct CheckPersonaBackupParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct CheckBackupParams {
     pub backup: String,
 }
 
-impl Handler for CheckPersonaBackupParams {
+impl Handler for CheckBackupParams {
     type Ok = ();
 
     fn run(self, _core: &Arc<Core>) -> impl Future<Output = Result<(), RpcError>> {
@@ -140,12 +142,12 @@ impl Handler for CheckPersonaBackupParams {
 
 /// Replaces the persona catalog with the one in a backup file.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RestorePersonaBackupParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RestoreBackupParams {
     pub backup: String,
 }
 
-impl Handler for RestorePersonaBackupParams {
+impl Handler for RestoreBackupParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {

@@ -54,7 +54,7 @@ async function settle(): Promise<void> {
 test('a joined room the list filters out still opens', async () => {
   const room = { room_id: '!old:example.org', state: 'joined' } as RoomListItemView;
   const roomListItem = vi.fn(() => Promise.resolve(room));
-  Object.assign(core, { roomListItem });
+  Object.assign(core.rpc.rooms, { listItem: roomListItem });
   render(RoomPage);
   await settle();
 
@@ -63,7 +63,9 @@ test('a joined room the list filters out still opens', async () => {
 });
 
 test('a room we are not in goes through the join, with its via', async () => {
-  Object.assign(core, { roomListItem: vi.fn(() => Promise.reject(new Error('unknown_room'))) });
+  Object.assign(core.rpc.rooms, {
+    listItem: vi.fn(() => Promise.reject(new Error('unknown_room'))),
+  });
   render(RoomPage);
   await settle();
 
@@ -76,7 +78,7 @@ test('a room we are not in goes through the join, with its via', async () => {
 
 test('a room we left goes through the join', async () => {
   const room = { room_id: '!old:example.org', state: 'left' } as RoomListItemView;
-  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(room)) });
+  Object.assign(core.rpc.rooms, { listItem: vi.fn(() => Promise.resolve(room)) });
   render(RoomPage);
   await settle();
 
@@ -98,7 +100,7 @@ test('a space opened as a room is sent to its lobby', async () => {
     state: 'joined',
     is_space: true,
   } as RoomListItemView;
-  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(space)) });
+  Object.assign(core.rpc.rooms, { listItem: vi.fn(() => Promise.resolve(space)) });
   render(RoomPage);
   await settle();
 
@@ -115,7 +117,7 @@ test('the event timeline opens a space as a normal room', async () => {
     state: 'joined',
     is_space: true,
   } as RoomListItemView;
-  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(space)) });
+  Object.assign(core.rpc.rooms, { listItem: vi.fn(() => Promise.resolve(space)) });
   render(RoomPage);
   await settle();
 
@@ -129,7 +131,7 @@ test('on the mobile layout the room mounts a frame after the route, behind the d
   };
   happyDOM.setViewport({ width: 400 });
   const room = { room_id: '!old:example.org', state: 'joined' } as RoomListItemView;
-  Object.assign(core, { roomListItem: vi.fn(() => Promise.resolve(room)) });
+  Object.assign(core.rpc.rooms, { listItem: vi.fn(() => Promise.resolve(room)) });
   render(RoomPage);
   await settle();
 

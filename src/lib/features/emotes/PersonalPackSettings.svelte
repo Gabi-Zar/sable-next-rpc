@@ -26,7 +26,7 @@
 
   async function load(): Promise<void> {
     try {
-      const packs = await core.rpc.packs.allImagePacks();
+      const packs = await core.rpc.packs.listAll();
       if (!alive) return;
       pack = packs.find((candidate) => candidate.origin === 'account') ?? null;
     } catch (error) {
@@ -35,7 +35,7 @@
   }
 
   async function apply(draft: PackDraft): Promise<void> {
-    await core.rpc.packs.saveImagePack({
+    await core.rpc.packs.save({
       target: { kind: 'account' },
       draft: $state.snapshot(draft),
     });

@@ -120,7 +120,7 @@
     manageable.clear();
     for (const spaceId of candidates) {
       void core.rpc.members
-        .roomPermissions({ room_id: spaceId })
+        .permissions({ room_id: spaceId })
         .then((permissions) => {
           if (run !== manageableRun || !permissions.can_manage_children) return;
           manageable.add(spaceId);
@@ -135,7 +135,7 @@
     const run = ++inviteRun;
     canInvite = false;
     void core.rpc.members
-      .roomPermissions({ room_id: room.room_id })
+      .permissions({ room_id: room.room_id })
       .then((permissions) => {
         if (run !== inviteRun) return;
         canInvite = permissions.can_invite;
@@ -163,7 +163,7 @@
         joinableParents = parents.map((parent) => ({ ...parent, name: null }));
         for (const parent of parents) {
           void core.rpc.rooms
-            .roomPreview({ address: parent.room_id, via: parent.via })
+            .preview({ address: parent.room_id, via: parent.via })
             .then((preview) => {
               if (run !== parentsRun) return;
               joinableParents = joinableParents.map((entry) =>
@@ -207,7 +207,7 @@
     const next = !current;
     pendingTags.set(tag, next);
     void core.rpc.rooms
-      .setRoomTag({ room_id: room.room_id, tag, set: next })
+      .setTag({ room_id: room.room_id, tag, set: next })
       .catch((error: unknown) => {
         pendingTags.delete(tag);
         report(error);
@@ -224,15 +224,13 @@
   function addToSpaces(spaceIds: string[]): void {
     for (const spaceId of spaceIds) {
       void core.rpc.spaces
-        .addToSpace({ space_id: spaceId, room_id: room.room_id, suggested: null })
+        .add({ space_id: spaceId, room_id: room.room_id, suggested: null })
         .catch(report);
     }
   }
 
   function removeFromSpace(spaceId: string): void {
-    void core.rpc.spaces
-      .removeFromSpace({ space_id: spaceId, room_id: room.room_id })
-      .catch(report);
+    void core.rpc.spaces.remove({ space_id: spaceId, room_id: room.room_id }).catch(report);
   }
 
   function markRead(): void {

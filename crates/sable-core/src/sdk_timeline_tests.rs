@@ -33,12 +33,11 @@ use super::{
     session::{self, Session},
     store::MemorySessionStore,
 };
-use crate::api::packs::ConvertLegacyImagePacksParams;
-use crate::api::room_state::{RoomStateEventParams, SendStateEventParams};
+use crate::api::packs::ConvertLegacyParams;
+use crate::api::room_state::{EventParams, SendEventParams};
 use crate::api::timeline::{
     MarkReadParams, MarkUnreadParams, PaginateOk, PaginateParams, ReadMarkerParams,
-    SetPinnedParams, SubscribeTimelineOk, SubscribeTimelineParams, UnsubscribeParams,
-    WarmRoomsParams,
+    SetPinnedParams, SubscribeOk, SubscribeParams, UnsubscribeParams, WarmRoomsParams,
 };
 use crate::timelines::build_room_timeline;
 
@@ -389,14 +388,14 @@ async fn custom_room_state_reads_from_the_server_when_not_in_the_store() {
     });
 
     let content = core
-        .run(RoomStateEventParams {
+        .run(EventParams {
             room_id: room_id.to_owned(),
             event_type: event_type.to_owned(),
             state_key: String::new(),
         })
         .await
         .unwrap()
-        .0;
+        .map(|json| json.0);
 
     assert_eq!(content, Some(json!({"url": "mxc://example.org/banner"})));
 }
@@ -421,14 +420,14 @@ async fn read_state(
     room_id: &matrix_sdk::ruma::RoomId,
     event_type: &str,
 ) -> Option<serde_json::Value> {
-    core.run(RoomStateEventParams {
+    core.run(EventParams {
         room_id: room_id.to_owned(),
         event_type: event_type.to_owned(),
         state_key: String::new(),
     })
     .await
     .unwrap()
-    .0
+    .map(|json| json.0)
 }
 
 #[tokio::test]
@@ -462,7 +461,7 @@ async fn reopening_a_room_reuses_the_state_it_probed() {
 
     let core = core_for(&server, client).await;
     for _ in 0..2 {
-        core.run(crate::api::rooms::RoomOpenParams {
+        core.run(crate::api::rooms::OpenParams {
             room_id: room_id.to_owned(),
         })
         .await
@@ -513,10 +512,10 @@ async fn opening_a_room_and_its_cosmetics_fetch_its_state_once() {
 
     let core = core_for(&server, client).await;
     let (open, cosmetics) = tokio::join!(
-        core.run(crate::api::rooms::RoomOpenParams {
+        core.run(crate::api::rooms::OpenParams {
             room_id: room_id.to_owned(),
         }),
-        core.run(crate::api::rooms::RoomCosmeticsParams {
+        core.run(crate::api::rooms::CosmeticsParams {
             room_id: room_id.to_owned(),
             space_id: None,
         })
@@ -570,7 +569,7 @@ async fn a_limited_sync_right_after_a_member_load_does_not_refetch_members() {
     server.mock_room_state_encryption().plain().mount().await;
 
     let core = core_for(&server, client.clone()).await;
-    let members = || crate::api::members::RoomMembersParams {
+    let members = || crate::api::members::ListParams {
         room_id: room_id.to_owned(),
         memberships: Vec::new(),
     };
@@ -614,7 +613,7 @@ async fn missing_room_state_is_remembered_until_it_is_written() {
     assert_eq!(read_state(&core, room_id, event_type).await, None);
     assert_eq!(read_state(&core, room_id, event_type).await, None);
 
-    core.run(SendStateEventParams {
+    core.run(SendEventParams {
         room_id: room_id.to_owned(),
         event_type: event_type.to_owned(),
         state_key: String::new(),
@@ -797,7 +796,7 @@ async fn a_legacy_pack_is_copied_verbatim_to_the_stable_type() {
         .await;
 
     let core = core_for(&server, client).await;
-    core.run(ConvertLegacyImagePacksParams {
+    core.run(ConvertLegacyParams {
         room_id: room_id.to_owned(),
         state_keys: vec!["stickers".to_owned()],
     })
@@ -835,7 +834,7 @@ async fn a_legacy_pack_keyed_by_a_file_path_is_copied_under_a_generated_key() {
         .await;
 
     let core = core_for(&server, client).await;
-    core.run(ConvertLegacyImagePacksParams {
+    core.run(ConvertLegacyParams {
         room_id: room_id.to_owned(),
         state_keys: vec![r"E:\temp".to_owned()],
     })
@@ -858,7 +857,7 @@ async fn a_written_state_event_is_read_back_until_sync_delivers_it() {
 
     let core = core_for(&server, client.clone()).await;
     core.watch_room_state(&client);
-    core.run(SendStateEventParams {
+    core.run(SendEventParams {
         room_id: room_id.to_owned(),
         event_type: event_type.to_owned(),
         state_key: String::new(),
@@ -907,7 +906,7 @@ async fn warmed_rooms_join_the_subscription_set_up_to_a_cap() {
     }
 
     let core = core_for(&server, client).await;
-    core.run(SubscribeTimelineParams {
+    core.run(SubscribeParams {
         room_id: open_room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -950,11 +949,11 @@ async fn an_opened_room_stays_subscribed_after_another_room_opens() {
     server.mock_room_state_encryption().plain().mount().await;
 
     let core = core_for(&server, client).await;
-    let SubscribeTimelineOk {
+    let SubscribeOk {
         subscription: first,
         ..
     } = core
-        .run(SubscribeTimelineParams {
+        .run(SubscribeParams {
             room_id: first_room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
@@ -966,7 +965,7 @@ async fn an_opened_room_stays_subscribed_after_another_room_opens() {
     })
     .await
     .unwrap();
-    core.run(SubscribeTimelineParams {
+    core.run(SubscribeParams {
         room_id: second_room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -999,22 +998,22 @@ async fn timeline_subscriptions_remain_active_until_each_is_unsubscribed() {
         oauth: false,
     });
 
-    let SubscribeTimelineOk {
+    let SubscribeOk {
         subscription: first,
         ..
     } = core
-        .run(SubscribeTimelineParams {
+        .run(SubscribeParams {
             room_id: first_room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
         })
         .await
         .unwrap();
-    let SubscribeTimelineOk {
+    let SubscribeOk {
         subscription: second,
         ..
     } = core
-        .run(SubscribeTimelineParams {
+        .run(SubscribeParams {
             room_id: second_room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
@@ -1060,8 +1059,8 @@ async fn live_timeline_reports_its_back_pagination_status() {
         oauth: false,
     });
 
-    let SubscribeTimelineOk { subscription, .. } = core
-        .run(SubscribeTimelineParams {
+    let SubscribeOk { subscription, .. } = core
+        .run(SubscribeParams {
             room_id: room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,
@@ -1239,7 +1238,7 @@ async fn a_sticker_reaches_the_server_as_an_m_sticker_event() {
         oauth: false,
     });
 
-    core.run(SubscribeTimelineParams {
+    core.run(SubscribeParams {
         room_id: room_id.to_owned(),
         focus: TimelineFocusView::Live,
         hidden_events: false,
@@ -1412,7 +1411,7 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
                 homeserver: server.server().uri(),
                 oauth: false,
             });
-            core.run(SubscribeTimelineParams {
+            core.run(SubscribeParams {
                 room_id: room_id.to_owned(),
                 focus: TimelineFocusView::Live,
                 hidden_events: false,
@@ -4156,7 +4155,7 @@ async fn a_new_calendar_room_is_set_up_by_its_creator() {
         oauth: false,
     });
 
-    core.run(crate::api::rooms::CreateRoomParams {
+    core.run(crate::api::rooms::CreateParams {
         name: Some("Raids".to_owned()),
         topic: None,
         kind: crate::api::rooms::CreateRoomKind::Calendar,
@@ -4205,7 +4204,7 @@ async fn an_encrypted_private_space_includes_encryption_in_its_creation_request(
         oauth: false,
     });
 
-    core.run(crate::api::rooms::CreateRoomParams {
+    core.run(crate::api::rooms::CreateParams {
         name: Some("Private space".to_owned()),
         topic: None,
         kind: crate::api::rooms::CreateRoomKind::Space,
@@ -4385,8 +4384,8 @@ async fn an_emptied_state_event_is_a_state_event_not_a_deleted_message() {
 
 #[expect(clippy::unwrap_used, reason = "test code")]
 async fn subscribe_live(core: &Arc<Core>, room_id: &matrix_sdk::ruma::RoomId) -> SubscriptionId {
-    let SubscribeTimelineOk { subscription, .. } = core
-        .run(SubscribeTimelineParams {
+    let SubscribeOk { subscription, .. } = core
+        .run(SubscribeParams {
             room_id: room_id.to_owned(),
             focus: TimelineFocusView::Live,
             hidden_events: false,

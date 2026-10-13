@@ -1,3 +1,4 @@
+import type { RoomPermissionsView } from '#src/generated/protocol';
 // @vitest-environment happy-dom
 
 import { render, screen, within } from '@testing-library/svelte';
@@ -34,7 +35,9 @@ vi.mock('#lib/core/context.js');
 import { core } from '#lib/core/__mocks__/context.js';
 import type { SidebarFolder } from '#lib/spaces/sidebar-layout.js';
 
-core.roomPermissions.mockResolvedValue({ can_manage_children: false });
+core.rpc.members.permissions.mockResolvedValue({
+  can_manage_children: false,
+} as RoomPermissionsView);
 
 import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
 

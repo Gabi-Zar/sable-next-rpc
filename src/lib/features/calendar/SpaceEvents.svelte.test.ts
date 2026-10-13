@@ -24,9 +24,9 @@ const yesterday = new Date(Date.now() - 86_400_000);
 const tomorrow = new Date(Date.now() + 86_400_000);
 const today = new Date();
 
-Object.assign(baseCore, {
-  subscribeEvents: vi.fn(() => () => undefined),
-  calendarEntries: vi.fn((): Promise<CalendarView> =>
+Object.assign(baseCore, { subscribeEvents: vi.fn(() => () => undefined) });
+Object.assign(baseCore.rpc.calendar, {
+  entries: vi.fn((): Promise<CalendarView> =>
     Promise.resolve({
       entries: [
         {

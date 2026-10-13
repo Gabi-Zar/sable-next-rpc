@@ -18,7 +18,11 @@ const ROOM = '!room:example.org';
 const scheduledMessages = vi.fn();
 const cancelScheduledMessage = vi.fn();
 const sendScheduledMessage = vi.fn();
-Object.assign(core, { scheduledMessages, cancelScheduledMessage, sendScheduledMessage });
+Object.assign(core.rpc.messages, {
+  scheduled: scheduledMessages,
+  cancelScheduled: cancelScheduledMessage,
+  sendScheduled: sendScheduledMessage,
+});
 
 afterEach(() => {
   for (const toast of toasts.items) toasts.dismiss(toast.id);
@@ -109,7 +113,7 @@ test('a failed send-now puts the message back and says so', async () => {
 test('sending a queued message now takes it off the queue, and a failure puts it back', async () => {
   scheduledMessages.mockResolvedValue([]);
   const sendMessage = vi.fn().mockRejectedValue(new Error('offline'));
-  Object.assign(core, { sendMessage });
+  Object.assign(core.rpc.messages, { send: sendMessage });
   const queued = {
     id: 'q1',
     roomId: ROOM,

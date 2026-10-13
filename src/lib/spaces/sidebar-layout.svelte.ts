@@ -41,7 +41,7 @@ export class SpaceSidebar {
     });
 
     try {
-      const items = await core.rpc.spaces.spaceSidebar();
+      const items = await core.rpc.spaces.sidebar();
       if (generation === this.generation) this.setItems(items);
     } catch (error) {
       console.debug('[sable nav] space layout unavailable', error);
@@ -67,7 +67,7 @@ export class SpaceSidebar {
     this.pending = pending;
     this.setItems(items);
 
-    void core.rpc.spaces.setSpaceSidebar({ items }).then(
+    void core.rpc.spaces.setSidebar({ items }).then(
       () => {
         if (this.pending === pending) pending.stored = true;
       },

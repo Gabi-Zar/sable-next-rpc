@@ -39,7 +39,7 @@
     busy = true;
     failed = false;
     try {
-      await core.rpc.packs.addAccountPackImages({
+      await core.rpc.packs.addAccountImages({
         images: await uploadCandidates(core, $state.snapshot(picks)),
       });
       invalidatePacks(core.rpc);

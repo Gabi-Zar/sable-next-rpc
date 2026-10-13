@@ -119,13 +119,22 @@ impl EventSink {
     }
 }
 
+/// The method rides in a header and the params as raw JSON bytes, so they are parsed once.
 #[tauri::command]
 async fn call(
     state: State<'_, AppState>,
-    method: String,
-    params: String,
+    request: tauri::ipc::Request<'_>,
 ) -> Result<Box<serde_json::value::RawValue>, RpcError> {
-    Box::pin(state.core.call(&method, &params)).await
+    let method = request
+        .headers()
+        .get("rpc-method")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(RpcError::Unsupported)?;
+    let tauri::ipc::InvokeBody::Raw(params) = request.body() else {
+        return Err(RpcError::Unsupported);
+    };
+    let params = std::str::from_utf8(params).map_err(|_| RpcError::Unsupported)?;
+    Box::pin(state.core.call(method, params)).await
 }
 
 #[tauri::command]

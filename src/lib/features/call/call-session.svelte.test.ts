@@ -108,7 +108,7 @@ function harness(
   const setCallScreenSharing = vi.fn(() => Promise.resolve());
 
   const client = {
-    rpc: { calls: { joinCall, leaveCall, setCallScreenSharing } },
+    rpc: { calls: { join: joinCall, leave: leaveCall, setScreenSharing: setCallScreenSharing } },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
       listeners.add(listener);
       return () => listeners.delete(listener);
@@ -365,7 +365,7 @@ test('a key emitted during the join is not lost', async () => {
   const client = {
     rpc: {
       calls: {
-        joinCall: vi.fn(() => {
+        join: vi.fn(() => {
           listeners.forEach((listener) => {
             listener(ownKey());
           });
@@ -377,7 +377,7 @@ test('a key emitted during the join is not lost', async () => {
             encrypt_media: true,
           });
         }),
-        leaveCall: vi.fn(() => Promise.resolve()),
+        leave: vi.fn(() => Promise.resolve()),
       },
     },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
@@ -492,7 +492,7 @@ test('a key arriving while the transport is still being built is not lost', asyn
   const client = {
     rpc: {
       calls: {
-        joinCall: vi.fn(() =>
+        join: vi.fn(() =>
           Promise.resolve({
             session: 7,
             url: 'wss://sfu.example.org',
@@ -501,7 +501,7 @@ test('a key arriving while the transport is still being built is not lost', asyn
             encrypt_media: true,
           })
         ),
-        leaveCall: vi.fn(() => Promise.resolve()),
+        leave: vi.fn(() => Promise.resolve()),
       },
     },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {
@@ -574,7 +574,7 @@ function livekitHarness() {
   const client = {
     rpc: {
       calls: {
-        joinCall: vi.fn(() =>
+        join: vi.fn(() =>
           Promise.resolve({
             session: 7,
             url: 'wss://sfu.example.org',
@@ -583,7 +583,7 @@ function livekitHarness() {
             encrypt_media: true,
           })
         ),
-        leaveCall: vi.fn(() => Promise.resolve()),
+        leave: vi.fn(() => Promise.resolve()),
       },
     },
     subscribeEvents: (listener: (event: CoreEvent) => void) => {

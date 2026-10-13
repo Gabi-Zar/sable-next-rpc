@@ -48,7 +48,7 @@
     failed = false;
 
     core.rpc.rooms
-      .roomPreview({
+      .preview({
         address,
         via: viaFor(
           address,
@@ -86,7 +86,7 @@
   async function routingFor(): Promise<string[]> {
     const known = viaFor(address, listed);
     if (known.length > 0 || parent.parentId === null) return known;
-    return core.rpc.rooms.roomViaServers({ room_id: parent.parentId });
+    return core.rpc.rooms.viaServers({ room_id: parent.parentId });
   }
 
   async function join(): Promise<void> {
@@ -125,7 +125,7 @@
     busy = true;
     failedAction = null;
     try {
-      await core.rpc.rooms.leaveRoom({ room_id: preview.room_id });
+      await core.rpc.rooms.leave({ room_id: preview.room_id });
       sentKnock = false;
       withdrew = true;
     } catch (error) {

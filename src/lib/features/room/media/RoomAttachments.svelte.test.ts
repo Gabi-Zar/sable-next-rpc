@@ -14,7 +14,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 import RoomAttachments from './RoomAttachments.svelte';
 
 const roomAttachments = vi.fn();
-Object.assign(core, { roomAttachments });
+Object.assign(core.rpc.rooms, { attachments: roomAttachments });
 
 afterEach(() => {
   roomAttachments.mockReset();

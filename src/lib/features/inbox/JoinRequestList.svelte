@@ -50,9 +50,9 @@
     );
     const results = await Promise.allSettled(
       rooms.map(async (room): Promise<JoinRequest[]> => {
-        const permissions = await core.rpc.members.roomPermissions({ room_id: room.room_id });
+        const permissions = await core.rpc.members.permissions({ room_id: room.room_id });
         if (!permissions.can_invite && !permissions.can_kick) return [];
-        const members = await core.rpc.members.roomMembers({
+        const members = await core.rpc.members.list({
           room_id: room.room_id,
           memberships: ['knock'],
         });
@@ -75,8 +75,7 @@
     busy = true;
     actionFailed = false;
     try {
-      if (approve)
-        await core.rpc.rooms.inviteUser({ room_id: room.room_id, user_id: member.user_id });
+      if (approve) await core.rpc.rooms.invite({ room_id: room.room_id, user_id: member.user_id });
       else await core.rpc.members.denyKnock({ room_id: room.room_id, user_id: member.user_id });
       answered.add(key(request));
     } catch (error) {

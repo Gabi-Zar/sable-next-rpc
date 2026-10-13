@@ -40,7 +40,7 @@ pnpm test:e2e        # Playwright against a fake core, no homeserver needed
 pnpm test:timeline   # the timeline scenarios, with their own config
 ```
 
-The e2e specs talk to `tests/e2e/fake-core.ts`, which answers commands from scripts. A new `Command` variant that a route calls on mount needs a branch there. Run the specs from a clean worktree: a `pnpm` command that reinstalls mid-run breaks the Playwright teardown.
+The e2e specs talk to `tests/e2e/fake-core.ts`, which answers commands from scripts. A new RPC method that a route calls on mount needs an entry in its `rpcHandlers`, keyed by the wire name (`'rooms.open'`). Run the specs from a clean worktree: a `pnpm` command that reinstalls mid-run breaks the Playwright teardown.
 
 ## Rust
 

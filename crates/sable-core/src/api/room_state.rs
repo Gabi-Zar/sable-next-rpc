@@ -7,49 +7,50 @@ use matrix_sdk::ruma::serde::Raw;
 use serde::{Deserialize, Serialize};
 use sable_model::bot_commands::BotCommand;
 
-use super::Handler;
+use super::{Handler, Json};
 use crate::protocol::{AbbreviationView, RpcError, HistoryVisibilityView, JoinRuleView, RoomStateEventView};
 use crate::{Core, ResultExt};
 use crate::media::mxc_uri;
 use crate::room_settings::AclEdit;
 
 domain! {
-    set_room_name,
-    set_room_topic,
-    set_room_avatar,
-    set_room_join_rule,
+    set_name,
+    set_topic,
+    set_avatar,
+    set_join_rule,
     history_visibility,
     set_history_visibility,
     enable_encryption,
-    room_banner,
-    set_room_banner,
+    banner,
+    set_banner,
     member_list_threshold,
     set_member_list_threshold,
     update_server_acl,
-    room_abbreviations,
-    set_room_abbreviations,
-    room_state_event,
-    room_state_events,
-    room_state_events_raw,
-    room_full_state,
-    send_state_event,
-    room_account_data,
-    set_room_account_data,
-    room_account_data_raw,
-    add_room_widget,
-    remove_room_widget,
+    abbreviations,
+    set_abbreviations,
+    event,
+    events,
+    events_raw,
+    full_state,
+    send_event,
+    account_data,
+    set_account_data,
+    account_data_raw,
+    add_widget,
+    remove_widget,
     bot_commands,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomNameParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetNameParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub name: Option<String>,
 }
 
-impl Handler for SetRoomNameParams {
+impl Handler for SetNameParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -64,14 +65,14 @@ impl Handler for SetRoomNameParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomTopicParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetTopicParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub topic: String,
 }
 
-impl Handler for SetRoomTopicParams {
+impl Handler for SetTopicParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -85,14 +86,15 @@ impl Handler for SetRoomTopicParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomAvatarParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetAvatarParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub url: Option<String>,
 }
 
-impl Handler for SetRoomAvatarParams {
+impl Handler for SetAvatarParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -117,14 +119,14 @@ impl Handler for SetRoomAvatarParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomJoinRuleParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetJoinRuleParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub rule: JoinRuleView,
 }
 
-impl Handler for SetRoomJoinRuleParams {
+impl Handler for SetJoinRuleParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -133,7 +135,7 @@ impl Handler for SetRoomJoinRuleParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct HistoryVisibilityParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -148,7 +150,7 @@ impl Handler for HistoryVisibilityParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetHistoryVisibilityParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -159,14 +161,14 @@ impl Handler for SetHistoryVisibilityParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.set_history_visibility(self.room_id, self.visibility)
+        core.set_history_visibility(self)
             .await
     }
 }
 
 /// Cannot be undone.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct EnableEncryptionParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -176,18 +178,18 @@ impl Handler for EnableEncryptionParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.enable_encryption(self.room_id).await
+        core.enable_encryption(self).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomBannerParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct BannerParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomBannerParams {
+impl Handler for BannerParams {
     type Ok = Option<String>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
@@ -196,14 +198,15 @@ impl Handler for RoomBannerParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomBannerParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetBannerParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub url: Option<String>,
 }
 
-impl Handler for SetRoomBannerParams {
+impl Handler for SetBannerParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -214,14 +217,14 @@ impl Handler for SetRoomBannerParams {
 
 /// The power level from which members are listed whatever their presence.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct MemberListThresholdParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 #[serde(transparent)]
 pub struct MemberListThresholdOk(
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
@@ -239,11 +242,12 @@ impl Handler for MemberListThresholdParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetMemberListThresholdParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
+    #[serde(default)]
     pub always_listed_from: Option<i64>,
 }
 
@@ -251,14 +255,14 @@ impl Handler for SetMemberListThresholdParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.set_member_list_threshold(self.room_id, self.always_listed_from)
+        core.set_member_list_threshold(self)
             .await
     }
 }
 
 /// Server globs to add to and remove from each list.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UpdateServerAclParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -283,13 +287,13 @@ impl Handler for UpdateServerAclParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomAbbreviationsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AbbreviationsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomAbbreviationsParams {
+impl Handler for AbbreviationsParams {
     type Ok = Vec<AbbreviationView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<AbbreviationView>, RpcError> {
@@ -298,14 +302,14 @@ impl Handler for RoomAbbreviationsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomAbbreviationsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetAbbreviationsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub entries: Vec<AbbreviationView>,
 }
 
-impl Handler for SetRoomAbbreviationsParams {
+impl Handler for SetAbbreviationsParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -315,41 +319,33 @@ impl Handler for SetRoomAbbreviationsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomStateEventParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct EventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
     pub state_key: String,
 }
 
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(transparent)]
-pub struct RoomStateEventOk(
-    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Unknown>))]
-    pub  Option<serde_json::Value>,
-);
+impl Handler for EventParams {
+    type Ok = Option<Json>;
 
-impl Handler for RoomStateEventParams {
-    type Ok = RoomStateEventOk;
-
-    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<Json>, RpcError> {
         core.room_state_event_content(self.room_id, self.event_type, self.state_key)
             .await
-            .map(RoomStateEventOk)
+            .map(|content| content.map(Json))
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomStateEventsParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct EventsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
 }
 
-impl Handler for RoomStateEventsParams {
+impl Handler for EventsParams {
     type Ok = Vec<RoomStateEventView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<RoomStateEventView>, RpcError> {
@@ -359,8 +355,8 @@ impl Handler for RoomStateEventsParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomStateEventsRawParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct EventsRawParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
@@ -368,55 +364,46 @@ pub struct RoomStateEventsRawParams {
     pub state_key: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(transparent)]
-pub struct RoomStateEventsRawOk(
-    #[cfg_attr(feature = "typegen", specta(type = Vec<specta_typescript::Unknown>))]
-    pub  Vec<serde_json::Value>,
-);
+impl Handler for EventsRawParams {
+    type Ok = Vec<Json>;
 
-impl Handler for RoomStateEventsRawParams {
-    type Ok = RoomStateEventsRawOk;
-
-    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventsRawOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<Json>, RpcError> {
         core.room_state_events_raw(&self.room_id, &self.event_type, self.state_key.as_deref())
             .await
-            .map(RoomStateEventsRawOk)
+            .map(|events| events.into_iter().map(Json).collect())
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomFullStateParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct FullStateParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RoomFullStateParams {
-    type Ok = RoomStateEventsRawOk;
+impl Handler for FullStateParams {
+    type Ok = Vec<Json>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomStateEventsRawOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<Json>, RpcError> {
         let client = core.client().await?;
         let response = client
             .send(get_state_events::v3::Request::new(self.room_id))
             .await
             .or_failed(core, "room_full_state")?;
-        Ok(RoomStateEventsRawOk(
-            response
-                .room_state
-                .iter()
-                .filter_map(|raw| raw.deserialize_as::<serde_json::Value>().ok())
-                .collect(),
-        ))
+        Ok(response
+            .room_state
+            .iter()
+            .filter_map(|raw| raw.deserialize_as::<serde_json::Value>().ok())
+            .map(Json)
+            .collect())
     }
 }
 
 /// Escape hatch for unmodelled state. `content` is validated only by the
 /// server, so prefer a typed command.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SendStateEventParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendEventParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
@@ -425,7 +412,7 @@ pub struct SendStateEventParams {
     pub content: serde_json::Value,
 }
 
-impl Handler for SendStateEventParams {
+impl Handler for SendEventParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
@@ -436,25 +423,17 @@ impl Handler for SendStateEventParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomAccountDataParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AccountDataParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
 }
 
-#[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(transparent)]
-pub struct RoomAccountDataOk(
-    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Unknown>))]
-    pub  Option<serde_json::Value>,
-);
+impl Handler for AccountDataParams {
+    type Ok = Option<Json>;
 
-impl Handler for RoomAccountDataParams {
-    type Ok = RoomAccountDataOk;
-
-    async fn run(self, core: &Arc<Core>) -> Result<RoomAccountDataOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<Json>, RpcError> {
         let event = core
             .room(&self.room_id)
             .await?
@@ -462,15 +441,15 @@ impl Handler for RoomAccountDataParams {
             .await
             .map_err(|error| core.room_error("room_account_data", error))?;
 
-        Ok(RoomAccountDataOk(event.and_then(|raw| {
-            raw.get_field::<serde_json::Value>("content").ok().flatten()
-        })))
+        Ok(event
+            .and_then(|raw| raw.get_field::<serde_json::Value>("content").ok().flatten())
+            .map(Json))
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetRoomAccountDataParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetAccountDataParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
@@ -478,7 +457,7 @@ pub struct SetRoomAccountDataParams {
     pub content: serde_json::Value,
 }
 
-impl Handler for SetRoomAccountDataParams {
+impl Handler for SetAccountDataParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -495,34 +474,34 @@ impl Handler for SetRoomAccountDataParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RoomAccountDataRawParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AccountDataRawParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub event_type: String,
 }
 
-impl Handler for RoomAccountDataRawParams {
-    type Ok = RoomAccountDataOk;
+impl Handler for AccountDataRawParams {
+    type Ok = Option<Json>;
 
-    async fn run(self, core: &Arc<Core>) -> Result<RoomAccountDataOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<Option<Json>, RpcError> {
         core.room_account_data_raw(&self.room_id, &self.event_type)
             .await
-            .map(RoomAccountDataOk)
+            .map(|content| content.map(Json))
     }
 }
 
 /// A custom widget whose URL is given the template variables hosts fill in.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AddRoomWidgetParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AddWidgetParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub name: String,
     pub url: String,
 }
 
-impl Handler for AddRoomWidgetParams {
+impl Handler for AddWidgetParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
@@ -532,14 +511,14 @@ impl Handler for AddRoomWidgetParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RemoveRoomWidgetParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RemoveWidgetParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
     pub widget_id: String,
 }
 
-impl Handler for RemoveRoomWidgetParams {
+impl Handler for RemoveWidgetParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -549,7 +528,7 @@ impl Handler for RemoveRoomWidgetParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct BotCommandsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,

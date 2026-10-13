@@ -69,7 +69,7 @@
 
     const current = ++run;
     void core.rpc.room_state
-      .roomStateEventsRaw({ room_id: target, event_type: 'm.space.parent', state_key: null })
+      .eventsRaw({ room_id: target, event_type: 'm.space.parent', state_key: null })
       .then((events) => {
         if (current !== run) return;
         parents = (events as ParentEvent[]).flatMap((event) =>

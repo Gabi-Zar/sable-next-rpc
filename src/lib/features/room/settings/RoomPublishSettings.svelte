@@ -39,7 +39,7 @@
     const current = ++run;
     published = null;
     void core.rpc.rooms
-      .roomDirectoryVisibility({ room_id: target })
+      .directoryVisibility({ room_id: target })
       .then((next) => {
         if (current === run) published = next;
       })
@@ -57,7 +57,7 @@
     published = next;
     saving = true;
     try {
-      await core.rpc.rooms.setRoomDirectoryVisibility({ room_id: target, public: next });
+      await core.rpc.rooms.setDirectoryVisibility({ room_id: target, public: next });
     } catch (error) {
       console.warn('[sable room] directory visibility change failed', error);
       published = previous;

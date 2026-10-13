@@ -14,10 +14,10 @@ function view(roomId: string): SpaceHierarchyRoomView {
 function fakeCore(
   spaceHierarchy: (params: { space_id: string; from: string | null }) => Promise<Page>
 ) {
-  const spaces = { spaceHierarchy: vi.fn(spaceHierarchy) };
+  const spaces = { hierarchy: vi.fn(spaceHierarchy) };
   return {
     core: { session: { account_id: 'account' }, rpc: { spaces } } as unknown as CoreClient,
-    spaceHierarchy: spaces.spaceHierarchy,
+    spaceHierarchy: spaces.hierarchy,
   };
 }
 

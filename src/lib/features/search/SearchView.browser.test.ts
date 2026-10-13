@@ -66,14 +66,14 @@ const rooms = [
 async function mount() {
   Object.assign(core, {
     session: { user_id: '@me:example.org' },
-    searchCoverage: null,
     searchCoverageUnavailable: false,
+    searchCoverage: null,
     refreshSearchCoverage: vi.fn().mockResolvedValue(undefined),
-    rpc: { account: { searchUserDirectory: vi.fn().mockResolvedValue([]) } },
+    rpc: {
+      account: { searchUserDirectory: vi.fn().mockResolvedValue([]) },
+      search: { messages: vi.fn().mockResolvedValue({ hits: [], older: null }) },
+    },
   });
-  core.commands = {
-    searchMessages: vi.fn().mockResolvedValue({ hits: [], older: null }),
-  };
   const screen = await render(SearchView);
   const field = screen.getByRole('combobox', { name: en.common.searchMessages });
   const listbox = screen.getByRole('listbox', { name: en.search.suggestions });

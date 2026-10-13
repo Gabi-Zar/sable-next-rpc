@@ -1,3 +1,4 @@
+use crate::api::encryption::ContinueIdentityResetParams;
 use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -105,7 +106,7 @@ impl Core {
 
     pub(crate) async fn continue_identity_reset(
         &self,
-        password: Option<String>,
+        ContinueIdentityResetParams { password }: ContinueIdentityResetParams,
     ) -> Result<String, RpcError> {
         let client = self.client().await?;
         let generation = self.session_generation.load(Ordering::SeqCst);

@@ -1,7 +1,10 @@
+use crate::api::encryption::DeleteDeviceParams;
+use crate::api::session::RemoveAccountParams;
+use crate::api::session::SwitchAccountParams;
 use std::sync::{Arc, atomic::Ordering};
 
 use matrix_sdk::executor::{JoinHandleExt, spawn};
-use matrix_sdk::ruma::OwnedDeviceId;
+
 use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, Password, UserIdentifier};
 use matrix_sdk_ui::sync_service::State as SyncState;
 
@@ -33,8 +36,10 @@ impl SessionGeneration<'_> {
 impl Core {
     pub(crate) async fn delete_device(
         &self,
-        device_id: OwnedDeviceId,
-        password: Option<String>,
+        DeleteDeviceParams {
+            device_id,
+            password,
+        }: DeleteDeviceParams,
     ) -> Result<Option<String>, RpcError> {
         let client = self.client().await?;
         let devices = [device_id];
@@ -180,7 +185,7 @@ impl Core {
 
     pub(crate) async fn switch_account(
         self: &Arc<Self>,
-        account_id: String,
+        SwitchAccountParams { account_id }: SwitchAccountParams,
     ) -> Result<SessionInfo, RpcError> {
         let _restore = self.restore_lock.lock().await;
         if let Some(session) = self.active_session_info().await
@@ -266,7 +271,10 @@ impl Core {
 
     /// The active session must be signed out through `logout` so its sync
     /// service is stopped cleanly.
-    pub(crate) async fn remove_inactive_account(&self, account_id: String) -> Result<(), RpcError> {
+    pub(crate) async fn remove_inactive_account(
+        &self,
+        RemoveAccountParams { account_id }: RemoveAccountParams,
+    ) -> Result<(), RpcError> {
         if self
             .active_session_info()
             .await

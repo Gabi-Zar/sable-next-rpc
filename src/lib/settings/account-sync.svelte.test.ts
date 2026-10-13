@@ -22,16 +22,14 @@ function stubCore(
   const core = {
     rpc: {
       account: {
-        accountData: vi.fn(({ event_type }: { event_type: string }) =>
+        data: vi.fn(({ event_type }: { event_type: string }) =>
           Promise.resolve(remote[event_type] ?? null)
         ),
-        setAccountData: vi.fn(
-          ({ event_type, content }: { event_type: string; content: unknown }) => {
-            remote[event_type] = content;
-            return Promise.resolve(null);
-          }
-        ),
-        sealedAccountData: vi.fn(({ event_type }: { event_type: string }) => {
+        setData: vi.fn(({ event_type, content }: { event_type: string; content: unknown }) => {
+          remote[event_type] = content;
+          return Promise.resolve(null);
+        }),
+        sealedData: vi.fn(({ event_type }: { event_type: string }) => {
           const state = sealing.states[event_type] ?? 'plain';
           return Promise.resolve({
             content: state === 'locked' ? null : (remote[event_type] ?? null),
@@ -39,7 +37,7 @@ function stubCore(
             can_seal: sealing.canSeal,
           });
         }),
-        setSealedAccountData: vi.fn(
+        setSealedData: vi.fn(
           ({ event_type, content }: { event_type: string; content: unknown }) => {
             remote[event_type] = content;
             sealing.states[event_type] = sealing.canSeal ? 'sealed' : 'plain';
@@ -115,7 +113,7 @@ describe('AccountSync', () => {
     await vi.runAllTimersAsync();
     expect(readDraft(roomId)).toBeUndefined();
     stopRestarted();
-    expect(commands.setSealedAccountData).toHaveBeenCalledWith({
+    expect(commands.setSealedData).toHaveBeenCalledWith({
       event_type: document.eventType,
       content: {
         v: 1,
@@ -133,7 +131,7 @@ describe('AccountSync', () => {
     new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
     expect(local.value).toBe('v1');
-    expect(commands.setAccountData).toHaveBeenCalledWith({
+    expect(commands.setData).toHaveBeenCalledWith({
       event_type: document.eventType,
       content: { v: 1, value: 'v1' },
     });
@@ -144,7 +142,7 @@ describe('AccountSync', () => {
     new AccountSync().start(current.core, [document]);
     await vi.runAllTimersAsync();
     expect(local.value).toBe('v2');
-    expect(current.commands.accountData).not.toHaveBeenCalledWith({ event_type: 'old.settings' });
+    expect(current.commands.data).not.toHaveBeenCalledWith({ event_type: 'old.settings' });
   });
   it('adopts what the account already holds', async () => {
     const local = { value: 'local' };
@@ -164,7 +162,7 @@ describe('AccountSync', () => {
     new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
 
-    expect(commands.setAccountData).toHaveBeenCalledWith({
+    expect(commands.setData).toHaveBeenCalledWith({
       event_type: document.eventType,
       content: {
         v: 1,
@@ -185,7 +183,7 @@ describe('AccountSync', () => {
     sync.push(document);
     await vi.runAllTimersAsync();
 
-    expect(commands.setAccountData).not.toHaveBeenCalled();
+    expect(commands.setData).not.toHaveBeenCalled();
   });
 
   it('does not upload an accepted missing document', async () => {
@@ -195,7 +193,7 @@ describe('AccountSync', () => {
     const stop = new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
 
-    expect(commands.setAccountData).not.toHaveBeenCalled();
+    expect(commands.setData).not.toHaveBeenCalled();
     stop();
   });
 
@@ -210,10 +208,10 @@ describe('AccountSync', () => {
 
     local.value = 'changed';
     sync.push(document);
-    expect(commands.setAccountData).not.toHaveBeenCalled();
+    expect(commands.setData).not.toHaveBeenCalled();
 
     await vi.runAllTimersAsync();
-    expect(commands.setAccountData).toHaveBeenCalledWith({
+    expect(commands.setData).toHaveBeenCalledWith({
       event_type: document.eventType,
       content: {
         v: 1,
@@ -229,7 +227,7 @@ describe('AccountSync', () => {
     new AccountSync().push(document);
     await vi.runAllTimersAsync();
 
-    expect(commands.setAccountData).not.toHaveBeenCalled();
+    expect(commands.setData).not.toHaveBeenCalled();
   });
 
   it('re-reads on an account data change from another device', async () => {
@@ -259,15 +257,15 @@ describe('AccountSync', () => {
     await vi.runAllTimersAsync();
 
     expect(local.value).toBe('local');
-    expect(commands.accountData).not.toHaveBeenCalled();
-    expect(commands.setAccountData).not.toHaveBeenCalled();
+    expect(commands.data).not.toHaveBeenCalled();
+    expect(commands.setData).not.toHaveBeenCalled();
   });
 
   it('reports a failed write and retries on the next change', async () => {
     const local = { value: 'local' };
     const document = stubDocument(local);
     const { core, commands } = stubCore({});
-    commands.setAccountData.mockRejectedValueOnce(new Error('offline'));
+    commands.setData.mockRejectedValueOnce(new Error('offline'));
 
     const sync = new AccountSync();
     sync.start(core, [document]);
@@ -279,7 +277,7 @@ describe('AccountSync', () => {
     await vi.runAllTimersAsync();
 
     expect(sync.status).toBe('idle');
-    expect(commands.setAccountData).toHaveBeenLastCalledWith({
+    expect(commands.setData).toHaveBeenLastCalledWith({
       event_type: document.eventType,
       content: { v: 1, value: 'again' },
     });
@@ -297,7 +295,7 @@ describe('AccountSync', () => {
     new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
 
-    const content = commands.setAccountData.mock.calls[0]?.[0].content;
+    const content = commands.setData.mock.calls[0]?.[0].content;
     themes[0].css = 'body { color: red }';
 
     expect(content).toEqual({ v: 1, themes: [{ id: 'one', css: 'body {}' }] });
@@ -321,8 +319,8 @@ describe('AccountSync', () => {
       await vi.runAllTimersAsync();
 
       expect(local.value).toBe('edited');
-      expect(commands.setSealedAccountData).not.toHaveBeenCalled();
-      expect(commands.sealedAccountData).toHaveBeenCalledTimes(1);
+      expect(commands.setSealedData).not.toHaveBeenCalled();
+      expect(commands.sealedData).toHaveBeenCalledTimes(1);
 
       sealing.canSeal = true;
       sealing.states[document.eventType] = 'sealed';
@@ -330,7 +328,7 @@ describe('AccountSync', () => {
       await vi.runAllTimersAsync();
 
       expect(local.value).toBe('remote');
-      expect(commands.setSealedAccountData).not.toHaveBeenCalled();
+      expect(commands.setSealedData).not.toHaveBeenCalled();
     });
 
     it('reseals a plaintext copy once the key is here, even when nothing changed', async () => {
@@ -345,9 +343,9 @@ describe('AccountSync', () => {
       new AccountSync().start(core, [document]);
       await vi.runAllTimersAsync();
 
-      expect(commands.setSealedAccountData).toHaveBeenCalledTimes(1);
+      expect(commands.setSealedData).toHaveBeenCalledTimes(1);
       expect(sealing.states[document.eventType]).toBe('sealed');
-      expect(commands.setAccountData).not.toHaveBeenCalled();
+      expect(commands.setData).not.toHaveBeenCalled();
     });
 
     it('does not reupload its own sealed echo', async () => {
@@ -368,7 +366,7 @@ describe('AccountSync', () => {
       announce(document.eventType);
       await vi.runAllTimersAsync();
 
-      expect(commands.setSealedAccountData).toHaveBeenCalledTimes(1);
+      expect(commands.setSealedData).toHaveBeenCalledTimes(1);
       expect(local.value).toBe('edited');
     });
   });

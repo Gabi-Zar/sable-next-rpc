@@ -8,28 +8,29 @@ use crate::protocol::{RpcError, SidebarItemView, SpaceHierarchyRoomView, SpacePa
 use crate::{Core, view};
 
 domain! {
-    add_to_space,
-    set_space_child_order,
-    set_space_child_suggested,
-    space_hierarchy,
-    remove_from_space,
-    space_sidebar,
-    set_space_sidebar,
+    add,
+    set_child_order,
+    set_child_suggested,
+    hierarchy,
+    remove,
+    sidebar,
+    set_sidebar,
     room_has_space_parent,
     unjoined_space_parents,
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct AddToSpaceParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AddParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub space_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub suggested: Option<bool>,
 }
 
-impl Handler for AddToSpaceParams {
+impl Handler for AddParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -39,16 +40,17 @@ impl Handler for AddToSpaceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetSpaceChildOrderParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetChildOrderParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub space_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
+    #[serde(default)]
     pub order: Option<String>,
 }
 
-impl Handler for SetSpaceChildOrderParams {
+impl Handler for SetChildOrderParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -58,8 +60,8 @@ impl Handler for SetSpaceChildOrderParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetSpaceChildSuggestedParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetChildSuggestedParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub space_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
@@ -67,7 +69,7 @@ pub struct SetSpaceChildSuggestedParams {
     pub suggested: bool,
 }
 
-impl Handler for SetSpaceChildSuggestedParams {
+impl Handler for SetChildSuggestedParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -77,39 +79,40 @@ impl Handler for SetSpaceChildSuggestedParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SpaceHierarchyParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct HierarchyParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub space_id: OwnedRoomId,
+    #[serde(default)]
     pub from: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SpaceHierarchyOk {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct HierarchyOk {
     pub rooms: Vec<SpaceHierarchyRoomView>,
     /// Pass back as `from` for the next page; `null` at the end.
     pub next_batch: Option<String>,
 }
 
-impl Handler for SpaceHierarchyParams {
-    type Ok = SpaceHierarchyOk;
+impl Handler for HierarchyParams {
+    type Ok = HierarchyOk;
 
-    async fn run(self, core: &Arc<Core>) -> Result<SpaceHierarchyOk, RpcError> {
+    async fn run(self, core: &Arc<Core>) -> Result<HierarchyOk, RpcError> {
         core.space_hierarchy(&self.space_id, self.from).await
     }
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct RemoveFromSpaceParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct RemoveParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub space_id: OwnedRoomId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
 
-impl Handler for RemoveFromSpaceParams {
+impl Handler for RemoveParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -129,10 +132,10 @@ impl Handler for RemoveFromSpaceParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SpaceSidebarParams {}
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SidebarParams {}
 
-impl Handler for SpaceSidebarParams {
+impl Handler for SidebarParams {
     type Ok = Vec<SidebarItemView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<SidebarItemView>, RpcError> {
@@ -141,12 +144,12 @@ impl Handler for SpaceSidebarParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SetSpaceSidebarParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetSidebarParams {
     pub items: Vec<SidebarItemView>,
 }
 
-impl Handler for SetSpaceSidebarParams {
+impl Handler for SetSidebarParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
@@ -161,7 +164,7 @@ impl Handler for SetSpaceSidebarParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RoomHasSpaceParentParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
@@ -178,7 +181,7 @@ impl Handler for RoomHasSpaceParentParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UnjoinedSpaceParentsParams {
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,

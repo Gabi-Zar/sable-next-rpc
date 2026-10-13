@@ -6,11 +6,12 @@ import { CoreError } from '#src/transport';
 
 import type {
   FieldEdit,
-  BulkRedactParams,
   MemberLookEdit,
   MemberView,
   PersonaCatalogView,
   PersonaView,
+  RpcParams,
+  Rpc,
 } from '#src/generated/protocol';
 
 import {
@@ -44,9 +45,11 @@ function fakeCommands() {
     setMemberLook: vi.fn((..._args: unknown[]) => Promise.resolve()),
     setPronouns: vi.fn((..._args: unknown[]) => Promise.resolve()),
     sendGesture: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
-    accountData: vi.fn(() => Promise.resolve<unknown>(null)),
-    setAccountData: vi.fn(() => Promise.resolve(null)),
-    bulkRedact: vi.fn<(params: BulkRedactParams) => Promise<number>>(() => Promise.resolve(0)),
+    data: vi.fn(() => Promise.resolve<unknown>(null)),
+    setData: vi.fn(() => Promise.resolve(null)),
+    bulkRedact: vi.fn<(params: RpcParams<Rpc['messages']['bulkRedact']>) => Promise<number>>(() =>
+      Promise.resolve(0)
+    ),
     roomMembers: vi.fn(() => Promise.resolve<MemberView[]>([])),
   };
 }
@@ -55,14 +58,14 @@ function fakeRpc() {
   return {
     encryption: { discardRoomKey: vi.fn(() => Promise.resolve(null)) },
     room_state: {
-      setRoomName: vi.fn(() => Promise.resolve(null)),
-      setRoomTopic: vi.fn(() => Promise.resolve(null)),
-      sendStateEvent: vi.fn((..._args: unknown[]) => Promise.resolve('$created')),
+      setName: vi.fn(() => Promise.resolve(null)),
+      setTopic: vi.fn(() => Promise.resolve(null)),
+      sendEvent: vi.fn((..._args: unknown[]) => Promise.resolve('$created')),
       updateServerAcl: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
-      addRoomWidget: vi.fn((..._args: unknown[]) => Promise.resolve('widget')),
+      addWidget: vi.fn((..._args: unknown[]) => Promise.resolve('widget')),
     },
     personas: {
-      personas: vi.fn(() =>
+      list: vi.fn(() =>
         Promise.resolve({
           personas: [],
           account: null,
@@ -70,10 +73,10 @@ function fakeRpc() {
           disabled_rooms: [],
         } as PersonaCatalogView)
       ),
-      savePersona: vi.fn((..._args: unknown[]) => Promise.resolve<PersonaView[]>([])),
-      removePersona: vi.fn((..._args: unknown[]) => Promise.resolve<PersonaView[]>([])),
-      setPersonaSelection: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
-      disableRoomPersonas: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
+      save: vi.fn((..._args: unknown[]) => Promise.resolve<PersonaView[]>([])),
+      remove: vi.fn((..._args: unknown[]) => Promise.resolve<PersonaView[]>([])),
+      setSelection: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
+      disableRoom: vi.fn((..._args: unknown[]) => Promise.resolve(null)),
     },
   };
 }
@@ -104,8 +107,15 @@ function context(
       ...rpc,
       account: commands,
       messages: commands,
-      rooms: { joinRoom, knockRoom, leaveRoom, inviteUser, createDm },
-      members: { roomMembers, kickUser, banUser, unbanUser, setMemberLook, setPronouns },
+      rooms: { join: joinRoom, knock: knockRoom, leave: leaveRoom, invite: inviteUser, createDm },
+      members: {
+        list: roomMembers,
+        kick: kickUser,
+        ban: banUser,
+        unban: unbanUser,
+        setLook: setMemberLook,
+        setPronouns,
+      },
     } as unknown as SlashContext['rpc'],
   };
 }
@@ -254,7 +264,7 @@ test('/raw sends either a message or state event', async () => {
     event_type: 'm.room.test',
     content: { value: 1 },
   });
-  expect(rpc.room_state.sendStateEvent).toHaveBeenCalledWith({
+  expect(rpc.room_state.sendEvent).toHaveBeenCalledWith({
     room_id: '!room:example.org',
     event_type: 'm.room.topic',
     state_key: 'key',
@@ -264,16 +274,16 @@ test('/raw sends either a message or state event', async () => {
 
 test('/rawacc merges and /delacc removes global account data', async () => {
   const commands = fakeCommands();
-  commands.accountData.mockResolvedValue({ old: true, remove: true });
+  commands.data.mockResolvedValue({ old: true, remove: true });
 
   await runSlash('/rawacc com.example.data {"new":1}', context(commands));
   await runSlash('/delacc com.example.data remove', context(commands));
 
-  expect(commands.setAccountData).toHaveBeenNthCalledWith(1, {
+  expect(commands.setData).toHaveBeenNthCalledWith(1, {
     event_type: 'com.example.data',
     content: { old: true, remove: true, new: 1 },
   });
-  expect(commands.setAccountData).toHaveBeenNthCalledWith(2, {
+  expect(commands.setData).toHaveBeenNthCalledWith(2, {
     event_type: 'com.example.data',
     content: { old: true },
   });
@@ -436,8 +446,8 @@ test('/nick writes the text it was given', async () => {
 });
 
 test.each([
-  ['roomname', 'setRoomName', { room_id: '!room:example.org', name: 'The Lounge' }],
-  ['topic', 'setRoomTopic', { room_id: '!room:example.org', topic: 'The Lounge' }],
+  ['roomname', 'setName', { room_id: '!room:example.org', name: 'The Lounge' }],
+  ['topic', 'setTopic', { room_id: '!room:example.org', topic: 'The Lounge' }],
 ] as const)('/%s writes the text it was given', async (name, method, expected) => {
   const rpc = fakeRpc();
 
@@ -556,7 +566,7 @@ test('/addwidget names the widget after the rest of the line', async () => {
 
   await runSlash('/addwidget https://widget.example/app Room Widget', context(fakeCommands(), rpc));
 
-  expect(rpc.room_state.addRoomWidget).toHaveBeenCalledWith({
+  expect(rpc.room_state.addWidget).toHaveBeenCalledWith({
     room_id: '!room:example.org',
     name: 'Room Widget',
     url: 'https://widget.example/app',
@@ -565,7 +575,7 @@ test('/addwidget names the widget after the rest of the line', async () => {
 
 test('/addwidget shows its usage for a url the core refuses', async () => {
   const rpc = fakeRpc();
-  rpc.room_state.addRoomWidget.mockRejectedValueOnce(new CoreError({ code: 'invalid_url' }));
+  rpc.room_state.addWidget.mockRejectedValueOnce(new CoreError({ code: 'invalid_url' }));
 
   await expect(
     runSlash('/addwidget javascript:alert(1)', context(fakeCommands(), rpc))
@@ -585,7 +595,7 @@ test('/pmpproxy appends a persona trigger', async () => {
     pluralkit: null,
     last_used: null,
   } satisfies PersonaView;
-  rpc.personas.personas.mockResolvedValueOnce({
+  rpc.personas.list.mockResolvedValueOnce({
     personas: [persona],
     account: null,
     rooms: {},
@@ -594,7 +604,7 @@ test('/pmpproxy appends a persona trigger', async () => {
 
   await runSlash('/pmpproxy alt ✨:text', context(fakeCommands(), rpc));
 
-  expect(rpc.personas.savePersona).toHaveBeenCalledWith({
+  expect(rpc.personas.save).toHaveBeenCalledWith({
     persona: expect.objectContaining({
       id: 'alt',
       triggers: [{ prefix: '✨:', suffix: null, keep_trigger: false }],
@@ -733,7 +743,7 @@ test('/addpmp creates a profile from its named fields', async () => {
 
   await runSlash('/addpmp alt name=Alt avatar=mxc://example.org/a', context(fakeCommands(), rpc));
 
-  expect(rpc.personas.savePersona).toHaveBeenCalledWith({
+  expect(rpc.personas.save).toHaveBeenCalledWith({
     persona: expect.objectContaining({
       id: 'alt',
       display_name: 'Alt',
@@ -751,14 +761,14 @@ test('/addpmp refuses the reserved id and a non-mxc avatar', async () => {
       key: 'composer.slash.addpmp.usage',
     });
   }
-  expect(rpc.personas.savePersona).not.toHaveBeenCalled();
+  expect(rpc.personas.save).not.toHaveBeenCalled();
 });
 
 test('/delpmp removes by id but never the index', async () => {
   const rpc = fakeRpc();
 
   await runSlash('/delpmp alt', context(fakeCommands(), rpc));
-  expect(rpc.personas.removePersona).toHaveBeenCalledWith({ id: 'alt' });
+  expect(rpc.personas.remove).toHaveBeenCalledWith({ id: 'alt' });
 
   await expect(runSlash('/delpmp index', context(fakeCommands(), rpc))).rejects.toMatchObject({
     key: 'composer.slash.delpmp.usage',
@@ -770,28 +780,28 @@ test('/usepmp latches a profile and resets it', async () => {
   const rpc = fakeRpc();
 
   await runSlash('/usepmp alt', context(commands, rpc));
-  expect(rpc.personas.setPersonaSelection).toHaveBeenCalledWith({
+  expect(rpc.personas.setSelection).toHaveBeenCalledWith({
     room_id: '!room:example.org',
     persona_id: 'alt',
     valid_until: null,
   });
 
   await runSlash('/usepmp alt 1700000000000', context(commands, rpc));
-  expect(rpc.personas.setPersonaSelection).toHaveBeenLastCalledWith({
+  expect(rpc.personas.setSelection).toHaveBeenLastCalledWith({
     room_id: '!room:example.org',
     persona_id: 'alt',
     valid_until: 1_700_000_000_000,
   });
 
   await runSlash('/usepmp reset', context(commands, rpc));
-  expect(rpc.personas.setPersonaSelection).toHaveBeenLastCalledWith({
+  expect(rpc.personas.setSelection).toHaveBeenLastCalledWith({
     room_id: '!room:example.org',
     persona_id: null,
     valid_until: null,
   });
 
   await runSlash('/usepmp off', context(commands, rpc));
-  expect(rpc.personas.disableRoomPersonas).toHaveBeenCalledWith({ room_id: '!room:example.org' });
+  expect(rpc.personas.disableRoom).toHaveBeenCalledWith({ room_id: '!room:example.org' });
 });
 
 function member(userId: string, membership: MemberView['membership'] = 'join'): MemberView {
@@ -887,7 +897,7 @@ test.each(['font', 'sfont'])('/%s is no longer supported', async (name) => {
   await expect(runSlash(`/${name} Georgia`, context(fakeCommands(), rpc))).rejects.toMatchObject({
     key: 'composer.slashUnknown',
   });
-  expect(rpc.room_state.sendStateEvent).not.toHaveBeenCalled();
+  expect(rpc.room_state.sendEvent).not.toHaveBeenCalled();
 });
 
 test('/scolor targets the parent space', async () => {

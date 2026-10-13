@@ -187,7 +187,7 @@
     if (typeof RTCPeerConnection === 'undefined') return;
 
     void core.rpc.calls
-      .callSupport({ room_id: target, livekit_service_url: fallback })
+      .support({ room_id: target, livekit_service_url: fallback })
       .then((next) => {
         if (current) callSupport = next;
       })
@@ -589,7 +589,7 @@
   async function loadMembers(): Promise<void> {
     const activeRoomId = resolvedRoomId;
     await memberLoader.load(activeRoomId, (roomId) =>
-      core.rpc.members.roomMembers({ room_id: roomId, memberships: [] })
+      core.rpc.members.list({ room_id: roomId, memberships: [] })
     );
   }
 
@@ -608,7 +608,7 @@
     const activeRoomId = untrack(() => resolvedRoomId);
     void untrack(() =>
       memberLoader.refresh(activeRoomId, (roomId) =>
-        core.rpc.members.roomMembers({ room_id: roomId, memberships: [] })
+        core.rpc.members.list({ room_id: roomId, memberships: [] })
       )
     );
   });
@@ -617,14 +617,14 @@
     core.onProfileChanged(() => {
       void untrack(() =>
         memberLoader.refresh(resolvedRoomId, (roomId) =>
-          core.rpc.members.roomMembers({ room_id: roomId, memberships: [] })
+          core.rpc.members.list({ room_id: roomId, memberships: [] })
         )
       );
     })
   );
 
   function loadMembership(membership: MembershipView): Promise<MemberView[]> {
-    return core.rpc.members.roomMembers({ room_id: resolvedRoomId, memberships: [membership] });
+    return core.rpc.members.list({ room_id: resolvedRoomId, memberships: [membership] });
   }
 
   function toggleMembers(): void {
@@ -943,7 +943,7 @@
     tombstoneJoining = true;
     tombstoneJoinFailed = false;
     try {
-      const via = await core.rpc.rooms.roomViaServers({ room_id: resolvedRoomId });
+      const via = await core.rpc.rooms.viaServers({ room_id: resolvedRoomId });
       const joinedId = await joinRoom(core.rpc, target, via);
       await roomList.whenListed(joinedId, 10_000);
       void goto(roomSectionPath(roomList.rooms, joinedId));
@@ -1445,7 +1445,7 @@
     hint={$i18n.t('room.reportHint')}
     onReport={(reason) => {
       const target = resolvedRoomId;
-      void sendReport(() => core.rpc.rooms.reportRoom({ room_id: target, reason: reason ?? '' }));
+      void sendReport(() => core.rpc.rooms.report({ room_id: target, reason: reason ?? '' }));
     }}
   />
 

@@ -39,7 +39,9 @@ const core = Object.assign(baseCore, {
       listener = null;
     };
   }),
-  calendarEntries: vi.fn((): Promise<CalendarView> =>
+});
+Object.assign(baseCore.rpc.calendar, {
+  entries: vi.fn((): Promise<CalendarView> =>
     Promise.resolve({
       entries: [
         {
@@ -77,8 +79,10 @@ const core = Object.assign(baseCore, {
       ],
     })
   ),
-  answerCalendarEvent: vi.fn(() => Promise.resolve()),
-  roomMembers: vi.fn(() =>
+  answerEvent: vi.fn(() => Promise.resolve()),
+});
+Object.assign(baseCore.rpc.members, {
+  list: vi.fn(() =>
     Promise.resolve([
       { user_id: '@alice:x', display_name: 'Alice' },
       { user_id: '@carol:x', display_name: 'Carol' },
@@ -105,25 +109,25 @@ test('lists who answered each event, by name', async () => {
     ]);
   });
   expect(screen.getAllByRole('term').map((term) => term.textContent)).toEqual(['Going', 'Maybe']);
-  expect(core.roomMembers).toHaveBeenCalledWith({ room_id: '!cal:x', memberships: [] });
+  expect(core.rpc.members.list).toHaveBeenCalledWith({ room_id: '!cal:x', memberships: [] });
 });
 
 test('reloads when the core reports a change in this calendar, and only this one', async () => {
   renderWithTooltips(CalendarPage, { roomId: '!cal:x' });
   expect(await screen.findByRole('heading', { name: 'Raid' })).toBeInTheDocument();
-  core.calendarEntries.mockClear();
+  core.rpc.calendar.entries.mockClear();
 
   listener?.({ type: 'calendar_changed', room_id: '!other:x' });
   listener?.({ type: 'typing', room_id: '!cal:x' });
-  expect(core.calendarEntries).not.toHaveBeenCalled();
+  expect(core.rpc.calendar.entries).not.toHaveBeenCalled();
 
   listener?.({ type: 'calendar_changed', room_id: '!cal:x' });
-  expect(core.calendarEntries).toHaveBeenCalledWith({ room_id: '!cal:x' });
+  expect(core.rpc.calendar.entries).toHaveBeenCalledWith({ room_id: '!cal:x' });
 });
 
 test('answers and counts each occurrence of a recurring event on its own', async () => {
   const next = new Date(soon.getTime() + 7 * 86_400_000);
-  core.calendarEntries.mockImplementation(() =>
+  core.rpc.calendar.entries.mockImplementation(() =>
     Promise.resolve({
       entries: [
         {
@@ -166,7 +170,7 @@ test('answers and counts each occurrence of a recurring event on its own', async
   expect(first.queryByRole('definition')).not.toBeInTheDocument();
 
   await user.click(first.getByRole('button', { name: /^Going/ }));
-  expect(core.answerCalendarEvent).toHaveBeenCalledWith({
+  expect(core.rpc.calendar.answerEvent).toHaveBeenCalledWith({
     room_id: '!cal:x',
     calendar_event_id: '$weekly',
     uid: 'weekly',
@@ -176,7 +180,7 @@ test('answers and counts each occurrence of a recurring event on its own', async
 });
 
 test("the month view lists the selected day's events", async () => {
-  core.calendarEntries.mockImplementation(() =>
+  core.rpc.calendar.entries.mockImplementation(() =>
     Promise.resolve({
       entries: [
         {

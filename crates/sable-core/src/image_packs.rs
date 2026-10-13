@@ -180,7 +180,7 @@ use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 
 use crate::Core;
-use crate::api::packs::ImagePacksOk;
+use crate::api::packs::ListOk;
 use crate::protocol::{CoreEvent, RpcError};
 
 type AccountDataContent = Option<Raw<AnyGlobalAccountDataEventContent>>;
@@ -367,7 +367,7 @@ impl Core {
         &self,
         room_id: OwnedRoomId,
         cached_only: bool,
-    ) -> Result<ImagePacksOk, RpcError> {
+    ) -> Result<ListOk, RpcError> {
         let client = self.client().await?;
         let network = !cached_only;
         let room = self.room(&room_id).await?;
@@ -449,7 +449,7 @@ impl Core {
 
         let mut seen = BTreeSet::new();
         packs.retain(|pack| seen.insert((pack.room_id.clone(), pack.id.clone())));
-        Ok(ImagePacksOk { packs, complete })
+        Ok(ListOk { packs, complete })
     }
 
     async fn space_packs(
@@ -1036,7 +1036,7 @@ mod server_tests {
             homeserver: server.server().uri(),
             oauth: false,
         });
-        let crate::api::packs::ImagePacksOk { packs, .. } =
+        let crate::api::packs::ListOk { packs, .. } =
             core.image_packs(room_id.to_owned(), true).await.unwrap();
         assert_eq!(
             packs
@@ -1112,7 +1112,7 @@ mod server_tests {
             homeserver: server.server().uri(),
             oauth: false,
         });
-        let crate::api::packs::ImagePacksOk { packs, .. } =
+        let crate::api::packs::ListOk { packs, .. } =
             core.image_packs(room_id.to_owned(), true).await.unwrap();
         assert_eq!(
             packs
@@ -1172,7 +1172,7 @@ mod server_tests {
             homeserver: server.server().uri(),
             oauth: false,
         });
-        let crate::api::packs::ImagePacksOk { packs, .. } =
+        let crate::api::packs::ListOk { packs, .. } =
             core.image_packs(room_id.to_owned(), true).await.unwrap();
         let summary = packs
             .iter()

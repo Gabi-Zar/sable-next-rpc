@@ -16,7 +16,7 @@ export type CreateRoomOptions = {
 };
 
 export function createRoom(rpc: Pick<Rpc, 'rooms'>, options: CreateRoomOptions): Promise<string> {
-  return rpc.rooms.createRoom({
+  return rpc.rooms.create({
     name: options.name ?? null,
     topic: options.topic ?? null,
     kind: options.kind ?? 'text',
@@ -38,7 +38,7 @@ export function joinRoom(
   address: string,
   via: readonly string[] = []
 ): Promise<string> {
-  return rpc.rooms.joinRoom({ address, via: [...via] });
+  return rpc.rooms.join({ address, via: [...via] });
 }
 
 export function knockRoom(
@@ -47,7 +47,7 @@ export function knockRoom(
   via: readonly string[] = [],
   reason?: string
 ): Promise<string> {
-  return rpc.rooms.knockRoom({
+  return rpc.rooms.knock({
     address,
     via: [...via],
     reason: reason ?? null,

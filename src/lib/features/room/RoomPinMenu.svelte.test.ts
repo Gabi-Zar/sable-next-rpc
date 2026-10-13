@@ -19,8 +19,9 @@ import { timelineMediaItems } from './media/media-items.js';
 import RoomPinMenuHarness from './RoomPinMenuHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
 
-const core = Object.assign(baseCore, {
-  roomCosmetics: vi.fn(() => Promise.resolve({ users: [], space_id: null })),
+const core = baseCore;
+Object.assign(core.rpc.rooms, {
+  cosmetics: vi.fn(() => Promise.resolve({ users: [], space_id: null })),
 });
 const timeline = Object.assign(baseCore.rpc.timeline, {
   pinnedEvents: vi.fn(() => Promise.resolve(['$image', '$second'])),

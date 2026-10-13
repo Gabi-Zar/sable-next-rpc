@@ -26,7 +26,7 @@ function actions(commands: Record<string, unknown>): InviteActions {
 }
 
 test('a join the server rejects raises a toast and releases the room', async () => {
-  const answers = actions({ joinRoom: vi.fn(() => Promise.reject(new Error('no via'))) });
+  const answers = actions({ join: vi.fn(() => Promise.reject(new Error('no via'))) });
 
   await answers.accept(room);
 
@@ -36,7 +36,7 @@ test('a join the server rejects raises a toast and releases the room', async () 
 
 test('a decline waits for its undo toast to close before leaving', async () => {
   const leaveRoom = vi.fn(() => Promise.resolve());
-  const answers = actions({ leaveRoom });
+  const answers = actions({ leave: leaveRoom });
 
   answers.decline(room);
 
@@ -52,7 +52,7 @@ test('a decline waits for its undo toast to close before leaving', async () => {
 
 test('undoing a decline never leaves the room', () => {
   const leaveRoom = vi.fn(() => Promise.resolve());
-  const answers = actions({ leaveRoom });
+  const answers = actions({ leave: leaveRoom });
 
   answers.decline(room);
   toasts.items[0]?.action?.run();
@@ -63,7 +63,7 @@ test('undoing a decline never leaves the room', () => {
 });
 
 test('a decline the server rejects raises a toast and shows the invite again', async () => {
-  const answers = actions({ leaveRoom: vi.fn(() => Promise.reject(new Error('gone'))) });
+  const answers = actions({ leave: vi.fn(() => Promise.reject(new Error('gone'))) });
 
   answers.decline(room);
   toasts.dismiss(toasts.items[0]?.id ?? -1);
@@ -76,7 +76,7 @@ test('a decline the server rejects raises a toast and shows the invite again', a
 });
 
 test('an accepted invitation raises nothing', async () => {
-  const answers = actions({ joinRoom: vi.fn(() => Promise.resolve('!room:example.org')) });
+  const answers = actions({ join: vi.fn(() => Promise.resolve('!room:example.org')) });
 
   await answers.accept(room);
 
@@ -89,7 +89,7 @@ test('accepting all joins every invite without leaving the page and reports fail
   const joinRoom = vi.fn(({ address }: { address: string }) =>
     address === room.room_id ? Promise.resolve(address) : Promise.reject(new Error('no via'))
   );
-  const answers = actions({ joinRoom });
+  const answers = actions({ join: joinRoom });
   goto.mockClear();
 
   await answers.acceptAll([room, other, third]);

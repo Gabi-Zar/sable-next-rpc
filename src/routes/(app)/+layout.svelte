@@ -256,7 +256,7 @@
     if (outcome === 'decline') {
       if (eventId !== null) {
         void core.rpc.calls
-          .declineCall({ room_id: roomId, notification_event_id: eventId })
+          .decline({ room_id: roomId, notification_event_id: eventId })
           .catch(() => {});
       }
       return;
@@ -442,20 +442,20 @@
     if (core.status !== 'ready') return;
 
     void core.rpc.notifications
-      .setNotificationContent({
+      .setContent({
         visible: preferences.notificationContent,
         encrypted: preferences.notificationEncryptedContent,
       })
       .catch(() => {});
 
     void core.rpc.notifications
-      .setNotificationSounds({ enabled: preferences.notificationSounds })
+      .setSounds({ enabled: preferences.notificationSounds })
       .catch(() => {});
 
     void core.rpc.notifications.setNotifyOnce({ enabled: preferences.notifyOnce }).catch(() => {});
 
     void core.rpc.notifications
-      .setNotificationsEnabled({ enabled: preferences.systemNotifications })
+      .setEnabled({ enabled: preferences.systemNotifications })
       .catch(() => {});
 
     void setNativeEncryptedContentAllowed(

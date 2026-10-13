@@ -61,7 +61,7 @@ for (const surface of ['room', 'forum'] as const) {
       await editor.fill('New thread reply');
       await thread.getByRole('button', { name: en.timeline.sendMessage, exact: true }).click();
       await expect.poll(calls).toContainEqual({
-        method: 'messages.send_message',
+        method: 'messages.send',
         params: expect.objectContaining({
           room_id: '!room:example.test',
           body: 'New thread reply',
@@ -100,7 +100,7 @@ for (const surface of ['room', 'forum'] as const) {
       await editor.fill('Answer to Alice');
       await thread.getByRole('button', { name: en.timeline.sendMessage, exact: true }).click();
       await expect.poll(calls).toContainEqual({
-        method: 'messages.send_message',
+        method: 'messages.send',
         params: expect.objectContaining({
           body: 'Answer to Alice',
           thread_root: root.event_id,
@@ -115,7 +115,7 @@ for (const surface of ['room', 'forum'] as const) {
       await expect(editor).toHaveText('Edited thread reply');
       await editor.press('Enter');
       await expect.poll(calls).toContainEqual({
-        method: 'messages.edit_message',
+        method: 'messages.edit',
         params: expect.objectContaining({
           event_id: '$own:example.test',
           body: 'Edited thread reply',

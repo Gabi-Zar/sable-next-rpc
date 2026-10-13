@@ -24,7 +24,7 @@ export async function joinCall(
   mode: CallMode | null = null,
   intent: CallIntent | null = null
 ): Promise<CallGrant> {
-  const response = await rpc.calls.joinCall({
+  const response = await rpc.calls.join({
     room_id: roomId,
     livekit_service_url: livekitServiceUrl,
     mode: mode ?? null,

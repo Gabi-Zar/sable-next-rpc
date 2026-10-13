@@ -182,7 +182,7 @@ test('answers a health probe while a core command is pending', async () => {
 
   void port.send({
     id: 1,
-    call: { method: 'members.room_members', params: { room_id: '!room', memberships: [] } },
+    call: { method: 'members.list', params: { room_id: '!room', memberships: [] } },
   });
   await port.send({ id: 2, ping: true });
 
@@ -190,14 +190,14 @@ test('answers a health probe while a core command is pending', async () => {
 });
 
 const subscribeTimeline = (roomId: string) => ({
-  method: 'timeline.subscribe_timeline',
+  method: 'timeline.subscribe',
   params: { room_id: roomId, focus: { kind: 'live' as const }, hidden_events: false },
 });
 
 test('sends the subscription snapshot before startup events buffered for its port', async () => {
   let emit = (() => {}) as (json: string) => void;
   const core = fakeCore((method) => {
-    if (method === 'timeline.subscribe_timeline') {
+    if (method === 'timeline.subscribe') {
       emit(
         JSON.stringify([
           {

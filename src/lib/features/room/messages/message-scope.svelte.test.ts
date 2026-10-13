@@ -12,7 +12,7 @@ function setup() {
       return () => listeners.delete(listener);
     },
     rpc: {
-      rooms: { roomCosmetics: vi.fn(() => Promise.resolve({ users: [], space_id: null })) },
+      rooms: { cosmetics: vi.fn(() => Promise.resolve({ users: [], space_id: null })) },
       timeline: {
         pinnedEvents: vi.fn(() => Promise.resolve([])),
         setPinned: vi.fn(() => Promise.resolve([])),
@@ -28,7 +28,7 @@ test('shares active room scopes and unsubscribes when their last preview closes'
   const second = scopes.acquire('!room:example.org');
   expect(first.cosmetics).toBe(second.cosmetics);
   expect(listeners.size).toBe(1);
-  expect(core.rpc.rooms.roomCosmetics).toHaveBeenCalledTimes(1);
+  expect(core.rpc.rooms.cosmetics).toHaveBeenCalledTimes(1);
 
   first.release();
   first.release();

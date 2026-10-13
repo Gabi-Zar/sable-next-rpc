@@ -4,7 +4,7 @@ export const ADDED_SERVERS_ACCOUNT_DATA_TYPE = 'moe.sable.added_servers';
 
 const SERVER_NAME = /^(?:\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)(?::\d{1,5})?$/;
 
-type ServersApi = Pick<Rpc['account'], 'accountData' | 'setAccountData'>;
+type ServersApi = Pick<Rpc['account'], 'data' | 'setData'>;
 
 export function isServerName(value: string): boolean {
   return SERVER_NAME.test(value);
@@ -23,14 +23,14 @@ function sameServer(a: string, b: string): boolean {
 }
 
 export async function readAddedServers(commands: ServersApi): Promise<string[]> {
-  return addedServers(await commands.accountData({ event_type: ADDED_SERVERS_ACCOUNT_DATA_TYPE }));
+  return addedServers(await commands.data({ event_type: ADDED_SERVERS_ACCOUNT_DATA_TYPE }));
 }
 
 export async function addServer(commands: ServersApi, server: string): Promise<string[]> {
   const current = await readAddedServers(commands);
   if (current.some((entry) => sameServer(entry, server))) return current;
   const servers = [...current, server];
-  await commands.setAccountData({
+  await commands.setData({
     event_type: ADDED_SERVERS_ACCOUNT_DATA_TYPE,
     content: { servers },
   });
@@ -39,7 +39,7 @@ export async function addServer(commands: ServersApi, server: string): Promise<s
 
 export async function removeServer(commands: ServersApi, server: string): Promise<string[]> {
   const servers = (await readAddedServers(commands)).filter((entry) => !sameServer(entry, server));
-  await commands.setAccountData({
+  await commands.setData({
     event_type: ADDED_SERVERS_ACCOUNT_DATA_TYPE,
     content: { servers },
   });

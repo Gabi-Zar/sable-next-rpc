@@ -20,7 +20,7 @@ test('a retry re-requests the failed page and keeps the loaded ones', async () =
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce({ items: [attachment('$b')], next_batch: null });
   const pager = new RoomAttachmentsPager({
-    rpc: { rooms: { roomAttachments } },
+    rpc: { rooms: { attachments: roomAttachments } },
   } as unknown as CoreClient);
 
   pager.sync('!room');

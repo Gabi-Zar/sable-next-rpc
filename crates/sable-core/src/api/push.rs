@@ -12,9 +12,9 @@ domain! {
     web_pusher_support,
     set_web_pusher,
     web_pushers,
-    ping_push_gateway,
-    discover_push_gateway,
-    send_diagnostic_push,
+    ping_gateway,
+    discover_gateway,
+    send_diagnostic,
     ack_web_pusher,
 }
 
@@ -48,7 +48,7 @@ pub struct WebPusherView {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetPusherParams {
     pub pusher: PusherView,
 }
@@ -64,7 +64,7 @@ impl Handler for SetPusherParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct RemovePusherParams {
     pub pushkey: String,
     pub app_id: String,
@@ -82,7 +82,7 @@ impl Handler for RemovePusherParams {
 
 /// The homeserver's web push support: a VAPID key means server delivery.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct WebPusherSupportParams {}
 
 impl Handler for WebPusherSupportParams {
@@ -97,7 +97,7 @@ impl Handler for WebPusherSupportParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SetWebPusherParams {
     pub pusher: WebPusherView,
 }
@@ -113,7 +113,7 @@ impl Handler for SetWebPusherParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct WebPushersParams {}
 
 impl Handler for WebPushersParams {
@@ -127,12 +127,12 @@ impl Handler for WebPushersParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PingPushGatewayParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct PingGatewayParams {
     pub url: String,
 }
 
-impl Handler for PingPushGatewayParams {
+impl Handler for PingGatewayParams {
     type Ok = Option<bool>;
 
     async fn run(self, _core: &Arc<Core>) -> Result<Option<bool>, RpcError> {
@@ -141,12 +141,12 @@ impl Handler for PingPushGatewayParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct DiscoverPushGatewayParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DiscoverGatewayParams {
     pub endpoint: String,
 }
 
-impl Handler for DiscoverPushGatewayParams {
+impl Handler for DiscoverGatewayParams {
     type Ok = Option<String>;
 
     async fn run(self, _core: &Arc<Core>) -> Result<Option<String>, RpcError> {
@@ -155,13 +155,13 @@ impl Handler for DiscoverPushGatewayParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct SendDiagnosticPushParams {
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SendDiagnosticParams {
     pub pushkey: String,
     pub app_id: String,
 }
 
-impl Handler for SendDiagnosticPushParams {
+impl Handler for SendDiagnosticParams {
     type Ok = DiagnosticPushView;
 
     async fn run(self, core: &Arc<Core>) -> Result<DiagnosticPushView, RpcError> {
@@ -172,7 +172,7 @@ impl Handler for SendDiagnosticPushParams {
 }
 
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct AckWebPusherParams {
     pub app_id: String,
     pub ack_token: String,

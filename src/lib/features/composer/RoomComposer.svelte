@@ -732,7 +732,7 @@
     if (roomMembers?.length || loadedMembersFor === roomId) return;
     loadedMembersFor = roomId;
     try {
-      loadedMembers = await core.rpc.members.roomMembers({ room_id: roomId, memberships: [] });
+      loadedMembers = await core.rpc.members.list({ room_id: roomId, memberships: [] });
     } catch {
       loadedMembersFor = null;
     }
@@ -1078,7 +1078,7 @@
     } catch (cause) {
       console.debug('[sable composer] schedule failed', cause);
       await Promise.allSettled(
-        delayIds.map((delayId) => core.rpc.messages.cancelScheduledMessage({ delay_id: delayId }))
+        delayIds.map((delayId) => core.rpc.messages.cancelScheduled({ delay_id: delayId }))
       );
       if (cause instanceof ScheduledOriginalKept) {
         editor.clearHistory();
@@ -1317,7 +1317,7 @@
   async function attachVia(address: string): Promise<void> {
     if (!address.startsWith('!')) return;
     try {
-      editor.attachVia(address, await core.rpc.rooms.roomViaServers({ room_id: address }));
+      editor.attachVia(address, await core.rpc.rooms.viaServers({ room_id: address }));
     } catch (error) {
       console.debug('[sable composer] via servers unavailable', error);
     }

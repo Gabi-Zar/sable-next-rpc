@@ -16,12 +16,10 @@ vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
-const core = Object.assign(baseCore, {
-  roomPowerLevels: vi.fn(),
-  roomStateEventsRaw: vi.fn().mockResolvedValue([]),
-  roomAliases: vi.fn(),
-  roomDirectoryVisibility: vi.fn(),
-});
+const core = baseCore;
+Object.assign(core.rpc.members, { powerLevels: vi.fn() });
+Object.assign(core.rpc.room_state, { eventsRaw: vi.fn().mockResolvedValue([]) });
+Object.assign(core.rpc.rooms, { aliases: vi.fn(), directoryVisibility: vi.fn() });
 const spaces = Object.assign(baseCore.rpc.spaces, { roomHasSpaceParent: vi.fn() });
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 const guard = vi.hoisted(() => ({
@@ -88,8 +86,8 @@ async function setup(
   hasSpaceParent = false,
   isSpace = false
 ): Promise<RenderResult<typeof RoomSettingsDialog>> {
-  core.roomPermissions.mockResolvedValue(permissions(canChangeJoinRule));
-  core.roomPowerLevels.mockResolvedValue({
+  core.rpc.members.permissions.mockResolvedValue(permissions(canChangeJoinRule));
+  core.rpc.members.powerLevels.mockResolvedValue({
     ban: 50,
     kick: 50,
     redact: 50,
@@ -101,9 +99,9 @@ async function setup(
     users: {},
     notifications_room: 50,
   });
-  core.roomStateEvent.mockResolvedValue(null);
-  core.roomAliases.mockResolvedValue([]);
-  core.roomDirectoryVisibility.mockResolvedValue(false);
+  core.rpc.room_state.event.mockResolvedValue(null);
+  core.rpc.rooms.aliases.mockResolvedValue([]);
+  core.rpc.rooms.directoryVisibility.mockResolvedValue(false);
   spaces.roomHasSpaceParent.mockResolvedValue(hasSpaceParent);
   const instance = render(RoomSettingsDialog, {
     props: {
@@ -154,10 +152,12 @@ test.each([false, true])('non-admins can inspect and copy data (space: %s)', asy
     state_key: '',
     content: { url: 'mxc://example.org/room-avatar' },
   };
-  core.roomStateEventsRaw.mockImplementation(({ event_type: type }: { event_type: string }) => {
-    if (type === 'm.space.child') return Promise.reject(new Error('state unavailable'));
-    return Promise.resolve(type === 'm.room.avatar' ? [avatarEvent] : []);
-  });
+  core.rpc.room_state.eventsRaw.mockImplementation(
+    ({ event_type: type }: { event_type: string }) => {
+      if (type === 'm.space.child') return Promise.reject(new Error('state unavailable'));
+      return Promise.resolve(type === 'm.room.avatar' ? [avatarEvent] : []);
+    }
+  );
   const user = userEvent.setup();
   await setup(false, false, isSpace);
   const click = (label: string) =>
@@ -181,7 +181,7 @@ test.each([false, true])('non-admins can inspect and copy data (space: %s)', asy
       'm.space.child': { error: 'state unavailable' },
     },
   });
-  expect(core.roomStateEventsRaw).toHaveBeenCalledWith({
+  expect(core.rpc.room_state.eventsRaw).toHaveBeenCalledWith({
     room_id: room.room_id,
     event_type: 'm.space.parent',
     state_key: null,
