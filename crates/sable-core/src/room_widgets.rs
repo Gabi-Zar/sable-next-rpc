@@ -41,20 +41,16 @@ pub(crate) fn widget_url(raw: &str) -> Option<Url> {
 }
 
 #[derive(Serialize)]
-enum WidgetKind {
+#[serde(tag = "type")]
+enum WidgetOut<'a> {
     #[serde(rename = "m.custom")]
-    Custom,
-}
-
-#[derive(Serialize)]
-struct WidgetOut<'a> {
-    #[serde(rename = "type")]
-    kind: WidgetKind,
-    url: &'a str,
-    name: &'a str,
-    id: &'a str,
-    #[serde(rename = "creatorUserId")]
-    creator_user_id: &'a OwnedUserId,
+    Custom {
+        url: &'a str,
+        name: &'a str,
+        id: &'a str,
+        #[serde(rename = "creatorUserId")]
+        creator_user_id: &'a OwnedUserId,
+    },
 }
 
 impl Core {
@@ -72,8 +68,7 @@ impl Core {
             .ok_or(CommandErr::NotLoggedIn)?
             .to_owned();
         let id = TransactionId::new().to_string();
-        let content = WidgetOut {
-            kind: WidgetKind::Custom,
+        let content = WidgetOut::Custom {
             url: &enrich_widget_url(&url),
             name,
             id: &id,
@@ -97,13 +92,12 @@ impl Core {
 
 #[cfg(test)]
 mod tests {
-    use super::{TEMPLATE_PARAMS, WidgetKind, WidgetOut, enrich_widget_url, widget_url};
+    use super::{TEMPLATE_PARAMS, WidgetOut, enrich_widget_url, widget_url};
 
     #[test]
-    fn widget_content_keeps_the_state_event_shape() {
+    fn a_custom_widget_is_written_with_a_camel_case_creator() {
         let user_id = matrix_sdk::ruma::owned_user_id!("@a:example.org");
-        let content = serde_json::to_value(WidgetOut {
-            kind: WidgetKind::Custom,
+        let content = serde_json::to_value(WidgetOut::Custom {
             url: "https://example.org/w",
             name: "Board",
             id: "w1",

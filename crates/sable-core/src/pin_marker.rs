@@ -1,8 +1,9 @@
 use std::fmt::Write;
 
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_with::{DefaultOnError, serde_as};
 use sha2::{Digest, Sha256};
 
 use crate::protocol::{CommandErr, PinReadStateView};
@@ -32,16 +33,26 @@ pub(crate) fn pins_hash(pinned: &[OwnedEventId]) -> String {
         })
 }
 
+#[serde_as]
+#[derive(Deserialize)]
+struct PinMarkerIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    hash: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    count: Option<usize>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    last_seen_id: Option<String>,
+}
+
 pub(crate) fn read_marker(content: Option<&Value>) -> Option<PinMarker> {
-    let content = content?;
+    let marker = PinMarkerIn::deserialize(content?).ok()?;
     Some(PinMarker {
-        hash: content.get("hash")?.as_str()?.to_owned(),
-        count: content
-            .get("count")
-            .and_then(Value::as_u64)
-            .and_then(|count| usize::try_from(count).ok())
-            .unwrap_or_default(),
-        last_seen_id: content.get("last_seen_id")?.as_str()?.to_owned(),
+        hash: marker.hash?,
+        count: marker.count.unwrap_or_default(),
+        last_seen_id: marker.last_seen_id?,
     })
 }
 
@@ -89,17 +100,17 @@ fn marker_for(pinned: &[OwnedEventId]) -> Option<PinMarker> {
 }
 
 #[derive(Serialize)]
-struct MarkerOut<'a> {
-    hash: &'a str,
+struct MarkerOut {
+    hash: String,
     count: usize,
-    last_seen_id: &'a str,
+    last_seen_id: String,
 }
 
-fn marker_content(marker: &PinMarker) -> MarkerOut<'_> {
+fn marker_content(marker: &PinMarker) -> MarkerOut {
     MarkerOut {
-        hash: &marker.hash,
+        hash: marker.hash.clone(),
         count: marker.count,
-        last_seen_id: &marker.last_seen_id,
+        last_seen_id: marker.last_seen_id.clone(),
     }
 }
 
@@ -292,5 +303,18 @@ mod tests {
         );
         assert_eq!(read_marker(Some(&json!({ "hash": "h" }))), None);
         assert_eq!(read_marker(None), None);
+    }
+
+    #[test]
+    fn a_wrong_typed_count_reads_as_zero_and_a_wrong_hash_as_no_marker() {
+        let marker = read_marker(Some(
+            &json!({ "hash": "h", "count": "3", "last_seen_id": "$a" }),
+        ))
+        .expect("marker");
+        assert_eq!(marker.count, 0);
+        assert_eq!(
+            read_marker(Some(&json!({ "hash": 1, "last_seen_id": "$a" }))),
+            None
+        );
     }
 }

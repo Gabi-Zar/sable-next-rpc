@@ -5,79 +5,64 @@ use crate::protocol::{CommandErr, GestureView};
 use crate::{Core, ResultExt};
 
 #[derive(Serialize)]
-struct MentionsOut<'a> {
-    user_ids: Vec<&'a OwnedUserId>,
+pub(crate) struct MentionsOut {
+    user_ids: Vec<OwnedUserId>,
 }
 
-#[derive(Serialize)]
-enum CuteMsgType {
-    #[serde(rename = "im.fluffychat.cute_event")]
-    CuteEvent,
-}
-
-#[derive(Serialize)]
-enum HeadpatMsgType {
-    #[serde(rename = "m.emote")]
-    Emote,
-}
-
-#[derive(Serialize)]
-pub(crate) struct CuteEventOut<'a> {
-    msgtype: CuteMsgType,
-    #[serde(rename = "m.mentions")]
-    mentions: MentionsOut<'a>,
-    cute_type: &'a str,
-    body: &'a str,
-}
-
-#[derive(Serialize)]
-pub(crate) struct HeadpatOut<'a> {
-    msgtype: HeadpatMsgType,
-    #[serde(rename = "m.mentions")]
-    mentions: MentionsOut<'a>,
-    body: String,
-    #[serde(rename = "fyi.cisnt.headpat")]
-    headpat: bool,
-}
-
-fn mentions(target: Option<&OwnedUserId>) -> MentionsOut<'_> {
+fn mentions(target: Option<&OwnedUserId>) -> MentionsOut {
     MentionsOut {
-        user_ids: target.into_iter().collect(),
+        user_ids: target.into_iter().cloned().collect(),
     }
 }
 
 #[derive(Serialize)]
-#[serde(untagged)]
-pub(crate) enum GestureOut<'a> {
-    Cute(CuteEventOut<'a>),
-    Headpat(HeadpatOut<'a>),
+#[serde(rename_all = "snake_case")]
+enum CuteType {
+    Hug,
+    Cuddle,
+    Wave,
+    Poke,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "msgtype")]
+enum GestureKind {
+    #[serde(rename = "im.fluffychat.cute_event")]
+    CuteEvent { cute_type: CuteType },
+    #[serde(rename = "m.emote")]
+    Headpat {
+        #[serde(rename = "fyi.cisnt.headpat")]
+        headpat: bool,
+    },
+}
+
+#[derive(Serialize)]
+pub(crate) struct GestureOut {
+    #[serde(rename = "m.mentions")]
+    mentions: MentionsOut,
+    body: String,
+    #[serde(flatten)]
+    kind: GestureKind,
 }
 
 /// The cute events `FluffyChat` sends, and the `fyi.cisnt.headpat` emote clients without
 /// support still show as text.
-pub(crate) fn gesture_content(
-    gesture: GestureView,
-    target: Option<&OwnedUserId>,
-) -> GestureOut<'_> {
-    let cute = |kind: &'static str, body: &'static str| {
-        GestureOut::Cute(CuteEventOut {
-            msgtype: CuteMsgType::CuteEvent,
-            mentions: mentions(target),
-            cute_type: kind,
-            body,
-        })
+pub(crate) fn gesture_content(gesture: GestureView, target: Option<&OwnedUserId>) -> GestureOut {
+    let cute = |cute_type, body: &str| GestureOut {
+        mentions: mentions(target),
+        body: body.to_owned(),
+        kind: GestureKind::CuteEvent { cute_type },
     };
     match gesture {
-        GestureView::Hug => cute("hug", "🤗"),
-        GestureView::Cuddle => cute("cuddle", "😊"),
-        GestureView::Wave => cute("wave", "👋"),
-        GestureView::Poke => cute("poke", "🫵"),
-        GestureView::Headpat => GestureOut::Headpat(HeadpatOut {
-            msgtype: HeadpatMsgType::Emote,
+        GestureView::Hug => cute(CuteType::Hug, "🤗"),
+        GestureView::Cuddle => cute(CuteType::Cuddle, "😊"),
+        GestureView::Wave => cute(CuteType::Wave, "👋"),
+        GestureView::Poke => cute(CuteType::Poke, "🫵"),
+        GestureView::Headpat => GestureOut {
             mentions: mentions(target),
             body: format!("pats {}", target.map_or("you", |user| user.as_str())),
-            headpat: true,
-        }),
+            kind: GestureKind::Headpat { headpat: true },
+        },
     }
 }
 

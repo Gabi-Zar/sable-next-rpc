@@ -8,6 +8,7 @@ use matrix_sdk::ruma::events::call::member::{
 };
 use matrix_sdk::ruma::{DeviceId, OwnedDeviceId, OwnedUserId, UserId};
 use serde::Deserialize;
+use serde_with::{DefaultOnError, serde_as};
 use sha2::{Digest as _, Sha256};
 
 use crate::protocol::CallMode;
@@ -248,63 +249,121 @@ pub(crate) async fn active_members(room: &Room) -> Vec<CallMember> {
     members
 }
 
+#[serde_as]
+#[derive(Deserialize)]
+struct StickyEventIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    content: Option<StickyContentIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<OwnedUserId>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    origin_server_ts: Option<u64>,
+    #[serde(default, deserialize_with = "sable_model::field::present")]
+    msc4354_sticky: Option<StickyField>,
+    #[serde(default, deserialize_with = "sable_model::field::present")]
+    sticky: Option<StickyField>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    unsigned: Option<StickyUnsignedIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct StickyContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sticky_key: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    msc4354_sticky_key: Option<String>,
+    #[serde(flatten)]
+    rest: serde_json::Map<String, serde_json::Value>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct StickyDurationIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    duration_ms: Option<u64>,
+}
+
+/// Present even when wrong-typed, so an `.or()` fallback only fires for a missing field.
+#[serde_as]
+#[derive(Deserialize)]
+struct StickyField(#[serde_as(deserialize_as = "DefaultOnError")] Option<StickyDurationIn>);
+
+#[serde_as]
+#[derive(Deserialize)]
+struct TtlField(#[serde_as(deserialize_as = "DefaultOnError")] Option<u64>);
+
+#[serde_as]
+#[derive(Deserialize)]
+struct StickyUnsignedIn {
+    #[serde(
+        default,
+        rename = "msc4354_sticky_duration_ttl_ms",
+        deserialize_with = "sable_model::field::present"
+    )]
+    msc4354_ttl_ms: Option<TtlField>,
+    #[serde(
+        default,
+        rename = "sticky_duration_ttl_ms",
+        deserialize_with = "sable_model::field::present"
+    )]
+    ttl_ms: Option<TtlField>,
+}
+
 impl StickyMemberships {
     pub(crate) fn apply(&mut self, value: &serde_json::Value, now_ms: u64) -> bool {
-        use serde_json::Value;
         self.entries.retain(|_, entry| entry.expires_at_ms > now_ms);
-        if !value
-            .get("type")
-            .and_then(Value::as_str)
-            .is_some_and(is_rtc_member_type)
-        {
-            return false;
-        }
-        let Some(content) = value.get("content").and_then(Value::as_object) else {
+        let Ok(event) = StickyEventIn::deserialize(value) else {
             return false;
         };
-        let stable_key = content.get("sticky_key").and_then(Value::as_str);
-        let unstable_key = content.get("msc4354_sticky_key").and_then(Value::as_str);
+        if !event.kind.as_deref().is_some_and(is_rtc_member_type) {
+            return false;
+        }
+        let Some(content) = event.content else {
+            return false;
+        };
+        let stable_key = content.sticky_key.as_deref();
+        let unstable_key = content.msc4354_sticky_key.as_deref();
         if stable_key.is_some() && unstable_key.is_some() && stable_key != unstable_key {
             return false;
         }
         let Some(key) = unstable_key.or(stable_key).filter(|key| !key.is_empty()) else {
             return false;
         };
-        let Some(sender) = value
-            .get("sender")
-            .and_then(Value::as_str)
-            .and_then(|id| OwnedUserId::try_from(id).ok())
-        else {
+        let Some(sender) = event.sender else {
             return false;
         };
-        let Some(event_id) = value
-            .get("event_id")
-            .and_then(Value::as_str)
-            .filter(|id| !id.is_empty())
-        else {
+        let Some(event_id) = event.event_id.as_deref().filter(|id| !id.is_empty()) else {
             return false;
         };
-        let Some(created_ts) = value.get("origin_server_ts").and_then(Value::as_u64) else {
+        let Some(created_ts) = event.origin_server_ts else {
             return false;
         };
-        let Some(duration) = value
-            .get("msc4354_sticky")
-            .or_else(|| value.get("sticky"))
-            .and_then(|sticky| sticky.get("duration_ms"))
-            .and_then(Value::as_u64)
+        let Some(duration) = event
+            .msc4354_sticky
+            .or(event.sticky)
+            .and_then(|sticky| sticky.0?.duration_ms)
         else {
             return false;
         };
         let duration = duration.min(3_600_000);
         let order_expires_at_ms = created_ts.saturating_add(duration);
-        let expires_at_ms = value
-            .get("unsigned")
-            .and_then(|unsigned| {
-                unsigned
-                    .get("msc4354_sticky_duration_ttl_ms")
-                    .or_else(|| unsigned.get("sticky_duration_ttl_ms"))
-            })
-            .and_then(Value::as_u64)
+        let expires_at_ms = event
+            .unsigned
+            .and_then(|unsigned| unsigned.msc4354_ttl_ms.or(unsigned.ttl_ms)?.0)
             .map_or(now_ms.min(created_ts).saturating_add(duration), |ttl| {
                 now_ms.saturating_add(ttl.min(duration))
             });
@@ -314,12 +373,7 @@ impl StickyMemberships {
         }) {
             return false;
         }
-        let tombstone = content.keys().all(|field| {
-            matches!(
-                field.as_str(),
-                "sticky_key" | "msc4354_sticky_key" | "slot_id"
-            )
-        });
+        let tombstone = content.rest.keys().all(|field| field == "slot_id");
         let member = if tombstone {
             None
         } else {
@@ -430,7 +484,9 @@ pub(crate) fn advertised_service_urls(members: &[CallMember]) -> Vec<String> {
 mod tests {
     use matrix_sdk::ruma::{device_id, owned_user_id, user_id};
 
-    use super::{CallMember, advertised_service_urls, sticky_member};
+    use serde_json::json;
+
+    use super::{CallMember, StickyMemberships, advertised_service_urls, sticky_member};
     use crate::protocol::CallMode;
 
     fn member(device: &str, created_ts: u64, foci: &[&str]) -> CallMember {
@@ -754,5 +810,58 @@ mod tests {
         assert_eq!(members.len(), 1);
         assert_eq!(members[0].member_id.as_deref(), Some("custom-membership"));
         assert_eq!(members[0].identity, "@user:example.org:DEVICE");
+    }
+
+    fn tombstone(extra: &serde_json::Value) -> serde_json::Value {
+        let mut event = json!({
+            "type": "org.matrix.msc4143.rtc.member",
+            "sender": "@a:example.org",
+            "event_id": "$e",
+            "origin_server_ts": 1_000,
+            "msc4354_sticky": { "duration_ms": 5_000 },
+            "content": { "msc4354_sticky_key": "k", "slot_id": "m.call#ROOM" },
+        });
+        for (key, value) in extra.as_object().expect("object") {
+            event[key] = value.clone();
+        }
+        event
+    }
+
+    #[test]
+    fn a_tombstone_applies_and_wrong_typed_fields_reject_the_event() {
+        let apply = |event: serde_json::Value| StickyMemberships::default().apply(&event, 1_000);
+        assert!(apply(tombstone(&json!({}))));
+        assert!(!apply(tombstone(&json!({
+            "msc4354_sticky": null, "sticky": { "duration_ms": 5_000 }
+        }))));
+        assert!(!apply(tombstone(&json!({
+            "msc4354_sticky": { "duration_ms": "5" }, "sticky": { "duration_ms": 5_000 }
+        }))));
+        assert!(!apply(tombstone(&json!({
+            "msc4354_sticky": null, "sticky": { "duration_ms": 5_000 }, "type": 3
+        }))));
+        assert!(!apply(tombstone(&json!({ "sender": 3 }))));
+        assert!(!apply(tombstone(&json!({ "event_id": "" }))));
+        assert!(!apply(tombstone(&json!({ "origin_server_ts": "1" }))));
+        assert!(!apply(tombstone(&json!({ "content": "x" }))));
+        assert!(!apply(json!("x")));
+    }
+
+    #[test]
+    fn the_legacy_sticky_key_and_extra_content_decide_what_a_member_is() {
+        let mut sticky = StickyMemberships::default();
+        let mut event = tombstone(&json!({ "sticky": { "duration_ms": 5_000 } }));
+        event["msc4354_sticky"] = serde_json::Value::Null;
+        event["content"] = json!({ "sticky_key": "k", "msc4354_sticky_key": "other" });
+        assert!(!sticky.apply(&event, 1_000));
+        event["content"] = json!({ "sticky_key": "k" });
+        event
+            .as_object_mut()
+            .expect("object")
+            .remove("msc4354_sticky");
+        assert!(sticky.apply(&event, 1_000));
+        event["event_id"] = json!("$f");
+        event["content"] = json!({ "sticky_key": "k", "foreign": 1 });
+        assert!(!sticky.apply(&event, 1_000), "not a tombstone nor a member");
     }
 }

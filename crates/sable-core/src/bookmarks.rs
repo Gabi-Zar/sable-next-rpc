@@ -1,7 +1,8 @@
 use matrix_sdk::ruma::events::GlobalAccountDataEventType;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId};
-use serde::Serialize;
-use serde_json::Value;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::Core;
 use crate::ResultExt;
@@ -25,26 +26,88 @@ pub(crate) fn bookmark_id(room_id: &str, event_id: &str) -> String {
 }
 
 #[derive(Serialize)]
-struct IndexOut<'a> {
+struct IndexOut {
     version: u8,
     revision: u64,
     updated_ts: u64,
-    bookmark_ids: &'a [String],
+    bookmark_ids: Vec<String>,
 }
 
 #[derive(Serialize)]
-struct ItemOut<'a> {
+struct ItemOut {
     version: u8,
-    bookmark_id: &'a str,
+    bookmark_id: String,
     uri: String,
-    room_id: &'a OwnedRoomId,
-    event_id: &'a OwnedEventId,
+    room_id: OwnedRoomId,
+    event_id: OwnedEventId,
     event_ts: u64,
     bookmarked_ts: u64,
-    sender: Option<&'a str>,
+    sender: Option<String>,
     room_name: Option<String>,
     body_preview: Option<String>,
-    msgtype: Option<&'a str>,
+    msgtype: Option<String>,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct IndexIn {
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    bookmark_ids: Vec<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    revision: Option<u64>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct ItemIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    room_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    room_name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    body_preview: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_ts: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    bookmarked_ts: Option<u64>,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct SourceEventIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    origin_server_ts: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    content: Option<SourceContentIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct SourceContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    body: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    msgtype: Option<String>,
 }
 
 fn item_event(id: &str) -> GlobalAccountDataEventType {
@@ -52,65 +115,50 @@ fn item_event(id: &str) -> GlobalAccountDataEventType {
 }
 
 impl Core {
-    async fn bookmark_account_data(&self, event_type: GlobalAccountDataEventType) -> Option<Value> {
+    async fn bookmark_account_data<T: DeserializeOwned>(
+        &self,
+        event_type: GlobalAccountDataEventType,
+    ) -> Option<T> {
         self.global_account_data(event_type, "bookmarks")
             .await
             .ok()
             .flatten()
-            .and_then(|raw| raw.deserialize_as::<Value>().ok())
+            .and_then(|raw| raw.deserialize_as_unchecked::<T>().ok())
     }
 
     async fn bookmark_ids(&self) -> Vec<String> {
-        self.bookmark_account_data(GlobalAccountDataEventType::from(INDEX_EVENT))
+        let index = self
+            .bookmark_account_data::<IndexIn>(GlobalAccountDataEventType::from(INDEX_EVENT))
             .await
-            .and_then(|index| {
-                index.get("bookmark_ids")?.as_array().map(|ids| {
-                    let mut seen = std::collections::BTreeSet::new();
-                    ids.iter()
-                        .filter_map(|id| id.as_str())
-                        .filter(|id| seen.insert(*id))
-                        .map(str::to_owned)
-                        .collect()
-                })
-            })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        let mut seen = std::collections::BTreeSet::new();
+        index
+            .bookmark_ids
+            .into_iter()
+            .filter(|id| seen.insert(id.clone()))
+            .collect()
     }
 
     pub(crate) async fn bookmarks(&self) -> Result<Vec<BookmarkView>, CommandErr> {
         let mut bookmarks = Vec::new();
 
         for id in self.bookmark_ids().await {
-            let Some(item) = self.bookmark_account_data(item_event(&id)).await else {
+            let Some(item) = self.bookmark_account_data::<ItemIn>(item_event(&id)).await else {
                 continue;
             };
-            let (Some(room_id), Some(event_id)) = (
-                item.get("room_id").and_then(Value::as_str),
-                item.get("event_id").and_then(Value::as_str),
-            ) else {
+            let (Some(room_id), Some(event_id)) = (item.room_id, item.event_id) else {
                 continue;
             };
 
             bookmarks.push(BookmarkView {
                 bookmark_id: id,
-                room_id: room_id.to_owned(),
-                event_id: event_id.to_owned(),
-                room_name: item
-                    .get("room_name")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned),
-                sender: item
-                    .get("sender")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned),
-                body_preview: item
-                    .get("body_preview")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned),
-                event_ts: item.get("event_ts").and_then(Value::as_u64).unwrap_or(0),
-                bookmarked_ts: item
-                    .get("bookmarked_ts")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(0),
+                room_id,
+                event_id,
+                room_name: item.room_name,
+                sender: item.sender,
+                body_preview: item.body_preview,
+                event_ts: item.event_ts.unwrap_or(0),
+                bookmarked_ts: item.bookmarked_ts.unwrap_or(0),
             });
         }
 
@@ -145,9 +193,9 @@ impl Core {
         }
 
         let revision = self
-            .bookmark_account_data(GlobalAccountDataEventType::from(INDEX_EVENT))
+            .bookmark_account_data::<IndexIn>(GlobalAccountDataEventType::from(INDEX_EVENT))
             .await
-            .and_then(|index| index.get("revision").and_then(Value::as_u64))
+            .and_then(|index| index.revision)
             .unwrap_or(0);
 
         self.put_global_account_data(
@@ -156,7 +204,7 @@ impl Core {
                 version: 1,
                 revision: revision.saturating_add(1),
                 updated_ts: now_ms,
-                bookmark_ids: &ids,
+                bookmark_ids: ids,
             },
             "bookmarks",
         )
@@ -178,12 +226,14 @@ impl Core {
             .event(event_id, None)
             .await
             .or_failed(self, "set_bookmark")?;
-        let raw = event.raw().deserialize_as::<Value>().ok();
+        let raw = event
+            .raw()
+            .deserialize_as_unchecked::<SourceEventIn>()
+            .unwrap_or_default();
+        let content = raw.content.as_ref();
 
-        let body = raw
-            .as_ref()
-            .and_then(|value| value.pointer("/content/body"))
-            .and_then(Value::as_str)
+        let body = content
+            .and_then(|content| content.body.as_deref())
             .map(|body| {
                 if body.chars().count() <= PREVIEW_LIMIT {
                     body.to_owned()
@@ -194,26 +244,16 @@ impl Core {
 
         let item = ItemOut {
             version: 1,
-            bookmark_id: id,
+            bookmark_id: id.to_owned(),
             uri: room_id.matrix_event_uri(event_id.clone()).to_string(),
-            room_id,
-            event_id,
-            event_ts: raw
-                .as_ref()
-                .and_then(|value| value.get("origin_server_ts"))
-                .and_then(Value::as_u64)
-                .unwrap_or(now_ms),
+            room_id: room_id.clone(),
+            event_id: event_id.clone(),
+            event_ts: raw.origin_server_ts.unwrap_or(now_ms),
             bookmarked_ts: now_ms,
-            sender: raw
-                .as_ref()
-                .and_then(|value| value.get("sender"))
-                .and_then(Value::as_str),
+            sender: raw.sender,
             room_name: room.cached_display_name().map(|name| name.to_string()),
             body_preview: (!encrypted).then_some(body).flatten(),
-            msgtype: raw
-                .as_ref()
-                .and_then(|value| value.pointer("/content/msgtype"))
-                .and_then(Value::as_str),
+            msgtype: raw.content.and_then(|content| content.msgtype),
         };
         self.put_global_account_data(item_event(id), &item, "bookmarks")
             .await
@@ -225,17 +265,16 @@ mod tests {
     use matrix_sdk::ruma::{owned_event_id, owned_room_id};
     use serde_json::json;
 
-    use super::{IndexOut, ItemOut};
+    use super::{IndexIn, IndexOut, ItemIn, ItemOut, SourceEventIn};
 
     #[test]
     fn the_index_is_the_stored_shape() {
-        let ids = ["bmk_1".to_owned()];
         assert_eq!(
             serde_json::to_value(IndexOut {
                 version: 1,
                 revision: 3,
                 updated_ts: 9,
-                bookmark_ids: &ids,
+                bookmark_ids: vec!["bmk_1".to_owned()],
             })
             .unwrap(),
             json!({ "version": 1, "revision": 3, "updated_ts": 9, "bookmark_ids": ["bmk_1"] })
@@ -249,16 +288,16 @@ mod tests {
         assert_eq!(
             serde_json::to_value(ItemOut {
                 version: 1,
-                bookmark_id: "bmk_1",
+                bookmark_id: "bmk_1".to_owned(),
                 uri: "matrix:roomid/r:example.org/e/e".to_owned(),
-                room_id: &room_id,
-                event_id: &event_id,
+                room_id,
+                event_id,
                 event_ts: 5,
                 bookmarked_ts: 6,
                 sender: None,
                 room_name: Some("Room".to_owned()),
                 body_preview: None,
-                msgtype: Some("m.text"),
+                msgtype: Some("m.text".to_owned()),
             })
             .unwrap(),
             json!({
@@ -274,6 +313,37 @@ mod tests {
                 "body_preview": null,
                 "msgtype": "m.text",
             })
+        );
+    }
+
+    #[test]
+    fn stored_bookmarks_read_leniently() {
+        let index: IndexIn =
+            serde_json::from_value(json!({ "bookmark_ids": ["a", 3, "b"], "revision": "x" }))
+                .unwrap();
+        assert_eq!(index.bookmark_ids, ["a", "b"]);
+        assert_eq!(index.revision, None);
+        let index: IndexIn = serde_json::from_value(json!({ "bookmark_ids": "a" })).unwrap();
+        assert!(index.bookmark_ids.is_empty());
+
+        let item: ItemIn = serde_json::from_value(
+            json!({ "room_id": "!r:x", "event_id": 4, "event_ts": 2, "sender": null }),
+        )
+        .unwrap();
+        assert_eq!(item.room_id.as_deref(), Some("!r:x"));
+        assert_eq!(item.event_id, None);
+        assert_eq!(item.event_ts, Some(2));
+        assert_eq!(item.sender, None);
+
+        let source: SourceEventIn = serde_json::from_value(
+            json!({ "origin_server_ts": 5, "content": { "body": 1, "msgtype": "m.text" } }),
+        )
+        .unwrap();
+        assert_eq!(source.origin_server_ts, Some(5));
+        let content = source.content.expect("content");
+        assert_eq!(
+            (content.body, content.msgtype.as_deref()),
+            (None, Some("m.text"))
         );
     }
 }

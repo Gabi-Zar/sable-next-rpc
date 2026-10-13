@@ -728,7 +728,7 @@ async fn schedule_hangup_does_not_write_when_delayed_events_are_unsupported() {
 }
 
 #[test]
-fn membership_content_keeps_each_wire_shape() {
+fn matrix2_and_legacy_membership_content_differ_in_shape() {
     let room_id = owned_room_id!("!room:example.org");
     let mut own = member(CallMode::Matrix2, 1_000, &["https://sfu.example.org"]);
     own.member_id = Some("m1".to_owned());

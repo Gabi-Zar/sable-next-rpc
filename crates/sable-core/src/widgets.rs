@@ -29,14 +29,16 @@ use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::to_device::DeviceIdOrAllDevices;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, OwnedUserId, TransactionId, UInt};
 use matrix_sdk_base::crypto::CollectStrategy;
-use serde::Serialize;
+use serde::{Deserialize as _, Serialize};
 use serde_json::Value;
+use serde_with::{DefaultOnError, serde_as};
 
 use crate::calls::{is_rtc_member_type, sticky};
 use crate::protocol::{
     CommandErr, CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RtcLivekitEndpoint,
     TurnServerView, UserDirectoryEntryView,
 };
+use crate::view::ObjectOnly;
 use crate::{Core, ResultExt};
 
 const MAX_TIMELINE_EVENTS: usize = 500;
@@ -125,46 +127,83 @@ fn with_room_id(mut event: Value, room_id: &matrix_sdk::ruma::RoomId) -> Value {
     event
 }
 
-/// `event` comes first so the explicit `room_id` overrides any copy of it.
-#[derive(serde::Serialize)]
-struct RoomScopedEventOut<'a> {
-    #[serde(flatten)]
-    event: serde_json::Map<String, Value>,
-    room_id: &'a str,
-}
-
-#[derive(serde::Serialize)]
-struct RtcTransportsOut<T> {
-    rtc_transports: T,
-}
-
 struct IntegrationManager {
     api_url: String,
     ui_url: String,
 }
 
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct WellKnownIn {
+    #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "m.integrations")]
+    integrations: Option<IntegrationsIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct IntegrationsIn {
+    #[serde_as(deserialize_as = "DefaultOnError<Vec<ObjectOnly>>")]
+    managers: Vec<Option<ManagerIn>>,
+}
+
+#[derive(serde::Deserialize)]
+struct ManagerIn {
+    api_url: String,
+    ui_url: String,
+}
+
 fn managers_from_well_known(well_known: &Value) -> Vec<IntegrationManager> {
-    well_known
-        .get("m.integrations")
-        .and_then(|integrations| integrations.get("managers"))
-        .and_then(Value::as_array)
+    if !well_known.is_object() {
+        return Vec::new();
+    }
+    WellKnownIn::deserialize(well_known)
+        .unwrap_or_default()
+        .integrations
+        .unwrap_or_default()
+        .managers
         .into_iter()
         .flatten()
-        .filter_map(|manager| {
-            Some(IntegrationManager {
-                api_url: manager.get("api_url")?.as_str()?.to_owned(),
-                ui_url: manager.get("ui_url")?.as_str()?.to_owned(),
-            })
+        .map(|manager| IntegrationManager {
+            api_url: manager.api_url,
+            ui_url: manager.ui_url,
         })
         .collect()
 }
 
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct AccountWidgetIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "type")]
+    kind: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    url: Option<String>,
+    #[serde_as(as = "ObjectOnly")]
+    data: Option<AccountWidgetDataIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct AccountWidgetDataIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    api_url: Option<String>,
+}
+
 fn managers_from_account_data(widgets: &Value, known: &mut Vec<IntegrationManager>) {
     for widget in widgets.as_object().into_iter().flat_map(|map| map.values()) {
-        if widget.get("type").and_then(Value::as_str) != Some("m.integration_manager") {
+        if !widget.is_object() {
             continue;
         }
-        let Some(url) = widget.get("url").and_then(Value::as_str) else {
+        let widget = AccountWidgetIn::deserialize(widget).unwrap_or_default();
+        if widget.kind.as_deref() != Some("m.integration_manager") {
+            continue;
+        }
+        let Some(url) = widget.url else {
             continue;
         };
         if known.iter().any(|manager| manager.ui_url == url) {
@@ -172,12 +211,10 @@ fn managers_from_account_data(widgets: &Value, known: &mut Vec<IntegrationManage
         }
         known.push(IntegrationManager {
             api_url: widget
-                .get("data")
-                .and_then(|data| data.get("api_url"))
-                .and_then(Value::as_str)
-                .unwrap_or(url)
-                .to_owned(),
-            ui_url: url.to_owned(),
+                .data
+                .and_then(|data| data.api_url)
+                .unwrap_or_else(|| url.clone()),
+            ui_url: url,
         });
     }
 }
@@ -200,10 +237,10 @@ fn integration_manager_page(
 }
 
 #[derive(Serialize)]
-struct ScalarRegisterOut<'a> {
-    access_token: &'a str,
-    token_type: &'a str,
-    matrix_server_name: &'a str,
+struct ScalarRegisterOut {
+    access_token: String,
+    token_type: String,
+    matrix_server_name: String,
     expires_in: u64,
 }
 
@@ -525,13 +562,10 @@ impl Core {
             .await
             .or_failed(self, "room_account_data_raw")?;
         Ok(event.and_then(|raw| {
-            let event: serde_json::Map<String, Value> =
-                serde_json::from_str(raw.json().get()).ok()?;
-            serde_json::to_value(RoomScopedEventOut {
-                event,
-                room_id: room_id.as_str(),
-            })
-            .ok()
+            let mut json: Value = serde_json::from_str(raw.json().get()).ok()?;
+            json.as_object_mut()?
+                .insert("room_id".to_owned(), Value::String(room_id.to_string()));
+            Some(json)
         }))
     }
 
@@ -650,10 +684,9 @@ impl Core {
             .await
             .map_err(|error| self.homeserver_http_error("rtc_transports", error))?
             .unwrap_or_default();
-        serde_json::to_value(RtcTransportsOut {
-            rtc_transports: transports,
-        })
-        .or_failed(self, "rtc_transports")
+        serde_json::to_value(transports)
+            .map(|transports| serde_json::json!({ "rtc_transports": transports }))
+            .or_failed(self, "rtc_transports")
     }
 
     pub(crate) async fn rtc_livekit(
@@ -730,9 +763,9 @@ impl Core {
             .header("Content-Type", "application/json")
             .body(
                 serde_json::to_string(&ScalarRegisterOut {
-                    access_token: &token.access_token,
-                    token_type: &token.token_type,
-                    matrix_server_name: &token.matrix_server_name,
+                    access_token: token.access_token,
+                    token_type: token.token_type,
+                    matrix_server_name: token.matrix_server_name,
                     expires_in: token.expires_in_ms / 1000,
                 })
                 .ok()?,
@@ -865,7 +898,7 @@ impl Core {
 
 #[cfg(test)]
 mod tests {
-    use super::{RelationsFilter, ScalarRegisterOut};
+    use super::{RelationsFilter, managers_from_account_data, managers_from_well_known};
     use crate::{
         Core,
         protocol::{Command, CommandErr, CoreEvent, RtcLivekitEndpoint},
@@ -881,26 +914,6 @@ mod tests {
         Mock, ResponseTemplate,
         matchers::{body_json, method, path, path_regex, query_param},
     };
-
-    #[test]
-    fn scalar_register_body_keeps_the_wire_shape() {
-        let body = serde_json::to_value(ScalarRegisterOut {
-            access_token: "tok",
-            token_type: "Bearer",
-            matrix_server_name: "example.org",
-            expires_in: 3600,
-        })
-        .unwrap();
-        assert_eq!(
-            body,
-            json!({
-                "access_token": "tok",
-                "token_type": "Bearer",
-                "matrix_server_name": "example.org",
-                "expires_in": 3600,
-            })
-        );
-    }
 
     #[tokio::test]
     async fn widget_sends_return_the_created_event_id() {
@@ -1528,5 +1541,41 @@ mod tests {
         let core = core_with(&server, client).await;
 
         assert_eq!(core.known_room_ids().await.unwrap(), [room_id.to_owned()]);
+    }
+
+    #[test]
+    fn well_known_managers_skip_malformed_entries() {
+        let managers = managers_from_well_known(&json!({ "m.integrations": { "managers": [
+            { "api_url": "https://a/api", "ui_url": "https://a/ui" },
+            { "api_url": "https://b/api" },
+            "junk",
+            { "api_url": 1, "ui_url": "https://c" },
+        ] } }));
+        assert_eq!(managers.len(), 1);
+        assert_eq!(managers[0].ui_url, "https://a/ui");
+        assert!(managers_from_well_known(&json!({ "m.integrations": ["x"] })).is_empty());
+    }
+
+    #[test]
+    fn account_data_managers_fall_back_to_the_widget_url() {
+        let mut known = Vec::new();
+        managers_from_account_data(
+            &json!({
+                "a": { "type": "m.integration_manager", "url": "https://a/ui",
+                       "data": { "api_url": "https://a/api" } },
+                "b": { "type": "m.integration_manager", "url": "https://b/ui", "data": 5 },
+                "c": { "type": "other", "url": "https://c" },
+                "d": "junk",
+            }),
+            &mut known,
+        );
+        let pairs: Vec<_> = known.iter().map(|m| (&*m.api_url, &*m.ui_url)).collect();
+        assert_eq!(
+            pairs,
+            [
+                ("https://a/api", "https://a/ui"),
+                ("https://b/ui", "https://b/ui")
+            ]
+        );
     }
 }

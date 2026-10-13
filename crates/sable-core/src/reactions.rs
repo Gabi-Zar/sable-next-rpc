@@ -4,6 +4,9 @@ use matrix_sdk::deserialized_responses::TimelineEvent;
 use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{EventId, OwnedEventId, OwnedRoomId};
+use serde::Deserialize;
+use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, serde_as};
 
 use crate::Core;
 use crate::ResultExt;
@@ -11,26 +14,52 @@ use crate::protocol::{CommandErr, CommandOk, ReactionShortcodeView};
 
 const MAX_SHORTCODE_BYTES: usize = 100;
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct ContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "m.relates_to")]
+    relates_to: Option<RelationIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    shortcode: Option<String>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct RelationIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    rel_type: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    key: Option<String>,
+}
+
 pub(crate) fn can_annotate<T>(event: &Raw<T>) -> bool {
     let content = event
-        .get_field::<serde_json::Value>("content")
+        .get_field::<ContentIn>("content")
         .ok()
-        .flatten();
+        .flatten()
+        .unwrap_or_default();
     !matches!(
         content
-            .as_ref()
-            .and_then(|content| content.pointer("/m.relates_to/rel_type"))
-            .and_then(serde_json::Value::as_str),
+            .relates_to
+            .and_then(|relation| relation.rel_type)
+            .as_deref(),
         Some("m.annotation" | "m.replace")
     )
 }
 
 fn is_redacted<T>(event: &Raw<T>) -> bool {
     event
-        .get_field::<serde_json::Value>("unsigned")
+        .get_field::<Map<String, Value>>("unsigned")
         .ok()
         .flatten()
-        .is_some_and(|unsigned| unsigned.get("redacted_because").is_some())
+        .is_some_and(|unsigned| unsigned.contains_key("redacted_because"))
 }
 
 impl Core {
@@ -109,31 +138,22 @@ impl Core {
 fn shortcodes(events: &[TimelineEvent], target: &EventId) -> Vec<ReactionShortcodeView> {
     let mut by_key = BTreeMap::new();
     for event in events {
-        let Ok(Some(content)) = event.raw().get_field::<serde_json::Value>("content") else {
+        let Ok(Some(content)) = event.raw().get_field::<ContentIn>("content") else {
             continue;
         };
-        if content
-            .pointer("/m.relates_to/event_id")
-            .and_then(serde_json::Value::as_str)
-            != Some(target.as_str())
-        {
-            continue;
-        }
-        let Some(key) = content
-            .pointer("/m.relates_to/key")
-            .and_then(serde_json::Value::as_str)
-            .filter(|key| key.starts_with("mxc://"))
+        let Some(relation) = content
+            .relates_to
+            .filter(|relation| relation.event_id.as_deref() == Some(target.as_str()))
         else {
             continue;
         };
-        let Some(shortcode) = content
-            .get("shortcode")
-            .and_then(serde_json::Value::as_str)
-            .and_then(normalized)
-        else {
+        let Some(key) = relation.key.filter(|key| key.starts_with("mxc://")) else {
             continue;
         };
-        by_key.entry(key.to_owned()).or_insert(shortcode);
+        let Some(shortcode) = content.shortcode.as_deref().and_then(normalized) else {
+            continue;
+        };
+        by_key.entry(key).or_insert(shortcode);
     }
     by_key
         .into_iter()
@@ -157,7 +177,7 @@ mod tests {
     use matrix_sdk::ruma::{event_id, serde::Raw};
     use serde_json::json;
 
-    use super::{can_annotate, shortcodes};
+    use super::{can_annotate, is_redacted, shortcodes};
 
     #[test]
     fn annotation_targets_are_checked_by_relation_type() {
@@ -348,6 +368,26 @@ mod tests {
                 ));
             }
         }
+    }
+
+    fn raw(event: &serde_json::Value) -> Raw<serde_json::Value> {
+        Raw::new(event).expect("raw event")
+    }
+
+    #[test]
+    fn a_redaction_marker_counts_even_when_null_and_wrong_shapes_read_as_absent() {
+        assert!(is_redacted(&raw(
+            &json!({ "unsigned": { "redacted_because": null } })
+        )));
+        assert!(!is_redacted(&raw(&json!({ "unsigned": {} }))));
+        assert!(!is_redacted(&raw(&json!({ "unsigned": "x" }))));
+        assert!(can_annotate(&raw(
+            &json!({ "content": { "m.relates_to": "x" } })
+        )));
+        assert!(can_annotate(&raw(&json!({ "content": "x" }))));
+        assert!(!can_annotate(&raw(&json!({
+            "content": { "m.relates_to": { "rel_type": "m.replace" } }
+        }))));
     }
 
     fn reaction(key: &str, shortcode: Option<&str>) -> TimelineEvent {

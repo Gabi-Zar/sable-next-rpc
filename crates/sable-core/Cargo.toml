@@ -29,6 +29,7 @@ http = "1.5"
 web-time = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_with = { workspace = true }
 futures-util = { workspace = true }
 tracing = { workspace = true }
 specta = { workspace = true, optional = true }

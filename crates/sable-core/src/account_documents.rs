@@ -1,6 +1,7 @@
 use matrix_sdk::ruma::OwnedRoomId;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::Core;
 use crate::protocol::{CommandErr, InviteAvatarsView, MediaPreviewConfigView, MediaPreviewsView};
@@ -9,19 +10,42 @@ const MEDIA_PREVIEW_EVENT: &str = "m.media_preview_config";
 const UNSTABLE_MEDIA_PREVIEW_EVENT: &str = "io.element.msc4278.media_preview_config";
 const DISMISSED_INVITES_EVENT: &str = "moe.sable.dismissed_invites";
 
+#[derive(Default, Deserialize)]
+struct MediaPreviewIn {
+    #[serde(default, deserialize_with = "media_previews")]
+    media_previews: Option<MediaPreviewsView>,
+    #[serde(default, deserialize_with = "invite_avatars")]
+    invite_avatars: Option<InviteAvatarsView>,
+}
+
+/// A present but unknown value means the safest choice, `off`.
+fn media_previews<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<MediaPreviewsView>, D::Error> {
+    Ok(Some(match Value::deserialize(deserializer)?.as_str() {
+        Some("on") => MediaPreviewsView::On,
+        Some("private") => MediaPreviewsView::Private,
+        _ => MediaPreviewsView::Off,
+    }))
+}
+
+fn invite_avatars<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<InviteAvatarsView>, D::Error> {
+    Ok(Some(match Value::deserialize(deserializer)?.as_str() {
+        Some("on") => InviteAvatarsView::On,
+        _ => InviteAvatarsView::Off,
+    }))
+}
+
 /// MSC4278: a present but unknown value means the safest choice, `off`.
 pub(crate) fn media_preview_config(content: Option<&Value>) -> MediaPreviewConfigView {
-    let field = |name: &str| content.and_then(|content| content.get(name));
+    let config = content
+        .and_then(|content| MediaPreviewIn::deserialize(content).ok())
+        .unwrap_or_default();
     MediaPreviewConfigView {
-        media_previews: field("media_previews").map(|value| match value.as_str() {
-            Some("on") => MediaPreviewsView::On,
-            Some("private") => MediaPreviewsView::Private,
-            _ => MediaPreviewsView::Off,
-        }),
-        invite_avatars: field("invite_avatars").map(|value| match value.as_str() {
-            Some("on") => InviteAvatarsView::On,
-            _ => InviteAvatarsView::Off,
-        }),
+        media_previews: config.media_previews,
+        invite_avatars: config.invite_avatars,
     }
 }
 
@@ -52,21 +76,25 @@ pub(crate) fn media_preview_content(
     Value::Object(content)
 }
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct DismissedInvitesIn {
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default, rename = "roomIds")]
+    room_ids: Vec<OwnedRoomId>,
+}
+
 pub(crate) fn dismissed_invites(content: Option<&Value>) -> Vec<OwnedRoomId> {
     content
-        .and_then(|content| content.get("roomIds"))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-        .filter_map(|room_id| OwnedRoomId::try_from(room_id).ok())
-        .collect()
+        .and_then(|content| DismissedInvitesIn::deserialize(content).ok())
+        .unwrap_or_default()
+        .room_ids
 }
 
 #[derive(Serialize)]
-struct DismissedInvitesOut<'a> {
+struct DismissedInvitesOut {
     #[serde(rename = "roomIds")]
-    room_ids: &'a [OwnedRoomId],
+    room_ids: Vec<OwnedRoomId>,
 }
 
 impl Core {
@@ -148,14 +176,9 @@ impl Core {
         if dismissed {
             room_ids.push(room_id);
         }
-        self.set_account_data(
-            DISMISSED_INVITES_EVENT,
-            &DismissedInvitesOut {
-                room_ids: &room_ids,
-            },
-        )
-        .await?;
-        Ok(room_ids)
+        let out = DismissedInvitesOut { room_ids };
+        self.set_account_data(DISMISSED_INVITES_EVENT, &out).await?;
+        Ok(out.room_ids)
     }
 }
 
@@ -217,5 +240,18 @@ mod tests {
             vec!["!a:example.org"]
         );
         assert!(dismissed_invites(Some(&json!({ "roomIds": "nope" }))).is_empty());
+    }
+
+    #[test]
+    fn a_non_string_preview_value_reads_as_off() {
+        let read = media_preview_config(Some(
+            &json!({ "media_previews": 3, "invite_avatars": null }),
+        ));
+        assert_eq!(read.media_previews, Some(MediaPreviewsView::Off));
+        assert_eq!(read.invite_avatars, Some(InviteAvatarsView::Off));
+        assert_eq!(
+            media_preview_config(Some(&json!("x"))),
+            MediaPreviewConfigView::default()
+        );
     }
 }

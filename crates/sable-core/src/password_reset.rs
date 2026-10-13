@@ -1,6 +1,8 @@
 use matrix_sdk::ruma::api::client::account::change_password::v3::Request as ChangePasswordRequest;
 use matrix_sdk::ruma::api::client::account::request_password_change_token_via_email::v3::Request as PasswordEmailRequest;
-use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, EmailIdentity, UiaaInfo};
+use matrix_sdk::ruma::api::client::uiaa::{
+    AuthData, AuthType, EmailIdentity, ThirdpartyIdCredentials, UiaaInfo,
+};
 use matrix_sdk::ruma::api::error::ErrorKind;
 use matrix_sdk::ruma::{ClientSecret, OwnedClientSecret, OwnedSessionId, SessionId, UInt};
 
@@ -10,26 +12,21 @@ use crate::protocol::{CommandErr, CommandOk};
 use crate::{Core, session};
 
 #[derive(serde::Serialize)]
-struct EmailIdentityOut<'a, C> {
-    #[serde(rename = "type")]
-    auth_type: AuthType,
-    threepid_creds: &'a C,
-    session: Option<&'a str>,
-}
-
-#[derive(serde::Serialize)]
-struct ThreepidCredsOut<'a> {
-    sid: &'a OwnedSessionId,
-    client_secret: &'a OwnedClientSecret,
+#[serde(tag = "type")]
+enum EmailIdentityOut<'a> {
+    #[serde(rename = "m.login.email.identity")]
+    EmailIdentity {
+        threepid_creds: &'a ThirdpartyIdCredentials,
+        session: Option<&'a str>,
+    },
 }
 
 /// ruma gives `EmailIdentity` no constructor, so it is read back from its wire form.
-pub(crate) fn email_identity<C: serde::Serialize>(
-    creds: &C,
+pub(crate) fn email_identity(
+    creds: &ThirdpartyIdCredentials,
     session: Option<&str>,
 ) -> Option<AuthData> {
-    let wire = serde_json::to_value(EmailIdentityOut {
-        auth_type: AuthType::EmailIdentity,
+    let wire = serde_json::to_value(EmailIdentityOut::EmailIdentity {
         threepid_creds: creds,
         session,
     })
@@ -43,7 +40,10 @@ fn email_identity_auth(
     client_secret: &OwnedClientSecret,
     session: Option<&str>,
 ) -> Option<AuthData> {
-    email_identity(&ThreepidCredsOut { sid, client_secret }, session)
+    email_identity(
+        &ThirdpartyIdCredentials::new(sid.clone(), client_secret.clone()),
+        session,
+    )
 }
 
 fn offers_email_identity(info: &UiaaInfo) -> bool {

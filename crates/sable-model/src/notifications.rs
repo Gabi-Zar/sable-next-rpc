@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, DeserializeAs, VecSkipError, serde_as};
 
 use crate::text::trim;
 
@@ -77,25 +78,28 @@ pub struct PushAlert {
 const RING_EVENT_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.notification"];
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
-/// A non-blank string, or nothing for a missing, blank or wrong-typed field.
-fn text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::String(text) if !trim(&text).is_empty() => Some(text),
-        _ => None,
-    })
+/// A string that is not blank, kept as received; anything else reads as nothing.
+struct NonBlankText;
+
+impl<'de> DeserializeAs<'de, Option<String>> for NonBlankText {
+    fn deserialize_as<D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+        Ok(match Value::deserialize(deserializer)? {
+            Value::String(text) if !trim(&text).is_empty() => Some(text),
+            _ => None,
+        })
+    }
 }
 
-/// A trimmed, non-empty user id, or nothing for anything else.
-fn recipient<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::String(user) => Some(trim(&user).to_owned()).filter(|user| !user.is_empty()),
-        _ => None,
-    })
-}
+/// A user id, trimmed; anything blank or not a string reads as nothing.
+struct Recipient;
 
-/// A field kept as received when present, `null` included.
-fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Value>, D::Error> {
-    Value::deserialize(deserializer).map(Some)
+impl<'de> DeserializeAs<'de, Option<String>> for Recipient {
+    fn deserialize_as<D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
+        Ok(match Value::deserialize(deserializer)? {
+            Value::String(user) => Some(trim(&user).to_owned()).filter(|user| !user.is_empty()),
+            _ => None,
+        })
+    }
 }
 
 /// `Number.isSafeInteger(n) && n >= 0`, which a JSON `2.0` passes too.
@@ -116,13 +120,17 @@ fn count(value: &Value) -> Option<u64> {
         .filter(|n| *n <= MAX_SAFE_INTEGER)
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct ContentIn {
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     body: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     membership: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     notification_type: Option<String>,
 }
 
@@ -141,33 +149,43 @@ pub fn push_content(value: &Value) -> PushContent {
     ContentIn::deserialize(value).unwrap_or_default().into()
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct Envelope {
-    #[serde(default, deserialize_with = "recipient")]
+    #[serde_as(as = "Recipient")]
+    #[serde(default)]
     user_id: Option<String>,
-    #[serde(default, deserialize_with = "present")]
+    #[serde(default, deserialize_with = "crate::field::present")]
     notification: Option<Value>,
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct DefaultPayload {
-    #[serde(default, deserialize_with = "recipient")]
+    #[serde_as(as = "Recipient")]
+    #[serde(default)]
     user_id: Option<String>,
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct DeviceData {
-    #[serde(default, deserialize_with = "recipient")]
+    #[serde_as(as = "Recipient")]
+    #[serde(default)]
     user_id: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     default_payload: Option<DefaultPayload>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct Device {
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     tweaks: Option<Map<String, Value>>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     data: Option<DeviceData>,
 }
 
@@ -176,28 +194,39 @@ struct Counts {
     unread: Option<Value>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct NotificationIn {
-    #[serde(default, deserialize_with = "recipient")]
+    #[serde_as(as = "Recipient")]
+    #[serde(default)]
     user_id: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::list")]
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
     devices: Vec<Device>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     counts: Option<Counts>,
     unread: Option<Value>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     room_id: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     event_id: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     room_name: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     sender_display_name: Option<String>,
-    #[serde(default, rename = "type", deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default, rename = "type")]
     event_type: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     membership: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     content: Option<ContentIn>,
 }
 
@@ -278,11 +307,14 @@ pub fn parse_push_payload(raw: &str) -> Option<PushNotification> {
 /// The MSC4174 validation handshake, exclusive of a real notification.
 #[must_use]
 pub fn web_push_validation(raw: &str) -> Option<WebPushValidation> {
+    #[serde_as]
     #[derive(Deserialize)]
     struct Handshake {
-        #[serde(default, deserialize_with = "text")]
+        #[serde_as(as = "NonBlankText")]
+        #[serde(default)]
         app_id: Option<String>,
-        #[serde(default, deserialize_with = "text")]
+        #[serde_as(as = "NonBlankText")]
+        #[serde(default)]
         ack_token: Option<String>,
         #[serde(flatten)]
         rest: Map<String, Value>,
@@ -609,5 +641,20 @@ mod tests {
                 ack_token: "t".to_owned()
             })
         );
+    }
+
+    #[test]
+    fn devices_that_are_not_a_list_are_ignored() {
+        let push = parsed(
+            &json!({"notification": {"room_id": "!r:x", "devices": {"tweaks": {"sound": 1}}}}),
+        );
+        assert!(!push.noisy);
+    }
+
+    #[test]
+    fn text_is_kept_untrimmed_but_a_recipient_is_trimmed() {
+        let push = parsed(&json!({"user_id": " @me:x ", "room_id": "!r:x", "room_name": " Den "}));
+        assert_eq!(push.room_name.as_deref(), Some(" Den "));
+        assert_eq!(push.user_id.as_deref(), Some("@me:x"));
     }
 }

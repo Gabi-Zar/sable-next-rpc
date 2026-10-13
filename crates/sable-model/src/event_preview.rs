@@ -1,8 +1,9 @@
 //! What to quote for an event read from its source, when there is no rendered
 //! timeline item for it: its body, or what it was instead.
 
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, NoneAsEmptyString, serde_as};
 
 /// What a quoted event was, when it has no body to show.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -23,55 +24,52 @@ pub struct EventPreview {
     pub fallback: Option<ReplyFallbackView>,
 }
 
-/// A non-empty string, or nothing for a missing, empty or wrong-typed field.
-fn text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::String(text) if !text.is_empty() => Some(text),
-        _ => None,
-    })
-}
-
-#[derive(Default, Deserialize)]
+#[serde_as]
+#[derive(Deserialize)]
 struct Relation {
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
     key: Option<String>,
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct Content {
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
     body: Option<String>,
-    #[serde(default, deserialize_with = "text")]
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
     shortcode: Option<String>,
-    #[serde(
-        default,
-        rename = "com.beeper.reaction.shortcode",
-        deserialize_with = "text"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default, rename = "com.beeper.reaction.shortcode")]
     beeper_shortcode: Option<String>,
-    #[serde(
-        default,
-        rename = "m.relates_to",
-        deserialize_with = "crate::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "m.relates_to")]
     relates_to: Option<Relation>,
 }
 
-#[derive(Default, Deserialize)]
+#[serde_as]
+#[derive(Deserialize)]
 struct Unsigned {
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     redacted_because: Option<Map<String, Value>>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct Source {
     #[serde(rename = "type")]
     kind: String,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     sender: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     content: Option<Content>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     unsigned: Option<Unsigned>,
 }
 
@@ -200,5 +198,16 @@ mod tests {
         );
         assert!(event_preview(&json!({"type": 3})).is_none());
         assert_eq!(reaction_key(&json!("nope")), None);
+    }
+
+    #[test]
+    fn a_body_is_kept_as_received_unless_empty_or_not_a_string() {
+        let body = |body: Value| {
+            read(&json!({"type": "m.room.message", "sender": "@b:x", "content": {"body": body}}))
+        };
+        assert_eq!(body(json!(" hi ")).body.as_deref(), Some(" hi "));
+        for unreadable in [json!(""), json!(null), json!(7)] {
+            assert_eq!(body(unreadable).body, None);
+        }
     }
 }

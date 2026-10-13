@@ -1,6 +1,10 @@
 use matrix_sdk::ruma::OwnedUserId;
 use matrix_sdk::ruma::api::client::profile::{AvatarUrl, DisplayName};
 
+use sable_model::non_blank::NonBlank;
+use serde::Deserialize as _;
+use serde_with::serde_as;
+
 use crate::protocol::{
     AnimalIdentityView, BrightnessView, ProfileFieldView, ProfileView, PronounView, StatusView,
 };
@@ -60,10 +64,54 @@ fn profile_text(value: Option<&serde_json::Value>) -> Option<String> {
 }
 
 pub(crate) fn profile_hex_color(value: Option<&serde_json::Value>) -> Option<String> {
-    profile_text(value).filter(|color| {
-        let digits = color.strip_prefix('#').unwrap_or_default();
-        matches!(digits.len(), 3 | 6) && digits.bytes().all(|digit| digit.is_ascii_hexdigit())
-    })
+    profile_text(value).and_then(hex_color)
+}
+
+fn hex_color(color: String) -> Option<String> {
+    let digits = color.strip_prefix('#').unwrap_or_default();
+    (matches!(digits.len(), 3 | 6) && digits.bytes().all(|digit| digit.is_ascii_hexdigit()))
+        .then_some(color)
+}
+
+/// A structured field reads as its default unless it is an object.
+fn profile_object<T: serde::de::DeserializeOwned + Default>(
+    response: &ProfileResponse,
+    name: &str,
+) -> T {
+    profile_field(response, name)
+        .filter(|value| value.is_object())
+        .and_then(|value| T::deserialize(value).ok())
+        .unwrap_or_default()
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct ColorScheme {
+    #[serde_as(as = "NonBlank")]
+    brightness: Option<String>,
+    #[serde_as(as = "NonBlank")]
+    color: Option<String>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct StructuredStatus {
+    #[serde_as(as = "NonBlank")]
+    text: Option<String>,
+    #[serde_as(as = "NonBlank")]
+    emoji: Option<String>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct PronounSet {
+    #[serde_as(as = "NonBlank")]
+    summary: Option<String>,
+    #[serde_as(as = "NonBlank")]
+    language: Option<String>,
 }
 
 use crate::matrix_html::display_html;
@@ -103,11 +151,9 @@ fn profile_bio(response: &ProfileResponse) -> Option<String> {
 }
 
 fn profile_hero_brightness(response: &ProfileResponse) -> Option<BrightnessView> {
-    match profile_text(
-        profile_field(response, "chat.commet.profile_color_scheme")
-            .and_then(|scheme| scheme.get("brightness")),
-    )?
-    .as_str()
+    match profile_object::<ColorScheme>(response, "chat.commet.profile_color_scheme")
+        .brightness?
+        .as_str()
     {
         "light" => Some(BrightnessView::Light),
         "dark" => Some(BrightnessView::Dark),
@@ -116,10 +162,9 @@ fn profile_hero_brightness(response: &ProfileResponse) -> Option<BrightnessView>
 }
 
 fn profile_hero_color(response: &ProfileResponse) -> Option<String> {
-    profile_hex_color(
-        profile_field(response, "chat.commet.profile_color_scheme")
-            .and_then(|value| value.get("color")),
-    )
+    profile_object::<ColorScheme>(response, "chat.commet.profile_color_scheme")
+        .color
+        .and_then(hex_color)
 }
 
 /// MSC4426 first, then its unstable prefix, then the older single-string field.
@@ -128,11 +173,11 @@ fn profile_status(response: &ProfileResponse) -> Option<StatusView> {
     const MAX_EMOJI_CHARS: usize = 32;
 
     let structured = |name| {
-        let field = profile_field(response, name);
-        let text = profile_text(field.and_then(|status| status.get("text")))?;
+        let status = profile_object::<StructuredStatus>(response, name);
         Some(StatusView {
-            text: text.chars().take(MAX_TEXT_CHARS).collect(),
-            emoji: profile_text(field.and_then(|status| status.get("emoji")))
+            text: status.text?.chars().take(MAX_TEXT_CHARS).collect(),
+            emoji: status
+                .emoji
                 .map(|emoji| emoji.chars().take(MAX_EMOJI_CHARS).collect()),
         })
     };
@@ -157,14 +202,12 @@ pub(crate) fn pronoun_sets(value: Option<&serde_json::Value>) -> Vec<PronounView
         .and_then(serde_json::Value::as_array)
         .map(|sets| {
             sets.iter()
+                .filter(|set| set.is_object())
                 .filter_map(|set| {
+                    let set = PronounSet::deserialize(set).ok()?;
                     Some(PronounView {
-                        summary: profile_text(set.get("summary"))?
-                            .chars()
-                            .take(MAX_SUMMARY_CHARS)
-                            .collect(),
-                        language: profile_text(set.get("language"))
-                            .map(|language| language.to_lowercase()),
+                        summary: set.summary?.chars().take(MAX_SUMMARY_CHARS).collect(),
+                        language: set.language.map(|language| language.to_lowercase()),
                     })
                 })
                 .collect()
@@ -381,5 +424,27 @@ mod tests {
 
         let huge = view(&json!({ "moe.sable.app.supporter_awards": ["x".repeat(20_000)] }));
         assert_eq!(huge.supporter_awards, None);
+    }
+
+    #[test]
+    fn structured_fields_skip_wrong_typed_members() {
+        let profile = view(&json!({
+            "m.status": { "text": " busy ", "emoji": 4 },
+            "chat.commet.profile_color_scheme": { "brightness": "dark", "color": 1 },
+            "io.fsky.nyx.pronouns": [{ "summary": " she ", "language": "EN" }, { "summary": 2 }, "x"],
+        }));
+        let status = profile.status.unwrap();
+        assert_eq!(status.text, "busy");
+        assert_eq!(status.emoji, None);
+        assert!(matches!(
+            profile.hero_brightness,
+            Some(BrightnessView::Dark)
+        ));
+        assert_eq!(profile.hero_color, None);
+        assert_eq!(profile.pronouns.len(), 1);
+        assert_eq!(profile.pronouns[0].language.as_deref(), Some("en"));
+
+        let arrays = view(&json!({ "m.status": ["busy"] }));
+        assert!(arrays.status.is_none());
     }
 }

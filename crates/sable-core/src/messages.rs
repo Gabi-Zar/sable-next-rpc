@@ -31,6 +31,7 @@ use crate::protocol::{
     CommandErr, EditVersionView, MessageKind, PerMessageProfileView, TimelineItemView,
 };
 use crate::view::{per_message_profile, standalone_item};
+use serde_with::{DefaultOnError, serde_as};
 
 pub(crate) fn outgoing_mentions(user_ids: Vec<OwnedUserId>, room: bool) -> Mentions {
     let mut mentions = Mentions::with_user_ids(user_ids);
@@ -135,9 +136,8 @@ fn replacement_edit(
         fields: edit,
         mentions: serde_json::Map::new(),
         new_content,
-        relates_to: ReplaceRelationOut {
-            rel_type: RelationType::Replacement,
-            event_id: event_id.as_str(),
+        relates_to: ReplaceRelationOut::Replace {
+            event_id: event_id.to_string(),
         },
     })
     .ok()
@@ -306,18 +306,13 @@ impl Core {
                 .or_failed(self, "delete_thread")?;
 
             for event in relations.chunk {
-                let Ok(raw) = serde_json::from_str::<serde_json::Value>(event.raw().json().get())
-                else {
+                let Ok(raw) = serde_json::from_str::<RawEventHead>(event.raw().json().get()) else {
                     continue;
                 };
-                if raw
-                    .get("unsigned")
-                    .and_then(|unsigned| unsigned.get("redacted_because"))
-                    .is_some()
-                {
+                if raw.redacted() {
                     continue;
                 }
-                let Some(event_id) = raw.get("event_id").and_then(serde_json::Value::as_str) else {
+                let Some(event_id) = raw.event_id.as_deref() else {
                     continue;
                 };
                 let event_id = EventId::parse(event_id).or_failed(self, "delete_thread")?;
@@ -365,34 +360,27 @@ impl Core {
 
             let mut older_than_cutoff = true;
             for event in messages.chunk {
-                let Ok(raw) = serde_json::from_str::<serde_json::Value>(event.raw().json().get())
-                else {
+                let Ok(raw) = serde_json::from_str::<RawEventHead>(event.raw().json().get()) else {
                     continue;
                 };
-                let ts = raw
-                    .get("origin_server_ts")
-                    .and_then(serde_json::Value::as_u64)
-                    .unwrap_or_default();
+                let ts = raw.origin_server_ts.unwrap_or_default();
                 if ts >= after_ts {
                     older_than_cutoff = false;
                 }
                 if ts < after_ts
-                    || !senders.iter().any(|sender| {
-                        raw.get("sender").and_then(serde_json::Value::as_str) == Some(sender)
-                    })
+                    || !senders
+                        .iter()
+                        .any(|sender| raw.sender.as_deref() == Some(sender))
                     || (!event_types.is_empty()
-                        && !event_types.iter().any(|event_type| {
-                            raw.get("type").and_then(serde_json::Value::as_str) == Some(event_type)
-                        }))
-                    || raw
-                        .get("unsigned")
-                        .and_then(|unsigned| unsigned.get("redacted_because"))
-                        .is_some()
+                        && !event_types
+                            .iter()
+                            .any(|event_type| raw.event_type.as_deref() == Some(event_type)))
+                    || raw.redacted()
                 {
                     continue;
                 }
 
-                let Some(event_id) = raw.get("event_id").and_then(serde_json::Value::as_str) else {
+                let Some(event_id) = raw.event_id.as_deref() else {
                     continue;
                 };
                 let event_id = EventId::parse(event_id).or_failed(self, "bulk_redact")?;
@@ -622,8 +610,8 @@ impl Core {
             FORWARD_META.to_owned(),
             serde_json::to_value(ForwardMetaOut {
                 origin_server_ts: u64::from(origin_server_ts),
-                event_id: public_event_id.as_deref(),
-                room_id: public_room_id.as_deref(),
+                event_id: public_event_id.clone(),
+                room_id: public_room_id.clone(),
             })
             .or_failed(self, "forward_message")?,
         );
@@ -633,8 +621,8 @@ impl Core {
                 v: 1,
                 is_forwarded: true,
                 original_timestamp: u64::from(origin_server_ts),
-                original_room_id: public_room_id.as_deref(),
-                original_event_id: public_event_id.as_deref(),
+                original_room_id: public_room_id,
+                original_event_id: public_event_id,
                 original_event_private: private,
             })
             .or_failed(self, "forward_message")?,
@@ -777,6 +765,35 @@ impl Core {
     }
 }
 
+/// A wrong-typed field reads as missing; an event that is not an object is skipped.
+#[serde_as]
+#[derive(serde::Deserialize)]
+struct RawEventHead {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    origin_server_ts: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "type", default)]
+    event_type: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    unsigned: Option<serde_json::Map<String, serde_json::Value>>,
+}
+
+impl RawEventHead {
+    fn redacted(&self) -> bool {
+        self.unsigned
+            .as_ref()
+            .is_some_and(|unsigned| unsigned.contains_key("redacted_because"))
+    }
+}
+
 const PINNED_FETCH_CONCURRENCY: usize = 10;
 
 fn replaced_event(event: &TimelineEvent) -> Option<OwnedEventId> {
@@ -846,7 +863,7 @@ fn edit_version(event: &TimelineEvent, replacement: bool) -> Option<EditVersionV
 
 /// `fields` comes first so the explicit keys below override any copy of them.
 #[derive(serde::Serialize)]
-struct ReplacementEditOut<'a> {
+struct ReplacementEditOut {
     #[serde(flatten)]
     fields: serde_json::Map<String, serde_json::Value>,
     #[serde(rename = "m.mentions")]
@@ -854,29 +871,30 @@ struct ReplacementEditOut<'a> {
     #[serde(rename = "m.new_content")]
     new_content: serde_json::Map<String, serde_json::Value>,
     #[serde(rename = "m.relates_to")]
-    relates_to: ReplaceRelationOut<'a>,
+    relates_to: ReplaceRelationOut,
 }
 
 #[derive(serde::Serialize)]
-struct ReplaceRelationOut<'a> {
-    rel_type: RelationType,
-    event_id: &'a str,
+#[serde(tag = "rel_type")]
+enum ReplaceRelationOut {
+    #[serde(rename = "m.replace")]
+    Replace { event_id: String },
 }
 
 #[derive(serde::Serialize)]
-struct ForwardMetaOut<'a> {
+struct ForwardMetaOut {
     origin_server_ts: u64,
-    event_id: Option<&'a str>,
-    room_id: Option<&'a str>,
+    event_id: Option<String>,
+    room_id: Option<String>,
 }
 
 #[derive(serde::Serialize)]
-struct SableForwardMetaOut<'a> {
+struct SableForwardMetaOut {
     v: u8,
     is_forwarded: bool,
     original_timestamp: u64,
-    original_room_id: Option<&'a str>,
-    original_event_id: Option<&'a str>,
+    original_room_id: Option<String>,
+    original_event_id: Option<String>,
     original_event_private: bool,
 }
 
@@ -894,8 +912,15 @@ mod tests {
     use matrix_sdk_ui::sync_service::SyncService;
     use serde_json::{Value, json};
 
+    use wiremock::{
+        Mock, ResponseTemplate,
+        matchers::{method, path},
+    };
+
+    use crate::{Core, session::Session, store::MemorySessionStore};
+
     #[test]
-    fn forward_metadata_keeps_its_wire_shape() {
+    fn forward_metadata_serializes_withheld_ids_as_null() {
         let private = serde_json::to_value(super::ForwardMetaOut {
             origin_server_ts: 7,
             event_id: None,
@@ -910,8 +935,8 @@ mod tests {
             v: 1,
             is_forwarded: true,
             original_timestamp: 7,
-            original_room_id: Some("!r:x"),
-            original_event_id: Some("$e"),
+            original_room_id: Some("!r:x".to_owned()),
+            original_event_id: Some("$e".to_owned()),
             original_event_private: false,
         })
         .unwrap();
@@ -927,12 +952,6 @@ mod tests {
             })
         );
     }
-    use wiremock::{
-        Mock, ResponseTemplate,
-        matchers::{method, path},
-    };
-
-    use crate::{Core, session::Session, store::MemorySessionStore};
 
     #[test]
     fn reprofiling_a_gallery_replaces_its_profile_without_a_name_prefix() {

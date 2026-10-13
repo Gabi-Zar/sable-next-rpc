@@ -17,8 +17,8 @@ use crate::protocol::{AttachmentInfoView, CommandErr, ScheduledMessageView};
 const MSC4140: &str = "org.matrix.msc4140";
 
 #[derive(Serialize)]
-struct MediaInfoOut<'a> {
-    mimetype: &'a str,
+struct MediaInfoOut {
+    mimetype: String,
     size: u64,
     #[serde(rename = "w", skip_serializing_if = "Option::is_none")]
     width: Option<u32>,
@@ -30,11 +30,12 @@ struct MediaInfoOut<'a> {
         rename = "xyz.amorgan.blurhash",
         skip_serializing_if = "Option::is_none"
     )]
-    blurhash: Option<&'a str>,
+    blurhash: Option<String>,
 }
 
 #[derive(Serialize)]
-enum AttachmentMsgType {
+#[serde(tag = "msgtype")]
+enum AttachmentKind {
     #[serde(rename = "m.image")]
     Image,
     #[serde(rename = "m.video")]
@@ -46,11 +47,12 @@ enum AttachmentMsgType {
 }
 
 #[derive(Serialize)]
-struct AttachmentOut<'a> {
-    msgtype: AttachmentMsgType,
-    body: &'a str,
-    url: &'a str,
-    info: MediaInfoOut<'a>,
+struct AttachmentOut {
+    #[serde(flatten)]
+    kind: AttachmentKind,
+    body: String,
+    url: String,
+    info: MediaInfoOut,
     #[serde(
         rename = "org.matrix.msc4230.is_spoiler",
         skip_serializing_if = "std::ops::Not::not"
@@ -58,31 +60,31 @@ struct AttachmentOut<'a> {
     spoiler: bool,
 }
 
-fn attachment_content<'a>(
-    filename: &'a str,
-    mime: &'a Mime,
-    url: &'a OwnedMxcUri,
+fn attachment_content(
+    filename: String,
+    mime: &Mime,
+    url: OwnedMxcUri,
     size: u64,
-    info: &'a AttachmentInfoView,
+    info: AttachmentInfoView,
     spoiler: bool,
-) -> AttachmentOut<'a> {
-    let msgtype = match mime.type_() {
-        mime::IMAGE => AttachmentMsgType::Image,
-        mime::VIDEO => AttachmentMsgType::Video,
-        mime::AUDIO => AttachmentMsgType::Audio,
-        _ => AttachmentMsgType::File,
+) -> AttachmentOut {
+    let kind = match mime.type_() {
+        mime::IMAGE => AttachmentKind::Image,
+        mime::VIDEO => AttachmentKind::Video,
+        mime::AUDIO => AttachmentKind::Audio,
+        _ => AttachmentKind::File,
     };
     AttachmentOut {
-        msgtype,
+        kind,
         body: filename,
-        url: url.as_str(),
+        url: url.into(),
         info: MediaInfoOut {
-            mimetype: mime.essence_str(),
+            mimetype: mime.essence_str().to_owned(),
             size,
             width: info.width,
             height: info.height,
             duration_ms: info.duration_ms,
-            blurhash: info.blurhash.as_deref(),
+            blurhash: info.blurhash,
         },
         spoiler,
     }
@@ -151,7 +153,7 @@ impl Core {
 
         let info = info.unwrap_or_default();
         let content = serde_json::to_value(attachment_content(
-            &filename, &mime, &url, size, &info, spoiler,
+            filename, &mime, url, size, info, spoiler,
         ))
         .and_then(serde_json::from_value::<RoomMessageEventContent>)
         .or_failed(self, "schedule_attachment")?;
@@ -263,7 +265,15 @@ mod tests {
             ..AttachmentInfoView::default()
         };
         assert_eq!(
-            serde_json::to_value(attachment_content("a.png", &mime, &url, 7, &info, true)).unwrap(),
+            serde_json::to_value(attachment_content(
+                "a.png".to_owned(),
+                &mime,
+                url,
+                7,
+                info,
+                true
+            ))
+            .unwrap(),
             json!({
                 "msgtype": "m.image",
                 "body": "a.png",
@@ -287,11 +297,11 @@ mod tests {
         let url = OwnedMxcUri::from("mxc://example.org/abc");
         assert_eq!(
             serde_json::to_value(attachment_content(
-                "a.pdf",
+                "a.pdf".to_owned(),
                 &mime,
-                &url,
+                url,
                 7,
-                &AttachmentInfoView::default(),
+                AttachmentInfoView::default(),
                 false
             ))
             .unwrap(),

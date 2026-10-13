@@ -18,7 +18,7 @@ use matrix_sdk::ruma::events::room::message::{
     UnstableAmplitude,
 };
 use matrix_sdk::ruma::events::room::power_levels::{RoomPowerLevels, UserPowerLevel};
-use matrix_sdk::ruma::events::room::{EncryptedFile, ImageInfo, MediaSource};
+use matrix_sdk::ruma::events::room::{ImageInfo, MediaSource};
 use matrix_sdk::ruma::events::space::child::{
     HierarchySpaceChildEvent, SpaceChildEventContent, SpaceChildOrd,
 };
@@ -53,6 +53,8 @@ use matrix_sdk::ruma::events::{
     AnyMessageLikeEventContent, AnySyncMessageLikeEvent, AnySyncTimelineEvent, SyncMessageLikeEvent,
 };
 use sable_model::jumbo;
+use serde::Deserialize as _;
+use serde_with::{DefaultOnError, DeserializeAs, serde_as};
 
 use crate::matrix_html::{
     display_html, has_profile_fallback_html, preview_body, strip_profile_fallback_body,
@@ -1375,46 +1377,98 @@ impl RawFields {
     }
 }
 
+/// A field that is an object reads as `T`; anything else reads as missing.
+pub(crate) struct ObjectOnly;
+
+impl<'de, T: serde::de::DeserializeOwned> DeserializeAs<'de, Option<T>> for ObjectOnly {
+    fn deserialize_as<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<T>, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        Ok(value
+            .is_object()
+            .then(|| serde_json::from_value(value).ok())
+            .flatten())
+    }
+}
+
+/// A present value reads as `T` when it is an object and as its default otherwise.
+struct ObjectOrDefault;
+
+impl<'de, T: serde::de::DeserializeOwned + Default> DeserializeAs<'de, Option<T>>
+    for ObjectOrDefault
+{
+    fn deserialize_as<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<T>, D::Error> {
+        Ok(Some(
+            ObjectOnly::deserialize_as(deserializer)?.unwrap_or_default(),
+        ))
+    }
+}
+
+/// A field that is present, whatever it holds.
+fn present<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
+    serde::de::IgnoredAny::deserialize(deserializer).map(|_| true)
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct PerMessageProfileIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "displayname")]
+    display_name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    avatar_url: Option<String>,
+    #[serde(deserialize_with = "present")]
+    avatar_file: bool,
+    #[serde(rename = "io.fsky.nyx.pronouns")]
+    pronouns: Option<serde_json::Value>,
+    #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "eu.she-a.color")]
+    color: Option<ProfileColorIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    has_fallback: Option<bool>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct ProfileColorIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    on_light: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    on_dark: Option<String>,
+}
+
 pub(crate) fn per_message_profile(
     content: Option<&serde_json::Value>,
 ) -> Option<PerMessageProfileView> {
     let content = content?;
     let profile = PMP_KEYS.iter().find_map(|key| content.get(*key))?;
-
-    let text = |key: &str| {
-        profile
-            .get(key)
-            .and_then(serde_json::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .map(ToOwned::to_owned)
+    let profile = if profile.is_object() {
+        PerMessageProfileIn::deserialize(profile).unwrap_or_default()
+    } else {
+        PerMessageProfileIn::default()
     };
-    let color = |key: &str| {
-        profile
-            .get("eu.she-a.color")
-            .and_then(|color| color.get(key))
-            .and_then(serde_json::Value::as_str)
-            .map(ToOwned::to_owned)
-    };
+    let color = profile.color.unwrap_or_default();
+    let non_blank = |value: Option<String>| value.filter(|value| !value.trim().is_empty());
 
     let avatar_url = profile
-        .get("avatar_url")
-        .and_then(serde_json::Value::as_str)
+        .avatar_url
+        .as_deref()
         .map(str::trim)
         .filter(|url| url.is_empty() || url.starts_with("mxc://"))
         .map(ToOwned::to_owned)
-        .or_else(|| profile.get("avatar_file").map(|_| String::new()));
+        .or_else(|| profile.avatar_file.then(String::new));
 
     Some(PerMessageProfileView {
-        id: text("id"),
-        display_name: text("displayname"),
+        id: non_blank(profile.id),
+        display_name: non_blank(profile.display_name),
         avatar_url,
-        pronouns: pronoun_sets(profile.get("io.fsky.nyx.pronouns")),
-        color_on_light: color("on_light"),
-        color_on_dark: color("on_dark"),
-        has_fallback: profile
-            .get("has_fallback")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false),
+        pronouns: pronoun_sets(profile.pronouns.as_ref()),
+        color_on_light: color.on_light,
+        color_on_dark: color.on_dark,
+        has_fallback: profile.has_fallback.unwrap_or(false),
     })
 }
 
@@ -1749,16 +1803,24 @@ fn state_change(
 /// The legacy MSC3401 shape is a `memberships` array; the session shape that
 /// replaced it carries a top-level `application`. Both are still in the wild.
 fn in_call(content: Option<&serde_json::Value>) -> bool {
-    let Some(content) = content else {
+    #[serde_as]
+    #[derive(Default, serde::Deserialize)]
+    #[serde(default)]
+    struct CallMemberIn {
+        #[serde(deserialize_with = "present")]
+        application: bool,
+        #[serde_as(deserialize_as = "DefaultOnError")]
+        memberships: Option<Vec<serde::de::IgnoredAny>>,
+    }
+
+    let Some(content) = content.filter(|content| content.is_object()) else {
         return false;
     };
-    if content.get("application").is_some() {
-        return true;
-    }
-    content
-        .get("memberships")
-        .and_then(serde_json::Value::as_array)
-        .is_some_and(|memberships| !memberships.is_empty())
+    let member = CallMemberIn::deserialize(content).unwrap_or_default();
+    member.application
+        || member
+            .memberships
+            .is_some_and(|memberships| !memberships.is_empty())
 }
 
 // ruma resolves the `m.call.member` alias to the unstable type, so only the
@@ -1778,28 +1840,50 @@ pub(crate) const CALL_SLOT_ID: &str = "m.call#ROOM";
 
 pub(crate) const SPOILER_PROPERTY: &str = "page.codeberg.everypizza.msc4193.spoiler";
 
-const AUDIO_METADATA_KEYS: [&str; 2] = ["audio_metadata", "org.matrix.msc4549.audio_metadata"];
 const AUDIO_METADATA_MAX_CHARS: usize = 256;
 const BLURHASH_MAX_CHARS: usize = 128;
 
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct AudioInfoIn {
+    #[serde_as(as = "ObjectOnly")]
+    audio_metadata: Option<AudioMetadataIn>,
+    #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "org.matrix.msc4549.audio_metadata")]
+    unstable_audio_metadata: Option<AudioMetadataIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct AudioMetadataIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    title: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    artist: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    album: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    cover_art_blurhash: Option<String>,
+}
+
 pub(crate) fn audio_metadata(content: Option<&serde_json::Value>) -> Option<AudioMetadataView> {
-    let info = content?.get("info")?;
-    let metadata = AUDIO_METADATA_KEYS
-        .iter()
-        .find_map(|key| info.get(*key).filter(|value| value.is_object()))?;
-    let text = |key: &str, limit: usize| {
-        metadata
-            .get(key)
-            .and_then(serde_json::Value::as_str)
+    let info = content?.get("info").filter(|info| info.is_object())?;
+    let info = AudioInfoIn::deserialize(info).ok()?;
+    let metadata = info.audio_metadata.or(info.unstable_audio_metadata)?;
+    let text = |value: Option<String>, limit: usize| {
+        value
+            .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty() && value.chars().count() <= limit)
             .map(str::to_owned)
     };
     let view = AudioMetadataView {
-        title: text("title", AUDIO_METADATA_MAX_CHARS),
-        artist: text("artist", AUDIO_METADATA_MAX_CHARS),
-        album: text("album", AUDIO_METADATA_MAX_CHARS),
-        cover_art_blurhash: text("cover_art_blurhash", BLURHASH_MAX_CHARS),
+        title: text(metadata.title, AUDIO_METADATA_MAX_CHARS),
+        artist: text(metadata.artist, AUDIO_METADATA_MAX_CHARS),
+        album: text(metadata.album, AUDIO_METADATA_MAX_CHARS),
+        cover_art_blurhash: text(metadata.cover_art_blurhash, BLURHASH_MAX_CHARS),
     };
     (view.title.is_some()
         || view.artist.is_some()
@@ -1840,37 +1924,66 @@ fn forwarded(event: &EventTimelineItem, raw: &RawFields) -> Option<ForwardedView
     forward_meta(original.content.as_ref()?)
 }
 
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct ForwardContentIn {
+    #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "moe.sable.message.forward")]
+    sable: Option<SableForwardIn>,
+    #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "com.famedly.app.forwarded")]
+    famedly: Option<FamedlyForwardIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct SableForwardIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "original_event_private")]
+    private: Option<bool>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "original_timestamp")]
+    timestamp: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "original_room_id")]
+    room_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "original_event_id")]
+    event_id: Option<String>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct FamedlyForwardIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    origin_server_ts: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    room_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    event_id: Option<String>,
+}
+
 fn forward_meta(content: &serde_json::Value) -> Option<ForwardedView> {
-    let id = |meta: &serde_json::Value, key: &str| meta.get(key)?.as_str().map(str::to_owned);
-    if let Some(meta) = content
-        .get("moe.sable.message.forward")
-        .filter(|meta| meta.is_object())
-    {
-        let private = meta
-            .get("original_event_private")
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false);
+    if !content.is_object() {
+        return None;
+    }
+    let content = ForwardContentIn::deserialize(content).ok()?;
+    if let Some(meta) = content.sable {
+        let private = meta.private.unwrap_or(false);
         return Some(ForwardedView {
-            timestamp: meta
-                .get("original_timestamp")
-                .and_then(serde_json::Value::as_u64),
-            room_id: (!private)
-                .then(|| id(meta, "original_room_id")?.try_into().ok())
-                .flatten(),
-            event_id: (!private)
-                .then(|| id(meta, "original_event_id")?.try_into().ok())
-                .flatten(),
+            timestamp: meta.timestamp,
+            room_id: (!private).then(|| meta.room_id?.try_into().ok()).flatten(),
+            event_id: (!private).then(|| meta.event_id?.try_into().ok()).flatten(),
         });
     }
-    let meta = content
-        .get("com.famedly.app.forwarded")
-        .filter(|meta| meta.is_object())?;
+    let meta = content.famedly?;
     Some(ForwardedView {
-        timestamp: meta
-            .get("origin_server_ts")
-            .and_then(serde_json::Value::as_u64),
-        room_id: id(meta, "room_id").and_then(|room| room.try_into().ok()),
-        event_id: id(meta, "event_id").and_then(|event| event.try_into().ok()),
+        timestamp: meta.origin_server_ts,
+        room_id: meta.room_id.and_then(|room| room.try_into().ok()),
+        event_id: meta.event_id.and_then(|event| event.try_into().ok()),
     })
 }
 
@@ -1902,40 +2015,37 @@ fn bundled_link_previews(content: Option<&serde_json::Value>) -> Vec<UrlPreviewV
             bundles
                 .iter()
                 .filter_map(|bundle| {
-                    let text = |key| bundle.get(key).and_then(serde_json::Value::as_str);
-                    let url = text("matrix:matched_url")
-                        .or_else(|| text("matched_url"))
-                        .or_else(|| text("og:url"))?
-                        .to_owned();
+                    let data = crate::dispatch::PreviewData::read(bundle)?;
+                    let video = data.video();
+                    let theme_color = data.valid_theme_color();
+                    let card = data.valid_card();
+                    let url = data
+                        .stable_matched_url
+                        .or(data.legacy_matched_url)
+                        .or(data.url)?;
                     if !(url.starts_with("https://") || url.starts_with("http://")) {
                         return None;
                     }
                     if body.is_some_and(|body| !body.contains(&url)) {
                         return None;
                     }
-                    let dimension = |key| bundle.get(key).and_then(serde_json::Value::as_u64);
-                    let image = bundle
-                        .get("matrix:image:encrypted")
-                        .and_then(|file| serde_json::from_value::<EncryptedFile>(file.clone()).ok())
+                    let image = data
+                        .encrypted_image
                         .map(|file| media_source(&MediaSource::Encrypted(Box::new(file))))
-                        .or_else(|| {
-                            text("og:image")
-                                .filter(|image| image.starts_with("mxc://"))
-                                .map(ToOwned::to_owned)
-                        });
+                        .or_else(|| data.image.filter(|image| image.starts_with("mxc://")));
                     Some(UrlPreviewView {
                         url,
-                        title: text("og:title").map(ToOwned::to_owned),
-                        description: text("og:description").map(ToOwned::to_owned),
-                        site_name: text("og:site_name").map(ToOwned::to_owned),
+                        title: data.title,
+                        description: data.description,
+                        site_name: data.site_name,
                         image,
-                        image_mime: text("og:image:type").map(ToOwned::to_owned),
-                        image_width: dimension("og:image:width"),
-                        image_height: dimension("og:image:height"),
-                        video: crate::dispatch::preview_video(bundle),
-                        theme_color: crate::dispatch::preview_theme_color(bundle),
-                        card: crate::dispatch::preview_card(bundle),
-                        author_name: text(crate::dispatch::PREVIEW_AUTHOR).map(ToOwned::to_owned),
+                        image_mime: data.image_type,
+                        image_width: data.image_width,
+                        image_height: data.image_height,
+                        video,
+                        theme_color,
+                        card,
+                        author_name: data.author_name,
                     })
                 })
                 .filter(|preview| seen.insert(preview.url.clone()))
@@ -2315,27 +2425,72 @@ fn thread_summary(content: &TimelineItemContent) -> Option<ThreadSummaryView> {
     })
 }
 
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct BundledRelationsIn {
+    #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "m.thread")]
+    thread: Option<BundledThreadIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct BundledThreadIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    count: Option<u64>,
+    #[serde_as(as = "ObjectOrDefault")]
+    latest_event: Option<BundledReplyIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct BundledReplyIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    event_id: Option<String>,
+    #[serde_as(as = "ObjectOnly")]
+    content: Option<BundledReplyContentIn>,
+}
+
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+struct BundledReplyContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    body: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    formatted_body: Option<String>,
+}
+
 fn bundled_thread_summary(unsigned: &serde_json::Value) -> Option<ThreadSummaryView> {
-    let summary = unsigned.pointer("/m.relations/m.thread")?;
-    let count = u32::try_from(summary.get("count")?.as_u64()?).ok()?;
-    let latest = summary.get("latest_event")?;
-    let latest_event_id = latest
-        .get("event_id")
-        .and_then(serde_json::Value::as_str)
-        .map(ToOwned::to_owned);
-    let latest_body = latest
-        .pointer("/content/body")
-        .and_then(serde_json::Value::as_str)
-        .map(|body| {
-            let formatted = latest
-                .pointer("/content/formatted_body")
-                .and_then(serde_json::Value::as_str);
-            preview_body(body, formatted)
-        });
+    #[serde_as]
+    #[derive(Default, serde::Deserialize)]
+    #[serde(default)]
+    struct UnsignedIn {
+        #[serde_as(as = "ObjectOnly")]
+        #[serde(rename = "m.relations")]
+        relations: Option<BundledRelationsIn>,
+    }
+
+    if !unsigned.is_object() {
+        return None;
+    }
+    let summary = UnsignedIn::deserialize(unsigned).ok()?.relations?.thread?;
+    let count = u32::try_from(summary.count?).ok()?;
+    let latest = summary.latest_event?;
+    let latest_body = latest.content.and_then(|content| {
+        let formatted = content.formatted_body.as_deref();
+        content
+            .body
+            .as_deref()
+            .map(|body| preview_body(body, formatted))
+    });
 
     Some(ThreadSummaryView {
         num_replies: count,
-        latest_event_id,
+        latest_event_id: latest.event_id,
         latest_body,
     })
 }
@@ -3401,5 +3556,109 @@ mod room_counts_tests {
         let counts = room_counts(under(NotificationModeView::Mute), 0, 0, 0, true);
         assert!(counts.marked);
         assert_eq!(counts.highlight, 0);
+    }
+}
+
+#[cfg(test)]
+mod typed_reader_tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn a_wrong_typed_profile_field_reads_as_missing() {
+        let profile = per_message_profile(Some(&json!({ "m.per_message_profile": {
+            "id": 5,
+            "displayname": ["Kris"],
+            "avatar_url": 3,
+            "avatar_file": null,
+            "has_fallback": "yes",
+            "eu.she-a.color": { "on_light": "#111111", "on_dark": 7 },
+            "io.fsky.nyx.pronouns": [{ "summary": "she" }, 4],
+        } })))
+        .expect("a profile");
+
+        assert_eq!(profile.id, None);
+        assert_eq!(profile.display_name, None);
+        assert_eq!(profile.avatar_url.as_deref(), Some(""));
+        assert!(!profile.has_fallback);
+        assert_eq!(profile.color_on_light.as_deref(), Some("#111111"));
+        assert_eq!(profile.color_on_dark, None);
+        assert_eq!(profile.pronouns.len(), 1);
+
+        let bare = per_message_profile(Some(&json!({ "m.per_message_profile": ["x"] })))
+            .expect("a profile");
+        assert_eq!(bare.display_name, None);
+        let arrayed = per_message_profile(Some(&json!({
+            "m.per_message_profile": { "eu.she-a.color": ["#111111"] },
+        })))
+        .expect("a profile");
+        assert_eq!(arrayed.color_on_light, None);
+    }
+
+    #[test]
+    fn forwarded_metadata_skips_wrong_typed_fields() {
+        let meta = forward_meta(&json!({ "moe.sable.message.forward": {
+            "original_timestamp": "soon",
+            "original_event_private": 1,
+            "original_room_id": "!r:example.org",
+        } }))
+        .expect("forwarded");
+        assert_eq!(meta.timestamp, None);
+        assert_eq!(
+            meta.room_id.as_deref().map(RoomId::as_str),
+            Some("!r:example.org")
+        );
+
+        let falls_through = forward_meta(&json!({
+            "moe.sable.message.forward": "no",
+            "com.famedly.app.forwarded": { "origin_server_ts": 9 },
+        }))
+        .expect("forwarded");
+        assert_eq!(falls_through.timestamp, Some(9));
+    }
+
+    #[test]
+    fn a_bundled_thread_summary_tolerates_a_sparse_latest_event() {
+        let summary = bundled_thread_summary(&json!({
+            "m.relations": { "m.thread": { "count": 3, "latest_event": null } },
+        }))
+        .expect("summary");
+        assert_eq!(summary.num_replies, 3);
+        assert_eq!(summary.latest_event_id, None);
+        assert_eq!(summary.latest_body, None);
+
+        assert!(
+            bundled_thread_summary(&json!({
+                "m.relations": { "m.thread": { "count": "3", "latest_event": {} } },
+            }))
+            .is_none()
+        );
+        assert!(
+            bundled_thread_summary(&json!({ "m.relations": { "m.thread": { "count": 3 } } }))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn a_call_member_is_in_a_call_by_application_presence_or_memberships() {
+        assert!(in_call(Some(&json!({ "application": null }))));
+        assert!(!in_call(Some(&json!({ "memberships": "x" }))));
+        assert!(!in_call(Some(&json!("x"))));
+    }
+
+    #[test]
+    fn a_bundled_preview_skips_wrong_typed_fields() {
+        let content = json!({
+            "body": "see https://e.org",
+            "com.beeper.linkpreviews": [
+                { "matched_url": "https://e.org", "og:title": 5, "og:image:width": "wide" },
+                "junk",
+            ],
+        });
+        let previews = bundled_link_previews(Some(&content));
+        assert_eq!(previews.len(), 1);
+        assert_eq!(previews[0].title, None);
+        assert_eq!(previews[0].image_width, None);
     }
 }

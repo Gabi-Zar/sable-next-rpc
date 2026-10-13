@@ -1,5 +1,7 @@
 use matrix_sdk::ruma::OwnedUserId;
-use serde_json::{Map, Value, json};
+use serde::Deserialize;
+use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, serde_as};
 
 use crate::Core;
 use crate::cosmetics::MEMBER_COLOR_FIELD;
@@ -11,60 +13,121 @@ use crate::protocol::{
 const PROFILE_OVERRIDES_EVENT: &str = "m.profile_overrides";
 const UNSTABLE_PROFILE_OVERRIDES_EVENT: &str = "org.matrix.msc4529.profile_overrides";
 
+#[serde_as]
+#[derive(Deserialize)]
+struct EncryptedFileIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    v: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    iv: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    hashes: Option<HashesIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    key: Option<KeyIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct HashesIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sha256: Option<String>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct KeyIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    k: Option<String>,
+}
+
 /// The `EncryptedFile` shape `fetch_media` can decrypt, so the avatar is
 /// handed on as its JSON.
 fn is_encrypted_file(value: &Value) -> bool {
-    let text = |field: &str| value.get(field).and_then(Value::as_str);
-    text("url").is_some_and(|url| url.starts_with("mxc://"))
-        && text("v").is_some()
-        && text("iv").is_some()
-        && value
-            .get("hashes")
-            .and_then(|hashes| hashes.get("sha256"))
-            .and_then(Value::as_str)
-            .is_some()
-        && value
-            .get("key")
-            .and_then(|key| key.get("k"))
-            .and_then(Value::as_str)
-            .is_some()
+    EncryptedFileIn::deserialize(value).is_ok_and(|file| {
+        file.url.is_some_and(|url| url.starts_with("mxc://"))
+            && file.v.is_some()
+            && file.iv.is_some()
+            && file.hashes.is_some_and(|hashes| hashes.sha256.is_some())
+            && file.key.is_some_and(|key| key.k.is_some())
+    })
 }
 
-fn text_override(value: Option<&Value>) -> OverrideTextView {
+/// An explicit `null` clears the field; a missing or wrong-typed one is unset.
+#[derive(Default, Deserialize)]
+#[serde(untagged)]
+enum Stored<T> {
+    Cleared(()),
+    Set(T),
+    #[default]
+    #[serde(skip)]
+    Unset,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct OverrideEntryIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "displayname")]
+    display_name: Stored<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "avatar_url")]
+    avatar: Stored<Value>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "eu.she-a.color")]
+    color: Stored<ColorIn>,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct ColorIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    on_light: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    on_dark: Option<String>,
+}
+
+fn text_override(value: Stored<String>) -> OverrideTextView {
     match value {
-        Some(Value::Null) => OverrideTextView::Cleared,
-        Some(Value::String(text)) => OverrideTextView::Set {
-            value: text.clone(),
+        Stored::Cleared(()) => OverrideTextView::Cleared,
+        Stored::Set(value) => OverrideTextView::Set { value },
+        Stored::Unset => OverrideTextView::Unset,
+    }
+}
+
+fn avatar_override(value: Stored<Value>) -> OverrideTextView {
+    match value {
+        Stored::Set(file) if is_encrypted_file(&file) => OverrideTextView::Set {
+            value: file.to_string(),
         },
+        Stored::Set(Value::String(value)) => OverrideTextView::Set { value },
+        Stored::Cleared(()) => OverrideTextView::Cleared,
         _ => OverrideTextView::Unset,
     }
 }
 
-fn avatar_override(value: Option<&Value>) -> OverrideTextView {
+fn color_override(value: Stored<ColorIn>) -> OverrideColorView {
     match value {
-        Some(file) if is_encrypted_file(file) => OverrideTextView::Set {
-            value: file.to_string(),
+        Stored::Cleared(()) => OverrideColorView::Cleared,
+        Stored::Set(ColorIn {
+            on_light: None,
+            on_dark: None,
+        })
+        | Stored::Unset => OverrideColorView::Unset,
+        Stored::Set(ColorIn { on_light, on_dark }) => OverrideColorView::Set {
+            light: on_light,
+            dark: on_dark,
         },
-        other => text_override(other),
-    }
-}
-
-fn color_override(value: Option<&Value>) -> OverrideColorView {
-    match value {
-        Some(Value::Null) => OverrideColorView::Cleared,
-        Some(Value::Object(colors)) => {
-            let read = |key: &str| {
-                colors
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned)
-            };
-            match (read("on_light"), read("on_dark")) {
-                (None, None) => OverrideColorView::Unset,
-                (light, dark) => OverrideColorView::Set { light, dark },
-            }
-        }
-        _ => OverrideColorView::Unset,
     }
 }
 
@@ -75,12 +138,12 @@ pub(crate) fn overrides(content: Option<&Value>) -> Vec<ProfileOverrideView> {
         .flatten()
         .filter_map(|(user_id, entry)| {
             let user_id = OwnedUserId::try_from(user_id.as_str()).ok()?;
-            let entry = entry.as_object()?;
+            let entry = OverrideEntryIn::deserialize(entry).ok()?;
             Some(ProfileOverrideView {
                 user_id,
-                display_name: text_override(entry.get("displayname")),
-                avatar: avatar_override(entry.get("avatar_url")),
-                color: color_override(entry.get(MEMBER_COLOR_FIELD)),
+                display_name: text_override(entry.display_name),
+                avatar: avatar_override(entry.avatar),
+                color: color_override(entry.color),
             })
         })
         .collect()
@@ -132,7 +195,7 @@ pub(crate) fn edited_overrides(stored: Option<Value>, user_id: &str, edit: &Over
         FieldEdit::Set { value } if !value.is_empty() => {
             entry.insert(
                 MEMBER_COLOR_FIELD.to_owned(),
-                json!({ "on_light": value, "on_dark": value }),
+                serde_json::json!({ "on_light": value, "on_dark": value }),
             );
         }
         FieldEdit::Clear | FieldEdit::Set { .. } => {
@@ -248,6 +311,44 @@ mod tests {
             avatar: AvatarEditView::Keep,
             color: FieldEdit::Keep,
         }
+    }
+
+    #[test]
+    fn the_color_field_is_the_cosmetics_key() {
+        assert_eq!(crate::cosmetics::MEMBER_COLOR_FIELD, "eu.she-a.color");
+    }
+
+    #[test]
+    fn a_wrong_typed_field_reads_as_unset() {
+        let read = overrides(Some(&json!({
+            "@a:example.org": {
+                "displayname": 3, "avatar_url": 4, "eu.she-a.color": "red"
+            },
+            "@b:example.org": { "eu.she-a.color": { "on_light": 1 } },
+        })));
+
+        assert_eq!(read.len(), 2);
+        for entry in &read {
+            assert_eq!(entry.display_name, OverrideTextView::Unset);
+            assert_eq!(entry.avatar, OverrideTextView::Unset);
+            assert_eq!(entry.color, OverrideColorView::Unset);
+        }
+    }
+
+    #[test]
+    fn an_edit_writes_the_color_as_both_themes() {
+        let edit = OverrideEdit {
+            color: FieldEdit::Set {
+                value: "#abcdef".to_owned(),
+            },
+            ..keep()
+        };
+        assert_eq!(
+            edited_overrides(None, "@a:example.org", &edit),
+            json!({ "@a:example.org": {
+                "eu.she-a.color": { "on_light": "#abcdef", "on_dark": "#abcdef" }
+            }})
+        );
     }
 
     #[test]

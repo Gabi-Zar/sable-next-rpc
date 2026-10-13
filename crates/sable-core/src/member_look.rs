@@ -1,6 +1,7 @@
 use matrix_sdk::ruma::OwnedRoomId;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, NoneAsEmptyString, VecSkipError, serde_as};
 
 use crate::Core;
 use crate::cosmetics::{COLOR_EVENT, MEMBER_COLOR_FIELD, MEMBER_EVENT, PRONOUNS_EVENT};
@@ -46,27 +47,73 @@ fn apply(fields: &mut Map<String, Value>, key: &str, edit: &FieldEdit) {
     }
 }
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct MemberIn {
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default, rename = "displayname")]
+    display_name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
+    avatar_url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "eu.she-a.color")]
+    colors: Option<ColorsIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct ColorsIn {
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
+    on_light: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
+    on_dark: Option<String>,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct PronounsIn {
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    pronouns: Vec<PronounSetIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct PronounSetIn {
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
+    #[serde(default)]
+    language: Option<String>,
+}
+
 pub(crate) fn member_look(member: Option<&Value>, pronouns: Option<&Value>) -> MemberLookView {
-    let colors = member.and_then(|member| member.get(MEMBER_COLOR_FIELD));
+    let read =
+        |content: Option<&Value>| content.and_then(|content| MemberIn::deserialize(content).ok());
+    let member = read(member).unwrap_or_default();
+    let colors = member.colors;
+    let pronouns = pronouns
+        .and_then(|content| PronounsIn::deserialize(content).ok())
+        .unwrap_or_default();
     MemberLookView {
-        display_name: text(member.and_then(|member| member.get("displayname"))),
-        avatar_url: text(member.and_then(|member| member.get("avatar_url"))),
-        color_on_light: text(colors.and_then(|colors| colors.get("on_light"))),
-        color_on_dark: text(colors.and_then(|colors| colors.get("on_dark"))),
+        display_name: member.display_name,
+        avatar_url: member.avatar_url,
+        color_on_light: colors.as_ref().and_then(|colors| colors.on_light.clone()),
+        color_on_dark: colors.and_then(|colors| colors.on_dark),
         pronouns: pronouns
-            .and_then(|content| content.get("pronouns"))
-            .and_then(Value::as_array)
-            .map(|sets| {
-                sets.iter()
-                    .filter_map(|set| {
-                        Some(PronounView {
-                            summary: text(set.get("summary"))?,
-                            language: text(set.get("language")),
-                        })
-                    })
-                    .collect()
+            .pronouns
+            .into_iter()
+            .filter_map(|set| {
+                Some(PronounView {
+                    summary: set.summary?,
+                    language: set.language,
+                })
             })
-            .unwrap_or_default(),
+            .collect(),
     }
 }
 
@@ -87,26 +134,26 @@ pub(crate) fn edited_member(member: Option<Value>, edit: &LookEdit) -> Value {
 }
 
 #[derive(Serialize)]
-struct PronounSetOut<'a> {
+struct PronounSetOut {
     #[serde(skip_serializing_if = "Option::is_none")]
-    language: Option<&'a str>,
-    summary: &'a str,
+    language: Option<String>,
+    summary: String,
 }
 
 #[derive(Serialize)]
-pub(crate) struct PronounsOut<'a> {
+pub(crate) struct PronounsOut {
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pronouns: Vec<PronounSetOut<'a>>,
+    pronouns: Vec<PronounSetOut>,
 }
 
 /// No sets serializes as `{}`, which clears the event.
-pub(crate) fn pronouns_content(pronouns: &[PronounView]) -> PronounsOut<'_> {
+pub(crate) fn pronouns_content(pronouns: &[PronounView]) -> PronounsOut {
     let pronouns: Vec<_> = pronouns
         .iter()
         .filter(|set| !set.summary.trim().is_empty())
         .map(|set| PronounSetOut {
-            language: set.language.as_deref().filter(|code| !code.is_empty()),
-            summary: set.summary.trim(),
+            language: set.language.clone().filter(|code| !code.is_empty()),
+            summary: set.summary.trim().to_owned(),
         })
         .collect();
     PronounsOut { pronouns }
@@ -247,6 +294,23 @@ mod tests {
             }
         );
         assert_eq!(member_look(None, None), MemberLookView::default());
+    }
+
+    #[test]
+    fn wrong_typed_member_fields_read_as_missing() {
+        let member = json!({ "displayname": 1, "avatar_url": "", "eu.she-a.color": "red" });
+        let pronouns =
+            json!({ "pronouns": [{ "summary": 2 }, "x", { "summary": "she/her", "language": 3 }] });
+        let look = member_look(Some(&member), Some(&pronouns));
+        assert_eq!(look.display_name, None);
+        assert_eq!(look.avatar_url, None);
+        assert_eq!(look.color_on_light, None);
+        assert_eq!(look.pronouns.len(), 1);
+        assert_eq!(look.pronouns[0].language, None);
+        assert_eq!(
+            member_look(None, Some(&json!({ "pronouns": "x" }))).pronouns,
+            []
+        );
     }
 
     #[test]

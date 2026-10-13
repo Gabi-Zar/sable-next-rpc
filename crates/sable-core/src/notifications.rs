@@ -672,22 +672,22 @@ pub(crate) fn gateway(url: &str) -> Result<String, CoreError> {
 }
 
 #[derive(serde::Serialize)]
-struct DefaultPayloadOut<'a> {
-    user_id: &'a str,
+struct DefaultPayloadOut {
+    user_id: String,
 }
 
 #[derive(serde::Serialize)]
-struct PusherDataOut<'a> {
+struct PusherDataOut {
     #[serde(skip_serializing_if = "Option::is_none")]
-    user_id: Option<&'a str>,
+    user_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    default_payload: Option<DefaultPayloadOut<'a>>,
+    default_payload: Option<DefaultPayloadOut>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    endpoint: Option<&'a str>,
+    endpoint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    p256dh: Option<&'a str>,
+    p256dh: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    auth: Option<&'a str>,
+    auth: Option<String>,
 }
 
 /// A cold platform notification is built from this payload, and it derives its
@@ -701,14 +701,16 @@ pub async fn set_pusher(client: &Client, pusher: PusherView) -> Result<(), CoreE
     if pusher.event_id_only {
         pusher_data.format = Some(PushFormat::EventIdOnly);
     }
-    let user_id = client.user_id().map(matrix_sdk::ruma::UserId::as_str);
-    let web_push = pusher.web_push.as_ref();
+    let user_id = client.user_id().map(ToString::to_string);
+    let (endpoint, p256dh, auth) = pusher.web_push.map_or((None, None, None), |keys| {
+        (Some(keys.endpoint), Some(keys.p256dh), Some(keys.auth))
+    });
     pusher_data.data = serde_json::to_value(PusherDataOut {
+        default_payload: user_id.clone().map(|user_id| DefaultPayloadOut { user_id }),
         user_id,
-        default_payload: user_id.map(|user_id| DefaultPayloadOut { user_id }),
-        endpoint: web_push.map(|keys| keys.endpoint.as_str()),
-        p256dh: web_push.map(|keys| keys.p256dh.as_str()),
-        auth: web_push.map(|keys| keys.auth.as_str()),
+        endpoint,
+        p256dh,
+        auth,
     })
     .and_then(serde_json::from_value)
     .map_err(|error| error.to_string())?;
@@ -826,11 +828,13 @@ mod tests {
         use super::{DefaultPayloadOut, PusherDataOut};
         assert_eq!(
             serde_json::to_value(PusherDataOut {
-                user_id: Some("@a:b"),
-                default_payload: Some(DefaultPayloadOut { user_id: "@a:b" }),
-                endpoint: Some("https://push.example/sub"),
-                p256dh: Some("key"),
-                auth: Some("secret"),
+                user_id: Some("@a:b".to_owned()),
+                default_payload: Some(DefaultPayloadOut {
+                    user_id: "@a:b".to_owned()
+                }),
+                endpoint: Some("https://push.example/sub".to_owned()),
+                p256dh: Some("key".to_owned()),
+                auth: Some("secret".to_owned()),
             })
             .unwrap(),
             json!({

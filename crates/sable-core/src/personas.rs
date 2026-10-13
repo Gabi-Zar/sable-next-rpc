@@ -8,9 +8,10 @@ use matrix_sdk::ruma::events::{
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedRoomId, TransactionId};
 use matrix_sdk::send_queue::LocalEchoContent;
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sable_model::non_blank::NonBlank;
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value, json};
+use serde_with::{DefaultOnError, MapSkipError, VecSkipError, serde_as};
 
 use crate::Core;
 use crate::ResultExt;
@@ -30,56 +31,17 @@ fn selection_event(scope: &str) -> GlobalAccountDataEventType {
     GlobalAccountDataEventType::from(format!("{SELECTION_PREFIX}.{scope}"))
 }
 
-fn trimmed(value: &Value) -> Option<String> {
-    Some(value.as_str()?.trim())
-        .filter(|value| !value.is_empty())
-        .map(ToOwned::to_owned)
-}
-
-fn lenient_text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String>, D::Error> {
-    Ok(trimmed(&Value::deserialize(deserializer)?))
-}
-
-fn lenient_list<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: DeserializeOwned,
-{
-    Ok(match Value::deserialize(deserializer)? {
-        Value::Array(entries) => Some(
-            entries
-                .into_iter()
-                .filter_map(|entry| serde_json::from_value(entry).ok())
-                .collect(),
-        ),
-        _ => None,
-    })
-}
-
-fn lenient_map<'de, D, T>(deserializer: D) -> Result<BTreeMap<String, T>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: DeserializeOwned,
-{
-    Ok(match Value::deserialize(deserializer)? {
-        Value::Object(entries) => entries
-            .into_iter()
-            .filter_map(|(key, entry)| Some((key, serde_json::from_value(entry).ok()?)))
-            .collect(),
-        _ => BTreeMap::new(),
-    })
-}
-
-#[derive(Deserialize)]
-struct Text(#[serde(deserialize_with = "lenient_text")] Option<String>);
-
+#[serde_as]
 #[derive(Deserialize)]
 struct TriggerIn {
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     prefix: Option<String>,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     suffix: Option<String>,
-    #[serde(default, deserialize_with = "sable_model::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     keep_trigger: Option<bool>,
 }
 
@@ -97,22 +59,18 @@ impl TriggerIn {
     }
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct TriggerV2In {
-    #[serde(default, deserialize_with = "lenient_list")]
-    prefix: Option<Vec<Text>>,
-    #[serde(
-        default,
-        rename = "net.f0rest.suffix",
-        deserialize_with = "lenient_list"
-    )]
-    suffix: Option<Vec<Text>>,
-    #[serde(
-        default,
-        rename = "net.f0rest.circumfix",
-        deserialize_with = "lenient_list"
-    )]
-    circumfix: Option<Vec<TriggerIn>>,
+    #[serde_as(deserialize_as = "DefaultOnError<Vec<NonBlank>>")]
+    #[serde(default)]
+    prefix: Vec<Option<String>>,
+    #[serde_as(deserialize_as = "DefaultOnError<Vec<NonBlank>>")]
+    #[serde(default, rename = "net.f0rest.suffix")]
+    suffix: Vec<Option<String>>,
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default, rename = "net.f0rest.circumfix")]
+    circumfix: Vec<TriggerIn>,
 }
 
 impl TriggerV2In {
@@ -120,7 +78,6 @@ impl TriggerV2In {
         let circumfixes = self
             .circumfix
             .into_iter()
-            .flatten()
             .filter(|trigger| trigger.prefix.is_some() && trigger.suffix.is_some())
             .map(|trigger| PersonaTriggerView {
                 prefix: trigger.prefix,
@@ -131,7 +88,6 @@ impl TriggerV2In {
             .prefix
             .into_iter()
             .flatten()
-            .filter_map(|prefix| prefix.0)
             .map(|prefix| PersonaTriggerView {
                 prefix: Some(prefix),
                 suffix: None,
@@ -141,7 +97,6 @@ impl TriggerV2In {
             .suffix
             .into_iter()
             .flatten()
-            .filter_map(|suffix| suffix.0)
             .map(|suffix| PersonaTriggerView {
                 prefix: None,
                 suffix: Some(suffix),
@@ -152,23 +107,31 @@ impl TriggerV2In {
     }
 }
 
+#[serde_as]
 #[derive(Default, Deserialize)]
 struct ColorsIn {
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     on_light: Option<String>,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     on_dark: Option<String>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct PluralkitIn {
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     id: Option<String>,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     uuid: Option<String>,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     avatar_url: Option<String>,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     description: Option<String>,
 }
 
@@ -183,37 +146,34 @@ impl PluralkitIn {
     }
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct PersonaIn {
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     id: Option<String>,
-    #[serde(default, deserialize_with = "sable_model::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     displayname: Option<String>,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     avatar_url: Option<String>,
     #[serde(default, rename = "io.fsky.nyx.pronouns")]
     pronouns: Option<Value>,
-    #[serde(
-        default,
-        rename = "eu.she-a.color",
-        deserialize_with = "sable_model::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "eu.she-a.color")]
     colors: Option<ColorsIn>,
-    #[serde(default, deserialize_with = "lenient_list")]
+    #[serde_as(deserialize_as = "DefaultOnError<Option<VecSkipError<_>>>")]
+    #[serde(default)]
     triggers: Option<Vec<TriggerIn>>,
-    #[serde(default, deserialize_with = "sable_model::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     trigger: Option<TriggerV2In>,
-    #[serde(
-        default,
-        rename = "net.f0rest.pkimport",
-        deserialize_with = "sable_model::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.pkimport")]
     pluralkit: Option<PluralkitIn>,
-    #[serde(
-        default,
-        rename = "net.f0rest.last_used",
-        deserialize_with = "sable_model::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.last_used")]
     last_used: Option<u64>,
 }
 
@@ -242,16 +202,20 @@ impl PersonaIn {
     }
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct ProfilesIn {
-    #[serde(default, deserialize_with = "lenient_list")]
+    #[serde_as(deserialize_as = "DefaultOnError<Option<VecSkipError<_>>>")]
+    #[serde(default)]
     profiles: Option<Vec<PersonaIn>>,
 }
 
 fn personas_from_catalog(content: &Value) -> Vec<PersonaView> {
+    #[serde_as]
     #[derive(Deserialize)]
     struct Wrapped {
-        #[serde(default, deserialize_with = "sable_model::lenient::option")]
+        #[serde_as(deserialize_as = "DefaultOnError")]
+        #[serde(default)]
         content: Option<ProfilesIn>,
     }
 
@@ -270,93 +234,108 @@ fn personas_from_catalog(content: &Value) -> Vec<PersonaView> {
 }
 
 #[derive(Serialize)]
-struct PronounOut<'a> {
-    summary: &'a str,
+struct PronounOut {
+    summary: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    language: Option<&'a str>,
+    language: Option<String>,
 }
 
-impl<'a> From<&'a PronounView> for PronounOut<'a> {
-    fn from(pronoun: &'a PronounView) -> Self {
+impl From<&PronounView> for PronounOut {
+    fn from(pronoun: &PronounView) -> Self {
         Self {
-            summary: &pronoun.summary,
-            language: pronoun.language.as_deref(),
+            summary: pronoun.summary.clone(),
+            language: pronoun.language.clone(),
         }
     }
 }
 
 #[derive(Serialize)]
-struct ColorsOut<'a> {
+struct ColorsOut {
     #[serde(skip_serializing_if = "Option::is_none")]
-    on_light: Option<&'a str>,
+    on_light: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    on_dark: Option<&'a str>,
+    on_dark: Option<String>,
 }
 
-impl<'a> ColorsOut<'a> {
-    fn new(on_light: Option<&'a str>, on_dark: Option<&'a str>) -> Option<Self> {
+impl ColorsOut {
+    fn new(on_light: Option<String>, on_dark: Option<String>) -> Option<Self> {
         (on_light.is_some() || on_dark.is_some()).then_some(Self { on_light, on_dark })
     }
 }
 
 #[derive(Serialize)]
-struct PluralkitOut<'a> {
-    id: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    uuid: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    avatar_url: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
+struct LookOut {
+    #[serde(rename = "io.fsky.nyx.pronouns", skip_serializing_if = "Vec::is_empty")]
+    pronouns: Vec<PronounOut>,
+    #[serde(rename = "eu.she-a.color", skip_serializing_if = "Option::is_none")]
+    colors: Option<ColorsOut>,
 }
 
-impl<'a> From<&'a PluralkitImportView> for PluralkitOut<'a> {
-    fn from(pluralkit: &'a PluralkitImportView) -> Self {
+impl LookOut {
+    fn new(pronouns: &[PronounView], on_light: Option<&str>, on_dark: Option<&str>) -> Self {
         Self {
-            id: &pluralkit.id,
-            uuid: pluralkit.uuid.as_deref(),
-            avatar_url: pluralkit.avatar_url.as_deref(),
-            description: pluralkit.description.as_deref(),
+            pronouns: pronouns.iter().map(Into::into).collect(),
+            colors: ColorsOut::new(on_light.map(str::to_owned), on_dark.map(str::to_owned)),
         }
     }
 }
 
 #[derive(Serialize)]
-struct TriggerOut<'a> {
+struct PluralkitOut {
+    id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    prefix: Option<&'a str>,
+    uuid: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    suffix: Option<&'a str>,
+    avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+}
+
+impl From<&PluralkitImportView> for PluralkitOut {
+    fn from(pluralkit: &PluralkitImportView) -> Self {
+        Self {
+            id: pluralkit.id.clone(),
+            uuid: pluralkit.uuid.clone(),
+            avatar_url: pluralkit.avatar_url.clone(),
+            description: pluralkit.description.clone(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct TriggerOut {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prefix: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    suffix: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     keep_trigger: bool,
 }
 
-impl<'a> From<&'a PersonaTriggerView> for TriggerOut<'a> {
-    fn from(trigger: &'a PersonaTriggerView) -> Self {
+impl From<&PersonaTriggerView> for TriggerOut {
+    fn from(trigger: &PersonaTriggerView) -> Self {
         Self {
-            prefix: trigger.prefix.as_deref(),
-            suffix: trigger.suffix.as_deref(),
+            prefix: trigger.prefix.clone(),
+            suffix: trigger.suffix.clone(),
             keep_trigger: trigger.keep_trigger,
         }
     }
 }
 
 #[derive(Serialize)]
-struct PersonaOut<'a> {
-    id: &'a str,
-    displayname: &'a str,
+struct PersonaOut {
+    id: String,
+    displayname: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    avatar_url: Option<&'a str>,
-    #[serde(rename = "io.fsky.nyx.pronouns", skip_serializing_if = "Vec::is_empty")]
-    pronouns: Vec<PronounOut<'a>>,
-    #[serde(rename = "eu.she-a.color", skip_serializing_if = "Option::is_none")]
-    colors: Option<ColorsOut<'a>>,
+    avatar_url: Option<String>,
+    #[serde(flatten)]
+    look: LookOut,
     #[serde(
         rename = "net.f0rest.pkimport",
         skip_serializing_if = "Option::is_none"
     )]
-    pluralkit: Option<PluralkitOut<'a>>,
-    triggers: Vec<TriggerOut<'a>>,
+    pluralkit: Option<PluralkitOut>,
+    triggers: Vec<TriggerOut>,
     #[serde(
         rename = "net.f0rest.last_used",
         skip_serializing_if = "Option::is_none"
@@ -364,14 +343,14 @@ struct PersonaOut<'a> {
     last_used: Option<u64>,
 }
 
-impl<'a> From<&'a PersonaView> for PersonaOut<'a> {
-    fn from(persona: &'a PersonaView) -> Self {
+impl From<&PersonaView> for PersonaOut {
+    fn from(persona: &PersonaView) -> Self {
         Self {
-            id: &persona.id,
-            displayname: &persona.display_name,
-            avatar_url: persona.avatar_url.as_deref(),
-            pronouns: persona.pronouns.iter().map(Into::into).collect(),
-            colors: ColorsOut::new(
+            id: persona.id.clone(),
+            displayname: persona.display_name.clone(),
+            avatar_url: persona.avatar_url.clone(),
+            look: LookOut::new(
+                &persona.pronouns,
                 persona.color_on_light.as_deref(),
                 persona.color_on_dark.as_deref(),
             ),
@@ -383,19 +362,19 @@ impl<'a> From<&'a PersonaView> for PersonaOut<'a> {
 }
 
 #[derive(Serialize)]
-struct CatalogOut<'a> {
-    profiles: Vec<PersonaOut<'a>>,
+struct CatalogOut {
+    profiles: Vec<PersonaOut>,
 }
 
+#[serde_as]
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SelectionIn {
-    #[serde(default, rename = "profileId", deserialize_with = "lenient_text")]
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
     profile_id: Option<String>,
-    #[serde(
-        default,
-        rename = "validUntil",
-        deserialize_with = "sable_model::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     valid_until: Option<u64>,
 }
 
@@ -410,31 +389,33 @@ impl SelectionIn {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SelectionOut<'a> {
-    profile_id: &'a str,
+struct SelectionOut {
+    profile_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     valid_until: Option<u64>,
 }
 
-impl<'a> From<&'a PersonaSelectionView> for SelectionOut<'a> {
-    fn from(selection: &'a PersonaSelectionView) -> Self {
+impl From<&PersonaSelectionView> for SelectionOut {
+    fn from(selection: &PersonaSelectionView) -> Self {
         Self {
-            profile_id: &selection.persona_id,
+            profile_id: selection.persona_id.clone(),
             valid_until: selection.valid_until,
         }
     }
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct AccountSelectionIn {
-    #[serde(default, deserialize_with = "sable_model::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     association: Option<SelectionIn>,
 }
 
 #[derive(Serialize)]
-struct AccountSelectionOut<'a> {
+struct AccountSelectionOut {
     #[serde(skip_serializing_if = "Option::is_none")]
-    association: Option<SelectionOut<'a>>,
+    association: Option<SelectionOut>,
 }
 
 #[derive(Debug, Clone)]
@@ -470,9 +451,11 @@ impl AssociationIn {
 }
 
 fn room_associations(content: &Value) -> BTreeMap<String, RoomAssociation> {
+    #[serde_as]
     #[derive(Deserialize)]
     struct RoomAssociationsIn {
-        #[serde(default, deserialize_with = "lenient_map")]
+        #[serde_as(deserialize_as = "DefaultOnError<MapSkipError<_, _>>")]
+        #[serde(default)]
         associations: BTreeMap<String, AssociationIn>,
     }
 
@@ -485,8 +468,8 @@ fn room_associations(content: &Value) -> BTreeMap<String, RoomAssociation> {
 }
 
 #[derive(Serialize)]
-struct RoomAssociationsOut<'a> {
-    associations: &'a BTreeMap<String, RoomAssociation>,
+struct RoomAssociationsOut {
+    associations: BTreeMap<String, RoomAssociation>,
 }
 
 const MAX_FIELD_BYTES: usize = 255;
@@ -507,17 +490,15 @@ fn clamp_field(value: &str) -> String {
 }
 
 #[derive(Serialize)]
-struct ProfileOut<'a> {
+struct ProfileOut {
     #[serde(skip_serializing_if = "Option::is_none")]
     id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     displayname: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    avatar_url: Option<&'a str>,
-    #[serde(rename = "io.fsky.nyx.pronouns", skip_serializing_if = "Vec::is_empty")]
-    pronouns: Vec<PronounOut<'a>>,
-    #[serde(rename = "eu.she-a.color", skip_serializing_if = "Option::is_none")]
-    colors: Option<ColorsOut<'a>>,
+    avatar_url: Option<String>,
+    #[serde(flatten)]
+    look: LookOut,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     has_fallback: bool,
 }
@@ -535,9 +516,9 @@ pub(crate) fn profile_value(profile: &PerMessageProfileView) -> Value {
             .map(str::trim)
             .filter(|name| !name.is_empty())
             .map(clamp_field),
-        avatar_url: profile.avatar_url.as_deref(),
-        pronouns: profile.pronouns.iter().map(Into::into).collect(),
-        colors: ColorsOut::new(
+        avatar_url: profile.avatar_url.clone(),
+        look: LookOut::new(
+            &profile.pronouns,
             profile.color_on_light.as_deref(),
             profile.color_on_dark.as_deref(),
         ),
@@ -546,6 +527,7 @@ pub(crate) fn profile_value(profile: &PerMessageProfileView) -> Value {
     // Strings, bools and lists of them always serialize.
     serde_json::to_value(out).unwrap_or_default()
 }
+
 pub(crate) fn profile_extra_content(profile: &PerMessageProfileView) -> Map<String, Value> {
     [(PER_MESSAGE_PROFILE.to_owned(), profile_value(profile))]
         .into_iter()
@@ -976,12 +958,12 @@ impl Core {
             }
         }
 
-        self.write_room_selections(&rooms).await
+        self.write_room_selections(rooms).await
     }
 
     async fn write_room_selections(
         &self,
-        rooms: &BTreeMap<String, RoomAssociation>,
+        rooms: BTreeMap<String, RoomAssociation>,
     ) -> Result<(), CommandErr> {
         self.put_global_account_data(
             selection_event("roomassociation"),
@@ -1027,7 +1009,7 @@ impl Core {
             }
         }
 
-        self.write_room_selections(&rooms).await
+        self.write_room_selections(rooms).await
     }
 
     pub(crate) async fn disable_room_personas(
@@ -1037,7 +1019,7 @@ impl Core {
         let _guard = self.account_data_lock.lock().await;
         let mut rooms = self.room_selections().await?;
         rooms.insert(room_id.to_string(), RoomAssociation::Disabled);
-        self.write_room_selections(&rooms).await
+        self.write_room_selections(rooms).await
     }
 }
 
@@ -1127,7 +1109,7 @@ mod tests {
         ));
         assert_eq!(
             serde_json::to_value(RoomAssociationsOut {
-                associations: &rooms
+                associations: rooms
             })
             .expect("serializable"),
             json!({
@@ -1183,6 +1165,32 @@ mod tests {
         let out = serde_json::to_value(super::PersonaOut::from(&persona)).expect("serializable");
 
         assert_eq!(out, written);
+    }
+
+    #[test]
+    fn lists_skip_bad_entries_and_a_non_list_reads_as_missing() {
+        let skipped = persona(&json!({
+            "id": "a", "displayname": "A",
+            "triggers": [5, { "prefix": "a:" }, "x"],
+            "trigger": { "prefix": ["v2:"] },
+        }));
+        assert_eq!(skipped.triggers.len(), 1);
+        assert_eq!(skipped.triggers[0].prefix.as_deref(), Some("a:"));
+
+        let legacy = persona(&json!({
+            "id": "a", "displayname": "A",
+            "triggers": "nope",
+            "trigger": { "prefix": ["v2:", 5, "  "], "net.f0rest.suffix": "nope" },
+        }));
+        assert_eq!(legacy.triggers.len(), 1);
+        assert_eq!(legacy.triggers[0].prefix.as_deref(), Some("v2:"));
+    }
+
+    #[test]
+    fn room_associations_skip_bad_entries_and_a_non_object_is_empty() {
+        let rooms = room_associations(&json!({ "associations": { "!a:x": 7, "!b:x": false } }));
+        assert_eq!(rooms.len(), 1);
+        assert!(room_associations(&json!({ "associations": [1] })).is_empty());
     }
 
     #[test]

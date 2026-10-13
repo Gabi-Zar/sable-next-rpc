@@ -19,16 +19,16 @@ const PING_PUSHKEY: &str = "sable-diagnostic-ping";
 const NOTIFY_RETRY_DELAYS: [Duration; 2] = [Duration::from_millis(250), Duration::from_millis(750)];
 
 #[derive(Serialize)]
-pub struct NotifyBodyOut<D> {
-    notification: NotificationOut<D>,
+pub struct NotifyBodyOut {
+    notification: NotificationOut,
 }
 
 #[derive(Serialize)]
-struct NotificationOut<D> {
+struct NotificationOut {
     event_id: String,
     room_id: &'static str,
     prio: PrioOut,
-    devices: [DeviceOut<D>; 1],
+    devices: [DeviceOut; 1],
 }
 
 #[derive(Serialize)]
@@ -38,19 +38,19 @@ enum PrioOut {
 }
 
 #[derive(Serialize)]
-struct DeviceOut<D> {
+struct DeviceOut {
     app_id: String,
     pushkey: String,
-    data: D,
+    data: serde_json::Map<String, serde_json::Value>,
 }
 
 #[must_use]
-pub fn notify_body<D: Serialize>(
+pub fn notify_body(
     event_id: &str,
     app_id: &str,
     pushkey: &str,
-    data: D,
-) -> NotifyBodyOut<D> {
+    data: serde_json::Map<String, serde_json::Value>,
+) -> NotifyBodyOut {
     NotifyBodyOut {
         notification: NotificationOut {
             event_id: event_id.to_owned(),
@@ -290,7 +290,10 @@ mod tests {
             &format!("{DIAGNOSTIC_EVENT_PREFIX}abc"),
             "moe.sable.app",
             "key",
-            json!({"url": "https://push.example/_matrix/push/v1/notify", "format": "event_id_only"}),
+            json!({"url": "https://push.example/_matrix/push/v1/notify", "format": "event_id_only"})
+                .as_object()
+                .cloned()
+                .unwrap(),
         );
         let body = serde_json::to_value(body).unwrap();
 

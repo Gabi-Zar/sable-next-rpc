@@ -48,7 +48,7 @@ pub(crate) fn announcement(
 ) -> Option<matrix_sdk::ruma::serde::Raw<matrix_sdk::ruma::events::AnyMessageLikeEventContent>> {
     let content = notification_content(membership_event_id, kind, ring);
     matrix_sdk::ruma::serde::Raw::new(&AnnouncementOut {
-        content: &content,
+        content,
         text: [TextOut {
             body: ANNOUNCEMENT_FALLBACK_TEXT,
         }],
@@ -63,18 +63,18 @@ struct TextOut {
 }
 
 #[derive(serde::Serialize)]
-struct AnnouncementOut<'a> {
+struct AnnouncementOut {
     #[serde(flatten)]
-    content: &'a RtcNotificationEventContent,
+    content: RtcNotificationEventContent,
     #[serde(rename = "m.text")]
     text: [TextOut; 1],
 }
 
 /// A decline event stamped with the empty `m.mentions` message events carry.
 #[derive(serde::Serialize)]
-pub(super) struct DeclineOut<'a> {
+pub(super) struct DeclineOut {
     #[serde(flatten)]
-    pub(super) content: &'a matrix_sdk::ruma::events::rtc::decline::RtcDeclineEventContent,
+    pub(super) content: matrix_sdk::ruma::events::rtc::decline::RtcDeclineEventContent,
     #[serde(rename = "m.mentions")]
     pub(super) mentions: serde_json::Map<String, serde_json::Value>,
 }
@@ -417,7 +417,7 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_value(super::DeclineOut {
-                content: &decline,
+                content: decline,
                 mentions: serde_json::Map::new(),
             })
             .unwrap(),

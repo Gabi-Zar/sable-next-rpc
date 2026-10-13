@@ -1,6 +1,13 @@
-use matrix_sdk::ruma::{EventEncryptionAlgorithm, OwnedRoomId};
-use serde::{Deserialize, Deserializer, Serialize};
+use matrix_sdk::ruma::EventEncryptionAlgorithm;
+use matrix_sdk::ruma::OwnedRoomId;
+use matrix_sdk::ruma::events::room::encryption::RoomEncryptionEventContent;
+use matrix_sdk::ruma::events::room::history_visibility::{
+    HistoryVisibility, RoomHistoryVisibilityEventContent,
+};
+use matrix_sdk::ruma::events::room::tombstone::RoomTombstoneEventContent;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::Core;
 use crate::protocol::{AbbreviationView, CommandErr, HistoryVisibilityView};
@@ -16,11 +23,25 @@ const ABBREVIATIONS_EVENT: &str = "moe.sable.room.abbreviations";
 
 const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
 
+fn read<T: Default + serde::de::DeserializeOwned>(content: Option<&Value>) -> T {
+    content
+        .and_then(|content| T::deserialize(content).ok())
+        .unwrap_or_default()
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct HistoryVisibilityIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    history_visibility: Option<String>,
+}
+
 /// The spec's default when the event is missing or unreadable.
 pub(crate) fn history_visibility(content: Option<&Value>) -> HistoryVisibilityView {
-    match content
-        .and_then(|content| content.get("history_visibility"))
-        .and_then(Value::as_str)
+    match read::<HistoryVisibilityIn>(content)
+        .history_visibility
+        .as_deref()
     {
         Some("invited") => HistoryVisibilityView::Invited,
         Some("joined") => HistoryVisibilityView::Joined,
@@ -29,24 +50,26 @@ pub(crate) fn history_visibility(content: Option<&Value>) -> HistoryVisibilityVi
     }
 }
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct CanonicalAliasIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    alias: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    alt_aliases: Vec<String>,
+}
+
 pub(crate) fn canonical_alias(content: Option<&Value>) -> (Option<String>, Vec<String>) {
-    let alias = content
-        .and_then(|content| content.get("alias"))
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned);
+    let content = read::<CanonicalAliasIn>(content);
     let mut alternatives: Vec<String> = Vec::new();
-    for entry in content
-        .and_then(|content| content.get("alt_aliases"))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(Value::as_str)
-    {
-        if !alternatives.iter().any(|known| known == entry) {
-            alternatives.push(entry.to_owned());
+    for entry in content.alt_aliases {
+        if !alternatives.contains(&entry) {
+            alternatives.push(entry);
         }
     }
-    (alias, alternatives)
+    (content.alias, alternatives)
 }
 
 /// The `{}` that clears a state event or account-data document.
@@ -54,18 +77,8 @@ pub(crate) fn canonical_alias(content: Option<&Value>) -> (Option<String>, Vec<S
 pub(crate) struct EmptyContent {}
 
 #[derive(Serialize)]
-struct HistoryVisibilityOut {
-    history_visibility: HistoryVisibilityView,
-}
-
-#[derive(Serialize)]
-struct EncryptionOut {
-    algorithm: EventEncryptionAlgorithm,
-}
-
-#[derive(Serialize)]
-struct BannerOut<'a> {
-    url: &'a str,
+struct BannerOut {
+    url: String,
 }
 
 #[derive(Serialize)]
@@ -75,51 +88,73 @@ struct MemberListOut {
 }
 
 #[derive(Serialize)]
-struct TombstoneOut<'a> {
-    body: &'a str,
-    replacement_room: &'a OwnedRoomId,
-}
-
-#[derive(Serialize)]
-pub(crate) struct CanonicalAliasOut<'a> {
+pub(crate) struct CanonicalAliasOut {
     #[serde(skip_serializing_if = "Option::is_none")]
-    alias: Option<&'a str>,
+    alias: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    alt_aliases: Vec<&'a str>,
+    alt_aliases: Vec<String>,
 }
 
 /// Each alternative appears once and never repeats the main address.
-pub(crate) fn canonical_alias_content<'a>(
-    alias: Option<&'a str>,
-    alternatives: &'a [String],
-) -> CanonicalAliasOut<'a> {
-    let mut rest: Vec<&str> = Vec::new();
+pub(crate) fn canonical_alias_content(
+    alias: Option<&str>,
+    alternatives: &[String],
+) -> CanonicalAliasOut {
+    let mut rest: Vec<String> = Vec::new();
     for entry in alternatives {
-        if Some(entry.as_str()) != alias && !rest.contains(&entry.as_str()) {
-            rest.push(entry);
+        if Some(entry.as_str()) != alias && !rest.contains(entry) {
+            rest.push(entry.clone());
         }
     }
     CanonicalAliasOut {
-        alias,
+        alias: alias.map(ToOwned::to_owned),
         alt_aliases: rest,
     }
 }
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct BannerIn {
+    #[serde(default, deserialize_with = "sable_model::field::present")]
+    url: Option<UrlField>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    content: Option<NestedBannerIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct NestedBannerIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    url: Option<String>,
+}
+
+/// Present even when wrong-typed, so the nested url only applies to a missing one.
+#[serde_as]
+#[derive(Deserialize)]
+struct UrlField(#[serde_as(deserialize_as = "DefaultOnError")] Option<String>);
+
 /// Older writers nested the url under `content`.
 pub(crate) fn banner_url(content: Option<&Value>) -> Option<String> {
-    let content = content?;
-    content
-        .get("url")
-        .or_else(|| content.get("content").and_then(|nested| nested.get("url")))
-        .and_then(Value::as_str)
+    let banner = read::<BannerIn>(content);
+    banner
+        .url
+        .map_or_else(|| banner.content.and_then(|nested| nested.url), |url| url.0)
         .filter(|url| url.starts_with("mxc://"))
-        .map(ToOwned::to_owned)
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct MemberListIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    always_listed_from: Option<i64>,
 }
 
 pub(crate) fn always_listed_from(content: Option<&Value>) -> Option<i64> {
-    content?
-        .get("always_listed_from")?
-        .as_i64()
+    read::<MemberListIn>(content)
+        .always_listed_from
         .filter(|level| (-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(level))
 }
 
@@ -140,25 +175,14 @@ fn edited_list(current: &[String], added: &[String], removed: &[String]) -> Vec<
     list
 }
 
-/// A list that is not an array reads as empty and non-string entries are dropped.
-fn lenient_strings<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::Array(entries) => entries
-            .into_iter()
-            .filter_map(|entry| match entry {
-                Value::String(text) => Some(text),
-                _ => None,
-            })
-            .collect(),
-        _ => Vec::new(),
-    })
-}
-
+#[serde_as]
 #[derive(Default, Deserialize, Serialize)]
 pub(crate) struct ServerAclContent {
-    #[serde(default, deserialize_with = "lenient_strings")]
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
     allow: Vec<String>,
-    #[serde(default, deserialize_with = "lenient_strings")]
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
     deny: Vec<String>,
     #[serde(flatten)]
     extra: Map<String, Value>,
@@ -174,45 +198,64 @@ pub(crate) fn server_acl_content(stored: Option<Value>, edit: &AclEdit) -> Serve
     content
 }
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct AbbreviationsIn {
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    entries: Vec<AbbreviationIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct AbbreviationIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    term: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    definition: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    cased: Option<bool>,
+}
+
 pub(crate) fn abbreviations(content: Option<&Value>) -> Vec<AbbreviationView> {
-    content
-        .and_then(|content| content.get("entries"))
-        .and_then(Value::as_array)
+    read::<AbbreviationsIn>(content)
+        .entries
         .into_iter()
-        .flatten()
         .filter_map(|entry| {
-            let term = entry.get("term")?.as_str()?;
-            let definition = entry.get("definition")?.as_str()?;
+            let (term, definition) = (entry.term?, entry.definition?);
             (!term.trim().is_empty()).then(|| AbbreviationView {
-                term: term.to_owned(),
-                definition: definition.to_owned(),
-                cased: entry.get("cased").and_then(Value::as_bool) == Some(true),
+                term,
+                definition,
+                cased: entry.cased == Some(true),
             })
         })
         .collect()
 }
 
 #[derive(Serialize)]
-struct AbbreviationOut<'a> {
-    term: &'a str,
-    definition: &'a str,
+struct AbbreviationOut {
+    term: String,
+    definition: String,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     cased: bool,
 }
 
 #[derive(Serialize)]
-pub(crate) struct AbbreviationsOut<'a> {
-    entries: Vec<AbbreviationOut<'a>>,
+pub(crate) struct AbbreviationsOut {
+    entries: Vec<AbbreviationOut>,
 }
 
 /// `cased` is written only when set, as other writers of the event expect.
-pub(crate) fn abbreviations_content(entries: &[AbbreviationView]) -> AbbreviationsOut<'_> {
+pub(crate) fn abbreviations_content(entries: &[AbbreviationView]) -> AbbreviationsOut {
     AbbreviationsOut {
         entries: entries
             .iter()
             .map(|entry| AbbreviationOut {
-                term: &entry.term,
-                definition: &entry.definition,
+                term: entry.term.clone(),
+                definition: entry.definition.clone(),
                 cased: entry.cased,
             })
             .collect(),
@@ -258,9 +301,12 @@ impl Core {
         self.write_room_state(
             room_id,
             HISTORY_VISIBILITY_EVENT,
-            &HistoryVisibilityOut {
-                history_visibility: visibility,
-            },
+            &RoomHistoryVisibilityEventContent::new(match visibility {
+                HistoryVisibilityView::Shared => HistoryVisibility::Shared,
+                HistoryVisibilityView::Invited => HistoryVisibility::Invited,
+                HistoryVisibilityView::Joined => HistoryVisibility::Joined,
+                HistoryVisibilityView::WorldReadable => HistoryVisibility::WorldReadable,
+            }),
         )
         .await
     }
@@ -269,9 +315,7 @@ impl Core {
         self.write_room_state(
             room_id,
             ENCRYPTION_EVENT,
-            &EncryptionOut {
-                algorithm: EventEncryptionAlgorithm::MegolmV1AesSha2,
-            },
+            &RoomEncryptionEventContent::new(EventEncryptionAlgorithm::MegolmV1AesSha2),
         )
         .await
     }
@@ -296,14 +340,7 @@ impl Core {
         let content = canonical_alias_content(alias, alternatives);
         self.write_room_state(room_id, CANONICAL_ALIAS_EVENT, &content)
             .await?;
-        Ok((
-            content.alias.map(ToOwned::to_owned),
-            content
-                .alt_aliases
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
-        ))
+        Ok((content.alias, content.alt_aliases))
     }
 
     pub(crate) async fn room_banner(
@@ -324,7 +361,7 @@ impl Core {
             room_id,
             BANNER_EVENT,
             &BannerOut {
-                url: url.unwrap_or_default(),
+                url: url.unwrap_or_default().to_owned(),
             },
         )
         .await
@@ -397,10 +434,7 @@ impl Core {
         self.write_room_state(
             room_id,
             TOMBSTONE_EVENT,
-            &TombstoneOut {
-                body,
-                replacement_room,
-            },
+            &RoomTombstoneEventContent::new(body.to_owned(), replacement_room.clone()),
         )
         .await
     }
@@ -568,5 +602,38 @@ mod tests {
             None
         );
         assert_eq!(always_listed_from(Some(&json!({}))), None);
+    }
+
+    #[test]
+    fn a_present_wrong_typed_banner_url_blocks_the_nested_one() {
+        assert_eq!(
+            banner_url(Some(
+                &json!({ "url": 3, "content": { "url": "mxc://a/b" } })
+            )),
+            None
+        );
+        assert_eq!(
+            banner_url(Some(
+                &json!({ "url": null, "content": { "url": "mxc://a/b" } })
+            )),
+            None
+        );
+        assert_eq!(
+            banner_url(Some(&json!({ "content": "x", "url": "mxc://a/c" }))),
+            Some("mxc://a/c".to_owned())
+        );
+    }
+
+    #[test]
+    fn wrong_typed_settings_read_as_defaults() {
+        assert_eq!(
+            history_visibility(Some(&json!({ "history_visibility": 3 }))),
+            HistoryVisibilityView::Shared
+        );
+        assert_eq!(
+            canonical_alias(Some(&json!({ "alias": 3, "alt_aliases": "x" }))),
+            (None, Vec::new())
+        );
+        assert_eq!(always_listed_from(Some(&json!("x"))), None);
     }
 }

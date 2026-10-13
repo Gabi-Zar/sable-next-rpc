@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use matrix_sdk::ruma::OwnedRoomId;
+use matrix_sdk::ruma::events::image_pack::rooms::{ImagePackRoomsEventContent, RoomImagePackMeta};
 use sable_model::shortcodes::{self, normalize_shortcode, unique_shortcode};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::image_packs::{EmoteRooms, IMAGE_PACK_ROOMS, ROOM_EMOTES, ROOM_IMAGE_PACK, USER_EMOTES};
 use crate::protocol::{
@@ -24,23 +26,23 @@ fn same_usage(left: &[ImageUsageView], right: &[ImageUsageView]) -> bool {
 }
 
 #[derive(Serialize)]
-struct InfoOut<'a> {
+struct InfoOut {
     #[serde(rename = "w", skip_serializing_if = "Option::is_none")]
     width: Option<u32>,
     #[serde(rename = "h", skip_serializing_if = "Option::is_none")]
     height: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    mimetype: Option<&'a str>,
+    mimetype: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     size: Option<u32>,
 }
 
-fn info_content(info: Option<&PackImageInfoView>) -> Option<InfoOut<'_>> {
+fn info_content(info: Option<&PackImageInfoView>) -> Option<InfoOut> {
     let info = info?;
     let out = InfoOut {
         width: info.width,
         height: info.height,
-        mimetype: info.mimetype.as_deref(),
+        mimetype: info.mimetype.clone(),
         size: info.size,
     };
     (out.width.is_some() || out.height.is_some() || out.mimetype.is_some() || out.size.is_some())
@@ -48,45 +50,45 @@ fn info_content(info: Option<&PackImageInfoView>) -> Option<InfoOut<'_>> {
 }
 
 #[derive(Serialize)]
-struct ImageOut<'a> {
-    url: &'a str,
+struct ImageOut {
+    url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    body: Option<&'a str>,
+    body: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    usage: Option<&'a [ImageUsageView]>,
+    usage: Option<Vec<ImageUsageView>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    info: Option<InfoOut<'a>>,
+    info: Option<InfoOut>,
 }
 
 /// An image's usage is written only where it differs from its pack's.
-fn image_content<'a>(image: &'a PackImageDraftView, pack_usage: &[ImageUsageView]) -> ImageOut<'a> {
+fn image_content(image: &PackImageDraftView, pack_usage: &[ImageUsageView]) -> ImageOut {
     ImageOut {
-        url: &image.url,
-        body: image.body.as_deref(),
-        usage: (!same_usage(&image.usage, pack_usage)).then_some(image.usage.as_slice()),
+        url: image.url.clone(),
+        body: image.body.clone(),
+        usage: (!same_usage(&image.usage, pack_usage)).then(|| image.usage.clone()),
         info: info_content(image.info.as_ref()),
     }
 }
 
 #[derive(Serialize)]
-struct PackOut<'a> {
+struct PackOut {
     #[serde(skip_serializing_if = "Option::is_none")]
-    display_name: Option<&'a str>,
+    display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    avatar_url: Option<&'a str>,
+    avatar_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    attribution: Option<&'a str>,
+    attribution: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    usage: Option<&'a [ImageUsageView]>,
+    usage: Option<Vec<ImageUsageView>>,
 }
 
 #[derive(Serialize)]
-pub(crate) struct PackContentOut<'a> {
-    pack: PackOut<'a>,
-    images: BTreeMap<&'a str, ImageOut<'a>>,
+pub(crate) struct PackContentOut {
+    pack: PackOut,
+    images: BTreeMap<String, ImageOut>,
 }
 
-pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut<'_>, CommandErr> {
+pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut, CommandErr> {
     if let Some(shortcode) = invalid_shortcode(&draft.images) {
         return Err(CommandErr::InvalidShortcode {
             shortcode: shortcode.to_owned(),
@@ -94,34 +96,36 @@ pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut<'_>, 
     }
     Ok(PackContentOut {
         pack: PackOut {
-            display_name: (!draft.name.is_empty()).then_some(draft.name.as_str()),
-            avatar_url: draft.avatar_url.as_deref(),
-            attribution: (!draft.attribution.is_empty()).then_some(draft.attribution.as_str()),
-            usage: (draft.usage.len() != ALL_USAGES.len()).then_some(draft.usage.as_slice()),
+            display_name: (!draft.name.is_empty()).then(|| draft.name.clone()),
+            avatar_url: draft.avatar_url.clone(),
+            attribution: (!draft.attribution.is_empty()).then(|| draft.attribution.clone()),
+            usage: (draft.usage.len() != ALL_USAGES.len()).then(|| draft.usage.clone()),
         },
         images: draft
             .images
             .iter()
-            .map(|image| (image.shortcode.as_str(), image_content(image, &draft.usage)))
+            .map(|image| (image.shortcode.clone(), image_content(image, &draft.usage)))
             .collect(),
     })
 }
 
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct PackUsageIn {
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    usage: Vec<ImageUsageView>,
+}
+
 fn declared_usage(pack: Option<&Value>) -> Vec<ImageUsageView> {
-    let declared: Vec<ImageUsageView> = pack
-        .and_then(|pack| pack.get("usage"))
-        .and_then(Value::as_array)
-        .map(|usage| {
-            ALL_USAGES
-                .into_iter()
-                .filter(|wanted| {
-                    usage.iter().any(|entry| {
-                        ImageUsageView::deserialize(entry).is_ok_and(|usage| usage == *wanted)
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let usage = pack
+        .and_then(|pack| PackUsageIn::deserialize(pack).ok())
+        .unwrap_or_default()
+        .usage;
+    let declared: Vec<ImageUsageView> = ALL_USAGES
+        .into_iter()
+        .filter(|wanted| usage.contains(wanted))
+        .collect();
     if declared.is_empty() {
         ALL_USAGES.to_vec()
     } else {
@@ -129,21 +133,13 @@ fn declared_usage(pack: Option<&Value>) -> Vec<ImageUsageView> {
     }
 }
 
-/// An `images` that is not an object reads as empty.
-fn lenient_images<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Map<String, Value>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::Object(images) => images,
-        _ => Map::new(),
-    })
-}
-
 /// The stored event with room for more images; `pack` and anything else we do
 /// not model rides along in `extra`.
+#[serde_as]
 #[derive(Default, Deserialize, Serialize)]
 pub(crate) struct StoredPackContent {
-    #[serde(default, deserialize_with = "lenient_images")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     images: Map<String, Value>,
     #[serde(flatten)]
     extra: Map<String, Value>,
@@ -199,20 +195,19 @@ pub(crate) fn with_subscriptions(
     kept
 }
 
-#[derive(Serialize)]
-pub(crate) struct SubscriptionsOut<'a> {
-    rooms: BTreeMap<String, BTreeMap<&'a str, Map<String, Value>>>,
-}
-
-pub(crate) fn subscriptions_content(addresses: &[PackAddressView]) -> SubscriptionsOut<'_> {
-    let mut rooms: BTreeMap<String, BTreeMap<&str, Map<String, Value>>> = BTreeMap::new();
+#[expect(
+    clippy::zero_sized_map_values,
+    reason = "ruma models the empty selection object as a unit struct"
+)]
+pub(crate) fn subscriptions_content(addresses: &[PackAddressView]) -> ImagePackRoomsEventContent {
+    let mut rooms: BTreeMap<OwnedRoomId, BTreeMap<String, RoomImagePackMeta>> = BTreeMap::new();
     for address in addresses {
         rooms
-            .entry(address.room_id.to_string())
+            .entry(address.room_id.clone())
             .or_default()
-            .insert(&address.state_key, Map::new());
+            .insert(address.state_key.clone(), RoomImagePackMeta::new());
     }
-    SubscriptionsOut { rooms }
+    ImagePackRoomsEventContent::new(rooms)
 }
 
 /// Whether a state key survives a request path; a pasted file path does not.
@@ -228,13 +223,13 @@ fn is_empty_content(content: Option<&Value>) -> bool {
 }
 
 #[derive(Serialize)]
-struct NewPackInfoOut<'a> {
-    display_name: &'a str,
+struct NewPackInfoOut {
+    display_name: String,
 }
 
 #[derive(Serialize)]
-struct NewPackOut<'a> {
-    pack: NewPackInfoOut<'a>,
+struct NewPackOut {
+    pack: NewPackInfoOut,
     images: EmptyContent,
 }
 
@@ -298,7 +293,7 @@ impl Core {
         let state_key = unique_shortcode(&wanted, |candidate| taken.contains(candidate));
         let content = NewPackOut {
             pack: NewPackInfoOut {
-                display_name: name.trim(),
+                display_name: name.trim().to_owned(),
             },
             images: EmptyContent {},
         };
@@ -650,5 +645,21 @@ mod tests {
             to_json(subscriptions_content(&next)),
             json!({ "rooms": { "!a:example.org": { "": {} }, "!c:example.org": { "": {} } } })
         );
+    }
+
+    #[test]
+    fn declared_usage_skips_unknown_entries_and_falls_back_to_both() {
+        assert_eq!(
+            super::declared_usage(Some(&json!({ "usage": ["sticker", 3, "nonsense"] }))),
+            vec![ImageUsageView::Sticker]
+        );
+        for pack in [
+            json!({ "usage": "sticker" }),
+            json!({ "usage": [] }),
+            json!(3),
+        ] {
+            assert_eq!(super::declared_usage(Some(&pack)), BOTH.to_vec());
+        }
+        assert_eq!(super::declared_usage(None), BOTH.to_vec());
     }
 }

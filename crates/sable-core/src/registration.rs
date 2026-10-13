@@ -28,10 +28,10 @@ struct MatrixEmailError {
 }
 
 #[derive(Serialize)]
-struct SubmitTokenOut<'a> {
-    sid: &'a str,
-    client_secret: &'a str,
-    token: &'a str,
+struct SubmitTokenOut {
+    sid: String,
+    client_secret: String,
+    token: String,
 }
 
 fn map_email_submit_error(body: &[u8]) -> CommandErr {
@@ -780,9 +780,9 @@ impl Core {
         }
 
         let Ok(payload) = serde_json::to_vec(&SubmitTokenOut {
-            sid: &sid,
-            client_secret: &client_secret,
-            token: &token,
+            sid,
+            client_secret,
+            token,
         }) else {
             self.restore_pending_registration(pending).await;
             return Err(CommandErr::EmailVerificationFailed);
@@ -888,11 +888,11 @@ mod tests {
     use std::collections::BTreeMap;
 
     #[test]
-    fn submit_token_payload_keeps_its_wire_shape() {
+    fn the_email_token_is_submitted_as_sid_client_secret_and_token() {
         let body = serde_json::to_value(SubmitTokenOut {
-            sid: "s",
-            client_secret: "c",
-            token: "t",
+            sid: "s".to_owned(),
+            client_secret: "c".to_owned(),
+            token: "t".to_owned(),
         })
         .unwrap();
         assert_eq!(

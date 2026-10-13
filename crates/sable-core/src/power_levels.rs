@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use matrix_sdk::ruma::OwnedRoomId;
 pub(crate) use sable_model::power_levels::{TAGS_EVENT, level_at, with_level};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, serde_as};
 
 use crate::protocol::{
     CommandErr, PowerLevelAction, PowerLevelLocation, PowerLevelTagView, PowerLevelTagsView,
@@ -100,52 +100,40 @@ pub(crate) fn synced_from_space(
     next
 }
 
-/// Reads as `T::default()` when the stored value is the wrong shape, which the
-/// edit that follows overwrites anyway.
-#[derive(Debug, Default)]
-struct Lenient<T>(T);
-
-impl<'de, T: DeserializeOwned + Default> Deserialize<'de> for Lenient<T> {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Ok(Self(
-            serde_json::from_value(Value::deserialize(deserializer)?).unwrap_or_default(),
-        ))
-    }
-}
-
-impl<T> Lenient<Option<T>> {
-    const fn is_none(&self) -> bool {
-        self.0.is_none()
-    }
-}
-
-impl<T: Serialize> Serialize for Lenient<T> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
-    }
-}
-
+#[serde_as]
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 struct NotificationsContent {
-    room: Lenient<i64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    room: i64,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
 
+#[serde_as]
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 pub(crate) struct PowerLevelsContent {
-    ban: Lenient<i64>,
-    kick: Lenient<i64>,
-    redact: Lenient<i64>,
-    invite: Lenient<i64>,
-    events_default: Lenient<i64>,
-    state_default: Lenient<i64>,
-    users_default: Lenient<i64>,
-    events: Lenient<BTreeMap<String, i64>>,
-    users: Lenient<BTreeMap<String, i64>>,
-    notifications: Lenient<NotificationsContent>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    ban: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    kick: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    redact: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    invite: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    events_default: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    state_default: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    users_default: i64,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    events: BTreeMap<String, i64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    users: BTreeMap<String, i64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    notifications: NotificationsContent,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
@@ -159,16 +147,16 @@ pub(crate) fn power_levels_content(
     let mut content: PowerLevelsContent = stored
         .and_then(|stored| serde_json::from_value(stored).ok())
         .unwrap_or_default();
-    content.ban = Lenient(levels.ban);
-    content.kick = Lenient(levels.kick);
-    content.redact = Lenient(levels.redact);
-    content.invite = Lenient(levels.invite);
-    content.events_default = Lenient(levels.events_default);
-    content.state_default = Lenient(levels.state_default);
-    content.users_default = Lenient(levels.users_default);
-    content.events = Lenient(levels.events.clone());
-    content.users = Lenient(levels.users.clone());
-    content.notifications.0.room = Lenient(levels.notifications_room);
+    content.ban = levels.ban;
+    content.kick = levels.kick;
+    content.redact = levels.redact;
+    content.invite = levels.invite;
+    content.events_default = levels.events_default;
+    content.state_default = levels.state_default;
+    content.users_default = levels.users_default;
+    content.events = levels.events.clone();
+    content.users = levels.users.clone();
+    content.notifications.room = levels.notifications_room;
     content
 }
 
@@ -183,25 +171,39 @@ fn tag_level(key: &str) -> Option<i64> {
     ((-MAX_SAFE_LEVEL..=MAX_SAFE_LEVEL).contains(&level) || level == FOUNDER_LEVEL).then_some(level)
 }
 
+#[serde_as]
+#[derive(Deserialize)]
+struct TagIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    color: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    icon: Option<IconIn>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct IconIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    key: Option<String>,
+}
+
 fn tag(value: &Value) -> Option<PowerLevelTagView> {
-    let name = value.get("name")?.as_str()?;
-    if name.trim().is_empty() {
-        return None;
-    }
+    let tag = TagIn::deserialize(value).ok()?;
+    let name = tag.name.filter(|name| !name.trim().is_empty())?;
     Some(PowerLevelTagView {
-        name: name.to_owned(),
-        color: value
-            .get("color")
-            .and_then(Value::as_str)
-            .filter(|color| is_hex_color(color))
-            .map(ToOwned::to_owned),
-        icon: value
-            .get("icon")
-            .and_then(|icon| icon.get("key"))
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|key| !key.is_empty())
-            .map(ToOwned::to_owned),
+        name,
+        color: tag.color.filter(|color| is_hex_color(color)),
+        icon: tag
+            .icon
+            .and_then(|icon| icon.key)
+            .map(|key| key.trim().to_owned())
+            .filter(|key| !key.is_empty()),
     })
 }
 
@@ -224,19 +226,23 @@ fn object(value: Option<Value>) -> Map<String, Value> {
     }
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 struct IconKey {
     key: String,
 }
 
+#[serde_as]
 #[derive(Default, Deserialize, Serialize)]
 #[serde(default)]
 struct TagEntry {
-    name: Lenient<String>,
-    #[serde(skip_serializing_if = "Lenient::is_none")]
-    color: Lenient<Option<String>>,
-    #[serde(skip_serializing_if = "Lenient::is_none")]
-    icon: Lenient<Option<IconKey>>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    name: String,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    color: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    icon: Option<IconKey>,
     #[serde(flatten)]
     extra: Map<String, Value>,
 }
@@ -257,17 +263,16 @@ pub(crate) fn with_tag(
         .remove(&key)
         .and_then(|stored| serde_json::from_value(stored).ok())
         .unwrap_or_default();
-    entry.name = Lenient(tag.name.clone());
-    entry.color = Lenient(tag.color.clone().filter(|color| is_hex_color(color)));
-    entry.icon = Lenient(
-        tag.icon
-            .as_deref()
-            .map(str::trim)
-            .filter(|icon| !icon.is_empty())
-            .map(|key| IconKey {
-                key: key.to_owned(),
-            }),
-    );
+    entry.name.clone_from(&tag.name);
+    entry.color = tag.color.clone().filter(|color| is_hex_color(color));
+    entry.icon = tag
+        .icon
+        .as_deref()
+        .map(str::trim)
+        .filter(|icon| !icon.is_empty())
+        .map(|key| IconKey {
+            key: key.to_owned(),
+        });
     content.insert(key, serde_json::to_value(entry)?);
     Ok(Value::Object(content))
 }

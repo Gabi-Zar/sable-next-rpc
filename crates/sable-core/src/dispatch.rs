@@ -31,14 +31,16 @@ use matrix_sdk::ruma::events::relation::{InReplyTo, Reply, Thread};
 use matrix_sdk::ruma::events::room::avatar::RoomAvatarEventContent;
 use matrix_sdk::ruma::events::room::create::{PreviousRoom, RoomCreateEventContent};
 use matrix_sdk::ruma::events::room::encryption::RoomEncryptionEventContent;
+use matrix_sdk::ruma::events::room::join_rules::RoomJoinRulesEventContent;
+use matrix_sdk::ruma::events::room::member::RoomMemberEventContent;
 use matrix_sdk::ruma::events::room::message::Relation;
 use matrix_sdk::ruma::events::room::power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent};
 use matrix_sdk::ruma::events::room::{ImageInfo, MediaSource};
 use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk::ruma::events::tag::{TagInfo, TagName};
 use matrix_sdk::ruma::profile::{ProfileFieldName, ProfileFieldValue};
-use matrix_sdk::ruma::room::JoinRuleKind;
 use matrix_sdk::ruma::room::RoomType;
+use matrix_sdk::ruma::room::{AllowRule, JoinRule, Restricted};
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{
     MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedMxcUri, OwnedRoomId, RoomId, RoomOrAliasId,
@@ -73,6 +75,7 @@ use crate::verification::{encryption_status, sign_out_safety};
 use crate::widgets::RelationsFilter;
 use crate::{Core, SubscriptionKind};
 use crate::{notifications, push_check, push_rules, session, view, webpush};
+use serde_with::{DefaultOnError, serde_as};
 
 const MAX_SEARCH_RESULTS: usize = 200;
 const MAX_SEARCH_CONTEXT: usize = 3;
@@ -118,64 +121,122 @@ async fn soliditas_preview(
     Ok(serde_json::from_slice(&body).ok())
 }
 
-pub(crate) const PREVIEW_THEME_COLOR: &str = "com.sable.theme_color";
-pub(crate) const PREVIEW_CARD: &str = "com.sable.card";
-pub(crate) const PREVIEW_AUTHOR: &str = "com.sable.author_name";
-
-pub(crate) fn preview_video(data: &serde_json::Value) -> Option<UrlPreviewVideoView> {
-    let source = data
-        .get("og:video")?
-        .as_str()
-        .filter(|source| source.starts_with("mxc://"))?
-        .to_owned();
-    let mime = data
-        .get("og:video:type")
-        .and_then(serde_json::Value::as_str)
-        .map(ToOwned::to_owned);
-    let number = |key: &str| data.get(key).and_then(serde_json::Value::as_u64);
-    Some(UrlPreviewVideoView {
-        source,
-        mime,
-        width: number("og:video:width"),
-        height: number("og:video:height"),
-    })
+/// Every field reads as missing when absent or wrong-typed.
+#[serde_as]
+#[derive(Default, serde::Deserialize)]
+#[serde(default)]
+pub(crate) struct PreviewData {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "matrix:matched_url")]
+    pub(crate) stable_matched_url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "matched_url")]
+    pub(crate) legacy_matched_url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:url")]
+    pub(crate) url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:title")]
+    pub(crate) title: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:description")]
+    pub(crate) description: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:site_name")]
+    pub(crate) site_name: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "matrix:image:encrypted")]
+    pub(crate) encrypted_image: Option<matrix_sdk::ruma::events::room::EncryptedFile>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:image")]
+    pub(crate) image: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:image:type")]
+    pub(crate) image_type: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:image:width")]
+    pub(crate) image_width: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:image:height")]
+    pub(crate) image_height: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:video")]
+    video: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:video:type")]
+    video_type: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:video:width")]
+    video_width: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "og:video:height")]
+    video_height: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "com.sable.theme_color")]
+    theme_color: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "com.sable.card")]
+    card: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "com.sable.author_name")]
+    pub(crate) author_name: Option<String>,
 }
 
-pub(crate) fn preview_theme_color(data: &serde_json::Value) -> Option<String> {
-    let color = data.get(PREVIEW_THEME_COLOR)?.as_str()?;
-    let digits = color.strip_prefix('#')?;
-    (matches!(digits.len(), 3 | 4 | 6 | 8) && digits.chars().all(|c| c.is_ascii_hexdigit()))
-        .then(|| color.to_owned())
-}
+impl PreviewData {
+    pub(crate) fn read(data: &serde_json::Value) -> Option<Self> {
+        serde::Deserialize::deserialize(data).ok()
+    }
 
-pub(crate) fn preview_card(data: &serde_json::Value) -> Option<String> {
-    let card = data.get(PREVIEW_CARD)?.as_str()?;
-    matches!(card, "summary" | "summary_large_image").then(|| card.to_owned())
+    pub(crate) fn video(&self) -> Option<UrlPreviewVideoView> {
+        let source = self
+            .video
+            .as_deref()
+            .filter(|source| source.starts_with("mxc://"))?
+            .to_owned();
+        Some(UrlPreviewVideoView {
+            source,
+            mime: self.video_type.clone(),
+            width: self.video_width,
+            height: self.video_height,
+        })
+    }
+
+    pub(crate) fn valid_theme_color(&self) -> Option<String> {
+        let color = self.theme_color.as_deref()?;
+        let digits = color.strip_prefix('#')?;
+        (matches!(digits.len(), 3 | 4 | 6 | 8) && digits.chars().all(|c| c.is_ascii_hexdigit()))
+            .then(|| color.to_owned())
+    }
+
+    pub(crate) fn valid_card(&self) -> Option<String> {
+        let card = self.card.as_deref()?;
+        matches!(card, "summary" | "summary_large_image").then(|| card.to_owned())
+    }
 }
 
 fn url_preview(url: String, data: &serde_json::Value) -> Option<UrlPreviewView> {
-    let text = |key: &str| {
-        data.get(key)
-            .and_then(serde_json::Value::as_str)
+    let data = PreviewData::read(data)?;
+    let text = |value: &Option<String>| {
+        value
+            .as_deref()
             .map(str::trim)
             .filter(|value| !value.is_empty())
             .map(ToOwned::to_owned)
     };
-    let number = |key: &str| data.get(key).and_then(serde_json::Value::as_u64);
 
     let preview = UrlPreviewView {
         url,
-        title: text("og:title"),
-        description: text("og:description"),
-        site_name: text("og:site_name"),
-        image: text("og:image").filter(|image| image.starts_with("mxc://")),
-        image_mime: text("og:image:type"),
-        image_width: number("og:image:width"),
-        image_height: number("og:image:height"),
-        video: preview_video(data),
-        theme_color: preview_theme_color(data),
-        card: preview_card(data),
-        author_name: text(PREVIEW_AUTHOR),
+        title: text(&data.title),
+        description: text(&data.description),
+        site_name: text(&data.site_name),
+        image: text(&data.image).filter(|image| image.starts_with("mxc://")),
+        image_mime: text(&data.image_type),
+        image_width: data.image_width,
+        image_height: data.image_height,
+        video: data.video(),
+        theme_color: data.valid_theme_color(),
+        card: data.valid_card(),
+        author_name: text(&data.author_name),
     };
 
     if preview.title.is_none()
@@ -189,102 +250,35 @@ fn url_preview(url: String, data: &serde_json::Value) -> Option<UrlPreviewView> 
 }
 
 #[derive(serde::Serialize)]
-struct StateEventOut<'a, C> {
+struct StateEventOut<C> {
     #[serde(rename = "type")]
-    kind: &'a str,
-    state_key: &'a str,
+    kind: &'static str,
+    state_key: &'static str,
     content: C,
-}
-
-#[derive(serde::Serialize)]
-enum SlotStatus {
-    #[serde(rename = "open")]
-    Open,
-}
-
-#[derive(serde::Serialize)]
-enum SlotApplicationKind {
-    #[serde(rename = "m.call")]
-    Call,
-}
-
-#[derive(serde::Serialize)]
-enum SlotEncryptionKind {
-    #[serde(rename = "org.matrix.msc4143.per_member")]
-    PerMember,
-}
-
-#[derive(serde::Serialize)]
-struct TypeOut<K> {
-    #[serde(rename = "type")]
-    kind: K,
-}
-
-#[derive(serde::Serialize)]
-struct JoinRuleOut<'a> {
-    join_rule: JoinRuleKind,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    allow: Option<[JoinRuleAllowOut<'a>; 1]>,
-}
-
-#[derive(serde::Serialize)]
-enum JoinRuleAllowKind {
-    #[serde(rename = "m.room_membership")]
-    RoomMembership,
-}
-
-#[derive(serde::Serialize)]
-struct JoinRuleAllowOut<'a> {
-    #[serde(rename = "type")]
-    kind: JoinRuleAllowKind,
-    room_id: &'a RoomId,
-}
-
-#[derive(serde::Serialize)]
-struct RtcSlotOut {
-    status: SlotStatus,
-    application: TypeOut<SlotApplicationKind>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    encryption: Option<TypeOut<SlotEncryptionKind>>,
-}
-
-fn join_rule_event(
-    join_rule: JoinRuleKind,
-    allow: Option<&RoomId>,
-) -> StateEventOut<'_, JoinRuleOut<'_>> {
-    StateEventOut {
-        kind: "m.room.join_rules",
-        state_key: "",
-        content: JoinRuleOut {
-            join_rule,
-            allow: allow.map(|room_id| {
-                [JoinRuleAllowOut {
-                    kind: JoinRuleAllowKind::RoomMembership,
-                    room_id,
-                }]
-            }),
-        },
-    }
 }
 
 fn join_rule_content(
     rule: Option<CreateJoinRuleView>,
     parent_space: Option<&RoomId>,
-) -> Option<StateEventOut<'_, JoinRuleOut<'_>>> {
-    let allow = |kind| parent_space.map(|space| join_rule_event(kind, Some(space)));
-    let plain = |kind| join_rule_event(kind, None);
-
-    match rule? {
-        CreateJoinRuleView::Public => Some(plain(JoinRuleKind::Public)),
-        CreateJoinRuleView::Invite => Some(plain(JoinRuleKind::Invite)),
-        CreateJoinRuleView::Knock => Some(plain(JoinRuleKind::Knock)),
+) -> Option<InitialStateEvent<RoomJoinRulesEventContent>> {
+    let restricted = || {
+        parent_space
+            .map(|space| Restricted::new(vec![AllowRule::room_membership(space.to_owned())]))
+    };
+    let join_rule = match rule? {
+        CreateJoinRuleView::Public => JoinRule::Public,
+        CreateJoinRuleView::Invite => JoinRule::Invite,
+        CreateJoinRuleView::Knock => JoinRule::Knock,
         CreateJoinRuleView::Restricted => {
-            Some(allow(JoinRuleKind::Restricted).unwrap_or_else(|| plain(JoinRuleKind::Invite)))
+            restricted().map_or(JoinRule::Invite, JoinRule::Restricted)
         }
-        CreateJoinRuleView::KnockRestricted => Some(
-            allow(JoinRuleKind::KnockRestricted).unwrap_or_else(|| plain(JoinRuleKind::Invite)),
-        ),
-    }
+        CreateJoinRuleView::KnockRestricted => {
+            restricted().map_or(JoinRule::Invite, JoinRule::KnockRestricted)
+        }
+    };
+    Some(InitialStateEvent::with_empty_state_key(
+        RoomJoinRulesEventContent::new(join_rule),
+    ))
 }
 
 pub(crate) fn state_event_content(raw: &str) -> Option<serde_json::Value> {
@@ -3083,9 +3077,7 @@ impl Core {
                     room_id,
                     "m.room.member",
                     user_id.as_str(),
-                    &MemberLeaveOut {
-                        membership: MembershipState::Leave,
-                    },
+                    &RoomMemberEventContent::new(MembershipState::Leave),
                 )
                 .await?;
                 Ok(CommandOk::DenyKnock)
@@ -3341,11 +3333,7 @@ impl Core {
                 }
 
                 if let Some(rule) = join_rule_content(join_rule, parent_space.as_deref()) {
-                    request.initial_state.push(
-                        Raw::new(&rule)
-                            .or_failed(self, "create_room_join_rule")?
-                            .cast_unchecked(),
-                    );
+                    request.initial_state.push(rule.to_raw_any());
                 }
 
                 if matches!(kind, CreateRoomKind::Voice) {
@@ -3369,15 +3357,7 @@ impl Core {
                         Raw::new(&StateEventOut {
                             kind: view::RTC_SLOT_TYPE,
                             state_key: view::CALL_SLOT_ID,
-                            content: RtcSlotOut {
-                                status: SlotStatus::Open,
-                                application: TypeOut {
-                                    kind: SlotApplicationKind::Call,
-                                },
-                                encryption: (encrypted && !public).then_some(TypeOut {
-                                    kind: SlotEncryptionKind::PerMember,
-                                }),
-                            },
+                            content: crate::calls::OpenSlot::new(encrypted && !public),
                         })
                         .or_failed(self, "create_room_call_slot")?
                         .cast_unchecked(),
@@ -3715,11 +3695,6 @@ impl Core {
 }
 
 #[derive(serde::Serialize)]
-struct MemberLeaveOut {
-    membership: MembershipState,
-}
-
-#[derive(serde::Serialize)]
 struct PowerLevelsOverrideOut {
     events: BTreeMap<&'static str, i64>,
 }
@@ -3827,36 +3802,36 @@ fn image_source_pack_references(
 }
 
 #[derive(serde::Serialize)]
-struct LinkPreviewBundleOut<'a> {
+struct LinkPreviewBundleOut {
     #[serde(rename = "matrix:matched_url", skip_serializing_if = "Option::is_none")]
-    stable_matched_url: Option<&'a str>,
+    stable_matched_url: Option<String>,
     #[serde(rename = "matched_url", skip_serializing_if = "Option::is_none")]
-    legacy_matched_url: Option<&'a str>,
+    legacy_matched_url: Option<String>,
     #[serde(rename = "og:url")]
-    url: &'a str,
+    url: String,
     #[serde(rename = "og:title", skip_serializing_if = "Option::is_none")]
-    title: Option<&'a str>,
+    title: Option<String>,
     #[serde(rename = "og:description", skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
+    description: Option<String>,
     #[serde(rename = "og:site_name", skip_serializing_if = "Option::is_none")]
-    site_name: Option<&'a str>,
+    site_name: Option<String>,
     #[serde(
         rename = "matrix:image:encrypted",
         skip_serializing_if = "Option::is_none"
     )]
-    encrypted_image: Option<&'a serde_json::Value>,
+    encrypted_image: Option<serde_json::Value>,
     #[serde(rename = "matrix:image:size", skip_serializing_if = "Option::is_none")]
     encrypted_image_size: Option<u64>,
     #[serde(rename = "og:image", skip_serializing_if = "Option::is_none")]
-    image: Option<&'a str>,
+    image: Option<String>,
     #[serde(rename = "og:image:width", skip_serializing_if = "Option::is_none")]
     image_width: Option<u64>,
     #[serde(rename = "og:image:height", skip_serializing_if = "Option::is_none")]
     image_height: Option<u64>,
     #[serde(rename = "og:video", skip_serializing_if = "Option::is_none")]
-    video: Option<&'a str>,
+    video: Option<String>,
     #[serde(rename = "og:video:type", skip_serializing_if = "Option::is_none")]
-    video_type: Option<&'a str>,
+    video_type: Option<String>,
     #[serde(rename = "og:video:width", skip_serializing_if = "Option::is_none")]
     video_width: Option<u64>,
     #[serde(rename = "og:video:height", skip_serializing_if = "Option::is_none")]
@@ -3865,47 +3840,47 @@ struct LinkPreviewBundleOut<'a> {
         rename = "com.sable.theme_color",
         skip_serializing_if = "Option::is_none"
     )]
-    theme_color: Option<&'a str>,
+    theme_color: Option<String>,
     #[serde(rename = "com.sable.card", skip_serializing_if = "Option::is_none")]
-    card: Option<&'a str>,
+    card: Option<String>,
     #[serde(
         rename = "com.sable.author_name",
         skip_serializing_if = "Option::is_none"
     )]
-    author_name: Option<&'a str>,
+    author_name: Option<String>,
 }
 
-impl<'a> LinkPreviewBundleOut<'a> {
+impl LinkPreviewBundleOut {
     fn new(
-        preview: &'a UrlPreviewView,
-        encrypted: Option<&'a EncryptedPreviewImage>,
+        preview: &UrlPreviewView,
+        encrypted: Option<&EncryptedPreviewImage>,
         stable: bool,
     ) -> Self {
         let video = preview.video.as_ref();
         let encrypted_stable = encrypted.filter(|_| stable);
         Self {
-            stable_matched_url: stable.then_some(preview.url.as_str()),
-            legacy_matched_url: (!stable).then_some(preview.url.as_str()),
-            url: &preview.url,
-            title: preview.title.as_deref(),
-            description: preview.description.as_deref(),
-            site_name: preview.site_name.as_deref(),
-            encrypted_image: encrypted_stable.map(|image| &image.file),
+            stable_matched_url: stable.then(|| preview.url.clone()),
+            legacy_matched_url: (!stable).then(|| preview.url.clone()),
+            url: preview.url.clone(),
+            title: preview.title.clone(),
+            description: preview.description.clone(),
+            site_name: preview.site_name.clone(),
+            encrypted_image: encrypted_stable.map(|image| image.file.clone()),
             encrypted_image_size: encrypted_stable.map(|image| image.size),
             image: if encrypted.is_some() {
                 None
             } else {
-                preview.image.as_deref()
+                preview.image.clone()
             },
             image_width: preview.image_width,
             image_height: preview.image_height,
-            video: video.map(|video| video.source.as_str()),
-            video_type: video.and_then(|video| video.mime.as_deref()),
+            video: video.map(|video| video.source.clone()),
+            video_type: video.and_then(|video| video.mime.clone()),
             video_width: video.and_then(|video| video.width),
             video_height: video.and_then(|video| video.height),
-            theme_color: preview.theme_color.as_deref(),
-            card: preview.card.as_deref(),
-            author_name: preview.author_name.as_deref(),
+            theme_color: preview.theme_color.clone(),
+            card: preview.card.clone(),
+            author_name: preview.author_name.clone(),
         }
     }
 }
@@ -4311,7 +4286,7 @@ mod tests {
     }
 
     #[test]
-    fn link_preview_bundles_keep_their_wire_shape() {
+    fn link_preview_bundles_omit_absent_fields_and_key_the_url_by_format() {
         let previews = [preview("https://example.org/")];
         assert_eq!(
             super::bundled_link_previews(&previews, &std::collections::HashMap::new(), true),
@@ -4367,17 +4342,6 @@ mod tests {
         assert_eq!(value["events"]["m.room.encryption"], 100);
         assert_eq!(value["events"][crate::view::CALL_MEMBER_TYPE], 0);
         assert_eq!(value.as_object().unwrap().len(), 1);
-    }
-
-    #[test]
-    fn a_denied_knock_is_a_bare_leave() {
-        assert_eq!(
-            serde_json::to_value(super::MemberLeaveOut {
-                membership: MembershipState::Leave
-            })
-            .unwrap(),
-            serde_json::json!({ "membership": "leave" })
-        );
     }
 
     #[test]
@@ -4522,48 +4486,11 @@ mod tests {
     }
 
     #[test]
-    fn the_call_slot_state_keeps_its_wire_shape() {
-        let slot = |encryption| {
-            serde_json::to_value(StateEventOut {
-                kind: view::RTC_SLOT_TYPE,
-                state_key: view::CALL_SLOT_ID,
-                content: RtcSlotOut {
-                    status: SlotStatus::Open,
-                    application: TypeOut {
-                        kind: SlotApplicationKind::Call,
-                    },
-                    encryption,
-                },
-            })
-            .unwrap()
-        };
-
-        assert_eq!(
-            slot(None),
-            serde_json::json!({
-                "type": view::RTC_SLOT_TYPE,
-                "state_key": view::CALL_SLOT_ID,
-                "content": { "status": "open", "application": { "type": "m.call" } },
-            })
-        );
-        assert_eq!(
-            slot(Some(TypeOut {
-                kind: SlotEncryptionKind::PerMember
-            }))["content"]["encryption"],
-            serde_json::json!({ "type": "org.matrix.msc4143.per_member" })
-        );
-    }
-
-    #[test]
     fn no_join_rule_leaves_the_preset_alone() {
         assert!(super::join_rule_content(None, None).is_none());
     }
 
-    use super::{
-        RtcSlotOut, SlotApplicationKind, SlotEncryptionKind, SlotStatus, StateEventOut, TypeOut,
-    };
     use crate::view;
-    use matrix_sdk::ruma::events::room::member::MembershipState;
     use matrix_sdk::ruma::owned_user_id;
 
     #[test]
@@ -4888,5 +4815,31 @@ mod command_name_tests {
 
         assert_eq!(command_name(&command), "LoginFlows");
         assert_eq!(command_name(&Command::Restore), "Restore");
+    }
+}
+
+#[cfg(test)]
+mod preview_data_tests {
+    use super::url_preview;
+
+    #[test]
+    fn a_preview_skips_wrong_typed_fields_and_non_objects() {
+        let data = serde_json::json!({
+            "og:title": " Title ",
+            "og:description": 5,
+            "og:image": ["mxc://x/y"],
+            "og:video": "mxc://x/v",
+            "og:video:width": -1,
+            "com.sable.card": "summary",
+            "com.sable.theme_color": "#12",
+        });
+        let preview = url_preview("https://e".to_owned(), &data).expect("a preview");
+        assert_eq!(preview.title.as_deref(), Some("Title"));
+        assert_eq!(preview.description, None);
+        assert_eq!(preview.image, None);
+        assert_eq!(preview.video.as_ref().unwrap().width, None);
+        assert_eq!(preview.card.as_deref(), Some("summary"));
+        assert_eq!(preview.theme_color, None);
+        assert!(url_preview("https://e".to_owned(), &serde_json::json!(["x"])).is_none());
     }
 }

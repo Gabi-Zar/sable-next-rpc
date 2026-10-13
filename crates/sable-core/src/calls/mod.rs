@@ -25,8 +25,9 @@ use matrix_sdk::ruma::events::call::member::{CallMemberEventContent, CallMemberS
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{DeviceId, EventId, OwnedRoomId, OwnedUserId, UserId};
 use matrix_sdk::{Client, Room};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_with::{DefaultOnError, serde_as};
 
 use crate::ResultExt;
 use crate::protocol::{
@@ -92,12 +93,35 @@ async fn discovered_service_urls(client: &Client) -> Vec<String> {
 const SLOT_ID: &str = crate::view::CALL_SLOT_ID;
 const SLOT_TYPES: [&str; 2] = [crate::view::RTC_SLOT_TYPE, "m.rtc.slot"];
 
-fn slot_is_open(content: &Value) -> bool {
-    content.get("status").and_then(Value::as_str) == Some("open")
-        && content
-            .get("application")
-            .and_then(|application| application.get("type"))
-            .and_then(Value::as_str)
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct SlotRead {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    status: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    application: Option<ApplicationRead>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct ApplicationRead {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+}
+
+fn read_slot(content: &Value) -> SlotRead {
+    SlotRead::deserialize(content).unwrap_or_default()
+}
+
+fn slot_is_open(slot: &SlotRead) -> bool {
+    slot.status.as_deref() == Some("open")
+        && slot
+            .application
+            .as_ref()
+            .and_then(|application| application.kind.as_deref())
             == Some(APPLICATION_SUFFIX)
 }
 
@@ -134,7 +158,7 @@ async fn has_open_slot(room: &Room) -> bool {
             Some(content) => Some(content),
             None => fetched_slot(room, event_type).await,
         };
-        if content.is_some_and(|content| slot_is_open(&content)) {
+        if content.is_some_and(|content| slot_is_open(&read_slot(&content))) {
             return true;
         }
     }
@@ -148,12 +172,12 @@ pub(super) async fn slot_closed(room: &Room) -> bool {
             Some(content) => Some(content),
             None => fetched_slot(room, event_type).await,
         };
-        match content {
-            Some(content) if slot_is_open(&content) => return false,
-            Some(content) => {
-                closed |= content.get("status").and_then(Value::as_str) == Some("closed");
+        if let Some(content) = content {
+            let slot = read_slot(&content);
+            if slot_is_open(&slot) {
+                return false;
             }
-            None => {}
+            closed |= slot.status.as_deref() == Some("closed");
         }
     }
     closed
@@ -166,35 +190,39 @@ enum SlotStatus {
 }
 
 #[derive(Serialize)]
-enum SlotApplicationKind {
+#[serde(tag = "type")]
+enum SlotApplication {
     #[serde(rename = "m.call")]
     Call,
 }
 
 #[derive(Serialize)]
-enum SlotEncryptionKind {
+#[serde(tag = "type")]
+enum SlotEncryption {
     #[serde(rename = "org.matrix.msc4143.per_member")]
     PerMember,
 }
 
 #[derive(Serialize)]
-struct SlotApplication {
-    #[serde(rename = "type")]
-    kind: SlotApplicationKind,
-}
-
-#[derive(Serialize)]
-struct SlotEncryption {
-    #[serde(rename = "type")]
-    kind: SlotEncryptionKind,
-}
-
-#[derive(Serialize)]
-struct OpenSlot {
+pub(crate) struct OpenSlot {
     status: SlotStatus,
     application: SlotApplication,
     #[serde(skip_serializing_if = "Option::is_none")]
     encryption: Option<SlotEncryption>,
+}
+
+impl OpenSlot {
+    pub(crate) const fn new(encrypted: bool) -> Self {
+        Self {
+            status: SlotStatus::Open,
+            application: SlotApplication::Call,
+            encryption: if encrypted {
+                Some(SlotEncryption::PerMember)
+            } else {
+                None
+            },
+        }
+    }
 }
 
 pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
@@ -212,16 +240,7 @@ pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
     {
         return false;
     }
-    let content = OpenSlot {
-        status: SlotStatus::Open,
-        application: SlotApplication {
-            kind: SlotApplicationKind::Call,
-        },
-        encryption: encrypted.then_some(SlotEncryption {
-            kind: SlotEncryptionKind::PerMember,
-        }),
-    };
-    let Ok(raw) = Raw::new(&content) else {
+    let Ok(raw) = Raw::new(&OpenSlot::new(encrypted)) else {
         return false;
     };
     room.send_state_event_raw(crate::view::RTC_SLOT_TYPE, SLOT_ID, raw.cast_unchecked())
@@ -544,7 +563,7 @@ impl Core {
             .await
             .or_failed(self, "decline_call")?;
         let content = Raw::new(&notify::DeclineOut {
-            content: &content,
+            content,
             mentions: serde_json::Map::new(),
         })
         .or_failed(self, "decline_call")?
@@ -650,7 +669,7 @@ impl Core {
                 &room.client(),
                 &room,
                 sticky::StickyKeyOut {
-                    msc4354_sticky_key: Some(member_id),
+                    msc4354_sticky_key: Some(member_id.clone()),
                 },
             )
             .await
@@ -783,18 +802,7 @@ mod tests {
 
     #[test]
     fn test_open_slot_serializes_with_optional_encryption() {
-        let slot = |encrypted: bool| {
-            serde_json::to_value(super::OpenSlot {
-                status: super::SlotStatus::Open,
-                application: super::SlotApplication {
-                    kind: super::SlotApplicationKind::Call,
-                },
-                encryption: encrypted.then_some(super::SlotEncryption {
-                    kind: super::SlotEncryptionKind::PerMember,
-                }),
-            })
-            .unwrap()
-        };
+        let slot = |encrypted: bool| serde_json::to_value(super::OpenSlot::new(encrypted)).unwrap();
         assert_eq!(
             slot(false),
             serde_json::json!({"status": "open", "application": {"type": "m.call"}})
@@ -807,6 +815,26 @@ mod tests {
                 "encryption": {"type": "org.matrix.msc4143.per_member"},
             })
         );
+    }
+
+    #[test]
+    fn test_slot_reads_ignore_wrong_typed_fields() {
+        let open = |content: serde_json::Value| super::slot_is_open(&super::read_slot(&content));
+        assert!(open(
+            serde_json::json!({"status": "open", "application": {"type": "m.call"}})
+        ));
+        assert!(!open(
+            serde_json::json!({"status": "open", "application": "m.call"})
+        ));
+        assert!(!open(
+            serde_json::json!({"status": 1, "application": {"type": "m.call"}})
+        ));
+        assert!(!open(
+            serde_json::json!({"status": "open", "application": {"type": 3}})
+        ));
+        assert!(!open(serde_json::json!("open")));
+        let closed = super::read_slot(&serde_json::json!({"status": "closed"}));
+        assert_eq!(closed.status.as_deref(), Some("closed"));
     }
 
     #[test]

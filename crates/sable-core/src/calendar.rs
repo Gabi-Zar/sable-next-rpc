@@ -5,13 +5,14 @@ use std::sync::Arc;
 
 use matrix_sdk::room::MessagesOptions;
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
-use matrix_sdk::ruma::events::relation::RelationType;
+use matrix_sdk::ruma::events::relation::Reference;
 use matrix_sdk::ruma::room::RoomType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, UInt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_json::value::to_raw_value;
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::protocol::{
     CalendarEntryView, CalendarRsvpView, CalendarView, CommandErr, CoreEvent, RsvpStatusView,
@@ -54,31 +55,22 @@ pub(crate) struct CalendarAnswer {
 }
 
 #[derive(Serialize)]
-struct ReferenceOut<'a> {
-    rel_type: RelationType,
-    event_id: &'a OwnedEventId,
-}
-
-#[derive(Serialize)]
-struct RsvpOut<'a> {
-    uid: &'a str,
+struct RsvpOut {
+    uid: String,
     status: RsvpStatusView,
     #[serde(rename = "m.relates_to")]
-    relates_to: ReferenceOut<'a>,
+    relates_to: Reference,
     #[serde(rename = "recurrenceId", skip_serializing_if = "Option::is_none")]
-    recurrence_id: Option<&'a str>,
+    recurrence_id: Option<String>,
 }
 
 /// One answer per occurrence, related to the event that carries the entry.
-fn rsvp_content(answer: &CalendarAnswer) -> RsvpOut<'_> {
+fn rsvp_content(answer: &CalendarAnswer) -> RsvpOut {
     RsvpOut {
-        uid: &answer.uid,
+        uid: answer.uid.clone(),
         status: answer.status,
-        relates_to: ReferenceOut {
-            rel_type: RelationType::Reference,
-            event_id: &answer.calendar_event_id,
-        },
-        recurrence_id: answer.recurrence_id.as_deref(),
+        relates_to: Reference::new(answer.calendar_event_id.clone()),
+        recurrence_id: answer.recurrence_id.clone(),
     }
 }
 
@@ -89,27 +81,28 @@ enum CalendarFormat {
 }
 
 #[derive(Serialize)]
-struct CalendarEventsOut<'a> {
+struct CalendarEventsOut {
     #[serde(rename = "m.relates_to")]
-    relates_to: CalendarRefOut<'a>,
+    relates_to: CalendarRefOut,
     format: CalendarFormat,
-    events: [CalendarItemOut<'a>; 1],
+    events: [CalendarItemOut; 1],
 }
 
 #[derive(Serialize)]
-struct CalendarRefOut<'a> {
-    event_id: &'a str,
-    rel_type: RelationType,
+#[serde(tag = "rel_type")]
+enum CalendarRefOut {
+    #[serde(rename = "m.reference")]
+    Reference { event_id: String },
 }
 
 #[derive(Serialize)]
-struct CalendarItemOut<'a> {
-    event: &'a Value,
+struct CalendarItemOut {
+    event: Value,
 }
 
 #[derive(Serialize)]
-struct CalendarsOut<'a> {
-    calendars: [&'a OwnedEventId; 1],
+struct CalendarsOut {
+    calendars: [OwnedEventId; 1],
 }
 
 impl Core {
@@ -140,7 +133,10 @@ impl Core {
                 let Ok(event) = event.raw().deserialize_as::<Value>() else {
                     continue;
                 };
-                let event_id = event.get("event_id").and_then(Value::as_str);
+                let Ok(header) = EventIn::deserialize(&event) else {
+                    continue;
+                };
+                let event_id = header.event_id.as_deref();
                 if event_id.is_some() && event_id == cached.newest.as_deref() {
                     anchored = true;
                     break 'pages;
@@ -148,8 +144,8 @@ impl Core {
                 if fresh.newest.is_none() {
                     fresh.newest = event_id.map(str::to_owned);
                 }
-                if let Some(target) = redacts(&event) {
-                    redacted.insert(target.to_owned());
+                if let Some(target) = header.redacts() {
+                    redacted.insert(target);
                 }
                 collect(&event, &mut fresh.entries, &mut fresh.rsvps);
             }
@@ -210,12 +206,11 @@ impl Core {
         let room = self.room(room_id).await?;
         let calendar_id = self.calendar_id(&room).await?;
         let content = to_raw_value(&CalendarEventsOut {
-            relates_to: CalendarRefOut {
-                event_id: &calendar_id,
-                rel_type: RelationType::Reference,
+            relates_to: CalendarRefOut::Reference {
+                event_id: calendar_id,
             },
             format: CalendarFormat::Rfc8984,
-            events: [CalendarItemOut { event: &event }],
+            events: [CalendarItemOut { event }],
         })
         .or_failed(self, "save_calendar_event")?;
         room.send_raw(CALENDAR_EVENTS, content)
@@ -253,11 +248,8 @@ impl Core {
             )
             .await?
             .as_ref()
-            .and_then(|content| content.get("calendars"))
-            .and_then(Value::as_array)
-            .and_then(|calendars| calendars.first())
-            .and_then(Value::as_str)
-            .map(str::to_owned);
+            .and_then(|content| CalendarsIn::deserialize(content).ok())
+            .and_then(|content| content.calendars?.into_iter().next()?.0);
         if let Some(calendar_id) = existing {
             return Ok(calendar_id);
         }
@@ -267,7 +259,7 @@ impl Core {
             .await
             .map_err(|error| self.room_error("calendar_id", error))?;
         let calendars = to_raw_value(&CalendarsOut {
-            calendars: [&created.response.event_id],
+            calendars: [created.response.event_id.clone()],
         })
         .or_failed(self, "calendar_id")?;
         room.send_state_event_raw(CALENDARS, "", calendars)
@@ -278,15 +270,101 @@ impl Core {
     }
 }
 
-fn redacts(event: &Value) -> Option<&str> {
-    if event.get("type").and_then(Value::as_str) != Some(REDACTION) {
-        return None;
+#[serde_as]
+#[derive(Deserialize)]
+struct EventIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    origin_server_ts: Option<u64>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    content: Option<ContentIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    redacts: Option<String>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct ContentIn {
+    #[serde(default, deserialize_with = "sable_model::field::present")]
+    redacts: Option<RedactsField>,
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    events: Vec<ItemIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    status: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    uid: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "m.relates_to")]
+    relates_to: Option<RelationIn>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "recurrenceId")]
+    recurrence_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ItemIn {
+    event: Option<Value>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct RelationIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    event_id: Option<String>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct EntryKeys {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    uid: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    start: Option<String>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct CalendarsIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    calendars: Option<Vec<FirstId>>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct FirstId(#[serde_as(deserialize_as = "DefaultOnError")] Option<String>);
+
+/// Present even when wrong-typed, so the top-level `redacts` only applies to a missing one.
+#[serde_as]
+#[derive(Deserialize)]
+struct RedactsField(#[serde_as(deserialize_as = "DefaultOnError")] Option<String>);
+
+impl EventIn {
+    fn redacts(self) -> Option<String> {
+        if self.kind.as_deref() != Some(REDACTION) {
+            return None;
+        }
+        self.content
+            .and_then(|content| content.redacts)
+            .map_or(self.redacts, |redacts| redacts.0)
     }
-    event
-        .get("content")
-        .and_then(|content| content.get("redacts"))
-        .or_else(|| event.get("redacts"))
-        .and_then(Value::as_str)
 }
 
 fn collect(
@@ -294,62 +372,45 @@ fn collect(
     entries: &mut Vec<CalendarEntryView>,
     rsvps: &mut Vec<(String, CalendarRsvpView)>,
 ) {
-    let text = |key: &str| event.get(key).and_then(Value::as_str).map(str::to_owned);
-    let (Some(kind), Some(event_id), Some(sender)) =
-        (text("type"), text("event_id"), text("sender"))
+    let Ok(event) = EventIn::deserialize(event) else {
+        return;
+    };
+    let (Some(kind), Some(event_id), Some(sender)) = (event.kind, event.event_id, event.sender)
     else {
         return;
     };
-    let timestamp = event
-        .get("origin_server_ts")
-        .and_then(Value::as_u64)
-        .unwrap_or_default();
-    let Some(content) = event.get("content") else {
+    let timestamp = event.origin_server_ts.unwrap_or_default();
+    let Some(content) = event.content else {
         return;
     };
     match kind.as_str() {
         CALENDAR_EVENTS => {
-            for item in content
-                .get("events")
-                .and_then(Value::as_array)
-                .into_iter()
-                .flatten()
-            {
-                let Some(body) = item.get("event").filter(|body| {
-                    body.get("uid").and_then(Value::as_str).is_some()
-                        && body.get("start").and_then(Value::as_str).is_some()
-                }) else {
+            for body in content.events.into_iter().filter_map(|item| item.event) {
+                let keys = EntryKeys::deserialize(&body).ok();
+                if !keys.is_some_and(|keys| keys.uid.is_some() && keys.start.is_some()) {
                     continue;
-                };
+                }
                 entries.push(CalendarEntryView {
                     event_id: event_id.clone(),
                     sender: sender.clone(),
                     timestamp,
-                    event: body.clone(),
+                    event: body,
                 });
             }
         }
         RSVP_EVENT => {
-            let status = content.get("status").and_then(Value::as_str);
-            let uid = content.get("uid").and_then(Value::as_str);
-            let target = content
-                .get("m.relates_to")
-                .and_then(|relation| relation.get("event_id"))
-                .and_then(Value::as_str);
-            if let (Some(status), Some(uid), Some(target)) = (status, uid, target)
-                && RSVP_STATUSES.contains(&status)
+            let target = content.relates_to.and_then(|relation| relation.event_id);
+            if let (Some(status), Some(uid), Some(target)) = (content.status, content.uid, target)
+                && RSVP_STATUSES.contains(&status.as_str())
             {
                 rsvps.push((
                     event_id,
                     CalendarRsvpView {
                         sender,
-                        calendar_event_id: target.to_owned(),
-                        uid: uid.to_owned(),
-                        recurrence_id: content
-                            .get("recurrenceId")
-                            .and_then(Value::as_str)
-                            .map(str::to_owned),
-                        status: status.to_owned(),
+                        calendar_event_id: target,
+                        uid,
+                        recurrence_id: content.recurrence_id,
+                        status,
                         timestamp,
                     },
                 ));
@@ -363,17 +424,17 @@ fn latest_entries(mut entries: Vec<CalendarEntryView>) -> Vec<CalendarEntryView>
     entries.sort_by_key(|entry| std::cmp::Reverse(entry.timestamp));
     let mut seen = std::collections::HashSet::new();
     entries.retain(|entry| {
-        entry
-            .event
-            .get("uid")
-            .and_then(Value::as_str)
-            .is_some_and(|uid| seen.insert(uid.to_owned()))
+        EntryKeys::deserialize(&entry.event)
+            .ok()
+            .and_then(|keys| keys.uid)
+            .is_some_and(|uid| seen.insert(uid))
     });
     entries
 }
 
 #[cfg(test)]
 mod tests {
+    use serde::Deserialize;
     use serde_json::json;
 
     use matrix_sdk::ruma::OwnedEventId;
@@ -381,7 +442,7 @@ mod tests {
     use super::{CalendarAnswer, RsvpStatusView, collect, latest_entries, rsvp_content};
 
     #[test]
-    fn rsvp_content_keeps_the_wire_shape() {
+    fn rsvp_content_relates_by_reference_and_omits_an_absent_recurrence_id() {
         let mut answer = CalendarAnswer {
             calendar_event_id: OwnedEventId::try_from("$new").expect("event id"),
             uid: "raid".to_owned(),
@@ -461,6 +522,73 @@ mod tests {
         assert_eq!(
             rsvps[0].1.recurrence_id.as_deref(),
             Some("2026-10-08T20:00:00")
+        );
+    }
+
+    #[test]
+    fn redactions_read_the_target_from_content_before_the_top_level() {
+        let target = |event: serde_json::Value| {
+            super::EventIn::deserialize(&event)
+                .expect("event")
+                .redacts()
+        };
+        let redaction = |extra: serde_json::Value| {
+            let mut event = json!({ "type": "m.room.redaction", "redacts": "$top" });
+            for (key, value) in extra.as_object().expect("object") {
+                event[key] = value.clone();
+            }
+            event
+        };
+        assert_eq!(target(redaction(json!({}))), Some("$top".to_owned()));
+        assert_eq!(
+            target(redaction(json!({ "content": { "redacts": "$inner" } }))),
+            Some("$inner".to_owned())
+        );
+        assert_eq!(
+            target(redaction(json!({ "content": { "redacts": 3 } }))),
+            None
+        );
+        assert_eq!(
+            target(redaction(json!({ "content": "x" }))),
+            Some("$top".to_owned())
+        );
+        assert_eq!(
+            target(json!({ "type": "m.room.message", "redacts": "$top" })),
+            None
+        );
+    }
+
+    #[test]
+    fn wrong_typed_calendar_content_is_skipped() {
+        let mut entries = Vec::new();
+        let mut rsvps = Vec::new();
+        let event = |content: serde_json::Value| {
+            json!({
+                "type": "chat.commet.calendar_events", "event_id": "$e",
+                "sender": "@ana:example.org", "origin_server_ts": 1, "content": content
+            })
+        };
+        for content in [
+            json!("x"),
+            json!({ "events": "x" }),
+            json!({ "events": [null, "x", { "event": null }, { "event": { "uid": 1, "start": "s" } }] }),
+        ] {
+            collect(&event(content), &mut entries, &mut rsvps);
+        }
+        assert!(entries.is_empty());
+        assert_eq!(
+            super::CalendarsIn::deserialize(&json!({ "calendars": ["$a", "$b"] }))
+                .expect("calendars")
+                .calendars
+                .and_then(|calendars| calendars.into_iter().next()?.0),
+            Some("$a".to_owned())
+        );
+        assert!(
+            super::CalendarsIn::deserialize(&json!({ "calendars": [3, "$b"] }))
+                .expect("calendars")
+                .calendars
+                .and_then(|calendars| calendars.into_iter().next()?.0)
+                .is_none()
         );
     }
 }

@@ -2,10 +2,13 @@ use matrix_sdk::ruma::events::{
     StateEventType,
     room::power_levels::{RoomPowerLevels, RoomPowerLevelsEventContent},
 };
-use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId, RoomId, RoomVersionId, ServerName, UserId};
+use matrix_sdk::ruma::{
+    OwnedRoomId, OwnedServerName, OwnedUserId, RoomId, RoomVersionId, ServerName, UserId,
+};
 use matrix_sdk_base::deserialized_responses::RawAnySyncOrStrippedState;
 use serde::Deserialize;
 use serde_json::Value;
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 #[derive(Debug, Clone, Deserialize)]
 pub(crate) struct ParentClaim {
@@ -110,72 +113,116 @@ pub(crate) async fn validate(
     accepted
 }
 
+#[serde_as]
+#[derive(Deserialize)]
+struct StateEventIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    state_key: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    sender: Option<String>,
+    #[serde(default)]
+    content: Value,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct CreateContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    room_version: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    creator: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
+    additional_creators: Vec<String>,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct ChildContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    via: Option<Vec<OwnedServerName>>,
+}
+
+#[serde_as]
+#[derive(Default, Deserialize)]
+struct MemberContentIn {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    membership: Option<String>,
+}
+
+fn content_of<T: Default + serde::de::DeserializeOwned>(event: &StateEventIn) -> T {
+    T::deserialize(&event.content).unwrap_or_default()
+}
+
 fn legitimate(state: &[Value], child: &RoomId, sender: &UserId) -> bool {
-    let Some(create) = state
+    let state: Vec<StateEventIn> = state
         .iter()
-        .find(|event| event["type"] == "m.room.create" && event["state_key"] == "")
-    else {
+        .filter_map(|event| StateEventIn::deserialize(event).ok())
+        .collect();
+    let Some(create) = state.iter().find(|event| {
+        event.kind.as_deref() == Some("m.room.create") && event.state_key.as_deref() == Some("")
+    }) else {
         return false;
     };
-    if create.pointer("/content/type").and_then(Value::as_str) != Some("m.space") {
+    let create_content: CreateContentIn = content_of(create);
+    if create_content.kind.as_deref() != Some("m.space") {
         return false;
     }
     if state.iter().any(|event| {
-        event["type"] == "m.space.child"
-            && event["state_key"] == child.as_str()
-            && event
-                .pointer("/content/via")
-                .and_then(Value::as_array)
-                .is_some_and(|via| {
-                    !via.is_empty()
-                        && via.iter().all(|server| {
-                            server
-                                .as_str()
-                                .is_some_and(|server| ServerName::parse(server).is_ok())
-                        })
-                })
+        event.kind.as_deref() == Some("m.space.child")
+            && event.state_key.as_deref() == Some(child.as_str())
+            && content_of::<ChildContentIn>(event)
+                .via
+                .is_some_and(|via| !via.is_empty())
     }) {
         return true;
     }
     if !state.iter().any(|event| {
-        event["type"] == "m.room.member"
-            && event["state_key"] == sender.as_str()
-            && event.pointer("/content/membership").and_then(Value::as_str) == Some("join")
+        event.kind.as_deref() == Some("m.room.member")
+            && event.state_key.as_deref() == Some(sender.as_str())
+            && content_of::<MemberContentIn>(event).membership.as_deref() == Some("join")
     }) {
         return false;
     }
-    let Ok(version) = RoomVersionId::try_from(
-        create
-            .pointer("/content/room_version")
-            .and_then(Value::as_str)
-            .unwrap_or("1"),
-    ) else {
+    let Ok(version) =
+        RoomVersionId::try_from(create_content.room_version.as_deref().unwrap_or("1"))
+    else {
         return false;
     };
     let Some(rules) = version.rules() else {
         return false;
     };
-    let mut creators = create
-        .pointer("/content/creator")
-        .and_then(Value::as_str)
-        .or_else(|| create["sender"].as_str())
+    let mut creators = create_content
+        .creator
+        .as_deref()
+        .or(create.sender.as_deref())
         .and_then(|id| UserId::parse(id).ok())
         .into_iter()
         .collect::<Vec<_>>();
     creators.extend(
-        create
-            .pointer("/content/additional_creators")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .filter_map(|id| id.as_str().and_then(|id| UserId::parse(id).ok())),
+        create_content
+            .additional_creators
+            .iter()
+            .filter_map(|id| UserId::parse(id).ok()),
     );
-    let levels = match state
-        .iter()
-        .find(|event| event["type"] == "m.room.power_levels" && event["state_key"] == "")
-    {
+    let levels = match state.iter().find(|event| {
+        event.kind.as_deref() == Some("m.room.power_levels")
+            && event.state_key.as_deref() == Some("")
+    }) {
         Some(event) => {
-            match serde_json::from_value::<RoomPowerLevelsEventContent>(event["content"].clone()) {
+            match serde_json::from_value::<RoomPowerLevelsEventContent>(event.content.clone()) {
                 Ok(content) => Some(content),
                 Err(_) => return false,
             }

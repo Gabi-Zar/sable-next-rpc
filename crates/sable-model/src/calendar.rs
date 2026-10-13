@@ -3,6 +3,7 @@
 use serde::de::{IntoDeserializer, value};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, serde_as};
 use time::Date;
 
 use crate::civil::{MS_PER_DAY, date, format_ms, month_length, unix_day, weekday};
@@ -238,6 +239,16 @@ fn weekday_index(value: Option<&Value>) -> Option<u8> {
         .and_then(|day| u8::try_from(day).ok())
 }
 
+#[serde_as]
+#[derive(Deserialize)]
+struct NDayIn {
+    #[serde(deserialize_with = "rule_weekday")]
+    day: Option<u8>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "nthOfPeriod")]
+    nth: Option<f64>,
+}
+
 fn read_n_days(value: Option<&Value>) -> Option<Vec<NDay>> {
     let Some(value) = value else {
         return Some(Vec::new());
@@ -246,13 +257,13 @@ fn read_n_days(value: Option<&Value>) -> Option<Vec<NDay>> {
         .as_array()?
         .iter()
         .map(|entry| {
-            let entry = entry.as_object()?;
+            if !entry.is_object() {
+                return None;
+            }
+            let entry = NDayIn::deserialize(entry).ok()?;
             Some(NDay {
-                day: weekday_index(entry.get("day"))?,
-                nth: entry
-                    .get("nthOfPeriod")
-                    .and_then(Value::as_f64)
-                    .filter(|nth| *nth != 0.0),
+                day: entry.day?,
+                nth: entry.nth.filter(|nth| *nth != 0.0),
             })
         })
         .collect()
@@ -282,11 +293,6 @@ fn whole_interval(value: Option<&Value>) -> Option<u32> {
         return Some(1);
     };
     (interval.fract() == 0.0 && interval <= f64::from(u32::MAX)).then_some(interval as u32)
-}
-
-/// A string, or nothing for a missing or wrong-typed field.
-fn lenient_text<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    Ok(crate::lenient::option(deserializer)?.unwrap_or_default())
 }
 
 fn rule_by_day<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Vec<NDay>>, D::Error> {
@@ -338,6 +344,7 @@ const fn gregorian() -> bool {
     true
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct RuleIn {
     frequency: String,
@@ -353,9 +360,11 @@ struct RuleIn {
     interval: Option<u32>,
     #[serde(default = "gregorian", deserialize_with = "rule_gregorian")]
     rscale: bool,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     count: Option<f64>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     until: Option<String>,
     #[serde(default, rename = "firstDayOfWeek", deserialize_with = "rule_weekday")]
     first_day_of_week: Option<u8>,
@@ -404,9 +413,11 @@ fn read_recurrence(value: Option<&Value>) -> Option<Recurrence> {
 }
 
 fn first_location_name<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    #[serde_as]
     #[derive(Deserialize)]
     struct Location {
-        #[serde(default, deserialize_with = "lenient_text")]
+        #[serde_as(deserialize_as = "DefaultOnError")]
+        #[serde(default)]
         name: String,
     }
     Ok(match Value::deserialize(deserializer)? {
@@ -420,31 +431,31 @@ fn first_location_name<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Str
     })
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct EventIn {
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     uid: String,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     start: String,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     title: String,
-    #[serde(default, deserialize_with = "lenient_text")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     description: String,
     #[serde(default, deserialize_with = "first_location_name")]
     locations: String,
-    #[serde(
-        default,
-        rename = "showWithoutTime",
-        deserialize_with = "crate::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "showWithoutTime")]
     all_day: Option<bool>,
-    #[serde(
-        default,
-        rename = "timeZone",
-        deserialize_with = "crate::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "timeZone")]
     time_zone: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     duration: Option<String>,
     #[serde(default, rename = "recurrenceRules")]
     recurrence_rules: Option<Value>,
@@ -663,33 +674,19 @@ pub fn tally_rsvps(
     tally
 }
 
-#[derive(Serialize)]
-enum RuleKind {
-    RecurrenceRule,
-}
-
-#[derive(Serialize)]
-enum LocationKind {
-    Location,
-}
-
-#[derive(Serialize)]
-enum EventKind {
-    Event,
-}
-
 /// A recurrence rule to send; `extra` carries the parts of an existing rule the dialog does not edit.
 #[derive(Serialize)]
-struct RuleOut {
-    #[serde(rename = "@type")]
-    kind: RuleKind,
-    frequency: Frequency,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    until: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    count: Option<Value>,
-    #[serde(flatten)]
-    extra: Map<String, Value>,
+#[serde(tag = "@type")]
+enum RuleOut {
+    RecurrenceRule {
+        frequency: Frequency,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        until: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        count: Option<Value>,
+        #[serde(flatten)]
+        extra: Map<String, Value>,
+    },
 }
 
 fn recurrence_rule(
@@ -715,8 +712,7 @@ fn recurrence_rule(
     let until = until
         .filter(|until| !until.is_empty())
         .map(|until| format!("{until}T23:59:59"));
-    RuleOut {
-        kind: RuleKind::RecurrenceRule,
+    RuleOut::RecurrenceRule {
         frequency,
         count: if until.is_some() { None } else { count },
         until,
@@ -725,36 +721,34 @@ fn recurrence_rule(
 }
 
 #[derive(Serialize)]
-struct LocationOut<'a> {
-    #[serde(rename = "@type")]
-    kind: LocationKind,
-    name: &'a str,
+#[serde(tag = "@type")]
+enum LocationOut {
+    Location { name: String },
 }
 
 #[derive(Serialize)]
-struct LocationsOut<'a> {
-    main: LocationOut<'a>,
+struct LocationsOut {
+    main: LocationOut,
 }
 
 #[derive(Serialize)]
-struct EventOut<'a> {
-    #[serde(rename = "@type")]
-    kind: EventKind,
-    uid: &'a str,
-    updated: String,
-    title: &'a str,
-    start: String,
-    #[serde(rename = "timeZone")]
-    time_zone: Option<&'a str>,
-    duration: String,
-    #[serde(rename = "showWithoutTime")]
-    show_without_time: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    locations: Option<LocationsOut<'a>>,
-    #[serde(rename = "recurrenceRules", skip_serializing_if = "Option::is_none")]
-    recurrence_rules: Option<[RuleOut; 1]>,
+#[serde(tag = "@type", rename_all_fields = "camelCase")]
+enum EventOut {
+    Event {
+        uid: String,
+        updated: String,
+        title: String,
+        start: String,
+        time_zone: Option<String>,
+        duration: String,
+        show_without_time: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        locations: Option<LocationsOut>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        recurrence_rules: Option<[RuleOut; 1]>,
+    },
 }
 
 /// The event to send for `draft`, keeping what `base` carried that the dialog
@@ -786,20 +780,18 @@ pub fn build_event(
     } else {
         format_duration(draft.duration_ms)
     };
-    let fields = EventOut {
-        kind: EventKind::Event,
-        uid,
+    let fields = EventOut::Event {
+        uid: uid.to_owned(),
         updated: format!("{}Z", format_ms(now_ms).unwrap_or_default()),
-        title: &draft.title,
+        title: draft.title.clone(),
         start,
-        time_zone: (!draft.all_day).then_some(time_zone),
+        time_zone: (!draft.all_day).then(|| time_zone.to_owned()),
         duration,
         show_without_time: draft.all_day,
-        description: (!draft.description.is_empty()).then_some(draft.description.as_str()),
+        description: (!draft.description.is_empty()).then(|| draft.description.clone()),
         locations: (!draft.location.is_empty()).then(|| LocationsOut {
-            main: LocationOut {
-                kind: LocationKind::Location,
-                name: &draft.location,
+            main: LocationOut::Location {
+                name: draft.location.clone(),
             },
         }),
         recurrence_rules: draft
@@ -895,6 +887,28 @@ mod tests {
                 "2026-03-27T18:00:00"
             ]
         );
+    }
+
+    #[test]
+    fn n_days_read_leniently_and_a_bad_entry_voids_the_list() {
+        let days = |value: Value| read_n_days(Some(&value));
+        assert_eq!(
+            days(
+                json!([{"day": "mo", "nthOfPeriod": 0}, {"day": "fr", "nthOfPeriod": -1}, {"day": "su", "nthOfPeriod": "x"}])
+            ),
+            Some(vec![
+                NDay { day: 1, nth: None },
+                NDay {
+                    day: 5,
+                    nth: Some(-1.0)
+                },
+                NDay { day: 0, nth: None }
+            ])
+        );
+        assert_eq!(days(json!([{"day": "xx"}])), None);
+        assert_eq!(days(json!([{}])), None);
+        assert_eq!(days(json!([["mo"]])), None);
+        assert_eq!(days(json!("mo")), None);
     }
 
     #[test]

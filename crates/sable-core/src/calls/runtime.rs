@@ -6,7 +6,14 @@ use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD};
 use matrix_sdk::event_handler::EventHandlerDropGuard;
 use matrix_sdk::executor::{JoinHandleExt as _, spawn};
 use matrix_sdk::ruma::events::StateEventType;
-use matrix_sdk::ruma::{OwnedDeviceId, OwnedRoomId, OwnedUserId, TransactionId};
+use matrix_sdk::ruma::events::call::member::{
+    ActiveFocus, ActiveLivekitFocus, Application, CallApplicationContent, CallMemberEventContent,
+    CallScope, Focus, FocusSelection, LivekitFocus as RumaLivekitFocus,
+};
+use matrix_sdk::ruma::events::rtc::notification::CallIntent as RumaCallIntent;
+use matrix_sdk::ruma::{
+    MilliSecondsSinceUnixEpoch, OwnedDeviceId, OwnedRoomId, OwnedUserId, TransactionId, UInt,
+};
 use matrix_sdk::{Client, Room};
 use serde::Serialize;
 use serde_json::Value;
@@ -165,78 +172,75 @@ fn mode_reason(
     }
 }
 
-fn content<'a>(
-    room_id: &'a OwnedRoomId,
-    own: &'a CallMember,
+fn content(
+    room_id: &OwnedRoomId,
+    own: &CallMember,
     intent: Option<CallIntent>,
-) -> MembershipContent<'a> {
+) -> MembershipContent {
     content_at(room_id, own, intent, keys::now_ms())
 }
 
-fn content_at<'a>(
-    room_id: &'a OwnedRoomId,
-    own: &'a CallMember,
+fn content_at(
+    room_id: &OwnedRoomId,
+    own: &CallMember,
     intent: Option<CallIntent>,
     now_ms: u64,
-) -> MembershipContent<'a> {
+) -> MembershipContent {
     let screen_sharing = own.screen_sharing.then_some(ScreenSharing { active: true });
     if own.mode == CallMode::Matrix2 {
         MembershipContent::Matrix2(Matrix2Out {
-            application: Matrix2Application {
-                kind: CallApplication::Call,
-                intent,
-            },
+            application: Matrix2Application::Call { intent },
             slot_id: SlotId::CallRoom,
             member: Matrix2Member {
-                user_id: &own.user_id,
-                device_id: &own.device_id,
-                id: own.member_id.as_deref(),
+                user_id: own.user_id.clone(),
+                device_id: own.device_id.clone(),
+                id: own.member_id.clone(),
             },
             transports: Matrix2Transports {
                 published: own
                     .foci
                     .iter()
-                    .map(|service| LivekitFocus {
-                        kind: TransportKind::Livekit,
-                        livekit_service_url: service,
-                        livekit_alias: None,
+                    .map(|service| LivekitFocus::Livekit {
+                        livekit_service_url: service.clone(),
                     })
                     .collect(),
                 can_subscribe: [TransportKind::Livekit],
             },
             versions: [],
-            msc4354_sticky_key: own.member_id.as_deref(),
+            msc4354_sticky_key: own.member_id.clone(),
             screen_sharing,
         })
     } else {
+        let mut application = CallApplicationContent::new(String::new(), CallScope::Room);
+        application.call_intent = intent.map(|intent| match intent {
+            CallIntent::Audio => RumaCallIntent::Audio,
+            CallIntent::Video => RumaCallIntent::Video,
+        });
+        let mut focus_active = ActiveLivekitFocus::new();
+        if own.mode == CallMode::Compatibility {
+            focus_active.focus_selection = FocusSelection::from("multi_sfu");
+        }
         MembershipContent::Legacy(LegacyOut {
-            application: CallApplication::Call,
-            call_id: CallId::Room,
-            scope: Scope::Room,
-            device_id: &own.device_id,
-            membership_id: &own.identity,
-            created_ts: own.created_ts,
-            expires: now_ms
-                .saturating_sub(own.created_ts)
-                .saturating_add(14_400_000),
-            focus_active: FocusActive {
-                kind: TransportKind::Livekit,
-                focus_selection: if own.mode == CallMode::Compatibility {
-                    FocusSelection::MultiSfu
-                } else {
-                    FocusSelection::OldestMembership
-                },
-            },
-            foci_preferred: own
-                .foci
-                .iter()
-                .map(|service| LivekitFocus {
-                    kind: TransportKind::Livekit,
-                    livekit_service_url: service,
-                    livekit_alias: Some(room_id),
-                })
-                .collect(),
-            intent,
+            session: CallMemberEventContent::new(
+                Application::Call(application),
+                own.device_id.clone(),
+                ActiveFocus::Livekit(focus_active),
+                own.foci
+                    .iter()
+                    .map(|service| {
+                        Focus::Livekit(RumaLivekitFocus::new(room_id.to_string(), service.clone()))
+                    })
+                    .collect(),
+                Some(MilliSecondsSinceUnixEpoch(
+                    UInt::try_from(own.created_ts).unwrap_or(UInt::MAX),
+                )),
+                Some(Duration::from_millis(
+                    now_ms
+                        .saturating_sub(own.created_ts)
+                        .saturating_add(14_400_000),
+                )),
+            ),
+            membership_id: own.identity.clone(),
             screen_sharing,
         })
     }
@@ -244,46 +248,9 @@ fn content_at<'a>(
 
 #[derive(Serialize)]
 #[serde(untagged)]
-enum MembershipContent<'a> {
-    Matrix2(Matrix2Out<'a>),
-    Legacy(LegacyOut<'a>),
-}
-
-#[derive(Clone, Copy, Serialize)]
-enum TransportKind {
-    #[serde(rename = "livekit")]
-    Livekit,
-}
-
-#[derive(Serialize)]
-enum CallApplication {
-    #[serde(rename = "m.call")]
-    Call,
-}
-
-#[derive(Serialize)]
-enum SlotId {
-    #[serde(rename = "m.call#ROOM")]
-    CallRoom,
-}
-
-#[derive(Serialize)]
-enum CallId {
-    #[serde(rename = "")]
-    Room,
-}
-
-#[derive(Serialize)]
-enum Scope {
-    #[serde(rename = "m.room")]
-    Room,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "snake_case")]
-enum FocusSelection {
-    MultiSfu,
-    OldestMembership,
+enum MembershipContent {
+    Matrix2(Matrix2Out),
+    Legacy(LegacyOut),
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -293,68 +260,65 @@ struct ScreenSharing {
 }
 
 #[derive(Serialize)]
-struct LivekitFocus<'a> {
-    #[serde(rename = "type")]
-    kind: TransportKind,
-    livekit_service_url: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    livekit_alias: Option<&'a OwnedRoomId>,
+#[serde(tag = "type")]
+enum LivekitFocus {
+    #[serde(rename = "livekit")]
+    Livekit { livekit_service_url: String },
 }
 
 #[derive(Serialize)]
-struct Matrix2Application {
-    #[serde(rename = "type")]
-    kind: CallApplication,
-    #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
-    intent: Option<CallIntent>,
+#[serde(tag = "type")]
+enum Matrix2Application {
+    #[serde(rename = "m.call")]
+    Call {
+        #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
+        intent: Option<CallIntent>,
+    },
 }
 
 #[derive(Serialize)]
-struct Matrix2Member<'a> {
-    user_id: &'a OwnedUserId,
-    device_id: &'a OwnedDeviceId,
-    id: Option<&'a str>,
+struct Matrix2Member {
+    user_id: OwnedUserId,
+    device_id: OwnedDeviceId,
+    id: Option<String>,
 }
 
 #[derive(Serialize)]
-struct Matrix2Transports<'a> {
-    published: Vec<LivekitFocus<'a>>,
+enum TransportKind {
+    #[serde(rename = "livekit")]
+    Livekit,
+}
+
+#[derive(Serialize)]
+enum SlotId {
+    #[serde(rename = "m.call#ROOM")]
+    CallRoom,
+}
+
+#[derive(Serialize)]
+struct Matrix2Transports {
+    published: Vec<LivekitFocus>,
     can_subscribe: [TransportKind; 1],
 }
 
 #[derive(Serialize)]
-struct Matrix2Out<'a> {
+struct Matrix2Out {
     application: Matrix2Application,
     slot_id: SlotId,
-    member: Matrix2Member<'a>,
-    transports: Matrix2Transports<'a>,
+    member: Matrix2Member,
+    transports: Matrix2Transports,
     versions: [(); 0],
-    msc4354_sticky_key: Option<&'a str>,
+    msc4354_sticky_key: Option<String>,
     #[serde(flatten)]
     screen_sharing: Option<ScreenSharing>,
 }
 
 #[derive(Serialize)]
-struct FocusActive {
-    #[serde(rename = "type")]
-    kind: TransportKind,
-    focus_selection: FocusSelection,
-}
-
-#[derive(Serialize)]
-struct LegacyOut<'a> {
-    application: CallApplication,
-    call_id: CallId,
-    scope: Scope,
-    device_id: &'a OwnedDeviceId,
+struct LegacyOut {
+    #[serde(flatten)]
+    session: CallMemberEventContent,
     #[serde(rename = "membershipID")]
-    membership_id: &'a str,
-    created_ts: u64,
-    expires: u64,
-    focus_active: FocusActive,
-    foci_preferred: Vec<LivekitFocus<'a>>,
-    #[serde(rename = "m.call.intent", skip_serializing_if = "Option::is_none")]
-    intent: Option<CallIntent>,
+    membership_id: String,
     #[serde(flatten)]
     screen_sharing: Option<ScreenSharing>,
 }
@@ -402,7 +366,7 @@ async fn retract(core: &Core, room: &Room, own: &CallMember, delay: Option<Strin
             &room.client(),
             room,
             sticky::StickyKeyOut {
-                msc4354_sticky_key: own.member_id.as_deref(),
+                msc4354_sticky_key: own.member_id.clone(),
             },
         )
         .await
@@ -563,7 +527,7 @@ async fn publish(
                 &room.client(),
                 room,
                 sticky::StickyKeyOut {
-                    msc4354_sticky_key: own.member_id.as_deref(),
+                    msc4354_sticky_key: own.member_id.clone(),
                 },
                 HANGUP_DELAY,
             )

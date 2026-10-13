@@ -125,8 +125,8 @@ struct StampedEventOut {
 }
 
 #[derive(serde::Serialize)]
-pub(super) struct StickyKeyOut<'a> {
-    pub(super) msc4354_sticky_key: Option<&'a str>,
+pub(super) struct StickyKeyOut {
+    pub(super) msc4354_sticky_key: Option<String>,
 }
 
 pub(super) async fn send(

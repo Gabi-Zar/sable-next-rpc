@@ -82,16 +82,16 @@ const RING_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.not
 const DEFAULT_RING_LIFETIME_MS: u64 = 30_000;
 
 #[derive(Serialize)]
-struct RingOut<'a> {
-    caller_name: &'a str,
+struct RingOut {
+    caller_name: String,
     expires_at: f64,
 }
 
 #[derive(Serialize)]
-struct RingPushOut<'a> {
+struct RingPushOut {
     ring: Value,
-    room_id: &'a str,
-    user_id: &'a str,
+    room_id: String,
+    user_id: String,
 }
 
 #[derive(Serialize)]
@@ -99,15 +99,15 @@ struct RingPushOut<'a> {
     clippy::struct_excessive_bools,
     reason = "mirrors the alert flags the extension reads"
 )]
-struct ContentPushOut<'a> {
+struct ContentPushOut {
     title: String,
     body: String,
     text: String,
     sender: String,
     sender_id: Option<String>,
     event_id: Option<String>,
-    room_id: &'a str,
-    user_id: &'a str,
+    room_id: String,
+    user_id: String,
     sounds: bool,
     noisy: bool,
     invite: bool,
@@ -115,15 +115,15 @@ struct ContentPushOut<'a> {
 }
 
 #[derive(Serialize)]
-struct ReadOut<'a> {
+struct ReadOut {
     clear: bool,
-    room_id: Option<&'a str>,
+    room_id: Option<String>,
 }
 
 #[derive(Serialize)]
-struct ReadPushOut<'a> {
-    read: ReadOut<'a>,
-    user_id: &'a str,
+struct ReadPushOut {
+    read: ReadOut,
+    user_id: String,
 }
 
 /// A field kept as received when present, `null` included.
@@ -183,14 +183,14 @@ fn ring(event: &Value, notification: &Value) -> Option<Value> {
     )]
     let expires_at = sent.saturating_add(lifetime) as f64 / 1000.0;
     serde_json::to_value(RingOut {
-        caller_name: &caller,
+        caller_name: caller,
         expires_at,
     })
     .ok()
 }
 
 #[serde_as]
-#[derive(Default, Deserialize)]
+#[derive(Deserialize)]
 struct Device {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
@@ -380,14 +380,13 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .as_ref()?
         .as_str()?
         .to_owned();
-    let user = user.as_str();
     let room_id = target.room_id.as_deref().filter(|room| !room.is_empty());
-    let (account_id, device_id) = signed_in(root, user).await?;
+    let (account_id, device_id) = signed_in(root, &user).await?;
     if target.counts.and_then(|counts| counts.unread) == Some(0) {
         return serde_json::to_value(ReadPushOut {
             read: ReadOut {
                 clear: settings.clear_on_read,
-                room_id,
+                room_id: room_id.map(str::to_owned),
             },
             user_id: user,
         })
@@ -395,11 +394,11 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     }
     let room_id = room_id?;
     let encrypted = target.kind.as_deref() == Some("m.room.encrypted");
-    let event = clear_event(root, user, &device_id, room_id, notification, encrypted).await;
+    let event = clear_event(root, &user, &device_id, room_id, notification, encrypted).await;
     if let Some(ring) = event.as_ref().and_then(|event| ring(event, notification)) {
         return serde_json::to_value(RingPushOut {
             ring,
-            room_id,
+            room_id: room_id.to_owned(),
             user_id: user,
         })
         .ok();
@@ -436,7 +435,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     } else {
         format!("{sender}: {text}")
     };
-    if signed_in(root, user).await != Some((account_id, device_id)) {
+    if signed_in(root, &user).await != Some((account_id, device_id)) {
         return None;
     }
     let noisy = event
@@ -452,7 +451,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         sender,
         sender_id,
         event_id: target.event_id.filter(|event| !event.is_empty()),
-        room_id,
+        room_id: room_id.to_owned(),
         user_id: user,
         sounds: current.sounds,
         noisy,

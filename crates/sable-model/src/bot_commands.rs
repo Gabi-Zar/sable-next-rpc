@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 use crate::matrix_link::{MatrixLink, parse_matrix_link, split_via};
 use crate::text::{has_space, is_space, trim, trim_start, words};
@@ -250,9 +251,11 @@ fn object<T: DeserializeOwned>(value: &Value) -> Option<T> {
     T::deserialize(value).ok()
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct RichText {
-    #[serde(rename = "m.text", deserialize_with = "crate::lenient::list")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "m.text")]
     text: Vec<Value>,
 }
 
@@ -272,28 +275,18 @@ fn text_body<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<String
     }))
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct RoomReferenceIn {
     #[serde(rename = "type")]
     kind: RoomReferenceKind,
     id: String,
-    #[serde(default, deserialize_with = "lenient_via")]
+    #[serde_as(deserialize_as = "DefaultOnError<Option<VecSkipError<_>>>")]
+    #[serde(default)]
     via: Option<Vec<String>>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     event_id: Option<String>,
-}
-
-fn lenient_via<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Option<Vec<String>>, D::Error> {
-    Ok(match Value::deserialize(deserializer)? {
-        Value::Array(via) => Some(
-            via.into_iter()
-                .filter_map(|server| serde_json::from_value(server).ok())
-                .collect(),
-        ),
-        _ => None,
-    })
 }
 
 fn room_reference(value: &Value) -> Option<RoomReference> {
@@ -382,6 +375,7 @@ fn default_value<'de, D: Deserializer<'de>>(
     Ok(argument_value(&Value::deserialize(deserializer)?))
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct ParameterIn {
     key: String,
@@ -389,7 +383,8 @@ struct ParameterIn {
     schema: ParameterSchema,
     #[serde(default, deserialize_with = "text_body")]
     description: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::option")]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
     optional: Option<bool>,
     #[serde(
         default,
@@ -397,11 +392,8 @@ struct ParameterIn {
         deserialize_with = "default_value"
     )]
     default_value: Option<ArgumentValue>,
-    #[serde(
-        default,
-        rename = "moe.sable.flag",
-        deserialize_with = "crate::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "moe.sable.flag")]
     flag: Option<String>,
 }
 
@@ -430,18 +422,17 @@ fn parameters<'de, D: Deserializer<'de>>(
         .collect()
 }
 
+#[serde_as]
 #[derive(Deserialize)]
 struct CommandIn {
     command: String,
     #[serde(default, deserialize_with = "parameters")]
     parameters: Vec<BotCommandParameter>,
-    #[serde(
-        default,
-        rename = "fi.mau.tail_parameter",
-        deserialize_with = "crate::lenient::option"
-    )]
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "fi.mau.tail_parameter")]
     tail_parameter: Option<String>,
-    #[serde(default, deserialize_with = "crate::lenient::list")]
+    #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
+    #[serde(default)]
     aliases: Vec<String>,
     #[serde(default, deserialize_with = "text_body")]
     description: Option<String>,
@@ -915,14 +906,14 @@ pub fn drafts_from_text(command: &BotCommand, args: &str) -> ArgumentDrafts {
 }
 
 #[derive(Serialize)]
-struct RoomReferenceOut<'a> {
+struct RoomReferenceOut {
     #[serde(rename = "type")]
     kind: RoomReferenceKind,
-    id: &'a str,
+    id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    via: Option<&'a [String]>,
+    via: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    event_id: Option<&'a str>,
+    event_id: Option<String>,
 }
 
 fn literal_json(value: &LiteralValue) -> Value {
@@ -932,9 +923,9 @@ fn literal_json(value: &LiteralValue) -> Value {
         LiteralValue::Text(text) => Value::from(text.as_str()),
         LiteralValue::Room(reference) => serde_json::to_value(RoomReferenceOut {
             kind: reference.kind,
-            id: &reference.id,
-            via: reference.via.as_deref(),
-            event_id: reference.event_id.as_deref(),
+            id: reference.id.clone(),
+            via: reference.via.clone(),
+            event_id: reference.event_id.clone(),
         })
         .unwrap_or_default(),
     }
@@ -1214,5 +1205,26 @@ mod tests {
                 event_id: None,
             })))
         );
+    }
+
+    #[test]
+    fn a_non_list_reads_as_no_aliases_and_no_servers() {
+        let room = |via: serde_json::Value| {
+            let content = json!({
+                "command": "x", "aliases": "r",
+                "parameters": [{"key": "r", "schema": {"schema_type": "primitive", "type": "room_id"},
+                    "fi.mau.default_value": {"type": "room_id", "id": "!r:x", "via": via}}]
+            });
+            parse_bot_command("@b:x", None, None, &content).unwrap()
+        };
+        assert!(room(json!(null)).aliases.is_empty());
+        for via in [json!("a"), json!({"a": 1}), json!(null)] {
+            let Some(ArgumentValue::One(LiteralValue::Room(reference))) =
+                room(via).parameters[0].default_value.clone()
+            else {
+                panic!("a room reference");
+            };
+            assert_eq!(reference.via, None);
+        }
     }
 }
