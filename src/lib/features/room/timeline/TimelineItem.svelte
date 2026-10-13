@@ -1926,9 +1926,9 @@
     display: flex;
     flex: 0 0 clamp(7.5rem, 20%, 10.625rem);
     gap: var(--space-200);
+    height: fit-content;
     justify-content: space-between;
     min-width: 0;
-    height: fit-content;
     overflow: hidden;
     white-space: nowrap;
   }

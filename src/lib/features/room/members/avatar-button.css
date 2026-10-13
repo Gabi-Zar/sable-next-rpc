@@ -1,11 +1,10 @@
 .avatar-button {
+  align-items: center;
   background: none;
   border: 0;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  display: block;
+  display: flex;
   flex: 0 0 auto;
   padding: 0;
-  display: flex;
-  align-items: center;
 }
