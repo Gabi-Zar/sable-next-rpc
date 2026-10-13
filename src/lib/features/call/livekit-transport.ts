@@ -60,9 +60,8 @@ const trackOf = (publication: TrackPublication | undefined): CallTrack | undefin
     subscribed: publication.isSubscribed,
   };
 
-const selfOf = (participant: LocalParticipant): CallParticipant => ({
+const participantOf = (participant: LocalParticipant | RemoteParticipant): CallParticipant => ({
   identity: participant.identity,
-  local: true,
   camera: trackOf(participant.getTrackPublication(Track.Source.Camera)),
   screenShare: trackOf(participant.getTrackPublication(Track.Source.ScreenShare)),
   screenShareAudio: trackOf(participant.getTrackPublication(Track.Source.ScreenShareAudio)),
@@ -71,14 +70,9 @@ const selfOf = (participant: LocalParticipant): CallParticipant => ({
   speaking: participant.isSpeaking,
 });
 
-const participantOf = (participant: RemoteParticipant): CallParticipant => ({
-  identity: participant.identity,
-  camera: trackOf(participant.getTrackPublication(Track.Source.Camera)),
-  screenShare: trackOf(participant.getTrackPublication(Track.Source.ScreenShare)),
-  screenShareAudio: trackOf(participant.getTrackPublication(Track.Source.ScreenShareAudio)),
-  microphone: trackOf(participant.getTrackPublication(Track.Source.Microphone)),
-  connectionQuality: qualityOf(participant.connectionQuality),
-  speaking: participant.isSpeaking,
+const selfOf = (participant: LocalParticipant): CallParticipant => ({
+  ...participantOf(participant),
+  local: true,
 });
 
 export type LivekitTransport = CallTransport & {

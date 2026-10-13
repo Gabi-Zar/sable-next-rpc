@@ -52,6 +52,17 @@ export interface ShortcutDefinition {
   desktopOnly?: boolean;
 }
 
+export const SHORTCUT_CATEGORIES: ReadonlyArray<{
+  id: ShortcutDefinition['category'];
+  labelKey: string;
+}> = [
+  { id: 'navigation', labelKey: 'shortcuts.categoryNavigation' },
+  { id: 'general', labelKey: 'shortcuts.categoryGeneral' },
+  { id: 'room', labelKey: 'shortcuts.categoryRoom' },
+  { id: 'call', labelKey: 'shortcuts.categoryCall' },
+  { id: 'composer', labelKey: 'shortcuts.categoryComposer' },
+];
+
 export const SHORTCUTS: readonly ShortcutDefinition[] = [
   {
     id: 'navigation.openRoomSearch',

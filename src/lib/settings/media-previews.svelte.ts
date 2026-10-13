@@ -5,6 +5,7 @@ import type {
 } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { AccountDataSync } from '#lib/core/account-data-sync.js';
 import { preferences, setPreference } from './preferences.svelte.js';
 
 export const MEDIA_PREVIEW_EVENT = 'm.media_preview_config';
@@ -31,10 +32,12 @@ export function previewsShown(level: MediaPreviews, joinRule: RoomJoinRuleView |
 class MediaPreviewSettings {
   global = $state.raw<MediaPreviewConfig>({});
 
-  private core: CoreClient | null = null;
-  private generation = 0;
   private reads = 0;
-  private stopEvents: (() => void) | null = null;
+
+  private readonly sync = new AccountDataSync(
+    [MEDIA_PREVIEW_EVENT, UNSTABLE_MEDIA_PREVIEW_EVENT],
+    (generation) => this.pull(generation)
+  );
 
   get mediaPreviews(): MediaPreviews {
     return this.global.media_previews ?? preferences.mediaAutoLoad;
@@ -45,37 +48,22 @@ class MediaPreviewSettings {
   }
 
   start(core: CoreClient): void {
-    const generation = ++this.generation;
-    this.core = core;
-    this.stopEvents?.();
-    this.stopEvents = core.subscribeEvents((event) => {
-      if (
-        event.type === 'account_data_changed' &&
-        (event.event_type === MEDIA_PREVIEW_EVENT ||
-          event.event_type === UNSTABLE_MEDIA_PREVIEW_EVENT)
-      ) {
-        void this.pull(generation);
-      }
-    });
-    void this.pull(generation);
+    this.sync.start(core);
   }
 
   stop(): void {
-    this.generation += 1;
-    this.core = null;
+    this.sync.stop();
     this.global = {};
-    this.stopEvents?.();
-    this.stopEvents = null;
   }
 
   async roomConfig(roomId: string): Promise<MediaPreviewConfig> {
-    const core = this.core;
+    const core = this.sync.core;
     if (core === null) return {};
     return core.rpc.account.mediaPreviewConfig({ room_id: roomId });
   }
 
   async set(next: MediaPreviewConfig): Promise<void> {
-    const core = this.core;
+    const core = this.sync.core;
     if (core === null) return;
     this.reads += 1;
     const previous = this.global;
@@ -103,10 +91,10 @@ class MediaPreviewSettings {
   private async pull(generation: number): Promise<void> {
     const read = ++this.reads;
     try {
-      const core = this.core;
+      const core = this.sync.core;
       if (core === null) return;
       const config = await core.rpc.account.mediaPreviewConfig({ room_id: null });
-      if (generation === this.generation && read === this.reads) {
+      if (generation === this.sync.generation && read === this.reads) {
         this.global = config;
         if (config.media_previews) setPreference('mediaAutoLoad', config.media_previews);
       }

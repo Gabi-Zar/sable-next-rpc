@@ -5,7 +5,6 @@
     ProfileView,
     RoomPermissionsView,
     RoomListItemView,
-    UserDirectoryEntryView,
   } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -34,6 +33,7 @@
   import MentionProfile from '../members/MentionProfile.svelte';
   import { powerTag } from '../members/power-tags';
   import RoleTagIcon from '../members/RoleTagIcon.svelte';
+  import { UserDirectoryLookup } from '../members/user-directory-lookup.svelte.js';
   import RoomInviteDialog from '../RoomInviteDialog.svelte';
   import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import SettingsSection from '#lib/ui/primitives/SettingsSection.svelte';
@@ -69,8 +69,7 @@
   let failed = $state(false);
   let busy = $state<string | null>(null);
   let inviteOpen = $state(false);
-  let directory = $state.raw<UserDirectoryEntryView[]>([]);
-  let searching = $state(false);
+  const directory = new UserDirectoryLookup(core);
   let inviting = $state<string | null>(null);
   let invitedIds = $state.raw<string[]>([]);
   let inviteFailed = $state(false);
@@ -80,7 +79,6 @@
   let profile = $state.raw<ProfileView | null>(null);
   let profileFailed = $state(false);
   let run = 0;
-  let lookup = 0;
   let profileRequest = 0;
 
   let roomId = $derived(room?.room_id ?? null);
@@ -96,10 +94,11 @@
   let inviteQuery = $derived(canInviteInline ? search.trim() : '');
   let candidates = $derived.by(() => {
     const typed =
-      userIdPattern.test(inviteQuery) && !directory.some((entry) => entry.user_id === inviteQuery)
+      userIdPattern.test(inviteQuery) &&
+      !directory.results.some((entry) => entry.user_id === inviteQuery)
         ? [{ user_id: inviteQuery, display_name: null, avatar_url: null }]
         : [];
-    return [...typed, ...directory].filter(
+    return [...typed, ...directory.results].filter(
       (entry) => !members.some((member) => member.user_id === entry.user_id)
     );
   });
@@ -162,32 +161,11 @@
   }
 
   $effect(() => {
-    const query = inviteQuery;
-    const current = ++lookup;
-    searching = query !== '';
-    if (!query) {
-      directory = [];
-      return;
-    }
-    const timer = setTimeout(() => {
-      void findUsers(query, current);
-    }, 300);
+    directory.search(inviteQuery);
     return () => {
-      clearTimeout(timer);
+      directory.cancel();
     };
   });
-
-  async function findUsers(query: string, current: number): Promise<void> {
-    try {
-      const { results } = await core.rpc.account.searchUserDirectory({ term: query, limit: 10 });
-      if (current === lookup) directory = results;
-    } catch (error) {
-      console.warn('[sable room] user directory unavailable', error);
-      if (current === lookup) directory = [];
-    } finally {
-      if (current === lookup) searching = false;
-    }
-  }
 
   async function invite(userId: string): Promise<void> {
     const target = roomId;
@@ -611,7 +589,7 @@
         </ul>
       {:else}
         <div class="settings-form">
-          {#if searching}
+          {#if directory.searching}
             <p class="settings-note" role="status"><Spinner small /></p>
           {:else}
             <p class="settings-note">{$i18n.t('room.membersInviteEmpty')}</p>

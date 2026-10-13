@@ -13,6 +13,7 @@
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { i18n } from '#lib/i18n.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
+  import { joinedSpaceRooms } from '#lib/rooms/spaces.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -68,25 +69,7 @@
   let canSetPronouns = $derived(
     canSendState(effectiveLevels, ownLevel, COSMETIC_EVENT_TYPES.pronoun)
   );
-  let applyTargets = $derived.by(() => {
-    const found: string[] = [];
-    const seen: string[] = [];
-    const walk = (space: RoomListItemView | undefined) => {
-      for (const edge of space?.space_children ?? []) {
-        if (seen.includes(edge.room_id)) continue;
-        seen.push(edge.room_id);
-        const child = roomList.byId(edge.room_id);
-        if (child?.state !== 'joined') continue;
-        if (child.is_space) walk(child);
-        else found.push(child.room_id);
-      }
-    };
-    if (room) {
-      seen.push(room.room_id);
-      walk(room);
-    }
-    return found;
-  });
+  let applyTargets = $derived(joinedSpaceRooms(room, (id) => roomList.byId(id)));
   let applyDescription = $derived.by(() => {
     if (saving === 'apply' && applied)
       return $i18n.t('room.cosmeticsApplying', {

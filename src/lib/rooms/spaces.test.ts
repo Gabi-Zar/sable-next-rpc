@@ -2,7 +2,13 @@ import { expect, test } from 'vitest';
 
 import type { RoomListItemView } from '#src/generated/protocol';
 
-import { childRouting, quietRoomIds, spaceUnreadCounts, spacesContainingRoom } from './spaces';
+import {
+  childRouting,
+  joinedSpaceRooms,
+  quietRoomIds,
+  spaceUnreadCounts,
+  spacesContainingRoom,
+} from './spaces';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
 function room(overrides: Partial<RoomListItemView>): RoomListItemView {
@@ -265,4 +271,30 @@ test('a hidden room adds only its mentions to its space', () => {
     marked: false,
     notifying: 0,
   });
+});
+
+test('collects joined rooms from nested spaces once, skipping unjoined children', () => {
+  const edges = (...ids: string[]) =>
+    ids.map((room_id) => ({
+      room_id,
+      via: [],
+      order: null,
+      origin_server_ts: 1,
+      suggested: false,
+    }));
+  const rooms = [
+    room({ room_id: '!root:x', is_space: true, space_children: edges('!a:x', '!sub:x') }),
+    room({
+      room_id: '!sub:x',
+      is_space: true,
+      space_children: edges('!b:x', '!root:x', '!left:x', '!a:x'),
+    }),
+    room({ room_id: '!a:x' }),
+    room({ room_id: '!b:x' }),
+    room({ room_id: '!left:x', state: 'left' }),
+  ];
+  const byId = (id: string) => rooms.find((candidate) => candidate.room_id === id);
+
+  expect(joinedSpaceRooms(rooms[0], byId)).toEqual(['!a:x', '!b:x']);
+  expect(joinedSpaceRooms(undefined, byId)).toEqual([]);
 });

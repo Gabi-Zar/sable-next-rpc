@@ -7,7 +7,6 @@
     ProfileView,
     RoomPermissionsView,
     RoomPowerLevelsView,
-    TimelineItemView,
   } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { setMemberLook } from '#lib/core/api/members.js';
@@ -18,11 +17,13 @@
   import { senderColor } from '../room/timeline/timeline-format';
   import { i18n, t } from '#lib/i18n.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
+  import { joinedSpaceRooms } from '#lib/rooms/spaces.js';
   import Button from '#lib/ui/primitives/Button.svelte';
   import ProfileCard from '#lib/ui/primitives/ProfileCard.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import TimelineItem from '#lib/features/room/timeline/TimelineItem.svelte';
+  import { previewMessage } from '#lib/features/room/timeline/preview-message.js';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { type SenderCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
@@ -89,22 +90,7 @@
     name_color_light: draft.light || profile.name_color_light,
     name_color_dark: draft.dark || profile.name_color_dark,
   });
-  let applyTargets = $derived.by(() => {
-    const found: string[] = [];
-    const seen: string[] = [spaceId];
-    const walk = (parent: typeof space) => {
-      for (const edge of parent?.space_children ?? []) {
-        if (seen.includes(edge.room_id)) continue;
-        seen.push(edge.room_id);
-        const child = roomList.byId(edge.room_id);
-        if (child?.state !== 'joined') continue;
-        if (child.is_space) walk(child);
-        else found.push(child.room_id);
-      }
-    };
-    walk(space);
-    return found;
-  });
+  let applyTargets = $derived(joinedSpaceRooms(space, (id) => roomList.byId(id)));
 
   const previewCosmetics = $derived<SenderCosmetics>({
     colorOnLight: previewProfile.name_color_light,
@@ -112,42 +98,15 @@
     pronouns: previewProfile.pronouns,
   });
 
-  const previewMessage = $derived<TimelineItemView>({
-    id: 'profile-message-preview',
-    row: 'message',
-    forwardable: true,
-    redactable: true,
-    visibility: 'always',
-    event_id: null,
-    transaction_id: null,
-    send_state: null,
-    sender: profile.user_id,
-    sender_name: previewProfile.display_name,
-    sender_avatar: previewProfile.avatar_url,
-    timestamp: Date.now(),
-    content: {
-      kind: 'message',
-      body: 'See you at six?',
-      html: 'See you at six?',
-      emote: false,
-      notice: false,
-      edited: false,
-      jumbo: null,
-    },
-    in_reply_to: null,
-    forum_title: null,
-    thread_root: null,
-    thread_summary: null,
-    reactions: [],
-    is_own: true,
-    read_by: [],
-    read_timestamps: {},
-    per_message_profile: null,
-    bundled_link_previews: [],
-    link_previews_removed: null,
-    mention: 'none',
-    forwarded: null,
-  });
+  const previewItem = $derived(
+    previewMessage('profile-message-preview', 'See you at six?', {
+      sender: profile.user_id,
+      sender_name: previewProfile.display_name,
+      sender_avatar: previewProfile.avatar_url,
+      timestamp: Date.now(),
+      is_own: true,
+    })
+  );
 
   $effect(() => {
     const target = spaceId;
@@ -296,7 +255,7 @@
   <div class="preview-panel" role="tabpanel" id="profile-panel-preview">
     <MentionProfileCard {userId} member={null} roomId="" profile={previewProfile} />
     <TimelineItem
-      item={previewMessage}
+      item={previewItem}
       collapsed={false}
       layout={preferences.layout}
       overrideCosmetics={previewCosmetics}

@@ -7,6 +7,7 @@ import type {
 } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { AccountDataSync } from '#lib/core/account-data-sync.js';
 import { ACCOUNT_DATA_KEY_TYPE } from '#lib/settings/account-sync.svelte.js';
 import { setProfileOverride } from '#lib/core/api/account.svelte.js';
 
@@ -31,35 +32,20 @@ class ProfileOverrides {
   protection = $state<Protection>('plain');
   canSeal = $state(false);
 
-  private core: CoreClient | null = null;
-  private generation = 0;
-  private stopEvents: (() => void) | null = null;
+  private readonly sync = new AccountDataSync(
+    [PROFILE_OVERRIDES_EVENT, UNSTABLE_PROFILE_OVERRIDES_EVENT, ACCOUNT_DATA_KEY_TYPE],
+    (generation) => this.pull(generation)
+  );
 
   start(core: CoreClient): void {
-    const generation = ++this.generation;
-    this.core = core;
-    this.stopEvents?.();
-    this.stopEvents = core.subscribeEvents((event) => {
-      if (
-        event.type === 'account_data_changed' &&
-        (event.event_type === PROFILE_OVERRIDES_EVENT ||
-          event.event_type === UNSTABLE_PROFILE_OVERRIDES_EVENT ||
-          event.event_type === ACCOUNT_DATA_KEY_TYPE)
-      ) {
-        void this.pull(generation);
-      }
-    });
-    void this.pull(generation);
+    this.sync.start(core);
   }
 
   stop(): void {
-    this.generation += 1;
-    this.core = null;
+    this.sync.stop();
     this.entries = new Map();
     this.protection = 'plain';
     this.canSeal = false;
-    this.stopEvents?.();
-    this.stopEvents = null;
   }
 
   of(userId: string): ProfileOverrideView | undefined {
@@ -85,11 +71,11 @@ class ProfileOverrides {
   }
 
   async set(userId: string, edit: OverrideEdit): Promise<void> {
-    const core = this.core;
+    const core = this.sync.core;
     if (core === null) return;
-    const generation = this.generation;
+    const generation = this.sync.generation;
     const view = await setProfileOverride(core.rpc, userId, edit);
-    if (generation === this.generation) this.apply(view);
+    if (generation === this.sync.generation) this.apply(view);
   }
 
   private apply(view: ProfileOverridesView): void {
@@ -99,11 +85,11 @@ class ProfileOverrides {
   }
 
   private async pull(generation: number): Promise<void> {
-    const core = this.core;
+    const core = this.sync.core;
     if (core === null) return;
     try {
       const view = await core.rpc.account.profileOverrides();
-      if (generation === this.generation) this.apply(view);
+      if (generation === this.sync.generation) this.apply(view);
     } catch (error) {
       console.debug('[sable profile] profile overrides unavailable', error);
     }

@@ -36,8 +36,7 @@ const safeAreaOwners = new Set([
   'src/lib/features/room/media/MediaViewer.svelte',
   'src/lib/features/composer/StagedMediaViewer.svelte',
   'src/lib/features/call/ScreenSharePreview.svelte',
-  'src/lib/features/auth/flow/AuthFlow.svelte',
-  'src/lib/features/auth/reset-password/ResetPasswordPage.svelte',
+  'src/lib/features/auth/shared/AuthPage.svelte',
 ]);
 
 // Manually verified dependency-provided properties that source scanning cannot detect.

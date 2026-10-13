@@ -29,6 +29,7 @@
   import CallModeDebug from './CallModeDebug.svelte';
   import CallPlayback from './CallPlayback.svelte';
   import CallParticipantTile from './CallParticipantTile.svelte';
+  import CallTileGrid from './CallTileGrid.svelte';
   import {
     bestGrid,
     callTiles,
@@ -434,12 +435,11 @@
         {/if}
       </div>
     {:else}
-      <ul
-        class={['grid', { alone }]}
-        bind:clientWidth={mediaWidth}
-        bind:clientHeight={mediaHeight}
-        style:--tile-width="{Math.floor(grid.width)}px"
-        style:--grid-gap="{GRID_GAP_PX}px"
+      <CallTileGrid
+        {alone}
+        tileWidth={grid.width}
+        bind:width={mediaWidth}
+        bind:height={mediaHeight}
       >
         {#each tiles as item (item.key)}
           {@render tile(item, false)}
@@ -455,7 +455,7 @@
             {/if}
           </li>
         {/if}
-      </ul>
+      </CallTileGrid>
     {/if}
   </div>
 
@@ -680,33 +680,6 @@
     color: var(--surface-var-on-container);
     font-size: var(--font-size-small);
     margin: auto;
-  }
-
-  .grid {
-    display: flex;
-    flex: 1;
-    flex-wrap: wrap;
-    gap: var(--grid-gap);
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    place-content: center;
-  }
-
-  .grid > :global(.tile) {
-    aspect-ratio: var(--tile-aspect);
-    inline-size: var(--tile-width);
-  }
-
-  .grid.alone {
-    align-content: center;
-    flex-flow: column nowrap;
-    gap: var(--space-400);
-  }
-
-  .grid.alone > :global(.tile) {
-    align-self: center;
-    inline-size: min(var(--tile-width), 26rem);
   }
 
   .waiting {

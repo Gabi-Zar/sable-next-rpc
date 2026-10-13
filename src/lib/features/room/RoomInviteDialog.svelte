@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte';
-  import type { RoomListItemView, UserDirectoryEntryView } from '#src/generated/protocol';
+  import type { RoomListItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -13,6 +13,7 @@
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import '#lib/ui/primitives/menu.css';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
+  import { UserDirectoryLookup } from './members/user-directory-lookup.svelte.js';
 
   interface Props {
     open: boolean;
@@ -31,13 +32,11 @@
   let failed = $state(false);
   let convertPrompt = $state(false);
   let converting = $state(false);
-  let directory = $state.raw<UserDirectoryEntryView[]>([]);
-  let lookup = 0;
-  let lookupTimer: ReturnType<typeof setTimeout> | undefined;
+  const directory = new UserDirectoryLookup(core);
 
   let roomId = $derived(room?.room_id ?? null);
   let isDirect = $derived(room?.is_direct ?? false);
-  let suggestions = $derived(directory.filter((entry) => entry.user_id !== draft.trim()));
+  let suggestions = $derived(directory.results.filter((entry) => entry.user_id !== draft.trim()));
 
   $effect(() => {
     void roomId;
@@ -54,31 +53,12 @@
 
   function setDraft(next: string): void {
     draft = next;
-    clearTimeout(lookupTimer);
-    const query = next.trim();
-    const current = ++lookup;
-    if (!query) {
-      directory = [];
-      return;
-    }
-    lookupTimer = setTimeout(() => {
-      void findUsers(query, current);
-    }, 300);
+    directory.search(next.trim());
   }
 
   onDestroy(() => {
-    clearTimeout(lookupTimer);
+    directory.cancel();
   });
-
-  async function findUsers(query: string, current: number): Promise<void> {
-    try {
-      const { results } = await core.rpc.account.searchUserDirectory({ term: query, limit: 10 });
-      if (current === lookup) directory = results;
-    } catch (error) {
-      console.warn('[sable room] user directory unavailable', error);
-      if (current === lookup) directory = [];
-    }
-  }
 
   async function invite(candidate = draft.trim()): Promise<void> {
     const target = roomId;

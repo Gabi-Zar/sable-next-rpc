@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MemberView, TimelineItemView } from '#src/generated/protocol';
+  import type { MemberView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import {
@@ -11,6 +11,7 @@
     provideMessageMenu,
   } from '#lib/features/room/messages/message-menu-open.svelte.js';
   import TimelineItem from '#lib/features/room/timeline/TimelineItem.svelte';
+  import { previewMessage } from '#lib/features/room/timeline/preview-message.js';
   import {
     PinnedEvents,
     providePinnedEvents,
@@ -41,56 +42,18 @@
     service: false,
   }));
 
-  const incoming = {
-    id: 'timeline-preview-incoming',
-    row: 'message',
-    forwardable: true,
-    redactable: true,
-    visibility: 'always',
+  const incoming = previewMessage('timeline-preview-incoming', 'See you at six?', {
     event_id: '$timeline-preview-incoming',
-    transaction_id: null,
-    send_state: null,
     sender: previewAlexId,
     sender_name: 'Alex',
-    sender_avatar: null,
     timestamp: baseTs,
-    content: {
-      kind: 'message',
-      body: 'See you at six?',
-      html: 'See you at six?',
-      emote: false,
-      notice: false,
-      edited: false,
-      jumbo: null,
-    },
-    in_reply_to: null,
-    thread_root: null,
-    thread_summary: null,
-    reactions: [],
-    is_own: false,
-    read_by: [],
-    read_timestamps: {},
-    per_message_profile: null,
-    bundled_link_previews: [],
-    link_previews_removed: null,
-    mention: 'none',
-    forwarded: null,
-    forum_title: null,
-  } satisfies TimelineItemView;
+  });
 
-  const ownReply = {
-    ...incoming,
-    id: 'timeline-preview-own-reply',
+  const ownReply = previewMessage('timeline-preview-own-reply', 'Sounds good!', {
     event_id: '$timeline-preview-own-reply',
     sender: previewUserId,
     sender_name: 'You',
     timestamp: baseTs + 45_000,
-    content: {
-      ...incoming.content,
-      kind: 'message',
-      body: 'Sounds good!',
-      html: 'Sounds good!',
-    },
     in_reply_to: {
       event_id: '$timeline-preview-incoming',
       sender: previewAlexId,
@@ -101,24 +64,15 @@
     },
     is_own: true,
     read_by: [previewAlexId],
-  } satisfies TimelineItemView;
+  });
 
-  const ownFollowUp: TimelineItemView = {
-    ...ownReply,
-    id: 'timeline-preview-own-followup',
+  const ownFollowUp = previewMessage('timeline-preview-own-followup', "I'll bring snacks.", {
     event_id: '$timeline-preview-own-followup',
+    sender: previewUserId,
+    sender_name: 'You',
     timestamp: baseTs + 75_000,
-    content: {
-      ...ownReply.content,
-      kind: 'message',
-      body: "I'll bring snacks.",
-      html: "I'll bring snacks.",
-    },
-    in_reply_to: null,
     is_own: true,
-    read_by: [],
-    read_timestamps: {},
-  };
+  });
 
   let layout = $derived(preferences.layout);
 

@@ -122,3 +122,24 @@ export function spacesContainingRoom(
   }
   return found;
 }
+
+export function joinedSpaceRooms(
+  space: RoomListItemView | null | undefined,
+  byId: (roomId: string) => RoomListItemView | undefined
+): string[] {
+  const found: string[] = [];
+  if (!space) return found;
+  const seen: string[] = [space.room_id];
+  const walk = (parent: RoomListItemView) => {
+    for (const edge of parent.space_children) {
+      if (seen.includes(edge.room_id)) continue;
+      seen.push(edge.room_id);
+      const child = byId(edge.room_id);
+      if (child?.state !== 'joined') continue;
+      if (child.is_space) walk(child);
+      else found.push(child.room_id);
+    }
+  };
+  walk(space);
+  return found;
+}

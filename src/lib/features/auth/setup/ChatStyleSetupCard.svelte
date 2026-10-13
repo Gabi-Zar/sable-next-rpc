@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { TimelineItemView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { Bookmarks, provideBookmarks } from '#lib/rooms/bookmarks.svelte.js';
   import {
@@ -15,6 +14,7 @@
     providePinnedEvents,
   } from '#lib/features/room/timeline/pinned-events.svelte.js';
   import TimelineItem from '#lib/features/room/timeline/TimelineItem.svelte';
+  import { previewMessage } from '#lib/features/room/timeline/preview-message.js';
   import { i18n } from '#lib/i18n.js';
   import { PersonaStore, providePersonaStore } from '#lib/personas/personas.svelte.js';
   import { RoomList, provideRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -49,56 +49,15 @@
     compact: 'settings.replyPreviewStyleCompact',
     expanded: 'settings.replyPreviewStyleExpanded',
   } as const;
-  const message: TimelineItemView = {
-    id: 'setup-preview',
-    row: 'message',
-    forwardable: true,
-    redactable: true,
-    visibility: 'always',
-    event_id: null,
-    transaction_id: null,
-    send_state: null,
+  const message = previewMessage('setup-preview', 'See you at six?', {
     sender: '@alex:preview.invalid',
     sender_name: 'Alex',
-    sender_avatar: null,
     timestamp: Date.now(),
-    content: {
-      kind: 'message',
-      body: 'See you at six?',
-      html: 'See you at six?',
-      emote: false,
-      notice: false,
-      edited: false,
-      jumbo: null,
-    },
-    in_reply_to: null,
-    thread_root: null,
-    thread_summary: null,
-    reactions: [],
-    is_own: false,
-    read_by: [],
-    read_timestamps: {},
-    per_message_profile: null,
-    bundled_link_previews: [],
-    link_previews_removed: null,
-    mention: 'none',
-    forwarded: null,
-    forum_title: null,
-  };
-  const reply: TimelineItemView = {
-    ...message,
-    id: 'setup-reply-preview',
+  });
+  const reply = previewMessage('setup-reply-preview', 'Sounds good!', {
     sender: '@sam:preview.invalid',
     sender_name: 'Sam',
-    content: {
-      kind: 'message',
-      body: 'Sounds good!',
-      html: 'Sounds good!',
-      emote: false,
-      notice: false,
-      edited: false,
-      jumbo: null,
-    },
+    timestamp: message.timestamp,
     in_reply_to: {
       event_id: '$setup-preview',
       sender: '@alex:preview.invalid',
@@ -107,7 +66,7 @@
       body: 'See you at six?',
       fallback: null,
     },
-  };
+  });
 </script>
 
 <div class="chat-style-card auth-card-surface">

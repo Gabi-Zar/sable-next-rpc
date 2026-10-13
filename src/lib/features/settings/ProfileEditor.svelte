@@ -1,12 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy, untrack } from 'svelte';
 
-  import type {
-    BrightnessView,
-    ProfileFieldView,
-    ProfileView,
-    TimelineItemView,
-  } from '#src/generated/protocol';
+  import type { BrightnessView, ProfileFieldView, ProfileView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n, t } from '#lib/i18n.js';
   import {
@@ -61,6 +56,7 @@
     providePinnedEvents,
   } from '#lib/features/room/timeline/pinned-events.svelte.js';
   import TimelineItem from '#lib/features/room/timeline/TimelineItem.svelte';
+  import { previewMessage } from '#lib/features/room/timeline/preview-message.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {
@@ -173,42 +169,15 @@
     pronouns: previewProfile.pronouns,
   });
 
-  const previewMessage = $derived<TimelineItemView>({
-    id: 'profile-message-preview',
-    row: 'message',
-    forwardable: true,
-    redactable: true,
-    visibility: 'always',
-    event_id: null,
-    transaction_id: null,
-    send_state: null,
-    sender: profile.user_id,
-    sender_name: draft.name.trim() || null,
-    sender_avatar: avatarPreview ?? (draft.avatarRemoved ? null : profile.avatar_url),
-    timestamp: Date.now(),
-    content: {
-      kind: 'message',
-      body: 'See you at six?',
-      html: 'See you at six?',
-      emote: false,
-      notice: false,
-      edited: false,
-      jumbo: null,
-    },
-    in_reply_to: null,
-    forum_title: null,
-    thread_root: null,
-    thread_summary: null,
-    reactions: [],
-    is_own: true,
-    read_by: [],
-    read_timestamps: {},
-    per_message_profile: null,
-    bundled_link_previews: [],
-    link_previews_removed: null,
-    mention: 'none',
-    forwarded: null,
-  });
+  const previewItem = $derived(
+    previewMessage('profile-message-preview', 'See you at six?', {
+      sender: profile.user_id,
+      sender_name: draft.name.trim() || null,
+      sender_avatar: avatarPreview ?? (draft.avatarRemoved ? null : profile.avatar_url),
+      timestamp: Date.now(),
+      is_own: true,
+    })
+  );
 
   $effect(() => {
     const next = profile;
@@ -479,7 +448,7 @@
     >
       <MentionProfileCard {userId} member={null} roomId="" profile={previewProfile} />
       <TimelineItem
-        item={previewMessage}
+        item={previewItem}
         collapsed={false}
         layout={preferences.layout}
         overrideCosmetics={previewCosmetics}

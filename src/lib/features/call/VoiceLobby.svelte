@@ -11,6 +11,7 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   import CallControls from './CallControls.svelte';
+  import CallTileGrid from './CallTileGrid.svelte';
   import LobbyTile from './LobbyTile.svelte';
   import { bestGrid, GRID_GAP_PX, NARROW_STAGE_PX } from './call-layout';
   import { DEVICE_PREFERENCE } from './devices';
@@ -194,12 +195,11 @@
 
   <div class="media" style:--tile-aspect={aspect}>
     {#if canJoin}
-      <ul
-        class={['grid', { alone }]}
-        bind:clientWidth={mediaWidth}
-        bind:clientHeight={mediaHeight}
-        style:--tile-width="{Math.floor(grid.width)}px"
-        style:--grid-gap="{GRID_GAP_PX}px"
+      <CallTileGrid
+        {alone}
+        tileWidth={grid.width}
+        bind:width={mediaWidth}
+        bind:height={mediaHeight}
       >
         {#if self}
           <LobbyTile
@@ -225,7 +225,7 @@
         {#if alone}
           <li class="waiting"><p>{$i18n.t('call.lobbyEmpty')}</p></li>
         {/if}
-      </ul>
+      </CallTileGrid>
     {:else if !hasPermission}
       <Alert variant="warning" class="closed" title={$i18n.t('call.lobbyNoPermission')}>
         <p>{$i18n.t('call.lobbyNoPermissionHint')}</p>
@@ -335,33 +335,6 @@
     margin: auto;
     max-inline-size: 28rem;
     text-align: center;
-  }
-
-  .grid {
-    display: flex;
-    flex: 1;
-    flex-wrap: wrap;
-    gap: var(--grid-gap);
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    place-content: center;
-  }
-
-  .grid > :global(.tile) {
-    aspect-ratio: var(--tile-aspect);
-    inline-size: var(--tile-width);
-  }
-
-  .grid.alone {
-    align-content: center;
-    flex-flow: column nowrap;
-    gap: var(--space-400);
-  }
-
-  .grid.alone > :global(.tile) {
-    align-self: center;
-    inline-size: min(var(--tile-width), 26rem);
   }
 
   .waiting {
