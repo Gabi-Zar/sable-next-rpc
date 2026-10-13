@@ -42,41 +42,6 @@ checksum = "sha256:975a22143262fd27476d19ee00c7af67978426e40e1dee94eed6bbade1cf8
 url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-pc-windows-msvc.tar.gz"
 url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471599057"
 
-[[tools."aqua:WebAssembly/binaryen"]]
-version = "132"
-backend = "aqua:WebAssembly/binaryen"
-specifiers = ["132"]
-
-[tools."aqua:WebAssembly/binaryen"."platforms.linux-arm64"]
-checksum = "sha256:c58562417836c5d0493d89bdefc434933bdc097db641b483df86bcfa557a107f"
-url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-aarch64-linux.tar.gz"
-url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512125148"
-
-[tools."aqua:WebAssembly/binaryen"."platforms.linux-x64"]
-checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
-url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
-url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512132895"
-
-[tools."aqua:WebAssembly/binaryen"."platforms.linux-x64-musl"]
-checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
-url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
-url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512132895"
-
-[tools."aqua:WebAssembly/binaryen"."platforms.macos-arm64"]
-checksum = "sha256:98aad827847af7ef990ed7098d885725c8e5b5aae75073403635617ae4e259aa"
-url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-arm64-macos.tar.gz"
-url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512131753"
-
-[tools."aqua:WebAssembly/binaryen"."platforms.macos-x64"]
-checksum = "sha256:40c3de90bb3766bd0282a895e139a6f50253dba49b4f5bb89e66faca162d832e"
-url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-macos.tar.gz"
-url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512131754"
-
-[tools."aqua:WebAssembly/binaryen"."platforms.windows-x64"]
-checksum = "sha256:2089428ec98c899b45ee5d00636ddd6e2da8636cc473ef50b165cc25793ef7cb"
-url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-windows.tar.gz"
-url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512142865"
-
 [[tools."aqua:evilmartians/lefthook"]]
 version = "2.1.14"
 backend = "aqua:evilmartians/lefthook"
@@ -206,6 +171,44 @@ url_api = "https://api.github.com/repos/AppImage/appimagetool/releases/assets/32
 checksum = "sha256:ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
 url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
 url_api = "https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406736"
+
+[[tools."github:WebAssembly/binaryen"]]
+version = "132"
+backend = "github:WebAssembly/binaryen"
+specifiers = ["132"]
+
+[tools."github:WebAssembly/binaryen".options]
+version_prefix = "version_"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64"]
+checksum = "sha256:c58562417836c5d0493d89bdefc434933bdc097db641b483df86bcfa557a107f"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512125148"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64"]
+checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512132895"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64-musl"]
+checksum = "sha256:195ddc94f9bc89f45abdabb0b9eea86023d727ba90eac8b35b80f2544fc30572"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512132895"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-arm64"]
+checksum = "sha256:98aad827847af7ef990ed7098d885725c8e5b5aae75073403635617ae4e259aa"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-arm64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512131753"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-x64"]
+checksum = "sha256:40c3de90bb3766bd0282a895e139a6f50253dba49b4f5bb89e66faca162d832e"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512131754"
+
+[tools."github:WebAssembly/binaryen"."platforms.windows-x64"]
+checksum = "sha256:2089428ec98c899b45ee5d00636ddd6e2da8636cc473ef50b165cc25793ef7cb"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-windows.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512142865"
 
 [[tools."github:bnjbvr/cargo-machete"]]
 version = "0.9.2"

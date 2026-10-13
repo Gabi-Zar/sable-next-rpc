@@ -236,7 +236,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
       ARCH: x86_64
-      MISE_DISABLE_TOOLS: aqua:WebAssembly/binaryen,ubi:rustwasm/wasm-bindgen
+      MISE_DISABLE_TOOLS: github:WebAssembly/binaryen,ubi:rustwasm/wasm-bindgen
       # rustc peaks at several GB per crate while compiling the CEF runtime.
       CARGO_BUILD_JOBS: '4'
       TAG: ${{ needs.setup-release.outputs.tag }}

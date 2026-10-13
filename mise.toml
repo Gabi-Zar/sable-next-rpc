@@ -19,7 +19,7 @@ includes = ["scripts"]
 [tools]
 node = "24.21.0"
 "github:wasm-bindgen/wasm-bindgen" = { version = "0.2.129", extract_all = true }
-"aqua:WebAssembly/binaryen" = "132"
+"github:WebAssembly/binaryen" = { version = "132", version_prefix = "version_", extract_all = true }
 "aqua:watchexec/watchexec" = "2.7.3"
 "aqua:evilmartians/lefthook" = "2.1.14"
 
