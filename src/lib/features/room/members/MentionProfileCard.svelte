@@ -207,9 +207,10 @@
       return null;
     }
 
-    if (!animal.animal_need) return `${identity}!`;
+    const need = animal.animal_need ?? 'headpats';
+    if (!need) return `${identity}!`;
 
-    return $i18n.t('timeline.animalNeed', { identity, need: animal.animal_need });
+    return $i18n.t('timeline.animalNeed', { identity, need });
   });
   let extra = $derived(
     (currentProfile?.extra ?? []).filter((field) => field.key !== SUPPORTER_BADGE_FIELD)

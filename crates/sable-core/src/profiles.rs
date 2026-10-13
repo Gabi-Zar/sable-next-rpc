@@ -212,10 +212,9 @@ fn profile_animal(response: &ProfileResponse) -> Option<AnimalIdentityView> {
             .or_else(|| legacy_cat("kitty.meow.is_cat", "cat")),
         has_animal: profile_text(profile_field(response, "pet.plz.my"))
             .or_else(|| legacy_cat("kitty.meow.has_cats", "cats")),
-        animal_need: profile_field(response, "pet.plz.gib").map_or_else(
-            || Some("headpats".to_owned()),
-            |need| profile_text(Some(need)),
-        ),
+        animal_need: profile_field(response, "pet.plz.gib")
+            .and_then(serde_json::Value::as_str)
+            .map(|need| need.trim().to_owned()),
     };
 
     // The need alone says nothing without an animal to attach it to.
@@ -334,15 +333,15 @@ mod tests {
     }
 
     #[test]
-    fn an_absent_animal_need_defaults_to_headpats() {
+    fn a_cleared_animal_need_is_distinct_from_an_unset_one() {
         let unset = view(&json!({ "kitty.meow.is_cat": true })).animal.unwrap();
         assert_eq!(unset.is_animal.as_deref(), Some("cat"));
-        assert_eq!(unset.animal_need.as_deref(), Some("headpats"));
+        assert_eq!(unset.animal_need, None);
 
         let cleared = view(&json!({ "pet.plz.me": "cat", "pet.plz.gib": "" }))
             .animal
             .unwrap();
-        assert_eq!(cleared.animal_need, None);
+        assert_eq!(cleared.animal_need.as_deref(), Some(""));
     }
 
     #[test]
