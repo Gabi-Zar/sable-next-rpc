@@ -469,7 +469,7 @@ test('renders a flat map field as a collapsed key/value table and anything else 
   expect(document.querySelector('.profile-extra-open')?.textContent.trim()).toBe('{"a":{"b":"c"}}');
 });
 
-test('does not invent an animal need', async () => {
+test('an unset animal need defaults to headpats', async () => {
   render(MentionProfileCard, {
     props: {
       userId: '@alice:example.org',
@@ -484,7 +484,7 @@ test('does not invent an animal need', async () => {
   await tick();
 
   expect(document.querySelector('.profile-card-meta .profile-meta-item')?.textContent).toBe(
-    'Is cat!'
+    'Is cat, give headpats!'
   );
 });
 
