@@ -79,7 +79,7 @@ webpki-roots = "1"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 matrix-sdk = { workspace = true, features = ["indexeddb", "js", "automatic-room-key-forwarding"] }
-matrix-sdk-indexeddb = { version = "0.19.1", git = "https://github.com/eleboucher/matrix-rust-sdk", rev = "ba614b5dca5d0fb1ba1ffec1310c5d7abfb7b513", default-features = false, features = [
+matrix-sdk-indexeddb = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1", default-features = false, features = [
   "e2e-encryption",
   "state-store",
   "event-cache-store",
@@ -105,8 +105,8 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
 matrix-sdk = { workspace = true, features = ["testing"] }
-matrix-sdk-test = { version = "0.19.1", git = "https://github.com/eleboucher/matrix-rust-sdk", rev = "ba614b5dca5d0fb1ba1ffec1310c5d7abfb7b513" }
-matrix-sdk-test-utils = { version = "0.19.1", git = "https://github.com/eleboucher/matrix-rust-sdk", rev = "ba614b5dca5d0fb1ba1ffec1310c5d7abfb7b513" }
+matrix-sdk-test = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1" }
+matrix-sdk-test-utils = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wiremock = "0.6"
