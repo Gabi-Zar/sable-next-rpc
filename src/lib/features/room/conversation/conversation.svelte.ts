@@ -26,6 +26,7 @@ import {
   ScheduledOriginalKept,
 } from '#lib/features/composer/send-failure.js';
 import { runSlash } from '#lib/features/composer/slash-commands.js';
+import { knockPagePath } from '#lib/rooms/join-or-knock.js';
 import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
 import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages/reply-preview.js';
 import { previewableLinks } from '#lib/features/room/media/link-preview.js';
@@ -221,6 +222,11 @@ export class Conversation {
     if (outcome.kind === 'bugReport') {
       this.context = null;
       void goto(resolve('bugreport'));
+      return;
+    }
+    if (outcome.kind === 'knock') {
+      this.context = null;
+      void goto(knockPagePath(outcome.address, outcome.via));
       return;
     }
 

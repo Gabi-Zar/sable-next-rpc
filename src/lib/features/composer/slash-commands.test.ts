@@ -10,6 +10,7 @@ import type {
   MemberView,
   PersonaCatalogView,
   PersonaView,
+  RoomPreviewView,
   RpcParams,
   Rpc,
 } from '#src/generated/protocol';
@@ -33,6 +34,7 @@ function fakeCommands() {
     joinRoom: vi.fn(() => Promise.resolve('!joined:example.org')),
     kickUser: vi.fn(() => Promise.resolve()),
     knockRoom: vi.fn(() => Promise.resolve('!knocked:example.org')),
+    previewRoom: vi.fn(() => Promise.resolve({ join_rule: 'invite' } as RoomPreviewView)),
     leaveRoom: vi.fn(() => Promise.resolve()),
     setDisplayName: vi.fn(() => Promise.resolve(null)),
     unbanUser: vi.fn(() => Promise.resolve()),
@@ -97,7 +99,7 @@ function context(
   commands: ReturnType<typeof fakeCommands>,
   rpc: ReturnType<typeof fakeRpc> = fakeRpc()
 ): SlashContext {
-  const { joinRoom, knockRoom, leaveRoom, inviteUser, createDm } = commands;
+  const { joinRoom, knockRoom, previewRoom, leaveRoom, inviteUser, createDm } = commands;
   const { roomMembers, kickUser, banUser, unbanUser, setMemberLook, setPronouns } = commands;
   return {
     roomId: '!room:example.org',
@@ -107,7 +109,14 @@ function context(
       ...rpc,
       account: commands,
       messages: commands,
-      rooms: { join: joinRoom, knock: knockRoom, leave: leaveRoom, invite: inviteUser, createDm },
+      rooms: {
+        join: joinRoom,
+        knock: knockRoom,
+        preview: previewRoom,
+        leave: leaveRoom,
+        invite: inviteUser,
+        createDm,
+      },
       members: {
         list: roomMembers,
         kick: kickUser,
@@ -349,6 +358,23 @@ test('/join takes an address and its routing servers', async () => {
     address: '#room:example.org',
     via: ['other.org'],
   });
+});
+
+test('/join hands a knock room over to the ask to join page', async () => {
+  const commands = fakeCommands();
+  commands.joinRoom.mockRejectedValue(new Error('forbidden'));
+  commands.previewRoom.mockResolvedValue({ join_rule: 'knock' } as RoomPreviewView);
+
+  await expect(
+    runSlash('/join https://matrix.to/#/%23room%3Aexample.org?via=other.org', context(commands))
+  ).resolves.toEqual({ kind: 'knock', address: '#room:example.org', via: ['other.org'] });
+});
+
+test('/join still fails when the room cannot be knocked on', async () => {
+  const commands = fakeCommands();
+  commands.joinRoom.mockRejectedValue(new Error('forbidden'));
+
+  await expect(runSlash('/join #room:example.org', context(commands))).rejects.toThrow('forbidden');
 });
 
 test('/join rejects something that is not an address', async () => {

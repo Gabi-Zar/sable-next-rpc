@@ -1,8 +1,9 @@
 import type { MemberView, MessageKind, SlashInvocation, Rpc } from '#src/generated/protocol';
 import { CoreError } from '#src/transport';
 
-import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
+import { knockRoom } from '#lib/core/api/rooms.js';
 import { setMemberLook } from '#lib/core/api/members.js';
+import { joinOrOfferKnock } from '#lib/rooms/join-or-knock.js';
 import { parseSlash } from '#lib/model/model.js';
 import { currentFix } from '#lib/platform/geolocation.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -48,6 +49,7 @@ export type SlashOutcome =
     }
   | { kind: 'gifSearch'; query: string }
   | { kind: 'bugReport' }
+  | { kind: 'knock'; address: string; via: string[] }
   | { kind: 'done' }
   | { kind: 'error'; key: string; values?: Record<string, string> };
 
@@ -326,8 +328,9 @@ async function run(
     case 'html':
       return message(plainTextFrom(invocation.html), 'text', invocation.html);
     case 'join':
-      await joinRoom(rpc, invocation.address, invocation.via);
-      return DONE;
+      return (await joinOrOfferKnock(rpc, invocation.address, invocation.via)).kind === 'knock'
+        ? { kind: 'knock', address: invocation.address, via: invocation.via }
+        : DONE;
     case 'knock':
       await knockRoom(rpc, invocation.address, invocation.via, invocation.reason ?? undefined);
       return DONE;
