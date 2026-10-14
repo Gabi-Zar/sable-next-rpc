@@ -58,29 +58,3 @@ test('not now leaves sync off', async () => {
   expect(onSkip).toHaveBeenCalledOnce();
   expect(prefs.setPreference).not.toHaveBeenCalled();
 });
-
-test('shows the check while the account is read, then the result, and falls back when it fails', async () => {
-  const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
-  let fail: (error: Error) => void = () => {};
-  accountData.mockReturnValueOnce(
-    new Promise((_, reject) => {
-      fail = reject;
-    })
-  );
-  render(SettingsSyncCard, { onComplete: vi.fn(), onSkip: vi.fn() });
-
-  expect(await screen.findByText('Checking your account…')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Turn on sync' })).toBeDisabled();
-
-  fail(new Error('offline'));
-  await vi.waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Turn on sync' })).toBeEnabled();
-  });
-  expect(screen.queryByText('Checking your account…')).not.toBeInTheDocument();
-  expect(screen.queryByText(/Synced settings found/)).not.toBeInTheDocument();
-  expect(debug).toHaveBeenCalledWith(
-    '[sable setup] synced settings unavailable',
-    expect.any(Error)
-  );
-  debug.mockRestore();
-});

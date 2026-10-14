@@ -17,6 +17,24 @@
 
   let { onComplete, onSkip }: Props = $props();
   const core = useCoreClient();
+  let synced = $state<boolean | null>(null);
+
+  $effect(() => {
+    let alive = true;
+    void core.rpc.account
+      .data({ event_type: SETTINGS_ACCOUNT_DATA_TYPE })
+      .then((content) => typeof content === 'object' && content !== null)
+      .catch((error: unknown) => {
+        console.debug('[sable setup] synced settings unavailable', error);
+        return false;
+      })
+      .then((found) => {
+        if (alive) synced = found;
+      });
+    return () => {
+      alive = false;
+    };
+  });
 
   function turnOn(): void {
     setPreference('settingsSync', true);
@@ -29,34 +47,17 @@
     <AuthInfoBox>{i18n.t('setup.syncDescription')}</AuthInfoBox>
   </AuthField>
 
-  <svelte:boundary>
-    {@const synced = await core.rpc.account
-      .data({ event_type: SETTINGS_ACCOUNT_DATA_TYPE })
-      .then((content) => typeof content === 'object' && content !== null)
-      .catch((error: unknown) => {
-        console.debug('[sable setup] synced settings unavailable', error);
-        return false;
-      })}
-    {#if synced}
-      <AuthInfoBox>{i18n.t('setup.syncFound')}</AuthInfoBox>
-    {/if}
+  {#if synced === null}
+    <AuthInfoBox><Spinner small />{i18n.t('setup.syncChecking')}</AuthInfoBox>
+  {:else if synced}
+    <AuthInfoBox>{i18n.t('setup.syncFound')}</AuthInfoBox>
+  {/if}
 
-    <AuthStatusSlot />
+  <AuthStatusSlot />
 
-    <Button variant="primary" block onclick={turnOn}>
-      {i18n.t(synced ? 'setup.syncAdopt' : 'setup.syncTurnOn')}
-    </Button>
-
-    {#snippet pending()}
-      <AuthInfoBox><Spinner small />{i18n.t('setup.syncChecking')}</AuthInfoBox>
-
-      <AuthStatusSlot />
-
-      <Button variant="primary" block disabled>
-        {i18n.t('setup.syncTurnOn')}
-      </Button>
-    {/snippet}
-  </svelte:boundary>
+  <Button variant="primary" block disabled={synced === null} onclick={turnOn}>
+    {i18n.t(synced ? 'setup.syncAdopt' : 'setup.syncTurnOn')}
+  </Button>
 </div>
 
 <AuthSecondaryAction label={i18n.t('setup.syncNotNow')} onclick={onSkip} />
