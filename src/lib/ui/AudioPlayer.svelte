@@ -171,7 +171,6 @@
     cursor: pointer;
     display: flex;
     justify-content: center;
-    margin: var(--space-25) 0;
 
     &:hover {
       transform: scale(1.1);
