@@ -992,6 +992,7 @@
     "videoAttachment": "Video attachment",
     "videoConverting": "Converting video…",
     "playVideo": "Play {{name}}",
+    "playAudio": "Play {{name}}",
     "showEmbed": "Show {{name}}",
     "audioAttachment": "Audio attachment",
     "fileAttachment": "File attachment",

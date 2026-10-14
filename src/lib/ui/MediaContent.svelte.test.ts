@@ -33,7 +33,7 @@ async function settle(): Promise<void> {
 
 test.each([
   { kind: 'video' as const, selector: 'video', width: 1920, height: 1080, start: /^Play / },
-  { kind: 'audio' as const, selector: 'audio', width: null, height: null, start: null },
+  { kind: 'audio' as const, selector: '.audio-container', width: null, height: null, start: null },
   {
     kind: 'file' as const,
     selector: 'a[download="report.pdf"]',
@@ -185,7 +185,7 @@ test('falls back to the plain audio player when there is no waveform', async () 
   await settle();
 
   expect(document.querySelector('.voice-message-player')).toBeNull();
-  expect(document.querySelector('audio.media-content')).not.toBeNull();
+  expect(document.querySelector('.audio-container')).not.toBeNull();
 });
 
 test('labels unavailable attachments', async () => {
