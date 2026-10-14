@@ -145,8 +145,9 @@ test('a cache reset goes through the core and still resolves when the core fails
 
   await expect(transport.resetCaches(['a1'])).resolves.toBeUndefined();
 
-  expect(invoke).toHaveBeenCalledWith('call', new TextEncoder().encode('{}'), {
-    headers: { 'rpc-method': 'session.reset_local_cache' },
+  expect(invoke).toHaveBeenCalledWith('call', {
+    method: 'session.reset_local_cache',
+    params: {},
   });
   expect(captureException).toHaveBeenCalledTimes(1);
 });
