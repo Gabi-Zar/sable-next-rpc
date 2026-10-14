@@ -12,6 +12,15 @@ import { resetPage } from '#lib/test-support/app-state.js';
 
 initSync({ module: readFileSync(join(process.cwd(), 'src/generated/wasm/sable_model_bg.wasm')) });
 
+if (typeof Animation !== 'undefined') {
+  // Browsers mark a cancelled animation's finished promise as handled; happy-dom does not.
+  const cancel = Reflect.get(Animation.prototype, 'cancel');
+  Animation.prototype.cancel = function (this: Animation) {
+    this.finished.catch(() => {});
+    cancel.call(this);
+  };
+}
+
 afterEach(async () => {
   if (typeof document !== 'undefined') {
     // Overlay libraries style the body after a tick, which async mode defers to the next frame.
