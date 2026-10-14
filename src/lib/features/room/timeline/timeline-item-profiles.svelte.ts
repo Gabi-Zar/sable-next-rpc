@@ -1,10 +1,9 @@
 import type { ProfileView } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import { ProfileSlot } from '#lib/profile/user-profile.svelte.js';
+import { PROFILE_RETRY_DELAYS_MS, ProfileSlot } from '#lib/profile/user-profile.svelte.js';
 
 const FIRST_LOOKUP_DELAY_MS = 300;
-const RETRY_DELAYS_MS = [3000, 10_000, 30_000];
 
 export class TimelineItemProfiles {
   readonly #sender: ProfileSlot;
@@ -12,8 +11,8 @@ export class TimelineItemProfiles {
   readonly #unsubscribe: () => void;
 
   constructor(core: CoreClient) {
-    this.#sender = new ProfileSlot(core, FIRST_LOOKUP_DELAY_MS, RETRY_DELAYS_MS);
-    this.#reply = new ProfileSlot(core, FIRST_LOOKUP_DELAY_MS, RETRY_DELAYS_MS);
+    this.#sender = new ProfileSlot(core, FIRST_LOOKUP_DELAY_MS, PROFILE_RETRY_DELAYS_MS);
+    this.#reply = new ProfileSlot(core, FIRST_LOOKUP_DELAY_MS, PROFILE_RETRY_DELAYS_MS);
     this.#unsubscribe = core.onProfileChanged((userId) => {
       this.#sender.refresh(userId);
       this.#reply.refresh(userId);

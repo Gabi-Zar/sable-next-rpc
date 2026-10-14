@@ -7,6 +7,8 @@ type ProfileCore = Pick<
   'cachedUserProfile' | 'forgetProfileFailure' | 'onProfileChanged' | 'userProfile'
 >;
 
+export const PROFILE_RETRY_DELAYS_MS = [3000, 10_000, 30_000];
+
 export class ProfileSlot {
   profile = $state.raw<ProfileView | null>(null);
 
