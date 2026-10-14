@@ -21,8 +21,6 @@ pnpm fmt:check
 pnpm knip        # unused files and exports
 ```
 
-`pnpm check` runs the repo's own guards, which are described in `CLAUDE.md`.
-
 ## Accessibility
 
 Browser component tests (`*.browser.test.ts`) can use `src/lib/test-support/a11y.ts` and `keyboard.ts`:
