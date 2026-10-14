@@ -235,7 +235,7 @@ async fn live_timeline_back_paginates_through_the_event_cache() {
 }
 
 #[tokio::test]
-async fn hidden_events_admit_only_events_the_sdk_can_render() {
+async fn hidden_events_admit_only_events_the_sdk_can_render_and_place() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
     let room_id = room_id!("!hidden:example.org");
@@ -261,6 +261,19 @@ async fn hidden_events_admit_only_events_the_sdk_can_render() {
                             target.to_owned(),
                         )))
                         .event_id(event_id!("$done")),
+                )
+                .add_timeline_event(
+                    matrix_sdk::ruma::serde::Raw::<matrix_sdk::ruma::events::AnySyncTimelineEvent>::from_json_string(
+                        json!({
+                            "type": "com.example.custom",
+                            "event_id": "$custom",
+                            "sender": ALICE.as_str(),
+                            "origin_server_ts": 9,
+                            "content": {"m.relates_to": {"rel_type": "m.thread", "event_id": target}},
+                        })
+                        .to_string(),
+                    )
+                    .unwrap(),
                 ),
         )
         .await;

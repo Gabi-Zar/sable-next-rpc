@@ -22,7 +22,9 @@ use crate::notifications;
 use crate::protocol::{CoreEvent, RpcError, SubscriptionId, TimelineItemView};
 use crate::room_list_rows::RoomListRows;
 use crate::timeline_overlay::{ReplyFallback, TimelineOverlay};
-use crate::timelines::{aggregation_items, build_room_timeline, fill_sender_profiles};
+use crate::timelines::{
+    AggregationScope, aggregation_items, build_room_timeline, fill_sender_profiles,
+};
 use crate::view;
 use crate::{Core, Subscription, SubscriptionKind, Task};
 
@@ -325,8 +327,13 @@ impl Core {
             )
         });
         let (aggregations, aggregation_task) = if hidden_events {
-            self.watch_aggregations(subscription, &room, own_user_id.clone())
-                .await
+            self.watch_aggregations(
+                subscription,
+                &room,
+                own_user_id.clone(),
+                AggregationScope::of(&focus),
+            )
+            .await
         } else {
             (Vec::new(), None)
         };
@@ -451,6 +458,7 @@ impl Core {
         subscription: SubscriptionId,
         room: &matrix_sdk::Room,
         own_user_id: Option<OwnedUserId>,
+        scope: AggregationScope,
     ) -> (Vec<TimelineItemView>, Option<Task>) {
         let Ok((cache, _handles)) = room.event_cache().await else {
             return (Vec::new(), None);
@@ -459,6 +467,11 @@ impl Core {
             return (Vec::new(), None);
         };
         let rules = room.clone_info().room_version_rules_or_default();
+        let lookup = move |id: OwnedEventId| {
+            let cache = cache.clone();
+            async move { cache.find_event(&id).await.ok().flatten() }
+        };
+        let cached = scope.retain(cached, &lookup).await;
         let items = aggregation_items(cached, &rules, own_user_id.as_deref());
 
         let core = self.clone();
@@ -474,7 +487,8 @@ impl Core {
                 let RoomEventCacheUpdate::UpdateTimelineEvents(update) = update else {
                     continue;
                 };
-                let events = update.diffs.into_iter().flat_map(diff_events);
+                let events = update.diffs.into_iter().flat_map(diff_events).collect();
+                let events = scope.retain(events, &lookup).await;
                 let items = aggregation_items(events, &rules, own_user_id.as_deref());
                 if !items.is_empty() {
                     core.emit(CoreEvent::TimelineAggregations {

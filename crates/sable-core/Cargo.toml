@@ -23,6 +23,7 @@ matrix-sdk = { workspace = true, features = ["qrcode"] }
 qrcode = { version = "0.14.1", default-features = false }
 matrix-sdk-ui = { workspace = true }
 matrix-sdk-base = { workspace = true }
+matrix-sdk-common = { workspace = true }
 ruma.workspace = true
 mime = "0.3"
 pastey = "0.2.3"
@@ -67,7 +68,6 @@ hmac = "0.13"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 reqwest = { version = "0.13", default-features = false, features = ["socks"] }
-matrix-sdk-common.workspace = true
 matrix-sdk = { workspace = true, features = ["bundled-sqlite", "automatic-room-key-forwarding"] }
 tempfile = "3"
 rusqlite = { version = "0.40.2", default-features = false, features = ["backup"] }

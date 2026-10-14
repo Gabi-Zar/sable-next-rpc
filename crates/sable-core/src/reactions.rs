@@ -318,13 +318,12 @@ mod tests {
                 &original_view.content,
                 crate::protocol::TimelineItemContentView::Message { edited: true, .. }
             ));
-            for target in [annotation, replacement] {
-                let view = views
+            assert!(
+                views
                     .iter()
-                    .find(|item| item.event_id.as_deref() == Some(target))
-                    .unwrap();
-                assert!(view.reactions.is_empty());
-            }
+                    .filter(|item| item.event_id.as_deref() != Some(original))
+                    .all(|item| item.reactions.is_empty())
+            );
 
             let (core, _events) =
                 Core::new("reactions-test", Box::new(MemorySessionStore::default()));
