@@ -100,7 +100,7 @@
       <input
         type="range"
         min="0"
-        max={player?.duration}
+        max={duration ?? 0}
         step="0.01"
         value={seekPosition}
         aria-label={i18n.t('timeline.audioSeek')}
