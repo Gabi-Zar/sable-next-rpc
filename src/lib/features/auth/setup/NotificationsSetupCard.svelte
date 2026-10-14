@@ -6,9 +6,11 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { grantPermission, permissionState } from '#lib/features/notifications/present.js';
   import { i18n, t } from '#lib/i18n.js';
-  import { setPreference } from '#lib/settings/preferences.svelte.js';
+  import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
   import Button from '#lib/ui/primitives/Button.svelte';
   import OptionCards from '#lib/ui/primitives/OptionCards.svelte';
+  import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
+  import Switch from '#lib/ui/primitives/Switch.svelte';
   import AuthField from '../shared/AuthField.svelte';
   import AuthInfoBox from '../shared/AuthInfoBox.svelte';
   import AuthSecondaryAction from '../shared/AuthSecondaryAction.svelte';
@@ -29,6 +31,7 @@
   let groupModeChanged = false;
   let saving = $state(false);
   let error = $state<string | null>(null);
+  const contentId = $props.id();
 
   $effect(() => {
     let alive = true;
@@ -109,6 +112,26 @@
       <BellRingingIcon aria-hidden="true" />
       {i18n.t('common.allowNotifications')}
     </Button>
+  {/if}
+
+  {#if permission === 'granted'}
+    <ul class="settings-rows">
+      <SettingsRow
+        id="notification-content"
+        title={i18n.t('settings.notificationContent')}
+        description={i18n.t('settings.notificationContentHint')}
+        control={contentId}
+      >
+        <Switch
+          id={contentId}
+          checked={preferences.notificationContent}
+          label={i18n.t('settings.notificationContent')}
+          onCheckedChange={(checked) => {
+            setPreference('notificationContent', checked);
+          }}
+        />
+      </SettingsRow>
+    </ul>
   {/if}
 
   {#if askDefault}

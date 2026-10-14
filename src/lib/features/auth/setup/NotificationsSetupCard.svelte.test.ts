@@ -97,6 +97,22 @@ test('the OS prompt runs inside the click, and a grant turns the alerts on', asy
   expect(screen.getByText(/Notifications are on/)).toBeInTheDocument();
 });
 
+test('message text is offered once alerts are allowed and off until chosen', async () => {
+  present.permissionState.mockResolvedValueOnce('granted');
+  const { user } = await setup();
+
+  const toggle = screen.getByRole('switch', { name: 'Show message text' });
+  expect(toggle).not.toBeChecked();
+  await user.click(toggle);
+  expect(prefs.setPreference).toHaveBeenCalledWith('notificationContent', true);
+});
+
+test('message text is not offered while permission is pending', async () => {
+  await setup();
+
+  expect(screen.queryByRole('switch', { name: 'Show message text' })).not.toBeInTheDocument();
+});
+
 test('a permission already denied is not asked for again', async () => {
   present.permissionState.mockResolvedValueOnce('denied');
   await setup();
