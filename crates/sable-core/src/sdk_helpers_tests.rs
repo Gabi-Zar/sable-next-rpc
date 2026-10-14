@@ -427,6 +427,65 @@ async fn healthy_space_summary_does_not_fetch_missing_tombstone_state() {
     assert!(!summary.is_tombstoned);
 }
 
+#[tokio::test]
+async fn unreadable_space_children_keep_the_last_edges() {
+    let server = MatrixMockServer::new().await;
+    let store = tempfile::tempdir().unwrap();
+    let client = server
+        .client_builder()
+        .on_builder(|builder| builder.sqlite_store(store.path(), None))
+        .build()
+        .await;
+    let room_id = room_id!("!space:example.org");
+    let state = |kind: &str, key: &str, content: serde_json::Value| {
+        Raw::new(
+            &json!({"type": kind, "state_key": key, "sender": "@alice:example.org",
+            "event_id": format!("${kind}{key}"), "origin_server_ts": 1, "content": content}),
+        )
+        .unwrap()
+        .cast_unchecked()
+    };
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_state_event(state(
+                    "m.room.create",
+                    "",
+                    json!({"type": "m.space", "room_version": "10", "creator": "@alice:example.org"}),
+                ))
+                .add_state_event(state(
+                    "m.space.child",
+                    "!a:example.org",
+                    json!({"via": ["example.org"]}),
+                ))
+                .add_state_event(state(
+                    "m.space.child",
+                    "!b:example.org",
+                    json!({"via": ["example.org"]}),
+                )),
+        )
+        .await;
+    let item = RoomListItem::from(client.get_room(room_id).unwrap());
+    let diffs = [VectorDiff::Set {
+        index: 0,
+        value: item,
+    }];
+    let mut cache = HashMap::new();
+    crate::view::enrich_room_batch(&diffs, &mut cache).await;
+    assert_eq!(cache[room_id].children.len(), 2);
+    assert!(!cache[room_id].children_stale);
+
+    rusqlite::Connection::open(store.path().join("matrix-sdk-state.sqlite3"))
+        .unwrap()
+        .execute_batch("ALTER TABLE state_event RENAME TO state_event_gone")
+        .unwrap();
+    crate::view::enrich_room_batch(&diffs, &mut cache).await;
+
+    assert_eq!(cache[room_id].children.len(), 2);
+    assert!(cache[room_id].children_stale);
+}
+
 #[test]
 fn space_child_ties_follow_ruma_room_id_order() {
     let events = ["!z:example.org", "!a:example.org"].map(|room| {

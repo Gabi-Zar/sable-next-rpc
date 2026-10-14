@@ -110,7 +110,6 @@ impl Core {
                         }
 
                         view::prime_display_names(&diffs).await;
-                        room_cache.clear();
                         view::enrich_room_batch(&diffs, &mut room_cache).await;
                         let diffs: Vec<_> = diffs
                             .into_iter()
@@ -123,6 +122,7 @@ impl Core {
                         for diff in &diffs {
                             rows.apply(diff);
                         }
+                        rows.evict(&mut room_cache);
                         diffs
                     }
                     changed = rule_changes.recv() => {

@@ -1,12 +1,15 @@
 //! The host's copy of the room list, kept so that a push-rule change can resend
 //! only the rows whose notification mode it changed.
 
-use matrix_sdk::ruma::RoomId;
+use std::collections::HashMap;
+use std::hash::BuildHasher;
+
 use matrix_sdk::ruma::push::Ruleset;
+use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 
 use crate::protocol::{RoomListItemView, VectorDiff};
 use crate::push_rules::room_settings;
-use crate::view::{apply_diff, room_counts};
+use crate::view::{RoomInfo, apply_diff, room_counts};
 
 #[derive(Debug, Default)]
 pub(crate) struct RoomListRows {
@@ -16,6 +19,13 @@ pub(crate) struct RoomListRows {
 impl RoomListRows {
     pub(crate) fn apply(&mut self, diff: &VectorDiff<RoomListItemView>) {
         apply_diff(&mut self.rows, diff);
+    }
+
+    /// Forgets what the cache holds for rooms that left the list.
+    pub(crate) fn evict<S: BuildHasher>(&self, cache: &mut HashMap<OwnedRoomId, RoomInfo, S>) {
+        let listed: std::collections::HashSet<_> =
+            self.rows.iter().map(|row| &row.room_id).collect();
+        cache.retain(|room_id, _| listed.contains(room_id));
     }
 
     /// The `Set` diffs for every row whose mode `rules` changed. `direct`
@@ -105,6 +115,37 @@ mod tests {
         next.insert(NewPushRule::Override(mute), None, None)
             .expect("a new override");
         next
+    }
+
+    #[test]
+    fn evict_drops_rooms_that_left_the_list() {
+        let rules = Ruleset::server_default(user_id!("@me:example.org"));
+        let kept = room_id!("!kept:example.org");
+        let gone = room_id!("!gone:example.org");
+        let info = || RoomInfo {
+            is_space: false,
+            is_direct: false,
+            is_tombstoned: false,
+            supports_knock: false,
+            supports_restricted: false,
+            supports_knock_restricted: false,
+            canonical_alias: None,
+            avatar_url: None,
+            children: Vec::new(),
+            children_stale: false,
+            tags: Vec::new(),
+            screen_sharers: Vec::new(),
+        };
+        let mut cache = HashMap::from([(kept.to_owned(), info()), (gone.to_owned(), info())]);
+        let mut rows = RoomListRows::default();
+        rows.apply(&VectorDiff::Reset {
+            values: vec![summary(kept, &rules), summary(gone, &rules)],
+        });
+
+        rows.apply(&VectorDiff::Remove { index: 1 });
+        rows.evict(&mut cache);
+
+        assert_eq!(cache.keys().collect::<Vec<_>>(), [kept]);
     }
 
     #[test]

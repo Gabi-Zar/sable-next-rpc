@@ -88,6 +88,8 @@ pub struct RoomInfo {
     pub canonical_alias: Option<String>,
     pub avatar_url: Option<String>,
     pub children: Vec<SpaceChildEdge>,
+    /// The last read of `children` failed, so they are the previous ones.
+    pub children_stale: bool,
     pub tags: Vec<RoomTag>,
     pub screen_sharers: Vec<OwnedUserId>,
 }
@@ -345,9 +347,10 @@ pub async fn enrich_room_batch<S: BuildHasher>(
     diffs: &[eyeball_im::VectorDiff<RoomListItem>],
     room_cache: &mut HashMap<OwnedRoomId, RoomInfo, S>,
 ) {
-    let lookups = latest_items(diffs)
-        .into_iter()
-        .map(|item| async move { (item.room_id().to_owned(), room_info(item).await) });
+    let lookups = latest_items(diffs).into_iter().map(|item| {
+        let previous = room_cache.get(item.room_id());
+        async move { (item.room_id().to_owned(), room_info(item, previous).await) }
+    });
 
     for (room_id, info) in futures_util::future::join_all(lookups).await {
         room_cache.insert(room_id, info);
@@ -364,7 +367,7 @@ fn latest_items(diffs: &[eyeball_im::VectorDiff<RoomListItem>]) -> Vec<&RoomList
 
 pub async fn listless_room_list_item(room: Room, rules: &Ruleset) -> RoomListItemView {
     let item = RoomListItem::from(room);
-    let cache = HashMap::from([(item.room_id().to_owned(), room_info(&item).await)]);
+    let cache = HashMap::from([(item.room_id().to_owned(), room_info(&item, None).await)]);
     room_list_item(&item, &cache, rules)
 }
 
@@ -384,18 +387,19 @@ pub fn predecessor(room: &Room) -> Option<PredecessorRoomView> {
     })
 }
 
-async fn room_info(room: &Room) -> RoomInfo {
+async fn room_info(room: &Room, previous: Option<&RoomInfo>) -> RoomInfo {
     let is_space = room.is_space();
     let is_tombstoned = room.is_tombstoned();
     let children = async {
         if is_space {
-            space_children(room).await
+            kept_children(space_children(room).await, previous, room.room_id())
         } else {
-            Vec::new()
+            (Vec::new(), false)
         }
     };
 
-    let (children, is_direct) = futures_util::future::join(children, is_direct(room)).await;
+    let ((children, children_stale), is_direct) =
+        futures_util::future::join(children, is_direct(room)).await;
     let (supports_knock, supports_restricted, supports_knock_restricted) =
         crate::rooms::join_rule_support(room);
 
@@ -409,6 +413,7 @@ async fn room_info(room: &Room) -> RoomInfo {
         canonical_alias: room.canonical_alias().map(|alias| alias.to_string()),
         avatar_url: room_avatar_url(room).await,
         children,
+        children_stale,
         tags: room_tags(room),
         screen_sharers: if room.is_call() {
             crate::calls::screen_sharers(room).await
@@ -493,6 +498,7 @@ pub async fn restricted_parents(client: &Client, room: &Room) -> Vec<OwnedRoomId
     for space in client.joined_space_rooms() {
         let lists_room = space_children(&space)
             .await
+            .unwrap_or_default()
             .iter()
             .any(|edge| edge.room_id == room.room_id().as_str() && !edge.via.is_empty());
         if lists_room {
@@ -513,6 +519,7 @@ pub async fn listing_spaces(
         }
         let lists_room = space_children(&space)
             .await
+            .unwrap_or_default()
             .iter()
             .any(|edge| edge.room_id == room_id.as_str() && !edge.via.is_empty());
         if lists_room {
@@ -699,13 +706,34 @@ fn room_tags(room: &Room) -> Vec<RoomTag> {
     tags
 }
 
-async fn space_children(room: &Room) -> Vec<SpaceChildEdge> {
-    let Ok(events) = room
+/// A failed read must not empty the space, which would unspace its rooms.
+fn kept_children(
+    read: Result<Vec<SpaceChildEdge>, matrix_sdk::Error>,
+    previous: Option<&RoomInfo>,
+    room_id: &RoomId,
+) -> (Vec<SpaceChildEdge>, bool) {
+    match read {
+        Ok(children) => (children, false),
+        Err(error) => {
+            if !previous.is_some_and(|info| info.children_stale) {
+                tracing::warn!(
+                    "could not read the children of {room_id}, keeping the last ones: {error}"
+                );
+            }
+            (
+                previous
+                    .map(|info| info.children.clone())
+                    .unwrap_or_default(),
+                true,
+            )
+        }
+    }
+}
+
+async fn space_children(room: &Room) -> Result<Vec<SpaceChildEdge>, matrix_sdk::Error> {
+    let events = room
         .get_state_events_static::<SpaceChildEventContent>()
-        .await
-    else {
-        return Vec::new();
-    };
+        .await?;
 
     let mut events: Vec<_> = events
         .into_iter()
@@ -719,7 +747,7 @@ async fn space_children(room: &Room) -> Vec<SpaceChildEdge> {
         })
         .collect();
     events.sort_by(SpaceChildOrd::cmp_space_child);
-    events
+    Ok(events
         .into_iter()
         .map(|event| SpaceChildEdge {
             room_id: event.state_key.into(),
@@ -728,7 +756,7 @@ async fn space_children(room: &Room) -> Vec<SpaceChildEdge> {
             origin_server_ts: u64::from(event.origin_server_ts.get()),
             suggested: event.content.suggested,
         })
-        .collect()
+        .collect())
 }
 
 #[derive(Default)]
