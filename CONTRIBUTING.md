@@ -42,6 +42,11 @@ submit. For AI-generated output that status is ill-defined: training material is
 often under restrictive terms, and open source terms are not all AGPL-3.0
 compatible.
 
+We kindly ask contributors to join [#next:sable.moe](https://matrix.to/#/%23next%3Asable.moe) if they need help with the codebase
+instead of relying on the output of AI models. 
+
+We're always happy to support new contributors in creating their first PRs
+
 ## Release notes and versioning (Knope)
 
 We use [Knope](https://knope.tech/) to turn change files into the changelog and the release. Its configuration is [`knope.toml`](./knope.toml), and it talks to Forgejo through the `[gitea]` section.
