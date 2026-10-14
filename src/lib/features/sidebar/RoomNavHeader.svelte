@@ -8,6 +8,7 @@
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
+  import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
   import {
     PREFERENCE_RANGES,
     preferences,
@@ -52,51 +53,24 @@
   });
 
   let bannerShown = $derived(banner !== null && !collapsed && preferences.showRoomBanners);
-  let bannerResizing = $state(false);
-  let bannerResizeStartY = 0;
-  let bannerResizeStartHeight = 0;
-
-  function startBannerResize(event: PointerEvent): void {
-    event.preventDefault();
-    bannerResizing = true;
-    bannerResizeStartY = event.clientY;
-    bannerResizeStartHeight = preferences.roomBannerHeight;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-  }
-
-  function resizeBanner(event: PointerEvent): void {
-    if (!bannerResizing) return;
-    const { min, max } = PREFERENCE_RANGES.roomBannerHeight;
-    const height = Math.max(
-      min,
-      Math.min(max, bannerResizeStartHeight + event.clientY - bannerResizeStartY)
-    );
-    setPreference('roomBannerHeight', height);
-  }
-
-  function finishBannerResize(): void {
-    bannerResizing = false;
-  }
+  const { min: bannerMin, max: bannerMax } = PREFERENCE_RANGES.roomBannerHeight;
 </script>
 
 <div class="room-nav-top">
   {#if bannerShown && banner}
     <div class="room-banner" style:height={`${preferences.roomBannerHeight}px`}>
       <MediaImage source={banner} alt="" width={640} height={190} class="room-banner-image" />
-      <button
-        type="button"
-        class={['room-banner-resize', { dragging: bannerResizing }]}
-        role="slider"
-        aria-orientation="vertical"
-        aria-valuemin={PREFERENCE_RANGES.roomBannerHeight.min}
-        aria-valuemax={PREFERENCE_RANGES.roomBannerHeight.max}
-        aria-valuenow={preferences.roomBannerHeight}
-        aria-label={i18n.t('nav.resizeRooms')}
-        onpointerdown={startBannerResize}
-        onpointermove={resizeBanner}
-        onpointerup={finishBannerResize}
-        onpointercancel={finishBannerResize}
-      ></button>
+      <ResizeHandle
+        value={preferences.roomBannerHeight}
+        min={bannerMin}
+        max={bannerMax}
+        label={i18n.t('nav.resizeRooms')}
+        grow="down"
+        step={16}
+        shiftStep={64}
+        onResize={(next) =>
+          setPreference('roomBannerHeight', Math.max(bannerMin, Math.min(bannerMax, next)))}
+      />
     </div>
   {/if}
   <header class={['room-nav-header', { collapsed, 'on-banner': bannerShown }]}>
@@ -168,38 +142,9 @@
     position: relative;
   }
 
-  .room-banner-resize {
-    appearance: none;
-    background: transparent;
-    border: 0;
+  .room-banner :global(.resize-handle) {
     bottom: 0;
-    cursor: ns-resize;
-    height: 0.5rem;
-    left: 0;
-    padding: 0;
-    position: absolute;
-    touch-action: none;
-    transition: background-color 0s;
-    width: 100%;
     z-index: 1;
-  }
-
-  .room-banner-resize.dragging,
-  .room-banner-resize:focus-visible {
-    background: var(--primary-main);
-    transition: none;
-  }
-
-  @media (hover: hover) {
-    .room-banner-resize:hover {
-      background: var(--primary-main);
-      transition-delay: var(--motion-normal);
-    }
-  }
-
-  .room-banner-resize:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: -3px;
   }
 
   .room-banner :global(.room-banner-image),
