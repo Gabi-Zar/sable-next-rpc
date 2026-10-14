@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18n } from '#lib/i18n.js';
   import FileAudioIcon from 'phosphor-svelte/lib/FileAudioIcon';
   import PauseIcon from 'phosphor-svelte/lib/PauseIcon';
   import PlayIcon from 'phosphor-svelte/lib/PlayIcon';
@@ -71,6 +72,7 @@
       <button
         class="audio-play-button"
         type="button"
+        aria-label={i18n.t('timeline.playAudio', { name: label })}
         onclick={() => {
           if (!isPlaying) {
             player?.play();
