@@ -506,6 +506,8 @@ impl Handler for RedactParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
+        core.redact_edits(&self.room_id, &self.event_id, self.reason.as_deref())
+            .await?;
         let redacted = core
             .timeline_for(&self.room_id, self.thread_root.as_ref())
             .await?

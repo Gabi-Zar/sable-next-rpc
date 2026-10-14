@@ -283,6 +283,37 @@ impl Core {
         Ok(())
     }
 
+    /// Servers do not cascade a redaction to `m.replace` events, which keep the edited text.
+    pub(crate) async fn redact_edits(
+        &self,
+        room_id: &OwnedRoomId,
+        event_id: &OwnedEventId,
+        reason: Option<&str>,
+    ) -> Result<(), RpcError> {
+        let room = self.room(room_id).await?;
+        let (event, replacements) = match room
+            .load_or_fetch_event_with_relations(
+                event_id,
+                Some(vec![RelationType::Replacement]),
+                None,
+            )
+            .await
+        {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                tracing::warn!(%event_id, "edits not loaded before redaction: {error}");
+                return Ok(());
+            }
+        };
+        for edit_id in valid_replacements(&event, &replacements).filter_map(TimelineEvent::event_id)
+        {
+            room.redact(edit_id, reason, None)
+                .await
+                .or_failed(self, "redact")?;
+        }
+        Ok(())
+    }
+
     pub(crate) async fn delete_thread(
         &self,
         room_id: &OwnedRoomId,
@@ -1288,6 +1319,60 @@ mod tests {
             ]
         );
         assert_eq!(versions[2].html, "<b>third</b>");
+    }
+
+    #[tokio::test]
+    async fn redacting_edits_redacts_each_valid_edit() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room = room_id!("!redact:example.org");
+        server.sync_joined_room(&client, room).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        let edit = |id: &str, sender: &str| {
+            json!({
+            "type": "m.room.message", "event_id": id, "sender": sender, "origin_server_ts": 2,
+            "room_id": room, "content": {"msgtype": "m.text", "body": "* fallback",
+            "m.relates_to": {"rel_type": "m.replace", "event_id": "$original"},
+            "m.new_content": {"msgtype": "m.text", "body": "edited"}}})
+        };
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room}/event/$original"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "type": "m.room.message", "event_id": "$original", "sender": "@alice:example.org",
+                "origin_server_ts": 1, "room_id": room,
+                "content": {"msgtype": "m.text", "body": "first"}
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v1/rooms/{room}/relations/$original/m.replace"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": [
+                edit("$one", "@alice:example.org"),
+                edit("$two", "@alice:example.org"),
+                edit("$forged", "@mallory:example.org")
+            ]})))
+            .mount(server.server())
+            .await;
+        for edit_id in ["$one", "$two"] {
+            Mock::given(method("PUT"))
+                .and(wiremock::matchers::path_regex(format!(
+                    r"/_matrix/client/v3/rooms/{room}/redact/\{edit_id}/.*"
+                )))
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_json(json!({"event_id": "$redaction"})),
+                )
+                .expect(1)
+                .mount(server.server())
+                .await;
+        }
+        let core = core(&server, client).await;
+        core.redact_edits(&room.to_owned(), &event_id!("$original").to_owned(), None)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
