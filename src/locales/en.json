@@ -2677,6 +2677,7 @@
     "previewHint": "Point at an image for its shortcode.",
     "packMediaVisibility": "Custom emote and sticker images are not encrypted. Homeservers can see them.",
     "closeBoard": "Close emotes and stickers",
+    "resizeBoard": "Resize emotes and stickers",
     "formatting": "Formatting",
     "bold": "Bold",
     "italic": "Italic",

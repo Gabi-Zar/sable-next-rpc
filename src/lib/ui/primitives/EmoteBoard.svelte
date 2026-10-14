@@ -1,5 +1,6 @@
 <script lang="ts">
   import { MediaQuery } from 'svelte/reactivity';
+  import { innerWidth } from 'svelte/reactivity/window';
   import type { ImagePackView, ImageUsageView, PackImageView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import GifGrid from '#lib/gif/GifGrid.svelte';
@@ -9,6 +10,7 @@
   import { isPackChange, loadPacks } from '#lib/emoji/load-packs.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import VirtualList from 'svelte-tiny-virtual-list';
+  import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
@@ -91,8 +93,6 @@
   let recentReactions = $derived(uniqueReactions());
   let preview = $state.raw<{ image: PackImageView; pack: ImagePackView } | null>(null);
   let activeCell = $state.raw<{ section: string; index: number }>({ section: '', index: 0 });
-  let dragging = $state(false);
-  let drag: { pointerId: number; startX: number; startWidth: number } | undefined;
   let gridWidth = $state(0);
   let gridHeight = $state(0);
   let scrollToRow = $state(-1);
@@ -509,38 +509,14 @@
     onPick(image, tab as ImageUsageView, keepOpen);
   }
 
-  function handleResizeStart(event: PointerEvent) {
-    if (event.button !== 0) return;
+  const MIN_BOARD_WIDTH = 250;
+  let maxBoardWidth = $derived(Math.max(MIN_BOARD_WIDTH, (innerWidth.current ?? 0) - 32));
 
-    const handle = event.currentTarget;
-    if (!(handle instanceof HTMLElement)) return;
-
-    const boardSize = readBoardSize();
-    const width: number = boardSize != null ? boardSize.width : 550;
-
-    drag = { pointerId: event.pointerId, startX: event.clientX, startWidth: width };
-    dragging = true;
-    handle.setPointerCapture(event.pointerId);
-  }
-
-  function handleResizeMove(event: PointerEvent) {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-
-    const boardSize = readBoardSize();
-    const targetWidth = drag.startWidth - event.clientX + drag.startX;
-    if (targetWidth < 250) return;
-
-    const targetHeight: number = boardSize != null ? boardSize.height : 457;
-
-    if (Number.isFinite(targetWidth) && Number.isFinite(targetHeight))
-      writeBoardSize({ width: targetWidth, height: targetHeight });
-  }
-
-  function finishResize(event: PointerEvent) {
-    if (!drag || event.pointerId !== drag.pointerId) return;
-
-    drag = undefined;
-    dragging = false;
+  function resizeBoard(width: number): void {
+    writeBoardSize({
+      width: Math.max(MIN_BOARD_WIDTH, Math.min(maxBoardWidth, width)),
+      height: readBoardSize()?.height ?? 457,
+    });
   }
 </script>
 
@@ -549,18 +525,18 @@
   style={boardStyle}
   {@attach attachSize}
 >
-  <button
-    type="button"
-    class={[resizable ? 'resize-handle' : 'resize-handle-hidden', { dragging }]}
-    role="slider"
-    aria-orientation="horizontal"
-    aria-valuenow={readBoardSize()?.width}
-    aria-label={i18n.t('nav.resizeRooms')}
-    onpointerdown={handleResizeStart}
-    onpointermove={handleResizeMove}
-    onpointerup={finishResize}
-    onpointercancel={finishResize}
-  ></button>
+  {#if resizable}
+    <ResizeHandle
+      value={readBoardSize()?.width ?? 550}
+      min={MIN_BOARD_WIDTH}
+      max={maxBoardWidth}
+      label={i18n.t('composer.resizeBoard')}
+      grow="left"
+      step={16}
+      shiftStep={64}
+      onResize={resizeBoard}
+    />
+  {/if}
   <div class="board-head">
     {#if stickers || gifs}
       <div class="tabs" role="group" aria-label={i18n.t('composer.emotesAndStickers')}>
@@ -1176,43 +1152,7 @@
     text-align: center;
   }
 
-  .resize-handle {
-    appearance: none;
-    background: transparent;
-    border: 0;
+  .board :global(.resize-handle) {
     border-radius: 10px;
-    cursor: col-resize;
-    height: 100%;
-    padding: 0;
-    position: absolute;
-    top: 0;
-    touch-action: none;
-    transition: background-color 0s;
-    user-select: none;
-    width: 0.5rem;
-  }
-
-  .resize-handle:hover,
-  .resize-handle.dragging,
-  .resize-handle:focus-visible {
-    background: var(--primary-main);
-  }
-
-  .resize-handle:hover {
-    transition-delay: var(--motion-normal);
-  }
-
-  .resize-handle.dragging,
-  .resize-handle:focus-visible {
-    transition: none;
-  }
-
-  .resize-handle:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: -3px;
-  }
-
-  .resize-handle-hidden {
-    display: none;
   }
 </style>
