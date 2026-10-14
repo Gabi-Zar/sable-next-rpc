@@ -1216,6 +1216,7 @@ export type RoomPreviewView = {
 	join_rule: RoomJoinRuleView,
 	/**  `null` when this account has no membership in the room. */
 	state: RoomStateView | null,
+	via: string | null,
 };
 
 export type RoomReference = {

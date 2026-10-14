@@ -23,6 +23,7 @@ Object.assign(core.rpc.rooms, {
 });
 
 import JoinBeforeNavigate from './JoinBeforeNavigate.svelte';
+import { t } from '#lib/i18n.js';
 
 function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
   return {
@@ -35,6 +36,7 @@ function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
     num_joined_members: 3,
     join_rule: 'knock',
     state: null,
+    via: null,
     ...overrides,
   };
 }
@@ -51,18 +53,15 @@ test('sends the optional message with the request to join', async () => {
   core.rpc.rooms.knock.mockResolvedValue('!room:example.org');
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
-  await user.type(
-    await screen.findByLabelText('Message for the moderators (optional)'),
-    '  a friend of Ana  '
-  );
-  await user.click(screen.getByRole('button', { name: 'Ask to join' }));
+  await user.type(await screen.findByLabelText(t('join.knockReason')), '  a friend of Ana  ');
+  await user.click(screen.getByRole('button', { name: t('common.askToJoin') }));
 
   expect(core.rpc.rooms.knock).toHaveBeenCalledWith({
     address: '!room:example.org',
     via: [],
     reason: 'a friend of Ana',
   });
-  expect(screen.getByRole('status')).toHaveTextContent('Your request to join has been sent.');
+  expect(screen.getByRole('status')).toHaveTextContent(t('join.knockSent'));
 });
 
 test('a blank message sends no reason', async () => {
@@ -71,7 +70,7 @@ test('a blank message sends no reason', async () => {
   core.rpc.rooms.knock.mockResolvedValue('!room:example.org');
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
-  await user.click(await screen.findByRole('button', { name: 'Ask to join' }));
+  await user.click(await screen.findByRole('button', { name: t('common.askToJoin') }));
 
   expect(core.rpc.rooms.knock).toHaveBeenCalledWith({
     address: '!room:example.org',
@@ -86,8 +85,8 @@ test('a pending request can be withdrawn', async () => {
   core.rpc.rooms.leave.mockResolvedValue(null);
   render(JoinBeforeNavigate, { roomId: '!room:example.org', membership: "knocked" });
 
-  await user.click(await screen.findByRole('button', { name: 'Withdraw request' }));
+  await user.click(await screen.findByRole('button', { name: t('join.withdraw') }));
 
   expect(core.rpc.rooms.leave).toHaveBeenCalledWith({ room_id: '!room:example.org' });
-  expect(screen.getByRole('button', { name: 'Ask to join' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t('common.askToJoin') })).toBeInTheDocument();
 });

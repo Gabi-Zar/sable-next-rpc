@@ -17,10 +17,14 @@
 
 <main class="lobby-page">
   <div class="lobby-column">
-    {#if space !== null || !roomList.settled}
+    {#if (space !== null && space.state === 'joined') || !roomList.settled}
       <SpaceLobby {space} />
     {:else}
-      <JoinBeforeNavigate roomId={spaceId} via={page.url.searchParams.getAll('via')} />
+      <JoinBeforeNavigate
+        roomId={spaceId}
+        via={page.url.searchParams.getAll('via')}
+        membership={space?.state}
+      />
     {/if}
   </div>
 </main>

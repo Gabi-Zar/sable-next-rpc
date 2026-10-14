@@ -28,10 +28,15 @@ export function roomIconOverlay(room: RoomIconShape): RoomIconOverlay | null {
   // by default, so we don't show an icon overlay for those rooms.
   // We show a globe for explicitly public rooms and a lock for explicitly private rooms.
   // For rooms outside a space, we always show either a globe or a lock.
+  // For spaces, we only show a lock if they're private, since spaces are usually public by default.
 
-  if (room.joinRule === 'public') {
+  if (room.roomKind === null) {
+    return null;
+  }
+
+  if (room.joinRule === 'public' && room.roomKind !== 'space') {
     return 'globe';
-  } else if (!room.hasParent || isPrivate(room.joinRule)) {
+  } else if (!(room.hasParent || room.roomKind === 'space') || isPrivate(room.joinRule)) {
     return 'lock';
   } else {
     return null;

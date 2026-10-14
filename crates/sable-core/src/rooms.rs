@@ -509,18 +509,25 @@ impl Core {
         address: &str,
         via: &[String],
     ) -> Result<RoomPreviewView, RpcError> {
+        let client = self.client().await?;
         let address = RoomOrAliasId::parse(address).map_err(|_| RpcError::UnknownRoom)?;
         let via = via
             .iter()
             .filter_map(|server| ServerName::parse(server).ok())
             .collect::<Vec<_>>();
 
-        let preview = self
-            .client()
-            .await?
+        let mut preview = client
             .get_room_preview(&address, via)
             .await
             .or_failed(self, "room_preview")?;
+
+        // If the server didn't provide the state, but we have it locally,
+        // fill it in before returning
+        if let state @ None = &mut preview.state
+            && let Some(room) = client.get_room(&preview.room_id)
+        {
+            *state = Some(room.state());
+        }
 
         Ok(view::room_preview_view(&preview))
     }

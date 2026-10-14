@@ -1,5 +1,5 @@
-use crate::api::{account::ProfilePropagationView, rooms::RoomKind};
 use crate::api::timeline::TimelineFocusView;
+use crate::api::{account::ProfilePropagationView, rooms::RoomKind};
 use std::{collections::HashMap, sync::Arc};
 
 use matrix_sdk::{

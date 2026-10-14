@@ -1,4 +1,5 @@
 use matrix_sdk::ruma::{OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedUserId};
+use ruma::OwnedServerName;
 pub use sable_model::calendar::{CalendarRsvpView, RsvpStatusView};
 pub use sable_model::event_preview::ReplyFallbackView;
 pub use sable_model::markdown::{ComposerContent, ComposerMentions, ComposerPill};
@@ -966,6 +967,8 @@ pub struct RoomPreviewView {
     pub join_rule: RoomJoinRuleView,
     /// `null` when this account has no membership in the room.
     pub state: Option<RoomStateView>,
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub via: Option<OwnedServerName>,
 }
 
 #[derive(Debug, Clone, Serialize)]

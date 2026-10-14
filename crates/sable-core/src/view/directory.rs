@@ -109,6 +109,7 @@ pub fn room_preview_view(preview: &RoomPreview) -> RoomPreviewView {
             RoomState::Left => RoomStateView::Left,
             RoomState::Banned => RoomStateView::Banned,
         }),
+        via: None,
     }
 }
 
