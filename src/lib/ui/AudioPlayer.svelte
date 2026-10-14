@@ -4,7 +4,6 @@
   import PauseIcon from 'phosphor-svelte/lib/PauseIcon';
   import PlayIcon from 'phosphor-svelte/lib/PlayIcon';
   import { onDestroy, onMount } from 'svelte';
-  import { on } from 'svelte/events';
 
   interface Props {
     src: string;
@@ -35,34 +34,14 @@
   let { src, label, filename, attachedTop = false }: Props = $props();
 
   const updateTime = () => {
-    if (!seekUserIsInteracting) {
+    if (!seekUserIsInteracting && player) {
       seekPosition = player?.currentTime || 0;
     }
     animationId = requestAnimationFrame(updateTime);
   };
 
   onMount(() => {
-    player = new Audio(src);
-    player.preload = 'metadata';
     animationId = requestAnimationFrame(updateTime);
-
-    on(player, 'loadedmetadata', () => {
-      if (player?.duration) {
-        duration = player.duration;
-      }
-    });
-
-    on(player, 'play', () => {
-      isPlaying = true;
-    });
-
-    on(player, 'pause', () => {
-      isPlaying = false;
-    });
-
-    on(player, 'ended', () => {
-      isPlaying = false;
-    });
   });
 
   onDestroy(() => {
@@ -72,69 +51,78 @@
   });
 </script>
 
-{#key player}
-  <div
-    class="audio-container {attachedTop
-      ? 'audio-container-attached'
-      : 'audio-container-unattached'}"
-    aria-label={label}
+<div
+  class="audio-container {attachedTop ? 'audio-container-attached' : 'audio-container-unattached'}"
+  aria-label={label}
+>
+  <audio
+    bind:this={player}
+    {src}
+    preload="metadata"
+    aria-hidden="true"
+    onloadedmetadata={() => {
+      if (player?.duration) {
+        duration = player.duration;
+      }
+    }}
+    onplay={() => (isPlaying = true)}
+    onpause={() => (isPlaying = false)}
+    onended={() => (isPlaying = false)}
   >
-    {#if !attachedTop}
-      <div class="audio-header">
-        <FileAudioIcon size={24} />
-        <span class="audio-filename">{filename}</span>
-      </div>
-    {/if}
-
-    <div class="audio-controls">
-      <button
-        class="audio-play-button"
-        type="button"
-        aria-label={i18n.t('timeline.playAudio', { name: label })}
-        onclick={() => {
-          if (!isPlaying) {
-            try {
-              player?.play();
-            } catch (err) {
-              console.warn("[sable media] audio playback couldn't start: ", err);
-            }
-          } else {
-            player?.pause();
-          }
-        }}
-      >
-        {#if isPlaying}
-          <PauseIcon weight="fill" />
-        {:else}
-          <PlayIcon weight="fill" />
-        {/if}
-      </button>
-      <p class="audio-timestamp">
-        {formatTimestamp(seekPosition)} /
-        <span class="audio-timestamp-duration"
-          >{duration ? formatTimestamp(duration) : 'XX:XX'}</span
-        >
-      </p>
-      <input
-        type="range"
-        min="0"
-        max={duration ?? 0}
-        step="0.01"
-        value={seekPosition}
-        aria-label={i18n.t('timeline.audioSeek')}
-        onpointerdown={() => (seekUserIsInteracting = true)}
-        onpointerup={() => (seekUserIsInteracting = false)}
-        onpointercancel={() => (seekUserIsInteracting = false)}
-        oninput={(e) => {
-          if (player) {
-            player.currentTime = +e.currentTarget.value;
-            seekPosition = +e.currentTarget.value;
-          }
-        }}
-      />
+  </audio>
+  {#if !attachedTop}
+    <div class="audio-header">
+      <FileAudioIcon size={24} />
+      <span class="audio-filename">{filename}</span>
     </div>
+  {/if}
+
+  <div class="audio-controls">
+    <button
+      class="audio-play-button"
+      type="button"
+      aria-label={i18n.t('timeline.playAudio', { name: label })}
+      onclick={() => {
+        if (!isPlaying) {
+          try {
+            player?.play();
+          } catch (err) {
+            console.warn("[sable media] audio playback couldn't start: ", err);
+          }
+        } else {
+          player?.pause();
+        }
+      }}
+    >
+      {#if isPlaying}
+        <PauseIcon weight="fill" />
+      {:else}
+        <PlayIcon weight="fill" />
+      {/if}
+    </button>
+    <p class="audio-timestamp">
+      {formatTimestamp(seekPosition)} /
+      <span class="audio-timestamp-duration">{duration ? formatTimestamp(duration) : 'XX:XX'}</span>
+    </p>
+    <input
+      type="range"
+      min="0"
+      max={duration ?? 0}
+      step="0.01"
+      value={seekPosition}
+      aria-label={i18n.t('timeline.audioSeek')}
+      onpointerdown={() => (seekUserIsInteracting = true)}
+      onpointerup={() => (seekUserIsInteracting = false)}
+      onpointercancel={() => (seekUserIsInteracting = false)}
+      oninput={(e) => {
+        if (player) {
+          player.currentTime = +e.currentTarget.value;
+          seekPosition = +e.currentTarget.value;
+        }
+      }}
+    />
   </div>
-{/key}
+</div>
 
 <style>
   .audio-container {
