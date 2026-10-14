@@ -1,3 +1,4 @@
+import { createRpc } from '#src/generated/protocol';
 import type { RpcError, RpcResult, CoreEvent, SubscriptionId, Rpc } from '#src/generated/protocol';
 import type { WorkerMessage, WorkerRequest } from './protocol';
 import { TimelineEventRouter } from './timeline-event-router';
@@ -47,7 +48,9 @@ export function createCoreWorkerBoundary(
     void core.then(async (instance) => {
       for (const subscription of subscriptions) {
         try {
-          await instance.call('timeline.unsubscribe', JSON.stringify({ subscription }));
+          await createRpc(async (method, params) =>
+            instance.call(method, JSON.stringify(params))
+          ).timeline.unsubscribe({ subscription });
         } catch (error) {
           // The owner is gone, so cleanup errors cannot be reported to a page.
           console.debug('[sable worker] closed port subscription not released', error);
@@ -68,7 +71,9 @@ export function createCoreWorkerBoundary(
 
   function handlePanic(message: string, stack?: string): void {
     panic ??= message;
-    broadcast({ panic: stack === undefined ? { message } : { message, stack } });
+    broadcast({
+      panic: stack === undefined ? { message } : { message, stack },
+    });
   }
 
   function flushLogs(): void {
@@ -137,7 +142,10 @@ export function createCoreWorkerBoundary(
         if (ports.size !== 1) {
           port.postMessage({
             id: request.id,
-            err: { code: 'failed', log_id: 'close other Sable tabs before resetting the cache' },
+            err: {
+              code: 'failed',
+              log_id: 'close other Sable tabs before resetting the cache',
+            },
           });
           return;
         }
@@ -164,7 +172,10 @@ export function createCoreWorkerBoundary(
       let pendingTimeline = false;
 
       if (panic !== null) {
-        port.postMessage({ id, err: { code: 'failed', log_id: `core panicked: ${panic}` } });
+        port.postMessage({
+          id,
+          err: { code: 'failed', log_id: `core panicked: ${panic}` },
+        });
         return;
       }
 
@@ -277,9 +288,14 @@ export function createCoreWorkerBoundary(
           const { method } = request.call;
           const params = JSON.stringify(request.call.params);
           if (method === 'timeline.paginate' || method === 'timeline.unsubscribe') {
-            const { subscription } = request.call.params as { subscription: SubscriptionId };
+            const { subscription } = request.call.params as {
+              subscription: SubscriptionId;
+            };
             if (!timelineEvents.owns(subscription, port)) {
-              port.postMessage({ id, err: { code: 'denied' } } satisfies WorkerMessage);
+              port.postMessage({
+                id,
+                err: { code: 'denied' },
+              } satisfies WorkerMessage);
               return;
             }
           }
