@@ -13,8 +13,8 @@ use matrix_sdk::ruma::events::push_rules::PushRulesEvent;
 use matrix_sdk::ruma::push::{
     Action, AnyPushRuleRef, EventMatchConditionData, HighlightTweakValue, NewConditionalPushRule,
     NewPatternedPushRule, NewPushRule, NewSimplePushRule, PredefinedContentRuleId,
-    PredefinedOverrideRuleId, PredefinedUnderrideRuleId, PushCondition, RuleKind, Ruleset,
-    SoundTweakValue, Tweak,
+    PredefinedOverrideRuleId, PredefinedUnderrideRuleId, PushCondition,
+    RoomMemberCountConditionData, RuleKind, Ruleset, SoundTweakValue, Tweak,
 };
 use tokio::sync::{RwLock, broadcast};
 
@@ -328,11 +328,12 @@ const fn encrypted_rule(direct: bool) -> PredefinedUnderrideRuleId {
     }
 }
 
-const fn default_family(direct: bool) -> [&'static str; 6] {
+const fn default_family(direct: bool) -> [&'static str; 7] {
     if direct {
         [
             ".m.rule.room_one_to_one",
             ".m.rule.encrypted_room_one_to_one",
+            STICKER_DIRECT,
             ".m.rule.poll_start_one_to_one",
             ".m.rule.poll_end_one_to_one",
             ".org.matrix.msc3930.rule.poll_start_one_to_one",
@@ -342,6 +343,7 @@ const fn default_family(direct: bool) -> [&'static str; 6] {
         [
             ".m.rule.message",
             ".m.rule.encrypted",
+            STICKER,
             ".m.rule.poll_start",
             ".m.rule.poll_end",
             ".org.matrix.msc3930.rule.poll_start",
@@ -503,6 +505,8 @@ pub fn plan_default_mode(
         .collect())
 }
 
+const STICKER: &str = "moe.sable.sticker";
+const STICKER_DIRECT: &str = "moe.sable.sticker_one_to_one";
 const SUPPRESS_BRIDGE_STATUS: &str = "moe.sable.suppress_bridge_status";
 const SUPPRESS_REACTIONS: &str = "moe.sable.suppress_reactions";
 
@@ -533,6 +537,8 @@ pub fn plan_alignment(rules: &Ruleset) -> Vec<RuleWrite> {
         .flatten()
         .collect();
 
+    writes.extend(align_stickers(rules, false));
+    writes.extend(align_stickers(rules, true));
     writes.extend(silence_event_type(
         rules,
         SUPPRESS_BRIDGE_STATUS,
@@ -546,6 +552,48 @@ pub fn plan_alignment(rules: &Ruleset) -> Vec<RuleWrite> {
         Some(PredefinedOverrideRuleId::Reaction.as_str()),
     ));
     writes
+}
+
+/// The spec's default rules only match `m.room.message`, so a sticker would never notify.
+fn align_stickers(rules: &Ruleset, direct: bool) -> Vec<RuleWrite> {
+    let Some(message) = rules.get(RuleKind::Underride, message_rule(direct).as_str()) else {
+        return vec![];
+    };
+    let notify = rule_notifies(message);
+    let rule_id = if direct { STICKER_DIRECT } else { STICKER };
+    let actions = if notify { spec_actions(direct) } else { vec![] };
+    match rules.underride.iter().find(|rule| rule.rule_id == rule_id) {
+        None => {
+            let mut conditions = vec![PushCondition::EventMatch(EventMatchConditionData::new(
+                "type".to_owned(),
+                "m.sticker".to_owned(),
+            ))];
+            if direct {
+                conditions.insert(
+                    0,
+                    PushCondition::RoomMemberCount(RoomMemberCountConditionData::new(
+                        matrix_sdk::ruma::uint!(2).into(),
+                    )),
+                );
+            }
+            vec![RuleWrite::Put(NewPushRule::Underride(
+                NewConditionalPushRule::new(rule_id.to_owned(), conditions, actions),
+            ))]
+        }
+        Some(rule) if rule.enabled && notifies(&rule.actions) == notify => vec![],
+        Some(_) => vec![
+            RuleWrite::Actions {
+                kind: RuleKind::Underride,
+                rule_id: rule_id.to_owned(),
+                actions,
+            },
+            RuleWrite::Enabled {
+                kind: RuleKind::Underride,
+                rule_id: rule_id.to_owned(),
+                enabled: true,
+            },
+        ],
+    }
 }
 
 fn silence_event_type(
@@ -911,11 +959,11 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        RuleWrite, SUPPRESS_BRIDGE_STATUS, SUPPRESS_REACTIONS, default_modes, event_notifications,
-        event_notifies, keywords, level_actions, master_muted, mention_notifications,
-        plan_add_keyword, plan_alignment, plan_default_mode, plan_event, plan_keyword_mode,
-        plan_master, plan_mention, plan_remove_keyword, plan_room_mode,
-        pushes_every_encrypted_event, room_mode,
+        RuleWrite, STICKER, STICKER_DIRECT, SUPPRESS_BRIDGE_STATUS, SUPPRESS_REACTIONS,
+        default_modes, event_notifications, event_notifies, keywords, level_actions, master_muted,
+        mention_notifications, plan_add_keyword, plan_alignment, plan_default_mode, plan_event,
+        plan_keyword_mode, plan_master, plan_mention, plan_remove_keyword, plan_room_mode,
+        pushes_every_encrypted_event, room_mode, rule_notifies,
     };
     use crate::protocol::{
         EventNotificationView, MentionNotificationModeView, MentionRuleView, NotificationModeView,
@@ -1163,10 +1211,43 @@ mod tests {
                 "enabled underride .m.rule.encrypted_room_one_to_one true",
                 "actions underride .m.rule.encrypted []",
                 "enabled underride .m.rule.encrypted true",
+                "actions underride moe.sable.sticker []",
+                "enabled underride moe.sable.sticker true",
             ]
         );
         let aligned = applied(rules.clone(), plan_alignment(&rules));
         assert!(plan_alignment(&aligned).is_empty());
+    }
+
+    #[test]
+    fn stickers_notify_exactly_where_messages_do() {
+        let defaults = Ruleset::server_default(me());
+        let mut rules = applied(defaults.clone(), plan_alignment(&defaults));
+        for mode in [NotificationModeView::Mentions, NotificationModeView::All] {
+            for direct in [false, true] {
+                rules = applied(
+                    rules.clone(),
+                    plan_default_mode(&rules, direct, mode).unwrap(),
+                );
+                let sticker = rules
+                    .get(
+                        RuleKind::Underride,
+                        if direct { STICKER_DIRECT } else { STICKER },
+                    )
+                    .unwrap();
+                assert_eq!(rule_notifies(sticker), mode == NotificationModeView::All);
+            }
+        }
+        assert!(plan_alignment(&rules).is_empty());
+    }
+
+    #[test]
+    fn a_direct_sticker_rule_ranks_above_the_group_one() {
+        let defaults = Ruleset::server_default(me());
+        let rules = applied(defaults.clone(), plan_alignment(&defaults));
+        let position = |id: &str| rules.underride.iter().position(|rule| rule.rule_id == id);
+
+        assert!(position(STICKER_DIRECT) < position(STICKER));
     }
 
     #[test]

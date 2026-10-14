@@ -370,6 +370,11 @@ async fn bridge_status_events_do_not_notify() {
         .expect(1)
         .mount(server.server())
         .await;
+    Mock::given(method("PUT"))
+        .and(path_regex(r"/pushrules/global/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(server.server())
+        .await;
     core.align_notification_rules().await;
     let rules = core.push_rules().await.unwrap().snapshot().await;
 
