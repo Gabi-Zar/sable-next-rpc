@@ -15,6 +15,7 @@ const video: TimelineItemContentView = {
   blurhash: null,
   thumbnail: null,
   spoiler: null,
+  playback: null,
 };
 
 test.each([

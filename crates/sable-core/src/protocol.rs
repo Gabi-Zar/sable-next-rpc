@@ -1605,6 +1605,7 @@ pub enum TimelineItemContentView {
         blurhash: Option<String>,
         thumbnail: Option<String>,
         spoiler: Option<String>,
+        playback: Option<VideoPlaybackView>,
     },
     Audio {
         filename: String,
@@ -2333,6 +2334,21 @@ pub struct CalendarEntryView {
 pub struct CalendarView {
     pub entries: Vec<CalendarEntryView>,
     pub rsvps: Vec<CalendarRsvpView>,
+}
+
+/// Bridge hints from a video's `info`: the `fi.mau.*` flags mautrix sets on gifs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "wire type mirroring the protocol"
+)]
+pub struct VideoPlaybackView {
+    pub gif: bool,
+    pub autoplay: bool,
+    pub looping: bool,
+    pub hide_controls: bool,
+    pub no_audio: bool,
 }
 
 /// MSC4549 track details from an `m.audio` event's `info`.

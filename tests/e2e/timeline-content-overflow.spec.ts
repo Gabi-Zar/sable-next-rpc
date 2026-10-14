@@ -97,6 +97,7 @@ const cases: Record<string, TimelineItemView> = {
       blurhash: null,
       thumbnail: null,
       spoiler: null,
+      playback: null,
     },
   },
   audio: {

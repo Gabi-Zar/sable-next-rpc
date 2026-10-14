@@ -94,6 +94,7 @@ function attachment(kind: 'image' | 'video' | 'audio' | 'file'): TimelineItemCon
         blurhash: null,
         thumbnail: null,
         spoiler: null,
+        playback: null,
       };
     case 'audio':
       return { ...base, kind, duration_ms: null, waveform: null, voice: false, metadata: null };

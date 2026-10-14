@@ -70,7 +70,7 @@ use crate::protocol::{
     RoomTag, RoomUnreadView, SearchContextView, SearchHitView, SendBlockView, SendStateView,
     SpaceChildEdge, SpaceHierarchyRoomView, StateChangeView, ThreadSummaryView,
     TimelineItemContentView, TimelineItemView, TimelineRowKind, TimelineVisibility,
-    UploadProgressView, UrlPreviewView, UtdCauseView, VectorDiff,
+    UploadProgressView, UrlPreviewView, UtdCauseView, VectorDiff, VideoPlaybackView,
 };
 
 // Independent room capabilities.
@@ -1920,6 +1920,20 @@ pub(crate) fn audio_metadata(content: Option<&serde_json::Value>) -> Option<Audi
     .then_some(view)
 }
 
+pub(crate) fn video_playback(content: Option<&serde_json::Value>) -> Option<VideoPlaybackView> {
+    let info = content?.get("info")?.as_object()?;
+    let flag = |name: &str| info.get(name).and_then(serde_json::Value::as_bool) == Some(true);
+    let view = VideoPlaybackView {
+        gif: flag("fi.mau.gif"),
+        autoplay: flag("fi.mau.autoplay"),
+        looping: flag("fi.mau.loop"),
+        hide_controls: flag("fi.mau.hide_controls"),
+        no_audio: flag("fi.mau.no_audio"),
+    };
+    (view.gif || view.autoplay || view.looping || view.hide_controls || view.no_audio)
+        .then_some(view)
+}
+
 pub(crate) fn spoiler_reason(content: Option<&serde_json::Value>) -> Option<String> {
     const REASON: &str = "page.codeberg.everypizza.msc4193.spoiler.reason";
 
@@ -2145,6 +2159,7 @@ fn message_content(
                 blurhash: video.info.as_ref().and_then(|info| info.blurhash.clone()),
                 thumbnail: video.info.as_deref().and_then(video_thumbnail),
                 spoiler: spoiler_reason(raw.content.as_ref()),
+                playback: video_playback(raw.content.as_ref()),
             }
         }
         MessageType::Audio(audio) => {
@@ -2811,7 +2826,7 @@ mod tests {
         LocalContent, RoomSendQueueUpdate, SerializableEventContent, audio_metadata,
         bundled_link_previews, bundled_thread_summary, caption_view, clamp_power_level,
         forward_meta, geo_coordinates, in_call, per_message_profile, relay_author, relay_profile,
-        via_servers,
+        via_servers, video_playback,
     };
     use matrix_sdk::ruma::events::room::power_levels::UserPowerLevel;
     use matrix_sdk::ruma::serde::Raw;
@@ -2866,6 +2881,19 @@ mod tests {
 
         assert!(audio_metadata(Some(&json!({"info": {"audio_metadata": {"title": 5}}}))).is_none());
         assert!(audio_metadata(Some(&json!({"info": {}}))).is_none());
+    }
+
+    #[test]
+    fn video_playback_reads_the_mautrix_flags() {
+        let gif = video_playback(Some(&json!({"info": {
+            "fi.mau.gif": true, "fi.mau.loop": true, "fi.mau.no_audio": true,
+            "fi.mau.hide_controls": true, "fi.mau.autoplay": true
+        }})))
+        .expect("playback");
+        assert!(gif.gif && gif.looping && gif.no_audio && gif.hide_controls && gif.autoplay);
+
+        assert!(video_playback(Some(&json!({"info": {"fi.mau.gif": "yes"}}))).is_none());
+        assert!(video_playback(Some(&json!({"info": {"mimetype": "video/mp4"}}))).is_none());
     }
 
     #[test]

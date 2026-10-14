@@ -2,7 +2,7 @@
   import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
   import PlayIcon from 'phosphor-svelte/lib/PlayIcon';
 
-  import type { AudioMetadataView } from '#src/generated/protocol';
+  import type { AudioMetadataView, VideoPlaybackView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { saveFile, savesNatively } from '#lib/platform/files.js';
@@ -25,6 +25,7 @@
   import { isThemeFileName, MAX_THEME_FILE_BYTES } from '#lib/settings/theme-file.js';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import { videoStreamingSupported, videoStreamUrl } from '#lib/ui/video-stream.svelte.js';
+  import { videoPlayback } from '#lib/ui/video-playback.js';
   import { canPlayVideo } from '#lib/ui/video-support.js';
   import {
     MAX_TEXT_ATTACHMENT_BYTES,
@@ -48,6 +49,7 @@
     durationMs?: number | null;
     waveform?: number[] | null;
     audioMetadata?: AudioMetadataView | null;
+    playback?: VideoPlaybackView | null;
     onOpen?: () => void;
     class?: string;
   }
@@ -66,6 +68,7 @@
     durationMs = null,
     waveform = null,
     audioMetadata = null,
+    playback = null,
     class: className = '',
   }: Props = $props();
   const core = useCoreClient();
@@ -101,7 +104,10 @@
   let startedSource = $state<string | null>(null);
   let streamUrl: string | null = null;
   let streamEpoch = 0;
-  let started = $derived(startedSource === source);
+  let video = $derived(videoPlayback(playback));
+  let started = $derived(
+    startedSource === source || (kind === 'video' && video.autoplay && !transcode)
+  );
   let awaitingPlay = $derived(kind === 'video' && !started && url === null);
   let posterFailed = $state<string | null>(null);
   let aspectRatio = $derived(
@@ -311,13 +317,14 @@
     </span>
   {:else if url}
     {#if kind === 'video'}
-      <!-- Matrix carries no caption track for an attachment. -->
-      <!-- svelte-ignore a11y_media_has_caption -->
       <video
         bind:this={videoEl}
         class="media-content media-video"
-        controls
+        controls={video.controls}
         autoplay={started}
+        loop={video.loop}
+        muted={video.muted}
+        playsinline
         src={url}
         poster={posterUrl}
         width={width ?? undefined}

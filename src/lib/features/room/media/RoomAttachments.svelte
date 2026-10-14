@@ -192,6 +192,7 @@
             blurhash: content.blurhash,
             thumbnail: content.thumbnail,
             spoiler: content.spoiler,
+            playback: null,
           },
         ];
       case 'file':

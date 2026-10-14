@@ -1626,7 +1626,7 @@ jumbo: number | null } | { kind: "image"; filename: string; caption: string | nu
 /**  Sanitised display HTML for a formatted caption, when present. */
 html: string | null; source: string; mime: string | null; width: number | null; height: number | null; size: number | null; blurhash: string | null; thumbnail: string | null; spoiler: string | null; animated: boolean | null } | { kind: "video"; filename: string; caption: string | null;
 /**  Sanitised display HTML for a formatted caption, when present. */
-html: string | null; source: string; mime: string | null; width: number | null; height: number | null; blurhash: string | null; thumbnail: string | null; spoiler: string | null } | { kind: "audio"; filename: string; caption: string | null;
+html: string | null; source: string; mime: string | null; width: number | null; height: number | null; blurhash: string | null; thumbnail: string | null; spoiler: string | null; playback: VideoPlaybackView | null } | { kind: "audio"; filename: string; caption: string | null;
 /**  Sanitised display HTML for a formatted caption, when present. */
 html: string | null; source: string; mime: string | null; duration_ms: number | null; waveform: number[] | null; voice: boolean; metadata: AudioMetadataView | null } | { kind: "file"; filename: string; caption: string | null;
 /**  Sanitised display HTML for a formatted caption, when present. */
@@ -1851,6 +1851,15 @@ initiated_by_us: boolean } |
 export type ViaSplit = {
 	href: string,
 	via: string[],
+};
+
+/**  Bridge hints from a video's `info`: the `fi.mau.*` flags mautrix sets on gifs. */
+export type VideoPlaybackView = {
+	gif: boolean,
+	autoplay: boolean,
+	looping: boolean,
+	hide_controls: boolean,
+	no_audio: boolean,
 };
 
 export type WebPushKeys = {

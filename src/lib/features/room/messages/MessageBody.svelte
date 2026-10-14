@@ -232,6 +232,7 @@
       durationMs={item.content.kind === 'audio' ? item.content.duration_ms : null}
       waveform={item.content.kind === 'audio' ? item.content.waveform : null}
       audioMetadata={item.content.kind === 'audio' ? item.content.metadata : null}
+      playback={item.content.kind === 'video' ? item.content.playback : null}
       onOpen={item.event_id ? () => onOpenMedia?.(item.event_id ?? '') : undefined}
     />
     {#if showCaption && item.content.html}

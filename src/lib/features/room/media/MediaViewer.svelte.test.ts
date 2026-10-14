@@ -49,6 +49,7 @@ const videoItem: MediaItem = {
   blurhash: null,
   thumbnail: null,
   spoiler: null,
+  playback: null,
   eventId: '$video',
   sender: 'Alice',
 };
