@@ -133,6 +133,21 @@ flatpak install sable-next-nightly moe.sable.next.Nightly
 Built by the `build-nightly-flatpak` and `publish-nightly-flatpak` jobs in
 [`tauri-build.yml`](.github/workflows/tauri-build.yml).
 
+## Linux (deb and rpm)
+
+Packages are published to the Forgejo registries at `git.sable.moe`. Use `nightly` instead of `stable` for nightly builds; the package is then `sable-next`.
+
+```sh
+# Debian, Ubuntu
+sudo curl https://git.sable.moe/api/packages/SableClient/debian/repository.key -o /etc/apt/keyrings/forgejo-SableClient.asc
+echo "deb [signed-by=/etc/apt/keyrings/forgejo-SableClient.asc] https://git.sable.moe/api/packages/SableClient/debian stable main" | sudo tee /etc/apt/sources.list.d/sable.list
+sudo apt update && sudo apt install sable
+
+# Fedora, RHEL, openSUSE
+sudo dnf config-manager addrepo --from-repofile=https://git.sable.moe/api/packages/SableClient/rpm/stable.repo
+sudo dnf install sable
+```
+
 ## Android (Obtainium)
 
 APKs ship with every build, and [Obtainium](https://obtainium.imranr.dev) updates them straight from Forgejo. Each nightly also publishes an `obtainium.json` app config.

@@ -331,6 +331,24 @@ jobs:
             [ -e "$bundle" ] && bundles+=("$bundle")
           done
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
+      - name: Publish deb and rpm to the package registries
+        env:
+          PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
+          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          channel=stable
+          [ "$IS_NIGHTLY" = 'true' ] && channel=nightly
+          api="https://git.sable.moe/api/packages/${GITHUB_REPOSITORY_OWNER}"
+          upload() {
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --user "$PACKAGES_USER:$PACKAGES_TOKEN" \
+              --upload-file "$1" "$2")
+            # 409 means this exact version is already published.
+            case "$code" in 201|409) ;; *) echo "Upload of $1 failed with HTTP $code" >&2; exit 1 ;; esac
+          }
+          upload "target/release/bundle/deb/sable-${VERSION}-linux-${ARCH}.deb" \
+            "$api/debian/pool/$channel/main/upload"
+          upload "target/release/bundle/rpm/sable-${VERSION}-linux-${ARCH}.rpm" \
+            "$api/rpm/$channel/upload"
   android:
     name: Build Android
     needs: [setup-release, build-web]
