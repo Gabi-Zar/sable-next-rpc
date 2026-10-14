@@ -2,25 +2,13 @@
   import { MediaQuery } from 'svelte/reactivity';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { on } from 'svelte/events';
-  import type {
-    MemberView,
-    MembershipView,
-    RoomListItemView,
-    CallSupportView,
-    PerMessageProfileView,
-  } from '#src/generated/protocol';
+  import type { RoomListItemView, PerMessageProfileView } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
 
   import { voiceChat } from '#lib/features/room/voice-chat.svelte.js';
-  import ChatsIcon from 'phosphor-svelte/lib/ChatsIcon';
-  import ImagesIcon from 'phosphor-svelte/lib/ImagesIcon';
-  import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
-  import XIcon from 'phosphor-svelte/lib/XIcon';
 
-  import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
-  import { joinRoom } from '#lib/core/api/rooms.js';
   import { ancestorSpaceIds } from './abbreviations';
   import {
     abbreviationChanges,
@@ -37,15 +25,8 @@
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
   import { i18n } from '#lib/i18n.js';
   import { afterOverlayPops, holdOverlayBack } from '#lib/platform/overlay-back.svelte.js';
-  import WidgetsPanel from '#lib/features/widgets/WidgetsPanel.svelte';
   import { copyRoomLink, roomSectionPath } from '#lib/rooms/permalink.js';
-  import {
-    backToRoomList,
-    leaveRoomView,
-    scopedSearchQuery,
-    searchInRoom,
-    trackRoomEntry,
-  } from './room-navigation.js';
+  import { backToRoomList, searchInRoom, trackRoomEntry } from './room-navigation.js';
   import { findRoomByPathId, roomLabel, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { RoomMemberLoader } from '#lib/rooms/room-members.svelte.js';
@@ -54,47 +35,31 @@
   import ScheduledMessages from '#lib/features/composer/ScheduledMessages.svelte';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import { composerClearance } from '#lib/ui/composer-clearance.svelte.js';
-  import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
-  import PanelHeader from '#lib/ui/primitives/PanelHeader.svelte';
-  import PanelHeaderButton from '#lib/ui/primitives/PanelHeaderButton.svelte';
+  import { PanelWidth } from '#lib/ui/panel-width.svelte.js';
   import { toasts } from '#lib/ui/toasts.svelte.js';
 
   import { preferences, readReceiptIsPrivate } from '#lib/settings/preferences.svelte.js';
   import VoiceLobby from '#lib/features/call/VoiceLobby.svelte';
   import { useCallSession, type CallMedia } from '#lib/features/call/call-session.svelte.js';
-  import JumpToTimeDialog from './timeline/JumpToTimeDialog.svelte';
-  import LeaveRoomDialog from './LeaveRoomDialog.svelte';
-  import MessageReportDialog from './messages/MessageReportDialog.svelte';
-  import { sendReport } from './messages/report';
   import {
     provideRoomMediaPreviews,
     RoomMediaPreviews,
   } from './media/room-media-previews.svelte.js';
-  import MembersDrawer from './members/MembersDrawer.svelte';
-  import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
-  import ThreadList from './conversation/ThreadList.svelte';
-  import RoomAttachments from './media/RoomAttachments.svelte';
-  import RoomSearchPanel from './RoomSearchPanel.svelte';
   import ThreadView from './conversation/ThreadView.svelte';
   import MentionProfile from './members/MentionProfile.svelte';
   import RoomHeader from './RoomHeader.svelte';
+  import RoomHeaderActions from './RoomHeaderActions.svelte';
   import { openSettingsOver } from '#lib/features/settings/settings-navigation.js';
   import RoomHeaderMenu from './RoomHeaderMenu.svelte';
-  import RoomInviteDialog from './RoomInviteDialog.svelte';
   import { canSendState } from './settings/permission-groups';
   import RoomPinMenu from './RoomPinMenu.svelte';
   import RoomPredecessorNotice from './RoomPredecessorNotice.svelte';
   import RoomTombstoneBanner from './RoomTombstoneBanner.svelte';
-  import RoomTopicViewer from './RoomTopicViewer.svelte';
   import RoomReadReceipts from './timeline/RoomReadReceipts.svelte';
-  import RoomSettingsDialog from './settings/RoomSettingsDialog.svelte';
   import TimelineList from './timeline/TimelineList.svelte';
   import MediaViewer, { type MediaItem } from './media/MediaViewer.svelte';
-  import { galleryEventId, timelineMediaItems } from './media/media-items.js';
-  import {
-    provideMediaViewerOpener,
-    type StandaloneMedia,
-  } from './media/media-viewer-opener.svelte.js';
+  import { galleryEventId } from './media/media-items.js';
+  import { provideMediaViewerOpener } from './media/media-viewer-opener.svelte.js';
   import { tagForLevel } from './settings/power-level-tags.js';
   import { memberListChanges } from './settings/member-list.svelte.js';
   import { provideSenderRoles, type SenderRole } from './members/sender-roles.js';
@@ -105,6 +70,14 @@
   import { RoomSession } from './room-session.svelte.js';
   import { MemberProfile } from './members/member-profile.svelte.js';
   import { RoomPanels } from './room-panels.svelte.js';
+  import { RoomMediaViewer } from './room-media-viewer.svelte.js';
+  import { TombstoneJoin } from './room-tombstone-join.svelte.js';
+  import RoomCallStage from './RoomCallStage.svelte';
+  import RoomVoiceChat from './RoomVoiceChat.svelte';
+  import RoomSidePanels from './RoomSidePanels.svelte';
+  import RoomDialogs from './RoomDialogs.svelte';
+  import { RoomCallSupport } from './room-call-support.svelte.js';
+  import { refreshRoomMembers } from './room-member-refresh.svelte.js';
 
   interface Props {
     roomId: string;
@@ -155,56 +128,9 @@
     return eventId === null;
   });
   let timelineFollowingLive = $state<boolean>(false);
-  let mediaEventId = $state<string | null>(null);
-  let standaloneMediaItem = $state<MediaItem | null>(null);
-  let panelMediaItems = $state.raw<MediaItem[] | null>(null);
-  let standaloneSequence = 0;
-  let callSupport = $state<CallSupportView | null>(null);
-  let callFallbackUrl = $state<string | null>(null);
-  let tombstoneJoining = $state(false);
-  let tombstoneJoinFailed = $derived.by(() => {
-    void resolvedRoomId;
-    void isTombstoned;
-    return false;
-  });
+  const mediaViewer = new RoomMediaViewer(() => timeline.items);
 
-  let ownMember = $derived(
-    memberLoader.members.find((member) => member.user_id === core.session?.user_id) ?? null
-  );
-
-  let mediaItems = $derived(
-    standaloneMediaItem
-      ? [standaloneMediaItem]
-      : (panelMediaItems ?? timelineMediaItems(timeline.items))
-  );
-
-  $effect(() => {
-    void runtimeConfig().then((config) => {
-      callFallbackUrl = config.calls.livekitServiceUrl;
-    });
-  });
-
-  $effect(() => {
-    const target = resolvedRoomId;
-    const fallback = callFallbackUrl;
-    if (!target) return;
-
-    let current = true;
-    callSupport = null;
-    if (typeof RTCPeerConnection === 'undefined') return;
-
-    void core.rpc.calls
-      .support({ room_id: target, livekit_service_url: fallback })
-      .then((next) => {
-        if (current) callSupport = next;
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable room] call support unavailable', error);
-      });
-    return () => {
-      current = false;
-    };
-  });
+  const callSupport = new RoomCallSupport(core, () => resolvedRoomId);
 
   let pinRevision = $derived(
     timeline.items.reduce(
@@ -220,6 +146,13 @@
   const roomSession = new RoomSession(core.rpc, pinnedEvents);
   providePinnedEvents(pinnedEvents);
   onDestroy(() => roomSession.dispose());
+  const tombstoneJoin = new TombstoneJoin(
+    core.rpc,
+    roomList,
+    () => resolvedRoomId,
+    () => isTombstoned,
+    roomSession
+  );
 
   $effect(() => {
     if (pinRevision === 0) return;
@@ -344,9 +277,9 @@
   let callParticipants = $derived(resolvedRoom?.call_participants ?? []);
   let callable = $derived(
     !call.active &&
-      callSupport !== null &&
-      callSupport.can_join &&
-      (callSupport.has_focus || callParticipants.length > 0)
+      callSupport.current !== null &&
+      callSupport.current.can_join &&
+      (callSupport.current.has_focus || callParticipants.length > 0)
   );
   let callOffered = $derived(
     callable &&
@@ -376,55 +309,29 @@
       : null
   );
   let timelineEventId = $derived(resolvedPermalink?.rootEventId ?? eventId);
-  const VOICE_CHAT_WIDTH_KEY = 'sable-voice-chat-width';
-  const VOICE_CHAT_DEFAULT_WIDTH = 400;
-  const VOICE_CHAT_MIN_WIDTH = 300;
-  const VOICE_CHAT_MAX_WIDTH = 1000;
-
-  function clampVoiceChatWidth(width: number): number {
-    return Math.min(VOICE_CHAT_MAX_WIDTH, Math.max(VOICE_CHAT_MIN_WIDTH, width));
-  }
-  const CALL_STAGE_RATIO_KEY = 'sable-call-stage-ratio';
-  const CALL_STAGE_DEFAULT_RATIO = 0.65;
-  const CALL_STAGE_MOBILE_RATIO = 0.4;
-  const CALL_STAGE_MIN_RATIO = 0.2;
-  const CALL_STAGE_MAX_RATIO = 0.8;
-
-  function clampCallStageRatio(ratio: number): number {
-    return Math.min(CALL_STAGE_MAX_RATIO, Math.max(CALL_STAGE_MIN_RATIO, ratio));
-  }
   const sidePanels = new MediaQuery(BREAKPOINTS.sidePanels);
-  const storedRatio = Number.parseFloat(localStorage.getItem(CALL_STAGE_RATIO_KEY) ?? '');
-  let callStageRatio = $state(
-    Number.isFinite(storedRatio)
-      ? clampCallStageRatio(storedRatio)
-      : sidePanels.current
-        ? CALL_STAGE_DEFAULT_RATIO
-        : CALL_STAGE_MOBILE_RATIO
+  const callStageRatio = new PanelWidth(
+    'sable-call-stage-ratio',
+    sidePanels.current ? 0.65 : 0.4,
+    0.2,
+    0.8
   );
+  callStageRatio.restore();
   let timelineHeight = $state(0);
   let isVoiceRoom = $derived(resolvedRoom?.is_voice ?? false);
-  const storedWidth = Number.parseInt(localStorage.getItem(VOICE_CHAT_WIDTH_KEY) ?? '', 10);
-  let voiceChatWidth = $state(
-    Number.isFinite(storedWidth) ? clampVoiceChatWidth(storedWidth) : VOICE_CHAT_DEFAULT_WIDTH
-  );
+  const voiceChatWidth = new PanelWidth('sable-voice-chat-width', 400, 300, 1000);
+  voiceChatWidth.restore();
   let callShown = $derived(call.roomId === resolvedRoomId && (call.active || call.failure));
   let roomName = $derived(resolvedRoom ? roomLabel(resolvedRoom) : roomId);
   let roomAvatar = $derived(resolvedRoom?.avatar_url ?? null);
   let roomTopic = $derived(resolvedRoom?.topic ?? null);
   let isTombstoned = $derived(resolvedRoom?.is_tombstoned ?? false);
-  let tombstoneSuccessor = $derived(
-    roomSession.tombstoneReplacementId
-      ? findRoomByPathId(roomList.rooms, roomSession.tombstoneReplacementId)
-      : null
-  );
-  let tombstoneSuccessorJoined = $derived(tombstoneSuccessor?.state === 'joined');
 
   const abbreviations = new RoomAbbreviations(core.rpc);
   provideRoomAbbreviations(abbreviations);
   const mediaPreviews = new RoomMediaPreviews(() => resolvedRoom?.join_rule ?? null);
   provideRoomMediaPreviews(mediaPreviews);
-  provideMediaViewerOpener(openStandaloneMedia);
+  provideMediaViewerOpener((item) => mediaViewer.openStandalone(item));
   $effect(() => {
     void mediaPreviews.load(resolvedRoomId);
   });
@@ -581,44 +488,15 @@
     );
   }
 
-  let memberChangeKey = $derived.by(() => {
-    for (let index = timeline.items.length - 1; index >= 0; index -= 1) {
-      const { content, event_id: eventId } = timeline.items[index];
-      if (eventId && (content.kind === 'membership' || content.kind === 'profile_change')) {
-        return eventId;
-      }
-    }
-    return null;
-  });
-
-  $effect(() => {
-    if (memberChangeKey === null) return;
-    const activeRoomId = untrack(() => resolvedRoomId);
-    void untrack(() =>
-      memberLoader.refresh(activeRoomId, (roomId) =>
-        core.rpc.members.list({ room_id: roomId, memberships: [] })
-      )
-    );
-  });
-
-  $effect(() =>
-    core.onProfileChanged(() => {
-      void memberLoader.refresh(resolvedRoomId, (roomId) =>
-        core.rpc.members.list({ room_id: roomId, memberships: [] })
-      );
-    })
+  refreshRoomMembers(
+    core,
+    memberLoader,
+    () => resolvedRoomId,
+    () => timeline.items
   );
-
-  function loadMembership(membership: MembershipView): Promise<MemberView[]> {
-    return core.rpc.members.list({ room_id: resolvedRoomId, memberships: [membership] });
-  }
 
   function toggleMembers(): void {
     if (panels.toggleMembers(desktop)) void loadMembers();
-  }
-
-  function closeMembers(): void {
-    panels.closeMembers(desktop);
   }
 
   $effect(() => {
@@ -634,28 +512,6 @@
 
   function toggleWidgets(): void {
     panels.toggleWidgets();
-  }
-
-  function closeWidgets(): void {
-    panels.widgetsOpen = false;
-  }
-
-  async function addWidget(name: string, url: string): Promise<void> {
-    try {
-      await roomSession.details.addWidget(name, url);
-    } catch (error) {
-      console.warn('[sable room] add widget failed', error);
-      toasts.error(i18n.t('errors.actionFailed'));
-    }
-  }
-
-  async function removeWidget(widgetId: string): Promise<void> {
-    try {
-      await roomSession.details.removeWidget(widgetId);
-    } catch (error) {
-      console.warn('[sable room] remove widget failed', error);
-      toasts.error(i18n.t('errors.actionFailed'));
-    }
   }
 
   function closeProfile(): void {
@@ -849,19 +705,15 @@
   }
 
   function openMedia(eventId: string): void {
-    standaloneMediaItem = null;
-    panelMediaItems = null;
-    mediaEventId = eventId;
+    mediaViewer.open(eventId);
   }
 
   function openPanelMedia(items: MediaItem[], eventId: string): void {
-    standaloneMediaItem = null;
-    panelMediaItems = items;
-    mediaEventId = eventId;
+    mediaViewer.openPanel(items, eventId);
   }
 
   function jumpFromViewer(eventId: string): void {
-    closeMedia();
+    mediaViewer.close();
     if (!desktop) panels.attachmentsOpen = false;
     void afterOverlayPops().then(() => {
       jumpToEvent(galleryEventId(eventId));
@@ -886,7 +738,7 @@
 
   function openProfileAvatar(source: string, displayName: string): void {
     closeProfile();
-    openStandaloneMedia({
+    mediaViewer.openStandalone({
       kind: 'image',
       filename: displayName,
       caption: null,
@@ -902,43 +754,6 @@
       animated: null,
       sender: displayName,
     });
-  }
-
-  function openStandaloneMedia(item: StandaloneMedia): void {
-    panelMediaItems = null;
-    const standalone = { ...item, eventId: `standalone-${String(++standaloneSequence)}` };
-    standaloneMediaItem = standalone;
-    mediaEventId = standalone.eventId;
-  }
-
-  function closeMedia(): void {
-    mediaEventId = null;
-    standaloneMediaItem = null;
-    panelMediaItems = null;
-  }
-
-  function openTombstoneSuccessor(): void {
-    if (!roomSession.tombstoneReplacementId) return;
-    void goto(roomSectionPath(roomList.rooms, roomSession.tombstoneReplacementId));
-  }
-
-  async function joinTombstoneSuccessor(): Promise<void> {
-    const target = roomSession.tombstoneReplacementId;
-    if (!target || tombstoneJoining) return;
-
-    tombstoneJoining = true;
-    tombstoneJoinFailed = false;
-    try {
-      const via = await core.rpc.rooms.viaServers({ room_id: resolvedRoomId });
-      const joinedId = await joinRoom(core.rpc, target, via);
-      await roomList.whenListed(joinedId, 10_000);
-      void goto(roomSectionPath(roomList.rooms, joinedId));
-    } catch (error) {
-      console.warn('[sable room] joining the replacement room failed', error);
-      tombstoneJoinFailed = true;
-    } finally {
-      tombstoneJoining = false;
-    }
   }
 
   function openPredecessor(): void {
@@ -958,12 +773,12 @@
     void call.join(
       resolvedRoomId,
       { microphone: !preferences.callMicrophoneMuted, camera: false },
-      callFallbackUrl
+      callSupport.fallbackUrl
     );
   }
 
   function joinCall(): void {
-    void call.join(resolvedRoomId, prescreenMedia, callFallbackUrl);
+    void call.join(resolvedRoomId, prescreenMedia, callSupport.fallbackUrl);
   }
 </script>
 
@@ -1055,11 +870,11 @@
         body={roomSession.tombstoneBody}
         resolved={roomSession.tombstoneChecked}
         successorId={roomSession.tombstoneReplacementId}
-        joined={tombstoneSuccessorJoined}
-        joining={tombstoneJoining}
-        failed={tombstoneJoinFailed}
-        onOpen={openTombstoneSuccessor}
-        onJoin={() => void joinTombstoneSuccessor()}
+        joined={tombstoneJoin.successorJoined}
+        joining={tombstoneJoin.joining}
+        failed={tombstoneJoin.failed}
+        onOpen={() => tombstoneJoin.open()}
+        onJoin={() => void tombstoneJoin.join()}
       />
     {:else}
       {#if composerMounted}
@@ -1101,36 +916,13 @@
     bind:clientHeight={timelineHeight}
   >
     {#snippet headerActions()}
-      {#if !voiceView}
-        <PanelHeaderButton
-          label={i18n.t('timeline.threadsOpen')}
-          aria-pressed={panels.threadsOpen}
-          onclick={toggleThreads}
-        >
-          <ChatsIcon weight={panels.threadsOpen ? 'fill' : 'regular'} />
-        </PanelHeaderButton>
-        {#if desktop}
-          <PanelHeaderButton
-            label={i18n.t('timeline.attachmentsTitle')}
-            aria-pressed={panels.attachmentsOpen}
-            onclick={toggleAttachments}
-          >
-            <ImagesIcon weight={panels.attachmentsOpen ? 'fill' : 'regular'} />
-          </PanelHeaderButton>
-        {/if}
-      {/if}
-      {#if roomSession.widgets.length > 0 || canManageWidgets}
-        <PanelHeaderButton
-          label={i18n.t('widgets.label')}
-          aria-pressed={panels.widgetsOpen}
-          onclick={toggleWidgets}
-        >
-          <GridFourIcon weight={panels.widgetsOpen ? 'fill' : 'regular'} />
-          {#if roomSession.widgets.length > 0}
-            <span class="widgets-count" aria-hidden="true">{roomSession.widgets.length}</span>
-          {/if}
-        </PanelHeaderButton>
-      {/if}
+      <RoomHeaderActions
+        {panels}
+        {voiceView}
+        {desktop}
+        widgetCount={roomSession.widgets.length}
+        {canManageWidgets}
+      />
     {/snippet}
     <RoomHeader
       roomId={resolvedRoomId}
@@ -1190,34 +982,13 @@
       {/snippet}
     </RoomHeader>
     {#if callShown && (voiceView || !isVoiceRoom)}
-      <div
-        class={['call-stage', { docked: !voiceView }]}
-        style:flex-basis={voiceView ? undefined : `${callStageRatio * 100}%`}
-      >
-        {#await import('#lib/features/call/CallView.svelte') then { default: CallView }}
-          <CallView
-            session={call}
-            members={memberLoader.members}
-            onInvite={roomSession.permissions?.can_invite ? () => (inviteOpen = true) : undefined}
-            onOpenSettings={(event: MouseEvent) => openSettingsOver(event, 'calls')}
-          />
-        {/await}
-        {#if !voiceView}
-          <ResizeHandle
-            value={callStageRatio}
-            min={CALL_STAGE_MIN_RATIO}
-            max={CALL_STAGE_MAX_RATIO}
-            label={i18n.t('call.resizeStage')}
-            valueText={i18n.t('call.stageShare', { percent: Math.round(callStageRatio * 100) })}
-            grow="down"
-            step={0.05}
-            shiftStep={0.15}
-            fromPixels={(pixels) => (timelineHeight > 0 ? pixels / timelineHeight : 0)}
-            onResize={(next) => (callStageRatio = clampCallStageRatio(next))}
-            onCommit={() => localStorage.setItem(CALL_STAGE_RATIO_KEY, String(callStageRatio))}
-          />
-        {/if}
-      </div>
+      <RoomCallStage
+        docked={!voiceView}
+        ratio={callStageRatio}
+        {timelineHeight}
+        members={memberLoader.members}
+        onInvite={roomSession.permissions?.can_invite ? () => (inviteOpen = true) : undefined}
+      />
     {/if}
     {#if voiceView}
       {#if !callShown}
@@ -1228,8 +999,8 @@
           media={prescreenMedia}
           joining={call.lifecycle === 'joining'}
           canJoin={callable}
-          hasPermission={callSupport?.can_join ?? false}
-          hasFocus={callSupport?.has_focus ?? true}
+          hasPermission={callSupport.current?.can_join ?? false}
+          hasFocus={callSupport.current?.has_focus ?? true}
           {roomName}
           selfId={core.session?.user_id ?? null}
           onChange={(media: CallMedia) => (prescreenMedia = media)}
@@ -1267,186 +1038,39 @@
   {/if}
 
   {#if voiceChatBeside}
-    <aside
-      class={['voice-chat', { 'thread-covered': panels.threadRootId !== null && !threadInPanel }]}
-      inert={panels.threadRootId !== null && !threadInPanel}
-      style:width="{voiceChatWidth}px"
-      aria-label={i18n.t('call.chat')}
-    >
-      <ResizeHandle
-        value={voiceChatWidth}
-        min={VOICE_CHAT_MIN_WIDTH}
-        max={VOICE_CHAT_MAX_WIDTH}
-        label={i18n.t('call.chat')}
-        grow="left"
-        step={16}
-        shiftStep={64}
-        onResize={(next) => (voiceChatWidth = clampVoiceChatWidth(next))}
-        onCommit={() => localStorage.setItem(VOICE_CHAT_WIDTH_KEY, String(voiceChatWidth))}
-      />
-      <PanelHeader class="voice-chat-header" title={i18n.t('call.chat')}>
-        {#snippet suffix()}
-          <PanelHeaderButton
-            label={i18n.t('call.closeChat')}
-            onclick={() => (voiceChat.open = false)}
-          >
-            <XIcon />
-          </PanelHeaderButton>
-        {/snippet}
-      </PanelHeader>
+    <RoomVoiceChat covered={panels.threadRootId !== null && !threadInPanel} size={voiceChatWidth}>
       {@render chat()}
-    </aside>
+    </RoomVoiceChat>
   {/if}
 
-  {#if panels.threadsOpen}
-    <ThreadList
-      roomId={resolvedRoomId}
-      members={memberLoader.members}
-      modal={!desktop}
-      onOpenThread={openThread}
-      onClose={() => (panels.threadsOpen = false)}
-    />
-  {/if}
-
-  {#if panels.searchOpen}
-    {#key resolvedRoomId}
-      <RoomSearchPanel
-        query={scopedSearchQuery('in', resolvedRoom, resolvedRoomId)}
-        onClose={() => (panels.searchOpen = false)}
-      />
-    {/key}
-  {/if}
-
-  {#if panels.attachmentsOpen}
-    <RoomAttachments
-      roomId={resolvedRoomId}
-      members={memberLoader.members}
-      modal={!desktop}
-      onJump={jumpToEvent}
-      onOpenMedia={openPanelMedia}
-      onMatrixLink={handleMatrixLink}
-      onClose={() => (panels.attachmentsOpen = false)}
-    />
-  {/if}
-
-  {#if desktop}
-    {#if panels.desktopMembersOpen && panels.threadRootId === null}
-      <MembersDrawer
-        members={memberLoader.members}
-        loading={memberLoader.loading}
-        powerTags={roomSession.powerTags}
-        alwaysListedFrom={roomSession.alwaysListedFrom}
-        {loadMembership}
-        onClose={closeMembers}
-        onMemberProfile={openProfile}
-      />
-    {/if}
-    {#if panels.widgetsOpen}
-      <WidgetsPanel
-        roomId={resolvedRoomId}
-        widgets={roomSession.widgets}
-        userId={core.session?.user_id ?? ''}
-        displayName={ownMember?.display_name ?? core.session?.user_id ?? ''}
-        avatarUrl={ownMember?.avatar_url ?? ''}
-        canManage={canManageWidgets}
-        onClose={closeWidgets}
-        onAdd={addWidget}
-        onRemove={removeWidget}
-      />
-    {/if}
-  {:else}
-    <DialogFrame bind:open={panels.membersOpen} variant="drawer">
-      <MembersDrawer
-        members={memberLoader.members}
-        loading={memberLoader.loading}
-        modal
-        powerTags={roomSession.powerTags}
-        alwaysListedFrom={roomSession.alwaysListedFrom}
-        {loadMembership}
-        onClose={closeMembers}
-        onMemberProfile={openProfile}
-      />
-    </DialogFrame>
-  {/if}
-
-  {#if !desktop}
-    <DialogFrame
-      open={panels.widgetsOpen}
-      onOpenChange={(open: boolean) => {
-        if (!open) closeWidgets();
-      }}
-      variant="drawer"
-    >
-      <WidgetsPanel
-        roomId={resolvedRoomId}
-        widgets={roomSession.widgets}
-        userId={core.session?.user_id ?? ''}
-        displayName={ownMember?.display_name ?? core.session?.user_id ?? ''}
-        avatarUrl={ownMember?.avatar_url ?? ''}
-        canManage={canManageWidgets}
-        modal
-        onClose={closeWidgets}
-        onAdd={addWidget}
-        onRemove={removeWidget}
-      />
-    </DialogFrame>
-  {/if}
-
-  <RoomTopicViewer
-    open={topicOpen}
-    {roomName}
-    topic={roomTopic ?? ''}
-    onOpenChange={(open: boolean) => {
-      topicOpen = open;
-    }}
-    onMatrixLink={(link, anchor) => {
-      topicOpen = false;
-      handleMatrixLink(link, anchor);
-    }}
-  />
-
-  <RoomInviteDialog
-    open={inviteOpen}
-    room={resolvedRoom ?? null}
-    onOpenChange={(open: boolean) => {
-      inviteOpen = open;
-    }}
-  />
-
-  <JumpToTimeDialog
-    open={jumpOpen}
+  <RoomSidePanels
+    {panels}
+    room={resolvedRoom}
     roomId={resolvedRoomId}
-    onOpenChange={(open: boolean) => {
-      jumpOpen = open;
-    }}
+    {desktop}
+    {memberLoader}
+    {roomSession}
+    {canManageWidgets}
+    onOpenThread={openThread}
     onJump={jumpToEvent}
+    onOpenMedia={openPanelMedia}
+    onMatrixLink={handleMatrixLink}
+    onMemberProfile={openProfile}
   />
 
-  <MessageReportDialog
-    bind:open={reportOpen}
-    title={i18n.t(resolvedRoom?.is_space ? 'room.menuReportSpace' : 'room.menuReport')}
-    hint={i18n.t('room.reportHint')}
-    onReport={(reason) => {
-      const target = resolvedRoomId;
-      void sendReport(() => core.rpc.rooms.report({ room_id: target, reason: reason ?? '' }));
-    }}
-  />
-
-  <LeaveRoomDialog
-    open={leaveOpen}
-    room={resolvedRoom ?? null}
-    onOpenChange={(open: boolean) => {
-      leaveOpen = open;
-    }}
-    onLeft={leaveRoomView}
-  />
-
-  <RoomSettingsDialog
-    open={settingsOpen}
-    room={resolvedRoom ?? null}
-    onOpenChange={(open: boolean) => {
-      settingsOpen = open;
-    }}
+  <RoomDialogs
+    room={resolvedRoom}
+    roomId={resolvedRoomId}
+    {roomName}
+    topic={roomTopic}
+    bind:topicOpen
+    bind:inviteOpen
+    bind:jumpOpen
+    bind:reportOpen
+    bind:leaveOpen
+    bind:settingsOpen
+    onJump={jumpToEvent}
+    onMatrixLink={handleMatrixLink}
   />
 
   <MentionProfile
@@ -1478,12 +1102,12 @@
     }}
   />
 
-  {#if mediaEventId}
+  {#if mediaViewer.eventId}
     <MediaViewer
-      items={mediaItems}
-      selectedEventId={mediaEventId}
-      onClose={closeMedia}
-      onJump={panelMediaItems ? jumpFromViewer : undefined}
+      items={mediaViewer.items}
+      selectedEventId={mediaViewer.eventId}
+      onClose={() => mediaViewer.close()}
+      onJump={mediaViewer.panelItems ? jumpFromViewer : undefined}
     />
   {/if}
 </main>
@@ -1491,21 +1115,6 @@
 <style>
   :global(.widgets-button) {
     position: relative;
-  }
-
-  .widgets-count {
-    background: var(--surface-container-active);
-    border-radius: var(--radius-pill);
-    color: var(--surface-on-container);
-    font-size: var(--font-size-small);
-    font-weight: var(--font-weight-bold);
-    left: 0;
-    line-height: 1;
-    min-width: 1rem;
-    padding: var(--space-050) var(--space-100);
-    position: absolute;
-    text-align: center;
-    top: 0;
   }
 
   .room-view {
@@ -1533,61 +1142,11 @@
     position: relative;
   }
 
-  .timeline.thread-covered,
-  .voice-chat.thread-covered {
+  .timeline.thread-covered {
     inset: 0;
     pointer-events: none;
     position: absolute;
     visibility: hidden;
-  }
-
-  .call-stage {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    min-width: 0;
-    position: relative;
-  }
-
-  .call-stage.docked {
-    flex-grow: 0;
-    flex-shrink: 0;
-    min-height: 10rem;
-  }
-
-  .call-stage :global(.resize-handle) {
-    bottom: -0.25rem;
-    z-index: 3;
-  }
-
-  .call-stage :global(.resize-handle)::after {
-    background: var(--surface-container-line);
-    border-radius: var(--radii-pill);
-    content: '';
-    height: 0.25rem;
-    left: 50%;
-    position: absolute;
-    top: 50%;
-    translate: -50% -50%;
-    width: 2.5rem;
-  }
-
-  .voice-chat {
-    background: var(--surface-container);
-    border-left: var(--border-width) solid var(--surface-container-line);
-    box-sizing: border-box;
-    display: flex;
-    flex: 0 0 auto;
-    flex-direction: column;
-    max-width: 60%;
-    min-height: 0;
-    min-width: 0;
-    position: relative;
-  }
-
-  .voice-chat :global(.resize-handle) {
-    left: -0.25rem;
-    z-index: 1;
   }
 
   .composer-dock {
