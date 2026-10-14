@@ -698,10 +698,6 @@ impl Core {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
-        self.restored_history_rooms
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clear();
         self.pinned_caches
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -835,6 +831,7 @@ impl Core {
             .unwrap_or_else(|| self.store_id.clone());
         self.watch_search_index(&client, &store_id);
         self.watch_ignored_users(&client);
+        self.watch_ignored_history(&client, &sync_service);
         self.watch_backup_preference(&client);
         sync_service.start().await;
 

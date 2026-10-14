@@ -1,8 +1,42 @@
+use std::sync::Arc;
+use std::sync::atomic::Ordering;
+
+use matrix_sdk::executor::{JoinHandleExt, spawn};
 use matrix_sdk::{Client, config::RequestConfig};
+use matrix_sdk_ui::sync_service::{State, SyncService};
 
 use crate::{Core, ResultExt, protocol::RpcError};
 
 impl Core {
+    pub(crate) fn watch_ignored_history(
+        self: &Arc<Self>,
+        client: &Client,
+        sync_service: &Arc<SyncService>,
+    ) {
+        let core = self.clone();
+        let client = client.clone();
+        let sync_service = sync_service.clone();
+        let mut changes = client.subscribe_to_ignore_user_list_changes();
+
+        self.track_session_task(
+            spawn(async move {
+                while changes.next().await.is_some() {
+                    let _serial = core.activity_lock.lock().await;
+                    let running = matches!(sync_service.state().get(), State::Running)
+                        && !core.sync_suspended.load(Ordering::SeqCst);
+                    if let Err(error) = client.event_cache().clear_all_rooms().await {
+                        tracing::warn!(%error, "clearing the event cache after an ignore change");
+                    }
+                    sync_service.expire_sessions().await;
+                    if running {
+                        sync_service.start().await;
+                    }
+                }
+            })
+            .abort_on_drop(),
+        );
+    }
+
     pub(crate) async fn server_features(&self) -> Result<Vec<String>, RpcError> {
         let features = self
             .client()

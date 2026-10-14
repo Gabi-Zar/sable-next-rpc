@@ -707,7 +707,7 @@ mod tests {
                 builder.add_global_account_data(
                     factory
                         .direct()
-                        .add_user((*ALICE).to_owned().into(), room.room_id()),
+                        .add_user((*ALICE).to_owned(), room.room_id()),
                 );
             })
             .await;
@@ -733,7 +733,7 @@ mod tests {
                 builder.add_global_account_data(
                     factory
                         .direct()
-                        .add_user((*ALICE).to_owned().into(), room.room_id()),
+                        .add_user((*ALICE).to_owned(), room.room_id()),
                 );
             })
             .await;

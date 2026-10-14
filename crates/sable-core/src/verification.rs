@@ -17,7 +17,7 @@ use matrix_sdk::encryption::{
     CrossSigningResetAuthType, VerificationState, recovery::RecoveryState,
 };
 use matrix_sdk::executor::{JoinHandleExt, spawn};
-use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, OAuth, Password, UserIdentifier};
+use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, Password, UserIdentifier};
 use matrix_sdk::ruma::events::GlobalAccountDataEventType;
 use matrix_sdk::ruma::events::key::verification::VerificationMethod;
 use matrix_sdk::ruma::events::key::verification::request::ToDeviceKeyVerificationRequestEvent;
@@ -73,22 +73,7 @@ impl Core {
             CrossSigningResetAuthType::OAuth(info) => IdentityResetStep::Approve {
                 url: info.approval_url.to_string(),
             },
-            CrossSigningResetAuthType::Uiaa(uiaa) => {
-                if !uiaa
-                    .flows
-                    .iter()
-                    .any(|flow| flow.stages == [AuthType::Password])
-                {
-                    let stages = uiaa
-                        .flows
-                        .iter()
-                        .flat_map(|flow| &flow.stages)
-                        .map(|stage| stage.as_str().to_owned())
-                        .collect();
-                    return Err(RpcError::InteractiveAuthRequired { stages });
-                }
-                IdentityResetStep::Password
-            }
+            CrossSigningResetAuthType::Uiaa(_) => IdentityResetStep::Password,
         };
 
         #[cfg_attr(
@@ -116,16 +101,12 @@ impl Core {
         };
 
         let auth = match (handle.auth_type(), password) {
-            (CrossSigningResetAuthType::OAuth(info), _) => {
-                let mut oauth = OAuth::new();
-                oauth.session.clone_from(&info.session);
-                Some(AuthData::OAuth(oauth))
-            }
+            (CrossSigningResetAuthType::OAuth(info), _) => info.as_auth_data(),
             (CrossSigningResetAuthType::Uiaa(uiaa), Some(password)) => {
                 let user_id = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
                 let mut auth = Password::new(UserIdentifier::Matrix(user_id.into()), password);
-                auth.session.clone_from(&uiaa.session);
-                Some(AuthData::Password(auth))
+                auth.session = Some(uiaa.session.clone());
+                AuthData::Password(auth)
             }
             (CrossSigningResetAuthType::Uiaa(_), None) => {
                 return Err(RpcError::InteractiveAuthRequired {

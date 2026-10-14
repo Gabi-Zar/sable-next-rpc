@@ -29,15 +29,15 @@ use wiremock::{
 use super::{
     Core,
     api::timeline::TimelineFocusView,
-    protocol::{CoreEvent, Outgoing, PaginationDirection, RpcError, SubscriptionId},
+    protocol::{CoreEvent, Outgoing, RpcError},
     session::{self, Session},
     store::MemorySessionStore,
 };
 use crate::api::packs::ConvertLegacyParams;
 use crate::api::room_state::{EventParams, SendEventParams};
 use crate::api::timeline::{
-    MarkReadParams, MarkUnreadParams, PaginateOk, PaginateParams, ReadMarkerParams,
-    SetPinnedParams, SubscribeOk, SubscribeParams, UnsubscribeParams, WarmRoomsParams,
+    MarkReadParams, MarkUnreadParams, ReadMarkerParams, SetPinnedParams, SubscribeOk,
+    SubscribeParams, UnsubscribeParams, WarmRoomsParams,
 };
 use crate::timelines::build_room_timeline;
 
@@ -3479,11 +3479,8 @@ async fn direct_room_summary_uses_the_other_members_avatar() {
     server
         .mock_sync()
         .ok_and_run(&client, |builder| {
-            builder.add_global_account_data(
-                factory
-                    .direct()
-                    .add_user((*ALICE).to_owned().into(), room_id),
-            );
+            builder
+                .add_global_account_data(factory.direct().add_user((*ALICE).to_owned(), room_id));
             builder.add_joined_room(
                 JoinedRoomBuilder::new(room_id)
                     .set_room_summary(json!({"m.heroes": [*ALICE], "m.joined_member_count": 2}))
@@ -4482,81 +4479,78 @@ async fn an_emptied_state_event_is_a_state_event_not_a_deleted_message() {
     }
 }
 
-#[expect(clippy::unwrap_used, reason = "test code")]
-async fn subscribe_live(core: &Arc<Core>, room_id: &matrix_sdk::ruma::RoomId) -> SubscriptionId {
-    let SubscribeOk { subscription, .. } = core
-        .run(SubscribeParams {
-            room_id: room_id.to_owned(),
-            focus: TimelineFocusView::Live,
-            hidden_events: false,
-        })
-        .await
-        .unwrap();
-    subscription
-}
-
-#[expect(clippy::unwrap_used, reason = "test code")]
-async fn paginate_back(core: &Arc<Core>, subscription: SubscriptionId) -> bool {
-    let PaginateOk { reached_end, .. } = core
-        .run(PaginateParams {
-            subscription,
-            direction: PaginationDirection::Backward,
-            count: 20,
-        })
-        .await
-        .unwrap();
-    reached_end
-}
-
+#[expect(
+    clippy::too_many_lines,
+    reason = "test code; one sequential flow kept in a single function"
+)]
 #[tokio::test]
-async fn a_cleared_event_cache_does_not_end_history_at_the_next_arrival() {
+async fn an_ignore_change_resyncs_rooms_with_their_history_gap() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
-    let room_id = room_id!("!cleared:example.org");
+    let room_id = room_id!("!ignored:example.org");
     let factory = EventFactory::new().room(room_id).sender(*ALICE);
-    server.mock_room_state_encryption().plain().mount().await;
-    server
-        .sync_room(
-            &client,
-            JoinedRoomBuilder::new(room_id)
-                .set_timeline_limited()
-                .set_timeline_prev_batch("before-h2")
-                .add_timeline_event(factory.text_msg("h2").event_id(event_id!("$h2"))),
-        )
-        .await;
-    let core = core_for(&server, client.clone()).await;
-    let subscription = subscribe_live(&core, room_id).await;
-    server
-        .sync_room(
-            &client,
-            JoinedRoomBuilder::new(room_id)
-                .add_timeline_event(factory.text_msg("new1").event_id(event_id!("$new1"))),
-        )
-        .await;
+    let ignore_change = Arc::new(AtomicBool::new(false));
+    let ignore_sent = Arc::new(AtomicBool::new(false));
 
-    client.event_cache().clear_all_rooms().await.unwrap();
-    server
-        .sync_room(
-            &client,
-            JoinedRoomBuilder::new(room_id)
-                .add_timeline_event(factory.text_msg("new2").event_id(event_id!("$new2"))),
+    let room_update = |events: Vec<serde_json::Value>, prev_batch: &str| {
+        json!({
+            room_id.as_str(): {
+                "initial": true,
+                "limited": true,
+                "prev_batch": prev_batch,
+                "timeline": events,
+            }
+        })
+    };
+    let sync_event = |body: &str, id: &matrix_sdk::ruma::EventId| {
+        serde_json::from_str::<serde_json::Value>(
+            factory
+                .text_msg(body)
+                .event_id(id)
+                .into_raw_sync()
+                .json()
+                .get(),
         )
-        .await;
-    Mock::given(method("GET"))
-        .and(path_regex(r"^/_matrix/client/v3/rooms/.*/messages$"))
-        .and(wiremock::matchers::query_param_is_missing("from"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-            "start": "live",
-            "end": "before-h2",
-            "chunk": [
-                factory.text_msg("new2").event_id(event_id!("$new2")).into_raw_timeline(),
-                factory.text_msg("new1").event_id(event_id!("$new1")).into_raw_timeline(),
-                factory.text_msg("h2").event_id(event_id!("$h2")).into_raw_timeline(),
-            ],
-        })))
-        .expect(1)
+        .unwrap()
+    };
+    let h2 = sync_event("h2", event_id!("$h2"));
+    let new1 = sync_event("new1", event_id!("$new1"));
+    let first_sync = room_update(vec![h2.clone()], "before-h2");
+    let resync = room_update(vec![h2, new1], "before-h2");
+
+    let trigger = ignore_change.clone();
+    let sent = ignore_sent.clone();
+    Mock::given(method("POST"))
+        .and(path(
+            "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync",
+        ))
+        .respond_with(move |request: &wiremock::Request| {
+            let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+            let has_pos = request.url.query_pairs().any(|(key, _)| key == "pos");
+            let mut response = json!({"pos": "1", "lists": {}, "rooms": {}, "extensions": {}});
+            if body["conn_id"] != "encryption" {
+                if !has_pos {
+                    response["rooms"] = if trigger.load(Ordering::SeqCst) {
+                        resync.clone()
+                    } else {
+                        first_sync.clone()
+                    };
+                } else if trigger.load(Ordering::SeqCst) && !sent.swap(true, Ordering::SeqCst) {
+                    response["extensions"] = json!({"account_data": {"global": [{
+                        "type": "m.ignored_user_list",
+                        "content": {"ignored_users": {"@troll:localhost": {}}},
+                    }]}});
+                }
+            }
+            ResponseTemplate::new(200)
+                .set_body_json(response)
+                .set_delay(Duration::from_millis(100))
+        })
         .mount(server.server())
         .await;
+    server.mock_room_state_encryption().plain().mount().await;
     Mock::given(method("GET"))
         .and(path_regex(r"^/_matrix/client/v3/rooms/.*/messages$"))
         .and(wiremock::matchers::query_param("from", "before-h2"))
@@ -4567,42 +4561,44 @@ async fn a_cleared_event_cache_does_not_end_history_at_the_next_arrival() {
         .mount(server.server())
         .await;
 
-    paginate_back(&core, subscription).await;
+    let sync_service = session::start_sync(client.clone()).await.unwrap();
+    let (core, _events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    *core.session.write().await = Some(Session {
+        account_id: "test".to_owned(),
+        client: client.clone(),
+        sync_service: sync_service.clone(),
+        homeserver: server.server().uri(),
+        oauth: false,
+    });
+    core.watch_ignored_history(&client, &sync_service);
 
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while client.get_room(room_id).is_none() {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
     let timeline = core.timeline(&room_id.to_owned()).await.unwrap();
-    assert_eq!(
-        event_ids(timeline.items().await),
-        ["$h1", "$h2", "$new1", "$new2"]
-    );
-}
-
-#[tokio::test]
-async fn a_room_that_starts_at_its_create_event_is_not_refetched() {
-    let server = MatrixMockServer::new().await;
-    let client = server.client_builder().build().await;
-    let room_id = room_id!("!created:example.org");
-    let factory = EventFactory::new().room(room_id).sender(*ALICE);
-    server.mock_room_state_encryption().plain().mount().await;
-    server
-        .sync_room(
-            &client,
-            JoinedRoomBuilder::new(room_id)
-                .add_timeline_event(
-                    factory
-                        .create(*ALICE, matrix_sdk::ruma::RoomVersionId::V11)
-                        .event_id(event_id!("$create")),
-                )
-                .add_timeline_event(factory.text_msg("first").event_id(event_id!("$first"))),
-        )
-        .await;
-    server
-        .mock_room_messages()
-        .ok(RoomMessagesResponseTemplate::default())
-        .never()
-        .mount()
-        .await;
-    let core = core_for(&server, client).await;
-    let subscription = subscribe_live(&core, room_id).await;
-
-    assert!(paginate_back(&core, subscription).await);
+    ignore_change.store(true, Ordering::SeqCst);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while !event_ids(timeline.items().await).contains(&"$new1".to_owned()) {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            timeline.paginate_backwards(20).await.unwrap();
+            let ids = event_ids(timeline.items().await);
+            if ids.contains(&"$h1".to_owned()) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(event_ids(timeline.items().await), ["$h1", "$h2", "$new1"]);
 }

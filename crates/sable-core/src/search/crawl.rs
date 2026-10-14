@@ -1181,9 +1181,8 @@ mod tests {
         server.sync_joined_room(&client, &room_id).await;
         server
             .mock_room_messages()
-            .ok(RoomMessagesResponseTemplate::default()
-                .end_token("older")
-                .with_delay(Duration::from_secs(30)))
+            .with_delay(Duration::from_secs(30))
+            .ok(RoomMessagesResponseTemplate::default().end_token("older"))
             .mock_once()
             .mount()
             .await;

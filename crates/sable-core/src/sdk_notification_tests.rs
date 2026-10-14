@@ -765,7 +765,7 @@ async fn a_bridged_dm_uses_the_direct_defaults() {
         .mock_get_members()
         .ok(members
             .iter()
-            .map(|member| factory.member(member).into_raw())
+            .map(|member| factory.member(*member).into_raw())
             .collect())
         .mount()
         .await;
@@ -774,7 +774,7 @@ async fn a_bridged_dm_uses_the_direct_defaults() {
         .ok_and_run(&client, |builder| {
             builder.add_joined_room(
                 JoinedRoomBuilder::new(room_id)
-                    .add_state_bulk(members.iter().map(|member| factory.member(member).into()))
+                    .add_state_bulk(members.iter().map(|member| factory.member(*member).into()))
                     .add_state_event(
                         factory
                             .member_hints(BTreeSet::from([bot.to_owned()]))
@@ -782,9 +782,7 @@ async fn a_bridged_dm_uses_the_direct_defaults() {
                     )
                     .set_joined_members_count(3),
             );
-            builder.add_global_account_data(
-                factory.direct().add_user(ghost.to_owned().into(), room_id),
-            );
+            builder.add_global_account_data(factory.direct().add_user(ghost.to_owned(), room_id));
         })
         .await;
     let room = client.get_room(room_id).unwrap();
@@ -827,9 +825,7 @@ async fn rooms_whose_flag_disagrees_with_their_member_count_get_their_own_rules(
         .mock_sync()
         .ok_and_run(&client, |builder| {
             builder.add_global_account_data(factory.push_rules(rules));
-            builder.add_global_account_data(
-                factory.direct().add_user(ALICE.to_owned().into(), flagged),
-            );
+            builder.add_global_account_data(factory.direct().add_user(ALICE.to_owned(), flagged));
             builder.add_joined_room(JoinedRoomBuilder::new(flagged).set_joined_members_count(3));
             builder.add_joined_room(JoinedRoomBuilder::new(pair).set_joined_members_count(2));
         })
@@ -925,7 +921,7 @@ async fn resetting_a_bridged_dm_to_default_does_not_create_a_room_push_rule() {
             builder.add_global_account_data(factory.push_rules(rules.clone()));
             builder.add_joined_room(
                 JoinedRoomBuilder::new(room_id)
-                    .add_state_bulk(members.iter().map(|member| factory.member(member).into()))
+                    .add_state_bulk(members.iter().map(|member| factory.member(*member).into()))
                     .add_state_event(factory.member_hints(BTreeSet::from([bot.to_owned()])))
                     .set_joined_members_count(3),
             );

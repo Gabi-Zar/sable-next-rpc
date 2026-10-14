@@ -124,8 +124,6 @@ pub struct Core {
     probed_pinned_rooms: std::sync::Mutex<
         HashMap<matrix_sdk::ruma::OwnedRoomId, Vec<matrix_sdk::ruma::OwnedEventId>>,
     >,
-    restored_history_rooms:
-        std::sync::Mutex<std::collections::HashSet<matrix_sdk::ruma::OwnedRoomId>>,
     pinned_caches: std::sync::Mutex<
         HashMap<
             matrix_sdk::ruma::OwnedRoomId,
@@ -312,7 +310,6 @@ impl Core {
             account_clients: Mutex::new(HashMap::new()),
             session_handlers: std::sync::Mutex::new(Vec::new()),
             probed_pinned_rooms: std::sync::Mutex::new(HashMap::new()),
-            restored_history_rooms: std::sync::Mutex::new(std::collections::HashSet::new()),
             pinned_caches: std::sync::Mutex::new(HashMap::new()),
             cosmetics: std::sync::Mutex::new(cosmetics::CosmeticsCache::default()),
             cosmetics_fetches: std::sync::Mutex::new(HashMap::new()),

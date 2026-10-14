@@ -195,22 +195,11 @@ impl Handler for PaginateParams {
             });
         }
         let _foreground = core.begin_foreground_pagination();
-        let mut reached_end = match direction {
+        let reached_end = match direction {
             PaginationDirection::Backward => timeline.paginate_backwards(count).await,
             PaginationDirection::Forward => timeline.paginate_forwards(count).await,
         }
         .or_failed(core, "paginate")?;
-        if reached_end
-            && matches!(direction, PaginationDirection::Backward)
-            && !focused
-            && !thread
-            && core.restore_history_gap(timeline.room()).await?
-        {
-            reached_end = timeline
-                .paginate_backwards(count)
-                .await
-                .or_failed(core, "paginate")?;
-        }
 
         Ok(PaginateOk {
             direction,
