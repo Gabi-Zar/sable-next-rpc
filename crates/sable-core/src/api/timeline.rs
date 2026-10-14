@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Handler, Json};
 use crate::protocol::{RpcError, EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView, SubscriptionId, TimelineItemView};
+use crate::thread_unreads::thread_unread;
 use crate::timelines::receipt_thread_root;
 use crate::widgets::RelationsFilter;
 use crate::{Core, ResultExt, SubscriptionKind, view};
@@ -464,6 +465,13 @@ impl Handler for MarkReadParams {
                 .mark_as_read(receipt_type.clone())
                 .await
                 .or_failed(core, "mark_read")?;
+            for root in thread_unread(&room).await.roots {
+                core.thread_timeline(&self.room_id, &root)
+                    .await?
+                    .mark_as_read(receipt_type.clone())
+                    .await
+                    .or_failed(core, "mark_read")?;
+            }
             let main = room
                 .timeline_builder()
                 .with_focus(TimelineFocus::Live {
