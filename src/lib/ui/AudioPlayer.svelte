@@ -27,6 +27,7 @@
   let isPlaying = $state(false);
   let seekPosition = $state(0);
   let seekUserIsInteracting = $state(false);
+  let animationId: number | null;
 
   let { src, label, filename, attachedTop = false }: Props = $props();
 
@@ -34,12 +35,12 @@
     if (!seekUserIsInteracting) {
       seekPosition = player?.currentTime || 0;
     }
-    requestAnimationFrame(updateTime);
+    animationId = requestAnimationFrame(updateTime);
   };
 
   onMount(() => {
     player = new Audio(src);
-    requestAnimationFrame(updateTime);
+    animationId = requestAnimationFrame(updateTime);
 
     on(player, 'loadedmetadata', () => {
       if (player?.duration) {
@@ -51,6 +52,7 @@
   onDestroy(() => {
     player?.pause();
     player = null;
+    if (animationId) cancelAnimationFrame(animationId);
   });
 </script>
 
