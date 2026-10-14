@@ -43,7 +43,7 @@ replacements are silent. Cross-process deduplication is not atomic.
 
 ## Verification
 
-- `cargo test -p sable-push`: payloads, account binding and privacy.
+- `cargo nextest run -p sable-push`: payloads, account binding and privacy.
 - macOS: build simulator/device targets; inspect extension, entitlements and APNs environment.
 - iPhone: foreground/background/terminated/locked delivery, missing keys, timeout,
   hidden previews, logout, account switching, token rotation and duplicate alerts.

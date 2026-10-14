@@ -65,7 +65,7 @@ store. Browser emulation does not test native app upgrades.
 ```sh
 pnpm test src/lib/migrations/v1
 pnpm exec playwright test -c playwright.migration.config.ts
-cargo test --locked -p sable-core v1_migration
+cargo nextest run --locked -p sable-core v1_migration
 pnpm check
 cargo check --locked -p app --lib
 cargo check --locked -p sable-wasm --target wasm32-unknown-unknown

@@ -178,7 +178,7 @@ pub async fn set_sidebar(
     let event_type = GlobalAccountDataEventType::from(SIDEBAR_EVENT_TYPE);
     let extra = client
         .account()
-        .account_data_raw(event_type.clone())
+        .fetch_account_data(event_type.clone())
         .await?
         .and_then(|raw| {
             raw.deserialize_as_unchecked::<serde_json::Map<String, serde_json::Value>>()

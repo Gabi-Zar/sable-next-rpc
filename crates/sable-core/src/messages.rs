@@ -12,6 +12,7 @@ use matrix_sdk::ruma::api::client::room::get_room_event;
 use matrix_sdk::ruma::api::client::room::{report_content, report_room};
 use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::events::room::message::Relation;
+use matrix_sdk::ruma::events::room::pinned_events::RoomPinnedEventsEventContent;
 use matrix_sdk::ruma::events::{AnyMessageLikeEventContent, AnySyncTimelineEvent, Mentions};
 use matrix_sdk::ruma::room::JoinRule;
 use matrix_sdk::ruma::serde::Raw;
@@ -446,12 +447,30 @@ impl Core {
     ) -> Result<Vec<OwnedEventId>, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let room = self.room(room_id).await?;
-        if pinned {
-            room.pin_event(&event_id).await
+        // The SDK's pin_event/unpin_event start from the locally cached list,
+        // which can lag the server and would drop pins it has not seen.
+        let mut events = unique_pins(
+            room.load_pinned_events()
+                .await
+                .or_failed(self, "set_pinned")?
+                .unwrap_or_default(),
+        );
+        let changed = if pinned {
+            let missing = !events.contains(&event_id);
+            if missing {
+                events.push(event_id);
+            }
+            missing
         } else {
-            room.unpin_event(&event_id).await
+            let before = events.len();
+            events.retain(|id| *id != event_id);
+            events.len() != before
+        };
+        if changed {
+            room.send_state_event(RoomPinnedEventsEventContent::new(events))
+                .await
+                .map_err(|error| self.room_error("set_pinned", error))?;
         }
-        .map_err(|error| self.room_error("set_pinned", error))?;
 
         let events = unique_pins(
             room.load_pinned_events()
@@ -1102,6 +1121,53 @@ mod tests {
             .unwrap();
         assert_eq!(result, vec![event_id!("$old")]);
         assert_eq!(*pins.lock().unwrap(), json!({"pinned": ["$old"]}));
+    }
+
+    #[tokio::test]
+    async fn pinning_keeps_server_pins_the_local_cache_has_not_seen() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!stale:example.org");
+        let stale: matrix_sdk::ruma::serde::Raw<_> = matrix_sdk::ruma::serde::Raw::new(&json!({
+            "type": "m.room.pinned_events", "state_key": "", "event_id": "$state",
+            "sender": "@alice:example.org", "origin_server_ts": 1,
+            "content": {"pinned": ["$a"]}
+        }))
+        .unwrap()
+        .cast_unchecked();
+        server
+            .sync_room(
+                &client,
+                matrix_sdk_test::JoinedRoomBuilder::new(room_id).add_state_event(stale),
+            )
+            .await;
+        let endpoint = format!("/_matrix/client/v3/rooms/{room_id}/state/m.room.pinned_events/");
+        Mock::given(method("GET"))
+            .and(path(endpoint.clone()))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"pinned": ["$a", "$b", "$c"]})),
+            )
+            .mount(server.server())
+            .await;
+        let sent = Arc::new(Mutex::new(Value::Null));
+        let write = sent.clone();
+        Mock::given(method("PUT"))
+            .and(path(endpoint))
+            .respond_with(move |request: &wiremock::Request| {
+                *write.lock().unwrap() = serde_json::from_slice::<Value>(&request.body).unwrap();
+                ResponseTemplate::new(200).set_body_json(json!({"event_id": "$pins"}))
+            })
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        core.set_pinned(&room_id.to_owned(), event_id!("$d").to_owned(), true)
+            .await
+            .unwrap();
+        assert_eq!(
+            *sent.lock().unwrap(),
+            json!({"pinned": ["$a", "$b", "$c", "$d"]})
+        );
     }
 
     #[tokio::test]

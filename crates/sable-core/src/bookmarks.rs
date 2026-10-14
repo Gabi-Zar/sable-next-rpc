@@ -48,6 +48,13 @@ struct ItemOut {
     msgtype: Option<String>,
 }
 
+fn unique_ids(ids: Vec<String>) -> Vec<String> {
+    let mut seen = std::collections::BTreeSet::new();
+    ids.into_iter()
+        .filter(|id| seen.insert(id.clone()))
+        .collect()
+}
+
 #[serde_as]
 #[derive(Default, Deserialize)]
 struct IndexIn {
@@ -126,17 +133,19 @@ impl Core {
             .and_then(|raw| raw.deserialize_as_unchecked::<T>().ok())
     }
 
+    /// Fails rather than reading as empty, so a rewrite never starts from a
+    /// list the homeserver could not be asked for.
+    async fn bookmark_index(&self) -> Result<IndexIn, RpcError> {
+        Ok(self
+            .global_account_data(GlobalAccountDataEventType::from(INDEX_EVENT), "bookmarks")
+            .await?
+            .and_then(|raw| raw.deserialize_as_unchecked::<IndexIn>().ok())
+            .unwrap_or_default())
+    }
+
     async fn bookmark_ids(&self) -> Vec<String> {
-        let index = self
-            .bookmark_account_data::<IndexIn>(GlobalAccountDataEventType::from(INDEX_EVENT))
-            .await
-            .unwrap_or_default();
-        let mut seen = std::collections::BTreeSet::new();
-        index
-            .bookmark_ids
-            .into_iter()
-            .filter(|id| seen.insert(id.clone()))
-            .collect()
+        let index = self.bookmark_index().await.unwrap_or_default();
+        unique_ids(index.bookmark_ids)
     }
 
     pub(crate) async fn bookmarks(&self) -> Result<Vec<BookmarkView>, RpcError> {
@@ -175,7 +184,9 @@ impl Core {
     ) -> Result<bool, RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let id = bookmark_id(room_id.as_str(), event_id.as_str());
-        let mut ids = self.bookmark_ids().await;
+        let index = self.bookmark_index().await?;
+        let revision = index.revision.unwrap_or(0);
+        let mut ids = unique_ids(index.bookmark_ids);
         let held = ids.iter().any(|candidate| candidate == &id);
 
         if bookmarked == held {
@@ -191,12 +202,6 @@ impl Core {
                 .await?;
             ids.retain(|candidate| candidate != &id);
         }
-
-        let revision = self
-            .bookmark_account_data::<IndexIn>(GlobalAccountDataEventType::from(INDEX_EVENT))
-            .await
-            .and_then(|index| index.revision)
-            .unwrap_or(0);
 
         self.put_global_account_data(
             GlobalAccountDataEventType::from(INDEX_EVENT),
