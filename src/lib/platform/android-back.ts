@@ -1,23 +1,45 @@
-import { isTauri } from '@tauri-apps/api/core';
+import { isAndroid } from './os.js';
 
-export function needsAndroidHistoryRoot(historyLength: number, historyStateIdx: unknown): boolean {
-  return historyLength <= 1 && !historyStateIdx;
+export type AndroidBackAction = 'back' | 'home' | 'exit';
+
+export function androidBackAction(
+  canGoBack: boolean,
+  pathname: string,
+  homePath: string
+): AndroidBackAction {
+  if (canGoBack) return 'back';
+  return pathname === homePath ? 'exit' : 'home';
 }
 
-export function ensureAndroidHistoryRoot(homeHref: string): void {
-  if (!isTauri()) return;
-  if (
-    !needsAndroidHistoryRoot(
-      window.history.length,
-      (window.history.state as { idx?: number } | null)?.idx
-    )
-  ) {
-    return;
+declare global {
+  interface Window {
+    __sableAndroidBack?: () => boolean;
   }
-  if (window.location.href === new URL(homeHref, window.location.href).href) return;
+}
 
-  const state = (window.history.state ?? {}) as { idx?: number };
-  const currentHref = window.location.href;
-  window.history.replaceState(state, '', homeHref);
-  window.history.pushState({ ...state, idx: 1 }, '', currentHref);
+/**
+ * Hands the hardware back key to the page. The shell falls back to
+ * backgrounding the app when the handler returns false.
+ */
+export function installAndroidBack(options: {
+  pathname: () => string;
+  homePath: string;
+  goHome: () => void;
+}): () => void {
+  if (!isAndroid()) return () => {};
+
+  const handler = (): boolean => {
+    const action = androidBackAction(
+      'navigation' in window ? window.navigation.canGoBack : history.length > 1,
+      options.pathname(),
+      options.homePath
+    );
+    if (action === 'back') history.back();
+    if (action === 'home') options.goHome();
+    return action !== 'exit';
+  };
+  window.__sableAndroidBack = handler;
+  return () => {
+    if (window.__sableAndroidBack === handler) delete window.__sableAndroidBack;
+  };
 }

@@ -59,7 +59,7 @@
   import unreadFavicon from '#lib/assets/res/svg/unread.svg';
   import highlightFavicon from '#lib/assets/res/svg/highlight.svg';
   import { startSystemBarSync } from '#lib/platform/system-bars.js';
-  import { ensureAndroidHistoryRoot } from '#lib/platform/android-back.js';
+  import { installAndroidBack } from '#lib/platform/android-back.js';
   import {
     preferences,
     readReceiptIsPrivate,
@@ -412,10 +412,13 @@
     return startSystemBarSync();
   });
 
-  $effect(() => {
-    if (core.status !== 'ready') return;
-    ensureAndroidHistoryRoot(resolve('/(app)/rooms'));
-  });
+  $effect(() =>
+    installAndroidBack({
+      pathname: () => page.url.pathname,
+      homePath: resolve('/(app)/rooms'),
+      goHome: () => void goto(resolve('/(app)/rooms'), { replace: true }),
+    })
+  );
 
   const onClick = (event: MouseEvent): void => {
     const target = event.target;

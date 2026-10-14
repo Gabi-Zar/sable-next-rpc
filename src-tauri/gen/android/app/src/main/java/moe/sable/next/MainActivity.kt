@@ -82,6 +82,15 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onWebViewCreate(webView: WebView) {
+    onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+      override fun handleOnBackPressed() {
+        webView.evaluateJavascript(
+          "(typeof window.__sableAndroidBack === 'function' && window.__sableAndroidBack() === true)"
+        ) { consumed ->
+          if (consumed != "true") moveTaskToBack(true)
+        }
+      }
+    })
     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
     webView.post {
       val inner = webView.webChromeClient ?: return@post
