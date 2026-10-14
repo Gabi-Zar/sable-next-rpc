@@ -1,5 +1,4 @@
 .avatar-button {
-  align-items: center;
   background: none;
   border: 0;
   border-radius: var(--radius-pill);
@@ -7,4 +6,8 @@
   display: flex;
   flex: 0 0 auto;
   padding: 0;
+}
+
+:global(.compact-user) .avatar-button {
+  align-items: center;
 }
