@@ -10,6 +10,8 @@ vi.mock('@sentry/sveltekit', () => ({
   captureConsoleIntegration: vi.fn(() => ({ name: 'CaptureConsole' })),
   init: vi.fn(),
 }));
+const updatedCheck = vi.hoisted(() => vi.fn<() => Promise<boolean>>());
+vi.mock('$app/state', () => ({ updated: { check: updatedCheck } }));
 vi.mock('#lib/platform/telemetry.js', () => ({
   syncTelemetryConsent: vi.fn(),
 }));
@@ -32,20 +34,31 @@ afterEach(() => {
   vi.resetModules();
 });
 
-test('recovers a global stale-import rejection that never reaches handleError', async () => {
+test('reloads on a global stale-import rejection only when the build is stale', async () => {
   const reload = vi.fn();
   vi.stubGlobal('location', { reload });
   vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+  updatedCheck.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
   await import('./hooks.client.js');
-  const event = Object.assign(new Event('unhandledrejection', { cancelable: true }), {
-    reason: new Error('Failed to fetch dynamically imported module'),
+  const dispatch = (): void => {
+    window.dispatchEvent(
+      Object.assign(new Event('unhandledrejection', { cancelable: true }), {
+        reason: new Error('Failed to fetch dynamically imported module'),
+      })
+    );
+  };
+
+  dispatch();
+  await vi.waitFor(() => {
+    expect(updatedCheck).toHaveBeenCalledOnce();
   });
+  expect(reload).not.toHaveBeenCalled();
 
-  window.dispatchEvent(event);
-
-  expect(reload).toHaveBeenCalledOnce();
-  expect(event.defaultPrevented).toBe(true);
+  dispatch();
+  await vi.waitFor(() => {
+    expect(reload).toHaveBeenCalledOnce();
+  });
 });
 
 test('fully samples call traces and inherits sampling for every other trace', async () => {

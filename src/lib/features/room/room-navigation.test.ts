@@ -72,6 +72,18 @@ test('searching quotes a room label with a space in it', () => {
   expect(goto).toHaveBeenCalledWith(`/search?q=${encodeURIComponent('in:"My room" ')}`);
 });
 
+test('a failed search navigation does not force a page load', async () => {
+  const assign = vi.fn();
+  vi.stubGlobal('window', { location: { assign } });
+  vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+  vi.mocked(goto).mockRejectedValueOnce(new Error('offline'));
+
+  searchInRoom(undefined, '!room');
+  await Promise.resolve();
+
+  expect(assign).not.toHaveBeenCalled();
+});
+
 test('searching an unknown room scopes by its id', () => {
   searchInRoom(undefined, '!room');
 

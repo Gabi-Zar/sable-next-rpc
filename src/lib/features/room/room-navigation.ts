@@ -112,6 +112,5 @@ export function searchInRoom(room: RoomListItemView | undefined, roomId: string)
 
   goto(target).catch((error: unknown) => {
     console.debug('[sable room] search navigation failed', error);
-    window.location.assign(target);
   });
 }

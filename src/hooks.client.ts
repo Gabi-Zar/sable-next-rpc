@@ -3,10 +3,7 @@ import type { ClientInit, HandleClientError } from '@sveltejs/kit/hooks';
 
 import { tolerateUnknownListeners } from '#lib/platform/tauri-events.js';
 import { syncTelemetryConsent } from '#lib/platform/telemetry.js';
-import {
-  installDynamicImportRecovery,
-  recoverStaleDynamicImport,
-} from '#lib/observability/dynamic-import-recovery.js';
+import { installDynamicImportRecovery } from '#lib/observability/dynamic-import-recovery.js';
 import { sanitizePayload, scrubMatrixIds, scrubMatrixUrl } from '#lib/observability/scrubbers.js';
 import { scrubSentryEvent } from '#lib/observability/sentry-event.js';
 import { untrackFetch } from '#lib/observability/untracked-fetch.js';
@@ -113,7 +110,6 @@ export const init: ClientInit = async () => {
 
 export const handleError: HandleClientError = (input) => {
   if (input.kind !== 'unknown') return;
-  if (recoverStaleDynamicImport(input.error)) return;
 
   const eventId = Sentry.captureException(input.error, {
     mechanism: {
