@@ -6,6 +6,7 @@
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import { memberIdentity } from '../members/members.js';
+  import './text-button.css';
 
   interface Props {
     failure: Extract<SendStateView, { status: 'failed' }>;
@@ -48,6 +49,7 @@
     {@const userIds = blocked.user_ids}
     <button
       type="button"
+      class="text-button"
       onclick={() => {
         void sendAnyway(id, userIds);
       }}
@@ -59,6 +61,7 @@
     {@const id = transactionId}
     <button
       type="button"
+      class="text-button"
       onclick={() => {
         onRetrySend?.(id);
       }}
@@ -67,6 +70,7 @@
     </button>
     <button
       type="button"
+      class="text-button"
       onclick={() => {
         onCancelSend?.(id);
       }}
@@ -100,30 +104,5 @@
     color: var(--surface-var-on-container);
     flex-basis: 100%;
     overflow-wrap: anywhere;
-  }
-
-  .send-failure button {
-    background: none;
-    border: 0;
-    color: inherit;
-    cursor: pointer;
-    font: inherit;
-    padding: 0;
-    position: relative;
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-  }
-
-  /* Small text buttons, so the tap area is grown without moving the baseline. */
-  .send-failure button::after {
-    content: '';
-    inset: -0.5rem -0.25rem;
-    position: absolute;
-  }
-
-  .send-failure button:focus-visible {
-    border-radius: var(--radii-200);
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: 0.15rem;
   }
 </style>

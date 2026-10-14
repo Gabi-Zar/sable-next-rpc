@@ -1,6 +1,7 @@
 <script lang="ts">
   import { i18n } from '#lib/i18n.js';
   import Progress from '#lib/ui/primitives/Progress.svelte';
+  import './text-button.css';
 
   interface Props {
     label: string;
@@ -21,7 +22,7 @@
     </span>
   {/if}
   {#if onCancel}
-    <button type="button" class="transfer-cancel" onclick={onCancel}>
+    <button type="button" class="text-button transfer-cancel" onclick={onCancel}>
       {i18n.t('common.cancel')}
     </button>
   {/if}
@@ -49,27 +50,7 @@
   }
 
   .transfer-cancel {
-    background: none;
-    border: 0;
     color: var(--surface-var-on-container);
-    cursor: pointer;
-    font: inherit;
     font-size: var(--font-size-small);
-    padding: 0;
-    position: relative;
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-  }
-
-  .transfer-cancel::after {
-    content: '';
-    inset: -0.5rem -0.25rem;
-    position: absolute;
-  }
-
-  .transfer-cancel:focus-visible {
-    border-radius: var(--radii-200);
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: 0.15rem;
   }
 </style>
