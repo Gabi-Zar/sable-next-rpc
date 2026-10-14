@@ -693,6 +693,14 @@ export const settingsCategories: SettingsCategory[] = [
         type: 'boolean',
       },
       {
+        key: 'avatarsInMessageHeaders',
+        section: 'message-layout',
+        icon: LayoutIcon,
+        name: 'settings.avatarsInMessageHeaders',
+        description: 'settings.avatarsInMessageHeadersHint',
+        type: 'boolean',
+      },
+      {
         key: 'messageSpacing',
         section: 'message-layout',
         icon: ArrowsOutLineVerticalIcon,

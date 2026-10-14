@@ -464,6 +464,7 @@ html {
   --control-padding-300: var(--space-300);
   --control-padding-400: var(--space-400);
   --control-padding-500: var(--space-500);
+  --avatar-size-100: 1.3rem;
   --avatar-size-200: 1.5rem;
   --avatar-size-300: 2.25rem;
   --avatar-size-400: 2.625rem;

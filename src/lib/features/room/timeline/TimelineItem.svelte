@@ -149,6 +149,7 @@
     timeAction,
     headerAction,
     alignOwn = true,
+    avatarsInHeaders = true,
     members = [],
     onJumpToEvent,
     onOpenMedia,
@@ -589,7 +590,7 @@
     {#if layout === 'compact'}
       <div class="compact-gutter">
         <time><Skeleton class="placeholder-time" /></time>
-        {#if !collapsed}<Skeleton class="compact-name placeholder-name" />{/if}
+        <Skeleton class="compact-name placeholder-name" />
       </div>
     {:else if !collapsed}
       <Skeleton class="avatar-root avatar-small message-avatar placeholder-avatar" />
@@ -681,7 +682,33 @@
             </time>
           {/snippet}
         </Tooltip>
-        {#if !collapsed}
+        <div class="compact-user">
+          {#if avatarsInHeaders}
+            {#if item.sender && onSenderProfile}
+              <button
+                class="avatar-button"
+                type="button"
+                aria-label={$i18n.t('timeline.senderProfile', { name: senderName })}
+                onclick={openSenderProfile}
+              >
+                <Avatar
+                  class="message-avatar"
+                  src={senderAvatar}
+                  size="tiny"
+                  id={personaTint ? null : item.sender}
+                  name={senderName}
+                />
+              </button>
+            {:else}
+              <Avatar
+                class="message-avatar"
+                src={senderAvatar}
+                size="tiny"
+                id={personaTint ? null : item.sender}
+                name={senderName}
+              />
+            {/if}
+          {/if}
           <SenderName
             displayName={senderName}
             colors={senderColors}
@@ -691,7 +718,7 @@
             onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
             compact={layout === 'compact'}
           />
-        {/if}
+        </div>
       </div>
     {:else if !collapsed}
       {#if item.sender && onSenderProfile}
@@ -1897,7 +1924,6 @@
   /* Layout modes stay in one block at the end: each overrides a base rule
      above, and a second copy elsewhere would drift out of sync. */
   .message.layout-compact {
-    align-items: baseline;
     gap: var(--space-300);
   }
 
@@ -1906,10 +1932,11 @@
   }
 
   .compact-gutter {
-    align-items: baseline;
+    align-items: center;
     display: flex;
     flex: 0 0 clamp(7.5rem, 20%, 10.625rem);
     gap: var(--space-200);
+    height: fit-content;
     justify-content: space-between;
     min-width: 0;
     overflow: hidden;
@@ -1926,6 +1953,12 @@
   .message.layout-compact .reply-connected::before {
     left: calc(var(--space-050) - var(--space-300));
     width: calc(var(--space-300) - var(--space-150));
+  }
+
+  .compact-user {
+    display: flex;
+    font-size: inherit;
+    gap: var(--space-100);
   }
 
   .message.layout-bubble .message-main {

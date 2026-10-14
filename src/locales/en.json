@@ -1778,6 +1778,8 @@
     "layoutBubble": "Bubble",
     "alignOwnMessages": "Right-align own messages",
     "alignOwnMessagesHint": "Only applies in Bubble layout.",
+    "avatarsInMessageHeaders": "Display avatars in message headers",
+    "avatarsInMessageHeadersHint": "Only applies in Compact layout",
     "unverifiedBannerTitle": "This device is not verified",
     "unverifiedBannerBody": "Other users may see security warnings on your messages. Verify to decrypt your message history and mark this device as secure.",
     "unverifiedOthersTitle_one": "One of your devices is not verified",

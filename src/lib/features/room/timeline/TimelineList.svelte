@@ -977,6 +977,7 @@
     {members}
     layout={preferences.layout}
     alignOwn={preferences.alignOwnMessages}
+    avatarsInHeaders={preferences.avatarsInMessageHeaders}
     {onJumpToEvent}
     {onOpenMedia}
     {onVotePoll}
@@ -1360,6 +1361,10 @@
 
   .item.group-start {
     padding-top: calc(var(--timeline-row-padding) + var(--timeline-group-gap));
+  }
+
+  .layout-compact .item {
+    padding-top: 0;
   }
 
   .unread-bar {
