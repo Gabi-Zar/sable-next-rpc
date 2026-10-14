@@ -181,8 +181,10 @@
     display: flex;
     justify-content: center;
 
-    &:hover {
-      transform: scale(1.1);
+    @media (prefers-reduced-motion: no-preference) {
+      &:hover {
+        transform: scale(1.1);
+      }
     }
   }
 
