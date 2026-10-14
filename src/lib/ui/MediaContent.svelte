@@ -33,6 +33,7 @@
     textAttachmentLanguage,
   } from '#lib/ui/text-attachment.js';
   import VoiceMessagePlayer from '#lib/ui/VoiceMessagePlayer.svelte';
+  import AudioPlayer from './AudioPlayer.svelte';
 
   const BLURHASH_POSTER_WIDTH = 32;
 
@@ -338,9 +339,8 @@
       <VoiceMessagePlayer {url} body={filename} {durationMs} {waveform} />
     {:else if kind === 'audio'}
       {#if audioMetadata}<AudioTrack metadata={audioMetadata} fallbackTitle={mediaLabel} />{/if}
-      <audio class="media-content" controls src={url} aria-label={mediaLabel}>
-        {filename}
-      </audio>
+      <AudioPlayer src={url} {filename} label={mediaLabel} attachedTop={audioMetadata !== null}
+      ></AudioPlayer>
     {:else}
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
       <a class="media-file" href={url} download={mediaLabel} onclick={download}>
