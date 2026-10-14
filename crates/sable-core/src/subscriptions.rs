@@ -1,7 +1,7 @@
 use crate::api::timeline::SubscribeParams;
 use crate::api::timeline::TimelineFocusView;
 use crate::api::timeline::WarmRoomsParams;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use futures_util::{StreamExt, pin_mut};
 use matrix_sdk::event_cache::{PaginationStatus, RoomEventCacheUpdate};
@@ -15,11 +15,13 @@ use matrix_sdk_ui::timeline::{
     Error as TimelineError, EventSendState, SendTarget, Timeline, TimelineItem,
 };
 use tokio::sync::broadcast::error::RecvError;
+use web_time::Instant;
 
 use crate::ResultExt;
 use crate::api::timeline::{SubscribeOk, SubscribeRoomListOk};
 use crate::notifications;
 use crate::protocol::{CoreEvent, RpcError, SubscriptionId, TimelineItemView};
+use crate::room_list_batch::DiffBatch;
 use crate::room_list_rows::RoomListRows;
 use crate::thread_unreads::{ThreadWatch, thread_unread};
 use crate::timeline_overlay::{ReplyFallback, TimelineOverlay};
@@ -30,6 +32,7 @@ use crate::view;
 use crate::{Core, Subscription, SubscriptionKind, Task};
 
 const ROOM_LIST_PAGE_SIZE: usize = 200;
+const ROOM_LIST_BATCH_INTERVAL: Duration = Duration::from_millis(100);
 pub(crate) const MAX_WARM_ROOMS: usize = 32;
 
 const fn pages_for(total: u32) -> usize {
@@ -103,8 +106,17 @@ impl Core {
 
             let mut stream = Box::pin(stream);
             let mut grown_to = 0;
+            let mut batch = DiffBatch::new(ROOM_LIST_BATCH_INTERVAL);
             loop {
+                let held = batch.wait(Instant::now());
                 let diffs = tokio::select! {
+                    () = due(held) => {
+                        core.emit(CoreEvent::RoomListDiff {
+                            subscription,
+                            diffs: batch.take(Instant::now()),
+                        });
+                        continue;
+                    }
                     diffs = stream.next() => {
                         let Some(diffs) = diffs else { break };
                         if let RoomListLoadingState::Loaded {
@@ -175,10 +187,12 @@ impl Core {
                         diffs
                     }
                 };
-                core.emit(CoreEvent::RoomListDiff {
-                    subscription,
-                    diffs,
-                });
+                if let Some(diffs) = batch.push(diffs, Instant::now()) {
+                    core.emit(CoreEvent::RoomListDiff {
+                        subscription,
+                        diffs,
+                    });
+                }
             }
         })
         .abort_on_drop();
@@ -610,6 +624,13 @@ impl Core {
         tracing::info!("set_room_subscriptions: done");
         *subscribed = room_ids;
         Ok(())
+    }
+}
+
+async fn due(wait: Option<Duration>) {
+    match wait {
+        Some(wait) => matrix_sdk::sleep::sleep(wait).await,
+        None => std::future::pending().await,
     }
 }
 
