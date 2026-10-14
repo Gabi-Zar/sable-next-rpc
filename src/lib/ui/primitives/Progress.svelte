@@ -2,7 +2,7 @@
   import { Progress } from 'bits-ui';
 
   interface Props {
-    value: number;
+    value: number | null;
     label: string;
   }
 
@@ -10,7 +10,7 @@
 </script>
 
 <Progress.Root class="progress-track" {value} aria-label={label} aria-valuetext={label}>
-  <span class="progress-fill" style="scale: {value / 100} 1;"></span>
+  <span class="progress-fill" style:scale={value === null ? null : `${value / 100} 1`}></span>
 </Progress.Root>
 
 <style>
@@ -30,9 +30,29 @@
     transform-origin: left center;
   }
 
+  :global(.progress-track[data-indeterminate] .progress-fill) {
+    inline-size: 40%;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
     :global(.progress-fill) {
       transition: scale var(--motion-normal) var(--ease-smooth-out);
+    }
+
+    :global(
+      html:not([data-reduced-motion='on']) .progress-track[data-indeterminate] .progress-fill
+    ) {
+      animation: progress-indeterminate 1.4s var(--motion-easing-standard) infinite;
+    }
+  }
+
+  @keyframes progress-indeterminate {
+    from {
+      translate: -100% 0;
+    }
+
+    to {
+      translate: 250% 0;
     }
   }
 </style>

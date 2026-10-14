@@ -152,16 +152,14 @@
       <div class="download-status">
         {#if busy}
           <p role="status">{progressLabel}</p>
-          {#if download.total !== null}
-            <Progress
-              value={download.total === 0
+          <Progress
+            value={download.total === null
+              ? null
+              : download.total === 0
                 ? 100
                 : Math.min(100, (download.processed / download.total) * 100)}
-              label={progressLabel}
-            />
-          {:else}
-            <progress aria-label={progressLabel}></progress>
-          {/if}
+            label={progressLabel}
+          />
         {:else if download.state === 'complete'}
           <p role="status">
             {i18n.t('settings.keyBackupRestored', {
@@ -222,11 +220,5 @@
 
   .backup-actions {
     display: flex;
-  }
-
-  progress {
-    accent-color: var(--primary-main);
-    block-size: var(--space-300);
-    inline-size: 100%;
   }
 </style>

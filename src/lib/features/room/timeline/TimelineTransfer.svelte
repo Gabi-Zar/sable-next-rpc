@@ -1,5 +1,6 @@
 <script lang="ts">
   import { i18n } from '#lib/i18n.js';
+  import Progress from '#lib/ui/primitives/Progress.svelte';
 
   interface Props {
     label: string;
@@ -13,11 +14,7 @@
 </script>
 
 <div class="transfer">
-  {#if value === undefined}
-    <progress class="upload" aria-label={label}></progress>
-  {:else}
-    <progress class="upload" {max} {value} aria-label={label}></progress>
-  {/if}
+  <Progress value={value === undefined ? null : (value / (max ?? 1)) * 100} {label} />
   {#if count !== null}
     <span class="transfer-count">
       {count}
@@ -38,11 +35,9 @@
     margin-top: var(--space-100);
   }
 
-  .upload {
-    accent-color: var(--primary-main);
-    display: block;
+  .transfer :global(.progress-track) {
+    block-size: 0.25rem;
     flex: 0 1 16rem;
-    height: 0.25rem;
     min-width: 0;
   }
 

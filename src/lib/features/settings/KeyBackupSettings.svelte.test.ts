@@ -88,7 +88,7 @@ test('downloads once, reports progress, and distinguishes existing keys from new
   const button = await screen.findByRole('button', { name: 'Download keys' });
   await userEvent.click(button);
   expect(button).toBeDisabled();
-  expect(screen.getByRole('progressbar')).not.toHaveAttribute('value');
+  expect(screen.getByRole('progressbar')).toHaveAttribute('data-indeterminate');
   await act(() => {
     listener({ type: 'key_backup_download', download: progress() });
   });

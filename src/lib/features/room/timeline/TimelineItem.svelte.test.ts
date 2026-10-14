@@ -1052,13 +1052,13 @@ test('downloads an image from its message menu, with progress on the message', a
     listener({ type: 'media_progress', source: 'mxc://example.org/photo', current: 3, total: 4 });
   }
   await tick();
-  expect(document.querySelector<HTMLProgressElement>('progress.upload')?.value).toBe(75);
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75');
 
   finish(bytes);
   await vi.waitFor(() => {
     expect(saveBytes).toHaveBeenCalledWith(bytes, 'photo.png', 'image/png');
   });
-  expect(document.querySelector('progress.upload')).toBeNull();
+  expect(screen.queryByRole('progressbar')).toBeNull();
   instance.unmount();
   subscribe.mockImplementation(() => () => {});
   fetchMedia.mockImplementation(() => new Promise(() => {}));
@@ -1492,9 +1492,7 @@ test('shows an indeterminate upload bar until the core reports progress', async 
   });
   await tick();
 
-  const bar = document.querySelector<HTMLProgressElement>('progress.upload');
-  expect(bar).not.toBeNull();
-  expect(bar?.hasAttribute('value')).toBe(false);
+  expect(screen.getByRole('progressbar')).toHaveAttribute('data-indeterminate');
 });
 
 test('cancels an upload that is still sending', async () => {
@@ -1543,7 +1541,7 @@ test('fills one bar across a gallery and names the item uploading', async () => 
   });
   await tick();
 
-  expect(document.querySelector<HTMLProgressElement>('progress.upload')?.value).toBeCloseTo(0.375);
+  expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '37.5');
   expect(document.querySelector('.transfer-count')?.textContent.trim()).toBe('2 of 4');
 });
 

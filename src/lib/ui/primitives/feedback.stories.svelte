@@ -27,6 +27,7 @@
     <Progress value={12} label="Uploading" />
     <Progress value={64} label="Uploading" />
     <Progress value={100} label="Uploaded" />
+    <Progress value={null} label="Preparing" />
   </div>
 </Story>
 
