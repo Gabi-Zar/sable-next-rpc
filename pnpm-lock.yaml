@@ -404,6 +404,9 @@ importers:
       axe-core:
         specifier: ^4.14.0
         version: 4.14.0
+      binaryen:
+        specifier: 132.0.0
+        version: 132.0.0
       eslint:
         specifier: ^10.10.0
         version: 10.12.0(jiti@2.7.0)(supports-color@10.2.2)
@@ -3185,6 +3188,10 @@ packages:
 
   bcrypt-pbkdf@1.0.2:
     resolution: {integrity: sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==}
+
+  binaryen@132.0.0:
+    resolution: {integrity: sha512-4Usg7yEvwO3FMso3Oov6qkOOHSod1IEv+boKkh77kTljM+eNBouqCTbqWswGzbG+vDNO/b/v2C4gfEh1WgB9Lg==}
+    hasBin: true
 
   bits-ui@2.19.5:
     resolution: {integrity: sha512-TEwkLSYElE5SE0fIdcItiFPfyg9vrR67N1Mt6VvZCqZo24dwTA1MpGVV3WeyIg7rfVAaZ0So8a0/dcnPngCoew==}
@@ -7470,6 +7477,8 @@ snapshots:
   bcrypt-pbkdf@1.0.2:
     dependencies:
       tweetnacl: 0.14.5
+
+  binaryen@132.0.0: {}
 
   bits-ui@2.19.5(@internationalized/date@3.12.4)(@sveltejs/kit@3.0.1(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1))(vite@8.3.3(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1))(typescript@6.0.3)(vite@8.3.3(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.1(patch_hash=30edc12bd3504681b4e8166b453d6cd3250fd775eb46a7950f6ef6fc7335e772)(@typescript-eslint/types@8.71.1)):
     dependencies:

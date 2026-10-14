@@ -27,6 +27,12 @@ can run while the development server is using `src/generated/wasm/`.
 
 Run `mise tasks` for the full list.
 
+### Building without mise
+
+Put Node, pnpm, Rust (with the `wasm32-unknown-unknown` target) and
+`wasm-bindgen-cli` (the version in `Cargo.lock`) on your `PATH`, then run
+`pnpm install` and `pnpm build`.
+
 ## Customization
 
 Edit [`static/config.json`](static/config.json) to customize homeservers and client
@@ -66,6 +72,8 @@ The cask is published to the GitHub tap, which `brew install` taps by default, a
 ### Android
 
 <a href="https://play.google.com/store/apps/details?id=moe.sable.client"><img alt="Google Play" src="https://img.shields.io/badge/Google_Play-3DDC84?style=for-the-badge&logo=googleplay&logoColor=white"></a>
+&nbsp;
+<a href="https://apt.izzysoft.de/fdroid/index/apk/moe.sable.client"><img alt="IzzyOnDroid" src="https://img.shields.io/badge/IzzyOnDroid-1A73E8?style=for-the-badge&logo=fdroid&logoColor=white"></a>
 &nbsp;
 <a href="https://git.sable.moe/SableClient/sable-next/releases/latest"><img alt="Download APK" src="https://img.shields.io/badge/Download_APK-6B7280?style=for-the-badge&logo=android&logoColor=white"></a>
 
