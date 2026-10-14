@@ -29,7 +29,6 @@
   import Skeleton from '#lib/ui/primitives/Skeleton.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
-  import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
 
   import FormattedBody from '../messages/FormattedBody.svelte';
   import MessageBody from '../messages/MessageBody.svelte';
@@ -53,6 +52,7 @@
   import { useMessageDialogs } from '../messages/message-dialogs.svelte.js';
   import '../members/sender-identity.css';
   import { formatFullTimestamp, formatMessageTimestamp, formatTime } from '#lib/ui/date-time.js';
+  import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import { isAnnotation, isMessageRow } from './timeline-format';
 
   import { MessageActionExecutor } from '../messages/message-action-controller.svelte.js';
@@ -487,14 +487,18 @@
 {/snippet}
 
 {#snippet messageTime()}
-  {@const fullTimestamp = formatFullTimestamp(item.timestamp)}
-  <Tooltip label={fullTimestamp}>
-    {#snippet trigger({ props })}
-      <time {...props} datetime={new Date(item.timestamp).toISOString()}>
-        {formatMessageTimestamp(item.timestamp)}
-      </time>
-    {/snippet}
-  </Tooltip>
+  {#if pending}
+    <Spinner small label={i18n.t('timeline.sending')} />
+  {:else}
+    {@const fullTimestamp = formatFullTimestamp(item.timestamp)}
+    <Tooltip label={fullTimestamp}>
+      {#snippet trigger({ props })}
+        <time {...props} datetime={new Date(item.timestamp).toISOString()}>
+          {formatMessageTimestamp(item.timestamp)}
+        </time>
+      {/snippet}
+    </Tooltip>
+  {/if}
 {/snippet}
 
 {#if placeholder}
@@ -582,13 +586,17 @@
     {#if layout === 'compact'}
       {@const fullTimestamp = formatFullTimestamp(item.timestamp)}
       <div class="compact-gutter">
-        <Tooltip label={fullTimestamp}>
-          {#snippet trigger({ props })}
-            <time {...props} datetime={new Date(item.timestamp).toISOString()}>
-              {formatTime(item.timestamp)}
-            </time>
-          {/snippet}
-        </Tooltip>
+        {#if pending}
+          <Spinner small label={i18n.t('timeline.sending')} />
+        {:else}
+          <Tooltip label={fullTimestamp}>
+            {#snippet trigger({ props })}
+              <time {...props} datetime={new Date(item.timestamp).toISOString()}>
+                {formatTime(item.timestamp)}
+              </time>
+            {/snippet}
+          </Tooltip>
+        {/if}
         <div class="compact-user">
           {#if avatarsInHeaders}
             {@render senderAvatarButton('tiny')}
@@ -706,14 +714,6 @@
             <!-- After the body, where the edit happened. -->
             {#if item.content.edited}
               <span class="edited">{i18n.t('timeline.edited')}</span>
-            {/if}
-            {#if pending}
-              <ClockIcon
-                class="send-pending"
-                size={12}
-                role="img"
-                aria-label={i18n.t('timeline.sending')}
-              />
             {/if}
             {#if inlineReceipts}
               <span class="receipt-space" aria-hidden="true"></span>
@@ -1359,12 +1359,6 @@
   .edited {
     font-size: var(--font-size-small);
     margin-inline-start: var(--space-100);
-  }
-
-  .message :global(.send-pending) {
-    color: var(--surface-var-on-container);
-    margin-inline-start: var(--space-100);
-    vertical-align: middle;
   }
 
   /* `m.notice` is usually a bot, and reads as an aside. */
