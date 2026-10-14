@@ -993,6 +993,7 @@
     "videoConverting": "Converting video…",
     "playVideo": "Play {{name}}",
     "playAudio": "Play {{name}}",
+    "audioSeek": "Seek",
     "showEmbed": "Show {{name}}",
     "audioAttachment": "Audio attachment",
     "fileAttachment": "File attachment",

@@ -101,6 +101,7 @@
         max={player?.duration}
         step="0.01"
         value={seekPosition}
+        aria-label={i18n.t('timeline.audioSeek')}
         onmousedown={() => (seekUserIsInteracting = true)}
         onmouseup={() => (seekUserIsInteracting = false)}
         oninput={(e) => {
