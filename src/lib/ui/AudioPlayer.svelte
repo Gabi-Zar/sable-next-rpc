@@ -210,11 +210,17 @@
   }
 
   input[type='range']::-webkit-slider-thumb {
+    /*
+        https://www.smashingmagazine.com/2021/12/create-custom-range-input-consistent-browsers/
+        margin-top = (track height in pixels / 2) - (thumb height in pixels /2)
+      */
+    --webkit-thumb-nudge: calc((0.5rem / 2) - (1rem / 2));
+
     appearance: none;
     background-color: var(--primary-main);
     border-radius: var(--radius-pill);
     height: 1rem;
-    margin-top: -4px;
+    margin-top: var(--webkit-thumb-nudge);
     width: 1rem;
   }
 
