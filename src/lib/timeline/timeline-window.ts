@@ -353,7 +353,9 @@ export class TimelineWindow<T> {
         this.countBucket(size.bucket, -size.height);
       }
       if (this.pinned || !this.ready || (first < 0 && anchorIndex === undefined)) {
-        this.start = Math.max(0, next.length - PAGE * 2);
+        const latest = Math.max(0, next.length - PAGE * 2);
+        this.start =
+          this.pinned && this.ready && first === this.start ? Math.max(latest, first) : latest;
         this.end = next.length;
       } else {
         this.start = Math.max(0, anchorIndex !== undefined ? anchorIndex - PAGE : first);

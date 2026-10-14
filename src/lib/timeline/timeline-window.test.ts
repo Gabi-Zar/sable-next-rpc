@@ -684,6 +684,20 @@ test('renders a bounded latest window and jumps to a stable key', async () => {
   expect(window.state.pinned).toBe(true);
 });
 
+test('a message at latest keeps the rows a settled window already dropped', async () => {
+  const { window, viewport, keys } = fixture();
+  await window.update(entries(1000));
+  viewport.dispatchEvent(new Event('scrollend'));
+  await vi.advanceTimersByTimeAsync(200);
+  const settled = keys();
+  expect(settled.length).toBeLessThan(80);
+
+  await window.update(entries(1001));
+
+  expect(keys()[0]).toBe(settled[0]);
+  expect(keys().at(-1)).toBe('1000');
+});
+
 test('a distant smooth jump animates the last viewport into its rendered destination', async () => {
   const { window, viewport } = fixture();
   const animate = vi.spyOn(viewport, 'scrollTo').mockImplementation(() => {});
