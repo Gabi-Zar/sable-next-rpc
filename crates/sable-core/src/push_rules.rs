@@ -509,6 +509,18 @@ const STICKER: &str = "moe.sable.sticker";
 const STICKER_DIRECT: &str = "moe.sable.sticker_one_to_one";
 const SUPPRESS_BRIDGE_STATUS: &str = "moe.sable.suppress_bridge_status";
 const SUPPRESS_REACTIONS: &str = "moe.sable.suppress_reactions";
+/// A room rule matches every event, so these would notify in a room set to all messages.
+const SUPPRESSED_ROOM_EVENTS: [&str; 9] = [
+    "m.room.name",
+    "m.room.topic",
+    "m.room.avatar",
+    "m.room.canonical_alias",
+    "m.room.pinned_events",
+    "m.room.power_levels",
+    "m.room.join_rules",
+    "m.room.history_visibility",
+    "m.room.redaction",
+];
 
 #[must_use]
 pub fn plan_alignment(rules: &Ruleset) -> Vec<RuleWrite> {
@@ -551,6 +563,14 @@ pub fn plan_alignment(rules: &Ruleset) -> Vec<RuleWrite> {
         "m.reaction",
         Some(PredefinedOverrideRuleId::Reaction.as_str()),
     ));
+    writes.extend(SUPPRESSED_ROOM_EVENTS.iter().filter_map(|event_type| {
+        silence_event_type(
+            rules,
+            &format!("moe.sable.suppress.{event_type}"),
+            event_type,
+            None,
+        )
+    }));
     writes
 }
 
@@ -1248,6 +1268,40 @@ mod tests {
         let position = |id: &str| rules.underride.iter().position(|rule| rule.rule_id == id);
 
         assert!(position(STICKER_DIRECT) < position(STICKER));
+    }
+
+    #[tokio::test]
+    async fn a_room_set_to_all_messages_ignores_room_changes_but_not_messages() {
+        use matrix_sdk::ruma::push::PushConditionRoomCtx;
+        use matrix_sdk::ruma::serde::Raw;
+
+        let room = room_id!("!ann:example.org");
+        let defaults = Ruleset::server_default(me());
+        let mut rules = applied(defaults.clone(), plan_alignment(&defaults));
+        rules = applied(
+            rules.clone(),
+            plan_room_mode(&rules, room, false, Some(NotificationModeView::All)),
+        );
+        let context = PushConditionRoomCtx::new(
+            room.to_owned(),
+            3_u8.into(),
+            me().to_owned(),
+            "me".to_owned(),
+        );
+        let notifies_for = async |event_type: &str, content: serde_json::Value| {
+            let event = Raw::new(&json!({
+                "type": event_type, "event_id": "$e", "sender": "@them:example.org",
+                "origin_server_ts": 0, "content": content,
+            }))
+            .unwrap();
+            super::notifies(rules.get_actions(&event, &context).await)
+        };
+
+        assert!(notifies_for("m.room.message", json!({"msgtype": "m.text", "body": "hi"})).await);
+        for event_type in super::SUPPRESSED_ROOM_EVENTS {
+            assert!(!notifies_for(event_type, json!({})).await, "{event_type}");
+        }
+        assert!(plan_alignment(&rules).is_empty());
     }
 
     #[test]
