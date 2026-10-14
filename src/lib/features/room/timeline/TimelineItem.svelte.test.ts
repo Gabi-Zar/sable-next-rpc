@@ -1456,6 +1456,30 @@ test('a date divider stays a plain annotation with nothing to act on', async () 
   expect(document.querySelector('.date-divider')).not.toBeNull();
 });
 
+test('a message waiting for the server shows a sending clock until it is sent', async () => {
+  const sending: TimelineItemView = {
+    ...item(false),
+    event_id: null,
+    transaction_id: 'txn-text',
+    is_own: true,
+    send_state: { status: 'sending', progress: null },
+  };
+  const view = render(TimelineItemHarness, {
+    props: { core, item: { item: sending, collapsed: false } },
+  });
+  await tick();
+
+  expect(screen.getByRole('img', { name: 'Sending…' })).toBeTruthy();
+
+  await view.rerender({
+    core,
+    item: { item: { ...sending, event_id: '$sent', send_state: null }, collapsed: false },
+  });
+  await tick();
+
+  expect(screen.queryByRole('img', { name: 'Sending…' })).toBeNull();
+});
+
 test('shows an indeterminate upload bar until the core reports progress', async () => {
   const upload: TimelineItemView = {
     ...imageItem(),

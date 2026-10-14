@@ -37,6 +37,7 @@
   import Skeleton from '#lib/ui/primitives/Skeleton.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
+  import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
   import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
   import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
 
@@ -618,7 +619,6 @@
       `layout-${layout}`,
       {
         collapsed,
-        pending,
         highlighted,
         pressed: rowPress.pressing,
         'has-connected-reply':
@@ -853,6 +853,14 @@
             <!-- After the body, where the edit happened. -->
             {#if item.content.edited}
               <span class="edited">{$i18n.t('timeline.edited')}</span>
+            {/if}
+            {#if pending}
+              <ClockIcon
+                class="send-pending"
+                size={12}
+                role="img"
+                aria-label={$i18n.t('timeline.sending')}
+              />
             {/if}
             {#if inlineReceipts}
               <span class="receipt-space" aria-hidden="true"></span>
@@ -1311,10 +1319,6 @@
     padding-left: calc(var(--avatar-size-small) + var(--timeline-row-gap) + var(--space-200));
   }
 
-  .message.pending {
-    opacity: 0.65;
-  }
-
   .message.highlighted {
     --message-highlight-duration: 6s;
 
@@ -1624,6 +1628,12 @@
   .edited {
     font-size: var(--font-size-small);
     margin-inline-start: var(--space-100);
+  }
+
+  .message :global(.send-pending) {
+    color: var(--surface-var-on-container);
+    margin-inline-start: var(--space-100);
+    vertical-align: middle;
   }
 
   /* `m.notice` is usually a bot, and reads as an aside. */
