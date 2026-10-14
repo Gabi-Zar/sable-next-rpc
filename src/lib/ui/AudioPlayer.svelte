@@ -14,6 +14,9 @@
   }
 
   const formatTimestamp = (currentTime: number): string => {
+    if (!Number.isFinite(currentTime)) {
+      return '??:??';
+    }
     currentTime = Math.floor(currentTime);
     const mm = Math.floor(currentTime / 60)
       .toString()
@@ -40,6 +43,7 @@
 
   onMount(() => {
     player = new Audio(src);
+    player.preload = 'metadata';
     animationId = requestAnimationFrame(updateTime);
 
     on(player, 'loadedmetadata', () => {
