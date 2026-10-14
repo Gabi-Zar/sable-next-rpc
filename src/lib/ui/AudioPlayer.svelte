@@ -187,7 +187,7 @@
 
   /* webkit */
   input[type='range']::-webkit-slider-runnable-track {
-    background: var(--surface-container-active);
+    background-color: color-mix(in srgb, transparent 40%, var(--primary-main) 60%);
     border-radius: var(--radius-pill);
     height: 0.5rem;
   }
@@ -203,7 +203,7 @@
 
   /* firefox */
   input[type='range']::-moz-range-track {
-    background: var(--surface-container-active);
+    background-color: color-mix(in srgb, transparent 40%, var(--primary-main) 60%);
     border-radius: var(--radius-pill);
     height: 0.5rem;
   }
