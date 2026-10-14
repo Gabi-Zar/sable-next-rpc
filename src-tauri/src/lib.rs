@@ -595,12 +595,12 @@ async fn request_notification_permission(app: AppHandle<BrowserEngine>) -> &'sta
 }
 
 #[tauri::command]
-async fn dismiss_room_notification(
+async fn dismiss_room_notifications(
     app: AppHandle<BrowserEngine>,
     user_id: String,
-    room_id: String,
+    room_ids: Vec<String>,
 ) {
-    notifications::dismiss(&app, &user_id, &room_id).await;
+    notifications::dismiss(&app, &user_id, &room_ids).await;
 }
 
 #[tauri::command]
@@ -1001,7 +1001,7 @@ pub fn run() {
             register_push,
             unregister_push,
             device_pusher,
-            dismiss_room_notification,
+            dismiss_room_notifications,
             dismiss_read_room_notifications,
             notification_permission,
             request_notification_permission,

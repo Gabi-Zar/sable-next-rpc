@@ -626,10 +626,19 @@ pub fn register_actions<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-pub async fn dismiss<R: Runtime>(app: &AppHandle<R>, user_id: &str, room_id: &str) {
+pub async fn dismiss<R: Runtime>(app: &AppHandle<R>, user_id: &str, room_ids: &[String]) {
     #[cfg(not(target_os = "android"))]
-    forget(user_id, room_id);
-    remove_posted(app, vec![room_notification_id(user_id, room_id)]).await;
+    for room_id in room_ids {
+        forget(user_id, room_id);
+    }
+    if room_ids.is_empty() {
+        return;
+    }
+    let ids = room_ids
+        .iter()
+        .map(|room_id| room_notification_id(user_id, room_id))
+        .collect();
+    remove_posted(app, ids).await;
 }
 
 pub async fn dismiss_read<R: Runtime>(app: &AppHandle<R>, user_id: &str, room_ids: &[String]) {

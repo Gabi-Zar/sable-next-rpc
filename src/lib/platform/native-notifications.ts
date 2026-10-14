@@ -34,9 +34,12 @@ export async function requestNativeNotificationPermission(): Promise<Notificatio
   return invoke<NotificationGrant>('request_notification_permission');
 }
 
-export async function dismissNativeRoomNotification(userId: string, roomId: string): Promise<void> {
+export async function dismissNativeRoomNotifications(
+  userId: string,
+  roomIds: readonly string[]
+): Promise<void> {
   if (!isTauri()) return;
-  await invoke('dismiss_room_notification', { userId, roomId });
+  await invoke('dismiss_room_notifications', { userId, roomIds });
 }
 
 export async function dismissNativeReadRoomNotifications(

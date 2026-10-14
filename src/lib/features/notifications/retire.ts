@@ -1,14 +1,16 @@
 import {
   dismissNativeReadRoomNotifications,
-  dismissNativeRoomNotification,
+  dismissNativeRoomNotifications,
 } from '#lib/platform/native-notifications.js';
 
 import { roomTag } from './tag';
 
-export async function retireRoomAlerts(userId: string, roomId: string): Promise<void> {
+export async function retireRoomAlerts(userId: string, roomIds: readonly string[]): Promise<void> {
+  if (roomIds.length === 0) return;
+
   await Promise.all([
-    dismissNativeRoomNotification(userId, roomId),
-    closePresented(new Set([roomTag(userId, roomId)])),
+    dismissNativeRoomNotifications(userId, roomIds),
+    closePresented(new Set(roomIds.map((roomId) => roomTag(userId, roomId)))),
   ]);
 }
 

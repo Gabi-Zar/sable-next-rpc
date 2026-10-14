@@ -109,12 +109,14 @@ export class NotificationCenter {
   retireRead(rooms: readonly RoomListItemView[], unreadFor: RoomUnread = roomNotifications): void {
     this.rooms = rooms;
     this.unreadFor = unreadFor;
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- collected for one batched retire, never rendered
+    const settled = new Set<string>();
     for (const [roomId, appeared] of this.invites) {
       const room = rooms.find((item) => item.room_id === roomId);
       if (room?.state === 'invited') {
         this.invites.set(roomId, true);
       } else if (room !== undefined || appeared) {
-        this.settle(roomId);
+        settled.add(roomId);
       }
     }
 
@@ -132,13 +134,14 @@ export class NotificationCenter {
       this.unread.delete(room.room_id);
       if (this.readThrough(room, this.pushed.get(room.room_id))) {
         this.pushed.delete(room.room_id);
-        this.settle(room.room_id);
+        settled.add(room.room_id);
         continue;
       }
       if (this.retired.has(room.room_id)) continue;
-      this.settle(room.room_id);
+      settled.add(room.room_id);
     }
 
+    this.settleAll([...settled]);
     if (preferences.clearNotificationsOnRead) this.retirePostedAlerts(read);
   }
 
@@ -153,8 +156,12 @@ export class NotificationCenter {
   }
 
   private settle(roomId: string): void {
-    if (preferences.clearNotificationsOnRead) this.retire(roomId);
-    else this.forget(roomId);
+    this.settleAll([roomId]);
+  }
+
+  private settleAll(roomIds: readonly string[]): void {
+    if (preferences.clearNotificationsOnRead) this.retireAll(roomIds);
+    else for (const roomId of roomIds) this.forget(roomId);
   }
 
   private forget(roomId: string): void {
@@ -165,13 +172,20 @@ export class NotificationCenter {
   }
 
   private retire(roomId: string): void {
-    this.forget(roomId);
-    this.presented.get(roomId)?.close();
-    this.presented.delete(roomId);
+    this.retireAll([roomId]);
+  }
+
+  private retireAll(roomIds: readonly string[]): void {
+    if (roomIds.length === 0) return;
+    for (const roomId of roomIds) {
+      this.forget(roomId);
+      this.presented.get(roomId)?.close();
+      this.presented.delete(roomId);
+    }
 
     const userId = this.client?.session?.user_id;
     if (userId === undefined) return;
-    void retireRoomAlerts(userId, roomId).catch(failed('retiring room alerts'));
+    void retireRoomAlerts(userId, roomIds).catch(failed('retiring room alerts'));
   }
 
   present(view: NotificationView): void {
@@ -214,7 +228,7 @@ export class NotificationCenter {
     const userId = notification.user_id;
     if (userId !== null && userId !== this.client?.session?.user_id) {
       if (notification.unread === 0) {
-        void retireRoomAlerts(userId, roomId).catch(failed('retiring room alerts'));
+        void retireRoomAlerts(userId, [roomId]).catch(failed('retiring room alerts'));
       }
       return;
     }

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('#lib/platform/native-notifications.js', () => ({
-  dismissNativeRoomNotification: vi.fn().mockResolvedValue(undefined),
+  dismissNativeRoomNotifications: vi.fn().mockResolvedValue(undefined),
   dismissNativeReadRoomNotifications: mocks.dismissRead,
 }));
 
