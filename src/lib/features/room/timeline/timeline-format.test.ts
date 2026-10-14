@@ -155,8 +155,13 @@ test('an aggregation is filtered by its own event type', () => {
   ).toEqual(['$redaction', '$edit']);
 });
 
+const noReceipts: Pick<TimelineItemView, 'read_by' | 'read_timestamps'> = {
+  read_by: [],
+  read_timestamps: {},
+};
+
 function item(content: TimelineItemView['content'], id: string = content.kind): TimelineItemView {
-  return { id, content, ...rowFields(content) } as TimelineItemView;
+  return { id, content, ...noReceipts, ...rowFields(content) } as TimelineItemView;
 }
 
 const message = item({
@@ -240,6 +245,27 @@ test('shows an event the SDK left in the timeline twice only once, where it firs
 
   expect(visible.map((entry) => entry.id)).toEqual(['$dup', '$next']);
   expect(visible[0].read_by).toEqual(['@bob:example.org']);
+});
+
+test('a receipt on a hidden event moves to the last event before it', () => {
+  const read = { ...withEvent(message, '$read'), read_by: ['@bob:example.org'] };
+  const renameRead = {
+    ...withEvent(renamed, '$rename'),
+    read_by: ['@carol:example.org'],
+    read_timestamps: { '@carol:example.org': 7 },
+  };
+
+  const visible = visibleTimelineItems([read, renameRead], defaults);
+
+  expect(visible).toHaveLength(1);
+  expect(visible[0].read_by).toEqual(['@bob:example.org', '@carol:example.org']);
+  expect(visible[0].read_timestamps).toEqual({ '@carol:example.org': 7 });
+});
+
+test('a receipt on a hidden event before any shown one is dropped', () => {
+  const renameRead = { ...withEvent(renamed, '$rename'), read_by: ['@carol:example.org'] };
+
+  expect(visibleTimelineItems([renameRead, message], defaults)).toEqual([message]);
 });
 
 test('honours each toggle independently', () => {

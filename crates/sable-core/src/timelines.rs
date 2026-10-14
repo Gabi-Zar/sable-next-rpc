@@ -2,6 +2,7 @@ use crate::api::timeline::TimelineFocusView;
 use std::future::Future;
 use std::sync::Arc;
 
+use matrix_sdk::Room;
 use matrix_sdk::executor::spawn;
 use matrix_sdk::ruma::{
     EventId, OwnedEventId, OwnedRoomId, UserId,
@@ -92,6 +93,26 @@ fn belongs_to_thread(
             .flatten()
             .is_some_and(|id| id == root)
         || extract_relation(event).is_some_and(|(_, target)| target == root)
+}
+
+/// The thread a receipt for `event_id` has to name, which is the event's own and
+/// not the view's: the server rejects a receipt for an event outside its thread.
+pub(crate) async fn receipt_thread_root(
+    room: &Room,
+    event_id: &EventId,
+    viewed: Option<OwnedEventId>,
+) -> Option<OwnedEventId> {
+    let Ok(event) = room.load_or_fetch_event(event_id, None).await else {
+        return viewed;
+    };
+    let thread = thread_root_of(event.raw(), |id: OwnedEventId| async move {
+        room.load_or_fetch_event(&id, None).await.ok()
+    })
+    .await;
+    match viewed {
+        Some(viewed) if belongs_to_thread(event.raw(), thread.as_ref(), &viewed) => Some(viewed),
+        _ => thread,
+    }
 }
 
 /// Follows the relations of an aggregation to the event it decorates, since

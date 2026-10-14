@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{Handler, Json};
 use crate::protocol::{RpcError, EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView, SubscriptionId, TimelineItemView};
+use crate::timelines::receipt_thread_root;
 use crate::widgets::RelationsFilter;
 use crate::{Core, ResultExt, SubscriptionKind, view};
 
@@ -481,14 +482,20 @@ impl Handler for MarkReadParams {
             return Ok(());
         };
 
-        let timeline = core
-            .subscribed_timeline(&self.room_id, self.thread_root.as_ref(), self.subscription)
-            .await?;
+        let room = core.room(&self.room_id).await?;
+        let thread_root = receipt_thread_root(&room, &event_id, self.thread_root.clone()).await;
+        let timeline = if thread_root == self.thread_root {
+            core.subscribed_timeline(&self.room_id, thread_root.as_ref(), self.subscription)
+                .await?
+        } else {
+            core.timeline_for(&self.room_id, thread_root.as_ref())
+                .await?
+        };
         timeline
             .send_single_receipt(receipt_type, event_id.clone())
             .await
             .or_failed(core, "mark_read")?;
-        if self.fully_read && self.thread_root.is_none() {
+        if self.fully_read && thread_root.is_none() {
             timeline
                 .send_multiple_receipts(Receipts::new().fully_read_marker(event_id))
                 .await

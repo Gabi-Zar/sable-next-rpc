@@ -137,13 +137,25 @@ export function visibleTimelineItems(
   context: TimelineFilterContext = {}
 ): TimelineItemView[] {
   const shown = new Set<string>();
-  const kept = items.filter((item) => {
+  const kept: TimelineItemView[] = [];
+  let lastEvent = -1;
+  for (const item of items) {
     if (item.event_id) {
-      if (shown.has(item.event_id)) return false;
+      if (shown.has(item.event_id)) continue;
       shown.add(item.event_id);
     }
-    return isVisibleEvent(item, preferences, context);
-  });
+    if (isVisibleEvent(item, preferences, context)) {
+      kept.push(item);
+      if (item.event_id) lastEvent = kept.length - 1;
+    } else if (item.read_by.length > 0 && lastEvent >= 0) {
+      const holder = kept[lastEvent];
+      kept[lastEvent] = {
+        ...holder,
+        read_by: [...holder.read_by, ...item.read_by],
+        read_timestamps: { ...holder.read_timestamps, ...item.read_timestamps },
+      };
+    }
+  }
 
   const visible: TimelineItemView[] = [];
   let hasEventBelow = false;

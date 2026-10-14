@@ -1628,22 +1628,6 @@ mod tests {
                 kind: crate::SubscriptionKind::FocusedTimeline(room_id.to_owned()),
             },
         );
-        for thread_root in [None, Some(event_id!("$wrong-root").to_owned())] {
-            let result = core
-                .run(MarkReadParams {
-                    room_id: room_id.to_owned(),
-                    event_id: Some(event_id!("$reply").to_owned()),
-                    private_receipt: false,
-                    thread_root,
-                    subscription: Some(subscription),
-                    fully_read: false,
-                })
-                .await;
-            assert!(matches!(
-                result,
-                Err(crate::protocol::RpcError::UnknownSubscription)
-            ));
-        }
         core.run(MarkReadParams {
             room_id: room_id.to_owned(),
             event_id: Some(event_id!("$reply").to_owned()),
@@ -1654,6 +1638,92 @@ mod tests {
         })
         .await
         .unwrap();
+    }
+
+    async fn receipt_body(read: &str, viewed: Option<&str>) -> serde_json::Value {
+        use crate::api::timeline::MarkReadParams;
+        use matrix_sdk_test::{ALICE, JoinedRoomBuilder, event_factory::EventFactory};
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!thread:example.org");
+        let factory = EventFactory::new().room(room_id).sender(*ALICE);
+        server.mock_room_state_encryption().plain().mount().await;
+        server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id)
+                    .add_timeline_event(factory.text_msg("root").event_id(event_id!("$root")))
+                    .add_timeline_event(
+                        factory
+                            .text_msg("reply")
+                            .event_id(event_id!("$reply"))
+                            .in_thread(event_id!("$root"), event_id!("$root")),
+                    )
+                    .add_timeline_event(
+                        factory
+                            .reaction(event_id!("$reply"), "x")
+                            .event_id(event_id!("$reaction")),
+                    )
+                    .add_timeline_event(factory.text_msg("main").event_id(event_id!("$main"))),
+            )
+            .await;
+        Mock::given(method("POST"))
+            .and(wiremock::matchers::path_regex(format!(
+                "^/_matrix/client/v3/rooms/{room_id}/receipt/m.read/.*$"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        core.run(MarkReadParams {
+            room_id: room_id.to_owned(),
+            event_id: Some(read.try_into().unwrap()),
+            private_receipt: false,
+            thread_root: viewed.map(|root| root.try_into().unwrap()),
+            subscription: None,
+            fully_read: false,
+        })
+        .await
+        .unwrap();
+        let requests = server.server().received_requests().await.unwrap();
+        let receipt = requests
+            .iter()
+            .find(|request| request.url.path().contains("/receipt/m.read/"))
+            .unwrap();
+        serde_json::from_slice(&receipt.body).unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_receipt_names_the_thread_of_its_event() {
+        assert_eq!(
+            receipt_body("$reply", None).await,
+            json!({"thread_id": "$root"})
+        );
+        assert_eq!(
+            receipt_body("$reaction", None).await,
+            json!({"thread_id": "$root"})
+        );
+        assert_eq!(
+            receipt_body("$reply", Some("$other")).await,
+            json!({"thread_id": "$root"})
+        );
+        assert_eq!(
+            receipt_body("$main", None).await,
+            json!({"thread_id": "main"})
+        );
+        assert_eq!(
+            receipt_body("$main", Some("$root")).await,
+            json!({"thread_id": "main"})
+        );
+    }
+
+    #[tokio::test]
+    async fn the_root_of_a_viewed_thread_is_read_in_it() {
+        assert_eq!(
+            receipt_body("$root", Some("$root")).await,
+            json!({"thread_id": "$root"})
+        );
     }
 
     #[tokio::test]
