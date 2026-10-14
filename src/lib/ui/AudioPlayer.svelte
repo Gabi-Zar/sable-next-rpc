@@ -47,6 +47,18 @@
         duration = player.duration;
       }
     });
+
+    on(player, 'play', () => {
+      isPlaying = true;
+    });
+
+    on(player, 'pause', () => {
+      isPlaying = false;
+    });
+
+    on(player, 'ended', () => {
+      isPlaying = false;
+    });
   });
 
   onDestroy(() => {
@@ -77,11 +89,13 @@
         aria-label={i18n.t('timeline.playAudio', { name: label })}
         onclick={() => {
           if (!isPlaying) {
-            player?.play();
-            isPlaying = true;
+            try {
+              player?.play();
+            } catch (err) {
+              console.warn("[sable media] audio playback couldn't start: ", err);
+            }
           } else {
             player?.pause();
-            isPlaying = false;
           }
         }}
       >
@@ -106,6 +120,7 @@
         aria-label={i18n.t('timeline.audioSeek')}
         onpointerdown={() => (seekUserIsInteracting = true)}
         onpointerup={() => (seekUserIsInteracting = false)}
+        onpointercancel={() => (seekUserIsInteracting = false)}
         oninput={(e) => {
           if (player) {
             player.currentTime = +e.currentTarget.value;
