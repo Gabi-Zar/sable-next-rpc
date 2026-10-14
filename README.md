@@ -15,6 +15,8 @@ Stable builds are on the [latest release](https://git.sable.moe/SableClient/sabl
 
 # Installation
 
+<a href="https://git.sable.moe/SableClient/sable-next/releases/download/nightly/obtainium.json"><img alt="App config" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge"></a>
+&nbsp;
 <a href="https://play.google.com/store/apps/details?id=moe.sable.client"><img alt="Google Play" src="https://img.shields.io/badge/Google_Play-3DDC84?style=for-the-badge&logo=googleplay&logoColor=white"></a>
 &nbsp;
 <a href="https://flathub.org/apps/moe.sable.client"><img alt="Flathub" src="https://img.shields.io/badge/Flathub-4A86CF?style=for-the-badge&logo=flathub&logoColor=white"></a>
@@ -74,9 +76,13 @@ Apps added before the move to per-build prereleases have to be removed and re-ad
 
 ### Windows
 
-The Windows build automatically checks for updates. Download and run [the setup](https://git.sable.moe/SableClient/sable-next/releases/download/latest/sable-windows-x86_64-setup.exe).
+<a href="https://git.sable.moe/SableClient/sable-next/releases/download/nightly/obtainium.json"><img alt="App config" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge"></a>
 
-### Linux (Flatpak)
+The Windows build automatically checks for updates. Download and run [the setup](https://git.sable.moe/SableClient/sable-next/releases/latest).
+
+### Linux
+
+#### Flatpak
 
 <a href="https://flathub.org/apps/moe.sable.client"><img alt="Flathub" src="https://img.shields.io/badge/Flathub-4A86CF?style=for-the-badge&logo=flathub&logoColor=white"></a>
 
@@ -87,7 +93,7 @@ flatpak remote-add --if-not-exists sable-next-nightly https://sableclient.github
 flatpak install sable-next-nightly moe.sable.next.Nightly
 ```
 
-### Arch Linux
+#### Arch Linux
 
 <a href="https://aur.archlinux.org/packages/sable-bin"><img alt="AUR" src="https://img.shields.io/badge/AUR-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
 
@@ -99,17 +105,20 @@ paru -S sable-bin
 
 Use `sable-nightly-bin` for nightly builds.
 
-### Linux (deb and rpm)
+#### Using Forgejo Repositories
 
-Packages are published to the Forgejo registries at `git.sable.moe`. Use `nightly` instead of `stable` for nightly builds; the package is then `sable-next`.
+Packages are published to the Forgejo repositories at `git.sable.moe`. Use `nightly` instead of `stable` for nightly builds; the package is then `sable-next`.
 
-```sh
-# Debian, Ubuntu
+##### Debian, Ubuntu
+
+```bash
 sudo curl https://git.sable.moe/api/packages/SableClient/debian/repository.key -o /etc/apt/keyrings/forgejo-SableClient.asc
 echo "deb [signed-by=/etc/apt/keyrings/forgejo-SableClient.asc] https://git.sable.moe/api/packages/SableClient/debian stable main" | sudo tee /etc/apt/sources.list.d/sable.list
 sudo apt update && sudo apt install sable
+```
 
-# Fedora, RHEL, openSUSE
+##### Fedora, RHEL, openSUSE
+```bash
 sudo dnf config-manager addrepo --from-repofile=https://git.sable.moe/api/packages/SableClient/rpm/stable.repo
 sudo dnf install sable
 ```
