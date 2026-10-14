@@ -195,6 +195,13 @@
     height: 24px;
   }
 
+  .audio-play-button:focus-visible,
+  input[type='range']:focus-visible {
+    border-radius: var(--radius);
+    outline: var(--focus-ring-width) solid var(--surface-container-line);
+    outline-offset: var(--focus-ring-offset);
+  }
+
   /* webkit */
   input[type='range']::-webkit-slider-runnable-track {
     background-color: color-mix(in srgb, transparent 40%, var(--primary-main) 60%);
