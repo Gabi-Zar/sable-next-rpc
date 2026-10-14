@@ -106,6 +106,12 @@ impl MediaHealth {
         }
     }
 
+    /// A 404 says this file is gone, not that its server is down, so it never
+    /// counts toward opening the server's circuit.
+    pub(crate) fn missing(&mut self, server: &ServerName, media_id: &str, now_ms: u64) {
+        self.file_failed(server, media_id, now_ms);
+    }
+
     fn file_failed(&mut self, server: &ServerName, media_id: &str, now_ms: u64) {
         let file = self
             .files
@@ -307,6 +313,30 @@ mod tests {
             Admission::Refused { retry_after_ms } if retry_after_ms >= INITIAL_BACKOFF_MS * 4 / 5
         ));
         assert_eq!(health.admit(server, "other", later), Admission::Allowed);
+    }
+
+    #[test]
+    fn test_missing_files_never_open_the_server() {
+        let server = server_name!("remote.example");
+        let mut health = MediaHealth::default();
+
+        for id in ["a", "b", "c", "d", "e"] {
+            health.missing(server, id, NOW);
+        }
+
+        assert_eq!(health.admit(server, "z", NOW), Admission::Allowed);
+    }
+
+    #[test]
+    fn test_missing_files_do_not_add_to_other_failures() {
+        let server = server_name!("remote.example");
+        let mut health = MediaHealth::default();
+
+        health.failed(server, "a", NOW);
+        health.failed(server, "b", NOW);
+        health.missing(server, "c", NOW);
+
+        assert_eq!(health.admit(server, "z", NOW), Admission::Allowed);
     }
 
     #[test]

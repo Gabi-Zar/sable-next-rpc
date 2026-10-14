@@ -1743,6 +1743,42 @@ async fn forbidden_media_never_opens_the_circuit() {
 }
 
 #[tokio::test]
+async fn missing_media_never_opens_the_circuit() {
+    let server = MatrixMockServer::new().await;
+    let client = server
+        .client_builder()
+        .server_versions(vec![MatrixVersion::V1_11])
+        .build()
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/_matrix/client/v1/media/download/gone.example/ok"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![1_u8; 16]))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    Mock::given(method("GET"))
+        .and(path_regex(
+            r"^/_matrix/client/v1/media/download/gone\.example/",
+        ))
+        .respond_with(remote_media_error(404))
+        .expect(4)
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    for id in ["a", "b", "c", "d"] {
+        assert!(matches!(
+            core.media_thumbnail(format!("mxc://gone.example/{id}"), 0, 0)
+                .await,
+            Err(RpcError::Unavailable)
+        ));
+    }
+    core.media_thumbnail("mxc://gone.example/ok".to_owned(), 0, 0)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
 async fn forgotten_media_is_fetched_again() {
     let server = MatrixMockServer::new().await;
     let client = server

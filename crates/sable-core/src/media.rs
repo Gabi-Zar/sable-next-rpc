@@ -147,6 +147,11 @@ impl Core {
                 .admit(server, media_id, now);
             match admission {
                 Admission::Refused { retry_after_ms } => {
+                    tracing::warn!(
+                        %media,
+                        retry_after_ms,
+                        "media refused by the breaker without a request"
+                    );
                     return Err(RpcError::MediaServerUnavailable { retry_after_ms });
                 }
                 Admission::Probe => {
@@ -163,6 +168,16 @@ impl Core {
         let result = self
             .media_bytes(&client, &key, source, width, height, &media)
             .await;
+        if let Err(error) = &result {
+            tracing::warn!(
+                %media,
+                status = ?status_of(error).or_else(|| error.as_client_api_error().map(|e| e.status_code)),
+                home_server = origin.is_none(),
+                not_found = is_not_found(error),
+                blames_server = blames_media_server(error),
+                "media fetch failed: {error}"
+            );
+        }
         if let Some((server, media_id)) = &origin {
             let mut health = self
                 .media_health
@@ -170,6 +185,9 @@ impl Core {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
             match &result {
                 Ok(_) => health.succeeded(server, media_id),
+                Err(error) if is_not_found(error) => {
+                    health.missing(server, media_id, now_ms());
+                }
                 Err(error) if blames_media_server(error) => {
                     health.failed(server, media_id, now_ms());
                 }
@@ -896,6 +914,19 @@ fn media_origin(source: &MediaSource) -> Option<(OwnedServerName, String)> {
     };
     let (server, media_id) = uri.parts().ok()?;
     Some((server.to_owned(), media_id.to_owned()))
+}
+
+fn is_not_found(error: &matrix_sdk::Error) -> bool {
+    match error {
+        matrix_sdk::Error::Http(http) => match http.as_ref() {
+            HttpError::Reqwest(error) => error.status() == Some(reqwest::StatusCode::NOT_FOUND),
+            HttpError::Api(_) => http
+                .as_client_api_error()
+                .is_some_and(|error| error.status_code == reqwest::StatusCode::NOT_FOUND),
+            _ => false,
+        },
+        _ => false,
+    }
 }
 
 fn blames_media_server(error: &matrix_sdk::Error) -> bool {
