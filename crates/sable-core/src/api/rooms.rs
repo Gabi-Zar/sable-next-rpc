@@ -9,7 +9,6 @@ use matrix_sdk::ruma::api::client::room::aliases;
 use matrix_sdk::ruma::api::client::room::create_room::{self, v3::RoomPreset};
 use matrix_sdk::ruma::api::client::room::upgrade_room;
 use matrix_sdk::ruma::events::InitialStateEvent;
-use matrix_sdk::ruma::events::room::create::{PreviousRoom, RoomCreateEventContent};
 use matrix_sdk::ruma::events::room::encryption::RoomEncryptionEventContent;
 use matrix_sdk::ruma::events::tag::{TagInfo, TagName};
 use matrix_sdk::ruma::room::RoomType;
@@ -316,6 +315,24 @@ pub struct CreateParams {
     pub predecessor: Option<OwnedRoomId>,
 }
 
+/// `room_version` is left out so the server applies the top-level
+/// `room_version` or its default; some servers keep a value sent here.
+fn creation_content(
+    room_type: Option<RoomType>,
+    federate: bool,
+    predecessor: Option<OwnedRoomId>,
+) -> serde_json::Value {
+    let mut creation = serde_json::Map::new();
+    if let Some(room_type) = room_type {
+        creation.insert("type".into(), room_type.to_string().into());
+    }
+    creation.insert("m.federate".into(), federate.into());
+    if let Some(room_id) = predecessor {
+        creation.insert("predecessor".into(), serde_json::json!({ "room_id": room_id }));
+    }
+    creation.into()
+}
+
 impl Handler for CreateParams {
     type Ok = String;
 
@@ -349,10 +366,7 @@ impl Handler for CreateParams {
             CreateRoomKind::Calendar => Some(RoomType::from(crate::calendar::CALENDAR_ROOM_TYPE)),
         };
         if room_type.is_some() || !self.federate || self.predecessor.is_some() {
-            let mut creation = RoomCreateEventContent::new_v11();
-            creation.room_type = room_type;
-            creation.federate = self.federate;
-            creation.predecessor = self.predecessor.map(PreviousRoom::new);
+            let creation = creation_content(room_type, self.federate, self.predecessor);
             request.creation_content = Some(
                 Raw::new(&creation)
                     .or_failed(core, "create_room_creation_content")?
@@ -864,5 +878,30 @@ impl Handler for CosmeticsParams {
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomCosmeticsView, RpcError> {
         core.room_cosmetics(&self.room_id, self.space_id).await
+    }
+}
+
+#[cfg(test)]
+mod creation_content_tests {
+    use super::*;
+
+    #[test]
+    fn omits_room_version() {
+        let value = creation_content(None, false, None);
+        assert_eq!(value, serde_json::json!({ "m.federate": false }));
+    }
+
+    #[test]
+    fn carries_type_and_predecessor() {
+        let room_id = OwnedRoomId::try_from("!old:example.org").unwrap();
+        let value = creation_content(Some(RoomType::Space), true, Some(room_id));
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "type": "m.space",
+                "m.federate": true,
+                "predecessor": { "room_id": "!old:example.org" },
+            })
+        );
     }
 }
