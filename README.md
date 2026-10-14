@@ -15,7 +15,11 @@ Stable builds are on the [latest release](https://git.sable.moe/SableClient/sabl
 
 # Installation
 
+<<<<<<< HEAD
 <a href="https://git.sable.moe/SableClient/sable-next/releases/latest"><img alt="App config" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge"></a>
+=======
+<a href="https://git.sable.moe/SableClient/sable-next/releases/download/nightly/obtainium.json"><img alt="App config" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge"></a>
+>>>>>>> 24d7310f (improve erwans edits)
 &nbsp;
 <a href="https://play.google.com/store/apps/details?id=moe.sable.client"><img alt="Google Play" src="https://img.shields.io/badge/Google_Play-3DDC84?style=for-the-badge&logo=googleplay&logoColor=white"></a>
 &nbsp;
@@ -76,7 +80,11 @@ Apps added before the move to per-build prereleases have to be removed and re-ad
 
 ### Windows
 
+<<<<<<< HEAD
 <a href="https://git.sable.moe/SableClient/sable-next/releases/latest"><img alt="App config" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge"></a>
+=======
+<a href="https://git.sable.moe/SableClient/sable-next/releases/download/nightly/obtainium.json"><img alt="App config" src="https://img.shields.io/badge/Windows-0078D6?style=for-the-badge"></a>
+>>>>>>> 24d7310f (improve erwans edits)
 
 The Windows build automatically checks for updates. Download and run [the setup](https://git.sable.moe/SableClient/sable-next/releases/latest).
 
