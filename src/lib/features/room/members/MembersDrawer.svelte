@@ -112,6 +112,7 @@
   );
 
   $effect(() => {
+    void members;
     const load = loadMembership;
     const membership = membershipFor(filter);
     if (filter === 'join' || !load) return;

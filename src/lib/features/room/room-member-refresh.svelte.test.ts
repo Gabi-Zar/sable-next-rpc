@@ -1,23 +1,34 @@
-import { expect, test } from 'vitest';
-import type { TimelineItemView } from '#src/generated/protocol';
-import { latestMemberChangeId } from './room-member-refresh.svelte.js';
+// @vitest-environment happy-dom
 
-function item(eventId: string | null, kind: string): TimelineItemView {
-  return { event_id: eventId, content: { kind } } as unknown as TimelineItemView;
+import { flushSync } from 'svelte';
+import { expect, test, vi } from 'vitest';
+import type { CoreEvent } from '#src/generated/protocol';
+import { refreshRoomMembers } from './room-member-refresh.svelte.js';
+
+function setup() {
+  let emit!: (event: CoreEvent) => void;
+  const refresh = vi.fn(() => Promise.resolve());
+  const core = {
+    rpc: { members: { list: vi.fn() } },
+    onProfileChanged: () => () => {},
+    subscribeEvents: (listener: (event: CoreEvent) => void) => {
+      emit = listener;
+      return () => {};
+    },
+  };
+  const cleanup = $effect.root(() => {
+    refreshRoomMembers(core as never, { refresh }, () => '!room:example.org');
+  });
+  flushSync();
+  return { emit, refresh, cleanup };
 }
 
-test('picks the newest membership or profile change with an event id', () => {
-  expect(
-    latestMemberChangeId([
-      item('$join', 'membership'),
-      item('$profile', 'profile_change'),
-      item(null, 'membership'),
-      item('$text', 'text'),
-    ])
-  ).toBe('$profile');
-});
+test('refreshes the members of the open room when its membership changes', () => {
+  const { emit, refresh, cleanup } = setup();
+  emit({ type: 'members_changed', room_id: '!other:example.org' });
+  expect(refresh).not.toHaveBeenCalled();
 
-test('is null without member changes', () => {
-  expect(latestMemberChangeId([item('$text', 'text')])).toBeNull();
-  expect(latestMemberChangeId([])).toBeNull();
+  emit({ type: 'members_changed', room_id: '!room:example.org' });
+  expect(refresh).toHaveBeenCalledWith('!room:example.org', expect.any(Function));
+  cleanup();
 });

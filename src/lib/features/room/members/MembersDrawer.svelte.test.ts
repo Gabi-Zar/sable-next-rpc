@@ -222,6 +222,24 @@ test('honours the sort preference and fetches the membership a filter names', as
   expect(loadMembership).not.toHaveBeenCalled();
 });
 
+test('a membership tab loads again when the room members change', async () => {
+  const user = userEvent.setup();
+  const loadMembership = vi.fn(() => Promise.resolve([]));
+  const props = (members: never[]) => ({
+    component: MembersDrawer,
+    props: { loading: false, members, loadMembership, onClose: vi.fn(), onMemberProfile: vi.fn() },
+  });
+  const { rerender } = renderWithTooltips(MembersDrawer, props([]).props);
+  await user.click(screen.getByRole('button', { name: 'Filter members' }));
+  await user.click(screen.getByRole('menuitem', { name: /Left/ }));
+  await tick();
+  expect(loadMembership).toHaveBeenCalledTimes(1);
+
+  await rerender(props([]));
+  await tick();
+  expect(loadMembership).toHaveBeenCalledTimes(2);
+});
+
 test('renders a first page of members and grows when the sentinel shows', async () => {
   const observers: IntersectionObserverCallback[] = [];
   globalThis.IntersectionObserver = class {

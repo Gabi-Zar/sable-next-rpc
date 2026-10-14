@@ -1010,6 +1010,9 @@ mod sdk_notification_tests;
 mod sdk_helpers_tests;
 
 #[cfg(all(test, not(target_family = "wasm")))]
+mod live_member_tests;
+
+#[cfg(all(test, not(target_family = "wasm")))]
 mod sdk_verification_tests;
 
 #[cfg(test)]

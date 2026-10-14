@@ -488,12 +488,7 @@
     );
   }
 
-  refreshRoomMembers(
-    core,
-    memberLoader,
-    () => resolvedRoomId,
-    () => timeline.items
-  );
+  refreshRoomMembers(core, memberLoader, () => resolvedRoomId);
 
   function toggleMembers(): void {
     if (panels.toggleMembers(desktop)) void loadMembers();

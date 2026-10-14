@@ -143,6 +143,27 @@ test('a revisited room waits for its current members', async () => {
   expect(calls).toBe(2);
 });
 
+test('refreshes that overlap collapse into one follow-up read', async () => {
+  const loader = new RoomMemberLoader();
+  await loader.load('!room:example.org', () => Promise.resolve([member('@a:b')]));
+  const reads = [deferred<MemberView[]>(), deferred<MemberView[]>()];
+  const fetchMembers = vi.fn(() => reads[fetchMembers.mock.calls.length - 1].promise);
+
+  const first = loader.refresh('!room:example.org', fetchMembers);
+  void loader.refresh('!room:example.org', fetchMembers);
+  void loader.refresh('!room:example.org', fetchMembers);
+  expect(fetchMembers).toHaveBeenCalledTimes(1);
+
+  reads[0].resolve([member('@a:b')]);
+  await vi.waitFor(() => {
+    expect(fetchMembers).toHaveBeenCalledTimes(2);
+  });
+  reads[1].resolve([member('@a:b'), member('@c:d')]);
+  await first;
+
+  expect(loader.members.map((entry) => entry.user_id)).toEqual(['@a:b', '@c:d']);
+});
+
 test('a power level change patches the loaded members', async () => {
   const loader = new RoomMemberLoader();
   await loader.load('!room:example.org', () => Promise.resolve([member('@a:b'), member('@c:d')]));

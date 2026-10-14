@@ -260,6 +260,10 @@ impl crate::Core {
         recent.members.insert(room_id.to_owned(), now);
     }
 
+    pub(crate) fn forget_members_loaded(&self, room_id: &RoomId) {
+        self.recent_state().members.remove(room_id);
+    }
+
     fn recent_state(&self) -> std::sync::MutexGuard<'_, RecentState> {
         self.recent_state
             .lock()

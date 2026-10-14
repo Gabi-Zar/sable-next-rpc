@@ -307,6 +307,12 @@ pub enum CoreEvent {
         avatar_url: Option<String>,
     },
 
+    /// A member event of any kind arrived: join, leave, kick, ban, invite or a profile change.
+    MembersChanged {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        room_id: OwnedRoomId,
+    },
+
     BotCommandsChanged {
         #[cfg_attr(feature = "typegen", specta(type = String))]
         room_id: OwnedRoomId,

@@ -407,13 +407,33 @@ impl Core {
                     let Some(previous) = event.prev_content() else {
                         return;
                     };
-                    if previous.membership != MembershipState::Join
-                        || (event.content.displayname == previous.displayname
-                            && event.content.avatar_url == previous.avatar_url)
+                    if previous.membership == MembershipState::Join
+                        && event.content.displayname == previous.displayname
+                        && event.content.avatar_url == previous.avatar_url
                     {
                         return;
                     }
                     core.emit_profile_changed(generation, &room, &event).await;
+                }
+            }
+        });
+        self.track_session_handler(client, handle);
+
+        let handle = client.add_event_handler({
+            let core = self.clone();
+            move |_: OriginalSyncRoomMemberEvent, room: matrix_sdk::Room| {
+                let core = core.clone();
+                async move {
+                    // Sliding sync reads state from `required_state` only, so a member event
+                    // in the timeline leaves the stored member list stale.
+                    room.mark_members_missing();
+                    core.forget_members_loaded(room.room_id());
+                    core.emit_if_current(
+                        generation,
+                        CoreEvent::MembersChanged {
+                            room_id: room.room_id().to_owned(),
+                        },
+                    );
                 }
             }
         });
@@ -651,6 +671,69 @@ mod tests {
                 Some("mxc://example.org/alicia".to_owned()),
             )]
         );
+    }
+
+    #[tokio::test]
+    async fn accepting_an_invite_announces_the_new_member() {
+        let server = MatrixMockServer::new().await;
+        let room_id = room_id!("!room:example.org");
+        let client = server.client_builder().build().await;
+        let (core, mut events) = Core::new("watchers", Box::new(MemorySessionStore::default()));
+        core.watch_profile_changes(&client, 1);
+        let invited = json!({ "membership": "invite", "displayname": "Alice" });
+        let joined = json!({ "membership": "join", "displayname": "Alice" });
+        let left = json!({ "membership": "leave", "displayname": "Alice" });
+
+        server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id)
+                    .add_timeline_event(member("$joined", ALICE, &joined, Some(&invited)))
+                    .add_timeline_event(member("$left", ALICE, &left, Some(&joined)))
+                    .add_timeline_event(member("$rejoined", ALICE, &joined, Some(&left))),
+            )
+            .await;
+
+        let alice = (
+            room_id.to_string(),
+            ALICE.to_owned(),
+            Some("Alice".to_owned()),
+            None,
+        );
+        assert_eq!(changes(&mut events), [alice.clone(), alice]);
+    }
+
+    #[tokio::test]
+    async fn every_membership_transition_announces_a_member_change() {
+        let server = MatrixMockServer::new().await;
+        let room_id = room_id!("!room:example.org");
+        let client = server.client_builder().build().await;
+        let (core, mut events) = Core::new("watchers", Box::new(MemorySessionStore::default()));
+        core.watch_profile_changes(&client, 1);
+        let state = |membership: &str| json!({ "membership": membership });
+        let (invite, join, leave, ban) =
+            (state("invite"), state("join"), state("leave"), state("ban"));
+
+        server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id)
+                    .add_state_event(member("$state", "@bob:example.org", &join, None))
+                    .add_timeline_event(member("$invited", ALICE, &invite, None))
+                    .add_timeline_event(member("$joined", ALICE, &join, Some(&invite)))
+                    .add_timeline_event(member("$kicked", ALICE, &leave, Some(&join)))
+                    .add_timeline_event(member("$banned", ALICE, &ban, Some(&leave)))
+                    .add_timeline_event(member("$unbanned", ALICE, &leave, Some(&ban)))
+                    .add_timeline_event(member("$rejoined", ALICE, &join, Some(&leave))),
+            )
+            .await;
+
+        let announced = std::iter::from_fn(|| events.try_recv().ok())
+            .filter(
+                |event| matches!(event, CoreEvent::MembersChanged { room_id: id } if id == room_id),
+            )
+            .count();
+        assert_eq!(announced, 7);
     }
 
     #[tokio::test]

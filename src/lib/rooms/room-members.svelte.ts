@@ -8,6 +8,8 @@ export class RoomMemberLoader {
 
   private attemptedRoomId: string | null = null;
   private generation = 0;
+  private refreshingGeneration: number | null = null;
+  private refreshRequests = 0;
 
   reset(): void {
     this.generation += 1;
@@ -55,11 +57,24 @@ export class RoomMemberLoader {
   ): Promise<void> {
     if (this.attemptedRoomId !== roomId) return;
     const generation = this.generation;
+    if (this.refreshingGeneration === generation) {
+      this.refreshRequests += 1;
+      return;
+    }
+    this.refreshingGeneration = generation;
     try {
-      const members = await fetchMembers(roomId);
-      if (generation === this.generation) this.members = members;
-    } catch (error) {
-      console.debug('[sable room] members unavailable', error);
+      let seen: number;
+      do {
+        seen = this.refreshRequests;
+        try {
+          const members = await fetchMembers(roomId);
+          if (generation === this.generation) this.members = members;
+        } catch (error) {
+          console.debug('[sable room] members unavailable', error);
+        }
+      } while (seen !== this.refreshRequests && generation === this.generation);
+    } finally {
+      if (this.refreshingGeneration === generation) this.refreshingGeneration = null;
     }
   }
 
