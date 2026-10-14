@@ -152,13 +152,21 @@
 
 {#snippet page(active: RoomSettingsSectionId)}
   {#if active === 'general'}
-    <RoomGeneralSettings {room} {permissions} {levels} onClose={close} />
+    <svelte:boundary>
+      <RoomGeneralSettings {room} {permissions} {levels} onClose={close} />
+
+      {#snippet pending()}{/snippet}
+    </svelte:boundary>
   {:else if active === 'members'}
     <RoomMembersSettings {room} {permissions} />
   {:else if active === 'permissions'}
     <RoomPermissionsSettings {room} {permissions} />
   {:else if active === 'abbreviations'}
-    <RoomAbbreviationsSettings {room} {permissions} {levels} />
+    <svelte:boundary>
+      <RoomAbbreviationsSettings {room} {permissions} {levels} />
+
+      {#snippet pending()}{/snippet}
+    </svelte:boundary>
   {:else if active === 'appearance'}
     <RoomAppearanceSettings {room} />
   {:else if active === 'cosmetics'}

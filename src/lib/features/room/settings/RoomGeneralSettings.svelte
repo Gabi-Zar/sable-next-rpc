@@ -79,30 +79,14 @@
 
   let roomId = $derived(room?.room_id ?? null);
   let topic = $derived(room?.topic ?? '');
-  let hasSpaceParent = $state(false);
-
-  $effect(() => {
-    const target = roomId;
-    if (target === null) {
-      hasSpaceParent = false;
-      return;
-    }
-
-    let cancelled = false;
-    core.rpc.spaces
-      .roomHasSpaceParent({ room_id: target })
-      .then((value) => {
-        if (!cancelled) hasSpaceParent = value;
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable room] space parent check failed', error);
-        if (!cancelled) hasSpaceParent = false;
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  });
+  let hasSpaceParent = $derived(
+    roomId === null
+      ? false
+      : await core.rpc.spaces.roomHasSpaceParent({ room_id: roomId }).catch((error: unknown) => {
+          console.debug('[sable room] space parent check failed', error);
+          return false;
+        })
+  );
 
   let settableRules = $derived.by(() => {
     const rules: JoinRuleView[] = ['public', 'invite'];

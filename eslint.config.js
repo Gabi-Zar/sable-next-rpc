@@ -74,6 +74,7 @@ export default defineConfig([
       parserOptions: {
         extraFileExtensions: ['.svelte'],
         parser: tseslint.parser,
+        svelteConfig: { compilerOptions: { experimental: { async: true } } },
       },
     },
     rules: {

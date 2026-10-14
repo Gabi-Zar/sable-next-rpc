@@ -5,7 +5,11 @@ import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { RoomPermissionsView, RoomListItemView } from '#src/generated/protocol';
+import type {
+  AbbreviationView,
+  RoomPermissionsView,
+  RoomListItemView,
+} from '#src/generated/protocol';
 
 vi.mock('#lib/core/context.js');
 vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
@@ -125,6 +129,7 @@ afterEach(() => {
 test('does not offer to replace an unsupported join rule without permission', async () => {
   await setup(false);
 
+  expect(await screen.findByText('room.settingsBannerLabel')).toBeInTheDocument();
   expect(screen.queryByText(/room\.settingsJoinRuleUnsettable/)).not.toBeInTheDocument();
 });
 
@@ -210,4 +215,66 @@ test('switching section waits for the unsaved-changes answer', async () => {
 
   held[0]();
   expect((await screen.findAllByText('room.devBrowserTitle')).length).toBeGreaterThan(0);
+});
+
+test('general settings wait for the space check, and fall back without it when it fails', async () => {
+  let answer: (hasParent: boolean) => void = () => {};
+  spaces.roomHasSpaceParent.mockReturnValueOnce(
+    new Promise<boolean>((resolve) => {
+      answer = resolve;
+    })
+  );
+  const view = await setup(true);
+  await tick();
+
+  expect(screen.queryByText('room.settingsBannerLabel')).not.toBeInTheDocument();
+  answer(true);
+  expect(
+    await screen.findByRole('radio', { name: /room\.createJoinRuleRestricted/ })
+  ).toBeInTheDocument();
+  expect(screen.getByText('room.settingsBannerLabel')).toBeInTheDocument();
+  view.unmount();
+
+  const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+  const failure = new Error('offline');
+  spaces.roomHasSpaceParent.mockRejectedValueOnce(failure);
+  render(RoomSettingsDialog, { props: { open: true, room, onOpenChange: () => {} } });
+
+  expect(await screen.findByText(/room\.settingsJoinRuleUnsettable/)).toBeInTheDocument();
+  expect(screen.queryByRole('radio', { name: /room\.createJoinRuleRestricted/ })).toBeNull();
+  expect(debug).toHaveBeenCalledWith('[sable room] space parent check failed', failure);
+  debug.mockRestore();
+});
+
+test('abbreviations wait for the room entries, and fall back to none when they fail', async () => {
+  let answer: (entries: AbbreviationView[]) => void = () => {};
+  core.rpc.room_state.abbreviations.mockReturnValueOnce(
+    new Promise((resolve) => {
+      answer = resolve;
+    })
+  );
+  core.rpc.members.permissions.mockResolvedValue(permissions(false));
+  const props = {
+    open: true,
+    room,
+    initialSection: 'abbreviations',
+    onOpenChange: () => {},
+  } as const;
+  const view = render(RoomSettingsDialog, { props });
+  await tick();
+
+  expect(screen.queryByText('room.abbreviationsEmpty')).not.toBeInTheDocument();
+  answer([{ term: 'MSC', definition: 'Matrix Spec Change', cased: false }]);
+  expect(await screen.findByText('MSC')).toBeInTheDocument();
+  expect(screen.getByText('Matrix Spec Change')).toBeInTheDocument();
+  view.unmount();
+
+  const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+  const failure = new Error('offline');
+  core.rpc.room_state.abbreviations.mockRejectedValueOnce(failure);
+  render(RoomSettingsDialog, { props });
+
+  expect(await screen.findByText('room.abbreviationsEmpty')).toBeInTheDocument();
+  expect(debug).toHaveBeenCalledWith('[sable room] abbreviations unavailable', failure);
+  debug.mockRestore();
 });

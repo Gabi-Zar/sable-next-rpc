@@ -45,7 +45,6 @@
 
   type InheritedGroup = { spaceId: string; spaceName: string; entries: AbbreviationEntry[] };
 
-  let entries = $state.raw<AbbreviationEntry[]>([]);
   let inheritedGroups = $state.raw<InheritedGroup[]>([]);
   let term = $state('');
   let definition = $state('');
@@ -59,10 +58,17 @@
   let pendingRemoval = $state<AbbreviationEntry | null>(null);
   let busy = $state(false);
   let failed = $state(false);
-  let run = 0;
   let inheritedRun = 0;
 
   let roomId = $derived(room?.room_id ?? null);
+  let entries = $derived<AbbreviationEntry[]>(
+    roomId === null
+      ? []
+      : await core.rpc.room_state.abbreviations({ room_id: roomId }).catch((error: unknown) => {
+          console.debug('[sable room] abbreviations unavailable', error);
+          return [];
+        })
+  );
   let canEdit = $derived(
     canSendState(levels, permissions?.own_power_level ?? 0, ABBREVIATIONS_EVENT_TYPE)
   );
@@ -70,19 +76,8 @@
   let totalCount = $derived(entries.length + inheritedEntries.length);
 
   $effect(() => {
-    const target = roomId;
+    void roomId;
     resetForm();
-    if (!target) return;
-
-    const current = ++run;
-    void core.rpc.room_state
-      .abbreviations({ room_id: target })
-      .then((next) => {
-        if (current === run) entries = next;
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable room] abbreviations unavailable', error);
-      });
   });
 
   // Abbreviations inherited from parent spaces are read-only here, like v1:

@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
-  import type { HomeserverSoftwareView } from '#src/generated/protocol';
   import { SABLE_DONATE_URL, SABLE_SOURCE_URL } from '#lib/config/links.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { restartSetup } from '#lib/features/auth/setup/setup-record.js';
@@ -39,7 +38,6 @@
   const core = useCoreClient();
   const version = `v${import.meta.env.VITE_APP_VERSION ?? 'dev'}`;
   const automaticUpdateChecksSupported = supportsAutoUpdate() || hostsServiceWorker();
-  let info = $state<{ homeserver: string; server: HomeserverSoftwareView | null } | null>(null);
   let confirmingReset = $state(false);
   let resetting = $state(false);
   let resetFailed = $state(false);
@@ -61,22 +59,6 @@
       versionCopied = false;
     }, 2000);
   }
-
-  $effect(() => {
-    let cancelled = false;
-    void core.rpc.session
-      .homeserverInfo()
-      .then((next) => {
-        if (!cancelled) info = next;
-      })
-      .catch((error: unknown) => {
-        console.debug('[sable settings] homeserver info unavailable', error);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  });
 
   async function resetCaches(): Promise<void> {
     resetting = true;
@@ -178,24 +160,33 @@
     <SupporterSettings />
   {/if}
 
-  {#if info}
-    <SettingsSection title={i18n.t('settings.aboutHomeserver')} headingId="about-homeserver">
-      <ul class="settings">
-        <SettingsRow id="homeserver-url" title={i18n.t('settings.aboutHomeserverUrl')}>
-          <span class="value">{info.homeserver.replace(/\/+$/, '')}</span>
-        </SettingsRow>
-        <SettingsRow id="homeserver-software" title={i18n.t('settings.aboutHomeserverSoftware')}>
-          <span class="value">{info.server?.name ?? i18n.t('settings.aboutHomeserverUnknown')}</span
-          >
-        </SettingsRow>
-        <SettingsRow id="homeserver-version" title={i18n.t('settings.aboutHomeserverVersion')}>
-          <span class="value"
-            >{info.server?.version ?? i18n.t('settings.aboutHomeserverUnknown')}</span
-          >
-        </SettingsRow>
-      </ul>
-    </SettingsSection>
-  {/if}
+  <svelte:boundary>
+    {@const info = await core.rpc.session.homeserverInfo().catch((error: unknown) => {
+      console.debug('[sable settings] homeserver info unavailable', error);
+      return null;
+    })}
+    {#if info}
+      <SettingsSection title={i18n.t('settings.aboutHomeserver')} headingId="about-homeserver">
+        <ul class="settings">
+          <SettingsRow id="homeserver-url" title={i18n.t('settings.aboutHomeserverUrl')}>
+            <span class="value">{info.homeserver.replace(/\/+$/, '')}</span>
+          </SettingsRow>
+          <SettingsRow id="homeserver-software" title={i18n.t('settings.aboutHomeserverSoftware')}>
+            <span class="value"
+              >{info.server?.name ?? i18n.t('settings.aboutHomeserverUnknown')}</span
+            >
+          </SettingsRow>
+          <SettingsRow id="homeserver-version" title={i18n.t('settings.aboutHomeserverVersion')}>
+            <span class="value"
+              >{info.server?.version ?? i18n.t('settings.aboutHomeserverUnknown')}</span
+            >
+          </SettingsRow>
+        </ul>
+      </SettingsSection>
+    {/if}
+
+    {#snippet pending()}{/snippet}
+  </svelte:boundary>
 
   <SettingsSection title={i18n.t('settings.aboutOptions')} headingId="about-options">
     <ul class="settings">
