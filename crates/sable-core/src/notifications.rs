@@ -566,7 +566,7 @@ pub use crate::push_rules::notifies;
 
 #[must_use]
 pub fn uses_direct_push_rules(room: &matrix_sdk::Room) -> bool {
-    room.joined_members_count() == 2
+    room.direct_targets_length() > 0
 }
 
 pub async fn every_encrypted_event_pushed(client: &Client) -> bool {

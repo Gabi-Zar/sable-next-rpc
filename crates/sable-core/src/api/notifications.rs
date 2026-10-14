@@ -301,6 +301,7 @@ impl Handler for SetDefaultModeParams {
             .apply(writes)
             .await
             .or_failed(core, "set_default_notification_mode")?;
+        core.align_notification_rules().await;
 
         Ok(())
     }
