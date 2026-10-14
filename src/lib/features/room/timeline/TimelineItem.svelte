@@ -103,6 +103,7 @@
     timeAction?: { label: string; run: () => void };
     headerAction?: Snippet;
     alignOwn?: boolean;
+    avatarsInHeaders?: boolean;
     members?: readonly MemberView[];
     onJumpToEvent?: (eventId: string) => void;
     onOpenMedia?: (eventId: string) => void;
@@ -692,7 +693,7 @@
               <button
                 class="avatar-button"
                 type="button"
-                aria-label={$i18n.t('timeline.senderProfile', { name: senderName })}
+                aria-label={i18n.t('timeline.senderProfile', { name: senderName })}
                 onclick={openSenderProfile}
               >
                 <Avatar
