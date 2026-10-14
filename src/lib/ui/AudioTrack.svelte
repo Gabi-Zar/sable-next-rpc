@@ -23,8 +23,8 @@
 </script>
 
 <div class="audio-track" style:--audio-cover={cover ? `url(${cover})` : undefined}>
-  <span class={['audio-track-cover', { empty: !cover }]} aria-hidden="true">
-    {#if !cover}<MusicNotesIcon />{/if}
+  <span class="audio-track-cover" class:empty={!cover} aria-hidden="true">
+    <MusicNotesIcon size={20} />
   </span>
   <span class="audio-track-text">
     <span class="audio-track-title">{metadata.title ?? fallbackTitle}</span>
@@ -36,8 +36,8 @@
   .audio-track {
     align-items: center;
     background: var(--surface-var-container);
-    border-radius: var(--radius);
-    color: var(--surface-var-on-container);
+    border-radius: var(--radius) var(--radius) 0 0;
+    color: var(--surface-on-container);
     display: flex;
     gap: var(--space-300);
     isolation: isolate;
@@ -63,9 +63,9 @@
     border-radius: var(--radius-inner);
     display: flex;
     flex: none;
-    height: var(--avatar-size-large);
+    height: var(--avatar-size-medium);
     justify-content: center;
-    width: var(--avatar-size-large);
+    width: var(--avatar-size-medium);
   }
 
   .audio-track-cover.empty {
@@ -86,7 +86,7 @@
   }
 
   .audio-track-byline {
-    color: var(--surface-var-on-container);
+    color: var(--surface-on-container);
     font-size: var(--font-size-small);
     overflow: hidden;
     text-overflow: ellipsis;
