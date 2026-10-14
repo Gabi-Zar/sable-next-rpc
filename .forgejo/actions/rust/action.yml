@@ -68,8 +68,9 @@ runs:
       if: ${{ inputs.tauri-dependencies == 'true' }}
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y \
+        SUDO=$([ "$(id -u)" -eq 0 ] || echo sudo)
+        $SUDO apt-get update
+        $SUDO apt-get install --no-install-recommends -y \
           build-essential \
           curl \
           file \
