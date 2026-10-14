@@ -19,10 +19,11 @@
   "ignoreDependencies": [
     "@fontsource-variable/nunito",
     "@sableclient/twemoji-font",
+    "binaryen",
     "wrangler",
     "@sentry/browser"
   ],
-  "ignoreBinaries": ["mise", "ditto", "wasm-bindgen", "dsymutil", "cc", "strip"],
+  "ignoreBinaries": ["mise", "ditto", "wasm-bindgen", "watchexec", "dsymutil", "cc", "strip"],
   "ignoreUnresolved": ["/index.mjs"],
   "rules": {
     "exports": "off",
