@@ -83,31 +83,28 @@ async function mount(
   return { screen, composer, sent, editor, firstParagraph };
 }
 
-test('rich text formats text between markers', async () => {
+test.for([
+  ['**', '<strong>test</strong>'],
+  ['*', '<em>test</em>'],
+  ['__', '<strong>test</strong>'],
+  ['_', '<em>test</em>'],
+  ['~~', '<del>test</del>'],
+  ['||', '<span data-mx-spoiler="">test</span>'],
+  ['`', '<code>test</code>'],
+  ['``', '<code>test</code>'],
+  ['***', '<strong><em>test</em></strong>'],
+])('rich text formats text between %s markers', async ([delimiter, html]) => {
   const { composer, sent, firstParagraph } = await mount(true);
 
-  for (const [delimiter, html] of [
-    ['**', '<strong>test</strong>'],
-    ['*', '<em>test</em>'],
-    ['__', '<strong>test</strong>'],
-    ['_', '<em>test</em>'],
-    ['~~', '<del>test</del>'],
-    ['||', '<span data-mx-spoiler="">test</span>'],
-    ['`', '<code>test</code>'],
-    ['``', '<code>test</code>'],
-    ['***', '<strong><em>test</em></strong>'],
-  ]) {
-    await userEvent.click(composer);
-    await userEvent.keyboard(literal(delimiter + delimiter));
-    await userEvent.keyboard('{ArrowLeft}'.repeat(delimiter.length));
-    await userEvent.keyboard('test');
-    await expect.poll(() => firstParagraph().innerHTML).toBe(html);
-    const before = sent.length;
-    await userEvent.keyboard('{Enter}');
-    await expect.poll(() => sent.length).toBe(before + 1);
-    expect(sent.at(-1)?.formatted).toBe(html);
-    await expect.poll(() => firstParagraph().textContent).toBe('');
-  }
+  await userEvent.click(composer);
+  await userEvent.keyboard(literal(delimiter + delimiter));
+  await userEvent.keyboard('{ArrowLeft}'.repeat(delimiter.length));
+  await userEvent.keyboard('test');
+  await expect.poll(() => firstParagraph().innerHTML).toBe(html);
+  await userEvent.keyboard('{Enter}');
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]?.formatted).toBe(html);
+  await expect.poll(() => firstParagraph().textContent).toBe('');
 });
 
 test('Markdown mode sends escaped punctuation as literal text', async () => {

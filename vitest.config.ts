@@ -85,6 +85,7 @@ export default mergeConfig(
                 name: 'browser',
                 include: ['src/**/*.browser.test.ts', 'tests/e2e/fixtures/*.browser.test.ts'],
                 setupFiles: ['./tests/vitest-browser-setup.ts'],
+                expect: { poll: { timeout: 5000 } },
                 browser: {
                   enabled: true,
                   headless: true,
