@@ -6,8 +6,9 @@ use matrix_sdk::ruma::api::FeatureFlag;
 use matrix_sdk::ruma::api::client::delayed_events::{
     DelayParameters, delayed_message_event, get_all_delayed_events, update_delayed_event,
 };
-use matrix_sdk::ruma::events::AnyMessageLikeEventContent;
 use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
+use matrix_sdk::ruma::events::{AnyMessageLikeEventContent, MessageLikeEventType};
+use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedMxcUri, OwnedRoomId, TransactionId};
 use mime::Mime;
 use serde::Serialize;
@@ -15,6 +16,7 @@ use serde::Serialize;
 use crate::Core;
 use crate::ResultExt;
 use crate::protocol::{AttachmentInfoView, RpcError, ScheduledMessageView};
+use crate::view::SPOILER_PROPERTY;
 
 const MSC4140: &str = "org.matrix.msc4140";
 
@@ -55,11 +57,8 @@ struct AttachmentOut {
     body: String,
     url: String,
     info: MediaInfoOut,
-    #[serde(
-        rename = "org.matrix.msc4230.is_spoiler",
-        skip_serializing_if = "std::ops::Not::not"
-    )]
-    spoiler: bool,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
 }
 
 fn attachment_content(
@@ -88,7 +87,10 @@ fn attachment_content(
             duration_ms: info.duration_ms,
             blurhash: info.blurhash,
         },
-        spoiler,
+        extra: spoiler
+            .then(|| (SPOILER_PROPERTY.to_owned(), serde_json::Value::Bool(true)))
+            .into_iter()
+            .collect(),
     }
 }
 
@@ -108,6 +110,17 @@ impl Core {
         content: RoomMessageEventContent,
         delay_ms: u64,
     ) -> Result<String, RpcError> {
+        let content = Raw::new(&AnyMessageLikeEventContent::RoomMessage(content))
+            .or_failed(self, "schedule_message")?;
+        self.schedule_room_message(room_id, content, delay_ms).await
+    }
+
+    async fn schedule_room_message(
+        &self,
+        room_id: &OwnedRoomId,
+        content: Raw<AnyMessageLikeEventContent>,
+        delay_ms: u64,
+    ) -> Result<String, RpcError> {
         if !self.delayed_events_supported().await? {
             return Err(RpcError::DelayedEventsUnsupported);
         }
@@ -116,15 +129,15 @@ impl Core {
             return Err(RpcError::EncryptedScheduleUnsupported);
         }
 
-        let request = delayed_message_event::unstable::Request::new(
+        let request = delayed_message_event::unstable::Request::new_raw(
             room_id.clone(),
             TransactionId::new(),
+            MessageLikeEventType::RoomMessage,
             DelayParameters::Timeout {
                 timeout: Duration::from_millis(delay_ms),
             },
-            &AnyMessageLikeEventContent::RoomMessage(content),
-        )
-        .or_failed(self, "schedule_message")?;
+            content,
+        );
 
         let response = self
             .client()
@@ -154,12 +167,12 @@ impl Core {
         }
 
         let info = info.unwrap_or_default();
-        let content = serde_json::to_value(attachment_content(
+        let content = Raw::new(&attachment_content(
             filename, &mime, url, size, info, spoiler,
         ))
-        .and_then(serde_json::from_value::<RoomMessageEventContent>)
         .or_failed(self, "schedule_attachment")?;
-        self.schedule_message(room_id, content, delay_ms).await
+        self.schedule_room_message(room_id, content.cast_unchecked(), delay_ms)
+            .await
     }
 
     pub(crate) async fn cancel_scheduled_message(
@@ -288,7 +301,7 @@ mod tests {
                     "duration": 30,
                     "xyz.amorgan.blurhash": "LEHV6n"
                 },
-                "org.matrix.msc4230.is_spoiler": true
+                "page.codeberg.everypizza.msc4193.spoiler": true
             })
         );
     }

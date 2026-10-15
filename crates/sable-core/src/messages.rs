@@ -34,7 +34,9 @@ use crate::personas::PER_MESSAGE_PROFILE;
 use crate::protocol::{
     EditVersionView, MessageKind, PerMessageProfileView, RpcError, TimelineItemView,
 };
-use crate::view::{SPOILER_PROPERTY, per_message_profile, standalone_item};
+use crate::view::{
+    SPOILER_PROPERTY, SPOILER_REASON_PROPERTY, per_message_profile, standalone_item,
+};
 use serde_with::{DefaultOnError, serde_as};
 
 pub(crate) fn outgoing_mentions(user_ids: Vec<OwnedUserId>, room: bool) -> Mentions {
@@ -64,8 +66,7 @@ pub(crate) fn edit_content(
 }
 
 fn spoiler_keys(event: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
-    let reason = format!("{SPOILER_PROPERTY}.reason");
-    [SPOILER_PROPERTY, reason.as_str()]
+    [SPOILER_PROPERTY, SPOILER_REASON_PROPERTY]
         .into_iter()
         .filter_map(|key| {
             let value = event.get("content")?.get(key)?;

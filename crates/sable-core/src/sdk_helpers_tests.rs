@@ -687,6 +687,47 @@ async fn scheduled_listing_refreshes_credentials_and_omits_finalized_events() {
 }
 
 #[tokio::test]
+async fn scheduled_attachments_keep_the_spoiler_on_the_wire() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().no_server_versions().build().await;
+    let room_id = room_id!("!scheduled-spoiler:example.org");
+    Mock::given(method("GET"))
+        .and(path("/_matrix/client/versions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(
+            json!({"versions": ["v1.13"], "unstable_features": {"org.matrix.msc4140": true}}),
+        ))
+        .mount(server.server())
+        .await;
+    server.sync_joined_room(&client, room_id).await;
+    server.mock_room_state_encryption().plain().mount().await;
+    Mock::given(method("PUT"))
+        .and(path_regex(r"/rooms/.*/send/m\.room\.message/"))
+        .and(wiremock::matchers::body_partial_json(
+            json!({"msgtype": "m.image", "page.codeberg.everypizza.msc4193.spoiler": true}),
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"delay_id": "spoiled"})))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    let delay_id = core
+        .schedule_attachment(
+            &room_id.to_owned(),
+            "a.png".to_owned(),
+            "image/png".to_owned(),
+            "mxc://example.org/abc".to_owned(),
+            7,
+            None,
+            true,
+            1000,
+        )
+        .await
+        .unwrap();
+    assert_eq!(delay_id, "spoiled");
+}
+
+#[tokio::test]
 async fn cached_image_packs_return_without_waiting_for_room_state() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;

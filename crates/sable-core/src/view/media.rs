@@ -130,6 +130,7 @@ pub(super) fn audio_waveform(audio: &AudioMessageEventContent) -> Option<Vec<f32
 }
 
 pub(crate) const SPOILER_PROPERTY: &str = "page.codeberg.everypizza.msc4193.spoiler";
+pub(crate) const SPOILER_REASON_PROPERTY: &str = "page.codeberg.everypizza.msc4193.spoiler.reason";
 
 const AUDIO_METADATA_MAX_CHARS: usize = 256;
 
@@ -199,15 +200,13 @@ pub(crate) fn video_playback(content: Option<&serde_json::Value>) -> Option<Vide
 }
 
 pub(crate) fn spoiler_reason(content: Option<&serde_json::Value>) -> Option<String> {
-    const REASON: &str = "page.codeberg.everypizza.msc4193.spoiler.reason";
-
     let content = content?;
     if content.get(SPOILER_PROPERTY)?.as_bool() != Some(true) {
         return None;
     }
     Some(
         content
-            .get(REASON)
+            .get(SPOILER_REASON_PROPERTY)
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default()
             .to_owned(),
