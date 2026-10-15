@@ -103,7 +103,7 @@
         options.push({ value: room.canonical_alias, label: name });
       }
     }
-    return options;
+    return [...new Map(options.map((option) => [option.value, option])).values()];
   }
 
   function selectChoices(parameter: BotCommandParameter): Option[] | null {
