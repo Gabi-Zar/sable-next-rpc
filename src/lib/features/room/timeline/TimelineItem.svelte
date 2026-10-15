@@ -1291,11 +1291,14 @@
     background: none;
     border: none;
     cursor: pointer;
+    flex-grow: 1;
     letter-spacing: 0.01em;
+    max-width: max-content;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    width: 0;
   }
 
   .via.via-hidden {

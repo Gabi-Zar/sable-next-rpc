@@ -367,3 +367,18 @@ test('an edited message keeps its marker on the body line', async () => {
   expect(heights[1]).toBeCloseTo(heights[0] ?? 0, 0);
   expect(document.querySelectorAll('.edited, [class*="edited"]').length).toBeGreaterThan(0);
 });
+
+test('a long handle in a narrow row gives way to the sender name', async () => {
+  await page.viewport(1280, 900);
+  document.body.style.width = '320px';
+  await mountItem(
+    message('narrow-row', '@a-rather-long-handle-for-a-narrow-panel:example.test', 'Alice Lidell')
+  );
+  await document.fonts.ready;
+
+  const name = document.querySelector('.sender-identity-name');
+  const time = document.querySelector('.message-details time');
+  if (!name || !time) throw new Error('missing the sender name or the time');
+  expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
+  expect(time.getBoundingClientRect().right).toBeLessThanOrEqual(320);
+});
