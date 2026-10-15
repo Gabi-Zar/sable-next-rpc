@@ -4,7 +4,6 @@ import {
   desktopCapturer,
   ipcMain,
   Menu,
-  net,
   protocol,
   session,
   shell,
@@ -14,12 +13,12 @@ import {
   type UtilityProcess,
   type WebFrameMain,
 } from 'electron';
-import { statSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import { isAbsolute, join, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { Readable } from 'node:stream';
 
 import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
@@ -142,22 +141,39 @@ async function pagePolicy(file: string): Promise<string> {
   return computed;
 }
 
+const CONTENT_TYPES: Record<string, string> = {
+  '.css': 'text/css',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript',
+  '.json': 'application/json',
+  '.mjs': 'text/javascript',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain; charset=utf-8',
+  '.wasm': 'application/wasm',
+  '.webm': 'video/webm',
+  '.webmanifest': 'application/manifest+json',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
 async function serveApp(request: Request): Promise<Response> {
   const path = resolve(distDir, `.${decodeURIComponent(new URL(request.url).pathname)}`);
   const fromDist = relative(distDir, path);
   const inside = !fromDist.startsWith('..') && !isAbsolute(fromDist);
-  const stat = inside ? statSync(path, { throwIfNoEntry: false }) : undefined;
-  const file = stat?.isDirectory() ? join(path, 'index.html') : path;
-  const found = stat !== undefined && statSync(file, { throwIfNoEntry: false })?.isFile();
+  const entry = inside ? await stat(path).catch(() => undefined) : undefined;
+  const file = entry?.isDirectory() ? join(path, 'index.html') : path;
+  const found = entry !== undefined && (await stat(file).catch(() => undefined))?.isFile();
   const target = found ? file : join(distDir, '404.html');
 
-  const response = await net.fetch(pathToFileURL(target).toString());
-  const headers = new Headers(response.headers);
-  headers.set(
-    'Content-Security-Policy',
-    target.endsWith('.html') ? await pagePolicy(target) : policy()
-  );
-  return new Response(response.body, { status: response.status, headers });
+  const headers = new Headers({
+    'Content-Type': CONTENT_TYPES[extname(target)] ?? 'application/octet-stream',
+    'Content-Security-Policy': target.endsWith('.html') ? await pagePolicy(target) : policy(),
+  });
+  // Not `net.fetch`: one network loader per module exhausts Chromium's pool on first load.
+  return new Response(Readable.toWeb(createReadStream(target)) as ReadableStream, { headers });
 }
 
 let mainWindow: BrowserWindow | null = null;

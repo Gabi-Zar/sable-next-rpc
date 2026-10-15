@@ -9,7 +9,7 @@
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node build.mjs",
-    "start": "node build.mjs && electron .",
+    "start": "pnpm --dir .. build && node build.mjs && electron .",
     "check": "tsc -p tsconfig.json",
     "package": "node package.mjs"
   },
