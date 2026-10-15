@@ -59,6 +59,9 @@ export class ProfileSlot {
         this.profile = cached;
         return;
       }
+      // Keep known colors and pronouns visible while an expired profile refreshes.
+      const stale = this.core.cachedUserProfile(userId, true);
+      if (stale !== null) this.profile = stale;
       if (this.lookupDelayMs > 0) {
         this.#retry = setTimeout(() => {
           this.#fetch(userId, generation, attempt);

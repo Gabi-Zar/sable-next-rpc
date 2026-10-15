@@ -725,6 +725,49 @@ test('the sync status outlives the reset the session replacement performs', asyn
   });
 });
 
+test('a restored session loads its own profile so a first send has colors and pronouns', async () => {
+  const own = { display_name: 'me', pronouns: [{ summary: 'they/them', language: null }] };
+  const fake = fakeTransport({
+    'session.restore': session,
+    'session.list_accounts': [session],
+    'account.user_profile': own,
+  });
+  const core = createCoreClient(() => fake.transport);
+
+  await core.start();
+
+  await vi.waitFor(() => {
+    expect(core.cachedUserProfile(session.user_id)).toEqual(own);
+  });
+  expect(fake.called).toContainEqual({
+    method: 'account.user_profile',
+    params: { user_id: session.user_id },
+  });
+});
+
+test('a failed own-profile load does not block the first timeline lookup', async () => {
+  const fake = fakeTransport({
+    'session.restore': session,
+    'session.list_accounts': [session],
+  });
+  const core = createCoreClient(() => fake.transport);
+  fake.call.mockImplementation((method: string, params: unknown) => {
+    fake.called.push({ method, params });
+    if (method === 'account.user_profile') return Promise.reject(new Error('offline'));
+    return Promise.resolve(method === 'session.list_accounts' ? [session] : session);
+  });
+
+  await core.start();
+  await vi.waitFor(() => {
+    expect(fake.called.some((call) => call.method === 'account.user_profile')).toBe(true);
+  });
+  await Promise.resolve();
+
+  const next = { display_name: 'me' };
+  fake.call.mockResolvedValue(next);
+  await expect(core.userProfile(session.user_id)).resolves.toEqual(next);
+});
+
 async function startGated(fetch: () => Promise<unknown>) {
   localNetwork.gated = true;
   const fetchMock = vi.fn(fetch);
@@ -1018,6 +1061,46 @@ test('a profile change drops the cached profile and tells listeners once', async
   } finally {
     core.stop();
     vi.useRealTimers();
+  }
+});
+
+test('expired profiles remain available for display while a fresh lookup is pending', async () => {
+  const fake = fakeTransport();
+  const core = createCoreClient(() => fake.transport);
+  const cached = {
+    display_name: 'old',
+    name_color_dark: '#88aacc',
+    pronouns: [{ summary: 'they/them', language: null }],
+  };
+  const refresh = Promise.withResolvers<unknown>();
+  fake.call.mockResolvedValueOnce(cached).mockReturnValueOnce(refresh.promise);
+  const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
+  try {
+    await core.userProfile('@remote:example.org');
+    expect(core.cachedUserProfile('@remote:example.org')).toEqual(cached);
+    now.mockReturnValue(121_001);
+    expect(core.cachedUserProfile('@remote:example.org')).toBeNull();
+    expect(core.cachedUserProfile('@remote:example.org', true)).toEqual(cached);
+
+    const lookup = core.userProfile('@remote:example.org');
+    expect(fake.call).toHaveBeenCalledTimes(2);
+    expect(core.cachedUserProfile('@remote:example.org', true)).toEqual(cached);
+    const fresh = { ...cached, display_name: 'new', pronouns: [] };
+    refresh.resolve(fresh);
+    await expect(lookup).resolves.toEqual(fresh);
+    expect(core.cachedUserProfile('@remote:example.org')).toEqual(fresh);
+
+    fake.emit({
+      type: 'profile_changed',
+      room_id: '!room:example.org',
+      user_id: '@remote:example.org',
+      display_name: null,
+      avatar_url: null,
+    });
+    expect(core.cachedUserProfile('@remote:example.org', true)).toBeNull();
+  } finally {
+    now.mockRestore();
+    core.stop();
   }
 });
 

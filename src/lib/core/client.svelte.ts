@@ -168,8 +168,8 @@ export class CoreClient {
   /* eslint-disable svelte/prefer-svelte-reactivity */
   private readonly profileCache = new QuickLRU<
     string,
-    { accountId: string | null; profile: ProfileView }
-  >({ maxSize: MAX_PROFILE_CACHE_ENTRIES, maxAge: profileCacheFreshMs });
+    { accountId: string | null; profile: ProfileView; freshUntil: number }
+  >({ maxSize: MAX_PROFILE_CACHE_ENTRIES });
   private readonly profileRequests = new Map<
     string,
     {
@@ -510,15 +510,18 @@ export class CoreClient {
     }
   }
 
-  cachedUserProfile(userId: string): ProfileView | null {
+  cachedUserProfile(userId: string, allowStale = false): ProfileView | null {
     const cached = this.profileCache.get(userId);
-    return cached?.accountId === (this.session?.account_id ?? null) ? cached.profile : null;
+    return cached?.accountId === (this.session?.account_id ?? null) &&
+      (allowStale || cached.freshUntil > Date.now())
+      ? cached.profile
+      : null;
   }
 
   async userProfile(userId: string, urgent = false, signal?: AbortSignal): Promise<ProfileView> {
     const accountId = this.session?.account_id ?? null;
     const cached = this.profileCache.get(userId);
-    if (cached?.accountId === accountId) {
+    if (cached?.accountId === accountId && cached.freshUntil > Date.now()) {
       return cached.profile;
     }
 
@@ -537,7 +540,11 @@ export class CoreClient {
       .then((profile) => {
         if (this.profileRequests.get(userId)?.request === request) {
           this.profileFailures.delete(userId);
-          this.profileCache.set(userId, { accountId, profile });
+          this.profileCache.set(userId, {
+            accountId,
+            profile,
+            freshUntil: Date.now() + profileCacheFreshMs,
+          });
         }
         return profile;
       })
@@ -922,6 +929,7 @@ export class CoreClient {
     if (changed && session) {
       void this.primeEncryptionStatus();
       void this.primeSyncStatus();
+      void this.primeOwnProfile(session.user_id);
       if (browserGatesCoreNetwork()) void grantLocalNetworkAccess(session.homeserver);
     }
     if (changed && broadcast) this.accountChannel?.postMessage(null);
@@ -1054,6 +1062,15 @@ export class CoreClient {
       }
     }
     return 'error';
+  }
+
+  private async primeOwnProfile(userId: string): Promise<void> {
+    try {
+      await this.userProfile(userId);
+    } catch (error) {
+      this.forgetProfileFailure(userId);
+      console.debug('[sable core] own profile unavailable', error);
+    }
   }
 
   private async primeSyncStatus(): Promise<void> {
