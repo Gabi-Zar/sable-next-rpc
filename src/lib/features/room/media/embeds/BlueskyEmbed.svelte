@@ -2,6 +2,7 @@
   import ChatDotsIcon from 'phosphor-svelte/lib/ChatDotsIcon';
   import RepeatIcon from 'phosphor-svelte/lib/RepeatIcon';
   import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
+  import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
 
   import type { UrlPreviewView } from '#src/generated/protocol';
 
@@ -21,7 +22,11 @@
 
   import LinkPreviewCard from '../LinkPreviewCard.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
+  import IconButton from '#lib/ui/primitives/IconButton.svelte';
+  import { i18n } from '#lib/i18n.js';
   import { savesNatively } from '#lib/platform/files.js';
+  import { downloadUrl } from '#lib/ui/download.js';
+  import { mimeExtension } from '#lib/ui/mime-extension.js';
   import { formatMessageTimestamp } from '#lib/ui/date-time.js';
 
   interface Props {
@@ -148,6 +153,18 @@
       width={embed.aspectRatio?.width}
       height={embed.aspectRatio?.height}><track kind="captions" /></video
     >
+    {#if src && savesNatively()}
+      <div class="embed-video-actions">
+        <IconButton
+          label={i18n.t('common.download')}
+          size="small"
+          variant="ghost"
+          onclick={() =>
+            void downloadUrl(src, `bluesky-video.${mimeExtension(embed.video.mimeType) ?? 'mp4'}`)}
+          ><DownloadSimpleIcon /></IconButton
+        >
+      </div>
+    {/if}
   {:else}
     <video
       autoplay
@@ -381,6 +398,11 @@
     max-height: 20rem;
     max-width: 100%;
     width: auto;
+  }
+
+  .embed-video-actions {
+    display: flex;
+    justify-content: flex-end;
   }
 
   .embed-quote-record {

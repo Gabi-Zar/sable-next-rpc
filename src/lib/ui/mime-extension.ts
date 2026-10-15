@@ -1,3 +1,8 @@
+const EXTENSION_BY_SUBTYPE: Record<string, string> = {
+  quicktime: 'mov',
+  'x-matroska': 'mkv',
+};
+
 export function mimeExtension(mime: string | null): string | null {
   if (!mime) return null;
   const slash = mime.indexOf('/');
@@ -6,5 +11,5 @@ export function mimeExtension(mime: string | null): string | null {
     .slice(slash + 1)
     .split(';')[0]
     .trim();
-  return subtype || null;
+  return EXTENSION_BY_SUBTYPE[subtype] ?? (subtype || null);
 }

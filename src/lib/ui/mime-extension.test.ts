@@ -8,6 +8,8 @@ test.each([
   ['image/svg+xml', 'svg+xml'],
   ['text/plain; charset=utf-8', 'plain'],
   ['audio/mpeg', 'mpeg'],
+  ['video/quicktime', 'mov'],
+  ['video/x-matroska', 'mkv'],
 ])('extracts %s as %s', (mime, expected) => {
   expect(mimeExtension(mime)).toBe(expected);
 });

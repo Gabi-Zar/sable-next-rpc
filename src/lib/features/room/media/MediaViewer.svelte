@@ -884,6 +884,7 @@
               <audio
                 class="media-player"
                 controls
+                controlslist={savesNatively() ? 'nodownload' : undefined}
                 src={url}
                 aria-label={mediaLabel || i18n.t('timeline.audioAttachment')}
               >
