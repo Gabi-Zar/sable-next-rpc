@@ -821,6 +821,77 @@ async fn account_data_keeps_its_key_order_through_the_editor() {
     core.run(edit).await.unwrap();
 }
 
+async fn bookmark_core(
+    index: ResponseTemplate,
+    items: &[(&str, ResponseTemplate)],
+) -> (Arc<Core>, MatrixMockServer) {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    Mock::given(method("GET"))
+        .and(path_regex("/account_data/pl.chrome.bookmarks.index$"))
+        .respond_with(index)
+        .mount(server.server())
+        .await;
+    for (id, response) in items {
+        Mock::given(method("GET"))
+            .and(path_regex(format!(
+                "/account_data/pl.chrome.bookmark.{id}$"
+            )))
+            .respond_with(response.clone())
+            .mount(server.server())
+            .await;
+    }
+    let core = core_for(&server, client).await;
+    (core, server)
+}
+
+fn server_error() -> ResponseTemplate {
+    ResponseTemplate::new(500).set_body_json(json!({ "errcode": "M_UNKNOWN", "error": "down" }))
+}
+
+#[tokio::test]
+async fn bookmarks_fail_when_the_index_cannot_be_read() {
+    use crate::api::account::BookmarksParams;
+
+    let (core, _server) = bookmark_core(server_error(), &[]).await;
+
+    core.run(BookmarksParams {}).await.unwrap_err();
+}
+
+#[tokio::test]
+async fn bookmarks_fail_when_an_item_cannot_be_read() {
+    use crate::api::account::BookmarksParams;
+
+    let index = ResponseTemplate::new(200).set_body_json(json!({ "bookmark_ids": ["a"] }));
+    let (core, _server) = bookmark_core(index, &[("a", server_error())]).await;
+
+    core.run(BookmarksParams {}).await.unwrap_err();
+}
+
+#[tokio::test]
+async fn a_corrupt_bookmark_is_skipped_and_the_rest_are_listed() {
+    use crate::api::account::BookmarksParams;
+
+    let index = ResponseTemplate::new(200).set_body_json(json!({ "bookmark_ids": ["a", "b"] }));
+    let corrupt = ResponseTemplate::new(200).set_body_json(json!({ "room_id": 5 }));
+    let valid = ResponseTemplate::new(200).set_body_json(json!({
+        "room_id": "!room:example.org",
+        "event_id": "$event",
+        "bookmarked_ts": 7,
+    }));
+    let (core, _server) = bookmark_core(index, &[("a", corrupt), ("b", valid)]).await;
+
+    let listed = core.run(BookmarksParams {}).await.unwrap();
+
+    assert_eq!(
+        listed
+            .iter()
+            .map(|bookmark| bookmark.bookmark_id.as_str())
+            .collect::<Vec<_>>(),
+        ["b"]
+    );
+}
+
 #[tokio::test]
 async fn a_legacy_pack_is_copied_verbatim_to_the_stable_type() {
     let server = MatrixMockServer::new().await;

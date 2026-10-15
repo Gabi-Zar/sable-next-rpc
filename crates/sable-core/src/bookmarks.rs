@@ -125,12 +125,11 @@ impl Core {
     async fn bookmark_account_data<T: DeserializeOwned>(
         &self,
         event_type: GlobalAccountDataEventType,
-    ) -> Option<T> {
-        self.global_account_data(event_type, "bookmarks")
-            .await
-            .ok()
-            .flatten()
-            .and_then(|raw| raw.deserialize_as_unchecked::<T>().ok())
+    ) -> Result<Option<T>, RpcError> {
+        Ok(self
+            .global_account_data(event_type, "bookmarks")
+            .await?
+            .and_then(|raw| raw.deserialize_as_unchecked::<T>().ok()))
     }
 
     /// Fails rather than reading as empty, so a rewrite never starts from a
@@ -143,16 +142,18 @@ impl Core {
             .unwrap_or_default())
     }
 
-    async fn bookmark_ids(&self) -> Vec<String> {
-        let index = self.bookmark_index().await.unwrap_or_default();
-        unique_ids(index.bookmark_ids)
+    async fn bookmark_ids(&self) -> Result<Vec<String>, RpcError> {
+        Ok(unique_ids(self.bookmark_index().await?.bookmark_ids))
     }
 
     pub(crate) async fn bookmarks(&self) -> Result<Vec<BookmarkView>, RpcError> {
         let mut bookmarks = Vec::new();
 
-        for id in self.bookmark_ids().await {
-            let Some(item) = self.bookmark_account_data::<ItemIn>(item_event(&id)).await else {
+        for id in self.bookmark_ids().await? {
+            let Some(item) = self
+                .bookmark_account_data::<ItemIn>(item_event(&id))
+                .await?
+            else {
                 continue;
             };
             let (Some(room_id), Some(event_id)) = (item.room_id, item.event_id) else {
