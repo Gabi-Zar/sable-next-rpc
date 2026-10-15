@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-#MISE description="Render an AUR package directory from packaging/aur"
 # Usage: render-aur.sh <pkgname> <pkgver> <relver> <sha256> <outdir>
 # makepkg refuses to run as root and is not on the runners, so .SRCINFO is
 # written here from the sourced PKGBUILD in the order makepkg prints it.
 set -euo pipefail
+
+if [ $# -lt 5 ]; then
+  echo "Usage: render-aur.sh <pkgname> <pkgver> <relver> <sha256> <outdir>" >&2
+  exit 1
+fi
 
 pkg="$1" ver="$2" relver="$3" sha="$4" out="$5"
 dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../packaging/aur" && pwd)"
@@ -18,6 +22,7 @@ sed \
 cp "$dir/$pkg.install" "$out/$pkg.install"
 
 cd "$out"
+# shellcheck disable=SC2154
 (
   set +u
   # shellcheck disable=SC1091

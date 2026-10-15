@@ -2,13 +2,13 @@ import compact from 'emojibase-data/en/compact.json' with { type: 'json' };
 import emojibaseShortcodes from 'emojibase-data/en/shortcodes/emojibase.json' with { type: 'json' };
 import joypixelsShortcodes from 'emojibase-data/en/shortcodes/joypixels.json' with { type: 'json' };
 
-import { emojiGroupOrder } from '../src/lib/emoji/emoji-groups.ts';
+import { emojiGroupOrder } from '../../src/lib/emoji/emoji-groups.ts';
 
 const virtualId = 'virtual:sable-emoji-data';
 const resolvedId = `\0${virtualId}`;
 
 // Skip group 2: components such as skin tones.
-/** @type {Partial<Record<number, import('../src/lib/emoji/emoji-groups.ts').EmojiGroupId>>} */
+/** @type {Partial<Record<number, import('../../src/lib/emoji/emoji-groups.ts').EmojiGroupId>>} */
 const groupOf = {
   0: 'people',
   1: 'people',

@@ -4,9 +4,8 @@ import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
-const script = fileURLToPath(new URL('./update-altstore-source.mjs', import.meta.url));
+const script = join(import.meta.dirname, 'update-altstore-source.mjs');
 const releaseURL = 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly-test/';
 
 test('rejects download URLs without an IPA filename', () => {

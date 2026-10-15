@@ -1,10 +1,8 @@
-#!/usr/bin/env node
-import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { deflateSync, inflateSync } from 'node:zlib';
+import { crc32, deflateSync, inflateSync } from 'node:zlib';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
+const root = join(import.meta.dirname, '../..');
 const outDir = join(root, 'src-tauri', 'icons', 'installer');
 const iconPath = join(root, 'src-tauri', 'icons', 'icon.png');
 
@@ -361,22 +359,6 @@ function pngChunk(type, data) {
   return Buffer.concat([length, typeBuf, data, crc]);
 }
 
-function crc32(buf) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < buf.length; i += 1) {
-    crc ^= buf[i];
-    for (let j = 0; j < 8; j += 1) {
-      const mask = -(crc & 1);
-      crc = (crc >>> 1) ^ (0xedb88320 & mask);
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function decodeBmpSize(buffer) {
-  return { width: buffer.readInt32LE(18), height: Math.abs(buffer.readInt32LE(22)) };
-}
-
 async function writeAsset(name, img, encode) {
   await writeFile(join(outDir, name), encode(img));
 }
@@ -421,14 +403,6 @@ async function main() {
   );
   for (const cx of [180, 480]) strokeEllipse(dmg, cx, y, 52, 52, MUTED, 2);
   await writeAsset('dmg-background.png', dmg, encodePng);
-
-  for (const name of (await readdir(outDir)).sort()) {
-    if (!name.endsWith('.bmp') && !name.endsWith('.png')) continue;
-    const path = join(outDir, name);
-    const bytes = await readFile(path);
-    const size = name.endsWith('.png') ? decodePng(bytes) : decodeBmpSize(bytes);
-    console.log(`${name}: ${(await stat(path)).size} bytes ${size.width}x${size.height}`);
-  }
 }
 
 await main();

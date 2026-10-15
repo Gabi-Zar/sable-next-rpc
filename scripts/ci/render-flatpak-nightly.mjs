@@ -1,12 +1,8 @@
-#!/usr/bin/env node
-//MISE description="Render the nightly Flatpak manifest for a release"
-/* oxlint-disable no-console */
-
 // Usage: render-flatpak-nightly.mjs <version> <tag> <x86_64-sha256:size> <aarch64-sha256:size> [date]
 // Pass "-" for an architecture that is not being published.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import process from 'node:process';
+import { assertSubstituted, parseArches } from '../lib/flatpak.mjs';
 
 const [version, tag, x86, arm, dateArg] = process.argv.slice(2);
 
@@ -17,30 +13,7 @@ if (!version || !tag || !x86 || !arm) {
   process.exit(1);
 }
 
-const parseArch = (arch, value) => {
-  if (value === '-') return null;
-  const [sha, sizeStr] = value.split(':');
-  if (!/^[0-9a-f]{64}$/.test(sha ?? '')) {
-    console.error(`${arch}: expected a 64-character sha256 (got: ${sha})`);
-    process.exit(1);
-  }
-  const size = Number(sizeStr);
-  if (!Number.isInteger(size) || size <= 0) {
-    console.error(`${arch}: expected a positive integer size (got: ${sizeStr})`);
-    process.exit(1);
-  }
-  return { sha, size };
-};
-
-const arches = {
-  x86_64: parseArch('x86_64', x86),
-  aarch64: parseArch('aarch64', arm),
-};
-
-if (!arches.x86_64 && !arches.aarch64) {
-  console.error('At least one architecture must be published.');
-  process.exit(1);
-}
+const arches = parseArches(x86, arm, { sized: true });
 
 const date = dateArg || new Date().toISOString().slice(0, 10);
 const dir = 'packaging/flatpak/nightly';
@@ -61,17 +34,12 @@ for (const [arch, values] of Object.entries(arches)) {
     `      - type: extra-data\\n(?:        .*\\n)*?        only-arches: \\[${arch}\\]\\n`
   );
   if (!block.test(manifest)) {
-    console.error(`Could not find the ${arch} extra-data source to drop.`);
-    process.exit(1);
+    throw new Error(`Could not find the ${arch} extra-data source to drop.`);
   }
   manifest = manifest.replace(block, '');
 }
 
-const leftover = manifest.match(/@[A-Z0-9_]+@/);
-if (leftover) {
-  console.error(`Unsubstituted placeholder left in the manifest: ${leftover[0]}`);
-  process.exit(1);
-}
+assertSubstituted(manifest);
 
 writeFileSync(`${dir}/moe.sable.next.Nightly.yml`, manifest);
 writeFileSync(

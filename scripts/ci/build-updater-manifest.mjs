@@ -1,19 +1,15 @@
-#!/usr/bin/env node
-
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { repository, server } from '../lib/forgejo.mjs';
 
-const server = (process.env.FORGEJO_URL ?? 'https://git.sable.moe').replace(/\/+$/, '');
-const repository = process.env.FORGEJO_REPOSITORY ?? 'SableClient/sable-next';
 const tag = process.env.TAG;
 const version = process.env.VERSION;
 if (!tag) throw new Error('TAG is required');
 if (!version) throw new Error('VERSION is required');
 
-const release = join(dirname(fileURLToPath(import.meta.url)), 'forgejo-release.mjs');
+const release = join(import.meta.dirname, 'forgejo-release.mjs');
 const run = (...args) => execFileSync('node', [release, ...args], { encoding: 'utf8' });
 
 const directory = mkdtempSync(join(tmpdir(), 'sable-updater-'));

@@ -1,19 +1,21 @@
-#!/usr/bin/env node
-
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import process from 'node:process';
+import { parseArgs } from 'node:util';
+import { changelogSection } from '../lib/changelog.mjs';
 
 const directory = 'fastlane/metadata/android/en-US/changelogs';
 const LIMIT = 500;
 const ABI_CODES = { arm: 1, arm64: 2 };
 const KINDS = new Set(['feat', 'fix', 'perf']);
 
-const args = process.argv.slice(2);
-const check = args.includes('--check');
-const force = args.includes('--force');
-const [version] = args.filter((arg) => !arg.startsWith('--'));
+const {
+  values: { check, force },
+  positionals: [version],
+} = parseArgs({
+  options: { check: { type: 'boolean' }, force: { type: 'boolean' } },
+  allowPositionals: true,
+});
 
 if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
   console.error(
@@ -41,13 +43,7 @@ const git = (...gitArgs) =>
   execFileSync('git', gitArgs, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 
 function fromChangelog() {
-  if (!existsSync('CHANGELOG.md')) return [];
-  const changelog = readFileSync('CHANGELOG.md', 'utf8');
-  const start = changelog.indexOf(`\n## ${version} `);
-  if (start === -1) return [];
-  const rest = changelog.slice(start + 1);
-  const end = rest.indexOf('\n## ', 1);
-  return (end === -1 ? rest : rest.slice(0, end))
+  return (changelogSection(version)?.body ?? '')
     .split('\n')
     .filter((line) => /^[*-] /.test(line))
     .map((line) => `- ${line.slice(2).replace(/ by @\S+( in #\d+)?\.?$/, '')}`);
@@ -85,8 +81,7 @@ for (const bullet of bullets) {
   changelog = next;
 }
 if (!changelog) {
-  console.error('No feat, fix or perf commits to summarise; write the changelog by hand.');
-  process.exit(1);
+  throw new Error('No feat, fix or perf commits to summarise; write the changelog by hand.');
 }
 
 mkdirSync(directory, { recursive: true });

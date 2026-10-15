@@ -1,9 +1,8 @@
-import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { downloadVerified, sha256 } from '../lib/download.mjs';
 
-const assetsDir = resolve(dirname(fileURLToPath(import.meta.url)), '../static/deepfilternet3');
+const assetsDir = join(import.meta.dirname, '../../static/deepfilternet3');
 
 const assets = [
   {
@@ -18,27 +17,13 @@ const assets = [
   },
 ];
 
-/** @param {Buffer} bytes */
-const digestOf = (bytes) => createHash('sha256').update(bytes).digest('hex');
-
 /** @param {{ path: string; url: string; sha256: string }} asset */
-async function provision({ path, url, sha256 }) {
+async function provision({ path, url, sha256: expected }) {
   const target = join(assetsDir, path);
   const existing = await readFile(target).catch(() => undefined);
-  if (existing && digestOf(existing) === sha256) return;
+  if (existing && sha256(existing) === expected) return;
 
-  console.log(`Downloading ${path} from ${url}`);
-  const response = await fetch(url, { redirect: 'follow' });
-  if (!response.ok) {
-    throw new Error(`failed to download ${path}: HTTP ${response.status} ${response.statusText}`);
-  }
-
-  const bytes = Buffer.from(await response.arrayBuffer());
-  const digest = digestOf(bytes);
-  if (digest !== sha256) {
-    throw new Error(`checksum mismatch for ${path}: expected ${sha256}, got ${digest}`);
-  }
-
+  const bytes = await downloadVerified(url, expected);
   await mkdir(dirname(target), { recursive: true });
   await writeFile(`${target}.tmp`, bytes);
   await rename(`${target}.tmp`, target);
@@ -48,4 +33,4 @@ export async function fetchDeepFilterNet() {
   for (const asset of assets) await provision(asset);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) await fetchDeepFilterNet();
+if (import.meta.main) await fetchDeepFilterNet();

@@ -127,13 +127,9 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm test:coverage --project node --project happy-dom
 
-      - name: Test web assets validation
+      - name: Test scripts
         if: ${{ !cancelled() }}
-        run: node --test scripts/ci/check-web-assets.test.mjs
-
-      - name: Test retained web assets
-        if: ${{ !cancelled() }}
-        run: node --test scripts/ci/retain-previous-web-assets.test.mjs
+        run: node --test 'scripts/**/*.test.mjs'
 
       - name: Upload coverage report
         if: ${{ !cancelled() }}
@@ -174,7 +170,7 @@ jobs:
         uses: https://github.com/actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: static/deepfilternet3
-          key: deepfilternet3-${{ hashFiles('scripts/fetch-deepfilternet.mjs') }}
+          key: deepfilternet3-${{ hashFiles('scripts/build/fetch-deepfilternet.mjs') }}
 
       - name: Resolve Playwright version
         id: playwright

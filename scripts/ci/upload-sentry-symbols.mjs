@@ -1,6 +1,5 @@
 import { readdir, access } from 'node:fs/promises';
-import { basename, dirname, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, dirname, join, sep } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { SentryCli } from '@sentry/cli';
@@ -46,7 +45,7 @@ function inspectFile(path) {
   );
 }
 
-export async function debugIds(path) {
+async function debugIds(path) {
   const dwarf = join(path, 'Contents/Resources/DWARF');
   const files = path.endsWith('.dSYM')
     ? (await readdir(dwarf)).map((name) => join(dwarf, name))
@@ -120,4 +119,4 @@ async function main() {
   execFileSync(SentryCli.getPath(), args, { stdio: 'inherit' });
 }
 
-if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) await main();
+if (import.meta.main) await main();

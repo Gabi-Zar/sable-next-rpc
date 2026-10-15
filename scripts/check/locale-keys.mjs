@@ -1,8 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
+const root = join(import.meta.dirname, '../..');
 const extensions = new Set(['.svelte', '.ts', '.js', '.mjs']);
 const pluralSuffix = /_(?:zero|one|two|few|many|other)$/;
 const literalPattern = /['"`]([A-Za-z][\w]*(?:\.[\w]+)+)['"`]/g;

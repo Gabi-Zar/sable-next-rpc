@@ -43,7 +43,7 @@ type = "PrepareRelease"
 
 [[workflows.steps]]
 type = "Command"
-command = "node scripts/fastlane-changelog.mjs $version"
+command = "node scripts/release/fastlane-changelog.mjs $version"
 
 [[workflows.steps]]
 type = "Command"
@@ -51,7 +51,7 @@ command = "git add fastlane/metadata/android/en-US/changelogs"
 
 [[workflows.steps]]
 type = "Command"
-command = "node scripts/flatpak-metainfo-release.mjs $version"
+command = "node scripts/release/flatpak-metainfo-release.mjs $version"
 
 [[workflows.steps]]
 type = "Command"
@@ -67,7 +67,7 @@ command = "git push --force --set-upstream origin release"
 
 [[workflows.steps]]
 type = "Command"
-command = "node scripts/ci/forgejo-release-pr.mjs pr"
+command = "node scripts/release/forgejo-release-pr.mjs pr"
 
 [[workflows]]
 name = "document-change"

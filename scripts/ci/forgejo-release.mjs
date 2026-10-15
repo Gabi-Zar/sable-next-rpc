@@ -1,36 +1,10 @@
-#!/usr/bin/env node
-
-import { openAsBlob, writeFileSync } from 'node:fs';
+import { createWriteStream, openAsBlob } from 'node:fs';
 import { basename, join } from 'node:path';
-import process from 'node:process';
-
-const server = (process.env.FORGEJO_URL ?? 'https://git.sable.moe').replace(/\/+$/, '');
-const repository = process.env.FORGEJO_REPOSITORY ?? 'SableClient/sable-next';
-const token = process.env.FORGEJO_TOKEN;
-const api = `${server}/api/v1/repos/${repository}`;
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-async function request(method, path, { body, headers = {}, allow404 = false } = {}) {
-  if (!token) throw new Error('FORGEJO_TOKEN is required');
-  const response = await fetch(`${api}${path}`, {
-    method,
-    headers: { Authorization: `token ${token}`, ...headers },
-    ...(body === undefined ? {} : { body }),
-  });
-  if (response.status === 404 && allow404) return undefined;
-  if (!response.ok) {
-    throw new Error(`${method} ${path} failed: ${response.status} ${await response.text()}`);
-  }
-  if (response.status === 204) return undefined;
-  const text = await response.text();
-  return text ? JSON.parse(text) : undefined;
-}
-
-const json = (value) => ({
-  body: JSON.stringify(value),
-  headers: { 'Content-Type': 'application/json' },
-});
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
+import { parseArgs } from 'node:util';
+import { forgejo as request } from '../lib/forgejo.mjs';
 
 const getRelease = (tag) =>
   request('GET', `/releases/tags/${encodeURIComponent(tag)}`, { allow404: true });
@@ -48,18 +22,16 @@ async function ensureRelease(tag, { sha, title, notes, prerelease }) {
     return existing;
   }
   try {
-    const created = await request(
-      'POST',
-      '/releases',
-      json({
+    const created = await request('POST', '/releases', {
+      json: {
         tag_name: tag,
         target_commitish: sha,
         name: title ?? tag,
         body: notes ?? '',
         draft: false,
         prerelease: Boolean(prerelease),
-      })
-    );
+      },
+    });
     console.log(`Created release ${tag}.`);
     return created;
   } catch (error) {
@@ -111,10 +83,10 @@ async function downloadAssets(tag, pattern, directory) {
   const assets = (await listAssets(tag)).filter((asset) => matcher.test(asset.name));
   for (const asset of assets) {
     const response = await fetch(asset.browser_download_url, {
-      headers: { Authorization: `token ${token}` },
+      headers: { Authorization: `token ${process.env.FORGEJO_TOKEN}` },
     });
     if (!response.ok) throw new Error(`Downloading ${asset.name} failed: ${response.status}`);
-    writeFileSync(join(directory, asset.name), Buffer.from(await response.arrayBuffer()));
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(join(directory, asset.name)));
     console.log(`Downloaded ${asset.name}`);
   }
 }
@@ -152,25 +124,15 @@ async function pruneNightlies(keep, currentTag, protectedTags) {
   }
 }
 
-async function deleteAsset(tag, name) {
-  const release = await requireRelease(tag);
-  const asset = release.assets?.find((candidate) => candidate.name === name);
-  if (!asset) return;
-  await request('DELETE', `/releases/${release.id}/assets/${asset.id}`);
-  console.log(`Removed ${name}`);
-}
-
 async function editRelease(tag, { title, notes, prerelease }) {
   const release = await requireRelease(tag);
-  await request(
-    'PATCH',
-    `/releases/${release.id}`,
-    json({
+  await request('PATCH', `/releases/${release.id}`, {
+    json: {
       ...(title !== undefined && { name: title }),
       ...(notes !== undefined && { body: notes }),
       ...(prerelease !== undefined && { prerelease }),
-    })
-  );
+    },
+  });
   console.log(`Updated release ${tag}.`);
 }
 
@@ -188,85 +150,77 @@ async function waitForAssets(tag, names, attempts, intervalMs) {
   throw new Error(`Timed out waiting for: ${names.join(', ')}`);
 }
 
-function parseFlags(argv) {
-  const flags = {};
-  const rest = [];
-  for (let index = 0; index < argv.length; index += 1) {
-    const argument = argv[index];
-    if (argument.startsWith('--')) {
-      const [key, inline] = argument.slice(2).split('=');
-      if (inline !== undefined) flags[key] = inline;
-      else if (argv[index + 1] && !argv[index + 1].startsWith('--')) flags[key] = argv[++index];
-      else flags[key] = 'true';
-    } else {
-      rest.push(argument);
-    }
-  }
-  return { flags, rest };
-}
-
-const [command, ...argv] = process.argv.slice(2);
-const { flags, rest } = parseFlags(argv);
+const { values: flags, positionals } = parseArgs({
+  options: Object.fromEntries(
+    [
+      'tag',
+      'sha',
+      'title',
+      'notes',
+      'prerelease',
+      'attempts',
+      'interval',
+      'names',
+      'pattern',
+      'dir',
+      'asset',
+      'keep',
+      'protect',
+    ].map((name) => [name, { type: 'string' }])
+  ),
+  allowPositionals: true,
+});
+const [command, ...files] = positionals;
 const tag = flags.tag ?? process.env.TAG;
 const attempts = Number(flags.attempts ?? 60);
 const interval = Number(flags.interval ?? 15) * 1000;
 
-try {
-  switch (command) {
-    case 'ensure':
-      await ensureRelease(tag, {
-        sha: flags.sha,
-        title: flags.title,
-        notes: flags.notes,
-        prerelease: flags.prerelease === 'true',
-      });
-      break;
-    case 'wait':
-      await waitForRelease(tag, attempts, interval);
-      break;
-    case 'wait-assets':
-      await waitForAssets(tag, flags.names.split(',').filter(Boolean), attempts, interval);
-      break;
-    case 'upload':
-      await uploadAssets(tag, rest);
-      break;
-    case 'assets':
-      console.log((await listAssets(tag)).map((asset) => asset.name).join('\n'));
-      break;
-    case 'download':
-      await downloadAssets(tag, flags.pattern, flags.dir ?? '.');
-      break;
-    case 'delete-asset':
-      await deleteAsset(tag, flags.name);
-      break;
-    case 'edit':
-      await editRelease(tag, {
-        title: flags.title,
-        notes: flags.notes,
-        ...(flags.prerelease !== undefined && { prerelease: flags.prerelease === 'true' }),
-      });
-      break;
-    case 'find-previous':
-      console.log(await findPrevious(flags.asset, tag));
-      break;
-    case 'prune': {
-      const keep = Number(flags.keep);
-      if (!Number.isInteger(keep) || keep <= 0) {
-        throw new Error(`--keep must be a positive integer (got: ${flags.keep})`);
-      }
-      await pruneNightlies(keep, tag, (flags.protect ?? '').split(',').filter(Boolean));
-      break;
-    }
-    case 'body':
-      console.log((await requireRelease(tag)).body ?? '');
-      break;
-    default:
-      console.error(
-        'Usage: forgejo-release.mjs <ensure|wait|wait-assets|upload|assets|download|delete-asset|find-previous|prune|edit|body> [flags]'
-      );
+switch (command) {
+  case 'ensure':
+    await ensureRelease(tag, {
+      sha: flags.sha,
+      title: flags.title,
+      notes: flags.notes,
+      prerelease: flags.prerelease === 'true',
+    });
+    break;
+  case 'wait':
+    await waitForRelease(tag, attempts, interval);
+    break;
+  case 'wait-assets':
+    await waitForAssets(tag, flags.names.split(',').filter(Boolean), attempts, interval);
+    break;
+  case 'upload':
+    await uploadAssets(tag, files);
+    break;
+  case 'download':
+    await downloadAssets(tag, flags.pattern, flags.dir ?? '.');
+    break;
+  case 'edit':
+    await editRelease(tag, {
+      title: flags.title,
+      notes: flags.notes,
+      ...(flags.prerelease !== undefined && { prerelease: flags.prerelease === 'true' }),
+    });
+    break;
+  case 'find-previous':
+    console.log(await findPrevious(flags.asset, tag));
+    break;
+  case 'prune': {
+    const keep = Number(flags.keep);
+    if (!Number.isInteger(keep) || keep <= 0) {
+      console.error(`--keep must be a positive integer (got: ${flags.keep})`);
       process.exit(1);
+    }
+    await pruneNightlies(keep, tag, (flags.protect ?? '').split(',').filter(Boolean));
+    break;
   }
-} catch (error) {
-  console.error(error.message);
-  process.exit(1);
+  case 'body':
+    console.log((await requireRelease(tag)).body ?? '');
+    break;
+  default:
+    console.error(
+      'Usage: forgejo-release.mjs <ensure|wait|wait-assets|upload|download|find-previous|prune|edit|body> [flags]'
+    );
+    process.exit(1);
 }

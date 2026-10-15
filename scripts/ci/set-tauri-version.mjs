@@ -1,13 +1,21 @@
-#!/usr/bin/env node
-
 import { readFileSync, writeFileSync } from 'node:fs';
-import process from 'node:process';
+import { parseArgs } from 'node:util';
 
-const args = process.argv.slice(2);
-const foldNightlyIntoPatch = args.includes('--apple-short-version');
-const setMsiVersion = args.includes('--msi');
-const updaterEndpoint = args.find((arg) => arg.startsWith('--updater-endpoint='))?.slice(19) ?? '';
-const [version] = args.filter((arg) => !arg.startsWith('--'));
+const {
+  values: {
+    'apple-short-version': foldNightlyIntoPatch,
+    msi: setMsiVersion,
+    'updater-endpoint': updaterEndpoint,
+  },
+  positionals: [version],
+} = parseArgs({
+  options: {
+    'apple-short-version': { type: 'boolean' },
+    msi: { type: 'boolean' },
+    'updater-endpoint': { type: 'string' },
+  },
+  allowPositionals: true,
+});
 
 if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
   console.error(

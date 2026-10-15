@@ -1,11 +1,13 @@
 import { readdir, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { SentryCli } from '@sentry/cli';
 
 export async function collectMaps(root) {
-  const entries = await readdir(root, { recursive: true }).catch(() => []);
+  const entries = await readdir(root, { recursive: true }).catch((error) => {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  });
   return entries.filter((entry) => entry.endsWith('.map')).map((entry) => join(root, entry));
 }
 
@@ -25,4 +27,4 @@ async function main() {
   }
 }
 
-if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) await main();
+if (import.meta.main) await main();

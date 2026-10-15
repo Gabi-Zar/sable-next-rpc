@@ -23,6 +23,6 @@ jobs:
           persist-credentials: false
 
       - name: Create release
-        run: node scripts/ci/forgejo-release-pr.mjs release
+        run: node scripts/release/forgejo-release-pr.mjs release
         env:
           FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}

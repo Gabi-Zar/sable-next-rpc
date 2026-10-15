@@ -1,17 +1,15 @@
-#!/usr/bin/env node
 /**
  * Drives the debug APK on a running emulator and records what the hardware
- * back key does. Needs a homeserver the emulator can reach (see docs/TESTING.md).
+ * back key does. Needs a homeserver the emulator can reach.
  *
- *   node scripts/android-back-e2e.mjs <apk> setup   register, sign in, finish onboarding
- *   node scripts/android-back-e2e.mjs <apk> run     install and run the scenarios
+ *   node scripts/dev/android-back-e2e.mjs <apk>
  *
  * ANDROID_HOME, ADB_SERIAL, HOMESERVER (host side, default http://localhost:28008),
  * HOMESERVER_FROM_DEVICE (default http://10.0.2.2:28008) and REGISTRATION_TOKEN
  * (default sable-e2e) are read from the environment.
  */
 import { execFileSync } from 'node:child_process';
-import process from 'node:process';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 const PACKAGE = 'moe.sable.next.debug';
 const ACTIVITY = `${PACKAGE}/moe.sable.next.MainActivity`;
@@ -23,24 +21,30 @@ const PASSWORD = 'test-passw0rd';
 const CDP_PORT = 9222;
 const ADB = `${process.env.ANDROID_HOME ?? `${process.env.HOME}/Library/Android/sdk`}/platform-tools/adb`;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 function adb(...args) {
   const serial = process.env.ADB_SERIAL ? ['-s', process.env.ADB_SERIAL] : [];
   return execFileSync(ADB, [...serial, ...args], { encoding: 'utf8' }).trim();
 }
 
-async function matrix(path, body, token) {
+async function matrix(path, body, { token, allow = [] } = {}) {
   const response = await fetch(`${HOMESERVER}/_matrix/client/v3/${path}`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: JSON.stringify(body),
   });
-  return { status: response.status, json: await response.json() };
+  const json = await response.json();
+  if (!response.ok && !allow.includes(response.status)) {
+    throw new Error(`${path} failed: HTTP ${response.status} ${JSON.stringify(json)}`);
+  }
+  return { status: response.status, json };
 }
 
 async function ensureAccount() {
-  const probe = await matrix('register?kind=user', { username: USERNAME, password: PASSWORD });
+  const probe = await matrix(
+    'register?kind=user',
+    { username: USERNAME, password: PASSWORD },
+    { allow: [400, 401] }
+  );
   if (probe.status === 400 && probe.json.errcode === 'M_USER_IN_USE') return;
   const registered = await matrix('register?kind=user', {
     username: USERNAME,
@@ -48,7 +52,11 @@ async function ensureAccount() {
     auth: { type: 'm.login.registration_token', token: TOKEN, session: probe.json.session },
   });
   for (const name of ['Alpha', 'Beta']) {
-    await matrix('createRoom', { name, preset: 'private_chat' }, registered.json.access_token);
+    await matrix(
+      'createRoom',
+      { name, preset: 'private_chat' },
+      { token: registered.json.access_token }
+    );
   }
 }
 
@@ -211,10 +219,10 @@ async function run() {
   if (failures.length) process.exitCode = 1;
 }
 
-const [apk, command] = process.argv.slice(2);
-if (!apk || !['setup', 'run'].includes(command)) {
-  console.error('usage: android-back-e2e.mjs <apk> setup|run');
-  process.exit(2);
+const [apk] = process.argv.slice(2);
+if (!apk) {
+  console.error('usage: android-back-e2e.mjs <apk>');
+  process.exit(1);
 }
 adb('install', '-r', apk);
-await (command === 'setup' ? setup() : run());
+await run();

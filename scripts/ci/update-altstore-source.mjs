@@ -1,7 +1,4 @@
-#!/usr/bin/env node
-
 import { readFileSync, writeFileSync } from 'node:fs';
-import process from 'node:process';
 
 const [sourcePath, version, build, sizeStr, downloadURL, date, description] = process.argv.slice(2);
 if (!sourcePath || !version || !build || !sizeStr || !downloadURL || !date || !description) {

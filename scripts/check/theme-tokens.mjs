@@ -1,8 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('..', import.meta.url));
+const root = join(import.meta.dirname, '../..');
 const sourceRoot = join(root, 'src');
 const sourceExtensions = new Set(['.css', '.svelte', '.ts', '.js', '.mjs']);
 const styleExtensions = new Set(['.css', '.svelte']);

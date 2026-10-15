@@ -1,4 +1,4 @@
-min_version = '2026.7.11'
+min_version = '2026.8.13'
 
 [env]
 _.path = ["{{config_root}}/node_modules/.bin"]
@@ -15,6 +15,7 @@ experimental = true
 
 [task_config]
 includes = ["scripts"]
+excludes = ["scripts/ci"]
 
 [tools]
 node = "24.21.0"
@@ -116,6 +117,18 @@ run = ["pnpm lint:fix", "pnpm stylelint:fix", "cargo fmt --all"]
 description = "Regenerate TypeScript bindings from Rust (Specta)"
 run = "cargo run --locked -p sable-core --example generate-types --features typegen"
 
+[tasks."generate:emoji-properties"]
+description = "Regenerate the Rust emoji property tables from Node's Unicode data"
+run = "node scripts/generate/emoji-properties.mjs"
+
+[tasks."generate:installer-assets"]
+description = "Regenerate the Windows and macOS installer artwork"
+run = "node scripts/generate/installer-assets.mjs"
+
+[tasks."generate:admin-commands"]
+description = "Regenerate the continuwuity admin command list (optional tag argument)"
+run = "node scripts/generate/admin-commands.mjs"
+
 [tasks."check:types"]
 description = "Check that generated protocol types match Rust"
 run = "cargo run --locked -p sable-core --example generate-types --features typegen -- --check"
@@ -130,6 +143,12 @@ description = "Rebuild development WASM when Rust sources change"
 alias = "ww"
 run = "pnpm wasm:watch"
 raw = true
+
+[tasks.tauri]
+description = "Run Tauri CLI"
+depends = ["tauri:setup"]
+run = "node scripts/build/tauri.mjs"
+raw_args = true
 
 [tasks."tauri:icons"]
 description = "Generate native app icons from the canonical Sable SVG"

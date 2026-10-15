@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import {
   existsSync,
   readFileSync,
@@ -7,8 +6,7 @@ import {
   mkdirSync,
   renameSync,
 } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
 
 const v1Identifier = 'moe.sable.client';
 
@@ -25,14 +23,6 @@ export function prepareV1Release(root) {
   const rewrite = (path, transform) => {
     if (existsSync(path)) writeFileSync(path, transform(readFileSync(path, 'utf8')));
   };
-  const rewriteTree = (directory) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) rewriteTree(path);
-      else if (entry.name.endsWith('.kt'))
-        rewrite(path, (text) => text.replaceAll(previous, v1Identifier));
-    }
-  };
   for (const location of ['app', 'buildSrc']) {
     const base = join(root, `src-tauri/gen/android/${location}/src/main/java`);
     const source = join(base, previousPath);
@@ -40,7 +30,10 @@ export function prepareV1Release(root) {
     if (!existsSync(source)) continue;
     if (source !== target && existsSync(target))
       throw new Error('The production Android package path is already occupied');
-    rewriteTree(source);
+    for (const file of readdirSync(source, { recursive: true })) {
+      if (file.endsWith('.kt'))
+        rewrite(join(source, file), (text) => text.replaceAll(previous, v1Identifier));
+    }
     if (source !== target) {
       mkdirSync(dirname(target), { recursive: true });
       renameSync(source, target);
@@ -83,7 +76,7 @@ export function prepareV1Release(root) {
   writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 
-if (resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
+if (import.meta.main) {
   prepareV1Release(process.cwd());
   console.log('Prepared stable bundles for an in-place Sable v1 upgrade');
 }

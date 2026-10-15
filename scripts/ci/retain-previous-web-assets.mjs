@@ -1,6 +1,5 @@
 import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const IMMUTABLE = '_app/immutable/';
 const MANIFEST = '_app/retained.json';
@@ -89,4 +88,4 @@ async function main() {
   console.log(`retained ${Object.keys(kept).length - current.length} previous assets`);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
+if (import.meta.main) await main();

@@ -462,7 +462,7 @@ jobs:
         env:
           SABLE_FOSS: '1'
         run: |
-          node scripts/fastlane-changelog.mjs "$VERSION" --check
+          node scripts/release/fastlane-changelog.mjs "$VERSION" --check
           unset VITE_SENTRY_DSN VITE_SENTRY_ENVIRONMENT SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT
           mv src-tauri/capabilities/geolocation.json "$RUNNER_TEMP/geolocation.json"
           pnpm tauri android build --config src-tauri/tauri.ci.conf.json --apk --split-per-abi \
@@ -961,7 +961,7 @@ jobs:
           export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur_key -o IdentitiesOnly=yes"
 
           git clone "ssh://aur@aur.archlinux.org/${pkg}.git" aur-repo
-          bash scripts/ci/render-aur.sh "$pkg" "$pkgver" "$relver" "$sha" aur-render
+          scripts/ci/render-aur.sh "$pkg" "$pkgver" "$relver" "$sha" aur-render
           cp aur-render/PKGBUILD aur-render/.SRCINFO "aur-render/${pkg}.install" aur-repo/
 
           cd aur-repo
@@ -1077,7 +1077,7 @@ jobs:
               echo '-'
             fi
           }
-          node scripts/flatpak-metainfo-release.mjs "$VERSION"
+          node scripts/release/flatpak-metainfo-release.mjs "$VERSION"
           node scripts/ci/render-flatpak-stable.mjs "$VERSION" "$(arch_args x86_64)" "$(arch_args aarch64)"
 
           src=packaging/flatpak

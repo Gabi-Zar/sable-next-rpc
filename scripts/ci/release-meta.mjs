@@ -1,10 +1,5 @@
-#!/usr/bin/env node
-
-// sable-next has no changelog tooling, so nightly versions carry a commit-date stamp.
-
 import { execSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
-import process from 'node:process';
 
 function commitDate() {
   try {
@@ -64,18 +59,13 @@ if (!outputPath) {
   process.exit(1);
 }
 
-try {
-  const meta = resolveReleaseMeta({
-    eventName: process.env.EVENT_NAME ?? '',
-    inputTag: process.env.INPUT_TAG ?? '',
-    gitRef: process.env.GIT_REF ?? '',
-    gitRefName: process.env.GIT_REF_NAME ?? '',
-    gitSha: process.env.GIT_SHA ?? '',
-  });
+const meta = resolveReleaseMeta({
+  eventName: process.env.EVENT_NAME ?? '',
+  inputTag: process.env.INPUT_TAG ?? '',
+  gitRef: process.env.GIT_REF ?? '',
+  gitRefName: process.env.GIT_REF_NAME ?? '',
+  gitSha: process.env.GIT_SHA ?? '',
+});
 
-  const entries = Object.entries(meta).map(([key, value]) => `${key}=${value}`);
-  appendFileSync(outputPath, `${entries.join('\n')}\n`);
-} catch (error) {
-  console.error(error.message);
-  process.exit(1);
-}
+const entries = Object.entries(meta).map(([key, value]) => `${key}=${value}`);
+appendFileSync(outputPath, `${entries.join('\n')}\n`);

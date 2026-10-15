@@ -1,11 +1,10 @@
-import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
+import { downloadVerified } from '../lib/download.mjs';
 
-const frameworksDir = resolve(dirname(fileURLToPath(import.meta.url)), '../src-tauri/Frameworks');
+const frameworksDir = join(import.meta.dirname, '../../src-tauri/Frameworks');
 const manifestPath = join(frameworksDir, '.manifest.json');
 
 const frameworks = [
@@ -46,19 +45,7 @@ async function provision({ name, url, sha256 }, manifest) {
     return;
   }
 
-  console.log(`Downloading ${name} from ${url}`);
-  const response = await fetch(url, { redirect: 'follow' });
-
-  if (!response.ok) {
-    throw new Error(`failed to download ${name}: HTTP ${response.status} ${response.statusText}`);
-  }
-
-  const archive = Buffer.from(await response.arrayBuffer());
-  const digest = createHash('sha256').update(archive).digest('hex');
-
-  if (digest !== sha256) {
-    throw new Error(`checksum mismatch for ${name}: expected ${sha256}, got ${digest}`);
-  }
+  const archive = await downloadVerified(url, sha256);
 
   const tempDir = await mkdtemp(join(frameworksDir, '.tmp-'));
 

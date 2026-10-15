@@ -1,7 +1,5 @@
-#!/usr/bin/env node
-
 import { writeFileSync } from 'node:fs';
-import process from 'node:process';
+import { repository, server } from '../lib/forgejo.mjs';
 
 const [version, tag, outputPath] = process.argv.slice(2);
 if (!version || !tag || !outputPath) {
@@ -9,8 +7,6 @@ if (!version || !tag || !outputPath) {
   process.exit(1);
 }
 
-const repository = 'SableClient/sable-next';
-const server = 'https://git.sable.moe';
 const isNightly = tag.startsWith('nightly-');
 const apkName = `sable-${version}-android-universal.apk`;
 const apkUrl = `${server}/${repository}/releases/download/${tag}/${apkName}`;

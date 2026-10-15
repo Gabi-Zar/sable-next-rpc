@@ -3,14 +3,11 @@ import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const tag = process.argv[2] ?? 'v26.9.0';
 const repository = 'https://forgejo.ellis.link/continuwuation/continuwuity.git';
-const output = fileURLToPath(
-  new URL('../src/lib/features/composer/admin-commands.json', import.meta.url)
-);
-const dump = fileURLToPath(new URL('./admin-commands-dump.rs', import.meta.url));
+const output = join(import.meta.dirname, '../../src/lib/features/composer/admin-commands.json');
+const dump = join(import.meta.dirname, 'admin-commands-dump.rs');
 const checkout = join(
   process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'),
   'sable',
@@ -21,15 +18,13 @@ if (!existsSync(checkout)) {
   execFileSync('git', ['clone', '--quiet', '--depth', '1', '--branch', tag, repository, checkout], {
     stdio: 'inherit',
   });
-  const manifest = join(checkout, 'xtask/Cargo.toml');
-  const xtask = await readFile(manifest, 'utf8');
-  await writeFile(
-    manifest,
-    xtask.replace(
-      '[dependencies]\n',
-      ['[dependencies]', 'ruma.workspace = true', 'serde_json.workspace = true', ''].join('\n')
-    )
-  );
+}
+const manifest = join(checkout, 'xtask/Cargo.toml');
+const xtask = await readFile(manifest, 'utf8');
+const dependencies = '[dependencies]\nruma.workspace = true\nserde_json.workspace = true\n';
+if (!xtask.includes(dependencies)) {
+  if (!xtask.includes('[dependencies]\n')) throw new Error(`${manifest} has no [dependencies]`);
+  await writeFile(manifest, xtask.replace('[dependencies]\n', dependencies));
 }
 await mkdir(join(checkout, 'xtask/examples'), { recursive: true });
 await copyFile(dump, join(checkout, 'xtask/examples/sable_admin_commands.rs'));
@@ -58,6 +53,7 @@ function restrictedGroups(adminRs) {
       restricted: /bail_restricted\(\)/.test(arm.split('::process')[0]),
     });
   }
+  if (groups.size === 0) throw new Error('found no command groups in src/admin/admin.rs');
   return groups;
 }
 
