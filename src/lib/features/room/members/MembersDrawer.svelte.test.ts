@@ -27,6 +27,7 @@ vi.mock('#lib/rooms/presence.svelte.js', async () => {
 });
 
 import { setPreference } from '#lib/settings/preferences.svelte.js';
+import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
 
 import MembersDrawer from './MembersDrawer.svelte';
 import { FOUNDER_POWER_LEVEL } from '../settings/power-level-tags';
@@ -128,6 +129,35 @@ test.each([
   expect(groups()).toEqual([`${icon}${name}`]);
   expect(document.querySelector('.member-identity-row .role-tag-icon')).not.toBeInTheDocument();
   expect(screen.getByText('Amy')).toHaveAttribute('style', expect.stringContaining('#cf0000'));
+});
+
+test('tints a role heading with its colour corrected for each theme', async () => {
+  renderWithTooltips(MembersDrawer, {
+    props: {
+      loading: false,
+      members: [
+        {
+          user_id: '@amy:example.org',
+          display_name: 'Amy',
+          avatar_url: null,
+          power_level: FOUNDER_POWER_LEVEL,
+          membership: 'join' as const,
+          member_ts: null,
+          kicked: false,
+          service: false,
+        },
+      ],
+      powerTags: {},
+      onClose: vi.fn(),
+      onMemberProfile: vi.fn(),
+    },
+  });
+  await tick();
+
+  const heading = screen.getByRole('heading', { level: 3 });
+  expect(heading).toHaveClass('tinted');
+  expect(heading.style.getPropertyValue('--name-color-on-light')).toBe(nameColorOnLight('#0000ff'));
+  expect(heading.style.getPropertyValue('--name-color-on-dark')).toBe(nameColorOnDark('#0000ff'));
 });
 
 test('waits for room role tags instead of briefly rendering default labels', async () => {

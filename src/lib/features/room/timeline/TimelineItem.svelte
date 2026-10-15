@@ -1265,18 +1265,9 @@
   }
 
   .persona {
-    --pmp-ink: var(--pmp-on-light, var(--sec-on-container));
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not(.light) .persona,
-    :root.dark .persona {
-      --pmp-ink: var(--pmp-on-dark, var(--sec-on-container));
-    }
-  }
-
-  :root.dark .persona {
-    --pmp-ink: var(--pmp-on-dark, var(--sec-on-container));
+    --ink-on-light: var(--pmp-on-light, var(--sec-on-container));
+    --ink-on-dark: var(--pmp-on-dark, var(--sec-on-container));
+    --pmp-ink: var(--ink);
   }
 
   .message.persona :global(.message-avatar) {

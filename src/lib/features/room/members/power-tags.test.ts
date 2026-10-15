@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  contrastRatio,
+  nameColorOnDark,
+  nameColorOnLight,
+} from '#lib/ui/primitives/readable-color.js';
+
 import { FOUNDER_POWER_LEVEL, powerTag } from './power-tags';
 
 const t = (key: string, options?: Record<string, unknown>): string =>
@@ -20,6 +26,14 @@ describe('powerTag', () => {
     expect(powerTag(75, t).color).toBe('#1fd81f');
     expect(powerTag(0, t).color).toBeNull();
     expect(powerTag(10, t).color).toBeNull();
+  });
+
+  it('keeps every default role colour legible on light and dark grounds', () => {
+    for (const level of [FOUNDER_POWER_LEVEL, 150, 101, 100, 50, -1]) {
+      const color = powerTag(level, t).color;
+      expect(contrastRatio(nameColorOnLight(color) ?? '', '#e4e4e7')).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(nameColorOnDark(color) ?? '', '#2d2c36')).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('keeps a room tag without a colour uncoloured', () => {

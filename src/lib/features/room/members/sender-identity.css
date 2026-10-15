@@ -74,18 +74,26 @@
   color: oklch(from var(--primary-on-container) l c h / 80%);
 }
 
-:is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns).tinted {
-  color: var(--name-color-on-light);
-}
+:is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns, .group-label).tinted,
+.message.persona {
+  --ink: var(--ink-on-light);
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light)
-    :is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns).tinted,
-  :root.dark :is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns).tinted {
-    color: var(--name-color-on-dark);
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) & {
+      --ink: var(--ink-on-dark);
+    }
+  }
+
+  :root.dark & {
+    --ink: var(--ink-on-dark);
   }
 }
 
-:root.dark :is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns).tinted {
-  color: var(--name-color-on-dark);
+:is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns, .group-label).tinted {
+  --ink-on-light: var(--name-color-on-light);
+  --ink-on-dark: var(--name-color-on-dark);
+}
+
+:is(.sender-identity-name, .sender-identity-via, .sender-identity-pronouns).tinted {
+  color: var(--ink);
 }
