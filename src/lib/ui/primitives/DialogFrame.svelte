@@ -273,7 +273,7 @@
     }
 
     :global(html:not([data-reduced-motion='on']) .dialog-backdrop[data-state='closed']) {
-      animation: dialog-backdrop-out var(--motion-normal) var(--ease-smooth-out);
+      animation: dialog-backdrop-out var(--motion-normal) var(--ease-smooth-out) forwards;
     }
 
     :global(html:not([data-reduced-motion='on']) .dialog-content-drawer[data-state='open']) {
@@ -281,7 +281,7 @@
     }
 
     :global(html:not([data-reduced-motion='on']) .dialog-content-drawer[data-state='closed']) {
-      animation: drawer-out var(--duration-medium) var(--ease-smooth-out);
+      animation: drawer-out var(--duration-medium) var(--ease-smooth-out) forwards;
     }
 
     :global(html:not([data-reduced-motion='on']) .dialog-content-settings[data-state='open']),
@@ -293,7 +293,7 @@
     :global(html:not([data-reduced-motion='on']) .dialog-content-settings[data-state='closed']),
     :global(html:not([data-reduced-motion='on']) .dialog-content-verification[data-state='closed']),
     :global(html:not([data-reduced-motion='on']) .dialog-content-sheet[data-state='closed']) {
-      animation: sheet-out var(--duration-medium) var(--ease-smooth-out);
+      animation: sheet-out var(--duration-medium) var(--ease-smooth-out) forwards;
     }
 
     :global(html:not([data-reduced-motion='on']) .dialog-content-sheet.sheet-settling) {
@@ -318,7 +318,7 @@
     :global(
       html:not([data-reduced-motion='on']) .dialog-content-verification[data-state='closed']
     ) {
-      animation: dialog-out var(--motion-normal) var(--ease-smooth-out);
+      animation: dialog-out var(--motion-normal) var(--ease-smooth-out) forwards;
     }
   }
 
@@ -328,7 +328,7 @@
     }
 
     :global(html:not([data-reduced-motion='on']) .dialog-content-settings[data-state='closed']) {
-      animation: dialog-out var(--motion-normal) var(--ease-smooth-out);
+      animation: dialog-out var(--motion-normal) var(--ease-smooth-out) forwards;
     }
   }
 </style>

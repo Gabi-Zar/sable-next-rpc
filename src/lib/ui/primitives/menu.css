@@ -52,7 +52,7 @@
   }
 
   html:not([data-reduced-motion='on']) .menu-surface[data-state='closed'] {
-    animation: menu-out var(--motion-normal) var(--ease-smooth-out);
+    animation: menu-out var(--motion-normal) var(--ease-smooth-out) forwards;
   }
 }
 
