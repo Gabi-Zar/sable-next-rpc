@@ -358,7 +358,7 @@
   };
 
   let countedRooms = $derived(
-    roomList.rooms.filter((room) => room.state === 'joined' && room?.room_kind !== 'space')
+    roomList.rooms.filter((room) => room.state === 'joined' && room.room_kind !== 'space')
   );
   let unreadTotal = $derived(
     countedRooms.reduce((total, room) => total + roomList.notificationsFor(room).highlight, 0)
@@ -862,7 +862,7 @@
     const accountId = core.session?.account_id;
     if (core.status !== 'ready' || !accountId || !roomList.settled) return;
     const room = roomList.byId(openRoomId);
-    if (room?.state === 'joined' && room?.room_kind !== 'space' && !room.is_tombstoned) {
+    if (room?.state === 'joined' && room.room_kind !== 'space' && !room.is_tombstoned) {
       rememberLastRoom(accountId, room.room_id);
     }
   });

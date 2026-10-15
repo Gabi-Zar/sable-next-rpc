@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
+use matrix_sdk::EncryptionState;
 use matrix_sdk::latest_events::{LatestEventValue, LocalLatestEventValue, RemoteLatestEventValue};
 use matrix_sdk::room::Room;
 use matrix_sdk::ruma::events::room::avatar::RoomAvatarEventContent;
@@ -11,13 +12,12 @@ use matrix_sdk::ruma::events::{
 };
 use matrix_sdk::ruma::push::Ruleset;
 use matrix_sdk::ruma::{EventId, OwnedRoomId, OwnedUserId, RoomId};
-use matrix_sdk::{EncryptionState, RoomState};
 use matrix_sdk_ui::{eyeball_im, room_list_service::RoomListItem};
 
 use crate::api::rooms::RoomKind;
 use crate::protocol::{
     LatestEventView, NotificationModeView, NotificationSettingsView, PredecessorRoomView,
-    RoomJoinRuleView, RoomListItemView, RoomStateView, RoomTag, RoomUnreadView, SpaceChildEdge,
+    RoomJoinRuleView, RoomListItemView, RoomTag, RoomUnreadView, SpaceChildEdge,
 };
 
 use super::diff::diff_values;
@@ -89,13 +89,7 @@ pub fn room_list_item<S: BuildHasher>(
             // `m.room.encryption` is not loaded, so neither answer is honest.
             EncryptionState::Unknown => None,
         },
-        state: match item.state() {
-            RoomState::Joined => RoomStateView::Joined,
-            RoomState::Invited => RoomStateView::Invited,
-            RoomState::Knocked => RoomStateView::Knocked,
-            RoomState::Left => RoomStateView::Left,
-            RoomState::Banned => RoomStateView::Banned,
-        },
+        state: item.state().into(),
         is_tombstoned: info.is_some_and(|i| i.is_tombstoned),
         room_kind: RoomKind::from_room_type(item.room_type().as_ref()),
         call_participants: item.active_room_call_participants(),

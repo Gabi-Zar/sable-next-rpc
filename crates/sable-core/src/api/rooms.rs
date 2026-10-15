@@ -393,13 +393,7 @@ impl Handler for CreateParams {
             RoomPreset::PrivateChat
         });
 
-        let room_type = match self.kind {
-            RoomKind::Text => None,
-            RoomKind::Space => Some(RoomType::Space),
-            RoomKind::Voice => Some(RoomType::Call),
-            RoomKind::Forum => Some(RoomType::from(view::FORUM_ROOM_TYPE)),
-            RoomKind::Calendar => Some(RoomType::from(crate::calendar::CALENDAR_ROOM_TYPE)),
-        };
+        let room_type = self.kind.as_room_type();
         if room_type.is_some() || !self.federate || self.predecessor.is_some() {
             let creation = creation_content(room_type, self.federate, self.predecessor);
             request.creation_content = Some(

@@ -110,7 +110,11 @@
               {name}
               uniform
             >
-              <RoomIcon roomKind={room.room_kind} joinRule={room.join_rule} />
+              <RoomIcon
+                roomKind={room.room_kind}
+                hasParent={parents.has(room.room_id)}
+                joinRule={room.join_rule}
+              />
             </Avatar>
             <span class="text">
               <span class="name"

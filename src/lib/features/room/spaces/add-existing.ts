@@ -22,11 +22,10 @@ export function addableChildren(
         !room.space_children.some((edge) => edge.room_id === space.room_id)
     )
     .filter((room) => {
-      if (kind === "spaces") {
-        return room.room_kind === "space";
-      } else {
-        return room.room_kind !== "space";
+      if (kind === 'spaces') {
+        return room.room_kind === 'space';
       }
+      return room.room_kind !== 'space';
     })
     .filter(
       (room) =>

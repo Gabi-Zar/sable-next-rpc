@@ -5,7 +5,7 @@ export default {
   plugins: ['stylelint-order', 'stylelint-plugin-defensive-css'],
   rules: {
     // Keep CSS structurally simple
-    'max-nesting-depth': 5,
+    'max-nesting-depth': 2,
     'selector-max-combinators': 3,
     'declaration-no-important': true,
 

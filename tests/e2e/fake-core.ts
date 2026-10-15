@@ -170,7 +170,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       is_tombstoned: false,
       call_participants: [],
       screen_sharers: [],
-      room_kind: workerMode === 'calendar' ? 'calendar' : workerMode === 'forum' ? 'forum' : null,
+      room_kind: workerMode === 'calendar' ? 'calendar' : workerMode === 'forum' ? 'forum' : 'text',
       supports_knock: false,
       supports_restricted: false,
       supports_knock_restricted: false,

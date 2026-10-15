@@ -397,7 +397,7 @@
       </ActionMenuItem>
     {/if}
 
-    {#if room?.room_kind !== 'space'}
+    {#if room.room_kind !== 'space'}
       <RoomNotificationSubmenu roomId={room.room_id} active={opened} />
     {/if}
 
@@ -423,7 +423,7 @@
       </ActionMenuItem>
     {/each}
 
-    {#if room?.room_kind !== 'space' && removableParent}
+    {#if room.room_kind !== 'space' && removableParent}
       <ActionMenuItem
         onSelect={() => {
           removeFromSpace(removableParent.room_id);

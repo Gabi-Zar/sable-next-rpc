@@ -1203,7 +1203,7 @@ export type RoomPowerLevelsView = {
 	notifications_room: number,
 };
 
-export type RoomPreviewViaView = { type: "client" } | { type: "remote"; server: string | null } | { type: "unknown" };
+export type RoomPreviewViaView = { type: "client" } | { type: "remote"; server: string } | { type: "unknown" };
 
 /**  A room as the server describes it to someone who may not be in it. */
 export type RoomPreviewView = {
@@ -1214,7 +1214,8 @@ export type RoomPreviewView = {
 	topic: string | null,
 	avatar_url: string | null,
 	room_kind: RoomKind | null,
-	num_joined_members: number,
+	/**  `null` when the server did not say. */
+	num_joined_members: number | null,
 	join_rule: RoomJoinRuleView,
 	/**  `null` when this account has no membership in the room. */
 	state: RoomStateView | null,

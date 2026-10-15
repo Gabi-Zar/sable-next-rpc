@@ -409,11 +409,7 @@ mod tests {
             name: None,
             topic: None,
             avatar_url: None,
-            is_space: cfg_select! {
-                // the test harness uses IDs starting with !space for space rooms
-                test => !children.is_empty() || room_id.starts_with("!space"),
-                _ => !children.is_empty(),
-            },
+            is_space: !children.is_empty() || room_id.starts_with("!space"),
             num_joined_members: None,
             join_rule: RoomJoinRuleView::Public,
             allowed_room_ids: Vec::new(),

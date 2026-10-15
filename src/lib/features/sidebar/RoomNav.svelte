@@ -258,6 +258,7 @@
     );
     return buildSpaceTree(space, roomsById, Number(preferences.subspaceHierarchyLimit));
   });
+  let spacedRoomIds = $derived(claimedRoomIds(roomList.rooms));
   let compareRooms = $derived(roomComparator(preferences.roomSort));
   let favouriteView = $derived(activeSpaceId ?? section);
   let groupFavourites = $derived(groupsFavourites(favouriteView));
@@ -579,6 +580,7 @@
             {#snippet glyph()}
               <RoomIcon
                 roomKind={room?.room_kind ?? null}
+                hasParent={spacedRoomIds.has(item.roomId)}
                 joinRule={room?.join_rule ?? null}
                 weight={active ? 'fill' : 'regular'}
               />
@@ -586,7 +588,7 @@
             <span class="room-avatar">
               {#if avatarUrl}
                 <Avatar
-                  class={['room-avatar-icon', { voice: room?.room_kind === 'calendar' }]}
+                  class={['room-avatar-icon', { voice: room?.room_kind === 'voice' }]}
                   id={item.roomId}
                   src={avatarUrl}
                   size="small"
@@ -621,6 +623,7 @@
             <span class="room-icon" aria-hidden="true">
               <RoomIcon
                 roomKind={room?.room_kind ?? null}
+                hasParent={spacedRoomIds.has(item.roomId)}
                 joinRule={room?.join_rule ?? null}
                 weight={active ? 'fill' : 'regular'}
               />

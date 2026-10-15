@@ -40,7 +40,7 @@
     membership?: RoomStateView;
   }
 
-  let { roomId, eventId = null, via = [], membership = 'left' }: Props = $props();
+  let { roomId, eventId = null, via = [], membership }: Props = $props();
 
   const core = useCoreClient();
   const roomList = useRoomList();
@@ -56,9 +56,7 @@
   const reasonId = $props.id();
 
   let title = $derived(preview?.name ?? roomId);
-  let localServer = $derived(
-    core.session?.homeserver ? new URL(core.session.homeserver).hostname : null
-  );
+  let localServer = $derived(core.session?.user_id.split(':').slice(1).join(':') ?? null);
 
   $effect(() => {
     const address = roomId;
@@ -91,15 +89,16 @@
   /* `knock` admits nobody through /join, so the button has to ask instead.
      `knock_restricted` still lets a member of the allowed space straight in,
      so it tries joining first and offers to knock only once that is refused. */
-  let invited = $derived(membership === 'invited');
-  let banned = $derived(membership === 'banned');
+  let currentMembership = $derived(membership ?? preview?.state ?? 'left');
+  let invited = $derived(currentMembership === 'invited');
+  let banned = $derived(currentMembership === 'banned');
   let mustKnock = $derived(preview?.join_rule === 'knock' && !invited);
   let restricted = $derived(
     preview?.join_rule === 'restricted' || preview?.join_rule === 'knock_restricted'
   );
   let canKnock = $derived(mustKnock || (preview?.join_rule === 'knock_restricted' && !invited));
   let offerKnock = $derived(mustKnock || (canKnock && !invited && failedAction === 'join'));
-  let knocked = $derived((membership === 'knocked' && !withdrew) || (sentKnock && !invited));
+  let knocked = $derived((currentMembership === 'knocked' && !withdrew) || (sentKnock && !invited));
 
   let parent = $derived(childRouting(roomList.rooms, roomId));
   let selectedVias = $derived(via.length > 0 ? via : parent.via);
@@ -192,7 +191,7 @@
               <CircleDashedIcon />
             {/snippet}
             <Avatar
-              color="var(--crit-main)"
+              color={failed ? 'var(--crit-main)' : undefined}
               id={roomId}
               src={preview?.avatar_url}
               name={title}
@@ -211,7 +210,7 @@
           <h1 class="join-title" class:failed>
             {title}
           </h1>
-          {#if preview}
+          {#if preview?.num_joined_members != null}
             <div class="join-members-icon">
               <UserIcon />
             </div>
@@ -249,7 +248,7 @@
           {/if}
         </div>
         {#if failed}
-          <p>{i18n.t('join.unavailable')}</p>
+          <p role="alert">{i18n.t('join.unavailable', { room: roomId })}</p>
         {/if}
         {#if knocked}
           <p role="status">{i18n.t('join.knockSent')}</p>
@@ -389,122 +388,120 @@
     justify-content: safe center;
     padding: var(--space-400);
     width: min(100%, 32rem);
+  }
 
-    p {
-      margin: 0;
-    }
+  .join p {
+    margin: 0;
+  }
 
-    .join-header {
-      align-items: center;
-      column-rule:
-        var(--border-width) solid var(--bg-container-line),
-        repeat(auto, none);
-      display: grid;
-      grid-template-areas:
-        'avatar . title-icon . title'
-        'avatar . members-icon . members'
-        'avatar . address-icon . address'
-        'avatar . invite-icon . invite'
-        'avatar . knock-icon . knock';
-      grid-template-columns: min-content var(--space-400) min-content var(--space-100) 1fr;
+  .join-header {
+    align-items: center;
+    display: grid;
+    grid-template-areas:
+      'avatar . title-icon . title'
+      'avatar . members-icon . members'
+      'avatar . address-icon . address'
+      'avatar . invite-icon . invite'
+      'avatar . knock-icon . knock';
+    grid-template-columns: min-content var(--space-400) min-content var(--space-100) 1fr;
+  }
 
-      .join-avatar {
-        grid-area: avatar;
-        height: 100%;
-        position: relative;
+  .join-header :global(div > svg) {
+    color: var(--surface-var-on-container);
+    vertical-align: middle;
+  }
 
-        &::after {
-          background-color: var(--surface-container-line);
-          content: '';
-          height: 100%;
-          position: absolute;
-          transform: translateX(calc((var(--space-400) + 3.5px) / 2));
-          width: 1px;
-        }
-      }
+  .join-header p {
+    color: var(--surface-var-on-container);
+    font-size: var(--font-size-label);
+    margin: 0;
+  }
 
-      .join-title-icon {
-        grid-area: title-icon;
-        justify-self: center;
+  .join-avatar {
+    grid-area: avatar;
+    height: 100%;
+    position: relative;
+  }
 
-        :global(& > span) {
-          vertical-align: middle;
-          width: min-content;
+  .join-avatar::after {
+    background-color: var(--surface-container-line);
+    content: '';
+    height: 100%;
+    position: absolute;
+    transform: translateX(calc((var(--space-400) + 3.5px) / 2));
+    width: 1px;
+  }
 
-          :global(.room-icon-composite > svg, & > svg) {
-            height: var(--icon-size-medium);
-            width: var(--icon-size-medium);
-          }
-        }
-      }
+  .join-title-icon {
+    grid-area: title-icon;
+    justify-self: center;
+  }
 
-      :global(div > svg) {
-        color: var(--surface-var-on-container);
-        vertical-align: middle;
-      }
+  .join-title-icon > :global(span) {
+    vertical-align: middle;
+    width: min-content;
+  }
 
-      .join-title {
-        display: flex;
-        font-size: var(--font-size-heading);
-        gap: var(--space-100);
-        grid-area: title;
-        line-height: var(--line-height-heading);
-        margin: 0;
-        word-break: normal;
+  .join-title-icon :global(span .room-icon-composite > svg),
+  .join-title-icon > :global(span > svg) {
+    height: var(--icon-size-medium);
+    width: var(--icon-size-medium);
+  }
 
-        &.failed {
-          word-break: break-all;
-        }
-      }
+  .join-title {
+    display: flex;
+    font-size: var(--font-size-heading);
+    gap: var(--space-100);
+    grid-area: title;
+    line-height: var(--line-height-heading);
+    margin: 0;
+    word-break: normal;
+  }
 
-      .join-members-icon {
-        grid-area: members-icon;
-        justify-self: center;
-      }
+  .join-title.failed {
+    word-break: break-all;
+  }
 
-      .join-members {
-        grid-area: members;
-      }
+  .join-members-icon {
+    grid-area: members-icon;
+    justify-self: center;
+  }
 
-      .join-address-icon {
-        grid-area: address-icon;
-        justify-self: center;
-      }
+  .join-members {
+    grid-area: members;
+  }
 
-      .join-address {
-        grid-area: address;
-      }
+  .join-address-icon {
+    grid-area: address-icon;
+    justify-self: center;
+  }
 
-      .join-invite-icon {
-        grid-area: invite-icon;
-        justify-self: center;
-      }
+  .join-address {
+    grid-area: address;
+  }
 
-      .join-invite {
-        grid-area: invite;
-      }
+  .join-invite-icon {
+    grid-area: invite-icon;
+    justify-self: center;
+  }
 
-      .join-knock-icon {
-        grid-area: knock-icon;
-        place-self: start center;
-        transform: translateY(-1px);
-      }
+  .join-invite {
+    grid-area: invite;
+  }
 
-      .join-knock {
-        grid-area: knock;
+  .join-knock-icon {
+    grid-area: knock-icon;
+    place-self: start center;
+    transform: translateY(-1px);
+  }
 
-        .hint {
-          color: var(--sec-main);
-          font-size: var(--font-size-small);
-        }
-      }
+  .join-knock {
+    grid-area: knock;
+  }
 
-      p {
-        color: var(--surface-var-on-container);
-        font-size: var(--font-size-label);
-        margin: 0;
-      }
-    }
+  .join-knock .hint {
+    color: var(--sec-main);
+    font-size: var(--font-size-small);
   }
 
   @media (prefers-reduced-motion: no-preference) {

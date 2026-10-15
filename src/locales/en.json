@@ -783,7 +783,7 @@
     "restrictedFailed": "You do not fulfill the conditions to join this room.",
     "restrictedKnockAvailable": "You may need to ask to join if you do not meet the conditions.",
     "restrictedKnockRequired": "You do not fulfill the conditions to join this room. You must ask for permission to join.",
-    "knockSent": "Your join request has been sent. You will recieve an invite to join the room once a room member approves your request.",
+    "knockSent": "Your join request has been sent. You will receive an invite to join the room once a room member approves your request.",
     "knockFailed": "The join request could not be sent.",
     "knockReason": "Why do you want to join this room? (optional)",
     "withdraw": "Withdraw join request",

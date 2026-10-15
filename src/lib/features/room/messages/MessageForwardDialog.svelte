@@ -22,7 +22,7 @@
     roomList.rooms
       .filter(
         (room) =>
-          room.state === 'joined' && room?.room_kind !== 'space' && room.room_id !== fromRoomId
+          room.state === 'joined' && room.room_kind !== 'space' && room.room_id !== fromRoomId
       )
       .filter((room) =>
         (room.name ?? room.room_id).toLowerCase().includes(search.trim().toLowerCase())

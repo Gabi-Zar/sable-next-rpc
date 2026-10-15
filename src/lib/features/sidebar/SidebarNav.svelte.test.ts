@@ -121,7 +121,7 @@ test.each([
 ])(
   'keeps the room list from %s while creating a room (%#)',
   async (path, params, target, names) => {
-    const child = { ...space('!child:example.org', 'Child'), room_kind: "text" };
+    const child = { ...space('!child:example.org', 'Child'), room_kind: 'text' };
     const parent = {
       ...space(),
       space_children: [
@@ -131,8 +131,8 @@ test.each([
     const rooms = [
       parent,
       child,
-      { ...space('!unspaced:example.org', 'Unspaced'), room_kind: "text" },
-      { ...space('!dm:example.org', 'Alice'), room_kind: "text", is_direct: true },
+      { ...space('!unspaced:example.org', 'Unspaced'), room_kind: 'text' },
+      { ...space('!dm:example.org', 'Alice'), room_kind: 'text', is_direct: true },
     ];
     const client = {
       subscribeEvents: () => () => {},
@@ -169,6 +169,7 @@ test.each([
 test('adds an incoming unread DM to the navbar and removes it when read', async () => {
   const room: RoomListItemView = {
     ...space('!dm:example.org', 'Alice'),
+    room_kind: 'text',
     is_direct: true,
     direct_targets: ['@alice:example.org'],
   };
@@ -314,6 +315,7 @@ test('a subspace pinned in the stored layout joins the rail beside its parent', 
 test('a muted direct chat marked unread by hand still reaches the navbar', async () => {
   const room: RoomListItemView = withCounts({
     ...space('!muted:example.org', 'Bo'),
+    room_kind: 'text',
     is_direct: true,
     direct_targets: ['@bo:example.org'],
     marked_unread: true,
@@ -342,6 +344,7 @@ test('a muted direct chat marked unread by hand still reaches the navbar', async
 test('a muted room marked unread by hand still marks its section as unread', async () => {
   const room: RoomListItemView = withCounts({
     ...space('!muted-room:example.org', 'Ops'),
+    room_kind: 'text',
     marked_unread: true,
     notification: { room: 'mute', default: 'all' },
   });
@@ -370,6 +373,7 @@ test('a section totals its notifying rooms in green', async () => {
   });
   const room: RoomListItemView = withCounts({
     ...space('!loud:example.org', 'Loud'),
+    room_kind: 'text',
     unread: 4,
     notifying: 4,
     notification: { room: 'all', default: 'all' },

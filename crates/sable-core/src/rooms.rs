@@ -542,20 +542,23 @@ impl Core {
                 )
                 .await;
 
-            if let Ok(state) = state {
-                let membership = client.get_room(&state.room_id).map(|room| room.state());
+            match state {
+                Ok(state) => {
+                    let membership = client.get_room(&state.room_id).map(|room| room.state());
 
-                return Ok(RoomPreviewView::from_state_events(
-                    state.room_id,
-                    state.via,
-                    state
-                        .num_joined_members
-                        .unwrap_or_default()
-                        .try_into()
-                        .unwrap_or(u32::MAX),
-                    state.state,
-                    membership,
-                ));
+                    return Ok(view::room_preview_from_stripped_state(
+                        state.room_id,
+                        state.via,
+                        state
+                            .num_joined_members
+                            .map(|count| u32::try_from(count).unwrap_or(u32::MAX)),
+                        state.state,
+                        membership,
+                    ));
+                }
+                Err(error) => {
+                    tracing::debug!(?error, "MSC4560 room preview failed, using the SDK preview");
+                }
             }
         }
 
