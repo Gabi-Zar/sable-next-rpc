@@ -120,6 +120,16 @@ test('an index outside the list leaves the leading entry in place', () => {
   }
 });
 
+test('a null default leaves the homeserver field empty', () => {
+  const { homeservers } = parseRuntimeConfig({
+    homeserverList: ['one.example', 'two.example'],
+    defaultHomeserver: null,
+  });
+
+  expect(homeservers.default).toBe('');
+  expect(homeservers.list).toEqual(['one.example', 'two.example']);
+});
+
 test('blank and repeated entries are dropped', () => {
   const { homeservers } = parseRuntimeConfig({
     homeserverList: ['one.example', '  ', 'one.example', 42, 'two.example'],

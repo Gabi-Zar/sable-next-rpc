@@ -213,7 +213,7 @@
     const reauth = core.accounts.find((account) => account.account_id === reauthAccountId());
     if (reauth) flow.homeserver = reauth.homeserver;
     void untrack(() =>
-      flow.validateHomeserver(displayedStage).finally(() => {
+      flow.validateInitialHomeserver(displayedStage).finally(() => {
         hasCompletedInitialHomeserverCheck = true;
       })
     );

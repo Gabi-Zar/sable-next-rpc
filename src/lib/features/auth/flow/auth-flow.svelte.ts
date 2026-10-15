@@ -46,6 +46,10 @@ export class AuthFlowController {
     this.registrationToken = registrationToken;
   }
 
+  validateInitialHomeserver(displayedStage = 0): Promise<LoginFlowsView | null> {
+    return this.homeserver.trim() ? this.validateHomeserver(displayedStage) : Promise.resolve(null);
+  }
+
   async validateHomeserver(displayedStage = 0): Promise<LoginFlowsView | null> {
     const candidate = this.homeserver.trim();
     if (!candidate) {

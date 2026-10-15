@@ -178,6 +178,7 @@ function parseExploreServers(raw: unknown): string[] {
 }
 
 function withDefaultAt(homeservers: HomeserversConfig, index: unknown): HomeserversConfig {
+  if (index === null) return { ...homeservers, default: '' };
   if (typeof index !== 'number' || !Number.isInteger(index)) return homeservers;
   if (index < 0 || index >= homeservers.list.length) return homeservers;
 

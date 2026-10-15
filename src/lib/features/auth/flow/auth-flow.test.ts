@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { LOGGED_IN_MARKER, readReturningUser } from './auth-flow.svelte';
+import { describe, expect, it, vi } from 'vitest';
+import type { CoreClient } from '#lib/core/client.svelte.js';
+import { AuthFlowController, LOGGED_IN_MARKER, readReturningUser } from './auth-flow.svelte';
 
 describe('auth flow state helpers', () => {
   it('restores the returning-user marker', () => {
@@ -19,5 +20,32 @@ describe('auth flow state helpers', () => {
         },
       } as unknown as Storage)
     ).toBe(false);
+  });
+});
+
+describe('the initial homeserver check', () => {
+  const flows = { password: true } as never;
+
+  it('does not ask a homeserver or show an error when the field starts empty', async () => {
+    const loginFlows = vi.fn(() => Promise.resolve(flows));
+    const flow = new AuthFlowController({ loginFlows } as unknown as CoreClient, '', null);
+
+    await flow.validateInitialHomeserver();
+
+    expect(loginFlows).not.toHaveBeenCalled();
+    expect(flow.error).toBeNull();
+  });
+
+  it('checks the prefilled homeserver', async () => {
+    const loginFlows = vi.fn(() => Promise.resolve(flows));
+    const flow = new AuthFlowController(
+      { loginFlows } as unknown as CoreClient,
+      'one.example',
+      null
+    );
+
+    await flow.validateInitialHomeserver();
+
+    expect(loginFlows).toHaveBeenCalledWith('one.example');
   });
 });
