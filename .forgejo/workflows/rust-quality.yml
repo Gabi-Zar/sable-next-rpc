@@ -9,9 +9,11 @@ on:
       - 'Cargo.lock'
       - 'src/generated/**'
       - 'rust-toolchain.toml'
-      - '.cargo/deny.toml'
+      - '.cargo/**'
+      - '.clippy.toml'
       - '.forgejo/workflows/rust-quality.yml'
       - '.forgejo/actions/rust/**'
+      - '.forgejo/webdriver.json'
   push:
     branches: [main]
     paths:
@@ -21,9 +23,11 @@ on:
       - 'Cargo.lock'
       - 'src/generated/**'
       - 'rust-toolchain.toml'
-      - '.cargo/deny.toml'
+      - '.cargo/**'
+      - '.clippy.toml'
       - '.forgejo/workflows/rust-quality.yml'
       - '.forgejo/actions/rust/**'
+      - '.forgejo/webdriver.json'
 
 permissions: {}
 
