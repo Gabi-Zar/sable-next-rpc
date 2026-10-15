@@ -2,9 +2,16 @@
   "name": "@sable/electron",
   "version": "0.0.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "description": "Sable v2, a Matrix client.",
   "author": "SableClient",
   "homepage": "https://sable.moe",
+  "repository": {
+    "type": "git",
+    "url": "https://git.sable.moe/SableClient/sable-next.git",
+    "directory": "electron"
+  },
+  "desktopName": "sable-electron",
   "type": "module",
   "main": "dist/main.cjs",
   "scripts": {

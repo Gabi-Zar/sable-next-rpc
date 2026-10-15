@@ -22,6 +22,10 @@ extraResources:
 
 npmRebuild: false
 afterPack: ./after-pack.mjs
+# Generate metadata here; CI uploads it to Forgejo.
+publish:
+  provider: generic
+  url: https://git.sable.moe/SableClient/sable-next/releases/download/${channel}
 
 electronLanguages:
   - bg
@@ -51,7 +55,9 @@ mac:
   category: public.app-category.social-networking
   icon: ../src-tauri/icons/icon.icns
   minimumSystemVersion: '12.0'
-  target: dmg
+  target:
+    - dmg
+    - zip
   # Not '-': 26.15.3 signs with any keychain certificate whose name has a dash.
   identity: null
   hardenedRuntime: false
@@ -75,10 +81,18 @@ nsis:
   installerSidebar: ../src-tauri/icons/installer/nsis-sidebar.bmp
 
 linux:
+  maintainer: SableClient
+  artifactName: sable-electron-${version}-${arch}.${ext}
   executableName: sable-electron
+  syncDesktopName: true
   icon: ../src-tauri/icons/icon.png
   category: Network;InstantMessaging
   target:
     - deb
     - rpm
     - AppImage
+
+deb:
+  packageName: sable-electron
+rpm:
+  packageName: sable-electron
