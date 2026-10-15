@@ -12,6 +12,7 @@ import {
   wasmErrorTitle,
   wasmLogLevel,
 } from '../lib/observability/wasm-log.js';
+import { readText, writeText } from '../lib/platform/local-json.js';
 import { deleteAccountWebStorage, resetWebStorage } from '../lib/platform/session-storage.js';
 import { migrateV1 } from '#lib/migrations/v1/migration.js';
 
@@ -52,6 +53,7 @@ function requestLabel(request: WorkerRequest): string | undefined {
 
 interface PrewarmedWorker {
   worker: SharedWorker;
+  generation: number;
   failure: string | null;
 }
 
@@ -70,7 +72,19 @@ function storedLogFilter(): string | null {
   }
 }
 
-function openWorker(): SharedWorker {
+const GENERATION_KEY = 'sable-core-generation';
+
+function readGeneration(): number {
+  const stored = Number(readText(GENERATION_KEY));
+  return Number.isInteger(stored) && stored > 0 ? stored : 0;
+}
+
+/** The browser reuses a shared worker by name, and a panicked one cannot be reused. */
+function retireGeneration(used: number): void {
+  if (readGeneration() <= used) writeText(GENERATION_KEY, String(used + 1));
+}
+
+function openWorker(generation: number): SharedWorker {
   const workerUrl = new URL(coreWorkerUrl, self.location.href);
   // Shared workers outlive tabs, so changing their URL prevents an old glue
   // module from being paired with a freshly generated WASM binary.
@@ -88,13 +102,14 @@ function openWorker(): SharedWorker {
 
   return new SharedWorker(workerUrl, {
     type: 'module',
-    name: 'sable-core',
+    name: generation === 0 ? 'sable-core' : `sable-core-${String(generation)}`,
   });
 }
 
 export function prewarmWebWorker(): void {
   if (prewarmed || typeof SharedWorker === 'undefined') return;
-  const entry: PrewarmedWorker = { worker: openWorker(), failure: null };
+  const generation = readGeneration();
+  const entry: PrewarmedWorker = { worker: openWorker(generation), generation, failure: null };
   on(entry.worker, 'error', (event) => {
     entry.failure ??= (event as ErrorEvent).message || 'unknown error';
   });
@@ -118,6 +133,7 @@ export function createWebTransport(): Transport {
   let stalled = false;
   let nextId = 1;
   let worker: SharedWorker | null = null;
+  let workerGeneration = 0;
   let debugLogs = false;
   let closed = false;
 
@@ -201,6 +217,7 @@ export function createWebTransport(): Transport {
       tags: { source: 'wasm-core' },
     });
     console.error('[sable transport] core panicked', error);
+    retireGeneration(workerGeneration);
     worker?.port.close();
     worker = null;
     clearHealthProbe();
@@ -215,7 +232,8 @@ export function createWebTransport(): Transport {
 
     const adopted = prewarmed;
     prewarmed = null;
-    const nextWorker = adopted?.worker ?? openWorker();
+    workerGeneration = adopted?.generation ?? readGeneration();
+    const nextWorker = adopted?.worker ?? openWorker(workerGeneration);
 
     // Only the worker failing to load reaches here. Runtime failures inside it
     // are reported to its own global scope, so the worker forwards those itself.

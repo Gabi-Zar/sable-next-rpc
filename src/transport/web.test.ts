@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('../worker/core.worker.ts?sharedworker&url', () => ({ default: 'core.worker.js' }));
 vi.mock('#src/generated/wasm/sable_wasm_version.js', () => ({ default: 'test-wasm-version' }));
+vi.mock('#lib/migrations/v1/migration.js', () => ({ migrateV1: () => undefined }));
 
 const { captureException, captureMessage } = vi.hoisted(() => ({
   captureException: vi.fn<(error: unknown, context?: unknown) => void>(),
@@ -63,10 +64,12 @@ class FakeSharedWorker extends EventTarget {
   static created = 0;
   port = new FakePort();
   url: URL;
+  name: string | undefined;
 
-  constructor(url: string | URL) {
+  constructor(url: string | URL, options?: WorkerOptions) {
     super();
     this.url = new URL(url);
+    this.name = options?.name;
     FakeSharedWorker.last = this;
     FakeSharedWorker.created += 1;
   }
@@ -78,6 +81,11 @@ beforeEach(() => {
   FakeSharedWorker.created = 0;
   vi.stubGlobal('SharedWorker', FakeSharedWorker);
   vi.stubGlobal('self', { location: new URL('https://sable.test/room') });
+  const stored = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => stored.get(key) ?? null,
+    setItem: (key: string, value: string) => stored.set(key, value),
+  });
 });
 
 afterEach(() => {
@@ -335,6 +343,52 @@ test('a worker crash reports the stack the worker sent, grouped on its message',
   expect(context).toMatchObject({
     fingerprint: ['wasm-core-crash', 'worker error: Uncaught RangeError'],
   });
+});
+
+test('a panicked worker is replaced under a new name', async () => {
+  const transport = await load();
+  void transport.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  const panicked = FakeSharedWorker.last;
+  expect(panicked?.name).toBe('sable-core');
+
+  panicked?.port.receive({ panic: { message: 'failed to remove an event' } });
+  void transport.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+
+  expect(FakeSharedWorker.last).not.toBe(panicked);
+  expect(FakeSharedWorker.last?.name).toBe('sable-core-1');
+});
+
+test('a page opened after a panic uses the new name, and each panic moves it on', async () => {
+  const first = await load();
+  void first.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  FakeSharedWorker.last?.port.receive({ panic: { message: 'first panic' } });
+
+  vi.resetModules();
+  const reloaded = await load();
+  void reloaded.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  expect(FakeSharedWorker.last?.name).toBe('sable-core-1');
+
+  FakeSharedWorker.last?.port.receive({ panic: { message: 'second panic' } });
+  void reloaded.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  expect(FakeSharedWorker.last?.name).toBe('sable-core-2');
+});
+
+test('tabs that crash on the same worker agree on the next one', async () => {
+  const first = await load();
+  void first.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  const firstWorker = FakeSharedWorker.last;
+  const second = await load();
+  void second.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  const secondWorker = FakeSharedWorker.last;
+
+  firstWorker?.port.receive({ panic: { message: 'shared panic' } });
+  secondWorker?.port.receive({ panic: { message: 'shared panic' } });
+  void first.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+  const firstNext = FakeSharedWorker.last;
+  void second.call('members.list', { room_id: '!r:example.org' }).catch(() => {});
+
+  expect(firstNext?.name).toBe('sable-core-1');
+  expect(FakeSharedWorker.last?.name).toBe('sable-core-1');
 });
 
 test('a worker startup failure rejects restore and allows a new worker', async () => {
