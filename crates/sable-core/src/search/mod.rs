@@ -1406,6 +1406,9 @@ impl MessageIndex {
             })
             .cloned()
             .collect();
+        if documents.is_empty() {
+            return (Vec::new(), 0);
+        }
         documents.sort_by(|left, right| {
             left.origin_server_ts
                 .cmp(&right.origin_server_ts)
@@ -4708,6 +4711,27 @@ mod tests {
             .collect();
         assert_eq!(ids, ["$kept"]);
         assert_eq!(stored.classified.len(), 2);
+    }
+
+    #[test]
+    fn test_a_cold_chunk_with_nothing_left_to_scan_finds_nothing() {
+        let room = room_id!("!room:localhost").to_owned();
+        let mut index = MessageIndex::new();
+        index.rooms.insert(room.clone(), super::RoomIndex::new());
+        let filter = super::IndexFilter::default();
+        let stored = super::persist::StoredChunk::new(Vec::new(), Vec::new());
+
+        let (hits, total) = index.scan_cold(
+            &room,
+            &stored,
+            "deploy",
+            &filter,
+            &super::FoldedTerms::of(&filter, std::collections::HashSet::new()),
+            super::ColdWindow::all(1),
+        );
+
+        assert!(hits.is_empty());
+        assert_eq!(total, 0);
     }
 
     #[test]
