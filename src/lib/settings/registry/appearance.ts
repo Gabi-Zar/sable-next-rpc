@@ -112,6 +112,14 @@ export const appearanceCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'showDmTopics',
+      section: 'sidebar',
+      icon: ChatTextIcon,
+      name: 'settings.showDmTopics',
+      description: 'settings.showDmTopicsHint',
+      type: 'boolean',
+    },
+    {
       key: 'subspaceHierarchyLimit',
       section: 'sidebar',
       icon: TreeStructureIcon,

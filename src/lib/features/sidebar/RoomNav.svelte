@@ -636,7 +636,7 @@
           {#if !collapsed}
             <span class="room-text">
               <span class="room-name">{name}</span>
-              {#if room?.is_direct && room.topic}
+              {#if room?.is_direct && room.topic && preferences.showDmTopics}
                 <span class="room-topic">{room.topic}</span>
               {:else if peerStatus}
                 {@const peerStatusLabel = [peerStatus.emoji, peerStatus.text]

@@ -1988,6 +1988,8 @@
     "highContrast": "Increase contrast",
     "alwaysShowAltText": "Always show image descriptions",
     "showRoomBanners": "Room banners above the list",
+    "showDmTopics": "Show topics in direct messages",
+    "showDmTopicsHint": "Bridged chats often put extra details in the topic. When off, the row shows the contact’s status instead.",
     "subspaceHierarchyLimit": "Subspace nesting depth",
     "showHome": "All rooms in the sidebar",
     "restoreLastRoom": "Restore last viewed room",

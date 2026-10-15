@@ -1345,6 +1345,8 @@
     "highContrast": "Augmenter le contraste",
     "alwaysShowAltText": "Toujours afficher le texte alternatif",
     "showRoomBanners": "Bannières de salon",
+    "showDmTopics": "Afficher les sujets dans les messages privés",
+    "showDmTopicsHint": "Les salons ponts y mettent souvent des détails. Désactivé, la ligne affiche le statut du contact.",
     "showSearch": "Afficher la recherche dans la barre latérale",
     "showUnreadCounts": "Compteurs de messages non lus",
     "badgeCountDMsOnly": "Compteurs des conversations privées",

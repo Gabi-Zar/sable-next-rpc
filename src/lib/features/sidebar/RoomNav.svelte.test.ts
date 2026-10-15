@@ -137,6 +137,7 @@ beforeEach(() => {
 
 afterEach(() => {
   setPreference('showRoomIcon', 'always');
+  setPreference('showDmTopics', true);
   globalThis.IntersectionObserver = realObserver;
 });
 
@@ -957,6 +958,25 @@ test('a DM row falls back to the peer presence message, and a topic still wins',
   await mountNav();
   await tick();
   expect(roomTopics()).toEqual(['Ship logs']);
+});
+
+test('a DM topic is hidden in favour of the peer status when topics are turned off', async () => {
+  visit('/direct');
+  setPreference('showDmTopics', false);
+  presenceFixture.entry = { statusMessage: 'In a meeting' };
+  roomsFixture.rooms = [
+    makeRoom({
+      room_id: '!dm:example.org',
+      name: 'Bob',
+      topic: 'Ship logs',
+      is_direct: true,
+      direct_targets: ['@bob:example.org'],
+    }),
+  ];
+  await mountNav();
+  await tick();
+
+  expect(roomTopics()).toEqual(['In a meeting']);
 });
 
 test('hovering a collapsed room row shows its full name in a tooltip', async () => {

@@ -202,6 +202,7 @@ export interface Preferences {
   nameColorCorrection: NameColorCorrection;
   showRoomIcon: ShowRoomIcon;
   showRoomBanners: boolean;
+  showDmTopics: boolean;
   roomBannerHeight: number;
   subspaceHierarchyLimit: SubspaceDepth;
   searchIndexLimit: SearchIndexLimit;
@@ -525,6 +526,7 @@ const DEFAULTS: Preferences = {
   nameColorCorrection: 'strong',
   showRoomIcon: 'always',
   showRoomBanners: true,
+  showDmTopics: true,
   roomBannerHeight: 190,
   subspaceHierarchyLimit: '3',
   searchIndexLimit: '512',
