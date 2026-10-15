@@ -1,13 +1,16 @@
 import { isTauri } from '@tauri-apps/api/core';
 
 import type { Transport } from './index';
+import { createElectronTransport } from './electron';
+import { isElectron } from '#lib/platform/electron.js';
 import { createTauriTransport } from './tauri';
 import { createWebTransport, prewarmWebWorker } from './web';
 
 export function createTransport(): Transport {
-  return isTauri() ? createTauriTransport() : createWebTransport();
+  if (isTauri()) return createTauriTransport();
+  return isElectron() ? createElectronTransport() : createWebTransport();
 }
 
 export function prewarmTransport(): void {
-  if (!isTauri()) prewarmWebWorker();
+  if (!isTauri() && !isElectron()) prewarmWebWorker();
 }

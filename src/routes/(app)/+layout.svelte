@@ -54,6 +54,7 @@
   import { setUnreadBadge } from '#lib/platform/badge.js';
   import { keepStorage } from '#lib/platform/persistent-storage.js';
   import { closeWindow, quitApp } from '#lib/platform/window-decorations.js';
+  import { electronBridge, type ScreenShareCandidate } from '#lib/platform/electron.js';
   import { type FaviconState, faviconState, setFavicon } from '#lib/ui/favicon.js';
   import idleFavicon from '#lib/assets/favicon.png';
   import unreadFavicon from '#lib/assets/res/svg/unread.svg';
@@ -155,6 +156,24 @@
   provideNotificationCenter(notifications);
   const callSession = new CallSession(core);
   provideCallSession(callSession);
+  let screenSharePick = $state.raw<{
+    sources: ScreenShareCandidate[];
+    settle: (id: string | null) => void;
+  } | null>(null);
+  $effect(() =>
+    electronBridge()?.onScreenSharePick(
+      (sources) =>
+        new Promise((resolve) => {
+          screenSharePick = {
+            sources,
+            settle: (id) => {
+              screenSharePick = null;
+              resolve(id);
+            },
+          };
+        })
+    )
+  );
   let systemCall = $state<{ callId: string; roomId: string } | null>(null);
   const incomingCalls = new IncomingCalls(core, (answer) => void joinSystemAnswer(answer));
 
@@ -1067,6 +1086,20 @@
           onShare={(source) => void callSession.shareScreenFrom(source)}
           onCancel={() => {
             callSession.choosingScreenSource = null;
+          }}
+        />
+      {/await}
+    {/if}
+    {#if screenSharePick}
+      {@const pick = screenSharePick}
+      {#await import('#lib/features/call/ScreenSharePickerDialog.svelte') then { default: ScreenSharePickerDialog }}
+        <ScreenSharePickerDialog
+          sources={pick.sources}
+          onShare={(id) => {
+            pick.settle(id);
+          }}
+          onCancel={() => {
+            pick.settle(null);
           }}
         />
       {/await}

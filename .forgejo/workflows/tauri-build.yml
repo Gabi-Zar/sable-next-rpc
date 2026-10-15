@@ -595,6 +595,90 @@ jobs:
           while IFS= read -r bundle; do bundles+=("$bundle"); done < bundles
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
 
+  electron-linux:
+    name: Linux x86_64 (Electron)
+    needs: [setup-release, build-web]
+    runs-on: docker
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
+      MISE_DISABLE_TOOLS: github:WebAssembly/binaryen,ubi:rustwasm/wasm-bindgen
+      VERSION: ${{ needs.setup-release.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Download web assets
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          name: web-assets
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config rpm
+      - name: Set up app
+        uses: ./.forgejo/actions/setup
+        with:
+          rust: 'true'
+          rust-cache-key: electron-linux
+          install-mise-tools: 'false'
+      - name: Package
+        run: pnpm --dir electron package --linux
+      - name: Upload bundles
+        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
+        with:
+          name: electron-linux-x86_64
+          path: |
+            electron/release/*.deb
+            electron/release/*.rpm
+            electron/release/*.AppImage
+          if-no-files-found: error
+          retention-days: 7
+
+  electron-macos:
+    name: macOS arm64 (Electron)
+    needs: [setup-release, build-web]
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.setup-release.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Download web assets
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          name: web-assets
+      - name: Set up app
+        uses: ./.forgejo/actions/setup
+        with:
+          rust: 'true'
+          rust-cache-key: electron-macos
+          install-mise-tools: 'false'
+      - name: Package
+        run: pnpm --dir electron package --mac
+      - name: Upload bundles
+        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
+        with:
+          name: electron-macos-arm64
+          path: electron/release/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
   ios:
     name: Build iOS
     needs: [setup-release, build-web]

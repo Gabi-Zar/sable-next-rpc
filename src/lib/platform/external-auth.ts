@@ -1,16 +1,16 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
+import { isElectron } from './electron';
+
 export interface ExternalAuthWindow {
   navigate: (url: string) => Promise<void>;
   close: () => void;
 }
 
 export function openExternalAuthWindow(name: string): ExternalAuthWindow | null {
-  if (isTauri()) {
+  if (isTauri() || isElectron()) {
     return {
-      navigate: async (url) => {
-        await invoke('open_external_url', { url });
-      },
+      navigate: openExternalAuthUrl,
       close: () => {},
     };
   }

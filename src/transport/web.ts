@@ -114,7 +114,43 @@ export function prewarmWebWorker(): void {
   prewarmed = entry;
 }
 
-export function createWebTransport(): Transport {
+export interface CoreConnection {
+  port: MessagePort;
+  onFailure(handler: (message: string) => void): void;
+  retire(): void;
+  /** Electron's `MessagePortMain` silently drops messages that transfer an `ArrayBuffer`. */
+  copiesBuffers?: true;
+}
+
+function openSharedWorker(): CoreConnection {
+  const adopted = prewarmed;
+  prewarmed = null;
+  const generation = adopted?.generation ?? readGeneration();
+  const worker = adopted?.worker ?? openWorker(generation);
+
+  return {
+    port: worker.port,
+    onFailure(handler) {
+      // Only the worker failing to load reaches here. Runtime failures inside it
+      // are reported to its own global scope, so the worker forwards those itself.
+      on(worker, 'error', (event) => {
+        const { message } = event as ErrorEvent;
+        handler(`shared worker failed to start: ${message || 'unknown error'}`);
+      });
+      if (adopted?.failure) {
+        const failure = adopted.failure;
+        queueMicrotask(() => {
+          handler(`shared worker failed to start: ${failure}`);
+        });
+      }
+    },
+    retire() {
+      retireGeneration(generation);
+    },
+  };
+}
+
+export function createWebTransport(open: () => CoreConnection = openSharedWorker): Transport {
   const listeners = new Set<(event: CoreEvent) => void>();
   // Which reply belongs to which id is a runtime fact, so it cannot be typed.
   type Reply = unknown;
@@ -131,8 +167,7 @@ export function createWebTransport(): Transport {
   let healthProbeTimer: ReturnType<typeof setTimeout> | undefined;
   let stalled = false;
   let nextId = 1;
-  let worker: SharedWorker | null = null;
-  let workerGeneration = 0;
+  let worker: CoreConnection | null = null;
   let debugLogs = false;
   let closed = false;
 
@@ -216,7 +251,7 @@ export function createWebTransport(): Transport {
       tags: { source: 'wasm-core' },
     });
     console.error('[sable transport] core panicked', error);
-    retireGeneration(workerGeneration);
+    worker?.retire();
     worker?.port.close();
     worker = null;
     clearHealthProbe();
@@ -238,20 +273,12 @@ export function createWebTransport(): Transport {
     for (const listener of supersededListeners) listener();
   }
 
-  function connect(): SharedWorker {
+  function connect(): CoreConnection {
     if (worker) return worker;
 
-    const adopted = prewarmed;
-    prewarmed = null;
-    workerGeneration = adopted?.generation ?? readGeneration();
-    const nextWorker = adopted?.worker ?? openWorker(workerGeneration);
-
-    // Only the worker failing to load reaches here. Runtime failures inside it
-    // are reported to its own global scope, so the worker forwards those itself.
-    on(nextWorker, 'error', (event) => {
-      if (worker !== nextWorker) return;
-      const { message } = event as ErrorEvent;
-      handleCrash(`shared worker failed to start: ${message || 'unknown error'}`);
+    const nextWorker = open();
+    nextWorker.onFailure((message) => {
+      if (worker === nextWorker) handleCrash(message);
     });
 
     nextWorker.port.onmessageerror = () => {
@@ -320,12 +347,6 @@ export function createWebTransport(): Transport {
     const logFilter = new URLSearchParams(self.location.search).get('log') ?? storedLogFilter();
     if (logFilter) nextWorker.port.postMessage({ logFilter });
     worker = nextWorker;
-    if (adopted?.failure) {
-      const failure = adopted.failure;
-      queueMicrotask(() => {
-        if (worker === nextWorker) handleCrash(`shared worker failed to start: ${failure}`);
-      });
-    }
     return nextWorker;
   }
 
@@ -400,7 +421,7 @@ export function createWebTransport(): Transport {
           },
         });
         if (label !== undefined) pendingCommands.set(id, label);
-        activeWorker.port.postMessage(request, transfers);
+        activeWorker.port.postMessage(request, activeWorker.copiesBuffers ? [] : transfers);
       });
     })();
   }

@@ -1,12 +1,16 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
+import { electronBridge } from './electron';
+
 export function deliversDeepLinks(): boolean {
-  return isTauri();
+  return isTauri() || electronBridge() !== undefined;
 }
 
 export async function subscribeDeepLinks(onUrls: (urls: string[]) => void): Promise<() => void> {
-  if (!deliversDeepLinks()) return () => {};
+  const electron = electronBridge();
+  if (electron) return electron.onDeepLinks(onUrls);
+  if (!isTauri()) return () => {};
 
   try {
     return await listen<string[]>('deep-link://new-url', (event) => {
@@ -26,7 +30,9 @@ async function invokedLinks(command: string): Promise<string[]> {
 }
 
 export async function currentDeepLinks(): Promise<string[]> {
-  if (!deliversDeepLinks()) return [];
+  const electron = electronBridge();
+  if (electron) return electron.takeDeepLinks();
+  if (!isTauri()) return [];
 
   return [
     ...(await invokedLinks('plugin:deep-link|get_current')),

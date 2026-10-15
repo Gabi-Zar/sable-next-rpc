@@ -1,0 +1,84 @@
+appId: moe.sable.next.electron
+productName: Sable v2 Electron
+copyright: Copyright © SableClient contributors
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - '!dist/**/*.map'
+  - package.json
+  - '!node_modules/**/*'
+asarUnpack:
+  - dist/*.node
+extraResources:
+  - from: ../dist
+    to: dist
+    filter:
+      - '**/*'
+      - '!**/*.map'
+      - '!**/sable_wasm_bg-*.wasm'
+
+npmRebuild: false
+afterPack: ./after-pack.mjs
+
+electronLanguages:
+  - bg
+  - cs
+  - de
+  - en
+  - en_GB
+  - es
+  - es_419
+  - fr
+  - it
+  - nl
+  - pl
+  - pt_BR
+  - pt_PT
+  - ro
+  - th
+  - tr
+  - uk
+
+protocols:
+  - name: Sable
+    schemes:
+      - moe.sable.next
+
+mac:
+  category: public.app-category.social-networking
+  icon: ../src-tauri/icons/icon.icns
+  minimumSystemVersion: '12.0'
+  target: dmg
+  # Not '-': 26.15.3 signs with any keychain certificate whose name has a dash.
+  identity: null
+  hardenedRuntime: false
+  extendInfo:
+    NSCameraUsageDescription: Sable needs camera access for video calls, photos and videos.
+    NSMicrophoneUsageDescription: Sable needs microphone access for calls and videos.
+    NSLocalNetworkUsageDescription: Sable connects to homeservers and call servers on your local network.
+dmg:
+  background: ../src-tauri/icons/installer/dmg-background.png
+
+win:
+  icon: ../src-tauri/icons/icon.ico
+  target:
+    - nsis
+    - msi
+nsis:
+  oneClick: false
+  installerIcon: ../src-tauri/icons/icon.ico
+  uninstallerIcon: ../src-tauri/icons/icon.ico
+  installerHeader: ../src-tauri/icons/installer/nsis-header.bmp
+  installerSidebar: ../src-tauri/icons/installer/nsis-sidebar.bmp
+
+linux:
+  executableName: sable-electron
+  icon: ../src-tauri/icons/icon.png
+  category: Network;InstantMessaging
+  target:
+    - deb
+    - rpm
+    - AppImage

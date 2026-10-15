@@ -1,0 +1,26 @@
+{
+  "name": "@sable/electron",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sable v2, a Matrix client.",
+  "author": "SableClient",
+  "homepage": "https://sable.moe",
+  "type": "module",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "check": "tsc -p tsconfig.json",
+    "package": "node package.mjs"
+  },
+  "optionalDependencies": {
+    "@vencord/venmic": "7.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.4",
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "typescript": "^6.0.3"
+  }
+}

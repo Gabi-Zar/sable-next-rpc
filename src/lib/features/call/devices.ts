@@ -1,5 +1,5 @@
 import { hasNativeCalls } from '#lib/platform/calls.js';
-import { SCREEN_AUDIO_LABEL } from '#lib/platform/screen-audio.js';
+import { SCREEN_AUDIO_LABELS } from '#lib/platform/screen-audio.js';
 
 export type CallDevice = {
   deviceId: string;
@@ -26,7 +26,7 @@ export async function listCallDevices(): Promise<{ devices: CallDevice[]; denied
   try {
     const all = await navigator.mediaDevices.enumerateDevices();
     const devices = all
-      .filter((device) => device.deviceId !== '' && device.label !== SCREEN_AUDIO_LABEL)
+      .filter((device) => device.deviceId !== '' && !SCREEN_AUDIO_LABELS.includes(device.label))
       .map((device) => ({
         deviceId: device.deviceId,
         kind: device.kind,
