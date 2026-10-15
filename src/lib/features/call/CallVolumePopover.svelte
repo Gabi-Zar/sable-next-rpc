@@ -54,6 +54,14 @@
 </ResponsivePopover>
 
 <style>
+  :global(.responsive-popover.call-volume-popover) {
+    background: var(--surface-container);
+    border: var(--border-width) solid var(--surface-container-line);
+    border-radius: var(--radius);
+    color: var(--surface-on-container);
+    width: auto;
+  }
+
   .volume {
     display: grid;
     gap: var(--space-150);

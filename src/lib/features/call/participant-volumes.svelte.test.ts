@@ -24,3 +24,11 @@ test('keeps the level the reader picked, including silence', async () => {
 
   expect(volumes.outputVolume()).toBe(0);
 });
+
+test('lets a participant play louder than full volume', async () => {
+  const volumes = await load();
+
+  volumes.setParticipantVolume('@amy:example.org', 1.8);
+
+  expect(volumes.effectiveVolume('@amy:example.org')).toBe(1.8);
+});

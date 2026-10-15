@@ -199,6 +199,46 @@ test('updates voice and screen volume for late subscriptions', async () => {
   }
 });
 
+test('amplifies a participant above full volume through a gain node', async () => {
+  const source = { connect: vi.fn((node: AudioNode) => node), disconnect: vi.fn() };
+  const gain = { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() };
+  const context = {
+    destination: {},
+    createMediaStreamSource: vi.fn(() => source),
+    createGain: vi.fn(() => gain),
+    resume: vi.fn(() => Promise.resolve()),
+    close: vi.fn(() => Promise.resolve()),
+  };
+  const AudioContext = vi.fn(function () {
+    return context;
+  });
+  vi.stubGlobal('AudioContext', AudioContext);
+  vi.stubGlobal('MediaStream', vi.fn());
+  const playback = $state({ volume: 1 });
+
+  const instance = render(CallAudio, {
+    room: fakeRoom(fakeTrack('voice')).room,
+    volumeOf: () => playback.volume,
+  });
+  const element = document.querySelector('audio');
+  expect(AudioContext).not.toHaveBeenCalled();
+
+  playback.volume = 1.5;
+  await tick();
+  expect(AudioContext).toHaveBeenCalledOnce();
+  expect(source.connect).toHaveBeenCalledWith(gain);
+  expect(gain.gain.value).toBe(1.5);
+  expect(element?.muted).toBe(true);
+
+  playback.volume = 0.5;
+  await tick();
+  expect(gain.gain.value).toBe(0.5);
+
+  instance.unmount();
+  expect(gain.disconnect).toHaveBeenCalledOnce();
+  expect(context.close).toHaveBeenCalledOnce();
+});
+
 test('plays a shared screen at its own volume, apart from the voice', () => {
   const voice = fakeTrack('voice');
   const room = fakeRoom(voice);
@@ -296,4 +336,46 @@ test('keeps incoming filters across participant updates', async () => {
 
   expect(bank.close).toHaveBeenCalledOnce();
   expect(filter.disconnect).toHaveBeenCalledOnce();
+});
+
+test('keeps the element audible until the amplifying context is running', async () => {
+  const source = { connect: vi.fn((node: AudioNode) => node), disconnect: vi.fn() };
+  const gain = { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() };
+  let allow = () => {};
+  const context = {
+    destination: {},
+    createMediaStreamSource: vi.fn(() => source),
+    createGain: vi.fn(() => gain),
+    resume: vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          allow = resolve;
+        })
+    ),
+    close: vi.fn(() => Promise.resolve()),
+  };
+  vi.stubGlobal(
+    'AudioContext',
+    vi.fn(function () {
+      return context;
+    })
+  );
+  vi.stubGlobal('MediaStream', vi.fn());
+
+  const instance = render(CallAudio, {
+    room: fakeRoom(fakeTrack('voice')).room,
+    volumeOf: () => 1.5,
+  });
+  const element = document.querySelector('audio');
+  await tick();
+
+  expect(element?.muted).toBe(false);
+  expect(element?.volume).toBe(1);
+
+  allow();
+  await tick();
+
+  expect(element?.muted).toBe(true);
+  expect(gain.gain.value).toBe(1.5);
+  instance.unmount();
 });
