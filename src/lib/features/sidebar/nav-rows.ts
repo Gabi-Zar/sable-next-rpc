@@ -1,5 +1,7 @@
 import type { RoomListItemView } from '#src/generated/protocol';
 
+import type { RoomSort } from '#lib/rooms/room-sort.js';
+
 import type { SpaceTreeNode, Thread } from './space-tree.js';
 
 export type RoomNavRow = {
@@ -30,6 +32,18 @@ export function roomRow(room: RoomListItemView): RoomNavRow {
 
 export function byRecency(left: RoomNavRow, right: RoomNavRow): number {
   return (right.room?.latest_event?.timestamp ?? 0) - (left.room?.latest_event?.timestamp ?? 0);
+}
+
+function byName(left: RoomNavRow, right: RoomNavRow): number {
+  return (left.room?.name ?? '').localeCompare(right.room?.name ?? '', undefined, {
+    sensitivity: 'base',
+  });
+}
+
+export function roomComparator(sort: RoomSort): (left: RoomNavRow, right: RoomNavRow) => number {
+  if (sort === 'name-asc') return byName;
+  if (sort === 'name-desc') return (left, right) => byName(right, left);
+  return byRecency;
 }
 
 export function isFavourite(row: RoomNavRow): boolean {

@@ -2,7 +2,14 @@ import { expect, test } from 'vitest';
 
 import type { RoomListItemView, RoomTag } from '#src/generated/protocol';
 
-import { byRecency, isFavourite, roomRow, treeRows, withoutFavourites } from './nav-rows.js';
+import {
+  byRecency,
+  isFavourite,
+  roomComparator,
+  roomRow,
+  treeRows,
+  withoutFavourites,
+} from './nav-rows.js';
 import type { SpaceTreeNode, SpaceTreeRoom, SpaceTreeSpace } from './space-tree.js';
 
 function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomListItemView {
@@ -84,4 +91,18 @@ test('removing favourites drops emptied categories but keeps links', () => {
   const mixed = kept[0] as SpaceTreeSpace;
   expect(mixed.children.map((item) => item.key)).toEqual(['!plain']);
   expect(tree[2]).not.toBe(mixed);
+});
+
+test('rooms sort by name ignoring case, or by recency', () => {
+  const rows = [
+    roomRow(room('!b', { name: 'bravo', latest_event: { timestamp: 3 } as never })),
+    roomRow(room('!a', { name: 'Alpha', latest_event: { timestamp: 1 } as never })),
+    roomRow(room('!c', { name: 'charlie', latest_event: { timestamp: 2 } as never })),
+  ];
+  const order = (sort: Parameters<typeof roomComparator>[0]): string[] =>
+    [...rows].sort(roomComparator(sort)).map((row) => row.roomId);
+
+  expect(order('name-asc')).toEqual(['!a', '!b', '!c']);
+  expect(order('name-desc')).toEqual(['!c', '!b', '!a']);
+  expect(order('recent')).toEqual(['!b', '!c', '!a']);
 });

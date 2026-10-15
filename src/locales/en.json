@@ -122,6 +122,7 @@
     "currentAccount": "Current",
     "favourites": "Favourites",
     "groupFavourites": "Group favourites",
+    "sortRecent": "Recent activity",
     "rooms": "Rooms",
     "roomsUnavailable": "Your rooms will appear here once room-list data is available.",
     "unspaced": "Rooms outside spaces",

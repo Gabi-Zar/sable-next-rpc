@@ -3,6 +3,7 @@ import { SvelteSet } from 'svelte/reactivity';
 import type { PresenceView, ProfilePropagationView } from '#src/generated/protocol';
 import type { GifProviderSetting } from '#lib/gif/providers.js';
 import type { MemberSort } from '#lib/rooms/member-listing.js';
+import type { RoomSort } from '#lib/rooms/room-sort.js';
 import { languageValues, SYSTEM_LANGUAGE } from '#lib/locales.js';
 import { readJson, writeJson } from '#lib/platform/local-json.js';
 import { customTitleBarDefault } from '#lib/platform/window-decorations.js';
@@ -244,6 +245,7 @@ export interface Preferences {
   doubleTapReaction: string;
   hideTypingIndicators: boolean;
   memberSort: MemberSort;
+  roomSort: RoomSort;
   groupMembersByPresence: boolean;
   filterPronounsByLanguage: boolean;
   showPronouns: boolean;
@@ -455,6 +457,7 @@ const ENUMS = {
   badgeDefaultDirect: ['all', 'mentions', 'quiet'],
   badgeDefaultGroup: ['all', 'mentions', 'quiet'],
   memberSort: ['name-asc', 'name-desc', 'newest', 'oldest'],
+  roomSort: ['recent', 'name-asc', 'name-desc'],
   personaLatching: ['off', 'room', 'account'],
   personaPickerSortOrder: ['manual', 'alphabetical-asc', 'alphabetical-desc', 'recent'],
   presence: ['online', 'unavailable', 'offline'],
@@ -565,6 +568,7 @@ const DEFAULTS: Preferences = {
   doubleTapReaction: '❤️',
   hideTypingIndicators: false,
   memberSort: 'name-asc',
+  roomSort: 'recent',
   groupMembersByPresence: true,
   filterPronounsByLanguage: true,
   showPronouns: true,

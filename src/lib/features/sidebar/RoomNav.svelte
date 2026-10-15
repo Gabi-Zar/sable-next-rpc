@@ -33,6 +33,8 @@
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import { whenVisible } from '#lib/ui/when-visible.js';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
+  import ActionMenuSeparator from '#lib/ui/primitives/ActionMenuSeparator.svelte';
+  import { ROOM_SORTS, ROOM_SORT_LABELS } from '#lib/rooms/room-sort.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import PresenceDot from '#lib/ui/primitives/PresenceDot.svelte';
   import RoomIcon from '#lib/ui/primitives/RoomIcon.svelte';
@@ -41,7 +43,11 @@
   import TypingDots from '#lib/ui/primitives/TypingDots.svelte';
   import UnreadBadge from '#lib/ui/primitives/UnreadBadge.svelte';
   import LeaveRoomDialog from '#lib/features/room/LeaveRoomDialog.svelte';
-  import { preferences, readReceiptIsPrivate } from '#lib/settings/preferences.svelte.js';
+  import {
+    preferences,
+    readReceiptIsPrivate,
+    setPreference,
+  } from '#lib/settings/preferences.svelte.js';
   import { roomIconOverride, showsRoomAvatar } from '#lib/rooms/room-appearance.svelte.js';
   import RoomSettingsDialog from '#lib/features/room/settings/RoomSettingsDialog.svelte';
   import { goToPage } from '#lib/features/room/room-navigation.js';
@@ -67,8 +73,8 @@
   import SignOutIcon from 'phosphor-svelte/lib/SignOutIcon';
   import { claimedRoomIds, markRoomsRead } from './nav-rooms.js';
   import {
-    byRecency,
     isFavourite,
+    roomComparator,
     roomRow,
     treeRows,
     withoutFavourites,
@@ -252,6 +258,7 @@
     );
     return buildSpaceTree(space, roomsById, Number(preferences.subspaceHierarchyLimit));
   });
+  let compareRooms = $derived(roomComparator(preferences.roomSort));
   let favouriteView = $derived(activeSpaceId ?? section);
   let groupFavourites = $derived(groupsFavourites(favouriteView));
   let spaceRootItems = $derived(groupFavourites ? withoutFavourites(spaceTree) : spaceTree);
@@ -260,7 +267,7 @@
       return roomList.rooms
         .filter((room) => room.state === 'joined' && room.is_direct && !room.is_tombstoned)
         .map(roomRow)
-        .sort(byRecency);
+        .sort(compareRooms);
     }
 
     if (pathname.startsWith('/space')) {
@@ -281,7 +288,7 @@
           !claimedByJoinedSpace.has(room.room_id)
       )
       .map(roomRow)
-      .sort(byRecency);
+      .sort(compareRooms);
   });
   let favourites = $derived.by<RoomNavRow[]>(() => {
     if (!groupFavourites) return [];
@@ -295,7 +302,7 @@
         return true;
       })
       .map((row) => ({ ...row, depth: 0, key: row.roomId }))
-      .sort(byRecency);
+      .sort(compareRooms);
   });
   let rooms = $derived(
     groupFavourites ? listedRooms.filter((row) => !isFavourite(row)) : listedRooms
@@ -444,7 +451,23 @@
       <span class="menu-check" aria-hidden="true">{groupFavourites ? '✓' : ''}</span>
       {i18n.t('nav.groupFavourites')}
     </ActionMenuItem>
-    {#if activeSpace}
+    {#if !activeSpace}
+      <ActionMenuSeparator />
+      {#each ROOM_SORTS as option (option)}
+        <ActionMenuItem
+          checked={preferences.roomSort === option}
+          onSelect={() => {
+            setPreference('roomSort', option);
+          }}
+        >
+          <span class="menu-check" aria-hidden="true"
+            >{preferences.roomSort === option ? '✓' : ''}</span
+          >
+          {i18n.t(ROOM_SORT_LABELS[option])}
+        </ActionMenuItem>
+      {/each}
+    {:else}
+      <ActionMenuSeparator />
       <ActionMenuItem
         onSelect={() => {
           openSettings(activeSpace);

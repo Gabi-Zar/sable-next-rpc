@@ -54,6 +54,7 @@
     "listOptions": "Options de liste",
     "displayOptions": "Options d’affichage de la barre latérale",
     "groupFavourites": "Groupe favoris",
+    "sortRecent": "Activité récente",
     "pinToSidebar": "Pin à la barre latérale",
     "unpinFromSidebar": "Décrocher de la barre latérale"
   },
