@@ -13,13 +13,26 @@ interface Day {
   day: number;
 }
 
+let dayFormat: { zone: string; format: Intl.DateTimeFormat } | undefined;
+
+function dayFormatter(): Intl.DateTimeFormat {
+  const zoneName = preferences.timeZone;
+  if (dayFormat?.zone !== zoneName) {
+    dayFormat = {
+      zone: zoneName,
+      format: new Intl.DateTimeFormat('en-US', {
+        ...zone(),
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+      }),
+    };
+  }
+  return dayFormat.format;
+}
+
 function dayOf(date: Date): Day {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    ...zone(),
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).formatToParts(date);
+  const parts = dayFormatter().formatToParts(date);
   const part = (type: Intl.DateTimeFormatPartTypes): number =>
     Number(parts.find((candidate) => candidate.type === type)?.value);
   return { year: part('year'), month: part('month'), day: part('day') };
