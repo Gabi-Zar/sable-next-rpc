@@ -7,16 +7,13 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
   globalIgnores([
-    'build/**',
     'coverage/**',
     'dist/**',
     'node_modules/**',
     'playwright-report/**',
     'src/generated/**',
     'target/**',
-    'target-local/**',
     'test-results/**',
-    'wasm/**',
     '.svelte-kit/**',
   ]),
   js.configs.recommended,

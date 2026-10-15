@@ -40,7 +40,7 @@ Migrated accounts use normal v2 stores. To remove the importer afterward:
    Remove their module declarations, the Core field/initializer, four Tauri
    command registrations, and sable-core's direct `rusqlite` dependency.
    Regenerate the lockfile. The SDK still needs SQLite.
-4. Delete `playwright.migration.config.ts`, `tests/e2e/v1-migration.spec.ts` and
+4. Delete `tests/e2e/playwright.migration.config.ts`, `tests/e2e/v1-migration.spec.ts` and
    the migration fixtures. Remove `AccountSync.legacy` and its test if it has
    no remaining callers.
 
@@ -64,7 +64,7 @@ store. Browser emulation does not test native app upgrades.
 
 ```sh
 pnpm test src/lib/migrations/v1
-pnpm exec playwright test -c playwright.migration.config.ts
+pnpm exec playwright test -c tests/e2e/playwright.migration.config.ts
 cargo nextest run --locked -p sable-core v1_migration
 pnpm check
 cargo check --locked -p app --lib

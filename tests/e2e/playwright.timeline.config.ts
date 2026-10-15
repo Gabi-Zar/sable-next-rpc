@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: 'tests/e2e',
+  testDir: '.',
   testMatch: process.env.SABLE_E2E_MATCH ?? [
     'timeline-stability.spec.ts',
     'timeline-gap.spec.ts',
@@ -78,6 +78,7 @@ export default defineConfig({
     },
   ],
   webServer: {
+    cwd: '../..',
     command: 'pnpm exec vite dev --host 127.0.0.1 --port 4175 --strictPort',
     url: 'http://127.0.0.1:4175',
     reuseExistingServer: !process.env.CI,

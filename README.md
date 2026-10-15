@@ -105,7 +105,7 @@ same release. Pushing a `v*` tag publishes a stable release the same way.
 
 The web build ships with every release as `sable-<version>-web.tar.gz`.
 Extract it into your web root to serve the app yourself; see
-[`Caddyfile`](Caddyfile) for an example configuration.
+[`Caddyfile`](packaging/docker/Caddyfile) for an example configuration.
 
 ### Console output
 

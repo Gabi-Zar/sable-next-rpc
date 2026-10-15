@@ -1,4 +1,4 @@
-import './src/styles.css';
+import '../src/styles.css';
 import { afterEach } from 'vitest';
 
 import { loadModel } from '#lib/model/model.js';

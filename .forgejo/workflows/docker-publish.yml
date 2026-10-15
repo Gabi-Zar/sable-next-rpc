@@ -3,9 +3,7 @@ name: Docker image
 on:
   pull_request:
     paths:
-      - 'Dockerfile'
-      - 'Caddyfile'
-      - '.dockerignore'
+      - 'packaging/docker/**'
       - '.forgejo/workflows/docker-publish.yml'
 
 permissions: {}
@@ -44,4 +42,5 @@ jobs:
         uses: https://github.com/docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
+          file: packaging/docker/Dockerfile
           push: false

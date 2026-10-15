@@ -8,9 +8,7 @@
     ".storybook/**/*.ts",
     "vite.config.ts",
     "vitest.config.ts",
-    "vitest-setup.ts",
     "playwright.config.ts",
-    "playwright.timeline.config.ts",
     "oxfmt.config.ts",
     "tests/**/*.ts",
     "src/app.d.ts",
@@ -21,7 +19,7 @@
     "src/service-worker",
     "src/**/*.browser.test.ts",
     "tests/e2e/fixtures/*.browser.test.ts",
-    "vitest-browser-setup.ts"
+    "tests/vitest-browser-setup.ts"
   ],
   "compilerOptions": {
     "rewriteRelativeImportExtensions": true,

@@ -74,9 +74,9 @@ fi
 cp -a "$WORK/stage/share/." "$PKGROOT/usr/share/"
 
 PKGROOT="$PKGROOT" PKG_ARCH="$NFPM_ARCH" PKG_VERSION="$DEB_VERSION" PKG_RELEASE=1 \
-  nfpm pkg -f nfpm.yaml -p deb -t "$OUT/deb/sable-${VERSION}-linux-${ARCH}.deb"
+  nfpm pkg -f packaging/nfpm.yaml -p deb -t "$OUT/deb/sable-${VERSION}-linux-${ARCH}.deb"
 PKGROOT="$PKGROOT" PKG_ARCH="$NFPM_ARCH" PKG_VERSION="$RPM_VERSION" PKG_RELEASE="$RPM_RELEASE" \
-  nfpm pkg -f nfpm.yaml -p rpm -t "$OUT/rpm/sable-${VERSION}-linux-${ARCH}.rpm"
+  nfpm pkg -f packaging/nfpm.yaml -p rpm -t "$OUT/rpm/sable-${VERSION}-linux-${ARCH}.rpm"
 
 # The Flatpak takes this as extra-data; apply_extra unpacks this layout.
 TARROOT="$WORK/tarball"

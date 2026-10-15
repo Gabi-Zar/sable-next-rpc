@@ -1,7 +1,7 @@
 # Packages a prebuilt `dist`; building it here would need the Rust toolchain and
 # mise-pinned wasm tooling for the WASM core.
 #
-#   pnpm build && docker build -t sable-next .
+#   pnpm build && docker build -f packaging/docker/Dockerfile -t sable-next .
 
 FROM caddy:2.11-alpine
 
@@ -12,7 +12,7 @@ FROM caddy:2.11-alpine
 RUN setcap -r /usr/bin/caddy && chown nobody:nobody /data /config
 
 COPY --chown=nobody:nobody dist /app
-COPY Caddyfile /etc/caddy/Caddyfile
+COPY packaging/docker/Caddyfile /etc/caddy/Caddyfile
 
 USER nobody
 

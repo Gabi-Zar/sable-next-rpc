@@ -13,7 +13,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'vite.config.ts'
-      - 'wrangler.jsonc'
+      - 'infra/web/wrangler.jsonc'
       - '.forgejo/workflows/cloudflare-web-preview.yml'
       - '.forgejo/actions/setup/**'
 
@@ -81,7 +81,7 @@ jobs:
           accountId: ${{ secrets.TF_VAR_ACCOUNT_ID }}
           command: >
             versions upload
-            --config wrangler.jsonc
+            --config infra/web/wrangler.jsonc
             --preview-alias ${{ steps.alias.outputs.alias }}
             --message "$PREVIEW_MESSAGE"
 

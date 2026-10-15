@@ -1,5 +1,6 @@
+import { playwright } from '@vitest/browser-playwright';
 import { mergeConfig } from 'vite';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, defineProject } from 'vitest/config';
 
 import viteConfig from './vite.config.ts';
 
@@ -41,7 +42,7 @@ export default mergeConfig(
           extends: true,
           test: {
             name: 'node',
-            setupFiles: ['./vitest-setup.ts'],
+            setupFiles: ['./tests/vitest-setup.ts'],
             environment: 'node',
             include: ['src/**/*.test.ts'],
             exclude: [
@@ -72,7 +73,7 @@ export default mergeConfig(
           extends: true,
           test: {
             name: 'happy-dom',
-            setupFiles: ['./vitest-setup.ts'],
+            setupFiles: ['./tests/vitest-setup.ts'],
             environment: 'happy-dom',
             include: [
               'src/lib/features/composer/VoiceRecorder.svelte.test.ts',
@@ -97,7 +98,31 @@ export default mergeConfig(
             ],
           },
         },
-        './vitest.browser.config.ts',
+        {
+          ...mergeConfig(
+            viteConfig,
+            defineProject({
+              optimizeDeps: { include: ['katex'] },
+              test: {
+                name: 'browser',
+                include: ['src/**/*.browser.test.ts', 'tests/e2e/fixtures/*.browser.test.ts'],
+                setupFiles: ['./tests/vitest-browser-setup.ts'],
+                browser: {
+                  enabled: true,
+                  headless: true,
+                  provider: playwright({ contextOptions: { reducedMotion: 'reduce' } }),
+                  instances: [{ browser: 'chromium' }],
+                  commands: {
+                    emulateColorScheme: async (context, scheme: 'light' | 'dark') => {
+                      await context.page.emulateMedia({ colorScheme: scheme });
+                    },
+                  },
+                },
+              },
+            })
+          ),
+          extends: false,
+        },
       ],
       coverage: {
         provider: 'v8',

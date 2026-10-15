@@ -1,8 +1,6 @@
-experiment
 dist
 coverage
 node_modules
-devAssets
 .svelte-kit
 
 # WASM build output (`mise run wasm:build`)
@@ -28,15 +26,11 @@ Thumbs.db
 *.tfbackend
 !*.tfbackend.example
 crash.log
-build.sh
 
-# the following line was added with the "git ignore" tool by itsrye.dev, version 0.1.0
 .lh
 
 # Tauri
-/build
 /target/
-/gen/schemas
 dist-js
 
 # Gradle / Android build artifacts
@@ -45,8 +39,6 @@ dist-js
 **/android/.gradle/
 **/.gradle/
 
-# Rust build artifacts
-src-tauri/target/
 # Tauri Android build outputs
 src-tauri/gen/android/app/build/
 # Tauri Apple outputs
@@ -55,19 +47,15 @@ src-tauri/gen/apple/*
 # Tauri Android release keystore
 *.jks
 
-# Tauri-typegen cache
-.typecache
-
 # ESLint cache
 .eslintcache
 
 # Worktrees
 .worktrees
 
-# the following line was added with nvim by Shea because its annoying to clear every so often
 .vscode/bookmarks.json
 
-# Playwright visual regression
+# Test output
 /test-results
 /.vitest
 /playwright-report
@@ -78,14 +66,10 @@ src-tauri/gen/apple/*
 mise.local.toml
 mise.local.lock
 
-# Nix things
-## nix build output
-result
-## direnv config + local state
+# direnv
 .envrc
 .direnv
-## auto-generated pre-commit config
-.pre-commit-config.yaml
+
 storybook-static
 
 # Rendered by scripts/ci/render-flatpak-nightly.mjs

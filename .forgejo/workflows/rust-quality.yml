@@ -9,7 +9,7 @@ on:
       - 'Cargo.lock'
       - 'src/generated/**'
       - 'rust-toolchain.toml'
-      - 'deny.toml'
+      - '.cargo/deny.toml'
       - '.forgejo/workflows/rust-quality.yml'
       - '.forgejo/actions/rust/**'
   push:
@@ -21,7 +21,7 @@ on:
       - 'Cargo.lock'
       - 'src/generated/**'
       - 'rust-toolchain.toml'
-      - 'deny.toml'
+      - '.cargo/deny.toml'
       - '.forgejo/workflows/rust-quality.yml'
       - '.forgejo/actions/rust/**'
 

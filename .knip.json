@@ -11,9 +11,9 @@
   "playwright": {
     "config": [
       "playwright.config.ts",
-      "playwright.preload.config.ts",
-      "playwright.migration.config.ts",
-      "playwright.timeline.config.ts"
+      "tests/e2e/playwright.preload.config.ts",
+      "tests/e2e/playwright.migration.config.ts",
+      "tests/e2e/playwright.timeline.config.ts"
     ]
   },
   "ignoreDependencies": [

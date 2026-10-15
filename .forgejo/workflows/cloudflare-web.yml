@@ -7,7 +7,6 @@ on:
   pull_request:
     paths:
       - 'infra/**'
-      - 'wrangler.jsonc'
       - '.forgejo/workflows/cloudflare-web.yml'
       - '.forgejo/actions/prepare-tofu/**'
       - '.forgejo/actions/setup/**'

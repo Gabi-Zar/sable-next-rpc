@@ -160,6 +160,7 @@ jobs:
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
           docker buildx create --name "ci-$GITHUB_RUN_ID-$ARCH" --driver docker-container --use
           docker buildx build . \
+            --file packaging/docker/Dockerfile \
             --platform "linux/$ARCH" \
             --label "org.opencontainers.image.source=$FORGEJO_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$REVISION" \
@@ -265,7 +266,7 @@ jobs:
           name: web-assets
       # tauri-runtime depends on webkit2gtk on Linux whatever the runtime, so
       # the headers stay even though nothing renders through it. --as-needed
-      # keeps it out of the binary, hence no runtime dep in nfpm.yaml.
+      # keeps it out of the binary, hence no runtime dep in packaging/nfpm.yaml.
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
