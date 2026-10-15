@@ -1,3 +1,24 @@
+diff --git a/src/internal/client/dom/elements/transitions.js b/src/internal/client/dom/elements/transitions.js
+index 67b177841ade6faf0675c855b1ce7c2ae599472f..bc779ded700db02acc5bf37333a9a2dc2572df05 100644
+--- a/src/internal/client/dom/elements/transitions.js
++++ b/src/internal/client/dom/elements/transitions.js
+@@ -415,6 +415,8 @@ function animate(element, options, counterpart, t2, on_begin, on_finish) {
+ 		animation = element.animate(keyframes, { duration: delay, fill: 'forwards' });
+ 
+ 		animation.onfinish = () => {
++			// WebKit keeps an animation and its target alive while a handler is set.
++			animation.onfinish = null;
+ 			// remove dummy animation from the stack to prevent conflict with main animation
+ 			animation.cancel();
+ 
+@@ -476,6 +478,7 @@ function animate(element, options, counterpart, t2, on_begin, on_finish) {
+ 			animation = element.animate(keyframes, { duration, fill: 'forwards' });
+ 
+ 			animation.onfinish = () => {
++				animation.onfinish = null;
+ 				get_t = () => t2;
+ 				tick?.(t2, 1 - t2);
+ 				on_finish();
 diff --git a/src/internal/client/dom/template.js b/src/internal/client/dom/template.js
 index a5d0405d0afeb5c39c250b8ae4508617e525292c..368ea42571d507e9db4563e90e208810ea5f384f 100644
 --- a/src/internal/client/dom/template.js
