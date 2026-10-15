@@ -36,6 +36,16 @@ export const desktopCategories: SettingsCategory[] = supportsDesktopWindow()
             gatedBy: 'showSystemTrayIcon',
             supported: () => supportsDesktopWindow() && supportsTray(),
           },
+          {
+            key: 'minimizeToTray',
+            section: 'window',
+            icon: DesktopIcon,
+            name: 'settings.minimizeToTray',
+            description: 'settings.minimizeToTrayHint',
+            type: 'boolean',
+            gatedBy: 'showSystemTrayIcon',
+            supported: () => supportsDesktopWindow() && supportsTray(),
+          },
         ],
       },
     ]

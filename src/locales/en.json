@@ -2384,6 +2384,8 @@
     "desktopTitle": "Desktop app",
     "closeToTray": "Close to the tray",
     "closeToTrayHint": "Closing the window hides the app. Quit from the tray icon.",
+    "minimizeToTray": "Minimize to the tray",
+    "minimizeToTrayHint": "Minimizing the window hides the app. Quit from the tray icon. Not every Linux desktop reports minimizing.",
     "useCustomTitleBar": "Use Sable’s title bar",
     "showSystemTrayIcon": "Show a tray icon",
     "banner": "Banner",

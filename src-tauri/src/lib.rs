@@ -553,12 +553,20 @@ fn set_tray_unread(app: AppHandle<BrowserEngine>, unread: bool) -> Result<(), St
 
 #[cfg(desktop)]
 fn hide_to_tray_on_close(window: &tauri::Window<BrowserEngine>, event: &tauri::WindowEvent) {
-    let tauri::WindowEvent::CloseRequested { api, .. } = event else {
-        return;
-    };
-    if tray::hides_to_tray(window.app_handle()) {
-        api.prevent_close();
-        tray::hide_to_tray(window);
+    match event {
+        tauri::WindowEvent::CloseRequested { api, .. } => {
+            if tray::hides_to_tray(window.app_handle()) {
+                api.prevent_close();
+                tray::hide_to_tray(window);
+            }
+        }
+        tauri::WindowEvent::Resized(_)
+            if tray::minimizes_to_tray(window.app_handle())
+                && window.is_minimized().unwrap_or(false) =>
+        {
+            tray::hide_to_tray(window);
+        }
+        _ => {}
     }
 }
 

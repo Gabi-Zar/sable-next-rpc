@@ -109,6 +109,7 @@
 
     void applyDesktopWindowSettings({
       closeToTray: preferences.closeToTray,
+      minimizeToTray: preferences.minimizeToTray,
       showSystemTrayIcon: preferences.showSystemTrayIcon,
       useCustomTitleBar: preferences.useCustomTitleBar,
     }).catch((error: unknown) => {

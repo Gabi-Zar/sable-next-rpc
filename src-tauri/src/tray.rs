@@ -17,8 +17,14 @@ const UNREAD_DOT: [u8; 4] = [224, 45, 45, 255];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "mirrors the settings the frontend sends, one switch each"
+)]
 pub struct DesktopWindowSettings {
     pub close_to_tray: bool,
+    #[serde(default)]
+    pub minimize_to_tray: bool,
     pub show_system_tray_icon: bool,
     pub use_custom_title_bar: bool,
 }
@@ -31,6 +37,7 @@ pub struct DesktopWindowState {
 
 pub struct DesktopWindowStore {
     close_to_tray: AtomicBool,
+    minimize_to_tray: AtomicBool,
     show_system_tray_icon: AtomicBool,
     tray_available: AtomicBool,
     unread_dot: AtomicBool,
@@ -40,6 +47,7 @@ impl Default for DesktopWindowStore {
     fn default() -> Self {
         Self {
             close_to_tray: AtomicBool::new(false),
+            minimize_to_tray: AtomicBool::new(false),
             show_system_tray_icon: AtomicBool::new(true),
             tray_available: AtomicBool::new(false),
             unread_dot: AtomicBool::new(false),
@@ -64,6 +72,12 @@ pub fn hides_to_tray<R: Runtime>(app: &AppHandle<R>) -> bool {
         && can_restore_from_background(store.tray_available.load(Ordering::Relaxed))
 }
 
+pub fn minimizes_to_tray<R: Runtime>(app: &AppHandle<R>) -> bool {
+    let store = app.state::<DesktopWindowStore>();
+    store.minimize_to_tray.load(Ordering::Relaxed)
+        && can_restore_from_background(store.tray_available.load(Ordering::Relaxed))
+}
+
 pub fn hide_to_tray<R: Runtime>(window: &tauri::Window<R>) {
     let _ = window.emit(WINDOW_HIDDEN_TO_TRAY_EVENT, ());
     let _ = window.hide();
@@ -77,6 +91,9 @@ pub fn apply<R: Runtime>(
     store
         .close_to_tray
         .store(settings.close_to_tray, Ordering::Relaxed);
+    store
+        .minimize_to_tray
+        .store(settings.minimize_to_tray, Ordering::Relaxed);
     store
         .show_system_tray_icon
         .store(settings.show_system_tray_icon, Ordering::Relaxed);
@@ -308,6 +325,21 @@ mod tests {
             can_restore_from_background(false),
             cfg!(target_os = "macos")
         );
+    }
+
+    #[test]
+    fn minimizing_to_the_tray_is_off_unless_the_settings_ask_for_it() {
+        let older: DesktopWindowSettings = serde_json::from_str(
+            r#"{"closeToTray":true,"showSystemTrayIcon":true,"useCustomTitleBar":false}"#,
+        )
+        .unwrap();
+        let asked: DesktopWindowSettings = serde_json::from_str(
+            r#"{"closeToTray":false,"minimizeToTray":true,"showSystemTrayIcon":true,"useCustomTitleBar":false}"#,
+        )
+        .unwrap();
+
+        assert!(!older.minimize_to_tray);
+        assert!(asked.minimize_to_tray);
     }
 
     #[test]

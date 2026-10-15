@@ -17,6 +17,7 @@ export type TitleBarKind = 'desktop' | 'mac';
 
 export interface DesktopWindowSettings {
   closeToTray: boolean;
+  minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
   useCustomTitleBar: boolean;
 }

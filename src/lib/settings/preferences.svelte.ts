@@ -376,6 +376,7 @@ export interface Preferences {
 
   autoUpdateCheck: boolean;
   closeToTray: boolean;
+  minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
   useCustomTitleBar: boolean;
 
@@ -705,6 +706,7 @@ const DEFAULTS: Preferences = {
 
   autoUpdateCheck: true,
   closeToTray: false,
+  minimizeToTray: false,
   showSystemTrayIcon: true,
   useCustomTitleBar: customTitleBarDefault(),
 
