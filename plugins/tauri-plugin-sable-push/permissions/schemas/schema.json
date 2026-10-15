@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the clear_push_history command without any pre-configured scope."
         },
         {
+          "description": "Enables the play_chime command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-play-chime",
+          "markdownDescription": "Enables the play_chime command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the play_chime command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-play-chime",
+          "markdownDescription": "Denies the play_chime command without any pre-configured scope."
+        },
+        {
           "description": "Enables the push_history command without any pre-configured scope.",
           "type": "string",
           "const": "allow-push-history",
@@ -331,10 +343,10 @@
           "markdownDescription": "Denies the take_push_diagnostics command without any pre-configured scope."
         },
         {
-          "description": "Reads and clears the push history and diagnostics.\n#### This default permission set includes:\n\n- `allow-push-history`\n- `allow-clear-push-history`\n- `allow-take-push-diagnostics`",
+          "description": "Plays the notification chime and reads and clears the push history and diagnostics.\n#### This default permission set includes:\n\n- `allow-play-chime`\n- `allow-push-history`\n- `allow-clear-push-history`\n- `allow-take-push-diagnostics`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Reads and clears the push history and diagnostics.\n#### This default permission set includes:\n\n- `allow-push-history`\n- `allow-clear-push-history`\n- `allow-take-push-diagnostics`"
+          "markdownDescription": "Plays the notification chime and reads and clears the push history and diagnostics.\n#### This default permission set includes:\n\n- `allow-play-chime`\n- `allow-push-history`\n- `allow-clear-push-history`\n- `allow-take-push-diagnostics`"
         }
       ]
     }

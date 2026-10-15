@@ -32,6 +32,7 @@ android {
             jvmTarget = JvmTarget.JVM_1_8
         }
     }
+    sourceSets["main"].assets.srcDir("../../../static/sound")
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }

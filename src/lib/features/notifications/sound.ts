@@ -1,4 +1,6 @@
 import { recordDebugLog } from '#lib/observability/debug-log.svelte.js';
+import { isAndroid } from '#lib/platform/os.js';
+import { playNativeChime } from '#lib/platform/native-notifications.js';
 import { preferences, type RangePreference } from '#lib/settings/preferences.svelte.js';
 
 export type NotificationSounds = {
@@ -124,8 +126,12 @@ async function start(
   }
 }
 
-/** Skipped while another sound is playing. */
+/** On the web, skipped while another sound is playing. */
 export async function playNotificationSound(name: keyof NotificationSounds): Promise<void> {
+  if (name === 'notification' && isAndroid()) {
+    await playNativeChime(preferences[SOUNDS[name].volumePreference] * GAIN_MODIFIER);
+    return;
+  }
   await start(name, { exclusive: true });
 }
 

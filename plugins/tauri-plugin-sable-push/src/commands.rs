@@ -6,6 +6,15 @@ use crate::{
 };
 
 #[command]
+pub(crate) async fn play_chime<R: Runtime>(
+    _app: AppHandle<R>,
+    push: State<'_, SablePush<R>>,
+    volume: f32,
+) -> Result<()> {
+    push.play_chime(volume).await
+}
+
+#[command]
 pub(crate) async fn push_history<R: Runtime>(
     _app: AppHandle<R>,
     push: State<'_, SablePush<R>>,

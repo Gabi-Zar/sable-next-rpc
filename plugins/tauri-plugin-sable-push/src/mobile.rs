@@ -72,6 +72,11 @@ impl<R: Runtime> SablePush<R> {
         self.call("setPolicy", policy).await
     }
 
+    pub(crate) async fn play_chime(&self, volume: f32) -> Result<()> {
+        self.call("playChime", serde_json::json!({ "volume": volume }))
+            .await
+    }
+
     pub(crate) async fn history(&self) -> Result<History> {
         self.call("pushHistory", ()).await
     }

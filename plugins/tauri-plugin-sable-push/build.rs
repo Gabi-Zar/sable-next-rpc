@@ -1,4 +1,5 @@
 const COMMANDS: &[&str] = &[
+    "play_chime",
     "push_history",
     "clear_push_history",
     "take_push_diagnostics",

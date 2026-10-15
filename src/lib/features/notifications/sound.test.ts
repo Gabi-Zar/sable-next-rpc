@@ -81,3 +81,20 @@ test('loads the sound again after a failed fetch', async () => {
   expect(fetch).toHaveBeenCalledTimes(2);
   expect(start).toHaveBeenCalledOnce();
 });
+
+test('plays through the native notification stream on Android', async () => {
+  const playNativeChime = vi.fn<(volume: number) => Promise<void>>().mockResolvedValue(undefined);
+  vi.resetModules();
+  vi.doMock('#lib/platform/os.js', () => ({ isAndroid: () => true }));
+  vi.doMock('#lib/platform/native-notifications.js', () => ({ playNativeChime }));
+  const { preferences } = await import('#lib/settings/preferences.svelte.js');
+  preferences.soundsNotificationVolume = 0.5;
+  ({ playNotificationSound } = await import('./sound'));
+
+  await playNotificationSound('notification');
+
+  expect(playNativeChime).toHaveBeenCalledWith(0.5);
+  expect(fetch).not.toHaveBeenCalled();
+  vi.doUnmock('#lib/platform/os.js');
+  vi.doUnmock('#lib/platform/native-notifications.js');
+});

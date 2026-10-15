@@ -114,6 +114,10 @@ export async function clearNativePushHistory(): Promise<void> {
   await invoke('plugin:sable-push|clear_push_history');
 }
 
+export async function playNativeChime(volume: number): Promise<void> {
+  await invoke('plugin:sable-push|play_chime', { volume });
+}
+
 export interface NativePushTransport {
   provider: string | null;
   distributor: string | null;

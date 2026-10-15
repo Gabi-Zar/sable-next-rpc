@@ -1,9 +1,10 @@
 ## Default Permission
 
-Reads and clears the push history and diagnostics.
+Plays the notification chime and reads and clears the push history and diagnostics.
 
 #### This default permission set includes the following:
 
+- `allow-play-chime`
 - `allow-push-history`
 - `allow-clear-push-history`
 - `allow-take-push-diagnostics`
@@ -39,6 +40,32 @@ Enables the clear_push_history command without any pre-configured scope.
 <td>
 
 Denies the clear_push_history command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`sable-push:allow-play-chime`
+
+</td>
+<td>
+
+Enables the play_chime command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`sable-push:deny-play-chime`
+
+</td>
+<td>
+
+Denies the play_chime command without any pre-configured scope.
 
 </td>
 </tr>

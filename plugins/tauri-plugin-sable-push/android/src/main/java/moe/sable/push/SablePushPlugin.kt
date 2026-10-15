@@ -2,6 +2,8 @@ package moe.sable.push
 
 import android.app.Activity
 import android.app.NotificationManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import androidx.work.WorkManager
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -52,6 +54,13 @@ class PolicyArgs {
     var clearOnRead: Boolean = true
 }
 
+@InvokeArg
+class ChimeArgs {
+    var volume: Float = 1f
+}
+
+private const val CHIME_ASSET = "msg.webm"
+
 @TauriPlugin
 class SablePushPlugin(private val activity: Activity) : Plugin(activity) {
     private val manager = activity.getSystemService(NotificationManager::class.java)
@@ -73,6 +82,12 @@ class SablePushPlugin(private val activity: Activity) : Plugin(activity) {
             notification.put("type", "m.room.member").put("content", JSONObject().put("membership", "invite"))
         }
         PushNotifier.show(activity, notification)
+        invoke.resolve()
+    }
+
+    @Command
+    fun playChime(invoke: Invoke) {
+        playChime(invoke.parseArgs(ChimeArgs::class.java).volume.coerceIn(0f, 1f))
         invoke.resolve()
     }
 
@@ -140,6 +155,33 @@ class SablePushPlugin(private val activity: Activity) : Plugin(activity) {
         snapshot.lastOutcome?.let { data.put("lastOutcome", it) }
         data.put("lastAt", snapshot.lastAt)
         invoke.resolve(data)
+    }
+
+    private fun playChime(volume: Float) {
+        val asset = activity.assets.openFd(CHIME_ASSET)
+        val player = MediaPlayer()
+        try {
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            player.setDataSource(asset.fileDescriptor, asset.startOffset, asset.length)
+            player.setVolume(volume, volume)
+            player.setOnPreparedListener { it.start() }
+            player.setOnCompletionListener { it.release() }
+            player.setOnErrorListener { failed, _, _ ->
+                failed.release()
+                true
+            }
+            player.prepareAsync()
+        } catch (error: Exception) {
+            player.release()
+            throw error
+        } finally {
+            asset.close()
+        }
     }
 
     private fun dismiss(ids: List<Int>) {

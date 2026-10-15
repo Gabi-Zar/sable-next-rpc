@@ -37,6 +37,7 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
     #[cfg(target_os = "android")]
     let builder = builder
         .invoke_handler(tauri::generate_handler![
+            commands::play_chime,
             commands::push_history,
             commands::clear_push_history,
             commands::take_push_diagnostics,
