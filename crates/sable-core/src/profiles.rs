@@ -220,8 +220,8 @@ fn profile_pronouns(response: &ProfileResponse) -> Vec<PronounView> {
 }
 
 fn profile_timezone(response: &ProfileResponse) -> Option<String> {
-    profile_text(profile_field(response, "us.cloke.msc4175.tz"))
-        .or_else(|| profile_text(profile_field(response, "m.tz")))
+    profile_text(profile_field(response, "m.tz"))
+        .or_else(|| profile_text(profile_field(response, "us.cloke.msc4175.tz")))
         // Some clients store the zone with its JSON quotes still attached.
         .map(|zone| zone.trim_matches(['"', '\'']).to_owned())
         .filter(|zone| !zone.is_empty())
@@ -373,6 +373,15 @@ mod tests {
             profile.legacy_fields,
             ["chat.commet.profile_status", "org.matrix.msc4426.status"]
         );
+    }
+
+    #[test]
+    fn the_stable_timezone_wins_over_the_unstable_one() {
+        let both = view(&json!({ "m.tz": "Europe/Paris", "us.cloke.msc4175.tz": "Asia/Tokyo" }));
+        assert_eq!(both.timezone.as_deref(), Some("Europe/Paris"));
+
+        let unstable = view(&json!({ "us.cloke.msc4175.tz": "Asia/Tokyo" }));
+        assert_eq!(unstable.timezone.as_deref(), Some("Asia/Tokyo"));
     }
 
     #[test]
