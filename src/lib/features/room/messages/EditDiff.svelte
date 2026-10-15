@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { diffWordsWithSpace } from 'diff';
-
   import type { TimelineItemView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { isRecord } from '#lib/guards.js';
+  import { i18n } from '#lib/i18n.js';
 
+  import { editDiff } from './edit-diff';
   import { readEventSource } from './event-source-cache';
   import {
     editedBody,
@@ -29,8 +29,8 @@
   let before = $derived(
     previous?.content.kind === 'hidden_event' ? editedBody(previous.content.content) : original
   );
-  let segments = $derived(
-    before !== null && after !== null && before !== after ? diffWordsWithSpace(before, after) : null
+  let display = $derived(
+    before !== null && after !== null && before !== after ? editDiff(before, after) : null
   );
 
   $effect(() => {
@@ -52,12 +52,26 @@
   });
 </script>
 
-{#if segments}
+{#if display?.mode === 'inline'}
   <span class="edit-diff"
-    >{#each segments as segment, index (index)}{#if segment.added}<ins>{segment.value}</ins
-        >{:else if segment.removed}<del>{segment.value}</del>{:else}<span>{segment.value}</span
+    >{#each display.parts as part, index (index)}{#if part.added}<ins>{part.value}</ins
+        >{:else if part.removed}<del>{part.value}</del>{:else}<span>{part.value}</span
         >{/if}{/each}</span
   >
+{:else if display?.mode === 'lines'}
+  <span class="edit-diff lines">
+    {#each display.rows as row, index (index)}
+      {#if row.kind === 'skip'}
+        <span class="skip">{i18n.t('timeline.editUnchangedLines', { count: row.count })}</span>
+      {:else if row.kind === 'added'}
+        <ins>{row.text}</ins>
+      {:else if row.kind === 'removed'}
+        <del>{row.text}</del>
+      {:else}
+        <span>{row.text}</span>
+      {/if}
+    {/each}
+  </span>
 {:else if after !== null}
   <span>{after}</span>
 {/if}
@@ -65,6 +79,19 @@
 <style>
   .edit-diff {
     white-space: pre-wrap;
+  }
+
+  .lines {
+    display: grid;
+  }
+
+  .lines > :empty::before {
+    content: '\200b';
+  }
+
+  .skip {
+    font-size: var(--font-size-small);
+    font-style: italic;
   }
 
   ins {
