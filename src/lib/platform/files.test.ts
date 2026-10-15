@@ -6,6 +6,7 @@ import {
   mimeFromName,
   pickFiles,
   saveBytes,
+  saveUrl,
   saveFile,
   saveImageToPhotos,
   savesNatively,
@@ -497,4 +498,14 @@ test('a cancelled save dialog is not reported as a failure', async () => {
   await expect(saveBytes(new Uint8Array([1, 2, 3]), 'wave.png', 'image/png')).resolves.toBe(
     'cancelled'
   );
+});
+
+test('a browser saves a url through a download link', async () => {
+  const link = { click: vi.fn(), href: '', download: '' };
+  vi.stubGlobal('document', { createElement: () => link });
+
+  await expect(saveUrl('blob:clip', 'clip.mp4')).resolves.toBe('saved');
+
+  expect(link).toMatchObject({ href: 'blob:clip', download: 'clip.mp4' });
+  expect(link.click).toHaveBeenCalledOnce();
 });

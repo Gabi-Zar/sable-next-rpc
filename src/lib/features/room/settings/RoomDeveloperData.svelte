@@ -7,7 +7,7 @@
   } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
-  import { saveFile, savesNatively } from '#lib/platform/files.js';
+  import { saveBytes } from '#lib/platform/files.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import Label from '#lib/ui/primitives/Label.svelte';
@@ -64,21 +64,13 @@
   async function download(): Promise<void> {
     failed = false;
     const filename = `sable-${room.is_space ? 'space' : 'room'}-data-${String(Date.now())}.json`;
-    const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
     try {
-      if (savesNatively()) {
-        failed = (await saveFile(url, filename)) === 'failed';
-      } else {
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        link.click();
-      }
+      failed =
+        (await saveBytes(new TextEncoder().encode(data), filename, 'application/json')) ===
+        'failed';
     } catch (error) {
       console.warn('[sable room] saving debug data failed', error);
       failed = true;
-    } finally {
-      URL.revokeObjectURL(url);
     }
   }
 </script>

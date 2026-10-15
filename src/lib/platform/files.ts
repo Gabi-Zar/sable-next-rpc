@@ -50,6 +50,16 @@ export async function saveFile(url: string, filename: string): Promise<SaveOutco
   }
 }
 
+export async function saveUrl(url: string, filename: string): Promise<SaveOutcome> {
+  if (savesNatively()) return saveFile(url, filename);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  return 'saved';
+}
+
 export async function saveBytes(
   bytes: Uint8Array<ArrayBuffer>,
   filename: string,
@@ -57,13 +67,7 @@ export async function saveBytes(
 ): Promise<SaveOutcome> {
   const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
   try {
-    if (savesNatively()) return await saveFile(url, filename);
-
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    return 'saved';
+    return await saveUrl(url, filename);
   } finally {
     URL.revokeObjectURL(url);
   }

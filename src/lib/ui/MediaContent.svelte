@@ -5,7 +5,7 @@
   import type { AudioMetadataView, VideoPlaybackView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
-  import { saveFile, savesNatively } from '#lib/platform/files.js';
+  import { savesNatively } from '#lib/platform/files.js';
   import AudioTrack from '#lib/ui/AudioTrack.svelte';
   import { blurhashDataUrl } from '#lib/ui/blurhash.js';
   import PdfThumbnail from '#lib/ui/PdfThumbnail.svelte';
@@ -23,7 +23,7 @@
   import ThemeFileCard from '#lib/ui/ThemeFileCard.svelte';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { isThemeFileName, MAX_THEME_FILE_BYTES } from '#lib/settings/theme-file.js';
-  import { toasts } from '#lib/ui/toasts.svelte.js';
+  import { downloadUrl } from '#lib/ui/download.js';
   import { videoStreamingSupported, videoStreamUrl } from '#lib/ui/video-stream.svelte.js';
   import { videoPlayback } from '#lib/ui/video-playback.js';
   import { canPlayVideo } from '#lib/ui/video-support.js';
@@ -183,17 +183,7 @@
   }
 
   function save(objectUrl: string): void {
-    if (!savesNatively()) {
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = mediaLabel;
-      link.click();
-      return;
-    }
-    void saveFile(objectUrl, mediaLabel).then((outcome) => {
-      if (outcome === 'saved') toasts.info(i18n.t('viewer.saved'));
-      if (outcome === 'failed') toasts.error(i18n.t('errors.actionFailed'));
-    });
+    void downloadUrl(objectUrl, mediaLabel);
   }
 
   function fetchFile(): void {

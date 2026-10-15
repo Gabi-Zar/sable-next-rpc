@@ -1,10 +1,5 @@
-import {
-  saveFile,
-  saveImageToPhotos,
-  savesNatively,
-  shareFile,
-  type SaveOutcome,
-} from '#lib/platform/files.js';
+import { saveImageToPhotos, shareFile, type SaveOutcome } from '#lib/platform/files.js';
+import { downloadUrl } from '#lib/ui/download.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
 
 import type { MediaItem } from './media-viewer-types';
@@ -67,15 +62,7 @@ export class MediaViewerActions {
   async download(): Promise<void> {
     const { url, item, fileName } = this.target();
     if (!url || !item) return;
-    const name = fileName || 'image';
-    if (savesNatively()) {
-      this.#reportSave(await saveFile(url, name));
-      return;
-    }
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = name;
-    anchor.click();
+    await downloadUrl(url, fileName || 'image');
   }
 
   async saveToPhotos(): Promise<void> {
