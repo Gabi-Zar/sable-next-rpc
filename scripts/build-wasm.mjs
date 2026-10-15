@@ -49,9 +49,7 @@ function releaseEnvironment() {
     /\[target\.wasm32-unknown-unknown\][\s\S]*?rustflags\s*=\s*\[([\s\S]*?)\]/
   )?.[1];
 
-  if (!declared) throw new Error('.cargo/config.toml declares no wasm32 rustflags');
-
-  const flags = [...declared.matchAll(/'([^']*)'|"((?:[^"\\]|\\.)*)"/g)].map((match) =>
+  const flags = [...(declared ?? '').matchAll(/'([^']*)'|"((?:[^"\\]|\\.)*)"/g)].map((match) =>
     match[1] === undefined ? match[2].replaceAll('\\"', '"') : match[1]
   );
   const cargoHome = process.env.CARGO_HOME ?? join(homedir(), '.cargo');
