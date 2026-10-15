@@ -72,6 +72,13 @@ test('local sends expose only actions that do not require a server event', () =>
   expect(actions.reproxy).toBe(false);
 });
 
+test('forwarded messages cannot be edited', () => {
+  const actions = policy({ forwarded: { timestamp: 1, room_id: null, event_id: null } });
+
+  expect(actions.edit).toBe(false);
+  expect(actions.reply).toBe(true);
+});
+
 test('policy centralizes ownership and permission gates', () => {
   const other = policy({ is_own: false });
 

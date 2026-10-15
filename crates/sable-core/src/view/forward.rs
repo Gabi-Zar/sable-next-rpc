@@ -6,6 +6,10 @@ use crate::protocol::ForwardedView;
 
 use super::raw::{ObjectOnly, RawFields};
 
+pub(crate) const FORWARDED: &str = "org.matrix.msc4553.forwarded";
+pub(crate) const FAMEDLY_FORWARDED: &str = "com.famedly.app.forwarded";
+pub(crate) const SABLE_FORWARDED: &str = "moe.sable.message.forward";
+
 #[derive(serde::Deserialize)]
 struct OriginalContent {
     content: Option<serde_json::Value>,
@@ -27,11 +31,14 @@ pub(super) fn forwarded(event: &EventTimelineItem, raw: &RawFields) -> Option<Fo
 #[serde(default)]
 struct ForwardContentIn {
     #[serde_as(as = "ObjectOnly")]
+    #[serde(rename = "org.matrix.msc4553.forwarded")]
+    msc4553: Option<ForwardIn>,
+    #[serde_as(as = "ObjectOnly")]
     #[serde(rename = "moe.sable.message.forward")]
     sable: Option<SableForwardIn>,
     #[serde_as(as = "ObjectOnly")]
     #[serde(rename = "com.famedly.app.forwarded")]
-    famedly: Option<FamedlyForwardIn>,
+    famedly: Option<ForwardIn>,
 }
 
 #[serde_as]
@@ -55,7 +62,7 @@ struct SableForwardIn {
 #[serde_as]
 #[derive(Default, serde::Deserialize)]
 #[serde(default)]
-struct FamedlyForwardIn {
+struct ForwardIn {
     #[serde_as(deserialize_as = "DefaultOnError")]
     origin_server_ts: Option<u64>,
     #[serde_as(deserialize_as = "DefaultOnError")]
@@ -69,6 +76,9 @@ pub(super) fn forward_meta(content: &serde_json::Value) -> Option<ForwardedView>
         return None;
     }
     let content = ForwardContentIn::deserialize(content).ok()?;
+    if let Some(meta) = content.msc4553 {
+        return Some(forward_view(meta));
+    }
     if let Some(meta) = content.sable {
         let private = meta.private.unwrap_or(false);
         return Some(ForwardedView {
@@ -77,12 +87,15 @@ pub(super) fn forward_meta(content: &serde_json::Value) -> Option<ForwardedView>
             event_id: (!private).then(|| meta.event_id?.try_into().ok()).flatten(),
         });
     }
-    let meta = content.famedly?;
-    Some(ForwardedView {
+    content.famedly.map(forward_view)
+}
+
+fn forward_view(meta: ForwardIn) -> ForwardedView {
+    ForwardedView {
         timestamp: meta.origin_server_ts,
         room_id: meta.room_id.and_then(|room| room.try_into().ok()),
         event_id: meta.event_id.and_then(|event| event.try_into().ok()),
-    })
+    }
 }
 
 #[cfg(test)]
@@ -137,6 +150,35 @@ mod tests {
         );
 
         assert!(forward_meta(&json!({ "body": "hello" })).is_none());
+    }
+
+    #[test]
+    fn forward_meta_prefers_msc4553_over_legacy_keys() {
+        let meta = forward_meta(&json!({
+            "org.matrix.msc4553.forwarded": {
+                "origin_server_ts": 3,
+                "room_id": "!room:example.org",
+                "event_id": "$event",
+                "content": { "msgtype": "m.text", "body": "hi" }
+            },
+            "moe.sable.message.forward": { "original_timestamp": 5 },
+            "com.famedly.app.forwarded": { "origin_server_ts": 9 }
+        }))
+        .unwrap();
+        assert_eq!(meta.timestamp, Some(3));
+        assert_eq!(
+            meta.event_id
+                .as_deref()
+                .map(matrix_sdk::ruma::EventId::as_str),
+            Some("$event")
+        );
+
+        let bare = forward_meta(&json!({
+            "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text", "body": "hi" } }
+        }))
+        .unwrap();
+        assert_eq!(bare.timestamp, None);
+        assert_eq!(bare.room_id, None);
     }
 
     #[test]

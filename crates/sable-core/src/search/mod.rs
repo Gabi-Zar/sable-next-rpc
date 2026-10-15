@@ -48,6 +48,7 @@ use tracing::warn;
 use self::persist::ChunkId;
 use crate::Core;
 use crate::attachments::{attachment_contents, fits, link_urls};
+use crate::messages::raw_content;
 use crate::protocol::{
     self, RoomAttachmentContentView, RoomAttachmentKind, RoomAttachmentView, RpcError,
     SearchAttachment,
@@ -2212,14 +2213,6 @@ pub(super) const fn replacement_of(
         Some(Relation::Replacement(replacement)) => Some(replacement),
         _ => None,
     }
-}
-
-fn raw_content(event: &TimelineEvent) -> Option<serde_json::Value> {
-    event
-        .raw()
-        .get_field::<serde_json::Value>("content")
-        .ok()
-        .flatten()
 }
 
 fn document_of(

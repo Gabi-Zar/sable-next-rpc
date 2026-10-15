@@ -93,7 +93,9 @@ export function messageActionPolicy({
       ? item.content
       : null;
   const editable =
-    item.is_own && (item.content.kind === 'message' || item.content.kind === 'image');
+    item.is_own &&
+    item.forwarded === null &&
+    (item.content.kind === 'message' || item.content.kind === 'image');
   const hasRoomEvent = roomId !== '' && eventId !== '';
   const threadTarget = item.thread_root ?? item.event_id;
   const rawContent = item.content.kind === 'hidden_event' ? item.content.content : null;

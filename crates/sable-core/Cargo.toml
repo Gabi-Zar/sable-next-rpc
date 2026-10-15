@@ -38,6 +38,7 @@ specta = { workspace = true, optional = true }
 specta-serde = { workspace = true, optional = true }
 specta-typescript = { workspace = true, optional = true }
 url = { workspace = true }
+percent-encoding = { workspace = true }
 thiserror = { workspace = true }
 reqwest = { version = "0.13", default-features = false, features = ["stream"] }
 ammonia = "4.2.3"

@@ -11,13 +11,13 @@ use matrix_sdk::ruma::api::client::reporting::report_user;
 use matrix_sdk::ruma::api::client::room::get_room_event;
 use matrix_sdk::ruma::api::client::room::{report_content, report_room};
 use matrix_sdk::ruma::events::relation::RelationType;
-use matrix_sdk::ruma::events::room::message::Relation;
 use matrix_sdk::ruma::events::room::pinned_events::RoomPinnedEventsEventContent;
 use matrix_sdk::ruma::events::{AnyMessageLikeEventContent, AnySyncTimelineEvent, Mentions};
 use matrix_sdk::ruma::room::JoinRule;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{
-    EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedUserId, UInt,
+    EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedServerName, OwnedUserId,
+    RoomId, UInt, UserId,
 };
 use matrix_sdk_ui::timeline::TimelineEventItemId;
 
@@ -35,7 +35,8 @@ use crate::protocol::{
     EditVersionView, MessageKind, PerMessageProfileView, RpcError, TimelineItemView,
 };
 use crate::view::{
-    SPOILER_PROPERTY, SPOILER_REASON_PROPERTY, per_message_profile, standalone_item,
+    FAMEDLY_FORWARDED, FORWARDED, SABLE_FORWARDED, SPOILER_PROPERTY, SPOILER_REASON_PROPERTY,
+    per_message_profile, standalone_item,
 };
 use serde_with::{DefaultOnError, serde_as};
 
@@ -642,69 +643,58 @@ impl Core {
         let AnySyncTimelineEvent::MessageLike(message) = raw else {
             return Err(RpcError::Unsupported);
         };
-        let origin_server_ts = message.origin_server_ts().0;
-        let AnyMessageLikeEventContent::RoomMessage(original) =
-            message.original_content().ok_or(RpcError::Unsupported)?
-        else {
+        if !matches!(
+            message.original_content(),
+            Some(AnyMessageLikeEventContent::RoomMessage(_))
+        ) {
             return Err(RpcError::Unsupported);
+        }
+
+        let original = raw_content(&event).ok_or(RpcError::Unsupported)?;
+        let is_forward = [FORWARDED, FAMEDLY_FORWARDED, SABLE_FORWARDED]
+            .iter()
+            .any(|key| original.get(key).is_some());
+        let edited = (!is_forward)
+            .then(|| latest_valid_replacement(&event, &replacements))
+            .flatten()
+            .and_then(|edit| {
+                let edit =
+                    serde_json::from_str::<serde_json::Value>(edit.raw().json().get()).ok()?;
+                latest_message(&edit)?.as_object().cloned()
+            });
+        let source_content = match (edited, original) {
+            (Some(edited), _) => edited,
+            (None, serde_json::Value::Object(original)) => original,
+            (None, _) => return Err(RpcError::Unsupported),
         };
 
-        let latest = valid_replacements(&event, &replacements)
-            .filter_map(|replacement| {
-                let AnySyncTimelineEvent::MessageLike(message) =
-                    replacement.raw().deserialize().ok()?
-                else {
-                    return None;
-                };
-                let AnyMessageLikeEventContent::RoomMessage(content) =
-                    message.original_content()?
-                else {
-                    return None;
-                };
-                let Some(Relation::Replacement(relation)) = content.relates_to else {
-                    return None;
-                };
-                Some((message.origin_server_ts(), relation.new_content))
-            })
-            .max_by_key(|(timestamp, _)| *timestamp);
-        let original = latest.map_or(original, |(_, content)| content.with_relation(None));
-        let mut content = serde_json::to_value(&original).or_failed(self, "forward_message")?;
-        let Some(object) = content.as_object_mut() else {
-            return Err(RpcError::Unsupported);
-        };
-
-        object.remove("m.relates_to");
-        object.insert(
-            "m.mentions".to_owned(),
-            serde_json::Value::Object(serde_json::Map::new()),
+        let public = matches!(source.join_rule(), Some(JoinRule::Public));
+        let mut origin = serde_json::Map::new();
+        origin.insert(
+            "origin_server_ts".to_owned(),
+            u64::from(message.origin_server_ts().0).into(),
         );
-        object.remove(PER_MESSAGE_PROFILE);
-
-        let private = !matches!(source.join_rule(), Some(JoinRule::Public));
-
-        let public_event_id = (!private).then(|| event_id.to_string());
-        let public_room_id = (!private).then(|| room_id.to_string());
-        object.insert(
-            FORWARD_META.to_owned(),
-            serde_json::to_value(ForwardMetaOut {
-                origin_server_ts: u64::from(origin_server_ts),
-                event_id: public_event_id.clone(),
-                room_id: public_room_id.clone(),
-            })
-            .or_failed(self, "forward_message")?,
-        );
-        object.insert(
-            SABLE_FORWARD_META.to_owned(),
-            serde_json::to_value(SableForwardMetaOut {
-                v: 1,
-                is_forwarded: true,
-                original_timestamp: u64::from(origin_server_ts),
-                original_room_id: public_room_id,
-                original_event_id: public_event_id,
-                original_event_private: private,
-            })
-            .or_failed(self, "forward_message")?,
-        );
+        if public {
+            origin.insert("event_id".to_owned(), event_id.to_string().into());
+            origin.insert("room_id".to_owned(), room_id.to_string().into());
+            origin.insert("sender".to_owned(), message.sender().to_string().into());
+        }
+        let attributed = prior_forward(&source_content)
+            .and_then(|prior| prior.get("sender")?.as_str()?.parse::<OwnedUserId>().ok())
+            .unwrap_or_else(|| message.sender().to_owned());
+        let sender_name = source
+            .get_member_no_sync(&attributed)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|member| member.display_name().map(ToOwned::to_owned));
+        let route = source.route().await.unwrap_or_default();
+        let content = serde_json::Value::Object(forward_content(
+            source_content,
+            origin,
+            &route,
+            sender_name.as_deref(),
+        ));
 
         self.room(to_room_id)
             .await?
@@ -825,15 +815,7 @@ impl Core {
                         })
                         .ok()?,
                 };
-                let latest = valid_replacements(&event, &replacements)
-                    .max_by_key(|replacement| {
-                        replacement
-                            .raw()
-                            .get_field::<MilliSecondsSinceUnixEpoch>("origin_server_ts")
-                            .ok()
-                            .flatten()
-                    })
-                    .cloned();
+                let latest = latest_valid_replacement(&event, &replacements).cloned();
                 standalone_item(room, event, latest, push).await
             }))
             .await;
@@ -972,25 +954,255 @@ enum ReplaceRelationOut {
     Replace { event_id: String },
 }
 
-#[derive(serde::Serialize)]
-struct ForwardMetaOut {
-    origin_server_ts: u64,
-    event_id: Option<String>,
-    room_id: Option<String>,
+pub(crate) fn raw_content(event: &TimelineEvent) -> Option<serde_json::Value> {
+    event
+        .raw()
+        .get_field::<serde_json::Value>("content")
+        .ok()
+        .flatten()
 }
 
-#[derive(serde::Serialize)]
-struct SableForwardMetaOut {
-    v: u8,
-    is_forwarded: bool,
-    original_timestamp: u64,
-    original_room_id: Option<String>,
-    original_event_id: Option<String>,
-    original_event_private: bool,
+fn is_message_content(content: &serde_json::Value) -> bool {
+    content
+        .get("msgtype")
+        .is_some_and(serde_json::Value::is_string)
+        && content
+            .get("body")
+            .is_some_and(serde_json::Value::is_string)
 }
 
-const FORWARD_META: &str = "com.famedly.app.forwarded";
-const SABLE_FORWARD_META: &str = "moe.sable.message.forward";
+fn prior_forward(
+    content: &serde_json::Map<String, serde_json::Value>,
+) -> Option<serde_json::Map<String, serde_json::Value>> {
+    if let Some(serde_json::Value::Object(forwarded)) = content.get(FORWARDED) {
+        return Some(forwarded.clone());
+    }
+    let serde_json::Value::Object(famedly) = content.get(FAMEDLY_FORWARDED)? else {
+        return None;
+    };
+    Some(
+        famedly
+            .iter()
+            .filter(|(key, value)| match key.as_str() {
+                "event_id" | "room_id" | "sender" => value.is_string(),
+                "origin_server_ts" => value.is_u64(),
+                _ => false,
+            })
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect(),
+    )
+}
+
+fn strip_reply_fallback(content: &mut serde_json::Map<String, serde_json::Value>) {
+    if let Some(serde_json::Value::String(body)) = content.get_mut("body") {
+        *body =
+            matrix_sdk::ruma::events::room::message::sanitize::remove_plain_reply_fallback(body)
+                .to_owned();
+    }
+    let html = content
+        .get("format")
+        .is_some_and(|format| format == "org.matrix.custom.html");
+    if html && let Some(serde_json::Value::String(formatted)) = content.get_mut("formatted_body") {
+        *formatted = matrix_sdk::ruma::html::remove_html_reply_fallback(formatted);
+    }
+}
+
+fn forward_content(
+    mut source: serde_json::Map<String, serde_json::Value>,
+    origin: serde_json::Map<String, serde_json::Value>,
+    route: &[OwnedServerName],
+    sender_name: Option<&str>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut forwarded = prior_forward(&source).unwrap_or(origin);
+    if !forwarded.get("content").is_some_and(is_message_content) {
+        for key in [FORWARDED, FAMEDLY_FORWARDED, SABLE_FORWARDED] {
+            source.remove(key);
+        }
+        strip_reply_fallback(&mut source);
+        forwarded.insert("content".to_owned(), serde_json::Value::Object(source));
+    }
+
+    let mut content = forwarded
+        .get("content")
+        .and_then(serde_json::Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    for key in [
+        "m.relates_to",
+        "m.mentions",
+        "m.new_content",
+        FORWARDED,
+        FAMEDLY_FORWARDED,
+        SABLE_FORWARDED,
+        PER_MESSAGE_PROFILE,
+    ] {
+        content.remove(key);
+    }
+    content.insert(
+        "m.mentions".to_owned(),
+        serde_json::Value::Object(serde_json::Map::new()),
+    );
+    add_forward_fallback(&mut content, &forwarded, route, sender_name);
+    content.insert(
+        SABLE_FORWARDED.to_owned(),
+        serde_json::Value::Object(sable_forward(&forwarded)),
+    );
+    content.insert(FORWARDED.to_owned(), serde_json::Value::Object(forwarded));
+    content
+}
+
+fn sable_forward(
+    forwarded: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut sable = serde_json::Map::new();
+    sable.insert("v".to_owned(), 1.into());
+    sable.insert("is_forwarded".to_owned(), true.into());
+    for (from, to) in [
+        ("origin_server_ts", "original_timestamp"),
+        ("room_id", "original_room_id"),
+        ("event_id", "original_event_id"),
+    ] {
+        if let Some(value) = forwarded.get(from) {
+            sable.insert(to.to_owned(), value.clone());
+        }
+    }
+    let public = forwarded.contains_key("room_id") && forwarded.contains_key("event_id");
+    sable.insert("original_event_private".to_owned(), (!public).into());
+    sable
+}
+
+const URI_COMPONENT: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC
+    .remove(b'!')
+    .remove(b'-')
+    .remove(b'_')
+    .remove(b'.')
+    .remove(b'~')
+    .remove(b'*')
+    .remove(b'\'')
+    .remove(b'(')
+    .remove(b')');
+
+fn matrix_to(id: &str) -> String {
+    percent_encoding::utf8_percent_encode(id, URI_COMPONENT).to_string()
+}
+
+fn html_text(text: &str) -> String {
+    html_escape::encode_text(text).replace('\n', "<br>")
+}
+
+fn user_link(sender: &UserId, text: &str) -> String {
+    format!(
+        "<a href=\"https://matrix.to/#/{}\">{}</a>",
+        matrix_to(sender.as_str()),
+        html_escape::encode_text(text)
+    )
+}
+
+fn original_permalink(
+    forwarded: &serde_json::Map<String, serde_json::Value>,
+    route: &[OwnedServerName],
+) -> Option<String> {
+    let id = |key| forwarded.get(key).and_then(serde_json::Value::as_str);
+    let room = RoomId::parse(id("room_id")?).ok()?;
+    let event = EventId::parse(id("event_id")?).ok()?;
+    let via: Vec<String> = route.iter().map(|server| format!("via={server}")).collect();
+    let query = if via.is_empty() {
+        String::new()
+    } else {
+        format!("?{}", via.join("&"))
+    };
+    Some(format!(
+        "https://matrix.to/#/{}/{}{query}",
+        matrix_to(room.as_str()),
+        matrix_to(event.as_str())
+    ))
+}
+
+fn forward_headers(sender: Option<&UserId>, permalink: Option<&str>) -> (String, String) {
+    let mut plain = sender.map_or_else(
+        || "Forwarded message".to_owned(),
+        |sender| format!("Forwarded from {sender}"),
+    );
+    let mut rich = sender.map_or_else(
+        || "Forwarded message".to_owned(),
+        |sender| format!("Forwarded from {}", user_link(sender, sender.as_str())),
+    );
+    if let Some(permalink) = permalink {
+        plain.push_str(" - view original message: ");
+        plain.push_str(permalink);
+        rich = format!(
+            "{rich} - <a href=\"{}\">view original message</a>",
+            html_escape::encode_double_quoted_attribute(permalink)
+        );
+    }
+    (plain, format!("<strong>{rich}</strong>"))
+}
+
+fn add_forward_fallback(
+    content: &mut serde_json::Map<String, serde_json::Value>,
+    forwarded: &serde_json::Map<String, serde_json::Value>,
+    route: &[OwnedServerName],
+    sender_name: Option<&str>,
+) {
+    let Some(source) = forwarded
+        .get("content")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return;
+    };
+    let field = |key: &str| source.get(key).and_then(serde_json::Value::as_str);
+    let body = field("body").unwrap_or_default();
+    let html = field("formatted_body")
+        .filter(|_| field("format") == Some("org.matrix.custom.html"))
+        .map_or_else(|| html_text(body), ToOwned::to_owned);
+    let sender = forwarded
+        .get("sender")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|sender| UserId::parse(sender).ok());
+
+    let (quoted, quoted_html) = match field("msgtype") {
+        Some("m.text" | "m.notice") => (body.to_owned(), html),
+        Some("m.emote") => {
+            content.insert("msgtype".to_owned(), "m.text".into());
+            let (actor, actor_html) = sender.as_ref().map_or_else(
+                || ("Sender".to_owned(), "Sender".to_owned()),
+                |sender| {
+                    let name = sender_name.unwrap_or_else(|| sender.as_str());
+                    (name.to_owned(), user_link(sender, name))
+                },
+            );
+            (
+                format!("{actor} {body}"),
+                format!("<em><strong>{actor_html}</strong> {html}</em>"),
+            )
+        }
+        Some("m.image" | "m.file" | "m.audio" | "m.video") => {
+            content.insert(
+                "filename".to_owned(),
+                field("filename").unwrap_or(body).into(),
+            );
+            if field("filename").is_some_and(|name| name != body) {
+                (body.to_owned(), html)
+            } else {
+                (String::new(), String::new())
+            }
+        }
+        _ => return,
+    };
+
+    let (mut plain, mut rich) = forward_headers(
+        sender.as_deref(),
+        original_permalink(forwarded, route).as_deref(),
+    );
+    if !quoted.is_empty() {
+        plain.push('\n');
+        plain.push_str(&quoted);
+        rich = format!("{rich}<br><blockquote>{quoted_html}</blockquote>");
+    }
+    content.insert("body".to_owned(), plain.into());
+    content.insert("format".to_owned(), "org.matrix.custom.html".into());
+    content.insert("formatted_body".to_owned(), rich.into());
+}
 
 #[cfg(test)]
 mod tests {
@@ -1028,29 +1240,60 @@ mod tests {
 
     use crate::{Core, session::Session, store::MemorySessionStore};
 
+    fn object(value: Value) -> serde_json::Map<String, Value> {
+        let Value::Object(map) = value else {
+            panic!("expected an object")
+        };
+        map
+    }
+
     #[test]
-    fn forward_metadata_serializes_withheld_ids_as_null() {
-        let private = serde_json::to_value(super::ForwardMetaOut {
-            origin_server_ts: 7,
-            event_id: None,
-            room_id: None,
-        })
-        .unwrap();
-        assert_eq!(
-            private,
-            json!({ "origin_server_ts": 7, "event_id": null, "room_id": null })
+    fn forwarding_writes_msc4553_with_the_original_content() {
+        let source = object(json!({
+            "msgtype": "m.text",
+            "body": "> <@bob:x> quoted\n\nanswer",
+            "format": "org.matrix.custom.html",
+            "formatted_body": "<mx-reply><blockquote>quoted</blockquote></mx-reply>answer",
+            "m.relates_to": { "m.in_reply_to": { "event_id": "$parent" } },
+            "m.mentions": { "user_ids": ["@bob:x"] },
+            "page.codeberg.everypizza.msc4193.spoiler": true,
+        }));
+        let origin = object(
+            json!({ "origin_server_ts": 7, "room_id": "!r:x", "event_id": "$e", "sender": "@alice:x" }),
         );
-        let public = serde_json::to_value(super::SableForwardMetaOut {
-            v: 1,
-            is_forwarded: true,
-            original_timestamp: 7,
-            original_room_id: Some("!r:x".to_owned()),
-            original_event_id: Some("$e".to_owned()),
-            original_event_private: false,
-        })
-        .unwrap();
+
+        let content = Value::Object(super::forward_content(source, origin, &[], None));
+
         assert_eq!(
-            public,
+            content["org.matrix.msc4553.forwarded"],
+            json!({
+                "origin_server_ts": 7, "room_id": "!r:x", "event_id": "$e", "sender": "@alice:x",
+                "content": {
+                    "msgtype": "m.text",
+                    "body": "answer",
+                    "format": "org.matrix.custom.html",
+                    "formatted_body": "answer",
+                    "m.relates_to": { "m.in_reply_to": { "event_id": "$parent" } },
+                    "m.mentions": { "user_ids": ["@bob:x"] },
+                    "page.codeberg.everypizza.msc4193.spoiler": true,
+                }
+            })
+        );
+        assert_eq!(
+            content["body"],
+            "Forwarded from @alice:x - view original message: https://matrix.to/#/!r%3Ax/%24e\nanswer"
+        );
+        assert_eq!(
+            content["formatted_body"],
+            "<strong>Forwarded from <a href=\"https://matrix.to/#/%40alice%3Ax\">@alice:x</a> - <a href=\"https://matrix.to/#/!r%3Ax/%24e\">view original message</a></strong><br><blockquote>answer</blockquote>"
+        );
+        assert_eq!(content["format"], "org.matrix.custom.html");
+        assert_eq!(content["m.mentions"], json!({}));
+        assert_eq!(content["page.codeberg.everypizza.msc4193.spoiler"], true);
+        assert!(content.get("m.relates_to").is_none());
+        assert!(content.get("com.famedly.app.forwarded").is_none());
+        assert_eq!(
+            content["moe.sable.message.forward"],
             json!({
                 "v": 1,
                 "is_forwarded": true,
@@ -1058,6 +1301,175 @@ mod tests {
                 "original_room_id": "!r:x",
                 "original_event_id": "$e",
                 "original_event_private": false,
+            })
+        );
+    }
+
+    #[test]
+    fn forwarding_from_a_private_room_omits_the_ids_in_both_objects() {
+        let source = object(json!({ "msgtype": "m.text", "body": "hi" }));
+        let origin = object(json!({ "origin_server_ts": 7 }));
+
+        let content = Value::Object(super::forward_content(source, origin, &[], None));
+
+        assert_eq!(content["body"], "Forwarded message\nhi");
+        assert_eq!(
+            content["moe.sable.message.forward"],
+            json!({
+                "v": 1,
+                "is_forwarded": true,
+                "original_timestamp": 7,
+                "original_event_private": true,
+            })
+        );
+        assert_eq!(
+            content["org.matrix.msc4553.forwarded"]["origin_server_ts"],
+            7
+        );
+        assert!(
+            content["org.matrix.msc4553.forwarded"]
+                .get("room_id")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn the_original_permalink_carries_the_routing_servers() {
+        let route = [
+            matrix_sdk::ruma::server_name!("a.example").to_owned(),
+            matrix_sdk::ruma::server_name!("b.example").to_owned(),
+        ];
+        let origin = object(json!({ "room_id": "!r:x", "event_id": "$e" }));
+
+        let content = super::forward_content(
+            object(json!({ "msgtype": "m.text", "body": "hi" })),
+            origin,
+            &route,
+            None,
+        );
+
+        assert_eq!(
+            content["body"],
+            "Forwarded message - view original message: https://matrix.to/#/!r%3Ax/%24e?via=a.example&via=b.example\nhi"
+        );
+    }
+
+    #[test]
+    fn a_forwarded_emote_reads_as_text_by_its_sender() {
+        let source = object(json!({ "msgtype": "m.emote", "body": "waves" }));
+        let origin = object(json!({ "sender": "@alice:example.org" }));
+
+        let content = Value::Object(super::forward_content(source, origin, &[], Some("Alice")));
+
+        assert_eq!(content["msgtype"], "m.text");
+        assert_eq!(
+            content["body"],
+            "Forwarded from @alice:example.org\nAlice waves"
+        );
+        assert_eq!(
+            content["formatted_body"],
+            "<strong>Forwarded from <a href=\"https://matrix.to/#/%40alice%3Aexample.org\">@alice:example.org</a></strong><br><blockquote><em><strong><a href=\"https://matrix.to/#/%40alice%3Aexample.org\">Alice</a></strong> waves</em></blockquote>"
+        );
+        assert_eq!(
+            content["org.matrix.msc4553.forwarded"]["content"]["msgtype"],
+            "m.emote"
+        );
+
+        let anonymous = Value::Object(super::forward_content(
+            object(json!({ "msgtype": "m.emote", "body": "waves" })),
+            object(json!({})),
+            &[],
+            None,
+        ));
+        assert_eq!(anonymous["body"], "Forwarded message\nSender waves");
+    }
+
+    #[test]
+    fn a_forwarded_file_moves_its_name_to_filename_and_keeps_no_caption() {
+        let source = object(json!({
+            "msgtype": "m.file", "body": "agenda.pdf", "url": "mxc://example.org/agenda"
+        }));
+        let origin = object(json!({ "sender": "@alice:example.org" }));
+
+        let content = Value::Object(super::forward_content(source, origin, &[], None));
+
+        assert_eq!(content["filename"], "agenda.pdf");
+        assert_eq!(content["body"], "Forwarded from @alice:example.org");
+        assert_eq!(content["url"], "mxc://example.org/agenda");
+
+        let captioned = Value::Object(super::forward_content(
+            object(json!({ "msgtype": "m.image", "body": "sunset", "filename": "a.png" })),
+            object(json!({})),
+            &[],
+            None,
+        ));
+        assert_eq!(captioned["filename"], "a.png");
+        assert_eq!(captioned["body"], "Forwarded message\nsunset");
+    }
+
+    #[test]
+    fn a_location_keeps_its_own_body() {
+        let content = Value::Object(super::forward_content(
+            object(json!({ "msgtype": "m.location", "body": "Cafe", "geo_uri": "geo:1,2" })),
+            object(json!({})),
+            &[],
+            None,
+        ));
+
+        assert_eq!(content["body"], "Cafe");
+        assert!(content.get("formatted_body").is_none());
+    }
+
+    #[test]
+    fn forwarding_a_forward_keeps_the_original_attribution() {
+        let forwarded = json!({
+            "sender": "@alice:x",
+            "origin_server_ts": 1,
+            "content": { "msgtype": "m.text", "body": "original" }
+        });
+        let source = object(json!({
+            "msgtype": "m.text",
+            "body": "fallback",
+            "m.mentions": {},
+            "org.matrix.msc4553.forwarded": forwarded,
+        }));
+        let origin = object(json!({ "origin_server_ts": 9, "sender": "@bob:x" }));
+
+        let content = Value::Object(super::forward_content(source, origin, &[], None));
+
+        assert_eq!(content["org.matrix.msc4553.forwarded"], forwarded);
+        assert_eq!(content["body"], "Forwarded from @alice:x\noriginal");
+    }
+
+    #[test]
+    fn forwarding_a_legacy_forward_keeps_its_origin_and_fills_the_content() {
+        let source = object(json!({
+            "msgtype": "m.text",
+            "body": "hello",
+            "com.famedly.app.forwarded": { "origin_server_ts": 1, "room_id": null, "event_id": "$e" },
+            "moe.sable.message.forward": { "original_timestamp": 1, "original_event_private": true },
+        }));
+        let origin = object(json!({ "origin_server_ts": 9 }));
+
+        let content = Value::Object(super::forward_content(source, origin, &[], None));
+
+        assert_eq!(
+            content["org.matrix.msc4553.forwarded"],
+            json!({
+                "origin_server_ts": 1,
+                "event_id": "$e",
+                "content": { "msgtype": "m.text", "body": "hello" }
+            })
+        );
+        assert!(content.get("com.famedly.app.forwarded").is_none());
+        assert_eq!(
+            content["moe.sable.message.forward"],
+            json!({
+                "v": 1,
+                "is_forwarded": true,
+                "original_timestamp": 1,
+                "original_event_id": "$e",
+                "original_event_private": true,
             })
         );
     }
@@ -1299,9 +1711,10 @@ mod tests {
             .and(wiremock::matchers::path_regex(format!(
                 "/_matrix/client/v3/rooms/{target}/send/m.room.message/.*"
             )))
-            .and(wiremock::matchers::body_partial_json(
-                json!({"body": "latest"}),
-            ))
+            .and(wiremock::matchers::body_partial_json(json!({
+                "moe.sable.message.forward": {"is_forwarded": true},
+                "org.matrix.msc4553.forwarded": {"content": {"msgtype": "m.text", "body": "latest"}}
+            })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"event_id": "$forward"})))
             .expect(1)
             .mount(server.server())
@@ -1310,6 +1723,60 @@ mod tests {
         core.forward_message(
             &source.to_owned(),
             &event_id!("$original").to_owned(),
+            &target.to_owned(),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_edit_of_a_forward_is_ignored_when_forwarding_it() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let source = room_id!("!source:example.org");
+        let target = room_id!("!target:example.org");
+        server.sync_joined_room(&client, source).await;
+        server.sync_joined_room(&client, target).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        let forwarded =
+            json!({"origin_server_ts": 1, "content": {"msgtype": "m.text", "body": "original"}});
+        Mock::given(method("GET"))
+            .and(path(format!("/_matrix/client/v3/rooms/{source}/event/$forward")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "type": "m.room.message", "event_id": "$forward", "sender": "@alice:example.org",
+                "origin_server_ts": 2, "room_id": source,
+                "content": {"msgtype": "m.text", "body": "fallback", "org.matrix.msc4553.forwarded": forwarded}
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v1/rooms/{source}/relations/$forward/m.replace"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": [{
+                "type": "m.room.message", "event_id": "$edit", "sender": "@alice:example.org",
+                "origin_server_ts": 3, "room_id": source,
+                "content": {"msgtype": "m.text", "body": "* edited",
+                    "m.relates_to": {"rel_type": "m.replace", "event_id": "$forward"},
+                    "m.new_content": {"msgtype": "m.text", "body": "edited"}}
+            }]})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("PUT"))
+            .and(wiremock::matchers::path_regex(format!(
+                "/_matrix/client/v3/rooms/{target}/send/m.room.message/.*"
+            )))
+            .and(wiremock::matchers::body_partial_json(json!({
+                "org.matrix.msc4553.forwarded": forwarded
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"event_id": "$new"})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        core.forward_message(
+            &source.to_owned(),
+            &event_id!("$forward").to_owned(),
             &target.to_owned(),
         )
         .await
@@ -1539,8 +2006,17 @@ mod tests {
                 "/_matrix/client/v3/rooms/{target}/send/m.room.message/.*"
             )))
             .and(wiremock::matchers::body_partial_json(json!({
-                "msgtype": "m.video", "body": "seal.mp4", "url": "mxc://example.org/seal"
+                "msgtype": "m.video", "body": "Forwarded message", "filename": "seal.mp4",
+                "url": "mxc://example.org/seal",
+                "org.matrix.msc4553.forwarded": {"origin_server_ts": 1, "content": {"url": "mxc://example.org/seal"}}
             })))
+            .and(|request: &wiremock::Request| {
+                let body: Value = serde_json::from_slice(&request.body).unwrap_or_default();
+                let forwarded = &body["org.matrix.msc4553.forwarded"];
+                forwarded.get("room_id").is_none()
+                    && forwarded.get("event_id").is_none()
+                    && forwarded.get("sender").is_none()
+            })
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({"event_id": "$forward"})))
             .expect(1)
             .mount(server.server())

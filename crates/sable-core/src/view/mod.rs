@@ -26,6 +26,7 @@ pub use space::{hierarchy_child_edges, listing_spaces, restricted_parents, space
 
 pub(crate) use content::{CUTE_EVENT_MSGTYPE, geo_coordinates};
 pub(crate) use diff::apply_diff;
+pub(crate) use forward::{FAMEDLY_FORWARDED, FORWARDED, SABLE_FORWARDED};
 pub(crate) use media::{
     SPOILER_PROPERTY, SPOILER_REASON_PROPERTY, gallery_filenames, image_thumbnail, media_source,
     spoiler_reason, video_thumbnail,

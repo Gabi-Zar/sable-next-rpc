@@ -7185,6 +7185,7 @@ dependencies = [
  "mime",
  "miniz_oxide 0.9.1",
  "pastey",
+ "percent-encoding",
  "probly-search",
  "pulldown-cmark",
  "qrcode",
