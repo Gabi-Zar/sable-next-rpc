@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
@@ -29,6 +29,19 @@ for (const arch of ['x64', 'arm64']) {
   if (existsSync(prebuild)) copyFileSync(prebuild, join(out, `venmic-${arch}.node`));
 }
 
+const tauriOnly = /^(ipc:|http:\/\/ipc\.localhost|sable-tiles:|http:\/\/sable-tiles\.localhost)$/;
+const { csp } = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'), 'utf8')).app
+  .security;
+const policy = Object.fromEntries(
+  Object.entries(csp).map(([directive, sources]) => [
+    directive,
+    sources
+      .split(' ')
+      .filter((source) => !tauriOnly.test(source))
+      .join(' '),
+  ])
+);
+
 await build({
   entryPoints: {
     main: join(here, 'src/main.ts'),
@@ -42,5 +55,6 @@ await build({
   format: 'cjs',
   target: 'node24',
   external: ['electron', './sable_node.node'],
+  define: { __SABLE_CSP__: JSON.stringify(policy) },
   sourcemap: true,
 });

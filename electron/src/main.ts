@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   desktopCapturer,
   ipcMain,
+  Menu,
   net,
   protocol,
   session,
@@ -11,15 +12,21 @@ import {
   webContents,
   type DesktopCapturerSource,
   type UtilityProcess,
+  type WebFrameMain,
 } from 'electron';
-import { statSync, writeFileSync } from 'node:fs';
+import { statSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { claimSchemes } from './linux-schemes';
+import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
 import { readSettings, sanitize } from './settings';
+
+declare const __SABLE_CSP__: Record<string, string>;
 
 const IDENTIFIER = process.env.SABLE_IDENTIFIER ?? 'moe.sable.next';
 const SCHEME = 'sable-app';
@@ -75,6 +82,9 @@ setFeatures(
 );
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
+if (process.platform === 'win32') app.setAppUserModelId('moe.sable.next.electron');
+
 protocol.registerSchemesAsPrivileged([
   {
     scheme: SCHEME,
@@ -94,8 +104,14 @@ function originOf(url: string): string {
   return `${scheme}//${host}`;
 }
 
+const appOrigin = devUrl ? originOf(devUrl) : APP_ORIGIN;
+
 function isAppUrl(url: string | undefined): boolean {
-  return !!url && originOf(url) === (devUrl ? originOf(devUrl) : APP_ORIGIN);
+  return !!url && originOf(url) === appOrigin;
+}
+
+function isAppFrame(frame: WebFrameMain | null | undefined): boolean {
+  return frame?.origin === appOrigin;
 }
 
 function openExternal(url: string): void {
@@ -103,13 +119,45 @@ function openExternal(url: string): void {
   if (['http:', 'https:', 'mailto:', 'tel:'].includes(scheme)) void shell.openExternal(url);
 }
 
-function serveApp(request: Request): Promise<Response> {
+function policy(inlineScripts: string[] = []): string {
+  const directives = { ...__SABLE_CSP__ };
+  const hashes = inlineScripts.map(
+    (script) => `'sha256-${createHash('sha256').update(script).digest('base64')}'`
+  );
+  directives['script-src'] = [directives['script-src'], ...hashes].join(' ');
+  return Object.entries(directives)
+    .map(([directive, sources]) => `${directive} ${sources}`)
+    .join('; ');
+}
+
+const pagePolicies = new Map<string, string>();
+
+async function pagePolicy(file: string): Promise<string> {
+  const cached = pagePolicies.get(file);
+  if (cached) return cached;
+  const html = await readFile(file, 'utf8');
+  const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)];
+  const computed = policy(scripts.map(([, body]) => body));
+  pagePolicies.set(file, computed);
+  return computed;
+}
+
+async function serveApp(request: Request): Promise<Response> {
   const path = resolve(distDir, `.${decodeURIComponent(new URL(request.url).pathname)}`);
-  const inside = !relative(distDir, path).startsWith('..');
+  const fromDist = relative(distDir, path);
+  const inside = !fromDist.startsWith('..') && !isAbsolute(fromDist);
   const stat = inside ? statSync(path, { throwIfNoEntry: false }) : undefined;
   const file = stat?.isDirectory() ? join(path, 'index.html') : path;
   const found = stat !== undefined && statSync(file, { throwIfNoEntry: false })?.isFile();
-  return net.fetch(pathToFileURL(found ? file : join(distDir, '404.html')).toString());
+  const target = found ? file : join(distDir, '404.html');
+
+  const response = await net.fetch(pathToFileURL(target).toString());
+  const headers = new Headers(response.headers);
+  headers.set(
+    'Content-Security-Policy',
+    target.endsWith('.html') ? await pagePolicy(target) : policy()
+  );
+  return new Response(response.body, { status: response.status, headers });
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -130,11 +178,11 @@ function deliverDeepLinks(urls: string[]): void {
 }
 
 ipcMain.handle('sable-take-deep-links', (event) =>
-  isAppUrl(event.senderFrame?.url) ? pendingDeepLinks.splice(0) : []
+  isAppFrame(event.senderFrame) ? pendingDeepLinks.splice(0) : []
 );
 
 ipcMain.on('sable-deep-links-listening', (event) => {
-  if (isAppUrl(event.senderFrame?.url)) pageListening = true;
+  if (isAppFrame(event.senderFrame)) pageListening = true;
 });
 
 function startCore(): UtilityProcess {
@@ -169,18 +217,18 @@ app.on('web-contents-created', (_event, contents) => {
 });
 
 ipcMain.on('sable-apply-settings', (event, value: unknown) => {
-  if (!isAppUrl(event.senderFrame?.url)) return;
+  if (!isAppFrame(event.senderFrame)) return;
   const next = sanitize(value);
   if (JSON.stringify(next) === JSON.stringify(settings)) return;
   settings = next;
-  writeFileSync(settingsPath, JSON.stringify(next));
+  void writeFile(settingsPath, JSON.stringify(next));
   for (const contents of webContents.getAllWebContents()) {
     contents.setWebRTCIPHandlingPolicy(next.webRtcIpPolicy);
   }
 });
 
 ipcMain.on('sable-core-connect', (event) => {
-  if (event.ports.length !== 1 || !isAppUrl(event.senderFrame?.url)) return;
+  if (event.ports.length !== 1 || !isAppFrame(event.senderFrame)) return;
   core ??= startCore();
   core.postMessage('connect', event.ports);
 });
@@ -226,22 +274,22 @@ let nextPickRequest = 1;
 const pendingPicks = new Map<number, (id: string | null) => void>();
 
 ipcMain.on('sable-screen-picked', (event, request: unknown, id: unknown) => {
-  if (!isAppUrl(event.senderFrame?.url) || typeof request !== 'number') return;
+  if (!isAppFrame(event.senderFrame) || typeof request !== 'number') return;
   pendingPicks.get(request)?.(typeof id === 'string' ? id : null);
   pendingPicks.delete(request);
 });
 
 ipcMain.handle('sable-screen-audio-apps', (event) =>
-  isAppUrl(event.senderFrame?.url) ? screenAudio.listApps() : []
+  isAppFrame(event.senderFrame) ? screenAudio.listApps() : []
 );
 
 ipcMain.handle('sable-screen-audio-start', (event, selection: unknown) => {
-  if (!isAppUrl(event.senderFrame?.url)) throw new Error('not the app');
+  if (!isAppFrame(event.senderFrame)) throw new Error('not the app');
   return screenAudio.start(selection);
 });
 
 ipcMain.handle('sable-screen-audio-stop', (event) => {
-  if (isAppUrl(event.senderFrame?.url)) screenAudio.stop();
+  if (isAppFrame(event.senderFrame)) screenAudio.stop();
 });
 
 function cancelPicks(): void {
@@ -297,7 +345,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   if (isLinux) {
-    claimSchemes(join(xdgDataHome(), 'applications'), IDENTIFIER, DEEP_LINK_SCHEMES);
+    void claimSchemes(join(xdgDataHome(), 'applications'), IDENTIFIER, DEEP_LINK_SCHEMES);
   } else if (app.isPackaged) {
     for (const scheme of DEEP_LINK_SCHEMES) {
       const handler = app.getApplicationNameForProtocol(`${scheme}://`);
@@ -318,6 +366,12 @@ if (!app.requestSingleInstanceLock()) {
   void app.whenReady().then(() => {
     core = startCore();
     protocol.handle(SCHEME, serveApp);
+    enforcePermissions(
+      session.defaultSession,
+      join(app.getPath('userData'), 'permissions.json'),
+      isAppUrl,
+      () => mainWindow
+    );
     registerScreenShare();
     mainWindow = createWindow();
   });

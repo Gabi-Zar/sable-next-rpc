@@ -1,27 +1,29 @@
 import { app } from 'electron';
-import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
 
 function quote(argument: string): string {
   return `"${argument.replace(/["`$\\]/g, '\\$&')}"`;
 }
 
-function run(command: string, args: string[]): void {
-  execFile(command, args, (error) => {
-    if (error) console.warn(`[sable deep links] ${command} failed`, error.message);
-  });
-}
-
-function currentHandler(mimeType: string): string {
+async function attempt(command: string, args: string[]): Promise<string> {
   try {
-    return execFileSync('xdg-mime', ['query', 'default', mimeType], { encoding: 'utf8' }).trim();
-  } catch {
+    return (await run(command, args, { encoding: 'utf8' })).stdout.trim();
+  } catch (error) {
+    console.warn(`[sable deep links] ${command} failed`, (error as Error).message);
     return '';
   }
 }
 
-export function claimSchemes(applications: string, identifier: string, schemes: string[]): void {
+export async function claimSchemes(
+  applications: string,
+  identifier: string,
+  schemes: string[]
+): Promise<void> {
   const exec = process.defaultApp
     ? ['env', `SABLE_IDENTIFIER=${identifier}`, process.execPath, resolve(app.getAppPath())]
     : [process.env.APPIMAGE ?? process.execPath];
@@ -39,13 +41,13 @@ export function claimSchemes(applications: string, identifier: string, schemes: 
 
   const name = `${identifier}-handler.desktop`;
   const path = join(applications, name);
-  if (!existsSync(path) || readFileSync(path, 'utf8') !== entry) {
-    mkdirSync(applications, { recursive: true });
-    writeFileSync(path, entry);
-    run('update-desktop-database', [applications]);
+  if ((await readFile(path, 'utf8').catch(() => '')) !== entry) {
+    await mkdir(applications, { recursive: true });
+    await writeFile(path, entry);
+    await attempt('update-desktop-database', [applications]);
   }
   for (const mimeType of mimeTypes) {
-    const handler = currentHandler(mimeType);
-    if (handler === '' || handler === name) run('xdg-mime', ['default', name, mimeType]);
+    const handler = await attempt('xdg-mime', ['query', 'default', mimeType]);
+    if (handler === '' || handler === name) await attempt('xdg-mime', ['default', name, mimeType]);
   }
 }
