@@ -1483,7 +1483,7 @@ test('a date divider stays a plain annotation with nothing to act on', async () 
   expect(document.querySelector('.date-divider')).not.toBeNull();
 });
 
-test('a message waiting for the server shows a sending clock until it is sent', async () => {
+test('a message waiting for the server shows a sending status until it is sent', async () => {
   const sending: TimelineItemView = {
     ...item(false),
     event_id: null,
@@ -1496,7 +1496,7 @@ test('a message waiting for the server shows a sending clock until it is sent', 
   });
   await tick();
 
-  expect(screen.getByRole('img', { name: 'Sending…' })).toBeTruthy();
+  expect(screen.getByRole('status')).toHaveTextContent('Sending…');
 
   await view.rerender({
     core,
@@ -1504,7 +1504,7 @@ test('a message waiting for the server shows a sending clock until it is sent', 
   });
   await tick();
 
-  expect(screen.queryByRole('img', { name: 'Sending…' })).toBeNull();
+  expect(screen.queryByRole('status')).toBeNull();
 });
 
 test('shows an indeterminate upload bar until the core reports progress', async () => {
