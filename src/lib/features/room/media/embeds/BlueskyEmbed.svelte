@@ -21,6 +21,7 @@
 
   import LinkPreviewCard from '../LinkPreviewCard.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
+  import { savesNatively } from '#lib/platform/files.js';
   import { formatMessageTimestamp } from '#lib/ui/date-time.js';
 
   interface Props {
@@ -140,6 +141,7 @@
   {#if embed.presentation !== 'gif'}
     <video
       controls
+      controlslist={savesNatively() ? 'nodownload' : undefined}
       class="embed-solo-image"
       {src}
       title={embed.alt}

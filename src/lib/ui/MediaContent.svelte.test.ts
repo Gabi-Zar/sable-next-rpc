@@ -17,10 +17,17 @@ vi.mock('pdfjs-dist', () => ({
   getDocument: () => ({ promise: new Promise(() => {}), destroy: () => Promise.resolve() }),
 }));
 
+vi.mock('#lib/platform/files.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#lib/platform/files.js')>()),
+  savesNatively: vi.fn(() => false),
+}));
+
+import { savesNatively } from '#lib/platform/files.js';
 import MediaContent from './MediaContent.svelte';
 
 afterEach(() => {
   core.fetchMedia.mockReset();
+  vi.mocked(savesNatively).mockReturnValue(false);
 });
 
 async function settle(): Promise<void> {
@@ -257,6 +264,31 @@ test('a video shows its thumbnail and waits for play before fetching', async () 
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/waiting-poster', 800, 600);
   expect(document.querySelector('.media-poster')).not.toBeNull();
 });
+
+test.each([
+  { native: true, controlsList: 'nodownload' },
+  { native: false, controlsList: null },
+])(
+  'a played video hides the native download control when saving natively is $native',
+  async ({ native, controlsList }) => {
+    vi.mocked(savesNatively).mockReturnValue(native);
+    core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+    render(MediaContent, {
+      props: {
+        kind: 'video',
+        source: `mxc://example.org/clip-${String(native)}`,
+        mime: 'video/mp4',
+        filename: 'clip.mp4',
+      },
+    });
+
+    await settle();
+    await userEvent.click(screen.getByRole('button', { name: /^Play / }));
+    await settle();
+
+    expect(document.querySelector('video')?.getAttribute('controlslist')).toBe(controlsList);
+  }
+);
 
 test('voice message speed button cycles the playback rate', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));

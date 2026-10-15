@@ -322,6 +322,7 @@
         bind:this={videoEl}
         class="media-content media-video"
         controls={video.controls}
+        controlslist={savesNatively() ? 'nodownload' : undefined}
         autoplay={started}
         loop={video.loop}
         muted={video.muted}

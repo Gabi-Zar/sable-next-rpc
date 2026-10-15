@@ -25,7 +25,7 @@
     SWIPE_THRESHOLD,
     VELOCITY_THRESHOLD,
   } from '#lib/ui/swipe-gesture.js';
-  import { sharesNatively, supportsPhotoLibrary } from '#lib/platform/files.js';
+  import { savesNatively, sharesNatively, supportsPhotoLibrary } from '#lib/platform/files.js';
   import { setSystemBarsHidden } from '#lib/platform/system-bars.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
@@ -874,6 +874,7 @@
                 bind:this={videoEl}
                 class="media-player"
                 controls
+                controlslist={savesNatively() ? 'nodownload' : undefined}
                 src={url}
                 aria-label={mediaLabel || i18n.t('timeline.videoAttachment')}
               >
