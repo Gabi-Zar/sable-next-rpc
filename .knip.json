@@ -1,19 +1,16 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    "src/worker/core.worker.ts",
     "scripts/**/*.mjs",
     "tests/fixtures/generate-v1-crypto.mjs",
     "tests/e2e/global.setup.ts",
-    "tests/e2e/global.teardown.ts",
-    "tests/e2e/fixtures/*.ts"
+    "tests/e2e/global.teardown.ts"
   ],
   "playwright": {
     "config": [
       "playwright.config.ts",
       "tests/e2e/playwright.preload.config.ts",
-      "tests/e2e/playwright.migration.config.ts",
-      "tests/e2e/playwright.timeline.config.ts"
+      "tests/e2e/playwright.migration.config.ts"
     ]
   },
   "ignoreDependencies": [

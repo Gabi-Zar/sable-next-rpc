@@ -60,7 +60,7 @@ export default defineConfig({
       name: 'ios',
       dependencies: ['setup'],
       testMatch: SCRIPTED_TIMELINE_SPECS,
-      use: { ...devices['iPhone 13'], browserName: 'webkit' },
+      use: devices['iPhone 13'],
     },
   ],
   webServer: [

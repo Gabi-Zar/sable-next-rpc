@@ -9,10 +9,6 @@ export default {
   ignorePatterns: [
     '.agents/skills',
     '.impeccable',
-    'dist',
-    'node_modules',
-    '.svelte-kit',
-    'target',
     'vendor',
     'plugins/tauri-plugin-sable-push/permissions',
     'src/generated',
@@ -22,7 +18,6 @@ export default {
     'package.json',
     'CHANGELOG.md',
     'src-tauri/tauri.conf.json',
-    'pnpm-lock.yaml',
     'Cargo.lock',
     'LICENSE',
     'README.md',

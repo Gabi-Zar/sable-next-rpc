@@ -1,8 +1,6 @@
 {
   "extends": "../tsconfig.json",
   "include": [
-    "../.svelte-kit/ambient.d.ts",
-    "../.svelte-kit/non-ambient.d.ts",
     "../src/app.d.ts",
     "../src/**/*.browser.test.ts",
     "e2e/fixtures/*.browser.test.ts",
@@ -10,5 +8,5 @@
     "vitest-browser-setup.ts"
   ],
   "exclude": ["../src/service-worker"],
-  "compilerOptions": { "noEmit": true, "types": ["@vitest/browser-playwright"] }
+  "compilerOptions": { "types": ["$app/types", "@vitest/browser-playwright"] }
 }

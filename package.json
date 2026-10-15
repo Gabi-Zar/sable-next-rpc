@@ -105,7 +105,7 @@
     "@storybook/addon-docs": "10.6.1",
     "@storybook/addon-svelte-csf": "5.1.5",
     "@storybook/sveltekit": "10.6.1",
-    "@sveltejs/adapter-static": "next",
+    "@sveltejs/adapter-static": "^4.0.0",
     "@sveltejs/kit": "3.0.1",
     "@sveltejs/vite-plugin-svelte": "7.3.1",
     "@tauri-apps/cli": "2.12.0",

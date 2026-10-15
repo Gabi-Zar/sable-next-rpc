@@ -30,7 +30,7 @@
     },
     {
       description: 'Tauri and its plugins move together',
-      matchPackageNames: ['/^tauri(?:-.*)?$/'],
+      matchPackageNames: ['/^tauri(?:-.*)?$/', '/^@tauri-apps\\//'],
       groupName: 'tauri',
     },
     {

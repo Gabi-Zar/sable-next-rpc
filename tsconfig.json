@@ -1,9 +1,6 @@
 {
   "extends": "$app/tsconfig",
   "include": [
-    ".svelte-kit/ambient.d.ts",
-    ".svelte-kit/env.d.ts",
-    ".svelte-kit/non-ambient.d.ts",
     ".svelte-kit/types/**/$types.d.ts",
     ".storybook/**/*.ts",
     "vite.config.ts",
@@ -20,10 +17,5 @@
     "src/**/*.browser.test.ts",
     "tests/e2e/fixtures/*.browser.test.ts",
     "tests/vitest-browser-setup.ts"
-  ],
-  "compilerOptions": {
-    "rewriteRelativeImportExtensions": true,
-    "sourceMap": true,
-    "strict": true
-  }
+  ]
 }

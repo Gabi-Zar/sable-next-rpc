@@ -36,6 +36,10 @@ pre-commit:
         - 'src/generated/*'
       run: pnpm exec oxlint --type-aware {staged_files}
 
+    - name: oxlint-js
+      glob: '*.{js,mjs,cjs}'
+      run: pnpm exec oxlint {staged_files}
+
     - name: css
       glob: '*.css'
       run: pnpm exec stylelint --fix --max-warnings 0 {staged_files}

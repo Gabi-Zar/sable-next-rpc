@@ -6,12 +6,35 @@ import viteConfig from './vite.config.ts';
 
 const COVERAGE_MINIMUM = 46;
 
+const HAPPY_DOM_TESTS = [
+  'src/lib/features/composer/VoiceRecorder.svelte.test.ts',
+  'src/lib/features/composer/voice-recorder-encoder.test.ts',
+  'src/lib/features/room/timeline/TimelineReadReceipt.svelte.test.ts',
+  'src/lib/ui/long-press.svelte.test.ts',
+  'src/lib/ui/scroll-hint.svelte.test.ts',
+  'src/lib/features/room/messages/message-swipe.svelte.test.ts',
+  'src/lib/core/attachment-info.test.ts',
+  'src/lib/ui/shortcuts/binding.test.ts',
+  'src/lib/ui/shortcuts/global-shortcuts.test.ts',
+  'src/lib/ui/swipe-gesture.test.ts',
+  'src/lib/ui/swipe-back.svelte.test.ts',
+  'src/lib/ui/double-tap.test.ts',
+  'src/lib/ui/trailing-click.test.ts',
+  'src/lib/ui/video-support.test.ts',
+  'src/lib/platform/devtools.test.ts',
+  'src/lib/platform/keyboard.test.ts',
+  'src/lib/settings/theme-styles.test.ts',
+  'src/lib/features/room/messages/reply-preview.test.ts',
+  'src/lib/ui/primitives/Switcher.svelte.test.ts',
+];
+
 export default mergeConfig(
   viteConfig,
   defineConfig({
     resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined,
     test: {
       maxWorkers: 4,
+      setupFiles: ['./tests/vitest-setup.ts'],
       // Async mode schedules updates on animation frames, which would never fire if faked.
       fakeTimers: {
         toFake: [
@@ -39,63 +62,18 @@ export default mergeConfig(
       },
       projects: [
         {
-          extends: true,
           test: {
             name: 'node',
-            setupFiles: ['./tests/vitest-setup.ts'],
             environment: 'node',
             include: ['src/**/*.test.ts'],
-            exclude: [
-              'src/**/*.browser.test.ts',
-              'src/lib/features/composer/VoiceRecorder.svelte.test.ts',
-              'src/lib/features/composer/voice-recorder-encoder.test.ts',
-              'src/lib/features/room/timeline/TimelineReadReceipt.svelte.test.ts',
-              'src/lib/ui/long-press.svelte.test.ts',
-              'src/lib/ui/scroll-hint.svelte.test.ts',
-              'src/lib/features/room/messages/message-swipe.svelte.test.ts',
-              'src/lib/core/attachment-info.test.ts',
-              'src/lib/ui/shortcuts/binding.test.ts',
-              'src/lib/ui/shortcuts/global-shortcuts.test.ts',
-              'src/lib/ui/swipe-gesture.test.ts',
-              'src/lib/ui/swipe-back.svelte.test.ts',
-              'src/lib/ui/double-tap.test.ts',
-              'src/lib/ui/trailing-click.test.ts',
-              'src/lib/ui/video-support.test.ts',
-              'src/lib/platform/devtools.test.ts',
-              'src/lib/platform/keyboard.test.ts',
-              'src/lib/settings/theme-styles.test.ts',
-              'src/lib/features/room/messages/reply-preview.test.ts',
-              'src/lib/ui/primitives/Switcher.svelte.test.ts',
-            ],
+            exclude: ['src/**/*.browser.test.ts', ...HAPPY_DOM_TESTS],
           },
         },
         {
-          extends: true,
           test: {
             name: 'happy-dom',
-            setupFiles: ['./tests/vitest-setup.ts'],
             environment: 'happy-dom',
-            include: [
-              'src/lib/features/composer/VoiceRecorder.svelte.test.ts',
-              'src/lib/features/composer/voice-recorder-encoder.test.ts',
-              'src/lib/features/room/timeline/TimelineReadReceipt.svelte.test.ts',
-              'src/lib/ui/long-press.svelte.test.ts',
-              'src/lib/ui/scroll-hint.svelte.test.ts',
-              'src/lib/features/room/messages/message-swipe.svelte.test.ts',
-              'src/lib/core/attachment-info.test.ts',
-              'src/lib/ui/shortcuts/binding.test.ts',
-              'src/lib/ui/shortcuts/global-shortcuts.test.ts',
-              'src/lib/ui/swipe-gesture.test.ts',
-              'src/lib/ui/swipe-back.svelte.test.ts',
-              'src/lib/ui/double-tap.test.ts',
-              'src/lib/ui/trailing-click.test.ts',
-              'src/lib/ui/video-support.test.ts',
-              'src/lib/platform/devtools.test.ts',
-              'src/lib/platform/keyboard.test.ts',
-              'src/lib/settings/theme-styles.test.ts',
-              'src/lib/features/room/messages/reply-preview.test.ts',
-              'src/lib/ui/primitives/Switcher.svelte.test.ts',
-            ],
+            include: HAPPY_DOM_TESTS,
           },
         },
         {
@@ -130,10 +108,8 @@ export default mergeConfig(
         include: ['src/**/*.{ts,svelte}'],
         exclude: [
           'src/**/*.d.ts',
-          'src/**/*.test.ts',
           'src/**/__mocks__/**',
           'src/lib/test-support/**',
-          'src/app.d.ts',
           'src/generated/**',
         ],
         thresholds: {

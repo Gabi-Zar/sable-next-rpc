@@ -1,21 +1,14 @@
+import { fileURLToPath } from 'node:url';
+
 import js from '@eslint/js';
-import { defineConfig, globalIgnores } from 'eslint/config';
+import { defineConfig, includeIgnoreFile } from 'eslint/config';
 import globals from 'globals';
 import oxlint from 'eslint-plugin-oxlint';
 import svelte from 'eslint-plugin-svelte';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
-  globalIgnores([
-    'coverage/**',
-    'dist/**',
-    'node_modules/**',
-    'playwright-report/**',
-    'src/generated/**',
-    'target/**',
-    'test-results/**',
-    '.svelte-kit/**',
-  ]),
+  includeIgnoreFile(fileURLToPath(new URL('.gitignore', import.meta.url))),
   js.configs.recommended,
   ...tseslint.configs.strict,
   svelte.configs.recommended,
@@ -76,10 +69,6 @@ export default defineConfig([
     },
     rules: {
       'no-undef': 'off',
-      'svelte/no-unused-props': 'error',
-      'svelte/no-unused-svelte-ignore': 'error',
-      'svelte/no-useless-children-snippet': 'error',
-      'svelte/no-useless-mustaches': 'error',
       'svelte/prefer-const': 'error',
       'svelte/valid-compile': ['error', { ignoreWarnings: false }],
 
@@ -114,12 +103,8 @@ export default defineConfig([
     languageOptions: { globals: { ...globals.audioWorklet } },
   },
   {
-    // SvelteKit keeps the service worker out of the app's tsconfig, since it
-    // compiles against webworker libs rather than the DOM's.
-    files: ['src/service-worker.ts'],
-    extends: [tseslint.configs.disableTypeChecked],
+    files: ['src/service-worker/**/*.ts'],
     languageOptions: {
-      parserOptions: { projectService: false, project: false },
       globals: { ...globals.serviceworker },
     },
   },
@@ -136,9 +121,5 @@ export default defineConfig([
       ],
     },
   },
-  {
-    files: ['**/*.{js,mjs,cjs}'],
-    extends: [tseslint.configs.disableTypeChecked],
-  },
-  oxlint.configs['flat/recommended'],
+  ...oxlint.buildFromOxlintConfigFile('./.oxlintrc.json'),
 ]);
