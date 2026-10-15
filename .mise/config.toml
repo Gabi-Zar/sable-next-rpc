@@ -3,7 +3,7 @@ min_version = '2026.7.11'
 [env]
 _.path = ["{{config_root}}/node_modules/.bin"]
 NODE_OPTIONS = "--max-old-space-size=4096"
-# Here rather than in mise.tauri.toml: the setup task's own MISE_ENV reaches the
+# Here rather than in .mise/config.tauri.toml: the setup task's own MISE_ENV reaches the
 # commands it spawns, not the template that renders them.
 ANDROID_NDK_VERSION = "29.0.14206865"
 
@@ -25,7 +25,7 @@ node = "24.21.0"
 [tasks.setup]
 description = "Install mise tools and pnpm dependencies (pnpm installs the git hooks)"
 run = ["mise install", "pnpm install"]
-sources = ['mise.toml', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
+sources = ['.mise/config.toml', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml']
 outputs = ['node_modules/.pnpm/lock.yaml']
 
 [tasks.knope]

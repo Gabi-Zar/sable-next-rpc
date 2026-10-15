@@ -16,7 +16,7 @@ inputs:
     required: false
     default: 'false'
   mise:
-    description: Whether the job needs the tools declared in mise.toml.
+    description: Whether the job needs the tools declared in .mise/config.toml.
     required: false
     default: 'false'
   cache-key:

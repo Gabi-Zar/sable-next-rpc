@@ -10,7 +10,7 @@ on:
       - 'Cargo.lock'
       - 'rust-toolchain.toml'
       - '.cargo/config.toml'
-      - 'mise.toml'
+      - '.mise/config.toml'
       - 'scripts/build-wasm.mjs'
       - 'package.json'
       - 'pnpm-lock.yaml'

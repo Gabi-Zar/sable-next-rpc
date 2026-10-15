@@ -15,7 +15,7 @@ inputs:
     required: false
     default: 'wasm'
   install-mise-tools:
-    description: Whether to install tools declared in mise.toml.
+    description: Whether to install tools declared in .mise/config.toml.
     required: false
     default: 'true'
 
@@ -54,7 +54,7 @@ runs:
       uses: https://github.com/actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: src/generated/wasm
-        key: wasm-${{ runner.os }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', 'mise.toml', 'scripts/build-wasm.mjs') }}
+        key: wasm-${{ runner.os }}-${{ hashFiles('crates/**', 'Cargo.toml', 'Cargo.lock', 'rust-toolchain.toml', '.cargo/config.toml', '.mise/config.toml', 'scripts/build-wasm.mjs') }}
 
     - name: Set up Rust
       if: ${{ inputs.rust == 'true' || (inputs.build == 'true' && steps.wasm.outputs.cache-hit != 'true') }}
