@@ -281,7 +281,7 @@ pub async fn build_client(
     build_account_client(
         apply_server(Client::builder(), homeserver),
         store_id,
-        true,
+        ClientRole::Account,
         persistent_event_cache,
     )
     .await
@@ -297,7 +297,13 @@ pub async fn build_client_at(
 ) -> Result<Client, matrix_sdk::ClientBuildError> {
     let builder = crate::tls::apply_sdk(Client::builder()).homeserver_url(homeserver_url.as_str());
 
-    build_account_client(builder, store_id, true, persistent_event_cache).await
+    build_account_client(
+        builder,
+        store_id,
+        ClientRole::Account,
+        persistent_event_cache,
+    )
+    .await
 }
 
 /// # Errors
@@ -347,7 +353,7 @@ pub(crate) async fn restore_notification_client(
         || apply_server(Client::builder(), &persisted.homeserver),
         |url| crate::tls::apply_sdk(Client::builder()).homeserver_url(url.as_str()),
     );
-    let client = build_account_client(builder, store_id, false, true)
+    let client = build_account_client(builder, store_id, ClientRole::Notification, true)
         .await
         .map_err(CoreError::backend)?;
     restore_credentials(&client, persisted).await?;
@@ -449,13 +455,41 @@ pub(crate) async fn repair_room_key_sharing(client: &Client) -> Result<(), CoreE
         .map_err(CoreError::backend)
 }
 
+#[derive(Clone, Copy)]
+enum ClientRole {
+    Account,
+    /// Opened beside the account's own client, possibly in another process, so
+    /// it leaves keys, backups and cross-signing to that one.
+    #[cfg(not(target_family = "wasm"))]
+    Notification,
+}
+
+impl ClientRole {
+    const fn is_account(self) -> bool {
+        matches!(self, Self::Account)
+    }
+
+    const fn encryption_settings(self) -> EncryptionSettings {
+        let account = self.is_account();
+        EncryptionSettings {
+            backup_download_strategy: if account {
+                BackupDownloadStrategy::AfterDecryptionFailure
+            } else {
+                BackupDownloadStrategy::Manual
+            },
+            auto_enable_cross_signing: account,
+            auto_enable_backups: account,
+        }
+    }
+}
+
 async fn build_account_client(
     builder: ClientBuilder,
     store_id: &str,
-    refresh_tokens: bool,
+    role: ClientRole,
     persistent_event_cache: bool,
 ) -> Result<Client, matrix_sdk::ClientBuildError> {
-    let builder = if refresh_tokens {
+    let builder = if role.is_account() {
         builder.handle_refresh_tokens()
     } else {
         builder
@@ -465,11 +499,7 @@ async fn build_account_client(
             RequestConfig::new().timeout(session_timeout(crate::tls::proxy_configured())),
         )
         .with_threading_support(THREADING_SUPPORT)
-        .with_encryption_settings(EncryptionSettings {
-            backup_download_strategy: BackupDownloadStrategy::AfterDecryptionFailure,
-            auto_enable_cross_signing: true,
-            auto_enable_backups: true,
-        });
+        .with_encryption_settings(role.encryption_settings());
 
     #[cfg(not(target_family = "wasm"))]
     {
@@ -518,7 +548,9 @@ async fn build_account_client(
             .base_client((*base).clone())
             .build()
             .await?;
-        register_base_client(store_id, base, &client);
+        if role.is_account() {
+            register_base_client(store_id, base, &client);
+        }
         Ok(client)
     }
 
@@ -952,7 +984,7 @@ mod tests {
         let client = build_account_client(
             matrix_sdk::Client::builder().homeserver_url("https://example.org"),
             store.path().to_str().unwrap(),
-            false,
+            super::ClientRole::Notification,
             true,
         )
         .await

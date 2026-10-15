@@ -101,6 +101,10 @@ use store::SessionStore;
 
 pub(crate) type Task = AbortOnDrop<()>;
 
+/// Lets pushes and pusher upkeep use the clients of the core that owns their store.
+#[cfg(not(target_family = "wasm"))]
+static CORES: std::sync::Mutex<Vec<std::sync::Weak<Core>>> = std::sync::Mutex::new(Vec::new());
+
 /// Owns every piece of Matrix state. A carrier only moves `Command`s in and
 /// `CoreEvent`s out.
 pub struct Core {
@@ -347,7 +351,29 @@ impl Core {
             call_sessions: Mutex::new(HashMap::new()),
             desired_presence: std::sync::Mutex::new(protocol::PresenceView::Online),
         });
+        #[cfg(not(target_family = "wasm"))]
+        CORES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(Arc::downgrade(&core));
         (core, rx)
+    }
+
+    /// The core of this process that owns the stores under `base_store`.
+    #[cfg(not(target_family = "wasm"))]
+    pub(crate) fn owning(base_store: &std::path::Path) -> Option<Arc<Self>> {
+        let wanted = std::fs::canonicalize(base_store).unwrap_or_else(|_| base_store.into());
+        let mut cores = CORES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        cores.retain(|core| core.strong_count() > 0);
+        cores
+            .iter()
+            .filter_map(std::sync::Weak::upgrade)
+            .find(|core| {
+                let base = std::path::Path::new(&core.store_id);
+                std::fs::canonicalize(base).unwrap_or_else(|_| base.into()) == wanted
+            })
     }
 
     #[must_use]

@@ -79,7 +79,6 @@ pub enum ColdPush {
 /// Decrypt an Android push.
 #[cfg(not(target_family = "wasm"))]
 pub async fn decrypt_cold_push(
-    core: Option<&crate::Core>,
     data_dir: &std::path::Path,
     user_id: &str,
     device_id: &str,
@@ -88,66 +87,32 @@ pub async fn decrypt_cold_push(
     fetch_keys: bool,
 ) -> ColdPush {
     let store_dir = cold_push_store_dir(data_dir);
-    let key_fetch = |fetch: KeyFetch| if fetch_keys { fetch } else { KeyFetch::Never };
-    let client = match push_host(core, &store_dir, user_id, device_id).await {
-        None => return ColdPush::Undecryptable,
-        Some(PushHost::Live {
-            client,
-            sync_service,
-        }) => {
-            return Box::pin(decrypt_push_event(
-                &client,
-                key_fetch(KeyFetch::Live(sync_service)),
-                room_id,
-                event_json,
-            ))
-            .await;
-        }
-        Some(PushHost::Shared { client, _lease }) => {
-            return Box::pin(decrypt_push_event(
-                &client,
-                key_fetch(KeyFetch::Cold),
-                room_id,
-                event_json,
-            ))
-            .await;
-        }
-        Some(PushHost::Own(client)) if core.is_some() => {
-            return match Box::pin(decrypt_push_event(
-                &client,
-                KeyFetch::Never,
-                room_id,
-                event_json,
-            ))
-            .await
-            {
-                ColdPush::NeedsKey { quietly: true } if fetch_keys => ColdPush::Discard,
-                ColdPush::NeedsKey { .. } if fetch_keys => ColdPush::Undecryptable,
-                result => result,
-            };
-        }
-        Some(PushHost::Own(client)) => client,
+    let Some(host) = push_host(&store_dir, user_id, device_id).await else {
+        return ColdPush::Undecryptable;
     };
     let decrypt = || {
-        decrypt_push_event(
-            &client,
-            if fetch_keys {
-                KeyFetch::Cold
-            } else {
-                KeyFetch::Never
-            },
+        let key_fetch = if fetch_keys {
+            host.key_fetch()
+        } else {
+            KeyFetch::Never
+        };
+        Box::pin(decrypt_push_event(
+            host.client(),
+            key_fetch,
             room_id,
             event_json,
-        )
+        ))
     };
     let result = decrypt().await;
-    if fetch_keys
-        && matches!(result, ColdPush::Undecryptable | ColdPush::NeedsKey { .. })
-        && client.refresh().await
-    {
-        decrypt().await
-    } else {
-        result
+    match result {
+        ColdPush::NeedsKey { quietly: true } if fetch_keys && !host.may_sync() => ColdPush::Discard,
+        ColdPush::NeedsKey { .. } if fetch_keys && !host.may_sync() => ColdPush::Undecryptable,
+        ColdPush::Undecryptable | ColdPush::NeedsKey { .. }
+            if fetch_keys && host.refresh().await =>
+        {
+            decrypt().await
+        }
+        result => result,
     }
 }
 
@@ -216,10 +181,15 @@ pub async fn settle_refreshes<T>(operation: impl std::future::Future<Output = T>
 #[cfg(not(target_family = "wasm"))]
 pub struct PushClient {
     client: Client,
-    owner: Option<std::sync::Arc<FileSessionStore>>,
+    owner: Option<PushOwner>,
+    _lease: Option<crate::session::StoreLease>,
+}
+
+#[cfg(not(target_family = "wasm"))]
+struct PushOwner {
+    store: std::sync::Arc<FileSessionStore>,
     base_store: String,
     account_id: String,
-    _lease: tokio::sync::OwnedMutexGuard<()>,
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -234,15 +204,16 @@ impl std::ops::Deref for PushClient {
 #[cfg(not(target_family = "wasm"))]
 impl PushClient {
     async fn refresh(&self) -> bool {
-        let Some(store) = self.owner.clone() else {
+        let Some(owner) = &self.owner else {
             return false;
         };
         if !self.token_rejected().await {
             return false;
         }
         let client = self.client.clone();
-        let base_store = self.base_store.clone();
-        let account_id = self.account_id.clone();
+        let store = owner.store.clone();
+        let base_store = owner.base_store.clone();
+        let account_id = owner.account_id.clone();
         let (sent, refreshed) = tokio::sync::oneshot::channel();
         let task = tokio::spawn(async move {
             let refreshed = client.refresh_access_token().await.is_ok()
@@ -297,11 +268,20 @@ pub async fn restore_push_client(
     user_id: &str,
     device_id: &str,
 ) -> Option<PushClient> {
-    let store_id = saved_push_account(store_dir, user_id, device_id)
-        .await?
-        .store_id;
-    let lease = crate::session::store_lease(&store_id).await;
-    open_push_client(store_dir, user_id, device_id, lease).await
+    let host = push_host(store_dir, user_id, device_id).await?;
+    Some(match host {
+        PushHost::Live { client, .. } => PushClient {
+            client,
+            owner: None,
+            _lease: None,
+        },
+        PushHost::Shared { client, lease } => PushClient {
+            client,
+            owner: None,
+            _lease: Some(lease),
+        },
+        PushHost::Own(client) => client,
+    })
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -309,7 +289,7 @@ async fn open_push_client(
     store_dir: &std::path::Path,
     user_id: &str,
     device_id: &str,
-    lease: tokio::sync::OwnedMutexGuard<()>,
+    lease: crate::session::StoreLease,
 ) -> Option<PushClient> {
     let directory = store_dir.to_owned();
     let owner = tokio::task::spawn_blocking(move || FileSessionStore::try_exclusive(directory))
@@ -322,12 +302,18 @@ async fn open_push_client(
     let client = crate::session::restore_notification_client(&account.store_id, &account.session)
         .await
         .ok()?;
+    let owner = match owner {
+        Some(store) => Some(PushOwner {
+            store,
+            base_store: store_dir.to_str()?.to_owned(),
+            account_id: account.account_id,
+        }),
+        None => None,
+    };
     Some(PushClient {
         client,
         owner,
-        base_store: store_dir.to_str()?.to_owned(),
-        account_id: account.account_id,
-        _lease: lease,
+        _lease: Some(lease),
     })
 }
 
@@ -352,52 +338,75 @@ enum PushHost {
     },
     Shared {
         client: Client,
-        _lease: tokio::sync::OwnedMutexGuard<()>,
+        lease: crate::session::StoreLease,
     },
     Own(PushClient),
 }
 
 #[cfg(not(target_family = "wasm"))]
-const RESTORE_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+impl PushHost {
+    fn client(&self) -> &Client {
+        match self {
+            Self::Live { client, .. } | Self::Shared { client, .. } => client,
+            Self::Own(push) => push,
+        }
+    }
+
+    /// A client of its own may only sync the store when no other process has it open.
+    const fn may_sync(&self) -> bool {
+        match self {
+            Self::Live { .. } | Self::Shared { .. } => true,
+            Self::Own(push) => push.owner.is_some(),
+        }
+    }
+
+    fn key_fetch(&self) -> KeyFetch {
+        match self {
+            Self::Live { sync_service, .. } => KeyFetch::Live(sync_service.clone()),
+            _ if self.may_sync() => KeyFetch::Cold,
+            _ => KeyFetch::Never,
+        }
+    }
+
+    async fn refresh(&self) -> bool {
+        match self {
+            Self::Own(push) => push.refresh().await,
+            _ => false,
+        }
+    }
+}
 
 #[cfg(not(target_family = "wasm"))]
+const RESTORE_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// The core that owns the store opens the client, so a store never has two.
+#[cfg(not(target_family = "wasm"))]
 async fn push_host(
-    core: Option<&crate::Core>,
     store_dir: &std::path::Path,
     user_id: &str,
     device_id: &str,
 ) -> Option<PushHost> {
-    if let Some(core) = core {
-        let _ = tokio::time::timeout(RESTORE_WAIT, core.restore_lock.lock()).await;
-        if let Some(host) = live_push_host(core, user_id, device_id).await {
-            return Some(host);
-        }
-    }
-    let store_id = saved_push_account(store_dir, user_id, device_id)
-        .await?
-        .store_id;
-    let lease = crate::session::store_lease(&store_id).await;
-    if let Some(core) = core {
-        if let Some(host) = live_push_host(core, user_id, device_id).await {
-            return Some(host);
-        }
-        let cached = core
-            .account_clients
-            .lock()
+    let Some(core) = crate::Core::owning(store_dir) else {
+        let store_id = saved_push_account(store_dir, user_id, device_id)
+            .await?
+            .store_id;
+        let lease = crate::session::store_lease(&store_id).await;
+        return open_push_client(store_dir, user_id, device_id, lease)
             .await
-            .values()
-            .find(|client| is_login(client, user_id, device_id))
-            .cloned();
-        if let Some(client) = cached {
-            return Some(PushHost::Shared {
-                client,
-                _lease: lease,
-            });
-        }
+            .map(PushHost::Own);
+    };
+    let _ = tokio::time::timeout(RESTORE_WAIT, core.restore_lock.lock()).await;
+    if let Some(host) = live_push_host(&core, user_id, device_id).await {
+        return Some(host);
     }
-    open_push_client(store_dir, user_id, device_id, lease)
-        .await
-        .map(PushHost::Own)
+    let accounts = core.accounts().await.ok()?;
+    let account = push_account(&accounts, user_id, device_id)?;
+    let lease = crate::session::store_lease(&account.store_id).await;
+    if let Some(host) = live_push_host(&core, user_id, device_id).await {
+        return Some(host);
+    }
+    let client = core.saved_account_client(account, &lease).await.ok()?;
+    Some(PushHost::Shared { client, lease })
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -557,7 +566,6 @@ fn marked_noisy(clear: &str, noisy: bool) -> String {
 
 #[cfg(not(target_family = "wasm"))]
 pub async fn fetch_cold_push_event(
-    core: Option<&crate::Core>,
     data_dir: &std::path::Path,
     user_id: &str,
     device_id: &str,
@@ -568,34 +576,28 @@ pub async fn fetch_cold_push_event(
         return PushFetchView::Unavailable;
     };
     let store_dir = cold_push_store_dir(data_dir);
-    let client = match push_host(core, &store_dir, user_id, device_id).await {
-        None => return PushFetchView::Unavailable,
-        Some(PushHost::Live {
-            client,
-            sync_service,
-        }) => {
-            return Box::pin(fetch_push_event(&client, sync_service, &room_id, &event_id)).await;
-        }
-        Some(PushHost::Shared { client, _lease }) => {
-            let Ok(sync_service) = crate::session::build_sync(client.clone()).await else {
-                return PushFetchView::Unavailable;
-            };
-            return Box::pin(fetch_push_event(&client, sync_service, &room_id, &event_id)).await;
-        }
-        Some(PushHost::Own(client)) => client,
-    };
-    let Ok(sync_service) = crate::session::build_sync(client.client.clone()).await else {
+    let Some(host) = push_host(&store_dir, user_id, device_id).await else {
         return PushFetchView::Unavailable;
     };
-    let result = Box::pin(fetch_push_event(
-        &client,
-        sync_service.clone(),
-        &room_id,
-        &event_id,
-    ))
-    .await;
-    if matches!(result, PushFetchView::Unavailable) && client.refresh().await {
-        Box::pin(fetch_push_event(&client, sync_service, &room_id, &event_id)).await
+    let sync_service = match &host {
+        PushHost::Live { sync_service, .. } => sync_service.clone(),
+        _ if !host.may_sync() => return PushFetchView::Unavailable,
+        _ => match crate::session::build_sync(host.client().clone()).await {
+            Ok(sync_service) => sync_service,
+            Err(_) => return PushFetchView::Unavailable,
+        },
+    };
+    let fetch = || {
+        Box::pin(fetch_push_event(
+            host.client(),
+            sync_service.clone(),
+            &room_id,
+            &event_id,
+        ))
+    };
+    let result = fetch().await;
+    if matches!(result, PushFetchView::Unavailable) && host.refresh().await {
+        fetch().await
     } else {
         result
     }
@@ -1161,7 +1163,6 @@ mod tests {
 
         async fn decrypt(&self, device: &str, event: &str) -> ColdPush {
             decrypt_cold_push(
-                None,
                 &self.data_dir,
                 "@alice:example.org",
                 device,
@@ -1174,7 +1175,6 @@ mod tests {
 
         async fn decrypt_locally(&self, event: &str) -> ColdPush {
             decrypt_cold_push(
-                None,
                 &self.data_dir,
                 "@alice:example.org",
                 "A",
@@ -1257,17 +1257,13 @@ mod tests {
         outbound
     }
 
-    async fn core_holding_the_login(
+    async fn saved_login(
         server: &MatrixMockServer,
         data_dir: &std::path::Path,
-    ) -> (
-        std::sync::Arc<crate::Core>,
-        crate::session::PersistedAccount,
-    ) {
-        let store_dir = cold_push_store_dir(data_dir);
-        let base = store_dir.to_str().unwrap().to_owned();
+    ) -> crate::session::PersistedAccount {
+        let base = cold_push_store_dir(data_dir);
         let mut registry = crate::session::AccountRegistry::empty();
-        let (account_id, store_id) = registry.allocate_account(&base);
+        let (account_id, store_id) = registry.allocate_account(base.to_str().unwrap());
         registry.upsert(crate::session::PersistedAccount {
             account_id,
             store_id,
@@ -1280,29 +1276,50 @@ mod tests {
             needs_reauth: false,
             device_invalidated: false,
         });
-        FileSessionStore::new(&store_dir)
+        FileSessionStore::new(&base)
             .save(serde_json::to_vec(&registry).unwrap())
             .await
             .unwrap();
-        let account = &registry.accounts[0];
+        let account = registry.accounts.remove(0);
         let seeded = crate::session::restore_client(&account.store_id, &account.session, true)
             .await
             .unwrap();
         crate::session::restore_credentials(&seeded, &account.session)
             .await
             .unwrap();
-        drop(seeded);
-        let (core, _events) = crate::Core::new(base, Box::new(FileSessionStore::new(&store_dir)));
-        let account = core.accounts().await.unwrap().accounts.remove(0);
-        (core, account)
+        account
+    }
+
+    fn core_of(data_dir: &std::path::Path) -> std::sync::Arc<crate::Core> {
+        let base = cold_push_store_dir(data_dir);
+        crate::Core::new(
+            base.to_str().unwrap(),
+            Box::new(FileSessionStore::new(&base)),
+        )
+        .0
+    }
+
+    async fn waits_for(lease_holder: impl FnOnce(), store_id: &str) {
+        let opening = tokio::spawn({
+            let store_id = store_id.to_owned();
+            async move { drop(crate::session::store_lease(&store_id).await) }
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        assert!(!opening.is_finished());
+        lease_holder();
+        tokio::time::timeout(std::time::Duration::from_secs(5), opening)
+            .await
+            .unwrap()
+            .unwrap();
     }
 
     #[tokio::test]
-    async fn a_cold_push_shares_the_cores_client_for_its_login() {
+    async fn a_push_decrypts_on_the_client_the_core_opens_for_its_login() {
         let data_dir = tempfile::tempdir().unwrap();
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
-        let (core, account) = core_holding_the_login(&server, data_dir.path()).await;
+        let account = saved_login(&server, data_dir.path()).await;
+        let core = core_of(data_dir.path());
         let lease = crate::session::store_lease(&account.store_id).await;
         let client = core.saved_account_client(&account, &lease).await.unwrap();
         drop(lease);
@@ -1322,7 +1339,6 @@ mod tests {
         let held = crate::session::base_client(&account.store_id).unwrap();
 
         let decrypted = decrypt_cold_push(
-            Some(&core),
             data_dir.path(),
             "@alice:example.org",
             "A",
@@ -1340,26 +1356,38 @@ mod tests {
         ));
     }
 
-    async fn waits_for(lease_holder: impl FnOnce(), store_id: &str) {
-        let opening = tokio::spawn({
-            let store_id = store_id.to_owned();
-            async move { drop(crate::session::store_lease(&store_id).await) }
-        });
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-        assert!(!opening.is_finished());
-        lease_holder();
-        tokio::time::timeout(std::time::Duration::from_secs(5), opening)
-            .await
-            .unwrap()
-            .unwrap();
-    }
-
     #[tokio::test]
-    async fn the_core_cannot_open_a_store_a_cold_push_has_open() {
+    async fn pusher_upkeep_uses_the_client_of_the_core_in_the_process() {
         let data_dir = tempfile::tempdir().unwrap();
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
-        let (_core, account) = core_holding_the_login(&server, data_dir.path()).await;
+        let account = saved_login(&server, data_dir.path()).await;
+        let core = core_of(data_dir.path());
+
+        let upkeep = restore_push_client(
+            &cold_push_store_dir(data_dir.path()),
+            "@alice:example.org",
+            "A",
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            core.account_clients
+                .lock()
+                .await
+                .contains_key(&account.account_id)
+        );
+        assert!(crate::session::base_client(&account.store_id).is_some());
+        drop(upkeep);
+    }
+
+    #[tokio::test]
+    async fn a_core_waits_for_a_push_that_opened_the_store_before_it() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let server = MatrixMockServer::new().await;
+        server.mock_versions().ok().mount().await;
+        let account = saved_login(&server, data_dir.path()).await;
         let cold = restore_push_client(
             &cold_push_store_dir(data_dir.path()),
             "@alice:example.org",
@@ -1367,6 +1395,7 @@ mod tests {
         )
         .await
         .unwrap();
+        let _core = core_of(data_dir.path());
 
         waits_for(|| drop(cold), &account.store_id).await;
     }
@@ -1376,12 +1405,9 @@ mod tests {
         let data_dir = tempfile::tempdir().unwrap();
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
-        let (core, account) = core_holding_the_login(&server, data_dir.path()).await;
-        let lease = crate::session::store_lease(&account.store_id).await;
-        core.saved_account_client(&account, &lease).await.unwrap();
-        drop(lease);
+        let account = saved_login(&server, data_dir.path()).await;
+        let _core = core_of(data_dir.path());
         let host = push_host(
-            Some(&core),
             &cold_push_store_dir(data_dir.path()),
             "@alice:example.org",
             "A",
@@ -1598,7 +1624,6 @@ mod tests {
             .mount_as_scoped()
             .await;
         fetch_cold_push_event(
-            None,
             &fixture.data_dir,
             "@alice:example.org",
             device,

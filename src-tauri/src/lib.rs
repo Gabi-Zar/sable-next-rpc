@@ -500,9 +500,9 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
     #[cfg(mobile)]
     network::attach(&core);
     let pushing = core.clone();
-    tauri::async_runtime::spawn(restore_ahead_of_webview(core.clone()));
     #[cfg(target_os = "android")]
     let _ = cold_push::CORE.set(core.clone());
+    tauri::async_runtime::spawn(restore_ahead_of_webview(core.clone()));
     app.manage(AppState {
         core,
         event_sink: event_sink.clone(),

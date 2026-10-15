@@ -71,12 +71,10 @@ fn decrypt_push<'frame>(
         let device_id = device_id.to_string();
         let room_id = room_id.to_string();
         let event_json = event_json.to_string();
-        let core = CORE.get();
         let decrypt = async {
             settle_refreshes(Box::pin(tokio::time::timeout(
                 std::time::Duration::from_secs(20),
                 sable_core::notifications::decrypt_cold_push(
-                    core.map(Arc::as_ref),
                     std::path::Path::new(&data_dir),
                     &user_id,
                     &device_id,
@@ -88,7 +86,7 @@ fn decrypt_push<'frame>(
             .await
             .unwrap_or(ColdPush::Undecryptable)
         };
-        let result = block_on(core.is_some(), decrypt).unwrap_or(ColdPush::Undecryptable);
+        let result = block_on(CORE.get().is_some(), decrypt).unwrap_or(ColdPush::Undecryptable);
 
         JString::from_str(env, encode(result))
     });
@@ -124,12 +122,10 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeFetchPush<
         let device_id = device_id.to_string();
         let room_id = room_id.to_string();
         let event_id = event_id.to_string();
-        let core = CORE.get();
         let fetch = async {
             settle_refreshes(Box::pin(tokio::time::timeout(
                 std::time::Duration::from_secs(20),
                 sable_core::notifications::fetch_cold_push_event(
-                    core.map(Arc::as_ref),
                     std::path::Path::new(&data_dir),
                     &user_id,
                     &device_id,
@@ -140,7 +136,7 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeFetchPush<
             .await
             .unwrap_or(PushFetchView::Unavailable)
         };
-        let result = block_on(core.is_some(), fetch).unwrap_or(PushFetchView::Unavailable);
+        let result = block_on(CORE.get().is_some(), fetch).unwrap_or(PushFetchView::Unavailable);
 
         JString::from_str(env, encode_fetch(&result))
     });
@@ -179,11 +175,7 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeMaintainPu
         let success = serde_json::from_str(&operation.to_string())
             .ok()
             .and_then(|operation| {
-                let runtime = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .ok()?;
-                runtime.block_on(async {
+                block_on(CORE.get().is_some(), async {
                     settle_refreshes(Box::pin(tokio::time::timeout(
                         std::time::Duration::from_secs(20),
                         crate::notifications::maintain_background_push(&root, operation),
@@ -191,7 +183,7 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeMaintainPu
                     .await
                     .ok()?
                     .ok()
-                })
+                })?
             })
             .is_some();
         JString::from_str(env, if success { "ok" } else { "retry" })
