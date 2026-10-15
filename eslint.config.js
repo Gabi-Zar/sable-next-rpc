@@ -81,6 +81,12 @@ export default defineConfig([
       // but the modules are still evaluated in node when prerendering the shell.
       'svelte/no-top-level-browser-globals': 'error',
       'svelte/prefer-derived-over-derived-by': 'error',
+      'svelte/block-lang': ['error', { script: 'ts' }],
+      'svelte/no-bind-value-on-checkable-inputs': 'error',
+      'svelte/no-conflicting-module-names': 'error',
+      'svelte/no-nested-style-tag': 'error',
+      'svelte/require-event-prefix': 'error',
+      'svelte/valid-style-parse': 'error',
     },
   },
   {
