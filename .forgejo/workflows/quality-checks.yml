@@ -144,7 +144,7 @@ jobs:
     name: Playwright
     needs: build
     # The homeserver fixture needs a daemon; ubuntu-latest has none.
-    runs-on: docker-arm64
+    runs-on: docker
     timeout-minutes: 45
     permissions:
       contents: read
@@ -181,7 +181,7 @@ jobs:
         uses: https://github.com/actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
 
       - name: Install Playwright browsers
         if: ${{ steps.browsers.outputs.cache-hit != 'true' }}
@@ -240,3 +240,128 @@ jobs:
             test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  preview:
+    name: Deploy preview
+    needs: build
+    # Forks cannot read the Cloudflare credentials wrangler needs.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up app and build
+        uses: ./.forgejo/actions/setup
+        with:
+          build: 'true'
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: preview
+          VITE_APP_VERSION: ${{ github.event.pull_request.head.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+
+      - name: Prepare preview metadata
+        id: metadata
+        run: |
+          preview_message="$(git log -1 --pretty=%s | head -c 100)"
+
+          {
+            echo 'preview_message<<EOF'
+            echo "$preview_message"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set deploy alias
+        id: alias
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: echo "alias=pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Worker preview
+        id: deploy
+        uses: https://github.com/cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4.1.3
+        env:
+          PREVIEW_MESSAGE: ${{ steps.metadata.outputs.preview_message }}
+        with:
+          apiToken: ${{ secrets.TF_CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.TF_VAR_ACCOUNT_ID }}
+          command: >
+            versions upload
+            --config infra/web/wrangler.jsonc
+            --preview-alias ${{ steps.alias.outputs.alias }}
+            --message "$PREVIEW_MESSAGE"
+
+      - name: Resolve preview URL
+        id: preview
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+          COMMAND_OUTPUT: ${{ steps.deploy.outputs.command-output }}
+          ALIAS: ${{ steps.alias.outputs.alias }}
+        run: |
+          alias_url_pattern="^https?://${ALIAS}-[^[:space:]]+$"
+          preview_url=""
+
+          if printf '%s\n' "$DEPLOYMENT_URL" | grep -Eq "$alias_url_pattern"; then
+            preview_url="$DEPLOYMENT_URL"
+          else
+            preview_url="$(printf '%s\n' "$COMMAND_OUTPUT" | grep -Eo "https?://${ALIAS}-[^[:space:]]*" | head -n 1 || true)"
+          fi
+
+          if ! printf '%s\n' "$preview_url" | grep -Eq "$alias_url_pattern"; then
+            echo 'Failed to resolve aliased Worker preview URL.' >&2
+            exit 1
+          fi
+
+          echo "preview_url=${preview_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish summary and PR comment
+        env:
+          MARKER: '<!-- cloudflare-worker-preview -->'
+          PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}
+          PREVIEW_ALIAS: ${{ steps.alias.outputs.alias }}
+          SHORT_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+          API_URL: ${{ github.api_url }}
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          now="$(date -u +'%a, %d %b %Y %H:%M UTC')"
+          row="| Deployment successful! | <a href=\"${PREVIEW_URL}\">${PREVIEW_URL}</a> | ${SHORT_SHA:0:7} | \`${PREVIEW_ALIAS}\` | ${now} |"
+          body="$(printf '%s\n' \
+            "$MARKER" \
+            '## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers' \
+            '' \
+            '| Status | Preview URL | Commit | Alias | Updated (UTC) |' \
+            '| - | - | - | - | - |' \
+            "$row")"
+
+          printf '%s\n' "$body" | tail -n +2 >> "$GITHUB_STEP_SUMMARY"
+
+          api() { curl -sSf -H "Authorization: token ${TOKEN}" -H 'Content-Type: application/json' "$@"; }
+
+          existing="$(
+            api "${API_URL}/repos/${REPOSITORY}/issues/${PR_NUMBER}/comments?limit=100" \
+              | jq -r --arg marker "$MARKER" \
+                  'map(select(.body | contains($marker))) | last | .id // empty'
+          )"
+          if [ -n "$existing" ]; then
+            api -X DELETE "${API_URL}/repos/${REPOSITORY}/issues/comments/${existing}" -o /dev/null
+          fi
+
+          jq -n --arg body "$body" '{body: $body}' \
+            | api -X POST "${API_URL}/repos/${REPOSITORY}/issues/${PR_NUMBER}/comments" -d @- -o /dev/null
