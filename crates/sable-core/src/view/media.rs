@@ -227,10 +227,14 @@ pub(super) fn caption_view(
     let name = profile.and_then(|profile| profile.display_name.as_deref());
 
     let caption = caption.map(|caption| strip_profile_fallback_body(caption, name, known));
-    let html = formatted.map(|formatted| {
-        let html = strip_profile_fallback_html(&formatted.body, name, known);
-        display_html(caption.as_deref().unwrap_or_default(), Some(&html))
-    });
+    let html = match (formatted, caption.as_deref()) {
+        (Some(formatted), caption) => {
+            let html = strip_profile_fallback_html(&formatted.body, name, known);
+            Some(display_html(caption.unwrap_or_default(), Some(&html)))
+        }
+        (None, Some(caption)) => Some(display_html(caption, None)),
+        (None, None) => None,
+    };
     (caption, html)
 }
 
@@ -347,7 +351,17 @@ mod tests {
             caption.as_deref(),
             Some("you can still see the fallback on this message")
         );
-        assert!(html.is_none());
+        assert_eq!(
+            html.as_deref(),
+            Some("<span data-plain-body>you can still see the fallback on this message</span>")
+        );
+    }
+
+    #[test]
+    fn a_plain_caption_marks_room_mentions() {
+        let (_, html) = caption_view(Some("@room look"), None, None);
+
+        assert!(html.is_some_and(|html| html.contains("data-mx-room-mention")));
     }
 
     // The event reported in the issue: an image whose `formatted_body` is
