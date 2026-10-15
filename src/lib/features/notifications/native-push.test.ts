@@ -23,6 +23,7 @@ vi.mock('#lib/notifications/push-config.js', async (original) => ({
 }));
 
 import {
+  NoDistributorError,
   registerNativePush,
   selectedPushDistributor,
   switchPushDistributor,
@@ -135,6 +136,13 @@ test('switches to UnifiedPush and selects an installed distributor', async () =>
   expect(mocks.select).toHaveBeenCalledWith('io.heckel.ntfy');
   expect(mocks.register.mock.calls[0][0].provider).toBe('unifiedpush');
   expect(selectedPushDistributor()).toBe('io.heckel.ntfy');
+});
+
+test('reports a missing UnifiedPush app apart from other failures', async () => {
+  mocks.list.mockResolvedValue(['embedded-websocket']);
+  await expect(
+    switchPushProvider('unifiedpush', override, session, accounts)
+  ).rejects.toBeInstanceOf(NoDistributorError);
 });
 
 test('uses a deployment-provided built-in server', async () => {

@@ -1487,6 +1487,7 @@
     "pushDistributorBuiltIn": "Intégré (WebSocket)",
     "pushDistributorChoose": "Choisir un distributeur",
     "pushDistributorFailed": "Impossible de mettre à jour le distributeur de notifications. Vérifiez votre connexion et réessayez.",
+    "pushDistributorNone": "Aucune application UnifiedPush n'est installée. Installez un distributeur comme ntfy, puis indiquez-lui votre serveur (ntfy.ow-ops.eu ou le vôtre).",
     "pushGateway": "Passerelle de notifications",
     "pushGatewayHint": "L’endroit où votre serveur d’accueil envoie les notifications lorsque Sable est fermé. Laissez vide pour utiliser la passerelle fournie par ce déploiement.",
     "pushGatewayDefault": "Utilise {{gateway}}",

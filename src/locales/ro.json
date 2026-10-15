@@ -1407,6 +1407,7 @@
     "pushDistributorBuiltIn": "Implicit (WebSocket)",
     "pushDistributorChoose": "Alege un distributor",
     "pushDistributorFailed": "Distributorul nu a putut fi schimbat. Verifică-ți conexiunea la internet.",
+    "pushDistributorNone": "Nu este instalată nicio aplicație UnifiedPush. Instalează un distribuitor precum ntfy și indică-i serverul tău (ntfy.ow-ops.eu sau al tău).",
     "pushGateway": "Portalul Push",
     "pushGatewayHint": "Unde va trimite serverul tău notificările când Sable e închis. Lasă gol pentru a folosi valoarea implicită a instalării.",
     "pushGatewayDefault": "Se folosește: {{gateway}}",

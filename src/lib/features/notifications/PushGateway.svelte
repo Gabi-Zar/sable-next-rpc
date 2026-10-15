@@ -15,6 +15,7 @@
 
   import {
     selectedPushDistributor,
+    NoDistributorError,
     selectedPushProvider,
     switchPushDistributor,
     switchPushProvider,
@@ -48,7 +49,7 @@
   let distributors = $state.raw<string[]>([]);
   let selected = $state('');
   let switching = $state(false);
-  let distributorError = $state(false);
+  let distributorError = $state<'failed' | 'none' | null>(null);
   let provider = $state<PushProvider>('auto');
   let serverPush = $state(false);
 
@@ -76,10 +77,10 @@
       distributors = await listPushDistributors();
       selected = selectedPushDistributor();
       provider = selectedPushProvider();
-      distributorError = false;
+      distributorError = null;
     } catch (error) {
       console.warn('[sable notifications] listing push distributors failed', error);
-      distributorError = true;
+      distributorError = 'failed';
     }
   }
 
@@ -91,13 +92,13 @@
   async function changeDistributor(name: string): Promise<void> {
     if (switching || !name || name === selected) return;
     switching = true;
-    distributorError = false;
+    distributorError = null;
     try {
       await switchPushDistributor(name, pushOverride(), core.session, core.accounts);
       selected = name;
     } catch (error) {
       console.warn('[sable notifications] switching push distributor failed', error);
-      distributorError = true;
+      distributorError = 'failed';
       selected = selectedPushDistributor();
     } finally {
       switching = false;
@@ -107,14 +108,14 @@
   async function changeProvider(next: string): Promise<void> {
     if (switching || next === provider) return;
     switching = true;
-    distributorError = false;
+    distributorError = null;
     try {
       await switchPushProvider(next as PushProvider, pushOverride(), core.session, core.accounts);
       provider = next as PushProvider;
       selected = selectedPushDistributor();
     } catch (error) {
       console.warn('[sable notifications] switching push provider failed', error);
-      distributorError = true;
+      distributorError = error instanceof NoDistributorError ? 'none' : 'failed';
       provider = selectedPushProvider();
     } finally {
       switching = false;
@@ -191,7 +192,13 @@
       />
     {/if}
     {#if distributorError}
-      <Alert variant="critical">{i18n.t('settings.pushDistributorFailed')}</Alert>
+      <Alert variant="critical">
+        {i18n.t(
+          distributorError === 'none'
+            ? 'settings.pushDistributorNone'
+            : 'settings.pushDistributorFailed'
+        )}
+      </Alert>
     {/if}
   </section>
 {/if}

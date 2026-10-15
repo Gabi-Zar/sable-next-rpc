@@ -16,6 +16,12 @@ import {
 } from '#lib/notifications/push-config.js';
 import { clearPushFailure, PushConfigMissing, recordPushFailure } from './push-failure';
 
+export class NoDistributorError extends Error {
+  constructor() {
+    super('No UnifiedPush distributor is available');
+  }
+}
+
 export type PushProvider = 'auto' | 'fcm' | 'unifiedpush' | 'embedded';
 
 async function register(
@@ -123,7 +129,7 @@ export function switchPushProvider(
         ) {
           distributor = available.find((value) => value !== 'embedded-websocket') ?? '';
         }
-        if (!distributor) throw new Error('No UnifiedPush distributor is available');
+        if (!distributor) throw new NoDistributorError();
         await setPushDistributor(distributor);
       }
       await register(override, session, accounts, provider);
