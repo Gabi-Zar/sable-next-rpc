@@ -176,7 +176,7 @@ fn message_content(
                 size: dimension(image.info.as_ref().and_then(|info| info.size)),
                 blurhash: image.info.as_ref().and_then(|info| info.blurhash.clone()),
                 thumbnail: image.info.as_deref().and_then(image_thumbnail),
-                spoiler: spoiler_reason(raw.content.as_ref()),
+                spoiler: spoiler_reason(raw.message()),
                 animated: image.info.as_ref().and_then(|info| info.is_animated),
             }
         }
@@ -193,8 +193,8 @@ fn message_content(
                 height: dimension(video.info.as_ref().and_then(|info| info.height)),
                 blurhash: video.info.as_ref().and_then(|info| info.blurhash.clone()),
                 thumbnail: video.info.as_deref().and_then(video_thumbnail),
-                spoiler: spoiler_reason(raw.content.as_ref()),
-                playback: video_playback(raw.content.as_ref()),
+                spoiler: spoiler_reason(raw.message()),
+                playback: video_playback(raw.message()),
             }
         }
         MessageType::Audio(audio) => {
@@ -209,7 +209,7 @@ fn message_content(
                 duration_ms: audio_duration_ms(audio),
                 waveform: audio_waveform(audio),
                 voice: audio.voice.is_some(),
-                metadata: audio_metadata(raw.content.as_ref()),
+                metadata: audio_metadata(raw.message()),
             }
         }
         MessageType::File(file) => {
@@ -464,6 +464,23 @@ mod tests {
         let serialized = serde_json::to_value(unparsed("m.room.message", &raw)).unwrap();
         assert_eq!(serialized["kind"], "redacted");
         assert_eq!(serialized["reason"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn an_edit_reads_the_spoiler_from_its_new_content() {
+        let raw = serde_json::from_value::<RawFields>(json!({
+            "content": {
+                "body": "* caption",
+                "m.relates_to": {"rel_type": "m.replace", "event_id": "$image"},
+                "m.new_content": {
+                    "body": "caption",
+                    "page.codeberg.everypizza.msc4193.spoiler": true,
+                },
+            },
+        }))
+        .unwrap();
+
+        assert_eq!(spoiler_reason(raw.message()).as_deref(), Some(""));
     }
 
     #[test]

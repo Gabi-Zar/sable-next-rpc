@@ -707,6 +707,7 @@ impl Core {
         content: &AnyMessageLikeEventContent,
         profile: Option<&PerMessageProfileView>,
         forum_title: Option<String>,
+        retained: serde_json::Map<String, Value>,
     ) -> Result<(), RpcError> {
         let event_type = content.event_type().to_string();
         let title = crate::outgoing::forum_title_value(forum_title);
@@ -727,6 +728,9 @@ impl Core {
         update(&mut value);
         if let Some(content) = value.get_mut("m.new_content") {
             update(content);
+            if let Some(object) = content.as_object_mut() {
+                object.extend(retained);
+            }
         }
 
         let raw = Raw::<AnyMessageLikeEventContent>::from_json_string(value.to_string())

@@ -34,7 +34,7 @@ use crate::personas::PER_MESSAGE_PROFILE;
 use crate::protocol::{
     EditVersionView, MessageKind, PerMessageProfileView, RpcError, TimelineItemView,
 };
-use crate::view::{per_message_profile, standalone_item};
+use crate::view::{SPOILER_PROPERTY, per_message_profile, standalone_item};
 use serde_with::{DefaultOnError, serde_as};
 
 pub(crate) fn outgoing_mentions(user_ids: Vec<OwnedUserId>, room: bool) -> Mentions {
@@ -61,6 +61,17 @@ pub(crate) fn edit_content(
     } else {
         EditedContent::RoomMessage(message_content(body, formatted, kind, mentions, room).into())
     }
+}
+
+fn spoiler_keys(event: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+    let reason = format!("{SPOILER_PROPERTY}.reason");
+    [SPOILER_PROPERTY, reason.as_str()]
+        .into_iter()
+        .filter_map(|key| {
+            let value = event.get("content")?.get(key)?;
+            Some((key.to_owned(), value.clone()))
+        })
+        .collect()
 }
 
 fn unique_pins(events: Vec<OwnedEventId>) -> Vec<OwnedEventId> {
@@ -209,7 +220,22 @@ impl Core {
                 .make_edit_event(&event_id, edited)
                 .await
                 .or_failed(self, "edit_message")?;
-            self.edit_with_persona(&room, &content, persona.as_ref(), forum_title)
+            let retained = if media_caption {
+                room.load_or_fetch_event(&event_id, None)
+                    .await
+                    .ok()
+                    .and_then(|event| {
+                        event
+                            .raw()
+                            .deserialize_as_unchecked::<serde_json::Value>()
+                            .ok()
+                    })
+                    .map(|event| spoiler_keys(&event))
+                    .unwrap_or_default()
+            } else {
+                serde_json::Map::new()
+            };
+            self.edit_with_persona(&room, &content, persona.as_ref(), forum_title, retained)
                 .await?;
         }
 
@@ -967,6 +993,24 @@ mod tests {
         Mock, ResponseTemplate,
         matchers::{method, path},
     };
+
+    #[test]
+    fn a_caption_edit_keeps_the_spoiler_and_its_reason() {
+        let event = json!({"content": {
+            "body": "photo.png",
+            "page.codeberg.everypizza.msc4193.spoiler": true,
+            "page.codeberg.everypizza.msc4193.spoiler.reason": "plot",
+        }});
+
+        let kept = super::spoiler_keys(&event);
+
+        assert_eq!(kept.len(), 2);
+        assert_eq!(
+            kept["page.codeberg.everypizza.msc4193.spoiler.reason"],
+            "plot"
+        );
+        assert!(super::spoiler_keys(&json!({"content": {"body": "x"}})).is_empty());
+    }
 
     use crate::{Core, session::Session, store::MemorySessionStore};
 
