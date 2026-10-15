@@ -72,7 +72,7 @@
       {/snippet}
     </Tooltip>
   {/if}
-  <div class="card-content" inert={!active}>
+  <div class="card-content" inert={!active} aria-hidden={!active}>
     {@render children()}
   </div>
 </div>

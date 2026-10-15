@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { afterNavigate } from '$app/navigation';
   import { untrack, type Snippet } from 'svelte';
   import CaretLeftIcon from 'phosphor-svelte/lib/CaretLeftIcon';
   import CaretRightIcon from 'phosphor-svelte/lib/CaretRightIcon';
@@ -38,6 +39,25 @@
   let swipeGesture: SwipeGesture | undefined;
   let swipeStartScroll = 0;
   let swipeOffset = 0;
+
+  function focusCard(card: HTMLElement): void {
+    const content = card.querySelector<HTMLElement>('.card-content');
+    const heading = content?.querySelector<HTMLElement>('h1, h2, h3');
+    heading?.setAttribute('tabindex', '-1');
+    const target =
+      heading ??
+      content?.querySelector<HTMLElement>(
+        'input:not(:disabled), button:not(:disabled), a[href], [tabindex="0"]'
+      );
+    target?.focus({ preventScroll: true });
+  }
+
+  afterNavigate(() => {
+    // Navigation can reset focus after the rail mounts.
+    if (!railElement || document.activeElement !== document.body) return;
+    const card = cardElements(railElement)[activeIndex];
+    if (card) focusCard(card);
+  });
 
   function cardTarget(rail: HTMLDivElement, card: HTMLElement): number {
     return Math.max(0, card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2);
@@ -210,7 +230,9 @@
     });
     activeCardHeight = card.offsetHeight;
     sizeObserver.observe(card);
-    const shouldFocus = lastActiveIndex !== null && lastActiveIndex !== index;
+    const shouldFocus =
+      lastActiveIndex !== index &&
+      (lastActiveIndex !== null || document.activeElement === document.body);
     leavingCard?.removeAttribute('data-leaving');
     leavingCard =
       lastActiveIndex === null || lastActiveIndex === index
@@ -229,10 +251,7 @@
     }
 
     if (shouldFocus) {
-      const heading = card.querySelector<HTMLElement>('h1, h2, h3');
-      heading?.setAttribute('tabindex', '-1');
-      const focusTarget = heading ?? card.querySelector<HTMLElement>('input, button, [tabindex]');
-      focusTarget?.focus({ preventScroll: true });
+      focusCard(card);
     }
 
     return () => {
@@ -281,12 +300,13 @@
   >
     {@render children()}
   </div>
-  {#if total > 1}
+  {#if total > 1 && (canBack || canForward)}
     <div class="mobile-nav" role="group" aria-label={i18n.t('auth.stageNavigation')}>
       {#if canBack}
         <button
           class="panel-nav previous"
           type="button"
+          tabindex="0"
           onclick={onBack}
           aria-label={i18n.t('common.back')}><CaretLeftIcon /></button
         >
@@ -295,6 +315,7 @@
         <button
           class="panel-nav next"
           type="button"
+          tabindex="0"
           onclick={onForward}
           aria-label={i18n.t('auth.next')}><CaretRightIcon /></button
         >

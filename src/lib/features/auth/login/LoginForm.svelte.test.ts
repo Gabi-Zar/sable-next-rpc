@@ -3,6 +3,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
+import type { ComponentProps } from 'svelte';
 
 import type { LoginFlowsView } from '#src/generated/protocol';
 
@@ -19,9 +20,12 @@ const flows: LoginFlowsView = {
   sso_identity_providers: [],
 };
 
-function setup(onValidateHomeserver: () => Promise<LoginFlowsView | null>) {
+function setup(
+  onValidateHomeserver: () => Promise<LoginFlowsView | null>,
+  overrides: Partial<ComponentProps<typeof LoginForm>> = {}
+) {
   const onLogin = vi.fn(() => Promise.resolve());
-  render(LoginForm, {
+  const { rerender } = render(LoginForm, {
     props: {
       homeserver: 'matrix.org',
       loginFlows: flows,
@@ -35,9 +39,10 @@ function setup(onValidateHomeserver: () => Promise<LoginFlowsView | null>) {
       onClearFieldError: vi.fn(),
       onLaunchRedirectLogin: vi.fn(() => Promise.resolve()),
       onLogin,
+      ...overrides,
     },
   });
-  return { onLogin };
+  return { onLogin, rerender };
 }
 
 async function enterUsername(value: string): Promise<void> {
@@ -84,4 +89,34 @@ test('a localpart or an email leaves the provider alone', async () => {
 
   expect(homeserver()).toHaveValue('matrix.org');
   expect(validate).not.toHaveBeenCalled();
+});
+
+test('provider loading and errors update live regions without moving focus', async () => {
+  const { rerender } = setup(() => Promise.resolve(flows), { loginFlows: null });
+  const provider = homeserver();
+  provider.focus();
+  const status = screen.getByRole('status');
+  const alert = screen.getByRole('alert');
+
+  await rerender({ isCheckingHomeserver: true });
+  expect(screen.getByRole('status')).toBe(status);
+  expect(status).toHaveTextContent('Checking provider');
+  expect(status.closest('[aria-busy="true"]')).toBeNull();
+  expect(provider).toHaveFocus();
+
+  await rerender({ isCheckingHomeserver: false, loginError: 'Could not reach provider' });
+  expect(screen.getByRole('alert')).toBe(alert);
+  expect(alert).toHaveTextContent('Could not reach provider');
+  expect(status).toBeEmptyDOMElement();
+  expect(provider).toHaveFocus();
+
+  await rerender({ loginError: null, loginFlows: flows });
+  expect(status).toBeInTheDocument();
+  expect(alert).toBeEmptyDOMElement();
+  expect(provider).toHaveFocus();
+});
+
+test('an empty provider has no Continue button', () => {
+  setup(() => Promise.resolve(null), { homeserver: '', loginFlows: null });
+  expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
 });

@@ -21,26 +21,32 @@
   }: Props = $props();
 </script>
 
+{#snippet statusMessage(text: string)}
+  <Tooltip label={text} {multiline}>
+    {#snippet trigger({ props })}
+      <p {...props} class={[`auth-status-message auth-status-${tone}`, { multiline }]} {id}>
+        {text}
+      </p>
+    {/snippet}
+  </Tooltip>
+{/snippet}
+
 <div class="auth-status-slot">
-  {#if loading && loadingMessage}
-    <div class="auth-status-message auth-status-loading" role="status">
-      <Spinner small />
-      {loadingMessage}
-    </div>
-  {:else if message}
-    <Tooltip label={message} {multiline}>
-      {#snippet trigger({ props })}
-        <p
-          {...props}
-          class={[`auth-status-message auth-status-${tone}`, { multiline }]}
-          {id}
-          role={tone === 'error' ? 'alert' : 'status'}
-        >
-          {message}
-        </p>
-      {/snippet}
-    </Tooltip>
-  {/if}
+  <div class="auth-status-announcement" role="status" aria-atomic="true">
+    {#if loading && loadingMessage}
+      <div class="auth-status-message auth-status-loading">
+        <Spinner small />
+        {loadingMessage}
+      </div>
+    {:else if message && tone === 'muted'}
+      {@render statusMessage(message)}
+    {/if}
+  </div>
+  <div class="auth-status-announcement" role="alert" aria-atomic="true">
+    {#if !(loading && loadingMessage) && message && tone === 'error'}
+      {@render statusMessage(message)}
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -56,6 +62,11 @@
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .auth-status-announcement {
+    max-width: 100%;
+    min-width: 0;
   }
 
   .auth-status-loading {

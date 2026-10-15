@@ -47,7 +47,7 @@ export default defineConfig({
       name: 'webkit',
       dependencies: ['setup'],
       testMatch:
-        /(?:^|\/)(?:app-shell|login|navigation|window-activity|thread-links|last-room)\.spec\.ts$/,
+        /(?:^|\/)(?:a11y-auth|app-shell|login|navigation|window-activity|thread-links|last-room)\.spec\.ts$/,
       use: devices['Desktop Safari'],
     },
     {
