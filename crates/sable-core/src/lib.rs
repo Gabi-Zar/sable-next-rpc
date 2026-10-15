@@ -62,7 +62,7 @@ pub mod store;
 mod store_disposal;
 mod subscriptions;
 mod sync_support;
-mod thread_unreads;
+mod thread_receipts;
 mod timeline_overlay;
 mod timelines;
 pub mod tls;

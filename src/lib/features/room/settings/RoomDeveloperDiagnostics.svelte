@@ -1,6 +1,6 @@
 <script lang="ts">
   import { copyText } from '#lib/platform/clipboard.js';
-  import type { RoomListItemView } from '#src/generated/protocol';
+  import type { RoomListItemView, UnreadDiagnosticsView } from '#src/generated/protocol';
   import CopyIcon from 'phosphor-svelte/lib/CopyIcon';
 
   import { useCoreClient } from '#lib/core/context.js';
@@ -21,6 +21,7 @@
   const core = useCoreClient();
 
   let fullyRead = $state<string | null>(null);
+  let readState = $state<UnreadDiagnosticsView | null>(null);
 
   let diagnostics = $derived({
     room_id: room.room_id,
@@ -34,6 +35,7 @@
     latest_event_id: room.latest_event?.event_id ?? null,
     fully_read: fullyRead,
     read_latest: fullyRead !== null && fullyRead === (room.latest_event?.event_id ?? null),
+    read_state: readState,
   });
 
   $effect(() => {
@@ -42,6 +44,23 @@
     void readFullyRead(target).then((eventId) => {
       if (current) fullyRead = eventId;
     });
+    return () => {
+      current = false;
+    };
+  });
+
+  $effect(() => {
+    const target = room.room_id;
+    void room.unread;
+    let current = true;
+    core.rpc.timeline
+      .unreadDiagnostics({ room_id: target })
+      .then((state) => {
+        if (current) readState = state;
+      })
+      .catch((error: unknown) => {
+        console.debug('[sable room] unread diagnostics unavailable', error);
+      });
     return () => {
       current = false;
     };
@@ -116,6 +135,27 @@
         diagnostics.read_latest ? i18n.t('room.devDiagRead') : i18n.t('room.devDiagNotRead')
       }`}
     />
+    {#if readState}
+      <SettingsRow
+        title={i18n.t('room.devDiagMain')}
+        description={readState.main.receipt_event_id ?? '-'}
+      >
+        <code
+          >{readState.main.unread} / {readState.main.notifying} / {readState.main.highlight}</code
+        >
+      </SettingsRow>
+      <SettingsRow title={i18n.t('room.devDiagServer')}>
+        <code>{readState.server_notifications} / {readState.server_highlights}</code>
+      </SettingsRow>
+      {#each readState.threads as thread (thread.root_event_id)}
+        <SettingsRow
+          title={i18n.t('room.devDiagThread')}
+          description={`${thread.root_event_id} · ${thread.receipt_event_id ?? '-'}`}
+        >
+          <code>{thread.unread} / {thread.notifying} / {thread.highlight}</code>
+        </SettingsRow>
+      {/each}
+    {/if}
   </ul>
   <div class="settings-form">
     <div>

@@ -1824,82 +1824,6 @@ async fn a_room_read_elsewhere_reports_the_server_unread_count() {
     assert_eq!(summary.highlight, 0);
 }
 
-#[expect(clippy::expect_used, reason = "test code")]
-async fn unread_of_threaded_room(thread_read: bool) -> u32 {
-    let server = MatrixMockServer::new().await;
-    let client = server
-        .client_builder()
-        .on_builder(|builder| builder.with_threading_support(session::THREADING_SUPPORT))
-        .build()
-        .await;
-    let room_id = room_id!("!threads:example.org");
-    let me = client
-        .user_id()
-        .expect("the mock client is logged in")
-        .to_owned();
-    let factory = EventFactory::new().room(room_id).sender(*ALICE);
-    server.mock_room_state_encryption().plain().mount().await;
-
-    let mut joined = JoinedRoomBuilder::new(room_id)
-        .add_timeline_event(factory.text_msg("main").event_id(event_id!("$main")))
-        .add_timeline_event(
-            factory
-                .text_msg("reply")
-                .event_id(event_id!("$reply"))
-                .in_thread(event_id!("$main"), event_id!("$main")),
-        )
-        .add_receipt(
-            factory
-                .read_receipts()
-                .add(
-                    event_id!("$main"),
-                    &me,
-                    ReceiptType::Read,
-                    ReceiptThread::Unthreaded,
-                )
-                .into_event(),
-        );
-    if thread_read {
-        joined = joined.add_receipt(
-            factory
-                .read_receipts()
-                .add(
-                    event_id!("$reply"),
-                    &me,
-                    ReceiptType::Read,
-                    ReceiptThread::Thread(event_id!("$main").to_owned()),
-                )
-                .into_event(),
-        );
-    }
-    let room = server.sync_room(&client, joined).await;
-
-    let rules = matrix_sdk::ruma::push::Ruleset::new();
-    tokio::time::timeout(Duration::from_secs(5), async {
-        loop {
-            let unread = super::view::listless_room_list_item(room.clone(), &rules)
-                .await
-                .unread;
-            if unread == u32::from(!thread_read) {
-                return unread;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("the unread count settles")
-}
-
-#[tokio::test]
-async fn an_unread_thread_reply_counts_toward_the_room() {
-    assert_eq!(unread_of_threaded_room(false).await, 1);
-}
-
-#[tokio::test]
-async fn a_read_thread_stops_counting_toward_the_room() {
-    assert_eq!(unread_of_threaded_room(true).await, 0);
-}
-
 #[tokio::test]
 async fn a_count_truncated_by_the_local_cache_falls_back_to_the_server_count() {
     let server = MatrixMockServer::new().await;
@@ -3109,7 +3033,6 @@ async fn dispatch_mark_read(
 
 #[expect(
     clippy::expect_used,
-    clippy::too_many_lines,
     reason = "test code; one sequential flow kept in a single function"
 )]
 async fn mark_read_body(
@@ -3176,11 +3099,7 @@ async fn mark_read_body(
             r"^/_matrix/client/v3/rooms/{room_id}/receipt/{receipt_type}/.*$"
         )))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
-        .expect(if event_id.is_some() {
-            1
-        } else {
-            2 + u64::from(include_threaded_reply)
-        })
+        .expect(if event_id.is_some() { 1 } else { 2 })
         .mount(server.server())
         .await;
 
@@ -3391,12 +3310,6 @@ async fn marking_a_room_read_uses_the_latest_threaded_event() {
         receipts
             .iter()
             .any(|(path, body)| path.ends_with("/m.read/$read") && body["thread_id"] == "main"),
-        "{receipts:?}"
-    );
-    assert!(
-        receipts.iter().any(
-            |(path, body)| path.ends_with("/m.read/$threaded") && body["thread_id"] == "$read"
-        ),
         "{receipts:?}"
     );
 }

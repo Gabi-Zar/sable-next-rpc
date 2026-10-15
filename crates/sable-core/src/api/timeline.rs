@@ -7,12 +7,13 @@ use matrix_sdk::ruma::api::client::room::get_event_by_timestamp;
 use matrix_sdk::ruma::api::error::ErrorKind;
 use matrix_sdk::ruma::events::fully_read::FullyReadEventContent;
 use matrix_sdk::ruma::{MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedUserId, UInt};
+use matrix_sdk_base::read_receipts::ReadReceipts;
 use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
 use serde::{Deserialize, Serialize};
 
 use super::{Handler, Json};
 use crate::protocol::{RpcError, EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView, SubscriptionId, TimelineItemView};
-use crate::thread_unreads::thread_unread;
+use crate::thread_receipts::thread_receipts;
 use crate::timelines::receipt_thread_root;
 use crate::widgets::RelationsFilter;
 use crate::{Core, ResultExt, SubscriptionKind, view};
@@ -34,6 +35,7 @@ domain! {
     set_fully_read,
     mark_unread,
     read_marker,
+    unread_diagnostics,
     retry_decryption,
     room_event_relations,
     pinned_events,
@@ -454,13 +456,6 @@ impl Handler for MarkReadParams {
                 .mark_as_read(receipt_type.clone())
                 .await
                 .or_failed(core, "mark_read")?;
-            for root in thread_unread(&room).await.roots {
-                core.thread_timeline(&self.room_id, &root)
-                    .await?
-                    .mark_as_read(receipt_type.clone())
-                    .await
-                    .or_failed(core, "mark_read")?;
-            }
             let main = room
                 .timeline_builder()
                 .with_focus(TimelineFocus::Live {
@@ -575,6 +570,77 @@ impl Handler for ReadMarkerParams {
                 .map(|receipt| receipt.event_id)
         });
         Ok(event_id.map(|event_id| event_id.to_string()))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct UnreadDiagnosticsParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct TimelineReadDiagnostics {
+    pub unread: u32,
+    pub notifying: u32,
+    pub highlight: u32,
+    pub receipt_event_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct ThreadReadDiagnostics {
+    pub root_event_id: String,
+    #[serde(flatten)]
+    pub read: TimelineReadDiagnostics,
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct UnreadDiagnosticsView {
+    pub main: TimelineReadDiagnostics,
+    pub server_notifications: u32,
+    pub server_highlights: u32,
+    pub threads: Vec<ThreadReadDiagnostics>,
+}
+
+fn count(value: u64) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+fn read_diagnostics(receipts: &ReadReceipts) -> TimelineReadDiagnostics {
+    TimelineReadDiagnostics {
+        unread: count(receipts.num_unread),
+        notifying: count(receipts.num_notifications),
+        highlight: count(receipts.num_mentions),
+        receipt_event_id: receipts
+            .latest_active
+            .as_ref()
+            .map(|receipt| receipt.event_id.to_string()),
+    }
+}
+
+impl Handler for UnreadDiagnosticsParams {
+    type Ok = UnreadDiagnosticsView;
+
+    async fn run(self, core: &Arc<Core>) -> Result<UnreadDiagnosticsView, RpcError> {
+        let room = core.room(&self.room_id).await?;
+        let server = room.unread_notification_counts();
+        Ok(UnreadDiagnosticsView {
+            main: read_diagnostics(&room.read_receipts()),
+            server_notifications: count(server.notification_count),
+            server_highlights: count(server.highlight_count),
+            threads: thread_receipts(&room)
+                .await
+                .into_iter()
+                .map(|(root, receipts)| ThreadReadDiagnostics {
+                    root_event_id: root.to_string(),
+                    read: read_diagnostics(&receipts),
+                })
+                .collect(),
+        })
     }
 }
 

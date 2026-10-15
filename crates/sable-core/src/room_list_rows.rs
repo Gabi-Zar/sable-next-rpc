@@ -9,7 +9,6 @@ use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 
 use crate::protocol::{RoomListItemView, VectorDiff};
 use crate::push_rules::room_settings;
-use crate::thread_unreads::ThreadCounts;
 use crate::view::{RoomInfo, apply_diff, room_counts};
 
 #[derive(Debug, Default)]
@@ -27,40 +26,6 @@ impl RoomListRows {
         let listed: std::collections::HashSet<_> =
             self.rows.iter().map(|row| &row.room_id).collect();
         cache.retain(|room_id, _| listed.contains(room_id));
-    }
-
-    pub(crate) fn rethread(
-        &mut self,
-        room_id: &RoomId,
-        was: ThreadCounts,
-        now: ThreadCounts,
-    ) -> Option<VectorDiff<RoomListItemView>> {
-        let (index, row) = self
-            .rows
-            .iter_mut()
-            .enumerate()
-            .find(|(_, row)| row.room_id == room_id)?;
-        let kept = ThreadCounts {
-            unread: row.unread,
-            notifying: row.notifying,
-            highlight: row.highlight,
-        }
-        .minus(was)
-        .plus(now);
-        row.unread = kept.unread;
-        row.notifying = kept.notifying;
-        row.highlight = kept.highlight;
-        row.counts = room_counts(
-            row.notification,
-            row.unread,
-            row.notifying,
-            row.highlight,
-            row.marked_unread,
-        );
-        Some(VectorDiff::Set {
-            index,
-            value: row.clone(),
-        })
     }
 
     /// The `Set` diffs for every row whose mode `rules` changed. `direct`
@@ -102,7 +67,6 @@ mod tests {
 
     use super::*;
     use crate::protocol::{NotificationModeView, RoomJoinRuleView, RoomStateView};
-    use crate::thread_unreads::ThreadUnread;
 
     fn summary(room_id: &RoomId, rules: &Ruleset) -> RoomListItemView {
         let notification = room_settings(rules, room_id, false);
@@ -171,7 +135,6 @@ mod tests {
             children_stale: false,
             tags: Vec::new(),
             screen_sharers: Vec::new(),
-            thread_unread: ThreadUnread::default(),
         };
         let mut cache = HashMap::from([(kept.to_owned(), info()), (gone.to_owned(), info())]);
         let mut rows = RoomListRows::default();
@@ -206,39 +169,5 @@ mod tests {
         assert_eq!(value.notification.room, Some(NotificationModeView::Mute));
         assert_eq!((value.counts.unread, value.counts.highlight), (0, 0));
         assert!(rows.renotify(&rules, |_| false).is_empty());
-    }
-
-    #[test]
-    fn a_thread_change_resends_the_row_with_only_its_part_swapped() {
-        let rules = Ruleset::server_default(user_id!("@me:example.org"));
-        let busy = room_id!("!busy:example.org");
-        let mut rows = RoomListRows::default();
-        rows.apply(&VectorDiff::Reset {
-            values: vec![
-                summary(room_id!("!other:example.org"), &rules),
-                summary(busy, &rules),
-            ],
-        });
-        let counts = |unread, notifying, highlight| ThreadCounts {
-            unread,
-            notifying,
-            highlight,
-        };
-
-        let diff = rows.rethread(busy, counts(1, 1, 0), counts(3, 2, 1));
-
-        let Some(VectorDiff::Set { index: 1, value }) = diff else {
-            panic!("one set for the room, got {diff:?}");
-        };
-        assert_eq!((value.unread, value.notifying, value.highlight), (6, 5, 2));
-        assert_eq!((value.counts.unread, value.counts.highlight), (6, 2));
-        assert!(
-            rows.rethread(
-                room_id!("!gone:example.org"),
-                counts(0, 0, 0),
-                counts(1, 1, 1)
-            )
-            .is_none()
-        );
     }
 }

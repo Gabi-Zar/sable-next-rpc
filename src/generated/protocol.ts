@@ -1599,6 +1599,10 @@ export type TargetSuggestion = {
 	value: string,
 };
 
+export type ThreadReadDiagnostics = {
+	root_event_id: string,
+} & TimelineReadDiagnostics;
+
 export type ThreadSummaryView = {
 	/**  Excludes the root, so zero if every reply was redacted. */
 	num_replies: number,
@@ -1741,6 +1745,13 @@ export type TimelineItemView = {
 	forum_title: string | null,
 };
 
+export type TimelineReadDiagnostics = {
+	unread: number,
+	notifying: number,
+	highlight: number,
+	receipt_event_id: string | null,
+};
+
 /**
  *  How a timeline row is drawn: a message carries a sender, a hover menu and
  *  reactions; an event is a one-line notice; an annotation is a divider.
@@ -1759,6 +1770,13 @@ export type TurnServerView = {
 	password: string,
 	uris: string[],
 	ttl_ms: number,
+};
+
+export type UnreadDiagnosticsView = {
+	main: TimelineReadDiagnostics,
+	server_notifications: number,
+	server_highlights: number,
+	threads: ThreadReadDiagnostics[],
 };
 
 export type UploadProgressView = {
@@ -3106,6 +3124,9 @@ export type Rpc = {
     readMarker: (params: {
 	room_id: string,
 }) => Promise<string | null>;
+    unreadDiagnostics: (params: {
+	room_id: string,
+}) => Promise<UnreadDiagnosticsView>;
     retryDecryption: (params: {
 	room_id: string,
 	session_id: string,
@@ -3456,6 +3477,7 @@ export type RpcMethods = {
   'timeline.set_fully_read': Rpc['timeline']['setFullyRead'];
   'timeline.mark_unread': Rpc['timeline']['markUnread'];
   'timeline.read_marker': Rpc['timeline']['readMarker'];
+  'timeline.unread_diagnostics': Rpc['timeline']['unreadDiagnostics'];
   'timeline.retry_decryption': Rpc['timeline']['retryDecryption'];
   'timeline.room_event_relations': Rpc['timeline']['roomEventRelations'];
   'timeline.pinned_events': Rpc['timeline']['pinnedEvents'];
@@ -3786,6 +3808,7 @@ export function createRpc(call: RpcCall): Rpc {
       setFullyRead: (params) => call('timeline.set_fully_read', params) as ReturnType<Rpc['timeline']['setFullyRead']>,
       markUnread: (params) => call('timeline.mark_unread', params) as ReturnType<Rpc['timeline']['markUnread']>,
       readMarker: (params) => call('timeline.read_marker', params) as ReturnType<Rpc['timeline']['readMarker']>,
+      unreadDiagnostics: (params) => call('timeline.unread_diagnostics', params) as ReturnType<Rpc['timeline']['unreadDiagnostics']>,
       retryDecryption: (params) => call('timeline.retry_decryption', params) as ReturnType<Rpc['timeline']['retryDecryption']>,
       roomEventRelations: (params) => call('timeline.room_event_relations', params) as ReturnType<Rpc['timeline']['roomEventRelations']>,
       pinnedEvents: (params) => call('timeline.pinned_events', params) as ReturnType<Rpc['timeline']['pinnedEvents']>,

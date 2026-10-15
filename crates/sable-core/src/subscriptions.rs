@@ -23,7 +23,6 @@ use crate::notifications;
 use crate::protocol::{CoreEvent, RpcError, SubscriptionId, TimelineItemView};
 use crate::room_list_batch::DiffBatch;
 use crate::room_list_rows::RoomListRows;
-use crate::thread_unreads::{ThreadWatch, thread_unread};
 use crate::timeline_overlay::{ReplyFallback, TimelineOverlay};
 use crate::timelines::{
     AggregationScope, aggregation_items, build_room_timeline, fill_sender_profiles,
@@ -101,8 +100,6 @@ impl Core {
             let mut rows = RoomListRows::default();
             let mut rule_changes = push_rules.subscribe();
             let mut rules = push_rules.snapshot().await;
-            let (mut thread_watch, mut thread_reads) = ThreadWatch::new(client.clone());
-            let mut room_updates = client.event_cache().subscribe_to_room_generic_updates();
 
             let mut stream = Box::pin(stream);
             let mut grown_to = 0;
@@ -144,32 +141,7 @@ impl Core {
                             rows.apply(diff);
                         }
                         rows.evict(&mut room_cache);
-                        for (room_id, info) in &room_cache {
-                            thread_watch.watch(room_id, &info.thread_unread.roots);
-                        }
                         diffs
-                    }
-                    room_id = thread_reads.recv() => {
-                        let Some(room_id) = room_id else { break };
-                        let Some(diff) =
-                            rethread(&client, &room_id, &mut room_cache, &mut rows, &mut thread_watch).await
-                        else {
-                            continue;
-                        };
-                        vec![diff]
-                    }
-                    update = room_updates.recv() => {
-                        let room_id = match update {
-                            Ok(update) => update.room_id,
-                            Err(RecvError::Lagged(_)) => continue,
-                            Err(RecvError::Closed) => break,
-                        };
-                        let Some(diff) =
-                            rethread(&client, &room_id, &mut room_cache, &mut rows, &mut thread_watch).await
-                        else {
-                            continue;
-                        };
-                        vec![diff]
                     }
                     changed = rule_changes.recv() => {
                         if matches!(changed, Err(RecvError::Closed)) {
@@ -645,24 +617,6 @@ async fn due(wait: Option<Duration>) {
         Some(wait) => matrix_sdk::sleep::sleep(wait).await,
         None => std::future::pending().await,
     }
-}
-
-async fn rethread(
-    client: &matrix_sdk::Client,
-    room_id: &RoomId,
-    room_cache: &mut HashMap<OwnedRoomId, view::RoomInfo>,
-    rows: &mut RoomListRows,
-    watch: &mut ThreadWatch,
-) -> Option<crate::protocol::VectorDiff<crate::protocol::RoomListItemView>> {
-    let room = client.get_room(room_id)?;
-    let info = room_cache.get_mut(room_id)?;
-    let now = thread_unread(&room).await;
-    watch.watch(room_id, &now.roots);
-    let was = std::mem::replace(&mut info.thread_unread, now).counts;
-    if was == info.thread_unread.counts {
-        return None;
-    }
-    rows.rethread(room_id, was, info.thread_unread.counts)
 }
 
 fn diff_events(diff: VectorDiff<Event>) -> Vec<Event> {

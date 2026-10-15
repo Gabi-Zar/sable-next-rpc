@@ -18,7 +18,6 @@ use crate::protocol::{
     LatestEventView, NotificationModeView, NotificationSettingsView, PredecessorRoomView,
     RoomJoinRuleView, RoomListItemView, RoomStateView, RoomTag, RoomUnreadView, SpaceChildEdge,
 };
-use crate::thread_unreads::{ThreadCounts, ThreadUnread, thread_unread};
 
 use super::diff::diff_values;
 use super::space::{kept_children, space_children};
@@ -42,7 +41,6 @@ pub struct RoomInfo {
     pub children_stale: bool,
     pub tags: Vec<RoomTag>,
     pub screen_sharers: Vec<OwnedUserId>,
-    pub thread_unread: ThreadUnread,
 }
 
 #[must_use]
@@ -57,14 +55,8 @@ pub fn room_list_item<S: BuildHasher>(
         .as_ref()
         .and_then(|event| event.event_id.as_deref());
     let every_encrypted = crate::push_rules::pushes_every_encrypted_event(rules);
-    let threads = info.map_or_else(ThreadCounts::default, |info| info.thread_unread.counts);
     let (unread, highlight) = unread_counts(item, latest_event_id, every_encrypted);
-    let (unread, highlight) = (
-        unread.saturating_add(threads.unread),
-        highlight.saturating_add(threads.highlight),
-    );
-    let notifying =
-        notifying_count(item, latest_event_id, every_encrypted).saturating_add(threads.notifying);
+    let notifying = notifying_count(item, latest_event_id, every_encrypted);
     let marked_unread = item.is_marked_unread();
     let notification = crate::push_rules::room_settings(
         rules,
@@ -377,7 +369,6 @@ async fn room_info(room: &Room, previous: Option<&RoomInfo>) -> RoomInfo {
         } else {
             Vec::new()
         },
-        thread_unread: thread_unread(room).await,
     }
 }
 
