@@ -830,12 +830,15 @@ jobs:
           persist-credentials: false
       - name: Upload manifests to latest
         run: |
+          shopt -s nullglob
           node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'latest.json' --dir .
           node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'altstore-source.json' --dir .
           node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'obtainium.json' --dir .
+          node scripts/ci/forgejo-release.mjs download \
+            --tag "$TAG" --pattern 'sable-windows-*' --dir .
 
           git tag -f latest "$SHA"
           git push --force \
@@ -851,7 +854,9 @@ jobs:
             --tag latest \
             --title 'Latest stable' \
             --notes "Stable manifests for $VERSION. Bundles live on the $TAG release."
-          node scripts/ci/forgejo-release.mjs upload --tag latest latest.json altstore-source.json obtainium.json
+          windows=(sable-windows-*)
+          node scripts/ci/forgejo-release.mjs upload --tag latest latest.json altstore-source.json obtainium.json \
+            "${windows[@]}"
   publish-nightly-channel:
     name: Refresh nightly channel metadata
     needs: [setup-release, updater-manifest, obtainium, altstore]

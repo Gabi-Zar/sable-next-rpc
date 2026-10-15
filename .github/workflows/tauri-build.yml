@@ -196,7 +196,7 @@ jobs:
                   *.dmg) suffix='.dmg' ;;
                   *) continue ;;
                 esac
-                target="$(dirname "$path")/sable-${VERSION}-${ASSET_PLATFORM}${suffix}"
+                target="$(dirname "$path")/sable-${ASSET_PLATFORM}${suffix}"
                 [ "$path" = "$target" ] || mv "$path" "$target"
               done
           find "$BUNDLE_PATH" -type f -name 'sable-*' > bundles
