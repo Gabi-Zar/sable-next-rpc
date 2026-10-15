@@ -794,11 +794,11 @@
     "banned": "You are banned from this room.",
     "members_one": "{{count, number}} member",
     "members_other": "{{count, number}} members",
-    "provenance": "Preview provided by {{server}}",
+    "provenance": "Provided by {{server}}",
     "uncertainProvenance": "Provided by another server",
     "uncertainProvenanceTooltip": "This room preview may have been provided by another server. It may be incorrect or outdated.",
     "untrustedProvenanceTooltip": "This room preview was provided by {{server}}. It may be incorrect or outdated.",
-    "trustedProvenanceTooltip": "This room preview was provided by your homeserver."
+    "trustedProvenanceTooltip": "This room preview was provided by your own server."
   },
   "direct": {
     "description": "Start a private, encrypted chat by entering a user id.",

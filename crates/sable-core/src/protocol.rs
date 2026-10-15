@@ -1,5 +1,10 @@
-use matrix_sdk::ruma::{OwnedDeviceId, OwnedEventId, OwnedRoomId, OwnedUserId};
-use ruma::OwnedServerName;
+use matrix_sdk::RoomState;
+use matrix_sdk::RoomStrippedStateVia;
+use matrix_sdk::ruma::events::AnyStrippedStateEvent;
+use matrix_sdk::ruma::{
+    OwnedDeviceId, OwnedEventId, OwnedMxcUri, OwnedRoomAliasId, OwnedRoomId, OwnedServerName,
+    OwnedUserId,
+};
 pub use sable_model::calendar::{CalendarRsvpView, RsvpStatusView};
 pub use sable_model::event_preview::ReplyFallbackView;
 pub use sable_model::markdown::{ComposerContent, ComposerMentions, ComposerPill};
@@ -13,6 +18,7 @@ pub use sable_model::spaces::{RoomJoinRuleView, SpaceChildEdge};
 use serde::{Deserialize, Serialize};
 
 use crate::api::rooms::RoomKind;
+use crate::view::join_rule_summary_view;
 
 #[derive(Debug, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -951,6 +957,18 @@ pub enum RoomStateView {
     Banned,
 }
 
+impl From<RoomState> for RoomStateView {
+    fn from(value: RoomState) -> Self {
+        match value {
+            RoomState::Joined => Self::Joined,
+            RoomState::Invited => Self::Invited,
+            RoomState::Knocked => Self::Knocked,
+            RoomState::Left => Self::Left,
+            RoomState::Banned => Self::Banned,
+        }
+    }
+}
+
 /// A room as the server describes it to someone who may not be in it.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -958,17 +976,82 @@ pub struct RoomPreviewView {
     /// Resolved, since the preview may have been asked for by alias.
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
-    pub canonical_alias: Option<String>,
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub canonical_alias: Option<OwnedRoomAliasId>,
     pub name: Option<String>,
     pub topic: Option<String>,
-    pub avatar_url: Option<String>,
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub avatar_url: Option<OwnedMxcUri>,
     pub room_kind: Option<RoomKind>,
     pub num_joined_members: u32,
     pub join_rule: RoomJoinRuleView,
     /// `null` when this account has no membership in the room.
     pub state: Option<RoomStateView>,
-    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
-    pub via: Option<OwnedServerName>,
+    pub via: RoomPreviewViaView,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub enum RoomPreviewViaView {
+    Client,
+    Remote {
+        #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+        server: OwnedServerName,
+    },
+    Unknown,
+}
+
+impl RoomPreviewView {
+    pub fn from_state_events(
+        room_id: OwnedRoomId,
+        via: RoomStrippedStateVia,
+        num_joined_members: u32,
+        state_events: Vec<AnyStrippedStateEvent>,
+        membership: Option<RoomState>,
+    ) -> RoomPreviewView {
+        let mut view = Self {
+            room_id,
+            canonical_alias: None,
+            name: None,
+            topic: None,
+            avatar_url: None,
+            room_kind: None,
+            num_joined_members,
+            join_rule: RoomJoinRuleView::Unknown,
+            state: membership.map(Into::into),
+            via: match via {
+                RoomStrippedStateVia::Client => RoomPreviewViaView::Client,
+                RoomStrippedStateVia::Remote(server) => RoomPreviewViaView::Remote { server },
+            },
+        };
+
+        for event in state_events {
+            match event {
+                AnyStrippedStateEvent::RoomCanonicalAlias(event) => {
+                    view.canonical_alias = event.content.alias;
+                }
+                AnyStrippedStateEvent::RoomName(event) => {
+                    view.name = event.content.name;
+                }
+                AnyStrippedStateEvent::RoomTopic(event) => {
+                    view.topic = event.content.topic;
+                }
+                AnyStrippedStateEvent::RoomAvatar(event) => {
+                    view.avatar_url = event.content.url;
+                }
+                AnyStrippedStateEvent::RoomCreate(event) => {
+                    view.room_kind = RoomKind::from_room_type(event.content.room_type.as_ref());
+                }
+                AnyStrippedStateEvent::RoomJoinRules(event) => {
+                    view.join_rule = join_rule_summary_view(&event.content.join_rule.into());
+                }
+                _ => {}
+            }
+        }
+
+        view
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

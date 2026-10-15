@@ -1681,7 +1681,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         num_joined_members: 3,
         join_rule: 'public',
         state: null,
-        via: null,
+        via: { type: 'unknown' },
       }),
       'rooms.join': (params) => params.address,
       'rooms.knock': (params) => params.address,

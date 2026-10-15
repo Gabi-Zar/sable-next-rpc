@@ -6,7 +6,9 @@ use matrix_sdk::ruma::directory::PublicRoomsChunk;
 use matrix_sdk::ruma::room::{JoinRuleKind, JoinRuleSummary};
 
 use crate::api::rooms::RoomKind;
-use crate::protocol::{PublicRoomView, RoomJoinRuleView, RoomPreviewView, RoomStateView};
+use crate::protocol::{
+    PublicRoomView, RoomJoinRuleView, RoomPreviewViaView, RoomPreviewView, RoomStateView,
+};
 
 #[must_use]
 pub fn public_room(chunk: &PublicRoomsChunk) -> PublicRoomView {
@@ -92,10 +94,10 @@ pub fn via_servers(members: &[(String, i64)]) -> Vec<String> {
 pub fn room_preview_view(preview: &RoomPreview) -> RoomPreviewView {
     RoomPreviewView {
         room_id: preview.room_id.clone(),
-        canonical_alias: preview.canonical_alias.as_ref().map(ToString::to_string),
+        canonical_alias: preview.canonical_alias.clone(),
         name: preview.name.clone(),
         topic: preview.topic.clone(),
-        avatar_url: preview.avatar_url.as_ref().map(ToString::to_string),
+        avatar_url: preview.avatar_url.clone(),
         room_kind: RoomKind::from_room_type(preview.room_type.as_ref()),
         num_joined_members: u32::try_from(preview.num_joined_members).unwrap_or(u32::MAX),
         join_rule: preview
@@ -109,11 +111,12 @@ pub fn room_preview_view(preview: &RoomPreview) -> RoomPreviewView {
             RoomState::Left => RoomStateView::Left,
             RoomState::Banned => RoomStateView::Banned,
         }),
-        via: None,
+        via: RoomPreviewViaView::Unknown,
     }
 }
 
-pub(super) const fn join_rule_summary_view(rule: &JoinRuleSummary) -> RoomJoinRuleView {
+#[must_use]
+pub const fn join_rule_summary_view(rule: &JoinRuleSummary) -> RoomJoinRuleView {
     match rule {
         JoinRuleSummary::Public => RoomJoinRuleView::Public,
         JoinRuleSummary::Invite => RoomJoinRuleView::Invite,

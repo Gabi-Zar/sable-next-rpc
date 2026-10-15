@@ -56,7 +56,9 @@
   const reasonId = $props.id();
 
   let title = $derived(preview?.name ?? roomId);
-  let localServer = $derived(core.session?.homeserver);
+  let localServer = $derived(
+    core.session?.homeserver ? new URL(core.session.homeserver).hostname : null
+  );
 
   $effect(() => {
     const address = roomId;
@@ -307,30 +309,31 @@
           </div>
         {/if}
 
-        {#if preview}
+        {#if preview && preview.via.type !== 'client'}
           <Tooltip
-            align="start"
-            side="top"
+            align="center"
+            side="bottom"
             label={i18n.t(
-              preview.via === null
+              preview.via.type === 'unknown'
                 ? 'join.uncertainProvenanceTooltip'
-                : localServer && preview.via === localServer
+                : localServer && preview.via.server === localServer
                   ? 'join.trustedProvenanceTooltip'
-                  : 'join.untrustedProvenanceTooltip'
+                  : 'join.untrustedProvenanceTooltip',
+              { server: preview.via.type === 'remote' ? preview.via.server : undefined }
             )}
           >
             {#snippet trigger({ props })}
-              {#if preview}
+              {#if preview && preview.via.type !== 'client'}
                 <div {...props} class="provenance">
-                  {#if preview.via === null}
+                  {#if preview.via.type === 'unknown'}
                     <SealQuestionIcon />
                     <span>{i18n.t('join.uncertainProvenance')}</span>
-                  {:else if localServer && preview.via === localServer}
+                  {:else if localServer && preview.via.server === localServer}
                     <SealCheckIcon />
                     <span>{i18n.t('join.provenance', { server: localServer })}</span>
                   {:else}
                     <SealQuestionIcon />
-                    <span>{i18n.t('join.provenance', { server: preview.via })}</span>
+                    <span>{i18n.t('join.provenance', { server: preview.via.server })}</span>
                   {/if}
                 </div>
               {/if}

@@ -35,7 +35,7 @@ function preview(join_rule: RoomPreviewView['join_rule']): RoomPreviewView {
     num_joined_members: 3,
     join_rule,
     state: null,
-    via: null,
+    via: { type: 'unknown' },
   };
 }
 

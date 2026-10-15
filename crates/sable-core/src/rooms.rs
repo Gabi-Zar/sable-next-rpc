@@ -1,14 +1,18 @@
+use std::collections::BTreeSet;
+
 use crate::api::rooms::DirectoryRoomType;
 use crate::api::rooms::PublicRoomsParams;
 use matrix_sdk::config::RequestConfig;
 use matrix_sdk::deserialized_responses::SyncOrStrippedState;
 use matrix_sdk::room::Room;
 use matrix_sdk::ruma::SpaceChildOrder;
+use matrix_sdk::ruma::api::FeatureFlag;
 use matrix_sdk::ruma::api::client::directory::get_public_rooms_filtered;
 use matrix_sdk::ruma::api::client::membership::joined_rooms;
 use matrix_sdk::ruma::api::client::space::get_hierarchy;
 use matrix_sdk::ruma::directory::{Filter, RoomTypeFilter};
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
+use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::events::room::join_rules::{AllowRule, JoinRule, RoomJoinRulesEventContent};
 use matrix_sdk::ruma::events::room::tombstone::RoomTombstoneEventContent;
 use matrix_sdk::ruma::events::space::child::SpaceChildEventContent;
@@ -515,6 +519,45 @@ impl Core {
             .iter()
             .filter_map(|server| ServerName::parse(server).ok())
             .collect::<Vec<_>>();
+
+        if client
+            .unstable_features()
+            .await
+            .unwrap_or_default()
+            .contains(&FeatureFlag::Msc4560)
+        {
+            let state = client
+                .get_room_stripped_state(
+                    &address,
+                    via.clone(),
+                    BTreeSet::from_iter([
+                        StateEventType::RoomCreate,
+                        StateEventType::RoomCanonicalAlias,
+                        StateEventType::RoomName,
+                        StateEventType::RoomTopic,
+                        StateEventType::RoomAvatar,
+                        StateEventType::RoomJoinRules,
+                    ]),
+                    true,
+                )
+                .await;
+
+            if let Ok(state) = state {
+                let membership = client.get_room(&state.room_id).map(|room| room.state());
+
+                return Ok(RoomPreviewView::from_state_events(
+                    state.room_id,
+                    state.via,
+                    state
+                        .num_joined_members
+                        .unwrap_or_default()
+                        .try_into()
+                        .unwrap_or(u32::MAX),
+                    state.state,
+                    membership,
+                ));
+            }
+        }
 
         let mut preview = client
             .get_room_preview(&address, via)

@@ -15,7 +15,7 @@ mod state;
 mod thread;
 
 pub use diff::map_diff;
-pub use directory::{public_room, room_preview_view, via_servers};
+pub use directory::{join_rule_summary_view, public_room, room_preview_view, via_servers};
 pub use item::{Highlights, LocalContent, aggregation_item, standalone_item, timeline_item};
 pub use member::{member_view, room_permissions, room_power_levels};
 pub use room::{

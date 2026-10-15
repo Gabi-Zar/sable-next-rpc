@@ -36,7 +36,7 @@ function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
     num_joined_members: 3,
     join_rule: 'knock',
     state: null,
-    via: null,
+    via: { type: 'unknown' },
     ...overrides,
   };
 }
