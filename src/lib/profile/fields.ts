@@ -10,6 +10,7 @@ export const BIO_FIELD = 'gay.fomx.biography';
 export const LEGACY_BIO_FIELDS = ['moe.sable.app.bio', 'chat.commet.profile_bio'];
 export const LEGACY_STATUS_FIELDS = ['chat.commet.profile_status', 'm.status'];
 
+export const MAX_DISPLAY_NAME_LENGTH = 255;
 export const MAX_STATUS_TEXT_BYTES = 256;
 export const MAX_STATUS_EMOJI_BYTES = 32;
 

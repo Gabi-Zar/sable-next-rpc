@@ -9,6 +9,7 @@
     BIO_FIELD,
     LEGACY_BIO_FIELDS,
     LEGACY_STATUS_FIELDS,
+    MAX_DISPLAY_NAME_LENGTH,
     MAX_STATUS_TEXT_BYTES,
     NAME_COLOR_FIELD,
     PRONOUNS_FIELD,
@@ -509,7 +510,7 @@
                 bind:value={draft.name}
                 placeholder={i18n.t('common.displayName')}
                 autocomplete="nickname"
-                maxlength={255}
+                maxlength={MAX_DISPLAY_NAME_LENGTH}
               />
             </div>
           {/snippet}

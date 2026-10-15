@@ -10,6 +10,8 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { setMemberLook, type MemberLookEdit } from '#lib/core/api/members.js';
   import { COSMETIC_EVENT_TYPES, pronounSets } from '#lib/features/composer/slash-commands.js';
+  import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
+  import { MAX_PRONOUN_INPUT } from '#lib/profile/pronouns.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { i18n } from '#lib/i18n.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -327,6 +329,7 @@
             id={`${uid}-name`}
             bind:value={name}
             placeholder={profileName ?? userId ?? ''}
+            maxlength={MAX_DISPLAY_NAME_LENGTH}
             aria-label={i18n.t(isSpace ? 'room.cosmeticsNameSpace' : 'room.cosmeticsName')}
           />
           <Button
@@ -391,6 +394,7 @@
             bind:value={pronouns}
             disabled={!canSetPronouns}
             placeholder={i18n.t('room.cosmeticsPronounsPlaceholder')}
+            maxlength={MAX_PRONOUN_INPUT}
             aria-label={i18n.t('room.cosmeticsPronouns')}
           />
           <Button

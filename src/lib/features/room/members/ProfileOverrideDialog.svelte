@@ -5,6 +5,7 @@
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { i18n } from '#lib/i18n.js';
   import { downscaledAvatar, encryptAttachment } from '#lib/profile/encrypted-file.js';
+  import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
   import { profileOverrides, type OverrideEdit } from '#lib/profile/profile-overrides.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -162,7 +163,12 @@
     {/if}
   </div>
   <FormField {fieldId} label={i18n.t('timeline.profileOverrideName')}>
-    <TextInput id={fieldId} bind:value={name} placeholder={realName} maxlength={255} />
+    <TextInput
+      id={fieldId}
+      bind:value={name}
+      placeholder={realName}
+      maxlength={MAX_DISPLAY_NAME_LENGTH}
+    />
   </FormField>
   <ColorSetting
     label={i18n.t('timeline.profileOverrideColor')}

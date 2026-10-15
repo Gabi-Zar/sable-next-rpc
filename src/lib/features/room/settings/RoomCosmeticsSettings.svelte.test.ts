@@ -15,6 +15,9 @@ vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
+import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
+import { MAX_PRONOUN_INPUT } from '#lib/profile/pronouns.js';
+
 import RoomCosmeticsSettings from './RoomCosmeticsSettings.svelte';
 
 const core = baseCore;
@@ -116,4 +119,18 @@ test('reset writes the member event once and drops the colours with it', async (
     color_on_light: { kind: 'clear' },
     color_on_dark: { kind: 'clear' },
   });
+});
+
+test('the room nickname and pronouns share the profile editor limits', async () => {
+  core.userProfile.mockResolvedValue({ display_name: 'Me', avatar_url: null });
+  render(RoomCosmeticsSettings, { room, permissions: null, levels: null });
+
+  expect(await screen.findByRole('textbox', { name: 'room.cosmeticsName' })).toHaveAttribute(
+    'maxlength',
+    String(MAX_DISPLAY_NAME_LENGTH)
+  );
+  expect(screen.getByRole('textbox', { name: 'room.cosmeticsPronouns' })).toHaveAttribute(
+    'maxlength',
+    String(MAX_PRONOUN_INPUT)
+  );
 });

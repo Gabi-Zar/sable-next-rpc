@@ -8,7 +8,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { parsePronouns } from '#lib/personas/pronouns.js';
-  import { pronounText } from '#lib/profile/pronouns.js';
+  import { MAX_PRONOUN_INPUT, pronounText } from '#lib/profile/pronouns.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -171,6 +171,7 @@
         bind:value={pronouns}
         autocomplete="off"
         placeholder={i18n.t('common.theythemEnsheher')}
+        maxlength={MAX_PRONOUN_INPUT}
       />
     </label>
 

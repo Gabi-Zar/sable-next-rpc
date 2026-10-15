@@ -4,7 +4,8 @@
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
 
   import { i18n } from '#lib/i18n.js';
-  import { MAX_STATUS_TEXT_BYTES } from '#lib/profile/fields.js';
+  import { MAX_DISPLAY_NAME_LENGTH, MAX_STATUS_TEXT_BYTES } from '#lib/profile/fields.js';
+  import { MAX_PRONOUN_INPUT } from '#lib/profile/pronouns.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -120,7 +121,7 @@
       id="profile-display-name"
       value={displayName}
       autocomplete="nickname"
-      maxlength={255}
+      maxlength={MAX_DISPLAY_NAME_LENGTH}
       oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
         onDisplayName(event.currentTarget.value);
       }}
@@ -132,6 +133,7 @@
       id="profile-pronouns"
       value={pronouns}
       placeholder={i18n.t('common.theythemEnsheher')}
+      maxlength={MAX_PRONOUN_INPUT}
       oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
         onPronouns(event.currentTarget.value);
       }}

@@ -11,6 +11,8 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { setMemberLook } from '#lib/core/api/members.js';
   import { COSMETIC_EVENT_TYPES, pronounSets } from '#lib/features/composer/slash-commands.js';
+  import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
+  import { MAX_PRONOUN_INPUT } from '#lib/profile/pronouns.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import MentionProfileCard from '#lib/features/room/members/MentionProfileCard.svelte';
   import { canSendState } from '#lib/features/room/settings/permission-groups.js';
@@ -294,7 +296,7 @@
                 bind:value={draft.name}
                 placeholder={profile.display_name ?? userId}
                 disabled={loading}
-                maxlength={255}
+                maxlength={MAX_DISPLAY_NAME_LENGTH}
               />
             </div>
           {/snippet}
@@ -308,6 +310,7 @@
                   bind:value={draft.pronouns}
                   disabled={loading}
                   placeholder={i18n.t('room.cosmeticsPronounsPlaceholder')}
+                  maxlength={MAX_PRONOUN_INPUT}
                 />
               {:else}
                 <Tooltip label={i18n.t('room.cosmeticsNotAllowed')}>
@@ -319,6 +322,7 @@
                         bind:value={draft.pronouns}
                         disabled
                         placeholder={i18n.t('room.cosmeticsPronounsPlaceholder')}
+                        maxlength={MAX_PRONOUN_INPUT}
                       />
                     </span>
                   {/snippet}
