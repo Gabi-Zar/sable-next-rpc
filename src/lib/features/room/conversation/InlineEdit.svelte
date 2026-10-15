@@ -16,6 +16,7 @@
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { cachedMediaUrl, holdMediaUrl, loadMediaUrl } from '#lib/ui/media-url.js';
+  import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
 
   import type { Conversation } from './conversation.svelte.js';
@@ -123,7 +124,7 @@
     {showPlaceholder}
   />
   {#if error}
-    <p class="error" role="alert">{error}</p>
+    <Alert variant="critical" role="alert">{error}</Alert>
   {/if}
   <div class="actions">
     <Button size="small" onclick={() => conversation.clearContext()}
@@ -144,12 +145,6 @@
     gap: var(--space-100);
     min-width: 0;
     padding: var(--space-100);
-  }
-
-  .error {
-    color: var(--critical-main);
-    font-size: var(--font-size-small);
-    margin: 0;
   }
 
   .actions {

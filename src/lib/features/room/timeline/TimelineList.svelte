@@ -964,6 +964,7 @@
 </script>
 
 {#snippet timelineItem(item: TimelineItemView, collapsed = false, unreadCount = 0)}
+  {@const edited = editEventId !== null && item.event_id === editEventId}
   <TimelineItem
     {item}
     {collapsed}
@@ -974,8 +975,8 @@
       item.event_id !== replayingEventId &&
       item.event_id === (focusEventId ?? landedEventId)}
     selected={replyEventId !== null && item.event_id === replyEventId}
-    editing={editEventId !== null && item.event_id === editEventId}
-    editor={editEventId !== null && item.event_id === editEventId ? inlineEditor : undefined}
+    editing={edited}
+    editor={edited ? inlineEditor : undefined}
     {onMatrixLink}
     {onCopyLink}
     {onMarkUnread}

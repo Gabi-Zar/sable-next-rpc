@@ -451,8 +451,8 @@
       <span class="menu-check" aria-hidden="true">{groupFavourites ? '✓' : ''}</span>
       {i18n.t('nav.groupFavourites')}
     </ActionMenuItem>
+    <ActionMenuSeparator />
     {#if !activeSpace}
-      <ActionMenuSeparator />
       {#each ROOM_SORTS as option (option)}
         <ActionMenuItem
           checked={preferences.roomSort === option}
@@ -467,7 +467,6 @@
         </ActionMenuItem>
       {/each}
     {:else}
-      <ActionMenuSeparator />
       <ActionMenuItem
         onSelect={() => {
           openSettings(activeSpace);

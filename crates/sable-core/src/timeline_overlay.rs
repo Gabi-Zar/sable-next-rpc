@@ -369,11 +369,7 @@ mod tests {
 
         let diffs = overlay.set_redaction_reason(event_id!("$b").to_owned(), "spam".to_owned());
         assert_eq!(diffs.len(), 1);
-        assert_eq!(
-            redaction_reason(&overlay.items[1]),
-            Some("spam"),
-            "the loaded row shows the reason"
-        );
+        assert_eq!(redaction_reason(&overlay.items[1]), Some("spam"));
         assert!(
             overlay
                 .set_redaction_reason(event_id!("$b").to_owned(), "spam".to_owned())

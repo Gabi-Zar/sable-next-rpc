@@ -9,7 +9,7 @@ function unescapeSlash(part: string): string {
   return part.replaceAll('\\/', '/');
 }
 
-/** `s/find/replace`, the way Discord reads it: plain text, first match only. */
+/** `s/find/replace`: plain text, first match only. */
 export function parseSed(text: string): SedEdit | null {
   const match = SED.exec(text.trim());
   if (!match) return null;

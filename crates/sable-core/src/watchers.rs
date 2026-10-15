@@ -530,7 +530,6 @@ impl Core {
                     let SyncRoomRedactionEvent::Original(event) = event else {
                         return;
                     };
-                    let rules = room.clone_info().room_version_rules_or_default();
                     let Some(reason) = event
                         .content
                         .reason
@@ -539,6 +538,7 @@ impl Core {
                     else {
                         return;
                     };
+                    let rules = room.clone_info().room_version_rules_or_default();
                     core.overlay_redaction(room.room_id(), event.redacts(&rules.redaction), reason)
                         .await;
                 }
