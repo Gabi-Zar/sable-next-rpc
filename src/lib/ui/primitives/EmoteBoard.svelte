@@ -704,6 +704,7 @@
                                   width={64}
                                   height={64}
                                   original
+                                  emoticon
                                 />
                               {:else}
                                 <span class="unicode-text">{source}</span>
@@ -741,6 +742,7 @@
                                 width={cellSize}
                                 height={cellSize}
                                 original
+                                emoticon
                               />
                             </button>
                           {/snippet}

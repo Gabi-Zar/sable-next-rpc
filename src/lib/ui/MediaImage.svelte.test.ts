@@ -18,6 +18,7 @@ afterEach(() => {
   core.fetchMedia.mockReset();
   core.forgetMedia.mockClear();
   preferences.autoplayGifs = true;
+  preferences.autoplayStickers = true;
   preferences.pauseAnimationsWhenInactive = false;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -1201,7 +1202,10 @@ test('retries a failed load on its own, without a retry button', async () => {
   vi.useRealTimers();
 });
 
-async function mountLoadedEmote(source: string): Promise<{
+async function mountLoadedEmote(
+  source: string,
+  extra: Partial<ComponentProps<typeof MediaImage>> = {}
+): Promise<{
   image: () => HTMLImageElement | null;
 }> {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer(4)));
@@ -1211,7 +1215,7 @@ async function mountLoadedEmote(source: string): Promise<{
   } as unknown as CanvasRenderingContext2D);
   vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;still');
   render(MediaImage, {
-    props: { source, alt: 'party', width: 32, height: 32, original: true },
+    props: { source, alt: 'party', width: 32, height: 32, original: true, ...extra },
   });
   const image = () => document.querySelector<HTMLImageElement>('img.media-image-content');
   await vi.waitFor(() => {
@@ -1365,4 +1369,24 @@ test('a plain picture keeps the server thumbnail of the original', async () => {
   await settle();
 
   expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/plain-original', 800, 600);
+});
+
+test('an emoticon holds a still frame when stickers and emoji do not autoplay', async () => {
+  preferences.autoplayStickers = false;
+  const { image } = await mountLoadedEmote('mxc://example.org/held-emoji', { emoticon: true });
+
+  expect(image()?.getAttribute('src')).toBe('data:image/png;still');
+});
+
+test('an emoticon keeps animating when stickers and emoji autoplay', async () => {
+  const { image } = await mountLoadedEmote('mxc://example.org/playing-emoji', { emoticon: true });
+
+  expect(image()?.getAttribute('src')).toBe('blob:mxc://example.org/playing-emoji');
+});
+
+test('a plain image ignores the sticker and emoji preference', async () => {
+  preferences.autoplayStickers = false;
+  const { image } = await mountLoadedEmote('mxc://example.org/plain-image');
+
+  expect(image()?.getAttribute('src')).toBe('blob:mxc://example.org/plain-image');
 });

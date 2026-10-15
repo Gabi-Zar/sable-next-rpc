@@ -170,6 +170,7 @@
               width={64}
               height={64}
               original
+              emoticon
               onloaded={() => failedImages.delete(reaction.key)}
               onfailed={() => failedImages.add(reaction.key)}
             />

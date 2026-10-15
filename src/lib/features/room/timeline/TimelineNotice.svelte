@@ -97,6 +97,7 @@
         width={64}
         height={64}
         original
+        emoticon
       />
       {#snippet content()}
         <EmoteCard label={customReactionLabel}>
