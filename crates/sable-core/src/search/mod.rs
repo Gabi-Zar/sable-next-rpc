@@ -2151,7 +2151,7 @@ fn page_ranked(
     ranked
 }
 
-fn edited_or_own_event_id(original: &OriginalSyncRoomMessageEvent) -> OwnedEventId {
+pub(super) fn edited_or_own_event_id(original: &OriginalSyncRoomMessageEvent) -> OwnedEventId {
     match &original.content.relates_to {
         Some(Relation::Replacement(replacement)) => replacement.event_id.clone(),
         _ => original.event_id.clone(),
@@ -2202,7 +2202,7 @@ fn message_text(msgtype: &MessageType) -> String {
         .join("\n")
 }
 
-const fn replacement_of(
+pub(super) const fn replacement_of(
     message: &OriginalSyncRoomMessageEvent,
 ) -> Option<&Replacement<RoomMessageEventContentWithoutRelation>> {
     match &message.content.relates_to {

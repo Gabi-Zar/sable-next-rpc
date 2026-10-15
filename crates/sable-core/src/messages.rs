@@ -901,6 +901,19 @@ fn valid_replacements<'a>(
     })
 }
 
+pub(crate) fn latest_valid_replacement<'a>(
+    event: &'a TimelineEvent,
+    replacements: &'a [TimelineEvent],
+) -> Option<&'a TimelineEvent> {
+    valid_replacements(event, replacements).max_by_key(|replacement| {
+        replacement
+            .raw()
+            .get_field::<MilliSecondsSinceUnixEpoch>("origin_server_ts")
+            .ok()
+            .flatten()
+    })
+}
+
 fn edit_version(event: &TimelineEvent, replacement: bool) -> Option<EditVersionView> {
     let raw = serde_json::from_str::<serde_json::Value>(event.raw().json().get()).ok()?;
     let content = raw.get("content")?;

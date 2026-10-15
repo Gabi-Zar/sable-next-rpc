@@ -1,19 +1,27 @@
 use crate::api::search::SearchOrder;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use matrix_sdk::EncryptionState;
+use matrix_sdk::Room;
 use matrix_sdk::ruma::api::client::filter::RoomEventFilter;
 use matrix_sdk::ruma::api::client::search::search_events::v3::{
     Categories, Criteria, OrderBy, Request, SearchKeys, SearchResult,
 };
-use matrix_sdk::ruma::events::room::message::Relation;
-use matrix_sdk::ruma::events::{AnyMessageLikeEvent, AnyTimelineEvent};
+use matrix_sdk::ruma::events::relation::RelationType;
+use matrix_sdk::ruma::events::room::message::OriginalSyncRoomMessageEvent;
+use matrix_sdk::ruma::events::{
+    AnySyncMessageLikeEvent, AnySyncTimelineEvent, AnyTimelineEvent, SyncMessageLikeEvent,
+};
 use matrix_sdk::ruma::serde::Raw;
-use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId, UInt};
+use matrix_sdk::ruma::{
+    EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedUserId, UInt,
+};
 
 use super::IndexFilter;
-use super::{ContextLine, Hit, indexable_body};
+use super::tokenize::tokenize;
+use super::{ContextLine, Hit, edited_or_own_event_id, indexable_body, replacement_of};
 use crate::Core;
+use crate::messages::latest_valid_replacement;
 
 const MAX_ROUND_TRIPS: usize = 8;
 
@@ -118,6 +126,9 @@ impl Core {
 
         let wanted = query.offset.saturating_add(query.limit);
         let mut ignored: HashMap<OwnedUserId, bool> = HashMap::new();
+        let mut seen: HashSet<OwnedEventId> =
+            cursor.hits.iter().map(|hit| hit.event_id.clone()).collect();
+        let room = client.get_room(query.room_id);
 
         for _ in 0..MAX_ROUND_TRIPS {
             if cursor.hits.len() >= wanted || cursor.exhausted {
@@ -136,9 +147,27 @@ impl Core {
             cursor.exhausted = cursor.next_batch.is_none();
 
             for result in &events.results {
-                let Some(mut hit) = hit_from(result) else {
+                let Some(Candidate { mut hit, edit }) =
+                    hit_from(result, query.room_id, query.query)
+                else {
                     continue;
                 };
+                if seen.contains(&hit.event_id) {
+                    continue;
+                }
+                if let Some(edit) = edit {
+                    let Some(room) = &room else {
+                        continue;
+                    };
+                    let Some(timestamp) =
+                        original_timestamp_if_latest(room, &hit.event_id, &edit).await
+                    else {
+                        continue;
+                    };
+                    hit.origin_server_ts = timestamp;
+                    hit.before.clear();
+                    hit.after.clear();
+                }
 
                 let muted = if let Some(muted) = ignored.get(&hit.sender) {
                     *muted
@@ -158,6 +187,7 @@ impl Core {
                     let shown = |line: &ContextLine| ignored.get(&line.sender) != Some(&true);
                     hit.before.retain(shown);
                     hit.after.retain(shown);
+                    seen.insert(hit.event_id.clone());
                     cursor.hits.push(hit);
                 }
             }
@@ -222,33 +252,65 @@ fn request_for(query: &ServerQuery<'_>, limit: u64, next_batch: Option<&str>) ->
     request
 }
 
+fn room_message(raw: &Raw<AnyTimelineEvent>) -> Option<OriginalSyncRoomMessageEvent> {
+    match raw
+        .cast_ref_unchecked::<AnySyncTimelineEvent>()
+        .deserialize()
+        .ok()?
+    {
+        AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(
+            SyncMessageLikeEvent::Original(message),
+        )) => Some(message),
+        _ => None,
+    }
+}
+
 fn context_line(raw: &Raw<AnyTimelineEvent>) -> Option<ContextLine> {
-    let AnyTimelineEvent::MessageLike(AnyMessageLikeEvent::RoomMessage(message)) =
-        raw.deserialize().ok()?
-    else {
-        return None;
-    };
-    let original = message.as_original()?;
-    if matches!(original.content.relates_to, Some(Relation::Replacement(_))) {
+    let original = room_message(raw)?;
+    if replacement_of(&original).is_some() {
         return None;
     }
 
     Some(ContextLine {
-        event_id: original.event_id.clone(),
-        body: indexable_body(original.content.body()),
-        sender: original.sender.clone(),
+        body: latest_body(&original).unwrap_or_else(|| indexable_body(original.content.body())),
+        event_id: original.event_id,
+        sender: original.sender,
         origin_server_ts: original.origin_server_ts.get().into(),
     })
 }
 
-fn hit_from(result: &SearchResult) -> Option<Hit> {
-    let AnyTimelineEvent::MessageLike(AnyMessageLikeEvent::RoomMessage(message)) =
-        result.result.as_ref()?.deserialize().ok()?
-    else {
-        return None;
+fn latest_body(message: &OriginalSyncRoomMessageEvent) -> Option<String> {
+    let edit = replacement_of(message.unsigned.relations.replace.as_deref()?)?;
+    Some(indexable_body(edit.new_content.msgtype.body()))
+}
+
+fn matches_query(query: &str, body: &str) -> bool {
+    let terms = tokenize(body);
+    tokenize(query)
+        .iter()
+        .all(|wanted| terms.iter().any(|term| term.starts_with(wanted.as_ref())))
+}
+
+/// A search result that matched on an edit stands for the message it replaces, but only
+/// once that edit is the replaced message's latest valid one.
+struct Candidate {
+    hit: Hit,
+    edit: Option<OwnedEventId>,
+}
+
+fn hit_from(result: &SearchResult, room_id: &OwnedRoomId, query: &str) -> Option<Candidate> {
+    let original = room_message(result.result.as_ref()?)?;
+    let (edit, edited) = match replacement_of(&original) {
+        Some(replacement) => (
+            Some(original.event_id.clone()),
+            Some(indexable_body(replacement.new_content.msgtype.body())),
+        ),
+        None => (None, latest_body(&original)),
     };
-    let original = message.as_original()?;
-    if matches!(original.content.relates_to, Some(Relation::Replacement(_))) {
+    if edited
+        .as_ref()
+        .is_some_and(|body| !matches_query(query, body))
+    {
         return None;
     }
 
@@ -260,11 +322,11 @@ fn hit_from(result: &SearchResult) -> Option<Hit> {
         .collect();
     before.reverse();
 
-    Some(Hit {
-        room_id: original.room_id.clone(),
-        event_id: original.event_id.clone(),
-        body: indexable_body(original.content.body()),
-        sender: original.sender.clone(),
+    let hit = Hit {
+        room_id: room_id.clone(),
+        event_id: edited_or_own_event_id(&original),
+        body: edited.unwrap_or_else(|| indexable_body(original.content.body())),
+        sender: original.sender,
         origin_server_ts: original.origin_server_ts.get().into(),
         score: result.rank.unwrap_or_default(),
         before,
@@ -274,22 +336,56 @@ fn hit_from(result: &SearchResult) -> Option<Hit> {
             .iter()
             .filter_map(context_line)
             .collect(),
-    })
+    };
+    Some(Candidate { hit, edit })
+}
+
+async fn original_timestamp_if_latest(
+    room: &Room,
+    original_id: &EventId,
+    edit_id: &EventId,
+) -> Option<u64> {
+    let (original, replacements) = room
+        .load_or_fetch_event_with_relations(
+            original_id,
+            Some(vec![RelationType::Replacement]),
+            None,
+        )
+        .await
+        .ok()?;
+    let latest = latest_valid_replacement(&original, &replacements)?;
+    if latest.event_id() != Some(edit_id) {
+        return None;
+    }
+    let timestamp = original
+        .raw()
+        .get_field::<MilliSecondsSinceUnixEpoch>("origin_server_ts")
+        .ok()
+        .flatten()?;
+    Some(timestamp.get().into())
 }
 
 #[cfg(test)]
 mod tests {
-    use matrix_sdk::ruma::{room_id, user_id};
+    use matrix_sdk::ruma::{OwnedRoomId, room_id, user_id};
 
     use matrix_sdk::ruma::api::client::search::search_events::v3::SearchResult;
     use serde_json::json;
 
     use super::super::IndexFilter;
-    use super::{expressible, hit_from};
+    use super::{expressible, hit_from as candidate_from};
     use crate::protocol::SearchAttachment;
 
+    fn plain_room() -> OwnedRoomId {
+        room_id!("!plain:localhost").to_owned()
+    }
+
+    fn hit_from(result: &SearchResult, query: &str) -> Option<crate::search::Hit> {
+        candidate_from(result, &plain_room(), query).map(|candidate| candidate.hit)
+    }
+
     #[test]
-    fn test_an_edit_is_not_a_hit_of_its_own() {
+    fn test_an_edit_hit_points_at_the_message_it_replaces() {
         let result: SearchResult = serde_json::from_value(json!({
             "rank": 1.0,
             "result": {
@@ -308,7 +404,56 @@ mod tests {
         }))
         .expect("a search result");
 
-        assert!(hit_from(&result).is_none());
+        let hit = hit_from(&result, "deploy").expect("a hit");
+        assert_eq!(hit.event_id, "$original");
+        assert_eq!(hit.body, "deploy fixed");
+    }
+
+    fn edited_original(new_body: &str) -> SearchResult {
+        serde_json::from_value(json!({
+            "rank": 1.0,
+            "result": {
+                "type": "m.room.message",
+                "event_id": "$original",
+                "room_id": "!plain:localhost",
+                "sender": "@erwan:localhost",
+                "origin_server_ts": 1_000,
+                "content": { "msgtype": "m.text", "body": "omg mea is doing god's work" },
+                "unsigned": {
+                    "m.relations": {
+                        "m.replace": {
+                            "type": "m.room.message",
+                            "event_id": "$edit",
+                            "sender": "@erwan:localhost",
+                            "origin_server_ts": 2_000,
+                            "content": {
+                                "msgtype": "m.text",
+                                "body": format!("* {new_body}"),
+                                "m.new_content": { "msgtype": "m.text", "body": new_body },
+                                "m.relates_to": { "rel_type": "m.replace", "event_id": "$original" }
+                            }
+                        }
+                    }
+                }
+            }
+        }))
+        .expect("a search result")
+    }
+
+    #[test]
+    fn test_an_original_whose_edit_dropped_the_term_is_not_a_hit() {
+        let result = edited_original("omg mae is doing god's work");
+
+        assert!(hit_from(&result, "mea").is_none());
+    }
+
+    #[test]
+    fn test_an_edited_original_that_still_matches_shows_the_new_body() {
+        let result = edited_original("omg mea is doing great work");
+
+        let hit = hit_from(&result, "mea").expect("a hit");
+        assert_eq!(hit.event_id, "$original");
+        assert_eq!(hit.body, "omg mea is doing great work");
     }
 
     #[test]
@@ -333,7 +478,7 @@ mod tests {
         }))
         .expect("a search result");
 
-        let hit = hit_from(&result).expect("a hit");
+        let hit = hit_from(&result, "deploy").expect("a hit");
         let ids = |lines: &[super::ContextLine]| {
             lines
                 .iter()
@@ -389,5 +534,156 @@ mod tests {
         };
 
         assert!(!expressible(&filter));
+    }
+
+    fn message(
+        id: &str,
+        sender: &str,
+        ts: u64,
+        body: &str,
+        relates_to: Option<&str>,
+    ) -> serde_json::Value {
+        let mut content = json!({"msgtype": "m.text", "body": body});
+        if let Some(original) = relates_to {
+            content = json!({
+                "msgtype": "m.text",
+                "body": format!("* {body}"),
+                "m.new_content": {"msgtype": "m.text", "body": body},
+                "m.relates_to": {"rel_type": "m.replace", "event_id": original}
+            });
+        }
+        json!({
+            "type": "m.room.message", "event_id": id, "sender": sender,
+            "origin_server_ts": ts, "room_id": "!plain:localhost", "content": content
+        })
+    }
+
+    async fn search_for_edit(
+        found: serde_json::Value,
+        relations: Vec<serde_json::Value>,
+    ) -> Vec<crate::search::Hit> {
+        use std::sync::Arc;
+
+        use matrix_sdk::test_utils::mocks::MatrixMockServer;
+        use matrix_sdk_ui::sync_service::SyncService;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+
+        use crate::{Core, session::Session, store::MemorySessionStore};
+
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room = plain_room();
+        server.sync_joined_room(&client, &room).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        Mock::given(method("POST"))
+            .and(path("/_matrix/client/v3/search"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "search_categories": {"room_events": {
+                    "count": 1,
+                    "results": [{"rank": 1.0, "result": found}]
+                }}
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/_matrix/client/v3/rooms/!plain:localhost/event/$original",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(message(
+                "$original",
+                "@erwan:localhost",
+                1_000,
+                "omg mea is doing god's work",
+                None,
+            )))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(
+                "/_matrix/client/v1/rooms/!plain:localhost/relations/$original/m.replace",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": relations})))
+            .mount(server.server())
+            .await;
+
+        let (core, _events) = Core::new("search", Box::new(MemorySessionStore::default()));
+        *core.session.write().await = Some(Session {
+            account_id: "search".to_owned(),
+            homeserver: server.server().uri(),
+            oauth: false,
+            sync_service: Arc::new(SyncService::builder(client.clone()).build().await.unwrap()),
+            client: client.clone(),
+        });
+        let filter = scoped();
+        core.search_server(
+            &client,
+            super::ServerQuery {
+                room_id: &room,
+                query: "deploy",
+                filter: &filter,
+                order: crate::api::search::SearchOrder::Recent,
+                limit: 10,
+                offset: 0,
+                context: 0,
+            },
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_the_latest_edit_hit_carries_the_original_timestamp() {
+        let edit = message(
+            "$edit",
+            "@erwan:localhost",
+            2_000,
+            "deploy fixed",
+            Some("$original"),
+        );
+
+        let hits = search_for_edit(edit.clone(), vec![edit]).await;
+
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].event_id, "$original");
+        assert_eq!(hits[0].origin_server_ts, 1_000);
+        assert_eq!(hits[0].body, "deploy fixed");
+    }
+
+    #[tokio::test]
+    async fn test_another_users_edit_is_not_a_hit_for_the_message() {
+        let forged = message(
+            "$forged",
+            "@mallory:localhost",
+            2_000,
+            "deploy now",
+            Some("$original"),
+        );
+
+        let hits = search_for_edit(forged.clone(), vec![forged]).await;
+
+        assert!(hits.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_a_stale_edit_is_not_a_hit_once_a_newer_one_exists() {
+        let stale = message(
+            "$old",
+            "@erwan:localhost",
+            2_000,
+            "deploy old",
+            Some("$original"),
+        );
+        let latest = message(
+            "$new",
+            "@erwan:localhost",
+            3_000,
+            "mea only",
+            Some("$original"),
+        );
+
+        let hits = search_for_edit(stale.clone(), vec![latest, stale]).await;
+
+        assert!(hits.is_empty());
     }
 }
