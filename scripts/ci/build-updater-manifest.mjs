@@ -29,7 +29,8 @@ function targetsFor(name) {
   if (name.endsWith('.app.tar.gz')) return ['darwin-aarch64', 'darwin-x86_64'];
   if (name.endsWith('.AppImage'))
     return [name.includes('-linux-aarch64') ? 'linux-aarch64' : 'linux-x86_64'];
-  if (name.endsWith('-setup.exe') || name.endsWith('.msi')) return ['windows-x86_64'];
+  if (name.endsWith('-setup.exe')) return ['windows-x86_64'];
+  if (name.endsWith('.msi')) return ['windows-x86_64-msi'];
   return [];
 }
 
@@ -40,10 +41,7 @@ for (const signatureName of signatures) {
     signature: readFileSync(join(directory, signatureName), 'utf8').trim(),
     url: `${server}/${repository}/releases/download/${tag}/${encodeURIComponent(artifact)}`,
   };
-  for (const target of targetsFor(artifact)) {
-    if (target === 'windows-x86_64' && platforms[target] && artifact.endsWith('.msi')) continue;
-    platforms[target] = entry;
-  }
+  for (const target of targetsFor(artifact)) platforms[target] = entry;
 }
 
 if (Object.keys(platforms).length === 0) {
