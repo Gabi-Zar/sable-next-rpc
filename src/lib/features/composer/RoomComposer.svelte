@@ -111,7 +111,7 @@
   import { editStep, replyStep } from './step-shortcuts';
   import { suggestionNode } from './suggestion-node';
   import { rememberSuggestion } from './suggestion-usage';
-  import { suggestionsFor } from './suggestions';
+  import { emoteSuggestionId, suggestionsFor } from './suggestions';
   import { TypingNotifier } from './typing-notifier';
   import VoiceRecorder from './VoiceRecorder.svelte';
   import { isVoiceRecordingSupported } from './voice-recorder-support';
@@ -1105,7 +1105,7 @@
     const target = roomId;
     const doc = editor.doc();
     const image = suggestion.id.startsWith('pack:')
-      ? sources.emotes.find((candidate) => `pack:${candidate.shortcode}` === suggestion.id)
+      ? sources.emotes.find((candidate) => emoteSuggestionId(candidate) === suggestion.id)
       : undefined;
     editor.clear();
     typing.stop();

@@ -35,8 +35,12 @@ function decayed(entry: Usage | undefined, now: number): number {
   return entry.score * 0.5 ** (Math.max(0, now - entry.at) / HALF_LIFE_MS);
 }
 
+function withoutEmoteUrl(id: string): string {
+  return id.replace(/^(pack:\S*) .*$/, '$1');
+}
+
 export function usageOf(id: string, now = Date.now()): number {
-  return decayed(entries[id], now);
+  return decayed(entries[id] ?? entries[withoutEmoteUrl(id)], now);
 }
 
 export function byUsage(left: string, right: string): number {

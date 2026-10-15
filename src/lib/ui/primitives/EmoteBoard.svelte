@@ -8,6 +8,7 @@
   import { i18n } from '#lib/i18n.js';
   import { shouldReduceMotion } from '#lib/ui/motion.js';
   import { isPackChange, loadPacks } from '#lib/emoji/load-packs.js';
+  import { packName } from '#lib/emoji/pack-name.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import VirtualList from 'svelte-tiny-virtual-list';
   import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
@@ -298,7 +299,12 @@
       }
       for (const section of sections) {
         const id = sectionId(section.pack);
-        rows.push({ id, kind: 'header', label: packName(section.pack), pack: section.pack });
+        rows.push({
+          id,
+          kind: 'header',
+          label: packName(section.pack, i18n.t),
+          pack: section.pack,
+        });
         addImages(id, section.images, section.pack);
       }
     }
@@ -320,17 +326,6 @@
 
   function pickerRowKey(index: number): string | number {
     return pickerRows[index]?.id ?? index;
-  }
-
-  let originLabels: Record<ImagePackView['origin'], string> = $derived({
-    account: i18n.t('composer.packMine'),
-    room: i18n.t('common.thisRoom'),
-    global: i18n.t('composer.packGlobal'),
-    space: i18n.t('composer.packSpace'),
-  });
-
-  function packName(pack: ImagePackView): string {
-    return pack.name ?? (pack.id || originLabels[pack.origin]);
   }
 
   function jumpTo(id: string): void {
@@ -781,7 +776,7 @@
           {#if group.length > 0}
             <hr class="rail-divider" />
             {#each group as section (sectionId(section.pack))}
-              {@const packLabel = packName(section.pack)}
+              {@const packLabel = packName(section.pack, i18n.t)}
               <Tooltip label={packLabel}>
                 {#snippet trigger({ props })}
                   <button
@@ -841,7 +836,7 @@
           original
         />
         <code>:{preview.image.shortcode}:</code>
-        <span class="preview-pack">{packName(preview.pack)}</span>
+        <span class="preview-pack">{packName(preview.pack, i18n.t)}</span>
       {:else}
         <span class="preview-hint">{i18n.t('composer.previewHint')}</span>
       {/if}

@@ -1,6 +1,12 @@
-import type { MemberView, PackImageView, RoomListItemView } from '#src/generated/protocol';
+import type {
+  ImagePackView,
+  MemberView,
+  PackImageView,
+  RoomListItemView,
+} from '#src/generated/protocol';
 
 import { REACTION_EMOJI, searchReactionEmoji } from '#lib/emoji/emoji.js';
+import { packName } from '#lib/emoji/pack-name.js';
 import { t } from '#lib/i18n.js';
 
 import { adminSuggestions, type AdminCommand, type AdminScope } from './admin-commands';
@@ -79,8 +85,18 @@ function memberSuggestions(
     }));
 }
 
-function emoteSuggestions(needle: string, emotes: readonly PackImageView[]): Suggestion[] {
-  const shortcodes = new Set<string>();
+export type PackEmote = PackImageView & { pack: ImagePackView };
+
+export function emoteSuggestionId(image: PackImageView): string {
+  return `pack:${image.shortcode} ${image.url}`;
+}
+
+function emoteSuggestions(
+  needle: string,
+  emotes: readonly PackEmote[],
+  translate: Translate
+): Suggestion[] {
+  const ids = new Set<string>();
   const packs = emotes
     .filter((image) => image.shortcode.toLowerCase().includes(needle))
     .sort((left, right) => {
@@ -90,21 +106,22 @@ function emoteSuggestions(needle: string, emotes: readonly PackImageView[]): Sug
       );
       return (
         byPrefix ||
-        byUsage(`pack:${left.shortcode}`, `pack:${right.shortcode}`) ||
+        byUsage(emoteSuggestionId(left), emoteSuggestionId(right)) ||
         left.shortcode.localeCompare(right.shortcode)
       );
     })
     .filter((image) => {
-      if (shortcodes.has(image.shortcode)) return false;
-      shortcodes.add(image.shortcode);
+      const id = emoteSuggestionId(image);
+      if (ids.has(id)) return false;
+      ids.add(id);
       return true;
     })
     .slice(0, limit)
     .map((image) => ({
-      id: `pack:${image.shortcode}`,
+      id: emoteSuggestionId(image),
       insert: `:${image.shortcode}:`,
       label: `:${image.shortcode}:`,
-      detail: image.body,
+      detail: [image.body, packName(image.pack, translate)].filter(Boolean).join(' · '),
       imageUrl: image.url,
     }));
 
@@ -239,7 +256,7 @@ export type Translate = (key: string) => string;
 export function suggestionsFor(
   query: AutocompleteQuery | null,
   members: readonly MemberView[],
-  emotes: readonly PackImageView[],
+  emotes: readonly PackEmote[],
   rooms: readonly RoomListItemView[],
   translate: Translate = t,
   admin: AdminScope = null,
@@ -259,5 +276,5 @@ export function suggestionsFor(
     ].slice(0, limit);
   }
   if (query.sigil === '#') return roomSuggestions(needle, rooms);
-  return emoteSuggestions(needle, emotes);
+  return emoteSuggestions(needle, emotes, translate);
 }

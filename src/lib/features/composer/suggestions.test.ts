@@ -1,10 +1,10 @@
-import type { MemberView, PackImageView, RoomListItemView } from '#src/generated/protocol';
+import type { ImagePackView, MemberView, RoomListItemView } from '#src/generated/protocol';
 import { expect, test } from 'vitest';
 
 import type { AutocompleteQuery } from './autocomplete';
 import { parseBotCommands } from './bot-commands';
 import { rememberSuggestion } from './suggestion-usage';
-import { suggestionsFor } from './suggestions';
+import { suggestionsFor, type PackEmote } from './suggestions';
 
 function member(userId: string, displayName: string | null): MemberView {
   return {
@@ -19,7 +19,7 @@ function member(userId: string, displayName: string | null): MemberView {
   };
 }
 
-function emote(shortcode: string): PackImageView {
+function emote(shortcode: string, name = 'Pack'): PackEmote {
   return {
     shortcode,
     url: `mxc://example.org/${shortcode}`,
@@ -27,6 +27,7 @@ function emote(shortcode: string): PackImageView {
     usage: ['emoticon'],
     info: null,
     source_pack: null,
+    pack: { id: name, name } as ImagePackView,
   };
 }
 
@@ -122,28 +123,25 @@ test('at most eight suggestions reach the panel', () => {
 test('an exact pack match is not crowded out by native emoji', () => {
   const suggestions = suggestionsFor(emoteQuery('wave'), [], [emote('unwave'), emote('wave')], []);
 
-  expect(suggestions.map((item) => item.id)).toContain('pack:wave');
+  expect(suggestions.map((item) => item.id)).toContain('pack:wave mxc://example.org/wave');
 });
 
-test('duplicate pack shortcodes keep the first matching pack image', () => {
+test('a shortcode shared by different pack images lists each with its pack', () => {
   const suggestions = suggestionsFor(
     emoteQuery('wave'),
     [],
     [
-      emote('wave'),
-      ...Array.from({ length: 7 }, () => ({
-        ...emote('wave'),
-        url: 'mxc://example.org/second-wave',
-      })),
-      emote('wave2'),
+      emote('wave', 'Cats'),
+      emote('wave', 'Copy'),
+      { ...emote('wave', 'Dogs'), url: 'mxc://example.org/dog-wave' },
     ],
     []
   );
 
-  expect(suggestions.filter((suggestion) => suggestion.id === 'pack:wave')).toEqual([
-    expect.objectContaining({ imageUrl: 'mxc://example.org/wave' }),
+  expect(suggestions.filter((suggestion) => suggestion.label === ':wave:')).toEqual([
+    expect.objectContaining({ imageUrl: 'mxc://example.org/wave', detail: 'Cats' }),
+    expect.objectContaining({ imageUrl: 'mxc://example.org/dog-wave', detail: 'Dogs' }),
   ]);
-  expect(suggestions).toContainEqual(expect.objectContaining({ id: 'pack:wave2' }));
 });
 
 test('a shortcode with no pack match still finds a native emoji', () => {
@@ -320,5 +318,7 @@ test('a frequently accepted suggestion comes first, and unicode precedes custom 
     (item) => item.id
   );
   expect(ids[0]).toBe('emoji:🥺');
-  expect(ids.indexOf('pack:pleading')).toBeGreaterThan(ids.indexOf('emoji:🥺'));
+  expect(ids.indexOf('pack:pleading mxc://example.org/pleading')).toBeGreaterThan(
+    ids.indexOf('emoji:🥺')
+  );
 });

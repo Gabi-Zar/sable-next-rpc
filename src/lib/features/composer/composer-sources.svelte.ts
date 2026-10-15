@@ -1,10 +1,11 @@
-import type { MemberView, PackImageView } from '#src/generated/protocol';
+import type { MemberView } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { loadPacks } from '#lib/emoji/load-packs.js';
 
 import { loadAdminCommands, type AdminCommand } from './admin-commands';
 import type { BotCommand } from './bot-commands';
+import type { PackEmote } from './suggestions';
 
 interface SourcesOptions {
   roomId: () => string;
@@ -14,7 +15,7 @@ interface SourcesOptions {
 
 export class ComposerSources {
   loadedMembers = $state.raw<MemberView[]>([]);
-  emotes = $state.raw<PackImageView[]>([]);
+  emotes = $state.raw<PackEmote[]>([]);
   botCommands = $state.raw<BotCommand[]>([]);
   adminCommands = $state.raw<readonly AdminCommand[] | null>(null);
 
@@ -74,9 +75,11 @@ export class ComposerSources {
         (packs) => {
           if (this.options.roomId() !== target) return;
           this.#emotesFor = target;
-          this.emotes = packs
-            .flatMap((pack) => pack.images)
-            .filter((image) => image.usage.includes('emoticon'));
+          this.emotes = packs.flatMap((pack) =>
+            pack.images
+              .filter((image) => image.usage.includes('emoticon'))
+              .map((image) => ({ ...image, pack }))
+          );
         },
         this.core.session?.account_id ?? null
       );

@@ -4,7 +4,7 @@ import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Suggestion } from './autocomplete';
 import { composerSchema } from './editor/schema';
 import { emoticonNode } from './editor/shortcodes';
-import { ROOM_MENTION } from './suggestions';
+import { emoteSuggestionId, ROOM_MENTION } from './suggestions';
 
 export function suggestionNode(
   sigil: string,
@@ -25,8 +25,7 @@ export function suggestionNode(
     return composerSchema.nodes.mention.create({ userId: suggestion.id, name: suggestion.label });
   }
 
-  const shortcode = suggestion.id.replace(/^pack:/, '');
-  const image = emotes.find((candidate) => candidate.shortcode === shortcode);
+  const image = emotes.find((candidate) => emoteSuggestionId(candidate) === suggestion.id);
   if (!image) return composerSchema.text(suggestion.insert);
 
   return emoticonNode(image);

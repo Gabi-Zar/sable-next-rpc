@@ -2131,6 +2131,36 @@ test('clicking a custom quick reaction sends its media URL and source pack', asy
   expect(editorText()).toBe('');
 });
 
+test('emotes sharing a shortcode are each listed with their pack', async () => {
+  const onQuickReact = vi.fn(async () => {});
+  const client = core();
+  Object.assign(client.rpc.packs, {
+    list: () =>
+      Promise.resolve({
+        packs: [
+          packs[0],
+          {
+            ...packs[0],
+            id: 'space',
+            name: 'Space pack',
+            images: [{ ...packs[0].images[0], url: 'mxc://example.org/space-wave' }],
+          },
+        ],
+        complete: true,
+      }),
+  });
+  draftText('+:wa');
+  setup({ roomId: '!room:example.org', onQuickReact }, client);
+
+  expect(await screen.findByRole('option', { name: /:wave:.*Room pack/ })).toBeTruthy();
+  await press(screen.getByRole('option', { name: /:wave:.*Space pack/ }));
+  expect(onQuickReact).toHaveBeenCalledWith(
+    '!room:example.org',
+    'mxc://example.org/space-wave',
+    null
+  );
+});
+
 test('Tab selects an emoji from a bare quick reaction prefix', async () => {
   const onQuickReact = vi.fn(async () => {});
   draftText('+:');

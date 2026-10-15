@@ -48,12 +48,14 @@ test('rooms become mentions named by their label', () => {
 });
 
 test('emotes resolve to their pack image or fall back to text', () => {
-  const found = suggestionNode(':', { id: 'pack:blob', insert: ':blob:', label: 'blob' }, [
-    emote('blob'),
-  ]);
+  const found = suggestionNode(
+    ':',
+    { id: 'pack:blob mxc://example.org/other-blob', insert: ':blob:', label: 'blob' },
+    [emote('blob'), { ...emote('blob'), url: 'mxc://example.org/other-blob' }]
+  );
   const missing = suggestionNode(':', { id: 'pack:gone', insert: ':gone:', label: 'gone' }, []);
 
   expect(found.type.name).toBe('emoticon');
-  expect(found.attrs).toMatchObject({ shortcode: 'blob', url: 'mxc://example.org/blob' });
+  expect(found.attrs).toMatchObject({ shortcode: 'blob', url: 'mxc://example.org/other-blob' });
   expect(missing.text).toBe(':gone:');
 });
