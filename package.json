@@ -66,7 +66,7 @@
     "i18next": "^26.4.2",
     "i18next-browser-languagedetector": "^8.2.1",
     "jsqr": "1.4.0",
-    "katex": "0.18.9",
+    "katex": "0.19.0",
     "leaflet": "1.9.4",
     "livekit-client": "2.22.4",
     "markdown-it": "^15.0.0",
@@ -76,7 +76,7 @@
     "mdast-util-to-markdown": "^2.1.2",
     "music-metadata": "11.16.1",
     "opus-recorder": "^8.0.5",
-    "pdfjs-dist": "6.3.289",
+    "pdfjs-dist": "6.4.299",
     "phosphor-svelte": "^3.1.0",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-dropcursor": "^1.8.4",
@@ -125,7 +125,7 @@
     "globals": "^17.12.0",
     "happy-dom": "^20.14.3",
     "knip": "^6.38.0",
-    "oxfmt": "^0.71.0",
+    "oxfmt": "^0.72.0",
     "oxlint": "^1.85.0",
     "oxlint-tsgolint": "7.0.2003",
     "postcss-html": "^2.0.0",
@@ -151,7 +151,7 @@
       "version": "^24.14.0"
     }
   },
-  "packageManager": "pnpm@12.8.2",
+  "packageManager": "pnpm@12.10.1",
   "imports": {
     "#src/generated/*": "./src/generated/*.ts",
     "#src/generated/wasm/*.js": "./src/generated/wasm/*.js",
