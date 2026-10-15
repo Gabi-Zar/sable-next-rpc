@@ -5,6 +5,7 @@ import type { TimelineItemView, Rpc } from '#src/generated/protocol';
 export type EventItemCommands = Pick<Rpc['timeline'], 'eventItems'>;
 
 export const MAX_EVENT_ITEMS = 512;
+const RETRY_DELAYS_MS = [1000, 5000, 15000];
 
 class EventItemSlot {
   value = $state.raw<TimelineItemView | null | undefined>(undefined);
@@ -22,6 +23,8 @@ export class EventItems {
   readonly #items = new Map<string, EventItemSlot>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a request queue nothing renders from
   readonly #queued = new Map<string, Set<string>>();
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- retry bookkeeping nothing renders from
+  readonly #failures = new Map<string, number>();
   #flushing = false;
 
   constructor(
@@ -50,6 +53,7 @@ export class EventItems {
     for (const [key, slot] of this.#items) {
       if (slot.watched) continue;
       this.#items.delete(key);
+      this.#failures.delete(key);
       return;
     }
   }
@@ -88,6 +92,16 @@ export class EventItems {
     });
   }
 
+  #retryLater(key: string): void {
+    const attempt = this.#failures.get(key) ?? 0;
+    if (attempt >= RETRY_DELAYS_MS.length) return;
+    this.#failures.set(key, attempt + 1);
+    setTimeout(() => {
+      const slot = this.#items.get(key);
+      if (slot?.value === null) slot.value = undefined;
+    }, RETRY_DELAYS_MS[attempt]);
+  }
+
   async #flush(): Promise<void> {
     const batches = [...this.#queued];
     this.#queued.clear();
@@ -99,15 +113,21 @@ export class EventItems {
         );
         if (wanted.length === 0) return;
         for (const id of wanted) this.#slot(this.#key(roomId, id, owner)).value = null;
+        // eslint-disable-next-line svelte/prefer-svelte-reactivity -- tracks this request's misses only
+        const missing = new Set(wanted);
         try {
           const items = await this.commands.eventItems({ room_id: roomId, event_ids: wanted });
           for (const item of items) {
-            if (item.event_id !== null)
-              this.#slot(this.#key(roomId, item.event_id, owner)).value = item;
+            if (item.event_id === null) continue;
+            const key = this.#key(roomId, item.event_id, owner);
+            this.#slot(key).value = item;
+            this.#failures.delete(key);
+            missing.delete(item.event_id);
           }
         } catch (error) {
           console.debug('[sable room] event items unavailable', error);
         }
+        for (const id of missing) this.#retryLater(this.#key(roomId, id, owner));
       })
     );
   }

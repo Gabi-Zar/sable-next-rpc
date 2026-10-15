@@ -74,3 +74,66 @@ test('an event on screen is never evicted from under its reader', () => {
   expect(seen.at(-1)).toBe(edited);
   stop();
 });
+
+test('an event whose lookup failed is requested again after a delay, a bounded number of times', async () => {
+  vi.useFakeTimers();
+  const eventItems = vi.fn(() => Promise.reject(new Error('room not ready')));
+  const items = new EventItems({ eventItems }, () => '@me:x');
+  let latest: TimelineItemView | null | undefined;
+  const stop = $effect.root(() => {
+    $effect(() => {
+      latest = items.get('!r', '$a');
+    });
+  });
+
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(eventItems).toHaveBeenCalledTimes(1);
+  expect(latest).toBeNull();
+
+  await vi.advanceTimersByTimeAsync(1000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(eventItems).toHaveBeenCalledTimes(2);
+
+  await vi.advanceTimersByTimeAsync(5000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersByTimeAsync(15000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(eventItems).toHaveBeenCalledTimes(4);
+
+  await vi.advanceTimersByTimeAsync(60000);
+  flushSync();
+  expect(eventItems).toHaveBeenCalledTimes(4);
+  stop();
+  vi.useRealTimers();
+});
+
+test('a recovered lookup shows the event and stops retrying', async () => {
+  vi.useFakeTimers();
+  const eventItems = vi
+    .fn<(params: { room_id: string; event_ids: string[] }) => Promise<TimelineItemView[]>>()
+    .mockRejectedValueOnce(new Error('room not ready'))
+    .mockResolvedValue([item('$a')]);
+  const items = new EventItems({ eventItems }, () => '@me:x');
+  let latest: TimelineItemView | null | undefined;
+  const stop = $effect.root(() => {
+    $effect(() => {
+      latest = items.get('!r', '$a');
+    });
+  });
+
+  flushSync();
+  await vi.advanceTimersByTimeAsync(1000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  flushSync();
+
+  expect(latest).toEqual(item('$a'));
+  await vi.advanceTimersByTimeAsync(60000);
+  expect(eventItems).toHaveBeenCalledTimes(2);
+  stop();
+  vi.useRealTimers();
+});
