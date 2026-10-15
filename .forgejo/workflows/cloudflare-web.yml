@@ -34,6 +34,12 @@ env:
   TF_HTTP_LOCK_METHOD: 'POST'
   TF_HTTP_UNLOCK_METHOD: 'DELETE'
   TF_HTTP_RETRY_WAIT_MIN: '5'
+  CARGO_INCREMENTAL: 0
+  SCCACHE_BUCKET: sccache
+  SCCACHE_S3_KEY_PREFIX: sable-next
+  SCCACHE_ENDPOINT: https://s3.erwanleboucher.dev
+  SCCACHE_REGION: us-east-1
+  SCCACHE_S3_USE_SSL: 'true'
 
 jobs:
   detect:
@@ -64,6 +70,9 @@ jobs:
     permissions:
       contents: read
     env:
+      RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
       # Absent on forks, which builds an app with error reporting switched off.
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       VITE_SENTRY_ENVIRONMENT: ${{ needs.detect.outputs.production == 'true' && 'production' || github.event_name == 'pull_request' && 'preview' || 'development' }}
