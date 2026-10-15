@@ -2483,6 +2483,8 @@
     "customThemesRemove": "Remove {{name}}",
     "quickCss": "Quick CSS",
     "quickCssHint": "Add CSS that applies immediately and overrides your theme and tweaks.",
+    "fontFamily": "Font",
+    "fontFamilyHint": "The name of a font installed on this device, such as Inter. Leave empty for the default; the default font stays as the fallback.",
     "appIconTitle": "App icon",
     "appIconFailed": "Could not change the app icon. Try again.",
     "appIcons": {

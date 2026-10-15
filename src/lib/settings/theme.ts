@@ -73,6 +73,13 @@ export function applyCustomTweaks(css: readonly string[]): void {
   style.textContent = css.map(renameLegacyThemeIdentifiers).join('\n');
 }
 
+export function applyFontFamily(family: string): void {
+  const root = document.documentElement.style;
+  const name = family.trim();
+  if (name) root.setProperty('--font-family', `${name}, var(--font-family-base)`);
+  else root.removeProperty('--font-family');
+}
+
 export function applyQuickCss(css: string): void {
   const existing = document.getElementById(QUICK_CSS_STYLE_ID);
   if (!css) {

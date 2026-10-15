@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyCustomTheme, applyCustomTweaks, applyQuickCss } from './theme';
+import { applyCustomTheme, applyCustomTweaks, applyFontFamily, applyQuickCss } from './theme';
 
 describe('applyCustomTweaks', () => {
   const styleIds = (): string[] =>
@@ -47,5 +47,22 @@ describe('applyCustomTweaks', () => {
 
     lazy.remove();
     applyQuickCss('');
+  });
+});
+
+describe('applyFontFamily', () => {
+  const family = (): string => document.documentElement.style.getPropertyValue('--font-family');
+
+  it('puts the chosen font first and keeps the default stack as the fallback', () => {
+    applyFontFamily('  Inter  ');
+
+    expect(family()).toBe('Inter, var(--font-family-base)');
+  });
+
+  it('lets the theme font back in when the field is cleared', () => {
+    applyFontFamily('Inter');
+    applyFontFamily('   ');
+
+    expect(family()).toBe('');
   });
 });

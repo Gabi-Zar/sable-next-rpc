@@ -12,6 +12,7 @@ import CallDeviceSettings from '#lib/features/call/CallDeviceSettings.svelte';
 import ComposerButtons from '#lib/features/settings/ComposerButtons.svelte';
 import ComposerEnterSetting from '#lib/features/settings/ComposerEnterSetting.svelte';
 import CustomThemes from '#lib/features/settings/CustomThemes.svelte';
+import FontFamily from '#lib/features/settings/FontFamily.svelte';
 import QuickCss from '#lib/features/settings/QuickCss.svelte';
 import DoubleTapReaction from '#lib/features/settings/DoubleTapReaction.svelte';
 import MediaPreviewPrivacy from '#lib/features/settings/MediaPreviewPrivacy.svelte';
@@ -48,6 +49,7 @@ export interface CategoryPanel {
 export const categoryPanels: Record<string, CategoryPanel[]> = {
   appearance: [
     { component: CustomThemes, section: 'themes' },
+    { component: FontFamily, section: 'themes' },
     { component: QuickCss, section: 'themes' },
     { component: AppIconSettings, section: 'themes' },
   ],

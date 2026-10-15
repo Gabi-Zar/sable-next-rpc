@@ -523,7 +523,8 @@ html {
 
   /* Font families */
   --font-family-emoji: 'Twemoji_DISABLED';
-  --font-family: 'Nunito Variable', var(--font-family-emoji), sans-serif;
+  --font-family-base: 'Nunito Variable', var(--font-family-emoji), sans-serif;
+  --font-family: var(--font-family-base);
   --font-family-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', menlo, consolas, monospace;
 
   /* Line heights */

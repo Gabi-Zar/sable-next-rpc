@@ -42,6 +42,7 @@
   import {
     applyCustomTheme,
     applyCustomTweaks,
+    applyFontFamily,
     applyQuickCss,
     applyTheme,
     resolveTheme,
@@ -143,6 +144,10 @@
 
   $effect(() => {
     applyQuickCss(preferences.quickCss);
+  });
+
+  $effect(() => {
+    applyFontFamily(preferences.fontFamily);
   });
 </script>
 

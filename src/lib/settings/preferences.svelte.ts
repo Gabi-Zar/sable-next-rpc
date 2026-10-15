@@ -190,6 +190,7 @@ export interface Preferences {
   timelineEmoteSize: TimelineEmoteSize;
   theme: ThemeMode;
   quickCss: string;
+  fontFamily: string;
   underlineLinks: boolean;
   renderRoomColors: boolean;
   reducedMotion: boolean;
@@ -474,6 +475,7 @@ const ENUMS = {
     `SelectPreference` would otherwise claim. */
 const FREE_TEXT = [
   'quickCss',
+  'fontFamily',
   'audioInputDevice',
   'audioOutputDevice',
   'videoInputDevice',
@@ -518,6 +520,7 @@ const DEFAULTS: Preferences = {
   timelineEmoteSize: 'default',
   theme: 'system',
   quickCss: '',
+  fontFamily: '',
   underlineLinks: true,
   renderRoomColors: true,
   reducedMotion: prefersReducedMotion(),
