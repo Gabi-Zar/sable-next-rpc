@@ -114,6 +114,7 @@ const defaults: TimelinePreferences = {
   layout: 'modern',
   hideMembershipEvents: false,
   hideProfileChanges: true,
+  hideTopicChanges: false,
   hideMemberInReadOnly: true,
   showTombstoneEvents: false,
   showHiddenEvents: false,
@@ -888,4 +889,28 @@ test('a cleared avatar is not the same sentence as a replaced one', () => {
     'timeline.profileAvatarChanged'
   );
   expect(stateEventText(avatarChange(null), (k) => k)).toBe('timeline.profileAvatarRemoved');
+});
+
+test('topic changes show unless the preference hides them', () => {
+  const retitled = item({
+    kind: 'state_event',
+    event_type: 'm.room.topic',
+    state_key: '',
+    content: null,
+    prev_content: null,
+    change: { kind: 'room_topic', topic: 'Now playing' },
+  });
+  const renamedRoom = item({
+    kind: 'state_event',
+    event_type: 'm.room.name',
+    state_key: '',
+    content: null,
+    prev_content: null,
+    change: { kind: 'room_name', name: 'New', previous: 'Old' },
+  });
+
+  expect(visibleTimelineItems([retitled, renamedRoom], defaults)).toEqual([retitled, renamedRoom]);
+  expect(
+    visibleTimelineItems([retitled, renamedRoom], { ...defaults, hideTopicChanges: true })
+  ).toEqual([renamedRoom]);
 });

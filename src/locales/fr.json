@@ -1162,6 +1162,7 @@
     "timelineTitle": "Fil de discussion",
     "hideMembershipEvents": "Masquer les arrivées et départs",
     "hideProfileChanges": "Masquer les changements de nom et d’avatar",
+    "hideTopicChanges": "Masquer les changements de sujet",
     "hideMemberInReadOnly": "Masquer les événements de membre dans les salons en lecture seule",
     "showTombstoneEvents": "Afficher les marqueurs des messages supprimés",
     "appearanceTitle": "Apparence",

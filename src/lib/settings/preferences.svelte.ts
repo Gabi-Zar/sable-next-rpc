@@ -233,6 +233,7 @@ export interface Preferences {
 
   hideMembershipEvents: boolean;
   hideProfileChanges: boolean;
+  hideTopicChanges: boolean;
   hideMemberInReadOnly: boolean;
   showTombstoneEvents: boolean;
   openRoomsAtUnread: boolean;
@@ -395,6 +396,7 @@ export type TimelinePreferences = Pick<
   | 'layout'
   | 'hideMembershipEvents'
   | 'hideProfileChanges'
+  | 'hideTopicChanges'
   | 'hideMemberInReadOnly'
   | 'showTombstoneEvents'
   | 'showHiddenEvents'
@@ -557,6 +559,7 @@ const DEFAULTS: Preferences = {
 
   hideMembershipEvents: false,
   hideProfileChanges: true,
+  hideTopicChanges: false,
   hideMemberInReadOnly: true,
   showTombstoneEvents: true,
   openRoomsAtUnread: true,

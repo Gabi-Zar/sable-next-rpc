@@ -1769,6 +1769,7 @@
     "timelinePreview": "Timeline preview",
     "hideMembershipEvents": "Hide joins and leaves",
     "hideProfileChanges": "Hide name and avatar changes",
+    "hideTopicChanges": "Hide topic changes",
     "hideMemberInReadOnly": "Hide members in read-only rooms",
     "showTombstoneEvents": "Show removed-message placeholders",
     "openRoomsAtUnread": "Open rooms at the first unread message",

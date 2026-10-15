@@ -73,8 +73,12 @@ function isVisibleEvent(
     case 'hidden':
       return preferences.showHiddenEvents && preferences.hiddenEventOther;
     case 'always':
-      return true;
+      return !(preferences.hideTopicChanges && isTopicChange(item));
   }
+}
+
+function isTopicChange(item: TimelineItemView): boolean {
+  return item.content.kind === 'state_event' && item.content.change?.kind === 'room_topic';
 }
 
 export function visibleAggregations(

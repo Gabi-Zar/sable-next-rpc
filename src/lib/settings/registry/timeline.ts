@@ -350,6 +350,13 @@ export const timelineCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'hideTopicChanges',
+      section: 'room-events',
+      icon: TextAlignLeftIcon,
+      name: 'settings.hideTopicChanges',
+      type: 'boolean',
+    },
+    {
       key: 'hideMemberInReadOnly',
       section: 'room-events',
       icon: MegaphoneIcon,
