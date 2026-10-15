@@ -339,7 +339,7 @@
   provideRoomMemberNames({ displayName: memberDisplayName });
   let senderRoles = $derived.by((): Record<string, SenderRole> => {
     const tags = roomSession.powerTags;
-    if (!tags || !Object.values(tags).some((tag) => tag.icon || tag.color)) return {};
+    if (!tags) return {};
     return Object.fromEntries(
       memberLoader.members.flatMap((member) => {
         const tag = tagForLevel(tags, member.power_level);

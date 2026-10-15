@@ -13,6 +13,19 @@ describe('powerTag', () => {
     expect(powerTag(-1, t).name).toBe('timeline.powerLevelMuted');
   });
 
+  it('colours the default staff roles but leaves members uncoloured', () => {
+    expect(powerTag(FOUNDER_POWER_LEVEL, t).color).toBe('#0000ff');
+    expect(powerTag(100, t).color).toBe('#0088ff');
+    expect(powerTag(50, t).color).toBe('#1fd81f');
+    expect(powerTag(75, t).color).toBe('#1fd81f');
+    expect(powerTag(0, t).color).toBeNull();
+    expect(powerTag(10, t).color).toBeNull();
+  });
+
+  it('keeps a room tag without a colour uncoloured', () => {
+    expect(powerTag(100, t, { 100: { name: 'Admin', color: null, icon: null } }).color).toBeNull();
+  });
+
   it('names a room-version-12 creator, whose power level is infinite', () => {
     expect(powerTag(Number.MAX_SAFE_INTEGER + 1, t).name).toBe('timeline.powerTagFounder');
   });

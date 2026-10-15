@@ -7,14 +7,14 @@ import {
 
 export { FOUNDER_POWER_LEVEL };
 
-const DEFAULT_TAGS: readonly { level: number; key: string }[] = [
-  { level: FOUNDER_POWER_LEVEL, key: 'timeline.powerTagFounder' },
-  { level: 150, key: 'timeline.powerTagManager' },
-  { level: 101, key: 'timeline.powerTagFounder' },
-  { level: 100, key: 'timeline.powerLevelAdmin' },
-  { level: 50, key: 'timeline.powerLevelModerator' },
-  { level: 0, key: 'timeline.powerLevelMember' },
-  { level: -1, key: 'timeline.powerLevelMuted' },
+const DEFAULT_TAGS: readonly { level: number; key: string; color: string | null }[] = [
+  { level: FOUNDER_POWER_LEVEL, key: 'timeline.powerTagFounder', color: '#0000ff' },
+  { level: 150, key: 'timeline.powerTagManager', color: '#ff6a7f' },
+  { level: 101, key: 'timeline.powerTagFounder', color: '#0000ff' },
+  { level: 100, key: 'timeline.powerLevelAdmin', color: '#0088ff' },
+  { level: 50, key: 'timeline.powerLevelModerator', color: '#1fd81f' },
+  { level: 0, key: 'timeline.powerLevelMember', color: null },
+  { level: -1, key: 'timeline.powerLevelMuted', color: '#888888' },
 ];
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -24,7 +24,7 @@ function named(level: number, t: Translate, tags: PowerLevelTagMap): PowerLevelT
   if (room) return room;
 
   const fallback = DEFAULT_TAGS.find((tag) => tag.level === level);
-  return fallback ? { name: t(fallback.key), color: null, icon: null } : null;
+  return fallback ? { name: t(fallback.key), color: fallback.color, icon: null } : null;
 }
 
 export function powerTag(level: number, t: Translate, tags: PowerLevelTagMap = {}): PowerLevelTag {
