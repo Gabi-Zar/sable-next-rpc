@@ -32,6 +32,9 @@ matrix-sdk-ui = { version = "0.19.1", git = "https://github.com/gingershaped/mat
 matrix-sdk-base = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1", default-features = false, features = [
   "e2e-encryption",
 ] }
+matrix-sdk-indexeddb = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1", default-features = false }
+matrix-sdk-test = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1" }
+matrix-sdk-test-utils = { version = "0.19.1", git = "https://github.com/gingershaped/matrix-rust-sdk", rev = "446ccc7b0021e4d7da6236903c2a4cf9680bf8b1" }
 ruma = { version = "0.17.0", git = "https://github.com/gingershaped/ruwuma", rev = "516df0e27e5a8d5f360652f4837c5953098ba0a5", features = [
   "client-api-c",
   "unstable-msc4143",
@@ -114,9 +117,6 @@ iter_not_returning_iterator = "deny"
 expl_impl_clone_on_copy = "deny"
 infallible_try_from = "deny"
 
-# Sizing the wasm bundle down belongs here, not on `release`, which also builds
-# the `src-tauri` desktop binary. `strip` keeps the metadata wasm-bindgen reads
-# and wasm-opt then drops.
 # The SDK and serde_json unoptimised were 70% of the CPU on a phone, measured
 # with simpleperf against a debug APK. Dependencies get the release treatment so
 # an on-device debug build is usable. `sable-core` is optimised too, but for a
@@ -130,17 +130,14 @@ debug = false
 [profile.dev.package.sable-core]
 opt-level = 1
 
-[profile.test.package.sable-core]
-opt-level = 1
-
 [profile.dev.package.app]
 opt-level = 1
 
+# Full LTO stays off `release`, which also builds the `src-tauri` desktop
+# binary. `strip` keeps the metadata wasm-bindgen reads and wasm-opt then drops.
 [profile.wasm-release]
 inherits = "release"
-opt-level = "z"
 lto = true
-codegen-units = 1
 strip = "debuginfo"
 
 # An unoptimised `dev` build is ~100 MB, which the browser recompiles on every
