@@ -156,6 +156,29 @@ test('uses an in-memory event cache in an iOS PWA', async () => {
   expect(FakeSharedWorker.last?.url.searchParams.get('event-cache')).toBe('memory');
 });
 
+test('sends the log filter to the shared worker instead of forking it by URL', async () => {
+  vi.stubGlobal('self', { location: new URL('https://sable.test/room?log=debug') });
+  const transport = await load();
+  void transport.call('members.list', { room_id: '!r:example.org' });
+
+  expect(FakeSharedWorker.last?.url.searchParams.has('log')).toBe(false);
+  expect(FakeSharedWorker.last?.port.posted).toContainEqual({ logFilter: 'debug' });
+});
+
+test('a superseded worker rejects pending work and is never reopened', async () => {
+  const transport = await load();
+  const superseded = vi.fn();
+  transport.subscribeSuperseded?.(superseded);
+  const pending = transport.call('members.list', { room_id: '!r:example.org' });
+
+  FakeSharedWorker.last?.port.receive({ superseded: true });
+
+  expect(superseded).toHaveBeenCalledOnce();
+  await expect(pending).rejects.toThrow();
+  await expect(transport.call('members.list', { room_id: '!r:example.org' })).rejects.toThrow();
+  expect(FakeSharedWorker.created).toBe(1);
+});
+
 test('preserves rich attachment captions and mentions across the worker transport', async () => {
   const transport = await load();
   const attachment = {

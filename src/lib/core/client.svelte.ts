@@ -141,6 +141,7 @@ export class CoreClient {
   verification = $state<ActiveVerification | null>(null);
   crashed = $state<string | null>(null);
   storageInterrupted = $state(false);
+  superseded = $state(false);
   restoreFailed = $state(false);
   migrationFailed = $state(false);
   migrationError = $state<string | null>(null);
@@ -1014,6 +1015,10 @@ export class CoreClient {
     const unsubscribeStorageFailure = transport.subscribeStorageFailure?.(() => {
       this.storageInterrupted = true;
     });
+    // The closed transport stays in place so nothing reopens a worker here.
+    const unsubscribeSuperseded = transport.subscribeSuperseded?.(() => {
+      this.superseded = true;
+    });
     const unsubscribeStall = transport.subscribeStall((stalled) => {
       this.unresponsive = stalled;
     });
@@ -1024,6 +1029,7 @@ export class CoreClient {
       unsubscribeEvents();
       unsubscribeCrash();
       unsubscribeStorageFailure?.();
+      unsubscribeSuperseded?.();
       unsubscribeStall();
       stopLogCapture();
     };

@@ -31,7 +31,8 @@ export type WorkerPort = {
 export function createCoreWorkerBoundary(
   core: Promise<WorkerCore>,
   setLogCapture: (enabled: boolean) => void = () => {},
-  terminate: () => void = () => {}
+  terminate: () => void = () => {},
+  setLogFilter: (filter: string) => void = () => {}
 ) {
   const ports = new Set<WorkerPort>();
   const timelineEvents = new TimelineEventRouter<WorkerPort>();
@@ -74,6 +75,10 @@ export function createCoreWorkerBoundary(
     broadcast({
       panic: stack === undefined ? { message } : { message, stack },
     });
+  }
+
+  function handleSuperseded(): void {
+    broadcast({ superseded: true });
   }
 
   function flushLogs(): void {
@@ -162,6 +167,10 @@ export function createCoreWorkerBoundary(
           logs = [];
           droppedLogs = 0;
         }
+        return;
+      }
+      if ('logFilter' in request) {
+        setLogFilter(request.logFilter);
         return;
       }
       if ('ping' in request) {
@@ -353,5 +362,5 @@ export function createCoreWorkerBoundary(
     port.start();
   }
 
-  return { connect, handleEvent, handleLog, handlePanic };
+  return { connect, handleEvent, handleLog, handlePanic, handleSuperseded };
 }

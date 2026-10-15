@@ -2611,6 +2611,7 @@
     "coreError": "Sign-in could not be completed. Try again, or report the problem if it keeps happening.",
     "coreCrashed": "Sable encountered an internal error. New messages will not appear.",
     "storageInterrupted": "Sable's local storage was interrupted. Reload to reconnect.",
+    "coreSuperseded": "Sable was opened in another tab. Reload to use it here.",
     "coreUnresponsive": "Sable is not responding.",
     "syncFailed": "Sync failed: {{message}}",
     "offline": "You are offline. Reconnecting…",

@@ -6,7 +6,7 @@ mod session_store;
 use std::{
     cell::{Cell, RefCell},
     io::{self, Write},
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
 use js_sys::Function;
@@ -50,10 +50,23 @@ fn js_err(error: &RpcError) -> String {
 
 const DEFAULT_LOG_FILTER: &str = "info,matrix_sdk::http_client=off,matrix_sdk::latest_events::latest_event::builder=off,matrix_sdk_base::room::display_name=off";
 
+static LOG_FILTER: OnceLock<
+    tracing_subscriber::reload::Handle<
+        tracing_subscriber::filter::Targets,
+        tracing_subscriber::Registry,
+    >,
+> = OnceLock::new();
+
+fn log_targets(filter: &str) -> tracing_subscriber::filter::Targets {
+    filter.parse().unwrap_or_else(|_| {
+        tracing_subscriber::filter::Targets::new().with_default(tracing::Level::INFO)
+    })
+}
+
 /// Without this the core's `tracing` output is discarded and a
 /// `Failed { log_id }` names a line that was never written.
-fn init_tracing(filter: &str) {
-    use tracing_subscriber::{filter::Targets, prelude::*};
+fn init_tracing() {
+    use tracing_subscriber::prelude::*;
 
     let console_layer = tracing_subscriber::fmt::layer()
         .with_ansi(false)
@@ -64,16 +77,18 @@ fn init_tracing(filter: &str) {
         .without_time()
         .with_writer(MakeJsLogWriter);
 
-    let targets = filter
-        .parse::<Targets>()
-        .unwrap_or_else(|_| Targets::new().with_default(tracing::Level::INFO));
+    let (targets, handle) = tracing_subscriber::reload::Layer::new(log_targets(DEFAULT_LOG_FILTER));
 
     // A second call fails, so a reconnecting port must stay harmless.
-    let _ = tracing_subscriber::registry()
+    if tracing_subscriber::registry()
+        .with(targets)
         .with(console_layer)
         .with(debug_layer)
-        .with(targets)
-        .try_init();
+        .try_init()
+        .is_ok()
+    {
+        let _ = LOG_FILTER.set(handle);
+    }
 }
 
 thread_local! {
@@ -161,6 +176,15 @@ pub fn set_log_handler(notify: Function) {
     LOG_NOTIFIER.with_borrow_mut(|slot| *slot = Some(notify));
 }
 
+/// `"info,matrix_sdk::http_client=debug"` is the only way to see the SDK's
+/// requests at all: a `SharedWorker`'s never reach the page's network panel.
+#[wasm_bindgen(js_name = setLogFilter)]
+pub fn set_log_filter(filter: &str) {
+    if let Some(handle) = LOG_FILTER.get() {
+        let _ = handle.reload(log_targets(filter));
+    }
+}
+
 #[wasm_bindgen(js_name = setLogCapture)]
 pub fn set_log_capture(enabled: bool) {
     LOG_CAPTURE.set(enabled);
@@ -178,25 +202,17 @@ pub struct SableCore {
 impl SableCore {
     /// `store_id` names the `IndexedDB` database, and the three functions are the
     /// session store, each of which must return a Promise.
-    ///
-    /// `"info,matrix_sdk::http_client=debug"` is the only way to see the SDK's
-    /// requests at all: a `SharedWorker`'s never reach the page's network panel.
     #[wasm_bindgen(constructor)]
-    #[expect(
-        clippy::needless_pass_by_value,
-        reason = "wasm-bindgen maps the JS string boundary to an owned value"
-    )]
     #[must_use]
     pub fn new(
         store_id: String,
         load: Function,
         save: Function,
         clear: Function,
-        log_filter: Option<String>,
         persistent_event_cache: bool,
     ) -> SableCore {
         console_error_panic_hook::set_once();
-        init_tracing(log_filter.as_deref().unwrap_or(DEFAULT_LOG_FILTER));
+        init_tracing();
 
         let (core, events) = Core::new_with_event_cache(
             store_id,
@@ -350,7 +366,6 @@ mod tests {
             Function::new_no_args("return Promise.resolve(null);"),
             Function::new_with_args("bytes", "return Promise.resolve();"),
             Function::new_no_args("return Promise.resolve();"),
-            None,
             true,
         )
     }

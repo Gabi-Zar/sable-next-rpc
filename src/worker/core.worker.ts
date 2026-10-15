@@ -3,12 +3,14 @@
 import init, {
   SableCore,
   setLogCapture,
+  setLogFilter,
   setLogHandler,
   setPanicHandler,
 } from '#src/generated/wasm/sable_wasm.js';
 import { clearSession, loadSession, saveSession } from '#lib/platform/session-storage.js';
 import { installFirefoxFetchLimit } from './adaptive-fetch';
 import { createCoreWorkerBoundary } from './core-worker-boundary';
+import { claimStore } from './store-ownership';
 import { installUploadDeadline } from './upload-deadline';
 
 declare const self: SharedWorkerGlobalScope;
@@ -16,22 +18,28 @@ declare const self: SharedWorkerGlobalScope;
 installUploadDeadline(self);
 installFirefoxFetchLimit(self);
 
-const core = init().then(() => {
-  // Before the constructor, so a panic while opening the session store still
-  // carries its Rust message.
-  setPanicHandler(crash);
+const core = claimStore(() => {
+  boundary.handleSuperseded();
+  setTimeout(() => {
+    self.close();
+  }, 0);
+})
+  .then(() => init())
+  .then(() => {
+    // Before the constructor, so a panic while opening the session store still
+    // carries its Rust message.
+    setPanicHandler(crash);
 
-  const instance = new SableCore(
-    'sable-next',
-    () => loadSession(),
-    (bytes: Uint8Array) => saveSession(bytes),
-    () => clearSession(),
-    new URLSearchParams(self.location.search).get('log'),
-    new URLSearchParams(self.location.search).get('event-cache') !== 'memory'
-  );
+    const instance = new SableCore(
+      'sable-next',
+      () => loadSession(),
+      (bytes: Uint8Array) => saveSession(bytes),
+      () => clearSession(),
+      new URLSearchParams(self.location.search).get('event-cache') !== 'memory'
+    );
 
-  return instance;
-});
+    return instance;
+  });
 
 const boundary = createCoreWorkerBoundary(
   core,
@@ -42,6 +50,11 @@ const boundary = createCoreWorkerBoundary(
   },
   () => {
     self.close();
+  },
+  (filter) => {
+    void core.then(() => {
+      setLogFilter(filter);
+    });
   }
 );
 

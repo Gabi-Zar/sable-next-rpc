@@ -346,9 +346,9 @@ test('v2 WASM restores the copied v1 device and cross-signing secrets', async ({
       storage.loadSession,
       storage.saveSession,
       storage.clearSession,
-      'off',
       false
     );
+    wasm.setLogFilter('off');
     const rpc = createRpc(
       async (method, params) =>
         JSON.parse(await core.call(method, JSON.stringify(params))) as unknown

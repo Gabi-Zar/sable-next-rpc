@@ -514,3 +514,33 @@ test('a debugLogs request toggles WASM capture and clears buffered logs', () => 
   expect(port.messages).toEqual([]);
   vi.useRealTimers();
 });
+
+test('a logFilter request reaches the core', () => {
+  const setLogFilter = vi.fn();
+  const boundary = createCoreWorkerBoundary(
+    Promise.resolve(fakeCore(() => Promise.resolve('{}'))),
+    undefined,
+    undefined,
+    setLogFilter
+  );
+  const port = new FakePort();
+  boundary.connect(port);
+
+  port.onmessage?.({ data: { logFilter: 'debug' } } as MessageEvent<WorkerRequest>);
+
+  expect(setLogFilter).toHaveBeenCalledWith('debug');
+  expect(port.messages).toEqual([]);
+});
+
+test('a superseded worker tells every page', () => {
+  const boundary = createCoreWorkerBoundary(Promise.resolve(fakeCore(() => Promise.resolve('{}'))));
+  const first = new FakePort();
+  const second = new FakePort();
+  boundary.connect(first);
+  boundary.connect(second);
+
+  boundary.handleSuperseded();
+
+  expect(first.messages).toEqual([{ superseded: true }]);
+  expect(second.messages).toEqual([{ superseded: true }]);
+});

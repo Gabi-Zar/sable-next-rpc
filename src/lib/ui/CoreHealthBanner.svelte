@@ -20,6 +20,9 @@
     if (core.crashed !== null) {
       return { kind: 'crash' as const, text: i18n.t('errors.coreCrashed') };
     }
+    if (core.superseded) {
+      return { kind: 'crash' as const, text: i18n.t('errors.coreSuperseded') };
+    }
     if (core.storageInterrupted) {
       return { kind: 'crash' as const, text: i18n.t('errors.storageInterrupted') };
     }

@@ -81,6 +81,8 @@ export interface Transport {
 
   subscribeStorageFailure?(onStorageFailure: () => void): () => void;
 
+  subscribeSuperseded?(onSuperseded: () => void): () => void;
+
   subscribeStall(onStall: (stalled: boolean) => void): () => void;
 
   resetCaches(accountIds: readonly string[]): Promise<void>;

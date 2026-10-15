@@ -97,8 +97,6 @@ function openWorker(generation: number): SharedWorker {
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
   const iosPwa = /iPhone|iPad|iPod/.test(navigator.userAgent) && standalone;
   if (iosPwa) workerUrl.searchParams.set('event-cache', 'memory');
-  const logFilter = new URLSearchParams(self.location.search).get('log') ?? storedLogFilter();
-  if (logFilter) workerUrl.searchParams.set('log', logFilter);
 
   return new SharedWorker(workerUrl, {
     type: 'module',
@@ -127,6 +125,7 @@ export function createWebTransport(): Transport {
   const pendingCommands = new Map<number, string>();
   const crashListeners = new Set<(message: string) => void>();
   const storageFailureListeners = new Set<() => void>();
+  const supersededListeners = new Set<() => void>();
   const stallListeners = new Set<(stalled: boolean) => void>();
   const overdue = new Set<number>();
   let healthProbeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -227,6 +226,18 @@ export function createWebTransport(): Transport {
     for (const listener of crashListeners) listener(message);
   }
 
+  function handleSuperseded(): void {
+    // Reconnecting would claim the store back from the newer worker.
+    closed = true;
+    worker?.port.close();
+    worker = null;
+    clearHealthProbe();
+    overdue.clear();
+    reportStall(false);
+    rejectPending('core superseded by a newer tab');
+    for (const listener of supersededListeners) listener();
+  }
+
   function connect(): SharedWorker {
     if (worker) return worker;
 
@@ -279,6 +290,11 @@ export function createWebTransport(): Transport {
         return;
       }
 
+      if ('superseded' in data) {
+        handleSuperseded();
+        return;
+      }
+
       if ('pong' in data) return;
 
       const waiting = pending.get(data.id);
@@ -301,6 +317,8 @@ export function createWebTransport(): Transport {
 
     nextWorker.port.start();
     if (debugLogs) nextWorker.port.postMessage({ debugLogs: true });
+    const logFilter = new URLSearchParams(self.location.search).get('log') ?? storedLogFilter();
+    if (logFilter) nextWorker.port.postMessage({ logFilter });
     worker = nextWorker;
     if (adopted?.failure) {
       const failure = adopted.failure;
@@ -324,6 +342,7 @@ export function createWebTransport(): Transport {
     releasePageHide?.();
     listeners.clear();
     crashListeners.clear();
+    supersededListeners.clear();
     stallListeners.clear();
     clearHealthProbe();
     overdue.clear();
@@ -510,6 +529,11 @@ export function createWebTransport(): Transport {
     subscribeStorageFailure(onStorageFailure) {
       storageFailureListeners.add(onStorageFailure);
       return () => storageFailureListeners.delete(onStorageFailure);
+    },
+
+    subscribeSuperseded(onSuperseded) {
+      supersededListeners.add(onSuperseded);
+      return () => supersededListeners.delete(onSuperseded);
     },
 
     subscribeStall(onStall) {
