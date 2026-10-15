@@ -1,12 +1,46 @@
 import { currentLocale, t } from '#lib/i18n.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return a.toDateString() === b.toDateString();
+import { SYSTEM_TIME_ZONE } from './time-zones.js';
+
+function zone(): { timeZone?: string } {
+  return preferences.timeZone === SYSTEM_TIME_ZONE ? {} : { timeZone: preferences.timeZone };
+}
+
+interface Day {
+  year: number;
+  month: number;
+  day: number;
+}
+
+function dayOf(date: Date): Day {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    ...zone(),
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((candidate) => candidate.type === type)?.value);
+  return { year: part('year'), month: part('month'), day: part('day') };
+}
+
+function dayBefore({ year, month, day }: Day): Day {
+  const before = new Date(Date.UTC(year, month - 1, day - 1));
+  return {
+    year: before.getUTCFullYear(),
+    month: before.getUTCMonth() + 1,
+    day: before.getUTCDate(),
+  };
+}
+
+function isSameDay(a: Day, b: Day): boolean {
+  return a.year === b.year && a.month === b.month && a.day === b.day;
 }
 
 export function formatTime(timestamp: number): string {
   return new Date(timestamp).toLocaleTimeString(currentLocale(), {
+    ...zone(),
     hour: '2-digit',
     minute: '2-digit',
     ...(preferences.hour24Clock ? { hour12: false } : {}),
@@ -19,6 +53,7 @@ function pad(value: number): string {
 
 function formatMessageDatePart(date: Date, includeYear: boolean): string {
   return date.toLocaleDateString(currentLocale(), {
+    ...zone(),
     day: 'numeric',
     month: 'long',
     ...(includeYear ? { year: 'numeric' } : {}),
@@ -27,23 +62,23 @@ function formatMessageDatePart(date: Date, includeYear: boolean): string {
 
 export function formatMessageTimestamp(timestamp: number): string {
   const date = new Date(timestamp);
-  const now = new Date();
+  const day = dayOf(date);
+  const today = dayOf(new Date());
   const time = formatTime(timestamp);
 
-  if (isSameCalendarDay(date, now)) return time;
+  if (isSameDay(day, today)) return time;
 
-  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  if (isSameCalendarDay(date, yesterday)) {
+  if (isSameDay(day, dayBefore(today))) {
     return t('timeline.messageTimestamp', { date: t('common.yesterday'), time });
   }
 
-  const sameYear = date.getFullYear() === now.getFullYear();
-  const datePart = formatMessageDatePart(date, !sameYear);
+  const datePart = formatMessageDatePart(date, day.year !== today.year);
   return t('timeline.messageTimestamp', { date: datePart, time });
 }
 
 export function formatFullTimestamp(timestamp: number): string {
   return new Date(timestamp).toLocaleString(currentLocale(), {
+    ...zone(),
     dateStyle: 'full',
     timeStyle: 'medium',
     ...(preferences.hour24Clock ? { hour12: false } : {}),
@@ -52,23 +87,21 @@ export function formatFullTimestamp(timestamp: number): string {
 
 export function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
-  const today = new Date();
-  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-  if (isSameCalendarDay(date, today)) return t('common.today');
-  if (isSameCalendarDay(date, yesterday)) return t('common.yesterday');
+  const day = dayOf(date);
+  const today = dayOf(new Date());
+  if (isSameDay(day, today)) return t('common.today');
+  if (isSameDay(day, dayBefore(today))) return t('common.yesterday');
 
-  const day = pad(date.getDate());
-  const month = pad(date.getMonth() + 1);
-  const year = String(date.getFullYear());
   switch (preferences.dateFormat) {
     case 'dmy':
-      return `${day}/${month}/${year}`;
+      return `${pad(day.day)}/${pad(day.month)}/${String(day.year)}`;
     case 'mdy':
-      return `${month}/${day}/${year}`;
+      return `${pad(day.month)}/${pad(day.day)}/${String(day.year)}`;
     case 'ymd':
-      return `${year}-${month}-${day}`;
+      return `${String(day.year)}-${pad(day.month)}-${pad(day.day)}`;
     default:
       return date.toLocaleDateString(currentLocale(), {
+        ...zone(),
         day: 'numeric',
         month: 'long',
         year: 'numeric',

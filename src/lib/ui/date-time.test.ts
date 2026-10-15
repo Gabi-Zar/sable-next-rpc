@@ -1,6 +1,11 @@
 import { expect, test, vi } from 'vitest';
 import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
-import { formatDate, formatMessageTimestamp, formatTime } from './date-time.js';
+import {
+  formatDate,
+  formatFullTimestamp,
+  formatMessageTimestamp,
+  formatTime,
+} from './date-time.js';
 
 test('formatTime follows the 24-hour clock preference', () => {
   const afternoon = new Date(2026, 0, 1, 13, 5).getTime();
@@ -75,5 +80,44 @@ test('formatMessageTimestamp includes the year for messages from another year', 
   const lastYear = new Date(2025, 7, 24, 9, 15);
   expect(formatMessageTimestamp(lastYear.getTime())).toBe('August 24, 2025 09:15');
 
+  vi.useRealTimers();
+});
+
+test('times and days follow the chosen time zone', () => {
+  const evening = Date.UTC(2026, 8, 1, 12, 0);
+  const night = Date.UTC(2026, 8, 1, 23, 30);
+  vi.useFakeTimers();
+  vi.setSystemTime(night);
+  setPreference('hour24Clock', true);
+
+  setPreference('timeZone', 'Asia/Tokyo');
+  expect(formatTime(night)).toBe('08:30');
+  expect(formatMessageTimestamp(night)).toBe('08:30');
+  expect(formatMessageTimestamp(evening)).toBe('Yesterday 21:00');
+  expect(formatDate(evening)).toBe('Yesterday');
+  expect(formatFullTimestamp(night)).toContain('September 2, 2026');
+
+  setPreference('timeZone', 'Pacific/Pago_Pago');
+  expect(formatTime(night)).toBe('12:30');
+  expect(formatMessageTimestamp(evening)).toBe('01:00');
+  expect(formatDate(evening)).toBe('Today');
+
+  setPreference('timeZone', 'auto');
+  vi.useRealTimers();
+});
+
+test('a numeric date takes its day from the chosen time zone', () => {
+  const lateUtc = Date.UTC(2020, 0, 1, 23, 30);
+  vi.useFakeTimers();
+  vi.setSystemTime(Date.UTC(2026, 8, 1, 12, 0));
+  setPreference('dateFormat', 'ymd');
+
+  setPreference('timeZone', 'Asia/Tokyo');
+  expect(formatDate(lateUtc)).toBe('2020-01-02');
+  setPreference('timeZone', 'Pacific/Pago_Pago');
+  expect(formatDate(lateUtc)).toBe('2020-01-01');
+
+  setPreference('timeZone', 'auto');
+  setPreference('dateFormat', 'auto');
   vi.useRealTimers();
 });

@@ -4,6 +4,7 @@ import type { PresenceView, ProfilePropagationView } from '#src/generated/protoc
 import type { GifProviderSetting } from '#lib/gif/providers.js';
 import type { MemberSort } from '#lib/rooms/member-listing.js';
 import type { RoomSort } from '#lib/rooms/room-sort.js';
+import { SYSTEM_TIME_ZONE, timeZoneValues } from '#lib/ui/time-zones.js';
 import { languageValues, SYSTEM_LANGUAGE } from '#lib/locales.js';
 import { readJson, writeJson } from '#lib/platform/local-json.js';
 import { customTitleBarDefault } from '#lib/platform/window-decorations.js';
@@ -229,6 +230,7 @@ export interface Preferences {
 
   hour24Clock: boolean;
   dateFormat: DateFormat;
+  timeZone: string;
   weekStart: WeekStart;
 
   hideMembershipEvents: boolean;
@@ -425,6 +427,7 @@ const ENUMS = {
   timelineEmoteSize: ['default', '20', '24', '32', '48', '64'],
   theme: ['system', 'dark', 'light'],
   dateFormat: ['auto', 'dmy', 'mdy', 'ymd'],
+  timeZone: timeZoneValues(),
   enterForNewline: ['adaptive', 'newline', 'send'],
   composerForm: ['short', 'adaptive', 'tall'],
   weekStart: ['sunday', 'monday', 'saturday'],
@@ -555,6 +558,7 @@ const DEFAULTS: Preferences = {
 
   hour24Clock: false,
   dateFormat: 'auto',
+  timeZone: SYSTEM_TIME_ZONE,
   weekStart: 'sunday',
 
   hideMembershipEvents: false,

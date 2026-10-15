@@ -5,6 +5,7 @@ import ChatsCircleIcon from 'phosphor-svelte/lib/ChatsCircleIcon';
 import ChecksIcon from 'phosphor-svelte/lib/ChecksIcon';
 import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
 import DotsThreeIcon from 'phosphor-svelte/lib/DotsThreeIcon';
+import GlobeIcon from 'phosphor-svelte/lib/GlobeIcon';
 import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
 import LayoutIcon from 'phosphor-svelte/lib/LayoutIcon';
 import DatabaseIcon from 'phosphor-svelte/lib/DatabaseIcon';
@@ -19,6 +20,7 @@ import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 import UserCircleIcon from 'phosphor-svelte/lib/UserCircleIcon';
 import UsersIcon from 'phosphor-svelte/lib/UsersIcon';
 import { currentLocale } from '#lib/i18n.js';
+import { SYSTEM_TIME_ZONE, timeZoneValues } from '#lib/ui/time-zones.js';
 import { isNativeMobile, supportsTouch } from '#lib/platform/os.js';
 import {
   SEARCH_BASE_EVENTS,
@@ -322,6 +324,20 @@ export const timelineCategory: SettingsCategory = {
         { value: 'mdy', label: 'settings.dateFormatMdy' },
         { value: 'ymd', label: 'settings.dateFormatYmd' },
       ],
+    },
+    {
+      key: 'timeZone',
+      section: 'time-date',
+      icon: GlobeIcon,
+      name: 'settings.timeZone',
+      description: 'settings.timeZoneHint',
+      terms: ['settings.terms.timeZone'],
+      type: 'select',
+      options: timeZoneValues().map((zone) =>
+        zone === SYSTEM_TIME_ZONE
+          ? { value: zone, label: 'settings.timeZoneAuto' }
+          : { value: zone, label: zone, literal: true }
+      ),
     },
     {
       key: 'weekStart',
