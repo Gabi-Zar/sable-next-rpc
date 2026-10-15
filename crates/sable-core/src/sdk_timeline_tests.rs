@@ -3915,6 +3915,94 @@ async fn a_deleted_mention_is_not_highlighted() {
 }
 
 #[tokio::test]
+async fn a_live_redaction_drops_the_reactions() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let own_user_id = client.user_id().expect("a logged-in user").to_owned();
+    let room_id = room_id!("!live-redaction:example.org");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    let target = event_id!("$target");
+
+    server.mock_room_state_encryption().plain().mount().await;
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_state_bulk([
+                    factory.member(&own_user_id).into_raw(),
+                    factory.member(*ALICE).into_raw(),
+                    factory.default_power_levels().into_raw(),
+                ])
+                .add_timeline_event(factory.text_msg("hey").event_id(target))
+                .add_timeline_event(
+                    factory
+                        .reaction(target, "👍")
+                        .event_id(event_id!("$reaction")),
+                ),
+        )
+        .await;
+
+    let timeline = build_room_timeline(&room, &TimelineFocusView::Live, false)
+        .await
+        .expect("a timeline");
+
+    let redaction = json!({
+        "type": "m.room.redaction",
+        "sender": ALICE.to_string(),
+        "event_id": "$redaction",
+        "origin_server_ts": 1_000_000,
+        "redacts": target,
+        "content": { "redacts": target, "reason": "spam" },
+    });
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id).add_timeline_event(
+                matrix_sdk::ruma::serde::Raw::new(&redaction)
+                    .expect("a redaction")
+                    .cast_unchecked(),
+            ),
+        )
+        .await;
+
+    let items = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let items = timeline.items().await;
+            if items.iter().any(|item| {
+                item.as_event()
+                    .is_some_and(|event| event.content().is_redacted())
+            }) {
+                break items;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the redaction reached the timeline");
+
+    let view = items
+        .iter()
+        .map(|item| {
+            super::view::timeline_item(
+                item,
+                Some(&own_user_id),
+                &BTreeSet::new(),
+                &super::view::Highlights::default(),
+                &super::view::LocalContent::default(),
+            )
+        })
+        .find(|view| {
+            matches!(
+                view.content,
+                crate::protocol::TimelineItemContentView::Redacted { .. }
+            )
+        })
+        .expect("the deleted message");
+
+    assert!(view.reactions.is_empty());
+}
+
+#[tokio::test]
 async fn a_redaction_the_server_rejects_restores_the_message() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;

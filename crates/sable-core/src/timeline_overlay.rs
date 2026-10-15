@@ -1,5 +1,5 @@
-//! What a subscription lays over the SDK's items: newer sender profiles and replied-to fallbacks,
-//! sent as `Set` diffs.
+//! What a subscription lays over the SDK's items: newer sender profiles, replied-to fallbacks and
+//! redaction reasons, sent as `Set` diffs.
 
 use std::collections::HashMap;
 
@@ -7,7 +7,7 @@ use matrix_sdk::ruma::{OwnedEventId, OwnedUserId};
 use sable_model::event_preview::event_preview;
 use serde_json::Value;
 
-use crate::protocol::{ReplyFallbackView, TimelineItemView, VectorDiff};
+use crate::protocol::{ReplyFallbackView, TimelineItemContentView, TimelineItemView, VectorDiff};
 use crate::view::apply_diff;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +44,7 @@ pub(crate) struct TimelineOverlay {
     items: Vec<TimelineItemView>,
     profiles: HashMap<OwnedUserId, SenderProfile>,
     replies: HashMap<OwnedEventId, ReplyFallback>,
+    redactions: HashMap<OwnedEventId, String>,
 }
 
 impl TimelineOverlay {
@@ -72,6 +73,16 @@ impl TimelineOverlay {
                 .and_then(|sender| self.profiles.get(sender))
         {
             reply.sender_name.clone_from(&profile.name);
+        }
+        if let TimelineItemContentView::Redacted { reason: None } = &item.content
+            && let Some(reason) = item
+                .event_id
+                .as_ref()
+                .and_then(|event_id| self.redactions.get(event_id))
+        {
+            item.content = TimelineItemContentView::Redacted {
+                reason: Some(reason.clone()),
+            };
         }
         item
     }
@@ -126,7 +137,8 @@ impl TimelineOverlay {
             let next = self.overlaid(item.clone());
             let unchanged = next.sender_name == item.sender_name
                 && next.sender_avatar == item.sender_avatar
-                && next.in_reply_to == item.in_reply_to;
+                && next.in_reply_to == item.in_reply_to
+                && redaction_reason(&next) == redaction_reason(item);
             if unchanged {
                 continue;
             }
@@ -157,6 +169,18 @@ impl TimelineOverlay {
         })
     }
 
+    /// The `Set` diffs that show why `event_id` was deleted. The SDK drops the reason
+    /// when it redacts a loaded item.
+    pub(crate) fn set_redaction_reason(
+        &mut self,
+        event_id: OwnedEventId,
+        reason: String,
+    ) -> Vec<VectorDiff<TimelineItemView>> {
+        let touched = event_id.clone();
+        self.redactions.insert(event_id, reason);
+        self.refresh(|item| item.event_id.as_ref() == Some(&touched))
+    }
+
     /// The `Set` diffs that fill in replies to `event_id`.
     pub(crate) fn set_reply(
         &mut self,
@@ -170,6 +194,13 @@ impl TimelineOverlay {
                 .as_ref()
                 .is_some_and(|reply| reply.event_id == touched)
         })
+    }
+}
+
+fn redaction_reason(item: &TimelineItemView) -> Option<&str> {
+    match &item.content {
+        TimelineItemContentView::Redacted { reason } => reason.as_deref(),
+        _ => None,
     }
 }
 
@@ -324,5 +355,54 @@ mod tests {
                 key: "👍".to_owned()
             })
         );
+    }
+
+    #[test]
+    fn a_redaction_reason_fills_the_deleted_row_now_and_on_later_diffs() {
+        let mut overlay = TimelineOverlay::default();
+        let deleted = |id: &str| {
+            let mut row = item(id, "@alice:x", None);
+            row.content = TimelineItemContentView::Redacted { reason: None };
+            row
+        };
+        overlay.reset(vec![item("a", "@alice:x", None), deleted("b")]);
+
+        let diffs = overlay.set_redaction_reason(event_id!("$b").to_owned(), "spam".to_owned());
+        assert_eq!(diffs.len(), 1);
+        assert_eq!(
+            redaction_reason(&overlay.items[1]),
+            Some("spam"),
+            "the loaded row shows the reason"
+        );
+        assert!(
+            overlay
+                .set_redaction_reason(event_id!("$b").to_owned(), "spam".to_owned())
+                .is_empty()
+        );
+
+        let VectorDiff::Set { value, .. } = overlay.apply(VectorDiff::Set {
+            index: 1,
+            value: deleted("b"),
+        }) else {
+            panic!("a set");
+        };
+        assert_eq!(redaction_reason(&value), Some("spam"));
+    }
+
+    #[test]
+    fn a_reason_never_replaces_one_the_sdk_already_knows() {
+        let mut overlay = TimelineOverlay::default();
+        let mut row = item("b", "@alice:x", None);
+        row.content = TimelineItemContentView::Redacted {
+            reason: Some("rude".to_owned()),
+        };
+        overlay.reset(vec![row]);
+
+        assert!(
+            overlay
+                .set_redaction_reason(event_id!("$b").to_owned(), "spam".to_owned())
+                .is_empty()
+        );
+        assert_eq!(redaction_reason(&overlay.items[0]), Some("rude"));
     }
 }

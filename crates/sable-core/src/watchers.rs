@@ -4,6 +4,7 @@ use futures_util::{StreamExt, pin_mut};
 use matrix_sdk::executor::{JoinHandleExt, spawn};
 use matrix_sdk::ruma::MilliSecondsSinceUnixEpoch;
 use matrix_sdk::ruma::events::room::member::{MembershipState, OriginalSyncRoomMemberEvent};
+use matrix_sdk::ruma::events::room::redaction::SyncRoomRedactionEvent;
 use matrix_sdk::ruma::events::typing::SyncTypingEvent;
 use matrix_sdk::ruma::events::{
     AnyGlobalAccountDataEvent, AnyStrippedStateEvent, AnySyncTimelineEvent,
@@ -512,6 +513,34 @@ impl Core {
                             items: spaces::items(&event.content),
                         },
                     );
+                }
+            }
+        });
+        self.track_session_handler(client, handle);
+    }
+
+    /// The SDK drops a redaction's reason from an item it redacts live, so the reason is
+    /// read off the redaction event and laid over the open timelines.
+    pub(crate) fn watch_redactions(self: &Arc<Self>, client: &matrix_sdk::Client) {
+        let handle = client.add_event_handler({
+            let core = self.clone();
+            move |event: SyncRoomRedactionEvent, room: matrix_sdk::Room| {
+                let core = core.clone();
+                async move {
+                    let SyncRoomRedactionEvent::Original(event) = event else {
+                        return;
+                    };
+                    let rules = room.clone_info().room_version_rules_or_default();
+                    let Some(reason) = event
+                        .content
+                        .reason
+                        .as_deref()
+                        .filter(|reason| !reason.trim().is_empty())
+                    else {
+                        return;
+                    };
+                    core.overlay_redaction(room.room_id(), event.redacts(&rules.redaction), reason)
+                        .await;
                 }
             }
         });

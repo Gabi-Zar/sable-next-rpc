@@ -418,6 +418,19 @@ impl Core {
         .await;
     }
 
+    /// Shows why `redacted` was deleted in every open timeline of the room.
+    pub(crate) async fn overlay_redaction(
+        &self,
+        room_id: &RoomId,
+        redacted: &EventId,
+        reason: &str,
+    ) {
+        self.overlay_room(room_id, |overlay| {
+            overlay.set_redaction_reason(redacted.to_owned(), reason.to_owned())
+        })
+        .await;
+    }
+
     /// Fills in the replies to `replied` in every open timeline of the room.
     pub(crate) async fn overlay_reply(
         &self,

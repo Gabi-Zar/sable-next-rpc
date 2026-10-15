@@ -2579,3 +2579,84 @@ async fn server_features_lists_only_enabled_unstable_features() {
         ["org.matrix.msc4354", "org.matrix.simplified_msc3575"]
     );
 }
+
+#[tokio::test]
+async fn a_live_redaction_shows_its_reason_in_an_open_timeline() {
+    use matrix_sdk::ruma::event_id;
+    use matrix_sdk_test::{ALICE, event_factory::EventFactory};
+
+    use crate::protocol::TimelineItemContentView;
+    use crate::view::apply_diff;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!reason:example.org");
+    let target = event_id!("$target");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    server.mock_room_state_encryption().plain().mount().await;
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg("hey").event_id(target)),
+        )
+        .await;
+    let (core, mut events) = core_with_events(&server, client.clone()).await;
+    core.watch_redactions(&client);
+    let SubscribeOk {
+        subscription,
+        mut items,
+        ..
+    } = core
+        .run(SubscribeParams {
+            room_id: room_id.to_owned(),
+            focus: TimelineFocusView::Live,
+            hidden_events: false,
+        })
+        .await
+        .unwrap();
+
+    let redaction = json!({
+        "type": "m.room.redaction",
+        "sender": ALICE.to_string(),
+        "event_id": "$redaction",
+        "origin_server_ts": 1_000_000,
+        "redacts": target,
+        "content": { "redacts": target, "reason": "spam" },
+    });
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(Raw::new(&redaction).unwrap().cast_unchecked()),
+        )
+        .await;
+
+    let reason = |items: &[crate::protocol::TimelineItemView]| {
+        items.iter().find_map(|item| match &item.content {
+            TimelineItemContentView::Redacted { reason } => Some(reason.clone()),
+            _ => None,
+        })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while reason(&items) != Some(Some("spam".to_owned())) {
+            let Some(event) = events.recv().await else {
+                break;
+            };
+            if let CoreEvent::TimelineDiff {
+                subscription: from,
+                diffs,
+            } = event
+                && from == subscription
+            {
+                for diff in &diffs {
+                    apply_diff(&mut items, diff);
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(reason(&items), Some(Some("spam".to_owned())));
+}
