@@ -21,7 +21,7 @@
   let eventId = $derived(page.url.searchParams.get('event'));
   let notifiedEventId = $derived(page.state.notified ?? null);
   let listedRoom = $derived(findRoomByPathId(roomList.rooms, roomId));
-  let joined = $derived(listedRoom !== undefined);
+  let joined = $derived(listedRoom?.state === 'joined');
 
   let mountedRoomId = $state(untrack(() => (appLayout.current ? roomId : null)));
   $effect(() => {
@@ -45,7 +45,9 @@
   let listed = $derived(roomList.settled);
 
   let unlisted = $state.raw<RoomListItemView | null>(null);
-  let unlistedRoom = $derived(unlisted?.room_id === roomId ? unlisted : undefined);
+  let unlistedRoom = $derived(
+    unlisted?.room_id === roomId && unlisted?.state === 'joined' ? unlisted : undefined
+  );
   $effect(() => {
     const id = roomId;
     unlisted = null;
@@ -66,7 +68,7 @@
   });
 
   let resolvedRoom = $derived(listedRoom ?? unlistedRoom);
-  let space = $derived(resolvedRoom?.is_space ? resolvedRoom : null);
+  let space = $derived(resolvedRoom?.room_kind === 'space' ? resolvedRoom : null);
   let eventTimeline = $derived(page.url.searchParams.get('timeline') === 'events');
   $effect(() => {
     if (!space || eventTimeline) return;
@@ -83,6 +85,11 @@
   {#if joined || unlistedRoom || (!listed && roomId.startsWith('!'))}
     <RoomView {roomId} {eventId} {notifiedEventId} room={unlistedRoom} />
   {:else if listed}
-    <JoinBeforeNavigate {roomId} {eventId} via={page.url.searchParams.getAll('via')} />
+    <JoinBeforeNavigate
+      {roomId}
+      {eventId}
+      via={page.url.searchParams.getAll('via')}
+      membership={listedRoom?.state}
+    />
   {/if}
 {/if}

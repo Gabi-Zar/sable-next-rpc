@@ -64,7 +64,7 @@
   let run = 0;
 
   let roomId = $derived(room?.room_id ?? null);
-  let isSpace = $derived(room?.is_space ?? false);
+  let isSpace = $derived(room?.room_kind === 'space');
   let canUpgrade = $derived(canSendState(levels, ownPowerLevel, 'm.room.tombstone'));
   let allowCreators = $derived(mode === 'server' && additionalCreatorsSupported(target));
   let replacementId = $derived.by(() => {
@@ -176,7 +176,7 @@
   }
 
   async function replaceWithNewRoom(id: string): Promise<string> {
-    const kind = isSpace ? 'space' : room?.is_voice ? 'voice' : 'text';
+    const kind = room?.room_kind ?? 'text';
     const next = await createRoom(core.rpc, {
       name: room?.name,
       topic: room?.topic,

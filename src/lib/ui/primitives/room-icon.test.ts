@@ -1,44 +1,60 @@
 import { expect, test } from 'vitest';
 
-import GlobeSimpleIcon from 'phosphor-svelte/lib/GlobeSimpleIcon';
 import CalendarDotsIcon from 'phosphor-svelte/lib/CalendarDotsIcon';
 import ChatsCircleIcon from 'phosphor-svelte/lib/ChatsCircleIcon';
 import HashStraightIcon from 'phosphor-svelte/lib/HashStraightIcon';
-import LockSimpleIcon from 'phosphor-svelte/lib/LockSimpleIcon';
+import QuestionIcon from 'phosphor-svelte/lib/QuestionIcon';
 import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
 import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 
-import { roomIconComponent, roomIconOverlay, roomIconWeight } from './room-icon.js';
+import {
+  roomIconComponent,
+  roomIconOverlay,
+  roomIconWeight,
+  type RoomIconShape,
+} from './room-icon.js';
 
-test('a regular room keeps its hash glyph and carries the join rule as a badge', () => {
-  expect(roomIconComponent({ joinRule: 'invite' })).toBe(HashStraightIcon);
-  expect(roomIconOverlay({ joinRule: 'invite' })).toBe('lock');
-  expect(roomIconOverlay({ joinRule: 'public' })).toBe('globe');
+function shape(overrides: Partial<RoomIconShape>): RoomIconShape {
+  return { roomKind: 'text', hasParent: false, joinRule: null, ...overrides };
+}
+
+test('each room kind has its own glyph', () => {
+  expect(roomIconComponent(shape({ roomKind: 'text' }))).toBe(HashStraightIcon);
+  expect(roomIconComponent(shape({ roomKind: 'space' }))).toBe(SquaresFourIcon);
+  expect(roomIconComponent(shape({ roomKind: 'voice' }))).toBe(SpeakerHighIcon);
+  expect(roomIconComponent(shape({ roomKind: 'forum' }))).toBe(ChatsCircleIcon);
+  expect(roomIconComponent(shape({ roomKind: 'calendar' }))).toBe(CalendarDotsIcon);
 });
 
-test('a space and a voice room carry the join rule in the glyph, not a badge', () => {
-  expect(roomIconComponent({ isSpace: true })).toBe(SquaresFourIcon);
-  expect(roomIconComponent({ isSpace: true, joinRule: 'public' })).toBe(GlobeSimpleIcon);
-  expect(roomIconComponent({ isVoice: true })).toBe(SpeakerHighIcon);
-  expect(roomIconComponent({ isVoice: true, joinRule: 'public' })).toBe(SpeakerHighIcon);
-  expect(roomIconComponent({ isVoice: true, joinRule: 'knock' })).toBe(LockSimpleIcon);
-  expect(roomIconOverlay({ isSpace: true, joinRule: 'public' })).toBeUndefined();
-  expect(roomIconOverlay({ isVoice: true, joinRule: 'invite' })).toBeUndefined();
+test('a room whose kind is unknown gets a question mark and no badge', () => {
+  expect(roomIconComponent(shape({ roomKind: null }))).toBe(QuestionIcon);
+  expect(roomIconOverlay(shape({ roomKind: null, joinRule: 'public' }))).toBeNull();
 });
 
-test('a calendar room uses its calendar glyph', () => {
-  expect(roomIconComponent({ isCalendar: true })).toBe(CalendarDotsIcon);
-  expect(roomIconComponent({ isForum: true })).toBe(ChatsCircleIcon);
+test('a public room is marked public, a public space is not', () => {
+  expect(roomIconOverlay(shape({ joinRule: 'public' }))).toBe('globe');
+  expect(roomIconOverlay(shape({ roomKind: 'space', joinRule: 'public' }))).toBeNull();
 });
 
-test('a restricted rule reads as neither open nor locked', () => {
-  expect(roomIconOverlay({ joinRule: 'restricted' })).toBeUndefined();
-  expect(roomIconOverlay({ joinRule: null })).toBeUndefined();
+test('a room in a space is only badged when it says something unusual', () => {
+  expect(roomIconOverlay(shape({ hasParent: true, joinRule: 'restricted' }))).toBeNull();
+  expect(roomIconOverlay(shape({ hasParent: true, joinRule: 'public' }))).toBe('globe');
+  expect(roomIconOverlay(shape({ hasParent: true, joinRule: 'invite' }))).toBe('lock');
+});
+
+test('a room outside a space is locked unless it is public', () => {
+  expect(roomIconOverlay(shape({ joinRule: 'restricted' }))).toBe('lock');
+  expect(roomIconOverlay(shape({ joinRule: 'invite' }))).toBe('lock');
+});
+
+test('a private space is locked, an unmarked space is not', () => {
+  expect(roomIconOverlay(shape({ roomKind: 'space', joinRule: 'invite' }))).toBe('lock');
+  expect(roomIconOverlay(shape({ roomKind: 'space', joinRule: 'restricted' }))).toBeNull();
 });
 
 test('a current room keeps an outline hash, since the filled one is a solid square', () => {
-  expect(roomIconWeight({ joinRule: 'public' }, 'fill')).toBe('bold');
-  expect(roomIconWeight({}, 'regular')).toBe('regular');
-  expect(roomIconWeight({ isSpace: true }, 'fill')).toBe('fill');
-  expect(roomIconWeight({ isVoice: true }, 'fill')).toBe('fill');
+  expect(roomIconWeight(shape({ roomKind: 'text' }), 'fill')).toBe('bold');
+  expect(roomIconWeight(shape({ roomKind: 'text' }), 'regular')).toBe('regular');
+  expect(roomIconWeight(shape({ roomKind: 'space' }), 'fill')).toBe('fill');
+  expect(roomIconWeight(shape({ roomKind: 'voice' }), 'fill')).toBe('fill');
 });

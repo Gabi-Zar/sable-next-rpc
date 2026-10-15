@@ -32,7 +32,7 @@ function markEntries(html: string, entries: AbbreviationEntry[]): string {
 function space(roomId: string, children: string[]): RoomListItemView {
   return {
     room_id: roomId,
-    is_space: true,
+    room_kind: 'space',
     state: 'joined',
     space_children: children.map((child) => ({ room_id: child })),
   } as unknown as RoomListItemView;

@@ -50,12 +50,10 @@ const room: RoomListItemView = withCounts({
   tags: [],
   state: 'joined',
   encrypted: null,
-  is_space: false,
   is_tombstoned: false,
-  is_voice: false,
   call_participants: [],
   screen_sharers: [],
-  room_type: null,
+  room_kind: 'text',
   supports_knock: true,
   supports_restricted: true,
   supports_knock_restricted: true,
@@ -110,7 +108,7 @@ async function setup(
   const instance = render(RoomSettingsDialog, {
     props: {
       open: true,
-      room: { ...room, is_space: isSpace },
+      room: { ...room, room_kind: isSpace ? 'space' : 'text' },
       onOpenChange: () => {},
     },
   });
@@ -180,7 +178,7 @@ test.each([false, true])('non-admins can inspect and copy data (space: %s)', asy
   const data: unknown = JSON.parse((field as HTMLTextAreaElement).value);
   expect(field).toHaveAttribute('readonly');
   expect(data).toMatchObject({
-    room: { room_id: room.room_id, is_space: isSpace, avatar_url: null },
+    room: { room_id: room.room_id, room_kind: isSpace ? 'space' : 'text', avatar_url: null },
     cached_state: {
       'm.room.avatar': { events: [avatarEvent] },
       'm.space.child': { error: 'state unavailable' },

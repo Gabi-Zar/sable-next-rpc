@@ -13,7 +13,6 @@ import {
 function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return {
     room_id: '!r',
-    is_space: false,
     is_direct: false,
     direct_targets: [],
     state: 'joined',
@@ -30,18 +29,18 @@ test('only joined spaces claim their children', () => {
   const claimed = claimedRoomIds([
     room({
       room_id: '!joined',
-      is_space: true,
+      room_kind: 'space',
       space_children: [{ room_id: '!child' }] as RoomListItemView['space_children'],
     }),
     room({
       room_id: '!invited',
-      is_space: true,
+      room_kind: 'space',
       state: 'invited',
       space_children: [{ room_id: '!other' }] as RoomListItemView['space_children'],
     }),
     room({
       room_id: '!tombstoned',
-      is_space: true,
+      room_kind: 'space',
       is_tombstoned: true,
       space_children: [{ room_id: '!replaced' }] as RoomListItemView['space_children'],
     }),
@@ -52,8 +51,12 @@ test('only joined spaces claim their children', () => {
 });
 
 test('tombstoned spaces are not active sidebar spaces', () => {
-  expect(isActiveSpace(room({ is_space: true, state: 'joined', is_tombstoned: true }))).toBe(false);
-  expect(isActiveSpace(room({ is_space: true, state: 'joined', is_tombstoned: false }))).toBe(true);
+  expect(isActiveSpace(room({ room_kind: 'space', state: 'joined', is_tombstoned: true }))).toBe(
+    false
+  );
+  expect(isActiveSpace(room({ room_kind: 'space', state: 'joined', is_tombstoned: false }))).toBe(
+    true
+  );
 });
 
 test('marks only rooms that are actually unread', () => {
@@ -147,12 +150,12 @@ test('collects unique descendant rooms from several spaces', () => {
   const nestedRoom = room({ room_id: '!nested-room' });
   const nested = room({
     room_id: '!nested',
-    is_space: true,
+    room_kind: 'space',
     space_children: [{ room_id: nestedRoom.room_id }] as RoomListItemView['space_children'],
   });
   const alpha = room({
     room_id: '!alpha',
-    is_space: true,
+    room_kind: 'space',
     space_children: [
       { room_id: shared.room_id },
       { room_id: nested.room_id },
@@ -160,7 +163,7 @@ test('collects unique descendant rooms from several spaces', () => {
   });
   const beta = room({
     room_id: '!beta',
-    is_space: true,
+    room_kind: 'space',
     space_children: [{ room_id: shared.room_id }] as RoomListItemView['space_children'],
   });
 

@@ -31,11 +31,11 @@ function preview(join_rule: RoomPreviewView['join_rule']): RoomPreviewView {
     name: 'Knock room',
     topic: null,
     avatar_url: null,
-    is_space: false,
-    is_voice: false,
+    room_kind: 'text',
     num_joined_members: 3,
     join_rule,
     state: null,
+    via: { type: 'unknown' },
   };
 }
 

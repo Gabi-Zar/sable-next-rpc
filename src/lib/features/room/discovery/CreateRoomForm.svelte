@@ -13,11 +13,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { createRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
-  import type {
-    CreateJoinRuleView,
-    CreateRoomKind,
-    RoomVersionsView,
-  } from '#src/generated/protocol';
+  import type { CreateJoinRuleView, RoomKind, RoomVersionsView } from '#src/generated/protocol';
   import { roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -46,7 +42,7 @@
 
   let name = $state('');
   let topic = $state('');
-  let kind = $state<CreateRoomKind>('text');
+  let kind = $state<RoomKind>('text');
   let access = $state<'private' | 'public'>('private');
   let encrypted = $state(true);
   // `parentSpaceId` arrives once the room list has loaded, so the field follows
@@ -66,7 +62,9 @@
   let submitting = $state(false);
   let failed = $state(false);
 
-  let spaces = $derived(roomList.rooms.filter((room) => room.is_space && room.state === 'joined'));
+  let spaces = $derived(
+    roomList.rooms.filter((room) => room.room_kind === 'space' && room.state === 'joined')
+  );
   let effectiveKind = $derived(mode === 'space' ? 'space' : kind);
   let encryptable = $derived(access === 'private');
   let parentSpaceSummary = $derived(spaces.find((space) => space.room_id === parentSpace) ?? null);
@@ -233,7 +231,7 @@
       <OptionCards
         label={i18n.t('room.createKindLabel')}
         value={kind}
-        onSelect={(next: CreateRoomKind) => {
+        onSelect={(next: RoomKind) => {
           kind = next;
         }}
         options={[

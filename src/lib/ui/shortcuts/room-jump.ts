@@ -19,7 +19,7 @@ export function roomDisplayName(room: RoomListItemView): string {
 }
 
 export function jumpKind(room: RoomListItemView): JumpKind {
-  if (room.is_space) return 'space';
+  if (room.room_kind === 'space') return 'space';
   if (room.is_direct) return 'direct';
   return 'room';
 }
@@ -47,7 +47,8 @@ export function filterRoomsByQuery(
   const candidates = kind === null ? joined : joined.filter((room) => jumpKind(room) === kind);
 
   if (text === '') {
-    const recents = kind === null ? candidates.filter((room) => !room.is_space) : candidates;
+    const recents =
+      kind === null ? candidates.filter((room) => room.room_kind !== 'space') : candidates;
     return byActivity(recents).slice(0, limit);
   }
 
@@ -58,7 +59,7 @@ export function parentSpaceNames(rooms: readonly RoomListItemView[]): Map<string
   const parents = new Map<string, string>();
 
   for (const space of rooms) {
-    if (!space.is_space) continue;
+    if (space.room_kind !== 'space') continue;
 
     for (const child of space.space_children) {
       if (!parents.has(child.room_id)) parents.set(child.room_id, roomDisplayName(space));

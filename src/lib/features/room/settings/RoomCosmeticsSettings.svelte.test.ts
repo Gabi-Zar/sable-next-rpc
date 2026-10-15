@@ -40,7 +40,6 @@ function look(overrides: Partial<MemberLookView> = {}): MemberLookView {
 
 const room = {
   room_id: '!room:example.org',
-  is_space: false,
   space_children: [],
 } as unknown as RoomListItemView;
 

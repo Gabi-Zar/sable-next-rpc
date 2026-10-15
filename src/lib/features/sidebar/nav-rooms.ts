@@ -9,7 +9,7 @@ export function claimedRoomIds(rooms: readonly RoomListItemView[]): Set<string> 
 }
 
 export function isActiveSpace(room: RoomListItemView): boolean {
-  return room.is_space && room.state === 'joined' && !room.is_tombstoned;
+  return room.room_kind === 'space' && room.state === 'joined' && !room.is_tombstoned;
 }
 
 export function markRoomsRead(
@@ -69,7 +69,7 @@ export function spacesDescendantRooms(
     for (const child of space.space_children) {
       const room = byId.get(child.room_id);
       if (!room || seen.has(room.room_id)) continue;
-      if (room.is_space) {
+      if (room.room_kind === 'space') {
         walk(room.room_id);
         continue;
       }

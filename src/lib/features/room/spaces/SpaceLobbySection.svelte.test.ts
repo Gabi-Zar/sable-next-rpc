@@ -17,7 +17,6 @@ function space(roomId: string, joinRule: RoomJoinRuleView, children: string[]): 
     topic: null,
     avatar_url: null,
     is_space: true,
-    is_voice: false,
     num_joined_members: 3,
     join_rule: joinRule,
     allowed_room_ids: [],
@@ -89,9 +88,9 @@ function mount(
 test('a room topic opens its full description', async () => {
   const room = {
     ...space('!room:example.org', 'public', []),
+    is_space: false,
     name: 'Room',
     topic: 'A long description',
-    is_space: false,
   };
   const { onJoin, onTopic, user } = mount('public', ['!root:example.org'], {}, room);
 

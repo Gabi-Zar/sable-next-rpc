@@ -319,7 +319,7 @@
   );
   callStageRatio.restore();
   let timelineHeight = $state(0);
-  let isVoiceRoom = $derived(resolvedRoom?.is_voice ?? false);
+  let isVoiceRoom = $derived(resolvedRoom?.room_kind === 'voice');
   const voiceChatWidth = new PanelWidth('sable-voice-chat-width', 400, 300, 1000);
   voiceChatWidth.restore();
   let callShown = $derived(call.roomId === resolvedRoomId && (call.active || call.failure));
@@ -375,7 +375,7 @@
   });
   let mentionCount = $derived(
     roomList.rooms
-      .filter((room) => room.state === 'joined' && !room.is_space)
+      .filter((room) => room.state === 'joined' && room.room_kind !== 'space')
       .reduce((total, room) => total + roomList.notificationsFor(room).highlight, 0)
   );
   let pageTitle = $derived(
@@ -867,7 +867,7 @@
   >
     {#if isTombstoned}
       <RoomTombstoneBanner
-        isSpace={resolvedRoom?.is_space ?? false}
+        isSpace={resolvedRoom?.room_kind === 'space'}
         body={roomSession.tombstoneBody}
         resolved={roomSession.tombstoneChecked}
         successorId={roomSession.tombstoneReplacementId}
@@ -930,7 +930,7 @@
       {roomName}
       {roomAvatar}
       topic={roomTopic}
-      isVoice={resolvedRoom?.is_voice ?? false}
+      isVoice={resolvedRoom?.room_kind === 'voice'}
       callParticipants={resolvedRoom?.call_participants ?? []}
       members={memberLoader.members}
       membersOpen={desktop ? panels.desktopMembersOpen : panels.membersOpen}

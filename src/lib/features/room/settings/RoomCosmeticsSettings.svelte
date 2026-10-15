@@ -47,7 +47,7 @@
 
   let roomId = $derived(room?.room_id ?? null);
   let userId = $derived(core.session?.user_id ?? null);
-  let isSpace = $derived(room?.is_space ?? false);
+  let isSpace = $derived(room?.room_kind === 'space');
   let ownLevel = $derived(permissions?.own_power_level ?? 0);
   let currentLevels = $state.raw<RoomPowerLevelsView | null>(null);
   let effectiveLevels = $derived(currentLevels ?? levels);

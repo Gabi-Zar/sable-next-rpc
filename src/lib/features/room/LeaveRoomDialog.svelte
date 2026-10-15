@@ -28,7 +28,7 @@
   let failedNames = $state.raw<string[]>([]);
 
   let children = $derived(
-    room?.is_space ? joinedSpaceChildrenLeaveOrder(roomList.rooms, room.room_id) : null
+    room?.room_kind === 'space' ? joinedSpaceChildrenLeaveOrder(roomList.rooms, room.room_id) : null
   );
 
   let childrenWarning = $derived.by(() => {

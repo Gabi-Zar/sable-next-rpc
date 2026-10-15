@@ -108,7 +108,7 @@
         {i18n.t('room.menuMarkUnread')}
       </ActionMenuItem>
     {/if}
-    {#if room && !room.is_space}
+    {#if room && room.room_kind !== 'space'}
       <RoomNotificationSubmenu roomId={room.room_id} active={opened} />
     {/if}
 
@@ -172,11 +172,11 @@
 
     <ActionMenuItem destructive disabled={!room} onSelect={onReport}>
       <FlagIcon />
-      {room?.is_space ? i18n.t('room.menuReportSpace') : i18n.t('room.menuReport')}
+      {room?.room_kind === 'space' ? i18n.t('room.menuReportSpace') : i18n.t('room.menuReport')}
     </ActionMenuItem>
     <ActionMenuItem destructive onSelect={onLeave}>
       <SignOutIcon />
-      {room?.is_space ? i18n.t('room.menuLeaveSpace') : i18n.t('room.menuLeave')}
+      {room?.room_kind === 'space' ? i18n.t('room.menuLeaveSpace') : i18n.t('room.menuLeave')}
     </ActionMenuItem>
   </IconContext>
 </ActionMenu>

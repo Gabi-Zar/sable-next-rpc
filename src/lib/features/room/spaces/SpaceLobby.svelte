@@ -154,7 +154,10 @@
   );
   let base = $derived.by<HierarchyRoomView[]>(() => {
     if (spaceId === null) return [];
-    return mergeHierarchyRooms(localHierarchyRooms(roomList.rooms, spaceId), fetched);
+    return mergeHierarchyRooms(
+      localHierarchyRooms(roomList.rooms, spaceId),
+      fetched.map((room) => ({ ...room, is_space: room.room_kind === 'space' }))
+    );
   });
   let ordered = $derived(applyChildOverrides(base, overrides));
   let merged = $derived(applySuggestedOverrides(ordered, suggestedOverrides));
@@ -912,7 +915,6 @@
             {#if topicRoom.join_rule !== 'unknown'}
               <span>{i18n.t(`room.joinRule.${topicRoom.join_rule}`)}</span>
             {/if}
-            {#if topicRoom.is_voice}<span>{i18n.t('common.voiceRoom')}</span>{/if}
           </span>
         </div>
       </div>

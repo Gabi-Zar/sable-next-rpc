@@ -8,7 +8,7 @@ function space(roomId: string, children: string[]): RoomListItemView {
   return {
     room_id: roomId,
     canonical_alias: null,
-    is_space: true,
+    room_kind: 'space',
     state: 'joined',
     space_children: children.map((child) => ({ room_id: child })),
   } as unknown as RoomListItemView;

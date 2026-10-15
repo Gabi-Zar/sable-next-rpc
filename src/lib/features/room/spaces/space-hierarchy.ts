@@ -45,15 +45,16 @@ export function localHierarchyRooms(
     if (!summary) continue;
 
     const children =
-      summary.is_space && summary.state === 'joined' ? [...summary.space_children] : [];
+      summary.room_kind === 'space' && summary.state === 'joined'
+        ? [...summary.space_children]
+        : [];
     views.push({
       room_id: summary.room_id,
       canonical_alias: summary.canonical_alias,
       name: summary.name,
       topic: summary.topic,
       avatar_url: summary.avatar_url,
-      is_space: summary.is_space,
-      is_voice: summary.is_voice,
+      is_space: summary.room_kind === 'space',
       num_joined_members: null,
       join_rule: summary.join_rule,
       allowed_room_ids: [],

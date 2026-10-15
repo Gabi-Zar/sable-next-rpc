@@ -119,7 +119,7 @@
   );
   let entries = $derived(mergeSpaces(spaceSidebar.items, orderedSpaceIds));
   let homeRooms = $derived(
-    roomList.rooms.filter((room) => room.state === 'joined' && !room.is_space)
+    roomList.rooms.filter((room) => room.state === 'joined' && room.room_kind !== 'space')
   );
   let homeUnread = $derived(unreadCounts(homeRooms));
   let unspacedRooms = $derived(

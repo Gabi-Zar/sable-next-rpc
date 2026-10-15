@@ -23,12 +23,10 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: false,
     supports_restricted: false,
     space_children: [],
@@ -44,7 +42,7 @@ function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomLi
 test('keeps Add to space visible while the room list refreshes', async () => {
   const user = userEvent.setup();
   const currentRoom = room('!room');
-  const space = room('!space', { is_space: true });
+  const space = room('!space', { room_kind: 'space' });
   const spacePermissions = vi.fn<() => Promise<{ can_manage_children: boolean }>>(() =>
     Promise.resolve({ can_manage_children: true })
   );

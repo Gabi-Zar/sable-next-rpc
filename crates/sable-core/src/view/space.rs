@@ -8,9 +8,10 @@ use matrix_sdk::ruma::events::SyncStateEvent;
 use matrix_sdk::ruma::events::space::child::{
     HierarchySpaceChildEvent, SpaceChildEventContent, SpaceChildOrd,
 };
-use matrix_sdk::ruma::room::{JoinRuleSummary, RoomSummary as RumaRoomSummary, RoomType};
+use matrix_sdk::ruma::room::{JoinRuleSummary, RoomSummary as RumaRoomSummary};
 use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 
+use crate::api::rooms::RoomKind;
 use crate::protocol::{SpaceChildEdge, SpaceHierarchyRoomView};
 
 use super::directory::join_rule_summary_view;
@@ -77,8 +78,7 @@ pub fn space_hierarchy_room(
         name: summary.name.clone(),
         topic: summary.topic.clone(),
         avatar_url: summary.avatar_url.as_ref().map(ToString::to_string),
-        is_space: summary.room_type == Some(RoomType::Space),
-        is_voice: summary.room_type == Some(RoomType::Call),
+        room_kind: RoomKind::from_room_type(summary.room_type.as_ref()),
         num_joined_members: u32::try_from(summary.num_joined_members).unwrap_or(u32::MAX),
         join_rule: join_rule_summary_view(&summary.join_rule),
         allowed_room_ids: match &summary.join_rule {

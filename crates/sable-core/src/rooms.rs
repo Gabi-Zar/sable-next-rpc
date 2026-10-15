@@ -1,14 +1,18 @@
+use std::collections::BTreeSet;
+
 use crate::api::rooms::DirectoryRoomType;
 use crate::api::rooms::PublicRoomsParams;
 use matrix_sdk::config::RequestConfig;
 use matrix_sdk::deserialized_responses::SyncOrStrippedState;
 use matrix_sdk::room::Room;
 use matrix_sdk::ruma::SpaceChildOrder;
+use matrix_sdk::ruma::api::FeatureFlag;
 use matrix_sdk::ruma::api::client::directory::get_public_rooms_filtered;
 use matrix_sdk::ruma::api::client::membership::joined_rooms;
 use matrix_sdk::ruma::api::client::space::get_hierarchy;
 use matrix_sdk::ruma::directory::{Filter, RoomTypeFilter};
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
+use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::events::room::join_rules::{AllowRule, JoinRule, RoomJoinRulesEventContent};
 use matrix_sdk::ruma::events::room::tombstone::RoomTombstoneEventContent;
 use matrix_sdk::ruma::events::space::child::SpaceChildEventContent;
@@ -509,18 +513,67 @@ impl Core {
         address: &str,
         via: &[String],
     ) -> Result<RoomPreviewView, RpcError> {
+        let client = self.client().await?;
         let address = RoomOrAliasId::parse(address).map_err(|_| RpcError::UnknownRoom)?;
         let via = via
             .iter()
             .filter_map(|server| ServerName::parse(server).ok())
             .collect::<Vec<_>>();
 
-        let preview = self
-            .client()
-            .await?
+        if client
+            .unstable_features()
+            .await
+            .unwrap_or_default()
+            .contains(&FeatureFlag::Msc4560)
+        {
+            let state = client
+                .get_room_stripped_state(
+                    &address,
+                    via.clone(),
+                    BTreeSet::from_iter([
+                        StateEventType::RoomCreate,
+                        StateEventType::RoomCanonicalAlias,
+                        StateEventType::RoomName,
+                        StateEventType::RoomTopic,
+                        StateEventType::RoomAvatar,
+                        StateEventType::RoomJoinRules,
+                    ]),
+                    true,
+                )
+                .await;
+
+            match state {
+                Ok(state) => {
+                    let membership = client.get_room(&state.room_id).map(|room| room.state());
+
+                    return Ok(view::room_preview_from_stripped_state(
+                        state.room_id,
+                        state.via,
+                        state
+                            .num_joined_members
+                            .map(|count| u32::try_from(count).unwrap_or(u32::MAX)),
+                        state.state,
+                        membership,
+                    ));
+                }
+                Err(error) => {
+                    tracing::debug!(?error, "MSC4560 room preview failed, using the SDK preview");
+                }
+            }
+        }
+
+        let mut preview = client
             .get_room_preview(&address, via)
             .await
             .or_failed(self, "room_preview")?;
+
+        // If the server didn't provide the state, but we have it locally,
+        // fill it in before returning
+        if let state @ None = &mut preview.state
+            && let Some(room) = client.get_room(&preview.room_id)
+        {
+            *state = Some(room.state());
+        }
 
         Ok(view::room_preview_view(&preview))
     }

@@ -66,6 +66,7 @@ mod tests {
     use matrix_sdk::ruma::{room_id, user_id};
 
     use super::*;
+    use crate::api::rooms::RoomKind;
     use crate::protocol::{NotificationModeView, RoomJoinRuleView, RoomStateView};
 
     fn summary(room_id: &RoomId, rules: &Ruleset) -> RoomListItemView {
@@ -82,10 +83,8 @@ mod tests {
             tags: Vec::new(),
             state: RoomStateView::Joined,
             encrypted: Some(false),
-            is_space: false,
             is_tombstoned: false,
-            room_type: None,
-            is_voice: false,
+            room_kind: None,
             call_participants: Vec::new(),
             screen_sharers: Vec::new(),
             supports_knock: false,
@@ -123,7 +122,7 @@ mod tests {
         let kept = room_id!("!kept:example.org");
         let gone = room_id!("!gone:example.org");
         let info = || RoomInfo {
-            is_space: false,
+            room_kind: Some(RoomKind::Text),
             is_direct: false,
             is_tombstoned: false,
             supports_knock: false,

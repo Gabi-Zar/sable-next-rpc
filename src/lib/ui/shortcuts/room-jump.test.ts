@@ -23,12 +23,10 @@ function room(overrides: Partial<RoomListItemView> & { room_id: string }): RoomL
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: false,
     supports_restricted: false,
     supports_knock_restricted: false,
@@ -130,7 +128,7 @@ test('parseJumpQuery reads the type prefix off the query', () => {
 
 test('filterRoomsByQuery keeps only the prefixed kind', () => {
   const rooms = [
-    room({ room_id: '!a:example.org', name: 'Design', is_space: true }),
+    room({ room_id: '!a:example.org', name: 'Design', room_kind: 'space' }),
     room({ room_id: '!b:example.org', name: 'Design chat' }),
     room({ room_id: '!c:example.org', name: 'Designer', is_direct: true }),
   ];
@@ -144,7 +142,7 @@ test('an empty query lists recent rooms, newest first, without spaces', () => {
   const rooms = [
     room({ room_id: '!a:example.org', latest_event: latest(10) }),
     room({ room_id: '!b:example.org', latest_event: latest(30) }),
-    room({ room_id: '!c:example.org', is_space: true, latest_event: latest(40) }),
+    room({ room_id: '!c:example.org', room_kind: 'space', latest_event: latest(40) }),
     room({ room_id: '!d:example.org', latest_event: latest(20) }),
   ];
 
@@ -158,7 +156,7 @@ test('an empty query lists recent rooms, newest first, without spaces', () => {
 test('an empty spaces query still lists spaces', () => {
   const rooms = [
     room({ room_id: '!a:example.org' }),
-    room({ room_id: '!b:example.org', is_space: true }),
+    room({ room_id: '!b:example.org', room_kind: 'space' }),
   ];
 
   expect(filterRoomsByQuery(rooms, '*').map((r) => r.room_id)).toEqual(['!b:example.org']);
@@ -169,7 +167,7 @@ test('parentSpaceNames names a room after the first space that lists it', () => 
     room({
       room_id: '!space:example.org',
       name: 'Engineering',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         { room_id: '!a:example.org', via: [], order: null, suggested: false, origin_server_ts: 0 },
       ],

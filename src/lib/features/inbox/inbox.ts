@@ -81,7 +81,7 @@ export function notifications(
 ): RoomListItemView[] {
   return rooms
     .filter((room) => {
-      if (room.state !== 'joined' || room.is_space) return false;
+      if (room.state !== 'joined' || room.room_kind === 'space') return false;
       return matchesFilter(room, filter, unreadFor(room));
     })
     .sort(byRecency);
@@ -92,7 +92,7 @@ export function countNotifications(
   unreadFor: RoomUnread = roomUnread
 ): number {
   return rooms
-    .filter((room) => room.state === 'joined' && !room.is_space)
+    .filter((room) => room.state === 'joined' && room.room_kind !== 'space')
     .reduce((total, room) => total + notificationCount(unreadFor(room)), 0);
 }
 
@@ -112,7 +112,8 @@ export function hasMarkedUnread(
   unreadFor: RoomUnread = roomUnread
 ): boolean {
   return rooms.some(
-    (room) => room.state === 'joined' && !room.is_space && (unreadFor(room).marked ?? false)
+    (room) =>
+      room.state === 'joined' && room.room_kind !== 'space' && (unreadFor(room).marked ?? false)
   );
 }
 

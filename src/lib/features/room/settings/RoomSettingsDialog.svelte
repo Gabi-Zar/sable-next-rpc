@@ -49,7 +49,7 @@
 
   let roomId = $derived(room?.room_id ?? null);
   let roomName = $derived(room?.name ?? room?.room_id ?? '');
-  let sections = $derived(roomSettingsSections(room?.is_space ?? false));
+  let sections = $derived(roomSettingsSections(room?.room_kind === 'space'));
 
   $effect(() => {
     void roomId;

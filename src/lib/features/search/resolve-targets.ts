@@ -15,7 +15,7 @@ export function searchRooms(rooms: readonly RoomListItemView[]): SearchRoom[] {
     canonical_alias: room.canonical_alias,
     joined: room.state === 'joined',
     is_tombstoned: room.is_tombstoned,
-    is_space: room.is_space,
+    is_space: room.room_kind === 'space',
     is_direct: room.is_direct,
     direct_targets: room.direct_targets,
     space_children: room.space_children,
@@ -28,7 +28,7 @@ export function parentSpaceOf(
 ): string | undefined {
   return rooms.find(
     (room) =>
-      room.is_space &&
+      room.room_kind === 'space' &&
       room.state === 'joined' &&
       room.space_children.some((child) => child.room_id === roomId)
   )?.room_id;

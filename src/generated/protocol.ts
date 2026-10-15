@@ -230,12 +230,6 @@ export type CoreEvent = ({ type: "account_lock_changed"; account_id: string; loc
 
 export type CreateJoinRuleView = "public" | "invite" | "knock" | "restricted" | "knock_restricted";
 
-/**
- *  The `m.room.create` type to ask for: `m.space`, the MSC3417 call type, the
- *  forum type, or none at all.
- */
-export type CreateRoomKind = "text" | "space" | "voice" | "forum" | "calendar";
-
 export type DefaultNotificationModesView = {
 	direct: NotificationModeView,
 	group: NotificationModeView,
@@ -375,7 +369,6 @@ export type HierarchyRoomView = {
 	topic: string | null,
 	avatar_url: string | null,
 	is_space: boolean,
-	is_voice: boolean,
 	num_joined_members: number | null,
 	join_rule: RoomJoinRuleView,
 	allowed_room_ids: string[],
@@ -928,8 +921,7 @@ export type PublicRoomView = {
 	name: string | null,
 	topic: string | null,
 	avatar_url: string | null,
-	is_space: boolean,
-	is_voice: boolean,
+	room_kind: RoomKind | null,
 	num_joined_members: number,
 	join_rule: RoomJoinRuleView,
 	guest_can_join: boolean,
@@ -1116,6 +1108,19 @@ export type RoomJoinRuleView = "public" | "invite" | "knock" |
 /**  Not loaded, or a rule this client has no name for. */
 "unknown";
 
+/**  Room types that Sable supports. */
+export type RoomKind =
+/**  No room type */
+"text" |
+/**  `m.space` */
+"space" |
+/**  `org.matrix.msc3417.call` */
+"voice" |
+/**  `pl.chrome.forum` */
+"forum" |
+/**  `chat.commet.calendar` */
+"calendar";
+
 export type RoomListItemView = {
 	room_id: string,
 	canonical_alias: string | null,
@@ -1127,15 +1132,11 @@ export type RoomListItemView = {
 	join_rule: RoomJoinRuleView,
 	/**  Only the tags this client models; others are dropped. */
 	tags: RoomTag[],
-	/**  An `invited` room is an invitation to accept. */
 	state: RoomStateView,
 	/**  `null` until the state event loads, which is not the same as `false`. */
 	encrypted: boolean | null,
-	is_space: boolean,
 	is_tombstoned: boolean,
-	room_type: string | null,
-	/**  An `m.room.create` with the MSC3417 call type. */
-	is_voice: boolean,
+	room_kind: RoomKind | null,
 	/**
 	 *  Members in the room's call, oldest first and one entry per user however
 	 *  many devices they joined with.
@@ -1202,6 +1203,8 @@ export type RoomPowerLevelsView = {
 	notifications_room: number,
 };
 
+export type RoomPreviewViaView = { type: "client" } | { type: "remote"; server: string } | { type: "unknown" };
+
 /**  A room as the server describes it to someone who may not be in it. */
 export type RoomPreviewView = {
 	/**  Resolved, since the preview may have been asked for by alias. */
@@ -1210,12 +1213,13 @@ export type RoomPreviewView = {
 	name: string | null,
 	topic: string | null,
 	avatar_url: string | null,
-	is_space: boolean,
-	is_voice: boolean,
-	num_joined_members: number,
+	room_kind: RoomKind | null,
+	/**  `null` when the server did not say. */
+	num_joined_members: number | null,
 	join_rule: RoomJoinRuleView,
 	/**  `null` when this account has no membership in the room. */
 	state: RoomStateView | null,
+	via: RoomPreviewViaView,
 };
 
 export type RoomReference = {
@@ -1551,8 +1555,7 @@ export type SpaceHierarchyRoomView = {
 	name: string | null,
 	topic: string | null,
 	avatar_url: string | null,
-	is_space: boolean,
-	is_voice: boolean,
+	room_kind: RoomKind | null,
 	num_joined_members: number,
 	join_rule: RoomJoinRuleView,
 	/**  The rooms a `restricted` or `knock_restricted` join rule admits members of. */
@@ -2841,7 +2844,7 @@ export type Rpc = {
     create: (params: {
 	name?: string | null,
 	topic: string | null,
-	kind: CreateRoomKind,
+	kind: RoomKind,
 	/**  Published in the directory, joinable by link. */
 	public: boolean,
 	/**  Ignored for a space or a public room. */

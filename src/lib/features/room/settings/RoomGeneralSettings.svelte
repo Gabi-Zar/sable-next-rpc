@@ -393,7 +393,7 @@
     </div>
 
     <ul class="settings-rows">
-      {#if !room?.is_space}
+      {#if room?.room_kind !== 'space'}
         <RoomHistorySettings {room} {levels} {ownPowerLevel} />
         <RoomEncryptionSettings {room} {levels} {ownPowerLevel} />
       {/if}

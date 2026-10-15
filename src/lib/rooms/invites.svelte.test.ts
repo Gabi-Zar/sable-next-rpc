@@ -17,7 +17,7 @@ afterEach(() => {
 
 const room = {
   room_id: '!room:example.org',
-  is_space: false,
+  room_kind: 'text',
   is_direct: false,
 } as RoomListItemView;
 

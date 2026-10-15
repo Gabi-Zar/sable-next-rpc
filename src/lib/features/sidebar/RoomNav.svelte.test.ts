@@ -78,12 +78,10 @@ function makeRoom(overrides: Partial<RoomListItemView>): RoomListItemView {
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: true,
     supports_restricted: true,
     supports_knock_restricted: true,
@@ -155,7 +153,7 @@ test.each([
   const target = makeRoom({
     room_id: '!plain:example.org',
     name: 'Plain',
-    is_space: isSpace,
+    room_kind: isSpace ? 'space' : 'text',
     space_children: isSpace ? [leaf] : [],
   });
   roomsFixture.rooms = isSpace
@@ -163,7 +161,7 @@ test.each([
         makeRoom({
           room_id: '!root:example.org',
           name: 'Root',
-          is_space: true,
+          room_kind: 'space',
           space_children: [
             {
               room_id: target.room_id,
@@ -204,7 +202,7 @@ test('a subspace context menu opens its lobby', async () => {
     makeRoom({
       room_id: '!root:example.org',
       name: 'Root',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!nested:example.org',
@@ -218,7 +216,7 @@ test('a subspace context menu opens its lobby', async () => {
     makeRoom({
       room_id: '!nested:example.org',
       name: 'Nested',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!leaf:example.org',
@@ -253,25 +251,25 @@ test('nests subspaces with thread lines and links past the depth limit to the lo
     makeRoom({
       room_id: '!root:example.org',
       name: 'Root',
-      is_space: true,
+      room_kind: 'space',
       space_children: [edge('!one:example.org')],
     }),
     makeRoom({
       room_id: '!one:example.org',
       name: 'One',
-      is_space: true,
+      room_kind: 'space',
       space_children: [edge('!two:example.org')],
     }),
     makeRoom({
       room_id: '!two:example.org',
       name: 'Two',
-      is_space: true,
+      room_kind: 'space',
       space_children: [edge('!deep:example.org'), edge('!three:example.org')],
     }),
     makeRoom({
       room_id: '!three:example.org',
       name: 'Three',
-      is_space: true,
+      room_kind: 'space',
       space_children: [edge('!deepest:example.org')],
     }),
     makeRoom({ room_id: '!deep:example.org', name: 'Deep' }),
@@ -294,12 +292,12 @@ test('home lists every joined room, including the children of joined spaces', as
   roomsFixture.rooms = [
     makeRoom({ room_id: '!plain:example.org', name: 'Plain' }),
     makeRoom({ room_id: '!direct:example.org', name: 'Direct', is_direct: true }),
-    makeRoom({ room_id: '!space:example.org', name: 'Space', is_space: true }),
+    makeRoom({ room_id: '!space:example.org', name: 'Space', room_kind: 'space' }),
     makeRoom({ room_id: '!child:example.org', name: 'Child' }),
     makeRoom({
       room_id: '!parent-space:example.org',
       name: 'Parent space',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!child:example.org',
@@ -384,13 +382,13 @@ test('a space lifts a favourite out of its subspace', async () => {
     makeRoom({
       room_id: '!root:example.org',
       name: 'Root',
-      is_space: true,
+      room_kind: 'space',
       space_children: [edge('!top:example.org'), edge('!nested:example.org')],
     }),
     makeRoom({
       room_id: '!nested:example.org',
       name: 'Nested',
-      is_space: true,
+      room_kind: 'space',
       space_children: [edge('!deep:example.org')],
     }),
     makeRoom({ room_id: '!top:example.org', name: 'Top' }),
@@ -415,7 +413,7 @@ test('a joined tombstoned room remains visible in the space that contains it', a
     makeRoom({
       room_id: '!root:example.org',
       name: 'Root',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!old:example.org',
@@ -441,7 +439,7 @@ test('expanded room disclosures do not use the active-route surface', async () =
     makeRoom({
       room_id: '!root:example.org',
       name: 'Root',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!nested:example.org',
@@ -455,7 +453,7 @@ test('expanded room disclosures do not use the active-route surface', async () =
     makeRoom({
       room_id: '!nested:example.org',
       name: 'Nested',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!room:example.org',
@@ -500,7 +498,7 @@ test('the unspaced section leaves out rooms a joined space claims', async () => 
     makeRoom({
       room_id: '!space:example.org',
       name: 'Space',
-      is_space: true,
+      room_kind: 'space',
       space_children: [
         {
           room_id: '!claimed:example.org',
@@ -525,7 +523,7 @@ test('a claim from a space that is not joined keeps the room in the unspaced sec
     makeRoom({
       room_id: '!space:example.org',
       name: 'Space',
-      is_space: true,
+      room_kind: 'space',
       state: 'invited',
       space_children: [
         {
@@ -617,7 +615,7 @@ test('message search from a space is scoped to that space', async () => {
       room_id: '!space:example.org',
       canonical_alias: '#design:example.org',
       name: 'Design',
-      is_space: true,
+      room_kind: 'space',
     }),
   ];
   visit('/space/!space:example.org', { spaceId: '!space:example.org' });
@@ -633,7 +631,7 @@ test('message search from a space is scoped to that space', async () => {
 
 test('a space you cannot add rooms to does not show a create action', async () => {
   roomsFixture.rooms = [
-    makeRoom({ room_id: '!space:example.org', name: 'Design', is_space: true }),
+    makeRoom({ room_id: '!space:example.org', name: 'Design', room_kind: 'space' }),
   ];
   visit('/space/!space:example.org', { spaceId: '!space:example.org' });
 
@@ -652,7 +650,7 @@ test('a space you cannot add rooms to does not show a create action', async () =
 
 test('a space list header shows the space banner above it', async () => {
   roomsFixture.rooms = [
-    makeRoom({ room_id: '!space:example.org', name: 'Design', is_space: true }),
+    makeRoom({ room_id: '!space:example.org', name: 'Design', room_kind: 'space' }),
   ];
   visit('/space/!space:example.org', { spaceId: '!space:example.org' });
   core.rpc.room_state.banner.mockResolvedValue('mxc://example.org/banner');
@@ -673,7 +671,7 @@ test('a space list header wears the space avatar when collapsed', async () => {
     makeRoom({
       room_id: '!space:example.org',
       name: 'Design',
-      is_space: true,
+      room_kind: 'space',
       join_rule: 'invite',
     }),
   ];
@@ -686,11 +684,11 @@ test('a space list header wears the space avatar when collapsed', async () => {
 
 test('a voice room shows a speaker icon and the live count', async () => {
   roomsFixture.rooms = [
-    makeRoom({ room_id: '!voice:example.org', name: 'Voice', is_voice: true }),
+    makeRoom({ room_id: '!voice:example.org', name: 'Voice', room_kind: 'voice' }),
     makeRoom({
       room_id: '!busy:example.org',
       name: 'Busy voice',
-      is_voice: true,
+      room_kind: 'voice',
       call_participants: ['@a:example.org', '@b:example.org'],
     }),
   ];
@@ -804,7 +802,7 @@ test('a live voice room lists its call members', async () => {
     makeRoom({
       room_id: '!voice:example.org',
       name: 'Voice',
-      is_voice: true,
+      room_kind: 'voice',
       call_participants: ['@alice:example.org', '@bob:example.org'],
     }),
   ];
@@ -831,7 +829,7 @@ test('a participant sharing their screen is tagged live to people outside the ca
     makeRoom({
       room_id: '!voice:example.org',
       name: 'Voice',
-      is_voice: true,
+      room_kind: 'voice',
       call_participants: ['@alice:example.org', '@bob:example.org'],
       screen_sharers: ['@bob:example.org'],
     }),
@@ -856,7 +854,7 @@ test('a collapsed live voice room keeps participant avatars labelled', async () 
     makeRoom({
       room_id: '!voice:example.org',
       name: 'Voice',
-      is_voice: true,
+      room_kind: 'voice',
       call_participants: ['@alice:example.org'],
     }),
   ];
@@ -876,7 +874,7 @@ test('a user in a voice room on two devices is listed once per device', async ()
     makeRoom({
       room_id: '!voice:example.org',
       name: 'Voice',
-      is_voice: true,
+      room_kind: 'voice',
       call_participants: ['@alice:example.org', '@alice:example.org'],
     }),
   ];

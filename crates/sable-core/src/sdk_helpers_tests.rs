@@ -1,5 +1,5 @@
-use crate::api::account::ProfilePropagationView;
 use crate::api::timeline::TimelineFocusView;
+use crate::api::{account::ProfilePropagationView, rooms::RoomKind};
 use std::{collections::HashMap, sync::Arc};
 
 use matrix_sdk::{
@@ -423,7 +423,7 @@ async fn healthy_space_summary_does_not_fetch_missing_tombstone_state() {
     .await;
     let summary =
         crate::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
-    assert!(summary.is_space);
+    assert_eq!(summary.room_kind, Some(RoomKind::Space));
     assert!(!summary.is_tombstoned);
 }
 

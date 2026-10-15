@@ -31,7 +31,7 @@ export function spaceUnreadTotals(
     for (const child of space.space_children) {
       const room = roomsById.get(child.room_id);
       if (!room) continue;
-      if (room.is_space) {
+      if (room.room_kind === 'space') {
         accumulate(room.room_id, visited, total);
         continue;
       }
@@ -88,7 +88,7 @@ export type ChildRouting = { via: string[]; parentId: string | null };
 
 export function childRouting(rooms: readonly RoomListItemView[], roomId: string): ChildRouting {
   for (const space of rooms) {
-    if (!space.is_space || space.state !== 'joined') continue;
+    if (space.room_kind !== 'space' || space.state !== 'joined') continue;
     const edge = space.space_children.find((child) => child.room_id === roomId);
     if (edge) return { via: [...edge.via], parentId: space.room_id };
   }
@@ -136,7 +136,7 @@ export function joinedSpaceRooms(
       seen.push(edge.room_id);
       const child = byId(edge.room_id);
       if (child?.state !== 'joined') continue;
-      if (child.is_space) walk(child);
+      if (child.room_kind === 'space') walk(child);
       else found.push(child.room_id);
     }
   };

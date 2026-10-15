@@ -45,7 +45,8 @@
       : roomList.rooms
           .filter(
             (space) =>
-              space.is_space && space.space_children.some((child) => child.room_id === roomId)
+              space.room_kind === 'space' &&
+              space.space_children.some((child) => child.room_id === roomId)
           )
           .map((space) => space.room_id)
   );

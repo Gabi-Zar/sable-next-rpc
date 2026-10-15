@@ -278,7 +278,7 @@
           {/if}
         </p>
         <p class="meta">
-          {#if room.is_space}
+          {#if room.room_kind === 'space'}
             <StatusBadge label={i18n.t('inbox.inviteSpace')} variant="secondary" />
           {:else if room.is_direct}
             <StatusBadge label={i18n.t('common.directMessage')} variant="secondary" />

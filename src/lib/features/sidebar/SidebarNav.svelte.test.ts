@@ -67,12 +67,10 @@ function space(roomId = '!space:example.org', name = 'Space'): RoomListItemView 
     tags: [],
     state: 'joined',
     encrypted: null,
-    is_space: true,
+    room_kind: 'space',
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
     supports_knock: true,
     supports_restricted: true,
     supports_knock_restricted: true,
@@ -123,7 +121,7 @@ test.each([
 ])(
   'keeps the room list from %s while creating a room (%#)',
   async (path, params, target, names) => {
-    const child = { ...space('!child:example.org', 'Child'), is_space: false };
+    const child = { ...space('!child:example.org', 'Child'), room_kind: 'text' };
     const parent = {
       ...space(),
       space_children: [
@@ -133,8 +131,8 @@ test.each([
     const rooms = [
       parent,
       child,
-      { ...space('!unspaced:example.org', 'Unspaced'), is_space: false },
-      { ...space('!dm:example.org', 'Alice'), is_space: false, is_direct: true },
+      { ...space('!unspaced:example.org', 'Unspaced'), room_kind: 'text' },
+      { ...space('!dm:example.org', 'Alice'), room_kind: 'text', is_direct: true },
     ];
     const client = {
       subscribeEvents: () => () => {},
@@ -171,7 +169,7 @@ test.each([
 test('adds an incoming unread DM to the navbar and removes it when read', async () => {
   const room: RoomListItemView = {
     ...space('!dm:example.org', 'Alice'),
-    is_space: false,
+    room_kind: 'text',
     is_direct: true,
     direct_targets: ['@alice:example.org'],
   };
@@ -317,7 +315,7 @@ test('a subspace pinned in the stored layout joins the rail beside its parent', 
 test('a muted direct chat marked unread by hand still reaches the navbar', async () => {
   const room: RoomListItemView = withCounts({
     ...space('!muted:example.org', 'Bo'),
-    is_space: false,
+    room_kind: 'text',
     is_direct: true,
     direct_targets: ['@bo:example.org'],
     marked_unread: true,
@@ -346,7 +344,7 @@ test('a muted direct chat marked unread by hand still reaches the navbar', async
 test('a muted room marked unread by hand still marks its section as unread', async () => {
   const room: RoomListItemView = withCounts({
     ...space('!muted-room:example.org', 'Ops'),
-    is_space: false,
+    room_kind: 'text',
     marked_unread: true,
     notification: { room: 'mute', default: 'all' },
   });
@@ -375,7 +373,7 @@ test('a section totals its notifying rooms in green', async () => {
   });
   const room: RoomListItemView = withCounts({
     ...space('!loud:example.org', 'Loud'),
-    is_space: false,
+    room_kind: 'text',
     unread: 4,
     notifying: 4,
     notification: { room: 'all', default: 'all' },

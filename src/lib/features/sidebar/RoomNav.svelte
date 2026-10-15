@@ -51,8 +51,6 @@
   import { roomIconOverride, showsRoomAvatar } from '#lib/rooms/room-appearance.svelte.js';
   import RoomSettingsDialog from '#lib/features/room/settings/RoomSettingsDialog.svelte';
   import { goToPage } from '#lib/features/room/room-navigation.js';
-  import { CALENDAR_ROOM_TYPE } from '#lib/calendar/calendar-events.js';
-  import { FORUM_ROOM_TYPE } from '#lib/rooms/forum-detection.js';
   import CalendarRowEvent from '#lib/features/calendar/CalendarRowEvent.svelte';
   import SpaceEvents from '#lib/features/calendar/SpaceEvents.svelte';
 
@@ -249,15 +247,18 @@
     if (!pathname.startsWith('/space')) return [];
 
     const space = findRoomByPathId(roomList.rooms, spaceId);
-    if (!space?.is_space) return [];
+    if (space?.room_kind !== 'space') return [];
 
     const roomsById = new Map(
       roomList.rooms
-        .filter((room) => room.state === 'joined' && !(room.is_space && room.is_tombstoned))
+        .filter(
+          (room) => room.state === 'joined' && !(room.room_kind === 'space' && room.is_tombstoned)
+        )
         .map((room) => [room.room_id, room])
     );
     return buildSpaceTree(space, roomsById, Number(preferences.subspaceHierarchyLimit));
   });
+  let spacedRoomIds = $derived(claimedRoomIds(roomList.rooms));
   let compareRooms = $derived(roomComparator(preferences.roomSort));
   let favouriteView = $derived(activeSpaceId ?? section);
   let groupFavourites = $derived(groupsFavourites(favouriteView));
@@ -283,7 +284,7 @@
         (room) =>
           room.state === 'joined' &&
           !room.is_tombstoned &&
-          !room.is_space &&
+          room.room_kind !== 'space' &&
           !(unspacedSection && room.is_direct) &&
           !claimedByJoinedSpace.has(room.room_id)
       )
@@ -340,7 +341,7 @@
     spaceTree
       .filter((item): item is SpaceTreeRoom => item.kind === 'room')
       .map((item) => item.room)
-      .filter((room) => room.room_type === CALENDAR_ROOM_TYPE)
+      .filter((room) => room.room_kind === 'calendar')
   );
   let subspaces = $derived(spaceRootItems.filter((item) => item.kind !== 'room'));
   let visibleSubspaces = $derived<RoomNavItem[]>(
@@ -578,10 +579,8 @@
           {#if (room?.is_direct ?? false) || showsRoomAvatar(iconMode, collapsed, Boolean(avatarUrl))}
             {#snippet glyph()}
               <RoomIcon
-                isCalendar={room?.room_type === CALENDAR_ROOM_TYPE}
-                isForum={room?.room_type === FORUM_ROOM_TYPE}
-                isSpace={room?.is_space ?? false}
-                isVoice={room?.is_voice ?? false}
+                roomKind={room?.room_kind ?? null}
+                hasParent={spacedRoomIds.has(item.roomId)}
                 joinRule={room?.join_rule ?? null}
                 weight={active ? 'fill' : 'regular'}
               />
@@ -589,7 +588,7 @@
             <span class="room-avatar">
               {#if avatarUrl}
                 <Avatar
-                  class={['room-avatar-icon', { voice: room?.is_voice }]}
+                  class={['room-avatar-icon', { voice: room?.room_kind === 'voice' }]}
                   id={item.roomId}
                   src={avatarUrl}
                   size="small"
@@ -604,7 +603,7 @@
                 <div
                   class={[
                     'avatar-root avatar-small room-avatar-icon glyph',
-                    { voice: room?.is_voice },
+                    { voice: room?.room_kind === 'voice' },
                   ]}
                   aria-hidden="true"
                 >
@@ -623,10 +622,8 @@
           {:else}
             <span class="room-icon" aria-hidden="true">
               <RoomIcon
-                isCalendar={room?.room_type === CALENDAR_ROOM_TYPE}
-                isForum={room?.room_type === FORUM_ROOM_TYPE}
-                isSpace={room?.is_space ?? false}
-                isVoice={room?.is_voice ?? false}
+                roomKind={room?.room_kind ?? null}
+                hasParent={spacedRoomIds.has(item.roomId)}
                 joinRule={room?.join_rule ?? null}
                 weight={active ? 'fill' : 'regular'}
               />
@@ -649,7 +646,7 @@
                     </span>
                   {/snippet}
                 </Tooltip>
-              {:else if room?.room_type === CALENDAR_ROOM_TYPE && preferences.showSpaceEvents}
+              {:else if room?.room_kind === 'calendar' && preferences.showSpaceEvents}
                 <CalendarRowEvent roomId={room.room_id} />
               {/if}
             </span>
@@ -721,7 +718,7 @@
         {@render roomTrigger({ props: {} })}
         {#if room}
           <span class="room-options-slot">
-            {#if room.is_voice}
+            {#if room.room_kind === 'voice'}
               <button
                 class="room-options-trigger"
                 type="button"
@@ -740,7 +737,7 @@
         {/if}
       {/if}
     </div>
-    {#if room?.is_voice && live > 0}
+    {#if room?.room_kind === 'voice' && live > 0}
       <CallParticipantList
         {room}
         {collapsed}
@@ -792,8 +789,7 @@
               uniform
             >
               <RoomIcon
-                isSpace
-                isVoice={false}
+                roomKind={room.room_kind}
                 joinRule={room.join_rule}
                 weight={active ? 'fill' : 'regular'}
               />

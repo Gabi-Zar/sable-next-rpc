@@ -103,7 +103,7 @@ test('a space opened as a room is sent to its lobby', async () => {
   const space = {
     room_id: '!old:example.org',
     state: 'joined',
-    is_space: true,
+    room_kind: 'space',
   } as RoomListItemView;
   Object.assign(core.rpc.rooms, { listItem: vi.fn(() => Promise.resolve(space)) });
   render(RoomPage);
@@ -120,7 +120,7 @@ test('the event timeline opens a space as a normal room', async () => {
   const space = {
     room_id: '!old:example.org',
     state: 'joined',
-    is_space: true,
+    room_kind: 'space',
   } as RoomListItemView;
   Object.assign(core.rpc.rooms, { listItem: vi.fn(() => Promise.resolve(space)) });
   render(RoomPage);

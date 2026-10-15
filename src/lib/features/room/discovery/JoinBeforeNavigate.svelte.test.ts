@@ -23,6 +23,7 @@ Object.assign(core.rpc.rooms, {
 });
 
 import JoinBeforeNavigate from './JoinBeforeNavigate.svelte';
+import { t } from '#lib/i18n.js';
 
 function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
   return {
@@ -31,11 +32,11 @@ function preview(overrides: Partial<RoomPreviewView> = {}): RoomPreviewView {
     name: 'Knock room',
     topic: null,
     avatar_url: null,
-    is_space: false,
-    is_voice: false,
+    room_kind: 'text',
     num_joined_members: 3,
     join_rule: 'knock',
     state: null,
+    via: { type: 'unknown' },
     ...overrides,
   };
 }
@@ -52,18 +53,15 @@ test('sends the optional message with the request to join', async () => {
   core.rpc.rooms.knock.mockResolvedValue('!room:example.org');
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
-  await user.type(
-    await screen.findByLabelText('Message for the moderators (optional)'),
-    '  a friend of Ana  '
-  );
-  await user.click(screen.getByRole('button', { name: 'Ask to join' }));
+  await user.type(await screen.findByLabelText(t('join.knockReason')), '  a friend of Ana  ');
+  await user.click(screen.getByRole('button', { name: t('common.askToJoin') }));
 
   expect(core.rpc.rooms.knock).toHaveBeenCalledWith({
     address: '!room:example.org',
     via: [],
     reason: 'a friend of Ana',
   });
-  expect(screen.getByRole('status')).toHaveTextContent('Your request to join has been sent.');
+  expect(screen.getByRole('status')).toHaveTextContent(t('join.knockSent'));
 });
 
 test('a blank message sends no reason', async () => {
@@ -72,7 +70,7 @@ test('a blank message sends no reason', async () => {
   core.rpc.rooms.knock.mockResolvedValue('!room:example.org');
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
-  await user.click(await screen.findByRole('button', { name: 'Ask to join' }));
+  await user.click(await screen.findByRole('button', { name: t('common.askToJoin') }));
 
   expect(core.rpc.rooms.knock).toHaveBeenCalledWith({
     address: '!room:example.org',
@@ -83,12 +81,66 @@ test('a blank message sends no reason', async () => {
 
 test('a pending request can be withdrawn', async () => {
   const user = userEvent.setup();
-  core.rpc.rooms.preview.mockResolvedValue(preview({ state: 'knocked' }));
+  core.rpc.rooms.preview.mockResolvedValue(preview());
   core.rpc.rooms.leave.mockResolvedValue(null);
+  render(JoinBeforeNavigate, {
+    roomId: '!room:example.org',
+    membership: 'knocked',
+  });
+
+  await user.click(await screen.findByRole('button', { name: t('join.withdraw') }));
+
+  expect(core.rpc.rooms.leave).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+  });
+  expect(screen.getByRole('button', { name: t('common.askToJoin') })).toBeInTheDocument();
+});
+
+test('an invitation offers to join even when the room is knock-only', async () => {
+  core.rpc.rooms.preview.mockResolvedValue(preview());
+  render(JoinBeforeNavigate, {
+    roomId: '!room:example.org',
+    membership: 'invited',
+  });
+
+  expect(await screen.findByText(t('join.invited'))).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t('common.join') })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: t('common.askToJoin') })).not.toBeInTheDocument();
+});
+
+test('a banned account is told so and offered no action', async () => {
+  core.rpc.rooms.preview.mockResolvedValue(preview({ join_rule: 'public' }));
+  render(JoinBeforeNavigate, {
+    roomId: '!room:example.org',
+    membership: 'banned',
+  });
+
+  expect(await screen.findByText(t('join.banned'))).toBeInTheDocument();
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+});
+
+test('the member count is hidden when the server did not give one', async () => {
+  core.rpc.rooms.preview.mockResolvedValue(preview({ num_joined_members: null }));
   render(JoinBeforeNavigate, { roomId: '!room:example.org' });
 
-  await user.click(await screen.findByRole('button', { name: 'Withdraw request' }));
+  await screen.findByRole('heading', { name: 'Knock room' });
+  expect(screen.queryByText(t('join.members', { count: 0 }))).not.toBeInTheDocument();
+});
 
-  expect(core.rpc.rooms.leave).toHaveBeenCalledWith({ room_id: '!room:example.org' });
-  expect(screen.getByRole('button', { name: 'Ask to join' })).toBeInTheDocument();
+test('a preview from a remote server names it, and one from this client names nothing', async () => {
+  core.rpc.rooms.preview.mockResolvedValue(
+    preview({ via: { type: 'remote', server: 'other.example' } })
+  );
+  const { unmount } = render(JoinBeforeNavigate, {
+    roomId: '!room:example.org',
+  });
+  expect(
+    await screen.findByText(t('join.provenance', { server: 'other.example' }))
+  ).toBeInTheDocument();
+  unmount();
+
+  core.rpc.rooms.preview.mockResolvedValue(preview({ via: { type: 'client' } }));
+  render(JoinBeforeNavigate, { roomId: '!room:example.org' });
+  await screen.findByRole('heading', { name: 'Knock room' });
+  expect(screen.queryByText(t('join.provenance', { server: 'other.example' }))).toBeNull();
 });

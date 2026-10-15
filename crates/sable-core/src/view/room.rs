@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::hash::BuildHasher;
 
+use matrix_sdk::EncryptionState;
 use matrix_sdk::latest_events::{LatestEventValue, LocalLatestEventValue, RemoteLatestEventValue};
 use matrix_sdk::room::Room;
 use matrix_sdk::ruma::events::room::avatar::RoomAvatarEventContent;
@@ -11,12 +12,12 @@ use matrix_sdk::ruma::events::{
 };
 use matrix_sdk::ruma::push::Ruleset;
 use matrix_sdk::ruma::{EventId, OwnedRoomId, OwnedUserId, RoomId};
-use matrix_sdk::{EncryptionState, RoomState};
 use matrix_sdk_ui::{eyeball_im, room_list_service::RoomListItem};
 
+use crate::api::rooms::RoomKind;
 use crate::protocol::{
     LatestEventView, NotificationModeView, NotificationSettingsView, PredecessorRoomView,
-    RoomJoinRuleView, RoomListItemView, RoomStateView, RoomTag, RoomUnreadView, SpaceChildEdge,
+    RoomJoinRuleView, RoomListItemView, RoomTag, RoomUnreadView, SpaceChildEdge,
 };
 
 use super::diff::diff_values;
@@ -28,7 +29,7 @@ use super::space::{kept_children, space_children};
     reason = "wire type mirroring the protocol"
 )]
 pub struct RoomInfo {
-    pub is_space: bool,
+    pub room_kind: Option<RoomKind>,
     pub is_direct: bool,
     pub is_tombstoned: bool,
     pub supports_knock: bool,
@@ -88,17 +89,9 @@ pub fn room_list_item<S: BuildHasher>(
             // `m.room.encryption` is not loaded, so neither answer is honest.
             EncryptionState::Unknown => None,
         },
-        state: match item.state() {
-            RoomState::Joined => RoomStateView::Joined,
-            RoomState::Invited => RoomStateView::Invited,
-            RoomState::Knocked => RoomStateView::Knocked,
-            RoomState::Left => RoomStateView::Left,
-            RoomState::Banned => RoomStateView::Banned,
-        },
-        is_space: info.is_some_and(|i| i.is_space),
+        state: item.state().into(),
         is_tombstoned: info.is_some_and(|i| i.is_tombstoned),
-        room_type: item.room_type().map(|kind| kind.to_string()),
-        is_voice: item.is_call(),
+        room_kind: RoomKind::from_room_type(item.room_type().as_ref()),
         call_participants: item.active_room_call_participants(),
         screen_sharers: info.map(|i| i.screen_sharers.clone()).unwrap_or_default(),
         supports_knock: info.is_some_and(|i| i.supports_knock),
@@ -337,10 +330,10 @@ pub fn predecessor(room: &Room) -> Option<PredecessorRoomView> {
 }
 
 async fn room_info(room: &Room, previous: Option<&RoomInfo>) -> RoomInfo {
-    let is_space = room.is_space();
+    let room_kind = RoomKind::from_room_type(room.room_type().as_ref());
     let is_tombstoned = room.is_tombstoned();
     let children = async {
-        if is_space {
+        if room_kind == Some(RoomKind::Space) {
             kept_children(space_children(room).await, previous, room.room_id())
         } else {
             (Vec::new(), false)
@@ -353,7 +346,7 @@ async fn room_info(room: &Room, previous: Option<&RoomInfo>) -> RoomInfo {
         crate::rooms::join_rule_support(room);
 
     RoomInfo {
-        is_space,
+        room_kind,
         is_direct,
         is_tombstoned,
         supports_knock,

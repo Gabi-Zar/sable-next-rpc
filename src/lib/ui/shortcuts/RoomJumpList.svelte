@@ -4,8 +4,6 @@
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import RoomIcon from '#lib/ui/primitives/RoomIcon.svelte';
-  import { CALENDAR_ROOM_TYPE } from '#lib/calendar/calendar-events.js';
-  import { FORUM_ROOM_TYPE } from '#lib/rooms/forum-detection.js';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import UnreadBadge from '#lib/ui/primitives/UnreadBadge.svelte';
   import '#lib/ui/primitives/menu.css';
@@ -113,10 +111,8 @@
               uniform
             >
               <RoomIcon
-                isCalendar={room.room_type === CALENDAR_ROOM_TYPE}
-                isForum={room.room_type === FORUM_ROOM_TYPE}
-                isSpace={room.is_space}
-                isVoice={room.is_voice}
+                roomKind={room.room_kind}
+                hasParent={parents.has(room.room_id)}
                 joinRule={room.join_rule}
               />
             </Avatar>

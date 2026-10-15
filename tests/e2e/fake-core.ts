@@ -167,17 +167,10 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       tags: [],
       state: 'joined',
       encrypted: true,
-      is_space: false,
       is_tombstoned: false,
-      is_voice: false,
       call_participants: [],
       screen_sharers: [],
-      room_type:
-        workerMode === 'calendar'
-          ? 'chat.commet.calendar'
-          : workerMode === 'forum'
-            ? 'pl.chrome.forum'
-            : null,
+      room_kind: workerMode === 'calendar' ? 'calendar' : workerMode === 'forum' ? 'forum' : 'text',
       supports_knock: false,
       supports_restricted: false,
       supports_knock_restricted: false,
@@ -232,7 +225,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       name: 'Alpha',
       topic:
         'A topic long enough to clamp: it introduces the space, lists the rules, thanks the moderators and links the map. It repeats itself at length so the hero has something to cut: the rules again, the moderators again, the map again, and a closing paragraph that keeps going well past the three lines the hero shows before it hands the rest to the dialog.',
-      is_space: true,
+      room_kind: 'space',
       encrypted: false,
       unread: 0,
       notifying: 0,
@@ -270,8 +263,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       ...room,
       room_id: '!voice:example.test',
       name: 'Hangout',
-      is_voice: true,
-      room_type: 'org.matrix.msc3417.call',
+      room_kind: 'voice',
       unread: 0,
       notifying: 0,
       highlight: 0,
@@ -295,8 +287,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       name,
       topic: null,
       avatar_url: null,
-      is_space: false,
-      is_voice: false,
+      room_kind: 'text',
       num_joined_members: 3,
       join_rule: 'public',
       allowed_room_ids: [],
@@ -332,11 +323,11 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       '!alpha:example.test|': {
         rooms: [
           hierarchyRoom('!alpha:example.test', 'Alpha', {
-            is_space: true,
+            room_kind: 'space',
             children: alphaChildren,
           }),
-          hierarchyRoom('!nested:example.test', 'Nested', { is_space: true }),
-          hierarchyRoom('!refused:example.test', 'Refused Space', { is_space: true }),
+          hierarchyRoom('!nested:example.test', 'Nested', { room_kind: 'space' }),
+          hierarchyRoom('!refused:example.test', 'Refused Space', { room_kind: 'space' }),
         ],
         next_batch: 'page-two',
       },
@@ -351,7 +342,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       '!nested:example.test|': {
         rooms: [
           hierarchyRoom('!nested:example.test', 'Nested', {
-            is_space: true,
+            room_kind: 'space',
             children: [childEdge('!deep:example.test', 1)],
           }),
           hierarchyRoom('!deep:example.test', 'Deep Room'),
@@ -1686,11 +1677,11 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         name: 'Preview Room',
         topic: null,
         avatar_url: null,
-        is_space: false,
-        is_voice: false,
+        room_kind: 'text',
         num_joined_members: 3,
         join_rule: 'public',
         state: null,
+        via: { type: 'unknown' },
       }),
       'rooms.join': (params) => params.address,
       'rooms.knock': (params) => params.address,

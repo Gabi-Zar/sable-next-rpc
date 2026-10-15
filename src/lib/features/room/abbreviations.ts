@@ -69,7 +69,7 @@ export function ancestorSpaceLevels(
   for (let depth = 0; depth < MAX_SPACE_DEPTH && frontier.length > 0; depth += 1) {
     const parents = rooms.filter(
       (space) =>
-        space.is_space &&
+        space.room_kind === 'space' &&
         space.state === 'joined' &&
         !seen.has(space.room_id) &&
         space.space_children.some((child) => frontier.includes(child.room_id))

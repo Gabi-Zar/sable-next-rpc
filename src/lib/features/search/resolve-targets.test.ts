@@ -27,12 +27,10 @@ function room(overrides: Partial<RoomListItemView>): RoomListItemView {
     tags: [],
     state: 'joined',
     encrypted: false,
-    is_space: false,
     is_tombstoned: false,
-    is_voice: false,
     call_participants: [],
     screen_sharers: [],
-    room_type: null,
+    room_kind: 'text',
     supports_knock: false,
     supports_restricted: false,
     supports_knock_restricted: false,
@@ -130,13 +128,13 @@ const spaceRooms = [
     room_id: '!eng:example.org',
     canonical_alias: '#eng:example.org',
     name: 'Engineering',
-    is_space: true,
+    room_kind: 'space',
     space_children: [edge('!dev:example.org'), edge('!subteam:example.org')],
   }),
   room({
     room_id: '!subteam:example.org',
     name: 'Subteam',
-    is_space: true,
+    room_kind: 'space',
     space_children: [edge('!ops:example.org')],
   }),
   room({ room_id: '!dev:example.org', canonical_alias: '#dev:example.org', name: 'Dev' }),
@@ -227,7 +225,7 @@ test('with: someone you have no direct room with resolves to nothing', () => {
 test('a partial room name suggests the room it would have matched', () => {
   const rooms = searchRooms([
     room({ room_id: '!a:x', name: 'General chat', canonical_alias: '#general:x' }),
-    room({ room_id: '!s:x', name: 'General space', is_space: true }),
+    room({ room_id: '!s:x', name: 'General space', room_kind: 'space' }),
   ]);
 
   expect(suggestRoomTarget(rooms, 'gen')).toEqual({ label: 'General chat', value: '#general:x' });
@@ -249,7 +247,7 @@ test('a partial name or localpart suggests the person', () => {
 
 test('a name shared by a space and its room resolves to the room that holds messages', () => {
   const rooms = searchRooms([
-    room({ room_id: '!space:example.org', name: 'Sable Next', is_space: true }),
+    room({ room_id: '!space:example.org', name: 'Sable Next', room_kind: 'space' }),
     room({ room_id: '!room:example.org', name: 'Sable Next' }),
   ]);
   expect(resolveRoomTarget(rooms, 'Sable Next')).toBe('!room:example.org');

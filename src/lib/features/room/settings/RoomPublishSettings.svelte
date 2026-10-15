@@ -70,7 +70,9 @@
 {#if published !== null}
   <SettingsRow
     title={i18n.t('room.publishTitle')}
-    description={room?.is_space ? i18n.t('room.publishSpaceHint') : i18n.t('room.publishRoomHint')}
+    description={room?.room_kind === 'space'
+      ? i18n.t('room.publishSpaceHint')
+      : i18n.t('room.publishRoomHint')}
   >
     {#if canEdit}
       <Switch
