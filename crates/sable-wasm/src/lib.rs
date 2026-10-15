@@ -240,6 +240,12 @@ impl SableCore {
             .map_err(|error| js_err(&error))
     }
 
+    /// Stops syncing and refuses further calls, before another worker takes the stores.
+    #[wasm_bindgen]
+    pub async fn shutdown(&self) {
+        self.core.shutdown().await;
+    }
+
     /// Resolves with the raw thumbnail bytes.
     ///
     /// # Errors

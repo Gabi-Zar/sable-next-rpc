@@ -111,6 +111,21 @@ test('an owner that never closes loses the store to a steal', async () => {
   expect(newer.onSuperseded).not.toHaveBeenCalled();
 });
 
+test('a waiter superseded before its turn never opens the store', async () => {
+  const locks = new FakeLocks();
+  claim(locks);
+  await vi.advanceTimersByTimeAsync(0);
+  const queued = claim(locks);
+  await vi.advanceTimersByTimeAsync(0);
+  claim(locks);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(queued.onSuperseded).toHaveBeenCalledOnce();
+
+  locks.release();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(queued.owned()).toBe(false);
+});
+
 test('a browser without Web Locks owns the store at once', async () => {
   vi.stubGlobal('navigator', {});
   const onSuperseded = vi.fn();

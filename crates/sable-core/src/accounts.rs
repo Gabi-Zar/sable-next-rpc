@@ -301,6 +301,27 @@ impl Core {
         self.remove_account(Some(&account_id)).await
     }
 
+    /// Stops every writer to the stores and refuses further calls, so another
+    /// core can open them.
+    pub async fn shutdown(self: &Arc<Self>) {
+        self.shut_down.store(true, Ordering::SeqCst);
+        let _restore = self.restore_lock.lock().await;
+        let _activation = self.session_activation_lock.lock().await;
+        let _swap = self.session_swap_lock.lock().await;
+        let invalidated = self
+            .session_attempt_generation
+            .fetch_add(1, Ordering::SeqCst)
+            + 1;
+        self.session_generation.store(invalidated, Ordering::SeqCst);
+        if let Some(session) = self.take_session().await {
+            session.sync_service.stop().await;
+        }
+        let accounts: Vec<String> = self.account_clients.lock().await.keys().cloned().collect();
+        for account_id in accounts {
+            self.invalidate_account_client(&account_id).await;
+        }
+    }
+
     #[cfg(not(target_family = "wasm"))]
     pub(crate) async fn reset_local_cache(self: &Arc<Self>) -> Result<(), RpcError> {
         let outcome = {
@@ -1472,6 +1493,20 @@ mod regression_tests {
         assert_eq!(accounts.len(), 1);
         assert_eq!(accounts[0].account_id, "first");
         assert!(accounts[0].device_invalidated);
+    }
+
+    #[tokio::test]
+    async fn a_shut_down_core_stops_its_session_and_refuses_calls() {
+        let (_server, core, _room) = core_with_room().await;
+
+        core.shutdown().await;
+
+        assert!(core.session.read().await.is_none());
+        assert!(core.account_clients.lock().await.is_empty());
+        assert!(matches!(
+            core.call("session.restore", "{}").await,
+            Err(RpcError::Unavailable)
+        ));
     }
 
     #[tokio::test]

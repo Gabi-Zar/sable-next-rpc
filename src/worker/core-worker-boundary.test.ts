@@ -459,18 +459,27 @@ test('overflowing the log buffer drops and reports the excess', () => {
   vi.useRealTimers();
 });
 
-test('a reset request terminates the worker after answering', () => {
+test('a reset request stops the core before answering, then terminates the worker', async () => {
   const terminate = vi.fn();
+  let answeredBeforeStop = false;
+  const port = new FakePort();
+  const stop = vi.fn(() => {
+    answeredBeforeStop = port.messages.length > 0;
+    return Promise.resolve();
+  });
   const boundary = createCoreWorkerBoundary(
     Promise.resolve(fakeCore(() => Promise.resolve('{}'))),
     undefined,
-    terminate
+    terminate,
+    undefined,
+    stop
   );
-  const port = new FakePort();
   boundary.connect(port);
 
-  port.onmessage?.({ data: { id: 1, reset: true } } as MessageEvent<WorkerRequest>);
+  await port.onmessage?.({ data: { id: 1, reset: true } } as MessageEvent<WorkerRequest>);
 
+  expect(stop).toHaveBeenCalledOnce();
+  expect(answeredBeforeStop).toBe(false);
   expect(terminate).toHaveBeenCalledTimes(1);
   expect(port.messages).toEqual([{ id: 1, uri: null }]);
 });

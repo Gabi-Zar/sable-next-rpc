@@ -32,7 +32,8 @@ export function createCoreWorkerBoundary(
   core: Promise<WorkerCore>,
   setLogCapture: (enabled: boolean) => void = () => {},
   terminate: () => void = () => {},
-  setLogFilter: (filter: string) => void = () => {}
+  setLogFilter: (filter: string) => void = () => {},
+  stop: () => Promise<void> = () => Promise.resolve()
 ) {
   const ports = new Set<WorkerPort>();
   const timelineEvents = new TimelineEventRouter<WorkerPort>();
@@ -155,6 +156,8 @@ export function createCoreWorkerBoundary(
           return;
         }
         closePort(port);
+        // The page clears the stores once answered, so nothing may still write to them.
+        await stop();
         port.postMessage({ id: request.id, uri: null });
         terminate();
         return;

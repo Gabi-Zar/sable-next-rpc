@@ -159,6 +159,9 @@ impl Core {
         method: &str,
         params: &str,
     ) -> Result<Box<RawValue>, RpcError> {
+        if self.shut_down.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(RpcError::Unavailable);
+        }
         let Some((domain, name)) = method.split_once('.') else {
             return Err(RpcError::Unsupported);
         };

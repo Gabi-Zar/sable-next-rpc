@@ -15,14 +15,26 @@ import { installUploadDeadline } from './upload-deadline';
 
 declare const self: SharedWorkerGlobalScope;
 
+const SHUTDOWN_LIMIT_MS = 5_000;
+
 installUploadDeadline(self);
 installFirefoxFetchLimit(self);
 
+let started: SableCore | null = null;
+
+async function stopCore(): Promise<void> {
+  if (!started) return;
+  await Promise.race([
+    started.shutdown(),
+    new Promise((resolve) => setTimeout(resolve, SHUTDOWN_LIMIT_MS)),
+  ]);
+}
+
 const core = claimStore(() => {
   boundary.handleSuperseded();
-  setTimeout(() => {
+  void stopCore().finally(() => {
     self.close();
-  }, 0);
+  });
 })
   .then(() => init())
   .then(() => {
@@ -37,6 +49,7 @@ const core = claimStore(() => {
       () => clearSession(),
       new URLSearchParams(self.location.search).get('event-cache') !== 'memory'
     );
+    started = instance;
 
     return instance;
   });
@@ -55,7 +68,8 @@ const boundary = createCoreWorkerBoundary(
     void core.then(() => {
       setLogFilter(filter);
     });
-  }
+  },
+  stopCore
 );
 
 // A trap unwinds only its own call, so close the worker rather than keep re-entering a corrupted module; the next connect builds a fresh one.

@@ -29,6 +29,7 @@ export function claimStore(onSuperseded: () => void): Promise<void> {
 
   return new Promise<void>((owned) => {
     const hold = () => {
+      if (superseded) return Promise.resolve();
       owned();
       return new Promise<never>(() => {});
     };
