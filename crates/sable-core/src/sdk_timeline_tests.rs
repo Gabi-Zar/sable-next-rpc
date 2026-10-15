@@ -785,6 +785,43 @@ async fn a_locked_profile_override_document_refuses_a_write() {
 }
 
 #[tokio::test]
+async fn account_data_keeps_its_key_order_through_the_editor() {
+    use crate::api::account::{DataParams, SetDataParams};
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let stored = r#"{"zeta":1,"alpha":{"yankee":1,"bravo":2}}"#;
+    Mock::given(method("GET"))
+        .and(path_regex("/account_data/org.example.ordered$"))
+        .respond_with(ResponseTemplate::new(200).set_body_raw(stored, "application/json"))
+        .mount(server.server())
+        .await;
+    Mock::given(method("PUT"))
+        .and(path_regex("/account_data/org.example.ordered$"))
+        .and(wiremock::matchers::body_string(stored))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(server.server())
+        .await;
+
+    let core = core_for(&server, client).await;
+    let read = core
+        .run(DataParams {
+            event_type: "org.example.ordered".to_owned(),
+        })
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(serde_json::to_string(&read).unwrap(), stored);
+
+    let edit: SetDataParams = serde_json::from_str(&format!(
+        r#"{{"event_type":"org.example.ordered","content":{stored}}}"#
+    ))
+    .unwrap();
+    core.run(edit).await.unwrap();
+}
+
+#[tokio::test]
 async fn a_legacy_pack_is_copied_verbatim_to_the_stable_type() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;
