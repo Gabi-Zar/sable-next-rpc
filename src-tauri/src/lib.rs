@@ -1062,10 +1062,9 @@ fn hang_up_before_exit(app: &AppHandle<BrowserEngine>) {
         return;
     };
     let core = state.core.clone();
-    let ended = tauri::async_runtime::block_on(tokio::time::timeout(
-        EXIT_HANGUP_TIMEOUT,
-        core.end_all_calls(),
-    ));
+    let ended = tauri::async_runtime::block_on(async {
+        tokio::time::timeout(EXIT_HANGUP_TIMEOUT, core.end_all_calls()).await
+    });
     if ended.is_err() {
         log::warn!("calls were still hanging up when the app exited");
     }
