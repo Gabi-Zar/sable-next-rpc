@@ -17,9 +17,7 @@ use std::time::Duration;
 
 use matrix_sdk::deserialized_responses::RawAnySyncOrStrippedState;
 use matrix_sdk::executor::{JoinHandleExt, spawn};
-use matrix_sdk::ruma::api::client::delayed_events::{
-    DelayParameters, delayed_state_event, update_delayed_event,
-};
+use matrix_sdk::ruma::api::client::delayed_events::update_delayed_event::UpdateAction;
 use matrix_sdk::ruma::api::client::rtc::RtcTransport;
 use matrix_sdk::ruma::api::client::state::get_state_event_for_key;
 use matrix_sdk::ruma::api::error::ErrorKind;
@@ -34,6 +32,7 @@ use serde_with::{DefaultOnError, serde_as};
 
 use crate::ResultExt;
 use crate::api::calls::JoinOk;
+use crate::delayed_events::{self, DelayedEvent, DelayedEventsSupport};
 use crate::protocol::{
     CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CoreEvent,
     RpcError, RtcTransportSource,
@@ -345,7 +344,7 @@ impl Core {
         };
         Ok(CallCompatibilityView {
             sticky_events: features.contains(&"org.matrix.msc4354".into()),
-            delayed_events: features.contains(&"org.matrix.msc4140".into()),
+            delayed_events: DelayedEventsSupport::from_features(&features).any(),
             rtc_transports,
         })
     }
@@ -657,16 +656,9 @@ impl Core {
     }
 
     async fn fire_hangup(&self, delay_id: String) -> Result<(), RpcError> {
-        self.client()
-            .await?
-            .send(update_delayed_event::unstable_v1::Request::new(
-                delay_id,
-                update_delayed_event::UpdateAction::Send,
-            ))
+        delayed_events::update(&self.client().await?, delay_id, UpdateAction::Send)
             .await
-            .or_failed(self, "leave_call")?;
-
-        Ok(())
+            .or_failed(self, "leave_call")
     }
 
     async fn send_left_membership(&self, call: &CallSession) -> Result<(), RpcError> {
@@ -697,21 +689,21 @@ impl Core {
         room_id: &OwnedRoomId,
         state_key: &CallMemberStateKey,
     ) -> Option<String> {
-        if !self.delayed_events_supported().await.ok()? {
+        let support = self.delayed_events_support().await.ok()?;
+        if !support.any() {
             return None;
         }
-        let request = delayed_state_event::unstable::Request::new(
-            room_id.clone(),
-            state_key.as_ref().to_owned(),
-            DelayParameters::Timeout {
-                timeout: HANGUP_DELAY,
-            },
-            &left_membership(),
-        )
-        .ok()?;
+        let event = DelayedEvent {
+            room_id: room_id.clone(),
+            event_type: StateEventType::CallMember.to_string(),
+            state_key: Some(state_key.as_ref().to_owned()),
+            content: serde_json::value::to_raw_value(&left_membership()).ok()?,
+            delay: HANGUP_DELAY,
+            sticky_duration_ms: None,
+        };
 
-        match self.client().await.ok()?.send(request).await {
-            Ok(response) => Some(response.delay_id),
+        match delayed_events::send(&self.client().await.ok()?, support, event).await {
+            Ok(delay_id) => Some(delay_id),
             Err(error) => {
                 tracing::warn!(
                     ?error,
@@ -731,12 +723,8 @@ impl Core {
                 return false;
             };
 
-            let Err(error) = client
-                .send(update_delayed_event::unstable_v1::Request::new(
-                    delay_id.to_owned(),
-                    update_delayed_event::UpdateAction::Restart,
-                ))
-                .await
+            let Err(error) =
+                delayed_events::update(&client, delay_id.to_owned(), UpdateAction::Restart).await
             else {
                 return true;
             };

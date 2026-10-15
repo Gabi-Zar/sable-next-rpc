@@ -246,7 +246,7 @@ impl Handler for DelayedEventsSupportedParams {
     type Ok = bool;
 
     async fn run(self, core: &Arc<Core>) -> Result<bool, RpcError> {
-        core.delayed_events_supported().await
+        core.scheduling_supported().await
     }
 }
 

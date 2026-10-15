@@ -10,6 +10,7 @@ use wiremock::{
 };
 
 use super::{StickySync, live_events, send, send_delayed};
+use crate::delayed_events::DelayedEventsSupport;
 
 async fn room() -> (MatrixMockServer, matrix_sdk::Room) {
     let server = MatrixMockServer::new().await;
@@ -83,6 +84,7 @@ async fn test_delayed_send_includes_delay_and_sticky_duration() {
 
     send_delayed(
         &room.client(),
+        DelayedEventsSupport::default(),
         &room,
         json!({"msc4354_sticky_key": "call"}),
         Duration::from_secs(20),
@@ -329,6 +331,7 @@ async fn test_delayed_send_refreshes_expired_credentials_and_preserves_sticky_qu
     assert_eq!(
         send_delayed(
             &client,
+            DelayedEventsSupport::default(),
             &room,
             json!({"msc4354_sticky_key":"call"}),
             Duration::from_secs(20)

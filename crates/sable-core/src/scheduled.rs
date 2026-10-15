@@ -2,23 +2,18 @@ use crate::api::messages::CancelScheduledParams;
 use crate::api::messages::SendScheduledParams;
 use std::time::Duration;
 
-use matrix_sdk::ruma::api::FeatureFlag;
-use matrix_sdk::ruma::api::client::delayed_events::{
-    DelayParameters, delayed_message_event, get_all_delayed_events, update_delayed_event,
-};
+use matrix_sdk::ruma::api::client::delayed_events::get_all_delayed_events;
+use matrix_sdk::ruma::api::client::delayed_events::update_delayed_event::UpdateAction;
 use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
-use matrix_sdk::ruma::events::{AnyMessageLikeEventContent, MessageLikeEventType};
-use matrix_sdk::ruma::serde::Raw;
-use matrix_sdk::ruma::{OwnedMxcUri, OwnedRoomId, TransactionId};
+use matrix_sdk::ruma::{OwnedMxcUri, OwnedRoomId};
 use mime::Mime;
 use serde::Serialize;
 
 use crate::Core;
 use crate::ResultExt;
+use crate::delayed_events::{self, DelayedEvent, DelayedEventsSupport};
 use crate::protocol::{AttachmentInfoView, RpcError, ScheduledMessageView};
 use crate::view::SPOILER_PROPERTY;
-
-const MSC4140: &str = "org.matrix.msc4140";
 
 #[derive(Serialize)]
 struct MediaInfoOut {
@@ -95,13 +90,15 @@ fn attachment_content(
 }
 
 impl Core {
-    pub(crate) async fn delayed_events_supported(&self) -> Result<bool, RpcError> {
-        let client = self.client().await?;
-        let features = client
-            .unstable_features()
+    pub(crate) async fn delayed_events_support(&self) -> Result<DelayedEventsSupport, RpcError> {
+        delayed_events::support(&self.client().await?)
             .await
-            .or_failed(self, "delayed_events_supported")?;
-        Ok(features.contains(&FeatureFlag::from(MSC4140)))
+            .or_failed(self, "delayed_events_supported")
+    }
+
+    /// Scheduling is offered only where the queue can also be listed and cancelled.
+    pub(crate) async fn scheduling_supported(&self) -> Result<bool, RpcError> {
+        Ok(self.delayed_events_support().await?.can_list())
     }
 
     pub(crate) async fn schedule_message(
@@ -110,18 +107,19 @@ impl Core {
         content: RoomMessageEventContent,
         delay_ms: u64,
     ) -> Result<String, RpcError> {
-        let content = Raw::new(&AnyMessageLikeEventContent::RoomMessage(content))
-            .or_failed(self, "schedule_message")?;
+        let content =
+            serde_json::value::to_raw_value(&content).or_failed(self, "schedule_message")?;
         self.schedule_room_message(room_id, content, delay_ms).await
     }
 
     async fn schedule_room_message(
         &self,
         room_id: &OwnedRoomId,
-        content: Raw<AnyMessageLikeEventContent>,
+        content: Box<serde_json::value::RawValue>,
         delay_ms: u64,
     ) -> Result<String, RpcError> {
-        if !self.delayed_events_supported().await? {
+        let support = self.delayed_events_support().await?;
+        if !support.can_list() {
             return Err(RpcError::DelayedEventsUnsupported);
         }
         let room = self.room(room_id).await?;
@@ -129,23 +127,17 @@ impl Core {
             return Err(RpcError::EncryptedScheduleUnsupported);
         }
 
-        let request = delayed_message_event::unstable::Request::new_raw(
-            room_id.clone(),
-            TransactionId::new(),
-            MessageLikeEventType::RoomMessage,
-            DelayParameters::Timeout {
-                timeout: Duration::from_millis(delay_ms),
-            },
+        let event = DelayedEvent {
+            room_id: room_id.clone(),
+            event_type: "m.room.message".to_owned(),
+            state_key: None,
             content,
-        );
-
-        let response = self
-            .client()
-            .await?
-            .send(request)
+            delay: Duration::from_millis(delay_ms),
+            sticky_duration_ms: None,
+        };
+        delayed_events::send(&self.client().await?, support, event)
             .await
-            .or_failed(self, "schedule_message")?;
-        Ok(response.delay_id)
+            .or_failed(self, "schedule_message")
     }
 
     #[expect(clippy::too_many_arguments, reason = "mirrors the protocol fields")]
@@ -167,51 +159,36 @@ impl Core {
         }
 
         let info = info.unwrap_or_default();
-        let content = Raw::new(&attachment_content(
+        let content = serde_json::value::to_raw_value(&attachment_content(
             filename, &mime, url, size, info, spoiler,
         ))
         .or_failed(self, "schedule_attachment")?;
-        self.schedule_room_message(room_id, content.cast_unchecked(), delay_ms)
-            .await
+        self.schedule_room_message(room_id, content, delay_ms).await
     }
 
     pub(crate) async fn cancel_scheduled_message(
         &self,
         CancelScheduledParams { delay_id }: CancelScheduledParams,
     ) -> Result<(), RpcError> {
-        let request = update_delayed_event::unstable_v1::Request::new(
-            delay_id,
-            update_delayed_event::UpdateAction::Cancel,
-        );
-        self.client()
-            .await?
-            .send(request)
+        delayed_events::update(&self.client().await?, delay_id, UpdateAction::Cancel)
             .await
-            .or_failed(self, "cancel_scheduled_message")?;
-        Ok(())
+            .or_failed(self, "cancel_scheduled_message")
     }
 
     pub(crate) async fn send_scheduled_message_now(
         &self,
         SendScheduledParams { delay_id }: SendScheduledParams,
     ) -> Result<(), RpcError> {
-        let request = update_delayed_event::unstable_v1::Request::new(
-            delay_id,
-            update_delayed_event::UpdateAction::Send,
-        );
-        self.client()
-            .await?
-            .send(request)
+        delayed_events::update(&self.client().await?, delay_id, UpdateAction::Send)
             .await
-            .or_failed(self, "send_scheduled_message")?;
-        Ok(())
+            .or_failed(self, "send_scheduled_message")
     }
 
     pub(crate) async fn scheduled_messages(
         &self,
         room_id: Option<&OwnedRoomId>,
     ) -> Result<Vec<ScheduledMessageView>, RpcError> {
-        if !self.delayed_events_supported().await? {
+        if !self.scheduling_supported().await? {
             return Ok(Vec::new());
         }
         let client = self.client().await?;

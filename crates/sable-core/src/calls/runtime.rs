@@ -524,9 +524,11 @@ async fn publish(
         if !super::ensure_open_slot(room, encrypted).await {
             tracing::warn!("no open rtc slot and none could be opened");
         }
-        if core.delayed_events_supported().await.unwrap_or(false) {
+        let support = core.delayed_events_support().await.unwrap_or_default();
+        if support.any() {
             sticky::send_delayed(
                 &room.client(),
+                support,
                 room,
                 sticky::StickyKeyOut {
                     msc4354_sticky_key: own.member_id.clone(),

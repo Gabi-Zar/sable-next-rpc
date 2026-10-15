@@ -12,9 +12,7 @@ use matrix_sdk::deserialized_responses::RawAnySyncOrStrippedState;
 use matrix_sdk::executor::{JoinHandleExt, spawn};
 use matrix_sdk::ruma::api::Direction;
 use matrix_sdk::ruma::api::client::account::request_openid_token;
-use matrix_sdk::ruma::api::client::delayed_events::{
-    DelayParameters, delayed_message_event, delayed_state_event, update_delayed_event,
-};
+use matrix_sdk::ruma::api::client::delayed_events::update_delayed_event::UpdateAction;
 use matrix_sdk::ruma::api::client::relations::{
     get_relating_events, get_relating_events_with_rel_type,
 };
@@ -24,8 +22,7 @@ use matrix_sdk::ruma::api::client::voip::get_turn_server_info;
 use matrix_sdk::ruma::events::GlobalAccountDataEventType;
 use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::events::{
-    AnySyncStateEvent, AnySyncTimelineEvent, AnyTimelineEvent, MessageLikeEventType,
-    StateEventType, ToDeviceEventType,
+    AnySyncStateEvent, AnySyncTimelineEvent, AnyTimelineEvent, ToDeviceEventType,
 };
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::to_device::DeviceIdOrAllDevices;
@@ -36,6 +33,7 @@ use serde_json::Value;
 use serde_with::{DefaultOnError, serde_as};
 
 use crate::calls::{is_rtc_member_type, sticky};
+use crate::delayed_events::{self, DelayedEvent};
 use crate::protocol::{
     CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RpcError, TurnServerView,
     UserDirectoryEntryView,
@@ -381,35 +379,33 @@ impl Core {
         sticky_duration_ms: Option<u32>,
     ) -> Result<String, RpcError> {
         const LABEL: &str = "widget_send_delayed_event";
-        if !self.delayed_events_supported().await? {
+        let support = self.delayed_events_support().await?;
+        if !support.any() {
             return Err(RpcError::DelayedEventsUnsupported);
         }
         let room = self.room(room_id).await?;
         let client = self.client().await?;
         let delay = Duration::from_millis(delay_ms);
-        let parameters = DelayParameters::Timeout { timeout: delay };
-        let raw = Raw::new(&content).or_failed(self, LABEL)?;
 
-        if let Some(state_key) = state_key {
-            let request = delayed_state_event::unstable::Request::new_raw(
-                room_id.clone(),
+        if state_key.is_some() {
+            let event = DelayedEvent {
+                room_id: room_id.clone(),
+                event_type: event_type.to_owned(),
                 state_key,
-                StateEventType::from(event_type),
-                parameters,
-                raw.cast_unchecked(),
-            );
-            let response = client
-                .send(request)
+                content: serde_json::value::to_raw_value(&content).or_failed(self, LABEL)?,
+                delay,
+                sticky_duration_ms: None,
+            };
+            return delayed_events::send(&client, support, event)
                 .await
-                .map_err(|error| self.homeserver_http_error(LABEL, error))?;
-            return Ok(response.delay_id);
+                .map_err(|error| self.homeserver_http_error(LABEL, error));
         }
         if let Some(duration) = sticky_duration_ms {
             if !is_rtc_member_type(event_type) && self.room_is_encrypted(&room).await? {
                 return Err(RpcError::EncryptedScheduleUnsupported);
             }
             return sticky::send_delayed_event(
-                &client, &room, event_type, content, delay, duration,
+                &client, support, &room, event_type, content, delay, duration,
             )
             .await
             .or_failed(self, LABEL);
@@ -417,18 +413,17 @@ impl Core {
         if self.room_is_encrypted(&room).await? {
             return Err(RpcError::EncryptedScheduleUnsupported);
         }
-        let request = delayed_message_event::unstable::Request::new_raw(
-            room_id.clone(),
-            TransactionId::new(),
-            MessageLikeEventType::from(event_type),
-            parameters,
-            raw.cast_unchecked(),
-        );
-        let response = client
-            .send(request)
+        let event = DelayedEvent {
+            room_id: room_id.clone(),
+            event_type: event_type.to_owned(),
+            state_key: None,
+            content: serde_json::value::to_raw_value(&content).or_failed(self, LABEL)?,
+            delay,
+            sticky_duration_ms: None,
+        };
+        delayed_events::send(&client, support, event)
             .await
-            .map_err(|error| self.homeserver_http_error(LABEL, error))?;
-        Ok(response.delay_id)
+            .map_err(|error| self.homeserver_http_error(LABEL, error))
     }
 
     pub(crate) async fn widget_send_sticky_event(
@@ -452,13 +447,7 @@ impl Core {
         &self,
         RestartDelayedEventParams { delay_id }: RestartDelayedEventParams,
     ) -> Result<(), RpcError> {
-        let request = update_delayed_event::unstable_v1::Request::new(
-            delay_id,
-            update_delayed_event::UpdateAction::Restart,
-        );
-        self.client()
-            .await?
-            .send(request)
+        delayed_events::update(&self.client().await?, delay_id, UpdateAction::Restart)
             .await
             .map_err(|error| self.homeserver_http_error("restart_delayed_event", error))?;
         Ok(())
@@ -996,6 +985,37 @@ mod tests {
             .mount(server.server())
             .await;
         (server, client)
+    }
+
+    #[tokio::test]
+    async fn a_stable_only_server_offers_no_user_scheduling_because_it_cannot_list() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().no_server_versions().build().await;
+        Mock::given(method("GET"))
+            .and(path("/_matrix/client/versions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "versions": ["v1.13"],
+                "unstable_features": {"org.matrix.msc4140.stable": true}
+            })))
+            .mount(server.server())
+            .await;
+        let room_id = room_id!("!stable:example.org");
+        server.sync_joined_room(&client, room_id).await;
+        let core = core_with(&server, client).await;
+
+        assert!(!core.scheduling_supported().await.unwrap());
+        assert!(matches!(
+            core.schedule_message(
+                &room_id.to_owned(),
+                matrix_sdk::ruma::events::room::message::RoomMessageEventContent::text_plain(
+                    "later"
+                ),
+                5000,
+            )
+            .await,
+            Err(RpcError::DelayedEventsUnsupported)
+        ));
+        assert!(core.delayed_events_support().await.unwrap().any());
     }
 
     #[tokio::test]

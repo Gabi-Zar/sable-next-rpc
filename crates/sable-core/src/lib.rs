@@ -12,6 +12,7 @@ mod bot_commands;
 mod calendar;
 mod calls;
 mod cosmetics;
+mod delayed_events;
 mod errors;
 mod gestures;
 pub use errors::CoreError;
