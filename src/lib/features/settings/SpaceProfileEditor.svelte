@@ -28,6 +28,7 @@
   import { previewMessage } from '#lib/features/room/timeline/preview-message.js';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
+  import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
   import { type SenderCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import './profile-editor.css';
 
@@ -187,8 +188,8 @@
             avatar_url: field(avatar ?? profile.avatar_url),
           }),
           ...(colorsChanged && {
-            color_on_light: field(draft.light),
-            color_on_dark: field(draft.dark),
+            color_on_light: field(hexColorOrEmpty(draft.light)),
+            color_on_dark: field(hexColorOrEmpty(draft.dark)),
           }),
         });
       }

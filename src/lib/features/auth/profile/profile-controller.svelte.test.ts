@@ -169,3 +169,13 @@ test('a status save deletes the legacy status keys the profile still carries', a
   expect(core.setProfileField).not.toHaveBeenCalledWith('org.matrix.msc4426.status', null);
   expect(core.setProfileField).not.toHaveBeenCalledWith('moe.sable.app.bio', null);
 });
+
+test('a half-typed name colour is not saved', async () => {
+  const { profile, core } = controller();
+  await profile.load();
+
+  profile.setNameColor('#12');
+  await profile.save();
+
+  expect(core.setProfileField).not.toHaveBeenCalledWith('eu.she-a.color', expect.anything());
+});

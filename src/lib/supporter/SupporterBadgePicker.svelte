@@ -7,6 +7,7 @@
   import SupporterMark from './SupporterMark.svelte';
   import SupporterBadge from './SupporterBadge.svelte';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
+  import { isHexColor } from '#lib/ui/hex-color.js';
   import Button from '#lib/ui/primitives/Button.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Slider from '#lib/ui/primitives/Slider.svelte';
@@ -18,7 +19,6 @@
     MAX_SUPPORTER_GRADIENT_COLORS,
     SUPPORTER_SHAPES,
     SUPPORTER_VARIANTS,
-    isSupporterColor,
     isSupporterColors,
     supporterAppearance,
     supporterColor,
@@ -83,7 +83,7 @@
   }
 
   async function commitColor(key: ColorKey, next = draft[key]): Promise<void> {
-    if (!isSupporterColor(next)) return;
+    if (!isHexColor(next)) return;
     const normalized = supporterColor(next, defaults[key]);
     if (normalized !== value[key]) await update({ [key]: normalized });
   }
@@ -94,7 +94,7 @@
 
   async function commitGradientColor(index: number): Promise<void> {
     const nextHex = draft.colors?.[index];
-    if (!isSupporterColor(nextHex)) return;
+    if (!isHexColor(nextHex)) return;
     const colors = [...(draft.colors ?? [])];
     colors[index] = supporterColor(nextHex);
     await commitColors(colors);

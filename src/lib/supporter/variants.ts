@@ -1,6 +1,7 @@
 import type { ProfileFieldView } from '#src/generated/protocol';
 import { isRecord } from '#lib/guards.js';
 import { SUPPORTER_BADGE_FIELD } from '#lib/profile/fields.js';
+import { isHexColor } from '#lib/ui/hex-color.js';
 import { inkFor, WHITE } from '#lib/ui/primitives/readable-color.js';
 
 export const SUPPORTER_VARIANTS = [
@@ -78,21 +79,17 @@ export const DEFAULT_SUPPORTER_BUTTON_COLOR = '#e8c783';
 export const DEFAULT_SUPPORTER_BACKGROUND_COLOR = '#24212e';
 export const DEFAULT_SUPPORTER_GRADIENT_COLOR = '#21b1ff';
 
-export function isSupporterColor(value: unknown): value is string {
-  return typeof value === 'string' && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(value);
-}
-
 export function isSupporterColors(value: unknown): value is string[] {
   return (
     Array.isArray(value) &&
     value.length >= 2 &&
     value.length <= MAX_SUPPORTER_GRADIENT_COLORS &&
-    value.every(isSupporterColor)
+    value.every(isHexColor)
   );
 }
 
 export function supporterColor(value: unknown, fallback = DEFAULT_SUPPORTER_COLOR): string {
-  if (!isSupporterColor(value)) return fallback;
+  if (!isHexColor(value)) return fallback;
   const hex = value.slice(1).toLowerCase();
   return `#${hex.length === 3 ? hex.replaceAll(/./g, '$&$&') : hex}`;
 }
@@ -129,7 +126,7 @@ export function supporterAppearance(value: unknown = null): SupporterAppearance 
   const appearance = isRecord(value) ? value : {};
   const validColors = Array.isArray(appearance.colors)
     ? appearance.colors
-        .filter(isSupporterColor)
+        .filter(isHexColor)
         .slice(0, MAX_SUPPORTER_GRADIENT_COLORS)
         .map((c) => supporterColor(c))
     : [];

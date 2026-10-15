@@ -17,6 +17,7 @@
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Switch from '#lib/ui/primitives/Switch.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
+  import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
 
@@ -102,8 +103,8 @@
           display_name: displayName,
           avatar_url: avatarUrl,
           pronouns: parsePronouns(pronouns),
-          color_on_light: colorLight.trim() || null,
-          color_on_dark: colorDark.trim() || null,
+          color_on_light: hexColorOrEmpty(colorLight) || null,
+          color_on_dark: hexColorOrEmpty(colorDark) || null,
           triggers: triggers
             .map((trigger) => ({
               prefix: trigger.prefix?.trimStart() || null,

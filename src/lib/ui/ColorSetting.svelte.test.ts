@@ -20,3 +20,16 @@ test('opens the picker from its swatch', async () => {
 
   expect(trigger).toHaveAttribute('aria-expanded', 'true');
 });
+
+test('a hex colour padded with spaces is committed trimmed', async () => {
+  const user = userEvent.setup();
+  const onCommit = vi.fn();
+  render(ColorSetting, { label: 'Profile color', value: '', onCommit, onReset: vi.fn() });
+
+  const input = screen.getByRole('textbox');
+  await user.type(input, '#abc ');
+  await user.tab();
+
+  expect(onCommit).toHaveBeenCalledOnce();
+  expect(input).toHaveValue('#abc');
+});

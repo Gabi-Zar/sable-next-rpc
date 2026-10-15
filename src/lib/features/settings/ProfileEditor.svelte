@@ -45,6 +45,7 @@
   import { isActiveSpace } from '#lib/features/sidebar/nav-rooms.js';
   import { bioHtml, bioMarkdown, bioTexts } from './bio-markdown.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
+  import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
   import { type SenderCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
 
   import {
@@ -269,16 +270,17 @@
       );
     }
     if (changed('light', 'dark', 'hero', 'brightness')) {
+      const light = hexColorOrEmpty(draft.light);
+      const dark = hexColorOrEmpty(draft.dark);
+      const hero = hexColorOrEmpty(draft.hero);
       out.push(
         [
           NAME_COLOR_FIELD,
-          draft.light || draft.dark
-            ? { on_light: draft.light || null, on_dark: draft.dark || null }
-            : null,
+          light || dark ? { on_light: light || null, on_dark: dark || null } : null,
         ],
         [
           'chat.commet.profile_color_scheme',
-          draft.hero ? { color: draft.hero, brightness: draft.brightness } : null,
+          hero ? { color: hero, brightness: draft.brightness } : null,
         ]
       );
     }

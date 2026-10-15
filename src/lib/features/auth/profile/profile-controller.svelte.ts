@@ -13,6 +13,7 @@ import {
 import { pronounSets, pronounText } from '#lib/profile/pronouns.js';
 import { t } from '#lib/i18n.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
+import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
 import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
 
 export function revokeAvatarPreview(preview: string | null): void {
@@ -160,7 +161,7 @@ export class ProfileController {
       if (this.pronouns.trim() !== loaded.pronouns) {
         await core.setProfileField(PRONOUNS_FIELD, pronounSets(this.pronouns));
       }
-      const color = this.nameColor.trim();
+      const color = hexColorOrEmpty(this.nameColor);
       if (color !== loaded.nameColor) {
         await core.setProfileField(
           NAME_COLOR_FIELD,

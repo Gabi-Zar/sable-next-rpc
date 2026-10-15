@@ -5,6 +5,7 @@
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import { i18n } from '#lib/i18n.js';
   import { overlayLayer } from '#lib/ui/overlay-layer.js';
+  import { isHexColor } from '#lib/ui/hex-color.js';
 
   interface Props {
     label: string;
@@ -17,8 +18,15 @@
   let hue = $state(0);
   let saturation = $state(100);
   let brightness = $state(100);
-  let valid = $derived(/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(value));
-  let swatchColor = $derived(valid ? value : 'var(--bg-container)');
+  let trimmed = $derived(value.trim());
+  let valid = $derived(isHexColor(trimmed));
+  let swatchColor = $derived(valid ? trimmed : 'var(--bg-container)');
+
+  function commit(): void {
+    if (!valid) return;
+    value = trimmed;
+    onCommit();
+  }
 
   function hexToHsv(hex: string): [number, number, number] {
     const normalized = hex.replace('#', '');
@@ -98,7 +106,7 @@
     <Popover.Root
       onOpenChange={(next) => {
         if (next) syncPicker();
-        else if (valid) onCommit();
+        else commit();
       }}
     >
       <Popover.Trigger
@@ -156,9 +164,7 @@
       aria-label={i18n.t('settings.colorHexLabel', { label })}
       placeholder={i18n.t('settings.colorHexPlaceholder')}
       maxlength={7}
-      onchange={() => {
-        if (valid) onCommit();
-      }}
+      onchange={commit}
     />
     <Button variant="ghost" size="small" disabled={!value} onclick={onReset}
       >{i18n.t('common.reset')}</Button

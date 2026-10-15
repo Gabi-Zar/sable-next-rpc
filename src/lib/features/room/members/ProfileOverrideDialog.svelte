@@ -6,6 +6,7 @@
   import { i18n } from '#lib/i18n.js';
   import { downscaledAvatar, encryptAttachment } from '#lib/profile/encrypted-file.js';
   import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
+  import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
   import { profileOverrides, type OverrideEdit } from '#lib/profile/profile-overrides.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -113,7 +114,7 @@
   }
 
   function confirm(): void {
-    void save({ display_name: field(name.trim()), avatar, color: field(color) });
+    void save({ display_name: field(name.trim()), avatar, color: field(hexColorOrEmpty(color)) });
   }
 
   function reset(): void {
