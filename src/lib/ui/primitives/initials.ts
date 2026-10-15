@@ -1,6 +1,6 @@
-const SIGIL = /^[!#@]/;
+import { graphemes } from '#lib/graphemes.js';
 
-const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const SIGIL = /^[!#@]/;
 
 export function toInitials(name: string | null | undefined, count = 1): string {
   const trimmed = name?.replace(SIGIL, '').trim();

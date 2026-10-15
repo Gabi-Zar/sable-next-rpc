@@ -1,7 +1,7 @@
+import { graphemes } from '#lib/graphemes.js';
 import { parseJsonObject } from '#lib/json-object.js';
 
 const PREVIEW_CHARS = 256;
-const graphemes = new Intl.Segmenter();
 
 export function profileFieldPreview(value: string): string {
   return Array.from(graphemes.segment(value), ({ segment }) => segment)

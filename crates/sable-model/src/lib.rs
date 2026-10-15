@@ -30,3 +30,4 @@ pub mod sidebar;
 pub mod slash;
 pub mod spaces;
 mod text;
+pub mod truncate;

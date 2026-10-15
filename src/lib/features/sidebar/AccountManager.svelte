@@ -32,9 +32,11 @@
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import {
     LEGACY_STATUS_FIELDS,
+    MAX_STATUS_TEXT_BYTES,
     STATUS_FIELD,
     legacyDeletes,
     statusContent,
+    truncateUtf8,
   } from '#lib/profile/fields.js';
   import { SignOutGuard } from './sign-out-guard.svelte.js';
   import SignOutWarningDialog from './SignOutWarningDialog.svelte';
@@ -105,7 +107,7 @@
   async function saveStatusMessage(): Promise<void> {
     statusSaving = true;
     statusError = null;
-    const text = statusDraft.trim();
+    const text = truncateUtf8(statusDraft.trim(), MAX_STATUS_TEXT_BYTES);
     const status = statusContent(text, userStatus?.emoji);
     try {
       if (text !== ownStatus) {
@@ -346,7 +348,7 @@
         id="presence-status-message"
         bind:value={statusDraft}
         disabled={statusSaving}
-        maxlength={120}
+        maxlength={MAX_STATUS_TEXT_BYTES}
         placeholder={i18n.t('common.whatAreYouUpTo')}
       />
     </FormField>

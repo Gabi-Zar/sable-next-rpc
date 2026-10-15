@@ -2,6 +2,7 @@ use matrix_sdk::ruma::OwnedUserId;
 use matrix_sdk::ruma::api::client::profile::{AvatarUrl, DisplayName};
 
 use sable_model::non_blank::NonBlank;
+use sable_model::truncate::truncate_graphemes;
 use serde::Deserialize as _;
 use serde_with::serde_as;
 
@@ -174,16 +175,15 @@ fn profile_hero_color(response: &ProfileResponse) -> Option<String> {
 /// The MSC4426 unstable key first: `m.status` is not a spec identifier yet, so
 /// only older builds wrote it and it must not shadow the current status.
 fn profile_status(response: &ProfileResponse) -> Option<StatusView> {
-    const MAX_TEXT_CHARS: usize = 256;
-    const MAX_EMOJI_CHARS: usize = 32;
+    const MAX_TEXT_BYTES: usize = 256;
+    const MAX_EMOJI_BYTES: usize = 32;
 
+    let truncate = |text: String, max: usize| truncate_graphemes(&text, max).to_owned();
     let structured = |name| {
         let status = profile_object::<StructuredStatus>(response, name);
         Some(StatusView {
-            text: status.text?.chars().take(MAX_TEXT_CHARS).collect(),
-            emoji: status
-                .emoji
-                .map(|emoji| emoji.chars().take(MAX_EMOJI_CHARS).collect()),
+            text: truncate(status.text?, MAX_TEXT_BYTES),
+            emoji: status.emoji.map(|emoji| truncate(emoji, MAX_EMOJI_BYTES)),
         })
     };
 
@@ -191,7 +191,7 @@ fn profile_status(response: &ProfileResponse) -> Option<StatusView> {
         .or_else(|| structured(STABLE_STATUS_FIELD))
         .or_else(|| {
             profile_text(profile_field(response, COMMET_STATUS_FIELD)).map(|text| StatusView {
-                text: text.chars().take(MAX_TEXT_CHARS).collect(),
+                text: truncate(text, MAX_TEXT_BYTES),
                 emoji: None,
             })
         })
@@ -388,6 +388,19 @@ mod tests {
 
         let unstable = view(&json!({ "us.cloke.msc4175.tz": "Asia/Tokyo" }));
         assert_eq!(unstable.timezone.as_deref(), Some("Asia/Tokyo"));
+    }
+
+    #[test]
+    fn status_limits_count_utf8_bytes_on_char_boundaries() {
+        let profile = view(&json!({
+            "org.matrix.msc4426.status": { "text": "語".repeat(100), "emoji": "🌴".repeat(10) },
+        }));
+        let status = profile.status.unwrap();
+        assert_eq!(status.text, "語".repeat(85));
+        assert_eq!(status.emoji.as_deref(), Some("🌴".repeat(8).as_str()));
+
+        let legacy = view(&json!({ "chat.commet.profile_status": "é".repeat(200) }));
+        assert_eq!(legacy.status.unwrap().text, "é".repeat(128));
     }
 
     #[test]

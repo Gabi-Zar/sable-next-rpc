@@ -1,3 +1,5 @@
+import { graphemes } from '#lib/graphemes.js';
+
 const ESCAPES: Record<string, string> = {
   '&': '&amp;',
   '<': '&lt;',
@@ -22,11 +24,8 @@ function hslToHex(hue: number, saturation: number, lightness: number): string {
   return `#${channel(0)}${channel(8)}${channel(4)}`;
 }
 
-function graphemes(text: string): string[] {
-  if (typeof Intl.Segmenter !== 'function') return text.split('');
-
-  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
-  return [...segmenter.segment(text)].map((entry) => entry.segment);
+function splitGraphemes(text: string): string[] {
+  return Array.from(graphemes.segment(text), ({ segment }) => segment);
 }
 
 function visible(char: string): boolean {
@@ -38,7 +37,7 @@ function colourOf(index: number, total: number): string {
 }
 
 export function rainbowHtml(text: string): string {
-  const characters = graphemes(text);
+  const characters = splitGraphemes(text);
   const coloured = characters.filter(visible).length;
   if (coloured === 0) return escapeHtml(text);
 
@@ -63,7 +62,7 @@ export function rainbowFormatted(html: string): string {
   }
 
   const coloured = nodes.reduce(
-    (count, node) => count + graphemes(node.data).filter(visible).length,
+    (count, node) => count + splitGraphemes(node.data).filter(visible).length,
     0
   );
   if (coloured === 0) return html;
@@ -71,7 +70,7 @@ export function rainbowFormatted(html: string): string {
   let index = 0;
   for (const node of nodes) {
     const fragment = body.ownerDocument.createDocumentFragment();
-    for (const char of graphemes(node.data)) {
+    for (const char of splitGraphemes(node.data)) {
       if (!visible(char)) {
         fragment.append(char);
         continue;

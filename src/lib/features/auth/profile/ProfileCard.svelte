@@ -4,6 +4,7 @@
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
 
   import { i18n } from '#lib/i18n.js';
+  import { MAX_STATUS_TEXT_BYTES } from '#lib/profile/fields.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -155,7 +156,7 @@
         <TextInput
           id="profile-status"
           value={status}
-          maxlength={255}
+          maxlength={MAX_STATUS_TEXT_BYTES}
           placeholder={i18n.t('common.whatAreYouUpTo')}
           oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
             onStatus(event.currentTarget.value);

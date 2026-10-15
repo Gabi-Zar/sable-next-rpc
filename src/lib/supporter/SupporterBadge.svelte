@@ -4,6 +4,7 @@
   import type { ClassValue } from 'svelte/elements';
 
   import { SABLE_DONATE_URL } from '#lib/config/links.js';
+  import { graphemes } from '#lib/graphemes.js';
   import { i18n } from '#lib/i18n.js';
   import { overlayLayer } from '#lib/ui/overlay-layer.js';
   import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
@@ -43,11 +44,10 @@
   let { variant, color, colors, customCardColors, cardColor, buttonColor } = $derived(selected);
   const id = $props.id();
   let open = $state(false);
-  const nameSegments = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
   let donorName = $derived.by(() => {
     let shortened = '';
     let count = 0;
-    for (const { segment } of nameSegments.segment(name?.trim() || i18n.t('supporter.donor'))) {
+    for (const { segment } of graphemes.segment(name?.trim() || i18n.t('supporter.donor'))) {
       if (count++ === 24) return `${shortened}…`;
       shortened += segment;
     }

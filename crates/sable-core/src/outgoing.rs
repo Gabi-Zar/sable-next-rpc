@@ -15,6 +15,7 @@ use matrix_sdk::ruma::{OwnedEventId, OwnedMxcUri, OwnedRoomId};
 
 use crate::messages::outgoing_mentions;
 use crate::protocol::MessageKind;
+use sable_model::truncate::truncate_graphemes;
 
 pub(crate) fn thread_reply(
     in_reply_to: Option<OwnedEventId>,
@@ -172,14 +173,8 @@ pub(crate) fn reaction_shortcode(key: &str, shortcode: Option<&str>) -> Option<s
     if name.is_empty() {
         return None;
     }
-    let budget = MAX_REACTION_SHORTCODE_BYTES - 2;
-    let end = name
-        .char_indices()
-        .map(|(start, character)| start + character.len_utf8())
-        .take_while(|end| *end <= budget)
-        .last()?;
-    name.get(..end)
-        .map(|name| serde_json::Value::from(format!(":{name}:")))
+    let name = truncate_graphemes(name, MAX_REACTION_SHORTCODE_BYTES - 2);
+    (!name.is_empty()).then(|| serde_json::Value::from(format!(":{name}:")))
 }
 
 pub(crate) fn image_source_pack_extra(

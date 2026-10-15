@@ -4,6 +4,7 @@ use matrix_sdk::deserialized_responses::TimelineEvent;
 use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{EventId, OwnedEventId, OwnedRoomId};
+use sable_model::truncate::truncate_graphemes;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, serde_as};
@@ -163,12 +164,8 @@ fn shortcodes(events: &[TimelineEvent], target: &EventId) -> Vec<ReactionShortco
 
 fn normalized(shortcode: &str) -> Option<String> {
     let name = shortcode.trim().trim_matches(':').trim();
-    let end = name
-        .char_indices()
-        .map(|(start, character)| start + character.len_utf8())
-        .take_while(|end| *end <= MAX_SHORTCODE_BYTES)
-        .last()?;
-    name.get(..end).map(str::to_owned)
+    let name = truncate_graphemes(name, MAX_SHORTCODE_BYTES);
+    (!name.is_empty()).then(|| name.to_owned())
 }
 
 #[cfg(test)]

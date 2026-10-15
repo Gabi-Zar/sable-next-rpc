@@ -9,11 +9,13 @@
     BIO_FIELD,
     LEGACY_BIO_FIELDS,
     LEGACY_STATUS_FIELDS,
+    MAX_STATUS_TEXT_BYTES,
     NAME_COLOR_FIELD,
     PRONOUNS_FIELD,
     STATUS_FIELD,
     legacyDeletes,
     statusContent,
+    truncateUtf8,
   } from '#lib/profile/fields.js';
   import { MAX_PRONOUN_INPUT, pronounSets, pronounText } from '#lib/profile/pronouns.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -335,6 +337,7 @@
           propagate_to: preferences.profileChangePropagation,
         });
       }
+      draft.status = truncateUtf8(draft.status, MAX_STATUS_TEXT_BYTES);
       for (const [field, value] of fields()) await core.setProfileField(field, value);
       base = $state.snapshot(draft);
       setAvatar(null);
@@ -492,7 +495,7 @@
               bind:value={draft.status}
               aria-label={i18n.t('settings.status')}
               placeholder={i18n.t('common.whatAreYouUpTo')}
-              maxlength={256}
+              maxlength={MAX_STATUS_TEXT_BYTES}
             />
           {/snippet}
           {#snippet nameField()}

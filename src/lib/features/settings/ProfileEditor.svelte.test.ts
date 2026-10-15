@@ -115,3 +115,23 @@ test('a drag that starts on the card is cancelled so it cannot drop into a field
 
   expect(event.defaultPrevented).toBe(true);
 });
+
+test('a status over the byte limit is shown as it was saved', async () => {
+  const user = userEvent.setup();
+  const onSaved = mount();
+
+  const status = screen.getByLabelText('Status');
+  await user.click(status);
+  await user.paste('🌴'.repeat(100));
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+
+  await vi.waitFor(() => {
+    expect(onSaved).toHaveBeenCalled();
+  });
+  expect(setProfileField).toHaveBeenCalledWith('org.matrix.msc4426.status', {
+    text: '🌴'.repeat(64),
+    emoji: '',
+  });
+  expect(status).toHaveValue('🌴'.repeat(64));
+  expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+});
