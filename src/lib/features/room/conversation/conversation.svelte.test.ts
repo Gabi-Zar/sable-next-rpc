@@ -12,6 +12,7 @@ import { clearDrafts } from '#lib/composer/composer-drafts.svelte.js';
 import { adoptQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { ScheduledOriginalKept } from '#lib/features/composer/send-failure.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
+import { SlashError } from '#lib/features/composer/slash-commands.js';
 import * as runtime from '#lib/config/runtime-config.js';
 
 import * as messagesApi from '#lib/core/api/messages.svelte.js';
@@ -532,6 +533,57 @@ test('editing a pending message uses its transaction ID', async () => {
     'corrected',
     expect.objectContaining({ transactionId: 'transaction-1' })
   );
+});
+
+function ownMessage(eventId: string, body: string): TimelineItemView {
+  return withRowFields({
+    ...item(eventId, '@kris:example.org'),
+    content: { kind: 'message', body, html: `<p>${body}</p>` },
+  } as unknown as TimelineItemView);
+}
+
+test('s/old/new edits your last message when sed edits are on', async () => {
+  setPreference('sedEdits', true);
+  const { conversation, editMessage, sendMessage } = setup(
+    [
+      ownMessage('$first', 'one fish'),
+      item('$theirs', '@ana:example.org'),
+      ownMessage('$last', 'two fish'),
+    ],
+    '@kris:example.org'
+  );
+
+  await conversation.sendMessage(ROOM, 's/fish/cat');
+
+  expect(editMessage).toHaveBeenCalledWith(ROOM, '$last', 'two cat', expect.any(Object));
+  expect(sendMessage).not.toHaveBeenCalled();
+  setPreference('sedEdits', false);
+});
+
+test('s/old/new is sent as written when sed edits are off', async () => {
+  const { conversation, editMessage, sendMessage } = setup(
+    [ownMessage('$last', 'two fish')],
+    '@kris:example.org'
+  );
+
+  await conversation.sendMessage(ROOM, 's/fish/cat');
+
+  expect(editMessage).not.toHaveBeenCalled();
+  expect(sendMessage).toHaveBeenCalledWith(ROOM, 's/fish/cat', expect.any(Object));
+});
+
+test('s/old/new reports a last message that does not contain the text', async () => {
+  setPreference('sedEdits', true);
+  const { conversation, editMessage, sendMessage } = setup(
+    [ownMessage('$last', 'two fish')],
+    '@kris:example.org'
+  );
+
+  await expect(conversation.sendMessage(ROOM, 's/dog/cat')).rejects.toBeInstanceOf(SlashError);
+
+  expect(editMessage).not.toHaveBeenCalled();
+  expect(sendMessage).not.toHaveBeenCalled();
+  setPreference('sedEdits', false);
 });
 
 test('keeps an edited message kind and persona when returning to live drops its row', async () => {

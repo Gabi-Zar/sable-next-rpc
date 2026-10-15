@@ -92,6 +92,14 @@ export const composerCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'sedEdits',
+      section: 'writing',
+      icon: PencilSimpleIcon,
+      name: 'settings.sedEdits',
+      description: 'settings.sedEditsHint',
+      type: 'boolean',
+    },
+    {
       key: 'composerSpellcheck',
       section: 'writing',
       icon: ChecksIcon,

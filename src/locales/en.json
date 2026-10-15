@@ -2062,6 +2062,8 @@
     "enterSends": "Enter sends",
     "mentionInReplies": "Default reply notifications",
     "richTextComposer": "Format text as you type",
+    "sedEdits": "Edit your last message with s/old/new",
+    "sedEditsHint": "Sending s/old/new replaces the first match of old in your last message. The edited message loses its formatting.",
     "composerForm": "Composer height",
     "composerFormHint": "Follows the screen on small devices and expands with the input.",
     "composerFormTall": "Tall",
@@ -2790,6 +2792,7 @@
     "voicePermissionDenied": "Sable could not access your microphone. Check the site's microphone permission and try again.",
     "voiceUnavailable": "Voice messages are not supported in this browser.",
     "slashUnknown": "There is no /{{name}} command. Start a message with // to send a literal slash.",
+    "sedNoMatch": "Your last message does not contain that text.",
     "slashDeveloperOnly": "This command is available when developer controls are enabled.",
     "slashWildcardEmpty": "No member on {{server}} matches this room.",
     "slashFix": {

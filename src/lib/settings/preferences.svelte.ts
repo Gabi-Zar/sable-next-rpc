@@ -261,6 +261,7 @@ export interface Preferences {
   composerForm: ComposerForm;
   alwaysInlineEditor: boolean;
   enterForNewline: EnterKey;
+  sedEdits: boolean;
   mentionInReplies: boolean;
   formattingToolbar: boolean;
   composerFormatButton: boolean;
@@ -591,6 +592,7 @@ const DEFAULTS: Preferences = {
   composerForm: 'tall',
   alwaysInlineEditor: false,
   enterForNewline: 'adaptive',
+  sedEdits: false,
   mentionInReplies: true,
   formattingToolbar: false,
   composerFormatButton: true,

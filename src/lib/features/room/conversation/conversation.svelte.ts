@@ -25,7 +25,8 @@ import {
   isServerScheduleUnsupported,
   ScheduledOriginalKept,
 } from '#lib/features/composer/send-failure.js';
-import { runSlash } from '#lib/features/composer/slash-commands.js';
+import { applySed, parseSed, type SedEdit } from '#lib/features/composer/sed-edit.js';
+import { runSlash, SlashError } from '#lib/features/composer/slash-commands.js';
 import { knockPagePath } from '#lib/rooms/join-or-knock.js';
 import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
 import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages/reply-preview.js';
@@ -199,6 +200,13 @@ export class Conversation {
         }
       );
       this.forumTitle = '';
+      this.context = null;
+      return;
+    }
+
+    const sed = preferences.sedEdits ? parseSed(body) : null;
+    if (sed) {
+      await this.#sedEdit(targetRoomId, sed);
       this.context = null;
       return;
     }
@@ -641,6 +649,29 @@ export class Conversation {
       return true;
     }
     return false;
+  }
+
+  async #sedEdit(targetRoomId: string, sed: SedEdit): Promise<void> {
+    const userId = this.#core.session?.user_id;
+    const items = this.#timeline.items;
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const item = items[index];
+      const itemId = item.event_id ?? item.transaction_id;
+      if (!itemId || item.sender !== userId || item.content.kind !== 'message') continue;
+
+      const body = applySed(item.content.body, sed);
+      if (body === null) break;
+      await this.#beforeSend();
+      await editMessage(this.#core.rpc, targetRoomId, item.event_id, body, {
+        transactionId: item.event_id ? null : item.transaction_id,
+        kind: editedKind(item),
+        threadRoot: this.#threadRoot,
+        persona: item.per_message_profile ?? null,
+        forumTitle: item.forum_title ?? '',
+      });
+      return;
+    }
+    throw new SlashError('composer.sedNoMatch');
   }
 
   readonly editLast = (before?: string): void => {
