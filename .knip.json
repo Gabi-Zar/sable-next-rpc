@@ -16,7 +16,6 @@
   "ignoreDependencies": [
     "@fontsource-variable/nunito",
     "@sableclient/twemoji-font",
-    "binaryen",
     "wrangler",
     "@sentry/browser"
   ],

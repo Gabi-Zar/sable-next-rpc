@@ -172,6 +172,49 @@ checksum = "sha256:ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384
 url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
 url_api = "https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406736"
 
+[[tools."github:WebAssembly/binaryen"]]
+version = "133"
+backend = "github:WebAssembly/binaryen"
+specifiers = ["133"]
+
+[tools."github:WebAssembly/binaryen".options]
+version_prefix = "version_"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64"]
+checksum = "sha256:89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580038503"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-arm64-musl"]
+checksum = "sha256:89c07ea56faf38d0fbecf36ca8ec0721756716185f265b568e133d427f299bf8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-aarch64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580038503"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64"]
+checksum = "sha256:2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580050094"
+
+[tools."github:WebAssembly/binaryen"."platforms.linux-x64-musl"]
+checksum = "sha256:2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580050094"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-arm64"]
+checksum = "sha256:ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-arm64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039733"
+
+[tools."github:WebAssembly/binaryen"."platforms.macos-x64"]
+checksum = "sha256:13a9b90be775c6389ce3d1f879cb8627bea56708ba8c122983941d53a8199b95"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580039734"
+
+[tools."github:WebAssembly/binaryen"."platforms.windows-x64"]
+checksum = "sha256:17a2cbeac6b5693c5fbafab3838d3c65fd9c1eb38b05f5baec6c657e8c84995b"
+url = "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-windows.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/580050907"
+
 [[tools."github:bnjbvr/cargo-machete"]]
 version = "0.9.2"
 backend = "github:bnjbvr/cargo-machete"
