@@ -1052,7 +1052,9 @@
 
   .message.highlighted {
     --message-highlight-duration: 6s;
+  }
 
+  .message.highlighted:not(.mention-silent, .mention-loud) {
     border-radius: var(--radius);
   }
 
