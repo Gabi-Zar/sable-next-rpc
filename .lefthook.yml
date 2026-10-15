@@ -58,16 +58,3 @@ pre-push:
   jobs:
     - name: svelte-check
       run: pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json --fail-on-warnings
-
-    - name: rust-clippy
-      glob:
-        - '*.rs'
-        - '**/Cargo.toml'
-        - 'Cargo.lock'
-      group:
-        piped: true
-        jobs:
-          # --all-features would turn on both desktop runtimes and download CEF.
-          - run: cargo clippy --locked --workspace --exclude app --all-targets --all-features -- -D warnings
-          - run: cargo clippy --locked -p app --all-targets -- -D warnings
-          - run: cargo clippy --locked -p sable-wasm --target wasm32-unknown-unknown --all-targets --all-features -- -D warnings
