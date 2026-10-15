@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
 
@@ -53,6 +53,8 @@ pub(crate) struct State {
     emitted_members: Option<Vec<CallMemberView>>,
     backends: BTreeMap<String, CallBackendView>,
     pending_keys: Vec<PendingKey>,
+    latest_key_ts: HashMap<(String, u8), u64>,
+    rotation_due_ms: Option<u64>,
     distributor: Option<Arc<Mutex<KeyDistributor>>>,
     own_observed: bool,
     revision: u64,
@@ -91,6 +93,8 @@ impl State {
             emitted_members: None,
             backends: BTreeMap::new(),
             pending_keys: Vec::new(),
+            latest_key_ts: HashMap::new(),
+            rotation_due_ms: None,
             revision: 0,
             own_observed: false,
             intent,
@@ -887,6 +891,12 @@ async fn refresh(
                 })
         {
             verified.push(member);
+        } else {
+            tracing::info!(
+                user_id = %member.user_id,
+                device_id = %member.device_id,
+                "ignoring a call membership of a user who is not joined in the local room state"
+            );
         }
     }
     let own = if own.mode == CallMode::Legacy {
@@ -1118,11 +1128,39 @@ async fn publish_update(
             publisher_id,
         )
     };
-    if let Some(distributor) = distributor
-        && let Rolled::Rotated {
+    let Some(distributor) = distributor else {
+        return;
+    };
+    let rolled = distributor.lock().await.roll(room, &verified).await;
+    shared.lock().await.rotation_due_ms = match &rolled {
+        Rolled::Deferred { wait_ms } => Some(keys::now_ms().saturating_add(*wait_ms)),
+        _ => None,
+    };
+    match &rolled {
+        Rolled::Nothing => {}
+        Rolled::Deferred { wait_ms } => tracing::info!(
+            members = verified.len(),
+            wait_ms,
+            "deferred the call media key rotation until the previous key is in use"
+        ),
+        Rolled::Shared => tracing::info!(
+            members = verified.len(),
+            "shared the call media key with new members"
+        ),
+        Rolled::Rotated {
             announcement,
             first,
-        } = distributor.lock().await.roll(room, &verified).await
+        } => tracing::info!(
+            members = verified.len(),
+            index = announcement.index,
+            first,
+            "rotated the call media key"
+        ),
+    }
+    if let Rolled::Rotated {
+        announcement,
+        first,
+    } = rolled
     {
         let event = CoreEvent::CallEncryptionKey {
             session,
@@ -1189,6 +1227,20 @@ fn emit_pending(
         if let Some(member) = member
             && let Some(service) = member_service(member, &state.members)
         {
+            let slot = (member.identity.clone(), pending.content.keys.index);
+            if state
+                .latest_key_ts
+                .get(&slot)
+                .is_some_and(|latest| *latest > pending.content.sent_ts)
+            {
+                tracing::info!(
+                    sender = %pending.sender,
+                    index = pending.content.keys.index,
+                    "dropping an out of order call media key"
+                );
+                continue;
+            }
+            state.latest_key_ts.insert(slot, pending.content.sent_ts);
             let waited = keys::now_ms().saturating_sub(pending.received);
             if pending.reported {
                 tracing::warn!("a call media key resolved after {waited}ms");
@@ -1340,9 +1392,17 @@ fn updates(
         let mut sdk_sticky = room.sticky_events().subscribe();
         let mut sdk_sticky_open = true;
         loop {
+            let interval = {
+                let due = state.lock().await.rotation_due_ms;
+                due.map_or(UPDATE_INTERVAL, |due| {
+                    UPDATE_INTERVAL.min(Duration::from_millis(
+                        due.saturating_sub(keys::now_ms()).max(100),
+                    ))
+                })
+            };
             if let Some(sync) = sync.as_mut() {
                 let synced = tokio::select! {
-                    synced = sync.sync(&room, UPDATE_INTERVAL) => Some(synced),
+                    synced = sync.sync(&room, interval) => Some(synced),
                     () = wake.notified() => None,
                     update = sdk_sticky.recv(), if sdk_sticky_open => {
                         sdk_sticky_open = !matches!(update, Err(RecvError::Closed));
@@ -1371,7 +1431,7 @@ fn updates(
                 }
             } else {
                 tokio::select! {
-                    () = matrix_sdk::sleep::sleep(UPDATE_INTERVAL) => {}
+                    () = matrix_sdk::sleep::sleep(interval) => {}
                     () = wake.notified() => {}
                     update = sdk_sticky.recv(), if sdk_sticky_open => {
                         sdk_sticky_open = !matches!(update, Err(RecvError::Closed));

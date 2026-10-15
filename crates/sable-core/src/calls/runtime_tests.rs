@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use base64::Engine as _;
 use matrix_sdk::{
@@ -459,6 +462,8 @@ async fn an_element_call_peers_key_is_emitted_on_the_oldest_members_focus() {
         members,
         emitted_members: None,
         backends: BTreeMap::new(),
+        latest_key_ts: HashMap::new(),
+        rotation_due_ms: None,
         pending_keys: vec![super::PendingKey {
             sender: owned_user_id!("@genchu:federated.nexus"),
             device: owned_device_id!("spDmuPm52O"),
@@ -644,6 +649,8 @@ async fn refresh_fixture(
             emitted_members: None,
             backends,
             pending_keys: Vec::new(),
+            latest_key_ts: HashMap::new(),
+            rotation_due_ms: None,
             distributor: None,
             own_observed: observed,
             revision: 0,
@@ -1032,4 +1039,65 @@ async fn a_legacy_call_subscribes_to_another_focus_under_its_publishing_identity
     .unwrap();
 
     assert_eq!(provisioned.identity, own.identity);
+}
+
+#[tokio::test]
+async fn a_key_older_than_one_already_emitted_for_the_same_index_is_dropped() {
+    let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    let room_id = owned_room_id!("!call:example.org");
+    let pending = |sent_ts, fill: u8| super::PendingKey {
+        sender: owned_user_id!("@user:example.org"),
+        device: owned_device_id!("DEVICE"),
+        content: super::keys::ToDeviceCallEncryptionKeysEventContent {
+            keys: super::keys::KeyPayload {
+                index: 0,
+                key: base64::engine::general_purpose::STANDARD.encode([fill; 16]),
+            },
+            room_id: room_id.clone(),
+            member: super::keys::MemberRef {
+                claimed_device_id: "DEVICE".to_owned(),
+                id: None,
+            },
+            session: super::keys::SessionRef::default(),
+            sent_ts,
+        },
+        received: super::keys::now_ms(),
+        reported: false,
+    };
+    let mut state = State::new(
+        member(CallMode::Compatibility, 1, &[]),
+        vec![member(
+            CallMode::Compatibility,
+            1,
+            &["https://sfu.example.org"],
+        )],
+        super::StickyMemberships::default(),
+        &room_id,
+        false,
+        None,
+        false,
+    );
+
+    state.pending_keys = vec![pending(200, 2), pending(100, 1)];
+    super::emit_pending(&core, 1, CallSessionId(1), &room_id, &mut state);
+
+    let Ok(crate::protocol::CoreEvent::CallEncryptionKey { key, .. }) = events.try_recv() else {
+        panic!("the newer key is emitted");
+    };
+    assert_eq!(
+        key,
+        base64::engine::general_purpose::STANDARD.encode([2u8; 16])
+    );
+    assert_eq!(
+        events.try_recv().unwrap_err(),
+        tokio::sync::mpsc::error::TryRecvError::Empty,
+        "the older key for the same index is dropped"
+    );
+
+    state.pending_keys.push(pending(300, 3));
+    super::emit_pending(&core, 1, CallSessionId(1), &room_id, &mut state);
+    assert!(matches!(
+        events.try_recv(),
+        Ok(crate::protocol::CoreEvent::CallEncryptionKey { .. })
+    ));
 }

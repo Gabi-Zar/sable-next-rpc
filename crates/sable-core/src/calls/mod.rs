@@ -47,7 +47,7 @@ const HANGUP_DELAY: Duration = Duration::from_secs(20);
 const HANGUP_POSTPONE_INTERVAL: Duration = Duration::from_secs(5);
 const HANGUP_RETRY_BACKOFF: Duration = Duration::from_secs(1);
 const HANGUP_RETRY_BUDGET: Duration = Duration::from_secs(12);
-const USE_KEY_DELAY: Duration = Duration::from_secs(1);
+const USE_KEY_DELAY: Duration = Duration::from_millis(keys::USE_KEY_DELAY_MS);
 
 const APPLICATION_SUFFIX: &str = "m.call";
 

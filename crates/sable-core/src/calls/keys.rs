@@ -11,6 +11,7 @@ use super::membership::CallMember;
 
 pub(crate) const KEY_BYTES: usize = 16;
 pub(crate) const ROTATION_GRACE_MS: u64 = 10_000;
+pub(crate) const USE_KEY_DELAY_MS: u64 = 5_000;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct KeyPayload {
@@ -161,6 +162,15 @@ pub(crate) fn plan_rollout(
     }
 }
 
+pub(crate) fn rotation_wait_ms(
+    current: Option<&OutboundKey>,
+    now_ms: u64,
+    delay_ms: u64,
+) -> Option<u64> {
+    let age = now_ms.saturating_sub(current?.created_ts);
+    (age < delay_ms).then(|| delay_ms - age)
+}
+
 fn rejoined(shared: &CallMember, members: &[CallMember]) -> bool {
     members.iter().any(|member| {
         member.user_id == shared.user_id
@@ -178,6 +188,9 @@ pub(crate) struct Announcement {
 pub(crate) enum Rolled {
     Nothing,
     Shared,
+    Deferred {
+        wait_ms: u64,
+    },
     Rotated {
         announcement: Announcement,
         first: bool,
@@ -215,22 +228,17 @@ impl KeyDistributor {
         match plan_rollout(self.outbound.as_ref(), members, now_ms(), ROTATION_GRACE_MS) {
             Rollout::Unchanged => Rolled::Nothing,
             Rollout::Share { targets } => {
-                let Some(key) = self.outbound.clone() else {
-                    return Rolled::Nothing;
-                };
-                let reached = self.send(room, &key, &targets).await;
-                if let Some(outbound) = self.outbound.as_mut() {
-                    let unreached = unreached(&targets, &reached);
-                    warn_unreached(&unreached, &outbound.failed);
-                    outbound.failed.retain(|failed| {
-                        !targets.iter().any(|target| target.same_generation(failed))
-                    });
-                    outbound.failed.extend(unreached);
-                    outbound.shared_with.extend(reached);
-                }
+                self.share_current(room, &targets).await;
                 Rolled::Shared
             }
             Rollout::Rotate { targets } => {
+                if let Some(wait_ms) =
+                    rotation_wait_ms(self.outbound.as_ref(), now_ms(), USE_KEY_DELAY_MS)
+                {
+                    let fresh = self.unshared(&targets);
+                    self.share_current(room, &fresh).await;
+                    return Rolled::Deferred { wait_ms };
+                }
                 let first = self.outbound.is_none();
                 let index = OutboundKey::next_index(self.outbound.as_ref());
                 let Ok(key) = OutboundKey::generate(index, now_ms()) else {
@@ -257,6 +265,37 @@ impl KeyDistributor {
                     first,
                 }
             }
+        }
+    }
+
+    fn unshared(&self, members: &[CallMember]) -> Vec<CallMember> {
+        let shared = self
+            .outbound
+            .as_ref()
+            .map_or(&[][..], |key| &key.shared_with);
+        members
+            .iter()
+            .filter(|member| !shared.iter().any(|shared| shared.same_generation(member)))
+            .cloned()
+            .collect()
+    }
+
+    async fn share_current(&mut self, room: &Room, targets: &[CallMember]) {
+        let Some(key) = self.outbound.clone() else {
+            return;
+        };
+        if targets.is_empty() {
+            return;
+        }
+        let reached = self.send(room, &key, targets).await;
+        if let Some(outbound) = self.outbound.as_mut() {
+            let unreached = unreached(targets, &reached);
+            warn_unreached(&unreached, &outbound.failed);
+            outbound
+                .failed
+                .retain(|failed| !targets.iter().any(|target| target.same_generation(failed)));
+            outbound.failed.extend(unreached);
+            outbound.shared_with.extend(reached);
         }
     }
 
@@ -395,7 +434,7 @@ mod tests {
     use super::super::membership::CallMember;
     use super::{
         KEY_BYTES, OutboundKey, Rollout, SessionRef, ToDeviceCallEncryptionKeysEventContent,
-        decode_key, plan_rollout,
+        decode_key, plan_rollout, rotation_wait_ms,
     };
 
     fn member(device: &str, created_ts: u64) -> CallMember {
@@ -624,6 +663,17 @@ mod tests {
             .is_legacy_room_call()
         );
     }
+
+    #[test]
+    fn test_a_rotation_waits_until_the_previous_key_is_in_use() {
+        let key = OutboundKey::generate(0, 1_000).unwrap();
+
+        assert_eq!(rotation_wait_ms(None, 1_000, 5_000), None);
+        assert_eq!(rotation_wait_ms(Some(&key), 1_000, 5_000), Some(5_000));
+        assert_eq!(rotation_wait_ms(Some(&key), 3_000, 5_000), Some(3_000));
+        assert_eq!(rotation_wait_ms(Some(&key), 6_000, 5_000), None);
+        assert_eq!(rotation_wait_ms(Some(&key), 500, 5_000), Some(5_000));
+    }
 }
 
 #[cfg(all(test, not(target_family = "wasm")))]
@@ -636,7 +686,7 @@ mod sdk_tests {
     use wiremock::{Mock, ResponseTemplate};
 
     use super::super::membership::CallMember;
-    use super::{KeyDistributor, OutboundKey};
+    use super::{KeyDistributor, OutboundKey, Rolled, now_ms};
 
     fn member(user_id: &str, device_id: &str) -> CallMember {
         CallMember {
@@ -701,5 +751,46 @@ mod sdk_tests {
             .await;
 
         assert_eq!(reached, vec![bob_member]);
+    }
+
+    #[tokio::test]
+    async fn a_leave_right_after_a_rotation_is_rotated_once_the_key_is_in_use() {
+        let server = MatrixMockServer::new().await;
+        let alice = server
+            .client_builder_for_crypto_end_to_end(
+                user_id!("@alice:example.org"),
+                device_id!("ALICE"),
+            )
+            .build()
+            .await;
+        let room = server
+            .sync_joined_room(&alice, room_id!("!call:example.org"))
+            .await;
+        let me = member("@alice:example.org", "ALICE");
+        let leaver = member("@bob:example.org", "BOB");
+        let mut distributor = KeyDistributor::new(
+            owned_room_id!("!call:example.org"),
+            owned_user_id!("@alice:example.org"),
+            "ALICE".into(),
+            me.identity.clone(),
+            me.identity.clone(),
+        );
+        distributor.outbound = Some(OutboundKey {
+            shared_with: vec![me.clone(), leaver],
+            ..OutboundKey::generate(4, now_ms()).unwrap()
+        });
+
+        let rolled = distributor.roll(&room, std::slice::from_ref(&me)).await;
+
+        assert!(matches!(rolled, Rolled::Deferred { wait_ms } if wait_ms > 0));
+        assert_eq!(distributor.outbound.as_ref().unwrap().index, 4);
+
+        distributor.outbound.as_mut().unwrap().created_ts = 0;
+        let rolled = distributor.roll(&room, std::slice::from_ref(&me)).await;
+
+        assert!(matches!(
+            rolled,
+            Rolled::Rotated { announcement, first: false } if announcement.index == 5
+        ));
     }
 }
