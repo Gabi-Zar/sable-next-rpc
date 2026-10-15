@@ -126,6 +126,10 @@
     padding-inline: var(--space-200);
   }
 
+  .timeline-preview-sample.spacing-none {
+    --timeline-row-padding: 0;
+  }
+
   .timeline-preview-sample.spacing-compact {
     --timeline-row-padding: var(--space-050);
   }

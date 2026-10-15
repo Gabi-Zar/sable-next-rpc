@@ -25,6 +25,7 @@ export const TIMELINE_LAYOUT_STYLE = [
 
 export function timelineLayoutStyle(spacing: MessageSpacing): string {
   const padding = {
+    none: '0',
     compact: 'var(--space-050)',
     cozy: 'var(--space-100)',
     roomy: 'var(--space-200)',

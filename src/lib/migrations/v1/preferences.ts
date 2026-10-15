@@ -85,11 +85,13 @@ export function convertV1Preferences(source: Record<string, unknown>): Record<st
     ['0', '100', '200', '300', '400', '500'].includes(source.messageSpacing)
   ) {
     next.messageSpacing =
-      Number(source.messageSpacing) <= 200
-        ? 'compact'
-        : source.messageSpacing === '500'
-          ? 'roomy'
-          : 'cozy';
+      source.messageSpacing === '0'
+        ? 'none'
+        : Number(source.messageSpacing) <= 200
+          ? 'compact'
+          : source.messageSpacing === '500'
+            ? 'roomy'
+            : 'cozy';
   }
   if (source.useSystemTheme === true) next.theme = 'system';
   else if (source.themeId === 'dark-theme' || source.themeId === 'light-theme')

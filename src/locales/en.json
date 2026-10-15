@@ -1969,6 +1969,7 @@
     "language": "Language",
     "theme": "Light or dark",
     "messageSpacing": "Message spacing",
+    "spacingNone": "None",
     "spacingCompact": "Compact",
     "spacingCozy": "Cozy",
     "spacingRoomy": "Roomy",

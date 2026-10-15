@@ -6,6 +6,7 @@ import {
   mediaColumnPx,
   TIMELINE_LAYOUT,
   TIMELINE_LAYOUT_STYLE,
+  timelineLayoutStyle,
 } from './timeline-layout';
 
 const MEDIA_MAX_PX = TIMELINE_LAYOUT.mediaMaxRem * 16;
@@ -105,4 +106,14 @@ test('falls back to the measured mean for a row whose height it cannot predict',
       mediaColumnPx(320)
     )
   ).toBeUndefined();
+});
+
+test('each spacing preset sets its own row padding, down to none', () => {
+  const padding = (spacing: Parameters<typeof timelineLayoutStyle>[0]): string | undefined =>
+    /--timeline-row-padding:([^;]+)/.exec(timelineLayoutStyle(spacing))?.[1];
+
+  expect(padding('none')).toBe('0');
+  expect(padding('compact')).toBe('var(--space-050)');
+  expect(padding('cozy')).toBe('var(--space-100)');
+  expect(padding('roomy')).toBe('var(--space-200)');
 });

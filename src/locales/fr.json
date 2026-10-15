@@ -1336,6 +1336,7 @@
     "language": "Langue",
     "theme": "Thème",
     "messageSpacing": "Espacement des messages",
+    "spacingNone": "Aucun",
     "spacingCompact": "Compact",
     "spacingCozy": "Confortable",
     "spacingRoomy": "Aéré",

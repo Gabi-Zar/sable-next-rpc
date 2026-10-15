@@ -15,7 +15,7 @@ export type { BadgeNotificationMode };
 
 export type ThreadPresentation = 'timeline' | 'panel';
 export type TimelineLayout = 'modern' | 'compact' | 'bubble';
-export type MessageSpacing = 'compact' | 'cozy' | 'roomy';
+export type MessageSpacing = 'none' | 'compact' | 'cozy' | 'roomy';
 export type MediaAutoLoad = 'on' | 'private' | 'off';
 export type ImageMetadata = 'location' | 'all' | 'keep';
 export type TimelineEmoteSize = 'default' | '20' | '24' | '32' | '48' | '64';
@@ -421,7 +421,7 @@ const ENUMS = {
   language: languageValues,
   layout: ['modern', 'compact', 'bubble'],
   threadPresentation: ['timeline', 'panel'],
-  messageSpacing: ['compact', 'cozy', 'roomy'],
+  messageSpacing: ['none', 'compact', 'cozy', 'roomy'],
   timelineEmoteSize: ['default', '20', '24', '32', '48', '64'],
   theme: ['system', 'dark', 'light'],
   dateFormat: ['auto', 'dmy', 'mdy', 'ymd'],

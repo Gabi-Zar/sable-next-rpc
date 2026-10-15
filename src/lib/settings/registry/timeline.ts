@@ -94,6 +94,7 @@ export const timelineCategory: SettingsCategory = {
       name: 'settings.messageSpacing',
       type: 'select',
       options: [
+        { value: 'none', label: 'settings.spacingNone' },
         { value: 'compact', label: 'settings.spacingCompact' },
         { value: 'cozy', label: 'settings.spacingCozy' },
         { value: 'roomy', label: 'settings.spacingRoomy' },

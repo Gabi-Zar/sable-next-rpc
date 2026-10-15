@@ -59,3 +59,16 @@ test('invalid v1 settings cannot replace valid v2 defaults', async () => {
   const { preferences } = await import('#lib/settings/preferences.svelte.js');
   expect(preferences).toMatchObject({ pageZoom: 1, layout: 'modern', twitterEmoji: true });
 });
+
+test.each([
+  ['0', 'none'],
+  ['100', 'compact'],
+  ['200', 'compact'],
+  ['300', 'cozy'],
+  ['400', 'cozy'],
+  ['500', 'roomy'],
+])('v1 message spacing %s becomes %s', async (v1, v2) => {
+  localStorage.setItem('settings', JSON.stringify({ messageSpacing: v1 }));
+  const { preferences } = await import('#lib/settings/preferences.svelte.js');
+  expect(preferences.messageSpacing).toBe(v2);
+});
