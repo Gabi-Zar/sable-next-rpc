@@ -1,8 +1,10 @@
 import MicrophoneIcon from 'phosphor-svelte/lib/MicrophoneIcon';
 import MonitorIcon from 'phosphor-svelte/lib/MonitorIcon';
+import NetworkIcon from 'phosphor-svelte/lib/NetworkIcon';
 import PhoneIcon from 'phosphor-svelte/lib/PhoneIcon';
 import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
 import { hasNativeCalls } from '#lib/platform/calls.js';
+import { isElectron } from '#lib/platform/electron.js';
 import {
   CALL_SCREEN_FRAMERATES,
   CALL_VIDEO_BITRATES,
@@ -206,6 +208,24 @@ export const callsCategory: SettingsCategory = {
         { value: 'compatibility', label: 'settings.callModeCompatibility' },
         { value: 'matrix_2', label: 'settings.callModeMatrix2' },
       ],
+    },
+    {
+      key: 'webRtcIpPolicy',
+      section: 'call-compat',
+      icon: NetworkIcon,
+      name: 'settings.webRtcIpPolicy',
+      description: 'settings.webRtcIpPolicyHint',
+      type: 'select',
+      options: [
+        { value: 'default', label: 'settings.webRtcIpPolicyDefault' },
+        {
+          value: 'default_public_and_private_interfaces',
+          label: 'settings.webRtcIpPolicyPrivate',
+        },
+        { value: 'default_public_interface_only', label: 'settings.webRtcIpPolicyPublic' },
+        { value: 'disable_non_proxied_udp', label: 'settings.webRtcIpPolicyProxied' },
+      ],
+      supported: isElectron,
     },
   ],
 };

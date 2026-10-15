@@ -86,6 +86,13 @@ export const CALL_VIDEO_BITRATES = [
 ] as const;
 export const CALL_VIDEO_CODECS = ['auto', 'vp8', 'h264', 'vp9', 'av1'] as const;
 export const CALL_SCREEN_FRAMERATES = ['auto', '15', '30', '60'] as const;
+export const WEBRTC_IP_POLICIES = [
+  'default',
+  'default_public_and_private_interfaces',
+  'default_public_interface_only',
+  'disable_non_proxied_udp',
+] as const;
+export type WebRtcIpPolicy = (typeof WEBRTC_IP_POLICIES)[number];
 export type CallScreenFramerate = (typeof CALL_SCREEN_FRAMERATES)[number];
 export type CallVideoResolution = (typeof CALL_VIDEO_RESOLUTIONS)[number];
 export type CallVideoBitrate = (typeof CALL_VIDEO_BITRATES)[number];
@@ -381,6 +388,9 @@ export interface Preferences {
   minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
   useCustomTitleBar: boolean;
+  hardwareAcceleration: boolean;
+  hardwareVideoAcceleration: boolean;
+  webRtcIpPolicy: WebRtcIpPolicy;
 
   settingsSync: boolean;
   syncDrafts: boolean;
@@ -463,6 +473,7 @@ const ENUMS = {
   callScreenBitrate: CALL_VIDEO_BITRATES,
   callScreenFramerate: CALL_SCREEN_FRAMERATES,
   callScreenCodec: CALL_VIDEO_CODECS,
+  webRtcIpPolicy: WEBRTC_IP_POLICIES,
   dearrowThumbnailFallback: DEARROW_THUMBNAIL_FALLBACKS,
   youtubeThumbnailPosition: YOUTUBE_THUMBNAIL_POSITIONS,
   badgeDefaultDirect: ['all', 'mentions', 'quiet'],
@@ -713,6 +724,9 @@ const DEFAULTS: Preferences = {
   minimizeToTray: false,
   showSystemTrayIcon: true,
   useCustomTitleBar: customTitleBarDefault(),
+  hardwareAcceleration: true,
+  hardwareVideoAcceleration: true,
+  webRtcIpPolicy: 'default',
 
   settingsSync: false,
   syncDrafts: true,

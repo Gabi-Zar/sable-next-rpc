@@ -30,6 +30,7 @@
     supportsDesktopWindow,
     titleBarKind,
   } from '#lib/platform/window-decorations.js';
+  import { electronBridge } from '#lib/platform/electron.js';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { applyDeploymentDefaults, preferences } from '#lib/settings/preferences.svelte.js';
   import {
@@ -113,6 +114,14 @@
       useCustomTitleBar: preferences.useCustomTitleBar,
     }).catch((error: unknown) => {
       console.debug('[sable window] the desktop window settings were not applied', error);
+    });
+  });
+
+  $effect(() => {
+    electronBridge()?.applySettings({
+      hardwareAcceleration: preferences.hardwareAcceleration,
+      hardwareVideoAcceleration: preferences.hardwareVideoAcceleration,
+      webRtcIpPolicy: preferences.webRtcIpPolicy,
     });
   });
 

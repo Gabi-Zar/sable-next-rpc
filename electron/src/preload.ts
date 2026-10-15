@@ -1,0 +1,58 @@
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+
+interface ScreenShareCandidate {
+  id: string;
+  name: string;
+  thumbnail: string;
+}
+
+type ScreenSharePick = (sources: ScreenShareCandidate[]) => Promise<string | null>;
+
+let screenSharePick: ScreenSharePick | null = null;
+
+ipcRenderer.on('sable-pick-screen', (_event, request: number, sources: ScreenShareCandidate[]) => {
+  const pick = screenSharePick ?? (() => Promise.resolve(null));
+  void pick(sources)
+    .catch(() => null)
+    .then((id) => {
+      ipcRenderer.send('sable-screen-picked', request, id);
+    });
+});
+
+contextBridge.exposeInMainWorld('sableElectron', {
+  platform: process.platform,
+  applySettings: (settings: unknown) => {
+    ipcRenderer.send('sable-apply-settings', settings);
+  },
+  takeDeepLinks: () => ipcRenderer.invoke('sable-take-deep-links') as Promise<string[]>,
+  onDeepLinks: (callback: (urls: string[]) => void) => {
+    const listener = (_event: IpcRendererEvent, urls: string[]) => {
+      callback(urls);
+    };
+    ipcRenderer.on('sable-deep-links', listener);
+    ipcRenderer.send('sable-deep-links-listening');
+    return () => {
+      ipcRenderer.removeListener('sable-deep-links', listener);
+    };
+  },
+  screenAudioApps: () => ipcRenderer.invoke('sable-screen-audio-apps') as Promise<string[]>,
+  startScreenAudio: (selection: unknown) =>
+    ipcRenderer.invoke('sable-screen-audio-start', selection) as Promise<string>,
+  stopScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-stop') as Promise<void>,
+  onScreenSharePick: (pick: ScreenSharePick) => {
+    screenSharePick = pick;
+    return () => {
+      if (screenSharePick === pick) screenSharePick = null;
+    };
+  },
+});
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window || event.data !== 'sable-core-connect') return;
+  if (event.ports.length !== 1) return;
+  ipcRenderer.postMessage('sable-core-connect', null, [...event.ports]);
+});
+
+ipcRenderer.on('sable-core-exit', (_event, message: string) => {
+  window.postMessage({ sableCoreExit: message }, window.location.origin);
+});

@@ -1,6 +1,17 @@
+packages:
+  - .
+  - electron
+
+hoistPattern:
+  - '*'
+  - '!electron'
+
 allowBuilds:
   '@sentry/cli': true
+  '@vencord/venmic': false
   cpu-features: false
+  electron: true
+  electron-winstaller: false
   esbuild: true
   lightningcss: true
   protobufjs: false

@@ -1,4 +1,5 @@
 dist
+electron/release
 coverage
 node_modules
 .svelte-kit

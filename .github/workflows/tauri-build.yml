@@ -213,6 +213,67 @@ jobs:
           bundles=()
           while IFS= read -r bundle; do bundles+=("$bundle"); done < bundles
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
+  electron:
+    name: ${{ matrix.name }} (Electron)
+    needs: [setup-release, build-web]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x86_64
+            runner: windows-latest
+            platform: --win
+            artifact: electron-windows-x86_64
+            bundles: |
+              electron/release/*.exe
+              electron/release/*.msi
+          - name: Linux aarch64
+            runner: ubuntu-24.04-arm
+            platform: --linux
+            artifact: electron-linux-aarch64
+            bundles: |
+              electron/release/*.deb
+              electron/release/*.rpm
+              electron/release/*.AppImage
+    env:
+      VERSION: ${{ needs.setup-release.outputs.version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Download web assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: web-assets
+      - name: Install Linux build dependencies
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config rpm
+      - name: Set up app
+        uses: ./.github/actions/setup
+        with:
+          rust: 'true'
+          rust-cache-key: electron-${{ runner.os }}
+          install-mise-tools: 'false'
+      - name: Package
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: pnpm --dir electron package "$PLATFORM"
+      - name: Upload bundles
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.bundles }}
+          if-no-files-found: error
+          retention-days: 7
   linux:
     name: Linux aarch64 (CEF)
     needs: [setup-release, build-web]
