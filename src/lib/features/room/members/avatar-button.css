@@ -5,6 +5,7 @@
   cursor: pointer;
   display: flex;
   flex: 0 0 auto;
+  max-height: fit-content;
   padding: 0;
 }
 
