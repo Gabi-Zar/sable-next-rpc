@@ -48,3 +48,27 @@ test('removing a trigger keeps the remaining rows and saves them unchanged', asy
     'kris'
   );
 });
+
+test('spaces inside a trigger survive saving while the outer edges are trimmed', async () => {
+  const onSave = vi.fn(() => Promise.resolve());
+  const user = userEvent.setup();
+  render(PersonaEditor, { open: true, persona, onSave, onOpenChange: vi.fn() });
+
+  const before = await screen.findAllByRole('textbox', { name: 'Before' });
+  const after = await screen.findAllByRole('textbox', { name: 'After' });
+  await user.clear(before[0]);
+  await user.type(before[0], '  kr: ');
+  await user.clear(after[1]);
+  await user.type(after[1], ' -kr  ');
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+
+  expect(onSave).toHaveBeenCalledWith(
+    expect.objectContaining({
+      triggers: [
+        { prefix: 'kr: ', suffix: null, keep_trigger: false },
+        { prefix: null, suffix: ' -kr', keep_trigger: true },
+      ],
+    }),
+    'kris'
+  );
+});

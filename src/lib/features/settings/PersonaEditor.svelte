@@ -106,8 +106,8 @@
           color_on_dark: colorDark.trim() || null,
           triggers: triggers
             .map((trigger) => ({
-              prefix: trigger.prefix?.trim() || null,
-              suffix: trigger.suffix?.trim() || null,
+              prefix: trigger.prefix?.trimStart() || null,
+              suffix: trigger.suffix?.trimEnd() || null,
               keep_trigger: trigger.keep_trigger,
             }))
             .filter((trigger) => trigger.prefix !== null || trigger.suffix !== null),
