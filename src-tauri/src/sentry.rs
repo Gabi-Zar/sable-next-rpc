@@ -182,6 +182,8 @@ fn scrub_log(mut log: sentry::protocol::Log) -> sentry::protocol::Log {
     log
 }
 
+const OLM_ACCOUNT: &str = "matrix_sdk_crypto::olm::account";
+
 pub fn tracing_filter(
     metadata: &tracing::Metadata<'_>,
 ) -> sentry::integrations::tracing::EventFilter {
@@ -194,6 +196,10 @@ pub fn tracing_filter(
         || metadata.target().starts_with("matrix_sdk::http_client")
     {
         return EventFilter::Ignore;
+    }
+    // Only a warning in the SDK, but the room keys it carried are lost.
+    if metadata.target() == OLM_ACCOUNT && *metadata.level() == tracing::Level::WARN {
+        return EventFilter::Event | EventFilter::Log;
     }
     match *metadata.level() {
         tracing::Level::ERROR => EventFilter::Event | EventFilter::Log,
@@ -269,8 +275,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn reports_tauri_plugin_core_and_sdk_errors_with_warning_breadcrumbs() {
+    fn record(emit: impl FnOnce()) -> Arc<RecordingTransport> {
         use tracing_subscriber::prelude::*;
 
         let transport = Arc::new(RecordingTransport::default());
@@ -286,18 +291,22 @@ mod tests {
         ));
         let subscriber = tracing_subscriber::registry()
             .with(sentry::integrations::tracing::layer().event_filter(tracing_filter));
-        sentry::Hub::run(hub, || {
-            tracing::subscriber::with_default(subscriber, || {
-                tracing::warn!(target: "tauri_plugin_updater", "updater retry");
-                tracing::error!(target: "app_lib", room_id = "!private:example.org", access_token = "secret", error = "GET /rooms/%21private%3Aexample.org/messages", "tauri command failed");
-                tracing::error!(target: "tauri_plugin_updater", "update failed");
-                tracing::error!(target: "sable_core", "core failed");
-                tracing::error!(target: "matrix_sdk::encryption", "encryption failed");
-                tracing::error!(target: "matrix_sdk::latest_events", "known noisy event");
-                tracing::error!(target: "matrix_sdk::http_client", "Error while sending request");
-            });
-        });
+        sentry::Hub::run(hub, || tracing::subscriber::with_default(subscriber, emit));
         assert!(client.flush(Some(std::time::Duration::from_secs(1))));
+        transport
+    }
+
+    #[test]
+    fn reports_tauri_plugin_core_and_sdk_errors_with_warning_breadcrumbs() {
+        let transport = record(|| {
+            tracing::warn!(target: "tauri_plugin_updater", "updater retry");
+            tracing::error!(target: "app_lib", room_id = "!private:example.org", access_token = "secret", error = "GET /rooms/%21private%3Aexample.org/messages", "tauri command failed");
+            tracing::error!(target: "tauri_plugin_updater", "update failed");
+            tracing::error!(target: "sable_core", "core failed");
+            tracing::error!(target: "matrix_sdk::encryption", "encryption failed");
+            tracing::error!(target: "matrix_sdk::latest_events", "known noisy event");
+            tracing::error!(target: "matrix_sdk::http_client", "Error while sending request");
+        });
         let envelopes = transport.0.lock().unwrap();
         let events: Vec<_> = envelopes
             .iter()
@@ -328,6 +337,28 @@ mod tests {
         assert_eq!(logs.len(), 5);
         assert!(logs.contains(&"update failed"));
         assert!(!logs.contains(&"Error while sending request"));
+    }
+
+    #[test]
+    fn reports_an_undecryptable_to_device_message_but_not_other_sdk_warnings() {
+        let transport = record(|| {
+            tracing::warn!(
+                target: "matrix_sdk_crypto::olm::account",
+                "Failed to decrypt a non-pre-key message with all available sessions"
+            );
+            tracing::warn!(target: "matrix_sdk_crypto::machine", "a routine warning");
+        });
+        let envelopes = transport.0.lock().unwrap();
+        let events: Vec<_> = envelopes
+            .iter()
+            .filter_map(sentry::Envelope::event)
+            .collect();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].message.as_deref(),
+            Some("Failed to decrypt a non-pre-key message with all available sessions")
+        );
     }
 
     #[test]

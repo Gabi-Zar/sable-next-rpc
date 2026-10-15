@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
-import { wasmErrorFingerprint, wasmErrorTitle, wasmLogLevel } from './wasm-log';
+import {
+  isUndecryptableToDevice,
+  wasmErrorFingerprint,
+  wasmErrorTitle,
+  wasmLogLevel,
+} from './wasm-log';
 
 const REMOVE_7 =
   'ERROR room_updates_task{room_id="!a:b.org"}:remove_events: matrix_sdk: failed to remove duplicated events: The item index is invalid: `7`';
@@ -17,6 +22,22 @@ describe('wasmLogLevel', () => {
 
   test('does not read a level out of the message', () => {
     expect(wasmLogLevel('INFO sable_core: an ERROR was handled')).toBe('info');
+  });
+});
+
+describe('isUndecryptableToDevice', () => {
+  test('reads an Olm decryption warning as a lost to-device message', () => {
+    const line =
+      'WARN sync_once{conn_id="encryption"}:receive_sync_changes: matrix_sdk_crypto::olm::account: Failed to decrypt a non-pre-key message with all available sessions';
+    expect(isUndecryptableToDevice(line)).toBe(true);
+    expect(wasmErrorTitle(line)).toMatch(/^sync_once/);
+  });
+
+  test('leaves other crypto warnings alone', () => {
+    expect(isUndecryptableToDevice('WARN matrix_sdk_crypto::machine: careful')).toBe(false);
+    expect(
+      isUndecryptableToDevice('INFO matrix_sdk_crypto::olm::account: uploaded one-time keys')
+    ).toBe(false);
   });
 });
 

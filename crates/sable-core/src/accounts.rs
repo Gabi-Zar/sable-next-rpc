@@ -121,7 +121,8 @@ impl Core {
         if account.needs_reauth {
             return Ok(None);
         }
-        let client = self.saved_account_client(&account).await?;
+        let lease = session::store_lease(&account.store_id).await;
+        let client = self.saved_account_client(&account, &lease).await?;
         let persisted = account.session;
 
         let info = SessionInfo {
@@ -142,6 +143,7 @@ impl Core {
             persisted.homeserver,
             account.account_id,
             generation.value(),
+            &lease,
         )
         .await?;
 
@@ -202,7 +204,8 @@ impl Core {
         if account.needs_reauth {
             return Err(RpcError::NotLoggedIn);
         }
-        let client = self.saved_account_client(&account).await?;
+        let lease = session::store_lease(&account.store_id).await;
+        let client = self.saved_account_client(&account, &lease).await?;
         let persisted = account.session;
         let info = SessionInfo {
             account_id: account.account_id.clone(),
@@ -224,6 +227,7 @@ impl Core {
             persisted.homeserver,
             account.account_id,
             generation.value(),
+            &lease,
         )
         .await?;
         Ok(info)
@@ -459,9 +463,10 @@ impl Core {
         Ok(())
     }
 
-    async fn saved_account_client(
+    pub(crate) async fn saved_account_client(
         self: &Arc<Self>,
         account: &PersistedAccount,
+        _lease: &session::StoreLease,
     ) -> Result<matrix_sdk::Client, RpcError> {
         let cached = self
             .account_clients
@@ -727,12 +732,20 @@ impl Core {
         persisted: PersistedSession,
         reauth: Option<&PersistedAccount>,
     ) -> Result<SessionGeneration<'_>, RpcError> {
+        // Pushes can find the login once it is persisted.
+        let lease = session::store_lease(store_id).await;
         let generation = self.claim_session_generation().await;
         self.persist(&account_id, store_id, &persisted, reauth)
             .await?;
         self.retire_replaced_store(reauth, store_id).await;
-        self.start_session(client, persisted.homeserver, account_id, generation.value())
-            .await?;
+        self.start_session(
+            client,
+            persisted.homeserver,
+            account_id,
+            generation.value(),
+            &lease,
+        )
+        .await?;
         Ok(generation)
     }
 
@@ -746,6 +759,7 @@ impl Core {
         homeserver: String,
         account_id: String,
         generation: u64,
+        _lease: &session::StoreLease,
     ) -> Result<(), RpcError> {
         let oauth = client.oauth().full_session().is_some();
         if let Err(error) = session::repair_room_key_sharing(&client).await {
@@ -1484,6 +1498,7 @@ mod regression_tests {
                 server.server().uri(),
                 "first".to_owned(),
                 generation.value(),
+                &crate::session::store_lease("regression").await,
             )
             .await
             .unwrap();
@@ -1683,6 +1698,10 @@ mod regression_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "one sequential flow kept in a single function"
+    )]
     async fn late_refresh_persists_after_teardown_and_reuses_live_client() {
         use crate::session::{AccountRegistry, PersistedAccount, current_session};
         use wiremock::{
@@ -1760,7 +1779,8 @@ mod regression_tests {
         let previous = core.take_session().await.unwrap();
         previous.sync_service.stop().await;
         let account = core.accounts().await.unwrap().accounts.remove(0);
-        let resumed = core.saved_account_client(&account).await.unwrap();
+        let lease = session::store_lease(&account.store_id).await;
+        let resumed = core.saved_account_client(&account, &lease).await.unwrap();
         release.send(()).unwrap();
         tokio::time::timeout(
             std::time::Duration::from_secs(5),
@@ -1847,7 +1867,8 @@ mod regression_tests {
             .mount(server.server())
             .await;
         let account = core.accounts().await.unwrap().accounts.remove(0);
-        let client = core.saved_account_client(&account).await.unwrap();
+        let lease = session::store_lease(&account.store_id).await;
+        let client = core.saved_account_client(&account, &lease).await.unwrap();
         client.refresh_access_token().await.unwrap();
 
         let bytes = core.sessions.load().await.unwrap().unwrap();
@@ -1946,6 +1967,7 @@ mod regression_tests {
             server.server().uri(),
             "second".to_owned(),
             generation.value(),
+            &crate::session::store_lease("unused").await,
         )
         .await
         .expect_err("switch must report the failed registry write");

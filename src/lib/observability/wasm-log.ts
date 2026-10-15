@@ -1,6 +1,7 @@
 import { scrubMatrixIds } from './scrubbers';
 
 const TITLE_LIMIT = 600;
+const OLM_ACCOUNT = 'matrix_sdk_crypto::olm::account:';
 
 export type WasmLogLevel = 'error' | 'warn' | 'info';
 
@@ -11,10 +12,15 @@ export function wasmLogLevel(line: string): WasmLogLevel {
   return 'info';
 }
 
+/** Only a warning in the SDK, but the room keys it carried are lost. */
+export function isUndecryptableToDevice(line: string): boolean {
+  return wasmLogLevel(line) === 'warn' && line.includes(OLM_ACCOUNT);
+}
+
 export function wasmErrorTitle(line: string): string {
   const message = scrubMatrixIds(
     line
-      .replace(/^\s*ERROR\s+/, '')
+      .replace(/^\s*(?:ERROR|WARN)\s+/, '')
       .replace(/\s+/g, ' ')
       .trim()
   );

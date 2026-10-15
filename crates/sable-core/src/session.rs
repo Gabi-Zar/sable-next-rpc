@@ -637,6 +637,37 @@ pub(crate) fn base_client(store_id: &str) -> Option<SharedBaseClient> {
         .upgrade()
 }
 
+#[cfg(not(target_family = "wasm"))]
+pub(crate) type StoreLease = tokio::sync::OwnedMutexGuard<()>;
+
+/// The `SharedWorker` is the only owner of a web store.
+#[cfg(target_family = "wasm")]
+pub(crate) type StoreLease = ();
+
+#[cfg(target_family = "wasm")]
+pub(crate) fn store_lease(_store_id: &str) -> std::future::Ready<StoreLease> {
+    std::future::ready(())
+}
+
+/// Two clients on one crypto store overwrite each other's Olm sessions.
+#[cfg(not(target_family = "wasm"))]
+pub(crate) async fn store_lease(store_id: &str) -> StoreLease {
+    static LEASES: std::sync::LazyLock<
+        std::sync::Mutex<
+            std::collections::HashMap<std::path::PathBuf, Arc<tokio::sync::Mutex<()>>>,
+        >,
+    > = std::sync::LazyLock::new(std::sync::Mutex::default);
+
+    let store = std::fs::canonicalize(store_id).unwrap_or_else(|_| store_id.into());
+    let lease = LEASES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .entry(store)
+        .or_default()
+        .clone();
+    lease.lock_owned().await
+}
+
 /// For dynamic client registration. The redirect URI must match `OAuth::login`'s, and a private-use
 /// scheme must be the reverse-DNS of `client_uri`'s host.
 /// # Panics
