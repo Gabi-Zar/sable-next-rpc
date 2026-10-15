@@ -8,6 +8,7 @@ import {
   PRONOUNS_FIELD,
   STATUS_FIELD,
   legacyDeletes,
+  statusContent,
 } from '#lib/profile/fields.js';
 import { pronounSets, pronounText } from '#lib/profile/pronouns.js';
 import { t } from '#lib/i18n.js';
@@ -39,6 +40,7 @@ interface LoadedProfile {
   pronouns: string;
   nameColor: string;
   status: string;
+  statusEmoji: string | null;
   legacyFields: string[];
 }
 
@@ -48,6 +50,7 @@ function loadedFields(profile: ProfileView): LoadedProfile {
     pronouns: pronounText(profile.pronouns),
     nameColor: profile.name_color_dark ?? profile.name_color_light ?? '',
     status: profile.status?.text ?? '',
+    statusEmoji: profile.status?.emoji ?? null,
     legacyFields: profile.legacy_fields,
   };
 }
@@ -78,6 +81,7 @@ export class ProfileController {
     pronouns: '',
     nameColor: '',
     status: '',
+    statusEmoji: null,
     legacyFields: [],
   };
 
@@ -165,7 +169,7 @@ export class ProfileController {
       }
       const status = this.status.trim();
       if (status !== loaded.status) {
-        await core.setProfileField(STATUS_FIELD, status ? { text: status, emoji: '' } : null);
+        await core.setProfileField(STATUS_FIELD, statusContent(status, loaded.statusEmoji));
         for (const [field] of legacyDeletes(loaded.legacyFields, LEGACY_STATUS_FIELDS)) {
           await core.setProfileField(field, null);
         }

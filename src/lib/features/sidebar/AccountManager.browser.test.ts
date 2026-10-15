@@ -203,7 +203,7 @@ for (const sendPresence of [false, true]) {
     await expect.poll(() => screen.getByRole('dialog').elements().length).toBe(0);
     expect(status().textContent).toContain('Taking a break');
     expect(status().textContent).toContain('🚀');
-    expect(setProfileField).toHaveBeenCalledWith('m.status', {
+    expect(setProfileField).toHaveBeenCalledWith('org.matrix.msc4426.status', {
       text: 'Taking a break',
       emoji: '🚀',
     });
@@ -216,7 +216,7 @@ for (const sendPresence of [false, true]) {
     await expect.element(screen.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
     await userEvent.click(screen.getByRole('button', { name: 'Save', exact: true }));
     await expect.poll(() => status().textContent).toContain('What are you up to?');
-    expect(setProfileField).toHaveBeenCalledWith('m.status', null);
+    expect(setProfileField).toHaveBeenCalledWith('org.matrix.msc4426.status', null);
   });
 }
 

@@ -11,11 +11,15 @@ use crate::protocol::{
 
 type ProfileResponse = matrix_sdk::ruma::api::client::profile::get_profile::v3::Response;
 
+const STATUS_FIELD: &str = "org.matrix.msc4426.status";
+const STABLE_STATUS_FIELD: &str = "m.status";
+const COMMET_STATUS_FIELD: &str = "chat.commet.profile_status";
+
 const LEGACY_PROFILE_FIELDS: [&str; 4] = [
     "moe.sable.app.bio",
     "chat.commet.profile_bio",
-    "chat.commet.profile_status",
-    "org.matrix.msc4426.status",
+    COMMET_STATUS_FIELD,
+    STABLE_STATUS_FIELD,
 ];
 
 const SUPPORTER_FIELD: &str = "moe.sable.app.supporter_awards";
@@ -30,9 +34,9 @@ const RENDERED_PROFILE_FIELDS: [&str; 24] = [
     "chat.commet.profile_bio",
     "chat.commet.profile_color_scheme",
     "chat.commet.profile_banner",
-    "chat.commet.profile_status",
-    "m.status",
-    "org.matrix.msc4426.status",
+    COMMET_STATUS_FIELD,
+    STABLE_STATUS_FIELD,
+    STATUS_FIELD,
     "io.fsky.nyx.pronouns",
     "us.cloke.msc4175.tz",
     "m.tz",
@@ -167,7 +171,8 @@ fn profile_hero_color(response: &ProfileResponse) -> Option<String> {
         .and_then(hex_color)
 }
 
-/// MSC4426 first, then its unstable prefix, then the older single-string field.
+/// The MSC4426 unstable key first: `m.status` is not a spec identifier yet, so
+/// only older builds wrote it and it must not shadow the current status.
 fn profile_status(response: &ProfileResponse) -> Option<StatusView> {
     const MAX_TEXT_CHARS: usize = 256;
     const MAX_EMOJI_CHARS: usize = 32;
@@ -182,14 +187,12 @@ fn profile_status(response: &ProfileResponse) -> Option<StatusView> {
         })
     };
 
-    structured("m.status")
-        .or_else(|| structured("org.matrix.msc4426.status"))
+    structured(STATUS_FIELD)
+        .or_else(|| structured(STABLE_STATUS_FIELD))
         .or_else(|| {
-            profile_text(profile_field(response, "chat.commet.profile_status")).map(|text| {
-                StatusView {
-                    text: text.chars().take(MAX_TEXT_CHARS).collect(),
-                    emoji: None,
-                }
+            profile_text(profile_field(response, COMMET_STATUS_FIELD)).map(|text| StatusView {
+                text: text.chars().take(MAX_TEXT_CHARS).collect(),
+                emoji: None,
             })
         })
 }
@@ -364,15 +367,18 @@ mod tests {
     #[test]
     fn legacy_status_fields_are_reported() {
         let profile = view(&json!({
-            "m.status": { "text": "here" },
+            "org.matrix.msc4426.status": { "text": "here", "emoji": "🌴" },
             "chat.commet.profile_status": "old",
-            "org.matrix.msc4426.status": { "text": "older" },
+            "m.status": { "text": "older" },
         }));
         assert_eq!(profile.status.unwrap().text, "here");
         assert_eq!(
             profile.legacy_fields,
-            ["chat.commet.profile_status", "org.matrix.msc4426.status"]
+            ["chat.commet.profile_status", "m.status"]
         );
+
+        let stable_only = view(&json!({ "m.status": { "text": "pre-fix" } }));
+        assert_eq!(stable_only.status.unwrap().text, "pre-fix");
     }
 
     #[test]

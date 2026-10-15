@@ -13,6 +13,7 @@
     PRONOUNS_FIELD,
     STATUS_FIELD,
     legacyDeletes,
+    statusContent,
   } from '#lib/profile/fields.js';
   import { MAX_PRONOUN_INPUT, pronounSets, pronounText } from '#lib/profile/pronouns.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -260,7 +261,7 @@
     const out: Array<[string, unknown]> = [];
     if (changed('status')) {
       out.push(
-        [STATUS_FIELD, draft.status ? { text: draft.status } : null],
+        [STATUS_FIELD, statusContent(draft.status, profile.status?.emoji)],
         ...legacyDeletes(profile.legacy_fields, LEGACY_STATUS_FIELDS)
       );
     }

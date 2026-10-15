@@ -2316,7 +2316,7 @@ pub struct InviteTriageView {
     pub inviter_banned: bool,
 }
 
-/// MSC4426 `m.status`. The emoji is optional here even though the MSC requires
+/// MSC4426 status. The emoji is optional here even though the MSC requires
 /// it, because the older single-string status fields carry no emoji.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]

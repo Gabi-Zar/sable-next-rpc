@@ -82,7 +82,10 @@ test('the extra options go to the fields Settings edits', async () => {
     on_light: '#aa3377',
     on_dark: '#aa3377',
   });
-  expect(core.setProfileField).toHaveBeenCalledWith('m.status', { text: 'on holiday', emoji: '' });
+  expect(core.setProfileField).toHaveBeenCalledWith('org.matrix.msc4426.status', {
+    text: 'on holiday',
+    emoji: '',
+  });
   expect(core.media.uploadMedia).toHaveBeenCalledWith('image/png', new Uint8Array([1, 2, 3]));
   expect(core.setProfileField).toHaveBeenCalledWith(
     'chat.commet.profile_banner',
@@ -130,7 +133,7 @@ test('clearing loaded fields removes them from the profile', async () => {
   profile.setBanner(null);
   await profile.save();
 
-  expect(core.setProfileField).toHaveBeenCalledWith('m.status', null);
+  expect(core.setProfileField).toHaveBeenCalledWith('org.matrix.msc4426.status', null);
   expect(core.setProfileField).toHaveBeenCalledWith('chat.commet.profile_banner', null);
   expect(core.rpc.account.setAvatarUrl).toHaveBeenCalledWith(
     expect.objectContaining({ url: null })
@@ -148,17 +151,21 @@ test('a field typed before the profile arrives is kept', async () => {
 
 test('a status save deletes the legacy status keys the profile still carries', async () => {
   const { profile, core } = controller({
-    status: { text: 'around', emoji: null },
+    status: { text: 'around', emoji: '🌴' },
     supporter_awards: null,
-    legacy_fields: ['chat.commet.profile_status', 'moe.sable.app.bio'],
+    legacy_fields: ['chat.commet.profile_status', 'm.status', 'moe.sable.app.bio'],
   });
   await profile.load();
 
   profile.setStatus('away');
   await profile.save();
 
-  expect(core.setProfileField).toHaveBeenCalledWith('m.status', { text: 'away', emoji: '' });
+  expect(core.setProfileField).toHaveBeenCalledWith('org.matrix.msc4426.status', {
+    text: 'away',
+    emoji: '🌴',
+  });
   expect(core.setProfileField).toHaveBeenCalledWith('chat.commet.profile_status', null);
+  expect(core.setProfileField).toHaveBeenCalledWith('m.status', null);
   expect(core.setProfileField).not.toHaveBeenCalledWith('org.matrix.msc4426.status', null);
   expect(core.setProfileField).not.toHaveBeenCalledWith('moe.sable.app.bio', null);
 });

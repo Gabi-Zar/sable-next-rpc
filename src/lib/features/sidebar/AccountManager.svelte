@@ -30,7 +30,12 @@
   import StatusBadge from '#lib/ui/primitives/StatusBadge.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
-  import { LEGACY_STATUS_FIELDS, STATUS_FIELD, legacyDeletes } from '#lib/profile/fields.js';
+  import {
+    LEGACY_STATUS_FIELDS,
+    STATUS_FIELD,
+    legacyDeletes,
+    statusContent,
+  } from '#lib/profile/fields.js';
   import { SignOutGuard } from './sign-out-guard.svelte.js';
   import SignOutWarningDialog from './SignOutWarningDialog.svelte';
   import FormField from '#lib/ui/primitives/FormField.svelte';
@@ -101,7 +106,7 @@
     statusSaving = true;
     statusError = null;
     const text = statusDraft.trim();
-    const status = text ? { text, emoji: userStatus?.emoji ?? null } : null;
+    const status = statusContent(text, userStatus?.emoji);
     try {
       if (text !== ownStatus) {
         await core.setProfileField(STATUS_FIELD, status);

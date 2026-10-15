@@ -1582,7 +1582,7 @@ export type StateChangeView = { kind: "room_name"; name: string | null; previous
 { kind: "call_membership"; joined: boolean };
 
 /**
- *  MSC4426 `m.status`. The emoji is optional here even though the MSC requires
+ *  MSC4426 status. The emoji is optional here even though the MSC requires
  *  it, because the older single-string status fields carry no emoji.
  */
 export type StatusView = {
