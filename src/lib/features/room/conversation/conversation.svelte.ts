@@ -20,14 +20,23 @@ import type { BotCommandInvocation } from '#lib/features/composer/bot-commands.j
 import { readReply, writeReply } from '#lib/composer/composer-drafts.svelte.js';
 import type { Node as ProseMirrorNode } from 'prosemirror-model';
 
-import type { ComposerContext, ScheduledTarget } from '#lib/composer/composer-context.js';
+import {
+  formattedForEditing,
+  type ComposerContext,
+  type ScheduledTarget,
+} from '#lib/composer/composer-context.js';
 import { dequeue, enqueue } from '#lib/composer/scheduled-queue.svelte.js';
 import {
   isEncryptedScheduleUnsupported,
   isServerScheduleUnsupported,
   ScheduledOriginalKept,
 } from '#lib/features/composer/send-failure.js';
-import { applySed, parseSed, type SedEdit } from '#lib/features/composer/sed-edit.js';
+import {
+  applySed,
+  applySedToHtml,
+  parseSed,
+  type SedEdit,
+} from '#lib/features/composer/sed-edit.js';
 import { runSlash, SlashError } from '#lib/features/composer/slash-commands.js';
 import { knockPagePath } from '#lib/rooms/join-or-knock.js';
 import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
@@ -661,11 +670,15 @@ export class Conversation {
       const itemId = item.event_id ?? item.transaction_id;
       if (!itemId || item.sender !== userId || item.content.kind !== 'message') continue;
 
-      const body = applySed(item.content.body, sed);
+      const formatted = formattedForEditing(item.content.html);
+      const rich = formatted === null ? null : applySedToHtml(formatted, sed);
+      const body = rich?.body ?? applySed(item.content.body, sed);
       if (body === null) break;
       await this.#beforeSend();
       await editMessage(this.#core.rpc, targetRoomId, item.event_id, body, {
         transactionId: item.event_id ? null : item.transaction_id,
+        formatted: rich?.formatted ?? null,
+        mentions: rich?.mentions,
         kind: editedKind(item),
         threadRoot: this.#threadRoot,
         persona: item.per_message_profile ?? null,
