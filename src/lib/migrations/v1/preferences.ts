@@ -71,6 +71,7 @@ const RENAMED = {
   pmpProxying: 'personaProxying',
   sendIndividualAttachmentAsCaption: 'sendAttachmentAsCaption',
   hiddenEventRedactionTimeline: 'hiddenEventRedactions',
+  renderGlobalNameColors: 'renderProfileColors',
 } as const satisfies Record<string, keyof Preferences>;
 
 export function convertV1Preferences(source: Record<string, unknown>): Record<string, unknown> {

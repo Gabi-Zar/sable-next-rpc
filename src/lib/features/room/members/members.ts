@@ -1,6 +1,7 @@
 import type { MemberView, PerMessageProfileView, ProfileView } from '#src/generated/protocol';
 
 import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
+import { preferences } from '#lib/settings/preferences.svelte.js';
 import type { SenderCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
 import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
 
@@ -27,13 +28,14 @@ export function senderDisplayColors(
     return { nameColor, nameColorLight: null, nameColorDark: null, tinted: false };
   }
   const personaTint = personaWithColor(persona);
+  const colored = isOwn || preferences.renderProfileColors ? profile : null;
   const nameColorLight =
     override?.light ??
     override?.dark ??
     personaTint?.color_on_light ??
     room?.colorOnLight ??
-    profile?.name_color_light ??
-    profile?.name_color_dark ??
+    colored?.name_color_light ??
+    colored?.name_color_dark ??
     roleColor ??
     null;
   const nameColorDark =
@@ -41,8 +43,8 @@ export function senderDisplayColors(
     override?.light ??
     personaTint?.color_on_dark ??
     room?.colorOnDark ??
-    profile?.name_color_dark ??
-    profile?.name_color_light ??
+    colored?.name_color_dark ??
+    colored?.name_color_light ??
     roleColor ??
     null;
   const tinted = nameColorLight !== null || nameColorDark !== null;

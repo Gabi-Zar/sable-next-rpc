@@ -19,6 +19,7 @@ test('converts v1 percentages, layouts and renamed settings while keeping the so
     messageLayout: 2,
     messageSpacing: '100',
     hideNickAvatarEvents: false,
+    renderGlobalNameColors: false,
     editorButtonOrder: ['emoji', 'gif', 'sticker'],
     pmpNoFallback: true,
     useSystemTheme: true,
@@ -30,6 +31,7 @@ test('converts v1 percentages, layouts and renamed settings while keeping the so
     layout: 'bubble',
     messageSpacing: 'compact',
     hideProfileChanges: false,
+    renderProfileColors: false,
     personaFallback: false,
     theme: 'system',
   });

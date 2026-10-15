@@ -6,10 +6,13 @@ import {
   memberIdentity,
   memberName,
   personaWithColor,
+  senderDisplayColors,
   stripReplyFallback,
 } from './members.js';
 
-import type { MemberView, PerMessageProfileView } from '#src/generated/protocol';
+import type { MemberView, PerMessageProfileView, ProfileView } from '#src/generated/protocol';
+import { setPreference } from '#lib/settings/preferences.svelte.js';
+import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
 
 const members = [
   { user_id: '@erwan:example.org', display_name: 'Erwan', avatar_url: 'mxc://a' },
@@ -65,6 +68,32 @@ test('a persona counts as tinted only when it carries a colour', () => {
   expect(personaWithColor(persona({}))).toBeNull();
   expect(personaWithColor(persona({ color_on_light: '#fff' }))).not.toBeNull();
   expect(personaWithColor(persona({ color_on_dark: '#000' }))).not.toBeNull();
+});
+
+test('hiding profile colours lets the role colour show, except on your own name', () => {
+  const profile = {
+    name_color_light: '#2f5a1f',
+    name_color_dark: '#9fd07c',
+  } as ProfileView;
+  try {
+    setPreference('renderProfileColors', false);
+    expect(senderDisplayColors('@bob:example.org', profile, null, false, null, '#0088ff')).toEqual(
+      expect.objectContaining({
+        nameColorLight: nameColorOnLight('#0088ff'),
+        nameColorDark: nameColorOnDark('#0088ff'),
+      })
+    );
+    expect(senderDisplayColors('@me:example.org', profile, null, true, null, '#0088ff')).toEqual(
+      expect.objectContaining({ nameColorLight: '#2f5a1f', nameColorDark: '#9fd07c' })
+    );
+
+    setPreference('renderProfileColors', true);
+    expect(senderDisplayColors('@bob:example.org', profile, null, false, null, '#0088ff')).toEqual(
+      expect.objectContaining({ nameColorLight: '#2f5a1f', nameColorDark: '#9fd07c' })
+    );
+  } finally {
+    setPreference('renderProfileColors', true);
+  }
 });
 
 test('a reply fallback is stripped by display name in either form', () => {

@@ -193,6 +193,7 @@ export interface Preferences {
   fontFamily: string;
   underlineLinks: boolean;
   renderRoomColors: boolean;
+  renderProfileColors: boolean;
   reducedMotion: boolean;
   pageZoom: number;
   zoomShortcuts: boolean;
@@ -526,6 +527,7 @@ const DEFAULTS: Preferences = {
   fontFamily: '',
   underlineLinks: true,
   renderRoomColors: true,
+  renderProfileColors: true,
   reducedMotion: prefersReducedMotion(),
   pageZoom: 1,
   zoomShortcuts: true,

@@ -219,6 +219,7 @@
   let showFailure = $derived(failed && !currentProfile && roomMember === null);
   let profileLoading = $derived(!currentProfile && !failed);
   let isSelf = $derived(core.session?.user_id === userId);
+  let profileColors = $derived(isSelf || preferences.renderProfileColors ? currentProfile : null);
   let canMessage = $derived(core.session !== null && !isSelf);
   let messageLabel = $derived(i18n.t('timeline.messageUser', { name: displayName }));
   let draft = $state('');
@@ -800,13 +801,13 @@
       ? null
       : (overrideColors?.light ??
         cosmetics?.colorOnLight ??
-        currentProfile?.name_color_light ??
+        profileColors?.name_color_light ??
         roleTag?.color)}
     nameColorDark={overrideColors === null
       ? null
       : (overrideColors?.dark ??
         cosmetics?.colorOnDark ??
-        currentProfile?.name_color_dark ??
+        profileColors?.name_color_dark ??
         roleTag?.color)}
     meta={profileLoading ? metaPlaceholder : hasMeta ? metaRow : undefined}
     below={profileBelow}

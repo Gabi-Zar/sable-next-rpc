@@ -233,6 +233,14 @@ export const appearanceCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'renderProfileColors',
+      section: 'accessibility',
+      icon: PaletteIcon,
+      name: 'settings.renderProfileColors',
+      description: 'settings.renderProfileColorsHint',
+      type: 'boolean',
+    },
+    {
       key: 'reducedMotion',
       section: 'accessibility',
       icon: WheelchairMotionIcon,
