@@ -2127,6 +2127,15 @@ mod regression_tests {
             .expect(3)
             .mount()
             .await;
+        wiremock::Mock::given(wiremock::matchers::method("GET"))
+            .and(wiremock::matchers::path_regex(r"/account_data/"))
+            .respond_with(
+                ResponseTemplate::new(404).set_body_json(
+                    serde_json::json!({"errcode":"M_NOT_FOUND", "error":"not found"}),
+                ),
+            )
+            .mount(server.server())
+            .await;
 
         let scheduled = core
             .schedule_message(

@@ -387,6 +387,18 @@ mod server_tests {
             })
             .await;
 
+        let _get = Mock::given(method("GET"))
+            .and(path_regex(
+                r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "sidebar": ["!one:example.org"],
+                "shortcut": ["!one:example.org"],
+                "org.example.other": { "kept": true }
+            })))
+            .mount_as_scoped(server.server())
+            .await;
+
         let _put = Mock::given(method("PUT"))
             .and(path_regex(
                 r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
