@@ -79,8 +79,8 @@
   let byRoom = $derived(
     Object.entries(
       roomPacks.reduce<Record<string, ImagePackView[]>>((grouped, pack) => {
-        const roomId = pack.room_id ?? '';
-        return { ...grouped, [roomId]: [...(grouped[roomId] ?? []), pack] };
+        (grouped[pack.room_id ?? ''] ??= []).push(pack);
+        return grouped;
       }, {})
     ).sort(([left], [right]) => roomList.labelFor(left).localeCompare(roomList.labelFor(right)))
   );

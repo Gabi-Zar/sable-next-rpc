@@ -24,7 +24,7 @@ function stubIndexedDB(existing: string[] | null) {
       deleted.push(name);
       const request = {} as IDBOpenDBRequest;
       queueMicrotask(() => {
-        request.onsuccess?.call(request, new Event('success'));
+        request.onsuccess?.(new Event('success'));
       });
       return request;
     },
@@ -33,7 +33,7 @@ function stubIndexedDB(existing: string[] | null) {
       queueMicrotask(() => {
         if (existing !== null && !existing.includes(name)) {
           Object.defineProperty(request, 'error', { value: { name: 'AbortError' } });
-          request.onerror?.call(request, new Event('error'));
+          request.onerror?.(new Event('error'));
           return;
         }
         Object.defineProperty(request, 'result', {
@@ -41,7 +41,7 @@ function stubIndexedDB(existing: string[] | null) {
             ? fakeStateDatabase(state)
             : fakeCryptoDatabase(cleared),
         });
-        request.onsuccess?.call(request, new Event('success'));
+        request.onsuccess?.(new Event('success'));
       });
       return request;
     },

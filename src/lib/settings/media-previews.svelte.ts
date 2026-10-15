@@ -16,17 +16,17 @@ export type InviteAvatars = 'on' | 'off';
 
 export type MediaPreviewConfig = Partial<MediaPreviewConfigView>;
 
-const PRIVATE_JOIN_RULES: readonly RoomJoinRuleView[] = [
+const PRIVATE_JOIN_RULES: ReadonlySet<RoomJoinRuleView> = new Set([
   'invite',
   'knock',
   'restricted',
   'knock_restricted',
-];
+]);
 
 export function previewsShown(level: MediaPreviews, joinRule: RoomJoinRuleView | null): boolean {
   if (level === 'on') return true;
   if (level === 'off') return false;
-  return joinRule !== null && PRIVATE_JOIN_RULES.includes(joinRule);
+  return joinRule !== null && PRIVATE_JOIN_RULES.has(joinRule);
 }
 
 class MediaPreviewSettings {

@@ -334,7 +334,7 @@ test('resetCaches terminates the worker and drops the cached stores', async () =
       deleted.push(name);
       const request = {} as IDBOpenDBRequest;
       queueMicrotask(() => {
-        request.onsuccess?.call(request, new Event('success'));
+        request.onsuccess?.(new Event('success'));
       });
       return request;
     },

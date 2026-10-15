@@ -2,7 +2,7 @@ import type { TimelineItemContentView, TimelineItemView } from '#src/generated/p
 
 type RowFields = Pick<TimelineItemView, 'row' | 'forwardable' | 'redactable' | 'visibility'>;
 
-const MESSAGE_KINDS: readonly string[] = [
+const MESSAGE_KINDS: ReadonlySet<string> = new Set([
   'message',
   'image',
   'video',
@@ -14,9 +14,13 @@ const MESSAGE_KINDS: readonly string[] = [
   'live_location',
   'poll',
   'redacted',
-];
-const ANNOTATION_KINDS: readonly string[] = ['date_divider', 'read_marker', 'timeline_start'];
-const FORWARDABLE_KINDS: readonly string[] = [
+]);
+const ANNOTATION_KINDS: ReadonlySet<string> = new Set([
+  'date_divider',
+  'read_marker',
+  'timeline_start',
+]);
+const FORWARDABLE_KINDS: ReadonlySet<string> = new Set([
   'message',
   'image',
   'video',
@@ -24,7 +28,7 @@ const FORWARDABLE_KINDS: readonly string[] = [
   'file',
   'location',
   'gallery',
-];
+]);
 
 function visibility(content: TimelineItemContentView): TimelineItemView['visibility'] {
   switch (content.kind) {
@@ -45,14 +49,14 @@ function visibility(content: TimelineItemContentView): TimelineItemView['visibil
 
 /** What the core sets from the content kind, for items a test builds by hand. */
 export function rowFields(content: TimelineItemContentView): RowFields {
-  const row = MESSAGE_KINDS.includes(content.kind)
+  const row = MESSAGE_KINDS.has(content.kind)
     ? 'message'
-    : ANNOTATION_KINDS.includes(content.kind)
+    : ANNOTATION_KINDS.has(content.kind)
       ? 'annotation'
       : 'event';
   return {
     row,
-    forwardable: FORWARDABLE_KINDS.includes(content.kind),
+    forwardable: FORWARDABLE_KINDS.has(content.kind),
     redactable: row !== 'annotation' && content.kind !== 'redacted',
     visibility: visibility(content),
   };

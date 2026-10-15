@@ -70,19 +70,19 @@
     { action: 'details', label: 'composer.details', icon: CaretCircleDownIcon },
   ];
 
-  const primaryActions: FormatAction[] = [
+  const primaryActions: ReadonlySet<FormatAction> = new Set([
     'strong',
     'em',
     'link',
     'bullet_list',
     'ordered_list',
     'blockquote',
-  ];
+  ]);
   let available = $derived(
     markdown ? buttons.filter((button) => MARKDOWN_FORMATS.includes(button.action)) : buttons
   );
-  let primary = $derived(available.filter((button) => primaryActions.includes(button.action)));
-  let secondary = $derived(available.filter((button) => !primaryActions.includes(button.action)));
+  let primary = $derived(available.filter((button) => primaryActions.has(button.action)));
+  let secondary = $derived(available.filter((button) => !primaryActions.has(button.action)));
   let visible = $derived([...primary, ...secondary]);
 
   function withShortcut(label: string, id: string): string {

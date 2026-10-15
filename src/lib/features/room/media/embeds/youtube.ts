@@ -185,8 +185,8 @@ async function fetchDearrow(id: string): Promise<DearrowDetails | null> {
     throw new Error(`DeArrow API returned unexpected status code ${response.status}`);
   }
   const json = (await response.json()) as DearrowApiData;
-  const title = json.titles.filter((title) => title.votes >= 0 || title.locked).at(0);
-  const thumbnail = json.thumbnails.filter((thumb) => thumb.votes >= 0 || thumb.locked).at(0);
+  const title = json.titles.find((title) => title.votes >= 0 || title.locked);
+  const thumbnail = json.thumbnails.find((thumb) => thumb.votes >= 0 || thumb.locked);
   const randomThumbnail = json.videoDuration ? json.videoDuration * json.randomTime : null;
 
   return {

@@ -4,7 +4,7 @@ import { ACCOUNT_STEPS, type AccountStep, type SetupStep } from './setup-plan';
 
 export const ONBOARDING_ACCOUNT_DATA_TYPE = 'moe.sable.next.onboarding';
 
-const STEPS: readonly SetupStep[] = [
+const STEPS: ReadonlySet<SetupStep> = new Set([
   'device',
   'recovery',
   'profile',
@@ -14,7 +14,7 @@ const STEPS: readonly SetupStep[] = [
   'sync',
   'consent',
   'done',
-];
+]);
 
 export interface SetupRecord {
   full: boolean;
@@ -30,7 +30,7 @@ export function setupRecordKey(userId: string, deviceId: string): string {
 
 function stepList(value: unknown): SetupStep[] | null {
   if (!Array.isArray(value)) return null;
-  const steps = value.filter((step): step is SetupStep => STEPS.includes(step as SetupStep));
+  const steps = value.filter((step): step is SetupStep => STEPS.has(step as SetupStep));
   return steps.length === value.length ? steps : null;
 }
 

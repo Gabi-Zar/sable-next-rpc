@@ -72,7 +72,7 @@
   const search = new MessageSearch(core, () => directory);
 
   const LOOKUP_DELAY_MS = 300;
-  const PEOPLE_OPERATORS: readonly string[] = ['from', 'mentions', 'with'];
+  const PEOPLE_OPERATORS: ReadonlySet<string> = new Set(['from', 'mentions', 'with']);
   const STARTER_OPERATORS: readonly string[] = ['from', 'in', 'has', 'before', 'is'];
   let lookupTimer: ReturnType<typeof setTimeout> | undefined;
   let destroyed = false;
@@ -420,7 +420,7 @@
 
   function lookUpUnresolvedPeople(): void {
     const terms = search.unresolved
-      .filter((token) => PEOPLE_OPERATORS.includes(token.operator))
+      .filter((token) => PEOPLE_OPERATORS.has(token.operator))
       .map((token) => token.value);
 
     for (const term of terms) {
