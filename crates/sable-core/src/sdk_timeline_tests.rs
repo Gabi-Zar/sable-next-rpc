@@ -5,11 +5,15 @@ use matrix_sdk::{
     ruma::{
         event_id,
         events::{
+            key::verification::VerificationMethod,
             key::verification::done::KeyVerificationDoneEventContent,
             receipt::{ReceiptThread, ReceiptType},
             relation::Reference,
             room::avatar::RoomAvatarEventContent,
-            room::message::{LocationMessageEventContent, MessageType, RoomMessageEventContent},
+            room::message::{
+                KeyVerificationRequestEventContent, LocationMessageEventContent, MessageType,
+                RoomMessageEventContent,
+            },
         },
         room_id, user_id,
     },
@@ -2710,6 +2714,52 @@ async fn a_reply_to_an_uncaptioned_gallery_quotes_its_file_names() {
         .expect("a reply");
 
     assert_eq!(reply.body.as_deref(), Some("beach.jpg"));
+}
+
+#[tokio::test]
+async fn a_reply_to_a_verification_request_does_not_quote_its_fallback_body() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!verification-reply:example.org");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+
+    server.mock_room_state_encryption().plain().mount().await;
+    let request = RoomMessageEventContent::new(MessageType::VerificationRequest(
+        KeyVerificationRequestEventContent::new(
+            "Your client does not support verification".to_owned(),
+            vec![VerificationMethod::SasV1],
+            "DEVICE".into(),
+            user_id!("@bob:example.org").to_owned(),
+        ),
+    ));
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.event(request).event_id(event_id!("$request")))
+                .add_timeline_event(
+                    factory
+                        .text_msg("nice")
+                        .reply_to(event_id!("$request"))
+                        .event_id(event_id!("$reply")),
+                ),
+        )
+        .await;
+
+    let views = timeline_views(&client, &room, false)
+        .await
+        .expect("a timeline for a joined room");
+    let reply = views
+        .iter()
+        .find(|view| view.event_id.as_deref() == Some(event_id!("$reply")))
+        .and_then(|view| view.in_reply_to.as_ref())
+        .expect("a reply");
+
+    assert_eq!(reply.body, None);
+    assert_eq!(
+        reply.fallback,
+        Some(crate::protocol::ReplyFallbackView::VerificationRequest)
+    );
 }
 
 #[tokio::test]

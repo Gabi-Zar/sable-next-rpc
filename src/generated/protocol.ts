@@ -1066,7 +1066,7 @@ export type RelationsView = {
 };
 
 /**  What a quoted event was, when it has no body to show. */
-export type ReplyFallbackView = { kind: "redacted" } | { kind: "reaction"; key: string } | { kind: "redaction" } | { kind: "event"; event_type: string };
+export type ReplyFallbackView = { kind: "redacted" } | { kind: "reaction"; key: string } | { kind: "redaction" } | { kind: "verification_request" } | { kind: "event"; event_type: string };
 
 /**
  *  The SDK loads the body lazily, so it is absent for an event we have never
@@ -1613,6 +1613,8 @@ export type ThreadSummaryView = {
 	 */
 	latest_event_id: string | null,
 	latest_body: string | null,
+	/**  What the latest reply was when it has no body to show. */
+	latest_fallback: ReplyFallbackView | null,
 };
 
 export type TimelineFocusView = { kind: "live" } | { kind: "event"; event_id: string } | { kind: "thread"; root_event_id: string };

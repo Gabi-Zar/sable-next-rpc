@@ -971,6 +971,7 @@
     "openMediaUnnamed": "Deschide media",
     "openMedia": "Deschide {{name}}",
     "replyToRedaction": "A șters un mesaj",
+    "replyToVerificationRequest": "A solicitat verificarea",
     "attachmentsMedia": "Media",
     "attachmentsLoaded_one": "{{count}} element afișat",
     "attachmentsLoaded_few": "{{count}} elemente afișate",

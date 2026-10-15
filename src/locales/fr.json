@@ -690,6 +690,7 @@
     "hiddenEvent": "{{user}} événement envoyé {{type}}",
     "replyToReaction": "A réagi avec {{key}}",
     "replyToRedaction": "A supprimé un message",
+    "replyToVerificationRequest": "A demandé une vérification",
     "replyToEvent": "A envoyé un événement {{type}}",
     "unsupported": "Événement non pris en charge : {{description}}",
     "newMessages_one": "{{count, number}} nouveau message",

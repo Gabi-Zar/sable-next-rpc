@@ -15,6 +15,8 @@ export function fallbackText(
       return t('timeline.replyToReaction', { key: fallback.key });
     case 'redaction':
       return t('timeline.replyToRedaction');
+    case 'verification_request':
+      return t('timeline.replyToVerificationRequest');
     case 'event':
       return t('timeline.replyToEvent', { type: fallback.event_type });
     case undefined:

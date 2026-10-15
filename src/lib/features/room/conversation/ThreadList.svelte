@@ -16,6 +16,7 @@
   import { PanelWidth, remFromPixels } from '#lib/ui/panel-width.svelte.js';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
 
+  import { fallbackText } from '../messages/reply-fallback.js';
   import { stripReplyFallback } from '../members/members.js';
   import MessagePreview from '../messages/MessagePreview.svelte';
   import { opensFrom } from '../messages/message-preview';
@@ -133,10 +134,18 @@
                         })}
                       </span>
                     {/if}
-                    {#if root.thread_summary?.latest_body}
-                      <span class="thread-latest"
-                        >{stripReplyFallback(root.thread_summary.latest_body, null)}</span
-                      >
+                    {#if root.thread_summary}
+                      {@const latest = stripReplyFallback(
+                        fallbackText(
+                          root.thread_summary.latest_body,
+                          root.thread_summary.latest_fallback,
+                          i18n.t
+                        ),
+                        null
+                      )}
+                      {#if latest}
+                        <span class="thread-latest">{latest}</span>
+                      {/if}
                     {/if}
                   </button>
                 {/snippet}

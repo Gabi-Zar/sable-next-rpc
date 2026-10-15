@@ -28,6 +28,9 @@ test('a reply quotes its body, or says what the replied-to event was', () => {
   );
   expect(replyText(reply(null, { kind: 'redacted' }), t)).toBe('timeline.redacted');
   expect(replyText(reply(null, { kind: 'redaction' }), t)).toBe('timeline.replyToRedaction');
+  expect(replyText(reply(null, { kind: 'verification_request' }), t)).toBe(
+    'timeline.replyToVerificationRequest'
+  );
   expect(replyText(reply(null, null), t)).toBe('');
   expect(replyText(null, t)).toBe('');
 });

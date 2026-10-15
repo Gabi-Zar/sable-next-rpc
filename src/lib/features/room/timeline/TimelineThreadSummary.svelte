@@ -4,6 +4,7 @@
   import type { PerMessageProfileView, ThreadSummaryView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
+  import { fallbackText } from '../messages/reply-fallback.js';
   import { stripReplyFallback } from '../members/members.js';
 
   interface Props {
@@ -21,8 +22,12 @@
     <span class="thread-count"
       >{i18n.t('timeline.threadReplies', { count: summary.num_replies })}</span
     >
-    {#if summary.latest_body}
-      <span class="thread-latest">{stripReplyFallback(summary.latest_body, persona)}</span>
+    {@const latest = stripReplyFallback(
+      fallbackText(summary.latest_body, summary.latest_fallback, i18n.t),
+      persona
+    )}
+    {#if latest}
+      <span class="thread-latest">{latest}</span>
     {/if}
   {:else}
     <span class="thread-count">{i18n.t('timeline.thread')}</span>

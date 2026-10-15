@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, NoneAsEmptyString, serde_as};
 
+pub const VERIFICATION_REQUEST_MSGTYPE: &str = "m.key.verification.request";
+
 /// What a quoted event was, when it has no body to show.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -13,6 +15,7 @@ pub enum ReplyFallbackView {
     Redacted,
     Reaction { key: String },
     Redaction,
+    VerificationRequest,
     Event { event_type: String },
 }
 
@@ -38,6 +41,9 @@ struct Content {
     #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
     #[serde(default)]
     body: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    msgtype: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError<NoneAsEmptyString>")]
     #[serde(default)]
     shortcode: Option<String>,
@@ -117,6 +123,9 @@ pub fn event_preview(source: &Value) -> Option<EventPreview> {
     if event_type == "m.room.redaction" {
         return stand_in(ReplyFallbackView::Redaction);
     }
+    if content.msgtype.as_deref() == Some(VERIFICATION_REQUEST_MSGTYPE) {
+        return stand_in(ReplyFallbackView::VerificationRequest);
+    }
     if let Some(body) = content.body {
         return Some(EventPreview {
             sender,
@@ -175,6 +184,17 @@ mod tests {
             Some(ReplyFallbackView::Reaction {
                 key: ":blob:".to_owned()
             })
+        );
+        assert_eq!(
+            read(&json!({
+                "type": "m.room.message",
+                "content": {"msgtype": "m.key.verification.request", "body": "Unsupported client"}
+            })),
+            EventPreview {
+                sender: None,
+                body: None,
+                fallback: Some(ReplyFallbackView::VerificationRequest)
+            }
         );
         assert!(event_preview(&json!([])).is_none());
     }

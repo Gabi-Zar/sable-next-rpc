@@ -546,6 +546,7 @@ test('strips a per-message-profile fallback from a thread summary', async () => 
             num_replies: 2,
             latest_event_id: '$reply',
             latest_body: 'Josie: the latest reply',
+            latest_fallback: null,
           },
         },
         collapsed: false,
@@ -579,6 +580,7 @@ test('keeps a thread summary body without a fallback', async () => {
             num_replies: 2,
             latest_event_id: null,
             latest_body: 'we shipped it: finally',
+            latest_fallback: null,
           },
         },
         collapsed: false,
@@ -589,6 +591,31 @@ test('keeps a thread summary body without a fallback', async () => {
   await tick();
 
   expect(document.querySelector('.thread-latest')?.textContent).toBe('we shipped it: finally');
+});
+
+test('names a verification request as the latest thread reply', async () => {
+  render(TimelineItemHarness, {
+    props: {
+      core,
+      item: {
+        item: {
+          ...item(false),
+          thread_root: '$root',
+          thread_summary: {
+            num_replies: 1,
+            latest_event_id: '$reply',
+            latest_body: null,
+            latest_fallback: { kind: 'verification_request' },
+          },
+        },
+        collapsed: false,
+        onOpenThread: vi.fn(),
+      },
+    },
+  });
+  await tick();
+
+  expect(document.querySelector('.thread-latest')?.textContent).toBe('Requested verification');
 });
 
 test('clicking the sender name mentions the account behind it', async () => {

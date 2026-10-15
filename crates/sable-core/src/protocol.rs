@@ -1472,6 +1472,8 @@ pub struct ThreadSummaryView {
     /// event.
     pub latest_event_id: Option<String>,
     pub latest_body: Option<String>,
+    /// What the latest reply was when it has no body to show.
+    pub latest_fallback: Option<ReplyFallbackView>,
 }
 
 /// Without this a failed send renders as an ordinary message.

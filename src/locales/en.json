@@ -933,6 +933,7 @@
     },
     "replyToReaction": "Reacted with {{key}}",
     "replyToRedaction": "Deleted a message",
+    "replyToVerificationRequest": "Requested verification",
     "replyToEvent": "Sent a {{type}} event",
     "unsupported": "Unsupported event: {{description}}",
     "newMessages_one": "{{count, number}} new message",

@@ -196,6 +196,7 @@ const cases: Record<string, TimelineItemView> = {
       num_replies: 12,
       latest_event_id: '$reply:example.test',
       latest_body: long,
+      latest_fallback: null,
     },
   },
   'moderation notice': {

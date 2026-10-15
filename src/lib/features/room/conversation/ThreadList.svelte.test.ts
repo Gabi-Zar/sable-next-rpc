@@ -142,7 +142,12 @@ test('a root shows its reply count and latest reply instead of an open button', 
     roots: [
       {
         ...root('$a', 'First topic'),
-        thread_summary: { num_replies: 3, latest_event_id: '$z', latest_body: 'Last word' },
+        thread_summary: {
+          num_replies: 3,
+          latest_event_id: '$z',
+          latest_body: 'Last word',
+          latest_fallback: null,
+        },
       },
     ],
     next_batch: null,
