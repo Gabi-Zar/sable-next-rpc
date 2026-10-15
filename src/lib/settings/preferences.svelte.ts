@@ -262,6 +262,7 @@ export interface Preferences {
   alwaysInlineEditor: boolean;
   enterForNewline: EnterKey;
   sedEdits: boolean;
+  inlineEditing: boolean;
   mentionInReplies: boolean;
   formattingToolbar: boolean;
   composerFormatButton: boolean;
@@ -594,6 +595,7 @@ const DEFAULTS: Preferences = {
   alwaysInlineEditor: false,
   enterForNewline: 'adaptive',
   sedEdits: false,
+  inlineEditing: false,
   mentionInReplies: true,
   formattingToolbar: false,
   composerFormatButton: true,

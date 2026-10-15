@@ -1018,6 +1018,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         receiveMessage(params.body, true);
         return null;
       },
+      'messages.edit': () => null,
       'messages.markdown_to_content': (params) => ({
         body: params.markdown,
         formatted_body: null,

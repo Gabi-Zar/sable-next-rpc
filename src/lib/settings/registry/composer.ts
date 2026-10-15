@@ -100,6 +100,14 @@ export const composerCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'inlineEditing',
+      section: 'writing',
+      icon: PencilSimpleIcon,
+      name: 'settings.inlineEditing',
+      description: 'settings.inlineEditingHint',
+      type: 'boolean',
+    },
+    {
       key: 'composerSpellcheck',
       section: 'writing',
       icon: ChecksIcon,

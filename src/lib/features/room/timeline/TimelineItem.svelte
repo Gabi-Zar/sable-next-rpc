@@ -91,6 +91,7 @@
     encrypted?: boolean | null;
     selected?: boolean;
     editing?: boolean;
+    editor?: Snippet;
     layout?: TimelineLayout;
     preview?: boolean;
     loadPreviewProfile?: boolean;
@@ -138,6 +139,7 @@
     encrypted = null,
     selected = false,
     editing = false,
+    editor,
     layout = 'modern',
     preview = false,
     loadPreviewProfile = false,
@@ -700,6 +702,8 @@
               {@render receiptSlot()}
             {/if}
           </div>
+        {:else if item.content.kind === 'message' && editor}
+          {@render editor()}
         {:else if item.content.kind === 'message'}
           {@const inlineReceipts = receiptsVisible && receiptsInline}
           <div

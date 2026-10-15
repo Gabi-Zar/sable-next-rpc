@@ -53,7 +53,7 @@
   onSendLocation={conversation.sendLocation}
   onTyping={conversation.setTyping}
   onQuickReact={conversation.quickReact}
-  context={conversation.context}
+  context={conversation.inlineEdit ? null : conversation.context}
   restoredContext={conversation.restored}
   onCancelContext={conversation.clearContext}
   onEditPersona={conversation.setEditPersona}

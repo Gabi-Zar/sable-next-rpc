@@ -20,6 +20,7 @@
   import { PinnedEvents, providePinnedEvents } from './timeline/pinned-events.svelte.js';
   import { useBookmarks } from '#lib/rooms/bookmarks.svelte.js';
   import ConversationComposer from './conversation/ConversationComposer.svelte';
+  import InlineEdit from './conversation/InlineEdit.svelte';
   import { Conversation } from './conversation/conversation.svelte.js';
   import { personaSpaces } from '#lib/features/composer/persona-spaces.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
@@ -781,6 +782,10 @@
   <title>{pageTitle}</title>
 </svelte:head>
 
+{#snippet inlineEditor()}
+  <InlineEdit {conversation} roomId={resolvedRoomId} />
+{/snippet}
+
 {#snippet predecessorNotice()}
   <RoomPredecessorNotice onOpen={openPredecessor} />
 {/snippet}
@@ -791,6 +796,7 @@
       bind:this={timelineList}
       replyEventId={conversation.context?.kind === 'reply' ? conversation.context.eventId : null}
       editEventId={conversation.context?.kind === 'edit' ? conversation.context.eventId : null}
+      inlineEditor={conversation.inlineEdit ? inlineEditor : undefined}
       {timeline}
       active={panels.threadRootId === null || threadInPanel}
       focusEventId={timelineEventId}

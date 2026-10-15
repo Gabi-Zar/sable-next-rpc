@@ -20,6 +20,7 @@
   import { SwipeBack } from '#lib/ui/swipe-back.svelte.js';
 
   import ConversationComposer from './ConversationComposer.svelte';
+  import InlineEdit from './InlineEdit.svelte';
   import { Conversation } from './conversation.svelte.js';
   import { timelineMediaItems } from '../media/media-items.js';
   import MediaViewer from '../media/MediaViewer.svelte';
@@ -248,10 +249,15 @@
     />
   {/if}
 
+  {#snippet inlineEditor()}
+    <InlineEdit {conversation} {roomId} />
+  {/snippet}
+
   <TimelineList
     bind:this={timelineList}
     replyEventId={conversation.context?.kind === 'reply' ? conversation.context.eventId : null}
     editEventId={conversation.context?.kind === 'edit' ? conversation.context.eventId : null}
+    inlineEditor={conversation.inlineEdit ? inlineEditor : undefined}
     {timeline}
     {focusEventId}
     threadRootId={rootEventId}

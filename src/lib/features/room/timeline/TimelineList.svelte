@@ -83,6 +83,7 @@
     landingEventId?: string | null;
     replyEventId?: string | null;
     editEventId?: string | null;
+    inlineEditor?: Snippet;
     onLanded?: () => void;
     onRequestHistory: (count?: number) => Promise<boolean>;
     onRequestFuture: () => Promise<void>;
@@ -133,6 +134,7 @@
     landingEventId = null,
     replyEventId = null,
     editEventId = null,
+    inlineEditor,
     onLanded,
     onRequestHistory,
     onRequestFuture,
@@ -973,6 +975,7 @@
       item.event_id === (focusEventId ?? landedEventId)}
     selected={replyEventId !== null && item.event_id === replyEventId}
     editing={editEventId !== null && item.event_id === editEventId}
+    editor={editEventId !== null && item.event_id === editEventId ? inlineEditor : undefined}
     {onMatrixLink}
     {onCopyLink}
     {onMarkUnread}

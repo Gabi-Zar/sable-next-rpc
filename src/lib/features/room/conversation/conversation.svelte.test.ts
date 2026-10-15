@@ -12,6 +12,7 @@ import { clearDrafts } from '#lib/composer/composer-drafts.svelte.js';
 import { adoptQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { ScheduledOriginalKept } from '#lib/features/composer/send-failure.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
+import { composerSchema } from '#lib/features/composer/editor/schema.js';
 import { SlashError } from '#lib/features/composer/slash-commands.js';
 import * as runtime from '#lib/config/runtime-config.js';
 
@@ -584,6 +585,39 @@ test('s/old/new reports a last message that does not contain the text', async ()
   expect(editMessage).not.toHaveBeenCalled();
   expect(sendMessage).not.toHaveBeenCalled();
   setPreference('sedEdits', false);
+});
+
+test('an edit shows in the timeline only when inline editing is on and the target is text', () => {
+  const caption = withRowFields({
+    ...item('$photo', '@kris:example.org'),
+    content: { kind: 'image', caption: 'sunset', html: 'sunset' },
+  } as unknown as TimelineItemView);
+  const { conversation } = setup([ownMessage('$text', 'hello'), caption], '@kris:example.org');
+
+  conversation.edit('$text', 'hello', null);
+  expect(conversation.inlineEdit).toBe(false);
+
+  setPreference('inlineEditing', true);
+  expect(conversation.inlineEdit).toBe(true);
+
+  conversation.edit('$photo', 'sunset', null, true);
+  expect(conversation.inlineEdit).toBe(false);
+
+  conversation.clearContext();
+  expect(conversation.inlineEdit).toBe(false);
+  setPreference('inlineEditing', false);
+});
+
+test('an inline draft comes back once, for the message it was typed in', () => {
+  const { conversation } = setup([ownMessage('$text', 'hello')], '@kris:example.org');
+  const doc = composerSchema.node('doc', null, [composerSchema.node('paragraph')]);
+
+  conversation.stashInlineDraft('$text', doc);
+
+  expect(conversation.takeInlineDraft('$other')).toBeUndefined();
+  conversation.stashInlineDraft('$text', doc);
+  expect(conversation.takeInlineDraft('$text')).toBe(doc);
+  expect(conversation.takeInlineDraft('$text')).toBeUndefined();
 });
 
 test('keeps an edited message kind and persona when returning to live drops its row', async () => {

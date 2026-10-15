@@ -18,6 +18,8 @@ import type { SendAttachmentOptions, SendGalleryOptions } from '#lib/core/media.
 import { editMessage, sendMessage } from '#lib/core/api/messages.svelte.js';
 import type { BotCommandInvocation } from '#lib/features/composer/bot-commands.js';
 import { readReply, writeReply } from '#lib/composer/composer-drafts.svelte.js';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+
 import type { ComposerContext, ScheduledTarget } from '#lib/composer/composer-context.js';
 import { dequeue, enqueue } from '#lib/composer/scheduled-queue.svelte.js';
 import {
@@ -711,6 +713,34 @@ export class Conversation {
 
   readonly clearContext = (): void => {
     this.context = null;
+  };
+
+  /** Whether the message being edited is edited where it appears, not in the composer. */
+  get inlineEdit(): boolean {
+    const pending = this.context;
+    if (!preferences.inlineEditing || pending?.kind !== 'edit' || pending.mediaCaption) {
+      return false;
+    }
+    return this.#timeline.items.some(
+      (entry) =>
+        (entry.id === pending.timelineItemId ||
+          entry.event_id === pending.eventId ||
+          entry.transaction_id === pending.eventId) &&
+        entry.content.kind === 'message'
+    );
+  }
+
+  #inlineDraft: { eventId: string; doc: ProseMirrorNode } | null = null;
+
+  /** Keeps the text typed in an inline editor whose row scrolled out of the list. */
+  readonly stashInlineDraft = (eventId: string, doc: ProseMirrorNode): void => {
+    this.#inlineDraft = { eventId, doc };
+  };
+
+  readonly takeInlineDraft = (eventId: string): ProseMirrorNode | undefined => {
+    const draft = this.#inlineDraft;
+    this.#inlineDraft = null;
+    return draft?.eventId === eventId ? draft.doc : undefined;
   };
 
   readonly forgetRequestedDetails = (): void => {

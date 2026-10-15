@@ -18,6 +18,7 @@ export default defineConfig({
     'timeline-name-overflow.spec.ts',
     'timeline-content-overflow.spec.ts',
     'composer-alignment.spec.ts',
+    'inline-edit.spec.ts',
     'composer-wrapping.spec.ts',
     'composer-scheduling.spec.ts',
     'composer-send-failure.spec.ts',

@@ -2064,6 +2064,8 @@
     "richTextComposer": "Format text as you type",
     "sedEdits": "Edit your last message with s/old/new",
     "sedEditsHint": "Sending s/old/new replaces the first match of old in your last message. The edited message loses its formatting.",
+    "inlineEditing": "Edit messages in the timeline",
+    "inlineEditingHint": "Edit a text message where it appears instead of in the composer.",
     "composerForm": "Composer height",
     "composerFormHint": "Follows the screen on small devices and expands with the input.",
     "composerFormTall": "Tall",
