@@ -6,6 +6,9 @@ import type {
   NodeViewConstructor,
 } from 'prosemirror-view';
 
+import { preferences } from '#lib/settings/preferences.svelte.js';
+import { holdStillFrame } from '#lib/ui/still-frame.js';
+
 import { emoticonLabel } from './schema';
 
 export interface EmoteMedia {
@@ -147,6 +150,9 @@ class EmoticonNodeView extends AtomNodeView {
 
   private paint(src: string, label: string): void {
     const image = document.createElement('img');
+    image.onload = () => {
+      holdStillFrame(image, !preferences.autoplayStickers);
+    };
     image.src = src;
     image.alt = label;
     this.dom.replaceChildren(image);
