@@ -18,6 +18,7 @@ use matrix_sdk_ui::notification_client::{NotificationClient, NotificationProcess
 
 use crate::Core;
 use crate::notifications;
+use crate::search::ignored_user_ids;
 use crate::spaces::{self, SidebarSpacesEvent};
 
 type NotificationSender = tokio::sync::mpsc::UnboundedSender<(Notification, matrix_sdk::Room)>;
@@ -528,12 +529,13 @@ impl Core {
                 let own_user_id = own_user_id.clone();
 
                 async move {
+                    let ignored = ignored_user_ids(&room.client()).await;
                     // Unlike `Room::subscribe_to_typing_notifications`, a raw handler does not filter our own user.
                     let user_ids = event
                         .content
                         .user_ids
                         .into_iter()
-                        .filter(|id| Some(id) != own_user_id.as_ref())
+                        .filter(|id| Some(id) != own_user_id.as_ref() && !ignored.contains(id))
                         .collect();
 
                     core.emit_if_current(
@@ -579,10 +581,10 @@ pub(crate) async fn retry_backoff(failures: u32) {
 
 #[cfg(test)]
 mod tests {
-    use matrix_sdk::ruma::room_id;
     use matrix_sdk::ruma::serde::Raw;
+    use matrix_sdk::ruma::{room_id, user_id};
     use matrix_sdk::test_utils::mocks::MatrixMockServer;
-    use matrix_sdk_test::JoinedRoomBuilder;
+    use matrix_sdk_test::{JoinedRoomBuilder, event_factory::EventFactory};
     use serde_json::{Value, json};
     use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -764,5 +766,35 @@ mod tests {
                 None
             )]
         );
+    }
+
+    #[tokio::test]
+    async fn an_ignored_user_is_not_reported_as_typing() {
+        let server = MatrixMockServer::new().await;
+        let room_id = room_id!("!room:example.org");
+        let client = server.client_builder().build().await;
+        let (core, mut events) = Core::new("watchers", Box::new(MemorySessionStore::default()));
+        core.watch_ephemeral(&client, 1);
+        let factory = EventFactory::new();
+        let troll = user_id!("@troll:example.org");
+        let bob = user_id!("@bob:example.org");
+
+        server
+            .mock_sync()
+            .ok_and_run(&client, |sync| {
+                sync.add_global_account_data(factory.ignored_user_list([troll.to_owned()]));
+                sync.add_joined_room(
+                    JoinedRoomBuilder::new(room_id).add_typing(factory.typing(vec![troll, bob])),
+                );
+            })
+            .await;
+
+        let typing: Vec<_> = std::iter::from_fn(|| events.try_recv().ok())
+            .filter_map(|event| match event {
+                CoreEvent::Typing { user_ids, .. } => Some(user_ids),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(typing, [vec![bob.to_owned()]]);
     }
 }

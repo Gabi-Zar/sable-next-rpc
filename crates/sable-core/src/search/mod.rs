@@ -2429,6 +2429,18 @@ fn contains_link(body: &str) -> bool {
     LinkFinder::new().links(body).next().is_some()
 }
 
+pub(crate) async fn ignored_user_ids(client: &matrix_sdk::Client) -> Vec<OwnedUserId> {
+    client
+        .account()
+        .account_data::<IgnoredUserListEventContent>()
+        .await
+        .ok()
+        .flatten()
+        .and_then(|raw| raw.deserialize().ok())
+        .map(|content| content.ignored_users.into_keys().collect())
+        .unwrap_or_default()
+}
+
 fn mentioned_users(mentions: Option<&Mentions>) -> Vec<OwnedUserId> {
     mentions
         .map(|mentions| mentions.user_ids.iter().cloned().collect())
@@ -2690,15 +2702,7 @@ impl Core {
             return Vec::new();
         };
 
-        client
-            .account()
-            .account_data::<IgnoredUserListEventContent>()
-            .await
-            .ok()
-            .flatten()
-            .and_then(|raw| raw.deserialize().ok())
-            .map(|content| content.ignored_users.into_keys().collect())
-            .unwrap_or_default()
+        ignored_user_ids(&client).await
     }
 
     pub(crate) async fn restore_persisted_index(self: &Arc<Self>, client: &matrix_sdk::Client) {
