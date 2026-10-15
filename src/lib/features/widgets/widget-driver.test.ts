@@ -282,7 +282,7 @@ test('relays the RTC requests to the core verbatim', async () => {
     url: 'wss://sfu.example.org',
     room_id: '!room:example.org',
     slot_id: 'm.call#ROOM',
-    member: { id: 'm1' },
+    member_id: 'm1',
   };
 
   await expect(driver.getRtcTransports()).resolves.toEqual({
@@ -290,9 +290,10 @@ test('relays the RTC requests to the core verbatim', async () => {
   });
   await expect(driver.getRtcLivekitToken(request)).resolves.toEqual({ jwt: 'token' });
   await driver.delegateRtcLivekitDelayedLeave({
+    url: request.url,
     room_id: request.room_id,
     slot_id: request.slot_id,
-    member: request.member,
+    member_id: request.member_id,
     delay_id: 'd1',
   });
 

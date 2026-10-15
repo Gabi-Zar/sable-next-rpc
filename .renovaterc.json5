@@ -62,5 +62,29 @@
       matchManagers: ['gradle', 'gradle-wrapper'],
       enabled: false,
     },
+    {
+      description: 'SvelteKit and typescript-eslint still require the TypeScript 6 API',
+      matchManagers: ['npm'],
+      matchPackageNames: ['typescript'],
+      allowedVersions: '<7',
+    },
+    {
+      description: 'CEF and winit must match the pinned tauri-runtime-cef revision',
+      matchManagers: ['cargo'],
+      matchPackageNames: ['cef', 'winit'],
+      enabled: false,
+    },
+    {
+      description: 'GTK must match the version used by WebKitGTK and Tauri',
+      matchManagers: ['cargo'],
+      matchPackageNames: ['gtk'],
+      allowedVersions: '<0.19',
+    },
+    {
+      description: 'The release runner has PipeWire headers for the 0.9 bindings',
+      matchManagers: ['cargo'],
+      matchPackageNames: ['pipewire'],
+      allowedVersions: '<0.10',
+    },
   ],
 }
