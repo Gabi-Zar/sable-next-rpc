@@ -1,7 +1,6 @@
 <script lang="ts">
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
   import { onDestroy, tick } from 'svelte';
-  import { MediaQuery } from 'svelte/reactivity';
 
   import {
     customThemes,
@@ -30,6 +29,7 @@
     themeSwatches,
   } from '#lib/settings/theme-file.js';
   import { pickFiles } from '#lib/platform/files.js';
+  import { systemDark } from '#lib/platform/system-theme.js';
   import { i18n, t } from '#lib/i18n.js';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -50,7 +50,6 @@
     ArrowLeft: -1,
     ArrowUp: -1,
   };
-  const systemDark = new MediaQuery('(prefers-color-scheme: dark)');
   let {
     onboarding = false,
     onThemeChosen,

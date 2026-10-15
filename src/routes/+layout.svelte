@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { MediaQuery } from 'svelte/reactivity';
   import { onMount } from 'svelte';
   import { on } from 'svelte/events';
   import type { Snippet } from 'svelte';
@@ -21,6 +20,7 @@
   import { trackZoomShortcuts } from '#lib/platform/zoom-shortcuts.js';
   import { suppressNativeContextMenu } from '#lib/platform/context-menu.js';
   import { blockEdgeNavigation } from '#lib/platform/edge-navigation.js';
+  import { systemDark } from '#lib/platform/system-theme.js';
   import { hostsServiceWorker, registerServiceWorker } from '#lib/platform/service-worker.js';
   import { notificationPermalink } from '#lib/features/notifications/notification-link.js';
   import { guardTouchClicks } from '#lib/ui/trailing-click.js';
@@ -59,7 +59,6 @@
   provideCoreClient(core);
   const alertProviders = ALERT_MODULES.map((component) => component.priorityProvider());
   provideAlertProviders(alertProviders);
-  const systemDark = new MediaQuery('(prefers-color-scheme: dark)');
   let titlebar = $derived(titleBarKind(preferences.useCustomTitleBar));
 
   onMount(() => {

@@ -626,6 +626,12 @@ fn pending_deep_links() -> Vec<String> {
     deep_link_ipc::take_pending_urls()
 }
 
+#[cfg(all(feature = "cef", target_os = "linux"))]
+#[tauri::command]
+fn system_color_scheme() -> Option<&'static str> {
+    portal_theme::current_scheme()
+}
+
 #[cfg(desktop)]
 #[tauri::command]
 #[expect(
@@ -1006,6 +1012,8 @@ pub fn run() {
             verbose::log_console,
             #[cfg(all(feature = "cef", target_os = "linux"))]
             pending_deep_links,
+            #[cfg(all(feature = "cef", target_os = "linux"))]
+            system_color_scheme,
             register_push,
             unregister_push,
             device_pusher,

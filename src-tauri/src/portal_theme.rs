@@ -1,11 +1,15 @@
 use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
-use tauri::{AppHandle, Runtime, Theme};
+use tauri::{AppHandle, Emitter, Runtime, Theme};
 use zbus::zvariant::OwnedValue;
 
 const NAMESPACE: &str = "org.freedesktop.appearance";
 const KEY: &str = "color-scheme";
+const EVENT: &str = "sable://color-scheme";
+
+static CURRENT: Mutex<Option<Theme>> = Mutex::new(None);
 
 // A desktop theme switch emits several `SettingChanged` signals in a row.
 const SETTLE: Duration = Duration::from_millis(250);
@@ -49,15 +53,37 @@ impl Applied {
     }
 }
 
+fn scheme_name(theme: Option<Theme>) -> Option<&'static str> {
+    match theme? {
+        Theme::Dark => Some("dark"),
+        Theme::Light => Some("light"),
+        _ => None,
+    }
+}
+
+pub fn current_scheme() -> Option<&'static str> {
+    scheme_name(*CURRENT.lock().unwrap_or_else(PoisonError::into_inner))
+}
+
+fn apply<R: Runtime>(app: &AppHandle<R>, theme: Option<Theme>) {
+    *CURRENT.lock().unwrap_or_else(PoisonError::into_inner) = theme;
+    app.set_theme(theme);
+    if let Err(error) = app.emit(EVENT, scheme_name(theme)) {
+        log::warn!("could not send the portal colour scheme to the webview: {error}");
+    }
+}
+
 pub fn follow<R: Runtime>(app: AppHandle<R>) {
     let (tx, rx) = channel();
 
     std::thread::spawn(move || {
         let mut applied = Applied(None);
-        while let Some(theme) = settle(&rx, SETTLE) {
+        let mut next = rx.recv().ok();
+        while let Some(theme) = next {
             if applied.changed(theme) {
-                app.set_theme(theme);
+                apply(&app, theme);
             }
+            next = settle(&rx, SETTLE);
         }
     });
 
@@ -110,6 +136,13 @@ mod tests {
         assert_eq!(theme_for(2), Some(Some(Theme::Light)));
         assert_eq!(theme_for(3), None);
         assert_eq!(theme_for(u32::MAX), None);
+    }
+
+    #[test]
+    fn names_only_an_explicit_scheme() {
+        assert_eq!(scheme_name(Some(Theme::Dark)), Some("dark"));
+        assert_eq!(scheme_name(Some(Theme::Light)), Some("light"));
+        assert_eq!(scheme_name(None), None);
     }
 
     #[test]
