@@ -61,5 +61,5 @@ pre-push:
 
 commit-msg:
   scripts:
-    "check-sign-off.sh":
+    'check-sign-off.sh':
       runner: bash
