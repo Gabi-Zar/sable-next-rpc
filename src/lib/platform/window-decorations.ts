@@ -21,6 +21,7 @@ export interface DesktopWindowSettings {
   minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
   useCustomTitleBar: boolean;
+  smoothScrolling: boolean;
 }
 
 export interface DesktopWindowState {
@@ -34,6 +35,10 @@ export function supportsDesktopWindow(): boolean {
 export function supportsTray(): boolean {
   if (isElectron()) return electronBridge()?.platform === 'linux';
   return supportsDesktopWindow() && osType() !== 'macos';
+}
+
+export function supportsSmoothScrollingToggle(): boolean {
+  return isElectron() || (supportsDesktopWindow() && osType() === 'linux');
 }
 
 export function customTitleBarDefault(): boolean {

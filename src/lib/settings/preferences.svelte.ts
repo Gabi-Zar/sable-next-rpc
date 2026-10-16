@@ -392,6 +392,7 @@ export interface Preferences {
   useCustomTitleBar: boolean;
   hardwareAcceleration: boolean;
   hardwareVideoAcceleration: boolean;
+  smoothScrolling: boolean;
   webRtcIpPolicy: WebRtcIpPolicy;
 
   settingsSync: boolean;
@@ -731,6 +732,7 @@ const DEFAULTS: Preferences = {
   useCustomTitleBar: customTitleBarDefault(),
   hardwareAcceleration: true,
   hardwareVideoAcceleration: true,
+  smoothScrolling: true,
   webRtcIpPolicy: 'default',
 
   settingsSync: false,

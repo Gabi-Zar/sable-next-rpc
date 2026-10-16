@@ -65,6 +65,7 @@ pub fn configure(app: &AppHandle<BrowserEngine>) {
             settings.set_enable_media_stream(true);
             settings.set_enable_mediasource(true);
             settings.set_enable_media(true);
+            settings.set_enable_smooth_scrolling(crate::smooth_scrolling::enabled());
             if std::env::var_os("SABLE_DEVTOOLS").is_some() {
                 settings.set_enable_developer_extras(true);
             }

@@ -83,6 +83,7 @@ setFeatures(
     : [],
   isLinux ? ['WaylandWpColorManagerV1'] : []
 );
+if (!settings.smoothScrolling) app.commandLine.appendSwitch('disable-smooth-scrolling');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 if (process.platform !== 'darwin') Menu.setApplicationMenu(null);

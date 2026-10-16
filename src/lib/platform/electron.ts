@@ -6,6 +6,7 @@ import type { DesktopWindowSettings, DesktopWindowState } from './window-decorat
 export interface ElectronSettings {
   hardwareAcceleration: boolean;
   hardwareVideoAcceleration: boolean;
+  smoothScrolling: boolean;
   webRtcIpPolicy: WebRtcIpPolicy;
 }
 

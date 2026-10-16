@@ -146,6 +146,9 @@ fn cef_command_line_args(proxy: Option<&str>) -> Vec<(String, Option<String>)> {
         ),
     ];
 
+    if !app_lib::smooth_scrolling::enabled() {
+        args.push(("--disable-smooth-scrolling".into(), None));
+    }
     if let Ok(port) = std::env::var("SABLE_DEVTOOLS") {
         args.push(("--remote-debugging-port".into(), Some(port)));
     }

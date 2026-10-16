@@ -35,6 +35,8 @@ pub mod proxy;
 pub mod screen_audio;
 mod sentry;
 mod share_inbox;
+#[cfg(target_os = "linux")]
+pub mod smooth_scrolling;
 #[cfg(target_os = "windows")]
 mod snap_layouts;
 #[cfg(desktop)]

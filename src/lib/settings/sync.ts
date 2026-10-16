@@ -59,6 +59,7 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'useCustomTitleBar',
   'hardwareAcceleration',
   'hardwareVideoAcceleration',
+  'smoothScrolling',
   'webRtcIpPolicy',
   'developerTools',
   'soundsNotificationVolume',

@@ -1,8 +1,13 @@
 import DesktopIcon from 'phosphor-svelte/lib/DesktopIcon';
 import FilmStripIcon from 'phosphor-svelte/lib/FilmStripIcon';
 import GraphicsCardIcon from 'phosphor-svelte/lib/GraphicsCardIcon';
+import MouseIcon from 'phosphor-svelte/lib/MouseIcon';
 import { isElectron } from '#lib/platform/electron.js';
-import { supportsDesktopWindow, supportsTray } from '#lib/platform/window-decorations.js';
+import {
+  supportsDesktopWindow,
+  supportsSmoothScrollingToggle,
+  supportsTray,
+} from '#lib/platform/window-decorations.js';
 import type { SettingsCategory } from '../registry';
 
 export const desktopCategories: SettingsCategory[] =
@@ -71,6 +76,15 @@ export const desktopCategories: SettingsCategory[] =
               type: 'boolean',
               gatedBy: 'hardwareAcceleration',
               supported: isElectron,
+            },
+            {
+              key: 'smoothScrolling',
+              section: 'performance',
+              icon: MouseIcon,
+              name: 'settings.smoothScrolling',
+              description: 'settings.smoothScrollingHint',
+              type: 'boolean',
+              supported: supportsSmoothScrollingToggle,
             },
           ],
         },

@@ -27,6 +27,12 @@ pub struct DesktopWindowSettings {
     pub minimize_to_tray: bool,
     pub show_system_tray_icon: bool,
     pub use_custom_title_bar: bool,
+    #[serde(default = "smooth_scrolling_default")]
+    pub smooth_scrolling: bool,
+}
+
+const fn smooth_scrolling_default() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -98,6 +104,8 @@ pub fn apply<R: Runtime>(
         .show_system_tray_icon
         .store(settings.show_system_tray_icon, Ordering::Relaxed);
 
+    #[cfg(target_os = "linux")]
+    crate::smooth_scrolling::remember(settings.smooth_scrolling);
     crate::window_geometry::remember_custom_title_bar(app, settings.use_custom_title_bar);
     apply_title_bar(app, settings.use_custom_title_bar)?;
 

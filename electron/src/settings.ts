@@ -13,12 +13,14 @@ const WEBRTC_IP_POLICIES: readonly WebRtcIpPolicy[] = [
 export interface Settings {
   hardwareAcceleration: boolean;
   hardwareVideoAcceleration: boolean;
+  smoothScrolling: boolean;
   webRtcIpPolicy: WebRtcIpPolicy;
 }
 
 const DEFAULTS: Settings = {
   hardwareAcceleration: true,
   hardwareVideoAcceleration: true,
+  smoothScrolling: true,
   webRtcIpPolicy: 'default',
 };
 
@@ -27,13 +29,14 @@ export function sanitize(value: unknown): Settings {
     string,
     unknown
   >;
-  const flag = (key: 'hardwareAcceleration' | 'hardwareVideoAcceleration') =>
+  const flag = (key: 'hardwareAcceleration' | 'hardwareVideoAcceleration' | 'smoothScrolling') =>
     typeof stored[key] === 'boolean' ? stored[key] : DEFAULTS[key];
   const policy = WEBRTC_IP_POLICIES.find((candidate) => candidate === stored.webRtcIpPolicy);
 
   return {
     hardwareAcceleration: flag('hardwareAcceleration'),
     hardwareVideoAcceleration: flag('hardwareVideoAcceleration'),
+    smoothScrolling: flag('smoothScrolling'),
     webRtcIpPolicy: policy ?? DEFAULTS.webRtcIpPolicy,
   };
 }

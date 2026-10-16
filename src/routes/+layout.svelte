@@ -113,6 +113,7 @@
       minimizeToTray: preferences.minimizeToTray,
       showSystemTrayIcon: preferences.showSystemTrayIcon,
       useCustomTitleBar: preferences.useCustomTitleBar,
+      smoothScrolling: preferences.smoothScrolling,
     }).catch((error: unknown) => {
       console.debug('[sable window] the desktop window settings were not applied', error);
     });
@@ -122,6 +123,7 @@
     electronBridge()?.applySettings({
       hardwareAcceleration: preferences.hardwareAcceleration,
       hardwareVideoAcceleration: preferences.hardwareVideoAcceleration,
+      smoothScrolling: preferences.smoothScrolling,
       webRtcIpPolicy: preferences.webRtcIpPolicy,
     });
   });
