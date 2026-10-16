@@ -31,6 +31,7 @@ export const appearanceCategory: SettingsCategory = {
   icon: PaintBrushIcon,
   sections: [
     { id: 'themes', name: 'settings.groups.themes' },
+    { id: 'font', name: 'settings.groups.font' },
     { id: 'app-language', name: 'settings.groups.language' },
     { id: 'sidebar', name: 'settings.groups.sidebar' },
     { id: 'unread-badges', name: 'settings.groups.unreadBadges' },

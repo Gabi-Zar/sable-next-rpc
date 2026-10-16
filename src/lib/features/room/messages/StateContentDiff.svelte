@@ -80,6 +80,7 @@
   del,
   ins {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
   }
 
   .path {

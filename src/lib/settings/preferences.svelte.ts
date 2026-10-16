@@ -198,6 +198,8 @@ export interface Preferences {
   theme: ThemeMode;
   quickCss: string;
   fontFamily: string;
+  fontFamilyMono: string;
+  codeLigatures: boolean;
   underlineLinks: boolean;
   renderRoomColors: boolean;
   renderProfileColors: boolean;
@@ -536,6 +538,8 @@ const DEFAULTS: Preferences = {
   theme: 'system',
   quickCss: '',
   fontFamily: '',
+  fontFamilyMono: '',
+  codeLigatures: true,
   underlineLinks: true,
   renderRoomColors: true,
   renderProfileColors: true,

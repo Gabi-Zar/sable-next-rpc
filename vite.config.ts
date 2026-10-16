@@ -92,6 +92,7 @@ export default defineConfig({
         pages: 'dist',
         fallback: '404.html',
       }),
+      inspector: true,
     }),
   ],
 });

@@ -177,6 +177,7 @@
     display: grid;
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
     gap: var(--space-200);
     grid-template-columns: auto auto auto 1fr;
   }
@@ -197,6 +198,7 @@
   pre {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
     margin: var(--space-200) 0 0;
     overflow-wrap: anywhere;
     white-space: pre-wrap;

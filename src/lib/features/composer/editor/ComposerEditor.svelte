@@ -123,6 +123,7 @@
     border-radius: var(--radii-300);
     color: var(--bg-on-container);
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     padding: 0 var(--space-050);
   }
 
@@ -132,9 +133,20 @@
     border-radius: var(--radius);
     color: var(--bg-on-container);
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     margin: 0;
     overflow-x: auto;
     padding: var(--space-200);
+  }
+
+  .editor :global(pre code) {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-small);
+    font-variant-ligatures: none;
+  }
+
+  :root[data-code-ligatures='on'] .editor :global(code) {
+    font-variant-ligatures: normal;
   }
 
   /* ProseMirror's caret hack; a `pre` already breaks on the newline itself. */
@@ -212,6 +224,7 @@
 
   .editor :global([data-mx-maths]) {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
   }
 
   .editor :global([data-sable-room-ping]) {

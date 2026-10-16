@@ -123,6 +123,7 @@
 
   .outcome {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     font-weight: var(--font-weight-bold);
   }
 
@@ -135,5 +136,6 @@
 
   .ids {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
   }
 </style>

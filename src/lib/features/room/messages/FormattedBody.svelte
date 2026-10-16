@@ -881,6 +881,7 @@
     color: var(--surface-var-on-container);
     font-family: var(--font-family-mono);
     font-size: var(--inline-code-scale);
+    font-variant-ligatures: none;
     padding: 0 var(--space-100);
   }
 
@@ -945,6 +946,11 @@
   .formatted-body :global(pre code) {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
+  }
+
+  :root[data-code-ligatures='on'] .formatted-body :global(code) {
+    font-variant-ligatures: normal;
   }
 
   /* Bounded so a long paste cannot own the viewport, and so the virtualiser's

@@ -175,6 +175,9 @@ importers:
       '@choochmeque/tauri-plugin-sharekit-api':
         specifier: 0.4.0-rc.7
         version: 0.4.0-rc.7
+      '@fontsource-variable/cascadia-code':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@fontsource-variable/nunito':
         specifier: 5.3.0
         version: 5.3.0
@@ -1089,6 +1092,9 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fontsource-variable/cascadia-code@5.3.0':
+    resolution: {integrity: sha512-6I6M029Lum62MGmP0o+rXRrIBiIiptNDC4slPKLPUJiSB7NHZTLb+Ihk9G7jLvUfWziGXHJLjJPJLBzlEPjS1g==}
 
   '@fontsource-variable/nunito@5.3.0':
     resolution: {integrity: sha512-tw0ch7evIDSwoeUy+0XzocYHfbRWLeCRPJy22KgbrLjDLAbNw/fErBiil10Ssrs3Sjr55zaZrr36a975j8cBkQ==}
@@ -6754,6 +6760,8 @@ snapshots:
       '@floating-ui/utils': 0.2.12
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fontsource-variable/cascadia-code@5.3.0': {}
 
   '@fontsource-variable/nunito@5.3.0': {}
 

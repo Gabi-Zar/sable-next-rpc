@@ -176,6 +176,7 @@
 
   code {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     overflow-wrap: anywhere;
     text-align: right;
   }
