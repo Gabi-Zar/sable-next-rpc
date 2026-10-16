@@ -101,6 +101,8 @@
   let scrollAlign = $state<'start' | 'auto'>('start');
   let mounted = $state.raw({ start: 0, end: 0 });
   let pendingFocus: { section: string; index: number } | null = null;
+  let searchFocused = $state(false);
+  let chosen = $state.raw({ key: '', row: 0, col: 0 });
 
   $effect(() => {
     let cancelled = false;
@@ -326,6 +328,61 @@
   });
   let rowIndex = $derived(new Map(pickerRows.map((row, index) => [row.id, index])));
 
+  let navRows = $derived(
+    pickerRows.filter(
+      (row): row is Extract<PickerRow, { kind: 'cells' | 'images' }> =>
+        row.kind === 'cells' || row.kind === 'images'
+    )
+  );
+  let navIndex = $derived(new Map(navRows.map((row, index) => [row.id, index])));
+  let boardKey = $derived(`${tab}:${query.trim()}`);
+  let selection = $derived.by(() => {
+    const row = chosen.key === boardKey ? Math.min(chosen.row, navRows.length - 1) : 0;
+    const length = navRows[row] ? rowCells(navRows[row]).length : 0;
+    return { row, col: chosen.key === boardKey ? Math.min(chosen.col, length - 1) : 0 };
+  });
+
+  function rowCells(row: Extract<PickerRow, { kind: 'cells' | 'images' }>): Cell[] {
+    return row.kind === 'cells' ? row.cells : row.images.map((image): Cell => ({ image }));
+  }
+
+  function selectedCell(): Cell | undefined {
+    const row = navRows[selection.row];
+    return row ? rowCells(row)[selection.col] : undefined;
+  }
+
+  function isSelected(id: string, column: number): boolean {
+    return searchFocused && selection.row === navIndex.get(id) && selection.col === column;
+  }
+
+  function moveSelection(key: string): boolean {
+    if (navRows.length === 0) return false;
+    let { row, col } = selection;
+    const lengthOf = (index: number): number => rowCells(navRows[index]).length;
+    if (key === 'ArrowLeft') {
+      if (col > 0) col -= 1;
+      else if (row > 0) col = lengthOf(--row) - 1;
+    } else if (key === 'ArrowRight') {
+      if (col < lengthOf(row) - 1) col += 1;
+      else if (row < navRows.length - 1) {
+        row += 1;
+        col = 0;
+      }
+    } else if (key === 'ArrowUp' && row > 0) {
+      row -= 1;
+      col = Math.min(col, lengthOf(row) - 1);
+    } else if (key === 'ArrowDown' && row < navRows.length - 1) {
+      row += 1;
+      col = Math.min(col, lengthOf(row) - 1);
+    } else if (!key.startsWith('Arrow')) {
+      return false;
+    }
+    chosen = { key: boardKey, row, col };
+    const target = rowIndex.get(navRows[row].id);
+    if (target !== undefined) requestScroll(target, 'auto');
+    return true;
+  }
+
   function pickerRowKey(index: number): string | number {
     return pickerRows[index]?.id ?? index;
   }
@@ -475,9 +532,29 @@
     if (cell !== undefined) activeCell = { section: id, index: Number(cell) };
   }
 
+  function searchKeydown(event: KeyboardEvent): void {
+    if (gifTab) return;
+    if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+      if (event.key === 'Enter') submitQuery(event);
+      return;
+    }
+    if (moveSelection(event.key)) {
+      event.preventDefault();
+      return;
+    }
+    submitQuery(event);
+  }
+
   /** A reaction key is any string, so an unmatched query is still a valid one. */
   function submitQuery(event: KeyboardEvent): void {
-    if (event.key !== 'Enter' || !onPickUnicode || gifTab) return;
+    if (event.key !== 'Enter') return;
+    const cell = selectedCell();
+    if (cell) {
+      event.preventDefault();
+      pickCell(cell, event.shiftKey);
+      return;
+    }
+    if (!onPickUnicode) return;
     const text = query.trim();
     if (text === '') return;
     event.preventDefault();
@@ -579,7 +656,13 @@
       bind:value={query}
       placeholder={gifTab ? i18n.t('composer.searchGifs') : i18n.t('composer.searchPacks')}
       aria-label={gifTab ? i18n.t('composer.searchGifs') : i18n.t('composer.searchPacks')}
-      onkeydown={submitQuery}
+      onkeydown={searchKeydown}
+      onfocus={() => {
+        searchFocused = true;
+      }}
+      onblur={() => {
+        searchFocused = false;
+      }}
       {@attach focusSearch}
     />
     {#if !gifTab && sections.length > 0}
@@ -680,6 +763,7 @@
                               type="button"
                               role="gridcell"
                               data-cell={index}
+                              data-selected={isSelected(row.id, column) || undefined}
                               tabindex={tabStop(row.section, index, column) ? 0 : -1}
                               aria-label={label}
                               onclick={(event) => {
@@ -723,6 +807,7 @@
                               {...props}
                               type="button"
                               aria-label={imageLabel}
+                              data-selected={isSelected(row.id, column) || undefined}
                               onclick={(event) => {
                                 pick(image, event.shiftKey);
                               }}
@@ -1056,7 +1141,9 @@
   }
 
   .grids li button:hover,
-  .grids .unicode button:hover {
+  .grids .unicode button:hover,
+  .grids li button[data-selected],
+  .grids .unicode button[data-selected] {
     background: var(--surface-container-hover);
   }
 

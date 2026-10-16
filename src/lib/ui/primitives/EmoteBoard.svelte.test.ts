@@ -29,6 +29,14 @@ vi.mock('#lib/emoji/load-packs.js', () => ({
               info: null,
               source_pack: null,
             },
+            ...['wink', 'tada'].map((shortcode) => ({
+              shortcode,
+              url: `mxc://example.org/${shortcode}`,
+              body: null,
+              usage: ['emoticon', 'sticker'],
+              info: null,
+              source_pack: null,
+            })),
           ],
           stable_event: true,
           legacy_event: false,
@@ -40,7 +48,7 @@ vi.mock('#lib/emoji/load-packs.js', () => ({
 }));
 
 import { core } from '#lib/core/__mocks__/context.js';
-import { rememberEmote } from '#lib/emoji/recent-packs.svelte.js';
+import { rememberEmote, writeRecent } from '#lib/emoji/recent-packs.svelte.js';
 
 import EmoteBoard from './EmoteBoard.svelte';
 
@@ -109,4 +117,115 @@ test('previews a recent emote on focus', async () => {
   await fireEvent.focus(cell);
 
   expect(container.querySelector('.preview code')?.textContent).toBe(':wave:');
+});
+
+async function mountSearching(onPick = vi.fn()) {
+  writeRecent([]);
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  const view = render(EmoteBoard, { props: { roomId: '!room:example.org', onPick } });
+  const search = await view.findByRole('searchbox');
+  await view.findByRole('button', { name: ':wave:' });
+  search.focus();
+  await tick();
+  return { ...view, search, onPick };
+}
+
+const selectedLabel = (container: HTMLElement) =>
+  container.querySelector('[data-selected]')?.getAttribute('aria-label');
+
+test('selects the first emote when the search box is focused', async () => {
+  const { container } = await mountSearching();
+
+  expect(selectedLabel(container)).toBe(':wave:');
+});
+
+test('arrow keys move the selection and keep the text cursor still', async () => {
+  const { container, search } = await mountSearching();
+
+  const right = new KeyboardEvent('keydown', {
+    key: 'ArrowRight',
+    cancelable: true,
+    bubbles: true,
+  });
+  search.dispatchEvent(right);
+  await tick();
+  expect(right.defaultPrevented).toBe(true);
+  expect(selectedLabel(container)).toBe(':wink:');
+
+  await fireEvent.keyDown(search, { key: 'ArrowRight' });
+  await fireEvent.keyDown(search, { key: 'ArrowRight' });
+  expect(selectedLabel(container)).toBe(':tada:');
+
+  await fireEvent.keyDown(search, { key: 'ArrowLeft' });
+  expect(selectedLabel(container)).toBe(':wink:');
+});
+
+test('ctrl shortcuts are left to the search box', async () => {
+  const { container, search } = await mountSearching();
+
+  const selectAll = new KeyboardEvent('keydown', {
+    key: 'a',
+    ctrlKey: true,
+    cancelable: true,
+    bubbles: true,
+  });
+  search.dispatchEvent(selectAll);
+  const ctrlRight = new KeyboardEvent('keydown', {
+    key: 'ArrowRight',
+    ctrlKey: true,
+    cancelable: true,
+    bubbles: true,
+  });
+  search.dispatchEvent(ctrlRight);
+
+  expect(selectAll.defaultPrevented).toBe(false);
+  expect(ctrlRight.defaultPrevented).toBe(false);
+  expect(selectedLabel(container)).toBe(':wave:');
+});
+
+test('typing selects the first result again', async () => {
+  const { container, search } = await mountSearching();
+  await fireEvent.keyDown(search, { key: 'ArrowRight' });
+  expect(selectedLabel(container)).toBe(':wink:');
+
+  await fireEvent.input(search, { target: { value: 'w' } });
+  await tick();
+
+  expect(selectedLabel(container)).toBe(':wave:');
+});
+
+test('arrow keys move the text cursor when nothing matches', async () => {
+  const { search } = await mountSearching();
+  await fireEvent.input(search, { target: { value: 'zzz' } });
+  await tick();
+
+  const left = new KeyboardEvent('keydown', { key: 'ArrowLeft', cancelable: true, bubbles: true });
+  search.dispatchEvent(left);
+
+  expect(left.defaultPrevented).toBe(false);
+});
+
+test('enter picks the selected emote and closes', async () => {
+  const { search, onPick } = await mountSearching();
+  await fireEvent.keyDown(search, { key: 'ArrowRight' });
+
+  await fireEvent.keyDown(search, { key: 'Enter' });
+
+  expect(onPick).toHaveBeenCalledWith(
+    expect.objectContaining({ shortcode: 'wink' }),
+    'emoticon',
+    false
+  );
+});
+
+test('shift+enter picks the selected emote and keeps the board open', async () => {
+  const { search, onPick } = await mountSearching();
+
+  await fireEvent.keyDown(search, { key: 'Enter', shiftKey: true });
+
+  expect(onPick).toHaveBeenCalledWith(
+    expect.objectContaining({ shortcode: 'wave' }),
+    'emoticon',
+    true
+  );
 });
