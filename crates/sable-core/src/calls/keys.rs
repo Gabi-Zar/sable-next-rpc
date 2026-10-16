@@ -52,12 +52,28 @@ impl SessionRef {
 #[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
 #[ruma_event(type = "io.element.call.encryption_keys", kind = ToDevice)]
 pub(crate) struct ToDeviceCallEncryptionKeysEventContent {
-    pub(crate) keys: KeyPayload,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) media_key: Option<KeyPayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) keys: Option<KeyPayload>,
     pub(crate) room_id: OwnedRoomId,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) member_id: Option<String>,
     pub(crate) member: MemberRef,
     #[serde(default)]
     pub(crate) session: SessionRef,
-    pub(crate) sent_ts: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) sent_ts: Option<u64>,
+}
+
+impl ToDeviceCallEncryptionKeysEventContent {
+    pub(crate) fn key(&self) -> Option<&KeyPayload> {
+        self.media_key.as_ref().or(self.keys.as_ref())
+    }
+
+    pub(crate) fn member_id(&self) -> Option<&str> {
+        self.member_id.as_deref().or(self.member.id.as_deref())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -299,6 +315,25 @@ impl KeyDistributor {
         }
     }
 
+    fn key_event(&self, key: &OutboundKey) -> ToDeviceCallEncryptionKeysEventContent {
+        let payload = KeyPayload {
+            index: key.index,
+            key: key.encoded(),
+        };
+        ToDeviceCallEncryptionKeysEventContent {
+            media_key: Some(payload.clone()),
+            keys: Some(payload),
+            room_id: self.room_id.clone(),
+            member_id: Some(self.member_id.clone()),
+            member: MemberRef {
+                claimed_device_id: self.device_id.to_string(),
+                id: Some(self.member_id.clone()),
+            },
+            session: SessionRef::default(),
+            sent_ts: Some(now_ms()),
+        }
+    }
+
     async fn send(
         &self,
         room: &Room,
@@ -344,19 +379,7 @@ impl KeyDistributor {
             return reached;
         }
 
-        let content = ToDeviceCallEncryptionKeysEventContent {
-            keys: KeyPayload {
-                index: key.index,
-                key: key.encoded(),
-            },
-            room_id: self.room_id.clone(),
-            member: MemberRef {
-                claimed_device_id: self.device_id.to_string(),
-                id: Some(self.member_id.clone()),
-            },
-            session: SessionRef::default(),
-            sent_ts: now_ms(),
-        };
+        let content = self.key_event(key);
 
         let Ok(raw) = Raw::new(&content) else {
             tracing::error!("could not serialize a call media key");
@@ -429,12 +452,12 @@ pub(crate) fn now_ms() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use matrix_sdk::ruma::owned_user_id;
+    use matrix_sdk::ruma::{owned_room_id, owned_user_id};
 
     use super::super::membership::CallMember;
     use super::{
-        KEY_BYTES, OutboundKey, Rollout, SessionRef, ToDeviceCallEncryptionKeysEventContent,
-        decode_key, plan_rollout, rotation_wait_ms,
+        KEY_BYTES, KeyDistributor, OutboundKey, Rollout, SessionRef,
+        ToDeviceCallEncryptionKeysEventContent, decode_key, plan_rollout, rotation_wait_ms,
     };
 
     fn member(device: &str, created_ts: u64) -> CallMember {
@@ -636,6 +659,75 @@ mod tests {
             }));
 
         assert!(content.is_ok_and(|content| content.session.is_legacy_room_call()));
+    }
+
+    #[test]
+    fn test_the_updated_format_without_sent_ts_or_session_is_accepted() {
+        let content =
+            serde_json::from_value::<ToDeviceCallEncryptionKeysEventContent>(serde_json::json!({
+                "room_id": "!room:example.org",
+                "member_id": "member",
+                "media_key": { "index": 4, "key": "CQkJCQkJCQkJCQkJCQkJCQ==" },
+                "member": { "claimed_device_id": "DEVICE" }
+            }))
+            .unwrap();
+
+        assert_eq!(content.key().map(|key| key.index), Some(4));
+        assert_eq!(content.member_id(), Some("member"));
+        assert!(content.session.is_legacy_room_call());
+        assert_eq!(content.sent_ts, None);
+    }
+
+    #[test]
+    fn test_the_deprecated_format_still_resolves_the_key_and_member() {
+        let content =
+            serde_json::from_value::<ToDeviceCallEncryptionKeysEventContent>(serde_json::json!({
+                "keys": { "index": 2, "key": "CQkJCQkJCQkJCQkJCQkJCQ==" },
+                "room_id": "!room:example.org",
+                "member": { "claimed_device_id": "DEVICE", "id": "old" },
+                "sent_ts": 5
+            }))
+            .unwrap();
+
+        assert_eq!(content.key().map(|key| key.index), Some(2));
+        assert_eq!(content.member_id(), Some("old"));
+    }
+
+    #[test]
+    fn test_a_sent_key_carries_both_formats_for_older_receivers() {
+        let distributor = KeyDistributor::new(
+            owned_room_id!("!room:example.org"),
+            owned_user_id!("@erwan:localhost"),
+            "LAPTOP".into(),
+            "member".to_owned(),
+            "@erwan:localhost:LAPTOP".to_owned(),
+        );
+        let key = OutboundKey::generate(6, 0).unwrap();
+
+        let content = serde_json::to_value(distributor.key_event(&key)).unwrap();
+
+        assert_eq!(content["media_key"], content["keys"]);
+        assert_eq!(content["media_key"]["index"], 6);
+        assert_eq!(content["member_id"], "member");
+        assert_eq!(content["member"]["id"], "member");
+        assert_eq!(content["member"]["claimed_device_id"], "LAPTOP");
+        assert!(content["sent_ts"].is_u64());
+    }
+
+    #[test]
+    fn test_the_updated_key_wins_over_the_deprecated_one() {
+        let content =
+            serde_json::from_value::<ToDeviceCallEncryptionKeysEventContent>(serde_json::json!({
+                "media_key": { "index": 3, "key": "CQkJCQkJCQkJCQkJCQkJCQ==" },
+                "keys": { "index": 1, "key": "CQkJCQkJCQkJCQkJCQkJCQ==" },
+                "room_id": "!room:example.org",
+                "member_id": "new",
+                "member": { "claimed_device_id": "DEVICE", "id": "old" }
+            }))
+            .unwrap();
+
+        assert_eq!(content.key().map(|key| key.index), Some(3));
+        assert_eq!(content.member_id(), Some("new"));
     }
 
     #[test]

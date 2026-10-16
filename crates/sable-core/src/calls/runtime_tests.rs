@@ -337,17 +337,19 @@ async fn pending_key_with_a_custom_membership_id_is_emitted() {
         sender: owned_user_id!("@user:example.org"),
         device: owned_device_id!("DEVICE"),
         content: super::keys::ToDeviceCallEncryptionKeysEventContent {
-            keys: super::keys::KeyPayload {
+            media_key: None,
+            keys: Some(super::keys::KeyPayload {
                 index,
                 key: base64::engine::general_purpose::STANDARD.encode([index; 16]),
-            },
+            }),
             room_id: room_id.clone(),
+            member_id: None,
             member: super::keys::MemberRef {
                 claimed_device_id: "DEVICE".to_owned(),
                 id: id.map(str::to_owned),
             },
             session: super::keys::SessionRef::default(),
-            sent_ts: 1,
+            sent_ts: Some(1),
         },
         received: super::keys::now_ms(),
         reported: false,
@@ -1042,6 +1044,49 @@ async fn a_legacy_call_subscribes_to_another_focus_under_its_publishing_identity
 }
 
 #[tokio::test]
+async fn a_key_without_a_sent_timestamp_is_accepted() {
+    let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    let room_id = owned_room_id!("!call:example.org");
+    let content = serde_json::from_value(serde_json::json!({
+        "room_id": room_id,
+        "member_id": "member",
+        "media_key": {
+            "index": 4,
+            "key": base64::engine::general_purpose::STANDARD.encode([7u8; 16])
+        },
+        "member": { "claimed_device_id": "DEVICE" }
+    }))
+    .unwrap();
+    let mut state = State::new(
+        member(CallMode::Compatibility, 1, &[]),
+        vec![member(
+            CallMode::Compatibility,
+            1,
+            &["https://sfu.example.org"],
+        )],
+        super::StickyMemberships::default(),
+        &room_id,
+        false,
+        None,
+        false,
+    );
+    state.pending_keys = vec![super::PendingKey {
+        sender: owned_user_id!("@user:example.org"),
+        device: owned_device_id!("DEVICE"),
+        content,
+        received: super::keys::now_ms(),
+        reported: false,
+    }];
+
+    super::emit_pending(&core, 1, CallSessionId(1), &room_id, &mut state);
+
+    assert!(matches!(
+        events.try_recv(),
+        Ok(crate::protocol::CoreEvent::CallEncryptionKey { key_index: 4, .. })
+    ));
+}
+
+#[tokio::test]
 async fn a_key_older_than_one_already_emitted_for_the_same_index_is_dropped() {
     let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
     let room_id = owned_room_id!("!call:example.org");
@@ -1049,17 +1094,19 @@ async fn a_key_older_than_one_already_emitted_for_the_same_index_is_dropped() {
         sender: owned_user_id!("@user:example.org"),
         device: owned_device_id!("DEVICE"),
         content: super::keys::ToDeviceCallEncryptionKeysEventContent {
-            keys: super::keys::KeyPayload {
+            media_key: None,
+            keys: Some(super::keys::KeyPayload {
                 index: 0,
                 key: base64::engine::general_purpose::STANDARD.encode([fill; 16]),
-            },
+            }),
             room_id: room_id.clone(),
+            member_id: None,
             member: super::keys::MemberRef {
                 claimed_device_id: "DEVICE".to_owned(),
                 id: None,
             },
             session: super::keys::SessionRef::default(),
-            sent_ts,
+            sent_ts: Some(sent_ts),
         },
         received: super::keys::now_ms(),
         reported: false,

@@ -1224,37 +1224,46 @@ fn emit_pending(
                 && member.device_id == pending.device
                 && (member.mode != CallMode::Matrix2
                     || (member.member_id.is_some()
-                        && member.member_id == pending.content.member.id))
+                        && member.member_id.as_deref() == pending.content.member_id()))
         });
         if let Some(member) = member
             && let Some(service) = member_service(member, &state.members)
+            && let Some(payload) = pending.content.key()
         {
-            let slot = (member.identity.clone(), pending.content.keys.index);
+            let slot = (member.identity.clone(), payload.index);
+            let sent_ts = pending.content.sent_ts.unwrap_or(pending.received);
             if state
                 .latest_key_ts
                 .get(&slot)
-                .is_some_and(|latest| *latest > pending.content.sent_ts)
+                .is_some_and(|latest| *latest > sent_ts)
             {
                 tracing::info!(
                     sender = %pending.sender,
-                    index = pending.content.keys.index,
+                    index = payload.index,
                     "dropping an out of order call media key"
                 );
                 continue;
             }
-            state.latest_key_ts.insert(slot, pending.content.sent_ts);
+            state.latest_key_ts.insert(slot, sent_ts);
             let waited = keys::now_ms().saturating_sub(pending.received);
             if pending.reported {
                 tracing::warn!("a call media key resolved after {waited}ms");
             }
+            tracing::info!(
+                sender = %pending.sender,
+                device = %pending.device,
+                index = payload.index,
+                waited_ms = waited,
+                "accepted a call media key"
+            );
             core.emit_if_current(
                 generation,
                 CoreEvent::CallEncryptionKey {
                     session,
                     identity: member.identity.clone(),
                     backend_id: Some(backend_id(room_id, service)),
-                    key_index: pending.content.keys.index,
-                    key: pending.content.keys.key,
+                    key_index: payload.index,
+                    key: payload.key.clone(),
                     own: false,
                 },
             );
@@ -1284,7 +1293,8 @@ fn unresolved_reason(pending: &PendingKey, members: &[CallMember]) -> &'static s
     }
     let Some(member) = devices.find(|member| {
         member.mode != CallMode::Matrix2
-            || (member.member_id.is_some() && member.member_id == pending.content.member.id)
+            || (member.member_id.is_some()
+                && member.member_id.as_deref() == pending.content.member_id())
     }) else {
         return "the member id does not match the sticky membership";
     };
@@ -1317,10 +1327,19 @@ fn watch_keys(
                     tracing::warn!(sender = %event.sender, "ignoring a call media key for another session");
                     return;
                 }
-                if keys::decode_key(&event.content.keys.key).is_none() {
+                let Some(payload) = event.content.key() else {
+                    tracing::warn!(sender = %event.sender, "ignoring a call media key event without a key");
+                    return;
+                };
+                if keys::decode_key(&payload.key).is_none() {
                     tracing::warn!(sender = %event.sender, "ignoring a call media key that is not 16 bytes");
                     return;
                 }
+                tracing::debug!(
+                    sender = %event.sender,
+                    index = payload.index,
+                    "received a call media key"
+                );
                 let Some(encryption) = encryption else {
                     tracing::warn!(sender = %event.sender, "ignoring a call media key sent in clear");
                     return;
