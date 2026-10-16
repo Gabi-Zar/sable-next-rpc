@@ -328,20 +328,26 @@ function pickScreenSource(sources: DesktopCapturerSource[]): Promise<string | nu
 }
 
 async function chooseShareSource(): Promise<DesktopCapturerSource | undefined> {
-  const thumbnailSize = isWayland ? { width: 0, height: 0 } : { width: 320, height: 180 };
+  const thumbnailSize = isWayland ? { width: 1920, height: 1080 } : { width: 320, height: 180 };
   const sources = await desktopCapturer
     .getSources({ types: ['screen', 'window'], thumbnailSize })
-    .catch(() => []);
+    .catch((error: unknown) => {
+      console.error('[sable screen share] could not list sources', error);
+      return [];
+    });
   const id = isWayland ? sources[0]?.id : await pickScreenSource(sources);
   return sources.find((candidate) => candidate.id === id);
 }
 
 function registerScreenShare(): void {
-  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
-    void chooseShareSource().then((source) => {
-      callback(source ? { video: source } : {});
-    });
-  });
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (_request, callback) => {
+      void chooseShareSource().then((source) => {
+        callback(source ? { video: source } : null);
+      });
+    },
+    { useSystemPicker: true }
+  );
 }
 
 function registerDeepLinks(): void {
