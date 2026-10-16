@@ -353,6 +353,18 @@ function createWindow(): BrowserWindow {
       window.hide();
     }
   });
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.isAutoRepeat) return;
+    const f12 = input.key === 'F12' && !input.control && !input.shift && !input.alt && !input.meta;
+    const inspect =
+      input.key.toLowerCase() === 'i' &&
+      (process.platform === 'darwin'
+        ? input.meta && input.alt && !input.control && !input.shift
+        : input.control && input.shift && !input.meta && !input.alt);
+    if (!f12 && !inspect) return;
+    event.preventDefault();
+    window.webContents.toggleDevTools();
+  });
   window.webContents.on('did-navigate', () => {
     pageListening = false;
     cancelPicks();
