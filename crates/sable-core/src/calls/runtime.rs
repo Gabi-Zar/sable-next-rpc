@@ -1149,6 +1149,10 @@ async fn publish_update(
             members = verified.len(),
             "shared the call media key with new members"
         ),
+        Rolled::Reshared => tracing::debug!(
+            members = verified.len(),
+            "shared the call media key again with every member"
+        ),
         Rolled::Rotated {
             announcement,
             first,

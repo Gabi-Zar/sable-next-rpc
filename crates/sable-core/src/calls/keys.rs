@@ -12,6 +12,7 @@ use super::membership::CallMember;
 pub(crate) const KEY_BYTES: usize = 16;
 pub(crate) const ROTATION_GRACE_MS: u64 = 10_000;
 pub(crate) const USE_KEY_DELAY_MS: u64 = 5_000;
+pub(crate) const RESHARE_INTERVAL_MS: u64 = 60_000;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct KeyPayload {
@@ -204,6 +205,7 @@ pub(crate) struct Announcement {
 pub(crate) enum Rolled {
     Nothing,
     Shared,
+    Reshared,
     Deferred {
         wait_ms: u64,
     },
@@ -220,6 +222,7 @@ pub(crate) struct KeyDistributor {
     member_id: String,
     identity: String,
     outbound: Option<OutboundKey>,
+    last_sent_ms: u64,
 }
 
 impl KeyDistributor {
@@ -237,12 +240,21 @@ impl KeyDistributor {
             member_id,
             identity,
             outbound: None,
+            last_sent_ms: 0,
         }
     }
 
     pub(crate) async fn roll(&mut self, room: &Room, members: &[CallMember]) -> Rolled {
         match plan_rollout(self.outbound.as_ref(), members, now_ms(), ROTATION_GRACE_MS) {
-            Rollout::Unchanged => Rolled::Nothing,
+            Rollout::Unchanged => {
+                let due = self.outbound.is_some()
+                    && now_ms().saturating_sub(self.last_sent_ms) >= RESHARE_INTERVAL_MS;
+                if !due {
+                    return Rolled::Nothing;
+                }
+                self.share_current(room, members).await;
+                Rolled::Reshared
+            }
             Rollout::Share { targets } => {
                 self.share_current(room, &targets).await;
                 Rolled::Shared
@@ -263,6 +275,7 @@ impl KeyDistributor {
                 };
 
                 let reached = self.send(room, &key, &targets).await;
+                self.last_sent_ms = now_ms();
 
                 let announcement = Announcement {
                     identity: self.identity.clone(),
@@ -304,6 +317,7 @@ impl KeyDistributor {
             return;
         }
         let reached = self.send(room, &key, targets).await;
+        self.last_sent_ms = now_ms();
         if let Some(outbound) = self.outbound.as_mut() {
             let unreached = unreached(targets, &reached);
             warn_unreached(&unreached, &outbound.failed);
@@ -311,6 +325,9 @@ impl KeyDistributor {
                 .failed
                 .retain(|failed| !targets.iter().any(|target| target.same_generation(failed)));
             outbound.failed.extend(unreached);
+            outbound
+                .shared_with
+                .retain(|shared| !reached.iter().any(|member| member.same_generation(shared)));
             outbound.shared_with.extend(reached);
         }
     }
@@ -386,6 +403,11 @@ impl KeyDistributor {
             return Vec::new();
         };
 
+        tracing::debug!(
+            index = key.index,
+            devices = devices.len(),
+            "sending the call media key"
+        );
         match encryption
             .encrypt_and_send_raw_to_device(
                 devices.iter().collect(),
@@ -778,7 +800,7 @@ mod sdk_tests {
     use wiremock::{Mock, ResponseTemplate};
 
     use super::super::membership::CallMember;
-    use super::{KeyDistributor, OutboundKey, Rolled, now_ms};
+    use super::{KeyDistributor, OutboundKey, RESHARE_INTERVAL_MS, Rolled, now_ms};
 
     fn member(user_id: &str, device_id: &str) -> CallMember {
         CallMember {
@@ -884,5 +906,44 @@ mod sdk_tests {
             rolled,
             Rolled::Rotated { announcement, first: false } if announcement.index == 5
         ));
+    }
+
+    #[tokio::test]
+    async fn an_unchanged_roster_is_sent_the_key_again_once_in_a_while() {
+        let server = MatrixMockServer::new().await;
+        let alice = server
+            .client_builder_for_crypto_end_to_end(
+                user_id!("@alice:example.org"),
+                device_id!("ALICE"),
+            )
+            .build()
+            .await;
+        let room = server
+            .sync_joined_room(&alice, room_id!("!call:example.org"))
+            .await;
+        let me = member("@alice:example.org", "ALICE");
+        let mut distributor = KeyDistributor::new(
+            owned_room_id!("!call:example.org"),
+            owned_user_id!("@alice:example.org"),
+            "ALICE".into(),
+            me.identity.clone(),
+            me.identity.clone(),
+        );
+        distributor.outbound = Some(OutboundKey {
+            shared_with: vec![me.clone()],
+            ..OutboundKey::generate(2, now_ms()).unwrap()
+        });
+        distributor.last_sent_ms = now_ms();
+
+        let rolled = distributor.roll(&room, std::slice::from_ref(&me)).await;
+        assert!(matches!(rolled, Rolled::Nothing));
+
+        distributor.last_sent_ms = now_ms() - RESHARE_INTERVAL_MS;
+        let rolled = distributor.roll(&room, std::slice::from_ref(&me)).await;
+        assert!(matches!(rolled, Rolled::Reshared));
+        assert_eq!(distributor.outbound.as_ref().unwrap().shared_with.len(), 1);
+
+        let rolled = distributor.roll(&room, std::slice::from_ref(&me)).await;
+        assert!(matches!(rolled, Rolled::Nothing));
     }
 }
