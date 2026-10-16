@@ -92,6 +92,7 @@
   .screen-picker {
     display: grid;
     gap: var(--space-300);
+    max-width: 100%;
     width: min(44rem, calc(100vw - 2rem));
   }
 
