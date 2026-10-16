@@ -350,6 +350,47 @@ test('a gallery keeps two columns on desktop', async ({
   expect(cells[1]).toBeCloseTo(cells[0] ?? 0, 0);
 });
 
+test('a gallery of files gives each file its own row on desktop', async ({
+  page,
+  app,
+  timeline,
+  core,
+  installRoomCore,
+}) => {
+  await installRoomCore('ready');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await app.openRooms();
+  await app.openRoomFromList('General');
+  await timeline.expectRevealed();
+  await core.setTimelineItemById(await core.subscription(), 'general-19', {
+    ...picture(800, 600),
+    content: {
+      kind: 'gallery',
+      body: '',
+      html: '',
+      items: ['no-rounded-edges.sable.css', 'hack-nerd.sable.css'].map((filename) => ({
+        kind: 'file',
+        filename,
+        caption: null,
+        source: JSON.stringify({ Plain: 'mxc://example.test/history-image' }),
+        mime: 'text/css',
+        size: 221,
+      })),
+    },
+  });
+
+  const cells = page.locator('.timeline-viewport .gallery .cell');
+  await expect(cells).toHaveCount(2);
+  const boxes = await cells.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const { left, right, top, bottom } = node.getBoundingClientRect();
+      return { left, right, top, bottom };
+    })
+  );
+  expect(boxes[1]?.left).toBeCloseTo(boxes[0]?.left ?? 0, 0);
+  expect(boxes[1]?.top ?? 0).toBeGreaterThanOrEqual(boxes[0]?.bottom ?? Infinity);
+});
+
 test('a pdf in a gallery opens in the viewer', async ({
   page,
   app,

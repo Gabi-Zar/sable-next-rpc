@@ -51,7 +51,7 @@
 <div class="gallery">
   {#each items as item, index (index)}
     {@const spoiler = item.kind === 'image' || item.kind === 'video' ? item.spoiler : null}
-    <div class="cell">
+    <div class={['cell', { wide: item.kind !== 'image' && item.kind !== 'video' }]}>
       {#if item.kind === 'video' && spoiler !== null && !revealed.has(item.source)}
         <Button class="spoiler-reveal" onclick={() => revealed.add(item.source)}>
           {spoiler ? `${spoiler} — ` : ''}{i18n.t('timeline.spoilerMedia')}
@@ -124,6 +124,10 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
+  }
+
+  .cell.wide {
+    grid-column: 1 / -1;
   }
 
   .item-caption {
