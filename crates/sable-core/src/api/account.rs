@@ -587,11 +587,16 @@ impl Handler for SetPresenceParams {
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
         core.set_desired_presence(self.presence);
 
-        core.client()
-            .await?
+        let client = core.client().await?;
+        client
             .set_presence(presence::state(self.presence), self.status_message, true)
             .await
-            .or_failed(core, "set_presence")
+            .or_failed(core, "set_presence")?;
+
+        if let Some(user_id) = client.user_id() {
+            core.fetch_presence(vec![user_id.to_owned()]).await;
+        }
+        Ok(())
     }
 }
 
