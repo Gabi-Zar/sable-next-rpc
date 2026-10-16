@@ -126,6 +126,8 @@ windows = { version = "0.62.2", features = [
 ] }
 
 [target."cfg(target_os = \"linux\")".dependencies]
+# deep-link 2.6.2 constructs ParseOption without the fields added in 0.21.3.
+rust-ini = "=0.21.1"
 gtk = "0.18"
 webkit2gtk = { version = "2.0", features = ["v2_34"], optional = true }
 tauri-runtime-cef = { version = "0.1.0", git = "https://github.com/SableClient/tauri-runtime-cef", rev = "99d6dd5fac4e8f3a7b865f9eea54178916111f3d", optional = true }
@@ -146,6 +148,8 @@ sable-hdr = { path = "../crates/sable-hdr", version = "0.1.0" }
 zbus = "5"
 
 [target."cfg(target_os = \"ios\")".dependencies]
+# backtrace 0.3.76 needs dyld bindings that libc 0.2.190 removed on iOS.
+libc = "=0.2.189"
 block2 = "0.6"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = [

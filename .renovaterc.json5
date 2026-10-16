@@ -86,5 +86,11 @@
       matchPackageNames: ['pipewire'],
       allowedVersions: '<0.10',
     },
+    {
+      description: 'Keep compatibility pins until backtrace on iOS and deep-link on Linux support newer dependencies',
+      matchManagers: ['cargo'],
+      matchPackageNames: ['libc', 'rust-ini'],
+      enabled: false,
+    },
   ],
 }
