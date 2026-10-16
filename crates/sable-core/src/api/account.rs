@@ -484,13 +484,57 @@ impl Handler for IgnoreUserParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.client()
-            .await?
-            .account()
-            .ignore_user(&self.user_id)
-            .await
-            .or_failed(core, "ignore_user")
+        edit_ignored_users(core, &self.user_id, true, "ignore_user").await
     }
+}
+
+/// The SDK's `ignore_user` round-trips the list through a sorted map, which
+/// rewrites the account data in key order. Editing the raw content keeps the
+/// order the list was written in.
+async fn edit_ignored_users(
+    core: &Arc<Core>,
+    user_id: &UserId,
+    ignore: bool,
+    label: &str,
+) -> Result<(), RpcError> {
+    if ignore && core.client().await?.user_id() == Some(user_id) {
+        return Err(core.failed(label, "a user cannot ignore themselves"));
+    }
+    let current = core
+        .global_account_data(IGNORED_USER_LIST.into(), label)
+        .await?
+        .and_then(|raw| raw.deserialize_as::<serde_json::Value>().ok());
+    let Some(content) = with_ignored_user(current, user_id.as_str(), ignore) else {
+        return Ok(());
+    };
+    core.put_global_account_data(IGNORED_USER_LIST.into(), &content, label)
+        .await
+}
+
+const IGNORED_USER_LIST: &str = "m.ignored_user_list";
+
+fn with_ignored_user(
+    current: Option<serde_json::Value>,
+    user_id: &str,
+    ignore: bool,
+) -> Option<serde_json::Value> {
+    let mut content = match current {
+        Some(serde_json::Value::Object(content)) => content,
+        _ => serde_json::Map::new(),
+    };
+    let users = content
+        .entry("ignored_users")
+        .or_insert_with(|| serde_json::json!({}));
+    if !users.is_object() {
+        *users = serde_json::json!({});
+    }
+    let users = users.as_object_mut()?;
+    let changed = if ignore {
+        users.insert(user_id.to_owned(), serde_json::json!({})).is_none()
+    } else {
+        users.shift_remove(user_id).is_some()
+    };
+    changed.then_some(serde_json::Value::Object(content))
 }
 
 #[derive(Debug, Deserialize)]
@@ -504,12 +548,7 @@ impl Handler for UnignoreUserParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.client()
-            .await?
-            .account()
-            .unignore_user(&self.user_id)
-            .await
-            .or_failed(core, "unignore_user")
+        edit_ignored_users(core, &self.user_id, false, "unignore_user").await
     }
 }
 
@@ -726,5 +765,48 @@ impl Handler for SetProfileOverrideParams {
             color: self.color,
         };
         core.set_profile_override(&self.user_id, &edit).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::with_ignored_user;
+
+    fn keys(content: &serde_json::Value) -> Vec<&str> {
+        content["ignored_users"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect()
+    }
+
+    #[test]
+    fn ignoring_appends_without_sorting() {
+        let current = json!({"ignored_users": {"@z:x": {}, "@a:x": {}}});
+        let edited = with_ignored_user(Some(current), "@m:x", true).unwrap();
+        assert_eq!(keys(&edited), ["@z:x", "@a:x", "@m:x"]);
+    }
+
+    #[test]
+    fn unignoring_keeps_the_rest_in_order() {
+        let current = json!({"ignored_users": {"@z:x": {}, "@a:x": {}, "@m:x": {}, "@b:x": {}}});
+        let edited = with_ignored_user(Some(current), "@z:x", false).unwrap();
+        assert_eq!(keys(&edited), ["@a:x", "@m:x", "@b:x"]);
+    }
+
+    #[test]
+    fn a_list_that_already_says_so_is_left_alone() {
+        let current = json!({"ignored_users": {"@a:x": {}}});
+        assert!(with_ignored_user(Some(current.clone()), "@a:x", true).is_none());
+        assert!(with_ignored_user(Some(current), "@b:x", false).is_none());
+    }
+
+    #[test]
+    fn a_missing_list_starts_one() {
+        let edited = with_ignored_user(None, "@a:x", true).unwrap();
+        assert_eq!(keys(&edited), ["@a:x"]);
     }
 }
