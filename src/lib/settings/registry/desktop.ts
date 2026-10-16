@@ -31,7 +31,7 @@ export const desktopCategories: SettingsCategory[] =
               icon: DesktopIcon,
               name: 'settings.showSystemTrayIcon',
               type: 'boolean',
-              supported: () => supportsDesktopWindow() && supportsTray(),
+              supported: supportsTray,
             },
             {
               key: 'closeToTray',
@@ -41,7 +41,7 @@ export const desktopCategories: SettingsCategory[] =
               description: 'settings.closeToTrayHint',
               type: 'boolean',
               gatedBy: 'showSystemTrayIcon',
-              supported: () => supportsDesktopWindow() && supportsTray(),
+              supported: supportsTray,
             },
             {
               key: 'minimizeToTray',
@@ -51,7 +51,7 @@ export const desktopCategories: SettingsCategory[] =
               description: 'settings.minimizeToTrayHint',
               type: 'boolean',
               gatedBy: 'showSystemTrayIcon',
-              supported: () => supportsDesktopWindow() && supportsTray(),
+              supported: supportsTray,
             },
             {
               key: 'hardwareAcceleration',

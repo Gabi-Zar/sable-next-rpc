@@ -21,6 +21,10 @@ ipcRenderer.on('sable-pick-screen', (_event, request: number, sources: ScreenSha
 
 contextBridge.exposeInMainWorld('sableElectron', {
   platform: process.platform,
+  applyWindowSettings: (settings: unknown) =>
+    ipcRenderer.invoke('sable-apply-window-settings', settings) as Promise<{
+      trayAvailable: boolean;
+    } | null>,
   applySettings: (settings: unknown) => {
     ipcRenderer.send('sable-apply-settings', settings);
   },

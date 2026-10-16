@@ -2,6 +2,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { type as osType } from '@tauri-apps/plugin-os';
 
 import { isNativeMobile } from './os';
+import { electronBridge, isElectron } from './electron';
 
 export type WindowEdge =
   | 'North'
@@ -31,6 +32,7 @@ export function supportsDesktopWindow(): boolean {
 }
 
 export function supportsTray(): boolean {
+  if (isElectron()) return electronBridge()?.platform === 'linux';
   return supportsDesktopWindow() && osType() !== 'macos';
 }
 
@@ -47,6 +49,7 @@ export function titleBarKind(useCustomTitleBar: boolean): TitleBarKind | null {
 export async function applyDesktopWindowSettings(
   settings: DesktopWindowSettings
 ): Promise<DesktopWindowState | null> {
+  if (isElectron()) return electronBridge()?.applyWindowSettings(settings) ?? null;
   if (!supportsDesktopWindow()) return null;
 
   const { invoke } = await import('@tauri-apps/api/core');

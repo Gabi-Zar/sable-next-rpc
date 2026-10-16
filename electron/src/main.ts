@@ -7,6 +7,8 @@ import {
   protocol,
   session,
   shell,
+  Tray,
+  nativeImage,
   utilityProcess,
   webContents,
   type DesktopCapturerSource,
@@ -177,9 +179,74 @@ async function serveApp(request: Request): Promise<Response> {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let core: UtilityProcess | null = null;
 let quitting = false;
 let pageListening = false;
+
+interface DesktopWindowSettings {
+  closeToTray: boolean;
+  minimizeToTray: boolean;
+  showSystemTrayIcon: boolean;
+}
+
+let desktopWindowSettings: DesktopWindowSettings = {
+  closeToTray: false,
+  minimizeToTray: false,
+  showSystemTrayIcon: true,
+};
+
+function showMainWindow(): void {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function trayIconPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'sable-tray.png')
+    : join(app.getAppPath(), '../src-tauri/icons/icon.png');
+}
+
+function updateTray(show: boolean): boolean {
+  if (!isLinux) return false;
+  if (!show) {
+    tray?.destroy();
+    tray = null;
+    return false;
+  }
+  if (tray) return true;
+
+  const icon = nativeImage.createFromPath(trayIconPath());
+  if (icon.isEmpty()) {
+    console.error('[sable tray] could not load the tray icon', trayIconPath());
+    return false;
+  }
+  tray = new Tray(icon);
+  tray.setToolTip('Sable');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Show Sable', click: showMainWindow },
+      { type: 'separator' },
+      { role: 'quit' },
+    ])
+  );
+  tray.on('click', showMainWindow);
+  return true;
+}
+
+function sanitizeDesktopWindowSettings(value: unknown): DesktopWindowSettings {
+  const stored = (typeof value === 'object' && value !== null ? value : {}) as Record<
+    string,
+    unknown
+  >;
+  return {
+    closeToTray: stored.closeToTray === true,
+    minimizeToTray: stored.minimizeToTray === true,
+    showSystemTrayIcon: stored.showSystemTrayIcon !== false,
+  };
+}
 
 function deepLinksIn(argv: string[]): string[] {
   return argv.filter((arg) => DEEP_LINK_SCHEMES.some((scheme) => arg.startsWith(`${scheme}:`)));
@@ -243,6 +310,12 @@ ipcMain.on('sable-apply-settings', (event, value: unknown) => {
   }
 });
 
+ipcMain.handle('sable-apply-window-settings', (event, value: unknown) => {
+  if (!isAppFrame(event.senderFrame)) return null;
+  desktopWindowSettings = sanitizeDesktopWindowSettings(value);
+  return { trayAvailable: updateTray(desktopWindowSettings.showSystemTrayIcon) };
+});
+
 ipcMain.on('sable-core-connect', (event) => {
   if (event.ports.length !== 1 || !isAppFrame(event.senderFrame)) return;
   core ??= startCore();
@@ -266,6 +339,17 @@ function createWindow(): BrowserWindow {
 
   window.once('ready-to-show', () => {
     window.show();
+  });
+  window.on('close', (event) => {
+    if (!quitting && desktopWindowSettings.closeToTray && tray) {
+      event.preventDefault();
+      window.hide();
+    }
+  });
+  window.on('minimize', () => {
+    if (!quitting && desktopWindowSettings.minimizeToTray && tray) {
+      window.hide();
+    }
   });
   window.webContents.on('did-navigate', () => {
     pageListening = false;
@@ -378,6 +462,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     quitting = true;
+    tray?.destroy();
+    tray = null;
   });
 
   app.on('window-all-closed', () => {
@@ -386,6 +472,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     registerDeepLinks();
+    updateTray(desktopWindowSettings.showSystemTrayIcon);
     core = startCore();
     protocol.handle(SCHEME, serveApp);
     enforcePermissions(

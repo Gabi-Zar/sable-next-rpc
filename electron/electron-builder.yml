@@ -19,6 +19,8 @@ extraResources:
       - '**/*'
       - '!**/*.map'
       - '!**/sable_wasm_bg-*.wasm'
+  - from: ../src-tauri/icons/icon.png
+    to: sable-tray.png
 
 npmRebuild: false
 afterPack: ./after-pack.mjs
