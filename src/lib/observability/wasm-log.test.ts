@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  isReportableCoreWarning,
   isUndecryptableToDevice,
   wasmErrorFingerprint,
   wasmErrorTitle,
@@ -67,6 +68,26 @@ describe('wasmErrorFingerprint', () => {
   test('keeps unrelated failures apart', () => {
     expect(wasmErrorFingerprint(REMOVE_7)).not.toBe(
       wasmErrorFingerprint('ERROR sable_core: Event not found in timeline')
+    );
+  });
+});
+
+describe('isReportableCoreWarning', () => {
+  test('reports the warnings that explain a failed decryption', () => {
+    for (const line of [
+      'WARN sable_core::utd: unable to decrypt a message cause=Unknown',
+      'WARN sable_core::calls::runtime: no call media key has arrived from a member in the call',
+      'WARN sable_core::calls::keys: call member device is unknown, cannot send it a media key',
+      'WARN matrix_sdk_crypto::session_manager::sessions: Failed to claim one-time keys',
+    ]) {
+      expect(isReportableCoreWarning(line)).toBe(true);
+    }
+  });
+
+  test('ignores other warnings and the same text at a lower level', () => {
+    expect(isReportableCoreWarning('WARN sable_core: slow call')).toBe(false);
+    expect(isReportableCoreWarning('INFO sable_core::utd: unable to decrypt a message')).toBe(
+      false
     );
   });
 });

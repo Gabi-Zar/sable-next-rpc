@@ -431,21 +431,24 @@ pub(crate) async fn build_room_timeline(
     focus: &TimelineFocusView,
     hidden_events: bool,
 ) -> Result<Timeline, matrix_sdk_ui::timeline::Error> {
-    let builder = room.timeline_builder().with_focus(match focus {
-        TimelineFocusView::Live => TimelineFocus::Live {
-            hide_threaded_events: true,
-        },
-        TimelineFocusView::Event { event_id } => TimelineFocus::Event {
-            target: event_id.clone(),
-            num_context_events: 50,
-            thread_mode: TimelineEventFocusThreadMode::Automatic {
-                hide_threaded_events: false,
+    let builder = room
+        .timeline_builder()
+        .with_unable_to_decrypt_hook(crate::utd::hook(&room.client()))
+        .with_focus(match focus {
+            TimelineFocusView::Live => TimelineFocus::Live {
+                hide_threaded_events: true,
             },
-        },
-        TimelineFocusView::Thread { root_event_id } => TimelineFocus::Thread {
-            thread_id: root_event_id.clone(),
-        },
-    });
+            TimelineFocusView::Event { event_id } => TimelineFocus::Event {
+                target: event_id.clone(),
+                num_context_events: 50,
+                thread_mode: TimelineEventFocusThreadMode::Automatic {
+                    hide_threaded_events: false,
+                },
+            },
+            TimelineFocusView::Thread { root_event_id } => TimelineFocus::Thread {
+                thread_id: root_event_id.clone(),
+            },
+        });
     let builder = if hidden_events {
         builder.event_filter(hidden_event_filter)
     } else {
