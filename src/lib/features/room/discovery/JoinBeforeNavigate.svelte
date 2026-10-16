@@ -165,7 +165,7 @@
   <title>{preview?.name ?? i18n.t('a11y.loading')} - Sable</title>
 </svelte:head>
 
-<div class="wrapper">
+<div class="wrapper" data-inset-owner="top">
   {#if !appLayout.current}
     <PanelHeader class="mobile-back-bar" title={preview?.name ?? undefined}>
       {#snippet prefix()}
