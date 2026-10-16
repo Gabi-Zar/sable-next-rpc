@@ -698,7 +698,7 @@ const DEFAULTS: Preferences = {
   callCameraCodec: 'auto',
   callScreenResolution: 'auto',
   callScreenBitrate: 'auto',
-  callScreenFramerate: 'auto',
+  callScreenFramerate: '30',
   callScreenCodec: 'auto',
   callSimulcast: true,
 

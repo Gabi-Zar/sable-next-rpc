@@ -106,6 +106,7 @@ const connectOptions = {
 beforeEach(() => {
   vi.stubGlobal('screen', { width: 1920, height: 1080 });
   vi.stubGlobal('devicePixelRatio', 1);
+  preferences.callScreenFramerate = 'auto';
 });
 
 afterEach(() => {
@@ -211,6 +212,12 @@ test.each([false, true])(
     }
   }
 );
+
+test('a fresh profile shares the screen at 30 fps', async () => {
+  vi.resetModules();
+  const { preferences: fresh } = await import('#lib/settings/preferences.svelte.js');
+  expect(fresh.callScreenFramerate).toBe('30');
+});
 
 test('screen frame rate caps capture and encoding', async () => {
   preferences.callScreenFramerate = '60';
