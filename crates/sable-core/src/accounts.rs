@@ -1496,6 +1496,32 @@ mod regression_tests {
     }
 
     #[tokio::test]
+    async fn becoming_active_starts_an_idle_sync_service_and_hiding_stops_it() {
+        use matrix_sdk_ui::sync_service::State;
+
+        let (_server, core, _room) = core_with_room().await;
+        let sync_service = core.sync_service().await.unwrap();
+        assert!(matches!(sync_service.state().get(), State::Idle));
+
+        core.set_app_active(true);
+        core.apply_app_activity(true).await;
+        assert!(!matches!(sync_service.state().get(), State::Idle));
+        assert!(
+            !core
+                .sync_suspended
+                .load(std::sync::atomic::Ordering::SeqCst)
+        );
+
+        core.set_app_active(false);
+        core.apply_app_activity(false).await;
+        assert!(matches!(sync_service.state().get(), State::Idle));
+        assert!(
+            core.sync_suspended
+                .load(std::sync::atomic::Ordering::SeqCst)
+        );
+    }
+
+    #[tokio::test]
     async fn a_shut_down_core_stops_its_session_and_refuses_calls() {
         let (_server, core, _room) = core_with_room().await;
 

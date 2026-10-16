@@ -345,6 +345,11 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
 
     nextWorker.port.start();
     if (debugLogs) nextWorker.port.postMessage({ debugLogs: true });
+    if (typeof document !== 'undefined') {
+      nextWorker.port.postMessage({
+        visible: document.visibilityState === 'visible',
+      } satisfies WorkerRequest);
+    }
     const logFilter = new URLSearchParams(self.location.search).get('log') ?? storedLogFilter();
     if (logFilter) nextWorker.port.postMessage({ logFilter });
     worker = nextWorker;
@@ -359,9 +364,19 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
           worker?.port.postMessage({ disconnect: true } satisfies WorkerRequest);
         });
 
+  const releaseVisibility =
+    typeof document === 'undefined'
+      ? undefined
+      : on(document, 'visibilitychange', () => {
+          worker?.port.postMessage({
+            visible: document.visibilityState === 'visible',
+          } satisfies WorkerRequest);
+        });
+
   function detach(reason: string, farewell: WorkerRequest): void {
     closed = true;
     releasePageHide?.();
+    releaseVisibility?.();
     listeners.clear();
     crashListeners.clear();
     supersededListeners.clear();

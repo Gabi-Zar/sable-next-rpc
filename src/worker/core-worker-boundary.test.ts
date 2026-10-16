@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createCoreWorkerBoundary, type WorkerCore, type WorkerPort } from './core-worker-boundary';
 import type { WorkerMessage, WorkerRequest } from './protocol';
@@ -28,6 +28,7 @@ function fakeCore(call: WorkerCore['call'] = () => Promise.resolve('null')): Wor
     sendAttachment: () => Promise.resolve(),
     sendGallery: () => Promise.resolve(),
     uploadMedia: () => Promise.resolve(''),
+    setActive: () => Promise.resolve(),
   };
 }
 
@@ -552,4 +553,88 @@ test('a superseded worker tells every page', () => {
 
   expect(first.messages).toEqual([{ superseded: true }]);
   expect(second.messages).toEqual([{ superseded: true }]);
+});
+
+describe('sync activity', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setup() {
+    const core = fakeCore();
+    const setActive = vi.fn(() => Promise.resolve());
+    core.setActive = setActive;
+    const boundary = createCoreWorkerBoundary(Promise.resolve(core));
+    const first = new FakePort();
+    const second = new FakePort();
+    boundary.connect(first);
+    boundary.connect(second);
+    return { boundary, first, second, setActive };
+  }
+
+  const send = (port: FakePort, request: WorkerRequest) =>
+    port.onmessage?.({ data: request } as MessageEvent<WorkerRequest>);
+
+  test('stops sync three seconds after the last visible tab hides', async () => {
+    const { first, second, setActive } = setup();
+
+    send(first, { visible: false });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(setActive).toHaveBeenLastCalledWith(true);
+    setActive.mockClear();
+
+    send(second, { visible: false });
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(setActive).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(setActive).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  test('a tab returning inside the delay cancels the stop and resumes at once', async () => {
+    const { first, second, setActive } = setup();
+    send(first, { visible: false });
+    send(second, { visible: false });
+    await vi.advanceTimersByTimeAsync(1000);
+    setActive.mockClear();
+
+    send(second, { visible: true });
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(setActive).toHaveBeenCalledExactlyOnceWith(true);
+  });
+
+  test('closing the only visible tab idles sync for the hidden ones', async () => {
+    const { first, second, setActive } = setup();
+    send(first, { visible: false });
+    await vi.advanceTimersByTimeAsync(0);
+    setActive.mockClear();
+
+    send(second, { disconnect: true });
+    await vi.advanceTimersByTimeAsync(3000);
+
+    expect(setActive).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  test('a returning network retries sync only while a tab is visible', async () => {
+    const { boundary, first, second, setActive } = setup();
+    send(first, { visible: false });
+    send(second, { visible: false });
+    await vi.advanceTimersByTimeAsync(3000);
+    setActive.mockClear();
+
+    boundary.handleOnline();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(setActive).not.toHaveBeenCalled();
+
+    send(second, { visible: true });
+    await vi.advanceTimersByTimeAsync(0);
+    setActive.mockClear();
+    boundary.handleOnline();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(setActive).toHaveBeenCalledExactlyOnceWith(true);
+  });
 });

@@ -447,3 +447,18 @@ test('reports new core errors after twenty distinct failures', async () => {
   transport.close();
   await restored;
 });
+
+test('tells the worker whether the page is visible, on connect and on every change', async () => {
+  const page = Object.assign(new EventTarget(), { visibilityState: 'hidden' });
+  vi.stubGlobal('document', page);
+  const transport = await load();
+  void transport.call('members.list', { room_id: '!r:example.org' });
+  const port = FakeSharedWorker.last?.port;
+
+  expect(port?.posted).toContainEqual({ visible: false });
+
+  page.visibilityState = 'visible';
+  page.dispatchEvent(new Event('visibilitychange'));
+
+  expect(port?.posted).toContainEqual({ visible: true });
+});

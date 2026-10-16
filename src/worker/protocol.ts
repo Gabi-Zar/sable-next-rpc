@@ -12,6 +12,7 @@ export type WorkerRequest =
   | { disconnect: true }
   | { id: number; reset: true }
   | { debugLogs: boolean }
+  | { visible: boolean }
   | { logFilter: string }
   | { id: number; media: { source: string; width: number; height: number; background?: boolean } }
   | { id: number; forget: { source: string } }

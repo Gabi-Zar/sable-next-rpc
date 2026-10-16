@@ -469,7 +469,9 @@ impl Core {
             return;
         };
         if active {
-            if self.sync_suspended.swap(false, Ordering::SeqCst) {
+            // Starting a running service is a no-op, but from `Offline` it retries at once.
+            self.sync_suspended.store(false, Ordering::SeqCst);
+            if !self.account_locked.load(Ordering::SeqCst) {
                 sync_service.start().await;
             }
         } else if self.call_sessions.lock().await.is_empty() {

@@ -93,6 +93,9 @@ self.addEventListener('error', (event) => {
       (event.filename ? `    at ${event.filename}:${event.lineno}:${event.colno}` : undefined)
   );
 });
+self.addEventListener('online', () => {
+  boundary.handleOnline();
+});
 self.addEventListener('unhandledrejection', (event) => {
   if (!(event.reason instanceof WebAssembly.RuntimeError)) {
     boundary.handleLog(`ERROR unhandled rejection in worker: ${String(event.reason)}`);
