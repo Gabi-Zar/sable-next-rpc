@@ -53,7 +53,7 @@ pub(crate) struct State {
     emitted_members: Option<Vec<CallMemberView>>,
     backends: BTreeMap<String, CallBackendView>,
     pending_keys: Vec<PendingKey>,
-    latest_key_ts: HashMap<(String, u8), u64>,
+    latest_keys: HashMap<(String, u8), (u64, Vec<u8>)>,
     rotation_due_ms: Option<u64>,
     distributor: Option<Arc<Mutex<KeyDistributor>>>,
     own_observed: bool,
@@ -93,7 +93,7 @@ impl State {
             emitted_members: None,
             backends: BTreeMap::new(),
             pending_keys: Vec::new(),
-            latest_key_ts: HashMap::new(),
+            latest_keys: HashMap::new(),
             rotation_due_ms: None,
             revision: 0,
             own_observed: false,
@@ -1236,11 +1236,11 @@ fn emit_pending(
         {
             let slot = (member.identity.clone(), payload.index);
             let sent_ts = pending.content.sent_ts.unwrap_or(pending.received);
-            if state
-                .latest_key_ts
-                .get(&slot)
-                .is_some_and(|latest| *latest > sent_ts)
-            {
+            let Some(raw_key) = keys::decode_key(&payload.key) else {
+                continue;
+            };
+            let latest = state.latest_keys.get(&slot);
+            if latest.is_some_and(|(latest, _)| *latest > sent_ts) {
                 tracing::info!(
                     sender = %pending.sender,
                     index = payload.index,
@@ -1248,12 +1248,16 @@ fn emit_pending(
                 );
                 continue;
             }
-            state.latest_key_ts.insert(slot, sent_ts);
+            let repeated = latest.is_some_and(|(_, key)| *key == raw_key);
+            state.latest_keys.insert(slot, (sent_ts, raw_key));
+            if repeated {
+                continue;
+            }
             let waited = keys::now_ms().saturating_sub(pending.received);
             if pending.reported {
                 tracing::warn!("a call media key resolved after {waited}ms");
             }
-            tracing::info!(
+            tracing::debug!(
                 sender = %pending.sender,
                 device = %pending.device,
                 index = payload.index,
@@ -1353,12 +1357,15 @@ fn watch_keys(
                     return;
                 };
                 if encryption.sender != event.sender
-                    || device.as_str() != event.content.member.claimed_device_id
+                    || event
+                        .content
+                        .claimed_device_id()
+                        .is_some_and(|claimed| claimed != device.as_str())
                 {
                     tracing::warn!(
                         sender = %event.sender,
                         %device,
-                        claimed = %event.content.member.claimed_device_id,
+                        claimed = ?event.content.claimed_device_id(),
                         "ignoring a call media key whose claimed device is not the sender"
                     );
                     return;

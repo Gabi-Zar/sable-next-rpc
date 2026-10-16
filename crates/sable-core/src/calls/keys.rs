@@ -60,7 +60,8 @@ pub(crate) struct ToDeviceCallEncryptionKeysEventContent {
     pub(crate) room_id: OwnedRoomId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) member_id: Option<String>,
-    pub(crate) member: MemberRef,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) member: Option<MemberRef>,
     #[serde(default)]
     pub(crate) session: SessionRef,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -73,7 +74,15 @@ impl ToDeviceCallEncryptionKeysEventContent {
     }
 
     pub(crate) fn member_id(&self) -> Option<&str> {
-        self.member_id.as_deref().or(self.member.id.as_deref())
+        self.member_id
+            .as_deref()
+            .or_else(|| self.member.as_ref()?.id.as_deref())
+    }
+
+    pub(crate) fn claimed_device_id(&self) -> Option<&str> {
+        self.member
+            .as_ref()
+            .map(|member| member.claimed_device_id.as_str())
     }
 }
 
@@ -107,7 +116,7 @@ impl OutboundKey {
     }
 
     pub(crate) fn encoded(&self) -> String {
-        STANDARD.encode(self.key)
+        STANDARD_NO_PAD.encode(self.key)
     }
 }
 
@@ -342,10 +351,10 @@ impl KeyDistributor {
             keys: Some(payload),
             room_id: self.room_id.clone(),
             member_id: Some(self.member_id.clone()),
-            member: MemberRef {
+            member: Some(MemberRef {
                 claimed_device_id: self.device_id.to_string(),
                 id: Some(self.member_id.clone()),
-            },
+            }),
             session: SessionRef::default(),
             sent_ts: Some(now_ms()),
         }
@@ -465,7 +474,7 @@ pub(crate) fn decode_key(encoded: &str) -> Option<Vec<u8>> {
         .decode(encoded)
         .or_else(|_| STANDARD_NO_PAD.decode(encoded))
         .ok()
-        .filter(|key| key.len() == KEY_BYTES)
+        .filter(|key| key.len() >= KEY_BYTES)
 }
 
 pub(crate) fn now_ms() -> u64 {
@@ -696,8 +705,35 @@ mod tests {
 
         assert_eq!(content.key().map(|key| key.index), Some(4));
         assert_eq!(content.member_id(), Some("member"));
+        assert_eq!(content.claimed_device_id(), Some("DEVICE"));
         assert!(content.session.is_legacy_room_call());
         assert_eq!(content.sent_ts, None);
+    }
+
+    #[test]
+    fn test_the_specified_format_without_a_member_object_is_accepted() {
+        let content =
+            serde_json::from_value::<ToDeviceCallEncryptionKeysEventContent>(serde_json::json!({
+                "room_id": "!room:example.org",
+                "member_id": "member",
+                "media_key": { "index": 255, "key": "CQkJCQkJCQkJCQkJCQkJCQ" }
+            }))
+            .unwrap();
+
+        assert_eq!(content.key().map(|key| key.index), Some(255));
+        assert_eq!(content.member_id(), Some("member"));
+        assert_eq!(content.claimed_device_id(), None);
+    }
+
+    #[test]
+    fn test_a_key_longer_than_sixteen_bytes_is_accepted() {
+        use base64::Engine as _;
+        use base64::engine::general_purpose::STANDARD_NO_PAD;
+
+        let long = STANDARD_NO_PAD.encode([5u8; 32]);
+
+        assert_eq!(decode_key(&long).map(|key| key.len()), Some(32));
+        assert_eq!(decode_key(&STANDARD_NO_PAD.encode([5u8; 15])), None);
     }
 
     #[test]
@@ -732,6 +768,7 @@ mod tests {
         assert_eq!(content["media_key"]["index"], 6);
         assert_eq!(content["member_id"], "member");
         assert_eq!(content["member"]["id"], "member");
+        assert!(!content["media_key"]["key"].as_str().unwrap().ends_with('='));
         assert_eq!(content["member"]["claimed_device_id"], "LAPTOP");
         assert!(content["sent_ts"].is_u64());
     }

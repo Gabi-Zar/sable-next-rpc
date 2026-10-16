@@ -344,10 +344,10 @@ async fn pending_key_with_a_custom_membership_id_is_emitted() {
             }),
             room_id: room_id.clone(),
             member_id: None,
-            member: super::keys::MemberRef {
+            member: Some(super::keys::MemberRef {
                 claimed_device_id: "DEVICE".to_owned(),
                 id: id.map(str::to_owned),
-            },
+            }),
             session: super::keys::SessionRef::default(),
             sent_ts: Some(1),
         },
@@ -464,7 +464,7 @@ async fn an_element_call_peers_key_is_emitted_on_the_oldest_members_focus() {
         members,
         emitted_members: None,
         backends: BTreeMap::new(),
-        latest_key_ts: HashMap::new(),
+        latest_keys: HashMap::new(),
         rotation_due_ms: None,
         pending_keys: vec![super::PendingKey {
             sender: owned_user_id!("@genchu:federated.nexus"),
@@ -651,7 +651,7 @@ async fn refresh_fixture(
             emitted_members: None,
             backends,
             pending_keys: Vec::new(),
-            latest_key_ts: HashMap::new(),
+            latest_keys: HashMap::new(),
             rotation_due_ms: None,
             distributor: None,
             own_observed: observed,
@@ -1087,6 +1087,68 @@ async fn a_key_without_a_sent_timestamp_is_accepted() {
 }
 
 #[tokio::test]
+async fn a_key_sent_again_unchanged_is_not_applied_twice() {
+    let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    let room_id = owned_room_id!("!call:example.org");
+    let pending = |sent_ts, fill: u8| super::PendingKey {
+        sender: owned_user_id!("@user:example.org"),
+        device: owned_device_id!("DEVICE"),
+        content: super::keys::ToDeviceCallEncryptionKeysEventContent {
+            media_key: Some(super::keys::KeyPayload {
+                index: 3,
+                key: base64::engine::general_purpose::STANDARD_NO_PAD.encode([fill; 16]),
+            }),
+            keys: None,
+            room_id: room_id.clone(),
+            member_id: None,
+            member: None,
+            session: super::keys::SessionRef::default(),
+            sent_ts: Some(sent_ts),
+        },
+        received: super::keys::now_ms(),
+        reported: false,
+    };
+    let mut state = State::new(
+        member(CallMode::Compatibility, 1, &[]),
+        vec![member(
+            CallMode::Compatibility,
+            1,
+            &["https://sfu.example.org"],
+        )],
+        super::StickyMemberships::default(),
+        &room_id,
+        false,
+        None,
+        false,
+    );
+
+    state.pending_keys = vec![pending(100, 1)];
+    super::emit_pending(&core, 1, CallSessionId(1), &room_id, &mut state);
+    assert!(matches!(
+        events.try_recv(),
+        Ok(crate::protocol::CoreEvent::CallEncryptionKey { .. })
+    ));
+
+    state.pending_keys = vec![pending(200, 1)];
+    super::emit_pending(&core, 1, CallSessionId(1), &room_id, &mut state);
+    assert_eq!(
+        events.try_recv().unwrap_err(),
+        tokio::sync::mpsc::error::TryRecvError::Empty,
+        "the same key at the same index changes nothing"
+    );
+
+    state.pending_keys = vec![pending(300, 2)];
+    super::emit_pending(&core, 1, CallSessionId(1), &room_id, &mut state);
+    assert!(
+        matches!(
+            events.try_recv(),
+            Ok(crate::protocol::CoreEvent::CallEncryptionKey { .. })
+        ),
+        "a different key at the same index is applied"
+    );
+}
+
+#[tokio::test]
 async fn a_key_older_than_one_already_emitted_for_the_same_index_is_dropped() {
     let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
     let room_id = owned_room_id!("!call:example.org");
@@ -1101,10 +1163,10 @@ async fn a_key_older_than_one_already_emitted_for_the_same_index_is_dropped() {
             }),
             room_id: room_id.clone(),
             member_id: None,
-            member: super::keys::MemberRef {
+            member: Some(super::keys::MemberRef {
                 claimed_device_id: "DEVICE".to_owned(),
                 id: None,
-            },
+            }),
             session: super::keys::SessionRef::default(),
             sent_ts: Some(sent_ts),
         },
