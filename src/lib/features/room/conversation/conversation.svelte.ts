@@ -43,12 +43,7 @@ import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
 import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages/reply-preview.js';
 import { previewableLinks } from '#lib/features/room/media/link-preview.js';
 import { previewSources, resolveUrlPreview } from '#lib/features/room/media/link-preview-cache.js';
-import {
-  projectPersona,
-  resolvePersona,
-  resolveProxy,
-  stripProxyHtml,
-} from '#lib/personas/persona.js';
+import { projectPersona, resolvePersona, applyProxy, resolveProxy } from '#lib/personas/persona.js';
 import type { PersonaStore } from '#lib/personas/personas.svelte.js';
 import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
 import { stateEventText } from '#lib/features/room/timeline/state-event-text.js';
@@ -812,8 +807,7 @@ export class Conversation {
     personas.save(persona, persona.id).catch(failed('updating persona timestamp'));
 
     return {
-      body: proxied?.body ?? body,
-      formatted: proxied ? stripProxyHtml(formatted, proxied.trigger) : formatted,
+      ...(proxied ? applyProxy(body, proxied, formatted) : { body, formatted }),
       persona: projectPersona(persona, preferences.personaFallback),
     };
   }
