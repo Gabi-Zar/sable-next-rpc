@@ -78,6 +78,7 @@
     border-radius: var(--radii-300);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
     padding: var(--space-100) var(--space-150);
   }
 </style>

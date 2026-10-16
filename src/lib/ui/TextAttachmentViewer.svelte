@@ -175,14 +175,18 @@
   }
 
   .text-preview-body {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-small);
     line-height: var(--code-line-height);
     margin: 0;
     max-height: 12rem;
     overflow: auto hidden;
     padding: var(--space-200);
     white-space: pre;
+  }
+
+  .text-preview-body code {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-small);
+    font-variant-ligatures: none;
   }
 
   .text-preview-more {
@@ -224,12 +228,24 @@
   }
 
   .text-viewer-body {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-small);
     line-height: var(--code-line-height);
     margin: 0;
     overflow-wrap: anywhere;
     padding: var(--space-500);
     white-space: pre-wrap;
+  }
+
+  .text-viewer-body code {
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-small);
+    font-variant-ligatures: none;
+  }
+
+  :root[data-code-ligatures='on'] .text-preview-body code {
+    font-variant-ligatures: normal;
+  }
+
+  :root[data-code-ligatures='on'] .text-viewer-body code {
+    font-variant-ligatures: normal;
   }
 </style>

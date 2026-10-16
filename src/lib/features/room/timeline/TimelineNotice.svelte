@@ -407,6 +407,7 @@
   .debug-event code {
     flex: 0 0 18ch;
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     margin-inline-start: calc(var(--avatar-size-small) + var(--space-250));
     overflow-wrap: anywhere;
     text-align: end;

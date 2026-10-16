@@ -77,6 +77,7 @@
     color: var(--surface-var-on-container);
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
     line-height: var(--line-height-small);
     margin: 0 0 var(--space-400);
     max-height: 22rem;

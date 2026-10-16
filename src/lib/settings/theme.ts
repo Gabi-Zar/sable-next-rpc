@@ -80,6 +80,13 @@ export function applyFontFamily(family: string): void {
   else root.removeProperty('--font-family');
 }
 
+export function applyFontFamilyMono(family: string): void {
+  const root = document.documentElement.style;
+  const name = family.trim();
+  if (name) root.setProperty('--font-family-mono', `${name}, var(--font-family-mono-base)`);
+  else root.removeProperty('--font-family-mono');
+}
+
 export function applyQuickCss(css: string): void {
   const existing = document.getElementById(QUICK_CSS_STYLE_ID);
   if (!css) {

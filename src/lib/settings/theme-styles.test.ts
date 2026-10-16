@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyCustomTheme, applyCustomTweaks, applyFontFamily, applyQuickCss } from './theme';
+import {
+  applyCustomTheme,
+  applyCustomTweaks,
+  applyFontFamily,
+  applyFontFamilyMono,
+  applyQuickCss,
+} from './theme';
 
 describe('applyCustomTweaks', () => {
   const styleIds = (): string[] =>
@@ -50,19 +56,24 @@ describe('applyCustomTweaks', () => {
   });
 });
 
-describe('applyFontFamily', () => {
-  const family = (): string => document.documentElement.style.getPropertyValue('--font-family');
+describe('applyFontFamily and applyFontFamilyMono', () => {
+  const regular = (): string => document.documentElement.style.getPropertyValue('--font-family');
+  const mono = (): string => document.documentElement.style.getPropertyValue('--font-family-mono');
 
   it('puts the chosen font first and keeps the default stack as the fallback', () => {
     applyFontFamily('  Inter  ');
+    applyFontFamilyMono('  Consolas  ');
 
-    expect(family()).toBe('Inter, var(--font-family-base)');
+    expect(regular()).toBe('Inter, var(--font-family-base)');
+    expect(mono()).toBe('Consolas, var(--font-family-mono-base)');
   });
 
   it('lets the theme font back in when the field is cleared', () => {
     applyFontFamily('Inter');
+    applyFontFamilyMono('Consolas');
     applyFontFamily('   ');
+    applyFontFamilyMono('   ');
 
-    expect(family()).toBe('');
+    expect(regular()).toBe('');
   });
 });

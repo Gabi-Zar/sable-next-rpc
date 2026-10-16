@@ -44,6 +44,7 @@
     applyCustomTheme,
     applyCustomTweaks,
     applyFontFamily,
+    applyFontFamilyMono,
     applyQuickCss,
     applyTheme,
     resolveTheme,
@@ -131,6 +132,7 @@
     document.documentElement.dataset.highContrast = preferences.highContrast ? 'on' : 'off';
     document.documentElement.dataset.reducedMotion = shouldReduceMotion() ? 'on' : 'off';
     document.documentElement.dataset.twitterEmoji = preferences.twitterEmoji ? 'on' : 'off';
+    document.documentElement.dataset.codeLigatures = preferences.codeLigatures ? 'on' : 'off';
     document.documentElement.dataset.blurMedia = preferences.blurMedia ? 'on' : 'off';
     document.documentElement.dataset.blurAvatars = preferences.blurAvatars ? 'on' : 'off';
     document.documentElement.dataset.blurEmotes = preferences.blurEmotes ? 'on' : 'off';
@@ -157,6 +159,7 @@
 
   $effect(() => {
     applyFontFamily(preferences.fontFamily);
+    applyFontFamilyMono(preferences.fontFamilyMono);
   });
 </script>
 

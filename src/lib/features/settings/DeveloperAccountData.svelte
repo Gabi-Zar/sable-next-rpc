@@ -200,6 +200,7 @@
   :global(.account-data-content) {
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
   }
 
   .editor-actions {

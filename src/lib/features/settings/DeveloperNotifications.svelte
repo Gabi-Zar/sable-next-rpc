@@ -115,6 +115,7 @@
   .outcomes {
     display: grid;
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     gap: var(--space-100);
     list-style: none;
     margin: 0;

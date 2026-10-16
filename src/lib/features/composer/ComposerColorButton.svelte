@@ -222,6 +222,7 @@
   .custom :global(.text-input) {
     flex: 1;
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     min-width: 0;
     text-transform: uppercase;
   }

@@ -21,6 +21,7 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'zoomShortcuts',
   'textScale',
   'fontFamily',
+  'fontFamilyMono',
   'timeZone',
   'roomBannerHeight',
   'searchIndexLimit',

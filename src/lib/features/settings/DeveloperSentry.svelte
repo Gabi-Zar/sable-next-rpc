@@ -99,6 +99,7 @@
 
   code {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     text-align: right;
   }
 

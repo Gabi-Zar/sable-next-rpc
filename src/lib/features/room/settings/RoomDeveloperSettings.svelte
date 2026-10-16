@@ -345,6 +345,7 @@
     font: inherit;
     font-family: var(--font-family-mono);
     font-size: var(--font-size-small);
+    font-variant-ligatures: none;
     overflow-wrap: anywhere;
     padding: var(--space-100) var(--space-200);
     text-align: start;

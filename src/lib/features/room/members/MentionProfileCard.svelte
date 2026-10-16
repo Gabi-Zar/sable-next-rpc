@@ -1042,6 +1042,7 @@
 
   .profile-extra-json {
     font-family: var(--font-family-mono);
+    font-variant-ligatures: none;
     margin: 0;
     overflow-wrap: anywhere;
     white-space: pre-wrap;

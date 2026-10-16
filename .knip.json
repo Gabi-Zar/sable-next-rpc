@@ -14,6 +14,7 @@
     ]
   },
   "ignoreDependencies": [
+    "@fontsource-variable/cascadia-code",
     "@fontsource-variable/nunito",
     "@sableclient/twemoji-font",
     "wrangler",

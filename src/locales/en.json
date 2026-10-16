@@ -1580,6 +1580,7 @@
     },
     "groups": {
       "themes": "Themes",
+      "font": "Font",
       "language": "Language",
       "messageLayout": "Message layout",
       "sidebar": "Sidebar",
@@ -2520,8 +2521,12 @@
     "customThemesRemove": "Remove {{name}}",
     "quickCss": "Quick CSS",
     "quickCssHint": "Add CSS that applies immediately and overrides your theme and tweaks.",
-    "fontFamily": "Font",
+    "fontFamily": "Regular Font",
     "fontFamilyHint": "The name of a font installed on this device, such as Inter. Leave empty to use the default.",
+    "fontFamilyMono": "Monospaced Font",
+    "fontFamilyMonoHint": "Used in code blocks and file previews. Leave empty to use the default.",
+    "codeLigatures": "Display code ligatures",
+    "codeLigaturesHint": "Combine some character sequences like != when displaying code.",
     "appIconTitle": "App icon",
     "appIconFailed": "Could not change the app icon. Try again.",
     "appIcons": {
