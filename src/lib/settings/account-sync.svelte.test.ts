@@ -78,6 +78,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   clearDrafts();
   vi.useRealTimers();
 });
@@ -296,6 +297,45 @@ describe('AccountSync', () => {
     sync.push(document);
     remote[document.eventType] = { v: 1, a: 'a0', b: 'b1' };
     announce(document.eventType);
+    await vi.runAllTimersAsync();
+
+    expect(local).toEqual({ a: 'a1', b: 'b1' });
+    expect(remote[document.eventType]).toEqual({ v: 1, a: 'a1', b: 'b1' });
+  });
+
+  it('merges an edit made while closed with one made on another device', async () => {
+    const stored = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => void stored.set(key, value),
+      removeItem: (key: string) => void stored.delete(key),
+    });
+    const local = { a: 'a0', b: 'b0' };
+    const document = {
+      eventType: 'moe.sable.next.test',
+      snapshot: () => ({ content: { v: 1, ...local } }),
+      adopt(content: unknown) {
+        const body = content as { v: number; a: string; b: string };
+        Object.assign(local, { a: body.a, b: body.b });
+        return true;
+      },
+      merge(base: unknown, mine: unknown, theirs: unknown) {
+        const [before, ours, remote] = [base, mine, theirs] as Record<string, string>[];
+        const take = (key: string) => (ours[key] === before[key] ? remote[key] : ours[key]);
+        return { v: 1, a: take('a'), b: take('b') };
+      },
+    } satisfies SyncedDocument;
+    const remote: Record<string, unknown> = { [document.eventType]: { v: 1, a: 'a0', b: 'b0' } };
+    const { core } = stubCore(remote);
+
+    const first = new AccountSync();
+    const stop = first.start(core, [document]);
+    await vi.runAllTimersAsync();
+    stop();
+
+    local.a = 'a1';
+    remote[document.eventType] = { v: 1, a: 'a0', b: 'b1' };
+    new AccountSync().start(core, [document]);
     await vi.runAllTimersAsync();
 
     expect(local).toEqual({ a: 'a1', b: 'b1' });

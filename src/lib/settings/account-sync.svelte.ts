@@ -1,5 +1,7 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
+import { readJson, removeLocalValue, writeJson } from '#lib/platform/local-json.js';
+
 import { fingerprint } from './fingerprint.js';
 import { setAccountData, setSealedAccountData } from '#lib/core/api/account.svelte.js';
 
@@ -35,6 +37,7 @@ interface DocumentState {
 }
 
 const DEFAULT_DEBOUNCE_MS = 2000;
+const BASE_KEY_PREFIX = 'sable-sync-base';
 
 function detach(snapshot: SyncedSnapshot): SyncedSnapshot {
   return { ...snapshot, content: $state.snapshot(snapshot.content) };
@@ -68,6 +71,9 @@ export class AccountSync {
       state.pulled = false;
       state.locked = false;
       state.status = 'idle';
+      if (document.merge && state.base === null) {
+        state.base = readJson(this.#baseKey(document), (value) => value, null);
+      }
     }
     this.#refresh();
 
@@ -175,13 +181,14 @@ export class AccountSync {
     }
     if (generation !== this.#generation) return;
 
+    if (state.base !== null) state.pending ??= detach(document.snapshot());
     if (this.#ahead(state)) {
       state.pulled = true;
       const merged =
         content === null ? null : document.merge?.(state.base, state.pending?.content, content);
       if (merged !== null && merged !== undefined && document.adopt(merged)) {
         state.pending = detach(document.snapshot());
-        state.base = content;
+        this.#rebase(document, state, content);
         state.remote = fingerprint(content);
       }
       this.#schedule(document, state);
@@ -197,12 +204,25 @@ export class AccountSync {
 
     const next = detach(document.snapshot());
     state.pending = next;
-    state.base = next.content;
+    this.#rebase(document, state, next.content);
     state.remote = unsealed || migrated ? null : fingerprint(content ?? next.content);
     state.status = next.partial === true ? 'partial' : 'idle';
     this.lastSyncedAt = Date.now();
     this.#refresh();
     this.#schedule(document, state);
+  }
+
+  #baseKey(document: SyncedDocument): string {
+    return `${BASE_KEY_PREFIX}:${this.#accountId ?? ''}:${document.eventType}`;
+  }
+
+  #rebase(document: SyncedDocument, state: DocumentState, base: unknown): void {
+    state.base = base;
+    if (!document.merge) return;
+
+    const key = this.#baseKey(document);
+    removeLocalValue(key);
+    writeJson(key, base, '[sable settings] sync base not persisted');
   }
 
   #ahead(state: DocumentState): boolean {
@@ -234,7 +254,7 @@ export class AccountSync {
     }
     if (generation !== this.#generation) return;
 
-    state.base = sent.content;
+    this.#rebase(document, state, sent.content);
     state.remote = fingerprint(sent.content);
     state.status = sent.partial === true ? 'partial' : 'idle';
     this.lastSyncedAt = Date.now();
