@@ -440,6 +440,28 @@ test('WASM logs are batched to every connected port', () => {
   vi.useRealTimers();
 });
 
+test('the lines after a log entry stay attached to it', () => {
+  vi.useFakeTimers();
+  const boundary = createCoreWorkerBoundary(Promise.resolve(fakeCore(() => Promise.resolve('{}'))));
+  const port = new FakePort();
+  boundary.connect(port);
+
+  boundary.handleLog(
+    'ERROR matrix_sdk_ui::sync_service: Error while processing encryption in sync service: Some(\n    Http(\n        timeout,\n    ),\n)\nINFO sable_core: next'
+  );
+  vi.advanceTimersByTime(250);
+
+  expect(port.messages).toEqual([
+    {
+      logs: [
+        'ERROR matrix_sdk_ui::sync_service: Error while processing encryption in sync service: Some(\n    Http(\n        timeout,\n    ),\n)',
+        'INFO sable_core: next',
+      ],
+    },
+  ]);
+  vi.useRealTimers();
+});
+
 test('overflowing the log buffer drops and reports the excess', () => {
   const setLogCapture = vi.fn();
   vi.useFakeTimers();

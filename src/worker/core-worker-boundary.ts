@@ -6,6 +6,7 @@ import { TimelineEventRouter } from './timeline-event-router';
 const logFlushMs = 250;
 const logBufferLimit = 500;
 const syncStopDelayMs = 3_000;
+const logLevelPrefix = /^\s*(TRACE|DEBUG|INFO|WARN|ERROR)\s/;
 
 export type WorkerCore = {
   call(method: string, params: string): Promise<string>;
@@ -117,13 +118,19 @@ export function createCoreWorkerBoundary(
   }
 
   function handleLog(text: string): void {
+    const entries: string[] = [];
     for (const line of text.split('\n')) {
       if (!line.trim()) continue;
+      const last = entries.length - 1;
+      if (last >= 0 && !logLevelPrefix.test(line)) entries[last] += `\n${line.trimEnd()}`;
+      else entries.push(line.trimEnd());
+    }
+    for (const entry of entries) {
       if (logs.length >= logBufferLimit) {
         droppedLogs += 1;
         continue;
       }
-      logs.push(line.trimEnd());
+      logs.push(entry);
     }
     flushLogsTimer ??= setTimeout(flushLogs, logFlushMs);
   }
