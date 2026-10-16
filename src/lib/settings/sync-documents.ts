@@ -29,7 +29,12 @@ import type { SpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
 import type { SyncedDocument } from './account-sync.svelte.js';
 import { customThemes, hydrateCatalogThemes, replaceCustomThemes } from './custom-themes.svelte.js';
 import { applyPreferences, isExplicitPreference, preferences } from './preferences.svelte.js';
-import { applySettings, prepareSettings, SETTINGS_ACCOUNT_DATA_TYPE } from './sync.js';
+import {
+  applySettings,
+  mergeSettings,
+  prepareSettings,
+  SETTINGS_ACCOUNT_DATA_TYPE,
+} from './sync.js';
 import { v1SettingsFallback, v1WorkspaceFallback } from '#lib/migrations/v1/documents.js';
 
 export const WORKSPACE_ACCOUNT_DATA_TYPE = 'moe.sable.next.workspace';
@@ -55,6 +60,8 @@ export const settingsDocument: SyncedDocument = {
       .map((entry) => entry.name);
     return { content: prepared.content, partial: skipped.length > 0, skipped };
   },
+
+  merge: mergeSettings,
 
   adopt(content) {
     const applied = applySettings(content, preferences, customThemes, excludedThemeIds);

@@ -267,6 +267,41 @@ describe('AccountSync', () => {
     expect(remote[document.eventType]).toEqual({ v: 1, value: 'second' });
   });
 
+  it('merges an edit made on this device with one made on another', async () => {
+    type Local = { a: string; b: string };
+    const local: Local = { a: 'a0', b: 'b0' };
+    const document = {
+      eventType: 'moe.sable.next.test',
+      snapshot: () => ({ content: { v: 1, ...local } }),
+      adopt(content: unknown) {
+        const body = content as { v?: number } & Partial<Local>;
+        if (body.v !== 1) return false;
+        Object.assign(local, { a: body.a, b: body.b });
+        return true;
+      },
+      merge(base: unknown, mine: unknown, theirs: unknown) {
+        const [before, ours, remote] = [base, mine, theirs] as Record<string, string>[];
+        const take = (key: string) => (ours[key] === before[key] ? remote[key] : ours[key]);
+        return { v: 1, a: take('a'), b: take('b') };
+      },
+    } satisfies SyncedDocument;
+    const remote: Record<string, unknown> = { [document.eventType]: { v: 1, a: 'a0', b: 'b0' } };
+    const { core, announce } = stubCore(remote);
+
+    const sync = new AccountSync();
+    sync.start(core, [document]);
+    await vi.runAllTimersAsync();
+
+    local.a = 'a1';
+    sync.push(document);
+    remote[document.eventType] = { v: 1, a: 'a0', b: 'b1' };
+    announce(document.eventType);
+    await vi.runAllTimersAsync();
+
+    expect(local).toEqual({ a: 'a1', b: 'b1' });
+    expect(remote[document.eventType]).toEqual({ v: 1, a: 'a1', b: 'b1' });
+  });
+
   it('leaves a disabled document alone', async () => {
     const local = { value: 'local' };
     const document = stubDocument(local, { enabled: () => false });

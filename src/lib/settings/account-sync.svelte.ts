@@ -20,11 +20,13 @@ export interface SyncedDocument {
   enabled?: () => boolean;
   snapshot: () => SyncedSnapshot;
   adopt: (content: unknown) => boolean;
+  merge?: (base: unknown, local: unknown, remote: unknown) => unknown;
   legacy?: { eventType: string; convert: (content: unknown) => unknown };
 }
 
 interface DocumentState {
   pending: SyncedSnapshot | null;
+  base: unknown;
   remote: string | null;
   pulled: boolean;
   locked: boolean;
@@ -105,6 +107,7 @@ export class AccountSync {
 
     const state: DocumentState = {
       pending: null,
+      base: null,
       remote: null,
       pulled: false,
       locked: false,
@@ -173,6 +176,14 @@ export class AccountSync {
     if (generation !== this.#generation) return;
 
     if (this.#ahead(state)) {
+      state.pulled = true;
+      const merged =
+        content === null ? null : document.merge?.(state.base, state.pending?.content, content);
+      if (merged !== null && merged !== undefined && document.adopt(merged)) {
+        state.pending = detach(document.snapshot());
+        state.base = content;
+        state.remote = fingerprint(content);
+      }
       this.#schedule(document, state);
       return;
     }
@@ -186,6 +197,7 @@ export class AccountSync {
 
     const next = detach(document.snapshot());
     state.pending = next;
+    state.base = next.content;
     state.remote = unsealed || migrated ? null : fingerprint(content ?? next.content);
     state.status = next.partial === true ? 'partial' : 'idle';
     this.lastSyncedAt = Date.now();
@@ -195,10 +207,9 @@ export class AccountSync {
 
   #ahead(state: DocumentState): boolean {
     return (
-      state.pulled &&
-      state.remote !== null &&
+      state.base !== null &&
       state.pending !== null &&
-      fingerprint(state.pending.content) !== state.remote
+      fingerprint(state.pending.content) !== fingerprint(state.base)
     );
   }
 
@@ -223,6 +234,7 @@ export class AccountSync {
     }
     if (generation !== this.#generation) return;
 
+    state.base = sent.content;
     state.remote = fingerprint(sent.content);
     state.status = sent.partial === true ? 'partial' : 'idle';
     this.lastSyncedAt = Date.now();
