@@ -131,6 +131,21 @@ test('turns a room permalink whose label is its href into a room mention', async
   expect(anchor).toHaveAttribute('data-matrix-link', 'room');
 });
 
+test('renders an explicitly authored MSC4550 room event permalink as a channel link', async () => {
+  const url =
+    'https://matrix.to/#/%23general%3Asable.moe/%24gM49XZzifAGMXXiossf5RM7J-bkDgaw6rluT0Q2du3Q';
+  render(FormattedBody, {
+    props: {
+      html: `<a href="${url}" data-org.matrix.msc4550.link="">${url}</a>`,
+    },
+  });
+  await tick();
+
+  const anchor = screen.getByRole('link', { name: '#general:sable.moe' });
+  expect(anchor).toHaveAttribute('data-matrix-link', 'event');
+  expect(anchor.querySelector('.link-chip-icon')).toBeInTheDocument();
+});
+
 test('renders an @room mention as a chip', async () => {
   render(FormattedBody, {
     props: { html: 'Heads up <span data-mx-room-mention>@room</span>' },
