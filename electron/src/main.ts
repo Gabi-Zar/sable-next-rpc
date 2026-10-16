@@ -344,6 +344,16 @@ function registerScreenShare(): void {
   });
 }
 
+function registerDeepLinks(): void {
+  if (isLinux) {
+    void claimSchemes(join(xdgDataHome(), 'applications'), IDENTIFIER, DEEP_LINK_SCHEMES);
+  } else if (app.isPackaged) {
+    for (const scheme of DEEP_LINK_SCHEMES) {
+      app.setAsDefaultProtocolClient(scheme);
+    }
+  }
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -360,17 +370,6 @@ if (!app.requestSingleInstanceLock()) {
     deliverDeepLinks([url]);
   });
 
-  if (isLinux) {
-    void claimSchemes(join(xdgDataHome(), 'applications'), IDENTIFIER, DEEP_LINK_SCHEMES);
-  } else if (app.isPackaged) {
-    for (const scheme of DEEP_LINK_SCHEMES) {
-      const handler = app.getApplicationNameForProtocol(`${scheme}://`);
-      if (handler === '' || app.isDefaultProtocolClient(scheme)) {
-        app.setAsDefaultProtocolClient(scheme);
-      }
-    }
-  }
-
   app.on('before-quit', () => {
     quitting = true;
   });
@@ -380,6 +379,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    registerDeepLinks();
     core = startCore();
     protocol.handle(SCHEME, serveApp);
     enforcePermissions(

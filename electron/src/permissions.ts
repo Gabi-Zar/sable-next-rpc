@@ -93,6 +93,6 @@ export function enforcePermissions(
     const mediaTypes =
       details.mediaType && details.mediaType !== 'unknown' ? [details.mediaType] : [];
     const kinds = kindsOf(permission, mediaTypes);
-    return kinds !== null && granted(kinds);
+    return kinds !== null;
   });
 }

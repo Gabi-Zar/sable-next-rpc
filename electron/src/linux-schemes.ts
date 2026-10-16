@@ -47,7 +47,6 @@ export async function claimSchemes(
     await attempt('update-desktop-database', [applications]);
   }
   for (const mimeType of mimeTypes) {
-    const handler = await attempt('xdg-mime', ['query', 'default', mimeType]);
-    if (handler === '' || handler === name) await attempt('xdg-mime', ['default', name, mimeType]);
+    await attempt('xdg-mime', ['default', name, mimeType]);
   }
 }
