@@ -107,6 +107,7 @@
     padding: var(--space-100) var(--space-200);
     pointer-events: none;
     position: absolute;
+    z-index: 1;
   }
 
   dt {
