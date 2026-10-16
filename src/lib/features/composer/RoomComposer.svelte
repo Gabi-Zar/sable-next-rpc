@@ -1,3 +1,7 @@
+<script module lang="ts">
+  let lastFocusedRow: HTMLElement | undefined;
+</script>
+
 <script lang="ts">
   import { MediaQuery } from 'svelte/reactivity';
   import type {
@@ -75,14 +79,14 @@
   import { isMultiline } from './composer-multiline';
   import { ComposerSources } from './composer-sources.svelte';
   import { DraftSync } from './draft-sync.svelte';
-  import { shouldFocusComposer } from './type-to-focus';
+  import { MENU_SELECTOR, shouldFocusComposer } from './type-to-focus';
   import { ComposerEditor } from './editor/composer-editor';
   import type { ActiveColors, ColorKind, FormatAction } from './editor/formatting';
   import type { EmoteMedia } from './editor/node-views';
   import { composerSchema } from './editor/schema';
   import { emoticonNode } from './editor/shortcodes';
   import type { BoardTab } from '#lib/ui/primitives/emote-board.js';
-  import { isDialogOpen, matchesBinding } from '#lib/ui/shortcuts/binding.js';
+  import { isDialogOpen, isEditableTarget, matchesBinding } from '#lib/ui/shortcuts/binding.js';
   import { bindingFor } from '#lib/ui/shortcuts/bindings.svelte.js';
   import { isMacPlatform } from '#lib/ui/shortcuts/global-shortcuts.js';
   import type { ShortcutId } from '#lib/ui/shortcuts/shortcuts.js';
@@ -1140,9 +1144,16 @@
     ['composer.toggleGifPicker', 'gif'],
   ];
 
-  function toggleBoard(event: KeyboardEvent): boolean {
-    if (!boardOpen && (!rowEl?.contains(event.target as Node | null) || isDialogOpen()))
+  function canToggleBoard(event: KeyboardEvent): boolean {
+    if (isDialogOpen()) return false;
+    if (rowEl?.contains(event.target as Node | null)) return true;
+    if (isEditableTarget(event.target) || document.querySelector(MENU_SELECTOR) !== null)
       return false;
+    return !lastFocusedRow?.isConnected || lastFocusedRow === rowEl;
+  }
+
+  function toggleBoard(event: KeyboardEvent): boolean {
+    if (!boardOpen && !canToggleBoard(event)) return false;
 
     for (const [id, tab] of boardShortcuts) {
       const binding = bindingFor(id);
@@ -1352,6 +1363,7 @@
           hidden={activeBotCommand !== null}
           bind:this={rowEl}
           onmousedown={focusFromRow}
+          onfocusin={() => (lastFocusedRow = rowEl)}
           onkeydown={(event) => {
             stepReply(event);
             stepEdit(event);

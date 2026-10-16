@@ -248,6 +248,27 @@ test('the editor mounts as a labelled combobox surface', async () => {
   expect(editable?.getAttribute('contenteditable')).toBe('true');
 });
 
+test('the emoji board shortcut works while the composer is not focused', async () => {
+  setup({ roomId: '!room:example.org' });
+  await flushed();
+  expect(document.querySelector('.composer-board')).toBeNull();
+
+  await fireEvent.keyDown(document.body, { key: 'e', ctrlKey: true });
+  await flushed();
+  expect(document.querySelector('.composer-board')).not.toBeNull();
+});
+
+test('the emoji board shortcut leaves other text fields alone', async () => {
+  setup({ roomId: '!room:example.org' });
+  await flushed();
+  const field = document.body.appendChild(document.createElement('input'));
+
+  await fireEvent.keyDown(field, { key: 'e', ctrlKey: true });
+  await flushed();
+  field.remove();
+  expect(document.querySelector('.composer-board')).toBeNull();
+});
+
 test.each(['send', 'newline'] as const)(
   'the visible keyboard hint follows enterForNewline=%s',
   async (newline) => {

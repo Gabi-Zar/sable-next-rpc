@@ -1,6 +1,6 @@
 import { isDialogOpen, isEditableTarget } from '#lib/ui/shortcuts/binding.js';
 
-const MENU_SELECTOR = '[role="menu"], [role="listbox"]';
+export const MENU_SELECTOR = '[role="menu"], [role="listbox"]';
 
 function isPaste(event: KeyboardEvent): boolean {
   return event.key.toLowerCase() === 'v' && (event.ctrlKey || event.metaKey) && !event.altKey;
