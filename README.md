@@ -34,6 +34,17 @@ Put Node, pnpm, Rust (with the `wasm32-unknown-unknown` target),
 `PATH`, then run
 `pnpm install` and `pnpm build`.
 
+### Android FOSS APK
+
+Requires Node, pnpm, Rust, an Android SDK/NDK, and binaryen's `wasm-opt`.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm android:build --version "$APP_VERSION"
+```
+
+The command installs the Rust targets and locked `wasm-bindgen-cli` version.
+
 ## Customization
 
 Edit [`static/config.json`](static/config.json) to customize homeservers and client
