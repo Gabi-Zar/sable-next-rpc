@@ -62,6 +62,21 @@ for (const theme of ['light', 'dark'] as const) {
   }) => {
     await installRoomCore('ready');
     await installTheme(page, theme);
+    // A role colour outranks the theme's name colours, so Alice must have none.
+    await page.addInitScript(() => {
+      window.__e2eMembers = [
+        {
+          user_id: '@alice:example.test',
+          display_name: 'Alice',
+          avatar_url: null,
+          power_level: 0,
+          membership: 'join',
+          member_ts: null,
+          kicked: false,
+          service: false,
+        },
+      ];
+    });
     await page.goto('/settings/appearance');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(16, 16, 32)');
     expect(
