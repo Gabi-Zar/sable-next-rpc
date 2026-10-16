@@ -12,7 +12,7 @@ use matrix_sdk::ruma::events::{
 };
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::send_queue::LocalEchoContent;
-use sable_model::non_blank::NonBlank;
+use sable_model::non_blank::{NonBlank, NonBlankVerbatim};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{Map, Value, json};
 use serde_with::{DefaultOnError, MapSkipError, VecSkipError, serde_as};
@@ -38,10 +38,10 @@ fn selection_event(scope: &str) -> GlobalAccountDataEventType {
 #[serde_as]
 #[derive(Deserialize)]
 struct TriggerIn {
-    #[serde_as(as = "NonBlank")]
+    #[serde_as(as = "NonBlankVerbatim")]
     #[serde(default)]
     prefix: Option<String>,
-    #[serde_as(as = "NonBlank")]
+    #[serde_as(as = "NonBlankVerbatim")]
     #[serde(default)]
     suffix: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError")]
@@ -66,10 +66,10 @@ impl TriggerIn {
 #[serde_as]
 #[derive(Deserialize)]
 struct TriggerV2In {
-    #[serde_as(deserialize_as = "DefaultOnError<Vec<NonBlank>>")]
+    #[serde_as(deserialize_as = "DefaultOnError<Vec<NonBlankVerbatim>>")]
     #[serde(default)]
     prefix: Vec<Option<String>>,
-    #[serde_as(deserialize_as = "DefaultOnError<Vec<NonBlank>>")]
+    #[serde_as(deserialize_as = "DefaultOnError<Vec<NonBlankVerbatim>>")]
     #[serde(default, rename = "net.f0rest.suffix")]
     suffix: Vec<Option<String>>,
     #[serde_as(deserialize_as = "DefaultOnError<VecSkipError<_>>")]
@@ -1177,6 +1177,38 @@ mod tests {
         let out = serde_json::to_value(super::PersonaOut::from(&persona)).expect("serializable");
 
         assert_eq!(out, written);
+    }
+
+    #[test]
+    fn triggers_keep_the_spaces_they_were_saved_with() {
+        let tags =
+            |persona: &crate::protocol::PersonaView| -> Vec<(Option<String>, Option<String>)> {
+                persona
+                    .triggers
+                    .iter()
+                    .map(|trigger| (trigger.prefix.clone(), trigger.suffix.clone()))
+                    .collect()
+            };
+        let owned = |text: &str| Some(text.to_owned());
+
+        let v3 = persona(&json!({
+            "id": "emi", "displayname": "Emi",
+            "triggers": [
+                { "prefix": "emi: " },
+                { "suffix": " -emi" },
+                { "prefix": "  ", "suffix": " " }
+            ],
+        }));
+        assert_eq!(
+            tags(&v3),
+            vec![(owned("emi: "), None), (None, owned(" -emi"))]
+        );
+
+        let v2 = persona(&json!({
+            "id": "emi", "displayname": "Emi",
+            "trigger": { "prefix": ["e: "], "net.f0rest.suffix": [" -e"] },
+        }));
+        assert_eq!(tags(&v2), vec![(owned("e: "), None), (None, owned(" -e"))]);
     }
 
     #[test]
