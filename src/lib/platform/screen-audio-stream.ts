@@ -4,8 +4,8 @@ import workletUrl from './screen-audio-worklet.js?url&no-inline';
 
 export type ScreenAudioChoice =
   | { kind: 'none' }
-  | { kind: 'system'; exclude: string[] }
-  | { kind: 'apps'; include: string[] };
+  | { kind: 'system'; exclude: string[]; workaround?: boolean }
+  | { kind: 'apps'; include: string[]; workaround?: boolean };
 
 const SAMPLE_RATE = 48_000;
 

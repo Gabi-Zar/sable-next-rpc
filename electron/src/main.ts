@@ -382,7 +382,7 @@ ipcMain.on('sable-screen-picked', (event, request: unknown, id: unknown) => {
 });
 
 ipcMain.handle('sable-screen-audio-apps', (event) =>
-  isAppFrame(event.senderFrame) ? screenAudio.listApps() : []
+  isAppFrame(event.senderFrame) ? screenAudio.listApps() : { apps: [], status: 'unavailable' }
 );
 
 ipcMain.handle('sable-screen-audio-start', (event, selection: unknown) => {
@@ -392,6 +392,10 @@ ipcMain.handle('sable-screen-audio-start', (event, selection: unknown) => {
 
 ipcMain.handle('sable-screen-audio-stop', (event) => {
   if (isAppFrame(event.senderFrame)) screenAudio.stop();
+});
+
+ipcMain.handle('sable-screen-audio-unmute', (event) => {
+  if (isAppFrame(event.senderFrame)) screenAudio.unmute();
 });
 
 function cancelPicks(): void {

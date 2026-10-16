@@ -3,19 +3,35 @@
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
+import type { ScreenAudioListing } from '#lib/platform/screen-audio-types.js';
 
 const platform = vi.hoisted(() => ({
   listScreenAudioApps: vi.fn<() => Promise<string[]>>(),
   lastScreenAudioChoice: vi.fn(() => ({ kind: 'none' as const })),
   screenAudioPicksMany: vi.fn(() => true),
+  screenAudioAppLabel: (id: string) => id,
+  status: 'available' as ScreenAudioListing['status'],
+  labels: {} as Record<string, string>,
 }));
-vi.mock('#lib/platform/screen-audio.js', () => platform);
+vi.mock('#lib/platform/screen-audio.js', () => ({
+  ...platform,
+  listScreenAudioApps: async () => ({
+    status: platform.status,
+    apps: (await platform.listScreenAudioApps()).map((id) => ({
+      id,
+      label: platform.labels[id] ?? id,
+    })),
+  }),
+}));
 
 import ScreenShareAudioDialog from './ScreenShareAudioDialog.svelte';
 
 afterEach(() => {
   platform.listScreenAudioApps.mockReset();
   platform.screenAudioPicksMany.mockReturnValue(true);
+  platform.status = 'available';
+  platform.labels = {};
+  vi.unstubAllGlobals();
 });
 
 function open() {
@@ -78,6 +94,46 @@ test('cancelling shares nothing', async () => {
 
   expect(onCancel).toHaveBeenCalled();
   expect(onShare).not.toHaveBeenCalled();
+});
+
+test.each(['unavailable', 'incompatible'] as const)(
+  'explains an %s backend and still allows sharing without audio',
+  async (status) => {
+    platform.status = status;
+    platform.listScreenAudioApps.mockResolvedValue([]);
+    const { onShare, user } = open();
+    await user.click(await screen.findByRole('radio', { name: /Every app/ }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      status === 'incompatible' ? /C\+\+ runtime/ : /PipeWire/
+    );
+    expect(screen.getByRole('button', { name: 'Share' })).toBeDisabled();
+    await user.click(screen.getByRole('radio', { name: /No audio/ }));
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    expect(onShare).toHaveBeenCalledWith({ kind: 'none' });
+  }
+);
+
+test('warns about missing pipewire-pulse without blocking native PipeWire audio', async () => {
+  platform.status = 'pipewire-pulse-missing';
+  platform.listScreenAudioApps.mockResolvedValue([]);
+  const { user } = open();
+  await user.click(await screen.findByRole('radio', { name: /Every app/ }));
+  expect((await screen.findByRole('status')).textContent).toMatch(/pipewire-pulse/);
+  expect(screen.getByRole('button', { name: 'Share' })).toBeEnabled();
+});
+
+test('selects a stream by ID and includes the Linux workaround only when enabled', async () => {
+  vi.stubGlobal('sableElectron', { platform: 'linux' });
+  platform.listScreenAudioApps.mockResolvedValue(['stream-1', 'stream-2']);
+  platform.labels = { 'stream-1': 'Firefox (Music)', 'stream-2': 'Firefox (Video)' };
+  const { onShare, user } = open();
+  await user.click(await screen.findByRole('radio', { name: /Chosen apps/ }));
+  const workaround = screen.getByRole('checkbox', { name: /Microphone routing workaround/ });
+  expect(workaround).not.toBeChecked();
+  await user.click(await screen.findByRole('checkbox', { name: 'Firefox (Video)' }));
+  await user.click(workaround);
+  await user.click(screen.getByRole('button', { name: 'Share' }));
+  expect(onShare).toHaveBeenCalledWith({ kind: 'apps', include: ['stream-2'], workaround: true });
 });
 
 test('keeps the remembered apps on screen when the list cannot be read', async () => {

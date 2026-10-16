@@ -2,6 +2,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { type as osType, version as osVersion } from '@tauri-apps/plugin-os';
 
 import { electronBridge } from './electron';
+import type { ScreenAudioListing } from './screen-audio-types';
 import { readJson, writeJson } from './local-json';
 import {
   type ScreenAudioChoice,
@@ -22,8 +23,11 @@ const names = (value: unknown): string[] =>
 function parseChoice(value: unknown): ScreenAudioChoice {
   if (typeof value !== 'object' || value === null) return { kind: 'none' };
   const choice = value as Record<string, unknown>;
-  if (choice.kind === 'system') return { kind: 'system', exclude: names(choice.exclude) };
-  if (choice.kind === 'apps') return { kind: 'apps', include: names(choice.include) };
+  const workaround = choice.workaround === true ? { workaround: true } : {};
+  if (choice.kind === 'system')
+    return { kind: 'system', exclude: names(choice.exclude), ...workaround };
+  if (choice.kind === 'apps')
+    return { kind: 'apps', include: names(choice.include), ...workaround };
   return { kind: 'none' };
 }
 
@@ -35,8 +39,27 @@ export function rememberScreenAudioChoice(choice: ScreenAudioChoice): void {
   writeJson(CHOICE_KEY, choice, '[sable call] screen audio choice not persisted');
 }
 
-export function listScreenAudioApps(): Promise<string[]> {
-  return electronBridge()?.screenAudioApps() ?? invoke<string[]>('screen_audio_apps');
+export async function listScreenAudioApps(): Promise<ScreenAudioListing> {
+  const electron = electronBridge();
+  if (electron) return electron.screenAudioApps();
+  const apps = await invoke<string[]>('screen_audio_apps');
+  return { status: 'available', apps: apps.map((name) => ({ id: name, label: name })) };
+}
+
+export function screenAudioAppLabel(id: string): string {
+  if (!id.startsWith('pipewire:')) return id;
+  try {
+    const props = JSON.parse(id.slice('pipewire:'.length)) as Partial<Record<string, string>>;
+    const name = props['application.name'] ?? props['node.name'] ?? id;
+    const details = [props['media.name'], props['application.process.id']].filter(Boolean);
+    return details.length ? `${name} (${details.join(' · ')})` : name;
+  } catch {
+    return id;
+  }
+}
+
+export async function unmuteScreenAudio(): Promise<void> {
+  await electronBridge()?.unmuteScreenAudio();
 }
 
 function windowsBuild(): number {

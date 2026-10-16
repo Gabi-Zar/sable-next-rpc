@@ -10,7 +10,10 @@
     lastScreenAudioChoice,
     listScreenAudioApps,
     screenAudioPicksMany,
+    screenAudioAppLabel,
   } from '#lib/platform/screen-audio.js';
+  import { electronBridge } from '#lib/platform/electron.js';
+  import type { ScreenAudioListing } from '#lib/platform/screen-audio-types.js';
   import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -31,6 +34,7 @@
   let { onShare, onCancel }: Props = $props();
 
   const many = screenAudioPicksMany();
+  const linuxElectron = electronBridge()?.platform === 'linux';
   const last = lastScreenAudioChoice();
   let kind = $state<Kind>(last.kind);
   let excluded = $state<string[]>(last.kind === 'system' ? last.exclude : []);
@@ -38,10 +42,17 @@
   let playing = $state.raw<string[]>([]);
   let loading = $state(false);
   let failed = $state(false);
+  let backend = $state<ScreenAudioListing['status']>('available');
+  let labels = $state.raw<Record<string, string>>({});
+  let workaround = $state(last.kind !== 'none' && last.workaround === true);
 
   let picked = $derived(kind === 'system' ? excluded : included);
   let apps = $derived([...new Set([...playing, ...picked])].sort((a, b) => a.localeCompare(b)));
-  let ready = $derived(kind !== 'apps' || included.length > 0);
+  let available = $derived(backend === 'available' || backend === 'pipewire-pulse-missing');
+  let ready = $derived(
+    kind === 'none' ||
+      (!loading && !failed && available && (kind !== 'apps' || included.length > 0))
+  );
   let listed = $derived(kind === 'apps' || (kind === 'system' && many));
 
   let options = $derived([
@@ -69,7 +80,10 @@
     loading = true;
     failed = false;
     try {
-      playing = await listScreenAudioApps();
+      const result = await listScreenAudioApps();
+      backend = result.status;
+      playing = result.apps.map((app) => app.id);
+      labels = Object.fromEntries(result.apps.map((app) => [app.id, app.label]));
     } catch (error) {
       console.warn('[sable call] could not list apps playing audio', error);
       failed = true;
@@ -97,8 +111,9 @@
 
   function share(): void {
     if (!ready) return;
-    if (kind === 'system') onShare({ kind, exclude: excluded });
-    else if (kind === 'apps') onShare({ kind, include: included });
+    const extra = linuxElectron && workaround ? { workaround: true } : {};
+    if (kind === 'system') onShare({ kind, exclude: excluded, ...extra });
+    else if (kind === 'apps') onShare({ kind, include: included, ...extra });
     else onShare({ kind: 'none' });
   }
 </script>
@@ -154,11 +169,19 @@
 
         {#if failed}
           <Alert variant="critical" role="alert">{i18n.t('call.screenAudioFailed')}</Alert>
+        {:else if backend === 'incompatible'}
+          <Alert variant="critical" role="alert">{i18n.t('call.screenAudioIncompatible')}</Alert>
+        {:else if backend === 'unavailable'}
+          <Alert variant="critical" role="alert">{i18n.t('call.screenAudioUnavailable')}</Alert>
+        {:else if backend === 'pipewire-pulse-missing'}
+          <Alert variant="warning" role="status"
+            >{i18n.t('call.screenAudioPipeWirePulseMissing')}</Alert
+          >
         {/if}
         {#if loading && apps.length === 0}
           <div class="state"><Spinner small label={i18n.t('call.screenAudioLoading')} /></div>
         {:else if apps.length === 0}
-          {#if !failed}<p class="state">{i18n.t('call.screenAudioEmpty')}</p>{/if}
+          {#if !failed && available}<p class="state">{i18n.t('call.screenAudioEmpty')}</p>{/if}
         {:else}
           <ul {@attach scrollHint}>
             {#each apps as app (app)}
@@ -172,7 +195,7 @@
                       toggle(app);
                     }}
                   />
-                  <span class="app-name">{app}</span>
+                  <span class="app-name">{labels[app] ?? screenAudioAppLabel(app)}</span>
                   {#if !playing.includes(app)}
                     <span class="quiet">{i18n.t('call.screenAudioSilent')}</span>
                   {/if}
@@ -182,6 +205,14 @@
           </ul>
         {/if}
       </section>
+    {/if}
+
+    {#if linuxElectron && kind !== 'none'}
+      <label>
+        <input type="checkbox" bind:checked={workaround} />
+        {i18n.t('call.screenAudioWorkaround')}
+      </label>
+      <p class="explain">{i18n.t('call.screenAudioWorkaroundHint')}</p>
     {/if}
 
     <DialogActions>

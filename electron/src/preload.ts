@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { ScreenAudioListing } from '../../src/lib/platform/screen-audio-types';
 
 interface ScreenShareCandidate {
   id: string;
@@ -39,10 +40,12 @@ contextBridge.exposeInMainWorld('sableElectron', {
       ipcRenderer.removeListener('sable-deep-links', listener);
     };
   },
-  screenAudioApps: () => ipcRenderer.invoke('sable-screen-audio-apps') as Promise<string[]>,
+  screenAudioApps: () =>
+    ipcRenderer.invoke('sable-screen-audio-apps') as Promise<ScreenAudioListing>,
   startScreenAudio: (selection: unknown) =>
     ipcRenderer.invoke('sable-screen-audio-start', selection) as Promise<string>,
   stopScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-stop') as Promise<void>,
+  unmuteScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-unmute') as Promise<void>,
   onScreenSharePick: (pick: ScreenSharePick) => {
     screenSharePick = pick;
     return () => {

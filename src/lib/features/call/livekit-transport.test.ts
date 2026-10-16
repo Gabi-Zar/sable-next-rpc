@@ -11,6 +11,7 @@ const screenAudio = vi.hoisted(() => ({
   screenAudioSupported: vi.fn(() => false),
   captureScreenAudio: vi.fn<() => Promise<MediaStreamTrack>>(),
   stopScreenAudio: vi.fn(() => Promise.resolve()),
+  unmuteScreenAudio: vi.fn(() => Promise.resolve()),
 }));
 vi.mock('#lib/platform/screen-audio.js', () => screenAudio);
 
@@ -555,11 +556,44 @@ test('publishes the screen audio beside the share, and tears it down with it', a
     expect.anything(),
     expect.objectContaining({ source: 'screen_share_audio', forceStereo: true })
   );
+  expect(screenAudio.unmuteScreenAudio).toHaveBeenCalledOnce();
+  expect(screenAudio.unmuteScreenAudio.mock.invocationCallOrder[0]).toBeGreaterThan(
+    participant.publishTrack.mock.invocationCallOrder[0]
+  );
 
   await transport.capabilities.screenShare?.setEnabled(false);
 
   expect(participant.unpublishTrack).toHaveBeenCalledOnce();
   expect(screenAudio.stopScreenAudio).toHaveBeenCalledOnce();
+  screenAudio.screenAudioSupported.mockReturnValue(false);
+});
+
+test('keeps screen audio muted until publication finishes', async () => {
+  const fixture = roomFixture();
+  const participant = withPublishing(fixture);
+  screenAudio.screenAudioSupported.mockReturnValue(true);
+  screenAudio.captureScreenAudio.mockResolvedValue(audioTrackStub());
+  let published!: () => void;
+  participant.publishTrack.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        published = resolve;
+      })
+  );
+  const transport = createLivekitTransport({ encryptMedia: false, createRoom: () => fixture.room });
+  await transport.connect(connectOptions);
+  const sharing = transport.capabilities.screenShare?.setEnabled(true, {
+    kind: 'system',
+    exclude: [],
+  });
+  await vi.waitFor(() => {
+    expect(participant.publishTrack).toHaveBeenCalledOnce();
+  });
+  expect(screenAudio.unmuteScreenAudio).not.toHaveBeenCalled();
+  published();
+  await sharing;
+  expect(screenAudio.unmuteScreenAudio).toHaveBeenCalledOnce();
+  await transport.disconnect();
   screenAudio.screenAudioSupported.mockReturnValue(false);
 });
 

@@ -18,6 +18,7 @@ import {
   captureScreenAudio,
   screenAudioSupported,
   stopScreenAudio,
+  unmuteScreenAudio,
 } from '#lib/platform/screen-audio.js';
 import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
 import { startHdrShare, stopHdrShare } from '#lib/platform/hdr-share.js';
@@ -515,6 +516,9 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
           ...SCREEN_AUDIO_PUBLISH,
           source: Track.Source.ScreenShareAudio,
         });
+        if (!isDisposed() && generation === screenAudioGeneration && screenAudio === track) {
+          await unmuteScreenAudio();
+        }
         return true;
       } catch (error) {
         if (isDisposed() || generation !== screenAudioGeneration) return true;

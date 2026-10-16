@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 const tauri = vi.hoisted(() => ({
   invoke: vi.fn<(command: string, args?: unknown) => Promise<unknown>>(() =>
@@ -27,6 +27,9 @@ import {
   screenAudioPicksMany,
   screenAudioSupported,
   stopScreenAudio,
+  listScreenAudioApps,
+  screenAudioAppLabel,
+  unmuteScreenAudio,
 } from './screen-audio';
 
 beforeEach(() => {
@@ -36,6 +39,47 @@ beforeEach(() => {
   tauri.isTauri.mockReturnValue(true);
   os.type.mockReturnValue('windows');
   os.version.mockReturnValue('10.0.22631');
+});
+
+afterEach(() => vi.unstubAllGlobals());
+
+test('preserves Electron backend status and stream identities', async () => {
+  const listing = {
+    status: 'pipewire-pulse-missing',
+    apps: [{ id: 'stream-1', label: 'Firefox (Music)' }],
+  };
+  const unmute = vi.fn(() => Promise.resolve());
+  vi.stubGlobal('sableElectron', {
+    platform: 'linux',
+    screenAudioApps: () => Promise.resolve(listing),
+    unmuteScreenAudio: unmute,
+  });
+  expect(await listScreenAudioApps()).toBe(listing);
+  await unmuteScreenAudio();
+  expect(unmute).toHaveBeenCalledOnce();
+  expect(tauri.invoke).not.toHaveBeenCalled();
+});
+
+test('labels remembered PipeWire streams and preserves legacy app names', () => {
+  const id =
+    'pipewire:' +
+    JSON.stringify({
+      'application.name': 'Firefox',
+      'media.name': 'Music',
+      'application.process.id': '10',
+    });
+  expect(screenAudioAppLabel(id)).toBe('Firefox (Music · 10)');
+  expect(screenAudioAppLabel('Firefox')).toBe('Firefox');
+});
+
+test('wraps native app names without changing their identifiers', async () => {
+  tauri.invoke.mockResolvedValueOnce(['mpv']);
+  expect(await listScreenAudioApps()).toEqual({
+    status: 'available',
+    apps: [{ id: 'mpv', label: 'mpv' }],
+  });
+  await unmuteScreenAudio();
+  expect(tauri.invoke).toHaveBeenCalledTimes(1);
 });
 
 test('Windows shares per-application audio from build 20348', () => {
