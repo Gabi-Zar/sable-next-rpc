@@ -1,9 +1,12 @@
 <script lang="ts">
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
+  import type { TermsPolicyView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
+  import Button from '#lib/ui/primitives/Button.svelte';
+  import DialogActions from '#lib/ui/primitives/DialogActions.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import PanelHeader from '#lib/ui/primitives/PanelHeader.svelte';
   import PanelHeaderButton from '#lib/ui/primitives/PanelHeaderButton.svelte';
@@ -22,24 +25,64 @@
   let url = $state<string | null>(null);
   let failed = $state(false);
   let loaded = $state(false);
+  let terms = $state<TermsPolicyView[] | null>(null);
+  let accepting = $state(false);
+  let acceptFailed = $state(false);
+  let attempt = 0;
 
-  $effect(() => {
-    if (!open) return;
-    let current = true;
-    url = null;
-    failed = false;
-    loaded = false;
+  function openManager(token: number): void {
     core.rpc.session
       .integrationManagerUrl({ room_id: roomId })
       .then((next) => {
-        if (current) url = next;
+        if (token === attempt) url = next;
       })
       .catch((error: unknown) => {
         console.warn('[sable widgets] the integration manager could not be opened', error);
-        if (current) failed = true;
+        if (token === attempt) failed = true;
+      });
+  }
+
+  async function acceptTerms(): Promise<void> {
+    if (terms === null) return;
+    const token = attempt;
+    accepting = true;
+    acceptFailed = false;
+    try {
+      await core.rpc.session.acceptIntegrationManagerTerms({
+        urls: terms.map((policy) => policy.url),
+      });
+      if (token !== attempt) return;
+      terms = null;
+      openManager(token);
+    } catch (error) {
+      console.warn('[sable widgets] the integration manager terms were not accepted', error);
+      if (token === attempt) acceptFailed = true;
+    } finally {
+      accepting = false;
+    }
+  }
+
+  $effect(() => {
+    if (!open) return;
+    const token = ++attempt;
+    url = null;
+    failed = false;
+    loaded = false;
+    terms = null;
+    acceptFailed = false;
+    core.rpc.session
+      .integrationManagerTerms()
+      .catch((error: unknown) => {
+        console.debug('[sable widgets] the integration manager terms were not read', error);
+        return [];
+      })
+      .then((pending) => {
+        if (token !== attempt) return;
+        if (pending.length > 0) terms = pending;
+        else openManager(token);
       });
     return () => {
-      current = false;
+      attempt++;
     };
   });
 
@@ -71,6 +114,27 @@
     <div class="body">
       {#if failed}
         <Alert variant="critical">{i18n.t('widgets.integrationManagerFailed')}</Alert>
+      {:else if terms !== null}
+        <div class="terms">
+          <h2>{i18n.t('widgets.integrationManagerTermsTitle')}</h2>
+          <p>{i18n.t('widgets.integrationManagerTermsBody')}</p>
+          <ul>
+            {#each terms as policy (policy.url)}
+              <li>
+                <a href={policy.url} target="_blank" rel="noopener noreferrer">{policy.name}</a>
+              </li>
+            {/each}
+          </ul>
+          {#if acceptFailed}
+            <Alert variant="critical">{i18n.t('widgets.integrationManagerTermsFailed')}</Alert>
+          {/if}
+          <DialogActions>
+            <Button variant="ghost" onclick={onClose}>{i18n.t('common.cancel')}</Button>
+            <Button variant="primary" loading={accepting} onclick={acceptTerms}>
+              {i18n.t('widgets.integrationManagerTermsAccept')}
+            </Button>
+          </DialogActions>
+        </div>
       {:else if url === null}
         <Spinner label={i18n.t('widgets.integrationManagerLoading')} />
       {:else}
@@ -109,6 +173,18 @@
 
   .loading {
     position: absolute;
+  }
+
+  .terms {
+    display: grid;
+    gap: var(--space-300);
+    max-width: 32rem;
+    padding: var(--space-400);
+  }
+
+  .terms ul {
+    margin: 0;
+    padding-inline-start: var(--space-400);
   }
 
   iframe {

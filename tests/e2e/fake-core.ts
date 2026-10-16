@@ -1166,6 +1166,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       'session.server_features': () => [],
       'session.delayed_events_supported': () => true,
       'session.known_rooms': () => [],
+      'session.integration_manager_terms': () => [],
       'session.integration_manager_url': () => 'https://integrations.example.test/index.html',
       'search.messages': (params) => ({ hits: searchHits(params), older: null }),
       'search.coverage': () => ({

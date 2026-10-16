@@ -35,8 +35,8 @@ use serde_with::{DefaultOnError, serde_as};
 use crate::calls::{is_rtc_member_type, sticky};
 use crate::delayed_events::{self, DelayedEvent};
 use crate::protocol::{
-    CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RpcError, TurnServerView,
-    UserDirectoryEntryView,
+    CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RpcError, TermsPolicyView,
+    TurnServerView, UserDirectoryEntryView,
 };
 use crate::view::ObjectOnly;
 use crate::{Core, ResultExt};
@@ -234,6 +234,42 @@ fn integration_manager_page(
         query.append_pair("room_id", room_id.as_str());
     }
     Some(url.to_string())
+}
+
+fn terms_url(api_url: &str) -> String {
+    format!(
+        "{}/_matrix/integrations/v1/terms",
+        api_url.trim_end_matches('/')
+    )
+}
+
+fn pending_policies(terms: &Value, accepted: &[String]) -> Vec<TermsPolicyView> {
+    let Some(policies) = terms.get("policies").and_then(Value::as_object) else {
+        return Vec::new();
+    };
+    policies
+        .values()
+        .filter_map(|policy| {
+            let translations = policy.as_object()?;
+            let translation = translations.get("en").or_else(|| {
+                translations
+                    .values()
+                    .find(|value| value.get("url").is_some())
+            })?;
+            let url = translation.get("url")?.as_str()?;
+            if accepted.iter().any(|accepted| accepted == url) {
+                return None;
+            }
+            Some(TermsPolicyView {
+                url: url.to_owned(),
+                name: translation
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or(url)
+                    .to_owned(),
+            })
+        })
+        .collect()
 }
 
 #[derive(Serialize)]
@@ -711,6 +747,14 @@ impl Core {
         room_id: &OwnedRoomId,
     ) -> Result<String, RpcError> {
         const LABEL: &str = "integration_manager_url";
+        let manager = self.integration_manager(LABEL).await?;
+
+        let scalar_token = self.scalar_token(&manager.api_url).await;
+        integration_manager_page(&manager.ui_url, scalar_token.as_deref(), room_id)
+            .ok_or_else(|| self.failed(LABEL, "the integration manager URL is invalid"))
+    }
+
+    async fn integration_manager(&self, label: &str) -> Result<IntegrationManager, RpcError> {
         let client = self.client().await?;
 
         let mut managers = Vec::new();
@@ -719,7 +763,7 @@ impl Core {
                 .http_client()
                 .get(
                     base.join("/.well-known/matrix/client")
-                        .or_failed(self, LABEL)?,
+                        .or_failed(self, label)?,
                 )
                 .send()
                 .await
@@ -730,20 +774,90 @@ impl Core {
             managers = managers_from_well_known(&well_known);
         }
         if let Some(widgets) = self
-            .global_account_data(GlobalAccountDataEventType::from("m.widgets"), LABEL)
+            .global_account_data(GlobalAccountDataEventType::from("m.widgets"), label)
             .await?
             .and_then(|raw| serde_json::from_str::<Value>(raw.json().get()).ok())
         {
             managers_from_account_data(&widgets, &mut managers);
         }
-        let manager = managers.into_iter().next().unwrap_or(IntegrationManager {
+        Ok(managers.into_iter().next().unwrap_or(IntegrationManager {
             api_url: DEFAULT_INTEGRATION_MANAGER.0.to_owned(),
             ui_url: DEFAULT_INTEGRATION_MANAGER.1.to_owned(),
-        });
+        }))
+    }
 
-        let scalar_token = self.scalar_token(&manager.api_url).await;
-        integration_manager_page(&manager.ui_url, scalar_token.as_deref(), room_id)
-            .ok_or_else(|| self.failed(LABEL, "the integration manager URL is invalid"))
+    pub(crate) async fn integration_manager_terms(&self) -> Result<Vec<TermsPolicyView>, RpcError> {
+        const LABEL: &str = "integration_manager_terms";
+        let manager = self.integration_manager(LABEL).await?;
+        let response = self
+            .client()
+            .await?
+            .http_client()
+            .get(terms_url(&manager.api_url))
+            .send()
+            .await
+            .or_failed(self, LABEL)?;
+        if !response.status().is_success() {
+            return Ok(Vec::new());
+        }
+        let terms: Value = serde_json::from_str(&response.text().await.or_failed(self, LABEL)?)
+            .or_failed(self, LABEL)?;
+
+        let accepted = self.accepted_terms(LABEL).await?;
+        Ok(pending_policies(&terms, &accepted))
+    }
+
+    pub(crate) async fn accept_integration_manager_terms(
+        &self,
+        urls: Vec<String>,
+    ) -> Result<(), RpcError> {
+        const LABEL: &str = "accept_integration_manager_terms";
+        let manager = self.integration_manager(LABEL).await?;
+        let token = self
+            .scalar_token(&manager.api_url)
+            .await
+            .ok_or_else(|| self.failed(LABEL, "the integration manager did not issue a token"))?;
+
+        self.client()
+            .await?
+            .http_client()
+            .post(terms_url(&manager.api_url))
+            .bearer_auth(token)
+            .header("Content-Type", "application/json")
+            .body(serde_json::json!({ "user_accepts": urls }).to_string())
+            .send()
+            .await
+            .and_then(reqwest::Response::error_for_status)
+            .or_failed(self, LABEL)?;
+
+        let mut accepted = self.accepted_terms(LABEL).await?;
+        for url in urls {
+            if !accepted.contains(&url) {
+                accepted.push(url);
+            }
+        }
+        self.put_global_account_data(
+            GlobalAccountDataEventType::from("m.accepted_terms"),
+            &serde_json::json!({ "accepted": accepted }),
+            LABEL,
+        )
+        .await
+    }
+
+    async fn accepted_terms(&self, label: &str) -> Result<Vec<String>, RpcError> {
+        Ok(self
+            .global_account_data(GlobalAccountDataEventType::from("m.accepted_terms"), label)
+            .await?
+            .and_then(|raw| serde_json::from_str::<Value>(raw.json().get()).ok())
+            .and_then(|content| {
+                content.get("accepted")?.as_array().map(|urls| {
+                    urls.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_owned)
+                        .collect()
+                })
+            })
+            .unwrap_or_default())
     }
 
     async fn scalar_token(&self, api_url: &str) -> Option<String> {
@@ -908,7 +1022,7 @@ mod tests {
     use std::{sync::Arc, time::Duration};
     use wiremock::{
         Mock, ResponseTemplate,
-        matchers::{body_json, method, path, path_regex, query_param},
+        matchers::{body_json, header, method, path, path_regex, query_param},
     };
 
     #[tokio::test]
@@ -1535,6 +1649,89 @@ mod tests {
             url,
             format!("{uri}/index.html?scalar_token=s3&room_id=%21room%3Aexample.org")
         );
+    }
+
+    #[test]
+    fn pending_policies_skip_accepted_urls_and_prefer_english() {
+        let terms = json!({"policies": {
+            "privacy": {
+                "version": "1",
+                "en": {"name": "Privacy", "url": "https://im/privacy-en"},
+                "fr": {"name": "Confidentialité", "url": "https://im/privacy-fr"}
+            },
+            "tos": {"version": "2", "fr": {"name": "Conditions", "url": "https://im/tos-fr"}},
+            "old": {"version": "1", "en": {"name": "Old", "url": "https://im/old"}}
+        }});
+
+        let pending = super::pending_policies(&terms, &["https://im/old".to_owned()]);
+
+        let mut urls: Vec<_> = pending.iter().map(|policy| policy.url.as_str()).collect();
+        urls.sort_unstable();
+        assert_eq!(urls, ["https://im/privacy-en", "https://im/tos-fr"]);
+        assert!(pending.iter().any(|policy| policy.name == "Privacy"));
+    }
+
+    #[tokio::test]
+    async fn accepting_integration_manager_terms_signs_with_the_scalar_token_and_remembers_it() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let uri = server.server().uri();
+        Mock::given(method("GET"))
+            .and(path("/.well-known/matrix/client"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "m.integrations": {"managers": [
+                    {"api_url": format!("{uri}/scalar/api"), "ui_url": format!("{uri}/scalar")}
+                ]}
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/account_data/m.(widgets|accepted_terms)",
+            ))
+            .respond_with(
+                ResponseTemplate::new(404)
+                    .set_body_json(json!({"errcode": "M_NOT_FOUND", "error": "Not found"})),
+            )
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/openid/request_token",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": "openid", "token_type": "Bearer",
+                "matrix_server_name": "example.org", "expires_in": 3600
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/scalar/api/register"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"scalar_token": "s3"})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/scalar/api/_matrix/integrations/v1/terms"))
+            .and(header("Authorization", "Bearer s3"))
+            .and(body_json(json!({"user_accepts": ["https://im/tos"]})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        Mock::given(method("PUT"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/account_data/m.accepted_terms",
+            ))
+            .and(body_json(json!({"accepted": ["https://im/tos"]})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let core = core_with(&server, client).await;
+
+        core.accept_integration_manager_terms(vec!["https://im/tos".to_owned()])
+            .await
+            .unwrap();
     }
 
     #[test]

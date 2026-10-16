@@ -6,7 +6,9 @@ use matrix_sdk::ruma::api::federation::discovery::get_server_version;
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::protocol::{RpcError, HomeserverSoftwareView, OpenIdTokenView, SessionInfo, SyncStatus};
+use crate::protocol::{
+    HomeserverSoftwareView, OpenIdTokenView, RpcError, SessionInfo, SyncStatus, TermsPolicyView,
+};
 use crate::{Core, ResultExt};
 
 domain! {
@@ -26,6 +28,8 @@ domain! {
     set_search_options,
     set_read_room,
     integration_manager_url,
+    integration_manager_terms,
+    accept_integration_manager_terms,
     known_rooms,
 }
 
@@ -315,6 +319,32 @@ impl Handler for IntegrationManagerUrlParams {
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
         core.integration_manager_url(&self.room_id).await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct IntegrationManagerTermsParams {}
+
+impl Handler for IntegrationManagerTermsParams {
+    type Ok = Vec<TermsPolicyView>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<TermsPolicyView>, RpcError> {
+        core.integration_manager_terms().await
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AcceptIntegrationManagerTermsParams {
+    pub urls: Vec<String>,
+}
+
+impl Handler for AcceptIntegrationManagerTermsParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
+        core.accept_integration_manager_terms(self.urls).await
     }
 }
 

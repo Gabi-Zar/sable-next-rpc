@@ -1603,6 +1603,11 @@ export type TargetSuggestion = {
 	value: string,
 };
 
+export type TermsPolicyView = {
+	url: string,
+	name: string,
+};
+
 export type ThreadReadDiagnostics = {
 	root_event_id: string,
 } & TimelineReadDiagnostics;
@@ -2998,6 +3003,10 @@ export type Rpc = {
     integrationManagerUrl: (params: {
 	room_id: string,
 }) => Promise<string>;
+    integrationManagerTerms: (params?: Record<string, never>) => Promise<TermsPolicyView[]>;
+    acceptIntegrationManagerTerms: (params: {
+	urls: string[],
+}) => Promise<null>;
     knownRooms: (params?: Record<string, never>) => Promise<string[]>;
   };
   spaces: {
@@ -3461,6 +3470,8 @@ export type RpcMethods = {
   'session.set_search_options': Rpc['session']['setSearchOptions'];
   'session.set_read_room': Rpc['session']['setReadRoom'];
   'session.integration_manager_url': Rpc['session']['integrationManagerUrl'];
+  'session.integration_manager_terms': Rpc['session']['integrationManagerTerms'];
+  'session.accept_integration_manager_terms': Rpc['session']['acceptIntegrationManagerTerms'];
   'session.known_rooms': Rpc['session']['knownRooms'];
   'spaces.add': Rpc['spaces']['add'];
   'spaces.set_child_order': Rpc['spaces']['setChildOrder'];
@@ -3789,6 +3800,8 @@ export function createRpc(call: RpcCall): Rpc {
       setSearchOptions: (params) => call('session.set_search_options', params) as ReturnType<Rpc['session']['setSearchOptions']>,
       setReadRoom: (params) => call('session.set_read_room', params) as ReturnType<Rpc['session']['setReadRoom']>,
       integrationManagerUrl: (params) => call('session.integration_manager_url', params) as ReturnType<Rpc['session']['integrationManagerUrl']>,
+      integrationManagerTerms: (params = {}) => call('session.integration_manager_terms', params) as ReturnType<Rpc['session']['integrationManagerTerms']>,
+      acceptIntegrationManagerTerms: (params) => call('session.accept_integration_manager_terms', params) as ReturnType<Rpc['session']['acceptIntegrationManagerTerms']>,
       knownRooms: (params = {}) => call('session.known_rooms', params) as ReturnType<Rpc['session']['knownRooms']>,
     },
     spaces: {

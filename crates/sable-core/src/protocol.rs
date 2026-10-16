@@ -1903,6 +1903,13 @@ pub struct RelationsView {
     pub prev_batch: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct TermsPolicyView {
+    pub url: String,
+    pub name: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct OpenIdTokenView {
