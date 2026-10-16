@@ -2664,30 +2664,6 @@ test('Escape jumps to the latest message and marks the room read', async () => {
   expect(mark).toHaveBeenCalledOnce();
 });
 
-test('an empty timeline that is still loading shows the skeleton, not the empty state', async () => {
-  const roomTimeline = timeline();
-  roomTimeline.backwardPagination = 'end';
-  roomTimeline.resumingLive = true;
-  render(TimelineListHarness, {
-    props: {
-      list: {
-        timeline: roomTimeline,
-        onRequestHistory: () => Promise.resolve(false),
-        onRequestFuture: async () => {},
-        onRead: async () => {},
-      },
-    },
-  });
-  unreadViewport();
-  await flushed();
-  await runAnimationFrames();
-  expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
-
-  roomTimeline.resumingLive = false;
-  await flushed();
-  expect(screen.getByText('No messages yet')).toBeInTheDocument();
-});
-
 test('Escape removes the unread marker once the room is already read', async () => {
   const roomTimeline = timeline();
   roomTimeline.items = [

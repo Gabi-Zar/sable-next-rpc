@@ -291,6 +291,34 @@ test('returning from unread opens live at its latest messages without paging', a
   expect(timeline.items.at(-1)?.id).toBe('next');
 });
 
+test('returning to live keeps the unread context on screen until the live snapshot arrives', async () => {
+  const core = new FakeCore();
+  const live = { subscription: 3, items: [item('end'), item('arrived')], aggregations: [] };
+  const pending = Promise.withResolvers<typeof live>();
+  vi.spyOn(core, 'subscribeTimeline')
+    .mockResolvedValueOnce({ subscription: 1, items: [item('end')], aggregations: [] })
+    .mockResolvedValueOnce({
+      subscription: 2,
+      items: [item('read'), item('anchor')],
+      aggregations: [],
+    })
+    .mockReturnValueOnce(pending.promise);
+  const timeline = new RoomTimeline(core as unknown as CoreClient);
+  await timeline.start('!room:example.org', null, false, true);
+  expect(timeline.items.map((entry) => entry.id)).toEqual(['read', 'anchor']);
+
+  const handoff = timeline.resumeLive();
+  await vi.waitFor(() => {
+    expect(timeline.resumingLive).toBe(true);
+  });
+
+  expect(timeline.items.map((entry) => entry.id)).toEqual(['read', 'anchor']);
+  expect(timeline.hasSnapshot).toBe(true);
+  pending.resolve(live);
+  await handoff;
+  expect(timeline.items.map((entry) => entry.id)).toEqual(['end', 'arrived']);
+});
+
 test('concurrent returns to live share one subscription', async () => {
   const core = new FakeCore();
   const snapshot = { subscription: 3, items: [item('end')], aggregations: [] };
@@ -326,6 +354,7 @@ test('a failed return to live reports the error on the live timeline', async () 
 
   expect(timeline.mode).toEqual({ kind: 'live' });
   expect(timeline.error).toBe('load_failed');
+  expect(timeline.items).toEqual([]);
   expect(timeline.resumingLive).toBe(false);
 });
 

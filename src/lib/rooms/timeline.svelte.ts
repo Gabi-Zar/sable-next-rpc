@@ -202,7 +202,7 @@ export class RoomTimeline {
 
     const request = ++this.startRequest;
     if (this.target !== null || this.resumingLive) {
-      await this.stopCurrent(false);
+      await this.stopCurrent(false, force);
     }
     if (this.hasPendingUnsubscribe) await this.unsubscribePromise;
     if (request !== this.startRequest) return;
@@ -220,7 +220,10 @@ export class RoomTimeline {
     try {
       await promise;
     } catch {
-      if (session === this.session) this.error = 'load_failed';
+      if (session === this.session) {
+        this.error = 'load_failed';
+        if (force) this.clearContent();
+      }
     } finally {
       if (this.startPromise === promise) this.startPromise = null;
       if (session === this.session) this.loading = false;
@@ -281,14 +284,18 @@ export class RoomTimeline {
     return this.stopCurrent(true);
   }
 
-  private stopCurrent(invalidateStart: boolean): Promise<void> {
+  private clearContent(): void {
+    this.items = [];
+    this.aggregations = [];
+    this.hasSnapshot = false;
+  }
+
+  private stopCurrent(invalidateStart: boolean, keepContent = false): Promise<void> {
     if (invalidateStart) this.startRequest += 1;
     this.session += 1;
     this.state = 'stopped';
     this.startPromise = null;
-    this.items = [];
-    this.aggregations = [];
-    this.hasSnapshot = false;
+    if (!keepContent) this.clearContent();
     this.readMarkerEventId = null;
     this.resumingLive = false;
     this.resumePromise = null;
