@@ -73,6 +73,12 @@ export function enforcePermissions(
       callback(true);
       return;
     }
+    // Electron 44 reports display capture as media with no device types.
+    // The display-media handler still requires a source selection.
+    if (permission === 'media' && 'mediaTypes' in details && details.mediaTypes?.length === 0) {
+      callback(true);
+      return;
+    }
     const kinds = kindsOf(permission, 'mediaTypes' in details ? details.mediaTypes : undefined);
     if (!kinds) {
       callback(false);
