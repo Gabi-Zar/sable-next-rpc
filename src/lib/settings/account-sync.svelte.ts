@@ -172,6 +172,11 @@ export class AccountSync {
     }
     if (generation !== this.#generation) return;
 
+    if (this.#ahead(state)) {
+      this.#schedule(document, state);
+      return;
+    }
+
     state.pulled = true;
     if (!document.adopt(content)) {
       state.pending ??= detach(document.snapshot());
@@ -186,6 +191,15 @@ export class AccountSync {
     this.lastSyncedAt = Date.now();
     this.#refresh();
     this.#schedule(document, state);
+  }
+
+  #ahead(state: DocumentState): boolean {
+    return (
+      state.pulled &&
+      state.remote !== null &&
+      state.pending !== null &&
+      fingerprint(state.pending.content) !== state.remote
+    );
   }
 
   async #upload(document: SyncedDocument, generation: number): Promise<void> {

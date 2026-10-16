@@ -242,6 +242,31 @@ describe('AccountSync', () => {
     expect(local.value).toBe('second');
   });
 
+  it('keeps an edit made after an upload when that upload echoes back', async () => {
+    const local = { value: 'shared' };
+    const document = stubDocument(local);
+    const remote: Record<string, unknown> = { [document.eventType]: { v: 1, value: 'shared' } };
+    const { core, announce } = stubCore(remote);
+
+    const sync = new AccountSync();
+    sync.start(core, [document]);
+    await vi.runAllTimersAsync();
+
+    local.value = 'first';
+    sync.push(document);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(remote[document.eventType]).toEqual({ v: 1, value: 'first' });
+
+    local.value = 'second';
+    sync.push(document);
+    announce(document.eventType);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(local.value).toBe('second');
+
+    await vi.runAllTimersAsync();
+    expect(remote[document.eventType]).toEqual({ v: 1, value: 'second' });
+  });
+
   it('leaves a disabled document alone', async () => {
     const local = { value: 'local' };
     const document = stubDocument(local, { enabled: () => false });
