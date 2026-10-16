@@ -522,6 +522,7 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
         return true;
       } catch (error) {
         if (isDisposed() || generation !== screenAudioGeneration) return true;
+        console.warn('[sable screen audio] sharing failed', error);
         fail('call.screen_share.audio', error);
         await stopSharingAudio();
         return false;

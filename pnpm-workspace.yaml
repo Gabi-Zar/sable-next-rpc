@@ -19,4 +19,5 @@ allowBuilds:
   workerd: true
 minimumReleaseAge: 1440
 patchedDependencies:
+  livekit-client@2.22.4: patches/livekit-client@2.22.4.patch
   svelte@5.57.1: patches/svelte@5.57.1.patch

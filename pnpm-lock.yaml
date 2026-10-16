@@ -163,6 +163,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
+  livekit-client@2.22.4: 27f10810dc6eeea4f240bcfc977699d7f7d3012a7699ac4c3b1407a2849ed3b3
   svelte@5.57.1: 49db0772c949d096c7a511ad138eb787aad19e7529ef94e8a358db7423ce743e
 
 importers:
@@ -228,7 +229,7 @@ importers:
         version: 2.0.5
       deepfilternet3-noise-filter:
         specifier: 1.3.0
-        version: 1.3.0(livekit-client@2.22.4(@types/dom-mediacapture-record@1.0.22))
+        version: 1.3.0(livekit-client@2.22.4(patch_hash=27f10810dc6eeea4f240bcfc977699d7f7d3012a7699ac4c3b1407a2849ed3b3)(@types/dom-mediacapture-record@1.0.22))
       diff:
         specifier: 9.0.0
         version: 9.0.0
@@ -264,7 +265,7 @@ importers:
         version: 1.9.4
       livekit-client:
         specifier: 2.22.4
-        version: 2.22.4(@types/dom-mediacapture-record@1.0.22)
+        version: 2.22.4(patch_hash=27f10810dc6eeea4f240bcfc977699d7f7d3012a7699ac4c3b1407a2849ed3b3)(@types/dom-mediacapture-record@1.0.22)
       markdown-it:
         specifier: ^15.0.0
         version: 15.0.2
@@ -8948,9 +8949,9 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepfilternet3-noise-filter@1.3.0(livekit-client@2.22.4(@types/dom-mediacapture-record@1.0.22)):
+  deepfilternet3-noise-filter@1.3.0(livekit-client@2.22.4(patch_hash=27f10810dc6eeea4f240bcfc977699d7f7d3012a7699ac4c3b1407a2849ed3b3)(@types/dom-mediacapture-record@1.0.22)):
     dependencies:
-      livekit-client: 2.22.4(@types/dom-mediacapture-record@1.0.22)
+      livekit-client: 2.22.4(patch_hash=27f10810dc6eeea4f240bcfc977699d7f7d3012a7699ac4c3b1407a2849ed3b3)(@types/dom-mediacapture-record@1.0.22)
 
   deepmerge@4.3.1: {}
 
@@ -10014,7 +10015,7 @@ snapshots:
     dependencies:
       uc.micro: 3.0.0
 
-  livekit-client@2.22.4(@types/dom-mediacapture-record@1.0.22):
+  livekit-client@2.22.4(patch_hash=27f10810dc6eeea4f240bcfc977699d7f7d3012a7699ac4c3b1407a2849ed3b3)(@types/dom-mediacapture-record@1.0.22):
     dependencies:
       '@livekit/mutex': 1.1.1
       '@livekit/protocol': 1.52.1

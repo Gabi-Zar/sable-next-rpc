@@ -82,6 +82,25 @@ test('wraps native app names without changing their identifiers', async () => {
   expect(tauri.invoke).toHaveBeenCalledTimes(1);
 });
 
+test('preserves the capture error when cleanup also fails', async () => {
+  const error = new DOMException('Permission denied', 'NotAllowedError');
+  const cleanupError = new Error('cleanup failed');
+  const stop = vi.fn(() => Promise.reject(cleanupError));
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  vi.stubGlobal('sableElectron', {
+    platform: 'linux',
+    startScreenAudio: () => Promise.reject(error),
+    stopScreenAudio: stop,
+  });
+  try {
+    await expect(captureScreenAudio({ kind: 'system', exclude: [] })).rejects.toBe(error);
+    expect(warn).toHaveBeenCalledWith('[sable screen audio] cleanup failed', cleanupError);
+    expect(stop).toHaveBeenCalledOnce();
+  } finally {
+    warn.mockRestore();
+  }
+});
+
 test('Windows shares per-application audio from build 20348', () => {
   expect(screenAudioSupported()).toBe(true);
   os.version.mockReturnValue('10.0.20348');

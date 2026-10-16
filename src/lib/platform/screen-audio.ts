@@ -95,10 +95,10 @@ export async function captureScreenAudio(
 ): Promise<MediaStreamTrack> {
   const electron = electronBridge();
   if (!electron && osType() === 'windows') return startScreenAudioStream(selection);
-  const label = electron
-    ? await electron.startScreenAudio(selection)
-    : await invoke<string>('start_screen_audio', { selection });
   try {
+    const label = electron
+      ? await electron.startScreenAudio(selection)
+      : await invoke<string>('start_screen_audio', { selection });
     const device = await findInput(label);
     if (!device) throw new Error('screen audio source did not appear');
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -114,7 +114,9 @@ export async function captureScreenAudio(
     if (!track) throw new Error('screen audio source gave no track');
     return track;
   } catch (error) {
-    await stopScreenAudio();
+    await stopScreenAudio().catch((cleanupError: unknown) => {
+      console.warn('[sable screen audio] cleanup failed', cleanupError);
+    });
     throw error;
   }
 }
