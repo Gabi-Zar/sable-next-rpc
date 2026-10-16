@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { GalleryItemView } from '#src/generated/protocol';
-  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+  import { SvelteSet } from 'svelte/reactivity';
 
   import MediaContent from '#lib/ui/MediaContent.svelte';
   import MediaImage from '#lib/ui/MediaImage.svelte';
@@ -8,11 +8,15 @@
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
 
+  import { galleryItemId } from '../media/media-items.js';
+  import { spoilerVisibility, spoilerVisibilityKey } from '../media/spoiler-visibility.svelte.js';
+
   import FormattedBody from '../messages/FormattedBody.svelte';
   import type { MatrixLink } from '#lib/rooms/matrix-link.js';
 
   interface Props {
     items: readonly GalleryItemView[];
+    eventId?: string;
     body: string;
     html: string;
     senderTimezone?: string | null;
@@ -20,17 +24,21 @@
     onOpen?: (index: number) => void;
   }
 
-  let { items, body, html, senderTimezone = null, onMatrixLink, onOpen }: Props = $props();
+  let { items, eventId, body, html, senderTimezone = null, onMatrixLink, onOpen }: Props = $props();
   const revealed = new SvelteSet<string>();
-  const imageVisibility = new SvelteMap<string, boolean>();
 
   function imageKey(item: GalleryItemView, index: number): string {
-    return JSON.stringify([index, item.source, item.kind === 'image' ? item.spoiler : null]);
+    return spoilerVisibilityKey(
+      eventId === undefined ? String(index) : galleryItemId(eventId, index),
+      item.source,
+      item.kind === 'image' ? item.spoiler : null
+    );
   }
 
   function imageHidden(item: GalleryItemView, index: number): boolean {
     return (
-      item.kind === 'image' && (imageVisibility.get(imageKey(item, index)) ?? item.spoiler !== null)
+      item.kind === 'image' &&
+      (spoilerVisibility.get(imageKey(item, index)) ?? item.spoiler !== null)
     );
   }
 </script>
@@ -65,7 +73,7 @@
           spoilerReason={item.spoiler}
           bind:spoilerHidden={
             () => imageHidden(item, index),
-            (hidden) => imageVisibility.set(imageKey(item, index), hidden)
+            (hidden) => spoilerVisibility.set(imageKey(item, index), hidden)
           }
           spoilerName={item.filename}
           retryable

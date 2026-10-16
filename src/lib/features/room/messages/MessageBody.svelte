@@ -19,6 +19,7 @@
   import LinkEmbed from '../media/embeds/LinkEmbed.svelte';
   import TimelineGallery from '../timeline/TimelineGallery.svelte';
   import { galleryItemId } from '../media/media-items.js';
+  import { spoilerVisibility, spoilerVisibilityKey } from '../media/spoiler-visibility.svelte.js';
   import TimelineLocation from '../timeline/TimelineLocation.svelte';
   import TimelineLiveLocation from '../timeline/TimelineLiveLocation.svelte';
   import TimelinePoll from '../timeline/TimelinePoll.svelte';
@@ -69,13 +70,14 @@
     (roomMedia?.hidden ?? false) && HIDEABLE_MEDIA.includes(item.content.kind)
   );
   let spoilerKey = $derived(
-    JSON.stringify([item.id, 'source' in item.content ? item.content.source : null, spoiler])
+    spoilerVisibilityKey(
+      item.event_id ?? item.id,
+      'source' in item.content ? item.content.source : null,
+      spoiler
+    )
   );
   let revealedSpoiler = $state<string | null>(null);
-  let imageSpoilerHidden = $derived.by(() => {
-    void spoilerKey;
-    return spoiler !== null;
-  });
+  let imageSpoilerHidden = $derived(spoilerVisibility.get(spoilerKey) ?? spoiler !== null);
   let showCaption = $derived(preferences.captionPosition !== 'hidden');
   let stickerAnchor = $state<HTMLElement | null>(null);
   let stickerHovered = $state(false);
@@ -132,7 +134,9 @@
       intrinsicWidth={sticker.width}
       intrinsicHeight={sticker.height}
       mime={sticker.mime}
-      bind:spoilerHidden={imageSpoilerHidden}
+      bind:spoilerHidden={
+        () => imageSpoilerHidden, (hidden) => spoilerVisibility.set(spoilerKey, hidden)
+      }
       retryable
       onclick={() => item.event_id && onOpenMedia?.(item.event_id)}
     />
@@ -174,7 +178,9 @@
       size={item.content.size}
       blurhash={item.content.blurhash}
       spoilerReason={item.content.spoiler}
-      bind:spoilerHidden={imageSpoilerHidden}
+      bind:spoilerHidden={
+        () => imageSpoilerHidden, (hidden) => spoilerVisibility.set(spoilerKey, hidden)
+      }
       spoilerName={item.content.filename}
       retryable
       onclick={() => item.event_id && onOpenMedia?.(item.event_id)}
@@ -190,6 +196,7 @@
 {:else if item.content.kind === 'gallery'}
   <TimelineGallery
     items={item.content.items}
+    eventId={item.event_id ?? undefined}
     body={item.content.body}
     html={item.content.html}
     {senderTimezone}

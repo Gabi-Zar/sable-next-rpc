@@ -44,6 +44,7 @@
   import PdfViewer from '#lib/ui/PdfViewer.svelte';
   import { overlayLayer } from '#lib/ui/overlay-layer.js';
   import { MediaViewerActions } from './media-viewer-actions';
+  import { spoilerVisibility, spoilerVisibilityKey } from './spoiler-visibility.svelte.js';
   import { MediaViewerResource } from './media-viewer-resource.svelte';
   import type { MediaItem } from './media-viewer-types';
   import CaretLeftIcon from 'phosphor-svelte/lib/CaretLeftIcon';
@@ -80,9 +81,8 @@
     )
   );
   let item = $derived<MediaItem | undefined>(items[index]);
-  const spoilerVisibility = new SvelteMap<string, boolean>();
   let spoiler = $derived(item?.kind === 'image' || item?.kind === 'video' ? item.spoiler : null);
-  let spoilerKey = $derived(JSON.stringify([item?.eventId, item?.source, spoiler]));
+  let spoilerKey = $derived(spoilerVisibilityKey(item?.eventId, item?.source, spoiler));
   let spoilerHidden = $derived(spoilerVisibility.get(spoilerKey) ?? spoiler !== null);
   let source = $derived(spoilerHidden && item?.kind === 'video' ? null : (item?.source ?? null));
   let mime = $derived(item?.mime ?? null);

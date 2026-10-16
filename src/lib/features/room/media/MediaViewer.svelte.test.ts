@@ -14,6 +14,7 @@ vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/platform/system-bars.js', () => ({ setSystemBarsHidden: vi.fn() }));
 
 import MediaViewer from './MediaViewer.svelte';
+import { spoilerVisibility, spoilerVisibilityKey } from './spoiler-visibility.svelte.js';
 import { resetVideoStreaming } from '#lib/ui/video-stream.svelte.js';
 import { resetVideoSupport } from '#lib/ui/video-support.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
@@ -84,6 +85,7 @@ function rect(width: number, height: number): DOMRect {
 }
 
 afterEach(() => {
+  spoilerVisibility.clear();
   core.fetchMedia.mockReset();
   vi.restoreAllMocks();
 });
@@ -152,6 +154,21 @@ test('a spoiler opened in the viewer loads blurred without exposing its caption'
   await user.click(reveal);
   expect(await screen.findByRole('img')).toBeInTheDocument();
   expect(document.querySelector('.stage img')).not.toHaveClass('spoilered');
+});
+
+test('a spoiler already revealed in the timeline opens unblurred', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  spoilerVisibility.set(
+    spoilerVisibilityKey('$image', 'mxc://example.org/spoiler', 'Ending'),
+    false
+  );
+  render(MediaViewer, {
+    items: [{ ...imageItem, source: 'mxc://example.org/spoiler', spoiler: 'Ending' }],
+    selectedEventId: '$image',
+    onClose: () => {},
+  });
+  expect(await screen.findByRole('img')).not.toHaveClass('spoilered');
+  expect(document.querySelector('.stage .media-image-spoiler')).not.toBeInTheDocument();
 });
 
 test('an ordinary viewer image can be locally hidden and revealed without closing', async () => {
