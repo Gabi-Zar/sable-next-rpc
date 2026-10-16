@@ -44,7 +44,7 @@
 
 {#snippet nameTooltip()}
   <span
-    class={['sender-identity-name', { tinted: colors.tinted }]}
+    class={['sender-identity-name', 'receipt-name', { tinted: colors.tinted }]}
     style:color={colors.tinted ? undefined : colors.nameColor}
     style:--name-color-on-light={colors.nameColorLight ?? undefined}
     style:--name-color-on-dark={colors.nameColorDark ?? undefined}
@@ -57,6 +57,13 @@
 <Tooltip label={name} trigger={faceTrigger} content={nameTooltip} />
 
 <style>
+  .receipt-name {
+    display: block;
+    max-width: none;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
   .face {
     align-items: center;
     background: transparent;
