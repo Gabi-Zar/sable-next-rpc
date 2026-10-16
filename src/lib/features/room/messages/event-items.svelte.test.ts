@@ -137,3 +137,32 @@ test('a recovered lookup shows the event and stops retrying', async () => {
   stop();
   vi.useRealTimers();
 });
+
+test('a lookup counts as pending until it resolves or runs out of retries', async () => {
+  vi.useFakeTimers();
+  const eventItems = vi
+    .fn<(params: { room_id: string; event_ids: string[] }) => Promise<TimelineItemView[]>>()
+    .mockRejectedValue(new Error('room not ready'));
+  const items = new EventItems({ eventItems }, () => '@me:x');
+  const stop = $effect.root(() => {
+    $effect(() => {
+      items.get('!r', '$a');
+    });
+  });
+
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(items.pending('!r', '$a')).toBe(true);
+
+  await vi.advanceTimersByTimeAsync(1000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(5000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(15000);
+  flushSync();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(eventItems).toHaveBeenCalledTimes(4);
+  expect(items.pending('!r', '$a')).toBe(false);
+  stop();
+  vi.useRealTimers();
+});

@@ -22,6 +22,7 @@
     item?: TimelineItemView | null;
     members?: readonly MemberView[];
     fallback: Snippet;
+    loading?: Snippet;
     headerAction?: Snippet;
     loadPreviewProfile?: boolean;
     timeAction?: { label: string; run: () => void };
@@ -43,6 +44,7 @@
     item = null,
     members = [],
     fallback,
+    loading,
     headerAction,
     loadPreviewProfile,
     timeAction,
@@ -103,6 +105,8 @@
         />
       </MessageScope>
     {/key}
+  {:else if loading && eventItems.pending(roomId, eventId)}
+    {@render loading()}
   {:else}
     {@render fallback()}
   {/if}

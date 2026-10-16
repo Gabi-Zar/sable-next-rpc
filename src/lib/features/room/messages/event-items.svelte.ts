@@ -9,6 +9,7 @@ const RETRY_DELAYS_MS = [1000, 5000, 15000];
 
 class EventItemSlot {
   value = $state.raw<TimelineItemView | null | undefined>(undefined);
+  pending = $state(false);
   watched = false;
   readonly watch = createSubscriber(() => {
     this.watched = true;
@@ -66,6 +67,10 @@ export class EventItems {
     return found;
   }
 
+  pending(roomId: string, eventId: string): boolean {
+    return this.#items.get(this.#key(roomId, eventId))?.pending ?? false;
+  }
+
   peek(roomId: string, eventId: string): TimelineItemView | null {
     return this.#items.get(this.#key(roomId, eventId))?.value ?? null;
   }
@@ -94,7 +99,11 @@ export class EventItems {
 
   #retryLater(key: string): void {
     const attempt = this.#failures.get(key) ?? 0;
-    if (attempt >= RETRY_DELAYS_MS.length) return;
+    if (attempt >= RETRY_DELAYS_MS.length) {
+      const slot = this.#items.get(key);
+      if (slot) slot.pending = false;
+      return;
+    }
     this.#failures.set(key, attempt + 1);
     setTimeout(() => {
       const slot = this.#items.get(key);
@@ -112,7 +121,11 @@ export class EventItems {
           (id) => this.#items.get(this.#key(roomId, id, owner))?.value === undefined
         );
         if (wanted.length === 0) return;
-        for (const id of wanted) this.#slot(this.#key(roomId, id, owner)).value = null;
+        for (const id of wanted) {
+          const slot = this.#slot(this.#key(roomId, id, owner));
+          slot.value = null;
+          slot.pending = true;
+        }
         // eslint-disable-next-line svelte/prefer-svelte-reactivity -- tracks this request's misses only
         const missing = new Set(wanted);
         try {
@@ -120,7 +133,9 @@ export class EventItems {
           for (const item of items) {
             if (item.event_id === null) continue;
             const key = this.#key(roomId, item.event_id, owner);
-            this.#slot(key).value = item;
+            const slot = this.#slot(key);
+            slot.value = item;
+            slot.pending = false;
             this.#failures.delete(key);
             missing.delete(item.event_id);
           }

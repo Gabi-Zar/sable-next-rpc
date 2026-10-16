@@ -17,6 +17,7 @@
   import InboxFeedRow from './InboxFeedRow.svelte';
   import MessagePreview from '#lib/features/room/messages/MessagePreview.svelte';
   import InboxSectionHeader from './InboxSectionHeader.svelte';
+  import Skeleton from '#lib/ui/primitives/Skeleton.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   let { standalone = false }: { standalone?: boolean } = $props();
@@ -119,6 +120,9 @@
           </span>
           {#snippet message()}
             <MessagePreview roomId={bookmark.room_id} eventId={bookmark.event_id}>
+              {#snippet loading()}
+                <Skeleton class="preview-loading" />
+              {/snippet}
               {#snippet fallback()}
                 <span class="preview">
                   {#if from}<span class="sender">{from}:</span>&nbsp;{/if}{bookmark.body_preview ??
@@ -202,6 +206,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .feed :global(.preview-loading) {
+    height: var(--font-size-small);
+    width: 60%;
   }
 
   .sender {
