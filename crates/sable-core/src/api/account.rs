@@ -113,9 +113,8 @@ impl Handler for UserRelationsParams {
 
     async fn run(self, core: &Arc<Core>) -> Result<UserRelationsOk, RpcError> {
         let client = core.client().await?;
-        let ignored = client
-            .subscribe_to_ignore_user_list_changes()
-            .get()
+        let ignored = ignored_users(core)
+            .await?
             .iter()
             .any(|ignored| ignored == self.user_id.as_str());
         // Sliding sync never delivers a leave for a silent member, so
@@ -428,14 +427,7 @@ impl Handler for IgnoredUsersParams {
     type Ok = Vec<String>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
-        let mut users = core
-            .client()
-            .await?
-            .subscribe_to_ignore_user_list_changes()
-            .get();
-        users.sort();
-
-        Ok(users.iter().map(ToString::to_string).collect())
+        ignored_users(core).await
     }
 }
 
@@ -509,6 +501,19 @@ async fn edit_ignored_users(
     };
     core.put_global_account_data(IGNORED_USER_LIST.into(), &content, label)
         .await
+}
+
+/// Read from the account data, since the SDK's observable only fills once a sync changes the list.
+async fn ignored_users(core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
+    let content = core
+        .global_account_data(IGNORED_USER_LIST.into(), "ignored_users")
+        .await?
+        .and_then(|raw| raw.deserialize_as::<serde_json::Value>().ok());
+    Ok(content
+        .as_ref()
+        .and_then(|content| content.get("ignored_users")?.as_object())
+        .map(|users| users.keys().cloned().collect())
+        .unwrap_or_default())
 }
 
 const IGNORED_USER_LIST: &str = "m.ignored_user_list";
