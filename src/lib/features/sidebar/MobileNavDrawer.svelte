@@ -412,7 +412,7 @@
     }
 
     .drawer-viewport {
-      margin-left: calc(var(--navigation-rail-width) + var(--room-nav-width));
+      margin-left: calc(var(--navigation-rail-width) + var(--room-nav-width) + var(--safe-left));
     }
 
     .screen-reader-only,
@@ -432,6 +432,7 @@
       --edge-inset-bottom: 0px;
 
       flex-basis: 100%;
+      padding-left: 0;
       width: 100%;
     }
   }
