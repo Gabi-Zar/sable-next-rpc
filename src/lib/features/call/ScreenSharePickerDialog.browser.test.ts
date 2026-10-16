@@ -13,12 +13,8 @@ const thumbnail = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 
 const sources = [
   { id: 'screen:0:0', name: 'Screen 1', thumbnail },
-  { id: 'screen:1:0', name: 'Screen 2', thumbnail },
-  ...[
-    'Sable Client - Sable',
-    'LiveKit patch for audio sharing in the Electron shell',
-    'Terminal',
-  ].map((name, index) => ({ id: `window:${index}:0`, name, thumbnail })),
+  { id: 'window:1:0', name: 'A window with a title far too long to fit its tile', thumbnail },
+  { id: 'window:2:0', name: 'Terminal', thumbnail },
 ];
 
 test('the source list fits inside the dialog instead of scrolling sideways', async () => {
