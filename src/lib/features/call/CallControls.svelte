@@ -188,6 +188,7 @@
     {#if routes}
       <CallRouteMenu
         bind:open={outputMenu}
+        icon="speaker"
         label={i18n.t('call.outputDevices')}
         list={routes.list}
         onSelect={(routeId) => void routes?.select(routeId)}
@@ -432,7 +433,10 @@
 
   @container call-dock (width < 34rem) {
     .controls:not(.compact) {
+      box-sizing: border-box;
+      flex-wrap: wrap;
       gap: var(--space-100);
+      max-inline-size: 100%;
     }
 
     .controls:not(.compact) :global(.device-caret),
@@ -443,12 +447,6 @@
     .controls:not(.compact) :global(.hang-up) {
       margin-inline-start: var(--space-100);
       width: calc(var(--button-height) * 1.3);
-    }
-
-    .controls:not(.compact):has(.action) {
-      box-sizing: border-box;
-      flex-wrap: wrap;
-      max-inline-size: 100%;
     }
 
     .controls:not(.compact) .action {

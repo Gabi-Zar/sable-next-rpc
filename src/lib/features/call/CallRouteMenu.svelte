@@ -1,5 +1,6 @@
 <script lang="ts">
   import CaretUpIcon from 'phosphor-svelte/lib/CaretUpIcon';
+  import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
 
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
@@ -12,9 +13,10 @@
     list: () => Promise<CallAudioRoute[]>;
     onSelect: (routeId: string) => void;
     open?: boolean;
+    icon?: 'caret' | 'speaker';
   }
 
-  let { label, list, onSelect, open = $bindable(false) }: Props = $props();
+  let { label, list, onSelect, open = $bindable(false), icon = 'caret' }: Props = $props();
 
   let routes = $state.raw<CallAudioRoute[]>([]);
 
@@ -34,8 +36,18 @@
 
 <ActionMenu bind:open {label} side="top" align="center">
   {#snippet trigger({ props })}
-    <IconButton {...props} variant="ghost" size="small" class="device-caret" {label}>
-      <CaretUpIcon weight="bold" />
+    <IconButton
+      {...props}
+      variant="ghost"
+      size={icon === 'speaker' ? 'medium' : 'small'}
+      class={icon === 'caret' ? 'device-caret' : undefined}
+      {label}
+    >
+      {#if icon === 'speaker'}
+        <SpeakerHighIcon />
+      {:else}
+        <CaretUpIcon weight="bold" />
+      {/if}
     </IconButton>
   {/snippet}
   {#each routes as route (route.id)}
