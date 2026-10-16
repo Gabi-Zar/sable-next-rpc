@@ -15,7 +15,7 @@ export const SETTINGS_LINK_ACTION_PARAM = 'moe.sable.client.action';
 export const SETTINGS_LINK_ACTION = 'settings';
 
 const SECTION_PATH = /\/settings\/([a-z0-9-]+)\/?$/;
-const FOCUS_ID = /^[a-z0-9-]+$/;
+const FOCUS_ID = /^[a-zA-Z0-9_.-]+$/;
 
 function knownSection(section: string): boolean {
   return section in STANDALONE_PAGE_NAMES || findCategory(section) !== undefined;

@@ -2,6 +2,7 @@ import type { Component } from 'svelte';
 import CloudArrowUpIcon from 'phosphor-svelte/lib/CloudArrowUpIcon';
 import GifIcon from 'phosphor-svelte/lib/GifIcon';
 import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
+import LockKeyIcon from 'phosphor-svelte/lib/LockKeyIcon';
 import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
 import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
 import SmileyIcon from 'phosphor-svelte/lib/SmileyIcon';
@@ -14,6 +15,7 @@ import { desktopCategories } from './registry/desktop';
 import { developerCategory } from './registry/developer';
 import { mediaCategory } from './registry/media';
 import { notificationsCategory } from './registry/notifications';
+import { panelTargets } from './registry/panels';
 import { personasCategory } from './registry/personas';
 import { privacyCategory } from './registry/privacy';
 import { timelineCategory } from './registry/timeline';
@@ -37,18 +39,24 @@ export interface SettingOption {
   literal?: true;
 }
 
-interface BaseSetting {
+export interface SettingsTargetDefinition {
+  key: string;
+  /** Preserve a custom panel's existing anchor. */
+  focusId?: string;
   name: string;
   icon: Component;
   description?: string;
+  /** Left out entirely where the platform has nothing for it to show. */
+  supported?: () => boolean;
+  terms?: readonly string[];
+}
+
+interface BaseSetting extends SettingsTargetDefinition {
   section: string;
   /** Rendered disabled until this preference is on. */
   gatedBy?: BooleanPreference;
   /** The feature behind this setting does not exist yet; shown disabled. */
   unavailable?: true;
-  /** Left out entirely where the platform has nothing for it to switch. */
-  supported?: () => boolean;
-  terms?: readonly string[];
   requiresReload?: true;
   panel?: true;
 }
@@ -91,9 +99,9 @@ export interface SettingsCategory {
   icon: Component;
   sections: SettingsSectionDefinition[];
   items: SettingDefinition[];
+  targets?: readonly SettingsTargetDefinition[];
 }
 
-/** The one settings section that is not preference-driven. */
 export const SETTINGS_DEVICES_SECTION = 'devices';
 /** Stored as account data on the homeserver. */
 export const SETTINGS_ACCOUNT_SECTION = 'account';
@@ -125,6 +133,10 @@ export function settingFocusId(key: string): string {
   return key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }
 
+export function settingsTargets(category: SettingsCategory): SettingsTargetDefinition[] {
+  return [...category.items, ...(category.targets ?? [])];
+}
+
 export function findSettingsSection(
   id: string
 ): { category: SettingsCategory; section: SettingsSectionDefinition } | undefined {
@@ -137,15 +149,24 @@ export function findSettingsSection(
 
 export function findSettingByFocusId(
   focus: string
-): { category: SettingsCategory; setting: SettingDefinition } | undefined {
+): { category: SettingsCategory; setting: SettingsTargetDefinition } | undefined {
   for (const category of settingsCategories) {
-    const setting = category.items.find((item) => settingFocusId(item.key) === focus);
+    const setting = settingsTargets(category).find(
+      (item) => (item.focusId ?? settingFocusId(item.key)) === focus
+    );
     if (setting) return { category, setting };
   }
   return undefined;
 }
 
-export const settingsCategories: SettingsCategory[] = [
+const categories: SettingsCategory[] = [
+  {
+    id: SETTINGS_DEVICES_SECTION,
+    name: 'settings.security',
+    icon: LockKeyIcon,
+    sections: [],
+    items: [],
+  },
   {
     id: SETTINGS_ACCOUNT_SECTION,
     name: 'settings.account',
@@ -249,3 +270,8 @@ export const settingsCategories: SettingsCategory[] = [
   ...desktopCategories,
   developerCategory,
 ];
+
+export const settingsCategories: SettingsCategory[] = categories.map((category) => ({
+  ...category,
+  targets: (panelTargets[category.id] ?? []).map((target) => ({ icon: category.icon, ...target })),
+}));

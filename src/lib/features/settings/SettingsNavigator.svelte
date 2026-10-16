@@ -105,7 +105,7 @@
   {#if trimmedQuery}
     <ul class="search-results" role="list" aria-label={i18n.t('settings.searchLabel')}>
       {#each results as hit (`${hit.category.id}:${hit.setting.key}`)}
-        {@const focus = settingFocusId(hit.setting.key)}
+        {@const focus = hit.setting.focusId ?? settingFocusId(hit.setting.key)}
         <li>
           <a
             class="selection-layer"

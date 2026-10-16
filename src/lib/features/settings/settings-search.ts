@@ -1,8 +1,12 @@
-import type { SettingDefinition, SettingsCategory } from '#lib/settings/registry.js';
+import {
+  settingsTargets,
+  type SettingsTargetDefinition,
+  type SettingsCategory,
+} from '#lib/settings/registry.js';
 
 export interface SettingsSearchHit {
   category: SettingsCategory;
-  setting: SettingDefinition;
+  setting: SettingsTargetDefinition;
 }
 
 export function searchSettings(
@@ -16,7 +20,7 @@ export function searchSettings(
   const hits: SettingsSearchHit[] = [];
   for (const category of categories) {
     const categoryName = translate(category.name).toLowerCase();
-    for (const setting of category.items) {
+    for (const setting of settingsTargets(category)) {
       if (setting.supported?.() === false) continue;
 
       const name = translate(setting.name).toLowerCase();

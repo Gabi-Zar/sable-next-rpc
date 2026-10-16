@@ -151,3 +151,53 @@ describe('alt text setting search', () => {
     expect(hits.some((entry) => entry.setting.key === 'alwaysShowAltText')).toBe(true);
   }, 10_000);
 });
+
+describe('custom panel search', () => {
+  it.each([
+    ['quick CSS', 'appearance', 'quick-css'],
+    ['keywords', 'notifications', 'notification-keywords'],
+    ['reactions', 'notifications', 'notification-event-reactions'],
+    ['mute all', 'notifications', 'notification-master-mute'],
+    ['encryption', 'devices', 'encryption-heading'],
+    ['reset identity', 'devices', 'encryption-heading'],
+    ['backup', 'devices', 'key-backup-heading'],
+    ['import', 'devices', 'room-keys-import'],
+    ['PluralKit', 'personas', 'settings-personas-pluralkit'],
+    ['restore', 'personas', 'settings-personas-backup'],
+    ['font', 'appearance', 'font-family'],
+  ])('finds %s in %s', async (query, categoryId, focusId) => {
+    const { settingsCategories } = await import('#lib/settings/registry.js');
+    const { t } = await import('#lib/i18n.js');
+    const hits = searchSettings(query, settingsCategories, t);
+    expect(
+      hits.some((hit) => hit.category.id === categoryId && hit.setting.focusId === focusId)
+    ).toBe(true);
+  });
+
+  it('finds a panel by its translated description', async () => {
+    const { settingsCategories } = await import('#lib/settings/registry.js');
+    const hits = searchSettings('custom appearance rules', settingsCategories, (key) =>
+      key === 'settings.quickCssHint' ? 'Custom appearance rules' : key
+    );
+    expect(hits.map((hit) => hit.setting.focusId)).toEqual(['quick-css']);
+  });
+
+  it('hides conditional panels until they are enabled', async () => {
+    const { settingsCategories } = await import('#lib/settings/registry.js');
+    const { preferences } = await import('#lib/settings/preferences.svelte.js');
+    const { t } = await import('#lib/i18n.js');
+    const previous = preferences.developerTools;
+    try {
+      preferences.developerTools = false;
+      expect(searchSettings('access token', settingsCategories, t)).toEqual([]);
+      preferences.developerTools = true;
+      expect(
+        searchSettings('access token', settingsCategories, t).some(
+          (hit) => hit.setting.focusId === 'access-token'
+        )
+      ).toBe(true);
+    } finally {
+      preferences.developerTools = previous;
+    }
+  });
+});

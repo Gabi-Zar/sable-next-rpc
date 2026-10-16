@@ -46,6 +46,7 @@ export interface CategoryPanel {
   when?: () => boolean;
 }
 
+// Add panel anchors to settings/registry/panels.ts for search and link labels.
 export const categoryPanels: Record<string, CategoryPanel[]> = {
   appearance: [
     { component: CustomThemes, section: 'themes' },

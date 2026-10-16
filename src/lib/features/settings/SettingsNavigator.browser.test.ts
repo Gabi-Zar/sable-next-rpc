@@ -66,6 +66,30 @@ test('a query matching nothing says so', async () => {
   expect(document.querySelectorAll('[aria-label="Search settings"] li')).toHaveLength(0);
 });
 
+test.each([
+  [1280, 900],
+  [412, 915],
+])('custom panel search links work at %s x %s', async (width, height) => {
+  const { screen, field } = await mount();
+  await page.viewport(width, height);
+  await userEvent.fill(field.element(), 'quick CSS');
+  const css = screen.getByRole('link', { name: /Quick CSS/ });
+  await expect.element(css).toBeVisible();
+  expect(css.element().getAttribute('href')).toBe('/settings/appearance?focus=quick-css');
+
+  await userEvent.fill(field.element(), 'key backup');
+  const backup = screen.getByRole('link', { name: /Cloud key backup/ });
+  await expect.element(backup).toBeVisible();
+  expect(backup.element().getAttribute('href')).toBe('/settings/devices?focus=key-backup-heading');
+
+  await userEvent.fill(field.element(), 'display name');
+  const mention = screen.getByRole('link', { name: /Display name/ });
+  await expect.element(mention).toBeVisible();
+  expect(mention.element().getAttribute('href')).toBe(
+    '/settings/notifications?focus=mention-display_name'
+  );
+});
+
 test('mobile: log out is the last row of the section list', async () => {
   const { screen } = await mount();
   await page.viewport(412, 915);
