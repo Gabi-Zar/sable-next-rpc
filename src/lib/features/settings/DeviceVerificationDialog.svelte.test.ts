@@ -12,6 +12,7 @@ import { flushed } from '#lib/ui/flushed.js';
 const cancelVerification = vi.fn(() => Promise.resolve());
 
 Object.assign(core, {
+  requestVerification: vi.fn(() => Promise.resolve('retried')),
   session: { user_id: '@alice:example.org' },
   verification: {
     userId: '@alice:example.org',
@@ -36,6 +37,7 @@ import DeviceVerificationDialog from './DeviceVerificationDialog.svelte';
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 test('renders every SAS emoji slot when a symbol repeats', () => {
@@ -65,6 +67,31 @@ test('dismissing an active flow cancels it and clears it so a new request can re
       mismatch: false,
     });
     expect(core.verification).toBeNull();
+  });
+});
+
+test('a request nobody answers can be cancelled and sent again', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  core.verification = {
+    userId: '@alice:example.org',
+    flowId: 'flow',
+    state: { phase: 'requested' as const, is_self: true, initiated_by_us: true },
+  };
+  render(DeviceVerificationDialog);
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await screen.findByRole('dialog');
+  expect(screen.queryByRole('button', { name: 'Send the request again' })).toBeNull();
+
+  await vi.advanceTimersByTimeAsync(30_000);
+  await user.click(await screen.findByRole('button', { name: 'Send the request again' }));
+
+  expect(cancelVerification).toHaveBeenCalledWith({
+    user_id: '@alice:example.org',
+    flow_id: 'flow',
+    mismatch: false,
+  });
+  await vi.waitFor(() => {
+    expect(core.requestVerification).toHaveBeenCalledWith('@alice:example.org');
   });
 });
 

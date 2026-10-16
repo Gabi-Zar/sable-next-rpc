@@ -13,6 +13,8 @@
   import VerificationQrCode from './VerificationQrCode.svelte';
   import VerificationQrScanner from './VerificationQrScanner.svelte';
 
+  const NO_REPLY_DELAY_MS = 30_000;
+
   const core = useCoreClient();
   let activeFlow = $derived(
     core.verification ? JSON.stringify([core.verification.userId, core.verification.flowId]) : null
@@ -24,6 +26,10 @@
   let scanning = $derived.by<boolean | null>(() => {
     void activeFlow;
     return null;
+  });
+  let noReply = $derived.by(() => {
+    void activeFlow;
+    return false;
   });
   let prefersScan = $state(isNativeMobile());
   let choosing = $derived(core.verification?.state.phase === 'choose');
@@ -42,6 +48,14 @@
   // This app-level component keeps verification events flowing even when no
   // route-specific feature currently subscribes to the core transport.
   $effect(() => core.subscribeEvents(() => {}));
+
+  $effect(() => {
+    const state = core.verification?.state;
+    if (state?.phase !== 'requested' || !state.initiated_by_us) return;
+    void activeFlow;
+    const timer = setTimeout(() => (noReply = true), NO_REPLY_DELAY_MS);
+    return () => clearTimeout(timer);
+  });
 
   onMount(() => {
     if (prefersScan || !window.matchMedia('(pointer: coarse)').matches) return;
@@ -110,6 +124,21 @@
     }
   }
 
+  async function retry(): Promise<void> {
+    const flow = core.verification;
+    if (!flow) return;
+    try {
+      await core.rpc.encryption.cancelVerification({
+        user_id: flow.userId,
+        flow_id: flow.flowId,
+        mismatch: false,
+      });
+      await core.requestVerification(flow.userId);
+    } catch (cause) {
+      error = verificationErrorMessage(cause);
+    }
+  }
+
   async function cancel(mismatch = false): Promise<void> {
     const flow = core.verification;
     if (!flow) return;
@@ -148,6 +177,11 @@
           {i18n.t(selfVerification ? 'settings.acceptOtherDevice' : 'settings.acceptOtherUser')}
         </Dialog.Description>
         <p class="verification-wait" role="status">{i18n.t('settings.waiting')}</p>
+        {#if noReply}
+          <Button class="verification-action" onclick={() => void retry()}
+            >{i18n.t('settings.verificationRetry')}</Button
+          >
+        {/if}
       {:else}
         <Dialog.Description class="verification-description">
           {i18n.t(
