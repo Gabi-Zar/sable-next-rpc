@@ -20,6 +20,7 @@ afterEach(() => {
   preferences.autoplayGifs = true;
   preferences.autoplayStickers = true;
   preferences.pauseAnimationsWhenInactive = false;
+  preferences.pixelatedImages = 'never';
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -32,6 +33,17 @@ function find(selector: string): HTMLElement {
   if (!element) throw new Error(`${selector} was not rendered`);
   return element;
 }
+
+test.each([true, false])('pixelates a small image only when asked to: %s', async (pixelate) => {
+  preferences.pixelatedImages = 'always';
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  render(MediaImage, {
+    props: { source: 'mxc://example.org/small', alt: 'Small', width: 32, height: 32, pixelate },
+  });
+  await settle();
+
+  expect(find('.media-image').classList.contains('pixelated')).toBe(pixelate);
+});
 
 test('does not retry a failed media request in a render loop', async () => {
   core.fetchMedia.mockRejectedValue(new Error('thumbnail failed'));

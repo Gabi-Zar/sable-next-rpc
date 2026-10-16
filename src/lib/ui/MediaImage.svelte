@@ -55,6 +55,7 @@
     uniform?: boolean;
     tint?: boolean;
     original?: boolean;
+    pixelate?: boolean;
     autoplay?: boolean | null;
     emoticon?: boolean;
     spoilerReason?: string | null;
@@ -85,6 +86,7 @@
     uniform = false,
     tint = false,
     original = false,
+    pixelate = true,
     autoplay = null,
     emoticon = false,
     spoilerReason = null,
@@ -180,12 +182,13 @@
     imageLoaded && asIs && requested === source ? (imageElement ?? null) : null
   );
   let pixelated = $derived(
-    pixelatedImage(
-      preferences.pixelatedImages,
-      intrinsicWidth ?? naturalImage?.naturalWidth,
-      intrinsicHeight ?? naturalImage?.naturalHeight,
-      { width: renderedWidth, height: renderedHeight }
-    )
+    pixelate &&
+      pixelatedImage(
+        preferences.pixelatedImages,
+        intrinsicWidth ?? naturalImage?.naturalWidth,
+        intrinsicHeight ?? naturalImage?.naturalHeight,
+        { width: renderedWidth, height: renderedHeight }
+      )
   );
   let gifPreviewReady = $derived(url !== null && previewUrl === url);
   let gifPlaying = $derived(url !== null && playingUrl === url);

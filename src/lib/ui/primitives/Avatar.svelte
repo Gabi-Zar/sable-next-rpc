@@ -106,6 +106,7 @@
       {uniform}
       tint={recolor}
       {original}
+      pixelate={false}
       onloaded={() => {
         paintedSrc = src;
         failedSrc = null;
@@ -121,6 +122,7 @@
         width={96}
         height={96}
         original
+        pixelate={false}
         onloaded={(url) => void checkAnimated(src, url)}
       />
     {/if}
