@@ -54,8 +54,9 @@ export function hideQuietDot(
   return badge.mode === 'dot' && !badge.highlight && badge.count > 0 ? null : badge;
 }
 
-export function formatUnreadCount(count: number): string {
+export function formatUnreadCount(count: number, showEasterEggs = false): string {
   if (count <= 999) return String(count);
+  if (count === 1000) return '1k';
 
-  return count === 1000 ? '1k' : '1k+';
+  return showEasterEggs ? ':3' : '1k+';
 }

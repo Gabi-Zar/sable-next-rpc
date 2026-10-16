@@ -64,6 +64,8 @@ test('counts stop spelling themselves out past a thousand', () => {
   expect(formatUnreadCount(999)).toBe('999');
   expect(formatUnreadCount(1000)).toBe('1k');
   expect(formatUnreadCount(1001)).toBe('1k+');
+  expect(formatUnreadCount(1001, true)).toBe(':3');
+  expect(formatUnreadCount(1000, true)).toBe('1k');
 });
 
 test('a room whose ordinary messages notify is always counted, and counted loudly', () => {

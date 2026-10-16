@@ -15,6 +15,7 @@ import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
 import MoonIcon from 'phosphor-svelte/lib/MoonIcon';
 import PaintBrushIcon from 'phosphor-svelte/lib/PaintBrushIcon';
 import PaletteIcon from 'phosphor-svelte/lib/PaletteIcon';
+import SmileyIcon from 'phosphor-svelte/lib/SmileyIcon';
 import TextAaIcon from 'phosphor-svelte/lib/TextAaIcon';
 import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
 import TreeStructureIcon from 'phosphor-svelte/lib/TreeStructureIcon';
@@ -155,6 +156,13 @@ export const appearanceCategory: SettingsCategory = {
       section: 'unread-badges',
       icon: ChatsCircleIcon,
       name: 'settings.badgeCountDMsOnly',
+      type: 'boolean',
+    },
+    {
+      key: 'showEasterEggs',
+      section: 'unread-badges',
+      icon: SmileyIcon,
+      name: 'settings.showEasterEggs',
       type: 'boolean',
     },
     {

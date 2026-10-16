@@ -233,6 +233,7 @@ export interface Preferences {
   showSearch: boolean;
   showUnreadCounts: boolean;
   badgeCountDMsOnly: boolean;
+  showEasterEggs: boolean;
   showPingCounts: boolean;
   showUnreadDots: boolean;
   uniformIcons: boolean;
@@ -575,6 +576,7 @@ const DEFAULTS: Preferences = {
   showSearch: false,
   showUnreadCounts: false,
   badgeCountDMsOnly: true,
+  showEasterEggs: true,
   showPingCounts: true,
   showUnreadDots: true,
   uniformIcons: false,

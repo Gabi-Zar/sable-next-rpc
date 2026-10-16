@@ -24,6 +24,7 @@ const SHARED = [
   'sendPresence',
   'showUnreadCounts',
   'badgeCountDMsOnly',
+  'showEasterEggs',
   'showPingCounts',
   'alwaysShowCallButton',
   'faviconForMentionsOnly',

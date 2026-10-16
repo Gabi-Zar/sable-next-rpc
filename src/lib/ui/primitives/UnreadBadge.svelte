@@ -34,9 +34,11 @@
       className,
     ]}
     >{#if label}<span aria-hidden="true"
-        >{badge.mode === 'count' ? formatUnreadCount(badge.count) : ''}</span
+        >{badge.mode === 'count'
+          ? formatUnreadCount(badge.count, preferences.showEasterEggs)
+          : ''}</span
       ><span class="screen-reader-only">{label}</span>{:else}{badge.mode === 'count'
-        ? formatUnreadCount(badge.count)
+        ? formatUnreadCount(badge.count, preferences.showEasterEggs)
         : ''}{/if}</span
   >
 {/if}

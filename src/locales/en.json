@@ -2022,6 +2022,7 @@
     "showSearch": "Show search in the sidebar",
     "showUnreadCounts": "Show counts on quiet rooms",
     "badgeCountDMsOnly": "Show counts on quiet direct messages",
+    "showEasterEggs": "Show :3 instead of 1k+ on huge counts",
     "showPingCounts": "Show counts on mentions",
     "showUnreadDots": "Show dots on rooms with unread messages but no mention",
     "showSpaceEvents": "Show today's events in spaces",
