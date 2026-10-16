@@ -236,7 +236,7 @@ mod tests {
             via_servers(&members(&[("@a:one.example", 0)])),
             ["one.example"]
         );
-        assert!(via_servers(&[]).is_empty());
+        assert_eq!(via_servers(&[]), [] as [String; 0]);
     }
 
     #[test]
@@ -255,7 +255,10 @@ mod tests {
 
     #[test]
     fn skips_a_user_id_with_no_server() {
-        assert!(via_servers(&members(&[("malformed", 100)])).is_empty());
+        assert_eq!(
+            via_servers(&members(&[("malformed", 100)])),
+            [] as [String; 0]
+        );
     }
 
     fn stripped(kind: &str, content: &str) -> AnyStrippedStateEvent {

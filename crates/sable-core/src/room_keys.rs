@@ -559,7 +559,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             crate::protocol::KeyBackupDownloadState::Complete
         );
         assert_eq!(session_ids(&client).await.len(), 1);
-        assert!(session_ids(&other).await.is_empty());
+        assert_eq!(session_ids(&other).await, [] as [String; 0]);
         let status = core.key_backup_status().await.unwrap();
         assert!(status.download.is_none());
     }
@@ -695,7 +695,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             import(&core, damaged, "element passphrase").await,
             Err(RpcError::InvalidKeyExport)
         ));
-        assert!(session_ids(&client).await.is_empty());
+        assert_eq!(session_ids(&client).await, [] as [String; 0]);
         assert_eq!(std::fs::read_dir(store.path()).unwrap().count(), 0);
     }
 

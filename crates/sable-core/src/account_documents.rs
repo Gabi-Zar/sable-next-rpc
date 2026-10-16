@@ -240,7 +240,10 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["!a:example.org"]
         );
-        assert!(dismissed_invites(Some(&json!({ "roomIds": "nope" }))).is_empty());
+        assert_eq!(
+            dismissed_invites(Some(&json!({ "roomIds": "nope" }))),
+            [] as [matrix_sdk::ruma::OwnedRoomId; 0]
+        );
     }
 
     #[test]

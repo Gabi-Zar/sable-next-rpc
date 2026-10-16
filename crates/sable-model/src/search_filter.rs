@@ -672,9 +672,9 @@ mod tests {
     fn a_negated_sender_is_denied_by_identity() {
         let filter = filter("deploy -from:erwan");
 
-        assert!(filter.senders.is_empty());
+        assert_eq!(filter.senders, [] as [String; 0]);
         assert_eq!(filter.not_senders, ["@erwan:example.org"]);
-        assert!(filter.exclude.is_empty());
+        assert_eq!(filter.exclude, [] as [String; 0]);
         assert_eq!(unresolved("deploy -from:nobody"), ["nobody"]);
     }
 
@@ -708,7 +708,7 @@ mod tests {
     fn a_negated_room_is_denied_by_identity() {
         let filter = filter("deploy -in:dev");
 
-        assert!(filter.rooms.is_empty());
+        assert_eq!(filter.rooms, [] as [String; 0]);
         assert_eq!(filter.not_rooms, ["!dev:example.org"]);
     }
 

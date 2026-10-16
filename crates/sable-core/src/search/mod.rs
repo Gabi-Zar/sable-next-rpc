@@ -3273,7 +3273,10 @@ mod tests {
 
         let document = super::sticker_document(&sticker);
         assert_eq!(document.body, "moai");
-        assert!(document.attachments.is_empty());
+        assert_eq!(
+            document.attachments,
+            [] as [sable_model::search_filter::SearchAttachment; 0]
+        );
     }
 
     #[test]
@@ -4495,12 +4498,12 @@ mod tests {
             })
             .contains(&"$erwan".to_owned())
         );
-        assert!(
+        assert_eq!(
             filter(super::IndexFilter {
                 pattern: Some("(unclosed".to_owned()),
                 ..super::IndexFilter::default()
-            })
-            .is_empty()
+            }),
+            [] as [String; 0]
         );
     }
 
@@ -5903,7 +5906,10 @@ mod tests {
         );
         core.restore_persisted_index(&client).await;
 
-        assert!(super::persist::listed_rooms(&client).await.is_empty());
+        assert_eq!(
+            super::persist::listed_rooms(&client).await,
+            [] as [matrix_sdk::ruma::OwnedRoomId; 0]
+        );
         assert!(matches!(
             super::persist::open(&client, &left).await,
             super::persist::Opened::Absent
@@ -6005,7 +6011,10 @@ mod tests {
         );
 
         index.take_flush(&room);
-        assert!(index.rooms_due_to_flush().is_empty());
+        assert_eq!(
+            index.rooms_due_to_flush(),
+            [] as [matrix_sdk::ruma::OwnedRoomId; 0]
+        );
     }
 
     #[test]
@@ -6866,7 +6875,10 @@ mod tests {
             ));
         }
 
-        assert!(index.dirty_rooms().is_empty());
+        assert_eq!(
+            index.dirty_rooms(),
+            [] as [matrix_sdk::ruma::OwnedRoomId; 0]
+        );
         for _ in 0..super::TICKS_BEFORE_FLUSH {
             assert!(
                 index.rooms_due_to_flush().is_empty(),
@@ -6939,11 +6951,9 @@ mod tests {
 
         let core = logged_in(&server, &client, "search-ignored-store").await;
 
-        assert!(
-            client
-                .subscribe_to_ignore_user_list_changes()
-                .get()
-                .is_empty()
+        assert_eq!(
+            client.subscribe_to_ignore_user_list_changes().get(),
+            [] as [matrix_sdk::ruma::OwnedUserId; 0]
         );
         assert_eq!(
             core.ignored_senders().await,

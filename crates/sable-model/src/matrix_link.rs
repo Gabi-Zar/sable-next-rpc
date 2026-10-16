@@ -311,6 +311,6 @@ mod tests {
 
         let plain = split_via("#room:example.org");
         assert_eq!(plain.href, "#room:example.org");
-        assert!(plain.via.is_empty());
+        assert_eq!(plain.via, [] as [String; 0]);
     }
 }

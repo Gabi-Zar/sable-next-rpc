@@ -34,7 +34,10 @@ mod tests {
     #[test]
     fn a_short_packet_waits_for_the_rest_of_its_chunk() {
         let mut chunker = Chunker::default();
-        assert!(collect(&mut chunker, &vec![1; CHUNK_BYTES - 8]).is_empty());
+        assert_eq!(
+            collect(&mut chunker, &vec![1; CHUNK_BYTES - 8]),
+            [] as [Vec<u8>; 0]
+        );
         let chunks = collect(&mut chunker, &[2; 8]);
         assert_eq!(chunks.len(), 1);
         assert_eq!(chunks[0].len(), CHUNK_BYTES);

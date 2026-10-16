@@ -472,7 +472,10 @@ mod tests {
             loaded: Some(["!root".to_owned(), "!space1".to_owned()].into()),
             ..SectionInputs::default()
         };
-        assert!(build_hierarchy_sections(&rooms, "!root", &loaded).is_empty());
+        assert_eq!(
+            build_hierarchy_sections(&rooms, "!root", &loaded),
+            [] as [crate::spaces::HierarchySection; 0]
+        );
         let kept = SectionInputs {
             keep_empty: ["!space1".to_owned()].into(),
             ..loaded

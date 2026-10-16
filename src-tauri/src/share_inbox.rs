@@ -187,7 +187,7 @@ mod tests {
         let error = read_inbox_file(root.clone(), "batch".to_owned(), "missing.bin".to_owned())
             .await
             .expect_err("missing file is reported");
-        assert!(!error.is_empty());
+        assert_ne!(error, "");
         std::fs::remove_dir_all(root).unwrap();
     }
 

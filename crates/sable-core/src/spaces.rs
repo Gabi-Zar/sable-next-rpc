@@ -366,7 +366,10 @@ mod server_tests {
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
 
-        assert!(sidebar(&client).await.expect("layout").is_empty());
+        assert_eq!(
+            sidebar(&client).await.expect("layout"),
+            [] as [sable_model::sidebar::SidebarItemView; 0]
+        );
     }
 
     #[tokio::test]

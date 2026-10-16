@@ -1647,7 +1647,7 @@ mod tests {
         assert_eq!(payload["type"], "m.room.message");
         assert_eq!(payload["content"]["body"], "fetched by id");
         assert_eq!(payload["sender"], "@sender:example.org");
-        assert!(!event.room_name.is_empty());
+        assert_ne!(event.room_name, "");
 
         assert!(matches!(
             fetch(&fixture, "OTHER", message).await,

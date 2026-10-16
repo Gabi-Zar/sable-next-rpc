@@ -612,13 +612,19 @@ mod tests {
         let event = sticky_event("$a", 100);
         assert!(store.apply(&event, 200));
         assert_eq!(store.members(200)[0].expires_at_ms, Some(900_100));
-        assert!(store.members(900_100).is_empty());
+        assert_eq!(
+            store.members(900_100),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
         let mut event = sticky_event("$b", 500);
         event["unsigned"] = serde_json::json!({"msc4354_sticky_duration_ttl_ms": 300});
         assert!(store.apply(&event, 1000));
         assert_eq!(store.members(1000)[0].expires_at_ms, Some(1300));
         assert!(!store.apply(&event, 1100));
-        assert!(store.members(1300).is_empty());
+        assert_eq!(
+            store.members(1300),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
     }
 
     #[test]
@@ -627,7 +633,10 @@ mod tests {
         let event = sticky_event("$future", 2_000);
         assert!(store.apply(&event, 1_000));
         assert_eq!(store.members(1_000)[0].expires_at_ms, Some(901_000));
-        assert!(store.members(901_000).is_empty());
+        assert_eq!(
+            store.members(901_000),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
     }
 
     #[test]
@@ -642,9 +651,15 @@ mod tests {
         assert_eq!(store.members(200).len(), 1);
         leave["sender"] = serde_json::json!("@erwan:localhost");
         assert!(store.apply(&leave, 200));
-        assert!(store.members(200).is_empty());
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
         assert!(!store.apply(&event, 300));
-        assert!(store.members(300).is_empty());
+        assert_eq!(
+            store.members(300),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
     }
 
     #[test]
@@ -676,7 +691,10 @@ mod tests {
         leave["content"] =
             serde_json::json!({"slot_id":"m.call#ROOM", "msc4354_sticky_key":"member"});
         assert!(store.apply(&leave, 200));
-        assert!(store.members(200).is_empty());
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
     }
 
     #[test]
@@ -717,7 +735,10 @@ mod tests {
         let mut event = sticky_event("$mismatch", 100);
         event["content"]["member"]["id"] = serde_json::json!("other");
         assert!(!store.apply(&event, 100));
-        assert!(store.members(100).is_empty());
+        assert_eq!(
+            store.members(100),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
     }
     #[tokio::test]
     async fn state_memberships_survive_the_sdk_store_for_both_focus_modes() {

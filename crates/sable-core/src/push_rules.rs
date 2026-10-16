@@ -1872,7 +1872,10 @@ mod tests {
         assert_eq!(keywords(&loud)[0].mode, MentionNotificationModeView::Loud);
 
         let removed = applied(loud.clone(), plan_remove_keyword(&loud, "sable"));
-        assert!(keywords(&removed).is_empty());
+        assert_eq!(
+            keywords(&removed),
+            [] as [crate::protocol::KeywordNotificationView; 0]
+        );
         assert!(plan_remove_keyword(&removed, "other").is_empty());
     }
 

@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_a_script_without_spaces_still_yields_terms() {
-        assert!(!terms("สวัสดี").is_empty());
+        assert_ne!(terms("สวัสดี"), [] as [String; 0]);
     }
 
     #[test]

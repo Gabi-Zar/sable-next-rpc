@@ -829,8 +829,14 @@ mod tests {
                 entry("PR", "Pull request", true)
             ]
         );
-        assert!(abbreviations(Some(&json!({ "entries": "nope" }))).is_empty());
-        assert!(abbreviations(None).is_empty());
+        assert_eq!(
+            abbreviations(Some(&json!({ "entries": "nope" }))),
+            [] as [crate::protocol::AbbreviationView; 0]
+        );
+        assert_eq!(
+            abbreviations(None),
+            [] as [crate::protocol::AbbreviationView; 0]
+        );
     }
 
     #[test]

@@ -2121,7 +2121,7 @@ async fn an_identity_reset_without_authentication_returns_the_new_key() {
     else {
         panic!("the reset needed no authentication")
     };
-    assert!(!recovery_key.is_empty());
+    assert_ne!(recovery_key, "");
 }
 
 #[tokio::test]
@@ -2184,7 +2184,7 @@ async fn an_identity_reset_retries_a_wrong_password_and_returns_the_new_key() {
     else {
         panic!("the right password completes the reset")
     };
-    assert!(!recovery_key.is_empty());
+    assert_ne!(recovery_key, "");
     assert!(matches!(
         core.run(ContinueIdentityResetParams { password: None })
             .await,
@@ -2259,7 +2259,7 @@ async fn an_approved_oauth_identity_reset_completes_its_session() {
     else {
         panic!("the approved session completes the reset")
     };
-    assert!(!recovery_key.is_empty());
+    assert_ne!(recovery_key, "");
 }
 
 #[tokio::test]

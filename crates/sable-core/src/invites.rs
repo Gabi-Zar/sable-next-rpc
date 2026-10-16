@@ -209,7 +209,10 @@ mod tests {
             })
             .await;
 
-        assert!(triage(&client).await.is_empty());
+        assert_eq!(
+            triage(&client).await,
+            [] as [crate::protocol::InviteTriageView; 0]
+        );
         drop(server);
     }
 }

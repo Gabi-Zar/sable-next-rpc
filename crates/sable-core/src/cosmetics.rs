@@ -647,7 +647,10 @@ mod tests {
             (COLOR_EVENT, ALICE, json!({ "color": "red" })),
         ]);
 
-        assert!(resolve(&room, None).is_empty());
+        assert_eq!(
+            resolve(&room, None),
+            [] as [crate::protocol::SenderCosmeticsView; 0]
+        );
     }
 
     #[test]
@@ -665,7 +668,10 @@ mod tests {
         assert!(room.apply(MEMBER_EVENT, ALICE, &renamed));
         assert!(!room.apply(MEMBER_EVENT, ALICE, &renamed));
         assert!(room.apply(MEMBER_EVENT, ALICE, &json!({ "membership": "leave" })));
-        assert!(resolve(&room, None).is_empty());
+        assert_eq!(
+            resolve(&room, None),
+            [] as [crate::protocol::SenderCosmeticsView; 0]
+        );
     }
 
     #[test]
@@ -676,7 +682,10 @@ mod tests {
             ALICE,
             &json!({ "font": "Georgia" })
         ));
-        assert!(resolve(&room, None).is_empty());
+        assert_eq!(
+            resolve(&room, None),
+            [] as [crate::protocol::SenderCosmeticsView; 0]
+        );
     }
 
     async fn joined(server: &MatrixMockServer, rooms: &[&RoomId]) -> matrix_sdk::Client {
@@ -946,11 +955,9 @@ mod tests {
         core.watch_cosmetics(&client, 1);
         serve_state(&server, room_id, json!([]), 1).await;
         let room = client.get_room(room_id).unwrap();
-        assert!(
-            core.cosmetics_for(&client, &room, None)
-                .await
-                .users
-                .is_empty()
+        assert_eq!(
+            core.cosmetics_for(&client, &room, None).await.users,
+            [] as [crate::protocol::SenderCosmeticsView; 0]
         );
 
         server
@@ -1001,11 +1008,11 @@ mod tests {
         .await;
         serve_member(&server, space_id, &new, 1).await;
         let room = client.get_room(room_id).unwrap();
-        assert!(
+        assert_eq!(
             core.cosmetics_for(&client, &room, Some(space_id.to_owned()))
                 .await
-                .users
-                .is_empty()
+                .users,
+            [] as [crate::protocol::SenderCosmeticsView; 0]
         );
 
         rename(&server, &client, room_id, &old, &new).await;

@@ -1024,7 +1024,10 @@ mod tests {
                 },
             ]
         );
-        assert!(pronoun_sets("Clear").is_empty());
+        assert_eq!(
+            pronoun_sets("Clear"),
+            [] as [crate::member_look::PronounView; 0]
+        );
     }
 
     #[test]

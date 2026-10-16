@@ -1451,7 +1451,7 @@ mod regression_tests {
                 saved.credentials.device_id()
             );
             if hard {
-                assert!(account.session.credentials.tokens().access_token.is_empty());
+                assert_eq!(account.session.credentials.tokens().access_token, "");
                 assert!(account.session.credentials.tokens().refresh_token.is_none());
             } else {
                 assert_eq!(

@@ -658,7 +658,7 @@ mod tests {
     #[tokio::test]
     async fn an_unrelated_thread_keeps_none() {
         let scope = super::AggregationScope::Thread(event_id!("$other").to_owned());
-        assert!(kept_ids(&scope).await.is_empty());
+        assert_eq!(kept_ids(&scope).await, [] as [String; 0]);
     }
 
     #[tokio::test]

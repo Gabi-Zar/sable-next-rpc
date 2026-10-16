@@ -277,7 +277,10 @@ mod tests {
 
     #[test]
     fn a_deep_link_in_argv_zero_is_not_a_forwarded_url() {
-        assert!(deep_link_urls_in_args(["moe.sable.next://room/!a:example.org"]).is_empty());
+        assert_eq!(
+            deep_link_urls_in_args(["moe.sable.next://room/!a:example.org"]),
+            [] as [String; 0]
+        );
     }
 
     #[test]

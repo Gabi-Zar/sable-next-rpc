@@ -49,7 +49,7 @@ mod tests {
             delivery.take_pending(),
             ["sable://before-setup", "sable://before-listener"]
         );
-        assert!(delivery.take_pending().is_empty());
+        assert_eq!(delivery.take_pending(), [] as [String; 0]);
     }
 
     #[test]
@@ -58,12 +58,12 @@ mod tests {
         let received = Arc::new(Mutex::new(Vec::new()));
         let sink = received.clone();
         delivery.install(Arc::new(move |url| sink.lock().unwrap().push(url)));
-        assert!(delivery.take_pending().is_empty());
+        assert_eq!(delivery.take_pending(), [] as [String; 0]);
         let (handler, url) = delivery
             .push("sable://live".to_owned())
             .expect("frontend is ready");
         handler(url);
         assert_eq!(*received.lock().unwrap(), ["sable://live"]);
-        assert!(delivery.take_pending().is_empty());
+        assert_eq!(delivery.take_pending(), [] as [String; 0]);
     }
 }

@@ -135,13 +135,9 @@ async fn imports_actual_v1_identity_sessions_secrets_trust_and_decrypts_old_and_
         if table["name"] == "session" {
             for entry in table["records"].as_array().unwrap() {
                 let sender = key_parts(entry["key"].as_str().unwrap());
-                assert!(
-                    !store
-                        .get_sessions(&sender[0])
-                        .await
-                        .unwrap()
-                        .unwrap()
-                        .is_empty()
+                assert_ne!(
+                    store.get_sessions(&sender[0]).await.unwrap().unwrap(),
+                    [] as [matrix_sdk_base::crypto::olm::Session; 0]
                 );
             }
         }

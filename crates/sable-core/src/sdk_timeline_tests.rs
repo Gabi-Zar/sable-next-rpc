@@ -750,7 +750,10 @@ async fn a_stable_profile_override_is_written_back_plain() {
 
     let core = core_for(&server, client).await;
     let view = core.run(clear_override("@s:example.org")).await.unwrap();
-    assert!(view.overrides.is_empty());
+    assert_eq!(
+        view.overrides,
+        [] as [crate::protocol::ProfileOverrideView; 0]
+    );
 }
 
 #[tokio::test]
@@ -3535,7 +3538,10 @@ async fn invited_direct_room_summary_is_direct() {
         let summary =
             super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
 
-        assert!(summary.direct_targets.is_empty());
+        assert_eq!(
+            summary.direct_targets,
+            [] as [matrix_sdk::ruma::OwnedUserId; 0]
+        );
         assert_eq!(summary.is_direct, expected);
     }
 }

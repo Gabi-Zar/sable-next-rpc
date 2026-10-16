@@ -295,6 +295,10 @@ fn own_liveness_requires_the_current_generation() {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one sequential flow kept in a single function"
+)]
 async fn pending_key_with_a_custom_membership_id_is_emitted() {
     use matrix_sdk::ruma::{events::AnySyncStateEvent, serde::Raw};
     use matrix_sdk_test::JoinedRoomBuilder;
@@ -1116,7 +1120,7 @@ fn a_member_that_sends_no_key_is_reported_once_after_a_wait() {
     state.silent_reported.clear();
     state
         .latest_keys
-        .insert((peer.identity.clone(), 0), (1, vec![0; 16]));
+        .insert((peer.identity, 0), (1, vec![0; 16]));
     super::report_silent_members(&mut state, 1_000 + 2 * super::SILENT_MEMBER_REPORT_MS);
     assert!(state.silent_reported.is_empty(), "its key arrived");
 }
