@@ -591,19 +591,26 @@ test('submitting an untouched rich edit hands back the original body and html', 
   });
 });
 
-test('text rides a lone attachment as its caption', async () => {
+test('staging an attachment cancels an edit instead of resending its text', async () => {
   const attachment = vi.fn(async () => {});
   const message = vi.fn(async () => {});
+  let setContext: ((next: ComposerContext | null) => void) | undefined;
   setup({
     roomId: '!room:example.org',
     onSendAttachment: attachment,
     onSend: message,
     context: { kind: 'edit', eventId: '$one:example.org', body: 'look at this' },
+    onCancelContext: () => setContext?.(null),
+    registerContext: (set) => {
+      setContext = set;
+    },
   });
   await flushed();
   const file = new File(['one'], 'one.png', { type: 'image/png' });
 
   await pick(file);
+  expect(screen.getByRole('button', { name: 'Send message' })).toBeInTheDocument();
+  expect(editorText()).toBe('');
   submit();
   await flushed();
 
@@ -611,11 +618,32 @@ test('text rides a lone attachment as its caption', async () => {
     expect(attachment).toHaveBeenCalledTimes(1);
   });
   expect(attachment).toHaveBeenCalledWith('!room:example.org', file, {
-    caption: 'look at this',
-    formattedCaption: null,
-    mentions: { userIds: [], room: false },
     spoiler: false,
   });
+  expect(message).not.toHaveBeenCalled();
+});
+
+test('an attachment never sends edit text while its cancellation is propagating', async () => {
+  const attachment = vi.fn(async () => {});
+  const message = vi.fn(async () => {});
+  const cancel = vi.fn();
+  setup({
+    roomId: '!room:example.org',
+    onSendAttachment: attachment,
+    onSend: message,
+    context: { kind: 'edit', eventId: '$one:example.org', body: 'look at this' },
+    onCancelContext: cancel,
+  });
+  await flushed();
+  const file = new File(['one'], 'one.png', { type: 'image/png' });
+
+  await pick(file);
+  submit();
+
+  await vi.waitFor(() => {
+    expect(attachment).toHaveBeenCalledTimes(1);
+  });
+  expect(cancel).toHaveBeenCalledOnce();
   expect(message).not.toHaveBeenCalled();
 });
 
@@ -659,11 +687,11 @@ test.each([true, false])(
 test('the caption toggle sends text beside a lone attachment', async () => {
   const attachment = vi.fn(async () => {});
   const message = vi.fn(async () => {});
+  draftText('look at this');
   setup({
     roomId: '!room:example.org',
     onSendAttachment: attachment,
     onSend: message,
-    context: { kind: 'edit', eventId: '$one:example.org', body: 'look at this' },
   });
   await flushed();
   const file = new File(['one'], 'one.png', { type: 'image/png' });
@@ -702,11 +730,11 @@ test('the caption toggle only offers itself for a lone attachment', async () => 
 test('text follows two attachments as its own message', async () => {
   const attachment = vi.fn(async () => {});
   const message = vi.fn(async () => {});
+  draftText('both of these');
   setup({
     roomId: '!room:example.org',
     onSendAttachment: attachment,
     onSend: message,
-    context: { kind: 'edit', eventId: '$one:example.org', body: 'both of these' },
   });
   await flushed();
 

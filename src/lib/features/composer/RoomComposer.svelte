@@ -766,7 +766,8 @@
         ? { body: context.body, formatted: context.html ?? null }
         : null;
     const rich = richSend;
-    const captionEdit = editingCaption;
+    const attachmentsCancelEdit = context?.kind === 'edit' && staged.length > 0;
+    const captionEdit = editingCaption && !attachmentsCancelEdit;
     const asCaption = preferences.sendAttachmentAsCaption;
     let unsent = staged;
 
@@ -789,7 +790,11 @@
               mentions: { userIds: [], room: false },
               imageSourcePacks: [],
             };
-        const message = untouched ? { ...serialized, ...untouched } : serialized;
+        const message = attachmentsCancelEdit
+          ? { ...serialized, body: '', formatted: null, mentions: { userIds: [], room: false } }
+          : untouched
+            ? { ...serialized, ...untouched }
+            : serialized;
         const captioned = asCaption && unsent.length === 1 && message.body !== '';
         const gallery =
           preferences.sendAttachmentsAsGallery &&
@@ -1004,6 +1009,11 @@
           limit: formatByteSize(upload_size),
         });
         return;
+      }
+
+      if (context?.kind === 'edit') {
+        cancelContext();
+        await tick();
       }
 
       error = null;
