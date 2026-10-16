@@ -1159,7 +1159,7 @@
       </div>
     </div>
 
-    {#if (!revealed || (awaitingContent && rows.length === 0)) && !noHistory}
+    {#if ((!revealed || (awaitingContent && rows.length === 0)) && !noHistory) || (visibleItems.length === 0 && (timeline.loading || timeline.resumingLive))}
       <TimelineSkeleton layout={preferences.layout} />
     {:else if emptyFailure && timeline.mode.kind === 'focused'}
       <EmptyState

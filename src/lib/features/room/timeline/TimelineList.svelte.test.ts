@@ -2664,6 +2664,30 @@ test('Escape jumps to the latest message and marks the room read', async () => {
   expect(mark).toHaveBeenCalledOnce();
 });
 
+test('an empty timeline that is still loading shows the skeleton, not the empty state', async () => {
+  const roomTimeline = timeline();
+  roomTimeline.backwardPagination = 'end';
+  roomTimeline.resumingLive = true;
+  render(TimelineListHarness, {
+    props: {
+      list: {
+        timeline: roomTimeline,
+        onRequestHistory: () => Promise.resolve(false),
+        onRequestFuture: async () => {},
+        onRead: async () => {},
+      },
+    },
+  });
+  unreadViewport();
+  await flushed();
+  await runAnimationFrames();
+  expect(screen.queryByText('No messages yet')).not.toBeInTheDocument();
+
+  roomTimeline.resumingLive = false;
+  await flushed();
+  expect(screen.getByText('No messages yet')).toBeInTheDocument();
+});
+
 test('an unread jump that cannot load its boundary reports it without paging history', async () => {
   const roomTimeline = timeline();
   roomTimeline.items = [item('later-1'), item('later-2'), item('later-3')];
