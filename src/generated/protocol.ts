@@ -529,6 +529,7 @@ export type LoginFlowsView = {
 	password: boolean,
 	oidc: boolean,
 	oidc_registration: boolean,
+	qr_login: boolean,
 	sso: boolean,
 	oauth_aware_preferred: boolean,
 	sso_identity_providers: SsoIdentityProviderView[],

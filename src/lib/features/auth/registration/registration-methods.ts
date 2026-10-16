@@ -8,6 +8,7 @@ export const LEGACY_REGISTRATION_FALLBACK: LoginFlowsView = {
   password: false,
   oidc: false,
   oidc_registration: false,
+  qr_login: false,
   sso: false,
   oauth_aware_preferred: false,
   sso_identity_providers: [],

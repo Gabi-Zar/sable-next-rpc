@@ -218,6 +218,7 @@ impl Core {
             password: false,
             oidc: false,
             oidc_registration: false,
+            qr_login: false,
             sso: false,
             oauth_aware_preferred: false,
             sso_identity_providers: Vec::new(),
@@ -262,6 +263,7 @@ impl Core {
         match client.oauth().server_metadata().await {
             Ok(metadata) => {
                 flows.oidc = true;
+                flows.qr_login = metadata.device_authorization_endpoint.is_some();
                 flows.oidc_registration = metadata.prompt_values_supported.iter().any(|prompt| {
                     matches!(
                         prompt,

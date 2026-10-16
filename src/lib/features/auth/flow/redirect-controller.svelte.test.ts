@@ -16,6 +16,7 @@ const flows: LoginFlowsView = {
   password: false,
   oidc: true,
   oidc_registration: true,
+  qr_login: false,
   sso: false,
   oauth_aware_preferred: true,
   sso_identity_providers: [],

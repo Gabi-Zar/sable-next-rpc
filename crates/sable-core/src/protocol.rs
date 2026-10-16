@@ -2556,6 +2556,7 @@ pub struct LoginFlowsView {
     pub password: bool,
     pub oidc: bool,
     pub oidc_registration: bool,
+    pub qr_login: bool,
     pub sso: bool,
     pub oauth_aware_preferred: bool,
     pub sso_identity_providers: Vec<SsoIdentityProviderView>,

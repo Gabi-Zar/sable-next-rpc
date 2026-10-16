@@ -222,7 +222,7 @@
               disabled={isAuthenticating || isLoginControlsDisabled || isLaunchingLogin}
               onclick={() => void onLaunchRedirectLogin('oidc')}
             />
-            {#if onQrLogin}
+            {#if onQrLogin && loginFlows.qr_login}
               <Button
                 variant="ghost"
                 disabled={isAuthenticating || isLoginControlsDisabled || isLaunchingLogin}

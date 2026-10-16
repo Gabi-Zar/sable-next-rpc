@@ -7,6 +7,7 @@ function flows(overrides: Partial<LoginFlowsView> = {}): LoginFlowsView {
     password: false,
     oidc: false,
     oidc_registration: false,
+    qr_login: false,
     sso: false,
     oauth_aware_preferred: false,
     sso_identity_providers: [],
@@ -26,6 +27,7 @@ describe('registration method availability', () => {
       sso: true,
       oidc: true,
       oidc_registration: true,
+      qr_login: false,
     });
     expect(registrationMethodAvailable(advertised, 'oidc', true)).toBe(true);
     expect(registrationMethodAvailable(advertised, 'sso', true)).toBe(false);

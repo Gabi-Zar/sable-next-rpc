@@ -1373,6 +1373,7 @@ test('an onion homeserver leaves discovery to the Matrix core without a browser 
       password: true,
       oidc: false,
       oidc_registration: false,
+      qr_login: false,
       sso: false,
       oauth_aware_preferred: false,
       sso_identity_providers: [],
