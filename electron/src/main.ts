@@ -414,6 +414,14 @@ function pickScreenSource(sources: DesktopCapturerSource[]): Promise<string | nu
 }
 
 async function chooseShareSource(): Promise<DesktopCapturerSource | undefined> {
+  // Enumeration requests macOS consent; a status check alone does not.
+  const thumbnailSize = isWayland ? { width: 1920, height: 1080 } : { width: 320, height: 180 };
+  const sources = await desktopCapturer
+    .getSources({ types: ['screen', 'window'], thumbnailSize })
+    .catch((error: unknown) => {
+      console.error('[sable screen share] could not list sources', error);
+      return [];
+    });
   if (process.platform === 'darwin') {
     const access = systemPreferences.getMediaAccessStatus('screen');
     if (access === 'denied' || access === 'restricted') {
@@ -434,13 +442,6 @@ async function chooseShareSource(): Promise<DesktopCapturerSource | undefined> {
       return undefined;
     }
   }
-  const thumbnailSize = isWayland ? { width: 1920, height: 1080 } : { width: 320, height: 180 };
-  const sources = await desktopCapturer
-    .getSources({ types: ['screen', 'window'], thumbnailSize })
-    .catch((error: unknown) => {
-      console.error('[sable screen share] could not list sources', error);
-      return [];
-    });
   const id = isWayland ? sources[0]?.id : await pickScreenSource(sources);
   return sources.find((candidate) => candidate.id === id);
 }
