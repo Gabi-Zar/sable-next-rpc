@@ -587,6 +587,7 @@ fn update_mobile_activity(window: &tauri::Window<BrowserEngine>, event: &tauri::
         core.set_app_active(active);
         tauri::async_runtime::spawn(async move {
             if !active {
+                core.release_session_lock().await;
                 tokio::time::sleep(SYNC_STOP_DELAY).await;
             }
             core.apply_app_activity(active).await;

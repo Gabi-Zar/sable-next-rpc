@@ -479,6 +479,14 @@ impl Core {
             self.sync_suspended.store(true, Ordering::SeqCst);
             sync_service.stop().await;
         }
+        if !active {
+            self.release_session_lock().await;
+        }
+    }
+
+    /// iOS kills a suspended process that still holds a lock in the shared App Group container.
+    pub async fn release_session_lock(&self) {
+        self.sessions.release().await;
     }
 
     pub(crate) async fn wait_until_active(&self) {

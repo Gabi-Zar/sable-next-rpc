@@ -34,6 +34,8 @@ pub trait SessionStore: SendOutsideWasm + SyncOutsideWasm + 'static {
     async fn load(&self) -> Result<Option<Vec<u8>>, StoreError>;
     async fn save(&self, bytes: Vec<u8>) -> Result<(), StoreError>;
     async fn clear(&self) -> Result<(), StoreError>;
+    /// Drops any file lock held on the credentials; the next access takes it again.
+    async fn release(&self) {}
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -84,6 +86,9 @@ impl SessionStore for ExclusiveFileSessionStore {
     }
     async fn clear(&self) -> Result<(), StoreError> {
         self.store().await?.clear().await
+    }
+    async fn release(&self) {
+        self.store.lock().await.take();
     }
 }
 
@@ -270,6 +275,25 @@ mod tests {
             FileSessionStore::try_exclusive(&directory)
                 .unwrap()
                 .is_some()
+        );
+    }
+
+    #[tokio::test]
+    async fn releasing_the_exclusive_store_frees_the_lock_until_the_next_access() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("session.json"), b"saved session").unwrap();
+        let store = super::ExclusiveFileSessionStore::new(dir.path());
+        store.load().await.unwrap();
+        store.release().await;
+        let other = FileSessionStore::try_exclusive(dir.path())
+            .unwrap()
+            .unwrap();
+        drop(other);
+        assert_eq!(store.load().await.unwrap(), Some(b"saved session".to_vec()));
+        assert!(
+            FileSessionStore::try_exclusive(dir.path())
+                .unwrap()
+                .is_none()
         );
     }
 
