@@ -592,6 +592,36 @@ test('shows the target of a link whose text differs from it on hover', async () 
   expect(document.querySelector('.tooltip')?.textContent.trim()).toBe('https://example.com/a');
 });
 
+test('closes the link target tooltip when the window loses focus', async () => {
+  render(FormattedBodyHarness, {
+    props: { html: '<p><a href="https://example.com/a">click here</a></p>', entries: [] },
+  });
+  await tick();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  await user.hover(screen.getByRole('link', { name: 'click here' }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(document.querySelector('.tooltip')).toBeInTheDocument();
+
+  window.dispatchEvent(new Event('blur'));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(document.querySelector('.tooltip')).not.toBeInTheDocument();
+});
+
+test('shows the link target when the link takes keyboard focus', async () => {
+  render(FormattedBodyHarness, {
+    props: { html: '<p><a href="https://example.com/a">click here</a></p>', entries: [] },
+  });
+  await tick();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  await user.tab();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(document.querySelector('.tooltip')?.textContent.trim()).toBe('https://example.com/a');
+});
+
 test('shows no tooltip for a link whose text is its own address', async () => {
   render(FormattedBodyHarness, {
     props: { html: '<p><a href="https://example.com/">https://example.com/</a></p>', entries: [] },

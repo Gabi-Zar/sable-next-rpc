@@ -321,6 +321,7 @@
         const offPointerOut = on(node, 'pointerout', handleDefinitionOut);
         const offFocusIn = on(node, 'focusin', handleDefinitionOver);
         const offFocusOut = on(node, 'focusout', handleDefinitionOut);
+        const offWindowBlur = on(window, 'blur', closeDefinition);
         return () => {
           offClick();
           offKeydown();
@@ -328,6 +329,7 @@
           offPointerOut();
           offFocusIn();
           offFocusOut();
+          offWindowBlur();
           closeDefinition();
           for (const icon of icons) void unmount(icon);
         };
@@ -564,6 +566,7 @@
 
   function handleDefinitionOver(event: PointerEvent | FocusEvent): void {
     const abbr = definitionOf(event.target);
+    if (event.type === 'focusin' && !(event.target as Element).matches(':focus-visible')) return;
     if (
       abbr instanceof HTMLAnchorElement &&
       'pointerType' in event &&
