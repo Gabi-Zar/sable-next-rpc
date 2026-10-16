@@ -195,21 +195,26 @@
   }
 
   :global(.read-receipt-stack .t-avatar) {
-    transform: translateY(var(--shift, 0)) scale(var(--scale-active, 1));
-    transform-origin: center;
-    transition: transform var(--duration-medium) var(--ease-smooth-out);
-    will-change: transform;
     z-index: var(--z, 0);
   }
 
+  :global(.read-receipt-stack .t-avatar.overflow),
+  :global(.read-receipt-stack .t-avatar > .receipt-face) {
+    transform: translateY(var(--shift, 0)) scale(var(--scale-active, 1));
+    transform-origin: center;
+    transition: transform var(--duration-medium) var(--ease-smooth-out);
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    :global(.read-receipt-stack .t-avatar) {
+    :global(.read-receipt-stack .t-avatar.overflow),
+    :global(.read-receipt-stack .t-avatar > .receipt-face) {
       transform: none;
       transition: none;
     }
   }
 
-  :global(html[data-reduced-motion='on'] .read-receipt-stack .t-avatar) {
+  :global(html[data-reduced-motion='on'] .read-receipt-stack .t-avatar.overflow),
+  :global(html[data-reduced-motion='on'] .read-receipt-stack .t-avatar > .receipt-face) {
     transform: none;
     transition: none;
   }
