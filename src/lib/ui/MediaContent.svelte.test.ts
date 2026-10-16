@@ -311,3 +311,20 @@ test('voice message speed button cycles the playback rate', async () => {
   expect(button).toHaveTextContent('1.25×');
   expect(audio?.playbackRate).toBe(1.25);
 });
+
+test('badges an office document by its file extension, not its long MIME subtype', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  render(MediaContent, {
+    props: {
+      kind: 'file',
+      source: 'mxc://example.org/doc',
+      mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      filename: 'test-file.docx',
+      size: 17_000,
+    },
+  });
+
+  await settle();
+
+  expect(screen.getByText('docx')).toHaveClass('media-file-ext');
+});

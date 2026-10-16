@@ -153,7 +153,7 @@
       isThemeFileName(filename)
   );
   let deferred = $derived(kind === 'video' || (kind === 'file' && !isPdf && !isText));
-  let extension = $derived(mimeExtension(mime));
+  let extension = $derived(mimeExtension(mime, filename));
   let sizeLabel = $derived(size !== null ? formatByteSize(size) : null);
   let retryWait = $derived(Math.max(0, retryAt - clock));
   const loading = mediaProgress(core, () => (!url && !failed ? source : null));
@@ -542,14 +542,19 @@
     background: var(--surface-container);
     border-radius: var(--radius-pill);
     color: var(--surface-on-container);
-    flex: none;
+    flex: 0 1 auto;
     font-size: var(--font-size-small);
+    max-width: 8em;
+    overflow: hidden;
     padding: var(--space-050) var(--space-100);
+    text-overflow: ellipsis;
     text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .media-file-name {
     font-size: var(--font-size-label);
+    min-width: 0;
     overflow-wrap: anywhere;
   }
 
