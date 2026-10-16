@@ -74,17 +74,23 @@ export function applyCustomTweaks(css: readonly string[]): void {
 }
 
 export function applyFontFamily(family: string): void {
-  const root = document.documentElement.style;
-  const name = family.trim();
-  if (name) root.setProperty('--font-family', `${name}, var(--font-family-base)`);
-  else root.removeProperty('--font-family');
+  applyFontPreference('--font-family', '--font-family-base', family);
+  // Override themes that set font-family directly on body.
+  if (family.trim()) document.body.style.setProperty('font-family', 'var(--font-family)');
+  else document.body.style.removeProperty('font-family');
 }
 
 export function applyFontFamilyMono(family: string): void {
-  const root = document.documentElement.style;
+  applyFontPreference('--font-family-mono', '--font-family-mono-base', family);
+}
+
+function applyFontPreference(property: string, fallback: string, family: string): void {
   const name = family.trim();
-  if (name) root.setProperty('--font-family-mono', `${name}, var(--font-family-mono-base)`);
-  else root.removeProperty('--font-family-mono');
+  // Body variables would otherwise override the inherited root preference.
+  for (const style of [document.documentElement.style, document.body.style]) {
+    if (name) style.setProperty(property, `${name}, var(${fallback})`);
+    else style.removeProperty(property);
+  }
 }
 
 export function applyQuickCss(css: string): void {

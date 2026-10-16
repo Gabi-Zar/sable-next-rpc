@@ -493,6 +493,7 @@ const ENUMS = {
 const FREE_TEXT = [
   'quickCss',
   'fontFamily',
+  'fontFamilyMono',
   'audioInputDevice',
   'audioOutputDevice',
   'videoInputDevice',

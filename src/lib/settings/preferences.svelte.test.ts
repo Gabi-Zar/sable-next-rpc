@@ -24,6 +24,15 @@ test('keeps quick CSS', () => {
   );
 });
 
+test.each(['fontFamily', 'fontFamilyMono'] as const)(
+  'keeps the saved %s across a reload',
+  (key) => {
+    expect(sanitize({ [key]: 'IBM Plex Mono' }, { ...preferences, [key]: '' })[key]).toBe(
+      'IBM Plex Mono'
+    );
+  }
+);
+
 test('keeps the search crawler preference', () => {
   expect(sanitize({ searchCrawler: false }, preferences).searchCrawler).toBe(false);
 });
