@@ -5,6 +5,7 @@ import type { Translate } from '../timeline/state-event-text';
 export type MemberGroupCategory =
   | 'joined'
   | 'left'
+  | 'invited'
   | 'invitation_rejected'
   | 'knocked'
   | 'knock_retracted'
@@ -16,6 +17,7 @@ const MEMBERSHIP_CATEGORIES: Partial<Record<MembershipChangeView, MemberGroupCat
   joined: 'joined',
   invitation_accepted: 'joined',
   left: 'left',
+  invited: 'invited',
   invitation_rejected: 'invitation_rejected',
   knocked: 'knocked',
   knock_retracted: 'knock_retracted',

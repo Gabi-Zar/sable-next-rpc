@@ -56,6 +56,7 @@ const t = (key: string, values?: Record<string, unknown>): string => {
   const templates: Record<string, string> = {
     'timeline.memberGroup.joined': '{{users}} joined',
     'timeline.memberGroup.left': '{{users}} left',
+    'timeline.memberGroup.invited': '{{users}} invited',
     'timeline.memberGroup.name': '{{users}} changed their name',
   };
   return (templates[key] ?? key).replace('{{users}}', String(values?.users));
@@ -141,5 +142,14 @@ test('name changes collapse with adjacent member events', () => {
   expect(units).toEqual([{ item: items[3], index: 3, group: items }]);
   expect(text(memberGroupSummary(memberGroupSegments(items), t, 'en'))).toBe(
     '[A1] and [C] changed their name and [B] joined'
+  );
+});
+
+test('an invitation collapses with the join that answers it', () => {
+  const items = [member('a', 'invited'), member('a', 'invitation_accepted'), member('b', 'left')];
+
+  expect(groupMemberEvents(items)).toEqual([{ item: items[2], index: 2, group: items }]);
+  expect(text(memberGroupSummary(memberGroupSegments(items), t, 'en'))).toBe(
+    '[A] invited, [A] joined, and [B] left'
   );
 });

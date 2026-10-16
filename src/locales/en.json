@@ -924,6 +924,7 @@
       "hideEvents": "Hide events",
       "joined": "{{users}} joined the room",
       "left": "{{users}} left the room",
+      "invited": "{{users}} received an invitation",
       "invitation_rejected": "{{users}} declined the invitation",
       "knocked": "{{users}} asked to join",
       "knock_retracted": "{{users}} withdrew their request to join",
@@ -935,6 +936,7 @@
       "heading": {
         "joined": "Joined",
         "left": "Left",
+        "invited": "Invited",
         "invitation_rejected": "Declined the invitation",
         "knocked": "Asked to join",
         "knock_retracted": "Withdrew their request",
