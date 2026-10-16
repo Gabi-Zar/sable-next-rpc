@@ -210,7 +210,7 @@
     width: 4rem;
   }
 
-  @media (pointer: coarse) {
+  @media (pointer: coarse), (width <= 600px) {
     .voice-volume {
       display: none;
     }

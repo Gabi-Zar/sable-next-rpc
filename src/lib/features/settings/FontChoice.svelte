@@ -73,6 +73,7 @@
   .font-choice {
     display: grid;
     gap: var(--space-150);
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
   }
 

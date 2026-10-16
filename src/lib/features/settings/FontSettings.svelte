@@ -28,20 +28,22 @@
   />
 </div>
 
-<SettingsRow
-  id="code-ligatures"
-  title={i18n.t('settings.codeLigatures')}
-  description={i18n.t('settings.codeLigaturesHint')}
->
-  <Switch
+<ul class="settings-rows">
+  <SettingsRow
     id="code-ligatures"
-    label={i18n.t('settings.codeLigatures')}
-    checked={preferences.codeLigatures}
-    onCheckedChange={(checked) => {
-      setPreference('codeLigatures', checked);
-    }}
-  />
-</SettingsRow>
+    title={i18n.t('settings.codeLigatures')}
+    description={i18n.t('settings.codeLigaturesHint')}
+  >
+    <Switch
+      id="code-ligatures"
+      label={i18n.t('settings.codeLigatures')}
+      checked={preferences.codeLigatures}
+      onCheckedChange={(checked) => {
+        setPreference('codeLigatures', checked);
+      }}
+    />
+  </SettingsRow>
+</ul>
 
 <style>
   .font-settings {
