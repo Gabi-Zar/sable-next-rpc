@@ -139,9 +139,9 @@ jobs:
             codesign --verify --strict --verbose=4 "$framework" 2>&1 || true
             codesign -dvvv "$framework" 2>&1 | grep -E 'Identifier|Format|CodeDirectory|flags|Signature|Authority|Sealed|Info.plist|TeamIdentifier' || true
           done
-      - name: Upload to App Store Connect
+      - name: Upload to TestFlight
         env:
           IPA_PATH: ${{ steps.ipa.outputs.path }}
         run: |
-          xcrun altool --upload-app --type ios --file "$IPA_PATH" \
-            --apiKey "$APPLE_API_KEY" --apiIssuer "$APPLE_API_ISSUER"
+          command -v fastlane >/dev/null || brew install fastlane
+          fastlane ios testflight ipa:"$IPA_PATH" version:"$VERSION"

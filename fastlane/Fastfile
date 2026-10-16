@@ -1,0 +1,18 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload the signed IPA to TestFlight and submit it to the external testers"
+  lane :testflight do |options|
+    app_store_connect_api_key(
+      key_id: ENV.fetch("APPLE_API_KEY"),
+      issuer_id: ENV.fetch("APPLE_API_ISSUER"),
+      key_filepath: ENV.fetch("APPLE_API_KEY_PATH")
+    )
+    upload_to_testflight(
+      ipa: options.fetch(:ipa),
+      groups: ["Tester"],
+      distribute_external: true,
+      changelog: "Sable #{options.fetch(:version)}"
+    )
+  end
+end
