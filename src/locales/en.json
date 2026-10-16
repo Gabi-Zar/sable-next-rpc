@@ -3495,7 +3495,10 @@
     "toggleDeafen": "Deafen or undeafen in a call",
     "toggleCamera": "Turn your camera on or off in a call",
     "toggleScreenShare": "Start or stop sharing your screen in a call",
-    "hangUp": "Leave the call"
+    "hangUp": "Leave the call",
+    "toggleEmojiPicker": "Toggle the emoji picker",
+    "toggleGifPicker": "Toggle the GIF picker",
+    "toggleStickerPicker": "Toggle the sticker picker"
   },
   "calendar": {
     "label": "Calendar",

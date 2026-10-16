@@ -82,6 +82,10 @@
   import { composerSchema } from './editor/schema';
   import { emoticonNode } from './editor/shortcodes';
   import type { BoardTab } from '#lib/ui/primitives/emote-board.js';
+  import { isDialogOpen, matchesBinding } from '#lib/ui/shortcuts/binding.js';
+  import { bindingFor } from '#lib/ui/shortcuts/bindings.svelte.js';
+  import { isMacPlatform } from '#lib/ui/shortcuts/global-shortcuts.js';
+  import type { ShortcutId } from '#lib/ui/shortcuts/shortcuts.js';
   import {
     commandTextOf,
     plainEditDoc,
@@ -1130,8 +1134,36 @@
     }
   }
 
+  const boardShortcuts: Array<[ShortcutId, BoardTab]> = [
+    ['composer.toggleEmojiPicker', 'emoticon'],
+    ['composer.toggleStickerPicker', 'sticker'],
+    ['composer.toggleGifPicker', 'gif'],
+  ];
+
+  function toggleBoard(event: KeyboardEvent): boolean {
+    if (!boardOpen && (!rowEl?.contains(event.target as Node | null) || isDialogOpen()))
+      return false;
+
+    for (const [id, tab] of boardShortcuts) {
+      const binding = bindingFor(id);
+      if (!binding || !matchesBinding(binding, event, isMacPlatform())) continue;
+      if (tab === 'gif' && !onSendGif) return false;
+
+      event.preventDefault();
+      if (boardOpen && boardTab === tab) boardOpen = false;
+      else {
+        if (!desktop) blurEditor();
+        boardTab = tab;
+        boardOpen = true;
+      }
+      return true;
+    }
+    return false;
+  }
+
   function handleKeydown(event: KeyboardEvent): void {
     if (readOnly || event.defaultPrevented) return;
+    if (toggleBoard(event)) return;
     if (!shouldFocusComposer(event)) return;
 
     editor.focus();

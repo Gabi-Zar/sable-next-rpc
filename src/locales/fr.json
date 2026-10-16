@@ -2362,7 +2362,10 @@
     "toggleDeafen": "Couper ou rétablir le son pendant un appel",
     "toggleCamera": "Activer ou couper votre caméra pendant un appel",
     "toggleScreenShare": "Démarrer ou arrêter le partage d’écran pendant un appel",
-    "hangUp": "Quitter l’appel"
+    "hangUp": "Quitter l’appel",
+    "toggleEmojiPicker": "Afficher ou masquer le sélecteur d’émojis",
+    "toggleGifPicker": "Afficher ou masquer le sélecteur de GIF",
+    "toggleStickerPicker": "Afficher ou masquer le sélecteur d’autocollants"
   },
   "calendar": {
     "label": "Calendrier",

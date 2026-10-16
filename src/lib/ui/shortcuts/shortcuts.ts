@@ -41,7 +41,10 @@ export type ShortcutId =
   | 'composer.heading3'
   | 'composer.code_block'
   | 'composer.link'
-  | 'composer.toggleSource';
+  | 'composer.toggleSource'
+  | 'composer.toggleEmojiPicker'
+  | 'composer.toggleGifPicker'
+  | 'composer.toggleStickerPicker';
 
 export interface ShortcutDefinition {
   id: ShortcutId;
@@ -250,7 +253,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     id: 'composer.code',
     labelKey: 'composer.code',
     category: 'composer',
-    binding: 'mod+e',
+    binding: 'mod+shift+c',
     allowInEditable: true,
   },
   {
@@ -335,6 +338,27 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'composer.markdownSource',
     category: 'composer',
     binding: 'mod+shift+m',
+    allowInEditable: true,
+  },
+  {
+    id: 'composer.toggleEmojiPicker',
+    labelKey: 'shortcuts.toggleEmojiPicker',
+    category: 'composer',
+    binding: 'mod+e',
+    allowInEditable: true,
+  },
+  {
+    id: 'composer.toggleGifPicker',
+    labelKey: 'shortcuts.toggleGifPicker',
+    category: 'composer',
+    binding: 'mod+g',
+    allowInEditable: true,
+  },
+  {
+    id: 'composer.toggleStickerPicker',
+    labelKey: 'shortcuts.toggleStickerPicker',
+    category: 'composer',
+    binding: 'mod+s',
     allowInEditable: true,
   },
 ] as const;
