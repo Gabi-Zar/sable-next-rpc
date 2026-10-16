@@ -9,7 +9,7 @@ use sable_model::bot_commands::BotCommand;
 
 use super::{Handler, Json};
 use crate::protocol::{AbbreviationView, RpcError, HistoryVisibilityView, JoinRuleView, RoomStateEventView};
-use crate::{Core, ResultExt};
+use crate::{Core, ResultExt, account_data, presence};
 use crate::media::mxc_uri;
 use crate::room_settings::AclEdit;
 
@@ -34,6 +34,7 @@ domain! {
     full_state,
     send_event,
     account_data,
+    account_data_types,
     set_account_data,
     account_data_raw,
     add_widget,
@@ -444,6 +445,29 @@ impl Handler for AccountDataParams {
         Ok(event
             .and_then(|raw| raw.get_field::<serde_json::Value>("content").ok().flatten())
             .map(Json))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct AccountDataTypesParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+}
+
+impl Handler for AccountDataTypesParams {
+    type Ok = Vec<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Vec<String>, RpcError> {
+        let client = core.client().await?;
+        let types = account_data::room_server_types(
+            &client,
+            &self.room_id,
+            presence::state(core.desired_presence()),
+        )
+        .await
+        .or_failed(core, "room_account_data_types")?;
+        Ok(types.into_iter().collect())
     }
 }
 

@@ -2785,6 +2785,9 @@ export type Rpc = {
 	room_id: string,
 	event_type: string,
 }) => Promise<unknown | null>;
+    accountDataTypes: (params: {
+	room_id: string,
+}) => Promise<string[]>;
     setAccountData: (params: {
 	room_id: string,
 	event_type: string,
@@ -3406,6 +3409,7 @@ export type RpcMethods = {
   'room_state.full_state': Rpc['room_state']['fullState'];
   'room_state.send_event': Rpc['room_state']['sendEvent'];
   'room_state.account_data': Rpc['room_state']['accountData'];
+  'room_state.account_data_types': Rpc['room_state']['accountDataTypes'];
   'room_state.set_account_data': Rpc['room_state']['setAccountData'];
   'room_state.account_data_raw': Rpc['room_state']['accountDataRaw'];
   'room_state.add_widget': Rpc['room_state']['addWidget'];
@@ -3727,6 +3731,7 @@ export function createRpc(call: RpcCall): Rpc {
       fullState: (params) => call('room_state.full_state', params) as ReturnType<Rpc['room_state']['fullState']>,
       sendEvent: (params) => call('room_state.send_event', params) as ReturnType<Rpc['room_state']['sendEvent']>,
       accountData: (params) => call('room_state.account_data', params) as ReturnType<Rpc['room_state']['accountData']>,
+      accountDataTypes: (params) => call('room_state.account_data_types', params) as ReturnType<Rpc['room_state']['accountDataTypes']>,
       setAccountData: (params) => call('room_state.set_account_data', params) as ReturnType<Rpc['room_state']['setAccountData']>,
       accountDataRaw: (params) => call('room_state.account_data_raw', params) as ReturnType<Rpc['room_state']['accountDataRaw']>,
       addWidget: (params) => call('room_state.add_widget', params) as ReturnType<Rpc['room_state']['addWidget']>,

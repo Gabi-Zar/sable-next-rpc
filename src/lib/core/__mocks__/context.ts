@@ -55,6 +55,7 @@ export function createCoreStub<T extends Record<string, unknown> & { rpc?: RpcOv
           banner: vi.fn(() => Promise.resolve(null)),
           historyVisibility: vi.fn(() => Promise.resolve('shared')),
           abbreviations: vi.fn(() => Promise.resolve([])),
+          accountDataTypes: vi.fn(() => Promise.resolve([])),
         },
         rooms: {
           canonicalAlias: vi.fn(() => Promise.resolve({ alias: null, alt_aliases: [] })),

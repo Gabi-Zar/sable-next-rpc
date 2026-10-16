@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
+use matrix_sdk::ruma::RoomId;
 use matrix_sdk::ruma::api::client::filter::{FilterDefinition, RoomFilter};
 use matrix_sdk::ruma::api::client::sync::sync_events;
 use matrix_sdk::ruma::presence::PresenceState;
@@ -55,6 +56,38 @@ pub(crate) async fn server_types(
         .account_data
         .events
         .iter()
+        .filter_map(|raw| raw.get_field::<String>("type").ok().flatten())
+        .collect())
+}
+
+fn room_account_data_filter(room_id: &RoomId) -> FilterDefinition {
+    let mut filter = account_data_filter();
+    filter.account_data.types = Some(Vec::new());
+    filter.room.rooms = Some(vec![room_id.to_owned()]);
+    filter.room.timeline.types = Some(Vec::new());
+    filter.room.state.types = Some(Vec::new());
+    filter.room.ephemeral.types = Some(Vec::new());
+    filter
+}
+
+pub(crate) async fn room_server_types(
+    client: &matrix_sdk::Client,
+    room_id: &RoomId,
+    presence: PresenceState,
+) -> Result<BTreeSet<String>, matrix_sdk::HttpError> {
+    let mut request = sync_events::v3::Request::new();
+    request.filter = Some(sync_events::v3::Filter::FilterDefinition(
+        room_account_data_filter(room_id),
+    ));
+    request.timeout = Some(Duration::ZERO);
+    request.set_presence = presence;
+    let response = client.send(request).await?;
+    Ok(response
+        .rooms
+        .join
+        .get(room_id)
+        .into_iter()
+        .flat_map(|room| &room.account_data.events)
         .filter_map(|raw| raw.get_field::<String>("type").ok().flatten())
         .collect())
 }

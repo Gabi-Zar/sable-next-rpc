@@ -26,6 +26,23 @@
   let loading = $state(false);
   let saving = $state(false);
   let outcome = $state<'json' | 'failed' | 'missing' | 'saved' | null>(null);
+  let listed = $state<string[]>([]);
+  let types = $derived([...new Set([...listed, ...KNOWN_TYPES])].sort());
+
+  $effect(() => {
+    let current = true;
+    core.rpc.room_state
+      .accountDataTypes({ room_id: roomId })
+      .then((found) => {
+        if (current) listed = found;
+      })
+      .catch((error: unknown) => {
+        console.debug('[sable room] room account data types unavailable', error);
+      });
+    return () => {
+      current = false;
+    };
+  });
 
   async function load(): Promise<void> {
     const type = eventType.trim();
@@ -97,7 +114,7 @@
         spellcheck="false"
       />
       <datalist id={`${listId}-types`}>
-        {#each KNOWN_TYPES as type (type)}
+        {#each types as type (type)}
           <option value={type}></option>
         {/each}
       </datalist>
