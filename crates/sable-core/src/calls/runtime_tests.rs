@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     sync::Arc,
 };
 
@@ -465,6 +465,8 @@ async fn an_element_call_peers_key_is_emitted_on_the_oldest_members_focus() {
         emitted_members: None,
         backends: BTreeMap::new(),
         latest_keys: HashMap::new(),
+        member_first_seen: HashMap::new(),
+        silent_reported: HashSet::new(),
         rotation_due_ms: None,
         pending_keys: vec![super::PendingKey {
             sender: owned_user_id!("@genchu:federated.nexus"),
@@ -652,6 +654,8 @@ async fn refresh_fixture(
             backends,
             pending_keys: Vec::new(),
             latest_keys: HashMap::new(),
+            member_first_seen: HashMap::new(),
+            silent_reported: HashSet::new(),
             rotation_due_ms: None,
             distributor: None,
             own_observed: observed,
@@ -1084,6 +1088,37 @@ async fn a_key_without_a_sent_timestamp_is_accepted() {
         events.try_recv(),
         Ok(crate::protocol::CoreEvent::CallEncryptionKey { key_index: 4, .. })
     ));
+}
+
+#[test]
+fn a_member_that_sends_no_key_is_reported_once_after_a_wait() {
+    let room_id = owned_room_id!("!call:example.org");
+    let mut peer = member(CallMode::Compatibility, 1, &["https://sfu.example.org"]);
+    peer.user_id = owned_user_id!("@peer:example.org");
+    peer.device_id = owned_device_id!("PEER");
+    peer.identity = "@peer:example.org:PEER".to_owned();
+    let mut state = State::new(
+        member(CallMode::Compatibility, 1, &[]),
+        vec![peer.clone()],
+        super::StickyMemberships::default(),
+        &room_id,
+        true,
+        None,
+        false,
+    );
+
+    super::report_silent_members(&mut state, 1_000);
+    assert!(state.silent_reported.is_empty(), "it only just arrived");
+
+    super::report_silent_members(&mut state, 1_000 + super::SILENT_MEMBER_REPORT_MS);
+    assert!(state.silent_reported.contains(&peer.identity));
+
+    state.silent_reported.clear();
+    state
+        .latest_keys
+        .insert((peer.identity.clone(), 0), (1, vec![0; 16]));
+    super::report_silent_members(&mut state, 1_000 + 2 * super::SILENT_MEMBER_REPORT_MS);
+    assert!(state.silent_reported.is_empty(), "its key arrived");
 }
 
 #[tokio::test]

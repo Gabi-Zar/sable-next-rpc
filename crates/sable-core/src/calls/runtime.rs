@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
 
@@ -33,6 +33,7 @@ use crate::{CallSession, Core};
 
 const UPDATE_INTERVAL: Duration = Duration::from_secs(5);
 const UNRESOLVED_KEY_REPORT_MS: u64 = 30_000;
+const SILENT_MEMBER_REPORT_MS: u64 = 10_000;
 const RENEW_INTERVAL_MS: u64 = 600_000;
 const STICKY_RENEW_INTERVAL_MS: u64 = 3_300_000;
 const SLOT_CHECK_INTERVAL_MS: u64 = 30_000;
@@ -54,6 +55,8 @@ pub(crate) struct State {
     backends: BTreeMap<String, CallBackendView>,
     pending_keys: Vec<PendingKey>,
     latest_keys: HashMap<(String, u8), (u64, Vec<u8>)>,
+    member_first_seen: HashMap<String, u64>,
+    silent_reported: HashSet<String>,
     rotation_due_ms: Option<u64>,
     distributor: Option<Arc<Mutex<KeyDistributor>>>,
     own_observed: bool,
@@ -94,6 +97,8 @@ impl State {
             backends: BTreeMap::new(),
             pending_keys: Vec::new(),
             latest_keys: HashMap::new(),
+            member_first_seen: HashMap::new(),
+            silent_reported: HashSet::new(),
             rotation_due_ms: None,
             revision: 0,
             own_observed: false,
@@ -1114,6 +1119,7 @@ async fn publish_update(
             &room.room_id().to_owned(),
             state.own.foci.first().map_or("", String::as_str),
         );
+        report_silent_members(&mut state, keys::now_ms());
         state.revision = state.revision.saturating_add(1);
         core.emit_if_current(
             generation,
@@ -1288,6 +1294,40 @@ fn emit_pending(
             }
             state.pending_keys.push(pending);
         }
+    }
+}
+
+fn report_silent_members(state: &mut State, now_ms: u64) {
+    if state.distributor.is_none() {
+        return;
+    }
+    let members = state.members.clone();
+    for member in members
+        .iter()
+        .filter(|member| !member.is_own(&state.own.user_id, &state.own.device_id))
+    {
+        let first_seen = *state
+            .member_first_seen
+            .entry(member.identity.clone())
+            .or_insert(now_ms);
+        let has_key = state
+            .latest_keys
+            .keys()
+            .any(|(identity, _)| *identity == member.identity);
+        if has_key
+            || now_ms.saturating_sub(first_seen) < SILENT_MEMBER_REPORT_MS
+            || !state.silent_reported.insert(member.identity.clone())
+        {
+            continue;
+        }
+        tracing::warn!(
+            user_id = %member.user_id,
+            device_id = %member.device_id,
+            mode = ?member.mode,
+            waiting_ms = now_ms.saturating_sub(first_seen),
+            pending_keys = state.pending_keys.len(),
+            "no call media key has arrived from a member in the call"
+        );
     }
 }
 
