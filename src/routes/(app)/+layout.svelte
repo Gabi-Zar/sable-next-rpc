@@ -991,7 +991,7 @@
       },
       'call.toggleScreenShare': () => {
         if (callSession.active && callSession.mediaReady && callSession.canScreenShare) {
-          void callSession.setScreenShareEnabled(!callSession.transport.screenShareEnabled);
+          void callSession.toggleScreenShare();
         }
       },
       'call.hangUp': () => {

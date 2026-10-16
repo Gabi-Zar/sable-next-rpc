@@ -1078,3 +1078,22 @@ test('on Linux the HDR choice is carried through the screen sound picker', async
   expect(setEnabled).toHaveBeenLastCalledWith(true, { kind: 'none' }, undefined);
   screenAudio.supported.mockReturnValue(false);
 });
+
+test('toggling a running screen share stops it without reopening a picker', async () => {
+  const { client, transport, emitTransportState } = harness();
+  const setEnabled = vi.fn(() => Promise.resolve());
+  transport.capabilities = { screenShare: { setEnabled } };
+  const session = new CallSession(client, { createTransport: () => transport });
+  await session.join('!room:example.org', { microphone: true, camera: false });
+  emitTransportState({
+    ...idleTransportState(),
+    connection: 'connected',
+    screenShareEnabled: true,
+  });
+
+  await session.toggleScreenShare();
+
+  expect(setEnabled).toHaveBeenCalledExactlyOnceWith(false);
+  expect(session.choosingScreenAudio).toBe(false);
+  expect(session.choosingScreenSource).toBeNull();
+});

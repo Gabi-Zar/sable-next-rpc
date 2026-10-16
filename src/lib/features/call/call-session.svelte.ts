@@ -537,7 +537,7 @@ export class CallSession {
 
   async toggleScreenShare(): Promise<void> {
     if (this.transport.screenShareEnabled) {
-      await this.setScreenShareEnabled(false);
+      await this.#stopScreenShare();
       void playSound('screenshare_stop');
       return;
     }
@@ -576,10 +576,8 @@ export class CallSession {
     );
   }
 
-  async setScreenShareEnabled(enabled: boolean, audio?: ScreenAudioChoice): Promise<void> {
-    await this.#device('screen', () =>
-      this.#media?.capabilities.screenShare?.setEnabled(enabled, audio)
-    );
+  async #stopScreenShare(): Promise<void> {
+    await this.#device('screen', () => this.#media?.capabilities.screenShare?.setEnabled(false));
   }
 
   #classify(error: unknown): CallFailure {
