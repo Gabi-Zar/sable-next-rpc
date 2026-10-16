@@ -96,6 +96,7 @@
   {#key roomId}
     <RoomSearchPanel
       query={scopedSearchQuery('in', room, roomId)}
+      modal={!desktop}
       onClose={() => (panels.searchOpen = false)}
     />
   {/key}

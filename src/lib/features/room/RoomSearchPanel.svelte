@@ -4,6 +4,7 @@
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
   import { i18n } from '#lib/i18n.js';
+  import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import PanelHeader from '#lib/ui/primitives/PanelHeader.svelte';
   import PanelHeaderButton from '#lib/ui/primitives/PanelHeaderButton.svelte';
   import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
@@ -14,45 +15,65 @@
 
   interface Props {
     query: string;
+    modal?: boolean;
     onClose: () => void;
   }
 
-  let { query, onClose }: Props = $props();
+  let { query, modal = false, onClose }: Props = $props();
 
   const panelWidth = new PanelWidth('sable-room-search-width', 26, 16, 40);
   onMount(() => panelWidth.restore());
 </script>
 
-<aside
-  class="room-search"
-  aria-label={i18n.t('common.searchMessages')}
-  style:width={`${panelWidth.width}rem`}
->
-  <ResizeHandle
-    value={panelWidth.width}
-    min={panelWidth.min}
-    max={panelWidth.max}
-    label={i18n.t('search.resize')}
-    grow="left"
-    step={1}
-    fromPixels={remFromPixels}
-    onResize={(next) => panelWidth.resize(next)}
-    onCommit={() => panelWidth.commit()}
-  />
-  <PanelHeader title={i18n.t('common.searchMessages')}>
-    {#snippet prefix()}
-      <MagnifyingGlassIcon aria-hidden="true" />
-    {/snippet}
-    {#snippet suffix()}
-      <PanelHeaderButton label={i18n.t('search.close')} onclick={onClose}>
-        <XIcon />
-      </PanelHeaderButton>
-    {/snippet}
-  </PanelHeader>
-  <div class="room-search-body" {@attach scrollHint}>
-    <SearchView panel initialQuery={query} />
-  </div>
-</aside>
+{#snippet body()}
+  <aside
+    class={['room-search', { modal }]}
+    aria-label={i18n.t('common.searchMessages')}
+    style:width={modal ? null : `${panelWidth.width}rem`}
+  >
+    {#if !modal}
+      <ResizeHandle
+        value={panelWidth.width}
+        min={panelWidth.min}
+        max={panelWidth.max}
+        label={i18n.t('search.resize')}
+        grow="left"
+        step={1}
+        fromPixels={remFromPixels}
+        onResize={(next) => panelWidth.resize(next)}
+        onCommit={() => panelWidth.commit()}
+      />
+    {/if}
+    <PanelHeader title={i18n.t('common.searchMessages')}>
+      {#snippet prefix()}
+        <MagnifyingGlassIcon aria-hidden="true" />
+      {/snippet}
+      {#snippet suffix()}
+        <PanelHeaderButton label={i18n.t('search.close')} onclick={onClose}>
+          <XIcon />
+        </PanelHeaderButton>
+      {/snippet}
+    </PanelHeader>
+    <div class="room-search-body" {@attach scrollHint}>
+      <SearchView panel initialQuery={query} />
+    </div>
+  </aside>
+{/snippet}
+
+{#if modal}
+  <DialogFrame
+    open
+    onOpenChange={(open: boolean) => {
+      if (!open) onClose();
+    }}
+    variant="drawer"
+    label={i18n.t('common.searchMessages')}
+  >
+    {@render body()}
+  </DialogFrame>
+{:else}
+  {@render body()}
+{/if}
 
 <style>
   .room-search {
@@ -68,6 +89,12 @@
     min-height: 0;
     position: relative;
     width: 26rem;
+  }
+
+  .room-search.modal {
+    border-left: none;
+    height: 100%;
+    width: 100%;
   }
 
   .room-search :global(.resize-handle) {
