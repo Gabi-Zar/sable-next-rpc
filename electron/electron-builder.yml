@@ -66,6 +66,7 @@ mac:
   extendInfo:
     NSCameraUsageDescription: Sable needs camera access for video calls, photos and videos.
     NSMicrophoneUsageDescription: Sable needs microphone access for calls and videos.
+    NSAudioCaptureUsageDescription: Sable captures system audio when sharing your screen with sound.
     NSLocalNetworkUsageDescription: Sable connects to homeservers and call servers on your local network.
 dmg:
   background: ../src-tauri/icons/installer/dmg-background.png

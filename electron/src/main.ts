@@ -2,11 +2,13 @@ import {
   app,
   BrowserWindow,
   desktopCapturer,
+  dialog,
   ipcMain,
   Menu,
   protocol,
   session,
   shell,
+  systemPreferences,
   Tray,
   nativeImage,
   utilityProcess,
@@ -412,6 +414,26 @@ function pickScreenSource(sources: DesktopCapturerSource[]): Promise<string | nu
 }
 
 async function chooseShareSource(): Promise<DesktopCapturerSource | undefined> {
+  if (process.platform === 'darwin') {
+    const access = systemPreferences.getMediaAccessStatus('screen');
+    if (access === 'denied' || access === 'restricted') {
+      const { response } = await dialog.showMessageBox({
+        type: 'warning',
+        message: 'Screen recording access is required to share your screen.',
+        detail:
+          'Allow Sable in System Settings → Privacy & Security → Screen Recording, then restart Sable.',
+        buttons: ['Open System Settings', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (response === 0) {
+        await shell.openExternal(
+          'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+        );
+      }
+      return undefined;
+    }
+  }
   const thumbnailSize = isWayland ? { width: 1920, height: 1080 } : { width: 320, height: 180 };
   const sources = await desktopCapturer
     .getSources({ types: ['screen', 'window'], thumbnailSize })
@@ -424,14 +446,21 @@ async function chooseShareSource(): Promise<DesktopCapturerSource | undefined> {
 }
 
 function registerScreenShare(): void {
-  session.defaultSession.setDisplayMediaRequestHandler(
-    (_request, callback) => {
-      void chooseShareSource().then((source) => {
+  session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+    if (!isAppFrame(request.frame)) {
+      callback(null);
+      return;
+    }
+    void chooseShareSource().then(
+      (source) => {
         callback(source ? { video: source } : null);
-      });
-    },
-    { useSystemPicker: true }
-  );
+      },
+      (error: unknown) => {
+        console.error('[sable screen share] could not select a source', error);
+        callback(null);
+      }
+    );
+  });
 }
 
 function registerDeepLinks(): void {
