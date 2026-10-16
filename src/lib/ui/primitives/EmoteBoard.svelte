@@ -77,15 +77,11 @@
     | { id: string; kind: 'images'; images: PackImageView[]; pack: ImagePackView | null };
   const PACK_HEADER_HEIGHT = 52;
   const GRID_GAP = 4;
-  const EMOJI_CELL = 48;
 
   const narrowViewport = new MediaQuery('(width < 24rem)');
   let narrowSheet = $derived(variant === 'sheet' && narrowViewport.current);
 
   let emojiRowWidth = $state(0);
-  const emojiColumns = $derived(
-    Math.max(narrowSheet ? 6 : 8, Math.floor((emojiRowWidth + GRID_GAP) / (EMOJI_CELL + GRID_GAP)))
-  );
 
   let packs = $state.raw<ImagePackView[]>([]);
   let loading = $state(true);
@@ -244,6 +240,12 @@
     imageMeasure?.tab === tab
       ? imageMeasure
       : { width: cellSize, gap: GRID_GAP, row: cellSize + GRID_GAP }
+  );
+  const emojiColumns = $derived(
+    Math.max(
+      narrowSheet ? 6 : 8,
+      Math.floor((emojiRowWidth + imageCell.gap) / (imageCell.width + imageCell.gap))
+    )
   );
   let imageColumns = $derived(
     Math.max(1, Math.floor((gridWidth + imageCell.gap) / (imageCell.width + imageCell.gap)))
@@ -665,7 +667,7 @@
                       role="row"
                       bind:clientHeight={cellRowHeight}
                       bind:clientWidth={emojiRowWidth}
-                      style={`grid-template-columns: repeat(${String(emojiColumns)}, minmax(0, 1fr))`}
+                      style={`grid-template-columns: repeat(${String(emojiColumns)}, minmax(0, var(--emote-cell)))`}
                     >
                       {#each row.cells as cell, column (column)}
                         {@const index = row.start + column}
@@ -1087,6 +1089,7 @@
   /* Rows are real elements for the grid pattern, so the wrap is laid out here. */
   .grids .unicode .row {
     display: grid;
+    justify-content: center;
     padding-bottom: var(--space-100);
   }
 
