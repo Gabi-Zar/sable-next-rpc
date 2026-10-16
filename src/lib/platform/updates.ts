@@ -3,6 +3,8 @@ import { type as osType } from '@tauri-apps/plugin-os';
 
 import { SABLE_UPDATE_MANIFEST_URL } from '#lib/config/links.js';
 
+import { electronBridge } from './electron.js';
+
 export interface AvailableUpdate {
   version: string;
   notes: string | undefined;
@@ -25,6 +27,7 @@ export function supportsAutoUpdate(): boolean {
 }
 
 export function updatePlatform(): 'desktop' | 'mobile' | 'web' {
+  if (electronBridge()) return 'desktop';
   if (!isTauri()) return 'web';
   const os = osType();
   return os === 'android' || os === 'ios' ? 'mobile' : 'desktop';
@@ -66,6 +69,18 @@ let handle: { close: () => Promise<void> } | null = null;
 export async function checkForUpdate(): Promise<AvailableUpdate | null> {
   if (!supportsAutoUpdate()) return null;
 
+  const electron = electronBridge();
+  if (electron) {
+    const found = await electron.checkForUpdate();
+    if (!found) return null;
+    const available: AvailableUpdate = {
+      ...found,
+      install: (onProgress) => electron.downloadUpdate(onProgress),
+    };
+    for (const listener of listeners) listener(available);
+    return available;
+  }
+
   const { check } = await import('@tauri-apps/plugin-updater');
   const update = await check();
 
@@ -100,6 +115,11 @@ export async function checkForUpdate(): Promise<AvailableUpdate | null> {
 }
 
 export async function relaunchApp(): Promise<void> {
+  const electron = electronBridge();
+  if (electron) {
+    await electron.installUpdate();
+    return;
+  }
   const { relaunch } = await import('@tauri-apps/plugin-process');
   await relaunch();
 }

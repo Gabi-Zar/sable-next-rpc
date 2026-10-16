@@ -21,4 +21,5 @@ The script uploads installers and blockmaps to the tagged release, then publishe
 channel manifests with versioned download URLs. Failed uploads leave the channel
 manifest unchanged. Nightly pruning preserves releases referenced by those manifests.
 
-The Electron main process does not yet check for or install updates.
+The main process uses `electron-updater` with the feed for the channel chosen in
+Settings → About. macOS builds are unsigned, so macOS cannot install updates yet.

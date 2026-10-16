@@ -46,6 +46,23 @@ contextBridge.exposeInMainWorld('sableElectron', {
     ipcRenderer.invoke('sable-screen-audio-start', selection) as Promise<string>,
   stopScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-stop') as Promise<void>,
   unmuteScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-unmute') as Promise<void>,
+  checkForUpdate: () =>
+    ipcRenderer.invoke('sable-update-check') as Promise<{
+      version: string;
+      notes: string | undefined;
+    } | null>,
+  downloadUpdate: async (onProgress: (percent: number) => void) => {
+    const listener = (_event: IpcRendererEvent, percent: number) => {
+      onProgress(percent);
+    };
+    ipcRenderer.on('sable-update-progress', listener);
+    try {
+      await ipcRenderer.invoke('sable-update-download');
+    } finally {
+      ipcRenderer.removeListener('sable-update-progress', listener);
+    }
+  },
+  installUpdate: () => ipcRenderer.invoke('sable-update-install') as Promise<void>,
   onScreenSharePick: (pick: ScreenSharePick) => {
     screenSharePick = pick;
     return () => {

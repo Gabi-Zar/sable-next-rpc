@@ -15,6 +15,7 @@ export interface Settings {
   hardwareVideoAcceleration: boolean;
   smoothScrolling: boolean;
   webRtcIpPolicy: WebRtcIpPolicy;
+  updateChannel: 'stable' | 'nightly';
 }
 
 const DEFAULTS: Settings = {
@@ -22,6 +23,7 @@ const DEFAULTS: Settings = {
   hardwareVideoAcceleration: true,
   smoothScrolling: true,
   webRtcIpPolicy: 'default',
+  updateChannel: 'stable',
 };
 
 export function sanitize(value: unknown): Settings {
@@ -38,6 +40,7 @@ export function sanitize(value: unknown): Settings {
     hardwareVideoAcceleration: flag('hardwareVideoAcceleration'),
     smoothScrolling: flag('smoothScrolling'),
     webRtcIpPolicy: policy ?? DEFAULTS.webRtcIpPolicy,
+    updateChannel: stored.updateChannel === 'nightly' ? 'nightly' : DEFAULTS.updateChannel,
   };
 }
 

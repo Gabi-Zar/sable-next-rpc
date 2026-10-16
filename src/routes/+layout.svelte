@@ -125,6 +125,7 @@
       hardwareVideoAcceleration: preferences.hardwareVideoAcceleration,
       smoothScrolling: preferences.smoothScrolling,
       webRtcIpPolicy: preferences.webRtcIpPolicy,
+      updateChannel: preferences.updateChannel,
     });
   });
 

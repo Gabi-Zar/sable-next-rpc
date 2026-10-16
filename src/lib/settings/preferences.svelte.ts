@@ -92,6 +92,8 @@ export const WEBRTC_IP_POLICIES = [
   'default_public_interface_only',
   'disable_non_proxied_udp',
 ] as const;
+export const UPDATE_CHANNELS = ['stable', 'nightly'] as const;
+export type UpdateChannel = (typeof UPDATE_CHANNELS)[number];
 export type WebRtcIpPolicy = (typeof WEBRTC_IP_POLICIES)[number];
 export type CallScreenFramerate = (typeof CALL_SCREEN_FRAMERATES)[number];
 export type CallVideoResolution = (typeof CALL_VIDEO_RESOLUTIONS)[number];
@@ -387,6 +389,7 @@ export interface Preferences {
   soundsOutgoingCallVolume: number;
 
   autoUpdateCheck: boolean;
+  updateChannel: UpdateChannel;
   closeToTray: boolean;
   minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
@@ -478,6 +481,7 @@ const ENUMS = {
   callScreenFramerate: CALL_SCREEN_FRAMERATES,
   callScreenCodec: CALL_VIDEO_CODECS,
   webRtcIpPolicy: WEBRTC_IP_POLICIES,
+  updateChannel: UPDATE_CHANNELS,
   dearrowThumbnailFallback: DEARROW_THUMBNAIL_FALLBACKS,
   youtubeThumbnailPosition: YOUTUBE_THUMBNAIL_POSITIONS,
   badgeDefaultDirect: ['all', 'mentions', 'quiet'],
@@ -728,6 +732,7 @@ const DEFAULTS: Preferences = {
   telemetryAsked: false,
 
   autoUpdateCheck: true,
+  updateChannel: import.meta.env.VITE_APP_VERSION?.includes('-nightly.') ? 'nightly' : 'stable',
   closeToTray: false,
   minimizeToTray: false,
   showSystemTrayIcon: true,

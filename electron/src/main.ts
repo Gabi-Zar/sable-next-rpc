@@ -28,6 +28,7 @@ import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
 import { readSettings, sanitize } from './settings';
+import { registerUpdater, setUpdateChannel } from './updater';
 
 declare const __SABLE_CSP__: Record<string, string>;
 
@@ -307,6 +308,7 @@ ipcMain.on('sable-apply-settings', (event, value: unknown) => {
   const next = sanitize(value);
   if (JSON.stringify(next) === JSON.stringify(settings)) return;
   settings = next;
+  setUpdateChannel(next.updateChannel);
   void writeFile(settingsPath, JSON.stringify(next));
   for (const contents of webContents.getAllWebContents()) {
     contents.setWebRTCIPHandlingPolicy(next.webRtcIpPolicy);
@@ -529,6 +531,8 @@ if (!app.requestSingleInstanceLock()) {
       () => mainWindow
     );
     registerScreenShare();
+    registerUpdater(isAppFrame);
+    setUpdateChannel(settings.updateChannel);
     mainWindow = createWindow();
   });
 }

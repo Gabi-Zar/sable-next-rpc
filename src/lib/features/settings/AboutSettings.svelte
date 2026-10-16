@@ -15,6 +15,7 @@
     supportsAutoUpdate,
     updatePlatform,
   } from '#lib/platform/updates.js';
+  import { isElectron } from '#lib/platform/electron.js';
   import { hostsServiceWorker } from '#lib/platform/service-worker.js';
   import { checkForWebUpdate } from '#lib/platform/web-updates.svelte.js';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
@@ -26,6 +27,7 @@
   import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
   import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import SettingsSection from '#lib/ui/primitives/SettingsSection.svelte';
+  import Select from '#lib/ui/primitives/Select.svelte';
   import Switch from '#lib/ui/primitives/Switch.svelte';
   import '#lib/ui/primitives/settings-row.css';
   import CodeIcon from 'phosphor-svelte/lib/CodeIcon';
@@ -207,6 +209,24 @@
             checked={preferences.autoUpdateCheck}
             label={i18n.t('settings.autoUpdateCheck')}
             onCheckedChange={(checked) => setPreference('autoUpdateCheck', checked)}
+          />
+        </SettingsRow>
+      {/if}
+      {#if isElectron()}
+        <SettingsRow
+          id="update-channel"
+          title={i18n.t('settings.updateChannel')}
+          description={i18n.t('settings.updateChannelHint')}
+        >
+          <Select
+            bind:value={
+              () => preferences.updateChannel, (value) => setPreference('updateChannel', value)
+            }
+            aria-label={i18n.t('settings.updateChannel')}
+            items={[
+              { value: 'stable', label: i18n.t('settings.updateChannelStable') },
+              { value: 'nightly', label: i18n.t('settings.updateChannelNightly') },
+            ]}
           />
         </SettingsRow>
       {/if}
