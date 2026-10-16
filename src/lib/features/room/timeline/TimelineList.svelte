@@ -959,7 +959,11 @@
     }
     event.preventDefault();
     jumpToLatest();
-    if (unread.active || hasUnread) void markAllRead();
+    if (unread.active || hasUnread) {
+      void markAllRead();
+    } else {
+      dismissUnread();
+    }
   }
 </script>
 

@@ -2688,6 +2688,36 @@ test('an empty timeline that is still loading shows the skeleton, not the empty 
   expect(screen.getByText('No messages yet')).toBeInTheDocument();
 });
 
+test('Escape removes the unread marker once the room is already read', async () => {
+  const roomTimeline = timeline();
+  roomTimeline.items = [
+    item('read'),
+    readMarker('marker'),
+    ...Array.from({ length: 6 }, (_, i) => item(`new-${i}`)),
+  ];
+  const mark = vi.fn().mockResolvedValue(undefined);
+  const list = {
+    timeline: roomTimeline,
+    hasUnread: true,
+    onRequestHistory: () => Promise.resolve(true),
+    onRequestFuture: async () => {},
+    onRead: async () => {},
+    onMarkRead: mark,
+  };
+  const { rerender } = render(TimelineListHarness, { props: { list } });
+  unreadViewport();
+  await flushed();
+  await runAnimationFrames();
+  expect(document.querySelectorAll('.unread')).toHaveLength(1);
+  await rerender({ list: { ...list, hasUnread: false } });
+  await flushed();
+  expect(document.querySelectorAll('.unread')).toHaveLength(1);
+  await userEvent.keyboard('{Escape}');
+  await vi.waitFor(() => {
+    expect(document.querySelectorAll('.unread')).toHaveLength(0);
+  });
+});
+
 test('an unread jump that cannot load its boundary reports it without paging history', async () => {
   const roomTimeline = timeline();
   roomTimeline.items = [item('later-1'), item('later-2'), item('later-3')];
