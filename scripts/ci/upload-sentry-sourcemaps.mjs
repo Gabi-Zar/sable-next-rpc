@@ -22,6 +22,7 @@ async function main() {
     ['sourcemaps', 'upload', '--release', process.env.VITE_APP_VERSION, assets],
     { stdio: 'inherit' }
   );
+  if (process.env.VITE_SENTRY_ENVIRONMENT !== 'production') return;
   for (const root of [assets, '.svelte-kit/output']) {
     for (const map of await collectMaps(root)) await rm(map);
   }
