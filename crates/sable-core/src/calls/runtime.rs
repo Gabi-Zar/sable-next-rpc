@@ -1263,13 +1263,6 @@ fn emit_pending(
             if pending.reported {
                 tracing::warn!("a call media key resolved after {waited}ms");
             }
-            tracing::debug!(
-                sender = %pending.sender,
-                device = %pending.device,
-                index = payload.index,
-                waited_ms = waited,
-                "accepted a call media key"
-            );
             core.emit_if_current(
                 generation,
                 CoreEvent::CallEncryptionKey {
@@ -1380,7 +1373,7 @@ fn watch_keys(
                     return;
                 };
                 if keys::decode_key(&payload.key).is_none() {
-                    tracing::warn!(sender = %event.sender, "ignoring a call media key that is not 16 bytes");
+                    tracing::warn!(sender = %event.sender, "ignoring a call media key shorter than 16 bytes");
                     return;
                 }
                 tracing::debug!(
