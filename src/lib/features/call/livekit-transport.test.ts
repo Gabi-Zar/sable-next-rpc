@@ -106,6 +106,7 @@ const connectOptions = {
 beforeEach(() => {
   vi.stubGlobal('screen', { width: 1920, height: 1080 });
   vi.stubGlobal('devicePixelRatio', 1);
+  preferences.callScreenResolution = 'auto';
   preferences.callScreenFramerate = 'auto';
 });
 
@@ -130,6 +131,7 @@ test('automatic video quality leaves capture and encoding choices to LiveKit', a
   await transport.capabilities.screenShare?.setEnabled(true);
   const [, capture, publish] = fixture.localParticipant.setScreenShareEnabled.mock.calls[0];
   expect(capture).not.toHaveProperty('resolution');
+  expect(capture).toHaveProperty('contentHint', 'motion');
   expect(publish).not.toHaveProperty('screenShareEncoding');
   expect(publish).not.toHaveProperty('videoCodec');
   await transport.disconnect();
@@ -213,9 +215,10 @@ test.each([false, true])(
   }
 );
 
-test('a fresh profile shares the screen at 30 fps', async () => {
+test('a fresh profile shares the screen at 720p and 30 fps', async () => {
   vi.resetModules();
   const { preferences: fresh } = await import('#lib/settings/preferences.svelte.js');
+  expect(fresh.callScreenResolution).toBe('720');
   expect(fresh.callScreenFramerate).toBe('30');
 });
 

@@ -17,11 +17,12 @@ describe('screenCaptureOptions', () => {
 
   it('passes an explicit size with the framerate', () => {
     expect(screenCaptureOptions('720', '60')).toEqual({
+      contentHint: 'motion',
       resolution: { width: 1280, height: 720, frameRate: 60 },
     });
   });
 
-  it('passes nothing when both are automatic', () => {
-    expect(screenCaptureOptions('auto', 'auto')).toEqual({});
+  it('only hints at motion when both are automatic', () => {
+    expect(screenCaptureOptions('auto', 'auto')).toEqual({ contentHint: 'motion' });
   });
 });

@@ -30,14 +30,16 @@ function displayResolution(): VideoResolution {
   return { width: Math.round(height * aspect), height: Math.round(height) };
 }
 
+const contentHint = 'motion';
+
 export function screenCaptureOptions(
   resolution: CallVideoResolution,
   framerate: CallScreenFramerate
 ): ScreenShareCaptureOptions {
   const size = videoResolution(resolution);
-  if (framerate === 'auto') return size ? { resolution: size } : {};
+  if (framerate === 'auto') return size ? { contentHint, resolution: size } : { contentHint };
   const frameRate = Number(framerate);
-  return { resolution: { ...(size ?? displayResolution()), frameRate } };
+  return { contentHint, resolution: { ...(size ?? displayResolution()), frameRate } };
 }
 
 export function videoPublishOptions(
