@@ -58,3 +58,8 @@ pre-push:
   jobs:
     - name: svelte-check
       run: pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json --fail-on-warnings
+
+commit-msg:
+  scripts:
+    "check-sign-off.sh":
+      runner: bash
