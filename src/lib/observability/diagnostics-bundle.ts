@@ -1,7 +1,7 @@
 import type { DiagnosticsSystemInfo } from '#lib/platform/diagnostics.js';
 
 import type { DebugLogEntry } from './debug-log.svelte.js';
-import { scrubMatrixIds } from './scrubbers.js';
+import { sanitizePayload, scrubMatrixIds } from './scrubbers.js';
 
 export function buildDiagnosticsBundle(
   entries: readonly DebugLogEntry[],
@@ -23,7 +23,9 @@ export function buildDiagnosticsBundle(
       logs: entries.map((entry) => ({
         ...entry,
         timestamp: iso(entry.timestamp),
+        namespace: scrubMatrixIds(entry.namespace),
         message: scrubMatrixIds(entry.message),
+        ...(entry.data === undefined ? {} : { data: sanitizePayload(entry.data) }),
       })),
     },
     null,

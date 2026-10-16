@@ -27,6 +27,15 @@ describe('scrubExternalHosts', () => {
     expect(scrubExternalHosts(dev)).toBe(dev);
   });
 
+  it.each(['ws', 'wss'])('redacts external %s hosts and ports', (scheme) => {
+    expect(scrubExternalHosts(`${scheme}://livekit.example.org:7880/rtc/v1`)).toBe(
+      `${scheme}://[SERVER]/rtc/v1`
+    );
+    expect(scrubExternalHosts(`${scheme}://localhost:7880/rtc/v1`)).toBe(
+      `${scheme}://localhost:7880/rtc/v1`
+    );
+  });
+
   it('preserves the tauri app origin', () => {
     const app = 'https://tauri.localhost/index.html';
     expect(scrubExternalHosts(app)).toBe(app);
@@ -64,6 +73,37 @@ describe('scrubMatrixIds', () => {
 
   it('leaves unrelated query params alone', () => {
     expect(scrubMatrixIds('format=json&limit=50')).toBe('format=json&limit=50');
+  });
+
+  it('redacts LiveKit connection URLs while retaining safe query parameters', () => {
+    expect(
+      scrubMatrixIds(
+        'signal connecting to wss://livekit.example.org/rtc/v1?access_token=secret&join_request=CAEScompressed%3D&auto_subscribe=1'
+      )
+    ).toBe(
+      'signal connecting to wss://[SERVER]/rtc/v1?access_token=[REDACTED]&join_request=[REDACTED]&auto_subscribe=1'
+    );
+  });
+
+  it('redacts serialized join requests and JWTs', () => {
+    const value = JSON.stringify({
+      join_request: 'compressed',
+      joinRequest: 'encoded',
+      jwt: 'secret.jwt.value',
+      connection: 'connected',
+    });
+    expect(scrubMatrixIds(value)).toBe(
+      JSON.stringify({
+        join_request: '[REDACTED]',
+        joinRequest: '[REDACTED]',
+        jwt: '[REDACTED]',
+        connection: 'connected',
+      })
+    );
+  });
+
+  it('preserves JSON delimiters around a WebSocket origin', () => {
+    expect(scrubMatrixIds('{"url":"wss://livekit.example.org"}')).toBe('{"url":"wss://[SERVER]"}');
   });
 
   it('replaces user IDs, room IDs and aliases', () => {
@@ -240,5 +280,21 @@ describe('sanitizePayload', () => {
     expect(
       sanitizePayload({ room_id: '!room:example.org', device_id: 'QBUAZIFURK', code: 'failed' })
     ).toEqual({ code: 'failed' });
+  });
+
+  it('omits structured LiveKit join requests and scrubs nested signaling URLs', () => {
+    expect(
+      sanitizePayload({
+        join_request: 'compressed',
+        joinRequest: { participant: 'private', jwt: 'secret' },
+        jwt: 'secret',
+        connection: {
+          url: 'wss://livekit.example.org/rtc/v1?join_request=compressed',
+          state: 'connecting',
+        },
+      })
+    ).toEqual({
+      connection: { url: 'wss://[SERVER]/rtc/v1?join_request=[REDACTED]', state: 'connecting' },
+    });
   });
 });

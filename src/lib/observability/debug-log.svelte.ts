@@ -125,7 +125,7 @@ function formatConsoleArgs(args: unknown[]): string {
       if (arg instanceof Error) return arg.stack ?? arg.message;
       if (typeof arg === 'string') return arg;
       try {
-        return JSON.stringify(arg);
+        return JSON.stringify(sanitizePayload(arg));
       } catch {
         return String(arg);
       }
@@ -230,7 +230,13 @@ export function exportDebugLogs(entries: readonly DebugLogEntry[] = buffer): str
     {
       exportedAt: iso(),
       logsCount: entries.length,
-      logs: entries.map((entry) => ({ ...entry, timestamp: iso(entry.timestamp) })),
+      logs: entries.map((entry) => ({
+        ...entry,
+        timestamp: iso(entry.timestamp),
+        namespace: scrubMatrixIds(entry.namespace),
+        message: scrubMatrixIds(entry.message),
+        ...(entry.data === undefined ? {} : { data: sanitizePayload(entry.data) }),
+      })),
     },
     null,
     2

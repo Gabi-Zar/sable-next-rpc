@@ -14,18 +14,18 @@ if (appLocation) {
 }
 
 export function scrubExternalHosts(value: string): string {
-  return value.replace(/\bhttps?:\/\/[^/?#\s]+/gi, (match) => {
+  return value.replace(/\b(?:https?|wss?):\/\/[^/?#\s"'<>(){},]+/gi, (match) => {
     const schemeEnd = match.indexOf('://') + 3;
     const hostname = (match.slice(schemeEnd).split(':')[0] ?? '').toLowerCase();
     if (LOCAL_HOSTS.has(hostname)) return match;
-    return `${match.slice(0, schemeEnd)}[HOMESERVER]`;
+    return `${match.slice(0, schemeEnd)}${/^wss?:/i.test(match) ? '[SERVER]' : '[HOMESERVER]'}`;
   });
 }
 
 export function scrubMatrixIds(value: string): string {
   return scrubMatrixUrl(value)
     .replace(
-      /(access_token|password|token|refresh_token|session_id|sync_token|next_batch)([=:\s]+)([^\s&]+)/gi,
+      /\b(access_token|password|token|refresh_token|session_id|sync_token|next_batch|join_request|joinRequest|jwt)(["']?[=:\s]+["']?)([^\s&"'<>()[\]{},]+)/gi,
       '$1$2[REDACTED]'
     )
     .replace(/@[^\s:@]+:[^\s,'"(){}[\]]+/g, '@[USER_ID]')
@@ -72,6 +72,8 @@ const IDENTIFIER_KEYS = new Set(
     'sessionId',
     'syncToken',
     'nextBatch',
+    'joinRequest',
+    'jwt',
   ].map(identifierKey)
 );
 

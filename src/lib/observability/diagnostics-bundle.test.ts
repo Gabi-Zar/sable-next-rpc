@@ -62,4 +62,31 @@ describe('buildDiagnosticsBundle', () => {
     expect(bundle.systemInfo).toEqual(systemInfo);
     expect(bundle.logsCount).toBe(0);
   });
+
+  it('scrubs LiveKit connection details in messages and nested data at export', () => {
+    const entries: DebugLogEntry[] = [
+      {
+        id: 1,
+        timestamp: 0,
+        level: 'debug',
+        category: 'general',
+        namespace: 'livekit',
+        message:
+          'signal connecting to wss://private.example/rtc/v1?access_token=private-token&join_request=private-request',
+        data: {
+          joinRequest: 'private-request',
+          transport: { url: 'wss://private.example/rtc/v1', state: 'connecting' },
+        },
+      },
+    ];
+    const exported = buildDiagnosticsBundle(entries, systemInfo);
+    expect(exported).not.toContain('private');
+    expect(exported).toContain('wss://[SERVER]/rtc/v1');
+    expect(exported).toContain('join_request=[REDACTED]');
+    const bundle = JSON.parse(exported) as { logs: DebugLogEntry[] };
+    expect(bundle.logs[0].data).toEqual({
+      transport: { url: 'wss://[SERVER]/rtc/v1', state: 'connecting' },
+    });
+    expect(entries[0].message).toContain('private');
+  });
 });

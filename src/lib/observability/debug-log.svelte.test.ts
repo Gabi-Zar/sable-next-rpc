@@ -68,3 +68,40 @@ test('clearing lets an identical line be recorded again', async () => {
 
   expect(debugLog.entries.filter((entry) => entry.message === 'same line')).toHaveLength(1);
 });
+
+test('scrubs LiveKit details when recording and exporting logs', async () => {
+  const { recordDebugLog, exportDebugLogs, debugLog, setDebugLogging } =
+    await import('./debug-log.svelte.js');
+  const entry = {
+    id: 1,
+    timestamp: 0,
+    level: 'debug' as const,
+    category: 'general' as const,
+    namespace: 'livekit',
+    message: 'signal connecting to wss://private.example/rtc/v1?join_request=private-request',
+    data: { join_request: 'private-request', url: 'wss://private.example/rtc/v1' },
+  };
+  setDebugLogging(true);
+  recordDebugLog(entry.level, entry.category, entry.namespace, entry.message, entry.data);
+  expect(JSON.stringify(debugLog.entries)).not.toContain('private');
+  const exported = exportDebugLogs([entry]);
+  expect(exported).not.toContain('private');
+  expect(exported).toContain('join_request=[REDACTED]');
+  expect(exported).toContain('wss://[SERVER]/rtc/v1');
+});
+
+test('removes structured join requests from captured console arguments', async () => {
+  const { debugLog, setDebugLogging } = await import('./debug-log.svelte.js');
+  setDebugLogging(true);
+  console.info('signal connecting', {
+    url: 'wss://private.example/rtc/v1',
+    joinRequest: { participant: 'private', clientInfo: 'private' },
+    accessToken: 'private-token',
+    reconnect: false,
+  });
+  const message = debugLog.entries[0]?.message;
+  expect(message).not.toContain('private');
+  expect(message).not.toContain('joinRequest');
+  expect(message).toContain('wss://[SERVER]/rtc/v1');
+  expect(message).toContain('"reconnect":false');
+});
