@@ -495,6 +495,7 @@ impl Core {
         self.sessions.release().await;
     }
 
+    #[cfg(not(target_family = "wasm"))]
     pub(crate) async fn release_session_lock_while_inactive(&self) {
         if !self.app_active.load(Ordering::Relaxed) {
             self.release_session_lock().await;
