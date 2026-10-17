@@ -121,7 +121,9 @@
           <ul>
             {#each terms as policy (policy.url)}
               <li>
-                <a href={policy.url} target="_blank" rel="noopener noreferrer">{policy.name}</a>
+                <a href={policy.url} target="_blank" rel="external noopener noreferrer"
+                  >{policy.name}</a
+                >
               </li>
             {/each}
           </ul>
@@ -131,7 +133,7 @@
           <DialogActions>
             <Button variant="ghost" onclick={onClose}>{i18n.t('common.cancel')}</Button>
             <Button variant="primary" loading={accepting} onclick={acceptTerms}>
-              {i18n.t('widgets.integrationManagerTermsAccept')}
+              {i18n.t('common.accept')}
             </Button>
           </DialogActions>
         </div>

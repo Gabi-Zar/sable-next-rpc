@@ -3431,7 +3431,6 @@
     "integrationManagerFailed": "Could not reach the integration manager.",
     "integrationManagerTermsTitle": "Accept the integration manager's terms",
     "integrationManagerTermsBody": "The integration manager needs you to accept these documents before it can add bots, bridges and widgets for you.",
-    "integrationManagerTermsAccept": "Accept",
     "integrationManagerTermsFailed": "Could not record your acceptance. Try again.",
     "addName": "Widget name",
     "addUrl": "Widget URL (https://…)",
