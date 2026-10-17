@@ -114,6 +114,7 @@
   );
 
   const methodSlotId = $props.id();
+  const titleId = `${methodSlotId}-title`;
   // A combobox pick and the blur it causes both validate, so only the latest
   // answer may release the controls.
   let latestValidation = 0;
@@ -161,13 +162,14 @@
 <form
   class="login-form auth-card-surface"
   out:fade={{ duration: motionMs(MOTION_MS.quick) }}
-  aria-busy={isAuthenticating}
+  aria-labelledby={titleId}
   novalidate
   onsubmit={(event) => {
     event.preventDefault();
     void submit();
   }}
 >
+  <h2 class="screen-reader-only" id={titleId}>{i18n.t('auth.signInTitle')}</h2>
   <FormField dense fieldId="homeserver" label={i18n.t('auth.accountProvider')}>
     <HomeserverPicker
       id="homeserver"
@@ -191,15 +193,18 @@
   </FormField>
 
   <AuthStatusSlot
-    loading={isCheckingHomeserver}
-    loadingMessage={i18n.t('auth.checkingProvider')}
+    loading={isCheckingHomeserver || isAuthenticating || isLaunchingLogin}
+    loadingMessage={i18n.t(isCheckingHomeserver ? 'auth.checkingProvider' : 'auth.signingIn')}
     message={statusMessage}
     tone={statusError ? 'error' : 'muted'}
   />
 
-  <div class="login-methods">
+  <div
+    class="login-methods"
+    aria-busy={isCheckingHomeserver || isAuthenticating || isLaunchingLogin}
+  >
     <div class={['method-slot', { 'action-slot': hasLoginAction }]} id={methodSlotId}>
-      {#if !loginFlows}
+      {#if !loginFlows && homeserver.trim() && !isCheckingHomeserver}
         <div class="actions">
           <Button
             type="submit"

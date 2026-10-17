@@ -169,8 +169,7 @@
   );
   let isLaunchingLogin = $derived(redirect.pendingIntent === 'login' && redirect.isLaunching);
   let canForward = $derived(
-    displayedStage < furthestReached ||
-      (displayedStage === 0 && hasSecondaryStage) ||
+    (displayedStage === 0 && hasSecondaryStage && flow.loginProviderReady) ||
       (displayedStage === 1 && signedIn)
   );
 
@@ -257,9 +256,9 @@
   }
 
   function forward(): void {
-    if (displayedStage < furthestReached) activateStage(displayedStage + 1);
-    else if (displayedStage === 0 && hasSecondaryStage) activateStage(1);
-    else if (displayedStage === 1 && signedIn) void openSetup();
+    if (!canForward) return;
+    if (displayedStage === 0) activateStage(1);
+    else void openSetup();
   }
 
   function activateStage(index: number): void {

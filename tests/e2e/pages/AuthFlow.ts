@@ -17,7 +17,7 @@ export class AuthFlow {
 
   constructor(private readonly page: Page) {
     this.heading = page.getByRole('heading', { level: 1 });
-    this.homeserver = page.getByLabel('Account provider');
+    this.homeserver = page.getByLabel('Account provider', { exact: true });
     this.redirectSignInButton = page.getByRole('button', { name: /^Sign in with http/ });
     this.username = page.getByLabel('Username');
     this.password = page.getByRole('textbox', { name: 'Password' });

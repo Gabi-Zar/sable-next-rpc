@@ -27,6 +27,10 @@ test('Tab reaches the sign-in form before the stage buttons', async ({
   await auth.open(homeserver.baseUrl);
   await expect(auth.moreMethodsButton).toBeVisible({ timeout: 60_000 });
 
+  await expect(page.getByRole('heading', { name: en.auth.signInTitle, exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(auth.homeserver).toBeFocused();
+
   const order: string[] = [];
   for (let press = 0; press < 12; press += 1) {
     await page.keyboard.press('Tab');
@@ -66,4 +70,46 @@ test('setup exposes only the current step and has no violations', async ({
     await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
   }
   expect(await violations(page)).toEqual([]);
+});
+
+test('provider validation gates Next and preserves focus', async ({
+  auth,
+  homeserverProxy,
+  page,
+}) => {
+  await page.route('**/config.json', (route) =>
+    route.fulfill({
+      json: {
+        homeserverList: [homeserverProxy.baseUrl],
+        defaultHomeserver: null,
+        allowCustomHomeservers: true,
+      },
+    })
+  );
+  homeserverProxy.delay(/\/_matrix\/client\/(?:v3|r0)\/login/, 1500);
+  await auth.open();
+  await expect(page.getByRole('heading', { name: en.auth.signInTitle, exact: true })).toBeFocused();
+  await expect(auth.nextStageButton).toHaveCount(0);
+  await expect(page.getByRole('button', { name: en.auth.continue, exact: true })).toHaveCount(0);
+  await page.keyboard.press('Tab');
+  await expect(auth.homeserver).toBeFocused();
+
+  await auth.homeserver.fill(homeserverProxy.baseUrl);
+  await expect(
+    page.getByRole('status').filter({ hasText: en.auth.checkingProvider })
+  ).toBeVisible();
+  await expect(auth.nextStageButton).toHaveCount(0);
+  await expect(auth.homeserver).toBeFocused();
+  await expect(auth.moreMethodsButton).toBeVisible({ timeout: 60_000 });
+  await expect(auth.homeserver).toBeFocused();
+  await expect(auth.nextStageButton).toBeVisible();
+
+  await auth.nextStageButton.click();
+  await expect(
+    page.getByRole('heading', { name: en.auth.createAccount, exact: true })
+  ).toBeFocused();
+  await auth.previousStageButton.click();
+  await expect(page.getByRole('heading', { name: en.auth.signInTitle, exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(auth.homeserver).toBeFocused();
 });

@@ -217,11 +217,13 @@
   });
 </script>
 
-{#if !record}
-  <div class="setup-checking" role="status">
+<div class="setup-checking" role="status" aria-atomic="true">
+  {#if !record}
     <Spinner />
     <p>{i18n.t('setup.checking')}</p>
-  </div>
+  {/if}
+</div>
+{#if !record}
   <AuthSecondaryAction label={i18n.t('auth.skipForNow')} onclick={skipChecking} />
 {:else}
   <AuthRail

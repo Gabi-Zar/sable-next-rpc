@@ -15,19 +15,18 @@
 </script>
 
 <main class="auth-page">
-  <section class="auth-content" aria-labelledby="sable-title">
+  <div class="auth-content">
     <AuthHeader {hasLoggedInBefore} {title} />
     <div class="auth-main">
-      {#if status}
-        <div class="bootstrap" role="status">
+      <div class="bootstrap" role="status" aria-atomic="true">
+        {#if status}
           <Spinner />
           <p>{status}</p>
-        </div>
-      {:else}
-        {@render children()}
-      {/if}
+        {/if}
+      </div>
+      {#if !status}{@render children()}{/if}
     </div>
-  </section>
+  </div>
   <AuthFooter />
 </main>
 
