@@ -405,13 +405,16 @@ async fn discover(
     let features = client.unstable_features().await.unwrap_or_default();
     if features.contains(&"org.matrix.msc4354".into()) {
         let mut sync = sticky::StickySync::new(session.0);
-        if let Ok(events) = sync.sync(room, Duration::ZERO).await {
-            for event in events {
-                sticky_members.apply(&event, keys::now_ms());
+        match sync.sync(room, Duration::ZERO).await {
+            Ok(events) => {
+                for event in events {
+                    sticky_members.apply(&event, keys::now_ms());
+                }
+                sticky_sync = Some(sync);
             }
-            sticky_sync = Some(sync);
-        } else {
-            tracing::warn!("sticky call membership sync is unavailable");
+            Err(error) => {
+                tracing::warn!(?error, "sticky call membership sync is unavailable");
+            }
         }
     }
     for event in sticky::live_events(room) {

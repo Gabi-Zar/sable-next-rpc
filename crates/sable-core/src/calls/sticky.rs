@@ -9,11 +9,6 @@ use serde_json::Value;
 
 const STICKY_DURATION_MS: u32 = 3_600_000;
 
-#[derive(Debug)]
-pub(super) enum StickySyncError {
-    Matrix,
-}
-
 pub(super) struct StickySync {
     conn_id: String,
     pos: Option<String>,
@@ -55,11 +50,14 @@ impl StickySync {
         &mut self,
         room: &Room,
         timeout: Duration,
-    ) -> Result<Vec<Value>, StickySyncError> {
-        let Ok(response) = room.client().send(self.request(room, timeout)).await else {
-            self.pos = None;
-            self.since = None;
-            return Err(StickySyncError::Matrix);
+    ) -> Result<Vec<Value>, matrix_sdk::HttpError> {
+        let response = match room.client().send(self.request(room, timeout)).await {
+            Ok(response) => response,
+            Err(error) => {
+                self.pos = None;
+                self.since = None;
+                return Err(error);
+            }
         };
         let sticky = response.extensions.sticky_events;
         self.pos = Some(response.pos);
