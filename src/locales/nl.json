@@ -57,7 +57,14 @@
     "unreadMentions": "",
     "folderName": "",
     "resizeRooms": "",
-    "rooms": ""
+    "rooms": "",
+    "joinWithAddress": "",
+    "messages": "",
+    "messageSearch": "",
+    "lobby": "",
+    "chats": "",
+    "createSubspace": "",
+    "showConversation": ""
   },
   "common": {
     "download": "",
@@ -685,7 +692,16 @@
     "abbreviationsSave": "",
     "abbreviationsDefinitionPlaceholder": "",
     "addressesUnpublishSelected": "",
-    "addressesRemove": ""
+    "addressesRemove": "",
+    "directoryJoinByAddress": "",
+    "createKindRoomHint": "",
+    "createSubspaceTitle": "",
+    "joinTitle": "",
+    "devRoomTitle": "",
+    "permRoleIcon": "",
+    "createSpaceTitle": "",
+    "permGroupMessages": "",
+    "emojisDeletePackConfirm": ""
   },
   "timeline": {
     "memberFilter": "",
@@ -1102,7 +1118,18 @@
     "markReadFailed": "",
     "removeLinkPreviews": "",
     "profileReport": "",
-    "hiddenMedia": ""
+    "hiddenMedia": "",
+    "sending": "",
+    "loadingNewer": "",
+    "loading": "",
+    "loadingMembers": "",
+    "threeTyping": "",
+    "unknownTyping": "",
+    "twoTyping": "",
+    "manyTyping": "",
+    "messagePlaceholder": "",
+    "oneTyping": "",
+    "loadingHistory": ""
   },
   "inbox": {
     "showRead": "",
@@ -1172,7 +1199,9 @@
     "invitesKnown": "",
     "inviteHide": "",
     "invitesStrangers": "",
-    "invitesSpamCollapse": ""
+    "invitesSpamCollapse": "",
+    "invitedBy": "",
+    "noPreview": ""
   },
   "join": {
     "knockRequired": "",
@@ -1206,7 +1235,8 @@
     "submit": "",
     "userIdPlaceholder": "",
     "encryptionHint": "",
-    "failed": ""
+    "failed": "",
+    "description": ""
   },
   "auth": {
     "noAccountYet": "",
@@ -1314,7 +1344,9 @@
     "banner": "",
     "verifyEmail": "",
     "signOutAllDevices": "",
-    "loginIdentifierHint": ""
+    "loginIdentifierHint": "",
+    "redirectingTo": "",
+    "signingIn": ""
   },
   "settings": {
     "terms": {
@@ -1370,7 +1402,9 @@
       "ringing": "",
       "microphone": "",
       "sending": "",
-      "callScreens": ""
+      "callScreens": "",
+      "messages": "",
+      "embeds": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_other": "",
@@ -2380,7 +2414,18 @@
     "banner": "",
     "searchCrawlPause": "",
     "searchTricklePause": "",
-    "customThemesLightSlot": ""
+    "customThemesLightSlot": "",
+    "gifProviderTenor": "",
+    "gifProviderKlipy": "",
+    "gifProviderGiphy": "",
+    "pushTransportUnifiedPush": "",
+    "callCameraDevice": "",
+    "timelineEmoteSizeDefault": "",
+    "pushersKindGateway": "",
+    "otherProfileFieldsKaomoji": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "customThemesErrorChoose": "",
+    "themeFileTweak": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -2451,7 +2496,8 @@
         "usage": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "color": {
         "usage": "",
@@ -2486,14 +2532,16 @@
         "usage": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "wave": {
         "description": "",
         "usage": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "rainbow": {
         "description": "",
@@ -2568,7 +2616,8 @@
         "description": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "nick": {
         "usage": "",
@@ -2599,7 +2648,8 @@
         "description": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "delpmp": {
         "usage": "",
@@ -2622,10 +2672,12 @@
         "usage": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "rawacc": {
         "usage": "",
@@ -2952,7 +3004,11 @@
     "loadFailed": "",
     "edit": "",
     "manageDescription": "",
-    "colorDark": ""
+    "colorDark": "",
+    "removeTitle": "",
+    "importSystemPlaceholder": "",
+    "moveUp": "",
+    "moveDown": ""
   },
   "call": {
     "participants_one": "",
@@ -3115,7 +3171,13 @@
     "debugMode": "",
     "cameraDevices": "",
     "hideScreenPreview": "",
-    "enableAudio": ""
+    "enableAudio": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "presence": {
     "lastSeenMinutes_one": "",
@@ -3218,7 +3280,8 @@
     "categoryGeneral": "",
     "resetOne": "",
     "paletteTitle": "",
-    "nextRoom": ""
+    "nextRoom": "",
+    "hangUp": ""
   },
   "calendar": {
     "dayEvents_one": "",
@@ -3422,7 +3485,8 @@
     "joinConversationTitle": "",
     "nextStepsTitle": "",
     "joinConversationDescription": "",
-    "findCommunityTitle": ""
+    "findCommunityTitle": "",
+    "startRoomTitle": ""
   },
   "permalink": {
     "opening": "",
@@ -3577,7 +3641,9 @@
     "titlePlaceholder": "",
     "descriptionPlaceholder": "",
     "alternatives": "",
-    "solution": ""
+    "solution": "",
+    "reproductionPlaceholder": "",
+    "searching": ""
   },
   "pdf": {
     "nextPage": "",
