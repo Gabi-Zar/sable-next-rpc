@@ -32,6 +32,7 @@ jobs:
       # Only the fixed-output derivations carry hashes, so there's no need to build the app.
       - name: Fix hash mismatches
         run: |
+          set +o pipefail
           nix build -L --keep-going --no-link \
             .#sable-unwrapped.pnpmDeps \
             .#sable-unwrapped.cargoDeps \
