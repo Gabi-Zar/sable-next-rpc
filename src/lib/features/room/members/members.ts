@@ -24,7 +24,7 @@ export function senderDisplayColors(
 ): SenderDisplayColors {
   const override = profileOverrides.colors(userId);
   if (override === null) {
-    const nameColor = isOwn ? 'var(--primary-on-container)' : senderColor(userId);
+    const nameColor = isOwn ? 'var(--surface-on-container)' : senderColor(userId);
     return { nameColor, nameColorLight: null, nameColorDark: null, tinted: false };
   }
   const personaTint = personaWithColor(persona);
@@ -48,7 +48,7 @@ export function senderDisplayColors(
     roleColor ??
     null;
   const tinted = nameColorLight !== null || nameColorDark !== null;
-  const nameColor = isOwn ? 'var(--primary-on-container)' : senderColor(userId);
+  const nameColor = isOwn ? 'var(--surface-on-container)' : senderColor(userId);
 
   return {
     nameColor,
