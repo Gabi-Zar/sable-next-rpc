@@ -2467,7 +2467,8 @@
     "searchCrawlerHint": "",
     "quickCssHint": "",
     "troubleshootFailureNoAppId": "",
-    "troubleshootFailureCapabilities": ""
+    "troubleshootFailureCapabilities": "",
+    "developerSearchPhaseIndexFull": ""
   },
   "errors": {
     "pageTitle": "Ceva a eșuat",
