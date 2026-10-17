@@ -325,10 +325,9 @@
   .profile-card {
     /* --sec-main alone fails 4.5:1 on the light background at this text
        size, so small words get a stronger mix and it is left to icons. */
-    --profile-text-muted: color-mix(in oklab, var(--sec-main) 55%, var(--surface-on-container));
-    --profile-ink: var(--surface-on-container);
+    --profile-text-muted: var(--surface-on-container);
     --profile-icon: var(--sec-main);
-    --profile-line: var(--surface-container-line);
+    --profile-line: color-mix(in oklab, var(--profile-ink) 20%, var(--profile-card-ground));
     --profile-avatar-size: var(--avatar-size-large);
     --profile-cover-height: var(--avatar-size-large);
     --profile-bio-lines: 4;
@@ -340,8 +339,11 @@
     --pill-ink: var(--profile-ink, var(--bg-on-container));
     --pill-icon: var(--profile-icon);
     --pill-state: var(--profile-chip-state);
-    --profile-chip-state: var(--bg-on-container);
-    --profile-panel-ground: var(--surface-var-container);
+    --profile-panel-ground: color-mix(
+      in oklab,
+      var(--profile-chip-state) 8%,
+      var(--surface-container)
+    );
 
     background: var(--profile-card-ground);
     border: var(--border-width) solid var(--profile-line);
@@ -349,6 +351,16 @@
     color: var(--profile-ink);
     overflow: hidden;
     position: relative;
+  }
+
+  :root.dark .profile-card {
+    --profile-ink: var(--profile-ink-light);
+    --profile-chip-state: var(--profile-ink-dark);
+  }
+
+  :root.light .profile-card {
+    --profile-chip-state: var(--profile-ink-light);
+    --profile-ink: var(--profile-ink-dark);
   }
 
   .profile-card.tinted {
@@ -562,21 +574,21 @@
     padding: var(--space-300) var(--space-400) var(--space-400);
   }
 
-  .profile-card.tinted.profile-card-inset-body {
+  .profile-card.profile-card-inset-body {
     padding-bottom: var(--space-200);
   }
 
-  .profile-card-sheet.tinted.profile-card-inset-body {
+  .profile-card-sheet.profile-card-inset-body {
     padding-bottom: calc(var(--space-200) + var(--sheet-inset-bottom));
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-identity {
+  .profile-card.profile-card-inset-body .profile-card-identity {
     padding-inline: 0;
     padding-bottom: 0;
     padding-top: 0;
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-body {
+  .profile-card.profile-card-inset-body .profile-card-body {
     background: var(--profile-panel-ground);
     border: var(--border-width) solid var(--profile-line);
     border-radius: var(--radius-inner);
@@ -602,16 +614,12 @@
   }
 
   .profile-card-name {
+    color: var(--profile-name-color);
     font-size: var(--font-size-heading);
     font-weight: var(--font-weight-bold);
     letter-spacing: -0.01em;
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-
-  .profile-card-name.tinted,
-  :global(.profile-card-tinted) {
-    color: var(--profile-name-color);
   }
 
   .profile-card-user-id {
@@ -680,7 +688,7 @@
     margin: 0 var(--space-400) var(--space-300);
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-panel {
+  .profile-card.profile-card-inset-body .profile-card-panel {
     margin-inline: 0;
     margin-top: var(--space-200);
   }
@@ -695,19 +703,19 @@
     overflow: clip;
   }
 
-  .profile-card.tinted .profile-card-status,
-  .profile-card.tinted .profile-card-panel.framed {
+  .profile-card .profile-card-status,
+  .profile-card .profile-card-panel.framed {
     color: var(--profile-ink);
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-panel.framed {
-    background: var(--profile-hero);
+  .profile-card.profile-card-inset-body .profile-card-panel.framed {
+    background: var(--profile-card-ground);
     border: 0;
     border-radius: var(--radii-400);
     box-shadow: inset 0 1px 2px color-mix(in srgb, var(--profile-ink) 12%, transparent);
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-footer {
+  .profile-card.profile-card-inset-body .profile-card-footer {
     display: flex;
     flex-direction: column;
     text-align: center;
@@ -739,7 +747,7 @@
     outline-offset: calc(-1 * var(--focus-ring-width));
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-bio {
+  .profile-card.profile-card-inset-body .profile-card-bio {
     margin-block: 0;
     max-height: 12.5rem;
     padding: var(--space-200);
@@ -749,18 +757,18 @@
     white-space: normal;
   }
 
-  .profile-card.tinted :global(.formatted-body a:not([data-matrix-link], [data-settings-link])) {
+  .profile-card :global(.formatted-body a:not([data-matrix-link], [data-settings-link])) {
     color: var(--profile-ink);
     text-decoration: underline;
   }
 
-  .profile-card.tinted :global(.formatted-body code:not(pre code)) {
+  .profile-card :global(.formatted-body code:not(pre code)) {
     background: var(--profile-card-ground);
     border-color: var(--profile-line);
     color: var(--profile-ink);
   }
 
-  .profile-card.tinted :global(.formatted-body .code-block) {
+  .profile-card :global(.formatted-body .code-block) {
     color: var(--surface-var-on-container);
   }
 
@@ -770,7 +778,7 @@
     padding: 0 var(--space-400) var(--space-400);
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-composer {
+  .profile-card.profile-card-inset-body .profile-card-composer {
     padding: var(--space-200) 0 0;
   }
 
@@ -778,7 +786,7 @@
     padding: 0 var(--space-400) var(--space-400);
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-below {
+  .profile-card.profile-card-inset-body .profile-card-below {
     padding: var(--space-200) 0 0;
   }
 
@@ -786,26 +794,22 @@
     border-top: var(--border-width) solid var(--profile-line);
   }
 
-  .profile-card.tinted.profile-card-inset-body .profile-card-footer.divided {
+  .profile-card.profile-card-inset-body .profile-card-footer.divided {
     border-top: 0;
   }
 
   @media (prefers-color-scheme: dark) {
-    :root:not(.light) .profile-card-name.tinted,
-    :root:not(.light) :global(.profile-card-tinted),
-    :root.dark .profile-card-name.tinted,
-    :root.dark :global(.profile-card-tinted) {
+    :root:not(.light) .profile-card-name,
+    :root.dark .profile-card-name {
       color: var(--profile-name-color-dark);
     }
   }
 
-  :root.dark .profile-card-name.tinted,
-  :root.dark :global(.profile-card-tinted) {
-    color: var(--profile-name-color-dark);
+  .profile-card .profile-card-name {
+    color: var(--profile-name-on-hero, var(--profile-ink));
   }
 
-  .profile-card.tinted .profile-card-name.tinted,
-  .profile-card.tinted :global(.profile-card-tinted) {
-    color: var(--profile-name-on-hero, var(--profile-ink));
+  :root.dark .profile-card-name {
+    color: var(--profile-name-color-dark);
   }
 </style>
