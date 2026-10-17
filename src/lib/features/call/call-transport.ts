@@ -76,7 +76,7 @@ export type CallVideoOverlay = {
 
 export type CallRemoteVideoOverlay = {
   place: (rect: CallVideoRect & { identity: string; trackId: string }) => Promise<void>;
-  clear: () => Promise<void>;
+  clear: (trackId: string) => Promise<void>;
 };
 
 export type CallTransportCapabilities = {

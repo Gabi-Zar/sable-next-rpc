@@ -98,7 +98,32 @@ test('a watched remote screen on a native call is a slot for the native view', (
   expect(screen.getByRole('button', { name: "Stop watching Bob's screen" })).toBeInTheDocument();
 
   unmount();
-  expect(remoteVideo.clear).toHaveBeenCalled();
+  expect(remoteVideo.clear).toHaveBeenCalledWith('TR_1');
+});
+
+test('a remote camera on a native call is a slot for its own native view', () => {
+  const remoteVideo = {
+    place: vi.fn(() => Promise.resolve()),
+    clear: vi.fn(() => Promise.resolve()),
+  };
+  const { container, unmount } = render(CallParticipantTile, {
+    participant: {
+      identity: 'bob',
+      camera: { id: 'TR_2', muted: false, subscribed: true },
+    },
+    source: 'camera',
+    room: undefined,
+    remoteVideo,
+    name: 'Bob',
+    userId: '@bob:example.org',
+    avatar: null,
+  });
+
+  expect(container.querySelector('video')).not.toBeInTheDocument();
+  expect(container.querySelector('div.video')).toBeInTheDocument();
+
+  unmount();
+  expect(remoteVideo.clear).toHaveBeenCalledWith('TR_2');
 });
 
 test('the volume button still toggles the panel closed', async () => {

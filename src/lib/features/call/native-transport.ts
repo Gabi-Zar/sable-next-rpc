@@ -210,8 +210,8 @@ export async function createNativeTransport(
             })
           );
         },
-        clear: async () => {
-          adopt(await plugin.clearNativeCallRemoteVideoOverlay({ callId }));
+        clear: async (trackId) => {
+          adopt(await plugin.clearNativeCallRemoteVideoOverlay({ callId, trackId }));
         },
       },
       audioRoutes: {

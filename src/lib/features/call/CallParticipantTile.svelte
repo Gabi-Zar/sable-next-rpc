@@ -157,13 +157,17 @@
     };
   }
 
+  let remoteIdentity = $derived(participant.identity);
+  let remoteTrackId = $derived(
+    participant.local ? undefined : (screen ? participant.screenShare : participant.camera)?.id
+  );
   let remoteSlot = $derived.by(() => {
-    const trackId = participant.screenShare?.id;
-    if (!remoteVideo || !screen || trackId === undefined) return undefined;
-    const identity = participant.identity;
+    const identity = remoteIdentity;
+    const trackId = remoteTrackId;
+    if (!remoteVideo || trackId === undefined) return undefined;
     return {
       place: (rect: CallVideoRect) => remoteVideo.place({ ...rect, identity, trackId }),
-      clear: () => remoteVideo.clear(),
+      clear: () => remoteVideo.clear(trackId),
     };
   });
 

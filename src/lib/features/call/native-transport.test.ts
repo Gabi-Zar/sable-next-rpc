@@ -86,8 +86,11 @@ test('the native transport places the remote video over a tile', async () => {
     ...rect,
   });
 
-  await transport?.capabilities.remoteVideo?.clear();
-  expect(plugin.clearNativeCallRemoteVideoOverlay).toHaveBeenCalledWith({ callId: '7' });
+  await transport?.capabilities.remoteVideo?.clear('TR_1');
+  expect(plugin.clearNativeCallRemoteVideoOverlay).toHaveBeenCalledWith({
+    callId: '7',
+    trackId: 'TR_1',
+  });
 });
 
 test('the native transport lists and selects microphones on Android only', async () => {
