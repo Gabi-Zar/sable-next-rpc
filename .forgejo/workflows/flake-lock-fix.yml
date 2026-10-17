@@ -1,0 +1,56 @@
+name: Fix flake hashes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pnpm-lock.yaml'
+      - '**/Cargo.lock'
+      - 'scripts/build/fetch-deepfilternet.mjs'
+  workflow_dispatch:
+
+jobs:
+  fix:
+    name: Fix flake hashes
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: true
+          token: ${{ github.token }}
+
+      - name: Install Determinate Nix
+        uses: https://github.com/DeterminateSystems/determinate-nix-action@527f17dd63d2d60d3e5552934bc84b9a33a14d11 # v3.22.2
+
+      # Only the fixed-output derivations carry hashes, so there's no need to build the app
+      - name: Fetch dependencies
+        id: check
+        run: |
+          nix build -L --keep-going --no-link \
+            .#sable-unwrapped.pnpmDeps \
+            .#sable-unwrapped.cargoDeps \
+            .#sable-deepfilternet-assets
+        continue-on-error: true
+
+      - name: Fix hash mismatches
+        if: steps.check.outcome == 'failure'
+        run: determinate-nixd fix hashes --auto-apply
+
+      - name: Commit and push if changed
+        if: steps.check.outcome == 'failure'
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes after fix hashes; nothing to commit."
+            exit 0
+          fi
+          git config user.name "forgejo-actions[bot]"
+          git config user.email "forgejo-actions[bot]@users.noreply.git.sable.moe"
+          git add --update --ignore-removal .
+          git commit -m "chore(nix): auto-fix nix hashes"
+          git push origin HEAD:main
