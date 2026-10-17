@@ -579,7 +579,7 @@ mod tests {
         let mut graph = graph(Selection::default());
         graph.outputs.insert(51, (50, "FL".into()));
 
-        assert!(graph.wanted_links().is_empty());
+        assert_eq!(graph.wanted_links(), Vec::new());
     }
 
     #[test]
@@ -589,7 +589,7 @@ mod tests {
         graph.forget(20);
 
         assert!(graph.outputs.is_empty());
-        assert!(graph.wanted_links().is_empty());
+        assert_eq!(graph.wanted_links(), Vec::new());
     }
 
     #[test]

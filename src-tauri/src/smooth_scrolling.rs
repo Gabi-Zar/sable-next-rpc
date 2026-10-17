@@ -3,6 +3,7 @@
 
 const FILE: &str = "smooth_scrolling";
 
+#[must_use]
 pub fn enabled() -> bool {
     crate::app_dirs::config_dir()
         .and_then(|dir| std::fs::read_to_string(dir.join(FILE)).ok())
