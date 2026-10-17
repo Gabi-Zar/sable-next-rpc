@@ -146,6 +146,11 @@ async fn test_sticky_sync_sends_bounded_extensions_and_parses_both_event_locatio
         body["room_subscriptions"][room.room_id().as_str()]["timeline_limit"],
         0
     );
+    assert_eq!(
+        body["room_subscriptions"][room.room_id().as_str()]["required_state"],
+        json!([["m.room.create", ""]]),
+        "Synapse rejects a room subscription without required_state"
+    );
     assert_eq!(body["extensions"]["to_device"]["enabled"], false);
     assert_eq!(
         body["extensions"]["org.matrix.msc4354.sticky_events"]["enabled"],

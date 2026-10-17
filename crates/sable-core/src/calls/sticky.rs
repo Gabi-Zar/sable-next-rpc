@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::delayed_events::DelayedEventsSupport;
 use matrix_sdk::{Client, Room};
 use ruma::api::client::{message::send_message_event::v3, sync::sync_events::v5};
-use ruma::events::{MessageLikeEventType, sticky::StickyDurationMs};
+use ruma::events::{MessageLikeEventType, StateEventType, sticky::StickyDurationMs};
 use ruma::serde::Raw;
 use serde_json::Value;
 
@@ -34,10 +34,13 @@ impl StickySync {
         request.pos.clone_from(&self.pos);
         request.conn_id = Some(self.conn_id.clone());
         request.timeout = Some(timeout);
-        request.room_subscriptions.insert(
-            room.room_id().to_owned(),
-            v5::request::RoomSubscription::default(),
-        );
+        let mut subscription = v5::request::RoomSubscription::default();
+        subscription
+            .required_state
+            .push((StateEventType::RoomCreate, String::new()));
+        request
+            .room_subscriptions
+            .insert(room.room_id().to_owned(), subscription);
         request.extensions.to_device.enabled = Some(false);
         request.extensions.sticky_events.enabled = Some(true);
         request
