@@ -82,12 +82,22 @@ function enqueue(operation: () => Promise<void>): Promise<void> {
   return result;
 }
 
+let queuedRegistration: { key: string; result: Promise<void> } | null = null;
+
 export function registerNativePush(
   override: PushOverride,
   session: SessionInfo | null,
   accounts: readonly SessionInfo[]
 ): Promise<void> {
-  return enqueue(async () => {
+  const key = JSON.stringify([
+    override,
+    session?.user_id,
+    session?.device_id,
+    accounts.map((account) => [account.user_id, account.device_id, account.needs_reauth]),
+    selectedPushProvider(),
+  ]);
+  if (queuedRegistration?.key === key) return queuedRegistration.result;
+  const result = enqueue(async () => {
     try {
       await register(override, session, accounts);
       clearPushFailure();
@@ -96,6 +106,13 @@ export function registerNativePush(
       throw error;
     }
   });
+  const entry = { key, result };
+  queuedRegistration = entry;
+  const settle = (): void => {
+    if (queuedRegistration === entry) queuedRegistration = null;
+  };
+  result.then(settle, settle);
+  return result;
 }
 
 export function unregisterNativePush(): Promise<void> {

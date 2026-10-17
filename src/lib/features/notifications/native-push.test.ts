@@ -91,6 +91,24 @@ test('registers the built-in gateway and preserves native and UnifiedPush routin
   expect(mocks.select).not.toHaveBeenCalled();
 });
 
+test('registers once for identical requests made while one is pending', async () => {
+  const first = registerNativePush(override, session, accounts);
+  const second = registerNativePush(override, session, accounts);
+  await Promise.all([first, second]);
+  expect(mocks.register).toHaveBeenCalledTimes(1);
+
+  await registerNativePush(override, session, accounts);
+  expect(mocks.register).toHaveBeenCalledTimes(2);
+});
+
+test('still registers a request that differs from the pending one', async () => {
+  await Promise.all([
+    registerNativePush(override, session, accounts),
+    registerNativePush(override, other, accounts),
+  ]);
+  expect(mocks.register).toHaveBeenCalledTimes(2);
+});
+
 test('declares every signed-in account, not only the active one', async () => {
   const reauth = {
     ...other,
