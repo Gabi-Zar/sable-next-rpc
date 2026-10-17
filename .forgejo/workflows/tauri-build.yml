@@ -654,19 +654,6 @@ jobs:
           for rpm in electron/release/*.rpm; do
             upload "$rpm" "$api/rpm/$channel/upload"
           done
-      - name: Upload bundles
-        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
-        with:
-          name: electron-linux-x86_64
-          path: |
-            electron/release/*.deb
-            electron/release/*.rpm
-            electron/release/*.AppImage
-            electron/release/*.tar.gz
-            electron/release/*.blockmap
-            electron/release/*-linux.yml
-          if-no-files-found: error
-          retention-days: 7
 
   electron-macos:
     name: macOS arm64 (Electron)
@@ -702,17 +689,6 @@ jobs:
         run: pnpm --dir electron package --mac
       - name: Publish Electron bundles and update metadata
         run: node electron/publish-updates.mjs
-      - name: Upload bundles
-        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
-        with:
-          name: electron-macos-arm64
-          path: |
-            electron/release/*.dmg
-            electron/release/*.zip
-            electron/release/*.blockmap
-            electron/release/*-mac.yml
-          if-no-files-found: error
-          retention-days: 7
 
   ios:
     name: Build iOS
@@ -733,6 +709,7 @@ jobs:
       VERSION: ${{ needs.setup-release.outputs.version }}
       IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
       RUST_TARGETS: aarch64-apple-ios
+      CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
       # Read by src-tauri/build.rs, which bakes them into the binary.
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

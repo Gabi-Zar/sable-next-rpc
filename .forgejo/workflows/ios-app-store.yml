@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 env:
   CARGO_INCREMENTAL: 0
-  CARGO_PROFILE_RELEASE_DEBUG: '1'
+  CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
   CARGO_PROFILE_RELEASE_STRIP: none
   CARGO_TERM_COLOR: always
 jobs:
