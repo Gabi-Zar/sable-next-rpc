@@ -144,7 +144,8 @@
     "invitesSpamCollapse": "",
     "declineAll": "",
     "blockSendersConfirm": "",
-    "invitesSpamShow": ""
+    "invitesSpamShow": "",
+    "noPreview": ""
   },
   "room": {
     "createDescription": "V místnostech probíhají konverzace. A prostory sdružují místnosti.",
@@ -708,7 +709,11 @@
     "settingsDialogDescription": "",
     "cosmeticsColorDark": "",
     "directoryKindSpaces": "",
-    "permUsersDefault": ""
+    "permUsersDefault": "",
+    "permGroupMessages": "",
+    "devRoomTitle": "",
+    "permRoleIcon": "",
+    "emojisDeletePackConfirm": ""
   },
   "common": {
     "directMessages": "Přímé zprávy",
@@ -960,7 +965,15 @@
     "debugSticky": "",
     "debugNoPeers": "",
     "showCall": "",
-    "settings": ""
+    "settings": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_few": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_few": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "settings": {
     "tiktokEmbeds": "",
@@ -1017,7 +1030,9 @@
       "blurring": "",
       "membersPronouns": "",
       "sending": "",
-      "emojiImages": ""
+      "emojiImages": "",
+      "embeds": "",
+      "messages": ""
     },
     "keyBackupImported_one": "",
     "keyBackupImported_few": "",
@@ -2037,7 +2052,15 @@
     "renameDevice": "",
     "resetIdentityApprove": "",
     "composerOrderMoveCancelled": "",
-    "themeBy": ""
+    "themeBy": "",
+    "callCameraDevice": "",
+    "timelineEmoteSizeDefault": "",
+    "pushersKindGateway": "",
+    "otherProfileFieldsKaomoji": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "themeFileTweak": "",
+    "gifProviderKlipy": "",
+    "customThemesErrorChoose": ""
   },
   "composer": {
     "locationLatitude": "",
@@ -2486,7 +2509,8 @@
     "submit": "",
     "userIdLabel": "",
     "encryptionHint": "",
-    "failed": ""
+    "failed": "",
+    "description": ""
   },
   "timeline": {
     "stateChangesMore_one": "",
@@ -2935,7 +2959,8 @@
     "reportSent": "",
     "replyToRedaction": "",
     "hiddenRedaction": "",
-    "hiddenStateEvent": ""
+    "hiddenStateEvent": "",
+    "loading": ""
   },
   "auth": {
     "noAccountYet": "",
@@ -3216,7 +3241,11 @@
     "scopeSpace": "",
     "search": "",
     "backupDescription": "",
-    "pickerLabel": ""
+    "pickerLabel": "",
+    "moveUp": "",
+    "moveDown": "",
+    "importSystemPlaceholder": "",
+    "removeTitle": ""
   },
   "setup": {
     "stageDoneLabel": "",
@@ -3398,7 +3427,8 @@
     "previousRoom": "",
     "markAllRead": "",
     "editNewer": "",
-    "categoryNavigation": ""
+    "categoryNavigation": "",
+    "hangUp": ""
   },
   "supporter": {
     "donor": "",
@@ -3585,7 +3615,8 @@
     "findCommunityDescription": "",
     "supportDevelopment": "",
     "startRoomDescription": "",
-    "getSupport": ""
+    "getSupport": "",
+    "startRoomTitle": ""
   },
   "app": {
     "pettingAnimal": "",
