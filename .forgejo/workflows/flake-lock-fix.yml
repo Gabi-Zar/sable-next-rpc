@@ -25,7 +25,10 @@ jobs:
           token: ${{ github.token }}
 
       - name: Install Determinate Nix
-        uses: https://github.com/DeterminateSystems/determinate-nix-action@527f17dd63d2d60d3e5552934bc84b9a33a14d11 # v3.22.2
+        # determinate-nix-action wraps this action by bare name, which Forgejo resolves against data.forgejo.org
+        uses: https://github.com/DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41
+        with:
+          determinate: true
 
       # Only the fixed-output derivations carry hashes, so there's no need to build the app
       - name: Fetch dependencies
