@@ -25,7 +25,6 @@
     "createRoomInSpace": "o pali e tomo lon kulupu",
     "createSubspace": "o pali e kulupu insa kulupu",
     "folderRename": "o nimi sin e poki",
-    "markedUnread": "toki ni li kon",
     "folderName": "nimi poki",
     "folderCollapse": "o pini e poki {{name}}",
     "folderExpand": "poki {{name}}",
@@ -62,9 +61,7 @@
     "directMessages": "toki ante",
     "createRoom": "o pali e tomo",
     "addAccount": "o kama e sina kin",
-    "cancel": "pali ante",
     "voiceRoom": "tomo pi toki kute",
-    "save": "pali sin",
     "createSpace": "o pali e kulupu",
     "moreOptions": "ante namako"
   }
