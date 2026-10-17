@@ -61,7 +61,6 @@ targets:
       properties:
         com.apple.security.application-groups: [group.{{app.identifier}}]
         com.apple.developer.default-data-protection: NSFileProtectionCompleteUntilFirstUserAuthentication
-        com.apple.developer.usernotifications.filtering: true
         com.apple.developer.usernotifications.communication: true
     settings:
       groups: [app]
