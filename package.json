@@ -76,10 +76,10 @@
     "mdast-util-gfm-strikethrough": "^2.0.0",
     "mdast-util-gfm-table": "^2.0.0",
     "mdast-util-to-markdown": "^2.1.2",
-    "music-metadata": "12.0.0",
+    "music-metadata": "12.1.0",
     "opus-recorder": "^8.0.5",
     "pdfjs-dist": "6.4.299",
-    "phosphor-svelte": "^3.1.0",
+    "phosphor-svelte": "^3.1.1",
     "prosemirror-commands": "^1.7.2",
     "prosemirror-dropcursor": "^1.8.4",
     "prosemirror-gapcursor": "^1.4.1",
@@ -100,9 +100,9 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "^1.64.0",
     "@sentry/cli": "3.8.0",
-    "@sentry/sveltekit": "^11.0.0",
+    "@sentry/sveltekit": "^11.6.0",
     "@storybook/addon-a11y": "10.6.1",
     "@storybook/addon-docs": "10.6.1",
     "@storybook/addon-svelte-csf": "5.1.5",
@@ -122,11 +122,11 @@
     "axe-core": "^4.14.0",
     "eslint": "^10.10.0",
     "eslint-plugin-oxlint": "^1.85.0",
-    "eslint-plugin-svelte": "^3.23.0",
+    "eslint-plugin-svelte": "^3.23.1",
     "fast-check": "^4.10.0",
     "globals": "^17.12.0",
-    "happy-dom": "^20.14.3",
-    "knip": "^6.38.0",
+    "happy-dom": "^20.14.6",
+    "knip": "^6.41.0",
     "oxfmt": "^0.72.0",
     "oxlint": "^1.85.0",
     "oxlint-tsgolint": "7.0.2003",
@@ -137,15 +137,15 @@
     "stylelint-config-standard": "^40.0.0",
     "stylelint-order": "^8.1.1",
     "stylelint-plugin-defensive-css": "^2.9.7",
-    "svelte": "^5.57.0",
+    "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "testcontainers": "^12.1.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^8.3.1",
+    "vite": "^8.3.4",
     "vitest": "^5.0.0",
     "vitest-browser-svelte": "^3.1.0",
-    "wrangler": "^4.140.0"
+    "wrangler": "^4.149.0"
   },
   "devEngines": {
     "runtime": {
@@ -153,7 +153,7 @@
       "version": "^24.14.0"
     }
   },
-  "packageManager": "pnpm@12.10.1",
+  "packageManager": "pnpm@12.11.2",
   "imports": {
     "#src/generated/*": "./src/generated/*.ts",
     "#src/generated/wasm/*.js": "./src/generated/wasm/*.js",
