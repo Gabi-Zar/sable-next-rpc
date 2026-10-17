@@ -537,7 +537,8 @@
     "directoryKind": "Покажи",
     "devDiagMembership": "Членство",
     "addToSpaceSearch": "Търси пространства",
-    "settingsGeneral": "Общи"
+    "settingsGeneral": "Общи",
+    "devDiagSync": "Синхронизирай"
   },
   "inbox": {
     "loadFailed": "Не можаха да се заредят известията.",
@@ -2843,7 +2844,9 @@
     "trustedProvenanceTooltip": "",
     "knocking": "Изпращане…",
     "joining": "Присъединяване…",
-    "withdrawing": "Оттегляне…"
+    "withdrawing": "Оттегляне…",
+    "members_one": "{{count, number}} член",
+    "members_other": "{{count, number}} члена"
   },
   "direct": {
     "confirmTitle": "",
