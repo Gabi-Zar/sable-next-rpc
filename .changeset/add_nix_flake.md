@@ -1,5 +1,5 @@
 ---
-default: minor
+default: patch
 ---
 
 # Add a Nix flake
