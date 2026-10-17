@@ -125,7 +125,9 @@
     "invitesSpamCollapse": "",
     "acceptAllFailed_other": "",
     "acceptAll": "",
-    "invitesShowPending": ""
+    "invitesShowPending": "",
+    "invitedBy": "",
+    "noPreview": ""
   },
   "common": {
     "directMessages": "toki ante",
@@ -392,7 +394,9 @@
       "emojiImages": "",
       "activity": "",
       "playback": "",
-      "messageLayout": ""
+      "messageLayout": "",
+      "messages": "",
+      "embeds": ""
     },
     "aboutReport": "",
     "renameDevice": "",
@@ -1372,7 +1376,18 @@
     "searchUnmeteredOnly": "",
     "themeCatalogAll": "",
     "themeCatalogEmpty": "",
-    "unsavedChanges": ""
+    "unsavedChanges": "",
+    "pushTransportUnifiedPush": "",
+    "gifProviderTenor": "",
+    "callCameraDevice": "",
+    "timelineEmoteSizeDefault": "",
+    "pushersKindGateway": "",
+    "gifProviderKlipy": "",
+    "gifProviderGiphy": "",
+    "otherProfileFieldsKaomoji": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "customThemesErrorChoose": "",
+    "themeFileTweak": ""
   },
   "room": {
     "devEventSend": "",
@@ -1893,7 +1908,16 @@
     "cosmeticsPronounsHint": "",
     "directoryKindAll": "",
     "reportHint": "",
-    "directoryKind": ""
+    "directoryKind": "",
+    "devRoomTitle": "",
+    "createSubspaceTitle": "",
+    "emojisDeletePackConfirm": "",
+    "createSpaceTitle": "",
+    "createKindRoomHint": "",
+    "permRoleIcon": "",
+    "joinTitle": "",
+    "permGroupMessages": "",
+    "directoryJoinByAddress": ""
   },
   "setup": {
     "layoutTitle": "",
@@ -2053,35 +2077,40 @@
         "usage": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "unban": {
         "description": "",
         "usage": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "spronoun": {
         "description": "",
         "usage": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "pronoun": {
         "description": "",
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "color": {
         "description": "",
         "usage": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "pmpproxy": {
         "usage": "",
@@ -2112,7 +2141,8 @@
         "usage": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "converttodm": {
         "usage": "",
@@ -2175,7 +2205,8 @@
         "usage": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "roomname": {
         "description": "",
@@ -2786,7 +2817,18 @@
     "utdWithheldBySender": "",
     "utdWithheldUnverified": "",
     "utdUnsignedDevice": "",
-    "utdVerificationViolation": ""
+    "utdVerificationViolation": "",
+    "loading": "",
+    "sending": "",
+    "loadingNewer": "",
+    "loadingHistory": "",
+    "messagePlaceholder": "",
+    "loadingMembers": "",
+    "oneTyping": "",
+    "twoTyping": "",
+    "threeTyping": "",
+    "manyTyping": "",
+    "unknownTyping": ""
   },
   "auth": {
     "continue": "",
@@ -2894,7 +2936,9 @@
     "signingInOn": "",
     "loginIdentifierHint": "",
     "userServerNotFound": "",
-    "loginIdentifier": ""
+    "loginIdentifier": "",
+    "signingIn": "",
+    "redirectingTo": ""
   },
   "join": {
     "knockRequired": "",
@@ -2927,7 +2971,8 @@
     "submit": "",
     "userIdLabel": "",
     "failed": "",
-    "encryptionHint": ""
+    "encryptionHint": "",
+    "description": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3046,7 +3091,11 @@
     "triggersHint": "",
     "backupFailed": "",
     "empty": "",
-    "picker": ""
+    "picker": "",
+    "importSystemPlaceholder": "",
+    "removeTitle": "",
+    "moveDown": "",
+    "moveUp": ""
   },
   "call": {
     "screenPickerScreens": "",
@@ -3208,7 +3257,11 @@
     "chat": "",
     "hideChat": "",
     "closeChat": "",
-    "screenSourcePicker": ""
+    "screenSourcePicker": "",
+    "live": "",
+    "lobbyInCall_other": "",
+    "others_other": "",
+    "leave": ""
   },
   "shortcuts": {
     "closeWindow": "",
@@ -3247,7 +3300,8 @@
     "openSettings": "",
     "nextRoom": "",
     "paletteTitle": "",
-    "paletteRecents": ""
+    "paletteRecents": "",
+    "hangUp": ""
   },
   "app": {
     "migrationFailed": "",
@@ -3269,7 +3323,8 @@
     "joinConversationTitle": "",
     "findCommunityTitle": "",
     "startRoomDescription": "",
-    "resourcesLabel": ""
+    "resourcesLabel": "",
+    "startRoomTitle": ""
   },
   "userLink": {
     "failed": "",
@@ -3353,7 +3408,9 @@
     "titlePlaceholder": "",
     "context": "",
     "platformInfo": "",
-    "problem": ""
+    "problem": "",
+    "searching": "",
+    "reproductionPlaceholder": ""
   },
   "search": {
     "empty": "",
