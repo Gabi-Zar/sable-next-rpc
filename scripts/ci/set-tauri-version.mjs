@@ -2,15 +2,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 
 const {
-  values: {
-    'apple-short-version': foldNightlyIntoPatch,
-    msi: setMsiVersion,
-    'updater-endpoint': updaterEndpoint,
-  },
+  values: { msi: setMsiVersion, 'updater-endpoint': updaterEndpoint },
   positionals: [version],
 } = parseArgs({
   options: {
-    'apple-short-version': { type: 'boolean' },
     msi: { type: 'boolean' },
     'updater-endpoint': { type: 'string' },
   },
@@ -18,16 +13,10 @@ const {
 });
 
 if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
-  console.error(
-    `Usage: set-tauri-version.mjs <version> [--apple-short-version] [--msi]  (got: ${version ?? '<none>'})`
-  );
+  console.error(`Usage: set-tauri-version.mjs <version> [--msi]  (got: ${version ?? '<none>'})`);
   process.exit(1);
 }
 
-// CFBundleShortVersionString only accepts numeric components, so the nightly
-// stamp folds into patch as a Unix timestamp. The YYMMDDHHMMSS form itself
-// overflows the u32 Tauri parses each version part into.
-let stampedVersion = version;
 let wixVersion;
 const nightlyVersion =
   /^(\d+)\.(\d+)\.(\d+)-nightly\.(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.[0-9a-f]+)?$/.exec(
@@ -43,20 +32,6 @@ const androidVersionCode = nightlyVersion
       +nightlyVersion[9]
     ) / 1000
   : undefined;
-if (foldNightlyIntoPatch) {
-  if (!nightlyVersion) {
-    console.error(`--apple-short-version needs a nightly version (got: ${version})`);
-    process.exit(1);
-  }
-  const [, major, minor] = nightlyVersion;
-  const patch = androidVersionCode;
-  if (!Number.isInteger(patch) || patch <= 0 || patch > 0xffffffff) {
-    console.error(`Nightly stamp does not map to a u32 patch version: ${version}`);
-    process.exit(1);
-  }
-  stampedVersion = `${major}.${minor}.${patch}`;
-}
-
 if (setMsiVersion) {
   if (nightlyVersion) {
     const [, major, minor, patch] = nightlyVersion;
@@ -67,7 +42,7 @@ if (setMsiVersion) {
 
 const file = 'src-tauri/tauri.conf.json';
 const config = JSON.parse(readFileSync(file, 'utf8'));
-config.version = stampedVersion;
+config.version = version;
 if (wixVersion) {
   config.bundle ??= {};
   config.bundle.windows ??= {};
@@ -85,5 +60,5 @@ if (androidVersionCode) {
   config.bundle.android.versionCode = androidVersionCode;
 }
 writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
-console.log(`Set ${file} version to ${stampedVersion}`);
+console.log(`Set ${file} version to ${version}`);
 if (wixVersion) console.log(`Set ${file} MSI version to ${wixVersion}`);
