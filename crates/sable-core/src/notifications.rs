@@ -779,8 +779,24 @@ pub(crate) fn gateway(url: &str) -> Result<String, CoreError> {
 }
 
 #[derive(serde::Serialize)]
+struct ApsOut {
+    #[serde(rename = "mutable-content")]
+    mutable_content: u8,
+}
+
+#[derive(serde::Serialize)]
 struct DefaultPayloadOut {
     user_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    aps: Option<ApsOut>,
+}
+
+/// A gateway that builds the alert itself only starts the iOS notification extension when this asks for it.
+fn default_payload(user_id: String, mutable_content: bool) -> DefaultPayloadOut {
+    DefaultPayloadOut {
+        user_id,
+        aps: mutable_content.then_some(ApsOut { mutable_content: 1 }),
+    }
 }
 
 #[derive(serde::Serialize)]
@@ -813,7 +829,9 @@ pub async fn set_pusher(client: &Client, pusher: PusherView) -> Result<(), CoreE
         (Some(keys.endpoint), Some(keys.p256dh), Some(keys.auth))
     });
     pusher_data.data = serde_json::to_value(PusherDataOut {
-        default_payload: user_id.clone().map(|user_id| DefaultPayloadOut { user_id }),
+        default_payload: user_id
+            .clone()
+            .map(|user_id| default_payload(user_id, cfg!(target_os = "ios"))),
         user_id,
         endpoint,
         p256dh,
@@ -932,13 +950,27 @@ mod tests {
     }
 
     #[test]
+    fn an_ios_default_payload_asks_for_the_notification_extension() {
+        use super::default_payload;
+        assert_eq!(
+            serde_json::to_value(default_payload("@a:b".to_owned(), true)).unwrap(),
+            json!({ "user_id": "@a:b", "aps": { "mutable-content": 1 } })
+        );
+        assert_eq!(
+            serde_json::to_value(default_payload("@a:b".to_owned(), false)).unwrap(),
+            json!({ "user_id": "@a:b" })
+        );
+    }
+
+    #[test]
     fn pusher_data_omits_what_is_absent_and_nests_the_default_payload() {
         use super::{DefaultPayloadOut, PusherDataOut};
         assert_eq!(
             serde_json::to_value(PusherDataOut {
                 user_id: Some("@a:b".to_owned()),
                 default_payload: Some(DefaultPayloadOut {
-                    user_id: "@a:b".to_owned()
+                    user_id: "@a:b".to_owned(),
+                    aps: None,
                 }),
                 endpoint: Some("https://push.example/sub".to_owned()),
                 p256dh: Some("key".to_owned()),

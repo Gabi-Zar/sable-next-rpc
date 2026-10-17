@@ -27,6 +27,9 @@ read" is on.
    Omit `apns-collapse-id` or use an event-specific value. Read updates must also
    be alerts (`apns-push-type: alert`); the extension drops them.
    `event_id_only` pushes are not supported: the extension cannot fetch events.
+   A stock Sygnal builds its own alert and does not forward the event, so the pusher's
+   `default_payload` asks for `mutable-content` and every alert is the generic one.
+   Previews need a gateway that forwards the event.
 4. Request the restricted `com.apple.developer.usernotifications.filtering`
    entitlement (rings and read updates are dropped with empty content) and enable
    Communication Notifications for both App IDs. Without filtering, the system
