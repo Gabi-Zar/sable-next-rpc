@@ -90,6 +90,59 @@ impl Core {
         Ok(None)
     }
 
+    pub(crate) async fn deactivate_account(
+        &self,
+        password: Option<String>,
+    ) -> Result<Option<String>, RpcError> {
+        let client = self.client().await?;
+
+        if client.oauth().full_session().is_some() {
+            let metadata = client
+                .oauth()
+                .server_metadata()
+                .await
+                .or_failed(self, "deactivate_account_metadata")?;
+            return oauth_account_deactivate_url(&metadata).map(Some);
+        }
+
+        let account = client.account();
+        let Err(error) = account.deactivate(None, None, false).await else {
+            return Ok(None);
+        };
+        let Some(uiaa) = error.as_uiaa_response() else {
+            return Err(self.failed("deactivate_account", error));
+        };
+        let password_only = uiaa
+            .flows
+            .iter()
+            .any(|flow| flow.stages == [AuthType::Password]);
+        let password = match password {
+            Some(password) if password_only => password,
+            _ => {
+                return Err(RpcError::InteractiveAuthRequired {
+                    stages: uiaa
+                        .flows
+                        .iter()
+                        .flat_map(|flow| &flow.stages)
+                        .map(|stage| stage.as_str().to_owned())
+                        .collect(),
+                });
+            }
+        };
+
+        let user_id = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
+        let mut auth = Password::new(UserIdentifier::Matrix(user_id.into()), password);
+        auth.session.clone_from(&uiaa.session);
+        account
+            .deactivate(None, Some(AuthData::Password(auth)), false)
+            .await
+            .map_err(|error| match error.as_uiaa_response() {
+                Some(_) => RpcError::Denied,
+                None => self.failed("deactivate_account_auth", error),
+            })?;
+        Ok(None)
+    }
+
     pub(crate) async fn claim_session_generation(&self) -> SessionGeneration<'_> {
         let guard = self.session_activation_lock.lock().await;
         SessionGeneration {
@@ -1179,6 +1232,22 @@ fn oauth_device_delete_url(
         .account_management_url_with_action(AccountManagementActionData::DeviceDelete(
             DeviceDeleteData::new(device_id),
         ))
+        .map(|url| url.to_string())
+        .ok_or(RpcError::Unsupported)
+}
+
+fn oauth_account_deactivate_url(
+    metadata: &matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata,
+) -> Result<String, RpcError> {
+    use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::{
+        AccountManagementAction, AccountManagementActionData,
+    };
+    if !metadata.is_account_management_action_supported(&AccountManagementAction::AccountDeactivate)
+    {
+        return Err(RpcError::Unsupported);
+    }
+    metadata
+        .account_management_url_with_action(AccountManagementActionData::AccountDeactivate)
         .map(|url| url.to_string())
         .ok_or(RpcError::Unsupported)
 }

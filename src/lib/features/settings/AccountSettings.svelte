@@ -9,6 +9,7 @@
   import '#lib/ui/primitives/settings-row.css';
   import { findCategory, SETTINGS_ACCOUNT_SECTION } from '#lib/settings/registry.js';
   import ExtendedProfileSettings from './ExtendedProfileSettings.svelte';
+  import DeleteAccountSetting from './DeleteAccountSetting.svelte';
   import LinkDeviceSetting from './LinkDeviceSetting.svelte';
   import ProfileEditor from './ProfileEditor.svelte';
   import SettingsCategorySections from './SettingsCategorySections.svelte';
@@ -70,6 +71,7 @@
       {#if profile}<ExtendedProfileSettings {profile} />{/if}
       <LinkDeviceSetting />
       {#if category}<SettingsCategorySections {category} />{/if}
+      <DeleteAccountSetting />
     {/if}
   </div>
 </AppPageShell>

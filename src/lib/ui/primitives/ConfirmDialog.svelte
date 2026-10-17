@@ -18,6 +18,7 @@
     confirmVariant?: ButtonVariant;
     cancelLabel?: string;
     busy?: boolean;
+    confirmDisabled?: boolean;
     error?: string | null;
     onConfirm?: () => void;
     onCancel?: () => void;
@@ -33,6 +34,7 @@
     confirmVariant = 'danger',
     cancelLabel = i18n.t('common.cancel'),
     busy = false,
+    confirmDisabled = false,
     error = null,
     onConfirm,
     onCancel,
@@ -71,7 +73,12 @@
       <Button type="button" variant="ghost" disabled={busy} onclick={cancel}>
         {cancelLabel}
       </Button>
-      <Button type="submit" variant={confirmVariant} loading={busy} disabled={busy}>
+      <Button
+        type="submit"
+        variant={confirmVariant}
+        loading={busy}
+        disabled={busy || confirmDisabled}
+      >
         {confirmLabel}
       </Button>
     </DialogActions>

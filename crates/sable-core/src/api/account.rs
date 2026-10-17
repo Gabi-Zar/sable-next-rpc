@@ -34,6 +34,7 @@ domain! {
     ignore_user,
     unignore_user,
     report_user,
+    deactivate_account,
     set_presence,
     fetch_presence,
     search_user_directory,
@@ -45,6 +46,21 @@ domain! {
     set_media_preview_config,
     profile_overrides,
     set_profile_override,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct DeactivateAccountParams {
+    #[serde(default)]
+    pub password: Option<String>,
+}
+
+impl Handler for DeactivateAccountParams {
+    type Ok = Option<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
+        core.deactivate_account(self.password).await
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]

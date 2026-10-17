@@ -1977,6 +1977,9 @@ export type Rpc = {
 	user_id: string,
 	reason: string,
 }) => Promise<null>;
+    deactivateAccount: (params: {
+	password?: string | null,
+}) => Promise<string | null>;
     setPresence: (params: {
 	presence: PresenceView,
 	status_message?: string | null,
@@ -3234,6 +3237,7 @@ export type RpcMethods = {
   'account.ignore_user': Rpc['account']['ignoreUser'];
   'account.unignore_user': Rpc['account']['unignoreUser'];
   'account.report_user': Rpc['account']['reportUser'];
+  'account.deactivate_account': Rpc['account']['deactivateAccount'];
   'account.set_presence': Rpc['account']['setPresence'];
   'account.fetch_presence': Rpc['account']['fetchPresence'];
   'account.search_user_directory': Rpc['account']['searchUserDirectory'];
@@ -3536,6 +3540,7 @@ export function createRpc(call: RpcCall): Rpc {
       ignoreUser: (params) => call('account.ignore_user', params) as ReturnType<Rpc['account']['ignoreUser']>,
       unignoreUser: (params) => call('account.unignore_user', params) as ReturnType<Rpc['account']['unignoreUser']>,
       reportUser: (params) => call('account.report_user', params) as ReturnType<Rpc['account']['reportUser']>,
+      deactivateAccount: (params) => call('account.deactivate_account', params) as ReturnType<Rpc['account']['deactivateAccount']>,
       setPresence: (params) => call('account.set_presence', params) as ReturnType<Rpc['account']['setPresence']>,
       fetchPresence: (params) => call('account.fetch_presence', params) as ReturnType<Rpc['account']['fetchPresence']>,
       searchUserDirectory: (params) => call('account.search_user_directory', params) as ReturnType<Rpc['account']['searchUserDirectory']>,

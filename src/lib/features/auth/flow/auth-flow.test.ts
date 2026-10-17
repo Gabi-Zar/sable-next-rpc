@@ -8,6 +8,7 @@ const flows: LoginFlowsView = {
   oidc: false,
   oidc_registration: false,
   sso: false,
+  qr_login: false,
   oauth_aware_preferred: false,
   sso_identity_providers: [],
 };
