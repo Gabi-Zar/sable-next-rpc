@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { removeLocalValue } from '#lib/platform/local-json.js';
+  import { readText, removeLocalValue, writeText } from '#lib/platform/local-json.js';
 
   import {
     callbackChannelName,
@@ -20,6 +20,7 @@
   }
 
   let { onCallback, onRegistrationComplete, onCallbackWindow }: Props = $props();
+  const HANDLED_CALLBACK_KEY = 'sable-handled-auth-callback';
   let removeDeepLinkListener: (() => void) | undefined;
   let disposed = false;
 
@@ -40,10 +41,15 @@
     onRegistrationComplete();
   }
 
+  function handleCallback(url: string): void {
+    writeText(HANDLED_CALLBACK_KEY, url);
+    onCallback(url);
+  }
+
   async function watchDeepLinks(): Promise<void> {
     const unlisten = await subscribeDeepLinks((urls) => {
       const url = urls.find((candidate) => redirectLoginType(candidate));
-      if (url) onCallback(url);
+      if (url) handleCallback(url);
     });
 
     if (disposed) {
@@ -53,7 +59,7 @@
     removeDeepLinkListener = unlisten;
 
     const url = (await currentDeepLinks()).find((candidate) => redirectLoginType(candidate));
-    if (url) onCallback(url);
+    if (url && url !== readText(HANDLED_CALLBACK_KEY)) handleCallback(url);
   }
 
   onMount(() => {
