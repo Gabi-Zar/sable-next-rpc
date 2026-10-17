@@ -143,7 +143,9 @@
     "invitesEmpty": "",
     "moreNotifications": "",
     "inviteNoSharedRooms": "",
-    "invitesTab": ""
+    "invitesTab": "",
+    "notificationsEmptyDirect": "",
+    "notificationsEmptyAll": ""
   },
   "room": {
     "createDescription": "Camerele conțin o conversații. Spațiile conțin camere.",
@@ -710,7 +712,8 @@
     "menuReport": "",
     "addressesRemoveManyConfirm": "",
     "directoryKind": "",
-    "addressesPublish": ""
+    "addressesPublish": "",
+    "cosmeticsHintRoom": ""
   },
   "join": {
     "joining": "Se trimite…",
@@ -2468,7 +2471,8 @@
     "quickCssHint": "",
     "troubleshootFailureNoAppId": "",
     "troubleshootFailureCapabilities": "",
-    "developerSearchPhaseIndexFull": ""
+    "developerSearchPhaseIndexFull": "",
+    "voiceIsolationHint": ""
   },
   "errors": {
     "pageTitle": "Ceva a eșuat",
