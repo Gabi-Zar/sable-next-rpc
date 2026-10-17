@@ -18,6 +18,7 @@
     "webPushAppID": "moe.sable.app.sygnal",
     "nativePushAppID": "moe.sable.client.android",
     "iosPushAppID": "moe.sable.app",
+    "iosVoipPushAppID": "moe.sable.app.voip",
     "unifiedPushGatewayUrl": "https://ntfy.ow-ops.eu/_matrix/push/v1/notify",
     "unifiedPushEmbeddedServerUrl": "https://ntfy.ow-ops.eu"
   },

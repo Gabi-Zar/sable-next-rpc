@@ -32,7 +32,14 @@ read" is on.
    Communication Notifications for both App IDs. Without filtering, the system
    shows the generic alert instead. `src-tauri/ios-project.yml` leaves it out until
    Apple grants it: signing fails while the profile lacks a requested entitlement.
-5. Install the Rust target matching the Xcode destination. Run `tauri ios init`
+5. Calls ring through a PushKit pusher registered under
+   `pushNotificationDetails.iosVoipPushAppID` (`moe.sable.app.voip`). The gateway app
+   uses APNs topic `moe.sable.app.voip`, `apns-push-type: voip`, and must only send
+   call rings: iOS terminates the app for a VoIP push it does not report as a call,
+   and stops delivering them after repeated failures. The payload carries `room_id`,
+   a call `uuid`, `caller_name`, and optionally `expires_at` (Unix seconds). Without
+   this pusher, the extension rings only once Apple grants the filtering entitlement.
+6. Install the Rust target matching the Xcode destination. Run `tauri ios init`
    after template changes; the extension build uses the workspace lockfile.
 
 Sign out before switching existing private sessions to shared storage. Without
