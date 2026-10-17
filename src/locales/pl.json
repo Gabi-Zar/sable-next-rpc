@@ -1688,7 +1688,7 @@
     "folder": "Folder",
     "unpinFromSidebar": "Odepnij od paska bocznego",
     "messageSearch": "Wyszukiwanie wiadomości",
-    "switchAccount": "Zmień konto",
+    "switchAccount": "Przełącz konto",
     "exploreSpaces": "Odkrywaj przestrzenie",
     "sortRecent": "",
     "listOptions": "",
@@ -1700,7 +1700,13 @@
     "folderRenameDescription": "Użyj krótkiej nazwy. Pozostaw pustą, żeby ponownie pokazać nazwy przestrzeni.",
     "folderUngroup": "Rozgrupuj folder",
     "alerts": "Alerty",
-    "noAlerts": "Brak alertów"
+    "noAlerts": "Brak alertów",
+    "switch": "Przełącz",
+    "accounts": "Konta",
+    "switchAccountFailed": "Nie udało się przełączyć konta. Spróbuj ponownie.",
+    "switchingAccount": "Przełączanie…",
+    "resizeRooms": "Zmień rozmiar listy pokoi",
+    "unreadMentions": "{{count, number}} wzmianek"
   },
   "inbox": {
     "invites": "Oczekujące zaproszenia",
