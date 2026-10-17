@@ -1235,7 +1235,13 @@
     "hiddenMedia": "",
     "profileReport": "",
     "profileReportHint": "",
-    "sendBlockedVerify": ""
+    "sendBlockedVerify": "",
+    "pinnedAddedPart_one": "",
+    "pinnedAddedPart_many": "",
+    "pinnedAddedPart_other": "",
+    "pinnedRemovedPart_one": "",
+    "pinnedRemovedPart_many": "",
+    "pinnedRemovedPart_other": ""
   },
   "viewer": {
     "title": "Visionneuse de médias",
