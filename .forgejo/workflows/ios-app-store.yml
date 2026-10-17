@@ -120,7 +120,7 @@ jobs:
             --config src-tauri/tauri.ci.conf.json \
             --config "$APP_IDENTIFIER_CONFIG" \
             --export-method app-store-connect \
-            --build-number "$GITHUB_RUN_NUMBER" \
+            --build-number "$(date -u +%s)" \
             --ci
           node scripts/ci/upload-sentry-symbols.mjs --ios
           ipa="$(find src-tauri/gen/apple/build -type f -name '*.ipa' | head -n 1)"

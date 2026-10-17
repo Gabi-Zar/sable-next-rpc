@@ -585,12 +585,16 @@ fn update_mobile_activity(window: &tauri::Window<BrowserEngine>, event: &tauri::
     if let Some(state) = window.try_state::<AppState>() {
         let core = state.core.clone();
         core.set_app_active(active);
+        #[cfg(target_os = "ios")]
+        let background_task = (!active).then(|| ios::BackgroundTask::begin("Pause sync"));
         tauri::async_runtime::spawn(async move {
             if !active {
                 core.release_session_lock().await;
                 tokio::time::sleep(SYNC_STOP_DELAY).await;
             }
             core.apply_app_activity(active).await;
+            #[cfg(target_os = "ios")]
+            drop(background_task);
         });
     }
 }

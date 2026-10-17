@@ -720,6 +720,9 @@ jobs:
       VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
       VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
       SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
+      APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
+      APPLE_API_KEY: ${{ secrets.APP_STORE_API_KEY_ID }}
+      APP_STORE_API_KEY_BASE64: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -736,36 +739,38 @@ jobs:
           rust: 'true'
           rust-cache-key: tauri-ios
           install-mise-tools: 'false'
+      - name: Write the App Store Connect API key
+        if: ${{ needs.setup-release.outputs.nightly == 'true' }}
+        run: |
+          key_dir="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$key_dir"
+          key_path="$key_dir/AuthKey_${APPLE_API_KEY}.p8"
+          printf '%s' "$APP_STORE_API_KEY_BASE64" | base64 --decode > "$key_path"
+          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
       - name: Prepare in-place v1 upgrade identity
         if: ${{ needs.setup-release.outputs.nightly != 'true' }}
         run: node scripts/ci/prepare-v1-release.mjs
       - name: Set up iOS project
         run: |
           command -v pod >/dev/null || brew install cocoapods
-          config_args=()
-          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
-          pnpm tauri ios init --ci "${config_args[@]}"
+          pnpm tauri ios init --ci
       - name: Download iOS frameworks
         run: pnpm ios:frameworks
       - name: Add Rust target
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
           rustup target add $RUST_TARGETS
-      # CFBundleShortVersionString rejects the -nightly suffix, so nightly
-      # builds fold their timestamp into the patch component instead.
       - name: Stamp release version into tauri.conf.json
-        run: |
-          if [ "$IS_NIGHTLY" = 'true' ]; then
-            node scripts/ci/set-tauri-version.mjs "$VERSION" --apple-short-version
-          else
-            node scripts/ci/set-tauri-version.mjs "$VERSION"
-          fi
-      - name: Build unsigned iOS bundle
+        run: node scripts/ci/set-tauri-version.mjs "${VERSION%%-*}"
+      - name: Build iOS bundle
         id: ipa
         run: |
-          config_args=(--config src-tauri/tauri.ci.conf.json)
-          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
-          pnpm tauri ios build "${config_args[@]}" --no-sign --ci
+          if [ "$IS_NIGHTLY" = 'true' ]; then
+            sign_args=(--export-method app-store-connect --build-number "$(date -u +%s)")
+          else
+            sign_args=(--no-sign)
+          fi
+          pnpm tauri ios build --config src-tauri/tauri.ci.conf.json "${sign_args[@]}" --ci
           node scripts/ci/upload-sentry-symbols.mjs --ios
           ipa="$(find src-tauri/gen/apple/build -type f -name '*.ipa' | head -n 1)"
           [ -n "$ipa" ] || { echo 'No iOS IPA found' >&2; exit 1; }
@@ -786,6 +791,13 @@ jobs:
         env:
           IPA_PATH: ${{ steps.ipa.outputs.path }}
         run: node scripts/ci/forgejo-release.mjs upload "$IPA_PATH"
+      - name: Upload to TestFlight
+        if: ${{ needs.setup-release.outputs.nightly == 'true' }}
+        env:
+          IPA_PATH: ${{ steps.ipa.outputs.path }}
+        run: |
+          command -v fastlane >/dev/null || brew install fastlane
+          fastlane ios testflight ipa:"$IPA_PATH" version:"$VERSION"
 
   github-bundles:
     name: Wait for GitHub bundles
@@ -874,11 +886,7 @@ jobs:
             fi
           fi
 
-          if [ "$IS_NIGHTLY" = 'true' ]; then
-            export ALTSTORE_BUNDLE_IDENTIFIER=moe.sable.next.nightly
-          else
-            export ALTSTORE_BUNDLE_IDENTIFIER=moe.sable.client
-          fi
+          export ALTSTORE_BUNDLE_IDENTIFIER=moe.sable.app
           node scripts/ci/update-altstore-source.mjs \
             altstore-source.json \
             "$ipa_version" \

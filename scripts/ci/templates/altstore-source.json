@@ -6,11 +6,11 @@
   "iconURL": "https://git.sable.moe/SableClient/sable-next/raw/branch/main/src-tauri/icons/icon.png",
   "website": "https://git.sable.moe/SableClient/sable-next",
   "tintColor": "#5CA399",
-  "featuredApps": ["moe.sable.client"],
+  "featuredApps": ["moe.sable.app"],
   "apps": [
     {
       "name": "Sable",
-      "bundleIdentifier": "moe.sable.client",
+      "bundleIdentifier": "moe.sable.app",
       "developerName": "SableClient",
       "subtitle": "Sable for iOS",
       "localizedDescription": "Sable for iOS. Unsigned builds, resigned at install by AltStore/SideStore.",

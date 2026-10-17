@@ -30,7 +30,8 @@ read" is on.
 4. Request the restricted `com.apple.developer.usernotifications.filtering`
    entitlement (rings and read updates are dropped with empty content) and enable
    Communication Notifications for both App IDs. Without filtering, the system
-   shows the generic alert instead.
+   shows the generic alert instead. `src-tauri/ios-project.yml` leaves it out until
+   Apple grants it: signing fails while the profile lacks a requested entitlement.
 5. Install the Rust target matching the Xcode destination. Run `tauri ios init`
    after template changes; the extension build uses the workspace lockfile.
 
