@@ -63,7 +63,8 @@
     "folderRenameDescription": "",
     "folderUngroup": "",
     "voiceLive": "",
-    "folderCollapse": ""
+    "folderCollapse": "",
+    "lobby": ""
   },
   "inbox": {
     "invitesTab": "Inviti",
@@ -396,7 +397,15 @@
     "noParticipants": "",
     "returnToCall": "",
     "pin": "",
-    "outputDevices": ""
+    "outputDevices": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_many": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_many": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "composer": {
     "takePhoto": "",
@@ -481,7 +490,8 @@
         "description": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "tableflip": {
         "usage": "",
@@ -500,7 +510,8 @@
         "usage": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "converttodm": {
         "description": "",
@@ -511,7 +522,8 @@
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "hug": {
         "description": "",
@@ -558,10 +570,12 @@
         "usage": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "scolor": {
         "description": "",
@@ -580,14 +594,16 @@
         "description": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "location": {
         "description": "",
         "usage": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "rawacc": {
         "description": "",
@@ -1290,7 +1306,18 @@
     "predecessorOpen": "",
     "profileKickConfirm": "",
     "profileBanConfirm": "",
-    "reportTitle": ""
+    "reportTitle": "",
+    "sending": "",
+    "messagePlaceholder": "",
+    "loadingNewer": "",
+    "oneTyping": "",
+    "loadingMembers": "",
+    "twoTyping": "",
+    "manyTyping": "",
+    "loadingHistory": "",
+    "loading": "",
+    "threeTyping": "",
+    "unknownTyping": ""
   },
   "room": {
     "notifyMute": "",
@@ -1849,7 +1876,16 @@
     "addressesUnpublishSelected": "",
     "abbreviationsHint": "",
     "appearanceVisualTweaks": "",
-    "appearanceIconDefault": ""
+    "appearanceIconDefault": "",
+    "emojisDeletePackConfirm": "",
+    "devRoomTitle": "",
+    "createSubspaceTitle": "",
+    "createSpaceTitle": "",
+    "permGroupMessages": "",
+    "permRoleIcon": "",
+    "directoryJoinByAddress": "",
+    "createKindRoomHint": "",
+    "joinTitle": ""
   },
   "viewer": {
     "zoomIn": "",
@@ -1986,7 +2022,9 @@
     "username": "",
     "sendResetEmail": "",
     "cancelAddingAccount": "",
-    "confirmPassword": ""
+    "confirmPassword": "",
+    "signingIn": "",
+    "redirectingTo": ""
   },
   "join": {
     "knocking": "",
@@ -2069,7 +2107,9 @@
       "sounds": "",
       "receiptsTyping": "",
       "window": "",
-      "form": ""
+      "form": "",
+      "embeds": "",
+      "messages": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_many": "",
@@ -3086,7 +3126,18 @@
     "customThemesLightTheme": "",
     "composerEnterNewline": "",
     "themePreviewRevert": "",
-    "otherProfileFieldsValuePlaceholder": ""
+    "otherProfileFieldsValuePlaceholder": "",
+    "gifProviderTenor": "",
+    "pushTransportUnifiedPush": "",
+    "gifProviderKlipy": "",
+    "timelineEmoteSizeDefault": "",
+    "callCameraDevice": "",
+    "pushersKindGateway": "",
+    "gifProviderGiphy": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "customThemesErrorChoose": "",
+    "otherProfileFieldsKaomoji": "",
+    "themeFileTweak": ""
   },
   "search": {
     "didYouMean": "",
@@ -3147,7 +3198,8 @@
     "submit": "",
     "userIdPlaceholder": "",
     "userIdLabel": "",
-    "failed": ""
+    "failed": "",
+    "description": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3266,7 +3318,11 @@
     "sortNameRecentlyUsed": "",
     "listView": "",
     "proxying": "",
-    "triggerKeep": ""
+    "triggerKeep": "",
+    "importSystemPlaceholder": "",
+    "removeTitle": "",
+    "moveDown": "",
+    "moveUp": ""
   },
   "presence": {
     "lastSeenMinutes_one": "",
@@ -3372,7 +3428,8 @@
     "categoryRoom": "",
     "paletteTitle": "",
     "resetAll": "",
-    "nextRoom": ""
+    "nextRoom": "",
+    "hangUp": ""
   },
   "forum": {
     "replyCount_one": "",
@@ -3491,7 +3548,8 @@
     "getSupport": "",
     "supportDevelopment": "",
     "findCommunityTitle": "",
-    "joinConversationDescription": ""
+    "joinConversationDescription": "",
+    "startRoomTitle": ""
   },
   "emoji": {
     "symbol": "",
@@ -3662,7 +3720,9 @@
     "openOnForge": "",
     "openOnForgeAction": "",
     "alternatives": "",
-    "eyebrow": ""
+    "eyebrow": "",
+    "searching": "",
+    "reproductionPlaceholder": ""
   },
   "pdf": {
     "openNamed": "",
