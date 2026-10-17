@@ -395,8 +395,8 @@
         intrinsicWidth={width}
         intrinsicHeight={height}
         {blurhash}
-        onfailed={() => {
-          posterFailed = thumbnail;
+        onfailed={(source) => {
+          posterFailed = source;
         }}
       />
     {:else if posterUrl}

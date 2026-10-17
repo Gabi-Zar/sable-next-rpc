@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
+
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -50,7 +52,7 @@
     style?: string;
     onclick?: () => void;
     onloaded?: (url: string | null) => void;
-    onfailed?: () => void;
+    onfailed?: (source: string) => void;
     retryable?: boolean;
     uniform?: boolean;
     tint?: boolean;
@@ -251,10 +253,11 @@
   });
 
   $effect(() => {
-    const delay = automaticMediaRetryDelay(backoff.automatic);
+    const current = backoff;
+    const delay = automaticMediaRetryDelay(current.automatic);
     if (!failed || undecodable || delay === null) return;
     const timeout = setTimeout(() => {
-      backoff = { ...backoff, attempt: backoff.attempt + 1 };
+      backoff = { ...current, attempt: current.attempt + 1 };
     }, delay);
     return () => {
       clearTimeout(timeout);
@@ -288,21 +291,26 @@
     }
 
     let active = true;
+    const shownSource = source;
+    /* The request can settle while an outro holds this component; reading a
+       derived then warns `derived_inert`, so the callbacks only touch snapshots. */
+    const previous = untrack(() => backoff);
+    const canRetry = untrack(() => retryable);
     const load = attempt > 0 && forced === attempt ? retryMediaUrl : loadMediaUrl;
     void load(core, requestSource, requestWidth, requestHeight, mime)
       .then((nextUrl) => {
         if (!active) return;
         if (sideways(mediaAspectRatio(core, requestSource, requestWidth, requestHeight))) {
-          sidewaysSource = source;
+          sidewaysSource = shownSource;
         }
         outcome = { key, url: nextUrl };
       })
       .catch(() => {
         if (!active) return;
         outcome = { key, url: null };
-        const automatic = backoff.automatic + 1;
-        backoff = { ...backoff, automatic, at: manualRetryDeadline() };
-        onfailed?.();
+        const automatic = previous.automatic + 1;
+        backoff = { ...previous, automatic, at: manualRetryDeadline(previous, canRetry) };
+        onfailed?.(shownSource);
       });
 
     return () => {
@@ -406,10 +414,10 @@
     event.stopPropagation();
   }
 
-  function manualRetryDeadline(): number {
-    if (!retryable || backoff.manual === 0) return backoff.at;
+  function manualRetryDeadline(from = backoff, canRetry = retryable): number {
+    if (!canRetry || from.manual === 0) return from.at;
     clock = Date.now();
-    return clock + mediaRetryDelay(backoff.manual);
+    return clock + mediaRetryDelay(from.manual);
   }
 
   async function retry(event: MouseEvent): Promise<void> {
@@ -455,7 +463,7 @@
     }
     outcome = { key: requestKey, url: null, undecodable: true };
     backoff = { ...backoff, at: manualRetryDeadline() };
-    onfailed?.();
+    onfailed?.(source);
   }
 
   /* A manual GIF is its own play/stop button, so the wrapper never swaps
@@ -615,7 +623,7 @@
           class="media-image-activation"
           {href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="external noopener noreferrer"
           aria-label={mediaLabel}
           onpointerdown={stopTimelinePress}
           onpointermove={stopTimelinePress}

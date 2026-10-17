@@ -111,7 +111,7 @@
         paintedSrc = src;
         failedSrc = null;
       }}
-      onfailed={() => (failedSrc = src)}
+      onfailed={(source) => (failedSrc = source)}
     />
     {#if hovered && !original}
       <MediaImage

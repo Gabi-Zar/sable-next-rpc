@@ -11,6 +11,7 @@ vi.mock('#lib/core/context.js');
 import { core } from '#lib/core/__mocks__/context.js';
 
 import MediaImage from './MediaImage.svelte';
+import MediaOutroHarness from './MediaOutroHarness.test.svelte';
 import { cachedMediaUrl, loadMediaUrl } from './media-url.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
@@ -1401,4 +1402,48 @@ test('a plain image ignores the sticker and emoji preference', async () => {
   const { image } = await mountLoadedEmote('mxc://example.org/plain-image');
 
   expect(image()?.getAttribute('src')).toBe('blob:mxc://example.org/plain-image');
+});
+
+test.each([false, true])(
+  'a request failing while an outro holds the media reads no stale state (avatar: %s)',
+  async (avatar) => {
+    let fail = () => {};
+    core.fetchMedia.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          fail = () => {
+            reject(new Error('media unavailable'));
+          };
+        })
+    );
+    const warn = vi.spyOn(console, 'warn');
+    const name = `outro-failure-${String(avatar)}`;
+    const instance = render(MediaOutroHarness, { props: { name, shown: true, avatar } });
+    await settle();
+
+    await instance.rerender({ name, shown: false, avatar });
+    fail();
+    await settle();
+
+    expect(warn.mock.calls.flat().join('\n')).not.toContain('derived_inert');
+    instance.unmount();
+  }
+);
+
+test('an automatic retry falling due while an outro holds the media reads no stale state', async () => {
+  vi.useFakeTimers();
+  core.fetchMedia.mockRejectedValue(new Error('media unavailable'));
+  const warn = vi.spyOn(console, 'warn');
+  const props = { name: 'outro-retry', shown: true, avatar: false };
+  const instance = render(MediaOutroHarness, { props });
+  await vi.advanceTimersByTimeAsync(0);
+  await flushed();
+
+  await instance.rerender({ ...props, shown: false });
+  await vi.advanceTimersByTimeAsync(2_000);
+  await flushed();
+
+  expect(warn.mock.calls.flat().join('\n')).not.toContain('derived_inert');
+  instance.unmount();
+  vi.useRealTimers();
 });
