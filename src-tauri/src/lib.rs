@@ -580,6 +580,9 @@ fn update_mobile_activity(window: &tauri::Window<BrowserEngine>, event: &tauri::
     let active = match event {
         tauri::WindowEvent::Suspended => false,
         tauri::WindowEvent::Resumed => true,
+        // `Suspended` fires on resigning active, `Resumed` only when leaving the background.
+        #[cfg(target_os = "ios")]
+        tauri::WindowEvent::Focused(true) => true,
         _ => return,
     };
     if let Some(state) = window.try_state::<AppState>() {

@@ -470,6 +470,10 @@ impl Core {
             return;
         };
         if active {
+            #[cfg(target_os = "ios")]
+            if self.sync_suspended.load(Ordering::SeqCst) {
+                self.reopen_stores().await;
+            }
             // Starting a running service is a no-op, but from `Offline` it retries at once.
             self.sync_suspended.store(false, Ordering::SeqCst);
             if !self.account_locked.load(Ordering::SeqCst) {
@@ -478,6 +482,8 @@ impl Core {
         } else if self.call_sessions.lock().await.is_empty() {
             self.sync_suspended.store(true, Ordering::SeqCst);
             sync_service.stop().await;
+            #[cfg(target_os = "ios")]
+            self.close_stores().await;
         }
         if !active {
             self.release_session_lock().await;
@@ -487,6 +493,30 @@ impl Core {
     /// iOS kills a suspended process that still holds a lock in the shared App Group container.
     pub async fn release_session_lock(&self) {
         self.sessions.release().await;
+    }
+
+    pub(crate) async fn release_session_lock_while_inactive(&self) {
+        if !self.app_active.load(Ordering::Relaxed) {
+            self.release_session_lock().await;
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    async fn close_stores(&self) {
+        if let Ok(client) = self.client().await
+            && let Err(error) = client.pause().await
+        {
+            tracing::warn!("closing the stores before suspension failed: {error}");
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    async fn reopen_stores(&self) {
+        if let Ok(client) = self.client().await
+            && let Err(error) = client.resume().await
+        {
+            tracing::warn!("reopening the stores after suspension failed: {error}");
+        }
     }
 
     pub(crate) async fn wait_until_active(&self) {

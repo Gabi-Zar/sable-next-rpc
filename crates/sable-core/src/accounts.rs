@@ -970,6 +970,8 @@ impl Core {
             }));
         }
 
+        // `Suspended` found no session to stop while this one was still starting.
+        self.apply_app_activity(false).await;
         Ok(())
     }
 
@@ -998,11 +1000,13 @@ impl Core {
                 let handle = tokio::runtime::Handle::current();
                 tokio::task::block_in_place(|| {
                     handle.block_on(async move {
-                        core.persist_refreshed(&client, &homeserver, &account_id, generation)
-                            .await
-                            .map_err(|error| {
-                                format!("could not persist refreshed session: {error:?}").into()
-                            })
+                        let persisted = core
+                            .persist_refreshed(&client, &homeserver, &account_id, generation)
+                            .await;
+                        core.release_session_lock_while_inactive().await;
+                        persisted.map_err(|error| {
+                            format!("could not persist refreshed session: {error:?}").into()
+                        })
                     })
                 })
             }
@@ -1033,7 +1037,13 @@ impl Core {
                 let core = loader.upgrade().ok_or("session owner was dropped")?;
                 let handle = tokio::runtime::Handle::current();
                 tokio::task::block_in_place(|| {
-                    handle.block_on(core.reload_saved_tokens(&loaded_account_id, generation))
+                    handle.block_on(async {
+                        let tokens = core
+                            .reload_saved_tokens(&loaded_account_id, generation)
+                            .await;
+                        core.release_session_lock_while_inactive().await;
+                        tokens
+                    })
                 })
                 .map_err(|error| format!("could not reload saved tokens: {error:?}").into())
             }
@@ -1571,6 +1581,44 @@ mod regression_tests {
         assert_eq!(handler_counts[0], handler_counts[1]);
         let session = core.take_session().await.unwrap();
         session.sync_service.stop().await;
+    }
+
+    #[tokio::test]
+    async fn a_session_started_while_hidden_stays_suspended() {
+        use crate::session::{AccountRegistry, PersistedAccount, current_session};
+        use matrix_sdk_ui::sync_service::State;
+
+        let (server, core, room) = core_with_room().await;
+        let client = room.client();
+        let mut registry = AccountRegistry::empty();
+        registry.upsert(PersistedAccount {
+            account_id: "first".to_owned(),
+            store_id: "regression".to_owned(),
+            session: current_session(&client, server.server().uri()).unwrap(),
+            needs_reauth: false,
+            device_invalidated: false,
+        });
+        *core.accounts.lock().await = Some(registry);
+        drop(core.take_session().await);
+        core.set_app_active(false);
+
+        let generation = core.claim_session_generation().await;
+        core.start_session(
+            client,
+            server.server().uri(),
+            "first".to_owned(),
+            generation.value(),
+            &crate::session::store_lease("regression").await,
+        )
+        .await
+        .unwrap();
+
+        let sync_service = core.sync_service().await.unwrap();
+        assert!(matches!(sync_service.state().get(), State::Idle));
+        assert!(
+            core.sync_suspended
+                .load(std::sync::atomic::Ordering::SeqCst)
+        );
     }
 
     async fn seed_search_index(

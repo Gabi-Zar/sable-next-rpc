@@ -620,7 +620,10 @@ impl Core {
         }
     }
 
-    pub(crate) async fn leave_call(&self, session: CallSessionId) -> Result<(), RpcError> {
+    pub(crate) async fn leave_call(
+        self: &Arc<Self>,
+        session: CallSessionId,
+    ) -> Result<(), RpcError> {
         let mut call = self
             .call_sessions
             .lock()
@@ -630,13 +633,16 @@ impl Core {
 
         drop(call.updates.take());
         drop(call.postpone.take());
-        match call.delay_id.clone() {
+        let result = match call.delay_id.clone() {
             Some(delay_id) => match self.fire_hangup(delay_id).await {
                 Ok(result) => Ok(result),
                 Err(_) => self.send_left_membership(&call).await,
             },
             None => self.send_left_membership(&call).await,
-        }
+        };
+        // A call kept sync running past `Suspended`; stop it before the audio session ends.
+        self.apply_app_activity(false).await;
+        result
     }
 
     pub(crate) async fn set_call_screen_sharing(
