@@ -513,8 +513,27 @@ function plainTextFrom(html: string): string {
   return textFrom(new DOMParser().parseFromString(html, 'text/html').body).trim();
 }
 
+const MENTION_USER_ID = /#\/(@[^?]+)/;
+
+/** A mention pill reads as its display name in the body; commands take the id. */
+function spellMentions(body: string, formatted: string | null | undefined): string {
+  if (!formatted) return body;
+  const links = new DOMParser().parseFromString(formatted, 'text/html').querySelectorAll('a[href]');
+  let spelled = body;
+  for (const link of links) {
+    const userId = MENTION_USER_ID.exec(link.getAttribute('href') ?? '')?.[1];
+    const label = link.textContent;
+    if (userId && label) spelled = spelled.replace(label, () => decodeURIComponent(userId));
+  }
+  return spelled;
+}
+
 export async function runSlash(body: string, context: SlashContext): Promise<SlashResult> {
-  const parsed = parseSlash(body, context.formatted ?? null);
+  let parsed = parseSlash(body, context.formatted ?? null);
+  if (parsed.kind === 'usage') {
+    const retried = parseSlash(spellMentions(body, context.formatted), context.formatted ?? null);
+    if (retried.kind !== 'usage') parsed = retried;
+  }
 
   switch (parsed.kind) {
     case 'none':
