@@ -17,7 +17,6 @@
     "editProfile": "Profili düzenle",
     "switchAccount": "Hesabı değiştir",
     "manageAccounts": "Hesapları yönet",
-    "activeAccount": "Hesabı etkinleştir",
     "removeAccount": "Hesabı kaldır",
     "removeAccountConfirm": "Bu hesap kaldırılsın mı?",
     "removeAccountDescription": "Bu işlem, hesabı ve yerel verilerini bu cihazdan kaldırır.",
