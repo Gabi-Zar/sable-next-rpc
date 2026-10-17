@@ -58,7 +58,11 @@
     "unreadMessages": "",
     "alerts": "",
     "unpinFromSidebar": "",
-    "pinToSidebar": ""
+    "pinToSidebar": "",
+    "messages": "",
+    "createSubspace": "",
+    "showConversation": "",
+    "chats": ""
   },
   "home": {
     "getSupport": "รับความช่วยเหลือ",
@@ -177,7 +181,9 @@
     "stageConsentLabel": "",
     "userServerNotFound": "",
     "newPassword": "",
-    "signingInOn": ""
+    "signingInOn": "",
+    "signingIn": "",
+    "redirectingTo": ""
   },
   "footer": {
     "poweredBy": "ขับเคลื่อนโดย"
@@ -299,7 +305,9 @@
       "playback": "",
       "emojiImages": "",
       "previews": "",
-      "gifPicker": ""
+      "gifPicker": "",
+      "messages": "",
+      "embeds": ""
     },
     "verificationRetry": "",
     "hideTopicChanges": "",
@@ -1297,7 +1305,18 @@
     "themeCatalogAll": "",
     "themeCatalogFilters": "",
     "themeCatalogEmpty": "",
-    "customThemesRemove": ""
+    "customThemesRemove": "",
+    "gifProviderGiphy": "",
+    "gifProviderTenor": "",
+    "gifProviderKlipy": "",
+    "pushTransportUnifiedPush": "",
+    "pushersKindGateway": "",
+    "callCameraDevice": "",
+    "timelineEmoteSizeDefault": "",
+    "customThemesErrorChoose": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "otherProfileFieldsKaomoji": "",
+    "themeFileTweak": ""
   },
   "shortcuts": {
     "paletteTitle": "ข้ามไปยังห้อง",
@@ -1336,7 +1355,8 @@
     "resetOne": "",
     "markAllRead": "",
     "conflict": "",
-    "resetAll": ""
+    "resetAll": "",
+    "hangUp": ""
   },
   "search": {
     "placeholder": "ค้นหาข้อความ เช่น from:ada in:#general has:image",
@@ -1909,7 +1929,11 @@
     "spaceCanonical": "",
     "abbreviationsRemoveConfirm": "",
     "abbreviationsEdit": "",
-    "spacesTitle": ""
+    "spacesTitle": "",
+    "permGroupMessages": "",
+    "devRoomTitle": "",
+    "permRoleIcon": "",
+    "emojisDeletePackConfirm": ""
   },
   "timeline": {
     "members": "สมาชิก",
@@ -2308,7 +2332,12 @@
     "sendBlockedVerify": "",
     "sendAnyway": "",
     "showImages": "",
-    "reportSent": ""
+    "reportSent": "",
+    "messagePlaceholder": "",
+    "loadingHistory": "",
+    "loadingNewer": "",
+    "loading": "",
+    "sending": ""
   },
   "setup": {
     "resetOpenApproval": "เปิดผู้ให้บริการบัญชี",
@@ -2630,7 +2659,8 @@
         "usage": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "invite": {
         "description": "",
@@ -2645,7 +2675,8 @@
         "usage": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "cuddle": {
         "description": "",
@@ -2720,24 +2751,28 @@
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "roomname": {
         "usage": "",
         "description": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "pronoun": {
         "description": "",
         "usage": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "delete": {
         "usage": "",
@@ -2748,7 +2783,8 @@
         "description": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "rainbowme": {
         "usage": "",
@@ -3145,7 +3181,11 @@
     "hideChat": "",
     "closeChat": "",
     "chat": "",
-    "screenSourceTitle": ""
+    "screenSourceTitle": "",
+    "lobbyInCall_other": "",
+    "live": "",
+    "others_other": "",
+    "leave": ""
   },
   "calendar": {
     "repeatMonthly": "",
@@ -3264,7 +3304,11 @@
     "importAvatarFailed": "",
     "scopeLatchRoom": "",
     "search": "",
-    "remove": ""
+    "remove": "",
+    "moveUp": "",
+    "importSystemPlaceholder": "",
+    "moveDown": "",
+    "removeTitle": ""
   },
   "widgets": {
     "addName": "",
@@ -3373,7 +3417,9 @@
     "markedRead": "",
     "acceptAll": "",
     "acceptAllFailed_other": "",
-    "invitesShowPending": ""
+    "invitesShowPending": "",
+    "invitedBy": "",
+    "noPreview": ""
   },
   "join": {
     "knockRequired": "",
@@ -3471,7 +3517,9 @@
     "similarIssues": "",
     "errorTracking": "",
     "platformInfo": "",
-    "submit": ""
+    "submit": "",
+    "reproductionPlaceholder": "",
+    "searching": ""
   },
   "pdf": {
     "previousPage": "",
