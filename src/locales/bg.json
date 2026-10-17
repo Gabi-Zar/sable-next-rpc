@@ -432,7 +432,10 @@
     "cosmeticsAvatarHintSpace": "",
     "appearanceIconHint": "",
     "addressesUnpublish": "",
-    "joinUnknownRoom": ""
+    "joinUnknownRoom": "",
+    "createJoinRuleRequiresSpace": "",
+    "createJoinRuleKnockRestricted": "",
+    "createJoinRuleKnockRestrictedHint": ""
   },
   "inbox": {
     "loadFailed": "Не можаха да се заредят известията.",
@@ -593,7 +596,27 @@
     "theRoomCouldNotBeJoined": "",
     "theStateEventWasRejected": "",
     "theythemEnsheher": "",
-    "whatAreYouUpTo": ""
+    "whatAreYouUpTo": "",
+    "retry": "Опитайте отново",
+    "supportSable": "Дари на Sable",
+    "block": "Блокирай",
+    "chooseAPicture": "Избери картинка",
+    "removeAvatar": "Премахни аватар",
+    "changeAvatar": "Смени аватар",
+    "displayName": "Видимо име",
+    "removeBanner": "Премахни фон",
+    "setUpRecovery": "Настройте възстановяване",
+    "askToJoin": "Питай за покана",
+    "dark": "Тъмна",
+    "reset": "Възстановете",
+    "changePicture": "Смени картинка",
+    "dismiss": "Отхвърли",
+    "jumpToMessage": "Прескочи до съобщение",
+    "light": "Светла",
+    "startingSable": "Включване на Sable…",
+    "theHomeserverIsTemporarilyUnavailableTryAgain": "Домашният сървър е временно недостъпен. Опитате пак.",
+    "stopTest": "Спрете теста",
+    "copy": "Копирай"
   },
   "settings": {
     "themeChanges": "",
