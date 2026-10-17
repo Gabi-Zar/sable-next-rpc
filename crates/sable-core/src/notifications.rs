@@ -486,6 +486,7 @@ async fn decrypt_push_event(
     else {
         return ColdPush::Undecryptable;
     };
+    let _ = crate::rooms::fill_own_member(&room).await;
     let push_context = room.push_context().await.ok().flatten();
     let Ok(decrypted) = room.decrypt_event(&event, push_context.as_ref()).await else {
         return undecryptable;
@@ -494,15 +495,15 @@ async fn decrypt_push_event(
     match &decrypted.kind {
         matrix_sdk::deserialized_responses::TimelineEventKind::Decrypted(clear) => {
             let actions = decrypted.push_actions();
-            return if actions.is_some_and(|actions| !notifies(actions)) {
-                ColdPush::Discard
-            } else {
+            return if actions.is_some_and(notifies) {
                 let noisy = actions.is_some_and(|actions| {
                     actions
                         .iter()
                         .any(|action| action.sound().is_some() || action.is_highlight())
                 });
                 ColdPush::Clear(marked_noisy(clear.event.json().get(), noisy))
+            } else {
+                ColdPush::Discard
             };
         }
         matrix_sdk::deserialized_responses::TimelineEventKind::UnableToDecrypt {
@@ -534,6 +535,9 @@ async fn decrypt_push_event(
         return undecryptable;
     };
     match notifications.get_notification(&room_id, &event_id).await {
+        Ok(NotificationStatus::Event(item)) if !item.actions.as_deref().is_some_and(notifies) => {
+            ColdPush::Discard
+        }
         Ok(NotificationStatus::Event(item)) => match item.raw_event {
             RawNotificationEvent::Timeline(clear)
                 if clear.get_field::<String>("type").ok().flatten().as_deref()
@@ -614,6 +618,9 @@ pub async fn fetch_push_event(
         return PushFetchView::Unavailable;
     };
     match notifications.get_notification(room_id, event_id).await {
+        Ok(NotificationStatus::Event(item)) if !item.actions.as_deref().is_some_and(notifies) => {
+            PushFetchView::Discard
+        }
         Ok(NotificationStatus::Event(item)) => {
             let Some(mut event) = push_event_view(*item) else {
                 return PushFetchView::Unavailable;
@@ -692,7 +699,7 @@ pub async fn notification(
     let notifications = NotificationClient::new(client.clone(), setup).await.ok()?;
 
     match notifications.get_notification(room_id, event_id).await {
-        Ok(NotificationStatus::Event(item)) => {
+        Ok(NotificationStatus::Event(item)) if item.actions.as_deref().is_some_and(notifies) => {
             Some(view(client.user_id()?.to_owned(), room_id, event_id, *item))
         }
         _ => None,
@@ -1220,12 +1227,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_cold_push_decrypts_from_androids_persisted_store() {
-        let mut fixture = ColdFixture::new(
-            "store",
-            JoinedRoomBuilder::new(room_id!("!cold:example.org")),
-            None,
-        )
-        .await;
+        let mut fixture = ColdFixture::new("store", cold_room_with_members(), None).await;
         let event = fixture
             .push(
                 "m.room.message",
@@ -1358,7 +1360,7 @@ mod tests {
         server
             .mock_sync()
             .ok_and_run(&client, |builder| {
-                builder.add_joined_room(JoinedRoomBuilder::new(room_id!("!cold:example.org")));
+                builder.add_joined_room(cold_room_with_members());
             })
             .await;
         let outbound = shared_room_key(&client).await;
@@ -1519,6 +1521,67 @@ mod tests {
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
+    fn cold_room_without_me() -> JoinedRoomBuilder {
+        let factory = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id!("!cold:example.org"))
+            .sender(user_id!("@sender:example.org"));
+        JoinedRoomBuilder::new(room_id!("!cold:example.org"))
+            .add_state_event(factory.member(user_id!("@sender:example.org")))
+            .add_state_event(factory.default_power_levels())
+    }
+
+    #[tokio::test]
+    async fn a_cold_push_without_our_membership_follows_the_push_rules() {
+        use matrix_sdk::ruma::push::{NewPushRule, NewSimplePushRule};
+
+        let mut rules = Ruleset::server_default(user_id!("@alice:example.org"));
+        rules
+            .insert(
+                NewPushRule::Room(NewSimplePushRule::new(
+                    room_id!("!cold:example.org").to_owned(),
+                    vec![],
+                )),
+                None,
+                None,
+            )
+            .unwrap();
+        let fixture = ColdFixture::new("no-member", cold_room_without_me(), Some(rules)).await;
+        let sticker = fixture
+            .push(
+                "m.sticker",
+                json!({"body": "wave", "url": "mxc://example.org/wave", "info": {}}),
+            )
+            .await;
+
+        assert_eq!(fixture.decrypt("A", &sticker).await, ColdPush::Discard);
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+
+        let fixture = ColdFixture::new("fetched-member", cold_room_without_me(), None).await;
+        let factory =
+            matrix_sdk_test::event_factory::EventFactory::new().room(room_id!("!cold:example.org"));
+        fixture
+            .server
+            .mock_get_members()
+            .ok(vec![
+                factory.member(user_id!("@alice:example.org")).into_raw(),
+                factory.member(user_id!("@sender:example.org")).into_raw(),
+            ])
+            .mount()
+            .await;
+        let message = fixture
+            .push(
+                "m.room.message",
+                json!({"msgtype":"m.text", "body":"hello"}),
+            )
+            .await;
+
+        assert!(matches!(
+            fixture.decrypt("A", &message).await,
+            ColdPush::Clear(_)
+        ));
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
     #[tokio::test]
     async fn a_cold_push_in_an_all_messages_room_is_shown_under_a_mentions_default() {
         use matrix_sdk::ruma::push::{NewPushRule, NewSimplePushRule, PredefinedUnderrideRuleId};
@@ -1640,6 +1703,12 @@ mod tests {
         let mut room = v5::response::Room::new();
         room.initial = Some(true);
         room.timeline = vec![Raw::from_json_string(event.to_string()).unwrap()];
+        room.required_state = vec![
+            matrix_sdk_test::event_factory::EventFactory::new()
+                .room(room_id!("!cold:example.org"))
+                .member(user_id!("@alice:example.org"))
+                .into_raw(),
+        ];
         let mut response = v5::Response::new("1".to_owned());
         response.rooms =
             std::collections::BTreeMap::from([(room_id!("!cold:example.org").to_owned(), room)]);

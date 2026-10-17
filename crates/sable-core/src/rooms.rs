@@ -154,18 +154,20 @@ pub(crate) async fn reconcile_joined_invites(client: Client) {
 }
 
 pub(crate) async fn fill_own_members(client: &Client) -> Result<(), matrix_sdk::Error> {
-    let Some(own) = client.user_id() else {
-        return Ok(());
-    };
     for room in client.joined_rooms() {
-        if room.joined_members_count() > OWN_MEMBER_FILL_MAX_MEMBERS
-            || room.get_member_no_sync(own).await?.is_some()
-        {
-            continue;
-        }
-        if let Err(error) = room.sync_members().await {
-            tracing::warn!(room_id = %room.room_id(), "could not fetch our own membership: {error}");
-        }
+        fill_own_member(&room).await?;
+    }
+    Ok(())
+}
+
+pub(crate) async fn fill_own_member(room: &matrix_sdk::Room) -> Result<(), matrix_sdk::Error> {
+    if room.joined_members_count() > OWN_MEMBER_FILL_MAX_MEMBERS
+        || room.get_member_no_sync(room.own_user_id()).await?.is_some()
+    {
+        return Ok(());
+    }
+    if let Err(error) = room.sync_members().await {
+        tracing::warn!(room_id = %room.room_id(), "could not fetch our own membership: {error}");
     }
     Ok(())
 }
