@@ -606,7 +606,10 @@
     "blockSendersBody_other": "Повече няма да виждате техни съобщения и покани и {{count, number}} покани ще бъдат отказани.",
     "inviteNoSharedRooms": "Няма общи стаи",
     "invitesEmpty": "Няма чакащи покани.",
-    "invitesTab": "Покани"
+    "invitesTab": "Покани",
+    "notificationsEmptyAll": "",
+    "notificationsEmptyDirect": "",
+    "filterDirect": ""
   },
   "nav": {
     "removeAccount": "Премахни акаунт",
