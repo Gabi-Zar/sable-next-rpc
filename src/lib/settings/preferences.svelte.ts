@@ -634,7 +634,7 @@ const DEFAULTS: Preferences = {
   composerButtonOrder: [...COMPOSER_BUTTONS],
   scheduleInEncryptedRooms: true,
   sendAttachmentAsCaption: true,
-  sendAttachmentsAsGallery: true,
+  sendAttachmentsAsGallery: false,
   imageMetadata: 'location',
 
   personaPicker: true,
