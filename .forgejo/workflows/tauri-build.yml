@@ -1,7 +1,8 @@
 name: Build apps
 on:
+  schedule:
+    - cron: '0 0,12 * * *'
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -41,6 +42,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       ref: ${{ steps.meta.outputs.ref }}
       nightly: ${{ steps.meta.outputs.nightly }}
+      skip: ${{ steps.gate.outputs.skip }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,13 +53,19 @@ jobs:
         uses: ./.forgejo/actions/resolve-release-meta
         with:
           input-tag: ${{ inputs.tag }}
+      - name: Skip scheduled build without new commits
+        id: gate
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          age=$(( $(date +%s) - $(git log -1 --format=%ct) ))
+          if [ "$age" -gt 43200 ]; then echo 'skip=true' >> "$GITHUB_OUTPUT"; fi
       - name: Wait for release to exist
         if: ${{ steps.meta.outputs.nightly != 'true' }}
         env:
           TAG: ${{ steps.meta.outputs.tag }}
         run: node scripts/ci/forgejo-release.mjs wait --attempts 12 --interval 15
       - name: Create nightly prerelease
-        if: ${{ steps.meta.outputs.nightly == 'true' }}
+        if: ${{ steps.meta.outputs.nightly == 'true' && steps.gate.outputs.skip != 'true' }}
         env:
           TAG: ${{ steps.meta.outputs.tag }}
           VERSION: ${{ steps.meta.outputs.version }}
@@ -72,6 +80,7 @@ jobs:
   build-web:
     name: Build web assets
     needs: setup-release
+    if: ${{ needs.setup-release.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     # Cold, this compiles the workspace for wasm32 in release. Warm, the setup
     # action restores the bindings and only Vite runs.
@@ -800,6 +809,7 @@ jobs:
   github-bundles:
     name: Wait for GitHub bundles
     needs: setup-release
+    if: ${{ needs.setup-release.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     # github-bundles.json is published by the GitHub-side handoff job, which
     # waits on the Windows and Linux aarch64 builds.
@@ -967,7 +977,7 @@ jobs:
   publish-nightly-channel:
     name: Refresh nightly channel metadata
     needs: [setup-release, updater-manifest, obtainium, altstore]
-    if: ${{ always() && needs.setup-release.outputs.nightly == 'true' }}
+    if: ${{ always() && needs.setup-release.outputs.nightly == 'true' && needs.setup-release.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
