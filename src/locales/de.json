@@ -135,7 +135,8 @@
     "invitesStrangers": "",
     "notificationsEmptyAll": "",
     "filterResults_one": "",
-    "filterResults_other": ""
+    "filterResults_other": "",
+    "notificationsEmptyDirect": ""
   },
   "room": {
     "createDescription": "Räume beinhalten eine Konversation. Ein Space beinhaltet Räume.",
