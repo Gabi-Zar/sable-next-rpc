@@ -3,6 +3,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { scheduleInputs } from '#lib/features/composer/schedule-time.js';
+  import { notifiedRelation } from '#lib/features/room/messages/notified-relation.js';
   import { i18n } from '#lib/i18n.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -48,6 +49,21 @@
     outcome = null;
   }
 
+  async function mainTimelineTarget(eventId: string): Promise<string> {
+    try {
+      const { source } = await core.rpc.timeline.eventSource({
+        room_id: roomId,
+        event_id: eventId,
+        include_original: false,
+      });
+      const relation = notifiedRelation(source);
+      return relation?.thread ? relation.eventId : eventId;
+    } catch (error) {
+      console.debug('[sable room] jumped-to event source unavailable', error);
+      return eventId;
+    }
+  }
+
   async function jump(): Promise<void> {
     const at = value === '' ? Number.NaN : new Date(value).getTime();
     if (Number.isNaN(at) || searching) return;
@@ -64,8 +80,9 @@
         outcome = 'missing';
         return;
       }
+      const target = await mainTimelineTarget(eventId);
       onOpenChange(false);
-      onJump(eventId);
+      onJump(target);
     } catch (error) {
       console.warn('[sable room] jump to time failed', error);
       outcome = 'failed';
