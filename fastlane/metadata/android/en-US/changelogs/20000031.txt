@@ -1,0 +1,5 @@
+- Publish the Electron build as a Flatpak and to the deb and rpm registries.
+- Fix sign-in focus, hide Next until the provider is validated, and announce authentication loading and errors.
+- Add Ctrl/Cmd+E, Ctrl/Cmd+G and Ctrl/Cmd+S shortcuts to toggle the emoji, GIF and sticker pickers. Inline code moves to Ctrl/Cmd+Shift+C.
+- Fix color inconsistency in timeline for senders when no custom name color is set.
+- Fix Electron Linux packages and publish update manifests to Forgejo.
