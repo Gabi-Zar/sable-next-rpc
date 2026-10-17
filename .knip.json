@@ -1,26 +1,50 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "scripts/**/*.mjs",
-    "tests/fixtures/generate-v1-crypto.mjs",
-    "tests/e2e/global.setup.ts",
-    "tests/e2e/global.teardown.ts"
-  ],
-  "playwright": {
-    "config": [
-      "playwright.config.ts",
-      "tests/e2e/playwright.preload.config.ts",
-      "tests/e2e/playwright.migration.config.ts"
-    ]
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.mjs",
+        "tests/fixtures/generate-v1-crypto.mjs",
+        "tests/e2e/global.setup.ts",
+        "tests/e2e/global.teardown.ts"
+      ],
+      "playwright": {
+        "config": [
+          "playwright.config.ts",
+          "tests/e2e/playwright.preload.config.ts",
+          "tests/e2e/playwright.migration.config.ts"
+        ]
+      },
+      "ignoreDependencies": [
+        "@fontsource-variable/cascadia-code",
+        "@fontsource-variable/nunito",
+        "@sableclient/twemoji-font",
+        "wrangler",
+        "@sentry/browser",
+        "electron-builder"
+      ]
+    },
+    "electron": {
+      "entry": [
+        "after-pack.mjs",
+        "publish-updates.mjs",
+        "src/main.ts",
+        "src/preload.ts",
+        "src/core-host.ts"
+      ],
+      "ignoreUnresolved": ["./sable_node.node"]
+    }
   },
-  "ignoreDependencies": [
-    "@fontsource-variable/cascadia-code",
-    "@fontsource-variable/nunito",
-    "@sableclient/twemoji-font",
-    "wrangler",
-    "@sentry/browser"
+  "ignoreBinaries": [
+    "mise",
+    "ditto",
+    "wasm-bindgen",
+    "watchexec",
+    "dsymutil",
+    "cc",
+    "strip",
+    "package"
   ],
-  "ignoreBinaries": ["mise", "ditto", "wasm-bindgen", "watchexec", "dsymutil", "cc", "strip"],
   "ignoreUnresolved": ["/index.mjs"],
   "rules": {
     "exports": "off",
