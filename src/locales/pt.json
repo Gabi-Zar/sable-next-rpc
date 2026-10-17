@@ -57,7 +57,14 @@
     "unspacedEmpty": "",
     "chatsEmpty": "",
     "markedUnread": "",
-    "alerts": ""
+    "alerts": "",
+    "lobby": "",
+    "messages": "",
+    "messageSearch": "",
+    "joinWithAddress": "",
+    "chats": "",
+    "createSubspace": "",
+    "showConversation": ""
   },
   "room": {
     "devRoomDataTitle": "",
@@ -616,7 +623,16 @@
     "joinUnknownRoom": "",
     "joinRateLimited": "",
     "emojisDeletePack": "",
-    "directoryKindAll": ""
+    "directoryKindAll": "",
+    "createSpaceTitle": "",
+    "createSubspaceTitle": "",
+    "createKindRoomHint": "",
+    "permGroupMessages": "",
+    "permRoleIcon": "",
+    "devRoomTitle": "",
+    "directoryJoinByAddress": "",
+    "joinTitle": "",
+    "emojisDeletePackConfirm": ""
   },
   "common": {
     "block": "",
@@ -723,7 +739,8 @@
         "description": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "roomname": {
         "usage": "",
@@ -750,17 +767,20 @@
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "topic": {
         "usage": "",
         "description": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "gif": {
         "usage": "",
@@ -783,7 +803,8 @@
         "description": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "headpat": {
         "usage": "",
@@ -818,7 +839,8 @@
         "usage": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "myroomnick": {
         "usage": "",
@@ -877,7 +899,8 @@
         "usage": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "hug": {
         "description": "",
@@ -1169,7 +1192,9 @@
       "sounds": "",
       "buttons": "",
       "playback": "",
-      "sending": ""
+      "sending": "",
+      "messages": "",
+      "embeds": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_many": "",
@@ -2185,7 +2210,18 @@
     "themeShowingNow": "",
     "themeCatalogClose": "",
     "searchBaseEvents": "",
-    "composerPreview": ""
+    "composerPreview": "",
+    "pushTransportUnifiedPush": "",
+    "gifProviderGiphy": "",
+    "callCameraDevice": "",
+    "gifProviderTenor": "",
+    "gifProviderKlipy": "",
+    "timelineEmoteSizeDefault": "",
+    "pushersKindGateway": "",
+    "customThemesErrorChoose": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "otherProfileFieldsKaomoji": "",
+    "themeFileTweak": ""
   },
   "emotes": {
     "useAsEmoji": "",
@@ -2326,7 +2362,9 @@
     "markedRead": "",
     "acceptAll": "",
     "invitesShowPending": "",
-    "loadOlder": ""
+    "loadOlder": "",
+    "invitedBy": "",
+    "noPreview": ""
   },
   "join": {
     "knockRequired": "",
@@ -2361,7 +2399,8 @@
     "submit": "",
     "failed": "",
     "encryptionHint": "",
-    "userIdPlaceholder": ""
+    "userIdPlaceholder": "",
+    "description": ""
   },
   "timeline": {
     "stateChangesMore_one": "",
@@ -2800,7 +2839,18 @@
     "uploading": "",
     "attachmentsMoreLinks_one": "",
     "attachmentsMoreLinks_many": "",
-    "attachmentsMoreLinks_other": ""
+    "attachmentsMoreLinks_other": "",
+    "threeTyping": "",
+    "sending": "",
+    "unknownTyping": "",
+    "loadingHistory": "",
+    "loading": "",
+    "oneTyping": "",
+    "manyTyping": "",
+    "loadingMembers": "",
+    "twoTyping": "",
+    "loadingNewer": "",
+    "messagePlaceholder": ""
   },
   "auth": {
     "noAccountYet": "",
@@ -2908,7 +2958,9 @@
     "resetPasswordUnavailable": "",
     "checkYourEmail": "",
     "signingInOn": "",
-    "userServerNotFound": ""
+    "userServerNotFound": "",
+    "redirectingTo": "",
+    "signingIn": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3079,7 +3131,11 @@
     "restoreConfirm": "",
     "search": "",
     "triggerPrefix": "",
-    "triggersHint": ""
+    "triggersHint": "",
+    "removeTitle": "",
+    "importSystemPlaceholder": "",
+    "moveUp": "",
+    "moveDown": ""
   },
   "call": {
     "participants_one": "",
@@ -3243,7 +3299,15 @@
     "statsDecoder": "",
     "screenAudioAppsOneHint": "",
     "returnToCall": "",
-    "closeChat": ""
+    "closeChat": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_many": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_many": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "presence": {
     "lastSeenMinutes_one": "",
@@ -3349,7 +3413,8 @@
     "nextUnread": "",
     "resetOne": "",
     "helpTitle": "",
-    "conflict": ""
+    "conflict": "",
+    "hangUp": ""
   },
   "calendar": {
     "dayEvents_one": "",
@@ -3454,7 +3519,8 @@
     "supportDevelopment": "",
     "startRoomDescription": "",
     "joinConversationDescription": "",
-    "findCommunityDescription": ""
+    "findCommunityDescription": "",
+    "startRoomTitle": ""
   },
   "viewer": {
     "rotate": "",
@@ -3650,7 +3716,9 @@
     "alternatives": "",
     "descriptionPlaceholder": "",
     "context": "",
-    "platformInfo": ""
+    "platformInfo": "",
+    "reproductionPlaceholder": "",
+    "searching": ""
   },
   "pdf": {
     "nextPage": "",
