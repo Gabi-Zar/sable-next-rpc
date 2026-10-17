@@ -144,7 +144,7 @@
       {#each keys as key (key)}
         <ColorSetting
           label={i18n.t(`supporter.${colorLabels[key]}`)}
-          bind:value={draft[key]}
+          bind:value={() => draft[key] ?? '', (next) => (draft = { ...draft, [key]: next })}
           onCommit={() => void commitColor(key)}
           onReset={() => void commitColor(key, defaults[key])}
         />
@@ -217,7 +217,14 @@
                   <div class="gradient-stop-input">
                     <ColorSetting
                       label={i18n.t('supporter.colorIndex', { index: i + 1 })}
-                      bind:value={draft.colors[i]}
+                      bind:value={
+                        () => draft.colors?.[i] ?? '',
+                        (next) => {
+                          const colors = [...(draft.colors ?? [])];
+                          colors[i] = next;
+                          draft = { ...draft, colors };
+                        }
+                      }
                       onCommit={() => void commitGradientColor(i)}
                       onReset={() => {
                         if (!draft.colors) return;

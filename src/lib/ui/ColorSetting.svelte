@@ -227,7 +227,7 @@
     border: calc(var(--border-width) * 2) solid var(--bg-container);
     border-radius: 50%;
     box-shadow: 0 0 0 var(--border-width) var(--bg-on-container);
-    height: var(--hue-track);
+    height: 0.75rem;
     position: absolute;
     transform: translate(-50%, -50%);
     width: 0.75rem;
