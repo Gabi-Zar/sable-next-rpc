@@ -237,7 +237,7 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/{{ lib-output-file-name }}
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/{{ lib-output-file-name }}
-    {{~#if ios-post-compile-scripts}}
+    {{#if ios-post-compile-scripts}}
     postCompileScripts:
       {{~#each ios-post-compile-scripts}}{{#if this.path}}
       - path {{this.path}}{{/if}}{{#if this.script}}
@@ -257,9 +257,18 @@ targets:
         basedOnDependencyAnalysis: {{this.based-on-dependency-analysis}}{{/if}}{{#if this.discovered-dependency-file}}
         discoveredDependencyFile: {{this.discovered-dependency-file}}{{/if}}
       {{~/each~}}
-    {{~/if~}}
-    {{~#if ios-post-build-scripts}}
+    {{~/if}}
+    # Unsigned API-key archives keep only the app's entitlements through export (tauri-apps/tauri#15663).
+    # Signed here: the extension's own target strips its binary after its script phases.
     postBuildScripts:
+      - name: Keep the notification extension's entitlements
+        script: |
+          if [ "${CODE_SIGNING_ALLOWED:-YES}" = "NO" ]; then
+            /usr/bin/codesign --force --sign - \
+              --entitlements "${SRCROOT:?}/SableNotificationService/SableNotificationService.entitlements" \
+              "${TARGET_BUILD_DIR:?}/${PLUGINS_FOLDER_PATH:?}/SableNotificationService.appex"
+          fi
+        basedOnDependencyAnalysis: false
       {{~#each ios-post-build-scripts}}{{#if this.path}}
       - path {{this.path}}{{/if}}{{#if this.script}}
       - script: {{this.script}}{{/if}}{{#if this.name}}
@@ -277,5 +286,4 @@ targets:
         runOnlyWhenInstalling: {{this.run-only-when-installing}}{{/if}}{{#if this.based-on-dependency-analysis}}
         basedOnDependencyAnalysis: {{this.based-on-dependency-analysis}}{{/if}}{{#if this.discovered-dependency-file}}
         discoveredDependencyFile: {{this.discovered-dependency-file}}{{/if}}
-      {{~/each~}}
-    {{~/if}}
+      {{~/each}}
