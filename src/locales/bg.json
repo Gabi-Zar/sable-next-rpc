@@ -2749,7 +2749,8 @@
     "attachmentsVideo": "Видео",
     "editMessage": "Редактирай съобщение",
     "profileReport": "Докладвай потребител",
-    "profileNameChanged": "{{user}} е сега {{name}}"
+    "profileNameChanged": "{{user}} е сега {{name}}",
+    "copyLink": ""
   },
   "viewer": {
     "zoomOut": "",
