@@ -63,7 +63,8 @@
     "folderUngroup": "",
     "displayOptions": "",
     "folderRename": "",
-    "folder": ""
+    "folder": "",
+    "createSubspace": ""
   },
   "common": {
     "directMessages": "Direkt mesajlar",
@@ -695,7 +696,12 @@
     "publishSpaceHint": "",
     "addToSpaceTitle": "",
     "addToSpaceSearch": "",
-    "appearanceIconDefault": ""
+    "appearanceIconDefault": "",
+    "permRoleIcon": "",
+    "createSubspaceTitle": "",
+    "permGroupMessages": "",
+    "devRoomTitle": "",
+    "emojisDeletePackConfirm": ""
   },
   "auth": {
     "banner": "",
@@ -969,7 +975,8 @@
     "moreNotifications": "",
     "filterLabel": "",
     "bookmarks": "",
-    "inviteSpace": ""
+    "inviteSpace": "",
+    "noPreview": ""
   },
   "join": {
     "knockRequired": "",
@@ -1003,7 +1010,8 @@
     "userIdLabel": "",
     "encryptionHint": "",
     "userIdPlaceholder": "",
-    "failed": ""
+    "failed": "",
+    "description": ""
   },
   "timeline": {
     "stateChangesMore_one": "",
@@ -1487,7 +1495,9 @@
       "blurring": "",
       "callButton": "",
       "highlights": "",
-      "sidebar": ""
+      "sidebar": "",
+      "embeds": "",
+      "messages": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_other": "",
@@ -2502,7 +2512,13 @@
     "colorHexLabel": "",
     "searchIndexLimit": "",
     "customThemesLightSlot": "",
-    "serverSearchHint": ""
+    "serverSearchHint": "",
+    "pushersKindGateway": "",
+    "timelineEmoteSizeDefault": "",
+    "callCameraDevice": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "otherProfileFieldsKaomoji": "",
+    "themeFileTweak": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3084,7 +3100,8 @@
     "backupFailed": "",
     "scopeSpace": "",
     "pickerLabel": "",
-    "importToken": ""
+    "importToken": "",
+    "removeTitle": ""
   },
   "call": {
     "participants_one": "",
@@ -3247,7 +3264,13 @@
     "active": "",
     "switchCamera": "",
     "controlsLocked": "",
-    "screenAudioAppsOneHint": ""
+    "screenAudioAppsOneHint": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "presence": {
     "lastSeenMinutes_one": "",
@@ -3350,7 +3373,8 @@
     "nextRoom": "",
     "categoryComposer": "",
     "editOlder": "",
-    "editNewer": ""
+    "editNewer": "",
+    "hangUp": ""
   },
   "calendar": {
     "dayEvents_one": "",
@@ -3497,7 +3521,8 @@
     "supportDevelopment": "",
     "findCommunityTitle": "",
     "joinConversationTitle": "",
-    "startRoomDescription": ""
+    "startRoomDescription": "",
+    "startRoomTitle": ""
   },
   "app": {
     "unableToStart": "",
