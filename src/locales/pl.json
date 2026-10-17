@@ -56,7 +56,9 @@
       "callButton": "",
       "window": "",
       "messageSearch": "",
-      "sounds": ""
+      "sounds": "",
+      "messages": "",
+      "embeds": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_few": "",
@@ -1071,7 +1073,18 @@
     "troubleshootFailureLedger": "",
     "themeCatalogSearch": "",
     "customThemesDarkSlot": "",
-    "searchCrawlPause": ""
+    "searchCrawlPause": "",
+    "timelineEmoteSizeDefault": "",
+    "callCameraDevice": "",
+    "pushersKindGateway": "",
+    "gifProviderKlipy": "",
+    "gifProviderGiphy": "",
+    "pushTransportUnifiedPush": "",
+    "gifProviderTenor": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "otherProfileFieldsKaomoji": "",
+    "customThemesErrorChoose": "",
+    "themeFileTweak": ""
   },
   "room": {
     "settingsFailed": "Nie udało się zapisać tej zmiany.",
@@ -2314,7 +2327,18 @@
     "attachmentsLinks": "",
     "hideImage": "",
     "attachmentsMediaEmpty": "",
-    "threadsClose": ""
+    "threadsClose": "",
+    "messagePlaceholder": "",
+    "loading": "",
+    "loadingMembers": "",
+    "threeTyping": "",
+    "oneTyping": "",
+    "loadingHistory": "",
+    "sending": "",
+    "unknownTyping": "",
+    "manyTyping": "",
+    "twoTyping": "",
+    "loadingNewer": ""
   },
   "setup": {
     "syncTurnOn": "",
@@ -2426,7 +2450,8 @@
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "roomname": {
         "usage": "",
@@ -2461,7 +2486,8 @@
         "description": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "color": {
         "usage": "",
@@ -2476,10 +2502,12 @@
         "description": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "hug": {
         "usage": "",
@@ -2538,7 +2566,8 @@
         "usage": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "gif": {
         "description": "",
@@ -2549,7 +2578,8 @@
         "description": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "pmpproxy": {
         "usage": "",
@@ -2600,7 +2630,8 @@
         "usage": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       }
     },
     "removeAttachment": "",
@@ -2961,7 +2992,15 @@
     "leaving": "",
     "start": "",
     "controlsLocked": "",
-    "cameraUnavailable": ""
+    "cameraUnavailable": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_few": "",
+    "lobbyInCall_many": "",
+    "others_one": "",
+    "others_few": "",
+    "others_many": "",
+    "live": "",
+    "leave": ""
   },
   "join": {
     "knockRequired": "",
@@ -2996,7 +3035,8 @@
     "userIdPlaceholder": "",
     "submit": "",
     "failed": "",
-    "encryptionHint": ""
+    "encryptionHint": "",
+    "description": ""
   },
   "auth": {
     "noAccountYet": "",
@@ -3104,7 +3144,9 @@
     "stageProfileLabel": "",
     "emailOptional": "",
     "stageNavigation": "",
-    "enterRegistrationToken": ""
+    "enterRegistrationToken": "",
+    "redirectingTo": "",
+    "signingIn": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3275,7 +3317,11 @@
     "pickerSyncAccount": "",
     "pickerLeftSide": "",
     "importDescription": "",
-    "triggerKeep": ""
+    "triggerKeep": "",
+    "removeTitle": "",
+    "moveUp": "",
+    "moveDown": "",
+    "importSystemPlaceholder": ""
   },
   "presence": {
     "lastSeenMinutes_one": "",
@@ -3381,7 +3427,8 @@
     "openBookmarks": "",
     "nextUnread": "",
     "helpTitle": "",
-    "categoryGeneral": ""
+    "categoryGeneral": "",
+    "hangUp": ""
   },
   "calendar": {
     "dayEvents_one": "",
@@ -3559,7 +3606,8 @@
     "resourcesLabel": "",
     "startRoomDescription": "",
     "joinConversationTitle": "",
-    "nextStepsTitle": ""
+    "nextStepsTitle": "",
+    "startRoomTitle": ""
   },
   "userLink": {
     "action": "",
@@ -3668,7 +3716,9 @@
     "descriptionPage": "",
     "solution": "",
     "errorTracking": "",
-    "title": ""
+    "title": "",
+    "searching": "",
+    "reproductionPlaceholder": ""
   },
   "window": {
     "maximize": "",
