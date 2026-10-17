@@ -385,7 +385,7 @@ jobs:
           done
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
   build-nightly-flatpak:
-    name: Build nightly Flatpak ${{ matrix.arch }}
+    name: Build nightly ${{ matrix.flavor }} Flatpak ${{ matrix.arch }}
     needs: [setup-release, linux]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -394,14 +394,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: x86_64
+          - flavor: tauri
+            arch: x86_64
             runner: ubuntu-24.04
-          - arch: aarch64
+            tarball: sable-@VERSION@-linux-x86_64.tar.gz
+          - flavor: tauri
+            arch: aarch64
             runner: ubuntu-24.04-arm
+            tarball: sable-@VERSION@-linux-aarch64.tar.gz
+          # The Electron Linux build only runs on Forgejo, for x86_64.
+          - flavor: electron
+            arch: x86_64
+            runner: ubuntu-24.04
+            tarball: sable-electron-@VERSION@-x64.tar.gz
+            render-flag: --electron
+            manifest: electron/nightly/moe.sable.next.electron.Nightly.yml
     permissions:
       contents: read
     env:
       ARCH: ${{ matrix.arch }}
+      TARBALL: ${{ matrix.tarball }}
+      RENDER_FLAG: ${{ matrix.render-flag }}
+      MANIFEST: packaging/flatpak/${{ matrix.manifest || 'nightly/moe.sable.next.Nightly.yml' }}
       TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
     steps:
@@ -416,7 +430,7 @@ jobs:
         id: tarball
         shell: bash
         run: |
-          tarball="sable-${VERSION}-linux-${ARCH}.tar.gz"
+          tarball="${TARBALL//@VERSION@/$VERSION}"
           if ! node scripts/ci/forgejo-release.mjs wait-assets \
                  --names "$tarball" --attempts 140 --interval 30; then
             echo "::warning::$tarball never appeared; skipping the $ARCH Flatpak."
@@ -443,9 +457,9 @@ jobs:
         shell: bash
         run: |
           if [ "$ARCH" = 'x86_64' ]; then
-            node scripts/ci/render-flatpak-nightly.mjs "$VERSION" "$TAG" "$SHA256:$SIZE" -
+            node scripts/ci/render-flatpak-nightly.mjs $RENDER_FLAG "$VERSION" "$TAG" "$SHA256:$SIZE" -
           else
-            node scripts/ci/render-flatpak-nightly.mjs "$VERSION" "$TAG" - "$SHA256:$SIZE"
+            node scripts/ci/render-flatpak-nightly.mjs $RENDER_FLAG "$VERSION" "$TAG" - "$SHA256:$SIZE"
           fi
       - name: Build the Flatpak
         if: ${{ steps.tarball.outputs.built == 'true' }}
@@ -459,12 +473,12 @@ jobs:
             --disable-rofiles-fuse \
             --default-branch=master \
             --repo=repo \
-            builddir packaging/flatpak/nightly/moe.sable.next.Nightly.yml
+            builddir "$MANIFEST"
       - name: Upload the exported repo
         if: ${{ steps.tarball.outputs.built == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: flatpak-nightly-repo-${{ matrix.arch }}
+          name: flatpak-nightly-repo-${{ matrix.flavor == 'electron' && 'electron-' || '' }}${{ matrix.arch }}
           path: repo
           if-no-files-found: error
           retention-days: 1

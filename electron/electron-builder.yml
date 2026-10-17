@@ -94,6 +94,7 @@ linux:
     - deb
     - rpm
     - AppImage
+    - tar.gz
 
 deb:
   packageName: sable-electron

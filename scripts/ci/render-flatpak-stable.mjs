@@ -1,23 +1,22 @@
-// Usage: render-flatpak-stable.mjs <version> <x86_64-sha256> <aarch64-sha256>
+// Usage: render-flatpak-stable.mjs [--electron] <version> <x86_64-sha256> <aarch64-sha256>
 // Pass "-" for an architecture that is not being published.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { assertSubstituted, parseArches } from '../lib/flatpak.mjs';
+import { assertSubstituted, flatpakFlavor, parseArches } from '../lib/flatpak.mjs';
 
-const [version, x86, arm] = process.argv.slice(2);
+const { args, dir, id } = flatpakFlavor(process.argv.slice(2), 'stable');
+const [version, x86, arm] = args;
 
 if (!version || !/^\d+\.\d+\.\d+$/.test(version) || !x86 || !arm) {
-  console.error('Usage: render-flatpak-stable.mjs <version> <x86_64-sha256> <aarch64-sha256>');
+  console.error(
+    'Usage: render-flatpak-stable.mjs [--electron] <version> <x86_64-sha256> <aarch64-sha256>'
+  );
   process.exit(1);
 }
 
 const arches = parseArches(x86, arm, { sized: false });
 
-const dir = 'packaging/flatpak';
-let manifest = readFileSync(`${dir}/moe.sable.client.yml.in`, 'utf8').replaceAll(
-  '@VERSION@',
-  version
-);
+let manifest = readFileSync(`${dir}/${id}.yml.in`, 'utf8').replaceAll('@VERSION@', version);
 
 for (const [arch, values] of Object.entries(arches)) {
   if (values) {
@@ -35,5 +34,5 @@ for (const [arch, values] of Object.entries(arches)) {
 
 assertSubstituted(manifest);
 
-writeFileSync(`${dir}/moe.sable.client.yml`, manifest);
+writeFileSync(`${dir}/${id}.yml`, manifest);
 console.log(`Rendered the stable Flatpak manifest for ${version}`);

@@ -27,7 +27,7 @@ export function setUpdateChannel(channel: keyof typeof FEEDS): void {
 
 export function registerUpdater(isAppFrame: IsAppFrame): void {
   // A dev run has no app-update.yml to read.
-  const enabled = app.isPackaged;
+  const enabled = app.isPackaged && !process.env.FLATPAK_ID;
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
 

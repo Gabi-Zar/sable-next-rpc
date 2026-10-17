@@ -13,18 +13,24 @@ if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
 const date = changelogSection(version)?.date;
 if (!date) throw new Error(`No "## ${version} (YYYY-MM-DD)" section in CHANGELOG.md`);
 
-const path = 'packaging/flatpak/moe.sable.client.metainfo.xml';
-const metainfo = readFileSync(path, 'utf8');
-if (metainfo.includes(`<release version="${version}"`)) {
-  console.log(`${path} already lists ${version}`);
-  process.exit(0);
-}
+const paths = [
+  'packaging/flatpak/moe.sable.client.metainfo.xml',
+  'packaging/flatpak/electron/moe.sable.next.electron.metainfo.xml',
+];
 
-const anchor = '  <releases>\n';
-if (!metainfo.includes(anchor)) throw new Error(`${path} has no <releases> element`);
-const entry = `    <release version="${version}" date="${date}">
+for (const path of paths) {
+  const metainfo = readFileSync(path, 'utf8');
+  if (metainfo.includes(`<release version="${version}"`)) {
+    console.log(`${path} already lists ${version}`);
+    continue;
+  }
+
+  const anchor = '  <releases>\n';
+  if (!metainfo.includes(anchor)) throw new Error(`${path} has no <releases> element`);
+  const entry = `    <release version="${version}" date="${date}">
       <url type="details">${server}/${repository}/releases/tag/v${version}</url>
     </release>
 `;
-writeFileSync(path, metainfo.replace(anchor, `${anchor}${entry}`));
-console.log(`Added ${version} to ${path}`);
+  writeFileSync(path, metainfo.replace(anchor, `${anchor}${entry}`));
+  console.log(`Added ${version} to ${path}`);
+}

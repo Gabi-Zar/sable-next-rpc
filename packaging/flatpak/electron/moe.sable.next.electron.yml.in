@@ -1,0 +1,101 @@
+id: moe.sable.next.electron
+
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+
+command: sable-electron
+
+finish-args:
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --share=ipc
+  - --device=dri
+  - --share=network
+  - --socket=pulseaudio
+  - --filesystem=xdg-run/pipewire-0
+  - --device=all
+  - --system-talk-name=org.freedesktop.RealtimeKit1
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --filesystem=xdg-download
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+
+modules:
+  - name: xdg-utils
+    buildsystem: simple
+    build-commands:
+      - autoreconf -fi
+      - ./configure --prefix=${FLATPAK_DEST}
+      - touch scripts/xdg-mime.txt
+      - make -C scripts xdg-mime
+      - install -Dm755 scripts/xdg-mime ${FLATPAK_DEST}/bin/xdg-mime
+    sources:
+      - type: git
+        url: https://gitlab.freedesktop.org/xdg/xdg-utils.git
+        tag: v1.2.1
+        commit: 356c380ad6fecc9ce6bea1f6a77986ba67402c80
+
+  - name: sable-electron
+    buildsystem: simple
+    build-options:
+      strip: false
+      no-debuginfo: true
+    build-commands:
+      - cp -a sable-electron ${FLATPAK_DEST}/sable-electron
+      - install -Dm755 sable-electron.sh ${FLATPAK_DEST}/bin/sable-electron
+      - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/LICENSE
+      - install -Dm644 moe.sable.next.electron.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      - install -Dm644 moe.sable.next.electron.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm644 32x32.png ${FLATPAK_DEST}/share/icons/hicolor/32x32/apps/${FLATPAK_ID}.png
+      - install -Dm644 64x64.png ${FLATPAK_DEST}/share/icons/hicolor/64x64/apps/${FLATPAK_ID}.png
+      - install -Dm644 128x128.png ${FLATPAK_DEST}/share/icons/hicolor/128x128/apps/${FLATPAK_ID}.png
+      - install -Dm644 256x256.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${FLATPAK_ID}.png
+    sources:
+      - type: archive
+        dest: sable-electron
+        strip-components: 0
+        url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-electron-@VERSION@-x64.tar.gz
+        sha256: '@SHA256_X86_64@'
+        only-arches: [x86_64]
+        x-checker-data:
+          type: json
+          url: https://git.sable.moe/api/v1/repos/SableClient/sable-next/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          url-query: .assets[] | select(.name == "sable-electron-" + $version + "-x64.tar.gz") | .browser_download_url
+          is-main-source: true
+      - type: archive
+        dest: sable-electron
+        strip-components: 0
+        url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-electron-@VERSION@-arm64.tar.gz
+        sha256: '@SHA256_AARCH64@'
+        only-arches: [aarch64]
+        x-checker-data:
+          type: json
+          url: https://git.sable.moe/api/v1/repos/SableClient/sable-next/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          url-query: .assets[] | select(.name == "sable-electron-" + $version + "-arm64.tar.gz") | .browser_download_url
+      - type: file
+        path: sable-electron.sh
+      - type: file
+        path: ../../../LICENSE
+      - type: file
+        path: moe.sable.next.electron.desktop
+      - type: file
+        path: moe.sable.next.electron.metainfo.xml
+      - type: file
+        path: ../icons/32x32.png
+        dest-filename: 32x32.png
+      - type: file
+        path: ../icons/64x64.png
+        dest-filename: 64x64.png
+      - type: file
+        path: ../icons/128x128.png
+        dest-filename: 128x128.png
+      - type: file
+        path: ../icons/256x256.png
+        dest-filename: 256x256.png

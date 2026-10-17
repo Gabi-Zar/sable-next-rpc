@@ -484,6 +484,7 @@ function registerScreenShare(): void {
 }
 
 function registerDeepLinks(): void {
+  if (isLinux && process.env.FLATPAK_ID) return;
   if (isLinux) {
     void claimSchemes(join(xdgDataHome(), 'applications'), IDENTIFIER, DEEP_LINK_SCHEMES);
   } else if (app.isPackaged) {

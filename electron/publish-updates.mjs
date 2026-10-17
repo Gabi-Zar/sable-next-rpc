@@ -21,7 +21,9 @@ const directory = resolve(process.argv[2] ?? join(import.meta.dirname, 'release'
 const files = readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile())
   .map((entry) => entry.name);
-const artifacts = files.filter((name) => /\.(deb|rpm|AppImage|dmg|zip|blockmap)$/.test(name));
+const artifacts = files.filter((name) =>
+  /\.(deb|rpm|AppImage|tar\.gz|dmg|zip|blockmap)$/.test(name)
+);
 const manifests = files.filter((name) => new RegExp(`^${channel}-(mac|linux)\\.yml$`).test(name));
 if (manifests.length === 0) throw new Error(`No ${channel} Electron update manifests found`);
 

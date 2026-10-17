@@ -634,6 +634,26 @@ jobs:
         run: pnpm --dir electron package --linux
       - name: Publish Electron bundles and update metadata
         run: node electron/publish-updates.mjs
+      - name: Publish deb and rpm to the package registries
+        env:
+          PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
+          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          channel=stable
+          case "$VERSION" in *-nightly.*) channel=nightly ;; esac
+          api="https://git.sable.moe/api/packages/${GITHUB_REPOSITORY_OWNER}"
+          upload() {
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --user "$PACKAGES_USER:$PACKAGES_TOKEN" \
+              --upload-file "$1" "$2")
+            # 409 means this exact version is already published.
+            case "$code" in 201|409) ;; *) echo "Upload of $1 failed with HTTP $code" >&2; exit 1 ;; esac
+          }
+          for deb in electron/release/*.deb; do
+            upload "$deb" "$api/debian/pool/$channel/main/upload"
+          done
+          for rpm in electron/release/*.rpm; do
+            upload "$rpm" "$api/rpm/$channel/upload"
+          done
       - name: Upload bundles
         uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
         with:
@@ -642,6 +662,7 @@ jobs:
             electron/release/*.deb
             electron/release/*.rpm
             electron/release/*.AppImage
+            electron/release/*.tar.gz
             electron/release/*.blockmap
             electron/release/*-linux.yml
           if-no-files-found: error

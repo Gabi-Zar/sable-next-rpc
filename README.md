@@ -142,6 +142,8 @@ flatpak remote-add --if-not-exists sable-next-nightly https://sableclient.github
 flatpak install sable-next-nightly moe.sable.next.Nightly
 ```
 
+The Electron build is `moe.sable.next.electron.Nightly` on the same remote.
+
 Built by the `build-nightly-flatpak` and `publish-nightly-flatpak` jobs in
 [`tauri-build.yml`](.github/workflows/tauri-build.yml).
 
@@ -159,6 +161,8 @@ sudo apt update && sudo apt install sable
 sudo dnf config-manager addrepo --from-repofile=https://git.sable.moe/api/packages/SableClient/rpm/stable.repo
 sudo dnf install sable
 ```
+
+The Electron build is the `sable-electron` package.
 
 ## Android (Obtainium)
 
