@@ -63,8 +63,7 @@
     "editStatus": "编辑状态",
     "rooms": "房间",
     "createSubspace": "创建子空间",
-    "unreadMessages": "{{count, number}} 条未读消息",
-    "sortRecent": ""
+    "unreadMessages": "{{count, number}} 条未读消息"
   },
   "common": {
     "accept": "接受",
@@ -311,13 +310,7 @@
     "connecting": "正在连接",
     "screenSourceHdr": "{{name}}，已转换 HDR",
     "waitingForMedia": "通话加密后可用",
-    "statsMbps": "{{value, number}} Mbps",
-    "screenPickerScreens": "",
-    "screenPickerWindows": "",
-    "screenAudioIncompatible": "",
-    "screenAudioPipeWirePulseMissing": "",
-    "screenAudioWorkaround": "",
-    "screenAudioWorkaroundHint": ""
+    "statsMbps": "{{value, number}} Mbps"
   },
   "room": {
     "directoryKind": "显示",
@@ -840,14 +833,7 @@
     "createVersionDefault": "服务器默认（{{version}}）",
     "createVersionUnstable": "{{version}}（不稳定）",
     "createSubspaceTitle": "创建子空间",
-    "createKindSpace": "空间",
-    "actionsLabel": "",
-    "directoryAddServer": "",
-    "directoryAddServerLabel": "",
-    "directoryRemoveServer": "",
-    "devDiagMain": "",
-    "devDiagServer": "",
-    "devDiagThread": ""
+    "createKindSpace": "空间"
   },
   "inbox": {
     "invitesSpamShow": "显示",
@@ -908,9 +894,7 @@
     "inviteOptions": "{{room}} 的更多选项",
     "invitesTab": "邀请",
     "invitesStrangers": "来自陌生人",
-    "inviteMessageShow": "显示来自 {{name}} 的消息",
-    "unlistedNotifications_other": "",
-    "markAllRead": ""
+    "inviteMessageShow": "显示来自 {{name}} 的消息"
   },
   "timeline": {
     "profileNameRemoved": "{{user}} 的显示名称已被移除",
@@ -941,9 +925,7 @@
         "knocked": "申请加入",
         "knock_retracted": "撤回了申请",
         "other": "成员身份已更新",
-        "avatar": "更换了头像",
-        "invited": "",
-        "name": ""
+        "avatar": "更换了头像"
       },
       "showEvents_other": "显示 {{count, number}} 个事件",
       "hideEvents": "隐藏事件",
@@ -953,9 +935,7 @@
       "knock_retracted": "{{users}} 撤回了加入申请",
       "other": "{{users}} 的成员身份已更新",
       "avatar": "{{users}} 更换了头像",
-      "others_other": "另外 {{count, number}} 人",
-      "invited": "",
-      "name": ""
+      "others_other": "另外 {{count, number}} 人"
     },
     "backToConversation": "返回对话",
     "originalMessage": "原始消息",
@@ -1304,19 +1284,7 @@
     "sendAnyway": "仍然发送",
     "sendBlockedIdentity": "自从你验证 {{names}} 以来，他们重置了加密身份。仍然发送将撤回你的验证。",
     "sendBlockedVerify": "在发送加密消息之前，请先验证此设备。",
-    "profileBanner": "查看 {{name}} 的横幅",
-    "editUnchangedLines_other": "",
-    "replyToVerificationRequest": "",
-    "cute": {
-      "hug": "",
-      "cuddle": "",
-      "wave": "",
-      "poke": "",
-      "googly_eyes": "",
-      "other": ""
-    },
-    "playAudio": "",
-    "audioSeek": ""
+    "profileBanner": "查看 {{name}} 的横幅"
   },
   "emoji": {
     "people": "笑脸和人物",
@@ -1345,19 +1313,7 @@
     "knocking": "正在发送…",
     "joining": "正在加入…",
     "withdrawing": "正在撤回…",
-    "members_other": "{{count, number}} 位成员",
-    "knockRequired": "",
-    "restricted": "",
-    "restrictedFailed": "",
-    "restrictedKnockAvailable": "",
-    "restrictedKnockRequired": "",
-    "invited": "",
-    "banned": "",
-    "provenance": "",
-    "uncertainProvenance": "",
-    "uncertainProvenanceTooltip": "",
-    "untrustedProvenanceTooltip": "",
-    "trustedProvenanceTooltip": ""
+    "members_other": "{{count, number}} 位成员"
   },
   "app": {
     "skipMigration": "不迁移 v1 数据，继续",
@@ -1406,9 +1362,7 @@
     "failed": "无法创建聊天。",
     "encryptionHint": "对于桥接联系人请关闭，之后无法再开启。",
     "submit": "开始聊天",
-    "userIdLabel": "用户 ID",
-    "confirmTitle": "",
-    "confirmBody": ""
+    "userIdLabel": "用户 ID"
   },
   "permalink": {
     "opening": "正在打开链接…",
@@ -1446,9 +1400,7 @@
       "microphone": "麦克风",
       "messageSearch": "消息搜索",
       "previews": "预览",
-      "callCompat": "兼容性",
-      "font": "",
-      "performance": ""
+      "callCompat": "兼容性"
     },
     "navGroups": {
       "interface": "界面",
@@ -1500,8 +1452,7 @@
       "twitterEmoji": "Twemoji、表情风格、表情字体",
       "typing": "正在输入指示器、正在输入",
       "urlPreviews": "嵌入、展开、链接卡片、URL 预览",
-      "weekStart": "星期一、星期日、日历、周",
-      "timeZone": ""
+      "weekStart": "星期一、星期日、日历、周"
     },
     "resetRecoveryKey": "重置恢复密钥",
     "roomKeys": "本地密钥备份",
@@ -2220,29 +2171,7 @@
       "pride": "骄傲",
       "pridegradient": "骄傲（渐变）",
       "pansexual": "泛性恋",
-      "pansexualgradient": "泛性恋（渐变）",
-      "nonbinary": "",
-      "nonbinarygradient": "",
-      "genderfluid": "",
-      "genderfluidgradient": "",
-      "asexual": "",
-      "asexualgradient": "",
-      "aromantic": "",
-      "aromanticgradient": "",
-      "aroace": "",
-      "aroacegradient": "",
-      "graysexual": "",
-      "graysexualgradient": "",
-      "polysexual": "",
-      "polysexualgradient": "",
-      "omnisexual": "",
-      "omnisexualgradient": "",
-      "genderqueer": "",
-      "genderqueergradient": "",
-      "bigender": "",
-      "bigendergradient": "",
-      "demigender": "",
-      "demigendergradient": ""
+      "pansexualgradient": "泛性恋（渐变）"
     },
     "themeShowingNow": "正在显示",
     "profilePreviewTab": "预览",
@@ -2421,69 +2350,7 @@
     "removeTimezone": "移除时区",
     "otherProfileFieldsDone": "完成",
     "themeFileInstalled": "已安装",
-    "composerSeparatorCount": "分隔符",
-    "verificationRetry": "",
-    "hideTopicChanges": "",
-    "avatarsInMessageHeaders": "",
-    "avatarsInMessageHeadersHint": "",
-    "updateChannel": "",
-    "updateChannelHint": "",
-    "updateChannelStable": "",
-    "updateChannelNightly": "",
-    "developerServerFeaturesTitle": "",
-    "serverFeatureSlidingSync": "",
-    "serverFeatureProfilePropagation": "",
-    "serverFeaturesAll": "",
-    "coreLogLevel": "",
-    "coreLogLevelHint": "",
-    "coreLogLevelDefault": "",
-    "coreLogLevelDebug": "",
-    "callDebugOverlay": "",
-    "hiddenEventsHeaderToggle": "",
-    "spacingNone": "",
-    "renderProfileColors": "",
-    "renderProfileColorsHint": "",
-    "zoomShortcuts": "",
-    "zoomShortcutsHint": "",
-    "showDmTopics": "",
-    "showDmTopicsHint": "",
-    "showEasterEggs": "",
-    "timeZone": "",
-    "timeZoneHint": "",
-    "timeZoneAuto": "",
-    "sedEdits": "",
-    "sedEditsHint": "",
-    "inlineEditing": "",
-    "inlineEditingHint": "",
-    "composerSpellcheck": "",
-    "composerSpellcheckHint": "",
-    "composerAutocapitalize": "",
-    "composerAutocapitalizeHint": "",
-    "pushDistributorNone": "",
-    "minimizeToTray": "",
-    "minimizeToTrayHint": "",
-    "hardwareAcceleration": "",
-    "hardwareAccelerationHint": "",
-    "hardwareVideoAcceleration": "",
-    "hardwareVideoAccelerationHint": "",
-    "smoothScrolling": "",
-    "smoothScrollingHint": "",
-    "webRtcIpPolicy": "",
-    "webRtcIpPolicyHint": "",
-    "webRtcIpPolicyDefault": "",
-    "webRtcIpPolicyPrivate": "",
-    "webRtcIpPolicyPublic": "",
-    "webRtcIpPolicyProxied": "",
-    "fontFamily": "",
-    "fontFamilyHint": "",
-    "fontFamilyMono": "",
-    "fontFamilyMonoHint": "",
-    "fontCustom": "",
-    "fontDefault": "",
-    "fontName": "",
-    "fontCustomHint": "",
-    "codeLigatures": "",
-    "codeLigaturesHint": ""
+    "composerSeparatorCount": "分隔符"
   },
   "supporter": {
     "shapes": {
@@ -2711,8 +2578,7 @@
     "continueWithProvider": "使用 {{name}} 继续",
     "stageSignInLabel": "登录 Sable",
     "enterRegistrationToken": "请输入你的注册令牌。",
-    "passwordResetComplete": "密码已重置",
-    "noAccountYet": ""
+    "passwordResetComplete": "密码已重置"
   },
   "footer": {
     "poweredBy": "技术支持"
@@ -3126,9 +2992,7 @@
     "scheduleIn1Hour": "1 小时后",
     "scheduleTomorrow9am": "明天上午 9 点",
     "scheduleEmpty": "先写好消息，再选择时间。",
-    "highlightColor": "高亮颜色",
-    "resizeBoard": "",
-    "sedNoMatch": ""
+    "highlightColor": "高亮颜色"
   },
   "errors": {
     "pageTitle": "出了点问题",
@@ -3173,8 +3037,7 @@
     "invalidEmail": "请输入有效的电子邮件地址。",
     "emailVerificationFailed": "该验证码未被接受，请检查后重试。",
     "invalidCredentials": "用户名或密码无效。",
-    "coreError": "无法完成登录，请重试，如果问题持续出现，请报告该问题。",
-    "coreSuperseded": ""
+    "coreError": "无法完成登录，请重试，如果问题持续出现，请报告该问题。"
   },
   "bugReport": {
     "feature": "功能请求",
@@ -3278,8 +3141,7 @@
     "colorLight": "浅色主题下的名称颜色",
     "triggers": "触发器",
     "triggerPrefix": "前缀",
-    "backup": "备份",
-    "noMatches": ""
+    "backup": "备份"
   },
   "shortcuts": {
     "openBookmarks": "打开书签",
@@ -3314,12 +3176,7 @@
     "toggleDeafen": "在通话中关闭或恢复声音",
     "toggleCamera": "在通话中开启或关闭摄像头",
     "toggleScreenShare": "在通话中开始或停止共享屏幕",
-    "hangUp": "离开通话",
-    "closeWindow": "",
-    "quit": "",
-    "toggleEmojiPicker": "",
-    "toggleGifPicker": "",
-    "toggleStickerPicker": ""
+    "hangUp": "离开通话"
   },
   "search": {
     "close": "关闭搜索",
@@ -3408,10 +3265,7 @@
     "capabilityRtcTransports": "查找你家服务器的通话服务器",
     "capabilityLivekitToken": "获取访问你家服务器通话服务器的权限",
     "capabilityLivekitLeave": "在你断开连接时让你家服务器结束通话",
-    "resize": "调整挂件区域大小",
-    "integrationManagerTermsTitle": "",
-    "integrationManagerTermsBody": "",
-    "integrationManagerTermsFailed": ""
+    "resize": "调整挂件区域大小"
   },
   "calendar": {
     "end": "结束",
@@ -3598,24 +3452,5 @@
   "window": {
     "minimize": "最小化",
     "maximize": "最大化"
-  },
-  "sounds": {
-    "notification": "",
-    "volumeRingCategory": "",
-    "volumeCallCategory": "",
-    "title": "",
-    "volumeCategory": "",
-    "incoming_call": "",
-    "outgoing_call": "",
-    "camera_on": "",
-    "camera_off": "",
-    "mic_on": "",
-    "mic_off": "",
-    "deafen_on": "",
-    "deafen_off": "",
-    "screenshare_start": "",
-    "screenshare_stop": "",
-    "call_join": "",
-    "call_leave": ""
   }
 }

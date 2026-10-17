@@ -553,19 +553,7 @@
     "cosmeticsMembersPronouns": "Местоимения",
     "encryptionEnabled": "Включено",
     "directoryKindAll": "Комнаты и пространства",
-    "addressesTitle": "Адреса на вашем сервере",
-    "actionsLabel": "",
-    "directoryAddServer": "",
-    "directoryAddServerLabel": "",
-    "directoryRemoveServer": "",
-    "devDiagMain": "",
-    "devDiagServer": "",
-    "devDiagThread": "",
-    "createAliasPlaceholder": "",
-    "joinAddressPlaceholder": "",
-    "emojisShortcodePlaceholder": "",
-    "abbreviationsTermPlaceholder": "",
-    "abbreviationsDefinitionPlaceholder": ""
+    "addressesTitle": "Адреса на вашем сервере"
   },
   "common": {
     "addAccount": "Добавить аккаунт",
@@ -652,8 +640,7 @@
     "moreOptions": "Дополнительные параметры",
     "save": "Сохранить",
     "selectAll": "Выбрать всё",
-    "startingSable": "Запуск Sable…",
-    "theythemEnsheher": ""
+    "startingSable": "Запуск Sable…"
   },
   "settings": {
     "status": "Статус",
@@ -691,9 +678,7 @@
       "callCompat": "Совместимость",
       "messageSearch": "Поиск сообщений",
       "activity": "Активность",
-      "themes": "Темы",
-      "font": "",
-      "performance": ""
+      "themes": "Темы"
     },
     "encryption": "Шифрование",
     "supporterClaimAction": "Проверить",
@@ -736,8 +721,7 @@
       "textScale": "Размер шрифта, крупный текст, масштаб текста",
       "twitterEmoji": "Twemoji, стиль эмодзи, шрифт эмодзи",
       "typing": "Индикатор набора текста, печатает",
-      "language": "Язык, перевод, локализация, i18n",
-      "timeZone": ""
+      "language": "Язык, перевод, локализация, i18n"
     },
     "supporterActive": "Значок спонсора активен",
     "supporterNone": "Для этой учетной записи значок не выдавался.",
@@ -1436,30 +1420,7 @@
       "lesbiangradient": "Лесбийский (градиент)",
       "mlmgradient": "МЛМ (градиент)",
       "pridegradient": "Прайд (градиент)",
-      "mlm": "МЛМ",
-      "nonbinary": "",
-      "nonbinarygradient": "",
-      "genderfluid": "",
-      "genderfluidgradient": "",
-      "asexual": "",
-      "asexualgradient": "",
-      "aromantic": "",
-      "aromanticgradient": "",
-      "aroace": "",
-      "aroacegradient": "",
-      "graysexual": "",
-      "graysexualgradient": "",
-      "polysexual": "",
-      "polysexualgradient": "",
-      "omnisexual": "",
-      "omnisexualgradient": "",
-      "genderqueer": "",
-      "genderqueergradient": "",
-      "bigender": "",
-      "bigendergradient": "",
-      "demigender": "",
-      "demigendergradient": "",
-      "ceo": ""
+      "mlm": "МЛМ"
     },
     "usernameClickMention": "Упомянуть",
     "troubleshootRun": "Запустить проверку",
@@ -1659,88 +1620,7 @@
     "troubleshootNotApplicable": "Пропущено из-за ошибки на предыдущем шаге.",
     "troubleshootTransportNone": "Push-служба не настроена на этом устройстве.",
     "troubleshootPusherNone": "У этого устройства нет push-регистрации.",
-    "searchLabel": "Поиск по настройкам",
-    "verificationRetry": "",
-    "hideTopicChanges": "",
-    "avatarsInMessageHeaders": "",
-    "avatarsInMessageHeadersHint": "",
-    "updateChannel": "",
-    "updateChannelHint": "",
-    "updateChannelStable": "",
-    "updateChannelNightly": "",
-    "developerServerFeaturesTitle": "",
-    "serverFeatureSlidingSync": "",
-    "serverFeatureProfilePropagation": "",
-    "serverFeaturesAll": "",
-    "coreLogLevel": "",
-    "coreLogLevelHint": "",
-    "coreLogLevelDefault": "",
-    "coreLogLevelDebug": "",
-    "callDebugOverlay": "",
-    "hiddenEventsHeaderToggle": "",
-    "spacingNone": "",
-    "renderProfileColors": "",
-    "renderProfileColorsHint": "",
-    "zoomShortcuts": "",
-    "zoomShortcutsHint": "",
-    "showDmTopics": "",
-    "showDmTopicsHint": "",
-    "showEasterEggs": "",
-    "timeZone": "",
-    "timeZoneHint": "",
-    "timeZoneAuto": "",
-    "sedEdits": "",
-    "sedEditsHint": "",
-    "inlineEditing": "",
-    "inlineEditingHint": "",
-    "composerSpellcheck": "",
-    "composerSpellcheckHint": "",
-    "composerAutocapitalize": "",
-    "composerAutocapitalizeHint": "",
-    "pushDistributorNone": "",
-    "minimizeToTray": "",
-    "minimizeToTrayHint": "",
-    "hardwareAcceleration": "",
-    "hardwareAccelerationHint": "",
-    "hardwareVideoAcceleration": "",
-    "hardwareVideoAccelerationHint": "",
-    "smoothScrolling": "",
-    "smoothScrollingHint": "",
-    "webRtcIpPolicy": "",
-    "webRtcIpPolicyHint": "",
-    "webRtcIpPolicyDefault": "",
-    "webRtcIpPolicyPrivate": "",
-    "webRtcIpPolicyPublic": "",
-    "webRtcIpPolicyProxied": "",
-    "fontFamily": "",
-    "fontFamilyHint": "",
-    "fontFamilyMono": "",
-    "fontFamilyMonoHint": "",
-    "fontCustom": "",
-    "fontDefault": "",
-    "fontName": "",
-    "fontCustomHint": "",
-    "codeLigatures": "",
-    "codeLigaturesHint": "",
-    "matrixId": "",
-    "developerSearchBytes": "",
-    "developerSearchCount": "",
-    "developerSearchRatio": "",
-    "dateFormatDmy": "",
-    "dateFormatMdy": "",
-    "dateFormatYmd": "",
-    "gifProviderKlipy": "",
-    "gifProviderTenor": "",
-    "gifProviderGiphy": "",
-    "callModeMatrix2": "",
-    "callCompatTransportWellKnown": "",
-    "mentionsRoom": "",
-    "pushTransportUnifiedPush": "",
-    "pushersKindServer": "",
-    "otherProfileFieldsKaomoji": "",
-    "otherProfileFieldsKeyPlaceholder": "",
-    "otherProfileFieldsValuePlaceholder": "",
-    "blockedUsersPlaceholder": ""
+    "searchLabel": "Поиск по настройкам"
   },
   "nav": {
     "space": "Пространство",
@@ -1806,8 +1686,7 @@
     "displayOptions": "Параметры отображения боковой панели",
     "alerts": "Оповещения",
     "noAlerts": "Нет оповещений",
-    "folderRename": "Переименовать папку",
-    "sortRecent": ""
+    "folderRename": "Переименовать папку"
   },
   "emotes": {
     "usageEmoji": "Эмодзи",
@@ -1935,11 +1814,7 @@
     "acceptAllFailed_many": "Не удалось принять {{count, number}} приглашений",
     "invitesShowPending": "Назад к приглашениям",
     "markedRead": "Комната {{room}} отмечена как прочитанная",
-    "bookmarkRemoved": "Закладка в {{room}} удалена",
-    "unlistedNotifications_one": "",
-    "unlistedNotifications_few": "",
-    "unlistedNotifications_many": "",
-    "markAllRead": ""
+    "bookmarkRemoved": "Закладка в {{room}} удалена"
   },
   "timeline": {
     "newMessagesUnknown": "Новые сообщения",
@@ -1982,9 +1857,7 @@
         "joined": "Вошли",
         "left": "Вышли",
         "invitation_rejected": "Отклонили приглашение",
-        "other": "Статус участников обновлён",
-        "invited": "",
-        "name": ""
+        "other": "Статус участников обновлён"
       },
       "showEvents_one": "Показать {{count, number}} событие",
       "showEvents_few": "Показать {{count, number}} события",
@@ -1996,9 +1869,7 @@
       "left": "{{users}} покинули комнату",
       "avatar": "{{users}} сменили аватар",
       "hideEvents": "Скрыть события",
-      "knock_retracted": "{{users}} отозвали запрос на вход",
-      "invited": "",
-      "name": ""
+      "knock_retracted": "{{users}} отозвали запрос на вход"
     },
     "thread": "Ветка",
     "edited": "(изменено)",
@@ -2370,36 +2241,14 @@
     "profileReport": "Пожаловаться на пользователя",
     "profileOverrideName": "Имя",
     "profileOverrideRemove": "Показывать исходный профиль",
-    "utdWaiting": "Ожидание ключа для этого сообщения…",
-    "cute": {
-      "poke": "",
-      "googly_eyes": "",
-      "other": "",
-      "hug": "",
-      "cuddle": "",
-      "wave": ""
-    },
-    "playAudio": "",
-    "audioSeek": "",
-    "editUnchangedLines_one": "",
-    "editUnchangedLines_few": "",
-    "editUnchangedLines_many": "",
-    "replyToVerificationRequest": "",
-    "messageTimestamp": "",
-    "morePronouns": "",
-    "downloadProgress": "",
-    "powerTagDerived": "",
-    "withReason": ""
+    "utdWaiting": "Ожидание ключа для этого сообщения…"
   },
   "direct": {
     "encryptionHint": "Отключите для контактов из мостов. Включить позже будет нельзя.",
     "description": "Начните личный зашифрованный чат, указав ID пользователя.",
     "userIdLabel": "ID пользователя",
     "failed": "Не удалось создать чат.",
-    "submit": "Начать чат",
-    "confirmTitle": "",
-    "confirmBody": "",
-    "userIdPlaceholder": ""
+    "submit": "Начать чат"
   },
   "home": {
     "resourcesLabel": "Ресурсы Sable",
@@ -2419,19 +2268,7 @@
     "withdrawing": "Отзыв запроса…",
     "members_one": "{{count, number}} участник",
     "members_few": "{{count, number}} участника",
-    "members_many": "{{count, number}} участников",
-    "knockRequired": "",
-    "restricted": "",
-    "restrictedFailed": "",
-    "restrictedKnockAvailable": "",
-    "restrictedKnockRequired": "",
-    "invited": "",
-    "banned": "",
-    "provenance": "",
-    "uncertainProvenance": "",
-    "uncertainProvenanceTooltip": "",
-    "untrustedProvenanceTooltip": "",
-    "trustedProvenanceTooltip": ""
+    "members_many": "{{count, number}} участников"
   },
   "userLink": {
     "action": "Написать сообщение",
@@ -2571,8 +2408,7 @@
     "password": "Пароль",
     "checkingProvider": "Проверка провайдера…",
     "enterRegistrationToken": "Введите токен регистрации.",
-    "email": "Адрес эл. почты",
-    "noAccountYet": ""
+    "email": "Адрес эл. почты"
   },
   "setup": {
     "useRecoveryKeyOrPassphrase": "Использовать ключ восстановления или кодовую фразу",
@@ -2662,9 +2498,7 @@
     "chooseBadge": "Выберите значок донатера",
     "colors": {
       "gold": "Золотой",
-      "custom": "Свой Sable",
-      "ghost": "",
-      "evil": ""
+      "custom": "Свой Sable"
     },
     "badgeHint": "Значок дается за любую сумму, даже за $1, а разовое пожертвование закрепляет его навсегда.",
     "customizableColors": "Пользовательские цвета",
@@ -2688,10 +2522,7 @@
     "customCardColors": "Пользовательские цвета карточки",
     "customCardColorsHint": "Выберите цвета для фона карточки и кнопки пожертвования.",
     "badgeSaveFailed": "Не удалось сохранить значок. Попробуйте еще раз.",
-    "colorIndex": "Цвет {{index}}",
-    "designs": {
-      "paw": ""
-    }
+    "colorIndex": "Цвет {{index}}"
   },
   "viewer": {
     "saved": "Сохранено",
@@ -2757,8 +2588,7 @@
         "usage": "/gif [запрос]"
       },
       "bugreport": {
-        "description": "Открыть форму сообщения об ошибке",
-        "usage": ""
+        "description": "Открыть форму сообщения об ошибке"
       },
       "hug": {
         "usage": "/hug [@пользователь:сервер]",
@@ -2773,12 +2603,10 @@
         "usage": "/wave [@пользователь:сервер]"
       },
       "poke": {
-        "description": "Ткнуть пальцем",
-        "usage": ""
+        "description": "Ткнуть пальцем"
       },
       "headpat": {
-        "description": "Погладить по голове",
-        "usage": ""
+        "description": "Погладить по голове"
       },
       "me": {
         "description": "Отправить сообщение как действие",
@@ -2797,20 +2625,17 @@
         "usage": "/unflip [сообщение]"
       },
       "join": {
-        "description": "Войти в комнату по адресу",
-        "usage": ""
+        "description": "Войти в комнату по адресу"
       },
       "knock": {
         "description": "Постучаться в комнату",
         "usage": "/knock <#room:server> [причина]"
       },
       "leave": {
-        "description": "Покинуть эту комнату",
-        "usage": ""
+        "description": "Покинуть эту комнату"
       },
       "invite": {
-        "description": "Пригласить пользователя в эту комнату",
-        "usage": ""
+        "description": "Пригласить пользователя в эту комнату"
       },
       "kick": {
         "description": "Исключить пользователя из этой комнаты",
@@ -2825,8 +2650,7 @@
         "usage": "/unban <@user:server> [причина]"
       },
       "color": {
-        "description": "Выбрать цвет своего имени в этой комнате",
-        "usage": ""
+        "description": "Выбрать цвет своего имени в этой комнате"
       },
       "pronoun": {
         "description": "Указать местоимения в этой комнате",
@@ -2861,8 +2685,7 @@
         "usage": "/nick <имя>"
       },
       "scolor": {
-        "description": "Выбрать цвет своего имени во всём этом пространстве",
-        "usage": ""
+        "description": "Выбрать цвет своего имени во всём этом пространстве"
       },
       "spronoun": {
         "description": "Указать местоимения во всём этом пространстве",
@@ -2877,44 +2700,35 @@
         "usage": "/topic <тема>"
       },
       "disinvite": {
-        "description": "Отозвать приглашение",
-        "usage": ""
+        "description": "Отозвать приглашение"
       },
       "ignore": {
-        "description": "Скрыть всё от пользователя на всех устройствах",
-        "usage": ""
+        "description": "Скрыть всё от пользователя на всех устройствах"
       },
       "unignore": {
-        "description": "Перестать скрывать пользователя",
-        "usage": ""
+        "description": "Перестать скрывать пользователя"
       },
       "startdm": {
-        "description": "Начать личное сообщение с пользователем",
-        "usage": ""
+        "description": "Начать личное сообщение с пользователем"
       },
       "converttodm": {
-        "description": "Отметить эту комнату как личное сообщение",
-        "usage": ""
+        "description": "Отметить эту комнату как личное сообщение"
       },
       "converttoroom": {
-        "description": "Сделать это личное сообщение обычной комнатой",
-        "usage": ""
+        "description": "Сделать это личное сообщение обычной комнатой"
       },
       "discardsession": {
-        "description": "Сбросить исходящую сессию шифрования комнаты, чтобы следующее сообщение использовало новый ключ",
-        "usage": ""
+        "description": "Сбросить исходящую сессию шифрования комнаты, чтобы следующее сообщение использовало новый ключ"
       },
       "acl": {
-        "description": "Управление списком доступа серверов этой комнаты",
-        "usage": ""
+        "description": "Управление списком доступа серверов этой комнаты"
       },
       "addwidget": {
         "description": "Добавить виджет в эту комнату",
         "usage": "/addwidget <url> [название]"
       },
       "html": {
-        "description": "Отправить сообщение в формате HTML",
-        "usage": ""
+        "description": "Отправить сообщение в формате HTML"
       },
       "rainbowme": {
         "description": "Отправить действие радужным текстом",
@@ -2925,20 +2739,16 @@
         "usage": "/location <широта> <долгота>"
       },
       "sharemylocation": {
-        "description": "Поделиться местоположением этого устройства",
-        "usage": ""
+        "description": "Поделиться местоположением этого устройства"
       },
       "myroomavatar": {
-        "description": "Изменить свой аватар только в этой комнате",
-        "usage": ""
+        "description": "Изменить свой аватар только в этой комнате"
       },
       "addpmp": {
-        "description": "Добавить или обновить профиль отдельного сообщения",
-        "usage": ""
+        "description": "Добавить или обновить профиль отдельного сообщения"
       },
       "delpmp": {
-        "description": "Удалить профиль отдельного сообщения",
-        "usage": ""
+        "description": "Удалить профиль отдельного сообщения"
       },
       "usepmp": {
         "description": "Отправлять от имени профиля сообщения в этой комнате",
@@ -3132,11 +2942,7 @@
     "scheduledSave": "Сохранить запланированное сообщение",
     "colorPresets": "Цвета",
     "scheduledPending": "Ожидание открытия устройства",
-    "scheduleAttachmentUnsupported": "Этот сервер не поддерживает отправку вложений по расписанию.",
-    "resizeBoard": "",
-    "sedNoMatch": "",
-    "linkUrl": "",
-    "sendTooltip": ""
+    "scheduleAttachmentUnsupported": "Этот сервер не поддерживает отправку вложений по расписанию."
   },
   "errors": {
     "accountSuspended": "Ваш сервер приостановил действие этой учётной записи.",
@@ -3181,8 +2987,7 @@
     "passwordUnsupported": "Этот сервер не поддерживает вход по паролю.",
     "syncFailed": "Синхронизация не удалась: {{message}}",
     "offline": "Вы не в сети. Переподключение…",
-    "accountLocked": "Ваш сервер заблокировал эту учётную запись.",
-    "coreSuperseded": ""
+    "accountLocked": "Ваш сервер заблокировал эту учётную запись."
   },
   "bugReport": {
     "feature": "Запрос функции",
@@ -3285,9 +3090,7 @@
     "removeTitle": "Удалить {{name}}?",
     "importSystem": "ID системы",
     "importFailed": "Не удалось прочитать эту систему из PluralKit.",
-    "pickerSyncAccount": "Как в аккаунте",
-    "noMatches": "",
-    "importSystemPlaceholder": ""
+    "pickerSyncAccount": "Как в аккаунте"
   },
   "search": {
     "clear": "Очистить поиск",
@@ -3489,8 +3292,7 @@
     "resizeStage": "Изменить размер области звонка",
     "debugTransports": {
       "native": "Нативный",
-      "livekit-web": "LiveKit (веб)",
-      "livekit-multi": ""
+      "livekit-web": "LiveKit (веб)"
     },
     "showCall": "Показать звонок",
     "start": "Начать звонок",
@@ -3503,14 +3305,7 @@
     "others_many": "Ещё {{count, number}} участников в звонке",
     "statsFps": "{{value, number}} кадр/с",
     "returnToCall": "Вернуться к звонку",
-    "testMicNeedsMic": "Включите микрофон, чтобы проверить его",
-    "screenPickerScreens": "",
-    "screenPickerWindows": "",
-    "screenAudioIncompatible": "",
-    "screenAudioPipeWirePulseMissing": "",
-    "screenAudioWorkaround": "",
-    "screenAudioWorkaroundHint": "",
-    "nameOnDevice": ""
+    "testMicNeedsMic": "Включите микрофон, чтобы проверить его"
   },
   "pdf": {
     "previousPage": "Предыдущая страница",
@@ -3562,11 +3357,7 @@
     "capabilityDelayedSend": "Планировать отложенную отправку событий",
     "capabilitiesAllow": "Разрешить выбранное",
     "addCustom": "Добавить свой виджет",
-    "capabilitySendState": "Изменять настройки этой комнаты",
-    "integrationManagerTermsTitle": "",
-    "integrationManagerTermsBody": "",
-    "integrationManagerTermsFailed": "",
-    "capabilityOther": ""
+    "capabilitySendState": "Изменять настройки этой комнаты"
   },
   "calendar": {
     "more": "+{{count, number}} ещё",
@@ -3649,12 +3440,7 @@
     "editNewer": "Редактировать следующее сообщение",
     "pressKeys": "Нажмите клавиши, Esc для отмены…",
     "previousRoom": "Предыдущая комната",
-    "categoryGeneral": "Общие",
-    "closeWindow": "",
-    "quit": "",
-    "toggleEmojiPicker": "",
-    "toggleGifPicker": "",
-    "toggleStickerPicker": ""
+    "categoryGeneral": "Общие"
   },
   "presence": {
     "statusMessage": "Текст статуса",
@@ -3735,8 +3521,7 @@
     "replyCount_many": "{{count, number}} ответов",
     "threadUnread": "Не прочитано. {{name}}: {{preview}}",
     "loadMore": "Загрузить более старые ветки",
-    "empty": "Веток пока нет.",
-    "thread": ""
+    "empty": "Веток пока нет."
   },
   "share": {
     "files_one": "{{count, number}} файл",
@@ -3748,24 +3533,5 @@
   },
   "a11y": {
     "loading": "Загрузка"
-  },
-  "sounds": {
-    "notification": "",
-    "volumeRingCategory": "",
-    "volumeCallCategory": "",
-    "title": "",
-    "volumeCategory": "",
-    "incoming_call": "",
-    "outgoing_call": "",
-    "camera_on": "",
-    "camera_off": "",
-    "mic_on": "",
-    "mic_off": "",
-    "deafen_on": "",
-    "deafen_off": "",
-    "screenshare_start": "",
-    "screenshare_stop": "",
-    "call_join": "",
-    "call_leave": ""
   }
 }
