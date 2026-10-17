@@ -112,8 +112,8 @@
   function share(): void {
     if (!ready) return;
     const extra = linuxElectron && workaround ? { workaround: true } : {};
-    if (kind === 'system') onShare({ kind, exclude: excluded, ...extra });
-    else if (kind === 'apps') onShare({ kind, include: included, ...extra });
+    if (kind === 'system') onShare({ kind, exclude: $state.snapshot(excluded), ...extra });
+    else if (kind === 'apps') onShare({ kind, include: $state.snapshot(included), ...extra });
     else onShare({ kind: 'none' });
   }
 </script>
