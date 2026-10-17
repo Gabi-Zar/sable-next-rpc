@@ -680,7 +680,11 @@
     "abbreviationsEdit": "",
     "publishOff": "",
     "permRoleColorPick": "",
-    "publishTitle": ""
+    "publishTitle": "",
+    "permRoleIcon": "",
+    "permGroupMessages": "",
+    "emojisDeletePackConfirm": "",
+    "devRoomTitle": ""
   },
   "common": {
     "directMessages": "Direktnachrichten",
@@ -1185,7 +1189,18 @@
     "copyLink": "",
     "predecessorOpen": "",
     "reportMessage": "",
-    "forwardTitle": ""
+    "forwardTitle": "",
+    "unknownTyping": "",
+    "manyTyping": "",
+    "oneTyping": "",
+    "loadingMembers": "",
+    "threeTyping": "",
+    "twoTyping": "",
+    "sending": "",
+    "loadingNewer": "",
+    "loading": "",
+    "messagePlaceholder": "",
+    "loadingHistory": ""
   },
   "composer": {
     "scheduleMessage": "",
@@ -1225,7 +1240,8 @@
         "description": ""
       },
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "tableflip": {
         "usage": "",
@@ -1288,7 +1304,8 @@
         "description": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "roomname": {
         "usage": "",
@@ -1307,7 +1324,8 @@
         "usage": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "scolor": {
         "description": "",
@@ -1318,14 +1336,16 @@
         "description": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "color": {
         "description": "",
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "pronoun": {
         "description": "",
@@ -1336,7 +1356,8 @@
         "usage": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "rainbowme": {
         "description": "",
@@ -1347,7 +1368,8 @@
         "description": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "converttoroom": {
         "description": "",
@@ -1678,7 +1700,9 @@
       "messageLayout": "",
       "themes": "",
       "messageSearch": "",
-      "callScreens": ""
+      "callScreens": "",
+      "embeds": "",
+      "messages": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_other": "",
@@ -2681,7 +2705,18 @@
     "themeCatalogTrust": "",
     "otherProfileFieldsValuePlaceholder": "",
     "troubleshootLoopbackUnsupported": "",
-    "customThemesImport": ""
+    "customThemesImport": "",
+    "pushTransportUnifiedPush": "",
+    "timelineEmoteSizeDefault": "",
+    "pushersKindGateway": "",
+    "callCameraDevice": "",
+    "gifProviderKlipy": "",
+    "gifProviderTenor": "",
+    "gifProviderGiphy": "",
+    "otherProfileFieldsKeyPlaceholder": "",
+    "otherProfileFieldsKaomoji": "",
+    "customThemesErrorChoose": "",
+    "themeFileTweak": ""
   },
   "call": {
     "watch": "",
@@ -2844,7 +2879,13 @@
     "screenAudioSystemHint": "",
     "muteParticipant": "",
     "screenAudioRefresh": "",
-    "active": ""
+    "active": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "emoji": {
     "unicode": "",
@@ -3010,7 +3051,9 @@
     "chooseSignInMethod": "",
     "changeProviderHint": "",
     "stageRecoveryLabel": "",
-    "allowPopups": ""
+    "allowPopups": "",
+    "signingIn": "",
+    "redirectingTo": ""
   },
   "direct": {
     "confirmTitle": "",
@@ -3019,7 +3062,8 @@
     "failed": "",
     "userIdLabel": "",
     "encryptionHint": "",
-    "submit": ""
+    "submit": "",
+    "description": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3186,7 +3230,11 @@
     "importFailed": "",
     "remove": "",
     "restoreTitle": "",
-    "pickerLabel": ""
+    "pickerLabel": "",
+    "moveUp": "",
+    "importSystemPlaceholder": "",
+    "moveDown": "",
+    "removeTitle": ""
   },
   "presence": {
     "lastSeenMinutes_one": "",
@@ -3289,7 +3337,8 @@
     "helpTitle": "",
     "showShortcuts": "",
     "openBookmarks": "",
-    "categoryNavigation": ""
+    "categoryNavigation": "",
+    "hangUp": ""
   },
   "forum": {
     "replyCount_one": "",
@@ -3394,7 +3443,8 @@
     "findCommunityTitle": "",
     "supportDevelopment": "",
     "joinConversationTitle": "",
-    "startRoomDescription": ""
+    "startRoomDescription": "",
+    "startRoomTitle": ""
   },
   "app": {
     "skipMigrationHint": "",
@@ -3590,7 +3640,9 @@
     "errorTracking": "",
     "submit": "",
     "problem": "",
-    "title": ""
+    "title": "",
+    "searching": "",
+    "reproductionPlaceholder": ""
   },
   "pdf": {
     "loadFailed": "",
