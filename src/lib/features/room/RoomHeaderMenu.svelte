@@ -108,7 +108,7 @@
         {i18n.t('room.menuMarkUnread')}
       </ActionMenuItem>
     {/if}
-    {#if room && room.room_kind !== 'space'}
+    {#if room}
       <RoomNotificationSubmenu roomId={room.room_id} active={opened} />
     {/if}
 

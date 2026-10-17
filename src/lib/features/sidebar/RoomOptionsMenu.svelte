@@ -398,9 +398,7 @@
       </ActionMenuItem>
     {/if}
 
-    {#if room.room_kind !== 'space'}
-      <RoomNotificationSubmenu roomId={room.room_id} active={opened} />
-    {/if}
+    <RoomNotificationSubmenu roomId={room.room_id} active={opened} />
 
     {#if offeredSpaces.length > 0}
       <ActionMenuItem

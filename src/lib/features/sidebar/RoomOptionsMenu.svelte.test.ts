@@ -83,3 +83,27 @@ test('keeps Add to space visible while the room list refreshes', async () => {
   expect(spacePermissions).toHaveBeenCalledOnce();
   expect(screen.getByRole('menuitem', { name: 'Add to space' })).toBeInTheDocument();
 });
+
+test('offers notification settings for a space', async () => {
+  const user = userEvent.setup();
+  const space = room('!space', { room_kind: 'space' });
+  const core = createCoreStub({
+    rpc: {
+      notifications: {
+        settings: vi.fn().mockResolvedValue({ room: null, default: 'mentions' }),
+      },
+      members: { permissions: vi.fn().mockResolvedValue({ can_manage_children: false }) },
+    },
+  }) as unknown as CoreClient;
+
+  render(RoomOptionsMenuHarness, {
+    core,
+    room: space,
+    rooms: [space],
+    registerRefresh: () => {},
+  });
+
+  await user.click(screen.getByRole('button', { name: 'Room options' }));
+
+  expect(await screen.findByRole('menuitem', { name: 'Notifications' })).toBeInTheDocument();
+});
