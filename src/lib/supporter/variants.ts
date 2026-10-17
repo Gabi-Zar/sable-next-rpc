@@ -35,6 +35,8 @@ export const SUPPORTER_VARIANTS = [
   'bigendergradient',
   'demigender',
   'demigendergradient',
+  'pluraljourney',
+  'pluraljourneygradient',
   'bisexual',
   'bisexualgradient',
   'pansexual',

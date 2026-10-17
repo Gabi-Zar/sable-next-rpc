@@ -93,6 +93,8 @@
     bigendergradient: ['var(--supporter-bigender-pink)', 'var(--supporter-bigender-blue)'],
     demigender: ['var(--supporter-demigender-gray)', 'var(--supporter-demigender-yellow)'],
     demigendergradient: ['var(--supporter-demigender-gray)', 'var(--supporter-demigender-yellow)'],
+    pluraljourney: ['var(--supporter-pluraljourney-purple)', 'var(--supporter-black)'],
+    pluraljourneygradient: ['var(--supporter-pluraljourney-purple)', 'var(--supporter-black)'],
     bisexual: ['var(--supporter-bisexual-pink)', 'var(--supporter-bisexual-blue)'],
     bisexualgradient: ['var(--supporter-bisexual-pink)', 'var(--supporter-bisexual-blue)'],
     pansexual: ['var(--supporter-pansexual-pink)', 'var(--supporter-pansexual-blue)'],
