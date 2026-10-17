@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { i18n } from '#lib/i18n.js';
   import {
@@ -49,15 +50,19 @@
   let hasAlerts = $derived(alertProviders.some((provider) => provider.priority !== null));
 
   const mobileTools = [
-    { href: '/rooms', icon: ChatsIcon, label: 'nav.messages' },
-    { href: '/navigate', icon: ListMagnifyingGlassIcon, label: 'shortcuts.paletteTitle' },
-    { href: '/inbox', icon: BellIcon, label: 'nav.inbox' },
+    { href: resolve('/(app)/rooms'), icon: ChatsIcon, label: 'nav.messages' },
+    {
+      href: resolve('/(app)/navigate'),
+      icon: ListMagnifyingGlassIcon,
+      label: 'shortcuts.paletteTitle',
+    },
+    { href: resolve('/(app)/inbox'), icon: BellIcon, label: 'nav.inbox' },
   ] as const;
   const mobileSlotCount = $derived(mobileTools.length + 1 + (hasAlerts ? 1 : 0));
   const ROOM_LIST_PATHS = ['/rooms', '/direct', '/space/'];
   const desktopTools = [
-    { href: '/inbox', icon: BellIcon, label: 'nav.inbox' },
-    { href: '/settings', icon: GearIcon, label: 'nav.settings' },
+    { href: resolve('/(app)/inbox'), icon: BellIcon, label: 'nav.inbox' },
+    { href: resolve('/(app)/settings'), icon: GearIcon, label: 'nav.settings' },
   ] as const;
 
   function activateTool(event: MouseEvent, href: string): void {
@@ -126,6 +131,7 @@
         {@const toolActive = isToolActive(item.href)}
         {@const href = item.href}
         <div class="mobile-tool-slot">
+          <!-- eslint-disable svelte/no-navigation-without-resolve -- quick tool hrefs are built with resolve() -->
           <a
             class="quick-tool mobile-tool"
             {href}
@@ -143,6 +149,7 @@
               <UnreadBadge counts={inboxCounts} aria-hidden="true" />
             {/if}
           </a>
+          <!-- eslint-enable svelte/no-navigation-without-resolve -->
         </div>
       {/each}
       <div class="mobile-tool-slot">
@@ -160,6 +167,7 @@
     {#each desktopTools as item (item.href)}
       {@const toolActive = isToolActive(item.href)}
       {#snippet trigger({ props }: { props: Record<string, unknown> })}
+        <!-- eslint-disable svelte/no-navigation-without-resolve -- quick tool hrefs are built with resolve() -->
         <a
           {...props}
           class="quick-tool compact-tool nav-tab nav-tab-side nav-tab-outlined
@@ -179,6 +187,7 @@
             <UnreadBadge counts={inboxCounts} aria-hidden="true" />
           {/if}
         </a>
+        <!-- eslint-enable svelte/no-navigation-without-resolve -->
       {/snippet}
       <Tooltip label={i18n.t(item.label)} side="right" {trigger} />
     {/each}
@@ -193,6 +202,7 @@
       {#each desktopTools as item (item.href)}
         {@const toolActive = isToolActive(item.href)}
         {#snippet trigger({ props }: { props: Record<string, unknown> })}
+          <!-- eslint-disable svelte/no-navigation-without-resolve -- quick tool hrefs are built with resolve() -->
           <a
             {...props}
             class="quick-tool desktop-tool nav-tab nav-tab-bottom
@@ -212,6 +222,7 @@
               <UnreadBadge counts={inboxCounts} aria-hidden="true" />
             {/if}
           </a>
+          <!-- eslint-enable svelte/no-navigation-without-resolve -->
         {/snippet}
         <Tooltip label={i18n.t(item.label)} {trigger} />
       {/each}

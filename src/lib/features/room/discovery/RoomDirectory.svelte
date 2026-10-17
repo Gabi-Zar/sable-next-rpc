@@ -120,6 +120,7 @@
   }
 
   async function open(room: PublicRoomView): Promise<void> {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     await goto(roomSectionPath(roomList.rooms, room.room_id));
   }
 
@@ -138,6 +139,7 @@
       }
 
       const roomId = await joinRoom(core.rpc, address);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       await goto(roomSectionPath(roomList.rooms, roomId));
     } catch (error) {
       console.warn('[sable directory] join failed', error);

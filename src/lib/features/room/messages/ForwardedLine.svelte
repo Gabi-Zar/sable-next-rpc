@@ -57,6 +57,7 @@
     {@render copy()}
   </button>
 {:else if href}
+  <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself -->
   <a class="forwarded link" {href}>{@render copy()}</a>
 {:else}
   <p class="forwarded">{@render copy()}</p>

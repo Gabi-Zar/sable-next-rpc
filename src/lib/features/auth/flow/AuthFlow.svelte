@@ -225,6 +225,7 @@
     if (isSetupRoute || loginPending) return;
     if (redirect.pendingIntent === 'login' && redirect.isCompleting) return;
     if (readText(profileOnboardingMarker(userId))) void openSetup();
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- takeAfterLogin() returns a resolved path
     else void goto(takeAfterLogin(resolve('/(app)/rooms')));
   });
 
@@ -270,6 +271,7 @@
       if (shouldReduceMotion()) enteringStage = null;
     }
     pendingStage = index;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- stageRoute() extends a resolved stage route
     void goto(stageRoute(index), { reset: false }).finally(() => {
       pendingStage = null;
     });

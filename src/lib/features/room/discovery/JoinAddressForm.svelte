@@ -32,6 +32,7 @@
     try {
       const result = await joinOrOfferKnock(core.rpc, parsed.address, parsed.via);
       await goto(
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- knockPagePath() resolves the route itself
         result.kind === 'knock'
           ? knockPagePath(result.address, result.via)
           : resolve('/(app)/rooms/[roomId]', { roomId: roomPathParamFromId(result.roomId) })

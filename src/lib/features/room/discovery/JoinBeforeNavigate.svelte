@@ -120,6 +120,7 @@
     try {
       const joined = await joinRoom(core.rpc, address, await routingFor());
       const target = roomSectionPath(roomList.rooms, joined, eventId);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       await goto(target, { replace: true });
     } catch (error) {
       console.warn('[sable room] join failed', error);

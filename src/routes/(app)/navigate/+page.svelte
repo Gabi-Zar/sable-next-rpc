@@ -12,6 +12,7 @@
   const roomList = useRoomList();
 
   function select(room: RoomListItemView): void {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void goto(roomSectionPath(roomList.rooms, room.room_id));
   }
 

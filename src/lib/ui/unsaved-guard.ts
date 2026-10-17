@@ -20,6 +20,7 @@ export function holdUnsaved(guard: UnsavedGuard): void {
     const { delta, type } = navigation as { delta?: number; type: string };
     guard.ask(() => {
       if (type === 'popstate' && delta !== undefined) history.go(delta);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- replays a navigation SvelteKit already resolved
       else void goto(to.url);
     });
   });

@@ -1,5 +1,6 @@
 import { afterNavigate, goto } from '$app/navigation';
 import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
+import { setPageState } from '#lib/platform/page-state.js';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
 
@@ -36,6 +37,7 @@ export async function leaveRoomView(): Promise<void> {
     history.back();
     return;
   }
+  // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomListPath() resolves the route itself
   await goto(target);
 }
 
@@ -44,11 +46,7 @@ export function backToRoomList(): void {
     void leaveRoomView();
     return;
   }
-  void goto('', {
-    shallow: true,
-    replace: true,
-    state: { ...page.state, mobileDrawer: 'open' },
-  });
+  void setPageState({ ...page.state, mobileDrawer: 'open' }, true);
 }
 
 const ROOM_PATH =
@@ -67,13 +65,10 @@ export function isRoomSwitch(href: string): boolean {
 export function goToPage(href: string): void {
   const samePage = new URL(href, page.url.href).pathname === page.url.pathname;
   if (samePage && !window.matchMedia(BREAKPOINTS.appLayout).matches) {
-    void goto('', {
-      shallow: true,
-      replace: true,
-      state: { ...page.state, mobileDrawer: 'closed' },
-    });
+    void setPageState({ ...page.state, mobileDrawer: 'closed' }, true);
     return;
   }
+  // eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass a resolved href
   void goto(href, { replace: isRoomSwitch(href) });
 }
 
@@ -110,6 +105,7 @@ export function contextSearchPath(
 export function searchInRoom(room: RoomListItemView | undefined, roomId: string): void {
   const target = scopedSearchPath('in', room, roomId);
 
+  // eslint-disable-next-line svelte/no-navigation-without-resolve -- scopedSearchPath() resolves the route itself
   goto(target).catch((error: unknown) => {
     console.debug('[sable room] search navigation failed', error);
   });

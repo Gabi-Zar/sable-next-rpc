@@ -1,6 +1,6 @@
 <script lang="ts">
   import { MediaQuery } from 'svelte/reactivity';
-  import { goto } from '$app/navigation';
+  import { setPageState } from '#lib/platform/page-state.js';
   import { untrack, type Snippet } from 'svelte';
   import { page } from '$app/state';
   import { i18n } from '#lib/i18n.js';
@@ -146,11 +146,7 @@
 
   function setOpen(next: boolean): void {
     if (next === open || (!next && pinnedOpen)) return;
-    void goto('', {
-      shallow: true,
-      replace: true,
-      state: { ...page.state, mobileDrawer: next ? 'open' : 'closed' },
-    });
+    void setPageState({ ...page.state, mobileDrawer: next ? 'open' : 'closed' }, true);
     if (!next) {
       focusContentOnSettle = true;
       return;

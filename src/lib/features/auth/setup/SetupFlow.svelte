@@ -97,10 +97,6 @@
     if (userId) void untrack(() => profile.load());
   });
 
-  function stepRoute(step: SetupStep): string {
-    return resolve('/(auth)/setup/[step]', { step });
-  }
-
   function stateFor(base: Pick<SetupRecord, 'registering'>, encryption: EncryptionStatusView) {
     return {
       registering: base.registering,
@@ -159,7 +155,7 @@
     }
     writeSetupRecord({ setItem: writeText }, key, next);
     record = next;
-    const target = stepRoute(upcoming);
+    const target = resolve('/(auth)/setup/[step]', { step: upcoming });
     if (reload) location.assign(target);
     else if (page.url.pathname !== target)
       void goto(target, { replace: requestedIndex < 0, reset: false });
@@ -168,6 +164,7 @@
   function leave(target: string, reload: boolean): void {
     leaving = true;
     if (reload) location.assign(target);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass a resolved path
     else void goto(target);
   }
 
@@ -186,11 +183,13 @@
   function activate(index: number): void {
     const step = steps.at(index);
     if (!step) return;
-    if (index <= pendingIndex) void goto(stepRoute(step), { reset: false });
+    if (index <= pendingIndex)
+      void goto(resolve('/(auth)/setup/[step]', { step }), { reset: false });
     else if (index === pendingIndex + 1 && canSkipAhead && pending) advance(pending);
   }
 
   function skipChecking(): void {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- takeAfterLogin() returns a resolved path
     void goto(takeAfterLogin(resolve('/(app)/rooms')));
   }
 
@@ -211,7 +210,10 @@
   $effect(() => {
     if (!record || !pending || leaving) return;
     if (requestedIndex >= 0 && requestedIndex <= pendingIndex) return;
-    void goto(stepRoute(pending), { replace: true, reset: false });
+    void goto(resolve('/(auth)/setup/[step]', { step: pending }), {
+      replace: true,
+      reset: false,
+    });
   });
 </script>
 

@@ -1,8 +1,8 @@
-import { goto } from '$app/navigation';
 import { page } from '$app/state';
 import { tick, untrack } from 'svelte';
 
 import { leaveUnlessUnsaved } from '#lib/ui/unsaved-guard.js';
+import { setPageState } from './page-state.js';
 
 export function overlayBackDepth(state: App.PageState): number {
   return state.overlay ?? 0;
@@ -44,10 +44,7 @@ export async function afterOverlayPops(): Promise<void> {
 
 async function pushEntry(depth: number): Promise<boolean> {
   try {
-    await goto('', {
-      shallow: true,
-      state: { ...untrack(() => page.state), overlay: depth },
-    });
+    await setPageState({ ...untrack(() => page.state), overlay: depth });
     return true;
   } catch (error) {
     console.warn('[sable overlay] the back guard could not hold a history entry', error);

@@ -26,7 +26,7 @@
 
 {#if post}
   <div class="instagram-embed">
-    <a class="instagram-header" href={url} target="_blank" rel="noopener noreferrer">
+    <a class="instagram-header" href={url} target="_blank" rel="external noopener noreferrer">
       <span class="instagram-site">Instagram</span>
       <span class="instagram-title">{post.kind === 'reel' ? 'Reel' : 'Post'}</span>
     </a>

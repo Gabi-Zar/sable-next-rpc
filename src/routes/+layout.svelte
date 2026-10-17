@@ -101,6 +101,7 @@
         | { type?: string; roomId?: string; userId?: string; eventId?: string }
         | undefined;
       if (message?.type !== 'sable:open-room' || message.roomId === undefined) return;
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- notificationPermalink() resolves the route itself
       void goto(notificationPermalink(message.roomId, message.eventId, message.userId));
     });
   });

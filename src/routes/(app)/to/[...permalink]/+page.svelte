@@ -51,6 +51,7 @@
       }
 
       const notified = page.url.searchParams.get('notified');
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- permalinkTarget() resolves the route through roomSectionPath()
       await goto(target.path, { replace: true, state: notified === null ? {} : { notified } });
     };
 

@@ -67,6 +67,7 @@
   <FormField dense fieldId="password" label={i18n.t('auth.password')}>
     {#snippet labelSuffix()}
       {#if resetPasswordHref}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resetPasswordHref is resolved by the caller -->
         <a class="forgot-password" href={resetPasswordHref}>{i18n.t('auth.forgotPassword')}</a>
       {/if}
     {/snippet}

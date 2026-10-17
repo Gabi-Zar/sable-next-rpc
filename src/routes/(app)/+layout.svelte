@@ -178,6 +178,7 @@
   const incomingCalls = new IncomingCalls(core, (answer) => void joinSystemAnswer(answer));
 
   async function joinSystemAnswer({ uuid, callId, roomId, hasVideo }: SystemAnswer): Promise<void> {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void goto(roomSectionPath(roomList.rooms, roomId));
     try {
       await callSession.join(roomId, {
@@ -251,6 +252,7 @@
       camera: call.hasVideo,
     });
     await afterOverlayPops();
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     await goto(roomSectionPath(roomList.rooms, call.roomId));
   }
 
@@ -291,6 +293,7 @@
       }
       return;
     }
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void goto(roomSectionPath(roomList.rooms, roomId));
     void callSession.join(roomId, { microphone: !preferences.callMicrophoneMuted, camera: false });
   }
@@ -875,6 +878,7 @@
       await goto(resolve('/(app)/inbox'));
       return;
     }
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     await goto(roomSectionPath(roomList.rooms, roomId), {
       state: eventId === null ? {} : { notified: eventId },
     });
@@ -952,6 +956,7 @@
   let unreadCycleIndex = 0;
 
   function jumpToRoom(roomId: string): void {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void goto(roomSectionPath(roomList.rooms, roomId));
   }
 
@@ -965,6 +970,7 @@
           document.getElementById(MESSAGE_SEARCH_FIELD_ID)?.focus();
           return;
         }
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- contextSearchPath() resolves the route itself
         void goto(contextSearchPath(roomList.rooms, page.params.roomId, page.params.spaceId));
       },
       'app.openBookmarks': () => {
@@ -1060,6 +1066,7 @@
           session={callSession}
           onReturn={() => {
             if (callSession.roomId !== null) {
+              // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
               void goto(roomSectionPath(roomList.rooms, callSession.roomId));
             }
           }}

@@ -183,7 +183,7 @@
     <div class="similar" role="status">
       <p>{i18n.t('bugReport.similarIssues')}</p>
       {#each similarIssues as issue (issue.number)}
-        <a href={issue.html_url} target="_blank" rel="noopener noreferrer"
+        <a href={issue.html_url} target="_blank" rel="external noopener noreferrer"
           >#{issue.number}: {issue.title}</a
         >
       {/each}

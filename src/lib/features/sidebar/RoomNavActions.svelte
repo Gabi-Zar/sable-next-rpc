@@ -122,6 +122,7 @@
   {#snippet action(href: string, label: string, icon: Component)}
     {@const Icon = icon}
     {@const active = pathname === href}
+    <!-- eslint-disable svelte/no-navigation-without-resolve -- callers pass resolved hrefs -->
     <a
       class="nav-action selection-current selection-layer"
       {href}
@@ -134,6 +135,7 @@
       >
       {#if !collapsed}<span class="room-text"><span class="room-name">{label}</span></span>{/if}
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {/snippet}
   {#snippet createMenu()}
     <ActionMenu label={createRoomLabel} side="right" align="start">

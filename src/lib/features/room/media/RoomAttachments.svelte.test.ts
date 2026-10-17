@@ -164,7 +164,7 @@ test('links show the host, cap the list and keep a named way back to the message
   });
   const [first] = screen.getAllByRole('link');
   expect(first).toHaveAttribute('href', 'https://example.org/a');
-  expect(first).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(first).toHaveAttribute('rel', 'external noopener noreferrer');
   expect(first.querySelector('.link-host')).toHaveTextContent('example.org');
   expect(screen.getByText('+1 more link')).toBeInTheDocument();
 

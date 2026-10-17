@@ -273,6 +273,7 @@
       onSearch={() => searchInRoom(resolvedRoom, resolvedRoomId)}
       onEventTimeline={preferences.developerTools
         ? () => {
+            // eslint-disable-next-line svelte/no-navigation-without-resolve -- eventTimelinePath() resolves the route itself
             void goto(eventTimelinePath(resolvedRoomId));
           }
         : undefined}

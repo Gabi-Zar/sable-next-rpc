@@ -39,6 +39,7 @@
   $effect(() => {
     if (core.status !== 'ready' || addingAccount) return;
     if (!authEntry || page.url.searchParams.has('addAccount')) {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- takeAfterLogin() returns a resolved path
       void goto(takeAfterLogin(resolve('/(app)/rooms')), { replace: true });
     }
   });

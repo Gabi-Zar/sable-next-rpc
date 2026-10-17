@@ -27,6 +27,7 @@
         (pathId) => findRoomByPathId(roomList.rooms, pathId)?.state === 'joined'
       );
     });
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- spaceIndexRedirect() picks among resolved paths
     if (target !== null) void goto(target, { replace: true });
   });
 </script>

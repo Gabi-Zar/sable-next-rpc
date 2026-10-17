@@ -44,7 +44,7 @@
 
 {#if video && details}
   <div class="youtube-embed">
-    <a class="youtube-header" href={url} target="_blank" rel="noopener noreferrer">
+    <a class="youtube-header" href={url} target="_blank" rel="external noopener noreferrer">
       <span class="youtube-site">{details.author ?? 'YouTube'}</span>
       <span class="youtube-title" title={details.title}>{details.title}</span>
     </a>

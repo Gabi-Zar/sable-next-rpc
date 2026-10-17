@@ -131,6 +131,7 @@
       link.kind === 'event' ? link.event_id : null,
       via
     );
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void afterOverlayPops().then(() => goto(target));
   }
   let permissionsById = $state.raw(new Map<string, RoomPermissionsView>());
@@ -663,6 +664,7 @@
                 size="small"
                 label={i18n.t('room.menuShowSpaceTimeline')}
                 onclick={() => {
+                  // eslint-disable-next-line svelte/no-navigation-without-resolve -- spaceTimelinePath() resolves the route itself
                   void goto(spaceTimelinePath(space, roomList.rooms));
                 }}
               >

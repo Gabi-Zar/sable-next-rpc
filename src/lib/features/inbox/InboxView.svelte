@@ -50,6 +50,7 @@
     const url = new URL(page.url.href);
     if (value === landing) url.searchParams.delete('tab');
     else url.searchParams.set('tab', value);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
     void goto(`${url.pathname}${url.search}`, { replace: true, reset: false });
   }
 
@@ -58,6 +59,7 @@
     if (value === 'all') url.searchParams.delete('filter');
     else url.searchParams.set('filter', value);
 
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
     void goto(`${url.pathname}${url.search}`, {
       replace: true,
       reset: false,

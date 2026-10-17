@@ -121,6 +121,7 @@
   }
 
   function openMessage(roomId: string, eventId: string): void {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void afterOverlayPops().then(() => goto(roomSectionPath(roomList.rooms, roomId, eventId)));
   }
 
@@ -144,6 +145,7 @@
         link.kind === 'event' ? link.event_id : null,
         splitVia(anchor.href).via
       );
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       void afterOverlayPops().then(() => goto(path));
     }
   }

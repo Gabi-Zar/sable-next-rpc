@@ -78,6 +78,7 @@
     { 'settings-nav-item-large': large },
   ]}
   {#if href}
+    <!-- eslint-disable svelte/no-navigation-without-resolve -- href() is resolved by the caller -->
     <a
       class={classes}
       href={href(entry)}
@@ -90,6 +91,7 @@
       <span class="label">{entry.label}</span>
       {#if showChevron}<span class="chevron" aria-hidden="true"><CaretRightIcon /></span>{/if}
     </a>
+    <!-- eslint-enable svelte/no-navigation-without-resolve -->
   {:else}
     <button
       class={classes}

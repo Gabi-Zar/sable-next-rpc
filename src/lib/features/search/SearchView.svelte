@@ -448,6 +448,7 @@
     if (space !== null) parts.push(`space=${encodeURIComponent(space)}`);
 
     const encoded = parts.join('&');
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
     void goto(encoded === '' ? page.url.pathname : `${page.url.pathname}?${encoded}`, {
       replace: true,
       shallow: true,
@@ -465,6 +466,7 @@
 
   async function openHit(hit: SearchHitView): Promise<void> {
     remember();
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     await goto(roomSectionPath(roomList.rooms, hit.room_id, hit.event_id));
   }
 

@@ -437,7 +437,7 @@
                 class="link"
                 href={url}
                 target="_blank"
-                rel="noopener noreferrer"
+                rel="external noopener noreferrer"
                 onclick={(event) => {
                   followLink(event, url);
                 }}

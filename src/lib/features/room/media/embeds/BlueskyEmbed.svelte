@@ -254,7 +254,7 @@
 {/snippet}
 {#if details}
   <div class="bsky-embed">
-    <a class="bsky-header" href={url} target="_blank" rel="noopener noreferrer">
+    <a class="bsky-header" href={url} target="_blank" rel="external noopener noreferrer">
       <span class="bsky-site">BlueSky</span>
       {#if profile}
         {@const src = blobUrl(profile.value.avatar['moe.sable.blob'])}

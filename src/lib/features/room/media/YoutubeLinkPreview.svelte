@@ -43,7 +43,7 @@
     class="youtube-preview-text"
     href={url}
     target="_blank"
-    rel="noopener noreferrer"
+    rel="external noopener noreferrer"
     aria-label={title}
   >
     <span class="youtube-preview-site">{preview.site_name ?? 'YouTube'}</span>

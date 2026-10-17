@@ -53,6 +53,7 @@
       const path = roomSectionPath(roomList.rooms, roomId);
       await inbox.clear();
       await afterOverlayPops();
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       await goto(path, { replace: true });
     } catch (error) {
       console.warn('[sable share-target] staging failed', error);

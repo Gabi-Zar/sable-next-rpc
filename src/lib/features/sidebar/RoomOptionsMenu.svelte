@@ -346,6 +346,7 @@
     {#if room.room_kind === 'space'}
       <ActionMenuItem
         onSelect={() => {
+          // eslint-disable-next-line svelte/no-navigation-without-resolve -- spaceTimelinePath() resolves the route itself
           void goto(spaceTimelinePath(room, roomList.rooms));
         }}
       >

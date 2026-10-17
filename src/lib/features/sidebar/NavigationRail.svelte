@@ -250,6 +250,7 @@
 
   function navigateTo(href: string): void {
     if (onNavigate) onNavigate(href);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- every rail href is built with resolve()
     else void goto(href);
   }
 

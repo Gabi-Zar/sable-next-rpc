@@ -221,6 +221,7 @@
       open = false;
       onClose();
       await afterOverlayPops();
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomPath() resolves the route itself
       await goto(roomPath(next));
     } catch (error) {
       console.warn('[sable room] upgrade failed', error);
@@ -239,6 +240,7 @@
 
   function openRoom(id: string): void {
     onClose();
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomPath() resolves the route itself
     void afterOverlayPops().then(() => goto(roomPath(id)));
   }
 </script>

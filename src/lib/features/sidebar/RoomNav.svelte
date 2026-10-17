@@ -542,6 +542,7 @@
     <div class={['room-row-wrap', { 'closed-row': closed }]}>
       {@render threadLines(item.threads)}
       {#snippet roomTrigger({ props }: { props: Record<string, unknown> })}
+        <!-- eslint-disable svelte/no-navigation-without-resolve -- roomHref() resolves the route itself -->
         <a
           {...props}
           draggable="false"
@@ -711,6 +712,7 @@
             />
           {/if}
         </a>
+        <!-- eslint-enable svelte/no-navigation-without-resolve -->
       {/snippet}
       {#if collapsed}
         <Tooltip label={name} side="right" trigger={roomTrigger} />

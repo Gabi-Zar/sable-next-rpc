@@ -29,6 +29,7 @@ export class InviteActions {
   async accept(room: RoomListItemView): Promise<void> {
     await this.answer(room, async () => {
       const roomId = await joinRoom(this.core.rpc, room.room_id);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomHref() resolves the route itself
       await goto(roomHref(room, roomId));
     });
   }

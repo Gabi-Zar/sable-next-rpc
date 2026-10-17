@@ -4,6 +4,7 @@
   import { on } from 'svelte/events';
   import type { RoomListItemView, PerMessageProfileView } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
+  import { setPageState } from '#lib/platform/page-state.js';
   import { page } from '$app/state';
 
   import { voiceChat } from '#lib/features/room/voice-chat.svelte.js';
@@ -444,6 +445,7 @@
     if (eventId === null || eventId !== appliedEventId) return;
     if (resolvedPermalink === null || resolvedPermalink.rootEventId !== null) return;
     if (!timelineFollowingLive || timeline.mode.kind !== 'live') return;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
     void goto(roomUrl(null), { replace: true, reset: false });
   });
 
@@ -550,6 +552,7 @@
       return;
     }
     void afterOverlayPops().then(() =>
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       goto(target, {
         replace: phone && new URL(target, page.url.href).pathname === page.url.pathname,
       })
@@ -594,11 +597,12 @@
 
   function landed(): void {
     if (notifiedEventId === null) return;
-    void goto('', { shallow: true, replace: true, state: { ...page.state, notified: undefined } });
+    void setPageState({ ...page.state, notified: undefined }, true);
   }
 
   function jumpToLive(): void {
     void activeTimeline.start(timelineOwner, resolvedRoomId, null, preferences.showHiddenEvents);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
     void goto(roomUrl(null), { replace: true });
   }
 
@@ -615,6 +619,7 @@
       return;
     }
     const target = roomUrl(eventId);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
     void afterOverlayPops().then(() => goto(target, { replace: phone, reset: false }));
   }
 
@@ -755,6 +760,7 @@
   function openPredecessor(): void {
     if (!roomSession.predecessor) return;
     void goto(
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       roomSectionPath(
         roomList.rooms,
         roomSession.predecessor.room_id,

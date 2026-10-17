@@ -29,6 +29,7 @@ export class TombstoneJoin {
   open(): void {
     const target = this.session.tombstoneReplacementId;
     if (!target) return;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void goto(roomSectionPath(this.roomList.rooms, target));
   }
 
@@ -42,6 +43,7 @@ export class TombstoneJoin {
       const via = await this.rpc.rooms.viaServers({ room_id: this.roomId() });
       const joinedId = await joinRoom(this.rpc, target, via);
       await this.roomList.whenListed(joinedId, 10_000);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       void goto(roomSectionPath(this.roomList.rooms, joinedId));
     } catch (error) {
       console.warn('[sable room] joining the replacement room failed', error);

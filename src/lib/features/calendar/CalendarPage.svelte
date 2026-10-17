@@ -431,6 +431,7 @@
         <PanelHeaderButton
           label={i18n.t('timeline.eventTimeline')}
           onclick={() => {
+            // eslint-disable-next-line svelte/no-navigation-without-resolve -- eventTimelinePath() resolves the route itself
             void goto(eventTimelinePath(resolvedRoomId));
           }}
         >

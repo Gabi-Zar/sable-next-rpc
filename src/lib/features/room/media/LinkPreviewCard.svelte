@@ -148,7 +148,7 @@
       class="link-preview-text"
       href={url}
       target="_blank"
-      rel="noopener noreferrer"
+      rel="external noopener noreferrer"
       aria-label={title}
     >
       {#if preview.site_name}<span class="link-preview-site">{preview.site_name}</span>{/if}

@@ -241,6 +241,7 @@
       collapsed={!mobile && collapsed}
       onReturn={() => {
         if (call.roomId === null) return;
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
         void goto(roomSectionPath(roomList.rooms, call.roomId));
       }}
     />

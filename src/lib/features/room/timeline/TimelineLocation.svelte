@@ -54,7 +54,7 @@
 </script>
 
 <div class="location">
-  <a class="summary" {href} aria-disabled={!valid || undefined}>
+  <a class="summary" {href} rel="external" aria-disabled={!valid || undefined}>
     <MapPinIcon class="pin" size={20} aria-hidden="true" />
     <span class="text">
       <span class="label">{label}</span>

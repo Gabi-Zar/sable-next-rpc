@@ -51,6 +51,7 @@
       <li aria-label={name}>
         <Tooltip label={name}>
           {#snippet trigger({ props })}
+            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself -->
             <a {...props} href={roomSectionPath(roomList.rooms, room.room_id)} draggable="false">
               <Avatar class="replaced-icon" id={room.room_id} src={room.avatar_url} {name} />
             </a>
@@ -70,6 +71,7 @@
         {@const name = room.name ?? room.room_id}
         {@const handled = isReplacedRoomDismissed(room.room_id)}
         <li class={{ handled }}>
+          <!-- eslint-disable svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself -->
           <a
             class="replaced-link"
             href={roomSectionPath(roomList.rooms, room.room_id)}
@@ -88,6 +90,7 @@
               {/snippet}
             </Tooltip>
           </a>
+          <!-- eslint-enable svelte/no-navigation-without-resolve -->
           <Tooltip label={i18n.t('room.replacedLeaveLabel', { room: name })}>
             {#snippet trigger({ props })}
               <IconButton

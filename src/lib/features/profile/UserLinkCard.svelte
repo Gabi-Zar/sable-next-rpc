@@ -83,6 +83,7 @@
     try {
       const roomId = await core.rpc.rooms.createDm({ user_id: userId, encrypted: null });
       const target = roomSectionPath(roomList.rooms, roomId);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
       await goto(target, { replace: true });
     } catch (error) {
       console.warn('[sable profile] could not open a chat', error);

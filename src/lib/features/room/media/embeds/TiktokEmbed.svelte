@@ -50,7 +50,7 @@
 
 {#if post}
   <div class="tiktok-embed">
-    <a class="tiktok-header" href={url} target="_blank" rel="noopener noreferrer">
+    <a class="tiktok-header" href={url} target="_blank" rel="external noopener noreferrer">
       <span class="tiktok-site">TikTok</span>
       <span class="tiktok-title">{title}</span>
     </a>

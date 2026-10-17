@@ -62,6 +62,7 @@
   }
 
   function backToSignIn(): void {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- loginHref() resolves the route itself
     void goto(loginHref(homeserver, homeservers.default));
   }
 </script>
