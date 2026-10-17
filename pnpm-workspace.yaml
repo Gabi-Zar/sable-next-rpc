@@ -18,6 +18,8 @@ allowBuilds:
   ssh2: false
   workerd: true
 minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - '@sableclient/*'
 patchedDependencies:
   livekit-client@2.22.4: patches/livekit-client@2.22.4.patch
   svelte@5.57.2: patches/svelte@5.57.2.patch
