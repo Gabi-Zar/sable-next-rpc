@@ -24,28 +24,25 @@ jobs:
           persist-credentials: true
           token: ${{ github.token }}
 
-      - name: Install Determinate Nix
-        # determinate-nix-action wraps this action by bare name, which Forgejo resolves against data.forgejo.org
-        uses: https://github.com/DeterminateSystems/nix-installer-action@33c9ab3ef95cd57c164d9d6eb1f9a46338538d41
+      - name: Install Lix
+        uses: https://github.com/samueldr/lix-gha-installer-action@a0fee77b2a98bb7c5c0ed7ae6d6ad4903dbdad0d # v2026-06-15
         with:
-          determinate: true
+          extra_nix_config: experimental-features = nix-command flakes
 
-      # Only the fixed-output derivations carry hashes, so there's no need to build the app
-      - name: Fetch dependencies
-        id: check
+      # Only the fixed-output derivations carry hashes, so there's no need to build the app.
+      - name: Fix hash mismatches
         run: |
           nix build -L --keep-going --no-link \
             .#sable-unwrapped.pnpmDeps \
             .#sable-unwrapped.cargoDeps \
-            .#sable-deepfilternet-assets
-        continue-on-error: true
-
-      - name: Fix hash mismatches
-        if: steps.check.outcome == 'failure'
-        run: determinate-nixd fix hashes --auto-apply
+            .#sable-deepfilternet-assets 2>&1 |
+            tee /dev/stderr |
+            grep -E '(specified|got):' | grep -oE 'sha256-\S+' | paste - - |
+            while read -r old new; do
+              sed -i "s|$old|$new|" packaging/nix/*.nix
+            done
 
       - name: Commit and push if changed
-        if: steps.check.outcome == 'failure'
         run: |
           set -euo pipefail
           if git diff --quiet; then
