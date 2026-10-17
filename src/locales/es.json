@@ -77,7 +77,8 @@
     "inviteMessageShow": "",
     "declineAll": "",
     "invitesEmpty": "",
-    "moreNotifications": ""
+    "moreNotifications": "",
+    "invitedBy": ""
   },
   "room": {
     "createKindSpace": "Espacio",
@@ -638,7 +639,14 @@
     "spacesTitle": "",
     "addressesRemoveManyConfirm": "",
     "addressesSelectedCount": "",
-    "publishOff": ""
+    "publishOff": "",
+    "permGroupMessages": "",
+    "createKindRoomHint": "",
+    "joinTitle": "",
+    "emojisDeletePackConfirm": "",
+    "directoryJoinByAddress": "",
+    "permRoleIcon": "",
+    "devRoomTitle": ""
   },
   "timeline": {
     "membership": {
@@ -1084,7 +1092,11 @@
     "profileAcceptIdentity": "",
     "showEmbed": "",
     "profileNameRemoved": "",
-    "pollEnd": ""
+    "pollEnd": "",
+    "loadingHistory": "",
+    "loadingNewer": "",
+    "messagePlaceholder": "",
+    "loading": ""
   },
   "settings": {
     "cancelVerification": "Cancelar verificación",
@@ -1190,7 +1202,9 @@
       "roomEvents": "",
       "microphone": "",
       "highlights": "",
-      "previews": ""
+      "previews": "",
+      "embeds": "",
+      "messages": ""
     },
     "keyBackupCloudCount_one": "",
     "keyBackupCloudCount_many": "",
@@ -2158,7 +2172,18 @@
     "customThemesDarkTheme": "",
     "troubleshootLoopbackHomeserver": "",
     "customThemesImport": "",
-    "searchUnmeteredOnly": ""
+    "searchUnmeteredOnly": "",
+    "timelineEmoteSizeDefault": "",
+    "pushTransportUnifiedPush": "",
+    "callCameraDevice": "",
+    "pushersKindGateway": "",
+    "gifProviderKlipy": "",
+    "gifProviderGiphy": "",
+    "gifProviderTenor": "",
+    "otherProfileFieldsKaomoji": "",
+    "themeFileTweak": "",
+    "customThemesErrorChoose": "",
+    "otherProfileFieldsKeyPlaceholder": ""
   },
   "emotes": {
     "stealExplain": "La imagen es copiada a tu propia cuenta, por lo que sigue funcionando si el mensaje o su sala desaparece.",
@@ -2373,7 +2398,15 @@
     "openSettings": "",
     "errorSetupFailed": "",
     "active": "",
-    "statsFramerate": ""
+    "statsFramerate": "",
+    "lobbyInCall_one": "",
+    "lobbyInCall_many": "",
+    "lobbyInCall_other": "",
+    "others_one": "",
+    "others_many": "",
+    "others_other": "",
+    "live": "",
+    "leave": ""
   },
   "nav": {
     "editProfile": "Editar perfil",
@@ -2438,7 +2471,9 @@
     "folderRemoveSpace": "",
     "roomsUnavailable": "",
     "listOptions": "",
-    "createRoomInSpace": ""
+    "createRoomInSpace": "",
+    "lobby": "",
+    "createSubspace": ""
   },
   "home": {
     "startRoomDescription": "Crea una sala o espacio para tu grupo de amigos o comunidad.",
@@ -2524,7 +2559,10 @@
     "pickerLabel": "",
     "proxyingHint": "",
     "picker": "",
-    "triggers": ""
+    "triggers": "",
+    "moveUp": "",
+    "moveDown": "",
+    "importSystemPlaceholder": ""
   },
   "presence": {
     "online": "En línea",
@@ -2686,7 +2724,8 @@
     "link": "",
     "slash": {
       "ban": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "wave": {
         "usage": "",
@@ -2725,7 +2764,8 @@
         "description": ""
       },
       "myroomavatar": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "cuddle": {
         "usage": "",
@@ -2752,7 +2792,8 @@
         "usage": ""
       },
       "unignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "converttodm": {
         "description": "",
@@ -2799,10 +2840,12 @@
         "description": ""
       },
       "kick": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "disinvite": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "join": {
         "usage": "",
@@ -2837,10 +2880,12 @@
         "usage": ""
       },
       "ignore": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "startdm": {
-        "description": ""
+        "description": "",
+        "usage": ""
       },
       "invite": {
         "description": "",
@@ -3186,7 +3231,9 @@
     "emailVerified": "",
     "continueWithProvider": "",
     "stageConsentLabel": "",
-    "loginIdentifierHint": ""
+    "loginIdentifierHint": "",
+    "redirectingTo": "",
+    "signingIn": ""
   },
   "setup": {
     "useAnotherDevice": "",
@@ -3357,7 +3404,8 @@
     "userIdLabel": "",
     "submit": "",
     "failed": "",
-    "encryptionHint": ""
+    "encryptionHint": "",
+    "description": ""
   },
   "errors": {
     "coreSuperseded": "",
@@ -3490,7 +3538,8 @@
     "pressKeys": "",
     "openSettings": "",
     "openBookmarks": "",
-    "paletteTitle": ""
+    "paletteTitle": "",
+    "hangUp": ""
   },
   "calendar": {
     "dayEvents_one": "",
@@ -3715,7 +3764,9 @@
     "errorTracking": "",
     "similarIssues": "",
     "submit": "",
-    "problem": ""
+    "problem": "",
+    "searching": "",
+    "reproductionPlaceholder": ""
   },
   "window": {
     "minimize": "",
