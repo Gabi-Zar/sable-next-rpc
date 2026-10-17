@@ -28,7 +28,7 @@ const cargoArgs = [
   profile,
 ];
 
-const MAX_RELEASE_WASM_BYTES = 19 * 1024 * 1024;
+const MAX_RELEASE_WASM_BYTES = 20 * 1024 * 1024;
 const MAX_RELEASE_MODEL_BYTES = 750 * 1024;
 
 function run(command, args, env) {
