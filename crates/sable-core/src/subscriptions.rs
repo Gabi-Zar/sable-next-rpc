@@ -3,10 +3,12 @@ use crate::api::timeline::TimelineFocusView;
 use crate::api::timeline::WarmRoomsParams;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
+use futures_util::future::{self, Either};
 use futures_util::{StreamExt, pin_mut};
 use matrix_sdk::event_cache::{PaginationStatus, RoomEventCacheUpdate};
 use matrix_sdk::executor::{JoinHandleExt, spawn};
 use matrix_sdk::ruma::{EventId, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId, UserId};
+use matrix_sdk::send_queue::RoomSendQueueUpdate;
 use matrix_sdk_base::event_cache::Event;
 use matrix_sdk_ui::eyeball_im::VectorDiff;
 use matrix_sdk_ui::room_list_service::RoomListLoadingState;
@@ -29,6 +31,26 @@ use crate::timelines::{
 };
 use crate::view;
 use crate::{Core, Subscription, SubscriptionKind, Task};
+
+enum Wake {
+    Diffs(Option<Vec<VectorDiff<Arc<TimelineItem>>>>),
+    Queue(Option<RoomSendQueueUpdate>),
+}
+
+async fn next_queue_update(
+    updates: &mut Option<tokio::sync::broadcast::Receiver<RoomSendQueueUpdate>>,
+) -> Option<RoomSendQueueUpdate> {
+    let Some(receiver) = updates.as_mut() else {
+        return future::pending().await;
+    };
+    loop {
+        match receiver.recv().await {
+            Ok(update) => return Some(update),
+            Err(RecvError::Lagged(_)) => {}
+            Err(RecvError::Closed) => return None,
+        }
+    }
+}
 
 const ROOM_LIST_PAGE_SIZE: usize = 200;
 const ROOM_LIST_BATCH_INTERVAL: Duration = Duration::from_millis(100);
@@ -290,7 +312,57 @@ impl Core {
         let stream_overlay = overlay.clone();
         let task = spawn(async move {
             pin_mut!(stream);
-            while let Some(diffs) = stream.next().await {
+            loop {
+                let wake = {
+                    let update = next_queue_update(&mut queue_updates);
+                    pin_mut!(update);
+                    match future::select(stream.next(), update).await {
+                        Either::Left((diffs, _)) => Wake::Diffs(diffs),
+                        Either::Right((update, _)) => Wake::Queue(update),
+                    }
+                };
+                let diffs = match wake {
+                    Wake::Diffs(Some(diffs)) => diffs,
+                    Wake::Diffs(None) => break,
+                    Wake::Queue(Some(update)) => {
+                        if let Some(target) = stream_content.apply(&update) {
+                            let items = stream_timeline.items().await;
+                            let Some(item) = items.iter().find(|item| {
+                                item.as_event().and_then(|event| event.event_id()) == Some(&target)
+                            }) else {
+                                continue;
+                            };
+                            let push = stream_room.push_context().await.ok().flatten();
+                            let highlights = view::Highlights::compute(push.as_ref(), [item]).await;
+                            let value = view::timeline_item(
+                                item,
+                                stream_user_id.as_deref(),
+                                &stream_relays,
+                                &highlights,
+                                &stream_content,
+                            );
+                            let mut overlay = stream_overlay
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            if let Some(index) = overlay.index_of_event(&target) {
+                                core.emit(CoreEvent::TimelineDiff {
+                                    subscription,
+                                    diffs: vec![
+                                        overlay.apply(crate::protocol::VectorDiff::Set {
+                                            index,
+                                            value,
+                                        }),
+                                    ],
+                                });
+                            }
+                        }
+                        continue;
+                    }
+                    Wake::Queue(None) => {
+                        queue_updates = None;
+                        continue;
+                    }
+                };
                 if let Some(updates) = queue_updates.as_mut() {
                     while let Ok(update) = updates.try_recv() {
                         stream_content.apply(&update);
@@ -307,6 +379,12 @@ impl Core {
                                 && let Some(transaction_id) = event.transaction_id()
                             {
                                 stream_content.forget(transaction_id);
+                            }
+                            if let Some(event) = item.as_event()
+                                && let Some(event_id) = event.event_id()
+                            {
+                                stream_content
+                                    .settle(event_id, view::latest_edit_id(event).as_deref());
                             }
                             abort_rejected_redaction(&stream_timeline, item);
                             view::timeline_item(

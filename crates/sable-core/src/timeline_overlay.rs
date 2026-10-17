@@ -87,6 +87,12 @@ impl TimelineOverlay {
         item
     }
 
+    pub(crate) fn index_of_event(&self, event_id: &OwnedEventId) -> Option<usize> {
+        self.items
+            .iter()
+            .position(|item| item.event_id.as_ref() == Some(event_id))
+    }
+
     /// The items to send for a fresh snapshot.
     pub(crate) fn reset(&mut self, items: Vec<TimelineItemView>) -> Vec<TimelineItemView> {
         self.items = items.into_iter().map(|item| self.overlaid(item)).collect();

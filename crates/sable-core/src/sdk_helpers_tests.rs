@@ -2701,3 +2701,87 @@ async fn a_live_redaction_shows_its_reason_in_an_open_timeline() {
 
     assert_eq!(reason(&items), Some(Some("spam".to_owned())));
 }
+
+#[tokio::test]
+async fn a_queued_reproxy_reaches_an_open_timeline_before_the_server_echoes_it() {
+    use matrix_sdk::ruma::{
+        event_id,
+        events::{AnyMessageLikeEventContent, MessageLikeEventType},
+        serde::Raw,
+    };
+    use matrix_sdk_test::event_factory::EventFactory;
+
+    use crate::view::apply_diff;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let own = client.user_id().unwrap().to_owned();
+    let room_id = room_id!("!reproxy:example.org");
+    let target = event_id!("$target");
+    let factory = EventFactory::new().room(room_id).sender(&own);
+    server.mock_room_state_encryption().plain().mount().await;
+    server.mock_room_send().error500().mount().await;
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg("hey").event_id(target)),
+        )
+        .await;
+    let (core, mut events) = core_with_events(&server, client.clone()).await;
+    let SubscribeOk {
+        subscription,
+        mut items,
+        ..
+    } = core
+        .run(SubscribeParams {
+            room_id: room_id.to_owned(),
+            focus: TimelineFocusView::Live,
+            hidden_events: false,
+        })
+        .await
+        .unwrap();
+
+    let edit = json!({
+        "msgtype": "m.text",
+        "body": "* hey",
+        "m.new_content": { "msgtype": "m.text", "body": "hey" },
+        "m.relates_to": { "rel_type": "m.replace", "event_id": target },
+        "com.beeper.per_message_profile": { "id": "kris", "displayname": "Kris" },
+    });
+    room.send_queue()
+        .send_raw(
+            Raw::<AnyMessageLikeEventContent>::from_json_string(edit.to_string()).unwrap(),
+            MessageLikeEventType::RoomMessage.to_string(),
+        )
+        .await
+        .unwrap();
+
+    let profile_name = |items: &[crate::protocol::TimelineItemView]| {
+        items
+            .iter()
+            .find(|item| item.event_id.as_deref() == Some(target))
+            .and_then(|item| item.per_message_profile.as_ref()?.display_name.clone())
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        while profile_name(&items).is_none() {
+            let Some(event) = events.recv().await else {
+                break;
+            };
+            if let CoreEvent::TimelineDiff {
+                subscription: from,
+                diffs,
+            } = event
+                && from == subscription
+            {
+                for diff in &diffs {
+                    apply_diff(&mut items, diff);
+                }
+            }
+        }
+    })
+    .await
+    .unwrap();
+
+    assert_eq!(profile_name(&items).as_deref(), Some("Kris"));
+}

@@ -18,7 +18,9 @@ pub use diff::map_diff;
 pub use directory::{
     public_room, room_preview_from_stripped_state, room_preview_view, via_servers,
 };
-pub use item::{Highlights, LocalContent, aggregation_item, standalone_item, timeline_item};
+pub use item::{
+    Highlights, LocalContent, aggregation_item, latest_edit_id, standalone_item, timeline_item,
+};
 pub use member::{member_view, room_permissions, room_power_levels};
 pub use room::{
     RoomInfo, enrich_room_batch, listless_room_list_item, predecessor, room_counts, room_list_item,

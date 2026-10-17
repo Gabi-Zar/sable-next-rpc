@@ -6,8 +6,8 @@ use matrix_sdk::room::{PushContext, Room};
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
 use matrix_sdk::ruma::push::Action;
 use matrix_sdk::ruma::{
-    MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedTransactionId, OwnedUserId, TransactionId,
-    UserId,
+    EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedTransactionId, OwnedUserId,
+    TransactionId, UserId,
 };
 use matrix_sdk::send_queue::{LocalEcho, LocalEchoContent, RoomSendQueueUpdate};
 use matrix_sdk_base::store::QueueWedgeError;
@@ -90,7 +90,17 @@ struct LocalFields {
 }
 
 #[derive(Default)]
-pub struct LocalContent(HashMap<OwnedTransactionId, LocalFields>);
+pub struct LocalContent {
+    fields: HashMap<OwnedTransactionId, LocalFields>,
+    edits: Vec<QueuedEdit>,
+}
+
+struct QueuedEdit {
+    transaction_id: OwnedTransactionId,
+    target: OwnedEventId,
+    profile: Option<PerMessageProfileView>,
+    sent: Option<OwnedEventId>,
+}
 
 impl LocalContent {
     #[must_use]
@@ -107,7 +117,7 @@ impl LocalContent {
         content
     }
 
-    pub fn apply(&mut self, update: &RoomSendQueueUpdate) {
+    pub fn apply(&mut self, update: &RoomSendQueueUpdate) -> Option<OwnedEventId> {
         match update {
             RoomSendQueueUpdate::NewLocalEvent(LocalEcho {
                 transaction_id,
@@ -115,24 +125,64 @@ impl LocalContent {
                     LocalEchoContent::Event {
                         serialized_event, ..
                     },
-            }) => self.remember(transaction_id, serialized_event),
+            }) => {
+                self.remember(transaction_id, serialized_event);
+                self.edit_target(transaction_id)
+            }
             RoomSendQueueUpdate::ReplacedLocalEvent {
                 transaction_id,
                 new_content,
-            } => self.remember(transaction_id, new_content),
-            RoomSendQueueUpdate::CancelledLocalEvent { transaction_id } => {
-                self.0.remove(transaction_id);
+            } => {
+                let previous = self.edit_target(transaction_id);
+                self.remember(transaction_id, new_content);
+                self.edit_target(transaction_id).or(previous)
             }
-            _ => {}
+            RoomSendQueueUpdate::CancelledLocalEvent { transaction_id } => {
+                let target = self.edit_target(transaction_id);
+                self.forget(transaction_id);
+                target
+            }
+            RoomSendQueueUpdate::SentEvent {
+                transaction_id,
+                event_id,
+            } => {
+                for edit in &mut self.edits {
+                    if edit.transaction_id == *transaction_id {
+                        edit.sent = Some(event_id.clone());
+                    }
+                }
+                None
+            }
+            _ => None,
         }
     }
 
+    fn edit_target(&self, transaction_id: &TransactionId) -> Option<OwnedEventId> {
+        self.edits
+            .iter()
+            .find(|edit| edit.transaction_id == *transaction_id)
+            .map(|edit| edit.target.clone())
+    }
+
     fn remember(&mut self, transaction_id: &TransactionId, content: &SerializableEventContent) {
-        let fields = content
+        let content = content
             .raw()
             .0
             .deserialize_as_unchecked::<serde_json::Value>()
-            .ok()
+            .ok();
+        self.edits
+            .retain(|edit| edit.transaction_id != *transaction_id);
+        if let Some(target) = content.as_ref().and_then(replaced_event) {
+            self.edits.push(QueuedEdit {
+                transaction_id: transaction_id.to_owned(),
+                target,
+                profile: content
+                    .as_ref()
+                    .and_then(|content| per_message_profile(Some(content))),
+                sent: None,
+            });
+        }
+        let fields = content
             .map(|content| LocalFields {
                 profile: per_message_profile(Some(&content)),
                 formatted_body: raw_formatted_body(Some(&content)).map(ToOwned::to_owned),
@@ -140,21 +190,57 @@ impl LocalContent {
             .filter(|fields| fields.profile.is_some() || fields.formatted_body.is_some());
         match fields {
             Some(fields) => {
-                self.0.insert(transaction_id.to_owned(), fields);
+                self.fields.insert(transaction_id.to_owned(), fields);
             }
             None => {
-                self.0.remove(transaction_id);
+                self.fields.remove(transaction_id);
             }
         }
     }
 
     fn get(&self, transaction_id: &TransactionId) -> Option<&LocalFields> {
-        self.0.get(transaction_id)
+        self.fields.get(transaction_id)
+    }
+
+    /// `Some(None)` is a queued edit that clears the profile.
+    fn pending_edit(&self, event_id: &EventId) -> Option<&Option<PerMessageProfileView>> {
+        self.edits
+            .iter()
+            .rev()
+            .find_map(|edit| (edit.target == event_id).then_some(&edit.profile))
+    }
+
+    /// Drops the queued edits whose remote echo is now the event's latest edit.
+    pub(crate) fn settle(&mut self, target: &EventId, latest_edit: Option<&EventId>) {
+        let Some(latest_edit) = latest_edit else {
+            return;
+        };
+        self.edits
+            .retain(|edit| edit.target != target || edit.sent.as_deref() != Some(latest_edit));
     }
 
     pub(crate) fn forget(&mut self, transaction_id: &TransactionId) {
-        self.0.remove(transaction_id);
+        self.fields.remove(transaction_id);
+        self.edits
+            .retain(|edit| edit.transaction_id != *transaction_id);
     }
+}
+
+#[must_use]
+pub fn latest_edit_id(event: &EventTimelineItem) -> Option<OwnedEventId> {
+    event
+        .latest_edit_json()?
+        .get_field("event_id")
+        .ok()
+        .flatten()
+}
+
+fn replaced_event(content: &serde_json::Value) -> Option<OwnedEventId> {
+    let relation = content.get("m.relates_to")?;
+    if relation.get("rel_type")?.as_str()? != "m.replace" {
+        return None;
+    }
+    OwnedEventId::try_from(relation.get("event_id")?.as_str()?).ok()
 }
 
 impl TimelineItemContentView {
@@ -361,6 +447,27 @@ pub async fn standalone_item(
     })
 }
 
+fn message_profile(
+    event: &EventTimelineItem,
+    raw: &RawFields,
+    local: Option<&LocalFields>,
+    local_content: &LocalContent,
+    relays: &BTreeSet<OwnedUserId>,
+) -> Option<PerMessageProfileView> {
+    let pending_edit = event
+        .event_id()
+        .and_then(|event_id| local_content.pending_edit(event_id));
+    pending_edit
+        .map_or_else(|| per_message_profile(raw.content.as_ref()), Clone::clone)
+        .or_else(|| local?.profile.clone())
+        .or_else(|| {
+            relays
+                .contains(event.sender())
+                .then(|| relay_profile(raw.content.as_ref()))
+                .flatten()
+        })
+}
+
 #[must_use]
 pub fn timeline_item(
     item: &Arc<TimelineItem>,
@@ -383,14 +490,7 @@ pub fn timeline_item(
                 .and(event.transaction_id())
                 .and_then(|transaction_id| local_content.get(transaction_id));
             raw.echo_formatted_body = local.and_then(|fields| fields.formatted_body.clone());
-            let message_profile = per_message_profile(raw.content.as_ref())
-                .or_else(|| local?.profile.clone())
-                .or_else(|| {
-                    relays
-                        .contains(event.sender())
-                        .then(|| relay_profile(raw.content.as_ref()))
-                        .flatten()
-                });
+            let message_profile = message_profile(event, &raw, local, local_content, relays);
 
             let mention = mention(event, own_user_id, highlights.holds(&id, event));
             let bundled_link_previews = bundled_link_previews(raw.message());
@@ -653,6 +753,76 @@ mod tests {
 
         local_content.forget(&transaction_id);
         assert!(local_content.get(&transaction_id).is_none());
+    }
+
+    fn queued_edit(profile: Option<serde_json::Value>) -> SerializableEventContent {
+        let mut content = json!({
+            "msgtype": "m.text",
+            "body": "* hello",
+            "m.new_content": { "msgtype": "m.text", "body": "hello" },
+            "m.relates_to": { "rel_type": "m.replace", "event_id": "$target:example.org" },
+        });
+        if let Some(profile) = profile {
+            content["com.beeper.per_message_profile"] = profile;
+        }
+        SerializableEventContent::from_raw(
+            Raw::from_json_string(content.to_string()).expect("raw content"),
+            "m.room.message".to_owned(),
+        )
+    }
+
+    #[test]
+    fn a_queued_edit_carries_its_profile_to_the_edited_event() {
+        let target = OwnedEventId::try_from("$target:example.org").expect("an event id");
+        let transaction_id = OwnedTransactionId::from("txn");
+        let mut local_content = LocalContent::default();
+        assert!(local_content.pending_edit(&target).is_none());
+
+        local_content.apply(&RoomSendQueueUpdate::ReplacedLocalEvent {
+            transaction_id: transaction_id.clone(),
+            new_content: queued_edit(Some(json!({ "id": "kris", "displayname": "Kris" }))),
+        });
+        let profile = local_content
+            .pending_edit(&target)
+            .expect("the queued edit")
+            .as_ref()
+            .expect("its profile");
+        assert_eq!(profile.display_name.as_deref(), Some("Kris"));
+
+        local_content.apply(&RoomSendQueueUpdate::ReplacedLocalEvent {
+            transaction_id: transaction_id.clone(),
+            new_content: queued_edit(None),
+        });
+        assert!(
+            matches!(local_content.pending_edit(&target), Some(None)),
+            "an edit that drops the profile clears it too"
+        );
+
+        local_content.forget(&transaction_id);
+        assert!(local_content.pending_edit(&target).is_none());
+    }
+
+    #[test]
+    fn a_queued_edit_settles_once_its_remote_echo_is_the_latest_edit() {
+        let target = OwnedEventId::try_from("$target:example.org").expect("an event id");
+        let sent = OwnedEventId::try_from("$edit:example.org").expect("an event id");
+        let other = OwnedEventId::try_from("$other:example.org").expect("an event id");
+        let transaction_id = OwnedTransactionId::from("txn");
+        let mut local_content = LocalContent::default();
+        local_content.apply(&RoomSendQueueUpdate::ReplacedLocalEvent {
+            transaction_id: transaction_id.clone(),
+            new_content: queued_edit(Some(json!({ "id": "kris" }))),
+        });
+        local_content.apply(&RoomSendQueueUpdate::SentEvent {
+            transaction_id,
+            event_id: sent.clone(),
+        });
+
+        local_content.settle(&target, Some(&other));
+        assert!(local_content.pending_edit(&target).is_some());
+
+        local_content.settle(&target, Some(&sent));
+        assert!(local_content.pending_edit(&target).is_none());
     }
 
     #[test]
