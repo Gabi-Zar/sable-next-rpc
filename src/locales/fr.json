@@ -2029,7 +2029,8 @@
       "previews": "",
       "ringing": "",
       "gifPicker": "",
-      "receiptsTyping": ""
+      "receiptsTyping": "",
+      "embeds": ""
     },
     "navGroups": {
       "user": "Utilisateur",
@@ -2464,7 +2465,12 @@
     "troubleshootFailureNoSession": "",
     "searchBatchSize": "",
     "themeCatalogTrust": "",
-    "themeSableDefault": ""
+    "themeSableDefault": "",
+    "callCameraDevice": "",
+    "timelineEmoteSizeDefault": "",
+    "pushersKindGateway": "",
+    "otherProfileFieldsKaomoji": "",
+    "otherProfileFieldsKeyPlaceholder": ""
   },
   "errors": {
     "pageTitle": "Un problème est survenu",
