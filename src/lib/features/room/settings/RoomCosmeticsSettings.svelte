@@ -465,5 +465,9 @@
   .inline-field {
     display: flex;
     gap: var(--space-200);
+
+    :global(button) {
+      flex-shrink: 0;
+    }
   }
 </style>
