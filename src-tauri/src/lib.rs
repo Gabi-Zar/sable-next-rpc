@@ -496,7 +496,7 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
     app.manage(notifications::PushStore(data_dir.clone()));
     let (core, events) = Core::new(
         data_dir.to_string_lossy().into_owned(),
-        Box::new(sable_core::store::ExclusiveFileSessionStore::new(&data_dir)),
+        session_store(&data_dir),
     );
     let event_sink = Arc::new(EventSink::default());
     #[cfg(target_os = "ios")]
@@ -606,6 +606,18 @@ fn follow_ios_lifecycle(core: &Arc<Core>) {
     });
 }
 
+/// A mobile OS never runs two copies of the app, and iOS kills a suspended app that
+/// still holds a file lock in the shared App Group container.
+#[cfg(mobile)]
+fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::SessionStore> {
+    Box::new(sable_core::store::FileSessionStore::new(data_dir))
+}
+
+#[cfg(not(mobile))]
+fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::SessionStore> {
+    Box::new(sable_core::store::ExclusiveFileSessionStore::new(data_dir))
+}
+
 #[cfg(mobile)]
 fn set_mobile_activity(core: Arc<Core>, active: bool, stop_delay: std::time::Duration) {
     core.set_app_active(active);
@@ -613,7 +625,6 @@ fn set_mobile_activity(core: Arc<Core>, active: bool, stop_delay: std::time::Dur
     let background_task = (!active).then(|| ios::BackgroundTask::begin("Pause sync"));
     tauri::async_runtime::spawn(async move {
         if !active {
-            core.release_session_lock_while_inactive().await;
             tokio::time::sleep(stop_delay).await;
         }
         core.apply_app_activity(active).await;

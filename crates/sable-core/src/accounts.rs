@@ -11,7 +11,6 @@ use matrix_sdk_ui::sync_service::State as SyncState;
 use crate::ResultExt;
 use crate::protocol::{CoreEvent, RpcError, SessionInfo};
 
-#[cfg(not(target_family = "wasm"))]
 use crate::session::AccountRegistry;
 use crate::session::{PersistedAccount, PersistedSession, Session};
 
@@ -442,16 +441,18 @@ impl Core {
                 .accounts
                 .retain(|account| account.account_id != expected.account_id);
         }
-        updated.upsert(PersistedAccount {
+        let account = PersistedAccount {
             account_id: account_id.to_owned(),
             store_id: store_id.to_owned(),
             session: persisted.clone(),
             needs_reauth: false,
             device_invalidated: false,
-        });
-        let bytes = serde_json::to_vec(&updated).or_failed(self, "persist_serialize")?;
-        self.sessions
-            .save(bytes)
+        };
+        self.save_login_tokens(&account)
+            .await
+            .or_failed(self, "persist_tokens")?;
+        updated.upsert(account);
+        self.write_registry(&updated)
             .await
             .or_failed(self, "persist_save")?;
         self.invalidate_account_client(account_id).await;
@@ -487,21 +488,157 @@ impl Core {
         if self.credential_writers.lock().await.get(account_id) != Some(&generation) {
             return Err(RpcError::NotLoggedIn);
         }
-        let bytes = self
-            .sessions
-            .load()
+        let device_id = self
+            .accounts
+            .lock()
+            .await
+            .as_ref()
+            .and_then(|registry| {
+                registry
+                    .accounts
+                    .iter()
+                    .find(|account| account.account_id == account_id && !account.needs_reauth)
+            })
+            .map(|account| account.session.credentials.device_id())
+            .ok_or(RpcError::NotLoggedIn)?;
+        let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
+        let account_id = account_id.to_owned();
+        tokio::task::spawn_blocking(move || logins.load(&account_id, &device_id))
             .await
             .or_failed(self, "reload_session_read")?
-            .ok_or(RpcError::NotLoggedIn)?;
-        let (registry, _) = AccountRegistry::from_bytes(&bytes, &self.store_id)
-            .or_failed(self, "reload_session_parse")?;
-        let account = registry
-            .accounts
-            .into_iter()
-            .find(|account| account.account_id == account_id && !account.needs_reauth)
-            .ok_or(RpcError::NotLoggedIn)?;
-        Ok(account.session.credentials.tokens())
+            .ok_or(RpcError::NotLoggedIn)
     }
+
+    /// A login's tokens leave the registry only once its own file holds them.
+    #[cfg(not(target_family = "wasm"))]
+    pub(crate) async fn write_registry(
+        &self,
+        registry: &AccountRegistry,
+    ) -> Result<(), crate::store::StoreError> {
+        let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
+        let mut saved = registry.clone();
+        let saved = tokio::task::spawn_blocking(move || {
+            for account in &mut saved.accounts {
+                let device_id = account.session.credentials.device_id();
+                if matches!(logins.read(&account.account_id, &device_id), Ok(Some(_))) {
+                    account.session.credentials.discard_tokens();
+                }
+            }
+            saved
+        })
+        .await
+        .map_err(crate::store::StoreError::backend)?;
+        self.sessions.save(serde_json::to_vec(&saved)?).await
+    }
+
+    #[cfg(target_family = "wasm")]
+    pub(crate) async fn write_registry(
+        &self,
+        registry: &AccountRegistry,
+    ) -> Result<(), crate::store::StoreError> {
+        self.sessions.save(serde_json::to_vec(registry)?).await
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    pub(crate) async fn save_login_tokens(
+        &self,
+        account: &PersistedAccount,
+    ) -> Result<(), crate::store::StoreError> {
+        let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
+        let account_id = account.account_id.clone();
+        let device_id = account.session.credentials.device_id();
+        let tokens = account.session.credentials.tokens();
+        tokio::task::spawn_blocking(move || logins.save(&account_id, &device_id, &tokens))
+            .await
+            .map_err(crate::store::StoreError::backend)?
+    }
+
+    #[cfg(target_family = "wasm")]
+    pub(crate) async fn save_login_tokens(
+        &self,
+        _account: &PersistedAccount,
+    ) -> Result<(), crate::store::StoreError> {
+        Ok(())
+    }
+
+    /// Returns whether tokens the registry held moved into a file, so it is rewritten without them.
+    #[cfg(not(target_family = "wasm"))]
+    pub(crate) async fn load_login_tokens(
+        &self,
+        registry: &mut AccountRegistry,
+    ) -> Result<bool, crate::store::StoreError> {
+        let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
+        let mut loaded = registry.clone();
+        let (loaded, embedded) = tokio::task::spawn_blocking(move || {
+            let mut embedded = false;
+            for account in loaded
+                .accounts
+                .iter_mut()
+                .filter(|account| !account.needs_reauth)
+            {
+                let credentials = &mut account.session.credentials;
+                let device_id = credentials.device_id();
+                match logins.read(&account.account_id, &device_id) {
+                    Ok(Some(tokens)) => credentials.set_tokens(tokens),
+                    Ok(None) if !credentials.tokens().access_token.is_empty() => {
+                        match logins.save_new(
+                            &account.account_id,
+                            &device_id,
+                            &credentials.tokens(),
+                        ) {
+                            Ok(true) => embedded = true,
+                            // A push refreshed the login while the app was starting.
+                            Ok(false) => {
+                                if let Some(tokens) = logins.load(&account.account_id, &device_id) {
+                                    credentials.set_tokens(tokens);
+                                }
+                            }
+                            Err(error) => {
+                                tracing::warn!("could not move a login's tokens: {error}");
+                            }
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(error) => tracing::warn!("a login's token file is unreadable: {error}"),
+                }
+            }
+            let devices: Vec<_> = loaded
+                .accounts
+                .iter()
+                .map(|account| {
+                    (
+                        account.account_id.clone(),
+                        account.session.credentials.device_id(),
+                    )
+                })
+                .collect();
+            logins.retain(
+                devices
+                    .iter()
+                    .map(|(account_id, device_id)| (account_id.as_str(), device_id.as_str())),
+            );
+            (loaded, embedded)
+        })
+        .await
+        .map_err(crate::store::StoreError::backend)?;
+        *registry = loaded;
+        Ok(embedded)
+    }
+
+    /// `None` forgets every login.
+    #[cfg(not(target_family = "wasm"))]
+    async fn forget_login_tokens(&self, account_id: Option<&str>) {
+        let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
+        let account_id = account_id.map(ToOwned::to_owned);
+        let _ = tokio::task::spawn_blocking(move || match account_id {
+            Some(account_id) => logins.forget(&account_id),
+            None => logins.forget_all(),
+        })
+        .await;
+    }
+
+    #[cfg(target_family = "wasm")]
+    async fn forget_login_tokens(&self, _account_id: Option<&str>) {}
 
     async fn save_current_credentials(
         &self,
@@ -528,9 +665,10 @@ impl Core {
             return Ok(());
         };
         account.session = persisted.keeping_endpoint_of(&account.session);
-        let bytes = serde_json::to_vec(&updated).or_failed(self, "refresh_serialize")?;
-        self.sessions
-            .save(bytes)
+        self.save_login_tokens(account)
+            .await
+            .or_failed(self, "refresh_save")?;
+        self.write_registry(&updated)
             .await
             .or_failed(self, "refresh_save")?;
         *accounts = Some(updated);
@@ -625,9 +763,7 @@ impl Core {
             .ok_or(RpcError::NotLoggedIn)?
             .keeping_endpoint_of(&account.session);
         updated.active_account_id = Some(account_id.to_owned());
-        let bytes = serde_json::to_vec(&updated).or_failed(self, "activate_account_serialize")?;
-        self.sessions
-            .save(bytes)
+        self.write_registry(&updated)
             .await
             .or_failed(self, "activate_account_save")?;
         *accounts = Some(updated);
@@ -636,7 +772,12 @@ impl Core {
 
     pub(crate) async fn clear_persisted_session(&self) -> Result<(), RpcError> {
         let _guard = self.session_store_lock.lock().await;
-        self.sessions.clear().await.or_failed(self, "clear_session")
+        self.sessions
+            .clear()
+            .await
+            .or_failed(self, "clear_session")?;
+        self.forget_login_tokens(None).await;
+        Ok(())
     }
 
     pub(crate) async fn mark_account_needs_reauth(
@@ -669,12 +810,14 @@ impl Core {
         if registry.active_account_id.as_deref() == Some(account_id) {
             registry.active_account_id = None;
         }
-        let bytes = serde_json::to_vec(registry).or_failed(self, "retire_session_serialize")?;
         self.invalidate_account_client(account_id).await;
-        self.sessions
-            .save(bytes)
+        self.write_registry(registry)
             .await
-            .or_failed(self, "retire_session_save")
+            .or_failed(self, "retire_session_save")?;
+        if device_invalidated {
+            self.forget_login_tokens(Some(account_id)).await;
+        }
+        Ok(())
     }
 
     async fn remove_account(&self, account_id: Option<&str>) -> Result<(), RpcError> {
@@ -701,11 +844,10 @@ impl Core {
         if registry.active_account_id.as_deref() == Some(account_id) {
             registry.active_account_id = None;
         }
-        let bytes = serde_json::to_vec(registry).or_failed(self, "logout_serialize_accounts")?;
-        self.sessions
-            .save(bytes)
+        self.write_registry(registry)
             .await
             .or_failed(self, "logout_save_accounts")?;
+        self.forget_login_tokens(Some(account_id)).await;
         if let Some(store_id) = store_id {
             self.discard_account_store(&store_id).await?;
         }
@@ -1294,7 +1436,7 @@ async fn reset_account_cache(account: &PersistedAccount) -> Result<(), crate::Co
 
 #[cfg(all(test, not(target_family = "wasm")))]
 mod regression_tests {
-    use crate::session::{self, Credentials};
+    use crate::session::{self, Credentials, PersistedAccount};
     use std::sync::Arc;
 
     use matrix_sdk::{
@@ -1361,7 +1503,11 @@ mod regression_tests {
             .sync_joined_room(&client, room_id!("!regression:example.org"))
             .await;
         let sync_service = Arc::new(SyncService::builder(client.clone()).build().await.unwrap());
-        let (core, _events) = Core::new("regression", Box::new(MemorySessionStore::default()));
+        let base = tempfile::tempdir().unwrap().keep();
+        let (core, _events) = Core::new(
+            base.to_str().unwrap(),
+            Box::new(MemorySessionStore::default()),
+        );
         *core.session.write().await = Some(Session {
             account_id: "first".to_owned(),
             client,
@@ -1439,7 +1585,7 @@ mod regression_tests {
         registry.active_account_id = Some("first".to_owned());
         registry.upsert(PersistedAccount {
             account_id: "first".to_owned(),
-            store_id: "regression".to_owned(),
+            store_id: core.store_id.clone(),
             session: current_session(&room.client(), server.server().uri()).unwrap(),
             needs_reauth: false,
             device_invalidated: false,
@@ -1544,7 +1690,7 @@ mod regression_tests {
         registry.active_account_id = Some("first".to_owned());
         registry.upsert(PersistedAccount {
             account_id: "first".to_owned(),
-            store_id: "regression".to_owned(),
+            store_id: core.store_id.clone(),
             session: current_session(&room.client(), server.server().uri()).unwrap(),
             needs_reauth: false,
             device_invalidated: false,
@@ -1644,7 +1790,7 @@ mod regression_tests {
         let mut registry = AccountRegistry::empty();
         registry.upsert(PersistedAccount {
             account_id: "first".to_owned(),
-            store_id: "regression".to_owned(),
+            store_id: core.store_id.clone(),
             session: current_session(&client, server.server().uri()).unwrap(),
             needs_reauth: false,
             device_invalidated: false,
@@ -1660,7 +1806,7 @@ mod regression_tests {
                 server.server().uri(),
                 "first".to_owned(),
                 generation.value(),
-                &crate::session::store_lease("regression").await,
+                &crate::session::store_lease(&core.store_id).await,
             )
             .await
             .unwrap();
@@ -1684,7 +1830,7 @@ mod regression_tests {
         let mut registry = AccountRegistry::empty();
         registry.upsert(PersistedAccount {
             account_id: "first".to_owned(),
-            store_id: "regression".to_owned(),
+            store_id: core.store_id.clone(),
             session: current_session(&client, server.server().uri()).unwrap(),
             needs_reauth: false,
             device_invalidated: false,
@@ -1699,7 +1845,7 @@ mod regression_tests {
             server.server().uri(),
             "first".to_owned(),
             generation.value(),
-            &crate::session::store_lease("regression").await,
+            &crate::session::store_lease(&core.store_id).await,
         )
         .await
         .unwrap();
@@ -1899,10 +2045,6 @@ mod regression_tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one sequential flow kept in a single function"
-    )]
     async fn late_refresh_persists_after_teardown_and_reuses_live_client() {
         use crate::session::{AccountRegistry, PersistedAccount, current_session};
         use wiremock::{
@@ -1919,8 +2061,9 @@ mod regression_tests {
         let persisted = Arc::new(std::sync::Mutex::new(None));
         let persistence_started = Arc::new(tokio::sync::Notify::new());
         let release_persistence = Arc::new(tokio::sync::Notify::new());
+        let base = tempfile::tempdir().unwrap();
         let (core, _events) = Core::new(
-            "refresh-regression",
+            base.path().to_str().unwrap(),
             Box::new(DelayedSecondSave {
                 attempts: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
                 bytes: persisted.clone(),
@@ -1996,15 +2139,9 @@ mod regression_tests {
             resumed.session_tokens().unwrap().refresh_token.as_deref(),
             Some("new-refresh")
         );
-        let bytes = persisted
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
-            .unwrap();
-        let stored: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(
-            stored["accounts"][0]["session"]["credentials"]["refresh_token"],
-            "new-refresh"
+            saved_refresh_token(&core, &account).as_deref(),
+            Some("new-refresh")
         );
     }
 
@@ -2072,14 +2209,100 @@ mod regression_tests {
         let client = core.saved_account_client(&account, &lease).await.unwrap();
         client.refresh_access_token().await.unwrap();
 
-        let bytes = core.sessions.load().await.unwrap().unwrap();
-        let stored: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(
-            stored["accounts"][0]["session"]["credentials"]["refresh_token"],
-            "new-refresh"
+            saved_refresh_token(&core, &account).as_deref(),
+            Some("new-refresh")
         );
         drop(client);
         std::fs::remove_dir_all(&store_id).unwrap();
+    }
+
+    #[expect(clippy::unwrap_used, reason = "test code")]
+    async fn logged_in_core() -> (tempfile::TempDir, Arc<Core>, PersistedAccount) {
+        use crate::session::{AccountRegistry, current_session};
+        let (server, _, room) = core_with_room().await;
+        let base = tempfile::tempdir().unwrap();
+        let (core, _) = Core::new(
+            base.path().to_str().unwrap(),
+            Box::new(MemorySessionStore::default()),
+        );
+        *core.accounts.lock().await = Some(AccountRegistry::empty());
+        let persisted = current_session(&room.client(), server.server().uri()).unwrap();
+        core.persist("first", &core.store_id, &persisted, None)
+            .await
+            .unwrap();
+        let account = core.accounts().await.unwrap().accounts.remove(0);
+        (base, core, account)
+    }
+
+    fn has_login_file(base: &tempfile::TempDir, account: &PersistedAccount) -> bool {
+        crate::credentials::LoginTokens::new(base.path())
+            .load(
+                &account.account_id,
+                &account.session.credentials.device_id(),
+            )
+            .is_some()
+    }
+
+    #[tokio::test]
+    async fn a_registry_drops_only_the_tokens_a_login_file_holds() {
+        let (base, core, account) = logged_in_core().await;
+        let mut registry = core.accounts().await.unwrap();
+        registry.upsert(PersistedAccount {
+            account_id: "unmoved".to_owned(),
+            ..account.clone()
+        });
+        core.write_registry(&registry).await.unwrap();
+
+        let saved = core.sessions.load().await.unwrap().unwrap();
+        let (saved, _) =
+            crate::session::AccountRegistry::from_bytes(&saved, &core.store_id).unwrap();
+        let tokens = |id: &str| {
+            saved
+                .accounts
+                .iter()
+                .find(|account| account.account_id == id)
+                .unwrap()
+                .session
+                .credentials
+                .tokens()
+                .access_token
+        };
+        assert!(has_login_file(&base, &account));
+        assert_eq!(tokens("first"), "");
+        assert_eq!(
+            tokens("unmoved"),
+            account.session.credentials.tokens().access_token
+        );
+    }
+
+    #[tokio::test]
+    async fn retiring_a_device_and_removing_an_account_forget_its_login_file() {
+        let (base, core, account) = logged_in_core().await;
+        core.mark_account_needs_reauth(Some("first"), false)
+            .await
+            .unwrap();
+        assert!(has_login_file(&base, &account));
+        core.mark_account_needs_reauth(Some("first"), true)
+            .await
+            .unwrap();
+        assert!(!has_login_file(&base, &account));
+
+        let (base, core, account) = logged_in_core().await;
+        core.remove_account(Some("first")).await.unwrap();
+        assert!(!has_login_file(&base, &account));
+    }
+
+    fn saved_refresh_token(
+        core: &Core,
+        account: &crate::session::PersistedAccount,
+    ) -> Option<String> {
+        crate::credentials::LoginTokens::new(std::path::Path::new(&core.store_id))
+            .load(
+                &account.account_id,
+                &account.session.credentials.device_id(),
+            )?
+            .refresh_token
     }
 
     struct RejectSaves {
@@ -2105,21 +2328,25 @@ mod regression_tests {
     async fn rejected_tokens_stay_retired_when_the_registry_write_fails() {
         use crate::session::{AccountRegistry, PersistedAccount, current_session};
         let (server, _, room) = core_with_room().await;
+        let base = tempfile::tempdir().unwrap();
         let (core, _) = Core::new(
-            "retire-regression",
+            base.path().to_str().unwrap(),
             Box::new(RejectSaves {
                 attempts: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
             }),
         );
         let mut registry = AccountRegistry::empty();
         registry.active_account_id = Some("first".to_owned());
-        registry.upsert(PersistedAccount {
+        let account = PersistedAccount {
             account_id: "first".to_owned(),
             store_id: "unused".to_owned(),
             session: current_session(&room.client(), server.server().uri()).unwrap(),
             needs_reauth: false,
             device_invalidated: false,
-        });
+        };
+        core.save_login_tokens(&account).await.unwrap();
+        let device_id = account.session.credentials.device_id();
+        registry.upsert(account);
         *core.accounts.lock().await = Some(registry);
         core.credential_writers
             .lock()
@@ -2128,6 +2355,11 @@ mod regression_tests {
         core.mark_account_needs_reauth(Some("first"), true)
             .await
             .unwrap_err();
+        assert!(
+            crate::credentials::LoginTokens::new(base.path())
+                .load("first", &device_id)
+                .is_some()
+        );
         let accounts = core.accounts().await.unwrap();
         assert!(accounts.active_account_id.is_none());
         assert!(accounts.accounts[0].needs_reauth);
@@ -2200,17 +2432,16 @@ mod regression_tests {
             session.tokens.access_token = "rotated-access".into();
             session.tokens.refresh_token = Some("rotated-refresh".into());
         }
-        registry.upsert(PersistedAccount {
+        let account = PersistedAccount {
             account_id: "first".into(),
             store_id: "unused".into(),
             session: saved,
             needs_reauth: false,
             device_invalidated: false,
-        });
-        core.sessions
-            .save(serde_json::to_vec(&registry).unwrap())
-            .await
-            .unwrap();
+        };
+        core.save_login_tokens(&account).await.unwrap();
+        registry.upsert(account);
+        *core.accounts.lock().await = Some(registry);
         core.credential_writers
             .lock()
             .await
@@ -2244,7 +2475,7 @@ mod regression_tests {
         let mut registry = AccountRegistry::empty();
         registry.upsert(PersistedAccount {
             account_id: "first".to_owned(),
-            store_id: "regression".to_owned(),
+            store_id: core.store_id.clone(),
             session: stale.clone(),
             needs_reauth: false,
             device_invalidated: false,

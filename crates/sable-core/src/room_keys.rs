@@ -729,6 +729,15 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
     async fn a_wrong_passphrase_is_denied_and_a_damaged_file_is_invalid() {
         let server = MatrixMockServer::new().await;
         let (core, client, store) = core_for(&server).await;
+        let listing = || {
+            let mut names: Vec<_> = std::fs::read_dir(store.path())
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name())
+                .collect();
+            names.sort();
+            names
+        };
+        let before = listing();
 
         assert!(matches!(
             import(&core, ELEMENT_EXPORT, "wrong").await,
@@ -745,7 +754,7 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             Err(RpcError::InvalidKeyExport)
         ));
         assert_eq!(session_ids(&client).await, [] as [String; 0]);
-        assert_eq!(std::fs::read_dir(store.path()).unwrap().count(), 0);
+        assert_eq!(listing(), before);
     }
 
     #[tokio::test]

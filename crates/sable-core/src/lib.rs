@@ -12,6 +12,8 @@ mod bot_commands;
 mod calendar;
 mod calls;
 mod cosmetics;
+#[cfg(not(target_family = "wasm"))]
+mod credentials;
 mod delayed_events;
 mod errors;
 mod gestures;
@@ -468,11 +470,6 @@ impl Core {
         if self.app_active.load(Ordering::Relaxed) != active {
             return;
         }
-        if active {
-            self.sessions.retain().await;
-        } else {
-            self.sessions.release().await;
-        }
         let Ok(sync_service) = self.sync_service().await else {
             return;
         };
@@ -491,14 +488,6 @@ impl Core {
             sync_service.stop().await;
             #[cfg(target_os = "ios")]
             self.close_stores().await;
-        }
-    }
-
-    /// iOS kills a suspended process that still holds a lock in the shared App Group container.
-    pub async fn release_session_lock_while_inactive(&self) {
-        let _serial = self.activity_lock.lock().await;
-        if !self.app_active.load(Ordering::Relaxed) {
-            self.sessions.release().await;
         }
     }
 
@@ -604,17 +593,22 @@ impl Core {
         {
             account.session.credentials.discard_tokens();
         }
+        #[cfg(not(target_family = "wasm"))]
+        let embedded_tokens = self
+            .load_login_tokens(&mut registry)
+            .await
+            .or_failed(self, "restore_login_tokens")?;
+        #[cfg(target_family = "wasm")]
+        let embedded_tokens = false;
         if migrated
             || reanchored
+            || embedded_tokens
             || registry
                 .accounts
                 .iter()
                 .any(|account| account.device_invalidated)
         {
-            let bytes =
-                serde_json::to_vec(&registry).or_failed(self, "migrate_session_registry")?;
-            self.sessions
-                .save(bytes)
+            self.write_registry(&registry)
                 .await
                 .or_failed(self, "migrate_session_registry")?;
         }
@@ -854,34 +848,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_inactive_app_never_keeps_the_credentials_lock() {
-        let dir = tempfile::tempdir().unwrap();
-        let (core, _rx) = Core::new(
-            dir.path().to_string_lossy(),
-            Box::new(store::ExclusiveFileSessionStore::new(dir.path())),
-        );
-        let locked = || {
-            store::FileSessionStore::try_exclusive(dir.path())
-                .unwrap()
-                .is_none()
-        };
-        core.sessions.save(b"session".to_vec()).await.unwrap();
-        assert!(locked());
-
-        core.set_app_active(false);
-        core.apply_app_activity(false).await;
-        assert!(!locked());
-        core.sessions.save(b"refreshed".to_vec()).await.unwrap();
-        assert!(!locked());
-
-        core.set_app_active(true);
-        core.release_session_lock_while_inactive().await;
-        core.apply_app_activity(true).await;
-        core.sessions.load().await.unwrap();
-        assert!(locked());
-    }
-
-    #[tokio::test]
     async fn commands_before_login_are_rejected() {
         let (core, _rx) = Core::new("test", Box::new(store::MemorySessionStore::default()));
         assert!(matches!(
@@ -1025,8 +991,9 @@ mod tests {
             }))
             .unwrap(),
         )));
+        let base = tempfile::tempdir().unwrap();
         let (core, _events) = Core::new(
-            "test",
+            base.path().to_str().unwrap(),
             Box::new(TestSessionStore {
                 bytes: bytes.clone(),
             }),
@@ -1041,7 +1008,10 @@ mod tests {
             serde_json::from_slice(bytes.lock().await.as_deref().unwrap()).unwrap();
         assert_eq!(stored["accounts"].as_array().unwrap().len(), 1);
         assert_eq!(stored["accounts"][0]["needs_reauth"], true);
-        assert_eq!(stored["accounts"][0]["store_id"], "test-account-a1");
+        assert_eq!(
+            stored["accounts"][0]["store_id"],
+            session::account_store_id(base.path().to_str().unwrap(), "a1")
+        );
         assert!(stored["active_account_id"].is_null());
     }
 
@@ -1120,6 +1090,84 @@ mod tests {
         let text = String::from_utf8_lossy(&persisted);
         assert!(text.contains("/new/container/moe.sable.next-account-a1"));
         assert!(!text.contains("/old/container"));
+    }
+
+    fn registry_with_tokens(access_token: &str) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "version": 1,
+            "active_account_id": "a1",
+            "next_account_id": 2,
+            "accounts": [{
+                "account_id": "a1",
+                "store_id": "unused",
+                "session": {
+                    "homeserver": "https://example.org",
+                    "credentials": {
+                        "kind": "password",
+                        "user_id": "@alice:example.org",
+                        "device_id": "DEVICEID",
+                        "access_token": access_token,
+                        "refresh_token": format!("{access_token}-refresh")
+                    }
+                }
+            }]
+        }))
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn tokens_a_registry_still_holds_move_into_their_login_file() {
+        let base = tempfile::tempdir().unwrap();
+        let saved = Arc::new(Mutex::new(Some(registry_with_tokens("embedded"))));
+        let (core, _rx) = Core::new(
+            base.path().to_str().unwrap(),
+            Box::new(TestSessionStore {
+                bytes: saved.clone(),
+            }),
+        );
+
+        let accounts = core.accounts().await.unwrap();
+        let tokens = accounts.accounts[0].session.credentials.tokens();
+        assert_eq!(tokens.access_token, "embedded");
+
+        let logins = crate::credentials::LoginTokens::new(base.path());
+        assert_eq!(
+            logins.load("a1", "DEVICEID").unwrap().access_token,
+            "embedded"
+        );
+        let rewritten = saved.lock().await.clone().unwrap();
+        assert!(!String::from_utf8_lossy(&rewritten).contains("embedded"));
+    }
+
+    #[tokio::test]
+    async fn a_login_file_wins_over_tokens_a_registry_still_holds() {
+        let base = tempfile::tempdir().unwrap();
+        crate::credentials::LoginTokens::new(base.path())
+            .save(
+                "a1",
+                "DEVICEID",
+                &matrix_sdk::SessionTokens {
+                    access_token: "rotated".to_owned(),
+                    refresh_token: Some("rotated-refresh".to_owned()),
+                },
+            )
+            .unwrap();
+        let (core, _rx) = Core::new(
+            base.path().to_str().unwrap(),
+            Box::new(TestSessionStore {
+                bytes: Arc::new(Mutex::new(Some(registry_with_tokens("spent")))),
+            }),
+        );
+
+        let accounts = core.accounts().await.unwrap();
+        assert_eq!(
+            accounts.accounts[0]
+                .session
+                .credentials
+                .tokens()
+                .access_token,
+            "rotated"
+        );
     }
 }
 

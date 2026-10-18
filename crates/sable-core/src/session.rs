@@ -234,6 +234,14 @@ impl Credentials {
             Self::OAuth { user, .. } => user.tokens.clone(),
         }
     }
+    #[cfg(not(target_family = "wasm"))]
+    pub(crate) fn set_tokens(&mut self, tokens: matrix_sdk::SessionTokens) {
+        match self {
+            Self::Password(session) => session.tokens = tokens,
+            Self::OAuth { user, .. } => user.tokens = tokens,
+        }
+    }
+
     pub(crate) fn discard_tokens(&mut self) {
         let tokens = match self {
             Self::Password(session) => &mut session.tokens,
@@ -343,6 +351,7 @@ pub(crate) async fn restore_notification_client(
     store_id: &str,
     persisted: &PersistedSession,
     room_load: matrix_sdk::store::RoomLoadSettings,
+    before_restore: impl FnOnce(&Client),
 ) -> Result<Client, CoreError> {
     validate_saved_crypto_store(store_id, persisted)
         .await
@@ -357,6 +366,7 @@ pub(crate) async fn restore_notification_client(
     let client = build_account_client(builder, store_id, ClientRole::Notification, true)
         .await
         .map_err(CoreError::backend)?;
+    before_restore(&client);
     restore_credentials_with(&client, persisted, room_load).await?;
     Ok(client)
 }
@@ -504,6 +514,22 @@ impl ClientRole {
     }
 }
 
+/// Also names the client in the OAuth refresh lock, so no two clients share a holder.
+#[cfg(not(target_family = "wasm"))]
+fn lock_holder() -> String {
+    static NEXT_CLIENT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+    format!(
+        "sable-{}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos(),
+        NEXT_CLIENT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    )
+}
+
 async fn build_account_client(
     builder: ClientBuilder,
     store_id: &str,
@@ -525,21 +551,11 @@ async fn build_account_client(
     #[cfg(not(target_family = "wasm"))]
     {
         let _ = persistent_event_cache;
+        let holder = lock_holder();
         #[cfg(any(target_os = "android", target_os = "ios"))]
-        let lock = {
-            static NEXT_CLIENT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-
-            let holder = format!(
-                "sable-{}-{}-{}",
-                std::process::id(),
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos(),
-                NEXT_CLIENT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            );
-            matrix_sdk_common::cross_process_lock::CrossProcessLockConfig::multi_process(holder)
-        };
+        let lock = matrix_sdk_common::cross_process_lock::CrossProcessLockConfig::multi_process(
+            holder.clone(),
+        );
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let lock = matrix_sdk_common::cross_process_lock::CrossProcessLockConfig::SingleProcess;
 
@@ -568,6 +584,14 @@ async fn build_account_client(
             .base_client((*base).clone())
             .build()
             .await?;
+        // Before any restore or login, which is when the SDK sets the lock up.
+        if let Err(error) = client
+            .oauth()
+            .enable_cross_process_refresh_lock(holder)
+            .await
+        {
+            tracing::error!("could not enable the OAuth refresh lock: {error}");
+        }
         if role.is_account() {
             register_base_client(store_id, base, &client);
         }

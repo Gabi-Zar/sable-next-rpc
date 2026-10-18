@@ -143,8 +143,9 @@ mod tests {
             ))
             .mount(server.server())
             .await;
+        let base = tempfile::tempdir().unwrap();
         let (core, mut events) = crate::Core::new(
-            "lock",
+            base.path().to_str().unwrap(),
             Box::new(crate::store::MemorySessionStore::default()),
         );
         *core.accounts.lock().await = Some(crate::session::AccountRegistry::empty());

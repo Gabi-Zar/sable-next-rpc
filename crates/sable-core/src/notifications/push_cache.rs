@@ -16,10 +16,10 @@ struct Key {
 
 type Slot = Arc<tokio::sync::Mutex<Option<Arc<PushHost>>>>;
 
-/// A cached client holds its store's lease and ownership, so a core taking the store must find none.
+/// A process keeps one client per store, so a core taking the store must find none cached.
 static CACHE: LazyLock<Mutex<HashMap<Key, Slot>>> = LazyLock::new(Mutex::default);
 
-/// A restored login for one push, held exclusively like the lease of an uncached client.
+/// Pushes for one cached login run one at a time on its client.
 pub(super) struct ColdHost {
     host: Arc<PushHost>,
     _turn: Option<OwnedMutexGuard<Option<Arc<PushHost>>>>,
@@ -46,7 +46,6 @@ fn canonical(store_dir: &Path) -> PathBuf {
     std::fs::canonicalize(store_dir).unwrap_or_else(|_| store_dir.into())
 }
 
-/// Reuses the client of an earlier push while no core owns the store.
 pub(super) async fn cold_host(
     store_dir: &Path,
     user_id: &str,
@@ -89,7 +88,7 @@ pub(super) async fn cold_host(
     })
 }
 
-/// A push still running on an evicted client finishes with it, and the store is freed once it does.
+/// A push still running on an evicted client finishes with it.
 pub fn evict(store_dir: &Path) {
     let store_dir = canonical(store_dir);
     CACHE
