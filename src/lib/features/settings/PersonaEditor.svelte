@@ -3,7 +3,11 @@
   import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 
-  import type { PersonaTriggerView, PersonaView } from '#src/generated/protocol';
+  import type {
+    PersonaTriggerView,
+    PersonaView,
+    PersonaAlternateAvatarView,
+  } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -37,6 +41,7 @@
   let colorLight = $state('');
   let colorDark = $state('');
   let triggers = $state<(PersonaTriggerView & { id: string })[]>([]);
+  let alternateAvatars = $state<{ id: string; avatar_url: string | null }[]>([]);
   let saving = $state(false);
   let error = $state<string | null>(null);
 
@@ -50,6 +55,7 @@
       colorDark = persona?.color_on_dark ?? '';
       triggers =
         persona?.triggers.map((trigger) => ({ ...trigger, id: crypto.randomUUID() })) ?? [];
+      alternateAvatars = persona?.alternate_avatars ?? [];
       error = null;
     });
   });
@@ -86,6 +92,38 @@
     triggers = triggers.filter((_, position) => position !== index);
   }
 
+  function addAlternateAvatar(): void {
+    alternateAvatars = [...alternateAvatars, { avatar_url: null, id: crypto.randomUUID() }];
+  }
+
+  function removeAlternateAvatar(index: number): void {
+    alternateAvatars = alternateAvatars.filter((_, position) => position !== index);
+  }
+
+  async function pickAlternateAvatar(
+    index: number,
+    event: Event & { currentTarget: HTMLInputElement }
+  ): Promise<void> {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+
+    saving = true;
+    error = null;
+    try {
+      const upright = await uprightJpeg(file);
+      alternateAvatars[index].avatar_url = await core.media.uploadMedia(
+        upright.type || 'image/*',
+        new Uint8Array(await upright.arrayBuffer())
+      );
+    } catch (cause) {
+      console.warn('[sable personas] uploading the picture failed', cause);
+      error = i18n.t('personas.saveFailed');
+    } finally {
+      saving = false;
+    }
+  }
+
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const displayName = name.trim();
@@ -112,6 +150,9 @@
               keep_trigger: trigger.keep_trigger,
             }))
             .filter((trigger) => trigger.prefix !== null || trigger.suffix !== null),
+          alternate_avatars: alternateAvatars.filter(
+            (avatar): avatar is PersonaAlternateAvatarView => avatar.avatar_url !== null
+          ),
           pluralkit: persona?.pluralkit ?? null,
           last_used: persona?.last_used ?? null,
         },
@@ -254,6 +295,39 @@
       </Button>
     </fieldset>
 
+    <fieldset class="alternateAvatars">
+      <legend>{i18n.t('personas.alternateAvatars')}</legend>
+      <p>{i18n.t('personas.alternativeAvatarsHint')}</p>
+      {#each alternateAvatars as avatar, index (avatar.id)}
+        <div class="avatar-row">
+          <Avatar src={avatar.avatar_url} {name} size="large" />
+          <label class="file-button btn btn-secondary btn-small">
+            <input
+              type="file"
+              accept="image/*"
+              onchange={(event) => void pickAlternateAvatar(index, event)}
+            />
+            {i18n.t('common.chooseAPicture')}
+          </label>
+          {#if avatarUrl}
+            <Button
+              variant="danger"
+              size="small"
+              onclick={() => {
+                removeAlternateAvatar(index);
+              }}
+            >
+              {i18n.t('personas.avatarRemove')}
+            </Button>
+          {/if}
+        </div>
+      {/each}
+      <Button variant="secondary" size="small" onclick={addAlternateAvatar}>
+        <PlusIcon />
+        {i18n.t('personas.alternateAvatarAdd')}
+      </Button>
+    </fieldset>
+
     <DialogActions>
       <Button
         variant="secondary"
@@ -328,7 +402,7 @@
     gap: var(--space-300);
   }
 
-  .triggers {
+  fieldset {
     border: var(--border-width) solid var(--bg-container-line);
     border-radius: var(--radius);
     display: grid;
@@ -337,12 +411,12 @@
     padding: var(--space-300) var(--space-400) var(--space-400);
   }
 
-  .triggers legend {
+  fieldset legend {
     font-weight: var(--font-weight-medium);
     padding: 0 var(--space-200);
   }
 
-  .triggers p {
+  fieldset p {
     color: var(--surface-var-on-container);
     font-size: var(--font-size-small);
     margin: 0;
@@ -377,8 +451,15 @@
       grid-template-columns: 1fr auto;
     }
 
-    .triggers {
+    fieldset {
       gap: var(--space-600);
     }
+  }
+
+  .avatar-row {
+    align-items: center;
+    column-gap: var(--space-300);
+    display: grid;
+    grid-template-columns: 1fr auto auto;
   }
 </style>

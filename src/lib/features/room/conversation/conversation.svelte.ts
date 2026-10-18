@@ -793,12 +793,13 @@ export class Conversation {
   ): { body: string; formatted: string | null; persona: PerMessageProfileView | null } {
     const personas = this.#personas;
     const proxied = preferences.personaProxying ? resolveProxy(personas.personas, body) : undefined;
+    const personaSelection = personas.selectionFor(null);
     const persona = resolvePersona({
       personas: personas.personas,
       proxied: proxied?.persona,
       room: personas.associationFor(targetRoomId),
       spaces: this.#spaceIds(targetRoomId).map((id) => personas.associationFor(id)),
-      account: personas.selectionFor(null) ?? undefined,
+      account: personaSelection ?? undefined,
       now: Date.now(),
     });
 
@@ -808,9 +809,15 @@ export class Conversation {
         .select(preferences.personaLatching === 'room' ? targetRoomId : null, proxied.persona.id)
         .catch(failed('latching persona'));
     }
-
     persona.last_used = Date.now();
     personas.save(persona, persona.id).catch(failed('updating persona timestamp'));
+
+    if (persona.alternate_avatars && personaSelection?.alternate_avatar_id) {
+      const replacement_avatar = persona.alternate_avatars.find(
+        (avatar) => avatar.id == personaSelection.alternate_avatar_id
+      );
+      if (replacement_avatar) persona.avatar_url = replacement_avatar.avatar_url;
+    }
 
     return {
       body: proxied?.body ?? body,

@@ -717,6 +717,7 @@ function proxying() {
         triggers: [{ prefix: 'k:', suffix: null, keep_trigger: false }],
         pluralkit: null,
         last_used: null,
+        alternate_avatars: null,
       },
     ],
   });
@@ -771,11 +772,13 @@ test('personas off in a room ignore the selection and proxy triggers', async () 
     triggers: [{ prefix: 'k:', suffix: null, keep_trigger: false }],
     pluralkit: null,
     last_used: null,
+    alternate_avatars: null,
   };
   const select = vi.fn(() => Promise.resolve());
   const { conversation, sendMessage } = setup([], '@kris:example.org', {
     personas: [kris],
-    selectionFor: (roomId) => (roomId === null ? { persona_id: 'kris', valid_until: null } : null),
+    selectionFor: (roomId) =>
+      roomId === null ? { persona_id: 'kris', valid_until: null, alternate_avatar_id: null } : null,
     disabledIn: (roomId) => roomId === ROOM,
     select,
   });

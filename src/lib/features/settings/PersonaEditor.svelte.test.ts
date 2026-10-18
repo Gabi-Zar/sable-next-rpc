@@ -23,6 +23,7 @@ const persona: PersonaView = {
   ],
   pluralkit: null,
   last_used: null,
+  alternate_avatars: null,
 };
 
 test('removing a trigger keeps the remaining rows and saves them unchanged', async () => {

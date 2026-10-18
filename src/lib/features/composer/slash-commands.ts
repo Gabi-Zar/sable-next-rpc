@@ -233,6 +233,7 @@ async function addPersona(
       triggers: existing?.triggers ?? [],
       pluralkit: existing?.pluralkit ?? null,
       last_used: existing?.last_used ?? null,
+      alternate_avatars: existing?.alternate_avatars ?? null,
     },
     previous_id: existing ? id : null,
   });

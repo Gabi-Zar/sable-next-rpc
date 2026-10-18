@@ -1422,6 +1422,14 @@ pub struct PersonaView {
     pub pluralkit: Option<PluralkitImportView>,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
     pub last_used: Option<u64>,
+    pub alternate_avatars: Option<Vec<PersonaAlternateAvatarView>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+pub struct PersonaAlternateAvatarView {
+    pub id: String,
+    pub avatar_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1446,6 +1454,7 @@ pub struct PluralkitImportView {
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct PersonaSelectionView {
     pub persona_id: String,
+    pub alternate_avatar_id: Option<String>,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
     pub valid_until: Option<u64>,
 }

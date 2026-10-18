@@ -20,6 +20,7 @@ use serde_with::{DefaultOnError, MapSkipError, VecSkipError, serde_as};
 use crate::Core;
 use crate::ResultExt;
 use crate::profiles::pronoun_sets;
+use crate::protocol::PersonaAlternateAvatarView;
 use crate::protocol::{
     PerMessageProfileView, PersonaCatalogView, PersonaSelectionView, PersonaTriggerView,
     PersonaView, PluralkitImportView, PronounView, RpcError,
@@ -152,6 +153,26 @@ impl PluralkitIn {
 
 #[serde_as]
 #[derive(Deserialize)]
+struct AlternateAvatarIn {
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
+    id: Option<String>,
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
+    avatar_url: Option<String>,
+}
+
+impl AlternateAvatarIn {
+    fn into_view(self) -> Option<PersonaAlternateAvatarView> {
+        Some(PersonaAlternateAvatarView {
+            id: self.id?,
+            avatar_url: self.avatar_url?,
+        })
+    }
+}
+
+#[serde_as]
+#[derive(Deserialize)]
 struct PersonaIn {
     #[serde_as(as = "NonBlank")]
     #[serde(default)]
@@ -179,6 +200,8 @@ struct PersonaIn {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default, rename = "net.f0rest.last_used")]
     last_used: Option<u64>,
+    #[serde(default, rename = "net.f0rest.alternate_avatars")]
+    alternate_avatars: Option<Vec<AlternateAvatarIn>>,
 }
 
 impl PersonaIn {
@@ -192,6 +215,13 @@ impl PersonaIn {
             None => self.trigger.map_or_else(Vec::new, TriggerV2In::into_views),
         };
 
+        let alternate_avatars = self.alternate_avatars.map(|entries| {
+            entries
+                .into_iter()
+                .filter_map(AlternateAvatarIn::into_view)
+                .collect()
+        });
+
         Some(PersonaView {
             id: self.id?,
             display_name: self.displayname?,
@@ -202,6 +232,7 @@ impl PersonaIn {
             triggers,
             pluralkit: self.pluralkit.and_then(PluralkitIn::into_view),
             last_used: self.last_used,
+            alternate_avatars,
         })
     }
 }
@@ -327,6 +358,21 @@ impl From<&PersonaTriggerView> for TriggerOut {
 }
 
 #[derive(Serialize)]
+struct AlternateAvatarOut {
+    id: String,
+    avatar_url: String,
+}
+
+impl From<&PersonaAlternateAvatarView> for AlternateAvatarOut {
+    fn from(avatar: &PersonaAlternateAvatarView) -> Self {
+        Self {
+            id: avatar.id.clone(),
+            avatar_url: avatar.avatar_url.clone(),
+        }
+    }
+}
+
+#[derive(Serialize)]
 struct PersonaOut {
     id: String,
     displayname: String,
@@ -345,6 +391,11 @@ struct PersonaOut {
         skip_serializing_if = "Option::is_none"
     )]
     last_used: Option<u64>,
+    #[serde(
+        rename = "net.f0rest.alternate_avatars",
+        skip_serializing_if = "Option::is_none"
+    )]
+    alternate_avatars: Option<Vec<AlternateAvatarOut>>,
 }
 
 impl From<&PersonaView> for PersonaOut {
@@ -361,6 +412,10 @@ impl From<&PersonaView> for PersonaOut {
             pluralkit: persona.pluralkit.as_ref().map(Into::into),
             triggers: persona.triggers.iter().map(Into::into).collect(),
             last_used: persona.last_used,
+            alternate_avatars: persona
+                .alternate_avatars
+                .as_ref()
+                .map(|vec| vec.iter().map(Into::into).collect()),
         }
     }
 }
@@ -380,6 +435,9 @@ struct SelectionIn {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
     valid_until: Option<u64>,
+    #[serde_as(as = "NonBlank")]
+    #[serde(default)]
+    alternate_avatar_id: Option<String>,
 }
 
 impl SelectionIn {
@@ -387,6 +445,7 @@ impl SelectionIn {
         Some(PersonaSelectionView {
             persona_id: self.profile_id?,
             valid_until: self.valid_until,
+            alternate_avatar_id: self.alternate_avatar_id,
         })
     }
 }
@@ -931,6 +990,7 @@ impl Core {
         {
             let selection = to.map(|id| PersonaSelectionView {
                 persona_id: id.to_owned(),
+                alternate_avatar_id: account.alternate_avatar_id,
                 valid_until: account.valid_until,
             });
             self.put_global_account_data(
@@ -991,11 +1051,13 @@ impl Core {
             room_id,
             persona_id,
             valid_until,
+            alternate_avatar_id,
         }: SetSelectionParams,
     ) -> Result<(), RpcError> {
         let _guard = self.account_data_lock.lock().await;
         let selection = persona_id.map(|persona_id| PersonaSelectionView {
             persona_id,
+            alternate_avatar_id,
             valid_until,
         });
 

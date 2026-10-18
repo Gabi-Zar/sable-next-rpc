@@ -662,6 +662,7 @@ test('/pmpproxy appends a persona trigger', async () => {
     triggers: [],
     pluralkit: null,
     last_used: null,
+    alternate_avatars: null,
   } satisfies PersonaView;
   rpc.personas.list.mockResolvedValueOnce({
     personas: [persona],

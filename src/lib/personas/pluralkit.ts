@@ -115,6 +115,7 @@ export function personaFromPluralkit(
       description: member.description ?? null,
     },
     last_used: null,
+    alternate_avatars: null,
   };
 }
 

@@ -19,6 +19,7 @@ function persona(id: string, display_name: string): PersonaView {
     triggers: [],
     pluralkit: null,
     last_used: null,
+    alternate_avatars: null,
   };
 }
 

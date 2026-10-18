@@ -13,8 +13,13 @@
   import RoomIcon from 'phosphor-svelte/lib/HashStraightIcon';
   import SpaceIcon from 'phosphor-svelte/lib/HouseIcon';
   import GlobalIcon from 'phosphor-svelte/lib/GlobeSimpleIcon';
+  import ImageSquareIcon from 'phosphor-svelte/lib/ImageSquareIcon';
 
-  import type { PersonaSelectionView, PersonaView } from '#src/generated/protocol';
+  import type {
+    PersonaSelectionView,
+    PersonaView,
+    PersonaAlternateAvatarView,
+  } from '#src/generated/protocol';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
 
   import { i18n } from '#lib/i18n.js';
@@ -33,6 +38,10 @@
     hasSpace?: boolean;
     onScope: (scope: PersonaScope) => void;
     onChoose: (persona: PersonaView | null) => void;
+    onAlternateAvatarChoose: (
+      alternateAvatar: PersonaAlternateAvatarView | null,
+      persona: PersonaView
+    ) => void;
     onDisable: () => void;
   }
 
@@ -44,10 +53,17 @@
     hasSpace = false,
     onScope,
     onChoose,
+    onAlternateAvatarChoose,
     onDisable,
   }: Props = $props();
   let query = $state('');
   let grid = $derived(preferences.personaGrid && !query);
+  let alternateAvatarMode = $derived(preferences.personaAlternateAvatar);
+  let alternateAvatarAvailable = $derived(
+    selected &&
+      (personas.find((persona) => persona.id === selected.persona_id)?.alternate_avatars ?? [])
+        .length > 0
+  );
   let filteredPersonas = $derived(
     personas.filter((persona) => {
       const needle = query.trim().toLocaleLowerCase();
@@ -167,66 +183,149 @@
   </li>
 {/snippet}
 
-<div class="persona-menu">
-  <div class="persona-scopes" role="tablist" aria-label={i18n.t('personas.pickerLabel')}>
-    {#each scopes as tab (tab.id)}
-      <button
-        type="button"
-        role="tab"
-        class="persona-scope choice"
-        aria-selected={scope === tab.id}
-        onclick={() => {
-          onScope(tab.id);
-        }}
-      >
-        <tab.icon />
-        {i18n.t(tab.label)}
-      </button>
-    {/each}
-  </div>
+{#snippet alternateAvatarItem(
+  item:
+    | { kind: 'alternate'; view: PersonaAlternateAvatarView; persona: PersonaView }
+    | { kind: 'main'; view: PersonaView }
+)}
+  {@const label =
+    item.kind === 'alternate'
+      ? 'personas.alternateAvatarLabel'
+      : (item.view.display_name ?? item.view.id)}
 
-  <ul class={['persona-options', { grid }]} {@attach scrollHint}>
-    {#if scope === 'account'}
-      {@render (grid ? gridItem : listItem)(null, 'offGlobal')}
-    {/if}
-    {#if scope === 'room' || scope === 'space'}
-      {@render (grid ? gridItem : listItem)(null, 'off')}
-    {/if}
-    {#if scope === 'room' || scope === 'space'}
-      {@render (grid ? gridItem : listItem)(null, 'disable')}
-    {/if}
-    {#each filteredPersonas as persona, index (`${index}:${persona.id}`)}
-      {@render (grid ? gridItem : listItem)(persona, 'default')}
-    {/each}
-  </ul>
-
-  <div class="persona-toolbar">
-    <TextInput
-      id="persona-search"
-      bind:value={query}
-      type="search"
-      autocomplete="off"
-      placeholder={i18n.t('personas.search')}
-      aria-label={i18n.t('personas.search')}
-      onkeyup={(event) => {
-        if (event.key === 'Enter' && query && filteredPersonas && filteredPersonas.length !== 0) {
-          onChoose(filteredPersonas[0]);
-        }
+  <li>
+    <button
+      type="button"
+      class={[
+        'persona-grid-option',
+        {
+          selected:
+            selected !== null &&
+            (item.kind === 'alternate'
+              ? selected.alternate_avatar_id === item.view.id
+              : selected.alternate_avatar_id === null),
+        },
+      ]}
+      onclick={() => {
+        item.kind === 'alternate'
+          ? onAlternateAvatarChoose(item.view, item.persona)
+          : onAlternateAvatarChoose(null, item.view);
       }}
-    />
+      aria-label={label}
+    >
+      <Tooltip {label} side="bottom">
+        {#snippet trigger({ props: tip })}
+          <div {...tip}>
+            <Avatar
+              id={item.view.id}
+              src={item.view.avatar_url}
+              name={item.kind === 'alternate' ? item.view.id : item.view.display_name}
+              size="medium"
+            />
+          </div>
+        {/snippet}
+      </Tooltip>
+    </button>
+  </li>
+{/snippet}
 
-    {#if !query}
-      <Tooltip label={grid ? i18n.t('personas.listView') : i18n.t('personas.gridView')}>
+<div class="persona-menu">
+  {#if alternateAvatarMode && !!selected}
+    {@const current = personas.find((persona) => persona.id === selected.persona_id)}
+    {#if current}
+      <ul class="persona-options grid" {@attach scrollHint}>
+        {@render alternateAvatarItem({ kind: 'main', view: current })}
+        {#each current.alternate_avatars as avatar (avatar.id)}
+          {@render alternateAvatarItem({ kind: 'alternate', view: avatar, persona: current })}
+        {/each}
+      </ul>
+    {/if}
+  {:else}
+    <div class="persona-scopes" role="tablist" aria-label={i18n.t('personas.pickerLabel')}>
+      {#each scopes as tab (tab.id)}
+        <button
+          type="button"
+          role="tab"
+          class="persona-scope choice"
+          aria-selected={scope === tab.id}
+          onclick={() => {
+            onScope(tab.id);
+          }}
+        >
+          <tab.icon />
+          {i18n.t(tab.label)}
+        </button>
+      {/each}
+    </div>
+
+    <ul class={['persona-options', { grid }]} {@attach scrollHint}>
+      {#if scope === 'account'}
+        {@render (grid ? gridItem : listItem)(null, 'offGlobal')}
+      {/if}
+      {#if scope === 'room' || scope === 'space'}
+        {@render (grid ? gridItem : listItem)(null, 'off')}
+      {/if}
+      {#if scope === 'room' || scope === 'space'}
+        {@render (grid ? gridItem : listItem)(null, 'disable')}
+      {/if}
+      {#each filteredPersonas as persona, index (`${index}:${persona.id}`)}
+        {@render (grid ? gridItem : listItem)(persona, 'default')}
+      {/each}
+    </ul>
+  {/if}
+
+  <div class="persona-toolbar" class:alternate-avatar={alternateAvatarMode}>
+    {#if !alternateAvatarMode}
+      <TextInput
+        id="persona-search"
+        bind:value={query}
+        type="search"
+        autocomplete="off"
+        placeholder={i18n.t('personas.search')}
+        aria-label={i18n.t('personas.search')}
+        onkeyup={(event) => {
+          if (event.key === 'Enter' && query && filteredPersonas && filteredPersonas.length !== 0) {
+            onChoose(filteredPersonas[0]);
+          }
+        }}
+      />
+
+      {#if !query}
+        <Tooltip label={grid ? i18n.t('personas.listView') : i18n.t('personas.gridView')}>
+          {#snippet trigger({ props })}
+            <IconButton
+              {...props}
+              size="small"
+              label={grid ? i18n.t('personas.listView') : i18n.t('personas.gridView')}
+              onclick={() => {
+                setPreference('personaGrid', !preferences.personaGrid);
+              }}
+            >
+              {#if preferences.personaGrid}<ListIcon />{:else}<GridIcon />{/if}
+            </IconButton>
+          {/snippet}
+        </Tooltip>
+      {/if}
+    {/if}
+    {#if alternateAvatarAvailable}
+      <Tooltip
+        label={alternateAvatarMode
+          ? i18n.t('personas.alternateAvatarViewOn')
+          : i18n.t('personas.alternateAvatarViewOn')}
+      >
         {#snippet trigger({ props })}
           <IconButton
             {...props}
             size="small"
-            label={grid ? i18n.t('personas.listView') : i18n.t('personas.gridView')}
+            variant={!preferences.personaAlternateAvatar && !!selected?.alternate_avatar_id
+              ? 'primary'
+              : 'secondary'}
+            label={alternateAvatarMode ? i18n.t('personas.listView') : i18n.t('personas.gridView')}
             onclick={() => {
-              setPreference('personaGrid', !preferences.personaGrid);
+              setPreference('personaAlternateAvatar', !preferences.personaAlternateAvatar);
             }}
           >
-            {#if preferences.personaGrid}<ListIcon />{:else}<GridIcon />{/if}
+            {#if preferences.personaAlternateAvatar}<GridIcon />{:else}<ImageSquareIcon />{/if}
           </IconButton>
         {/snippet}
       </Tooltip>
@@ -271,6 +370,10 @@
     flex: 0 0 auto;
 
     --button-height: var(--control-height-400);
+  }
+
+  .persona-toolbar.alternate-avatar {
+    justify-content: end;
   }
 
   .persona-options {

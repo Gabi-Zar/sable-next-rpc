@@ -106,15 +106,23 @@ export class PersonaStore {
   async select(
     roomId: string | null,
     personaId: string | null,
-    validUntil: number | null = null
+    validUntil: number | null = null,
+    alternateAvatarId: string | null = null
   ): Promise<void> {
     await this.core.rpc.personas.setSelection({
       room_id: roomId,
       persona_id: personaId,
       valid_until: validUntil,
+      alternate_avatar_id: alternateAvatarId,
     });
     const selection =
-      personaId === null ? null : { persona_id: personaId, valid_until: validUntil };
+      personaId === null
+        ? null
+        : {
+            persona_id: personaId,
+            valid_until: validUntil,
+            alternate_avatar_id: alternateAvatarId,
+          };
 
     if (roomId === null) {
       this.account = selection;

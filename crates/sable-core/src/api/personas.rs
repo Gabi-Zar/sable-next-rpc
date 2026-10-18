@@ -83,6 +83,9 @@ pub struct SetSelectionParams {
     #[serde(default)]
     pub room_id: Option<OwnedRoomId>,
     pub persona_id: Option<String>,
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    #[serde(default)]
+    pub alternate_avatar_id: Option<String>,
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
     #[serde(default)]
     pub valid_until: Option<u64>,

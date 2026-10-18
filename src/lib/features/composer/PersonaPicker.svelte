@@ -3,7 +3,11 @@
   import { Popover } from 'bits-ui';
   import UserSwitchIcon from 'phosphor-svelte/lib/UserSwitchIcon';
 
-  import type { PerMessageProfileView, PersonaView } from '#src/generated/protocol';
+  import type {
+    PerMessageProfileView,
+    PersonaView,
+    PersonaAlternateAvatarView,
+  } from '#src/generated/protocol';
 
   import { page } from '$app/state';
   import MessageReproxyDialog from '#lib/features/room/messages/MessageReproxyDialog.svelte';
@@ -81,6 +85,12 @@
       : i18n.t('personas.pickerLabel')
   );
   let editOpen = $state(false);
+  let activeAvatarUrl = $derived(
+    !!selected && !!active && selected.alternate_avatar_id
+      ? active.alternate_avatars?.find((avatar) => avatar.id === selected.alternate_avatar_id)
+          ?.avatar_url
+      : active?.avatar_url
+  );
 
   function handleOpenChange(next: boolean): void {
     open = next;
@@ -102,6 +112,18 @@
   function choose(persona: PersonaView | null): void {
     open = false;
     personas.select(scopeTarget, persona?.id ?? null).catch((cause: unknown) => {
+      console.warn('[sable personas] the selection could not be saved', cause);
+      toasts.error(i18n.t('errors.actionFailed'));
+    });
+  }
+
+  function alternateAvatarChoose(
+    avatar: PersonaAlternateAvatarView | null,
+    persona: PersonaView
+  ): void {
+    console.warn(`alternateAvatarChoose(${JSON.stringify(avatar)}, ...)`);
+    open = false;
+    personas.select(scopeTarget, persona.id, null, avatar?.id).catch((cause: unknown) => {
       console.warn('[sable personas] the selection could not be saved', cause);
       toasts.error(i18n.t('errors.actionFailed'));
     });
@@ -159,7 +181,7 @@
               {#if active}
                 <Avatar
                   id={active?.id ?? null}
-                  src={active?.avatar_url ?? null}
+                  src={activeAvatarUrl}
                   name={active?.display_name ?? null}
                   size="small"
                 />
@@ -196,6 +218,7 @@
           {hasSpace}
           onScope={setScope}
           onChoose={choose}
+          onAlternateAvatarChoose={alternateAvatarChoose}
           onDisable={disable}
         />
       </Popover.Content>
@@ -215,7 +238,7 @@
     {#if active}
       <Avatar
         id={active?.id ?? null}
-        src={active?.avatar_url ?? null}
+        src={activeAvatarUrl}
         name={active?.display_name ?? null}
         size="small"
       />
@@ -237,6 +260,7 @@
       {hasSpace}
       onScope={setScope}
       onChoose={choose}
+      onAlternateAvatarChoose={alternateAvatarChoose}
       onDisable={disable}
     />
   </BottomSheet>

@@ -767,6 +767,11 @@ export type PermissionItem = {
 	location: PowerLevelLocation,
 };
 
+export type PersonaAlternateAvatarView = {
+	id: string,
+	avatar_url: string,
+};
+
 export type PersonaCatalogView = {
 	personas: PersonaView[],
 	account: PersonaSelectionView | null,
@@ -776,6 +781,7 @@ export type PersonaCatalogView = {
 
 export type PersonaSelectionView = {
 	persona_id: string,
+	alternate_avatar_id: string | null,
 	valid_until: number | null,
 };
 
@@ -795,6 +801,7 @@ export type PersonaView = {
 	triggers: PersonaTriggerView[],
 	pluralkit: PluralkitImportView | null,
 	last_used: number | null,
+	alternate_avatars: PersonaAlternateAvatarView[] | null,
 };
 
 export type PinReadStateView = {
@@ -2680,6 +2687,7 @@ export type Rpc = {
     setSelection: (params: {
 	room_id?: string | null,
 	persona_id: string | null,
+	alternate_avatar_id?: string | null,
 	valid_until?: number | null,
 }) => Promise<null>;
     disableRoom: (params: {

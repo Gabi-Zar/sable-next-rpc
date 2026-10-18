@@ -270,7 +270,7 @@ export function personaLookup(
 function personaKey(item: TimelineItemView): string {
   const profile = item.per_message_profile;
   if (!profile) return '';
-  return profile.id ?? profile.display_name ?? '';
+  return (profile.id ?? profile.display_name ?? '') + (profile.avatar_url ?? ''); // add avatar_url to differentiate alternate avatar PMPs
 }
 
 export function isCollapsed(

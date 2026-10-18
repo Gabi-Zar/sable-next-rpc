@@ -24,6 +24,7 @@ function persona(id: string, triggers: PersonaTriggerView[] = []): PersonaView {
     triggers,
     pluralkit: null,
     last_used: null,
+    alternate_avatars: null,
   };
 }
 
@@ -166,7 +167,7 @@ describe('resolvePersona', () => {
     const resolved = resolvePersona({
       personas,
       proxied: robin,
-      room: { persona_id: 'Kris', valid_until: null },
+      room: { persona_id: 'Kris', valid_until: null, alternate_avatar_id: null },
       now: 1000,
     });
     expect(resolved?.id).toBe('Robin');
@@ -175,8 +176,8 @@ describe('resolvePersona', () => {
   it('prefers the room over the account', () => {
     const resolved = resolvePersona({
       personas,
-      room: { persona_id: 'Robin', valid_until: null },
-      account: { persona_id: 'Kris', valid_until: null },
+      room: { persona_id: 'Robin', valid_until: null, alternate_avatar_id: null },
+      account: { persona_id: 'Kris', valid_until: null, alternate_avatar_id: null },
       now: 1000,
     });
     expect(resolved?.id).toBe('Robin');
@@ -185,21 +186,21 @@ describe('resolvePersona', () => {
   it('falls through an expired room selection to the account', () => {
     const resolved = resolvePersona({
       personas,
-      room: { persona_id: 'Robin', valid_until: 500 },
-      account: { persona_id: 'Kris', valid_until: null },
+      room: { persona_id: 'Robin', valid_until: 500, alternate_avatar_id: null },
+      account: { persona_id: 'Kris', valid_until: null, alternate_avatar_id: null },
       now: 1000,
     });
     expect(resolved?.id).toBe('Kris');
   });
 
   it('prefers the room, then the nearest space, then the account', () => {
-    const space = { persona_id: 'Robin', valid_until: null };
-    const account = { persona_id: 'Kris', valid_until: null };
+    const space = { persona_id: 'Robin', valid_until: null, alternate_avatar_id: null };
+    const account = { persona_id: 'Kris', valid_until: null, alternate_avatar_id: null };
     expect(resolvePersona({ personas, spaces: [space], account, now: 1000 })?.id).toBe('Robin');
     expect(
       resolvePersona({
         personas,
-        room: { persona_id: 'Kris', valid_until: null },
+        room: { persona_id: 'Kris', valid_until: null, alternate_avatar_id: null },
         spaces: [space],
         now: 1000,
       })?.id
@@ -207,7 +208,11 @@ describe('resolvePersona', () => {
     expect(
       resolvePersona({
         personas,
-        spaces: [undefined, { persona_id: 'Gone', valid_until: null }, space],
+        spaces: [
+          undefined,
+          { persona_id: 'Gone', valid_until: null, alternate_avatar_id: null },
+          space,
+        ],
         account,
         now: 1000,
       })?.id
@@ -215,7 +220,7 @@ describe('resolvePersona', () => {
     expect(
       resolvePersona({
         personas,
-        spaces: [{ persona_id: 'Robin', valid_until: 500 }],
+        spaces: [{ persona_id: 'Robin', valid_until: 500, alternate_avatar_id: null }],
         account,
         now: 1000,
       })?.id
@@ -223,8 +228,8 @@ describe('resolvePersona', () => {
   });
 
   it('stops at a room or space that is off, and takes a proxy with it', () => {
-    const account = { persona_id: 'Kris', valid_until: null };
-    const space = { persona_id: 'Robin', valid_until: null };
+    const account = { persona_id: 'Kris', valid_until: null, alternate_avatar_id: null };
+    const space = { persona_id: 'Robin', valid_until: null, alternate_avatar_id: null };
     expect(
       resolvePersona({ personas, spaces: [false, space], account, now: 1000 })
     ).toBeUndefined();
@@ -243,7 +248,7 @@ describe('resolvePersona', () => {
   it('lets a room selection override a space that is off', () => {
     const resolved = resolvePersona({
       personas,
-      room: { persona_id: 'Robin', valid_until: null },
+      room: { persona_id: 'Robin', valid_until: null, alternate_avatar_id: null },
       spaces: [false],
       now: 1000,
     });
@@ -253,7 +258,7 @@ describe('resolvePersona', () => {
   it('ignores a selection pointing at a deleted persona', () => {
     const resolved = resolvePersona({
       personas,
-      room: { persona_id: 'Gone', valid_until: null },
+      room: { persona_id: 'Gone', valid_until: null, alternate_avatar_id: null },
       now: 1000,
     });
     expect(resolved).toBeUndefined();
