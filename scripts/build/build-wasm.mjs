@@ -15,6 +15,7 @@ import { sha256 } from '../lib/download.mjs';
 
 const { release } = parseArgs({ options: { release: { type: 'boolean' } } }).values;
 const profile = release ? 'wasm-release' : 'wasm-dev';
+const keepNames = release && process.env.SABLE_WASM_NAMES === '1';
 const cargoArgs = [
   'build',
   '--locked',
@@ -116,7 +117,8 @@ const output = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
 async function bindgen(input, name, { optimize, budget, features = [] }) {
   const wasm = `${output}/${name}_bg.wasm`;
   const args = ['--target', 'web', '--out-dir', output, '--out-name', name];
-  if (release) args.push('--remove-name-section', '--remove-producers-section');
+  if (keepNames) args.push('--remove-producers-section');
+  else if (release) args.push('--remove-name-section', '--remove-producers-section');
   else args.push('--debug');
   run('wasm-bindgen', [...args, `${built}/${input}`]);
 
@@ -132,7 +134,7 @@ async function bindgen(input, name, { optimize, budget, features = [] }) {
   if (release) {
     const optimized = `${output}/${name}_bg.optimized.wasm`;
 
-    run('wasm-opt', [...optimize, wasm, '--output', optimized]);
+    run('wasm-opt', [...optimize, ...(keepNames ? ['-g'] : []), wasm, '--output', optimized]);
     rmSync(wasm);
     renameSync(optimized, wasm);
   }
@@ -140,7 +142,7 @@ async function bindgen(input, name, { optimize, budget, features = [] }) {
   const generated = readFileSync(wasm);
   await WebAssembly.compile(generated);
 
-  if (release && generated.byteLength > budget) {
+  if (release && !keepNames && generated.byteLength > budget) {
     throw new Error(`${wasm} is ${generated.byteLength} bytes, over the ${budget} budget`);
   }
   return generated;

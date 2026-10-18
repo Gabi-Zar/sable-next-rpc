@@ -76,6 +76,7 @@ jobs:
       # Absent on forks, which builds an app with error reporting switched off.
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       VITE_SENTRY_ENVIRONMENT: ${{ needs.detect.outputs.production == 'true' && 'production' || github.event_name == 'pull_request' && 'preview' || 'development' }}
+      SABLE_WASM_NAMES: ${{ needs.detect.outputs.production != 'true' && '1' || '' }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
