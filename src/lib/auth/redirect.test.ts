@@ -5,7 +5,7 @@ import {
   createRedirectUri,
   redirectLoginType,
   scrubbedCallbackPath,
-  tauriRedirectUri,
+  nativeRedirectUri,
 } from './redirect';
 
 describe('redirect authentication', () => {
@@ -52,14 +52,21 @@ describe('redirect authentication', () => {
 
     test('stable keeps the v1 schemes', () => {
       vi.stubGlobal('__SABLE_STABLE__', true);
-      expect(tauriRedirectUri('oidc')).toBe('moe.sable.app:/login');
-      expect(tauriRedirectUri('sso')).toBe('sable://login');
+      expect(nativeRedirectUri('oidc')).toBe('moe.sable.app:/login');
+      expect(nativeRedirectUri('sso')).toBe('sable://login');
     });
 
     test('nightly and development use their own scheme', () => {
       vi.stubGlobal('__SABLE_STABLE__', false);
-      expect(tauriRedirectUri('oidc')).toBe('moe.sable.next:/login');
-      expect(tauriRedirectUri('sso')).toBe('moe.sable.next://login');
+      expect(nativeRedirectUri('oidc')).toBe('moe.sable.next:/login');
+      expect(nativeRedirectUri('sso')).toBe('moe.sable.next://login');
+    });
+
+    test.each([true, false])('Electron uses its registered scheme (stable=%s)', (stable) => {
+      vi.stubGlobal('__SABLE_STABLE__', stable);
+      vi.stubGlobal('sableElectron', {});
+      expect(nativeRedirectUri('oidc')).toBe('moe.sable.next:/login');
+      expect(nativeRedirectUri('sso')).toBe('moe.sable.next://login');
     });
   });
 

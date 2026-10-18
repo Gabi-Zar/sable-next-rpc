@@ -3,7 +3,7 @@ import {
   callbackChannelName,
   createRedirectUri,
   redirectLoginType,
-  tauriRedirectUri,
+  nativeRedirectUri,
 } from '#lib/auth/redirect.js';
 import type { LoginFlowsView, RegistrationResultView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
@@ -232,7 +232,7 @@ export class RedirectController {
 
   private redirectUri(type: RedirectType): string {
     const baseUrl = deliversDeepLinks()
-      ? tauriRedirectUri(type)
+      ? nativeRedirectUri(type)
       : new SvelteURL(window.location.pathname, window.location.origin).toString();
     return createRedirectUri(type, baseUrl, crypto.randomUUID());
   }
