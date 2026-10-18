@@ -739,7 +739,8 @@ jobs:
           if [ -n "${APPLE_CERTIFICATE:-}" ]; then
             # electron-builder takes the key's path, not its ID, from APPLE_API_KEY.
             export APPLE_API_KEY="$APPLE_API_KEY_PATH"
-            sign_args=(-c.mac.identity=NXLJ6G3CP7 -c.mac.hardenedRuntime=true)
+            export CSC_KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+            sign_args=(-c.mac.identity=NXLJ6G3CP7 -c.mac.hardenedRuntime=true -c.forceCodeSigning=true)
           else
             unset APPLE_API_ISSUER APPLE_API_KEY_ID
           fi
