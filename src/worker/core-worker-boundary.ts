@@ -44,7 +44,7 @@ export function createCoreWorkerBoundary(
   let droppedLogs = 0;
   let flushLogsTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Hidden tabs keep syncing so they still notify; this only retries a sync that went offline.
+  // Hiding never stops sync: background tabs must keep notifying (#1142).
   function resumeSync(): void {
     void core
       .then((instance) => instance.setActive(true))

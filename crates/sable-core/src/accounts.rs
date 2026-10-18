@@ -921,6 +921,7 @@ impl Core {
         self.watch_search_index(&client, &store_id);
         self.watch_ignored_users(&client);
         self.watch_ignored_history(&client, &sync_service);
+        self.watch_sync_stall(&client, &sync_service, crate::sync_support::SYNC_STALL);
         self.watch_backup_preference(&client);
         sync_service.start().await;
 
@@ -1598,6 +1599,33 @@ mod regression_tests {
             core.sync_suspended
                 .load(std::sync::atomic::Ordering::SeqCst)
         );
+    }
+
+    #[tokio::test]
+    async fn a_sync_that_never_answers_is_restarted() {
+        use std::time::Duration;
+
+        use matrix_sdk_ui::sync_service::State;
+
+        let (server, core, _room) = core_with_room().await;
+        server
+            .mock_sliding_sync()
+            .with_delay(Duration::from_secs(60))
+            .ok_json(serde_json::json!({ "pos": "0", "lists": {}, "rooms": {}, "extensions": {} }))
+            .mount()
+            .await;
+        let client = core.client().await.unwrap();
+        let sync_service = core.sync_service().await.unwrap();
+        sync_service.start().await;
+        let mut states = sync_service.state();
+
+        core.watch_sync_stall(&client, &sync_service, Duration::from_millis(200));
+
+        // The subscriber merges the restart's brief `Idle` into `Running`.
+        let restarted = tokio::time::timeout(Duration::from_secs(5), states.next())
+            .await
+            .expect("a stalled sync is restarted");
+        assert!(matches!(restarted, Some(State::Running)));
     }
 
     #[tokio::test]

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use matrix_sdk::executor::{JoinHandleExt, spawn};
 use matrix_sdk::{Client, config::RequestConfig};
@@ -7,7 +8,45 @@ use matrix_sdk_ui::sync_service::{State, SyncService};
 
 use crate::{Core, ResultExt, protocol::RpcError};
 
+pub(crate) const SYNC_STALL: Duration = Duration::from_secs(90);
+
 impl Core {
+    /// The wasm HTTP client ignores request timeouts, so a long-poll on a connection that died
+    /// during sleep never returns.
+    pub(crate) fn watch_sync_stall(
+        self: &Arc<Self>,
+        client: &Client,
+        sync_service: &Arc<SyncService>,
+        stall: Duration,
+    ) {
+        let core = self.clone();
+        let client = client.clone();
+        let sync_service = sync_service.clone();
+
+        self.track_session_task(
+            spawn(async move {
+                loop {
+                    if matrix_sdk::timeout::timeout(client.wait_for_sync(), stall)
+                        .await
+                        .is_ok()
+                    {
+                        continue;
+                    }
+                    let _serial = core.activity_lock.lock().await;
+                    if matches!(sync_service.state().get(), State::Running)
+                        && !core.sync_suspended.load(Ordering::SeqCst)
+                        && !core.account_locked.load(Ordering::SeqCst)
+                    {
+                        tracing::warn!("no sync response for {stall:?}, restarting sync");
+                        sync_service.stop().await;
+                        sync_service.start().await;
+                    }
+                }
+            })
+            .abort_on_drop(),
+        );
+    }
+
     pub(crate) fn watch_ignored_history(
         self: &Arc<Self>,
         client: &Client,

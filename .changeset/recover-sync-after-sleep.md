@@ -2,6 +2,6 @@
 default: patch
 ---
 
-# Recover web sync after the computer sleeps
+# Recover sync after the computer sleeps
 
-A sync request left on a dead connection after the computer slept now gives up after a minute and reconnects, and sync also retries as soon as a tab is visible again or the network returns. Background tabs keep syncing, so notifications and the unread favicon keep updating.
+Sync restarts when no response has arrived for 90 seconds, so a connection that died while the computer slept no longer leaves it stuck. Background web tabs keep syncing again, so notifications and the unread favicon keep updating.
