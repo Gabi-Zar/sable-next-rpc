@@ -144,6 +144,49 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeFetchPush<
     result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
 }
 
+/// An empty `sender` skips the avatars, an empty `content` the message's image.
+#[unsafe(no_mangle)]
+#[expect(unsafe_code, reason = "JNI entry point")]
+pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<'frame>(
+    mut unowned_env: EnvUnowned<'frame>,
+    _class: JClass<'frame>,
+    store_dir: JString<'frame>,
+    user_id: JString<'frame>,
+    device_id: JString<'frame>,
+    room_id: JString<'frame>,
+    sender: JString<'frame>,
+    content: JString<'frame>,
+) -> JString<'frame> {
+    let result = unowned_env.with_env(|env: &mut Env<'frame>| -> Result<_, jni::errors::Error> {
+        let data_dir = store_dir.to_string();
+        let user_id = user_id.to_string();
+        let device_id = device_id.to_string();
+        let room_id = room_id.to_string();
+        let sender = sender.to_string();
+        let content = serde_json::from_str::<serde_json::Value>(&content.to_string()).ok();
+        let media = async {
+            settle_refreshes(Box::pin(tokio::time::timeout(
+                std::time::Duration::from_secs(5),
+                sable_core::notifications::cold_push_media(
+                    std::path::Path::new(&data_dir),
+                    &user_id,
+                    &device_id,
+                    &room_id,
+                    Some(sender.as_str()).filter(|sender| !sender.is_empty()),
+                    content.as_ref(),
+                ),
+            )))
+            .await
+            .unwrap_or_default()
+        };
+        let media = block_on(CORE.get().is_some(), media).unwrap_or_default();
+
+        JString::from_str(env, serde_json::to_string(&media).unwrap_or_default())
+    });
+
+    result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
+}
+
 fn encode_fetch(result: &PushFetchView) -> String {
     match result {
         PushFetchView::Event { event } => serde_json::to_string(event).unwrap_or_default(),

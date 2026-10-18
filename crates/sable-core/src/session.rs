@@ -342,6 +342,7 @@ pub async fn restore_authenticated_client(
 pub(crate) async fn restore_notification_client(
     store_id: &str,
     persisted: &PersistedSession,
+    room_load: matrix_sdk::store::RoomLoadSettings,
 ) -> Result<Client, CoreError> {
     validate_saved_crypto_store(store_id, persisted)
         .await
@@ -356,13 +357,26 @@ pub(crate) async fn restore_notification_client(
     let client = build_account_client(builder, store_id, ClientRole::Notification, true)
         .await
         .map_err(CoreError::backend)?;
-    restore_credentials(&client, persisted).await?;
+    restore_credentials_with(&client, persisted, room_load).await?;
     Ok(client)
 }
 
 pub(crate) async fn restore_credentials(
     client: &Client,
     persisted: &PersistedSession,
+) -> Result<(), CoreError> {
+    restore_credentials_with(
+        client,
+        persisted,
+        matrix_sdk::store::RoomLoadSettings::default(),
+    )
+    .await
+}
+
+async fn restore_credentials_with(
+    client: &Client,
+    persisted: &PersistedSession,
+    room_load: matrix_sdk::store::RoomLoadSettings,
 ) -> Result<(), CoreError> {
     if let Some(expected) = &persisted.oauth_issuer {
         let metadata = client
@@ -376,15 +390,12 @@ pub(crate) async fn restore_credentials(
     }
     match persisted.credentials.clone() {
         Credentials::Password(matrix) => client
-            .restore_session(matrix)
+            .restore_session_with(matrix, room_load)
             .await
             .map_err(CoreError::backend)?,
         Credentials::OAuth { client_id, user } => client
             .oauth()
-            .restore_session(
-                oauth_session(client_id, user),
-                matrix_sdk::store::RoomLoadSettings::default(),
-            )
+            .restore_session(oauth_session(client_id, user), room_load)
             .await
             .map_err(CoreError::backend)?,
     }
@@ -469,6 +480,16 @@ impl ClientRole {
         matches!(self, Self::Account)
     }
 
+    /// A notification service extension is held to a few dozen megabytes.
+    #[cfg(not(target_family = "wasm"))]
+    fn store_config(self, path: std::path::PathBuf) -> matrix_sdk::SqliteStoreConfig {
+        if self.is_account() {
+            matrix_sdk::SqliteStoreConfig::new(path)
+        } else {
+            matrix_sdk::SqliteStoreConfig::with_low_memory_config(path)
+        }
+    }
+
     const fn encryption_settings(self) -> EncryptionSettings {
         let account = self.is_account();
         EncryptionSettings {
@@ -522,8 +543,7 @@ async fn build_account_client(
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
         let lock = matrix_sdk_common::cross_process_lock::CrossProcessLockConfig::SingleProcess;
 
-        let store =
-            matrix_sdk::SqliteStoreConfig::new(std::path::Path::new(store_id).join("store"));
+        let store = role.store_config(std::path::Path::new(store_id).join("store"));
         let cache = store
             .clone()
             .path(std::path::Path::new(store_id).join("cache"));

@@ -5,15 +5,23 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import java.io.File
 import java.util.UUID
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
+import androidx.core.content.FileProvider
+import androidx.core.content.pm.ShortcutInfoCompat
+import androidx.core.content.pm.ShortcutManagerCompat
+import androidx.core.graphics.drawable.IconCompat
 import app.tauri.Logger
 import org.json.JSONObject
 import kotlin.math.abs
@@ -33,6 +41,10 @@ object PushNotifier {
     private const val NOISY_KEY = "moe.sable.noisy"
     private const val ENCRYPTED_FLAG = "moe.sable.encrypted"
     private const val DIRECT_FLAG = "moe.sable.direct"
+    private const val SENDER_AVATAR_KEY = "moe.sable.sender_avatar"
+    private const val ROOM_AVATAR_KEY = "moe.sable.room_avatar"
+    private const val IMAGE_KEY = "moe.sable.image"
+    private const val IMAGE_TYPE_KEY = "moe.sable.image_type"
     internal const val NOTIFY_ONCE_WINDOW_MS = 5 * 60_000L
 
     fun show(context: Context, notification: JSONObject) {
@@ -127,6 +139,10 @@ object PushNotifier {
                 PushNotificationGate.post(context, id, revision) { postIncomingCall(context, notification, notification) }
                 return
             }
+            val previews = store.showContent &&
+                (store.showEncryptedContent || !notification.optBoolean(ENCRYPTED_FLAG))
+            attachMedia(context, notification, roomId,
+                content = notification.optJSONObject("content")?.takeIf { previews })
             PushNotificationGate.post(context, id, revision) { post(context, notification, null, generation) }
             return
         }
@@ -187,6 +203,8 @@ object PushNotifier {
         }
         if (clear.optBoolean(NOISY_KEY)) notification.put(NOISY_KEY, true)
         val allowed = store.showContent && store.showEncryptedContent
+        attachMedia(context, notification, notification.optString("room_id"),
+            content = clear.optJSONObject("content")?.takeIf { allowed })
         val text = clear.optJSONObject("content")
             ?.optString("body")
             ?.takeIf { it.isNotEmpty() }
@@ -209,10 +227,79 @@ object PushNotifier {
         }
     }
 
+    private fun attachMedia(
+        context: Context,
+        notification: JSONObject,
+        roomId: String,
+        content: JSONObject?,
+    ) {
+        val userId = notification.optString("user_id")
+        val deviceId = PushPolicy(context).deviceIdFor(userId) ?: return
+        val invite = notification.optString("type") == "m.room.member" &&
+            notification.optJSONObject("content")?.optString("membership") == "invite"
+        val sender = notification.optString("sender").takeIf { it.isNotEmpty() && !invite }
+        // Android 9 is where the system grants itself read access to a message's image URI.
+        val image = content?.takeIf {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                (it.optString("msgtype") == "m.image" || it.optString("msgtype") == "m.video")
+        }
+        if (sender == null && image == null) return
+        val media = PushPayloadDecryptor.media(context, userId, deviceId, roomId, sender, image) ?: return
+        for ((field, key) in listOf("sender" to SENDER_AVATAR_KEY, "room" to ROOM_AVATAR_KEY)) {
+            if (!media.isNull(field)) notification.put(key, media.getString(field))
+        }
+        media.optJSONObject("image")?.let {
+            notification.put(IMAGE_KEY, it.getString("path"))
+            notification.put(IMAGE_TYPE_KEY, it.getString("mimetype"))
+        }
+    }
+
+    private fun image(context: Context, notification: JSONObject): Pair<String, Uri>? {
+        val path = notification.optString(IMAGE_KEY).takeIf { it.isNotEmpty() } ?: return null
+        val uri = runCatching {
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(path))
+        }.onFailure { Logger.warn(Logger.tags(TAG), "Push image not shareable: ${it.message}") }
+            .getOrNull() ?: return null
+        return notification.optString(IMAGE_TYPE_KEY) to uri
+    }
+
+    private fun conversationShortcut(
+        context: Context,
+        notifId: Int,
+        label: String,
+        icon: Bitmap?,
+        person: Person,
+        intent: Intent,
+    ): String? {
+        val id = "conversation-$notifId"
+        val shortcut = ShortcutInfoCompat.Builder(context, id)
+            .setShortLabel(label)
+            .setLongLabel(label)
+            .setIntent(intent)
+            .setIsConversation()
+            .setLongLived(true)
+            .setPerson(person)
+            .apply { icon?.let { setIcon(IconCompat.createWithBitmap(it)) } }
+            .build()
+        return runCatching { ShortcutManagerCompat.pushDynamicShortcut(context, shortcut) }
+            .onFailure { Logger.warn(Logger.tags(TAG), "Conversation shortcut not published: ${it.message}") }
+            .getOrNull()?.let { id }
+    }
+
+    private fun avatar(notification: JSONObject, key: String): Bitmap? =
+        notification.optString(key).takeIf { it.isNotEmpty() }?.let { BitmapFactory.decodeFile(it) }
+
+    private fun person(name: String, notification: JSONObject): Person.Builder =
+        Person.Builder().setName(name).apply {
+            avatar(notification, SENDER_AVATAR_KEY)?.let { setIcon(IconCompat.createWithBitmap(it)) }
+        }
+
     internal fun mergeFetched(notification: JSONObject, event: JSONObject) {
         for (key in event.keys()) {
             if (!notification.has(key) && !event.isNull(key)) notification.put(key, event.get(key))
         }
+        if (event.optBoolean("noisy")) notification.put(NOISY_KEY, true)
+        if (event.optBoolean("encrypted")) notification.put(ENCRYPTED_FLAG, true)
     }
 
     internal fun alertCooling(alertedAt: Long?, now: Long): Boolean =
@@ -333,8 +420,9 @@ object PushNotifier {
             val incoming = NotificationCompat.MessagingStyle.Message(
                 if (!state.showContent) "New message" else text.orEmpty(),
                 if (index >= 0) messages[index].timestamp else System.currentTimeMillis(),
-                Person.Builder().setName(sender.ifEmpty { UNKNOWN_SENDER }).build()
+                person(sender.ifEmpty { UNKNOWN_SENDER }, notification).build()
             ).also {
+                image(context, notification)?.let { (mimetype, uri) -> it.setData(mimetype, uri) }
                 it.extras.putString(EVENT_KEY, eventId)
                 it.extras.putString(GENERATION_KEY, generation)
                 it.extras.putBoolean(ENCRYPTED_KEY, notification.optString("type") == "m.room.encrypted" || notification.optBoolean(ENCRYPTED_FLAG))
@@ -356,6 +444,12 @@ object PushNotifier {
 
         val intent = buildPushIntent(context, notifId, roomId, actionEventId, userId)
         builder.setContentIntent(PendingIntent.getActivity(context, notifId, intent, flags))
+        if (!isInvite) {
+            val icon = avatar(notification, ROOM_AVATAR_KEY) ?: avatar(notification, SENDER_AVATAR_KEY)
+            icon?.let { builder.setLargeIcon(it) }
+            val person = person(sender.ifEmpty { UNKNOWN_SENDER }, notification).build()
+            conversationShortcut(context, notifId, title, icon, person, intent)?.let { builder.setShortcutId(it) }
+        }
         if (isInvite) {
             addActions(context, builder, notifId, roomId, actionEventId, userId, flags, PushActions.INVITE_TYPE, PushActions.invite)
         } else {
@@ -415,7 +509,7 @@ object PushNotifier {
             .setAutoCancel(false)
             .setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(
-                    Person.Builder().setName(caller).setImportant(true).build(),
+                    person(caller, notification).setImportant(true).build(),
                     pending(PushActions.DECLINE_CALL),
                     pending(PushActions.ANSWER_CALL),
                 )

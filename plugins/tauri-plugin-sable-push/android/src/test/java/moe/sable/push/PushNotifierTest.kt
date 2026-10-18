@@ -836,6 +836,57 @@ class PushNotifierTest {
         assertFalse(notification.has("room_avatar_url"))
     }
 
+    private fun imagePush(room: String): String {
+        val notification = JSONObject()
+            .put("room_id", room).put("event_id", "\$image").put("user_id", "@alice:example.org")
+            .put("room_name", "Room 1").put("sender", "@bob:example.org").put("type", "m.room.message")
+            .put("content", JSONObject().put("msgtype", "m.image").put("body", "cat.png")
+                .put("url", "mxc://example.org/cat"))
+        return JSONObject().put("notification", notification).toString()
+    }
+
+    private fun mediaRequests(room: String): List<JSONObject?> {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        val contents = mutableListOf<JSONObject?>()
+        mockkObject(PushPayloadDecryptor)
+        try {
+            every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any()) } answers {
+                contents.add(arg(5))
+                JSONObject()
+            }
+            PushNotifier.showFromPush(context, imagePush(room))
+        } finally {
+            unmockkObject(PushPayloadDecryptor)
+        }
+        return contents
+    }
+
+    @Test
+    fun anImageMessageAsksForItsPreview() {
+        val contents = mediaRequests("!image:example.org")
+
+        assertEquals("mxc://example.org/cat", contents.single()?.getString("url"))
+        val posted = shadowNotificationManager().getNotification(null, canonicalId("!image:example.org"))!!
+        assertEquals("conversation-${canonicalId("!image:example.org")}", posted.shortcutId)
+    }
+
+    @Test
+    @Config(sdk = [27])
+    fun beforeAndroid9AnImageMessageAsksForNoPreview() {
+        assertNull(mediaRequests("!old:example.org").single())
+    }
+
+    @Test
+    fun aFetchedEventCarriesItsNoisyAndEncryptedFlags() {
+        val notification = JSONObject().put("room_id", "!room:example.org")
+        val fetched = JSONObject().put("type", "m.room.message").put("noisy", true).put("encrypted", true)
+
+        PushNotifier.mergeFetched(notification, fetched)
+
+        assertTrue(PushNotifier.isNoisy(notification))
+        assertTrue(notification.getBoolean("moe.sable.encrypted"))
+    }
+
     @Test
     fun callNotificationIdNeverCollidesWithTheRoomsConversation() {
         assertNotEquals(

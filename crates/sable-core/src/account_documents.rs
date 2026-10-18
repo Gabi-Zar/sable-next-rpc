@@ -50,6 +50,47 @@ pub(crate) fn media_preview_config(content: Option<&Value>) -> MediaPreviewConfi
     }
 }
 
+/// Mirrors the app's `previewsShown`.
+#[cfg(not(target_family = "wasm"))]
+pub(crate) async fn shows_media_previews(room: &matrix_sdk::Room) -> bool {
+    use matrix_sdk::ruma::events::room::join_rules::JoinRule;
+
+    let mut level = None;
+    for event in [MEDIA_PREVIEW_EVENT, UNSTABLE_MEDIA_PREVIEW_EVENT] {
+        let content = room
+            .account_data(event.into())
+            .await
+            .ok()
+            .flatten()
+            .and_then(|raw| raw.get_field::<Value>("content").ok().flatten());
+        level = level.or(media_preview_config(content.as_ref()).media_previews);
+    }
+    for event in [MEDIA_PREVIEW_EVENT, UNSTABLE_MEDIA_PREVIEW_EVENT] {
+        let content = room
+            .client()
+            .account()
+            .account_data_raw(event.into())
+            .await
+            .ok()
+            .flatten()
+            .and_then(|raw| raw.deserialize_as::<Value>().ok());
+        level = level.or(media_preview_config(content.as_ref()).media_previews);
+    }
+    match level.unwrap_or(MediaPreviewsView::On) {
+        MediaPreviewsView::On => true,
+        MediaPreviewsView::Off => false,
+        MediaPreviewsView::Private => matches!(
+            room.join_rule(),
+            Some(
+                JoinRule::Invite
+                    | JoinRule::Knock
+                    | JoinRule::Restricted(_)
+                    | JoinRule::KnockRestricted(_)
+            )
+        ),
+    }
+}
+
 /// Keeps every other field of the stored event and overwrites only what is set.
 pub(crate) fn media_preview_content(
     stored: Option<Value>,

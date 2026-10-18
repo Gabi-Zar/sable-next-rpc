@@ -3,6 +3,8 @@
 use std::ffi::{CStr, CString, c_char};
 use std::path::Path;
 
+use sable_core::notifications::{PushImage, PushMedia, PushSession};
+use sable_core::protocol::{PushEventView, PushFetchView};
 use sable_core::session::AccountRegistry;
 use sable_core::store::{FileSessionStore, SessionStore};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -78,6 +80,16 @@ fn notification(payload: &Value) -> &Value {
     payload.get("notification").unwrap_or(payload)
 }
 
+/// Sygnal's APNs payload names only the event; the fetched event fills in the rest.
+fn complete(notification: &Value, event: &PushEventView) -> Option<Value> {
+    let mut completed = notification.as_object()?.clone();
+    let Value::Object(fetched) = serde_json::to_value(event).ok()? else {
+        return None;
+    };
+    completed.extend(fetched.into_iter().filter(|(_, value)| !value.is_null()));
+    Some(Value::Object(completed))
+}
+
 const RING_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.notification"];
 const DEFAULT_RING_LIFETIME_MS: u64 = 30_000;
 
@@ -112,6 +124,15 @@ struct ContentPushOut {
     noisy: bool,
     invite: bool,
     group: bool,
+    sender_avatar: Option<String>,
+    room_avatar: Option<String>,
+    image: Option<PushImage>,
+    members: Option<u64>,
+}
+
+#[derive(Serialize)]
+struct DiscardOut {
+    discard: bool,
 }
 
 #[derive(Serialize)]
@@ -337,10 +358,7 @@ async fn signed_in(root: &Path, user: &str) -> Option<(String, String)> {
 }
 
 async fn clear_event(
-    root: &Path,
-    user: &str,
-    device_id: &str,
-    room_id: &str,
+    session: Option<&PushSession>,
     notification: &Value,
     encrypted: bool,
 ) -> Option<Value> {
@@ -352,17 +370,14 @@ async fn clear_event(
         .as_object_mut()?
         .entry("origin_server_ts")
         .or_insert(Value::from(0));
-    let clear = sable_core::notifications::decrypt_push_from_store(
-        root,
-        user,
-        device_id,
-        room_id,
-        &event.to_string(),
-    )
-    .await?;
+    let clear = session?.decrypt(&event.to_string()).await?;
     serde_json::from_str(&clear).ok()
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "policy and account are rechecked in order after each await"
+)]
 async fn render(root: &Path, payload: &Value) -> Option<Value> {
     let settings = policy(root);
     if !settings.enabled {
@@ -393,8 +408,25 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .ok();
     }
     let room_id = room_id?;
-    let encrypted = target.kind.as_deref() == Some("m.room.encrypted");
-    let event = clear_event(root, &user, &device_id, room_id, notification, encrypted).await;
+    let session = Box::pin(PushSession::open(root, &user, &device_id, room_id)).await;
+    let fetched = match (target.kind.as_deref(), target.event_id.as_deref(), &session) {
+        (None, Some(event_id), Some(session)) if !event_id.is_empty() => {
+            Box::pin(session.fetch(event_id)).await
+        }
+        _ => PushFetchView::Unavailable,
+    };
+    let (completed, fetched_encrypted, fetched_noisy) = match fetched {
+        PushFetchView::Discard => return serde_json::to_value(DiscardOut { discard: true }).ok(),
+        PushFetchView::Event { event } => {
+            (complete(notification, &event), event.encrypted, event.noisy)
+        }
+        PushFetchView::Unavailable => (None, false, false),
+    };
+    let notification = completed.as_ref().unwrap_or(notification);
+    let target = PushTarget::deserialize(notification).ok()?;
+    let ciphertext = target.kind.as_deref() == Some("m.room.encrypted");
+    let encrypted = ciphertext || fetched_encrypted;
+    let event = Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await;
     if let Some(ring) = event.as_ref().and_then(|event| ring(event, notification)) {
         return serde_json::to_value(RingPushOut {
             ring,
@@ -435,6 +467,19 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     } else {
         format!("{sender}: {text}")
     };
+    let previews = current.content && (!encrypted || current.encrypted_content);
+    let content = event
+        .as_ref()
+        .and_then(|event| event.get("content"))
+        .filter(|_| previews);
+    let media = match (sender_id.as_deref(), &session) {
+        (Some(sender), Some(session)) if !invite => {
+            Box::pin(session.media(Some(sender), content)).await
+        }
+        _ => PushMedia::default(),
+    };
+    let members = session.as_ref().and_then(PushSession::joined_members);
+    drop(session);
     if signed_in(root, &user).await != Some((account_id, device_id)) {
         return None;
     }
@@ -443,6 +488,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .and_then(|event| event.get(sable_core::notifications::NOISY_KEY))
         .and_then(Value::as_bool)
         .unwrap_or(false)
+        || fetched_noisy
         || rings(notification);
     serde_json::to_value(ContentPushOut {
         title,
@@ -457,6 +503,10 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         noisy,
         invite,
         group: !room_name.is_empty(),
+        sender_avatar: media.sender,
+        room_avatar: media.room,
+        image: media.image,
+        members,
     })
     .ok()
 }
@@ -487,10 +537,10 @@ pub unsafe extern "C" fn sable_push_render(
             .build()
             .ok()?;
         let rendered = runtime.block_on(async {
-            tokio::time::timeout(
+            sable_core::notifications::settle_refreshes(Box::pin(tokio::time::timeout(
                 std::time::Duration::from_secs(20),
                 render(Path::new(root), &payload),
-            )
+            )))
             .await
             .ok()
             .flatten()
@@ -601,6 +651,32 @@ mod tests {
     }
 
     #[test]
+    fn a_fetched_event_completes_an_event_id_only_push() {
+        let push = json!({"room_id":"!room:example.org","event_id":"$e","counts":{"unread":2}});
+        let event = PushEventView {
+            event_type: "m.rtc.notification".to_owned(),
+            content: json!({"notification_type":"ring","sender_ts":1_000}),
+            sender: "@bob:example.org".to_owned(),
+            sender_display_name: Some("Bob".to_owned()),
+            room_name: "Lounge".to_owned(),
+            room_avatar_url: None,
+            encrypted: true,
+            noisy: false,
+        };
+
+        let completed = complete(&push, &event).unwrap();
+        assert_eq!(completed["event_id"], "$e");
+        assert_eq!(completed["counts"]["unread"], 2);
+        assert_eq!(completed["type"], "m.rtc.notification");
+        assert_eq!(completed["sender_display_name"], "Bob");
+        assert!(completed.get("room_avatar_url").is_none());
+        assert_eq!(
+            ring(&completed, &completed),
+            Some(json!({"caller_name":"Bob","expires_at":31.0}))
+        );
+    }
+
+    #[test]
     fn accepts_both_matrix_payload_envelopes() {
         let inner = json!({"room_id":"!room:example.org"});
         assert_eq!(notification(&inner), &inner);
@@ -634,6 +710,9 @@ mod tests {
                 .and_then(|value| value.get("body").cloned())
         };
         assert_eq!(body(&payload).await, Some(json!("private")));
+        let unfetchable =
+            json!({"user_id":"@alice:example.org","room_id":"!room:example.org","event_id":"$e"});
+        assert_eq!(body(&unfetchable).await, Some(json!("New message")));
         payload["user_id"] = json!("@other:example.org");
         assert!(render(&root, &payload).await.is_none());
         payload["user_id"] = json!("@alice:example.org");

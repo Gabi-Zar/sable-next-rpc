@@ -102,6 +102,8 @@ test('an encrypted event takes what the open tab decrypted, and remembers it was
           sender_display_name: 'Alice',
           room_name: 'Alice',
           room_avatar_url: null,
+          encrypted: true,
+          noisy: false,
         },
       }
     )

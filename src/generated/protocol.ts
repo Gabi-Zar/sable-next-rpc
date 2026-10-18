@@ -953,6 +953,8 @@ export type PushEventView = {
 	sender_display_name: string | null,
 	room_name: string,
 	room_avatar_url: string | null,
+	encrypted: boolean,
+	noisy: boolean,
 };
 
 export type PushFetchView = { kind: "event"; event: PushEventView } | { kind: "discard" } | { kind: "unavailable" };

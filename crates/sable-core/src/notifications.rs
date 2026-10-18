@@ -12,7 +12,7 @@ use matrix_sdk::ruma::events::TimelineEventType;
 use matrix_sdk::ruma::events::room::encrypted::OriginalSyncRoomEncryptedEvent;
 use matrix_sdk::ruma::push::{Action, HttpPusherData, PushFormat};
 use matrix_sdk::ruma::serde::Raw;
-use matrix_sdk::ruma::{EventId, MilliSecondsSinceUnixEpoch, OwnedUserId, RoomId};
+use matrix_sdk::ruma::{EventId, MilliSecondsSinceUnixEpoch, OwnedUserId, RoomId, UserId};
 use matrix_sdk_ui::notification_client::{
     NotificationClient, NotificationEvent, NotificationItem, NotificationProcessSetup,
     NotificationStatus, RawNotificationEvent,
@@ -26,6 +26,8 @@ use crate::protocol::{NotificationView, PushEventView, PushFetchView};
 use crate::session::{AccountRegistry, PersistedAccount};
 #[cfg(not(target_family = "wasm"))]
 use crate::store::{FileSessionStore, SessionStore};
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::store::RoomLoadSettings;
 
 pub(crate) const GATEWAY_PATH: &str = "/_matrix/push/v1/notify";
 
@@ -68,6 +70,11 @@ fn push_account<'a>(
 }
 
 #[cfg(not(target_family = "wasm"))]
+fn room_load(room_id: &str) -> RoomLoadSettings {
+    RoomId::parse(room_id).map_or_else(|_| RoomLoadSettings::default(), RoomLoadSettings::One)
+}
+
+#[cfg(not(target_family = "wasm"))]
 #[derive(Debug, PartialEq, Eq)]
 pub enum ColdPush {
     Clear(String),
@@ -87,7 +94,7 @@ pub async fn decrypt_cold_push(
     fetch_keys: bool,
 ) -> ColdPush {
     let store_dir = cold_push_store_dir(data_dir);
-    let Some(host) = push_host(&store_dir, user_id, device_id).await else {
+    let Some(host) = push_host(&store_dir, user_id, device_id, room_load(room_id)).await else {
         return ColdPush::Undecryptable;
     };
     let decrypt = || {
@@ -114,42 +121,6 @@ pub async fn decrypt_cold_push(
         }
         result => result,
     }
-}
-
-/// Decrypt using the same session and SDK stores as the application. Callers
-/// must bound the operation to the platform's notification processing budget.
-#[cfg(not(target_family = "wasm"))]
-pub async fn decrypt_push_from_store(
-    store_dir: &std::path::Path,
-    user_id: &str,
-    device_id: &str,
-    room_id: &str,
-    event_json: &str,
-) -> Option<String> {
-    match cold_push_from_store(store_dir, user_id, device_id, room_id, event_json).await {
-        ColdPush::Clear(clear) => Some(clear),
-        ColdPush::Discard | ColdPush::NeedsKey { .. } | ColdPush::Undecryptable => None,
-    }
-}
-
-#[cfg(not(target_family = "wasm"))]
-async fn cold_push_from_store(
-    store_dir: &std::path::Path,
-    user_id: &str,
-    device_id: &str,
-    room_id: &str,
-    event_json: &str,
-) -> ColdPush {
-    let Some(client) = restore_push_client(store_dir, user_id, device_id).await else {
-        return ColdPush::Undecryptable;
-    };
-    Box::pin(decrypt_push_event(
-        &client,
-        KeyFetch::Never,
-        room_id,
-        event_json,
-    ))
-    .await
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -268,7 +239,7 @@ pub async fn restore_push_client(
     user_id: &str,
     device_id: &str,
 ) -> Option<PushClient> {
-    let host = push_host(store_dir, user_id, device_id).await?;
+    let host = push_host(store_dir, user_id, device_id, RoomLoadSettings::default()).await?;
     Some(match host {
         PushHost::Live { client, .. } => PushClient {
             client,
@@ -290,6 +261,7 @@ async fn open_push_client(
     user_id: &str,
     device_id: &str,
     lease: crate::session::StoreLease,
+    room_load: RoomLoadSettings,
 ) -> Option<PushClient> {
     let directory = store_dir.to_owned();
     let owner = tokio::task::spawn_blocking(move || FileSessionStore::try_exclusive(directory))
@@ -299,9 +271,10 @@ async fn open_push_client(
         .map(std::sync::Arc::new);
     // After taking ownership, so a refresh starts from the newest tokens.
     let account = saved_push_account(store_dir, user_id, device_id).await?;
-    let client = crate::session::restore_notification_client(&account.store_id, &account.session)
-        .await
-        .ok()?;
+    let client =
+        crate::session::restore_notification_client(&account.store_id, &account.session, room_load)
+            .await
+            .ok()?;
     let owner = match owner {
         Some(store) => Some(PushOwner {
             store,
@@ -385,13 +358,14 @@ async fn push_host(
     store_dir: &std::path::Path,
     user_id: &str,
     device_id: &str,
+    room_load: RoomLoadSettings,
 ) -> Option<PushHost> {
     let Some(core) = crate::Core::owning(store_dir) else {
         let store_id = saved_push_account(store_dir, user_id, device_id)
             .await?
             .store_id;
         let lease = crate::session::store_lease(&store_id).await;
-        return open_push_client(store_dir, user_id, device_id, lease)
+        return open_push_client(store_dir, user_id, device_id, lease, room_load)
             .await
             .map(PushHost::Own);
     };
@@ -576,34 +550,348 @@ pub async fn fetch_cold_push_event(
     room_id: &str,
     event_id: &str,
 ) -> PushFetchView {
-    let (Ok(room_id), Ok(event_id)) = (RoomId::parse(room_id), EventId::parse(event_id)) else {
-        return PushFetchView::Unavailable;
-    };
-    let store_dir = cold_push_store_dir(data_dir);
-    let Some(host) = push_host(&store_dir, user_id, device_id).await else {
-        return PushFetchView::Unavailable;
-    };
-    let sync_service = match &host {
-        PushHost::Live { sync_service, .. } => sync_service.clone(),
-        _ if !host.may_sync() => return PushFetchView::Unavailable,
-        _ => match crate::session::build_sync(host.client().clone()).await {
-            Ok(sync_service) => sync_service,
-            Err(_) => return PushFetchView::Unavailable,
-        },
-    };
-    let fetch = || {
-        Box::pin(fetch_push_event(
-            host.client(),
-            sync_service.clone(),
-            &room_id,
-            &event_id,
+    match PushSession::open(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
+        Some(session) => session.fetch(event_id).await,
+        None => PushFetchView::Unavailable,
+    }
+}
+
+/// One restored login for every step of a push, which callers must bound to
+/// the platform's notification processing budget.
+#[cfg(not(target_family = "wasm"))]
+pub struct PushSession {
+    host: PushHost,
+    store_dir: std::path::PathBuf,
+    room_id: matrix_sdk::ruma::OwnedRoomId,
+}
+
+#[cfg(not(target_family = "wasm"))]
+impl PushSession {
+    pub async fn open(
+        store_dir: &std::path::Path,
+        user_id: &str,
+        device_id: &str,
+        room_id: &str,
+    ) -> Option<Self> {
+        let room_id = RoomId::parse(room_id).ok()?;
+        let host = push_host(
+            store_dir,
+            user_id,
+            device_id,
+            RoomLoadSettings::One(room_id.clone()),
+        )
+        .await?;
+        Some(Self {
+            host,
+            store_dir: store_dir.to_owned(),
+            room_id,
+        })
+    }
+
+    /// Only with the keys already stored.
+    pub async fn decrypt(&self, event_json: &str) -> Option<String> {
+        match Box::pin(decrypt_push_event(
+            self.host.client(),
+            KeyFetch::Never,
+            self.room_id.as_str(),
+            event_json,
         ))
+        .await
+        {
+            ColdPush::Clear(clear) => Some(clear),
+            ColdPush::Discard | ColdPush::NeedsKey { .. } | ColdPush::Undecryptable => None,
+        }
+    }
+
+    pub async fn fetch(&self, event_id: &str) -> PushFetchView {
+        let Ok(event_id) = EventId::parse(event_id) else {
+            return PushFetchView::Unavailable;
+        };
+        let setup = match &self.host {
+            PushHost::Live { sync_service, .. } => NotificationProcessSetup::SingleProcess {
+                sync_service: sync_service.clone(),
+            },
+            // Without this client's own sync service, the SDK's store lock coordinates it with others.
+            _ => NotificationProcessSetup::MultipleProcesses,
+        };
+        let fetch = || {
+            Box::pin(fetch_push_event_with(
+                self.host.client(),
+                setup.clone(),
+                &self.room_id,
+                &event_id,
+            ))
+        };
+        let result = fetch().await;
+        if matches!(result, PushFetchView::Unavailable) && self.host.refresh().await {
+            fetch().await
+        } else {
+            result
+        }
+    }
+
+    /// `sender` asks for the avatars, `content` for the message's image; leave out
+    /// the content when the notification may not show the message.
+    #[must_use]
+    pub fn joined_members(&self) -> Option<u64> {
+        self.host
+            .client()
+            .get_room(&self.room_id)
+            .map(|room| room.joined_members_count())
+    }
+
+    pub async fn media(
+        &self,
+        sender: Option<&str>,
+        content: Option<&serde_json::Value>,
+    ) -> PushMedia {
+        let client = self.host.client();
+        let Some(room) = client.get_room(&self.room_id) else {
+            return PushMedia::default();
+        };
+        let sender_url = match sender.and_then(|sender| UserId::parse(sender).ok()) {
+            Some(sender) => room
+                .get_member_no_sync(&sender)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|member| member.avatar_url().map(ToOwned::to_owned)),
+            None => None,
+        };
+        let room_url = if sender.is_none() || room.is_direct().await.unwrap_or(false) {
+            None
+        } else {
+            room.avatar_url()
+        };
+        let image = match content {
+            Some(content) if crate::account_documents::shows_media_previews(&room).await => {
+                message_image(content)
+            }
+            _ => None,
+        };
+        let directory = self.store_dir.join(PUSH_MEDIA_DIRECTORY);
+        prune_push_media(&directory).await;
+        let avatar = |url: Option<matrix_sdk::ruma::OwnedMxcUri>| {
+            let source = url.map(matrix_sdk::ruma::events::room::MediaSource::Plain);
+            cached_push_media(
+                client,
+                &directory,
+                source,
+                Some((PUSH_AVATAR_SIZE, PUSH_AVATAR_SIZE)),
+            )
+        };
+        let (sender, room, image) = futures_util::join!(
+            avatar(sender_url),
+            avatar(room_url),
+            cached_push_media(
+                client,
+                &directory,
+                image,
+                Some((PUSH_IMAGE_WIDTH, PUSH_IMAGE_HEIGHT))
+            ),
+        );
+        PushMedia {
+            sender: sender.map(|(path, _)| path),
+            room: room.map(|(path, _)| path),
+            image: image.map(|(path, mimetype)| PushImage { path, mimetype }),
+        }
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+const PUSH_AVATAR_SIZE: u32 = 96;
+#[cfg(not(target_family = "wasm"))]
+const PUSH_IMAGE_WIDTH: u32 = 800;
+#[cfg(not(target_family = "wasm"))]
+const PUSH_IMAGE_HEIGHT: u32 = 600;
+/// Encrypted media is decrypted in memory, which a notification process can barely spare,
+/// and the sender's declared size is the only bound known before downloading it.
+#[cfg(not(target_family = "wasm"))]
+const PUSH_ENCRYPTED_IMAGE_MAX_BYTES: u64 = 1024 * 1024;
+#[cfg(not(target_family = "wasm"))]
+const PUSH_MEDIA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+#[cfg(not(target_family = "wasm"))]
+const PUSH_MEDIA_MAX_AGE: std::time::Duration = std::time::Duration::from_hours(7 * 24);
+
+#[cfg(not(target_family = "wasm"))]
+const PUSH_MEDIA_DIRECTORY: &str = "push-media";
+
+/// Decrypted previews must not outlive the accounts they were shown for.
+#[cfg(not(target_family = "wasm"))]
+pub(crate) async fn clear_push_media(store_dir: &std::path::Path) {
+    match tokio::fs::remove_dir_all(store_dir.join(PUSH_MEDIA_DIRECTORY)).await {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
+            tracing::warn!("could not clear the push media cache: {error}");
+        }
+        _ => {}
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[derive(Debug, Default, serde::Serialize)]
+pub struct PushMedia {
+    pub sender: Option<String>,
+    pub room: Option<String>,
+    pub image: Option<PushImage>,
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[derive(Debug, serde::Serialize)]
+pub struct PushImage {
+    pub path: String,
+    pub mimetype: &'static str,
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub async fn cold_push_media(
+    data_dir: &std::path::Path,
+    user_id: &str,
+    device_id: &str,
+    room_id: &str,
+    sender: Option<&str>,
+    content: Option<&serde_json::Value>,
+) -> PushMedia {
+    match PushSession::open(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
+        Some(session) => session.media(sender, content).await,
+        None => PushMedia::default(),
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn message_image(
+    content: &serde_json::Value,
+) -> Option<matrix_sdk::ruma::events::room::MediaSource> {
+    use matrix_sdk::ruma::events::room::MediaSource;
+    use serde_json::Value;
+
+    let msgtype = content.get("msgtype")?.as_str()?;
+    if msgtype != "m.image" && msgtype != "m.video" {
+        return None;
+    }
+    let info = content.get("info");
+    let plain = |url: Option<&Value>| {
+        url.and_then(|url| serde_json::from_value(url.clone()).ok())
+            .map(MediaSource::Plain)
     };
-    let result = fetch().await;
-    if matches!(result, PushFetchView::Unavailable) && host.refresh().await {
-        fetch().await
-    } else {
-        result
+    let encrypted = |file: Option<&Value>, declared: Option<&Value>| {
+        let small = declared
+            .and_then(|declared| declared.get("size"))
+            .and_then(Value::as_u64)
+            .is_some_and(|size| size <= PUSH_ENCRYPTED_IMAGE_MAX_BYTES);
+        file.filter(|_| small)
+            .and_then(|file| serde_json::from_value(file.clone()).ok())
+            .map(MediaSource::Encrypted)
+    };
+    let thumbnail = encrypted(
+        info.and_then(|info| info.get("thumbnail_file")),
+        info.and_then(|info| info.get("thumbnail_info")),
+    )
+    .or_else(|| plain(info.and_then(|info| info.get("thumbnail_url"))));
+    if thumbnail.is_some() || msgtype != "m.image" {
+        return thumbnail;
+    }
+    plain(content.get("url")).or_else(|| encrypted(content.get("file"), info))
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn cached_push_media(
+    client: &Client,
+    directory: &std::path::Path,
+    source: Option<matrix_sdk::ruma::events::room::MediaSource>,
+    bounds: Option<(u32, u32)>,
+) -> Option<(String, &'static str)> {
+    use base64::Engine as _;
+    use matrix_sdk::media::{MediaFormat, MediaRequestParameters, MediaThumbnailSettings};
+    use matrix_sdk::ruma::events::room::MediaSource;
+    use sha2::{Digest, Sha256};
+
+    let source = source?;
+    let format = match (&source, bounds) {
+        (MediaSource::Plain(_), Some((width, height))) => {
+            MediaFormat::Thumbnail(MediaThumbnailSettings::new(width.into(), height.into()))
+        }
+        _ => MediaFormat::File,
+    };
+    let url = match &source {
+        MediaSource::Plain(url) => url.as_str(),
+        MediaSource::Encrypted(file) => file.url.as_str(),
+    };
+    let key = match &format {
+        MediaFormat::Thumbnail(settings) => format!("{url}#{}x{}", settings.width, settings.height),
+        MediaFormat::File => url.to_owned(),
+    };
+    let path = directory.join(
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(key.as_bytes())),
+    );
+    if let Ok(mut file) = tokio::fs::File::open(&path).await {
+        let mut head = [0; 12];
+        let read = tokio::io::AsyncReadExt::read(&mut file, &mut head)
+            .await
+            .ok()?;
+        return Some((
+            path.to_str()?.to_owned(),
+            image_mimetype(head.get(..read)?)?,
+        ));
+    }
+    let request = MediaRequestParameters { source, format };
+    let bytes = tokio::time::timeout(
+        PUSH_MEDIA_TIMEOUT,
+        client.media().get_media_content(&request, false),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    let mimetype = image_mimetype(&bytes)?;
+    tokio::fs::create_dir_all(directory).await.ok()?;
+    // Another push may be reading the same file while this one writes it.
+    let partial = path.with_extension(format!("{}.partial", std::process::id()));
+    tokio::fs::write(&partial, bytes).await.ok()?;
+    tokio::fs::rename(&partial, &path).await.ok()?;
+    Some((path.to_str()?.to_owned(), mimetype))
+}
+
+/// Only formats both platforms decode in a notification.
+#[cfg(not(target_family = "wasm"))]
+const fn image_mimetype(bytes: &[u8]) -> Option<&'static str> {
+    match bytes {
+        [0x89, b'P', b'N', b'G', ..] => Some("image/png"),
+        [0xFF, 0xD8, 0xFF, ..] => Some("image/jpeg"),
+        [b'G', b'I', b'F', b'8', ..] => Some("image/gif"),
+        [
+            b'R',
+            b'I',
+            b'F',
+            b'F',
+            _,
+            _,
+            _,
+            _,
+            b'W',
+            b'E',
+            b'B',
+            b'P',
+            ..,
+        ] => Some("image/webp"),
+        _ => None,
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn prune_push_media(directory: &std::path::Path) {
+    let Ok(mut entries) = tokio::fs::read_dir(directory).await else {
+        return;
+    };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let stale = entry
+            .metadata()
+            .await
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|modified| modified.elapsed().ok())
+            .is_some_and(|age| age > PUSH_MEDIA_MAX_AGE);
+        if stale {
+            let _ = tokio::fs::remove_file(entry.path()).await;
+        }
     }
 }
 
@@ -614,6 +902,15 @@ pub async fn fetch_push_event(
     event_id: &EventId,
 ) -> PushFetchView {
     let setup = NotificationProcessSetup::SingleProcess { sync_service };
+    fetch_push_event_with(client, setup, room_id, event_id).await
+}
+
+async fn fetch_push_event_with(
+    client: &Client,
+    setup: NotificationProcessSetup,
+    room_id: &RoomId,
+    event_id: &EventId,
+) -> PushFetchView {
     let Ok(notifications) = NotificationClient::new(client.clone(), setup).await else {
         return PushFetchView::Unavailable;
     };
@@ -662,6 +959,7 @@ fn push_event_view(item: NotificationItem) -> Option<PushEventView> {
         RawNotificationEvent::Invite(raw) => raw.json().get(),
     };
     let mut event: serde_json::Value = serde_json::from_str(raw).ok()?;
+    let noisy = item.is_noisy == Some(true) || item.has_mention == Some(true);
     Some(PushEventView {
         event_type: event.get("type")?.as_str()?.to_owned(),
         content: event
@@ -672,6 +970,8 @@ fn push_event_view(item: NotificationItem) -> Option<PushEventView> {
         sender_display_name: item.sender_display_name,
         room_name: item.room_computed_display_name,
         room_avatar_url: item.room_avatar_url,
+        encrypted: item.is_room_encrypted == Some(true),
+        noisy,
     })
 }
 
@@ -934,7 +1234,9 @@ mod tests {
     use matrix_sdk::ruma::events::AnySyncTimelineEvent;
     use matrix_sdk::ruma::push::{ConditionalPushRule, RuleKind, Ruleset};
     use matrix_sdk::ruma::serde::Raw;
-    use matrix_sdk::ruma::{MilliSecondsSinceUnixEpoch, UInt, owned_device_id, room_id, user_id};
+    use matrix_sdk::ruma::{
+        MilliSecondsSinceUnixEpoch, UInt, mxc_uri, owned_device_id, room_id, user_id,
+    };
     use matrix_sdk::test_utils::mocks::MatrixMockServer;
     use matrix_sdk_base::crypto::{
         olm::{Account, EncryptionSettings, InboundGroupSession, OutboundGroupSession, SenderData},
@@ -1445,6 +1747,7 @@ mod tests {
             &cold_push_store_dir(data_dir.path()),
             "@alice:example.org",
             "A",
+            matrix_sdk::store::RoomLoadSettings::default(),
         )
         .await;
         assert!(matches!(host, Some(PushHost::Shared { .. })));
@@ -1698,6 +2001,21 @@ mod tests {
     }
 
     async fn fetch(fixture: &ColdFixture, device: &str, event: serde_json::Value) -> PushFetchView {
+        let _mocks = mount_fetch(fixture, &event).await;
+        fetch_cold_push_event(
+            &fixture.data_dir,
+            "@alice:example.org",
+            device,
+            COLD_ROOM,
+            event["event_id"].as_str().unwrap(),
+        )
+        .await
+    }
+
+    async fn mount_fetch(
+        fixture: &ColdFixture,
+        event: &serde_json::Value,
+    ) -> (wiremock::MockGuard, wiremock::MockGuard) {
         use matrix_sdk::ruma::api::client::sync::sync_events::v5;
 
         let mut room = v5::response::Room::new();
@@ -1712,26 +2030,38 @@ mod tests {
         let mut response = v5::Response::new("1".to_owned());
         response.rooms =
             std::collections::BTreeMap::from([(room_id!("!cold:example.org").to_owned(), room)]);
-        let _sync = fixture
+        let sync = fixture
             .server
             .mock_sliding_sync()
             .ok(response)
             .mount_as_scoped()
             .await;
-        let _encryption = fixture
+        let encryption = fixture
             .server
             .mock_room_state_encryption()
             .plain()
             .mount_as_scoped()
             .await;
-        fetch_cold_push_event(
-            &fixture.data_dir,
-            "@alice:example.org",
-            device,
-            COLD_ROOM,
-            event["event_id"].as_str().unwrap(),
-        )
-        .await
+        (sync, encryption)
+    }
+
+    #[tokio::test]
+    async fn a_push_is_fetched_while_another_process_holds_the_store() {
+        let fixture = ColdFixture::new("held", cold_room_with_members(), None).await;
+        let app = FileSessionStore::try_exclusive(cold_push_store_dir(&fixture.data_dir))
+            .unwrap()
+            .unwrap();
+        let message = json!({"type": "m.room.message", "event_id": "$extension",
+            "sender": "@sender:example.org", "origin_server_ts": 1,
+            "content": {"msgtype": "m.text", "body": "while the app runs"}});
+
+        let PushFetchView::Event { event } = fetch(&fixture, "A", message).await else {
+            panic!("a push must be fetched beside the app's process");
+        };
+        assert_eq!(event.content["body"], "while the app runs");
+
+        drop(app);
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
     #[tokio::test]
@@ -1749,12 +2079,238 @@ mod tests {
         assert_eq!(payload["content"]["body"], "fetched by id");
         assert_eq!(payload["sender"], "@sender:example.org");
         assert_ne!(event.room_name, "");
+        assert!(!event.noisy);
 
         assert!(matches!(
             fetch(&fixture, "OTHER", message).await,
             PushFetchView::Unavailable
         ));
 
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_fetched_mention_is_noisy() {
+        let fixture = ColdFixture::new("fetch-mention", cold_room_with_members(), None).await;
+        let message = json!({"type": "m.room.message", "event_id": "$mention",
+            "sender": "@sender:example.org", "origin_server_ts": 1,
+            "content": {"msgtype": "m.text", "body": "alice?",
+                "m.mentions": {"user_ids": ["@alice:example.org"]}}});
+
+        let PushFetchView::Event { event } = fetch(&fixture, "A", message).await else {
+            panic!("a mention must notify");
+        };
+        assert!(event.noisy);
+
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn push_media_is_thumbnailed_once_and_reused() {
+        let fixture = ColdFixture::new("media", media_room(None), None).await;
+        let thumbnails = mount_thumbnails(&fixture, 1).await;
+        let image = json!({"msgtype": "m.image", "body": "cat.png",
+            "url": "mxc://example.org/cat"});
+
+        let first = media(&fixture, Some(&image)).await;
+        let read = |path: &str| std::fs::read(path).unwrap();
+        assert_eq!(read(first.sender.as_deref().unwrap()), thumbnails["face"]);
+        assert_eq!(read(first.room.as_deref().unwrap()), thumbnails["lounge"]);
+        let image_file = first.image.as_ref().unwrap();
+        assert_eq!(read(&image_file.path), thumbnails["cat"]);
+        assert_eq!(image_file.mimetype, "image/png");
+        let again = media(&fixture, Some(&image)).await;
+        assert_eq!(again.sender, first.sender);
+        assert_eq!(again.image.unwrap().path, image_file.path);
+
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_room_with_media_previews_off_gets_no_push_image() {
+        let off = Raw::from_json_string(
+            json!({"type": "m.media_preview_config", "content": {"media_previews": "off"}})
+                .to_string(),
+        )
+        .unwrap();
+        let fixture = ColdFixture::new("media-off", media_room(Some(off)), None).await;
+        mount_thumbnails(&fixture, 0..=1).await;
+        let image = json!({"msgtype": "m.image", "body": "cat.png",
+            "url": "mxc://example.org/cat"});
+
+        let media = media(&fixture, Some(&image)).await;
+        assert!(media.image.is_none());
+        assert!(media.sender.is_some());
+
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[test]
+    fn a_push_image_prefers_a_thumbnail_and_skips_large_encrypted_originals() {
+        use matrix_sdk::ruma::events::room::MediaSource;
+
+        let encrypted = |url: &str| {
+            json!({"url": url, "v": "v2", "iv": "AAAAAAAAAAAAAAAAAAAAAA",
+                "hashes": {"sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+                "key": {"kty": "oct", "alg": "A256CTR", "ext": true,
+                    "k": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "key_ops": ["encrypt", "decrypt"]}})
+        };
+        let source = |content: serde_json::Value| match super::message_image(&content) {
+            Some(MediaSource::Plain(url)) => Some(url.to_string()),
+            Some(MediaSource::Encrypted(file)) => Some(file.url.to_string()),
+            None => None,
+        };
+
+        assert_eq!(
+            source(
+                json!({"msgtype": "m.image", "url": "mxc://example.org/full",
+                "info": {"thumbnail_url": "mxc://example.org/small"}})
+            ),
+            Some("mxc://example.org/small".to_owned())
+        );
+        assert_eq!(
+            source(json!({"msgtype": "m.video", "url": "mxc://example.org/clip"})),
+            None
+        );
+        assert_eq!(
+            source(
+                json!({"msgtype": "m.image", "file": encrypted("mxc://example.org/small"),
+                "info": {"size": 1024}})
+            ),
+            Some("mxc://example.org/small".to_owned())
+        );
+        assert_eq!(
+            source(
+                json!({"msgtype": "m.image", "file": encrypted("mxc://example.org/huge"),
+                "info": {"size": 8 * 1024 * 1024}})
+            ),
+            None
+        );
+        assert_eq!(
+            source(
+                json!({"msgtype": "m.image", "url": "mxc://example.org/full",
+                "info": {"thumbnail_file": encrypted("mxc://example.org/unsized")}})
+            ),
+            Some("mxc://example.org/full".to_owned())
+        );
+        assert_eq!(
+            source(json!({"msgtype": "m.video",
+                "info": {"thumbnail_file": encrypted("mxc://example.org/thumb"),
+                    "thumbnail_info": {"size": 2048}}})),
+            Some("mxc://example.org/thumb".to_owned())
+        );
+        assert_eq!(
+            source(json!({"msgtype": "m.image", "file": encrypted("mxc://example.org/unsized")})),
+            None
+        );
+        assert_eq!(source(json!({"msgtype": "m.text", "body": "hi"})), None);
+    }
+
+    #[tokio::test]
+    async fn clearing_push_media_removes_the_cache_and_tolerates_its_absence() {
+        let store_dir = tempfile::tempdir().unwrap();
+        let cache = store_dir.path().join("push-media");
+        tokio::fs::create_dir_all(&cache).await.unwrap();
+        tokio::fs::write(cache.join("preview"), b"decrypted")
+            .await
+            .unwrap();
+
+        super::clear_push_media(store_dir.path()).await;
+        assert!(!cache.exists());
+        super::clear_push_media(store_dir.path()).await;
+    }
+
+    fn media_room(
+        account_data: Option<Raw<matrix_sdk::ruma::events::AnyRoomAccountDataEvent>>,
+    ) -> JoinedRoomBuilder {
+        let factory = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id!("!cold:example.org"))
+            .sender(user_id!("@sender:example.org"));
+        let room = JoinedRoomBuilder::new(room_id!("!cold:example.org"))
+            .add_state_event(factory.member(user_id!("@alice:example.org")))
+            .add_state_event(
+                factory
+                    .member(user_id!("@sender:example.org"))
+                    .avatar_url(mxc_uri!("mxc://example.org/face")),
+            )
+            .add_state_event(
+                factory
+                    .room_avatar()
+                    .url(mxc_uri!("mxc://example.org/lounge")),
+            )
+            .add_state_event(factory.default_power_levels());
+        match account_data {
+            Some(event) => room.add_account_data(event),
+            None => room,
+        }
+    }
+
+    async fn mount_thumbnails(
+        fixture: &ColdFixture,
+        times: impl Into<wiremock::Times> + Clone,
+    ) -> std::collections::HashMap<&'static str, Vec<u8>> {
+        use wiremock::{
+            Mock, ResponseTemplate,
+            matchers::{method, path},
+        };
+
+        let mut thumbnails = std::collections::HashMap::new();
+        for media in ["face", "lounge", "cat"] {
+            let png = [b"\x89PNG\r\n\x1a\n".as_slice(), media.as_bytes()].concat();
+            Mock::given(method("GET"))
+                .and(path(format!(
+                    "/_matrix/client/v1/media/thumbnail/example.org/{media}"
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_bytes(png.clone()))
+                .expect(times.clone())
+                .mount(fixture.server.server())
+                .await;
+            thumbnails.insert(media, png);
+        }
+        thumbnails
+    }
+
+    async fn media(fixture: &ColdFixture, content: Option<&serde_json::Value>) -> super::PushMedia {
+        super::cold_push_media(
+            &fixture.data_dir,
+            "@alice:example.org",
+            "A",
+            COLD_ROOM,
+            Some("@sender:example.org"),
+            content,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn one_push_session_fetches_the_event_and_its_media() {
+        let fixture = ColdFixture::new("session", media_room(None), None).await;
+        let thumbnails = mount_thumbnails(&fixture, 0..=1).await;
+        let message = json!({"type": "m.room.message", "event_id": "$session",
+            "sender": "@sender:example.org", "origin_server_ts": 1,
+            "content": {"msgtype": "m.image", "body": "cat.png", "url": "mxc://example.org/cat"}});
+        let _sync = mount_fetch(&fixture, &message).await;
+
+        let session = super::PushSession::open(
+            &cold_push_store_dir(&fixture.data_dir),
+            "@alice:example.org",
+            "A",
+            COLD_ROOM,
+        )
+        .await
+        .unwrap();
+        let PushFetchView::Event { event } = session.fetch("$session").await else {
+            panic!("the session must fetch the pushed event");
+        };
+        let media = session
+            .media(Some(&event.sender), Some(&event.content))
+            .await;
+        assert_eq!(
+            std::fs::read(media.image.unwrap().path).unwrap(),
+            thumbnails["cat"]
+        );
+
+        drop(session);
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 

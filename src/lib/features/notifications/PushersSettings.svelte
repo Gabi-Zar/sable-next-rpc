@@ -66,7 +66,6 @@
       config?.push?.webPushAppID,
       config?.push?.nativePushAppID,
       config?.push?.iosPushAppID,
-      config?.push?.iosVoipPushAppID,
       WEBPUSH_APP_ID,
     ];
     ownApps = [

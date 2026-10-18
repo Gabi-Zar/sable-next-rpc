@@ -2,6 +2,7 @@ package moe.sable.push
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONObject
 
 internal sealed interface PushDecryptResult {
     data class Success(val clearEventJson: String) : PushDecryptResult
@@ -57,6 +58,36 @@ internal object PushPayloadDecryptor {
         eventId: String,
     ): PushDecryptResult = run(context) { storeDir ->
         nativeFetchPush(storeDir, userId, deviceId, roomId, eventId)
+    }
+
+    private external fun nativePushMedia(
+        storeDir: String,
+        userId: String,
+        deviceId: String,
+        roomId: String,
+        sender: String,
+        content: String,
+    ): String?
+
+    fun media(
+        context: Context,
+        userId: String,
+        deviceId: String,
+        roomId: String,
+        sender: String?,
+        content: JSONObject?,
+    ): JSONObject? {
+        if (!available()) return null
+        val json = try {
+            nativePushMedia(
+                context.dataDir.absolutePath, userId, deviceId, roomId,
+                sender.orEmpty(), content?.toString().orEmpty(),
+            )
+        } catch (error: Throwable) {
+            Log.i(TAG, "Push media unavailable: ${error.message}")
+            null
+        }
+        return json?.let { runCatching { JSONObject(it) }.getOrNull() }
     }
 
     private fun available(): Boolean {

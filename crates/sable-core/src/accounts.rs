@@ -678,6 +678,8 @@ impl Core {
     }
 
     async fn remove_account(&self, account_id: Option<&str>) -> Result<(), RpcError> {
+        #[cfg(not(target_family = "wasm"))]
+        crate::notifications::clear_push_media(std::path::Path::new(&self.store_id)).await;
         let Some(account_id) = account_id else {
             return self.clear_persisted_session().await;
         };

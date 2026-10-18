@@ -38,6 +38,8 @@ export function readPushFetch(value: unknown): PushFetchView | null {
       sender_display_name: text(event.sender_display_name) ?? null,
       room_name: text(event.room_name) ?? '',
       room_avatar_url: text(event.room_avatar_url) ?? null,
+      encrypted: event.encrypted === true,
+      noisy: event.noisy === true,
     },
   };
 }

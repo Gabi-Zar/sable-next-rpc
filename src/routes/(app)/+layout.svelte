@@ -79,11 +79,7 @@
     unregisterNativePush,
   } from '#lib/features/notifications/native-push.js';
   import { pushOverride } from '#lib/notifications/push-config.js';
-  import {
-    registerVoipPusher,
-    unregisterVoipPusher,
-  } from '#lib/features/notifications/voip-push.js';
-  import { watchVoipToken } from '#lib/platform/calls.js';
+  import { unregisterVoipPusher } from '#lib/features/notifications/voip-push.js';
   import {
     callNotificationAction,
     inviteNotificationAction,
@@ -557,39 +553,18 @@
     void core.accountRevision;
     void pushDeviceName;
     if (core.status !== 'ready') return;
+    void unregisterVoipPusher(core);
 
     if (!preferences.systemNotifications) {
       void unregisterNativePush().catch((error: unknown) => {
         console.debug('[sable notifications] native push not unregistered', error);
       });
-      void unregisterVoipPusher(core);
       return;
     }
 
     void registerNativePush(pushOverride(), core.session, core.accounts).catch((error: unknown) => {
       console.debug('[sable notifications] native push not registered', error);
     });
-    void registerVoipPusher(core, core.session).catch((error: unknown) => {
-      console.debug('[sable notifications] voip pusher not registered', error);
-    });
-  });
-
-  onMount(() => {
-    let disposed = false;
-    let stop: (() => void) | undefined;
-    void watchVoipToken((token) => {
-      if (core.status !== 'ready' || !preferences.systemNotifications) return;
-      void registerVoipPusher(core, core.session, token).catch((error: unknown) => {
-        console.debug('[sable notifications] rotated voip token not registered', error);
-      });
-    }).then((unlisten) => {
-      if (disposed) unlisten();
-      else stop = unlisten;
-    });
-    return () => {
-      disposed = true;
-      stop?.();
-    };
   });
 
   onMount(() => {

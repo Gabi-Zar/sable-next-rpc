@@ -1,6 +1,7 @@
 import CallKit
 import Foundation
 import Intents
+import UniformTypeIdentifiers
 import UserNotifications
 
 final class NotificationService: UNNotificationServiceExtension {
@@ -62,6 +63,10 @@ final class NotificationService: UNNotificationServiceExtension {
                 self?.finish(content)
                 return
             }
+            if rendered["discard"] as? Bool == true {
+                self?.suppress()
+                return
+            }
             if let ring = rendered["ring"] as? [String: Any], let room = rendered["room_id"] as? String {
                 self?.ring(ring, room: room, fallback: content)
                 return
@@ -77,6 +82,9 @@ final class NotificationService: UNNotificationServiceExtension {
             }
             if let title = rendered["title"] as? String { updated.title = title }
             updated.body = body
+            if let image = rendered["image"] as? [String: Any], let attachment = Self.attachment(image) {
+                updated.attachments = [attachment]
+            }
             let invite = rendered["invite"] as? Bool == true
             updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
             if rendered["noisy"] as? Bool == true {
@@ -114,14 +122,14 @@ final class NotificationService: UNNotificationServiceExtension {
             personHandle: INPersonHandle(value: id, type: .unknown),
             nameComponents: nil,
             displayName: name,
-            image: nil,
+            image: image(rendered["sender_avatar"]),
             contactIdentifier: nil,
             customIdentifier: id
         )
         let group = rendered["group"] as? Bool == true
             ? (rendered["title"] as? String).map { INSpeakableString(spokenPhrase: $0) }
             : nil
-        return INSendMessageIntent(
+        let intent = INSendMessageIntent(
             recipients: nil,
             outgoingMessageType: .outgoingMessageText,
             content: text,
@@ -131,6 +139,46 @@ final class NotificationService: UNNotificationServiceExtension {
             sender: sender,
             attachments: nil
         )
+        if group != nil, let room = image(rendered["room_avatar"]) {
+            intent.setImage(room, forParameterNamed: \.speakableGroupName)
+        }
+        // Without recipients, iOS shows a group as a one-to-one conversation.
+        if group != nil, let members = rendered["members"] as? Int, members > 2 {
+            let metadata = INSendMessageIntentDonationMetadata()
+            metadata.recipientCount = members - 2
+            intent.donationMetadata = metadata
+        }
+        return intent
+    }
+
+    /// iOS moves an attachment's file into its own store, so it gets a copy of the cached one.
+    private static func attachment(_ image: [String: Any]) -> UNNotificationAttachment? {
+        guard let path = image["path"] as? String,
+              let mimetype = image["mimetype"] as? String,
+              ["image/png", "image/jpeg", "image/gif"].contains(mimetype),
+              let type = UTType(mimeType: mimetype) else { return nil }
+        let copy = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(type.preferredFilenameExtension ?? "image")
+        guard (try? FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: copy)) != nil else {
+            return nil
+        }
+        guard let attachment = try? UNNotificationAttachment(
+            identifier: "image",
+            url: copy,
+            options: [UNNotificationAttachmentOptionsTypeHintKey: type.identifier]
+        ) else {
+            try? FileManager.default.removeItem(at: copy)
+            return nil
+        }
+        return attachment
+    }
+
+    private static func image(_ path: Any?) -> INImage? {
+        guard let path = path as? String, let data = FileManager.default.contents(atPath: path) else {
+            return nil
+        }
+        return INImage(imageData: data)
     }
 
     private func clearRead(_ read: [String: Any], user: String) {
