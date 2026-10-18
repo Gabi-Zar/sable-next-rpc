@@ -321,7 +321,7 @@
     );
   }
 
-  :global(.sticker) {
+  .sticker {
     border-radius: var(--radius);
     display: block;
     margin-top: var(--space-100);
@@ -329,7 +329,7 @@
     width: var(--timeline-sticker-width);
   }
 
-  :global(.sticker) + .body {
+  .sticker + .body {
     margin-top: var(--space-200);
   }
 

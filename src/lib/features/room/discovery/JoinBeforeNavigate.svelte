@@ -350,7 +350,7 @@
     width: 100%;
   }
 
-  :global(.mobile-back-bar) {
+  .wrapper > :global(.mobile-back-bar) {
     /* to keep the preview card centered */
     position: absolute;
     width: 100vw;
