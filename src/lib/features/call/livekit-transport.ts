@@ -1,5 +1,4 @@
 import {
-  AudioPresets,
   ConnectionQuality,
   ConnectionState,
   LocalAudioTrack,
@@ -94,11 +93,12 @@ export type LivekitTransportOptions = {
 const defaultWorker = (): Worker =>
   new Worker(new URL('livekit-client/e2ee-worker', import.meta.url), { type: 'module' });
 
+// Chrome rejects a BUNDLE whose Opus sections share a payload type with different
+// fmtp, so these must keep the microphone's defaults.
 const SCREEN_AUDIO_PUBLISH: TrackPublishOptions = {
-  audioPreset: AudioPresets.musicHighQualityStereo,
-  forceStereo: true,
-  dtx: false,
-  red: false,
+  forceStereo: false,
+  dtx: true,
+  red: true,
 };
 
 const DISPLAY_AUDIO_CAPTURE: ScreenShareCaptureOptions = {

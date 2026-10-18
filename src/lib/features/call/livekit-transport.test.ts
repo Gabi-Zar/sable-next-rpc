@@ -485,7 +485,7 @@ test('a share without our own audio capture asks the browser for stereo system a
         restrictOwnAudio: true,
       }) as unknown,
     }),
-    expect.objectContaining({ forceStereo: true, dtx: false, red: false })
+    expect.objectContaining({ forceStereo: false, dtx: true, red: true })
   );
 
   await transport.capabilities.screenShare?.setEnabled(false);
@@ -564,7 +564,7 @@ test('publishes the screen audio beside the share, and tears it down with it', a
   expect(screenAudio.captureScreenAudio).toHaveBeenCalledWith({ kind: 'apps', include: ['mpv'] });
   expect(participant.publishTrack).toHaveBeenCalledWith(
     expect.anything(),
-    expect.objectContaining({ source: 'screen_share_audio', forceStereo: true })
+    expect.objectContaining({ source: 'screen_share_audio', forceStereo: false })
   );
   expect(screenAudio.unmuteScreenAudio).toHaveBeenCalledOnce();
   expect(screenAudio.unmuteScreenAudio.mock.invocationCallOrder[0]).toBeGreaterThan(
