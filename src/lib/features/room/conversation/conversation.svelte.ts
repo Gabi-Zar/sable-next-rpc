@@ -245,6 +245,7 @@ export class Conversation {
     }
     if (outcome.kind === 'knock') {
       this.context = null;
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- knockPagePath() resolves the route itself
       void goto(knockPagePath(outcome.address, outcome.via));
       return;
     }
