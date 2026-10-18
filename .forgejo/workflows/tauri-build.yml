@@ -549,6 +549,10 @@ jobs:
       UPDATER_ENDPOINT: ${{ needs.setup-release.outputs.nightly == 'true' && 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly/latest.json' || '' }}
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
+      APPLE_API_KEY: ${{ secrets.APP_STORE_API_KEY_ID }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -565,6 +569,11 @@ jobs:
           rust: 'true'
           rust-cache-key: tauri-desktop
           install-mise-tools: 'false'
+      - name: Write the App Store Connect API key
+        uses: ./.forgejo/actions/app-store-connect-key
+        with:
+          key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
+          key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
       - name: Add Rust targets
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
@@ -584,6 +593,8 @@ jobs:
           # Bundling an updater artifact without a key is a hard error.
           [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] \
             && config_args+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
+          [ -z "${APPLE_CERTIFICATE:-}" ] \
+            && unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
           pnpm tauri build "${config_args[@]}" --target universal-apple-darwin
       - name: Upload native symbols to Sentry
         run: node scripts/ci/upload-sentry-symbols.mjs target
@@ -683,6 +694,10 @@ jobs:
       VERSION: ${{ needs.setup-release.outputs.version }}
       TAG: ${{ needs.setup-release.outputs.tag }}
       SHA: ${{ github.sha }}
+      CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+      CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
+      APPLE_API_KEY_ID: ${{ secrets.APP_STORE_API_KEY_ID }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -699,8 +714,22 @@ jobs:
           rust: 'true'
           rust-cache-key: electron-macos
           install-mise-tools: 'false'
+      - name: Write the App Store Connect API key
+        uses: ./.forgejo/actions/app-store-connect-key
+        with:
+          key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
+          key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
       - name: Package
-        run: pnpm --dir electron package --mac
+        run: |
+          sign_args=()
+          if [ -n "${CSC_LINK:-}" ]; then
+            # electron-builder takes the key's path, not its ID, from APPLE_API_KEY.
+            export APPLE_API_KEY="$APPLE_API_KEY_PATH"
+            sign_args=(-c.mac.identity=NXLJ6G3CP7 -c.mac.hardenedRuntime=true)
+          else
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_ISSUER APPLE_API_KEY_ID
+          fi
+          pnpm --dir electron package --mac "${sign_args[@]}"
       - name: Publish Electron bundles and update metadata
         run: node electron/publish-updates.mjs
 
@@ -721,7 +750,6 @@ jobs:
     env:
       TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
-      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
       RUST_TARGETS: aarch64-apple-ios
       # Read by src-tauri/build.rs, which bakes them into the binary.
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
@@ -733,7 +761,6 @@ jobs:
       SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
       APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
       APPLE_API_KEY: ${{ secrets.APP_STORE_API_KEY_ID }}
-      APP_STORE_API_KEY_BASE64: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -751,13 +778,10 @@ jobs:
           rust-cache-key: tauri-ios
           install-mise-tools: 'false'
       - name: Write the App Store Connect API key
-        if: ${{ needs.setup-release.outputs.nightly == 'true' }}
-        run: |
-          key_dir="$HOME/.appstoreconnect/private_keys"
-          mkdir -p "$key_dir"
-          key_path="$key_dir/AuthKey_${APPLE_API_KEY}.p8"
-          printf '%s' "$APP_STORE_API_KEY_BASE64" | base64 --decode > "$key_path"
-          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+        uses: ./.forgejo/actions/app-store-connect-key
+        with:
+          key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
+          key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
       - name: Prepare in-place v1 upgrade identity
         if: ${{ needs.setup-release.outputs.nightly != 'true' }}
         run: node scripts/ci/prepare-v1-release.mjs
@@ -776,12 +800,8 @@ jobs:
       - name: Build iOS bundle
         id: ipa
         run: |
-          if [ "$IS_NIGHTLY" = 'true' ]; then
-            sign_args=(--export-method app-store-connect --build-number "$(date -u +%s)")
-          else
-            sign_args=(--no-sign)
-          fi
-          pnpm tauri ios build --config src-tauri/tauri.ci.conf.json "${sign_args[@]}" --ci
+          pnpm tauri ios build --config src-tauri/tauri.ci.conf.json \
+            --export-method app-store-connect --build-number "$(date -u +%s)" --ci
           node scripts/ci/upload-sentry-symbols.mjs --ios
           ipa="$(find src-tauri/gen/apple/build -type f -name '*.ipa' | head -n 1)"
           [ -n "$ipa" ] || { echo 'No iOS IPA found' >&2; exit 1; }

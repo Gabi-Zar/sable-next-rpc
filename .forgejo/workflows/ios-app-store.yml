@@ -61,7 +61,6 @@ jobs:
       APPLE_DEVELOPMENT_TEAM: NXLJ6G3CP7
       APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
       APPLE_API_KEY: ${{ secrets.APP_STORE_API_KEY_ID }}
-      APP_STORE_API_KEY_BASE64: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
       APP_IDENTIFIER_CONFIG: '{"identifier":"moe.sable.app"}'
       RUST_TARGETS: aarch64-apple-ios
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
@@ -95,12 +94,10 @@ jobs:
           rust-cache-key: tauri-ios
           install-mise-tools: 'false'
       - name: Write the App Store Connect API key
-        run: |
-          key_dir="$HOME/.appstoreconnect/private_keys"
-          mkdir -p "$key_dir"
-          key_path="$key_dir/AuthKey_${APPLE_API_KEY}.p8"
-          printf '%s' "$APP_STORE_API_KEY_BASE64" | base64 --decode > "$key_path"
-          echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+        uses: ./.forgejo/actions/app-store-connect-key
+        with:
+          key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
+          key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
       - name: Set up iOS project
         run: |
           command -v pod >/dev/null || brew install cocoapods

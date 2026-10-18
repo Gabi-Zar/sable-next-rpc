@@ -1,0 +1,25 @@
+name: App Store Connect API key
+description: Writes the App Store Connect API key and exports its path as APPLE_API_KEY_PATH.
+
+inputs:
+  key-id:
+    description: The API key ID.
+    required: true
+  key:
+    description: The base64-encoded .p8 private key.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Write the App Store Connect API key
+      shell: bash
+      env:
+        KEY_ID: ${{ inputs.key-id }}
+        KEY: ${{ inputs.key }}
+      run: |
+        key_dir="$HOME/.appstoreconnect/private_keys"
+        mkdir -p "$key_dir"
+        key_path="$key_dir/AuthKey_${KEY_ID}.p8"
+        printf '%s' "$KEY" | base64 --decode > "$key_path"
+        echo "APPLE_API_KEY_PATH=$key_path" >> "$GITHUB_ENV"

@@ -63,6 +63,8 @@ mac:
   # Not '-': 26.15.3 signs with any keychain certificate whose name has a dash.
   identity: null
   hardenedRuntime: false
+  entitlements: entitlements.mac.plist
+  entitlementsInherit: entitlements.mac.plist
   extendInfo:
     NSCameraUsageDescription: Sable needs camera access for video calls, photos and videos.
     NSMicrophoneUsageDescription: Sable needs microphone access for calls and videos.

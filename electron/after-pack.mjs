@@ -15,7 +15,7 @@ export default async function afterPack(context) {
   const { electronPlatformName, appOutDir, packager } = context;
   await packager.addElectronFuses(context, await packager.generateFuseConfig(fuses));
 
-  if (electronPlatformName !== 'darwin') return;
+  if (electronPlatformName !== 'darwin' || packager.platformSpecificBuildOptions.identity) return;
   const app = join(appOutDir, `${packager.appInfo.productFilename}.app`);
   execFileSync('codesign', ['--force', '--deep', '--sign', '-', app], { stdio: 'inherit' });
 }

@@ -78,6 +78,7 @@
     },
     "macOS": {
       "minimumSystemVersion": "12.0",
+      "entitlements": "./Entitlements.plist",
       "dmg": {
         "background": "icons/installer/dmg-background.png"
       }
