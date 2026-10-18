@@ -483,6 +483,17 @@ jobs:
             --default-branch=master \
             --repo=repo \
             builddir "$MANIFEST"
+      - name: Confirm the release tarball was not replaced
+        if: ${{ steps.tarball.outputs.built == 'true' }}
+        shell: bash
+        run: |
+          tarball="${TARBALL//@VERSION@/$VERSION}"
+          url="$FORGEJO_URL/$FORGEJO_REPOSITORY/releases/download/$TAG/$tarball"
+          live="$(curl -fsSLI "$url" | tr -d '\r' | awk 'tolower($1) == "content-length:" {size = $2} END {print size}')"
+          if [ "$live" != "$SIZE" ]; then
+            echo "::error::$tarball is $live bytes on the release but the manifest recorded $SIZE."
+            exit 1
+          fi
       - name: Upload the exported repo
         if: ${{ steps.tarball.outputs.built == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
