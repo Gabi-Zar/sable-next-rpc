@@ -34,8 +34,9 @@ pub trait SessionStore: SendOutsideWasm + SyncOutsideWasm + 'static {
     async fn load(&self) -> Result<Option<Vec<u8>>, StoreError>;
     async fn save(&self, bytes: Vec<u8>) -> Result<(), StoreError>;
     async fn clear(&self) -> Result<(), StoreError>;
-    /// Drops any file lock held on the credentials; the next access takes it again.
+    /// Drops any file lock held on the credentials and holds it only during each access until [`Self::retain`].
     async fn release(&self) {}
+    async fn retain(&self) {}
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -48,6 +49,7 @@ pub struct FileSessionStore {
 pub struct ExclusiveFileSessionStore {
     directory: std::path::PathBuf,
     store: tokio::sync::Mutex<Option<std::sync::Arc<FileSessionStore>>>,
+    released: std::sync::atomic::AtomicBool,
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -57,6 +59,7 @@ impl ExclusiveFileSessionStore {
         Self {
             directory: directory.into(),
             store: tokio::sync::Mutex::new(None),
+            released: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -70,7 +73,9 @@ impl ExclusiveFileSessionStore {
             .await
             .map_err(StoreError::backend)??;
         let opened = std::sync::Arc::new(opened);
-        *store = Some(opened.clone());
+        if !self.released.load(std::sync::atomic::Ordering::SeqCst) {
+            *store = Some(opened.clone());
+        }
         Ok(opened)
     }
 }
@@ -88,7 +93,15 @@ impl SessionStore for ExclusiveFileSessionStore {
         self.store().await?.clear().await
     }
     async fn release(&self) {
-        self.store.lock().await.take();
+        let mut store = self.store.lock().await;
+        self.released
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        store.take();
+    }
+    async fn retain(&self) {
+        let _store = self.store.lock().await;
+        self.released
+            .store(false, std::sync::atomic::Ordering::SeqCst);
     }
 }
 
@@ -279,17 +292,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn releasing_the_exclusive_store_frees_the_lock_until_the_next_access() {
+    async fn a_released_store_holds_the_lock_only_during_each_access_until_retained() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("session.json"), b"saved session").unwrap();
         let store = super::ExclusiveFileSessionStore::new(dir.path());
         store.load().await.unwrap();
         store.release().await;
-        let other = FileSessionStore::try_exclusive(dir.path())
-            .unwrap()
-            .unwrap();
-        drop(other);
+        assert!(
+            FileSessionStore::try_exclusive(dir.path())
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(store.load().await.unwrap(), Some(b"saved session".to_vec()));
+        store.save(b"refreshed session".to_vec()).await.unwrap();
+        assert!(
+            FileSessionStore::try_exclusive(dir.path())
+                .unwrap()
+                .is_some()
+        );
+        store.retain().await;
+        assert_eq!(
+            store.load().await.unwrap(),
+            Some(b"refreshed session".to_vec())
+        );
         assert!(
             FileSessionStore::try_exclusive(dir.path())
                 .unwrap()

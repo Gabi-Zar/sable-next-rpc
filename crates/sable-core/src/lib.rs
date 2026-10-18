@@ -466,6 +466,11 @@ impl Core {
         if self.app_active.load(Ordering::Relaxed) != active {
             return;
         }
+        if active {
+            self.sessions.retain().await;
+        } else {
+            self.sessions.release().await;
+        }
         let Ok(sync_service) = self.sync_service().await else {
             return;
         };
@@ -485,38 +490,56 @@ impl Core {
             #[cfg(target_os = "ios")]
             self.close_stores().await;
         }
-        if !active {
-            self.release_session_lock().await;
-        }
     }
 
     /// iOS kills a suspended process that still holds a lock in the shared App Group container.
-    pub async fn release_session_lock(&self) {
-        self.sessions.release().await;
-    }
-
-    #[cfg(not(target_family = "wasm"))]
-    pub(crate) async fn release_session_lock_while_inactive(&self) {
+    pub async fn release_session_lock_while_inactive(&self) {
+        let _serial = self.activity_lock.lock().await;
         if !self.app_active.load(Ordering::Relaxed) {
-            self.release_session_lock().await;
+            self.sessions.release().await;
         }
     }
 
     #[cfg(target_os = "ios")]
-    async fn close_stores(&self) {
-        if let Ok(client) = self.client().await
-            && let Err(error) = client.pause().await
+    async fn store_clients(&self) -> Vec<matrix_sdk::Client> {
+        let mut clients: Vec<_> = self
+            .account_clients
+            .lock()
+            .await
+            .values()
+            .cloned()
+            .collect();
+        clients.extend(self.client().await.ok());
+        if let Some(PendingLogin::Oidc(.., client, _) | PendingLogin::Sso(.., client, _)) =
+            self.pending_login.lock().await.as_ref()
         {
-            tracing::warn!("closing the stores before suspension failed: {error}");
+            clients.push(client.clone());
+        }
+        clients.extend(
+            self.pending_registration
+                .lock()
+                .await
+                .as_ref()
+                .map(registration::PendingRegistration::client),
+        );
+        clients
+    }
+
+    #[cfg(target_os = "ios")]
+    async fn close_stores(&self) {
+        for client in self.store_clients().await {
+            if let Err(error) = client.pause().await {
+                tracing::warn!("closing the stores before suspension failed: {error}");
+            }
         }
     }
 
     #[cfg(target_os = "ios")]
     async fn reopen_stores(&self) {
-        if let Ok(client) = self.client().await
-            && let Err(error) = client.resume().await
-        {
-            tracing::warn!("reopening the stores after suspension failed: {error}");
+        for client in self.store_clients().await {
+            if let Err(error) = client.resume().await {
+                tracing::warn!("reopening the stores after suspension failed: {error}");
+            }
         }
     }
 
@@ -826,6 +849,34 @@ mod tests {
         assert!(core.search_crawl_active());
         core.search_foreground.store(false, Ordering::Relaxed);
         assert!(!core.search_crawl_active());
+    }
+
+    #[tokio::test]
+    async fn an_inactive_app_never_keeps_the_credentials_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let (core, _rx) = Core::new(
+            dir.path().to_string_lossy(),
+            Box::new(store::ExclusiveFileSessionStore::new(dir.path())),
+        );
+        let locked = || {
+            store::FileSessionStore::try_exclusive(dir.path())
+                .unwrap()
+                .is_none()
+        };
+        core.sessions.save(b"session".to_vec()).await.unwrap();
+        assert!(locked());
+
+        core.set_app_active(false);
+        core.apply_app_activity(false).await;
+        assert!(!locked());
+        core.sessions.save(b"refreshed".to_vec()).await.unwrap();
+        assert!(!locked());
+
+        core.set_app_active(true);
+        core.release_session_lock_while_inactive().await;
+        core.apply_app_activity(true).await;
+        core.sessions.load().await.unwrap();
+        assert!(locked());
     }
 
     #[tokio::test]

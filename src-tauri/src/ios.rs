@@ -243,6 +243,60 @@ pub fn set_system_bars_hidden(window: tauri::WebviewWindow, hidden: bool) -> Res
 #[link(name = "UIKit", kind = "framework")]
 unsafe extern "C" {
     static UIBackgroundTaskInvalid: usize;
+    static UIApplicationWillResignActiveNotification: &'static NSString;
+    static UIApplicationDidEnterBackgroundNotification: &'static NSString;
+    static UIApplicationDidBecomeActiveNotification: &'static NSString;
+}
+
+const UI_APPLICATION_STATE_BACKGROUND: isize = 2;
+
+/// A push or call wake launches the app here without it ever resigning active.
+pub(crate) fn in_background() -> bool {
+    let state: isize = unsafe { msg_send![shared_application(), applicationState] };
+    state == UI_APPLICATION_STATE_BACKGROUND
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum Lifecycle {
+    ResignActive,
+    EnterBackground,
+    BecomeActive,
+}
+
+/// tao's `Focused` follows the key window, which also changes in the background.
+pub(crate) fn observe_lifecycle(handler: impl Fn(Lifecycle) + 'static) {
+    let handler = std::rc::Rc::new(handler);
+    let center: &AnyObject =
+        unsafe { msg_send![objc2::class!(NSNotificationCenter), defaultCenter] };
+    let queue: &AnyObject = unsafe { msg_send![objc2::class!(NSOperationQueue), mainQueue] };
+    let observed = unsafe {
+        [
+            (
+                UIApplicationWillResignActiveNotification,
+                Lifecycle::ResignActive,
+            ),
+            (
+                UIApplicationDidEnterBackgroundNotification,
+                Lifecycle::EnterBackground,
+            ),
+            (
+                UIApplicationDidBecomeActiveNotification,
+                Lifecycle::BecomeActive,
+            ),
+        ]
+    };
+    for (name, change) in observed {
+        let handler = handler.clone();
+        let block = RcBlock::new(move |_: *mut AnyObject| (*handler)(change));
+        let _: objc2::rc::Retained<AnyObject> = unsafe {
+            msg_send![center,
+                addObserverForName: name,
+                object: std::ptr::null::<AnyObject>(),
+                queue: queue,
+                usingBlock: &*block
+            ]
+        };
+    }
 }
 
 /// iOS kills a process suspended mid-write to the App Group stores.

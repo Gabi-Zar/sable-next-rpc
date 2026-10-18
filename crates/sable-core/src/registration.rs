@@ -67,6 +67,13 @@ pub(super) struct PendingRegistration {
     email: Option<PendingEmail>,
 }
 
+#[cfg(target_os = "ios")]
+impl PendingRegistration {
+    pub(super) fn client(&self) -> matrix_sdk::Client {
+        self.client.clone()
+    }
+}
+
 struct PendingEmail {
     address: Option<String>,
     client_secret: Option<OwnedClientSecret>,

@@ -1054,13 +1054,11 @@ impl Core {
                 let handle = tokio::runtime::Handle::current();
                 tokio::task::block_in_place(|| {
                     handle.block_on(async move {
-                        let persisted = core
-                            .persist_refreshed(&client, &homeserver, &account_id, generation)
-                            .await;
-                        core.release_session_lock_while_inactive().await;
-                        persisted.map_err(|error| {
-                            format!("could not persist refreshed session: {error:?}").into()
-                        })
+                        core.persist_refreshed(&client, &homeserver, &account_id, generation)
+                            .await
+                            .map_err(|error| {
+                                format!("could not persist refreshed session: {error:?}").into()
+                            })
                     })
                 })
             }
@@ -1091,13 +1089,7 @@ impl Core {
                 let core = loader.upgrade().ok_or("session owner was dropped")?;
                 let handle = tokio::runtime::Handle::current();
                 tokio::task::block_in_place(|| {
-                    handle.block_on(async {
-                        let tokens = core
-                            .reload_saved_tokens(&loaded_account_id, generation)
-                            .await;
-                        core.release_session_lock_while_inactive().await;
-                        tokens
-                    })
+                    handle.block_on(core.reload_saved_tokens(&loaded_account_id, generation))
                 })
                 .map_err(|error| format!("could not reload saved tokens: {error:?}").into())
             }
