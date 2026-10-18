@@ -584,43 +584,44 @@
     {#if !actionable && editable && item.transaction_id && engagement.engaged}
       <MessageActions {roomId} onEdit={actions.onEdit} />
     {/if}
-    {#if layout === 'compact'}
-      {@const fullTimestamp = formatFullTimestamp(item.timestamp)}
-      <div class="compact-gutter">
-        {#if pending}
-          <Spinner small label={i18n.t('timeline.sending')} />
-        {:else}
-          <Tooltip label={fullTimestamp}>
-            {#snippet trigger({ props })}
-              <time {...props} datetime={new Date(item.timestamp).toISOString()}>
-                {formatTime(item.timestamp)}
-              </time>
-            {/snippet}
-          </Tooltip>
-        {/if}
-        <div class="compact-user">
-          {#if avatarsInHeaders}
-            {@render senderAvatarButton('tiny')}
-          {/if}
-          <SenderName
-            displayName={senderName}
-            colors={senderColors}
-            {pronouns}
-            nameClass="compact-name"
-            onMention={nameMentions ? mentionSender : undefined}
-            onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
-            compact={layout === 'compact'}
-          />
-        </div>
-      </div>
-    {:else if !collapsed}
+    {#if layout !== 'compact' && !collapsed}
       {@render senderAvatarButton('small')}
     {/if}
     <div
       class="message-content"
       style:--receipt-reserve={trailingReceiptBadge ? `${String(receiptWidth)}px` : undefined}
     >
-      {#if item.in_reply_to && preferences.replyPreviewStyle === 'connected'}
+      {#if layout === 'compact'}
+        {@const fullTimestamp = formatFullTimestamp(item.timestamp)}
+        <div class="compact-gutter">
+          {#if pending}
+            <Spinner small label={i18n.t('timeline.sending')} />
+          {:else}
+            <Tooltip label={fullTimestamp}>
+              {#snippet trigger({ props })}
+                <time {...props} datetime={new Date(item.timestamp).toISOString()}>
+                  {formatTime(item.timestamp)}
+                </time>
+              {/snippet}
+            </Tooltip>
+          {/if}
+          <div class="compact-user">
+            {#if avatarsInHeaders}
+              {@render senderAvatarButton('tiny')}
+            {/if}
+            <SenderName
+              displayName={senderName}
+              colors={senderColors}
+              {pronouns}
+              nameClass="compact-name"
+              onMention={nameMentions ? mentionSender : undefined}
+              onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
+              compact={layout === 'compact'}
+            />
+          </div>
+        </div>
+      {/if}
+      {#if item.in_reply_to && (preferences.replyPreviewStyle === 'connected' || layout === 'compact')}
         {@render replyPreview(item.in_reply_to)}
       {/if}
       {#if !collapsed && layout !== 'compact'}
@@ -674,7 +675,7 @@
         </header>
       {/if}
       <div class="message-main">
-        {#if item.in_reply_to && preferences.replyPreviewStyle !== 'connected'}
+        {#if item.in_reply_to && preferences.replyPreviewStyle !== 'connected' && layout !== 'compact'}
           {@render replyPreview(item.in_reply_to)}
         {/if}
         {#if item.forwarded}
@@ -1396,8 +1397,19 @@
 
   /* Layout modes stay in one block at the end: each overrides a base rule
      above, and a second copy elsewhere would drift out of sync. */
-  .message.layout-compact {
-    gap: var(--space-300);
+  .message.layout-compact .message-content {
+    column-gap: var(--space-300);
+    grid-template-columns: clamp(7.5rem, 20%, 10.625rem) minmax(0, 1fr);
+  }
+
+  .message.layout-compact .message-content > :global(.reply-preview) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .message.layout-compact .message-main {
+    grid-column: 2;
+    grid-row: 2;
   }
 
   .message.layout-compact.collapsed {
@@ -1407,13 +1419,18 @@
   .compact-gutter {
     align-items: center;
     display: flex;
-    flex: 0 0 clamp(7.5rem, 20%, 10.625rem);
     gap: var(--space-200);
+    grid-column: 1;
+    grid-row: 2;
     height: fit-content;
     justify-content: space-between;
     min-width: 0;
     overflow: hidden;
     white-space: nowrap;
+  }
+
+  .message.has-connected-reply .compact-gutter {
+    grid-row: 1;
   }
 
   .message.layout-compact .compact-gutter time {

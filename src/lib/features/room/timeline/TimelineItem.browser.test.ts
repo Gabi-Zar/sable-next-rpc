@@ -156,6 +156,17 @@ test('a compact connected reply keeps its connector clear of the name gutter', a
   expect(connectorLeft).toBeGreaterThanOrEqual(gutter.getBoundingClientRect().right);
 });
 
+test('a compact reply preview keeps the name gutter level with the message body', async () => {
+  setPreference('replyPreviewStyle', 'compact');
+  await mountItem(replyToAlice('compact-reply-name', '@bob:example.test', 'Bob'), 'compact');
+
+  const row = document.querySelector('.message');
+  const gutter = row?.querySelector('.compact-gutter');
+  const body = row?.querySelector('.formatted-body');
+  if (!gutter || !body) throw new Error('missing compact reply parts');
+  expect(gutter.getBoundingClientRect().top).toBe(body.getBoundingClientRect().top);
+});
+
 test('a mobile connected reply aligns its preview text with the sender name', async () => {
   await page.viewport(390, 844);
   setPreference('replyPreviewStyle', 'connected');
