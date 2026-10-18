@@ -170,16 +170,21 @@ jobs:
           # `github.repository` keeps the owner's capitals; an image reference cannot.
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
           docker buildx create --name "ci-$GITHUB_RUN_ID-$ARCH" --driver docker-container --use
-          docker buildx build . \
-            --file packaging/docker/Dockerfile \
-            --platform "linux/$ARCH" \
-            --label "org.opencontainers.image.source=$FORGEJO_URL/$GITHUB_REPOSITORY" \
-            --label "org.opencontainers.image.revision=$REVISION" \
-            --label "org.opencontainers.image.version=$VERSION" \
-            --cache-from "type=registry,ref=$image:buildcache-$ARCH" \
-            --cache-to "type=registry,ref=$image:buildcache-$ARCH,mode=max,ignore-error=true" \
-            --output "type=image,name=$image,push-by-digest=true,name-canonical=true,push=true" \
-            --metadata-file "$RUNNER_TEMP/build-metadata.json"
+          # Forgejo fails the push when both arch jobs upload the same layer at once.
+          for attempt in 1 2 3; do
+            docker buildx build . \
+              --file packaging/docker/Dockerfile \
+              --platform "linux/$ARCH" \
+              --label "org.opencontainers.image.source=$FORGEJO_URL/$GITHUB_REPOSITORY" \
+              --label "org.opencontainers.image.revision=$REVISION" \
+              --label "org.opencontainers.image.version=$VERSION" \
+              --cache-from "type=registry,ref=$image:buildcache-$ARCH" \
+              --cache-to "type=registry,ref=$image:buildcache-$ARCH,mode=max,ignore-error=true" \
+              --output "type=image,name=$image,push-by-digest=true,name-canonical=true,push=true" \
+              --metadata-file "$RUNNER_TEMP/build-metadata.json" && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 10))
+          done
           mkdir digests
           node -p "require(process.env.RUNNER_TEMP + '/build-metadata.json')['containerimage.digest']" > "digests/$ARCH"
       - name: Remove the builder
