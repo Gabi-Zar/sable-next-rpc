@@ -7,6 +7,8 @@
     RoomListItemView,
   } from '#src/generated/protocol';
 
+  import { CoreError } from '#src/transport';
+
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
@@ -67,6 +69,7 @@
   let members = $state.raw<MemberView[]>([]);
   let loading = $state(false);
   let failed = $state(false);
+  let denied = $state(false);
   let busy = $state<string | null>(null);
   let inviteOpen = $state(false);
   const directory = new UserDirectoryLookup(core);
@@ -197,6 +200,7 @@
     const current = ++run;
     loading = true;
     failed = false;
+    denied = false;
     try {
       const loaded = await core.rpc.members.list({
         room_id: target,
@@ -237,7 +241,9 @@
           .filter((entry) => matchesFilter(entry, tab));
     } catch (error) {
       console.warn('[sable room] member action failed', error);
+      await load();
       failed = true;
+      denied = error instanceof CoreError && error.detail.code === 'denied';
     } finally {
       busy = null;
     }
@@ -387,7 +393,9 @@
   </div>
 
   {#if failed}
-    <Alert variant="critical" role="alert">{i18n.t('room.membersFailed')}</Alert>
+    <Alert variant="critical" role="alert"
+      >{i18n.t(denied ? 'room.membersDenied' : 'room.membersFailed')}</Alert
+    >
   {/if}
 
   {#if loading && members.length === 0}

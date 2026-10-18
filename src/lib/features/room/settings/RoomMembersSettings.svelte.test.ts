@@ -4,6 +4,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 
+import { CoreError } from '#src/transport';
 import type {
   MemberView,
   PowerLevelTagView,
@@ -299,4 +300,19 @@ test('offers no role above your own and asks before lowering your own', async ()
     });
   });
   core.session = null;
+});
+
+test('refreshes the list and says the server refused when a kick is denied', async () => {
+  core.rpc.members.list.mockResolvedValueOnce([alice]).mockResolvedValue([]);
+  core.rpc.members.kick.mockRejectedValue(new CoreError({ code: 'denied' }));
+  const user = await renderMembers();
+
+  await user.click(screen.getByRole('button', { name: 'Remove from room' }));
+  await user.click(
+    within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove from room' })
+  );
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('The server refused this');
+  expect(core.rpc.members.list).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText('Alice')).not.toBeInTheDocument();
 });

@@ -441,6 +441,7 @@
     "membersInvited": "Invited",
     "membersBanned": "Banned",
     "membersFailed": "That could not be done.",
+    "membersDenied": "The server refused this. The member may have already left.",
     "membersRequests": "Requests",
     "membersNoRequests": "No pending join requests.",
     "membersApprove": "Approve",
