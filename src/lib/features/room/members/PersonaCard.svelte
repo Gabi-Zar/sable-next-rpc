@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import PronounPill from '#lib/ui/primitives/PronounPill.svelte';
   import type { MemberView, PerMessageProfileView, ProfileView } from '#src/generated/protocol';
   import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
   import ShieldIcon from 'phosphor-svelte/lib/ShieldIcon';
@@ -84,6 +85,9 @@
   {composer}
 >
   {#snippet pronouns()}
+    {#if profile.pronouns.length > 0}
+      <PronounPill pronouns={profile.pronouns} class="persona-profile-pronoun-pill" />
+    {/if}
     {#if ownerProfile?.supporter_awards}
       <UserSupporterBadge
         userId={accountId}
@@ -141,5 +145,11 @@
     align-self: center;
     margin-inline: auto calc(-1 * var(--space-100));
     order: 1;
+  }
+
+  :global(.persona-profile-pronoun-pill) {
+    --profile-text-muted: color-mix(in oklab, var(--sec-main) 55%, var(--bg-on-container));
+
+    color: var(--profile-text-muted);
   }
 </style>

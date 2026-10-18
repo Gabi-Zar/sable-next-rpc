@@ -91,7 +91,7 @@ core.userRelations.mockResolvedValue({ mutualRooms: [], ignored: false });
 
 const user = userEvent.setup();
 
-test('keeps pronouns out of the member list and the profile card', async () => {
+test('shows pronouns on the profile card but not in the member list', async () => {
   const profile = {
     ...emptyProfile,
     display_name: 'Alice',
@@ -109,7 +109,15 @@ test('keeps pronouns out of the member list and the profile card', async () => {
     expect(document.querySelector('.member-identity-row')).toHaveTextContent('Alice');
   });
   expect(document.querySelector('.sender-identity-pronoun')).toBeNull();
-  expect(document.querySelector('.profile-pronoun-pill')).toBeNull();
+  expect(document.querySelector('.profile-pronoun-pill')).toHaveTextContent('they/them');
+
+  try {
+    preferences.showPronouns = false;
+    await tick();
+    expect(document.querySelector('.profile-pronoun-pill')).toHaveTextContent('they/them');
+  } finally {
+    preferences.showPronouns = true;
+  }
 });
 
 async function press(element: Element | null | undefined): Promise<void> {
@@ -407,7 +415,7 @@ test('renders the extended profile fields', async () => {
   await tick();
 
   const meta = document.querySelectorAll('.profile-card-meta .profile-meta-item');
-  expect(document.querySelector('.profile-pronoun-pill')).toBeNull();
+  expect(document.querySelector('.profile-pronoun-pill')?.textContent.trim()).toBe('she/her');
   expect(meta[0].textContent).toContain('(Europe/Paris)');
   expect(meta[1].textContent).toBe('Is cat, give headpats!');
   expect(document.querySelector('.profile-card-status')?.textContent.trim()).toBe(
