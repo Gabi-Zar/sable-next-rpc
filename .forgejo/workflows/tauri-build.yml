@@ -17,7 +17,7 @@ concurrency:
 env:
   MISE_GITHUB_TOKEN: ${{ secrets.MISE_GITHUB_TOKEN }}
   CARGO_INCREMENTAL: 0
-  CARGO_PROFILE_RELEASE_DEBUG: '1'
+  CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
   CARGO_PROFILE_RELEASE_STRIP: none
   CARGO_TERM_COLOR: always
   FORGEJO_URL: https://git.sable.moe
@@ -383,7 +383,6 @@ jobs:
       # Limit peak memory while compiling the SDK and linking the app on the Android runner.
       CARGO_BUILD_JOBS: '1'
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '4'
-      CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
       # Matches the ABIs passed to `tauri android build` below.
       RUST_TARGETS: aarch64-linux-android armv7-linux-androideabi
       # Read by src-tauri/build.rs, which bakes them into the binary.
@@ -724,7 +723,6 @@ jobs:
       VERSION: ${{ needs.setup-release.outputs.version }}
       IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
       RUST_TARGETS: aarch64-apple-ios
-      CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
       # Read by src-tauri/build.rs, which bakes them into the binary.
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

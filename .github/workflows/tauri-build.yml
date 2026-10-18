@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
 env:
   CARGO_INCREMENTAL: 0
-  CARGO_PROFILE_RELEASE_DEBUG: '1'
+  CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
   CARGO_PROFILE_RELEASE_STRIP: none
   CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO: packed
   CARGO_TERM_COLOR: always
