@@ -5,7 +5,6 @@ import { TimelineEventRouter } from './timeline-event-router';
 
 const logFlushMs = 250;
 const logBufferLimit = 500;
-const syncStopDelayMs = 3_000;
 const logLevelPrefix = /^\s*(TRACE|DEBUG|INFO|WARN|ERROR)\s/;
 
 export type WorkerCore = {
@@ -39,33 +38,23 @@ export function createCoreWorkerBoundary(
   stop: () => Promise<void> = () => Promise.resolve()
 ) {
   const ports = new Set<WorkerPort>();
-  const hiddenPorts = new Set<WorkerPort>();
   const timelineEvents = new TimelineEventRouter<WorkerPort>();
   let panic: string | null = null;
   let logs: string[] = [];
   let droppedLogs = 0;
   let flushLogsTimer: ReturnType<typeof setTimeout> | undefined;
-  let stopSyncTimer: ReturnType<typeof setTimeout> | undefined;
 
-  function applyActivity(): void {
-    const active = ports.size > hiddenPorts.size;
-    if (stopSyncTimer !== undefined) clearTimeout(stopSyncTimer);
-    stopSyncTimer = undefined;
-    const apply = (): void => {
-      void core
-        .then((instance) => instance.setActive(active))
-        .catch((error: unknown) => {
-          console.debug('[sable worker] sync activity not applied', error);
-        });
-    };
-    if (active) apply();
-    else stopSyncTimer = setTimeout(apply, syncStopDelayMs);
+  // Hidden tabs keep syncing so they still notify; this only retries a sync that went offline.
+  function resumeSync(): void {
+    void core
+      .then((instance) => instance.setActive(true))
+      .catch((error: unknown) => {
+        console.debug('[sable worker] sync activity not applied', error);
+      });
   }
 
   function closePort(port: WorkerPort): void {
     ports.delete(port);
-    hiddenPorts.delete(port);
-    if (ports.size > 0) applyActivity();
     const subscriptions = timelineEvents.removeOwner(port);
     if (subscriptions.length === 0) return;
 
@@ -201,9 +190,7 @@ export function createCoreWorkerBoundary(
         return;
       }
       if ('visible' in request) {
-        if (request.visible) hiddenPorts.delete(port);
-        else hiddenPorts.add(port);
-        applyActivity();
+        if (request.visible) resumeSync();
         return;
       }
       if ('logFilter' in request) {
@@ -399,9 +386,12 @@ export function createCoreWorkerBoundary(
     port.start();
   }
 
-  function handleOnline(): void {
-    if (ports.size > hiddenPorts.size) applyActivity();
-  }
-
-  return { connect, handleEvent, handleLog, handlePanic, handleSuperseded, handleOnline };
+  return {
+    connect,
+    handleEvent,
+    handleLog,
+    handlePanic,
+    handleSuperseded,
+    handleOnline: resumeSync,
+  };
 }

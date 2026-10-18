@@ -11,6 +11,7 @@ import { clearSession, loadSession, saveSession } from '#lib/platform/session-st
 import { installFirefoxFetchLimit } from './adaptive-fetch';
 import { createCoreWorkerBoundary } from './core-worker-boundary';
 import { claimStore } from './store-ownership';
+import { installSyncDeadline } from './sync-deadline';
 import { installUploadDeadline } from './upload-deadline';
 
 declare const self: SharedWorkerGlobalScope;
@@ -18,6 +19,7 @@ declare const self: SharedWorkerGlobalScope;
 const SHUTDOWN_LIMIT_MS = 5_000;
 
 installUploadDeadline(self);
+installSyncDeadline(self);
 installFirefoxFetchLimit(self);
 
 let started: SableCore | null = null;

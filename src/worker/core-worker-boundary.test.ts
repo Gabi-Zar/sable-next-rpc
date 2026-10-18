@@ -601,62 +601,34 @@ describe('sync activity', () => {
   const send = (port: FakePort, request: WorkerRequest) =>
     port.onmessage?.({ data: request } as MessageEvent<WorkerRequest>);
 
-  test('stops sync three seconds after the last visible tab hides', async () => {
+  test('keeps syncing while every tab is hidden or closed', async () => {
     const { first, second, setActive } = setup();
 
     send(first, { visible: false });
-    await vi.advanceTimersByTimeAsync(5000);
-    expect(setActive).toHaveBeenLastCalledWith(true);
-    setActive.mockClear();
-
     send(second, { visible: false });
-    await vi.advanceTimersByTimeAsync(2999);
+    send(second, { disconnect: true });
+    await vi.advanceTimersByTimeAsync(60_000);
+
     expect(setActive).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(1);
-    expect(setActive).toHaveBeenCalledExactlyOnceWith(false);
   });
 
-  test('a tab returning inside the delay cancels the stop and resumes at once', async () => {
-    const { first, second, setActive } = setup();
-    send(first, { visible: false });
-    send(second, { visible: false });
-    await vi.advanceTimersByTimeAsync(1000);
-    setActive.mockClear();
+  test('a tab becoming visible retries sync at once', async () => {
+    const { second, setActive } = setup();
 
     send(second, { visible: true });
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(setActive).toHaveBeenCalledExactlyOnceWith(true);
   });
 
-  test('closing the only visible tab idles sync for the hidden ones', async () => {
-    const { first, second, setActive } = setup();
-    send(first, { visible: false });
-    await vi.advanceTimersByTimeAsync(0);
-    setActive.mockClear();
-
-    send(second, { disconnect: true });
-    await vi.advanceTimersByTimeAsync(3000);
-
-    expect(setActive).toHaveBeenCalledExactlyOnceWith(false);
-  });
-
-  test('a returning network retries sync only while a tab is visible', async () => {
+  test('a returning network retries sync even with every tab hidden', async () => {
     const { boundary, first, second, setActive } = setup();
     send(first, { visible: false });
     send(second, { visible: false });
-    await vi.advanceTimersByTimeAsync(3000);
-    setActive.mockClear();
 
     boundary.handleOnline();
     await vi.advanceTimersByTimeAsync(0);
-    expect(setActive).not.toHaveBeenCalled();
 
-    send(second, { visible: true });
-    await vi.advanceTimersByTimeAsync(0);
-    setActive.mockClear();
-    boundary.handleOnline();
-    await vi.advanceTimersByTimeAsync(0);
     expect(setActive).toHaveBeenCalledExactlyOnceWith(true);
   });
 });
