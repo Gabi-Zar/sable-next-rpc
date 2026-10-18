@@ -29,6 +29,12 @@ use crate::store::{FileSessionStore, SessionStore};
 #[cfg(not(target_family = "wasm"))]
 use matrix_sdk::store::RoomLoadSettings;
 
+#[cfg(not(target_family = "wasm"))]
+mod push_cache;
+
+#[cfg(not(target_family = "wasm"))]
+pub use push_cache::evict as evict_push_cache;
+
 pub(crate) const GATEWAY_PATH: &str = "/_matrix/push/v1/notify";
 
 pub(crate) async fn pusher_display_name(client: &Client, fallback: String) -> String {
@@ -52,7 +58,7 @@ pub(crate) async fn pusher_display_name(client: &Client, fallback: String) -> St
 /// Resolve Android's app-data root to the session and SDK stores under `files`.
 #[cfg(not(target_family = "wasm"))]
 #[must_use]
-fn cold_push_store_dir(data_dir: &std::path::Path) -> std::path::PathBuf {
+pub fn cold_push_store_dir(data_dir: &std::path::Path) -> std::path::PathBuf {
     data_dir.join("files")
 }
 
@@ -67,11 +73,6 @@ fn push_account<'a>(
             && account.session.credentials.user_id() == user_id
             && account.session.credentials.device_id() == device_id
     })
-}
-
-#[cfg(not(target_family = "wasm"))]
-fn room_load(room_id: &str) -> RoomLoadSettings {
-    RoomId::parse(room_id).map_or_else(|_| RoomLoadSettings::default(), RoomLoadSettings::One)
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -94,7 +95,7 @@ pub async fn decrypt_cold_push(
     fetch_keys: bool,
 ) -> ColdPush {
     let store_dir = cold_push_store_dir(data_dir);
-    let Some(host) = push_host(&store_dir, user_id, device_id, room_load(room_id)).await else {
+    let Some(host) = push_cache::cold_host(&store_dir, user_id, device_id).await else {
         return ColdPush::Undecryptable;
     };
     let decrypt = || {
@@ -550,7 +551,7 @@ pub async fn fetch_cold_push_event(
     room_id: &str,
     event_id: &str,
 ) -> PushFetchView {
-    match PushSession::open(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
+    match PushSession::cached(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
         Some(session) => session.fetch(event_id).await,
         None => PushFetchView::Unavailable,
     }
@@ -560,7 +561,7 @@ pub async fn fetch_cold_push_event(
 /// the platform's notification processing budget.
 #[cfg(not(target_family = "wasm"))]
 pub struct PushSession {
-    host: PushHost,
+    host: push_cache::ColdHost,
     store_dir: std::path::PathBuf,
     room_id: matrix_sdk::ruma::OwnedRoomId,
 }
@@ -582,7 +583,22 @@ impl PushSession {
         )
         .await?;
         Some(Self {
-            host,
+            host: push_cache::ColdHost::uncached(host),
+            store_dir: store_dir.to_owned(),
+            room_id,
+        })
+    }
+
+    /// Android's login, which stays restored for as long as no core takes the store.
+    async fn cached(
+        store_dir: &std::path::Path,
+        user_id: &str,
+        device_id: &str,
+        room_id: &str,
+    ) -> Option<Self> {
+        let room_id = RoomId::parse(room_id).ok()?;
+        Some(Self {
+            host: push_cache::cold_host(store_dir, user_id, device_id).await?,
             store_dir: store_dir.to_owned(),
             room_id,
         })
@@ -607,7 +623,7 @@ impl PushSession {
         let Ok(event_id) = EventId::parse(event_id) else {
             return PushFetchView::Unavailable;
         };
-        let setup = match &self.host {
+        let setup = match &*self.host {
             PushHost::Live { sync_service, .. } => NotificationProcessSetup::SingleProcess {
                 sync_service: sync_service.clone(),
             },
@@ -630,8 +646,6 @@ impl PushSession {
         }
     }
 
-    /// `sender` asks for the avatars, `content` for the message's image; leave out
-    /// the content when the notification may not show the message.
     #[must_use]
     pub fn joined_members(&self) -> Option<u64> {
         self.host
@@ -640,6 +654,8 @@ impl PushSession {
             .map(|room| room.joined_members_count())
     }
 
+    /// `sender` asks for the avatars, `content` for the message's image; leave out
+    /// the content when the notification may not show the message.
     pub async fn media(
         &self,
         sender: Option<&str>,
@@ -751,7 +767,7 @@ pub async fn cold_push_media(
     sender: Option<&str>,
     content: Option<&serde_json::Value>,
 ) -> PushMedia {
-    match PushSession::open(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
+    match PushSession::cached(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
         Some(session) => session.media(sender, content).await,
         None => PushMedia::default(),
     }
@@ -1245,6 +1261,7 @@ mod tests {
     use matrix_sdk_test::JoinedRoomBuilder;
     use serde_json::json;
 
+    use super::push_cache::cold_host;
     use super::{
         ColdPush, PushHost, cold_push_store_dir, decrypt_cold_push, fetch_cold_push_event, gateway,
         is_backfill, push_account, push_host, restore_push_client,
@@ -1753,6 +1770,90 @@ mod tests {
         assert!(matches!(host, Some(PushHost::Shared { .. })));
 
         waits_for(|| drop(host), &account.store_id).await;
+    }
+
+    async fn lease_is_free(store_id: &str) -> bool {
+        tokio::time::timeout(
+            std::time::Duration::from_millis(500),
+            crate::session::store_lease(store_id),
+        )
+        .await
+        .is_ok()
+    }
+
+    #[tokio::test]
+    async fn pushes_reuse_one_restored_client() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let server = MatrixMockServer::new().await;
+        server.mock_versions().ok().mount().await;
+        let account = saved_login(&server, data_dir.path()).await;
+        let store_dir = cold_push_store_dir(data_dir.path());
+
+        let first = cold_host(&store_dir, "@alice:example.org", "A").await;
+        assert!(matches!(first.as_deref(), Some(PushHost::Own(_))));
+        drop(first);
+        // A second restore could not find the login any more.
+        tokio::fs::remove_file(store_dir.join("session.json"))
+            .await
+            .unwrap();
+        assert!(
+            cold_host(&store_dir, "@alice:example.org", "A")
+                .await
+                .is_some()
+        );
+        assert!(!lease_is_free(&account.store_id).await);
+    }
+
+    #[tokio::test]
+    async fn the_cache_gives_way_to_a_starting_core() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let server = MatrixMockServer::new().await;
+        server.mock_versions().ok().mount().await;
+        let account = saved_login(&server, data_dir.path()).await;
+        let store_dir = cold_push_store_dir(data_dir.path());
+        drop(cold_host(&store_dir, "@alice:example.org", "A").await);
+        assert!(!lease_is_free(&account.store_id).await);
+
+        let core = core_of(data_dir.path());
+
+        assert!(lease_is_free(&account.store_id).await);
+        let host = cold_host(&store_dir, "@alice:example.org", "A").await;
+        assert!(matches!(host.as_deref(), Some(PushHost::Shared { .. })));
+        drop(host);
+        assert!(lease_is_free(&account.store_id).await);
+        drop(core);
+
+        // Only the cached client could still serve the push once the login is gone.
+        tokio::fs::remove_file(store_dir.join("session.json"))
+            .await
+            .unwrap();
+        assert!(
+            cold_host(&store_dir, "@alice:example.org", "A")
+                .await
+                .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn an_evicted_login_is_restored_from_what_is_saved() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let server = MatrixMockServer::new().await;
+        server.mock_versions().ok().mount().await;
+        let account = saved_login(&server, data_dir.path()).await;
+        let store_dir = cold_push_store_dir(data_dir.path());
+        drop(cold_host(&store_dir, "@alice:example.org", "A").await);
+
+        super::evict_push_cache(&store_dir);
+
+        assert!(lease_is_free(&account.store_id).await);
+        tokio::fs::remove_file(store_dir.join("session.json"))
+            .await
+            .unwrap();
+        assert!(
+            cold_host(&store_dir, "@alice:example.org", "A")
+                .await
+                .is_none()
+        );
     }
 
     async fn encrypted_push(

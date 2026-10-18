@@ -190,6 +190,7 @@ pub async fn maintain_background_push(
     operation: BackgroundPush,
 ) -> Result<(), RpcError> {
     let _guard = PUSH_REGISTRATION_LOCK.lock().await;
+    sable_core::notifications::evict_push_cache(root);
     let pushers = registered_pushers(root)?;
     match operation {
         BackgroundPush::Activate { app_id, ack_token } => {

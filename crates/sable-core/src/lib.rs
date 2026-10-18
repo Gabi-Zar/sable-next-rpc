@@ -359,6 +359,8 @@ impl Core {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(Arc::downgrade(&core));
+        #[cfg(not(target_family = "wasm"))]
+        notifications::evict_push_cache(std::path::Path::new(&core.store_id));
         (core, rx)
     }
 

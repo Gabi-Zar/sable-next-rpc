@@ -72,7 +72,8 @@ fn decrypt_push<'frame>(
         let room_id = room_id.to_string();
         let event_json = event_json.to_string();
         let decrypt = async {
-            settle_refreshes(Box::pin(tokio::time::timeout(
+            bounded(
+                &data_dir,
                 std::time::Duration::from_secs(20),
                 sable_core::notifications::decrypt_cold_push(
                     std::path::Path::new(&data_dir),
@@ -82,7 +83,7 @@ fn decrypt_push<'frame>(
                     &event_json,
                     fetch_keys,
                 ),
-            )))
+            )
             .await
             .unwrap_or(ColdPush::Undecryptable)
         };
@@ -94,15 +95,43 @@ fn decrypt_push<'frame>(
     result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
 }
 
+/// A cancelled push may leave its cached client half-way through a request.
+async fn bounded<T>(
+    data_dir: &str,
+    limit: std::time::Duration,
+    operation: impl Future<Output = T>,
+) -> Option<T> {
+    let result = settle_refreshes(Box::pin(tokio::time::timeout(limit, operation)))
+        .await
+        .ok();
+    if result.is_none() {
+        sable_core::notifications::evict_push_cache(
+            &sable_core::notifications::cold_push_store_dir(std::path::Path::new(data_dir)),
+        );
+    }
+    result
+}
+
+/// The cached push client's background tasks need a runtime that outlives each call.
+fn cold_runtime() -> Option<&'static tokio::runtime::Runtime> {
+    static RUNTIME: std::sync::OnceLock<Option<tokio::runtime::Runtime>> =
+        std::sync::OnceLock::new();
+    RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .enable_all()
+                .build()
+                .ok()
+        })
+        .as_ref()
+}
+
 fn block_on<T>(live: bool, future: impl Future<Output = T>) -> Option<T> {
     if live {
         return Some(tauri::async_runtime::block_on(future));
     }
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .ok()
-        .map(|runtime| runtime.block_on(future))
+    cold_runtime().map(|runtime| runtime.block_on(future))
 }
 
 #[unsafe(no_mangle)]
@@ -123,7 +152,8 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeFetchPush<
         let room_id = room_id.to_string();
         let event_id = event_id.to_string();
         let fetch = async {
-            settle_refreshes(Box::pin(tokio::time::timeout(
+            bounded(
+                &data_dir,
                 std::time::Duration::from_secs(20),
                 sable_core::notifications::fetch_cold_push_event(
                     std::path::Path::new(&data_dir),
@@ -132,7 +162,7 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeFetchPush<
                     &room_id,
                     &event_id,
                 ),
-            )))
+            )
             .await
             .unwrap_or(PushFetchView::Unavailable)
         };
@@ -165,7 +195,8 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<
         let sender = sender.to_string();
         let content = serde_json::from_str::<serde_json::Value>(&content.to_string()).ok();
         let media = async {
-            settle_refreshes(Box::pin(tokio::time::timeout(
+            bounded(
+                &data_dir,
                 std::time::Duration::from_secs(5),
                 sable_core::notifications::cold_push_media(
                     std::path::Path::new(&data_dir),
@@ -175,7 +206,7 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<
                     Some(sender.as_str()).filter(|sender| !sender.is_empty()),
                     content.as_ref(),
                 ),
-            )))
+            )
             .await
             .unwrap_or_default()
         };
