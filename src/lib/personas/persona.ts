@@ -105,19 +105,12 @@ export function resolveProxy(
   return undefined;
 }
 
-export interface StrippedHtml {
-  html: string | null;
-  keepStart: boolean;
-  keepEnd: boolean;
-}
-
 /** Removes a matched proxy wrapper without discarding the message's rich HTML. */
 export function stripProxyHtml(
   formatted: string | null,
   trigger: PersonaTriggerView
-): StrippedHtml {
-  const kept = { keepStart: false, keepEnd: false };
-  if (!formatted || trigger.keep_trigger) return { html: formatted, ...kept };
+): string | null {
+  if (!formatted || trigger.keep_trigger) return formatted;
 
   const prefix = trigger.prefix ?? '';
   const suffix = trigger.suffix ?? '';
@@ -128,23 +121,23 @@ export function stripProxyHtml(
     !text.endsWith(suffix) ||
     text.length < prefix.length + suffix.length
   ) {
-    return { html: null, ...kept };
+    return null;
   }
 
-  const contentNodes = (): (Text | Element)[] => {
+  const leaves = (): Node[] => {
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT
     );
-    const nodes: (Text | Element)[] = [];
+    const nodes: Node[] = [];
     while (walker.nextNode()) {
-      const node = walker.currentNode as Text | Element;
+      const node = walker.currentNode;
       if (node instanceof Text || node.childNodes.length === 0) nodes.push(node);
     }
     return nodes;
   };
-  const remove = (count: number, reverse: boolean): void => {
-    for (const node of reverse ? contentNodes().reverse() : contentNodes()) {
+  const strip = (count: number, reverse: boolean): void => {
+    for (const node of reverse ? leaves().reverse() : leaves()) {
       if (count === 0 || !(node instanceof Text)) return;
       const removed = Math.min(count, node.data.length);
       count -= removed;
@@ -152,45 +145,20 @@ export function stripProxyHtml(
       if (node.data === '') node.remove();
     }
   };
-  const trim = (reverse: boolean): boolean => {
-    const nodes = contentNodes();
-    if (reverse) nodes.reverse();
-    for (const [index, node] of nodes.entries()) {
-      if (!(node instanceof Text)) return false;
-      const data = reverse ? node.data.trimEnd() : node.data.trimStart();
-      if (data !== '') {
-        node.data = data;
-        return false;
-      }
-      const next = nodes.at(index + 1);
-      if (next !== undefined && !(next instanceof Text)) return true;
+  const trim = (reverse: boolean): void => {
+    for (const node of reverse ? leaves().reverse() : leaves()) {
+      if (!(node instanceof Text)) return;
+      node.data = reverse ? node.data.trimEnd() : node.data.trimStart();
+      if (node.data !== '') return;
       node.remove();
     }
-    return false;
   };
 
-  remove(prefix.length, false);
-  remove(suffix.length, true);
-  const keepStart = trim(false);
-  const keepEnd = trim(true);
-  return { html: document.body.innerHTML, keepStart, keepEnd };
-}
-
-/** Strips the trigger from both bodies and trims their edges the same way. */
-export function applyProxy(
-  raw: string,
-  match: ProxyMatch,
-  formatted: string | null
-): { body: string; formatted: string | null } {
-  const { trigger } = match;
-  if (trigger.keep_trigger) return { body: raw, formatted };
-
-  const { html, keepStart, keepEnd } = stripProxyHtml(formatted, trigger);
-  const inner = raw.slice(trigger.prefix?.length ?? 0, raw.length - (trigger.suffix?.length ?? 0));
-  const text = inner.trim();
-  const lead = keepStart ? (/^\s*/.exec(inner)?.[0] ?? '') : '';
-  const trail = keepEnd ? (/\s*$/.exec(inner)?.[0] ?? '') : '';
-  return { body: text === '' ? '' : lead + text + trail, formatted: html };
+  strip(prefix.length, false);
+  strip(suffix.length, true);
+  trim(false);
+  trim(true);
+  return document.body.innerHTML;
 }
 
 export function triggerLabel(trigger: PersonaTriggerView): string {

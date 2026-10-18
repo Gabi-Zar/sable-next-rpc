@@ -9,7 +9,6 @@ import {
   reorderPersonas,
   resolvePersona,
   resolveProxy,
-  applyProxy,
   stripProxyHtml,
   triggerLabel,
 } from './persona';
@@ -94,98 +93,67 @@ describe('reorderPersonas', () => {
 });
 
 describe('stripProxyHtml', () => {
-  const strip = (formatted: string | null, wrapper: PersonaTriggerView) =>
-    stripProxyHtml(formatted, wrapper).html;
-
   it('retains formatting after removing a prefix trigger', () => {
-    expect(strip('k:<code>const answer = 42</code>', trigger('k:'))).toBe(
+    expect(stripProxyHtml('k:<code>const answer = 42</code>', trigger('k:'))).toBe(
       '<code>const answer = 42</code>'
     );
   });
 
   it('retains formatting after removing a circumfix trigger', () => {
-    expect(strip('[<em>test</em>]', trigger('[', ']'))).toBe('<em>test</em>');
+    expect(stripProxyHtml('[<em>test</em>]', trigger('[', ']'))).toBe('<em>test</em>');
   });
 
   it('trims exposed whitespace across formatted text nodes', () => {
-    expect(strip('<p>[ <em> hello </em> ]</p>', trigger('[', ']'))).toBe('<p><em>hello</em></p>');
+    expect(stripProxyHtml('<p>[ <em> hello </em> ]</p>', trigger('[', ']'))).toBe(
+      '<p><em>hello</em></p>'
+    );
   });
 
   it('keeps the space before an emote at the end of the message', () => {
-    expect(strip('k: hello <img data-mx-emoticon alt=":a:">', trigger('k:'))).toBe(
+    expect(stripProxyHtml('k: hello <img data-mx-emoticon alt=":a:">', trigger('k:'))).toBe(
       'hello <img data-mx-emoticon="" alt=":a:">'
     );
   });
 
   it('keeps the space after an emote at the start of the message', () => {
-    expect(strip('k:<img data-mx-emoticon alt=":a:"> hello', trigger('k:'))).toBe(
+    expect(stripProxyHtml('<img data-mx-emoticon alt=":a:"> hello -k', trigger(null, '-k'))).toBe(
       '<img data-mx-emoticon="" alt=":a:"> hello'
     );
   });
 
-  it('keeps the space between a prefix trigger and an emote', () => {
-    expect(strip('k: <img data-mx-emoticon alt=":a:">', trigger('k:'))).toBe(
-      ' <img data-mx-emoticon="" alt=":a:">'
+  it('trims whitespace between the trigger and an emote', () => {
+    expect(stripProxyHtml('k: <img data-mx-emoticon alt=":a:"> ', trigger('k:'))).toBe(
+      '<img data-mx-emoticon="" alt=":a:">'
     );
   });
 
-  it('keeps the space between an emote and a suffix trigger', () => {
-    expect(strip('<img data-mx-emoticon alt=":a:"> -k', trigger(null, '-k'))).toBe(
-      '<img data-mx-emoticon="" alt=":a:"> '
+  it('keeps the spaces between consecutive emotes', () => {
+    expect(
+      stripProxyHtml(
+        'k: <img data-mx-emoticon alt=":a:"> <img data-mx-emoticon alt=":b:"> ',
+        trigger('k:')
+      )
+    ).toBe('<img data-mx-emoticon="" alt=":a:"> <img data-mx-emoticon="" alt=":b:">');
+  });
+
+  it('keeps the space between formatted text and an emote', () => {
+    expect(stripProxyHtml('k: <em>hi</em> <img data-mx-emoticon alt=":a:">', trigger('k:'))).toBe(
+      '<em>hi</em> <img data-mx-emoticon="" alt=":a:">'
     );
+  });
+
+  it('trims a circumfix trigger around an emote and keeps the inner space', () => {
+    expect(stripProxyHtml('[ hi <img data-mx-emoticon alt=":a:"> ]', trigger('[', ']'))).toBe(
+      'hi <img data-mx-emoticon="" alt=":a:">'
+    );
+  });
+
+  it('empties a message holding only whitespace between the triggers', () => {
+    expect(stripProxyHtml('[   ]', trigger('[', ']'))).toBe('');
   });
 
   it('does not strip HTML that does not contain the trigger as text', () => {
-    expect(strip('<em>test</em>', trigger('k:'))).toBeNull();
-  });
-});
-
-describe('applyProxy', () => {
-  const emote = '<img data-mx-emoticon alt=":a:">';
-  const apply = (raw: string, html: string | null, wrapper: PersonaTriggerView) => {
-    const match = resolveProxy([persona('Kris', [wrapper])], raw);
-    if (!match) throw new Error('trigger did not match');
-    return applyProxy(raw, match, html);
-  };
-
-  it('keeps the space beside an emote in both bodies', () => {
-    expect(apply('k: :a:', `k: ${emote}`, trigger('k:'))).toEqual({
-      body: ' :a:',
-      formatted: ` ${emote.replace('data-mx-emoticon', 'data-mx-emoticon=""')}`,
-    });
-    expect(apply(':a: -k', `${emote} -k`, trigger(null, '-k')).body).toBe(':a: ');
-  });
-
-  it('trims both bodies alike when no emote is at the edge', () => {
-    expect(apply('k:  hello  ', '<p>k:  hello  </p>', trigger('k:'))).toEqual({
-      body: 'hello',
-      formatted: '<p>hello</p>',
-    });
-  });
-
-  it('keeps an interior space before a trailing emote', () => {
-    expect(apply('k: hi :a:', `k: hi ${emote}`, trigger('k:'))).toEqual({
-      body: 'hi :a:',
-      formatted: `hi ${emote.replace('data-mx-emoticon', 'data-mx-emoticon=""')}`,
-    });
-  });
-
-  it('drops the rich body when it does not hold the trigger as text', () => {
-    expect(apply('k:hello', '<em>hello</em>', trigger('k:'))).toEqual({
-      body: 'hello',
-      formatted: null,
-    });
-  });
-
-  it('leaves both bodies alone when the persona keeps the trigger', () => {
-    expect(apply('k: hello', '<p>k: hello</p>', trigger('k:', null, true))).toEqual({
-      body: 'k: hello',
-      formatted: '<p>k: hello</p>',
-    });
-  });
-
-  it('has no rich body to strip for a plain message', () => {
-    expect(apply('k: hello', null, trigger('k:'))).toEqual({ body: 'hello', formatted: null });
+    expect(stripProxyHtml('<em>test</em>', trigger('k:'))).toBeNull();
   });
 });
 
@@ -261,7 +229,13 @@ describe('resolvePersona', () => {
       resolvePersona({ personas, spaces: [false, space], account, now: 1000 })
     ).toBeUndefined();
     expect(
-      resolvePersona({ personas, proxied: robin, spaces: [false], account, now: 1000 })
+      resolvePersona({
+        personas,
+        proxied: robin,
+        spaces: [false],
+        account,
+        now: 1000,
+      })
     ).toBeUndefined();
     expect(resolvePersona({ personas, room: false, spaces: [space], now: 1000 })).toBeUndefined();
   });
