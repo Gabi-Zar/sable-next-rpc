@@ -1,4 +1,6 @@
 <script lang="ts">
+  import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
+
   import type { MemberView, PollView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
@@ -86,6 +88,9 @@
             style:scale={`${String(percent / 100)} 1`}
           ></span>
           <span class="text">{answer.text}</span>
+          {#if answer.selected && answer.votes === null}
+            <CheckIcon class="chosen" aria-hidden="true" weight="bold" />
+          {/if}
         </button>
         {#if answer.votes !== null}
           {#if answer.voters !== null}
@@ -210,6 +215,15 @@
 
   .answer:not(:disabled):hover {
     border-color: var(--primary-main);
+  }
+
+  .answer[aria-pressed='true'] {
+    border-color: var(--primary-main);
+  }
+
+  .answer :global(.chosen) {
+    flex: 0 0 auto;
+    position: relative;
   }
 
   .fill {

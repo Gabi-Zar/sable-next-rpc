@@ -102,6 +102,18 @@ test('a local echo cannot be voted on', () => {
   for (const answer of view.answers()) expect(answer).toBeDisabled();
 });
 
+test('an undisclosed poll marks your own choice without a tally', () => {
+  const answers = poll().answers.map((answer, index) => ({
+    ...answer,
+    votes: null,
+    selected: index === 0,
+  }));
+  const view = setup({ poll: poll({ answers, undisclosed: true }) });
+
+  expect(view.answer('ramen').querySelector('.chosen')).not.toBeNull();
+  expect(view.answer('curry').querySelector('.chosen')).toBeNull();
+});
+
 test('an undisclosed poll shows no tally', () => {
   const answers = poll().answers.map((answer) => ({ ...answer, votes: null }));
   const view = setup({ poll: poll({ answers, undisclosed: true }) });
