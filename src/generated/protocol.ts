@@ -2197,6 +2197,7 @@ export type Rpc = {
     cancelIdentityReset: (params?: Record<string, never>) => Promise<null>;
     exportRoomKeys: (params: {
 	passphrase: string,
+	room_id?: string | null,
 }) => Promise<string>;
     importRoomKeys: (params: {
 	export: string,

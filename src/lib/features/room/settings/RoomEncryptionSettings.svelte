@@ -8,6 +8,7 @@
   import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import StatusBadge from '#lib/ui/primitives/StatusBadge.svelte';
 
+  import RoomKeyExportDialog from './RoomKeyExportDialog.svelte';
   import { canSendState } from './permission-groups';
 
   const EVENT_TYPE = 'm.room.encryption';
@@ -24,6 +25,7 @@
   let confirming = $state(false);
   let enabling = $state(false);
   let failed = $state(false);
+  let exportOpen = $state(false);
 
   let roomId = $derived(room?.room_id ?? null);
   let enabled = $derived(room?.encrypted === true);
@@ -64,6 +66,21 @@
     </Button>
   {/if}
 </SettingsRow>
+
+{#if enabled && roomId}
+  <SettingsRow title={i18n.t('room.exportKeys')} description={i18n.t('room.exportKeysHint')}>
+    <Button
+      size="small"
+      variant="secondary"
+      onclick={() => {
+        exportOpen = true;
+      }}
+    >
+      {i18n.t('settings.roomKeysExportAction')}
+    </Button>
+  </SettingsRow>
+  <RoomKeyExportDialog bind:open={exportOpen} {roomId} />
+{/if}
 
 <ConfirmDialog
   bind:open={confirming}

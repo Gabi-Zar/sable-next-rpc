@@ -266,6 +266,9 @@ impl Handler for CancelIdentityResetParams {
 #[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct ExportRoomKeysParams {
     pub passphrase: String,
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
+    pub room_id: Option<OwnedRoomId>,
 }
 
 impl Handler for ExportRoomKeysParams {
@@ -273,7 +276,8 @@ impl Handler for ExportRoomKeysParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        core.export_room_keys(&self.passphrase).await
+        core.export_room_keys(&self.passphrase, self.room_id.as_deref())
+            .await
     }
 }
 

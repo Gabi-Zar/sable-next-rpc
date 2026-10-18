@@ -1,4 +1,5 @@
 use matrix_sdk::encryption::{KeyExportError, RoomKeyImportError};
+use matrix_sdk::ruma::RoomId;
 #[cfg(not(target_family = "wasm"))]
 use tempfile::NamedTempFile;
 
@@ -9,13 +10,19 @@ use crate::protocol::RpcError;
 
 impl Core {
     #[cfg(not(target_family = "wasm"))]
-    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, RpcError> {
+    pub(crate) async fn export_room_keys(
+        &self,
+        passphrase: &str,
+        room_id: Option<&RoomId>,
+    ) -> Result<String, RpcError> {
         let client = self.client().await?;
         let file = self.room_key_file()?;
 
         client
             .encryption()
-            .export_room_keys(file.path().to_owned(), passphrase, |_| true)
+            .export_room_keys(file.path().to_owned(), passphrase, |session| {
+                room_id.is_none_or(|room_id| session.room_id() == room_id)
+            })
             .await
             .or_failed(self, "export_room_keys")?;
 
@@ -58,14 +65,18 @@ impl Core {
     }
 
     #[cfg(target_family = "wasm")]
-    pub(crate) async fn export_room_keys(&self, passphrase: &str) -> Result<String, RpcError> {
+    pub(crate) async fn export_room_keys(
+        &self,
+        passphrase: &str,
+        room_id: Option<&RoomId>,
+    ) -> Result<String, RpcError> {
         let base = self.base_client().await?;
         let machine = base.olm_machine().await;
         let machine = machine.as_ref().ok_or(RpcError::NotLoggedIn)?;
 
         let keys = machine
             .store()
-            .export_room_keys(|_| true)
+            .export_room_keys(|session| room_id.is_none_or(|room_id| session.room_id() == room_id))
             .await
             .or_failed(self, "export_room_keys")?;
         let export = matrix_sdk_base::crypto::encrypt_room_key_export(&keys, passphrase, 500_000)
@@ -643,7 +654,10 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
             .await
             .unwrap();
 
-        let export = source.export_room_keys("correct horse").await.unwrap();
+        let export = source
+            .export_room_keys("correct horse", None)
+            .await
+            .unwrap();
 
         assert!(export.starts_with("-----BEGIN MEGOLM SESSION DATA-----"));
         assert!(
@@ -659,6 +673,41 @@ ngjgWgEDc8qQHBtDJPz+m+yphv/xZAFw4Wldrz8mal3cudGfUnueAlwgf2wvzk2ZCT+kfo95tRqyWuhF
         assert_eq!(
             import(&target, &export, "correct horse").await.unwrap(),
             (0, 1)
+        );
+    }
+
+    #[tokio::test]
+    async fn an_export_for_one_room_leaves_the_others_out() {
+        let server = MatrixMockServer::new().await;
+        let (source, source_client, _source_store) = core_for(&server).await;
+        let (target, _target_client, _target_store) = core_for(&server).await;
+        let kept = room_id!("!kept:example.org");
+        source_client
+            .olm_machine_for_testing()
+            .await
+            .as_ref()
+            .unwrap()
+            .store()
+            .import_exported_room_keys(vec![exported(&outbound_session(kept)).await], |_, _| ())
+            .await
+            .unwrap();
+
+        let other = source
+            .export_room_keys("correct horse", Some(room_id!("!other:example.org")))
+            .await
+            .unwrap();
+        let wanted = source
+            .export_room_keys("correct horse", Some(kept))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            import(&target, &other, "correct horse").await.unwrap(),
+            (0, 0)
+        );
+        assert_eq!(
+            import(&target, &wanted, "correct horse").await.unwrap(),
+            (1, 1)
         );
     }
 

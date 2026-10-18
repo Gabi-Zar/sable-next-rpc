@@ -2,7 +2,7 @@
   import { CoreError } from '#src/transport';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n, t } from '#lib/i18n.js';
-  import { pickFiles, saveBytes } from '#lib/platform/files.js';
+  import { pickFiles } from '#lib/platform/files.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import Label from '#lib/ui/primitives/Label.svelte';
@@ -11,7 +11,7 @@
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import '#lib/ui/primitives/settings-row.css';
 
-  const EXPORT_NAME = 'sable-keys.txt';
+  import { ROOM_KEYS_EXPORT_NAME, saveRoomKeys } from './room-key-export';
 
   const core = useCoreClient();
 
@@ -56,12 +56,11 @@
     error = null;
     notice = null;
     try {
-      const armored = await core.rpc.encryption.exportRoomKeys({ passphrase: exportPassphrase });
-      const outcome = await saveBytes(new TextEncoder().encode(armored), EXPORT_NAME, 'text/plain');
+      const outcome = await saveRoomKeys(core.rpc.encryption, exportPassphrase);
       if (outcome === 'failed') {
         error = t('settings.roomKeysExportFailed');
       } else if (outcome === 'saved') {
-        notice = t('settings.roomKeysExported', { name: EXPORT_NAME });
+        notice = t('settings.roomKeysExported', { name: ROOM_KEYS_EXPORT_NAME });
         closeExport();
       }
     } catch (cause) {
