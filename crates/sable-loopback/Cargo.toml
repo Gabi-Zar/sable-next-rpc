@@ -13,7 +13,7 @@ tauri = ["dep:tauri", "dep:serde"]
 log = "0.4"
 
 [target.'cfg(windows)'.dependencies]
-wasapi = "0.25.0"
+wasapi = "0.26.0"
 sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
 tauri = { version = "2.11.3", default-features = false, optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
