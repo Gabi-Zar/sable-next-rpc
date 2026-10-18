@@ -10,6 +10,12 @@ interface Options {
 
 const SELECTED = '[aria-current="page"], [aria-selected="true"]';
 
+// checkVisibility is missing before Safari 17.4
+const isRendered = (item: HTMLElement) =>
+  (item as Partial<HTMLElement>).checkVisibility
+    ? item.checkVisibility()
+    : item.getClientRects().length > 0;
+
 /** Makes a container one tab stop; arrows, Home and End move between its controls. */
 export function rovingFocus({
   orientation = 'horizontal',
@@ -25,7 +31,7 @@ export function rovingFocus({
 
     const items = () =>
       [...container.querySelectorAll<HTMLElement>(selector)].filter(
-        (item) => !item.matches(':disabled') && item.checkVisibility()
+        (item) => !item.matches(':disabled') && isRendered(item)
       );
 
     const sync = () => {
