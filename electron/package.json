@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "description": "Sable v2, a Matrix client.",
+  "description": "Sable, a Matrix client.",
   "author": "SableClient",
   "homepage": "https://sable.moe",
   "repository": {

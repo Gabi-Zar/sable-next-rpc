@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>moe.sable.next.electron</id>
 
-  <name>Sable v2 (Electron)</name>
+  <name>Sable (Electron)</name>
   <summary>Chat over the Matrix network</summary>
 
   <developer id="moe.sable">

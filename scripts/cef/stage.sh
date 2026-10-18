@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 STAGE="${1:-$ROOT/target/cef-stage}"
-DISPLAY_NAME="${2:-Sable v2}"
+DISPLAY_NAME="${2:-Sable}"
 PROFILE="${3:-release}"
 
 if [ "${SABLE_BUILD_FLAVOR:-}" = "stable" ]; then

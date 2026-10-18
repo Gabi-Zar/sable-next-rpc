@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Sable v2 (Electron)
+Name=Sable (Electron)
 Comment=Chat over the Matrix network
 Exec=sable-electron %U
 Icon=moe.sable.next.electron

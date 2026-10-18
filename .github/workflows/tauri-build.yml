@@ -354,7 +354,7 @@ jobs:
           config_args=(--config src-tauri/tauri.ci.conf.json)
           if [ "$IS_NIGHTLY" = 'true' ]; then
             config_args+=(--config src-tauri/tauri.nightly.conf.json)
-            package_args=('Sable v2 Nightly' sable-next)
+            package_args=('Sable Nightly' sable-next)
           else
             package_args=(Sable sable)
           fi
@@ -619,7 +619,7 @@ jobs:
               --gpg-homedir="$GNUPGHOME" "$commit" "$FLATPAK_GPG_KEY_ID"
           done
           flatpak build-update-repo \
-            --title='Sable v2 Nightly' \
+            --title='Sable Nightly' \
             --default-branch=master \
             --gpg-sign="$FLATPAK_GPG_KEY_ID" \
             --gpg-homedir="$GNUPGHOME" \

@@ -12,7 +12,7 @@ cd "$ROOT"
 
 VERSION="${1:-$(grep -m1 '"version":' src-tauri/tauri.conf.json | sed 's/.*: *"\(.*\)".*/\1/')}"
 : "${VERSION:?no version found in src-tauri/tauri.conf.json}"
-DISPLAY_NAME="${2:-Sable v2}"
+DISPLAY_NAME="${2:-Sable}"
 PKG_NAME="${3:-sable-next}"
 if [ "$PKG_NAME" = sable-next ]; then PKG_CONFLICTS=sable; else PKG_CONFLICTS=sable-next; fi
 export PKG_NAME PKG_CONFLICTS

@@ -315,7 +315,7 @@ jobs:
           config_args=(--config src-tauri/tauri.ci.conf.json)
           if [ "$IS_NIGHTLY" = 'true' ]; then
             config_args+=(--config src-tauri/tauri.nightly.conf.json)
-            package_args=('Sable v2 Nightly' sable-next)
+            package_args=('Sable Nightly' sable-next)
           else
             package_args=(Sable sable)
           fi
@@ -944,7 +944,7 @@ jobs:
             "$ipa_size" \
             "https://git.sable.moe/SableClient/sable-next/releases/download/${TAG}/${ipa_name}" \
             "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-            "Sable v2 $VERSION"
+            "Sable $VERSION"
       - name: Attach AltStore source to release
         run: node scripts/ci/forgejo-release.mjs upload altstore-source.json
   updater-manifest:

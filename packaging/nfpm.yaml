@@ -11,7 +11,7 @@ section: net
 conflicts:
   - ${PKG_CONFLICTS}
 maintainer: SableClient
-description: Sable v2, a Matrix client
+description: Sable, a Matrix client
 homepage: https://sable.moe
 
 contents:

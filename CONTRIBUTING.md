@@ -1,6 +1,6 @@
-# Contributing to Sable v2
+# Contributing to Sable
 
-Everyone taking part in Sable v2 follows the
+Everyone taking part in Sable follows the
 [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Before opening a pull request, run:
@@ -33,7 +33,7 @@ one, `git rebase --signoff origin/main` a whole branch. Force-push with
 
 ## AI-generated content
 
-**Sable v2 declines any contribution believed to include or derive from
+**Sable declines any contribution believed to include or derive from
 AI-generated content, including ChatGPT, Claude, Copilot, Llama and similar
 tools.**
 
