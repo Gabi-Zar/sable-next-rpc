@@ -10,10 +10,11 @@ use matrix_sdk::ruma::api::client::push::{
 use matrix_sdk::ruma::api::error::ErrorKind;
 use matrix_sdk::ruma::events::push_rules::PushRulesEvent;
 use matrix_sdk::ruma::push::{
-    Action, AnyPushRuleRef, EventMatchConditionData, HighlightTweakValue, NewConditionalPushRule,
-    NewPatternedPushRule, NewPushRule, NewSimplePushRule, PredefinedContentRuleId,
-    PredefinedOverrideRuleId, PredefinedUnderrideRuleId, PushCondition,
-    RoomMemberCountConditionData, RuleKind, Ruleset, SoundTweakValue, Tweak,
+    Action, AnyPushRuleRef, EventMatchConditionData, EventPropertyIsConditionData,
+    HighlightTweakValue, NewConditionalPushRule, NewPatternedPushRule, NewPushRule,
+    NewSimplePushRule, PredefinedContentRuleId, PredefinedOverrideRuleId,
+    PredefinedUnderrideRuleId, PushCondition, RoomMemberCountConditionData, RuleKind, Ruleset,
+    ScalarJsonValue, SoundTweakValue, Tweak,
 };
 use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 use tokio::sync::{RwLock, broadcast};
@@ -114,6 +115,11 @@ impl PushRules {
                 .send(set_pushrule::v3::Request::new(rule))
                 .await
                 .map(|_| ()),
+            RuleWrite::PutAfter { rule, after } => {
+                let mut request = set_pushrule::v3::Request::new(rule);
+                request.after = Some(after);
+                self.client.send(request).await.map(|_| ())
+            }
             RuleWrite::Actions {
                 kind,
                 rule_id,
@@ -156,6 +162,10 @@ impl PushRules {
 #[derive(Debug, Clone)]
 pub enum RuleWrite {
     Put(NewPushRule),
+    PutAfter {
+        rule: NewPushRule,
+        after: String,
+    },
     Actions {
         kind: RuleKind,
         rule_id: String,
@@ -177,6 +187,9 @@ impl RuleWrite {
         match self {
             Self::Put(rule) => {
                 let _ = rules.insert(rule, None, None);
+            }
+            Self::PutAfter { rule, after } => {
+                let _ = rules.insert(rule, Some(&after), None);
             }
             Self::Actions {
                 kind,
@@ -512,6 +525,7 @@ pub fn plan_default_mode(
 const SHAPE_PREFIX: &str = "moe.sable.shape.";
 const STICKER: &str = "moe.sable.sticker";
 const STICKER_DIRECT: &str = "moe.sable.sticker_one_to_one";
+const RING_ONE_TO_ONE: &str = "moe.sable.ring_one_to_one";
 const SUPPRESS_BRIDGE_STATUS: &str = "moe.sable.suppress_bridge_status";
 const SUPPRESS_REACTIONS: &str = "moe.sable.suppress_reactions";
 /// A room rule matches every event, so these would notify in a room set to all messages.
@@ -556,6 +570,7 @@ pub fn plan_alignment(rules: &Ruleset) -> Vec<RuleWrite> {
 
     writes.extend(align_stickers(rules, false));
     writes.extend(align_stickers(rules, true));
+    writes.extend(align_direct_ring(rules));
     writes.extend(silence_event_type(
         rules,
         SUPPRESS_BRIDGE_STATUS,
@@ -712,6 +727,63 @@ fn align_stickers(rules: &Ruleset, direct: bool) -> Vec<RuleWrite> {
             RuleWrite::Enabled {
                 kind: RuleKind::Underride,
                 rule_id: rule_id.to_owned(),
+                enabled: true,
+            },
+        ],
+    }
+}
+
+fn align_direct_ring(rules: &Ruleset) -> Vec<RuleWrite> {
+    let notify = event_notifies(rules, EventNotificationView::Calls).unwrap_or(true);
+    let actions = if notify {
+        event_actions(EventNotificationView::Calls)
+    } else {
+        vec![]
+    };
+    match rules
+        .override_
+        .iter()
+        .find(|rule| rule.rule_id == RING_ONE_TO_ONE)
+    {
+        None => {
+            let rule = NewPushRule::Override(NewConditionalPushRule::new(
+                RING_ONE_TO_ONE.to_owned(),
+                vec![
+                    PushCondition::RoomMemberCount(RoomMemberCountConditionData::new(
+                        matrix_sdk::ruma::uint!(2).into(),
+                    )),
+                    PushCondition::EventMatch(EventMatchConditionData::new(
+                        "type".to_owned(),
+                        crate::calls::NOTIFICATION_EVENT_TYPE.to_owned(),
+                    )),
+                    PushCondition::EventPropertyIs(EventPropertyIsConditionData::new(
+                        "content.notification_type".to_owned(),
+                        ScalarJsonValue::String("ring".to_owned()),
+                    )),
+                ],
+                actions,
+            ));
+            let after = rules
+                .override_
+                .iter()
+                .rev()
+                .find(|rule| !rule.default)
+                .map(|rule| rule.rule_id.clone());
+            vec![match after {
+                Some(after) => RuleWrite::PutAfter { rule, after },
+                None => RuleWrite::Put(rule),
+            }]
+        }
+        Some(rule) if rule.enabled && notifies(&rule.actions) == notify => vec![],
+        Some(_) => vec![
+            RuleWrite::Actions {
+                kind: RuleKind::Override,
+                rule_id: RING_ONE_TO_ONE.to_owned(),
+                actions,
+            },
+            RuleWrite::Enabled {
+                kind: RuleKind::Override,
+                rule_id: RING_ONE_TO_ONE.to_owned(),
                 enabled: true,
             },
         ],
@@ -912,22 +984,33 @@ pub fn plan_event(
 ) -> Result<Vec<RuleWrite>, CoreError> {
     let (kind, rule_id) =
         event_rule(rules, event).ok_or("the server has no rule for this kind of event")?;
-    Ok(vec![
-        RuleWrite::Actions {
-            kind: kind.clone(),
-            rule_id: rule_id.clone(),
-            actions: if enabled {
-                event_actions(event)
-            } else {
-                vec![]
-            },
-        },
-        RuleWrite::Enabled {
-            kind,
-            rule_id,
-            enabled: true,
-        },
-    ])
+    let mut targets = vec![(kind, rule_id)];
+    if matches!(event, EventNotificationView::Calls)
+        && rules.get(RuleKind::Override, RING_ONE_TO_ONE).is_some()
+    {
+        targets.push((RuleKind::Override, RING_ONE_TO_ONE.to_owned()));
+    }
+    Ok(targets
+        .into_iter()
+        .flat_map(|(kind, rule_id)| {
+            [
+                RuleWrite::Actions {
+                    kind: kind.clone(),
+                    rule_id: rule_id.clone(),
+                    actions: if enabled {
+                        event_actions(event)
+                    } else {
+                        vec![]
+                    },
+                },
+                RuleWrite::Enabled {
+                    kind,
+                    rule_id,
+                    enabled: true,
+                },
+            ]
+        })
+        .collect())
 }
 
 #[must_use]
@@ -1123,6 +1206,9 @@ mod tests {
                     enabled,
                 } => format!("enabled {kind} {rule_id} {enabled}"),
                 RuleWrite::Delete { kind, rule_id } => format!("delete {kind} {rule_id}"),
+                RuleWrite::PutAfter { rule, after } => {
+                    format!("put {} after {after}", rule.rule_id())
+                }
             })
             .collect()
     }
@@ -1423,6 +1509,88 @@ mod tests {
         }))
         .unwrap();
         super::notifies(rules.get_actions(&event, &context).await)
+    }
+
+    async fn rings_in(rules: &Ruleset, room: &RoomId, members: u8) -> bool {
+        use matrix_sdk::ruma::power_levels::NotificationPowerLevels;
+        use matrix_sdk::ruma::push::{PushConditionPowerLevelsCtx, PushConditionRoomCtx};
+        use matrix_sdk::ruma::room_version_rules::{AuthorizationRules, RoomPowerLevelsRules};
+        use matrix_sdk::ruma::serde::Raw;
+
+        let context = PushConditionRoomCtx::new(
+            room.to_owned(),
+            members.into(),
+            me().to_owned(),
+            "me".to_owned(),
+        )
+        .with_power_levels(PushConditionPowerLevelsCtx::new(
+            std::collections::BTreeMap::new(),
+            0.into(),
+            NotificationPowerLevels::new(),
+            RoomPowerLevelsRules::new(&AuthorizationRules::V1, None),
+        ));
+        let event = Raw::new(&json!({
+            "type": crate::calls::NOTIFICATION_EVENT_TYPE, "event_id": "$e", "room_id": room,
+            "sender": "@them:example.org", "origin_server_ts": 0,
+            "content": {"notification_type": "ring", "m.mentions": {"room": true}, "sender_ts": 0, "lifetime": 30000},
+        }))
+        .unwrap();
+        super::notifies(rules.get_actions(&event, &context).await)
+    }
+
+    fn aligned() -> Ruleset {
+        let defaults = Ruleset::server_default(me());
+        applied(defaults.clone(), plan_alignment(&defaults))
+    }
+
+    #[tokio::test]
+    async fn a_ring_from_a_member_who_cannot_notify_the_room_rings_only_one_to_one() {
+        let room = room_id!("!call:example.org");
+        assert!(!rings_in(&Ruleset::server_default(me()), room, 2).await);
+
+        let rules = aligned();
+        assert!(rings_in(&rules, room, 2).await);
+        assert!(!rings_in(&rules, room, 5).await);
+        assert!(plan_alignment(&rules).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_one_to_one_ring_follows_the_room_and_calls_settings() {
+        let room = room_id!("!call:example.org");
+        let rules = aligned();
+
+        let mentions = applied(
+            rules.clone(),
+            plan_room_mode(&rules, room, true, Some(NotificationModeView::Mentions)),
+        );
+        assert!(rings_in(&mentions, room, 2).await);
+
+        let muted = applied(
+            rules.clone(),
+            plan_room_mode(&rules, room, true, Some(NotificationModeView::Mute)),
+        );
+        assert!(!rings_in(&muted, room, 2).await);
+
+        let off = applied(
+            rules.clone(),
+            plan_event(&rules, EventNotificationView::Calls, false).unwrap(),
+        );
+        assert!(!rings_in(&off, room, 2).await);
+        assert!(plan_alignment(&off).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_room_muted_before_the_ring_rule_existed_stays_muted() {
+        let room = room_id!("!call:example.org");
+        let defaults = Ruleset::server_default(me());
+        let muted = applied(
+            defaults.clone(),
+            plan_room_mode(&defaults, room, true, Some(NotificationModeView::Mute)),
+        );
+
+        let rules = applied(muted.clone(), plan_alignment(&muted));
+        assert!(!rings_in(&rules, room, 2).await);
+        assert!(rings_in(&rules, room_id!("!other:example.org"), 2).await);
     }
 
     fn mentions_for_direct_only() -> Ruleset {

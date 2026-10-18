@@ -3,7 +3,7 @@ mod membership;
 pub(crate) use membership::is_rtc_member_type;
 mod notify;
 
-pub(crate) use notify::is_call_event_type;
+pub(crate) use notify::{NOTIFICATION_EVENT_TYPE, is_call_event_type};
 mod runtime;
 pub(crate) use runtime::State as CallRuntimeState;
 mod sfu;
