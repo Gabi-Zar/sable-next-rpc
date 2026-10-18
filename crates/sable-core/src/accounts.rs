@@ -1841,6 +1841,8 @@ mod regression_tests {
         session::restore_credentials(&client, &registry.accounts[0].session)
             .await
             .unwrap();
+        // Seeded before the session starts its search indexer, which would overwrite it.
+        let search_values = seed_search_index(&client).await.unwrap();
         drop(client);
         core.restore().await.unwrap();
 
@@ -1852,7 +1854,6 @@ mod regression_tests {
             .set_custom_value(b"marker", b"cached".to_vec())
             .await
             .unwrap();
-        let search_values = seed_search_index(&client).await.unwrap();
         let store = std::path::Path::new(&store_id).join("store");
         let pos = "sliding_sync_store::room-list::@alice:example.org::instance";
         matrix_sdk::SqliteCryptoStore::open(&store, None)
