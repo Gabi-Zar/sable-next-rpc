@@ -586,6 +586,9 @@ jobs:
           args=''
           [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
           node scripts/ci/set-tauri-version.mjs "$VERSION" $args
+      - name: Install the Developer ID intermediate
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
+        uses: ./.forgejo/actions/apple-developer-id-ca
       - name: Build desktop bundle
         run: |
           config_args=(--config src-tauri/tauri.ci.conf.json)
@@ -719,6 +722,9 @@ jobs:
         with:
           key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
           key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
+      - name: Install the Developer ID intermediate
+        if: ${{ env.CSC_LINK != '' }}
+        uses: ./.forgejo/actions/apple-developer-id-ca
       - name: Package
         run: |
           sign_args=()
