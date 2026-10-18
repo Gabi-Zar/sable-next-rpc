@@ -122,17 +122,27 @@ async fn notify(url: &str, body: &impl Serialize) -> Result<Option<Vec<String>>,
 }
 
 #[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen::prelude::wasm_bindgen(js_name = fetch)]
+    fn js_fetch(request: &web_sys::Request) -> js_sys::Promise;
+}
+
+/// Not reqwest: it parses the response URL with `expect_throw`, and a no-cors
+/// response is opaque with an empty one.
+#[cfg(target_family = "wasm")]
 async fn notify(url: &str, body: &impl Serialize) -> Result<Option<Vec<String>>, CoreError> {
-    let http = crate::tls::apply(matrix_sdk::reqwest::Client::builder())
-        .build()
-        .map_err(CoreError::backend)?;
-    http.post(url)
-        .header(matrix_sdk::reqwest::header::CONTENT_TYPE, "text/plain")
-        .body(serde_json::to_string(body).map_err(CoreError::backend)?)
-        .fetch_mode_no_cors()
-        .send()
+    let js_error = |error: wasm_bindgen::JsValue| CoreError::from(format!("{error:?}"));
+    let init = web_sys::RequestInit::new();
+    init.set_method("POST");
+    init.set_mode(web_sys::RequestMode::NoCors);
+    init.set_body(&wasm_bindgen::JsValue::from_str(
+        &serde_json::to_string(body).map_err(CoreError::backend)?,
+    ));
+    let request = web_sys::Request::new_with_str_and_init(url, &init).map_err(js_error)?;
+    wasm_bindgen_futures::JsFuture::from(js_fetch(&request))
         .await
-        .map_err(CoreError::backend)?;
+        .map_err(js_error)?;
     Ok(None)
 }
 
