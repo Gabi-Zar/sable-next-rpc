@@ -67,6 +67,9 @@ pub enum SlashInvocation {
     Invite {
         user_id: String,
     },
+    ShareHistory {
+        user_id: String,
+    },
     Kick {
         targets: Vec<String>,
         reason: Option<String>,
@@ -199,7 +202,7 @@ pub enum SlashParse {
     },
 }
 
-pub const SLASH_COMMANDS: [&str; 51] = [
+pub const SLASH_COMMANDS: [&str; 52] = [
     "bugreport",
     "gif",
     "hug",
@@ -216,6 +219,7 @@ pub const SLASH_COMMANDS: [&str; 51] = [
     "knock",
     "leave",
     "invite",
+    "sharehistory",
     "kick",
     "ban",
     "unban",
@@ -794,6 +798,10 @@ fn invocation(
             (user_id, None) => Some(I::Invite { user_id }),
             (_, Some(_)) => None,
         },
+        "sharehistory" => match target_user(args)? {
+            (user_id, None) => Some(I::ShareHistory { user_id }),
+            (_, Some(_)) => None,
+        },
         "kick" => targets(args).map(|(targets, reason)| I::Kick { targets, reason }),
         "ban" => targets(args).map(|(targets, reason)| I::Ban { targets, reason }),
         "unban" => target_user(args).map(|(user_id, reason)| I::Unban { user_id, reason }),
@@ -1041,6 +1049,14 @@ mod tests {
         );
         assert!(is_usage("/kick being rude"));
         assert!(is_usage("/invite @a:x please"));
+        assert_eq!(
+            invoked("/sharehistory @a:x"),
+            SlashInvocation::ShareHistory {
+                user_id: "@a:x".to_owned()
+            }
+        );
+        assert!(is_usage("/sharehistory @a:x please"));
+        assert!(is_usage("/sharehistory"));
         assert_eq!(
             invoked("/ignore @a:x nobody @a:x @b:y"),
             SlashInvocation::Ignore {

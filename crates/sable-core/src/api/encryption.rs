@@ -1,11 +1,12 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
+use matrix_sdk::ruma::events::room::history_visibility::HistoryVisibility;
 use matrix_sdk::ruma::{OwnedDeviceId, OwnedRoomId, OwnedUserId};
 use serde::{Deserialize, Serialize};
 
 use super::Handler;
-use crate::protocol::{RpcError, DeviceView, EncryptionStatusView, IdentityResetStep, KeyBackupDownloadView, KeyBackupStatusView, SignOutSafetyView, UserSecurityView};
+use crate::protocol::{RpcError, DeviceView, EncryptionStatusView, IdentityResetStep, KeyBackupDownloadView, KeyBackupStatusView, ShareHistoryView, SignOutSafetyView, UserSecurityView};
 use crate::verification::{self, VERIFICATION_METHODS, encryption_status, sign_out_safety};
 use crate::{Core, ResultExt};
 
@@ -27,6 +28,7 @@ domain! {
     delete_device,
     rename_device,
     discard_room_key,
+    share_history,
     request_verification,
     withdraw_verification,
     set_device_blocked,
@@ -359,6 +361,48 @@ impl Handler for DiscardRoomKeyParams {
             .await
             .or_failed(core, "discard_room_key")?;
         Ok(())
+    }
+}
+
+/// MSC4268: the invitee only accepts the keys from the sender shortly after
+/// joining, so this is for someone who just did.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct ShareHistoryParams {
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub room_id: OwnedRoomId,
+    #[cfg_attr(feature = "typegen", specta(type = String))]
+    pub user_id: OwnedUserId,
+}
+
+impl Handler for ShareHistoryParams {
+    type Ok = ShareHistoryView;
+
+    async fn run(self, core: &Arc<Core>) -> Result<ShareHistoryView, RpcError> {
+        let room = core.room(&self.room_id).await?;
+        if !room.encryption_state().is_encrypted() {
+            return Ok(ShareHistoryView::Unencrypted);
+        }
+        let client = core.client().await?;
+        let own = client.user_id().ok_or(RpcError::NotLoggedIn)?;
+        let identity = client
+            .encryption()
+            .get_user_identity(own)
+            .await
+            .or_failed(core, "share_history")?;
+        if identity.is_none() {
+            return Ok(ShareHistoryView::NoCrossSigning);
+        }
+        if matches!(
+            room.history_visibility_or_default(),
+            HistoryVisibility::Joined | HistoryVisibility::Invited
+        ) {
+            return Ok(ShareHistoryView::HistoryNotShared);
+        }
+        room.share_history_with(&self.user_id)
+            .await
+            .or_failed(core, "share_history")?;
+        Ok(ShareHistoryView::Shared)
     }
 }
 

@@ -22,7 +22,7 @@ export type SlashRpc = {
   members: Rpc['members'];
   rooms: Rpc['rooms'];
   account: SlashAccountApi;
-  encryption: Pick<Rpc['encryption'], 'discardRoomKey'>;
+  encryption: Pick<Rpc['encryption'], 'discardRoomKey' | 'shareHistory'>;
   messages: Pick<Rpc['messages'], 'bulkRedact' | 'sendGesture' | 'sendLocation' | 'sendRawEvent'>;
   room_state: Pick<
     Rpc['room_state'],
@@ -340,6 +340,15 @@ async function run(
     case 'invite':
       await rpc.rooms.invite({ room_id: roomId, user_id: invocation.user_id });
       return DONE;
+    case 'share_history': {
+      const outcome = await rpc.encryption.shareHistory({
+        room_id: roomId,
+        user_id: invocation.user_id,
+      });
+      return outcome === 'shared'
+        ? DONE
+        : { kind: 'error', key: `composer.slashShareHistory.${outcome}` };
+    }
     case 'kick':
       return moderate(name, invocation, 'kick', true, context);
     case 'ban':

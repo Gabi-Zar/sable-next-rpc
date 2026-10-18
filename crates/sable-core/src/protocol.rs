@@ -2031,6 +2031,16 @@ pub struct RegisteredPusherView {
     pub gateway: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type))]
+#[serde(rename_all = "snake_case")]
+pub enum ShareHistoryView {
+    Shared,
+    Unencrypted,
+    NoCrossSigning,
+    HistoryNotShared,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "snake_case")]

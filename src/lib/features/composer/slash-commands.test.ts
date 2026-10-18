@@ -12,6 +12,7 @@ import type {
   PersonaView,
   RoomPreviewView,
   RpcParams,
+  ShareHistoryView,
   Rpc,
 } from '#src/generated/protocol';
 
@@ -58,7 +59,10 @@ function fakeCommands() {
 
 function fakeRpc() {
   return {
-    encryption: { discardRoomKey: vi.fn(() => Promise.resolve(null)) },
+    encryption: {
+      discardRoomKey: vi.fn(() => Promise.resolve(null)),
+      shareHistory: vi.fn(() => Promise.resolve<ShareHistoryView>('shared')),
+    },
     room_state: {
       setName: vi.fn(() => Promise.resolve(null)),
       setTopic: vi.fn(() => Promise.resolve(null)),
@@ -583,6 +587,29 @@ test('/discardsession discards the room key', async () => {
   await expect(runSlash('/discardsession now', context(commands, rpc))).rejects.toMatchObject({
     key: 'composer.slash.discardsession.usage',
   });
+});
+
+test('/sharehistory shares the room history with one user', async () => {
+  const rpc = fakeRpc();
+
+  await runSlash('/sharehistory @bob:example.org', context(fakeCommands(), rpc));
+  expect(rpc.encryption.shareHistory).toHaveBeenCalledWith({
+    room_id: '!room:example.org',
+    user_id: '@bob:example.org',
+  });
+
+  await expect(runSlash('/sharehistory', context(fakeCommands(), rpc))).rejects.toMatchObject({
+    key: 'composer.slash.sharehistory.usage',
+  });
+});
+
+test('/sharehistory says why nothing was shared', async () => {
+  const rpc = fakeRpc();
+  rpc.encryption.shareHistory.mockResolvedValue('no_cross_signing');
+
+  await expect(
+    runSlash('/sharehistory @bob:example.org', context(fakeCommands(), rpc))
+  ).rejects.toMatchObject({ key: 'composer.slashShareHistory.no_cross_signing' });
 });
 
 test('/acl hands the flags to the core', async () => {

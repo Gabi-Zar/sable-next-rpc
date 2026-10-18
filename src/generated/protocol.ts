@@ -1513,6 +1513,8 @@ export type SessionInfo = {
 	needs_reauth: boolean,
 };
 
+export type ShareHistoryView = "shared" | "unencrypted" | "no_cross_signing" | "history_not_shared";
+
 export type SidebarItemView = { kind: "space"; room_id: string } | { kind: "folder"; id: string; name: string | null; content: string[] };
 
 export type SignOutSafetyView = {
@@ -1532,7 +1534,7 @@ export type SigningKeysView = {
 /**  What a slash command asks for; targets that need the room or account are left to the host. */
 export type SlashInvocation = { command: "bug_report" } | { command: "gif_search"; query: string } | { command: "gesture"; gesture: GestureView; target: string | null } | { command: "message"; body: string; msgtype: MessageKind; formatted: string | null; verbatim: boolean } |
 /**  `formatted` is the composer's HTML for the text, still to be coloured. */
-{ command: "rainbow"; body: string; msgtype: MessageKind; formatted: string | null } | { command: "html"; html: string } | { command: "join"; address: string; via: string[] } | { command: "knock"; address: string; via: string[]; reason: string | null } | { command: "leave" } | { command: "invite"; user_id: string } | { command: "kick"; targets: string[]; reason: string | null } | { command: "ban"; targets: string[]; reason: string | null } | { command: "unban"; user_id: string; reason: string | null } | { command: "display_name"; name: string } | { command: "member_look"; look: MemberLookEdit; in_parent_space: boolean } | { command: "pronouns"; pronouns: PronounView[]; in_parent_space: boolean } | { command: "room_name"; name: string } | { command: "topic"; topic: string } | { command: "disinvite"; user_ids: string[] } | { command: "ignore"; user_ids: string[] } | { command: "unignore"; user_ids: string[] } | { command: "start_dm"; user_ids: string[] } | { command: "convert_to_dm"; user_id: string | null } | { command: "convert_to_room" } | { command: "discard_session" } | { command: "acl"; allow: string[]; deny: string[]; remove_allow: string[]; remove_deny: string[] } | { command: "add_widget"; url: string; name: string } | { command: "location"; latitude: number; longitude: number } | { command: "share_my_location" } | { command: "add_persona"; id: string; name: string | null; avatar: string | null } | { command: "remove_persona"; id: string } | { command: "use_persona"; id: string; valid_until: number | null } | { command: "reset_persona" } | { command: "disable_room_personas" } | { command: "persona_proxy"; id: string; prefix: string | null; suffix: string | null } | { command: "raw_message"; content: { [key in string]: unknown } } | { command: "raw_event"; event_type: string; content: { [key in string]: unknown }; state_key: string | null } | { command: "raw_account_data"; event_type: string; content: { [key in string]: unknown } } | { command: "delete_account_data_key"; event_type: string; key: string } | { command: "bulk_redact"; targets: string[]; after_ts: number; event_types: string[]; reason: string | null };
+{ command: "rainbow"; body: string; msgtype: MessageKind; formatted: string | null } | { command: "html"; html: string } | { command: "join"; address: string; via: string[] } | { command: "knock"; address: string; via: string[]; reason: string | null } | { command: "leave" } | { command: "invite"; user_id: string } | { command: "share_history"; user_id: string } | { command: "kick"; targets: string[]; reason: string | null } | { command: "ban"; targets: string[]; reason: string | null } | { command: "unban"; user_id: string; reason: string | null } | { command: "display_name"; name: string } | { command: "member_look"; look: MemberLookEdit; in_parent_space: boolean } | { command: "pronouns"; pronouns: PronounView[]; in_parent_space: boolean } | { command: "room_name"; name: string } | { command: "topic"; topic: string } | { command: "disinvite"; user_ids: string[] } | { command: "ignore"; user_ids: string[] } | { command: "unignore"; user_ids: string[] } | { command: "start_dm"; user_ids: string[] } | { command: "convert_to_dm"; user_id: string | null } | { command: "convert_to_room" } | { command: "discard_session" } | { command: "acl"; allow: string[]; deny: string[]; remove_allow: string[]; remove_deny: string[] } | { command: "add_widget"; url: string; name: string } | { command: "location"; latitude: number; longitude: number } | { command: "share_my_location" } | { command: "add_persona"; id: string; name: string | null; avatar: string | null } | { command: "remove_persona"; id: string } | { command: "use_persona"; id: string; valid_until: number | null } | { command: "reset_persona" } | { command: "disable_room_personas" } | { command: "persona_proxy"; id: string; prefix: string | null; suffix: string | null } | { command: "raw_message"; content: { [key in string]: unknown } } | { command: "raw_event"; event_type: string; content: { [key in string]: unknown }; state_key: string | null } | { command: "raw_account_data"; event_type: string; content: { [key in string]: unknown } } | { command: "delete_account_data_key"; event_type: string; key: string } | { command: "bulk_redact"; targets: string[]; after_ts: number; event_types: string[]; reason: string | null };
 
 export type SlashParse = { kind: "none" } | { kind: "literal"; body: string } | { kind: "unknown"; name: string } | { kind: "usage"; name: string; developer_only: boolean } | { kind: "command"; name: string; developer_only: boolean; invocation: SlashInvocation };
 
@@ -2214,6 +2216,10 @@ export type Rpc = {
     discardRoomKey: (params: {
 	room_id: string,
 }) => Promise<null>;
+    shareHistory: (params: {
+	room_id: string,
+	user_id: string,
+}) => Promise<ShareHistoryView>;
     requestVerification: (params: {
 	user_id: string,
 	device_id?: string | null,
@@ -3298,6 +3304,7 @@ export type RpcMethods = {
   'encryption.delete_device': Rpc['encryption']['deleteDevice'];
   'encryption.rename_device': Rpc['encryption']['renameDevice'];
   'encryption.discard_room_key': Rpc['encryption']['discardRoomKey'];
+  'encryption.share_history': Rpc['encryption']['shareHistory'];
   'encryption.request_verification': Rpc['encryption']['requestVerification'];
   'encryption.withdraw_verification': Rpc['encryption']['withdrawVerification'];
   'encryption.set_device_blocked': Rpc['encryption']['setDeviceBlocked'];
@@ -3609,6 +3616,7 @@ export function createRpc(call: RpcCall): Rpc {
       deleteDevice: (params) => call('encryption.delete_device', params) as ReturnType<Rpc['encryption']['deleteDevice']>,
       renameDevice: (params) => call('encryption.rename_device', params) as ReturnType<Rpc['encryption']['renameDevice']>,
       discardRoomKey: (params) => call('encryption.discard_room_key', params) as ReturnType<Rpc['encryption']['discardRoomKey']>,
+      shareHistory: (params) => call('encryption.share_history', params) as ReturnType<Rpc['encryption']['shareHistory']>,
       requestVerification: (params) => call('encryption.request_verification', params) as ReturnType<Rpc['encryption']['requestVerification']>,
       withdrawVerification: (params) => call('encryption.withdraw_verification', params) as ReturnType<Rpc['encryption']['withdrawVerification']>,
       setDeviceBlocked: (params) => call('encryption.set_device_blocked', params) as ReturnType<Rpc['encryption']['setDeviceBlocked']>,

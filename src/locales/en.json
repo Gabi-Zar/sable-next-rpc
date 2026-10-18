@@ -2860,6 +2860,11 @@
     "sedNoMatch": "Your last message does not contain that text.",
     "slashDeveloperOnly": "This command is available when developer controls are enabled.",
     "slashWildcardEmpty": "No member on {{server}} matches this room.",
+    "slashShareHistory": {
+      "unencrypted": "This room is not encrypted, so there is no history to share.",
+      "no_cross_signing": "Set up cross-signing before sharing history.",
+      "history_not_shared": "This room's history visibility does not allow sharing past messages."
+    },
     "slashFix": {
       "denied": "This device would not share its location.",
       "unavailable": "This device could not work out where it is.",
@@ -2993,6 +2998,10 @@
       "converttoroom": {
         "description": "Mark this direct message as an ordinary room",
         "usage": "/converttoroom"
+      },
+      "sharehistory": {
+        "description": "Share this room's encrypted history with someone who just joined",
+        "usage": "/sharehistory <@user:server>"
       },
       "discardsession": {
         "description": "Discard this room's outbound encryption session so the next message uses a new key",
