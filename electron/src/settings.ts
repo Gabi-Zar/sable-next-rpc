@@ -16,6 +16,7 @@ export interface Settings {
   smoothScrolling: boolean;
   webRtcIpPolicy: WebRtcIpPolicy;
   updateChannel: 'stable' | 'nightly';
+  customTitleBar: boolean;
 }
 
 const DEFAULTS: Settings = {
@@ -24,6 +25,7 @@ const DEFAULTS: Settings = {
   smoothScrolling: true,
   webRtcIpPolicy: 'default',
   updateChannel: 'stable',
+  customTitleBar: process.platform === 'win32',
 };
 
 export function sanitize(value: unknown): Settings {
@@ -41,6 +43,8 @@ export function sanitize(value: unknown): Settings {
     smoothScrolling: flag('smoothScrolling'),
     webRtcIpPolicy: policy ?? DEFAULTS.webRtcIpPolicy,
     updateChannel: stored.updateChannel === 'nightly' ? 'nightly' : DEFAULTS.updateChannel,
+    customTitleBar:
+      typeof stored.customTitleBar === 'boolean' ? stored.customTitleBar : DEFAULTS.customTitleBar,
   };
 }
 

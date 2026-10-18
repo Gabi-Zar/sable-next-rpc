@@ -14,6 +14,8 @@ import {
   utilityProcess,
   webContents,
   type DesktopCapturerSource,
+  type IpcMainEvent,
+  type IpcMainInvokeEvent,
   type UtilityProcess,
   type WebFrameMain,
 } from 'electron';
@@ -252,6 +254,25 @@ function sanitizeDesktopWindowSettings(value: unknown): DesktopWindowSettings {
   };
 }
 
+function isCustomTitleBarRequested(value: unknown): boolean {
+  return (value as { useCustomTitleBar?: unknown } | null)?.useCustomTitleBar === true;
+}
+
+function setCustomTitleBar(custom: boolean): void {
+  if (custom === settings.customTitleBar) return;
+  settings = { ...settings, customTitleBar: custom };
+  void writeFile(settingsPath, JSON.stringify(settings));
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
+  const previous = mainWindow;
+  const bounds = previous.getBounds();
+  const maximized = previous.isMaximized();
+  mainWindow = createWindow();
+  mainWindow.setBounds(bounds);
+  if (maximized) mainWindow.maximize();
+  previous.destroy();
+}
+
 function deepLinksIn(argv: string[]): string[] {
   return argv.filter((arg) => DEEP_LINK_SCHEMES.some((scheme) => arg.startsWith(`${scheme}:`)));
 }
@@ -305,7 +326,7 @@ app.on('web-contents-created', (_event, contents) => {
 
 ipcMain.on('sable-apply-settings', (event, value: unknown) => {
   if (!isAppFrame(event.senderFrame)) return;
-  const next = sanitize(value);
+  const next = { ...sanitize(value), customTitleBar: settings.customTitleBar };
   if (JSON.stringify(next) === JSON.stringify(settings)) return;
   settings = next;
   setUpdateChannel(next.updateChannel);
@@ -318,8 +339,23 @@ ipcMain.on('sable-apply-settings', (event, value: unknown) => {
 ipcMain.handle('sable-apply-window-settings', (event, value: unknown) => {
   if (!isAppFrame(event.senderFrame)) return null;
   desktopWindowSettings = sanitizeDesktopWindowSettings(value);
+  setCustomTitleBar(isCustomTitleBarRequested(value));
   return { trayAvailable: updateTray(desktopWindowSettings.showSystemTrayIcon) };
 });
+
+function windowOf(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null {
+  return isAppFrame(event.senderFrame) ? BrowserWindow.fromWebContents(event.sender) : null;
+}
+
+ipcMain.on('sable-window-minimize', (event) => windowOf(event)?.minimize());
+ipcMain.on('sable-window-toggle-maximize', (event) => {
+  const window = windowOf(event);
+  if (!window) return;
+  if (window.isMaximized()) window.unmaximize();
+  else window.maximize();
+});
+ipcMain.on('sable-window-close', (event) => windowOf(event)?.close());
+ipcMain.handle('sable-window-is-maximized', (event) => windowOf(event)?.isMaximized() ?? false);
 
 ipcMain.on('sable-core-connect', (event) => {
   if (event.ports.length !== 1 || !isAppFrame(event.senderFrame)) return;
@@ -335,6 +371,8 @@ function createWindow(): BrowserWindow {
     minHeight: 500,
     show: false,
     autoHideMenuBar: true,
+    ...(settings.customTitleBar &&
+      (process.platform === 'darwin' ? { titleBarStyle: 'hidden' } : { frame: false })),
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),
       sandbox: true,
@@ -351,6 +389,11 @@ function createWindow(): BrowserWindow {
       window.hide();
     }
   });
+  const reportMaximized = () => {
+    window.webContents.send('sable-window-maximized', window.isMaximized());
+  };
+  window.on('maximize', reportMaximized);
+  window.on('unmaximize', reportMaximized);
   window.on('minimize', () => {
     if (!quitting && desktopWindowSettings.minimizeToTray && tray) {
       window.hide();

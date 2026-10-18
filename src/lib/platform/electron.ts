@@ -20,6 +20,11 @@ export interface ScreenShareCandidate {
 export interface ElectronBridge {
   platform: string;
   applyWindowSettings(settings: DesktopWindowSettings): Promise<DesktopWindowState | null>;
+  minimizeWindow(): void;
+  toggleMaximizeWindow(): void;
+  closeWindow(): void;
+  isWindowMaximized(): Promise<boolean>;
+  onWindowMaximized(callback: (maximized: boolean) => void): () => void;
   applySettings(settings: ElectronSettings): void;
   takeDeepLinks(): Promise<string[]>;
   onDeepLinks(callback: (urls: string[]) => void): () => void;

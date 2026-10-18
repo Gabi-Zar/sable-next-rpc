@@ -26,6 +26,25 @@ contextBridge.exposeInMainWorld('sableElectron', {
     ipcRenderer.invoke('sable-apply-window-settings', settings) as Promise<{
       trayAvailable: boolean;
     } | null>,
+  minimizeWindow: () => {
+    ipcRenderer.send('sable-window-minimize');
+  },
+  toggleMaximizeWindow: () => {
+    ipcRenderer.send('sable-window-toggle-maximize');
+  },
+  closeWindow: () => {
+    ipcRenderer.send('sable-window-close');
+  },
+  isWindowMaximized: () => ipcRenderer.invoke('sable-window-is-maximized') as Promise<boolean>,
+  onWindowMaximized: (callback: (maximized: boolean) => void) => {
+    const listener = (_event: IpcRendererEvent, maximized: boolean) => {
+      callback(maximized);
+    };
+    ipcRenderer.on('sable-window-maximized', listener);
+    return () => {
+      ipcRenderer.removeListener('sable-window-maximized', listener);
+    };
+  },
   applySettings: (settings: unknown) => {
     ipcRenderer.send('sable-apply-settings', settings);
   },

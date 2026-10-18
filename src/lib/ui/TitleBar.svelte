@@ -8,6 +8,7 @@
     showSnapLayouts,
     supportsSnapLayouts,
     startWindowResize,
+    supportsWindowResizeHandles,
     toggleMaximizeWindow,
     watchMaximized,
     type TitleBarKind,
@@ -137,7 +138,7 @@
   {/if}
 </div>
 
-{#if kind === 'desktop' && !maximized}
+{#if kind === 'desktop' && !maximized && supportsWindowResizeHandles()}
   <div class="resize-handles" aria-hidden="true">
     {#each edges as edge (edge)}
       <!-- svelte-ignore a11y_no_static_element_interactions -->

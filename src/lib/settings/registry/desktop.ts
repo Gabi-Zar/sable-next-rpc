@@ -4,6 +4,7 @@ import GraphicsCardIcon from 'phosphor-svelte/lib/GraphicsCardIcon';
 import MouseIcon from 'phosphor-svelte/lib/MouseIcon';
 import { isElectron } from '#lib/platform/electron.js';
 import {
+  supportsCustomTitleBar,
   supportsDesktopWindow,
   supportsSmoothScrollingToggle,
   supportsTray,
@@ -28,7 +29,7 @@ export const desktopCategories: SettingsCategory[] =
               icon: DesktopIcon,
               name: 'settings.useCustomTitleBar',
               type: 'boolean',
-              supported: supportsDesktopWindow,
+              supported: supportsCustomTitleBar,
             },
             {
               key: 'showSystemTrayIcon',
