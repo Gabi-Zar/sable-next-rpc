@@ -398,7 +398,7 @@
         <RoomEncryptionSettings {room} {levels} {ownPowerLevel} />
       {/if}
       <RoomPublishSettings {room} {levels} {ownPowerLevel} />
-      <RoomSpacesSettings {room} />
+      <RoomSpacesSettings {room} {levels} {ownPowerLevel} />
       {#if room?.is_direct}
         <SettingsRow
           title={i18n.t('common.directMessage')}

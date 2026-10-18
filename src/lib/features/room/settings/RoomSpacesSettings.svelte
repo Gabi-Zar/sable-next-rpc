@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
 
-  import type { RoomListItemView } from '#src/generated/protocol';
+  import type { RoomListItemView, RoomPowerLevelsView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { joinRoom } from '#lib/core/api/rooms.js';
@@ -15,8 +15,12 @@
   import SettingsRow from '#lib/ui/primitives/SettingsRow.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
 
+  import { canSendState } from './permission-groups';
+
   interface Props {
     room: RoomListItemView | null;
+    levels: RoomPowerLevelsView | null;
+    ownPowerLevel: number;
   }
 
   interface ParentEvent {
@@ -24,7 +28,7 @@
     content?: { canonical?: unknown; via?: unknown };
   }
 
-  let { room }: Props = $props();
+  let { room, levels, ownPowerLevel }: Props = $props();
   const core = useCoreClient();
   const roomList = useRoomList();
 
@@ -36,9 +40,11 @@
 
   let parents = $state.raw<Entry[]>([]);
   let joining = $state<string | null>(null);
+  let promoting = $state<string | null>(null);
   let run = 0;
 
   let roomId = $derived(room?.room_id ?? null);
+  let canEdit = $derived(canSendState(levels, ownPowerLevel, 'm.space.parent'));
   let listing = $derived(
     roomId === null
       ? []
@@ -97,6 +103,36 @@
     void goto(resolve('/(app)/space/[spaceId]', { spaceId: roomPathParamFromId(spaceId) }));
   }
 
+  async function makeCanonical(entry: Entry): Promise<void> {
+    const target = roomId;
+    if (!target) return;
+
+    const send = (parent: Entry, canonical: boolean) =>
+      core.rpc.room_state.sendEvent({
+        room_id: target,
+        event_type: 'm.space.parent',
+        state_key: parent.spaceId,
+        content: canonical ? { via: parent.via, canonical } : { via: parent.via },
+      });
+
+    promoting = entry.spaceId;
+    try {
+      await send(entry, true);
+      for (const other of parents.filter((p) => p.canonical && p.spaceId !== entry.spaceId)) {
+        await send(other, false);
+      }
+      parents = parents.map((parent) => ({
+        ...parent,
+        canonical: parent.spaceId === entry.spaceId,
+      }));
+    } catch (error) {
+      console.warn('[sable room] changing the canonical space failed', error);
+      toasts.error(i18n.t('errors.actionFailed'));
+    } finally {
+      promoting = null;
+    }
+  }
+
   async function join(entry: Entry): Promise<void> {
     joining = entry.spaceId;
     try {
@@ -120,6 +156,17 @@
           <span class="kind">
             {entry.canonical ? i18n.t('room.spaceCanonical') : i18n.t('room.spaceOther')}
           </span>
+          {#if canEdit && !entry.canonical && entry.via.length > 0}
+            <Button
+              size="small"
+              variant="secondary"
+              loading={promoting === entry.spaceId}
+              disabled={promoting !== null}
+              onclick={() => makeCanonical(entry)}
+            >
+              {i18n.t('room.spaceMakeCanonical')}
+            </Button>
+          {/if}
           {#if roomList.byId(entry.spaceId)}
             <IconButton
               label={i18n.t('room.spaceOpen')}

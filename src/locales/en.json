@@ -713,6 +713,7 @@
     "spacesTitle": "Spaces",
     "spacesHint": "The spaces this room belongs to. A canonical space is the one the room names as its main parent.",
     "spaceCanonical": "Canonical",
+    "spaceMakeCanonical": "Make canonical",
     "spaceOther": "Not canonical",
     "spaceOpen": "Open space",
     "publishRoomHint": "List the room in the public directory so others can find it.",
