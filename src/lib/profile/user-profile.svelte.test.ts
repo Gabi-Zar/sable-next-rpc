@@ -77,3 +77,27 @@ test('a reader updates once the new user profile loads', async () => {
   });
   stop();
 });
+
+test('a lookup cancelled by its reader is not logged', async () => {
+  const core = fakeCore(new Map());
+  core.userProfile.mockImplementation(
+    (_userId: string, _fresh?: boolean, signal?: AbortSignal) =>
+      new Promise<ProfileView>((_resolve, reject) => {
+        signal?.addEventListener('abort', () => {
+          reject(new DOMException('The profile lookup was cancelled', 'AbortError'));
+        });
+      })
+  );
+  const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+  const stop = $effect.root(() => {
+    new UserProfile(core, () => '@alice:example.org');
+  });
+  flushSync();
+
+  stop();
+  await Promise.resolve();
+
+  expect(core.userProfile).toHaveBeenCalledOnce();
+  expect(debug).not.toHaveBeenCalled();
+  debug.mockRestore();
+});
