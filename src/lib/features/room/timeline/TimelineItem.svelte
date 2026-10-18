@@ -537,7 +537,6 @@
     bind:this={messageRow}
     class={[
       'message',
-      'choice',
       `layout-${layout}`,
       {
         collapsed,
@@ -855,7 +854,7 @@
 {:else}
   <article
     bind:this={messageRow}
-    class={['message', 'event-row', 'choice', { highlighted }]}
+    class={['message', 'event-row', { highlighted }]}
     data-selected={selected ? 'true' : undefined}
     style:--sender-name-color={senderColors.nameColor}
     style:--name-color-on-light={senderColors.nameColorLight ?? undefined}
