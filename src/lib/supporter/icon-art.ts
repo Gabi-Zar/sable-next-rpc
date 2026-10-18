@@ -197,9 +197,9 @@ const DONOR_PRIDE_COLORS = {
     'var(--supporter-demigender-gray)',
   ],
   pluraljourney: [
-    'var(--supporter-pluraljourney-purple)',
-    'var(--supporter-pluraljourney-blue)',
     'var(--supporter-pluraljourney-green)',
+    'var(--supporter-pluraljourney-blue)',
+    'var(--supporter-pluraljourney-purple)',
     'var(--supporter-black)',
   ],
 };
@@ -299,12 +299,12 @@ export const CRISP_PRIDE_STOPS: Partial<Record<string, Array<{ color: string; of
       'var(--supporter-rainbow-violet)',
     ]),
     pluraljourney: [
-      { color: 'var(--supporter-pluraljourney-purple)', offset: '0' },
-      { color: 'var(--supporter-pluraljourney-purple)', offset: '0.38' },
+      { color: 'var(--supporter-pluraljourney-green)', offset: '0' },
+      { color: 'var(--supporter-pluraljourney-green)', offset: '0.38' },
       { color: 'var(--supporter-pluraljourney-blue)', offset: '0.38' },
       { color: 'var(--supporter-pluraljourney-blue)', offset: '0.58' },
-      { color: 'var(--supporter-pluraljourney-green)', offset: '0.58' },
-      { color: 'var(--supporter-pluraljourney-green)', offset: '0.78' },
+      { color: 'var(--supporter-pluraljourney-purple)', offset: '0.58' },
+      { color: 'var(--supporter-pluraljourney-purple)', offset: '0.78' },
       { color: 'var(--supporter-black)', offset: '0.78' },
       { color: 'var(--supporter-black)', offset: '1' },
     ],
