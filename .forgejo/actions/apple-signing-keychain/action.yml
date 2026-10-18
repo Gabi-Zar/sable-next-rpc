@@ -1,0 +1,38 @@
+name: Apple signing keychain
+description: Imports the Developer ID certificate with its G2 intermediate into one keychain and exports APPLE_SIGNING_IDENTITY.
+
+inputs:
+  certificate:
+    description: The base64-encoded Developer ID Application .p12.
+    required: true
+  password:
+    description: The .p12 password.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Import the signing identity
+      shell: bash
+      env:
+        CERTIFICATE: ${{ inputs.certificate }}
+        CERTIFICATE_PASSWORD: ${{ inputs.password }}
+        CA_SHA256: f16cd3c54c7f83cea4bf1a3e6a0819c8aaa8e4a1528fd144715f350643d2df3a
+      run: |
+        ca="$RUNNER_TEMP/DeveloperIDG2CA.cer"
+        curl -fsSL --retry 3 -o "$ca" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+        echo "$CA_SHA256  $ca" | shasum -a 256 -c -
+        printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+        keychain="$RUNNER_TEMP/signing.keychain-db"
+        password="$(uuidgen)"
+        security create-keychain -p "$password" "$keychain"
+        security set-keychain-settings -lut 3600 "$keychain"
+        security unlock-keychain -p "$password" "$keychain"
+        security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security import "$ca" -k "$keychain"
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+        rm "$RUNNER_TEMP/certificate.p12"
+        security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
+        identity="$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
+        [ -n "$identity" ] || { echo 'No Developer ID Application identity in the certificate' >&2; exit 1; }
+        echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"

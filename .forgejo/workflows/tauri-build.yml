@@ -586,9 +586,12 @@ jobs:
           args=''
           [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
           node scripts/ci/set-tauri-version.mjs "$VERSION" $args
-      - name: Install the Developer ID intermediate
+      - name: Import the signing identity
         if: ${{ env.APPLE_CERTIFICATE != '' }}
-        uses: ./.forgejo/actions/apple-developer-id-ca
+        uses: ./.forgejo/actions/apple-signing-keychain
+        with:
+          certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       - name: Build desktop bundle
         run: |
           config_args=(--config src-tauri/tauri.ci.conf.json)
@@ -596,9 +599,12 @@ jobs:
           # Bundling an updater artifact without a key is a hard error.
           [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] \
             && config_args+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
-          [ -z "${APPLE_CERTIFICATE:-}" ] \
-            && unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
+          [ -z "${APPLE_CERTIFICATE:-}" ] && unset APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
+          unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
           pnpm tauri build "${config_args[@]}" --target universal-apple-darwin
+      - name: Remove the signing keychain
+        if: ${{ always() && env.APPLE_CERTIFICATE != '' }}
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
       - name: Upload native symbols to Sentry
         run: node scripts/ci/upload-sentry-symbols.mjs target
       - name: Normalize bundle names
@@ -697,8 +703,7 @@ jobs:
       VERSION: ${{ needs.setup-release.outputs.version }}
       TAG: ${{ needs.setup-release.outputs.tag }}
       SHA: ${{ github.sha }}
-      CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
-      CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
       APPLE_API_KEY_ID: ${{ secrets.APP_STORE_API_KEY_ID }}
     steps:
@@ -722,20 +727,26 @@ jobs:
         with:
           key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
           key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
-      - name: Install the Developer ID intermediate
-        if: ${{ env.CSC_LINK != '' }}
-        uses: ./.forgejo/actions/apple-developer-id-ca
+      - name: Import the signing identity
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
+        uses: ./.forgejo/actions/apple-signing-keychain
+        with:
+          certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       - name: Package
         run: |
           sign_args=()
-          if [ -n "${CSC_LINK:-}" ]; then
+          if [ -n "${APPLE_CERTIFICATE:-}" ]; then
             # electron-builder takes the key's path, not its ID, from APPLE_API_KEY.
             export APPLE_API_KEY="$APPLE_API_KEY_PATH"
             sign_args=(-c.mac.identity=NXLJ6G3CP7 -c.mac.hardenedRuntime=true)
           else
-            unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_ISSUER APPLE_API_KEY_ID
+            unset APPLE_API_ISSUER APPLE_API_KEY_ID
           fi
           pnpm --dir electron package --mac "${sign_args[@]}"
+      - name: Remove the signing keychain
+        if: ${{ always() && env.APPLE_CERTIFICATE != '' }}
+        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
       - name: Publish Electron bundles and update metadata
         run: node electron/publish-updates.mjs
 
