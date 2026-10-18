@@ -63,9 +63,10 @@
         class={['menu-surface', surfaceClass]}
         {...overlayLayer()}
         sideOffset={4}
-        {@attach scrollHint}
       >
-        {@render children()}
+        <div class="menu-scroll-content" {@attach scrollHint}>
+          {@render children()}
+        </div>
       </DropdownMenu.SubContent>
     </DropdownMenu.Portal>
   </DropdownMenu.Sub>

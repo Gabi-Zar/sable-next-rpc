@@ -13,9 +13,10 @@
 .sidebar-popover {
   --menu-min-width: min(20rem, calc(100vw - 2rem));
   --menu-max-height: calc(100dvh - 2rem);
+  --menu-padding: var(--space-150);
 
   gap: var(--space-100);
-  padding: var(--space-150);
+  padding: var(--menu-padding);
   width: min(20rem, calc(100vw - 2rem));
 }
 

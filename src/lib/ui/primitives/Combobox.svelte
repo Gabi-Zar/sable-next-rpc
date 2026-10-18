@@ -116,16 +116,18 @@
       {#snippet child({ wrapperProps, props, open })}
         {#if open && filteredItems.length > 0}
           <div {...wrapperProps} {...overlayLayer()} class="combobox-positioner">
-            <div {...props} class="menu-surface combobox-menu" {@attach scrollHint}>
-              {#each filteredItems as item (item.value)}
-                <BitsCombobox.Item value={item.value} label={item.label} disabled={item.disabled}>
-                  {#snippet child({ props })}
-                    <div {...props} class="menu-item">
-                      {item.label}
-                    </div>
-                  {/snippet}
-                </BitsCombobox.Item>
-              {/each}
+            <div {...props} class="menu-surface combobox-menu">
+              <div class="menu-scroll-content" {@attach scrollHint}>
+                {#each filteredItems as item (item.value)}
+                  <BitsCombobox.Item value={item.value} label={item.label} disabled={item.disabled}>
+                    {#snippet child({ props })}
+                      <div {...props} class="menu-item">
+                        {item.label}
+                      </div>
+                    {/snippet}
+                  </BitsCombobox.Item>
+                {/each}
+              </div>
             </div>
           </div>
         {/if}

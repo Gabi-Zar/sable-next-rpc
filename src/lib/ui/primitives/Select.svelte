@@ -147,13 +147,8 @@
       <CaretDownIcon class="select-caret" aria-hidden="true" />
     </BitsSelect.Trigger>
     <BitsSelect.Portal>
-      <BitsSelect.Content
-        sideOffset={4}
-        class="menu-surface select-content"
-        {...overlayLayer()}
-        {@attach scrollHint}
-      >
-        <BitsSelect.Viewport>
+      <BitsSelect.Content sideOffset={4} class="menu-surface select-content" {...overlayLayer()}>
+        <BitsSelect.Viewport class="menu-scroll-content" {@attach scrollHint}>
           {#each items as item (item.value)}
             <BitsSelect.Item
               value={item.value}

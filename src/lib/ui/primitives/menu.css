@@ -3,6 +3,7 @@
   --menu-max-height: 20rem;
   --radius-outer: var(--radii-400);
   --radius-padding: var(--space-100);
+  --menu-padding: var(--radius-padding);
   --radius-inner: max(0px, calc(var(--radius-outer) - var(--radius-padding)));
   --menu-item-hover: var(--surface-container-hover);
   --menu-item-active: var(--surface-container-active);
@@ -16,8 +17,23 @@
   max-height: var(--menu-max-height);
   min-width: var(--menu-min-width);
   overflow: auto;
-  padding: var(--radius-padding);
+  padding: var(--menu-padding);
   transform-origin: var(--bits-floating-transform-origin, top);
+}
+
+.menu-surface:has(> .menu-scroll-content) {
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+
+.menu-scroll-content {
+  display: grid;
+  gap: inherit;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--menu-padding);
 }
 
 .menu-surface.message-menu {

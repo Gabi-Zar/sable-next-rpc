@@ -90,9 +90,10 @@
         {align}
         {sideOffset}
         {preventScroll}
-        {@attach scrollHint}
       >
-        {@render children()}
+        <div class="menu-scroll-content" {@attach scrollHint}>
+          {@render children()}
+        </div>
       </DropdownMenu.Content>
     </DropdownMenu.Portal>
   </DropdownMenu.Root>
