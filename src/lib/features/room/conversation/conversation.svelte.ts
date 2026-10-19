@@ -812,13 +812,12 @@ export class Conversation {
     persona.last_used = Date.now();
     personas.save(persona, persona.id).catch(failed('updating persona timestamp'));
 
-    let avatar_url =
-      (
-        persona.alternate_avatars &&
-        personaSelection?.alternate_avatar_id &&
-        persona.alternate_avatars.find(
-          (avatar) => avatar.id == personaSelection.alternate_avatar_id
-        )
+    const avatar_url =
+      (personaSelection?.alternate_avatar_id
+        ? persona.alternate_avatars?.find(
+            (avatar) => avatar.id == personaSelection.alternate_avatar_id
+          )
+        : undefined
       )?.avatar_url ?? persona.avatar_url;
 
     return {
