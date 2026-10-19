@@ -373,7 +373,7 @@
       height: 100dvh;
       left: 0;
       padding-left: var(--safe-left);
-      padding-top: var(--titlebar-height);
+      padding-top: var(--safe-top);
       position: fixed;
       top: 0;
       width: calc(var(--navigation-rail-width) + var(--room-nav-width) + var(--safe-left));
