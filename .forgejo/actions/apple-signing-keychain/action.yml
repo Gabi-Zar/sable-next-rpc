@@ -37,7 +37,10 @@ runs:
         [ -n "$identity" ] || {
           echo 'No valid Developer ID Application identity in the certificate' >&2
           security find-identity -p codesigning "$keychain" >&2
-          security find-certificate -a -c 'Developer ID' "$keychain" | grep -E '"(labl|issu)"' >&2
+          security find-certificate -c 'Developer ID Application' -p "$keychain" > "$RUNNER_TEMP/leaf.pem"
+          openssl x509 -in "$RUNNER_TEMP/leaf.pem" -noout -subject -issuer -dates >&2
+          security verify-cert -c "$RUNNER_TEMP/leaf.pem" -p codeSign -k "$keychain" >&2 || true
+          date -u >&2
           exit 1
         }
         echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
