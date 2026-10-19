@@ -432,6 +432,22 @@ pub struct MarkReadParams {
     pub fully_read: bool,
 }
 
+fn receipt_sent<T>(core: &Core, result: matrix_sdk::Result<T>) -> Result<(), RpcError> {
+    match result {
+        Ok(_) => Ok(()),
+        Err(error)
+            if matches!(
+                error.client_api_error_kind(),
+                Some(ErrorKind::NotFound | ErrorKind::InvalidParam)
+            ) =>
+        {
+            tracing::info!(context = "mark_read", "the receipt target is gone");
+            Ok(())
+        }
+        Err(error) => Err(core.failed("mark_read", error)),
+    }
+}
+
 impl Handler for MarkReadParams {
     type Ok = ();
 
@@ -452,10 +468,8 @@ impl Handler for MarkReadParams {
                 .build()
                 .await
                 .or_failed(core, "build_mark_read_timeline")?;
-            timeline
-                .mark_as_read(receipt_type.clone())
-                .await
-                .or_failed(core, "mark_read")?;
+            receipt_sent(core, timeline
+                .mark_as_read(receipt_type.clone()).await)?;
             let main = room
                 .timeline_builder()
                 .with_focus(TimelineFocus::Live {
@@ -464,13 +478,9 @@ impl Handler for MarkReadParams {
                 .build()
                 .await
                 .or_failed(core, "build_mark_read_timeline")?;
-            main.mark_as_read(receipt_type)
-                .await
-                .or_failed(core, "mark_read")?;
-            timeline
-                .mark_as_read(ReceiptType::FullyRead)
-                .await
-                .or_failed(core, "mark_read")?;
+            receipt_sent(core, main.mark_as_read(receipt_type).await)?;
+            receipt_sent(core, timeline
+                .mark_as_read(ReceiptType::FullyRead).await)?;
             return Ok(());
         };
 
@@ -483,15 +493,11 @@ impl Handler for MarkReadParams {
             core.timeline_for(&self.room_id, thread_root.as_ref())
                 .await?
         };
-        timeline
-            .send_single_receipt(receipt_type, event_id.clone())
-            .await
-            .or_failed(core, "mark_read")?;
+        receipt_sent(core, timeline
+            .send_single_receipt(receipt_type, event_id.clone()).await)?;
         if self.fully_read && thread_root.is_none() {
-            timeline
-                .send_multiple_receipts(Receipts::new().fully_read_marker(event_id))
-                .await
-                .or_failed(core, "mark_read")?;
+            receipt_sent(core, timeline
+                .send_multiple_receipts(Receipts::new().fully_read_marker(event_id)).await)?;
         }
         Ok(())
     }

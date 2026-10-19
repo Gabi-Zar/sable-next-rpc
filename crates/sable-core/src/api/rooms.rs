@@ -494,12 +494,12 @@ impl Handler for CreateDmParams {
                 client
                     .create_room(request)
                     .await
-                    .or_failed(core, "create_dm")?
+                    .map_err(|error| core.room_error("create_dm", error))?
             }
             None => client
                 .create_dm(&user_id)
                 .await
-                .or_failed(core, "create_dm")?,
+                .map_err(|error| core.room_error("create_dm", error))?,
         };
 
         Ok(room.room_id().to_string())

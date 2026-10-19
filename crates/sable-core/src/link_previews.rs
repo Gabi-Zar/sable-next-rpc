@@ -9,7 +9,7 @@ use std::collections::HashMap;
 pub(crate) fn preview_refused(error: &matrix_sdk::HttpError) -> bool {
     error
         .as_client_api_error()
-        .is_some_and(|api_error| api_error.status_code.as_u16() == 403)
+        .is_some_and(|api_error| matches!(api_error.status_code.as_u16(), 400 | 403))
 }
 
 pub(crate) async fn soliditas_preview(
