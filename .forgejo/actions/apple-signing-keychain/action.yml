@@ -33,12 +33,15 @@ runs:
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
         rm "$RUNNER_TEMP/certificate.p12"
         security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
-        # find-identity -v finds no valid identity on the runner although verify-cert
-        # accepts the chain, so the chain is checked with verify-cert.
-        identity="$(security find-identity -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
+        # find-identity -v and codesign's lookup by name find no valid identity on the
+        # runner although verify-cert accepts the chain, so the chain is checked with
+        # verify-cert and the identity is passed to codesign by hash.
+        identities="$(security find-identity -p codesigning "$keychain")"
+        identity="$(printf '%s\n' "$identities" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
         [ -n "$identity" ] || { echo 'No Developer ID Application identity in the certificate' >&2; exit 1; }
+        hash="$(printf '%s\n' "$identities" | sed -n 's/^ *[0-9]*) \([0-9A-F]\{40\}\) "Developer ID Application:.*/\1/p' | head -n 1)"
         leaf="$RUNNER_TEMP/leaf.pem"
         security find-certificate -c "$identity" -p "$keychain" > "$leaf"
         security verify-cert -c "$leaf" -p codeSign -k "$keychain" >&2 || { echo "$identity does not chain to a trusted root" >&2; exit 1; }
         rm "$leaf"
-        echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
+        echo "APPLE_SIGNING_IDENTITY=$hash" >> "$GITHUB_ENV"
