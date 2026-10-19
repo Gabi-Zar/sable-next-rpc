@@ -2,9 +2,20 @@ import { CoreError } from '#src/transport';
 import { t } from '#lib/i18n.js';
 import { LocalNetworkBlockedError } from '#lib/platform/local-network.js';
 
+const EXPECTED_AUTH_FAILURES = new Set([
+  'denied',
+  'rate_limited',
+  'unavailable',
+  'account_locked',
+  'account_suspended',
+  'unknown_homeserver',
+  'auth_provider_unreachable',
+]);
+
 export function logAuthenticationFailure(operation: string, value: unknown): void {
   const error = value instanceof CoreError ? value.detail : { code: 'unexpected' };
-  console.error('[sable:auth] authentication failed', { operation, error });
+  const log = EXPECTED_AUTH_FAILURES.has(error.code) ? console.warn : console.error;
+  log(`[sable:auth] authentication failed: ${operation} ${error.code}`, { operation, error });
 }
 
 export function registrationError(value: unknown): string {
