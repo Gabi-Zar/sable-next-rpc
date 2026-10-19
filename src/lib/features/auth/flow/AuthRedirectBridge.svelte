@@ -42,6 +42,7 @@
   }
 
   function handleCallback(url: string): void {
+    if (url === readText(HANDLED_CALLBACK_KEY)) return;
     writeText(HANDLED_CALLBACK_KEY, url);
     onCallback(url);
   }
@@ -59,7 +60,7 @@
     removeDeepLinkListener = unlisten;
 
     const url = (await currentDeepLinks()).find((candidate) => redirectLoginType(candidate));
-    if (url && url !== readText(HANDLED_CALLBACK_KEY)) handleCallback(url);
+    if (url) handleCallback(url);
   }
 
   onMount(() => {
