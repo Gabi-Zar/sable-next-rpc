@@ -12,7 +12,7 @@
 
   let { category }: Props = $props();
   const isComposer = $derived(category.id === 'composer');
-  const isTimeline = $derived(category.id === 'timeline' || category.id === 'appearance');
+  const isTimeline = $derived(category.id === 'timeline');
   const docked = $derived(isComposer || isTimeline);
   let draftTextScale = $state<number | null>(null);
 </script>

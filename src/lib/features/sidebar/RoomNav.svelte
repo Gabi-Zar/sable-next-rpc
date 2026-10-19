@@ -1247,7 +1247,7 @@
     display: flex;
     flex: 1;
     font: inherit;
-    font-weight: var(--font-weight-500);
+    font-weight: var(--font-weight-normal);
     gap: var(--space-200);
     min-height: 2.25rem;
     min-width: 0;
@@ -1270,7 +1270,7 @@
   }
 
   .room-row.unread {
-    font-weight: var(--font-weight-600);
+    font-weight: var(--font-weight-bold);
   }
 
   .room-avatar {
