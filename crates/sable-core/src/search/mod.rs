@@ -2184,8 +2184,19 @@ fn indexable_body(body: &str) -> String {
     remove_plain_reply_fallback(body).to_owned()
 }
 
-fn message_text(msgtype: &MessageType) -> String {
-    let body = indexable_body(msgtype.body());
+fn without_profile_name(body: &str, raw: Option<&serde_json::Value>) -> String {
+    let Some(profile) = crate::view::per_message_profile(raw) else {
+        return body.to_owned();
+    };
+    crate::matrix_html::strip_profile_fallback_body(
+        body,
+        profile.display_name.as_deref(),
+        profile.has_fallback,
+    )
+}
+
+fn message_text(msgtype: &MessageType, raw: Option<&serde_json::Value>) -> String {
+    let body = indexable_body(&without_profile_name(msgtype.body(), raw));
     let filenames = match msgtype {
         MessageType::Gallery(gallery) => crate::view::gallery_filenames(gallery),
         MessageType::Image(image) => vec![image.filename()],
@@ -2219,7 +2230,7 @@ fn document_of(
     message: &OriginalSyncRoomMessageEvent,
     content: Option<&serde_json::Value>,
 ) -> Document {
-    let body = message_text(&message.content.msgtype);
+    let body = message_text(&message.content.msgtype, content);
     Document {
         event_id: message.event_id.clone(),
         has_link: contains_link(&body),
@@ -2366,7 +2377,7 @@ fn with_edit(
     }
 
     let content = &replacement.new_content;
-    document.body = message_text(&content.msgtype);
+    document.body = message_text(&content.msgtype, raw);
     document.has_link = contains_link(&document.body);
     document.attachments = attachments_of(&content.msgtype);
     document.mentions = mentioned_users(content.mentions.as_ref());
@@ -3294,12 +3305,38 @@ mod tests {
             ImageMessageEventContent::plain("Sunset at the pier".to_owned(), url.clone());
         captioned.filename = Some("holiday-2026.jpg".to_owned());
         assert_eq!(
-            super::message_text(&MessageType::Image(captioned)),
+            super::message_text(&MessageType::Image(captioned), None),
             "Sunset at the pier\nholiday-2026.jpg"
         );
 
         let bare = FileMessageEventContent::plain("report.pdf".to_owned(), url);
-        assert_eq!(super::message_text(&MessageType::File(bare)), "report.pdf");
+        assert_eq!(
+            super::message_text(&MessageType::File(bare), None),
+            "report.pdf"
+        );
+    }
+
+    #[test]
+    fn a_profile_name_fallback_is_not_indexed() {
+        use matrix_sdk::ruma::events::room::message::{MessageType, TextMessageEventContent};
+        use serde_json::json;
+
+        let text = |body: &str| MessageType::Text(TextMessageEventContent::plain(body));
+        let profiled =
+            json!({"m.per_message_profile": {"displayname": "Kris", "has_fallback": true}});
+
+        assert_eq!(
+            super::message_text(&text("Kris: hello"), Some(&profiled)),
+            "hello"
+        );
+        assert_eq!(
+            super::message_text(&text("Kris: hello"), None),
+            "Kris: hello"
+        );
+        assert_eq!(
+            super::message_text(&text("hello"), Some(&profiled)),
+            "hello"
+        );
     }
 
     fn picture(seed: &str, sender: &str, ts: u64) -> super::Document {
