@@ -1214,9 +1214,17 @@ jobs:
           # Pinned from https://aur.archlinux.org (SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4).
           echo 'aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN' \
             >> ~/.ssh/known_hosts
-          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur_key -o IdentitiesOnly=yes"
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/aur_key -o IdentitiesOnly=yes -o ConnectTimeout=30"
 
-          git clone "ssh://aur@aur.archlinux.org/${pkg}.git" aur-repo
+          retry() {
+            for attempt in 1 2 3 4; do
+              "$@" && return 0
+              [ "$attempt" -lt 4 ] && sleep $((attempt * 15))
+            done
+            return 1
+          }
+
+          retry git clone "ssh://aur@aur.archlinux.org/${pkg}.git" aur-repo
           scripts/ci/render-aur.sh "$pkg" "$pkgver" "$relver" "$sha" aur-render
           cp aur-render/PKGBUILD aur-render/.SRCINFO "aur-render/${pkg}.install" aur-repo/
 
@@ -1229,7 +1237,7 @@ jobs:
             exit 0
           fi
           git commit -m "${pkg} ${VERSION}"
-          git push
+          retry git push
   distribute-homebrew:
     name: Publish the Homebrew cask
     needs: [setup-release, macos]
