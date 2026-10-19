@@ -351,7 +351,14 @@
     return row ? rowCells(row)[selection.col] : undefined;
   }
 
+  let enterTarget = $derived.by(() => {
+    if (!showFreeText || !searchFocused) return '';
+    const cell = chosen.key === boardKey ? selectedCell() : undefined;
+    return cell ? cellLabel(cell) : i18n.t('composer.reactWithText', { text: query.trim() });
+  });
+
   function isSelected(id: string, column: number): boolean {
+    if (showFreeText && chosen.key !== boardKey) return false;
     return searchFocused && selection.row === navIndex.get(id) && selection.col === column;
   }
 
@@ -548,20 +555,17 @@
   /** A reaction key is any string, so an unmatched query is still a valid one. */
   function submitQuery(event: KeyboardEvent): void {
     if (event.key !== 'Enter') return;
-    const cell = selectedCell();
+    const cell = showFreeText && chosen.key !== boardKey ? undefined : selectedCell();
     if (cell) {
       event.preventDefault();
       pickCell(cell, event.shiftKey);
       return;
     }
-    if (!onPickUnicode) return;
+    if (!showFreeText) return;
     const text = query.trim();
     if (text === '') return;
     event.preventDefault();
-    const best = searchEmojis.at(0);
-    if (best === undefined && !reactions) return;
-    if (best !== undefined) rememberReaction(best);
-    onPickUnicode(best ?? text, event.shiftKey);
+    onPickUnicode?.(text, event.shiftKey);
   }
 
   function focusSearch(element: HTMLElement): void {
@@ -665,6 +669,7 @@
       }}
       {@attach focusSearch}
     />
+    <span class="sr-only" role="status">{enterTarget}</span>
     {#if !gifTab && sections.length > 0}
       <p class="pack-visibility">{i18n.t('composer.packMediaVisibility')}</p>
     {/if}
@@ -1149,6 +1154,15 @@
 
   .rail.hidden {
     display: none;
+  }
+
+  .sr-only {
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
   }
 
   .free-text {

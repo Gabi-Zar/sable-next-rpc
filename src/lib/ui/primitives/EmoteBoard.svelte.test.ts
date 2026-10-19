@@ -229,3 +229,50 @@ test('shift+enter picks the selected emote and keeps the board open', async () =
     true
   );
 });
+
+test('enter reacts with the typed text over a matching emote', async () => {
+  writeRecent([]);
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  const onPickUnicode = vi.fn();
+  const view = render(EmoteBoard, {
+    props: {
+      roomId: '!room:example.org',
+      unicode: true,
+      reactions: true,
+      onPick: vi.fn(),
+      onPickUnicode,
+    },
+  });
+  const search = await view.findByRole('searchbox');
+  search.focus();
+  await fireEvent.input(search, { target: { value: 'smile' } });
+  await tick();
+
+  await fireEvent.keyDown(search, { key: 'Enter' });
+
+  expect(onPickUnicode).toHaveBeenCalledWith('smile', false);
+});
+
+test('announces what enter will react with', async () => {
+  writeRecent([]);
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  const view = render(EmoteBoard, {
+    props: {
+      roomId: '!room:example.org',
+      unicode: true,
+      reactions: true,
+      onPick: vi.fn(),
+      onPickUnicode: vi.fn(),
+    },
+  });
+  const search = await view.findByRole('searchbox');
+  search.focus();
+  await fireEvent.input(search, { target: { value: 'smile' } });
+  await tick();
+  const status = view.container.querySelector('[role="status"]');
+  expect(status?.textContent).toContain('smile');
+
+  await fireEvent.keyDown(search, { key: 'ArrowRight' });
+
+  expect(status?.textContent).not.toContain('React with');
+});
