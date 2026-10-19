@@ -3,7 +3,7 @@ import { dirname, join, relative, sep } from 'node:path';
 
 const IMMUTABLE = '_app/immutable/';
 const MANIFEST = '_app/retained.json';
-const MAX_AGE_DAYS = 7;
+const MAX_AGE_DAYS = 5;
 const MAX_FILES = 15_000;
 const CONCURRENCY = 8;
 
