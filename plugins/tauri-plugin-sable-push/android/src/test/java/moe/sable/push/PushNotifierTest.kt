@@ -852,7 +852,7 @@ class PushNotifierTest {
         try {
             every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any()) } answers {
                 contents.add(arg(5))
-                JSONObject()
+                JSONObject().put("own_name", "Alice").put("own_avatar", JSONObject.NULL)
             }
             PushNotifier.showFromPush(context, imagePush(room))
         } finally {
@@ -867,7 +867,23 @@ class PushNotifierTest {
 
         assertEquals("mxc://example.org/cat", contents.single()?.getString("url"))
         val posted = shadowNotificationManager().getNotification(null, canonicalId("!image:example.org"))!!
-        assertEquals("conversation-${canonicalId("!image:example.org")}", posted.shortcutId)
+        val shortcut = ConversationShortcuts.id("@alice:example.org", "!image:example.org")
+        assertEquals(shortcut, posted.shortcutId)
+        assertEquals(shortcut, posted.locusId?.id)
+        assertEquals(Notification.CATEGORY_MESSAGE, posted.category)
+        val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(posted)!!
+        assertEquals("@bob:example.org", style.messages.last().person?.key)
+        assertEquals("@alice:example.org", style.user.key)
+        assertEquals("Alice", style.user.name)
+    }
+
+    @Test
+    fun aConversationShortcutIdNamesItsAccountAndRoom() {
+        val id = ConversationShortcuts.id("@alice:example.org", "!room:example.org")
+
+        assertEquals("@alice:example.org" to "!room:example.org", ConversationShortcuts.parse(id))
+        assertNull(ConversationShortcuts.parse("conversation-12345"))
+        assertNull(ConversationShortcuts.parse("conversation:not base64:x"))
     }
 
     @Test

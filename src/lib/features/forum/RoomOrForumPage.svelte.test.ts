@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({ rooms: [] as RoomListItemView[] }));
 const rendered = vi.hoisted(() => [] as string[]);
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
+vi.mock('#lib/core/context.js');
 vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useRoomList: () => state,

@@ -627,6 +627,40 @@ pub fn register_actions<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+#[cfg(target_os = "android")]
+pub async fn set_open_conversation<R: Runtime>(
+    app: &AppHandle<R>,
+    user_id: Option<&str>,
+    room_id: Option<&str>,
+) {
+    use tauri_plugin_sable_push::SablePushExt;
+    if let Err(error) = app
+        .sable_push()
+        .set_open_conversation(user_id, room_id)
+        .await
+    {
+        log::debug!("could not tell the system which conversation is open: {error}");
+    }
+}
+
+#[cfg(target_os = "android")]
+pub async fn forget_left_conversations<R: Runtime>(app: &AppHandle<R>, core: &sable_core::Core) {
+    use tauri_plugin_sable_push::SablePushExt;
+    let Ok((user_id, room_ids)) = core.left_rooms().await else {
+        return;
+    };
+    if room_ids.is_empty() {
+        return;
+    }
+    if let Err(error) = app
+        .sable_push()
+        .forget_conversations(&user_id, &room_ids)
+        .await
+    {
+        log::debug!("could not remove the conversations of left rooms: {error}");
+    }
+}
+
 pub async fn dismiss<R: Runtime>(app: &AppHandle<R>, user_id: &str, room_ids: &[String]) {
     #[cfg(not(target_os = "android"))]
     for room_id in room_ids {

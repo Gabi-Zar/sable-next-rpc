@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.NotificationManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import androidx.core.app.ActivityCompat
 import androidx.work.WorkManager
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -42,6 +43,18 @@ class AccountArgs {
 @InvokeArg
 class AccountsArgs {
     var accounts: List<AccountArgs> = emptyList()
+}
+
+@InvokeArg
+class OpenConversationArgs {
+    var userId: String? = null
+    var roomId: String? = null
+}
+
+@InvokeArg
+class ConversationsArgs {
+    var userId: String = ""
+    var roomIds: List<String> = emptyList()
 }
 
 @InvokeArg
@@ -112,9 +125,28 @@ class SablePushPlugin(private val activity: Activity) : Plugin(activity) {
 
     @Command
     fun setAccounts(invoke: Invoke) {
-        PushPolicy(activity).accounts = invoke.parseArgs(AccountsArgs::class.java).accounts
+        val accounts = invoke.parseArgs(AccountsArgs::class.java).accounts
             .filter { it.userId.isNotEmpty() && it.deviceId.isNotEmpty() }
             .associate { it.userId to it.deviceId }
+        PushPolicy(activity).accounts = accounts
+        ConversationShortcuts.retainAccounts(activity, accounts.keys)
+        invoke.resolve()
+    }
+
+    @Command
+    fun setOpenConversation(invoke: Invoke) {
+        val args = invoke.parseArgs(OpenConversationArgs::class.java)
+        val userId = args.userId?.takeIf { it.isNotEmpty() }
+        val roomId = args.roomId?.takeIf { it.isNotEmpty() }
+        val locus = if (userId != null && roomId != null) ConversationShortcuts.locus(userId, roomId) else null
+        activity.runOnUiThread { ActivityCompat.setLocusContext(activity, locus, null) }
+        invoke.resolve()
+    }
+
+    @Command
+    fun forgetConversations(invoke: Invoke) {
+        val args = invoke.parseArgs(ConversationsArgs::class.java)
+        ConversationShortcuts.forgetRooms(activity, args.userId, args.roomIds.toSet())
         invoke.resolve()
     }
 

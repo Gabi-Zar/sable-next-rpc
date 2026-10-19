@@ -1518,6 +1518,21 @@ mod regression_tests {
         (server, core, room)
     }
 
+    #[tokio::test]
+    async fn left_rooms_names_only_the_rooms_the_account_left() {
+        let (server, core, room) = core_with_room().await;
+        server
+            .sync_room(
+                &room.client(),
+                matrix_sdk_test::LeftRoomBuilder::new(room_id!("!gone:example.org")),
+            )
+            .await;
+
+        let (user_id, rooms) = core.left_rooms().await.unwrap();
+        assert_eq!(user_id, room.client().user_id().unwrap().to_string());
+        assert_eq!(rooms, ["!gone:example.org"]);
+    }
+
     #[test]
     fn oauth_device_deletion_requires_an_advertised_management_action() {
         use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata;

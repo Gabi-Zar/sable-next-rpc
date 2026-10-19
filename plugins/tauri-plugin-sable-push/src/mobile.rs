@@ -37,6 +37,32 @@ impl<R: Runtime> SablePush<R> {
     /// # Errors
     ///
     /// When the Android plugin rejects the call.
+    pub async fn set_open_conversation(
+        &self,
+        user_id: Option<&str>,
+        room_id: Option<&str>,
+    ) -> Result<()> {
+        self.call(
+            "setOpenConversation",
+            serde_json::json!({ "userId": user_id, "roomId": room_id }),
+        )
+        .await
+    }
+
+    /// # Errors
+    ///
+    /// When the Android plugin rejects the call.
+    pub async fn forget_conversations(&self, user_id: &str, room_ids: &[String]) -> Result<()> {
+        self.call(
+            "forgetConversations",
+            serde_json::json!({ "userId": user_id, "roomIds": room_ids }),
+        )
+        .await
+    }
+
+    /// # Errors
+    ///
+    /// When the Android plugin rejects the call.
     pub async fn dismiss(&self, ids: &[i32]) -> Result<()> {
         self.call("dismiss", serde_json::json!({ "ids": ids }))
             .await

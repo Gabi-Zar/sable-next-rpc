@@ -42,6 +42,7 @@
   import { watchScheduledQueue } from '#lib/features/composer/scheduled-sender.js';
   import {
     alertsNatively,
+    forgetLeftNativeConversations,
     setNativeEncryptedContentAllowed,
     watchNativePushTokens,
     watchNativeNotificationActions,
@@ -831,6 +832,19 @@
       profileOverrides.stop();
       supporter.stop();
     };
+  });
+
+  const LEFT_CONVERSATIONS_SETTLE_MS = 2_000;
+
+  $effect(() => {
+    void roomList.rooms;
+    if (!roomList.settled) return;
+    const timer = setTimeout(() => {
+      forgetLeftNativeConversations().catch((error: unknown) => {
+        console.debug('[sable notifications] left conversations not forgotten', error);
+      });
+    }, LEFT_CONVERSATIONS_SETTLE_MS);
+    return () => clearTimeout(timer);
   });
 
   const NOTIFIED_ROOM_WAIT_MS = 10_000;

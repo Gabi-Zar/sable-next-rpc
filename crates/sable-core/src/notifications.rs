@@ -657,6 +657,18 @@ impl PushSession {
         } else {
             room.avatar_url()
         };
+        let own = match sender {
+            Some(_) => room
+                .get_member_no_sync(room.own_user_id())
+                .await
+                .ok()
+                .flatten(),
+            None => None,
+        };
+        let own_name = own
+            .as_ref()
+            .and_then(|member| member.display_name().map(ToOwned::to_owned));
+        let own_url = own.and_then(|member| member.avatar_url().map(ToOwned::to_owned));
         let image = match content {
             Some(content) if crate::account_documents::shows_media_previews(&room).await => {
                 message_image(content)
@@ -674,9 +686,10 @@ impl PushSession {
                 Some((PUSH_AVATAR_SIZE, PUSH_AVATAR_SIZE)),
             )
         };
-        let (sender, room, image) = futures_util::join!(
+        let (sender, room, own_avatar, image) = futures_util::join!(
             avatar(sender_url),
             avatar(room_url),
+            avatar(own_url),
             cached_push_media(
                 client,
                 &directory,
@@ -688,6 +701,8 @@ impl PushSession {
             sender: sender.map(|(path, _)| path),
             room: room.map(|(path, _)| path),
             image: image.map(|(path, mimetype)| PushImage { path, mimetype }),
+            own_name,
+            own_avatar: own_avatar.map(|(path, _)| path),
         }
     }
 }
@@ -727,6 +742,8 @@ pub struct PushMedia {
     pub sender: Option<String>,
     pub room: Option<String>,
     pub image: Option<PushImage>,
+    pub own_name: Option<String>,
+    pub own_avatar: Option<String>,
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -2201,6 +2218,8 @@ mod tests {
         let read = |path: &str| std::fs::read(path).unwrap();
         assert_eq!(read(first.sender.as_deref().unwrap()), thumbnails["face"]);
         assert_eq!(read(first.room.as_deref().unwrap()), thumbnails["lounge"]);
+        assert_eq!(read(first.own_avatar.as_deref().unwrap()), thumbnails["me"]);
+        assert_eq!(first.own_name.as_deref(), Some("Alice"));
         let image_file = first.image.as_ref().unwrap();
         assert_eq!(read(&image_file.path), thumbnails["cat"]);
         assert_eq!(image_file.mimetype, "image/png");
@@ -2312,7 +2331,12 @@ mod tests {
             .room(room_id!("!cold:example.org"))
             .sender(user_id!("@sender:example.org"));
         let room = JoinedRoomBuilder::new(room_id!("!cold:example.org"))
-            .add_state_event(factory.member(user_id!("@alice:example.org")))
+            .add_state_event(
+                factory
+                    .member(user_id!("@alice:example.org"))
+                    .display_name("Alice")
+                    .avatar_url(mxc_uri!("mxc://example.org/me")),
+            )
             .add_state_event(
                 factory
                     .member(user_id!("@sender:example.org"))
@@ -2340,7 +2364,7 @@ mod tests {
         };
 
         let mut thumbnails = std::collections::HashMap::new();
-        for media in ["face", "lounge", "cat"] {
+        for media in ["face", "lounge", "me", "cat"] {
             let png = [b"\x89PNG\r\n\x1a\n".as_slice(), media.as_bytes()].concat();
             Mock::given(method("GET"))
                 .and(path(format!(

@@ -173,6 +173,23 @@ pub(crate) async fn fill_own_member(room: &matrix_sdk::Room) -> Result<(), matri
 }
 
 impl Core {
+    /// The active account, with the rooms it left or was banned from: their conversations are gone.
+    ///
+    /// # Errors
+    ///
+    /// When no account is signed in.
+    pub async fn left_rooms(&self) -> Result<(String, Vec<String>), RpcError> {
+        let client = self.client().await?;
+        let user_id = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_string();
+        let rooms = client
+            .rooms()
+            .into_iter()
+            .filter(|room| matches!(room.state(), RoomState::Left | RoomState::Banned))
+            .map(|room| room.room_id().to_string())
+            .collect();
+        Ok((user_id, rooms))
+    }
+
     pub(crate) async fn set_direct(
         &self,
         room_id: &OwnedRoomId,

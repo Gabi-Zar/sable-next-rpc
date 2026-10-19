@@ -653,6 +653,29 @@ async fn dismiss_room_notifications(
 }
 
 #[tauri::command]
+async fn set_open_conversation(
+    app: AppHandle<BrowserEngine>,
+    user_id: Option<String>,
+    room_id: Option<String>,
+) {
+    #[cfg(target_os = "android")]
+    notifications::set_open_conversation(&app, user_id.as_deref(), room_id.as_deref()).await;
+    #[cfg(not(target_os = "android"))]
+    let _ = (app, user_id, room_id);
+}
+
+#[tauri::command]
+async fn forget_left_conversations(app: AppHandle<BrowserEngine>) {
+    #[cfg(target_os = "android")]
+    {
+        let core = app.state::<AppState>().core.clone();
+        notifications::forget_left_conversations(&app, &core).await;
+    }
+    #[cfg(not(target_os = "android"))]
+    let _ = app;
+}
+
+#[tauri::command]
 async fn dismiss_read_room_notifications(
     app: AppHandle<BrowserEngine>,
     user_id: String,
@@ -1059,6 +1082,8 @@ pub fn run() {
             unregister_push,
             device_pusher,
             dismiss_room_notifications,
+            forget_left_conversations,
+            set_open_conversation,
             dismiss_read_room_notifications,
             notification_permission,
             request_notification_permission,

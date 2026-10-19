@@ -19,8 +19,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.content.FileProvider
-import androidx.core.content.pm.ShortcutInfoCompat
-import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import app.tauri.Logger
 import org.json.JSONObject
@@ -43,6 +41,8 @@ object PushNotifier {
     private const val DIRECT_FLAG = "moe.sable.direct"
     private const val SENDER_AVATAR_KEY = "moe.sable.sender_avatar"
     private const val ROOM_AVATAR_KEY = "moe.sable.room_avatar"
+    private const val OWN_AVATAR_KEY = "moe.sable.own_avatar"
+    private const val OWN_NAME_KEY = "moe.sable.own_name"
     private const val IMAGE_KEY = "moe.sable.image"
     private const val IMAGE_TYPE_KEY = "moe.sable.image_type"
     internal const val NOTIFY_ONCE_WINDOW_MS = 5 * 60_000L
@@ -245,7 +245,13 @@ object PushNotifier {
         }
         if (sender == null && image == null) return
         val media = PushPayloadDecryptor.media(context, userId, deviceId, roomId, sender, image) ?: return
-        for ((field, key) in listOf("sender" to SENDER_AVATAR_KEY, "room" to ROOM_AVATAR_KEY)) {
+        val fields = listOf(
+            "sender" to SENDER_AVATAR_KEY,
+            "room" to ROOM_AVATAR_KEY,
+            "own_avatar" to OWN_AVATAR_KEY,
+            "own_name" to OWN_NAME_KEY,
+        )
+        for ((field, key) in fields) {
             if (!media.isNull(field)) notification.put(key, media.getString(field))
         }
         media.optJSONObject("image")?.let {
@@ -263,34 +269,21 @@ object PushNotifier {
         return notification.optString(IMAGE_TYPE_KEY) to uri
     }
 
-    private fun conversationShortcut(
-        context: Context,
-        notifId: Int,
-        label: String,
-        icon: Bitmap?,
-        person: Person,
-        intent: Intent,
-    ): String? {
-        val id = "conversation-$notifId"
-        val shortcut = ShortcutInfoCompat.Builder(context, id)
-            .setShortLabel(label)
-            .setLongLabel(label)
-            .setIntent(intent)
-            .setIsConversation()
-            .setLongLived(true)
-            .setPerson(person)
-            .apply { icon?.let { setIcon(IconCompat.createWithBitmap(it)) } }
-            .build()
-        return runCatching { ShortcutManagerCompat.pushDynamicShortcut(context, shortcut) }
-            .onFailure { Logger.warn(Logger.tags(TAG), "Conversation shortcut not published: ${it.message}") }
-            .getOrNull()?.let { id }
-    }
-
     private fun avatar(notification: JSONObject, key: String): Bitmap? =
         notification.optString(key).takeIf { it.isNotEmpty() }?.let { BitmapFactory.decodeFile(it) }
 
+    private fun self(userId: String, notification: JSONObject): Person =
+        Person.Builder()
+            .setName(notification.optString(OWN_NAME_KEY).ifEmpty { userId.ifEmpty { "You" } })
+            .apply {
+                if (userId.isNotEmpty()) setKey(userId)
+                avatar(notification, OWN_AVATAR_KEY)?.let { setIcon(IconCompat.createWithBitmap(it)) }
+            }
+            .build()
+
     private fun person(name: String, notification: JSONObject): Person.Builder =
         Person.Builder().setName(name).apply {
+            notification.optString("sender").takeIf { it.isNotEmpty() }?.let { setKey(it) }
             avatar(notification, SENDER_AVATAR_KEY)?.let { setIcon(IconCompat.createWithBitmap(it)) }
         }
 
@@ -407,9 +400,11 @@ object PushNotifier {
         val alerts = !silent && !cooling
         var repeat = false
 
+        val direct = roomName.isEmpty() || notification.optBoolean(DIRECT_FLAG)
         if (isInvite) {
             builder.setStyle(NotificationCompat.BigTextStyle().bigText(body))
         } else {
+            builder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
             val messages = ConversationHistory.read(context, notifId).toMutableList()
             val index = messages.indexOfFirst { eventId.isNotEmpty() && it.extras.getString(EVENT_KEY) == eventId }
             if (index >= 0 && !silent && state.showContent && state.showEncryptedContent) return
@@ -431,8 +426,8 @@ object PushNotifier {
             if (index >= 0) {
                 if (silent) messages[index] = incoming
             } else messages.add(incoming)
-            val style = NotificationCompat.MessagingStyle(Person.Builder().setName("You").build())
-            if (roomName.isNotEmpty() && !notification.optBoolean(DIRECT_FLAG)) {
+            val style = NotificationCompat.MessagingStyle(self(userId, notification))
+            if (!direct) {
                 style.conversationTitle = roomName
                 style.isGroupConversation = true
             }
@@ -448,7 +443,12 @@ object PushNotifier {
             val icon = avatar(notification, ROOM_AVATAR_KEY) ?: avatar(notification, SENDER_AVATAR_KEY)
             icon?.let { builder.setLargeIcon(it) }
             val person = person(sender.ifEmpty { UNKNOWN_SENDER }, notification).build()
-            conversationShortcut(context, notifId, title, icon, person, intent)?.let { builder.setShortcutId(it) }
+            if (userId.isNotEmpty()) {
+                ConversationShortcuts.publish(context, userId, roomId, title, icon, person, intent, direct)?.let {
+                    builder.setShortcutId(it)
+                    builder.setLocusId(ConversationShortcuts.locus(userId, roomId))
+                }
+            }
         }
         if (isInvite) {
             addActions(context, builder, notifId, roomId, actionEventId, userId, flags, PushActions.INVITE_TYPE, PushActions.invite)

@@ -1,6 +1,7 @@
 import { addPluginListener, invoke, isTauri } from '@tauri-apps/api/core';
 
 import { deliversNativePush } from './notifications.js';
+import { isAndroid } from './os.js';
 
 export interface NativeNotificationTarget {
   userId: string;
@@ -40,6 +41,26 @@ export async function dismissNativeRoomNotifications(
 ): Promise<void> {
   if (!isTauri()) return;
   await invoke('dismiss_room_notifications', { userId, roomIds });
+}
+
+let openConversation: Promise<void> = Promise.resolve();
+
+/** In call order, so leaving one room never lands after opening the next. */
+export function setNativeOpenConversation(
+  userId: string | null,
+  roomId: string | null
+): Promise<void> {
+  if (!isAndroid()) return Promise.resolve();
+  const next = openConversation.then(() =>
+    invoke('set_open_conversation', { userId, roomId }).then(() => undefined)
+  );
+  openConversation = next.catch(() => undefined);
+  return next;
+}
+
+export async function forgetLeftNativeConversations(): Promise<void> {
+  if (!isAndroid()) return;
+  await invoke('forget_left_conversations');
 }
 
 export async function dismissNativeReadRoomNotifications(
