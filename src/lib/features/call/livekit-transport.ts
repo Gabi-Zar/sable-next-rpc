@@ -8,6 +8,8 @@ import {
   type TrackPublishOptions,
   type LocalParticipant,
   type RemoteParticipant,
+  CryptorError,
+  CryptorErrorReason,
   RoomEvent,
   Track,
   type TrackPublication,
@@ -377,9 +379,17 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
       event('call.connection.state', { 'call.connection_state': connectionState });
     })
     .on(RoomEvent.EncryptionError, (error) => {
+      if (error instanceof CryptorError && error.reason === CryptorErrorReason.MissingKey) {
+        event('call.encryption.missing_key');
+        return;
+      }
       fail('call.encryption.error', error);
     })
     .on(RoomEvent.MediaDevicesError, (error) => {
+      if (error.name === 'NotAllowedError') {
+        event('call.media.device_denied');
+        return;
+      }
       fail('call.media.device_error', error);
     })
     .on(RoomEvent.TrackSubscriptionFailed, (_trackSid, _participant, reason) => {

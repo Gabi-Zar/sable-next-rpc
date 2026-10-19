@@ -64,7 +64,7 @@ test('records a bounded sanitized failure with the attempt correlation', async (
     { message: string },
     { contexts: { call: Record<string, unknown> } },
   ];
-  expect(error.message).toBe('Call operation failed');
+  expect(error.message).toBe('Call operation failed: call.transport.connect');
   expect(context.contexts.call).toMatchObject({
     'call.stage': 'call.transport.connect',
     'call.error_category': 'error.Error',

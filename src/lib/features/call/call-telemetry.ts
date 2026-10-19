@@ -136,7 +136,7 @@ export class CallTelemetry {
     });
     span.setStatus({ code: 2 });
     Sentry.withActiveSpan(span, () => {
-      Sentry.captureException(new Error('Call operation failed'), {
+      Sentry.captureException(new Error(`Call operation failed: ${stage}`), {
         contexts: {
           call: {
             ...this.#attributes,
