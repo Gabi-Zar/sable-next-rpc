@@ -1,11 +1,21 @@
 import { resolve } from '$app/paths';
 
-export function resetPasswordHref(homeserver: string): string {
-  return resolve(`reset-password?server=${encodeURIComponent(homeserver.trim())}`);
+const ADD_ACCOUNT = '?addAccount=1';
+
+export function resetPasswordHref(homeserver: string, addAccount = false): string {
+  const server = `server=${encodeURIComponent(homeserver.trim())}`;
+  return resolve(`reset-password?${addAccount ? 'addAccount=1&' : ''}${server}`);
 }
 
-export function loginHref(homeserver: string, defaultHomeserver: string): string {
+export function loginHref(
+  homeserver: string,
+  defaultHomeserver: string,
+  addAccount = false
+): string {
   const server = homeserver.trim();
-  if (!server || server === defaultHomeserver || /[/?#]/.test(server)) return resolve('login');
-  return resolve('/(auth)/login/[homeserver]', { homeserver: encodeURIComponent(server) });
+  const suffix = addAccount ? ADD_ACCOUNT : '';
+  if (!server || server === defaultHomeserver || /[/?#]/.test(server)) {
+    return resolve('login') + suffix;
+  }
+  return resolve('/(auth)/login/[homeserver]', { homeserver: encodeURIComponent(server) }) + suffix;
 }

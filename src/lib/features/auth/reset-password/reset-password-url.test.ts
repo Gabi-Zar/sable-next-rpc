@@ -11,4 +11,12 @@ describe('password reset links', () => {
     expect(loginHref('matrix.org', 'matrix.org')).toBe('/login');
     expect(loginHref('https://example.org/path', 'matrix.org')).toBe('/login');
   });
+
+  it('keeps the add-account flag across the reset round trip', () => {
+    expect(resetPasswordHref('example.org', true)).toBe(
+      '/reset-password?addAccount=1&server=example.org'
+    );
+    expect(loginHref('example.org', 'matrix.org', true)).toBe('/login/example.org?addAccount=1');
+    expect(loginHref('matrix.org', 'matrix.org', true)).toBe('/login?addAccount=1');
+  });
 });

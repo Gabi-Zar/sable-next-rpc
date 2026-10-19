@@ -1,6 +1,7 @@
 <script lang="ts">
   import QrCodeIcon from 'phosphor-svelte/lib/QrCodeIcon';
   import { fade } from 'svelte/transition';
+  import { page } from '$app/state';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { MOTION_MS, motionMs } from '#lib/ui/motion.js';
@@ -92,7 +93,9 @@
     offeredFlows?.password === true && (showAllLoginMethods || preferredLoginMethod === 'password')
   );
   let forgotPasswordHref = $derived(
-    offeredFlows?.password && !offeredFlows.oidc ? resetPasswordHref(displayedHomeserver) : null
+    offeredFlows?.password && !offeredFlows.oidc
+      ? resetPasswordHref(displayedHomeserver, page.url.searchParams.has('addAccount'))
+      : null
   );
   let hasLoginAction = $derived(loginFlows === null || preferredLoginMethod !== null);
   let userServerError = $state<string | null>(null);

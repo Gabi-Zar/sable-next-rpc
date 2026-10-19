@@ -5,6 +5,7 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { onMount, untrack } from 'svelte';
+  import { SvelteURLSearchParams } from 'svelte/reactivity';
   import { i18n } from '#lib/i18n.js';
   import { shouldReduceMotion } from '#lib/ui/motion.js';
   import { useCoreClient } from '#lib/core/context.js';
@@ -287,8 +288,15 @@
       !server.includes('#')
         ? `${base}/${encodeURIComponent(server)}`
         : base;
-    if (index !== 1 || !registration.registrationToken?.trim()) return route;
-    return `${route}?registration_token=${encodeURIComponent(registration.registrationToken.trim())}`;
+    const query = new SvelteURLSearchParams();
+    for (const key of ['addAccount', 'reauth']) {
+      const value = page.url.searchParams.get(key);
+      if (value !== null) query.set(key, value);
+    }
+    const token = registration.registrationToken?.trim();
+    if (index === 1 && token) query.set('registration_token', token);
+    const search = query.toString();
+    return search ? `${route}?${search}` : route;
   }
 
   function invalidateAfter(index: number): void {
