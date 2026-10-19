@@ -12,6 +12,7 @@
   color: var(--button-on-container);
   cursor: pointer;
   display: inline-flex;
+  flex-shrink: 0;
   font: inherit;
   font-size: var(--font-size-label);
   font-weight: var(--font-weight-600);
