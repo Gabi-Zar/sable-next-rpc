@@ -1,11 +1,11 @@
 .avatar-button {
+  align-self: start;
   background: none;
   border: 0;
   border-radius: var(--radius-pill);
   cursor: pointer;
   display: flex;
   flex: 0 0 auto;
-  max-height: fit-content;
   padding: 0;
 }
 
