@@ -989,8 +989,12 @@ export class CoreClient {
     } catch (error) {
       if (generation !== this.generation) return;
 
-      console.error('[sable core] restore failed', error);
-      reportSessionFailure('restore', error);
+      if (error instanceof V1MigrationError) {
+        console.warn('[sable core] restore failed', error);
+      } else {
+        console.error('[sable core] restore failed', error);
+        reportSessionFailure('restore', error);
+      }
       if (error instanceof CoreError) {
         try {
           await this.refreshAccounts();
