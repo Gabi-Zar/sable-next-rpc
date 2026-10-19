@@ -1117,9 +1117,11 @@ impl Handler for SetTypingParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.room(&self.room_id)
-            .await?
-            .typing_notice(self.typing)
+        let room = core.room(&self.room_id).await?;
+        if room.state() != matrix_sdk::RoomState::Joined {
+            return Ok(());
+        }
+        room.typing_notice(self.typing)
             .await
             .or_failed(core, "set_typing")
     }

@@ -10,9 +10,12 @@ use matrix_sdk::ruma::api::Direction;
 use matrix_sdk::ruma::api::client::reporting::report_user;
 use matrix_sdk::ruma::api::client::room::get_room_event;
 use matrix_sdk::ruma::api::client::room::{report_content, report_room};
+use matrix_sdk::ruma::api::client::state::get_state_event_for_key;
 use matrix_sdk::ruma::events::relation::RelationType;
 use matrix_sdk::ruma::events::room::pinned_events::RoomPinnedEventsEventContent;
-use matrix_sdk::ruma::events::{AnyMessageLikeEventContent, AnySyncTimelineEvent, Mentions};
+use matrix_sdk::ruma::events::{
+    AnyMessageLikeEventContent, AnySyncTimelineEvent, Mentions, StateEventType,
+};
 use matrix_sdk::ruma::room::JoinRule;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{
@@ -38,7 +41,7 @@ use crate::view::{
     FAMEDLY_FORWARDED, FORWARDED, SABLE_FORWARDED, SPOILER_PROPERTY, SPOILER_REASON_PROPERTY,
     per_message_profile, standalone_item,
 };
-use serde_with::{DefaultOnError, serde_as};
+use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
 pub(crate) fn outgoing_mentions(user_ids: Vec<OwnedUserId>, room: bool) -> Mentions {
     let mut mentions = Mentions::with_user_ids(user_ids);
@@ -74,6 +77,14 @@ fn spoiler_keys(event: &serde_json::Value) -> serde_json::Map<String, serde_json
             Some((key.to_owned(), value.clone()))
         })
         .collect()
+}
+
+#[serde_as]
+#[derive(serde::Deserialize)]
+struct LenientPins {
+    #[serde_as(as = "VecSkipError<_>")]
+    #[serde(default)]
+    pinned: Vec<OwnedEventId>,
 }
 
 fn unique_pins(events: Vec<OwnedEventId>) -> Vec<OwnedEventId> {
@@ -481,14 +492,40 @@ impl Core {
         {
             return Ok(events.clone());
         }
-        let events = unique_pins(
-            room.load_pinned_events()
-                .await
-                .or_failed(self, "pinned_events")?
-                .unwrap_or_default(),
-        );
+        let events = self.load_pinned(&room, "pinned_events").await?;
         self.remember_pinned(room_id, &events);
         Ok(events)
+    }
+
+    async fn load_pinned(
+        &self,
+        room: &matrix_sdk::Room,
+        context: &str,
+    ) -> Result<Vec<OwnedEventId>, RpcError> {
+        let response = match room
+            .client()
+            .send(get_state_event_for_key::v3::Request::new(
+                room.room_id().to_owned(),
+                StateEventType::RoomPinnedEvents,
+                String::new(),
+            ))
+            .await
+        {
+            Ok(response) => response,
+            Err(error)
+                if error.as_client_api_error().is_some_and(|api_error| {
+                    api_error.status_code == http::StatusCode::NOT_FOUND
+                }) =>
+            {
+                return Ok(Vec::new());
+            }
+            Err(error) => return Err(self.homeserver_http_error(context, error)),
+        };
+        let lenient = response
+            .into_content()
+            .deserialize_as_unchecked::<LenientPins>()
+            .or_failed(self, context)?;
+        Ok(unique_pins(lenient.pinned))
     }
 
     fn remember_pinned(&self, room_id: &OwnedRoomId, events: &[OwnedEventId]) {
@@ -508,12 +545,7 @@ impl Core {
         let room = self.room(room_id).await?;
         // The SDK's pin_event/unpin_event start from the locally cached list,
         // which can lag the server and would drop pins it has not seen.
-        let mut events = unique_pins(
-            room.load_pinned_events()
-                .await
-                .or_failed(self, "set_pinned")?
-                .unwrap_or_default(),
-        );
+        let mut events = self.load_pinned(&room, "set_pinned").await?;
         let changed = if pinned {
             let missing = !events.contains(&event_id);
             if missing {
@@ -531,12 +563,7 @@ impl Core {
                 .map_err(|error| self.room_error("set_pinned", error))?;
         }
 
-        let events = unique_pins(
-            room.load_pinned_events()
-                .await
-                .or_failed(self, "set_pinned")?
-                .unwrap_or_default(),
-        );
+        let events = self.load_pinned(&room, "set_pinned").await?;
         self.remember_pinned(room_id, &events);
         Ok(events)
     }
@@ -1668,6 +1695,54 @@ mod tests {
         assert_eq!(
             *sent.lock().unwrap(),
             json!({"pinned": ["$a", "$b", "$c", "$d"]})
+        );
+    }
+
+    #[tokio::test]
+    async fn typing_in_a_room_that_is_not_joined_is_a_no_op() {
+        use crate::api::Handler;
+
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!invited:example.org");
+        server
+            .mock_sync()
+            .ok_and_run(&client, |builder| {
+                builder.add_invited_room(matrix_sdk_test::InvitedRoomBuilder::new(room_id));
+            })
+            .await;
+        let core = core(&server, client).await;
+        let params = crate::api::messages::SetTypingParams {
+            room_id: room_id.to_owned(),
+            typing: false,
+        };
+        params.run(&core).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_malformed_pin_does_not_hide_the_valid_ones() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!bad-pin:example.org");
+        server
+            .sync_room(&client, matrix_sdk_test::JoinedRoomBuilder::new(room_id))
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room_id}/state/m.room.pinned_events/"
+            )))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(
+                    json!({"pinned": ["$a", "!not-an-event:example.org", "$a", "$b"]}),
+                ),
+            )
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        let pins = core.pinned_events(&room_id.to_owned()).await.unwrap();
+        assert_eq!(
+            pins,
+            [event_id!("$a").to_owned(), event_id!("$b").to_owned()]
         );
     }
 
