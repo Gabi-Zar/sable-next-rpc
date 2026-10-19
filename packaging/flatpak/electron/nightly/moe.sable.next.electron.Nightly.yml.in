@@ -74,7 +74,7 @@ modules:
         commands:
           - set -eu
           - mkdir -p sable-electron
-          - tar --no-same-owner -xzf sable-electron.tar.gz -C sable-electron
+          - tar --no-same-owner --strip-components=1 -xzf sable-electron.tar.gz -C sable-electron
           - rm sable-electron.tar.gz
       - type: file
         path: ../sable-electron.sh
