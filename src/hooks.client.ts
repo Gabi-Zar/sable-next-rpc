@@ -5,7 +5,7 @@ import { tolerateUnknownListeners } from '#lib/platform/tauri-events.js';
 import { syncTelemetryConsent } from '#lib/platform/telemetry.js';
 import { installDynamicImportRecovery } from '#lib/observability/dynamic-import-recovery.js';
 import { sanitizePayload, scrubMatrixIds, scrubMatrixUrl } from '#lib/observability/scrubbers.js';
-import { scrubSentryEvent } from '#lib/observability/sentry-event.js';
+import { isLivekitMissingKey, scrubSentryEvent } from '#lib/observability/sentry-event.js';
 import { untrackFetch } from '#lib/observability/untracked-fetch.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import { loadModel } from '#lib/model/model.js';
@@ -87,6 +87,7 @@ if (dsn && preferences.errorReporting) {
     },
 
     beforeSend(event, hint) {
+      if (isLivekitMissingKey(event)) return null;
       if (hint.originalException instanceof CoreError) {
         event.fingerprint = ['{{ default }}', hint.originalException.detail.code];
       }
