@@ -877,12 +877,12 @@
     background: var(--surface-var-container);
     color: var(--surface-var-on-container);
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     font-size: var(--font-size-small);
     gap: var(--space-100);
     height: 100%;
-    justify-content: center;
     padding: var(--space-200);
+    place-content: center center;
     text-align: center;
   }
 
