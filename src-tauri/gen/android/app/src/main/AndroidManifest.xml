@@ -117,6 +117,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-default"
                 android:value="true" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -134,6 +137,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="propeller" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -151,6 +157,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="agender" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -168,6 +177,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="bisexual" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -185,6 +197,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="trans" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -202,6 +217,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="transgradient" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -219,6 +237,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="intersex" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -236,6 +257,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="lesbian" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -253,6 +277,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="mlm" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -270,6 +297,9 @@
             <meta-data
                 android:name="tauri-plugin-app-icon-id"
                 android:value="pride" />
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

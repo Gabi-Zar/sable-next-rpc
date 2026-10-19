@@ -10,6 +10,7 @@ import {
   isShareDeepLink,
   mergeShareBatches,
   plainTextDoc,
+  shareTarget,
 } from './share-content.js';
 
 const batch = (batchId: string, items: SharedBatch['items']): SharedBatch => ({ batchId, items });
@@ -86,4 +87,20 @@ test('appending to something that is not a doc starts a fresh one', () => {
 test('appending nothing leaves the draft untouched', () => {
   const existing = plainTextDoc('typed');
   expect(appendPlainText(existing, '')).toBe(existing);
+});
+
+test('a share goes straight to a conversation only when every batch picked the same one', () => {
+  const target = { userId: '@me:example.org', roomId: '!room:example.org' };
+  const batch = (batchId: string, picked?: typeof target): SharedBatch => ({
+    batchId,
+    items: [],
+    ...(picked === undefined ? {} : { target: picked }),
+  });
+
+  expect(shareTarget([batch('1', target), batch('2', { ...target })])).toEqual(target);
+  expect(shareTarget([batch('1', target), batch('2')])).toBeNull();
+  expect(
+    shareTarget([batch('1', target), batch('2', { ...target, roomId: '!other:example.org' })])
+  ).toBeNull();
+  expect(shareTarget([])).toBeNull();
 });

@@ -42,6 +42,9 @@ export function prepareV1Release(root) {
   rewrite(join(root, 'src-tauri/gen/android/app/build.gradle.kts'), (text) =>
     text.replaceAll(previous, v1Identifier)
   );
+  rewrite(join(root, 'src-tauri/gen/android/app/src/main/res/xml/shortcuts.xml'), (text) =>
+    text.replaceAll(previous, v1Identifier)
+  );
   rewrite(join(root, 'src-tauri/src/mobile.rs'), (text) =>
     text
       .replaceAll(

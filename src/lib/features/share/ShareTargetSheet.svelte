@@ -1,12 +1,15 @@
 <script lang="ts">
   import PaperclipIcon from 'phosphor-svelte/lib/PaperclipIcon';
+  import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { injectDraft, readDraft } from '#lib/composer/composer-drafts.svelte.js';
   import { stageFiles } from '#lib/composer/composer-files.js';
+  import { selectNotificationAccount } from '#lib/features/notifications/native-actions.js';
   import { i18n } from '#lib/i18n.js';
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
+  import type { SharedTarget } from '#lib/platform/share-target.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
@@ -27,6 +30,34 @@
   const roomList = useRoomList();
   let staging = $state(false);
   let failed = $state(false);
+  let declined = $state.raw<SharedTarget | null>(null);
+  let picking = $derived(inbox.target === null || inbox.target === declined);
+  let started: SharedTarget | null = null;
+
+  const TARGET_LISTED_MS = 10_000;
+
+  $effect(() => {
+    const target = inbox.target;
+    if (target === null || target === started) return;
+    started = target;
+    untrack(() => {
+      void shareToTarget(target).catch((error: unknown) => {
+        console.warn('[sable share-target] sharing to the picked conversation failed', error);
+        declined = target;
+      });
+    });
+  });
+
+  async function shareToTarget(target: SharedTarget): Promise<void> {
+    if (await selectNotificationAccount(core, target.userId)) {
+      await roomList.whenListed(target.roomId, TARGET_LISTED_MS);
+      if (roomList.byId(target.roomId)?.state === 'joined') {
+        await shareTo(target.roomId);
+        if (!failed) return;
+      }
+    }
+    declined = target;
+  }
 
   async function shareTo(roomId: string): Promise<void> {
     if (staging) return;
@@ -94,7 +125,7 @@
       <Alert variant="critical" role="alert">{i18n.t('share.failed')}</Alert>
     {/if}
 
-    {#if staging}
+    {#if staging || !picking}
       <p class="staging"><Spinner small /> {i18n.t('share.staging')}</p>
     {:else}
       <RoomJumpList

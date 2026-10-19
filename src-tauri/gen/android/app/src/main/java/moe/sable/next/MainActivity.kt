@@ -13,12 +13,14 @@ import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.IntentCompat
+import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import moe.sable.push.ConversationShortcuts
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -149,9 +151,21 @@ class MainActivity : TauriActivity() {
       JSONObject().apply {
         put("version", 1)
         put("items", items)
+        intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID)
+          ?.takeIf(::isPublishedShortcut)
+          ?.let(ConversationShortcuts::parse)
+          ?.let { (userId, roomId) -> put("target", JSONObject().put("userId", userId).put("roomId", roomId)) }
       }.toString()
     )
   }
+
+  /** Any app can send this activity a shortcut id, so only trust the ones published here. */
+  private fun isPublishedShortcut(id: String): Boolean = runCatching {
+    ShortcutManagerCompat.getShortcuts(
+      this,
+      ShortcutManagerCompat.FLAG_MATCH_DYNAMIC or ShortcutManagerCompat.FLAG_MATCH_CACHED,
+    ).any { it.id == id }
+  }.getOrDefault(false)
 
   private fun addTextItem(items: JSONArray, text: String) {
     items.put(JSONObject().apply {

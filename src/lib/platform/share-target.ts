@@ -8,9 +8,15 @@ export interface SharedItem {
   mime?: string;
 }
 
+export interface SharedTarget {
+  userId: string;
+  roomId: string;
+}
+
 export interface SharedBatch {
   batchId: string;
   items: SharedItem[];
+  target?: SharedTarget;
 }
 
 export function receivesSharedContent(): boolean {

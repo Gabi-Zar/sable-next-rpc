@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <share-target android:targetClass="moe.sable.next.MainActivity">
+        <data android:mimeType="*/*" />
+        <category android:name="moe.sable.category.SHARE_TARGET" />
+    </share-target>
+</shortcuts>

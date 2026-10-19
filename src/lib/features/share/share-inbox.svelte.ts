@@ -1,4 +1,4 @@
-import type { SharedBatch } from '#lib/platform/share-target.js';
+import type { SharedBatch, SharedTarget } from '#lib/platform/share-target.js';
 import { withResolvedMime } from '#lib/platform/files.js';
 import {
   clearSharedBatch,
@@ -15,6 +15,7 @@ import {
   displayFileName,
   isShareDeepLink,
   mergeShareBatches,
+  shareTarget,
 } from './share-content.js';
 
 export class ShareInbox {
@@ -32,6 +33,11 @@ export class ShareInbox {
   get text(): string {
     const native = collectShareText(this.#batches);
     return [native, this.#webText].filter((part) => part !== '').join('\n');
+  }
+
+  get target(): SharedTarget | null {
+    if (this.#webText !== '' || this.#webFiles.length > 0) return null;
+    return shareTarget(this.#batches);
   }
 
   get fileCount(): number {

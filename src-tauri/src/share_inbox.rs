@@ -16,11 +16,20 @@ pub struct ShareItem {
     pub mime: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareTarget {
+    pub user_id: String,
+    pub room_id: String,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShareBatch {
     pub batch_id: String,
     pub items: Vec<ShareItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target: Option<ShareTarget>,
 }
 
 #[derive(Deserialize)]
@@ -28,6 +37,8 @@ struct ShareManifest {
     #[expect(dead_code, reason = "the manifest version is parsed but not read")]
     version: u32,
     items: Vec<ShareItem>,
+    #[serde(default)]
+    target: Option<ShareTarget>,
 }
 
 fn validate_component(value: &str) -> Result<(), String> {
@@ -37,9 +48,8 @@ fn validate_component(value: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn parse_manifest(json: &str) -> Result<Vec<ShareItem>, String> {
-    let manifest: ShareManifest = serde_json::from_str(json).map_err(|err| err.to_string())?;
-    Ok(manifest.items)
+fn parse_manifest(json: &str) -> Result<ShareManifest, String> {
+    serde_json::from_str(json).map_err(|err| err.to_string())
 }
 
 fn inbox_root<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
@@ -73,9 +83,10 @@ pub async fn share_inbox_drain<R: Runtime>(app: AppHandle<R>) -> Result<Vec<Shar
                 .map_err(|err| err.to_string())
                 .and_then(|json| parse_manifest(&json));
             match manifest {
-                Ok(items) => batches.push(ShareBatch {
+                Ok(manifest) => batches.push(ShareBatch {
                     batch_id: batch_id.to_owned(),
-                    items,
+                    items: manifest.items,
+                    target: manifest.target,
                 }),
                 Err(err) => {
                     log::warn!("dropping unreadable share batch {batch_id}: {err}");
@@ -159,10 +170,22 @@ mod tests {
     #[test]
     fn parse_manifest_reads_items() {
         let json = r#"{"version":1,"items":[{"kind":"text","text":"hello"}]}"#;
-        let items = parse_manifest(json).unwrap();
+        let manifest = parse_manifest(json).unwrap();
+        assert!(manifest.target.is_none());
+        let items = manifest.items;
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].kind, "text");
         assert_eq!(items[0].text.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn parse_manifest_reads_the_picked_conversation() {
+        let json = r#"{"version":1,"items":[],"target":{"userId":"@a:b","roomId":"!r:b"}}"#;
+        let target = parse_manifest(json).unwrap().target.unwrap();
+        assert_eq!(
+            (target.user_id.as_str(), target.room_id.as_str()),
+            ("@a:b", "!r:b")
+        );
     }
 
     #[test]

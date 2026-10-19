@@ -12,7 +12,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import app.tauri.Logger
 
-internal object ConversationShortcuts {
+object ConversationShortcuts {
     private const val TAG = "ConversationShortcuts"
     private const val PREFIX = "conversation:"
     private const val LEGACY_PREFIX = "conversation-"

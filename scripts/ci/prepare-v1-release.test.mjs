@@ -13,6 +13,7 @@ test('stable bundles keep v1 identity, Android package/JNI alignment and callbac
       'src-tauri/gen/android/app/src/main/java',
       'src-tauri/gen/android/buildSrc/src/main/java',
       'src-tauri/gen/android/app/src/main/res/values/strings.xml',
+      'src-tauri/gen/android/app/src/main/res/xml/shortcuts.xml',
       'src-tauri/gen/android/app/build.gradle.kts',
       'src-tauri/gen/android/app/google-services.json',
       'src-tauri/src/mobile.rs',
@@ -47,6 +48,12 @@ test('stable bundles keep v1 identity, Android package/JNI alignment and callbac
       readFileSync(join(root, 'src-tauri/gen/android/app/build.gradle.kts'), 'utf8').includes(
         'applicationId = "moe.sable.client"'
       )
+    );
+    assert.ok(
+      readFileSync(
+        join(root, 'src-tauri/gen/android/app/src/main/res/xml/shortcuts.xml'),
+        'utf8'
+      ).includes('android:targetClass="moe.sable.client.MainActivity"')
     );
     assert.ok(
       readFileSync(join(root, 'src-tauri/src/mobile.rs'), 'utf8').includes(

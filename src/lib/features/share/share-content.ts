@@ -1,4 +1,4 @@
-import type { SharedBatch } from '#lib/platform/share-target.js';
+import type { SharedBatch, SharedTarget } from '#lib/platform/share-target.js';
 
 export interface ShareFileRef {
   batchId: string;
@@ -16,6 +16,16 @@ export function mergeShareBatches(
 ): SharedBatch[] {
   const known = new Set(previous.map((batch) => batch.batchId));
   return [...previous, ...next.filter((batch) => !known.has(batch.batchId))];
+}
+
+/** Only when every batch was shared to the same conversation. */
+export function shareTarget(batches: readonly SharedBatch[]): SharedTarget | null {
+  const target = batches[0]?.target;
+  if (target === undefined) return null;
+  const same = batches.every(
+    (batch) => batch.target?.userId === target.userId && batch.target.roomId === target.roomId
+  );
+  return same ? target : null;
 }
 
 export function collectShareText(batches: readonly SharedBatch[]): string {
