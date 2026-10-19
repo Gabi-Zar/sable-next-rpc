@@ -199,6 +199,21 @@ test('updates voice and screen volume for late subscriptions', async () => {
   }
 });
 
+test('stays muted while deafened when livekit unmutes an element as a participant unmutes (#1159)', async () => {
+  const track = fakeTrack('voice');
+  const room = fakeRoom(track);
+  render(CallAudio, { room: room.room, deafened: true });
+  const element = document.querySelector('audio');
+  expect(element?.muted).toBe(true);
+
+  if (!element) throw new Error('no audio element');
+  element.muted = false;
+  element.dispatchEvent(new Event('volumechange'));
+  await tick();
+
+  expect(element.muted).toBe(true);
+});
+
 test('amplifies a participant above full volume through a gain node', async () => {
   const source = { connect: vi.fn((node: AudioNode) => node), disconnect: vi.fn() };
   const gain = { gain: { value: 1 }, connect: vi.fn(), disconnect: vi.fn() };

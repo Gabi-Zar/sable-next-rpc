@@ -150,6 +150,9 @@
           untrack(() => deafened),
           untrack(() => volumeOf(identity, screen))
         );
+        on(element, 'volumechange', () => {
+          if (!filtered.get(element)?.live) untrack(() => refresh(element));
+        });
         currentNode.append(element);
         audioElements = [...untrack(() => audioElements), element];
         currentTelemetry?.event('call.audio.track_attached', {
