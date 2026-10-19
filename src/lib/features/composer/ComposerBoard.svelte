@@ -38,6 +38,7 @@
     onPickUnicode: (emoji: string) => void;
     onPickGif?: (gif: GifResult) => void;
     onBeforeOpen?: () => void;
+    onPicked?: () => void;
     extras?: Partial<Record<'persona' | 'format', Snippet<[onReorder: () => void]>>>;
   }
 
@@ -54,6 +55,7 @@
     onPickUnicode,
     onPickGif,
     onBeforeOpen,
+    onPicked,
     extras = {},
   }: Props = $props();
   const reorderList = createDragList<ComposerButton>((left, right) => left === right);
@@ -237,12 +239,18 @@
   }
 
   function pick(image: PackImageView, usage: ImageUsageView, keepOpen: boolean): void {
-    if (!keepOpen) open = false;
+    if (!keepOpen) {
+      open = false;
+      onPicked?.();
+    }
     onPick(image, usage);
   }
 
   function pickUnicode(emoji: string, keepOpen: boolean): void {
-    if (!keepOpen) open = false;
+    if (!keepOpen) {
+      open = false;
+      onPicked?.();
+    }
     onPickUnicode(emoji);
   }
 

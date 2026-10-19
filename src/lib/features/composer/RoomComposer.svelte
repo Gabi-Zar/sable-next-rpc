@@ -963,6 +963,11 @@
     typing.update(empty);
   }
 
+  // The popover hands focus back to its trigger as it closes.
+  function focusEditorAfterPick(): void {
+    requestAnimationFrame(() => editor.focus());
+  }
+
   function pickUnicodeFromBoard(emoji: string): void {
     editor.insert(composerSchema.text(emoji));
   }
@@ -1484,6 +1489,7 @@
                 onPickUnicode={pickUnicodeFromBoard}
                 onPickGif={onSendGif ? pickGifFromBoard : undefined}
                 onBeforeOpen={!desktop ? blurEditor : undefined}
+                onPicked={desktop ? focusEditorAfterPick : undefined}
                 extras={{
                   ...(showPersonaPicker &&
                     !preferences.personaPickerLeftSide && { persona: personaButton }),
