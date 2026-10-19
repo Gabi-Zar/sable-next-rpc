@@ -48,6 +48,9 @@ contextBridge.exposeInMainWorld('sableElectron', {
   applySettings: (settings: unknown) => {
     ipcRenderer.send('sable-apply-settings', settings);
   },
+  setTelemetryConsent: (enabled: boolean) => {
+    ipcRenderer.send('sable-telemetry-consent', enabled);
+  },
   takeDeepLinks: () => ipcRenderer.invoke('sable-take-deep-links') as Promise<string[]>,
   onDeepLinks: (callback: (urls: string[]) => void) => {
     const listener = (_event: IpcRendererEvent, urls: string[]) => {

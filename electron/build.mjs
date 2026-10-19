@@ -55,6 +55,13 @@ await build({
   format: 'cjs',
   target: 'node24',
   external: ['electron', './sable_node.node'],
-  define: { __SABLE_CSP__: JSON.stringify(policy) },
+  define: {
+    __SABLE_CSP__: JSON.stringify(policy),
+    __SABLE_SENTRY__: JSON.stringify({
+      dsn: process.env.VITE_SENTRY_DSN,
+      environment: process.env.VITE_SENTRY_ENVIRONMENT,
+      release: process.env.VITE_APP_VERSION,
+    }),
+  },
   sourcemap: true,
 });

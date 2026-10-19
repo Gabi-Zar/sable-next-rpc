@@ -29,6 +29,7 @@ import { Readable } from 'node:stream';
 import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
+import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
 import { registerUpdater, setUpdateChannel } from './updater';
@@ -55,6 +56,7 @@ function xdgDataHome(): string {
 
 const dataDir = join(isLinux ? xdgDataHome() : app.getPath('appData'), IDENTIFIER);
 app.setPath('userData', join(app.getPath('appData'), `${IDENTIFIER}.electron`));
+initSentry(app.getPath('userData'));
 const settingsPath = join(app.getPath('userData'), 'settings.json');
 let settings = readSettings(settingsPath);
 
@@ -337,6 +339,11 @@ ipcMain.on('sable-apply-settings', (event, value: unknown) => {
   for (const contents of webContents.getAllWebContents()) {
     contents.setWebRTCIPHandlingPolicy(next.webRtcIpPolicy);
   }
+});
+
+ipcMain.on('sable-telemetry-consent', (event, enabled: unknown) => {
+  if (!isAppFrame(event.senderFrame) || typeof enabled !== 'boolean') return;
+  setTelemetryConsent(enabled);
 });
 
 ipcMain.handle('sable-apply-window-settings', (event, value: unknown) => {

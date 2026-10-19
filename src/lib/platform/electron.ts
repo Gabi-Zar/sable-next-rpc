@@ -26,6 +26,7 @@ export interface ElectronBridge {
   isWindowMaximized(): Promise<boolean>;
   onWindowMaximized(callback: (maximized: boolean) => void): () => void;
   applySettings(settings: ElectronSettings): void;
+  setTelemetryConsent(enabled: boolean): void;
   takeDeepLinks(): Promise<string[]>;
   onDeepLinks(callback: (urls: string[]) => void): () => void;
   screenAudioApps(): Promise<ScreenAudioListing>;

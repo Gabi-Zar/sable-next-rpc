@@ -1,5 +1,6 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
+import { electronBridge } from '#lib/platform/electron.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import { putTelemetryConsent } from '#lib/notifications/room-names.js';
 
@@ -8,6 +9,8 @@ export function telemetryConsentPending(): boolean {
 }
 
 export function syncTelemetryConsent(enabled: boolean): void {
+  electronBridge()?.setTelemetryConsent(enabled);
+
   if (!isTauri()) {
     if (typeof indexedDB !== 'undefined') {
       void putTelemetryConsent(enabled && Boolean(import.meta.env.VITE_SENTRY_DSN)).catch(
