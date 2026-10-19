@@ -586,6 +586,10 @@
     {/if}
     {#if layout !== 'compact' && !collapsed}
       {@render senderAvatarButton('small')}
+    {:else if layout !== 'compact' && pending}
+      <span class="collapsed-pending">
+        <Spinner small label={i18n.t('timeline.sending')} />
+      </span>
     {/if}
     <div
       class="message-content"
@@ -1053,6 +1057,24 @@
   .message.collapsed.mention-silent,
   .message.collapsed.mention-loud {
     padding-left: calc(var(--avatar-size-small) + var(--timeline-row-gap) + var(--space-200));
+  }
+
+  .collapsed-pending {
+    display: flex;
+    inset-block-start: 0;
+    inset-inline-start: var(--page-gutter);
+    justify-content: center;
+    position: absolute;
+    width: var(--avatar-size-small);
+  }
+
+  .message.collapsed.mention-silent > .collapsed-pending,
+  .message.collapsed.mention-loud > .collapsed-pending {
+    inset-inline-start: var(--space-200);
+  }
+
+  .message.layout-bubble.own.align-own > .collapsed-pending {
+    inset-inline: auto var(--page-gutter);
   }
 
   .message.highlighted {
