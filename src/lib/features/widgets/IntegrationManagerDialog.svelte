@@ -12,6 +12,8 @@
   import PanelHeaderButton from '#lib/ui/primitives/PanelHeaderButton.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
 
+  import { answerScalarRequest } from './scalar-host.js';
+
   interface Props {
     open: boolean;
     roomId: string;
@@ -88,8 +90,26 @@
 
   function onMessage(event: MessageEvent): void {
     if (!open || url === null || event.origin !== new URL(url).origin) return;
-    const action = (event.data as { action?: unknown } | null)?.action;
-    if (action === 'close_scalar' || action === 'close') onClose();
+    const request: unknown = event.data;
+    if (typeof request !== 'object' || request === null || 'api' in request) return;
+    const action = (request as { action?: unknown }).action;
+    if (action === 'close_scalar' || action === 'close') {
+      onClose();
+      return;
+    }
+    const source = event.source;
+    if (typeof action !== 'string' || source === null) return;
+
+    const reply = (response: unknown): void => {
+      source.postMessage({ ...request, response }, { targetOrigin: event.origin });
+    };
+    answerScalarRequest(core.rpc, roomId, core.session?.user_id ?? '', request as never).then(
+      reply,
+      (error: unknown) => {
+        console.warn('[sable widgets] the integration manager request failed', action, error);
+        reply({ error: { message: error instanceof Error ? error.message : String(error) } });
+      }
+    );
   }
 </script>
 
