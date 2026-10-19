@@ -27,6 +27,15 @@
   }: Props = $props();
 
   const pageMeta = hasPageMeta() ? usePageMeta() : null;
+  let previousTitle = '';
+
+  $effect.pre(() => {
+    previousTitle = document.title;
+  });
+
+  $effect(() => () => {
+    if (document.title === `${title} - Sable`) document.title = previousTitle;
+  });
 
   $effect(() => {
     if (pageMeta) pageMeta.title = title;
