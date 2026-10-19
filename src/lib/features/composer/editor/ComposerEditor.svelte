@@ -164,6 +164,14 @@
     width: 0;
   }
 
+  .editor :global(.composer-mention-label)::before {
+    content: attr(data-label);
+  }
+
+  .editor :global(.composer-mention-remove)::before {
+    content: '×';
+  }
+
   .editor :global(pre[data-language])::before {
     color: var(--surface-var-on-container);
     content: attr(data-language);
