@@ -172,6 +172,12 @@ function sharePosition(anchor: DOMRect, fromBottom: boolean): { x: number; y: nu
   return { x: anchor.left, y: fromBottom ? window.innerHeight - anchor.bottom : anchor.top };
 }
 
+function timestamped(name: string): string {
+  const dot = name.lastIndexOf('.');
+  const stamp = `-${String(Date.now())}`;
+  return dot > 0 ? `${name.slice(0, dot)}${stamp}${name.slice(dot)}` : `${name}${stamp}`;
+}
+
 async function saveAndroidFile(
   directory: 'Download' | 'Pictures',
   filename: string,
@@ -179,23 +185,20 @@ async function saveAndroidFile(
   bytes: Uint8Array
 ): Promise<void> {
   const AndroidFs = await import('tauri-plugin-android-fs-api');
-  const uri =
+  const create = (name: string) =>
     directory === 'Pictures'
-      ? await AndroidFs.createNewPublicImageFile(
-          AndroidFs.PublicImageDir.Pictures,
-          filename,
-          mime,
-          {
-            isPending: true,
-            requestPermission: true,
-          }
-        )
-      : await AndroidFs.createNewPublicFile(
-          AndroidFs.PublicGeneralPurposeDir.Download,
-          filename,
-          mime,
-          { isPending: true, requestPermission: true }
-        );
+      ? AndroidFs.createNewPublicImageFile(AndroidFs.PublicImageDir.Pictures, name, mime, {
+          isPending: true,
+          requestPermission: true,
+        })
+      : AndroidFs.createNewPublicFile(AndroidFs.PublicGeneralPurposeDir.Download, name, mime, {
+          isPending: true,
+          requestPermission: true,
+        });
+  const uri = await create(filename).catch((error: unknown) => {
+    console.debug('[sable files] public file name is taken, retrying', error);
+    return create(timestamped(filename));
+  });
   try {
     await AndroidFs.writeFile(uri, bytes);
     await AndroidFs.setPublicFilePending(uri, false);
