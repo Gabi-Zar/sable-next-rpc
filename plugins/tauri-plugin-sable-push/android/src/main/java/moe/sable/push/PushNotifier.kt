@@ -396,7 +396,7 @@ object PushNotifier {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setGroup(GROUP_KEY)
 
-        if (silent || !state.notificationSounds) builder.setSilent(true)
+        if (silent) builder.setSilent(true)
         val alerts = !silent && !cooling
         var repeat = false
 
@@ -464,7 +464,6 @@ object PushNotifier {
             listOfNotNull(
                 "replacement".takeIf { silent },
                 "notify-once".takeIf { cooling },
-                "sounds-off".takeIf { !state.notificationSounds },
                 "repeat".takeIf { repeat },
             ),
             listOf(
