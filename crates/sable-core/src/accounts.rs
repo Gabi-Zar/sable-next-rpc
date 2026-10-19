@@ -554,6 +554,11 @@ impl Core {
     }
 
     #[cfg(target_family = "wasm")]
+    #[expect(
+        clippy::unused_async,
+        clippy::unused_async_trait_impl,
+        reason = "mirrors the native signature"
+    )]
     pub(crate) async fn save_login_tokens(
         &self,
         _account: &PersistedAccount,
@@ -638,6 +643,7 @@ impl Core {
     }
 
     #[cfg(target_family = "wasm")]
+    #[expect(clippy::unused_async, reason = "mirrors the native signature")]
     async fn forget_login_tokens(&self, _account_id: Option<&str>) {}
 
     async fn save_current_credentials(
