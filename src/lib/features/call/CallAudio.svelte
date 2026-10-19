@@ -64,6 +64,10 @@
     const routeToDevice = (context: Output, device: string, failure: string): void => {
       if (!context.setSinkId || !device) return;
       context.setSinkId(device).catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'NotFoundError') {
+          context.setSinkId?.('').catch(ignoreError);
+          return;
+        }
         currentTelemetry?.failure(failure, error);
       });
     };
