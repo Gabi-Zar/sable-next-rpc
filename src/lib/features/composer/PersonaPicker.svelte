@@ -121,7 +121,6 @@
     avatar: PersonaAlternateAvatarView | null,
     persona: PersonaView
   ): void {
-    console.warn(`alternateAvatarChoose(${JSON.stringify(avatar)}, ...)`);
     open = false;
     personas.select(scopeTarget, persona.id, null, avatar?.id).catch((cause: unknown) => {
       console.warn('[sable personas] the selection could not be saved', cause);
