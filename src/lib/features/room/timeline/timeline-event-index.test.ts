@@ -77,3 +77,25 @@ test('a redaction reason is found by the event it redacted', () => {
   expect(index.redactionReason('$blank')).toBeNull();
   expect(index.redactionReason('$other')).toBeNull();
 });
+
+function deleted(sender: string, redactedBy?: string): TimelineItemView {
+  return {
+    id: '$msg',
+    event_id: '$msg',
+    sender,
+    content: { kind: 'redacted', reason: null, redacted_by: redactedBy },
+  } as TimelineItemView;
+}
+
+test('a deletion names its redactor unless the author made it', () => {
+  const redaction = (sender: string) =>
+    ({ ...hidden('$x', 'm.room.redaction', {}, 0, '$msg'), sender }) as TimelineItemView;
+
+  const live = new TimelineEventIndex([], [redaction('@mod:x')]);
+  expect(live.redactor(deleted('@alice:x'))).toBe('@mod:x');
+  expect(live.redactor(deleted('@mod:x'))).toBeNull();
+
+  const loaded = new TimelineEventIndex([], []);
+  expect(loaded.redactor(deleted('@alice:x', '@mod:x'))).toBe('@mod:x');
+  expect(loaded.redactor(deleted('@alice:x'))).toBeNull();
+});

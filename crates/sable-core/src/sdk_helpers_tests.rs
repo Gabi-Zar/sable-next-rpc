@@ -2675,7 +2675,7 @@ async fn a_live_redaction_shows_its_reason_in_an_open_timeline() {
 
     let reason = |items: &[crate::protocol::TimelineItemView]| {
         items.iter().find_map(|item| match &item.content {
-            TimelineItemContentView::Redacted { reason } => Some(reason.clone()),
+            TimelineItemContentView::Redacted { reason, .. } => Some(reason.clone()),
             _ => None,
         })
     };

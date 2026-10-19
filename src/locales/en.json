@@ -1251,6 +1251,8 @@
     "profileModerationFailed": "That action could not be completed.",
     "profileModerationDenied": "You don't have permission to do that in this room.",
     "redactedWithReason": "Message deleted: {{reason}}",
+    "redactedBy": "Message deleted by {{name}}",
+    "redactedByWithReason": "Message deleted by {{name}}: {{reason}}",
     "locationShowMap": "Show map",
     "locationMapAlt": "Map showing {{label}}",
     "forwardSelected_one": "{{count, number}} room selected",

@@ -408,7 +408,7 @@ test('badges a message with its own readers, and only in that placement', async 
 test('a deleted message keeps its receipts on the tombstone line', async () => {
   const deleted = withRowFields({
     ...item(false),
-    content: { kind: 'redacted', reason: null } as const,
+    content: { kind: 'redacted', reason: null, redacted_by: null } as const,
     read_by: ['@bob:example.org'],
   });
   render(TimelineItemHarness, {
@@ -1148,7 +1148,7 @@ test('long pressing a reaction opens its people list without toggling it', async
 
 test('renders a redacted row and a worded state change without throwing', async () => {
   for (const content of [
-    { kind: 'redacted', reason: null } as const,
+    { kind: 'redacted', reason: null, redacted_by: null } as const,
     {
       kind: 'state_event',
       event_type: 'm.room.topic',
@@ -1372,7 +1372,10 @@ test('a deleted message keeps its sender, its time and its menu', async () => {
     props: {
       core,
       item: {
-        item: withRowFields({ ...item(false), content: { kind: 'redacted', reason: null } }),
+        item: withRowFields({
+          ...item(false),
+          content: { kind: 'redacted', reason: null, redacted_by: null },
+        }),
         collapsed: false,
         roomId: '!room:example.org',
         onReply: () => undefined,

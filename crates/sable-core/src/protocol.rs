@@ -1726,6 +1726,8 @@ pub enum TimelineItemContentView {
     },
     Redacted {
         reason: Option<String>,
+        #[cfg_attr(feature = "typegen", specta(optional))]
+        redacted_by: Option<String>,
     },
     UnableToDecrypt {
         reason: UtdCauseView,

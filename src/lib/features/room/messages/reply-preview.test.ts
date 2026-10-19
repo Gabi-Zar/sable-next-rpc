@@ -98,7 +98,7 @@ test('every renderable message kind yields a preview', () => {
 });
 
 test('an event with no body still yields a quotable empty preview', () => {
-  expect(replyPreviewBody({ kind: 'redacted', reason: null })).toBe('');
+  expect(replyPreviewBody({ kind: 'redacted', reason: null, redacted_by: null })).toBe('');
   expect(
     replyPreviewBody({
       kind: 'hidden_event',

@@ -21,6 +21,8 @@
   import { galleryItemId } from '../media/media-items.js';
   import { spoilerVisibility, spoilerVisibilityKey } from '../media/spoiler-visibility.svelte.js';
   import TimelineLocation from '../timeline/TimelineLocation.svelte';
+  import { memberName } from '../members/members.js';
+  import { redactedLabel } from './redacted-label';
   import TimelineLiveLocation from '../timeline/TimelineLiveLocation.svelte';
   import TimelinePoll from '../timeline/TimelinePoll.svelte';
   import {
@@ -35,6 +37,7 @@
     item: TimelineItemView;
     canRedactOthers: boolean;
     redactionReason?: string | null;
+    redactedBy?: string | null;
     encrypted?: boolean | null;
     senderTimezone?: string | null;
     members?: readonly MemberView[];
@@ -49,6 +52,7 @@
     item,
     canRedactOthers,
     redactionReason = null,
+    redactedBy = null,
     encrypted = null,
     senderTimezone = null,
     members = [],
@@ -109,7 +113,7 @@
   {@const reason = item.content.reason ?? redactionReason}
   <p class="redacted">
     <TrashIcon size={14} aria-hidden="true" />
-    {reason ? i18n.t('timeline.redactedWithReason', { reason }) : i18n.t('timeline.redacted')}
+    {redactedLabel(redactedBy ? memberName(members, redactedBy) : null, reason ?? null)}
   </p>
 {:else if item.content.kind === 'sticker'}
   {@const sticker = item.content}

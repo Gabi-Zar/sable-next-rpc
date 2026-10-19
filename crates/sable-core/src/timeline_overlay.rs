@@ -74,7 +74,10 @@ impl TimelineOverlay {
         {
             reply.sender_name.clone_from(&profile.name);
         }
-        if let TimelineItemContentView::Redacted { reason: None } = &item.content
+        if let TimelineItemContentView::Redacted {
+            reason: None,
+            redacted_by,
+        } = &item.content
             && let Some(reason) = item
                 .event_id
                 .as_ref()
@@ -82,6 +85,7 @@ impl TimelineOverlay {
         {
             item.content = TimelineItemContentView::Redacted {
                 reason: Some(reason.clone()),
+                redacted_by: redacted_by.clone(),
             };
         }
         item
@@ -205,7 +209,7 @@ impl TimelineOverlay {
 
 fn redaction_reason(item: &TimelineItemView) -> Option<&str> {
     match &item.content {
-        TimelineItemContentView::Redacted { reason } => reason.as_deref(),
+        TimelineItemContentView::Redacted { reason, .. } => reason.as_deref(),
         _ => None,
     }
 }
@@ -368,7 +372,10 @@ mod tests {
         let mut overlay = TimelineOverlay::default();
         let deleted = |id: &str| {
             let mut row = item(id, "@alice:x", None);
-            row.content = TimelineItemContentView::Redacted { reason: None };
+            row.content = TimelineItemContentView::Redacted {
+                reason: None,
+                redacted_by: None,
+            };
             row
         };
         overlay.reset(vec![item("a", "@alice:x", None), deleted("b")]);
@@ -397,6 +404,7 @@ mod tests {
         let mut row = item("b", "@alice:x", None);
         row.content = TimelineItemContentView::Redacted {
             reason: Some("rude".to_owned()),
+            redacted_by: None,
         };
         overlay.reset(vec![row]);
 

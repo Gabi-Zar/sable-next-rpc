@@ -15,6 +15,8 @@
   import EmoteCard from '../messages/EmoteCard.svelte';
   import EventTargetPreview from '../messages/EventTargetPreview.svelte';
   import { isCustomReaction } from '../messages/reaction-emote-label';
+  import { redactedLabel } from '../messages/redacted-label';
+  import { memberName } from '../members/members.js';
   import StateContentDiff from '../messages/StateContentDiff.svelte';
   import StateEventText from './StateEventText.svelte';
   import { stateEventIcon } from './state-event-icon';
@@ -52,6 +54,13 @@
     onJumpToEvent,
   }: Props = $props();
   let peekOpen = $state(false);
+  let redactedText = $derived.by(() => {
+    const redactor = events?.redactor(item) ?? null;
+    return redactedLabel(
+      redactor ? memberName(members, redactor) : null,
+      item.content.kind === 'redacted' ? item.content.reason : null
+    );
+  });
   let StateIcon = $derived(stateEventIcon(item));
   let hiddenTarget = $derived.by((): string | null => {
     const content = item.content;
@@ -186,9 +195,7 @@
   <p class="state redacted">
     {@render stateGutter()}
     <span class="redacted-label state-text">
-      {item.content.kind === 'redacted' && item.content.reason
-        ? i18n.t('timeline.redactedWithReason', { reason: item.content.reason })
-        : i18n.t('timeline.redacted')}
+      {redactedText}
     </span>
     {@render stateTime()}
   </p>

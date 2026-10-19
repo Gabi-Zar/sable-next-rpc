@@ -151,7 +151,7 @@ test.each(['m.annotation', 'm.replace'])('cannot react to a %s event', (relType)
 
 test('cannot react to a redacted message', () => {
   const actions = policy({
-    content: { kind: 'redacted', reason: null },
+    content: { kind: 'redacted', reason: null, redacted_by: null },
     reactions: [{ key: '👍', senders: ['@alice:example.org'] }],
   });
 

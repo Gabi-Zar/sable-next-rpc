@@ -35,6 +35,7 @@
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import CopySimpleIcon from 'phosphor-svelte/lib/CopySimpleIcon';
 
+  import HomeserverInfo from './HomeserverInfo.svelte';
   import SupporterSettings from './SupporterSettings.svelte';
 
   const core = useCoreClient();
@@ -163,29 +164,7 @@
   {/if}
 
   <svelte:boundary>
-    {@const info = await core.rpc.session.homeserverInfo().catch((error: unknown) => {
-      console.debug('[sable settings] homeserver info unavailable', error);
-      return null;
-    })}
-    {#if info}
-      <SettingsSection title={i18n.t('settings.aboutHomeserver')} headingId="about-homeserver">
-        <ul class="settings">
-          <SettingsRow id="homeserver-url" title={i18n.t('settings.aboutHomeserverUrl')}>
-            <span class="value">{info.homeserver.replace(/\/+$/, '')}</span>
-          </SettingsRow>
-          <SettingsRow id="homeserver-software" title={i18n.t('settings.aboutHomeserverSoftware')}>
-            <span class="value"
-              >{info.server?.name ?? i18n.t('settings.aboutHomeserverUnknown')}</span
-            >
-          </SettingsRow>
-          <SettingsRow id="homeserver-version" title={i18n.t('settings.aboutHomeserverVersion')}>
-            <span class="value"
-              >{info.server?.version ?? i18n.t('settings.aboutHomeserverUnknown')}</span
-            >
-          </SettingsRow>
-        </ul>
-      </SettingsSection>
-    {/if}
+    <HomeserverInfo />
 
     {#snippet pending()}{/snippet}
   </svelte:boundary>
@@ -384,8 +363,7 @@
   }
 
   .version-copy-button,
-  p,
-  .value {
+  p {
     color: var(--surface-var-on-container);
   }
 
@@ -397,13 +375,6 @@
     list-style: none;
     margin: 0;
     padding: 0;
-  }
-
-  .value {
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-small);
-    font-variant-ligatures: none;
-    overflow-wrap: anywhere;
   }
 
   .error {

@@ -220,7 +220,7 @@ const cases: Record<string, TimelineItemView> = {
       change: { kind: 'room_topic', topic: long },
     },
   },
-  redaction: { ...message(''), content: { kind: 'redacted', reason: long } },
+  redaction: { ...message(''), content: { kind: 'redacted', reason: long, redacted_by: null } },
   'raw state': {
     ...message(''),
     content: {

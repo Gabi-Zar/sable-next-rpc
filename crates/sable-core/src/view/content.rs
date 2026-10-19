@@ -296,6 +296,7 @@ fn unparsed(event_type: &str, raw: &RawFields) -> TimelineItemContentView {
     if raw.content_stripped() {
         TimelineItemContentView::Redacted {
             reason: raw.redaction_reason(),
+            redacted_by: raw.redacted_by(),
         }
     } else {
         TimelineItemContentView::Malformed {
@@ -315,6 +316,7 @@ pub(super) fn content(
             MsgLikeKind::Message(message) => message_content(message, profile, raw),
             MsgLikeKind::Redacted => TimelineItemContentView::Redacted {
                 reason: raw.redaction_reason(),
+                redacted_by: raw.redacted_by(),
             },
             MsgLikeKind::UnableToDecrypt(message) => TimelineItemContentView::UnableToDecrypt {
                 reason: utd_cause(message),
@@ -464,6 +466,22 @@ mod tests {
         let serialized = serde_json::to_value(unparsed("m.room.message", &raw)).unwrap();
         assert_eq!(serialized["kind"], "redacted");
         assert_eq!(serialized["reason"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn a_deletion_names_the_redactor_only_when_it_is_not_the_author() {
+        let redacted = |redactor: &str| {
+            let raw = serde_json::from_value::<RawFields>(json!({
+                "sender": "@alice:x",
+                "content": {},
+                "unsigned": { "redacted_because": { "sender": redactor, "content": {} } },
+            }))
+            .unwrap();
+            serde_json::to_value(unparsed("m.room.message", &raw)).unwrap()
+        };
+
+        assert_eq!(redacted("@mod:x")["redacted_by"], "@mod:x");
+        assert_eq!(redacted("@alice:x")["redacted_by"], serde_json::Value::Null);
     }
 
     #[test]

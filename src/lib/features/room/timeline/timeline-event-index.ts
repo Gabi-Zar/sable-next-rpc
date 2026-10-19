@@ -45,6 +45,7 @@ export class TimelineEventIndex {
   #byId: Map<string, TimelineItemView> | null = null;
   #edits: Map<string, TimelineItemView[]> | null = null;
   #reasons: Map<string, string> | null = null;
+  #redactors: Map<string, string> | null = null;
 
   constructor(items: readonly TimelineItemView[], aggregations: readonly TimelineItemView[]) {
     this.#items = items;
@@ -73,6 +74,20 @@ export class TimelineEventIndex {
       }
     }
     return this.#reasons.get(eventId) ?? null;
+  }
+
+  redactor(item: TimelineItemView): string | null {
+    if (item.content.kind !== 'redacted') return null;
+    if (this.#redactors === null) {
+      this.#redactors = new Map();
+      for (const aggregation of this.#aggregations) {
+        const target = redactionTarget(aggregation);
+        if (target && aggregation.sender) this.#redactors.set(target, aggregation.sender);
+      }
+    }
+    const by =
+      item.content.redacted_by ?? (item.event_id ? this.#redactors.get(item.event_id) : null);
+    return by && by !== item.sender ? by : null;
   }
 
   editBefore(edit: TimelineItemView): TimelineItemView | null {

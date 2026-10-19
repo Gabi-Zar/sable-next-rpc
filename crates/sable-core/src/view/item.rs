@@ -827,7 +827,10 @@ mod tests {
 
     #[test]
     fn a_tombstone_is_a_message_row_that_cannot_be_redacted_again() {
-        let tombstone = TimelineItemContentView::Redacted { reason: None };
+        let tombstone = TimelineItemContentView::Redacted {
+            reason: None,
+            redacted_by: None,
+        };
         assert_eq!(tombstone.row_kind(), TimelineRowKind::Message);
         assert!(!tombstone.redactable());
         assert!(!tombstone.forwardable());
@@ -847,7 +850,10 @@ mod tests {
 
     #[test]
     fn visibility_names_the_preference_that_can_hide_a_row() {
-        let tombstone = TimelineItemContentView::Redacted { reason: None };
+        let tombstone = TimelineItemContentView::Redacted {
+            reason: None,
+            redacted_by: None,
+        };
         assert_eq!(tombstone.visibility(), TimelineVisibility::Tombstone);
         let hidden = TimelineItemContentView::HiddenEvent {
             event_type: "m.reaction".to_owned(),

@@ -544,10 +544,24 @@ test('live location expires without another SDK update and keeps its last known 
 });
 
 test('a deleted message keeps its reason', async () => {
-  render(MessageBody, { item: item({ kind: 'redacted', reason: 'spam' }), canRedactOthers: false });
+  render(MessageBody, {
+    item: item({ kind: 'redacted', reason: 'spam', redacted_by: null }),
+    canRedactOthers: false,
+  });
   await tick();
 
   expect(screen.getByText(/spam/)).toBeInTheDocument();
+});
+
+test('a message deleted by someone else names them', async () => {
+  render(MessageBody, {
+    item: item({ kind: 'redacted', reason: 'spam', redacted_by: null }),
+    canRedactOthers: false,
+    redactedBy: '@mod:x',
+  });
+  await tick();
+
+  expect(screen.getByText('Message deleted by @mod:x: spam')).toBeInTheDocument();
 });
 
 test.each(['above', 'below', 'inline'] as const)(

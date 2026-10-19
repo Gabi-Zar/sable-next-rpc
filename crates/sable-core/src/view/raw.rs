@@ -8,6 +8,7 @@ use super::content::raw_formatted_body;
 /// materialises every `formatted_body`.
 #[derive(Default, serde::Deserialize)]
 pub(super) struct RawFields {
+    pub(super) sender: Option<String>,
     pub(super) content: Option<serde_json::Value>,
     pub(super) unsigned: Option<RawUnsigned>,
     #[serde(skip)]
@@ -22,6 +23,7 @@ pub(super) struct RawUnsigned {
 
 #[derive(serde::Deserialize)]
 pub(super) struct RawRedaction {
+    sender: Option<String>,
     content: Option<RawRedactionContent>,
 }
 
@@ -70,6 +72,20 @@ impl RawFields {
 
     pub(super) fn formatted_body(&self) -> Option<&str> {
         raw_formatted_body(self.message()).or(self.echo_formatted_body.as_deref())
+    }
+
+    pub(super) fn redacted_by(&self) -> Option<String> {
+        let redactor = self
+            .unsigned
+            .as_ref()?
+            .redacted_because
+            .as_ref()?
+            .sender
+            .as_deref()?;
+        self.sender
+            .as_deref()
+            .is_some_and(|author| author != redactor)
+            .then(|| redactor.to_owned())
     }
 
     pub(super) fn redaction_reason(&self) -> Option<String> {

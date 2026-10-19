@@ -205,7 +205,7 @@ function withEvent(row: TimelineItemView, eventId: string | null): TimelineItemV
 const replyRows = [
   withEvent(message, '$first'),
   withEvent(joined, '$joined'),
-  withEvent(item({ kind: 'redacted', reason: null }), '$redacted'),
+  withEvent(item({ kind: 'redacted', reason: null, redacted_by: null }), '$redacted'),
   withEvent(divider, null),
   withEvent(message, '$second'),
   withEvent(message, null),
@@ -279,7 +279,7 @@ test('honours each toggle independently', () => {
   expect(shown.map((entry) => entry.content.kind)).toEqual(['profile_change', 'state_event']);
 });
 
-const removed = item({ kind: 'redacted', reason: null });
+const removed = item({ kind: 'redacted', reason: null, redacted_by: null });
 
 test('keeps tombstones out unless the preference asks for them', () => {
   expect(visibleTimelineItems([removed, message], defaults)).toEqual([message]);
@@ -739,11 +739,13 @@ test('anything you sent is yours to redact, not only your text', () => {
   expect(canRedact(own(joined.content), true, false)).toBe(true);
   expect(canRedact(theirs(joined.content), true, true)).toBe(true);
   expect(canRedact(own(divider.content), true, true)).toBe(false);
-  expect(canRedact(own({ kind: 'redacted', reason: null }), true, true)).toBe(false);
+  expect(canRedact(own({ kind: 'redacted', reason: null, redacted_by: null }), true, true)).toBe(
+    false
+  );
 });
 
 test('a room whose every event is redacted is not blank at the shipped default', () => {
-  const deleted = item({ kind: 'redacted', reason: null }, 'gone');
+  const deleted = item({ kind: 'redacted', reason: null, redacted_by: null }, 'gone');
 
   // A room can be all-redacted — delete every poll in it and this is what is
   // left — and hiding those rows left nothing on screen at all.

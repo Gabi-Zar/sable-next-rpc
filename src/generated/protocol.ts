@@ -1673,7 +1673,7 @@ body: string;
 /**  Sanitised display HTML, safe to inject as-is. */
 html: string; items: GalleryItemView[] } |
 /**  MSC3381, with the responses and the end event already folded in. */
-{ kind: "poll"; poll: PollView } | { kind: "redacted"; reason: string | null } | { kind: "unable_to_decrypt"; reason: UtdCauseView; session_id: string | null } | { kind: "membership"; user_id: string; change: MembershipChangeView;
+{ kind: "poll"; poll: PollView } | { kind: "redacted"; reason: string | null; redacted_by: string | null } | { kind: "unable_to_decrypt"; reason: UtdCauseView; session_id: string | null } | { kind: "membership"; user_id: string; change: MembershipChangeView;
 /**
  *  The member's name at the time, so the copy does not have to fall
  *  back to a raw user id.

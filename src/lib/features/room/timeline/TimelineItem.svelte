@@ -744,6 +744,7 @@
               {item}
               {canRedactOthers}
               redactionReason={item.event_id ? events?.redactionReason(item.event_id) : null}
+              redactedBy={events?.redactor(item) ?? item.content.redacted_by ?? null}
             />
             {#if inlineReceipts}
               <span class="receipt-space" aria-hidden="true"></span>

@@ -124,7 +124,7 @@ test('quick reactions resume live before choosing the latest message', async () 
     { ...item('$pending', '@kris:example.org'), event_id: null },
     withRowFields({
       ...item('$redacted', '@ana:example.org'),
-      content: { kind: 'redacted', reason: null },
+      content: { kind: 'redacted', reason: null, redacted_by: null },
     }),
   ];
   live.resolve(undefined);
