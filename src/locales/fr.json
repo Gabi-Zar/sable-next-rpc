@@ -54,7 +54,9 @@
     "displayOptions": "Options d’affichage de la barre latérale",
     "groupFavourites": "Groupe favoris",
     "sortRecent": "Activité récente",
-    "unpinFromSidebar": "Décrocher de la barre latérale"
+    "unpinFromSidebar": "Décrocher de la barre latérale",
+    "pinToSidebar": "Épingler à la barre latérale",
+    "folderExpand": "Dossier {{name}}"
   },
   "inbox": {
     "notifications": "Notifications",
@@ -552,6 +554,7 @@
     "abbreviationsRemoveConfirm": "Retirer {{term}} ?",
     "lobbyAddFailed_one": "{{count, number}} salon n'a pas pu être ajouté",
     "lobbyAddFailed_many": "",
+    "lobbyAddFailed_other": "{{count, number}} salons n’ont pas pu être ajoutés",
     "permSyncSpace": "Espace pour synchroniser avec",
     "permSync": "Synchronisation",
     "permSyncConfirmHint": "Les permissions de message et n'importe quoi à ou au-dessus de votre niveau restent comme ils sont.",
@@ -567,10 +570,16 @@
     "lobbyMoveTo": "Déplacer vers",
     "lobbyAddExistingRooms": "Ajouter des salons existants",
     "lobbyAddNothing": "Tout ce que vous avez rejoint est déjà là.",
+    "lobbyAddRoomsConfirm_one": "Ajouter {{count, number}} salon",
     "lobbyAddRoomsConfirm_many": "",
+    "lobbyAddRoomsConfirm_other": "Ajouter {{count, number}} salons",
+    "lobbyAddSpacesConfirm_one": "Ajouter {{count, number}} espace",
     "lobbyAddSpacesConfirm_many": "",
+    "lobbyAddSpacesConfirm_other": "Ajouter {{count, number}} espaces",
     "lobbyAddExistingSpaces": "Ajouter des espaces existants",
-    "lobbyAddSearch": "Rechercher dans vos salons"
+    "lobbyAddSearch": "Rechercher dans vos salons",
+    "membersInviteEmpty": "Personne n’a été trouvé. Saisissez un identifiant utilisateur complet, comme @nom:serveur.",
+    "lobbyOpenSubspace": "Ouvrir le lobby"
   },
   "join": {
     "joining": "En train de rejoindre…",
@@ -579,7 +588,8 @@
     "knockFailed": "Impossible d’envoyer la demande d’adhésion.",
     "members_one": "{{count, number}} membre",
     "members_many": "",
-    "members_other": "{{count, number}} membres"
+    "members_other": "{{count, number}} membres",
+    "unavailable": "Sable n’a pas trouvé ce salon. Il est peut-être privé, ou n’existe pas."
   },
   "direct": {
     "description": "Commencez une conversation privée chiffrée en saisissant un identifiant utilisateur.",
@@ -946,7 +956,10 @@
     "hiddenReaction": "{{user}} a réagi avec {{key}}",
     "profileAvatarRemoved": "{{user}} a enlevé leur avatar",
     "hiddenRedaction": "{{user}} a supprimé un message",
-    "pinnedBoth": "{{user}} {{added}} et {{removed}}"
+    "pinnedBoth": "{{user}} {{added}} et {{removed}}",
+    "videoConverting": "Conversion de la vidéo…",
+    "hiddenEvent": "{{user}} a envoyé un événement {{type}}",
+    "hiddenStateEvent": "{{user}} a envoyé un événement d’état {{type}}"
   },
   "viewer": {
     "title": "Visionneuse de médias",
@@ -1643,7 +1656,14 @@
       "user": "Utilisateur",
       "interface": "Interface",
       "behavior": "Comportement"
-    }
+    },
+    "aboutResetCacheHint": "Efface les données de salons et les médias en cache. Conserve votre index de recherche et votre connexion.",
+    "threadPresentationHint": "Sur les petits écrans, les fils utilisent toujours la vue de conversation complète.",
+    "notificationContentHint": "Le texte des messages peut apparaître sur l’écran de verrouillage.",
+    "syncStatusPartial": "Synchronisé, mais {{names}} n’a pas pu être envoyé : les thèmes et ajustements personnalisés peuvent totaliser {{limit}} Mio. Ils restent sur cet appareil.",
+    "clientEmbedsHint": "Envoie les liens à un service d’aperçu et charge les intégrations prises en charge depuis des sites tiers au lieu de passer par le serveur d’accueil. Ces services voient les liens et l’adresse IP de l’appareil.",
+    "mentions": "Mentions",
+    "unverifiedBannerBody": "D’autres utilisateurs peuvent voir des avertissements de sécurité sur vos messages. Vérifiez cet appareil pour déchiffrer l’historique de vos messages et le marquer comme sûr."
   },
   "errors": {
     "pageTitle": "Un problème est survenu",
@@ -1946,7 +1966,8 @@
         "usage": "/startdm <@utilisateur:serveur> [@utilisateur:serveur…]"
       },
       "converttodm": {
-        "description": "Marquer ce salon comme conversation privée"
+        "description": "Marquer ce salon comme conversation privée",
+        "usage": "/converttodm [@utilisateur:serveur]"
       },
       "converttoroom": {
         "description": "Marquer cette conversation privée comme salon ordinaire",
@@ -2051,7 +2072,10 @@
     "colorPresets": "Couleurs",
     "colorHex": "Couleur hexadécimale",
     "colorRemove": "Retirer la couleur",
-    "colorClose": "Fermer les couleurs"
+    "colorClose": "Fermer les couleurs",
+    "locationLabel": "Libellé (facultatif)",
+    "locationExplain": "Envoyée sous forme de coordonnées. La carte n’est dessinée que lorsqu’un lecteur la demande ; rien n’est donc envoyé à un fournisseur de tuiles de lui-même.",
+    "locationShowMap": "Choisir sur une carte"
   },
   "search": {
     "close": "Fermer la recherche",
@@ -2530,5 +2554,10 @@
     "changePicture": "Modifier l’image",
     "sortNameAsc": "A à Z",
     "sortNameDesc": "Z à A"
+  },
+  "app": {
+    "pettingAnimal": "Caresse {{animal}}",
+    "startFailed": "Vérifiez votre connexion et le stockage de l’appareil, puis réessayez.",
+    "unableToStart": "Impossible de restaurer votre session."
   }
 }

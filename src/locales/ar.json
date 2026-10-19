@@ -62,7 +62,8 @@
     "profile": "معلوماتك",
     "inbox": "البريد",
     "lobby": "صالة",
-    "removeAccountDescription": "هذا يحذف الحساب و معطياته المحلية من هذا الجهاز."
+    "removeAccountDescription": "هذا يحذف الحساب و معطياته المحلية من هذا الجهاز.",
+    "unpinFromSidebar": "ألغِ التثبيت من اللوحة"
   },
   "inbox": {
     "bookmarksSearchLabel": "بحث الرسائل",
@@ -113,7 +114,9 @@
     "filterMentions": "النداءات",
     "invitesTab": "دعوات",
     "openMessage": "إفتح الرسالة في الغرفة",
-    "invites": "دعوات في انتظارك"
+    "invites": "دعوات في انتظارك",
+    "bookmarks": "الإشارات المرجعية",
+    "removeBookmark": "أزل الإشارة المرجعية في {{room}}"
   },
   "common": {
     "removeBanner": "إزالة الصورة الخلفية",
@@ -197,6 +200,9 @@
     "dark": "داكن",
     "always": "دوما",
     "changeBanner": "غير الصورة الخلفية",
-    "decline": "رفض"
+    "decline": "رفض",
+    "sortManual": "يدوي",
+    "sortNameAsc": "من أ إلى ي",
+    "sortNameDesc": "من ي إلى أ"
   }
 }

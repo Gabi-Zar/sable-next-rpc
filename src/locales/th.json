@@ -255,6 +255,7 @@
     "copy": "คัดลอก",
     "copied": "คัดลอกแล้ว",
     "download": "ดาวน์โหลด",
-    "iUnderstandThisCannotBeUndone": "ฉันเข้าใจว่าการดำเนินการนี้ไม่สามารถย้อนกลับได้"
+    "iUnderstandThisCannotBeUndone": "ฉันเข้าใจว่าการดำเนินการนี้ไม่สามารถย้อนกลับได้",
+    "createSpace": "สร้างพื้นที่"
   }
 }

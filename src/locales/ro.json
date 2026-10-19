@@ -55,7 +55,9 @@
     "favourites": "Proferate",
     "groupFavourites": "Grup de preferate",
     "switch": "Schimbă",
-    "accounts": "Conturi"
+    "accounts": "Conturi",
+    "removeAccount": "Elimină contul",
+    "removeAccountConfirm": "Elimini acest cont?"
   },
   "inbox": {
     "notifications": "Notificări",
@@ -596,14 +598,17 @@
     "devDiagSync": "Sincronizează",
     "lobbyMoveTo": "Mută spre",
     "permPowerLevelTags": "Editarea rolurilor",
-    "cosmeticsAvatarReset": "Folosește iconița profilului"
+    "cosmeticsAvatarReset": "Folosește iconița profilului",
+    "devMissing": "Camera asta nu conține un asemenea eveniment de stare."
   },
   "join": {
     "knocking": "Se trimite…",
     "knockSent": "Cererea ta a fost trimisă. Vei primi de veste când cineva o va aproba.",
     "members_one": "{{count, number}} membru",
     "members_few": "{{count, number}} membri",
-    "members_other": "{{count, number}} de membri"
+    "members_other": "{{count, number}} de membri",
+    "knockFailed": "Cererea nu a putut fi trimisă.",
+    "joining": "Se alătură…"
   },
   "direct": {
     "description": "Începe o conversație privată și introducând un ID de utilizator.",
@@ -976,7 +981,8 @@
     "attachmentsMoreLinks_few": "+{{count}} alte link-uri",
     "attachmentsMoreLinks_other": "+{{count}} de alte link-uri",
     "attachmentsClose": "Închide media, fișiere și link-uri",
-    "attachmentsFilesEmpty": "Încă nu există fișiere indexate pe acest dispozitiv."
+    "attachmentsFilesEmpty": "Încă nu există fișiere indexate pe acest dispozitiv.",
+    "jumpToLatest": "Sari la cele mai recente"
   },
   "viewer": {
     "title": "Vizualizator media",
@@ -1661,7 +1667,11 @@
     "themeCatalogHighContrast": "Contrast ridicat",
     "notificationSoundVolume": "Volumul notificărilor",
     "settingsExportFailed": "Fișierul de setări nu a putut fi salvat.",
-    "pixelatedImagesHint": "Scalați imagini pixeli-perfect. Inteligent prezintă pixeli-perfect imaginile cu sub 192 pixeli, cum ar fi pixel-art și emojiuri mici."
+    "pixelatedImagesHint": "Scalați imagini pixeli-perfect. Inteligent prezintă pixeli-perfect imaginile cu sub 192 pixeli, cum ar fi pixel-art și emojiuri mici.",
+    "searchPlaceholder": "Caută setări…",
+    "pushGatewayNotAUrl": "Aceasta nu este o adresă web.",
+    "bulkRemoveDevicesFailed": "Deconectarea nu a reușit: {{names}}",
+    "pauseAnimationsWhenInactive": "Oprește animațiile când fereastra este inactivă"
   },
   "errors": {
     "pageTitle": "Ceva a eșuat",
@@ -1946,7 +1956,8 @@
         "usage": "/disinvite <@cineva:server> [@cineva:server…]"
       },
       "ignore": {
-        "usage": "/ignore <@cineva:server> [@cineva:server…]"
+        "usage": "/ignore <@cineva:server> [@cineva:server…]",
+        "description": "Ascunde tot ce vine de la cineva, pe orice dispozitiv"
       },
       "unignore": {
         "description": "Oprește ascunderea mesajelor",
@@ -2243,7 +2254,8 @@
     "others_other": "{{count, number}} alte persoane în apel",
     "testMic": "Verifică microfon",
     "cameraOnLabel": "Camera pornită",
-    "hideChat": "Ascunde conversația"
+    "hideChat": "Ascunde conversația",
+    "cameraUnavailable": "Camera nu este disponibilă. Verifică dacă Sable are permisiunea să o folosească."
   },
   "presence": {
     "online": "Online",
@@ -2285,7 +2297,8 @@
     "capabilityOther": "{{capability}}",
     "removeHint": "Widget-ul este eliminat pentru toată lumea din cameră.",
     "removeConfirm": "Elimină {{name}}?",
-    "resize": "Redimensionează widget-urile"
+    "resize": "Redimensionează widget-urile",
+    "capabilitySticker": "Trimite abțibilduri în numele tău"
   },
   "pdf": {
     "documentLabel": "{{name}}, pagina {{page}} din {{pages}}",

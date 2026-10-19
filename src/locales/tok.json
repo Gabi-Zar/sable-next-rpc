@@ -50,7 +50,10 @@
     "chats": "toki",
     "favourites": "pona suli",
     "navigate": "o tawa",
-    "accountSignedOut": "weka"
+    "accountSignedOut": "weka",
+    "editStatus": "o ante e pilin ni",
+    "primary": "tawa lawa",
+    "home": "kulupu tomo ale"
   },
   "inbox": {
     "notifications": "toki sin",
@@ -63,6 +66,120 @@
     "addAccount": "o kama e sina kin",
     "voiceRoom": "tomo pi toki kute",
     "createSpace": "o pali e kulupu",
-    "moreOptions": "ante namako"
+    "moreOptions": "ante namako",
+    "save": "o awen",
+    "whatAreYouUpTo": "sina pilin e seme?",
+    "supportSable": "o pana tawa ilo Sable",
+    "share": "o esun e ni",
+    "viewSource": "lukin tawa tan ilo",
+    "stopTest": "pini e ni",
+    "sortManual": "nasin pali",
+    "yesterday": "tenpo suno pini",
+    "startingSable": "ilo li kama open…",
+    "never": "ken ala",
+    "refresh": "kama sin",
+    "today": "tenpo suno ni",
+    "tryAgain": "o pani sin",
+    "undo": "o weka e pali",
+    "join": "kama",
+    "jumpToMessage": "o tawa toki ni",
+    "light": "suno",
+    "loadMore": "kama mute",
+    "markAsRead": "mi lukin e ni",
+    "readReceipts": "lipu pi sona lukin",
+    "reload": "kama sin",
+    "remove": "weka",
+    "removeAvatar": "weka e sitelen ni",
+    "removeBanner": "weka e sitelen ni",
+    "reset": "weka ale",
+    "restore": "kama sin e ante weka",
+    "retry": "pali sin",
+    "searchMessages": "alasa e toki",
+    "searchRooms": "alasa e tomo",
+    "selectAll": "jo e ale",
+    "sortNameAsc": "nasin nimi sewi",
+    "sortNameDesc": "nasin nimi anpa",
+    "theHomeserverIsTemporarilyUnavailableTryAgain": "tomo sina li weka. o pali sin.",
+    "theRoomCouldNotBeJoined": "tomo ni li ken ala kama.",
+    "theStateEventWasRejected": "tenpo ante li pini tan toki Matrix.",
+    "theythemEnsheher": "they/them, tok:ona",
+    "thisRoom": "tomo ni",
+    "unblock": "len ala",
+    "verify": "lukin pona e ni",
+    "decline": "o weka e ni",
+    "cancel": "o pini",
+    "system": "ilo",
+    "clear": "weka",
+    "chooseAPicture": "o jo e sitelen",
+    "add": "pana",
+    "apply": "pona",
+    "back": "tawa monsi",
+    "accept": "pona",
+    "askToJoin": "kama tawa tomo ni la o toki",
+    "block": "o len lukin e ni",
+    "changeAvatar": "o ante e sitelen sina",
+    "changeBanner": "o ante e sitelen pi tomo ni",
+    "changePicture": "o ante e sitelen ni",
+    "close": "weka",
+    "copied": "ni li kama tu",
+    "copy": "o pali tu e ni",
+    "createARoom": "o pali sin e tomo",
+    "dark": "pimeja",
+    "dateAndTime": "tenpo",
+    "delete": "o moli e ni",
+    "developerTools": "ilo pi jan pali",
+    "directMessage": "toki tawa jan wan",
+    "dismiss": "weka",
+    "displayName": "nimi",
+    "download": "o kama jo e sitelen ni",
+    "edit": "ante",
+    "endtoendEncryption": "toki len",
+    "iUnderstandThisCannotBeUndone": "mi sona e ni: ante ni ken ala weka",
+    "import": "o pana e sona",
+    "install": "o kama jo",
+    "invitePeople": "kama jan"
+  },
+  "timeline": {
+    "membershipBy": {
+      "knock_accepted": "{{actor}}{{actor}}{{actor}}"
+    }
+  },
+  "call": {
+    "screenOf": "sitelen {{name}}",
+    "stopWatching": "o lukin ala",
+    "joinVoice": "kama tawa tomo kalama",
+    "muteParticipant": "o len kalama e {{name}}",
+    "screenAudioSilent": "kalama li weka",
+    "statsHardware": "{{name}} (ilo hardware)",
+    "statsSoftware": "{{name}} (ilo software)",
+    "debugReason": "lon tan",
+    "screenAudioSystem": "ilo ale"
+  },
+  "personas": {
+    "pickerOffGlobal": "ala",
+    "sortNameRecentlyUsed": "tenpo poka"
+  },
+  "composer": {
+    "colorRemove": "o weka e kule",
+    "slash": {
+      "invite": {
+        "usage": "/invite <@jan:tomo-ona>"
+      },
+      "join": {
+        "usage": "/join <#tomo:tomo-ona>"
+      },
+      "shrug": {
+        "usage": "/shrug [toki]"
+      },
+      "cuddle": {
+        "usage": "/cuddle [@jan:tomo-ona]"
+      },
+      "notice": {
+        "usage": "/notice <toki>"
+      },
+      "unflip": {
+        "usage": "/unflip [toki]"
+      }
+    }
   }
 }

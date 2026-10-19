@@ -63,7 +63,8 @@
     "editStatus": "编辑状态",
     "rooms": "房间",
     "createSubspace": "创建子空间",
-    "unreadMessages": "{{count, number}} 条未读消息"
+    "unreadMessages": "{{count, number}} 条未读消息",
+    "sortRecent": "最近活动"
   },
   "common": {
     "accept": "接受",
@@ -182,7 +183,7 @@
     "leaving": "正在离开通话",
     "reconnecting": "正在重新连接",
     "muted": "已静音",
-    "lobbyEmpty": "语音聊天室空空如也——快来第一个加入吧！",
+    "lobbyEmpty": "语音房间空空如也——快来第一个加入吧！",
     "lobbyNoPermission": "你没有加入的权限。",
     "lobbyNoFocus": "此家服务器无法承载通话。",
     "pin": "固定 {{name}}",
@@ -262,7 +263,7 @@
     "screenAudioIncludeOne": "要共享的应用",
     "screenAudioInclude": "要共享的应用",
     "screenAudioRefresh": "刷新应用列表",
-    "screenAudioLoading": "正在查找正在播放声音的应用",
+    "screenAudioLoading": "正在查找播放声音的应用",
     "screenAudioEmpty": "目前没有应用在播放声音，请启动一个，然后刷新。",
     "screenAudioFailed": "无法列出正在播放声音的应用，请刷新以重试。",
     "screenAudioSilent": "未播放",
@@ -310,7 +311,14 @@
     "connecting": "正在连接",
     "screenSourceHdr": "{{name}}，已转换 HDR",
     "waitingForMedia": "通话加密后可用",
-    "statsMbps": "{{value, number}} Mbps"
+    "statsMbps": "{{value, number}} Mbps",
+    "screenPickerScreens": "屏幕",
+    "screenPickerWindows": "窗口",
+    "screenAudioUnavailable": "屏幕音频不可用，请检查 PipeWire 是否正在运行，并重启 Sable。",
+    "screenAudioIncompatible": "屏幕音频无法加载，请更新系统的 C++ 运行时并重启 Sable。",
+    "screenAudioPipeWirePulseMissing": "找不到 pipewire-pulse，只有直接使用 PipeWire 的应用才能被共享。",
+    "screenAudioWorkaround": "麦克风路由变通方法",
+    "screenAudioWorkaroundHint": "如果通话听到的是你的麦克风而非所选的音频，请启用此项。"
   },
   "room": {
     "directoryKind": "显示",
@@ -810,9 +818,9 @@
     "emojisUseEverywhere": "在每个房间中使用",
     "emojisUseEverywhereHint": "将此表情包添加到你在本房间之外的选择器中。",
     "emojisPacks": "表情包",
-    "menuReport": "报告房间",
-    "menuReportSpace": "报告空间",
-    "reportHint": "向你的家服务器管理员报告这里有什么问题。报告会指明此房间，而非某条消息。",
+    "menuReport": "举报房间",
+    "menuReportSpace": "举报空间",
+    "reportHint": "向你的家服务器管理员举报这里有什么问题。举报会指明此房间，而非某条消息。",
     "abbreviationsTermPlaceholder": "MSC, MSCs",
     "addressesPublishedTitle": "已发布的地址",
     "abbreviationsFailed": "无法保存该缩写。",
@@ -833,7 +841,14 @@
     "createVersionDefault": "服务器默认（{{version}}）",
     "createVersionUnstable": "{{version}}（不稳定）",
     "createSubspaceTitle": "创建子空间",
-    "createKindSpace": "空间"
+    "createKindSpace": "空间",
+    "devDiagThread": "消息列",
+    "directoryAddServer": "添加服务器",
+    "directoryAddServerLabel": "服务器名称",
+    "directoryRemoveServer": "移除 {{server}}",
+    "devDiagServer": "服务器数量（通知、高亮）",
+    "devDiagMain": "主要时间线（未读、通知、高亮）",
+    "actionsLabel": "房间操作"
   },
   "inbox": {
     "invitesSpamShow": "显示",
@@ -894,7 +909,9 @@
     "inviteOptions": "{{room}} 的更多选项",
     "invitesTab": "邀请",
     "invitesStrangers": "来自陌生人",
-    "inviteMessageShow": "显示来自 {{name}} 的消息"
+    "inviteMessageShow": "显示来自 {{name}} 的消息",
+    "markAllRead": "全部标为已读",
+    "unlistedNotifications_other": "{{count, number}} 条未读通知"
   },
   "timeline": {
     "profileNameRemoved": "{{user}} 的显示名称已被移除",
@@ -925,7 +942,9 @@
         "knocked": "申请加入",
         "knock_retracted": "撤回了申请",
         "other": "成员身份已更新",
-        "avatar": "更换了头像"
+        "avatar": "更换了头像",
+        "invited": "已邀请",
+        "name": "更改了名称"
       },
       "showEvents_other": "显示 {{count, number}} 个事件",
       "hideEvents": "隐藏事件",
@@ -935,7 +954,9 @@
       "knock_retracted": "{{users}} 撤回了加入申请",
       "other": "{{users}} 的成员身份已更新",
       "avatar": "{{users}} 更换了头像",
-      "others_other": "另外 {{count, number}} 人"
+      "others_other": "另外 {{count, number}} 人",
+      "invited": "{{users}} 收到了邀请",
+      "name": "{{users}} 更改了名称"
     },
     "backToConversation": "返回对话",
     "originalMessage": "原始消息",
@@ -1086,16 +1107,16 @@
     "unbookmarkMessage": "移除书签",
     "forwardMessage": "转发",
     "removeLinkPreviews": "移除嵌入内容",
-    "reportMessage": "报告",
+    "reportMessage": "举报",
     "sourceTitle": "消息源",
     "editHistory": "版本历史",
     "editHistoryTitle": "消息版本历史",
     "editHistoryOriginal": "原始版本",
     "closeEditHistory": "关闭版本历史",
-    "reportTitle": "报告消息",
+    "reportTitle": "举报消息",
     "reportReason": "原因",
     "reportReasonHint": "向你的家服务器管理员说明这条消息有什么问题。",
-    "reportSend": "报告",
+    "reportSend": "举报",
     "forwardSend": "转发",
     "withReason": "{{text}}：{{reason}}",
     "profileKickConfirm": "将 {{name}} 从房间移除？",
@@ -1275,16 +1296,28 @@
     "profileOverrideName": "名称",
     "profileOverrideAvatarReset": "使用其图片",
     "profileOverrideRemove": "显示其本人资料",
-    "reportSent": "报告已发送",
-    "reportUnsupported": "你的家服务器无法受理此类报告。",
-    "profileReport": "报告用户",
-    "profileReportTitle": "报告 {{name}}",
+    "reportSent": "举报已发送",
+    "reportUnsupported": "你的家服务器无法受理此类举报。",
+    "profileReport": "举报用户",
+    "profileReportTitle": "举报 {{name}}",
     "hiddenMedia": "显示媒体",
     "showImages": "显示图片",
     "sendAnyway": "仍然发送",
     "sendBlockedIdentity": "自从你验证 {{names}} 以来，他们重置了加密身份。仍然发送将撤回你的验证。",
     "sendBlockedVerify": "在发送加密消息之前，请先验证此设备。",
-    "profileBanner": "查看 {{name}} 的横幅"
+    "profileBanner": "查看 {{name}} 的横幅",
+    "playAudio": "播放 {{name}}",
+    "editUnchangedLines_other": "… {{count, number}} 行未更改",
+    "replyToVerificationRequest": "已请求验证",
+    "cute": {
+      "hug": "{{user}} 发送了一个拥抱 {{body}}",
+      "cuddle": "{{user}} 发送了一个依偎 {{body}}",
+      "wave": "{{user}} 挥了挥手 {{body}}",
+      "poke": "{{user}} 发送了一个戳 {{body}}",
+      "googly_eyes": "{{user}} 发送了咕噜眼 {{body}}",
+      "other": "{{user}} 发送了 {{body}}"
+    },
+    "audioSeek": "播放进度"
   },
   "emoji": {
     "people": "笑脸和人物",
@@ -1313,7 +1346,25 @@
     "knocking": "正在发送…",
     "joining": "正在加入…",
     "withdrawing": "正在撤回…",
-    "members_other": "{{count, number}} 位成员"
+    "members_other": "{{count, number}} 位成员",
+    "restrictedFailed": "你不符合加入此房间的条件。",
+    "knockRequired": "成员必须发送加入申请",
+    "restricted": "房间有额外的加入条件",
+    "invited": "你被邀请加入该房间",
+    "banned": "你已被该房间封禁。",
+    "provenance": "由 {{server}} 提供",
+    "uncertainProvenance": "由其他服务器提供",
+    "uncertainProvenanceTooltip": "此房间预览可能由其他服务器提供，信息也许不准确或过时。",
+    "untrustedProvenanceTooltip": "此房间预览由 {{server}} 提供，信息也许不准确或过时。",
+    "trustedProvenanceTooltip": "此房间预览由你自己的服务器提供。",
+    "restrictedKnockRequired": "你不符合加入此房间的条件，你必须申请加入。",
+    "restrictedKnockAvailable": "在不满足所需条件的情况下，你可能需要发送加入申请。",
+    "unavailable": "Sable 找不到该房间，它可能是私密的，也可能不存在。",
+    "knockSent": "你的加入申请已发送，一旦房间成员批准你的申请，你就会收到加入该房间的邀请。",
+    "knockFailed": "无法发送加入申请。",
+    "withdraw": "撤销加入申请",
+    "knockReason": "你为什么想要加入这个房间？（可选）",
+    "withdrawFailed": "无法撤回加入申请。"
   },
   "app": {
     "skipMigration": "不迁移 v1 数据，继续",
@@ -1362,7 +1413,9 @@
     "failed": "无法创建聊天。",
     "encryptionHint": "对于桥接联系人请关闭，之后无法再开启。",
     "submit": "开始聊天",
-    "userIdLabel": "用户 ID"
+    "userIdLabel": "用户 ID",
+    "confirmTitle": "开始与 {{name}} 聊天？",
+    "confirmBody": "你还没有与对方聊天，将创建一个新聊天并邀请对方。"
   },
   "permalink": {
     "opening": "正在打开链接…",
@@ -1400,7 +1453,9 @@
       "microphone": "麦克风",
       "messageSearch": "消息搜索",
       "previews": "预览",
-      "callCompat": "兼容性"
+      "callCompat": "兼容性",
+      "font": "字体",
+      "performance": "性能"
     },
     "navGroups": {
       "interface": "界面",
@@ -1452,7 +1507,8 @@
       "twitterEmoji": "Twemoji、表情风格、表情字体",
       "typing": "正在输入指示器、正在输入",
       "urlPreviews": "嵌入、展开、链接卡片、URL 预览",
-      "weekStart": "星期一、星期日、日历、周"
+      "weekStart": "星期一、星期日、日历、周",
+      "timeZone": "时区、UTC、GMT、时钟偏移、指纹识别、抵御指纹识别"
     },
     "resetRecoveryKey": "重置恢复密钥",
     "roomKeys": "本地密钥备份",
@@ -1732,7 +1788,7 @@
     "developerSearchPhaseYielding": "为时间线暂停",
     "developerSearchPhaseBackingOff": "正在退避",
     "developerSearchPhasePaused": "已暂停（应用在后台或使用按流量计费的连接）",
-    "developerSearchRateValue": "{{count, number}} 事件/分钟",
+    "developerSearchRateValue": "{{count, number}} 个事件/分钟",
     "developerSearchRunning": "已抓取时长",
     "developerSearchMinutes": "{{count, number}} 分钟",
     "developerSearchBatches": "已获取批次",
@@ -1919,7 +1975,7 @@
     "pushGateway": "推送网关",
     "notificationSounds": "播放通知声音",
     "callMicTestLevel": "输入电平",
-    "echoCancellation": "从麦克风移除通话回声",
+    "echoCancellation": "消除麦克风通话回声",
     "callDevicesPermission": "允许麦克风访问以命名你的设备。",
     "callDeviceSystemDefault": "系统默认",
     "pushersEmpty": "没有应用注册为此账户接收推送通知。",
@@ -2171,7 +2227,29 @@
       "pride": "骄傲",
       "pridegradient": "骄傲（渐变）",
       "pansexual": "泛性恋",
-      "pansexualgradient": "泛性恋（渐变）"
+      "pansexualgradient": "泛性恋（渐变）",
+      "polysexual": "多性恋",
+      "nonbinarygradient": "非二元（渐变）",
+      "genderfluid": "性别流动",
+      "genderfluidgradient": "性别流动（渐变）",
+      "asexual": "无性恋",
+      "asexualgradient": "无性恋（渐变）",
+      "aromantic": "无浪漫倾向",
+      "aromanticgradient": "无浪漫倾向（渐变）",
+      "aroace": "无浪漫无性恋",
+      "aroacegradient": "无浪漫无性恋（渐变）",
+      "graysexual": "灰色性恋",
+      "graysexualgradient": "灰色性恋（渐变）",
+      "polysexualgradient": "多性恋（渐变）",
+      "omnisexual": "全性恋",
+      "omnisexualgradient": "全性恋（渐变）",
+      "genderqueer": "性别酷儿",
+      "genderqueergradient": "性别酷儿（渐变）",
+      "bigender": "双性别",
+      "bigendergradient": "双性别（渐变）",
+      "demigender": "半性别",
+      "demigendergradient": "半性别（渐变）",
+      "nonbinary": "非二元"
     },
     "themeShowingNow": "正在显示",
     "profilePreviewTab": "预览",
@@ -2350,7 +2428,76 @@
     "removeTimezone": "移除时区",
     "otherProfileFieldsDone": "完成",
     "themeFileInstalled": "已安装",
-    "composerSeparatorCount": "分隔符"
+    "composerSeparatorCount": "分隔符",
+    "deleteAccountPasswordRequired": "输入你的密码以删除账户。",
+    "deleteAccountAction": "删除账户",
+    "deleteAccountConfirm": "删除你的账户？",
+    "verificationRetry": "重新发送请求",
+    "avatarsInMessageHeadersHint": "仅适用于紧凑布局",
+    "deleteAccount": "删除账户",
+    "deleteAccountHint": "永久停用你的账户。",
+    "renderProfileColors": "显示个人资料名称颜色",
+    "zoomShortcutsHint": "使用 Ctrl（macOS 上为 ⌘）配合 +、- 或 0 键，或者使用 Ctrl 键加鼠标滚轮，即可调整界面缩放比例。",
+    "deleteAccountDescription": "此操作将使你在所有设备上退出登录，且无法撤销。此后，你将无法再次登录或重复使用该用户 ID。",
+    "hideTopicChanges": "隐藏话题变更",
+    "updateChannelStable": "稳定版",
+    "developerServerFeaturesTitle": "家服务器功能",
+    "serverFeatureSlidingSync": "简化滑动同步（MSC4186）",
+    "serverFeatureProfilePropagation": "个人资料更新传播（MSC4466）",
+    "serverFeaturesAll": "所有声明的功能（{{count}}）",
+    "coreLogLevel": "核心控制台日志级别",
+    "coreLogLevelHint": "Debug 会将核心的调试行打印到浏览器控制台，重新加载页面以应用。",
+    "coreLogLevelDefault": "信息",
+    "coreLogLevelDebug": "调试",
+    "callDebugOverlay": "在通话中显示通话调试信息",
+    "hiddenEventsHeaderToggle": "在房间标题中显示隐藏事件开关",
+    "spacingNone": "无",
+    "renderProfileColorsHint": "用户在个人资料中为其名称所选的颜色。若此功能关闭，名称将显示为所在房间或角色的对应颜色。",
+    "showDmTopicsHint": "跨平台互通的聊天往往会在话题中包含额外信息。若将其关闭，该行则会显示联系人的状态。",
+    "showEasterEggs": "当数值极大时，显示“:3”而非“1k+”",
+    "timeZone": "时区",
+    "minimizeToTray": "最小化到托盘",
+    "updateChannelHint": "稳定版基于带有标签的发布版本；每夜版则对应主分支的每一次构建，可能会出现不稳定或故障。",
+    "updateChannelNightly": "每夜版",
+    "webRtcIpPolicyDefault": "自动",
+    "sedEdits": "使用 s/old/new 编辑你的上一条消息",
+    "sedEditsHint": "发送 s/old/new 会替换你上一条消息中 old 的第一个匹配项，编辑后的消息会丢失其格式。",
+    "inlineEditing": "在时间线中编辑消息",
+    "inlineEditingHint": "直接在消息所在位置编辑文本消息，而非在输入框中。",
+    "composerSpellcheck": "拼写检查",
+    "composerAutocapitalize": "句子首字母大写",
+    "minimizeToTrayHint": "最小化窗口会隐藏应用，请从托盘图标退出。并非所有 Linux 桌面都会报告最小化。",
+    "hardwareAcceleration": "硬件加速",
+    "hardwareAccelerationHint": "使用显卡绘制，如果窗口闪烁或保持空白，请关闭，重启 Sable 后生效。",
+    "hardwareVideoAcceleration": "硬件视频解码",
+    "hardwareVideoAccelerationHint": "使用显卡解码视频和通话以节省电量，重启 Sable 后生效。",
+    "smoothScrolling": "平滑滚动",
+    "smoothScrollingHint": "为鼠标滚轮滚动添加动画，关闭以即时滚动，重启 Sable 后生效。",
+    "webRtcIpPolicyPrivate": "公共和私有接口",
+    "webRtcIpPolicyPublic": "仅公共接口",
+    "webRtcIpPolicyProxied": "仅通过代理",
+    "fontFamily": "正文字体",
+    "fontFamilyMono": "等宽字体",
+    "fontFamilyMonoHint": "用于代码块和文件预览。",
+    "fontCustom": "自定义",
+    "fontDefault": "默认",
+    "fontName": "字体名称",
+    "showDmTopics": "在私聊中显示话题",
+    "composerSpellcheckHint": "在输入框中为拼错的单词加下划线，更正来自你的浏览器或系统词典。",
+    "composerAutocapitalizeHint": "输入时每个句子以大写字母开头，仅适用于屏幕键盘。",
+    "pushDistributorNone": "未安装 UnifiedPush 应用，请安装分发器（例如 ntfy），然后将其指向你的服务器（ntfy.ow-ops.eu 或你自己的服务器）。",
+    "webRtcIpPolicy": "通话使用的网络接口",
+    "webRtcIpPolicyHint": "如果在 VPN 或 Tailscale 后通话始终无法连接，请尝试允许私有接口。",
+    "codeLigatures": "显示代码连字",
+    "codeLigaturesHint": "显示代码时合并某些字符序列，例如 !=。",
+    "avatarsInMessageHeaders": "在消息顶部显示头像",
+    "fontFamilyHint": "默认使用主题字体，“跟随系统”使用你的设备字体。",
+    "fontCustomHint": "选择“跟随系统”以使用你的设备字体。",
+    "deleteAccountTypeUserId": "输入 {{userId}} 以确认",
+    "updateChannel": "更新频道",
+    "zoomShortcuts": "缩放快捷键",
+    "timeZoneHint": "以该时区显示消息时间，当你的浏览器隐藏你的真实时区时很有用。",
+    "timeZoneAuto": "自动（此设备）"
   },
   "supporter": {
     "shapes": {
@@ -2523,7 +2670,7 @@
     "enterEmail": "请输入你的电子邮件地址。",
     "createAccount": "创建账户",
     "createServerAccount": "创建 {{server}} 账户",
-    "registeringWith": "注册于",
+    "registeringWith": "正在注册于",
     "changeProviderHint": "返回登录页面以更改你的服务商。",
     "accountProviderHint": "你的账户服务商托管你的账户和数据。你仍然可以与 Matrix 上的所有人聊天。",
     "confirmPassword": "确认密码",
@@ -2578,10 +2725,11 @@
     "continueWithProvider": "使用 {{name}} 继续",
     "stageSignInLabel": "登录 Sable",
     "enterRegistrationToken": "请输入你的注册令牌。",
-    "passwordResetComplete": "密码已重置"
+    "passwordResetComplete": "密码已重置",
+    "noAccountYet": "还没有账户吗？"
   },
   "footer": {
-    "poweredBy": "技术支持"
+    "poweredBy": "基于"
   },
   "combobox": {
     "showOptions": "显示选项"
@@ -2668,7 +2816,7 @@
         "usage": "/hug [@user:server]"
       },
       "wave": {
-        "description": "发送一个挥手",
+        "description": "挥挥手",
         "usage": "/wave [@user:server]"
       },
       "notice": {
@@ -2992,7 +3140,9 @@
     "scheduleIn1Hour": "1 小时后",
     "scheduleTomorrow9am": "明天上午 9 点",
     "scheduleEmpty": "先写好消息，再选择时间。",
-    "highlightColor": "高亮颜色"
+    "highlightColor": "高亮颜色",
+    "resizeBoard": "调整表情和贴纸区域大小",
+    "sedNoMatch": "你的上一条消息不包含该文本。"
   },
   "errors": {
     "pageTitle": "出了点问题",
@@ -3037,7 +3187,8 @@
     "invalidEmail": "请输入有效的电子邮件地址。",
     "emailVerificationFailed": "该验证码未被接受，请检查后重试。",
     "invalidCredentials": "用户名或密码无效。",
-    "coreError": "无法完成登录，请重试，如果问题持续出现，请报告该问题。"
+    "coreError": "无法完成登录，请重试，如果问题持续出现，请报告该问题。",
+    "coreSuperseded": "Sable 已在另一个标签页中打开，请重新加载以在此处使用它。"
   },
   "bugReport": {
     "feature": "功能请求",
@@ -3141,7 +3292,8 @@
     "colorLight": "浅色主题下的名称颜色",
     "triggers": "触发器",
     "triggerPrefix": "前缀",
-    "backup": "备份"
+    "backup": "备份",
+    "noMatches": "没有个人资料匹配该搜索。"
   },
   "shortcuts": {
     "openBookmarks": "打开书签",
@@ -3176,7 +3328,12 @@
     "toggleDeafen": "在通话中关闭或恢复声音",
     "toggleCamera": "在通话中开启或关闭摄像头",
     "toggleScreenShare": "在通话中开始或停止共享屏幕",
-    "hangUp": "离开通话"
+    "hangUp": "离开通话",
+    "toggleEmojiPicker": "切换表情选择器",
+    "toggleGifPicker": "切换 GIF 选择器",
+    "toggleStickerPicker": "切换贴纸选择器",
+    "closeWindow": "关闭窗口",
+    "quit": "退出 Sable"
   },
   "search": {
     "close": "关闭搜索",
@@ -3192,7 +3349,7 @@
     "placeholder": "搜索消息，例如 from:ada in:#general has:image",
     "hint": "搜索你的消息，添加筛选条件以缩小范围。",
     "hintExample": "例如：from:ada in:#general has:image",
-    "hintSyntax": "将词语用\"引号\"包裹以进行精确短语匹配，或在词前加 - 以排除它。",
+    "hintSyntax": "将词语用“引号”包裹以进行精确短语匹配，或在词前加 - 以排除它。",
     "startFilter": "开始筛选",
     "searching": "正在搜索…",
     "empty": "没有匹配的消息。",
@@ -3265,7 +3422,10 @@
     "capabilityRtcTransports": "查找你家服务器的通话服务器",
     "capabilityLivekitToken": "获取访问你家服务器通话服务器的权限",
     "capabilityLivekitLeave": "在你断开连接时让你家服务器结束通话",
-    "resize": "调整挂件区域大小"
+    "resize": "调整挂件区域大小",
+    "integrationManagerTermsBody": "集成管理器需要你接受这些文档，然后才能为你添加机器人、桥接和挂件。",
+    "integrationManagerTermsFailed": "无法记录你的确认，请重试。",
+    "integrationManagerTermsTitle": "接受集成管理器的条款"
   },
   "calendar": {
     "end": "结束",
@@ -3452,5 +3612,24 @@
   "window": {
     "minimize": "最小化",
     "maximize": "最大化"
+  },
+  "sounds": {
+    "notification": "通知",
+    "volumeRingCategory": "铃声",
+    "volumeCallCategory": "通话控制",
+    "title": "声音",
+    "volumeCategory": "音量",
+    "incoming_call": "来电",
+    "outgoing_call": "拨出",
+    "camera_on": "摄像头开启",
+    "camera_off": "摄像头关闭",
+    "mic_on": "取消静音",
+    "deafen_off": "恢复声音",
+    "screenshare_start": "开始屏幕共享",
+    "screenshare_stop": "停止屏幕共享",
+    "call_join": "加入通话",
+    "call_leave": "离开通话",
+    "mic_off": "静音",
+    "deafen_on": "关闭声音"
   }
 }

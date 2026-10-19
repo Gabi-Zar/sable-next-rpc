@@ -189,6 +189,13 @@
     "markAsRead": "Marcar como leído",
     "createRoom": "Crear sala",
     "save": "Guardar",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "aUserIdLooksLikeSomeoneserver": "Un identificador de usuario se parece a @alguien:servidor.",
+    "allowNotifications": "Permitir notificaciones",
+    "always": "Siempre",
+    "apply": "Aplicar",
+    "copied": "Copiado",
+    "copy": "Copiar",
+    "dateAndTime": "Fecha y hora"
   }
 }

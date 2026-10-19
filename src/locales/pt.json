@@ -1,1 +1,42 @@
-{}
+{
+  "common": {
+    "aUserIdLooksLikeSomeoneserver": "Um id de usuário está no formato @alguém:servidor.",
+    "changeBanner": "Mudar banner",
+    "close": "Fechar",
+    "decline": "Rejeitar",
+    "changePicture": "Mudar foto",
+    "apply": "Aplicar",
+    "addAccount": "Adicionar conta",
+    "chooseAPicture": "Escolha uma foto",
+    "developerTools": "Ferramentas de desenvolvedores",
+    "dismiss": "Dispensar",
+    "accept": "Aceitar",
+    "askToJoin": "Pedir para entrar",
+    "changeAvatar": "Mudar avatar",
+    "dark": "Escuro",
+    "allowNotifications": "Permitir notificações",
+    "block": "Bloquear",
+    "copy": "Copiar",
+    "back": "Voltar",
+    "copied": "Copiado",
+    "add": "Adicionar",
+    "dateAndTime": "Data e hora",
+    "delete": "Apagar",
+    "createSpace": "Criar espaço",
+    "always": "Sempre",
+    "cancel": "Cancelar"
+  },
+  "combobox": {
+    "showOptions": "Mostrar opções"
+  },
+  "call": {
+    "thisDevice": "Este dispositivo"
+  },
+  "sounds": {
+    "call_leave": "Sair de chamada",
+    "call_join": "Entrar na chamada"
+  },
+  "shortcuts": {
+    "quit": "Sair de Sable"
+  }
+}
