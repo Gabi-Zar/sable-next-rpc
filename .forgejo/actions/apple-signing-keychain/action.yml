@@ -33,8 +33,8 @@ runs:
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
         rm "$RUNNER_TEMP/certificate.p12"
         security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
-        # find-identity -v reports a valid identity as invalid under the runner's
-        # launchd daemon, so the chain is checked with verify-cert instead.
+        # find-identity -v finds no valid identity on the runner although verify-cert
+        # accepts the chain, so the chain is checked with verify-cert.
         identity="$(security find-identity -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
         [ -n "$identity" ] || { echo 'No Developer ID Application identity in the certificate' >&2; exit 1; }
         leaf="$RUNNER_TEMP/leaf.pem"
