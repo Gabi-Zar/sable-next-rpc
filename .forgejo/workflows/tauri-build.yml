@@ -64,6 +64,18 @@ jobs:
         env:
           TAG: ${{ steps.meta.outputs.tag }}
         run: node scripts/ci/forgejo-release.mjs wait --attempts 12 --interval 15
+      - name: Dispatch the GitHub build for the tag
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.meta.outputs.nightly != 'true' && steps.gate.outputs.skip != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          [ -n "$GH_TOKEN" ] || { echo 'GH_DISPATCH_TOKEN is not set; dispatch the GitHub build for this tag by hand.' >&2; exit 1; }
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/SableClient/sable-next/actions/workflows/tauri-build.yml/dispatches \
+            -d "{\"ref\":\"main\",\"inputs\":{\"tag\":\"$TAG\"}}"
       - name: Create nightly prerelease
         if: ${{ steps.meta.outputs.nightly == 'true' && steps.gate.outputs.skip != 'true' }}
         env:
@@ -366,11 +378,74 @@ jobs:
             "$api/debian/pool/$channel/main/upload"
           upload "target/release/bundle/rpm/sable-${VERSION}-linux-${ARCH}.rpm" \
             "$api/rpm/$channel/upload"
+  # Compiles each Android ABI on its own runner so the sccache bucket holds the
+  # dependencies before the packaging job needs them. Its APK is thrown away.
+  android-warm:
+    name: Warm Android ${{ matrix.target }}
+    needs: [setup-release, build-web]
+    if: ${{ needs.setup-release.outputs.skip != 'true' && needs.setup-release.outputs.nightly != 'true' }}
+    runs-on: docker
+    timeout-minutes: 90
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64, armv7, i686, x86_64]
+    env:
+      RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
+      VERSION: ${{ needs.setup-release.outputs.version }}
+      MISE_ENV: tauri
+      CARGO_BUILD_JOBS: '1'
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '4'
+      RUST_TARGETS: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Download web assets
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          name: web-assets
+      - name: Drop assets the native app never loads
+        run: rm -rf dist/deepfilternet3 dist/_app/immutable/workers
+      - name: Set up app
+        uses: ./.forgejo/actions/setup
+        with:
+          rust: 'true'
+          rust-cache-key: tauri-android
+          install-mise-tools: 'false'
+      - name: Set up Android SDK and NDK
+        run: mise run tauri:setup:android
+      - name: Add Rust targets
+        run: |
+          # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
+          rustup target add $RUST_TARGETS
+      - name: Set up Gradle cache
+        uses: https://github.com/gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Limit Gradle memory
+        run: |
+          printf '\n%s\n' \
+            'org.gradle.workers.max=1' \
+            'org.gradle.jvmargs=-Xmx1024m -Dfile.encoding=UTF-8' \
+            'kotlin.daemon.jvmargs=-Xmx512m' \
+            >> src-tauri/gen/android/gradle.properties
+      - name: Stamp release version into tauri.conf.json
+        run: node scripts/ci/set-tauri-version.mjs "$VERSION"
+      - name: Build one ABI
+        run: pnpm tauri android build --config src-tauri/tauri.ci.conf.json --apk --target ${{ matrix.target }}
+      - name: Show sccache stats
+        if: ${{ always() && env.RUSTC_WRAPPER != '' }}
+        run: sccache --show-stats || true
   android:
     name: Build Android
-    needs: [setup-release, build-web]
+    needs: [setup-release, build-web, android-warm]
+    if: ${{ !cancelled() && needs.setup-release.result == 'success' && needs.build-web.result == 'success' }}
     runs-on: docker
-    timeout-minutes: 60
+    timeout-minutes: 120
     permissions:
       contents: write
     env:
@@ -383,8 +458,9 @@ jobs:
       # Limit peak memory while compiling the SDK and linking the app on the Android runner.
       CARGO_BUILD_JOBS: '1'
       CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '4'
-      # Matches the ABIs passed to `tauri android build` below.
-      RUST_TARGETS: aarch64-linux-android armv7-linux-androideabi
+      RUST_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64-linux-android' || 'aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android' }}
+      # The same ABIs under the names `tauri android build --target` takes.
+      ANDROID_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64' || 'aarch64 armv7 i686 x86_64' }}
       # Read by src-tauri/build.rs, which bakes them into the binary.
       VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -495,9 +571,11 @@ jobs:
         run: |
           config_args=(--config src-tauri/tauri.ci.conf.json)
           [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
-          pnpm tauri android build "${config_args[@]}" --apk --aab --target aarch64 armv7
-          node scripts/ci/upload-sentry-symbols.mjs \
-            target/aarch64-linux-android/release target/armv7-linux-androideabi/release
+          # shellcheck disable=SC2086 # ANDROID_TARGETS is a space-separated list.
+          pnpm tauri android build "${config_args[@]}" --apk --aab --target $ANDROID_TARGETS
+          symbol_dirs=()
+          for target in $RUST_TARGETS; do symbol_dirs+=("target/$target/release"); done
+          node scripts/ci/upload-sentry-symbols.mjs "${symbol_dirs[@]}"
           out='src-tauri/gen/android/app/build/outputs'
           apk="$(find "$out/apk/universal/release" -name '*.apk' -type f | head -n 1)"
           aab="$(find "$out/bundle/universalRelease" -name '*.aab' -type f | head -n 1)"
