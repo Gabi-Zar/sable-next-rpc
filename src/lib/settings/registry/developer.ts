@@ -8,6 +8,7 @@ import PhoneIcon from 'phosphor-svelte/lib/PhoneIcon';
 import SmileyIcon from 'phosphor-svelte/lib/SmileyIcon';
 import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 import type { SettingsCategory } from '../registry';
+import TranslateIcon from 'phosphor-svelte/lib/TranslateIcon';
 
 export const developerCategory: SettingsCategory = {
   id: 'developer',
@@ -107,6 +108,14 @@ export const developerCategory: SettingsCategory = {
       name: 'settings.hiddenEventOther',
       type: 'boolean',
       gatedBy: 'showHiddenEvents',
+    },
+    {
+      key: 'showTranslationStrings',
+      section: 'developer-options',
+      icon: TranslateIcon,
+      name: 'settings.showTranslationStrings',
+      type: 'boolean',
+      gatedBy: 'developerTools',
     },
   ],
 };

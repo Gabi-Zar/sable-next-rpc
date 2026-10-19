@@ -76,6 +76,9 @@ if (initialLanguage !== undefined) {
 
 export const i18n = {
   get t() {
+    if (preferences.showTranslationStrings)
+      return (key: string, options?: Record<string, unknown>) =>
+        `${key}${JSON.stringify(options) ?? ''}`;
     trackTranslations();
     return i18next.t;
   },

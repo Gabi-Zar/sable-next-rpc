@@ -413,6 +413,7 @@ export interface Preferences {
   hiddenEventReactions: boolean;
   hiddenEventRedactions: boolean;
   hiddenEventOther: boolean;
+  showTranslationStrings: boolean;
 }
 
 /** The subset the timeline reads when deciding which events to render. */
@@ -757,6 +758,7 @@ const DEFAULTS: Preferences = {
   hiddenEventReactions: true,
   hiddenEventRedactions: true,
   hiddenEventOther: true,
+  showTranslationStrings: false,
 };
 
 function prefersReducedMotion(): boolean {
