@@ -50,6 +50,7 @@ struct UnreadableTombstone {
 
 #[derive(Deserialize, Serialize)]
 struct TombstoneContent {
+    #[serde(default)]
     replacement_room: String,
     #[serde(flatten)]
     extra: serde_json::Map<String, serde_json::Value>,
@@ -752,6 +753,36 @@ mod tests {
                         "type": "m.room.tombstone", "state_key": "", "event_id": "$archive",
                         "sender": "@admin:example.org", "origin_server_ts": 1,
                         "content": {"body": "This room has been archived.", "replacement_room": ""}
+                    }))
+                    .unwrap()
+                    .cast_unchecked(),
+                ),
+            )
+            .await;
+
+        let room = client.get_room(room_id).unwrap();
+        assert!(room.is_tombstoned());
+    }
+
+    #[tokio::test]
+    async fn a_tombstone_without_a_replacement_still_closes_the_room() {
+        use matrix_sdk::ruma::{room_id, serde::Raw};
+        use matrix_sdk::test_utils::mocks::MatrixMockServer;
+        use matrix_sdk_test::JoinedRoomBuilder;
+        use serde_json::json;
+
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let _handle = super::repair_unreadable_tombstones(&client);
+        let room_id = room_id!("!archived:example.org");
+        server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id).add_timeline_event(
+                    Raw::new(&json!({
+                        "type": "m.room.tombstone", "state_key": "", "event_id": "$archive",
+                        "sender": "@admin:example.org", "origin_server_ts": 1,
+                        "content": {"body": "This room has been archived."}
                     }))
                     .unwrap()
                     .cast_unchecked(),
