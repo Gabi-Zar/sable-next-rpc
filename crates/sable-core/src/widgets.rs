@@ -1847,7 +1847,7 @@ mod tests {
 
         let pending = core.integration_manager_terms().await.unwrap();
 
-        assert!(pending.is_empty());
+        assert_eq!(pending, Vec::new());
     }
 
     #[test]
