@@ -65,10 +65,10 @@ jobs:
           TAG: ${{ steps.meta.outputs.tag }}
         run: node scripts/ci/forgejo-release.mjs wait --attempts 12 --interval 15
       - name: Dispatch the GitHub build for the tag
-        if: ${{ github.event_name == 'workflow_dispatch' && steps.meta.outputs.nightly != 'true' && steps.gate.outputs.skip != 'true' }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GH_TOKEN: ${{ secrets.GH_DISPATCH_TOKEN }}
-          TAG: ${{ steps.meta.outputs.tag }}
+          TAG: ${{ steps.meta.outputs.nightly != 'true' && steps.meta.outputs.tag || '' }}
         run: |
           [ -n "$GH_TOKEN" ] || { echo 'GH_DISPATCH_TOKEN is not set; dispatch the GitHub build for this tag by hand.' >&2; exit 1; }
           curl -fsS -X POST \
