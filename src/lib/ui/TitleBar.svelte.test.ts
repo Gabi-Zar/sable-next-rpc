@@ -16,6 +16,7 @@ vi.mock('#lib/platform/window-decorations.js', () => ({
   closeWindow: vi.fn(() => Promise.resolve()),
   minimizeWindow: vi.fn(() => Promise.resolve()),
   startWindowResize: vi.fn(() => Promise.resolve()),
+  supportsWindowResizeHandles: () => true,
   toggleMaximizeWindow: windows.toggle,
   watchMaximized: () => Promise.resolve(() => {}),
   supportsSnapLayouts: () => windows.supported,
