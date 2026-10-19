@@ -33,14 +33,12 @@ runs:
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
         rm "$RUNNER_TEMP/certificate.p12"
         security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
-        identity="$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
-        [ -n "$identity" ] || {
-          echo 'No valid Developer ID Application identity in the certificate' >&2
-          security find-identity -p codesigning "$keychain" >&2
-          security find-certificate -c 'Developer ID Application' -p "$keychain" > "$RUNNER_TEMP/leaf.pem"
-          openssl x509 -in "$RUNNER_TEMP/leaf.pem" -noout -subject -issuer -dates >&2
-          security verify-cert -c "$RUNNER_TEMP/leaf.pem" -p codeSign -k "$keychain" >&2 || true
-          date -u >&2
-          exit 1
-        }
+        # find-identity -v reports a valid identity as invalid under the runner's
+        # launchd daemon, so the chain is checked with verify-cert instead.
+        identity="$(security find-identity -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -n 1)"
+        [ -n "$identity" ] || { echo 'No Developer ID Application identity in the certificate' >&2; exit 1; }
+        leaf="$RUNNER_TEMP/leaf.pem"
+        security find-certificate -c "$identity" -p "$keychain" > "$leaf"
+        security verify-cert -c "$leaf" -p codeSign -k "$keychain" >&2 || { echo "$identity does not chain to a trusted root" >&2; exit 1; }
+        rm "$leaf"
         echo "APPLE_SIGNING_IDENTITY=$identity" >> "$GITHUB_ENV"
