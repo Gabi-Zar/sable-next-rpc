@@ -297,7 +297,7 @@
 
     <fieldset class="alternateAvatars">
       <legend>{i18n.t('personas.alternateAvatars')}</legend>
-      <p>{i18n.t('personas.alternativeAvatarsHint')}</p>
+      <p>{i18n.t('personas.alternateAvatarsHint')}</p>
       {#each alternateAvatars as avatar, index (avatar.id)}
         <div class="avatar-row">
           <Avatar src={avatar.avatar_url} {name} size="large" />

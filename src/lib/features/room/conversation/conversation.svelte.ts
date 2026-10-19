@@ -812,17 +812,19 @@ export class Conversation {
     persona.last_used = Date.now();
     personas.save(persona, persona.id).catch(failed('updating persona timestamp'));
 
-    if (persona.alternate_avatars && personaSelection?.alternate_avatar_id) {
-      const replacement_avatar = persona.alternate_avatars.find(
-        (avatar) => avatar.id == personaSelection.alternate_avatar_id
-      );
-      if (replacement_avatar) persona.avatar_url = replacement_avatar.avatar_url;
-    }
+    let avatar_url =
+      (
+        persona.alternate_avatars &&
+        personaSelection?.alternate_avatar_id &&
+        persona.alternate_avatars.find(
+          (avatar) => avatar.id == personaSelection.alternate_avatar_id
+        )
+      )?.avatar_url ?? persona.avatar_url;
 
     return {
       body: proxied?.body ?? body,
       formatted: proxied ? stripProxyHtml(formatted, proxied.trigger) : formatted,
-      persona: projectPersona(persona, preferences.personaFallback),
+      persona: projectPersona({ ...persona, avatar_url }, preferences.personaFallback),
     };
   }
 }

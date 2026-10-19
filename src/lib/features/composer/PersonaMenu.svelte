@@ -310,7 +310,7 @@
     {#if alternateAvatarAvailable}
       <Tooltip
         label={alternateAvatarMode
-          ? i18n.t('personas.alternateAvatarViewOn')
+          ? i18n.t('personas.alternateAvatarViewOff')
           : i18n.t('personas.alternateAvatarViewOn')}
       >
         {#snippet trigger({ props })}

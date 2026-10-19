@@ -3252,7 +3252,13 @@
     "sendingAs": "Sending as {{name}}",
     "pickerLeftSide": "Pin picker to left side of composer",
     "pickerSortOrder": "Profile picker sort order",
-    "sortNameRecentlyUsed": "Recently used"
+    "sortNameRecentlyUsed": "Recently used",
+    "alternateAvatars": "Alternate Avatars",
+    "alternateAvatarsHint": "Add extra avatars to change the look of a profile without having to recreate it.",
+    "alternateAvatarAdd": "Add alternate avatar",
+    "alternateAvatarLabel": "Alternate avatar",
+    "alternateAvatarViewOn": "Set alternate avatars",
+    "alternateAvatarViewOff": "Back to profiles"
   },
   "call": {
     "participantVolume": "Volume for {{name}}",
