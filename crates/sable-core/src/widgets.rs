@@ -804,7 +804,37 @@ impl Core {
             .or_failed(self, LABEL)?;
 
         let accepted = self.accepted_terms(LABEL).await?;
-        Ok(pending_policies(&terms, &accepted))
+        let pending = pending_policies(&terms, &accepted);
+        if pending.is_empty() && self.terms_unsigned(&manager.api_url).await {
+            let urls = pending_policies(&terms, &[])
+                .into_iter()
+                .map(|policy| policy.url)
+                .collect();
+            self.accept_integration_manager_terms(urls).await?;
+        }
+        Ok(pending)
+    }
+
+    async fn terms_unsigned(&self, api_url: &str) -> bool {
+        let Some(token) = self.scalar_token(api_url).await else {
+            return false;
+        };
+        let Ok(client) = self.client().await else {
+            return false;
+        };
+        let Ok(mut url) = url::Url::parse(&format!("{}/account", api_url.trim_end_matches('/')))
+        else {
+            return false;
+        };
+        url.query_pairs_mut().append_pair("scalar_token", &token);
+        let Ok(response) = client.http_client().get(url).send().await else {
+            return false;
+        };
+        response.status() == reqwest::StatusCode::FORBIDDEN
+            && response
+                .text()
+                .await
+                .is_ok_and(|text| text.contains("M_TERMS_NOT_SIGNED"))
     }
 
     pub(crate) async fn accept_integration_manager_terms(
@@ -1732,6 +1762,92 @@ mod tests {
         core.accept_integration_manager_terms(vec!["https://im/tos".to_owned()])
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn terms_the_account_lists_are_signed_with_a_manager_that_never_saw_them() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let uri = server.server().uri();
+        Mock::given(method("GET"))
+            .and(path("/.well-known/matrix/client"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "m.integrations": {"managers": [
+                    {"api_url": format!("{uri}/scalar/api"), "ui_url": format!("{uri}/scalar")}
+                ]}
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/account_data/m.widgets",
+            ))
+            .respond_with(
+                ResponseTemplate::new(404)
+                    .set_body_json(json!({"errcode": "M_NOT_FOUND", "error": "Not found"})),
+            )
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/account_data/m.accepted_terms",
+            ))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"accepted": ["https://im/tos"]})),
+            )
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/openid/request_token",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "access_token": "openid", "token_type": "Bearer",
+                "matrix_server_name": "example.org", "expires_in": 3600
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/scalar/api/register"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"scalar_token": "s3"})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/scalar/api/_matrix/integrations/v1/terms"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"policies": {
+                    "tos": {"version": "1", "en": {"name": "Terms", "url": "https://im/tos"}}
+                }})),
+            )
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path("/scalar/api/account"))
+            .and(query_param("scalar_token", "s3"))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "errcode": "M_TERMS_NOT_SIGNED", "error": "Terms not signed"
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/scalar/api/_matrix/integrations/v1/terms"))
+            .and(body_json(json!({"user_accepts": ["https://im/tos"]})))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        Mock::given(method("PUT"))
+            .and(path_regex(
+                "/_matrix/client/v3/user/.*/account_data/m.accepted_terms",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .mount(server.server())
+            .await;
+        let core = core_with(&server, client).await;
+
+        let pending = core.integration_manager_terms().await.unwrap();
+
+        assert!(pending.is_empty());
     }
 
     #[test]
