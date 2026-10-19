@@ -250,6 +250,13 @@ jobs:
               electron/release/*.AppImage
     env:
       VERSION: ${{ needs.setup-release.outputs.version }}
+      # Baked into the main process by electron/build.mjs.
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
+      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -276,6 +283,9 @@ jobs:
         env:
           PLATFORM: ${{ matrix.platform }}
         run: pnpm --dir electron package "$PLATFORM"
+      - name: Upload main process source maps
+        shell: bash
+        run: node scripts/ci/upload-sentry-sourcemaps.mjs electron/dist app:///dist
       - name: Upload bundles
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

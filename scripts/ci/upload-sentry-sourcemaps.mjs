@@ -16,10 +16,17 @@ async function main() {
   for (const name of ['SENTRY_AUTH_TOKEN', 'SENTRY_ORG', 'SENTRY_PROJECT', 'VITE_APP_VERSION']) {
     if (!process.env[name]) throw new Error(`${name} is required for source map uploads`);
   }
-  const [assets = 'dist'] = process.argv.slice(2);
+  const [assets = 'dist', urlPrefix] = process.argv.slice(2);
   execFileSync(
     SentryCli.getPath(),
-    ['sourcemaps', 'upload', '--release', process.env.VITE_APP_VERSION, assets],
+    [
+      'sourcemaps',
+      'upload',
+      '--release',
+      process.env.VITE_APP_VERSION,
+      ...(urlPrefix ? ['--url-prefix', urlPrefix] : []),
+      assets,
+    ],
     { stdio: 'inherit' }
   );
   if (process.env.VITE_SENTRY_ENVIRONMENT !== 'production') return;
