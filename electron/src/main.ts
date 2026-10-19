@@ -383,6 +383,11 @@ function createWindow(): BrowserWindow {
   window.once('ready-to-show', () => {
     window.show();
   });
+  window.on('closed', () => {
+    if (mainWindow !== window) return;
+    mainWindow = null;
+    pageListening = false;
+  });
   window.on('close', (event) => {
     if (!quitting && desktopWindowSettings.closeToTray && tray) {
       event.preventDefault();
@@ -560,7 +565,12 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.on('window-all-closed', () => {
-    app.quit();
+    if (process.platform !== 'darwin') app.quit();
+  });
+
+  app.on('activate', () => {
+    if (mainWindow) showMainWindow();
+    else if (app.isReady()) mainWindow = createWindow();
   });
 
   void app.whenReady().then(() => {
