@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  isExpectedCoreFailure,
   isReportableCoreWarning,
   isUndecryptableToDevice,
   wasmErrorFingerprint,
@@ -60,6 +61,15 @@ describe('wasmErrorTitle', () => {
   });
 });
 
+describe('wasmErrorTitle on a fetch failure', () => {
+  test('drops the JavaScript stack so a build hash cannot split the issue', () => {
+    const line = (hash: string) =>
+      `ERROR matrix_sdk_ui::sync_service: Reqwest( reqwest::Error { kind: Request, source: "JsValue(TypeError: Failed to fetch\\n at https://app/core.worker-${hash}.js:2:4600)", } )`;
+    expect(wasmErrorFingerprint(line('AAA'))).toBe(wasmErrorFingerprint(line('BBB')));
+    expect(wasmErrorTitle(line('AAA'))).not.toContain('JsValue');
+  });
+});
+
 describe('wasmErrorFingerprint', () => {
   test('groups the same failure at different indices and rooms', () => {
     expect(wasmErrorFingerprint(REMOVE_7)).toBe(wasmErrorFingerprint(REMOVE_29));
@@ -87,6 +97,29 @@ describe('isReportableCoreWarning', () => {
   test('ignores other warnings and the same text at a lower level', () => {
     expect(isReportableCoreWarning('WARN sable_core: slow call')).toBe(false);
     expect(isReportableCoreWarning('INFO sable_core::utd: unable to decrypt a message')).toBe(
+      false
+    );
+  });
+});
+
+describe('isExpectedCoreFailure', () => {
+  test('recognizes a sync request that never reached the server', () => {
+    expect(
+      isExpectedCoreFailure(
+        'ERROR matrix_sdk_ui::sync_service: Error while processing room list: Some( RoomList( SlidingSync( Http( Reqwest( reqwest::Error { kind: Request, source: "JsValue(TypeError: Failed to fetch)" } ) ) ) ) )'
+      )
+    ).toBe(true);
+  });
+
+  test('recognizes a server error and a rejected refresh token', () => {
+    expect(
+      isExpectedCoreFailure('ERROR sync: MatrixError( Error { status_code: 502, body: NotJson')
+    ).toBe(true);
+    expect(isExpectedCoreFailure('ERROR sync: ServerResponse( error: invalid_grant )')).toBe(true);
+  });
+
+  test('keeps a local failure reportable', () => {
+    expect(isExpectedCoreFailure('ERROR sable_core::errors: wrong room state context="x"')).toBe(
       false
     );
   });

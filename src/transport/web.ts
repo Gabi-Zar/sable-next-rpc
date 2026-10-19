@@ -10,6 +10,7 @@ import { recordDebugLog } from '../lib/observability/debug-log.svelte.js';
 import {
   isReportableCoreWarning,
   isUndecryptableToDevice,
+  isExpectedCoreFailure,
   wasmErrorFingerprint,
   wasmErrorTitle,
   wasmLogLevel,
@@ -28,18 +29,27 @@ const QUIET_COMMAND_FAILURES = new Set([
 const reportedCoreErrors = new Set<string>();
 
 function isStorageFailure(line: string): boolean {
-  return /database without an in-progress transaction|connection to indexed database server lost/i.test(
+  return /database without an in-progress transaction|connection to indexed database server lost|database connection is closing|TransactionAborted/i.test(
     line
   );
 }
 
 function reportCoreError(line: string, onStorageFailure: () => void): void {
-  if (isStorageFailure(line)) onStorageFailure();
+  const storage = isStorageFailure(line);
+  if (storage) onStorageFailure();
+  if (isExpectedCoreFailure(line)) {
+    Sentry.addBreadcrumb({
+      category: 'core.sync',
+      level: 'warning',
+      message: wasmErrorTitle(line),
+    });
+    return;
+  }
   const fingerprint = wasmErrorFingerprint(line);
   if (fingerprint === '' || reportedCoreErrors.has(fingerprint)) return;
   reportedCoreErrors.add(fingerprint);
-  Sentry.captureMessage(wasmErrorTitle(line), {
-    level: 'error',
+  Sentry.captureException(Object.assign(new Error(wasmErrorTitle(line)), { name: 'CoreLog' }), {
+    level: storage ? 'warning' : 'error',
     fingerprint: ['wasm-core-error', fingerprint],
     tags: { source: 'wasm-core' },
   });

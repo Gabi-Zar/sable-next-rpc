@@ -36,10 +36,18 @@ export function isReportableCoreWarning(line: string): boolean {
   return wasmLogLevel(line) === 'warn' && REPORTABLE_WARNINGS.some((part) => line.includes(part));
 }
 
+export function isExpectedCoreFailure(line: string): boolean {
+  if (line.includes('reqwest::Error') && /Failed to fetch|Load failed|NetworkError/.test(line)) {
+    return true;
+  }
+  return /status_code:\s*5\d\d|invalid_grant|refresh token was rejected/.test(line);
+}
+
 export function wasmErrorTitle(line: string): string {
   const message = scrubMatrixIds(
     line
       .replace(/^\s*(?:ERROR|WARN)\s+/, '')
+      .replace(/"?JsValue\([^]*$/, '')
       .replace(/\s+/g, ' ')
       .trim()
   );
