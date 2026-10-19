@@ -1564,6 +1564,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       'room_state.events_raw': () => [],
       'room_state.full_state': () => [],
       'room_state.account_data_raw': () => null,
+      'room_state.account_data_types': () => [],
       'room_state.send_event': (params) => {
         if (params.event_type === 'im.vector.modular.widgets')
           roomWidgets.set(params.room_id, null);

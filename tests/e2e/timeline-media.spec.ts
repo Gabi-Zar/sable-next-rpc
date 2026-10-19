@@ -88,6 +88,10 @@ for (const mobile of [false, true]) {
     await expect(page.getByRole('dialog', { name: 'Media viewer' })).toBeVisible();
     const viewer = page.getByRole('dialog', { name: 'Media viewer' });
     await expect(viewer.locator('.stage img')).toBeVisible(MEDIA_LOADED);
+    await expect(viewer.locator('.stage img')).toHaveCSS('filter', 'none');
+    await expect(viewer.locator('.media-image-spoiler')).toHaveCount(0);
+    await viewer.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Hide image', exact: true }).click();
     await expect(viewer.locator('.stage img')).toHaveCSS('filter', 'blur(44px)');
     await page.screenshot({ path: testInfo.outputPath('viewer-spoiler-hidden.png') });
     await viewer.getByRole('button', { name: 'Reveal shot.png' }).click();
@@ -97,10 +101,6 @@ for (const mobile of [false, true]) {
     );
     await expect(viewer.locator('.media-image-spoiler')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath('viewer-spoiler-revealed.png') });
-    await viewer.getByRole('button', { name: 'More actions' }).click();
-    await page.getByRole('menuitem', { name: 'Hide image', exact: true }).click();
-    await expect(viewer.locator('.stage img')).toHaveCSS('filter', 'blur(44px)');
-    await expect(viewer.getByRole('button', { name: 'Reveal shot.png' })).toBeVisible();
   });
 
   test(`inline and link-preview images can be hidden${mobile ? ' on mobile' : ''}`, async ({
