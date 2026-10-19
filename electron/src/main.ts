@@ -30,6 +30,7 @@ import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
 import { readSettings, sanitize } from './settings';
+import { ignoreBrokenPipes } from './stdio';
 import { registerUpdater, setUpdateChannel } from './updater';
 
 declare const __SABLE_CSP__: Record<string, string>;
@@ -88,6 +89,8 @@ setFeatures(
 );
 if (!settings.smoothScrolling) app.commandLine.appendSwitch('disable-smooth-scrolling');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+ignoreBrokenPipes([process.stdout, process.stderr]);
 
 if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 if (process.platform === 'win32') app.setAppUserModelId('moe.sable.next.electron');
