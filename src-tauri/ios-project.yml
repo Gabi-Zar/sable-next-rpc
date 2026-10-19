@@ -104,6 +104,7 @@ targets:
     info:
       path: {{app.name}}_iOS/Info.plist
       properties:
+        # APP-ICON ALIASES START
         TauriAppIconAliases:
           propeller: AppIconPropeller
           agender: AppIconAgender
@@ -114,6 +115,7 @@ targets:
           lesbian: AppIconLesbian
           mlm: AppIconMlm
           pride: AppIconPride
+        # APP-ICON ALIASES END
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIBackgroundModes: [audio, voip, remote-notification]
