@@ -218,6 +218,96 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<
     result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
 }
 
+#[unsafe(no_mangle)]
+#[expect(unsafe_code, reason = "JNI entry point")]
+pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeReply<'frame>(
+    mut unowned_env: EnvUnowned<'frame>,
+    _class: JClass<'frame>,
+    store_dir: JString<'frame>,
+    user_id: JString<'frame>,
+    device_id: JString<'frame>,
+    room_id: JString<'frame>,
+    text: JString<'frame>,
+    transaction_id: JString<'frame>,
+    event_id: JString<'frame>,
+    private_receipt: jni::sys::jboolean,
+) -> jni::sys::jboolean {
+    let result = unowned_env.with_env(|_: &mut Env<'frame>| -> Result<_, jni::errors::Error> {
+        let data_dir = store_dir.to_string();
+        let (user_id, device_id, room_id) = (
+            user_id.to_string(),
+            device_id.to_string(),
+            room_id.to_string(),
+        );
+        let (text, transaction_id, event_id) = (
+            text.to_string(),
+            transaction_id.to_string(),
+            event_id.to_string(),
+        );
+        let reply = async {
+            bounded(&data_dir, std::time::Duration::from_secs(20), async {
+                let session = sable_core::notifications::cold_push_session(
+                    std::path::Path::new(&data_dir),
+                    &user_id,
+                    &device_id,
+                    &room_id,
+                )
+                .await?;
+                Some(
+                    session
+                        .reply(&text, &transaction_id, &event_id, private_receipt)
+                        .await,
+                )
+            })
+            .await
+            .flatten()
+            .unwrap_or(false)
+        };
+        Ok(block_on(CORE.get().is_some(), reply).unwrap_or(false))
+    });
+    result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+#[expect(unsafe_code, reason = "JNI entry point")]
+pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeMarkRead<'frame>(
+    mut unowned_env: EnvUnowned<'frame>,
+    _class: JClass<'frame>,
+    store_dir: JString<'frame>,
+    user_id: JString<'frame>,
+    device_id: JString<'frame>,
+    room_id: JString<'frame>,
+    event_id: JString<'frame>,
+    private_receipt: jni::sys::jboolean,
+) -> jni::sys::jboolean {
+    let result = unowned_env.with_env(|_: &mut Env<'frame>| -> Result<_, jni::errors::Error> {
+        let data_dir = store_dir.to_string();
+        let (user_id, device_id, room_id) = (
+            user_id.to_string(),
+            device_id.to_string(),
+            room_id.to_string(),
+        );
+        let event_id = event_id.to_string();
+        let mark_read = async {
+            bounded(&data_dir, std::time::Duration::from_secs(20), async {
+                let session = sable_core::notifications::cold_push_session(
+                    std::path::Path::new(&data_dir),
+                    &user_id,
+                    &device_id,
+                    &room_id,
+                )
+                .await?;
+                Some(session.mark_read(&event_id, private_receipt).await)
+            })
+            .await
+            .flatten()
+            .unwrap_or(false)
+        };
+        Ok(block_on(CORE.get().is_some(), mark_read).unwrap_or(false))
+    });
+    result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
+}
+
 fn encode_fetch(result: &PushFetchView) -> String {
     match result {
         PushFetchView::Event { event } => serde_json::to_string(event).unwrap_or_default(),

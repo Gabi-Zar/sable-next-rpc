@@ -1,5 +1,7 @@
 package moe.sable.push
 
+import androidx.core.app.NotificationCompat
+
 internal object NotificationIntents {
     const val NOTIFICATION_ID = "NotificationId"
     const val NOTIFICATION_OBJECT = "LocalNotficationObject"
@@ -16,6 +18,8 @@ internal data class PushAction(
     val title: String,
     val input: Boolean = false,
     val foreground: Boolean = true,
+    /** Handled by [ConversationActionReceiver] without opening the app. */
+    val semantic: Int? = null,
 )
 
 internal object PushActions {
@@ -30,8 +34,11 @@ internal object PushActions {
     const val DECLINE_INVITE = "sable-invite-decline"
 
     val message = listOf(
-        PushAction(REPLY, "Reply", input = true),
-        PushAction(MARK_READ, "Mark as read", foreground = false),
+        PushAction(REPLY, "Reply", input = true, semantic = NotificationCompat.Action.SEMANTIC_ACTION_REPLY),
+        PushAction(
+            MARK_READ, "Mark as read", foreground = false,
+            semantic = NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ,
+        ),
     )
     val invite = listOf(
         PushAction(ACCEPT_INVITE, "Accept"),

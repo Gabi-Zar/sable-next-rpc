@@ -8,6 +8,7 @@ internal object ConversationHistory {
     const val EVENT_KEY = "sable.push.event"
     const val ENCRYPTED_KEY = "sable.push.encrypted"
     const val ACCOUNT_KEY = "sable.push.account"
+    const val FAILED_KEY = "sable.push.failed"
     const val LIMIT = 8
 
     private fun shown(context: Context, id: Int): List<NotificationCompat.MessagingStyle.Message> {
@@ -22,13 +23,16 @@ internal object ConversationHistory {
             it.extras.getString(EVENT_KEY) == eventId && it.text.toString() == text
         }
 
+    fun hides(state: PushPolicy, encrypted: Boolean): Boolean =
+        !state.showContent || (!state.showEncryptedContent && encrypted)
+
     fun read(context: Context, id: Int): List<NotificationCompat.MessagingStyle.Message> {
         val state = PushPolicy(context)
-        return shown(context, id).map { message ->
-            val hidden = !state.showContent || (!state.showEncryptedContent &&
-                message.extras.getBoolean(ENCRYPTED_KEY, true))
+        return shown(context, id).filterNot { it.extras.getBoolean(FAILED_KEY) }.map { message ->
             NotificationCompat.MessagingStyle.Message(
-                if (hidden) "New message" else message.text, message.timestamp, message.person
+                if (hides(state, message.extras.getBoolean(ENCRYPTED_KEY, true))) "New message" else message.text,
+                message.timestamp,
+                message.person
             ).also { it.extras.putAll(message.extras) }
         }
     }

@@ -65,6 +65,7 @@ class PolicyArgs {
     var sounds: Boolean = true
     var notifyOnce: Boolean = true
     var clearOnRead: Boolean = true
+    var privateReceipts: Boolean = false
 }
 
 @InvokeArg
@@ -160,6 +161,7 @@ class SablePushPlugin(private val activity: Activity) : Plugin(activity) {
         policy.notificationSounds = args.sounds
         policy.notifyOnce = args.notifyOnce
         policy.clearOnRead = args.clearOnRead
+        policy.privateReceipts = args.privateReceipts
         if (!args.enabled || !args.content) dismissAll()
         invoke.resolve()
     }

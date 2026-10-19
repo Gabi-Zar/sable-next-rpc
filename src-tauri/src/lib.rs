@@ -367,6 +367,7 @@ async fn test_notification(
 #[tauri::command]
 #[expect(
     clippy::fn_params_excessive_bools,
+    clippy::too_many_arguments,
     reason = "notification preference command arguments"
 )]
 async fn set_notification_encrypted_content(
@@ -377,6 +378,7 @@ async fn set_notification_encrypted_content(
     sounds: bool,
     notify_once: bool,
     clear_on_read: bool,
+    private_receipts: bool,
 ) -> Result<(), RpcError> {
     #[cfg(target_os = "android")]
     {
@@ -389,6 +391,7 @@ async fn set_notification_encrypted_content(
                 sounds,
                 notify_once,
                 clear_on_read,
+                private_receipts,
             })
             .await
             .map_err(|_| RpcError::Unavailable)?;
@@ -404,7 +407,7 @@ async fn set_notification_encrypted_content(
     )
     .map_err(|_| RpcError::Unavailable)?;
     #[cfg(not(target_os = "android"))]
-    let _ = &app;
+    let _ = (&app, private_receipts);
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let _ = (
         allowed,

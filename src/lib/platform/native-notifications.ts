@@ -77,7 +77,8 @@ export async function setNativeEncryptedContentAllowed(
   enabled = true,
   sounds = true,
   notifyOnce = true,
-  clearOnRead = true
+  clearOnRead = true,
+  privateReceipts = false
 ): Promise<void> {
   if (!isTauri()) return;
   await invoke('set_notification_encrypted_content', {
@@ -87,6 +88,7 @@ export async function setNativeEncryptedContentAllowed(
     sounds,
     notifyOnce,
     clearOnRead,
+    privateReceipts,
   });
 }
 

@@ -492,7 +492,8 @@
       preferences.systemNotifications,
       preferences.notificationSounds,
       preferences.notifyOnce,
-      preferences.clearNotificationsOnRead
+      preferences.clearNotificationsOnRead,
+      readReceiptIsPrivate()
     ).catch((error: unknown) => {
       console.debug('[sable notifications] native content policy not applied', error);
     });

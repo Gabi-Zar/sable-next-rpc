@@ -90,6 +90,42 @@ internal object PushPayloadDecryptor {
         return json?.let { runCatching { JSONObject(it) }.getOrNull() }
     }
 
+    private external fun nativeReply(
+        storeDir: String,
+        userId: String,
+        deviceId: String,
+        roomId: String,
+        text: String,
+        transactionId: String,
+        eventId: String,
+        privateReceipt: Boolean,
+    ): Boolean
+
+    private external fun nativeMarkRead(
+        storeDir: String,
+        userId: String,
+        deviceId: String,
+        roomId: String,
+        eventId: String,
+        privateReceipt: Boolean,
+    ): Boolean
+
+    fun reply(context: Context, action: ConversationAction, deviceId: String, privateReceipt: Boolean): Boolean =
+        available() && runCatching {
+            nativeReply(
+                context.dataDir.absolutePath, action.userId, deviceId, action.roomId,
+                action.text.orEmpty(), action.id, action.eventId, privateReceipt,
+            )
+        }.onFailure { Log.i(TAG, "Reply not sent: ${it.message}") }.getOrDefault(false)
+
+    fun markRead(context: Context, action: ConversationAction, deviceId: String, privateReceipt: Boolean): Boolean =
+        available() && runCatching {
+            nativeMarkRead(
+                context.dataDir.absolutePath, action.userId, deviceId, action.roomId,
+                action.eventId, privateReceipt,
+            )
+        }.onFailure { Log.i(TAG, "Receipt not sent: ${it.message}") }.getOrDefault(false)
+
     private fun available(): Boolean {
         loaded?.let { return it }
 

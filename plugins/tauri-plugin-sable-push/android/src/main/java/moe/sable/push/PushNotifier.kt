@@ -551,13 +551,19 @@ object PushNotifier {
                 else -> PendingIntent.FLAG_UPDATE_CURRENT
             }
             val requestCode = notifId + action.id.hashCode()
-            val pending = if (!action.input && !action.foreground) {
-                val receiver = Intent().setClassName(context, NotificationIntents.ACTION_RECEIVER).putExtras(actionIntent)
-                PendingIntent.getBroadcast(context, requestCode, receiver, actionFlags)
-            } else {
-                PendingIntent.getActivity(context, requestCode, actionIntent, actionFlags)
+            val pending = when {
+                action.semantic != null -> {
+                    val receiver = Intent(context, ConversationActionReceiver::class.java).putExtras(actionIntent)
+                    PendingIntent.getBroadcast(context, requestCode, receiver, actionFlags)
+                }
+                !action.input && !action.foreground -> {
+                    val receiver = Intent().setClassName(context, NotificationIntents.ACTION_RECEIVER).putExtras(actionIntent)
+                    PendingIntent.getBroadcast(context, requestCode, receiver, actionFlags)
+                }
+                else -> PendingIntent.getActivity(context, requestCode, actionIntent, actionFlags)
             }
             val actionBuilder = NotificationCompat.Action.Builder(R.drawable.ic_transparent, action.title, pending)
+            action.semantic?.let { actionBuilder.setSemanticAction(it).setShowsUserInterface(false) }
             if (action.input) {
                 actionBuilder.addRemoteInput(
                     RemoteInput.Builder(NotificationIntents.REMOTE_INPUT).setLabel(action.title).build()
@@ -565,6 +571,33 @@ object PushNotifier {
             }
             builder.addAction(actionBuilder.build())
         }
+    }
+
+    /** Re-posting the conversation is also what ends the reply's progress spinner. */
+    internal fun showReply(context: Context, notificationId: Int, text: String, sent: Boolean) {
+        val active = context.getSystemService(NotificationManager::class.java)
+            .activeNotifications.firstOrNull { it.id == notificationId && it.tag == null } ?: return
+        val shown = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(active.notification) ?: return
+        val messages = ConversationHistory.read(context, notificationId)
+        val encrypted = messages.lastOrNull()?.extras?.getBoolean(ENCRYPTED_KEY, true) ?: true
+        val body = if (ConversationHistory.hides(PushPolicy(context), encrypted)) "New message" else text
+        val reply = NotificationCompat.MessagingStyle.Message(
+            if (sent) body else "Not sent: $body", System.currentTimeMillis(), null as Person?,
+        ).also {
+            it.extras.putBoolean(ENCRYPTED_KEY, encrypted)
+            it.extras.putBoolean(ConversationHistory.FAILED_KEY, !sent)
+        }
+        val style = NotificationCompat.MessagingStyle(shown.user)
+            .setConversationTitle(shown.conversationTitle)
+            .setGroupConversation(shown.isGroupConversation)
+        (messages + reply).takeLast(ConversationHistory.LIMIT).forEach { style.addMessage(it) }
+        val notification = NotificationCompat.Builder(context, active.notification)
+            .setStyle(style)
+            .setWhen(reply.timestamp)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .build()
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
     }
 
     internal fun roomNotificationId(userId: String, roomId: String): Int {

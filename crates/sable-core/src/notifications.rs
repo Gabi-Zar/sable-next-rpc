@@ -323,6 +323,16 @@ impl PushHost {
             _ => false,
         }
     }
+
+    async fn retry<T, E, F: std::future::Future<Output = Result<T, E>>>(
+        &self,
+        request: impl Fn() -> F,
+    ) -> Result<T, E> {
+        match self {
+            Self::Own(push) => push.retry(request).await,
+            _ => request().await,
+        }
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -705,6 +715,81 @@ impl PushSession {
             own_avatar: own_avatar.map(|(path, _)| path),
         }
     }
+
+    /// Sends `text` to the room, then marks `event_id` read. Retrying with the same
+    /// `transaction_id` never sends it twice.
+    pub async fn reply(
+        &self,
+        text: &str,
+        transaction_id: &str,
+        event_id: &str,
+        private_receipt: bool,
+    ) -> bool {
+        let Some(room) = self.host.client().get_room(&self.room_id) else {
+            return false;
+        };
+        let content = crate::outgoing::message_content(
+            text.to_owned(),
+            None,
+            crate::protocol::MessageKind::Text,
+            Vec::new(),
+            false,
+        );
+        let transaction = matrix_sdk::ruma::OwnedTransactionId::from(transaction_id);
+        let sent = self
+            .host
+            .retry(|| {
+                room.send(content.clone())
+                    .with_transaction_id(transaction.clone())
+                    .into_future()
+            })
+            .await;
+        if let Err(error) = sent {
+            tracing::warn!("notification reply not sent: {error}");
+            return false;
+        }
+        self.mark_read(event_id, private_receipt).await;
+        true
+    }
+
+    /// In the event's thread, or the main timeline, as the app's timelines would.
+    pub async fn mark_read(&self, event_id: &str, private_receipt: bool) -> bool {
+        use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
+        use matrix_sdk::ruma::events::receipt::ReceiptThread;
+
+        let (Some(room), Ok(event_id)) = (
+            self.host.client().get_room(&self.room_id),
+            EventId::parse(event_id),
+        ) else {
+            return false;
+        };
+        let thread = crate::timelines::receipt_thread_root(&room, &event_id, None)
+            .await
+            .map_or(ReceiptThread::Main, ReceiptThread::Thread);
+        let receipt = if private_receipt {
+            ReceiptType::ReadPrivate
+        } else {
+            ReceiptType::Read
+        };
+        let sent = self
+            .host
+            .retry(|| room.send_single_receipt(receipt.clone(), thread.clone(), event_id.clone()))
+            .await;
+        if let Err(error) = &sent {
+            tracing::warn!("notification receipt not sent: {error}");
+        }
+        sent.is_ok()
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub async fn cold_push_session(
+    data_dir: &std::path::Path,
+    user_id: &str,
+    device_id: &str,
+    room_id: &str,
+) -> Option<PushSession> {
+    PushSession::cached(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -1246,7 +1331,8 @@ mod tests {
     use matrix_sdk::ruma::push::{ConditionalPushRule, RuleKind, Ruleset};
     use matrix_sdk::ruma::serde::Raw;
     use matrix_sdk::ruma::{
-        MilliSecondsSinceUnixEpoch, UInt, mxc_uri, owned_device_id, room_id, user_id,
+        EventId, MilliSecondsSinceUnixEpoch, UInt, event_id, mxc_uri, owned_device_id, room_id,
+        user_id,
     };
     use matrix_sdk::test_utils::mocks::MatrixMockServer;
     use matrix_sdk_base::crypto::{
@@ -2420,6 +2506,104 @@ mod tests {
         );
 
         drop(session);
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    async fn session(fixture: &ColdFixture) -> super::PushSession {
+        super::cold_push_session(&fixture.data_dir, "@alice:example.org", "A", COLD_ROOM)
+            .await
+            .unwrap()
+    }
+
+    async fn mount_notified_event(fixture: &ColdFixture, thread_root: Option<&EventId>) {
+        let message = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id!("!cold:example.org"))
+            .sender(user_id!("@sender:example.org"))
+            .text_msg("hi")
+            .event_id(event_id!("$notified"));
+        let message = match thread_root {
+            Some(root) => message.in_thread(root, root),
+            None => message,
+        };
+        fixture
+            .server
+            .mock_room_event()
+            .expect_access_token("test-token")
+            .match_event_id()
+            .ok(message.into_event())
+            .mount()
+            .await;
+    }
+
+    #[tokio::test]
+    async fn a_notification_reply_sends_the_text_then_reads_the_main_timeline() {
+        use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
+        use matrix_sdk::ruma::events::receipt::ReceiptThread;
+
+        let fixture = ColdFixture::new("reply", media_room(None), None).await;
+        mount_notified_event(&fixture, None).await;
+        fixture
+            .server
+            .mock_room_state_encryption()
+            .expect_access_token("test-token")
+            .plain()
+            .mount()
+            .await;
+        wiremock::Mock::given(wiremock::matchers::method("PUT"))
+            .and(wiremock::matchers::path_regex(
+                r"^/_matrix/client/v3/rooms/.*/send/m\.room\.message/reply-1$",
+            ))
+            .and(wiremock::matchers::body_partial_json(
+                json!({"msgtype": "m.text", "body": "on my way"}),
+            ))
+            .respond_with(
+                wiremock::ResponseTemplate::new(200).set_body_json(json!({"event_id": "$reply"})),
+            )
+            .expect(1)
+            .mount(fixture.server.server())
+            .await;
+        fixture
+            .server
+            .mock_send_receipt(ReceiptType::Read)
+            .expect_access_token("test-token")
+            .match_thread(ReceiptThread::Main)
+            .match_event_id(event_id!("$notified"))
+            .ok()
+            .expect(1)
+            .mount()
+            .await;
+
+        assert!(
+            session(&fixture)
+                .await
+                .reply("on my way", "reply-1", "$notified", false,)
+                .await
+        );
+
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_notification_mark_read_stays_in_the_events_thread_and_privacy() {
+        use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
+        use matrix_sdk::ruma::events::receipt::ReceiptThread;
+
+        let fixture = ColdFixture::new("mark-read", media_room(None), None).await;
+        let root = event_id!("$root");
+        mount_notified_event(&fixture, Some(root)).await;
+        fixture
+            .server
+            .mock_send_receipt(ReceiptType::ReadPrivate)
+            .expect_access_token("test-token")
+            .match_thread(ReceiptThread::Thread(root.to_owned()))
+            .match_event_id(event_id!("$notified"))
+            .ok()
+            .expect(1)
+            .mount()
+            .await;
+
+        assert!(session(&fixture).await.mark_read("$notified", true,).await);
+
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 

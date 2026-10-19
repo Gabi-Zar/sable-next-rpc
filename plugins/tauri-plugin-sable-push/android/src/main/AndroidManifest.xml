@@ -3,5 +3,8 @@
         <meta-data
             android:name="app.tauri.notification.PUSH_DELEGATE"
             android:value="moe.sable.push.SablePushDelegate" />
+        <receiver
+            android:name="moe.sable.push.ConversationActionReceiver"
+            android:exported="false" />
     </application>
 </manifest>
