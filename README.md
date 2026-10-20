@@ -1,17 +1,11 @@
 # <img src="src/lib/assets/res/svg/logo.svg" alt="Sable" width="32" height="32"> Sable
 
-An almost stable Matrix client.  
+An almost stable Matrix client, written from scratch in Rust and Svelte.  
 Trying to be feature-complete while enhancing the user experience with quality-of-life features, cosmetics, utilities and sheer usability.
-
-Initially forked from [Cinny](https://github.com/cinnyapp/cinny/), the [legacy version](https://github.com/SableClient/Sable) has been rewritten from scratch using Svelte and Rust and now lives in this repository.
 
 Join the Matrix space at [#sable:sable.moe](https://matrix.to/#/#sable:sable.moe) for project & feature discussions, help with issues, and meowing.
 
 The **web build** is deployed to [app.sable.moe](https://app.sable.moe/) and the nightly beta is at [dev.sable.moe](https://dev.sable.moe/). Read on for installation instructions.
-
-See [`infra/README.md`](infra/README.md) for the Cloudflare Worker and OpenTofu setup.
-
-Stable builds are on the [latest release](https://git.sable.moe/SableClient/sable-next/releases/latest), with build attestations.
 
 # Installation
 
