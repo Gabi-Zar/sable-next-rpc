@@ -6,7 +6,9 @@ Neither process holds a file lock there. Each login's tokens live in their own f
 under `credentials/`, rewritten by whichever process refreshes them under the SDK's
 cross-process refresh lock; only the app writes the account registry.
 Decryption checks account/preview policy and times out after 20 seconds. Failure
-uses a generic alert, never older plaintext. All alerts follow the sound setting.
+uses a generic alert, never older plaintext. A push the extension never handles still
+reads "New message": `ios/Localization` maps Sygnal's alert keys to generic text.
+All alerts follow the sound setting.
 
 Alerts match Android: the room name (or sender) is the title and the body is
 `Sender: text`; hidden previews keep the title with a generic body. Messages use the

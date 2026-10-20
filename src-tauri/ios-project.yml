@@ -87,6 +87,7 @@ targets:
     sources:
       - path: Sources
       - path: ../../ios/Network
+      - path: ../../ios/Localization
       - path: Assets.xcassets
       - path: ../../icons/ios/AppIcons.xcassets
       - path: Externals
