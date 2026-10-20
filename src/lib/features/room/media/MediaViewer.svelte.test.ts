@@ -358,6 +358,39 @@ test('holding the mouse on a fitted image shows a lens that the wheel zooms and 
   expect(lens()).toBeNull();
 });
 
+test('the lens keeps its size and zoom for the next image', async () => {
+  stubRects(rect(800, 600), rect(800, 600));
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  const lens = () => document.querySelector<HTMLElement>('.lens');
+  const lensImage = () => document.querySelector<HTMLElement>('.lens img');
+  const hold = async (img: HTMLElement) =>
+    user.pointer({ keys: '[MouseLeft>]', target: img, coords: { clientX: 200, clientY: 150 } });
+
+  const first = render(MediaViewer, {
+    items: [imageItem],
+    selectedEventId: '$image',
+    onClose: () => {},
+  });
+  await hold(await screen.findByRole('img'));
+  const size = lens()?.style.width;
+  const zoomed = lensImage()?.style.width;
+  await fireEvent.wheel(stage(), { deltaY: -100 });
+  const shiftWheel = new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true });
+  Object.defineProperty(shiftWheel, 'shiftKey', { value: true });
+  await fireEvent(stage(), shiftWheel);
+  const tunedSize = lens()?.style.width;
+  const tunedZoom = lensImage()?.style.width;
+  expect(tunedSize).not.toBe(size);
+  expect(tunedZoom).not.toBe(zoomed);
+  first.unmount();
+
+  render(MediaViewer, { items: [imageItem], selectedEventId: '$image', onClose: () => {} });
+  await hold(await screen.findByRole('img'));
+
+  expect(lens()?.style.width).toBe(tunedSize);
+  expect(lensImage()?.style.width).toBe(tunedZoom);
+});
+
 test('a zoomed image pans under the mouse instead of showing the lens', async () => {
   stubRects(rect(800, 600), rect(1600, 1200));
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));

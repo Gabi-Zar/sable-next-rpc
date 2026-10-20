@@ -1,5 +1,7 @@
 <script module lang="ts">
   export type { MediaItem } from './media-viewer-types';
+
+  const lensSettings = $state({ zoom: 2, size: 192 });
 </script>
 
 <script lang="ts">
@@ -187,8 +189,6 @@
     stage: DOMRect;
     image: DOMRect;
   } | null>(null);
-  let lensZoom = $state(2);
-  let lensSize = $state(192);
   let isImage = $derived(item?.kind === 'image' || item?.kind === 'sticker');
   let streamUnavailable = $derived(resource.streamUnavailable);
   let transcode = $derived(
@@ -377,9 +377,15 @@
     if (lens) {
       const factor = 1 - (event.deltaY || event.deltaX) * 0.001;
       if (event.shiftKey) {
-        lensSize = Math.min(LENS_MAX_SIZE, Math.max(LENS_MIN_SIZE, lensSize * factor));
+        lensSettings.size = Math.min(
+          LENS_MAX_SIZE,
+          Math.max(LENS_MIN_SIZE, lensSettings.size * factor)
+        );
       } else {
-        lensZoom = Math.min(LENS_MAX_ZOOM, Math.max(LENS_MIN_ZOOM, lensZoom * factor));
+        lensSettings.zoom = Math.min(
+          LENS_MAX_ZOOM,
+          Math.max(LENS_MIN_ZOOM, lensSettings.zoom * factor)
+        );
       }
       return;
     }
@@ -917,19 +923,19 @@
                 <div
                   class="lens"
                   aria-hidden="true"
-                  style:left={`${String(lens.x - lens.stage.x - lensSize / 2)}px`}
-                  style:top={`${String(lens.y - lens.stage.y - lensSize / 2)}px`}
-                  style:width={`${String(lensSize)}px`}
-                  style:height={`${String(lensSize)}px`}
+                  style:left={`${String(lens.x - lens.stage.x - lensSettings.size / 2)}px`}
+                  style:top={`${String(lens.y - lens.stage.y - lensSettings.size / 2)}px`}
+                  style:width={`${String(lensSettings.size)}px`}
+                  style:height={`${String(lensSettings.size)}px`}
                 >
                   <img
                     class={{ pixelated }}
                     src={url}
                     alt=""
                     draggable="false"
-                    style:width={`${String(lens.image.width * lensZoom)}px`}
-                    style:height={`${String(lens.image.height * lensZoom)}px`}
-                    style:transform={`translate(${String(lensSize / 2 - (lens.x - lens.image.x) * lensZoom)}px, ${String(lensSize / 2 - (lens.y - lens.image.y) * lensZoom)}px)`}
+                    style:width={`${String(lens.image.width * lensSettings.zoom)}px`}
+                    style:height={`${String(lens.image.height * lensSettings.zoom)}px`}
+                    style:transform={`translate(${String(lensSettings.size / 2 - (lens.x - lens.image.x) * lensSettings.zoom)}px, ${String(lensSettings.size / 2 - (lens.y - lens.image.y) * lensSettings.zoom)}px)`}
                   />
                 </div>
               {/if}
