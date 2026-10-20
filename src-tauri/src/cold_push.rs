@@ -9,6 +9,7 @@ use sable_core::protocol::PushFetchView;
 pub static CORE: OnceLock<Arc<Core>> = OnceLock::new();
 
 const DISCARD: &str = "discard";
+const DISCARD_UNEVALUATED: &str = "discard-unevaluated";
 const NEEDS_KEY: &str = "needs-key";
 const NEEDS_KEY_QUIETLY: &str = "needs-key-quietly";
 
@@ -320,6 +321,7 @@ fn encode(result: ColdPush) -> String {
     match result {
         ColdPush::Clear(clear) => clear,
         ColdPush::Discard => DISCARD.to_owned(),
+        ColdPush::Unevaluated => DISCARD_UNEVALUATED.to_owned(),
         ColdPush::NeedsKey { quietly: false } => NEEDS_KEY.to_owned(),
         ColdPush::NeedsKey { quietly: true } => NEEDS_KEY_QUIETLY.to_owned(),
         ColdPush::Undecryptable => String::new(),

@@ -538,6 +538,21 @@ class PushNotifierTest {
     }
 
     @Test
+    fun showFromPush_recordsWhenThePushRulesCouldNotBeEvaluated() {
+        PushDiagnostics.clearHistory(context)
+        mockkObject(PushPayloadDecryptor)
+        try {
+            every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+                PushDecryptResult.DiscardUnevaluated
+            PushNotifier.showFromPush(context, encryptedPush("!unknown:example.org", "\$unknown"))
+            assertTrue(shadowNotificationManager().allNotifications.isEmpty())
+            verify(exactly = 0) { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) }
+            val history = PushDiagnostics.history(context)
+            assertEquals("RULES_UNEVALUATED", history.getJSONObject(history.length() - 1).getString("outcome"))
+        } finally { unmockkObject(PushPayloadDecryptor) }
+    }
+
+    @Test
     fun showFromPush_postsALocallyDecryptedMessageWithoutABaseline() {
         mockkObject(PushPayloadDecryptor)
         try {
@@ -815,6 +830,27 @@ class PushNotifierTest {
             PushNotifier.showFromPush(context, payload)
 
             assertNull(shadowNotificationManager().getNotification(null, canonicalId("!quiet:example.org")))
+        } finally {
+            unmockkObject(PushPayloadDecryptor)
+        }
+    }
+
+    @Test
+    fun showFromPush_eventIdOnlyPushWithUnevaluatedRulesIsRecorded() {
+        PushDiagnostics.clearHistory(context)
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        mockkObject(PushPayloadDecryptor)
+        try {
+            every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+                PushDecryptResult.DiscardUnevaluated
+            val payload = JSONObject().put("room_id", "!unknown:example.org").put("event_id", "\$unknown")
+                .put("user_id", "@alice:example.org").toString()
+
+            PushNotifier.showFromPush(context, payload)
+
+            assertNull(shadowNotificationManager().getNotification(null, canonicalId("!unknown:example.org")))
+            val history = PushDiagnostics.history(context)
+            assertEquals("RULES_UNEVALUATED", history.getJSONObject(history.length() - 1).getString("outcome"))
         } finally {
             unmockkObject(PushPayloadDecryptor)
         }

@@ -20,6 +20,7 @@ internal enum class PushOutcome {
     NO_CONTENT,
     NO_NATIVE_LIB,
     DECRYPT_FAILED,
+    RULES_UNEVALUATED,
     EMPTY_BODY,
     REPLAY_DROPPED,
     EMBEDDED_STARTED,

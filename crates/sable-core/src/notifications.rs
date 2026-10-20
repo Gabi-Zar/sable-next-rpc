@@ -80,6 +80,7 @@ fn push_account<'a>(
 pub enum ColdPush {
     Clear(String),
     Discard,
+    Unevaluated,
     NeedsKey { quietly: bool },
     Undecryptable,
 }
@@ -457,15 +458,15 @@ async fn decrypt_push_event(
     match &decrypted.kind {
         matrix_sdk::deserialized_responses::TimelineEventKind::Decrypted(clear) => {
             let actions = decrypted.push_actions();
-            return if actions.is_some_and(notifies) {
-                let noisy = actions.is_some_and(|actions| {
-                    actions
+            return match actions {
+                None => ColdPush::Unevaluated,
+                Some(actions) if notifies(actions) => {
+                    let noisy = actions
                         .iter()
-                        .any(|action| action.sound().is_some() || action.is_highlight())
-                });
-                ColdPush::Clear(marked_noisy(clear.event.json().get(), noisy))
-            } else {
-                ColdPush::Discard
+                        .any(|action| action.sound().is_some() || action.is_highlight());
+                    ColdPush::Clear(marked_noisy(clear.event.json().get(), noisy))
+                }
+                Some(_) => ColdPush::Discard,
             };
         }
         matrix_sdk::deserialized_responses::TimelineEventKind::UnableToDecrypt {
@@ -497,6 +498,7 @@ async fn decrypt_push_event(
         return undecryptable;
     };
     match notifications.get_notification(&room_id, &event_id).await {
+        Ok(NotificationStatus::Event(item)) if item.actions.is_none() => ColdPush::Unevaluated,
         Ok(NotificationStatus::Event(item)) if !item.actions.as_deref().is_some_and(notifies) => {
             ColdPush::Discard
         }
@@ -602,7 +604,10 @@ impl PushSession {
         .await
         {
             ColdPush::Clear(clear) => Some(clear),
-            ColdPush::Discard | ColdPush::NeedsKey { .. } | ColdPush::Undecryptable => None,
+            ColdPush::Discard
+            | ColdPush::Unevaluated
+            | ColdPush::NeedsKey { .. }
+            | ColdPush::Undecryptable => None,
         }
     }
 
@@ -2044,7 +2049,7 @@ mod tests {
             )
             .await;
 
-        assert_eq!(fixture.decrypt("A", &sticker).await, ColdPush::Discard);
+        assert_eq!(fixture.decrypt("A", &sticker).await, ColdPush::Unevaluated);
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
         let fixture = ColdFixture::new("fetched-member", cold_room_without_me(), None).await;
@@ -2070,6 +2075,20 @@ mod tests {
             fixture.decrypt("A", &message).await,
             ColdPush::Clear(_)
         ));
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_cold_push_whose_rules_cannot_be_evaluated_is_not_a_plain_discard() {
+        let fixture = ColdFixture::new("unevaluated", cold_room_without_me(), None).await;
+        let message = fixture
+            .push(
+                "m.room.message",
+                json!({"msgtype":"m.text", "body":"hello"}),
+            )
+            .await;
+
+        assert_eq!(fixture.decrypt("A", &message).await, ColdPush::Unevaluated);
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 

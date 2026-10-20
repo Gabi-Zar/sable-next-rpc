@@ -7,6 +7,7 @@ import org.json.JSONObject
 internal sealed interface PushDecryptResult {
     data class Success(val clearEventJson: String) : PushDecryptResult
     object Discard : PushDecryptResult
+    object DiscardUnevaluated : PushDecryptResult
     data class NeedsKey(val quietly: Boolean) : PushDecryptResult
     data class Failure(val outcome: PushOutcome) : PushDecryptResult
 }
@@ -16,6 +17,7 @@ internal object PushPayloadDecryptor {
 
     private const val HOST_LIBRARY = "app_lib"
     private const val DISCARD = "discard"
+    private const val DISCARD_UNEVALUATED = "discard-unevaluated"
     private const val NEEDS_KEY = "needs-key"
     private const val NEEDS_KEY_QUIETLY = "needs-key-quietly"
 
@@ -173,6 +175,7 @@ internal object PushPayloadDecryptor {
         return when (clear) {
             null, "" -> PushDecryptResult.Failure(PushOutcome.DECRYPT_FAILED)
             DISCARD -> PushDecryptResult.Discard
+            DISCARD_UNEVALUATED -> PushDecryptResult.DiscardUnevaluated
             NEEDS_KEY -> PushDecryptResult.NeedsKey(quietly = false)
             NEEDS_KEY_QUIETLY -> PushDecryptResult.NeedsKey(quietly = true)
             else -> PushDecryptResult.Success(clear)

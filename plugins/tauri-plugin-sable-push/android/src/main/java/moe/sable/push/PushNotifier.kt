@@ -125,6 +125,10 @@ object PushNotifier {
                     PushDiagnostics.record(context, PushOutcome.DISCARDED, trace)
                     return
                 }
+                PushDecryptResult.DiscardUnevaluated -> {
+                    PushDiagnostics.record(context, PushOutcome.RULES_UNEVALUATED, trace)
+                    return
+                }
                 is PushDecryptResult.Success -> {
                     val event = runCatching { JSONObject(fetched.clearEventJson) }.getOrNull()
                     if (event != null) mergeFetched(notification, event)
@@ -153,6 +157,10 @@ object PushNotifier {
         when (local) {
             PushDecryptResult.Discard -> {
                 PushDiagnostics.record(context, PushOutcome.DISCARDED, trace)
+                return
+            }
+            PushDecryptResult.DiscardUnevaluated -> {
+                PushDiagnostics.record(context, PushOutcome.RULES_UNEVALUATED, trace)
                 return
             }
             is PushDecryptResult.Success -> {
@@ -687,6 +695,7 @@ object PushNotifier {
         ) {
             is PushDecryptResult.Success -> result.clearEventJson
             PushDecryptResult.Discard -> return null to PushOutcome.DISCARDED
+            PushDecryptResult.DiscardUnevaluated -> return null to PushOutcome.RULES_UNEVALUATED
             is PushDecryptResult.NeedsKey -> return null to PushOutcome.DECRYPT_FAILED
             is PushDecryptResult.Failure -> return null to result.outcome
         }
