@@ -1,9 +1,10 @@
 import type { NativePushConfig } from '#lib/platform/push.js';
 
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   register: vi.fn<(config: NativePushConfig) => Promise<void>>(),
+  unregister: vi.fn<() => Promise<void>>(),
   list: vi.fn(),
   select: vi.fn<(name: string) => Promise<void>>(),
   config: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('#lib/platform/push.js', () => ({
   registerNativePushConfig: mocks.register,
+  unregisterNativePushConfig: mocks.unregister,
   listPushDistributors: mocks.list,
   setPushDistributor: mocks.select,
 }));
@@ -25,9 +27,11 @@ vi.mock('#lib/notifications/push-config.js', async (original) => ({
 import {
   NoDistributorError,
   registerNativePush,
+  retryNativePushNow,
   selectedPushDistributor,
   switchPushDistributor,
   switchPushProvider,
+  unregisterNativePush,
 } from './native-push';
 
 const session = {
@@ -72,7 +76,13 @@ beforeEach(() => {
   mocks.list.mockResolvedValue(['embedded-websocket', 'io.heckel.ntfy', 'org.example.sunup']);
   mocks.config.mockResolvedValue(config);
   mocks.register.mockResolvedValue(undefined);
+  mocks.unregister.mockResolvedValue(undefined);
   mocks.select.mockResolvedValue(undefined);
+});
+
+afterEach(async () => {
+  await unregisterNativePush();
+  vi.useRealTimers();
 });
 
 test('registers the built-in gateway and preserves native and UnifiedPush routing', async () => {
@@ -262,4 +272,73 @@ test('does not display a saved distributor when restoring it also fails', async 
     switchPushDistributor('embedded-websocket', override, session, accounts)
   ).rejects.toThrow('offline');
   expect(selectedPushDistributor()).toBe('');
+});
+
+const timedOut = new Error('Timed out registering for push notifications');
+
+test('retries a registration that timed out, backing off until it succeeds', async () => {
+  vi.useFakeTimers();
+  mocks.register.mockRejectedValueOnce(timedOut).mockRejectedValueOnce(timedOut);
+
+  await expect(registerNativePush(override, session, accounts)).rejects.toBe(timedOut);
+  expect(mocks.register).toHaveBeenCalledTimes(1);
+
+  await vi.advanceTimersByTimeAsync(14_999);
+  expect(mocks.register).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(mocks.register).toHaveBeenCalledTimes(2);
+
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(mocks.register).toHaveBeenCalledTimes(3);
+
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  expect(mocks.register).toHaveBeenCalledTimes(3);
+});
+
+test('keeps retrying at the longest delay while registration keeps failing', async () => {
+  vi.useFakeTimers();
+  mocks.register.mockRejectedValue(timedOut);
+
+  await expect(registerNativePush(override, session, accounts)).rejects.toBe(timedOut);
+  await vi.advanceTimersByTimeAsync(15_000 + 60_000 + 300_000);
+  expect(mocks.register).toHaveBeenCalledTimes(4);
+  await vi.advanceTimersByTimeAsync(300_000);
+  expect(mocks.register).toHaveBeenCalledTimes(5);
+});
+
+test('does not retry a failure that waiting cannot fix', async () => {
+  vi.useFakeTimers();
+  mocks.config.mockResolvedValue({ resolved: null, details: null });
+
+  await expect(registerNativePush(override, session, accounts)).rejects.toThrow();
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  expect(mocks.register).not.toHaveBeenCalled();
+});
+
+test('registers again as soon as the app returns while a registration is failing', async () => {
+  vi.useFakeTimers();
+  mocks.register.mockRejectedValueOnce(timedOut);
+
+  await expect(registerNativePush(override, session, accounts)).rejects.toBe(timedOut);
+  await retryNativePushNow();
+  expect(mocks.register).toHaveBeenCalledTimes(2);
+
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  expect(mocks.register).toHaveBeenCalledTimes(2);
+});
+
+test('returning to the app does nothing when nothing is failing', async () => {
+  await registerNativePush(override, session, accounts);
+  await retryNativePushNow();
+  expect(mocks.register).toHaveBeenCalledTimes(1);
+});
+
+test('turning native push off cancels a pending retry', async () => {
+  vi.useFakeTimers();
+  mocks.register.mockRejectedValue(timedOut);
+
+  await expect(registerNativePush(override, session, accounts)).rejects.toBe(timedOut);
+  await unregisterNativePush();
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  expect(mocks.register).toHaveBeenCalledTimes(1);
 });

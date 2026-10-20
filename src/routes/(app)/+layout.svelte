@@ -77,6 +77,7 @@
   } from '#lib/settings/sync-documents.js';
   import {
     registerNativePush,
+    retryNativePushNow,
     unregisterNativePush,
   } from '#lib/features/notifications/native-push.js';
   import { pushOverride } from '#lib/notifications/push-config.js';
@@ -567,6 +568,12 @@
     void registerNativePush(pushOverride(), core.session, core.accounts).catch((error: unknown) => {
       console.debug('[sable notifications] native push not registered', error);
     });
+  });
+
+  $effect(() => {
+    if (windowActivity.visible && core.status === 'ready' && preferences.systemNotifications) {
+      void retryNativePushNow();
+    }
   });
 
   onMount(() => {
