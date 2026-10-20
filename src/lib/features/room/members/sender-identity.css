@@ -49,10 +49,10 @@
 }
 
 .sender-identity-via {
-  display: block;
-  flex-shrink: 100;
+  display: flex;
+  flex-shrink: 1;
   font-size: var(--font-size-small);
-  max-width: 16ch;
+  max-width: 24ch;
   min-width: 3rem;
   overflow: clip;
   text-overflow: ellipsis;
@@ -60,7 +60,9 @@
   white-space-collapse: preserve;
 
   & button {
-    display: inline;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 }
