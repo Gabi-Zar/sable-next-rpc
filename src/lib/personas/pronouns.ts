@@ -31,6 +31,25 @@ export function splitDisplayNamePronouns(name: string): {
   return { name: stripped, pronouns: [{ summary: match[1] || match[2], language: null }] };
 }
 
+const PLURALKIT_GROUP = /\s*[([]([^()[\]]+)[)\]]/gu;
+const PLURALKIT_SET = /^[\p{L}\p{N}'_-]+(?:\/[\p{L}\p{N}'_-]+){1,3}$/u;
+
+export function splitPluralkitNamePronouns(name: string): {
+  name: string;
+  pronouns: PronounView[];
+} {
+  const pronouns: PronounView[] = [];
+  const stripped = name
+    .replace(PLURALKIT_GROUP, (group: string, inner: string) => {
+      const sets = inner.split(/[,;|]/u).map((entry) => entry.trim());
+      if (!sets.every((entry) => PLURALKIT_SET.test(entry))) return group;
+      pronouns.push(...sets.map((summary) => ({ summary, language: null })));
+      return '';
+    })
+    .trim();
+  return stripped === '' ? { name, pronouns: [] } : { name: stripped, pronouns };
+}
+
 export function withDisplayNamePronouns(
   pronouns: readonly PronounView[],
   fromName: readonly PronounView[]

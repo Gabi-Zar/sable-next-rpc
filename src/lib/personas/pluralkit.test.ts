@@ -123,6 +123,20 @@ describe('pluralkitPronounExtraction', () => {
     expect(persona.pluralkit?.avatar_url).toBe('https://cdn.pluralkit.me/kris.png');
   });
 
+  it('reads several groups and less common forms from the display name', () => {
+    const persona = personaFromPluralkit(
+      { ...member, display_name: 'Kris (it/its) [ey/em/eir/eirs]', pronouns: undefined },
+      null,
+      { extractPronouns: true }
+    );
+
+    expect(persona.display_name).toBe('Kris');
+    expect(persona.pronouns).toEqual([
+      { summary: 'it/its', language: null },
+      { summary: 'ey/em/eir/eirs', language: null },
+    ]);
+  });
+
   it('name pronouns override stored pronouns', () => {
     const persona = personaFromPluralkit(
       { ...member, display_name: 'Kris (they/she)', pronouns: 'evil/bad' },

@@ -1,5 +1,5 @@
 import type { PersonaTriggerView, PersonaView, PronounView } from '#src/generated/protocol';
-import { splitDisplayNamePronouns } from './pronouns';
+import { splitPluralkitNamePronouns } from './pronouns';
 
 export interface PluralkitMember {
   id: string;
@@ -96,7 +96,7 @@ export function personaFromPluralkit(
   let pronoun_set = pronouns(member.pronouns);
 
   if (options.extractPronouns && display_name) {
-    const parsed = splitDisplayNamePronouns(display_name);
+    const parsed = splitPluralkitNamePronouns(display_name);
     display_name = parsed.name;
     pronoun_set = parsed.pronouns;
   }

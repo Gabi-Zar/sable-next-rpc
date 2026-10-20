@@ -6,6 +6,7 @@ import {
   preferredPronouns,
   pronounPillLimit,
   splitDisplayNamePronouns,
+  splitPluralkitNamePronouns,
   visiblePronouns,
   withDisplayNamePronouns,
 } from './pronouns';
@@ -55,6 +56,33 @@ describe('splitDisplayNamePronouns', () => {
     for (const name of ['sugary ()', 'sugary (2019)', 'sugary (away)', 'sugary (a/b/c/d)']) {
       expect(splitDisplayNamePronouns(name)).toEqual({ name, pronouns: [] });
     }
+  });
+});
+
+describe('splitPluralkitNamePronouns', () => {
+  it('collects every group and the sets inside a group', () => {
+    expect(splitPluralkitNamePronouns('sugary (she/her) [it/its, they/them]')).toEqual({
+      name: 'sugary',
+      pronouns: [set('she/her', null), set('it/its', null), set('they/them', null)],
+    });
+  });
+
+  it('accepts accents, hyphens, digits and four forms', () => {
+    expect(splitPluralkitNamePronouns('Zoë (ey/em/eir/eirs) (xe-1/xem)')).toEqual({
+      name: 'Zoë',
+      pronouns: [set('ey/em/eir/eirs', null), set('xe-1/xem', null)],
+    });
+  });
+
+  it('leaves a group that is not entirely pronoun sets in the name', () => {
+    expect(splitPluralkitNamePronouns('sugary (she/her, away)')).toEqual({
+      name: 'sugary (she/her, away)',
+      pronouns: [],
+    });
+  });
+
+  it('keeps a name that is only pronouns', () => {
+    expect(splitPluralkitNamePronouns('(she/it)')).toEqual({ name: '(she/it)', pronouns: [] });
   });
 });
 
