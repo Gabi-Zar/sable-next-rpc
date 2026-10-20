@@ -259,7 +259,8 @@
     return buildSpaceTree(space, roomsById, Number(preferences.subspaceHierarchyLimit));
   });
   let spacedRoomIds = $derived(claimedRoomIds(roomList.rooms));
-  let compareRooms = $derived(roomComparator(preferences.roomSort));
+  let sortKey = $derived<'directSort' | 'roomSort'>(directSection ? 'directSort' : 'roomSort');
+  let compareRooms = $derived(roomComparator(preferences[sortKey]));
   let favouriteView = $derived(activeSpaceId ?? section);
   let groupFavourites = $derived(groupsFavourites(favouriteView));
   let spaceRootItems = $derived(groupFavourites ? withoutFavourites(spaceTree) : spaceTree);
@@ -456,13 +457,13 @@
     {#if !activeSpace}
       {#each ROOM_SORTS as option (option)}
         <ActionMenuItem
-          checked={preferences.roomSort === option}
+          checked={preferences[sortKey] === option}
           onSelect={() => {
-            setPreference('roomSort', option);
+            setPreference(sortKey, option);
           }}
         >
           <span class="menu-check" aria-hidden="true"
-            >{preferences.roomSort === option ? '✓' : ''}</span
+            >{preferences[sortKey] === option ? '✓' : ''}</span
           >
           {i18n.t(ROOM_SORT_LABELS[option])}
         </ActionMenuItem>

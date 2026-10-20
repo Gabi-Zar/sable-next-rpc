@@ -264,6 +264,7 @@ export interface Preferences {
   hideTypingIndicators: boolean;
   memberSort: MemberSort;
   roomSort: RoomSort;
+  directSort: RoomSort;
   groupMembersByPresence: boolean;
   filterPronounsByLanguage: boolean;
   showPronouns: boolean;
@@ -490,6 +491,7 @@ const ENUMS = {
   badgeDefaultGroup: ['all', 'mentions', 'quiet'],
   memberSort: ['name-asc', 'name-desc', 'newest', 'oldest'],
   roomSort: ['recent', 'name-asc', 'name-desc'],
+  directSort: ['recent', 'name-asc', 'name-desc'],
   personaLatching: ['off', 'room', 'account'],
   personaPickerSortOrder: ['manual', 'alphabetical-asc', 'alphabetical-desc', 'recent'],
   presence: ['online', 'unavailable', 'offline'],
@@ -611,6 +613,7 @@ const DEFAULTS: Preferences = {
   hideTypingIndicators: false,
   memberSort: 'name-asc',
   roomSort: 'recent',
+  directSort: 'recent',
   groupMembersByPresence: true,
   filterPronounsByLanguage: true,
   showPronouns: true,

@@ -134,6 +134,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setPreference('roomSort', 'recent');
+  setPreference('directSort', 'recent');
   setPreference('showRoomIcon', 'always');
   setPreference('showDmTopics', true);
   globalThis.IntersectionObserver = realObserver;
@@ -323,6 +325,27 @@ test('home orders rooms by their latest event', async () => {
 
   await mountNav();
   expect(roomNames()).toEqual(['Busy', 'Quiet', 'Silent']);
+});
+
+test('home and the direct page keep their own sort order', async () => {
+  setPreference('roomSort', 'name-asc');
+  setPreference('directSort', 'recent');
+  const dm = (id: string, name: string, at: number) =>
+    makeRoom({ room_id: id, name, is_direct: true, latest_event: latestAt(at) });
+  roomsFixture.rooms = [
+    makeRoom({ room_id: '!b:example.org', name: 'B', latest_event: latestAt(30) }),
+    makeRoom({ room_id: '!a:example.org', name: 'A', latest_event: latestAt(10) }),
+    dm('!y:example.org', 'Y', 10),
+    dm('!z:example.org', 'Z', 30),
+  ];
+
+  const home = await mountNav();
+  expect(roomNames()).toEqual(['A', 'B', 'Y', 'Z']);
+  home.unmount();
+
+  visit('/direct');
+  await mountNav();
+  expect(roomNames()).toEqual(['Z', 'Y']);
 });
 
 test('favourites sit in their own section above the rest of the list', async () => {
