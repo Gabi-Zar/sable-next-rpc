@@ -38,6 +38,7 @@
   import { useEventItems } from '../messages/event-items.svelte.js';
   import { MessageDialogs, provideMessageDialogs } from '../messages/message-dialogs.svelte.js';
   import { OpenMessageMenu, provideMessageMenu } from '../messages/message-menu-open.svelte.js';
+  import { LoadRetry } from './load-retry';
   import TimelineItem from './TimelineItem.svelte';
   import TimelineMemberGroup from './TimelineMemberGroup.svelte';
   import TimelineReadReceipt from './TimelineReadReceipt.svelte';
@@ -215,10 +216,12 @@
   $effect(() => {
     if (!windowActivity.active) untrack(settleFullyRead);
   });
+  const loadRetry = new LoadRetry();
   onDestroy(() => {
     unreadNavigation?.abort();
     unread.destroy();
     settleFullyRead();
+    loadRetry.reset();
   });
   let followingRead = $state(false);
   let eventItems = $derived(visibleTimelineItems(timeline.items, preferences, { readOnly }));
@@ -330,6 +333,24 @@
     visibleItems.length === 0 && timeline.error === null && !noHistory
   );
   let emptyFailure = $derived(visibleItems.length === 0 && timeline.error !== null);
+  $effect(() => {
+    if (visibleItems.length > 0) {
+      loadRetry.reset();
+      return;
+    }
+    if (
+      !emptyFailure ||
+      timeline.loading ||
+      timeline.mode.kind === 'focused' ||
+      !windowActivity.visible ||
+      !onRetryLoad
+    ) {
+      loadRetry.cancel();
+      return;
+    }
+    loadRetry.schedule(() => void onRetryLoad());
+    return () => loadRetry.cancel();
+  });
   let readEventId = $derived.by(() => {
     if (!revealed || !viewport || unread.blocking || markingRead) return null;
     if (windowState.pinned) {
