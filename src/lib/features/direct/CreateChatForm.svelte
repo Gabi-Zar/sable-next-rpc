@@ -48,7 +48,7 @@
   <FormField
     fieldId="create-chat-user"
     label={i18n.t('direct.userIdLabel')}
-    error={invalid ? i18n.t('common.aUserIdLooksLikeSomeoneserver') : null}
+    error={invalid ? i18n.t('common.userIdFormatHint') : null}
   >
     <TextInput
       id="create-chat-user"
@@ -64,12 +64,12 @@
 
   <div class="row">
     <div class="row-text">
-      <span class="field-label">{i18n.t('common.endtoendEncryption')}</span>
+      <span class="field-label">{i18n.t('common.endToEndEncryption')}</span>
       <p class="hint">{i18n.t('direct.encryptionHint')}</p>
     </div>
     <Switch
       checked={encrypted}
-      label={i18n.t('common.endtoendEncryption')}
+      label={i18n.t('common.endToEndEncryption')}
       onCheckedChange={(next: boolean) => {
         encrypted = next;
       }}

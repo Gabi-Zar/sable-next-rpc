@@ -69,7 +69,7 @@ test('a single failed room is not pluralised by the message count', () => {
 
 test('a stopped crawl says the limit was reached rather than implying more is coming', () => {
   expect(coverageMessage(coverage({ documents: 50000, state: 'stopped' }), false, t)).toBe(
-    "50,000 messages indexed so far. Indexing stopped at this session's limit."
+    '50,000 messages indexed so far. Indexing stopped at this session’s limit.'
   );
 });
 

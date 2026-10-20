@@ -497,7 +497,7 @@
               class="inline-edit"
               bind:value={draft.status}
               aria-label={i18n.t('settings.status')}
-              placeholder={i18n.t('common.whatAreYouUpTo')}
+              placeholder={i18n.t('common.statusPlaceholder')}
               maxlength={MAX_STATUS_TEXT_BYTES}
             />
           {/snippet}

@@ -1,6 +1,6 @@
 {
   "common": {
-    "aUserIdLooksLikeSomeoneserver": "Um id de usuário está no formato @alguém:servidor.",
+    "userIdFormatHint": "Um id de usuário está no formato @alguém:servidor.",
     "changeBanner": "Mudar banner",
     "close": "Fechar",
     "decline": "Rejeitar",

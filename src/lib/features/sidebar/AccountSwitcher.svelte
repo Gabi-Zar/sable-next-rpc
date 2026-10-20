@@ -203,7 +203,8 @@
                   >{userStatus?.emoji}</span
                 >{/if}
               {#if userStatus?.text}{userStatus?.text}{:else}<span
-                  class="account-profile-status-placeholder">{i18n.t('common.whatAreYouUpTo')}</span
+                  class="account-profile-status-placeholder"
+                  >{i18n.t('common.statusPlaceholder')}</span
                 >{/if}
             </p>
           </button>

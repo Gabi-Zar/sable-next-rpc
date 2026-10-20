@@ -426,7 +426,7 @@
       {#if failed}
         <p class="save-status error" role="alert">{i18n.t('room.settingsFailed')}</p>
       {:else if dirty}
-        <p class="save-status" role="status">{i18n.t('common.youHaveUnsavedChanges')}</p>
+        <p class="save-status" role="status">{i18n.t('common.unsavedChangesNotice')}</p>
       {:else if saved}
         <p class="save-status" role="status">{i18n.t('room.settingsSaved')}</p>
       {/if}

@@ -54,7 +54,7 @@ test('opens the banner in the viewer, as the avatar does', async () => {
     onAvatarClick,
   });
 
-  await userEvent.setup().click(screen.getByRole('button', { name: "View Ana's banner" }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'View Ana’s banner' }));
 
   expect(onAvatarClick).toHaveBeenCalledWith('mxc://example.org/banner', 'Ana');
 });

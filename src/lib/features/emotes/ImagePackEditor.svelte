@@ -574,7 +574,7 @@
     {/if}
     <div class={['save-bar', { pending: dirty }]}>
       {#if dirty}
-        <p class="save-status" role="status">{i18n.t('common.youHaveUnsavedChanges')}</p>
+        <p class="save-status" role="status">{i18n.t('common.unsavedChangesNotice')}</p>
       {/if}
       <Button
         size="small"

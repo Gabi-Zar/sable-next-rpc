@@ -74,7 +74,7 @@ test('a server that cannot be found puts the provider back and explains', async 
 
   expect(
     await screen.findByText(
-      "We couldn't find nowhere.invalid. Check the address or choose a provider."
+      'We couldn’t find nowhere.invalid. Check the address or choose a provider.'
     )
   ).toBeInTheDocument();
   expect(homeserver()).toHaveValue('matrix.org');

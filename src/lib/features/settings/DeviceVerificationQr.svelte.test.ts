@@ -105,7 +105,7 @@ test('shows scan errors and allows retry', async () => {
   await user.click(screen.getByRole('button', { name: /Scan their code instead/ }));
   await user.click(screen.getByRole('button', { name: 'scan stub' }));
 
-  expect(await screen.findByRole('alert')).toHaveTextContent("That isn't a verification code.");
+  expect(await screen.findByRole('alert')).toHaveTextContent('That isn’t a verification code.');
   expect(button(/scan stub/)).toBeInTheDocument();
   expect(qr()).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'scan stub' }));
@@ -126,7 +126,7 @@ test('defaults to scanning on mobile and allows switching to display', async () 
 
   expect(button(/scan stub/)).toBeInTheDocument();
   expect(qr()).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: "Show this device's code" }));
+  await user.click(screen.getByRole('button', { name: 'Show this device’s code' }));
   expect(qr()).toBeInTheDocument();
 });
 

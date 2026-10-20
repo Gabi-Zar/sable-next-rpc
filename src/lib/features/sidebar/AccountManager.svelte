@@ -193,7 +193,7 @@
     </span>
     <span class={['status-bubble-text', { placeholder: !ownStatus }]}
       >{#if userStatus?.emoji}<span>{userStatus.emoji}</span>
-      {/if}{ownStatus || i18n.t('common.whatAreYouUpTo')}</span
+      {/if}{ownStatus || i18n.t('common.statusPlaceholder')}</span
     >
   </button>
 {/snippet}
@@ -349,7 +349,7 @@
         bind:value={statusDraft}
         disabled={statusSaving}
         maxlength={MAX_STATUS_TEXT_BYTES}
-        placeholder={i18n.t('common.whatAreYouUpTo')}
+        placeholder={i18n.t('common.statusPlaceholder')}
       />
     </FormField>
     {#if statusError}<Alert variant="critical" role="alert">{statusError}</Alert>{/if}

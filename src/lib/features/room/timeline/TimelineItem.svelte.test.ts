@@ -297,7 +297,7 @@ test('renders placeholders through the standard message layout', async () => {
   expect(message?.getAttribute('aria-hidden')).toBe('true');
 });
 
-test("shows the sender's role icon after their name", async () => {
+test('shows the sender’s role icon after their name', async () => {
   render(TimelineItemHarness, {
     props: {
       core,

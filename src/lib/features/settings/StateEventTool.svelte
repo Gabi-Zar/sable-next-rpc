@@ -105,7 +105,7 @@
       >{i18n.t('settings.developerAccountDataInvalidJson')}</Alert
     >
   {:else if error === 'failed'}
-    <Alert variant="critical" role="alert">{i18n.t('common.theStateEventWasRejected')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('common.stateEventRejected')}</Alert>
   {:else if sent}
     <Alert variant="success" role="status">{i18n.t('settings.stateEventSent')}</Alert>
   {/if}

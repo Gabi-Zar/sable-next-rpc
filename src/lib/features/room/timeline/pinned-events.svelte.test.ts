@@ -109,7 +109,7 @@ test('a failed load leaves the set intact rather than clearing it', async () => 
 
 test('a refused pin says so instead of asking to retry', () => {
   expect(pinErrorMessage(new CoreError({ code: 'denied' }))).toBe(
-    "You don't have permission to pin messages in this room."
+    'You don’t have permission to pin messages in this room.'
   );
   expect(pinErrorMessage(new CoreError({ code: 'failed', log_id: 'e1' }))).toBe(
     'Could not complete that action. Try again.'

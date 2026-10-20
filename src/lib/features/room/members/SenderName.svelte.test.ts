@@ -35,7 +35,7 @@ test('SenderName opens a profile when mention is unavailable', async () => {
     onProfile,
   });
 
-  const button = screen.getByRole('button', { name: "Open Bob's profile" });
+  const button = screen.getByRole('button', { name: 'Open Bob’s profile' });
   await user.click(button);
   expect(onProfile).toHaveBeenCalledWith(button);
 });

@@ -259,7 +259,7 @@ test('opens a profile avatar through viewer callback', async () => {
   });
   await tick();
 
-  const avatarButton = screen.getByRole('button', { name: "View Alice's avatar" });
+  const avatarButton = screen.getByRole('button', { name: 'View Alice’s avatar' });
   expect(avatarButton.querySelector('.avatar-root')).toHaveAttribute('aria-hidden', 'true');
   await user.click(avatarButton);
 
@@ -775,7 +775,7 @@ test('shows a permission message when the kick is refused', async () => {
   const dialog = await screen.findByRole('dialog');
   await user.click(within(dialog).getByRole('button', { name: 'Remove from room' }));
   expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-    "You don't have permission to do that in this room."
+    'You don’t have permission to do that in this room.'
   );
 });
 

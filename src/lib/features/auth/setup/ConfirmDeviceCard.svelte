@@ -208,7 +208,7 @@
         </AuthInfoBox>
         <label class="confirm-device-understood">
           <input type="checkbox" bind:checked={understood} disabled={reset.busy} />
-          {i18n.t('common.iUnderstandThisCannotBeUndone')}
+          {i18n.t('common.confirmIrreversible')}
         </label>
         <AuthStatusSlot message={reset.error} />
         <Button

@@ -55,7 +55,7 @@
       aria-label={i18n.t('common.searchRooms')}
     />
     {#if targets.length === 0}
-      <p class="empty">{i18n.t('common.noRoomsMatchThatSearch')}</p>
+      <p class="empty">{i18n.t('common.noRoomsMatch')}</p>
     {:else}
       <RoomChecklist
         class="targets"

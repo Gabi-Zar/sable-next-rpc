@@ -45,7 +45,7 @@ afterEach(() => {
 const user = userEvent.setup();
 const memberNames = () =>
   screen
-    .queryAllByRole('button', { name: /^Open .*'s profile$/ })
+    .queryAllByRole('button', { name: /^Open .*’s profile$/ })
     .map((member) => member.querySelector('.member-name')?.textContent);
 const groups = () =>
   screen.queryAllByRole('heading', { level: 3 }).map((heading) => heading.textContent);
@@ -95,7 +95,7 @@ test('sorts members by power then name and opens their profile', async () => {
   await tick();
 
   expect(memberNames()).toEqual(['Amy', 'Bob', 'Zoe']);
-  const amy = screen.getByRole('button', { name: "Open Amy's profile" });
+  const amy = screen.getByRole('button', { name: 'Open Amy’s profile' });
   await user.click(amy);
   expect(onMemberProfile).toHaveBeenCalledWith('@amy:example.org', amy);
 });

@@ -164,7 +164,7 @@
         {loadingMap ? i18n.t('common.loadingMap') : i18n.t('composer.locationShowMap')}
       </Button>
       {#if mapFailed}
-        <Alert variant="critical" role="alert">{i18n.t('common.theMapCouldNotBeLoaded')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('common.mapLoadFailed')}</Alert>
       {/if}
     {/if}
 

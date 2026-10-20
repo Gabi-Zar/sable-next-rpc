@@ -174,7 +174,7 @@
     >
       {#if browseFailed}
         <div class="settings-form">
-          <Alert variant="critical" role="alert">{i18n.t('common.theStateEventWasRejected')}</Alert>
+          <Alert variant="critical" role="alert">{i18n.t('common.stateEventRejected')}</Alert>
         </div>
       {/if}
       {#if stateTypes.length > 0}
@@ -275,7 +275,7 @@
       {#if outcome === 'json'}
         <Alert variant="critical" role="alert">{i18n.t('room.devInvalidJson')}</Alert>
       {:else if outcome === 'failed'}
-        <Alert variant="critical" role="alert">{i18n.t('common.theStateEventWasRejected')}</Alert>
+        <Alert variant="critical" role="alert">{i18n.t('common.stateEventRejected')}</Alert>
       {:else if outcome === 'missing'}
         <Alert variant="info" role="status">{i18n.t('room.devMissing')}</Alert>
       {:else if sent}

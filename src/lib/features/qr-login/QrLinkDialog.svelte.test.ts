@@ -73,7 +73,7 @@ test('links a new device through the code, the check number and a clear failure'
 
   await emit({ stage: 'failed', reason: 'unsupported' });
   expect(screen.getByRole('status')).toHaveTextContent(
-    "Your homeserver doesn't support signing in with a QR code."
+    'Your homeserver doesn’t support signing in with a QR code.'
   );
   expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();

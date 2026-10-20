@@ -270,7 +270,7 @@
                     ? 'join.restrictedFailed'
                     : preview?.join_rule === 'knock_restricted'
                       ? 'join.restrictedKnockRequired'
-                      : 'common.theRoomCouldNotBeJoined'
+                      : 'common.roomJoinFailed'
             )}
           </p>
         {/if}

@@ -74,7 +74,7 @@
   </FormField>
 
   {#if failed}
-    <Alert variant="critical" role="alert">{i18n.t('common.theRoomCouldNotBeJoined')}</Alert>
+    <Alert variant="critical" role="alert">{i18n.t('common.roomJoinFailed')}</Alert>
   {/if}
 
   <Button type="submit" variant="primary" loading={joining} disabled={address.trim() === ''}>
