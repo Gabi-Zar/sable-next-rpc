@@ -98,6 +98,8 @@ jobs:
         with:
           key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
           key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
+      - name: Stamp release version into tauri.conf.json
+        run: node scripts/ci/set-tauri-version.mjs "$VERSION"
       - name: Set up iOS project
         run: |
           command -v pod >/dev/null || brew install cocoapods
@@ -108,8 +110,6 @@ jobs:
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
           rustup target add $RUST_TARGETS
-      - name: Stamp release version into tauri.conf.json
-        run: node scripts/ci/set-tauri-version.mjs "$VERSION"
       - name: Build signed iOS bundle
         id: ipa
         run: |

@@ -890,6 +890,8 @@ jobs:
       - name: Prepare in-place v1 upgrade identity
         if: ${{ needs.setup-release.outputs.nightly != 'true' }}
         run: node scripts/ci/prepare-v1-release.mjs
+      - name: Stamp release version into tauri.conf.json
+        run: node scripts/ci/set-tauri-version.mjs "${VERSION%%-*}"
       - name: Set up iOS project
         run: |
           command -v pod >/dev/null || brew install cocoapods
@@ -900,8 +902,6 @@ jobs:
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
           rustup target add $RUST_TARGETS
-      - name: Stamp release version into tauri.conf.json
-        run: node scripts/ci/set-tauri-version.mjs "${VERSION%%-*}"
       - name: Build iOS bundle
         id: ipa
         run: |
