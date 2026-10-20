@@ -27,10 +27,16 @@ export function capturesFromCamera(): boolean {
 
 export async function saveFile(url: string, filename: string): Promise<SaveOutcome> {
   try {
-    const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    const blob = await (await fetch(url)).blob();
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const mime =
+      [mimeFromName(filename), blob.type, sniffImageMime(bytes)].find(
+        (candidate) => candidate !== '' && candidate !== 'application/octet-stream'
+      ) ?? 'application/octet-stream';
+    const name = withExtension(safeFileName(filename), mime);
     const { type } = await import('@tauri-apps/plugin-os');
     if (type() === 'android') {
-      await saveAndroidFile('Download', filename, mimeFromName(filename), bytes);
+      await saveAndroidFile('Download', name, mime, bytes);
       return 'saved';
     }
 
@@ -39,7 +45,7 @@ export async function saveFile(url: string, filename: string): Promise<SaveOutco
       import('@tauri-apps/plugin-fs'),
     ]);
 
-    const path = await save({ defaultPath: filename });
+    const path = await save({ defaultPath: name });
     if (path === null) return 'cancelled';
 
     await writeFile(path, bytes);
@@ -92,7 +98,7 @@ export async function saveImageToPhotos(
       [mime, blob.type, sniffImageMime(bytes)].find((candidate) =>
         candidate.startsWith('image/')
       ) ?? mime;
-    const name = withImageExtension(filename, imageMime);
+    const name = withExtension(safeFileName(filename), imageMime);
     const { type } = await import('@tauri-apps/plugin-os');
     if (type() === 'android') {
       await saveAndroidFile('Pictures', name, imageMime, bytes);
@@ -263,7 +269,11 @@ function sniffImageMime(bytes: Uint8Array): string {
   return '';
 }
 
-function withImageExtension(filename: string, mime: string): string {
+function safeFileName(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/gu, '_').trim() || 'file';
+}
+
+function withExtension(filename: string, mime: string): string {
   if (mimeFromName(filename) === mime) return filename;
   const extension = Object.entries(MIME_BY_EXTENSION).find(([, type]) => type === mime)?.[0];
   return extension ? `${filename}.${extension}` : filename;

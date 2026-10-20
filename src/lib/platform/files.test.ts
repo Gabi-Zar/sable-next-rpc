@@ -249,6 +249,22 @@ test('Android saves downloads to the public Downloads collection', async () => {
   expect(mocks.androidFs.scanPublicFile).toHaveBeenCalledWith({ uri: 'content://downloads/file' });
 });
 
+test('Android names a download with no extension after its bytes and drops path characters (#1139)', async () => {
+  mocks.isTauri.mockReturnValue(true);
+  mocks.osType.mockReturnValue('android');
+  const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(png)));
+
+  await expect(saveFile('blob:avatar', 'she/her')).resolves.toBe('saved');
+
+  expect(mocks.androidFs.createNewPublicFile).toHaveBeenCalledWith(
+    'Download',
+    'she_her.png',
+    'image/png',
+    { isPending: true, requestPermission: true }
+  );
+});
+
 test('Android saves images to the public Pictures collection', async () => {
   mocks.isTauri.mockReturnValue(true);
   mocks.osType.mockReturnValue('android');
