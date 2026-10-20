@@ -78,7 +78,7 @@ export const i18n = {
   get t() {
     if (preferences.showTranslationStrings)
       return (key: string, options?: Record<string, unknown>) =>
-        `${key}${JSON.stringify(options) ?? ''}`;
+        `${key}${options ? JSON.stringify(options) : ''}`;
     trackTranslations();
     return i18next.t;
   },

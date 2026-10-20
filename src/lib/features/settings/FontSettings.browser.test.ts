@@ -31,9 +31,9 @@ afterEach(() => {
 test('mobile: follows the device font without entering its name', async () => {
   await page.viewport(390, 844);
   const screen = await render(FontSettings);
-  await userEvent.click(screen.getByRole('button', { name: 'Regular Font', exact: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
   await userEvent.click(
-    screen.getByRole('dialog', { name: 'Regular Font', exact: true }).getByRole('radio', {
+    screen.getByRole('dialog', { name: 'Regular font', exact: true }).getByRole('radio', {
       name: 'System',
       exact: true,
     })
@@ -41,7 +41,7 @@ test('mobile: follows the device font without entering its name', async () => {
 
   await expect.poll(() => preferences.fontFamily).toBe('system-ui');
   await expect
-    .element(screen.getByRole('button', { name: 'Regular Font', exact: true }))
+    .element(screen.getByRole('button', { name: 'Regular font', exact: true }))
     .toHaveTextContent('System');
   expect(screen.getByRole('textbox').elements()).toHaveLength(0);
   const stored = JSON.parse(localStorage.getItem('sable-preferences') ?? '{}') as {
@@ -60,17 +60,17 @@ test('desktop: keeps an existing custom font and its draft when switching modes'
   await userEvent.clear(field);
   await expect.element(field).toBeVisible();
   await userEvent.fill(field, 'IBM Plex Mono');
-  await userEvent.click(screen.getByRole('button', { name: 'Regular Font', exact: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
   await userEvent.click(screen.getByRole('option', { name: 'System', exact: true }));
   await expect.poll(() => preferences.fontFamily).toBe('system-ui');
   expect(screen.getByRole('textbox').elements()).toHaveLength(0);
 
-  await userEvent.click(screen.getByRole('button', { name: 'Regular Font', exact: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
   await userEvent.click(screen.getByRole('option', { name: 'Custom', exact: true }));
   await expect.element(field).toHaveValue('IBM Plex Mono');
   await expect.poll(() => preferences.fontFamily).toBe('IBM Plex Mono');
 
-  await userEvent.click(screen.getByRole('button', { name: 'Regular Font', exact: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
   await userEvent.click(screen.getByRole('option', { name: 'Default', exact: true }));
   await expect.poll(() => preferences.fontFamily).toBe('');
 });
@@ -78,10 +78,10 @@ test('desktop: keeps an existing custom font and its draft when switching modes'
 test('mobile: custom starts with an editable empty field and mono has its own system choice', async () => {
   await page.viewport(390, 844);
   const screen = await render(FontSettings);
-  await userEvent.click(screen.getByRole('button', { name: 'Regular Font', exact: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
   await userEvent.click(
     screen
-      .getByRole('dialog', { name: 'Regular Font', exact: true })
+      .getByRole('dialog', { name: 'Regular font', exact: true })
       .getByRole('radio', { name: 'Custom', exact: true })
   );
   const field = screen.getByRole('textbox', { name: 'Font name', exact: true });
@@ -90,10 +90,10 @@ test('mobile: custom starts with an editable empty field and mono has its own sy
   await userEvent.fill(field, 'IBM Plex Mono');
   await expect.poll(() => preferences.fontFamily).toBe('IBM Plex Mono');
 
-  await userEvent.click(screen.getByRole('button', { name: 'Monospaced Font', exact: true }));
+  await userEvent.click(screen.getByRole('button', { name: 'Monospaced font', exact: true }));
   await userEvent.click(
     screen
-      .getByRole('dialog', { name: 'Monospaced Font', exact: true })
+      .getByRole('dialog', { name: 'Monospaced font', exact: true })
       .getByRole('radio', { name: 'System', exact: true })
   );
   await expect.poll(() => preferences.fontFamilyMono).toBe('monospace');
