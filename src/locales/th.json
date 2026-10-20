@@ -246,16 +246,16 @@
     "searchMessages": "ค้นหาข้อความ",
     "searchRooms": "ค้นหาห้อง",
     "createARoom": "สร้างห้อง",
-    "endtoendEncryption": "การเข้ารหัสแบบต้นทางถึงปลายทาง",
+    "endToEndEncryption": "การเข้ารหัสแบบต้นทางถึงปลายทาง",
     "askToJoin": "ขอเข้าร่วม",
     "invitePeople": "เชิญผู้คน",
     "join": "เข้าร่วม",
-    "theRoomCouldNotBeJoined": "ไม่สามารถเข้าร่วมห้องได้",
+    "roomJoinFailed": "ไม่สามารถเข้าร่วมห้องได้",
     "back": "กลับ",
     "copy": "คัดลอก",
     "copied": "คัดลอกแล้ว",
     "download": "ดาวน์โหลด",
-    "iUnderstandThisCannotBeUndone": "ฉันเข้าใจว่าการดำเนินการนี้ไม่สามารถย้อนกลับได้",
+    "confirmIrreversible": "ฉันเข้าใจว่าการดำเนินการนี้ไม่สามารถย้อนกลับได้",
     "createSpace": "สร้างพื้นที่"
   }
 }

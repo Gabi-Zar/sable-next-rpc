@@ -175,9 +175,7 @@
       {/if}
 
       {#if invalid}
-        <Alert variant="critical" role="alert"
-          >{i18n.t('common.aUserIdLooksLikeSomeoneserver')}</Alert
-        >
+        <Alert variant="critical" role="alert">{i18n.t('common.userIdFormatHint')}</Alert>
       {:else if failed}
         <Alert variant="critical" role="alert">{i18n.t('room.inviteSendFailed')}</Alert>
       {:else if invited}

@@ -777,7 +777,7 @@
       }
     ],
     "body": ":blob:",
-    "formatted_body": "<img data-mx-emoticon=\"\" src=\"mxc://example.org/blob\" alt=\":blob:\" title=\":blob:\" height=\"32\">",
+    "formatted_body": "<img data-mx-emoticon=\"\" src=\"mxc://example.org/blob\" alt=\"blob\" title=\"blob\" height=\"32\">",
     "mentions": {
       "user_ids": [],
       "room": false
@@ -817,7 +817,7 @@
       }
     ],
     "body": "`:blob:`",
-    "formatted_body": "<img data-mx-emoticon=\"\" src=\"mxc://example.org/blob\" alt=\":blob:\" title=\":blob:\" height=\"32\">",
+    "formatted_body": "<img data-mx-emoticon=\"\" src=\"mxc://example.org/blob\" alt=\"blob\" title=\"blob\" height=\"32\">",
     "mentions": {
       "user_ids": [],
       "room": false

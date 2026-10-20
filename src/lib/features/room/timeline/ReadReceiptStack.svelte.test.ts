@@ -48,8 +48,8 @@ test('opens profiles from each face', async () => {
     { wrapper: TooltipProvider }
   );
 
-  const bob = screen.getByRole('button', { name: "Open Bob's profile" });
-  expect(screen.getByRole('button', { name: "Open Carol's profile" })).toBeInTheDocument();
+  const bob = screen.getByRole('button', { name: 'Open Bob’s profile' });
+  expect(screen.getByRole('button', { name: 'Open Carol’s profile' })).toBeInTheDocument();
   expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
 
   await user.click(bob);
@@ -152,7 +152,7 @@ test('uses a single chip that opens the list on coarse pointers', async () => {
 
   const chip = screen.getByRole('button', { name: 'Seen by Bob, Carol. Open the list.' });
   expect(chip).toHaveClass('chip');
-  expect(screen.queryByRole('button', { name: "Open Bob's profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Open Bob’s profile' })).not.toBeInTheDocument();
 
   await user.click(chip);
   expect(anchor).toBe(chip);

@@ -132,7 +132,7 @@
     <TextInput
       id="profile-pronouns"
       value={pronouns}
-      placeholder={i18n.t('common.theythemEnsheher')}
+      placeholder={i18n.t('common.pronounsPlaceholder')}
       maxlength={MAX_PRONOUN_INPUT}
       oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
         onPronouns(event.currentTarget.value);
@@ -159,7 +159,7 @@
           id="profile-status"
           value={status}
           maxlength={MAX_STATUS_TEXT_BYTES}
-          placeholder={i18n.t('common.whatAreYouUpTo')}
+          placeholder={i18n.t('common.statusPlaceholder')}
           oninput={(event: Event & { currentTarget: HTMLInputElement }) => {
             onStatus(event.currentTarget.value);
           }}

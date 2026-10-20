@@ -190,7 +190,7 @@
     "createRoom": "Crear sala",
     "save": "Guardar",
     "cancel": "Cancelar",
-    "aUserIdLooksLikeSomeoneserver": "Un identificador de usuario se parece a @alguien:servidor.",
+    "userIdFormatHint": "Un identificador de usuario se parece a @alguien:servidor.",
     "allowNotifications": "Permitir notificaciones",
     "always": "Siempre",
     "apply": "Aplicar",

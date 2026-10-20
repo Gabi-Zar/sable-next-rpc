@@ -212,7 +212,7 @@
         name="persona-pronouns"
         bind:value={pronouns}
         autocomplete="off"
-        placeholder={i18n.t('common.theythemEnsheher')}
+        placeholder={i18n.t('common.pronounsPlaceholder')}
         maxlength={MAX_PRONOUN_INPUT}
       />
     </label>

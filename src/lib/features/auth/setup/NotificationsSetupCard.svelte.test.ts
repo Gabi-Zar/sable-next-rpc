@@ -126,6 +126,6 @@ test('a failed write stays on the step and says so', async () => {
   const { user, onComplete } = await setup();
 
   await user.click(continueButton());
-  expect(await screen.findByText(/couldn't be saved/)).toBeInTheDocument();
+  expect(await screen.findByText(/couldn’t be saved/)).toBeInTheDocument();
   expect(onComplete).not.toHaveBeenCalled();
 });

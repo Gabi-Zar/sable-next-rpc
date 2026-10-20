@@ -83,7 +83,7 @@ fn pill_node(pill: &ComposerPill) -> Node {
             url,
             body,
         } => {
-            let label = format!(":{shortcode}:");
+            let label = shortcode.clone();
             let alt = body
                 .clone()
                 .filter(|body| !body.is_empty() && !body.starts_with("mxc://"))

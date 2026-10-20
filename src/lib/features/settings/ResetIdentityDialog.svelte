@@ -73,7 +73,7 @@
         </ul>
         <label class="understood">
           <input type="checkbox" bind:checked={understood} disabled={reset.busy} />
-          {i18n.t('common.iUnderstandThisCannotBeUndone')}
+          {i18n.t('common.confirmIrreversible')}
         </label>
       {:else if reset.phase === 'password'}
         <Label for="reset-identity-password">{i18n.t('settings.resetIdentityPassword')}</Label>

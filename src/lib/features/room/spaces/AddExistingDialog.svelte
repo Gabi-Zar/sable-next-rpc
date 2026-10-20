@@ -57,9 +57,7 @@
     />
     {#if candidates.length === 0}
       <p class="empty">
-        {search.trim() === ''
-          ? i18n.t('room.lobbyAddNothing')
-          : i18n.t('common.noRoomsMatchThatSearch')}
+        {search.trim() === '' ? i18n.t('room.lobbyAddNothing') : i18n.t('common.noRoomsMatch')}
       </p>
     {:else}
       <RoomChecklist

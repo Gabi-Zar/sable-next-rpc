@@ -289,7 +289,7 @@ test('a plain-mode edit keeps pills between markdown and across paragraphs', () 
   const html =
     '<p><strong>hey</strong> <a href="https://matrix.to/#/@one:example.org">@_one</a></p>' +
     '<p><a href="https://matrix.to/#/!room:example.org?via=example.org">#Room</a> ' +
-    '<img data-mx-emoticon="" src="mxc://other.org/wave" alt=":wave:" title=":wave:" height="32"></p>';
+    '<img data-mx-emoticon="" src="mxc://other.org/wave" alt="wave" title="wave" height="32"></p>';
   const edited = plainEditDoc('**hey** @_one\n\n#Room :wave:', html);
 
   expect(plainTextOf(edited)).toBe('**hey** @_one\n\n#Room :wave:');
@@ -522,7 +522,7 @@ test('an emote keeps its shortcode in the body and an image in the formatted bod
 
   expect(message.body).toBe(':wave:');
   expect(message.formatted).toBe(
-    '<img data-mx-emoticon="" src="mxc://example.org/wave" alt=":wave:" title=":wave:" height="32">'
+    '<img data-mx-emoticon="" src="mxc://example.org/wave" alt="wave" title="wave" height="32">'
   );
 });
 
@@ -705,7 +705,7 @@ describe('plain text mode', () => {
 
     expect(message.body).toBe('hey :wave:');
     expect(message.formatted).toBe(
-      'hey <img data-mx-emoticon="" src="mxc://example.org/wave" alt=":wave:" title=":wave:" height="32">'
+      'hey <img data-mx-emoticon="" src="mxc://example.org/wave" alt="wave" title="wave" height="32">'
     );
   });
 

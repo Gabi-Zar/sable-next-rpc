@@ -55,7 +55,7 @@ test('creates an unencrypted chat when the switch is turned off', async () => {
   core.rpc.rooms.createDm.mockResolvedValue('!dm:example.org');
   render(CreateChatForm);
 
-  await userEvent.setup().click(screen.getByRole('switch', { name: 'common.endtoendEncryption' }));
+  await userEvent.setup().click(screen.getByRole('switch', { name: 'common.endToEndEncryption' }));
   await submit('@alice:example.org');
   await vi.waitFor(() => {
     expect(core.rpc.rooms.createDm).toHaveBeenCalledWith({
@@ -72,7 +72,7 @@ test('rejects an input that is not a user id without calling the core', async ()
 
   expect(core.rpc.rooms.createDm).not.toHaveBeenCalled();
   expect(input()).toBeInvalid();
-  expect(input()).toHaveAccessibleDescription('common.aUserIdLooksLikeSomeoneserver');
+  expect(input()).toHaveAccessibleDescription('common.userIdFormatHint');
 });
 
 test('reports a failed creation and stays on the page', async () => {

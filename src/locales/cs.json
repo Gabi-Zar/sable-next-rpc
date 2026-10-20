@@ -158,14 +158,14 @@
     "cancel": "Zrušit",
     "markAsRead": "Označit jako přečtené",
     "createARoom": "Vytvořit místnost",
-    "endtoendEncryption": "Koncové šifrování",
+    "endToEndEncryption": "Koncové šifrování",
     "askToJoin": "Na žádost",
     "invitePeople": "Pozvat uživatele",
     "add": "Přidat",
-    "aUserIdLooksLikeSomeoneserver": "ID uživatele má podobu @uzivatel:server.",
+    "userIdFormatHint": "ID uživatele má podobu @uzivatel:server.",
     "searchRooms": "Hledat místnosti",
     "loadMore": "Načíst další",
     "join": "Připojit se",
-    "theRoomCouldNotBeJoined": "K místnosti se nepodařilo připojit."
+    "roomJoinFailed": "K místnosti se nepodařilo připojit."
   }
 }

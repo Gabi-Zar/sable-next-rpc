@@ -22,5 +22,5 @@ test('says so when the homeserver does not take this kind of report', async () =
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   await sendReport(() => Promise.reject(new CoreError({ code: 'unsupported' })));
 
-  expect(toasts.error).toHaveBeenCalledWith("Your homeserver can't take this kind of report.");
+  expect(toasts.error).toHaveBeenCalledWith('Your homeserver can’t take this kind of report.');
 });

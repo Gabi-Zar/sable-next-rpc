@@ -25,6 +25,7 @@ export type ShortcutId =
   | 'call.toggleCamera'
   | 'call.toggleScreenShare'
   | 'call.hangUp'
+  | 'call.pushToTalk'
   | 'composer.strong'
   | 'composer.em'
   | 'composer.underline'
@@ -220,6 +221,13 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.hangUp',
     category: 'call',
     binding: 'mod+shift+h',
+  },
+  {
+    id: 'call.pushToTalk',
+    labelKey: 'shortcuts.pushToTalk',
+    category: 'call',
+    binding: 'mod+shift+t',
+    allowInEditable: true,
   },
   {
     id: 'composer.strong',

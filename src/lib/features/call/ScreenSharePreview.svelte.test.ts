@@ -60,7 +60,7 @@ test('previews a remote screen and returns to the call when its name is pressed'
     onReturn,
   });
 
-  const name = await screen.findByRole('button', { name: "Alice's screen" });
+  const name = await screen.findByRole('button', { name: 'Alice’s screen' });
   await userEvent.setup().click(name);
 
   expect(onReturn).toHaveBeenCalledOnce();

@@ -50,7 +50,7 @@
 </script>
 
 <SettingsRow
-  title={i18n.t('common.endtoendEncryption')}
+  title={i18n.t('common.endToEndEncryption')}
   description={enabled ? i18n.t('room.encryptionOn') : i18n.t('room.encryptionOff')}
 >
   {#if enabled}

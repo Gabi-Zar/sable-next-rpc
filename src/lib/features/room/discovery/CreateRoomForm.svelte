@@ -372,7 +372,7 @@
 
   <div class="row">
     <div class="row-text">
-      <span class="field-label">{i18n.t('common.endtoendEncryption')}</span>
+      <span class="field-label">{i18n.t('common.endToEndEncryption')}</span>
       <p class="hint">
         {encryptable
           ? i18n.t('room.createEncryptionHint')
@@ -382,7 +382,7 @@
     <Switch
       checked={encryptable && encrypted}
       disabled={!encryptable}
-      label={i18n.t('common.endtoendEncryption')}
+      label={i18n.t('common.endToEndEncryption')}
       onCheckedChange={(next: boolean) => {
         encrypted = next;
       }}
@@ -432,7 +432,7 @@
       <Button onclick={addInvite}>{i18n.t('common.add')}</Button>
     </div>
     {#if inviteInvalid}
-      <p class="error">{i18n.t('common.aUserIdLooksLikeSomeoneserver')}</p>
+      <p class="error">{i18n.t('common.userIdFormatHint')}</p>
     {/if}
     {#if invites.length > 0}
       <ul class="invites">

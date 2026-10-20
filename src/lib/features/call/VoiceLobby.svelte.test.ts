@@ -21,7 +21,7 @@ test('hides the permission error when a call service is unavailable', () => {
     },
   });
 
-  expect(screen.queryByText("You don't have permission to join.")).not.toBeInTheDocument();
+  expect(screen.queryByText('You don’t have permission to join.')).not.toBeInTheDocument();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
 
@@ -39,7 +39,7 @@ test('shows the permission error when joining is forbidden', () => {
     },
   });
 
-  expect(screen.getByText(/You don't have permission to join\./)).toBeInTheDocument();
+  expect(screen.getByText(/You don’t have permission to join\./)).toBeInTheDocument();
 });
 
 test('says the homeserver cannot host calls when it has no call server', () => {
@@ -57,8 +57,8 @@ test('says the homeserver cannot host calls when it has no call server', () => {
     },
   });
 
-  expect(screen.getByText(/This homeserver can't host calls\./)).toBeInTheDocument();
-  expect(screen.queryByText(/You don't have permission to join/)).not.toBeInTheDocument();
+  expect(screen.getByText(/This homeserver can’t host calls\./)).toBeInTheDocument();
+  expect(screen.queryByText(/You don’t have permission to join/)).not.toBeInTheDocument();
 });
 
 function dock(container: HTMLElement) {
