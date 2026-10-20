@@ -62,6 +62,7 @@ import { composerMarkViews, composerNodeViews } from './node-views';
 import { hasAndroidCompositionQuirk, hasIosKeyboardContextQuirk } from '#lib/platform/input.js';
 
 import { filesFromSources, pastedImageSources } from './pasted-images';
+import { mathInputRule } from './math';
 import { mfmTimeInputRule } from './mfm';
 import { traceComposerInput } from './input-trace';
 import { queryKey, queryPlugin } from './query-plugin';
@@ -771,7 +772,11 @@ export class ComposerEditor {
         rules: [
           shortcodeInputRule(this.options.emotes),
           ...(rich
-            ? [mfmTimeInputRule(composerSchema.nodes.mfm_time), ...formattingInputRules]
+            ? [
+                mfmTimeInputRule(composerSchema.nodes.mfm_time),
+                mathInputRule(composerSchema.nodes.math_inline),
+                ...formattingInputRules,
+              ]
             : []),
         ],
       }),

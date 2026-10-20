@@ -116,8 +116,23 @@
     roomList.rooms.filter((room) => countNotifications([room], roomList.badgeUnreadFor) > 0)
   );
 
-  function markAllRead(): void {
-    markRoomsRead(unreadRooms, core.rpc.timeline, readReceiptIsPrivate());
+  let unreadGroups = $derived(groups.filter((group) => !group.read));
+
+  async function markAllRead(): Promise<void> {
+    const listed = new Set(unreadGroups.map((group) => group.roomId));
+    markRoomsRead(
+      unreadRooms.filter((room) => !listed.has(room.room_id)),
+      core.rpc.timeline,
+      readReceiptIsPrivate()
+    );
+    await Promise.all(
+      unreadGroups.map(async (group) => {
+        if (!(await markRoomRead(group.roomId))) return;
+        for (const item of feed.items) {
+          if (item.room_id === group.roomId) readNow.add(item.event_id);
+        }
+      })
+    );
   }
 
   function openMessage(roomId: string, eventId: string): void {
@@ -173,8 +188,8 @@
     pageSize += PAGE_SIZE;
   }
 
-  async function markRoomRead(roomId: string): Promise<void> {
-    if (marking.has(roomId)) return;
+  async function markRoomRead(roomId: string): Promise<boolean> {
+    if (marking.has(roomId)) return false;
     marking.add(roomId);
     try {
       await core.rpc.timeline.markRead({
@@ -185,9 +200,11 @@
         subscription: null,
         fully_read: false,
       });
+      return true;
     } catch (error) {
       console.warn('[sable inbox] marking the room read failed', error);
       toasts.error(i18n.t('errors.actionFailed'));
+      return false;
     } finally {
       marking.delete(roomId);
     }
@@ -246,8 +263,8 @@
           {i18n.t(filterLabels[value])}
         </Button>
       {/each}
-      {#if !compact && unreadRooms.length > 0}
-        <Button variant="ghost" size="small" class="filter choice" onclick={markAllRead}>
+      {#if !compact && (unreadRooms.length > 0 || unreadGroups.length > 0)}
+        <Button variant="ghost" size="small" class="filter choice" onclick={() => void markAllRead()}>
           {i18n.t('inbox.markAllRead')}
         </Button>
       {/if}

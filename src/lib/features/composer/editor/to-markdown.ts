@@ -297,6 +297,7 @@ const options: Options = {
   },
   unsafe: [
     { character: '|', inConstruct: 'phrasing', after: '\\|' },
+    { character: '$', inConstruct: 'phrasing' },
     { character: '|', inConstruct: 'spoiler' },
     { character: ']', inConstruct: 'mfmColor' },
     { character: '-', atBreak: true, after: '#' },

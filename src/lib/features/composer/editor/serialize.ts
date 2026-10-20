@@ -18,6 +18,7 @@ import type { OutgoingMentions } from '#lib/core/client.svelte.js';
 import type { ImageSourcePackReferenceView } from '#src/generated/protocol';
 
 import { mfmUnixtime, parseMfmColor, parseMfmUnixtime, utcFallbackLabel } from '../time-markup';
+import { mathPlugin } from './math';
 import { mfmPlugin } from './mfm';
 import { isMscLink, linkMscs } from './msc-links';
 import { codeLanguage, composerSchema, parseMatrixHtml, ROOM_PING } from './schema';
@@ -545,7 +546,8 @@ export function mentionsOf(doc: ProseMirrorNode): OutgoingMentions {
 
 const tokenizer = MarkdownIt('commonmark', { html: false })
   .enable(['strikethrough', 'table'])
-  .use(mfmPlugin);
+  .use(mfmPlugin)
+  .use(mathPlugin);
 
 const RECEIVER_FORMATS = new Set([
   'em_open',
@@ -650,6 +652,8 @@ const PARSE_TOKENS: Record<string, ParseSpec> = {
     getAttrs: (token) => ({ level: Math.min(6, Number(token.tag.slice(1))) }),
   },
   subtext: { block: 'subtext' },
+  math_block: { node: 'math_block', getAttrs: (token) => ({ latex: token.content }) },
+  math_inline: { node: 'math_inline', getAttrs: (token) => ({ latex: token.content }) },
   code_block: { block: 'code_block', noCloseToken: true },
   fence: {
     block: 'code_block',

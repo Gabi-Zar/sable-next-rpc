@@ -277,6 +277,19 @@ describe('document replacement', () => {
   });
 });
 
+test('typing $…$ in the rich composer inserts inline math, but prices stay text', () => {
+  const sent = (text: string): string | null => {
+    const editor = open();
+    typeAfterBreak(editor, text);
+    const doc = editor.doc();
+    if (!doc) throw new Error('no document');
+    return serializeComposer(doc).formatted;
+  };
+
+  expect(sent('so $x^2$ ok')).toBe('so <span data-mx-maths="x^2"><code>x^2</code></span> ok');
+  expect(sent('costs $5 and $6')).toBeNull();
+});
+
 describe('history reset', () => {
   test('prevents Undo from restoring sent content', () => {
     const editor = open();
