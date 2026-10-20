@@ -674,8 +674,8 @@ jobs:
       - name: Show the signing keychain state
         if: ${{ env.APPLE_CERTIFICATE != '' }}
         run: |
-          security default-keychain -d user
-          security list-keychains -d user | head -n 5
+          security default-keychain
+          security list-keychains | head -n 5
           security find-identity -p codesigning | head -n 8
       - name: Build desktop bundle
         run: |
@@ -837,8 +837,8 @@ jobs:
       - name: Show the signing keychain state
         if: ${{ env.APPLE_CERTIFICATE != '' }}
         run: |
-          security default-keychain -d user
-          security list-keychains -d user | head -n 5
+          security default-keychain
+          security list-keychains | head -n 5
           security find-identity -p codesigning | head -n 8
       - name: Package
         run: |

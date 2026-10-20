@@ -32,8 +32,8 @@ runs:
         security import "$ca" -k "$keychain"
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
         rm "$RUNNER_TEMP/certificate.p12"
-        security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '" ')
-        security default-keychain -d user -s "$keychain"
+        security list-keychains -s "$keychain" $(security list-keychains | tr -d '" ')
+        security default-keychain -s "$keychain"
         # find-identity -v and codesign's lookup by name find no valid identity on the
         # runner although verify-cert accepts the chain, so the chain is checked with
         # verify-cert and the identity is passed to codesign by hash.
