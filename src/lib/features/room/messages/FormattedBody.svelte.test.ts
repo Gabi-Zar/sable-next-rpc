@@ -579,6 +579,21 @@ test('shows a room abbreviation definition in a tooltip on hover', async () => {
   );
 });
 
+test('names a custom emoji by its shortcode, not its alt text, on hover', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer(1)));
+  render(FormattedBody, {
+    props: {
+      html: '<img data-mx-emoticon src="mxc://example.org/emoji" alt="😈" title=":pulexFoxPrideMonth:" height="32">',
+    },
+  });
+  await tick();
+
+  await user.hover(screen.getByRole('img', { name: '😈' }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(document.querySelector('.tooltip')?.textContent.trim()).toBe(':pulexFoxPrideMonth:');
+});
+
 test('shows the target of a link whose text differs from it on hover', async () => {
   render(FormattedBodyHarness, {
     props: { html: '<p><a href="https://example.com/a">click here</a></p>', entries: [] },

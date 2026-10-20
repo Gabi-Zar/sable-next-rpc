@@ -214,7 +214,7 @@
   }
 
   function emoteShortcode(image: HTMLImageElement): string | null {
-    const label = image.alt.replace(/^:|:$/g, '');
+    const label = (image.dataset.shortcode || image.alt).replace(/^:|:$/g, '');
     return label ? `:${label}:` : null;
   }
 
@@ -287,6 +287,7 @@
         }
         for (const image of node.querySelectorAll<HTMLImageElement>('img[data-mx-emoticon]')) {
           image.alt ||= image.title;
+          if (image.title) image.dataset.shortcode = image.title;
           image.removeAttribute('title');
         }
         for (const element of node.querySelectorAll<HTMLTimeElement>('time[datetime]')) {
