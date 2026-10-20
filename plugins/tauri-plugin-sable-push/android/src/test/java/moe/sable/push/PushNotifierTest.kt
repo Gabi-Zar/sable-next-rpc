@@ -198,12 +198,24 @@ class PushNotifierTest {
 
     @Test
     fun recordsWhyARecipientBoundPushWasDropped() {
-        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE", "@bob:example.org" to "BOB")
         for ((recipient, outcome) in listOf(null to PushOutcome.MISSING_RECIPIENT, "@other:example.org" to PushOutcome.WRONG_RECIPIENT)) {
             PushNotifier.showFromPush(context, pushPayload("!room:example.org", "\$event", userId = recipient))
             assertEquals(outcome.name, PushDiagnostics.drain(context).lastOutcome)
             assertTrue(notificationManager.activeNotifications.isEmpty())
         }
+    }
+
+    @Test
+    fun aRoomPushWithoutARecipientGoesToTheOnlySignedInAccount() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+
+        PushNotifier.showFromPush(context, pushPayload("!room:example.org", "\$event", userId = null))
+
+        assertEquals(
+            listOf(PushNotifier.roomNotificationId("@alice:example.org", "!room:example.org")),
+            notificationManager.activeNotifications.map { it.id }
+        )
     }
 
     @Test

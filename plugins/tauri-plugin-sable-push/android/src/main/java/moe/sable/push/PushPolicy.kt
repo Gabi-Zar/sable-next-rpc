@@ -46,4 +46,6 @@ internal class PushPolicy(context: Context) {
     fun deviceIdFor(userId: String): String? = if (userId.isEmpty()) null else accounts[userId]
 
     fun knowsAnyAccount(): Boolean = accounts.isNotEmpty()
+
+    fun soleAccount(): String? = accounts.keys.singleOrNull()
 }

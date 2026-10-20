@@ -69,18 +69,20 @@ object PushNotifier {
             return
         }
         val roomId = notification.optString("room_id")
+        val store = PushPolicy(context)
         val userId = notification.optString("user_id")
+            .ifEmpty { if (roomId.isEmpty()) "" else store.soleAccount().orEmpty() }
+        if (userId.isNotEmpty()) notification.put("user_id", userId)
         val eventId = notification.optString("event_id")
         val trace = PushTrace(userId, roomId, eventId)
         if (eventId.startsWith(DIAGNOSTIC_EVENT_PREFIX)) {
             PushDiagnostics.record(context, PushOutcome.DIAGNOSTIC_RECEIVED, trace)
             return
         }
-        if (!PushPolicy(context).notificationsEnabled) {
+        if (!store.notificationsEnabled) {
             PushDiagnostics.record(context, PushOutcome.DISABLED, trace)
             return
         }
-        val store = PushPolicy(context)
         val deviceId = store.deviceIdFor(userId)
         if (roomId.isEmpty()) {
             if (deviceId != null && notification.optJSONObject("counts")?.optInt("unread", -1) == 0) {
