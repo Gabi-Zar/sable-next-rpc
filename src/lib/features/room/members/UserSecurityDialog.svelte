@@ -5,8 +5,10 @@
   import type { UserDeviceView, UserSecurityView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { hasDirectRoom, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
+  import ConfirmDialog from '#lib/ui/primitives/ConfirmDialog.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
@@ -21,6 +23,8 @@
 
   let { open, userId, displayName, onOpenChange }: Props = $props();
   const core = useCoreClient();
+  const roomList = useRoomList();
+  let confirmingDirect = $state(false);
   let security = $state<UserSecurityView | null>(null);
   let loading = $state(false);
   let error = $state(false);
@@ -59,6 +63,11 @@
       active = false;
     };
   });
+
+  function startVerification(): void {
+    if (hasDirectRoom(roomList.rooms, userId)) void verify();
+    else confirmingDirect = true;
+  }
 
   async function verify(): Promise<void> {
     if (verifying) return;
@@ -158,7 +167,7 @@
         {#if security.verification !== 'verified'}
           <Button
             variant="primary"
-            onclick={() => void verify()}
+            onclick={startVerification}
             disabled={verifying || security.verification === 'unknown'}
           >
             {i18n.t('timeline.profileVerify')}
@@ -210,6 +219,18 @@
     {#if error}<Alert variant="critical" role="alert">{i18n.t('settings.actionFailed')}</Alert>{/if}
   </div>
 </DialogFrame>
+
+<ConfirmDialog
+  bind:open={confirmingDirect}
+  title={i18n.t('direct.confirmTitle', { name: displayName })}
+  description={i18n.t('direct.confirmBody')}
+  confirmLabel={i18n.t('timeline.profileVerify')}
+  confirmVariant="primary"
+  onConfirm={() => {
+    confirmingDirect = false;
+    void verify();
+  }}
+/>
 
 <style>
   .security-header,

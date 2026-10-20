@@ -1,10 +1,18 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('#lib/core/context.js');
+
+const { rooms } = vi.hoisted(() => ({
+  rooms: [] as { is_direct: boolean; is_tombstoned: boolean; direct_targets: string[] }[],
+}));
+vi.mock('#lib/rooms/room-list.svelte.js', async (importActual) => ({
+  ...(await importActual<typeof import('#lib/rooms/room-list.svelte.js')>()),
+  useRoomList: () => ({ rooms }),
+}));
 
 import { core } from '#lib/core/__mocks__/context.js';
 import UserSecurityDialog from './UserSecurityDialog.svelte';
@@ -35,6 +43,11 @@ const requestVerification = vi.fn(() => Promise.resolve('flow'));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  rooms.splice(0, rooms.length, {
+    is_direct: true,
+    is_tombstoned: false,
+    direct_targets: ['@alice:example.org'],
+  });
   Object.assign(core, { requestVerification });
   Object.assign(core.rpc.encryption, { userSecurity });
 });
@@ -56,6 +69,28 @@ test('shows identity and MSC4153 device eligibility, then starts user verificati
 
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Verify identity' }));
+  expect(requestVerification).toHaveBeenCalledWith('@alice:example.org');
+});
+
+test('asks before verifying someone it has no chat with', async () => {
+  rooms.length = 0;
+  render(UserSecurityDialog, {
+    props: {
+      open: true,
+      userId: '@alice:example.org',
+      displayName: 'Alice',
+      onOpenChange: vi.fn(),
+    },
+  });
+  const user = userEvent.setup();
+
+  await user.click(await screen.findByRole('button', { name: 'Verify identity' }));
+  expect(requestVerification).not.toHaveBeenCalled();
+
+  const warning = await screen.findByText('Start a chat with Alice?');
+  const confirm = warning.closest('[role="dialog"]');
+  if (!(confirm instanceof HTMLElement)) throw new Error('no confirmation dialog');
+  await user.click(within(confirm).getByRole('button', { name: 'Verify identity' }));
   expect(requestVerification).toHaveBeenCalledWith('@alice:example.org');
 });
 
