@@ -9,6 +9,7 @@
     TimelineItemView,
   } from '#src/generated/protocol';
 
+  import { formattedForEditing } from '#lib/composer/composer-context.js';
   import { editMessage } from '#lib/core/api/messages.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
@@ -141,7 +142,7 @@
     if (content.kind !== 'message' && !media) return;
     const body = content.kind === 'message' ? content.body : (content.caption ?? '');
     void editMessage(core.rpc, roomId, item.event_id, body, {
-      formatted: content.html,
+      formatted: formattedForEditing(content.html),
       kind: reproxyKind(content),
       mediaCaption: media,
       threadRoot: item.thread_root ?? null,
