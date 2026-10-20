@@ -243,6 +243,7 @@
     if (applied && saving)
       return t('room.cosmeticsApplying', {
         done: applied.done + applied.failed,
+        count: applied.total,
         total: applied.total,
       });
     if (applied?.failed)

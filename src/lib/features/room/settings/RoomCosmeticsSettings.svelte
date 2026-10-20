@@ -76,6 +76,7 @@
     if (saving === 'apply' && applied)
       return i18n.t('room.cosmeticsApplying', {
         done: applied.done + applied.failed,
+        count: applied.total,
         total: applied.total,
       });
     if (applied?.failed)

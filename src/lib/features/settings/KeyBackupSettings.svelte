@@ -26,6 +26,7 @@
       ? i18n.t('settings.keyBackupDownloading')
       : i18n.t('settings.keyBackupProgress', {
           processed: download?.processed ?? 0,
+          count: download?.total ?? 0,
           total: download?.total ?? 0,
         })
   );
@@ -137,6 +138,7 @@
           <p class="secondary">
             {i18n.t('settings.keyBackupUploadCount', {
               backedUp: status.backed_up_keys,
+              count: status.local_keys,
               total: status.local_keys,
             })}
           </p>
@@ -164,6 +166,7 @@
           <p role="status">
             {i18n.t('settings.keyBackupRestored', {
               downloaded: download.processed - download.failed,
+              count: download.total,
               total: download.total,
             })}
           </p>

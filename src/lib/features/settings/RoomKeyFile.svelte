@@ -97,7 +97,7 @@
         export: await file.text(),
         passphrase: importPassphrase,
       });
-      notice = t('settings.roomKeysImported', { imported, total });
+      notice = t('settings.roomKeysImported', { imported, count: total, total });
       closeImport();
     } catch (cause) {
       console.warn('[sable settings] room key import failed', cause);
