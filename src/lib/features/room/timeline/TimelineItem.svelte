@@ -374,7 +374,10 @@
       if (actionable && !rowPress.pending && !dialogs.isOpen(item, 'sheet')) rowPress.fire(event);
       return;
     }
-    if (!actionable) return;
+    if (!actionable) {
+      if (pending) event.preventDefault();
+      return;
+    }
     event.preventDefault();
     emoteAnchor = cursorAnchor(event);
     const link =

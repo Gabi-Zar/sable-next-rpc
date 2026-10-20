@@ -1525,6 +1525,23 @@ test('shows an indeterminate upload bar until the core reports progress', async 
   expect(screen.getByRole('progressbar')).toHaveAttribute('data-indeterminate');
 });
 
+test('a right click on a message still sending does not open the browser menu', async () => {
+  const sending: TimelineItemView = {
+    ...item(false),
+    event_id: null,
+    transaction_id: 'txn-text',
+    is_own: true,
+    send_state: { status: 'sending', progress: null },
+  };
+  render(TimelineItemHarness, { props: { core, item: { item: sending, collapsed: false } } });
+  await tick();
+
+  const native = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+  document.querySelector('article')?.dispatchEvent(native);
+
+  expect(native.defaultPrevented).toBe(true);
+});
+
 test('cancels an upload that is still sending', async () => {
   const onCancelSend = vi.fn();
   const upload: TimelineItemView = {
