@@ -63,11 +63,16 @@ pub(crate) struct State {
     revision: u64,
     intent: Option<CallIntent>,
     slot_closed: bool,
+    slot_closed_midcall: bool,
     slot_checked_ms: u64,
     publisher_attempt_ms: u64,
 }
 
 impl State {
+    pub(super) const fn left_because_slot_closed(&self) -> bool {
+        self.slot_closed_midcall
+    }
+
     fn new(
         own: CallMember,
         members: Vec<CallMember>,
@@ -104,6 +109,7 @@ impl State {
             own_observed: false,
             intent,
             slot_closed,
+            slot_closed_midcall: false,
             slot_checked_ms: keys::now_ms(),
             publisher_attempt_ms: 0,
         }
@@ -375,9 +381,7 @@ async fn retract(core: &Core, room: &Room, own: &CallMember, delay: Option<Strin
         if sticky::send(
             &room.client(),
             room,
-            sticky::StickyKeyOut {
-                msc4354_sticky_key: own.member_id.clone(),
-            },
+            sticky::LeaveOut::new(own.member_id.clone(), sticky::LeaveCode::Leave),
         )
         .await
         .is_err()
@@ -388,6 +392,10 @@ async fn retract(core: &Core, room: &Room, own: &CallMember, delay: Option<Strin
         core.retract_membership(room, &state_key(room, own), None)
             .await;
     }
+}
+
+async fn room_slot_closed(core: &Core, room: &Room) -> Result<bool, RpcError> {
+    Ok(super::slot_closed(room, core.room_is_encrypted(room).await?).await)
 }
 
 async fn discover(
@@ -420,7 +428,7 @@ async fn discover(
     for event in sticky::live_events(room) {
         sticky_members.apply(&event, keys::now_ms());
     }
-    let slot_closed = sticky_sync.is_some() && super::slot_closed(room).await;
+    let slot_closed = sticky_sync.is_some() && room_slot_closed(core, room).await?;
     let mut members = membership::active_members(room).await;
     if !slot_closed {
         merge_sticky(&mut members, sticky_members.members(keys::now_ms()));
@@ -538,9 +546,7 @@ async fn publish(
                 &room.client(),
                 support,
                 room,
-                sticky::StickyKeyOut {
-                    msc4354_sticky_key: own.member_id.clone(),
-                },
+                sticky::LeaveOut::new(own.member_id.clone(), sticky::LeaveCode::DelayedLeave),
                 HANGUP_DELAY,
             )
             .await
@@ -868,6 +874,9 @@ async fn refresh(
     shared: &Mutex<State>,
 ) -> bool {
     recheck_slot(room, shared).await;
+    if shared.lock().await.slot_closed_midcall {
+        return false;
+    }
     let mut members = membership::active_members(room).await;
     let own = {
         let mut state = shared.lock().await;
@@ -956,18 +965,22 @@ async fn refresh(
 
 async fn recheck_slot(room: &Room, shared: &Mutex<State>) {
     let now = keys::now_ms();
-    let due = {
+    let (due, encrypted) = {
         let state = shared.lock().await;
-        now.saturating_sub(state.slot_checked_ms) >= SLOT_CHECK_INTERVAL_MS
-            && state
-                .sticky
-                .members(now)
-                .iter()
-                .any(|member| !member.is_own(&state.own.user_id, &state.own.device_id))
+        (
+            now.saturating_sub(state.slot_checked_ms) >= SLOT_CHECK_INTERVAL_MS
+                && state
+                    .sticky
+                    .members(now)
+                    .iter()
+                    .any(|member| !member.is_own(&state.own.user_id, &state.own.device_id)),
+            state.distributor.is_some(),
+        )
     };
     if due {
-        let closed = super::slot_closed(room).await;
+        let closed = super::slot_closed(room, encrypted).await;
         let mut state = shared.lock().await;
+        state.slot_closed_midcall |= closed && !state.slot_closed;
         state.slot_closed = closed;
         state.slot_checked_ms = now;
     }

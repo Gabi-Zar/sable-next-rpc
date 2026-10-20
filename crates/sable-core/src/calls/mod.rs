@@ -105,6 +105,17 @@ struct SlotRead {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
     application: Option<ApplicationRead>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default)]
+    encryption: Option<EncryptionRead>,
+}
+
+#[serde_as]
+#[derive(Deserialize)]
+struct EncryptionRead {
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "type")]
+    kind: Option<String>,
 }
 
 #[serde_as]
@@ -119,13 +130,18 @@ fn read_slot(content: &Value) -> SlotRead {
     SlotRead::deserialize(content).unwrap_or_default()
 }
 
-fn slot_is_open(slot: &SlotRead) -> bool {
+fn slot_is_open(slot: &SlotRead, encrypted: bool) -> bool {
     slot.status.as_deref() == Some("open")
         && slot
             .application
             .as_ref()
             .and_then(|application| application.kind.as_deref())
             == Some(APPLICATION_SUFFIX)
+        && (!encrypted
+            || slot
+                .encryption
+                .as_ref()
+                .is_some_and(|encryption| encryption.kind.is_some()))
 }
 
 async fn stored_slot(room: &Room, event_type: &str) -> Option<Value> {
@@ -155,20 +171,20 @@ async fn fetched_slot(room: &Room, event_type: &str) -> Option<Value> {
     Some(value.get("content").cloned().unwrap_or(value))
 }
 
-async fn has_open_slot(room: &Room) -> bool {
+async fn has_open_slot(room: &Room, encrypted: bool) -> bool {
     for event_type in SLOT_TYPES {
         let content = match stored_slot(room, event_type).await {
             Some(content) => Some(content),
             None => fetched_slot(room, event_type).await,
         };
-        if content.is_some_and(|content| slot_is_open(&read_slot(&content))) {
+        if content.is_some_and(|content| slot_is_open(&read_slot(&content), encrypted)) {
             return true;
         }
     }
     false
 }
 
-pub(super) async fn slot_closed(room: &Room) -> bool {
+pub(super) async fn slot_closed(room: &Room, encrypted: bool) -> bool {
     let mut closed = false;
     for event_type in SLOT_TYPES {
         let content = match stored_slot(room, event_type).await {
@@ -177,10 +193,10 @@ pub(super) async fn slot_closed(room: &Room) -> bool {
         };
         if let Some(content) = content {
             let slot = read_slot(&content);
-            if slot_is_open(&slot) {
+            if slot_is_open(&slot, encrypted) {
                 return false;
             }
-            closed |= slot.status.as_deref() == Some("closed");
+            closed |= matches!(slot.status.as_deref(), Some("closed" | "open"));
         }
     }
     closed
@@ -229,7 +245,7 @@ impl OpenSlot {
 }
 
 pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
-    if has_open_slot(room).await {
+    if has_open_slot(room, encrypted).await {
         return true;
     }
     let client = room.client();
@@ -607,13 +623,7 @@ impl Core {
         for mut call in calls {
             drop(call.updates.take());
             drop(call.postpone.take());
-            let result = match call.delay_id.clone() {
-                Some(delay_id) => match self.fire_hangup(delay_id).await {
-                    Ok(result) => Ok(result),
-                    Err(_) => self.send_left_membership(&call).await,
-                },
-                None => self.send_left_membership(&call).await,
-            };
+            let result = self.hang_up(&call).await;
             if let Err(error) = result {
                 tracing::warn!(?error, room_id = %call.room_id, "could not hang up on session end");
             }
@@ -633,13 +643,7 @@ impl Core {
 
         drop(call.updates.take());
         drop(call.postpone.take());
-        let result = match call.delay_id.clone() {
-            Some(delay_id) => match self.fire_hangup(delay_id).await {
-                Ok(result) => Ok(result),
-                Err(_) => self.send_left_membership(&call).await,
-            },
-            None => self.send_left_membership(&call).await,
-        };
+        let result = self.hang_up(&call).await;
         // A call kept sync running past `Suspended`; stop it before the audio session ends.
         self.apply_app_activity(false).await;
         result
@@ -667,15 +671,40 @@ impl Core {
             .or_failed(self, "leave_call")
     }
 
-    async fn send_left_membership(&self, call: &CallSession) -> Result<(), RpcError> {
+    async fn hang_up(&self, call: &CallSession) -> Result<(), RpcError> {
+        let slot_closed = call.state.lock().await.left_because_slot_closed();
+        let Some(delay_id) = call.delay_id.clone() else {
+            return self.send_left_membership(call, slot_closed).await;
+        };
+        if slot_closed {
+            let result = self.send_left_membership(call, true).await;
+            if let Ok(client) = self.client().await {
+                let _ = delayed_events::update(&client, delay_id, UpdateAction::Cancel).await;
+            }
+            return result;
+        }
+        match self.fire_hangup(delay_id).await {
+            Ok(result) => Ok(result),
+            Err(_) => self.send_left_membership(call, false).await,
+        }
+    }
+
+    async fn send_left_membership(
+        &self,
+        call: &CallSession,
+        slot_closed: bool,
+    ) -> Result<(), RpcError> {
         if let Some(member_id) = &call.sticky_member {
             let room = self.room(&call.room_id).await?;
+            let code = if slot_closed {
+                sticky::LeaveCode::SlotClosed
+            } else {
+                sticky::LeaveCode::Leave
+            };
             sticky::send(
                 &room.client(),
                 &room,
-                sticky::StickyKeyOut {
-                    msc4354_sticky_key: Some(member_id.clone()),
-                },
+                sticky::LeaveOut::new(Some(member_id.clone()), code),
             )
             .await
             .map_err(|error| self.room_error("leave_call", error))?;
@@ -819,8 +848,26 @@ mod tests {
     }
 
     #[test]
+    fn test_an_encrypted_room_needs_a_slot_with_encryption() {
+        let open = |content: serde_json::Value, encrypted| {
+            super::slot_is_open(&super::read_slot(&content), encrypted)
+        };
+        let plain = serde_json::json!({"status": "open", "application": {"type": "m.call"}});
+        let encrypted = serde_json::json!({
+            "status": "open",
+            "application": {"type": "m.call"},
+            "encryption": {"type": "org.matrix.msc4143.per_member"},
+        });
+        assert!(open(plain.clone(), false));
+        assert!(!open(plain, true));
+        assert!(open(encrypted.clone(), true));
+        assert!(open(encrypted, false));
+    }
+
+    #[test]
     fn test_slot_reads_ignore_wrong_typed_fields() {
-        let open = |content: serde_json::Value| super::slot_is_open(&super::read_slot(&content));
+        let open =
+            |content: serde_json::Value| super::slot_is_open(&super::read_slot(&content), false);
         assert!(open(
             serde_json::json!({"status": "open", "application": {"type": "m.call"}})
         ));

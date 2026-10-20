@@ -373,7 +373,13 @@ impl StickyMemberships {
         }) {
             return false;
         }
-        let tombstone = content.rest.keys().all(|field| field == "slot_id");
+        let left = content
+            .rest
+            .get("member")
+            .and_then(|member| member.get("membership"))
+            .and_then(serde_json::Value::as_str)
+            == Some("leave");
+        let tombstone = left || content.rest.keys().all(|field| field == "slot_id");
         let member = if tombstone {
             None
         } else {
@@ -690,6 +696,24 @@ mod tests {
         leave["type"] = serde_json::json!("org.matrix.msc4143.rtc.member");
         leave["content"] =
             serde_json::json!({"slot_id":"m.call#ROOM", "msc4354_sticky_key":"member"});
+        assert!(store.apply(&leave, 200));
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
+    }
+
+    #[test]
+    fn an_explicit_sticky_leave_is_a_tombstone() {
+        let mut store = super::StickyMemberships::default();
+        assert!(store.apply(&sticky_event("$a", 100), 100));
+        let mut leave = sticky_event("$b", 200);
+        leave["content"] = serde_json::json!({
+            "slot_id": "m.call#ROOM",
+            "member": {"id": "member", "membership": "leave"},
+            "leave_reason": {"code": "leave"},
+            "msc4354_sticky_key": "member",
+        });
         assert!(store.apply(&leave, 200));
         assert_eq!(
             store.members(200),

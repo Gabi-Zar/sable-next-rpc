@@ -108,6 +108,7 @@ async fn discover_with_peers(
             );
         }
     }
+    server.mock_room_state_encryption().plain().mount().await;
     let room = server.sync_room(&client, builder).await;
     if mode == CallMode::Matrix2 {
         Mock::given(method("POST"))
@@ -484,6 +485,7 @@ async fn an_element_call_peers_key_is_emitted_on_the_oldest_members_focus() {
         revision: 0,
         intent: None,
         slot_closed: false,
+        slot_closed_midcall: false,
         slot_checked_ms: 0,
         publisher_attempt_ms: 0,
     };
@@ -666,6 +668,7 @@ async fn refresh_fixture(
             revision: 0,
             intent: None,
             slot_closed: false,
+            slot_closed_midcall: false,
             slot_checked_ms: 0,
             publisher_attempt_ms: 0,
         }),

@@ -125,9 +125,45 @@ struct StampedEventOut {
     msc4354_sticky: Option<StickyOut>,
 }
 
+#[derive(Clone, Copy, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum LeaveCode {
+    Leave,
+    DelayedLeave,
+    SlotClosed,
+}
+
 #[derive(serde::Serialize)]
-pub(super) struct StickyKeyOut {
-    pub(super) msc4354_sticky_key: Option<String>,
+struct LeaveMember {
+    id: Option<String>,
+    membership: &'static str,
+}
+
+#[derive(serde::Serialize)]
+struct LeaveReason {
+    code: LeaveCode,
+}
+
+#[derive(serde::Serialize)]
+pub(super) struct LeaveOut {
+    slot_id: &'static str,
+    member: LeaveMember,
+    leave_reason: LeaveReason,
+    msc4354_sticky_key: Option<String>,
+}
+
+impl LeaveOut {
+    pub(super) fn new(member_id: Option<String>, code: LeaveCode) -> Self {
+        Self {
+            slot_id: crate::view::CALL_SLOT_ID,
+            member: LeaveMember {
+                id: member_id.clone(),
+                membership: "leave",
+            },
+            leave_reason: LeaveReason { code },
+            msc4354_sticky_key: member_id,
+        }
+    }
 }
 
 pub(super) async fn send(
