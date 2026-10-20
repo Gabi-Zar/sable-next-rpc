@@ -174,13 +174,7 @@ If your platform is not listed or you would like to download packages directly, 
 
 # Getting Started with Development
 
-## Buiding without mise
-
-Put Node, pnpm, Rust (with the `wasm32-unknown-unknown` target) and
-	`wasm-bindgen-cli` (the version in `Cargo.lock`) on your `PATH`, then run
-	`pnpm install` and `pnpm build`.
-
-## Using mise
+> You can read more about getting started [on the developer wiki](https://git.sable.moe/SableClient/sable-next/wiki/Getting-started).
 
 Clone the repository  
 `git clone https://git.sable.moe/SableClient/sable-next.git`
@@ -202,7 +196,7 @@ can run while the development server is using `src/generated/wasm/`.
 
 Run `mise tasks` for the full list.
 
-### Building without mise
+## Building without mise
 
 Put Node, pnpm, Rust (with the `wasm32-unknown-unknown` target) and
 `wasm-bindgen-cli` (the version in `Cargo.lock`) on your `PATH`, then run
