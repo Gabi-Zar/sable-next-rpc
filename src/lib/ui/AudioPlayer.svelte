@@ -130,7 +130,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-200);
-    padding: var(--space-250);
   }
 
   .audio-container-attached {

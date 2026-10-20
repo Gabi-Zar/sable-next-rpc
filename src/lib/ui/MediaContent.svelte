@@ -1,32 +1,26 @@
 <script lang="ts">
   import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
-  import PlayIcon from 'phosphor-svelte/lib/PlayIcon';
+  import FileIcon from 'phosphor-svelte/lib/FileIcon';
 
   import type { AudioMetadataView, VideoPlaybackView } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { savesNatively } from '#lib/platform/files.js';
   import AudioTrack from '#lib/ui/AudioTrack.svelte';
-  import { blurhashDataUrl } from '#lib/ui/blurhash.js';
   import PdfThumbnail from '#lib/ui/PdfThumbnail.svelte';
   import { isPdfAttachment } from '#lib/ui/pdf-attachment.js';
   import { formatByteSize } from '#lib/ui/byte-size.js';
   import { cachedMediaUrl, holdMediaUrl, loadMediaUrl, retryMediaUrl } from '#lib/ui/media-url.js';
   import { mediaProgress } from '#lib/ui/media-progress.svelte.js';
   import { mediaRetryDelay } from '#lib/ui/media-retry.js';
-  import { mimeExtension } from '#lib/ui/mime-extension.js';
   import Button from '#lib/ui/primitives/Button.svelte';
-  import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
-  import MediaImage from '#lib/ui/MediaImage.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
+  import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
   import TextAttachmentViewer from '#lib/ui/TextAttachmentViewer.svelte';
   import ThemeFileCard from '#lib/ui/ThemeFileCard.svelte';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { isThemeFileName, MAX_THEME_FILE_BYTES } from '#lib/settings/theme-file.js';
   import { downloadUrl } from '#lib/ui/download.js';
-  import { videoStreamingSupported, videoStreamUrl } from '#lib/ui/video-stream.svelte.js';
-  import { videoPlayback } from '#lib/ui/video-playback.js';
-  import { canPlayVideo } from '#lib/ui/video-support.js';
   import {
     MAX_TEXT_ATTACHMENT_BYTES,
     isTextAttachment,
@@ -34,8 +28,7 @@
   } from '#lib/ui/text-attachment.js';
   import VoiceMessagePlayer from '#lib/ui/VoiceMessagePlayer.svelte';
   import AudioPlayer from './AudioPlayer.svelte';
-
-  const BLURHASH_POSTER_WIDTH = 32;
+  import VideoPlayer from './VideoPlayer.svelte';
 
   interface Props {
     source: string;
@@ -77,7 +70,6 @@
     declaredKind === 'file' && mime?.toLowerCase().startsWith('audio/') ? 'audio' : declaredKind
   );
   let url = $state<string | null>(null);
-  let videoEl = $state<HTMLVideoElement>();
   let failed = $state(false);
   let retryCount = $state(0);
   let retryAt = $state(0);
@@ -85,59 +77,13 @@
   let loadGeneration = $state(0);
   let retryNextLoad = false;
   let backoffSource: string | null = null;
-  /* An unsized video lays out at the UA's 150px, then jumps to its intrinsic
-     size once metadata arrives, shoving the rows below it down. */
   let mediaLabel = $derived(
     filename ||
-      (kind === 'video'
-        ? i18n.t('timeline.videoAttachment')
-        : kind === 'audio'
-          ? i18n.t('timeline.audioAttachment')
-          : i18n.t('timeline.fileAttachment'))
-  );
-  /* Unlatches where no re-encoder answers, so a pessimistic `canPlayType`
-     cannot strand the attachment. */
-  let streamUnavailable = $state(false);
-  let transcode = $derived(
-    kind === 'video' && !canPlayVideo(mime) && !streamUnavailable && videoStreamingSupported(core)
+      (kind === 'audio' ? i18n.t('timeline.audioAttachment') : i18n.t('timeline.fileAttachment'))
   );
   /* Keyed by source: a recycled tile must not inherit another's start. */
   let startedSource = $state<string | null>(null);
-  let streamUrl: string | null = null;
-  let streamEpoch = 0;
-  let video = $derived(videoPlayback(playback));
-  let started = $derived(
-    startedSource === source || (kind === 'video' && video.autoplay && !transcode)
-  );
-  let awaitingPlay = $derived(kind === 'video' && !started && url === null);
-  let posterFailed = $state<string | null>(null);
-  let aspectRatio = $derived(
-    kind === 'video' &&
-      typeof width === 'number' &&
-      typeof height === 'number' &&
-      Number.isFinite(width) &&
-      Number.isFinite(height) &&
-      width > 0 &&
-      height > 0
-      ? `${String(width)} / ${String(height)}`
-      : kind === 'video'
-        ? '16 / 9'
-        : undefined
-  );
-  let posterUrl = $derived.by(() => {
-    if (blurhash === null) return undefined;
-    const ratio =
-      typeof width === 'number' && typeof height === 'number' && width > 0 && height > 0
-        ? width / height
-        : 16 / 9;
-    const posterHeight = Math.max(1, Math.round(BLURHASH_POSTER_WIDTH / ratio));
-    try {
-      return blurhashDataUrl(blurhash, BLURHASH_POSTER_WIDTH, posterHeight) ?? undefined;
-    } catch (error) {
-      console.debug('[sable media] the blurhash poster could not be decoded', error);
-      return undefined;
-    }
-  });
+  let started = $derived(startedSource === source);
   let isPdf = $derived(kind === 'file' && isPdfAttachment(mime, filename));
   let isText = $derived(
     kind === 'file' &&
@@ -153,7 +99,6 @@
       isThemeFileName(filename)
   );
   let deferred = $derived(kind === 'video' || (kind === 'file' && !isPdf && !isText));
-  let extension = $derived(mimeExtension(mime, filename));
   let sizeLabel = $derived(size !== null ? formatByteSize(size) : null);
   let retryWait = $derived(Math.max(0, retryAt - clock));
   const loading = mediaProgress(core, () => (!url && !failed ? source : null));
@@ -203,14 +148,6 @@
       retryCount = 0;
       retryAt = 0;
     }
-    if (transcode) {
-      // Started by the play button: an effect re-run would restart
-      // the encode and supersede the stream already feeding the element.
-      if (!started) url = null;
-      return () => {
-        active = false;
-      };
-    }
 
     const release = holdMediaUrl(core, source, 0, 0);
     const cached = cachedMediaUrl(core, source, 0, 0);
@@ -243,45 +180,10 @@
     };
   });
 
-  function adoptStream(next: string | null): void {
-    if (streamUrl !== null && streamUrl !== next) URL.revokeObjectURL(streamUrl);
-    streamUrl = next;
-  }
-
   $effect(() => {
     void source;
-    return () => {
-      streamEpoch += 1;
-      adoptStream(null);
-    };
+    return () => {};
   });
-
-  function play(): void {
-    startedSource = source;
-    if (!transcode) return;
-    url = null;
-    const wanted = source;
-    const epoch = streamEpoch;
-    void videoStreamUrl(
-      core,
-      wanted,
-      () => videoEl?.currentTime ?? 0,
-      (next) => {
-        if (startedSource === wanted) url = next;
-      }
-    )
-      .then((next) => {
-        if (epoch !== streamEpoch || startedSource !== wanted) {
-          URL.revokeObjectURL(next);
-          return;
-        }
-        adoptStream(next);
-        url = next;
-      })
-      .catch(() => {
-        streamUnavailable = true;
-      });
-  }
 
   function retry(): void {
     if (retryWait > 0) return;
@@ -293,147 +195,108 @@
   }
 </script>
 
-<div
-  class={['media-frame', `media-frame-${kind}`, className]}
-  style:aspect-ratio={aspectRatio}
-  style:--media-ratio={aspectRatio}
-  aria-busy={!url && !failed ? 'true' : undefined}
->
-  {#if failed}
-    <span class="media-error">
-      {mediaLabel}: {i18n.t('timeline.mediaUnavailable')}
-      <Button class="retry-media" size="small" onclick={retry} disabled={retryWait > 0}>
-        {retryLabel}
-      </Button>
-    </span>
-  {:else if url}
-    {#if kind === 'video'}
-      <video
-        bind:this={videoEl}
-        class="media-content media-video"
-        controls={video.controls}
-        controlslist={savesNatively() ? 'nodownload' : undefined}
-        autoplay={started}
-        loop={video.loop}
-        muted={video.muted}
-        playsinline
-        src={url}
-        poster={posterUrl}
-        width={width ?? undefined}
-        height={height ?? undefined}
-        style:aspect-ratio={aspectRatio}
-        aria-label={mediaLabel}
-      >
-        {filename}
-      </video>
-    {:else if kind === 'audio' && waveform !== null && waveform.length > 0}
-      <VoiceMessagePlayer {url} body={filename} {durationMs} {waveform} />
-    {:else if kind === 'audio'}
-      {#if audioMetadata}<AudioTrack metadata={audioMetadata} fallbackTitle={mediaLabel} />{/if}
-      <AudioPlayer src={url} {filename} label={mediaLabel} attachedTop={audioMetadata !== null}
-      ></AudioPlayer>
-    {:else}
-      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
-      <a class="media-file" href={url} download={mediaLabel} onclick={download}>
-        {#if extension}<span class="media-file-ext">{extension}</span>{/if}
+{#if kind === 'video'}
+  <VideoPlayer
+    {source}
+    {mime}
+    {filename}
+    {width}
+    {height}
+    {blurhash}
+    {thumbnail}
+    {playback}
+    class={className}
+  />
+{:else}
+  <div
+    class={['media-frame', `media-frame-${kind}`, className]}
+    aria-busy={!url && !failed ? 'true' : undefined}
+  >
+    {#if failed}
+      <span class="media-error">
+        {mediaLabel}: {i18n.t('timeline.mediaUnavailable')}
+        <Button class="retry-media" size="small" onclick={retry} disabled={retryWait > 0}>
+          {retryLabel}
+        </Button>
+      </span>
+    {:else if url}
+      {#if kind === 'audio' && waveform !== null && waveform.length > 0}
+        <VoiceMessagePlayer {url} body={filename} {durationMs} {waveform} />
+      {:else if kind === 'audio'}
+        {#if audioMetadata}<AudioTrack metadata={audioMetadata} fallbackTitle={mediaLabel} />{/if}
+        <AudioPlayer src={url} {filename} label={mediaLabel} attachedTop={audioMetadata !== null}
+        ></AudioPlayer>
+      {:else}
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
+        <span class="media-file">
+          <FileIcon size={24} />
+          <span class="media-file-name">{mediaLabel}</span>
+          {#if sizeLabel}<span class="media-file-size">{sizeLabel}</span>{/if}
+        </span>
+        {#if isThemeFile}
+          <ThemeFileCard src={url} name={filename} />
+        {/if}
+        {#if isPdf}
+          <PdfThumbnail src={url} name={mediaLabel} {onOpen} />
+        {:else if isText}
+          <TextAttachmentViewer
+            src={url}
+            name={mediaLabel}
+            language={textLanguage}
+            onDownload={download}
+          />
+        {/if}
+        <div class="media-actions">
+          <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
+          <LinkButton
+            class="media-download"
+            href={url}
+            download={mediaLabel}
+            size="small"
+            onclick={download}
+          >
+            <DownloadSimpleIcon aria-hidden="true" />
+            {i18n.t('common.download')}
+          </LinkButton>
+        </div>
+      {/if}
+    {:else if kind === 'file'}
+      <span class="media-file">
+        <FileIcon size={24} />
         <span class="media-file-name">{mediaLabel}</span>
         {#if sizeLabel}<span class="media-file-size">{sizeLabel}</span>{/if}
-      </a>
-      {#if isThemeFile}
-        <ThemeFileCard src={url} name={filename} />
-      {/if}
-      {#if isPdf}
-        <PdfThumbnail src={url} name={mediaLabel} {onOpen} />
-      {:else if isText}
-        <TextAttachmentViewer
-          src={url}
-          name={mediaLabel}
-          language={textLanguage}
-          onDownload={download}
-        />
-      {/if}
-      <div class="media-actions">
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
-        <LinkButton
-          class="media-download"
-          href={url}
-          download={mediaLabel}
-          size="small"
-          onclick={download}
-        >
-          <DownloadSimpleIcon aria-hidden="true" />
-          {sizeLabel
-            ? i18n.t('timeline.downloadFileSized', { size: sizeLabel })
-            : i18n.t('common.download')}
-        </LinkButton>
-      </div>
-    {/if}
-  {:else if kind === 'file'}
-    <span class="media-file">
-      {#if extension}<span class="media-file-ext">{extension}</span>{/if}
-      <span class="media-file-name">{mediaLabel}</span>
-      {#if sizeLabel}<span class="media-file-size">{sizeLabel}</span>{/if}
-    </span>
-    {#if deferred && !started}
-      <div class="media-actions">
-        <Button class="media-download" size="small" onclick={fetchFile}>
-          <DownloadSimpleIcon aria-hidden="true" />
-          {sizeLabel
-            ? i18n.t('timeline.downloadFileSized', { size: sizeLabel })
-            : i18n.t('common.download')}
-        </Button>
-      </div>
-    {/if}
-  {:else if kind === 'video'}
-    {#if thumbnail && posterFailed !== thumbnail}
-      <MediaImage
-        class="media-poster"
-        source={thumbnail}
-        alt=""
-        width={800}
-        height={600}
-        intrinsicWidth={width}
-        intrinsicHeight={height}
-        {blurhash}
-        onfailed={(source) => {
-          posterFailed = source;
-        }}
-      />
-    {:else if posterUrl}
-      <img class="media-loading-poster" src={posterUrl} alt="" aria-hidden="true" />
-    {/if}
-  {/if}
-  {#if awaitingPlay && !failed}
-    <button
-      type="button"
-      class="media-play"
-      onclick={play}
-      aria-label={i18n.t('timeline.playVideo', { name: mediaLabel })}
-    >
-      <span class="media-play-badge" aria-hidden="true">
-        <PlayIcon weight="fill" />
       </span>
-    </button>
-  {:else if !failed && !url && !(deferred && !started)}
-    <span class="media-loading">
-      <span class="media-loading-status">
-        <Spinner small />
-        {#if transcode}
-          <span class="media-loading-label">{i18n.t('timeline.videoConverting')}</span>
-        {:else if loading.percent !== null}
-          <span class="media-loading-label">
-            {i18n.t('timeline.downloadProgress', { percent: loading.percent })}
-          </span>
-        {/if}
+      {#if deferred && !started}
+        <div class="media-actions">
+          <Button class="media-download" size="small" onclick={fetchFile}>
+            <DownloadSimpleIcon aria-hidden="true" />
+            {i18n.t('common.download')}
+          </Button>
+        </div>
+      {/if}
+    {/if}
+    {#if !failed && !url && !!started}
+      <span class="media-loading">
+        <span class="media-loading-status">
+          <Spinner small />
+          {#if loading.percent !== null}
+            <span class="media-loading-label">
+              {i18n.t('timeline.downloadProgress', { percent: loading.percent })}
+            </span>
+          {/if}
+        </span>
       </span>
-    </span>
-  {/if}
-</div>
+    {/if}
+  </div>
+{/if}
 
 <style>
   .media-frame {
+    background-color: var(--surface-var-container);
+    border-radius: var(--radius);
     display: block;
     max-width: 100%;
+    padding: var(--space-250);
     position: relative;
   }
 
@@ -501,37 +364,12 @@
     width: var(--control-height-medium);
   }
 
-  .media-frame-video {
-    background: var(--surface-var-container);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
   .media-frame-audio {
     min-height: var(--control-height-medium);
   }
 
-  .media-content {
-    display: block;
-    margin-top: var(--space-100);
-    max-width: 100%;
-    width: 100%;
-  }
-
-  /* Fallback for a dimensionless event; the timeline estimator assumes it. */
-  .media-video {
-    aspect-ratio: 16 / 9;
-    background: var(--surface-var-container);
-    border-radius: var(--radius);
-    height: 100%;
-    margin-top: 0;
-    object-fit: contain;
-    width: 100%;
-  }
-
   .media-file {
     align-items: center;
-    color: var(--primary-main);
     display: inline-flex;
     gap: var(--space-100);
     margin-top: var(--space-100);
@@ -553,7 +391,7 @@
   }
 
   .media-file-name {
-    font-size: var(--font-size-label);
+    font-size: var(--font-size-small);
     min-width: 0;
     overflow-wrap: anywhere;
   }

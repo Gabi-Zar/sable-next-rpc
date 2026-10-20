@@ -1083,7 +1083,7 @@ test('downloads an image from its message menu, with progress on the message', a
 
   finish(bytes);
   await vi.waitFor(() => {
-    expect(saveBytes).toHaveBeenCalledWith(bytes, 'photo.png', 'image/png');
+    expect(saveBytes).toHaveBeenCalledWith(bytes, 'photo.png', 'image/png', true);
   });
   expect(screen.queryByRole('progressbar')).toBeNull();
   instance.unmount();
