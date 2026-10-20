@@ -30,4 +30,28 @@ describe('listCallDevices', () => {
       'audioinput:speaker',
     ]);
   });
+
+  it('is not denied when only a camera is unnamed', async () => {
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        enumerateDevices: () =>
+          Promise.resolve([
+            device('audioinput', 'mic', 'USB microphone'),
+            device('videoinput', 'camera', ''),
+          ]),
+      },
+    });
+
+    expect((await listCallDevices()).denied).toBe(false);
+  });
+
+  it('is denied when a microphone is unnamed', async () => {
+    vi.stubGlobal('navigator', {
+      mediaDevices: {
+        enumerateDevices: () => Promise.resolve([device('audioinput', 'mic', '')]),
+      },
+    });
+
+    expect((await listCallDevices()).denied).toBe(true);
+  });
 });

@@ -39,7 +39,10 @@ export async function listCallDevices(): Promise<{ devices: CallDevice[]; denied
         kind: device.kind,
         label: device.label,
       }));
-    return { devices, denied: all.some((device) => device.label === '') };
+    return {
+      devices,
+      denied: all.some((device) => device.kind === 'audioinput' && device.label === ''),
+    };
   } catch (error) {
     console.debug('[sable call] could not enumerate devices', error);
     return { devices: [], denied: true };
