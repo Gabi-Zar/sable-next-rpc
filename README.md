@@ -133,7 +133,7 @@ The cask is published to the GitHub tap, which `brew install` taps by default, a
 
 ### App Store
 
-soon™
+There is a [Testflight](https://testflight.apple.com/join/PT2DSC3f) you can join while the app is under review. It will be available on the App Store soon™.
 
 ### AltStore / SideStore
 
