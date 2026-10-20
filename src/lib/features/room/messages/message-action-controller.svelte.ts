@@ -7,6 +7,7 @@ import { t } from '#lib/i18n.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
 import { saveBytes, savesNatively } from '#lib/platform/files.js';
 import { favoriteGifs, isFavorite, toggleFavorite } from '#lib/gif/favorites.svelte.js';
+import { preferences } from '#lib/settings/preferences.svelte.js';
 import { gifFromProxiedMxc } from '#lib/gif/providers.js';
 import { downloadCandidates, emoteCandidates } from '#lib/features/emotes/steal-emotes.js';
 import { pinErrorMessage, type PinnedEvents } from '../timeline/pinned-events.svelte.js';
@@ -130,7 +131,8 @@ export class MessageActionExecutor {
         const outcome = await saveBytes(
           bytes,
           media.filename || 'attachment',
-          media.mime ?? 'application/octet-stream'
+          media.mime ?? 'application/octet-stream',
+          preferences.askDownloadLocation
         );
         if (outcome === 'saved' && savesNatively()) toasts.info(t('viewer.saved'));
         if (outcome === 'failed') toasts.error(t('errors.actionFailed'));

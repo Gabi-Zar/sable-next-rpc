@@ -393,6 +393,7 @@ export interface Preferences {
   autoUpdateCheck: boolean;
   updateChannel: UpdateChannel;
   closeToTray: boolean;
+  askDownloadLocation: boolean;
   minimizeToTray: boolean;
   showSystemTrayIcon: boolean;
   useCustomTitleBar: boolean;
@@ -740,6 +741,7 @@ const DEFAULTS: Preferences = {
   autoUpdateCheck: true,
   updateChannel: import.meta.env.VITE_APP_VERSION?.includes('-nightly.') ? 'nightly' : 'stable',
   closeToTray: false,
+  askDownloadLocation: true,
   minimizeToTray: false,
   showSystemTrayIcon: true,
   useCustomTitleBar: customTitleBarDefault(),

@@ -25,7 +25,11 @@ export function capturesFromCamera(): boolean {
   return !isTauri() && typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 }
 
-export async function saveFile(url: string, filename: string): Promise<SaveOutcome> {
+export async function saveFile(
+  url: string,
+  filename: string,
+  askLocation = true
+): Promise<SaveOutcome> {
   try {
     const blob = await (await fetch(url)).blob();
     const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -45,6 +49,18 @@ export async function saveFile(url: string, filename: string): Promise<SaveOutco
       import('@tauri-apps/plugin-fs'),
     ]);
 
+    if (!askLocation) {
+      const { downloadDir, join } = await import('@tauri-apps/api/path');
+      const directory = await downloadDir();
+      const create = async (candidate: string) =>
+        writeFile(await join(directory, candidate), bytes, { createNew: true });
+      await create(name).catch((error: unknown) => {
+        console.debug('[sable files] download name is taken, retrying', error);
+        return create(timestamped(name));
+      });
+      return 'saved';
+    }
+
     const path = await save({ defaultPath: name });
     if (path === null) return 'cancelled';
 
@@ -56,8 +72,12 @@ export async function saveFile(url: string, filename: string): Promise<SaveOutco
   }
 }
 
-export async function saveUrl(url: string, filename: string): Promise<SaveOutcome> {
-  if (savesNatively()) return saveFile(url, filename);
+export async function saveUrl(
+  url: string,
+  filename: string,
+  askLocation = true
+): Promise<SaveOutcome> {
+  if (savesNatively()) return saveFile(url, filename, askLocation);
 
   const link = document.createElement('a');
   link.href = url;
@@ -69,11 +89,12 @@ export async function saveUrl(url: string, filename: string): Promise<SaveOutcom
 export async function saveBytes(
   bytes: Uint8Array<ArrayBuffer>,
   filename: string,
-  mime: string
+  mime: string,
+  askLocation = true
 ): Promise<SaveOutcome> {
   const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
   try {
-    return await saveUrl(url, filename);
+    return await saveUrl(url, filename, askLocation);
   } finally {
     URL.revokeObjectURL(url);
   }

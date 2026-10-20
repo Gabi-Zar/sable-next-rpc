@@ -56,6 +56,7 @@ export const NON_SYNCABLE_KEYS = new Set<keyof Preferences>([
   'autoUpdateCheck',
   'updateChannel',
   'closeToTray',
+  'askDownloadLocation',
   'minimizeToTray',
   'showSystemTrayIcon',
   'useCustomTitleBar',

@@ -60,6 +60,15 @@ export const desktopCategories: SettingsCategory[] =
               supported: supportsTray,
             },
             {
+              key: 'askDownloadLocation',
+              section: 'window',
+              icon: DesktopIcon,
+              name: 'settings.askDownloadLocation',
+              description: 'settings.askDownloadLocationHint',
+              type: 'boolean',
+              supported: supportsDesktopWindow,
+            },
+            {
               key: 'hardwareAcceleration',
               section: 'performance',
               icon: GraphicsCardIcon,

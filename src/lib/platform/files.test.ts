@@ -52,6 +52,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 }));
 vi.mock('@tauri-apps/api/path', () => ({
   appCacheDir: mocks.appCacheDir,
+  downloadDir: () => Promise.resolve('/dl'),
   join: (...parts: string[]) => Promise.resolve(parts.join('/')),
 }));
 vi.mock('@choochmeque/tauri-plugin-sharekit-api', () => ({ shareFile: mocks.shareNative }));
@@ -512,6 +513,34 @@ test('saved bytes reach Android Downloads with the type their name declares', as
       requestPermission: true,
     }
   );
+});
+
+test('a desktop download goes straight to the Downloads folder when it is not asked about', async () => {
+  mocks.isTauri.mockReturnValue(true);
+  mocks.osType.mockReturnValue('linux');
+  mocks.fsWriteFile.mockResolvedValue(undefined);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))));
+
+  await expect(saveFile('blob:wave', 'wave.png', false)).resolves.toBe('saved');
+
+  expect(mocks.dialogSave).not.toHaveBeenCalled();
+  expect(mocks.fsWriteFile).toHaveBeenCalledWith('/dl/wave.png', new Uint8Array([1, 2, 3]), {
+    createNew: true,
+  });
+});
+
+test('a desktop download keeps an existing file by retrying under a new name', async () => {
+  mocks.isTauri.mockReturnValue(true);
+  mocks.osType.mockReturnValue('linux');
+  vi.spyOn(Date, 'now').mockReturnValue(1000);
+  mocks.fsWriteFile.mockRejectedValueOnce(new Error('exists')).mockResolvedValueOnce(undefined);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1]))));
+
+  await expect(saveFile('blob:wave', 'wave.png', false)).resolves.toBe('saved');
+
+  expect(mocks.fsWriteFile).toHaveBeenLastCalledWith('/dl/wave-1000.png', new Uint8Array([1]), {
+    createNew: true,
+  });
 });
 
 test('saved bytes go through the iOS save dialog rather than an anchor', async () => {

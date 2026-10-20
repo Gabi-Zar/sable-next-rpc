@@ -8,6 +8,10 @@
     "dialog:allow-save",
     "dialog:allow-open",
     "fs:allow-write-file",
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [{ "path": "$DOWNLOAD/*" }]
+    },
     "fs:allow-read-file",
     "updater:default",
     "process:allow-restart",

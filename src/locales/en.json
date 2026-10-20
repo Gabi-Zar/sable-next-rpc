@@ -2430,6 +2430,8 @@
     "emoteRoomsEmpty": "No room packs are enabled everywhere.",
     "emoteRoomsRemove": "Stop using the pack from {{name}}",
     "desktopTitle": "Desktop app",
+    "askDownloadLocation": "Ask where to save downloads",
+    "askDownloadLocationHint": "When off, downloaded media goes straight to your Downloads folder.",
     "closeToTray": "Close to the tray",
     "closeToTrayHint": "Closing the window hides the app. Quit from the tray icon.",
     "minimizeToTray": "Minimize to the tray",
