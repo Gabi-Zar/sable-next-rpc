@@ -665,18 +665,6 @@ jobs:
           args=''
           [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
           node scripts/ci/set-tauri-version.mjs "$VERSION" $args
-      - name: Import the signing identity
-        if: ${{ env.APPLE_CERTIFICATE != '' }}
-        uses: ./.forgejo/actions/apple-signing-keychain
-        with:
-          certificate: ${{ secrets.APPLE_CERTIFICATE }}
-          password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      - name: Show the signing keychain state
-        if: ${{ env.APPLE_CERTIFICATE != '' }}
-        run: |
-          security default-keychain
-          security list-keychains | head -n 5
-          security find-identity -p codesigning | head -n 8
       - name: Build desktop bundle
         run: |
           config_args=(--config src-tauri/tauri.ci.conf.json)
@@ -685,11 +673,7 @@ jobs:
           [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] \
             && config_args+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
           [ -z "${APPLE_CERTIFICATE:-}" ] && unset APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
-          unset APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD
           pnpm tauri build "${config_args[@]}" --target universal-apple-darwin
-      - name: Remove the signing keychain
-        if: ${{ always() && env.APPLE_CERTIFICATE != '' }}
-        run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
       - name: Upload native symbols to Sentry
         run: node scripts/ci/upload-sentry-symbols.mjs target
       - name: Normalize bundle names
@@ -834,12 +818,6 @@ jobs:
         with:
           certificate: ${{ secrets.APPLE_CERTIFICATE }}
           password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      - name: Show the signing keychain state
-        if: ${{ env.APPLE_CERTIFICATE != '' }}
-        run: |
-          security default-keychain
-          security list-keychains | head -n 5
-          security find-identity -p codesigning | head -n 8
       - name: Package
         run: |
           sign_args=()
