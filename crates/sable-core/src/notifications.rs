@@ -1016,7 +1016,12 @@ async fn fetch_push_event_with(
         return PushFetchView::Unavailable;
     };
     match notifications.get_notification(room_id, event_id).await {
-        Ok(NotificationStatus::Event(item)) if !item.actions.as_deref().is_some_and(notifies) => {
+        Ok(NotificationStatus::Event(item))
+            if item
+                .actions
+                .as_deref()
+                .is_some_and(|actions| !notifies(actions)) =>
+        {
             PushFetchView::Discard
         }
         Ok(NotificationStatus::Event(item)) => {
@@ -2223,17 +2228,28 @@ mod tests {
         fixture: &ColdFixture,
         event: &serde_json::Value,
     ) -> (wiremock::MockGuard, wiremock::MockGuard) {
+        mount_fetch_with(fixture, event, true).await
+    }
+
+    async fn mount_fetch_with(
+        fixture: &ColdFixture,
+        event: &serde_json::Value,
+        own_member: bool,
+    ) -> (wiremock::MockGuard, wiremock::MockGuard) {
         use matrix_sdk::ruma::api::client::sync::sync_events::v5;
 
         let mut room = v5::response::Room::new();
         room.initial = Some(true);
         room.timeline = vec![Raw::from_json_string(event.to_string()).unwrap()];
-        room.required_state = vec![
-            matrix_sdk_test::event_factory::EventFactory::new()
-                .room(room_id!("!cold:example.org"))
-                .member(user_id!("@alice:example.org"))
-                .into_raw(),
-        ];
+        room.required_state = own_member
+            .then(|| {
+                matrix_sdk_test::event_factory::EventFactory::new()
+                    .room(room_id!("!cold:example.org"))
+                    .member(user_id!("@alice:example.org"))
+                    .into_raw()
+            })
+            .into_iter()
+            .collect();
         let mut response = v5::Response::new("1".to_owned());
         response.rooms =
             std::collections::BTreeMap::from([(room_id!("!cold:example.org").to_owned(), room)]);
@@ -2250,6 +2266,30 @@ mod tests {
             .mount_as_scoped()
             .await;
         (sync, encryption)
+    }
+
+    #[tokio::test]
+    async fn a_pushed_event_whose_rules_cannot_be_evaluated_is_still_fetched() {
+        let fixture = ColdFixture::new("fetch-unevaluated", cold_room_without_me(), None).await;
+        let message = json!({"type": "m.room.message", "event_id": "$unevaluated",
+            "sender": "@sender:example.org", "origin_server_ts": 1,
+            "content": {"msgtype": "m.text", "body": "rules unknown"}});
+        let _mocks = mount_fetch_with(&fixture, &message, false).await;
+
+        let fetched = fetch_cold_push_event(
+            &fixture.data_dir,
+            "@alice:example.org",
+            "A",
+            COLD_ROOM,
+            "$unevaluated",
+        )
+        .await;
+
+        assert!(
+            matches!(fetched, PushFetchView::Event { .. }),
+            "{fetched:?}"
+        );
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
     #[tokio::test]
