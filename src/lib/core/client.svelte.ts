@@ -43,6 +43,7 @@ export type { CreateRoomOptions } from './api/rooms.js';
 const profileCacheFreshMs = 2 * 60 * 1000;
 const profileFailureRetryMs = 60 * 1000;
 const relationsCacheFreshMs = 60 * 1000;
+const SLOW_START_MS = 15_000;
 const MAX_PROFILE_CACHE_ENTRIES = 256;
 const MAX_RELATIONS_CACHE_ENTRIES = 128;
 const MAX_PROFILE_LOOKUPS = 24;
@@ -143,6 +144,7 @@ export class CoreClient {
   storageInterrupted = $state(false);
   superseded = $state(false);
   restoreFailed = $state(false);
+  slowStart = $state(false);
   migrationFailed = $state(false);
   migrationError = $state<string | null>(null);
   sync = $state<SyncStatus | null>(null);
@@ -236,6 +238,12 @@ export class CoreClient {
     } finally {
       if (this.startPromise === promise) this.startPromise = null;
     }
+  }
+
+  /** `start()` would otherwise join the stuck attempt. */
+  retryStart(): Promise<void> {
+    this.startPromise = null;
+    return this.start();
   }
 
   async login(
@@ -956,8 +964,14 @@ export class CoreClient {
   private async startTransport(): Promise<void> {
     const generation = ++this.generation;
     this.status = 'starting';
+    this.slowStart = false;
     this.migrationFailed = false;
     this.migrationError = null;
+    const slow = setTimeout(() => {
+      if (generation !== this.generation || this.status !== 'starting') return;
+      this.slowStart = true;
+      reportSessionFailure('restore_slow');
+    }, SLOW_START_MS);
 
     try {
       const transport = this.ensureTransport();
@@ -1009,6 +1023,9 @@ export class CoreClient {
       this.migrationError = error instanceof V1MigrationError ? error.message : null;
       this.status = 'error';
       this.cleanupTransport();
+    } finally {
+      clearTimeout(slow);
+      if (generation === this.generation) this.slowStart = false;
     }
   }
 

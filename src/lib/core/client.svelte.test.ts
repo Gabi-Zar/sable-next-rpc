@@ -1,5 +1,7 @@
 import { afterEach, expect, test, vi } from 'vitest';
 
+import { reportSessionFailure } from '#lib/observability/session-telemetry.js';
+
 import type { CoreEvent, SessionInfo } from '#src/generated/protocol';
 import { CoreError, type Transport } from '#src/transport';
 
@@ -8,6 +10,8 @@ import { recentSearches, rememberSearch } from '#lib/search/recent-searches.svel
 import { joinRoom } from './api/rooms.js';
 import { createCoreClient } from './client.svelte.js';
 import { markVoiceRecording } from './attachment-info.js';
+
+vi.mock('#lib/observability/session-telemetry.js', () => ({ reportSessionFailure: vi.fn() }));
 
 const localNetwork = vi.hoisted(() => ({ gated: false, denied: false }));
 
@@ -50,6 +54,72 @@ test('a locked account keeps its session and clears the lock after switching acc
   expect(core.accountLocked).toBe(false);
   expect(core.session).toEqual(otherSession);
   expect(fake.deleteAccountStore).not.toHaveBeenCalled();
+});
+
+test('a restore that takes longer than fifteen seconds is reported as a slow start', async () => {
+  vi.useFakeTimers();
+  try {
+    const fake = fakeTransport({ 'session.restore': () => new Promise(() => {}) });
+    const core = createCoreClient(() => fake.transport);
+    void core.start();
+
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(core.slowStart).toBe(false);
+    expect(reportSessionFailure).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(core.slowStart).toBe(true);
+    expect(core.status).toBe('starting');
+    expect(reportSessionFailure).toHaveBeenCalledWith('restore_slow');
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('a slow restore that finishes clears the slow start', async () => {
+  vi.useFakeTimers();
+  try {
+    let finish: (value: SessionInfo) => void = () => {};
+    const fake = fakeTransport({
+      'session.restore': () => new Promise<SessionInfo>((resolve) => (finish = resolve)),
+      'session.list_accounts': [session],
+    });
+    const core = createCoreClient(() => fake.transport);
+    const started = core.start();
+
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(core.slowStart).toBe(true);
+
+    finish(session);
+    await started;
+    expect(core.status).toBe('ready');
+    expect(core.slowStart).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test('retrying a stuck start begins a new attempt instead of joining it', async () => {
+  vi.useFakeTimers();
+  try {
+    let stuck = true;
+    const fake = fakeTransport({
+      'session.restore': () => (stuck ? new Promise(() => {}) : session),
+      'session.list_accounts': [session],
+    });
+    const core = createCoreClient(() => fake.transport);
+    void core.start();
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(core.slowStart).toBe(true);
+
+    stuck = false;
+    await core.retryStart();
+
+    expect(core.status).toBe('ready');
+    expect(core.slowStart).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test('keeps a lock event that arrives before the restored session response', async () => {

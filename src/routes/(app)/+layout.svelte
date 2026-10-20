@@ -1153,6 +1153,10 @@
           ? i18n.t('app.pettingAnimal', { animal: loadingAnimal })
           : i18n.t('common.startingSable')}
       </h1>
+      {#if core.slowStart}
+        <p>{i18n.t('app.startSlow')}</p>
+        <Button onclick={() => void core.retryStart()}>{i18n.t('common.tryAgain')}</Button>
+      {/if}
     </div>
   </main>
 {/if}

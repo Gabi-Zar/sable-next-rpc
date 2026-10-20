@@ -2,8 +2,21 @@ import * as Sentry from '@sentry/sveltekit';
 import { CoreError } from '#src/transport';
 import { isTauri } from '@tauri-apps/api/core';
 
+const LAST_RUN_VERSION_KEY = 'sable.lastRunVersion';
+
+const launchedAfterUpdate = (() => {
+  const current = import.meta.env.VITE_APP_VERSION ?? 'dev';
+  try {
+    const previous = localStorage.getItem(LAST_RUN_VERSION_KEY);
+    localStorage.setItem(LAST_RUN_VERSION_KEY, current);
+    return previous !== null && previous !== current;
+  } catch {
+    return false;
+  }
+})();
+
 export function reportSessionFailure(
-  operation: 'restore' | 'restore_fallback' | 'session_ended',
+  operation: 'restore' | 'restore_fallback' | 'restore_slow' | 'session_ended',
   error?: unknown,
   reason?: string
 ): void {
@@ -16,12 +29,15 @@ export function reportSessionFailure(
         ? reason === 'soft_logout' || reason === 'token_rejected'
           ? reason
           : 'unknown'
-        : (detail?.code ?? 'transport_failure'),
+        : operation === 'restore_slow'
+          ? 'slow'
+          : (detail?.code ?? 'transport_failure'),
+    'session.after_update': String(launchedAfterUpdate),
     runtime: isTauri() ? 'native' : 'web',
   };
   const logId = detail?.code === 'failed' ? detail.log_id : undefined;
   Sentry.captureMessage(`session.${operation}`, {
-    level: operation === 'session_ended' ? 'warning' : 'error',
+    level: operation === 'session_ended' || operation === 'restore_slow' ? 'warning' : 'error',
     fingerprint: ['session', operation, tags['session.reason']],
     tags,
     extra: logId ? { log_id: logId } : undefined,

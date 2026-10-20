@@ -16,8 +16,29 @@ test('reports a restore failure with its native log reference', () => {
   expect(sentry.captureMessage).toHaveBeenCalledWith(
     'session.restore',
     expect.objectContaining({
-      tags: { 'session.operation': 'restore', 'session.reason': 'failed', runtime: 'native' },
+      tags: {
+        'session.operation': 'restore',
+        'session.reason': 'failed',
+        'session.after_update': 'false',
+        runtime: 'native',
+      },
       extra: { log_id: 'e7' },
+    })
+  );
+});
+
+test('reports a slow start as a warning without an error', () => {
+  reportSessionFailure('restore_slow');
+  expect(sentry.captureMessage).toHaveBeenCalledWith(
+    'session.restore_slow',
+    expect.objectContaining({
+      level: 'warning',
+      tags: {
+        'session.operation': 'restore_slow',
+        'session.reason': 'slow',
+        'session.after_update': 'false',
+        runtime: 'native',
+      },
     })
   );
 });
