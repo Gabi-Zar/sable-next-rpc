@@ -264,7 +264,12 @@
         </Button>
       {/each}
       {#if !compact && (unreadRooms.length > 0 || unreadGroups.length > 0)}
-        <Button variant="ghost" size="small" class="filter choice" onclick={() => void markAllRead()}>
+        <Button
+          variant="ghost"
+          size="small"
+          class="filter choice"
+          onclick={() => void markAllRead()}
+        >
           {i18n.t('inbox.markAllRead')}
         </Button>
       {/if}
