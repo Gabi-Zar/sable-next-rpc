@@ -62,12 +62,17 @@ describe('redirect authentication', () => {
       expect(nativeRedirectUri('sso')).toBe('moe.sable.next://login');
     });
 
-    test.each([true, false])('Electron uses its registered scheme (stable=%s)', (stable) => {
-      vi.stubGlobal('__SABLE_STABLE__', stable);
-      vi.stubGlobal('sableElectron', {});
-      expect(nativeRedirectUri('oidc')).toBe('moe.sable.next:/login');
-      expect(nativeRedirectUri('sso')).toBe('moe.sable.next://login');
-    });
+    test.each([true, false])(
+      'Electron uses the schemes its package registers (stable=%s)',
+      (stable) => {
+        vi.stubGlobal('__SABLE_STABLE__', stable);
+        vi.stubGlobal('sableElectron', {});
+        expect(nativeRedirectUri('oidc')).toBe(
+          stable ? 'moe.sable.app:/login' : 'moe.sable.next:/login'
+        );
+        expect(nativeRedirectUri('sso')).toBe(stable ? 'sable://login' : 'moe.sable.next://login');
+      }
+    );
   });
 
   test('uses protocol state to isolate callback channels', () => {

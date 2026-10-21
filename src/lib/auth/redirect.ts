@@ -1,5 +1,3 @@
-import { isElectron } from '#lib/platform/electron.js';
-
 export type RedirectLoginType = 'oidc' | 'sso';
 
 const RESPONSE_PARAMETERS = ['code', 'state', 'error', 'loginToken'];
@@ -47,8 +45,7 @@ export function createRedirectUri(
 }
 
 export function nativeRedirectUri(loginType: RedirectLoginType): string {
-  // Electron registers moe.sable.next in both stable and nightly packages.
-  if (!isElectron() && __SABLE_STABLE__) {
+  if (__SABLE_STABLE__) {
     return loginType === 'oidc' ? 'moe.sable.app:/login' : 'sable://login';
   }
   return loginType === 'oidc' ? 'moe.sable.next:/login' : 'moe.sable.next://login';

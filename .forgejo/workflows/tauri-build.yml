@@ -512,6 +512,7 @@ jobs:
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
       VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
       VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -580,6 +581,7 @@ jobs:
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
       VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
       VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
       APPLE_API_KEY_ID: ${{ secrets.APP_STORE_API_KEY_ID }}

@@ -137,6 +137,7 @@ jobs:
       SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
       VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
       VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

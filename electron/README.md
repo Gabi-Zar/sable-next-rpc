@@ -3,10 +3,12 @@
 Build the web assets with `pnpm build`, then run
 `pnpm --dir electron package --linux`, `--mac` or `--win`.
 Set `VERSION` to override the root package version. macOS builds include a DMG and an update ZIP.
+For a stable package, build the web assets and package with `SABLE_BUILD_FLAVOR=stable`.
 
 `package.mjs` picks `electron-builder.stable.yml` or `electron-builder.nightly.yml`, both
-extending `electron-builder.yml`. Stable builds keep the identity the Tauri app shipped
-(`moe.sable.client`), so they read the same data directory; nightlies use `moe.sable.next`.
+extending `electron-builder.yml`, from `SABLE_BUILD_FLAVOR`: only `stable` builds the stable
+package. Stable builds keep the identity the Tauri app shipped (`moe.sable.client`), so they
+read the same data directory; nightlies use `moe.sable.next`.
 On first launch the app copies the Tauri app's permission grants, telemetry consent and
 smooth-scrolling choice (`src/tauri-import.ts`).
 
