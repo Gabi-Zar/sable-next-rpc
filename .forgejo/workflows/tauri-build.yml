@@ -314,7 +314,7 @@ jobs:
         run: |
           printf '\n%s\n' \
             'org.gradle.workers.max=1' \
-            'org.gradle.jvmargs=-Xmx1024m -Dfile.encoding=UTF-8' \
+            'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
             'kotlin.daemon.jvmargs=-Xmx512m' \
             >> src-tauri/gen/android/gradle.properties
       - name: Stamp release version into tauri.conf.json
@@ -394,7 +394,7 @@ jobs:
         run: |
           printf '\n%s\n' \
             'org.gradle.workers.max=1' \
-            'org.gradle.jvmargs=-Xmx1024m -Dfile.encoding=UTF-8' \
+            'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
             'kotlin.daemon.jvmargs=-Xmx512m' \
             >> src-tauri/gen/android/gradle.properties
       - name: Prepare in-place v1 upgrade identity
