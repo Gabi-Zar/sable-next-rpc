@@ -87,7 +87,7 @@ nsis:
 linux:
   maintainer: SableClient
   artifactName: sable-electron-${version}-${arch}.${ext}
-  executableName: sable-electron
+  executableName: sable
   syncDesktopName: true
   icon: ../src-tauri/icons/icon.png
   category: Network;InstantMessaging
