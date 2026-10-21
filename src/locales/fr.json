@@ -957,7 +957,6 @@
     "profileAvatarRemoved": "{{user}} a enlevé leur avatar",
     "hiddenRedaction": "{{user}} a supprimé un message",
     "pinnedBoth": "{{user}} {{added}} et {{removed}}",
-    "videoConverting": "Conversion de la vidéo…",
     "hiddenEvent": "{{user}} a envoyé un événement {{type}}",
     "hiddenStateEvent": "{{user}} a envoyé un événement d’état {{type}}"
   },

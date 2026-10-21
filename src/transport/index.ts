@@ -57,12 +57,6 @@ export interface Transport {
   /** Drops every stored copy of a source, so the next fetch asks the homeserver. */
   forgetMedia(source: string): Promise<void>;
 
-  /** The MIME type {@link streamVideo} delivers. */
-  videoStreamMime(): Promise<string>;
-
-  /** Calls `onChunk` as bytes are produced; rejects where no re-encoder runs. */
-  streamVideo(source: string, id: number, onChunk: (chunk: Uint8Array) => void): Promise<void>;
-
   /**
    * Resolves once the event is queued; progress arrives as `send_state` on the local echo.
    */

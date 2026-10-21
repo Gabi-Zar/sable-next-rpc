@@ -55,7 +55,6 @@ skip = [
   { crate = "gloo-timers@0.3.0", reason = "backon requires gloo-timers 0.3 while matrix-sdk uses 0.4" },
   { crate = "convert_case@0.8.0", reason = "PipeWire's libspa requires convert_case 0.8 while napi-derive uses 0.12" },
   { crate = "itertools@0.14.0", reason = "prost-derive, via vodozemac, requires itertools 0.14 while matrix-sdk uses 0.15" },
-  { crate = "zip@4.6.1", reason = "tauri-plugin-updater requires zip 4 while ffmpeg-sidecar uses zip 9" },
   { crate = "itertools@0.13.0", reason = "bindgen, via PipeWire's libspa-sys, requires itertools 0.13" },
   { crate = "libloading@0.7.4", reason = "libappindicator-sys requires libloading 0.7 while the app uses 0.9" },
   { crate = "libloading@0.8.9", reason = "clang-sys, via bindgen for PipeWire, requires libloading 0.8" },

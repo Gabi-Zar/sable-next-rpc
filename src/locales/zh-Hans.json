@@ -1240,7 +1240,6 @@
     "downloadProgress": "{{percent}}%",
     "retryDecryption": "重试解密",
     "videoAttachment": "视频附件",
-    "videoConverting": "正在转换视频…",
     "playVideo": "播放 {{name}}",
     "showEmbed": "显示 {{name}}",
     "voiceMessageSpeed": "播放速度 {{speed}}×",

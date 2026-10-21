@@ -133,10 +133,6 @@ tauri-runtime-cef = { version = "0.1.0", git = "https://github.com/SableClient/t
 # selecting beta.3, which removed its paths and DragMoved payloads.
 winit = { version = "=0.31.0-beta.2", optional = true }
 cef = { version = "=152.3.0", optional = true }
-sha2 = { version = "0.11", optional = true }
-# Auto-download stays off: fetching a codec build would make Sable the one
-# distributing an H.264 decoder.
-ffmpeg-sidecar = { version = "2.5", optional = true }
 tikv-jemallocator = { version = "0.7.0", optional = true }
 libloading = "0.9"
 # Ubuntu 22.04's PipeWire headers predate pipewire-rs 0.10's generated bindings.
@@ -179,8 +175,6 @@ cef = [
   "dep:tauri-runtime-cef",
   "dep:winit",
   "dep:cef",
-  "dep:sha2",
-  "dep:ffmpeg-sidecar",
   "dep:tikv-jemallocator",
   "tauri-runtime-cef/devtools",
 ]

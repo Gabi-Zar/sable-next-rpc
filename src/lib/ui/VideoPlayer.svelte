@@ -12,9 +12,7 @@
   import Button from '#lib/ui/primitives/Button.svelte';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
-  import { videoStreamingSupported, videoStreamUrl } from '#lib/ui/video-stream.svelte.js';
   import { videoPlayback } from '#lib/ui/video-playback.js';
-  import { canPlayVideo } from '#lib/ui/video-support.js';
 
   const BLURHASH_POSTER_WIDTH = 32;
 
@@ -43,7 +41,6 @@
   }: Props = $props();
   const core = useCoreClient();
   let url = $state<string | null>(null);
-  let videoEl = $state<HTMLVideoElement>();
   let failed = $state(false);
   let retryCount = $state(0);
   let retryAt = $state(0);
@@ -54,18 +51,10 @@
   /* An unsized video lays out at the UA's 150px, then jumps to its intrinsic
      size once metadata arrives, shoving the rows below it down. */
   let mediaLabel = $derived(filename || i18n.t('timeline.videoAttachment'));
-  /* Unlatches where no re-encoder answers, so a pessimistic `canPlayType`
-     cannot strand the attachment. */
-  let streamUnavailable = $state(false);
-  let transcode = $derived(
-    !canPlayVideo(mime) && !streamUnavailable && videoStreamingSupported(core)
-  );
   /* Keyed by source: a recycled tile must not inherit another's start. */
   let startedSource = $state<string | null>(null);
-  let streamUrl: string | null = null;
-  let streamEpoch = 0;
   let video = $derived(videoPlayback(playback));
-  let started = $derived(startedSource === source || (video.autoplay && !transcode));
+  let started = $derived(startedSource === source || video.autoplay);
   let awaitingPlay = $derived(!started && url === null);
   let posterFailed = $state<string | null>(null);
   let aspectRatio = $derived(
@@ -123,15 +112,6 @@
       retryCount = 0;
       retryAt = 0;
     }
-    if (transcode) {
-      // Started by the play button: an effect re-run would restart
-      // the encode and supersede the stream already feeding the element.
-      if (!started) url = null;
-      return () => {
-        active = false;
-      };
-    }
-
     const release = holdMediaUrl(core, source, 0, 0);
     const cached = cachedMediaUrl(core, source, 0, 0);
     if (cached !== undefined) {
@@ -163,44 +143,8 @@
     };
   });
 
-  function adoptStream(next: string | null): void {
-    if (streamUrl !== null && streamUrl !== next) URL.revokeObjectURL(streamUrl);
-    streamUrl = next;
-  }
-
-  $effect(() => {
-    void source;
-    return () => {
-      streamEpoch += 1;
-      adoptStream(null);
-    };
-  });
-
   function play(): void {
     startedSource = source;
-    if (!transcode) return;
-    url = null;
-    const wanted = source;
-    const epoch = streamEpoch;
-    void videoStreamUrl(
-      core,
-      wanted,
-      () => videoEl?.currentTime ?? 0,
-      (next) => {
-        if (startedSource === wanted) url = next;
-      }
-    )
-      .then((next) => {
-        if (epoch !== streamEpoch || startedSource !== wanted) {
-          URL.revokeObjectURL(next);
-          return;
-        }
-        adoptStream(next);
-        url = next;
-      })
-      .catch(() => {
-        streamUnavailable = true;
-      });
   }
 
   function retry(): void {
@@ -228,7 +172,6 @@
     </span>
   {:else if url}
     <video
-      bind:this={videoEl}
       class="media-content media-video"
       controls={video.controls}
       controlslist={savesNatively() ? 'nodownload' : undefined}
@@ -279,9 +222,7 @@
     <span class="media-loading">
       <span class="media-loading-status">
         <Spinner small />
-        {#if transcode}
-          <span class="media-loading-label">{i18n.t('timeline.videoConverting')}</span>
-        {:else if loading.percent !== null}
+        {#if loading.percent !== null}
           <span class="media-loading-label">
             {i18n.t('timeline.downloadProgress', { percent: loading.percent })}
           </span>

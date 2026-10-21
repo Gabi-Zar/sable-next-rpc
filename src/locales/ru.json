@@ -1950,7 +1950,6 @@
     "uploadingItem": "{{current, number}} из {{count, number}}",
     "sendFailed": "Не удалось отправить",
     "retryDecryption": "Повторить расшифровку",
-    "videoConverting": "Конвертация видео…",
     "playVideo": "Воспроизвести {{name}}",
     "showEmbed": "Показать {{name}}",
     "audioAttachment": "Аудиовложение",

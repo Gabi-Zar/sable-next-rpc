@@ -126,14 +126,6 @@ export function createMedia(transport: () => Transport) {
       return transport().forgetMedia(source);
     },
 
-    videoStreamMime(): Promise<string> {
-      return transport().videoStreamMime();
-    },
-
-    streamVideo(source: string, id: number, onChunk: (chunk: Uint8Array) => void): Promise<void> {
-      return transport().streamVideo(source, id, onChunk);
-    },
-
     uploadMedia(mime: string, bytes: Uint8Array<ArrayBuffer>): Promise<string> {
       return transport().uploadMedia(mime, bytes);
     },

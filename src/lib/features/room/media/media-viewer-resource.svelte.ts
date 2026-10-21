@@ -1,61 +1,34 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { cachedMediaUrl, holdMediaUrl, loadMediaUrl } from '#lib/ui/media-url.js';
-import { videoStreamUrl } from '#lib/ui/video-stream.svelte.js';
 
 export class MediaViewerResource {
   url = $state<string | null>(null);
   failed = $state(false);
-  streamUnavailable = $state(false);
 
   #generation = 0;
   #release: (() => void) | null = null;
-  #streamUrl: string | null = null;
-  #source: string | null = null;
 
-  constructor(
-    private readonly core: CoreClient,
-    private readonly currentTime: () => number
-  ) {}
+  constructor(private readonly core: CoreClient) {}
 
-  load(source: string | null, mime: string | null, transcode: boolean): () => void {
+  load(source: string | null, mime: string | null): () => void {
     this.#releaseCurrent();
     const generation = ++this.#generation;
-    if (source !== this.#source) this.streamUnavailable = false;
-    this.#source = source;
     this.url = null;
     this.failed = false;
     if (source === null) return () => {};
 
-    if (transcode) {
-      void videoStreamUrl(this.core, source, this.currentTime, (next) => {
-        if (generation === this.#generation) this.url = next;
+    const release = holdMediaUrl(this.core, source, 0, 0);
+    this.#release = release;
+    const cached = cachedMediaUrl(this.core, source, 0, 0);
+    this.url = cached ?? null;
+    void (cached ? Promise.resolve(cached) : loadMediaUrl(this.core, source, 0, 0, mime))
+      .then((url) => {
+        if (generation === this.#generation) this.url = url;
       })
-        .then((next) => {
-          if (generation !== this.#generation) {
-            URL.revokeObjectURL(next);
-            return;
-          }
-          this.#adoptStream(next);
-          this.url = next;
-        })
-        .catch((error: unknown) => {
-          console.debug('[sable viewer] video stream unavailable', error);
-          if (generation === this.#generation) this.streamUnavailable = true;
-        });
-    } else {
-      const release = holdMediaUrl(this.core, source, 0, 0);
-      this.#release = release;
-      const cached = cachedMediaUrl(this.core, source, 0, 0);
-      this.url = cached ?? null;
-      void (cached ? Promise.resolve(cached) : loadMediaUrl(this.core, source, 0, 0, mime))
-        .then((url) => {
-          if (generation === this.#generation) this.url = url;
-        })
-        .catch((error: unknown) => {
-          console.warn('[sable viewer] media load failed', error);
-          if (generation === this.#generation) this.failed = true;
-        });
-    }
+      .catch((error: unknown) => {
+        console.warn('[sable viewer] media load failed', error);
+        if (generation === this.#generation) this.failed = true;
+      });
 
     return () => {
       if (generation !== this.#generation) return;
@@ -69,15 +42,8 @@ export class MediaViewerResource {
     this.#releaseCurrent();
   }
 
-  #adoptStream(next: string): void {
-    if (this.#streamUrl !== null && this.#streamUrl !== next) URL.revokeObjectURL(this.#streamUrl);
-    this.#streamUrl = next;
-  }
-
   #releaseCurrent(): void {
     this.#release?.();
     this.#release = null;
-    if (this.#streamUrl !== null) URL.revokeObjectURL(this.#streamUrl);
-    this.#streamUrl = null;
   }
 }

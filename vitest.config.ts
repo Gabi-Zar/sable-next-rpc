@@ -20,7 +20,6 @@ const HAPPY_DOM_TESTS = [
   'src/lib/ui/swipe-back.svelte.test.ts',
   'src/lib/ui/double-tap.test.ts',
   'src/lib/ui/trailing-click.test.ts',
-  'src/lib/ui/video-support.test.ts',
   'src/lib/platform/devtools.test.ts',
   'src/lib/platform/keyboard.test.ts',
   'src/lib/settings/theme-styles.test.ts',

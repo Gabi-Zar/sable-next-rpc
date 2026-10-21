@@ -469,15 +469,6 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
       await request<null>((id) => ({ id, forget: { source } }));
     },
 
-    // A browser decodes what it advertises, so nothing here should ask.
-    videoStreamMime() {
-      return Promise.reject(new CoreError({ code: 'unsupported' }));
-    },
-
-    streamVideo() {
-      return Promise.reject(new CoreError({ code: 'unsupported' }));
-    },
-
     async sendAttachment({
       roomId,
       filename,

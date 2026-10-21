@@ -1027,7 +1027,6 @@
     "sendFailed": "Failed to send",
     "retryDecryption": "Retry decryption",
     "videoAttachment": "Video attachment",
-    "videoConverting": "Converting video…",
     "playVideo": "Play {{name}}",
     "playAudio": "Play {{name}}",
     "audioSeek": "Seek",

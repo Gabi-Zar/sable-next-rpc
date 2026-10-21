@@ -2485,7 +2485,6 @@
     "sendFailed": "Неуспешно изпращане",
     "retryDecryption": "Повторен опит за декриптиране",
     "videoAttachment": "Прикачен видеофайл",
-    "videoConverting": "Конвертиране на видеото…",
     "playAudio": "Възпроизвеждане на {{name}}",
     "audioSeek": "Превъртане",
     "openFileMore": "Щракнете за преглед на целия файл",

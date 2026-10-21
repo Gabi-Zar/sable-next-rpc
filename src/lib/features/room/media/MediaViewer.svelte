@@ -16,8 +16,6 @@
   import { mediaProgress } from '#lib/ui/media-progress.svelte.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import ImageSpoilerControl from '#lib/ui/ImageSpoilerControl.svelte';
-  import { videoStreamingSupported } from '#lib/ui/video-stream.svelte.js';
-  import { canPlayVideo } from '#lib/ui/video-support.js';
   import { clampPan, type Vector2 } from '#lib/ui/pan-clamp.js';
   import { cursorAnchor, type CursorAnchor } from '#lib/ui/cursor-anchor.js';
   import { mouseContextMenu } from '#lib/ui/long-press.svelte.js';
@@ -97,7 +95,7 @@
   let visibleLabel = $derived(
     spoilerHidden ? i18n.t('composer.spoiler') : mediaLabel || i18n.t('viewer.untitled')
   );
-  const resource = new MediaViewerResource(core, () => videoEl?.currentTime ?? 0);
+  const resource = new MediaViewerResource(core);
   let url = $derived(resource.url);
   const mediaActions = new MediaViewerActions(
     () => ({ url, item, fileName }),
@@ -114,7 +112,6 @@
       ? item
       : null
   );
-  let videoEl = $state<HTMLVideoElement>();
   let failed = $derived(resource.failed);
   let zoom = $derived.by(() => {
     void source;
@@ -190,13 +187,6 @@
     image: DOMRect;
   } | null>(null);
   let isImage = $derived(item?.kind === 'image' || item?.kind === 'sticker');
-  let streamUnavailable = $derived(resource.streamUnavailable);
-  let transcode = $derived(
-    item?.kind === 'video' &&
-      !canPlayVideo(mime) &&
-      !streamUnavailable &&
-      videoStreamingSupported(core)
-  );
   let isPdf = $derived(item?.kind === 'file');
   let pdfPages = $derived.by(() => {
     void source;
@@ -242,7 +232,7 @@
   });
 
   $effect(() => {
-    return resource.load(source, mime, transcode);
+    return resource.load(source, mime);
   });
 
   onDestroy(() => {
@@ -877,7 +867,6 @@
               <!-- Matrix carries no caption track for an attachment. -->
               <!-- svelte-ignore a11y_media_has_caption -->
               <video
-                bind:this={videoEl}
                 class="media-player"
                 controls
                 controlslist={savesNatively() ? 'nodownload' : undefined}
