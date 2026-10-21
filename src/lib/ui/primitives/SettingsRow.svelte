@@ -5,6 +5,8 @@
   import { settingsAnchors } from './settings-anchors.js';
   import StatusBadge from './StatusBadge.svelte';
   import './settings-row.css';
+  import SettingsNotSyncedBadge from './SettingsNotSyncedBadge.svelte';
+  import type { Preferences } from '#lib/settings/preferences.svelte.js';
 
   interface Props {
     title?: string;
@@ -14,6 +16,7 @@
     wide?: boolean;
     class?: ClassValue;
     id?: string;
+    key?: keyof Preferences;
     'data-settings-focus'?: string;
     control?: string;
     badge?: string;
@@ -30,6 +33,7 @@
     wide = false,
     class: className = '',
     id,
+    key,
     'data-settings-focus': dataSettingsFocus,
     control,
     badge,
@@ -55,6 +59,7 @@
         {#if control}<label class="name" for={control}>{title}</label>
         {:else}<span class="name">{title}</span>{/if}
         {#if badge}<StatusBadge variant="neutral" label={badge} />{/if}
+        {#if key}<SettingsNotSyncedBadge {key} />{/if}
         {#if id}<SettingsAnchorLink anchor={id} />{/if}
       </div>
       {#if description}
