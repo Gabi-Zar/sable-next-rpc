@@ -32,11 +32,13 @@ import * as screenAudio from './screen-audio';
 import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
+import { importTauriConfig } from './tauri-import';
 import { registerUpdater, setUpdateChannel } from './updater';
 
 declare const __SABLE_CSP__: Record<string, string>;
+declare const __SABLE_IDENTIFIER__: string;
 
-const IDENTIFIER = process.env.SABLE_IDENTIFIER ?? 'moe.sable.next';
+const IDENTIFIER = process.env.SABLE_IDENTIFIER ?? __SABLE_IDENTIFIER__;
 const SCHEME = 'sable-app';
 const DEEP_LINK_SCHEMES =
   IDENTIFIER === 'moe.sable.client' ? ['moe.sable.app', 'sable'] : ['moe.sable.next'];
@@ -56,6 +58,18 @@ function xdgDataHome(): string {
 
 const dataDir = join(isLinux ? xdgDataHome() : app.getPath('appData'), IDENTIFIER);
 app.setPath('userData', join(app.getPath('appData'), `${IDENTIFIER}.electron`));
+importTauriConfig(
+  [
+    join(
+      process.env.XDG_CONFIG_HOME && isAbsolute(process.env.XDG_CONFIG_HOME)
+        ? process.env.XDG_CONFIG_HOME
+        : join(homedir(), '.config'),
+      IDENTIFIER
+    ),
+    join(app.getPath('appData'), IDENTIFIER),
+  ],
+  app.getPath('userData')
+);
 initSentry(app.getPath('userData'));
 const settingsPath = join(app.getPath('userData'), 'settings.json');
 let settings = readSettings(settingsPath);

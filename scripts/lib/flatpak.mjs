@@ -32,7 +32,6 @@ export function assertSubstituted(manifest) {
 const flavors = {
   tauri: {
     stable: ['packaging/flatpak', 'moe.sable.client'],
-    nightly: ['packaging/flatpak/nightly', 'moe.sable.next.Nightly'],
   },
   electron: {
     stable: ['packaging/flatpak/electron', 'moe.sable.next.electron'],

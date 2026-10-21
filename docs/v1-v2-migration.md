@@ -1,6 +1,6 @@
 # v1 to v2 migration
 
-Migration runs before account restoration on web and Tauri. It preserves user
+Migration runs before account restoration on web and Tauri. The Electron desktop app does not run it. It preserves user
 and device IDs, tokens, OAuth client registration, encryption keys and supported
 settings. Existing v2 accounts and settings take precedence.
 

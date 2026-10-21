@@ -217,23 +217,21 @@ services:
       - ./config.json:/app/config.json:ro
 ```
 
-## Apps (Tauri)
+## Apps
 
-Native builds use [Tauri](https://v2.tauri.app). Targets: **Windows**, **macOS**, **Linux**, **Android**, and **iOS**.
+Desktop builds (**Windows**, **macOS**, **Linux**) use [Electron](https://www.electronjs.org); see [`electron/README.md`](electron/README.md). **Android** and **iOS** use [Tauri](https://v2.tauri.app).
 
 ```bash
 mise run tauri:setup          # Shared Rust/system dependencies, including Linux packages
 mise run tauri:icons          # Regenerate native icons after changing the logo SVG
-mise run tauri dev            # Run the app for the current desktop OS
-mise run tauri:setup:windows  # Windows: Visual Studio Build Tools + WebView2
 mise run tauri:setup:macos    # macOS: Xcode
 mise run tauri:setup:android  # Android: SDK packages + NDK
 mise run tauri:setup:ios      # iOS: Xcode project + CocoaPods (macOS)
 ```
 
-Every push to `main` publishes bundles for all five targets as a distinct
+Every push to `main` publishes bundles for all targets as a distinct
 [nightly prerelease](https://git.sable.moe/SableClient/sable-next/releases).
-Linux x86_64 and Android build here; macOS, Windows, iOS and Linux aarch64
+Linux x86_64, macOS, Android and iOS build here; Windows and Linux aarch64
 build on the GitHub mirror and attach their bundles, with attestations, to the
 same release. Pushing a `v*` tag publishes a stable release the same way.
 

@@ -253,133 +253,6 @@ jobs:
             "$image@$(cat digests/arm64)"
           docker buildx imagetools inspect "$image:${tags[0]}"
 
-  linux:
-    name: Linux x86_64 (CEF)
-    needs: [setup-release, build-web]
-    runs-on: docker
-    timeout-minutes: 90
-    permissions:
-      contents: write
-    env:
-      RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
-      ARCH: x86_64
-      MISE_DISABLE_TOOLS: github:wasm-bindgen/wasm-bindgen,github:WebAssembly/binaryen
-      # rustc peaks at several GB per crate while compiling the CEF runtime.
-      CARGO_BUILD_JOBS: '4'
-      TAG: ${{ needs.setup-release.outputs.tag }}
-      VERSION: ${{ needs.setup-release.outputs.version }}
-      # Read by src-tauri/build.rs, which bakes them into the binary.
-      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
-      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
-      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
-      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
-      UPDATER_ENDPOINT: ${{ needs.setup-release.outputs.nightly == 'true' && 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly/latest.json' || '' }}
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-    steps:
-      - name: Check out repository
-        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.setup-release.outputs.ref }}
-          persist-credentials: false
-      - name: Download web assets
-        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
-        with:
-          name: web-assets
-      # tauri-runtime depends on webkit2gtk on Linux whatever the runtime, so
-      # the headers stay even though nothing renders through it. --as-needed
-      # keeps it out of the binary, hence no runtime dep in packaging/nfpm.yaml.
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            build-essential \
-            file \
-            libayatana-appindicator3-1 \
-            libclang-dev \
-            libgtk-3-dev \
-            libpipewire-0.3-dev \
-            libsoup-3.0-dev \
-            libwebkit2gtk-4.1-dev \
-            pkg-config
-      - name: Set up app
-        uses: ./.forgejo/actions/setup
-        with:
-          rust: 'true'
-          rust-cache-key: tauri-linux
-          install-mise-tools: 'false'
-      - name: Prepare in-place v1 upgrade identity
-        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
-        run: node scripts/ci/prepare-v1-release.mjs
-      - name: Stamp release version into tauri.conf.json
-        run: |
-          args=''
-          [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
-          node scripts/ci/set-tauri-version.mjs "$VERSION" $args
-      - name: Build Linux bundles
-        run: |
-          config_args=(--config src-tauri/tauri.ci.conf.json)
-          if [ "$IS_NIGHTLY" = 'true' ]; then
-            config_args+=(--config src-tauri/tauri.nightly.conf.json)
-            package_args=('Sable Nightly' sable-next)
-          else
-            package_args=(Sable sable)
-          fi
-          pnpm tauri:cef build "${config_args[@]}"
-          mise run cef:package "$VERSION" "${package_args[@]}"
-          node scripts/ci/upload-sentry-symbols.mjs target/release
-      - name: Check the CEF packages carry what they should
-        run: |
-          deb="target/release/bundle/deb/sable-${VERSION}-linux-${ARCH}.deb"
-          contents=$(dpkg-deb --contents "$deb")
-          ctrl=$(dpkg-deb --ctrl-tarfile "$deb" | tar -t)
-          grep -q 'etc/apparmor.d/sable-next$' <<<"$contents"
-          grep -qx './postinst' <<<"$ctrl"
-          grep -qx './prerm' <<<"$ctrl"
-          grep -q 'opt/sable-next/CEF-LICENSE.txt$' <<<"$contents"
-      - name: Check stable packages replace v1
-        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
-        run: test "$(dpkg-deb --field "target/release/bundle/deb/sable-${VERSION}-linux-${ARCH}.deb" Package)" = sable
-      - name: Sign the AppImage for the updater
-        if: ${{ env.TAURI_SIGNING_PRIVATE_KEY != '' }}
-        run: pnpm tauri signer sign "target/release/bundle/appimage/sable-${VERSION}-linux-${ARCH}.AppImage"
-      - name: Attach Linux bundles to release
-        run: |
-          bundles=()
-          for bundle in "target/release/bundle/deb/sable-${VERSION}-linux-${ARCH}.deb" \
-                        "target/release/bundle/rpm/sable-${VERSION}-linux-${ARCH}.rpm" \
-                        "target/release/bundle/sable-${VERSION}-linux-${ARCH}.tar.gz" \
-                        "target/release/bundle/appimage/sable-${VERSION}-linux-${ARCH}.AppImage" \
-                        "target/release/bundle/appimage/sable-${VERSION}-linux-${ARCH}.AppImage.sig"; do
-            [ -e "$bundle" ] && bundles+=("$bundle")
-          done
-          node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
-      - name: Publish deb and rpm to the package registries
-        env:
-          PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
-          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-        run: |
-          channel=stable
-          [ "$IS_NIGHTLY" = 'true' ] && channel=nightly
-          api="https://git.sable.moe/api/packages/${GITHUB_REPOSITORY_OWNER}"
-          upload() {
-            code=$(curl -sS -o /dev/null -w '%{http_code}' --user "$PACKAGES_USER:$PACKAGES_TOKEN" \
-              --upload-file "$1" "$2")
-            # 409 means this exact version is already published.
-            case "$code" in 201|409) ;; *) echo "Upload of $1 failed with HTTP $code" >&2; exit 1 ;; esac
-          }
-          upload "target/release/bundle/deb/sable-${VERSION}-linux-${ARCH}.deb" \
-            "$api/debian/pool/$channel/main/upload"
-          upload "target/release/bundle/rpm/sable-${VERSION}-linux-${ARCH}.rpm" \
-            "$api/rpm/$channel/upload"
-  # Compiles each Android ABI on its own runner so the sccache bucket holds the
-  # dependencies before the packaging job needs them. Its APK is thrown away.
   android-warm:
     name: Warm Android ${{ matrix.target }}
     needs: [setup-release, build-web]
@@ -600,104 +473,6 @@ jobs:
       - name: Show sccache stats
         if: ${{ always() && env.RUSTC_WRAPPER != '' }}
         run: sccache --show-stats || true
-  macos:
-    name: macOS universal
-    needs: [setup-release, build-web]
-    runs-on: macos-latest
-    defaults:
-      run:
-        shell: bash
-    timeout-minutes: 60
-    permissions:
-      contents: write
-    env:
-      TAG: ${{ needs.setup-release.outputs.tag }}
-      VERSION: ${{ needs.setup-release.outputs.version }}
-      ASSET_PLATFORM: macos-universal
-      BUNDLE_PATH: target/universal-apple-darwin/release/bundle
-      RUST_TARGETS: aarch64-apple-darwin x86_64-apple-darwin
-      # Read by src-tauri/build.rs, which bakes them into the binary.
-      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
-      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
-      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
-      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
-      UPDATER_ENDPOINT: ${{ needs.setup-release.outputs.nightly == 'true' && 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly/latest.json' || '' }}
-      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-      APPLE_API_ISSUER: ${{ secrets.APP_STORE_API_ISSUER_ID }}
-      APPLE_API_KEY: ${{ secrets.APP_STORE_API_KEY_ID }}
-    steps:
-      - name: Check out repository
-        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.setup-release.outputs.ref }}
-          persist-credentials: false
-      - name: Download web assets
-        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
-        with:
-          name: web-assets
-      - name: Set up app
-        uses: ./.forgejo/actions/setup
-        with:
-          rust: 'true'
-          rust-cache-key: tauri-desktop
-          install-mise-tools: 'false'
-      - name: Write the App Store Connect API key
-        uses: ./.forgejo/actions/app-store-connect-key
-        with:
-          key-id: ${{ secrets.APP_STORE_API_KEY_ID }}
-          key: ${{ secrets.APP_STORE_API_KEY_BASE64 }}
-      - name: Add Rust targets
-        run: |
-          # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
-          rustup target add $RUST_TARGETS
-      - name: Prepare in-place v1 upgrade identity
-        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
-        run: node scripts/ci/prepare-v1-release.mjs
-      - name: Stamp release version into tauri.conf.json
-        run: |
-          args=''
-          [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
-          node scripts/ci/set-tauri-version.mjs "$VERSION" $args
-      - name: Build desktop bundle
-        run: |
-          config_args=(--config src-tauri/tauri.ci.conf.json)
-          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
-          # Bundling an updater artifact without a key is a hard error.
-          [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ] \
-            && config_args+=(--config '{"bundle":{"createUpdaterArtifacts":false}}')
-          [ -z "${APPLE_CERTIFICATE:-}" ] && unset APPLE_API_KEY APPLE_API_ISSUER APPLE_API_KEY_PATH
-          pnpm tauri build "${config_args[@]}" --target universal-apple-darwin
-      - name: Upload native symbols to Sentry
-        run: node scripts/ci/upload-sentry-symbols.mjs target
-      - name: Normalize bundle names
-        run: |
-          test -d "$BUNDLE_PATH" || { echo "Bundle directory not found: $BUNDLE_PATH" >&2; exit 1; }
-          find "$BUNDLE_PATH" -type f -print0 \
-            | while IFS= read -r -d '' path; do
-                case "$path" in
-                  *.app.tar.gz.sig) suffix='.app.tar.gz.sig' ;;
-                  *.app.tar.gz) suffix='.app.tar.gz' ;;
-                  *.dmg) suffix='.dmg' ;;
-                  *) continue ;;
-                esac
-                target="$(dirname "$path")/sable-${VERSION}-${ASSET_PLATFORM}${suffix}"
-                [ "$path" = "$target" ] || mv "$path" "$target"
-              done
-          find "$BUNDLE_PATH" -type f -name 'sable-*' > bundles
-          test -s bundles || { echo "No desktop bundles found in $BUNDLE_PATH" >&2; exit 1; }
-      - name: Attach desktop bundles to release
-        run: |
-          bundles=()
-          while IFS= read -r bundle; do bundles+=("$bundle"); done < bundles
-          node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
-
   electron-linux:
     name: Linux x86_64 (Electron)
     needs: [setup-release, build-web]
@@ -827,7 +602,10 @@ jobs:
             export CSC_KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
             sign_args=(-c.mac.identity=NXLJ6G3CP7 -c.mac.hardenedRuntime=true -c.forceCodeSigning=true)
           else
-            unset APPLE_API_ISSUER APPLE_API_KEY_ID
+            case "$VERSION" in
+              *-nightly.*) unset APPLE_API_ISSUER APPLE_API_KEY_ID ;;
+              *) echo 'APPLE_CERTIFICATE is required to build a stable macOS release.' >&2; exit 1 ;;
+            esac
           fi
           pnpm --dir electron package --mac "${sign_args[@]}"
       - name: Remove the signing keychain
@@ -1034,31 +812,9 @@ jobs:
             "Sable $VERSION"
       - name: Attach AltStore source to release
         run: node scripts/ci/forgejo-release.mjs upload altstore-source.json
-  updater-manifest:
-    name: Publish updater manifest
-    needs: [setup-release, linux, macos, github-bundles]
-    if: ${{ always() && needs.setup-release.result == 'success' && needs.linux.result == 'success' && needs.macos.result == 'success' && needs.github-bundles.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    env:
-      TAG: ${{ needs.setup-release.outputs.tag }}
-      VERSION: ${{ needs.setup-release.outputs.version }}
-    steps:
-      - name: Check out repository
-        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.setup-release.outputs.ref }}
-          persist-credentials: false
-      - name: Build updater manifest
-        run: node scripts/ci/build-updater-manifest.mjs
-      - name: Upload updater manifest
-        if: ${{ hashFiles('latest.json') != '' }}
-        run: node scripts/ci/forgejo-release.mjs upload latest.json
   publish-latest:
     name: Refresh latest tag
-    needs: [setup-release, updater-manifest, altstore, obtainium]
+    needs: [setup-release, altstore, obtainium]
     if: ${{ needs.setup-release.outputs.nightly != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1078,13 +834,9 @@ jobs:
         run: |
           shopt -s nullglob
           node scripts/ci/forgejo-release.mjs download \
-            --tag "$TAG" --pattern 'latest.json' --dir .
-          node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'altstore-source.json' --dir .
           node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'obtainium.json' --dir .
-          node scripts/ci/forgejo-release.mjs download \
-            --tag "$TAG" --pattern 'sable-windows-*' --dir .
 
           git tag -f latest "$SHA"
           git push --force \
@@ -1100,12 +852,10 @@ jobs:
             --tag latest \
             --title 'Latest stable' \
             --notes "Stable manifests for $VERSION. Bundles live on the $TAG release."
-          windows=(sable-windows-*)
-          node scripts/ci/forgejo-release.mjs upload --tag latest latest.json altstore-source.json obtainium.json \
-            "${windows[@]}"
+          node scripts/ci/forgejo-release.mjs upload --tag latest altstore-source.json obtainium.json
   publish-nightly-channel:
     name: Refresh nightly channel metadata
-    needs: [setup-release, updater-manifest, obtainium, altstore]
+    needs: [setup-release, obtainium, altstore]
     if: ${{ always() && needs.setup-release.outputs.nightly == 'true' && needs.setup-release.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1135,7 +885,7 @@ jobs:
             --prerelease true \
             --title 'Nightly channel' \
             --notes "$notes"
-          for name in obtainium.json altstore-source.json latest.json; do
+          for name in obtainium.json altstore-source.json; do
             node scripts/ci/forgejo-release.mjs download \
               --tag "$TAG" --pattern "$name" --dir .
             [ ! -e "$name" ] || \
@@ -1145,8 +895,8 @@ jobs:
         run: |
           repo=https://sableclient.github.io/sable-next/repo
           protect=""
-          for arch in x86_64 aarch64; do
-            commit="$(curl -fsS "$repo/refs/heads/app/moe.sable.next.Nightly/$arch/master")"
+          for arch in x86_64; do
+            commit="$(curl -fsS "$repo/refs/heads/app/moe.sable.next.electron.Nightly/$arch/master")"
             protect="$protect,$(curl -fsS "$repo/objects/${commit:0:2}/${commit:2}.commit" \
               | grep -aoE 'download/nightly-[^/]+' | cut -d/ -f2 | tr '\n' ',')"
           done
@@ -1158,7 +908,7 @@ jobs:
           node scripts/ci/forgejo-release.mjs prune --keep "$NIGHTLY_KEEP" --protect "$protect"
   distribute-aur:
     name: Publish to the AUR
-    needs: [setup-release, linux]
+    needs: [setup-release, electron-linux]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -1177,7 +927,7 @@ jobs:
         run: |
           mkdir debs
           node scripts/ci/forgejo-release.mjs download \
-            --pattern "sable-${VERSION}-linux-x86_64.deb" --dir debs
+            --pattern "sable-electron-${VERSION}-amd64.deb" --dir debs
           ls debs | grep -q . || { echo 'The x86_64 deb is not on the release' >&2; exit 1; }
       - name: Push to the AUR
         env:
@@ -1196,7 +946,7 @@ jobs:
             pkgver="$VERSION"
             relver=-
           fi
-          sha="$(sha256sum "debs/sable-${VERSION}-linux-x86_64.deb" | awk '{print $1}')"
+          sha="$(sha256sum "debs/sable-electron-${VERSION}-amd64.deb" | awk '{print $1}')"
 
           mkdir -p ~/.ssh
           printf '%s\n' "$AUR_KEY" > ~/.ssh/aur_key
@@ -1230,7 +980,7 @@ jobs:
           retry git push
   distribute-homebrew:
     name: Publish the Homebrew cask
-    needs: [setup-release, macos]
+    needs: [setup-release, electron-macos]
     if: ${{ needs.setup-release.outputs.nightly != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -1249,14 +999,14 @@ jobs:
         run: |
           mkdir dmg
           node scripts/ci/forgejo-release.mjs download \
-            --pattern "sable-${VERSION}-macos-universal.dmg" --dir dmg
+            --pattern "sable-electron-${VERSION}-arm64.dmg" --dir dmg
           ls dmg | grep -q . || { echo 'The DMG is not on the release' >&2; exit 1; }
       - name: Push the cask to the taps
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           HOMEBREW_GITHUB_TAP_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TAP_TOKEN }}
         run: |
-          sha="$(sha256sum "dmg/sable-${VERSION}-macos-universal.dmg" | awk '{print $1}')"
+          sha="$(sha256sum "dmg/sable-electron-${VERSION}-arm64.dmg" | awk '{print $1}')"
 
           push_tap() {
             local name="$1" token="$2" url="$3"
@@ -1289,7 +1039,7 @@ jobs:
           push_tap GitHub "${HOMEBREW_GITHUB_TAP_TOKEN:-}" github.com/SableClient/homebrew-sable.git
   distribute-flathub:
     name: Open the Flathub update PR
-    needs: [setup-release, github-bundles]
+    needs: [setup-release, electron-linux, github-bundles]
     if: ${{ needs.setup-release.outputs.nightly != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -1308,7 +1058,7 @@ jobs:
         run: |
           mkdir tarballs
           node scripts/ci/forgejo-release.mjs download \
-            --pattern "sable-${VERSION}-linux-*.tar.gz" --dir tarballs
+            --pattern "sable-electron-${VERSION}-*.tar.gz" --dir tarballs
       - name: Open the Flathub PR
         env:
           FLATHUB_TOKEN: ${{ secrets.FLATHUB_TOKEN }}
@@ -1324,7 +1074,7 @@ jobs:
           fi
 
           arch_args() {
-            local file="tarballs/sable-${VERSION}-linux-$1.tar.gz"
+            local file="tarballs/sable-electron-${VERSION}-$1.tar.gz"
             if [ -e "$file" ]; then
               sha256sum "$file" | awk '{print $1}'
             else
@@ -1332,7 +1082,7 @@ jobs:
             fi
           }
           node scripts/release/flatpak-metainfo-release.mjs "$VERSION"
-          node scripts/ci/render-flatpak-stable.mjs "$VERSION" "$(arch_args x86_64)" "$(arch_args aarch64)"
+          node scripts/ci/render-flatpak-stable.mjs "$VERSION" "$(arch_args x64)" "$(arch_args arm64)"
 
           src=packaging/flatpak
           sed 's#\.\./\.\./LICENSE#LICENSE#' "$src/moe.sable.client.yml" > flathub/moe.sable.client.yml

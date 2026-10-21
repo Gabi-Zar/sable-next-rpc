@@ -48,12 +48,8 @@ electronLanguages:
   - tr
   - uk
 
-protocols:
-  - name: Sable
-    schemes:
-      - moe.sable.next
-
 mac:
+  artifactName: sable-electron-${version}-${arch}.${ext}
   category: public.app-category.social-networking
   icon: ../src-tauri/icons/icon.icns
   minimumSystemVersion: '12.0'
@@ -74,6 +70,7 @@ dmg:
   background: ../src-tauri/icons/installer/dmg-background.png
 
 win:
+  artifactName: sable-electron-${version}-${arch}.${ext}
   icon: ../src-tauri/icons/icon.ico
   target:
     - nsis

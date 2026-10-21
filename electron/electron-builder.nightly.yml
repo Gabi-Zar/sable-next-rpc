@@ -1,0 +1,5 @@
+extends: file:./electron-builder.yml
+protocols:
+  - name: Sable
+    schemes:
+      - moe.sable.next

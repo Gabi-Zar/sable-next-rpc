@@ -9,9 +9,22 @@ const version =
   process.env.VERSION || JSON.parse(readFileSync(join(here, '../package.json'), 'utf8')).version;
 const builder = createRequire(import.meta.url).resolve('electron-builder/cli.js');
 
-execFileSync(process.execPath, [join(here, 'build.mjs'), '--release'], { stdio: 'inherit' });
+// Stable releases keep the identity Tauri shipped, so they find its data directory.
+const stable = !version.includes('-nightly.');
+const config = stable ? 'electron-builder.stable.yml' : 'electron-builder.nightly.yml';
+const env = stable ? { ...process.env, SABLE_IDENTIFIER: 'moe.sable.client' } : process.env;
+
+execFileSync(process.execPath, [join(here, 'build.mjs'), '--release'], { stdio: 'inherit', env });
 execFileSync(
   process.execPath,
-  [builder, '--publish', 'never', `-c.extraMetadata.version=${version}`, ...process.argv.slice(2)],
+  [
+    builder,
+    '--publish',
+    'never',
+    `-c.extraMetadata.version=${version}`,
+    '--config',
+    config,
+    ...process.argv.slice(2),
+  ],
   { cwd: here, stdio: 'inherit' }
 );

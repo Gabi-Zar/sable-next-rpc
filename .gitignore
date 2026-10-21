@@ -74,8 +74,6 @@ mise.local.lock
 storybook-static
 
 # Rendered by scripts/ci/render-flatpak-nightly.mjs
-packaging/flatpak/nightly/moe.sable.next.Nightly.yml
-packaging/flatpak/nightly/moe.sable.next.Nightly.metainfo.xml
 packaging/flatpak/electron/nightly/moe.sable.next.electron.Nightly.yml
 packaging/flatpak/electron/nightly/moe.sable.next.electron.Nightly.metainfo.xml
 packaging/flatpak/electron/moe.sable.next.electron.yml

@@ -1,0 +1,8 @@
+extends: file:./electron-builder.yml
+appId: moe.sable.client
+productName: Sable
+protocols:
+  - name: Sable
+    schemes:
+      - moe.sable.app
+      - sable

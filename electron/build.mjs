@@ -57,6 +57,7 @@ await build({
   external: ['electron', './sable_node.node'],
   define: {
     __SABLE_CSP__: JSON.stringify(policy),
+    __SABLE_IDENTIFIER__: JSON.stringify(process.env.SABLE_IDENTIFIER ?? 'moe.sable.next'),
     __SABLE_SENTRY__: JSON.stringify({
       dsn: process.env.VITE_SENTRY_DSN,
       environment: process.env.VITE_SENTRY_ENVIRONMENT,

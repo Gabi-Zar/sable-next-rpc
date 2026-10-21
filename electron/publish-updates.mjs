@@ -22,9 +22,11 @@ const files = readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile())
   .map((entry) => entry.name);
 const artifacts = files.filter((name) =>
-  /\.(deb|rpm|AppImage|tar\.gz|dmg|zip|blockmap)$/.test(name)
+  /\.(deb|rpm|AppImage|tar\.gz|dmg|zip|exe|msi|blockmap)$/.test(name)
 );
-const manifests = files.filter((name) => new RegExp(`^${channel}-(mac|linux)\\.yml$`).test(name));
+const manifests = files.filter((name) =>
+  new RegExp(`^${channel}(-(mac|linux|linux-arm64))?\\.yml$`).test(name)
+);
 if (manifests.length === 0) throw new Error(`No ${channel} Electron update manifests found`);
 
 const releaseUrl = `${server}/${repository}/releases/download/${encodeURIComponent(tag)}`;
