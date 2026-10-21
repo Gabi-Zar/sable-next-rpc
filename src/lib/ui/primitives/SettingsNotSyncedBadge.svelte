@@ -15,14 +15,9 @@
 </script>
 
 {#snippet trigger({ props }: { props: Record<string, unknown> })}
-  <button
-    {...props}
-    class="badge-anchor"
-    type="button"
-    aria-label={i18n.t('settings.settingExcludedFromSync')}
-  >
+  <div {...props} class="badge-anchor" aria-label={i18n.t('settings.settingExcludedFromSync')}>
     <CloudXIcon />
-  </button>
+  </div>
 {/snippet}
 
 {#if isExcluded}
@@ -43,16 +38,6 @@
     justify-content: center;
     padding: 0;
     width: var(--icon-size-large);
-  }
-
-  .badge-anchor:hover {
-    background: var(--surface-container-hover);
-    color: var(--surface-on-container);
-  }
-
-  .badge-anchor:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: var(--focus-ring-offset);
   }
 
   .badge-anchor :global(svg) {
