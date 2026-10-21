@@ -154,7 +154,7 @@
 
   <ul class="settings-rows">
     {#each badgeRows as { key, label } (key)}
-      <SettingsRow id={`notification-badge-${key}`} title={i18n.t(label)}>
+      <SettingsRow id={`notification-badge-${key}`} title={i18n.t(label)} {key}>
         <Select
           aria-label={`${i18n.t('settings.notificationBadges')}: ${i18n.t(label)}`}
           value={preferences[key]}

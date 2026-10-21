@@ -72,6 +72,7 @@
       {@const anchor = settingFocusId(setting.key)}
       <SettingsRow
         id={anchor}
+        key={setting.key}
         data-settings-focus={anchor}
         title={i18n.t(setting.name)}
         description={setting.description ? i18n.t(setting.description) : undefined}

@@ -118,6 +118,7 @@
     <ul class="settings-rows">
       <SettingsRow
         id="notification-content"
+        key="notificationContent"
         title={i18n.t('settings.notificationContent')}
         description={i18n.t('settings.notificationContentHint')}
         control={contentId}

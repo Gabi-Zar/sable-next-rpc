@@ -31,6 +31,7 @@
 <ul class="settings-rows">
   <SettingsRow
     id="code-ligatures"
+    key="codeLigatures"
     title={i18n.t('settings.codeLigatures')}
     description={i18n.t('settings.codeLigaturesHint')}
   >

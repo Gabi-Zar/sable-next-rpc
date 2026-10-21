@@ -114,7 +114,11 @@
     {/if}
 
     <ul class="settings-rows">
-      <SettingsRow id="call-input-device" title={i18n.t('settings.callInputDevice')}>
+      <SettingsRow
+        id="call-input-device"
+        title={i18n.t('settings.callInputDevice')}
+        key="audioInputDevice"
+      >
         {#snippet before()}<MicrophoneIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('audioinput')}
@@ -125,7 +129,11 @@
         />
       </SettingsRow>
 
-      <SettingsRow id="call-output-device" title={i18n.t('settings.callOutputDevice')}>
+      <SettingsRow
+        id="call-output-device"
+        title={i18n.t('settings.callOutputDevice')}
+        key="audioOutputDevice"
+      >
         {#snippet before()}<SpeakerHighIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('audiooutput')}
@@ -136,7 +144,11 @@
         />
       </SettingsRow>
 
-      <SettingsRow id="call-camera-device" title={i18n.t('settings.callCameraDevice')}>
+      <SettingsRow
+        id="call-camera-device"
+        title={i18n.t('settings.callCameraDevice')}
+        key="videoInputDevice"
+      >
         {#snippet before()}<VideoCameraIcon aria-hidden="true" />{/snippet}
         <Select
           items={optionsFor('videoinput')}

@@ -138,7 +138,11 @@
 
 {#snippet soundSnippet(sound: Sound)}
   {@const Icon = sound.icon}
-  <SettingsRow id={`sound-volume-${sound.sound}`} title={i18n.t(sound.label)}>
+  <SettingsRow
+    id={`sound-volume-${sound.sound}`}
+    title={i18n.t(sound.label)}
+    key={sound.preference}
+  >
     {#snippet before()}<Icon aria-hidden="true" />{/snippet}
     <div class="range" data-max-range={PREFERENCE_RANGES[sound.preference].max}>
       <Slider

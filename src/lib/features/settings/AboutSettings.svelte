@@ -179,6 +179,7 @@
       {#if automaticUpdateChecksSupported}
         <SettingsRow
           id="auto-update-check"
+          key="autoUpdateCheck"
           title={i18n.t('settings.autoUpdateCheck')}
           description={i18n.t('settings.autoUpdateCheckHint')}
           control="auto-update-check-switch"
@@ -194,6 +195,7 @@
       {#if isElectron()}
         <SettingsRow
           id="update-channel"
+          key="updateChannel"
           title={i18n.t('settings.updateChannel')}
           description={i18n.t('settings.updateChannelHint')}
         >

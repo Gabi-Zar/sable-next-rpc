@@ -16,7 +16,12 @@
 </script>
 
 <ul class="settings-rows">
-  <SettingsRow id={anchor} data-settings-focus={anchor} title={i18n.t('settings.enterKey')}>
+  <SettingsRow
+    id={anchor}
+    data-settings-focus={anchor}
+    title={i18n.t('settings.enterKey')}
+    key="enterForNewline"
+  >
     <Switcher
       label={i18n.t('settings.enterKey')}
       value={mode}

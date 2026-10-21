@@ -2415,6 +2415,7 @@
     "troubleshootLoopbackUnsupported": "Test pushes are not supported on this device yet.",
     "copyLink": "Copy link to this setting",
     "linkCopied": "Link copied",
+    "settingExcludedFromSync": "This setting is not synced across devices",
     "showRoomIcon": "Room icons",
     "showRoomIconSometimes": "Sometimes",
     "showRoomIconCollapsed": "Only when collapsed",

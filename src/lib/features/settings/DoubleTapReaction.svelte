@@ -18,6 +18,7 @@
 <ul class="settings-rows">
   <SettingsRow
     id={anchor}
+    key="doubleTapReaction"
     data-settings-focus={anchor}
     title={i18n.t('settings.doubleTapReaction')}
     {disabled}
