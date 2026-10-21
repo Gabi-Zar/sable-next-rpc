@@ -6,6 +6,7 @@ import {
   ipcMain,
   Menu,
   protocol,
+  screen,
   session,
   shell,
   systemPreferences,
@@ -39,6 +40,13 @@ import { ignoreBrokenPipes } from './stdio';
 import { importTauriConfig } from './tauri-import';
 import { DesktopTray, hideToTray } from './tray';
 import { registerUpdater, setUpdateChannel } from './updater';
+import {
+  MIN_HEIGHT,
+  MIN_WIDTH,
+  readWindowState,
+  windowStateOnScreen,
+  writeWindowState,
+} from './window-state';
 
 declare const __SABLE_CSP__: Record<string, string>;
 declare const __SABLE_IDENTIFIER__: string;
@@ -78,6 +86,7 @@ importTauriConfig(
 initSentry(app.getPath('userData'));
 const settingsPath = join(app.getPath('userData'), 'settings.json');
 let settings = readSettings(settingsPath);
+const windowStatePath = join(app.getPath('userData'), 'window-state.json');
 
 function setFeatures(enable: string[], disable: string[]): void {
   const read = (name: string) =>
@@ -212,6 +221,20 @@ let mainWindow: BrowserWindow | null = null;
 let core: UtilityProcess | null = null;
 let quitting = false;
 let pageListening = false;
+let savedWindowState = readWindowState(windowStatePath);
+
+function rememberWindowState(window: BrowserWindow): void {
+  if (window.isDestroyed()) return;
+  savedWindowState = {
+    ...window.getNormalBounds(),
+    maximized: window.isMaximized(),
+    fullscreen: window.isFullScreen(),
+  };
+}
+
+function persistWindowState(): void {
+  if (savedWindowState) writeWindowState(windowStatePath, savedWindowState);
+}
 
 interface DesktopWindowSettings {
   closeToTray: boolean;
@@ -261,11 +284,8 @@ function setCustomTitleBar(custom: boolean): void {
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
   const previous = mainWindow;
-  const bounds = previous.getBounds();
-  const maximized = previous.isMaximized();
+  rememberWindowState(previous);
   mainWindow = createWindow();
-  mainWindow.setBounds(bounds);
-  if (maximized) mainWindow.maximize();
   previous.destroy();
 }
 
@@ -370,11 +390,18 @@ ipcMain.on('sable-core-connect', (event) => {
 });
 
 function createWindow(): BrowserWindow {
+  const restored = savedWindowState
+    ? windowStateOnScreen(
+        savedWindowState,
+        screen.getAllDisplays().map((display) => display.workArea)
+      )
+    : undefined;
   const window = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 400,
-    minHeight: 500,
+    width: restored?.width ?? 1280,
+    height: restored?.height ?? 800,
+    ...(restored ? { x: restored.x, y: restored.y } : {}),
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
     show: false,
     autoHideMenuBar: true,
     ...(settings.customTitleBar &&
@@ -386,7 +413,15 @@ function createWindow(): BrowserWindow {
     },
   });
 
+  const remember = () => {
+    rememberWindowState(window);
+  };
+  window.on('move', remember);
+  window.on('resize', remember);
+
   window.once('ready-to-show', () => {
+    if (restored?.fullscreen) window.setFullScreen(true);
+    else if (restored?.maximized) window.maximize();
     window.show();
   });
   window.on('closed', () => {
@@ -395,6 +430,8 @@ function createWindow(): BrowserWindow {
     pageListening = false;
   });
   window.on('close', (event) => {
+    rememberWindowState(window);
+    persistWindowState();
     if (!quitting && desktopWindowSettings.closeToTray && desktopTray.available) {
       event.preventDefault();
       hideToTray(window);
@@ -622,6 +659,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     quitting = true;
+    if (mainWindow && !mainWindow.isDestroyed()) rememberWindowState(mainWindow);
+    persistWindowState();
     desktopTray.destroy();
   });
 
