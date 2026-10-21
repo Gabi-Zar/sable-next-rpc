@@ -45,9 +45,19 @@ export class DesktopTray {
       this.tray.setToolTip('Sable');
       this.tray.setContextMenu(
         Menu.buildFromTemplate([
-          { label: 'Show Sable', click: () => this.showWindow() },
+          {
+            label: 'Show Sable',
+            click: () => {
+              this.showWindow();
+            },
+          },
           { type: 'separator' },
-          { label: 'Quit Sable', click: () => app.quit() },
+          {
+            label: 'Quit Sable',
+            click: () => {
+              app.quit();
+            },
+          },
         ])
       );
       if (this.platform === 'win32') {
@@ -58,7 +68,9 @@ export class DesktopTray {
           else this.showWindow();
         });
       } else {
-        this.tray.on('click', () => this.showWindow());
+        this.tray.on('click', () => {
+          this.showWindow();
+        });
       }
       return true;
     } catch (error) {
