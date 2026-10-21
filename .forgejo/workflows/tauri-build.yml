@@ -946,7 +946,7 @@ jobs:
         run: |
           mkdir debs
           node scripts/ci/forgejo-release.mjs download \
-            --pattern "sable-electron-${VERSION}-amd64.deb" --dir debs
+            --pattern "sable-${VERSION}-amd64.deb" --dir debs
           ls debs | grep -q . || { echo 'The x86_64 deb is not on the release' >&2; exit 1; }
       - name: Push to the AUR
         env:
@@ -965,7 +965,7 @@ jobs:
             pkgver="$VERSION"
             relver=-
           fi
-          sha="$(sha256sum "debs/sable-electron-${VERSION}-amd64.deb" | awk '{print $1}')"
+          sha="$(sha256sum "debs/sable-${VERSION}-amd64.deb" | awk '{print $1}')"
 
           mkdir -p ~/.ssh
           printf '%s\n' "$AUR_KEY" > ~/.ssh/aur_key
@@ -1018,14 +1018,14 @@ jobs:
         run: |
           mkdir dmg
           node scripts/ci/forgejo-release.mjs download \
-            --pattern "sable-electron-${VERSION}-arm64.dmg" --dir dmg
+            --pattern "sable-${VERSION}-arm64.dmg" --dir dmg
           ls dmg | grep -q . || { echo 'The DMG is not on the release' >&2; exit 1; }
       - name: Push the cask to the taps
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           HOMEBREW_GITHUB_TAP_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TAP_TOKEN }}
         run: |
-          sha="$(sha256sum "dmg/sable-electron-${VERSION}-arm64.dmg" | awk '{print $1}')"
+          sha="$(sha256sum "dmg/sable-${VERSION}-arm64.dmg" | awk '{print $1}')"
 
           push_tap() (
             local name="$1" token="$2" url="$3"
@@ -1084,7 +1084,7 @@ jobs:
         run: |
           mkdir tarballs
           node scripts/ci/forgejo-release.mjs download \
-            --pattern "sable-electron-${VERSION}-*.tar.gz" --dir tarballs
+            --pattern "sable-${VERSION}-*.tar.gz" --dir tarballs
       - name: Open the Flathub PR
         env:
           FLATHUB_TOKEN: ${{ secrets.FLATHUB_TOKEN }}
@@ -1100,7 +1100,7 @@ jobs:
           fi
 
           arch_args() {
-            local file="tarballs/sable-electron-${VERSION}-$1.tar.gz"
+            local file="tarballs/sable-${VERSION}-$1.tar.gz"
             if [ -e "$file" ]; then
               sha256sum "$file" | awk '{print $1}'
             else

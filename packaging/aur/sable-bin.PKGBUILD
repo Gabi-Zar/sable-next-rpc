@@ -23,7 +23,7 @@ provides=('sable')
 conflicts=('sable' 'sable-nightly-bin')
 options=('!strip' '!debug')
 install=${pkgname}.install
-source_x86_64=("${pkgname}-${pkgver}-amd64.deb::${url}/releases/download/v${pkgver}/sable-electron-${pkgver}-amd64.deb")
+source_x86_64=("${pkgname}-${pkgver}-amd64.deb::${url}/releases/download/v${pkgver}/sable-${pkgver}-amd64.deb")
 sha256sums_x86_64=('0000000000000000000000000000000000000000000000000000000000000000')
 
 package() {

@@ -59,13 +59,13 @@ modules:
     sources:
       - type: extra-data
         filename: sable-electron.tar.gz
-        url: https://git.sable.moe/SableClient/sable-next/releases/download/@TAG@/sable-electron-@VERSION@-x64.tar.gz
+        url: https://git.sable.moe/SableClient/sable-next/releases/download/@TAG@/sable-@VERSION@-x64.tar.gz
         sha256: '@SHA256_X86_64@'
         size: @SIZE_X86_64@
         only-arches: [x86_64]
       - type: extra-data
         filename: sable-electron.tar.gz
-        url: https://git.sable.moe/SableClient/sable-next/releases/download/@TAG@/sable-electron-@VERSION@-arm64.tar.gz
+        url: https://git.sable.moe/SableClient/sable-next/releases/download/@TAG@/sable-@VERSION@-arm64.tar.gz
         sha256: '@SHA256_AARCH64@'
         size: @SIZE_AARCH64@
         only-arches: [aarch64]

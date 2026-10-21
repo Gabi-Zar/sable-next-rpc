@@ -68,26 +68,26 @@ modules:
       - type: archive
         dest: sable-electron
         strip-components: 0
-        url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-electron-@VERSION@-x64.tar.gz
+        url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-@VERSION@-x64.tar.gz
         sha256: '@SHA256_X86_64@'
         only-arches: [x86_64]
         x-checker-data:
           type: json
           url: https://git.sable.moe/api/v1/repos/SableClient/sable-next/releases/latest
           version-query: .tag_name | sub("^v"; "")
-          url-query: .assets[] | select(.name == "sable-electron-" + $version + "-x64.tar.gz") | .browser_download_url
+          url-query: .assets[] | select(.name == "sable-" + $version + "-x64.tar.gz") | .browser_download_url
           is-main-source: true
       - type: archive
         dest: sable-electron
         strip-components: 0
-        url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-electron-@VERSION@-arm64.tar.gz
+        url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-@VERSION@-arm64.tar.gz
         sha256: '@SHA256_AARCH64@'
         only-arches: [aarch64]
         x-checker-data:
           type: json
           url: https://git.sable.moe/api/v1/repos/SableClient/sable-next/releases/latest
           version-query: .tag_name | sub("^v"; "")
-          url-query: .assets[] | select(.name == "sable-electron-" + $version + "-arm64.tar.gz") | .browser_download_url
+          url-query: .assets[] | select(.name == "sable-" + $version + "-arm64.tar.gz") | .browser_download_url
       - type: file
         path: sable.sh
       - type: file

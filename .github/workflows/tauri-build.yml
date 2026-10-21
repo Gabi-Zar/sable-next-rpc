@@ -193,7 +193,7 @@ jobs:
           - flavor: electron
             arch: x86_64
             runner: ubuntu-24.04
-            tarball: sable-electron-@VERSION@-x64.tar.gz
+            tarball: sable-@VERSION@-x64.tar.gz
             render-flag: --electron
             manifest: electron/nightly/moe.sable.next.electron.Nightly.yml
     permissions:
@@ -325,7 +325,7 @@ jobs:
             echo 'enabled=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          url="$FORGEJO_URL/$FORGEJO_REPOSITORY/releases/download/$TAG/sable-electron-$VERSION-x64.tar.gz"
+          url="$FORGEJO_URL/$FORGEJO_REPOSITORY/releases/download/$TAG/sable-$VERSION-x64.tar.gz"
           for attempt in $(seq 20); do
             if curl -fsSL -r 0-0 -o /dev/null "$url"; then
               unset url
