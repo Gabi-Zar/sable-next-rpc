@@ -36,10 +36,9 @@ const instance = new native.SableCore(dataDir, process.env.SABLE_LOG ?? null);
 void instance.restore();
 
 function unwrap<T>(promise: Promise<T>): Promise<T> {
-  return promise.catch((error: unknown) =>
-    // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the boundary only decodes a string rejection as an `RpcError`
-    Promise.reject(error instanceof Error ? error.message : error)
-  );
+  return promise.catch((error: unknown) => {
+    throw new Error(error instanceof Error ? error.message : String(error));
+  });
 }
 
 const core: WorkerCore = {

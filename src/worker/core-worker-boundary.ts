@@ -29,6 +29,12 @@ export type WorkerPort = {
   start(): void;
 };
 
+/** The core rejects with the protocol payload: a bare string from the wasm build, an Error carrying it from the native one. */
+function rejectionPayload(cause: unknown): string {
+  if (cause instanceof Error) return cause.message;
+  return typeof cause === 'string' ? cause : '';
+}
+
 /** Owns page ports and enforces timeline subscription ownership at the worker boundary. */
 export function createCoreWorkerBoundary(
   core: Promise<WorkerCore>,
@@ -372,10 +378,11 @@ export function createCoreWorkerBoundary(
         if (pendingTimeline) {
           timelineEvents.cancelPending(port);
         }
-        let err: RpcError = { code: 'failed', log_id: String(cause) };
-        if (typeof cause === 'string') {
+        const payload = rejectionPayload(cause);
+        let err: RpcError = { code: 'failed', log_id: payload || String(cause) };
+        if (payload) {
           try {
-            err = JSON.parse(cause) as RpcError;
+            err = JSON.parse(payload) as RpcError;
           } catch {
             console.error('[sable worker] core rejected with a non-protocol error', cause);
           }

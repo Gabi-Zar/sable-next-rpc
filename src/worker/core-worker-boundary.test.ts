@@ -32,6 +32,43 @@ function fakeCore(call: WorkerCore['call'] = () => Promise.resolve('null')): Wor
   };
 }
 
+test('a core rejecting with a bare payload keeps the protocol error', async () => {
+  const boundary = createCoreWorkerBoundary(
+    // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the wasm core rejects with the bare payload
+    Promise.resolve(fakeCore(() => Promise.reject('{"code":"unknown_room"}')))
+  );
+  const port = new FakePort();
+  boundary.connect(port);
+
+  await port.send({ id: 1, call: { method: 'session.restore', params: {} } });
+
+  expect(port.messages).toEqual([{ id: 1, err: { code: 'unknown_room' } }]);
+});
+
+test('a core rejecting with an Error carrying the payload keeps the protocol error', async () => {
+  const boundary = createCoreWorkerBoundary(
+    Promise.resolve(fakeCore(() => Promise.reject(new Error('{"code":"unknown_room"}'))))
+  );
+  const port = new FakePort();
+  boundary.connect(port);
+
+  await port.send({ id: 1, call: { method: 'session.restore', params: {} } });
+
+  expect(port.messages).toEqual([{ id: 1, err: { code: 'unknown_room' } }]);
+});
+
+test('a core rejecting with a plain message fails the command', async () => {
+  const boundary = createCoreWorkerBoundary(
+    Promise.resolve(fakeCore(() => Promise.reject(new Error('the media is gone'))))
+  );
+  const port = new FakePort();
+  boundary.connect(port);
+
+  await port.send({ id: 1, call: { method: 'session.restore', params: {} } });
+
+  expect(port.messages).toEqual([{ id: 1, err: { code: 'failed', log_id: 'the media is gone' } }]);
+});
+
 test.each([undefined, false, true])(
   'passes background=%s through to WASM media downloads',
   async (background) => {
