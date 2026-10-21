@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { changelogSection } from '../lib/changelog.mjs';
 import { repository, server } from '../lib/forgejo.mjs';
+import { METAINFO_FILES } from './release-prep.mjs';
 
 const version = process.argv[2];
 if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
@@ -13,12 +14,7 @@ if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
 const date = changelogSection(version)?.date;
 if (!date) throw new Error(`No "## ${version} (YYYY-MM-DD)" section in CHANGELOG.md`);
 
-const paths = [
-  'packaging/flatpak/moe.sable.client.metainfo.xml',
-  'packaging/flatpak/electron/moe.sable.next.electron.metainfo.xml',
-];
-
-for (const path of paths) {
+for (const path of METAINFO_FILES) {
   const metainfo = readFileSync(path, 'utf8');
   if (metainfo.includes(`<release version="${version}"`)) {
     console.log(`${path} already lists ${version}`);

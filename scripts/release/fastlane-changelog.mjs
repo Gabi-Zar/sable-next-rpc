@@ -1,12 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { changelogSection } from '../lib/changelog.mjs';
+import { FASTLANE_DIR, fastlaneChangelogs } from './release-prep.mjs';
 
-const directory = 'fastlane/metadata/android/en-US/changelogs';
 const LIMIT = 500;
-const ABI_CODES = { arm: 1, arm64: 2 };
 const KINDS = new Set(['feat', 'fix', 'perf']);
 
 const {
@@ -24,10 +22,7 @@ if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
   process.exit(1);
 }
 
-const [major, minor, patch] = version.split('.').map(Number);
-const base = major * 1_000_000 + minor * 1_000 + patch;
-const files = Object.values(ABI_CODES).map((abi) => join(directory, `${base * 10 + abi}.txt`));
-
+const files = fastlaneChangelogs(version);
 if (check) {
   const missing = files.filter((file) => !existsSync(file));
   if (missing.length > 0) {
@@ -84,7 +79,7 @@ if (!changelog) {
   throw new Error('No feat, fix or perf commits to summarise; write the changelog by hand.');
 }
 
-mkdirSync(directory, { recursive: true });
+mkdirSync(FASTLANE_DIR, { recursive: true });
 for (const file of files) {
   if (existsSync(file) && !force) {
     console.log(`Kept ${file}`);

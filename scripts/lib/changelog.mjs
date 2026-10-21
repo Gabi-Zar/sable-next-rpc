@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 
-export function changelogSection(version) {
-  const lines = readFileSync('CHANGELOG.md', 'utf8').split('\n');
+/** The section of a changelog that covers one release. */
+export function changelogSectionIn(text, version) {
+  const lines = text.split('\n');
   const heading = `## ${version} `;
   const start = lines.findIndex((line) => line.startsWith(heading));
   if (start === -1) return undefined;
@@ -13,4 +14,8 @@ export function changelogSection(version) {
       .join('\n')
       .trim(),
   };
+}
+
+export function changelogSection(version) {
+  return changelogSectionIn(readFileSync('CHANGELOG.md', 'utf8'), version);
 }

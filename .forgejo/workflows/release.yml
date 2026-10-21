@@ -19,10 +19,31 @@ jobs:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The tag points at the commit the release pull request merged into.
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Create release
-        run: node scripts/release/forgejo-release-pr.mjs release
+      - name: Set up mise
+        uses: https://github.com/jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: '2026.10.8'
+          github_token: ''
+          cache: true
+          env: false
+          install: false
+
+      - name: Trust project mise configuration
+        run: mise settings set trusted_config_paths "$GITHUB_WORKSPACE"
+
+      - name: Verify the release preparation
+        # Knope creates a release even without a changelog and knows nothing
+        # about the Android changelogs.
         env:
-          FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/release/release-prep.mjs "${TITLE##* }"
+
+      - name: Create release
+        run: mise run knope -- release --verbose
+        env:
+          GITEA_TOKEN: ${{ secrets.RELEASE_TOKEN }}

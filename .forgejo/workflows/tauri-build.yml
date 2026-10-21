@@ -53,6 +53,15 @@ jobs:
         uses: ./.forgejo/actions/resolve-release-meta
         with:
           input-tag: ${{ inputs.tag }}
+      - name: Check out the release target
+        if: ${{ steps.meta.outputs.nightly != 'true' }}
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.meta.outputs.ref }}
+          persist-credentials: false
+      - name: Verify the release preparation
+        if: ${{ steps.meta.outputs.nightly != 'true' }}
+        run: node scripts/release/release-prep.mjs "${{ steps.meta.outputs.version }}"
       - name: Skip scheduled build without new commits
         id: gate
         if: ${{ github.event_name == 'schedule' }}
