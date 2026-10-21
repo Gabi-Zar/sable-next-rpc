@@ -270,9 +270,11 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
       VERSION: ${{ needs.setup-release.outputs.version }}
       MISE_ENV: tauri
-      CARGO_BUILD_JOBS: '1'
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '4'
+      CARGO_BUILD_JOBS: '2'
       RUST_TARGETS: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+      ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - name: Check out repository
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -308,6 +310,14 @@ jobs:
             >> src-tauri/gen/android/gradle.properties
       - name: Stamp release version into tauri.conf.json
         run: node scripts/ci/set-tauri-version.mjs "$VERSION"
+      - name: Set up Android signing
+        if: ${{ env.ANDROID_KEY_BASE64 != '' }}
+        run: |
+          cd src-tauri/gen/android
+          echo "keyAlias=$ANDROID_KEY_ALIAS" > keystore.properties
+          echo "password=$ANDROID_KEY_PASSWORD" >> keystore.properties
+          base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/keystore.jks"
+          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
       - name: Build one ABI
         run: pnpm tauri android build --config src-tauri/tauri.ci.conf.json --apk --target ${{ matrix.target }}
       - name: Show sccache stats
@@ -328,9 +338,7 @@ jobs:
       TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
       MISE_ENV: tauri
-      # Limit peak memory while compiling the SDK and linking the app on the Android runner.
-      CARGO_BUILD_JOBS: '1'
-      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: '4'
+      CARGO_BUILD_JOBS: '2'
       RUST_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64-linux-android' || 'aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android' }}
       # The same ABIs under the names `tauri android build --target` takes.
       ANDROID_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64' || 'aarch64 armv7 i686 x86_64' }}
