@@ -14,6 +14,7 @@ import {
   sharesNatively,
   withResolvedMime,
 } from './files';
+import type { ElectronBridge } from './electron';
 
 const mocks = vi.hoisted(() => ({
   androidFs: {
@@ -94,6 +95,10 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+function stubElectron(bridge: Partial<ElectronBridge>): void {
+  vi.stubGlobal('sableElectron', bridge satisfies Partial<ElectronBridge>);
+}
 
 test('the web build keeps the browser download, having no native dialog', () => {
   expect(savesNatively()).toBe(false);
@@ -578,4 +583,72 @@ test('a browser saves a url through a download link', async () => {
 
   expect(link).toMatchObject({ href: 'blob:clip', download: 'clip.mp4' });
   expect(link.click).toHaveBeenCalledOnce();
+});
+
+test('Electron saves natively, having a dialog of its own', () => {
+  expect(savesNatively()).toBe(false);
+
+  stubElectron({});
+
+  expect(savesNatively()).toBe(true);
+});
+
+test('Electron opens the native dialog and hands back the files', async () => {
+  const pick = vi
+    .fn<ElectronBridge['pickFiles']>()
+    .mockResolvedValue([{ name: 'photo.jpg', bytes: new Uint8Array([1, 2, 3]) }]);
+  stubElectron({ pickFiles: pick });
+
+  const files = await pickFiles('image/*');
+
+  expect(pick).toHaveBeenCalledOnce();
+  const request = pick.mock.calls[0][0];
+  expect(request.multiple).toBe(true);
+  expect(request.filters.flatMap((filter) => filter.extensions)).toContain('jpg');
+  expect(files?.map(({ name, type }) => ({ name, type }))).toEqual([
+    { name: 'photo.jpg', type: 'image/jpeg' },
+  ]);
+});
+
+test('a cancelled Electron dialog leaves the caller without files', async () => {
+  stubElectron({ pickFiles: vi.fn().mockResolvedValue([]) });
+
+  expect(await pickFiles('image/*')).toEqual([]);
+});
+
+test('a refused Electron pick reports the failure rather than throwing', async () => {
+  stubElectron({ pickFiles: vi.fn().mockRejectedValue(new Error('no dialog')) });
+  const onFailure = vi.fn();
+
+  await expect(pickFiles('image/*', onFailure)).resolves.toEqual([]);
+  expect(onFailure).toHaveBeenCalled();
+});
+
+test('Electron saves through the native dialog', async () => {
+  const save = vi.fn().mockResolvedValue({ path: '/tmp/wave.png' });
+  stubElectron({ saveFile: save });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))));
+
+  await expect(saveFile('blob:wave', 'wave.png')).resolves.toBe('saved');
+
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({ name: 'wave.png', askLocation: true })
+  );
+});
+
+test('a cancelled Electron save is not reported as a failure', async () => {
+  stubElectron({ saveFile: vi.fn().mockResolvedValue(null) });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1]))));
+
+  await expect(saveFile('blob:wave', 'wave.png')).resolves.toBe('cancelled');
+});
+
+test('an Electron download skips the dialog when it is not asked about', async () => {
+  const save = vi.fn().mockResolvedValue({ path: '/dl/wave.png' });
+  stubElectron({ saveFile: save });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))));
+
+  await expect(saveFile('blob:wave', 'wave.png', false)).resolves.toBe('saved');
+
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ askLocation: false }));
 });

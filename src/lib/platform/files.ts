@@ -1,15 +1,18 @@
 import { isTauri } from '@tauri-apps/api/core';
 
+import { electronBridge } from './electron.js';
+import type { FileFilter } from './file-dialog-types.js';
 import { isNativeMobile } from './os.js';
 import { rawInvoke } from './raw-invoke.js';
 
 export type SaveOutcome = 'saved' | 'cancelled' | 'failed';
 
 /**
- * A blob `<a download>` fails in WKWebView and Android's WebView, so Tauri saves through the native dialog.
+ * A blob `<a download>` fails in WKWebView and Android's WebView, so the native apps save through the
+ * native dialog. Electron opens one too, over IPC.
  */
 export function savesNatively(): boolean {
-  return isTauri();
+  return isTauri() || electronBridge() !== undefined;
 }
 
 /** Desktop webviews open `<input type="file">` themselves; mobile ones do not. */
@@ -38,6 +41,18 @@ export async function saveFile(
         (candidate) => candidate !== '' && candidate !== 'application/octet-stream'
       ) ?? 'application/octet-stream';
     const name = withExtension(safeFileName(filename), mime);
+
+    const electron = electronBridge();
+    if (electron) {
+      const saved = await electron.saveFile({
+        name,
+        bytes,
+        filters: filtersFor(mime) ?? [],
+        askLocation,
+      });
+      return saved === null ? 'cancelled' : 'saved';
+    }
+
     const { type } = await import('@tauri-apps/plugin-os');
     if (type() === 'android') {
       await saveAndroidFile('Download', name, mime, bytes);
@@ -319,6 +334,22 @@ export async function pickFiles(
   accept: string,
   onFailure?: (error: unknown) => void
 ): Promise<File[] | null> {
+  const electron = electronBridge();
+  if (electron) {
+    try {
+      const picked = await electron.pickFiles({
+        filters: filtersFor(accept) ?? [],
+        multiple: true,
+      });
+      if (picked === null) return [];
+      return picked.map(({ name, bytes }) => new File([bytes], name, { type: mimeFromName(name) }));
+    } catch (error) {
+      console.debug('[sable files] native pick failed', error);
+      onFailure?.(error);
+      return [];
+    }
+  }
+
   if (!(await picksNatively())) return null;
 
   try {
@@ -407,7 +438,7 @@ async function pickIosFiles(accept: string, onFailure?: (error: unknown) => void
 }
 
 /** Maps an `accept` attribute onto the extension lists the native dialog wants. */
-export function filtersFor(accept: string): { name: string; extensions: string[] }[] | undefined {
+export function filtersFor(accept: string): FileFilter[] | undefined {
   const wanted = accept
     .split(',')
     .map((entry) => entry.trim().toLowerCase())

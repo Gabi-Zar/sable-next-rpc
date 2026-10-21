@@ -21,8 +21,14 @@ import { createReadStream } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import { extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { Readable } from 'node:stream';
+
+import type {
+  PickedFile,
+  PickFilesRequest,
+  SaveFileRequest,
+} from '../../src/lib/platform/file-dialog-types';
 
 import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
@@ -460,6 +466,62 @@ ipcMain.handle('sable-screen-audio-stop', (event) => {
 ipcMain.handle('sable-screen-audio-unmute', (event) => {
   if (isAppFrame(event.senderFrame)) screenAudio.unmute();
 });
+
+ipcMain.handle('sable-pick-files', async (event, request: unknown) => {
+  if (!isAppFrame(event.senderFrame)) return null;
+  const { filters, multiple } = (request ?? {}) as Partial<PickFilesRequest>;
+  const window = BrowserWindow.fromWebContents(event.sender);
+  const properties: ('openFile' | 'multiSelections')[] = multiple
+    ? ['openFile', 'multiSelections']
+    : ['openFile'];
+  const options = { properties, filters };
+  const { canceled, filePaths } = window
+    ? await dialog.showOpenDialog(window, options)
+    : await dialog.showOpenDialog(options);
+  if (canceled) return [];
+
+  const picked: PickedFile[] = [];
+  for (const filePath of filePaths) {
+    picked.push({ name: basename(filePath), bytes: new Uint8Array(await readFile(filePath)) });
+  }
+  return picked;
+});
+
+ipcMain.handle('sable-save-file', async (event, request: unknown) => {
+  if (!isAppFrame(event.senderFrame)) return null;
+  const { name, bytes, filters, askLocation } = (request ?? {}) as Partial<SaveFileRequest>;
+  if (typeof name !== 'string' || !(bytes instanceof Uint8Array)) return null;
+
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!askLocation) {
+    const path = await writeWithoutClobbering(join(app.getPath('downloads'), name), bytes);
+    return { path };
+  }
+
+  const options = { defaultPath: name, filters };
+  const { canceled, filePath } = window
+    ? await dialog.showSaveDialog(window, options)
+    : await dialog.showSaveDialog(options);
+  if (canceled) return null;
+
+  await writeFile(filePath, bytes);
+  return { path: filePath };
+});
+
+async function writeWithoutClobbering(path: string, bytes: Uint8Array): Promise<string> {
+  try {
+    await writeFile(path, bytes, { flag: 'wx' });
+    return path;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    const dot = path.lastIndexOf('.');
+    const stamp = `-${String(Date.now())}`;
+    const candidate =
+      dot > 0 ? `${path.slice(0, dot)}${stamp}${path.slice(dot)}` : `${path}${stamp}`;
+    await writeFile(candidate, bytes, { flag: 'wx' });
+    return candidate;
+  }
+}
 
 function cancelPicks(): void {
   for (const resolve of pendingPicks.values()) resolve(null);
