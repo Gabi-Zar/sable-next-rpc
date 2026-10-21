@@ -83,7 +83,7 @@ test.each([
     );
   });
   if (failed) {
-    expect(await screen.findByText(/pictures could not be fetched/)).toBeInTheDocument();
+    expect(await screen.findByText(/picture could not be fetched/)).toBeInTheDocument();
   }
   if (native) {
     expect(mocks.invoke).toHaveBeenCalledWith('import_persona_avatar', { url: avatar });
@@ -118,7 +118,7 @@ test('imports the members of a PluralKit export file', async () => {
       null
     );
   });
-  expect(await screen.findByText('Imported 1 members.')).toBeInTheDocument();
+  expect(await screen.findByText('Imported 1 member.')).toBeInTheDocument();
 });
 
 test('reports an export file that holds no members', async () => {

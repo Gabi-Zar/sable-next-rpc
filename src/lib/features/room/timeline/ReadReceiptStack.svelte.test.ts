@@ -108,9 +108,9 @@ test('caps faces and opens the list from overflow', async () => {
     { wrapper: TooltipProvider }
   );
 
-  expect(document.querySelectorAll('.read-receipt-stack .avatar-root')).toHaveLength(3);
+  expect(document.querySelectorAll('.read-receipt-stack .avatar-root')).toHaveLength(2);
   const overflow = screen.getByRole('button', { name: /Open the list/ });
-  expect(overflow).toHaveTextContent('+9');
+  expect(overflow).toHaveTextContent('+10');
 
   await user.click(overflow);
   expect(anchor).toBe(overflow);

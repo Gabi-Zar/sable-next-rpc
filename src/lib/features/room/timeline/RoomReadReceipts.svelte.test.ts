@@ -46,7 +46,7 @@ test('opens the seen-by list from the overflow chip', async () => {
   );
 
   const overflow = screen.getByRole('button', { name: /Open the list/ });
-  expect(overflow).toHaveTextContent('+2');
+  expect(overflow).toHaveTextContent('+3');
 
   await user.click(overflow);
   const list = await screen.findByRole('complementary');
