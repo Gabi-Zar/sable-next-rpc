@@ -1,5 +1,23 @@
 # Sable Changelog
 
+## 2.1.0 (2026-10-21)
+
+### Features
+
+* Added a badge next to settings that aren't synchronized across devices
+* Ship the desktop apps on Electron for Windows, macOS and Linux, importing the Tauri app's settings on first launch.
+
+### Fixes
+
+* Lower CPU and memory use in large encrypted rooms when room keys arrive.
+* Fix extra colons in custom emoji alt text and titles.
+* Keep popup background present while scrolling content fades.
+* Keep Markdown literal in incoming messages and previews.
+* Ring for one-to-one calls on Android when the app is closed.
+* Use the server's mutual rooms endpoint instead of checking locally cached membership.
+
+* Recover sync after the computer sleeps
+
 ## 2.0.3 (2026-10-17)
 
 ### Fixes

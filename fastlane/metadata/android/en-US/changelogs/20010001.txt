@@ -1,0 +1,6 @@
+- Added a badge next to settings that aren't synchronized across devices
+- Ship the desktop apps on Electron for Windows, macOS and Linux, importing the Tauri app's settings on first launch.
+- Lower CPU and memory use in large encrypted rooms when room keys arrive.
+- Fix extra colons in custom emoji alt text and titles.
+- Keep popup background present while scrolling content fades.
+- Keep Markdown literal in incoming messages and previews.
