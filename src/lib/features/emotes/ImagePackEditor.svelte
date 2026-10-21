@@ -10,6 +10,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { pickFiles } from '#lib/platform/files.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -339,6 +340,7 @@
           </Button>
           <input
             bind:this={avatarInput}
+            use:nativeFilePicker
             class="file-input"
             type="file"
             accept="image/*"
@@ -504,6 +506,7 @@
         </div>
         <input
           bind:this={imageInput}
+          use:nativeFilePicker
           class="file-input"
           type="file"
           accept="image/*"

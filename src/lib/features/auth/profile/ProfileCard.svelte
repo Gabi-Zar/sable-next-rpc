@@ -4,6 +4,7 @@
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
 
   import { i18n } from '#lib/i18n.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import { MAX_DISPLAY_NAME_LENGTH, MAX_STATUS_TEXT_BYTES } from '#lib/profile/fields.js';
   import { MAX_PRONOUN_INPUT } from '#lib/profile/pronouns.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
@@ -90,6 +91,7 @@
         <label class="file-button btn btn-secondary btn-small">
           <input
             id="profile-avatar"
+            use:nativeFilePicker
             type="file"
             accept="image/*"
             aria-label={i18n.t(avatarPreview ? 'auth.replaceAvatar' : 'settings.uploadAvatar')}
@@ -182,6 +184,7 @@
           <label class="file-button btn btn-secondary btn-small">
             <input
               id="profile-banner"
+              use:nativeFilePicker
               type="file"
               accept="image/*"
               aria-label={i18n.t(bannerPreview ? 'common.changeBanner' : 'settings.saveBanner')}

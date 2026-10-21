@@ -14,6 +14,7 @@
   import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
   import { MAX_PRONOUN_INPUT } from '#lib/profile/pronouns.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import MentionProfileCard from '#lib/features/room/members/MentionProfileCard.svelte';
   import { canSendState } from '#lib/features/room/settings/permission-groups.js';
   import { senderColor } from '../room/timeline/timeline-format';
@@ -335,6 +336,7 @@
           {#snippet actions()}
             <label class="file-button btn btn-secondary btn-small">
               <input
+                use:nativeFilePicker
                 type="file"
                 accept="image/*"
                 disabled={loading}

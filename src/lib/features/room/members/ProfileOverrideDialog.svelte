@@ -4,6 +4,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { i18n } from '#lib/i18n.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import { downscaledAvatar, encryptAttachment } from '#lib/profile/encrypted-file.js';
   import { MAX_DISPLAY_NAME_LENGTH } from '#lib/profile/fields.js';
   import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
@@ -148,6 +149,7 @@
     <Avatar id={userId} src={avatarSrc ?? realAvatar} alt="" name={name || realName} size="large" />
     <label class="file-button btn btn-secondary btn-small">
       <input
+        use:nativeFilePicker
         type="file"
         accept="image/*"
         disabled={busy}

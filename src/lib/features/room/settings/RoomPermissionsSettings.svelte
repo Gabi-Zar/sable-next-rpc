@@ -12,6 +12,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -586,6 +587,7 @@
               {/if}
               <input
                 bind:this={iconInput}
+                use:nativeFilePicker
                 class="icon-input"
                 type="file"
                 accept="image/*"

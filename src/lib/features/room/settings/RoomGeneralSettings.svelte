@@ -14,6 +14,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import MediaImage from '#lib/ui/MediaImage.svelte';
@@ -268,6 +269,7 @@
         {/if}
         <input
           bind:this={avatarInput}
+          use:nativeFilePicker
           class="avatar-input"
           type="file"
           accept="image/*"
@@ -293,6 +295,7 @@
         {/if}
         <input
           bind:this={bannerInput}
+          use:nativeFilePicker
           class="avatar-input"
           type="file"
           accept="image/*"

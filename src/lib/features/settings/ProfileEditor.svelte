@@ -37,6 +37,7 @@
   import SettingsSection from '#lib/ui/primitives/SettingsSection.svelte';
   import TextArea from '#lib/ui/primitives/TextArea.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
   import '#lib/ui/primitives/settings-row.css';
@@ -557,6 +558,7 @@
             <label class="file-button btn btn-secondary btn-small">
               <input
                 bind:this={avatarInput}
+                use:nativeFilePicker
                 type="file"
                 accept="image/*"
                 onchange={(event: Event & { currentTarget: HTMLInputElement }) => {
@@ -572,6 +574,7 @@
               >{/if}
             <label class="file-button btn btn-secondary btn-small">
               <input
+                use:nativeFilePicker
                 type="file"
                 accept="image/*"
                 disabled={uploadingBanner}

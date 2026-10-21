@@ -11,6 +11,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import { parsePronouns } from '#lib/personas/pronouns.js';
   import { MAX_PRONOUN_INPUT, pronounText } from '#lib/profile/pronouns.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
@@ -177,7 +178,12 @@
       <Avatar src={avatarUrl} {name} size="large" />
       <div class="identity-actions">
         <label class="file-button btn btn-secondary btn-small">
-          <input type="file" accept="image/*" onchange={(event) => void pickAvatar(event)} />
+          <input
+            use:nativeFilePicker
+            type="file"
+            accept="image/*"
+            onchange={(event) => void pickAvatar(event)}
+          />
           {i18n.t('common.chooseAPicture')}
         </label>
         {#if avatarUrl}
@@ -303,6 +309,7 @@
           <Avatar src={avatar.avatar_url} {name} size="large" />
           <label class="file-button btn btn-secondary btn-small">
             <input
+              use:nativeFilePicker
               type="file"
               accept="image/*"
               onchange={(event) => void pickAlternateAvatar(index, event)}
