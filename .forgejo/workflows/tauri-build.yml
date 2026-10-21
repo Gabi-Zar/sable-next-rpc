@@ -1026,6 +1026,7 @@ jobs:
           HOMEBREW_GITHUB_TAP_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TAP_TOKEN }}
         run: |
           sha="$(sha256sum "dmg/sable-${VERSION}-arm64.dmg" | awk '{print $1}')"
+          export GIT_TERMINAL_PROMPT=0
 
           push_tap() (
             local name="$1" token="$2" url="$3"
@@ -1037,28 +1038,24 @@ jobs:
             local auth
             auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
             echo "::add-mask::${auth}"
-            export GIT_CONFIG_COUNT=1
-            export GIT_CONFIG_KEY_0="http.https://${url%%/*}/.extraHeader"
-            export GIT_CONFIG_VALUE_0="Authorization: Basic ${auth}"
             rm -rf tap
             git clone --depth 1 "https://${url}" tap
+            git -C tap config "http.https://${url%%/*}/.extraHeader" "Authorization: Basic ${auth}"
             mkdir -p tap/Casks
             sed \
               -e "s/^  version .*/  version '${VERSION}'/" \
               -e "s/^  sha256 .*/  sha256 '${sha}'/" \
               packaging/homebrew/sable.rb > tap/Casks/sable.rb
-            (
-              cd tap
-              git config user.name 'Sable release'
-              git config user.email 'release@sable.moe'
-              git add Casks/sable.rb
-              if git diff --cached --quiet; then
-                echo "Nothing changed on the ${name} tap; skipping the push."
-                exit 0
-              fi
-              git commit -m "sable ${VERSION}"
-              git push origin HEAD:refs/heads/main
-            )
+            cd tap
+            git config user.name 'Sable release'
+            git config user.email 'release@sable.moe'
+            git add Casks/sable.rb
+            if git diff --cached --quiet; then
+              echo "Nothing changed on the ${name} tap; skipping the push."
+              return 0
+            fi
+            git commit -m "sable ${VERSION}"
+            git push origin HEAD:refs/heads/main
           )
 
           push_tap Forgejo "${HOMEBREW_TAP_TOKEN:-}" git.sable.moe/SableClient/homebrew-sable.git
