@@ -4144,6 +4144,43 @@ fn message_htmls(views: &[crate::protocol::TimelineItemView]) -> Vec<String> {
 const TIME_HTML: &str = "<time datetime=\"1970-01-01T00:00:00Z\">1 Jan 1970, 00:00 (UTC)</time>";
 
 #[tokio::test]
+async fn incoming_messages_preserve_literal_markdown_and_authored_html() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!literal-markdown:example.org");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    let plain = "*test* **bold** `code` ||bars|| $x$ $[unixtime 0] <b>literal</b>";
+    let formatted = "<p>*test* **bold** `code` ||bars|| $x$ $[unixtime 0] <em>authored</em></p>";
+
+    server.mock_room_state_encryption().plain().mount().await;
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg(plain).event_id(event_id!("$plain")))
+                .add_timeline_event(
+                    factory
+                        .text_html("fallback", formatted)
+                        .event_id(event_id!("$formatted")),
+                ),
+        )
+        .await;
+
+    let htmls = message_htmls(
+        &timeline_views(&client, &room, false)
+            .await
+            .expect("a timeline for a joined room"),
+    );
+    assert_eq!(
+        htmls,
+        [
+            "<span data-plain-body>*test* **bold** `code` ||bars|| $x$ $[unixtime 0] &lt;b&gt;literal&lt;/b&gt;</span>",
+            formatted,
+        ]
+    );
+}
+
+#[tokio::test]
 async fn a_time_element_survives_the_sdk_sanitizer() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;

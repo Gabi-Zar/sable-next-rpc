@@ -1,8 +1,6 @@
 //! Sanitises untrusted message bodies; every HTML string the UI renders comes from here.
 
 use std::collections::{HashMap, HashSet};
-use std::fmt::Write as _;
-use std::ops::Range;
 use std::sync::{LazyLock, Mutex, PoisonError};
 
 use ammonia::{Builder, UrlRelative};
@@ -12,8 +10,6 @@ use matrix_sdk::ruma::html::{
     SanitizerConfig,
 };
 use matrix_sdk::ruma::{MatrixUri, MxcUri};
-use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
-use time::OffsetDateTime;
 
 const ALLOWED_TAGS: [&str; 41] = [
     "a",
@@ -388,10 +384,6 @@ fn anchor(href: &str, text: &str) -> String {
     )
 }
 
-fn render_plain_text(text: &str) -> String {
-    rewrite_mfm(text)
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum SpanKind {
     Url,
@@ -417,7 +409,7 @@ fn room_mention_spans(text: &str) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn linkify_urls(text: &str) -> String {
+fn render_plain_text(text: &str) -> String {
     let mut spans: Vec<(usize, usize, SpanKind)> = PLAIN_TEXT_LINKS
         .links(text)
         .map(|link| {
@@ -477,393 +469,6 @@ fn linkify_urls(text: &str) -> String {
     }
     html.push_str(&escape_html(text.get(offset..).unwrap_or_default()));
     html
-}
-
-fn spoiler_bars(text: &str, index: usize) -> Option<(usize, &str)> {
-    let body = text.get(index..)?.strip_prefix("||")?;
-    let before = text.get(..index)?.chars().next_back();
-    if !before.is_none_or(|c| c.is_whitespace() || "([{<\"'".contains(c)) {
-        return None;
-    }
-    if body.starts_with(|c: char| c == '|' || c.is_whitespace()) {
-        return None;
-    }
-    let inner = body.get(..body.find("||")?)?;
-    if inner.ends_with(char::is_whitespace) {
-        return None;
-    }
-    Some((inner.len() + 4, inner))
-}
-
-fn math_span(text: &str, index: usize) -> Option<(usize, String)> {
-    let rest = text.get(index..)?;
-    let before = text.get(..index)?.chars().next_back();
-    if before.is_some_and(|c| c.is_alphanumeric() || c == '$') {
-        return None;
-    }
-    let (display, body) = match rest.strip_prefix("$$") {
-        Some(body) => (true, body),
-        None => (false, rest.strip_prefix('$')?),
-    };
-    let inner = body.get(..body.find(if display { "$$" } else { "$" })?)?;
-    if inner.trim().is_empty() || (!display && inner.contains('\n')) {
-        return None;
-    }
-    if !display {
-        let after = body.get(inner.len() + 1..)?.chars().next();
-        let bounded = !inner.starts_with(char::is_whitespace)
-            && !inner.ends_with(char::is_whitespace)
-            && !inner.starts_with('[')
-            && !after.is_some_and(|c| c.is_ascii_digit());
-        if !bounded {
-            return None;
-        }
-    }
-    let latex = inner.trim();
-    let attribute = html_escape::encode_double_quoted_attribute(latex);
-    let tag = if display { "div" } else { "span" };
-    let consumed = inner.len() + if display { 4 } else { 2 };
-    Some((
-        consumed,
-        format!(
-            "<{tag} data-mx-maths=\"{attribute}\"><code>{}</code></{tag}>",
-            escape_html(latex)
-        ),
-    ))
-}
-
-fn hide_spoiler_bars(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut index = 0;
-    while let Some(rest) = text.get(index..).filter(|rest| !rest.is_empty()) {
-        if let Some((consumed, _)) = spoiler_bars(text, index) {
-            out.push_str(SPOILER_PLACEHOLDER);
-            index += consumed;
-        } else {
-            let character = rest.chars().next().unwrap_or_default();
-            out.push(character);
-            index += character.len_utf8();
-        }
-    }
-    out
-}
-
-fn link_words(text: &str) -> Vec<Range<usize>> {
-    let mut words = Vec::new();
-    let mut start = None;
-    for (index, character) in text.char_indices().chain([(text.len(), ' ')]) {
-        if character.is_whitespace() {
-            if let Some(from) = start.take()
-                && let Some(word) = text.get(from..index)
-                && (word.contains("://")
-                    || ["www.", "mailto:", "matrix:"]
-                        .iter()
-                        .any(|prefix| word.starts_with(prefix)))
-            {
-                words.push(from..index);
-            }
-        } else if start.is_none() {
-            start = Some(index);
-        }
-    }
-    words
-}
-
-fn inline_markdown(segment: &str) -> String {
-    let trimmed = segment.trim();
-    let lead = segment.get(..segment.len() - segment.trim_start().len());
-    let trail = segment.get(segment.trim_end().len()..);
-    let mut html = String::with_capacity(segment.len());
-    let mut formatted = false;
-    let links = link_words(trimmed);
-    for (event, range) in Parser::new_ext(trimmed, Options::ENABLE_STRIKETHROUGH).into_offset_iter()
-    {
-        if matches!(
-            event,
-            Event::Start(Tag::Emphasis | Tag::Strong | Tag::Strikethrough) | Event::Code(_)
-        ) {
-            formatted = true;
-            if links
-                .iter()
-                .any(|word| range.start < word.end && word.start < range.end)
-            {
-                return linkify_urls(segment);
-            }
-        }
-        match event {
-            Event::Start(Tag::Paragraph) => {
-                if !html.is_empty() {
-                    html.push_str("\n\n");
-                }
-            }
-            Event::End(TagEnd::Paragraph) => {}
-            Event::Start(Tag::Emphasis) => html.push_str("<em>"),
-            Event::End(TagEnd::Emphasis) => html.push_str("</em>"),
-            Event::Start(Tag::Strong) => html.push_str("<strong>"),
-            Event::End(TagEnd::Strong) => html.push_str("</strong>"),
-            Event::Start(Tag::Strikethrough) => html.push_str("<del>"),
-            Event::End(TagEnd::Strikethrough) => html.push_str("</del>"),
-            Event::Code(code) => {
-                let _ = write!(html, "<code>{}</code>", escape_html(&code));
-            }
-            Event::Text(text) => html.push_str(&linkify_urls(&text)),
-            Event::SoftBreak | Event::HardBreak => html.push('\n'),
-            _ => return linkify_urls(segment),
-        }
-    }
-    if !formatted {
-        return linkify_urls(segment);
-    }
-    format!(
-        "{}{html}{}",
-        lead.map(escape_html).unwrap_or_default(),
-        trail.map(escape_html).unwrap_or_default()
-    )
-}
-
-fn rewrite_mfm(text: &str) -> String {
-    rewrite_mfm_at_depth(text, 0)
-}
-
-const MAX_MFM_DEPTH: usize = 32;
-
-const MFM_SPAN_LIMIT: usize = 2048;
-
-fn rewrite_mfm_at_depth(text: &str, depth: usize) -> String {
-    let mut html = String::with_capacity(text.len());
-    let mut plain_start = 0;
-    let mut code_ticks = None;
-    let mut index = 0;
-    while index < text.len() {
-        let Some(rest) = text.get(index..) else {
-            break;
-        };
-        if code_ticks.is_none() && rest.starts_with('\\') {
-            index += 1 + rest
-                .get(1..)
-                .and_then(|tail| tail.chars().next())
-                .map_or(0, char::len_utf8);
-            continue;
-        }
-        if rest.starts_with('`') {
-            let ticks = rest.bytes().take_while(|byte| *byte == b'`').count();
-            match code_ticks {
-                Some(open) if open == ticks => code_ticks = None,
-                None => code_ticks = Some(ticks),
-                _ => {}
-            }
-            index += ticks;
-            continue;
-        }
-        if code_ticks.is_none()
-            && rest.starts_with("$[")
-            && let Some((consumed, element)) = mfm_element(rest, depth)
-        {
-            if let Some(before) = text.get(plain_start..index) {
-                html.push_str(&inline_markdown(before));
-            }
-            html.push_str(&element);
-            index += consumed;
-            plain_start = index;
-            continue;
-        }
-        if code_ticks.is_none()
-            && !rest.starts_with("$[")
-            && let Some((consumed, element)) = math_span(text, index)
-        {
-            if let Some(before) = text.get(plain_start..index) {
-                html.push_str(&inline_markdown(before));
-            }
-            html.push_str(&element);
-            index += consumed;
-            plain_start = index;
-            continue;
-        }
-        if code_ticks.is_none()
-            && depth < MAX_MFM_DEPTH
-            && let Some((consumed, inner)) = spoiler_bars(text, index)
-        {
-            if let Some(before) = text.get(plain_start..index) {
-                html.push_str(&inline_markdown(before));
-            }
-            let _ = write!(
-                html,
-                "<span data-mx-spoiler=\"\">{}</span>",
-                rewrite_mfm_at_depth(inner, depth + 1)
-            );
-            index += consumed;
-            plain_start = index;
-            continue;
-        }
-        index += rest.chars().next().map_or(1, char::len_utf8);
-    }
-    if let Some(tail) = text.get(plain_start..) {
-        html.push_str(&inline_markdown(tail));
-    }
-    html
-}
-
-fn mfm_element(src: &str, depth: usize) -> Option<(usize, String)> {
-    mfm_unixtime(src).or_else(|| mfm_color(src, depth))
-}
-
-fn mfm_unixtime(src: &str) -> Option<(usize, String)> {
-    let after_name = src.strip_prefix("$[unixtime")?;
-    if !after_name.starts_with([' ', '\t']) {
-        return None;
-    }
-    let args = after_name.trim_start_matches([' ', '\t']);
-    let close = args.bytes().take_while(u8::is_ascii_digit).count();
-    if close == 0 || args.as_bytes().get(close) != Some(&b']') {
-        return None;
-    }
-    let seconds = args.get(..close)?;
-    let (datetime, label) = unix_time(seconds)?;
-    Some((
-        src.len() - args.len() + close + 1,
-        format!("<time datetime=\"{datetime}\">{label}</time>"),
-    ))
-}
-
-struct ColorArgs {
-    fg: Option<String>,
-    bg: Option<String>,
-}
-
-fn mfm_close(src: &str) -> Option<usize> {
-    let mut depth = 0usize;
-    let mut escaped = false;
-    for (index, character) in src.char_indices().take(MFM_SPAN_LIMIT).skip(1) {
-        if escaped {
-            escaped = false;
-        } else if character == '\\' {
-            escaped = true;
-        } else if character == '[' {
-            depth += 1;
-        } else if character == ']' {
-            depth = depth.checked_sub(1)?;
-            if depth == 0 {
-                return Some(index);
-            }
-        }
-    }
-    None
-}
-
-fn mfm_color(src: &str, depth: usize) -> Option<(usize, String)> {
-    if !src.starts_with("$[fg.color=") && !src.starts_with("$[bg.color=") {
-        return None;
-    }
-    let close = mfm_close(src)?;
-    let inner = src.get(2..close)?;
-    let (args, text_at) = parse_color_args(inner)?;
-    let text = inner.get(text_at..)?.trim();
-    if text.is_empty() {
-        return None;
-    }
-    let mut attrs = String::new();
-    if let Some(fg) = &args.fg {
-        let _ = write!(attrs, " data-mx-color=\"{fg}\"");
-    }
-    if let Some(bg) = &args.bg {
-        let _ = write!(attrs, " data-mx-bg-color=\"{bg}\"");
-    }
-    let content = if depth < MAX_MFM_DEPTH {
-        rewrite_mfm_at_depth(text, depth + 1)
-    } else {
-        linkify_urls(text)
-    };
-    Some((close + 1, format!("<span{attrs}>{content}</span>")))
-}
-
-fn parse_color_args(inner: &str) -> Option<(ColorArgs, usize)> {
-    let mut args = ColorArgs { fg: None, bg: None };
-    let mut rest = inner;
-    let mut consumed = 0;
-    let mut found = false;
-    loop {
-        if found {
-            let spaces = rest.len() - rest.trim_start_matches([' ', '\t']).len();
-            if spaces == 0 {
-                break;
-            }
-            rest = rest.get(spaces..)?;
-            consumed += spaces;
-        }
-        let token_len = rest.find([' ', '\t']).unwrap_or(rest.len());
-        let token = rest.get(..token_len)?;
-        let Some((kind, value)) = token
-            .strip_prefix("fg.color=")
-            .map(|value| ("fg", value))
-            .or_else(|| token.strip_prefix("bg.color=").map(|value| ("bg", value)))
-        else {
-            break;
-        };
-        let normalized = normalize_mfm_hex(value)?;
-        if kind == "fg" {
-            args.fg = Some(normalized);
-        } else {
-            args.bg = Some(normalized);
-        }
-        found = true;
-        rest = rest.get(token_len..)?;
-        consumed += token_len;
-    }
-    (args.fg.is_some() || args.bg.is_some()).then_some((args, consumed))
-}
-
-fn normalize_mfm_hex(value: &str) -> Option<String> {
-    let digits = value.strip_prefix('#').unwrap_or(value);
-    if !matches!(digits.len(), 3 | 6) || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return None;
-    }
-    let expanded = match digits.len() {
-        3 => {
-            let [red, green, blue] = *digits.as_bytes() else {
-                return None;
-            };
-            format!(
-                "{}{}{}{}{}{}",
-                red as char, red as char, green as char, green as char, blue as char, blue as char
-            )
-        }
-        6 => digits.to_owned(),
-        _ => return None,
-    };
-    Some(format!("#{}", expanded.to_ascii_lowercase()))
-}
-
-fn unix_time(seconds: &str) -> Option<(String, String)> {
-    const MONTHS: [&str; 12] = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ];
-    let seconds: i64 = seconds.parse().ok()?;
-    if seconds < 0 {
-        return None;
-    }
-    let value = OffsetDateTime::from_unix_timestamp(seconds).ok()?;
-    if !(1..=9999).contains(&value.year()) {
-        return None;
-    }
-    let datetime = format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        value.year(),
-        u8::from(value.month()),
-        value.day(),
-        value.hour(),
-        value.minute(),
-        value.second()
-    );
-    let month = MONTHS.get(usize::from(u8::from(value.month()) - 1))?;
-    let label = format!(
-        "{} {} {}, {:02}:{:02} (UTC)",
-        value.day(),
-        month,
-        value.year(),
-        value.hour(),
-        value.minute()
-    );
-    Some((datetime, label))
 }
 
 const LINKIFY_SKIP_ELEMENTS: [&str; 9] = [
@@ -1150,7 +755,7 @@ pub fn preview_body(body: &str, formatted: Option<&str>) -> String {
     if text.is_empty() {
         body.to_owned()
     } else {
-        hide_spoiler_bars(text)
+        text.to_owned()
     }
 }
 
@@ -1245,7 +850,7 @@ fn render_html(body: &str, formatted: Option<&str>) -> String {
     match sanitized {
         Some(html) if !html.trim().is_empty() => html,
         _ if body.is_empty() => String::new(),
-        _ => format!("<span data-plain-body>{}</span>", linkify_urls(body)),
+        _ => format!("<span data-plain-body>{}</span>", render_plain_text(body)),
     }
 }
 
@@ -1521,12 +1126,10 @@ mod tests {
     }
 
     #[test]
-    fn literal_double_bars_become_spoilers() {
-        let html = display_html("", Some("so. ||i could see it|| yes"));
-        assert!(html.contains("so. <span data-mx-spoiler=\"\">i could see it</span> yes"));
-
-        let html = display_html("", Some("a ||b|| and ||c||"));
-        assert_eq!(html.matches("data-mx-spoiler").count(), 2);
+    fn literal_double_bars_stay_literal() {
+        for formatted in ["so. ||i could see it|| yes", "a ||b|| and ||c||"] {
+            assert_eq!(display_html("", Some(formatted)), formatted);
+        }
     }
 
     #[test]
@@ -1547,10 +1150,10 @@ mod tests {
     }
 
     #[test]
-    fn preview_hides_literal_spoiler_bars() {
+    fn preview_keeps_literal_spoiler_bars() {
         assert_eq!(
             preview_body("x", Some("see ||this|| now")),
-            "see [Spoiler] now"
+            "see ||this|| now"
         );
     }
 
@@ -1571,28 +1174,46 @@ mod tests {
     }
 
     #[test]
-    fn unrendered_markdown_markers_become_formatting() {
-        let html = display_html(
-            "",
-            Some("a **b** and *c* and __d__ and _e_ and ~~f~~ `g&amp;h`"),
-        );
-        for expected in [
-            "<strong>b</strong>",
-            "<em>c</em>",
-            "<strong>d</strong>",
-            "<em>e</em>",
-            "<del>f</del>",
-            "<code>g&amp;h</code>",
+    fn formatted_body_markdown_stays_literal() {
+        for formatted in [
+            "*test*",
+            "a **b** and *c* and __d__ and _e_ and ~~f~~ `g&amp;h`",
+            "***a***",
+            "**a _b_ c**",
+            "# heading\n\n&gt; quote\n\n- item\n\n```rust\ncode\n```",
+            "[label](relative) and ![image](relative)",
+            "\\*escaped\\* and \\`code\\`",
         ] {
-            assert!(html.contains(expected), "{expected} in {html}");
+            assert_eq!(
+                display_html("different fallback", Some(formatted)),
+                formatted
+            );
         }
+    }
+
+    #[test]
+    fn html_formatting_does_not_change_literal_markdown_inside_it() {
         assert_eq!(
-            display_html("", Some("***a***")),
-            "<em><strong>a</strong></em>"
+            display_html(
+                "",
+                Some("<p>*test* <em>**literal**</em> <strong>_text_</strong></p>")
+            ),
+            "<p>*test* <em>**literal**</em> <strong>_text_</strong></p>"
         );
+    }
+
+    #[test]
+    fn entity_encoded_markdown_stays_literal() {
+        let html = display_html("", Some("<p>&#42;test&#42; &amp; &#96;code&#96;</p>"));
+        assert_eq!(html, "<p>*test* &amp; `code`</p>");
+        assert_eq!(preview_body("", Some(&html)), "*test* & `code`");
+    }
+
+    #[test]
+    fn formatted_body_fallback_keeps_literal_syntax() {
         assert_eq!(
-            display_html("", Some("**a _b_ c**")),
-            "<strong>a <em>b</em> c</strong>"
+            display_html("*test* <b>plain</b>", Some("<script>discard</script>")),
+            "<span data-plain-body>*test* &lt;b&gt;plain&lt;/b&gt;</span>"
         );
     }
 
@@ -1695,15 +1316,16 @@ mod tests {
     }
 
     #[test]
-    fn formatted_text_maths_becomes_a_maths_element() {
-        assert_eq!(
-            display_html("", Some("see $x^2$ now")),
-            "see <span data-mx-maths=\"x^2\"><code>x^2</code></span> now"
-        );
-        assert_eq!(
-            display_html("", Some("$$a&lt;b$$")),
-            "<div data-mx-maths=\"a&lt;b\"><code>a&lt;b</code></div>"
-        );
+    fn formatted_text_maths_stays_literal() {
+        for formatted in ["see $x^2$ now", "$$a&lt;b$$"] {
+            assert_eq!(display_html("", Some(formatted)), formatted);
+        }
+    }
+
+    #[test]
+    fn authored_html_maths_is_preserved() {
+        let formatted = "<span data-mx-maths=\"x^2\"><code>x^2</code></span>";
+        assert_eq!(display_html("", Some(formatted)), formatted);
     }
 
     #[test]
@@ -1882,22 +1504,13 @@ mod tests {
     }
 
     #[test]
-    fn renders_mfm_time_and_nested_colors_in_formatted_text() {
-        let html = display_html(
-            "",
-            Some("at $[unixtime 0] $[fg.color=abc bg.color=123456 red $[bg.color=f00 hot]]"),
-        );
-
-        assert!(
-            html.contains("<time datetime=\"1970-01-01T00:00:00Z\">1 Jan 1970, 00:00 (UTC)</time>")
-        );
-        assert!(html.contains(
-            "<span data-mx-bg-color=\"#123456\" data-mx-color=\"#aabbcc\">red <span data-mx-bg-color=\"#ff0000\">hot</span></span>"
-        ));
+    fn mfm_time_and_nested_colors_in_formatted_text_stay_literal() {
+        let formatted = "at $[unixtime 0] $[fg.color=abc bg.color=123456 red $[bg.color=f00 hot]]";
+        assert_eq!(display_html("", Some(formatted)), formatted);
     }
 
     #[test]
-    fn rewrites_mfm_in_formatted_text_but_skips_verbatim_elements() {
+    fn mfm_in_formatted_text_and_verbatim_elements_stays_literal() {
         let html = display_html(
             "",
             Some(
@@ -1905,7 +1518,8 @@ mod tests {
             ),
         );
 
-        assert_eq!(html.matches("<time ").count(), 1);
+        assert!(html.contains("<p>$[unixtime 0]</p>"));
+        assert!(!html.contains("<time "));
         assert!(html.contains("<code>$[unixtime 0]</code>"));
         assert!(html.contains(">$[unixtime 0]</a>"));
     }
@@ -1939,12 +1553,11 @@ mod tests {
     }
 
     #[test]
-    fn a_colour_looks_for_its_close_within_a_bounded_span() {
-        let near = format!("$[fg.color=f00 {}]", "a".repeat(100));
-        assert!(render_plain_text(&near).starts_with("<span data-mx-color=\"#ff0000\">"));
-
-        let far = format!("$[fg.color=f00 {}]", "a".repeat(5000));
-        assert_eq!(render_plain_text(&far), far);
+    fn mfm_colors_stay_literal_regardless_of_length() {
+        for length in [100, 5000] {
+            let formatted = format!("$[fg.color=f00 {}]", "a".repeat(length));
+            assert_eq!(display_html("", Some(&formatted)), formatted);
+        }
     }
 
     #[test]
@@ -1963,6 +1576,26 @@ mod tests {
 
         assert!(html.contains("href=\"matrix:u/alice:example.org\""));
         assert!(html.contains("href=\"mailto:alice@example.org\""));
+    }
+
+    #[test]
+    fn detects_links_and_mentions_without_interpreting_markdown() {
+        let body = "*test* **bold** `literal` ||bars|| $x$ $[unixtime 0] @room https://example.org alice@example.org matrix:u/alice:example.org MSC4144";
+        for formatted in [None, Some(body)] {
+            let html = display_html(body, formatted);
+            assert!(html.contains("*test* **bold** `literal` ||bars|| $x$ $[unixtime 0]"));
+            for href in [
+                "https://example.org",
+                "mailto:alice@example.org",
+                "matrix:u/alice:example.org",
+                "https://github.com/matrix-org/matrix-spec-proposals/pull/4144",
+            ] {
+                assert!(html.contains(&format!("href=\"{href}\"")), "{html}");
+            }
+            assert!(html.contains("data-mx-room-mention"));
+            assert!(html.contains(">@room</span>"));
+            assert_eq!(preview_body(body, Some(&html)), body);
+        }
     }
 
     #[test]

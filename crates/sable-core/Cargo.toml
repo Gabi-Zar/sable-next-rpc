@@ -54,7 +54,6 @@ charabia = { version = "0.10", default-features = false, features = [
 ] }
 rust-stemmers = "1.2"
 html-escape = "0.2"
-pulldown-cmark = { workspace = true }
 linkify = "0.11"
 regex-lite = { workspace = true }
 miniz_oxide = { version = "0.9.1", default-features = false, features = ["with-alloc"] }
