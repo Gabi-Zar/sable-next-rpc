@@ -1,0 +1,1 @@
+- Fix Electron and Android release builds.

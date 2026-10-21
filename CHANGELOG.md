@@ -1,5 +1,11 @@
 # Sable Changelog
 
+## 2.1.1 (2026-10-21)
+
+### Fixes
+
+* Fix Electron and Android release builds.
+
 ## 2.1.0 (2026-10-21)
 
 ### Features
