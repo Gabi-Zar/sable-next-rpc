@@ -241,6 +241,7 @@
       {currentUserId}
       {canRedactOwn}
       {canRedactOthers}
+      {onReply}
       onMemberProfile={onSenderProfile}
     />
   {:else if entry.kind === 'receipts'}

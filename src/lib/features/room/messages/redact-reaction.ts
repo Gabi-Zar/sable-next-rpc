@@ -1,13 +1,13 @@
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { isRecord } from '#lib/guards.js';
 
-export async function redactReaction(
+export async function fetchReaction(
   core: Pick<CoreClient, 'rpc'>,
   roomId: string,
   eventId: string,
   key: string,
   sender: string
-): Promise<void> {
+): Promise<Set<string>> {
   const eventIds = new Set<string>();
   const seenPages = new Set<string>();
   let from: string | undefined;
@@ -47,6 +47,17 @@ export async function redactReaction(
     }
   } while (from !== undefined);
 
+  return eventIds;
+}
+
+export async function redactReaction(
+  core: Pick<CoreClient, 'rpc'>,
+  roomId: string,
+  eventId: string,
+  key: string,
+  sender: string
+): Promise<void> {
+  const eventIds = await fetchReaction(core, roomId, eventId, key, sender);
   for (const reactionId of eventIds) {
     await core.rpc.messages.sendRedaction({ room_id: roomId, event_id: reactionId, reason: null });
   }
