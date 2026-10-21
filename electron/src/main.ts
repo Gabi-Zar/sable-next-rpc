@@ -315,8 +315,13 @@ ipcMain.on('sable-deep-links-listening', (event) => {
 function startCore(): UtilityProcess {
   const child = utilityProcess.fork(join(__dirname, 'core-host.cjs'), [], {
     serviceName: 'Sable Core',
-    stdio: ['ignore', 'inherit', 'pipe'],
+    // Explorer launches on Windows have no stdout handle for Chromium to inherit.
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, SABLE_DATA_DIR: dataDir },
+  });
+
+  child.stdout?.on('data', (chunk: Buffer) => {
+    process.stdout.write(chunk);
   });
 
   let panic: string | undefined;
