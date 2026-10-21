@@ -221,6 +221,10 @@ final class NotificationService: UNNotificationServiceExtension {
             "caller_name": caller,
         ]
         if let expiresAt = ring["expires_at"] as? Double { payload["expires_at"] = expiresAt }
+        if Locale.current.region == .chinaMainland {
+            finish(alert)
+            return
+        }
         CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self] error in
             if error == nil {
                 self?.suppress()

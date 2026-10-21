@@ -9,7 +9,7 @@ import type { LoginFlowsView, RegistrationResultView } from '#src/generated/prot
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { t } from '#lib/i18n.js';
 import { deliversDeepLinks } from '#lib/platform/deep-links.js';
-import { openExternalAuthUrl } from '#lib/platform/external-auth.js';
+import { openExternalAuthUrl, startInAppAuthSession } from '#lib/platform/external-auth.js';
 import { SvelteSet, SvelteURL } from 'svelte/reactivity';
 import {
   authenticationError,
@@ -115,7 +115,9 @@ export class RedirectController {
               intent === 'login' ? this.options.getReauthAccountId?.() : undefined
             );
       if (deliversDeepLinks()) {
-        await openExternalAuthUrl(authorizationUrl);
+        const callbackUrl = await startInAppAuthSession(authorizationUrl, callbackUri);
+        if (callbackUrl === null) await openExternalAuthUrl(authorizationUrl);
+        else void this.complete(callbackUrl);
       } else {
         if (!this.popup) return;
         const popup = this.popup;

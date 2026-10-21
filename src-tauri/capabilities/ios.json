@@ -4,6 +4,7 @@
   "platforms": ["iOS"],
   "windows": ["main"],
   "permissions": [
+    "auth-session:default",
     "dialog:allow-save",
     "dialog:allow-open",
     "fs:allow-write-file",
