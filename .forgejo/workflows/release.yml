@@ -4,13 +4,19 @@ on:
   pull_request:
     types: [closed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Commit to tag and release. Empty uses the branch head.'
+        required: false
+        type: string
 
 permissions: {}
 
 jobs:
   release:
     name: Create release
-    if: ${{ github.head_ref == 'release' && github.event.pull_request.merged == true }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.head_ref == 'release' && github.event.pull_request.merged == true) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -20,30 +26,24 @@ jobs:
         uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The tag points at the commit the release pull request merged into.
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Set up mise
-        uses: https://github.com/jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
-        with:
-          version: '2026.10.8'
-          github_token: ''
-          cache: true
-          env: false
-          install: false
-
-      - name: Trust project mise configuration
-        run: mise settings set trusted_config_paths "$GITHUB_WORKSPACE"
 
       - name: Verify the release preparation
         # Knope creates a release even without a changelog and knows nothing
         # about the Android changelogs.
         env:
           TITLE: ${{ github.event.pull_request.title }}
-        run: node scripts/release/release-prep.mjs "${TITLE##* }"
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ -n "$TITLE" ] && [ "${TITLE##* }" != "$version" ]; then
+            echo "::error::$TITLE does not match package.json ($version)"
+            exit 1
+          fi
+          node scripts/release/release-prep.mjs "$version"
 
       - name: Create release
-        run: mise run knope -- release --verbose
+        run: node scripts/release/forgejo-release-pr.mjs release
         env:
-          GITEA_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}

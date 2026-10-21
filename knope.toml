@@ -73,9 +73,9 @@ command = "node scripts/release/forgejo-release-pr.mjs pr"
 name = "release"
 help_text = "Create the release and tag the prepared commit"
 
-# Tags the commit that is checked out.
 [[workflows.steps]]
-type = "Release"
+type = "Command"
+command = "node scripts/release/forgejo-release-pr.mjs release"
 
 [[workflows]]
 name = "document-change"
