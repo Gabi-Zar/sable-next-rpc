@@ -9,6 +9,7 @@ import type { WorkerRequest } from '../../src/worker/protocol.ts';
 
 interface NativeCore {
   restore(): Promise<void>;
+  setActive(active: boolean): Promise<void>;
   call(method: string, params: string): Promise<string>;
   fetchMedia(source: string, width: number, height: number, background: boolean): Promise<Buffer>;
   forgetMedia(source: string): Promise<void>;
@@ -49,6 +50,7 @@ const core: WorkerCore = {
   sendAttachment: (request, bytes) => unwrap(instance.sendAttachment(request, bytes)),
   sendGallery: (request, items) => unwrap(instance.sendGallery(request, items)),
   uploadMedia: (mime, bytes) => unwrap(instance.uploadMedia(mime, bytes)),
+  setActive: (active) => unwrap(instance.setActive(active)),
 };
 
 const boundary = createCoreWorkerBoundary(

@@ -196,6 +196,12 @@ impl SableCore {
     }
 
     #[napi]
+    pub async fn set_active(&self, active: bool) {
+        self.core.set_app_active(active);
+        self.core.apply_app_activity(active).await;
+    }
+
+    #[napi]
     pub async fn call(&self, method: String, params: String) -> napi::Result<String> {
         Box::pin(self.core.call(&method, &params))
             .await
