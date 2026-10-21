@@ -9,8 +9,6 @@ import {
   session,
   shell,
   systemPreferences,
-  Tray,
-  nativeImage,
   utilityProcess,
   webContents,
   type DesktopCapturerSource,
@@ -33,6 +31,7 @@ import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
 import { importTauriConfig } from './tauri-import';
+import { DesktopTray, hideToTray } from './tray';
 import { registerUpdater, setUpdateChannel } from './updater';
 
 declare const __SABLE_CSP__: Record<string, string>;
@@ -204,7 +203,6 @@ async function serveApp(request: Request): Promise<Response> {
 }
 
 let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
 let core: UtilityProcess | null = null;
 let quitting = false;
 let pageListening = false;
@@ -222,44 +220,17 @@ let desktopWindowSettings: DesktopWindowSettings = {
 };
 
 function showMainWindow(): void {
-  if (!mainWindow) return;
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
+  desktopTray.showWindow();
 }
 
 function trayIconPath(): string {
+  const extension = process.platform === 'win32' ? 'ico' : 'png';
   return app.isPackaged
-    ? join(process.resourcesPath, 'sable-tray.png')
-    : join(app.getAppPath(), '../src-tauri/icons/icon.png');
+    ? join(process.resourcesPath, `sable-tray.${extension}`)
+    : join(app.getAppPath(), `../src-tauri/icons/icon.${extension}`);
 }
 
-function updateTray(show: boolean): boolean {
-  if (!isLinux) return false;
-  if (!show) {
-    tray?.destroy();
-    tray = null;
-    return false;
-  }
-  if (tray) return true;
-
-  const icon = nativeImage.createFromPath(trayIconPath());
-  if (icon.isEmpty()) {
-    console.error('[sable tray] could not load the tray icon', trayIconPath());
-    return false;
-  }
-  tray = new Tray(icon);
-  tray.setToolTip('Sable');
-  tray.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: 'Show Sable', click: showMainWindow },
-      { type: 'separator' },
-      { role: 'quit' },
-    ])
-  );
-  tray.on('click', showMainWindow);
-  return true;
-}
+const desktopTray = new DesktopTray(trayIconPath(), () => mainWindow);
 
 function sanitizeDesktopWindowSettings(value: unknown): DesktopWindowSettings {
   const stored = (typeof value === 'object' && value !== null ? value : {}) as Record<
@@ -369,7 +340,7 @@ ipcMain.handle('sable-apply-window-settings', (event, value: unknown) => {
   if (!isAppFrame(event.senderFrame)) return null;
   desktopWindowSettings = sanitizeDesktopWindowSettings(value);
   setCustomTitleBar(isCustomTitleBarRequested(value));
-  return { trayAvailable: updateTray(desktopWindowSettings.showSystemTrayIcon) };
+  return { trayAvailable: desktopTray.update(desktopWindowSettings.showSystemTrayIcon) };
 });
 
 function windowOf(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | null {
@@ -418,9 +389,9 @@ function createWindow(): BrowserWindow {
     pageListening = false;
   });
   window.on('close', (event) => {
-    if (!quitting && desktopWindowSettings.closeToTray && tray) {
+    if (!quitting && desktopWindowSettings.closeToTray && desktopTray.available) {
       event.preventDefault();
-      window.hide();
+      hideToTray(window);
     }
   });
   const reportMaximized = () => {
@@ -429,8 +400,8 @@ function createWindow(): BrowserWindow {
   window.on('maximize', reportMaximized);
   window.on('unmaximize', reportMaximized);
   window.on('minimize', () => {
-    if (!quitting && desktopWindowSettings.minimizeToTray && tray) {
-      window.hide();
+    if (!quitting && desktopWindowSettings.minimizeToTray && desktopTray.available) {
+      hideToTray(window);
     }
   });
   window.webContents.on('before-input-event', (event, input) => {
@@ -589,8 +560,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     quitting = true;
-    tray?.destroy();
-    tray = null;
+    desktopTray.destroy();
   });
 
   app.on('window-all-closed', () => {
@@ -604,7 +574,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     registerDeepLinks();
-    updateTray(desktopWindowSettings.showSystemTrayIcon);
+    desktopTray.update(desktopWindowSettings.showSystemTrayIcon);
     core = startCore();
     protocol.handle(SCHEME, serveApp);
     enforcePermissions(

@@ -45,7 +45,10 @@ function desktopOs(): 'macos' | 'windows' | 'linux' | null {
 }
 
 export function supportsTray(): boolean {
-  if (isElectron()) return electronBridge()?.platform === 'linux';
+  if (isElectron()) {
+    const platform = electronBridge()?.platform;
+    return platform === 'linux' || platform === 'win32';
+  }
   return supportsDesktopWindow() && osType() !== 'macos';
 }
 
@@ -173,6 +176,8 @@ export async function watchWindowFocus(onChange: (focused: boolean) => void): Pr
 }
 
 export async function watchHiddenToTray(onHidden: () => void): Promise<() => void> {
+  const electron = electronBridge();
+  if (electron) return electron.onWindowHiddenToTray(onHidden);
   if (!supportsDesktopWindow()) return () => {};
 
   const { listen } = await import('@tauri-apps/api/event');

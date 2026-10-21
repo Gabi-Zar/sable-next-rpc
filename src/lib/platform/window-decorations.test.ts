@@ -25,9 +25,11 @@ vi.mock('@tauri-apps/api/window', () => ({
 
 import {
   customTitleBarDefault,
+  supportsTray,
   titleBarKind,
   watchMaximized,
   watchWindowFocus,
+  watchHiddenToTray,
 } from './window-decorations.js';
 
 beforeEach(() => {
@@ -150,5 +152,27 @@ test('an Electron window reports its maximised state and stops listening', async
   stop();
 
   expect(changed).toHaveBeenCalledWith(true);
+  expect(unsubscribe).toHaveBeenCalledOnce();
+});
+
+test.each([
+  ['win32', true],
+  ['linux', true],
+  ['darwin', false],
+])('Electron tray settings are available on %s: %s', (platform, supported) => {
+  native.isTauri = false;
+  installElectron(platform);
+  expect(supportsTray()).toBe(supported);
+});
+
+test('Electron hidden-to-tray notifications can be subscribed and removed', async () => {
+  native.isTauri = false;
+  const unsubscribe = vi.fn();
+  const onWindowHiddenToTray = vi.fn().mockReturnValue(unsubscribe);
+  vi.stubGlobal('sableElectron', { platform: 'win32', onWindowHiddenToTray });
+  const hidden = vi.fn();
+  const stop = await watchHiddenToTray(hidden);
+  expect(onWindowHiddenToTray).toHaveBeenCalledWith(hidden);
+  stop();
   expect(unsubscribe).toHaveBeenCalledOnce();
 });

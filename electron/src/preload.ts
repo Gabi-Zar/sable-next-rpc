@@ -36,6 +36,13 @@ contextBridge.exposeInMainWorld('sableElectron', {
     ipcRenderer.send('sable-window-close');
   },
   isWindowMaximized: () => ipcRenderer.invoke('sable-window-is-maximized') as Promise<boolean>,
+  onWindowHiddenToTray: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on('sable-window-hidden-to-tray', listener);
+    return () => {
+      ipcRenderer.removeListener('sable-window-hidden-to-tray', listener);
+    };
+  },
   onWindowMaximized: (callback: (maximized: boolean) => void) => {
     const listener = (_event: IpcRendererEvent, maximized: boolean) => {
       callback(maximized);
