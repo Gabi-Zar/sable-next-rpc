@@ -1025,14 +1025,21 @@ jobs:
         run: |
           sha="$(sha256sum "dmg/sable-electron-${VERSION}-arm64.dmg" | awk '{print $1}')"
 
-          push_tap() {
+          push_tap() (
             local name="$1" token="$2" url="$3"
+            token="$(printf '%s' "$token" | tr -d '\r\n')"
             if [ -z "$token" ]; then
               echo "::notice::The ${name} tap token is not set; skipping that tap."
               return 0
             fi
+            local auth
+            auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
+            echo "::add-mask::${auth}"
+            export GIT_CONFIG_COUNT=1
+            export GIT_CONFIG_KEY_0="http.https://${url%%/*}/.extraHeader"
+            export GIT_CONFIG_VALUE_0="Authorization: Basic ${auth}"
             rm -rf tap
-            git clone --depth 1 "https://x-access-token:${token}@${url}" tap
+            git clone --depth 1 "https://${url}" tap
             mkdir -p tap/Casks
             sed \
               -e "s/^  version .*/  version '${VERSION}'/" \
@@ -1050,7 +1057,7 @@ jobs:
               git commit -m "sable ${VERSION}"
               git push origin HEAD:refs/heads/main
             )
-          }
+          )
 
           push_tap Forgejo "${HOMEBREW_TAP_TOKEN:-}" git.sable.moe/SableClient/homebrew-sable.git
           push_tap GitHub "${HOMEBREW_GITHUB_TAP_TOKEN:-}" github.com/SableClient/homebrew-sable.git
