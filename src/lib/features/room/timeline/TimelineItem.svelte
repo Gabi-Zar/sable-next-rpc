@@ -21,6 +21,7 @@
   import { previewableLinks } from '../media/link-preview.js';
   import LinkEmbed from '../media/embeds/LinkEmbed.svelte';
   import { MessageSwipe } from '../messages/message-swipe.svelte.js';
+  import { isMediaCaptionContent } from '../messages/media-caption.js';
   import { i18n } from '#lib/i18n.js';
   import { splitDisplayNamePronouns, withDisplayNamePronouns } from '#lib/personas/pronouns.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
@@ -246,7 +247,7 @@
 
   let actionable = $derived(!preview && item.event_id !== null && stalled === null && !pending);
   let editable = $derived(
-    item.is_own && (item.content.kind === 'message' || item.content.kind === 'image')
+    item.is_own && (item.content.kind === 'message' || isMediaCaptionContent(item.content))
   );
   const swipe = new MessageSwipe({
     enabled: () => actionable && actions.onReply !== undefined,

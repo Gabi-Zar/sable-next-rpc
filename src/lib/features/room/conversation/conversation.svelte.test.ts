@@ -536,6 +536,38 @@ test('editing a pending message uses its transaction ID', async () => {
   );
 });
 
+test('editing a file caption replaces the caption and keeps the attachment', async () => {
+  const file = withRowFields({
+    ...item('$file', '@kris:example.org'),
+    content: {
+      kind: 'file',
+      filename: 'main.rs',
+      caption: 'the code',
+      html: null,
+      source: 'mxc://example.org/code',
+      mime: 'text/plain',
+      size: 128,
+    },
+  } as unknown as TimelineItemView);
+  const { conversation, editMessage } = setup([file], '@kris:example.org');
+
+  conversation.editLast();
+  expect(conversation.context).toMatchObject({
+    kind: 'edit',
+    eventId: '$file',
+    body: 'the code',
+    mediaCaption: true,
+  });
+
+  await conversation.sendMessage(ROOM, 'the new code');
+  expect(editMessage).toHaveBeenCalledWith(
+    ROOM,
+    '$file',
+    'the new code',
+    expect.objectContaining({ mediaCaption: true })
+  );
+});
+
 function ownMessage(eventId: string, body: string): TimelineItemView {
   return withRowFields({
     ...item(eventId, '@kris:example.org'),

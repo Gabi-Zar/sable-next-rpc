@@ -41,6 +41,7 @@ import { runSlash, SlashError } from '#lib/features/composer/slash-commands.js';
 import { knockPagePath } from '#lib/rooms/join-or-knock.js';
 import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
 import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages/reply-preview.js';
+import { isMediaCaptionContent } from '#lib/features/room/messages/media-caption.js';
 import { previewableLinks } from '#lib/features/room/media/link-preview.js';
 import { previewSources, resolveUrlPreview } from '#lib/features/room/media/link-preview-cache.js';
 import {
@@ -656,7 +657,7 @@ export class Conversation {
       this.edit(itemId, item.content.body, item.content.html);
       return true;
     }
-    if (item.content.kind === 'image') {
+    if (isMediaCaptionContent(item.content)) {
       this.edit(itemId, item.content.caption ?? '', item.content.html, true);
       return true;
     }

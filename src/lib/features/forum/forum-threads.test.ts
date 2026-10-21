@@ -71,6 +71,28 @@ test('collects a post nobody has replied to yet', () => {
   expect(threads[0]?.lastBody).toBeNull();
 });
 
+test('an own attachment post is edited through its caption', () => {
+  const post = item({
+    id: 'file',
+    is_own: true,
+    content: {
+      kind: 'file',
+      filename: 'main.rs',
+      caption: 'the code',
+      html: null,
+      source: 'mxc://example.org/code',
+      mime: 'text/plain',
+      size: 128,
+    },
+  });
+
+  const threads = collectForumThreads([post], null);
+
+  expect(threads[0]?.editable).toBe(true);
+  expect(threads[0]?.mediaCaption).toBe(true);
+  expect(threads[0]?.preview).toBe('the code');
+});
+
 test('ignores a thread reply, a plain reply and a state change', () => {
   const reply = item({ id: 'reply', thread_root: '$root' });
   const quoted = item({

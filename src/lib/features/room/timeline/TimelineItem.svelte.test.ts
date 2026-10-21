@@ -163,6 +163,21 @@ function imageItem(body = 'photo.png'): TimelineItemView {
   });
 }
 
+function fileItem(caption: string | null = 'the code'): TimelineItemView {
+  return withRowFields({
+    ...item(false),
+    content: {
+      kind: 'file',
+      filename: 'main.rs',
+      caption,
+      html: null,
+      source: 'mxc://example.org/code',
+      mime: 'text/plain',
+      size: 128,
+    },
+  });
+}
+
 function replyItem(
   body = 'A reply with enough text to show how the preview is rendered.',
   mention: TimelineItemView['mention'] = 'none',
@@ -691,6 +706,45 @@ test('edits an own image caption without dropping its media details', async () =
   }
 
   expect(onEdit).toHaveBeenCalledWith('$item', 'caption', null, true);
+});
+
+test('edits an own file caption without dropping its attachment', async () => {
+  const onEdit = vi.fn();
+  core.fetchMedia.mockResolvedValue(new Uint8Array());
+  const file = withRowFields({
+    ...fileItem(),
+    is_own: true,
+  });
+  render(TimelineItemHarness, {
+    props: { core, item: { item: file, collapsed: false, onEdit } },
+  });
+  await tick();
+
+  await hover(document.querySelector('.message'));
+  await tick();
+  const edit = screen.getByRole('button', { name: 'Edit message' });
+  const hitTest = vi.spyOn(document, 'elementFromPoint').mockReturnValue(edit);
+  try {
+    await press(edit);
+  } finally {
+    hitTest.mockRestore();
+  }
+
+  expect(onEdit).toHaveBeenCalledWith('$item', 'the code', null, true);
+});
+
+test('a file from someone else cannot be edited', async () => {
+  const onEdit = vi.fn();
+  core.fetchMedia.mockResolvedValue(new Uint8Array());
+  render(TimelineItemHarness, {
+    props: { core, item: { item: fileItem(), collapsed: false, onEdit } },
+  });
+  await tick();
+
+  await hover(document.querySelector('.message'));
+  await tick();
+
+  expect(screen.queryByRole('button', { name: 'Edit message' })).toBeNull();
 });
 
 test('drops the right-hand side of a bubble when own alignment is off', async () => {

@@ -1,4 +1,5 @@
 import type { TimelineItemContentView, TimelineItemView } from '#src/generated/protocol';
+import { isMediaCaptionContent } from '#lib/features/room/messages/media-caption.js';
 
 export interface ForumThread {
   id: string;
@@ -36,11 +37,15 @@ const POST_KINDS = new Set<TimelineItemContentView['kind']>([
 ]);
 
 function bodyOf(content: TimelineItemContentView): string {
-  return 'body' in content ? content.body : '';
+  if ('body' in content) return content.body;
+  if (isMediaCaptionContent(content)) return content.caption ?? '';
+  return '';
 }
 
 function htmlOf(content: TimelineItemContentView): string | null {
-  return content.kind === 'message' ? content.html : null;
+  if (content.kind === 'message') return content.html;
+  if (isMediaCaptionContent(content)) return content.html;
+  return null;
 }
 
 function isPost(item: TimelineItemView): boolean {
@@ -87,9 +92,10 @@ export function collectForumThreads(
       senderName: root.sender_name,
       senderAvatar: root.sender_avatar,
       isOwn: root.is_own,
-      editable: root.is_own && (root.content.kind === 'message' || root.content.kind === 'image'),
+      editable:
+        root.is_own && (root.content.kind === 'message' || isMediaCaptionContent(root.content)),
       html: htmlOf(root.content),
-      mediaCaption: root.content.kind === 'image',
+      mediaCaption: isMediaCaptionContent(root.content),
       createdAt: root.timestamp,
       preview: bodyOf(root.content),
       replyCount: root.thread_summary?.num_replies ?? 0,

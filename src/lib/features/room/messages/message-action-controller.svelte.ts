@@ -212,7 +212,7 @@ export class MessageActionExecutor {
     }
 
     async function copyText(): Promise<void> {
-      if (item.content.kind === 'message') await writeClipboard(item.content.body);
+      if (policy.body) await writeClipboard(policy.body);
     }
     return {
       roomId,

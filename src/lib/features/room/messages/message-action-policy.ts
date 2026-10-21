@@ -2,11 +2,7 @@ import type { TimelineItemView } from '#src/generated/protocol';
 import { isRecord } from '#lib/guards.js';
 
 import { canRedact } from '../timeline/timeline-format';
-
-type DownloadableMedia = Extract<
-  TimelineItemView['content'],
-  { kind: 'image' | 'video' | 'audio' | 'file' }
->;
+import { isMediaCaptionContent, type MediaCaptionContent } from './media-caption';
 
 export type MessageActionPolicyInput = {
   item: TimelineItemView;
@@ -32,7 +28,7 @@ export type MessageActionPolicy = {
   editId: string;
   body: string | null;
   html: string | null;
-  media: DownloadableMedia | null;
+  media: MediaCaptionContent | null;
   mediaCaption: boolean;
   threadTarget: string | null;
   pinned: boolean;
@@ -79,23 +75,15 @@ export function messageActionPolicy({
   stealCount,
 }: MessageActionPolicyInput): MessageActionPolicy {
   const eventId = item.event_id ?? '';
+  const media = isMediaCaptionContent(item.content) ? item.content : null;
   const body =
     item.content.kind === 'message'
       ? item.content.body
-      : item.content.kind === 'image'
-        ? (item.content.caption ?? '')
+      : media !== null
+        ? (media.caption ?? '')
         : null;
-  const media =
-    item.content.kind === 'image' ||
-    item.content.kind === 'video' ||
-    item.content.kind === 'audio' ||
-    item.content.kind === 'file'
-      ? item.content
-      : null;
   const editable =
-    item.is_own &&
-    item.forwarded === null &&
-    (item.content.kind === 'message' || item.content.kind === 'image');
+    item.is_own && item.forwarded === null && (item.content.kind === 'message' || media !== null);
   const hasRoomEvent = roomId !== '' && eventId !== '';
   const threadTarget = item.thread_root ?? item.event_id;
   const rawContent = item.content.kind === 'hidden_event' ? item.content.content : null;
@@ -109,9 +97,9 @@ export function messageActionPolicy({
     eventId,
     editId: item.event_id ?? item.transaction_id ?? '',
     body,
-    html: item.content.kind === 'message' ? item.content.html : null,
+    html: item.content.kind === 'message' ? item.content.html : (media?.html ?? null),
     media,
-    mediaCaption: item.content.kind === 'image',
+    mediaCaption: media !== null,
     threadTarget,
     pinned,
     bookmarked,
