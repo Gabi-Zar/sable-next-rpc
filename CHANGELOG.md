@@ -1,5 +1,12 @@
 # Sable Changelog
 
+## 2.1.2 (2026-10-21)
+
+### Fixes
+
+* Fixed launch crash on Windows.
+* Add Windows tray support.
+
 ## 2.1.1 (2026-10-21)
 
 ### Fixes

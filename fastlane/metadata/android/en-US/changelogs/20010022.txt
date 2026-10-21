@@ -1,0 +1,2 @@
+- Fixed launch crash on Windows.
+- Add Windows tray support.
