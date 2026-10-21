@@ -1,5 +1,13 @@
 # Sable Changelog
 
+## 2.1.3 (2026-10-21)
+
+### Fixes
+
+* Allow messages with a file, video or audio attachment to be edited, by editing their caption.
+* Open the native file dialog for attachments and exports in the Electron app, rather than the browser's.
+* Install the Linux app as `sable` again, so the deb, the rpm and the AUR packages put `/usr/bin/sable` back in `PATH`.
+
 ## 2.1.2 (2026-10-21)
 
 ### Fixes
