@@ -30,6 +30,7 @@
 .menu-scroll-content {
   display: grid;
   gap: inherit;
+  grid-auto-rows: max-content;
   min-height: 0;
   min-width: 0;
   overflow: auto;
