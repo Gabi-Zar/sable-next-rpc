@@ -70,6 +70,13 @@ pub(crate) struct ToDeviceCallEncryptionKeysEventContent {
     pub(crate) sent_ts: Option<u64>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, EventContent)]
+#[ruma_event(type = "m.rtc.encryption_key", kind = ToDevice)]
+pub(crate) struct StableEncryptionKeyEventContent {
+    #[serde(flatten)]
+    pub(crate) content: ToDeviceCallEncryptionKeysEventContent,
+}
+
 impl ToDeviceCallEncryptionKeysEventContent {
     pub(crate) fn key(&self) -> Option<&KeyPayload> {
         self.media_key.as_ref().or(self.keys.as_ref())
@@ -234,6 +241,7 @@ pub(crate) struct KeyDistributor {
     identity: String,
     outbound: Option<OutboundKey>,
     last_sent_ms: u64,
+    wire: super::membership::RtcWire,
 }
 
 impl KeyDistributor {
@@ -252,7 +260,12 @@ impl KeyDistributor {
             identity,
             outbound: None,
             last_sent_ms: 0,
+            wire: super::membership::RtcWire::Deployed,
         }
+    }
+
+    pub(crate) const fn set_wire(&mut self, wire: super::membership::RtcWire) {
+        self.wire = wire;
     }
 
     pub(crate) async fn roll(&mut self, room: &Room, members: &[CallMember]) -> Rolled {
@@ -377,17 +390,16 @@ impl KeyDistributor {
                 reached.push(target.clone());
                 continue;
             }
-            let mut device = encryption
-                .get_device(&target.user_id, &target.device_id)
-                .await;
+            let Some(device_id) = target.device_id.as_deref() else {
+                continue;
+            };
+            let mut device = encryption.get_device(&target.user_id, device_id).await;
             if matches!(device, Ok(None)) && !queried.contains(&target.user_id) {
                 queried.push(target.user_id.clone());
                 if let Err(error) = encryption.request_user_identity(&target.user_id).await {
                     tracing::warn!(?error, "could not query a call member's devices");
                 }
-                device = encryption
-                    .get_device(&target.user_id, &target.device_id)
-                    .await;
+                device = encryption.get_device(&target.user_id, device_id).await;
             }
             match device {
                 Ok(Some(device)) => {
@@ -396,7 +408,7 @@ impl KeyDistributor {
                 }
                 Ok(None) => tracing::warn!(
                     user_id = %target.user_id,
-                    device_id = %target.device_id,
+                    device_id = %device_id,
                     "call member device is unknown, cannot send it a media key"
                 ),
                 Err(error) => tracing::warn!(?error, "could not look up a call member device"),
@@ -422,7 +434,11 @@ impl KeyDistributor {
         match encryption
             .encrypt_and_send_raw_to_device(
                 devices.iter().collect(),
-                "io.element.call.encryption_keys",
+                if self.wire == super::membership::RtcWire::Stable {
+                    "m.rtc.encryption_key"
+                } else {
+                    "io.element.call.encryption_keys"
+                },
                 raw.cast_unchecked(),
                 CollectStrategy::AllDevices,
             )
@@ -436,7 +452,8 @@ impl KeyDistributor {
                 );
                 reached.retain(|member| {
                     !failures.iter().any(|(user_id, device_id)| {
-                        *user_id == member.user_id && *device_id == member.device_id
+                        *user_id == member.user_id
+                            && member.device_id.as_deref() == Some(device_id.as_ref())
                     })
                 });
                 reached
@@ -465,7 +482,7 @@ fn warn_unreached(unreached: &[CallMember], known: &[CallMember]) {
     {
         tracing::warn!(
             user_id = %member.user_id,
-            device_id = %member.device_id,
+            device_id = ?member.device_id,
             "a call member did not receive the media key"
         );
     }
@@ -496,7 +513,7 @@ mod tests {
     fn member(device: &str, created_ts: u64) -> CallMember {
         CallMember {
             user_id: owned_user_id!("@erwan:localhost"),
-            device_id: device.into(),
+            device_id: Some(device.into()),
             member_id: None,
             identity: format!("@erwan:localhost:{device}"),
             mode: crate::protocol::CallMode::Legacy,
@@ -505,6 +522,8 @@ mod tests {
             expires_at_ms: None,
             foci: Vec::new(),
             screen_sharing: false,
+            wire: super::super::membership::RtcWire::Deployed,
+            focus_servers: Default::default(),
         }
     }
 
@@ -874,7 +893,7 @@ mod sdk_tests {
     fn member(user_id: &str, device_id: &str) -> CallMember {
         CallMember {
             user_id: user_id.try_into().unwrap(),
-            device_id: device_id.into(),
+            device_id: Some(device_id.into()),
             member_id: None,
             identity: format!("{user_id}:{device_id}"),
             mode: crate::protocol::CallMode::Legacy,
@@ -883,6 +902,8 @@ mod sdk_tests {
             expires_at_ms: None,
             foci: Vec::new(),
             screen_sharing: false,
+            wire: super::super::membership::RtcWire::Deployed,
+            focus_servers: Default::default(),
         }
     }
 

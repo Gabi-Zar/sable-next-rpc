@@ -41,8 +41,62 @@ use crate::{CallSession, Core};
 use membership::CallMember;
 use sfu::ProvisionError;
 
+mod transport_discovery {
+    use ruma::api::{auth_scheme::AccessToken, request, response};
+    use ruma::metadata;
+
+    metadata! {
+        method: GET,
+        rate_limited: false,
+        authentication: AccessToken,
+        history: {
+            unstable => "/_matrix/client/unstable/org.matrix.msc4143/rtc/transports",
+            stable("org.matrix.msc4143.stable") => "/_matrix/client/v1/rtc/transports",
+        }
+    }
+
+    #[request]
+    pub struct Request {}
+
+    #[response]
+    pub struct Response {
+        #[serde(default)]
+        pub transports: Vec<ruma::api::client::rtc::RtcTransport>,
+        #[serde(default)]
+        pub rtc_transports: Vec<ruma::api::client::rtc::RtcTransport>,
+    }
+}
+
+async fn stable_transports(client: &Client) -> Vec<String> {
+    let Ok(response) = client.send(transport_discovery::Request {}).await else {
+        return Vec::new();
+    };
+    response
+        .transports
+        .iter()
+        .chain(&response.rtc_transports)
+        .filter_map(|transport| {
+            (transport.transport_type() == "m.livekit")
+                .then(|| {
+                    transport
+                        .data()
+                        .get("url")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                })
+                .flatten()
+        })
+        .filter(|url| url::Url::parse(url).is_ok_and(|url| url.scheme() == "wss"))
+        .collect()
+}
+
 const HANGUP_DELAY: Duration = Duration::from_secs(20);
 const HANGUP_POSTPONE_INTERVAL: Duration = Duration::from_secs(5);
+
+pub(crate) struct DelayState {
+    id: Option<String>,
+    active: bool,
+}
 const HANGUP_RETRY_BACKOFF: Duration = Duration::from_secs(1);
 const HANGUP_RETRY_BUDGET: Duration = Duration::from_secs(12);
 const USE_KEY_DELAY: Duration = Duration::from_millis(keys::USE_KEY_DELAY_MS);
@@ -92,7 +146,6 @@ async fn discovered_service_urls(client: &Client) -> Vec<String> {
         .unwrap_or_default()
 }
 
-const SLOT_ID: &str = crate::view::CALL_SLOT_ID;
 const SLOT_TYPES: [&str; 2] = [crate::view::RTC_SLOT_TYPE, "m.rtc.slot"];
 
 #[serde_as]
@@ -107,6 +160,8 @@ struct SlotRead {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
     encryption: Option<EncryptionRead>,
+    #[serde(skip)]
+    encryption_present: bool,
 }
 
 #[serde_as]
@@ -126,7 +181,9 @@ struct ApplicationRead {
 }
 
 fn read_slot(content: &Value) -> SlotRead {
-    SlotRead::deserialize(content).unwrap_or_default()
+    let mut slot = SlotRead::deserialize(content).unwrap_or_default();
+    slot.encryption_present = content.get("encryption").is_some();
+    slot
 }
 
 fn slot_is_open(slot: &SlotRead, encrypted: bool) -> bool {
@@ -144,6 +201,19 @@ fn slot_is_open(slot: &SlotRead, encrypted: bool) -> bool {
                 .is_some_and(supported_slot_encryption))
 }
 
+fn slot_is_compatible(slot: &SlotRead, encrypted: bool, wire: membership::RtcWire) -> bool {
+    slot_is_open(slot, encrypted)
+        && (wire != membership::RtcWire::Stable
+            || if encrypted {
+                slot.encryption
+                    .as_ref()
+                    .and_then(|value| value.kind.as_deref())
+                    == Some("m.per_member")
+            } else {
+                !slot.encryption_present
+            })
+}
+
 fn supported_slot_encryption(kind: &str) -> bool {
     matches!(kind, "org.matrix.msc4143.per_member" | "m.per_member")
 }
@@ -158,9 +228,9 @@ fn slot_has_unknown_encryption(slot: &SlotRead, encrypted: bool) -> bool {
             .is_some_and(|kind| !supported_slot_encryption(kind))
 }
 
-async fn stored_slot(room: &Room, event_type: &str) -> Option<Value> {
+async fn stored_slot(room: &Room, event_type: &str, slot_id: &str) -> Option<Value> {
     let raw = room
-        .get_state_event(event_type.into(), SLOT_ID)
+        .get_state_event(event_type.into(), slot_id)
         .await
         .ok()
         .flatten()?;
@@ -171,13 +241,13 @@ async fn stored_slot(room: &Room, event_type: &str) -> Option<Value> {
     content.ok().flatten()
 }
 
-async fn fetched_slot(room: &Room, event_type: &str) -> Option<Value> {
+async fn fetched_slot(room: &Room, event_type: &str, slot_id: &str) -> Option<Value> {
     let response = room
         .client()
         .send(get_state_event_for_key::v3::Request::new(
             room.room_id().to_owned(),
             event_type.into(),
-            SLOT_ID.to_owned(),
+            slot_id.to_owned(),
         ))
         .await
         .ok()?;
@@ -185,16 +255,19 @@ async fn fetched_slot(room: &Room, event_type: &str) -> Option<Value> {
     Some(value.get("content").cloned().unwrap_or(value))
 }
 
-async fn existing_slot(room: &Room, encrypted: bool) -> (bool, bool) {
+async fn existing_slot(room: &Room, encrypted: bool, wire: membership::RtcWire) -> (bool, bool) {
     let mut unsupported = false;
     for event_type in SLOT_TYPES {
-        let content = match stored_slot(room, event_type).await {
+        if wire == membership::RtcWire::Stable && event_type != "m.rtc.slot" {
+            continue;
+        }
+        let content = match stored_slot(room, event_type, wire.slot()).await {
             Some(content) => Some(content),
-            None => fetched_slot(room, event_type).await,
+            None => fetched_slot(room, event_type, wire.slot()).await,
         };
         if let Some(content) = content {
             let slot = read_slot(&content);
-            if slot_is_open(&slot, encrypted) {
+            if slot_is_compatible(&slot, encrypted, wire) {
                 return (true, unsupported);
             }
             unsupported |= slot_has_unknown_encryption(&slot, encrypted);
@@ -203,22 +276,25 @@ async fn existing_slot(room: &Room, encrypted: bool) -> (bool, bool) {
     (false, unsupported)
 }
 
-pub(super) async fn slot_closed(room: &Room, encrypted: bool) -> bool {
+pub(super) async fn slot_closed(room: &Room, encrypted: bool, wire: membership::RtcWire) -> bool {
     let mut closed = false;
     for event_type in SLOT_TYPES {
-        let content = match stored_slot(room, event_type).await {
+        if wire == membership::RtcWire::Stable && event_type != "m.rtc.slot" {
+            continue;
+        }
+        let content = match stored_slot(room, event_type, wire.slot()).await {
             Some(content) => Some(content),
-            None => fetched_slot(room, event_type).await,
+            None => fetched_slot(room, event_type, wire.slot()).await,
         };
         if let Some(content) = content {
             let slot = read_slot(&content);
-            if slot_is_open(&slot, encrypted) {
+            if slot_is_compatible(&slot, encrypted, wire) {
                 return false;
             }
             closed |= matches!(slot.status.as_deref(), Some("closed" | "open"));
         }
     }
-    closed
+    closed || wire == membership::RtcWire::Stable
 }
 
 #[derive(Serialize)]
@@ -239,6 +315,8 @@ enum SlotApplication {
 enum SlotEncryption {
     #[serde(rename = "org.matrix.msc4143.per_member")]
     PerMember,
+    #[serde(rename = "m.per_member")]
+    StablePerMember,
 }
 
 #[derive(Serialize)]
@@ -263,8 +341,12 @@ impl OpenSlot {
     }
 }
 
-pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
-    let (open, unsupported) = existing_slot(room, encrypted).await;
+pub(super) async fn ensure_open_slot(
+    room: &Room,
+    encrypted: bool,
+    wire: membership::RtcWire,
+) -> bool {
+    let (open, unsupported) = existing_slot(room, encrypted, wire).await;
     if open {
         return true;
     }
@@ -275,17 +357,26 @@ pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
     let Some(user_id) = client.user_id() else {
         return false;
     };
+    let event_type = if wire == membership::RtcWire::Stable {
+        "m.rtc.slot"
+    } else {
+        crate::view::RTC_SLOT_TYPE
+    };
     if !room
         .power_levels_or_default()
         .await
-        .user_can_send_state(user_id, crate::view::RTC_SLOT_TYPE.into())
+        .user_can_send_state(user_id, event_type.into())
     {
         return false;
     }
-    let Ok(raw) = Raw::new(&OpenSlot::new(encrypted)) else {
+    let mut slot = OpenSlot::new(encrypted);
+    if encrypted && wire == membership::RtcWire::Stable {
+        slot.encryption = Some(SlotEncryption::StablePerMember);
+    }
+    let Ok(raw) = Raw::new(&slot) else {
         return false;
     };
-    room.send_state_event_raw(crate::view::RTC_SLOT_TYPE, SLOT_ID, raw.cast_unchecked())
+    room.send_state_event_raw(event_type, wire.slot(), raw.cast_unchecked())
         .await
         .is_ok()
 }
@@ -325,11 +416,32 @@ pub(crate) async fn screen_sharers(room: &Room) -> Vec<OwnedUserId> {
     for event in sticky::live_events(room) {
         event.apply(&mut sticky, encrypted, now);
     }
-    members.extend(sticky.members(now));
+    let mut sticky_members = sticky.members(now);
+    if sticky_members
+        .iter()
+        .any(|member| member.wire == membership::RtcWire::Stable)
+        && slot_closed(room, encrypted, membership::RtcWire::Stable).await
+    {
+        sticky_members.retain(|member| member.wire != membership::RtcWire::Stable);
+    }
+    members.extend(sticky_members);
     members.retain(|member| member.screen_sharing);
     members.sort_by_key(|member| member.joined_ts);
     let mut users = Vec::new();
     for member in members {
+        if member.wire == membership::RtcWire::Stable
+            && !room
+                .get_member(&member.user_id)
+                .await
+                .ok()
+                .flatten()
+                .is_some_and(|user| {
+                    user.membership()
+                        == &matrix_sdk::ruma::events::room::member::MembershipState::Join
+                })
+        {
+            continue;
+        }
         if !users.contains(&member.user_id) {
             users.push(member.user_id);
         }
@@ -342,7 +454,10 @@ fn member_views(members: &[CallMember]) -> Vec<CallMemberView> {
         .iter()
         .map(|member| CallMemberView {
             user_id: member.user_id.clone(),
-            device_id: member.device_id.to_string(),
+            device_id: member
+                .device_id
+                .as_ref()
+                .map_or_else(String::new, ToString::to_string),
             identity: member.identity.clone(),
             backend_id: None,
             joined_ts: member.joined_ts,
@@ -368,12 +483,14 @@ impl Core {
             .unstable_features()
             .await
             .or_failed(self, "call_compatibility")?;
-        let endpoint = client
-            .discover_rtc_transports()
-            .await
-            .ok()
-            .flatten()
-            .is_some_and(|transports| !livekit_service_urls(transports).is_empty());
+        let endpoint = (features.contains(&"org.matrix.msc4143.stable".into())
+            && !stable_transports(&client).await.is_empty())
+            || client
+                .discover_rtc_transports()
+                .await
+                .ok()
+                .flatten()
+                .is_some_and(|transports| !livekit_service_urls(transports).is_empty());
         let rtc_transports = if endpoint {
             RtcTransportSource::Endpoint
         } else if client
@@ -411,14 +528,15 @@ impl Core {
             .resolve_focus(&members, livekit_service_url, &room)
             .await
             .is_some();
+        let features = room.client().unstable_features().await.unwrap_or_default();
+        let stable = features.contains(&"org.matrix.msc4143.stable".into());
+        if !has_focus && stable {
+            has_focus = !stable_transports(&room.client()).await.is_empty();
+        }
         let levels = room.power_levels_or_default().await;
         let state_allowed = levels.user_can_send_state(&user_id, StateEventType::CallMember);
-        let sticky_available = (!has_focus || !state_allowed)
-            && room
-                .client()
-                .unstable_features()
-                .await
-                .is_ok_and(|features| features.contains(&"org.matrix.msc4354".into()));
+        let sticky_available =
+            (!has_focus || !state_allowed) && features.contains(&"org.matrix.msc4354".into());
         if !has_focus && sticky_available {
             let encrypted = self.room_is_encrypted(&room).await?;
             let mut sync = sticky::StickySync::new(self.allocate_subscription().0);
@@ -435,7 +553,15 @@ impl Core {
         let can_join = can_join_call(
             state_allowed,
             sticky_available,
-            levels.user_can_send_message(&user_id, membership::RTC_MEMBER_EVENT_TYPE.into()),
+            levels.user_can_send_message(
+                &user_id,
+                if stable {
+                    "m.rtc.member"
+                } else {
+                    membership::RTC_MEMBER_EVENT_TYPE
+                }
+                .into(),
+            ),
         );
 
         Ok(CallSupportView {
@@ -701,12 +827,19 @@ impl Core {
 
     async fn hang_up(&self, call: &CallSession) -> Result<(), RpcError> {
         let slot_closed = call.state.lock().await.left_because_slot_closed();
-        let Some(delay_id) = call.delay_id.clone() else {
+        let delay_id = {
+            let mut delay = call.delay_id.lock().await;
+            delay.active = false;
+            delay.id.take()
+        };
+        let Some(delay_id) = delay_id else {
             return self.send_left_membership(call, slot_closed).await;
         };
-        if slot_closed {
-            let result = self.send_left_membership(call, true).await;
-            if let Ok(client) = self.client().await {
+        if call.sticky_member.is_some() {
+            let result = self.send_left_membership(call, slot_closed).await;
+            if result.is_ok()
+                && let Ok(client) = self.client().await
+            {
                 let _ = delayed_events::update(&client, delay_id, UpdateAction::Cancel).await;
             }
             return result;
@@ -724,15 +857,16 @@ impl Core {
     ) -> Result<(), RpcError> {
         if let Some(member_id) = &call.sticky_member {
             let room = self.room(&call.room_id).await?;
+            let wire = call.state.lock().await.wire();
             let code = if slot_closed {
                 sticky::LeaveCode::SlotClosed
             } else {
                 sticky::LeaveCode::Leave
             };
-            sticky::send(
-                &room.client(),
+            sticky::send_wire(
                 &room,
-                sticky::LeaveOut::new(Some(member_id.clone()), code),
+                sticky::LeaveOut::for_wire(Some(member_id.clone()), code, wire),
+                wire,
             )
             .await
             .map_err(|error| self.room_error("leave_call", error))?;
@@ -828,6 +962,40 @@ impl Core {
         })
         .abort_on_drop()
     }
+
+    fn spawn_managed_postpone_loop(
+        self: &Arc<Self>,
+        delay: Arc<tokio::sync::Mutex<DelayState>>,
+        generation: u64,
+        session: CallSessionId,
+    ) -> crate::Task {
+        let core = self.clone();
+        spawn(async move {
+            loop {
+                matrix_sdk::sleep::sleep(HANGUP_POSTPONE_INTERVAL).await;
+                let id = {
+                    let delay = delay.lock().await;
+                    if !delay.active {
+                        return;
+                    }
+                    delay.id.clone()
+                };
+                if let Some(id) = id
+                    && !core.postpone_hangup(&id).await
+                    && delay.lock().await.id.as_deref() == Some(id.as_str())
+                {
+                    runtime::terminate(
+                        &core,
+                        generation,
+                        session,
+                        crate::protocol::CallSignalingStage::Membership,
+                    );
+                    return;
+                }
+            }
+        })
+        .abort_on_drop()
+    }
 }
 
 #[cfg(test)]
@@ -907,6 +1075,42 @@ mod tests {
     }
 
     #[test]
+    fn stable_unencrypted_room_rejects_an_encrypted_slot() {
+        let slot = super::read_slot(&serde_json::json!({
+            "status": "open", "application": {"type": "m.call"},
+            "encryption": {"type": "m.per_member"},
+        }));
+        assert!(!super::slot_is_compatible(
+            &slot,
+            false,
+            super::membership::RtcWire::Stable
+        ));
+        assert!(super::slot_is_compatible(
+            &slot,
+            true,
+            super::membership::RtcWire::Stable
+        ));
+        let malformed = super::read_slot(&serde_json::json!({
+            "status": "open", "application": {"type": "m.call"}, "encryption": null,
+        }));
+        assert!(!super::slot_is_compatible(
+            &malformed,
+            false,
+            super::membership::RtcWire::Stable
+        ));
+    }
+
+    #[test]
+    fn stable_transport_discovery_reads_the_stable_response() {
+        let transport: matrix_sdk::ruma::api::client::rtc::RtcTransport = serde_json::from_value(
+            serde_json::json!({"type":"m.livekit", "url":"wss://focus.example"}),
+        )
+        .unwrap();
+        assert_eq!(transport.transport_type(), "m.livekit");
+        assert_eq!(transport.data()["url"], "wss://focus.example");
+    }
+
+    #[test]
     fn test_slot_reads_ignore_wrong_typed_fields() {
         let open =
             |content: serde_json::Value| super::slot_is_open(&super::read_slot(&content), false);
@@ -947,7 +1151,7 @@ mod tests {
     fn test_a_member_view_carries_the_identity_the_sfu_granted() {
         let views = member_views(&[CallMember {
             user_id: owned_user_id!("@erwan:localhost"),
-            device_id: "LAPTOP".into(),
+            device_id: Some("LAPTOP".into()),
             member_id: None,
             identity: "@erwan:localhost:LAPTOP".to_owned(),
             mode: crate::protocol::CallMode::Legacy,
@@ -956,6 +1160,8 @@ mod tests {
             expires_at_ms: None,
             foci: Vec::new(),
             screen_sharing: false,
+            wire: super::membership::RtcWire::Deployed,
+            focus_servers: Default::default(),
         }]);
 
         assert_eq!(views[0].identity, "@erwan:localhost:LAPTOP");

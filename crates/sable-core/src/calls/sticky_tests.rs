@@ -149,6 +149,69 @@ async fn test_delayed_send_includes_delay_and_sticky_duration() {
 }
 
 #[async_test]
+async fn test_encrypted_delayed_leave_is_not_sent_as_plaintext() {
+    let server = MatrixMockServer::new().await;
+    server.mock_crypto_endpoints_preset().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"/rooms/.*/members"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": []})))
+        .mount(server.server())
+        .await;
+    Mock::given(method("PUT"))
+        .and(path_regex(r"/sendToDevice/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(server.server())
+        .await;
+    let (alice, _) = server.set_up_alice_and_bob_for_encryption().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"/rooms/.*/state/m\.room\.encryption/?$"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"algorithm":"m.megolm.v1.aes-sha2"})),
+        )
+        .mount(server.server())
+        .await;
+    let room = server
+        .sync_joined_room(&alice, room_id!("!sticky:example.org"))
+        .await;
+    Mock::given(method("PUT"))
+        .and(path_regex(r"/rooms/.*/send/m\.room\.encrypted/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"delay_id": "$delay"})))
+        .mount(server.server())
+        .await;
+
+    send_delayed(
+        &alice,
+        DelayedEventsSupport::default(),
+        &room,
+        LeaveOut::new(Some("secret-member".to_owned()), LeaveCode::DelayedLeave),
+        Duration::from_secs(20),
+    )
+    .await
+    .expect("encrypted delayed leave");
+
+    let requests = server.received_requests().await.unwrap();
+    let request = requests
+        .iter()
+        .find(|request| request.url.path().contains("/send/m.room.encrypted/"))
+        .expect("encrypted delayed request");
+    let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+    assert_eq!(body["algorithm"], "m.megolm.v1.aes-sha2");
+    assert!(body.get("ciphertext").is_some());
+    assert!(!String::from_utf8_lossy(&request.body).contains("secret-member"));
+    let event = ruma::serde::Raw::new(&json!({
+        "type": "m.room.encrypted", "sender": alice.user_id().unwrap(),
+        "event_id": "$delayed", "origin_server_ts": 1, "content": body,
+    }))
+    .unwrap()
+    .cast_unchecked::<ruma::events::room::encrypted::OriginalSyncRoomEncryptedEvent>();
+    let decrypted = room.decrypt_event(&event, None).await.unwrap();
+    let plaintext: serde_json::Value = serde_json::from_str(decrypted.raw().json().get()).unwrap();
+    assert_eq!(plaintext["type"], "org.matrix.msc4143.rtc.member");
+    assert_eq!(plaintext["content"]["member"]["id"], "secret-member");
+    assert_eq!(plaintext["content"]["member"]["membership"], "leave");
+}
+
+#[async_test]
 async fn test_sticky_sync_sends_bounded_extensions_and_parses_both_event_locations() {
     let (server, room) = room().await;
     Mock::given(method("POST"))
@@ -320,6 +383,14 @@ async fn test_delayed_send_refreshes_expired_credentials_and_preserves_sticky_qu
     use wiremock::matchers::{header, path};
 
     let server = MatrixMockServer::new().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"/rooms/.*/state/m\.room\.encryption/?$"))
+        .respond_with(
+            ResponseTemplate::new(404)
+                .set_body_json(json!({"errcode":"M_NOT_FOUND", "error":"not encrypted"})),
+        )
+        .mount(server.server())
+        .await;
     let client = server
         .client_builder()
         .unlogged()

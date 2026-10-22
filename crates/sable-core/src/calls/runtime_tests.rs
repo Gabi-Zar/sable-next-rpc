@@ -41,7 +41,7 @@ fn content_at(
 fn member(mode: CallMode, created_ts: u64, foci: &[&str]) -> CallMember {
     CallMember {
         user_id: owned_user_id!("@user:example.org"),
-        device_id: device_id!("DEVICE").to_owned(),
+        device_id: Some(device_id!("DEVICE").to_owned()),
         member_id: None,
         identity: "@user:example.org:DEVICE".to_owned(),
         mode,
@@ -50,7 +50,29 @@ fn member(mode: CallMode, created_ts: u64, foci: &[&str]) -> CallMember {
         expires_at_ms: None,
         foci: foci.iter().map(ToString::to_string).collect(),
         screen_sharing: false,
+        wire: super::membership::RtcWire::Deployed,
+        focus_servers: Default::default(),
     }
+}
+
+#[test]
+fn stable_membership_uses_stable_wire_fields() {
+    let mut own = member(CallMode::Matrix2, 100, &["wss://focus.example"]);
+    own.wire = super::membership::RtcWire::Stable;
+    own.member_id = Some("member".to_owned());
+    let body = content(&owned_room_id!("!room:example.org"), &own, None);
+    assert_eq!(body["slot_id"], "m.call#room");
+    assert_eq!(body["sticky_key"], "member");
+    assert_eq!(
+        body["member"],
+        serde_json::json!({"id":"member", "membership":"join"})
+    );
+    assert_eq!(body["transports"]["published"][0]["type"], "m.livekit");
+    assert_eq!(
+        body["transports"]["can_subscribe"],
+        serde_json::json!(["m.livekit"])
+    );
+    assert!(body.get("msc4354_sticky_key").is_none());
 }
 
 #[tokio::test]
@@ -93,7 +115,7 @@ async fn joining_an_unsupported_slot_does_not_publish_membership() {
     let (core, _events) = Core::new("test", Box::new(MemorySessionStore::default()));
     let mut own = member(CallMode::Matrix2, 1, &[]);
     own.user_id = client.user_id().unwrap().to_owned();
-    own.device_id = client.device_id().unwrap().to_owned();
+    own.device_id = Some(client.device_id().unwrap().to_owned());
     own.member_id = Some("member".to_owned());
     assert!(
         super::publish(&core, &room, &own, "https://sfu.example.org", true, None)
@@ -141,7 +163,7 @@ async fn discover_with_peers(
     for (age, service) in peers {
         let mut peer = member(mode, now - age, &[service]);
         peer.user_id = owned_user_id!("@peer:example.org");
-        peer.device_id = format!("DEVICE{age}").into();
+        peer.device_id = Some(format!("DEVICE{age}").into());
         peer.member_id = Some(format!("peer-{age}"));
         let mut event = json!({
             "type": if mode == CallMode::Matrix2 {
@@ -157,7 +179,8 @@ async fn discover_with_peers(
             event["msc4354_sticky"] = json!({"duration_ms": 3_600_000});
             sticky_events.push(event);
         } else {
-            event["state_key"] = format!("_{}_{}_m.call", peer.user_id, peer.device_id).into();
+            event["state_key"] =
+                format!("_{}_{}_m.call", peer.user_id, peer.own_device_id()).into();
             builder = builder.add_state_event(
                 Raw::new(&event)
                     .unwrap()
@@ -239,7 +262,7 @@ fn legacy_mode_uses_the_oldest_state_membership_focus() {
 #[test]
 fn legacy_mode_skips_an_oldest_member_that_advertises_no_focus() {
     let mut oldest = member(CallMode::Legacy, 1, &[]);
-    oldest.device_id = device_id!("PEER").to_owned();
+    oldest.device_id = Some(device_id!("PEER").to_owned());
     let own = member(CallMode::Legacy, 2, &["https://own.example.org"]);
     let members = vec![own.clone(), oldest.clone()];
 
@@ -683,17 +706,18 @@ async fn refresh_fixture(
         .user_id()
         .unwrap()
         .to_owned();
-    own.device_id = core
-        .session
-        .read()
-        .await
-        .as_ref()
-        .unwrap()
-        .client
-        .device_id()
-        .unwrap()
-        .to_owned();
-    own.identity = format!("{}:{}", own.user_id, own.device_id);
+    own.device_id = Some(
+        core.session
+            .read()
+            .await
+            .as_ref()
+            .unwrap()
+            .client
+            .device_id()
+            .unwrap()
+            .to_owned(),
+    );
+    own.identity = format!("{}:{}", own.user_id, own.own_device_id());
     let id = backend_id(&room_id, "https://focus.example.org");
     let mut backends = BTreeMap::new();
     backends.insert(
@@ -802,6 +826,63 @@ async fn schedule_hangup_does_not_write_when_delayed_events_are_unsupported() {
             .query_pairs()
             .any(|(key, _)| key == "org.matrix.msc4140.delay")
     }));
+}
+
+#[tokio::test]
+async fn refreshing_a_delayed_leave_cancels_the_old_event_and_respects_hangup() {
+    use wiremock::matchers::{method, path, path_regex};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let server = MatrixMockServer::new().await;
+    server
+        .mock_versions()
+        .with_feature("org.matrix.msc4140", true)
+        .ok()
+        .mount()
+        .await;
+    server.mock_room_state_encryption().plain().mount().await;
+    let client = server.client_builder().no_server_versions().build().await;
+    let room = server
+        .sync_joined_room(&client, room_id!("!call:example.org"))
+        .await;
+    let sync_service = Arc::new(SyncService::builder(client.clone()).build().await.unwrap());
+    let (core, _events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    *core.session.write().await = Some(Session {
+        account_id: "test".to_owned(),
+        client,
+        sync_service,
+        homeserver: server.server().uri(),
+        oauth: false,
+    });
+    Mock::given(method("POST"))
+        .and(path(
+            "/_matrix/client/unstable/org.matrix.msc4140/delayed_events/old",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    Mock::given(method("PUT"))
+        .and(path_regex(
+            r"/rooms/.*/send/org\.matrix\.msc4143\.rtc\.member/.*",
+        ))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({"delay_id":"new"})),
+        )
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let mut own = member(CallMode::Matrix2, 1, &[]);
+    own.member_id = Some("member".to_owned());
+    let delay = Arc::new(Mutex::new(super::super::DelayState {
+        id: Some("old".to_owned()),
+        active: true,
+    }));
+    super::refresh_encrypted_hangup(core.clone(), room.clone(), own.clone(), delay.clone()).await;
+    assert_eq!(delay.lock().await.id.as_deref(), Some("new"));
+    delay.lock().await.active = false;
+    super::refresh_encrypted_hangup(core, room, own, delay.clone()).await;
+    assert_eq!(delay.lock().await.id.as_deref(), Some("new"));
 }
 
 #[test]
@@ -956,8 +1037,8 @@ async fn legacy_move_fixture(
 
     let mut own = member(CallMode::Legacy, 5, &["https://old.example.org"]);
     own.user_id = client.user_id().unwrap().to_owned();
-    own.device_id = client.device_id().unwrap().to_owned();
-    own.identity = format!("{}:{}", own.user_id, own.device_id);
+    own.device_id = Some(client.device_id().unwrap().to_owned());
+    own.identity = format!("{}:{}", own.user_id, own.own_device_id());
     own.member_id = Some(own.identity.clone());
 
     let sfu = wiremock::MockServer::start().await;
@@ -1094,6 +1175,41 @@ async fn an_unusable_focus_is_not_advertised() {
 }
 
 #[tokio::test]
+async fn a_stable_focus_token_is_requested_from_the_homeserver() {
+    use wiremock::matchers::{body_partial_json, method, path};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let (homeserver, _sfu, room, _own, _oldest, _state) = legacy_move_fixture(true).await;
+    let claims = serde_json::json!({"sub":"participant", "video":{"room":"room"}});
+    let jwt = format!(
+        "x.{}.x",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string())
+    );
+    Mock::given(method("POST"))
+        .and(path(
+            "/_matrix/client/unstable/io.element.msc4195/rtc/livekit/get_token",
+        ))
+        .and(body_partial_json(serde_json::json!({
+            "url":"wss://focus.example.org", "server_name":"remote.example.org",
+            "room_id":room.room_id(), "slot_id":"m.call#room", "member_id":"member",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"jwt":jwt})))
+        .expect(1)
+        .mount(homeserver.server())
+        .await;
+    let provision = super::sfu::provision_stable(
+        &room,
+        "wss://focus.example.org",
+        Some(matrix_sdk::ruma::server_name!("remote.example.org")),
+        "member",
+    )
+    .await
+    .unwrap();
+    assert_eq!(provision.identity, "participant");
+    assert_eq!(provision.url, "wss://focus.example.org");
+}
+
+#[tokio::test]
 async fn a_legacy_call_subscribes_to_another_focus_under_its_publishing_identity() {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -1126,7 +1242,7 @@ async fn a_legacy_call_subscribes_to_another_focus_under_its_publishing_identity
     let provisioned = super::sfu::provision_remote(
         &room,
         &focus.uri(),
-        &own.device_id,
+        own.own_device_id(),
         own.member_id.as_deref().unwrap(),
         false,
     )
@@ -1164,7 +1280,7 @@ async fn a_remote_focus_cannot_change_the_participant_identity() {
         &room,
         &state,
         &own,
-        vec![("remote".to_owned(), focus.uri())],
+        vec![("remote".to_owned(), focus.uri(), None)],
     )
     .await;
     assert!(!state.lock().await.backends.contains_key("remote"));
@@ -1218,7 +1334,7 @@ fn a_member_that_sends_no_key_is_reported_once_after_a_wait() {
     let room_id = owned_room_id!("!call:example.org");
     let mut peer = member(CallMode::Compatibility, 1, &["https://sfu.example.org"]);
     peer.user_id = owned_user_id!("@peer:example.org");
-    peer.device_id = owned_device_id!("PEER");
+    peer.device_id = Some(owned_device_id!("PEER"));
     peer.identity = "@peer:example.org:PEER".to_owned();
     let mut state = State::new(
         member(CallMode::Compatibility, 1, &[]),

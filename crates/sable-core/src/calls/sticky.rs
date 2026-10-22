@@ -31,11 +31,10 @@ fn authenticated_device(info: Option<&EncryptionInfo>, value: &Value) -> Option<
     }
     match &info.verification_state {
         VerificationState::Verified
-        | VerificationState::Unverified(VerificationLevel::UnverifiedIdentity)
-        | VerificationState::Unverified(VerificationLevel::UnsignedDevice) => {
-            info.sender_device.clone()
-        }
-        _ => None,
+        | VerificationState::Unverified(
+            VerificationLevel::UnverifiedIdentity | VerificationLevel::UnsignedDevice,
+        ) => info.sender_device.clone(),
+        VerificationState::Unverified(_) => None,
     }
 }
 
@@ -92,6 +91,10 @@ impl StickySync {
         request
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Sync and decryption share expiry handling"
+    )]
     pub(super) async fn sync(
         &mut self,
         room: &Room,
@@ -147,6 +150,7 @@ impl StickySync {
                 .get("unsigned")
                 .and_then(|u| {
                     u.get("msc4354_sticky_duration_ttl_ms")
+                        .or_else(|| u.get("sticky_duration_remaining_ms"))
                         .or_else(|| u.get("sticky_duration_ttl_ms"))
                 })
                 .and_then(Value::as_u64);
@@ -171,7 +175,7 @@ impl StickySync {
                 continue;
             }
             let Ok(raw) =
-                Raw::new(&value).map(|raw| raw.cast_unchecked::<OriginalSyncRoomEncryptedEvent>())
+                Raw::new(&value).map(Raw::cast_unchecked::<OriginalSyncRoomEncryptedEvent>)
             else {
                 continue;
             };
@@ -238,7 +242,7 @@ pub(crate) fn live_events(room: &Room) -> Vec<Event> {
                 msc4354_sticky: sticky,
             })
             .ok()?;
-            let device = authenticated_device(event.encryption_info().map(|v| v.as_ref()), &value);
+            let device = authenticated_device(event.encryption_info().map(AsRef::as_ref), &value);
             Some(Event { value, device })
         })
         .collect()
@@ -283,42 +287,76 @@ pub(super) struct LeaveOut {
     slot_id: &'static str,
     member: LeaveMember,
     leave_reason: LeaveReason,
+    #[serde(skip_serializing_if = "Option::is_none")]
     msc4354_sticky_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sticky_key: Option<String>,
 }
 
 impl LeaveOut {
+    #[cfg(test)]
     pub(super) fn new(member_id: Option<String>, code: LeaveCode) -> Self {
+        Self::for_wire(member_id, code, super::membership::RtcWire::Deployed)
+    }
+
+    pub(super) fn for_wire(
+        member_id: Option<String>,
+        code: LeaveCode,
+        wire: super::membership::RtcWire,
+    ) -> Self {
         Self {
-            slot_id: crate::view::CALL_SLOT_ID,
+            slot_id: wire.slot(),
             member: LeaveMember {
                 id: member_id.clone(),
                 membership: "leave",
             },
             leave_reason: LeaveReason { code },
-            msc4354_sticky_key: member_id,
+            msc4354_sticky_key: (wire == super::membership::RtcWire::Deployed)
+                .then(|| member_id.clone())
+                .flatten(),
+            sticky_key: (wire == super::membership::RtcWire::Stable)
+                .then_some(member_id)
+                .flatten(),
         }
     }
 }
 
+#[cfg(test)]
 pub(super) async fn send(
     _client: &Client,
     room: &Room,
     content: impl serde::Serialize,
 ) -> Result<ruma::OwnedEventId, matrix_sdk::Error> {
+    send_wire(room, content, super::membership::RtcWire::Deployed).await
+}
+
+pub(super) async fn send_wire(
+    room: &Room,
+    content: impl serde::Serialize,
+    wire: super::membership::RtcWire,
+) -> Result<ruma::OwnedEventId, matrix_sdk::Error> {
     let content = serde_json::to_value(content)?;
     let duration = match room.latest_encryption_state().await? {
         matrix_sdk::EncryptionState::NotEncrypted => STICKY_DURATION_MS,
-        matrix_sdk::EncryptionState::Encrypted => ENCRYPTED_STICKY_DURATION_MS,
+        state if state.is_encrypted() => ENCRYPTED_STICKY_DURATION_MS,
         _ => return Err(matrix_sdk::Error::InsufficientData),
     };
     Ok(room
-        .send_raw(super::membership::RTC_MEMBER_EVENT_TYPE, content)
+        .send_raw(
+            if wire == super::membership::RtcWire::Stable {
+                "m.rtc.member"
+            } else {
+                super::membership::RTC_MEMBER_EVENT_TYPE
+            },
+            content,
+        )
         .with_sticky_duration(Duration::from_millis(duration.into()))
         .await?
         .response
         .event_id)
 }
 
+#[cfg(test)]
 pub(super) async fn send_delayed(
     client: &Client,
     support: DelayedEventsSupport,
@@ -347,11 +385,21 @@ pub(crate) async fn send_delayed_event(
     delay: Duration,
     duration_ms: u32,
 ) -> Result<String, matrix_sdk::Error> {
+    let content = serde_json::value::to_raw_value(&content)?;
+    let (event_type, content) = match room.latest_encryption_state().await? {
+        matrix_sdk::EncryptionState::NotEncrypted => (event_type.to_owned(), content),
+        state if state.is_encrypted() => {
+            let raw = Raw::<ruma::events::AnyMessageLikeEventContent>::from_json(content);
+            let encrypted = Box::pin(room.encrypt_raw_event(event_type, &raw)).await?;
+            ("m.room.encrypted".to_owned(), encrypted.into_json())
+        }
+        _ => return Err(matrix_sdk::Error::InsufficientData),
+    };
     let event = crate::delayed_events::DelayedEvent {
         room_id: room.room_id().to_owned(),
-        event_type: event_type.to_owned(),
+        event_type,
         state_key: None,
-        content: serde_json::value::to_raw_value(&content)?,
+        content,
         delay,
         sticky_duration_ms: Some(duration_ms),
     };

@@ -199,7 +199,7 @@ pub struct Core {
 struct CallSession {
     room_id: OwnedRoomId,
     state_key: CallMemberStateKey,
-    delay_id: Option<String>,
+    delay_id: Arc<Mutex<calls::DelayState>>,
     postpone: Option<Task>,
     updates: Option<Task>,
     state: Arc<tokio::sync::Mutex<calls::CallRuntimeState>>,
