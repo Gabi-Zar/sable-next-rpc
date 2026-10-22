@@ -19,11 +19,13 @@
   let editingCustom = $state(false);
   let customDraft = $state('');
   const mode = $derived(
-    value.trim().toLowerCase() === systemFamily
-      ? 'system'
-      : value.trim() || editingCustom
-        ? 'custom'
-        : 'default'
+    editingCustom
+      ? 'custom'
+      : value.trim().toLowerCase() === systemFamily
+        ? 'system'
+        : value.trim()
+          ? 'custom'
+          : 'default'
   );
   const items = $derived([
     { value: 'default', label: i18n.t('settings.fontDefault') },

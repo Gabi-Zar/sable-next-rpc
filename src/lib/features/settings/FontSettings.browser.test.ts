@@ -129,3 +129,34 @@ test('font preferences beat theme declarations on body and restore the theme whe
     code.remove();
   }
 });
+
+test.each([
+  ['Regular font', 'system-ui', 'fontFamily'],
+  ['Monospaced font', 'monospace', 'fontFamilyMono'],
+] as const)(
+  'desktop: %s keeps system keywords editable in Custom mode',
+  async (label, family, key) => {
+    await page.viewport(1280, 900);
+    setPreference(key, family);
+    const screen = await render(FontSettings);
+    const selector = screen.getByRole('button', { name: label, exact: true });
+    await expect.element(selector).toHaveTextContent('System');
+    await userEvent.click(selector);
+    await userEvent.click(screen.getByRole('option', { name: 'Custom', exact: true }));
+    const field = screen.getByRole('textbox', { name: 'Font name', exact: true });
+    await userEvent.fill(field, family);
+    await expect.element(field).toHaveValue(family);
+    await expect.element(selector).toHaveTextContent('Custom');
+    await expect.poll(() => preferences[key]).toBe(family);
+
+    await userEvent.click(selector);
+    await userEvent.click(screen.getByRole('option', { name: 'System', exact: true }));
+    await expect.element(selector).toHaveTextContent('System');
+    await userEvent.click(selector);
+    await userEvent.click(screen.getByRole('option', { name: 'Custom', exact: true }));
+    await expect.element(field).toHaveValue(family);
+    await expect.element(field).toHaveFocus();
+    await userEvent.fill(field, 'IBM Plex Mono');
+    await expect.poll(() => preferences[key]).toBe('IBM Plex Mono');
+  }
+);
