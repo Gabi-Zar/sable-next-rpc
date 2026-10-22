@@ -31,7 +31,7 @@ export async function claimSchemes(
   const entry = [
     '[Desktop Entry]',
     'Type=Application',
-    'Name=Sable',
+    `Name=${app.getName()}`,
     `Exec=${[...exec.map(quote), '%u'].join(' ')}`,
     'Terminal=false',
     `MimeType=${mimeTypes.join(';')};`,

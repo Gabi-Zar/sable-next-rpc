@@ -31,6 +31,7 @@ import type {
   SaveFileRequest,
 } from '../../src/lib/platform/file-dialog-types';
 
+import { deepLinksIn, deepLinkSchemes } from './deep-links';
 import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
@@ -53,8 +54,7 @@ declare const __SABLE_IDENTIFIER__: string;
 
 const IDENTIFIER = process.env.SABLE_IDENTIFIER ?? __SABLE_IDENTIFIER__;
 const SCHEME = 'sable-app';
-const DEEP_LINK_SCHEMES =
-  IDENTIFIER === 'moe.sable.client' ? ['moe.sable.app', 'sable'] : ['moe.sable.next'];
+const DEEP_LINK_SCHEMES = deepLinkSchemes(IDENTIFIER);
 const APP_ORIGIN = `${SCHEME}://app`;
 const PANIC_MARKER = 'SABLE_CORE_PANIC ';
 
@@ -123,7 +123,11 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 ignoreBrokenPipes([process.stdout, process.stderr]);
 
 if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
-if (process.platform === 'win32') app.setAppUserModelId('moe.sable.next.electron');
+if (process.platform === 'win32') {
+  app.setAppUserModelId(
+    IDENTIFIER === 'moe.sable.client' ? 'moe.sable.client' : 'moe.sable.next.electron'
+  );
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -289,11 +293,7 @@ function setCustomTitleBar(custom: boolean): void {
   previous.destroy();
 }
 
-function deepLinksIn(argv: string[]): string[] {
-  return argv.filter((arg) => DEEP_LINK_SCHEMES.some((scheme) => arg.startsWith(`${scheme}:`)));
-}
-
-const pendingDeepLinks = deepLinksIn(process.argv);
+const pendingDeepLinks = deepLinksIn(process.argv, DEEP_LINK_SCHEMES);
 
 function deliverDeepLinks(urls: string[]): void {
   if (urls.length === 0) return;
@@ -645,16 +645,18 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
-    deliverDeepLinks(deepLinksIn(argv));
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+    deliverDeepLinks(deepLinksIn(argv, DEEP_LINK_SCHEMES));
+    if (!mainWindow && app.isReady()) mainWindow = createWindow();
+    showMainWindow();
   });
 
   app.on('open-url', (event, url) => {
     event.preventDefault();
-    deliverDeepLinks([url]);
+    const urls = deepLinksIn([url], DEEP_LINK_SCHEMES);
+    if (urls.length === 0) return;
+    deliverDeepLinks(urls);
+    if (!mainWindow && app.isReady()) mainWindow = createWindow();
+    showMainWindow();
   });
 
   app.on('before-quit', () => {

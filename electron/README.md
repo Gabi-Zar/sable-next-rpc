@@ -13,6 +13,9 @@ stable as `Sable Nightly`.
 On first launch the app copies the Tauri app's permission grants, telemetry consent and
 smooth-scrolling choice (`src/tauri-import.ts`).
 
+Login callback schemes are unchanged by app renames: stable uses `moe.sable.app` and
+`sable`; nightly uses `moe.sable.next`, not `moe.sable.next.nightly`.
+
 Update feeds:
 
 - Stable: `https://git.sable.moe/SableClient/sable-next/releases/download/latest/`
