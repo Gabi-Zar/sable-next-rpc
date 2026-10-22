@@ -1039,9 +1039,14 @@ jobs:
             local auth
             auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
             echo "::add-mask::${auth}"
+            # Reset inherited headers before supplying this tap's credentials.
+            export GIT_CONFIG_COUNT=2
+            export GIT_CONFIG_KEY_0="http.https://${url%%/*}/.extraHeader"
+            export GIT_CONFIG_VALUE_0=''
+            export GIT_CONFIG_KEY_1="$GIT_CONFIG_KEY_0"
+            export GIT_CONFIG_VALUE_1="Authorization: Basic ${auth}"
             rm -rf tap
             git clone --depth 1 "https://${url}" tap
-            git -C tap config "http.https://${url%%/*}/.extraHeader" "Authorization: Basic ${auth}"
             mkdir -p tap/Casks
             sed \
               -e "s/^  version .*/  version '${VERSION}'/" \
