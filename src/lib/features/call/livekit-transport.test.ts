@@ -590,6 +590,56 @@ test('a share without our own audio capture asks the browser for stereo system a
   expect(fixture.localParticipant.setScreenShareEnabled).toHaveBeenLastCalledWith(false);
 });
 
+test.each(['missing', 'ended'])(
+  'reports %s macOS display audio without stopping the video share',
+  async (state) => {
+    vi.stubGlobal('sableElectron', { platform: 'darwin' });
+    const fixture = roomFixture();
+    if (state === 'ended') {
+      fixture.localParticipant.getTrackPublication.mockImplementation(
+        (source?: string) =>
+          (source === 'screen_share_audio'
+            ? { track: { mediaStreamTrack: { readyState: 'ended' } } }
+            : undefined) as never
+      );
+    }
+    const failure = vi.fn();
+    const transport = createLivekitTransport({
+      encryptMedia: false,
+      createRoom: () => fixture.room,
+      telemetry: { step: (_stage, action) => action(), event: vi.fn(), failure },
+    });
+
+    await transport.connect(connectOptions);
+    await expect(transport.capabilities.screenShare?.setEnabled(true)).rejects.toBeInstanceOf(
+      ScreenAudioError
+    );
+    expect(fixture.localParticipant.isScreenShareEnabled).toBe(true);
+    expect(failure).toHaveBeenCalledWith(
+      'call.screen_share.audio',
+      expect.any(ScreenAudioError),
+      {}
+    );
+    await transport.capabilities.screenShare?.setEnabled(false);
+    await transport.disconnect();
+  }
+);
+
+test('accepts live macOS display audio', async () => {
+  vi.stubGlobal('sableElectron', { platform: 'darwin' });
+  const fixture = roomFixture();
+  fixture.localParticipant.getTrackPublication.mockImplementation(
+    (source?: string) =>
+      (source === 'screen_share_audio'
+        ? { track: { mediaStreamTrack: { readyState: 'live' } } }
+        : undefined) as never
+  );
+  const transport = createLivekitTransport({ encryptMedia: false, createRoom: () => fixture.room });
+  await transport.connect(connectOptions);
+  await expect(transport.capabilities.screenShare?.setEnabled(true)).resolves.toBeUndefined();
+  await transport.disconnect();
+});
+
 test('an HDR monitor is published as the screen share and stopped with it', async () => {
   const fixture = roomFixture();
   const participant = withPublishing(fixture);

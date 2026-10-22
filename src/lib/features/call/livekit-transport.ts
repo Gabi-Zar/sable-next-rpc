@@ -22,6 +22,7 @@ import {
   unmuteScreenAudio,
 } from '#lib/platform/screen-audio.js';
 import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
+import { electronBridge } from '#lib/platform/electron.js';
 import { startHdrShare, stopHdrShare } from '#lib/platform/hdr-share.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
@@ -653,6 +654,19 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
             enabled && room.localParticipant.isScreenShareEnabled ? await shareAudio(audio) : true;
           if (!enabled) await stopSharingAudio();
           syncLocal();
+          if (
+            enabled &&
+            room.localParticipant.isScreenShareEnabled &&
+            electronBridge()?.platform === 'darwin'
+          ) {
+            const track = room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio)
+              ?.track?.mediaStreamTrack;
+            if (!track || track.readyState === 'ended') {
+              const error = new ScreenAudioError();
+              fail('call.screen_share.audio', error);
+              throw error;
+            }
+          }
           if (!audioShared) throw new ScreenAudioError();
         },
       },

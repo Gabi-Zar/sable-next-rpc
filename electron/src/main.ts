@@ -35,6 +35,7 @@ import { deepLinksIn, deepLinkSchemes } from './deep-links';
 import { claimSchemes } from './linux-schemes';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
+import { screenShareStreams } from './screen-share';
 import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
@@ -620,7 +621,7 @@ function registerScreenShare(): void {
     }
     void chooseShareSource().then(
       (source) => {
-        callback(source ? { video: source } : null);
+        callback(source ? screenShareStreams(source, request.audioRequested) : null);
       },
       (error: unknown) => {
         console.error('[sable screen share] could not select a source', error);

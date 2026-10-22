@@ -3377,6 +3377,7 @@
     "cameraUnavailable": "Camera unavailable. Check that Sable is allowed to use it.",
     "screenShareUnavailable": "Could not share your screen.",
     "screenAudioUnavailable": "Screen audio is unavailable. Check that PipeWire is running and restart Sable.",
+    "screenAudioUnavailableMac": "Screen audio requires macOS 14.2 or newer. Allow Sable in System Settings → Privacy & Security → Screen & System Audio Recording, then restart Sable.",
     "waitingForMedia": "available once the call is secured",
     "deafen": "Deafen",
     "undeafen": "Undeafen",
