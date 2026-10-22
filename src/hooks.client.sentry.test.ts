@@ -57,16 +57,16 @@ function errorEvents() {
 test('reports console errors with redacted arguments', async () => {
   await boot();
   console.error(
-    'attachment failed https://hs.example/rooms/%21private%3Aexample.org/messages',
-    new Error('token=secret !private:example.org')
+    'attachment failed https://hs.example/rooms/%21sensitive-room%3Aexample.org/messages',
+    new Error('token=secret !sensitive-room:example.org')
   );
   await Sentry.flush(0);
   expect(errorEvents()).toHaveLength(1);
   const sent = JSON.stringify(errorEvents());
   expect(sent).toContain('auto.core.capture_console');
   expect(sent).not.toContain('secret');
-  expect(sent).not.toContain('!private:example.org');
-  expect(sent).not.toContain('private');
+  expect(sent).not.toContain('!sensitive-room:example.org');
+  expect(sent).not.toContain('sensitive-room');
 });
 
 test('reports SvelteKit errors once as unhandled', async () => {
