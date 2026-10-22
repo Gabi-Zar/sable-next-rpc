@@ -820,7 +820,7 @@ fn matrix2_and_legacy_membership_content_differ_in_shape() {
         serde_json::json!({
             "application": {"type": "m.call", "m.call.intent": "video"},
             "slot_id": "m.call#ROOM",
-            "member": {"user_id": "@user:example.org", "device_id": "DEVICE", "id": "m1"},
+            "member": {"user_id": "@user:example.org", "device_id": "DEVICE", "id": "m1", "membership": "join"},
             "transports": {
                 "published": [{"type": "livekit", "livekit_service_url": "https://sfu.example.org"}],
                 "can_subscribe": ["livekit"],

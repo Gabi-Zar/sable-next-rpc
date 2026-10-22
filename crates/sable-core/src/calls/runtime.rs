@@ -211,6 +211,7 @@ fn content_at(
                 user_id: own.user_id.clone(),
                 device_id: own.device_id.clone(),
                 id: own.member_id.clone(),
+                membership: "join",
             },
             transports: Matrix2Transports {
                 published: own
@@ -297,6 +298,7 @@ struct Matrix2Member {
     user_id: OwnedUserId,
     device_id: OwnedDeviceId,
     id: Option<String>,
+    membership: &'static str,
 }
 
 #[derive(Serialize)]

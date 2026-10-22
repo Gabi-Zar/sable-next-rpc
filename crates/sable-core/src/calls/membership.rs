@@ -373,12 +373,23 @@ impl StickyMemberships {
         }) {
             return false;
         }
-        let left = content
-            .rest
-            .get("member")
+        let member_content = content.rest.get("member");
+        let left = member_content
             .and_then(|member| member.get("membership"))
-            .and_then(serde_json::Value::as_str)
-            == Some("leave");
+            .is_some_and(|membership| membership.as_str() != Some("join"));
+        if left
+            && (member_content
+                .and_then(|member| member.get("id"))
+                .and_then(serde_json::Value::as_str)
+                != Some(key)
+                || content
+                    .rest
+                    .get("slot_id")
+                    .and_then(serde_json::Value::as_str)
+                    != Some("m.call#ROOM"))
+        {
+            return false;
+        }
         let tombstone = left || content.rest.keys().all(|field| field == "slot_id");
         let member = if tombstone {
             None
@@ -719,6 +730,18 @@ mod tests {
             store.members(200),
             [] as [crate::calls::membership::CallMember; 0]
         );
+    }
+
+    #[test]
+    fn a_non_joined_membership_replaces_an_older_join() {
+        let mut store = super::StickyMemberships::default();
+        let joined = sticky_event("$a", 100);
+        assert!(store.apply(&joined, 100));
+        let mut updated = sticky_event("$b", 200);
+        updated["content"]["member"]["membership"] = serde_json::json!("other");
+        assert!(store.apply(&updated, 200));
+        assert!(store.members(200).is_empty());
+        assert!(!store.apply(&joined, 300));
     }
 
     #[test]
