@@ -402,6 +402,14 @@ test('a failed key import does not prevent a later key from being installed', as
   expect(provider.state.lastFailure).toBeNull();
 });
 
+test('32-byte media key material can be installed', async () => {
+  const provider = new MatrixKeyProvider();
+  await expect(
+    provider.setKey({ identity: 'publisher', keyIndex: 0, key: new Uint8Array(32) }, true)
+  ).resolves.toBeUndefined();
+  expect(provider.state.ready).toBe(true);
+});
+
 test('key import failures only clear readiness for the publisher key', async () => {
   const provider = new MatrixKeyProvider();
   const own = { identity: 'publisher', keyIndex: 0, key: new Uint8Array(16) };

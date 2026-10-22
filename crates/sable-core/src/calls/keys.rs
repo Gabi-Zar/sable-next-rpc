@@ -9,7 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use super::membership::CallMember;
 
-pub(crate) const KEY_BYTES: usize = 16;
+pub(crate) const KEY_BYTES: usize = 32;
+const MIN_RECEIVED_KEY_BYTES: usize = 16;
 pub(crate) const ROTATION_GRACE_MS: u64 = 10_000;
 pub(crate) const USE_KEY_DELAY_MS: u64 = 5_000;
 pub(crate) const RESHARE_INTERVAL_MS: u64 = 60_000;
@@ -475,7 +476,7 @@ pub(crate) fn decode_key(encoded: &str) -> Option<Vec<u8>> {
         .decode(encoded)
         .or_else(|_| STANDARD_NO_PAD.decode(encoded))
         .ok()
-        .filter(|key| key.len() >= KEY_BYTES)
+        .filter(|key| key.len() >= MIN_RECEIVED_KEY_BYTES)
 }
 
 pub(crate) fn now_ms() -> u64 {
@@ -751,13 +752,19 @@ mod tests {
     }
 
     #[test]
-    fn test_a_key_longer_than_sixteen_bytes_is_accepted() {
+    fn accepts_legacy_and_current_key_lengths() {
         use base64::Engine as _;
         use base64::engine::general_purpose::STANDARD_NO_PAD;
 
-        let long = STANDARD_NO_PAD.encode([5u8; 32]);
-
-        assert_eq!(decode_key(&long).map(|key| key.len()), Some(32));
+        let current = OutboundKey::generate(0, 0).unwrap();
+        assert_eq!(
+            decode_key(&current.encoded()).map(|key| key.len()),
+            Some(32)
+        );
+        assert_eq!(
+            decode_key(&STANDARD_NO_PAD.encode([5u8; 16])).map(|key| key.len()),
+            Some(16)
+        );
         assert_eq!(decode_key(&STANDARD_NO_PAD.encode([5u8; 15])), None);
     }
 
