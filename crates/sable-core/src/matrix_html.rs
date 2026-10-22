@@ -61,9 +61,19 @@ const STRIPPED_CONTENT_TAGS: [&str; 6] = [
     "mx-reply", "script", "style", "textarea", "option", "noscript",
 ];
 
-const URL_SCHEMES: [&str; 7] = ["http", "https", "ftp", "mailto", "matrix", "mxc", "tauri"];
+const URL_SCHEMES: [&str; 8] = [
+    "http",
+    "https",
+    "ftp",
+    "mailto",
+    "matrix",
+    "mxc",
+    "tauri",
+    "sable-app",
+];
 
 const DESKTOP_APP_ORIGIN: &str = "tauri://localhost/";
+const ELECTRON_APP_ORIGIN: &str = "sable-app://app/";
 
 fn tag_attributes() -> HashMap<&'static str, HashSet<&'static str>> {
     HashMap::from([
@@ -139,6 +149,9 @@ fn sanitizer() -> Builder<'static> {
             // An `mxc:` link would navigate the webview to bytes it cannot load.
             ("a", "href") if has_scheme(value, "tauri:") => {
                 has_scheme(value, DESKTOP_APP_ORIGIN).then(|| value.into())
+            }
+            ("a", "href") if has_scheme(value, "sable-app:") => {
+                has_scheme(value, ELECTRON_APP_ORIGIN).then(|| value.into())
             }
             ("a", "href") => (!has_scheme(value, "mxc:")).then(|| value.into()),
             ("img", "src") => {
@@ -223,7 +236,7 @@ static MATRIX_POLICY: LazyLock<SanitizerConfig> = LazyLock::new(|| {
                     element: "a",
                     attr_schemes: &[PropertiesNames {
                         parent: "href",
-                        properties: &["tauri"],
+                        properties: &["tauri", "sable-app"],
                     }],
                 },
             ],
@@ -373,7 +386,8 @@ fn anchor(href: &str, text: &str) -> String {
             .iter()
             .any(|allowed| scheme.eq_ignore_ascii_case(allowed))
     }) && !has_scheme(href, "mxc:")
-        && (!has_scheme(href, "tauri:") || has_scheme(href, DESKTOP_APP_ORIGIN));
+        && (!has_scheme(href, "tauri:") || has_scheme(href, DESKTOP_APP_ORIGIN))
+        && (!has_scheme(href, "sable-app:") || has_scheme(href, ELECTRON_APP_ORIGIN));
     if !allowed {
         return escape_html(text);
     }
@@ -1626,6 +1640,41 @@ mod tests {
             let markup = format!("<a href=\"{other}\">x</a>");
             assert!(
                 !display_html("", Some(&markup)).contains("tauri:"),
+                "{other} survived"
+            );
+        }
+    }
+
+    #[test]
+    fn links_to_the_electron_app_survive() {
+        let href = "sable-app://app/settings/appearance?focus=font-family&moe.sable.client.action=settings";
+        assert_eq!(
+            href.parse::<http::Uri>().unwrap().scheme_str(),
+            Some("sable-app")
+        );
+        let escaped = href.replace('&', "&amp;");
+
+        let markup = format!("<a href=\"{escaped}\">settings</a>");
+        assert!(display_html("", Some(&markup)).contains(&format!("href=\"{escaped}\"")));
+        assert!(display_html(href, None).contains(&format!("href=\"{escaped}\"")));
+        assert!(
+            display_html("", Some(&format!("<p>see {escaped}</p>")))
+                .contains(&format!("href=\"{escaped}\""))
+        );
+
+        for other in [
+            "sable-app://evil.example/settings/timeline",
+            "sable-app://app.evil.example/settings/timeline",
+            "sable-app://app:1234/settings/timeline",
+            "sable-app:app/settings",
+        ] {
+            assert!(
+                !display_html(other, None).contains("<a "),
+                "{other} became a link"
+            );
+            let markup = format!("<a href=\"{other}\">x</a>");
+            assert!(
+                !display_html("", Some(&markup)).contains("sable-app:"),
                 "{other} survived"
             );
         }

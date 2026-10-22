@@ -43,6 +43,7 @@ test("reads v1's hash routing", () => {
 
 test.each([
   ['tauri://localhost', 'tauri://localhost'],
+  ['sable-app://app', 'sable-app://app'],
   ['http://tauri.localhost', 'http://tauri.localhost'],
   ['https://tauri.localhost', 'https://tauri.localhost'],
 ])('reads a link copied from the %s app', (appOrigin, linkOrigin) => {
@@ -69,6 +70,8 @@ test.each([
   'https://sable.example/settings/timeline?moe.sable.client.action=logout',
   'javascript:alert(1)/settings/timeline',
   'tauri://evil.example/settings/timeline?moe.sable.client.action=settings',
+  'sable-app://evil.example/settings/appearance?moe.sable.client.action=settings',
+  'sable-app://app:1234/settings/appearance?moe.sable.client.action=settings',
 ])('rejects %s', (href) => {
   expect(parseSettingsLink(href, APP)).toBeNull();
 });
@@ -88,6 +91,7 @@ test.each([
   [APP, APP],
   ['http://localhost:3000', 'http://localhost:3000'],
   ['tauri://localhost', 'https://app.sable.moe'],
+  ['sable-app://app', 'https://app.sable.moe'],
   ['http://tauri.localhost', 'https://app.sable.moe'],
   ['https://tauri.localhost', 'https://app.sable.moe'],
 ])('builds a shareable settings link from %s', (origin, linkOrigin) => {
@@ -99,4 +103,13 @@ test.each([
     section: 'timeline',
     focus: 'hide-read-receipts',
   });
+});
+
+test('reads an existing Electron font settings link', () => {
+  expect(
+    parseSettingsLink(
+      'sable-app://app/settings/appearance?focus=font-family&moe.sable.client.action=settings',
+      APP
+    )
+  ).toEqual({ section: 'appearance', focus: 'font-family' });
 });

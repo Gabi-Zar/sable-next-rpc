@@ -65,7 +65,9 @@ export function parseSettingsLink(href: string, origin: string): SettingsLink | 
   } catch {
     return null;
   }
-  const desktopApp = url.protocol === 'tauri:' && url.host === 'localhost';
+  const desktopApp =
+    (url.protocol === 'tauri:' && url.host === 'localhost') ||
+    (url.protocol === 'sable-app:' && url.host === 'app');
   if (url.protocol !== 'http:' && url.protocol !== 'https:' && !desktopApp) return null;
 
   const sameOrigin = `${url.protocol}//${url.host}` === origin;
@@ -82,7 +84,9 @@ export function parseSettingsLink(href: string, origin: string): SettingsLink | 
 export function buildSettingsLink(origin: string, section: string, focus?: string): string {
   const app = new URL(origin);
   const desktopApp =
-    app.hostname === 'tauri.localhost' || (app.protocol === 'tauri:' && app.host === 'localhost');
+    app.hostname === 'tauri.localhost' ||
+    (app.protocol === 'tauri:' && app.host === 'localhost') ||
+    (app.protocol === 'sable-app:' && app.host === 'app');
   const url = new URL(`/settings/${section}`, desktopApp ? 'https://app.sable.moe' : origin);
   if (focus !== undefined) url.searchParams.set('focus', focus);
   url.searchParams.set(SETTINGS_LINK_ACTION_PARAM, SETTINGS_LINK_ACTION);
