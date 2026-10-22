@@ -1081,6 +1081,16 @@
           />
         {/each}
       {/await}
+    {:else if callSession.mediaReady}
+      {#await import('#lib/features/call/NativeCallAudio.svelte') then { default: NativeCallAudio }}
+        <NativeCallAudio
+          participants={callSession.transport.participants}
+          deafened={callSession.deafened}
+          volumeOf={callVolumeOf}
+          setVolume={(identity, volume, screen) =>
+            callSession.setParticipantVolume(identity, volume, screen)}
+        />
+      {/await}
     {/if}
     {#if callSession.choosingScreenSource}
       {@const monitors = callSession.choosingScreenSource}

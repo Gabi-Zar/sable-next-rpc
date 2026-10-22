@@ -620,6 +620,13 @@
     position: absolute;
   }
 
+  .overlaid .volume {
+    flex: none;
+    inline-size: auto;
+    margin: var(--space-100) var(--space-200);
+    position: static;
+  }
+
   .reading {
     color: var(--bg-on-container);
     flex: none;

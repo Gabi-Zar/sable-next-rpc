@@ -33,6 +33,7 @@ const plugin = {
     })
   ),
   setAudioInput: vi.fn(() => Promise.resolve(snapshot(6))),
+  setNativeCallParticipantVolume: vi.fn(() => Promise.resolve(snapshot(9))),
 };
 
 const platform = vi.hoisted(() => ({ android: true }));
@@ -41,6 +42,43 @@ vi.mock('#lib/platform/calls.js', () => ({ loadNativeCalls: () => Promise.resolv
 vi.mock('#lib/platform/os.js', () => ({ isAndroid: () => platform.android }));
 
 const { createNativeTransport } = await import('./native-transport');
+
+test('native screen audio is exposed separately from the microphone', async () => {
+  const screenShareAudio = { sid: 'screen-audio', muted: false, subscribed: true };
+  const remote = { identity: 'alice', screenShareAudio };
+  plugin.connectNativeCall.mockResolvedValueOnce(
+    snapshot(1, {
+      remoteParticipants: [remote],
+    })
+  );
+  const transport = await createNativeTransport('7', 'self');
+  await transport?.connect({
+    url: 'wss://sfu.example.org',
+    token: 'jwt',
+    microphoneEnabled: true,
+    cameraEnabled: false,
+    encryptionKeys: [],
+  });
+  expect(transport?.getState().participants[0].screenShareAudio).toEqual({
+    id: 'screen-audio',
+    muted: false,
+    subscribed: true,
+  });
+  await transport?.setParticipantVolume?.('alice', 0.6, true);
+  expect(plugin.setNativeCallParticipantVolume).toHaveBeenLastCalledWith({
+    callId: '7',
+    identity: 'alice',
+    volume: 0.6,
+    screenShare: true,
+  });
+  await transport?.setParticipantVolume?.('alice', 0.8);
+  expect(plugin.setNativeCallParticipantVolume).toHaveBeenLastCalledWith({
+    callId: '7',
+    identity: 'alice',
+    volume: 0.8,
+    screenShare: false,
+  });
+});
 
 test('the native transport reports our own participant with its camera', async () => {
   const transport = await createNativeTransport('7', '@erwan:example.org:PHONE');

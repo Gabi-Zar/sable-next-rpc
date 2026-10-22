@@ -496,7 +496,6 @@
     onWatchScreen={item.source === 'screen' && !item.participant.local && screenShare
       ? () => session.toggleWatchScreenShare(screenShare.id)
       : undefined}
-    onVolumeChange={(identity, volume) => void session.setParticipantVolume(identity, volume)}
   />
 {/snippet}
 

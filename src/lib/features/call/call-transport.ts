@@ -112,7 +112,7 @@ export type CallTransport = {
   subscribe: (listener: (state: CallTransportState) => void) => () => void;
   getState: () => CallTransportState;
   capabilities: CallTransportCapabilities;
-  setParticipantVolume?: (identity: string, volume: number) => Promise<void>;
+  setParticipantVolume?: (identity: string, volume: number, screen?: boolean) => Promise<void>;
   reconcileBackends?: (backends: CallBackendGrant[], publisherId?: string) => Promise<void>;
   rooms?: () => readonly CallTransportRoom[];
   roomFor?: (backendId: string | undefined) => import('livekit-client').Room | undefined;

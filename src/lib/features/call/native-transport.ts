@@ -38,7 +38,11 @@ const connectionOf = (state: NativeCallSnapshot['connectionState']): CallTranspo
   }
 };
 
-const participantOf = (participant: NativeCallRemoteParticipant): CallParticipant => ({
+type NativeParticipant = NativeCallRemoteParticipant & {
+  screenShareAudio?: NativeCallRemoteParticipant['microphone'];
+};
+
+const participantOf = (participant: NativeParticipant): CallParticipant => ({
   identity: participant.identity,
   camera: participant.camera && {
     id: participant.camera.sid,
@@ -49,6 +53,11 @@ const participantOf = (participant: NativeCallRemoteParticipant): CallParticipan
     id: participant.screenShare.sid,
     muted: participant.screenShare.muted,
     subscribed: participant.screenShare.subscribed,
+  },
+  screenShareAudio: participant.screenShareAudio && {
+    id: participant.screenShareAudio.sid,
+    muted: participant.screenShareAudio.muted,
+    subscribed: participant.screenShareAudio.subscribed,
   },
   microphone: participant.microphone && {
     id: participant.microphone.sid,
@@ -169,8 +178,9 @@ export async function createNativeTransport(
     setCameraEnabled: async (enabled) => {
       adopt(await plugin.setNativeCallCameraEnabled({ callId, enabled }));
     },
-    setParticipantVolume: async (identity, volume) => {
-      adopt(await plugin.setNativeCallParticipantVolume({ callId, identity, volume }));
+    setParticipantVolume: async (identity, volume, screen = false) => {
+      const request = { callId, identity, volume, screenShare: screen };
+      adopt(await plugin.setNativeCallParticipantVolume(request));
     },
     setEncryptionKey: async (key) => {
       if (!connected) {

@@ -494,8 +494,8 @@ export class CallSession {
     void playSound(enabled ? 'mic_on' : 'mic_off');
   }
 
-  async setParticipantVolume(identity: string, volume: number): Promise<void> {
-    await this.#media?.setParticipantVolume?.(identity, volume);
+  async setParticipantVolume(identity: string, volume: number, screen = false): Promise<void> {
+    await this.#media?.setParticipantVolume?.(identity, volume, screen);
   }
 
   setDeafened(deafened: boolean): void {

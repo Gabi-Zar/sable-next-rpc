@@ -74,11 +74,6 @@
     spaceId = page.params.spaceId;
   });
 
-  function setCallVolume(userId: string, volume: number): void {
-    for (const member of call.members) {
-      if (member.user_id === userId) void call.setParticipantVolume(member.identity, volume);
-    }
-  }
   const spaceSidebar = useSpaceSidebar();
   let renamingFolder = $state<SidebarFolder | null>(null);
   let knownSpaceIds = $state.raw<string[]>([]);
@@ -273,7 +268,6 @@
           {onNavigate}
           callRoomId={call.active ? call.roomId : null}
           callVoiceStates={call.voiceStates}
-          onCallVolume={setCallVolume}
         />
       </div>
       {@render callBar()}
@@ -302,7 +296,6 @@
           {collapsed}
           callRoomId={call.active ? call.roomId : null}
           callVoiceStates={call.voiceStates}
-          onCallVolume={setCallVolume}
         />
         <ResizeHandle
           value={roomNavWidth}
