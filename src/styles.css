@@ -734,6 +734,7 @@ body {
   color: var(--bg-on-container);
   font-family: var(--font-family);
   font-size: var(--font-size-body);
+  font-variant-emoji: unicode;
   font-weight: var(--font-weight-normal);
   line-height: var(--line-height-body);
   margin: 0;
