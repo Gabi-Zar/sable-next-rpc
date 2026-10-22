@@ -46,6 +46,7 @@
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import { lastSeenBucket, lastSeenMs, usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
+  import { roleColorOnDark, roleColorOnLight } from '#lib/ui/primitives/readable-color.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -810,13 +811,13 @@
       : (overrideColors?.light ??
         cosmetics?.colorOnLight ??
         profileColors?.name_color_light ??
-        roleTag?.color)}
+        roleColorOnLight(roleTag?.color))}
     nameColorDark={overrideColors === null
       ? null
       : (overrideColors?.dark ??
         cosmetics?.colorOnDark ??
         profileColors?.name_color_dark ??
-        roleTag?.color)}
+        roleColorOnDark(roleTag?.color))}
     meta={profileLoading ? metaPlaceholder : hasMeta ? metaRow : undefined}
     below={profileBelow}
     pronouns={pronounRow}

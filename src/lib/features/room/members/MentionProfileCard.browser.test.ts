@@ -34,6 +34,7 @@ declare module 'vitest/browser' {
 
 afterEach(async () => {
   await commands.emulateColorScheme('light');
+  document.documentElement.classList.remove('dark', 'light');
 });
 
 const baseProfile: ProfileView = {
@@ -117,6 +118,25 @@ for (const { scheme, hero, brightness } of CASES) {
   test(`a ${hero} profile card with ${brightness ?? 'automatic'} brightness keeps its text legible on the ${scheme} theme`, async () => {
     await commands.emulateColorScheme(scheme);
     const screen = await mountCard({ hero_color: hero, hero_brightness: brightness });
+    const card = document.querySelector('.profile-card');
+    if (!card) throw new Error('the profile card is not rendered');
+    await expect.element(screen.getByText('Show misc. data', { exact: false })).toBeVisible();
+
+    expect(illegibleText(card)).toEqual([]);
+  });
+}
+
+for (const scheme of ['light', 'dark'] as const) {
+  test(`a custom name colour stays legible on a light hero in the ${scheme} theme`, async () => {
+    await commands.emulateColorScheme(scheme);
+    document.documentElement.classList.toggle('dark', scheme === 'dark');
+    document.documentElement.classList.toggle('light', scheme === 'light');
+    const screen = await mountCard({
+      hero_color: '#dec1e3',
+      hero_brightness: 'light',
+      name_color_light: '#f1c7ef',
+      name_color_dark: '#f1c7ef',
+    });
     const card = document.querySelector('.profile-card');
     if (!card) throw new Error('the profile card is not rendered');
     await expect.element(screen.getByText('Show misc. data', { exact: false })).toBeVisible();

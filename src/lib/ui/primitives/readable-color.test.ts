@@ -11,6 +11,8 @@ import {
   nameColorOnDark,
   nameColorOnLight,
   profilePalette,
+  roleColorOnDark,
+  roleColorOnLight,
 } from './readable-color.js';
 
 function hsl(hue: number, saturation: number, lightness: number): string {
@@ -89,5 +91,22 @@ test('name colour correction can be weakened or turned off', () => {
     expect(weak).not.toBe(strong);
   } finally {
     preferences.nameColorCorrection = 'strong';
+  }
+});
+
+test('a role colour stays legible whatever the name colour preference says', () => {
+  const before = preferences.nameColorCorrection;
+  try {
+    for (const mode of ['strong', 'weak', 'off'] as const) {
+      preferences.nameColorCorrection = mode;
+      for (const color of SWEEP) {
+        expect(contrastRatio(roleColorOnLight(color) ?? '', '#e4e4e7')).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(roleColorOnDark(color) ?? '', '#2d2c36')).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+    expect(roleColorOnLight(null)).toBeNull();
+    expect(roleColorOnDark(undefined)).toBeNull();
+  } finally {
+    preferences.nameColorCorrection = before;
   }
 });

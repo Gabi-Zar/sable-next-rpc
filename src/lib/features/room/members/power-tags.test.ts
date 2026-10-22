@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   contrastRatio,
-  nameColorOnDark,
-  nameColorOnLight,
+  roleColorOnDark,
+  roleColorOnLight,
 } from '#lib/ui/primitives/readable-color.js';
 
 import { FOUNDER_POWER_LEVEL, powerTag } from './power-tags';
@@ -28,11 +28,13 @@ describe('powerTag', () => {
     expect(powerTag(10, t).color).toBeNull();
   });
 
-  it('keeps every default role colour legible on light and dark grounds', () => {
-    for (const level of [FOUNDER_POWER_LEVEL, 150, 101, 100, 50, -1]) {
-      const color = powerTag(level, t).color;
-      expect(contrastRatio(nameColorOnLight(color) ?? '', '#e4e4e7')).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio(nameColorOnDark(color) ?? '', '#2d2c36')).toBeGreaterThanOrEqual(4.5);
+  it('keeps every role colour legible on light and dark grounds', () => {
+    const colors = [FOUNDER_POWER_LEVEL, 150, 101, 100, 50, -1]
+      .map((level) => powerTag(level, t).color)
+      .concat(['#0000ff', '#ff0000', '#f1c7ef', '#1fd81f', '#888888', '#ffff00']);
+    for (const color of colors) {
+      expect(contrastRatio(roleColorOnLight(color) ?? '', '#e4e4e7')).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(roleColorOnDark(color) ?? '', '#2d2c36')).toBeGreaterThanOrEqual(4.5);
     }
   });
 

@@ -812,4 +812,9 @@
   :root.dark .profile-card-name {
     color: var(--profile-name-color-dark);
   }
+
+  /* A tinted card brings its own ground, so the hero picks the name colour. */
+  .profile-card.tinted .profile-card-name {
+    color: var(--profile-name-on-hero, var(--profile-ink));
+  }
 </style>

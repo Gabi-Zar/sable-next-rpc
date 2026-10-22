@@ -26,8 +26,12 @@ vi.mock('#lib/rooms/presence.svelte.js', async () => {
   };
 });
 
-import { setPreference } from '#lib/settings/preferences.svelte.js';
-import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
+import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
+import {
+  contrastRatio,
+  roleColorOnDark,
+  roleColorOnLight,
+} from '#lib/ui/primitives/readable-color.js';
 
 import MembersDrawer from './MembersDrawer.svelte';
 import { FOUNDER_POWER_LEVEL } from '../settings/power-level-tags';
@@ -156,8 +160,44 @@ test('tints a role heading with its colour corrected for each theme', async () =
 
   const heading = screen.getByRole('heading', { level: 3 });
   expect(heading).toHaveClass('tinted');
-  expect(heading.style.getPropertyValue('--name-color-on-light')).toBe(nameColorOnLight('#0000ff'));
-  expect(heading.style.getPropertyValue('--name-color-on-dark')).toBe(nameColorOnDark('#0000ff'));
+  expect(heading.style.getPropertyValue('--name-color-on-light')).toBe(roleColorOnLight('#0000ff'));
+  expect(heading.style.getPropertyValue('--name-color-on-dark')).toBe(roleColorOnDark('#0000ff'));
+});
+
+test('keeps a role heading legible when the name colour correction is off', async () => {
+  const before = preferences.nameColorCorrection;
+  try {
+    preferences.nameColorCorrection = 'off';
+    renderWithTooltips(MembersDrawer, {
+      props: {
+        loading: false,
+        members: [
+          {
+            user_id: '@amy:example.org',
+            display_name: 'Amy',
+            avatar_url: null,
+            power_level: FOUNDER_POWER_LEVEL,
+            membership: 'join' as const,
+            member_ts: null,
+            kicked: false,
+            service: false,
+          },
+        ],
+        powerTags: {},
+        onClose: vi.fn(),
+        onMemberProfile: vi.fn(),
+      },
+    });
+    await tick();
+
+    const heading = screen.getByRole('heading', { level: 3 });
+    const light = heading.style.getPropertyValue('--name-color-on-light');
+    const dark = heading.style.getPropertyValue('--name-color-on-dark');
+    expect(contrastRatio(light, '#e4e4e7')).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(dark, '#2d2c36')).toBeGreaterThanOrEqual(4.5);
+  } finally {
+    preferences.nameColorCorrection = before;
+  }
 });
 
 test('waits for room role tags instead of briefly rendering default labels', async () => {

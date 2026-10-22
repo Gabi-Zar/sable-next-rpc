@@ -16,7 +16,7 @@
   import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import { whenVisible } from '#lib/ui/when-visible.js';
-  import { nameColorOnDark, nameColorOnLight } from '#lib/ui/primitives/readable-color.js';
+  import { roleColorOnDark, roleColorOnLight } from '#lib/ui/primitives/readable-color.js';
 
   import MemberIdentityRow from './MemberIdentityRow.svelte';
   import RoleTagIcon from './RoleTagIcon.svelte';
@@ -253,8 +253,8 @@
               : powerTag(group.level, i18n.t, powerTags ?? {})}
           <h3
             class={['group-label', { tinted: tag.color }]}
-            style:--name-color-on-light={nameColorOnLight(tag.color)}
-            style:--name-color-on-dark={nameColorOnDark(tag.color)}
+            style:--name-color-on-light={roleColorOnLight(tag.color)}
+            style:--name-color-on-dark={roleColorOnDark(tag.color)}
           >
             {#if tag.icon}<RoleTagIcon icon={tag.icon} class="group-icon" />{/if}{tag.name}
           </h3>

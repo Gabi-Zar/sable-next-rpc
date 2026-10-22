@@ -132,6 +132,15 @@ export function nameColorOnDark(color: string | null | undefined): string | null
   return nameColorAgainst(color, DARK_GROUND);
 }
 
+/** A role tag is the room's colour, so it is always corrected. */
+export function roleColorOnLight(color: string | null | undefined): string | null {
+  return color ? readableAgainst(color, LIGHT_GROUND, TEXT_RATIO) : null;
+}
+
+export function roleColorOnDark(color: string | null | undefined): string | null {
+  return color ? readableAgainst(color, DARK_GROUND, TEXT_RATIO) : null;
+}
+
 export interface ProfilePalette {
   ground: string;
   panel: string;
