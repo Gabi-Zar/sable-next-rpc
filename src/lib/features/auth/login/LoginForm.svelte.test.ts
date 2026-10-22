@@ -56,6 +56,25 @@ async function enterUsername(value: string): Promise<void> {
 
 const homeserver = () => screen.getByRole('combobox', { name: 'Account provider' });
 
+test('Tab moves from username to password before password recovery', async () => {
+  setup(() => Promise.resolve(flows));
+  const user = userEvent.setup();
+  const username = screen.getByRole('textbox', { name: 'Username, Matrix ID or email' });
+  const password = screen.getByLabelText('Password', { selector: 'input' });
+  const recovery = screen.getByRole('link', { name: 'Forgot password?' });
+
+  username.focus();
+  await user.tab();
+  expect(password).toHaveFocus();
+  await user.tab({ shift: true });
+  expect(username).toHaveFocus();
+  await user.tab();
+  await user.tab();
+  expect(screen.getByRole('button', { name: 'Show password' })).toHaveFocus();
+  await user.tab();
+  expect(recovery).toHaveFocus();
+});
+
 test('a full Matrix ID moves the provider to its server and says so', async () => {
   const validate = vi.fn(() => Promise.resolve(flows));
   setup(validate);

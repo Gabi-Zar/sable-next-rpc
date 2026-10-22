@@ -65,12 +65,6 @@
     <p class="username-hint" id={hintId}>{i18n.t('auth.loginIdentifierHint')}</p>
   </FormField>
   <FormField dense fieldId="password" label={i18n.t('auth.password')}>
-    {#snippet labelSuffix()}
-      {#if resetPasswordHref}
-        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resetPasswordHref is resolved by the caller -->
-        <a class="forgot-password" href={resetPasswordHref}>{i18n.t('auth.forgotPassword')}</a>
-      {/if}
-    {/snippet}
     <PasswordField
       bind:value={password}
       bind:showPassword
@@ -81,6 +75,10 @@
         onClearFieldError('password');
       }}
     />
+    {#if resetPasswordHref}
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resetPasswordHref is resolved by the caller -->
+      <a class="forgot-password" href={resetPasswordHref}>{i18n.t('auth.forgotPassword')}</a>
+    {/if}
   </FormField>
   <div class="submit-area">
     <AuthStatusSlot id={errorId} message={error} />
