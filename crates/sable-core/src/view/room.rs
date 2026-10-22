@@ -264,10 +264,10 @@ pub(super) fn latest_event(item: &RoomListItem) -> Option<LatestEventView> {
 }
 
 fn remote_preview(event: &RemoteLatestEventValue) -> Option<String> {
-    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(event.raw().json().get()) {
-        if let Some(preview) = forwarded_room_preview(&raw) {
-            return Some(preview);
-        }
+    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(event.raw().json().get())
+        && let Some(preview) = forwarded_room_preview(&raw)
+    {
+        return Some(preview);
     }
     let any = event.raw().deserialize().ok()?;
 
@@ -284,10 +284,10 @@ fn remote_preview(event: &RemoteLatestEventValue) -> Option<String> {
 
 fn local_preview(local: &LocalLatestEventValue) -> Option<String> {
     let (raw, _) = local.content.raw();
-    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(raw.json().get()) {
-        if let Some(preview) = forwarded_room_preview(&raw) {
-            return Some(preview);
-        }
+    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(raw.json().get())
+        && let Some(preview) = forwarded_room_preview(&raw)
+    {
+        return Some(preview);
     }
     let content = local.content.deserialize().ok()?;
 

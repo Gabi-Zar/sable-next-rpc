@@ -1495,6 +1495,28 @@ async fn send_media_reply(
     Ok(())
 }
 
+async fn wait_for_sent_message(
+    server: &MatrixMockServer,
+) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    Ok(tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let requests = server
+                .server()
+                .received_requests()
+                .await
+                .unwrap_or_default();
+            if let Some(request) = requests
+                .iter()
+                .find(|request| request.url.path().contains("/send/m.room.message/"))
+            {
+                break request.body_json::<serde_json::Value>();
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await??)
+}
+
 #[tokio::test]
 async fn media_replies_preserve_silent_mentions_on_the_wire() {
     for kind in ["attachment", "gallery", "gif", "location"] {
@@ -1563,24 +1585,7 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
                 .await
                 .unwrap();
 
-            let sent = tokio::time::timeout(Duration::from_secs(3), async {
-                loop {
-                    let requests = server
-                        .server()
-                        .received_requests()
-                        .await
-                        .unwrap_or_default();
-                    if let Some(request) = requests
-                        .iter()
-                        .find(|request| request.url.path().contains("/send/m.room.message/"))
-                    {
-                        break request.body_json::<serde_json::Value>().unwrap();
-                    }
-                    tokio::time::sleep(Duration::from_millis(10)).await;
-                }
-            })
-            .await
-            .expect("the queue flushed the reply");
+            let sent = wait_for_sent_message(&server).await.unwrap();
             assert_eq!(
                 sent["m.relates_to"]["m.in_reply_to"]["event_id"],
                 target.as_str(),

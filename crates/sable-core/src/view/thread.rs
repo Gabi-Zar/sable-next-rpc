@@ -271,7 +271,7 @@ mod tests {
 
     use serde_json::json;
 
-    fn embedded_forward(content: serde_json::Value) -> EmbeddedEvent {
+    fn embedded_forward(content: &serde_json::Value) -> EmbeddedEvent {
         use matrix_sdk::ruma::{
             MilliSecondsSinceUnixEpoch, owned_event_id, owned_user_id, serde::Raw,
         };
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn embedded_forwards_use_nested_content_instead_of_sdk_fallback() {
-        let event = embedded_forward(json!({
+        let event = embedded_forward(&json!({
             "msgtype": "m.text", "body": "Forwarded message\nfallback",
             "org.matrix.msc4553.forwarded": {
                 "content": { "msgtype": "m.text", "body": "original",
@@ -311,7 +311,7 @@ mod tests {
 
     #[test]
     fn embedded_forwards_with_invalid_content_use_the_original_fallback() {
-        let event = embedded_forward(json!({
+        let event = embedded_forward(&json!({
             "msgtype": "m.text", "body": "original fallback",
             "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text" } }
         }));
@@ -333,7 +333,7 @@ mod tests {
                 "Sender waves",
             ),
         ] {
-            let event = embedded_forward(json!({
+            let event = embedded_forward(&json!({
                 "msgtype": "m.text", "body": "fallback",
                 "org.matrix.msc4553.forwarded": metadata
             }));
@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn redacted_embedded_forwards_do_not_display_original_content() {
-        let mut event = embedded_forward(json!({
+        let mut event = embedded_forward(&json!({
             "msgtype": "m.text", "body": "fallback",
             "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text", "body": "secret" } }
         }));

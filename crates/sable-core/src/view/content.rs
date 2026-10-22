@@ -2,7 +2,9 @@ use std::collections::BTreeSet;
 
 use matrix_sdk::ruma::UInt;
 use matrix_sdk::ruma::events::poll::start::PollKind;
-use matrix_sdk::ruma::events::room::message::{MessageType, RoomMessageEventContent};
+use matrix_sdk::ruma::events::room::message::{
+    GalleryMessageEventContent, MessageType, RoomMessageEventContent,
+};
 use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk::ruma::{OwnedUserId, UserId};
 use matrix_sdk_base::crypto::types::events::UtdCause;
@@ -163,6 +165,35 @@ fn message_content(
     message_type_content(message.msgtype(), message.is_edited(), profile, raw)
 }
 
+fn gallery_content(
+    gallery: &GalleryMessageEventContent,
+    raw: &RawFields,
+) -> TimelineItemContentView {
+    TimelineItemContentView::Gallery {
+        html: display_html(
+            &gallery.body,
+            gallery
+                .formatted
+                .as_ref()
+                .map(|formatted| formatted.body.as_str()),
+        ),
+        body: gallery.body.clone(),
+        items: gallery
+            .itemtypes
+            .iter()
+            .enumerate()
+            .filter_map(|(index, item)| {
+                let raw = raw
+                    .content
+                    .as_ref()
+                    .and_then(|content| content.get("itemtypes"))
+                    .and_then(|items| items.get(index));
+                gallery_item(item, raw)
+            })
+            .collect(),
+    }
+}
+
 fn message_type_content(
     msgtype: &MessageType,
     edited: bool,
@@ -243,29 +274,7 @@ fn message_type_content(
                 longitude: coordinates.map(|(_, longitude)| longitude),
             }
         }
-        MessageType::Gallery(gallery) => TimelineItemContentView::Gallery {
-            html: display_html(
-                &gallery.body,
-                gallery
-                    .formatted
-                    .as_ref()
-                    .map(|formatted| formatted.body.as_str()),
-            ),
-            body: gallery.body.clone(),
-            items: gallery
-                .itemtypes
-                .iter()
-                .enumerate()
-                .filter_map(|(index, item)| {
-                    let raw = raw
-                        .content
-                        .as_ref()
-                        .and_then(|content| content.get("itemtypes"))
-                        .and_then(|items| items.get(index));
-                    gallery_item(item, raw)
-                })
-                .collect(),
-        },
+        MessageType::Gallery(gallery) => gallery_content(gallery, raw),
         MessageType::VerificationRequest(_) => TimelineItemContentView::VerificationRequest,
         msgtype => {
             cute_event(msgtype).unwrap_or_else(|| text_message(msgtype, edited, profile, raw))
@@ -274,10 +283,7 @@ fn message_type_content(
 }
 
 fn forwarded_message_type(raw: &RawFields) -> Option<(MessageType, RawFields)> {
-    let event_content = raw
-        .original_content
-        .as_ref()
-        .or_else(|| raw.content.as_ref())?;
+    let event_content = raw.original_content.as_ref().or(raw.content.as_ref())?;
     let original = event_content
         .get(super::forward::FORWARDED)?
         .get("content")?;
@@ -313,7 +319,7 @@ fn forwarded_sticker(raw: &RawFields) -> Option<StickerEventContent> {
     serde_json::from_value(
         raw.original_content
             .as_ref()
-            .or_else(|| raw.content.as_ref())?
+            .or(raw.content.as_ref())?
             .get(super::forward::FORWARDED)?
             .get("content")?
             .clone(),
@@ -381,10 +387,12 @@ pub(super) fn content(
         TimelineItemContent::MsgLike(msg) => match &msg.kind {
             MsgLikeKind::Message(message) => forwarded_message_type(raw)
                 .or_else(|| forwarded_fallback_message_type(raw))
-                .map(|(msgtype, forwarded_raw)| {
-                    message_type_content(&msgtype, false, None, &forwarded_raw)
-                })
-                .unwrap_or_else(|| message_content(message, profile, raw)),
+                .map_or_else(
+                    || message_content(message, profile, raw),
+                    |(msgtype, forwarded_raw)| {
+                        message_type_content(&msgtype, false, None, &forwarded_raw)
+                    },
+                ),
             MsgLikeKind::Redacted => TimelineItemContentView::Redacted {
                 reason: raw.redaction_reason(),
                 redacted_by: raw.redacted_by(),
