@@ -81,11 +81,6 @@ async fn joining_an_unsupported_slot_does_not_publish_membership() {
             ),
         )
         .await;
-    assert!(
-        room.power_levels_or_default()
-            .await
-            .user_can_send_state(client.user_id().unwrap(), crate::view::RTC_SLOT_TYPE.into())
-    );
     Mock::given(method("GET"))
         .and(path_regex(r"/state/org\.matrix\.msc4143\.rtc\.slot/.*"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
@@ -936,6 +931,7 @@ async fn legacy_move_fixture(
     use wiremock::{Mock, ResponseTemplate};
 
     let server = MatrixMockServer::new().await;
+    server.mock_room_state_encryption().plain().mount().await;
     let client = server
         .client_builder()
         .on_builder(|builder| builder.disable_well_known_lookup(true))

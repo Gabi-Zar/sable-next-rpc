@@ -1,6 +1,5 @@
 mod keys;
 mod membership;
-pub(crate) use membership::is_rtc_member_type;
 mod notify;
 
 pub(crate) use notify::{NOTIFICATION_EVENT_TYPE, is_call_event_type};
@@ -318,9 +317,13 @@ fn left_membership() -> CallMemberEventContent {
 pub(crate) async fn screen_sharers(room: &Room) -> Vec<OwnedUserId> {
     let mut members = membership::active_members(room).await;
     let now = keys::now_ms();
+    let encrypted = !matches!(
+        room.latest_encryption_state().await,
+        Ok(matrix_sdk::EncryptionState::NotEncrypted)
+    );
     let mut sticky = membership::StickyMemberships::default();
     for event in sticky::live_events(room) {
-        sticky.apply(&event, now);
+        event.apply(&mut sticky, encrypted, now);
     }
     members.extend(sticky.members(now));
     members.retain(|member| member.screen_sharing);
@@ -417,11 +420,12 @@ impl Core {
                 .await
                 .is_ok_and(|features| features.contains(&"org.matrix.msc4354".into()));
         if !has_focus && sticky_available {
+            let encrypted = self.room_is_encrypted(&room).await?;
             let mut sync = sticky::StickySync::new(self.allocate_subscription().0);
             if let Ok(events) = sync.sync(&room, Duration::ZERO).await {
                 let mut sticky_members = membership::StickyMemberships::default();
                 for event in events {
-                    sticky_members.apply(&event, keys::now_ms());
+                    event.apply(&mut sticky_members, encrypted, keys::now_ms());
                 }
                 has_focus =
                     !membership::advertised_service_urls(&sticky_members.members(keys::now_ms()))

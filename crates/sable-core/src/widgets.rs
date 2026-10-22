@@ -32,7 +32,7 @@ use serde::{Deserialize as _, Serialize};
 use serde_json::Value;
 use serde_with::{DefaultOnError, serde_as};
 
-use crate::calls::{is_rtc_member_type, sticky};
+use crate::calls::sticky;
 use crate::delayed_events::{self, DelayedEvent};
 use crate::protocol::{
     CoreEvent, OpenIdTokenView, PaginationDirection, RelationsView, RpcError, TermsPolicyView,
@@ -437,7 +437,7 @@ impl Core {
                 .map_err(|error| self.homeserver_http_error(LABEL, error));
         }
         if let Some(duration) = sticky_duration_ms {
-            if !is_rtc_member_type(event_type) && self.room_is_encrypted(&room).await? {
+            if self.room_is_encrypted(&room).await? {
                 return Err(RpcError::EncryptedScheduleUnsupported);
             }
             return sticky::send_delayed_event(
@@ -606,7 +606,7 @@ impl Core {
         let room = self.room(room_id).await?;
         Ok(sticky::live_events(&room)
             .into_iter()
-            .map(|json| with_room_id(json, room_id))
+            .map(|event| with_room_id(event.into_value(), room_id))
             .collect())
     }
 
@@ -1194,7 +1194,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_delayed_sticky_event_carries_its_duration_and_stays_clear_only_for_rtc_members() {
+    async fn encrypted_delayed_events_are_rejected() {
         let (server, client) = delayed_events_server().await;
         let room_id = room_id!("!sticky:example.org");
         server.sync_joined_room(&client, room_id).await;
@@ -1203,22 +1203,9 @@ mod tests {
             .encrypted()
             .mount()
             .await;
-        Mock::given(method("PUT"))
-            .and(path_regex(
-                "/_matrix/client/v3/rooms/.*/send/org.matrix.msc4143.rtc.member/.*",
-            ))
-            .and(query_param("org.matrix.msc4140.delay", "5000"))
-            .and(query_param(
-                "org.matrix.msc4354.sticky_duration_ms",
-                "60000",
-            ))
-            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"delay_id": "d2"})))
-            .expect(1)
-            .mount(server.server())
-            .await;
         let core = core_with(&server, client).await;
 
-        let delay_id = core
+        let refused = core
             .widget_send_delayed_event(
                 &room_id.to_owned(),
                 "org.matrix.msc4143.rtc.member",
@@ -1227,9 +1214,11 @@ mod tests {
                 5000,
                 Some(60_000),
             )
-            .await
-            .unwrap();
-        assert_eq!(delay_id, "d2");
+            .await;
+        assert!(matches!(
+            refused,
+            Err(RpcError::EncryptedScheduleUnsupported)
+        ));
 
         let refused = core
             .widget_send_delayed_event(

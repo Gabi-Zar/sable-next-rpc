@@ -9,16 +9,33 @@ use wiremock::{
     matchers::{method, path_regex},
 };
 
-use super::{LeaveCode, LeaveOut, StickySync, live_events, send, send_delayed};
+use super::{Event, LeaveCode, LeaveOut, StickySync, live_events, send, send_delayed};
 use crate::delayed_events::DelayedEventsSupport;
 
 async fn room() -> (MatrixMockServer, matrix_sdk::Room) {
     let server = MatrixMockServer::new().await;
+    server.mock_room_state_encryption().plain().mount().await;
     let client = server.client_builder().build().await;
     let room = server
         .sync_joined_room(&client, room_id!("!sticky:example.org"))
         .await;
     (server, room)
+}
+
+#[test]
+fn plaintext_membership_is_rejected_in_encrypted_rooms() {
+    let event = Event {
+        value: json!({"type":"org.matrix.msc4143.rtc.member", "sender":"@a:example.org", "event_id":"$a", "origin_server_ts":100,
+            "msc4354_sticky":{"duration_ms":60000},
+            "content":{"msc4354_sticky_key":"member", "slot_id":"m.call#ROOM", "application":{"type":"m.call"},
+                "member":{"user_id":"@a:example.org", "device_id":"DEVICE", "id":"member"}}}),
+        device: None,
+    };
+    let mut memberships = crate::calls::membership::StickyMemberships::default();
+    assert!(event.apply(&mut memberships, true, 100));
+    assert!(memberships.members(100).is_empty());
+    let mut memberships = crate::calls::membership::StickyMemberships::default();
+    assert!(event.apply(&mut memberships, false, 100));
 }
 
 #[test]
@@ -419,7 +436,7 @@ async fn test_members_in_the_sdk_sticky_map_feed_the_call() {
 
     let mut members = super::super::membership::StickyMemberships::default();
     for event in live_events(&room) {
-        members.apply(&event, now);
+        event.apply(&mut members, false, now);
     }
 
     let members = members.members(now);

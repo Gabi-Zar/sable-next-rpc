@@ -36,6 +36,7 @@ const UNRESOLVED_KEY_REPORT_MS: u64 = 30_000;
 const SILENT_MEMBER_REPORT_MS: u64 = 10_000;
 const RENEW_INTERVAL_MS: u64 = 600_000;
 const STICKY_RENEW_INTERVAL_MS: u64 = 3_300_000;
+const ENCRYPTED_STICKY_RENEW_INTERVAL_MS: u64 = 30_000;
 const SLOT_CHECK_INTERVAL_MS: u64 = 30_000;
 const PUBLISHER_RETRY_MS: u64 = 30_000;
 
@@ -410,6 +411,7 @@ async fn discover(
     let client = room.client();
     let user = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
     let device = client.device_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
+    let encrypted = core.room_is_encrypted(room).await?;
     let mut sticky_members = StickyMemberships::default();
     let mut sticky_sync = None;
     let features = client.unstable_features().await.unwrap_or_default();
@@ -418,7 +420,7 @@ async fn discover(
         match sync.sync(room, Duration::ZERO).await {
             Ok(events) => {
                 for event in events {
-                    sticky_members.apply(&event, keys::now_ms());
+                    event.apply(&mut sticky_members, encrypted, keys::now_ms());
                 }
                 sticky_sync = Some(sync);
             }
@@ -428,7 +430,7 @@ async fn discover(
         }
     }
     for event in sticky::live_events(room) {
-        sticky_members.apply(&event, keys::now_ms());
+        event.apply(&mut sticky_members, encrypted, keys::now_ms());
     }
     let slot_closed = sticky_sync.is_some() && room_slot_closed(core, room).await?;
     let mut members = membership::active_members(room).await;
@@ -543,7 +545,7 @@ async fn publish(
             return Err(core.failed("join_call", "no compatible open RTC slot"));
         }
         let support = core.delayed_events_support().await.unwrap_or_default();
-        if support.any() {
+        if support.any() && !encrypted {
             sticky::send_delayed(
                 &room.client(),
                 support,
@@ -967,18 +969,18 @@ async fn refresh(
 
 async fn recheck_slot(room: &Room, shared: &Mutex<State>) {
     let now = keys::now_ms();
-    let (due, encrypted) = {
-        let state = shared.lock().await;
-        (
-            now.saturating_sub(state.slot_checked_ms) >= SLOT_CHECK_INTERVAL_MS
-                && state
-                    .sticky
-                    .members(now)
-                    .iter()
-                    .any(|member| !member.is_own(&state.own.user_id, &state.own.device_id)),
-            state.distributor.is_some(),
-        )
-    };
+    let (due, encrypted) =
+        {
+            let state = shared.lock().await;
+            (
+                now.saturating_sub(state.slot_checked_ms) >= SLOT_CHECK_INTERVAL_MS
+                    && (state.own.mode == CallMode::Matrix2
+                        || state.sticky.members(now).iter().any(|member| {
+                            !member.is_own(&state.own.user_id, &state.own.device_id)
+                        })),
+                state.distributor.is_some(),
+            )
+        };
     if due {
         let closed = super::slot_closed(room, encrypted).await;
         let mut state = shared.lock().await;
@@ -1149,7 +1151,14 @@ async fn publish_update(
             },
         );
         (
-            state.members.clone(),
+            state
+                .members
+                .iter()
+                .filter(|member| {
+                    state.own.mode != CallMode::Matrix2 || member.mode == CallMode::Matrix2
+                })
+                .cloned()
+                .collect::<Vec<_>>(),
             state.distributor.clone(),
             publisher_id,
         )
@@ -1248,7 +1257,8 @@ fn emit_pending(
     let pending = std::mem::take(&mut state.pending_keys);
     for pending in pending {
         let member = state.members.iter().find(|member| {
-            member.user_id == pending.sender
+            (state.own.mode != CallMode::Matrix2 || member.mode == CallMode::Matrix2)
+                && member.user_id == pending.sender
                 && member.device_id == pending.device
                 && (member.mode != CallMode::Matrix2
                     || (member.member_id.is_some()
@@ -1494,9 +1504,10 @@ fn updates(
                 };
                 match synced {
                     Some(Ok(events)) => {
+                        let encrypted = core.room_is_encrypted(&room).await.unwrap_or(true);
                         let mut state = state.lock().await;
                         for event in events {
-                            state.sticky.apply(&event, keys::now_ms());
+                            event.apply(&mut state.sticky, encrypted, keys::now_ms());
                         }
                     }
                     Some(Err(_)) => {
@@ -1522,12 +1533,24 @@ fn updates(
                 }
             }
             {
+                let encrypted = core.room_is_encrypted(&room).await.unwrap_or(true);
                 let mut state = state.lock().await;
                 for event in sticky::live_events(&room) {
-                    state.sticky.apply(&event, keys::now_ms());
+                    event.apply(&mut state.sticky, encrypted, keys::now_ms());
                 }
             }
             if core.session_generation.load(Ordering::SeqCst) != generation {
+                return;
+            }
+            if let Ok(encrypted) = core.room_is_encrypted(&room).await
+                && encrypted != state.lock().await.distributor.is_some()
+            {
+                terminate(
+                    &core,
+                    generation,
+                    session,
+                    crate::protocol::CallSignalingStage::Membership,
+                );
                 return;
             }
             if !refresh(&core, generation, session, &room, &state).await {
@@ -1544,7 +1567,11 @@ fn updates(
                 (state.own.clone(), state.intent)
             };
             let renew_interval = if own.mode == CallMode::Matrix2 {
-                STICKY_RENEW_INTERVAL_MS
+                if core.room_is_encrypted(&room).await.unwrap_or(true) {
+                    ENCRYPTED_STICKY_RENEW_INTERVAL_MS
+                } else {
+                    STICKY_RENEW_INTERVAL_MS
+                }
             } else {
                 RENEW_INTERVAL_MS
             };

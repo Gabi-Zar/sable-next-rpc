@@ -70,7 +70,7 @@ struct StickyApplication {
 
 #[derive(Debug, Deserialize)]
 struct StickyMemberRef {
-    user_id: OwnedUserId,
+    user_id: Option<OwnedUserId>,
     device_id: OwnedDeviceId,
     id: String,
 }
@@ -94,7 +94,10 @@ pub(crate) fn sticky_member(raw: &str) -> Option<StickyMember> {
     let member = event.content.member?;
     if event.content.slot_id != "m.call#ROOM"
         || event.content.application.kind != "m.call"
-        || member.user_id != event.sender
+        || member
+            .user_id
+            .as_ref()
+            .is_some_and(|user| user != &event.sender)
     {
         return None;
     }
@@ -110,10 +113,11 @@ pub(crate) fn sticky_member(raw: &str) -> Option<StickyMember> {
         .filter_map(|transport| transport.livekit_service_url)
         .filter(|url| !url.is_empty())
         .collect();
-    let identity = sticky_identity(&event.sender, &member.device_id, &member.id);
+    let device_id = member.device_id;
+    let identity = sticky_identity(&event.sender, &device_id, &member.id);
     Some(StickyMember {
         user_id: event.sender,
-        device_id: member.device_id,
+        device_id,
         member_id: member.id,
         identity,
         foci,
@@ -324,6 +328,85 @@ struct StickyUnsignedIn {
 }
 
 impl StickyMemberships {
+    pub(crate) fn apply_untrusted(&mut self, value: &serde_json::Value, now_ms: u64) -> bool {
+        let Some(content) = value.get("content").and_then(serde_json::Value::as_object) else {
+            return false;
+        };
+        if content.get("slot_id").and_then(serde_json::Value::as_str) != Some("m.call#ROOM") {
+            return false;
+        }
+        if let (Some(stable), Some(unstable)) =
+            (content.get("sticky_key"), content.get("msc4354_sticky_key"))
+            && stable != unstable
+        {
+            return false;
+        }
+        let Some(key) = content
+            .get("msc4354_sticky_key")
+            .or_else(|| content.get("sticky_key"))
+            .and_then(serde_json::Value::as_str)
+        else {
+            return false;
+        };
+        if content
+            .get("member")
+            .is_some_and(|member| member.get("id").and_then(serde_json::Value::as_str) != Some(key))
+        {
+            return false;
+        }
+        let mut tombstone = value.clone();
+        tombstone["content"] =
+            serde_json::json!({"msc4354_sticky_key": key, "slot_id": "m.call#ROOM"});
+        self.apply(&tombstone, now_ms)
+    }
+
+    pub(crate) fn apply_authenticated(
+        &mut self,
+        value: &serde_json::Value,
+        device: &DeviceId,
+        now_ms: u64,
+    ) -> bool {
+        let Some(sender) = value.get("sender").and_then(serde_json::Value::as_str) else {
+            return false;
+        };
+        let Some(content) = value.get("content") else {
+            return false;
+        };
+        let Some(key) = content
+            .get("msc4354_sticky_key")
+            .or_else(|| content.get("sticky_key"))
+            .and_then(serde_json::Value::as_str)
+        else {
+            return false;
+        };
+        if let Some(claimed) = content.get("member").and_then(|m| m.get("device_id")) {
+            if claimed.as_str() != Some(device.as_str()) {
+                return false;
+            }
+        }
+        if self.entries.iter().any(|((user, id), entry)| {
+            user.as_str() == sender
+                && id == key
+                && entry
+                    .member
+                    .as_ref()
+                    .is_some_and(|member| member.device_id != device)
+        }) {
+            return false;
+        }
+        let mut value = value.clone();
+        if let Some(member) = value
+            .get_mut("content")
+            .and_then(|content| content.get_mut("member"))
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            member
+                .entry("device_id")
+                .or_insert_with(|| device.as_str().into());
+        }
+        self.apply(&value, now_ms)
+    }
+
     pub(crate) fn apply(&mut self, value: &serde_json::Value, now_ms: u64) -> bool {
         self.entries.retain(|_, entry| entry.expires_at_ms > now_ms);
         let Ok(event) = StickyEventIn::deserialize(value) else {
@@ -621,6 +704,43 @@ mod tests {
                 "member":{"user_id":"@erwan:localhost","device_id":"PHONE","id":"member"},
                 "transports":{"published":[{"type":"livekit","livekit_service_url":"https://sfu.example"}]}}
         })
+    }
+
+    #[test]
+    fn authenticated_memberships_bind_join_and_leave_to_the_sending_device() {
+        let mut store = StickyMemberships::default();
+        let event = sticky_event("$a", 100);
+        assert!(!store.apply_authenticated(&event, device_id!("LAPTOP"), 100));
+        assert!(store.apply_authenticated(&event, device_id!("PHONE"), 100));
+        let mut replacement = sticky_event("$b", 200);
+        replacement["content"]["member"]["device_id"] = json!("LAPTOP");
+        assert!(!store.apply_authenticated(&replacement, device_id!("LAPTOP"), 200));
+        replacement["content"] = json!({"msc4354_sticky_key":"member", "slot_id":"m.call#ROOM", "member":{"id":"member", "membership":"leave"}});
+        assert!(!store.apply_authenticated(&replacement, device_id!("LAPTOP"), 200));
+        assert_eq!(store.members(200).len(), 1);
+        assert!(store.apply_authenticated(&replacement, device_id!("PHONE"), 200));
+        assert!(store.members(200).is_empty());
+    }
+
+    #[test]
+    fn authenticated_membership_uses_the_sending_device_if_not_claimed() {
+        let mut store = StickyMemberships::default();
+        let mut event = sticky_event("$a", 100);
+        event["content"]["member"]
+            .as_object_mut()
+            .unwrap()
+            .remove("device_id");
+        assert!(store.apply_authenticated(&event, device_id!("PHONE"), 100));
+        assert_eq!(store.members(100)[0].device_id, device_id!("PHONE"));
+    }
+
+    #[test]
+    fn plaintext_replacement_marks_an_encrypted_member_left() {
+        let mut store = StickyMemberships::default();
+        assert!(store.apply_authenticated(&sticky_event("$a", 100), device_id!("PHONE"), 100));
+        assert!(store.apply_untrusted(&sticky_event("$b", 200), 200));
+        assert!(store.members(200).is_empty());
+        assert!(!store.apply_authenticated(&sticky_event("$a", 100), device_id!("PHONE"), 300));
     }
 
     #[test]
