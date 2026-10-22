@@ -427,10 +427,14 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
     publish({ connection: 'connecting', error: undefined });
 
     connected = (async () => {
-      for (const key of connectOptions.encryptionKeys) {
-        void keyProvider?.setKey(key, key.identity === options.ownIdentity);
+      if (keyProvider) {
+        await Promise.all(
+          connectOptions.encryptionKeys.map((key) =>
+            keyProvider.setKey(key, key.identity === options.ownIdentity)
+          )
+        );
+        await keyProvider.flush();
       }
-      await keyProvider?.flush();
 
       const ownIdentity = options.ownIdentity;
       if (keyProvider && ownIdentity) {

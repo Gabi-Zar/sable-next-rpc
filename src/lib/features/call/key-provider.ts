@@ -52,7 +52,7 @@ export class MatrixKeyProvider extends BaseKeyProvider {
 
   setKey(key: CallEncryptionKey, own: boolean): Promise<void> {
     const generation = this.#generation;
-    this.#queue = this.#queue.then(() => this.#apply(generation, key, own));
+    this.#queue = this.#queue.catch(() => undefined).then(() => this.#apply(generation, key, own));
     return this.#queue;
   }
 
@@ -88,16 +88,17 @@ export class MatrixKeyProvider extends BaseKeyProvider {
 
     const subtle = subtleCrypto();
     if (typeof subtle?.importKey !== 'function') {
-      this.#update({ lastFailure: 'webcrypto-unavailable' });
-      return;
+      if (own) this.#update({ ready: false, lastFailure: 'webcrypto-unavailable' });
+      throw new Error('webcrypto-unavailable');
     }
 
     let material: CryptoKey;
     try {
       material = await subtle.importKey('raw', key.key, 'HKDF', false, ['deriveBits', 'deriveKey']);
     } catch {
-      if (generation === this.#generation) this.#update({ lastFailure: 'import-failed' });
-      return;
+      if (generation !== this.#generation) return;
+      if (own) this.#update({ ready: false, lastFailure: 'import-failed' });
+      throw new Error('import-failed');
     }
 
     if (generation !== this.#generation) return;
@@ -105,8 +106,8 @@ export class MatrixKeyProvider extends BaseKeyProvider {
     try {
       this.onSetEncryptionKey(material, key.identity, key.keyIndex);
     } catch {
-      this.#update({ lastFailure: 'import-failed' });
-      return;
+      if (own) this.#update({ ready: false, lastFailure: 'import-failed' });
+      throw new Error('import-failed');
     }
 
     if (own) {

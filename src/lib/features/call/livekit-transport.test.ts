@@ -378,12 +378,63 @@ test('an existing key import failure rejects immediately without leaving a timer
   vi.useFakeTimers();
   vi.spyOn(crypto.subtle, 'importKey').mockRejectedValue(new Error('import failed'));
   const provider = new MatrixKeyProvider();
-  void provider.setKey({ identity: 'publisher', keyIndex: 0, key: new Uint8Array(16) }, true);
+  const failed = provider.setKey(
+    { identity: 'publisher', keyIndex: 0, key: new Uint8Array(16) },
+    true
+  );
+  await expect(failed).rejects.toThrow('import-failed');
   await vi.waitFor(() => {
     expect(provider.state.lastFailure).toBe('import-failed');
   });
   await expect(provider.waitForOwnKey('publisher')).rejects.toThrow('own-key-failed');
   expect(vi.getTimerCount()).toBe(0);
+});
+
+test('a failed key import does not prevent a later key from being installed', async () => {
+  const importKey = vi.spyOn(crypto.subtle, 'importKey');
+  importKey.mockRejectedValueOnce(new Error('import failed'));
+  const provider = new MatrixKeyProvider();
+  const key = { identity: 'publisher', keyIndex: 0, key: new Uint8Array(16) };
+
+  await expect(provider.setKey(key, true)).rejects.toThrow('import-failed');
+  await expect(provider.setKey(key, true)).resolves.toBeUndefined();
+  expect(provider.state.ready).toBe(true);
+  expect(provider.state.lastFailure).toBeNull();
+});
+
+test('key import failures only clear readiness for the publisher key', async () => {
+  const provider = new MatrixKeyProvider();
+  const own = { identity: 'publisher', keyIndex: 0, key: new Uint8Array(16) };
+  await provider.setKey(own, true);
+  const importKey = vi.spyOn(crypto.subtle, 'importKey');
+
+  importKey.mockRejectedValueOnce(new Error('import failed'));
+  await expect(provider.setKey({ ...own, identity: 'remote' }, false)).rejects.toThrow();
+  await expect(provider.waitForOwnKey('publisher')).resolves.toBeUndefined();
+
+  importKey.mockRejectedValueOnce(new Error('import failed'));
+  await expect(provider.setKey({ ...own, keyIndex: 1 }, true)).rejects.toThrow();
+  await expect(provider.waitForOwnKey('publisher')).rejects.toThrow('own-key-failed');
+});
+
+test('does not connect when an initial encryption key cannot be imported', async () => {
+  const fixture = roomFixture();
+  vi.spyOn(crypto.subtle, 'importKey').mockRejectedValueOnce(new Error('import failed'));
+  const transport = createLivekitTransport({
+    encryptMedia: true,
+    ownIdentity: 'publisher',
+    createRoom: () => fixture.room,
+    createWorker: () => ({ terminate: vi.fn() }) as unknown as Worker,
+  });
+
+  await expect(
+    transport.connect({
+      ...connectOptions,
+      encryptionKeys: [{ identity: 'publisher', keyIndex: 0, key: new Uint8Array(16) }],
+    })
+  ).rejects.toThrow('import-failed');
+  expect(fixture.room.connect).not.toHaveBeenCalled();
+  await transport.disconnect();
 });
 
 test('imports every initial encryption key before connecting', async () => {
