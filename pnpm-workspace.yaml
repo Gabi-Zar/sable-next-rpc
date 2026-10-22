@@ -22,6 +22,6 @@ minimumReleaseAgeExclude:
   - '@sableclient/*'
   - electron@45.0.0
 patchedDependencies:
-  '@sveltejs/kit@3.0.1': patches/@sveltejs__kit@3.0.1.patch
+  '@sveltejs/kit@3.1.0': patches/@sveltejs__kit@3.1.0.patch
   livekit-client@2.22.4: patches/livekit-client@2.22.4.patch
   svelte@5.57.2: patches/svelte@5.57.2.patch
