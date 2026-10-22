@@ -1113,6 +1113,40 @@ async fn a_legacy_call_subscribes_to_another_focus_under_its_publishing_identity
 }
 
 #[tokio::test]
+async fn a_remote_focus_cannot_change_the_participant_identity() {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let (_homeserver, _sfu, room, own, _oldest, state) = legacy_move_fixture(true).await;
+    let claims = serde_json::json!({"sub": "different", "video": {"room": "r"}});
+    let jwt = format!(
+        "x.{}.x",
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string())
+    );
+    let focus = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/sfu/get"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({"url": "wss://remote.example.org", "jwt": jwt})),
+        )
+        .mount(&focus)
+        .await;
+    let (core, _events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    super::provision_missing(
+        &core,
+        1,
+        CallSessionId(1),
+        &room,
+        &state,
+        &own,
+        vec![("remote".to_owned(), focus.uri())],
+    )
+    .await;
+    assert!(!state.lock().await.backends.contains_key("remote"));
+}
+
+#[tokio::test]
 async fn a_key_without_a_sent_timestamp_is_accepted() {
     let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
     let room_id = owned_room_id!("!call:example.org");

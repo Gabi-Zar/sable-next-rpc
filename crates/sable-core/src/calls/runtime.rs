@@ -1009,7 +1009,7 @@ async fn provision_missing(
         )
         .await
         {
-            Ok(provision) => {
+            Ok(provision) if provision.identity == own.identity => {
                 shared.lock().await.backends.insert(
                     id.clone(),
                     CallBackendView {
@@ -1020,7 +1020,7 @@ async fn provision_missing(
                     },
                 );
             }
-            Err(_) => core.emit_if_current(
+            Ok(_) | Err(_) => core.emit_if_current(
                 generation,
                 CoreEvent::CallSignalingError {
                     session,
