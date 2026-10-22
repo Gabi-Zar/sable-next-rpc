@@ -1070,6 +1070,30 @@ async fn a_publisher_refused_on_the_calls_focus_moves_to_its_own_in_every_mode()
 }
 
 #[tokio::test]
+async fn an_unusable_focus_is_not_advertised() {
+    for mode in [CallMode::Legacy, CallMode::Compatibility, CallMode::Matrix2] {
+        let (homeserver, sfu, room, mut own, _oldest, _state) = legacy_move_fixture(false).await;
+        own.mode = mode;
+        let (core, _events) = Core::new("test", Box::new(MemorySessionStore::default()));
+
+        assert!(
+            super::publish_elsewhere(&core, &room, &own, Some(sfu.uri()), None)
+                .await
+                .is_none()
+        );
+        let requests = homeserver.server().received_requests().await.unwrap();
+        assert!(
+            !requests.iter().any(|request| {
+                request.method == wiremock::http::Method::PUT
+                    && (request.url.path().contains("/state/m.call.member/")
+                        || request.url.path().contains("/send/"))
+            }),
+            "{mode:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn a_legacy_call_subscribes_to_another_focus_under_its_publishing_identity() {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};

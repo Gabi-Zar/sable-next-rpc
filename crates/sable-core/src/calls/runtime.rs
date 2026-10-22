@@ -627,10 +627,6 @@ async fn publish_elsewhere(
         foci: vec![service.clone()],
         ..own.clone()
     };
-    if let Err(error) = publish_membership(room, &moved, intent).await {
-        tracing::warn!(%error, "could not move the call membership to our own focus");
-        return None;
-    }
     let provisioned = if moved.mode == CallMode::Matrix2 {
         sfu::provision_matrix2(
             room,
@@ -644,6 +640,10 @@ async fn publish_elsewhere(
     };
     match provisioned {
         Ok(provision) if provision.identity == moved.identity && provision.can_publish => {
+            if let Err(error) = publish_membership(room, &moved, intent).await {
+                tracing::warn!(%error, "could not move the call membership to our own focus");
+                return None;
+            }
             Some((moved, provision))
         }
         Ok(_) => None,
