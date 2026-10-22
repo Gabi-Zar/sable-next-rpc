@@ -10,7 +10,7 @@ export async function retireRoomAlerts(userId: string, roomIds: readonly string[
 
   await Promise.all([
     dismissNativeRoomNotifications(userId, roomIds),
-    closePresented(new Set(roomIds.map((roomId) => roomTag(userId, roomId)))),
+    closePresented(userId, new Set(roomIds)),
   ]);
 }
 
@@ -19,11 +19,11 @@ export async function retireReadAlerts(userId: string, roomIds: readonly string[
 
   await Promise.all([
     dismissNativeReadRoomNotifications(userId, roomIds),
-    closePresented(new Set(roomIds.map((roomId) => roomTag(userId, roomId)))),
+    closePresented(userId, new Set(roomIds)),
   ]);
 }
 
-async function closePresented(tags: ReadonlySet<string>): Promise<void> {
+async function closePresented(userId: string, roomIds: ReadonlySet<string>): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
 
   const registration = await navigator.serviceWorker.getRegistration().catch((error: unknown) => {
@@ -32,7 +32,13 @@ async function closePresented(tags: ReadonlySet<string>): Promise<void> {
   });
   if (registration === undefined || !('getNotifications' in registration)) return;
 
+  const tags = new Set([...roomIds].map((roomId) => roomTag(userId, roomId)));
   for (const notification of await registration.getNotifications()) {
-    if (tags.has(notification.tag)) notification.close();
+    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    const postedForRoom =
+      typeof data?.roomId === 'string' &&
+      roomIds.has(data.roomId) &&
+      (data.userId === undefined || data.userId === userId);
+    if (postedForRoom || tags.has(notification.tag)) notification.close();
   }
 }

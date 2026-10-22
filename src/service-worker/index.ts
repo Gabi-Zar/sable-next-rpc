@@ -7,13 +7,7 @@ import { version } from '$app/env';
 import { resolve } from '$app/paths';
 
 import favicon from '#lib/assets/favicon.png';
-import {
-  alertCooling,
-  appendLine,
-  hideLines,
-  readLines,
-  summarise,
-} from '#lib/features/notifications/conversation.js';
+import { alertCooling } from '#lib/features/notifications/alert-cooldown.js';
 import { notificationPermalink } from '#lib/features/notifications/notification-link.js';
 import {
   parsePushPayload,
@@ -40,7 +34,7 @@ import {
   roomMode,
   roomName,
 } from '#lib/notifications/room-names.js';
-import { loadModel, roomTag } from '#lib/model/model.js';
+import { loadModel } from '#lib/model/model.js';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
 
@@ -206,20 +200,21 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
     return;
   }
 
-  const { lines: held, alertedAt } = await conversation(showing.tag);
-  const lines = appendLine(showContent ? held : hideLines(held), showing.line);
+  const alertedAt = await alertedAtFor(showing.room_id, payload.user_id ?? undefined);
   const now = Date.now();
   const renotify =
-    !policy.notifyOnce || held.length === 0 || payload.noisy || !alertCooling(alertedAt, now);
+    !policy.notifyOnce || alertedAt === undefined || payload.noisy || !alertCooling(alertedAt, now);
+  const tag = showing.event_id === null ? showing.tag : `${showing.tag}:${showing.event_id}`;
 
   const options: NotificationOptions & {
     renotify?: boolean;
     timestamp?: number;
     actions?: { action: string; title: string }[];
   } = {
-    body: lines.length > 1 ? summarise(lines) : showing.body,
-    tag: showing.tag,
+    body: showing.body,
+    tag,
     renotify,
+    silent: !renotify,
     icon: payload.icon ?? favicon,
     badge: favicon,
     timestamp: now,
@@ -228,7 +223,6 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
       userId: payload.user_id ?? undefined,
       eventId: showing.event_id,
       invite: showing.invite,
-      lines,
       alertedAt: renotify ? now : alertedAt,
     },
   };
@@ -291,8 +285,16 @@ async function decryptInTab(
 
 async function closeRead(pushed: PushNotification): Promise<void> {
   if (!('getNotifications' in worker.registration)) return;
-  const tag = pushed.room_id ? roomTag(pushed.user_id, pushed.room_id) : undefined;
-  for (const notification of await worker.registration.getNotifications(tag ? { tag } : {})) {
+  for (const notification of await worker.registration.getNotifications()) {
+    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    if (pushed.room_id !== null && data?.roomId !== pushed.room_id) continue;
+    if (
+      pushed.user_id !== null &&
+      typeof data?.userId === 'string' &&
+      data.userId !== pushed.user_id
+    ) {
+      continue;
+    }
     notification.close();
   }
 }
@@ -302,17 +304,22 @@ async function focused(): Promise<boolean> {
   return clients.some((client) => client.focused);
 }
 
-async function conversation(
-  tag: string
-): Promise<{ lines: ReturnType<typeof readLines>; alertedAt: number | undefined }> {
-  if (!('getNotifications' in worker.registration)) return { lines: [], alertedAt: undefined };
-  const open = await worker.registration.getNotifications({ tag });
-  const previous = open.at(-1)?.data as { lines?: unknown; alertedAt?: unknown } | undefined;
-  const alertedAt = previous?.alertedAt;
-  return {
-    lines: readLines(previous?.lines),
-    alertedAt: typeof alertedAt === 'number' ? alertedAt : undefined,
-  };
+async function alertedAtFor(
+  roomId: string,
+  userId: string | undefined
+): Promise<number | undefined> {
+  if (!('getNotifications' in worker.registration)) return undefined;
+  let alertedAt: number | undefined;
+  for (const notification of await worker.registration.getNotifications()) {
+    const data = notification.data as
+      | { roomId?: unknown; userId?: unknown; alertedAt?: unknown }
+      | undefined;
+    if (data?.roomId !== roomId) continue;
+    if (userId !== undefined && typeof data.userId === 'string' && data.userId !== userId) continue;
+    if (typeof data.alertedAt !== 'number') continue;
+    if (alertedAt === undefined || data.alertedAt > alertedAt) alertedAt = data.alertedAt;
+  }
+  return alertedAt;
 }
 
 worker.addEventListener('notificationclick', (event) => {

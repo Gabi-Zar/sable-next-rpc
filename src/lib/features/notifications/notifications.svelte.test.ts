@@ -268,12 +268,74 @@ test('shows ordinary channel messages when browser notifications are enabled', a
   await vi.waitFor(() => {
     expect(show).toHaveBeenCalledWith(
       'General',
-      expect.objectContaining({
-        body: 'Alice: Hello everyone',
-        tag: '@me:example.org !room:example.org',
-      })
+      expect.objectContaining({ body: 'Alice: Hello everyone' })
     );
   });
+  expect(show.mock.calls[0]?.[1]).not.toHaveProperty('tag');
+  notifications.stop();
+});
+
+test('each message posts its own banner instead of replacing a room alert', async () => {
+  const show = vi.fn();
+  class BrowserNotification {
+    static permission = 'granted';
+    constructor(title: string, options: NotificationOptions) {
+      show(title, options);
+    }
+    addEventListener() {}
+    close() {}
+  }
+  vi.stubGlobal('Notification', BrowserNotification);
+  preferences.systemNotifications = true;
+  preferences.notificationContent = true;
+  const notifications = center();
+
+  for (const body of ['first', 'second']) {
+    notifications.present({
+      ...invite(),
+      event_id: `$${body}`,
+      is_direct: false,
+      room_name: 'General',
+      body,
+    });
+  }
+
+  await vi.waitFor(() => {
+    expect(show).toHaveBeenCalledTimes(2);
+  });
+  expect(show.mock.calls.map((call) => (call[1] as NotificationOptions).body)).toEqual([
+    'Alice: first',
+    'Alice: second',
+  ]);
+  expect(show.mock.calls[0]?.[1]).not.toHaveProperty('tag');
+  expect(show.mock.calls[1]?.[1]).not.toHaveProperty('tag');
+  notifications.stop();
+});
+
+test('reading a room closes every banner it posted', async () => {
+  const show = vi.fn();
+  const close = vi.fn();
+  class BrowserNotification {
+    static permission = 'granted';
+    constructor(title: string, options: NotificationOptions) {
+      show(title, options);
+    }
+    addEventListener() {}
+    close = close;
+  }
+  vi.stubGlobal('Notification', BrowserNotification);
+  preferences.systemNotifications = true;
+  preferences.notificationContent = true;
+  const notifications = center();
+
+  notifications.present(message('$one'));
+  notifications.present(message('$two'));
+  await vi.waitFor(() => {
+    expect(show).toHaveBeenCalledTimes(2);
+  });
+
+  notifications.retireRead([room(0)]);
+  expect(close).toHaveBeenCalledTimes(2);
   notifications.stop();
 });
 
@@ -299,11 +361,11 @@ test('a browser without the Notification constructor shows through the service w
     expect(showNotification).toHaveBeenCalledWith(
       'General',
       expect.objectContaining({
-        tag: '@me:example.org !room:example.org',
         data: { roomId: '!room:example.org', userId: '@me:example.org', eventId: '$message' },
       })
     );
   });
+  expect(showNotification.mock.calls[0]?.[1]).not.toHaveProperty('tag');
   notifications.stop();
 });
 

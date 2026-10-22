@@ -9,9 +9,6 @@ import {
 import { presentsInApp } from '#lib/platform/notifications.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-import type { ConversationLine } from './conversation';
-import { roomTag } from './tag';
-
 export function enabled(): boolean {
   return presentsInApp() && preferences.systemNotifications && permission() === 'granted';
 }
@@ -73,19 +70,6 @@ export function body(view: NotificationView): string {
   return view.is_direct ? view.body : `${sender(view)}: ${view.body}`;
 }
 
-export function line(view: NotificationView): ConversationLine {
-  if (!showsContent(view)) return { sender: null, body: body(view), eventId: view.event_id };
-  return {
-    sender: view.is_direct ? null : sender(view),
-    body: view.body,
-    eventId: view.event_id,
-  };
-}
-
 function sender(view: NotificationView): string {
   return view.sender_name ?? view.sender;
-}
-
-export function tag(view: NotificationView): string {
-  return roomTag(view.user_id, view.room_id);
 }

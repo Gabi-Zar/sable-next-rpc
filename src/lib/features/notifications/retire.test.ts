@@ -27,6 +27,14 @@ function presented(...tags: string[]) {
   return shown;
 }
 
+function posted(...notifications: { tag: string; data: unknown }[]) {
+  const shown = notifications.map(({ tag, data }) => ({ tag, data, close: vi.fn() }));
+  vi.stubGlobal('navigator', {
+    serviceWorker: { getRegistration: () => Promise.resolve({ getNotifications: () => shown }) },
+  });
+  return shown;
+}
+
 test('closes the alerts of read rooms and nothing else', async () => {
   const [read, unread, otherAccount] = presented(
     roomTag('@me:example.org', '!read:example.org'),
@@ -42,6 +50,23 @@ test('closes the alerts of read rooms and nothing else', async () => {
   expect(mocks.dismissRead).toHaveBeenCalledExactlyOnceWith('@me:example.org', [
     '!read:example.org',
   ]);
+});
+
+test('closes every message banner posted for a read room', async () => {
+  const room = roomTag('@me:example.org', '!read:example.org');
+  const [first, second, unread, otherAccount] = posted(
+    { tag: `${room}:$one`, data: { roomId: '!read:example.org', userId: '@me:example.org' } },
+    { tag: `${room}:$two`, data: { roomId: '!read:example.org', userId: '@me:example.org' } },
+    { tag: 'unread', data: { roomId: '!unread:example.org', userId: '@me:example.org' } },
+    { tag: 'other', data: { roomId: '!read:example.org', userId: '@other:example.org' } }
+  );
+
+  await retireReadAlerts('@me:example.org', ['!read:example.org']);
+
+  expect(first.close).toHaveBeenCalledOnce();
+  expect(second.close).toHaveBeenCalledOnce();
+  expect(unread.close).not.toHaveBeenCalled();
+  expect(otherAccount.close).not.toHaveBeenCalled();
 });
 
 test('a browser that cannot list notifications still retires native alerts', async () => {

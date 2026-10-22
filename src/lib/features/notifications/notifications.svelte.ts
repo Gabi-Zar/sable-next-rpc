@@ -9,9 +9,8 @@ import { hasUnread, roomNotifications, type RoomUnread } from '#lib/rooms/unread
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import { loadMediaUrl } from '#lib/ui/media-url.js';
 
-import { appendLine, type ConversationLine, summarise } from './conversation';
 import { parsePushPayload, webPushValidation } from '#lib/notifications/push-payload.js';
-import { enabled, line, tag, title } from './present';
+import { body, enabled, title } from './present';
 import { retireReadAlerts, retireRoomAlerts } from './retire';
 import { playNotificationSound } from './sound';
 
@@ -40,8 +39,7 @@ export class NotificationCenter {
   private readonly unread = new Set<string>();
   private readonly retired = new Set<string>();
   private readonly invites = new Map<string, boolean>();
-  private readonly conversations = new Map<string, ConversationLine[]>();
-  private readonly presented = new Map<string, Notification>();
+  private readonly presented = new Map<string, Notification[]>();
   /* eslint-enable svelte/prefer-svelte-reactivity */
 
   start(core: CoreClient, open: OpenRoom): void {
@@ -92,7 +90,6 @@ export class NotificationCenter {
     this.unread.clear();
     this.retired.clear();
     this.invites.clear();
-    this.conversations.clear();
     this.presented.clear();
   }
 
@@ -168,7 +165,6 @@ export class NotificationCenter {
     this.unread.delete(roomId);
     this.retired.add(roomId);
     this.invites.delete(roomId);
-    this.conversations.delete(roomId);
   }
 
   private retire(roomId: string): void {
@@ -179,7 +175,9 @@ export class NotificationCenter {
     if (roomIds.length === 0) return;
     for (const roomId of roomIds) {
       this.forget(roomId);
-      this.presented.get(roomId)?.close();
+      const shown = this.presented.get(roomId);
+      if (shown === undefined) continue;
+      for (const notification of [...shown]) notification.close();
       this.presented.delete(roomId);
     }
 
@@ -195,10 +193,6 @@ export class NotificationCenter {
     } else {
       this.unread.add(view.room_id);
     }
-
-    const standing = this.conversations.get(view.room_id) ?? [];
-    const lines = appendLine(standing, line(view));
-    this.conversations.set(view.room_id, lines);
 
     const allowed = soundsAllowed();
     const chime = view.noisy !== false && preferences.notificationSounds && allowed;
@@ -218,7 +212,7 @@ export class NotificationCenter {
 
     if (!enabled() || this.reading === view.room_id) return;
 
-    void this.show(view, lines);
+    void this.show(view);
   }
 
   private retirePush(raw: string): void {
@@ -251,14 +245,13 @@ export class NotificationCenter {
     );
   }
 
-  private async show(view: NotificationView, lines: readonly ConversationLine[]): Promise<void> {
+  private async show(view: NotificationView): Promise<void> {
     const core = this.client;
     const open = this.open;
     if (core === null || open === null) return;
 
     const options = {
-      body: summarise(lines),
-      tag: tag(view),
+      body: body(view),
       icon: await avatar(core, view),
       silent: true,
     };
@@ -278,11 +271,16 @@ export class NotificationCenter {
       notification.close();
       open(view.room_id, view.event_id);
     });
+    const shown = this.presented.get(view.room_id) ?? [];
+    shown.push(notification);
     notification.addEventListener('close', () => {
-      if (this.presented.get(view.room_id) === notification) this.presented.delete(view.room_id);
+      const index = shown.indexOf(notification);
+      if (index !== -1) shown.splice(index, 1);
+      if (shown.length === 0 && this.presented.get(view.room_id) === shown) {
+        this.presented.delete(view.room_id);
+      }
     });
-
-    this.presented.set(view.room_id, notification);
+    this.presented.set(view.room_id, shown);
   }
 }
 
