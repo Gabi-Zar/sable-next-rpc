@@ -1133,7 +1133,7 @@ pub struct ForwardedView {
     pub room_id: Option<OwnedRoomId>,
     #[cfg_attr(feature = "typegen", specta(type = Option<String>))]
     pub event_id: Option<OwnedEventId>,
-    #[cfg_attr(feature = "typegen", specta(optional))]
+    #[cfg_attr(feature = "typegen", specta(optional, type = Option<String>))]
     pub sender: Option<OwnedUserId>,
     #[cfg_attr(feature = "typegen", specta(optional))]
     pub content_valid: Option<bool>,

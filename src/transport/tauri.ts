@@ -129,7 +129,7 @@ export function createTauriTransport(): Transport {
             in_reply_to: gallery.inReplyTo ?? null,
             silent_reply: gallery.silentReply ?? false,
             thread_root: gallery.threadRoot ?? null,
-            persona: null,
+            persona: gallery.persona ?? null,
           },
           items: gallery.attachments.map((attachment) => ({
             ...attachment,

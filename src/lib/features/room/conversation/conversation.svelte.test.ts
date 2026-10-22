@@ -51,6 +51,12 @@ function setup(
   const sendGallery = vi.fn(() => Promise.resolve());
   const sendGif = vi.fn(() => Promise.resolve());
   const sendLocation = vi.fn(() => Promise.resolve());
+  const createPoll = vi.fn(() => Promise.resolve());
+  const votePoll = vi.fn(() => Promise.resolve());
+  const endPoll = vi.fn(() => Promise.resolve());
+  const sendSticker = vi.fn(() => Promise.resolve());
+  const schedule = vi.fn(() => Promise.resolve('delay'));
+  const sendGesture = vi.fn(() => Promise.resolve());
   const toggleReaction = vi.fn(() => Promise.resolve());
   const urlPreview = vi.fn(() => Promise.resolve(null));
   const core = {
@@ -63,6 +69,12 @@ function setup(
       messages: {
         sendGif,
         sendLocation,
+        createPoll,
+        votePoll,
+        endPoll,
+        sendSticker,
+        schedule,
+        sendGesture,
         react: toggleReaction,
         urlPreview,
       },
@@ -91,6 +103,12 @@ function setup(
     sendGallery,
     sendGif,
     sendLocation,
+    createPoll,
+    votePoll,
+    endPoll,
+    sendSticker,
+    schedule,
+    sendGesture,
     toggleReaction,
     urlPreview,
     timeline,
@@ -137,6 +155,7 @@ test('quick reactions resume live before choosing the latest message', async () 
     shortcode: null,
     thread_root: null,
     subscription: 7,
+    persona: null,
   });
   expect(fixture.sendMessage).not.toHaveBeenCalled();
 });
@@ -164,6 +183,7 @@ test.each(['message', 'image', 'sticker', 'unable_to_decrypt'] as const)(
       shortcode: null,
       thread_root: null,
       subscription: 7,
+      persona: null,
     });
   }
 );
@@ -186,6 +206,7 @@ test('quick reactions in a thread target its latest message and preserve the sou
     shortcode: null,
     thread_root: '$root',
     subscription: 7,
+    persona: null,
   });
 });
 
@@ -206,6 +227,7 @@ test('toggling an existing custom quick reaction omits its source pack', async (
     shortcode: null,
     thread_root: null,
     subscription: 7,
+    persona: null,
   });
 });
 
@@ -407,6 +429,7 @@ test.each([
           room_id: ROOM,
           body: 'here',
           geo_uri: 'geo:48,2',
+          persona: null,
           in_reply_to: '$one:example.org',
           silent_reply: silentReply,
           thread_root: threadRoot,
@@ -834,7 +857,11 @@ function scheduling() {
 
   return new Conversation({
     core,
-    personas: { list: [] } as unknown as PersonaStore,
+    personas: {
+      personas: [],
+      selectionFor: () => null,
+      associationFor: () => undefined,
+    } as unknown as PersonaStore,
     timeline: { items: [] } as unknown as RoomTimeline,
     roomId: () => ROOM,
     encrypted: () => true,
@@ -883,7 +910,11 @@ function rescheduling(
   } as unknown as CoreClient;
   const conversation = new Conversation({
     core,
-    personas: { list: [] } as unknown as PersonaStore,
+    personas: {
+      personas: [],
+      selectionFor: () => null,
+      associationFor: () => undefined,
+    } as unknown as PersonaStore,
     timeline: { items: [] } as unknown as RoomTimeline,
     roomId: () => ROOM,
   });
@@ -1077,3 +1108,59 @@ test('dismissing every link sends an explicit opt-out', async () => {
     noLinkPreviews: true,
   });
 });
+
+test.each([false, true])(
+  'message types respect the selected PMP with room disabled=%s',
+  async (disabled) => {
+    const persona = {
+      id: 'kris',
+      display_name: 'Kris',
+      avatar_url: null,
+      pronouns: [],
+      color_on_light: null,
+      color_on_dark: null,
+      triggers: [],
+      pluralkit: null,
+      last_used: null,
+      alternate_avatars: null,
+    };
+    const h = setup([], '@kris:example.org', {
+      personas: [persona],
+      selectionFor: () => ({ persona_id: 'kris', valid_until: null, alternate_avatar_id: null }),
+      disabledIn: () => disabled,
+    });
+    const profile: unknown = disabled
+      ? null
+      : expect.objectContaining({ id: 'kris', display_name: 'Kris' });
+    await h.conversation.createPoll(ROOM, 'Lunch?', ['Soup', 'Pasta'], false);
+    expect(h.createPoll).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+    h.conversation.votePoll('$poll', ['0']);
+    expect(h.votePoll).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+    h.conversation.endPoll('$poll');
+    expect(h.endPoll).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+    await h.conversation.sendLocation(ROOM, 'here', 'geo:48,2');
+    expect(h.sendLocation).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+    await h.conversation.sendSticker(ROOM, 'mxc://example.org/sticker', 'wave');
+    expect(h.sendSticker).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+    const image = new File(['image'], 'one.png', { type: 'image/png' });
+    await h.conversation.sendGallery(ROOM, [image, image]);
+    expect(h.sendGallery).toHaveBeenCalledWith(
+      ROOM,
+      [image, image],
+      expect.objectContaining({ persona: profile })
+    );
+    await h.conversation.sendBotCommand(ROOM, '@bot:example.org', '!help', {
+      command: 'help',
+      arguments: {},
+    });
+    expect(h.sendMessage).toHaveBeenCalledWith(
+      ROOM,
+      '!help',
+      expect.objectContaining({ persona: profile })
+    );
+    await h.conversation.sendMessage(ROOM, '/hug');
+    expect(h.sendGesture).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+    await h.conversation.schedule(ROOM, 'later', null, Date.now() + 60_000);
+    expect(h.schedule).toHaveBeenCalledWith(expect.objectContaining({ persona: profile }));
+  }
+);

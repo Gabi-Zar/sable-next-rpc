@@ -129,7 +129,9 @@ function core(): CoreClient {
       members: { list: () => Promise.resolve(members) },
       messages: { mediaConfig },
       room_state: { botCommands: () => Promise.resolve(botCommands) },
-      personas: { list: () => Promise.resolve({ personas: [], selections: [] }) },
+      personas: {
+        list: () => Promise.resolve({ personas: [], account: null, rooms: {}, disabled_rooms: [] }),
+      },
       packs: { list: () => Promise.resolve({ packs, complete: true }) },
     },
   } as unknown as CoreClient;

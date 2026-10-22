@@ -733,6 +733,17 @@ impl PushSession {
         let Some(room) = self.host.client().get_room(&self.room_id) else {
             return false;
         };
+        let profile = match self
+            .host
+            .retry(|| crate::personas::notification_profile(self.host.client(), &self.room_id))
+            .await
+        {
+            Ok(profile) => profile,
+            Err(error) => {
+                tracing::warn!("notification reply profile unavailable: {error}");
+                return false;
+            }
+        };
         let content = crate::outgoing::message_content(
             text.to_owned(),
             None,
@@ -740,12 +751,18 @@ impl PushSession {
             Vec::new(),
             false,
         );
+        let Ok(mut content) = serde_json::to_value(content) else {
+            return false;
+        };
+        if let Some(profile) = profile.as_ref() {
+            crate::personas::stamp_profile(&mut content, profile);
+        }
         let transaction = matrix_sdk::ruma::OwnedTransactionId::from(transaction_id);
         let sent = self
             .host
             .retry(|| {
-                room.send(content.clone())
-                    .with_transaction_id(transaction.clone())
+                room.send_raw("m.room.message", content.clone())
+                    .with_transaction_id(&transaction)
                     .into_future()
             })
             .await;
@@ -2599,47 +2616,83 @@ mod tests {
         use matrix_sdk::ruma::api::client::receipt::create_receipt::v3::ReceiptType;
         use matrix_sdk::ruma::events::receipt::ReceiptThread;
 
-        let fixture = ColdFixture::new("reply", media_room(None), None).await;
-        mount_notified_event(&fixture, None).await;
-        fixture
-            .server
-            .mock_room_state_encryption()
-            .expect_access_token("test-token")
-            .plain()
-            .mount()
-            .await;
-        wiremock::Mock::given(wiremock::matchers::method("PUT"))
-            .and(wiremock::matchers::path_regex(
-                r"^/_matrix/client/v3/rooms/.*/send/m\.room\.message/reply-1$",
-            ))
-            .and(wiremock::matchers::body_partial_json(
-                json!({"msgtype": "m.text", "body": "on my way"}),
-            ))
-            .respond_with(
-                wiremock::ResponseTemplate::new(200).set_body_json(json!({"event_id": "$reply"})),
-            )
-            .expect(1)
-            .mount(fixture.server.server())
-            .await;
-        fixture
-            .server
-            .mock_send_receipt(ReceiptType::Read)
-            .expect_access_token("test-token")
-            .match_thread(ReceiptThread::Main)
-            .match_event_id(event_id!("$notified"))
-            .ok()
-            .expect(1)
-            .mount()
-            .await;
+        for selected in [false, true] {
+            let fixture =
+                ColdFixture::new(&format!("reply-{selected}"), media_room(None), None).await;
+            wiremock::Mock::given(wiremock::matchers::method("GET"))
+                .and(wiremock::matchers::path_regex(r"/account_data/"))
+                .respond_with(
+                    wiremock::ResponseTemplate::new(404)
+                        .set_body_json(json!({"errcode": "M_NOT_FOUND", "error": "not found"})),
+                )
+                .with_priority(10)
+                .mount(fixture.server.server())
+                .await;
+            let mut expected = json!({"msgtype": "m.text", "body": "on my way"});
+            if selected {
+                for (event_type, content) in [
+                    (
+                        "fyi.cisnt.permessageprofile.roomassociation",
+                        json!({"associations": {COLD_ROOM: {"profileId": "kris"}}}),
+                    ),
+                    (
+                        "fi.mau.msc4461.per_message_profiles.v3",
+                        json!({"profiles": [{"id": "kris", "displayname": "Kris"}]}),
+                    ),
+                ] {
+                    wiremock::Mock::given(wiremock::matchers::method("GET"))
+                        .and(wiremock::matchers::path_regex(format!(
+                            "/account_data/{}$",
+                            event_type.replace('.', "\\.")
+                        )))
+                        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(content))
+                        .mount(fixture.server.server())
+                        .await;
+                }
+                expected[crate::personas::PER_MESSAGE_PROFILE] =
+                    json!({"id": "kris", "displayname": "Kris"});
+            }
+            mount_notified_event(&fixture, None).await;
+            fixture
+                .server
+                .mock_room_state_encryption()
+                .expect_access_token("test-token")
+                .plain()
+                .mount()
+                .await;
+            wiremock::Mock::given(wiremock::matchers::method("PUT"))
+                .and(wiremock::matchers::path_regex(
+                    r"^/_matrix/client/v3/rooms/.*/send/m\.room\.message/reply-1$",
+                ))
+                .and(wiremock::matchers::body_partial_json(expected))
+                .respond_with(
+                    wiremock::ResponseTemplate::new(200)
+                        .set_body_json(json!({"event_id": "$reply"})),
+                )
+                .expect(1)
+                .mount(fixture.server.server())
+                .await;
+            fixture
+                .server
+                .mock_send_receipt(ReceiptType::Read)
+                .expect_access_token("test-token")
+                .match_thread(ReceiptThread::Main)
+                .match_event_id(event_id!("$notified"))
+                .ok()
+                .expect(1)
+                .mount()
+                .await;
 
-        assert!(
-            session(&fixture)
-                .await
-                .reply("on my way", "reply-1", "$notified", false,)
-                .await
-        );
+            assert!(
+                session(&fixture)
+                    .await
+                    .reply("on my way", "reply-1", "$notified", false,)
+                    .await,
+                "selected={selected}"
+            );
 
-        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+            tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+        }
     }
 
     #[tokio::test]

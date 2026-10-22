@@ -44,13 +44,9 @@ import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages
 import { isMediaCaptionContent } from '#lib/features/room/messages/media-caption.js';
 import { previewableLinks } from '#lib/features/room/media/link-preview.js';
 import { previewSources, resolveUrlPreview } from '#lib/features/room/media/link-preview-cache.js';
-import {
-  projectPersona,
-  resolvePersona,
-  resolveProxy,
-  stripProxyHtml,
-} from '#lib/personas/persona.js';
+import { projectPersona } from '#lib/personas/persona.js';
 import type { PersonaStore } from '#lib/personas/personas.svelte.js';
+import { outgoingPersona } from '#lib/personas/outgoing-persona.js';
 import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
 import { stateEventText } from '#lib/features/room/timeline/state-event-text.js';
 import { isMessageRow } from '#lib/features/room/timeline/timeline-format.js';
@@ -230,6 +226,7 @@ export class Conversation {
       formatted,
       developerTools: preferences.developerTools,
       rpc: this.#core.rpc,
+      persona: () => this.#personaFor(targetRoomId, '', null).persona,
     });
     if (outcome.kind === 'done') {
       this.context = null;
@@ -290,12 +287,14 @@ export class Conversation {
   ): Promise<void> => {
     const pending = this.context?.kind === 'reply' ? this.context : null;
     await this.#beforeSend();
+    const profile = this.#personaFor(targetRoomId, '', null).persona;
     await sendMessage(this.#core.rpc, targetRoomId, body, {
       inReplyTo: pending?.eventId ?? null,
       threadRoot: this.#threadRoot,
       mentions: { userIds: [bot], room: false },
       silentReply: pending?.silentReply ?? false,
       botCommand: invocation,
+      persona: profile ? { ...profile, has_fallback: false } : null,
     });
     if (pending) this.context = null;
   };
@@ -329,9 +328,17 @@ export class Conversation {
     options: SendGalleryOptions = {}
   ): Promise<void> => {
     await this.#beforeSend();
+    const outgoing = this.#personaFor(
+      targetRoomId,
+      options.caption ?? '',
+      options.formattedCaption ?? null
+    );
     const reply = this.#consumeReply();
     await this.#core.media.sendGallery(targetRoomId, files, {
       ...options,
+      caption: options.caption == null ? options.caption : outgoing.body,
+      formattedCaption: outgoing.formatted,
+      persona: outgoing.persona,
       inReplyTo: reply?.eventId ?? null,
       silentReply: reply?.silentReply ?? options.silentReply ?? false,
       threadRoot: this.#threadRoot,
@@ -390,6 +397,7 @@ export class Conversation {
     await this.#beforeSend();
     await this.#core.rpc.messages.createPoll({
       room_id: targetRoomId,
+      persona: $state.snapshot(this.#personaFor(targetRoomId, '', null).persona),
       question,
       answers: [...answers],
       undisclosed,
@@ -407,6 +415,7 @@ export class Conversation {
     const reply = this.#consumeReply();
     await this.#core.rpc.messages.sendLocation({
       room_id: targetRoomId,
+      persona: $state.snapshot(this.#personaFor(targetRoomId, '', null).persona),
       body,
       geo_uri: geoUri,
       in_reply_to: reply?.eventId ?? null,
@@ -452,11 +461,13 @@ export class Conversation {
   ): Promise<void> {
     const accountId = this.#core.session?.account_id ?? '';
     const deviceId = this.#core.session?.device_id ?? '';
+    const outgoing = this.#personaFor(targetRoomId, body, formatted);
     try {
       await this.#core.rpc.messages.schedule({
         room_id: targetRoomId,
-        body,
-        formatted,
+        body: outgoing.body,
+        formatted: outgoing.formatted,
+        persona: $state.snapshot(outgoing.persona),
         delay_ms: delayMs,
       });
       return;
@@ -471,8 +482,9 @@ export class Conversation {
       {
         id: crypto.randomUUID(),
         roomId: targetRoomId,
-        body,
-        formatted,
+        body: outgoing.body,
+        formatted: outgoing.formatted,
+        persona: $state.snapshot(outgoing.persona),
         dueTs,
         owner: deviceId,
       },
@@ -562,6 +574,7 @@ export class Conversation {
       shortcode: null,
       thread_root: this.#threadRoot,
       subscription: this.#timeline.subscriptionId,
+      persona: $state.snapshot(this.#personaFor(this.#roomId(), '', null).persona),
     });
   }
 
@@ -571,6 +584,7 @@ export class Conversation {
         room_id: this.#roomId(),
         event_id: eventId,
         answers: [...answers],
+        persona: $state.snapshot(this.#personaFor(this.#roomId(), '', null).persona),
         thread_root: this.#threadRoot,
       })
       .catch(failed('vote'));
@@ -578,7 +592,12 @@ export class Conversation {
 
   readonly endPoll = (eventId: string): void => {
     void this.#core.rpc.messages
-      .endPoll({ room_id: this.#roomId(), event_id: eventId, thread_root: this.#threadRoot })
+      .endPoll({
+        room_id: this.#roomId(),
+        event_id: eventId,
+        thread_root: this.#threadRoot,
+        persona: $state.snapshot(this.#personaFor(this.#roomId(), '', null).persona),
+      })
       .catch(failed('end poll'));
   };
 
@@ -792,40 +811,13 @@ export class Conversation {
     body: string,
     formatted: string | null
   ): { body: string; formatted: string | null; persona: PerMessageProfileView | null } {
-    const personas = this.#personas;
-    const proxied = preferences.personaProxying ? resolveProxy(personas.personas, body) : undefined;
-    const personaSelection = personas.selectionFor(null);
-    const persona = resolvePersona({
-      personas: personas.personas,
-      proxied: proxied?.persona,
-      room: personas.associationFor(targetRoomId),
-      spaces: this.#spaceIds(targetRoomId).map((id) => personas.associationFor(id)),
-      account: personaSelection ?? undefined,
-      now: Date.now(),
-    });
-
-    if (!persona) return { body, formatted, persona: null };
-    if (proxied && preferences.personaLatching !== 'off') {
-      void personas
-        .select(preferences.personaLatching === 'room' ? targetRoomId : null, proxied.persona.id)
-        .catch(failed('latching persona'));
-    }
-    persona.last_used = Date.now();
-    personas.save(persona, persona.id).catch(failed('updating persona timestamp'));
-
-    const avatar_url =
-      (personaSelection?.alternate_avatar_id
-        ? persona.alternate_avatars?.find(
-            (avatar) => avatar.id == personaSelection.alternate_avatar_id
-          )
-        : undefined
-      )?.avatar_url ?? persona.avatar_url;
-
-    return {
-      body: proxied?.body ?? body,
-      formatted: proxied ? stripProxyHtml(formatted, proxied.trigger) : formatted,
-      persona: projectPersona({ ...persona, avatar_url }, preferences.personaFallback),
-    };
+    return outgoingPersona(
+      this.#personas,
+      targetRoomId,
+      this.#spaceIds(targetRoomId),
+      body,
+      formatted
+    );
   }
 }
 

@@ -1,4 +1,10 @@
-import type { MemberView, MessageKind, SlashInvocation, Rpc } from '#src/generated/protocol';
+import type {
+  MemberView,
+  MessageKind,
+  PerMessageProfileView,
+  SlashInvocation,
+  Rpc,
+} from '#src/generated/protocol';
 import { CoreError } from '#src/transport';
 
 import { knockRoom } from '#lib/core/api/rooms.js';
@@ -37,6 +43,7 @@ export type SlashContext = {
   formatted?: string | null;
   developerTools?: boolean;
   rpc: SlashRpc;
+  persona?: () => PerMessageProfileView | null;
 };
 
 export type SlashOutcome =
@@ -175,12 +182,15 @@ async function sendLocation(
   name: string,
   latitude: number,
   longitude: number,
-  { roomId, rpc }: SlashContext
+  { roomId, rpc, persona }: SlashContext
 ): Promise<SlashOutcome> {
   const geoUri = geoUriFor(latitude, longitude);
   if (geoUri === null) return usageError(name);
 
-  await rpc.messages.sendLocation(locationParams(roomId, geoUri));
+  await rpc.messages.sendLocation({
+    ...locationParams(roomId, geoUri),
+    ...(persona ? { persona: persona() } : {}),
+  });
   return DONE;
 }
 
@@ -191,7 +201,10 @@ async function shareMyLocation(context: SlashContext): Promise<SlashOutcome> {
   const geoUri = geoUriFor(result.fix.latitude, result.fix.longitude);
   if (geoUri === null) return { kind: 'error', key: 'composer.slashFix.unavailable' };
 
-  await context.rpc.messages.sendLocation(locationParams(context.roomId, geoUri));
+  await context.rpc.messages.sendLocation({
+    ...locationParams(context.roomId, geoUri),
+    ...(context.persona ? { persona: context.persona() } : {}),
+  });
   return DONE;
 }
 
@@ -310,6 +323,7 @@ async function run(
         room_id: roomId,
         gesture: invocation.gesture,
         target: invocation.target,
+        ...(context.persona ? { persona: context.persona() } : {}),
       });
       return DONE;
     case 'message': {
@@ -456,6 +470,7 @@ async function run(
         room_id: roomId,
         event_type: 'm.room.message',
         content: invocation.content,
+        ...(context.persona ? { persona: context.persona() } : {}),
       });
       return DONE;
     case 'raw_event':
@@ -464,6 +479,7 @@ async function run(
           room_id: roomId,
           event_type: invocation.event_type,
           content: invocation.content,
+          ...(context.persona ? { persona: context.persona() } : {}),
         });
       } else {
         await rpc.room_state.sendEvent({

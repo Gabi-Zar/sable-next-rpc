@@ -706,6 +706,111 @@ fn catalog_from_backup(backup: &str) -> Option<Value> {
         .then(|| catalog.clone())
 }
 
+#[cfg(not(target_family = "wasm"))]
+pub(crate) async fn notification_profile(
+    client: &matrix_sdk::Client,
+    room_id: &matrix_sdk::ruma::RoomId,
+) -> matrix_sdk::Result<Option<PerMessageProfileView>> {
+    async fn data(
+        client: &matrix_sdk::Client,
+        event_type: GlobalAccountDataEventType,
+    ) -> matrix_sdk::Result<Option<Value>> {
+        client
+            .account()
+            .fetch_account_data(event_type)
+            .await?
+            .map(|raw| raw.deserialize_as::<Value>().map_err(Into::into))
+            .transpose()
+    }
+    let associations = data(client, selection_event("roomassociation"))
+        .await?
+        .as_ref()
+        .map(room_associations)
+        .unwrap_or_default();
+    if matches!(
+        associations.get(room_id.as_str()),
+        Some(RoomAssociation::Disabled)
+    ) {
+        return Ok(None);
+    }
+    let account = data(client, selection_event("globalassociation"))
+        .await?
+        .as_ref()
+        .and_then(|content| {
+            AccountSelectionIn::deserialize(content)
+                .ok()?
+                .association?
+                .into_view()
+        });
+    let catalog = match data(client, CATALOG_V3.into()).await? {
+        Some(catalog) => Some(catalog),
+        None => data(client, CATALOG_V2.into()).await?,
+    };
+    let personas = catalog
+        .as_ref()
+        .map(personas_from_catalog)
+        .unwrap_or_default();
+    let mut rooms = vec![room_id.to_owned()];
+    let mut seen = BTreeSet::new();
+    let mut selections = Vec::new();
+    for _ in 0..=4 {
+        let mut parents = Vec::new();
+        for room in rooms {
+            if !seen.insert(room.clone()) {
+                continue;
+            }
+            if let Some(association) = associations.get(room.as_str()) {
+                selections.push(association.clone());
+            }
+            parents.extend(crate::view::listing_spaces(client, &room).await);
+        }
+        rooms = parents;
+        if rooms.is_empty() {
+            break;
+        }
+    }
+    selections.extend(account.map(RoomAssociation::Persona));
+    let now = u64::from(matrix_sdk::ruma::MilliSecondsSinceUnixEpoch::now().0);
+    for association in selections {
+        let selection = match association {
+            RoomAssociation::Disabled => return Ok(None),
+            RoomAssociation::Persona(selection) => selection,
+        };
+        if selection.valid_until.is_some_and(|until| until <= now) {
+            continue;
+        }
+        if let Some(persona) = personas
+            .iter()
+            .find(|profile| profile.id == selection.persona_id)
+        {
+            let avatar_url = selection
+                .alternate_avatar_id
+                .as_ref()
+                .and_then(|id| {
+                    persona
+                        .alternate_avatars
+                        .as_ref()?
+                        .iter()
+                        .find(|avatar| &avatar.id == id)
+                })
+                .map_or_else(
+                    || persona.avatar_url.clone(),
+                    |avatar| Some(avatar.avatar_url.clone()),
+                );
+            return Ok(Some(PerMessageProfileView {
+                id: Some(persona.id.clone()),
+                display_name: Some(persona.display_name.clone()),
+                avatar_url,
+                pronouns: persona.pronouns.clone(),
+                color_on_light: persona.color_on_light.clone(),
+                color_on_dark: persona.color_on_dark.clone(),
+                has_fallback: false,
+            }));
+        }
+    }
+    Ok(None)
+}
+
 impl Core {
     pub(crate) async fn edit_local_with_persona(
         &self,

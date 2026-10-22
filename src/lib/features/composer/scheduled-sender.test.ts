@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from 'vitest';
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import { adoptQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
+import { adoptQueue, parseQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { watchScheduledQueue } from './scheduled-sender';
 
 const message = {
@@ -79,4 +79,32 @@ test('an account switch cannot send the remainder of an in-flight batch', async 
   expect(scheduledQueue('a').map((entry) => entry.id)).toEqual(['two']);
   expect(scheduledQueue('b')).toEqual([]);
   adoptQueue([], 'a');
+});
+
+test('a queued message keeps the profile chosen when it was scheduled', async () => {
+  vi.useFakeTimers();
+  const persona = {
+    id: 'kris',
+    display_name: 'Kris',
+    avatar_url: null,
+    pronouns: [],
+    color_on_light: null,
+    color_on_dark: null,
+    has_fallback: false,
+  };
+  const restored = parseQueue([{ ...message, persona }]);
+  expect(restored[0]?.persona).toEqual(persona);
+  adoptQueue(restored);
+  const send = vi.fn().mockResolvedValue(undefined);
+  const core = {
+    session: { device_id: 'A' },
+    rpc: { messages: { send } },
+  } as unknown as CoreClient;
+  stop = watchScheduledQueue(core);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(send).toHaveBeenCalledWith(expect.objectContaining({ persona }));
+});
+
+test('a queued message with an invalid profile is not sent as the account', () => {
+  expect(parseQueue([{ ...message, persona: { display_name: 'Kris' } }])).toEqual([]);
 });

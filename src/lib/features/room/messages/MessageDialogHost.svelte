@@ -15,6 +15,9 @@
   import { i18n } from '#lib/i18n.js';
   import { projectPersona } from '#lib/personas/persona.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
+  import { outgoingPersona } from '#lib/personas/outgoing-persona.js';
+  import { useRoomList } from '#lib/rooms/room-list.svelte.js';
+  import { personaSpaces } from '#lib/features/composer/persona-spaces.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import StealEmotesDialog from '#lib/features/emotes/StealEmotesDialog.svelte';
@@ -81,6 +84,7 @@
 
   const core = useCoreClient();
   const personaStore = usePersonaStore();
+  const roomList = useRoomList();
 
   function live(entry: OpenMessageDialog): TimelineItemView {
     return (entry.item.event_id && events.get(entry.item.event_id)) || entry.item;
@@ -114,6 +118,13 @@
           event_id: eventId,
           to_room_id: toRoomId,
           include_metadata: includeMetadata,
+          persona: $state.snapshot(
+            outgoingPersona(
+              personaStore,
+              toRoomId,
+              personaSpaces(roomList.rooms, toRoomId, undefined).order
+            ).persona
+          ),
         })
         .catch(failed('forward'));
     }

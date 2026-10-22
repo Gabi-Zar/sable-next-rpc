@@ -349,6 +349,7 @@ mod tests {
                 );
                 assert!(matches!(
                     Box::pin(core.run(crate::api::messages::ReactParams {
+                        persona: None,
                         room_id: room_id.to_owned(),
                         event_id: target.to_owned(),
                         key: "👍".to_owned(),

@@ -154,6 +154,15 @@ test('asks the WASM core to forget a media source', async () => {
 });
 
 test('passes gallery items and shared metadata to the WASM core', async () => {
+  const persona = {
+    id: 'kris',
+    display_name: 'Kris',
+    avatar_url: null,
+    pronouns: [],
+    color_on_light: null,
+    color_on_dark: null,
+    has_fallback: false,
+  };
   const core = fakeCore();
   const sendGallery = vi.fn(() => Promise.resolve());
   core.sendGallery = sendGallery;
@@ -184,6 +193,7 @@ test('passes gallery items and shared metadata to the WASM core', async () => {
       inReplyTo: '$reply',
       silentReply: true,
       threadRoot: '$thread',
+      persona,
     },
   });
 
@@ -201,7 +211,7 @@ test('passes gallery items and shared metadata to the WASM core', async () => {
       formatted_caption: '<strong>Weekend</strong>',
       mentions: ['@one:example.org'],
       mentions_room: true,
-      persona: null,
+      persona,
     }),
     JSON.stringify([
       { filename: 'one.png', mime: 'image/png', bytes: [1], info: null },

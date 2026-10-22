@@ -505,7 +505,13 @@ impl Core {
         {
             return Err(RpcError::InvalidMedia);
         }
+        let extra = request
+            .outgoing
+            .persona
+            .as_ref()
+            .map(|profile| attachment_profile(&crate::personas::without_fallback(profile)));
         let mut gallery = GalleryConfig::new()
+            .extra_content(extra)
             .caption(attachment_caption(
                 request.caption,
                 request.formatted_caption,

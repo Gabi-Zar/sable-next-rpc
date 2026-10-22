@@ -664,6 +664,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         to_room_id: &OwnedRoomId,
+        persona: Option<&PerMessageProfileView>,
         include_metadata: bool,
     ) -> Result<(), RpcError> {
         let source = self.room(room_id).await?;
@@ -731,13 +732,20 @@ impl Core {
             .flatten()
             .and_then(|member| member.display_name().map(ToOwned::to_owned));
         let route = source.route().await.unwrap_or_default();
-        let content = serde_json::Value::Object(forward_content_for_event(
+        let mut content = serde_json::Value::Object(forward_content_for_event(
             source_content,
             origin,
             event_type,
             &route,
             sender_name.as_deref(),
         ));
+
+        if let Some(profile) = persona {
+            crate::personas::stamp_profile(
+                &mut content,
+                &crate::personas::without_fallback(profile),
+            );
+        }
 
         self.room(to_room_id)
             .await?
@@ -1861,6 +1869,7 @@ mod tests {
             &source.to_owned(),
             &event_id!("$original").to_owned(),
             &target.to_owned(),
+            None,
             true,
         )
         .await
@@ -1917,6 +1926,7 @@ mod tests {
             &source.to_owned(),
             &event_id!("$original").to_owned(),
             &target.to_owned(),
+            None,
             false,
         )
         .await
@@ -1972,6 +1982,7 @@ mod tests {
             &source.to_owned(),
             &event_id!("$forward").to_owned(),
             &target.to_owned(),
+            None,
             false,
         )
         .await
@@ -2221,6 +2232,7 @@ mod tests {
             &source.to_owned(),
             &event_id!("$video").to_owned(),
             &target.to_owned(),
+            None,
             true,
         )
         .await

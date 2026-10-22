@@ -519,6 +519,7 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
       inReplyTo,
       silentReply,
       threadRoot,
+      persona,
     }) {
       const transfer = attachments.map((attachment) => attachment.bytes.buffer);
       await request<null>(
@@ -534,6 +535,7 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
             inReplyTo: inReplyTo ?? null,
             silentReply: silentReply ?? false,
             threadRoot: threadRoot ?? null,
+            persona: persona ?? null,
           },
         }),
         transfer

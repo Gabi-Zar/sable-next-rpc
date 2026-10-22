@@ -31,6 +31,8 @@
   import { isPackChange } from '#lib/emoji/load-packs.js';
   import { capturesFromCamera, pickFiles } from '#lib/platform/files.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
+  import { outgoingPersona } from '#lib/personas/outgoing-persona.js';
+  import { personaSpaces } from './persona-spaces.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { enterInsertsNewline } from '#lib/settings/enter-key.svelte.js';
@@ -894,7 +896,12 @@
             roomId,
             await outgoingFile(attachment),
             dueTs,
-            attachment.spoiler
+            attachment.spoiler,
+            outgoingPersona(
+              personas,
+              roomId,
+              personaSpaces(roomList.rooms, roomId, undefined).order
+            ).persona
           )
         );
       }

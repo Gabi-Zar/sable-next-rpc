@@ -106,7 +106,12 @@ impl Core {
         room_id: &OwnedRoomId,
         content: RoomMessageEventContent,
         delay_ms: u64,
+        persona: Option<&crate::protocol::PerMessageProfileView>,
     ) -> Result<String, RpcError> {
+        let mut content = serde_json::to_value(content).or_failed(self, "schedule_message")?;
+        if let Some(profile) = persona {
+            crate::personas::stamp_profile(&mut content, profile);
+        }
         let content =
             serde_json::value::to_raw_value(&content).or_failed(self, "schedule_message")?;
         self.schedule_room_message(room_id, content, delay_ms).await
@@ -151,6 +156,7 @@ impl Core {
         info: Option<AttachmentInfoView>,
         spoiler: bool,
         delay_ms: u64,
+        persona: Option<&crate::protocol::PerMessageProfileView>,
     ) -> Result<String, RpcError> {
         let mime: Mime = mime.parse().map_err(|_| RpcError::InvalidMedia)?;
         let url = OwnedMxcUri::from(url);
@@ -159,10 +165,18 @@ impl Core {
         }
 
         let info = info.unwrap_or_default();
-        let content = serde_json::value::to_raw_value(&attachment_content(
+        let mut content = serde_json::to_value(attachment_content(
             filename, &mime, url, size, info, spoiler,
         ))
         .or_failed(self, "schedule_attachment")?;
+        if let Some(profile) = persona {
+            crate::personas::stamp_profile(
+                &mut content,
+                &crate::personas::without_fallback(profile),
+            );
+        }
+        let content =
+            serde_json::value::to_raw_value(&content).or_failed(self, "schedule_attachment")?;
         self.schedule_room_message(room_id, content, delay_ms).await
     }
 

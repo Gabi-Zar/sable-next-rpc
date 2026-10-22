@@ -702,6 +702,7 @@ test('scheduling an attachment uploads it before creating its delayed event', as
       size: 5,
       info: null,
       spoiler: false,
+      persona: null,
       delay_ms: 28_000,
     },
   });
@@ -723,6 +724,15 @@ test('an attachment is not uploaded when the homeserver cannot schedule it', asy
 });
 
 test('sending a gallery forwards shared metadata and every attachment', async () => {
+  const persona = {
+    id: 'kris',
+    display_name: 'Kris',
+    avatar_url: null,
+    pronouns: [],
+    color_on_light: null,
+    color_on_dark: null,
+    has_fallback: false,
+  };
   const fake = fakeTransport();
   const sendGallery = vi.fn<Transport['sendGallery']>();
   fake.transport.sendGallery = sendGallery;
@@ -736,6 +746,7 @@ test('sending a gallery forwards shared metadata and every attachment', async ()
     mentions: { userIds: ['@one:example.org'], room: true },
     inReplyTo: '$reply',
     threadRoot: '$thread',
+    persona,
   });
 
   expect(sendGallery).toHaveBeenCalledWith({
@@ -751,6 +762,7 @@ test('sending a gallery forwards shared metadata and every attachment', async ()
     inReplyTo: '$reply',
     silentReply: false,
     threadRoot: '$thread',
+    persona,
   });
 });
 

@@ -1,3 +1,4 @@
+import type { PerMessageProfileView } from '#src/generated/protocol';
 import { SvelteMap } from 'svelte/reactivity';
 
 export interface QueuedMessage {
@@ -7,6 +8,7 @@ export interface QueuedMessage {
   formatted: string | null;
   dueTs: number;
   owner: string;
+  persona?: PerMessageProfileView | null;
 }
 
 const TAKEOVER_MS = 5 * 60 * 1000;
@@ -44,6 +46,24 @@ export function dueMessages(now: number, deviceId: string, accountId = ''): Queu
   });
 }
 
+function isProfile(value: unknown): value is PerMessageProfileView {
+  if (value === null || typeof value !== 'object') return false;
+  const profile = value as Record<string, unknown>;
+  const nullableText = (value: unknown): boolean => value === null || typeof value === 'string';
+  return (
+    ['id', 'display_name', 'avatar_url', 'color_on_light', 'color_on_dark'].every((key) =>
+      nullableText(profile[key])
+    ) &&
+    typeof profile.has_fallback === 'boolean' &&
+    Array.isArray(profile.pronouns) &&
+    profile.pronouns.every((value: unknown) => {
+      if (value === null || typeof value !== 'object') return false;
+      const pronoun = value as Record<string, unknown>;
+      return typeof pronoun.summary === 'string' && nullableText(pronoun.language);
+    })
+  );
+}
+
 export function parseQueue(value: unknown): QueuedMessage[] {
   if (!Array.isArray(value)) return [];
 
@@ -56,7 +76,8 @@ export function parseQueue(value: unknown): QueuedMessage[] {
       typeof roomId !== 'string' ||
       typeof body !== 'string' ||
       typeof dueTs !== 'number' ||
-      typeof owner !== 'string'
+      typeof owner !== 'string' ||
+      (record.persona != null && !isProfile(record.persona))
     ) {
       return [];
     }
@@ -69,6 +90,7 @@ export function parseQueue(value: unknown): QueuedMessage[] {
         formatted: typeof formatted === 'string' ? formatted : null,
         dueTs,
         owner,
+        ...(isProfile(record.persona) ? { persona: record.persona } : {}),
       },
     ];
   });

@@ -72,9 +72,16 @@ impl Core {
         room_id: &OwnedRoomId,
         gesture: GestureView,
         target: Option<&OwnedUserId>,
+        persona: Option<&crate::protocol::PerMessageProfileView>,
     ) -> Result<(), RpcError> {
-        let content = serde_json::value::to_raw_value(&gesture_content(gesture, target))
+        let mut content = serde_json::to_value(gesture_content(gesture, target))
             .or_failed(self, "send_gesture")?;
+        if let Some(profile) = persona {
+            crate::personas::stamp_profile(
+                &mut content,
+                &crate::personas::without_fallback(profile),
+            );
+        }
         self.room(room_id)
             .await?
             .send_raw("m.room.message", content)

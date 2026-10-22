@@ -32,6 +32,7 @@ export type Gallery = {
   inReplyTo?: string | null;
   silentReply?: boolean;
   threadRoot?: string | null;
+  persona?: PerMessageProfileView | null;
 };
 
 export type GalleryAttachment = Pick<Attachment, 'filename' | 'mime' | 'bytes' | 'info'>;

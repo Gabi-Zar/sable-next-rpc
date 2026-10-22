@@ -30,6 +30,7 @@ export function watchScheduledQueue(core: CoreClient): () => void {
         try {
           await sendMessage(core.rpc, message.roomId, message.body, {
             formatted: message.formatted,
+            persona: message.persona ?? null,
           });
           dequeue(message.id, accountId);
         } catch (error) {

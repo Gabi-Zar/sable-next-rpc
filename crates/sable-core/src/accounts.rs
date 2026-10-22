@@ -2617,6 +2617,7 @@ mod regression_tests {
                 &room_id,
                 RoomMessageEventContent::text_plain("secret"),
                 1000,
+                None,
             )
             .await;
         assert!(matches!(scheduled, Err(RpcError::Denied)), "{scheduled:?}");

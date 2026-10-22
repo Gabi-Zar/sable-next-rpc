@@ -16,7 +16,7 @@ export type SendAttachmentOptions = {
   spoiler?: boolean;
 };
 
-export type SendGalleryOptions = Omit<SendAttachmentOptions, 'persona' | 'spoiler'>;
+export type SendGalleryOptions = Omit<SendAttachmentOptions, 'spoiler'>;
 
 /** Moves bytes: uploads, attachments and media reads, which the RPC router does not carry. */
 export function createMedia(transport: () => Transport) {
@@ -34,7 +34,8 @@ export function createMedia(transport: () => Transport) {
       roomId: string,
       picked: File,
       dueTs: number,
-      spoiler = false
+      spoiler = false,
+      persona: PerMessageProfileView | null = null
     ): Promise<string> {
       const file = withResolvedMime(picked);
       await validateAttachments([file]);
@@ -53,6 +54,7 @@ export function createMedia(transport: () => Transport) {
         size: file.size,
         info,
         spoiler,
+        persona: $state.snapshot(persona),
         delay_ms: Math.max(0, dueTs - Date.now()),
       });
     },
@@ -110,6 +112,7 @@ export function createMedia(transport: () => Transport) {
         inReplyTo: options.inReplyTo ?? null,
         silentReply: options.silentReply ?? false,
         threadRoot: options.threadRoot ?? null,
+        persona: $state.snapshot(options.persona ?? null),
       });
     },
 

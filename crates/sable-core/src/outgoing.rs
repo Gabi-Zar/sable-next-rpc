@@ -147,8 +147,15 @@ pub(crate) fn forum_title_value(title: Option<String>) -> Option<serde_json::Val
         .map(serde_json::Value::String)
 }
 
-pub(crate) fn empty_mentions_extra() -> Option<serde_json::Map<String, serde_json::Value>> {
-    extra_content(None, [("m.mentions", Some(empty_mentions()))])
+pub(crate) fn message_extra_content(
+    persona: Option<&crate::protocol::PerMessageProfileView>,
+) -> Option<serde_json::Map<String, serde_json::Value>> {
+    extra_content(
+        persona.map(|profile| {
+            crate::personas::profile_extra_content(&crate::personas::without_fallback(profile))
+        }),
+        [("m.mentions", Some(empty_mentions()))],
+    )
 }
 
 pub(crate) fn empty_mentions() -> serde_json::Value {
@@ -212,7 +219,7 @@ pub(crate) fn sticker_info(declared: Option<PackImageInfoView>) -> ImageInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::{empty_mentions_extra, ensure_empty_mentions};
+    use super::{ensure_empty_mentions, message_extra_content};
     use matrix_sdk::room::edit::EditedContent;
 
     use crate::messages::edit_content;
@@ -331,7 +338,7 @@ mod tests {
     #[test]
     fn polls_receive_an_empty_m_mentions_extra_field() {
         assert_eq!(
-            empty_mentions_extra().unwrap()["m.mentions"],
+            message_extra_content(None).unwrap()["m.mentions"],
             serde_json::json!({})
         );
     }

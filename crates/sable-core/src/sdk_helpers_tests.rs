@@ -721,6 +721,7 @@ async fn scheduled_attachments_keep_the_spoiler_on_the_wire() {
             None,
             true,
             1000,
+            None,
         )
         .await
         .unwrap();

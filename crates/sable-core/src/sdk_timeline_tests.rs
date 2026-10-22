@@ -1475,12 +1475,13 @@ async fn send_media_reply(
                 in_reply_to: outgoing.in_reply_to,
                 silent_reply: outgoing.silent_reply,
                 thread_root: outgoing.thread_root,
-                persona: None,
+                persona: outgoing.persona,
             })
             .await?;
         }
         "location" => {
             core.run(crate::api::messages::SendLocationParams {
+                persona: outgoing.persona,
                 room_id: room_id.to_owned(),
                 body: "here".to_owned(),
                 geo_uri: "geo:48,2".to_owned(),
@@ -1579,7 +1580,15 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
                     Vec::new()
                 },
                 mentions_room: false,
-                persona: None,
+                persona: Some(crate::protocol::PerMessageProfileView {
+                    id: Some("kris".to_owned()),
+                    display_name: Some("Kris".to_owned()),
+                    avatar_url: None,
+                    pronouns: Vec::new(),
+                    color_on_light: None,
+                    color_on_dark: None,
+                    has_fallback: false,
+                }),
             };
             send_media_reply(&core, room_id, kind, outgoing)
                 .await
@@ -1589,6 +1598,11 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
             assert_eq!(
                 sent["m.relates_to"]["m.in_reply_to"]["event_id"],
                 target.as_str(),
+                "{kind}"
+            );
+            assert_eq!(
+                sent[crate::personas::PER_MESSAGE_PROFILE]["id"],
+                "kris",
                 "{kind}"
             );
             let expected = if explicit_mention {
@@ -4808,4 +4822,143 @@ async fn an_ignore_change_resyncs_rooms_with_their_history_gap() {
     .await
     .unwrap();
     assert_eq!(event_ids(timeline.items().await), ["$h1", "$h2", "$new1"]);
+}
+
+#[tokio::test]
+async fn message_types_send_the_selected_profile() {
+    for (method_name, fields) in [
+        (
+            "create_poll",
+            json!({"question": "Lunch?", "answers": ["Soup", "Pasta"], "undisclosed": false, "max_selections": 1}),
+        ),
+        ("vote_poll", json!({"event_id": "$poll", "answers": ["0"]})),
+        ("end_poll", json!({"event_id": "$poll"})),
+        (
+            "send_location",
+            json!({"body": "here", "geo_uri": "geo:48,2"}),
+        ),
+        ("send_gesture", json!({"gesture": "hug", "target": null})),
+        (
+            "send_raw_event",
+            json!({"event_type": "m.room.message", "content": {"msgtype": "m.text", "body": "hello"}}),
+        ),
+        ("react", json!({"event_id": "$target", "key": "👍"})),
+    ] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!profile:example.org");
+        let factory = EventFactory::new()
+            .room(room_id)
+            .sender(user_id!("@ana:example.org"));
+        server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id).add_timeline_event(
+                    factory.text_msg("original").event_id(event_id!("$target")),
+                ),
+            )
+            .await;
+        server.mock_room_state_encryption().plain().mount().await;
+        Mock::given(method("PUT"))
+            .and(path_regex(r"^/_matrix/client/v3/rooms/.*/send/"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"event_id": "$sent"})))
+            .mount(server.server())
+            .await;
+        let core = core_for(&server, client).await;
+        core.run(SubscribeParams {
+            room_id: room_id.to_owned(),
+            focus: TimelineFocusView::Live,
+            hidden_events: false,
+        })
+        .await
+        .unwrap();
+        let mut params = fields;
+        params["room_id"] = json!(room_id);
+        params["persona"] = json!({
+            "id": "kris", "display_name": "Kris", "avatar_url": "mxc://example.org/kris",
+            "pronouns": [{"summary": "they/them", "language": "en"}],
+            "color_on_light": null, "color_on_dark": null, "has_fallback": true,
+        });
+        core.call(&format!("messages.{method_name}"), &params.to_string())
+            .await
+            .unwrap();
+        let sent = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                for request in server
+                    .server()
+                    .received_requests()
+                    .await
+                    .unwrap_or_default()
+                {
+                    if request.url.path().contains("/send/") {
+                        return request.body_json::<serde_json::Value>().unwrap();
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("message sent");
+        let profile = &sent[crate::personas::PER_MESSAGE_PROFILE];
+        assert_eq!(profile["id"], "kris", "{method_name}: {sent}");
+        assert_eq!(profile["displayname"], "Kris", "{method_name}: {sent}");
+        assert_eq!(
+            profile["avatar_url"], "mxc://example.org/kris",
+            "{method_name}: {sent}"
+        );
+        assert_ne!(profile["has_fallback"], true, "{method_name}: {sent}");
+    }
+}
+
+#[tokio::test]
+async fn notification_replies_resolve_room_and_account_profiles() {
+    for (association, expected) in [
+        (json!({"profileId": "room"}), Some("Room profile")),
+        (
+            json!({"profileId": "room", "validUntil": 1}),
+            Some("Account profile"),
+        ),
+        (serde_json::Value::Null, Some("Account profile")),
+        (json!(false), None),
+    ] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!profile:example.org");
+        server.sync_joined_room(&client, room_id).await;
+        for (event_type, content) in [
+            (
+                "fyi.cisnt.permessageprofile.roomassociation",
+                json!({"associations": {room_id.as_str(): association}}),
+            ),
+            (
+                "fyi.cisnt.permessageprofile.globalassociation",
+                json!({"association": {"profileId": "account"}}),
+            ),
+            (
+                "fi.mau.msc4461.per_message_profiles.v3",
+                json!({"profiles": [
+                    {"id": "room", "displayname": "Room profile"},
+                    {"id": "account", "displayname": "Account profile"},
+                ]}),
+            ),
+        ] {
+            Mock::given(method("GET"))
+                .and(path_regex(format!(
+                    "/account_data/{}$",
+                    event_type.replace('.', "\\.")
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_json(content))
+                .mount(server.server())
+                .await;
+        }
+        let profile = crate::personas::notification_profile(&client, room_id)
+            .await
+            .unwrap();
+        assert_eq!(
+            profile
+                .as_ref()
+                .and_then(|profile| profile.display_name.as_deref()),
+            expected
+        );
+    }
 }

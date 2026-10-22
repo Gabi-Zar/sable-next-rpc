@@ -223,6 +223,15 @@ test.each([undefined, false, true])(
 );
 
 test('sends a gallery as one worker request', async () => {
+  const persona = {
+    id: 'kris',
+    display_name: 'Kris',
+    avatar_url: null,
+    pronouns: [],
+    color_on_light: null,
+    color_on_dark: null,
+    has_fallback: false,
+  };
   const transport = await load();
   const first = new Uint8Array([1]);
   const second = new Uint8Array([2]);
@@ -243,6 +252,7 @@ test('sends a gallery as one worker request', async () => {
     inReplyTo: '$reply',
     silentReply: false,
     threadRoot: '$thread',
+    persona,
   });
 
   expect(FakeSharedWorker.last?.port.posted).toContainEqual({
@@ -260,6 +270,7 @@ test('sends a gallery as one worker request', async () => {
       inReplyTo: '$reply',
       silentReply: false,
       threadRoot: '$thread',
+      persona,
     },
   });
   FakeSharedWorker.last?.port.receive({ id: 1, uri: null });

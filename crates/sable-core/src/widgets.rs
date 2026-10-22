@@ -1079,6 +1079,7 @@ mod tests {
             client,
         });
         let sent = Box::pin(core.run(crate::api::messages::SendRawEventParams {
+            persona: None,
             room_id: room_id.to_owned(),
             event_type: "com.example.message".to_owned(),
             content: json!({}),
@@ -1155,6 +1156,7 @@ mod tests {
                     "later"
                 ),
                 5000,
+                None,
             )
             .await,
             Err(RpcError::DelayedEventsUnsupported)

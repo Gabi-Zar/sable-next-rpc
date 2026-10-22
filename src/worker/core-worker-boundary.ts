@@ -287,6 +287,7 @@ export function createCoreWorkerBoundary(
             formattedCaption,
             mentions,
             mentionsRoom,
+            persona,
           } = request.gallery;
           await instance.sendGallery(
             JSON.stringify({
@@ -303,7 +304,7 @@ export function createCoreWorkerBoundary(
               formatted_caption: formattedCaption,
               mentions,
               mentions_room: mentionsRoom,
-              persona: null,
+              persona: persona ?? null,
             }),
             JSON.stringify(
               attachments.map(({ filename, mime, bytes, info = null }) => ({
