@@ -53,6 +53,68 @@ fn member(mode: CallMode, created_ts: u64, foci: &[&str]) -> CallMember {
     }
 }
 
+#[tokio::test]
+async fn joining_an_unsupported_slot_does_not_publish_membership() {
+    use matrix_sdk::ruma::{events::AnySyncStateEvent, serde::Raw};
+    use matrix_sdk_test::JoinedRoomBuilder;
+    use serde_json::json;
+    use wiremock::{
+        Mock, ResponseTemplate,
+        matchers::{method, path_regex},
+    };
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!call:example.org");
+    let power = json!({
+        "type": "m.room.power_levels", "state_key": "", "event_id": "$power",
+        "sender": client.user_id().unwrap(), "origin_server_ts": 1,
+        "content": {"users_default": 100, "state_default": 50}
+    });
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id).add_state_event(
+                Raw::new(&power)
+                    .unwrap()
+                    .cast_unchecked::<AnySyncStateEvent>(),
+            ),
+        )
+        .await;
+    assert!(
+        room.power_levels_or_default()
+            .await
+            .user_can_send_state(client.user_id().unwrap(), crate::view::RTC_SLOT_TYPE.into())
+    );
+    Mock::given(method("GET"))
+        .and(path_regex(r"/state/org\.matrix\.msc4143\.rtc\.slot/.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "status": "open", "application": {"type": "m.call"},
+            "encryption": {"type": "example.unsupported"}
+        })))
+        .mount(server.server())
+        .await;
+
+    let (core, _events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    let mut own = member(CallMode::Matrix2, 1, &[]);
+    own.user_id = client.user_id().unwrap().to_owned();
+    own.device_id = client.device_id().unwrap().to_owned();
+    own.member_id = Some("member".to_owned());
+    assert!(
+        super::publish(&core, &room, &own, "https://sfu.example.org", true, None)
+            .await
+            .is_err()
+    );
+    let requests = server.received_requests().await.unwrap();
+    assert!(
+        !requests
+            .iter()
+            .any(|request| request.method.as_str() == "PUT"
+                && (request.url.path().contains("/send/")
+                    || request.url.path().contains("/state/")))
+    );
+}
+
 async fn discover_with_peers(
     mode: CallMode,
     peers: &[(u64, &str)],

@@ -538,7 +538,7 @@ async fn publish(
     let state_key = state_key(room, own);
     let delay = if own.mode == CallMode::Matrix2 {
         if !super::ensure_open_slot(room, encrypted).await {
-            tracing::warn!("no open rtc slot and none could be opened");
+            return Err(core.failed("join_call", "no compatible open RTC slot"));
         }
         let support = core.delayed_events_support().await.unwrap_or_default();
         if support.any() {
