@@ -33,6 +33,7 @@ import type {
 
 import { deepLinksIn, deepLinkSchemes } from './deep-links';
 import { claimSchemes } from './linux-schemes';
+import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
 import { screenShareStreams } from './screen-share';
@@ -41,7 +42,7 @@ import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
 import { importTauriConfig } from './tauri-import';
 import { DesktopTray, hideToTray } from './tray';
-import { registerUpdater, setUpdateChannel } from './updater';
+import { registerUpdater, setUpdateChannel, supportsAutoUpdate } from './updater';
 import {
   MIN_HEIGHT,
   MIN_WIDTH,
@@ -144,11 +145,6 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-function originOf(url: string): string {
-  const { protocol: scheme, host } = new URL(url);
-  return `${scheme}//${host}`;
-}
-
 const appOrigin = devUrl ? originOf(devUrl) : APP_ORIGIN;
 
 function isAppUrl(url: string | undefined): boolean {
@@ -157,11 +153,6 @@ function isAppUrl(url: string | undefined): boolean {
 
 function isAppFrame(frame: WebFrameMain | null | undefined): boolean {
   return frame?.origin === appOrigin;
-}
-
-function openExternal(url: string): void {
-  const { protocol: scheme } = new URL(url);
-  if (['http:', 'https:', 'mailto:', 'tel:'].includes(scheme)) void shell.openExternal(url);
 }
 
 function policy(inlineScripts: string[] = []): string {
@@ -411,6 +402,7 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, 'preload.cjs'),
       sandbox: true,
       contextIsolation: true,
+      additionalArguments: supportsAutoUpdate() ? [] : ['--sable-disable-auto-update'],
     },
   });
 

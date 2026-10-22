@@ -985,12 +985,13 @@ jobs:
 
           retry git clone "ssh://aur@aur.archlinux.org/${pkg}.git" aur-repo
           scripts/ci/render-aur.sh "$pkg" "$pkgver" "$relver" "$sha" aur-render
-          cp aur-render/PKGBUILD aur-render/.SRCINFO "aur-render/${pkg}.install" aur-repo/
+          cp aur-render/PKGBUILD aur-render/.SRCINFO aur-repo/
+          rm -f "aur-repo/${pkg}.install"
 
           cd aur-repo
           git config user.name 'Sable release'
           git config user.email 'release@sable.moe'
-          git add PKGBUILD .SRCINFO "${pkg}.install"
+          git add -A -- .
           if git diff --cached --quiet; then
             echo 'Nothing changed; skipping the push.'
             exit 0

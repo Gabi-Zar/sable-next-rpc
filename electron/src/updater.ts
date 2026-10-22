@@ -1,5 +1,7 @@
 import { app, ipcMain, type WebFrameMain } from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 type IsAppFrame = (frame: WebFrameMain | null | undefined) => boolean;
 
@@ -14,8 +16,18 @@ const FEEDS = {
 };
 const builtChannel = app.getVersion().includes('-nightly.') ? 'nightly' : 'stable';
 
+export function supportsAutoUpdate(): boolean {
+  return (
+    app.isPackaged &&
+    !process.env.FLATPAK_ID &&
+    (process.platform !== 'linux' ||
+      Boolean(process.env.APPIMAGE) ||
+      existsSync(join(process.resourcesPath, 'app-update.yml')))
+  );
+}
+
 export function setUpdateChannel(channel: keyof typeof FEEDS): void {
-  if (!app.isPackaged) return;
+  if (!supportsAutoUpdate()) return;
   autoUpdater.setFeedURL({
     provider: 'generic',
     url: FEEDS[channel],
@@ -26,8 +38,7 @@ export function setUpdateChannel(channel: keyof typeof FEEDS): void {
 }
 
 export function registerUpdater(isAppFrame: IsAppFrame): void {
-  // A dev run has no app-update.yml to read.
-  const enabled = app.isPackaged && !process.env.FLATPAK_ID;
+  const enabled = supportsAutoUpdate();
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
 

@@ -91,13 +91,15 @@ flatpak install sable-next-nightly moe.sable.next.electron.Nightly
 
 <a href="https://aur.archlinux.org/packages/sable-bin"><img alt="AUR" src="https://img.shields.io/badge/AUR-1793D1?style=for-the-badge&logo=archlinux&logoColor=white"></a>
 
-Install using your preferred AUR helper:
+Install and update using your preferred AUR helper:
+
 ```bash
 yay -S sable-bin
 paru -S sable-bin
 ```
 
-Use `sable-nightly-bin` for nightly builds.
+Use `sable-nightly-bin` for nightly builds. See the
+[AUR upgrade notes](packaging/aur/README.md) when upgrading older packages.
 
 #### Using Forgejo Repositories
 

@@ -16,6 +16,11 @@ type ScreenSharePick = (sources: ScreenShareCandidate[]) => Promise<string | nul
 
 let screenSharePick: ScreenSharePick | null = null;
 
+contextBridge.exposeInMainWorld(
+  '__SABLE_AUTO_UPDATE__',
+  !process.argv.includes('--sable-disable-auto-update')
+);
+
 ipcRenderer.on('sable-pick-screen', (_event, request: number, sources: ScreenShareCandidate[]) => {
   const pick = screenSharePick ?? (() => Promise.resolve(null));
   void pick(sources)

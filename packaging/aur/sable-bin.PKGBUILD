@@ -8,6 +8,7 @@ arch=('x86_64')
 url="https://git.sable.moe/SableClient/sable-next"
 license=('AGPL-3.0-or-later')
 depends=(
+  'alsa-lib'
   'gtk3'
   'nss'
   'libnotify'
@@ -19,10 +20,10 @@ depends=(
   'hicolor-icon-theme'
   'desktop-file-utils'
 )
-provides=('sable')
+provides=("sable=${pkgver}")
 conflicts=('sable')
 options=('!strip' '!debug')
-install=${pkgname}.install
+noextract=("${pkgname}-${pkgver}-amd64.deb")
 source_x86_64=("${pkgname}-${pkgver}-amd64.deb::${url}/releases/download/v${pkgver}/sable-${pkgver}-amd64.deb")
 sha256sums_x86_64=('0000000000000000000000000000000000000000000000000000000000000000')
 
@@ -30,5 +31,9 @@ package() {
   bsdtar -O -xf "${srcdir}/${pkgname}-${pkgver}-amd64.deb" 'data.tar*' \
     | bsdtar -xp -C "${pkgdir}"
   find "${pkgdir}" -type d -exec chmod 755 {} +
-  find "${pkgdir}/opt" -name chrome-sandbox -exec chmod 4755 {} +
+  chmod 4755 "${pkgdir}/opt/Sable/chrome-sandbox"
+  # Updates are managed by pacman, not electron-updater's Debian installer.
+  rm -f "${pkgdir}/opt/Sable/resources/app-update.yml"
+  install -dm755 "${pkgdir}/usr/bin"
+  ln -s '/opt/Sable/sable' "${pkgdir}/usr/bin/sable"
 }

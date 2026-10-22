@@ -19,7 +19,6 @@ sed \
   -e "s/^_relver=.*/_relver=${relver}/" \
   -e "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${sha}')/" \
   "$dir/$pkg.PKGBUILD" > "$out/PKGBUILD"
-cp "$dir/$pkg.install" "$out/$pkg.install"
 
 cd "$out"
 # shellcheck disable=SC2154
@@ -34,13 +33,13 @@ cd "$out"
     printf '\tpkgver = %s\n' "$pkgver"
     printf '\tpkgrel = %s\n' "$pkgrel"
     printf '\turl = %s\n' "$url"
-    printf '\tinstall = %s\n' "$install"
     list arch "${arch[@]}"
     list license "${license[@]}"
     list depends "${depends[@]}"
     list provides "${provides[@]}"
     list conflicts "${conflicts[@]}"
     list options "${options[@]}"
+    list noextract "${noextract[@]}"
     list source_x86_64 "${source_x86_64[@]}"
     list sha256sums_x86_64 "${sha256sums_x86_64[@]}"
     printf '\npkgname = %s\n' "$pkgname"
