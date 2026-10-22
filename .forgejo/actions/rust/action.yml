@@ -30,7 +30,7 @@ runs:
     - name: Set up Rust
       uses: https://github.com/dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
       with:
-        toolchain: 1.99.0
+        toolchain: 1.99.1
         components: ${{ inputs.components }}
         targets: ${{ inputs.targets }}
 
@@ -49,9 +49,9 @@ runs:
 
     - name: Set up mise
       if: ${{ inputs.mise == 'true' }}
-      uses: https://github.com/jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      uses: https://github.com/jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
       with:
-        version: '2026.10.8'
+        version: '2026.10.11'
         github_token: ''
         cache: true
         env: false
