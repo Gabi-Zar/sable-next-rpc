@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const { values } = parseArgs({
@@ -31,7 +31,6 @@ function run(command, args, options = {}) {
 
 function capture(command, args) {
   const result = spawnSync(command, args, { encoding: 'utf8' });
-  if (result.error?.code === 'ENOENT') throw new Error(`${command} is required on PATH`);
   if (result.status !== 0) return undefined;
   return result.stdout.trim();
 }
@@ -48,6 +47,9 @@ const wasmBindgenVersion = lockfile.match(/name = "wasm-bindgen"\r?\nversion = "
 if (!wasmBindgenVersion) throw new Error('Cargo.lock does not contain wasm-bindgen');
 
 run('rustup', ['target', 'add', 'wasm32-unknown-unknown', 'aarch64-linux-android']);
+
+const cargoBin = join(process.env.CARGO_HOME ?? join(homedir(), '.cargo'), 'bin');
+process.env.PATH = [cargoBin, process.env.PATH].filter(Boolean).join(delimiter);
 
 if (capture('wasm-bindgen', ['--version']) !== `wasm-bindgen ${wasmBindgenVersion}`) {
   run('cargo', ['install', 'wasm-bindgen-cli', '--version', wasmBindgenVersion, '--locked']);
