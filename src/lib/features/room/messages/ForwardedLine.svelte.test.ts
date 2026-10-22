@@ -25,7 +25,13 @@ afterEach(() => {
 test('a forward from a joined room links to the original', () => {
   rooms.push({ room_id: '!origin:example.org', name: 'Origin' } as RoomListItemView);
   render(ForwardedLine, {
-    forwarded: { timestamp: null, room_id: '!origin:example.org', event_id: '$event' },
+    forwarded: {
+      sender: null,
+      content_valid: null,
+      timestamp: null,
+      room_id: '!origin:example.org',
+      event_id: '$event',
+    },
     roomId: '!here:example.org',
   });
 
@@ -39,7 +45,13 @@ test('a forward from earlier in the room jumps in place', async () => {
   const user = userEvent.setup();
   const onJumpToEvent = vi.fn();
   render(ForwardedLine, {
-    forwarded: { timestamp: null, room_id: '!here:example.org', event_id: '$event' },
+    forwarded: {
+      sender: null,
+      content_valid: null,
+      timestamp: null,
+      room_id: '!here:example.org',
+      event_id: '$event',
+    },
     roomId: '!here:example.org',
     onJumpToEvent,
   });
@@ -50,7 +62,13 @@ test('a forward from earlier in the room jumps in place', async () => {
 
 test('a private forward names no origin', () => {
   const { container } = render(ForwardedLine, {
-    forwarded: { timestamp: null, room_id: null, event_id: null },
+    forwarded: {
+      sender: null,
+      content_valid: null,
+      timestamp: null,
+      room_id: null,
+      event_id: null,
+    },
     roomId: '!here:example.org',
   });
 

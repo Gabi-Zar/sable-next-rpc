@@ -664,6 +664,7 @@ impl Core {
         room_id: &OwnedRoomId,
         event_id: &OwnedEventId,
         to_room_id: &OwnedRoomId,
+        include_metadata: bool,
     ) -> Result<(), RpcError> {
         let source = self.room(room_id).await?;
         let (event, replacements) = source
@@ -709,11 +710,13 @@ impl Core {
 
         let public = matches!(source.join_rule(), Some(JoinRule::Public));
         let mut origin = serde_json::Map::new();
-        origin.insert(
-            "origin_server_ts".to_owned(),
-            u64::from(message.origin_server_ts().0).into(),
-        );
-        if public {
+        if include_metadata {
+            origin.insert(
+                "origin_server_ts".to_owned(),
+                u64::from(message.origin_server_ts().0).into(),
+            );
+        }
+        if include_metadata && public {
             origin.insert("event_id".to_owned(), event_id.to_string().into());
             origin.insert("room_id".to_owned(), room_id.to_string().into());
             origin.insert("sender".to_owned(), message.sender().to_string().into());
@@ -1858,6 +1861,63 @@ mod tests {
             &source.to_owned(),
             &event_id!("$original").to_owned(),
             &target.to_owned(),
+            true,
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn forwarding_without_metadata_keeps_only_required_content() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let source = room_id!("!source:example.org");
+        let target = room_id!("!target:example.org");
+        server.sync_joined_room(&client, source).await;
+        server.sync_joined_room(&client, target).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        let original = json!({"type": "m.room.message", "event_id": "$original", "sender": "@alice:example.org", "origin_server_ts": 1,
+            "room_id": source, "content": {"msgtype": "m.text", "body": "original"}});
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{source}/event/$original"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(original))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v1/rooms/{source}/relations/$original/m.replace"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": []})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("PUT"))
+            .and(wiremock::matchers::path_regex(format!(
+                "/_matrix/client/v3/rooms/{target}/send/m.room.message/.*"
+            )))
+            .and(|request: &wiremock::Request| {
+                let body: serde_json::Value = request.body_json().unwrap();
+                body["org.matrix.msc4553.forwarded"]
+                    == json!({
+                        "content": {"msgtype": "m.text", "body": "original"}
+                    })
+                    && body["moe.sable.message.forward"]
+                        == json!({
+                            "v": 1, "is_forwarded": true, "original_event_private": true
+                        })
+                    && body["body"] == "Forwarded message\noriginal"
+            })
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"event_id": "$forward"})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        core.forward_message(
+            &source.to_owned(),
+            &event_id!("$original").to_owned(),
+            &target.to_owned(),
+            false,
         )
         .await
         .unwrap();
@@ -1912,6 +1972,7 @@ mod tests {
             &source.to_owned(),
             &event_id!("$forward").to_owned(),
             &target.to_owned(),
+            false,
         )
         .await
         .unwrap();
@@ -2160,6 +2221,7 @@ mod tests {
             &source.to_owned(),
             &event_id!("$video").to_owned(),
             &target.to_owned(),
+            true,
         )
         .await
         .unwrap();

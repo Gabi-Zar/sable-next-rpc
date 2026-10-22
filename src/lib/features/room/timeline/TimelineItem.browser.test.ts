@@ -350,7 +350,13 @@ for (const [name, width] of [
         { filename: 'one', width: 800, height: 600 },
         { filename: 'two', width: 800, height: 600 },
       ]),
-      forwarded: { room_id: '!random:example.test', event_id: '$original', timestamp: null },
+      forwarded: {
+        sender: null,
+        content_valid: null,
+        room_id: '!random:example.test',
+        event_id: '$original',
+        timestamp: null,
+      },
       read_by: ['@bob:example.test'],
     });
 

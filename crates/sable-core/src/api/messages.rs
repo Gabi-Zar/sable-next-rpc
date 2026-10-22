@@ -711,14 +711,21 @@ pub struct ForwardParams {
     pub event_id: OwnedEventId,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub to_room_id: OwnedRoomId,
+    #[serde(default)]
+    pub include_metadata: Option<bool>,
 }
 
 impl Handler for ForwardParams {
     type Ok = ();
 
     async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
-        core.forward_message(&self.room_id, &self.event_id, &self.to_room_id)
-            .await
+        core.forward_message(
+            &self.room_id,
+            &self.event_id,
+            &self.to_room_id,
+            self.include_metadata.unwrap_or(true),
+        )
+        .await
     }
 }
 

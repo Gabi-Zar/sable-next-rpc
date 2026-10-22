@@ -334,8 +334,8 @@ export type ForwardedView = {
 	timestamp: number | null,
 	room_id: string | null,
 	event_id: string | null,
-	sender?: string | null,
-	content_valid?: boolean | null,
+	sender: string | null,
+	content_valid: boolean | null,
 };
 
 export type Frequency = "daily" | "weekly" | "monthly" | "yearly";
@@ -2476,6 +2476,7 @@ export type Rpc = {
 	room_id: string,
 	event_id: string,
 	to_room_id: string,
+	include_metadata?: boolean | null,
 }) => Promise<null>;
     report: (params: {
 	room_id: string,

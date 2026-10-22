@@ -1245,6 +1245,8 @@
     "reportReason": "Reason",
     "reportReasonHint": "Tell your homeserver administrators what is wrong with this message.",
     "reportSend": "Report",
+    "forwardIncludeMetadata": "Include original event metadata",
+    "forwardMetadataPreserved": "Existing forwards keep their original metadata.",
     "forwardTitle": "Forward to",
     "forwardSend": "Forward",
     "membershipBy": {

@@ -73,7 +73,9 @@ test('local sends expose only actions that do not require a server event', () =>
 });
 
 test('forwarded messages cannot be edited', () => {
-  const actions = policy({ forwarded: { timestamp: 1, room_id: null, event_id: null } });
+  const actions = policy({
+    forwarded: { sender: null, content_valid: null, timestamp: 1, room_id: null, event_id: null },
+  });
 
   expect(actions.edit).toBe(false);
   expect(actions.reply).toBe(true);
@@ -144,9 +146,12 @@ test('an attachment is not edited by someone else, nor once forwarded', () => {
   const content = mediaContent('file');
 
   expect(policy({ content, is_own: false }).edit).toBe(false);
-  expect(policy({ content, forwarded: { timestamp: 1, room_id: null, event_id: null } }).edit).toBe(
-    false
-  );
+  expect(
+    policy({
+      content,
+      forwarded: { sender: null, content_valid: null, timestamp: 1, room_id: null, event_id: null },
+    }).edit
+  ).toBe(false);
 });
 
 test('an attachment without a caption is still editable', () => {

@@ -104,12 +104,17 @@
       .catch(failed('report'));
   }
 
-  function forward(item: TimelineItemView, toRoomIds: string[]): void {
+  function forward(item: TimelineItemView, toRoomIds: string[], includeMetadata: boolean): void {
     const eventId = item.event_id;
     if (!eventId) return;
     for (const toRoomId of toRoomIds) {
       void core.rpc.messages
-        .forward({ room_id: roomId, event_id: eventId, to_room_id: toRoomId })
+        .forward({
+          room_id: roomId,
+          event_id: eventId,
+          to_room_id: toRoomId,
+          include_metadata: includeMetadata,
+        })
         .catch(failed('forward'));
     }
   }
@@ -200,7 +205,8 @@
     <MessageForwardDialog
       bind:open={() => true, setOpen}
       fromRoomId={roomId}
-      onForward={(toRoomIds) => forward(item, toRoomIds)}
+      metadataLocked={item.forwarded != null}
+      onForward={(toRoomIds, includeMetadata) => forward(item, toRoomIds, includeMetadata)}
     />
   {:else if entry.kind === 'reproxy'}
     <MessageReproxyDialog
