@@ -12,7 +12,9 @@ use matrix_sdk::ruma::api::client::room::get_room_event;
 use matrix_sdk::ruma::api::client::room::{report_content, report_room};
 use matrix_sdk::ruma::api::client::state::get_state_event_for_key;
 use matrix_sdk::ruma::events::relation::RelationType;
+use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
 use matrix_sdk::ruma::events::room::pinned_events::RoomPinnedEventsEventContent;
+use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk::ruma::events::{
     AnyMessageLikeEventContent, AnySyncTimelineEvent, Mentions, StateEventType,
 };
@@ -229,6 +231,17 @@ impl Core {
             }
         } else if let TimelineEventItemId::EventId(event_id) = item_id {
             let room = self.room(room_id).await?;
+            let event = room
+                .load_or_fetch_event(&event_id, None)
+                .await
+                .or_failed(self, "edit_message")?;
+            let content = raw_content(&event).ok_or(RpcError::Unsupported)?;
+            if [FORWARDED, FAMEDLY_FORWARDED, SABLE_FORWARDED]
+                .iter()
+                .any(|key| content.get(key).is_some())
+            {
+                return Err(RpcError::Unsupported);
+            }
             let content = room
                 .make_edit_event(&event_id, edited)
                 .await
@@ -670,18 +683,17 @@ impl Core {
         let AnySyncTimelineEvent::MessageLike(message) = raw else {
             return Err(RpcError::Unsupported);
         };
-        if !matches!(
-            message.original_content(),
-            Some(AnyMessageLikeEventContent::RoomMessage(_))
-        ) {
-            return Err(RpcError::Unsupported);
-        }
+        let event_type = match message.original_content() {
+            Some(AnyMessageLikeEventContent::RoomMessage(_)) => "m.room.message",
+            Some(AnyMessageLikeEventContent::Sticker(_)) => "m.sticker",
+            _ => return Err(RpcError::Unsupported),
+        };
 
         let original = raw_content(&event).ok_or(RpcError::Unsupported)?;
         let is_forward = [FORWARDED, FAMEDLY_FORWARDED, SABLE_FORWARDED]
             .iter()
             .any(|key| original.get(key).is_some());
-        let edited = (!is_forward)
+        let edited = (!is_forward && event_type == "m.room.message")
             .then(|| latest_valid_replacement(&event, &replacements))
             .flatten()
             .and_then(|edit| {
@@ -716,16 +728,17 @@ impl Core {
             .flatten()
             .and_then(|member| member.display_name().map(ToOwned::to_owned));
         let route = source.route().await.unwrap_or_default();
-        let content = serde_json::Value::Object(forward_content(
+        let content = serde_json::Value::Object(forward_content_for_event(
             source_content,
             origin,
+            event_type,
             &route,
             sender_name.as_deref(),
         ));
 
         self.room(to_room_id)
             .await?
-            .send_raw("m.room.message", content)
+            .send_raw(event_type, content)
             .await
             .or_failed(self, "forward_message")?;
 
@@ -989,13 +1002,14 @@ pub(crate) fn raw_content(event: &TimelineEvent) -> Option<serde_json::Value> {
         .flatten()
 }
 
-fn is_message_content(content: &serde_json::Value) -> bool {
-    content
-        .get("msgtype")
-        .is_some_and(serde_json::Value::is_string)
-        && content
-            .get("body")
-            .is_some_and(serde_json::Value::is_string)
+fn is_valid_forward_content(content: &serde_json::Value, event_type: &str) -> bool {
+    match event_type {
+        "m.room.message" => {
+            serde_json::from_value::<RoomMessageEventContent>(content.clone()).is_ok()
+        }
+        "m.sticker" => serde_json::from_value::<StickerEventContent>(content.clone()).is_ok(),
+        _ => false,
+    }
 }
 
 fn prior_forward(
@@ -1034,14 +1048,28 @@ fn strip_reply_fallback(content: &mut serde_json::Map<String, serde_json::Value>
     }
 }
 
+#[cfg(test)]
 fn forward_content(
-    mut source: serde_json::Map<String, serde_json::Value>,
+    source: serde_json::Map<String, serde_json::Value>,
     origin: serde_json::Map<String, serde_json::Value>,
     route: &[OwnedServerName],
     sender_name: Option<&str>,
 ) -> serde_json::Map<String, serde_json::Value> {
+    forward_content_for_event(source, origin, "m.room.message", route, sender_name)
+}
+
+fn forward_content_for_event(
+    mut source: serde_json::Map<String, serde_json::Value>,
+    origin: serde_json::Map<String, serde_json::Value>,
+    event_type: &str,
+    route: &[OwnedServerName],
+    sender_name: Option<&str>,
+) -> serde_json::Map<String, serde_json::Value> {
     let mut forwarded = prior_forward(&source).unwrap_or(origin);
-    if !forwarded.get("content").is_some_and(is_message_content) {
+    if !forwarded
+        .get("content")
+        .is_some_and(|content| is_valid_forward_content(content, event_type))
+    {
         for key in [FORWARDED, FAMEDLY_FORWARDED, SABLE_FORWARDED] {
             source.remove(key);
         }
@@ -1049,7 +1077,7 @@ fn forward_content(
         forwarded.insert("content".to_owned(), serde_json::Value::Object(source));
     }
 
-    let mut content = forwarded
+    let mut fallback = forwarded
         .get("content")
         .and_then(serde_json::Value::as_object)
         .cloned()
@@ -1061,21 +1089,20 @@ fn forward_content(
         FORWARDED,
         FAMEDLY_FORWARDED,
         SABLE_FORWARDED,
-        PER_MESSAGE_PROFILE,
     ] {
-        content.remove(key);
+        fallback.remove(key);
     }
-    content.insert(
+    add_forward_fallback(&mut fallback, &forwarded, route, sender_name);
+    fallback.insert(
         "m.mentions".to_owned(),
         serde_json::Value::Object(serde_json::Map::new()),
     );
-    add_forward_fallback(&mut content, &forwarded, route, sender_name);
-    content.insert(
+    fallback.insert(
         SABLE_FORWARDED.to_owned(),
         serde_json::Value::Object(sable_forward(&forwarded)),
     );
-    content.insert(FORWARDED.to_owned(), serde_json::Value::Object(forwarded));
-    content
+    fallback.insert(FORWARDED.to_owned(), serde_json::Value::Object(forwarded));
+    fallback
 }
 
 fn sable_forward(
@@ -1333,6 +1360,31 @@ mod tests {
     }
 
     #[test]
+    fn forwarding_a_sticker_keeps_its_event_content_without_a_text_fallback() {
+        let sticker = json!({
+            "body": "seal",
+            "url": "mxc://example.org/seal",
+            "info": {}
+        });
+        let content = Value::Object(super::forward_content_for_event(
+            object(sticker.clone()),
+            object(json!({ "origin_server_ts": 7 })),
+            "m.sticker",
+            &[],
+            None,
+        ));
+
+        assert_eq!(content["body"], "seal");
+        assert!(content.get("format").is_none());
+        assert_eq!(content["m.mentions"], json!({}));
+        assert_eq!(content["org.matrix.msc4553.forwarded"]["content"], sticker);
+        assert!(super::is_valid_forward_content(
+            &content["org.matrix.msc4553.forwarded"]["content"],
+            "m.sticker"
+        ));
+    }
+
+    #[test]
     fn forwarding_from_a_private_room_omits_the_ids_in_both_objects() {
         let source = object(json!({ "msgtype": "m.text", "body": "hi" }));
         let origin = object(json!({ "origin_server_ts": 7 }));
@@ -1452,7 +1504,12 @@ mod tests {
         let forwarded = json!({
             "sender": "@alice:x",
             "origin_server_ts": 1,
-            "content": { "msgtype": "m.text", "body": "original" }
+            "content": {
+                "msgtype": "m.text",
+                "body": "original",
+                "m.relates_to": { "m.in_reply_to": { "event_id": "$parent" } },
+                "m.mentions": { "user_ids": ["@carol:x"] }
+            }
         });
         let source = object(json!({
             "msgtype": "m.text",
@@ -1466,6 +1523,8 @@ mod tests {
 
         assert_eq!(content["org.matrix.msc4553.forwarded"], forwarded);
         assert_eq!(content["body"], "Forwarded from @alice:x\noriginal");
+        assert_eq!(content["m.mentions"], json!({}));
+        assert!(content.get("m.relates_to").is_none());
     }
 
     #[test]

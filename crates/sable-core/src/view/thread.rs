@@ -1,7 +1,9 @@
 use matrix_sdk::ruma::OwnedEventId;
-use matrix_sdk::ruma::events::room::message::MessageType;
+use matrix_sdk::ruma::events::room::message::{MessageType, RoomMessageEventContent};
+use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk_ui::timeline::{
-    MsgLikeContent, MsgLikeKind, TimelineDetails, TimelineEventItemId, TimelineItemContent,
+    EmbeddedEvent, MsgLikeContent, MsgLikeKind, TimelineDetails, TimelineEventItemId,
+    TimelineItemContent,
 };
 use serde::Deserialize as _;
 use serde_with::{DefaultOnError, serde_as};
@@ -49,7 +51,7 @@ pub(super) fn in_reply_to(content: &TimelineItemContent) -> Option<ReplyView> {
                 .is_some_and(|sender| mentions.user_ids.contains(sender))
         });
 
-    let (body, fallback) = embedded.map_or((None, None), |event| reply_preview(&event.content));
+    let (body, fallback) = embedded.map_or((None, None), |event| embedded_reply_preview(event));
 
     Some(ReplyView {
         event_id: reply.event_id.clone(),
@@ -67,14 +69,13 @@ pub(super) fn in_reply_to(content: &TimelineItemContent) -> Option<ReplyView> {
 pub(super) fn thread_summary(content: &TimelineItemContent) -> Option<ThreadSummaryView> {
     let summary = msg_like(content)?.thread_summary.as_ref()?;
 
-    // The SDK embeds no raw content for the latest reply, so the profile is looked up by id.
     let (latest_event_id, (latest_body, latest_fallback)) = match &summary.latest_event {
         TimelineDetails::Ready(event) => (
             match &event.identifier {
                 TimelineEventItemId::EventId(event_id) => Some(event_id.to_string()),
                 TimelineEventItemId::TransactionId(_) => None,
             },
-            reply_preview(&event.content),
+            embedded_reply_preview(event),
         ),
         _ => (None, (None, None)),
     };
@@ -126,6 +127,9 @@ struct BundledReplyContentIn {
     body: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError")]
     formatted_body: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "org.matrix.msc4553.forwarded")]
+    forwarded: Option<serde_json::Value>,
 }
 
 pub(super) fn bundled_thread_summary(unsigned: &serde_json::Value) -> Option<ThreadSummaryView> {
@@ -144,20 +148,33 @@ pub(super) fn bundled_thread_summary(unsigned: &serde_json::Value) -> Option<Thr
     let summary = UnsignedIn::deserialize(unsigned).ok()?.relations?.thread?;
     let count = u32::try_from(summary.count?).ok()?;
     let latest = summary.latest_event?;
-    let verification = latest
-        .content
+    let latest_content = latest.content;
+    let forwarded_preview = latest_content
         .as_ref()
-        .is_some_and(|content| content.msgtype.as_deref() == Some(VERIFICATION_REQUEST_MSGTYPE));
-    let latest_body = latest
-        .content
-        .filter(|_| !verification)
-        .and_then(|content| {
-            let formatted = content.formatted_body.as_deref();
-            content
-                .body
-                .as_deref()
-                .map(|body| preview_body(body, formatted))
-        });
+        .and_then(|content| content.forwarded.as_ref())
+        .and_then(|forwarded| forwarded.get("content"))
+        .and_then(forwarded_content_preview);
+    let verification = forwarded_preview.as_ref().map_or_else(
+        || {
+            latest_content.as_ref().is_some_and(|content| {
+                content.msgtype.as_deref() == Some(VERIFICATION_REQUEST_MSGTYPE)
+            })
+        },
+        |(_, fallback)| matches!(fallback, Some(ReplyFallbackView::VerificationRequest)),
+    );
+    let latest_body = if let Some((body, _)) = forwarded_preview {
+        body
+    } else {
+        latest_content
+            .filter(|_| !verification)
+            .and_then(|content| {
+                let formatted = content.formatted_body.as_deref();
+                content
+                    .body
+                    .as_deref()
+                    .map(|body| preview_body(body, formatted))
+            })
+    };
 
     Some(ThreadSummaryView {
         num_replies: count,
@@ -190,11 +207,154 @@ fn reply_preview(content: &TimelineItemContent) -> (Option<String>, Option<Reply
     (Some(body), None)
 }
 
+fn embedded_reply_preview(event: &EmbeddedEvent) -> (Option<String>, Option<ReplyFallbackView>) {
+    if event.content.is_redacted() {
+        return reply_preview(&event.content);
+    }
+    let preview = (|| {
+        let original = event
+            .original_json
+            .as_ref()?
+            .deserialize_as_unchecked::<serde_json::Value>()
+            .ok()?;
+        let event_type = original.get("type")?.as_str()?;
+        let content = original.get("content")?;
+        let forwarded = content.get(super::forward::FORWARDED)?.as_object()?;
+        let nested = forwarded.get("content").filter(|nested| match event_type {
+            "m.room.message" => {
+                serde_json::from_value::<RoomMessageEventContent>((*nested).clone()).is_ok()
+            }
+            "m.sticker" => serde_json::from_value::<StickerEventContent>((*nested).clone()).is_ok(),
+            _ => false,
+        });
+        let selected = nested.unwrap_or(content);
+        let (mut body, fallback) = forwarded_content_preview(selected)?;
+        if nested.is_some()
+            && selected.get("msgtype").and_then(serde_json::Value::as_str) == Some("m.emote")
+        {
+            let actor = forwarded
+                .get("sender")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|sender| matrix_sdk::ruma::UserId::parse(sender).ok());
+            if let Some(body) = &mut body {
+                *body = format!(
+                    "{} {body}",
+                    actor.as_deref().map_or("Sender", |sender| sender.as_str())
+                );
+            }
+        }
+        Some((body, fallback))
+    })();
+    preview.unwrap_or_else(|| reply_preview(&event.content))
+}
+
+fn forwarded_content_preview(
+    forwarded: &serde_json::Value,
+) -> Option<(Option<String>, Option<ReplyFallbackView>)> {
+    if let Ok(message) = serde_json::from_value::<RoomMessageEventContent>(forwarded.clone()) {
+        if matches!(message.msgtype, MessageType::VerificationRequest(_)) {
+            return Some((None, Some(ReplyFallbackView::VerificationRequest)));
+        }
+        let body = message.msgtype.body();
+        let formatted = formatted_body(&message.msgtype);
+        return Some((Some(preview_body(body, formatted.as_deref())), None));
+    }
+    if let Ok(sticker) = serde_json::from_value::<StickerEventContent>(forwarded.clone()) {
+        return Some((Some(sticker.body), None));
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use serde_json::json;
+
+    fn embedded_forward(content: serde_json::Value) -> EmbeddedEvent {
+        use matrix_sdk::ruma::{
+            MilliSecondsSinceUnixEpoch, owned_event_id, owned_user_id, serde::Raw,
+        };
+        EmbeddedEvent {
+            content: TimelineItemContent::CallInvite,
+            original_json: Some(
+                Raw::from_json_string(
+                    json!({
+                        "type": "m.room.message",
+                        "content": content
+                    })
+                    .to_string(),
+                )
+                .unwrap(),
+            ),
+            sender: owned_user_id!("@forwarder:example.org"),
+            sender_profile: TimelineDetails::Unavailable,
+            timestamp: MilliSecondsSinceUnixEpoch::now(),
+            identifier: TimelineEventItemId::EventId(owned_event_id!("$forward")),
+        }
+    }
+
+    #[test]
+    fn embedded_forwards_use_nested_content_instead_of_sdk_fallback() {
+        let event = embedded_forward(json!({
+            "msgtype": "m.text", "body": "Forwarded message\nfallback",
+            "org.matrix.msc4553.forwarded": {
+                "content": { "msgtype": "m.text", "body": "original",
+                    "format": "org.matrix.custom.html", "formatted_body": "<b>original</b>" }
+            }
+        }));
+        assert_eq!(
+            embedded_reply_preview(&event),
+            (Some("original".to_owned()), None)
+        );
+    }
+
+    #[test]
+    fn embedded_forwards_with_invalid_content_use_the_original_fallback() {
+        let event = embedded_forward(json!({
+            "msgtype": "m.text", "body": "original fallback",
+            "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text" } }
+        }));
+        assert_eq!(
+            embedded_reply_preview(&event),
+            (Some("original fallback".to_owned()), None)
+        );
+    }
+
+    #[test]
+    fn embedded_forwarded_emotes_attribute_the_original_sender_or_a_generic_actor() {
+        for (metadata, expected) in [
+            (
+                json!({ "sender": "@alice:example.org", "content": { "msgtype": "m.emote", "body": "waves" } }),
+                "@alice:example.org waves",
+            ),
+            (
+                json!({ "content": { "msgtype": "m.emote", "body": "waves" } }),
+                "Sender waves",
+            ),
+        ] {
+            let event = embedded_forward(json!({
+                "msgtype": "m.text", "body": "fallback",
+                "org.matrix.msc4553.forwarded": metadata
+            }));
+            assert_eq!(embedded_reply_preview(&event).0.as_deref(), Some(expected));
+        }
+    }
+
+    #[test]
+    fn redacted_embedded_forwards_do_not_display_original_content() {
+        let mut event = embedded_forward(json!({
+            "msgtype": "m.text", "body": "fallback",
+            "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text", "body": "secret" } }
+        }));
+        event.content = TimelineItemContent::MsgLike(MsgLikeContent {
+            kind: MsgLikeKind::Redacted,
+            thread_root: None,
+            in_reply_to: None,
+            thread_summary: None,
+        });
+        assert_eq!(embedded_reply_preview(&event), (None, None));
+    }
 
     #[test]
     fn standalone_thread_root_uses_bundled_reply_summary() {
@@ -217,6 +377,30 @@ mod tests {
             Some("$reply:example.org")
         );
         assert_eq!(summary.latest_body.as_deref(), Some("Latest reply"));
+    }
+
+    #[test]
+    fn bundled_thread_summary_uses_valid_forwarded_content() {
+        let summary = bundled_thread_summary(&json!({
+            "m.relations": {
+                "m.thread": {
+                    "count": 1,
+                    "latest_event": {
+                        "event_id": "$forward:example.org",
+                        "content": {
+                            "msgtype": "m.text",
+                            "body": "Forwarded message\nfallback",
+                            "org.matrix.msc4553.forwarded": {
+                                "content": { "msgtype": "m.text", "body": "original" }
+                            }
+                        }
+                    }
+                }
+            }
+        }))
+        .expect("thread summary");
+
+        assert_eq!(summary.latest_body.as_deref(), Some("original"));
     }
 
     #[test]

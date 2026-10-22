@@ -12,6 +12,8 @@ pub(super) struct RawFields {
     pub(super) content: Option<serde_json::Value>,
     pub(super) unsigned: Option<RawUnsigned>,
     #[serde(skip)]
+    pub(super) original_content: Option<serde_json::Value>,
+    #[serde(skip)]
     pub(super) echo_formatted_body: Option<String>,
 }
 

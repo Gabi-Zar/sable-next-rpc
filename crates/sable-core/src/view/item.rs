@@ -28,7 +28,7 @@ use crate::protocol::{
 
 use super::content::{content, raw_formatted_body};
 use super::diff::diff_values;
-use super::forward::{forward_meta, forwarded};
+use super::forward::{forward_meta, forwarded, original_content};
 use super::previews::{bundled_link_previews, link_previews_removed};
 use super::profile::{per_message_profile, relay_profile};
 use super::raw::RawFields;
@@ -283,6 +283,7 @@ impl TimelineItemContentView {
                 | Self::Video { .. }
                 | Self::Audio { .. }
                 | Self::File { .. }
+                | Self::Sticker { .. }
                 | Self::Location { .. }
                 | Self::Gallery { .. }
         )
@@ -485,6 +486,9 @@ pub fn timeline_item(
                 _ => None,
             };
             let mut raw = RawFields::read(event);
+            if event.latest_edit_json().is_some() {
+                raw.original_content = original_content(event);
+            }
             let local = event
                 .send_state()
                 .and(event.transaction_id())

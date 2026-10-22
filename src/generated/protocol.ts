@@ -334,6 +334,8 @@ export type ForwardedView = {
 	timestamp: number | null,
 	room_id: string | null,
 	event_id: string | null,
+	sender?: string | null,
+	content_valid?: boolean | null,
 };
 
 export type Frequency = "daily" | "weekly" | "monthly" | "yearly";

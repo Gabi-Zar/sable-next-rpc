@@ -7,6 +7,8 @@ use matrix_sdk::room::Room;
 use matrix_sdk::ruma::events::room::avatar::RoomAvatarEventContent;
 use matrix_sdk::ruma::events::room::join_rules::JoinRule;
 use matrix_sdk::ruma::events::room::member::MembershipState;
+use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
+use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk::ruma::events::{
     AnyMessageLikeEventContent, AnySyncMessageLikeEvent, AnySyncTimelineEvent, SyncMessageLikeEvent,
 };
@@ -262,6 +264,11 @@ pub(super) fn latest_event(item: &RoomListItem) -> Option<LatestEventView> {
 }
 
 fn remote_preview(event: &RemoteLatestEventValue) -> Option<String> {
+    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(event.raw().json().get()) {
+        if let Some(preview) = forwarded_room_preview(&raw) {
+            return Some(preview);
+        }
+    }
     let any = event.raw().deserialize().ok()?;
 
     let AnySyncTimelineEvent::MessageLike(AnySyncMessageLikeEvent::RoomMessage(message)) = any
@@ -276,12 +283,32 @@ fn remote_preview(event: &RemoteLatestEventValue) -> Option<String> {
 }
 
 fn local_preview(local: &LocalLatestEventValue) -> Option<String> {
+    let (raw, _) = local.content.raw();
+    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(raw.json().get()) {
+        if let Some(preview) = forwarded_room_preview(&raw) {
+            return Some(preview);
+        }
+    }
     let content = local.content.deserialize().ok()?;
 
     match content {
         AnyMessageLikeEventContent::RoomMessage(message) => Some(message.body().to_owned()),
         _ => None,
     }
+}
+
+fn forwarded_room_preview(event: &serde_json::Value) -> Option<String> {
+    let content = event.get("content").unwrap_or(event);
+    let forwarded = content
+        .get("org.matrix.msc4553.forwarded")?
+        .get("content")?
+        .clone();
+    if let Ok(message) = serde_json::from_value::<RoomMessageEventContent>(forwarded.clone()) {
+        return Some(message.msgtype.body().to_owned());
+    }
+    serde_json::from_value::<StickerEventContent>(forwarded)
+        .ok()
+        .map(|sticker| sticker.body)
 }
 
 /// Resolve current room fields for every emitted item, including reordered rooms.
@@ -436,6 +463,20 @@ mod tests {
     use super::*;
 
     use crate::protocol::{NotificationModeView, NotificationSettingsView};
+
+    #[test]
+    fn a_room_preview_uses_valid_forwarded_content() {
+        assert_eq!(
+            forwarded_room_preview(&serde_json::json!({
+                "msgtype": "m.text",
+                "body": "Forwarded message\nfallback",
+                "org.matrix.msc4553.forwarded": {
+                    "content": { "msgtype": "m.text", "body": "original" }
+                }
+            })),
+            Some("original".to_owned())
+        );
+    }
 
     const fn under(mode: NotificationModeView) -> NotificationSettingsView {
         NotificationSettingsView {

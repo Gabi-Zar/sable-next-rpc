@@ -1,21 +1,23 @@
 <script lang="ts">
   import ShareFatIcon from 'phosphor-svelte/lib/ShareFatIcon';
 
-  import type { ForwardedView } from '#src/generated/protocol';
+  import type { ForwardedView, MemberView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { roomLabel, useRoomList } from '#lib/rooms/room-list.svelte.js';
+  import { memberName } from '../members/members';
 
   import { formatDate } from '#lib/ui/date-time.js';
 
   interface Props {
     forwarded: ForwardedView;
     roomId: string;
+    members?: readonly MemberView[];
     onJumpToEvent?: (eventId: string) => void;
   }
 
-  let { forwarded, roomId, onJumpToEvent }: Props = $props();
+  let { forwarded, roomId, members = [], onJumpToEvent }: Props = $props();
   const roomList = useRoomList();
 
   let sameRoom = $derived(forwarded.room_id === roomId && forwarded.event_id !== null);
@@ -25,6 +27,11 @@
       : roomList.rooms.find((room) => room.room_id === forwarded.room_id)
   );
   let label = $derived.by(() => {
+    if (forwarded.sender) {
+      return i18n.t('timeline.forwardedFromRoom', {
+        room: memberName(members, forwarded.sender),
+      });
+    }
     if (sameRoom) return i18n.t('timeline.forwardedFromEarlier');
     if (origin) return i18n.t('timeline.forwardedFromRoom', { room: roomLabel(origin) });
     if (forwarded.room_id !== null) return i18n.t('timeline.forwardedFromAnotherRoom');

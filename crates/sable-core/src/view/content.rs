@@ -2,7 +2,8 @@ use std::collections::BTreeSet;
 
 use matrix_sdk::ruma::UInt;
 use matrix_sdk::ruma::events::poll::start::PollKind;
-use matrix_sdk::ruma::events::room::message::MessageType;
+use matrix_sdk::ruma::events::room::message::{MessageType, RoomMessageEventContent};
+use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk::ruma::{OwnedUserId, UserId};
 use matrix_sdk_base::crypto::types::events::UtdCause;
 use matrix_sdk_ui::timeline::{
@@ -27,11 +28,12 @@ use super::raw::RawFields;
 use super::state::{membership_change, membership_reason, state_change};
 
 fn text_message(
-    message: &matrix_sdk_ui::timeline::Message,
+    msgtype: &MessageType,
+    edited: bool,
     profile: Option<&PerMessageProfileView>,
     raw: &RawFields,
 ) -> TimelineItemContentView {
-    let formatted = formatted_body(message.msgtype());
+    let formatted = formatted_body(msgtype);
     let formatted = formatted
         .as_ref()
         .and_then(|_| raw.formatted_body().map(ToOwned::to_owned))
@@ -39,7 +41,7 @@ fn text_message(
     let known = formatted.as_deref().is_some_and(has_profile_fallback_html)
         || profile.is_some_and(|profile| profile.has_fallback);
     let body = strip_profile_fallback_body(
-        message.body(),
+        msgtype.body(),
         profile.and_then(|profile| profile.display_name.as_deref()),
         known,
     );
@@ -52,9 +54,8 @@ fn text_message(
             known,
         )
     });
-
     let html = display_html(&body, formatted.as_deref());
-    let emote = matches!(message.msgtype(), MessageType::Emote(_));
+    let emote = matches!(msgtype, MessageType::Emote(_));
     let jumbo = (!emote)
         .then(|| jumbo::emoji_level(&body).or_else(|| jumbo::emoticon_level(&html)))
         .flatten();
@@ -62,8 +63,8 @@ fn text_message(
         html,
         body,
         emote,
-        notice: matches!(message.msgtype(), MessageType::Notice(_)),
-        edited: message.is_edited(),
+        notice: matches!(msgtype, MessageType::Notice(_)),
+        edited,
         jumbo,
     }
 }
@@ -159,9 +160,18 @@ fn message_content(
     profile: Option<&PerMessageProfileView>,
     raw: &RawFields,
 ) -> TimelineItemContentView {
+    message_type_content(message.msgtype(), message.is_edited(), profile, raw)
+}
+
+fn message_type_content(
+    msgtype: &MessageType,
+    edited: bool,
+    profile: Option<&PerMessageProfileView>,
+    raw: &RawFields,
+) -> TimelineItemContentView {
     let dimension = |value: Option<UInt>| value.map(u64::from);
 
-    match message.msgtype() {
+    match msgtype {
         MessageType::Image(image) => {
             let (caption, caption_html) =
                 caption_view(image.caption(), image.formatted_caption(), profile);
@@ -257,8 +267,64 @@ fn message_content(
                 .collect(),
         },
         MessageType::VerificationRequest(_) => TimelineItemContentView::VerificationRequest,
-        msgtype => cute_event(msgtype).unwrap_or_else(|| text_message(message, profile, raw)),
+        msgtype => {
+            cute_event(msgtype).unwrap_or_else(|| text_message(msgtype, edited, profile, raw))
+        }
     }
+}
+
+fn forwarded_message_type(raw: &RawFields) -> Option<(MessageType, RawFields)> {
+    let event_content = raw
+        .original_content
+        .as_ref()
+        .or_else(|| raw.content.as_ref())?;
+    let original = event_content
+        .get(super::forward::FORWARDED)?
+        .get("content")?;
+    let message = serde_json::from_value::<RoomMessageEventContent>(original.clone()).ok()?;
+    let msgtype = message.msgtype;
+    let mut original = original.as_object()?.clone();
+    for key in ["m.relates_to", "m.mentions", "m.new_content"] {
+        original.remove(key);
+    }
+    let raw = RawFields {
+        content: Some(serde_json::Value::Object(original)),
+        ..RawFields::default()
+    };
+    Some((msgtype, raw))
+}
+
+fn forwarded_fallback_message_type(raw: &RawFields) -> Option<(MessageType, RawFields)> {
+    let original = raw.original_content.as_ref()?;
+    super::forward::forward_meta(original)?;
+    let message = serde_json::from_value::<RoomMessageEventContent>(original.clone()).ok()?;
+    let mut original = original.as_object()?.clone();
+    for key in ["m.relates_to", "m.mentions", "m.new_content"] {
+        original.remove(key);
+    }
+    let raw = RawFields {
+        content: Some(serde_json::Value::Object(original)),
+        ..RawFields::default()
+    };
+    Some((message.msgtype, raw))
+}
+
+fn forwarded_sticker(raw: &RawFields) -> Option<StickerEventContent> {
+    serde_json::from_value(
+        raw.original_content
+            .as_ref()
+            .or_else(|| raw.content.as_ref())?
+            .get(super::forward::FORWARDED)?
+            .get("content")?
+            .clone(),
+    )
+    .ok()
+}
+
+fn forwarded_fallback_sticker(raw: &RawFields) -> Option<StickerEventContent> {
+    let original = raw.original_content.as_ref()?;
+    super::forward::forward_meta(original)?;
+    serde_json::from_value(original.clone()).ok()
 }
 
 pub(crate) const CUTE_EVENT_MSGTYPE: &str = "im.fluffychat.cute_event";
@@ -313,7 +379,12 @@ pub(super) fn content(
 ) -> TimelineItemContentView {
     match content {
         TimelineItemContent::MsgLike(msg) => match &msg.kind {
-            MsgLikeKind::Message(message) => message_content(message, profile, raw),
+            MsgLikeKind::Message(message) => forwarded_message_type(raw)
+                .or_else(|| forwarded_fallback_message_type(raw))
+                .map(|(msgtype, forwarded_raw)| {
+                    message_type_content(&msgtype, false, None, &forwarded_raw)
+                })
+                .unwrap_or_else(|| message_content(message, profile, raw)),
             MsgLikeKind::Redacted => TimelineItemContentView::Redacted {
                 reason: raw.redaction_reason(),
                 redacted_by: raw.redacted_by(),
@@ -328,7 +399,8 @@ pub(super) fn content(
                 },
             },
             MsgLikeKind::Sticker(sticker) => {
-                let sticker = sticker.content();
+                let forwarded = forwarded_sticker(raw).or_else(|| forwarded_fallback_sticker(raw));
+                let sticker = forwarded.as_ref().unwrap_or_else(|| sticker.content());
                 TimelineItemContentView::Sticker {
                     body: sticker.body.clone(),
                     source: serde_json::to_string(&sticker.source).unwrap_or_default(),
@@ -423,6 +495,51 @@ mod tests {
     use serde_json::json;
 
     use crate::view::raw::RawFields;
+
+    #[test]
+    fn supported_forwards_render_the_nested_original_content() {
+        let raw = serde_json::from_value::<RawFields>(serde_json::json!({
+            "content": {
+                "msgtype": "m.text",
+                "body": "Forwarded message\\nfallback copy",
+                "org.matrix.msc4553.forwarded": {
+                    "content": {
+                        "msgtype": "m.text",
+                        "body": "original content",
+                        "format": "org.matrix.custom.html",
+                        "formatted_body": "<strong>original</strong> content"
+                    }
+                }
+            }
+        }))
+        .unwrap();
+
+        let (msgtype, forwarded_raw) = forwarded_message_type(&raw).unwrap();
+        let view = message_type_content(&msgtype, false, None, &forwarded_raw);
+        let serialized = serde_json::to_value(view).unwrap();
+
+        assert_eq!(serialized["body"], "original content");
+        assert_eq!(serialized["html"], "<strong>original</strong> content");
+    }
+
+    #[test]
+    fn invalid_forward_content_uses_the_original_fallback_and_ignores_edits() {
+        let mut raw = serde_json::from_value::<RawFields>(serde_json::json!({
+            "content": { "msgtype": "m.text", "body": "edited body" }
+        }))
+        .unwrap();
+        raw.original_content = Some(serde_json::json!({
+            "msgtype": "m.text",
+            "body": "Forwarded message\noriginal fallback",
+            "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text" } }
+        }));
+
+        let (msgtype, original_raw) = forwarded_fallback_message_type(&raw).unwrap();
+        let view = message_type_content(&msgtype, false, None, &original_raw);
+        let serialized = serde_json::to_value(view).unwrap();
+
+        assert_eq!(serialized["body"], "Forwarded message\noriginal fallback");
+    }
 
     #[test]
     fn call_invites_have_a_dedicated_view() {

@@ -17,7 +17,12 @@
   import { DoubleTap } from '#lib/ui/double-tap.js';
   import { hapticFeedback } from '#lib/platform/haptics.js';
   import { mediaProgress } from '#lib/ui/media-progress.svelte.js';
-  import { findMember, personaWithColor, senderDisplayColors } from '../members/members.js';
+  import {
+    findMember,
+    memberName,
+    personaWithColor,
+    senderDisplayColors,
+  } from '../members/members.js';
   import { previewableLinks } from '../media/link-preview.js';
   import LinkEmbed from '../media/embeds/LinkEmbed.svelte';
   import { MessageSwipe } from '../messages/message-swipe.svelte.js';
@@ -195,7 +200,16 @@
       : { name: persona?.display_name ?? accountName, pronouns: [] }
   );
   let senderName = $derived(senderIdentity.name);
-  let emoteName = $derived(splitDisplayNamePronouns(senderName).name);
+  let emoteSender = $derived(item.forwarded ? (item.forwarded.sender ?? null) : item.sender);
+  let emoteName = $derived(
+    splitDisplayNamePronouns(
+      item.forwarded
+        ? emoteSender
+          ? memberName(members, emoteSender)
+          : i18n.t('timeline.unknownSender')
+        : senderName
+    ).name
+  );
   let senderAvatar = $derived(
     persona?.avatar_url === ''
       ? null
@@ -247,7 +261,9 @@
 
   let actionable = $derived(!preview && item.event_id !== null && stalled === null && !pending);
   let editable = $derived(
-    item.is_own && (item.content.kind === 'message' || isMediaCaptionContent(item.content))
+    !item.forwarded &&
+      item.is_own &&
+      (item.content.kind === 'message' || isMediaCaptionContent(item.content))
   );
   const swipe = new MessageSwipe({
     enabled: () => actionable && actions.onReply !== undefined,
@@ -265,6 +281,9 @@
       senderCosmetics,
       senderRole?.color ?? null
     )
+  );
+  let emoteColors = $derived(
+    item.forwarded ? senderDisplayColors(emoteSender ?? '', null) : senderColors
   );
   let senderRoleIcon = $derived(senderRole?.icon ?? null);
 
@@ -287,7 +306,7 @@
       onToggleReaction,
       onMarkUnread,
       onReply,
-      onEdit,
+      onEdit: item.forwarded ? undefined : onEdit,
       onDelete,
       onOpenThread,
       onCopyLink,
@@ -403,6 +422,14 @@
 
   function openSenderProfileAt(anchor: HTMLElement): void {
     if (item.sender) onSenderProfile?.(item.sender, anchor, persona);
+  }
+
+  function openEmoteSenderProfileAt(anchor: HTMLElement): void {
+    if (emoteSender) onSenderProfile?.(emoteSender, anchor, item.forwarded ? null : persona);
+  }
+
+  function mentionEmoteSender(): void {
+    if (emoteSender) onMentionUser?.(emoteSender, emoteName);
   }
 
   function openSenderProfile(event: MouseEvent & { currentTarget: HTMLButtonElement }): void {
@@ -686,13 +713,19 @@
         {#if item.in_reply_to && preferences.replyPreviewStyle !== 'connected' && layout !== 'compact'}
           {@render replyPreview(item.in_reply_to)}
         {/if}
-        {#if item.forwarded}
+        {#if item.forwarded && item.forwarded.content_valid !== false}
           <div>
-            <ForwardedLine forwarded={item.forwarded} {roomId} {onJumpToEvent} />
+            <ForwardedLine forwarded={item.forwarded} {roomId} {members} {onJumpToEvent} />
           </div>
         {/if}
         {#if item.content.kind === 'message' && item.content.emote}
           {@const inlineReceipts = receiptsVisible && receiptsInline}
+          {@const emoteNameOpensProfile =
+            (preferences.usernameClick === 'profile' || onMentionUser === undefined) &&
+            onSenderProfile !== undefined &&
+            emoteSender !== null}
+          {@const emoteNameMentions =
+            !emoteNameOpensProfile && onMentionUser !== undefined && emoteSender !== null}
           <div
             class={['emote', { 'has-receipts': inlineReceipts }]}
             style:--receipt-reserve={inlineReceipts ? `${String(receiptWidth)}px` : undefined}
@@ -700,9 +733,9 @@
           >
             * <SenderName
               displayName={emoteName}
-              colors={senderColors}
-              onMention={nameMentions ? mentionSender : undefined}
-              onProfile={nameOpensProfile ? openSenderProfileAt : undefined}
+              colors={emoteColors}
+              onMention={emoteNameMentions ? mentionEmoteSender : undefined}
+              onProfile={emoteNameOpensProfile ? openEmoteSenderProfileAt : undefined}
             />
             <FormattedBody html={item.content.html} {senderTimezone} {onMatrixLink} />
             {#if inlineReceipts}

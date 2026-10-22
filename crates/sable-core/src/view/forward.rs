@@ -1,3 +1,5 @@
+use matrix_sdk::ruma::events::room::message::RoomMessageEventContent;
+use matrix_sdk::ruma::events::sticker::StickerEventContent;
 use matrix_sdk_ui::timeline::EventTimelineItem;
 use serde::Deserialize as _;
 use serde_with::{DefaultOnError, serde_as};
@@ -13,6 +15,14 @@ pub(crate) const SABLE_FORWARDED: &str = "moe.sable.message.forward";
 #[derive(serde::Deserialize)]
 struct OriginalContent {
     content: Option<serde_json::Value>,
+}
+
+pub(super) fn original_content(event: &EventTimelineItem) -> Option<serde_json::Value> {
+    let original = event
+        .original_json()?
+        .deserialize_as_unchecked::<OriginalContent>()
+        .ok()?;
+    original.content
 }
 
 pub(super) fn forwarded(event: &EventTimelineItem, raw: &RawFields) -> Option<ForwardedView> {
@@ -69,15 +79,18 @@ struct ForwardIn {
     room_id: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError")]
     event_id: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    sender: Option<String>,
 }
 
 pub(super) fn forward_meta(content: &serde_json::Value) -> Option<ForwardedView> {
     if !content.is_object() {
         return None;
     }
+    let msc_content_valid = msc_forward_content_valid(content);
     let content = ForwardContentIn::deserialize(content).ok()?;
     if let Some(meta) = content.msc4553 {
-        return Some(forward_view(meta));
+        return Some(forward_view(meta, msc_content_valid));
     }
     if let Some(meta) = content.sable {
         let private = meta.private.unwrap_or(false);
@@ -85,17 +98,32 @@ pub(super) fn forward_meta(content: &serde_json::Value) -> Option<ForwardedView>
             timestamp: meta.timestamp,
             room_id: (!private).then(|| meta.room_id?.try_into().ok()).flatten(),
             event_id: (!private).then(|| meta.event_id?.try_into().ok()).flatten(),
+            sender: None,
+            content_valid: None,
         });
     }
-    content.famedly.map(forward_view)
+    content.famedly.map(|meta| forward_view(meta, None))
 }
 
-fn forward_view(meta: ForwardIn) -> ForwardedView {
+fn forward_view(meta: ForwardIn, content_valid: Option<bool>) -> ForwardedView {
     ForwardedView {
         timestamp: meta.origin_server_ts,
         room_id: meta.room_id.and_then(|room| room.try_into().ok()),
         event_id: meta.event_id.and_then(|event| event.try_into().ok()),
+        sender: meta.sender.and_then(|sender| sender.try_into().ok()),
+        content_valid,
     }
+}
+
+fn msc_forward_content_valid(content: &serde_json::Value) -> Option<bool> {
+    let forwarded = content.get(FORWARDED)?.as_object()?;
+    Some(forwarded.get("content").is_some_and(|original| {
+        if content.get("msgtype").is_some() {
+            serde_json::from_value::<RoomMessageEventContent>(original.clone()).is_ok()
+        } else {
+            serde_json::from_value::<StickerEventContent>(original.clone()).is_ok()
+        }
+    }))
 }
 
 #[cfg(test)]
@@ -155,6 +183,8 @@ mod tests {
     #[test]
     fn forward_meta_prefers_msc4553_over_legacy_keys() {
         let meta = forward_meta(&json!({
+            "msgtype": "m.text",
+            "body": "fallback",
             "org.matrix.msc4553.forwarded": {
                 "origin_server_ts": 3,
                 "room_id": "!room:example.org",
@@ -172,13 +202,47 @@ mod tests {
                 .map(matrix_sdk::ruma::EventId::as_str),
             Some("$event")
         );
+        assert_eq!(meta.content_valid, Some(true));
 
         let bare = forward_meta(&json!({
+            "msgtype": "m.text",
+            "body": "fallback",
             "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text", "body": "hi" } }
         }))
         .unwrap();
         assert_eq!(bare.timestamp, None);
         assert_eq!(bare.room_id, None);
+        assert_eq!(bare.content_valid, Some(true));
+
+        let invalid = forward_meta(&json!({
+            "msgtype": "m.text",
+            "body": "fallback",
+            "org.matrix.msc4553.forwarded": { "content": { "msgtype": "m.text" } }
+        }))
+        .unwrap();
+        assert_eq!(invalid.content_valid, Some(false));
+
+        let missing = forward_meta(&json!({
+            "msgtype": "m.text",
+            "body": "fallback",
+            "org.matrix.msc4553.forwarded": {}
+        }))
+        .unwrap();
+        assert_eq!(missing.content_valid, Some(false));
+    }
+
+    #[test]
+    fn forwarded_sticker_content_is_validated_as_a_sticker_event() {
+        let sticker = json!({ "body": "seal", "url": "mxc://example.org/seal", "info": {} });
+        let meta = forward_meta(&json!({
+            "body": "seal",
+            "url": "mxc://example.org/seal",
+            "info": {},
+            "org.matrix.msc4553.forwarded": { "content": sticker }
+        }))
+        .unwrap();
+
+        assert_eq!(meta.content_valid, Some(true));
     }
 
     #[test]
