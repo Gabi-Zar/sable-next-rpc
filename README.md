@@ -101,7 +101,7 @@ Use `sable-nightly-bin` for nightly builds.
 
 #### Using Forgejo Repositories
 
-Packages are published to the Forgejo repositories at `git.sable.moe`. Use `nightly` instead of `stable` for nightly builds; the package is then `sable-next`.
+Packages are published to the Forgejo repositories at `git.sable.moe`. Use `nightly` instead of `stable` for nightly builds; the package is then `sable-nightly`.
 
 ##### Debian, Ubuntu
 

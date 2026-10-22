@@ -22,8 +22,6 @@ depends=(
   'hicolor-icon-theme'
   'desktop-file-utils'
 )
-provides=('sable')
-conflicts=('sable' 'sable-bin')
 options=('!strip' '!debug')
 install=${pkgname}.install
 source_x86_64=("${pkgname}-${pkgver}-amd64.deb::${url}/releases/download/nightly-${_relver}/sable-${_relver}-amd64.deb")

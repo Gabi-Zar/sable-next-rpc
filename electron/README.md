@@ -7,8 +7,9 @@ For a stable package, build the web assets and package with `SABLE_BUILD_FLAVOR=
 
 `package.mjs` picks `electron-builder.stable.yml` or `electron-builder.nightly.yml`, both
 extending `electron-builder.yml`, from `SABLE_BUILD_FLAVOR`: only `stable` builds the stable
-package. Stable builds keep the identity the Tauri app shipped (`moe.sable.client`), so they
-read the same data directory; nightlies use `moe.sable.next`.
+package. Stable builds keep the Tauri identity (`moe.sable.client`) and its data directory;
+nightlies keep the Tauri nightly identity (`moe.sable.next.nightly`) and install alongside
+stable as `Sable Nightly`.
 On first launch the app copies the Tauri app's permission grants, telemetry consent and
 smooth-scrolling choice (`src/tauri-import.ts`).
 
