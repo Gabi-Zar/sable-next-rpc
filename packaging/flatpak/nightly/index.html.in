@@ -70,18 +70,18 @@
     <p class="version">@VERSION@</p>
 
     <p class="warn">
-      Rebuilt from the main branch on every push, and it breaks. There is no stable channel yet.
+      Nightly builds from the main branch may be unstable.
     </p>
 
     <h2>Install</h2>
     <pre><code>flatpak remote-add --if-not-exists sable-next-nightly @BASE_URL@/sable-next-nightly.flatpakrepo
-flatpak install sable-next-nightly moe.sable.next.Nightly</code></pre>
+flatpak install sable-next-nightly moe.sable.next.electron.Nightly</code></pre>
 
     <h2>Update</h2>
-    <pre><code>flatpak update moe.sable.next.Nightly</code></pre>
+    <pre><code>flatpak update moe.sable.next.electron.Nightly</code></pre>
 
     <h2>Uninstall</h2>
-    <pre><code>flatpak uninstall moe.sable.next.Nightly
+    <pre><code>flatpak uninstall moe.sable.next.electron.Nightly
 flatpak remote-delete sable-next-nightly</code></pre>
 
     <p>

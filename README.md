@@ -84,7 +84,7 @@ Stable builds are on [Flathub](https://flathub.org/apps/moe.sable.client). Night
 
 ```bash
 flatpak remote-add --if-not-exists sable-next-nightly https://sableclient.github.io/sable-next/sable-next-nightly.flatpakrepo
-flatpak install sable-next-nightly moe.sable.next.Nightly
+flatpak install sable-next-nightly moe.sable.next.electron.Nightly
 ```
 
 #### Arch Linux

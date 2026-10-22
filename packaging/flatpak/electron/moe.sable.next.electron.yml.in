@@ -47,6 +47,7 @@ modules:
       no-debuginfo: true
     build-commands:
       - cp -a sable-electron ${FLATPAK_DEST}/sable-electron
+      - test -x ${FLATPAK_DEST}/sable-electron/sable
       - install -Dm755 sable-electron.sh ${FLATPAK_DEST}/bin/sable-electron
       - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/LICENSE
       - install -Dm644 moe.sable.next.electron.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
@@ -58,7 +59,7 @@ modules:
     sources:
       - type: archive
         dest: sable-electron
-        strip-components: 0
+        strip-components: 1
         url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-@VERSION@-x64.tar.gz
         sha256: '@SHA256_X86_64@'
         only-arches: [x86_64]
@@ -70,7 +71,7 @@ modules:
           is-main-source: true
       - type: archive
         dest: sable-electron
-        strip-components: 0
+        strip-components: 1
         url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-@VERSION@-arm64.tar.gz
         sha256: '@SHA256_AARCH64@'
         only-arches: [aarch64]

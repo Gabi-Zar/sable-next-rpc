@@ -49,13 +49,14 @@ modules:
           - https://deb.debian.org/debian/pool/main/d/desktop-file-utils/desktop-file-utils_0.28.orig.tar.xz
         sha256: 4401d4e231d842c2de8242395a74a395ca468cd96f5f610d822df33594898a70
 
-  - name: sable-electron
+  - name: sable
     buildsystem: simple
     build-options:
       strip: false
       no-debuginfo: true
     build-commands:
-      - cp -a sable-electron ${FLATPAK_DEST}/sable-electron
+      - cp -a sable ${FLATPAK_DEST}/sable
+      - test -x ${FLATPAK_DEST}/sable/sable
       - install -Dm755 sable.sh ${FLATPAK_DEST}/bin/sable
       - install -Dm644 LICENSE ${FLATPAK_DEST}/share/licenses/${FLATPAK_ID}/LICENSE
       - install -Dm644 moe.sable.client.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
@@ -66,8 +67,8 @@ modules:
       - install -Dm644 256x256.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/${FLATPAK_ID}.png
     sources:
       - type: archive
-        dest: sable-electron
-        strip-components: 0
+        dest: sable
+        strip-components: 1
         url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-@VERSION@-x64.tar.gz
         sha256: '@SHA256_X86_64@'
         only-arches: [x86_64]
@@ -78,8 +79,8 @@ modules:
           url-query: .assets[] | select(.name == "sable-" + $version + "-x64.tar.gz") | .browser_download_url
           is-main-source: true
       - type: archive
-        dest: sable-electron
-        strip-components: 0
+        dest: sable
+        strip-components: 1
         url: https://git.sable.moe/SableClient/sable-next/releases/download/v@VERSION@/sable-@VERSION@-arm64.tar.gz
         sha256: '@SHA256_AARCH64@'
         only-arches: [aarch64]
