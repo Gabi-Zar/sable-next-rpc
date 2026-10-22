@@ -50,6 +50,7 @@ pub(crate) struct StickyMember {
 #[derive(Default)]
 pub(crate) struct StickyMemberships {
     entries: HashMap<(OwnedUserId, String, RtcWire, String), StickyEntry>,
+    redacted: HashMap<String, u64>,
 }
 
 struct StickyEntry {
@@ -396,6 +397,17 @@ struct StickyUnsignedIn {
 }
 
 impl StickyMemberships {
+    pub(crate) fn redact(&mut self, event_id: &str, now_ms: u64) {
+        self.redacted.retain(|_, expires| *expires > now_ms);
+        self.redacted
+            .insert(event_id.to_owned(), now_ms.saturating_add(3_600_000));
+        for entry in self.entries.values_mut() {
+            if entry.event_id == event_id {
+                entry.member = None;
+            }
+        }
+    }
+
     pub(crate) fn apply_untrusted(&mut self, value: &serde_json::Value, now_ms: u64) -> bool {
         let Some(content) = value.get("content").and_then(serde_json::Value::as_object) else {
             return false;
@@ -525,6 +537,7 @@ impl StickyMemberships {
     )]
     pub(crate) fn apply(&mut self, value: &serde_json::Value, now_ms: u64) -> bool {
         self.entries.retain(|_, entry| entry.expires_at_ms > now_ms);
+        self.redacted.retain(|_, expires| *expires > now_ms);
         let Ok(event) = StickyEventIn::deserialize(value) else {
             return false;
         };
@@ -548,6 +561,9 @@ impl StickyMemberships {
         let Some(event_id) = event.event_id.as_deref().filter(|id| !id.is_empty()) else {
             return false;
         };
+        if self.redacted.contains_key(event_id) {
+            return false;
+        }
         let Some(created_ts) = event.origin_server_ts else {
             return false;
         };
@@ -566,6 +582,9 @@ impl StickyMemberships {
             .map_or(now_ms.min(created_ts).saturating_add(duration), |ttl| {
                 now_ms.saturating_add(ttl.min(duration))
             });
+        if duration == 0 || expires_at_ms <= now_ms {
+            return false;
+        }
         let wire = match content
             .rest
             .get("slot_id")
@@ -758,7 +777,7 @@ mod tests {
             foci: foci.iter().map(|url| (*url).to_owned()).collect(),
             screen_sharing: false,
             wire: super::RtcWire::Deployed,
-            focus_servers: Default::default(),
+            focus_servers: std::collections::HashMap::default(),
         }
     }
 
@@ -865,6 +884,59 @@ mod tests {
     }
 
     #[test]
+    fn redaction_removes_membership_and_rejects_stale_replays() {
+        let mut store = StickyMemberships::default();
+        let event = sticky_event("$member", 100);
+        assert!(store.apply(&event, 100));
+        store.redact("$member", 200);
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
+        assert!(!store.apply(&event, 200));
+        assert!(!store.apply(&sticky_event("$older", 50), 200));
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
+        assert!(store.apply(&sticky_event("$renewed", 300), 300));
+        assert_eq!(store.members(300).len(), 1);
+    }
+
+    #[test]
+    fn redaction_before_decryption_prevents_a_late_join() {
+        let mut store = StickyMemberships::default();
+        store.redact("$member", 200);
+        assert!(!store.apply(&sticky_event("$member", 100), 300));
+        assert_eq!(
+            store.members(300),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
+    }
+
+    #[test]
+    fn redacting_an_older_event_preserves_its_replacement() {
+        let mut store = StickyMemberships::default();
+        assert!(store.apply(&sticky_event("$old", 100), 100));
+        assert!(store.apply(&sticky_event("$new", 200), 200));
+        store.redact("$old", 300);
+        assert_eq!(store.members(300).len(), 1);
+    }
+
+    #[test]
+    fn non_sticky_and_expired_events_cannot_replace_a_live_member() {
+        let mut store = StickyMemberships::default();
+        assert!(store.apply(&sticky_event("$live", 100), 100));
+        let mut event = sticky_event("$zero-duration", 1_000_000);
+        event["msc4354_sticky"]["duration_ms"] = json!(0);
+        assert!(!store.apply(&event, 200));
+        let mut event = sticky_event("$expired", 200);
+        event["unsigned"] = json!({"sticky_duration_remaining_ms": 0});
+        assert!(!store.apply(&event, 200));
+        assert_eq!(store.members(200).len(), 1);
+    }
+
+    #[test]
     fn authenticated_memberships_bind_join_and_leave_to_the_sending_device() {
         let mut store = StickyMemberships::default();
         let event = sticky_event("$a", 100);
@@ -877,7 +949,10 @@ mod tests {
         assert!(!store.apply_authenticated(&replacement, device_id!("LAPTOP"), 200));
         assert_eq!(store.members(200).len(), 1);
         assert!(store.apply_authenticated(&replacement, device_id!("PHONE"), 200));
-        assert!(store.members(200).is_empty());
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
     }
 
     #[test]
@@ -1083,7 +1158,10 @@ mod tests {
         let mut updated = sticky_event("$b", 200);
         updated["content"]["member"]["membership"] = serde_json::json!("other");
         assert!(store.apply(&updated, 200));
-        assert!(store.members(200).is_empty());
+        assert_eq!(
+            store.members(200),
+            [] as [crate::calls::membership::CallMember; 0]
+        );
         assert!(!store.apply(&joined, 300));
     }
 

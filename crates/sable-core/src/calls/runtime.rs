@@ -213,7 +213,14 @@ fn content_at(
     if own.mode == CallMode::Matrix2 {
         if own.wire == membership::RtcWire::Stable {
             return MembershipContent::StableMatrix2(StableMatrix2Out {
-                application: Matrix2Application::Call { intent },
+                application: StableApplication {
+                    kind: "m.call",
+                    intent: intent.map(|intent| match intent {
+                        CallIntent::Audio => "m.audio",
+                        CallIntent::Video => "m.video",
+                    }),
+                    capabilities: ["m.render_audio", "m.render_video"],
+                },
                 slot_id: own.wire.slot(),
                 member: StableMember {
                     id: own.member_id.clone(),
@@ -325,13 +332,22 @@ struct StableTransports {
 
 #[derive(Serialize)]
 struct StableMatrix2Out {
-    application: Matrix2Application,
+    application: StableApplication,
     slot_id: &'static str,
     member: StableMember,
     transports: StableTransports,
     sticky_key: Option<String>,
     #[serde(flatten)]
     screen_sharing: Option<ScreenSharing>,
+}
+
+#[derive(Serialize)]
+struct StableApplication {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intent: Option<&'static str>,
+    capabilities: [&'static str; 2],
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -874,6 +890,12 @@ fn join_handlers(
     let room_id = room.room_id().to_owned();
     let wake = Arc::new(Notify::new());
     let mut handlers = vec![watch_members(&client, &room_id, wake.clone())];
+    handlers.push(watch_redactions(
+        &client,
+        &room_id,
+        state.clone(),
+        wake.clone(),
+    ));
     if encrypt_media {
         handlers.extend(watch_keys(
             core,
@@ -1636,8 +1658,8 @@ async fn receive_call_key(
         tracing::warn!(sender = %sender, "ignoring a call media key event without a key");
         return;
     };
-    if keys::decode_key(&payload.key).is_none() {
-        tracing::warn!(sender = %sender, "ignoring a call media key shorter than 16 bytes");
+    if keys::decode_key_for_wire(&payload.key, wire).is_none() {
+        tracing::warn!(sender = %sender, "ignoring a call media key with invalid encoding or length");
         return;
     }
     tracing::debug!(
@@ -1750,6 +1772,35 @@ fn watch_members(
         >| {
             let wake = wake.clone();
             async move { wake.notify_one() }
+        },
+    );
+    client.event_handler_drop_guard(handle)
+}
+
+fn watch_redactions(
+    client: &Client,
+    room_id: &OwnedRoomId,
+    state: Arc<Mutex<State>>,
+    wake: Arc<Notify>,
+) -> EventHandlerDropGuard {
+    let handle = client.add_room_event_handler(
+        room_id,
+        move |event: matrix_sdk::ruma::events::room::redaction::SyncRoomRedactionEvent,
+              room: Room| {
+            let state = state.clone();
+            let wake = wake.clone();
+            async move {
+                if let Some(event_id) =
+                    event.redacts(&room.clone_info().room_version_rules_or_default().redaction)
+                {
+                    state
+                        .lock()
+                        .await
+                        .sticky
+                        .redact(event_id.as_str(), keys::now_ms());
+                    wake.notify_one();
+                }
+            }
         },
     );
     client.event_handler_drop_guard(handle)

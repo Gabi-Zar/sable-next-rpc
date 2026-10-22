@@ -1161,7 +1161,7 @@ mod tests {
             foci: Vec::new(),
             screen_sharing: false,
             wire: super::membership::RtcWire::Deployed,
-            focus_servers: Default::default(),
+            focus_servers: std::collections::HashMap::default(),
         }]);
 
         assert_eq!(views[0].identity, "@erwan:localhost:LAPTOP");

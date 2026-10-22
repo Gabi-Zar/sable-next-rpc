@@ -30,10 +30,14 @@ fn plaintext_membership_is_rejected_in_encrypted_rooms() {
             "content":{"msc4354_sticky_key":"member", "slot_id":"m.call#ROOM", "application":{"type":"m.call"},
                 "member":{"user_id":"@a:example.org", "device_id":"DEVICE", "id":"member"}}}),
         device: None,
+        redacts: None,
     };
     let mut memberships = crate::calls::membership::StickyMemberships::default();
     assert!(event.apply(&mut memberships, true, 100));
-    assert!(memberships.members(100).is_empty());
+    assert_eq!(
+        memberships.members(100),
+        [] as [crate::calls::membership::CallMember; 0]
+    );
     let mut memberships = crate::calls::membership::StickyMemberships::default();
     assert!(event.apply(&mut memberships, false, 100));
 }
@@ -254,6 +258,41 @@ async fn test_sticky_sync_sends_bounded_extensions_and_parses_both_event_locatio
         body["extensions"]["org.matrix.msc4354.sticky_events"]["enabled"],
         true
     );
+}
+
+#[async_test]
+async fn test_sticky_sync_applies_redactions_in_encrypted_rooms() {
+    let (server, room) = room().await;
+    Mock::given(method("POST"))
+        .and(path_regex(".*sync.*"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "pos": "p1",
+            "rooms": { room.room_id().as_str(): { "timeline": [{
+                "type": "m.room.redaction", "event_id": "$redaction",
+                "sender": "@moderator:example.org", "origin_server_ts": 200,
+                "redacts": "$member", "content": {"redacts": "$member"}
+            }] } }
+        })))
+        .mount(server.server())
+        .await;
+    let mut memberships = crate::calls::membership::StickyMemberships::default();
+    let member = json!({
+        "type":"m.rtc.member", "event_id":"$member", "sender":"@a:example.org",
+        "origin_server_ts":100, "sticky":{"duration_ms":60000},
+        "content":{"sticky_key":"member", "slot_id":"m.call#room", "application":{"type":"m.call"},
+            "member":{"id":"member", "membership":"join"}}
+    });
+    assert!(memberships.apply_authenticated(&member, ruma::device_id!("DEVICE"), 100));
+    assert_eq!(memberships.members(100).len(), 1);
+    let mut sync = StickySync::new(42);
+    for event in sync.sync(&room, Duration::ZERO).await.unwrap() {
+        assert!(event.apply(&mut memberships, true, 200));
+    }
+    assert_eq!(
+        memberships.members(200),
+        [] as [crate::calls::membership::CallMember; 0]
+    );
+    assert!(!memberships.apply_authenticated(&member, ruma::device_id!("DEVICE"), 200));
 }
 
 #[async_test]

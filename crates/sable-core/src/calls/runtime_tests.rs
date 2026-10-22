@@ -51,7 +51,7 @@ fn member(mode: CallMode, created_ts: u64, foci: &[&str]) -> CallMember {
         foci: foci.iter().map(ToString::to_string).collect(),
         screen_sharing: false,
         wire: super::membership::RtcWire::Deployed,
-        focus_servers: Default::default(),
+        focus_servers: std::collections::HashMap::default(),
     }
 }
 
@@ -73,6 +73,19 @@ fn stable_membership_uses_stable_wire_fields() {
         serde_json::json!(["m.livekit"])
     );
     assert!(body.get("msc4354_sticky_key").is_none());
+    assert_eq!(
+        body["application"]["capabilities"],
+        serde_json::json!(["m.render_audio", "m.render_video"])
+    );
+    assert!(body["application"].get("intent").is_none());
+    for (intent, value) in [
+        (CallIntent::Audio, "m.audio"),
+        (CallIntent::Video, "m.video"),
+    ] {
+        let body = content(&owned_room_id!("!room:example.org"), &own, Some(intent));
+        assert_eq!(body["application"]["intent"], value);
+        assert!(body["application"].get("m.call.intent").is_none());
+    }
 }
 
 #[tokio::test]
@@ -760,6 +773,55 @@ async fn refresh_fixture(
 async fn refresh_stops_when_an_observed_membership_disappears() {
     let (core, _events, room, state) = refresh_fixture(super::keys::now_ms(), true).await;
     assert!(!refresh(&core, 0, CallSessionId(1), &room, &state).await);
+}
+
+#[tokio::test]
+async fn sdk_redaction_removes_sticky_membership_and_wakes_the_call() {
+    use matrix_sdk::ruma::serde::Raw;
+    use matrix_sdk_test::JoinedRoomBuilder;
+    use serde_json::json;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room = server
+        .sync_joined_room(&client, room_id!("!call:example.org"))
+        .await;
+    let state = Arc::new(Mutex::new(State::new(
+        member(CallMode::Matrix2, 100, &[]),
+        Vec::new(),
+        super::StickyMemberships::default(),
+        &room.room_id().to_owned(),
+        false,
+        None,
+        false,
+    )));
+    let event = json!({
+        "type":"m.rtc.member", "event_id":"$member", "sender":"@user:example.org",
+        "origin_server_ts":100, "sticky":{"duration_ms":60000},
+        "content":{"sticky_key":"member", "slot_id":"m.call#room", "application":{"type":"m.call"},
+            "member":{"id":"member", "membership":"join"}}
+    });
+    assert!(state.lock().await.sticky.apply(&event, 100));
+    let wake = Arc::new(tokio::sync::Notify::new());
+    let _guard = super::watch_redactions(
+        &client,
+        &room.room_id().to_owned(),
+        state.clone(),
+        wake.clone(),
+    );
+    server.sync_room(&client, JoinedRoomBuilder::new(room.room_id()).add_timeline_event(
+        Raw::new(&json!({
+            "type":"m.room.redaction", "event_id":"$redaction", "sender":"@moderator:example.org",
+            "origin_server_ts":200, "redacts":"$member", "content":{"redacts":"$member"}
+        })).unwrap().cast_unchecked::<matrix_sdk::ruma::events::AnySyncTimelineEvent>()
+    )).await;
+    tokio::time::timeout(std::time::Duration::from_secs(1), wake.notified())
+        .await
+        .unwrap();
+    assert_eq!(
+        state.lock().await.sticky.members(200),
+        [] as [crate::calls::membership::CallMember; 0]
+    );
 }
 
 #[tokio::test]

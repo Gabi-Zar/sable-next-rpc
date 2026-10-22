@@ -3,10 +3,10 @@ use std::time::Duration;
 use crate::delayed_events::DelayedEventsSupport;
 use matrix_sdk::deserialized_responses::{EncryptionInfo, VerificationLevel, VerificationState};
 use matrix_sdk::{Client, Room};
-use ruma::OwnedDeviceId;
 use ruma::api::client::sync::sync_events::v5;
 use ruma::events::{StateEventType, room::encrypted::OriginalSyncRoomEncryptedEvent};
 use ruma::serde::Raw;
+use ruma::{OwnedDeviceId, OwnedEventId};
 use serde_json::Value;
 
 const STICKY_DURATION_MS: u32 = 3_600_000;
@@ -22,6 +22,18 @@ pub(super) struct StickySync {
 pub(crate) struct Event {
     value: Value,
     device: Option<OwnedDeviceId>,
+    redacts: Option<OwnedEventId>,
+}
+
+fn redaction_target(room: &Room, value: &Value) -> Option<OwnedEventId> {
+    if value.get("type")?.as_str()? != "m.room.redaction" {
+        return None;
+    }
+    let event: ruma::events::room::redaction::SyncRoomRedactionEvent =
+        serde_json::from_value(value.clone()).ok()?;
+    event
+        .redacts(&room.clone_info().room_version_rules_or_default().redaction)
+        .map(ToOwned::to_owned)
 }
 
 fn authenticated_device(info: Option<&EncryptionInfo>, value: &Value) -> Option<OwnedDeviceId> {
@@ -48,6 +60,10 @@ impl Event {
         encrypted: bool,
         now: u64,
     ) -> bool {
+        if let Some(event_id) = &self.redacts {
+            memberships.redact(event_id.as_str(), now);
+            return true;
+        }
         if encrypted {
             let Some(device) = &self.device else {
                 return memberships.apply_untrusted(&self.value, now);
@@ -164,6 +180,7 @@ impl StickySync {
         for (value, expires) in candidates {
             if value.get("type").and_then(Value::as_str) != Some("m.room.encrypted") {
                 resolved.push(Event {
+                    redacts: redaction_target(room, &value),
                     value,
                     device: None,
                 });
@@ -215,6 +232,7 @@ impl StickySync {
             resolved.push(Event {
                 value: plaintext,
                 device,
+                redacts: None,
             });
         }
         Ok(resolved)
@@ -243,7 +261,11 @@ pub(crate) fn live_events(room: &Room) -> Vec<Event> {
             })
             .ok()?;
             let device = authenticated_device(event.encryption_info().map(AsRef::as_ref), &value);
-            Some(Event { value, device })
+            Some(Event {
+                value,
+                device,
+                redacts: None,
+            })
         })
         .collect()
 }

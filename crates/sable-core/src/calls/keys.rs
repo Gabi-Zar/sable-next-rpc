@@ -496,6 +496,14 @@ pub(crate) fn decode_key(encoded: &str) -> Option<Vec<u8>> {
         .filter(|key| key.len() >= MIN_RECEIVED_KEY_BYTES)
 }
 
+pub(crate) fn decode_key_for_wire(
+    encoded: &str,
+    wire: super::membership::RtcWire,
+) -> Option<Vec<u8>> {
+    decode_key(encoded)
+        .filter(|key| wire != super::membership::RtcWire::Stable || key.len() >= KEY_BYTES)
+}
+
 pub(crate) fn now_ms() -> u64 {
     MilliSecondsSinceUnixEpoch::now().get().into()
 }
@@ -523,7 +531,7 @@ mod tests {
             foci: Vec::new(),
             screen_sharing: false,
             wire: super::super::membership::RtcWire::Deployed,
-            focus_servers: Default::default(),
+            focus_servers: std::collections::HashMap::default(),
         }
     }
 
@@ -788,6 +796,21 @@ mod tests {
     }
 
     #[test]
+    fn stable_livekit_requires_at_least_32_bytes() {
+        use super::super::membership::RtcWire;
+        use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD};
+
+        for length in [16, 31, 32, 64] {
+            let encoded = STANDARD_NO_PAD.encode(vec![5; length]);
+            assert_eq!(
+                super::decode_key_for_wire(&encoded, RtcWire::Stable).is_some(),
+                length >= 32,
+            );
+            assert!(super::decode_key_for_wire(&encoded, RtcWire::Deployed).is_some());
+        }
+    }
+
+    #[test]
     fn test_the_deprecated_format_still_resolves_the_key_and_member() {
         let content =
             serde_json::from_value::<ToDeviceCallEncryptionKeysEventContent>(serde_json::json!({
@@ -903,7 +926,7 @@ mod sdk_tests {
             foci: Vec::new(),
             screen_sharing: false,
             wire: super::super::membership::RtcWire::Deployed,
-            focus_servers: Default::default(),
+            focus_servers: std::collections::HashMap::default(),
         }
     }
 
