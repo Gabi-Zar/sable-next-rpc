@@ -13,6 +13,7 @@ pub(crate) const KEY_BYTES: usize = 16;
 pub(crate) const ROTATION_GRACE_MS: u64 = 10_000;
 pub(crate) const USE_KEY_DELAY_MS: u64 = 5_000;
 pub(crate) const RESHARE_INTERVAL_MS: u64 = 60_000;
+const KEY_ROTATION_INTERVAL_MS: u64 = 3_600_000;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct KeyPayload {
@@ -148,7 +149,7 @@ pub(crate) fn plan_rollout(
     let anyone_left = still_valid
         .iter()
         .any(|shared| !members.iter().any(|member| member.same_generation(shared)));
-    if anyone_left {
+    if anyone_left || now_ms.saturating_sub(current.created_ts) >= KEY_ROTATION_INTERVAL_MS {
         return Rollout::Rotate {
             targets: members.to_vec(),
         };
@@ -576,6 +577,30 @@ mod tests {
         assert_eq!(
             plan_rollout(Some(&current), &members, 1_100, 10_000),
             Rollout::Unchanged
+        );
+    }
+
+    #[test]
+    fn an_unchanged_roster_rotates_after_the_key_lifetime() {
+        let members = vec![member("LAPTOP", 100)];
+        let current = key_shared_with(&members, 1_000);
+        assert_eq!(
+            plan_rollout(
+                Some(&current),
+                &members,
+                1_000 + super::KEY_ROTATION_INTERVAL_MS - 1,
+                10_000
+            ),
+            Rollout::Unchanged
+        );
+        assert_eq!(
+            plan_rollout(
+                Some(&current),
+                &members,
+                1_000 + super::KEY_ROTATION_INTERVAL_MS,
+                10_000
+            ),
+            Rollout::Rotate { targets: members }
         );
     }
 
