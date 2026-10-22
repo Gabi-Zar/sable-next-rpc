@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { i18n } from '#lib/i18n.js';
+  import Select from '#lib/ui/primitives/Select.svelte';
 
   interface Props {
     onScan: (data: Uint8Array) => void;
@@ -15,6 +16,10 @@
 
   let video = $state<HTMLVideoElement>();
   let failed = $state(false);
+  let cameras = $state<MediaDeviceInfo[]>([]);
+  let selectedCamera = $state('');
+  let switching = $state(false);
+  let switchCamera = $state<(deviceId: string) => void>(() => {});
 
   function isVerificationCode(data: number[]): boolean {
     return HEADER.every((byte, index) => data[index] === byte);
@@ -24,31 +29,59 @@
     let stream: MediaStream | undefined;
     let timer: ReturnType<typeof setInterval> | undefined;
     let stopped = false;
+    let generation = 0;
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d', { willReadFrequently: true });
 
-    async function start(): Promise<void> {
+    function stopStream(): void {
+      clearInterval(timer);
+      stream?.getTracks().forEach((track) => track.stop());
+      stream = undefined;
+      if (video) video.srcObject = null;
+    }
+
+    async function start(deviceId?: string): Promise<void> {
+      const current = ++generation;
+      switching = true;
+      failed = false;
+      stopStream();
+      let next: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        next = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: 'environment' },
+          video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' },
         });
       } catch {
-        failed = true;
+        if (!stopped && current === generation) {
+          failed = true;
+          switching = false;
+        }
         return;
       }
-      if (stopped || !video || !context) {
-        stream.getTracks().forEach((track) => {
-          track.stop();
-        });
+      if (stopped || current !== generation || !video || !context) {
+        next.getTracks().forEach((track) => track.stop());
         return;
       }
+      stream = next;
+      selectedCamera = next.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId ?? '';
+      // Camera labels and additional devices may only be available after permission is granted.
+      void navigator.mediaDevices.enumerateDevices?.().then(
+        (devices) => {
+          if (!stopped && current === generation) {
+            cameras = devices.filter((device) => device.kind === 'videoinput' && device.deviceId);
+          }
+        },
+        () => {}
+      );
       const { default: jsQR } = await import('jsqr');
+      if (stopped || current !== generation) return;
       const element = video;
-      element.srcObject = stream;
+      element.srcObject = next;
       await element.play().catch((error: unknown) => {
         console.debug('[sable settings] camera preview did not start', error);
       });
+      if (stopped || current !== generation) return;
+      switching = false;
 
       timer = setInterval(() => {
         if (!element.videoWidth) return;
@@ -64,29 +97,42 @@
           inversionAttempts: 'dontInvert',
         });
         if (!found || !isVerificationCode(found.binaryData)) return;
-        clearInterval(timer);
+        stopped = true;
+        stopStream();
         onScan(new Uint8Array(found.binaryData));
       }, SCAN_INTERVAL_MS);
     }
 
+    switchCamera = (deviceId) => void start(deviceId);
     void start();
 
     return () => {
       stopped = true;
-      clearInterval(timer);
-      stream?.getTracks().forEach((track) => {
-        track.stop();
-      });
+      generation += 1;
+      stopStream();
     };
   });
 </script>
 
+{#if cameras.length > 1}
+  <Select
+    items={cameras.map((camera, index) => ({
+      value: camera.deviceId,
+      label: camera.label || `${i18n.t('settings.callCameraDevice')} ${String(index + 1)}`,
+      labelClass: 'literal-label',
+    }))}
+    value={selectedCamera}
+    disabled={switching}
+    aria-label={i18n.t('settings.callCameraDevice')}
+    onValueChange={switchCamera}
+  />
+{/if}
+<div class="verification-scanner" hidden={failed}>
+  <video bind:this={video} muted playsinline aria-label={i18n.t('settings.scanningQr')}></video>
+</div>
 {#if failed}
   <p class="verification-scanner-failed" role="alert">{i18n.t('settings.cameraUnavailable')}</p>
 {:else}
-  <div class="verification-scanner">
-    <video bind:this={video} muted playsinline aria-label={i18n.t('settings.scanningQr')}></video>
-  </div>
   <p class="verification-scanner-hint" role="status">{i18n.t('settings.scanningQr')}</p>
 {/if}
 
