@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { ConnectionState, RoomEvent, type Room } from 'livekit-client';
+import {
+  ConnectionState,
+  CryptorError,
+  CryptorErrorReason,
+  RoomEvent,
+  type Room,
+} from 'livekit-client';
 
 import { createLivekitTransport } from './livekit-transport';
 import { ScreenAudioError } from './call-transport';
@@ -102,6 +108,25 @@ const connectOptions = {
   cameraEnabled: false,
   encryptionKeys: [],
 };
+
+test('classifies missing keys from the LiveKit worker without hiding other encryption errors', () => {
+  const { room } = roomFixture();
+  const failure = vi.fn();
+  createLivekitTransport({
+    encryptMedia: false,
+    createRoom: () => room,
+    telemetry: { step: (_stage, action) => action(), event: vi.fn(), failure },
+  });
+
+  const workerError = structuredClone(new Error('MissingKey: missing key at index 0'));
+  room.emit(RoomEvent.EncryptionError, workerError);
+  room.emit(RoomEvent.EncryptionError, new CryptorError('missing', CryptorErrorReason.MissingKey));
+  room.emit(RoomEvent.EncryptionError, new Error('InternalError: encryption failed'));
+
+  expect(failure).toHaveBeenNthCalledWith(1, 'call.encryption.missing_key', workerError, {});
+  expect(failure).toHaveBeenNthCalledWith(2, 'call.encryption.missing_key', expect.any(Error), {});
+  expect(failure).toHaveBeenNthCalledWith(3, 'call.encryption.error', expect.any(Error), {});
+});
 
 beforeEach(() => {
   vi.stubGlobal('screen', { width: 1920, height: 1080 });

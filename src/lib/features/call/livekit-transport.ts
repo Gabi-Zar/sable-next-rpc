@@ -379,8 +379,11 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
       event('call.connection.state', { 'call.connection_state': connectionState });
     })
     .on(RoomEvent.EncryptionError, (error) => {
-      if (error instanceof CryptorError && error.reason === CryptorErrorReason.MissingKey) {
-        event('call.encryption.missing_key');
+      if (
+        (error instanceof CryptorError && error.reason === CryptorErrorReason.MissingKey) ||
+        (error instanceof Error && error.message.startsWith('MissingKey: '))
+      ) {
+        fail('call.encryption.missing_key', error);
         return;
       }
       fail('call.encryption.error', error);

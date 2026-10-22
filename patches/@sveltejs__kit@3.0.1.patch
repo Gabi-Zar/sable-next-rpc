@@ -1,0 +1,12 @@
+diff --git a/src/runtime/client/client.js b/src/runtime/client/client.js
+--- a/src/runtime/client/client.js
++++ b/src/runtime/client/client.js
+@@ -161,7 +161,7 @@ if (DEV) {
+ 
+ /** @param {number} index */
+ function capture_scroll(index) {
+-	history_info[index].scroll = scroll_state();
++	(history_info[index] ??= {}).scroll = scroll_state();
+ }
+ 
+ /**
