@@ -45,7 +45,6 @@
 
 <style>
   .composer-field {
-    /* Reserve space for the expand button's touch target. */
     padding-inline-end: calc(var(--space-050) + (var(--size-x500) + var(--target-hit)) / 2);
   }
 

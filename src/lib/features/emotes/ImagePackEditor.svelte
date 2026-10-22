@@ -400,6 +400,34 @@
     title={i18n.t('emotes.images')}
     description={i18n.t('emotes.imageCount', { count: current.images.length })}
   >
+    {#if canEdit}
+      <div class="settings-form">
+        <div class="inline">
+          <TextInput
+            bind:value={shortcode}
+            placeholder={i18n.t('emotes.shortcodePlaceholder')}
+            aria-label={i18n.t('emotes.shortcode')}
+          />
+          <Button disabled={busy} onclick={() => imageInput?.click()}>
+            {i18n.t('emotes.upload')}
+          </Button>
+        </div>
+        <input
+          bind:this={imageInput}
+          use:nativeFilePicker
+          class="file-input"
+          type="file"
+          accept="image/*"
+          multiple
+          tabindex="-1"
+          aria-hidden="true"
+          onchange={(event) => {
+            void addImages(event);
+          }}
+        />
+      </div>
+    {/if}
+
     {#if current.images.length > 0}
       <ul class="settings-rows">
         {#each current.images as image (image.shortcode)}
@@ -490,34 +518,6 @@
       </ul>
     {:else}
       <p class="status settings-form">{i18n.t('emotes.noImages')}</p>
-    {/if}
-
-    {#if canEdit}
-      <div class="settings-form">
-        <div class="inline">
-          <TextInput
-            bind:value={shortcode}
-            placeholder={i18n.t('emotes.shortcodePlaceholder')}
-            aria-label={i18n.t('emotes.shortcode')}
-          />
-          <Button disabled={busy} onclick={() => imageInput?.click()}>
-            {i18n.t('emotes.upload')}
-          </Button>
-        </div>
-        <input
-          bind:this={imageInput}
-          use:nativeFilePicker
-          class="file-input"
-          type="file"
-          accept="image/*"
-          multiple
-          tabindex="-1"
-          aria-hidden="true"
-          onchange={(event) => {
-            void addImages(event);
-          }}
-        />
-      </div>
     {/if}
   </SettingsSection>
 

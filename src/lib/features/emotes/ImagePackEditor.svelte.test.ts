@@ -80,6 +80,22 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+test('upload controls appear before the existing images', () => {
+  render(ImagePackEditor, { props: { pack: pack(['sticker']), canEdit: true } });
+
+  const image = screen.getByText(':wave:');
+  for (const control of [screen.getByRole('textbox', { name: 'Shortcode' }), button('Upload')]) {
+    expect(control.compareDocumentPosition(image) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  }
+});
+
+test('read-only packs do not show upload controls', () => {
+  render(ImagePackEditor, { props: { pack: pack(['sticker']), canEdit: false } });
+
+  expect(screen.queryByRole('button', { name: 'Upload' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: 'Shortcode' })).not.toBeInTheDocument();
+});
+
 test('an image uploaded to a sticker-only pack follows the pack usage', async () => {
   mocks.uploadMedia.mockResolvedValue('mxc://example.org/party');
   const applied: PackDraft[] = [];
@@ -167,7 +183,9 @@ test('pressing Enter in the shortcode field saves the rename', async () => {
   });
 
   await userEvent.click(screen.getByRole('button', { name: /rename/i }));
-  const [input] = screen.getAllByRole('textbox', { name: 'Shortcode' });
+  const input = within(screen.getByRole('group', { name: /rename/i })).getByRole('textbox', {
+    name: 'Shortcode',
+  });
   await userEvent.clear(input);
   await userEvent.type(input, 'hello{Enter}');
 
