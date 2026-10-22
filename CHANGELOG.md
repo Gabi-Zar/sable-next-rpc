@@ -1,5 +1,27 @@
 # Sable Changelog
 
+## 2.1.5 (2026-10-22)
+
+### Fixes
+
+* Added reply button in the reactions view
+* Clear deafen state when a call ends so the next call uses the lobby microphone setting.
+* Fix long messages extending under the composer's expand button on iOS.
+* Keep a custom profile name colour legible on a tinted profile card in the dark theme.
+* Update desktop and web dependencies and fix certificate trust vulnerabilities.
+* Allow dots in sticker and emote shortcodes.
+* Update the emoji picker to Emoji 18 with refreshed labels and shortcodes.
+* Fix Flatpak startup by extracting the app to the correct directory.
+* Add a toggle to omit original event metadata when forwarding a message. Existing forwards retain their metadata as required by MSC4553.
+* Keep custom emoji as images when placed inside inline code in plain-text mode.
+* Keep role tag colours legible on every theme, whatever the name colour correction is set to.
+* Fix the login Tab order so the password field comes before the forgot-password link.
+* Use the selected per-message profile for polls, locations, galleries, reactions, gestures, bot commands, forwards, scheduled messages, and notification replies.
+* Open the native file dialog for profile pictures, banners, avatars and emoji uploads in the desktop and mobile apps.
+* Give every incoming message its own alert on desktop and web push instead of replacing a room's notification.
+* Keep inline code hidden inside spoilers when composing and editing messages.
+* Remember the desktop window's size, position, maximized and full screen state across restarts.
+
 ## 2.1.4 (2026-10-21)
 
 ### Fixes
