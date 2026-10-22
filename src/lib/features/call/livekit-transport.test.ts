@@ -417,6 +417,20 @@ test('key import failures only clear readiness for the publisher key', async () 
   await expect(provider.waitForOwnKey('publisher')).rejects.toThrow('own-key-failed');
 });
 
+test('remote keys do not change the publisher key index restored on reconnect', async () => {
+  const provider = new MatrixKeyProvider();
+  const key = new Uint8Array(16);
+  await provider.setKey({ identity: 'publisher', keyIndex: 3, key }, true);
+  await provider.setKey({ identity: 'remote', keyIndex: 7, key }, false);
+  expect(provider.getLatestManuallySetKeyIndex()).toBe(3);
+  await provider.setKey({ identity: 'publisher', keyIndex: 4, key }, true);
+  expect(provider.getLatestManuallySetKeyIndex()).toBe(4);
+  await provider.setKey({ identity: 'publisher', keyIndex: 255, key }, true);
+  await provider.setKey({ identity: 'publisher', keyIndex: 0, key }, true);
+  await provider.setKey({ identity: 'remote', keyIndex: 255, key }, false);
+  expect(provider.getLatestManuallySetKeyIndex()).toBe(0);
+});
+
 test('does not connect when an initial encryption key cannot be imported', async () => {
   const fixture = roomFixture();
   vi.spyOn(crypto.subtle, 'importKey').mockRejectedValueOnce(new Error('import failed'));

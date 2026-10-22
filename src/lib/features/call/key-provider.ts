@@ -44,6 +44,11 @@ export class MatrixKeyProvider extends BaseKeyProvider {
     return { ...this.#state };
   }
 
+  override getLatestManuallySetKeyIndex(): number {
+    // LiveKit uses this index to restore the publisher key after signaling reconnects.
+    return this.#state.keyIndex ?? super.getLatestManuallySetKeyIndex();
+  }
+
   subscribe(listener: (state: KeyProviderState) => void): () => void {
     this.#listeners.add(listener);
     listener(this.state);
