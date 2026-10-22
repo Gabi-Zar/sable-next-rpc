@@ -56,7 +56,7 @@ const marks = fc
     link: fc.option(fc.stringMatching(/^[a-z <>()]{1,5}$/), { nil: null }),
   })
   .map((chosen): Mark[] => {
-    if (chosen.code) return [code.create()];
+    if (chosen.code) return chosen.spoiler ? [code.create(), spoiler.create()] : [code.create()];
     const set: Mark[] = [];
     if (chosen.strong) set.push(strong.create());
     if (chosen.em) set.push(em.create());

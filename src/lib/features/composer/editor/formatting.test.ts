@@ -87,6 +87,29 @@ test('a spoiler typed between double bars becomes the spoiler mark', () => {
   expect(marksOn('butler')).toEqual(['spoiler']);
 });
 
+test.each([
+  ['code', 'spoiler'],
+  ['spoiler', 'code'],
+] as const)('applying %s then %s keeps inline code hidden', (first, second) => {
+  const editor = open();
+  type('secret');
+  editor.dispatch(editor.state.tr.setSelection(new AllSelection(editor.state.doc)));
+  formatCommands[first](editor.state, editor.dispatch);
+  formatCommands[second](editor.state, editor.dispatch);
+
+  expect(marksOn('secret')).toEqual(['code', 'spoiler']);
+  expect(serializeComposer(editor.state.doc).body).not.toContain('secret');
+});
+
+test('typing inline code inside a spoiler keeps the whole spoiler hidden', () => {
+  const editor = open();
+  type('||before `secret` after||');
+
+  expect(marksOn('secret')).toEqual(['code', 'spoiler']);
+  expect(serializeComposer(editor.state.doc).body).not.toContain('secret');
+  expect(serializeComposer(editor.state.doc).body).not.toContain('after');
+});
+
 test('double bars around spaces stay literal', () => {
   open();
   type('a || b || c');

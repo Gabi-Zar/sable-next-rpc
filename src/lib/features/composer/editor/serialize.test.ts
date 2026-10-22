@@ -232,6 +232,54 @@ test('underline and spoiler each serialise to their Matrix HTML', () => {
   expect(message.formatted).toBe('<u>u</u> <span data-mx-spoiler="">secret</span>');
 });
 
+test.each(['||before `secret` after||', '||`secret`||', '||before `||secret||` after||'])(
+  'inline code stays hidden when parsing %s',
+  (source) => {
+    for (const message of [
+      serializePlain(textDoc(source)),
+      serializeComposer(richFromPlain(textDoc(source))),
+    ]) {
+      const holder = document.createElement('div');
+      holder.innerHTML = message.formatted ?? '';
+      const code = holder.querySelector('code');
+      expect(code?.textContent).toContain('secret');
+      expect(
+        code?.closest('[data-mx-spoiler]') ?? code?.querySelector('[data-mx-spoiler]')
+      ).not.toBeNull();
+      const visible = holder.cloneNode(true) as HTMLElement;
+      for (const spoiler of visible.querySelectorAll('[data-mx-spoiler]')) spoiler.remove();
+      expect(visible.textContent).toBe('');
+    }
+  }
+);
+
+test('editing spoilered inline code preserves the spoiler reason and hidden fallback', () => {
+  const source = parseMatrixHtml(
+    '<span data-mx-spoiler="answer">before <code>secret</code> after</span>'
+  );
+  const message = serializeComposer(source);
+  expect(message.body).not.toContain('secret');
+  const holder = document.createElement('div');
+  holder.innerHTML = message.formatted ?? '';
+  expect(holder.querySelector('code [data-mx-spoiler]')?.getAttribute('data-mx-spoiler')).toBe(
+    'answer'
+  );
+});
+
+test('spoilered code containing bars survives a table Markdown round trip', () => {
+  const source = parseMatrixHtml(
+    '<table><tr><th>header</th></tr><tr><td><span data-mx-spoiler=""><code>||secret||</code></span></td></tr></table>'
+  );
+  const message = serializeComposer(source);
+
+  expect(serializeComposer(richFromPlain(textDoc(composerMarkdown(source)))).formatted).toBe(
+    message.formatted
+  );
+  expect(serializePlain(plainEditDoc(message.body, message.formatted ?? '')).formatted).toBe(
+    message.formatted
+  );
+});
+
 test('a heading keeps its level', () => {
   const message = serializeComposer(
     docOf(heading.create({ level: 2 }, composerSchema.text('Hello')))

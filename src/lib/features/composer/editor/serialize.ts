@@ -1,4 +1,4 @@
-import MarkdownIt from 'markdown-it';
+import MarkdownIt, { type StateInline } from 'markdown-it';
 import {
   defaultMarkdownSerializer,
   MarkdownParser,
@@ -609,10 +609,16 @@ tokenizer.inline.ruler.at('text', (state, silent) => {
   return true;
 });
 
-function spoilerClose(src: string, from: number, max: number): number {
+function spoilerClose(state: StateInline, from: number, max: number): number {
+  const { src, pos } = state;
   for (let index = from; index + 2 <= max; index += 1) {
     if (src[index] === '\\') index += 1;
-    else if (src.startsWith('||', index)) return index;
+    else if (src[index] === '`') {
+      state.pos = index;
+      state.md.inline.skipToken(state);
+      index = state.pos - 1;
+      state.pos = pos;
+    } else if (src.startsWith('||', index)) return index;
   }
   return -1;
 }
@@ -620,7 +626,7 @@ function spoilerClose(src: string, from: number, max: number): number {
 tokenizer.inline.ruler.before('text', 'spoiler', (state, silent) => {
   const start = state.pos;
   if (!state.src.startsWith('||', start)) return false;
-  const close = spoilerClose(state.src, start + 2, state.posMax);
+  const close = spoilerClose(state, start + 2, state.posMax);
   if (close < 0) return false;
   const inner = state.src.slice(start + 2, close);
   if (inner === '' || /^\s|\s$/.test(inner)) return false;
