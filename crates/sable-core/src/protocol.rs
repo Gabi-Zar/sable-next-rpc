@@ -516,9 +516,9 @@ pub struct SearchMetricsView {
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub memory_budget: usize,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
-    pub disk_bytes: usize,
+    pub disk_bytes: u64,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
-    pub disk_budget: usize,
+    pub disk_budget: u64,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]
     pub rooms_joined: usize,
     #[cfg_attr(feature = "typegen", specta(type = specta_typescript::Number))]

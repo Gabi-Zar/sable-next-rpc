@@ -119,7 +119,7 @@ impl TryFrom<protocol::SearchFilter> for IndexFilter {
 }
 
 const MEMORY_BUDGET: usize = 64 * 1024 * 1024;
-const DISK_BUDGET: usize = 512 * 1024 * 1024;
+const DISK_BUDGET: u64 = 512 * 1024 * 1024;
 const COLD_CHUNKS_PER_PAGE: usize = 32;
 const OLDER_PAGE_BUDGET_MS: u64 = 50;
 const HYDRATE_BATCH: usize = 30;
@@ -673,8 +673,11 @@ impl RoomIndex {
                 .sum::<usize>()
     }
 
-    fn disk_bytes(&self) -> usize {
-        self.chunk_meta.values().map(|(bytes, _)| bytes).sum()
+    fn disk_bytes(&self) -> u64 {
+        self.chunk_meta
+            .values()
+            .map(|(bytes, _)| *bytes as u64)
+            .sum()
     }
 
     fn chunk_at(&self, ts: u64) -> Option<ChunkId> {
@@ -956,7 +959,7 @@ pub(crate) struct MessageIndex {
     rooms: HashMap<OwnedRoomId, RoomIndex>,
     unreadable: HashSet<OwnedRoomId>,
     memory_budget: usize,
-    disk_budget: usize,
+    disk_budget: u64,
 }
 
 #[derive(Clone)]
@@ -1002,11 +1005,11 @@ impl MessageIndex {
         Self::with_budgets(MEMORY_BUDGET, DISK_BUDGET)
     }
 
-    pub(crate) const fn set_disk_budget(&mut self, disk_budget: usize) {
-        self.disk_budget = disk_budget;
+    pub(crate) fn set_disk_budget_mb(&mut self, disk_budget_mb: u32) {
+        self.disk_budget = u64::from(disk_budget_mb) << 20;
     }
 
-    pub(crate) fn with_budgets(memory_budget: usize, disk_budget: usize) -> Self {
+    pub(crate) fn with_budgets(memory_budget: usize, disk_budget: u64) -> Self {
         Self {
             rooms: HashMap::new(),
             unreadable: HashSet::new(),
@@ -1162,11 +1165,11 @@ impl MessageIndex {
         self.rooms.values().map(|index| index.bytes).sum()
     }
 
-    pub(crate) fn disk(&self) -> usize {
+    pub(crate) fn disk(&self) -> u64 {
         self.rooms.values().map(RoomIndex::disk_bytes).sum()
     }
 
-    pub(crate) const fn budgets(&self) -> (usize, usize) {
+    pub(crate) const fn budgets(&self) -> (usize, u64) {
         (self.memory_budget, self.disk_budget)
     }
 
@@ -4641,7 +4644,7 @@ mod tests {
         let room = matrix_sdk::ruma::RoomId::parse("!budget:localhost").expect("room id");
         let room_index = budgeted_room(5_000, 0);
         let full = room_index.bytes;
-        let mut index = MessageIndex::with_budgets(full / 2, usize::MAX);
+        let mut index = MessageIndex::with_budgets(full / 2, u64::MAX);
         index.rooms.insert(room.clone(), room_index);
 
         index.unload_to_budget();
@@ -4659,7 +4662,7 @@ mod tests {
         let busy_index = budgeted_room(2_500, 1_000_000);
         let quiet_index = budgeted_room(2_500, 0);
         let budget = busy_index.bytes + quiet_index.bytes / 2;
-        let mut index = MessageIndex::with_budgets(budget, usize::MAX);
+        let mut index = MessageIndex::with_budgets(budget, u64::MAX);
         index.rooms.insert(busy.clone(), busy_index);
         index.rooms.insert(quiet.clone(), quiet_index);
 
@@ -4674,12 +4677,29 @@ mod tests {
         let room = matrix_sdk::ruma::RoomId::parse("!dirty:localhost").expect("room id");
         let mut room_index = super::RoomIndex::new();
         seed_room(&mut room_index, 3_000);
-        let mut index = MessageIndex::with_budgets(1, usize::MAX);
+        let mut index = MessageIndex::with_budgets(1, u64::MAX);
         index.rooms.insert(room, room_index);
 
         index.unload_to_budget();
 
         assert_eq!(index.documents(), 3_000);
+    }
+
+    #[test]
+    fn test_four_gib_disk_budget_and_totals() {
+        let room = matrix_sdk::ruma::RoomId::parse("!large:localhost").expect("room id");
+        let mut room_index = super::RoomIndex::new();
+        // Each chunk fits in 32 bits; the total must also work on wasm32.
+        room_index.chunk_meta.insert(0, (2_147_483_648, 1));
+        room_index.chunk_meta.insert(1, (2_147_483_648, 1));
+        let mut index = MessageIndex::new();
+        index.set_disk_budget_mb(4096);
+        assert_eq!(index.budgets().1, 4_294_967_296);
+        assert!(!index.is_full());
+        index.rooms.insert(room, room_index);
+        assert_eq!(index.disk(), 4_294_967_296);
+        assert!(index.is_full());
+        assert!(index.disk_victim().is_none());
     }
 
     #[test]
@@ -4818,7 +4838,7 @@ mod tests {
         );
         {
             let mut index = core.search_index.lock().await;
-            *index = MessageIndex::with_budgets(usize::MAX, usize::MAX);
+            *index = MessageIndex::with_budgets(usize::MAX, u64::MAX);
             let mut room_index = super::RoomIndex::new();
             seed_room(&mut room_index, 3_000);
             index.rooms.insert(room.clone(), room_index);
@@ -4859,7 +4879,7 @@ mod tests {
         let core = logged_in(&server, &client, "search-older").await;
         {
             let mut index = core.search_index.lock().await;
-            *index = MessageIndex::with_budgets(usize::MAX, usize::MAX);
+            *index = MessageIndex::with_budgets(usize::MAX, u64::MAX);
             let mut room_index = super::RoomIndex::new();
             for seed in 0..3_000_u64 {
                 room_index.upsert(document(
@@ -4917,7 +4937,7 @@ mod tests {
         ];
         {
             let mut index = core.search_index.lock().await;
-            *index = MessageIndex::with_budgets(usize::MAX, usize::MAX);
+            *index = MessageIndex::with_budgets(usize::MAX, u64::MAX);
             for (offset, room) in rooms.iter().enumerate() {
                 let mut room_index = super::RoomIndex::new();
                 for seed in 0..3_000_u64 {
@@ -4994,7 +5014,7 @@ mod tests {
         let room_index = budgeted_room(3_000, 0);
         let chunks = room_index.chunks.len();
         assert!(chunks > 2);
-        let mut index = MessageIndex::with_budgets(usize::MAX, 1_000 * (chunks - 1));
+        let mut index = MessageIndex::with_budgets(usize::MAX, 1_000 * (chunks - 1) as u64);
         index.rooms.insert(room.clone(), room_index);
 
         let (victim_room, chunk, next) = index.disk_victim().expect("over the disk budget");

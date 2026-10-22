@@ -285,7 +285,7 @@ impl Handler for SetSearchOptionsParams {
         core.search_index
             .lock()
             .await
-            .set_disk_budget(usize::try_from(self.disk_budget_mb).unwrap_or(usize::MAX) << 20);
+            .set_disk_budget_mb(self.disk_budget_mb);
         Ok(())
     }
 }
