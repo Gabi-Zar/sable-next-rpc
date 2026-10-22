@@ -780,7 +780,10 @@ function spliceAtoms(node: ProseMirrorNode, atoms: ProseMirrorNode[]): ProseMirr
       if (index > 0) {
         const atom = atoms.shift();
         if (atom) {
-          const inCode = node.type.spec.code || composerSchema.marks.code.isInSet(child.marks);
+          const inCode =
+            node.type.spec.code ||
+            (atom.type !== composerSchema.nodes.emoticon &&
+              composerSchema.marks.code.isInSet(child.marks));
           children.push(inCode ? composerSchema.text(atomText(atom), child.marks) : atom);
         }
       }
