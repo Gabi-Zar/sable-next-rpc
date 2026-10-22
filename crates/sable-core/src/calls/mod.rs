@@ -141,7 +141,22 @@ fn slot_is_open(slot: &SlotRead, encrypted: bool) -> bool {
             || slot
                 .encryption
                 .as_ref()
-                .is_some_and(|encryption| encryption.kind.is_some()))
+                .and_then(|encryption| encryption.kind.as_deref())
+                .is_some_and(supported_slot_encryption))
+}
+
+fn supported_slot_encryption(kind: &str) -> bool {
+    matches!(kind, "org.matrix.msc4143.per_member" | "m.per_member")
+}
+
+fn slot_has_unknown_encryption(slot: &SlotRead, encrypted: bool) -> bool {
+    encrypted
+        && slot.status.as_deref() == Some("open")
+        && slot
+            .encryption
+            .as_ref()
+            .and_then(|encryption| encryption.kind.as_deref())
+            .is_some_and(|kind| !supported_slot_encryption(kind))
 }
 
 async fn stored_slot(room: &Room, event_type: &str) -> Option<Value> {
@@ -171,17 +186,22 @@ async fn fetched_slot(room: &Room, event_type: &str) -> Option<Value> {
     Some(value.get("content").cloned().unwrap_or(value))
 }
 
-async fn has_open_slot(room: &Room, encrypted: bool) -> bool {
+async fn existing_slot(room: &Room, encrypted: bool) -> (bool, bool) {
+    let mut unsupported = false;
     for event_type in SLOT_TYPES {
         let content = match stored_slot(room, event_type).await {
             Some(content) => Some(content),
             None => fetched_slot(room, event_type).await,
         };
-        if content.is_some_and(|content| slot_is_open(&read_slot(&content), encrypted)) {
-            return true;
+        if let Some(content) = content {
+            let slot = read_slot(&content);
+            if slot_is_open(&slot, encrypted) {
+                return (true, unsupported);
+            }
+            unsupported |= slot_has_unknown_encryption(&slot, encrypted);
         }
     }
-    false
+    (false, unsupported)
 }
 
 pub(super) async fn slot_closed(room: &Room, encrypted: bool) -> bool {
@@ -245,8 +265,12 @@ impl OpenSlot {
 }
 
 pub(super) async fn ensure_open_slot(room: &Room, encrypted: bool) -> bool {
-    if has_open_slot(room, encrypted).await {
+    let (open, unsupported) = existing_slot(room, encrypted).await;
+    if open {
         return true;
+    }
+    if unsupported {
+        return false;
     }
     let client = room.client();
     let Some(user_id) = client.user_id() else {
@@ -862,6 +886,20 @@ mod tests {
         assert!(!open(plain, true));
         assert!(open(encrypted.clone(), true));
         assert!(open(encrypted, false));
+        let stable = serde_json::json!({
+            "status": "open", "application": {"type": "m.call"},
+            "encryption": {"type": "m.per_member"},
+        });
+        assert!(open(stable, true));
+        let unknown = serde_json::json!({
+            "status": "open", "application": {"type": "m.call"},
+            "encryption": {"type": "example.other"},
+        });
+        assert!(!open(unknown.clone(), true));
+        assert!(super::slot_has_unknown_encryption(
+            &super::read_slot(&unknown),
+            true
+        ));
     }
 
     #[test]
