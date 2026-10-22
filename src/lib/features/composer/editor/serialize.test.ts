@@ -692,6 +692,37 @@ describe('plain text mode', () => {
     expect(message.formatted).toContain('https://matrix.to/#/@amp:example.org');
   });
 
+  test.each([
+    [
+      'inline',
+      '`A user id looks like ',
+      '.`',
+      '<code>A user id looks like @someone:server.</code>',
+    ],
+    ['fenced', '```\n', '\n```', '<pre><code>@someone:server</code></pre>'],
+  ])('a mention inside %s code becomes literal text', (_kind, before, after, formatted) => {
+    const who = mention.create({ userId: '@someone:server', name: '@someone:server' });
+    const source = docOf(para([composerSchema.text(before), who, composerSchema.text(after)]));
+    const message = serializePlain(source);
+
+    expect(message.body).toBe(`${before}@someone:server${after}`);
+    expect(message.formatted).toBe(formatted);
+    expect(message.mentions).toEqual({ userIds: [], room: false });
+    expect(serializeComposer(richFromPlain(source)).mentions.userIds).toEqual([]);
+  });
+
+  test('a mention outside code still notifies when the same user appears inside code', () => {
+    const who = () => mention.create({ userId: '@someone:server', name: '@someone:server' });
+    const message = serializePlain(
+      docOf(para([composerSchema.text('`'), who(), composerSchema.text('` hi '), who()]))
+    );
+
+    expect(message.formatted).toBe(
+      '<code>@someone:server</code> hi <a href="https://matrix.to/#/@someone:server">@someone:server</a>'
+    );
+    expect(message.mentions.userIds).toEqual(['@someone:server']);
+  });
+
   test('the body names the mention rather than spelling out its link', () => {
     const who = mention.create({ userId: '@amp:example.org', name: 'amp' });
     const message = serializePlain(docOf(para([who, composerSchema.text(' hi')])));

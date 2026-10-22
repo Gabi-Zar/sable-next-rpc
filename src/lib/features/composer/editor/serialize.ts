@@ -779,7 +779,10 @@ function spliceAtoms(node: ProseMirrorNode, atoms: ProseMirrorNode[]): ProseMirr
     for (const [index, part] of (child.text ?? '').split(ATOM_PLACEHOLDER).entries()) {
       if (index > 0) {
         const atom = atoms.shift();
-        if (atom) children.push(node.type.spec.code ? composerSchema.text(atomText(atom)) : atom);
+        if (atom) {
+          const inCode = node.type.spec.code || composerSchema.marks.code.isInSet(child.marks);
+          children.push(inCode ? composerSchema.text(atomText(atom), child.marks) : atom);
+        }
       }
       if (part !== '') children.push(composerSchema.text(part, child.marks));
     }
@@ -791,13 +794,12 @@ function spliceAtoms(node: ProseMirrorNode, atoms: ProseMirrorNode[]): ProseMirr
 /** Plain-text mode: what was typed is the body, parsed as markdown for the HTML. */
 export function serializePlain(doc: ProseMirrorNode): ComposerMessage {
   const body = plainTextOf(doc).replaceAll('\u00a0', ' ').trim();
-  const mentions = mentionsOf(doc);
   const imageSourcePacks = imageSourcePacksOf(doc);
   if (body === '')
     return {
       body,
       formatted: null,
-      mentions,
+      mentions: mentionsOf(doc),
       ...(imageSourcePacks.length > 0 && { imageSourcePacks }),
     };
 
@@ -813,7 +815,7 @@ export function serializePlain(doc: ProseMirrorNode): ComposerMessage {
       isPlain(parsed) && plainTextOf(parsed) === body && !receiverFormats(body)
         ? null
         : html(parsed),
-    mentions,
+    mentions: mentionsOf(parsed),
     ...(imageSourcePacks.length > 0 && { imageSourcePacks }),
   };
 }
