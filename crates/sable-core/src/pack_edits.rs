@@ -560,6 +560,23 @@ mod tests {
     }
 
     #[test]
+    fn pack_content_preserves_dots_in_sticker_shortcodes() {
+        let draft = PackDraftView {
+            name: String::new(),
+            avatar_url: None,
+            attribution: String::new(),
+            usage: vec![ImageUsageView::Sticker],
+            images: vec![image("blob.wave", &[ImageUsageView::Sticker])],
+        };
+
+        let content = to_json(pack_content(&draft).expect("valid dotted shortcode"));
+        assert_eq!(
+            content["images"]["blob.wave"]["url"],
+            "mxc://example.org/blob.wave"
+        );
+    }
+
+    #[test]
     fn pack_content_refuses_an_invalid_shortcode() {
         let draft = PackDraftView {
             name: String::new(),

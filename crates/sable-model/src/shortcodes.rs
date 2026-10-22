@@ -1,5 +1,4 @@
-//! MSC2545 shortcodes: the grammar, and turning a file name or a typed label
-//! into one that fits it.
+//! Image pack shortcode validation and normalization.
 
 use std::collections::HashSet;
 
@@ -7,7 +6,7 @@ use std::collections::HashSet;
 pub const MAX_SHORTCODE_LENGTH: usize = 100;
 
 const fn is_shortcode_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || c == '_' || c == '-'
+    c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.'
 }
 
 #[must_use]
@@ -73,7 +72,7 @@ mod tests {
     };
 
     #[test]
-    fn normalising_keeps_only_the_msc2545_grammar() {
+    fn normalising_keeps_only_shortcode_characters() {
         assert_eq!(normalize_shortcode("  party parrot! "), "party-parrot");
         assert_eq!(normalize_shortcode(" :blob wave: "), "blob-wave");
         assert_eq!(normalize_shortcode("blob😀"), "blob");
@@ -102,6 +101,22 @@ mod tests {
         assert_eq!(invalid_shortcode(["no space"]), Some("no space"));
         assert_eq!(invalid_shortcode(["dup", "dup"]), Some("dup"));
         assert_eq!(invalid_shortcode([""]), Some(""));
+    }
+
+    #[test]
+    fn dotted_shortcodes_survive_uploads_and_renames() {
+        let shortcode = normalize_shortcode(shortcode_without_extension("blob.wave.png"));
+        assert_eq!(shortcode, "blob.wave");
+        assert_eq!(invalid_shortcode([shortcode.as_str()]), None);
+        assert_eq!(normalize_shortcode(" :blob.wave: "), "blob.wave");
+        assert_eq!(
+            unique_shortcode("blob.wave", |c| c == "blob.wave"),
+            "blob.wave-1"
+        );
+        assert_eq!(
+            invalid_shortcode(["blob.wave", "blob.wave"]),
+            Some("blob.wave")
+        );
     }
 
     #[test]
