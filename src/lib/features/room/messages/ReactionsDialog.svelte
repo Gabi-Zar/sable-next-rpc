@@ -1,5 +1,6 @@
 <script lang="ts">
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
+  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
   import type { MemberView, ReactionGroup } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
@@ -12,7 +13,8 @@
   import { isCustomReaction, reactionEmoteLabel } from './reaction-emote-label.js';
   import TabbedMemberListDialog from '../members/TabbedMemberListDialog.svelte';
   import { memberName } from '../members/members.js';
-  import { redactReaction } from './redact-reaction.js';
+  import { fetchReaction, redactReaction } from './redact-reaction.js';
+  import type { MessageCallbacks } from './message-action-controller.svelte.js';
 
   interface Props {
     open?: boolean;
@@ -25,6 +27,7 @@
     canRedactOthers?: boolean;
     active?: number;
     onMemberProfile?: (userId: string, anchor: HTMLElement) => void;
+    onReply?: MessageCallbacks['onReply'];
   }
 
   let {
@@ -38,25 +41,49 @@
     canRedactOthers = false,
     active = $bindable(0),
     onMemberProfile,
+    onReply,
   }: Props = $props();
   const core = useCoreClient();
   const packs = new RoomPacks(core, () => roomId);
-  let deleting = $state<{ key: string; sender: string } | null>(null);
+  let action = $state<{ key: string; sender: string; action: 'delete' | 'reply' } | null>(null);
 
   function canRemove(sender: string): boolean {
     return eventId !== null && (sender === currentUserId ? canRedactOwn : canRedactOthers);
   }
 
   async function remove(key: string, sender: string): Promise<void> {
-    if (!eventId || !canRemove(sender) || deleting) return;
-    deleting = { key, sender };
+    if (!eventId || !canRemove(sender) || action) return;
+    action = { key, sender, action: 'delete' };
     try {
       await redactReaction(core, roomId, eventId, key, sender);
     } catch (error) {
       console.warn('[sable timeline] reaction redaction failed', error);
       toasts.error(i18n.t('errors.actionFailed'));
     } finally {
-      deleting = null;
+      action = null;
+    }
+  }
+
+  async function reply(
+    key: string,
+    sender: string,
+    onReply: NonNullable<MessageCallbacks['onReply']>
+  ): Promise<void> {
+    if (!eventId || action) return;
+    action = { key, sender, action: 'reply' };
+    try {
+      const events = await fetchReaction(core, roomId, eventId, key, sender);
+      const event = events.values().next().value;
+      if (event === undefined) {
+        throw new Error('failed to fetch reaction event');
+      }
+      onReply(event);
+      open = false;
+    } catch (error) {
+      console.warn('[sable timeline] reaction reply failed', error);
+      toasts.error(i18n.t('errors.actionFailed'));
+    } finally {
+      action = null;
     }
   }
 </script>
@@ -87,13 +114,31 @@
     {/if}
   {/snippet}
   {#snippet memberAction(reaction, sender)}
+    {#if onReply}
+      <IconButton
+        class="reaction-reply"
+        variant="ghost"
+        label={i18n.t('timeline.reply')}
+        loading={action?.action === 'reply' &&
+          action.key === reaction.key &&
+          action.sender === sender}
+        disabled={action !== null}
+        onclick={() => {
+          void reply(reaction.key, sender, onReply);
+        }}
+      >
+        <ReplyIcon />
+      </IconButton>
+    {/if}
     {#if canRemove(sender)}
       <IconButton
         class="reaction-delete"
         variant="ghost"
         label={i18n.t('timeline.removeReaction', { name: memberName(members, sender) })}
-        loading={deleting?.key === reaction.key && deleting.sender === sender}
-        disabled={deleting !== null}
+        loading={action?.action === 'delete' &&
+          action.key === reaction.key &&
+          action.sender === sender}
+        disabled={action !== null}
         onclick={() => {
           void remove(reaction.key, sender);
         }}
