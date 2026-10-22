@@ -10,7 +10,7 @@
 .sender-identity-name {
   font-weight: var(--font-weight-500);
   letter-spacing: -0.005em;
-  max-width: min(24ch, 100%);
+  max-width: 24ch;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -19,6 +19,7 @@
 
 .sender-identity:has(> .sender-identity-pronouns, > .sender-identity-via) > .sender-identity-name {
   flex-shrink: 0;
+  max-width: min(24ch, 100%);
 }
 
 .sender-identity-name.state-subject {

@@ -120,3 +120,36 @@ test('caps a very long display name instead of letting it overflow', async () =>
   expect(element.scrollWidth).toBeGreaterThan(element.clientWidth);
   expect(getComputedStyle(element).textOverflow).toBe('ellipsis');
 });
+
+test('does not clip a short name without pronouns at fractional font sizes', async () => {
+  const screen = await render(SenderName, {
+    displayName: 'Spootnik',
+    colors: senderDisplayColors('@spootnik:example.test', null),
+    onMention: () => {},
+  });
+  screen.container.style.width = '600px';
+  await document.fonts.ready;
+  const element = name(screen.container);
+  const range = document.createRange();
+  range.selectNodeContents(element);
+
+  for (const size of [14, 15, 15.4, 16, 17.1, 18, 20]) {
+    screen.container.style.fontSize = `${size}px`;
+    expect(element.getBoundingClientRect().width, `name width at ${size}px`).toBeGreaterThanOrEqual(
+      range.getBoundingClientRect().width - 0.005
+    );
+  }
+});
+
+test('still truncates a long name without pronouns in a narrow container', async () => {
+  const screen = await render(SenderName, {
+    displayName: 'W'.repeat(120),
+    colors: senderDisplayColors('@user:example.test', null),
+    onMention: () => {},
+  });
+  screen.container.style.width = '80px';
+  await settle();
+  const element = name(screen.container);
+  expect(element.getBoundingClientRect().width).toBeLessThanOrEqual(80);
+  expect(element.scrollWidth).toBeGreaterThan(element.clientWidth);
+});
