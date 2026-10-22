@@ -786,6 +786,8 @@ export class CallSession {
     this.#transportConnection = undefined;
     this.members = [];
     this.transport = idleTransportState();
+    this.deafened = false;
+    this.#micBeforeDeafen = undefined;
     this.mediaReady = false;
     this.encryptsMedia = false;
     this.#telemetry?.event('call.cleanup');

@@ -882,6 +882,39 @@ test('unmuting while deafened undeafens', async () => {
   expect(session.deafened).toBe(false);
 });
 
+test.each(['leave', 'disconnect', 'signaling failure'] as const)(
+  '%s clears deafen state before the next call',
+  async (ending) => {
+    const h = harness();
+    const session = new CallSession(h.client, { createTransport: () => h.transport });
+    await session.join('!room:example.org', { microphone: true, camera: false });
+    h.emitTransportState({
+      ...idleTransportState(),
+      connection: 'connected',
+      microphoneEnabled: true,
+    });
+    session.setDeafened(true);
+    vi.mocked(h.transport.setMicrophoneEnabled).mockClear();
+
+    if (ending === 'leave') await session.leave();
+    else if (ending === 'disconnect') h.emitTransportState(idleTransportState());
+    else h.emit({ type: 'call_signaling_error', session: 7, stage: 'sync', fatal: true });
+
+    await vi.waitFor(() => {
+      expect(session.lifecycle).toBe(ending === 'leave' ? 'idle' : 'failed');
+    });
+    expect(session.deafened).toBe(false);
+    expect(h.transport.setMicrophoneEnabled).not.toHaveBeenCalled();
+
+    await session.join('!other:example.org', { microphone: true, camera: false });
+    expect(h.transport.connect).toHaveBeenLastCalledWith(
+      expect.objectContaining({ microphoneEnabled: true })
+    );
+    expect(session.deafened).toBe(false);
+    await session.leave();
+  }
+);
+
 test('the microphone mute is remembered for the next call', async () => {
   const { client, transport } = harness();
   const session = new CallSession(client, { createTransport: () => transport });
