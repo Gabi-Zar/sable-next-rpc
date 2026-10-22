@@ -346,6 +346,38 @@ async function measure(editable: HTMLElement) {
   };
 }
 
+for (const width of [320, 414, 1280]) {
+  test(`long messages do not overlap the expand button at ${String(width)}px`, async () => {
+    await page.viewport(width, 800);
+    const { composer, editor, screen } = await mount(true, { composerForm: 'tall' });
+    await userEvent.fill(composer, 'A long message with wrapping words. '.repeat(40));
+    await document.fonts.ready;
+
+    const button = screen.getByRole('button', { name: en.composer.expand }).element();
+    const assertClearance = () => {
+      const editable = editor();
+      const editorBox = editable.getBoundingClientRect();
+      const buttonBox = button.getBoundingClientRect();
+      const hitStyle = getComputedStyle(button, '::after');
+      const hitLeft = buttonBox.left + Number.parseFloat(hitStyle.left);
+      expect(editorBox.right).toBeLessThanOrEqual(hitLeft);
+      expect(editable.scrollWidth).toBeLessThanOrEqual(editable.clientWidth);
+
+      const range = document.createRange();
+      range.selectNodeContents(editable);
+      for (const rect of range.getClientRects()) {
+        expect(rect.right).toBeLessThanOrEqual(hitLeft);
+      }
+    };
+
+    assertClearance();
+    await userEvent.click(button);
+    await expect.poll(() => button.getAttribute('aria-pressed')).toBe('true');
+    assertClearance();
+    await expect.element(composer).toHaveFocus();
+  });
+}
+
 for (const [richText, form] of [
   [false, 'tall'],
   [true, 'tall'],

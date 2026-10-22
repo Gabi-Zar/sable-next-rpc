@@ -84,6 +84,7 @@
       }
     },
     "android": {
+      "versionCode": 20010040,
       "debugApplicationIdSuffix": ".debug"
     },
     "iOS": {

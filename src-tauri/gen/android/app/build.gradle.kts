@@ -122,7 +122,7 @@ androidComponents {
         }
         variant.outputs.forEach { output ->
             output.versionCode.set(
-                tauriProperties.getProperty("tauri.android.versionCode", "1").toInt() * 10 + abiCode
+                tauriProperties.getProperty("tauri.android.versionCode", "1").toInt() + abiCode
             )
         }
     }

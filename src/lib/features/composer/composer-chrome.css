@@ -264,6 +264,10 @@
   display: none;
 }
 
+.composer-row.short .composer-field {
+  padding-inline-end: 0;
+}
+
 .composer-row.short .editor {
   --editor-padding-block: max(var(--space-100), calc((var(--target) - 1lh) / 2));
 
