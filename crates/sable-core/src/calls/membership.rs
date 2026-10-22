@@ -431,9 +431,9 @@ impl StickyMemberships {
             .get(key)
             .filter(|old| old.expires_at_ms > now_ms)
             .filter(|old| {
-                old.member
-                    .as_ref()
-                    .is_some_and(|previous| previous.member_id == member.member_id)
+                old.member.as_ref().is_some_and(|previous| {
+                    previous.member_id == member.member_id && previous.device_id == member.device_id
+                })
             })
             .map_or(created_ts, |old| old.joined_ts)
     }
@@ -697,6 +697,18 @@ mod tests {
             .into_iter()
             .find(|member| member.member_id.as_deref() == Some("fresh"));
         assert_eq!(fresh.map(|member| member.joined_ts), Some(700_000));
+    }
+
+    #[test]
+    fn a_different_device_with_the_same_member_id_has_a_new_join_time() {
+        let mut store = StickyMemberships::default();
+        assert!(store.apply(&sticky_event("$a", 100), 100));
+        let mut replacement = sticky_event("$b", 200);
+        replacement["content"]["member"]["device_id"] = json!("LAPTOP");
+        assert!(store.apply(&replacement, 200));
+        let member = &store.members(200)[0];
+        assert_eq!(member.device_id, device_id!("LAPTOP"));
+        assert_eq!(member.joined_ts, 200);
     }
 
     #[test]
