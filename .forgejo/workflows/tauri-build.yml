@@ -1036,15 +1036,27 @@ jobs:
               echo "::notice::The ${name} tap token is not set; skipping that tap."
               return 0
             fi
-            local auth
-            auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
-            echo "::add-mask::${auth}"
-            # Reset inherited headers before supplying this tap's credentials.
-            export GIT_CONFIG_COUNT=2
+            export GIT_CONFIG_COUNT=1
             export GIT_CONFIG_KEY_0="http.https://${url%%/*}/.extraHeader"
             export GIT_CONFIG_VALUE_0=''
-            export GIT_CONFIG_KEY_1="$GIT_CONFIG_KEY_0"
-            export GIT_CONFIG_VALUE_1="Authorization: Basic ${auth}"
+            if [ "${url%%/*}" = github.com ]; then
+              if ! command -v gh >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install --no-install-recommends -y gh
+              fi
+              export GH_TOKEN="$token"
+              GIT_CONFIG_GLOBAL="$(mktemp)"
+              export GIT_CONFIG_GLOBAL
+              trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT
+              gh auth setup-git --hostname github.com
+            else
+              local auth
+              auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
+              echo "::add-mask::${auth}"
+              export GIT_CONFIG_COUNT=2
+              export GIT_CONFIG_KEY_1="$GIT_CONFIG_KEY_0"
+              export GIT_CONFIG_VALUE_1="Authorization: Basic ${auth}"
+            fi
             rm -rf tap
             git clone --depth 1 "https://${url}" tap
             mkdir -p tap/Casks
