@@ -8,6 +8,7 @@ import android.os.Build
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -108,7 +109,7 @@ class EdgeToEdgePlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    override fun onDestroy() {
+    override fun onDestroy(activity: AppCompatActivity) {
         val currentWebView = webView ?: return
 
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -126,10 +127,14 @@ class EdgeToEdgePlugin(private val activity: Activity) : Plugin(activity) {
         println("[EdgeToEdge] Edge-to-edge mode enabled")
     }
 
+    @Suppress("DEPRECATION")
     private fun setTransparentSystemBars() {
         val window = activity.window
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.TRANSPARENT
+        // Android 15 enforces transparent bars for target SDK 35+.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false

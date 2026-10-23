@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -85,12 +86,11 @@ android {
         }
     }
     compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         // tauri-plugin-livekit-mobile requires it: LiveKit and WebRTC call
         // java.time APIs that only exist from API 26, and minSdk here is 24.
         isCoreLibraryDesugaringEnabled = true
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
     buildFeatures {
         buildConfig = true
@@ -107,6 +107,12 @@ android {
             "SENTRY_RELEASE",
             "\"${sentryBuildConfigValue("VITE_APP_VERSION")}\""
         )
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
