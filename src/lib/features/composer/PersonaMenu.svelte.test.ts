@@ -5,6 +5,7 @@ import { renderWithTooltips } from '#lib/test-support/render-with-tooltips.js';
 import { expect, test, vi } from 'vitest';
 
 import type { PersonaView } from '#src/generated/protocol';
+import { preferences } from '#lib/settings/preferences.svelte.js';
 
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 
@@ -101,4 +102,32 @@ test('a space that is off marks its off option and not the default', () => {
   expect(screen.getByRole('button', { name: 'personas.pickerSyncAccount' })).not.toHaveClass(
     'selected'
   );
+});
+
+test('a saved alternate-avatar view falls back to the profile picker when no alternates exist', async () => {
+  const previousMode = preferences.personaAlternateAvatar;
+  preferences.personaAlternateAvatar = true;
+  const selected = persona('Without alternates', null);
+  const other = persona('Other profile', null);
+  const onChoose = vi.fn();
+
+  try {
+    renderWithTooltips(PersonaMenu, {
+      personas: [selected, other],
+      selected: { persona_id: selected.id, alternate_avatar_id: null, valid_until: null },
+      disabled: false,
+      scope: 'account',
+      onScope: vi.fn(),
+      onChoose,
+      onAlternateAvatarChoose: vi.fn(),
+      onDisable: vi.fn(),
+    });
+
+    expect(screen.getByRole('searchbox')).toBeVisible();
+    expect(screen.getByRole('tablist')).toBeVisible();
+    await fireEvent.click(screen.getByRole('button', { name: other.display_name }));
+    expect(onChoose).toHaveBeenCalledWith(other);
+  } finally {
+    preferences.personaAlternateAvatar = previousMode;
+  }
 });

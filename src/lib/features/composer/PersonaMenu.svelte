@@ -58,11 +58,13 @@
   }: Props = $props();
   let query = $state('');
   let grid = $derived(preferences.personaGrid && !query);
-  let alternateAvatarMode = $derived(preferences.personaAlternateAvatar);
   let alternateAvatarAvailable = $derived(
-    selected &&
+    selected !== null &&
       (personas.find((persona) => persona.id === selected.persona_id)?.alternate_avatars ?? [])
         .length > 0
+  );
+  let alternateAvatarMode = $derived(
+    preferences.personaAlternateAvatar && alternateAvatarAvailable
   );
   let filteredPersonas = $derived(
     personas.filter((persona) => {
