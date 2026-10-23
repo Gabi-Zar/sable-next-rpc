@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { matrixLinkAction } from '#lib/rooms/matrix-link.js';
   import { MediaQuery } from 'svelte/reactivity';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { on } from 'svelte/events';
@@ -27,7 +28,7 @@
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
   import { i18n } from '#lib/i18n.js';
   import { afterOverlayPops, holdOverlayBack } from '#lib/platform/overlay-back.svelte.js';
-  import { copyRoomLink, roomSectionPath } from '#lib/rooms/permalink.js';
+  import { matrixLinkPath, copyRoomLink, roomSectionPath } from '#lib/rooms/permalink.js';
   import { backToRoomList, searchInRoom, trackRoomEntry } from './room-navigation.js';
   import { findRoomByPathId, roomLabel, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
@@ -534,6 +535,14 @@
   }
 
   function handleMatrixLink(link: MatrixLink, anchor: HTMLAnchorElement): void {
+    if (matrixLinkAction(anchor.href, link) !== null) {
+      const target = matrixLinkPath(anchor.href);
+      if (target !== null) {
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- matrixLinkPath resolves the permalink route
+        void afterOverlayPops().then(() => goto(target));
+      }
+      return;
+    }
     if (link.kind === 'user') {
       openProfile(link.user_id, anchor);
       return;
@@ -560,7 +569,11 @@
   }
 
   function handleProfileLink(link: MatrixLink, anchor: HTMLAnchorElement): void {
-    if (link.kind === 'user' && memberProfile.anchor) {
+    if (
+      link.kind === 'user' &&
+      memberProfile.anchor &&
+      matrixLinkAction(anchor.href, link) === null
+    ) {
       openProfile(link.user_id, memberProfile.anchor);
       return;
     }

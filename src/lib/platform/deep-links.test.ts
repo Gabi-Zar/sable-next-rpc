@@ -1,6 +1,13 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { currentDeepLinks, deliversDeepLinks, subscribeDeepLinks } from './deep-links';
+let currentDeepLinks: typeof import('./deep-links').currentDeepLinks;
+let deliversDeepLinks: typeof import('./deep-links').deliversDeepLinks;
+let subscribeDeepLinks: typeof import('./deep-links').subscribeDeepLinks;
+
+beforeEach(async () => {
+  vi.resetModules();
+  ({ currentDeepLinks, deliversDeepLinks, subscribeDeepLinks } = await import('./deep-links'));
+});
 import type { ElectronBridge } from './electron';
 
 afterEach(() => {
@@ -41,4 +48,17 @@ test('Electron hands over the launch links once, then forwards later ones', asyn
   unsubscribe();
   deliver(['moe.sable.next:/login?state=c']);
   expect(received).toEqual([['moe.sable.next:/login?state=b']]);
+});
+
+test("concurrent Matrix and login consumers retain each other's launch links", async () => {
+  const matrix = 'https://matrix.to/#/!room:example.org?via=example.org';
+  const login = 'moe.sable.next:/login?state=a';
+  stubElectron([matrix, login]);
+  const [links, callbacks] = await Promise.all([
+    currentDeepLinks((url) => url.startsWith('https:')),
+    currentDeepLinks((url) => url.startsWith('moe.sable.next:')),
+  ]);
+  expect(links).toEqual([matrix]);
+  expect(callbacks).toEqual([login]);
+  expect(await currentDeepLinks()).toEqual([]);
 });

@@ -28,16 +28,33 @@ test('stable bundles keep v1 identity, Android package/JNI alignment and callbac
     const config = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'), 'utf8'));
     assert.equal(config.identifier, 'moe.sable.client');
     assert.equal(config.productName, 'Sable');
-    assert.deepEqual(config.plugins['deep-link'].desktop.schemes, ['moe.sable.app', 'sable']);
+    assert.deepEqual(config.plugins['deep-link'].desktop.schemes, [
+      'moe.sable.app',
+      'sable',
+      'matrix',
+    ]);
+    assert.deepEqual(config.plugins['deep-link'].mobile[0].scheme, [
+      'moe.sable.app',
+      'sable',
+      'matrix',
+    ]);
+    assert.ok(
+      config.plugins['deep-link'].mobile.some(
+        (domain) => domain.host === 'matrix.to' && domain.appLink === false
+      )
+    );
     const manifest = readFileSync(
       join(root, 'src-tauri/gen/android/app/src/main/AndroidManifest.xml'),
       'utf8'
     );
     assert.ok(manifest.includes('android:scheme="moe.sable.app"'));
     assert.ok(manifest.includes('android:scheme="sable"'));
+    assert.ok(manifest.includes('android:scheme="matrix"'));
+    assert.ok(manifest.includes('android:host="matrix.to"'));
     assert.ok(!manifest.includes('android:scheme="moe.sable.next"'));
     const plist = readFileSync(join(root, 'src-tauri/ios-project.yml'), 'utf8');
     assert.ok(plist.includes('- moe.sable.app') && !plist.includes('- moe.sable.next'));
+    assert.ok(plist.includes('- matrix'));
     const source = join(
       root,
       'src-tauri/gen/android/app/src/main/java/moe/sable/client/MainActivity.kt'

@@ -58,3 +58,33 @@ test.each([
 ])('rejects %s', (href) => {
   expect(parseMatrixLink(href)).toBeNull();
 });
+
+test.each([
+  [
+    'matrix://reserved.example/u/alice:example.org',
+    { kind: 'user', user_id: '@alice:example.org' },
+  ],
+  ['matrix:///r/lobby:example.org', { kind: 'room', room_id: '#lobby:example.org' }],
+  [
+    'matrix:roomid/a%2Fb:example.org/event/c%2Fd',
+    { kind: 'event', room_id: '!a/b:example.org', event_id: '$c/d' },
+  ],
+  [
+    'MATRIX:user/alice:example.org?action=chat#reserved',
+    { kind: 'user', user_id: '@alice:example.org' },
+  ],
+])('supports the complete Matrix URI path in %s', (href, expected) => {
+  expect(parseMatrixLink(href)).toEqual(expected);
+});
+
+test.each([
+  'matrix:/u/alice:example.org',
+  'matrix://reserved.example',
+  'matrix:u/%FF',
+  'matrix:u/%ZZ',
+  'https://matrix.to/#@alice:example.org',
+  'https://matrix.to/#/!room:example.org/$event/extra',
+  'https://matrix.to/other/#/!room:example.org',
+])('refuses malformed URI %s', (href) => {
+  expect(parseMatrixLink(href)).toBeNull();
+});

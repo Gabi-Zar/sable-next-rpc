@@ -147,14 +147,21 @@
     "deep-link": {
       "desktop": {
         "schemes": [
-          "moe.sable.next"
+          "moe.sable.next",
+          "matrix"
         ]
       },
       "mobile": [
         {
           "scheme": [
-            "moe.sable.next"
+            "moe.sable.next",
+            "matrix"
           ],
+          "appLink": false
+        },
+        {
+          "scheme": ["https"],
+          "host": "matrix.to",
           "appLink": false
         }
       ]

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { matrixLinkAction } from '#lib/rooms/matrix-link.js';
   import { CoreError } from '#src/transport';
   import type {
     LobbyAction,
@@ -26,7 +27,7 @@
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { createDragList, type DropEdge, type DropInstruction } from '#lib/ui/drag-list.js';
   import { joinErrorMessage } from '#lib/rooms/join-errors.js';
-  import { copyRoomLink, roomSectionPath, viaFor } from '#lib/rooms/permalink.js';
+  import { matrixLinkPath, copyRoomLink, roomSectionPath, viaFor } from '#lib/rooms/permalink.js';
   import { roomPathParam, roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { layoutSpaceIds, withoutSpace, withSpace } from '#lib/spaces/sidebar-layout.js';
   import { useSpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
@@ -122,7 +123,15 @@
   });
 
   function openTopicLink(link: MatrixLink, anchor: HTMLAnchorElement): void {
-    if (link.kind === 'user') return;
+    if (link.kind === 'user' || matrixLinkAction(anchor.href, link) !== null) {
+      const target = matrixLinkPath(anchor.href);
+      if (target !== null) {
+        topicOpen = false;
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- matrixLinkPath resolves the permalink route
+        void afterOverlayPops().then(() => goto(target));
+      }
+      return;
+    }
     topicOpen = false;
     const { via } = splitVia(anchor.href);
     const target = roomSectionPath(

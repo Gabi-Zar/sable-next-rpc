@@ -59,7 +59,7 @@
     }
     removeDeepLinkListener = unlisten;
 
-    const url = (await currentDeepLinks()).find((candidate) => redirectLoginType(candidate));
+    const url = (await currentDeepLinks((candidate) => !!redirectLoginType(candidate)))[0];
     if (url) handleCallback(url);
   }
 

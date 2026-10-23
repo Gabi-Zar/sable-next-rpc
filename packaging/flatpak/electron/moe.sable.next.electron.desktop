@@ -7,4 +7,4 @@ Icon=moe.sable.next.electron
 Terminal=false
 Categories=Network;InstantMessaging;Chat;
 StartupWMClass=sable-electron
-MimeType=x-scheme-handler/moe.sable.next;
+MimeType=x-scheme-handler/matrix;x-scheme-handler/moe.sable.next;

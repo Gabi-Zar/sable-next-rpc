@@ -6,6 +6,7 @@ protocols:
   - name: Sable Nightly
     schemes:
       - moe.sable.next
+      - matrix
 linux:
   executableName: sable-nightly
 deb:

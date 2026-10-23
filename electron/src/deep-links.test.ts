@@ -4,10 +4,10 @@ import { expect, test } from 'vitest';
 import { deepLinksIn, deepLinkSchemes } from './deep-links';
 
 test.each([
-  ['moe.sable.client', 'stable', ['moe.sable.app', 'sable']],
-  ['moe.sable.client.sandboxed', 'stable', ['moe.sable.app', 'sable']],
-  ['moe.sable.next.nightly', 'nightly', ['moe.sable.next']],
-  ['moe.sable.next', 'nightly', ['moe.sable.next']],
+  ['moe.sable.client', 'stable', ['moe.sable.app', 'sable', 'matrix']],
+  ['moe.sable.client.sandboxed', 'stable', ['moe.sable.app', 'sable', 'matrix']],
+  ['moe.sable.next.nightly', 'nightly', ['moe.sable.next', 'matrix']],
+  ['moe.sable.next', 'nightly', ['moe.sable.next', 'matrix']],
 ])('%s matches the %s packaged schemes', (identifier, flavor, expected) => {
   const schemes = deepLinkSchemes(identifier);
   expect(schemes).toEqual(expected);
@@ -15,7 +15,8 @@ test.each([
     new URL(`../electron-builder.${flavor}.yml`, import.meta.url),
     'utf8'
   );
-  const packagedSchemes = [...config.matchAll(/^ {6}- (.+)$/gm)].map((match) => match[1]);
+  const protocol = config.match(/schemes:\n((?: {6}- .+\n?)+)/)?.[1] ?? '';
+  const packagedSchemes = [...protocol.matchAll(/^ {6}- (.+)$/gm)].map((match) => match[1]);
   expect(schemes).toEqual(packagedSchemes);
 });
 
@@ -48,4 +49,15 @@ test('rejects invalid URLs and other flavors', () => {
   ];
   expect(deepLinksIn(argv, deepLinkSchemes('moe.sable.client'))).toEqual(argv.slice(0, 2));
   expect(deepLinksIn(argv, deepLinkSchemes('moe.sable.next.nightly'))).toEqual([argv[2]]);
+});
+
+test('accepts incoming Matrix URIs and matrix.to URLs', () => {
+  const urls = [
+    'matrix:u/alice:example.org',
+    'https://matrix.to/#/!room:example.org/$event?via=example.org',
+  ];
+  expect(deepLinksIn(urls, deepLinkSchemes('moe.sable.client'))).toEqual(urls);
+  expect(
+    deepLinksIn(['https://matrix.to.evil/#/!room:example.org', 'https://matrix.to/'], ['matrix'])
+  ).toEqual([]);
 });

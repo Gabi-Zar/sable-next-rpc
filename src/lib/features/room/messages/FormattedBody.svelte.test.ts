@@ -1,4 +1,4 @@
-import type { RoomPreviewView } from '#src/generated/protocol';
+import type { MatrixLink, RoomPreviewView } from '#src/generated/protocol';
 // @vitest-environment happy-dom
 
 import { fireEvent, render, screen, type RenderResult } from '@testing-library/svelte';
@@ -15,6 +15,8 @@ vi.mock('#lib/rooms/room-list.svelte.js', () => ({
 }));
 
 vi.mock('#lib/core/context.js');
+vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
+import { goto } from '#lib/test-support/app-navigation.js';
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
@@ -823,3 +825,31 @@ test.each(['https://matrix.to/#/@ezera:example.org', 'matrix:u/ezera:example.org
     );
   }
 );
+
+test('a Matrix chat URI opens the confirmation route without a room callback', async () => {
+  render(FormattedBody, {
+    props: { html: '<a href="matrix:u/alice:example.org?action=chat">Chat</a>' },
+  });
+  await tick();
+  await user.click(screen.getByRole('link'));
+  expect(goto).toHaveBeenCalledWith('/to/%40alice%3Aexample.org?action=chat');
+});
+
+test('Matrix URI callbacks retain actions, routing and encoded IDs on the anchor', async () => {
+  const onMatrixLink = vi.fn<(link: MatrixLink, anchor: HTMLAnchorElement) => void>();
+  render(FormattedBody, {
+    props: {
+      html: '<a href="matrix:roomid/a%2Fb?via=example.org&amp;action=join#reserved">Join</a>',
+      onMatrixLink,
+    },
+  });
+  await tick();
+  await user.click(screen.getByRole('link'));
+  expect(onMatrixLink).toHaveBeenCalledWith(
+    { kind: 'room', room_id: '!a/b' },
+    expect.any(HTMLAnchorElement)
+  );
+  expect(onMatrixLink.mock.calls[0]?.[1].href).toBe(
+    'matrix:roomid/a%2Fb?via=example.org&action=join#reserved'
+  );
+});

@@ -16,16 +16,21 @@
 
   let unresolved = $state(false);
   let user = $state<string | null>(null);
+  let startChat = $state(false);
 
   const routePrefix = resolve('/(app)/to/[...permalink]', { permalink: '' });
 
   $effect(() => {
     // The still-encoded tail, rather than the rest param: the matrix.to parser
     // does its own decoding.
-    const fragment = page.url.pathname.slice(routePrefix.length + 1);
+    const via = new URLSearchParams(
+      page.url.searchParams.getAll('via').map((server) => ['via', server])
+    );
+    const fragment = `${page.url.pathname.slice(routePrefix.length + 1)}${via.size ? `?${via}` : ''}`;
     let active = true;
     unresolved = false;
     user = null;
+    startChat = false;
 
     const notifiedUser = page.url.searchParams.get('user');
 
@@ -46,6 +51,7 @@
 
       // A user has no route of its own, so the link opens a card here instead.
       if (target.kind === 'user') {
+        startChat = page.url.searchParams.get('action') === 'chat';
         user = target.userId;
         return;
       }
@@ -64,7 +70,7 @@
 </script>
 
 {#if user !== null}
-  <UserLinkCard userId={user} />
+  <UserLinkCard userId={user} {startChat} />
 {:else}
   <main class="permalink" aria-busy={!unresolved}>
     {#if unresolved}

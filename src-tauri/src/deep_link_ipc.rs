@@ -26,16 +26,17 @@ const SOCKET_MODE: u32 = 0o600;
 #[must_use]
 pub fn schemes() -> &'static [&'static str] {
     if IDENTIFIER == STABLE_IDENTIFIER {
-        &["moe.sable.app", "sable"]
+        &["moe.sable.app", "sable", "matrix"]
     } else {
-        &["moe.sable.next"]
+        &["moe.sable.next", "matrix"]
     }
 }
 
 fn is_deep_link(arg: &str) -> bool {
-    schemes().iter().any(|scheme| {
-        arg.strip_prefix(scheme)
-            .is_some_and(|rest| rest.starts_with(':'))
+    arg.split_once(':').is_some_and(|(prefix, _)| {
+        schemes()
+            .iter()
+            .any(|scheme| prefix.eq_ignore_ascii_case(scheme))
     })
 }
 
@@ -266,11 +267,13 @@ mod tests {
                 "--flag",
                 "moe.sable.next://room/!a:example.org",
                 "moe.sable.next:/login?code=secret",
+                "MATRIX:u/alice:example.org?action=chat",
                 "https://example.org",
             ]),
             vec![
                 "moe.sable.next://room/!a:example.org".to_owned(),
                 "moe.sable.next:/login?code=secret".to_owned(),
+                "MATRIX:u/alice:example.org?action=chat".to_owned(),
             ]
         );
     }

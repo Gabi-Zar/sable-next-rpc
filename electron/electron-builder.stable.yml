@@ -6,3 +6,4 @@ protocols:
     schemes:
       - moe.sable.app
       - sable
+      - matrix

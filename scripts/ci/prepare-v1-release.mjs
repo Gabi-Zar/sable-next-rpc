@@ -60,8 +60,8 @@ export function prepareV1Release(root) {
     text.replaceAll('"sable-next"', '"Sable"')
   );
   const schemes = ['moe.sable.app', 'sable'];
-  config.plugins['deep-link'].desktop.schemes = schemes;
-  config.plugins['deep-link'].mobile[0].scheme = schemes;
+  config.plugins['deep-link'].desktop.schemes = [...schemes, 'matrix'];
+  config.plugins['deep-link'].mobile[0].scheme = [...schemes, 'matrix'];
   rewrite(join(root, 'src-tauri/gen/android/app/src/main/AndroidManifest.xml'), (text) =>
     text.replace(/( *)<data android:scheme="moe\.sable\.next" \/>\n/, (_, indent) =>
       schemes.map((scheme) => `${indent}<data android:scheme="${scheme}" />\n`).join('')

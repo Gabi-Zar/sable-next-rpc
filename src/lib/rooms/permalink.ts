@@ -6,7 +6,7 @@ import type { RoomListItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 import { splitVia } from '#lib/rooms/join-address.js';
-import { parseMatrixLink } from '#lib/rooms/matrix-link.js';
+import { matrixLinkAction, matrixLinkParameters, parseMatrixLink } from '#lib/rooms/matrix-link.js';
 
 import { findRoomByPathId, roomPathParam, roomPathParamFromId } from './room-list.svelte';
 
@@ -149,4 +149,37 @@ export function permalinkTarget(
     kind: 'room',
     path: roomSectionPath(rooms, link.room_id, link.kind === 'event' ? link.event_id : null, via),
   };
+}
+
+export function matrixLinkPath(href: string): string | null {
+  const link = parseMatrixLink(href);
+  if (link === null) return null;
+  const id = link.kind === 'user' ? link.user_id : link.room_id;
+  const event = link.kind === 'event' ? `/${encodeURIComponent(link.event_id)}` : '';
+  const parameters = matrixLinkParameters(href);
+  const query = new URLSearchParams(
+    [...parameters].filter(([key]) => key === 'via' || key.includes('.'))
+  );
+  const action = matrixLinkAction(href, link);
+  if (action !== null) query.set('action', action);
+  const search = query.toString();
+  const path = resolve('/(app)/to/[...permalink]', {
+    permalink: `${encodeURIComponent(id)}${event}`,
+  });
+  return search ? `${path}?${search}` : path;
+}
+
+export function existingChatPath(
+  rooms: readonly RoomListItemView[],
+  userId: string
+): string | null {
+  const room = rooms.find(
+    (entry) =>
+      entry.state === 'joined' &&
+      entry.is_direct &&
+      !entry.is_tombstoned &&
+      entry.direct_targets.length === 1 &&
+      entry.direct_targets.includes(userId)
+  );
+  return room ? roomSectionPath(rooms, room.room_id) : null;
 }

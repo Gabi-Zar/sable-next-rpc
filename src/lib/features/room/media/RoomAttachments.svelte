@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { matrixLinkPath } from '#lib/rooms/permalink.js';
   import { onDestroy, onMount, type Component } from 'svelte';
   import type {
     MemberView,
@@ -248,10 +250,15 @@
   function followLink(event: MouseEvent, url: string): void {
     const link = parseMatrixLink(url);
     const anchor = event.currentTarget;
-    if (!link || !onMatrixLink || !(anchor instanceof HTMLAnchorElement)) return;
+    if (!link || !(anchor instanceof HTMLAnchorElement)) return;
     event.preventDefault();
     afterClosing(() => {
-      onMatrixLink(link, anchor);
+      if (onMatrixLink) onMatrixLink(link, anchor);
+      else {
+        const path = matrixLinkPath(url);
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- matrixLinkPath resolves the permalink route
+        if (path !== null) void goto(path);
+      }
     });
   }
 

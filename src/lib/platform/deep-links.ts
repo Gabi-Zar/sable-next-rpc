@@ -29,7 +29,7 @@ async function invokedLinks(command: string): Promise<string[]> {
   }
 }
 
-export async function currentDeepLinks(): Promise<string[]> {
+async function launchDeepLinks(): Promise<string[]> {
   const electron = electronBridge();
   if (electron) return electron.takeDeepLinks();
   if (!isTauri()) return [];
@@ -38,4 +38,18 @@ export async function currentDeepLinks(): Promise<string[]> {
     ...(await invokedLinks('plugin:deep-link|get_current')),
     ...(await invokedLinks('pending_deep_links')),
   ];
+}
+
+let launchLinks: Promise<string[]> | undefined;
+
+// Login and permalink handlers share the launch queue without consuming each other's links.
+export async function currentDeepLinks(
+  accepts: (url: string) => boolean = () => true
+): Promise<string[]> {
+  launchLinks ??= launchDeepLinks();
+  const pending = await launchLinks;
+  const accepted = pending.filter(accepts);
+  const remaining = pending.filter((url) => !accepts(url));
+  pending.splice(0, pending.length, ...remaining);
+  return accepted;
 }

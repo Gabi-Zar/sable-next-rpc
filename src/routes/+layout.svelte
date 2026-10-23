@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { watchMatrixLinks } from '#lib/rooms/native-links.js';
   import { on } from 'svelte/events';
   import type { Snippet } from 'svelte';
   import { isTauri } from '@tauri-apps/api/core';
@@ -80,6 +81,10 @@
     void runtimeConfig().then((config) => {
       applyDeploymentDefaults(config.settingsDefaults);
     });
+    const stopMatrixLinks = watchMatrixLinks((path) => {
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- matrixLinkPath resolves the permalink route
+      void goto(path);
+    });
     void core.start();
     return () => {
       stopTrackingKeyboard();
@@ -88,6 +93,7 @@
       stopZoomShortcuts();
       stopSuppressingContextMenu();
       stopBlockingEdgeNavigation();
+      stopMatrixLinks();
       core.stop();
     };
   });

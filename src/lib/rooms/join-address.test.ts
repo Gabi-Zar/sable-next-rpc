@@ -53,3 +53,9 @@ test('anything unparseable is rejected', () => {
   expect(parseJoinAddress('room:example.org')).toBeNull();
   expect(parseJoinAddress('https://example.org/#/!abc:example.org')).toBeNull();
 });
+
+test('Matrix URI routing ignores reserved fragment parameters', () => {
+  expect(
+    parseJoinAddress('matrix:roomid/opaque?via=a.example&via=b.example#reserved?via=wrong.example')
+  ).toEqual({ address: '!opaque', via: ['a.example', 'b.example'] });
+});

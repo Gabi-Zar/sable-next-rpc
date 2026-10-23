@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { matrixLinkPath } from '#lib/rooms/permalink.js';
   import { copyText } from '#lib/platform/clipboard.js';
   import { mount, unmount, untrack, type Component } from 'svelte';
   import { on } from 'svelte/events';
@@ -612,10 +614,15 @@
     if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
     if (anchor.href.toLowerCase().startsWith('matrix:')) event.preventDefault();
     const link = parseMatrixLink(anchor.href);
-    if (!link || !onMatrixLink) return;
+    if (!link) return;
     event.preventDefault();
     event.stopPropagation();
-    onMatrixLink(link, anchor);
+    if (onMatrixLink) onMatrixLink(link, anchor);
+    else {
+      const path = matrixLinkPath(anchor.href);
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- matrixLinkPath resolves the permalink route
+      if (path !== null) void goto(path);
+    }
   }
 
   function handleKeydown(event: KeyboardEvent): void {

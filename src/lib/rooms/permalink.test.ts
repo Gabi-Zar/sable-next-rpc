@@ -1,11 +1,19 @@
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, assert, expect, test, vi } from 'vitest';
 
 import type { RoomListItemView } from '#src/generated/protocol';
 
 import { parseMatrixLink } from '#lib/rooms/matrix-link.js';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
-import { copyRoomLink, matrixToUrl, permalinkTarget, roomSectionPath, viaFor } from './permalink';
+import {
+  copyRoomLink,
+  existingChatPath,
+  matrixLinkPath,
+  matrixToUrl,
+  permalinkTarget,
+  roomSectionPath,
+  viaFor,
+} from './permalink';
 
 function room(roomId: string, overrides: Partial<RoomListItemView> = {}): RoomListItemView {
   return withCounts({
@@ -302,4 +310,79 @@ test('a failed room link copy reports false instead of throwing', async () => {
   await expect(
     copyRoomLink(core, { room_id: '!room:example.org', canonical_alias: null })
   ).resolves.toBe(false);
+});
+
+test.each([
+  ['https://matrix.to/#/@alice:example.org', '/to/%40alice%3Aexample.org'],
+  ['matrix:u/alice:example.org', '/to/%40alice%3Aexample.org'],
+  ['https://matrix.to/#/%23lobby%3Aexample.org', '/to/%23lobby%3Aexample.org'],
+  [
+    'matrix:roomid/room:example.org/e/event?via=a.example&via=b.example',
+    '/to/!room%3Aexample.org/%24event?via=a.example&via=b.example',
+  ],
+  [
+    'https://matrix.to/#/!room:example.org/$event?via=a.example&via=b.example',
+    '/to/!room%3Aexample.org/%24event?via=a.example&via=b.example',
+  ],
+])('routes incoming %s through the permalink page', (href, expected) => {
+  expect(matrixLinkPath(href)).toBe(expected);
+  const url = new URL(expected, 'https://sable.invalid');
+  expect(permalinkTarget([], `${url.pathname.slice('/to/'.length)}${url.search}`)).not.toBeNull();
+});
+
+test.each([
+  'https://example.org/#/!room:example.org',
+  'https://matrix.to/#/',
+  'moe.sable.next:/login?code=a',
+])('ignores non-Matrix deep link %s', (href) => {
+  expect(matrixLinkPath(href)).toBeNull();
+});
+
+test('incoming event links preserve the event and routing servers through /to', () => {
+  const path = matrixLinkPath(
+    'https://matrix.to/#/!room:example.org/$event?via=a.example&via=b.example'
+  );
+  assert(path !== null);
+  const url = new URL(path, 'https://sable.invalid');
+  expect(permalinkTarget([], `${url.pathname.slice('/to/'.length)}${url.search}`)).toEqual({
+    kind: 'room',
+    path: '/rooms/!room%3Aexample.org?event=%24event&via=a.example&via=b.example',
+  });
+});
+
+test.each([
+  [
+    'matrix:u/alice:example.org?org.example.label=a+b',
+    '/to/%40alice%3Aexample.org?org.example.label=a%2Bb',
+  ],
+  ['matrix:u/alice:example.org?action=chat', '/to/%40alice%3Aexample.org?action=chat'],
+  ['matrix:u/alice:example.org?action=join', '/to/%40alice%3Aexample.org'],
+  ['matrix:r/lobby:example.org?action=join', '/to/%23lobby%3Aexample.org?action=join'],
+  ['matrix:roomid/opaque?action=chat', '/to/!opaque'],
+  ['matrix:roomid/opaque/e/event?action=join', '/to/!opaque/%24event'],
+  ['matrix:u/alice:example.org?action=unknown', '/to/%40alice%3Aexample.org'],
+  ['matrix:roomid/opaque?via=a.example#reserved?via=wrong.example', '/to/!opaque?via=a.example'],
+  [
+    'matrix:u/alice:example.org?action=chat&org.example.label=a%26b&user=other&notified=event',
+    '/to/%40alice%3Aexample.org?org.example.label=a%26b&action=chat',
+  ],
+])('preserves valid actions and extension parameters in %s', (href, expected) => {
+  expect(matrixLinkPath(href)).toBe(expected);
+});
+
+test('chat links reuse joined DMs and ask before replacing left or tombstoned DMs', () => {
+  const direct = room('!dm:example.org', {
+    is_direct: true,
+    direct_targets: ['@alice:example.org'],
+  });
+  expect(existingChatPath([direct], '@alice:example.org')).toBe('/direct/!dm%3Aexample.org');
+  expect(existingChatPath([{ ...direct, state: 'left' }], '@alice:example.org')).toBeNull();
+  expect(existingChatPath([{ ...direct, is_tombstoned: true }], '@alice:example.org')).toBeNull();
+  expect(existingChatPath([direct], '@bob:example.org')).toBeNull();
+  expect(
+    existingChatPath(
+      [{ ...direct, direct_targets: ['@alice:example.org', '@bob:example.org'] }],
+      '@alice:example.org'
+    )
+  ).toBeNull();
 });

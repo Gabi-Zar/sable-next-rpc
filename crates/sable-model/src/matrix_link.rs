@@ -53,8 +53,14 @@ fn decoded_segment(segments: &[&str], index: usize) -> Option<String> {
 
 /// The path of a `matrix:` URI, without its query or fragment.
 fn parse_path(path: &str) -> Option<MatrixLink> {
-    let segments: Vec<&str> = path.trim_start_matches('/').split('/').collect();
-    let kind = segments.first()?.to_lowercase();
+    // The authority is reserved, not a routing server. Empty authorities are valid too.
+    let path = if let Some(rest) = path.strip_prefix("//") {
+        rest.split_once('/')?.1
+    } else {
+        path
+    };
+    let segments: Vec<&str> = path.split('/').collect();
+    let kind = *segments.first()?;
     let id = decoded_segment(&segments, 1)?;
 
     if (kind == "u" || kind == "user") && segments.len() == 2 {
@@ -62,7 +68,7 @@ fn parse_path(path: &str) -> Option<MatrixLink> {
             user_id: format!("@{id}"),
         });
     }
-    let sigil = match kind.as_str() {
+    let sigil = match kind {
         "r" | "room" => '#',
         "roomid" => '!',
         _ => return None,
@@ -71,7 +77,7 @@ fn parse_path(path: &str) -> Option<MatrixLink> {
     if segments.len() == 2 {
         return Some(MatrixLink::Room { room_id });
     }
-    let event_kind = segments.get(2)?.to_lowercase();
+    let event_kind = *segments.get(2)?;
     let event_id = decoded_segment(&segments, 3)?;
     ((event_kind == "e" || event_kind == "event") && segments.len() == 4).then(|| {
         MatrixLink::Event {
@@ -91,18 +97,13 @@ fn strip_scheme<'a>(href: &'a str, scheme: &str) -> Option<&'a str> {
 /// `matrix.to` keeps `?via=` inside the fragment, so the first `?` there starts
 /// the query; no Matrix id contains one.
 fn parse_matrix_to(href: &str) -> Option<MatrixLink> {
-    let rest = strip_scheme(href, "https://").or_else(|| strip_scheme(href, "http://"))?;
+    let rest = strip_scheme(href, "https://")?;
     let (authority, after) = rest.split_at(rest.find(['/', '?', '#']).unwrap_or(rest.len()));
-    let host = authority.rsplit('@').next().unwrap_or(authority);
-    let host = host.split(':').next().unwrap_or(host);
-    if !host.eq_ignore_ascii_case("matrix.to") {
+    if !authority.eq_ignore_ascii_case("matrix.to") {
         return None;
     }
-    let fragment = after.split_once('#').map(|(_, fragment)| fragment)?;
-    let path = fragment.trim_start_matches('/').split('?').next()?;
-    if path.is_empty() {
-        return None;
-    }
+    let fragment = after.strip_prefix("/#/")?;
+    let path = fragment.split('?').next()?;
     let segments: Vec<&str> = path.split('/').collect();
     let first = decoded_segment(&segments, 0)?;
     if first.starts_with('@') && segments.len() == 1 {
@@ -113,6 +114,9 @@ fn parse_matrix_to(href: &str) -> Option<MatrixLink> {
     }
     if segments.len() == 1 {
         return Some(MatrixLink::Room { room_id: first });
+    }
+    if segments.len() != 2 {
+        return None;
     }
     let event_id = decoded_segment(&segments, 1)?;
     event_id.starts_with('$').then_some(MatrixLink::Event {
@@ -132,8 +136,16 @@ pub fn parse_matrix_link(href: &str) -> Option<MatrixLink> {
 /// The servers a link names to route a room through, and the link without them.
 #[must_use]
 pub fn split_via(href: &str) -> ViaSplit {
-    let after_hash = href.find('#').unwrap_or(0);
-    let Some(query) = href
+    // In matrix: URIs the query precedes the fragment; matrix.to puts it inside.
+    let native_uri = strip_scheme(href, "matrix:").is_some();
+    let fragment_start = if native_uri { href.find('#') } else { None };
+    let (resource, fragment) = href.split_at(fragment_start.unwrap_or(href.len()));
+    let after_hash = if native_uri {
+        0
+    } else {
+        resource.find('#').unwrap_or(0)
+    };
+    let Some(query) = resource
         .get(after_hash..)
         .and_then(|rest| rest.find('?'))
         .map(|offset| after_hash + offset)
@@ -144,14 +156,14 @@ pub fn split_via(href: &str) -> ViaSplit {
         };
     };
     let mut via: Vec<String> = Vec::new();
-    let params = href.get(query + 1..).unwrap_or_default();
+    let params = resource.get(query + 1..).unwrap_or_default();
     for (key, value) in form_urlencoded::parse(params.as_bytes()) {
         if key == "via" && !value.is_empty() && !via.iter().any(|seen| *seen == value) {
             via.push(value.into_owned());
         }
     }
     ViaSplit {
-        href: href.get(..query).unwrap_or(href).to_owned(),
+        href: format!("{}{fragment}", resource.get(..query).unwrap_or(resource)),
         via,
     }
 }
@@ -312,5 +324,70 @@ mod tests {
         let plain = split_via("#room:example.org");
         assert_eq!(plain.href, "#room:example.org");
         assert_eq!(plain.via, [] as [String; 0]);
+    }
+
+    #[test]
+    fn matrix_uris_support_reserved_authorities_and_legacy_types() {
+        for (href, expected) in [
+            ("MATRIX:u/alice:example.org", user("@alice:example.org")),
+            ("matrix:user/alice:example.org", user("@alice:example.org")),
+            ("matrix:room/lobby:example.org", room("#lobby:example.org")),
+            (
+                "matrix://reserved.example/u/alice:example.org",
+                user("@alice:example.org"),
+            ),
+            ("matrix:///r/lobby:example.org", room("#lobby:example.org")),
+            ("matrix:roomid/opaque", room("!opaque")),
+            (
+                "matrix:roomid/a%2Fb:example.org/event/c%2Fd",
+                event("!a/b:example.org", "$c/d"),
+            ),
+            (
+                "matrix:u/alice:example.org?action=chat#reserved",
+                user("@alice:example.org"),
+            ),
+        ] {
+            assert_eq!(parse_matrix_link(href), Some(expected), "{href}");
+        }
+    }
+
+    #[test]
+    fn malformed_uri_paths_are_not_truncated_into_valid_links() {
+        for href in [
+            "matrix:/u/alice:example.org",
+            "matrix:////u/alice:example.org",
+            "matrix://reserved.example",
+            "matrix:u/",
+            "matrix:u/%FF",
+            "matrix:u/%ZZ",
+            "matrix:u/alice:example.org/",
+            "https://matrix.to/#@alice:example.org",
+            "https://matrix.to/#/@alice:example.org/extra",
+            "https://matrix.to/#/!room:example.org/$event/extra",
+            "https://matrix.to/other/#/!room:example.org",
+            "https://user@matrix.to/#/!room:example.org",
+            "https://matrix.to:8443/#/!room:example.org",
+            "http://matrix.to/#/!room:example.org",
+        ] {
+            assert_eq!(parse_matrix_link(href), None, "{href}");
+        }
+    }
+
+    #[test]
+    fn native_uri_query_precedes_the_reserved_fragment() {
+        let split = split_via(
+            "MATRIX:roomid/opaque?via=a.example&via=b.example#reserved?via=wrong.example",
+        );
+        assert_eq!(
+            split.href,
+            "MATRIX:roomid/opaque#reserved?via=wrong.example"
+        );
+        assert_eq!(split.via, ["a.example", "b.example"]);
+        assert_eq!(parse_matrix_link(&split.href), Some(room("!opaque")));
+        assert!(
+            split_via("matrix:roomid/opaque#reserved?via=wrong.example")
+                .via
+                .is_empty()
+        );
     }
 }

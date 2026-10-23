@@ -149,6 +149,7 @@ targets:
           - CFBundleURLName: sable
             CFBundleURLSchemes:
               - moe.sable.next
+              - matrix
         {{~#each apple.plist-pairs}}
         {{this.key}}: {{this.value}}{{/each}}
     entitlements:

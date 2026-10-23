@@ -1,11 +1,12 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { goto } from '$app/navigation';
 
   import type { ProfileView } from '#src/generated/protocol';
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
-  import { roomSectionPath } from '#lib/rooms/permalink.js';
+  import { existingChatPath, roomSectionPath } from '#lib/rooms/permalink.js';
   import { hasDirectRoom, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import MediaViewer, { type MediaItem } from '#lib/features/room/media/MediaViewer.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -15,9 +16,10 @@
 
   interface Props {
     userId: string;
+    startChat?: boolean;
   }
 
-  let { userId }: Props = $props();
+  let { userId, startChat = false }: Props = $props();
 
   const core = useCoreClient();
   const roomList = useRoomList();
@@ -74,6 +76,21 @@
     return () => {
       active = false;
     };
+  });
+
+  $effect(() => {
+    // Read only the request here: profile loading and room updates must not repeat it.
+    const requestedUser = userId;
+    if (!startChat) return;
+    untrack(() => {
+      const target = existingChatPath(roomList.rooms, requestedUser);
+      if (target !== null) {
+        // eslint-disable-next-line svelte/no-navigation-without-resolve -- existingChatPath resolves the room route
+        void goto(target, { replace: true });
+      } else {
+        confirming = true;
+      }
+    });
   });
 
   async function message(): Promise<void> {

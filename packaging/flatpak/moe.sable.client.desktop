@@ -7,4 +7,4 @@ Icon=moe.sable.client
 Terminal=false
 Categories=Network;InstantMessaging;Chat;
 StartupWMClass=sable-electron
-MimeType=x-scheme-handler/sable;x-scheme-handler/moe.sable.app;
+MimeType=x-scheme-handler/matrix;x-scheme-handler/sable;x-scheme-handler/moe.sable.app;
