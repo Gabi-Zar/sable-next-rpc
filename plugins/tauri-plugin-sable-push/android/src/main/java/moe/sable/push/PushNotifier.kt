@@ -1,5 +1,6 @@
 package moe.sable.push
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -527,7 +528,10 @@ object PushNotifier {
             .setFullScreenIntent(fullScreen, true)
             .setTimeoutAfter(ringLifetimeMs(event))
 
-        NotificationManagerCompat.from(context).notify(notifId, builder.build())
+        val incoming = builder.build().apply {
+            this.flags = this.flags or Notification.FLAG_INSISTENT
+        }
+        NotificationManagerCompat.from(context).notify(notifId, incoming)
         PushDiagnostics.record(context, PushOutcome.POSTED, traceOf(notification))
     }
 

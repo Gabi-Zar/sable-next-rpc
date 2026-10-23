@@ -7,6 +7,7 @@ import {
   reportIncomingSystemCall,
   systemCallKey,
 } from '#lib/platform/calls.js';
+import { isAndroid } from '#lib/platform/os.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import { type NotificationSound } from '../notifications/sound';
 import { playSound } from '../notifications/sound';
@@ -33,9 +34,11 @@ export class IncomingCalls {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered from
   readonly #system = new Set<string>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered from
+  readonly #reporting = new Set<string>();
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered from
   readonly #uuids = new Map<string, { uuid: string; answered: boolean }>();
   readonly #onSystemAnswer: (answer: SystemAnswer) => void;
-  #ringtone: NotificationSound | undefined;
+  #ringtone: Promise<NotificationSound> | undefined;
   #unsubscribe: (() => void) | undefined;
   #stopSystemActions: (() => void) | undefined;
 
@@ -70,9 +73,10 @@ export class IncomingCalls {
     this.#timers.clear();
     for (const callId of this.#system) void endSystemCall(this.#systemKey(callId));
     this.#system.clear();
+    this.#reporting.clear();
     this.#uuids.clear();
     this.calls = [];
-    void this.#syncRingtone();
+    this.#syncRingtone();
   }
 
   accept(call: IncomingCall): void {
@@ -124,7 +128,7 @@ export class IncomingCalls {
       }, remaining)
     );
     void this.#raiseSystemCall(call);
-    void this.#syncRingtone();
+    this.#syncRingtone();
   }
 
   #systemKey(notificationEventId: string): string {
@@ -156,6 +160,7 @@ export class IncomingCalls {
   }
 
   async #raiseSystemCall(call: IncomingCall): Promise<void> {
+    this.#reporting.add(call.notificationEventId);
     const uuid = crypto.randomUUID();
     const reported = { uuid, answered: false };
     this.#uuids.set(call.notificationEventId, reported);
@@ -166,13 +171,17 @@ export class IncomingCalls {
       hasVideo: call.hasVideo,
       roomId: call.roomId,
     });
-    if (!taken || reported.answered) return;
+    this.#reporting.delete(call.notificationEventId);
+    if (!taken || reported.answered) {
+      this.#syncRingtone();
+      return;
+    }
     if (!this.calls.some((c) => c.notificationEventId === call.notificationEventId)) {
       void endSystemCall(systemCallKey(call.notificationEventId, uuid));
       return;
     }
     this.#system.add(call.notificationEventId);
-    void this.#syncRingtone();
+    this.#syncRingtone();
   }
 
   #drop(notificationEventId: string): void {
@@ -186,19 +195,35 @@ export class IncomingCalls {
     }
     this.#uuids.delete(notificationEventId);
     this.calls = this.calls.filter((call) => call.notificationEventId !== notificationEventId);
-    void this.#syncRingtone();
+    this.#syncRingtone();
   }
 
-  async #syncRingtone(): Promise<void> {
+  #syncRingtone(): void {
     const shouldRing =
+      // Web Audio bypasses Android's ringer mode.
+      !isAndroid() &&
       preferences.incomingCallSound &&
-      this.calls.some((call) => !this.#system.has(call.notificationEventId));
+      this.calls.some(
+        (call) =>
+          !this.#system.has(call.notificationEventId) &&
+          !this.#reporting.has(call.notificationEventId)
+      );
     if (shouldRing && !this.#ringtone) {
-      this.#ringtone = await playSound('incoming_call', { loop: true });
+      const ringtone = playSound('incoming_call', { loop: true });
+      this.#ringtone = ringtone;
+      void ringtone.catch((error: unknown) => {
+        if (this.#ringtone === ringtone) this.#ringtone = undefined;
+        console.warn('[sable call] could not play ringtone', error);
+      });
       return;
     }
     if (!shouldRing && this.#ringtone) {
-      this.#ringtone.stop();
+      void this.#ringtone.then(
+        (sound) => {
+          sound.stop();
+        },
+        () => {}
+      );
       this.#ringtone = undefined;
     }
   }

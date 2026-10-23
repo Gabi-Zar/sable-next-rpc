@@ -8974,7 +8974,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-livekit-mobile"
 version = "0.2.0"
-source = "git+https://github.com/SableClient/tauri-plugin-livekit-mobile.git?rev=8b8c96c80b744515746686762b5782af8cb512fd#8b8c96c80b744515746686762b5782af8cb512fd"
+source = "git+https://github.com/SableClient/tauri-plugin-livekit-mobile.git?rev=dc1cc21b9e3d14f94f8300cd931ee83d71ed2733#dc1cc21b9e3d14f94f8300cd931ee83d71ed2733"
 dependencies = [
  "base64 0.22.1",
  "serde",

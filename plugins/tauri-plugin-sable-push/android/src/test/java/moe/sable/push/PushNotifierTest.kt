@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ResolveInfo
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
@@ -957,6 +959,19 @@ class PushNotifierTest {
             PushNotifier.roomNotificationId("@alice:example.org", "!r1:example.org"),
             PushNotifier.callNotificationId("@alice:example.org", "!r1:example.org")
         )
+    }
+
+    @Test
+    fun incomingCallsRepeatOnTheRingtoneChannelUntilTheirTimeout() {
+        PushNotifier.showFromPush(context, ringPayload("!r1:example.org", "\$ring"))
+        val id = PushNotifier.callNotificationId("@alice:example.org", "!r1:example.org")
+        val posted = shadowNotificationManager().getNotification(null, id)!!
+        assertTrue(posted.flags and Notification.FLAG_INSISTENT != 0)
+        assertEquals(30_000L, posted.timeoutAfter)
+        val channel = notificationManager.getNotificationChannel(posted.channelId)
+        assertEquals(AudioAttributes.USAGE_NOTIFICATION_RINGTONE, channel.audioAttributes.usage)
+        assertEquals(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), channel.sound)
+        assertTrue(channel.shouldVibrate())
     }
 
     @Test

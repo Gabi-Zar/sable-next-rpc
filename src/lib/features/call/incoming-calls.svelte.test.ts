@@ -9,7 +9,10 @@ const system = vi.hoisted(() => ({
   handler: null as ((action: { action: string; uuid: string; roomId?: string }) => void) | null,
   report: vi.fn((_call: { uuid: string }) => Promise.resolve(false)),
   end: vi.fn((_callId: string) => Promise.resolve(true)),
+  play: vi.fn<() => Promise<{ stop: () => void }>>(() => Promise.resolve({ stop: vi.fn() })),
 }));
+
+vi.mock('#lib/platform/os.js', () => ({ isAndroid: () => system.platform === 'android' }));
 
 vi.mock('#lib/platform/calls.js', () => ({
   reportIncomingSystemCall: system.report,
@@ -22,7 +25,7 @@ vi.mock('#lib/platform/calls.js', () => ({
 }));
 
 vi.mock('#lib/features/notifications/sound.js', () => ({
-  playSound: () => Promise.resolve({ stop: () => {} }),
+  playSound: system.play,
 }));
 
 import { IncomingCalls } from './incoming-calls.svelte.js';
@@ -65,6 +68,7 @@ const incoming = (overrides: Partial<Record<string, unknown>> = {}): CoreEvent =
 beforeEach(() => {
   system.platform = 'android';
   preferences.ringForGroupCalls = false;
+  preferences.incomingCallSound = true;
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-08-24T12:00:00Z'));
 });
@@ -74,6 +78,60 @@ afterEach(() => {
   system.report.mockClear();
   system.end.mockClear();
   system.handler = null;
+  system.play.mockClear();
+});
+
+test('Android leaves ringing to native notifications', async () => {
+  const { client, emit } = harness();
+  const calls = new IncomingCalls(client);
+  calls.start();
+  emit(incoming());
+  expect(system.play).not.toHaveBeenCalled();
+  await Promise.resolve();
+  expect(system.play).not.toHaveBeenCalled();
+  calls.stop();
+});
+
+test('the fallback ringtone waits for native reporting to fail', async () => {
+  system.platform = 'ios';
+  let complete!: (taken: boolean) => void;
+  system.report.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      })
+  );
+  const { client, emit } = harness();
+  const calls = new IncomingCalls(client);
+  calls.start();
+  emit(incoming());
+  expect(system.play).not.toHaveBeenCalled();
+  complete(false);
+  await Promise.resolve();
+  expect(system.play).toHaveBeenCalledExactlyOnceWith('incoming_call', { loop: true });
+  calls.stop();
+});
+
+test('a ringtone that finishes loading after dismissal is stopped', async () => {
+  system.platform = 'web';
+  let complete!: (sound: { stop: () => void }) => void;
+  system.play.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      })
+  );
+  const { client, emit } = harness();
+  const calls = new IncomingCalls(client);
+  calls.start();
+  emit(incoming());
+  await Promise.resolve();
+  calls.accept(calls.calls[0]);
+  const stop = vi.fn();
+  complete({ stop });
+  await Promise.resolve();
+  expect(stop).toHaveBeenCalledOnce();
+  calls.stop();
 });
 
 test('an incoming call is surfaced', () => {
