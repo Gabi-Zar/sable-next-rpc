@@ -680,9 +680,14 @@ fn primitive(kind: PrimitiveType, input: &str) -> Option<LiteralValue> {
         PrimitiveType::RoomId => room_input(input)
             .filter(|room| room.event_id.is_none())
             .map(|room| room_reference_from(RoomReferenceKind::RoomId, room)),
-        PrimitiveType::EventId => room_input(input)
-            .filter(|room| room.event_id.is_some())
-            .map(|room| room_reference_from(RoomReferenceKind::EventId, room)),
+        PrimitiveType::EventId => {
+            if is_identifier(input, '$', false) {
+                return Some(LiteralValue::Text(input.to_owned()));
+            }
+            room_input(input)
+                .filter(|room| room.event_id.is_some())
+                .map(|room| room_reference_from(RoomReferenceKind::EventId, room))
+        }
     }
 }
 
@@ -1151,6 +1156,64 @@ mod tests {
         assert!(is_server_name("[::1]:8448"));
         assert!(!is_server_name("exa mple.org"));
         assert!(!is_server_name("example.org:123456"));
+    }
+
+    #[test]
+    fn event_arguments_accept_bare_ids_and_permalinks() {
+        let command = parse_bot_command(
+            "@b:x",
+            None,
+            None,
+            &json!({
+                "command": "event",
+                "parameters": [{"key": "event", "schema": {"schema_type": "primitive", "type": "event_id"}}]
+            }),
+        )
+        .unwrap();
+
+        for (input, expected, event_id) in [
+            ("$hash-123", json!("$hash-123"), "$hash-123"),
+            ("$event:x", json!("$event:x"), "$event:x"),
+            (
+                "https://matrix.to/#/!room:example.org/$event?via=example.org",
+                json!({"type": "event_id", "id": "!room:example.org", "event_id": "$event", "via": ["example.org"]}),
+                "$event",
+            ),
+            (
+                "matrix:roomid/room:example.org/e/event",
+                json!({"type": "event_id", "id": "!room:example.org", "event_id": "$event"}),
+                "$event",
+            ),
+        ] {
+            let drafts = drafts_from_text(&command, input);
+            let InvocationResult::Built { invocation, body } =
+                build_invocation(&command, &drafts, "/")
+            else {
+                panic!("rejected event argument: {input}");
+            };
+            assert_eq!(invocation.arguments["event"], expected, "{input}");
+            assert_eq!(body, format!("/event {event_id}"));
+        }
+
+        for input in [
+            "$",
+            "$:example.org",
+            "$event:",
+            "$event hash",
+            "event",
+            "!room:example.org",
+        ] {
+            let drafts = [("event".to_owned(), ArgumentDraft::Text(input.to_owned()))].into();
+            let InvocationResult::Invalid { errors } = build_invocation(&command, &drafts, "/")
+            else {
+                panic!("accepted invalid event argument: {input}");
+            };
+            assert_eq!(
+                errors.get("event"),
+                Some(&ArgumentError::Invalid),
+                "{input}"
+            );
+        }
     }
 
     #[test]
