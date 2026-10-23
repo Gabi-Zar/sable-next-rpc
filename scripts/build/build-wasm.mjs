@@ -30,7 +30,8 @@ const cargoArgs = [
 ];
 
 const MAX_RELEASE_WASM_BYTES = 20 * 1024 * 1024;
-const MAX_RELEASE_MODEL_BYTES = 750 * 1024;
+// Includes the HTML parser used by notification previews.
+const MAX_RELEASE_MODEL_BYTES = 1200 * 1024;
 
 function run(command, args, env) {
   const result = spawnSync(command, args, { stdio: 'inherit', env: env ?? process.env });

@@ -1,4 +1,4 @@
-use matrix_sdk::ruma::events::room::message::MessageType;
+use matrix_sdk::ruma::events::room::message::{MessageFormat, MessageType};
 use matrix_sdk::ruma::events::{AnySyncMessageLikeEvent, AnySyncTimelineEvent};
 
 const FALLBACK: &str = "sent a message";
@@ -29,6 +29,14 @@ pub(crate) fn describe(event: &AnySyncTimelineEvent) -> String {
 }
 
 fn describe_message(msgtype: &MessageType) -> String {
+    let formatted = match msgtype {
+        MessageType::Text(content) => content.formatted.as_ref(),
+        MessageType::Notice(content) => content.formatted.as_ref(),
+        MessageType::Emote(content) => content.formatted.as_ref(),
+        _ => None,
+    }
+    .filter(|formatted| formatted.format == MessageFormat::Html)
+    .map(|formatted| formatted.body.as_str());
     match msgtype {
         MessageType::Image(_) => "sent an image".to_owned(),
         MessageType::Video(_) => "sent a video".to_owned(),
@@ -36,7 +44,7 @@ fn describe_message(msgtype: &MessageType) -> String {
         MessageType::File(_) => "sent a file".to_owned(),
         MessageType::Gallery(_) => "sent a gallery".to_owned(),
         MessageType::VerificationRequest(_) => "requested verification".to_owned(),
-        _ => msgtype.body().to_owned(),
+        _ => crate::matrix_html::preview_body(msgtype.body(), formatted),
     }
 }
 
@@ -66,6 +74,39 @@ mod tests {
         .expect("valid JSON")
         .deserialize()
         .expect("a valid timeline event")
+    }
+
+    #[test]
+    fn rich_text_notifications_use_formatted_text() {
+        for msgtype in ["m.text", "m.notice", "m.emote"] {
+            let content = json!({
+                "msgtype": msgtype,
+                "body": "<a data-mention-type=\"user\" href=\"https://matrix.to/#/@alice:example.org\" contenteditable=\"false\">Alice</a> hi &amp; welcome",
+                "format": "org.matrix.custom.html",
+                "formatted_body": "<a href=\"https://matrix.to/#/@alice:example.org\">Alice</a> hi &amp; welcome"
+            });
+            assert_eq!(
+                describe(&event("m.room.message", &content)),
+                "Alice hi & welcome"
+            );
+        }
+    }
+
+    #[test]
+    fn notification_previews_keep_literal_plain_text() {
+        for format in [None, Some("org.example.other")] {
+            let mut content = json!({
+                "msgtype": "m.text", "body": "<b>literal</b> &amp; text",
+                "formatted_body": "<b>formatted</b>"
+            });
+            if let Some(format) = format {
+                content["format"] = json!(format);
+            }
+            assert_eq!(
+                describe_message(&message(content).msgtype),
+                "<b>literal</b> &amp; text"
+            );
+        }
     }
 
     #[test]

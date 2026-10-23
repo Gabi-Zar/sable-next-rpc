@@ -128,6 +128,12 @@ struct ContentIn {
     body: Option<String>,
     #[serde_as(as = "NonBlankText")]
     #[serde(default)]
+    format: Option<String>,
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
+    formatted_body: Option<String>,
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
     membership: Option<String>,
     #[serde_as(as = "NonBlankText")]
     #[serde(default)]
@@ -137,7 +143,13 @@ struct ContentIn {
 impl From<ContentIn> for PushContent {
     fn from(content: ContentIn) -> Self {
         Self {
-            body: content.body,
+            body: content.body.map(|body| {
+                let formatted = content
+                    .formatted_body
+                    .as_deref()
+                    .filter(|_| content.format.as_deref() == Some("org.matrix.custom.html"));
+                crate::html::preview_body(&body, formatted)
+            }),
             membership: content.membership,
             notification_type: content.notification_type,
         }
@@ -449,6 +461,52 @@ mod tests {
 
     fn parsed(raw: &Value) -> PushNotification {
         parse_push_payload(&raw.to_string()).expect("a valid push")
+    }
+
+    #[test]
+    fn rich_text_pushes_use_formatted_text() {
+        let content = json!({
+            "msgtype": "m.text",
+            "body": "<a data-mention-type=\"user\" href=\"https://matrix.to/#/@alice:example.org\" contenteditable=\"false\">Alice</a> hi &amp; welcome",
+            "format": "org.matrix.custom.html",
+            "formatted_body": "<a href=\"https://matrix.to/#/@alice:example.org\">Alice</a> hi &amp; welcome"
+        });
+        assert_eq!(
+            push_content(&content).body.as_deref(),
+            Some("Alice hi & welcome")
+        );
+        let push = parsed(&json!({
+            "room_id": "!r:x", "event_id": "$e", "sender_display_name": "Bob",
+            "type": "m.room.message", "content": content
+        }));
+        let shown = alert(&push, None, true).expect("an alert");
+        assert_eq!(shown.body, "Bob: Alice hi & welcome");
+        assert_eq!(shown.line.body, "Alice hi & welcome");
+    }
+
+    #[test]
+    fn push_previews_keep_literal_plain_text() {
+        for format in [json!(null), json!("org.example.other"), json!(5)] {
+            assert_eq!(
+                push_content(&json!({
+                    "body": "<b>literal</b> &amp; text", "format": format,
+                    "formatted_body": "<b>formatted</b>"
+                }))
+                .body
+                .as_deref(),
+                Some("<b>literal</b> &amp; text")
+            );
+        }
+    }
+
+    #[test]
+    fn push_previews_hide_spoilers_and_reply_fallbacks() {
+        let content = push_content(&json!({
+            "body": "quoted secret",
+            "format": "org.matrix.custom.html",
+            "formatted_body": "<mx-reply><blockquote>quoted</blockquote></mx-reply>look <span data-mx-spoiler>secret</span>"
+        }));
+        assert_eq!(content.body.as_deref(), Some("look [Spoiler]"));
     }
 
     #[test]

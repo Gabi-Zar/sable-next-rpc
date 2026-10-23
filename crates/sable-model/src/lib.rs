@@ -15,6 +15,7 @@ mod civil;
 mod emoji_properties;
 pub mod event_preview;
 pub mod field;
+pub mod html;
 pub mod jumbo;
 pub mod markdown;
 pub mod matrix_link;

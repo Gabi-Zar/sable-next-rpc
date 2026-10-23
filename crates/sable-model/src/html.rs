@@ -1,0 +1,137 @@
+use std::sync::LazyLock;
+
+use ruma_html::{Html, ListBehavior, NodeData, NodeRef, SanitizerConfig};
+
+static PREVIEW_POLICY: LazyLock<SanitizerConfig> = LazyLock::new(|| {
+    SanitizerConfig::compat()
+        .remove_reply_fallback()
+        .remove_elements(["script", "style", "textarea", "option", "noscript"])
+        .allow_elements(["time", "dl", "dt", "dd"], ListBehavior::Add)
+});
+
+#[must_use]
+pub fn nests_too_deeply(formatted: &str) -> bool {
+    const VOID_TAGS: [&str; 3] = ["br", "hr", "img"];
+    const LIMIT: usize = 512;
+
+    let mut open: Vec<&str> = Vec::new();
+    let mut rest = formatted;
+    while let Some(offset) = rest.find('<') {
+        let Some(after) = rest.get(offset + 1..) else {
+            break;
+        };
+        rest = after;
+        if let Some(closing) = rest.strip_prefix('/') {
+            let name = closing
+                .split(['>', ' ', '\t', '\n'])
+                .next()
+                .unwrap_or_default();
+            if open
+                .last()
+                .is_some_and(|top| top.eq_ignore_ascii_case(name))
+            {
+                open.pop();
+            }
+            continue;
+        }
+        let Some(name) = rest.split(['>', ' ', '/', '\t', '\n']).next() else {
+            continue;
+        };
+        if name.starts_with(|c: char| c.is_ascii_alphabetic())
+            && !VOID_TAGS.iter().any(|void| name.eq_ignore_ascii_case(void))
+        {
+            open.push(name);
+            if open.len() > LIMIT {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+const SPOILER_ATTRIBUTE: &str = "data-mx-spoiler";
+const SPOILER_PLACEHOLDER: &str = "[Spoiler]";
+
+#[must_use]
+pub fn preview_body(body: &str, formatted: Option<&str>) -> String {
+    let Some(formatted) = formatted else {
+        return body.to_owned();
+    };
+    if nests_too_deeply(formatted) {
+        return if formatted.contains(SPOILER_ATTRIBUTE) {
+            SPOILER_PLACEHOLDER.to_owned()
+        } else {
+            body.to_owned()
+        };
+    }
+    let html = Html::parse(formatted);
+    html.sanitize_with(&PREVIEW_POLICY);
+    let mut text = String::new();
+    for node in html.children() {
+        push_preview_text(&node, &mut text);
+    }
+    let text = text.trim_end_matches('\n');
+    if text.is_empty() {
+        body.to_owned()
+    } else {
+        text.to_owned()
+    }
+}
+
+fn push_preview_text(node: &NodeRef, out: &mut String) {
+    match node.data() {
+        NodeData::Text(text) => out.push_str(&text.borrow()),
+        NodeData::Element(element) => {
+            if element
+                .attrs
+                .borrow()
+                .iter()
+                .any(|attribute| &*attribute.name.local == SPOILER_ATTRIBUTE)
+            {
+                out.push_str(SPOILER_PLACEHOLDER);
+                return;
+            }
+            if &*element.name.local == "br" {
+                out.push('\n');
+                return;
+            }
+            if &*element.name.local == "img" {
+                if let Some(alt) = element
+                    .attrs
+                    .borrow()
+                    .iter()
+                    .find(|attr| &*attr.name.local == "alt")
+                {
+                    out.push_str(&alt.value);
+                }
+                return;
+            }
+            let block = matches!(
+                &*element.name.local,
+                "p" | "div"
+                    | "pre"
+                    | "blockquote"
+                    | "h1"
+                    | "h2"
+                    | "h3"
+                    | "h4"
+                    | "h5"
+                    | "h6"
+                    | "li"
+                    | "tr"
+                    | "dt"
+                    | "dd"
+            );
+            if block && !out.is_empty() && !out.ends_with('\n') {
+                out.push('\n');
+            }
+            for child in node.children() {
+                push_preview_text(&child, out);
+            }
+            if block && !out.is_empty() && !out.ends_with('\n') {
+                out.push('\n');
+            }
+        }
+        _ => {}
+    }
+}

@@ -69,6 +69,41 @@ test('a plaintext event is completed with its sender and room, with the token', 
   });
 });
 
+test.each([false, true])('fetches rich text as plain text (encrypted: %s)', async (encrypted) => {
+  const content = {
+    msgtype: 'm.text',
+    body: '<a data-mention-type="user" href="https://matrix.to/#/@alice:example.org" contenteditable="false">Alice</a> hi &amp; welcome',
+    format: 'org.matrix.custom.html',
+    formatted_body: '<a href="https://matrix.to/#/@alice:example.org">Alice</a> hi &amp; welcome',
+  };
+  const completed = await completePushPayload(
+    bare,
+    fetcher(
+      {
+        [`${base}/event/$event`]: {
+          type: encrypted ? 'm.room.encrypted' : 'm.room.message',
+          sender: '@alice:example.org',
+          content: encrypted ? { ciphertext: 'x' } : content,
+        },
+      },
+      {
+        kind: 'event',
+        event: {
+          type: 'm.room.message',
+          content,
+          sender: '@alice:example.org',
+          sender_display_name: 'Alice',
+          room_name: 'Garden',
+          room_avatar_url: null,
+          encrypted: true,
+          noisy: false,
+        },
+      }
+    )
+  );
+  expect(completed?.content.body).toBe('Alice hi & welcome');
+});
+
 test('a room with no name is titled after its sender, unless the app stored one', async () => {
   const responses = {
     [`${base}/event/$event`]: { type: 'm.room.message', sender: '@alice:example.org', content: {} },
