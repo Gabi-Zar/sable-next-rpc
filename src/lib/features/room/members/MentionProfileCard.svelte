@@ -488,26 +488,33 @@
     </ActionMenu>
   {/if}
   {#if !isSelf}
-    <ActionMenu
-      label={mutualLabel}
-      class="profile-mutual-menu"
-      align="start"
-      onOpenChange={onNestedMenuOpenChange}
-    >
-      {#snippet trigger({ props })}
-        <Pill {...props}>
-          <ChatsIcon size={14} />
-          {mutualLabel}
-        </Pill>
-      {/snippet}
-      {#if sharedSpaces.length > 0}
-        {@render mutualRows(sharedSpaces)}
-      {/if}
-      {#if sharedSpaces.length > 0 && sharedRooms.length > 0}
-        <ActionMenuSeparator />
-      {/if}
-      {@render mutualRoomRows()}
-    </ActionMenu>
+    {#if sharedRooms.length > 0 || sharedSpaces.length > 0}
+      <ActionMenu
+        label={mutualLabel}
+        class="profile-mutual-menu"
+        align="start"
+        onOpenChange={onNestedMenuOpenChange}
+      >
+        {#snippet trigger({ props })}
+          <Pill {...props}>
+            <ChatsIcon size={14} />
+            {mutualLabel}
+          </Pill>
+        {/snippet}
+        {#if sharedSpaces.length > 0}
+          {@render mutualRows(sharedSpaces)}
+        {/if}
+        {#if sharedSpaces.length > 0 && sharedRooms.length > 0}
+          <ActionMenuSeparator />
+        {/if}
+        {@render mutualRoomRows()}
+      </ActionMenu>
+    {:else}
+      <Pill>
+        <ChatsIcon size={14} />
+        {mutualLabel}
+      </Pill>
+    {/if}
   {/if}
   <ActionMenu label={i18n.t('timeline.moreActions')} onOpenChange={onNestedMenuOpenChange}>
     {#snippet trigger({ props })}
