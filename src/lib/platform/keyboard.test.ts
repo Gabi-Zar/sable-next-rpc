@@ -1,11 +1,107 @@
-import { afterEach, expect, test, vi } from 'vitest';
-import { resetDocumentScroll, trackKeyboardInset } from './keyboard';
+import { afterEach, expect, onTestFinished, test, vi } from 'vitest';
+import { dismissKeyboardOnScroll, resetDocumentScroll, trackKeyboardInset } from './keyboard';
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   delete document.documentElement.dataset.tauriOs;
   document.documentElement.style.removeProperty('--keyboard-height');
+});
+
+async function scrollKeyboardHarness() {
+  const node = document.createElement('div');
+  const field = document.createElement('textarea');
+  field.value = 'Unsent draft';
+  document.body.append(node, field);
+  field.focus();
+  const stop = dismissKeyboardOnScroll(node);
+  await Promise.resolve();
+  onTestFinished(() => {
+    stop();
+    node.remove();
+    field.remove();
+  });
+  const touch = (type: string, x = 0, y = 0, count = 1, target: HTMLElement = node): Event => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'touches', {
+      value: Array.from({ length: count }, () => ({ clientX: x, clientY: y })),
+    });
+    target.dispatchEvent(event);
+    return event;
+  };
+  return { node, field, touch };
+}
+
+test.each([-30, 30])('vertical touch scrolling dismisses the keyboard (%i)', async (distance) => {
+  const { field, touch } = await scrollKeyboardHarness();
+  touch('touchstart');
+  const event = touch('touchmove', 2, distance);
+  expect(document.activeElement).not.toBe(field);
+  expect(field.value).toBe('Unsent draft');
+  expect(event.defaultPrevented).toBe(false);
+});
+
+test('taps, small movements, and horizontal swipes preserve composer focus', async () => {
+  const { field, touch } = await scrollKeyboardHarness();
+  touch('touchstart');
+  touch('touchend', 0, 0, 0);
+  expect(field).toBe(document.activeElement);
+  touch('touchstart');
+  touch('touchmove', 1, 3);
+  expect(field).toBe(document.activeElement);
+  touch('touchmove', 30, 4);
+  touch('touchmove', 30, 60);
+  expect(field).toBe(document.activeElement);
+});
+
+test.each(['touchend', 'touchcancel'])('%s clears the pending keyboard dismissal', async (type) => {
+  const { field, touch } = await scrollKeyboardHarness();
+  touch('touchstart');
+  touch(type, 0, 0, 0);
+  touch('touchmove', 0, 30);
+  expect(field).toBe(document.activeElement);
+});
+
+test('multi-touch gestures preserve composer focus', async () => {
+  const { field, touch } = await scrollKeyboardHarness();
+  touch('touchstart', 0, 0, 2);
+  touch('touchmove', 0, 30, 2);
+  expect(field).toBe(document.activeElement);
+  touch('touchstart');
+  touch('touchmove', 0, 30, 2);
+  touch('touchmove', 0, 60);
+  expect(field).toBe(document.activeElement);
+});
+
+test('scrolling inside an editor preserves its focus', async () => {
+  const { node, field, touch } = await scrollKeyboardHarness();
+  node.append(field);
+  field.focus();
+  touch('touchstart', 0, 0, 1, field);
+  touch('touchmove', 0, 30, 1, field);
+  expect(field).toBe(document.activeElement);
+});
+
+test('a focus change during a touch gesture does not blur the new field', async () => {
+  const { node, touch } = await scrollKeyboardHarness();
+  const other = document.createElement('input');
+  node.append(other);
+  touch('touchstart');
+  other.focus();
+  touch('touchmove', 0, 30);
+  expect(other).toBe(document.activeElement);
+});
+
+test('blocked touch scrolling preserves composer focus', async () => {
+  const { node, field, touch } = await scrollKeyboardHarness();
+  const child = document.createElement('div');
+  node.append(child);
+  child.addEventListener('touchmove', (event) => {
+    event.preventDefault();
+  });
+  touch('touchstart', 0, 0, 1, child);
+  touch('touchmove', 0, 30, 1, child);
+  expect(field).toBe(document.activeElement);
 });
 
 test('Android viewport changes preserve the native keyboard inset', async () => {

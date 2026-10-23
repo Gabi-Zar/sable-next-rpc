@@ -14,6 +14,7 @@
     TimelineItemView,
   } from '#src/generated/protocol';
   import { i18n } from '#lib/i18n.js';
+  import { dismissKeyboardOnScroll } from '#lib/platform/keyboard.js';
   import { windowActivity } from '#lib/platform/window-activity.js';
   import type { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -1148,6 +1149,7 @@
         {@attach mountWindow}
         {@attach userScrollMarker}
         {@attach scrollLock(scrollLocked || menuOpen)}
+        {@attach dismissKeyboardOnScroll}
         role="log"
         aria-live="off"
       >
