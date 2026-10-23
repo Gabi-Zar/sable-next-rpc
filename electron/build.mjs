@@ -9,19 +9,25 @@ const root = join(here, '..');
 const release = process.argv.includes('--release');
 const out = join(here, 'dist');
 
-execFileSync('cargo', ['build', '-p', 'sable-node', ...(release ? ['--release'] : [])], {
-  cwd: root,
-  stdio: 'inherit',
-});
+execFileSync(
+  'cargo',
+  ['build', '-p', 'sable-node', '-p', 'sable-audiofox', ...(release ? ['--release'] : [])],
+  {
+    cwd: root,
+    stdio: 'inherit',
+  }
+);
 
-const library = {
-  darwin: 'libsable_node.dylib',
-  linux: 'libsable_node.so',
-  win32: 'sable_node.dll',
-}[process.platform];
 const target = process.env.CARGO_TARGET_DIR ?? join(root, 'target');
 mkdirSync(out, { recursive: true });
-copyFileSync(join(target, release ? 'release' : 'debug', library), join(out, 'sable_node.node'));
+for (const name of ['sable_node', 'sable_audiofox']) {
+  const library = {
+    darwin: `lib${name}.dylib`,
+    linux: `lib${name}.so`,
+    win32: `${name}.dll`,
+  }[process.platform];
+  copyFileSync(join(target, release ? 'release' : 'debug', library), join(out, `${name}.node`));
+}
 
 const venmic = join(here, 'node_modules/@vencord/venmic/prebuilds');
 for (const arch of ['x64', 'arm64']) {
@@ -47,6 +53,7 @@ await build({
     main: join(here, 'src/main.ts'),
     preload: join(here, 'src/preload.ts'),
     'core-host': join(here, 'src/core-host.ts'),
+    'audiofox-host': join(here, 'src/audiofox-host.ts'),
   },
   outdir: out,
   outExtension: { '.js': '.cjs' },

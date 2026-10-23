@@ -81,10 +81,10 @@
       allowedVersions: '<0.19',
     },
     {
-      description: 'The release runner has PipeWire headers for the 0.9 bindings',
+      description: 'Keep PipeWire compatible with the Audiofox bindings',
       matchManagers: ['cargo'],
       matchPackageNames: ['pipewire'],
-      allowedVersions: '<0.10',
+      allowedVersions: '<0.11',
     },
     {
       description: 'Keep compatibility pins until backtrace on iOS and deep-link on Linux support newer dependencies',

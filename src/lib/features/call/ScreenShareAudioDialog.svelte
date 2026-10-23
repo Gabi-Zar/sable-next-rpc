@@ -11,6 +11,8 @@
     listScreenAudioApps,
     screenAudioPicksMany,
     screenAudioAppLabel,
+    screenAudioSystemSupported,
+    screenAudioCanExclude,
   } from '#lib/platform/screen-audio.js';
   import { electronBridge } from '#lib/platform/electron.js';
   import type { ScreenAudioListing } from '#lib/platform/screen-audio-types.js';
@@ -36,7 +38,8 @@
   const many = screenAudioPicksMany();
   const linuxElectron = electronBridge()?.platform === 'linux';
   const last = lastScreenAudioChoice();
-  let kind = $state<Kind>(last.kind);
+  const systemSupported = screenAudioSystemSupported();
+  let kind = $state<Kind>(last.kind === 'system' && !systemSupported ? 'none' : last.kind);
   let excluded = $state<string[]>(last.kind === 'system' ? last.exclude : []);
   let included = $state<string[]>(last.kind === 'apps' ? last.include : []);
   let playing = $state.raw<string[]>([]);
@@ -53,28 +56,30 @@
     kind === 'none' ||
       (!loading && !failed && available && (kind !== 'apps' || included.length > 0))
   );
-  let listed = $derived(kind === 'apps' || (kind === 'system' && many));
+  let listed = $derived(kind === 'apps' || (kind === 'system' && screenAudioCanExclude()));
 
-  let options = $derived([
-    {
-      value: 'none' as const,
-      label: i18n.t('call.screenAudioNone'),
-      hint: i18n.t('call.screenAudioNoneHint'),
-      icon: SpeakerSlashIcon,
-    },
-    {
-      value: 'system' as const,
-      label: i18n.t('call.screenAudioSystem'),
-      hint: i18n.t('call.screenAudioSystemHint'),
-      icon: SpeakerHighIcon,
-    },
-    {
-      value: 'apps' as const,
-      label: i18n.t(many ? 'call.screenAudioApps' : 'call.screenAudioAppsOne'),
-      hint: i18n.t(many ? 'call.screenAudioAppsHint' : 'call.screenAudioAppsOneHint'),
-      icon: AppWindowIcon,
-    },
-  ]);
+  let options = $derived(
+    [
+      {
+        value: 'none' as const,
+        label: i18n.t('call.screenAudioNone'),
+        hint: i18n.t('call.screenAudioNoneHint'),
+        icon: SpeakerSlashIcon,
+      },
+      {
+        value: 'system' as const,
+        label: i18n.t('call.screenAudioSystem'),
+        hint: i18n.t('call.screenAudioSystemHint'),
+        icon: SpeakerHighIcon,
+      },
+      {
+        value: 'apps' as const,
+        label: i18n.t(many ? 'call.screenAudioApps' : 'call.screenAudioAppsOne'),
+        hint: i18n.t(many ? 'call.screenAudioAppsHint' : 'call.screenAudioAppsOneHint'),
+        icon: AppWindowIcon,
+      },
+    ].filter((option) => option.value !== 'system' || systemSupported)
+  );
 
   async function refresh(): Promise<void> {
     loading = true;
@@ -111,7 +116,7 @@
 
   function share(): void {
     if (!ready) return;
-    const extra = linuxElectron && workaround ? { workaround: true } : {};
+    const extra = linuxElectron && kind === 'system' && workaround ? { workaround: true } : {};
     if (kind === 'system') onShare({ kind, exclude: $state.snapshot(excluded), ...extra });
     else if (kind === 'apps') onShare({ kind, include: $state.snapshot(included), ...extra });
     else onShare({ kind: 'none' });
@@ -207,7 +212,7 @@
       </section>
     {/if}
 
-    {#if linuxElectron && kind !== 'none'}
+    {#if linuxElectron && kind === 'system'}
       <label>
         <input type="checkbox" bind:checked={workaround} />
         {i18n.t('call.screenAudioWorkaround')}

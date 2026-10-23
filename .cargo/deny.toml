@@ -32,7 +32,10 @@ allow = [
   "Unlicense",
   "Zlib",
 ]
-exceptions = [{ crate = "libbz2-rs-sys", allow = ["bzip2-1.0.6"] }]
+exceptions = [
+  { crate = "audiofox", allow = ["GPL-2.0-or-later WITH Classpath-exception-2.0"] },
+  { crate = "libbz2-rs-sys", allow = ["bzip2-1.0.6"] },
+]
 
 [bans]
 multiple-versions = "deny"
@@ -42,6 +45,7 @@ deny = []
 # These exact older versions are pulled by transitive crates with incompatible
 # semver requirements. Keep the duplicate check strict for any new versions.
 skip = [
+  { crate = "wasapi@0.24.0", reason = "Audiofox 1.1 requires wasapi 0.24 while system audio capture uses 0.26" },
   { crate = "block-buffer@0.10.4", reason = "sha1/sha2 0.10 pull the digest 0.10 line while vodozemac uses digest 0.11" },
   { crate = "cargo_metadata@0.19.2", reason = "tauri-utils requires cargo_metadata 0.19 while cef uses 0.23" },
   { crate = "cargo-platform@0.1.9", reason = "paired with cargo_metadata 0.19.2 above" },
@@ -53,7 +57,6 @@ skip = [
   { crate = "nom@7.1.3", reason = "bindgen's cexpr requires nom 7 while PipeWire's libspa uses nom 8" },
   { crate = "sha2@0.10.9", reason = "oauth2 and tauri-codegen require sha2 0.10 while the Matrix crypto stack uses 0.11" },
   { crate = "gloo-timers@0.3.0", reason = "backon requires gloo-timers 0.3 while matrix-sdk uses 0.4" },
-  { crate = "convert_case@0.8.0", reason = "PipeWire's libspa requires convert_case 0.8 while napi-derive uses 0.12" },
   { crate = "itertools@0.14.0", reason = "prost-derive, via vodozemac, requires itertools 0.14 while matrix-sdk uses 0.15" },
   { crate = "itertools@0.13.0", reason = "bindgen, via PipeWire's libspa-sys, requires itertools 0.13" },
   { crate = "libloading@0.7.4", reason = "libappindicator-sys requires libloading 0.7 while the app uses 0.9" },

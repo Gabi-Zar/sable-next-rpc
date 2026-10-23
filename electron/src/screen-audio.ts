@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type { ScreenAudioListing } from '../../src/lib/platform/screen-audio-types';
 import * as windowsScreenAudio from './windows-screen-audio';
+import * as audiofox from './audiofox';
 
 export const SCREEN_AUDIO_LABEL = 'vencord-screen-share';
 
@@ -13,18 +14,16 @@ type Selection =
 type Node = Partial<Record<string, string>>;
 
 interface PatchBay {
-  list(props?: string[]): Node[];
-  link(data: { include?: Node[]; exclude?: Node[]; mute?: boolean; workaround?: Node[] }): boolean;
+  link(data: { exclude?: Node[]; mute?: boolean; workaround?: Node[] }): boolean;
   unmute(): void;
   unlink(): void;
 }
 
 interface Venmic {
-  PatchBay: (new () => PatchBay) & { hasPipeWire(): boolean };
+  PatchBay: new () => PatchBay;
 }
 
 let patchBay: PatchBay | null | undefined;
-let status: ScreenAudioListing['status'] = 'unavailable';
 let linked = false;
 
 function venmic(): PatchBay | null {
@@ -33,13 +32,9 @@ function venmic(): PatchBay | null {
   try {
     const load = createRequire(join(__dirname, 'main.cjs'));
     const { PatchBay } = load(join(__dirname, `venmic-${process.arch}.node`)) as Venmic;
-    const hasPipeWirePulse = PatchBay.hasPipeWire();
     patchBay = new PatchBay();
-    status = hasPipeWirePulse ? 'available' : 'pipewire-pulse-missing';
   } catch (error) {
     console.error('[sable screen audio] venmic did not load', error);
-    const message = error instanceof Error ? error.message : String(error);
-    status = /glibc|glibcxx|cxxabi/i.test(message) ? 'incompatible' : 'unavailable';
   }
   return patchBay;
 }
@@ -58,28 +53,24 @@ const SOURCE_PROPS = [
   'object.serial',
 ];
 
-export function listApps(): ScreenAudioListing {
-  if (process.platform === 'win32') return windowsScreenAudio.listApps();
-  const own = ownAudio()['application.process.id'];
-  const apps = new Map<string, ScreenAudioListing['apps'][number]>();
-  for (const node of venmic()?.list([]) ?? []) {
-    if (node['application.process.id'] === own || node['device.id']) continue;
-    if (node['media.class'] !== 'Stream/Output/Audio') continue;
-    const name = node['application.name'] ?? node['node.description'] ?? node['node.name'];
-    if (!name) continue;
-    const props = Object.fromEntries(
-      SOURCE_PROPS.flatMap((key) => (node[key] ? [[key, node[key]]] : []))
-    );
-    if (Object.keys(props).length === 0) continue;
-    const id = SOURCE_PREFIX + JSON.stringify(props);
-    const details = [node['media.name'], node['application.process.id']].filter(Boolean);
-    apps.set(id, { id, label: details.length ? `${name} (${details.join(' · ')})` : name });
+export async function listApps(): Promise<ScreenAudioListing> {
+  if (!audiofox.available) return { apps: [], status: 'unavailable' };
+  try {
+    return await audiofox.listApps();
+  } catch (error) {
+    console.error('[sable screen audio] Audiofox did not load', error);
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      apps: [],
+      status: /glibc|glibcxx|cxxabi/i.test(message) ? 'incompatible' : 'unavailable',
+    };
   }
-  return { apps: [...apps.values()], status };
 }
 
 function nodesFor(names: string[]): Node[] {
   return names.map((name) => {
+    const source = audiofox.sourceName(name);
+    if (source) return { 'node.name': source };
     if (!name.startsWith(SOURCE_PREFIX)) return { 'application.name': name };
     const value: unknown = JSON.parse(name.slice(SOURCE_PREFIX.length));
     if (typeof value !== 'object' || value === null) throw new Error('invalid audio source');
@@ -110,18 +101,15 @@ function parse(value: unknown): Selection | null {
 export function start(value: unknown): string {
   const selection = parse(value);
   const bay = venmic();
-  if (!selection || !bay) throw new Error('screen audio is unavailable');
+  if (selection?.kind !== 'system' || !bay) throw new Error('screen audio is unavailable');
 
   const exclude = [ownAudio(), { 'media.class': 'Stream/Input/Audio' }];
-  if (selection.kind === 'apps' && selection.include.length === 0) {
-    throw new Error('no audio source selected');
-  }
   const workaround = selection.workaround ? [{ ...ownAudio(), 'media.name': 'RecordStream' }] : [];
-  linked = bay.link(
-    selection.kind === 'system'
-      ? { exclude: [...exclude, ...nodesFor(selection.exclude)], mute: true, workaround }
-      : { include: nodesFor(selection.include), exclude, mute: true, workaround }
-  );
+  linked = bay.link({
+    exclude: [...exclude, ...nodesFor(selection.exclude)],
+    mute: true,
+    workaround,
+  });
   if (!linked) {
     bay.unlink();
     throw new Error('screen audio could not be linked');
@@ -130,6 +118,7 @@ export function start(value: unknown): string {
 }
 
 export function stop(): void {
+  audiofox.stop();
   if (process.platform === 'win32') {
     windowsScreenAudio.stop();
     return;
@@ -140,4 +129,17 @@ export function stop(): void {
 
 export function unmute(): void {
   if (linked) patchBay?.unmute();
+}
+
+export async function startStream(value: unknown, frames: (data: Buffer) => void): Promise<void> {
+  const selection = parse(value);
+  if (process.platform === 'win32' && selection?.kind === 'system') {
+    stop();
+    windowsScreenAudio.start(value, frames);
+    return;
+  }
+  if (!audiofox.available || selection?.kind !== 'apps')
+    throw new Error('Application audio sharing is unavailable');
+  stop();
+  await audiofox.start(selection.include, frames);
 }

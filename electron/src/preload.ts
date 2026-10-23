@@ -32,7 +32,7 @@ ipcRenderer.on('sable-pick-screen', (_event, request: number, sources: ScreenSha
 
 contextBridge.exposeInMainWorld('sableElectron', {
   platform: process.platform,
-  screenAudioAvailable: process.argv.includes('--sable-windows-screen-audio'),
+  screenAudioAvailable: process.argv.includes('--sable-screen-audio'),
   setTrayUnread: (unread: boolean) =>
     ipcRenderer.invoke('sable-tray-unread', unread) as Promise<void>,
   applyWindowSettings: (settings: unknown) =>

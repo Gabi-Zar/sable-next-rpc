@@ -24,11 +24,14 @@ vi.mock('./screen-audio-stream', () => stream);
 
 import {
   captureScreenAudio,
+  lastScreenAudioChoice,
   screenAudioPicksMany,
   screenAudioSupported,
   stopScreenAudio,
   listScreenAudioApps,
   screenAudioAppLabel,
+  screenAudioSystemSupported,
+  screenAudioCanExclude,
   unmuteScreenAudio,
 } from './screen-audio';
 
@@ -61,6 +64,7 @@ test('preserves Electron backend status and stream identities', async () => {
 });
 
 test('labels remembered PipeWire streams and preserves legacy app names', () => {
+  expect(screenAudioAppLabel('audiofox:music')).toBe('music');
   const id =
     'pipewire:' +
     JSON.stringify({
@@ -70,6 +74,54 @@ test('labels remembered PipeWire streams and preserves legacy app names', () => 
     });
   expect(screenAudioAppLabel(id)).toBe('Firefox (Music · 10)');
   expect(screenAudioAppLabel('Firefox')).toBe('Firefox');
+});
+
+test('clears legacy application selections when switching to Audiofox', () => {
+  vi.stubGlobal('sableElectron', { platform: 'linux', screenAudioAvailable: true });
+  localStorage.setItem(
+    'sable-screen-audio-choice',
+    JSON.stringify({
+      kind: 'apps',
+      include: ['mpv', 'pipewire:{}', 'audiofox:music'],
+      workaround: true,
+    })
+  );
+  try {
+    expect(lastScreenAudioChoice()).toEqual({ kind: 'apps', include: ['audiofox:music'] });
+  } finally {
+    localStorage.removeItem('sable-screen-audio-choice');
+  }
+});
+
+test('Electron streams application audio and also cleans up system capture', async () => {
+  const start = vi.fn();
+  const stop = vi.fn(() => Promise.resolve());
+  vi.stubGlobal('sableElectron', {
+    platform: 'linux',
+    screenAudioAvailable: true,
+    startScreenAudio: start,
+    stopScreenAudio: stop,
+  });
+  await captureScreenAudio({ kind: 'apps', include: ['audiofox:music'] });
+  expect(stream.startScreenAudioStream).toHaveBeenCalledWith({
+    kind: 'apps',
+    include: ['audiofox:music'],
+  });
+  expect(start).not.toHaveBeenCalled();
+  await stopScreenAudio();
+  expect(stream.stopScreenAudioStream).toHaveBeenCalledOnce();
+  expect(stop).toHaveBeenCalledOnce();
+});
+
+test('Electron supports macOS application capture and Windows multi-app selection', () => {
+  vi.stubGlobal('sableElectron', { platform: 'darwin', screenAudioAvailable: true });
+  expect(screenAudioSupported()).toBe(true);
+  expect(screenAudioSystemSupported()).toBe(false);
+  expect(screenAudioPicksMany()).toBe(true);
+  vi.stubGlobal('sableElectron', { platform: 'win32', screenAudioAvailable: true });
+  expect(screenAudioSystemSupported()).toBe(true);
+  expect(screenAudioCanExclude()).toBe(false);
+  expect(screenAudioPicksMany()).toBe(true);
 });
 
 test('wraps native app names without changing their identifiers', async () => {
@@ -120,7 +172,7 @@ test('Linux is supported whatever the kernel version, and macOS and the web are 
   expect(screenAudioSupported()).toBe(false);
 });
 
-test('only Linux lets several apps be picked', () => {
+test('the native platform keeps its existing selection limits', () => {
   expect(screenAudioPicksMany()).toBe(false);
   os.type.mockReturnValue('linux');
   expect(screenAudioPicksMany()).toBe(true);
@@ -136,10 +188,14 @@ test('Windows captures through the PCM stream, not a virtual device', async () =
 });
 
 test('Windows Electron uses native audio on supported builds', async () => {
-  const bridge = { platform: 'win32', screenAudioAvailable: true };
+  const bridge = {
+    platform: 'win32',
+    screenAudioAvailable: true,
+    stopScreenAudio: vi.fn(() => Promise.resolve()),
+  };
   vi.stubGlobal('sableElectron', bridge);
   expect(screenAudioSupported()).toBe(true);
-  expect(screenAudioPicksMany()).toBe(false);
+  expect(screenAudioPicksMany()).toBe(true);
   const selection = { kind: 'apps' as const, include: ['mpv'] };
   await captureScreenAudio(selection);
   expect(stream.startScreenAudioStream).toHaveBeenCalledWith(selection);

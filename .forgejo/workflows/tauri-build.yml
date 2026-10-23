@@ -526,7 +526,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y build-essential pkg-config rpm
+          sudo apt-get install --no-install-recommends -y build-essential libclang-dev libpipewire-0.3-dev pkg-config rpm
       - name: Set up app
         uses: ./.forgejo/actions/setup
         with:

@@ -2,12 +2,21 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 const native = vi.hoisted(() => ({
   load: vi.fn(),
-  hasPipeWire: vi.fn(() => true),
-  list: vi.fn<() => Record<string, string>[]>(() => []),
   link: vi.fn(() => true),
   unlink: vi.fn(),
   unmute: vi.fn(),
 }));
+const windows = vi.hoisted(() => ({ start: vi.fn(), stop: vi.fn() }));
+vi.mock('./windows-screen-audio', () => windows);
+const fox = vi.hoisted(() => ({
+  available: true,
+  listApps: vi.fn(() => ({ apps: [], status: 'available' })),
+  start: vi.fn(),
+  stop: vi.fn(),
+  sourceName: (id: string) =>
+    id.startsWith('audiofox:') ? id.slice('audiofox:'.length) : undefined,
+}));
+vi.mock('./audiofox', () => fox);
 vi.mock('electron', () => ({ app: { getAppMetrics: () => [{ name: 'Audio Service', pid: 42 }] } }));
 vi.mock('node:module', () => ({ createRequire: () => native.load }));
 
@@ -15,13 +24,11 @@ beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
   vi.stubGlobal('__dirname', '/native');
-  native.hasPipeWire.mockReturnValue(true);
-  native.list.mockReturnValue([]);
   native.link.mockReturnValue(true);
+  fox.available = true;
+  fox.listApps.mockReturnValue({ apps: [], status: 'available' });
   native.load.mockImplementation(() => ({
     PatchBay: class {
-      static hasPipeWire = native.hasPipeWire;
-      list = native.list;
       link = native.link;
       unlink = native.unlink;
       unmute = native.unmute;
@@ -31,56 +38,34 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
-test('distinguishes backend load failures from an empty source list', async () => {
-  native.load.mockImplementation(() => {
+test('keeps Windows system audio on its existing backend', async () => {
+  vi.stubGlobal('process', { ...process, platform: 'win32' });
+  const audio = await import('./screen-audio');
+  const frames = vi.fn();
+  const selection = { kind: 'system', exclude: [] };
+  await audio.startStream(selection, frames);
+  expect(windows.start).toHaveBeenCalledWith(selection, frames);
+  expect(windows.stop).toHaveBeenCalledOnce();
+});
+
+test('reports Audiofox enumeration and runtime failures', async () => {
+  const audio = await import('./screen-audio');
+  fox.listApps.mockImplementationOnce(() => {
     throw new Error('missing addon');
   });
-  const audio = await import('./screen-audio');
-  expect(audio.listApps()).toEqual({ apps: [], status: 'unavailable' });
-});
-
-test('reports incompatible system runtimes', async () => {
-  native.load.mockImplementation(() => {
-    throw new Error('GLIBCXX_3.4.32 not found');
+  expect(await audio.listApps()).toEqual({ apps: [], status: 'unavailable' });
+  fox.listApps.mockImplementationOnce(() => {
+    throw new Error('GLIBC_2.38 not found');
   });
-  const audio = await import('./screen-audio');
-  expect(audio.listApps().status).toBe('incompatible');
+  expect((await audio.listApps()).status).toBe('incompatible');
 });
 
-test('allows native PipeWire streams without pipewire-pulse', async () => {
-  native.hasPipeWire.mockReturnValue(false);
+test('application sharing uses Audiofox without loading Venmic', async () => {
   const audio = await import('./screen-audio');
-  expect(audio.listApps().status).toBe('pipewire-pulse-missing');
-  audio.start({ kind: 'system', exclude: [] });
-  expect(native.link).toHaveBeenCalled();
-});
-
-test('keeps same-name streams distinct and excludes the call and input devices', async () => {
-  const output = { 'application.name': 'Firefox', 'media.class': 'Stream/Output/Audio' };
-  native.list.mockReturnValue([
-    { ...output, 'application.process.id': '10', 'node.name': 'firefox-10', 'media.name': 'Music' },
-    { ...output, 'application.process.id': '20', 'node.name': 'firefox-20', 'media.name': 'Video' },
-    { ...output, 'application.process.id': '42' },
-    { ...output, 'media.class': 'Stream/Input/Audio' },
-    { ...output, 'device.id': '3' },
-  ]);
-  const audio = await import('./screen-audio');
-  const { apps } = audio.listApps();
-  expect(apps.map((app) => app.label)).toEqual(['Firefox (Music · 10)', 'Firefox (Video · 20)']);
-  expect(apps[0].id).not.toBe(apps[1].id);
-  audio.start({ kind: 'apps', include: [apps[1].id] });
-  expect(native.link).toHaveBeenCalledWith(
-    expect.objectContaining({
-      include: [
-        {
-          'application.name': 'Firefox',
-          'application.process.id': '20',
-          'node.name': 'firefox-20',
-          'media.name': 'Video',
-        },
-      ],
-    })
-  );
+  const frames = vi.fn();
+  await audio.startStream({ kind: 'apps', include: ['audiofox:music'] }, frames);
+  expect(fox.start).toHaveBeenCalledWith(['audiofox:music'], frames);
+  expect(native.load).not.toHaveBeenCalled();
 });
 
 test('starts muted and ignores unmute after stopping', async () => {
@@ -106,7 +91,7 @@ test('starts muted and ignores unmute after stopping', async () => {
 
 test('enables the microphone workaround only when requested', async () => {
   const audio = await import('./screen-audio');
-  audio.start({ kind: 'apps', include: ['mpv'], workaround: true });
+  audio.start({ kind: 'system', exclude: [], workaround: true });
   expect(native.link).toHaveBeenCalledWith(
     expect.objectContaining({
       workaround: [{ 'application.process.id': '42', 'media.name': 'RecordStream' }],
@@ -114,13 +99,21 @@ test('enables the microphone workaround only when requested', async () => {
   );
 });
 
-test('rejects empty and malformed source selections', async () => {
+test('uses Audiofox names for system exclusions and rejects malformed legacy sources', async () => {
   const audio = await import('./screen-audio');
-  expect(() => audio.start({ kind: 'apps', include: [] })).toThrow('no audio source selected');
-  expect(() => audio.start({ kind: 'apps', include: ['pipewire:{}'] })).toThrow(
+  audio.start({ kind: 'system', exclude: ['audiofox:music'] });
+  expect(native.link).toHaveBeenCalledWith({
+    exclude: [
+      { 'application.process.id': '42' },
+      { 'media.class': 'Stream/Input/Audio' },
+      { 'node.name': 'music' },
+    ],
+    mute: true,
+    workaround: [],
+  });
+  expect(() => audio.start({ kind: 'system', exclude: ['pipewire:{}'] })).toThrow(
     'invalid audio source'
   );
-  expect(native.link).not.toHaveBeenCalled();
 });
 
 test('cleans up a failed link without unmuting it', async () => {

@@ -136,8 +136,8 @@ cef = { version = "=152.3.0", optional = true }
 tikv-jemallocator = { version = "0.7.0", optional = true }
 libloading = "0.9"
 # Ubuntu 22.04's PipeWire headers predate pipewire-rs 0.10's generated bindings.
-# Keep the capture client on the compatible 0.9 series used by the release runner.
-pipewire = "0.9.2"
+# Audiofox requires 0.10, so Linux builds need newer development headers.
+pipewire = "0.10.1"
 sable-hdr = { path = "../crates/sable-hdr", version = "0.1.0" }
 zbus = "5"
 

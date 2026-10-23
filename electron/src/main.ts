@@ -36,8 +36,8 @@ import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
-import { screenShareStreams, windowsScreenAudioSupported } from './screen-share';
-import * as windowsScreenAudio from './windows-screen-audio';
+import { available as screenAudioAvailable } from './audiofox';
+import { screenShareStreams } from './screen-share';
 import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
@@ -411,7 +411,7 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       additionalArguments: [
         ...(supportsAutoUpdate() ? [] : ['--sable-disable-auto-update']),
-        ...(windowsScreenAudioSupported() ? ['--sable-windows-screen-audio'] : []),
+        ...(screenAudioAvailable ? ['--sable-screen-audio'] : []),
       ],
     },
   });
@@ -504,9 +504,9 @@ ipcMain.handle('sable-screen-audio-start', (event, selection: unknown) => {
 });
 
 ipcMain.handle('sable-screen-audio-stream-start', (event, selection: unknown) => {
-  if (!isAppFrame(event.senderFrame) || !windowsScreenAudioSupported())
+  if (!isAppFrame(event.senderFrame) || !screenAudioAvailable)
     throw new Error('screen audio is unavailable');
-  windowsScreenAudio.start(selection, (data) => {
+  return screenAudio.startStream(selection, (data) => {
     if (!event.sender.isDestroyed() && isAppFrame(event.senderFrame))
       event.sender.send('sable-screen-audio-frames', data);
   });

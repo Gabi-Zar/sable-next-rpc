@@ -9,6 +9,8 @@ const platform = vi.hoisted(() => ({
   listScreenAudioApps: vi.fn<() => Promise<string[]>>(),
   lastScreenAudioChoice: vi.fn(() => ({ kind: 'none' as const })),
   screenAudioPicksMany: vi.fn(() => true),
+  screenAudioSystemSupported: vi.fn(() => true),
+  screenAudioCanExclude: vi.fn(() => true),
   screenAudioAppLabel: (id: string) => id,
   status: 'available' as ScreenAudioListing['status'],
   labels: {} as Record<string, string>,
@@ -29,6 +31,8 @@ import ScreenShareAudioDialog from './ScreenShareAudioDialog.svelte';
 afterEach(() => {
   platform.listScreenAudioApps.mockReset();
   platform.screenAudioPicksMany.mockReturnValue(true);
+  platform.screenAudioSystemSupported.mockReturnValue(true);
+  platform.screenAudioCanExclude.mockReturnValue(true);
   platform.status = 'available';
   platform.labels = {};
   vi.unstubAllGlobals();
@@ -40,6 +44,13 @@ function open() {
   render(ScreenShareAudioDialog, { onShare, onCancel });
   return { onShare, onCancel, user: userEvent.setup() };
 }
+
+test('omits system capture when only application capture is supported', () => {
+  platform.screenAudioSystemSupported.mockReturnValue(false);
+  open();
+  expect(screen.queryByRole('radio', { name: /Every app/ })).not.toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /Chosen apps/ })).toBeInTheDocument();
+});
 
 test('shares no audio unless another source is picked', async () => {
   const { onShare, user } = open();
@@ -122,18 +133,18 @@ test('warns about missing pipewire-pulse without blocking native PipeWire audio'
   expect(screen.getByRole('button', { name: 'Share' })).toBeEnabled();
 });
 
-test('selects a stream by ID and includes the Linux workaround only when enabled', async () => {
+test('selects application audio by ID without the system-routing workaround', async () => {
   vi.stubGlobal('sableElectron', { platform: 'linux' });
   platform.listScreenAudioApps.mockResolvedValue(['stream-1', 'stream-2']);
   platform.labels = { 'stream-1': 'Firefox (Music)', 'stream-2': 'Firefox (Video)' };
   const { onShare, user } = open();
   await user.click(await screen.findByRole('radio', { name: /Chosen apps/ }));
-  const workaround = screen.getByRole('checkbox', { name: /Microphone routing workaround/ });
-  expect(workaround).not.toBeChecked();
+  expect(
+    screen.queryByRole('checkbox', { name: /Microphone routing workaround/ })
+  ).not.toBeInTheDocument();
   await user.click(await screen.findByRole('checkbox', { name: 'Firefox (Video)' }));
-  await user.click(workaround);
   await user.click(screen.getByRole('button', { name: 'Share' }));
-  expect(onShare).toHaveBeenCalledWith({ kind: 'apps', include: ['stream-2'], workaround: true });
+  expect(onShare).toHaveBeenCalledWith({ kind: 'apps', include: ['stream-2'] });
 });
 
 test('keeps the remembered apps on screen when the list cannot be read', async () => {
@@ -146,6 +157,7 @@ test('keeps the remembered apps on screen when the list cannot be read', async (
 });
 
 test('on a platform that shares one app, every app needs no list and a pick replaces the last', async () => {
+  platform.screenAudioCanExclude.mockReturnValue(false);
   platform.screenAudioPicksMany.mockReturnValue(false);
   platform.listScreenAudioApps.mockResolvedValue(['chrome', 'Spotify']);
   const { onShare, user } = open();
