@@ -92,9 +92,7 @@
         }}
       >
         <span class="menu-check" aria-hidden="true">{selected ? '✓' : ''}</span>
-        {i18n.t(option.label, {
-          mode: defaultLabel,
-        })}
+        <span>{i18n.t(option.label, { mode: defaultLabel })}</span>
       </ActionMenuItem>
     {/each}
   </IconContext>
