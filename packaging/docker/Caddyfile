@@ -10,6 +10,7 @@
 	root * /app
 
 	encode zstd gzip
+	import /app/csp.caddy
 
 	try_files {path} {path}.html {path}/index.html /index.html
 

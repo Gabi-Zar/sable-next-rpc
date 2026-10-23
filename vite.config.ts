@@ -3,11 +3,14 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { isAbsolute, relative, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 import { fetchDeepFilterNet } from './scripts/build/fetch-deepfilternet.mjs';
 import { emojiDataPlugin } from './scripts/build/emoji-data-plugin.mjs';
+import { writeCspHeaders } from './scripts/build/csp.mjs';
 
 const wasmOutput = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
+const staticAdapter = adapter({ assets: 'dist', pages: 'dist', fallback: '404.html' });
 
 export default defineConfig({
   define: {
@@ -87,11 +90,16 @@ export default defineConfig({
       serviceWorker: {
         register: false,
       },
-      adapter: adapter({
-        assets: 'dist',
-        pages: 'dist',
-        fallback: '404.html',
-      }),
+      adapter: {
+        ...staticAdapter,
+        async adapt(builder) {
+          await staticAdapter.adapt(builder);
+          const config = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8')) as {
+            app: { security: { csp: Record<string, string> } };
+          };
+          await writeCspHeaders('dist', config.app.security.csp);
+        },
+      },
       inspector: true,
     }),
   ],

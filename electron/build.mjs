@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { browserCsp } from '../scripts/build/csp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -35,18 +36,9 @@ for (const arch of ['x64', 'arm64']) {
   if (existsSync(prebuild)) copyFileSync(prebuild, join(out, `venmic-${arch}.node`));
 }
 
-const tauriOnly = /^(ipc:|http:\/\/ipc\.localhost|sable-tiles:|http:\/\/sable-tiles\.localhost)$/;
 const { csp } = JSON.parse(readFileSync(join(root, 'src-tauri/tauri.conf.json'), 'utf8')).app
   .security;
-const policy = Object.fromEntries(
-  Object.entries(csp).map(([directive, sources]) => [
-    directive,
-    sources
-      .split(' ')
-      .filter((source) => !tauriOnly.test(source))
-      .join(' '),
-  ])
-);
+const policy = browserCsp(csp);
 
 await build({
   entryPoints: {

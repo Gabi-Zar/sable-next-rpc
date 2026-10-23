@@ -20,10 +20,10 @@ import {
 } from 'electron';
 import { createReadStream } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path';
 import { Readable } from 'node:stream';
+import { cspHeader, inlineScripts } from '../../scripts/build/csp.mjs';
 
 import type {
   PickedFile,
@@ -35,6 +35,7 @@ import { deepLinksIn, deepLinkSchemes } from './deep-links';
 import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
+import { writeDownload } from './downloads';
 import * as screenAudio from './screen-audio';
 import { available as screenAudioAvailable } from './audiofox';
 import { screenShareStreams } from './screen-share';
@@ -157,25 +158,13 @@ function isAppFrame(frame: WebFrameMain | null | undefined): boolean {
   return frame?.origin === appOrigin;
 }
 
-function policy(inlineScripts: string[] = []): string {
-  const directives = { ...__SABLE_CSP__ };
-  const hashes = inlineScripts.map(
-    (script) => `'sha256-${createHash('sha256').update(script).digest('base64')}'`
-  );
-  directives['script-src'] = [directives['script-src'], ...hashes].join(' ');
-  return Object.entries(directives)
-    .map(([directive, sources]) => `${directive} ${sources}`)
-    .join('; ');
-}
-
 const pagePolicies = new Map<string, string>();
 
 async function pagePolicy(file: string): Promise<string> {
   const cached = pagePolicies.get(file);
   if (cached) return cached;
   const html = await readFile(file, 'utf8');
-  const scripts = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)];
-  const computed = policy(scripts.map(([, body]) => body));
+  const computed = cspHeader(__SABLE_CSP__, inlineScripts(html));
   pagePolicies.set(file, computed);
   return computed;
 }
@@ -209,7 +198,9 @@ async function serveApp(request: Request): Promise<Response> {
 
   const headers = new Headers({
     'Content-Type': CONTENT_TYPES[extname(target)] ?? 'application/octet-stream',
-    'Content-Security-Policy': target.endsWith('.html') ? await pagePolicy(target) : policy(),
+    'Content-Security-Policy': target.endsWith('.html')
+      ? await pagePolicy(target)
+      : cspHeader(__SABLE_CSP__),
   });
   // Not `net.fetch`: one network loader per module exhausts Chromium's pool on first load.
   return new Response(Readable.toWeb(createReadStream(target)) as ReadableStream, { headers });
@@ -547,7 +538,7 @@ ipcMain.handle('sable-save-file', async (event, request: unknown) => {
 
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!askLocation) {
-    const path = await writeWithoutClobbering(join(app.getPath('downloads'), name), bytes);
+    const path = await writeDownload(app.getPath('downloads'), name, bytes);
     return { path };
   }
 
@@ -560,21 +551,6 @@ ipcMain.handle('sable-save-file', async (event, request: unknown) => {
   await writeFile(filePath, bytes);
   return { path: filePath };
 });
-
-async function writeWithoutClobbering(path: string, bytes: Uint8Array): Promise<string> {
-  try {
-    await writeFile(path, bytes, { flag: 'wx' });
-    return path;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-    const dot = path.lastIndexOf('.');
-    const stamp = `-${String(Date.now())}`;
-    const candidate =
-      dot > 0 ? `${path.slice(0, dot)}${stamp}${path.slice(dot)}` : `${path}${stamp}`;
-    await writeFile(candidate, bytes, { flag: 'wx' });
-    return candidate;
-  }
-}
 
 function cancelPicks(): void {
   for (const resolve of pendingPicks.values()) resolve(null);

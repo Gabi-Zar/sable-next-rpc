@@ -19,6 +19,14 @@ const PROMPTS: Record<string, string> = {
 };
 
 const systemAsks = process.platform === 'darwin';
+const EMBEDDED_GRANTED = new Set(['clipboard-sanitized-write', 'fullscreen', 'screen-wake-lock']);
+
+function embeddedOrigin(url: string): string | null {
+  const parsed = URL.parse(url);
+  return parsed && (parsed.protocol === 'https:' || parsed.protocol === 'http:')
+    ? parsed.origin
+    : null;
+}
 
 function readGrants(path: string): string[] {
   try {
@@ -33,6 +41,7 @@ function readGrants(path: string): string[] {
 function kindsOf(permission: string, mediaTypes: readonly string[] = []): string[] | null {
   if (permission === 'geolocation') return ['location'];
   if (permission !== 'media' || mediaTypes.length === 0) return null;
+  if (mediaTypes.some((type) => type !== 'audio' && type !== 'video')) return null;
   return mediaTypes.map((type) => (type === 'audio' ? 'microphone' : 'camera'));
 }
 
@@ -43,22 +52,32 @@ export function enforcePermissions(
   window: () => BrowserWindow | null
 ): void {
   const grants = new Set(readGrants(grantsPath));
+  const embeddedGrants = new Map<string, Set<string>>();
   const granted = (kinds: string[]) => systemAsks || kinds.every((kind) => grants.has(kind));
 
-  async function confirm(kinds: string[]): Promise<boolean> {
+  async function confirm(kinds: string[], origin: string | null = null): Promise<boolean> {
     const parent = window();
     const options = {
       type: 'question' as const,
-      message:
-        kinds.length === 1 ? PROMPTS[kinds[0]] : 'Sable wants to use your microphone and camera.',
+      message: origin
+        ? `${origin} wants to access your ${kinds.join(' and ')}.`
+        : kinds.length === 1
+          ? PROMPTS[kinds[0]]
+          : 'Sable wants to use your microphone and camera.',
       buttons: ['Allow', 'Deny'],
-      defaultId: 0,
+      defaultId: origin ? 1 : 0,
       cancelId: 1,
     };
     const { response } = await (parent
       ? dialog.showMessageBox(parent, options)
       : dialog.showMessageBox(options));
     if (response !== 0) return false;
+    if (origin) {
+      const allowed = embeddedGrants.get(origin) ?? new Set<string>();
+      for (const kind of kinds) allowed.add(kind);
+      embeddedGrants.set(origin, allowed);
+      return true;
+    }
     for (const kind of kinds) grants.add(kind);
     await writeFile(grantsPath, JSON.stringify([...grants].sort()));
     return true;
@@ -69,13 +88,32 @@ export function enforcePermissions(
       callback(false);
       return;
     }
-    if (GRANTED.has(permission)) {
+    const app = isAppUrl(details.requestingUrl);
+    const origin = app ? null : embeddedOrigin(details.requestingUrl);
+    if (!app && (details.isMainFrame || !origin)) {
+      callback(false);
+      return;
+    }
+    const securityOrigin = 'securityOrigin' in details ? details.securityOrigin : undefined;
+    if (
+      securityOrigin &&
+      (app ? !isAppUrl(securityOrigin) : embeddedOrigin(securityOrigin) !== origin)
+    ) {
+      callback(false);
+      return;
+    }
+    if ((app ? GRANTED : EMBEDDED_GRANTED).has(permission)) {
       callback(true);
       return;
     }
     // Electron 44 reports display capture as media with no device types.
     // The display-media handler still requires a source selection.
-    if (permission === 'media' && 'mediaTypes' in details && details.mediaTypes?.length === 0) {
+    if (
+      app &&
+      permission === 'media' &&
+      'mediaTypes' in details &&
+      details.mediaTypes?.length === 0
+    ) {
       callback(true);
       return;
     }
@@ -84,21 +122,41 @@ export function enforcePermissions(
       callback(false);
       return;
     }
-    if (granted(kinds)) {
+    if (origin ? kinds.every((kind) => embeddedGrants.get(origin)?.has(kind)) : granted(kinds)) {
       callback(true);
       return;
     }
-    void confirm(kinds).then(callback, () => {
-      callback(false);
-    });
+    void confirm(kinds, origin).then(
+      (allowed) => {
+        callback(allowed && !contents.isDestroyed() && isAppUrl(contents.getURL()));
+      },
+      () => {
+        callback(false);
+      }
+    );
   });
 
-  session.setPermissionCheckHandler((_contents, permission, requestingOrigin, details) => {
-    if (!isAppUrl(details.embeddingOrigin ?? requestingOrigin)) return false;
-    if (GRANTED.has(permission)) return true;
+  session.setPermissionCheckHandler((contents, permission, requestingOrigin, details) => {
+    if (details.embeddingOrigin && !isAppUrl(details.embeddingOrigin)) return false;
+    if (contents && !isAppUrl(contents.getURL())) return false;
+    const source = details.requestingUrl ?? details.securityOrigin ?? requestingOrigin;
+    const app = isAppUrl(source) && isAppUrl(requestingOrigin);
+    if (
+      details.securityOrigin &&
+      (app
+        ? !isAppUrl(details.securityOrigin)
+        : embeddedOrigin(details.securityOrigin) !== embeddedOrigin(source))
+    )
+      return false;
+    if (app && GRANTED.has(permission)) return true;
     const mediaTypes =
       details.mediaType && details.mediaType !== 'unknown' ? [details.mediaType] : [];
     const kinds = kindsOf(permission, mediaTypes);
-    return kinds !== null;
+    if (app) return kinds !== null;
+    const origin = embeddedOrigin(source);
+    if (!contents || details.isMainFrame || !origin || embeddedOrigin(requestingOrigin) !== origin)
+      return false;
+    if (EMBEDDED_GRANTED.has(permission)) return true;
+    return kinds?.every((kind) => embeddedGrants.get(origin)?.has(kind)) ?? false;
   });
 }
