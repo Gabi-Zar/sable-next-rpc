@@ -1,5 +1,22 @@
 # Sable Changelog
 
+## 2.1.6 (2026-10-23)
+
+### Fixes
+
+* Install Binaryen automatically for FOSS Android builds.
+* Fix Android incoming calls ignoring silent mode and make background call alerts repeat (#1309).
+* Fix the missing unread dot in the Electron Linux tray (#1315).
+* Enable PipeWire camera support by default on Linux in the Electron app (#468).
+* Fix raw HTML in notifications from Element's rich text editor (#1320).
+* Add an optional macOS App Sandbox build with Hardened Runtime (#1306).
+* Open Matrix links in Sable, including room joins and direct chats with confirmation. Register the matrix: scheme in native builds and support matrix.to links in Android's supported-link settings.
+* Block external images in messages to prevent IP address leaks.
+* Wrap room notification option labels to avoid a missing text-node crash (#1319).
+* Restore screen-share audio selection on Windows build 20348+: share one app or system audio, excluding Sable (#1316).
+
+* Open iOS registration and account settings in the app. Fix account deletion for OAuth providers such as matrix.org.
+
 ## 2.1.5 (2026-10-22)
 
 ### Fixes

@@ -1,0 +1,6 @@
+- Install Binaryen automatically for FOSS Android builds.
+- Fix Android incoming calls ignoring silent mode and make background call alerts repeat (#1309).
+- Fix the missing unread dot in the Electron Linux tray (#1315).
+- Enable PipeWire camera support by default on Linux in the Electron app (#468).
+- Fix raw HTML in notifications from Element's rich text editor (#1320).
+- Add an optional macOS App Sandbox build with Hardened Runtime (#1306).
