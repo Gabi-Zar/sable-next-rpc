@@ -18,6 +18,9 @@ tokio = { workspace = true }
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
 
+[target.'cfg(windows)'.dependencies]
+sable-loopback = { path = "../sable-loopback", version = "0.1.0" }
+
 [build-dependencies]
 napi-build = "2.6.0"
 

@@ -135,6 +135,22 @@ test('Windows captures through the PCM stream, not a virtual device', async () =
   expect(stream.stopScreenAudioStream).toHaveBeenCalled();
 });
 
+test('Windows Electron uses native audio on supported builds', async () => {
+  const bridge = { platform: 'win32', screenAudioAvailable: true };
+  vi.stubGlobal('sableElectron', bridge);
+  expect(screenAudioSupported()).toBe(true);
+  expect(screenAudioPicksMany()).toBe(false);
+  const selection = { kind: 'apps' as const, include: ['mpv'] };
+  await captureScreenAudio(selection);
+  expect(stream.startScreenAudioStream).toHaveBeenCalledWith(selection);
+  await stopScreenAudio();
+  expect(stream.stopScreenAudioStream).toHaveBeenCalledOnce();
+  expect(tauri.invoke).not.toHaveBeenCalled();
+
+  bridge.screenAudioAvailable = false;
+  expect(screenAudioSupported()).toBe(false);
+});
+
 test('Linux stops through the native command', async () => {
   os.type.mockReturnValue('linux');
   await stopScreenAudio();

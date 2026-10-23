@@ -1,6 +1,13 @@
 import type { DesktopCapturerSource, Streams } from 'electron';
 import { release } from 'node:os';
 
+export function windowsScreenAudioSupported(
+  platform: NodeJS.Platform = process.platform,
+  osRelease: string = release()
+): boolean {
+  return platform === 'win32' && Number(osRelease.split('.')[2]) >= 20348;
+}
+
 export function screenShareStreams(
   source: Pick<DesktopCapturerSource, 'id' | 'name'>,
   audioRequested: boolean,
@@ -9,6 +16,7 @@ export function screenShareStreams(
 ): Streams {
   const streams: Streams = { video: source };
   if (audioRequested && platform === 'win32') {
+    if (windowsScreenAudioSupported(platform, osRelease)) return streams;
     // Windows 10 22H2+ supports excluding Chromium's audio.
     // @ts-expect-error Electron supports loopbackWithoutChrome but does not type it.
     streams.audio = Number(osRelease.split('.')[2]) >= 19045 ? 'loopbackWithoutChrome' : 'loopback';

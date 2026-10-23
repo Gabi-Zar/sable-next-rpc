@@ -36,7 +36,8 @@ import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
 import * as screenAudio from './screen-audio';
-import { screenShareStreams } from './screen-share';
+import { screenShareStreams, windowsScreenAudioSupported } from './screen-share';
+import * as windowsScreenAudio from './windows-screen-audio';
 import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
 import { ignoreBrokenPipes } from './stdio';
@@ -408,7 +409,10 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, 'preload.cjs'),
       sandbox: true,
       contextIsolation: true,
-      additionalArguments: supportsAutoUpdate() ? [] : ['--sable-disable-auto-update'],
+      additionalArguments: [
+        ...(supportsAutoUpdate() ? [] : ['--sable-disable-auto-update']),
+        ...(windowsScreenAudioSupported() ? ['--sable-windows-screen-audio'] : []),
+      ],
     },
   });
 
@@ -425,6 +429,7 @@ function createWindow(): BrowserWindow {
   });
   window.on('closed', () => {
     if (mainWindow !== window) return;
+    screenAudio.stop();
     mainWindow = null;
     pageListening = false;
   });
@@ -463,6 +468,9 @@ function createWindow(): BrowserWindow {
     cancelPicks();
     screenAudio.stop();
   });
+  window.webContents.on('render-process-gone', () => {
+    screenAudio.stop();
+  });
   window.webContents.setWindowOpenHandler(({ url }) => {
     openExternal(url);
     return { action: 'deny' };
@@ -493,6 +501,15 @@ ipcMain.handle('sable-screen-audio-apps', (event) =>
 ipcMain.handle('sable-screen-audio-start', (event, selection: unknown) => {
   if (!isAppFrame(event.senderFrame)) throw new Error('not the app');
   return screenAudio.start(selection);
+});
+
+ipcMain.handle('sable-screen-audio-stream-start', (event, selection: unknown) => {
+  if (!isAppFrame(event.senderFrame) || !windowsScreenAudioSupported())
+    throw new Error('screen audio is unavailable');
+  windowsScreenAudio.start(selection, (data) => {
+    if (!event.sender.isDestroyed() && isAppFrame(event.senderFrame))
+      event.sender.send('sable-screen-audio-frames', data);
+  });
 });
 
 ipcMain.handle('sable-screen-audio-stop', (event) => {
@@ -660,6 +677,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     quitting = true;
+    screenAudio.stop();
     if (mainWindow && !mainWindow.isDestroyed()) rememberWindowState(mainWindow);
     persistWindowState();
     desktopTray.destroy();

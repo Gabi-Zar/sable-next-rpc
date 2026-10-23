@@ -4,6 +4,9 @@
     reason = "every export rejects with the JSON `RpcError` as its message"
 )]
 
+#[cfg(windows)]
+mod screen_audio;
+
 use std::{
     io::{self, Write},
     sync::{

@@ -68,14 +68,19 @@ function windowsBuild(): number {
 
 export function screenAudioSupported(): boolean {
   const electron = electronBridge();
-  if (electron) return electron.platform === 'linux';
+  if (electron)
+    return (
+      electron.platform === 'linux' ||
+      (electron.platform === 'win32' && electron.screenAudioAvailable)
+    );
   if (!isTauri()) return false;
   const os = osType();
   return os === 'linux' || (os === 'windows' && windowsBuild() >= WINDOWS_LOOPBACK_BUILD);
 }
 
 export function screenAudioPicksMany(): boolean {
-  return electronBridge() !== undefined || osType() === 'linux';
+  const electron = electronBridge();
+  return electron ? electron.platform === 'linux' : osType() === 'linux';
 }
 
 async function findInput(label: string): Promise<MediaDeviceInfo | null> {
@@ -94,7 +99,8 @@ export async function captureScreenAudio(
   selection: Exclude<ScreenAudioChoice, { kind: 'none' }>
 ): Promise<MediaStreamTrack> {
   const electron = electronBridge();
-  if (!electron && osType() === 'windows') return startScreenAudioStream(selection);
+  if (electron?.platform === 'win32' || (!electron && osType() === 'windows'))
+    return startScreenAudioStream(selection);
   try {
     const label = electron
       ? await electron.startScreenAudio(selection)
@@ -123,6 +129,7 @@ export async function captureScreenAudio(
 
 export function stopScreenAudio(): Promise<void> {
   const electron = electronBridge();
+  if (electron?.platform === 'win32') return stopScreenAudioStream();
   if (electron) return electron.stopScreenAudio();
   return osType() === 'windows' ? stopScreenAudioStream() : invoke('stop_screen_audio');
 }

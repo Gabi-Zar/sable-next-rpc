@@ -20,6 +20,7 @@ export interface ScreenShareCandidate {
 
 export interface ElectronBridge {
   platform: string;
+  screenAudioAvailable: boolean;
   setTrayUnread(unread: boolean): Promise<void>;
   applyWindowSettings(settings: DesktopWindowSettings): Promise<DesktopWindowState | null>;
   minimizeWindow(): void;
@@ -34,6 +35,8 @@ export interface ElectronBridge {
   onDeepLinks(callback: (urls: string[]) => void): () => void;
   screenAudioApps(): Promise<ScreenAudioListing>;
   startScreenAudio(selection: Exclude<ScreenAudioChoice, { kind: 'none' }>): Promise<string>;
+  startScreenAudioStream(selection: Exclude<ScreenAudioChoice, { kind: 'none' }>): Promise<void>;
+  onScreenAudioFrames(callback: (data: ArrayBuffer) => void): () => void;
   stopScreenAudio(): Promise<void>;
   unmuteScreenAudio(): Promise<void>;
   pickFiles(request: PickFilesRequest): Promise<PickedFile[] | null>;

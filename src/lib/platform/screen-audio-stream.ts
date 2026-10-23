@@ -1,5 +1,6 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 
+import { electronBridge } from './electron';
 import workletUrl from './screen-audio-worklet.js?url&no-inline';
 
 export type ScreenAudioChoice =
@@ -16,13 +17,17 @@ export async function startScreenAudioStream(
 ): Promise<MediaStreamTrack> {
   await stopScreenAudioStream();
   const context = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
-  const frames = new Channel<ArrayBuffer>();
+  const electron = electronBridge();
+  let unsubscribe: (() => void) | undefined;
+  const frames = electron ? undefined : new Channel<ArrayBuffer>();
   const stop = async (): Promise<void> => {
-    frames.onmessage = () => undefined;
+    unsubscribe?.();
+    if (frames) frames.onmessage = () => undefined;
     await context.close().catch((error: unknown) => {
       console.debug('[sable call] screen audio context not closed', error);
     });
-    await invoke('stop_screen_audio');
+    if (electron) await electron.stopScreenAudio();
+    else await invoke('stop_screen_audio');
   };
   active = { stop };
 
@@ -37,7 +42,7 @@ export async function startScreenAudioStream(
       channelCountMode: 'explicit',
     });
     player.connect(destination);
-    frames.onmessage = (data) => {
+    const receive = (data: ArrayBuffer) => {
       if (data.byteLength === 0) {
         if (active?.stop === stop) void stopScreenAudioStream();
         return;
@@ -49,8 +54,11 @@ export async function startScreenAudioStream(
         console.warn('[sable call] dropped a screen audio chunk', error);
       }
     };
+    if (electron) unsubscribe = electron.onScreenAudioFrames(receive);
+    else if (frames) frames.onmessage = receive;
     await context.resume();
-    await invoke('start_screen_audio_stream', { selection, frames });
+    if (electron) await electron.startScreenAudioStream(selection);
+    else await invoke('start_screen_audio_stream', { selection, frames });
     const track = destination.stream.getAudioTracks().at(0);
     if (!track) throw new Error('screen audio stream gave no track');
     return track;

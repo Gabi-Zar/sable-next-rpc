@@ -2,6 +2,7 @@ import { app } from 'electron';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import type { ScreenAudioListing } from '../../src/lib/platform/screen-audio-types';
+import * as windowsScreenAudio from './windows-screen-audio';
 
 export const SCREEN_AUDIO_LABEL = 'vencord-screen-share';
 
@@ -58,6 +59,7 @@ const SOURCE_PROPS = [
 ];
 
 export function listApps(): ScreenAudioListing {
+  if (process.platform === 'win32') return windowsScreenAudio.listApps();
   const own = ownAudio()['application.process.id'];
   const apps = new Map<string, ScreenAudioListing['apps'][number]>();
   for (const node of venmic()?.list([]) ?? []) {
@@ -128,6 +130,10 @@ export function start(value: unknown): string {
 }
 
 export function stop(): void {
+  if (process.platform === 'win32') {
+    windowsScreenAudio.stop();
+    return;
+  }
   linked = false;
   patchBay?.unlink();
 }

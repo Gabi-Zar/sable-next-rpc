@@ -1,18 +1,29 @@
 import { expect, test } from 'vitest';
 
-import { screenShareStreams } from './screen-share';
+import { screenShareStreams, windowsScreenAudioSupported } from './screen-share';
 
 const source = { id: 'screen:0:0', name: 'Screen 1' };
 
-test.each(['10.0.19045', '10.0.22631', '10.0.26100'])(
-  'excludes Chromium audio from Windows loopback on %s',
+test('excludes Chromium audio from Windows 10 loopback', () => {
+  expect(screenShareStreams(source, true, 'win32', '10.0.19045')).toEqual({
+    video: source,
+    audio: 'loopbackWithoutChrome',
+  });
+});
+
+test.each(['10.0.20348', '10.0.22631', '10.0.26100'])(
+  'leaves Windows %s audio to native capture',
   (release) => {
-    expect(screenShareStreams(source, true, 'win32', release)).toEqual({
-      video: source,
-      audio: 'loopbackWithoutChrome',
-    });
+    expect(windowsScreenAudioSupported('win32', release)).toBe(true);
+    expect(screenShareStreams(source, true, 'win32', release)).toEqual({ video: source });
   }
 );
+
+test('native audio requires Windows build 20348', () => {
+  expect(windowsScreenAudioSupported('win32', '10.0.19045')).toBe(false);
+  expect(windowsScreenAudioSupported('win32', 'unknown')).toBe(false);
+  expect(windowsScreenAudioSupported('linux', '10.0.26100')).toBe(false);
+});
 
 test('uses standard loopback on older Windows builds', () => {
   expect(screenShareStreams(source, true, 'win32', '10.0.19044')).toEqual({

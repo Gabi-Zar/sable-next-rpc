@@ -32,6 +32,7 @@ ipcRenderer.on('sable-pick-screen', (_event, request: number, sources: ScreenSha
 
 contextBridge.exposeInMainWorld('sableElectron', {
   platform: process.platform,
+  screenAudioAvailable: process.argv.includes('--sable-windows-screen-audio'),
   setTrayUnread: (unread: boolean) =>
     ipcRenderer.invoke('sable-tray-unread', unread) as Promise<void>,
   applyWindowSettings: (settings: unknown) =>
@@ -87,6 +88,17 @@ contextBridge.exposeInMainWorld('sableElectron', {
     ipcRenderer.invoke('sable-screen-audio-apps') as Promise<ScreenAudioListing>,
   startScreenAudio: (selection: unknown) =>
     ipcRenderer.invoke('sable-screen-audio-start', selection) as Promise<string>,
+  startScreenAudioStream: (selection: unknown) =>
+    ipcRenderer.invoke('sable-screen-audio-stream-start', selection) as Promise<void>,
+  onScreenAudioFrames: (callback: (data: ArrayBuffer) => void) => {
+    const listener = (_event: IpcRendererEvent, data: Uint8Array) => {
+      callback(new Uint8Array(data).buffer);
+    };
+    ipcRenderer.on('sable-screen-audio-frames', listener);
+    return () => {
+      ipcRenderer.removeListener('sable-screen-audio-frames', listener);
+    };
+  },
   stopScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-stop') as Promise<void>,
   unmuteScreenAudio: () => ipcRenderer.invoke('sable-screen-audio-unmute') as Promise<void>,
   pickFiles: (request: PickFilesRequest) =>

@@ -7389,6 +7389,7 @@ dependencies = [
  "napi-build",
  "napi-derive",
  "sable-core",
+ "sable-loopback",
  "serde_json",
  "tokio",
  "tracing",
