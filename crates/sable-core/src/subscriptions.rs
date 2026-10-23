@@ -569,7 +569,11 @@ impl Core {
         own_user_id: Option<OwnedUserId>,
         scope: AggregationScope,
     ) -> (Vec<TimelineItemView>, Option<Task>) {
-        let Ok((cache, _handles)) = room.event_cache().await else {
+        let client = room.client();
+        let Some(event_cache) = client.event_cache() else {
+            return (Vec::new(), None);
+        };
+        let Ok((cache, _handles)) = event_cache.room(room.room_id()).await else {
             return (Vec::new(), None);
         };
         let Ok((cached, mut updates)) = cache.subscribe().await else {

@@ -291,7 +291,10 @@ impl Core {
         since: Option<&OwnedEventId>,
     ) -> Result<Vec<serde_json::Value>, RpcError> {
         let client = self.client().await?;
-        let Ok((cache, _drop_handles)) = client.event_cache().room(room_id).await else {
+        let Some(event_cache) = client.event_cache() else {
+            return Ok(Vec::new());
+        };
+        let Ok((cache, _drop_handles)) = event_cache.room(room_id).await else {
             return Ok(Vec::new());
         };
         let Ok(events) = cache.events().await else {

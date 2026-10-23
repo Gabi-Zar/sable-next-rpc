@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -12,6 +12,9 @@ test('finds app symbols and excludes dependencies and bundles', async () => {
     const files = [
       'release/app',
       'release/app.pdb',
+      'electron/dist/sable_node.node',
+      'electron/dist/sable_audiofox.node',
+      'electron/dist/venmic-x64.node',
       'aarch64-linux-android/release/libapp_lib.so',
       'release/deps/libdependency.so',
       'release/bundle/app',
@@ -26,6 +29,8 @@ test('finds app symbols and excludes dependencies and bundles', async () => {
     assert.deepEqual((await collectSymbols(root)).map((path) => relative(root, path)).sort(), [
       'aarch64-linux-android/release/libapp_lib.so',
       'build/archive/Sable.app.dSYM',
+      'electron/dist/sable_audiofox.node',
+      'electron/dist/sable_node.node',
       'release/app',
       'release/app.pdb',
     ]);
@@ -33,6 +38,58 @@ test('finds app symbols and excludes dependencies and bundles', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test(
+  'validates Electron addon debug data and matching macOS dSYMs',
+  {
+    skip: !['linux', 'darwin'].includes(process.platform) || spawnSync('cc', ['--version']).error,
+  },
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'sable-addon-symbols-'));
+    try {
+      const dist = join(root, 'dist');
+      const source = join(root, 'addon.c');
+      const binary = join(dist, 'sable_node.node');
+      await mkdir(dist);
+      await writeFile(source, 'int fixture(void) { return 1; }');
+      const object = join(root, 'addon.o');
+      const build = () => {
+        execFileSync('cc', ['-g', '-fPIC', '-c', source, '-o', object]);
+        execFileSync('cc', [
+          '-g',
+          ...(process.platform === 'darwin' ? ['-dynamiclib'] : ['-shared', '-Wl,--build-id']),
+          object,
+          '-o',
+          binary,
+        ]);
+      };
+      build();
+      const dsym = `${binary}.dSYM`;
+      if (process.platform === 'darwin') await rm(dsym, { recursive: true, force: true });
+      const validate = () =>
+        execFileSync(
+          process.execPath,
+          [join(import.meta.dirname, 'upload-sentry-symbols.mjs'), '--dry-run', dist],
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+        );
+      assert.match(validate(), /Validated 1 debug identifiers/);
+      if (process.platform === 'darwin') {
+        const savedDsym = join(root, 'previous.dSYM');
+        await rename(dsym, savedDsym);
+        await writeFile(source, 'int fixture(void) { return 2; }');
+        build();
+        await rm(dsym, { recursive: true, force: true });
+        await rename(savedDsym, dsym);
+        assert.throws(validate, /Debug identifiers do not match/);
+      } else {
+        execFileSync('strip', ['--strip-debug', binary]);
+        assert.throws(validate, /Missing usable debug information/);
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+);
 
 test('fails when a symbol directory cannot be read', async () => {
   const root = await mkdtemp(join(tmpdir(), 'sable-symbols-'));

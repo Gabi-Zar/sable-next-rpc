@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 import { SentryCli } from '@sentry/cli';
 
 const binaries = ['app', 'sable'];
+const addons = ['sable_node.node', 'sable_audiofox.node'];
 
 export async function collectSymbols(root) {
   const symbols = [];
@@ -27,6 +28,7 @@ export async function collectSymbols(root) {
           ...binaries.map((name) => `${name}.exe`),
           ...binaries.map((name) => `${name}.pdb`),
           'libapp_lib.so',
+          ...addons,
         ].includes(entry.name)
       ) {
         symbols.push(path);
@@ -90,8 +92,14 @@ async function main() {
       if (file.endsWith('.exe')) {
         debugFile = join(dirname(file), 'app.pdb');
         await access(debugFile);
-      } else if (process.platform === 'darwin' && binaries.includes(basename(file))) {
-        debugFile = join(dirname(file), 'app.dSYM');
+      } else if (
+        process.platform === 'darwin' &&
+        [...binaries, ...addons].includes(basename(file))
+      ) {
+        debugFile = join(
+          dirname(file),
+          addons.includes(basename(file)) ? `${basename(file)}.dSYM` : 'app.dSYM'
+        );
         if (!dsyms.has(debugFile)) {
           if (file.split(sep).includes('universal-apple-darwin')) continue;
           execFileSync('dsymutil', [file, '-o', debugFile], { stdio: 'inherit' });

@@ -389,11 +389,13 @@ async fn restore_credentials_with(
     room_load: matrix_sdk::store::RoomLoadSettings,
 ) -> Result<(), CoreError> {
     if let Some(expected) = &persisted.oauth_issuer {
-        let metadata = client
-            .oauth()
-            .server_metadata()
-            .await
-            .map_err(CoreError::backend)?;
+        let metadata =
+            matrix_sdk::timeout::timeout(client.oauth().server_metadata(), DISCOVERY_TIMEOUT)
+                .await
+                .map_err(|error| {
+                    CoreError::context("saved OAuth issuer discovery timed out", error)
+                })?
+                .map_err(CoreError::backend)?;
         if metadata.issuer.as_str() != expected.as_str() {
             return Err("saved OAuth issuer does not match the homeserver".into());
         }

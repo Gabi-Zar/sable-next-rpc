@@ -3032,7 +3032,10 @@ impl Core {
 
         self.track_session_task(
             spawn(async move {
-                let mut updates = client.event_cache().subscribe_to_room_generic_updates();
+                let Some(event_cache) = client.event_cache() else {
+                    return;
+                };
+                let mut updates = event_cache.subscribe_to_room_generic_updates();
 
                 #[cfg(target_family = "wasm")]
                 persist::attach(&client, &store_id).await;
@@ -3083,7 +3086,10 @@ impl Core {
         if self.search_crawl.lock().await.is_ingesting(&room_id) {
             return;
         }
-        let Ok((cache, _drop_handles)) = client.event_cache().room(&room_id).await else {
+        let Some(event_cache) = client.event_cache() else {
+            return;
+        };
+        let Ok((cache, _drop_handles)) = event_cache.room(&room_id).await else {
             return;
         };
         // Pin only while indexing: a permanent subscriber disables SDK cache shrinking.
@@ -3866,7 +3872,7 @@ mod tests {
                     .add_timeline_event(factory.text_msg("latest").event_id(event_id!("$latest"))),
             )
             .await;
-        let (cache, _handles) = client.event_cache().room(&room_id).await.unwrap();
+        let (cache, _handles) = client.event_cache().unwrap().room(&room_id).await.unwrap();
         let (_, foreground) = cache.subscribe().await.unwrap();
         let (core, _events) = crate::Core::new(
             "search-retention",
@@ -3955,6 +3961,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -3966,7 +3973,10 @@ mod tests {
             "the older message is not in the cache yet"
         );
 
-        let mut updates = client.event_cache().subscribe_to_room_generic_updates();
+        let mut updates = client
+            .event_cache()
+            .unwrap()
+            .subscribe_to_room_generic_updates();
 
         server
             .mock_room_messages()
@@ -4035,6 +4045,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -4093,6 +4104,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -4145,6 +4157,7 @@ mod tests {
             .sender(user_id!("@erwan:localhost"));
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -4283,6 +4296,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -4336,6 +4350,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -4388,6 +4403,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -5786,6 +5802,7 @@ mod tests {
             .await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6132,6 +6149,7 @@ mod tests {
 
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6525,6 +6543,7 @@ mod tests {
         let core = logged_in(&server, &client, "search-server-encrypted").await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6607,6 +6626,7 @@ mod tests {
         let core = logged_in(&server, &client, "room-attachments").await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6706,6 +6726,7 @@ mod tests {
         let core = logged_in(&server, &client, "gallery-attachments").await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6782,6 +6803,7 @@ mod tests {
         let core = logged_in(&server, &client, "search-server-missing").await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6839,6 +6861,7 @@ mod tests {
         let core = logged_in(&server, &client, "search-server-dated").await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -6893,6 +6916,7 @@ mod tests {
         let core = logged_in(&server, &client, "search-server-filter-only").await;
         let (cache, _drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");
@@ -7031,6 +7055,7 @@ mod tests {
         let room = server.sync_joined_room(client, room_id).await;
         let (cache, drop_handles) = client
             .event_cache()
+            .unwrap()
             .room(room_id)
             .await
             .expect("room event cache");
@@ -7255,6 +7280,7 @@ mod tests {
 
         let (cache, _drop) = client
             .event_cache()
+            .unwrap()
             .room(&room_id)
             .await
             .expect("room event cache");

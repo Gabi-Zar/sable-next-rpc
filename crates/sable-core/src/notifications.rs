@@ -279,13 +279,14 @@ async fn saved_push_account(
     let mut account = push_account(&accounts, user_id, device_id).cloned()?;
     let logins = crate::credentials::LoginTokens::new(store_dir);
     let (account_id, device_id) = (account.account_id.clone(), device_id.to_owned());
-    // Until the app first moves them into a file, a registry still holds the tokens.
-    if let Some(tokens) = tokio::task::spawn_blocking(move || logins.load(&account_id, &device_id))
-        .await
-        .ok()?
-    {
-        account.session.credentials.set_tokens(tokens);
-    }
+    let embedded = account.session.credentials.tokens();
+    let (tokens, _) = tokio::task::spawn_blocking(move || {
+        logins.read_or_migrate(&account_id, &device_id, &embedded)
+    })
+    .await
+    .ok()?
+    .ok()?;
+    account.session.credentials.set_tokens(tokens);
     Some(account)
 }
 
@@ -395,9 +396,13 @@ fn install_push_session_callbacks(client: &Client, base_store: &str, account: &P
         let logins = crate::credentials::LoginTokens::new(base_store);
         let (account_id, device_id) = (account.account_id.clone(), device_id.clone());
         move |_: Client| {
-            logins
-                .load(&account_id, &device_id)
-                .ok_or_else(|| "this login has no saved tokens".into())
+            let tokens = logins
+                .read(&account_id, &device_id)?
+                .ok_or("this login has no saved tokens")?;
+            if tokens.access_token.is_empty() {
+                return Err("saved login access token is empty".into());
+            }
+            Ok(tokens)
         }
     };
     let save = {
@@ -1789,6 +1794,7 @@ mod tests {
         server.mock_versions().ok().mount().await;
         let account = saved_login(&server, data_dir.path()).await;
         let core = core_of(data_dir.path());
+        core.accounts().await.unwrap();
         let lease = crate::session::store_lease(&account.store_id).await;
         let client = core.saved_account_client(&account, &lease).await.unwrap();
         drop(lease);
@@ -2764,10 +2770,11 @@ mod tests {
                 .unwrap();
         let account = &accounts.accounts[0];
         crate::credentials::LoginTokens::new(store_dir)
-            .load(
+            .read(
                 &account.account_id,
                 &account.session.credentials.device_id(),
             )
+            .unwrap()
             .unwrap_or_else(|| account.session.credentials.tokens())
             .refresh_token
             .unwrap()
@@ -2819,6 +2826,51 @@ mod tests {
             })))
             .mount(server.server())
             .await;
+    }
+
+    #[tokio::test]
+    async fn a_cold_push_never_uses_embedded_tokens_when_the_login_file_is_corrupt() {
+        let server = MatrixMockServer::new().await;
+        server.mock_versions().ok().mount().await;
+        let persisted = oauth_session(&server);
+        let (data_dir, store_dir, store) =
+            seeded_cold_store(&persisted, "cold-push-corrupt-tokens").await;
+        let saved = store.load().await.unwrap().unwrap();
+        let logins = crate::credentials::LoginTokens::new(&store_dir);
+        let repaired = matrix_sdk::SessionTokens {
+            access_token: "repaired-access".to_owned(),
+            refresh_token: Some("repaired-refresh".to_owned()),
+        };
+        logins.save("a1", OAUTH_DEVICE, &repaired).unwrap();
+        let path = std::fs::read_dir(store_dir.join("credentials"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        std::fs::write(&path, b"corrupt tokens").unwrap();
+        let requests = server.server().received_requests().await.unwrap().len();
+
+        assert!(
+            restore_push_client(&store_dir, OAUTH_USER, OAUTH_DEVICE)
+                .await
+                .is_none()
+        );
+        assert_eq!(
+            server.server().received_requests().await.unwrap().len(),
+            requests
+        );
+        assert_eq!(store.load().await.unwrap().unwrap(), saved);
+        assert_eq!(std::fs::read(path).unwrap(), b"corrupt tokens");
+
+        logins.save("a1", OAUTH_DEVICE, &repaired).unwrap();
+        let client = restore_push_client(&store_dir, OAUTH_USER, OAUTH_DEVICE)
+            .await
+            .unwrap();
+        assert_eq!(client.session_tokens().unwrap(), repaired);
+        assert_eq!(store.load().await.unwrap().unwrap(), saved);
+        drop(client);
+        tokio::fs::remove_dir_all(data_dir).await.unwrap();
     }
 
     #[tokio::test]

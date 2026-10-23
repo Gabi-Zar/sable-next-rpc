@@ -47,8 +47,29 @@ impl LoginTokens {
         }
     }
 
-    pub(crate) fn load(&self, account_id: &str, device_id: &str) -> Option<SessionTokens> {
-        self.read(account_id, device_id).ok().flatten()
+    pub(crate) fn read_or_migrate(
+        &self,
+        account_id: &str,
+        device_id: &str,
+        embedded: &SessionTokens,
+    ) -> Result<(SessionTokens, bool), StoreError> {
+        let (tokens, migrated) = match self.read(account_id, device_id)? {
+            Some(tokens) => (tokens, false),
+            None if embedded.access_token.is_empty() => {
+                return Err(StoreError::Invalid("saved login tokens are missing"));
+            }
+            None => {
+                let migrated = self.save_new(account_id, device_id, embedded)?;
+                let tokens = self
+                    .read(account_id, device_id)?
+                    .ok_or(StoreError::Invalid("saved login tokens are missing"))?;
+                (tokens, migrated)
+            }
+        };
+        if tokens.access_token.is_empty() {
+            return Err(StoreError::Invalid("saved login access token is empty"));
+        }
+        Ok((tokens, migrated))
     }
 
     pub(crate) fn save(
@@ -176,13 +197,22 @@ mod tests {
         logins.save("a1", "NEW", &tokens("new")).unwrap();
         logins.save("a2", "OLD", &tokens("other")).unwrap();
 
-        assert_eq!(logins.load("a1", "OLD").unwrap().access_token, "old");
-        assert_eq!(logins.load("a1", "NEW").unwrap().access_token, "new");
+        assert_eq!(
+            logins.read("a1", "OLD").unwrap().unwrap().access_token,
+            "old"
+        );
+        assert_eq!(
+            logins.read("a1", "NEW").unwrap().unwrap().access_token,
+            "new"
+        );
         logins.forget("a1");
-        assert!(logins.load("a1", "NEW").is_none());
-        assert_eq!(logins.load("a2", "OLD").unwrap().access_token, "other");
+        assert!(logins.read("a1", "NEW").unwrap().is_none());
+        assert_eq!(
+            logins.read("a2", "OLD").unwrap().unwrap().access_token,
+            "other"
+        );
         logins.forget_all();
-        assert!(logins.load("a2", "OLD").is_none());
+        assert!(logins.read("a2", "OLD").unwrap().is_none());
     }
 
     #[test]
@@ -192,8 +222,21 @@ mod tests {
 
         logins.save("a1", "D", &tokens("rotated")).unwrap();
         assert!(!logins.save_new("a1", "D", &tokens("embedded")).unwrap());
-        assert_eq!(logins.load("a1", "D").unwrap().access_token, "rotated");
+        assert_eq!(
+            logins.read("a1", "D").unwrap().unwrap().access_token,
+            "rotated"
+        );
         assert!(logins.save_new("a2", "D", &tokens("embedded")).unwrap());
+        assert_eq!(
+            logins.read_or_migrate("a1", "D", &tokens("stale")).unwrap(),
+            (tokens("rotated"), false)
+        );
+        assert_eq!(
+            logins
+                .read_or_migrate("a3", "D", &tokens("legacy"))
+                .unwrap(),
+            (tokens("legacy"), true)
+        );
     }
 
     #[test]
@@ -218,9 +261,9 @@ mod tests {
 
         logins.retain([("a1", "NEW")]);
 
-        assert!(logins.load("a1", "NEW").is_some());
-        assert!(logins.load("a1", "OLD").is_none());
-        assert!(logins.load("a2", "D").is_none());
+        assert!(logins.read("a1", "NEW").unwrap().is_some());
+        assert!(logins.read("a1", "OLD").unwrap().is_none());
+        assert!(logins.read("a2", "D").unwrap().is_none());
         assert!(base.path().join("credentials/.tmp-in-progress").exists());
     }
 }

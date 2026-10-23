@@ -438,6 +438,8 @@ export async function skipV1Migration(): Promise<void> {
 export function migrateV1(): Promise<void> | undefined {
   if (!V1_MIGRATION_ENABLED || typeof localStorage === 'undefined') return undefined;
   pending ??= (async () => {
+    const { isTauri, invoke } = await import('@tauri-apps/api/core');
+    if (isTauri() && (await invoke<boolean>('v1_migration_complete'))) return;
     if (typeof navigator !== 'undefined' && 'locks' in navigator) {
       await navigator.locks.request('sable-v1-migration', migrate);
     } else {

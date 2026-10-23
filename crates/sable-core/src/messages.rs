@@ -795,7 +795,11 @@ impl Core {
         let Ok(room) = self.room(room_id).await else {
             return;
         };
-        match room.client().event_cache().pinned_events(room_id).await {
+        let client = room.client();
+        let Some(event_cache) = client.event_cache() else {
+            return;
+        };
+        match event_cache.pinned_events(room_id).await {
             Ok(entry) => {
                 self.pinned_caches
                     .lock()

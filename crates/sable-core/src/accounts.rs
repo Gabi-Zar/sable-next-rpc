@@ -512,10 +512,15 @@ impl Core {
             .ok_or(RpcError::NotLoggedIn)?;
         let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
         let account_id = account_id.to_owned();
-        tokio::task::spawn_blocking(move || logins.load(&account_id, &device_id))
+        let tokens = tokio::task::spawn_blocking(move || logins.read(&account_id, &device_id))
             .await
             .or_failed(self, "reload_session_read")?
-            .ok_or(RpcError::NotLoggedIn)
+            .or_failed(self, "reload_session_read")?
+            .ok_or(RpcError::NotLoggedIn)?;
+        if tokens.access_token.is_empty() {
+            return Err(self.failed("reload_session_read", "saved login access token is empty"));
+        }
+        Ok(tokens)
     }
 
     /// A login's tokens leave the registry only once its own file holds them.
@@ -529,7 +534,10 @@ impl Core {
         let saved = tokio::task::spawn_blocking(move || {
             for account in &mut saved.accounts {
                 let device_id = account.session.credentials.device_id();
-                if matches!(logins.read(&account.account_id, &device_id), Ok(Some(_))) {
+                if matches!(
+                    logins.read(&account.account_id, &device_id),
+                    Ok(Some(tokens)) if !tokens.access_token.is_empty()
+                ) {
                     account.session.credentials.discard_tokens();
                 }
             }
@@ -592,28 +600,16 @@ impl Core {
             {
                 let credentials = &mut account.session.credentials;
                 let device_id = credentials.device_id();
-                match logins.read(&account.account_id, &device_id) {
-                    Ok(Some(tokens)) => credentials.set_tokens(tokens),
-                    Ok(None) if !credentials.tokens().access_token.is_empty() => {
-                        match logins.save_new(
-                            &account.account_id,
-                            &device_id,
-                            &credentials.tokens(),
-                        ) {
-                            Ok(true) => embedded = true,
-                            // A push refreshed the login while the app was starting.
-                            Ok(false) => {
-                                if let Some(tokens) = logins.load(&account.account_id, &device_id) {
-                                    credentials.set_tokens(tokens);
-                                }
-                            }
-                            Err(error) => {
-                                tracing::warn!("could not move a login's tokens: {error}");
-                            }
-                        }
+                match logins.read_or_migrate(&account.account_id, &device_id, &credentials.tokens())
+                {
+                    Ok((tokens, migrated)) => {
+                        credentials.set_tokens(tokens);
+                        embedded |= migrated;
                     }
-                    Ok(None) => {}
-                    Err(error) => tracing::warn!("a login's token file is unreadable: {error}"),
+                    Err(error) => tracing::warn!(
+                        account_id = account.account_id,
+                        "saved login tokens are unavailable: {error}"
+                    ),
                 }
             }
             let devices: Vec<_> = loaded
@@ -704,19 +700,38 @@ impl Core {
         if let Some(client) = cached {
             return Ok(client);
         }
-        session::validate_saved_crypto_store(&account.store_id, &account.session)
+        let persisted = account.session.clone();
+        #[cfg(not(target_family = "wasm"))]
+        let persisted = {
+            let mut persisted = persisted;
+            let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&self.store_id));
+            let account_id = account.account_id.clone();
+            let device_id = persisted.credentials.device_id();
+            let tokens = tokio::task::spawn_blocking(move || logins.read(&account_id, &device_id))
+                .await
+                .or_failed(self, "restore_login_tokens")?
+                .or_failed(self, "restore_login_tokens")?
+                .ok_or_else(|| {
+                    self.failed("restore_login_tokens", "saved login tokens are missing")
+                })?;
+            if tokens.access_token.is_empty() {
+                return Err(
+                    self.failed("restore_login_tokens", "saved login access token is empty")
+                );
+            }
+            persisted.credentials.set_tokens(tokens);
+            persisted
+        };
+        session::validate_saved_crypto_store(&account.store_id, &persisted)
             .await
             .or_failed(self, "restore_crypto_store")?;
-        let client = session::restore_client(
-            &account.store_id,
-            &account.session,
-            self.persistent_event_cache,
-        )
-        .await
-        .or_failed(self, "restore_build_client")?;
+        let client =
+            session::restore_client(&account.store_id, &persisted, self.persistent_event_cache)
+                .await
+                .or_failed(self, "restore_build_client")?;
         self.install_credential_writer(&client, &account.session.homeserver, &account.account_id)
             .await;
-        session::restore_credentials(&client, &account.session)
+        session::restore_credentials(&client, &persisted)
             .await
             .or_failed(self, "restore_session")?;
         tracing::info!(refresh = %refresh_tag(&client), "session tokens: restored");
@@ -2444,11 +2459,162 @@ mod regression_tests {
 
     fn has_login_file(base: &tempfile::TempDir, account: &PersistedAccount) -> bool {
         crate::credentials::LoginTokens::new(base.path())
-            .load(
+            .read(
                 &account.account_id,
                 &account.session.credentials.device_id(),
             )
-            .is_some()
+            .is_ok_and(|tokens| tokens.is_some())
+    }
+
+    #[expect(clippy::unwrap_used, reason = "test code")]
+    async fn restorable_core() -> (
+        MatrixMockServer,
+        tempfile::TempDir,
+        Arc<Core>,
+        PersistedAccount,
+    ) {
+        let (server, _, room) = core_with_room().await;
+        let base = tempfile::tempdir().unwrap();
+        let (core, _) = Core::new(
+            base.path().join("data").to_str().unwrap(),
+            Box::new(MemorySessionStore::default()),
+        );
+        let account = PersistedAccount {
+            account_id: "first".to_owned(),
+            store_id: session::account_store_id(&core.store_id, "first"),
+            session: session::current_session(&room.client(), server.server().uri()).unwrap(),
+            needs_reauth: false,
+            device_invalidated: false,
+        };
+        let seeded = session::restore_client(&account.store_id, &account.session, true)
+            .await
+            .unwrap();
+        session::restore_credentials(&seeded, &account.session)
+            .await
+            .unwrap();
+        drop(seeded);
+        let mut registry = session::AccountRegistry::empty();
+        registry.active_account_id = Some(account.account_id.clone());
+        registry.upsert(account.clone());
+        core.save_login_tokens(&account).await.unwrap();
+        core.write_registry(&registry).await.unwrap();
+        (server, base, core, account)
+    }
+
+    #[tokio::test]
+    async fn missing_login_tokens_preserve_the_registry_until_storage_recovers() {
+        use crate::session::AccountRegistry;
+        let (_server, _base, core, account) = restorable_core().await;
+        let bytes = core.sessions.load().await.unwrap().unwrap();
+        let (mut registry, _) = AccountRegistry::from_bytes(&bytes, &core.store_id).unwrap();
+        assert_eq!(
+            registry.accounts[0]
+                .session
+                .credentials
+                .tokens()
+                .access_token,
+            ""
+        );
+        let logins = crate::credentials::LoginTokens::new(std::path::Path::new(&core.store_id));
+        core.accounts().await.unwrap();
+        logins.forget(&account.account_id);
+
+        assert!(!core.load_login_tokens(&mut registry).await.unwrap());
+        core.restore().await.unwrap_err();
+        assert_eq!(core.list_accounts().await.unwrap().len(), 1);
+        assert_eq!(serde_json::to_vec(&registry).unwrap(), bytes);
+        assert_eq!(core.sessions.load().await.unwrap().unwrap(), bytes);
+
+        core.save_login_tokens(&account).await.unwrap();
+        core.load_login_tokens(&mut registry).await.unwrap();
+        assert_eq!(
+            registry.accounts[0].session.credentials.tokens(),
+            account.session.credentials.tokens()
+        );
+        assert_eq!(core.restore().await.unwrap().unwrap().account_id, "first");
+        core.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn unreadable_login_tokens_never_fall_back_to_stale_embedded_tokens() {
+        let (_server, _base, core, account) = restorable_core().await;
+        let mut registry = core.accounts().await.unwrap();
+        let before = core.sessions.load().await.unwrap().unwrap();
+        let path = std::fs::read_dir(std::path::Path::new(&core.store_id).join("credentials"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap()
+            .path();
+        std::fs::write(&path, b"unreadable tokens").unwrap();
+
+        assert!(!core.load_login_tokens(&mut registry).await.unwrap());
+        core.restore().await.unwrap_err();
+        assert_eq!(core.sessions.load().await.unwrap().unwrap(), before);
+        assert_eq!(std::fs::read(&path).unwrap(), b"unreadable tokens");
+        assert!(!core.accounts().await.unwrap().accounts[0].needs_reauth);
+
+        core.save_login_tokens(&account).await.unwrap();
+        assert_eq!(core.restore().await.unwrap().unwrap().account_id, "first");
+        core.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn unreadable_inactive_tokens_do_not_block_other_accounts_or_removal() {
+        use crate::api::session::{RemoveAccountParams, SwitchAccountParams};
+        let (_server, _base, core, first) = restorable_core().await;
+        let second = PersistedAccount {
+            account_id: "second".to_owned(),
+            store_id: session::account_store_id(&core.store_id, "second"),
+            ..first.clone()
+        };
+        let mut registry = core.accounts().await.unwrap();
+        registry.upsert(second.clone());
+        core.save_login_tokens(&second).await.unwrap();
+        core.write_registry(&registry).await.unwrap();
+        *core.accounts.lock().await = None;
+        let path = std::fs::read_dir(std::path::Path::new(&core.store_id).join("credentials"))
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| {
+                path.file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .starts_with("second.")
+            })
+            .unwrap();
+        std::fs::write(&path, b"unreadable tokens").unwrap();
+        let before = core.sessions.load().await.unwrap().unwrap();
+        assert_eq!(core.list_accounts().await.unwrap().len(), 2);
+        assert_eq!(core.restore().await.unwrap().unwrap().account_id, "first");
+        core.switch_account(SwitchAccountParams {
+            account_id: "second".to_owned(),
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(
+            core.active_session_info().await.unwrap().account_id,
+            "first"
+        );
+        assert_eq!(core.sessions.load().await.unwrap().unwrap(), before);
+        assert_eq!(std::fs::read(&path).unwrap(), b"unreadable tokens");
+        assert!(!core.accounts().await.unwrap().accounts[1].needs_reauth);
+
+        core.remove_inactive_account(RemoveAccountParams {
+            account_id: "second".to_owned(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(core.list_accounts().await.unwrap().len(), 1);
+        assert!(!path.exists());
+        assert!(
+            crate::credentials::LoginTokens::new(std::path::Path::new(&core.store_id))
+                .read(&first.account_id, &first.session.credentials.device_id())
+                .unwrap()
+                .is_some()
+        );
+        core.shutdown().await;
     }
 
     #[tokio::test]
@@ -2459,6 +2625,11 @@ mod regression_tests {
             account_id: "unmoved".to_owned(),
             ..account.clone()
         });
+        let mut empty = account.session.credentials.tokens();
+        empty.access_token.clear();
+        crate::credentials::LoginTokens::new(base.path())
+            .save("unmoved", &account.session.credentials.device_id(), &empty)
+            .unwrap();
         core.write_registry(&registry).await.unwrap();
 
         let saved = core.sessions.load().await.unwrap().unwrap();
@@ -2505,10 +2676,12 @@ mod regression_tests {
         account: &crate::session::PersistedAccount,
     ) -> Option<String> {
         crate::credentials::LoginTokens::new(std::path::Path::new(&core.store_id))
-            .load(
+            .read(
                 &account.account_id,
                 &account.session.credentials.device_id(),
-            )?
+            )
+            .ok()
+            .flatten()?
             .refresh_token
     }
 
@@ -2564,7 +2737,8 @@ mod regression_tests {
             .unwrap_err();
         assert!(
             crate::credentials::LoginTokens::new(base.path())
-                .load("first", &device_id)
+                .read("first", &device_id)
+                .unwrap()
                 .is_some()
         );
         let accounts = core.accounts().await.unwrap();
@@ -2660,6 +2834,10 @@ mod regression_tests {
             tokens.access_token,
             client.session_tokens().unwrap().access_token
         );
+        let mut empty = core.accounts().await.unwrap().accounts.remove(0);
+        empty.session.credentials.discard_tokens();
+        core.save_login_tokens(&empty).await.unwrap();
+        core.reload_saved_tokens("first", 1).await.unwrap_err();
         core.credential_writers.lock().await.remove("first");
         assert!(matches!(
             core.reload_saved_tokens("first", 1).await,

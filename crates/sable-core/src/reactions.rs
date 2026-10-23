@@ -94,8 +94,11 @@ impl Core {
         event_id: &OwnedEventId,
     ) -> Result<Vec<ReactionShortcodeView>, RpcError> {
         let room = self.room(room_id).await?;
-        let (cache, _handles) = room
+        let client = room.client();
+        let (cache, _handles) = client
             .event_cache()
+            .ok_or(RpcError::Unavailable)?
+            .room(room_id)
             .await
             .or_failed(self, "reaction_shortcodes")?;
         let related = cache

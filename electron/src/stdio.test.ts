@@ -7,13 +7,13 @@ function fail(stream: EventEmitter, code: string): void {
   stream.emit('error', Object.assign(new Error(`write ${code}`), { code }));
 }
 
-test('a closed pipe is ignored on every stream', () => {
+test.each(['EPIPE', 'EIO'])('a closed output (%s) is ignored on every stream', (code) => {
   const streams = [new EventEmitter(), new EventEmitter()];
   ignoreBrokenPipes(streams as never);
 
   for (const stream of streams)
     expect(() => {
-      fail(stream, 'EPIPE');
+      fail(stream, code);
     }).not.toThrow();
 });
 
@@ -22,6 +22,6 @@ test('any other stream error still surfaces', () => {
   ignoreBrokenPipes([stream as never]);
 
   expect(() => {
-    fail(stream, 'EIO');
-  }).toThrow('write EIO');
+    fail(stream, 'ENOSPC');
+  }).toThrow('write ENOSPC');
 });

@@ -8,8 +8,12 @@ use matrix_sdk_common::serde_helpers::extract_thread_root;
 /// Threads are found among the events the room's cache holds, so one whose
 /// replies have all left the cache is not seen.
 pub(crate) async fn thread_receipts(room: &Room) -> Vec<(OwnedEventId, ReadReceipts)> {
-    let Ok((cache, _handles)) = room
-        .event_cache()
+    let client = room.client();
+    let Some(event_cache) = client.event_cache() else {
+        return Vec::new();
+    };
+    let Ok((cache, _handles)) = event_cache
+        .room(room.room_id())
         .await
         .inspect_err(|error| tracing::warn!("thread read state unavailable: {error}"))
     else {
@@ -27,8 +31,6 @@ pub(crate) async fn thread_receipts(room: &Room) -> Vec<(OwnedEventId, ReadRecei
         .filter_map(|event| extract_thread_root(event.raw()))
         .collect();
 
-    let client = room.client();
-    let event_cache = client.event_cache();
     let mut threads = Vec::new();
     for root in roots {
         let Ok(Some(info)) = event_cache.thread_info(room.room_id(), &root).await else {

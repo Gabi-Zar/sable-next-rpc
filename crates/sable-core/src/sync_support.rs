@@ -63,7 +63,9 @@ impl Core {
                     let _serial = core.activity_lock.lock().await;
                     let running = matches!(sync_service.state().get(), State::Running)
                         && !core.sync_suspended.load(Ordering::SeqCst);
-                    if let Err(error) = client.event_cache().clear_all_rooms().await {
+                    if let Some(event_cache) = client.event_cache()
+                        && let Err(error) = event_cache.clear_all_rooms().await
+                    {
                         tracing::warn!(%error, "clearing the event cache after an ignore change");
                     }
                     sync_service.expire_sessions().await;

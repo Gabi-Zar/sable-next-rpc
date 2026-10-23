@@ -105,7 +105,7 @@ impl Core {
             (CrossSigningResetAuthType::Uiaa(uiaa), Some(password)) => {
                 let user_id = client.user_id().ok_or(RpcError::NotLoggedIn)?.to_owned();
                 let mut auth = Password::new(UserIdentifier::Matrix(user_id.into()), password);
-                auth.session = Some(uiaa.session.clone());
+                auth.session = Some(uiaa.session().to_owned());
                 AuthData::Password(auth)
             }
             (CrossSigningResetAuthType::Uiaa(_), None) => {

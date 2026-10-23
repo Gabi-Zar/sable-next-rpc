@@ -717,6 +717,9 @@ impl Core {
         client: &matrix_sdk::Client,
         room_id: &OwnedRoomId,
     ) -> matrix_sdk::Result<CrawlOutcome> {
+        let event_cache = client
+            .event_cache()
+            .ok_or_else(|| matrix_sdk::Error::UnknownError("event cache is disabled".into()))?;
         let Some(room) = client.get_room(room_id) else {
             return Ok(CrawlOutcome::gone());
         };
@@ -793,7 +796,7 @@ impl Core {
                 .await
                 .advance(room_id, messages.end);
         } else {
-            let (cache, _drop_handles) = client.event_cache().room(room_id).await?;
+            let (cache, _drop_handles) = event_cache.room(room_id).await?;
             self.search_crawl
                 .lock()
                 .await

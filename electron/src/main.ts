@@ -56,6 +56,8 @@ import {
 declare const __SABLE_CSP__: Record<string, string>;
 declare const __SABLE_IDENTIFIER__: string;
 
+ignoreBrokenPipes([process.stdout, process.stderr]);
+
 const IDENTIFIER = process.env.SABLE_IDENTIFIER ?? __SABLE_IDENTIFIER__;
 const SCHEME = 'sable-app';
 const DEEP_LINK_SCHEMES = deepLinkSchemes(IDENTIFIER);
@@ -124,8 +126,6 @@ if (isLinux && settings.hardwareAcceleration && settings.hardwareVideoAccelerati
 setFeatures(enabledFeatures, isLinux ? ['WaylandWpColorManagerV1'] : []);
 if (!settings.smoothScrolling) app.commandLine.appendSwitch('disable-smooth-scrolling');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-
-ignoreBrokenPipes([process.stdout, process.stderr]);
 
 if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 if (process.platform === 'win32') {

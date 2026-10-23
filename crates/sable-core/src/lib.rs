@@ -1132,7 +1132,7 @@ mod tests {
 
         let logins = crate::credentials::LoginTokens::new(base.path());
         assert_eq!(
-            logins.load("a1", "DEVICEID").unwrap().access_token,
+            logins.read("a1", "DEVICEID").unwrap().unwrap().access_token,
             "embedded"
         );
         let rewritten = saved.lock().await.clone().unwrap();

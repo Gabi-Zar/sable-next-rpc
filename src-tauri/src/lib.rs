@@ -440,12 +440,11 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
     let data_dir = data_dir.join("files");
     #[cfg(target_os = "ios")]
     let data_dir = {
-        let shared = ios::shared_store_dir().unwrap_or_else(|error| {
-            log::warn!("Shared notification storage unavailable: {error}");
-            data_dir.clone()
-        });
+        let shared = ios::shared_store_dir().map_err(std::io::Error::other)?;
         // Do not silently abandon an older installation's credentials or SDK store.
-        if data_dir.join("session.json").exists() && !shared.join("session.json").exists() {
+        if !shared.join("session.json").try_exists()?
+            && data_dir.join("session.json").try_exists()?
+        {
             log::warn!(
                 "Keeping the existing private iOS session; cold previews require signing in with shared storage"
             );

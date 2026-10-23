@@ -16,8 +16,8 @@ use std::{
 };
 
 use napi::{
-    Status,
-    bindgen_prelude::Buffer,
+    Env, Status,
+    bindgen_prelude::{Buffer, PromiseRaw},
     threadsafe_function::{ThreadsafeFunction, ThreadsafeFunctionCallMode},
 };
 use napi_derive::napi;
@@ -187,81 +187,136 @@ impl SableCore {
     }
 
     #[napi]
-    pub async fn restore(&self) {
-        if !matches!(self.core.v1_migration_complete().await, Ok(true)) {
-            return;
-        }
-        if let Err(error) =
-            Box::pin(self.core.run(sable_core::api::session::RestoreParams {})).await
-        {
-            tracing::warn!(?error, "early session restore failed");
-        }
+    pub fn restore<'env>(&self, env: &'env Env) -> napi::Result<PromiseRaw<'env, ()>> {
+        // Keep JS-owned borrows on this thread: pending futures are dropped by Tokio at shutdown.
+        let core = self.core.clone();
+        env.spawn_future(async move {
+            if !matches!(core.v1_migration_complete().await, Ok(true)) {
+                return Ok(());
+            }
+            if let Err(error) = Box::pin(core.run(sable_core::api::session::RestoreParams {})).await
+            {
+                tracing::warn!(?error, "early session restore failed");
+            }
+            Ok(())
+        })
     }
 
     #[napi]
-    pub async fn set_active(&self, active: bool) {
-        self.core.set_app_active(active);
-        self.core.apply_app_activity(active).await;
-    }
-
-    #[napi]
-    pub async fn call(&self, method: String, params: String) -> napi::Result<String> {
-        Box::pin(self.core.call(&method, &params))
-            .await
-            .map(|json| Box::<str>::from(json).into_string())
-            .map_err(|error| js_err(&error))
-    }
-
-    #[napi]
-    pub async fn fetch_media(
+    pub fn set_active<'env>(
         &self,
+        env: &'env Env,
+        active: bool,
+    ) -> napi::Result<PromiseRaw<'env, ()>> {
+        let core = self.core.clone();
+        env.spawn_future(async move {
+            core.set_app_active(active);
+            core.apply_app_activity(active).await;
+            Ok(())
+        })
+    }
+
+    #[napi]
+    pub fn call<'env>(
+        &self,
+        env: &'env Env,
+        method: String,
+        params: String,
+    ) -> napi::Result<PromiseRaw<'env, String>> {
+        let core = self.core.clone();
+        env.spawn_future(async move {
+            Box::pin(core.call(&method, &params))
+                .await
+                .map(|json| Box::<str>::from(json).into_string())
+                .map_err(|error| js_err(&error))
+        })
+    }
+
+    #[napi]
+    pub fn fetch_media<'env>(
+        &self,
+        env: &'env Env,
         source: String,
         width: u32,
         height: u32,
         background: bool,
-    ) -> napi::Result<Buffer> {
-        self.core
-            .fetch_media(source, width, height, background)
-            .await
-            .map(Buffer::from)
-            .map_err(|error| js_err(&error))
+    ) -> napi::Result<PromiseRaw<'env, Buffer>> {
+        let core = self.core.clone();
+        env.spawn_future_with_callback(
+            async move {
+                core.fetch_media(source, width, height, background)
+                    .await
+                    .map_err(|error| js_err(&error))
+            },
+            |_env, bytes| Ok(Buffer::from(bytes)),
+        )
     }
 
     #[napi]
-    pub async fn forget_media(&self, source: String) -> napi::Result<()> {
-        self.core
-            .forget_media(source)
-            .await
-            .map_err(|error| js_err(&error))
+    pub fn forget_media<'env>(
+        &self,
+        env: &'env Env,
+        source: String,
+    ) -> napi::Result<PromiseRaw<'env, ()>> {
+        let core = self.core.clone();
+        env.spawn_future(async move {
+            core.forget_media(source)
+                .await
+                .map_err(|error| js_err(&error))
+        })
     }
 
     #[napi]
-    pub async fn send_attachment(&self, request: String, bytes: Buffer) -> napi::Result<()> {
-        let request = serde_json::from_str(&request)
-            .map_err(|error| js_err(&self.core.failed("send_attachment", error)))?;
-        self.core
-            .send_attachment(request, bytes.to_vec())
-            .await
-            .map_err(|error| js_err(&error))
+    pub fn send_attachment<'env>(
+        &self,
+        env: &'env Env,
+        request: String,
+        bytes: Buffer,
+    ) -> napi::Result<PromiseRaw<'env, ()>> {
+        let core = self.core.clone();
+        let bytes = Vec::from(bytes);
+        env.spawn_future(async move {
+            let request = serde_json::from_str(&request)
+                .map_err(|error| js_err(&core.failed("send_attachment", error)))?;
+            core.send_attachment(request, bytes)
+                .await
+                .map_err(|error| js_err(&error))
+        })
     }
 
     #[napi]
-    pub async fn send_gallery(&self, request: String, items: String) -> napi::Result<()> {
-        let request = serde_json::from_str(&request)
-            .map_err(|error| js_err(&self.core.failed("send_gallery", error)))?;
-        let items = serde_json::from_str(&items).map_err(|_| js_err(&RpcError::InvalidMedia))?;
-        self.core
-            .send_gallery(request, items)
-            .await
-            .map_err(|error| js_err(&error))
+    pub fn send_gallery<'env>(
+        &self,
+        env: &'env Env,
+        request: String,
+        items: String,
+    ) -> napi::Result<PromiseRaw<'env, ()>> {
+        let core = self.core.clone();
+        env.spawn_future(async move {
+            let request = serde_json::from_str(&request)
+                .map_err(|error| js_err(&core.failed("send_gallery", error)))?;
+            let items =
+                serde_json::from_str(&items).map_err(|_| js_err(&RpcError::InvalidMedia))?;
+            core.send_gallery(request, items)
+                .await
+                .map_err(|error| js_err(&error))
+        })
     }
 
     #[napi]
-    pub async fn upload_media(&self, mime: String, bytes: Buffer) -> napi::Result<String> {
-        self.core
-            .upload_media(mime, bytes.to_vec())
-            .await
-            .map_err(|error| js_err(&error))
+    pub fn upload_media<'env>(
+        &self,
+        env: &'env Env,
+        mime: String,
+        bytes: Buffer,
+    ) -> napi::Result<PromiseRaw<'env, String>> {
+        let core = self.core.clone();
+        let bytes = Vec::from(bytes);
+        env.spawn_future(async move {
+            core.upload_media(mime, bytes)
+                .await
+                .map_err(|error| js_err(&error))
+        })
     }
 
     #[napi]

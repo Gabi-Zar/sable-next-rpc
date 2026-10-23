@@ -123,7 +123,7 @@ impl Handler for RemoveParams {
             .send_state_event_raw(
                 "m.space.child",
                 self.room_id.as_str(),
-                &serde_json::Value::Object(serde_json::Map::new()),
+                serde_json::Value::Object(serde_json::Map::new()),
             )
             .await
             .map_err(|error| core.room_error("remove_from_space", error))?;

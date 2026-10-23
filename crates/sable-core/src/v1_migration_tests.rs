@@ -412,6 +412,56 @@ async fn native_sqlite_snapshot_includes_wal_and_preserves_both_old_path_layouts
 }
 
 #[tokio::test]
+async fn stalled_oauth_discovery_preserves_credentials_and_can_retry() {
+    let server = matrix_sdk::test_utils::mocks::MatrixMockServer::new().await;
+    let delayed = server
+        .oauth()
+        .mock_server_metadata()
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_delay(std::time::Duration::from_secs(30)),
+        )
+        .expect(1)
+        .mount_as_scoped()
+        .await;
+    let client = server.client_builder().unlogged().build().await;
+    let legacy: LegacySession = serde_json::from_value(json!({
+        "baseUrl": "https://example.org", "userId": "@migration:example.org",
+        "deviceId": "V1DEVICE", "accessToken": "access", "refreshToken": "refresh",
+        "oidc": {"issuer": "https://issuer.example.org", "clientId": "original-client"}
+    }))
+    .unwrap();
+    let mut persisted = legacy.persisted().unwrap();
+    persisted.oauth_issuer = Some(server.oauth().server_metadata().issuer);
+
+    let error = crate::session::restore_credentials(&client, &persisted)
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("saved OAuth issuer discovery timed out")
+    );
+    assert!(client.session().is_none());
+    assert_eq!(persisted.credentials.tokens().access_token, "access");
+
+    drop(delayed);
+    server
+        .oauth()
+        .mock_server_metadata()
+        .ok()
+        .expect(1)
+        .mount()
+        .await;
+    crate::session::restore_credentials(&client, &persisted)
+        .await
+        .unwrap();
+    assert_eq!(
+        client.session_tokens(),
+        Some(persisted.credentials.tokens())
+    );
+}
+
+#[tokio::test]
 async fn changed_oauth_issuer_is_rejected_before_restoring_tokens() {
     let server = matrix_sdk::test_utils::mocks::MatrixMockServer::new().await;
     server
