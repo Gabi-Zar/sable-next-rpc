@@ -32,7 +32,8 @@ export function openExternalAuthWindow(name: string): ExternalAuthWindow | null 
 
 export async function openExternalAuthUrl(url: string): Promise<void> {
   if (isTauri()) {
-    await invoke('open_external_url', { url });
+    const { platform } = await import('@tauri-apps/plugin-os');
+    await invoke(platform() === 'ios' ? 'open_in_app_auth_url' : 'open_external_url', { url });
 
     return;
   }

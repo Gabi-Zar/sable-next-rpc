@@ -1065,6 +1065,8 @@ pub fn run() {
             #[cfg(target_os = "ios")]
             ios::save_media_to_photos,
             #[cfg(target_os = "ios")]
+            ios::open_in_app_auth_url,
+            #[cfg(target_os = "ios")]
             ios::haptic_feedback,
             #[cfg(target_os = "ios")]
             ios::set_system_bars_hidden,

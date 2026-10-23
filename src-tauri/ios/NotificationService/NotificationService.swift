@@ -1,6 +1,7 @@
 import CallKit
 import Foundation
 import Intents
+import StoreKit
 import UniformTypeIdentifiers
 import UserNotifications
 
@@ -221,17 +222,31 @@ final class NotificationService: UNNotificationServiceExtension {
             "caller_name": caller,
         ]
         if let expiresAt = ring["expires_at"] as? Double { payload["expires_at"] = expiresAt }
-        if Locale.current.region == .chinaMainland {
-            finish(alert)
-            return
-        }
-        CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self] error in
-            if error == nil {
-                self?.suppress()
-            } else {
-                self?.finish(alert)
+        Task { [weak self] in
+            let storefront = await Storefront.current
+            guard let self, isPending() else { return }
+            guard let storefront,
+                  let region = Locale.autoupdatingCurrent.region?.identifier,
+                  !region.isEmpty, !storefront.countryCode.isEmpty,
+                  region.uppercased() != "CN",
+                  storefront.countryCode.uppercased() != "CHN" else {
+                finish(alert)
+                return
+            }
+            CXProvider.reportNewIncomingVoIPPushPayload(payload) { [weak self] error in
+                if error == nil {
+                    self?.suppress()
+                } else {
+                    self?.finish(alert)
+                }
             }
         }
+    }
+
+    private func isPending() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return completion != nil
     }
 
     static func conversationThread(_ payload: [AnyHashable: Any]) -> String? {

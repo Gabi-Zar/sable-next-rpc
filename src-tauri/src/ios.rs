@@ -18,6 +18,51 @@ use objc2_photos::{
     PHPhotoLibrary,
 };
 
+#[tauri::command]
+pub async fn open_in_app_auth_url(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+    let parsed = tauri::Url::parse(&url).map_err(|_| "invalid authentication URL")?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err("authentication requires an HTTP or HTTPS URL".into());
+    }
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    window
+        .with_webview(move |webview| {
+            let sender = Mutex::new(Some(sender));
+            let completion = RcBlock::new(move |presented: objc2::runtime::Bool| {
+                if let Ok(mut sender) = sender.lock()
+                    && let Some(sender) = sender.take()
+                {
+                    let _ = sender.send(presented.as_bool());
+                }
+            });
+            let Some(class) = AnyClass::get(c"SableAuthBrowser") else {
+                return;
+            };
+            let value = NSString::from_str(parsed.as_str());
+            let Some(url) = NSURL::URLWithString(&value) else {
+                return;
+            };
+            // with_webview runs on the main thread and owns the view controller.
+            unsafe {
+                let controller: &AnyObject = &*webview.view_controller().cast();
+                let _: () = msg_send![class,
+                    presentURL: &*url,
+                    from: controller,
+                    completion: &*completion
+                ];
+            }
+        })
+        .map_err(|error| error.to_string())?;
+    if receiver
+        .await
+        .map_err(|_| "authentication browser is unavailable")?
+    {
+        Ok(())
+    } else {
+        Err("authentication browser could not be presented".into())
+    }
+}
+
 pub(crate) fn watch_network(core: &std::sync::Arc<sable_core::Core>) -> Result<(), String> {
     let class = AnyClass::get(c"SableNetwork").ok_or("network monitor bridge is unavailable")?;
     let core = std::sync::Arc::downgrade(core);

@@ -1385,14 +1385,15 @@ fn oauth_account_deactivate_url(
     use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::{
         AccountManagementAction, AccountManagementActionData,
     };
-    if !metadata.is_account_management_action_supported(&AccountManagementAction::AccountDeactivate)
+    let url = if metadata
+        .is_account_management_action_supported(&AccountManagementAction::AccountDeactivate)
     {
-        return Err(RpcError::Unsupported);
-    }
-    metadata
-        .account_management_url_with_action(AccountManagementActionData::AccountDeactivate)
-        .map(|url| url.to_string())
-        .ok_or(RpcError::Unsupported)
+        metadata.account_management_url_with_action(AccountManagementActionData::AccountDeactivate)
+    } else {
+        // Providers can offer deletion in their portal without advertising a deep-link action.
+        metadata.account_management_uri.clone()
+    };
+    url.map(|url| url.to_string()).ok_or(RpcError::Unsupported)
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -1537,6 +1538,76 @@ mod regression_tests {
         let (user_id, rooms) = core.left_rooms().await.unwrap();
         assert_eq!(user_id, room.client().user_id().unwrap().to_string());
         assert_eq!(rooms, ["!gone:example.org"]);
+    }
+
+    #[test]
+    fn oauth_account_deactivation_uses_the_provider_portal_without_a_direct_action() {
+        use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata;
+        for actions in [
+            serde_json::json!([]),
+            serde_json::json!(["org.matrix.profile"]),
+        ] {
+            let metadata: AuthorizationServerMetadata = serde_json::from_value(serde_json::json!({
+                "issuer": "https://id.example.org/",
+                "authorization_endpoint": "https://id.example.org/authorize",
+                "token_endpoint": "https://id.example.org/token",
+                "revocation_endpoint": "https://id.example.org/revoke",
+                "response_types_supported": ["code"],
+                "response_modes_supported": ["query", "fragment"],
+                "grant_types_supported": ["authorization_code", "refresh_token"],
+                "code_challenge_methods_supported": ["S256"],
+                "account_management_uri": "https://id.example.org/account?lang=en#profile",
+                "account_management_actions_supported": actions,
+            }))
+            .unwrap();
+            assert_eq!(
+                super::oauth_account_deactivate_url(&metadata).unwrap(),
+                "https://id.example.org/account?lang=en#profile"
+            );
+        }
+    }
+
+    #[test]
+    fn oauth_account_deactivation_prefers_the_advertised_direct_action() {
+        use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::{
+            AccountManagementAction, AuthorizationServerMetadata,
+        };
+        let metadata: AuthorizationServerMetadata = serde_json::from_value(serde_json::json!({
+            "issuer": "https://id.example.org/",
+            "authorization_endpoint": "https://id.example.org/authorize",
+            "token_endpoint": "https://id.example.org/token",
+            "revocation_endpoint": "https://id.example.org/revoke",
+            "response_types_supported": ["code"],
+            "response_modes_supported": ["query", "fragment"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "code_challenge_methods_supported": ["S256"],
+            "account_management_uri": "https://id.example.org/account",
+            "account_management_actions_supported": [AccountManagementAction::AccountDeactivate.as_str()],
+        })).unwrap();
+        let url =
+            url::Url::parse(&super::oauth_account_deactivate_url(&metadata).unwrap()).unwrap();
+        assert!(url.query_pairs().any(|(key, value)| key == "action"
+            && value == AccountManagementAction::AccountDeactivate.as_str()));
+    }
+
+    #[test]
+    fn oauth_account_deactivation_requires_a_provider_portal() {
+        use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata;
+        let metadata: AuthorizationServerMetadata = serde_json::from_value(serde_json::json!({
+            "issuer": "https://id.example.org/",
+            "authorization_endpoint": "https://id.example.org/authorize",
+            "token_endpoint": "https://id.example.org/token",
+            "revocation_endpoint": "https://id.example.org/revoke",
+            "response_types_supported": ["code"],
+            "response_modes_supported": ["query", "fragment"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "code_challenge_methods_supported": ["S256"],
+        }))
+        .unwrap();
+        assert!(matches!(
+            super::oauth_account_deactivate_url(&metadata),
+            Err(RpcError::Unsupported)
+        ));
     }
 
     #[test]

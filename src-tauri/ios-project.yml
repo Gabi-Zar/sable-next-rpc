@@ -73,6 +73,7 @@ targets:
         OTHER_LDFLAGS: ["$(inherited)", "$(DERIVED_FILE_DIR)/libsable_push.a", "-lc++", "-lz", "-liconv"]
     dependencies:
       - sdk: CallKit.framework
+      - sdk: StoreKit.framework
       - sdk: Intents.framework
       - sdk: Security.framework
       - sdk: SystemConfiguration.framework
@@ -87,10 +88,12 @@ targets:
     sources:
       - path: Sources
       - path: ../../ios/Network
+      - path: ../../ios/Auth
       - path: ../../ios/Localization
       - path: Assets.xcassets
       - path: ../../icons/ios/AppIcons.xcassets
       - path: Externals
+        excludes: ["**/*.a"]
       - path: {{app.name}}_iOS
       - path: {{app.asset-dir}}
         buildPhase: resources
@@ -209,6 +212,7 @@ targets:
       - sdk: QuartzCore.framework
       - sdk: Security.framework
       - sdk: UIKit.framework
+      - sdk: SafariServices.framework
       - sdk: CallKit.framework
       - sdk: AVFoundation.framework{{#if this.ios-frameworks}}{{~#each ios-frameworks}}
       - sdk: {{this}}.framework{{/each}}{{/if}}
