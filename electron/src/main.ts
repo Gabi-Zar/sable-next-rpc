@@ -109,16 +109,15 @@ function setFeatures(enable: string[], disable: string[]): void {
 }
 
 if (!settings.hardwareAcceleration) app.disableHardwareAcceleration();
-setFeatures(
-  isLinux && settings.hardwareAcceleration && settings.hardwareVideoAcceleration
-    ? [
-        'AcceleratedVideoDecodeLinuxGL',
-        'AcceleratedVideoDecodeLinuxZeroCopyGL',
-        'AcceleratedVideoEncoder',
-      ]
-    : [],
-  isLinux ? ['WaylandWpColorManagerV1'] : []
-);
+const enabledFeatures = isLinux ? ['WebRtcPipeWireCamera'] : [];
+if (isLinux && settings.hardwareAcceleration && settings.hardwareVideoAcceleration) {
+  enabledFeatures.push(
+    'AcceleratedVideoDecodeLinuxGL',
+    'AcceleratedVideoDecodeLinuxZeroCopyGL',
+    'AcceleratedVideoEncoder'
+  );
+}
+setFeatures(enabledFeatures, isLinux ? ['WaylandWpColorManagerV1'] : []);
 if (!settings.smoothScrolling) app.commandLine.appendSwitch('disable-smooth-scrolling');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
