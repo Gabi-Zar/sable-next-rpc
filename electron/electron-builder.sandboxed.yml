@@ -1,0 +1,18 @@
+extends: file:./electron-builder.stable.yml
+appId: moe.sable.client.sandboxed
+productName: Sable Sandboxed
+directories:
+  output: release/sandboxed
+electronDownload:
+  platform: mas
+publish: null
+forceCodeSigning: true
+mac:
+  artifactName: sable-sandboxed-${version}-${arch}.${ext}
+  identity: NXLJ6G3CP7
+  type: distribution
+  hardenedRuntime: true
+  entitlements: entitlements.sandboxed.plist
+  entitlementsInherit: entitlements.sandboxed.inherit.plist
+  extendInfo:
+    NSLocationUsageDescription: Sable uses your location when you choose to share it in a message.

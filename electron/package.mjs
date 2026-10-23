@@ -9,9 +9,18 @@ const version =
   process.env.VERSION || JSON.parse(readFileSync(join(here, '../package.json'), 'utf8')).version;
 const builder = createRequire(import.meta.url).resolve('electron-builder/cli.js');
 
+const args = process.argv.slice(2);
+const sandboxed = args.includes('--sandboxed');
+if (sandboxed && process.platform !== 'darwin') {
+  throw new Error('The sandboxed build requires macOS.');
+}
 const stable = process.env.SABLE_BUILD_FLAVOR === 'stable';
-const config = stable ? 'electron-builder.stable.yml' : 'electron-builder.nightly.yml';
-const identifier = stable ? 'moe.sable.client' : 'moe.sable.next.nightly';
+let config = stable ? 'electron-builder.stable.yml' : 'electron-builder.nightly.yml';
+let identifier = stable ? 'moe.sable.client' : 'moe.sable.next.nightly';
+if (sandboxed) {
+  config = 'electron-builder.sandboxed.yml';
+  identifier = 'moe.sable.client.sandboxed';
+}
 const env = { ...process.env, SABLE_IDENTIFIER: identifier };
 
 execFileSync(process.execPath, [join(here, 'build.mjs'), '--release'], { stdio: 'inherit', env });
@@ -24,7 +33,7 @@ execFileSync(
     `-c.extraMetadata.version=${version}`,
     '--config',
     config,
-    ...process.argv.slice(2),
+    ...args.filter((arg) => arg !== '--sandboxed'),
   ],
   { cwd: here, stdio: 'inherit' }
 );

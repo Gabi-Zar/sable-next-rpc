@@ -5,6 +5,16 @@ Build the web assets with `pnpm build`, then run
 Set `VERSION` to override the root package version. macOS builds include a DMG and an update ZIP.
 For a stable package, build the web assets and package with `SABLE_BUILD_FLAVOR=stable`.
 
+To build `Sable Sandboxed`, run `SABLE_BUILD_FLAVOR=stable pnpm build`, then
+`pnpm --dir electron package --sandboxed --mac`. It uses the MAS runtime with App Sandbox
+and Hardened Runtime. Signing requires the team's Developer ID Application certificate;
+pass `-c.mac.identity=YOUR_TEAM_ID` to use another team.
+
+Packages are written to `electron/release/sandboxed`. The app stores data in its own
+`moe.sable.client.sandboxed` container and requires a fresh login. Update by installing
+a new DMG. It shares stable's login callback schemes; macOS must route callbacks to
+the app you are using.
+
 `package.mjs` picks `electron-builder.stable.yml` or `electron-builder.nightly.yml`, both
 extending `electron-builder.yml`, from `SABLE_BUILD_FLAVOR`: only `stable` builds the stable
 package. Stable builds keep the Tauri identity (`moe.sable.client`) and its data directory;

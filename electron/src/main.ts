@@ -73,18 +73,20 @@ function xdgDataHome(): string {
 
 const dataDir = join(isLinux ? xdgDataHome() : app.getPath('appData'), IDENTIFIER);
 app.setPath('userData', join(app.getPath('appData'), `${IDENTIFIER}.electron`));
-importTauriConfig(
-  [
-    join(
-      process.env.XDG_CONFIG_HOME && isAbsolute(process.env.XDG_CONFIG_HOME)
-        ? process.env.XDG_CONFIG_HOME
-        : join(homedir(), '.config'),
-      IDENTIFIER
-    ),
-    join(app.getPath('appData'), IDENTIFIER),
-  ],
-  app.getPath('userData')
-);
+if (!process.mas) {
+  importTauriConfig(
+    [
+      join(
+        process.env.XDG_CONFIG_HOME && isAbsolute(process.env.XDG_CONFIG_HOME)
+          ? process.env.XDG_CONFIG_HOME
+          : join(homedir(), '.config'),
+        IDENTIFIER
+      ),
+      join(app.getPath('appData'), IDENTIFIER),
+    ],
+    app.getPath('userData')
+  );
+}
 initSentry(app.getPath('userData'));
 const settingsPath = join(app.getPath('userData'), 'settings.json');
 let settings = readSettings(settingsPath);

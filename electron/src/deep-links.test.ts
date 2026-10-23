@@ -5,6 +5,7 @@ import { deepLinksIn, deepLinkSchemes } from './deep-links';
 
 test.each([
   ['moe.sable.client', 'stable', ['moe.sable.app', 'sable']],
+  ['moe.sable.client.sandboxed', 'stable', ['moe.sable.app', 'sable']],
   ['moe.sable.next.nightly', 'nightly', ['moe.sable.next']],
   ['moe.sable.next', 'nightly', ['moe.sable.next']],
 ])('%s matches the %s packaged schemes', (identifier, flavor, expected) => {

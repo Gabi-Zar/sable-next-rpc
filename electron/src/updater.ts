@@ -19,6 +19,7 @@ const builtChannel = app.getVersion().includes('-nightly.') ? 'nightly' : 'stabl
 export function supportsAutoUpdate(): boolean {
   return (
     app.isPackaged &&
+    !process.mas &&
     !process.env.FLATPAK_ID &&
     (process.platform !== 'linux' ||
       Boolean(process.env.APPIMAGE) ||

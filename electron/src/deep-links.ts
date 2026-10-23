@@ -1,6 +1,8 @@
 // Keep callback schemes aligned with the builder configs and nativeRedirectUri.
 export function deepLinkSchemes(identifier: string): string[] {
-  return identifier === 'moe.sable.client' ? ['moe.sable.app', 'sable'] : ['moe.sable.next'];
+  return identifier === 'moe.sable.client' || identifier === 'moe.sable.client.sandboxed'
+    ? ['moe.sable.app', 'sable']
+    : ['moe.sable.next'];
 }
 
 export function deepLinksIn(argv: string[], schemes: string[]): string[] {

@@ -69,3 +69,15 @@ test.each(['darwin', 'win32'])('%s retains updates without Linux metadata', (pla
   mocks.existsSync.mockReturnValue(false);
   expect(supportsAutoUpdate()).toBe(true);
 });
+
+test('MAS builds do not configure or check for updates', async () => {
+  vi.stubGlobal('process', { ...process, platform: 'darwin', mas: true });
+  expect(supportsAutoUpdate()).toBe(false);
+  setUpdateChannel('stable');
+  expect(mocks.setFeedURL).not.toHaveBeenCalled();
+  registerUpdater(() => true);
+  const handler = mocks.handle.mock.calls.find(([channel]) => channel === 'sable-update-check');
+  expect(handler).toBeDefined();
+  expect(await handler?.[1]({ senderFrame: {} })).toBeNull();
+  expect(mocks.checkForUpdates).not.toHaveBeenCalled();
+});
