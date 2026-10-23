@@ -4,7 +4,7 @@
   import { scale } from 'svelte/transition';
   import type { MemberView } from '#src/generated/protocol';
 
-  import { i18n } from '#lib/i18n.js';
+  import { currentLocale, i18n } from '#lib/i18n.js';
   import { MOTION_MS, motionMs, shouldReduceMotion } from '#lib/ui/motion.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
@@ -38,12 +38,10 @@
   );
   let faces = $derived(seen.slice(0, MAX_FACES));
   let overflow = $derived(Math.max(0, readers.length - MAX_FACES));
-  let names = $derived(seen.map((reader) => reader.name).join(', '));
+  let listFormat = $derived(new Intl.ListFormat(currentLocale(), { type: 'conjunction' }));
+  let names = $derived(listFormat.format(seen.map((reader) => reader.name)));
   let overflowNames = $derived(
-    seen
-      .slice(MAX_FACES)
-      .map((reader) => reader.name)
-      .join(', ')
+    listFormat.format(seen.slice(MAX_FACES).map((reader) => reader.name))
   );
 
   function setShifts(activeIdx: number | null): void {

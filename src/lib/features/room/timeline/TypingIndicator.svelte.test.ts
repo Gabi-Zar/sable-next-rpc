@@ -14,8 +14,8 @@ const users = ['Alice', 'Bob', 'Charlie', 'Dana'].map((name) => ({
 test.each([
   [1, 'Alice is typing…', 1],
   [2, 'Alice and Bob are typing…', 2],
-  [3, 'Alice, Bob and Charlie are typing…', 3],
-  [4, 'Alice, Bob and 2 others are typing…', 2],
+  [3, 'Alice, Bob, and Charlie are typing…', 3],
+  [4, 'Alice, Bob, and 2 others are typing…', 2],
 ])('opens each displayed profile with %i typing users', async (count, label, buttons) => {
   const user = userEvent.setup();
   const onProfile = vi.fn();

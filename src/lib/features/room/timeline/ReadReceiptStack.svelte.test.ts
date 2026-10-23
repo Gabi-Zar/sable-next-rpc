@@ -150,7 +150,7 @@ test('uses a single chip that opens the list on coarse pointers', async () => {
     { wrapper: TooltipProvider }
   );
 
-  const chip = screen.getByRole('button', { name: 'Seen by Bob, Carol. Open the list.' });
+  const chip = screen.getByRole('button', { name: 'Seen by Bob and Carol. Open the list.' });
   expect(chip).toHaveClass('chip');
   expect(screen.queryByRole('button', { name: 'Open Bob’s profile' })).not.toBeInTheDocument();
 
