@@ -355,6 +355,11 @@ ipcMain.on('sable-telemetry-consent', (event, enabled: unknown) => {
   setTelemetryConsent(enabled);
 });
 
+ipcMain.handle('sable-tray-unread', (event, unread: unknown) => {
+  if (!isAppFrame(event.senderFrame) || typeof unread !== 'boolean') return;
+  desktopTray.setUnread(unread);
+});
+
 ipcMain.handle('sable-apply-window-settings', (event, value: unknown) => {
   if (!isAppFrame(event.senderFrame)) return null;
   desktopWindowSettings = sanitizeDesktopWindowSettings(value);

@@ -1,16 +1,28 @@
 import { EventEmitter } from 'node:events';
-import type { BrowserWindow, MenuItemConstructorOptions } from 'electron';
+import type { BrowserWindow, MenuItemConstructorOptions, NativeImage } from 'electron';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   quit: vi.fn(),
   fail: false,
   menu: [] as MenuItemConstructorOptions[],
+  baseIcon: {
+    isEmpty: () => false,
+    getSize: () => ({ width: 32, height: 32 }),
+    toBitmap: () => Buffer.alloc(32 * 32 * 4, 100),
+  },
+  createFromBitmap: vi.fn((bitmap: Buffer, size: { width: number; height: number }) => ({
+    bitmap,
+    size,
+  })),
 }));
 
 vi.mock('electron', () => ({
   app: { quit: mocks.quit },
-  nativeImage: { createFromPath: () => ({ isEmpty: () => false }) },
+  nativeImage: {
+    createFromPath: () => mocks.baseIcon,
+    createFromBitmap: mocks.createFromBitmap,
+  },
   Menu: {
     buildFromTemplate: (items: MenuItemConstructorOptions[]) => {
       mocks.menu = items;
@@ -21,7 +33,8 @@ vi.mock('electron', () => ({
     destroy = vi.fn();
     setToolTip = vi.fn();
     setContextMenu = vi.fn();
-    constructor() {
+    setImage = vi.fn();
+    constructor(readonly image: NativeImage) {
       super();
       if (mocks.fail) throw new Error('Tray unavailable');
       trayEvents.push(this);
@@ -29,7 +42,11 @@ vi.mock('electron', () => ({
   },
 }));
 
-const trayEvents: (EventEmitter & { destroy: ReturnType<typeof vi.fn> })[] = [];
+const trayEvents: (EventEmitter & {
+  image: NativeImage;
+  destroy: ReturnType<typeof vi.fn>;
+  setImage: ReturnType<typeof vi.fn>;
+})[] = [];
 
 import { DesktopTray, hideToTray } from './tray';
 
@@ -129,4 +146,38 @@ test('Linux retains click-to-show behavior', () => {
   trayEvents[0].emit('click');
   expect(window.show).toHaveBeenCalledOnce();
   expect(window.hide).not.toHaveBeenCalled();
+});
+
+test('Linux shows an unread dot and clears it when read', () => {
+  const { tray } = setup('linux');
+  tray.update(true);
+  tray.setUnread(true);
+  const [bitmap, size] = mocks.createFromBitmap.mock.calls[0];
+  const pixel = (x: number, y: number) => [
+    ...bitmap.subarray((y * 32 + x) * 4, (y * 32 + x + 1) * 4),
+  ];
+  expect(size).toEqual({ width: 32, height: 32 });
+  expect(pixel(25, 25)).toEqual([45, 45, 224, 255]);
+  expect(pixel(0, 0)).toEqual([100, 100, 100, 100]);
+  expect(trayEvents[0].setImage).toHaveBeenLastCalledWith(
+    mocks.createFromBitmap.mock.results[0].value
+  );
+  tray.setUnread(true);
+  expect(trayEvents[0].setImage).toHaveBeenCalledOnce();
+  tray.setUnread(false);
+  expect(trayEvents[0].setImage).toHaveBeenLastCalledWith(mocks.baseIcon);
+});
+
+test('tray recreation uses the current unread state', () => {
+  const { tray } = setup('linux');
+  tray.setUnread(true);
+  tray.update(true);
+  expect(trayEvents[0].image).toBe(mocks.createFromBitmap.mock.results[0].value);
+  tray.update(false);
+  tray.update(true);
+  expect(trayEvents[1].image).toBe(mocks.createFromBitmap.mock.results[1].value);
+  tray.update(false);
+  tray.setUnread(false);
+  tray.update(true);
+  expect(trayEvents[2].image).toBe(mocks.baseIcon);
 });

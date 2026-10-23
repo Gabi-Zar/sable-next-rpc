@@ -20,6 +20,7 @@ export interface ScreenShareCandidate {
 
 export interface ElectronBridge {
   platform: string;
+  setTrayUnread(unread: boolean): Promise<void>;
   applyWindowSettings(settings: DesktopWindowSettings): Promise<DesktopWindowState | null>;
   minimizeWindow(): void;
   toggleMaximizeWindow(): void;

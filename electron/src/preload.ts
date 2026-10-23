@@ -32,6 +32,8 @@ ipcRenderer.on('sable-pick-screen', (_event, request: number, sources: ScreenSha
 
 contextBridge.exposeInMainWorld('sableElectron', {
   platform: process.platform,
+  setTrayUnread: (unread: boolean) =>
+    ipcRenderer.invoke('sable-tray-unread', unread) as Promise<void>,
   applyWindowSettings: (settings: unknown) =>
     ipcRenderer.invoke('sable-apply-window-settings', settings) as Promise<{
       trayAvailable: boolean;

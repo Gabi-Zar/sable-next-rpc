@@ -1,4 +1,5 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { electronBridge } from './electron';
 
 export type BadgeStrategy = 'tauri-window' | 'tauri-tray' | 'web-app-badge' | 'none';
 
@@ -16,6 +17,12 @@ export function pickBadgeStrategy(
 
 export async function setUnreadBadge(count: number): Promise<void> {
   const value = count > 0 ? count : null;
+
+  const electron = electronBridge();
+  if (electron?.platform === 'linux') {
+    await electron.setTrayUnread(value !== null);
+    return;
+  }
 
   if (!isTauri()) {
     if (pickBadgeStrategy(false, '', 'setAppBadge' in navigator) !== 'web-app-badge') return;

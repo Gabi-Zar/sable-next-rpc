@@ -1,4 +1,21 @@
-import { app, Menu, nativeImage, Tray, type BrowserWindow } from 'electron';
+import { app, Menu, nativeImage, Tray, type BrowserWindow, type NativeImage } from 'electron';
+
+function withUnreadDot(base: NativeImage): NativeImage {
+  const { width, height } = base.getSize();
+  const bitmap = base.toBitmap();
+  const radius = Math.min(width, height) * 0.2;
+  const cx = width - radius - width * 0.04;
+  const cy = height - radius - height * 0.04;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= radius) {
+        // Electron bitmaps use BGRA.
+        bitmap.set([45, 45, 224, 255], (y * width + x) * 4);
+      }
+    }
+  }
+  return nativeImage.createFromBitmap(bitmap, { width, height });
+}
 
 export function hideToTray(window: BrowserWindow): void {
   window.webContents.send('sable-window-hidden-to-tray');
@@ -7,6 +24,8 @@ export function hideToTray(window: BrowserWindow): void {
 
 export class DesktopTray {
   private tray: Tray | null = null;
+  private unread = false;
+  private baseIcon: NativeImage | null = null;
 
   constructor(
     private readonly iconPath: string,
@@ -16,6 +35,14 @@ export class DesktopTray {
 
   get available(): boolean {
     return this.tray !== null;
+  }
+
+  setUnread(unread: boolean): void {
+    if (this.unread === unread) return;
+    if (this.tray && this.baseIcon) {
+      this.tray.setImage(unread ? withUnreadDot(this.baseIcon) : this.baseIcon);
+    }
+    this.unread = unread;
   }
 
   showWindow(): void {
@@ -41,7 +68,8 @@ export class DesktopTray {
     try {
       const icon = nativeImage.createFromPath(this.iconPath);
       if (icon.isEmpty()) throw new Error(`Could not load tray icon: ${this.iconPath}`);
-      this.tray = new Tray(icon);
+      this.baseIcon = icon;
+      this.tray = new Tray(this.unread ? withUnreadDot(icon) : icon);
       this.tray.setToolTip('Sable');
       this.tray.setContextMenu(
         Menu.buildFromTemplate([
@@ -83,5 +111,6 @@ export class DesktopTray {
   destroy(): void {
     this.tray?.destroy();
     this.tray = null;
+    this.baseIcon = null;
   }
 }
