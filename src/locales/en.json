@@ -1768,6 +1768,7 @@
     "roomKeysInvalidFile": "That file is not a key export.",
     "loadingEncryption": "Loading encryption status…",
     "signedInDevices": "Signed-in devices",
+    "devicesDashboard": "Devices dashboard",
     "deleteAccount": "Delete account",
     "deleteAccountHint": "Permanently deactivate your account.",
     "deleteAccountAction": "Delete account",

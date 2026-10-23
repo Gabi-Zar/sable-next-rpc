@@ -4,17 +4,21 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 
-import type { DeviceView, EncryptionStatusView } from '#src/generated/protocol';
+import type { DeviceView, EncryptionStatusView, Rpc } from '#src/generated/protocol';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 vi.mock('#lib/core/context.js');
+vi.mock('#lib/platform/external-auth.js', () => ({
+  openExternalAuthUrl: vi.fn(() => Promise.resolve()),
+  openExternalAuthWindow: vi.fn(),
+}));
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
 
 const encryption = {
   status: vi.fn<() => Promise<EncryptionStatusView>>(),
-  devices: vi.fn<() => Promise<{ devices: DeviceView[]; account_management: boolean }>>(),
+  devices: vi.fn<Rpc['encryption']['devices']>(),
   deleteDevice:
     vi.fn<(params: { device_id: string; password: string | null }) => Promise<string | null>>(),
   renameDevice: vi.fn<(params: { device_id: string; display_name: string }) => Promise<void>>(),
@@ -30,6 +34,7 @@ const encryption = {
 Object.assign(baseCore, { rpc: { encryption } });
 
 import DevicesSettings from './DevicesSettings.svelte';
+import { openExternalAuthUrl, openExternalAuthWindow } from '#lib/platform/external-auth.js';
 
 const status: EncryptionStatusView = {
   verification: 'verified',
@@ -74,9 +79,14 @@ const other2: DeviceView = {
   last_seen_ip: null,
 };
 
-async function renderDevices(devices: DeviceView[]) {
+async function renderDevices(devices: DeviceView[], managementUrl: string | null = null) {
   encryption.status.mockResolvedValue(status);
-  encryption.devices.mockResolvedValue({ devices, account_management: false });
+  encryption.devices.mockResolvedValue({
+    devices,
+    account_management: managementUrl !== null,
+    account_management_url: managementUrl,
+    oauth: false,
+  });
   render(DevicesSettings);
   await vi.waitFor(() => {
     expect(screen.getAllByText(/^(This device|Phone|Tablet)$/).length).toBeGreaterThanOrEqual(
@@ -99,12 +109,40 @@ async function signOutOthers(user: ReturnType<typeof userEvent.setup>): Promise<
 test('signs out the selected devices in one batch', async () => {
   encryption.deleteDevice.mockResolvedValue(null);
   const user = await renderDevices([own, other1, other2]);
+  expect(screen.queryByRole('link', { name: 'Devices dashboard' })).not.toBeInTheDocument();
 
   await signOutOthers(user);
   await vi.waitFor(() => {
     expect(encryption.deleteDevice).toHaveBeenCalledWith({ device_id: 'DEV1', password: null });
     expect(encryption.deleteDevice).toHaveBeenCalledWith({ device_id: 'DEV2', password: null });
   });
+});
+
+test('opens the server devices dashboard', async () => {
+  const url = 'https://id.example.org/account?action=org.matrix.sessions_list';
+  const user = await renderDevices([own, other1], url);
+
+  const dashboard = screen.getByRole('link', { name: 'Devices dashboard' });
+  expect(dashboard).toHaveAttribute('href', url);
+  await user.click(dashboard);
+  expect(openExternalAuthUrl).toHaveBeenCalledWith(url);
+});
+
+test('device removal opens account management without asking for a password', async () => {
+  const url = 'https://id.example.org/account?action=org.matrix.session_end&device_id=DEV1';
+  const navigate = vi.fn(() => Promise.resolve());
+  vi.mocked(openExternalAuthWindow).mockReturnValue({ navigate, close: vi.fn() });
+  encryption.deleteDevice.mockResolvedValue(url);
+  const user = await renderDevices([own, other1], 'https://id.example.org/account');
+
+  await user.click(screen.getByRole('button', { name: 'Options for Phone' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Remove' }));
+
+  await vi.waitFor(() => {
+    expect(navigate).toHaveBeenCalledWith(url);
+  });
+  expect(encryption.deleteDevice).toHaveBeenCalledWith({ device_id: 'DEV1', password: null });
+  expect(screen.queryByLabelText('Password (if required)')).not.toBeInTheDocument();
 });
 
 test('reports which devices failed instead of a blanket success', async () => {
@@ -185,7 +223,12 @@ test('removing one device shows it is in progress until the list no longer has i
   expect(confirm).toBeDisabled();
   expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
 
-  encryption.devices.mockResolvedValue({ devices: [own], account_management: false });
+  encryption.devices.mockResolvedValue({
+    devices: [own],
+    account_management: false,
+    account_management_url: null,
+    oauth: false,
+  });
   answer(null);
   await vi.waitFor(() => {
     expect(screen.queryByRole('button', { name: 'Remove device' })).not.toBeInTheDocument();
@@ -199,7 +242,12 @@ test('a verified session missing its master key explains it instead of asking to
     backup_unlocked: true,
     signing_keys: { master: false, self_signing: true, user_signing: true },
   });
-  encryption.devices.mockResolvedValue({ devices: [own], account_management: false });
+  encryption.devices.mockResolvedValue({
+    devices: [own],
+    account_management: false,
+    account_management_url: null,
+    oauth: false,
+  });
   render(DevicesSettings);
 
   expect(await screen.findByText('Some signing keys are not on this device')).toBeInTheDocument();
@@ -216,7 +264,12 @@ test('a verified session whose key backup is still locked keeps the unlock actio
     backup_unlocked: false,
     signing_keys: { master: false, self_signing: true, user_signing: true },
   });
-  encryption.devices.mockResolvedValue({ devices: [own], account_management: false });
+  encryption.devices.mockResolvedValue({
+    devices: [own],
+    account_management: false,
+    account_management_url: null,
+    oauth: false,
+  });
   render(DevicesSettings);
 
   expect(await screen.findByRole('button', { name: 'Unlock' })).toBeInTheDocument();

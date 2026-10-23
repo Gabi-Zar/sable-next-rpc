@@ -5,6 +5,7 @@ use std::sync::{Arc, atomic::Ordering};
 
 use matrix_sdk::executor::{JoinHandleExt, spawn};
 
+use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata;
 use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, Password, UserIdentifier};
 use matrix_sdk_ui::sync_service::State as SyncState;
 
@@ -33,6 +34,19 @@ impl SessionGeneration<'_> {
 }
 
 impl Core {
+    pub(crate) async fn account_management_metadata(
+        &self,
+        client: &matrix_sdk::Client,
+    ) -> Result<Option<AuthorizationServerMetadata>, RpcError> {
+        match client.oauth().server_metadata().await {
+            Ok(metadata) => Ok(Some(metadata)),
+            Err(error) if error.is_not_supported() && client.oauth().full_session().is_none() => {
+                Ok(None)
+            }
+            Err(error) => Err(self.failed("account_management_metadata", error)),
+        }
+    }
+
     pub(crate) async fn delete_device(
         &self,
         DeleteDeviceParams {
@@ -43,12 +57,7 @@ impl Core {
         let client = self.client().await?;
         let devices = [device_id];
 
-        if client.oauth().full_session().is_some() {
-            let metadata = client
-                .oauth()
-                .server_metadata()
-                .await
-                .or_failed(self, "delete_device_metadata")?;
+        if let Some(metadata) = self.account_management_metadata(&client).await? {
             return oauth_device_delete_url(&metadata, &devices[0]).map(Some);
         }
 
@@ -1362,21 +1371,22 @@ fn refresh_tag(client: &matrix_sdk::Client) -> String {
 }
 
 fn oauth_device_delete_url(
-    metadata: &matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata,
+    metadata: &AuthorizationServerMetadata,
     device_id: &matrix_sdk::ruma::DeviceId,
 ) -> Result<String, RpcError> {
     use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::{
         AccountManagementAction, AccountManagementActionData, DeviceDeleteData,
     };
-    if !metadata.is_account_management_action_supported(&AccountManagementAction::DeviceDelete) {
-        return Err(RpcError::Unsupported);
-    }
-    metadata
-        .account_management_url_with_action(AccountManagementActionData::DeviceDelete(
+    let url = if metadata
+        .is_account_management_action_supported(&AccountManagementAction::DeviceDelete)
+    {
+        metadata.account_management_url_with_action(AccountManagementActionData::DeviceDelete(
             DeviceDeleteData::new(device_id),
         ))
-        .map(|url| url.to_string())
-        .ok_or(RpcError::Unsupported)
+    } else {
+        metadata.account_management_uri.clone()
+    };
+    url.map(|url| url.to_string()).ok_or(RpcError::Unsupported)
 }
 
 fn oauth_account_deactivate_url(
@@ -1443,6 +1453,10 @@ async fn reset_account_cache(account: &PersistedAccount) -> Result<(), crate::Co
 
 #[cfg(all(test, not(target_family = "wasm")))]
 mod regression_tests {
+    use crate::api::{
+        Handler,
+        encryption::{DeleteDeviceParams, DevicesParams},
+    };
     use crate::session::{self, Credentials, PersistedAccount};
     use std::sync::Arc;
 
@@ -1611,7 +1625,7 @@ mod regression_tests {
     }
 
     #[test]
-    fn oauth_device_deletion_requires_an_advertised_management_action() {
+    fn oauth_device_deletion_uses_supported_actions_or_the_management_page() {
         use matrix_sdk::ruma::api::client::discovery::get_authorization_server_metadata::v1::AuthorizationServerMetadata;
         let mut value = serde_json::json!({
             "issuer": "https://id.example.org/", "authorization_endpoint": "https://id.example.org/authorize",
@@ -1622,10 +1636,10 @@ mod regression_tests {
         });
         let device = matrix_sdk::ruma::device_id!("DEVICE");
         let metadata: AuthorizationServerMetadata = serde_json::from_value(value.clone()).unwrap();
-        assert!(matches!(
-            super::oauth_device_delete_url(&metadata, device),
-            Err(RpcError::Unsupported)
-        ));
+        assert_eq!(
+            super::oauth_device_delete_url(&metadata, device).unwrap(),
+            "https://id.example.org/account"
+        );
         for action in ["org.matrix.device_delete", "org.matrix.session_end"] {
             value["account_management_actions_supported"] = serde_json::json!([action]);
             let metadata: AuthorizationServerMetadata =
@@ -1650,6 +1664,107 @@ mod regression_tests {
             super::oauth_device_delete_url(&metadata, device),
             Err(RpcError::Unsupported)
         ));
+    }
+
+    #[tokio::test]
+    async fn legacy_sessions_use_server_device_management() {
+        let (server, core, room) = core_with_room().await;
+        assert!(room.client().oauth().full_session().is_none());
+        server
+            .oauth()
+            .mock_server_metadata()
+            .ok_https()
+            .expect(2)
+            .mount()
+            .await;
+        server.mock_devices().ok().mount().await;
+
+        let devices = DevicesParams {}.run(&core).await.unwrap();
+        assert!(!devices.oauth);
+        assert!(devices.account_management);
+        let base = server.server().uri().replace("http://", "https://");
+        assert_eq!(
+            devices.account_management_url.unwrap(),
+            format!("{base}/account?action=org.matrix.sessions_list")
+        );
+        let url = core
+            .delete_device(DeleteDeviceParams {
+                device_id: "OTHER".into(),
+                password: None,
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            url,
+            format!("{base}/account?action=org.matrix.session_end&device_id=OTHER")
+        );
+    }
+
+    #[tokio::test]
+    async fn servers_without_oauth_keep_legacy_device_deletion() {
+        let (server, core, _room) = core_with_room().await;
+        server
+            .oauth()
+            .mock_server_metadata()
+            .error_unrecognized()
+            .expect(2)
+            .mount()
+            .await;
+        server.mock_devices().ok().mount().await;
+        wiremock::Mock::given(wiremock::matchers::method("POST"))
+            .and(wiremock::matchers::path(
+                "/_matrix/client/v3/delete_devices",
+            ))
+            .and(wiremock::matchers::body_json(
+                serde_json::json!({"devices": ["OTHER"]}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+
+        let devices = DevicesParams {}.run(&core).await.unwrap();
+        assert!(!devices.account_management);
+        assert!(devices.account_management_url.is_none());
+        assert!(
+            core.delete_device(DeleteDeviceParams {
+                device_id: "OTHER".into(),
+                password: None,
+            })
+            .await
+            .unwrap()
+            .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn invalid_metadata_does_not_use_legacy_device_deletion() {
+        let (server, core, _room) = core_with_room().await;
+        server
+            .oauth()
+            .mock_server_metadata()
+            .ok_json(serde_json::json!({"issuer": "https://id.example.org"}))
+            .expect(2)
+            .mount()
+            .await;
+
+        DevicesParams {}.run(&core).await.unwrap_err();
+        core.delete_device(DeleteDeviceParams {
+            device_id: "OTHER".into(),
+            password: None,
+        })
+        .await
+        .unwrap_err();
+        assert!(
+            server
+                .server()
+                .received_requests()
+                .await
+                .unwrap()
+                .iter()
+                .all(|request| !request.url.path().ends_with("/delete_devices"))
+        );
     }
 
     #[tokio::test]

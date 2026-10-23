@@ -27,6 +27,7 @@
   import ConfirmDialog from '#lib/ui/primitives/ConfirmDialog.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Label from '#lib/ui/primitives/Label.svelte';
+  import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
   import SettingsSection from '#lib/ui/primitives/SettingsSection.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import StatusBadge from '#lib/ui/primitives/StatusBadge.svelte';
@@ -42,6 +43,7 @@
   const core = useCoreClient();
   let devices = $state.raw<DeviceView[]>([]);
   let accountManagement = $state(false);
+  let accountManagementUrl = $state<string | null>(null);
   let status = $state<EncryptionStatusView | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
@@ -113,6 +115,7 @@
       status = nextStatus;
       devices = nextDevices.devices;
       accountManagement = nextDevices.account_management;
+      accountManagementUrl = nextDevices.account_management_url;
     } catch (cause) {
       if (!cancelled) error = messageFor(cause);
     } finally {
@@ -424,6 +427,25 @@
       title={i18n.t('settings.signedInDevices')}
       titleActions={refreshAction}
     >
+      {#snippet actions()}
+        {#if accountManagementUrl}
+          {@const url = accountManagementUrl}
+          <LinkButton
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onclick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void openExternalAuthUrl(url).catch((cause: unknown) => {
+                error = messageFor(cause);
+              });
+            }}
+          >
+            {i18n.t('settings.devicesDashboard')}
+          </LinkButton>
+        {/if}
+      {/snippet}
       {#if loading}
         <div class="settings-form loading-state" role="status">
           <Spinner /><span>{i18n.t('settings.loadingDevices')}</span>

@@ -873,6 +873,7 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       }),
       'encryption.devices': () => ({
         account_management: false,
+        account_management_url: null,
         oauth: false,
         devices: [
           {

@@ -2185,6 +2185,7 @@ export type Rpc = {
     devices: (params?: Record<string, never>) => Promise<{
 	devices: DeviceView[],
 	account_management: boolean,
+	account_management_url: string | null,
 	/**  Signed in with OAuth, which is what linking a device by QR code needs. */
 	oauth: boolean,
 }>;
