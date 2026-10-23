@@ -255,11 +255,12 @@ test.each([
 );
 
 test.each([
-  '<a href="https://example.org/photo"><img src="https://example.org/photo.png" alt="Photo"></a>',
-  '<a href="https://example.org/photo">Before <img src="https://example.org/photo.png" alt="Photo"> after</a>',
-  '<a href="https://example.org/photo">Before <img src="https://example.org/photo.png" alt="Photo"></a>',
-  '<a href="https://example.org/photo"><img src="https://example.org/photo.png" alt="Photo"> after</a>',
+  '<a href="https://example.org/photo"><img src="mxc://example.org/photo" alt="Photo"></a>',
+  '<a href="https://example.org/photo">Before <img src="mxc://example.org/photo" alt="Photo"> after</a>',
+  '<a href="https://example.org/photo">Before <img src="mxc://example.org/photo" alt="Photo"></a>',
+  '<a href="https://example.org/photo"><img src="mxc://example.org/photo" alt="Photo"> after</a>',
 ])('inline linked images keep hide controls outside their links: %s', async (html) => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
   const view = render(FormattedBody, { html });
   await tick();
   const hide = screen.getByRole('button', { name: 'Hide image' });
@@ -277,8 +278,9 @@ test.each([
 });
 
 test('every image in an inline spoiler starts hidden and reveals independently', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
   render(FormattedBody, {
-    html: '<span data-mx-spoiler="Ending"><img src="https://example.org/one.png" alt="First secret"><img src="https://example.org/two.png" alt="Second secret"></span>',
+    html: '<span data-mx-spoiler="Ending"><img src="mxc://example.org/one" alt="First secret"><img src="mxc://example.org/two" alt="Second secret"></span>',
   });
   await tick();
   const controls = screen.getAllByRole('button', { name: 'Reveal image' });
@@ -446,7 +448,7 @@ test('falls back to the shortcode once an emoticon has run out of retries', asyn
   vi.useRealTimers();
 });
 
-test('leaves a remote image for the browser and drops a source with no scheme behind it', async () => {
+test('replaces external images and unsupported sources with fallback text', async () => {
   render(FormattedBody, {
     props: {
       html:
@@ -456,9 +458,8 @@ test('leaves a remote image for the browser and drops a source with no scheme be
   });
   await tick();
 
-  const images = screen.getAllByRole('img');
-  expect(images).toHaveLength(1);
-  expect(images[0]).toHaveAttribute('src', 'https://example.org/badge.png');
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  expect(screen.getByText(/no-ai/)).toBeInTheDocument();
   expect(core.fetchMedia).not.toHaveBeenCalled();
   expect(screen.getByText(/:party:/)).toBeInTheDocument();
 });
@@ -745,11 +746,12 @@ test('a bare event link names the room and quotes the message, with an icon', as
 });
 
 test('inline images wait behind a prompt where the media preview setting says so (MSC4278)', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
   mediaPreviewSettings.global = { media_previews: 'off' };
   render(FormattedBodyMediaHarness, {
     props: {
       html:
-        '<img src="https://example.org/cat.png" alt="cat">' +
+        '<img src="mxc://example.org/cat" alt="cat">' +
         '<img data-mx-emoticon="" src="mxc://example.org/party" alt="party">',
       joinRule: 'invite',
     },
@@ -764,7 +766,9 @@ test('inline images wait behind a prompt where the media preview setting says so
 
   await user.click(screen.getByRole('button', { name: 'Show images' }));
 
-  expect(cat).toHaveAttribute('src', 'https://example.org/cat.png');
+  await vi.waitFor(() => {
+    expect(cat).toHaveAttribute('src', expect.stringMatching(/^blob:/));
+  });
   expect(cat).toBeVisible();
   expect(screen.getByRole('button', { name: 'Hide image' })).toBeInTheDocument();
   expect(screen.queryByText(':party:')).not.toBeInTheDocument();
@@ -773,19 +777,22 @@ test('inline images wait behind a prompt where the media preview setting says so
 });
 
 test('enabling all rooms reveals inline images without refreshing', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
   preferences.mediaAutoLoad = 'private';
   render(FormattedBodyMediaHarness, {
-    props: { html: '<img src="https://example.org/cat.png" alt="cat">', joinRule: 'public' },
+    props: { html: '<img src="mxc://example.org/cat" alt="cat">', joinRule: 'public' },
   });
   await tick();
 
   expect(screen.getByRole('button', { name: 'Show images' })).toBeInTheDocument();
   preferences.mediaAutoLoad = 'on';
   await tick();
-  expect(screen.getByRole('img', { name: 'cat' })).toHaveAttribute(
-    'src',
-    'https://example.org/cat.png'
-  );
+  await vi.waitFor(() => {
+    expect(screen.getByRole('img', { name: 'cat' })).toHaveAttribute(
+      'src',
+      expect.stringMatching(/^blob:/)
+    );
+  });
   expect(screen.queryByRole('button', { name: 'Show images' })).not.toBeInTheDocument();
   mediaPreviewSettings.global = {};
 });

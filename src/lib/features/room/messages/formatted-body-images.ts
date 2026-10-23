@@ -53,20 +53,7 @@ export class FormattedBodyImages {
       image.dataset.mediaHandled = '';
       const source = this.#source(image);
       const emoticon = this.#isEmoticon(image);
-      if (emoticon && !/^mxc:\/\/[^/?#\s]+\/[A-Za-z0-9_-]+$/u.test(source)) {
-        image.replaceWith(this.fallbackLabel(image, true));
-        continue;
-      }
-      const scheme = source.slice(0, source.indexOf(':') + 1).toLowerCase();
-      if (scheme === 'http:' || scheme === 'https:') {
-        image.onerror = () => {
-          console.warn('[sable media] remote image unavailable', source);
-          image.replaceWith(this.fallbackLabel(image, emoticon));
-        };
-        image.src = source;
-        continue;
-      }
-      if (scheme !== 'mxc:') {
+      if (!/^mxc:\/\/[^/?#\s]+\/[A-Za-z0-9_-]+$/u.test(source)) {
         image.replaceWith(this.fallbackLabel(image, emoticon));
         continue;
       }

@@ -154,10 +154,7 @@ fn sanitizer() -> Builder<'static> {
                 has_scheme(value, ELECTRON_APP_ORIGIN).then(|| value.into())
             }
             ("a", "href") => (!has_scheme(value, "mxc:")).then(|| value.into()),
-            ("img", "src") => {
-                (is_mxc_uri(value) || has_scheme(value, "https:") || has_scheme(value, "http:"))
-                    .then(|| value.into())
-            }
+            ("img", "src") => is_mxc_uri(value).then(|| value.into()),
             ("img", "width" | "height") | (_, "start") => value
                 .parse::<u32>()
                 .ok()
@@ -229,7 +226,7 @@ static MATRIX_POLICY: LazyLock<SanitizerConfig> = LazyLock::new(|| {
                     element: "img",
                     attr_schemes: &[PropertiesNames {
                         parent: "src",
-                        properties: &["mxc", "http", "https"],
+                        properties: &["mxc"],
                     }],
                 },
                 ElementAttributesSchemes {
@@ -721,27 +718,7 @@ fn sanitize(formatted: &str) -> String {
     }
     let html = Html::parse(&rewrite_markup(formatted));
     html.sanitize_with(&MATRIX_POLICY);
-    for node in html.children() {
-        sanitize_emote_sources(&node);
-    }
     SANITIZER.clean(&html.to_string()).to_string()
-}
-
-fn sanitize_emote_sources(node: &NodeRef) {
-    if let NodeData::Element(element) = node.data()
-        && &*element.name.local == "img"
-    {
-        let mut attrs = element.attrs.borrow_mut();
-        if attrs
-            .iter()
-            .any(|attr| &*attr.name.local == "data-mx-emoticon")
-        {
-            attrs.retain(|attr| &*attr.name.local != "src" || is_mxc_uri(&attr.value));
-        }
-    }
-    for child in node.children() {
-        sanitize_emote_sources(&child);
-    }
 }
 
 const SPOILER_ATTRIBUTE: &str = "data-mx-spoiler";
@@ -896,13 +873,6 @@ mod tests {
                 Some("<img data-mx-emoticon src=\"mxc://example.org/wave\" alt=\"wave\">")
             )
             .contains("src=\"mxc://example.org/wave\"")
-        );
-        assert!(
-            display_html(
-                "photo",
-                Some("<img src=\"https://example.org/photo\" alt=\"photo\">")
-            )
-            .contains("src=\"https://example.org/photo\"")
         );
     }
 
@@ -1303,7 +1273,7 @@ mod tests {
     }
 
     #[test]
-    fn keeps_mxc_and_web_image_sources_and_drops_every_other_kind() {
+    fn keeps_only_valid_mxc_image_sources() {
         let html = display_html(
             "",
             Some(
@@ -1317,9 +1287,30 @@ mod tests {
         assert!(html.contains("src=\"mxc://example.org/emoji\""));
         assert!(html.contains("data-mx-emoticon"));
         assert!(html.contains("height=\"32\""));
-        assert!(html.contains("src=\"https://example.org/badge.png\""));
+        assert!(!html.contains("src=\"https://example.org/badge.png\""));
         assert!(!html.contains("data:image"));
         assert!(!html.contains("src=\"mxc://example.org\""));
+    }
+
+    #[test]
+    fn rejects_invalid_image_sources() {
+        for source in [
+            "https://tracker.example/pixel",
+            "http://tracker.example/pixel",
+            "//tracker.example/pixel",
+            "/pixel",
+            "data:image/png;base64,AAAA",
+            "blob:https://tracker.example/pixel",
+            "https&#58;//tracker.example/pixel",
+            "mxc://example.org/",
+        ] {
+            let html = display_html(
+                "photo",
+                Some(&format!("<img src=\"{source}\" alt=\"photo\">")),
+            );
+            assert!(!html.contains("src="), "{source}: {html}");
+            assert!(html.contains("alt=\"photo\""), "{source}: {html}");
+        }
     }
 
     #[test]
@@ -1777,7 +1768,8 @@ mod tests {
         let html = display_html("", Some(markup));
 
         assert!(!html.contains("<a "));
-        assert!(html.contains("src=\"https://example.org/b.png\""));
+        assert!(!html.contains("src="));
+        assert!(html.contains("alt=\"https://example.org/c\""));
     }
 
     #[test]

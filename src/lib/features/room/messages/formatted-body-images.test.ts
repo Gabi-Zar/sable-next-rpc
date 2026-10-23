@@ -2,12 +2,13 @@ import { Window } from 'happy-dom';
 import { expect, test, vi } from 'vitest';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { holdMediaUrl, loadMediaUrl } from '#lib/ui/media-url.js';
 
 import { FormattedBodyImages } from './formatted-body-images';
 
 vi.mock('#lib/ui/media-url.js', () => ({
   cachedMediaUrl: () => 'blob:fixture',
-  holdMediaUrl: () => () => {},
+  holdMediaUrl: vi.fn(() => () => {}),
   loadMediaUrl: vi.fn(),
   retryMediaUrl: vi.fn(),
 }));
@@ -34,22 +35,32 @@ test('leaves source-like text and other attributes alone', () => {
   expect(images.defer(html)).toBe(html);
 });
 
-test.each(['https://tracker.example/pixel', 'http://tracker.example/pixel', 'mxc://example.org/'])(
-  'rejects custom emote source %s',
-  (source) => {
-    const window = new Window();
-    const node = window.document.createElement('div');
-    const resolver = new FormattedBodyImages(
-      {} as CoreClient,
-      () => 'wave',
-      () => {}
-    );
-    node.innerHTML = resolver.defer(`<img data-mx-emoticon src="${source}" alt="wave">`);
-    resolver.attach(node as unknown as HTMLElement, false);
-    expect(node.querySelector('img')).toBeNull();
-    expect(node.textContent).toBe('wave');
-  }
-);
+test.each(
+  [
+    'https://tracker.example/pixel',
+    'http://tracker.example/pixel',
+    '//tracker.example/pixel',
+    '/pixel',
+    'data:image/png;base64,AAAA',
+    'blob:https://tracker.example/pixel',
+    'https&#58;//tracker.example/pixel',
+    'mxc://example.org/',
+  ].flatMap((source) => ['', 'data-mx-emoticon'].map((marker) => ({ source, marker })))
+)('rejects $source ($marker)', ({ source, marker }) => {
+  vi.clearAllMocks();
+  const window = new Window();
+  const node = window.document.createElement('div');
+  const paint = vi.fn();
+  const resolver = new FormattedBodyImages({} as CoreClient, () => 'wave', paint);
+  node.innerHTML = resolver.defer(`<img ${marker} src="${source}" alt="wave">`);
+  expect(node.querySelector('img')?.hasAttribute('src')).toBe(false);
+  resolver.attach(node as unknown as HTMLElement, false);
+  expect(node.querySelector('img')).toBeNull();
+  expect(node.textContent).toBe('wave');
+  expect(holdMediaUrl).not.toHaveBeenCalled();
+  expect(loadMediaUrl).not.toHaveBeenCalled();
+  expect(paint).not.toHaveBeenCalled();
+});
 
 test.each(['alt=":photo:"', 'title=":photo:"', 'title="photo" height="32"'])(
   'keeps unmarked images ordinary with %s',
