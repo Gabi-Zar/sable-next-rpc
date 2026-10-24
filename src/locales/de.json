@@ -251,6 +251,18 @@
     "copy": "Kopieren",
     "chooseAPicture": "Bild auswählen",
     "block": "Blockieren",
-    "changePicture": "Bild ändern"
+    "changePicture": "Bild ändern",
+    "jumpToMessage": "",
+    "dark": "",
+    "dateAndTime": "",
+    "download": "",
+    "import": "",
+    "install": "",
+    "delete": "",
+    "edit": "",
+    "displayName": "",
+    "developerTools": "",
+    "light": "",
+    "loadingMap": ""
   }
 }
