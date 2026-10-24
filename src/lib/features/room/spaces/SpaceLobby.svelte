@@ -27,7 +27,7 @@
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { createDragList, type DropEdge, type DropInstruction } from '#lib/ui/drag-list.js';
   import { joinErrorMessage } from '#lib/rooms/join-errors.js';
-  import { matrixLinkPath, copyRoomLink, roomSectionPath, viaFor } from '#lib/rooms/permalink.js';
+  import { matrixLinkPath, copyRoomLink, roomSectionPath } from '#lib/rooms/permalink.js';
   import { roomPathParam, roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { layoutSpaceIds, withoutSpace, withSpace } from '#lib/spaces/sidebar-layout.js';
   import { useSpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
@@ -407,11 +407,8 @@
     parentId: string,
     action: LobbyAction
   ): Promise<boolean> {
-    const address = child.canonical_alias ?? child.room_id;
-    let routing = viaFor(address, via);
-    if (routing.length === 0 && child.canonical_alias === null) {
-      routing = await core.rpc.rooms.viaServers({ room_id: parentId });
-    }
+    const address = child.room_id;
+    const routing = via.length > 0 ? via : await core.rpc.rooms.viaServers({ room_id: parentId });
     if (action === 'knock') {
       await knockRoom(core.rpc, address, routing);
       knocked.add(child.room_id);

@@ -14,7 +14,7 @@ use matrix_sdk::ruma::events::tag::{TagInfo, TagName};
 use matrix_sdk::ruma::room::RoomType;
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{
-    OwnedRoomId, OwnedUserId, RoomAliasId, RoomOrAliasId, RoomVersionId, ServerName,
+    OwnedRoomId, OwnedUserId, RoomAliasId, RoomVersionId,
 };
 use serde::{Deserialize, Serialize};
 
@@ -217,22 +217,9 @@ impl Handler for JoinParams {
     type Ok = String;
 
     async fn run(self, core: &Arc<Core>) -> Result<String, RpcError> {
-        let address = RoomOrAliasId::parse(&self.address).map_err(|_| RpcError::UnknownRoom)?;
-
-        let via = self
-            .via
-            .iter()
-            .filter_map(|server| ServerName::parse(server).ok())
-            .collect::<Vec<_>>();
-
-        let room = core
-            .client()
-            .await?
-            .join_room_by_id_or_alias(&address, &via)
+        core.join_room(&self.address, &self.via)
             .await
-            .map_err(|error| core.room_error("join_room", error))?;
-
-        Ok(room.room_id().to_string())
+            .map(|room_id| room_id.to_string())
     }
 }
 

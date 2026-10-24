@@ -17,7 +17,9 @@ use matrix_sdk::ruma::events::room::join_rules::{AllowRule, JoinRule, RoomJoinRu
 use matrix_sdk::ruma::events::room::tombstone::RoomTombstoneEventContent;
 use matrix_sdk::ruma::events::space::child::SpaceChildEventContent;
 use matrix_sdk::ruma::serde::Raw;
-use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, RoomId, RoomOrAliasId, ServerName, UInt};
+use matrix_sdk::ruma::{
+    OwnedEventId, OwnedRoomId, OwnedServerName, RoomId, RoomOrAliasId, ServerName, UInt,
+};
 use matrix_sdk::send_queue::SendHandle;
 use matrix_sdk::{Client, EncryptionState, RoomMemberships, RoomState};
 use matrix_sdk_base::{RawStateEventWithKeys, RoomInfo, RoomInfoNotableUpdateReasons};
@@ -506,22 +508,66 @@ impl Core {
         Ok(())
     }
 
+    /// The SDK resolves an alias but joins by the alias, losing the servers that know the room.
+    async fn join_route(
+        &self,
+        client: &Client,
+        address: &str,
+        via: &[String],
+        context: &str,
+    ) -> Result<(OwnedRoomId, Vec<OwnedServerName>), RpcError> {
+        let address = RoomOrAliasId::parse(address).map_err(|_| RpcError::UnknownRoom)?;
+        let mut servers = via
+            .iter()
+            .filter_map(|server| ServerName::parse(server).ok())
+            .collect::<Vec<_>>();
+
+        let room_id = match <&RoomId>::try_from(&*address) {
+            Ok(room_id) => room_id.to_owned(),
+            Err(alias) => {
+                let resolved = client
+                    .resolve_room_alias(alias)
+                    .await
+                    .map_err(|error| self.room_error(context, error.into()))?;
+                servers.extend(resolved.servers);
+                servers.push(alias.server_name().to_owned());
+                resolved.room_id
+            }
+        };
+        servers.extend(room_id.server_name().map(ToOwned::to_owned));
+
+        let mut seen = std::collections::HashSet::new();
+        servers.retain(|server| seen.insert(server.clone()));
+        Ok((room_id, servers))
+    }
+
+    pub(crate) async fn join_room(
+        &self,
+        address: &str,
+        via: &[String],
+    ) -> Result<OwnedRoomId, RpcError> {
+        let client = self.client().await?;
+        let (room_id, servers) = self.join_route(&client, address, via, "join_room").await?;
+
+        let room = client
+            .join_room_by_id_or_alias((&*room_id).into(), &servers)
+            .await
+            .map_err(|error| self.room_error("join_room", error))?;
+
+        Ok(room.room_id().to_owned())
+    }
+
     pub(crate) async fn knock_room(
         &self,
         address: &str,
         via: &[String],
         reason: Option<String>,
     ) -> Result<OwnedRoomId, RpcError> {
-        let address = RoomOrAliasId::parse(address).map_err(|_| RpcError::UnknownRoom)?;
-        let via = via
-            .iter()
-            .filter_map(|server| ServerName::parse(server).ok())
-            .collect::<Vec<_>>();
+        let client = self.client().await?;
+        let (room_id, servers) = self.join_route(&client, address, via, "knock_room").await?;
 
-        let room = self
-            .client()
-            .await?
-            .knock(address, reason, via)
+        let room = client
+            .knock(room_id.into(), reason, servers)
             .await
             .or_failed(self, "knock_room")?;
 

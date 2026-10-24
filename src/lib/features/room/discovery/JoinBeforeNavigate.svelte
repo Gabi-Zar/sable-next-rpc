@@ -7,7 +7,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
-  import { roomSectionPath, viaFor } from '#lib/rooms/permalink.js';
+  import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { childRouting } from '#lib/rooms/spaces.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -68,10 +68,7 @@
     core.rpc.rooms
       .preview({
         address,
-        via: viaFor(
-          address,
-          untrack(() => selectedVias)
-        ),
+        via: [...untrack(() => selectedVias)],
       })
       .then((result) => {
         if (active) preview = result;
@@ -108,8 +105,7 @@
   let address = $derived(preview?.canonical_alias ?? roomId);
 
   async function routingFor(): Promise<string[]> {
-    const known = viaFor(address, selectedVias);
-    if (known.length > 0 || parent.parentId === null) return known;
+    if (selectedVias.length > 0 || parent.parentId === null) return [...selectedVias];
     return core.rpc.rooms.viaServers({ room_id: parent.parentId });
   }
 

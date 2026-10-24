@@ -2838,3 +2838,83 @@ async fn mutual_rooms_are_empty_when_the_server_lacks_the_endpoint() {
     assert!(relations.mutual_rooms.is_empty());
     assert!(!relations.ignored);
 }
+
+#[tokio::test]
+async fn join_by_alias_routes_through_the_resolved_servers_and_the_caller_via() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    Mock::given(method("GET"))
+        .and(path_regex("^/_matrix/client/v3/directory/room/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "room_id": "!target:creator.example",
+            "servers": ["resolved.example"],
+        })))
+        .mount(server.server())
+        .await;
+    Mock::given(method("POST"))
+        .and(path_regex("^/_matrix/client/v3/join/(!|%21)target"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"room_id": "!target:creator.example"})),
+        )
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    let room_id = core
+        .join_room("#lobby:alias.example", &["child.example".to_owned()])
+        .await
+        .unwrap();
+
+    assert_eq!(room_id, "!target:creator.example");
+    let requests = server.server().received_requests().await.unwrap();
+    let join = requests
+        .iter()
+        .find(|request| request.method.as_str() == "POST")
+        .unwrap();
+    let via: Vec<String> = join
+        .url
+        .query_pairs()
+        .filter(|(key, _)| key == "via")
+        .map(|(_, value)| value.into_owned())
+        .collect();
+    assert_eq!(
+        via,
+        [
+            "child.example",
+            "resolved.example",
+            "alias.example",
+            "creator.example"
+        ]
+    );
+}
+
+#[tokio::test]
+async fn knock_by_alias_targets_the_resolved_room_id() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    Mock::given(method("GET"))
+        .and(path_regex("^/_matrix/client/v3/directory/room/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "room_id": "!target:creator.example",
+            "servers": [],
+        })))
+        .mount(server.server())
+        .await;
+    Mock::given(method("POST"))
+        .and(path_regex("^/_matrix/client/v3/knock/(!|%21)target"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"room_id": "!target:creator.example"})),
+        )
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    let room_id = core
+        .knock_room("#lobby:alias.example", &[], None)
+        .await
+        .unwrap();
+
+    assert_eq!(room_id, "!target:creator.example");
+}
