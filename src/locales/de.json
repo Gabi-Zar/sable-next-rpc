@@ -51,7 +51,14 @@
     "currentAccount": "Aktiv",
     "favourites": "Favoriten",
     "add": "Raum oder Space hinzufügen",
-    "home": "Start"
+    "home": "Start",
+    "switchingAccount": "",
+    "editStatus": "",
+    "switchAccountFailed": "",
+    "accounts": "",
+    "switch": "",
+    "groupFavourites": "",
+    "sortRecent": ""
   },
   "inbox": {
     "notifications": "Benachrichtigungen",
