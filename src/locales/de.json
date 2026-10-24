@@ -60,9 +60,9 @@
     "switch": "Wechseln",
     "groupFavourites": "Favoriten gruppieren",
     "sortRecent": "Kürzliche Aktivität",
-    "folderRenameDescription": "",
-    "pinToSidebar": "",
-    "unpinFromSidebar": ""
+    "folderRenameDescription": "Wähle eine kurze Beschriftung. Lasse sie leer, um wieder die Namen der Spaces anzuzeigen.",
+    "pinToSidebar": "An der Seitenliste anheften",
+    "unpinFromSidebar": "Von der Seitenleiste lösen"
   },
   "inbox": {
     "notifications": "Benachrichtigungen",
