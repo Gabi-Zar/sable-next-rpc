@@ -178,7 +178,7 @@ test('turning simulcast off applies to camera and screen publishing', async () =
   }
 });
 
-test('camera quality applies on join and when enabling the camera later', async () => {
+test('camera quality applies on join and follows changes when re-enabled', async () => {
   preferences.callCameraResolution = '360';
   preferences.callCameraBitrate = '250';
   preferences.callCameraCodec = 'h264';
@@ -201,7 +201,11 @@ test('camera quality applies on join and when enabling the camera later', async 
     preferences.callCameraBitrate = '8000';
     await transport.setCameraEnabled(false);
     await transport.setCameraEnabled(true);
-    expect(fixture.camera).toHaveBeenLastCalledWith(true, capture, publish);
+    expect(fixture.camera).toHaveBeenLastCalledWith(true, capture, {
+      videoEncoding: { maxBitrate: 8_000_000 },
+      videoCodec: 'h264',
+      backupCodec: { codec: 'vp8', encoding: { maxBitrate: 8_000_000 } },
+    });
   } finally {
     preferences.videoInputDevice = '';
     await transport.disconnect();
@@ -239,6 +243,27 @@ test.each([false, true])(
     }
   }
 );
+
+test('screen quality changes apply the next time the screen is shared', async () => {
+  preferences.callScreenCodec = 'vp9';
+  const fixture = roomFixture();
+  const transport = createLivekitTransport({ encryptMedia: false, createRoom: () => fixture.room });
+  try {
+    await transport.connect(connectOptions);
+    await transport.capabilities.screenShare?.setEnabled(true);
+    await transport.capabilities.screenShare?.setEnabled(false);
+    preferences.callScreenCodec = 'av1';
+    preferences.callScreenResolution = '1080';
+    await transport.capabilities.screenShare?.setEnabled(true);
+    expect(fixture.localParticipant.setScreenShareEnabled).toHaveBeenLastCalledWith(
+      true,
+      expect.objectContaining({ resolution: { width: 1920, height: 1080 } }),
+      expect.objectContaining({ videoCodec: 'av1' })
+    );
+  } finally {
+    await transport.disconnect();
+  }
+});
 
 test('a fresh profile shares the screen at 720p and 30 fps', async () => {
   vi.resetModules();

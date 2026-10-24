@@ -102,7 +102,7 @@
   const timeline = activeTimeline.timeline;
   const memberLoader = new RoomMemberLoader();
   const call = useCallSession();
-  let prescreenMedia = $state.raw<CallMedia>({
+  let prescreenMedia = $derived<CallMedia>({
     microphone: !preferences.callMicrophoneMuted,
     camera: false,
   });

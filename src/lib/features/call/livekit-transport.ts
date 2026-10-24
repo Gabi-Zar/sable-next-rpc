@@ -120,29 +120,29 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
   const worker = keyProvider ? (options.createWorker ?? defaultWorker)() : undefined;
   const voiceIsolation = preferences.noiseSuppression && preferences.voiceIsolation;
   const filterMicrophone = voiceIsolation && supportsVoiceFilter();
-  const cameraCapture = {
+  const cameraCapture = () => ({
     ...(preferences.videoInputDevice ? { deviceId: preferences.videoInputDevice } : {}),
     ...(preferences.callCameraResolution !== 'auto'
       ? { resolution: videoResolution(preferences.callCameraResolution) }
       : {}),
-  };
-  const cameraPublish = videoPublishOptions(
-    'camera',
-    preferences.callCameraBitrate,
-    preferences.callCameraCodec,
-    preferences.callSimulcast
-  );
-  const screenCapture: ScreenShareCaptureOptions = screenCaptureOptions(
-    preferences.callScreenResolution,
-    preferences.callScreenFramerate
-  );
-  const screenPublish = videoPublishOptions(
-    'screen',
-    preferences.callScreenBitrate,
-    preferences.callScreenCodec,
-    preferences.callSimulcast,
-    preferences.callScreenFramerate
-  );
+  });
+  const cameraPublish = () =>
+    videoPublishOptions(
+      'camera',
+      preferences.callCameraBitrate,
+      preferences.callCameraCodec,
+      preferences.callSimulcast
+    );
+  const screenCapture = (): ScreenShareCaptureOptions =>
+    screenCaptureOptions(preferences.callScreenResolution, preferences.callScreenFramerate);
+  const screenPublish = () =>
+    videoPublishOptions(
+      'screen',
+      preferences.callScreenBitrate,
+      preferences.callScreenCodec,
+      preferences.callSimulcast,
+      preferences.callScreenFramerate
+    );
 
   const room = (options.createRoom ?? ((config) => new LivekitRoom(config)))({
     adaptiveStream: true,
@@ -154,7 +154,7 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
       ...(voiceIsolation && !filterMicrophone ? { voiceIsolation: true } : {}),
       ...(preferences.audioInputDevice ? { deviceId: preferences.audioInputDevice } : {}),
     },
-    videoCaptureDefaults: cameraCapture,
+    videoCaptureDefaults: cameraCapture(),
     ...(preferences.audioOutputDevice
       ? { audioOutput: { deviceId: preferences.audioOutputDevice } }
       : {}),
@@ -458,8 +458,8 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
         await publishTrack('call.camera.set', () =>
           room.localParticipant.setCameraEnabled(
             connectOptions.cameraEnabled,
-            cameraCapture,
-            cameraPublish
+            cameraCapture(),
+            cameraPublish()
           )
         );
       }
@@ -593,7 +593,7 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
     setCameraEnabled: async (enabled) => {
       if (disposed || options.publishMedia === false) return;
       await step('call.camera.set', () =>
-        room.localParticipant.setCameraEnabled(enabled, cameraCapture, cameraPublish)
+        room.localParticipant.setCameraEnabled(enabled, cameraCapture(), cameraPublish())
       );
       syncLocal();
     },
@@ -619,14 +619,14 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
                   () => {
                     void stopHdrScreen().then(stopSharingAudio).then(syncLocal);
                   },
-                  screenCapture.resolution
+                  screenCapture().resolution
                 ),
                 undefined,
                 true
               );
               hdrScreen = track;
               await room.localParticipant.publishTrack(track, {
-                ...screenPublish,
+                ...screenPublish(),
                 source: Track.Source.ScreenShare,
               });
             });
@@ -646,8 +646,8 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
             const browserAudio = !screenAudioSupported();
             return room.localParticipant.setScreenShareEnabled(
               true,
-              { ...(browserAudio ? DISPLAY_AUDIO_CAPTURE : {}), ...screenCapture },
-              { ...(browserAudio ? SCREEN_AUDIO_PUBLISH : {}), ...screenPublish }
+              { ...(browserAudio ? DISPLAY_AUDIO_CAPTURE : {}), ...screenCapture() },
+              { ...(browserAudio ? SCREEN_AUDIO_PUBLISH : {}), ...screenPublish() }
             );
           });
           const audioShared =
