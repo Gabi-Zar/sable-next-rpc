@@ -217,7 +217,7 @@
   "common": {
     "directMessages": "Direktnachrichten",
     "createRoom": "Raum erstellen",
-    "addAccount": "Account hinzufügen",
+    "addAccount": "Konto hinzufügen",
     "moreOptions": "Weitere Optionen",
     "createSpace": "Space erstellen",
     "save": "Speichern",
@@ -250,6 +250,7 @@
     "copied": "Kopiert",
     "copy": "Kopieren",
     "chooseAPicture": "Bild auswählen",
-    "block": "Blockieren"
+    "block": "Blockieren",
+    "changePicture": "Bild ändern"
   }
 }
