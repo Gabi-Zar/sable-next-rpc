@@ -36,11 +36,18 @@ export function isReportableCoreWarning(line: string): boolean {
   return wasmLogLevel(line) === 'warn' && REPORTABLE_WARNINGS.some((part) => line.includes(part));
 }
 
+const UNREACHABLE =
+  /Failed to fetch|Load failed|NetworkError|error sending request for url|tcp connect error|dns error|connection (?:refused|reset|closed)|operation timed out/i;
+const SERVER_UNAVAILABLE = /status_code:\s*(?:429|5\d\d)\b|returned an error: \[(?:429|5\d\d)\b/;
+
 export function isExpectedCoreFailure(line: string): boolean {
-  if (line.includes('reqwest::Error') && /Failed to fetch|Load failed|NetworkError/.test(line)) {
-    return true;
-  }
-  return /status_code:\s*5\d\d|invalid_grant|refresh token was rejected/.test(line);
+  return (
+    UNREACHABLE.test(line) ||
+    SERVER_UNAVAILABLE.test(line) ||
+    /invalid_grant|refresh token was rejected/.test(line) ||
+    line.includes('Failed to return /publicRooms') ||
+    line.includes('The store is closed')
+  );
 }
 
 export function wasmErrorTitle(line: string): string {

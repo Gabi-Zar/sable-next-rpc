@@ -118,6 +118,27 @@ describe('isExpectedCoreFailure', () => {
     expect(isExpectedCoreFailure('ERROR sync: ServerResponse( error: invalid_grant )')).toBe(true);
   });
 
+  test('recognizes native connection failures, rate limits and unavailable servers', () => {
+    for (const line of [
+      'ERROR sable_core::errors: error sending request for url (https://hs.example/_matrix/client/v3/room_keys/version) log_id="e3"',
+      'ERROR sync: Http( Reqwest( reqwest::Error { kind: Request, source: hyper_util::client::legacy::Error(Connect, ConnectError("tcp connect error", 1.2.3.4:443)) } ) )',
+      'ERROR sync: MatrixError( Error { status_code: 429, body: Standard( StandardErrorBody { kind: Unknown } ) } )',
+      'ERROR sable_core::errors: the server returned an error: [503] <non-json bytes> log_id="e1" context="room_members"',
+      'ERROR sable_core::errors: the server returned an error: [400 / M_UNKNOWN] Failed to return /publicRooms: tcp connect error context="public_rooms"',
+      'ERROR sable_core::errors: The store is closed log_id="e15" context="paginate"',
+    ]) {
+      expect(isExpectedCoreFailure(line)).toBe(true);
+    }
+  });
+
+  test('keeps client errors reportable', () => {
+    expect(
+      isExpectedCoreFailure(
+        'ERROR sable_core::errors: the server returned an error: [400 / M_BAD_JSON] JSON integer out of range context="send_state_event"'
+      )
+    ).toBe(false);
+  });
+
   test('keeps a local failure reportable', () => {
     expect(isExpectedCoreFailure('ERROR sable_core::errors: wrong room state context="x"')).toBe(
       false
