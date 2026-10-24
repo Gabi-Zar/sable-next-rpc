@@ -147,3 +147,11 @@ test('the row options button toggles the shared menu and returns focus', async (
   await expect.element(screen.getByRole('menu')).toBeVisible();
   await userEvent.keyboard('{Escape}');
 });
+
+test('the list options menu renders its checkable items (#1341)', async () => {
+  roomsFixture.rooms = [room({ room_id: '!a:example.org', name: 'General' })];
+  const screen = await mountNav();
+  await userEvent.click(screen.getByRole('button', { name: 'List options' }));
+  await expect.element(screen.getByRole('menuitem', { name: 'Group favourites' })).toBeVisible();
+  await expect.element(screen.getByRole('menuitem', { name: 'Recent activity' })).toBeVisible();
+});

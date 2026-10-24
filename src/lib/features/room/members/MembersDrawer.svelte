@@ -202,7 +202,7 @@
                 }}
               >
                 <span class="menu-check" aria-hidden="true">{filter === option ? '✓' : ''}</span>
-                {i18n.t(MEMBERSHIP_FILTER_LABELS[option])}
+                <span>{i18n.t(MEMBERSHIP_FILTER_LABELS[option])}</span>
               </ActionMenuItem>
             {/each}
           </ActionMenu>
@@ -227,7 +227,7 @@
               }}
             >
               <span class="menu-check" aria-hidden="true">{sort === option ? '✓' : ''}</span>
-              {i18n.t(MEMBER_SORT_LABELS[option])}
+              <span>{i18n.t(MEMBER_SORT_LABELS[option])}</span>
             </ActionMenuItem>
           {/each}
         </ActionMenu>

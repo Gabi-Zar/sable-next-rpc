@@ -41,7 +41,7 @@
         <span class="menu-check" aria-hidden="true">
           {item.metadata === choice.value ? '✓' : ''}
         </span>
-        {i18n.t(choice.label)}
+        <span>{i18n.t(choice.label)}</span>
       </ActionMenuItem>
     {/each}
   </ActionMenuSub>

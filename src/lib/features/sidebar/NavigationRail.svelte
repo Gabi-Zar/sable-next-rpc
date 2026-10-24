@@ -857,7 +857,7 @@
         }}
       >
         <span class="menu-check" aria-hidden="true">{on ? '✓' : ''}</span>
-        {i18n.t(toggle.label)}
+        <span>{i18n.t(toggle.label)}</span>
       </ActionMenuItem>
     {/each}
 
@@ -873,7 +873,7 @@
         }}
       >
         <span class="menu-check" aria-hidden="true">{on ? '✓' : ''}</span>
-        {i18n.t(toggle.label)}
+        <span>{i18n.t(toggle.label)}</span>
       </ActionMenuItem>
     {/each}
   </ActionMenu>

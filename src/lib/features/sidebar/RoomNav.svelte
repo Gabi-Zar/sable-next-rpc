@@ -451,7 +451,7 @@
       }}
     >
       <span class="menu-check" aria-hidden="true">{groupFavourites ? '✓' : ''}</span>
-      {i18n.t('nav.groupFavourites')}
+      <span>{i18n.t('nav.groupFavourites')}</span>
     </ActionMenuItem>
     <ActionMenuSeparator />
     {#if !activeSpace}
@@ -465,7 +465,7 @@
           <span class="menu-check" aria-hidden="true"
             >{preferences[sortKey] === option ? '✓' : ''}</span
           >
-          {i18n.t(ROOM_SORT_LABELS[option])}
+          <span>{i18n.t(ROOM_SORT_LABELS[option])}</span>
         </ActionMenuItem>
       {/each}
     {:else}
