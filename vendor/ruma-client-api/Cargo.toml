@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.89"
 name = "ruma-client-api"
-version = "0.25.1"
+version = "0.25.2"
 build = "build.rs"
 autolib = false
 autobins = false
@@ -69,6 +69,7 @@ unstable-msc4439 = []
 unstable-msc4466 = []
 unstable-msc4480 = ["unstable-msc4354"]
 unstable-msc4484 = ["ruma-common/unstable-msc4484"]
+unstable-msc4536 = ["ruma-common/unstable-msc4536"]
 unstable-msc4540 = []
 unstable-msc4560 = [
     "ruma-common/unstable-msc4560",
@@ -102,11 +103,11 @@ version = "0.2.0"
 version = "1.0.2"
 
 [dependencies.ruma-common]
-version = "0.20.1"
+version = "0.20.2"
 features = ["api"]
 
 [dependencies.ruma-events]
-version = "0.35.1"
+version = "0.35.2"
 
 [dependencies.serde]
 version = "1.0.164"

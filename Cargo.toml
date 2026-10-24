@@ -7,14 +7,14 @@ default-members = ["crates/sable-core", "src-tauri"]
 resolver = "3"
 
 [patch."https://github.com/ruma/ruma"]
-ruma = "0.17.1"
+ruma = "0.17.2"
 ruma-client-api = { path = "vendor/ruma-client-api" }
-ruma-common = "0.20.1"
-ruma-events = "0.35.1"
+ruma-common = "0.20.2"
+ruma-events = "0.35.2"
 ruma-federation-api = "0.16.1"
 ruma-html = "0.9.0"
-ruma-identifiers-validation = "0.13.0"
-ruma-macros = "0.20.1"
+ruma-identifiers-validation = "0.14.0"
+ruma-macros = "0.20.2"
 ruma-signatures = "0.22.1"
 
 [patch.crates-io]
@@ -50,7 +50,7 @@ matrix-sdk-base = { version = "0.19.1", git = "https://git.sable.moe/SableClient
 matrix-sdk-indexeddb = { version = "0.19.1", git = "https://git.sable.moe/SableClient/matrix-rust-sdk", rev = "b44d5400a165efc5ea970c3cd31f8cce29c2a730", default-features = false }
 matrix-sdk-test = { version = "0.19.1", git = "https://git.sable.moe/SableClient/matrix-rust-sdk", rev = "b44d5400a165efc5ea970c3cd31f8cce29c2a730" }
 matrix-sdk-test-utils = { version = "0.19.1", git = "https://git.sable.moe/SableClient/matrix-rust-sdk", rev = "b44d5400a165efc5ea970c3cd31f8cce29c2a730" }
-ruma = { version = "0.17.1", git = "https://github.com/ruma/ruma", rev = "62659d64f712adf3cad126df6b8969f785414bd5", features = [
+ruma = { version = "0.17.2", git = "https://github.com/ruma/ruma", rev = "62659d64f712adf3cad126df6b8969f785414bd5", features = [
   "client-api-c",
   "unstable-msc4143",
   "unstable-msc4195",
