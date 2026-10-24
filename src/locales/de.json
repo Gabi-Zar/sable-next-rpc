@@ -267,8 +267,8 @@
     "never": "Niemals",
     "invitePeople": "Leute einladen",
     "confirmIrreversible": "Ich verstehe, dass dies nicht rückgängig gemacht werden kann",
-    "readReceipts": "",
-    "refresh": "",
+    "readReceipts": "Lesebestätigungen",
+    "refresh": "Aktualisieren",
     "noRoomsMatch": ""
   }
 }
