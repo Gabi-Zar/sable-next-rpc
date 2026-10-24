@@ -1702,7 +1702,8 @@
     "sendDetails": "Trimite detalii",
     "detailsThanks": "Mersi! Detaliile tale au fost adăugate raportului.",
     "reportIssue": "Raportează în tracker-ul de probleme",
-    "showStack": "Detaliile erorii"
+    "showStack": "Detaliile erorii",
+    "crashUnreported": "Sable are o eroare neașteptată. Raportată problema pentru a ajuta spre revoltarea acesteia."
   },
   "bugReport": {
     "eyebrow": "Feedback",
@@ -2106,7 +2107,10 @@
     "clear": "Curaţă căutarea",
     "orderOldest": "Cele mai vechi",
     "clearRecent": "Șterge căutările recente",
-    "recentSearches": "Căutări recente"
+    "recentSearches": "Căutări recente",
+    "coveragePartial_one": "{{count, number}} cameră nu a putut fi indexată, și va fi scoasă când te conectezi din nou.",
+    "coveragePartial_few": "{{count, number}} camere nu au putut fi indexate, și vor fi scoase când te conectezi din nou.",
+    "coveragePartial_other": "{{count, number}} de camere nu au putut fi indexate, și vor fi scoase când te conectezi din nou."
   },
   "personas": {
     "title": "Profiluri per-mesaj",
