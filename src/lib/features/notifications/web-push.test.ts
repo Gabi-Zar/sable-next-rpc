@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   deliversWebPush: vi.fn<() => boolean>(),
   activeServiceWorker: vi.fn<() => Promise<unknown>>(),
   runtimeConfig: vi.fn<() => Promise<{ push: unknown }>>(),
+  expectPushActivation: vi.fn<(userId: string) => Promise<void>>(),
 }));
 
 vi.mock('#lib/platform/notifications.js', () => ({
@@ -18,6 +19,10 @@ vi.mock('#lib/platform/service-worker.js', () => ({
 }));
 vi.mock('#lib/config/runtime-config.js', () => ({
   runtimeConfig: mocks.runtimeConfig,
+}));
+vi.mock('#lib/notifications/room-names.js', () => ({
+  expectPushActivation: mocks.expectPushActivation,
+  forgetPushSession: vi.fn(),
 }));
 vi.mock('#lib/settings/preferences.svelte.js', () => ({
   preferences: { richPushPayloads: true },
@@ -159,7 +164,7 @@ function core(vapid: string | null, pushers: unknown[] = []) {
   commandsOf = commands;
   return {
     rpc: { push: commands },
-    session: { account_id: 'account-a', device_id: 'LAPTOP' },
+    session: { account_id: 'account-a', user_id: '@me:example.org', device_id: 'LAPTOP' },
     deviceList: [],
   } as unknown as CoreClient;
 }
@@ -186,6 +191,16 @@ test('a web push capability has the homeserver deliver, not the gateway', async 
     pusher: expect.objectContaining({ pushkey: 'keys-p256dh', app_id: shipped.appId }) as unknown,
   });
   expect(commandsOf.setPusher).not.toHaveBeenCalled();
+});
+
+test('the account is noted before the homeserver sends its validation push', async () => {
+  mocks.activeServiceWorker.mockResolvedValue(registration(SERVER_KEY));
+  await syncPushSubscription(client, NONE);
+
+  expect(mocks.expectPushActivation).toHaveBeenCalledWith('@me:example.org');
+  const [expected] = mocks.expectPushActivation.mock.invocationCallOrder;
+  const [registered] = commandsOf.setWebPusher.mock.invocationCallOrder;
+  expect(expected).toBeLessThan(registered);
 });
 
 test('without a capability, the shipped gateway keeps collecting the pusher', async () => {
@@ -267,6 +282,25 @@ test('a missing server pusher is recreated even when the local marker matches', 
   await syncPushSubscription(client, NONE);
 
   expect(commandsOf.setWebPusher).toHaveBeenCalledOnce();
+});
+
+test('overlapping syncs register the homeserver pusher once', async () => {
+  mocks.activeServiceWorker.mockResolvedValue(registration(SERVER_KEY));
+
+  await Promise.all([syncPushSubscription(client, NONE), syncPushSubscription(client, NONE)]);
+
+  expect(commandsOf.setWebPusher).toHaveBeenCalledOnce();
+});
+
+test('an unreadable pusher list leaves a pending registration alone', async () => {
+  mocks.activeServiceWorker.mockResolvedValue(registration(SERVER_KEY));
+  await syncPushSubscription(client, NONE);
+  commandsOf.setWebPusher.mockClear();
+  commandsOf.webPushers.mockRejectedValue(new Error('offline'));
+
+  await expect(syncPushSubscription(client, NONE)).rejects.toThrow('offline');
+
+  expect(commandsOf.setWebPusher).not.toHaveBeenCalled();
 });
 
 test('a browser without push has no push key, whatever its service worker holds', async () => {

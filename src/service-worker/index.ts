@@ -18,6 +18,7 @@ import {
   webPushValidation,
 } from '#lib/notifications/push-payload.js';
 import {
+  acknowledgeWebPusher,
   completePushPayload,
   namesOnlyItsEvent,
   readPushFetch,
@@ -29,10 +30,12 @@ import {
 } from '#lib/notifications/push-history.js';
 import {
   pushContentPolicy,
+  pendingPushActivations,
   pushSession,
   recordPush,
   roomMode,
   roomName,
+  settlePushActivation,
 } from '#lib/notifications/room-names.js';
 import { loadModel } from '#lib/model/model.js';
 import type { PushFetchView } from '#src/generated/protocol';
@@ -59,9 +62,20 @@ worker.addEventListener('push', (event) => {
     watchWorkerOperation(
       'push',
       loadModel().then(() => receive(raw))
-    )
+    ).catch(showFallback)
   );
 });
+
+/** Safari revokes the subscription of a push that shows nothing. */
+async function showFallback(): Promise<void> {
+  await record('FALLBACK_SHOWN');
+  await worker.registration.showNotification('Sable', {
+    body: 'New message',
+    tag: 'sable-fallback',
+    icon: favicon,
+    badge: favicon,
+  });
+}
 
 async function receive(raw: string | undefined): Promise<void> {
   const validation = webPushValidation(raw);
@@ -73,10 +87,14 @@ async function receive(raw: string | undefined): Promise<void> {
 }
 
 async function acknowledge(validation: WebPushValidation): Promise<void> {
-  const [, clients] = await Promise.all([
+  const [, pending] = await Promise.all([
     record('WEBPUSH_VALIDATION'),
-    worker.clients.matchAll({ type: 'window', includeUncontrolled: true }),
+    pendingPushActivations(Date.now()),
   ]);
+  const acked = await Promise.all(pending.map((userId) => acknowledgeFor(userId, validation)));
+  if (acked.includes(true)) return;
+
+  const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
   for (const client of clients) {
     client.postMessage({
       type: 'sable:webpush-ack',
@@ -84,6 +102,16 @@ async function acknowledge(validation: WebPushValidation): Promise<void> {
       ackToken: validation.ack_token,
     });
   }
+}
+
+async function acknowledgeFor(userId: string, validation: WebPushValidation): Promise<boolean> {
+  const session = await pushSession(userId);
+  if (!session) return false;
+  const acked = await acknowledgeWebPusher(session, validation, (input, init) =>
+    fetch(input, init)
+  );
+  if (acked) await settlePushActivation(userId);
+  return acked;
 }
 
 worker.addEventListener('message', (event) => {
@@ -244,10 +272,18 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
   await record('POSTED', trace);
 }
 
+const FETCH_DEADLINE_MS = 10_000;
+
 async function fetchEvent(payload: PushNotification): Promise<PushNotification | null> {
   const session = await pushSession(payload.user_id ?? undefined);
   if (!session) return payload;
-  return completePushPayload(
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<PushNotification>((settle) => {
+    timer = setTimeout(() => {
+      settle(payload);
+    }, FETCH_DEADLINE_MS);
+  });
+  const completed = completePushPayload(
     { ...payload, user_id: session.userId },
     {
       session,
@@ -256,6 +292,11 @@ async function fetchEvent(payload: PushNotification): Promise<PushNotification |
       decrypt: (roomId, eventId) => decryptInTab(roomId, eventId, session.userId),
     }
   );
+  try {
+    return await Promise.race([completed, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const DECRYPT_TIMEOUT_MS = 5000;

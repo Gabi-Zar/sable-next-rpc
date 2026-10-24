@@ -1,6 +1,6 @@
 import { uint8ArrayToBase64 } from 'uint8array-extras';
 
-import type { PushFetchView } from '#src/generated/protocol';
+import type { PushFetchView, WebPushValidation } from '#src/generated/protocol';
 
 import { isRecord } from '#lib/guards.js';
 
@@ -127,6 +127,42 @@ async function request(
   } catch (error) {
     console.debug('[sable notifications] push request failed', path, error);
     return { status: null, body: null };
+  }
+}
+
+const ACK_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((settle) => {
+    setTimeout(settle, ms);
+  });
+}
+
+export async function acknowledgeWebPusher(
+  session: PushSession,
+  validation: WebPushValidation,
+  send: typeof fetch,
+  pause: (ms: number) => Promise<void> = sleep
+): Promise<boolean> {
+  const url = `${session.homeserver.replace(/\/$/, '')}/_matrix/client/unstable/org.matrix.msc4174/pushers/ack`;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      const response = await send(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ app_id: validation.app_id, ack_token: validation.ack_token }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (response.ok) return true;
+      if (response.status < 500) return false;
+    } catch (error) {
+      console.debug('[sable notifications] web push ack failed', error);
+    }
+    if (attempt === ACK_ATTEMPTS) return false;
+    await pause(1000 * attempt);
   }
 }
 

@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 
 import type { RegisteredPusherView } from '#src/generated/protocol';
 
@@ -44,6 +44,7 @@ function deps(overrides: Partial<TroubleshootDeps> = {}): TroubleshootDeps {
     },
     wait: () => Promise.resolve(),
     registrationFailure: () => null,
+    reactivate: null,
     ...overrides,
   };
 }
@@ -114,6 +115,43 @@ test('a dormant MSC4174 pusher fails the pusher check', async () => {
   );
 
   expect(results.pusher?.message).toBe('settings.troubleshootPusherInactive');
+});
+
+test('a dormant pusher is registered again and passes once the homeserver activates it', async () => {
+  const dormant = { ...gatewayPusher, gateway: null, activated: false };
+  let registered = false;
+  let reads = 0;
+  const results = await run(
+    deps({
+      pushers: () => {
+        reads += 1;
+        return Promise.resolve([{ ...dormant, activated: registered && reads > 2 }]);
+      },
+      reactivate: () => {
+        registered = true;
+        return Promise.resolve();
+      },
+      sendDiagnostic: () => Promise.resolve({ kind: 'no_gateway' }),
+    })
+  );
+
+  expect(registered).toBe(true);
+  expect(results.pusher?.state).toBe('pass');
+  expect(results.pusher?.message).toBe('settings.troubleshootPusherHomeserver');
+});
+
+test('a pusher the homeserver never activates still fails after registering again', async () => {
+  const reactivate = vi.fn(() => Promise.resolve());
+  const results = await run(
+    deps({
+      pushers: () => Promise.resolve([{ ...gatewayPusher, gateway: null, activated: false }]),
+      reactivate,
+    })
+  );
+
+  expect(reactivate).toHaveBeenCalledOnce();
+  expect(results.pusher?.message).toBe('settings.troubleshootPusherInactive');
+  expect(results.gateway?.state).toBe('skip');
 });
 
 test('a pushkey the gateway rejects fails the loopback', async () => {

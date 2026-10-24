@@ -13,7 +13,7 @@ import {
   type PushOverride,
   trimmed,
 } from '#lib/notifications/push-config.js';
-import { forgetPushSession } from '#lib/notifications/room-names.js';
+import { expectPushActivation, forgetPushSession } from '#lib/notifications/room-names.js';
 
 const REGISTERED_ENDPOINT = 'sable-push-endpoint';
 
@@ -114,13 +114,14 @@ async function pushTarget(core: CoreClient, override: PushOverride): Promise<Pus
   return settings ?? null;
 }
 
-/** `false` while the pusher still awaits the validation handshake. */
+/** `false` while the pusher still awaits the validation handshake. Throws on
+    an unreadable list: registering again would replace a token in flight. */
 async function serverPusherActivated(
   core: CoreClient,
   pushkey: string,
   appId: string
 ): Promise<boolean | null> {
-  const pushers = await core.rpc.push.webPushers().catch(fallback([], 'listing pushers failed'));
+  const pushers = await core.rpc.push.webPushers();
   const mine = pushers.find(
     (pusher) =>
       pusher.pushkey === pushkey && pusher.app_id === appId && pusher.kind === SERVER_PUSHER_KIND
@@ -145,13 +146,25 @@ async function removeStaleGatewayPushers(
   }
 }
 
-export async function syncPushSubscription(
-  core: CoreClient,
-  override: PushOverride
-): Promise<void> {
+const syncing = new Map<string, Promise<void>>();
+
+/** Every MSC4174 registration replaces the pending ack token. */
+export function syncPushSubscription(core: CoreClient, override: PushOverride): Promise<void> {
+  const accountId = core.session?.account_id ?? '';
+  const running = syncing.get(accountId);
+  if (running) return running;
+  const run = sync(core, override).finally(() => {
+    syncing.delete(accountId);
+  });
+  syncing.set(accountId, run);
+  return run;
+}
+
+async function sync(core: CoreClient, override: PushOverride): Promise<void> {
   if (!deliversWebPush() || Notification.permission !== 'granted') return;
   const accountId = core.session?.account_id;
-  if (!accountId) return;
+  const userId = core.session?.user_id;
+  if (!accountId || !userId) return;
   const target = await pushTarget(core, override);
   if (!target) return;
 
@@ -217,6 +230,7 @@ export async function syncPushSubscription(
   }
 
   await removeStaleGatewayPushers(core, target.appId, keys.p256dh, rekeyed);
+  await expectPushActivation(userId);
   await core.rpc.push.setWebPusher({
     pusher: {
       pushkey: keys.p256dh,

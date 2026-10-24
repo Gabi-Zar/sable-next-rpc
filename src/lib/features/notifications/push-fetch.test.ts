@@ -3,6 +3,7 @@ import { expect, test, vi } from 'vitest';
 import type { PushFetchView } from '#src/generated/protocol';
 
 import {
+  acknowledgeWebPusher,
   completePushPayload,
   namesOnlyItsEvent,
   type PushFetcher,
@@ -198,4 +199,39 @@ test('a tab answer is only trusted in the shape the core sends', () => {
   expect(readPushFetch({ kind: 'unavailable' })).toBeNull();
   expect(readPushFetch({ kind: 'event', event: { type: 'm.room.message' } })).toBeNull();
   expect(readPushFetch(null)).toBeNull();
+});
+
+const session = { userId: '@me:example.org', homeserver: 'https://hs.example/', accessToken: 't' };
+const validation = { app_id: 'moe.sable.webpush', ack_token: 'tok' };
+
+test('the worker acknowledges a web push validation with the stored session', async () => {
+  const send = vi.fn<typeof fetch>(() => Promise.resolve(Response.json({})));
+
+  await expect(acknowledgeWebPusher(session, validation, send)).resolves.toBe(true);
+
+  const [url, init] = send.mock.calls[0] ?? [];
+  expect(url).toBe('https://hs.example/_matrix/client/unstable/org.matrix.msc4174/pushers/ack');
+  expect(init?.method).toBe('POST');
+  expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer t');
+  expect(JSON.parse(init?.body as string)).toEqual(validation);
+});
+
+test('a rejected acknowledgement is final and left for an open tab', async () => {
+  const send = vi.fn(() => Promise.resolve(Response.json({}, { status: 400 })));
+
+  await expect(acknowledgeWebPusher(session, validation, send)).resolves.toBe(false);
+  expect(send).toHaveBeenCalledOnce();
+});
+
+test('an unreachable homeserver is asked again before giving up', async () => {
+  const send = vi
+    .fn<typeof fetch>()
+    .mockRejectedValueOnce(new TypeError('offline'))
+    .mockResolvedValueOnce(Response.json({}, { status: 502 }))
+    .mockResolvedValueOnce(Response.json({}));
+  const pause = vi.fn(() => Promise.resolve());
+
+  await expect(acknowledgeWebPusher(session, validation, send, pause)).resolves.toBe(true);
+  expect(send).toHaveBeenCalledTimes(3);
+  expect(pause).toHaveBeenCalledTimes(2);
 });

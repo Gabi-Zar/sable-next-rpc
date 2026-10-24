@@ -134,11 +134,14 @@ test('a push shows a notification naming the room the app cached', async ({
     .poll(
       async () => {
         await deliver(payload);
-        return shownNotifications(context);
+        return (await shownNotifications(context)).map((shown) => {
+          const [title, , tag] = shown.split('|');
+          return `${title}|${tag}`;
+        });
       },
       { timeout: 60_000 }
     )
-    .toEqual([`${roomName}|New message|${admin.userId} ${roomId}`]);
+    .toEqual([`${roomName}|${admin.userId} ${roomId}:${eventId}`]);
 });
 
 test('a push for an invitation reads as an invitation with accept and decline', async ({

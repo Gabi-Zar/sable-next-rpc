@@ -7,6 +7,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { nativeDevicePusher, nativePushTransport } from '#lib/platform/native-notifications.js';
+  import { pushOverride } from '#lib/notifications/push-config.js';
   import { deliversWebPush, pushPlatform } from '#lib/platform/notifications.js';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
   import SettingsAnchorLink from '#lib/ui/primitives/SettingsAnchorLink.svelte';
@@ -22,8 +23,8 @@
     type TroubleshootResult,
     troubleshoot,
   } from './push-troubleshoot';
-  import { lastPushFailure } from './push-failure';
-  import { currentPushKey } from './web-push';
+  import { clearPushFailure, lastPushFailure, recordPushFailure } from './push-failure';
+  import { currentPushKey, syncPushSubscription } from './web-push';
 
   const core = useCoreClient();
 
@@ -59,6 +60,17 @@
       sendDiagnostic: (pushkey, appId) => core.rpc.push.sendDiagnostic({ pushkey, app_id: appId }),
       history: loadPushHistory,
       registrationFailure: lastPushFailure,
+      reactivate:
+        platform === 'web'
+          ? () =>
+              syncPushSubscription(core, pushOverride()).then(
+                clearPushFailure,
+                (error: unknown) => {
+                  recordPushFailure(error);
+                  throw error;
+                }
+              )
+          : null,
       wait: (ms) =>
         new Promise((settle) => {
           setTimeout(settle, ms);

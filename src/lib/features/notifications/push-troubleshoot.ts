@@ -39,10 +39,12 @@ export interface TroubleshootDeps {
   sendDiagnostic: (pushkey: string, appId: string) => Promise<DiagnosticPushView>;
   history: () => Promise<PushHistoryEntry[]>;
   registrationFailure: () => PushFailure | null;
+  reactivate: (() => Promise<void>) | null;
   wait: (ms: number) => Promise<void>;
 }
 
 export const LOOPBACK_TIMEOUT_MS = 30_000;
+const ACTIVATION_TIMEOUT_MS = 30_000;
 const LOOPBACK_POLL_MS = 1_000;
 
 const PUSH_CHECKS: TroubleshootCheck[] = ['transport', 'pusher', 'gateway', 'loopback'];
@@ -102,6 +104,25 @@ async function awaitDiagnostic(deps: TroubleshootDeps, eventId: string): Promise
     await deps.wait(LOOPBACK_POLL_MS);
   }
   return false;
+}
+
+async function reactivated(
+  deps: TroubleshootDeps,
+  pushkey: string
+): Promise<RegisteredPusherView | null> {
+  if (deps.reactivate === null) return null;
+  try {
+    await deps.reactivate();
+    for (let waited = 0; waited <= ACTIVATION_TIMEOUT_MS; waited += LOOPBACK_POLL_MS) {
+      const pusher = (await deps.pushers()).find((candidate) => candidate.pushkey === pushkey);
+      if (pusher === undefined) return null;
+      if (pusher.activated !== false) return pusher;
+      await deps.wait(LOOPBACK_POLL_MS);
+    }
+  } catch (error) {
+    console.warn('[sable notifications] reactivating the pusher failed', error);
+  }
+  return null;
 }
 
 async function loopback(
@@ -180,7 +201,7 @@ export async function* troubleshoot(deps: TroubleshootDeps): AsyncGenerator<Trou
     yield* skipped('gateway', 'settings.troubleshootNotApplicable');
     return;
   }
-  const pusher = pushers.find((candidate) => candidate.pushkey === pushkey);
+  let pusher = pushers.find((candidate) => candidate.pushkey === pushkey);
   if (pusher === undefined) {
     yield withFailure(deps, {
       check: 'pusher',
@@ -191,9 +212,17 @@ export async function* troubleshoot(deps: TroubleshootDeps): AsyncGenerator<Trou
     return;
   }
   if (pusher.activated === false) {
-    yield { check: 'pusher', state: 'fail', message: 'settings.troubleshootPusherInactive' };
-    yield* skipped('gateway', 'settings.troubleshootNotApplicable');
-    return;
+    const activated = await reactivated(deps, pushkey);
+    if (activated === null) {
+      yield withFailure(deps, {
+        check: 'pusher',
+        state: 'fail',
+        message: 'settings.troubleshootPusherInactive',
+      });
+      yield* skipped('gateway', 'settings.troubleshootNotApplicable');
+      return;
+    }
+    pusher = activated;
   }
   const gateway = pusher.gateway;
   yield {

@@ -212,6 +212,48 @@ export async function pushSession(userId: string | undefined): Promise<PushSessi
   }
 }
 
+/** MSC4174 expires an ack token after five minutes. */
+export const PUSH_ACTIVATION_TTL_MS = 5 * 60 * 1000;
+
+const ACTIVATION_PREFIX = '\u0000webpush-activation:';
+
+export async function expectPushActivation(userId: string): Promise<void> {
+  try {
+    await transact('readwrite', (store) =>
+      store.put({ userId, at: Date.now() }, ACTIVATION_PREFIX + userId)
+    );
+  } catch (error) {
+    console.debug('[sable notifications] push activation not noted', error);
+  }
+}
+
+export async function settlePushActivation(userId: string): Promise<void> {
+  try {
+    await transact('readwrite', (store) => store.delete(ACTIVATION_PREFIX + userId));
+  } catch (error) {
+    console.debug('[sable notifications] push activation not settled', error);
+  }
+}
+
+export async function pendingPushActivations(now: number): Promise<string[]> {
+  try {
+    const stored = await transact<unknown[]>('readonly', (store) =>
+      store.getAll(IDBKeyRange.bound(ACTIVATION_PREFIX, `${ACTIVATION_PREFIX}\uffff`))
+    );
+    return stored.flatMap((value) => {
+      const pending = value as { userId?: unknown; at?: unknown } | undefined;
+      return typeof pending?.userId === 'string' &&
+        typeof pending.at === 'number' &&
+        now - pending.at < PUSH_ACTIVATION_TTL_MS
+        ? [pending.userId]
+        : [];
+    });
+  } catch (error) {
+    console.debug('[sable notifications] push activations unreadable', error);
+    return [];
+  }
+}
+
 function readPushSession(value: unknown): PushSession | null {
   const session = value as Partial<PushSession> | undefined;
   return typeof session?.userId === 'string' &&

@@ -106,6 +106,7 @@
   } from '#lib/features/call/participant-volumes.svelte.js';
   import {
     forgetPushSessions,
+    PUSH_ACTIVATION_TTL_MS,
     putPushContentPolicy,
     putRoomModes,
     RoomNameWriter,
@@ -607,7 +608,8 @@
   $effect(() => {
     void core.session?.user_id;
     if (core.status !== 'ready' || !deliversWebPush()) return;
-    if (preferences.richPushPayloads) {
+    // The worker acks the MSC4174 validation push with it, whatever the payload format.
+    if (!preferences.systemNotifications) {
       void forgetPushSessions();
       return;
     }
@@ -638,7 +640,9 @@
     const override = pushOverride();
     void pushDeviceName;
 
+    let synced = 0;
     const resync = (): void => {
+      synced = Date.now();
       void syncPushSubscription(core, override).then(clearPushFailure, (error: unknown) => {
         recordPushFailure(error);
         console.debug('[sable notifications] push not registered', error);
@@ -646,6 +650,11 @@
     };
     resync();
 
+    // Retries a validation push missed while suspended, once its token has expired.
+    const stopVisible = on(document, 'visibilitychange', () => {
+      if (document.visibilityState === 'visible' && Date.now() - synced >= PUSH_ACTIVATION_TTL_MS)
+        resync();
+    });
     const stopGranted = onPermissionGranted(resync);
     const stopMessages = on(navigator.serviceWorker, 'message', (event) => {
       const message = (event as MessageEvent).data as
@@ -664,6 +673,7 @@
       }
     });
     return () => {
+      stopVisible();
       stopGranted();
       stopMessages();
     };
