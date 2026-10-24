@@ -44,7 +44,11 @@
   import '#lib/ui/primitives/settings-row.css';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
 
-  import { FOUNDER_POWER_LEVEL, type PowerLevelTagMap } from './power-level-tags';
+  import {
+    FOUNDER_POWER_LEVEL,
+    isValidPowerLevel,
+    type PowerLevelTagMap,
+  } from './power-level-tags';
 
   interface Props {
     room: RoomListItemView | null;
@@ -262,7 +266,7 @@
     );
     for (const [level, tag] of Object.entries(powerTags)) labels[String(Number(level))] = tag.name;
     const known = Object.entries(labels)
-      .filter(([level]) => Number(level) <= ownPowerLevel)
+      .filter(([level]) => isValidPowerLevel(Number(level)) && Number(level) <= ownPowerLevel)
       .sort(([left], [right]) => Number(right) - Number(left))
       .map(([value, label]) => ({ value, label }));
     const current = String(member.power_level);

@@ -122,6 +122,8 @@ pub enum RpcError {
     InvalidBackup,
     /// Not an `http` or `https` URL.
     InvalidUrl,
+    /// Matrix JSON integers must fit in ±(2^53 - 1).
+    IntegerOutOfRange,
     /// A search filter naming something that is not a room or user id.
     InvalidSearchFilter,
     /// A sealed document this device cannot open, so writing it would erase

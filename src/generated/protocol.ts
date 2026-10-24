@@ -1294,6 +1294,8 @@ export type RpcError = { code: "not_logged_in" } | { code: "unknown_subscription
 { code: "invalid_backup" } |
 /**  Not an `http` or `https` URL. */
 { code: "invalid_url" } |
+/**  Matrix JSON integers must fit in ±(2^53 - 1). */
+{ code: "integer_out_of_range" } |
 /**  A search filter naming something that is not a room or user id. */
 { code: "invalid_search_filter" } |
 /**

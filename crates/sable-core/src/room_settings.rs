@@ -554,6 +554,17 @@ fn room_state_by_type(
     state
 }
 
+fn has_out_of_range_integer(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Number(number) => number.as_i64().map_or(number.is_u64(), |int| {
+            !(-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&int)
+        }),
+        serde_json::Value::Array(values) => values.iter().any(has_out_of_range_integer),
+        serde_json::Value::Object(map) => map.values().any(has_out_of_range_integer),
+        _ => false,
+    }
+}
+
 impl Core {
     /// Every global account data write goes through here so the pack cache
     /// never serves what we just replaced.
@@ -579,6 +590,9 @@ impl Core {
         content: &impl serde::Serialize,
     ) -> Result<OwnedEventId, RpcError> {
         let content = &serde_json::to_value(content).or_failed(self, "send_state")?;
+        if has_out_of_range_integer(content) {
+            return Err(RpcError::IntegerOutOfRange);
+        }
         let response = self
             .room(&room_id)
             .await?
@@ -770,8 +784,25 @@ mod tests {
 
     use super::{
         AclEdit, abbreviations, abbreviations_content, always_listed_from, banner_url,
-        canonical_alias, canonical_alias_content, history_visibility, server_acl_content,
+        canonical_alias, canonical_alias_content, has_out_of_range_integer, history_visibility,
+        server_acl_content,
     };
+
+    #[test]
+    fn integers_beyond_the_matrix_range_are_caught_anywhere_in_the_content() {
+        assert!(!has_out_of_range_integer(&json!({
+            "users_default": 9_007_199_254_740_991_i64,
+            "kick": -9_007_199_254_740_991_i64,
+            "ratio": 1.5,
+        })));
+        assert!(has_out_of_range_integer(
+            &json!({ "users_default": 9_007_199_254_740_992_i64 })
+        ));
+        assert!(has_out_of_range_integer(
+            &json!({ "users": { "@a:b": -9_007_199_254_740_992_i64 } })
+        ));
+        assert!(has_out_of_range_integer(&json!({ "list": [u64::MAX] })));
+    }
 
     fn to_json(content: impl serde::Serialize) -> serde_json::Value {
         serde_json::to_value(content).unwrap()

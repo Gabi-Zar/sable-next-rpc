@@ -35,6 +35,7 @@
   import RoleTagIcon from '../members/RoleTagIcon.svelte';
   import { canSendState, levelAt, permissionGroups } from './permission-groups';
   import {
+    isValidPowerLevel,
     parsePowerLevelInput,
     POWER_LEVEL_TAGS_EVENT_TYPE,
     tagForLevel,
@@ -83,7 +84,7 @@
   let memberListChoices = $derived([
     { value: 'default', label: i18n.t('room.memberListDefault') },
     ...[...new Set([...roleLevels, ...(alwaysListedFrom === null ? [] : [alwaysListedFrom])])]
-      .filter((level) => level >= 0)
+      .filter((level) => level >= 0 && isValidPowerLevel(level))
       .sort((left, right) => right - left)
       .map((level) => ({
         value: String(level),
@@ -243,14 +244,19 @@
   }
 
   function options(current: number): { value: string; label: string; disabled?: boolean }[] {
-    const named = namedLevels.map((entry) => ({
-      value: String(entry.level),
-      label: levelLabel(entry.level),
-      disabled: entry.level > ownLevel,
-    }));
+    const named = namedLevels
+      .filter((entry) => isValidPowerLevel(entry.level))
+      .map((entry) => ({
+        value: String(entry.level),
+        label: levelLabel(entry.level),
+        disabled: entry.level > ownLevel,
+      }));
     const custom = Object.entries(roleTags)
       .map(([key, tag]) => ({ level: Number(key), tag }))
-      .filter(({ level }) => !named.some((entry) => entry.value === String(level)))
+      .filter(
+        ({ level }) =>
+          isValidPowerLevel(level) && !named.some((entry) => entry.value === String(level))
+      )
       .sort((a, b) => b.level - a.level)
       .map(({ level, tag }) => ({
         value: String(level),
