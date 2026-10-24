@@ -979,7 +979,8 @@
     "attachmentsMoreLinks_other": "+{{count}} de alte link-uri",
     "attachmentsClose": "Închide media, fișiere și link-uri",
     "attachmentsFilesEmpty": "Încă nu există fișiere indexate pe acest dispozitiv.",
-    "jumpToLatest": "Sari la cele mai recente"
+    "jumpToLatest": "Sari la cele mai recente",
+    "profileDemoteSelfBody": "Reducerea nivelului tău de putere nu poate fi anulat."
   },
   "viewer": {
     "title": "Vizualizator media",
