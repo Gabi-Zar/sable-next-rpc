@@ -223,9 +223,9 @@
     "save": "Speichern",
     "cancel": "Abbrechen",
     "markAsRead": "Als gelesen markieren",
-    "voiceRoom": "Sprach-Raum",
+    "voiceRoom": "Sprachraum",
     "restore": "Wiederherstellen",
-    "undo": "Rückgängig",
+    "undo": "Rückgängig machen",
     "tryAgain": "Erneut versuchen",
     "createARoom": "Raum erstellen",
     "endToEndEncryption": "Ende-zu-Ende-Verschlüsselung",
@@ -295,6 +295,6 @@
     "viewSource": "Quelle ansehen",
     "yesterday": "Gestern",
     "verify": "Verifizieren",
-    "unsavedChangesNotice": ""
+    "unsavedChangesNotice": "Du hast ungespeicherte Änderungen."
   }
 }
