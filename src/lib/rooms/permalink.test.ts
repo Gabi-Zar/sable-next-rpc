@@ -8,6 +8,7 @@ import { withCounts } from '#lib/rooms/summary-fixtures.js';
 import {
   copyRoomLink,
   existingChatPath,
+  joinVia,
   matrixLinkPath,
   matrixToUrl,
   permalinkTarget,
@@ -266,6 +267,30 @@ test('a fragment that names nothing resolvable is rejected', () => {
 test('only a room id is given routing help; an alias resolves itself', () => {
   expect(viaFor('!somewhere:example.org', ['a.example'])).toEqual(['a.example']);
   expect(viaFor('#lobby:example.org', ['a.example'])).toEqual([]);
+});
+
+function viaCore() {
+  const viaServers = vi.fn().mockResolvedValue(['member.example']);
+  const core = { rpc: { rooms: { viaServers } }, session: { user_id: '@me:home.example' } };
+  return { core: core as unknown as Parameters<typeof joinVia>[0], viaServers };
+}
+
+test('a via naming another server is kept as is', async () => {
+  const { core, viaServers } = viaCore();
+  expect(await joinVia(core, ['home.example', 'other.example'], '!space:x')).toEqual([
+    'home.example',
+    'other.example',
+  ]);
+  expect(viaServers).not.toHaveBeenCalled();
+});
+
+test('a via naming only our server adds the parent space members', async () => {
+  const { core, viaServers } = viaCore();
+  expect(await joinVia(core, ['home.example'], '!space:x')).toEqual([
+    'home.example',
+    'member.example',
+  ]);
+  expect(viaServers).toHaveBeenCalledWith({ room_id: '!space:x' });
 });
 
 afterEach(() => {

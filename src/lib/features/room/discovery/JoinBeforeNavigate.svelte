@@ -7,7 +7,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
-  import { roomSectionPath } from '#lib/rooms/permalink.js';
+  import { joinVia, roomSectionPath } from '#lib/rooms/permalink.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { childRouting } from '#lib/rooms/spaces.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -104,9 +104,8 @@
   // The alias resolves on servers that have never seen the room id.
   let address = $derived(preview?.canonical_alias ?? roomId);
 
-  async function routingFor(): Promise<string[]> {
-    if (selectedVias.length > 0 || parent.parentId === null) return [...selectedVias];
-    return core.rpc.rooms.viaServers({ room_id: parent.parentId });
+  function routingFor(): Promise<string[]> {
+    return joinVia(core, selectedVias, parent.parentId);
   }
 
   async function join(): Promise<void> {

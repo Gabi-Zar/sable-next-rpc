@@ -92,6 +92,17 @@ export function viaFor(address: string, via: readonly string[]): string[] {
   return address.startsWith('#') ? [] : [...via];
 }
 
+/** Homeservers drop themselves from `via`, so a list naming only ours routes nowhere. */
+export async function joinVia(
+  core: Pick<CoreClient, 'rpc' | 'session'>,
+  via: readonly string[],
+  parentId: string | null
+): Promise<string[]> {
+  const own = core.session?.user_id.split(':').slice(1).join(':');
+  if (parentId === null || via.some((server) => server !== own)) return [...via];
+  return [...via, ...(await core.rpc.rooms.viaServers({ room_id: parentId }))];
+}
+
 /**
  * A matrix.to link others can follow; a room id needs `via` to be routable.
  */
