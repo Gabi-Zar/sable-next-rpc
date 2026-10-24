@@ -242,14 +242,14 @@
     "directMessage": "Direktnachricht",
     "accept": "Akzeptieren",
     "decline": "Ablehnen",
-    "allowNotifications": "",
-    "apply": "",
-    "always": "",
-    "back": "",
-    "close": "",
-    "copied": "",
-    "copy": "",
-    "chooseAPicture": "",
-    "block": ""
+    "allowNotifications": "Benachrichtigungen erlauben",
+    "apply": "Anwenden",
+    "always": "Immer",
+    "back": "Zurück",
+    "close": "Schließen",
+    "copied": "Kopiert",
+    "copy": "Kopieren",
+    "chooseAPicture": "Bild auswählen",
+    "block": "Blockieren"
   }
 }
