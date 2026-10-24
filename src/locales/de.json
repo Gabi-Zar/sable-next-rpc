@@ -52,13 +52,13 @@
     "favourites": "Favoriten",
     "add": "Raum oder Space hinzufügen",
     "home": "Start",
-    "switchingAccount": "",
-    "editStatus": "",
-    "switchAccountFailed": "",
-    "accounts": "",
-    "switch": "",
-    "groupFavourites": "",
-    "sortRecent": ""
+    "switchingAccount": "Konto wird gewechselt…",
+    "editStatus": "Status bearbeiten",
+    "switchAccountFailed": "Konto konnte nicht gewechselt werden. Versuch es bitte erneut.",
+    "accounts": "Konten",
+    "switch": "Wechseln",
+    "groupFavourites": "Favoriten gruppieren",
+    "sortRecent": "Kürzliche Aktivität"
   },
   "inbox": {
     "notifications": "Benachrichtigungen",
