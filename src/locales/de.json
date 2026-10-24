@@ -287,6 +287,10 @@
     "system": "",
     "thisRoom": "",
     "today": "",
-    "unblock": ""
+    "unblock": "",
+    "stopTest": "",
+    "homeserverUnavailable": "",
+    "mapLoadFailed": "",
+    "stateEventRejected": ""
   }
 }
