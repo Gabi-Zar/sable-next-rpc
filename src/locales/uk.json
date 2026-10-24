@@ -3,7 +3,22 @@
     "createJoinRuleRestricted": "Учасники простору",
     "createParentNone": "Без простору",
     "createJoinRuleInvite": "Лише за запрошенням",
-    "createJoinRuleLabel": "Хто може приєднатися"
+    "createJoinRuleLabel": "Хто може приєднатися",
+    "createNameLabel": "Назва",
+    "createAccessLabel": "Доступ",
+    "createAccessPublic": "Публічний",
+    "createParentLabel": "Додати до простору",
+    "createSpaceTitle": "Створити простір",
+    "createSpaceDescription": "Простір об’єднує кімнати та інші простори.",
+    "createTopicLabel": "Тема",
+    "createTopicPlaceholder": "Про що ця кімната?",
+    "createKindRoom": "Кімната",
+    "createKindForum": "Форум",
+    "createKindForumHint": "Кімната, де кожне повідомлення починає окрему гілку.",
+    "createKindCalendar": "Календар",
+    "createKindSpace": "Простір",
+    "createKindSpaceHint": "Контейнер, що об’єднує кімнати.",
+    "createAccessPrivate": "Приватний"
   },
   "inbox": {
     "inviteEncrypted": "Зашифроване",
@@ -51,7 +66,11 @@
     "invitesDeclined_many": "Відхилено {{count, number}} запрошень",
     "declineAllFailed_one": "Не вдалося відхилити {{count, number}} запрошення",
     "declineAllFailed_few": "Не вдалося відхилити {{count, number}} запрошення",
-    "declineAllFailed_many": "Не вдалося відхилити {{count, number}} запрошень"
+    "declineAllFailed_many": "Не вдалося відхилити {{count, number}} запрошень",
+    "markedRead": "{{room}} позначено як прочитану",
+    "blockSendersConfirm": "Заблокувати й відхилити",
+    "acceptAll": "Прийняти всі",
+    "invitesShowPending": "Назад до запрошень"
   },
   "common": {
     "decline": "Відхилити",
