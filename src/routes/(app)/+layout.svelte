@@ -24,7 +24,6 @@
   import { MESSAGE_SEARCH_FIELD_ID } from '#lib/features/search/message-search.svelte.js';
   import { InviteActions } from '#lib/rooms/invites.svelte.js';
   import { dismissedInvites } from '#lib/rooms/dismissed-invites.svelte.js';
-  import { endSystemCall, fulfillSystemAnswer } from '#lib/platform/calls.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { supporter } from '#lib/supporter/supporter.svelte.js';
   import { PresenceStore, providePresenceStore } from '#lib/rooms/presence.svelte.js';
@@ -100,6 +99,7 @@
     type SystemAnswer,
   } from '#lib/features/call/incoming-calls.svelte.js';
   import { CallSession, provideCallSession } from '#lib/features/call/call-session.svelte.js';
+  import { SystemCalls } from '#lib/features/call/system-calls.svelte.js';
   import {
     effectiveVolume,
     screenVolumeKey,
@@ -172,31 +172,20 @@
         })
     )
   );
-  let systemCall = $state<{ callId: string; roomId: string } | null>(null);
+  const systemCalls = new SystemCalls(callSession, (roomId) => roomList.byId(roomId)?.name);
+  systemCalls.track();
   const incomingCalls = new IncomingCalls(core, (answer) => void joinSystemAnswer(answer));
 
   async function joinSystemAnswer({ uuid, callId, roomId, hasVideo }: SystemAnswer): Promise<void> {
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- roomSectionPath() resolves the route itself
     void goto(roomSectionPath(roomList.rooms, roomId));
-    try {
-      await callSession.join(roomId, {
+    await systemCalls.answer(uuid, callId, roomId, () =>
+      callSession.join(roomId, {
         microphone: !preferences.callMicrophoneMuted,
         camera: hasVideo,
-      });
-      systemCall = { callId, roomId };
-    } catch (error) {
-      console.debug('[sable call] system answer not joined', error);
-    } finally {
-      void fulfillSystemAnswer(uuid);
-    }
+      })
+    );
   }
-
-  $effect(() => {
-    const answered = systemCall;
-    if (answered === null || callSession.roomId === answered.roomId) return;
-    systemCall = null;
-    void endSystemCall(answered.callId);
-  });
 
   let callUserIds = $derived(
     new Map(callSession.members.map((member) => [member.identity, member.user_id]))

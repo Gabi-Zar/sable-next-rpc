@@ -19,7 +19,7 @@ import type {
 import { decodeCallKey, idleTransportState, ignoreError, ScreenAudioError } from './call-transport';
 import { acquireCallOwner, type CallOwnerLease } from './call-owner';
 import type { LivekitTransport } from './livekit-transport';
-import { createNativeTransport } from './native-transport';
+import { createNativeTransport, type NativeTransport } from './native-transport';
 import { hasNativeCalls } from '#lib/platform/calls.js';
 import { commandErrorCode } from './command-error';
 import { CallTelemetry } from './call-telemetry';
@@ -200,6 +200,12 @@ export class CallSession {
 
   get remoteVideo(): CallRemoteVideoOverlay | undefined {
     return this.#media?.capabilities.remoteVideo;
+  }
+
+  get nativeCallId(): string | undefined {
+    return this.#media && 'callId' in this.#media
+      ? (this.#media as NativeTransport).callId
+      : undefined;
   }
 
   get audioRoutes(): CallTransportCapabilities['audioRoutes'] {

@@ -169,6 +169,21 @@ test('an unencrypted call connects without waiting for a key', async () => {
   expect(transport.connect).toHaveBeenCalledOnce();
 });
 
+test('exposes the native call id only for a native transport', async () => {
+  const { client, transport } = harness();
+  const web = new CallSession(client, { createTransport: () => transport });
+  await web.join('!room:example.org', { microphone: true, camera: false });
+  expect(web.nativeCallId).toBeUndefined();
+  await web.leave();
+
+  resetCallOwner();
+  const native = new CallSession(client, {
+    createTransport: () => Object.assign(transport, { callId: '7' }),
+  });
+  await native.join('!room:example.org', { microphone: true, camera: false });
+  expect(native.nativeCallId).toBe('7');
+});
+
 test('a call the account cannot publish to is joined listen-only', async () => {
   const { client, transport } = harness({ canPublish: false });
   const session = new CallSession(client, { createTransport: () => transport });
