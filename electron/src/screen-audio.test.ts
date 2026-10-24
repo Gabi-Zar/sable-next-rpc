@@ -78,6 +78,7 @@ test('starts muted and ignores unmute after stopping', async () => {
       { 'media.class': 'Stream/Input/Audio' },
       { 'application.name': 'Spotify' },
     ],
+    only_speakers: false,
     workaround: [],
   });
   expect(native.unmute).not.toHaveBeenCalled();
@@ -109,6 +110,7 @@ test('uses Audiofox names for system exclusions and rejects malformed legacy sou
       { 'node.name': 'music' },
     ],
     mute: true,
+    only_speakers: false,
     workaround: [],
   });
   expect(() => audio.start({ kind: 'system', exclude: ['pipewire:{}'] })).toThrow(

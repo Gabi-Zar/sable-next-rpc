@@ -14,7 +14,12 @@ type Selection =
 type Node = Partial<Record<string, string>>;
 
 interface PatchBay {
-  link(data: { exclude?: Node[]; mute?: boolean; workaround?: Node[] }): boolean;
+  link(data: {
+    exclude?: Node[];
+    mute?: boolean;
+    only_speakers?: boolean;
+    workaround?: Node[];
+  }): boolean;
   unmute(): void;
   unlink(): void;
 }
@@ -108,6 +113,7 @@ export function start(value: unknown): string {
   linked = bay.link({
     exclude: [...exclude, ...nodesFor(selection.exclude)],
     mute: true,
+    only_speakers: false,
     workaround,
   });
   if (!linked) {
