@@ -125,7 +125,7 @@
     "yesterday": "Вчора",
     "viewSource": "Переглянути джерело",
     "sortNameDesc": "Від Я до А",
-    "userIdFormatHint": "Ідентифікатор облікового запису виглядає як @someone:server",
+    "userIdFormatHint": "Ідентифікатор облікового запису виглядає як @someone:server.",
     "addAccount": "Додати обліковий запис"
   },
   "nav": {
