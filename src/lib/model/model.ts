@@ -50,11 +50,13 @@ export type ArgumentDrafts = Record<string, ArgumentDraft>;
 let loading: Promise<unknown> | null = null;
 
 /** Every call below needs this to have settled once; a failed load is retried. */
-export function loadModel(): Promise<unknown> {
-  const pending = (loading ??= loadWasm().catch((error: unknown) => {
-    loading = null;
-    throw error;
-  }));
+export function loadModel(source?: Promise<Response>): Promise<unknown> {
+  const pending = (loading ??= loadWasm(source && { module_or_path: source }).catch(
+    (error: unknown) => {
+      loading = null;
+      throw error;
+    }
+  ));
   return pending;
 }
 

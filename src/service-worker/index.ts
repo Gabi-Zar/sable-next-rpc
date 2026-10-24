@@ -38,10 +38,36 @@ import {
   settlePushActivation,
 } from '#lib/notifications/room-names.js';
 import { loadModel } from '#lib/model/model.js';
+import modelWasm from '#src/generated/wasm/sable_model_bg.wasm?url';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
 
 const worker = globalThis.self as unknown as ServiceWorkerGlobalScope;
+
+// A worker from an older deploy must not depend on assets the next deploy removed.
+const MODEL_CACHE = `sable-model-${version}`;
+
+worker.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(MODEL_CACHE).then((cache) => cache.add(modelWasm)));
+});
+
+worker.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((names) =>
+        Promise.all(
+          names
+            .filter((name) => name.startsWith('sable-model-') && name !== MODEL_CACHE)
+            .map((name) => caches.delete(name))
+        )
+      )
+  );
+});
+
+async function cachedModel(): Promise<Response> {
+  return (await caches.match(modelWasm, { cacheName: MODEL_CACHE })) ?? fetch(modelWasm);
+}
 
 worker.addEventListener('error', (event) => {
   void reportWorkerError('error', event.error ?? new Error(event.message)).catch(
@@ -61,7 +87,7 @@ worker.addEventListener('push', (event) => {
   event.waitUntil(
     watchWorkerOperation(
       'push',
-      loadModel().then(() => receive(raw))
+      loadModel(cachedModel()).then(() => receive(raw))
     ).catch(showFallback)
   );
 });
