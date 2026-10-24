@@ -126,6 +126,7 @@ describe('isExpectedCoreFailure', () => {
       'ERROR sable_core::errors: the server returned an error: [503] <non-json bytes> log_id="e1" context="room_members"',
       'ERROR sable_core::errors: the server returned an error: [400 / M_UNKNOWN] Failed to return /publicRooms: tcp connect error context="public_rooms"',
       'ERROR sable_core::errors: The store is closed log_id="e15" context="paginate"',
+      'ERROR sending_task{}:preshare_room_key{}: matrix_sdk_crypto::session_manager::sessions: Tried to create new Olm sessions, but the signed one-time key was missing for some devices',
     ]) {
       expect(isExpectedCoreFailure(line)).toBe(true);
     }

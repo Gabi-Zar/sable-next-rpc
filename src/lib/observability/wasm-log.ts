@@ -46,7 +46,8 @@ export function isExpectedCoreFailure(line: string): boolean {
     SERVER_UNAVAILABLE.test(line) ||
     /invalid_grant|refresh token was rejected/.test(line) ||
     line.includes('Failed to return /publicRooms') ||
-    line.includes('The store is closed')
+    line.includes('The store is closed') ||
+    line.includes('the signed one-time key was missing')
   );
 }
 
