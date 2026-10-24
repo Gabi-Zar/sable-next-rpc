@@ -1,0 +1,471 @@
+//! `GET /_matrix/client/*/profile/{userId}/{key_name}`
+//!
+//! Get a field in the profile of the user.
+
+pub mod v3 {
+    //! `/v3/` ([spec])
+    //!
+    //! Although this endpoint has a similar format to [`get_avatar_url`] and [`get_display_name`],
+    //! it will only work with homeservers advertising support for the proper unstable feature or
+    //! a version compatible with Matrix 1.16.
+    //!
+    //! [spec]: https://spec.matrix.org/v1.19/client-server-api/#get_matrixclientv3profileuseridkeyname
+    //! [`get_avatar_url`]: crate::profile::get_avatar_url
+    //! [`get_display_name`]: crate::profile::get_display_name
+
+    use std::marker::PhantomData;
+
+    #[cfg(feature = "client")]
+    use ruma_common::api::EmptyBody;
+    use ruma_common::{
+        OwnedUserId,
+        api::{Metadata, auth_scheme::NoAccessToken, error::Error, path_builder::VersionHistory},
+        metadata,
+        profile::{ProfileFieldName, ProfileFieldValue, StaticProfileField},
+    };
+
+    metadata! {
+        method: GET,
+        rate_limited: false,
+        authentication: NoAccessToken,
+        // History valid for fields that existed in Matrix 1.0, i.e. `displayname` and `avatar_url`.
+        history: {
+            unstable("uk.tcpip.msc4133") => "/_matrix/client/unstable/uk.tcpip.msc4133/profile/{user_id}/{field}",
+            1.0 => "/_matrix/client/r0/profile/{user_id}/{field}",
+            1.1 => "/_matrix/client/v3/profile/{user_id}/{field}",
+        }
+    }
+
+    /// Request type for the `get_profile_field` endpoint.
+    #[derive(Clone, Debug)]
+    #[cfg_attr(not(ruma_unstable_exhaustive_types), non_exhaustive)]
+    pub struct Request {
+        /// The user whose profile will be fetched.
+        pub user_id: OwnedUserId,
+
+        /// The profile field to get.
+        pub field: ProfileFieldName,
+    }
+
+    impl Request {
+        /// Creates a new `Request` with the given user ID and field.
+        pub fn new(user_id: OwnedUserId, field: ProfileFieldName) -> Self {
+            Self { user_id, field }
+        }
+
+        /// Creates a new request with the given user ID and statically-known field.
+        pub fn new_static<F: StaticProfileField>(user_id: OwnedUserId) -> RequestStatic<F> {
+            RequestStatic::new(user_id)
+        }
+    }
+
+    #[cfg(feature = "client")]
+    impl ruma_common::api::OutgoingRequest for Request {
+        type Body = EmptyBody;
+        type EndpointError = Error;
+        type IncomingResponse = Response;
+
+        fn try_into_http_request_inner(
+            self,
+            base_url: &str,
+            considering: std::borrow::Cow<'_, ruma_common::api::SupportedVersions>,
+        ) -> Result<http::Request<EmptyBody>, ruma_common::api::error::IntoHttpError> {
+            use ruma_common::api::path_builder::PathBuilder;
+
+            use crate::profile::field_existed_before_extended_profiles;
+
+            let Self { user_id, field } = self;
+
+            let url = if field_existed_before_extended_profiles(&field) {
+                Self::make_endpoint_url(considering, base_url, &[&user_id, &field], "")?
+            } else {
+                crate::profile::EXTENDED_PROFILE_FIELD_HISTORY.make_endpoint_url(
+                    considering,
+                    base_url,
+                    &[&user_id, &field],
+                    "",
+                )?
+            };
+
+            let http_request =
+                http::Request::builder().method(Self::METHOD).uri(url).body(EmptyBody)?;
+
+            Ok(http_request)
+        }
+    }
+
+    #[cfg(feature = "server")]
+    impl ruma_common::api::IncomingRequest for Request {
+        type EndpointError = Error;
+        type OutgoingResponse = Response;
+
+        fn try_from_http_request_inner(
+            _request: http::Request<&[u8]>,
+            path_args: &[&str],
+        ) -> Result<Self, ruma_common::api::error::DeserializationError> {
+            let (user_id, field) =
+                serde::Deserialize::deserialize(serde::de::value::SeqDeserializer::<
+                    _,
+                    serde::de::value::Error,
+                >::new(path_args.iter().copied()))?;
+
+            Ok(Self { user_id, field })
+        }
+    }
+
+    /// Request type for the `get_profile_field` endpoint, using a statically-known field.
+    #[derive(Debug)]
+    #[cfg_attr(not(ruma_unstable_exhaustive_types), non_exhaustive)]
+    pub struct RequestStatic<F: StaticProfileField> {
+        /// The user whose profile will be fetched.
+        pub user_id: OwnedUserId,
+
+        /// The profile field to get.
+        field: PhantomData<F>,
+    }
+
+    impl<F: StaticProfileField> RequestStatic<F> {
+        /// Creates a new request with the given user ID.
+        pub fn new(user_id: OwnedUserId) -> Self {
+            Self { user_id, field: PhantomData }
+        }
+    }
+
+    impl<F: StaticProfileField> Clone for RequestStatic<F> {
+        fn clone(&self) -> Self {
+            Self { user_id: self.user_id.clone(), field: self.field }
+        }
+    }
+
+    impl<F: StaticProfileField> Metadata for RequestStatic<F> {
+        const METHOD: http::Method = Request::METHOD;
+        const RATE_LIMITED: bool = Request::RATE_LIMITED;
+        type Authentication = <Request as Metadata>::Authentication;
+        type PathBuilder = <Request as Metadata>::PathBuilder;
+        const PATH_BUILDER: VersionHistory = Request::PATH_BUILDER;
+    }
+
+    #[cfg(feature = "client")]
+    impl<F: StaticProfileField> ruma_common::api::OutgoingRequest for RequestStatic<F> {
+        type Body = EmptyBody;
+        type EndpointError = Error;
+        type IncomingResponse = ResponseStatic<F>;
+
+        fn try_into_http_request_inner(
+            self,
+            base_url: &str,
+            considering: std::borrow::Cow<'_, ruma_common::api::SupportedVersions>,
+        ) -> Result<http::Request<EmptyBody>, ruma_common::api::error::IntoHttpError> {
+            Request::new(self.user_id, F::NAME.into())
+                .try_into_http_request_inner(base_url, considering)
+        }
+    }
+
+    /// Response type for the `get_profile_field` endpoint.
+    #[derive(Debug, Clone, Default)]
+    #[cfg_attr(not(ruma_unstable_exhaustive_types), non_exhaustive)]
+    pub struct Response {
+        /// The value of the profile field.
+        pub value: Option<ProfileFieldValue>,
+    }
+
+    impl Response {
+        /// Creates a `Response` with the given value.
+        pub fn new(value: ProfileFieldValue) -> Self {
+            Self { value: Some(value) }
+        }
+    }
+
+    #[doc(hidden)]
+    #[derive(ruma_common::serde::_FakeDeriveSerde)]
+    #[cfg_attr(feature = "server", derive(ruma_common::api::OutgoingBodyJson))]
+    #[serde(transparent)]
+    pub struct ResponseBody(Option<ProfileFieldValue>);
+
+    #[cfg(feature = "server")]
+    impl serde::Serialize for ResponseBody {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            use ruma_common::serde::JsonObject;
+
+            if let Some(value) = &self.0 {
+                value.serialize(serializer)
+            } else {
+                JsonObject::new().serialize(serializer)
+            }
+        }
+    }
+
+    #[cfg(feature = "client")]
+    impl<'de> serde::Deserialize<'de> for ResponseBody {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            use ruma_common::profile::ProfileFieldValueVisitor;
+
+            let value = deserializer.deserialize_map(ProfileFieldValueVisitor::new(None))?;
+
+            Ok(Self(value))
+        }
+    }
+
+    #[cfg(feature = "client")]
+    impl ruma_common::api::IncomingResponse for Response {
+        type EndpointError = Error;
+
+        fn try_from_http_response_inner(
+            response: http::Response<&[u8]>,
+        ) -> Result<Self, ruma_common::api::error::DeserializationError> {
+            let ResponseBody(value) = serde_json::from_slice(response.body())?;
+            Ok(Self { value })
+        }
+    }
+
+    #[cfg(feature = "server")]
+    impl ruma_common::api::OutgoingResponse for Response {
+        type Body = ResponseBody;
+
+        fn try_into_http_response_inner(
+            self,
+        ) -> Result<http::Response<Self::Body>, ruma_common::api::error::IntoHttpError> {
+            let Self { value } = self;
+
+            Ok(http::Response::builder().status(http::StatusCode::OK).body(ResponseBody(value))?)
+        }
+    }
+
+    /// Response type for the `get_profile_field` endpoint, using a statically-known field.
+    #[derive(Debug)]
+    #[cfg_attr(not(ruma_unstable_exhaustive_types), non_exhaustive)]
+    pub struct ResponseStatic<F: StaticProfileField> {
+        /// The value of the profile field, if it is set.
+        pub value: Option<F::Value>,
+    }
+
+    impl<F: StaticProfileField> Clone for ResponseStatic<F>
+    where
+        F::Value: Clone,
+    {
+        fn clone(&self) -> Self {
+            Self { value: self.value.clone() }
+        }
+    }
+
+    #[cfg(feature = "client")]
+    impl<F: StaticProfileField> ruma_common::api::IncomingResponse for ResponseStatic<F> {
+        type EndpointError = Error;
+
+        fn try_from_http_response_inner(
+            response: http::Response<&[u8]>,
+        ) -> Result<Self, ruma_common::api::error::DeserializationError> {
+            use serde::de::Deserializer;
+
+            use crate::profile::profile_field_serde::StaticProfileFieldVisitor;
+
+            let value = serde_json::Deserializer::from_slice(response.into_body())
+                .deserialize_map(StaticProfileFieldVisitor(PhantomData::<F>))?;
+
+            Ok(Self { value })
+        }
+    }
+}
+
+#[cfg(all(test, feature = "client"))]
+mod tests_client {
+    use ruma_common::{
+        owned_mxc_uri, owned_user_id,
+        profile::{ProfileFieldName, ProfileFieldValue},
+    };
+    use serde_json::{json, to_vec as to_json_vec};
+
+    use super::v3::{Request, RequestStatic, Response};
+
+    #[test]
+    fn serialize_request() {
+        use std::borrow::Cow;
+
+        use ruma_common::api::{
+            OutgoingRequestExt as _, SupportedVersions, auth_scheme::SendAccessToken,
+        };
+
+        // Profile field that existed in Matrix 1.0.
+        let avatar_url_request =
+            Request::new(owned_user_id!("@alice:localhost"), ProfileFieldName::AvatarUrl);
+
+        // Matrix 1.11
+        let http_request = avatar_url_request
+            .clone()
+            .try_into_http_request::<Vec<u8>>(
+                "http://localhost/",
+                SendAccessToken::None,
+                Cow::Owned(SupportedVersions::from_parts(
+                    &["v1.11".to_owned()],
+                    &Default::default(),
+                )),
+            )
+            .unwrap();
+        assert_eq!(
+            http_request.uri().path(),
+            "/_matrix/client/v3/profile/@alice:localhost/avatar_url"
+        );
+
+        // Matrix 1.16
+        let http_request = avatar_url_request
+            .try_into_http_request::<Vec<u8>>(
+                "http://localhost/",
+                SendAccessToken::None,
+                Cow::Owned(SupportedVersions::from_parts(
+                    &["v1.16".to_owned()],
+                    &Default::default(),
+                )),
+            )
+            .unwrap();
+        assert_eq!(
+            http_request.uri().path(),
+            "/_matrix/client/v3/profile/@alice:localhost/avatar_url"
+        );
+
+        // Profile field that didn't exist in Matrix 1.0.
+        let custom_field_request =
+            Request::new(owned_user_id!("@alice:localhost"), "dev.ruma.custom_field".into());
+
+        // Matrix 1.11
+        let http_request = custom_field_request
+            .clone()
+            .try_into_http_request::<Vec<u8>>(
+                "http://localhost/",
+                SendAccessToken::None,
+                Cow::Owned(SupportedVersions::from_parts(
+                    &["v1.11".to_owned()],
+                    &Default::default(),
+                )),
+            )
+            .unwrap();
+        assert_eq!(
+            http_request.uri().path(),
+            "/_matrix/client/unstable/uk.tcpip.msc4133/profile/@alice:localhost/dev.ruma.custom_field"
+        );
+
+        // Matrix 1.16
+        let http_request = custom_field_request
+            .try_into_http_request::<Vec<u8>>(
+                "http://localhost/",
+                SendAccessToken::None,
+                Cow::Owned(SupportedVersions::from_parts(
+                    &["v1.16".to_owned()],
+                    &Default::default(),
+                )),
+            )
+            .unwrap();
+        assert_eq!(
+            http_request.uri().path(),
+            "/_matrix/client/v3/profile/@alice:localhost/dev.ruma.custom_field"
+        );
+    }
+
+    #[test]
+    fn deserialize_response() {
+        use ruma_common::api::IncomingResponseExt as _;
+
+        let body = json!({
+            "custom_field": "value",
+        })
+        .to_string();
+
+        let response =
+            Response::try_from_http_response(http::Response::new(body.as_bytes())).unwrap();
+        let value = response.value.unwrap();
+        assert_eq!(value.field_name().as_str(), "custom_field");
+        assert_eq!(value.value().as_str().unwrap(), "value");
+
+        let response =
+            Response::try_from_http_response(http::Response::new(b"{}".as_slice())).unwrap();
+        assert!(response.value.is_none());
+    }
+
+    /// Mock a response from the homeserver to a request of type `R` and return the given `value` as
+    /// a typed response.
+    fn get_static_response<R: ruma_common::api::OutgoingRequest>(
+        value: Option<ProfileFieldValue>,
+    ) -> Result<R::IncomingResponse, ruma_common::api::error::FromHttpResponseError<R::EndpointError>>
+    {
+        use ruma_common::api::IncomingResponseExt as _;
+
+        let body =
+            value.map(|value| to_json_vec(&value).unwrap()).unwrap_or_else(|| b"{}".to_vec());
+        R::IncomingResponse::try_from_http_response(http::Response::new(body.as_slice()))
+    }
+
+    #[test]
+    fn static_request_and_valid_response() {
+        use crate::profile::AvatarUrl;
+
+        let response = get_static_response::<RequestStatic<AvatarUrl>>(Some(
+            ProfileFieldValue::AvatarUrl(owned_mxc_uri!("mxc://localhost/abcdef")),
+        ))
+        .unwrap();
+        assert_eq!(response.value.unwrap(), "mxc://localhost/abcdef");
+
+        let response = get_static_response::<RequestStatic<AvatarUrl>>(None).unwrap();
+        assert!(response.value.is_none());
+    }
+
+    #[test]
+    fn static_request_and_invalid_response() {
+        use crate::profile::AvatarUrl;
+
+        get_static_response::<RequestStatic<AvatarUrl>>(Some(ProfileFieldValue::DisplayName(
+            "Alice".to_owned(),
+        )))
+        .unwrap_err();
+    }
+}
+
+#[cfg(all(test, feature = "server"))]
+mod tests_server {
+    use ruma_common::{
+        owned_mxc_uri,
+        profile::{ProfileFieldName, ProfileFieldValue},
+    };
+    use serde_json::{Value as JsonValue, from_slice as from_json_slice, json};
+
+    use super::v3::{Request, Response};
+
+    #[test]
+    fn deserialize_request() {
+        use ruma_common::api::IncomingRequestExt as _;
+
+        let request = Request::try_from_http_request(
+            http::Request::get(
+                "http://localhost/_matrix/client/v3/profile/@alice:localhost/displayname",
+            )
+            .body(&[] as &[u8])
+            .unwrap(),
+            &["@alice:localhost", "displayname"],
+        )
+        .unwrap();
+
+        assert_eq!(request.user_id, "@alice:localhost");
+        assert_eq!(request.field, ProfileFieldName::DisplayName);
+    }
+
+    #[test]
+    fn serialize_response() {
+        use ruma_common::api::OutgoingResponseExt;
+
+        let response =
+            Response::new(ProfileFieldValue::AvatarUrl(owned_mxc_uri!("mxc://localhost/abcdef")));
+
+        let http_response = response.try_into_http_response::<Vec<u8>>().unwrap();
+
+        assert_eq!(
+            from_json_slice::<JsonValue>(http_response.body().as_ref()).unwrap(),
+            json!({
+                "avatar_url": "mxc://localhost/abcdef",
+            })
+        );
+    }
+}

@@ -1,0 +1,178 @@
+//! `PUT /_matrix/client/*/rooms/{roomId}/state/{eventType}/{txnId}`
+//!
+//! Send a delayed state event (a scheduled state event) to a room.
+//!
+//! This endpoint implements a previous iteration of MSC4140 at commit [`3ee73ab`].
+//! At the time of writing, this matches the current implementation of Synapse but the latest
+//! iteration of the MSC uses the `send_delayed_event` endpoint instead.
+//!
+//! [`3ee73ab`]: https://github.com/matrix-org/matrix-spec-proposals/blob/3ee73abe5f81252b00877cfb5db941ee9aa6c18d/proposals/4140-delayed-events-futures.md
+
+pub mod unstable {
+    //! `msc4140` ([MSC])
+    //!
+    //! [MSC]: https://github.com/matrix-org/matrix-spec-proposals/pull/4140
+
+    use ruma_common::{
+        OwnedRoomId,
+        api::{auth_scheme::AccessToken, request, response},
+        metadata,
+        serde::Raw,
+    };
+    use ruma_events::{AnyStateEventContent, StateEventContent, StateEventType};
+    use serde_json::value::to_raw_value as to_raw_json_value;
+
+    use crate::delayed_events::DelayParameters;
+
+    metadata! {
+        method: PUT,
+        rate_limited: false,
+        authentication: AccessToken,
+        history: {
+            // We use the unstable prefix for the delay query parameter but the stable v3 endpoint.
+            unstable => "/_matrix/client/v3/rooms/{room_id}/state/{event_type}/{state_key}",
+        }
+    }
+
+    /// Request type for the [`delayed_state_event`](crate::delayed_events::delayed_state_event)
+    /// endpoint.
+    #[request]
+    pub struct Request {
+        /// The room to send the event to.
+        #[ruma_api(path)]
+        pub room_id: OwnedRoomId,
+
+        /// The type of event to send.
+        #[ruma_api(path)]
+        pub event_type: StateEventType,
+
+        /// The state_key for the state to send.
+        #[ruma_api(path)]
+        pub state_key: String,
+
+        /// Additional parameters to describe sending a delayed event.
+        ///
+        /// Only three combinations for `timeout` and `delay_parent_id` are possible.
+        /// The enum [`DelayParameters`] enforces this.
+        #[ruma_api(query_all)]
+        pub delay_parameters: DelayParameters,
+
+        /// The event content to send.
+        #[ruma_api(body)]
+        pub body: Raw<AnyStateEventContent>,
+    }
+
+    /// Response type for the [`delayed_state_event`](crate::delayed_events::delayed_state_event)
+    /// endpoint.
+    #[response]
+    pub struct Response {
+        /// The `delay_id` generated for this delayed event. Used to interact with delayed events.
+        pub delay_id: String,
+    }
+
+    impl Request {
+        /// Creates a new `Request` with the given room id, state_key delay_parameters and
+        /// event content.
+        ///
+        /// # Errors
+        ///
+        /// Since `Request` stores the request body in serialized form, this function can fail if
+        /// `T`s [`::serde::Serialize`] implementation can fail.
+        pub fn new<T>(
+            room_id: OwnedRoomId,
+            state_key: String,
+            delay_parameters: DelayParameters,
+            content: &T,
+        ) -> serde_json::Result<Self>
+        where
+            T: StateEventContent,
+        {
+            Ok(Self {
+                room_id,
+                state_key,
+                event_type: content.event_type(),
+                delay_parameters,
+                body: Raw::from_json(to_raw_json_value(content)?),
+            })
+        }
+
+        /// Creates a new `Request` with the given room id, event type, state key,
+        /// delay parameters and raw event content.
+        pub fn new_raw(
+            room_id: OwnedRoomId,
+            state_key: String,
+            event_type: StateEventType,
+            delay_parameters: DelayParameters,
+            body: Raw<AnyStateEventContent>,
+        ) -> Self {
+            Self { room_id, event_type, state_key, body, delay_parameters }
+        }
+    }
+
+    impl Response {
+        /// Creates a new `Response` with the tokens required to control the delayed event using the
+        /// [`crate::delayed_events::update_delayed_event::unstable_v1::Request`] request.
+        pub fn new(delay_id: String) -> Self {
+            Self { delay_id }
+        }
+    }
+
+    #[cfg(all(test, feature = "client"))]
+    mod tests {
+        use std::borrow::Cow;
+
+        use ruma_common::{
+            api::{
+                MatrixVersion, OutgoingRequestExt as _, SupportedVersions,
+                auth_scheme::SendAccessToken,
+            },
+            owned_room_id,
+            serde::Raw,
+        };
+        use serde_json::{Value as JsonValue, json};
+        use web_time::Duration;
+
+        use super::Request;
+        use crate::delayed_events::DelayParameters;
+
+        fn create_delayed_event_request(
+            delay_parameters: DelayParameters,
+        ) -> (http::request::Parts, Vec<u8>) {
+            let supported = SupportedVersions {
+                versions: [MatrixVersion::V1_1].into(),
+                features: Default::default(),
+            };
+
+            Request::new_raw(
+                owned_room_id!("!roomid:example.org"),
+                "@userAsStateKey:example.org".to_owned(),
+                "com.example.custom_state".into(),
+                delay_parameters,
+                Raw::new(&json!({ "key": "value" })).unwrap().cast_unchecked(),
+            )
+            .try_into_http_request(
+                "https://homeserver.tld",
+                SendAccessToken::IfRequired("auth_tok"),
+                Cow::Owned(supported),
+            )
+            .unwrap()
+            .into_parts()
+        }
+
+        #[test]
+        fn serialize_delayed_state_request() {
+            let (parts, body) = create_delayed_event_request(DelayParameters::Timeout {
+                timeout: Duration::from_millis(1_234_321),
+            });
+            assert_eq!(
+                "https://homeserver.tld/_matrix/client/v3/rooms/!roomid:example.org/state/com.example.custom_state/@userAsStateKey:example.org?org.matrix.msc4140.delay=1234321",
+                parts.uri.to_string()
+            );
+            assert_eq!("PUT", parts.method.to_string());
+            assert_eq!(
+                json!({ "key": "value" }),
+                serde_json::from_str::<JsonValue>(std::str::from_utf8(&body).unwrap()).unwrap()
+            );
+        }
+    }
+}

@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/*", "plugins/*", "src-tauri"]
-exclude = ["vendor/tauri-plugin-edge-to-edge", "vendor/wry"]
+exclude = ["vendor/ruma-client-api", "vendor/tauri-plugin-edge-to-edge", "vendor/wry"]
 # sable-wasm only compiles for wasm32 - its session store holds JS functions,
 # which are not Send. Build it with `-p sable-wasm --target wasm32-unknown-unknown`.
 default-members = ["crates/sable-core", "src-tauri"]
@@ -8,7 +8,7 @@ resolver = "3"
 
 [patch."https://github.com/ruma/ruma"]
 ruma = "0.17.1"
-ruma-client-api = "0.25.1"
+ruma-client-api = { path = "vendor/ruma-client-api" }
 ruma-common = "0.20.1"
 ruma-events = "0.35.1"
 ruma-federation-api = "0.16.1"
@@ -18,6 +18,7 @@ ruma-macros = "0.20.1"
 ruma-signatures = "0.22.1"
 
 [patch.crates-io]
+ruma-client-api = { path = "vendor/ruma-client-api" }
 wry = { path = "vendor/wry" }
 
 [patch."https://github.com/SableClient/tauri-plugin-edge-to-edge.git"]

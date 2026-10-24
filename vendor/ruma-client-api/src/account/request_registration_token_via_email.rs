@@ -1,0 +1,86 @@
+//! `POST /_matrix/client/*/register/email/requestToken`
+//!
+//! Request a registration token with a 3rd party email.
+
+pub mod v3 {
+    //! `/v3/` ([spec])
+    //!
+    //! [spec]: https://spec.matrix.org/v1.19/client-server-api/#post_matrixclientv3registeremailrequesttoken
+
+    use js_int::UInt;
+    use ruma_common::{
+        OwnedClientSecret, OwnedSessionId,
+        api::{auth_scheme::NoAccessToken, request, response},
+        metadata,
+    };
+
+    use crate::account::IdentityServerInfo;
+
+    metadata! {
+        method: POST,
+        rate_limited: false,
+        authentication: NoAccessToken,
+        history: {
+            1.0 => "/_matrix/client/r0/register/email/requestToken",
+            1.1 => "/_matrix/client/v3/register/email/requestToken",
+        }
+    }
+
+    /// Request type for the `request_registration_token_via_email` endpoint.
+    #[request]
+    pub struct Request {
+        /// Client-generated secret string used to protect this session.
+        pub client_secret: OwnedClientSecret,
+
+        /// The email address.
+        pub email: String,
+
+        /// Used to distinguish protocol level retries from requests to re-send the email.
+        pub send_attempt: UInt,
+
+        /// Return URL for identity server to redirect the client back to.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub next_link: Option<String>,
+
+        /// Optional identity server hostname and access token.
+        #[serde(flatten, skip_serializing_if = "Option::is_none")]
+        #[deprecated = "Since Matrix Client-Server API r0.6.0."]
+        pub identity_server_info: Option<IdentityServerInfo>,
+    }
+
+    /// Response type for the `request_registration_token_via_email` endpoint.
+    #[response]
+    pub struct Response {
+        /// The session identifier given by the identity server.
+        pub sid: OwnedSessionId,
+
+        /// URL to submit validation token to.
+        ///
+        /// If omitted, verification happens without client.
+        ///
+        /// If you activate the `compat-empty-string-null` feature, this field being an empty
+        /// string in JSON will result in `None` here during deserialization.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(
+            feature = "compat-empty-string-null",
+            serde(default, deserialize_with = "ruma_common::serde::empty_string_as_none")
+        )]
+        pub submit_url: Option<String>,
+    }
+
+    impl Request {
+        /// Creates a new `Request` with the given client secret, email address and send-attempt
+        /// counter.
+        #[allow(deprecated)]
+        pub fn new(client_secret: OwnedClientSecret, email: String, send_attempt: UInt) -> Self {
+            Self { client_secret, email, send_attempt, next_link: None, identity_server_info: None }
+        }
+    }
+
+    impl Response {
+        /// Creates a new `Response` with the given session identifier.
+        pub fn new(sid: OwnedSessionId) -> Self {
+            Self { sid, submit_url: None }
+        }
+    }
+}
