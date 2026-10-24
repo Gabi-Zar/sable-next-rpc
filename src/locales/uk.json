@@ -105,7 +105,8 @@
     "verify": "Перевірити",
     "yesterday": "Вчора",
     "viewSource": "Переглянути джерело",
-    "sortNameDesc": "Від Я до А"
+    "sortNameDesc": "Від Я до А",
+    "userIdFormatHint": ""
   },
   "nav": {
     "newChat": "Новий чат",
