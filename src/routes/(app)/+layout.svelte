@@ -530,7 +530,7 @@
 
     const message = preferences.presenceStatusMessage.trim();
     const presence = preferences.sendPresence ? preferences.presence : 'offline';
-    const state = presence === 'online' && !active ? 'unavailable' : presence;
+    const state = presence === 'online' && (!active || idle) ? 'unavailable' : presence;
     const status = preferences.sendPresence && message ? message : null;
     const timer = setTimeout(() => {
       void core.rpc.account
@@ -889,6 +889,7 @@
 
   let documentVisible = $derived(windowActivity.visible);
   let active = $derived(windowActivity.active);
+  let idle = $derived(windowActivity.idle);
 
   $effect(() => {
     roomList.setPresentationActive(active);

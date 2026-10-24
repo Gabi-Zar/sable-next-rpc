@@ -73,6 +73,43 @@ const subscribe = createSubscriber((notify) => {
   };
 });
 
+const IDLE_AFTER_MS = 5 * 60_000;
+let idle = false;
+let lastInputAt = 0;
+
+const subscribeIdle = createSubscriber((notify) => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const check = (): void => {
+    const quiet = performance.now() - lastInputAt;
+    if (quiet < IDLE_AFTER_MS) {
+      timer = setTimeout(check, IDLE_AFTER_MS - quiet);
+      return;
+    }
+    idle = true;
+    notify();
+  };
+  const input = (): void => {
+    lastInputAt = performance.now();
+    if (!idle) return;
+    idle = false;
+    notify();
+    timer = setTimeout(check, IDLE_AFTER_MS);
+  };
+  lastInputAt = performance.now();
+  timer = setTimeout(check, IDLE_AFTER_MS);
+  const offs = [
+    on(window, 'pointermove', input, { passive: true }),
+    on(window, 'pointerdown', input, { passive: true }),
+    on(window, 'keydown', input, { passive: true }),
+    on(window, 'wheel', input, { passive: true }),
+  ];
+  return () => {
+    clearTimeout(timer);
+    idle = false;
+    for (const off of offs) off();
+  };
+});
+
 export const windowActivity = {
   get visible(): boolean {
     subscribe();
@@ -82,6 +119,11 @@ export const windowActivity = {
   get active(): boolean {
     subscribe();
     return isActive();
+  },
+
+  get idle(): boolean {
+    subscribeIdle();
+    return idle;
   },
 
   get recentlyResumed(): boolean {

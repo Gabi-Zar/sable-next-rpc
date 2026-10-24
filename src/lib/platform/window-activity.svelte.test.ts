@@ -135,3 +135,29 @@ test('stops listening once nothing reads it', () => {
   ]);
   expect(windowActivity.active).toBe(false);
 });
+
+test('goes idle after five minutes without input and wakes on input', () => {
+  vi.useFakeTimers();
+  const seen: boolean[] = [];
+  const stop = $effect.root(() => {
+    $effect(() => {
+      seen.push(windowActivity.idle);
+    });
+  });
+  flushSync();
+
+  vi.advanceTimersByTime(4 * 60_000);
+  window.dispatchEvent(new Event('keydown'));
+  vi.advanceTimersByTime(4 * 60_000);
+  flushSync();
+  expect(seen).toEqual([false]);
+
+  vi.advanceTimersByTime(60_000);
+  flushSync();
+  window.dispatchEvent(new Event('pointermove'));
+  flushSync();
+
+  expect(seen).toEqual([false, true, false]);
+  stop();
+  vi.useRealTimers();
+});
