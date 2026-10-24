@@ -68,17 +68,11 @@ hkdf = "0.13"
 hmac = "0.13"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-reqwest = { version = "0.13", default-features = false, features = ["socks"] }
+reqwest = { version = "0.13", default-features = false, features = ["socks", "gzip"] }
 matrix-sdk = { workspace = true, features = ["bundled-sqlite", "automatic-room-key-forwarding"] }
 tempfile = "3"
 rusqlite = { version = "0.40.2", default-features = false, features = ["backup"] }
 tokio = { workspace = true }
-
-[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-jieba-rs = { version = "=0.10.4", features = ["default-dict"], default-features = false }
-
-[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
-reqwest = { version = "0.13", default-features = false, features = ["gzip"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
@@ -121,6 +115,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wiremock = "0.6"
 bs58 = "0.5"
+jieba-rs = { version = "=0.10.4", features = ["default-dict"], default-features = false }
 
 [lints]
 workspace = true

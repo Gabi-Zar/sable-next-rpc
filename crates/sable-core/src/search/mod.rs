@@ -1,7 +1,6 @@
 mod crawl;
 mod network;
 pub(crate) use network::CrawlNetwork;
-#[cfg(any(target_os = "android", target_os = "ios", test))]
 mod dictionary;
 #[cfg(target_family = "wasm")]
 mod idb;
@@ -2560,7 +2559,6 @@ async fn latest_content(
 impl Core {
     pub(crate) async fn prepare_search_query(&self, query: &str) -> Result<(), RpcError> {
         if tokenize::contains_chinese(query) {
-            #[cfg(any(target_os = "android", target_os = "ios"))]
             dictionary::ensure(&self.store_id)
                 .await
                 .map_err(|_| RpcError::Unavailable)?;
@@ -2569,7 +2567,6 @@ impl Core {
         Ok(())
     }
 
-    #[cfg(any(target_os = "android", target_os = "ios"))]
     fn watch_search_dictionary(self: &Arc<Self>) {
         let core = self.clone();
         self.track_session_task(
@@ -3120,7 +3117,6 @@ impl Core {
 
                 core.watch_search_crawl(&client);
                 core.watch_search_persist(&client);
-                #[cfg(any(target_os = "android", target_os = "ios"))]
                 core.watch_search_dictionary();
 
                 loop {
@@ -3320,6 +3316,7 @@ mod tests {
 
     #[async_test]
     async fn test_chinese_search_survives_restore() {
+        super::tokenize::load_bundled_chinese();
         let room = room_id!("!chinese:localhost").to_owned();
         let document = document(
             "chinese",
@@ -3352,6 +3349,7 @@ mod tests {
 
     #[async_test]
     async fn test_pending_chinese_reindex() {
+        super::tokenize::load_bundled_chinese();
         let room = room_id!("!pending-chinese:localhost").to_owned();
         let mut room_index = super::RoomIndex::new();
         room_index.upsert(document(

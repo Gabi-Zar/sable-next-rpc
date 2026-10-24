@@ -5,9 +5,6 @@ use charabia::{Script, Token, TokenKind, Tokenize};
 use jieba_rs::Jieba;
 use rust_stemmers::{Algorithm, Stemmer};
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-static CHINESE: LazyLock<Jieba> = LazyLock::new(Jieba::new);
-#[cfg(any(target_os = "android", target_os = "ios"))]
 pub(super) static CHINESE: std::sync::OnceLock<Jieba> = std::sync::OnceLock::new();
 
 static ENGLISH: LazyLock<Stemmer> = LazyLock::new(|| Stemmer::create(Algorithm::English));
@@ -20,21 +17,16 @@ static TAMIL: LazyLock<Stemmer> = LazyLock::new(|| Stemmer::create(Algorithm::Ta
 const MAX_TERM_CHARS: usize = 256;
 
 pub(crate) fn tokenize(text: &str) -> Vec<Cow<'static, str>> {
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let dictionary = contains_chinese(text).then(|| &*CHINESE);
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    let dictionary = CHINESE.get();
-    tokenize_with(text, dictionary)
+    tokenize_with(text, CHINESE.get())
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-pub(super) const fn chinese_ready() -> bool {
-    true
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
 pub(super) fn chinese_ready() -> bool {
     CHINESE.get().is_some()
+}
+
+#[cfg(test)]
+pub(super) fn load_bundled_chinese() {
+    CHINESE.get_or_init(Jieba::new);
 }
 
 pub(super) fn contains_chinese(text: &str) -> bool {
@@ -110,6 +102,7 @@ mod tests {
     use super::{MAX_TERM_CHARS, tokenize};
 
     fn terms(text: &str) -> Vec<String> {
+        super::load_bundled_chinese();
         tokenize(text).into_iter().map(Into::into).collect()
     }
 

@@ -1,7 +1,6 @@
-use std::io::Write;
-use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use futures_util::StreamExt as _;
 use jieba_rs::Jieba;
 use sha2::{Digest, Sha256};
 
@@ -13,10 +12,26 @@ const SHA256: &str = "139519822fe8ab9e10d9d07e68ea0451045380aedaf54ecc51e2a28c6b
 const BYTES: usize = 5_071_843;
 const FILE: &str = "jieba-0.10.4.dict.zlib";
 
-#[cfg(any(target_os = "android", target_os = "ios"))]
+#[cfg(not(target_family = "wasm"))]
+type Cache = std::path::PathBuf;
+
+#[cfg(target_family = "wasm")]
+type Cache = &'static str;
+
+#[cfg(not(target_family = "wasm"))]
+fn cache(store_id: &str) -> Cache {
+    std::path::Path::new(store_id)
+        .join("search-dictionaries")
+        .join(FILE)
+}
+
+#[cfg(target_family = "wasm")]
+const fn cache(_store_id: &str) -> Cache {
+    "sable-search-dictionary"
+}
+
 static RETRY: tokio::sync::Mutex<Option<web_time::Instant>> = tokio::sync::Mutex::const_new(None);
 
-#[cfg(any(target_os = "android", target_os = "ios"))]
 pub(super) async fn ensure(store_id: &str) -> Result<(), StoreError> {
     if super::tokenize::chinese_ready() {
         return Ok(());
@@ -31,19 +46,12 @@ pub(super) async fn ensure(store_id: &str) -> Result<(), StoreError> {
         ));
     }
 
+    let cache = cache(store_id);
     let result = async {
         let http = crate::tls::apply(reqwest::Client::builder())
-            .timeout(Duration::from_secs(30))
             .build()
             .map_err(StoreError::backend)?;
-        load(
-            &Path::new(store_id).join("search-dictionaries").join(FILE),
-            &http,
-            URL,
-            SHA256,
-            BYTES,
-        )
-        .await
+        load(&cache, &http, URL, SHA256, BYTES).await
     }
     .await;
 
@@ -81,38 +89,38 @@ fn checksum(bytes: &[u8]) -> String {
 }
 
 async fn load(
-    path: &Path,
+    cache: &Cache,
     http: &reqwest::Client,
     url: &str,
     expected: &str,
     length: usize,
 ) -> Result<Jieba, StoreError> {
-    let cached = {
-        let path = path.to_owned();
+    if let Some(compressed) = read(cache).await {
         let expected = expected.to_owned();
-        tokio::task::spawn_blocking(move || {
-            let compressed = std::fs::read(path).ok()?;
+        let cached = off_thread(move || {
             let bytes =
                 miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(&compressed, length)
                     .ok()?;
             parse(&bytes, &expected, length).ok()
         })
-        .await
-        .map_err(StoreError::backend)?
-    };
-    if let Some(dictionary) = cached {
-        return Ok(dictionary);
+        .await?;
+        if let Some(dictionary) = cached {
+            return Ok(dictionary);
+        }
     }
 
-    let mut response = http
+    let response = http
         .get(url)
+        .timeout(Duration::from_secs(30))
         .send()
         .await
         .map_err(StoreError::backend)?
         .error_for_status()
         .map_err(StoreError::backend)?;
+    let mut stream = response.bytes_stream();
     let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(StoreError::backend)? {
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(StoreError::backend)?;
         if bytes.len().saturating_add(chunk.len()) > length {
             return Err(StoreError::Invalid(
                 "Chinese search dictionary exceeds expected size",
@@ -120,25 +128,80 @@ async fn load(
         }
         bytes.extend_from_slice(&chunk);
     }
-    let path = path.to_owned();
     let expected = expected.to_owned();
-    tokio::task::spawn_blocking(move || save(path, &bytes, &expected, length))
-        .await
-        .map_err(StoreError::backend)?
+    let (dictionary, compressed) = off_thread(move || {
+        parse(&bytes, &expected, length).map(|dictionary| {
+            (
+                dictionary,
+                miniz_oxide::deflate::compress_to_vec_zlib(&bytes, 6),
+            )
+        })
+    })
+    .await??;
+    if let Err(error) = write(cache, compressed).await {
+        tracing::warn!(%error, "caching the Chinese search dictionary failed");
+    }
+    Ok(dictionary)
 }
 
-fn save(path: PathBuf, bytes: &[u8], expected: &str, length: usize) -> Result<Jieba, StoreError> {
-    let dictionary = parse(bytes, expected, length)?;
-    let directory = path
-        .parent()
-        .ok_or(StoreError::Invalid("dictionary path has no parent"))?;
-    std::fs::create_dir_all(directory)?;
-    let mut file = tempfile::NamedTempFile::new_in(directory)?;
-    file.write_all(&miniz_oxide::deflate::compress_to_vec_zlib(bytes, 6))?;
-    file.as_file().sync_all()?;
-    file.persist(path)
-        .map_err(|error| StoreError::Io(error.error))?;
-    Ok(dictionary)
+#[cfg(not(target_family = "wasm"))]
+async fn off_thread<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, StoreError> {
+    tokio::task::spawn_blocking(work)
+        .await
+        .map_err(StoreError::backend)
+}
+
+#[cfg(target_family = "wasm")]
+#[expect(clippy::unused_async, reason = "matches the native signature")]
+async fn off_thread<T>(work: impl FnOnce() -> T) -> Result<T, StoreError> {
+    Ok(work())
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn read(path: &Cache) -> Option<Vec<u8>> {
+    let path = path.clone();
+    tokio::task::spawn_blocking(move || std::fs::read(path).ok())
+        .await
+        .ok()
+        .flatten()
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn write(path: &Cache, compressed: Vec<u8>) -> Result<(), StoreError> {
+    use std::io::Write as _;
+
+    let path = path.clone();
+    off_thread(move || {
+        let directory = path
+            .parent()
+            .ok_or(StoreError::Invalid("dictionary path has no parent"))?;
+        std::fs::create_dir_all(directory)?;
+        let mut file = tempfile::NamedTempFile::new_in(directory)?;
+        file.write_all(&compressed)?;
+        file.as_file().sync_all()?;
+        file.persist(path)
+            .map_err(|error| StoreError::Io(error.error))?;
+        Ok(())
+    })
+    .await?
+}
+
+#[cfg(target_family = "wasm")]
+async fn read(database: &Cache) -> Option<Vec<u8>> {
+    let database = super::idb::open(database).await.ok()?;
+    let bytes = super::idb::get(&database, FILE).await.ok().flatten();
+    database.close();
+    bytes
+}
+
+#[cfg(target_family = "wasm")]
+async fn write(database: &Cache, compressed: Vec<u8>) -> Result<(), StoreError> {
+    let database = super::idb::open(database).await?;
+    let written = super::idb::put(&database, FILE, &compressed).await;
+    database.close();
+    written
 }
 
 #[cfg(test)]

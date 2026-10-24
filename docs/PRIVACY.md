@@ -63,7 +63,7 @@ Submitting a bug report is voluntary, and the app shows what will be sent before
 
 ## Third-party services
 
-On Android and iOS, Sable downloads the Chinese search dictionary from GitHub and saves it for offline use. Messages, search queries, and Matrix credentials are not sent with the download.
+Sable downloads the Chinese search dictionary from GitHub the first time it is needed and saves it for offline use. Messages, search queries, and Matrix credentials are not sent with the download.
 
 Sable uses **Sentry** for crash reporting and performance diagnostics.
 

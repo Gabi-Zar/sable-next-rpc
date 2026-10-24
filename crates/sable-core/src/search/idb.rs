@@ -97,7 +97,7 @@ pub(super) async fn attach(client: &matrix_sdk::Client, store_id: &str) -> Resul
     Ok(())
 }
 
-async fn open(name: &str) -> Result<IdbDatabase, StoreError> {
+pub(super) async fn open(name: &str) -> Result<IdbDatabase, StoreError> {
     let factory: IdbFactory = js_sys::Reflect::get(&js_sys::global(), &"indexedDB".into())
         .map_err(|error| StoreError::Message(failure(&error)))?
         .dyn_into()
