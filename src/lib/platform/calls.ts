@@ -1,6 +1,5 @@
 import type {
   NativeCallCapabilities,
-  StartSystemCallRequest,
   SystemCallAction,
 } from '@sableclient/tauri-plugin-livekit-mobile';
 
@@ -48,24 +47,6 @@ export async function reportIncomingSystemCall(call: IncomingSystemCall): Promis
   } catch {
     return false;
   }
-}
-
-export async function startSystemCall(call: StartSystemCallRequest): Promise<boolean> {
-  const plugin = await loadNativeCalls();
-  if (!plugin) return false;
-  try {
-    await plugin.startSystemCall(call);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function reportSystemCallConnected(uuid: string): Promise<void> {
-  const plugin = await loadNativeCalls();
-  await plugin?.reportSystemCallConnected(uuid).catch((error: unknown) => {
-    console.debug('[sable call] system call not reported connected', error);
-  });
 }
 
 export function systemCallKey(callId: string, uuid: string): string {

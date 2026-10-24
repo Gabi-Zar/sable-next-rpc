@@ -101,6 +101,21 @@ test('the native transport reports our own participant with its camera', async (
   expect(transport?.getState().self?.camera).toMatchObject({ muted: false });
 });
 
+test('the native transport names the system call on connect', async () => {
+  const transport = await createNativeTransport('7', 'self', 'Room A');
+  await transport?.connect({
+    url: 'wss://sfu.example.org',
+    token: 'jwt',
+    microphoneEnabled: true,
+    cameraEnabled: false,
+    encryptionKeys: [],
+  });
+
+  expect(plugin.connectNativeCall).toHaveBeenLastCalledWith(
+    expect.objectContaining({ callId: '7', callerName: 'Room A' })
+  );
+});
+
 test('the native transport places and clears the local video overlay', async () => {
   const transport = await createNativeTransport('7', '@erwan:example.org:PHONE');
   const rect = { x: 1, y: 2, width: 3, height: 4, devicePixelRatio: 2 };

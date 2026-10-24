@@ -152,7 +152,9 @@
   providePresenceStore(presence);
   const notifications = new NotificationCenter();
   provideNotificationCenter(notifications);
-  const callSession = new CallSession(core);
+  const callSession = new CallSession(core, {
+    roomName: (roomId) => roomList.byId(roomId)?.name,
+  });
   provideCallSession(callSession);
   let screenSharePick = $state.raw<{
     sources: ScreenShareCandidate[];
@@ -172,7 +174,7 @@
         })
     )
   );
-  const systemCalls = new SystemCalls(callSession, (roomId) => roomList.byId(roomId)?.name);
+  const systemCalls = new SystemCalls(callSession);
   systemCalls.track();
   const incomingCalls = new IncomingCalls(core, (answer) => void joinSystemAnswer(answer));
 

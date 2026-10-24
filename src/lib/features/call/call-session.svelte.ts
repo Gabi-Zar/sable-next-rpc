@@ -19,7 +19,7 @@ import type {
 import { decodeCallKey, idleTransportState, ignoreError, ScreenAudioError } from './call-transport';
 import { acquireCallOwner, type CallOwnerLease } from './call-owner';
 import type { LivekitTransport } from './livekit-transport';
-import { createNativeTransport, type NativeTransport } from './native-transport';
+import { createNativeTransport } from './native-transport';
 import { hasNativeCalls } from '#lib/platform/calls.js';
 import { commandErrorCode } from './command-error';
 import { CallTelemetry } from './call-telemetry';
@@ -98,6 +98,7 @@ const isLivekit = (transport: CallTransport): transport is LivekitTransport =>
 export type CallSessionDeps = {
   createTransport?: (encryptMedia: boolean) => CallTransport;
   e2eeSupported?: () => boolean;
+  roomName?: (roomId: string) => string | null | undefined;
 };
 
 export class CallSession {
@@ -202,12 +203,6 @@ export class CallSession {
     return this.#media?.capabilities.remoteVideo;
   }
 
-  get nativeCallId(): string | undefined {
-    return this.#media && 'callId' in this.#media
-      ? (this.#media as NativeTransport).callId
-      : undefined;
-  }
-
   get audioRoutes(): CallTransportCapabilities['audioRoutes'] {
     return this.#media?.capabilities.audioRoutes;
   }
@@ -301,7 +296,11 @@ export class CallSession {
         async () =>
           this.#deps.createTransport?.(grant.encryptMedia) ??
           (grant.mode === undefined || grant.mode === 'legacy'
-            ? await createNativeTransport(String(grant.session), grant.identity)
+            ? await createNativeTransport(
+                String(grant.session),
+                grant.identity,
+                this.#deps.roomName?.(roomId) ?? roomId
+              )
             : null) ??
           (grant.backends?.length
             ? (await import('./multi-sfu-transport')).createMultiSfuTransport(

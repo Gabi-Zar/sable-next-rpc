@@ -11,10 +11,6 @@ export function isAndroid(): boolean {
   return isTauri() && osType() === 'android';
 }
 
-export function isIos(): boolean {
-  return isTauri() && osType() === 'ios';
-}
-
 export function supportsKeyboardShortcuts(): boolean {
   if (isNativeMobile()) return false;
   return typeof matchMedia !== 'function' || matchMedia('(any-pointer: fine)').matches;

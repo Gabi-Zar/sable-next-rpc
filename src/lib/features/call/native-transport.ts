@@ -89,7 +89,8 @@ export type NativeTransport = CallTransport & { readonly callId: string };
 
 export async function createNativeTransport(
   callId: string,
-  identity: string
+  identity: string,
+  callerName?: string
 ): Promise<NativeTransport | null> {
   const plugin: Plugin | null = await loadNativeCalls();
   if (!plugin) return null;
@@ -143,6 +144,7 @@ export async function createNativeTransport(
             noiseSuppression: preferences.noiseSuppression,
             autoGainControl: preferences.autoGainControl,
           },
+          callerName,
           encryptionKeys: options.encryptionKeys.map((key) => ({
             identity: key.identity,
             keyIndex: key.keyIndex,
