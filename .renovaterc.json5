@@ -54,8 +54,15 @@
       groupName: 'matrix-rust-sdk',
     },
     {
+      description: 'Git revisions are updated manually',
       matchDatasources: ['git-refs'],
-      matchPackageNames: ['https://github.com/SableClient/**'],
+      matchPackageNames: [
+        'https://github.com/SableClient/**',
+        'https://git.sable.moe/SableClient/matrix-rust-sdk{,.git}',
+        'https://github.com/ruma/ruma{,.git}',
+        'https://github.com/Choochmeque/tauri-plugin-sharekit{,.git}',
+        'https://github.com/yanqianglu/tauri-plugin-auth-session{,.git}',
+      ],
       enabled: false,
     },
     {
