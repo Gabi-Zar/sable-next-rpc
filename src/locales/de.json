@@ -269,6 +269,6 @@
     "confirmIrreversible": "Ich verstehe, dass dies nicht rückgängig gemacht werden kann",
     "readReceipts": "Lesebestätigungen",
     "refresh": "Aktualisieren",
-    "noRoomsMatch": ""
+    "noRoomsMatch": "Keine Räume für diese Suche gefunden."
   }
 }
