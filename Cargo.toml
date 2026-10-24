@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/*", "plugins/*", "src-tauri"]
-exclude = ["vendor/tauri-plugin-edge-to-edge"]
+exclude = ["vendor/tauri-plugin-edge-to-edge", "vendor/wry"]
 # sable-wasm only compiles for wasm32 - its session store holds JS functions,
 # which are not Send. Build it with `-p sable-wasm --target wasm32-unknown-unknown`.
 default-members = ["crates/sable-core", "src-tauri"]
@@ -16,6 +16,9 @@ ruma-html = "0.9.0"
 ruma-identifiers-validation = "0.13.0"
 ruma-macros = "0.20.1"
 ruma-signatures = "0.22.1"
+
+[patch.crates-io]
+wry = { path = "vendor/wry" }
 
 [patch."https://github.com/SableClient/tauri-plugin-edge-to-edge.git"]
 tauri-plugin-edge-to-edge = { path = "vendor/tauri-plugin-edge-to-edge" }
