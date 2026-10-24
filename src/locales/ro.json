@@ -140,7 +140,9 @@
     "invitesEmpty": "",
     "moreNotifications": "",
     "inviteNoSharedRooms": "",
-    "markAllRead": ""
+    "markAllRead": "",
+    "notificationsEmptyDirect": "",
+    "notificationsEmptyAll": ""
   },
   "room": {
     "createDescription": "Camerele conțin o conversații. Spațiile conțin camere.",
@@ -662,7 +664,8 @@
     "devDiagMain": "",
     "devDiagThread": "",
     "devDiagServer": "",
-    "upgradeReplacementInvalid": ""
+    "upgradeReplacementInvalid": "",
+    "cosmeticsHintRoom": ""
   },
   "join": {
     "knocking": "Se trimite…",
