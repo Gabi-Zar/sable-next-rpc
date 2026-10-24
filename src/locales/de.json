@@ -269,6 +269,24 @@
     "confirmIrreversible": "Ich verstehe, dass dies nicht rückgängig gemacht werden kann",
     "readReceipts": "Lesebestätigungen",
     "refresh": "Aktualisieren",
-    "noRoomsMatch": "Keine Räume für diese Suche gefunden."
+    "noRoomsMatch": "Keine Räume für diese Suche gefunden.",
+    "selectAll": "",
+    "sortManual": "",
+    "sortNameAsc": "",
+    "supportSable": "",
+    "share": "",
+    "reload": "",
+    "remove": "",
+    "reset": "",
+    "retry": "",
+    "searchMessages": "",
+    "setUpRecovery": "",
+    "sourceCode": "",
+    "sortNameDesc": "",
+    "startingSable": "",
+    "system": "",
+    "thisRoom": "",
+    "today": "",
+    "unblock": ""
   }
 }
