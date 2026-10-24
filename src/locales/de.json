@@ -50,7 +50,8 @@
     "displayOptions": "Seitenleistenanzeigeoptionen",
     "currentAccount": "Aktiv",
     "favourites": "Favoriten",
-    "add": "Raum oder Space hinzufügen"
+    "add": "Raum oder Space hinzufügen",
+    "home": ""
   },
   "inbox": {
     "notifications": "Benachrichtigungen",
