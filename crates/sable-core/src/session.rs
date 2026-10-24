@@ -366,6 +366,15 @@ pub(crate) async fn restore_notification_client(
     let client = build_account_client(builder, store_id, ClientRole::Notification, true)
         .await
         .map_err(CoreError::backend)?;
+    // Fetching a push must not report the user online.
+    client
+        .set_presence(
+            matrix_sdk::ruma::presence::PresenceState::Offline,
+            None,
+            false,
+        )
+        .await
+        .map_err(CoreError::backend)?;
     before_restore(&client);
     restore_credentials_with(&client, persisted, room_load).await?;
     Ok(client)

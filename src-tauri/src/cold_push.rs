@@ -175,6 +175,42 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeFetchPush<
     result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
 }
 
+#[unsafe(no_mangle)]
+#[expect(unsafe_code, reason = "JNI entry point")]
+pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeActiveElsewhere<'frame>(
+    mut unowned_env: EnvUnowned<'frame>,
+    _class: JClass<'frame>,
+    store_dir: JString<'frame>,
+    user_id: JString<'frame>,
+    device_id: JString<'frame>,
+    room_id: JString<'frame>,
+) -> jni::sys::jboolean {
+    let result = unowned_env.with_env(|_env: &mut Env<'frame>| -> Result<_, jni::errors::Error> {
+        let data_dir = store_dir.to_string();
+        let user_id = user_id.to_string();
+        let device_id = device_id.to_string();
+        let room_id = room_id.to_string();
+        let check = async {
+            bounded(
+                &data_dir,
+                std::time::Duration::from_secs(5),
+                sable_core::notifications::cold_push_active_elsewhere(
+                    std::path::Path::new(&data_dir),
+                    &user_id,
+                    &device_id,
+                    &room_id,
+                ),
+            )
+            .await
+            .unwrap_or(false)
+        };
+        let active = block_on(CORE.get().is_some(), check).unwrap_or(false);
+        Ok(jni::sys::jboolean::from(active))
+    });
+
+    result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
+}
+
 /// An empty `sender` skips the avatars, an empty `content` the message's image.
 #[unsafe(no_mangle)]
 #[expect(unsafe_code, reason = "JNI entry point")]

@@ -5,6 +5,7 @@ import type { PushFetchView } from '#src/generated/protocol';
 import {
   acknowledgeWebPusher,
   completePushPayload,
+  fetchOwnPresence,
   namesOnlyItsEvent,
   type PushFetcher,
   readPushFetch,
@@ -234,4 +235,15 @@ test('an unreachable homeserver is asked again before giving up', async () => {
   await expect(acknowledgeWebPusher(session, validation, send, pause)).resolves.toBe(true);
   expect(send).toHaveBeenCalledTimes(3);
   expect(pause).toHaveBeenCalledTimes(2);
+});
+
+test("reads the account's own presence, or null when the server refuses", async () => {
+  const presence = { presence: 'online', last_active_ago: 1000 };
+  const answering = fetcher({ '/_matrix/client/v3/presence/@me:example.org/status': presence });
+  await expect(fetchOwnPresence(answering)).resolves.toEqual(presence);
+  expect(answering.fetch.mock.calls[0]?.[1]).toMatchObject({
+    headers: { Authorization: 'Bearer token' },
+  });
+
+  await expect(fetchOwnPresence(fetcher({}))).resolves.toBeNull();
 });

@@ -107,6 +107,7 @@
   import {
     forgetPushSessions,
     PUSH_ACTIVATION_TTL_MS,
+    putActiveAt,
     putPushContentPolicy,
     putRoomModes,
     RoomNameWriter,
@@ -486,7 +487,8 @@
       preferences.notificationSounds,
       preferences.notifyOnce,
       preferences.clearNotificationsOnRead,
-      readReceiptIsPrivate()
+      readReceiptIsPrivate(),
+      quietWhenActiveElsewhere
     ).catch((error: unknown) => {
       console.debug('[sable notifications] native content policy not applied', error);
     });
@@ -496,6 +498,7 @@
       encryptedContent: preferences.notificationEncryptedContent,
       notifyOnce: preferences.notifyOnce,
       clearOnRead: preferences.clearNotificationsOnRead,
+      quietWhenActiveElsewhere,
     });
   });
 
@@ -530,16 +533,31 @@
 
     const message = preferences.presenceStatusMessage.trim();
     const presence = preferences.sendPresence ? preferences.presence : 'offline';
-    const state = presence === 'online' && (!active || idle) ? 'unavailable' : presence;
+    const away = presence === 'online' && (!active || idle);
     const status = preferences.sendPresence && message ? message : null;
+    // Other devices stay quiet while this one reports online.
+    const delay =
+      away && !idle && quietWhenActiveElsewhere
+        ? Number(preferences.pushInactiveTimeout) * 60_000
+        : PRESENCE_SETTLE_MS;
     const timer = setTimeout(() => {
       void core.rpc.account
-        .setPresence({ presence: state, status_message: status })
+        .setPresence({ presence: away ? 'unavailable' : presence, status_message: status })
         .catch((error: unknown) => {
           console.debug('[sable presence] presence not sent', error);
         });
-    }, PRESENCE_SETTLE_MS);
+    }, delay);
     return () => clearTimeout(timer);
+  });
+
+  $effect(() => {
+    if (!active) return;
+    void putActiveAt(Date.now());
+    const timer = setInterval(() => void putActiveAt(Date.now()), ACTIVE_AT_INTERVAL_MS);
+    return () => {
+      clearInterval(timer);
+      void putActiveAt(Date.now());
+    };
   });
 
   const pushDeviceName = $derived(pusherDisplayName(core));
@@ -858,6 +876,7 @@
 
   const NOTIFIED_ROOM_WAIT_MS = 10_000;
   const PRESENCE_SETTLE_MS = 2_000;
+  const ACTIVE_AT_INTERVAL_MS = 30_000;
 
   $effect(() => {
     const accountId = core.session?.account_id;
@@ -890,6 +909,9 @@
   let documentVisible = $derived(windowActivity.visible);
   let active = $derived(windowActivity.active);
   let idle = $derived(windowActivity.idle);
+  let quietWhenActiveElsewhere = $derived(
+    preferences.sendPresence && preferences.pushInactiveTimeout !== 'off'
+  );
 
   $effect(() => {
     roomList.setPresentationActive(active);

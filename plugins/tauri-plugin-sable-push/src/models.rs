@@ -35,6 +35,7 @@ pub struct Policy {
     pub notify_once: bool,
     pub clear_on_read: bool,
     pub private_receipts: bool,
+    pub quiet_when_active_elsewhere: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

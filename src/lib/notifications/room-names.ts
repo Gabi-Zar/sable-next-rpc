@@ -135,6 +135,7 @@ export interface PushContentPolicy {
   encryptedContent: boolean;
   notifyOnce: boolean;
   clearOnRead: boolean;
+  quietWhenActiveElsewhere: boolean;
 }
 
 const POLICY_KEY = '\u0000push-content-policy';
@@ -157,10 +158,37 @@ export async function pushContentPolicy(): Promise<PushContentPolicy> {
       encryptedContent: stored?.encryptedContent === true,
       notifyOnce: stored?.notifyOnce === true,
       clearOnRead: stored?.clearOnRead === true,
+      quietWhenActiveElsewhere: stored?.quietWhenActiveElsewhere === true,
     };
   } catch (error) {
     console.debug('[sable notifications] push content policy unreadable', error);
-    return { content: false, encryptedContent: false, notifyOnce: false, clearOnRead: false };
+    return {
+      content: false,
+      encryptedContent: false,
+      notifyOnce: false,
+      clearOnRead: false,
+      quietWhenActiveElsewhere: false,
+    };
+  }
+}
+
+const ACTIVE_AT_KEY = '\u0000active-at';
+
+export async function putActiveAt(at: number): Promise<void> {
+  try {
+    await transact('readwrite', (store) => store.put(at, ACTIVE_AT_KEY));
+  } catch (error) {
+    console.debug('[sable notifications] activity time not stored', error);
+  }
+}
+
+export async function activeAt(): Promise<number | null> {
+  try {
+    const stored = await transact<unknown>('readonly', (store) => store.get(ACTIVE_AT_KEY));
+    return typeof stored === 'number' ? stored : null;
+  } catch (error) {
+    console.debug('[sable notifications] activity time unreadable', error);
+    return null;
   }
 }
 

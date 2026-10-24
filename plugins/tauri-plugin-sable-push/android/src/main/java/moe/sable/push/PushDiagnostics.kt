@@ -36,6 +36,7 @@ internal enum class PushOutcome {
     FETCHED,
     FETCH_FAILED,
     DIAGNOSTIC_RECEIVED,
+    ACTIVE_ELSEWHERE,
     POSTED,
 }
 

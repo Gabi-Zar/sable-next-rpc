@@ -10,6 +10,7 @@ import favicon from '#lib/assets/favicon.png';
 import { alertCooling } from '#lib/features/notifications/alert-cooldown.js';
 import { notificationPermalink } from '#lib/features/notifications/notification-link.js';
 import {
+  activeElsewhere,
   parsePushPayload,
   pushAlert,
   type PushNotification,
@@ -20,6 +21,7 @@ import {
 import {
   acknowledgeWebPusher,
   completePushPayload,
+  fetchOwnPresence,
   namesOnlyItsEvent,
   readPushFetch,
 } from '#lib/features/notifications/push-fetch.js';
@@ -29,6 +31,7 @@ import {
   type PushHistoryEntry,
 } from '#lib/notifications/push-history.js';
 import {
+  activeAt,
   pushContentPolicy,
   pendingPushActivations,
   pushSession,
@@ -253,6 +256,15 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
     await record('BADGE_ONLY', trace);
     return;
   }
+  if (
+    policy.quietWhenActiveElsewhere &&
+    !showing.ring &&
+    !showing.invite &&
+    (await inUseElsewhere(payload.user_id ?? undefined))
+  ) {
+    await record('ACTIVE_ELSEWHERE', trace);
+    return;
+  }
 
   const alertedAt = await alertedAtFor(showing.room_id, payload.user_id ?? undefined);
   const now = Date.now();
@@ -296,6 +308,18 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
 
   await worker.registration.showNotification(showing.title, options);
   await record('POSTED', trace);
+}
+
+async function inUseElsewhere(userId: string | undefined): Promise<boolean> {
+  const session = await pushSession(userId);
+  if (!session) return false;
+  const [presence, usedAt] = await Promise.all([
+    fetchOwnPresence({ session, fetch: (input, init) => fetch(input, init) }),
+    activeAt(),
+  ]);
+  return (
+    presence !== null && activeElsewhere(presence, usedAt === null ? null : Date.now() - usedAt)
+  );
 }
 
 const FETCH_DEADLINE_MS = 10_000;

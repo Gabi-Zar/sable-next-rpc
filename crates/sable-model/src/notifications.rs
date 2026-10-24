@@ -453,6 +453,30 @@ pub fn alert(
     })
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct OwnPresence {
+    #[serde(default)]
+    pub presence: String,
+    #[serde(default)]
+    pub last_active_ago: Option<u64>,
+}
+
+/// Outlasts an open client's presence refresh; bounds how long a client that
+/// crashed while online keeps alerts quiet.
+const ELSEWHERE_FRESH_MS: u64 = 3 * 60_000;
+/// Presence is per account, so the latest report may be this device's own.
+/// Clients record their own use at least this often.
+const OWN_REPORT_MARGIN_MS: u64 = 60_000;
+
+#[must_use]
+pub fn active_elsewhere(presence: &OwnPresence, inactive_here_ms: Option<u64>) -> bool {
+    presence.presence == "online"
+        && presence.last_active_ago.is_some_and(|ago| {
+            ago < ELSEWHERE_FRESH_MS
+                && inactive_here_ms.is_none_or(|here| ago + OWN_REPORT_MARGIN_MS < here)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -714,5 +738,36 @@ mod tests {
         let push = parsed(&json!({"user_id": " @me:x ", "room_id": "!r:x", "room_name": " Den "}));
         assert_eq!(push.room_name.as_deref(), Some(" Den "));
         assert_eq!(push.user_id.as_deref(), Some("@me:x"));
+    }
+
+    fn presence(value: &Value) -> OwnPresence {
+        serde_json::from_value(value.clone()).expect("a presence response")
+    }
+
+    #[test]
+    fn a_fresh_online_report_from_another_device_keeps_this_one_quiet() {
+        let online = presence(&json!({"presence": "online", "last_active_ago": 20_000}));
+        assert!(active_elsewhere(&online, None));
+        assert!(active_elsewhere(&online, Some(120_000)));
+    }
+
+    #[test]
+    fn this_devices_own_last_report_does_not_count() {
+        let online = presence(&json!({"presence": "online", "last_active_ago": 20_000}));
+        assert!(!active_elsewhere(&online, Some(10_000)));
+        assert!(!active_elsewhere(&online, Some(70_000)));
+    }
+
+    #[test]
+    fn away_stale_or_unknown_presence_alerts() {
+        for value in [
+            json!({"presence": "unavailable", "last_active_ago": 1_000}),
+            json!({"presence": "offline", "last_active_ago": 1_000}),
+            json!({"presence": "online", "last_active_ago": 180_000}),
+            json!({"presence": "online"}),
+            json!({}),
+        ] {
+            assert!(!active_elsewhere(&presence(&value), None), "{value}");
+        }
     }
 }

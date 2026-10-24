@@ -93,6 +93,8 @@ export const WEBRTC_IP_POLICIES = [
   'disable_non_proxied_udp',
 ] as const;
 export const UPDATE_CHANNELS = ['stable', 'nightly'] as const;
+export const PUSH_INACTIVE_TIMEOUTS = ['off', '1', '5', '10', '15', '30'] as const;
+export type PushInactiveTimeout = (typeof PUSH_INACTIVE_TIMEOUTS)[number];
 export type UpdateChannel = (typeof UPDATE_CHANNELS)[number];
 export type WebRtcIpPolicy = (typeof WEBRTC_IP_POLICIES)[number];
 export type CallScreenFramerate = (typeof CALL_SCREEN_FRAMERATES)[number];
@@ -335,6 +337,7 @@ export interface Preferences {
   badgeDefaultGroup: BadgeNotificationMode;
   notificationSounds: boolean;
   notifyOnce: boolean;
+  pushInactiveTimeout: PushInactiveTimeout;
   backgroundNotificationSounds: boolean;
   notificationContent: boolean;
   notificationEncryptedContent: boolean;
@@ -486,6 +489,7 @@ const ENUMS = {
   callScreenCodec: CALL_VIDEO_CODECS,
   webRtcIpPolicy: WEBRTC_IP_POLICIES,
   updateChannel: UPDATE_CHANNELS,
+  pushInactiveTimeout: PUSH_INACTIVE_TIMEOUTS,
   dearrowThumbnailFallback: DEARROW_THUMBNAIL_FALLBACKS,
   youtubeThumbnailPosition: YOUTUBE_THUMBNAIL_POSITIONS,
   badgeDefaultDirect: ['all', 'mentions', 'quiet'],
@@ -685,6 +689,7 @@ const DEFAULTS: Preferences = {
   badgeDefaultGroup: 'mentions',
   notificationSounds: true,
   notifyOnce: true,
+  pushInactiveTimeout: '1',
   backgroundNotificationSounds: true,
   notificationContent: false,
   notificationEncryptedContent: false,

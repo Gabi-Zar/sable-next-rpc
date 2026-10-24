@@ -62,6 +62,23 @@ internal object PushPayloadDecryptor {
         nativeFetchPush(storeDir, userId, deviceId, roomId, eventId)
     }
 
+    private external fun nativeActiveElsewhere(
+        storeDir: String,
+        userId: String,
+        deviceId: String,
+        roomId: String,
+    ): Boolean
+
+    fun activeElsewhere(context: Context, userId: String, deviceId: String, roomId: String): Boolean {
+        if (!available()) return false
+        return try {
+            nativeActiveElsewhere(context.dataDir.absolutePath, userId, deviceId, roomId)
+        } catch (error: Throwable) {
+            Log.i(TAG, "Presence unavailable: ${error.message}")
+            false
+        }
+    }
+
     private external fun nativePushMedia(
         storeDir: String,
         userId: String,

@@ -337,6 +337,7 @@ async fn set_notification_encrypted_content(
     notify_once: bool,
     clear_on_read: bool,
     private_receipts: bool,
+    quiet_when_active_elsewhere: bool,
 ) -> Result<(), RpcError> {
     #[cfg(target_os = "android")]
     {
@@ -350,6 +351,7 @@ async fn set_notification_encrypted_content(
                 notify_once,
                 clear_on_read,
                 private_receipts,
+                quiet_when_active_elsewhere,
             })
             .await
             .map_err(|_| RpcError::Unavailable)?;
@@ -362,6 +364,7 @@ async fn set_notification_encrypted_content(
         sounds,
         notify_once,
         clear_on_read,
+        quiet_when_active_elsewhere,
     )
     .map_err(|_| RpcError::Unavailable)?;
     #[cfg(not(target_os = "android"))]
@@ -374,6 +377,7 @@ async fn set_notification_encrypted_content(
         sounds,
         notify_once,
         clear_on_read,
+        quiet_when_active_elsewhere,
     );
     Ok(())
 }
@@ -579,6 +583,7 @@ fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::Sessi
 #[cfg(mobile)]
 fn set_mobile_activity(core: Arc<Core>, active: bool, stop_delay: std::time::Duration) {
     core.set_app_active(active);
+    core.record_app_activity(active);
     #[cfg(target_os = "ios")]
     let background_task = (!active).then(|| ios::BackgroundTask::begin("Pause sync"));
     tauri::async_runtime::spawn(async move {

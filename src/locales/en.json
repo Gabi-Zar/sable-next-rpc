@@ -2219,6 +2219,8 @@
     "notificationSounds": "Play notification sounds",
     "notificationSoundVolume": "Sound volume",
     "notifyOnce": "One alert per room",
+    "pushInactiveTimeout": "Alert other devices after",
+    "pushInactiveTimeoutHint": "While you use Sable here, your other devices stay quiet until you have been away this long.",
     "backgroundNotificationSounds": "Sounds while backgrounded",
     "notificationContent": "Show message text",
     "notificationContentHint": "Message text may appear on the lock screen.",

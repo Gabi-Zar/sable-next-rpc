@@ -152,6 +152,10 @@ export function pushAlert(
   ) as PushAlert | null;
 }
 
+export function activeElsewhere(presence: unknown, inactiveHereMs: number | null): boolean {
+  return wasm.activeElsewhere(JSON.stringify(presence), inactiveHereMs ?? undefined);
+}
+
 export function slashCommandNames(): string[] {
   return JSON.parse(wasm.slashCommandNames()) as string[];
 }

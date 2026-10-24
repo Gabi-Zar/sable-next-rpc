@@ -34,6 +34,10 @@ internal class PushPolicy(context: Context) {
         get() = prefs.getBoolean("private-receipts", false)
         set(value) = prefs.edit().putBoolean("private-receipts", value).apply()
 
+    var quietWhenActiveElsewhere: Boolean
+        get() = prefs.getBoolean("quiet-when-active-elsewhere", false)
+        set(value) = prefs.edit().putBoolean("quiet-when-active-elsewhere", value).apply()
+
     var accounts: Map<String, String>
         get() = runCatching {
             val stored = JSONObject(prefs.getString("accounts", "{}") ?: "{}")

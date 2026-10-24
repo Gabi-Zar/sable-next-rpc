@@ -5,6 +5,7 @@ export type {
   WebPushValidation,
 } from '#src/generated/protocol';
 export {
+  activeElsewhere,
   parsePushPayload,
   pushAlert,
   pushContent,

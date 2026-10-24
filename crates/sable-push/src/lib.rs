@@ -24,6 +24,7 @@ struct Policy {
     sounds: bool,
     notify_once: bool,
     clear_on_read: bool,
+    quiet_when_active_elsewhere: bool,
 }
 
 fn policy(root: &Path) -> Policy {
@@ -123,6 +124,7 @@ struct ContentPushOut {
     sounds: bool,
     noisy: bool,
     invite: bool,
+    active_elsewhere: bool,
     group: bool,
     sender_avatar: Option<String>,
     room_avatar: Option<String>,
@@ -472,6 +474,13 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .as_ref()
         .and_then(|event| event.get("content"))
         .filter(|_| previews);
+    let active_elsewhere = match &session {
+        Some(session) if !invite && current.quiet_when_active_elsewhere => {
+            Box::pin(session.active_elsewhere(sable_core::notifications::inactive_here_ms(root)))
+                .await
+        }
+        _ => false,
+    };
     let media = match (sender_id.as_deref(), &session) {
         (Some(sender), Some(session)) if !invite => {
             Box::pin(session.media(Some(sender), content)).await
@@ -502,6 +511,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         sounds: current.sounds,
         noisy,
         invite,
+        active_elsewhere,
         group: !room_name.is_empty(),
         sender_avatar: media.sender,
         room_avatar: media.room,

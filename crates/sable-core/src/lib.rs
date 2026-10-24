@@ -465,6 +465,11 @@ impl Core {
         }
     }
 
+    #[cfg(not(target_family = "wasm"))]
+    pub fn record_app_activity(&self, active: bool) {
+        notifications::record_app_activity(std::path::Path::new(&self.store_id), active);
+    }
+
     pub async fn apply_app_activity(self: &Arc<Self>, active: bool) {
         let _serial = self.activity_lock.lock().await;
         if self.app_active.load(Ordering::Relaxed) != active {
@@ -480,14 +485,27 @@ impl Core {
             }
             // Starting a running service is a no-op, but from `Offline` it retries at once.
             self.sync_suspended.store(false, Ordering::SeqCst);
+            self.set_sync_presence(presence::state(self.desired_presence()))
+                .await;
             if !self.account_locked.load(Ordering::SeqCst) {
                 sync_service.start().await;
             }
         } else if self.call_sessions.lock().await.is_empty() {
             self.sync_suspended.store(true, Ordering::SeqCst);
+            // Background push fetches must not report the user online.
+            self.set_sync_presence(matrix_sdk::ruma::presence::PresenceState::Offline)
+                .await;
             sync_service.stop().await;
             #[cfg(target_os = "ios")]
             self.close_stores().await;
+        }
+    }
+
+    async fn set_sync_presence(&self, presence: matrix_sdk::ruma::presence::PresenceState) {
+        if let Ok(client) = self.client().await
+            && let Err(error) = client.set_presence(presence, None, false).await
+        {
+            tracing::debug!("sync presence not applied: {error}");
         }
     }
 

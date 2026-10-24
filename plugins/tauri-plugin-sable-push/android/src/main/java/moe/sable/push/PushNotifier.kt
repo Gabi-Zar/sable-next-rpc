@@ -122,6 +122,8 @@ object PushNotifier {
             ?.notification?.let { NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(it) }
             ?.messages?.firstOrNull { eventId.isNotEmpty() && it.extras.getString(EVENT_KEY) == eventId }
             ?.extras?.getString(GENERATION_KEY) ?: UUID.randomUUID().toString()
+        val activeElsewhere = store.quietWhenActiveElsewhere && deviceId != null &&
+            PushPayloadDecryptor.activeElsewhere(context, userId, deviceId, roomId)
         if (!notification.has("type") && eventId.isNotEmpty() && deviceId != null) {
             when (val fetched = PushPayloadDecryptor.fetch(context, userId, deviceId, roomId, eventId)) {
                 PushDecryptResult.Discard -> {
@@ -144,6 +146,10 @@ object PushNotifier {
         if (!encrypted) {
             if (isRing(notification)) {
                 PushNotificationGate.post(context, id, revision) { postIncomingCall(context, notification, notification) }
+                return
+            }
+            if (activeElsewhere && !isInvite(notification)) {
+                PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, trace)
                 return
             }
             val previews = store.showContent &&
@@ -169,16 +175,20 @@ object PushNotifier {
             is PushDecryptResult.Success -> {
                 PushDiagnostics.record(context, PushOutcome.DECRYPTED, trace)
                 val clear = runCatching { JSONObject(local.clearEventJson) }.getOrNull()
+                if (clear == null && activeElsewhere) {
+                    PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, trace)
+                    return
+                }
                 if (clear == null) {
                     PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message", generation) }
                     return
                 }
-                showDecrypted(context, notification, clear, id, revision, generation, replacing = false)
+                showDecrypted(context, notification, clear, id, revision, generation, replacing = false, activeElsewhere)
                 return
             }
             else -> {}
         }
-        val quietly = local is PushDecryptResult.NeedsKey && local.quietly
+        val quietly = (local is PushDecryptResult.NeedsKey && local.quietly) || activeElsewhere
         if (!quietly) {
             PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message", generation) }
             if (!store.showContent || !store.showEncryptedContent) {
@@ -190,7 +200,7 @@ object PushNotifier {
         val (clear, outcome) = decryptedEvent(context, notification, userId, deviceId)
         PushDiagnostics.record(context, outcome, trace)
         if (clear == null) return
-        showDecrypted(context, notification, clear, id, revision, generation, replacing = !quietly)
+        showDecrypted(context, notification, clear, id, revision, generation, replacing = !quietly, activeElsewhere)
     }
 
     private fun showDecrypted(
@@ -201,6 +211,7 @@ object PushNotifier {
         revision: String,
         generation: String,
         replacing: Boolean,
+        activeElsewhere: Boolean,
     ) {
         val store = PushPolicy(context)
         if (!store.notificationsEnabled) return
@@ -210,6 +221,10 @@ object PushNotifier {
                 if (replacing) manager.cancel(id)
                 postIncomingCall(context, notification, clear)
             }
+            return
+        }
+        if (activeElsewhere) {
+            PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, traceOf(notification))
             return
         }
         if (clear.optBoolean(NOISY_KEY)) notification.put(NOISY_KEY, true)
@@ -246,8 +261,7 @@ object PushNotifier {
     ) {
         val userId = notification.optString("user_id")
         val deviceId = PushPolicy(context).deviceIdFor(userId) ?: return
-        val invite = notification.optString("type") == "m.room.member" &&
-            notification.optJSONObject("content")?.optString("membership") == "invite"
+        val invite = isInvite(notification)
         val sender = notification.optString("sender").takeIf { it.isNotEmpty() && !invite }
         // Android 9 is where the system grants itself read access to a message's image URI.
         val image = content?.takeIf {
@@ -325,6 +339,10 @@ object PushNotifier {
         return event.optJSONObject("content")?.optString("notification_type") == "ring"
     }
 
+    private fun isInvite(event: JSONObject): Boolean =
+        event.optString("type") == "m.room.member" &&
+            event.optJSONObject("content")?.optString("membership") == "invite"
+
     private const val UNKNOWN_SENDER = "Someone"
     private const val GENERATION_KEY = "sable.push.generation"
     private const val ALERTED_AT_KEY = "sable.push.alerted-at"
@@ -350,8 +368,7 @@ object PushNotifier {
         val eventId = notification.optString("event_id")
         val sender = notification.optString("sender_display_name")
             .ifEmpty { notification.optString("sender") }
-        val isInvite = notification.optString("type") == "m.room.member" &&
-            notification.optJSONObject("content")?.optString("membership") == "invite"
+        val isInvite = isInvite(notification)
         val roomName = notification.optString("room_name")
         val title = if (isInvite) {
             "New Invitation"

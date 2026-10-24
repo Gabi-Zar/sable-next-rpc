@@ -38,5 +38,6 @@ class PushPolicyTest {
         assertTrue(policy.notificationSounds)
         assertTrue(policy.notifyOnce)
         assertTrue(policy.clearOnRead)
+        assertFalse(policy.quietWhenActiveElsewhere)
     }
 }

@@ -127,9 +127,10 @@ pub fn write_push_policy(
     sounds: bool,
     notify_once: bool,
     clear_on_read: bool,
+    quiet_when_active_elsewhere: bool,
 ) -> Result<(), String> {
     let root = shared_store_dir()?;
-    let value = serde_json::json!({"enabled":enabled,"content":content,"encrypted_content":encrypted_content,"sounds":sounds,"notify_once":notify_once,"clear_on_read":clear_on_read});
+    let value = serde_json::json!({"enabled":enabled,"content":content,"encrypted_content":encrypted_content,"sounds":sounds,"notify_once":notify_once,"clear_on_read":clear_on_read,"quiet_when_active_elsewhere":quiet_when_active_elsewhere});
     let temporary = root.join("push-policy.json.tmp");
     std::fs::write(&temporary, value.to_string()).map_err(|error| error.to_string())?;
     std::fs::rename(temporary, root.join("push-policy.json")).map_err(|error| error.to_string())

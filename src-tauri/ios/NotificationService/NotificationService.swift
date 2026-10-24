@@ -12,6 +12,7 @@ final class NotificationService: UNNotificationServiceExtension {
     private var policyRoot: String?
     private var originalSound: UNNotificationSound?
     private var noisy = false
+    private var activeElsewhere = false
     private var communication: INSendMessageIntent?
     private static let messageCategory = "sable-message"
     private static let inviteCategory = "sable-invite"
@@ -38,6 +39,7 @@ final class NotificationService: UNNotificationServiceExtension {
         fallback = content
         originalSound = request.content.sound
         noisy = false
+        activeElsewhere = false
         communication = nil
         policyRoot = nil
         lock.unlock()
@@ -91,6 +93,11 @@ final class NotificationService: UNNotificationServiceExtension {
             if rendered["noisy"] as? Bool == true {
                 self?.lock.lock()
                 self?.noisy = true
+                self?.lock.unlock()
+            }
+            if rendered["active_elsewhere"] as? Bool == true {
+                self?.lock.lock()
+                self?.activeElsewhere = true
                 self?.lock.unlock()
             }
             guard let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String else {
@@ -316,6 +323,7 @@ final class NotificationService: UNNotificationServiceExtension {
         let root = policyRoot
         let sound = originalSound
         let noisy = self.noisy
+        let activeElsewhere = self.activeElsewhere
         let intent = communication
         communication = nil
         lock.unlock()
@@ -327,7 +335,10 @@ final class NotificationService: UNNotificationServiceExtension {
         let now = Date().timeIntervalSince1970
         let cooling = alertedAt.map { now >= $0 && now - $0 < Self.notifyOnceWindow } ?? false
         let quiet = !duplicates.isEmpty
+            || activeElsewhere
             || (cooling && !noisy && root?.withCString { sable_push_notify_once($0) } == true)
+        // Dropping the alert needs the filtering entitlement; until then it arrives silently.
+        if activeElsewhere { updated.interruptionLevel = .passive }
         updated.sound = !quiet && root?.withCString { sable_push_sounds($0) } == true ? sound : nil
         if let stamp = quiet ? alertedAt : Optional(now) {
             updated.userInfo[Self.alertedAtKey] = stamp

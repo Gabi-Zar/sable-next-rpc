@@ -107,12 +107,21 @@ export async function completePushPayload(
   return completed;
 }
 
-async function get(fetcher: PushFetcher, path: string): Promise<unknown> {
+export async function fetchOwnPresence(
+  fetcher: Pick<PushFetcher, 'session' | 'fetch'>
+): Promise<unknown> {
+  return get(fetcher, `presence/${encodeURIComponent(fetcher.session.userId)}/status`);
+}
+
+async function get(
+  fetcher: Pick<PushFetcher, 'session' | 'fetch'>,
+  path: string
+): Promise<unknown> {
   return (await request(fetcher, path)).body;
 }
 
 async function request(
-  fetcher: PushFetcher,
+  fetcher: Pick<PushFetcher, 'session' | 'fetch'>,
   path: string
 ): Promise<{ status: number | null; body: unknown }> {
   try {
