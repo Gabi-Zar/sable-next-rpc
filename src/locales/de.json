@@ -266,6 +266,8 @@
     "loadingMap": "Karte wird geladen…",
     "never": "Niemals",
     "invitePeople": "Leute einladen",
-    "confirmIrreversible": "Ich verstehe, dass dies nicht rückgängig gemacht werden kann"
+    "confirmIrreversible": "Ich verstehe, dass dies nicht rückgängig gemacht werden kann",
+    "readReceipts": "",
+    "refresh": ""
   }
 }
