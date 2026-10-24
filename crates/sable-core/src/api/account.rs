@@ -150,7 +150,13 @@ async fn fetch_mutual_rooms(
     loop {
         let mut request = get_mutual_rooms::v1::Request::new(user_id.to_owned());
         request.from = from;
-        let response = client.send(request).await?;
+        let response = match client.send(request).await {
+            Ok(response) => response,
+            Err(matrix_sdk::HttpError::IntoHttp(
+                matrix_sdk::ruma::api::error::IntoHttpError::NoUnstablePath,
+            )) => return Ok(Vec::new()),
+            Err(error) => return Err(error),
+        };
         rooms.extend(response.joined.into_iter().map(|room_id| {
             let room = client.get_room(&room_id);
             MutualRoomView {

@@ -2811,3 +2811,30 @@ async fn a_remote_profile_the_homeserver_rejects_is_unavailable() {
 
     assert!(matches!(result, Err(RpcError::Unavailable)));
 }
+
+#[tokio::test]
+async fn mutual_rooms_are_empty_when_the_server_lacks_the_endpoint() {
+    use crate::api::account::UserRelationsParams;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"/account_data/m\.ignored_user_list$"))
+        .respond_with(
+            ResponseTemplate::new(404)
+                .set_body_json(json!({"errcode": "M_NOT_FOUND", "error": "absent"})),
+        )
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    let relations = UserRelationsParams {
+        user_id: matrix_sdk::ruma::owned_user_id!("@remote:other.example"),
+    }
+    .run(&core)
+    .await
+    .unwrap();
+
+    assert!(relations.mutual_rooms.is_empty());
+    assert!(!relations.ignored);
+}
