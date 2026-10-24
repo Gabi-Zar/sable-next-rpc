@@ -228,7 +228,7 @@
     "undo": "Rückgängig",
     "tryAgain": "Erneut versuchen",
     "createARoom": "Raum erstellen",
-    "endToEndEncryption": "Ende-zu-Ende Verschlüsselung",
+    "endToEndEncryption": "Ende-zu-Ende-Verschlüsselung",
     "askToJoin": "Beitritt auf Anfrage",
     "add": "Hinzufügen",
     "searchRooms": "Nach Räumen suchen",
@@ -264,8 +264,8 @@
     "developerTools": "Entwicklerwerkzeuge",
     "light": "Hell",
     "loadingMap": "Karte wird geladen…",
-    "never": "",
-    "invitePeople": "",
-    "confirmIrreversible": ""
+    "never": "Niemals",
+    "invitePeople": "Leute einladen",
+    "confirmIrreversible": "Ich verstehe, dass dies nicht rückgängig gemacht werden kann"
   }
 }
