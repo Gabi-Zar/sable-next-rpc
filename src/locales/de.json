@@ -241,6 +241,15 @@
     "removeAvatar": "Avatar entfernen",
     "directMessage": "Direktnachricht",
     "accept": "Akzeptieren",
-    "decline": "Ablehnen"
+    "decline": "Ablehnen",
+    "allowNotifications": "",
+    "apply": "",
+    "always": "",
+    "back": "",
+    "close": "",
+    "copied": "",
+    "copy": "",
+    "chooseAPicture": "",
+    "block": ""
   }
 }
