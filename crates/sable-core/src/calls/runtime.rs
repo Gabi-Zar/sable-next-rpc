@@ -688,6 +688,32 @@ struct Published {
     postpone: Option<crate::Task>,
 }
 
+async fn send_delayed_leave(
+    room: &Room,
+    support: crate::delayed_events::DelayedEventsSupport,
+    own: &CallMember,
+    encrypted: bool,
+) -> Result<String, matrix_sdk::Error> {
+    sticky::send_delayed_event(
+        &room.client(),
+        support,
+        room,
+        if own.wire == membership::RtcWire::Stable {
+            "m.rtc.member"
+        } else {
+            membership::RTC_MEMBER_EVENT_TYPE
+        },
+        sticky::LeaveOut::for_wire(
+            own.member_id.clone(),
+            sticky::LeaveCode::DelayedLeave,
+            own.wire,
+        ),
+        HANGUP_DELAY,
+        if encrypted { 120_000 } else { 3_600_000 },
+    )
+    .await
+}
+
 async fn publish(
     core: &Arc<Core>,
     room: &Room,
@@ -703,25 +729,7 @@ async fn publish(
         }
         let support = core.delayed_events_support().await.unwrap_or_default();
         if support.any() {
-            match sticky::send_delayed_event(
-                &room.client(),
-                support,
-                room,
-                if own.wire == membership::RtcWire::Stable {
-                    "m.rtc.member"
-                } else {
-                    membership::RTC_MEMBER_EVENT_TYPE
-                },
-                sticky::LeaveOut::for_wire(
-                    own.member_id.clone(),
-                    sticky::LeaveCode::DelayedLeave,
-                    own.wire,
-                ),
-                HANGUP_DELAY,
-                if encrypted { 120_000 } else { 3_600_000 },
-            )
-            .await
-            {
+            match send_delayed_leave(room, support, own, encrypted).await {
                 Ok(id) => Some(id),
                 Err(error) => {
                     tracing::warn!(?error, "could not schedule a delayed call leave");
@@ -929,7 +937,7 @@ async fn confirm_join(
             identity: provision.identity.clone(),
         },
     );
-    if !refresh(core, generation, session, room, state).await {
+    if refresh(core, generation, session, room, state).await != Refreshed::Current {
         return None;
     }
     let (backends, was_running) = {
@@ -1027,9 +1035,10 @@ pub(super) async fn join(
     let delay = Arc::new(Mutex::new(super::DelayState {
         id: delay,
         active: true,
+        lost: false,
     }));
     drop(postpone);
-    let postpone = Some(core.spawn_managed_postpone_loop(delay.clone(), generation, session));
+    let postpone = Some(core.spawn_managed_postpone_loop(delay.clone(), wake.clone()));
     let updates = updates(
         core.clone(),
         generation,
@@ -1090,6 +1099,13 @@ fn own_is_present(members: &[CallMember], own: &CallMember) -> bool {
     })
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Refreshed {
+    Current,
+    Absent,
+    Ended,
+}
+
 #[expect(
     clippy::too_many_lines,
     reason = "Membership and backend refresh form one flow"
@@ -1100,10 +1116,10 @@ async fn refresh(
     session: CallSessionId,
     room: &Room,
     shared: &Mutex<State>,
-) -> bool {
+) -> Refreshed {
     recheck_slot(room, shared).await;
     if shared.lock().await.slot_closed_midcall {
-        return false;
+        return Refreshed::Ended;
     }
     let mut members = membership::active_members(room).await;
     let own = {
@@ -1118,10 +1134,11 @@ async fn refresh(
         }
         merge_sticky(&mut members, sticky);
         let present = own_is_present(&members, &state.own);
-        if !present
-            && (state.own_observed || keys::now_ms().saturating_sub(state.own.created_ts) > 30_000)
-        {
-            return false;
+        if !present && state.own_observed {
+            return Refreshed::Absent;
+        }
+        if !present && keys::now_ms().saturating_sub(state.own.created_ts) > 30_000 {
+            return Refreshed::Ended;
         }
         state.own_observed |= present;
         state.own.clone()
@@ -1205,7 +1222,7 @@ async fn refresh(
     };
     provision_missing(core, generation, session, room, shared, &own, missing).await;
     publish_update(core, generation, session, room, shared).await;
-    true
+    Refreshed::Current
 }
 
 async fn recheck_slot(room: &Room, shared: &Mutex<State>) {
@@ -1830,27 +1847,38 @@ async fn refresh_encrypted_hangup(
         }
         delay.id = None;
     }
-    match sticky::send_delayed_event(
-        &room.client(),
-        support,
-        &room,
-        if own.wire == membership::RtcWire::Stable {
-            "m.rtc.member"
-        } else {
-            membership::RTC_MEMBER_EVENT_TYPE
-        },
-        sticky::LeaveOut::for_wire(
-            own.member_id.clone(),
-            sticky::LeaveCode::DelayedLeave,
-            own.wire,
-        ),
-        HANGUP_DELAY,
-        120_000,
-    )
-    .await
-    {
+    match send_delayed_leave(&room, support, &own, true).await {
         Ok(id) => delay.id = Some(id),
         Err(error) => tracing::warn!(?error, "could not refresh the delayed call leave"),
+    }
+}
+
+async fn restore_hangup(
+    core: &Core,
+    room: &Room,
+    own: &CallMember,
+    delay: &Mutex<super::DelayState>,
+    encrypted: bool,
+) {
+    let mut delay = delay.lock().await;
+    if !delay.active || !delay.lost {
+        return;
+    }
+    let id = if own.mode == CallMode::Matrix2 {
+        let Ok(support) = core.delayed_events_support().await else {
+            return;
+        };
+        send_delayed_leave(room, support, own, encrypted)
+            .await
+            .inspect_err(|error| tracing::warn!(?error, "could not restore the delayed call leave"))
+            .ok()
+    } else {
+        core.schedule_hangup(&room.room_id().to_owned(), &state_key(room, own))
+            .await
+    };
+    if let Some(id) = id {
+        delay.id = Some(id);
+        delay.lost = false;
     }
 }
 
@@ -1944,15 +1972,19 @@ fn updates(
                 );
                 return;
             }
-            if !refresh(&core, generation, session, &room, &state).await {
-                terminate(
-                    &core,
-                    generation,
-                    session,
-                    crate::protocol::CallSignalingStage::Membership,
-                );
-                return;
-            }
+            let absent = match refresh(&core, generation, session, &room, &state).await {
+                Refreshed::Current => false,
+                Refreshed::Absent => true,
+                Refreshed::Ended => {
+                    terminate(
+                        &core,
+                        generation,
+                        session,
+                        crate::protocol::CallSignalingStage::Membership,
+                    );
+                    return;
+                }
+            };
             let (own, intent, roster_changed) = {
                 let state = state.lock().await;
                 let roster: HashSet<_> = state
@@ -1970,6 +2002,7 @@ fn updates(
                 delay_roster = roster;
                 (state.own.clone(), state.intent, changed)
             };
+            restore_hangup(&core, &room, &own, &delay, encrypted).await;
             let mut refresh_delay = encrypted && own.mode == CallMode::Matrix2 && roster_changed;
             let renew_interval = if own.mode == CallMode::Matrix2 {
                 if core.room_is_encrypted(&room).await.unwrap_or(true) {
@@ -1980,18 +2013,15 @@ fn updates(
             } else {
                 RENEW_INTERVAL_MS
             };
-            if keys::now_ms().saturating_sub(renewed) >= renew_interval {
-                if publish_membership(&room, &own, intent).await.is_ok() {
-                    renewed = keys::now_ms();
-                    refresh_delay |= encrypted && own.mode == CallMode::Matrix2;
-                } else {
-                    terminate(
-                        &core,
-                        generation,
-                        session,
-                        crate::protocol::CallSignalingStage::Membership,
-                    );
-                    return;
+            if absent || keys::now_ms().saturating_sub(renewed) >= renew_interval {
+                match publish_membership(&room, &own, intent).await {
+                    Ok(_) => {
+                        renewed = keys::now_ms();
+                        refresh_delay |= encrypted && own.mode == CallMode::Matrix2;
+                    }
+                    Err(error) => {
+                        tracing::warn!(?error, absent, "could not publish the call membership");
+                    }
                 }
             }
             if refresh_delay {

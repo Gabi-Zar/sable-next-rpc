@@ -98,10 +98,18 @@ const HANGUP_POSTPONE_INTERVAL: Duration = Duration::from_secs(5);
 pub(crate) struct DelayState {
     id: Option<String>,
     active: bool,
+    lost: bool,
 }
 const HANGUP_RETRY_BACKOFF: Duration = Duration::from_secs(1);
 const HANGUP_RETRY_BUDGET: Duration = Duration::from_secs(12);
 const USE_KEY_DELAY: Duration = Duration::from_millis(keys::USE_KEY_DELAY_MS);
+
+#[derive(Debug, PartialEq, Eq)]
+enum Postponed {
+    Restarted,
+    Gone,
+    Unreachable,
+}
 
 const APPLICATION_SUFFIX: &str = "m.call";
 
@@ -913,35 +921,32 @@ impl Core {
         }
     }
 
-    async fn postpone_hangup(&self, delay_id: &str) -> bool {
+    async fn postpone_hangup(&self, delay_id: &str) -> Postponed {
         let mut backoff = HANGUP_RETRY_BACKOFF;
         let mut spent = Duration::ZERO;
 
         loop {
             let Ok(client) = self.client().await else {
-                return false;
+                return Postponed::Unreachable;
             };
 
             let Err(error) =
                 delayed_events::update(&client, delay_id.to_owned(), UpdateAction::Restart).await
             else {
-                return true;
+                return Postponed::Restarted;
             };
 
             if matches!(
                 error.client_api_error_kind(),
                 Some(ErrorKind::NotFound | ErrorKind::Forbidden)
             ) {
-                tracing::warn!(?error, "the delayed hangup is gone, stopping");
-                return false;
+                tracing::warn!(?error, "the delayed hangup is gone");
+                return Postponed::Gone;
             }
 
             if spent.saturating_add(backoff) >= HANGUP_RETRY_BUDGET {
-                tracing::warn!(
-                    ?error,
-                    "could not postpone the call hangup in time, stopping"
-                );
-                return false;
+                tracing::warn!(?error, "could not postpone the call hangup in time");
+                return Postponed::Unreachable;
             }
 
             matrix_sdk::sleep::sleep(backoff).await;
@@ -957,7 +962,7 @@ impl Core {
             loop {
                 matrix_sdk::sleep::sleep(HANGUP_POSTPONE_INTERVAL).await;
 
-                if !core.postpone_hangup(&delay_id).await {
+                if core.postpone_hangup(&delay_id).await != Postponed::Restarted {
                     return;
                 }
             }
@@ -968,8 +973,7 @@ impl Core {
     fn spawn_managed_postpone_loop(
         self: &Arc<Self>,
         delay: Arc<tokio::sync::Mutex<DelayState>>,
-        generation: u64,
-        session: CallSessionId,
+        wake: Arc<tokio::sync::Notify>,
     ) -> crate::Task {
         let core = self.clone();
         spawn(async move {
@@ -982,17 +986,14 @@ impl Core {
                     }
                     delay.id.clone()
                 };
-                if let Some(id) = id
-                    && !core.postpone_hangup(&id).await
-                    && delay.lock().await.id.as_deref() == Some(id.as_str())
-                {
-                    runtime::terminate(
-                        &core,
-                        generation,
-                        session,
-                        crate::protocol::CallSignalingStage::Membership,
-                    );
-                    return;
+                let Some(id) = id else { continue };
+                if core.postpone_hangup(&id).await == Postponed::Gone {
+                    let mut delay = delay.lock().await;
+                    if delay.id.as_deref() == Some(id.as_str()) {
+                        delay.id = None;
+                        delay.lost = true;
+                        wake.notify_one();
+                    }
                 }
             }
         })

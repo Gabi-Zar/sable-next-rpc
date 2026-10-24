@@ -12,8 +12,8 @@ use matrix_sdk_ui::sync_service::SyncService;
 use tokio::sync::Mutex;
 
 use super::{
-    CallMember, CallMode, CallSessionId, Core, State, backend_id, member_service, mode_reason,
-    own_is_present, refresh, select_mode,
+    CallMember, CallMode, CallSessionId, Core, Refreshed, State, backend_id, member_service,
+    mode_reason, own_is_present, refresh, select_mode,
 };
 use crate::{
     protocol::{CallBackendView, CallIntent},
@@ -770,9 +770,12 @@ async fn refresh_fixture(
 }
 
 #[tokio::test]
-async fn refresh_stops_when_an_observed_membership_disappears() {
+async fn refresh_rejoins_when_an_observed_membership_disappears() {
     let (core, _events, room, state) = refresh_fixture(super::keys::now_ms(), true).await;
-    assert!(!refresh(&core, 0, CallSessionId(1), &room, &state).await);
+    assert_eq!(
+        refresh(&core, 0, CallSessionId(1), &room, &state).await,
+        Refreshed::Absent
+    );
 }
 
 #[tokio::test]
@@ -827,14 +830,23 @@ async fn sdk_redaction_removes_sticky_membership_and_wakes_the_call() {
 #[tokio::test]
 async fn refresh_allows_a_recent_unobserved_membership() {
     let (core, _events, room, state) = refresh_fixture(super::keys::now_ms(), false).await;
-    assert!(refresh(&core, 0, CallSessionId(1), &room, &state).await);
+    assert_eq!(
+        refresh(&core, 0, CallSessionId(1), &room, &state).await,
+        Refreshed::Current
+    );
 }
 
 #[tokio::test]
 async fn an_unchanged_roster_is_emitted_once() {
     let (core, mut events, room, state) = refresh_fixture(super::keys::now_ms(), false).await;
-    assert!(refresh(&core, 1, CallSessionId(1), &room, &state).await);
-    assert!(refresh(&core, 1, CallSessionId(1), &room, &state).await);
+    assert_eq!(
+        refresh(&core, 1, CallSessionId(1), &room, &state).await,
+        Refreshed::Current
+    );
+    assert_eq!(
+        refresh(&core, 1, CallSessionId(1), &room, &state).await,
+        Refreshed::Current
+    );
     let mut rosters = 0;
     while let Ok(event) = events.try_recv() {
         if matches!(event, crate::protocol::CoreEvent::CallMembers { .. }) {
@@ -848,7 +860,10 @@ async fn an_unchanged_roster_is_emitted_once() {
 async fn refresh_stops_when_an_unobserved_membership_is_old() {
     let (core, _events, room, state) =
         refresh_fixture(super::keys::now_ms().saturating_sub(30_001), false).await;
-    assert!(!refresh(&core, 0, CallSessionId(1), &room, &state).await);
+    assert_eq!(
+        refresh(&core, 0, CallSessionId(1), &room, &state).await,
+        Refreshed::Ended
+    );
 }
 
 #[tokio::test]
@@ -890,11 +905,7 @@ async fn schedule_hangup_does_not_write_when_delayed_events_are_unsupported() {
     }));
 }
 
-#[tokio::test]
-async fn refreshing_a_delayed_leave_cancels_the_old_event_and_respects_hangup() {
-    use wiremock::matchers::{method, path, path_regex};
-    use wiremock::{Mock, ResponseTemplate};
-
+async fn delayed_leave_fixture() -> (MatrixMockServer, Arc<Core>, matrix_sdk::Room) {
     let server = MatrixMockServer::new().await;
     server
         .mock_versions()
@@ -916,6 +927,69 @@ async fn refreshing_a_delayed_leave_cancels_the_old_event_and_respects_hangup() 
         homeserver: server.server().uri(),
         oauth: false,
     });
+    (server, core, room)
+}
+
+#[tokio::test]
+async fn a_delayed_leave_the_server_already_sent_is_reported_gone() {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let (server, core, _room) = delayed_leave_fixture().await;
+    Mock::given(method("POST"))
+        .and(path(
+            "/_matrix/client/unstable/org.matrix.msc4140/delayed_events/fired",
+        ))
+        .respond_with(ResponseTemplate::new(404).set_body_json(
+            serde_json::json!({"errcode": "M_NOT_FOUND", "error": "Delayed event not found"}),
+        ))
+        .mount(server.server())
+        .await;
+
+    assert_eq!(
+        core.postpone_hangup("fired").await,
+        super::super::Postponed::Gone
+    );
+}
+
+#[tokio::test]
+async fn a_lost_delayed_leave_is_scheduled_again_once() {
+    use wiremock::matchers::{method, path_regex};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let (server, core, room) = delayed_leave_fixture().await;
+    Mock::given(method("PUT"))
+        .and(path_regex(
+            r"/rooms/.*/send/org\.matrix\.msc4143\.rtc\.member/.*",
+        ))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(serde_json::json!({"delay_id":"new"})),
+        )
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let mut own = member(CallMode::Matrix2, 1, &[]);
+    own.member_id = Some("member".to_owned());
+    let delay = Mutex::new(super::super::DelayState {
+        id: None,
+        active: true,
+        lost: true,
+    });
+
+    super::restore_hangup(&core, &room, &own, &delay, false).await;
+    super::restore_hangup(&core, &room, &own, &delay, false).await;
+
+    let delay = delay.lock().await;
+    assert_eq!(delay.id.as_deref(), Some("new"));
+    assert!(!delay.lost);
+}
+
+#[tokio::test]
+async fn refreshing_a_delayed_leave_cancels_the_old_event_and_respects_hangup() {
+    use wiremock::matchers::{method, path, path_regex};
+    use wiremock::{Mock, ResponseTemplate};
+
+    let (server, core, room) = delayed_leave_fixture().await;
     Mock::given(method("POST"))
         .and(path(
             "/_matrix/client/unstable/org.matrix.msc4140/delayed_events/old",
@@ -939,6 +1013,7 @@ async fn refreshing_a_delayed_leave_cancels_the_old_event_and_respects_hangup() 
     let delay = Arc::new(Mutex::new(super::super::DelayState {
         id: Some("old".to_owned()),
         active: true,
+        lost: false,
     }));
     super::refresh_encrypted_hangup(core.clone(), room.clone(), own.clone(), delay.clone()).await;
     assert_eq!(delay.lock().await.id.as_deref(), Some("new"));
