@@ -294,6 +294,7 @@
     "stateEventRejected": "Das Zustandsereignis wurde abgelehnt.",
     "viewSource": "",
     "yesterday": "",
-    "verify": ""
+    "verify": "",
+    "unsavedChangesNotice": ""
   }
 }
