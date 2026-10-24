@@ -198,21 +198,21 @@ impl LegacySession {
 
 impl Core {
     pub async fn v1_migration_complete(&self) -> Result<bool, CoreError> {
-        if self.sessions.load().await?.is_some() {
-            private_directory(Path::new(&self.store_id))?;
-            tokio::fs::write(
-                Path::new(&self.store_id).join("v1-migration-complete"),
-                b"1",
-            )
+        let marker = Path::new(&self.store_id).join("v1-migration-complete");
+        match tokio::fs::metadata(&marker).await {
+            Ok(metadata) if metadata.is_file() => return Ok(true),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(CoreError::backend(error)),
+        }
+        if self.sessions.load().await?.is_none() {
+            return Ok(false);
+        }
+        private_directory(Path::new(&self.store_id))?;
+        tokio::fs::write(&marker, b"1")
             .await
             .map_err(CoreError::backend)?;
-            return Ok(true);
-        }
-        match tokio::fs::metadata(Path::new(&self.store_id).join("v1-migration-complete")).await {
-            Ok(metadata) => Ok(metadata.is_file()),
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
-            Err(error) => Err(CoreError::backend(error)),
-        }
+        Ok(true)
     }
 
     pub async fn skip_v1_migration(&self) -> Result<(), CoreError> {
