@@ -6,7 +6,8 @@ export function isLivekitMissingKey(event: Event): boolean {
   return (
     event.exception?.values?.some(
       (exception) =>
-        exception.type === 'MissingKey' && exception.mechanism?.type === 'auto.core.capture_console'
+        exception.mechanism?.type === 'auto.core.capture_console' &&
+        (exception.type === 'MissingKey' || exception.value?.startsWith('MissingKey: ') === true)
     ) ?? false
   );
 }

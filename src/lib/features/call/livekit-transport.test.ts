@@ -109,7 +109,52 @@ const connectOptions = {
   encryptionKeys: [],
 };
 
-test('classifies missing keys from the LiveKit worker without hiding other encryption errors', () => {
+test('reports missing keys only once they outlast the key rotation grace period', () => {
+  vi.useFakeTimers();
+  const { room } = roomFixture();
+  const failure = vi.fn();
+  const event = vi.fn();
+  const transport = createLivekitTransport({
+    encryptMedia: false,
+    createRoom: () => room,
+    telemetry: { step: (_stage, action) => action(), event, failure },
+  });
+  const alice = { identity: '@alice:example.test:DEVICE' };
+
+  const workerError = structuredClone(new Error('MissingKey: missing key at index 1'));
+  room.emit(RoomEvent.EncryptionError, workerError, alice);
+  vi.advanceTimersByTime(5_000);
+  room.emit(RoomEvent.EncryptionError, workerError, alice);
+  expect(failure).not.toHaveBeenCalled();
+  expect(event).toHaveBeenCalledWith('call.encryption.missing_key_frame', {});
+
+  vi.advanceTimersByTime(5_000);
+  room.emit(RoomEvent.EncryptionError, workerError, alice);
+  room.emit(RoomEvent.EncryptionError, workerError, alice);
+  expect(failure).toHaveBeenCalledExactlyOnceWith('call.encryption.missing_key', workerError, {});
+
+  failure.mockClear();
+  void transport.setEncryptionKey({
+    identity: alice.identity,
+    keyIndex: 2,
+    key: new Uint8Array(16),
+    backendId: 'backend',
+  });
+  room.emit(
+    RoomEvent.EncryptionError,
+    new CryptorError('missing', CryptorErrorReason.MissingKey),
+    alice
+  );
+  vi.advanceTimersByTime(20_000);
+  room.emit(
+    RoomEvent.EncryptionError,
+    new CryptorError('missing', CryptorErrorReason.MissingKey),
+    alice
+  );
+  expect(failure).not.toHaveBeenCalled();
+});
+
+test('reports other encryption errors immediately', () => {
   const { room } = roomFixture();
   const failure = vi.fn();
   createLivekitTransport({
@@ -118,14 +163,9 @@ test('classifies missing keys from the LiveKit worker without hiding other encry
     telemetry: { step: (_stage, action) => action(), event: vi.fn(), failure },
   });
 
-  const workerError = structuredClone(new Error('MissingKey: missing key at index 0'));
-  room.emit(RoomEvent.EncryptionError, workerError);
-  room.emit(RoomEvent.EncryptionError, new CryptorError('missing', CryptorErrorReason.MissingKey));
   room.emit(RoomEvent.EncryptionError, new Error('InternalError: encryption failed'));
 
-  expect(failure).toHaveBeenNthCalledWith(1, 'call.encryption.missing_key', workerError, {});
-  expect(failure).toHaveBeenNthCalledWith(2, 'call.encryption.missing_key', expect.any(Error), {});
-  expect(failure).toHaveBeenNthCalledWith(3, 'call.encryption.error', expect.any(Error), {});
+  expect(failure).toHaveBeenCalledExactlyOnceWith('call.encryption.error', expect.any(Error), {});
 });
 
 beforeEach(() => {

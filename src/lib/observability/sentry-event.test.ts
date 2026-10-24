@@ -12,6 +12,18 @@ test('drops the console error livekit writes for a missing call key', () => {
       },
     })
   ).toBe(true);
+  expect(
+    isLivekitMissingKey({
+      exception: {
+        values: [
+          {
+            value: 'MissingKey: missing key at index 2 for participant @alice:example.test',
+            mechanism: { type: 'auto.core.capture_console', handled: true, synthetic: true },
+          },
+        ],
+      },
+    })
+  ).toBe(true);
 });
 
 test('keeps other console errors and other mechanisms', () => {

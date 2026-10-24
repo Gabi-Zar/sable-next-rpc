@@ -96,6 +96,9 @@ export type LivekitTransportOptions = {
 const defaultWorker = (): Worker =>
   new Worker(new URL('livekit-client/e2ee-worker', import.meta.url), { type: 'module' });
 
+// Senders keep using their previous key for a few seconds after rotating.
+const MISSING_KEY_GRACE_MS = 10_000;
+
 // Chrome rejects a BUNDLE whose Opus sections share a payload type with different
 // fmtp, so these must keep the microphone's defaults.
 const SCREEN_AUDIO_PUBLISH: TrackPublishOptions = {
@@ -171,6 +174,7 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
   let qualitySnapshot = '';
   const participantIndexes = new WeakMap<object, number>();
   let nextParticipantIndex = 0;
+  const missingKeys = new Map<string, { since: number; last: number; reported: boolean }>();
 
   const fail = (
     stage: string,
@@ -369,6 +373,7 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
       event('call.connection.reconnected');
     })
     .on(RoomEvent.Disconnected, (reason) => {
+      missingKeys.clear();
       void stopSharingAudio();
       publish({ connection: 'disconnected', participants: [] });
       event('call.connection.disconnected', { 'call.disconnect_reason': reason ?? -1 });
@@ -379,11 +384,25 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
     .on(RoomEvent.ConnectionStateChanged, (connectionState) => {
       event('call.connection.state', { 'call.connection_state': connectionState });
     })
-    .on(RoomEvent.EncryptionError, (error) => {
+    .on(RoomEvent.EncryptionError, (error, participant) => {
       if (
         (error instanceof CryptorError && error.reason === CryptorErrorReason.MissingKey) ||
         (error instanceof Error && error.message.startsWith('MissingKey: '))
       ) {
+        const identity =
+          participant?.identity ??
+          (error instanceof CryptorError ? error.participantIdentity : undefined) ??
+          '';
+        const now = Date.now();
+        const streak = missingKeys.get(identity);
+        if (!streak || now - streak.last > MISSING_KEY_GRACE_MS) {
+          missingKeys.set(identity, { since: now, last: now, reported: false });
+          event('call.encryption.missing_key_frame');
+          return;
+        }
+        streak.last = now;
+        if (streak.reported || now - streak.since < MISSING_KEY_GRACE_MS) return;
+        streak.reported = true;
         fail('call.encryption.missing_key', error);
         return;
       }
@@ -417,7 +436,8 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
         'call.participant_count': room.remoteParticipants.size,
       });
     })
-    .on(RoomEvent.ParticipantDisconnected, () => {
+    .on(RoomEvent.ParticipantDisconnected, (participant) => {
+      missingKeys.delete(participant.identity);
       event('call.media.participant_count', {
         'call.participant_count': room.remoteParticipants.size,
       });
@@ -597,10 +617,11 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
       );
       syncLocal();
     },
-    setEncryptionKey: (key: CallEncryptionKey) =>
-      disposed
-        ? Promise.resolve()
-        : (keyProvider?.setKey(key, key.identity === options.ownIdentity) ?? Promise.resolve()),
+    setEncryptionKey: (key: CallEncryptionKey) => {
+      if (disposed) return Promise.resolve();
+      missingKeys.delete(key.identity);
+      return keyProvider?.setKey(key, key.identity === options.ownIdentity) ?? Promise.resolve();
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       listener(state);
