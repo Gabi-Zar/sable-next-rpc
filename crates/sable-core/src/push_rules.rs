@@ -529,7 +529,7 @@ const RING_ONE_TO_ONE: &str = "moe.sable.ring_one_to_one";
 const SUPPRESS_BRIDGE_STATUS: &str = "moe.sable.suppress_bridge_status";
 const SUPPRESS_REACTIONS: &str = "moe.sable.suppress_reactions";
 /// A room rule matches every event, so these would notify in a room set to all messages.
-const SUPPRESSED_ROOM_EVENTS: [&str; 9] = [
+const SUPPRESSED_ROOM_EVENTS: [&str; 13] = [
     "m.room.name",
     "m.room.topic",
     "m.room.avatar",
@@ -539,6 +539,10 @@ const SUPPRESSED_ROOM_EVENTS: [&str; 9] = [
     "m.room.join_rules",
     "m.room.history_visibility",
     "m.room.redaction",
+    "org.matrix.msc3401.call.member",
+    "m.call.member",
+    "org.matrix.msc4143.rtc.member",
+    "m.rtc.member",
 ];
 
 #[must_use]
