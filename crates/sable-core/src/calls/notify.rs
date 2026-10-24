@@ -86,6 +86,18 @@ pub(crate) fn is_call_event_type<T>(raw: &matrix_sdk::ruma::serde::Raw<T>) -> bo
     )
 }
 
+pub(crate) fn is_call_membership_event_type<T>(raw: &matrix_sdk::ruma::serde::Raw<T>) -> bool {
+    raw.get_field::<String>("type")
+        .ok()
+        .flatten()
+        .is_some_and(|event_type| {
+            matches!(
+                event_type.as_str(),
+                "org.matrix.msc3401.call.member" | "m.call.member"
+            ) || super::membership::is_rtc_member_type(&event_type)
+        })
+}
+
 pub(crate) struct Incoming {
     pub(crate) kind: NotificationKind,
     pub(crate) expires_at: u64,
@@ -445,6 +457,30 @@ mod tests {
             .unwrap()
             .cast_unchecked::<matrix_sdk::ruma::events::AnySyncMessageLikeEvent>();
             assert_eq!(super::is_call_event_type(&raw), expected, "{event_type}");
+        }
+    }
+
+    #[test]
+    fn call_membership_event_types_are_recognised() {
+        for (event_type, expected) in [
+            ("org.matrix.msc3401.call.member", true),
+            ("m.call.member", true),
+            ("org.matrix.msc4143.rtc.member", true),
+            ("m.rtc.member", true),
+            ("m.rtc.notification", false),
+            ("m.room.member", false),
+        ] {
+            let raw = matrix_sdk::ruma::serde::Raw::new(&serde_json::json!({
+                "type": event_type, "event_id": "$e", "sender": "@bob:localhost",
+                "origin_server_ts": 1000, "state_key": "", "content": {}
+            }))
+            .unwrap()
+            .cast_unchecked::<matrix_sdk::ruma::events::AnySyncTimelineEvent>();
+            assert_eq!(
+                super::is_call_membership_event_type(&raw),
+                expected,
+                "{event_type}"
+            );
         }
     }
 

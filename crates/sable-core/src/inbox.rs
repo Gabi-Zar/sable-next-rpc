@@ -345,7 +345,8 @@ impl Core {
         raw: &Raw<AnySyncTimelineEvent>,
         actions: &[Action],
     ) -> Option<Entry> {
-        if crate::calls::is_call_event_type(raw) {
+        if crate::calls::is_call_event_type(raw) || crate::calls::is_call_membership_event_type(raw)
+        {
             return None;
         }
         let event = raw.deserialize().ok()?;

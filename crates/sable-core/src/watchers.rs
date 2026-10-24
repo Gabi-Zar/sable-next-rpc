@@ -212,7 +212,9 @@ impl Core {
                     let mut sent = None;
                     let notification = match event {
                         RawAnySyncOrStrippedTimelineEvent::Sync(raw) => {
-                            if crate::calls::is_call_event_type(&raw) {
+                            if crate::calls::is_call_event_type(&raw)
+                                || crate::calls::is_call_membership_event_type(&raw)
+                            {
                                 continue;
                             }
                             let Ok(event) = raw.deserialize() else {
