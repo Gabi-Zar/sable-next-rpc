@@ -20,7 +20,7 @@ import {
 
 import { createMedia } from './media.svelte.js';
 import { invalidatePacks, isPackAccountDataEvent } from '#lib/emoji/load-packs.js';
-import { createTransport } from '../../transport/create';
+import { createTransport } from '#src/transport/create';
 import type { Transport } from '../../transport';
 import { CoreError } from '../../transport';
 import { V1MigrationError } from '#lib/migrations/v1/migration.js';

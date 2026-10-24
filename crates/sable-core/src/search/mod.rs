@@ -1,6 +1,8 @@
 mod crawl;
 mod network;
 pub(crate) use network::CrawlNetwork;
+#[cfg(any(target_os = "android", target_os = "ios", test))]
+mod dictionary;
 #[cfg(target_family = "wasm")]
 mod idb;
 mod persist;
@@ -432,6 +434,7 @@ struct RoomIndex {
     pending_edits: HashMap<OwnedEventId, Document>,
     floor: u64,
     rederive_from: u64,
+    chinese_pending: HashSet<DocKey>,
 }
 
 impl RoomIndex {
@@ -468,6 +471,7 @@ impl RoomIndex {
             pending_edits: HashMap::new(),
             floor: 0,
             rederive_from: 0,
+            chinese_pending: HashSet::new(),
         }
     }
 
@@ -599,6 +603,7 @@ impl RoomIndex {
             return;
         };
         for (ts, key) in self.keys_in(start, end) {
+            self.chinese_pending.remove(&key);
             if let Some(document) = self.documents.remove(&key) {
                 self.key_of.remove(&document.event_id);
                 self.bytes = self.bytes.saturating_sub(document_bytes(&document));
@@ -838,6 +843,8 @@ impl RoomIndex {
     }
 
     fn upsert(&mut self, document: Document) {
+        let chinese_pending =
+            !tokenize::chinese_ready() && tokenize::contains_chinese(&document.body);
         if let Some(&key) = self.key_of.get(&document.event_id)
             && let Some(indexed) = self.documents.get_mut(&key)
             && indexed.body == document.body
@@ -869,6 +876,9 @@ impl RoomIndex {
         self.index
             .add_document(&[body_field], tokenize::tokenize, key, &body);
         self.key_of.insert(document.event_id.clone(), key);
+        if chinese_pending {
+            self.chinese_pending.insert(key);
+        }
         self.by_age.insert((document.origin_server_ts, key));
         let document = Document {
             body: body.0,
@@ -898,6 +908,7 @@ impl RoomIndex {
         let Some(key) = self.key_of.remove(event_id) else {
             return;
         };
+        self.chinese_pending.remove(&key);
         let ts = self.documents.remove(&key).map_or(0, |document| {
             self.by_age.remove(&(document.origin_server_ts, key));
             self.bytes = self.bytes.saturating_sub(document_bytes(&document));
@@ -1001,6 +1012,40 @@ impl<'index> Ranked<'index> {
 }
 
 impl MessageIndex {
+    fn chinese_pending(&self) -> bool {
+        self.rooms
+            .values()
+            .any(|room| !room.chinese_pending.is_empty())
+    }
+
+    async fn refresh_chinese(&mut self) {
+        if !tokenize::chinese_ready() {
+            return;
+        }
+        for room in self
+            .rooms
+            .values_mut()
+            .filter(|room| !room.chinese_pending.is_empty())
+        {
+            let count = room.documents.len();
+            let mut index = Index::new_with_capacity(BODY_FIELD_COUNT, count, count);
+            for (position, (&key, document)) in room.documents.iter().enumerate() {
+                if position > 0 && position.is_multiple_of(DOCUMENTS_PER_RESTORE_YIELD) {
+                    matrix_sdk::sleep::sleep(Duration::ZERO).await;
+                }
+                index.add_document(
+                    &[|body: &String| vec![body.as_str()]],
+                    tokenize::tokenize,
+                    key,
+                    &document.body,
+                );
+            }
+            room.index = index;
+            room.retired_keys = 0;
+            room.chinese_pending.clear();
+        }
+    }
+
     pub(crate) fn new() -> Self {
         Self::with_budgets(MEMORY_BUDGET, DISK_BUDGET)
     }
@@ -2513,6 +2558,37 @@ async fn latest_content(
 }
 
 impl Core {
+    pub(crate) async fn prepare_search_query(&self, query: &str) -> Result<(), RpcError> {
+        if tokenize::contains_chinese(query) {
+            #[cfg(any(target_os = "android", target_os = "ios"))]
+            dictionary::ensure(&self.store_id)
+                .await
+                .map_err(|_| RpcError::Unavailable)?;
+            self.search_index.lock().await.refresh_chinese().await;
+        }
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    fn watch_search_dictionary(self: &Arc<Self>) {
+        let core = self.clone();
+        self.track_session_task(
+            spawn(async move {
+                loop {
+                    let pending = core.search_index.lock().await.chinese_pending();
+                    if pending
+                        && core.search_crawl_active()
+                        && dictionary::ensure(&core.store_id).await.is_ok()
+                    {
+                        core.search_index.lock().await.refresh_chinese().await;
+                    }
+                    matrix_sdk::sleep::sleep(Duration::from_secs(10)).await;
+                }
+            })
+            .abort_on_drop(),
+        );
+    }
+
     pub(crate) async fn search_messages(
         &self,
         query: &str,
@@ -3044,6 +3120,8 @@ impl Core {
 
                 core.watch_search_crawl(&client);
                 core.watch_search_persist(&client);
+                #[cfg(any(target_os = "android", target_os = "ios"))]
+                core.watch_search_dictionary();
 
                 loop {
                     let room_id = match updates.recv().await {
@@ -3238,6 +3316,74 @@ mod tests {
             loaded: vec![(0, super::persist::StoredChunk::new(documents, Vec::new()))],
             legacy: false,
         }
+    }
+
+    #[async_test]
+    async fn test_chinese_search_survives_restore() {
+        let room = room_id!("!chinese:localhost").to_owned();
+        let document = document(
+            "chinese",
+            "今天我们一起讨论中文搜索功能，然后测试加密房间里的消息索引。",
+            "@erwan:localhost",
+            1_000,
+            None,
+            Vec::new(),
+        );
+        let mut fresh = super::RoomIndex::new();
+        fresh.upsert(document.clone());
+        let restored = super::RoomIndex::restored(restored_from(vec![document])).await;
+
+        for room_index in [fresh, restored] {
+            let mut index = MessageIndex::new();
+            index.rooms.insert(room.clone(), room_index);
+            for query in ["中文", "搜索", "功能", "加密", "消息", "索引"] {
+                assert_eq!(
+                    found(&index, query, &super::IndexFilter::default()),
+                    ["$chinese"],
+                    "missing Chinese search result for {query:?}"
+                );
+            }
+            assert_eq!(
+                found(&index, "天气", &super::IndexFilter::default()),
+                [] as [String; 0]
+            );
+        }
+    }
+
+    #[async_test]
+    async fn test_pending_chinese_reindex() {
+        let room = room_id!("!pending-chinese:localhost").to_owned();
+        let mut room_index = super::RoomIndex::new();
+        room_index.upsert(document(
+            "pending",
+            "稍后搜索中文消息",
+            "@erwan:localhost",
+            1_000,
+            None,
+            Vec::new(),
+        ));
+        // Simulate indexing before the dictionary is available.
+        room_index.index = probly_search::Index::new(super::BODY_FIELD_COUNT);
+        room_index
+            .chinese_pending
+            .extend(room_index.documents.keys().copied());
+        let revision = room_index.revision;
+        let mut index = MessageIndex::new();
+        index.rooms.insert(room.clone(), room_index);
+        assert!(index.chinese_pending());
+        assert_eq!(
+            found(&index, "搜索", &super::IndexFilter::default()),
+            [] as [String; 0]
+        );
+
+        index.refresh_chinese().await;
+
+        assert!(!index.chinese_pending());
+        assert_eq!(index.revision(&room), revision);
+        assert_eq!(
+            found(&index, "搜索", &super::IndexFilter::default()),
+            ["$pending"]
+        );
     }
 
     fn filtered_index() -> (MessageIndex, matrix_sdk::ruma::OwnedRoomId) {

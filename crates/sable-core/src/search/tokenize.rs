@@ -2,7 +2,13 @@ use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use charabia::{Script, Token, TokenKind, Tokenize};
+use jieba_rs::Jieba;
 use rust_stemmers::{Algorithm, Stemmer};
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+static CHINESE: LazyLock<Jieba> = LazyLock::new(Jieba::new);
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub(super) static CHINESE: std::sync::OnceLock<Jieba> = std::sync::OnceLock::new();
 
 static ENGLISH: LazyLock<Stemmer> = LazyLock::new(|| Stemmer::create(Algorithm::English));
 static RUSSIAN: LazyLock<Stemmer> = LazyLock::new(|| Stemmer::create(Algorithm::Russian));
@@ -14,11 +20,63 @@ static TAMIL: LazyLock<Stemmer> = LazyLock::new(|| Stemmer::create(Algorithm::Ta
 const MAX_TERM_CHARS: usize = 256;
 
 pub(crate) fn tokenize(text: &str) -> Vec<Cow<'static, str>> {
-    text.tokenize()
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let dictionary = contains_chinese(text).then(|| &*CHINESE);
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let dictionary = CHINESE.get();
+    tokenize_with(text, dictionary)
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+pub(super) const fn chinese_ready() -> bool {
+    true
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub(super) fn chinese_ready() -> bool {
+    CHINESE.get().is_some()
+}
+
+pub(super) fn contains_chinese(text: &str) -> bool {
+    text.chars()
+        .any(|character| Script::from(character) == Script::Cj)
+}
+
+fn tokenize_with(text: &str, dictionary: Option<&Jieba>) -> Vec<Cow<'static, str>> {
+    let mut terms = Vec::new();
+    for token in text
+        .tokenize()
         .filter(|token| token.kind == TokenKind::Word)
-        .map(|token| Cow::<'static, str>::Owned(limit_term(stem(&token))))
-        .filter(|term| !term.is_empty())
-        .collect()
+    {
+        if token.script == Script::Cj {
+            let Some(dictionary) = dictionary else {
+                continue;
+            };
+            // Segment the original text: normalization can change dictionary spellings.
+            let original = text
+                .get(token.byte_start..token.byte_end)
+                .unwrap_or_default();
+            for word in dictionary.cut_for_search(original, false) {
+                for token in word
+                    .word
+                    .tokenize()
+                    .filter(|token| token.kind == TokenKind::Word)
+                {
+                    push_term(&mut terms, &token);
+                }
+            }
+        } else {
+            push_term(&mut terms, &token);
+        }
+    }
+    terms
+}
+
+fn push_term(terms: &mut Vec<Cow<'static, str>>, token: &Token<'_>) {
+    let term = limit_term(stem(token));
+    if !term.is_empty() {
+        terms.push(Cow::Owned(term));
+    }
 }
 
 fn limit_term(mut term: String) -> String {
@@ -79,6 +137,35 @@ mod tests {
     #[test]
     fn test_a_script_without_spaces_still_yields_terms() {
         assert_ne!(terms("สวัสดี"), [] as [String; 0]);
+    }
+
+    #[test]
+    fn test_chinese_words_inside_sentences() {
+        for sentence in [
+            "今天我们一起讨论中文搜索功能，然后测试加密房间里的消息索引。",
+            "今天我們一起討論中文搜索功能，然後測試加密房間裡的消息索引。",
+        ] {
+            let document = terms(sentence);
+            for query in ["中文", "搜索", "功能", "加密", "消息", "索引"] {
+                let query_terms = terms(query);
+                assert_ne!(query_terms, [] as [String; 0]);
+                assert!(
+                    query_terms.iter().all(|term| document.contains(term)),
+                    "{query:?} tokenized to {query_terms:?}, which the document {document:?} cannot match"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_missing_chinese_dictionary_keeps_latin_terms() {
+        assert_eq!(super::tokenize_with("deploy 中文搜索", None), ["deploy"]);
+        assert_eq!(super::tokenize_with("中文搜索", None), [] as [&str; 0]);
+    }
+
+    #[test]
+    fn test_mixed_chinese_and_latin() {
+        assert_eq!(terms("搜索 Search 部署"), ["搜索", "search", "部署"]);
     }
 
     #[test]

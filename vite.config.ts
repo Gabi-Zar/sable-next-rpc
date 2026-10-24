@@ -10,6 +10,9 @@ import { emojiDataPlugin } from './scripts/build/emoji-data-plugin.mjs';
 import { writeCspHeaders } from './scripts/build/csp.mjs';
 
 const wasmOutput = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
+const nativeMobile =
+  process.env.NODE_ENV === 'production' &&
+  ['android', 'ios'].includes(process.env.TAURI_ENV_PLATFORM ?? '');
 const staticAdapter = adapter({ assets: 'dist', pages: 'dist', fallback: '404.html' });
 
 export default defineConfig({
@@ -24,6 +27,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '#src/transport/create': resolve(
+        nativeMobile ? 'src/transport/create.native.ts' : 'src/transport/create.ts'
+      ),
       '#src/generated/wasm': resolve(wasmOutput),
     },
   },

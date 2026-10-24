@@ -62,6 +62,7 @@ impl Handler for MessagesParams {
             older,
         } = self;
         let filter = crate::search::IndexFilter::try_from(filter)?;
+        core.prepare_search_query(&query).await?;
         let limit = (limit as usize).min(MAX_SEARCH_RESULTS);
         let context = (context as usize).min(MAX_SEARCH_CONTEXT);
         let (hits, older) = if let Some(cursor) = older {

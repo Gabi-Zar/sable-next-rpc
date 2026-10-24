@@ -158,6 +158,7 @@
     "#src/generated/*": "./src/generated/*.ts",
     "#src/generated/wasm/*.js": "./src/generated/wasm/*.js",
     "#src/transport": "./src/transport/index.ts",
+    "#src/transport/create": "./src/transport/create.ts",
     "#src/worker/*": "./src/worker/*.ts",
     "#lib/*": "./src/lib/*"
   }

@@ -691,6 +691,8 @@ jobs:
         uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
         with:
           name: web-assets
+      - name: Drop browser core assets
+        run: rm -rf dist/_app/immutable/workers
       - name: Set up app
         uses: ./.forgejo/actions/setup
         with:

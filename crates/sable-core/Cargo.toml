@@ -52,6 +52,7 @@ charabia = { version = "0.10", default-features = false, features = [
   "swedish-recomposition",
   "chinese-normalization",
 ] }
+jieba-rs = { version = "=0.10.4", default-features = false }
 rust-stemmers = "1.2"
 html-escape = "0.2"
 linkify = "0.11"
@@ -72,6 +73,12 @@ matrix-sdk = { workspace = true, features = ["bundled-sqlite", "automatic-room-k
 tempfile = "3"
 rusqlite = { version = "0.40.2", default-features = false, features = ["backup"] }
 tokio = { workspace = true }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+jieba-rs = { version = "=0.10.4", features = ["default-dict"], default-features = false }
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["gzip"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
