@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Component, Snippet } from 'svelte';
-  import ArrowBendUpLeftIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
+  import ArrowBendUpRightIcon from 'phosphor-svelte/lib/ArrowBendUpRightIcon';
 
   import type { MemberView, TimelineItemView } from '#src/generated/protocol';
 
@@ -39,7 +39,7 @@
     members = [],
     currentUserId = null,
     reply = false,
-    icon: Icon = ArrowBendUpLeftIcon,
+    icon: Icon = ArrowBendUpRightIcon,
     onJump,
     body,
   }: Props = $props();

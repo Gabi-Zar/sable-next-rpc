@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
+  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpRightIcon';
   import ThreadIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
 
