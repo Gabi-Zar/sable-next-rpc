@@ -1,7 +1,55 @@
+diff --git a/dist/livekit-client.esm.mjs b/dist/livekit-client.esm.mjs
+index a983f6e39c474912a9052d4a5f7155875f204e4a..e83c954dc8df84676eb4a15b540f864f9c7a08b4 100644
+--- a/dist/livekit-client.esm.mjs
++++ b/dist/livekit-client.esm.mjs
+@@ -21711,15 +21711,14 @@ function conformBundledCodecFmtp(media, isPlaceholder) {
+   // section's value always takes precedence; otherwise the first placeholder
+   // value seen is used so divergent placeholders still converge.
+   const canonicalByPayload = new Map();
+-  const fromRealSection = new Set();
+   for (const m of media) {
+     const placeholder = isPlaceholder(m);
+-    for (const fmtp of (_a = m.fmtp) !== null && _a !== void 0 ? _a : []) {
++    for (const codec of m.rtp ?? []) {
++      const config = m.fmtp?.find((fmtp) => fmtp.payload === codec.payload)?.config ?? '';
+       if (!placeholder) {
+-        canonicalByPayload.set(fmtp.payload, fmtp.config);
+-        fromRealSection.add(fmtp.payload);
+-      } else if (!canonicalByPayload.has(fmtp.payload)) {
+-        canonicalByPayload.set(fmtp.payload, fmtp.config);
++        canonicalByPayload.set(codec.payload, config);
++      } else if (!canonicalByPayload.has(codec.payload)) {
++        canonicalByPayload.set(codec.payload, config);
+       }
+     }
+   }
+@@ -21731,10 +21730,17 @@ function conformBundledCodecFmtp(media, isPlaceholder) {
+     if (!isPlaceholder(m)) {
+       continue;
+     }
+-    for (const fmtp of (_b = m.fmtp) !== null && _b !== void 0 ? _b : []) {
+-      const config = canonicalByPayload.get(fmtp.payload);
+-      if (config !== undefined && fmtp.config !== config) {
++    for (const codec of m.rtp ?? []) {
++      const config = canonicalByPayload.get(codec.payload);
++      if (config === undefined) continue;
++      m.fmtp ??= [];
++      const fmtp = m.fmtp.find((entry) => entry.payload === codec.payload);
++      if (config === '') {
++        m.fmtp = m.fmtp.filter((entry) => entry.payload !== codec.payload);
++      } else if (fmtp) {
+         fmtp.config = config;
++      } else {
++        m.fmtp.push({ payload: codec.payload, config });
+       }
+     }
+   }
 diff --git a/src/room/PCTransport.ts b/src/room/PCTransport.ts
+index 1b4103130d78b27b9d63f7efa3e1bc8f0d297468..efc69ff4080e2ed662b92a2889153f0d2bcd7781 100644
 --- a/src/room/PCTransport.ts
 +++ b/src/room/PCTransport.ts
-@@ -1068,14 +1068,13 @@ export function conformBundledCodecFmtp(
+@@ -1204,15 +1204,14 @@ export function conformBundledCodecFmtp(
+   // section's value always takes precedence; otherwise the first placeholder
    // value seen is used so divergent placeholders still converge.
    const canonicalByPayload = new Map<number, string>();
 -  const fromRealSection = new Set<number>();
@@ -21,14 +69,13 @@ diff --git a/src/room/PCTransport.ts b/src/room/PCTransport.ts
        }
      }
    }
-@@ -1089,10 +1088,17 @@ export function conformBundledCodecFmtp(
+@@ -1225,10 +1224,17 @@ export function conformBundledCodecFmtp(
      if (!isPlaceholder(m)) {
        continue;
      }
 -    for (const fmtp of m.fmtp ?? []) {
 -      const config = canonicalByPayload.get(fmtp.payload);
 -      if (config !== undefined && fmtp.config !== config) {
--        fmtp.config = config;
 +    for (const codec of m.rtp ?? []) {
 +      const config = canonicalByPayload.get(codec.payload);
 +      if (config === undefined) continue;
@@ -37,52 +84,7 @@ diff --git a/src/room/PCTransport.ts b/src/room/PCTransport.ts
 +      if (config === '') {
 +        m.fmtp = m.fmtp.filter((entry) => entry.payload !== codec.payload);
 +      } else if (fmtp) {
-+        fmtp.config = config;
-+      } else {
-+        m.fmtp.push({ payload: codec.payload, config });
-       }
-     }
-   }
-diff --git a/dist/livekit-client.esm.mjs b/dist/livekit-client.esm.mjs
---- a/dist/livekit-client.esm.mjs
-+++ b/dist/livekit-client.esm.mjs
-@@ -21404,14 +21404,13 @@ function conformBundledCodecFmtp(media, isPlaceholder) {
-   // value seen is used so divergent placeholders still converge.
-   const canonicalByPayload = new Map();
--  const fromRealSection = new Set();
-   for (const m of media) {
-     const placeholder = isPlaceholder(m);
--    for (const fmtp of (_a = m.fmtp) !== null && _a !== void 0 ? _a : []) {
-+    for (const codec of m.rtp || []) {
-+      const config = m.fmtp?.find(fmtp => fmtp.payload === codec.payload)?.config ?? '';
-       if (!placeholder) {
--        canonicalByPayload.set(fmtp.payload, fmtp.config);
--        fromRealSection.add(fmtp.payload);
--      } else if (!canonicalByPayload.has(fmtp.payload)) {
--        canonicalByPayload.set(fmtp.payload, fmtp.config);
-+        canonicalByPayload.set(codec.payload, config);
-+      } else if (!canonicalByPayload.has(codec.payload)) {
-+        canonicalByPayload.set(codec.payload, config);
-       }
-     }
-   }
-@@ -21425,10 +21424,17 @@ function conformBundledCodecFmtp(media, isPlaceholder) {
-     if (!isPlaceholder(m)) {
-       continue;
-     }
--    for (const fmtp of (_b = m.fmtp) !== null && _b !== void 0 ? _b : []) {
--      const config = canonicalByPayload.get(fmtp.payload);
--      if (config !== undefined && fmtp.config !== config) {
--        fmtp.config = config;
-+    for (const codec of m.rtp || []) {
-+      const config = canonicalByPayload.get(codec.payload);
-+      if (config === undefined) continue;
-+      m.fmtp ??= [];
-+      const fmtp = m.fmtp.find(entry => entry.payload === codec.payload);
-+      if (config === '') {
-+        m.fmtp = m.fmtp.filter(entry => entry.payload !== codec.payload);
-+      } else if (fmtp) {
-+        fmtp.config = config;
+         fmtp.config = config;
 +      } else {
 +        m.fmtp.push({ payload: codec.payload, config });
        }
