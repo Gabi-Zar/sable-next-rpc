@@ -1,10 +1,8 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { resolve } from '$app/paths';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
-  import { joinOrOfferKnock, knockPagePath } from '#lib/rooms/join-or-knock.js';
-  import { roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
+  import { joinOrKnockPath, joinOrOfferKnock } from '#lib/rooms/join-or-knock.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import FormField from '#lib/ui/primitives/FormField.svelte';
@@ -31,12 +29,8 @@
     joining = true;
     try {
       const result = await joinOrOfferKnock(core.rpc, parsed.address, parsed.via);
-      await goto(
-        // eslint-disable-next-line svelte/no-navigation-without-resolve -- knockPagePath() resolves the route itself
-        result.kind === 'knock'
-          ? knockPagePath(result.address, result.via)
-          : resolve('/(app)/rooms/[roomId]', { roomId: roomPathParamFromId(result.roomId) })
-      );
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- joinOrKnockPath() resolves the route itself
+      await goto(joinOrKnockPath(result));
     } catch (error) {
       console.warn('[sable room] join failed', error);
       failed = true;

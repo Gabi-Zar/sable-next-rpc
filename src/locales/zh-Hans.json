@@ -1408,11 +1408,9 @@
   },
   "direct": {
     "description": "输入用户 ID 以开始私密、加密的聊天。",
-    "userIdPlaceholder": "@someone:server",
     "failed": "无法创建聊天。",
     "encryptionHint": "对于桥接联系人请关闭，之后无法再开启。",
     "submit": "开始聊天",
-    "userIdLabel": "用户 ID",
     "confirmTitle": "开始与 {{name}} 聊天？",
     "confirmBody": "你还没有与对方聊天，将创建一个新聊天并邀请对方。"
   },

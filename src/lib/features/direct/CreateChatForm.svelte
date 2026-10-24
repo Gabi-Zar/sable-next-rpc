@@ -3,6 +3,8 @@
   import { resolve } from '$app/paths';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { parseJoinAddress } from '#lib/rooms/join-address.js';
+  import { joinOrKnockPath, joinOrOfferKnock } from '#lib/rooms/join-or-knock.js';
   import { roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -13,30 +15,39 @@
   const core = useCoreClient();
   const userIdPattern = /^@[^:\s]+:\S+$/;
 
-  let userId = $state('');
+  let address = $state('');
   let encrypted = $state(true);
   let opening = $state(false);
   let invalid = $state(false);
   let failed = $state(false);
+  let room = $derived(parseJoinAddress(address));
+
+  async function open(): Promise<string> {
+    if (room) {
+      const result = await joinOrOfferKnock(core.rpc, room.address, room.via);
+      return joinOrKnockPath(result);
+    }
+    const roomId = await core.rpc.rooms.createDm({
+      user_id: address.trim(),
+      encrypted: encrypted ?? null,
+    });
+    return resolve('/(app)/direct/[roomId]', { roomId: roomPathParamFromId(roomId) });
+  }
 
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (opening) return;
 
-    const candidate = userId.trim();
-    invalid = !userIdPattern.test(candidate);
+    invalid = !room && !userIdPattern.test(address.trim());
     failed = false;
     if (invalid) return;
 
     opening = true;
     try {
-      const roomId = await core.rpc.rooms.createDm({
-        user_id: candidate,
-        encrypted: encrypted ?? null,
-      });
-      await goto(resolve('/(app)/direct/[roomId]', { roomId: roomPathParamFromId(roomId) }));
+      // eslint-disable-next-line svelte/no-navigation-without-resolve -- open() resolves the route itself
+      await goto(await open());
     } catch (error) {
-      console.warn('[sable direct] could not create a chat', error);
+      console.warn('[sable direct] could not open the chat', error);
       failed = true;
     } finally {
       opening = false;
@@ -47,41 +58,45 @@
 <form class="create-chat" onsubmit={submit}>
   <FormField
     fieldId="create-chat-user"
-    label={i18n.t('direct.userIdLabel')}
-    error={invalid ? i18n.t('common.userIdFormatHint') : null}
+    label={i18n.t('direct.addressLabel')}
+    error={invalid ? i18n.t('direct.addressInvalid') : null}
   >
     <TextInput
       id="create-chat-user"
-      bind:value={userId}
+      bind:value={address}
       autocomplete="off"
       autocapitalize="none"
       spellcheck={false}
       aria-invalid={invalid}
       aria-describedby={invalid ? 'create-chat-user-error' : undefined}
-      placeholder={i18n.t('direct.userIdPlaceholder')}
+      placeholder={i18n.t('direct.addressPlaceholder')}
     />
   </FormField>
 
-  <div class="row">
-    <div class="row-text">
-      <span class="field-label">{i18n.t('common.endToEndEncryption')}</span>
-      <p class="hint">{i18n.t('direct.encryptionHint')}</p>
+  {#if !room}
+    <div class="row">
+      <div class="row-text">
+        <span class="field-label">{i18n.t('common.endToEndEncryption')}</span>
+        <p class="hint">{i18n.t('direct.encryptionHint')}</p>
+      </div>
+      <Switch
+        checked={encrypted}
+        label={i18n.t('common.endToEndEncryption')}
+        onCheckedChange={(next: boolean) => {
+          encrypted = next;
+        }}
+      />
     </div>
-    <Switch
-      checked={encrypted}
-      label={i18n.t('common.endToEndEncryption')}
-      onCheckedChange={(next: boolean) => {
-        encrypted = next;
-      }}
-    />
-  </div>
-
-  {#if failed}
-    <Alert variant="critical" role="alert">{i18n.t('direct.failed')}</Alert>
   {/if}
 
-  <Button type="submit" variant="primary" loading={opening} disabled={userId.trim() === ''}>
-    {i18n.t('direct.submit')}
+  {#if failed}
+    <Alert variant="critical" role="alert">
+      {i18n.t(room ? 'common.roomJoinFailed' : 'direct.failed')}
+    </Alert>
+  {/if}
+
+  <Button type="submit" variant="primary" loading={opening} disabled={address.trim() === ''}>
+    {i18n.t(room ? 'common.join' : 'direct.submit')}
   </Button>
 </form>
 

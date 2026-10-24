@@ -593,8 +593,6 @@
   },
   "direct": {
     "description": "Commencez une conversation privée chiffrée en saisissant un identifiant utilisateur.",
-    "userIdLabel": "Identifiant utilisateur",
-    "userIdPlaceholder": "@quelqu’un:serveur",
     "failed": "Impossible de créer la conversation.",
     "submit": "Commencer une conversation privée"
   },

@@ -814,9 +814,10 @@
     "trustedProvenanceTooltip": "This room preview was provided by your own server."
   },
   "direct": {
-    "description": "Start a private, encrypted chat by entering a user id.",
-    "userIdLabel": "User id",
-    "userIdPlaceholder": "@someone:server",
+    "description": "Start a private, encrypted chat with a user id, or join a room by its address.",
+    "addressLabel": "User id or room address",
+    "addressPlaceholder": "@someone:server or #room:server",
+    "addressInvalid": "Enter a user id like @someone:server or a room address like #room:server.",
     "failed": "The chat could not be created.",
     "encryptionHint": "Turn off for bridged contacts. Cannot be turned on later.",
     "submit": "Start chat",

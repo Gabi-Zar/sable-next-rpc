@@ -612,8 +612,6 @@
   },
   "direct": {
     "description": "Începe o conversație privată și introducând un ID de utilizator.",
-    "userIdLabel": "ID utilizator",
-    "userIdPlaceholder": "@cineva:server",
     "failed": "Conversația nu a putut fi creată.",
     "submit": "Începe conversația"
   },

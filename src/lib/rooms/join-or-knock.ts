@@ -39,3 +39,9 @@ export function knockPagePath(address: string, via: readonly string[]): string {
   const query = new URLSearchParams(via.map((server) => ['via', server])).toString();
   return query === '' ? path : `${path}?${query}`;
 }
+
+export function joinOrKnockPath(result: JoinOrKnock): string {
+  return result.kind === 'knock'
+    ? knockPagePath(result.address, result.via)
+    : resolve('/(app)/rooms/[roomId]', { roomId: roomPathParamFromId(result.roomId) });
+}
