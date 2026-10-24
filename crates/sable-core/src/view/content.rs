@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use matrix_sdk::ruma::UInt;
+use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::events::poll::start::PollKind;
 use matrix_sdk::ruma::events::room::message::{
     GalleryMessageEventContent, MessageType, RoomMessageEventContent,
@@ -27,7 +28,7 @@ use super::media::{
     media_source, spoiler_reason, video_playback, video_thumbnail,
 };
 use super::raw::RawFields;
-use super::state::{membership_change, membership_reason, state_change};
+use super::state::{membership_change, membership_reason, pinned_change, state_change};
 
 fn text_message(
     msgtype: &MessageType,
@@ -466,13 +467,16 @@ pub(super) fn content(
             event_type,
             state_key,
             ..
-        } if raw.content_stripped() => TimelineItemContentView::StateEvent {
-            event_type: event_type.to_string(),
-            state_key: state_key.clone(),
-            change: None,
-            content: raw.content.clone(),
-            prev_content: raw.prev_content().cloned(),
-        },
+        } if raw.content_stripped() || *event_type == StateEventType::RoomPinnedEvents => {
+            TimelineItemContentView::StateEvent {
+                event_type: event_type.to_string(),
+                state_key: state_key.clone(),
+                change: (!raw.content_stripped())
+                    .then(|| pinned_change(raw.content.as_ref(), raw.prev_content())),
+                content: raw.content.clone(),
+                prev_content: raw.prev_content().cloned(),
+            }
+        }
         TimelineItemContent::FailedToParseState { event_type, .. } => {
             unparsed(&event_type.to_string(), raw)
         }

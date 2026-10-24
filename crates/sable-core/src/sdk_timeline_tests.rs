@@ -4700,6 +4700,54 @@ async fn an_emptied_state_event_is_a_state_event_not_a_deleted_message() {
     }
 }
 
+#[tokio::test]
+async fn a_pin_list_with_junk_entries_still_reads_as_a_pin_change() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!junk-pins:example.org");
+    let event = serde_json::from_value::<
+        matrix_sdk::ruma::serde::Raw<matrix_sdk::ruma::events::AnySyncTimelineEvent>,
+    >(json!({
+        "type": "m.room.pinned_events",
+        "state_key": "",
+        "event_id": "$pins",
+        "sender": ALICE.to_string(),
+        "origin_server_ts": 1,
+        "content": { "pinned": ["$a", "nex", "$b", "$new", "@nex:example.org", 4, [], {}] },
+        "unsigned": { "prev_content": { "pinned": ["$a", "nex", "$b"] } },
+    }))
+    .unwrap();
+
+    server.mock_room_state_encryption().plain().mount().await;
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id).add_timeline_event(event),
+        )
+        .await;
+    let views = timeline_views(&client, &room, true).await.unwrap();
+    let item = views
+        .iter()
+        .find(|view| view.event_id.as_deref() == Some(event_id!("$pins")))
+        .unwrap();
+
+    let crate::protocol::TimelineItemContentView::StateEvent {
+        change:
+            Some(crate::protocol::StateChangeView::PinnedEvents {
+                added,
+                removed,
+                total,
+            }),
+        ..
+    } = &item.content
+    else {
+        panic!("expected a pin change, got {:?}", item.content);
+    };
+    assert_eq!(added, &[event_id!("$new").to_owned()]);
+    assert_eq!(removed, &[] as &[matrix_sdk::ruma::OwnedEventId]);
+    assert_eq!(*total, 3);
+}
+
 #[expect(
     clippy::too_many_lines,
     reason = "test code; one sequential flow kept in a single function"

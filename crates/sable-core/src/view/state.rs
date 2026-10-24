@@ -6,6 +6,7 @@ use matrix_sdk_ui::timeline::{AnyOtherStateEventContentChange, MembershipChange,
 use serde::Deserialize as _;
 use serde_with::{DefaultOnError, serde_as};
 
+use crate::messages::LenientPins;
 use crate::protocol::{MembershipChangeView, StateChangeView};
 
 use super::raw::present;
@@ -79,31 +80,7 @@ pub(super) fn state_change(
             StateEventContentChange::Redacted(_) => None,
         },
         AnyOtherStateEventContentChange::RoomPinnedEvents(change) => match change {
-            StateEventContentChange::Original {
-                content,
-                prev_content,
-            } => {
-                let previous = prev_content
-                    .as_ref()
-                    .and_then(|prev| prev.pinned.clone())
-                    .unwrap_or_default();
-                let mut added = BTreeSet::new();
-                let mut removed = BTreeSet::new();
-                Some(StateChangeView::PinnedEvents {
-                    added: content
-                        .pinned
-                        .iter()
-                        .filter(|pin| !previous.contains(pin) && added.insert(*pin))
-                        .cloned()
-                        .collect(),
-                    removed: previous
-                        .iter()
-                        .filter(|pin| !content.pinned.contains(pin) && removed.insert(*pin))
-                        .cloned()
-                        .collect(),
-                    total: u32::try_from(content.pinned.len()).unwrap_or(u32::MAX),
-                })
-            }
+            StateEventContentChange::Original { .. } => Some(pinned_change(content, prev_content)),
             StateEventContentChange::Redacted(_) => None,
         },
         // MSC3401 is unstable, so there is no typed content to read.
@@ -121,6 +98,36 @@ pub(super) fn state_change(
             Some(StateChangeView::CallMembership { joined })
         }
         _ => None,
+    }
+}
+
+/// ruma rejects the whole list, `prev_content` included, over one bad entry.
+pub(super) fn pinned_change(
+    content: Option<&serde_json::Value>,
+    prev_content: Option<&serde_json::Value>,
+) -> StateChangeView {
+    let pins = |value: Option<&serde_json::Value>| {
+        value
+            .and_then(|value| LenientPins::deserialize(value).ok())
+            .map(|pins| pins.pinned)
+            .unwrap_or_default()
+    };
+    let pinned = pins(content);
+    let previous = pins(prev_content);
+    let mut added = BTreeSet::new();
+    let mut removed = BTreeSet::new();
+    StateChangeView::PinnedEvents {
+        added: pinned
+            .iter()
+            .filter(|pin| !previous.contains(pin) && added.insert(*pin))
+            .cloned()
+            .collect(),
+        removed: previous
+            .iter()
+            .filter(|pin| !pinned.contains(pin) && removed.insert(*pin))
+            .cloned()
+            .collect(),
+        total: u32::try_from(pinned.len()).unwrap_or(u32::MAX),
     }
 }
 

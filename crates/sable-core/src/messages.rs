@@ -83,10 +83,10 @@ fn spoiler_keys(event: &serde_json::Value) -> serde_json::Map<String, serde_json
 
 #[serde_as]
 #[derive(serde::Deserialize)]
-struct LenientPins {
+pub(crate) struct LenientPins {
     #[serde_as(as = "VecSkipError<_>")]
     #[serde(default)]
-    pinned: Vec<OwnedEventId>,
+    pub(crate) pinned: Vec<OwnedEventId>,
 }
 
 fn unique_pins(events: Vec<OwnedEventId>) -> Vec<OwnedEventId> {
