@@ -164,6 +164,13 @@ impl Core {
             tracing::debug!(context = "user_profile", "the profile is not visible to us");
             return RpcError::Unavailable;
         }
+        if error.client_api_error_kind() == Some(&ErrorKind::BadJson) {
+            tracing::debug!(
+                context = "user_profile",
+                "the homeserver rejected the remote profile"
+            );
+            return RpcError::Unavailable;
+        }
 
         match error {
             matrix_sdk::Error::Http(error) => self.homeserver_http_error("user_profile", *error),

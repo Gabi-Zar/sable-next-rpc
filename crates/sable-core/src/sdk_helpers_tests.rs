@@ -2786,3 +2786,28 @@ async fn a_queued_reproxy_reaches_an_open_timeline_before_the_server_echoes_it()
 
     assert_eq!(profile_name(&items).as_deref(), Some("Kris"));
 }
+
+#[tokio::test]
+async fn a_remote_profile_the_homeserver_rejects_is_unavailable() {
+    use crate::api::account::UserProfileParams;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    Mock::given(method("GET"))
+        .and(path_regex(r"^/_matrix/client/v3/profile/"))
+        .respond_with(ResponseTemplate::new(400).set_body_json(json!({
+            "errcode": "M_BAD_JSON",
+            "error": "Profile key names must follow the Common Namespaced Identifier Grammar."
+        })))
+        .mount(server.server())
+        .await;
+    let core = core(&server, client).await;
+
+    let result = UserProfileParams {
+        user_id: matrix_sdk::ruma::owned_user_id!("@remote:other.example"),
+    }
+    .run(&core)
+    .await;
+
+    assert!(matches!(result, Err(RpcError::Unavailable)));
+}
