@@ -2,13 +2,13 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 import { expect, test, vi } from 'vitest';
 
-import type { RoomListItemView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { createCoreStub } from '#lib/core/__mocks__/context.js';
+import { withCounts } from '#lib/rooms/summary-fixtures.js';
 
 import RoomOptionsMenuHarness from './RoomOptionsMenuHarness.test.svelte';
 
-const currentRoom = {
+const currentRoom = withCounts({
   room_id: '!room',
   canonical_alias: null,
   name: 'Room',
@@ -26,13 +26,14 @@ const currentRoom = {
   room_kind: 'text',
   supports_knock: false,
   supports_restricted: false,
+  supports_knock_restricted: false,
   space_children: [],
   unread: 0,
   notifying: 0,
   highlight: 0,
   marked_unread: false,
   latest_event: null,
-} as RoomListItemView;
+});
 
 test.each([1280, 390])(
   'opens notification settings and applies a mode at width %i',
