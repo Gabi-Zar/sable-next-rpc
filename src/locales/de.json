@@ -59,7 +59,10 @@
     "accounts": "Konten",
     "switch": "Wechseln",
     "groupFavourites": "Favoriten gruppieren",
-    "sortRecent": "Kürzliche Aktivität"
+    "sortRecent": "Kürzliche Aktivität",
+    "folderRenameDescription": "",
+    "pinToSidebar": "",
+    "unpinFromSidebar": ""
   },
   "inbox": {
     "notifications": "Benachrichtigungen",
