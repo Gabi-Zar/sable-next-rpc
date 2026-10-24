@@ -292,9 +292,9 @@
     "homeserverUnavailable": "Der Homeserver ist vorübergehend nicht verfügbar. Versuche es bitte nochmal.",
     "mapLoadFailed": "Die Karte konnte nicht geladen werden.",
     "stateEventRejected": "Das Zustandsereignis wurde abgelehnt.",
-    "viewSource": "",
-    "yesterday": "",
-    "verify": "",
+    "viewSource": "Quelle ansehen",
+    "yesterday": "Gestern",
+    "verify": "Verifizieren",
     "unsavedChangesNotice": ""
   }
 }
