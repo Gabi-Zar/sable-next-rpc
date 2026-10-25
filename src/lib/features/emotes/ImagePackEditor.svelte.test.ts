@@ -237,6 +237,26 @@ test('an image can be switched from sticker to emoji and saved', async () => {
   expect(draft.images[0].usage).toEqual(['emoticon']);
 });
 
+test.each(['wave', 'blob wave'])('editing %s keeps existing shortcodes', async (shortcode) => {
+  const original = pack(['emoticon', 'sticker']);
+  original.images = ['blob wave', 'a.b', 'wave'].map((name) => ({
+    ...original.images[0],
+    shortcode: name,
+  }));
+  const applied = vi.fn<(_: PackDraft) => Promise<void>>().mockResolvedValue();
+  render(ImagePackEditor, { props: { pack: original, canEdit: true, onApply: applied } });
+
+  await userEvent.click(screen.getByRole('button', { name: `Rename :${shortcode}:` }));
+  await userEvent.type(screen.getByRole('textbox', { name: 'Body' }), 'A waving blob');
+  await userEvent.tab();
+  await userEvent.click(button('Apply changes'));
+
+  expect(applied).toHaveBeenCalledOnce();
+  const draft = applied.mock.calls[0][0];
+  expect(draft.images.map((image) => image.shortcode)).toEqual(['blob wave', 'a.b', 'wave']);
+  expect(draft.images.find((image) => image.shortcode === shortcode)?.body).toBe('A waving blob');
+});
+
 test('an upload never writes the room avatar or name into the pack', async () => {
   mocks.uploadMedia.mockResolvedValue('mxc://example.org/party');
   const applied: PackDraft[] = [];

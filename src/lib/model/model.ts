@@ -481,8 +481,16 @@ export function uniqueShortcode(shortcode: string, taken: Iterable<string>): str
   return wasm.uniqueShortcode(shortcode, [...taken]);
 }
 
-export function invalidShortcode(images: readonly PackImageDraftView[]): string | null {
-  return wasm.invalidShortcode(images.map((image) => image.shortcode)) ?? null;
+export function invalidShortcode(
+  images: readonly PackImageDraftView[],
+  original: readonly PackImageDraftView[]
+): string | null {
+  return (
+    wasm.invalidShortcode(
+      images.map((image) => image.shortcode),
+      original.map((image) => image.shortcode)
+    ) ?? null
+  );
 }
 
 export function shortcodeWithoutExtension(fileName: string): string {

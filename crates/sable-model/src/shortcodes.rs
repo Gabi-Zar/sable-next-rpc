@@ -48,12 +48,17 @@ pub fn is_valid_shortcode(shortcode: &str) -> bool {
         && shortcode.chars().all(is_shortcode_char)
 }
 
-/// The first shortcode that is malformed or used twice.
-pub fn invalid_shortcode<'a>(shortcodes: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+/// The first shortcode that is newly malformed or used twice.
+pub fn invalid_shortcode<'a>(
+    shortcodes: impl IntoIterator<Item = &'a str>,
+    original: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
+    let original: HashSet<&str> = original.into_iter().collect();
     let mut seen = HashSet::new();
-    shortcodes
-        .into_iter()
-        .find(|shortcode| !is_valid_shortcode(shortcode) || !seen.insert(*shortcode))
+    shortcodes.into_iter().find(|shortcode| {
+        (!original.contains(shortcode) && !is_valid_shortcode(shortcode))
+            || !seen.insert(*shortcode)
+    })
 }
 
 /// A file name without its extension; a leading dot is not one.
@@ -97,24 +102,38 @@ mod tests {
 
     #[test]
     fn a_malformed_or_repeated_shortcode_is_reported() {
-        assert_eq!(invalid_shortcode(["ok"]), None);
-        assert_eq!(invalid_shortcode(["no space"]), Some("no space"));
-        assert_eq!(invalid_shortcode(["dup", "dup"]), Some("dup"));
-        assert_eq!(invalid_shortcode([""]), Some(""));
+        assert_eq!(invalid_shortcode(["ok"], []), None);
+        assert_eq!(invalid_shortcode(["no space"], []), Some("no space"));
+        assert_eq!(invalid_shortcode(["dup", "dup"], []), Some("dup"));
+        assert_eq!(invalid_shortcode([""], []), Some(""));
+    }
+
+    #[test]
+    fn existing_shortcodes_are_kept_but_duplicates_are_rejected() {
+        let original = ["blob wave", "a.b", "", "☃"];
+        assert_eq!(invalid_shortcode(original, original), None);
+        assert_eq!(invalid_shortcode(["bad code"], original), Some("bad code"));
+        assert_eq!(
+            invalid_shortcode(["blob wave", "blob wave"], original),
+            Some("blob wave")
+        );
+        let long = "a".repeat(101);
+        assert_eq!(invalid_shortcode([long.as_str()], [long.as_str()]), None);
+        assert_eq!(invalid_shortcode([long.as_str()], []), Some(long.as_str()));
     }
 
     #[test]
     fn dotted_shortcodes_survive_uploads_and_renames() {
         let shortcode = normalize_shortcode(shortcode_without_extension("blob.wave.png"));
         assert_eq!(shortcode, "blob.wave");
-        assert_eq!(invalid_shortcode([shortcode.as_str()]), None);
+        assert_eq!(invalid_shortcode([shortcode.as_str()], []), None);
         assert_eq!(normalize_shortcode(" :blob.wave: "), "blob.wave");
         assert_eq!(
             unique_shortcode("blob.wave", |c| c == "blob.wave"),
             "blob.wave-1"
         );
         assert_eq!(
-            invalid_shortcode(["blob.wave", "blob.wave"]),
+            invalid_shortcode(["blob.wave", "blob.wave"], []),
             Some("blob.wave")
         );
     }

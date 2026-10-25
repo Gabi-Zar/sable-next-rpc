@@ -17,10 +17,6 @@ use crate::{Core, ResultExt};
 
 const ALL_USAGES: [ImageUsageView; 2] = [ImageUsageView::Emoticon, ImageUsageView::Sticker];
 
-pub(crate) fn invalid_shortcode(images: &[PackImageDraftView]) -> Option<&str> {
-    shortcodes::invalid_shortcode(images.iter().map(|image| image.shortcode.as_str()))
-}
-
 fn same_usage(left: &[ImageUsageView], right: &[ImageUsageView]) -> bool {
     left.len() == right.len() && left.iter().all(|usage| right.contains(usage))
 }
@@ -88,8 +84,19 @@ pub(crate) struct PackContentOut {
     images: BTreeMap<String, ImageOut>,
 }
 
-pub(crate) fn pack_content(draft: &PackDraftView) -> Result<PackContentOut, RpcError> {
-    if let Some(shortcode) = invalid_shortcode(&draft.images) {
+pub(crate) fn pack_content(
+    draft: &PackDraftView,
+    current: Option<&Value>,
+) -> Result<PackContentOut, RpcError> {
+    let original = current
+        .and_then(|content| content.get("images"))
+        .and_then(Value::as_object)
+        .into_iter()
+        .flat_map(|images| images.keys().map(String::as_str));
+    if let Some(shortcode) = shortcodes::invalid_shortcode(
+        draft.images.iter().map(|image| image.shortcode.as_str()),
+        original,
+    ) {
         return Err(RpcError::InvalidShortcode {
             shortcode: shortcode.to_owned(),
         });
@@ -269,7 +276,27 @@ impl Core {
         target: PackTargetView,
         draft: &PackDraftView,
     ) -> Result<(), RpcError> {
-        let content = pack_content(draft)?;
+        let current = match &target {
+            PackTargetView::Room { room_id, state_key } => {
+                let stable = self
+                    .room_state_event_content(
+                        room_id.clone(),
+                        ROOM_IMAGE_PACK.to_owned(),
+                        state_key.clone(),
+                    )
+                    .await?
+                    .filter(|content| !is_empty_content(Some(content)));
+                match stable {
+                    Some(content) => Some(content),
+                    None => self.legacy_pack(room_id, state_key).await?,
+                }
+            }
+            PackTargetView::Account => self
+                .global_account_data(USER_EMOTES.into(), "save_image_pack")
+                .await?
+                .and_then(|raw| raw.deserialize_as::<Value>().ok()),
+        };
+        let content = pack_content(draft, current.as_ref())?;
         match target {
             PackTargetView::Room { room_id, state_key } => {
                 self.send_state(room_id, ROOM_IMAGE_PACK, &state_key, &content)
@@ -424,8 +451,8 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        invalid_shortcode, is_url_safe_key, merged_pack_content, pack_content,
-        subscriptions_content, with_subscriptions,
+        is_url_safe_key, merged_pack_content, pack_content, subscriptions_content,
+        with_subscriptions,
     };
     use crate::protocol::{
         ImageUsageView, PackAddressView, PackDraftView, PackImageDraftView, PackImageInfoView,
@@ -466,19 +493,6 @@ mod tests {
     }
 
     #[test]
-    fn a_malformed_or_repeated_shortcode_is_reported() {
-        assert_eq!(invalid_shortcode(&[image("ok", &BOTH)]), None);
-        assert_eq!(
-            invalid_shortcode(&[image("no space", &BOTH)]),
-            Some("no space")
-        );
-        assert_eq!(
-            invalid_shortcode(&[image("dup", &BOTH), image("dup", &BOTH)]),
-            Some("dup")
-        );
-    }
-
-    #[test]
     fn pack_content_writes_only_what_differs_from_the_defaults() {
         let mut sticker = image("wave", &[ImageUsageView::Sticker]);
         sticker.body = Some("Wave".to_owned());
@@ -497,7 +511,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_json(pack_content(&draft).expect("valid pack")),
+            to_json(pack_content(&draft, None).expect("valid pack")),
             json!({
                 "pack": { "display_name": "Cats" },
                 "images": {
@@ -527,7 +541,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_json(pack_content(&draft).expect("valid pack")),
+            to_json(pack_content(&draft, None).expect("valid pack")),
             json!({
                 "pack": {
                     "display_name": "Blobs",
@@ -554,7 +568,7 @@ mod tests {
         };
 
         assert_eq!(
-            to_json(pack_content(&draft).expect("valid pack")),
+            to_json(pack_content(&draft, None).expect("valid pack")),
             json!({ "pack": {}, "images": {} })
         );
     }
@@ -569,7 +583,7 @@ mod tests {
             images: vec![image("blob.wave", &[ImageUsageView::Sticker])],
         };
 
-        let content = to_json(pack_content(&draft).expect("valid dotted shortcode"));
+        let content = to_json(pack_content(&draft, None).expect("valid dotted shortcode"));
         assert_eq!(
             content["images"]["blob.wave"]["url"],
             "mxc://example.org/blob.wave"
@@ -587,7 +601,53 @@ mod tests {
         };
 
         assert!(matches!(
-            pack_content(&draft),
+            pack_content(&draft, None),
+            Err(RpcError::InvalidShortcode { shortcode }) if shortcode == "bad code"
+        ));
+    }
+
+    #[test]
+    fn pack_content_keeps_existing_shortcodes_when_an_image_is_edited() {
+        let current = json!({
+            "images": {
+                "blob wave": { "url": "mxc://example.org/blob" },
+                "a.b": { "url": "mxc://example.org/dot" },
+                "cat": { "url": "mxc://example.org/cat" },
+            },
+        });
+        let mut cat = image("cat", &BOTH);
+        cat.body = Some("A cat".to_owned());
+        let mut draft = PackDraftView {
+            name: String::new(),
+            avatar_url: None,
+            attribution: String::new(),
+            usage: BOTH.to_vec(),
+            images: vec![image("blob wave", &BOTH), image("a.b", &BOTH), cat],
+        };
+
+        let content = to_json(pack_content(&draft, Some(&current)).expect("existing shortcodes"));
+        assert_eq!(
+            content["images"]["blob wave"]["url"],
+            "mxc://example.org/blob wave"
+        );
+        assert_eq!(content["images"]["a.b"]["url"], "mxc://example.org/a.b");
+        assert_eq!(content["images"]["cat"]["body"], "A cat");
+
+        draft.images.push(image("blob wave", &BOTH));
+        assert!(matches!(
+            pack_content(&draft, Some(&current)),
+            Err(RpcError::InvalidShortcode { shortcode }) if shortcode == "blob wave"
+        ));
+        draft.images.pop();
+        draft.images.push(image("bad code", &BOTH));
+        assert!(matches!(
+            pack_content(&draft, Some(&current)),
+            Err(RpcError::InvalidShortcode { shortcode }) if shortcode == "bad code"
+        ));
+        draft.images.pop();
+        draft.images[0].shortcode = "bad code".to_owned();
+        assert!(matches!(
+            pack_content(&draft, Some(&current)),
             Err(RpcError::InvalidShortcode { shortcode }) if shortcode == "bad code"
         ));
     }

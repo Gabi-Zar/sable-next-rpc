@@ -70,7 +70,7 @@
   let transferFailed = $state<'export' | 'import' | null>(null);
 
   let dirty = $derived(draft !== null);
-  let rejected = $derived(draft === null ? null : invalidShortcode(draft.images));
+  let rejected = $derived(draft === null ? null : invalidShortcode(draft.images, saved.images));
   let leaving = $state.raw<{ proceed: () => void; stay?: () => void } | null>(null);
 
   holdUnsaved({
@@ -117,7 +117,8 @@
   }
 
   function commitRename(target: PackImageDraft): void {
-    const wanted = normalizeShortcode(renameDraft);
+    const wanted =
+      renameDraft === target.shortcode ? target.shortcode : normalizeShortcode(renameDraft);
     const body = bodyDraft.trim() === '' ? null : bodyDraft.trim();
     renaming = null;
     const next =

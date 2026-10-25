@@ -111,7 +111,21 @@ test('uploads whose names contain no shortcode characters get a valid name', () 
 test.each(['', 'a'.repeat(101), 'a/b', 'snow☃'])('flags an invalid shortcode %s', (shortcode) => {
   const draft = packDraft(pack());
   draft.images[0].shortcode = shortcode;
-  expect(invalidShortcode(draft.images)).toBe(shortcode);
+  expect(invalidShortcode(draft.images, [])).toBe(shortcode);
+});
+
+test('existing malformed shortcodes do not block edits', () => {
+  const original = packDraft(pack());
+  original.images = ['blob wave', 'a.b', 'wave'].map((shortcode) => ({
+    ...original.images[0],
+    shortcode,
+  }));
+  const draft = setImageUsage(original, 'wave', ['sticker']);
+
+  expect(invalidShortcode(draft.images, original.images)).toBeNull();
+  expect(invalidShortcode([...draft.images, draft.images[0]], original.images)).toBe('blob wave');
+  draft.images[2].shortcode = 'bad code';
+  expect(invalidShortcode(draft.images, original.images)).toBe('bad code');
 });
 
 test('an image can be limited to one usage', () => {

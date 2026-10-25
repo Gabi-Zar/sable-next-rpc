@@ -567,8 +567,12 @@ pub fn unique_shortcode(shortcode: &str, taken: Vec<String>) -> String {
 
 #[wasm_bindgen(js_name = invalidShortcode)]
 #[must_use]
-pub fn invalid_shortcode(shortcodes: Vec<String>) -> Option<String> {
-    shortcodes::invalid_shortcode(shortcodes.iter().map(String::as_str)).map(ToOwned::to_owned)
+pub fn invalid_shortcode(shortcodes: Vec<String>, original: Vec<String>) -> Option<String> {
+    shortcodes::invalid_shortcode(
+        shortcodes.iter().map(String::as_str),
+        original.iter().map(String::as_str),
+    )
+    .map(ToOwned::to_owned)
 }
 
 #[wasm_bindgen(js_name = shortcodeWithoutExtension)]
