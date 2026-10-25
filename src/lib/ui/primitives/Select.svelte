@@ -176,9 +176,9 @@
     cursor: pointer;
     display: flex;
     gap: var(--space-300);
-    height: var(--control-height-300);
+    height: var(--control-height-400);
     justify-content: space-between;
-    min-height: var(--control-height-300);
+    min-height: var(--control-height-400);
     position: relative;
     text-align: left;
     width: 100%;
@@ -186,7 +186,7 @@
 
   :global(.select::after) {
     content: '';
-    inset-block: calc((var(--target-hit) - var(--control-height-300)) / -2);
+    inset-block: calc((var(--target-hit) - var(--control-height-400)) / -2);
     inset-inline: 0;
     position: absolute;
   }
@@ -250,6 +250,11 @@
   .select-sheet-row :global(.selection-label) {
     flex: 1;
     text-align: start;
+  }
+
+  :global(.select-content .menu-item),
+  .select-sheet-row {
+    padding-block: var(--space-150);
   }
 
   :global(.menu-surface.select-content) {
