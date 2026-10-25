@@ -1223,6 +1223,7 @@
   .preview code {
     color: inherit;
     font-size: var(--font-size-subheading);
+    min-width: 0;
   }
 
   .preview :global(.preview-image) {
@@ -1235,6 +1236,7 @@
     object-fit: contain;
   }
 
+  .preview code,
   .preview-pack,
   .preview-hint {
     overflow: hidden;
