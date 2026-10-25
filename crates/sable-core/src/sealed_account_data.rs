@@ -219,6 +219,44 @@ pub(crate) async fn adopt_key(
     Ok(())
 }
 
+pub(crate) async fn read_account_data(
+    client: &matrix_sdk::Client,
+    event_type: &str,
+    fetch: bool,
+) -> matrix_sdk::Result<Option<serde_json::Value>> {
+    let account = client.account();
+    let content = if fetch {
+        account.fetch_account_data(event_type.into()).await?
+    } else {
+        account.account_data_raw(event_type.into()).await?
+    };
+    Ok(content.and_then(|raw| raw.deserialize_as::<serde_json::Value>().ok()))
+}
+
+pub(crate) async fn read_document(
+    client: &matrix_sdk::Client,
+    event_type: &str,
+    fetch: bool,
+) -> matrix_sdk::Result<SealedAccountDataView> {
+    let key = cached_key(client).await;
+    let content = read_account_data(client, event_type, fetch).await?;
+
+    let (content, state) = match content {
+        Some(content) if is_sealed(&content) => key
+            .as_ref()
+            .and_then(|key| key.open(event_type, &content))
+            .map_or((None, SealStateView::Locked), |opened| {
+                (Some(opened), SealStateView::Sealed)
+            }),
+        content => (content, SealStateView::Plain),
+    };
+    Ok(SealedAccountDataView {
+        content,
+        state,
+        can_seal: key.is_some(),
+    })
+}
+
 impl Core {
     pub(crate) async fn sealed_account_data(
         &self,
@@ -228,26 +266,9 @@ impl Core {
             return Err(RpcError::Unsupported);
         }
         let client = self.client().await?;
-        let key = cached_key(&client).await;
-        let content = self
-            .global_account_data(event_type.into(), "sealed_account_data")
-            .await?
-            .and_then(|raw| raw.deserialize_as::<serde_json::Value>().ok());
-
-        let (content, state) = match content {
-            Some(content) if is_sealed(&content) => key
-                .as_ref()
-                .and_then(|key| key.open(event_type, &content))
-                .map_or((None, SealStateView::Locked), |opened| {
-                    (Some(opened), SealStateView::Sealed)
-                }),
-            content => (content, SealStateView::Plain),
-        };
-        Ok(SealedAccountDataView {
-            content,
-            state,
-            can_seal: key.is_some(),
-        })
+        read_document(&client, event_type, true)
+            .await
+            .or_failed(self, "sealed_account_data")
     }
 
     pub(crate) async fn set_sealed_account_data(

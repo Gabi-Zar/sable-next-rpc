@@ -150,6 +150,19 @@ pub(crate) fn overrides(content: Option<&Value>) -> Vec<ProfileOverrideView> {
         .collect()
 }
 
+#[cfg(not(target_family = "wasm"))]
+pub(crate) async fn notification_name(client: &matrix_sdk::Client, sender: &str) -> Option<String> {
+    let stored = stored_overrides(client, false).await.ok()?;
+    let entry = overrides(stored.content.as_ref())
+        .into_iter()
+        .find(|entry| entry.user_id == sender)?;
+    match entry.display_name {
+        OverrideTextView::Set { value } => Some(value),
+        OverrideTextView::Cleared => Some(sender.to_owned()),
+        OverrideTextView::Unset => None,
+    }
+}
+
 pub(crate) struct OverrideEdit {
     pub(crate) display_name: FieldEdit,
     pub(crate) avatar: AvatarEditView,
@@ -216,32 +229,41 @@ struct StoredOverrides {
     can_seal: bool,
 }
 
-impl Core {
-    /// MSC4529's stable type wins and stays plain; otherwise the unstable type
-    /// is read through the account data key.
-    async fn stored_overrides(&self) -> Result<StoredOverrides, RpcError> {
-        let stable = self
-            .global_account_data(PROFILE_OVERRIDES_EVENT.into(), "profile_overrides")
+/// MSC4529's stable type wins and stays plain; otherwise the unstable type
+/// is read through the account data key.
+async fn stored_overrides(
+    client: &matrix_sdk::Client,
+    fetch: bool,
+) -> matrix_sdk::Result<StoredOverrides> {
+    let stable =
+        crate::sealed_account_data::read_account_data(client, PROFILE_OVERRIDES_EVENT, fetch)
             .await?
-            .and_then(|raw| raw.deserialize_as::<Value>().ok())
             .filter(Value::is_object);
-        if stable.is_some() {
-            return Ok(StoredOverrides {
-                content: stable,
-                sealed_type: false,
-                protection: SealStateView::Plain,
-                can_seal: false,
-            });
-        }
-        let document = self
-            .sealed_account_data(UNSTABLE_PROFILE_OVERRIDES_EVENT)
+    if stable.is_some() {
+        return Ok(StoredOverrides {
+            content: stable,
+            sealed_type: false,
+            protection: SealStateView::Plain,
+            can_seal: false,
+        });
+    }
+    let document =
+        crate::sealed_account_data::read_document(client, UNSTABLE_PROFILE_OVERRIDES_EVENT, fetch)
             .await?;
-        Ok(StoredOverrides {
-            content: document.content,
-            sealed_type: true,
-            protection: document.state,
-            can_seal: document.can_seal,
-        })
+    Ok(StoredOverrides {
+        content: document.content,
+        sealed_type: true,
+        protection: document.state,
+        can_seal: document.can_seal,
+    })
+}
+
+impl Core {
+    async fn stored_overrides(&self) -> Result<StoredOverrides, RpcError> {
+        use crate::ResultExt;
+        stored_overrides(&self.client().await?, true)
+            .await
+            .or_failed(self, "profile_overrides")
     }
 
     fn overrides_view(stored: &StoredOverrides) -> ProfileOverridesView {

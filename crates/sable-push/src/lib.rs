@@ -3,7 +3,7 @@
 use std::ffi::{CStr, CString, c_char};
 use std::path::Path;
 
-use sable_core::notifications::{PushImage, PushMedia, PushSession};
+use sable_core::notifications::{ColdPush, PushImage, PushMedia, PushSession};
 use sable_core::protocol::{PushEventView, PushFetchView};
 use sable_core::session::AccountRegistry;
 use sable_core::store::{FileSessionStore, SessionStore};
@@ -363,17 +363,21 @@ async fn clear_event(
     session: Option<&PushSession>,
     notification: &Value,
     encrypted: bool,
-) -> Option<Value> {
+) -> ColdPush {
     if !encrypted {
-        return Some(notification.clone());
+        return ColdPush::Clear(notification.to_string());
     }
     let mut event = notification.clone();
-    event
-        .as_object_mut()?
+    let Some(event_object) = event.as_object_mut() else {
+        return ColdPush::Undecryptable;
+    };
+    event_object
         .entry("origin_server_ts")
         .or_insert(Value::from(0));
-    let clear = session?.decrypt(&event.to_string()).await?;
-    serde_json::from_str(&clear).ok()
+    match session {
+        Some(session) => session.decrypt(&event.to_string()).await,
+        None => ColdPush::Undecryptable,
+    }
 }
 
 #[expect(
@@ -428,7 +432,11 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     let target = PushTarget::deserialize(notification).ok()?;
     let ciphertext = target.kind.as_deref() == Some("m.room.encrypted");
     let encrypted = ciphertext || fetched_encrypted;
-    let event = Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await;
+    let event = match Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await {
+        ColdPush::Discard => return serde_json::to_value(DiscardOut { discard: true }).ok(),
+        ColdPush::Clear(clear) => serde_json::from_str(&clear).ok(),
+        ColdPush::Unevaluated | ColdPush::NeedsKey { .. } | ColdPush::Undecryptable => None,
+    };
     if let Some(ring) = event.as_ref().and_then(|event| ring(event, notification)) {
         return serde_json::to_value(RingPushOut {
             ring,
@@ -438,8 +446,12 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .ok();
     }
     let sender_id = target.sender.filter(|sender| !sender.is_empty());
-    let sender = target
-        .sender_display_name
+    let override_name = match (sender_id.as_deref(), &session) {
+        (Some(sender), Some(session)) => session.sender_name_override(sender).await,
+        _ => None,
+    };
+    let sender = override_name
+        .or(target.sender_display_name)
         .filter(|name| !name.is_empty())
         .or_else(|| sender_id.clone())
         .unwrap_or_default();
@@ -628,6 +640,19 @@ mod tests {
             )
             .await
             .is_none()
+        );
+    }
+
+    #[tokio::test]
+    async fn unavailable_keys_still_allow_a_generic_alert() {
+        let notification = json!({"type":"m.room.encrypted","content":{}});
+        assert_eq!(
+            clear_event(None, &notification, true).await,
+            ColdPush::Undecryptable
+        );
+        assert_eq!(
+            clear_event(None, &notification, false).await,
+            ColdPush::Clear(notification.to_string())
         );
     }
 

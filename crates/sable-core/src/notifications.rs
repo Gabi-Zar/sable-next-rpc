@@ -663,21 +663,18 @@ impl PushSession {
     }
 
     /// Only with the keys already stored.
-    pub async fn decrypt(&self, event_json: &str) -> Option<String> {
-        match Box::pin(decrypt_push_event(
+    pub async fn decrypt(&self, event_json: &str) -> ColdPush {
+        Box::pin(decrypt_push_event(
             self.host.client(),
             KeyFetch::Never,
             self.room_id.as_str(),
             event_json,
         ))
         .await
-        {
-            ColdPush::Clear(clear) => Some(clear),
-            ColdPush::Discard
-            | ColdPush::Unevaluated
-            | ColdPush::NeedsKey { .. }
-            | ColdPush::Undecryptable => None,
-        }
+    }
+
+    pub async fn sender_name_override(&self, sender: &str) -> Option<String> {
+        crate::profile_overrides::notification_name(self.host.client(), sender).await
     }
 
     pub async fn fetch(&self, event_id: &str) -> PushFetchView {
@@ -2122,6 +2119,10 @@ mod tests {
             .await;
 
         assert_eq!(fixture.decrypt("A", &reaction).await, ColdPush::Discard);
+        assert_eq!(
+            session(&fixture).await.decrypt(&reaction).await,
+            ColdPush::Discard
+        );
         assert!(matches!(
             fixture.decrypt("A", &message).await,
             ColdPush::Clear(_)
@@ -2145,6 +2146,10 @@ mod tests {
             .await;
 
         assert_eq!(fixture.decrypt("A", &message).await, ColdPush::Discard);
+        assert_eq!(
+            session(&fixture).await.decrypt(&message).await,
+            ColdPush::Discard
+        );
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
@@ -2698,6 +2703,91 @@ mod tests {
         super::cold_push_session(&fixture.data_dir, "@alice:example.org", "A", COLD_ROOM)
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    async fn push_sender_names_follow_plain_and_sealed_profile_overrides() {
+        use crate::sealed_account_data::{AccountDataKey, cache_key};
+
+        const STABLE: &str = "m.profile_overrides";
+        const UNSTABLE: &str = "org.matrix.msc4529.profile_overrides";
+        let fixture = ColdFixture::new("nicknames", cold_room_with_members(), None).await;
+        let client = fixture.client.as_ref().unwrap();
+        let key = AccountDataKey::generate().unwrap();
+        fixture
+            .server
+            .mock_sync()
+            .ok_and_run(client, |builder| {
+                builder.add_global_account_data(
+                    Raw::new(&json!({"type": UNSTABLE, "content": key.seal(
+                    UNSTABLE, &json!({"@sender:example.org":{"displayname":"Locked"}})
+                ).unwrap()}))
+                    .unwrap()
+                    .cast_unchecked::<matrix_sdk::ruma::events::AnyGlobalAccountDataEvent>(),
+                );
+            })
+            .await;
+        assert_eq!(
+            session(&fixture)
+                .await
+                .sender_name_override("@sender:example.org")
+                .await,
+            None
+        );
+        cache_key(client, &key).await;
+        for (event_type, content, expected) in [
+            (
+                UNSTABLE,
+                json!({"@sender:example.org":{"displayname":"Mum"}}),
+                Some("Mum"),
+            ),
+            (
+                UNSTABLE,
+                key.seal(
+                    UNSTABLE,
+                    &json!({"@sender:example.org":{"displayname":"Dad"}}),
+                )
+                .unwrap(),
+                Some("Dad"),
+            ),
+            (
+                STABLE,
+                json!({"@sender:example.org":{"displayname":"Friend"}}),
+                Some("Friend"),
+            ),
+            (
+                STABLE,
+                json!({"@sender:example.org":{"displayname":null}}),
+                Some("@sender:example.org"),
+            ),
+            (STABLE, json!({}), None),
+        ] {
+            fixture
+                .server
+                .mock_sync()
+                .ok_and_run(client, |builder| {
+                    builder.add_global_account_data(
+                        Raw::new(&json!({"type":event_type,"content":content}))
+                            .unwrap()
+                            .cast_unchecked::<matrix_sdk::ruma::events::AnyGlobalAccountDataEvent>(
+                            ),
+                    );
+                })
+                .await;
+            let session = session(&fixture).await;
+            assert_eq!(
+                session
+                    .sender_name_override("@sender:example.org")
+                    .await
+                    .as_deref(),
+                expected
+            );
+            assert_eq!(
+                session.sender_name_override("@nobody:example.org").await,
+                None
+            );
+        }
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
     async fn mount_notified_event(fixture: &ColdFixture, thread_root: Option<&EventId>) {
