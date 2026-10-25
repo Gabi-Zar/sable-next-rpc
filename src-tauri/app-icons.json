@@ -1,7 +1,7 @@
 {
   "android": {
     "mainActivity": ".MainActivity",
-    "resourcesDirectory": "icons/android",
+    "resourcesDirectory": "gen/android/app/src/main/res",
     "manifest": "gen/android/app/src/main/AndroidManifest.xml",
     "aliasMetadata": [
       {
