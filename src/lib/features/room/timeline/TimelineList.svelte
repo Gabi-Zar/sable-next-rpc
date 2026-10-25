@@ -386,20 +386,14 @@
     unread.resolve(timeline.items, oldestUnreadLoaded, eventItems);
     if (!reading || !revealed || !focused) return;
     if (unreadInView) unread.observe(unread.firstEventId);
-    else if (
-      live &&
-      windowState.pinned &&
-      opened &&
-      !jumpingUnread &&
-      !unread.background &&
-      !holdAtLatest
-    )
+    else if (live && windowState.pinned && opened && !jumpingUnread && !unread.background)
       unread.reachLatest();
   });
   let holdAtLatest = $state(untrack(() => !preferences.openRoomsAtUnread));
   let hadUnread = untrack(() => hasUnread);
   $effect(() => {
-    if (hadUnread && !hasUnread && unread.initialized) untrack(() => unread.dismiss());
+    if (hadUnread && !hasUnread && unread.initialized && !holdAtLatest)
+      untrack(() => unread.dismiss());
     hadUnread = hasUnread;
   });
   let historyLoading = $derived(
@@ -613,7 +607,7 @@
     filling = true;
     try {
       const notified = landingEntry();
-      const landing = notified ?? (landingPending ? undefined : unreadEntry);
+      const landing = notified ?? (landingPending || holdAtLatest ? undefined : unreadEntry);
       if (landing && !disposed && engine.state.pinned) {
         if (notified) markLanded(landingEventId);
         await engine.jumpTo(landing.key, landing === unreadEntry ? 'start' : 'center');
@@ -844,7 +838,7 @@
       settleFullyRead();
       return;
     }
-    if (eventId === latestEventId(timeline.items)) unread.dismiss();
+    if (!holdAtLatest && eventId === latestEventId(timeline.items)) unread.dismiss();
   }
   async function jumpToUnread(): Promise<void> {
     const engine = controller;

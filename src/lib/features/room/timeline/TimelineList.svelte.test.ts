@@ -2239,38 +2239,74 @@ test('the read marker waits for the latest message or for the reader to leave', 
   expect(fullyRead).toHaveBeenCalledExactlyOnceWith('!room:example.org', eventId);
 });
 
-test('with open-at-unread off the room opens at the latest message and keeps receipts back', async () => {
-  setPreference('openRoomsAtUnread', false);
-  const roomTimeline = timeline();
-  roomTimeline.items = [item('read'), ...Array.from({ length: 12 }, (_, i) => item(`new-${i}`))];
-  const read = vi.fn((_eventId: string, _fullyRead: boolean) => Promise.resolve());
-  render(TimelineListHarness, {
-    props: {
-      list: {
-        timeline: roomTimeline,
-        roomId: '!room:example.org',
-        hasUnread: true,
-        onLoadReadMarker: () => Promise.resolve('$read'),
-        onRequestHistory: () => Promise.resolve(true),
-        onRequestFuture: async () => {},
-        onRead: read,
-      },
-    },
-  });
-  unreadViewport();
-  const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
-  await flushed();
-  await runAnimationFrames();
-  await new Promise((resolve) => setTimeout(resolve, 550));
+test.each(['focused', 'unfocused', 'hidden'] as const)(
+  'with open-at-unread off the %s room reads the latest message and keeps the unread jump',
+  async (activity) => {
+    setPreference('openRoomsAtUnread', false);
+    const focused = vi.spyOn(document, 'hasFocus').mockReturnValue(activity !== 'unfocused');
+    const visible = vi
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue(activity === 'hidden' ? 'hidden' : 'visible');
+    const roomTimeline = timeline();
+    const unread = Array.from({ length: 12 }, (_, i) => item(`new-${i}`));
+    roomTimeline.items = [item('read'), ...unread];
+    const read = vi.fn((_eventId: string, _fullyRead: boolean) => Promise.resolve());
+    const list = {
+      timeline: roomTimeline,
+      roomId: '!room:example.org',
+      hasUnread: true,
+      onLoadReadMarker: () => Promise.resolve('$read'),
+      onRequestHistory: () => Promise.resolve(true),
+      onRequestFuture: async () => {},
+      onRead: read,
+    };
+    const { rerender } = render(TimelineListHarness, { props: { list } });
+    const element = unreadViewport();
+    const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
+    await flushed();
+    await runAnimationFrames();
 
-  expect(read.mock.calls.every(([eventId]) => eventId === '$read')).toBe(true);
-  expect(jumps).not.toHaveBeenCalledWith(
-    expect.stringContaining('new-0'),
-    'start',
-    expect.anything(),
-    expect.anything()
-  );
-});
+    if (activity !== 'focused') {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+      expect(read).not.toHaveBeenCalled();
+      focused.mockReturnValue(true);
+      visible.mockReturnValue('visible');
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      await runAnimationFrames();
+    }
+
+    await vi.waitFor(() => {
+      expect(read).toHaveBeenCalledWith('$new-11', true);
+    });
+    expect(element.scrollTop).toBe(element.scrollHeight - element.clientHeight);
+    expect(jumps.mock.calls.some(([key]) => key?.includes('new-0'))).toBe(false);
+    expect(screen.getByRole('button', { name: 'Jump to unread' })).toHaveTextContent(
+      '12 new messages'
+    );
+
+    roomTimeline.items = [item('read'), ...unread, readMarker('moved')];
+    await rerender({ list: { ...list, hasUnread: false } });
+    await runAnimationFrames();
+    await userEvent.click(screen.getByRole('button', { name: 'Jump to unread' }));
+    await runAnimationFrames();
+
+    expect(jumps).toHaveBeenCalledWith(
+      expect.stringContaining('new-0'),
+      'start',
+      false,
+      expect.any(AbortSignal)
+    );
+    expect(screen.queryByRole('button', { name: 'Jump to unread' })).not.toBeInTheDocument();
+    expect(document.querySelectorAll('.unread')).toHaveLength(1);
+    expect(
+      document
+        .querySelector('.unread')
+        ?.closest('[data-item-id]')
+        ?.nextElementSibling?.getAttribute('data-item-id')
+    ).toBe('new-0');
+  }
+);
 
 function unreadViewport(): HTMLDivElement {
   const element = viewport();
