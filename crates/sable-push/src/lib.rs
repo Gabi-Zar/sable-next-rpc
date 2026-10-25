@@ -195,6 +195,10 @@ fn ring(event: &Value, notification: &Value) -> Option<Value> {
     let caller = Named::deserialize(notification)
         .unwrap_or_default()
         .sender_display_name
+        .filter(|name| {
+            name.as_str()
+                .is_none_or(|name| sable_model::text::visible_name(name).is_some())
+        })
         .or(event.sender)
         .as_ref()
         .and_then(Value::as_str)
@@ -452,7 +456,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     };
     let sender = override_name
         .or(target.sender_display_name)
-        .filter(|name| !name.is_empty())
+        .and_then(sable_model::text::visible_name)
         .or_else(|| sender_id.clone())
         .unwrap_or_default();
     let room_name = target.room_name.unwrap_or_default();
@@ -673,6 +677,13 @@ mod tests {
         );
         assert!(ring(&event("m.rtc.notification", "notification"), &named).is_none());
         assert!(ring(&event("m.room.message", "ring"), &named).is_none());
+        assert_eq!(
+            ring(
+                &event("m.rtc.notification", "ring"),
+                &json!({ "sender_display_name": "\u{200b}\u{2800}" })
+            ),
+            Some(json!({ "caller_name": "@bob:example.org", "expires_at": 32.0 }))
+        );
     }
 
     #[test]
@@ -819,6 +830,7 @@ mod tests {
             &root,
             &push(json!({
                 "room_id":"!dm:example.org","type":"m.room.message","sender":"@bob:example.org",
+                "sender_display_name":"\u{200b}\u{2800}",
                 "content":{"body":"hi"}
             })),
         )

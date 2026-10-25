@@ -2,7 +2,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, DeserializeAs, VecSkipError, serde_as};
 
-use crate::text::trim;
+use crate::text::{trim, visible_name};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -209,6 +209,9 @@ struct Counts {
 #[serde_as]
 #[derive(Deserialize)]
 struct NotificationIn {
+    #[serde_as(as = "NonBlankText")]
+    #[serde(default)]
+    sender: Option<String>,
     #[serde_as(as = "Recipient")]
     #[serde(default)]
     user_id: Option<String>,
@@ -305,7 +308,10 @@ pub fn parse_push_payload(raw: &str) -> Option<PushNotification> {
         room_id: notification.room_id,
         event_id: notification.event_id,
         room_name: notification.room_name,
-        sender_display_name: notification.sender_display_name,
+        sender_display_name: notification
+            .sender_display_name
+            .and_then(visible_name)
+            .or(notification.sender),
         event_type: notification.event_type,
         membership: notification.membership,
         content: notification.content.unwrap_or_default().into(),
@@ -485,6 +491,16 @@ mod tests {
 
     fn parsed(raw: &Value) -> PushNotification {
         parse_push_payload(&raw.to_string()).expect("a valid push")
+    }
+
+    #[test]
+    fn hidden_push_names_use_the_sender() {
+        for name in ["", "   ", "\u{200b}\u{2800}\u{feff}"] {
+            let push = parsed(&json!({
+                "room_id": "!r:x", "sender": "@alice:x", "sender_display_name": name,
+            }));
+            assert_eq!(push.sender_display_name.as_deref(), Some("@alice:x"));
+        }
     }
 
     #[test]

@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use crate::api::push::PusherView;
 use crate::errors::CoreError;
 use matrix_sdk::Client;
@@ -773,9 +775,12 @@ impl PushSession {
                 .flatten(),
             None => None,
         };
-        let own_name = own
-            .as_ref()
-            .and_then(|member| member.display_name().map(ToOwned::to_owned));
+        let own_name = own.as_ref().and_then(|member| {
+            member
+                .display_name()
+                .and_then(visible_name)
+                .map(ToOwned::to_owned)
+        });
         let own_url = own.and_then(|member| member.avatar_url().map(ToOwned::to_owned));
         let image = match content {
             Some(content) if crate::account_documents::shows_media_previews(&room).await => {
@@ -1164,7 +1169,7 @@ async fn sender_name(client: &Client, room_id: &RoomId, sender: &str) -> String 
         .map(|value| value.get("content").unwrap_or(value))
         .and_then(|content| content.get("displayname")?.as_str())
         .map(str::trim)
-        .filter(|name| !name.is_empty())
+        .and_then(visible_name)
         .unwrap_or(sender)
         .to_owned()
 }
@@ -1183,7 +1188,7 @@ fn push_event_view(item: NotificationItem) -> Option<PushEventView> {
             .map(serde_json::Value::take)
             .unwrap_or_default(),
         sender: item.event.sender().to_string(),
-        sender_display_name: item.sender_display_name,
+        sender_display_name: item.sender_display_name.and_then(visible_name),
         room_name: item.room_computed_display_name,
         room_avatar_url: item.room_avatar_url,
         encrypted: item.is_room_encrypted == Some(true),
@@ -1272,10 +1277,12 @@ pub(crate) async fn invite_notification(
         is_direct: room.is_direct().await.unwrap_or(false),
         encrypted: room.encryption_state().is_encrypted(),
         sender: invite.inviter_id,
-        sender_name: invite
-            .inviter
-            .as_ref()
-            .and_then(|member| member.display_name().map(ToOwned::to_owned)),
+        sender_name: invite.inviter.as_ref().and_then(|member| {
+            member
+                .display_name()
+                .and_then(visible_name)
+                .map(ToOwned::to_owned)
+        }),
         sender_avatar_url: invite
             .inviter
             .as_ref()
@@ -1429,7 +1436,7 @@ fn view(
         is_direct: item.is_direct_message_room,
         encrypted: item.is_room_encrypted.unwrap_or(false),
         sender: item.event.sender().to_owned(),
-        sender_name: item.sender_display_name,
+        sender_name: item.sender_display_name.and_then(visible_name),
         sender_avatar_url: item.sender_avatar_url,
         body: body(&item.event),
         mention: item.has_mention.unwrap_or(false),

@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use matrix_sdk::ruma::OwnedEventId;
 use matrix_sdk::ruma::events::room::message::{MessageType, RoomMessageEventContent};
 use matrix_sdk::ruma::events::sticker::StickerEventContent;
@@ -58,7 +60,11 @@ pub(super) fn in_reply_to(content: &TimelineItemContent) -> Option<ReplyView> {
         sender,
         sender_mentioned,
         sender_name: embedded.and_then(|event| match &event.sender_profile {
-            TimelineDetails::Ready(profile) => profile.display_name.clone(),
+            TimelineDetails::Ready(profile) => profile
+                .display_name
+                .as_deref()
+                .and_then(visible_name)
+                .map(str::to_owned),
             _ => None,
         }),
         body,

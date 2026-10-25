@@ -91,6 +91,16 @@ test('cleared room identity fields do not fall back to the global profile', asyn
   expect(core.userProfile).not.toHaveBeenCalled();
 });
 
+test.each(['', '   ', '\u200b\u2800\ufeff'])(
+  'a hidden caller name uses the user ID (%j)',
+  async (displayname) => {
+    core.rpc.room_state.event.mockResolvedValue({ membership: 'join', displayname });
+    showCall();
+
+    expect(await screen.findByText(`${call.sender} is calling`)).toBeInTheDocument();
+  }
+);
+
 test('retains the call event name when membership cannot be loaded', async () => {
   core.rpc.room_state.event.mockRejectedValue(new Error('unavailable'));
   showCall();

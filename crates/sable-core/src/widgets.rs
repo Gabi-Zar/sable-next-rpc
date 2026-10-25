@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use crate::api::calls::RtcLivekitEndpoint;
 use crate::api::widgets::RestartDelayedEventParams;
 use std::collections::BTreeMap;
@@ -401,7 +403,7 @@ impl Core {
                 .into_iter()
                 .map(|user| UserDirectoryEntryView {
                     user_id: user.user_id.to_string(),
-                    display_name: user.display_name,
+                    display_name: user.display_name.and_then(visible_name),
                     avatar_url: user.avatar_url.map(|url| url.to_string()),
                 })
                 .collect(),

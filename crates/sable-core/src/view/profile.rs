@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use serde::Deserialize as _;
 use serde_with::{DefaultOnError, serde_as};
 
@@ -38,7 +40,7 @@ fn relay_author(body: &str) -> Option<&str> {
     };
 
     let trimmed = name.trim();
-    (!trimmed.is_empty() && trimmed.len() <= MAX_NAME).then_some(trimmed)
+    visible_name(trimmed).filter(|name| name.len() <= MAX_NAME)
 }
 
 #[serde_as]
@@ -96,7 +98,7 @@ pub(crate) fn per_message_profile(
 
     Some(PerMessageProfileView {
         id: non_blank(profile.id),
-        display_name: non_blank(profile.display_name),
+        display_name: profile.display_name.and_then(visible_name),
         avatar_url,
         pronouns: pronoun_sets(profile.pronouns.as_ref()),
         color_on_light: color.on_light,
@@ -190,10 +192,12 @@ mod tests {
 
     #[test]
     fn a_blank_profile_name_reads_as_no_name_rather_than_an_empty_one() {
-        let content = json!({ "m.per_message_profile": { "displayname": "   " } });
-        let profile = per_message_profile(Some(&content)).expect("a profile");
-
-        assert_eq!(profile.display_name, None);
+        for name in ["   ", "\u{200b}\u{2800}\u{feff}"] {
+            let content = json!({ "m.per_message_profile": { "displayname": name } });
+            let profile = per_message_profile(Some(&content)).expect("a profile");
+            assert_eq!(profile.display_name, None);
+            assert_eq!(relay_author(&format!("<{name}> hello")), None);
+        }
     }
 
     #[test]

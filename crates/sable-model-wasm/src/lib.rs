@@ -44,6 +44,12 @@ pub fn search_operators() -> Result<String, JsError> {
     json(&search_query::SearchOperator::ALL)
 }
 
+#[wasm_bindgen(js_name = visibleName)]
+#[must_use]
+pub fn visible_name(name: &str) -> Option<String> {
+    sable_model::text::visible_name(name).map(str::to_owned)
+}
+
 #[wasm_bindgen(js_name = parseSearchQuery)]
 pub fn parse_search_query(input: &str) -> Result<String, JsError> {
     json(&search_query::parse_search_query(input))

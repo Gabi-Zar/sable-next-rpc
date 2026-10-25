@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use matrix_sdk::ruma::OwnedUserId;
 use matrix_sdk::ruma::api::client::profile::{AvatarUrl, DisplayName};
 
@@ -294,7 +296,11 @@ pub(crate) fn profile_view(user_id: OwnedUserId, response: &ProfileResponse) -> 
 
     ProfileView {
         user_id,
-        display_name: response.get_static::<DisplayName>().ok().flatten(),
+        display_name: response
+            .get_static::<DisplayName>()
+            .ok()
+            .flatten()
+            .and_then(visible_name),
         avatar_url: response
             .get_static::<AvatarUrl>()
             .ok()
@@ -334,6 +340,19 @@ mod tests {
             .map(|(key, value)| (key.clone(), value.clone()))
             .collect::<ProfileResponse>();
         profile_view("@me:example.org".try_into().unwrap(), &response)
+    }
+
+    #[test]
+    fn hidden_names_have_no_profile_name() {
+        for name in ["", "   ", "\u{200b}\u{2800}\u{feff}"] {
+            assert_eq!(view(&json!({ "displayname": name })).display_name, None);
+        }
+        assert_eq!(
+            view(&json!({ "displayname": " Élodie " }))
+                .display_name
+                .as_deref(),
+            Some(" Élodie ")
+        );
     }
 
     #[test]

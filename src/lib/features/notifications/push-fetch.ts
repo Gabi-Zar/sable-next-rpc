@@ -3,6 +3,7 @@ import { uint8ArrayToBase64 } from 'uint8array-extras';
 import type { PushFetchView, WebPushValidation } from '#src/generated/protocol';
 
 import { isRecord } from '#lib/guards.js';
+import { visibleName } from '#lib/model/model.js';
 
 import { pushContent, type PushNotification } from '#lib/notifications/push-payload.js';
 import type { PushSession } from '#lib/notifications/room-names.js';
@@ -74,7 +75,8 @@ export async function completePushPayload(
     get(fetcher, `${room}/state/m.room.name/`),
     get(fetcher, `${room}/state/m.room.avatar/`),
   ]);
-  const senderName = text(isRecord(member) ? member.displayname : undefined) ?? sender;
+  const senderName =
+    visibleName(text(isRecord(member) ? member.displayname : undefined) ?? '') ?? sender;
   const avatar =
     text(isRecord(roomAvatar) ? roomAvatar.url : undefined) ??
     text(isRecord(member) ? member.avatar_url : undefined);

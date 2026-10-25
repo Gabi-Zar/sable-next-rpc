@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use matrix_sdk::room::RoomMember;
 use matrix_sdk::ruma::Int;
 use matrix_sdk::ruma::UserId;
@@ -11,7 +13,10 @@ use crate::protocol::{MemberView, MembershipView, RoomPermissionsView, RoomPower
 pub fn member_view(member: &RoomMember) -> MemberView {
     MemberView {
         user_id: member.user_id().to_owned(),
-        display_name: member.display_name().map(str::to_owned),
+        display_name: member
+            .display_name()
+            .and_then(visible_name)
+            .map(str::to_owned),
         avatar_url: member.avatar_url().map(ToString::to_string),
         power_level: clamp_power_level(member.power_level()),
         membership: membership_view(member.membership()),

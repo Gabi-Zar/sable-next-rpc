@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use crate::api::account::AvatarEditView;
 use matrix_sdk::ruma::OwnedUserId;
 use serde::Deserialize;
@@ -100,8 +102,8 @@ struct ColorIn {
 
 fn text_override(value: Stored<String>) -> OverrideTextView {
     match value {
-        Stored::Cleared(()) => OverrideTextView::Cleared,
-        Stored::Set(value) => OverrideTextView::Set { value },
+        Stored::Set(value) if visible_name(&value).is_some() => OverrideTextView::Set { value },
+        Stored::Cleared(()) | Stored::Set(_) => OverrideTextView::Cleared,
         Stored::Unset => OverrideTextView::Unset,
     }
 }
@@ -372,6 +374,25 @@ mod tests {
             json!({ "@a:example.org": {
                 "eu.she-a.color": { "on_light": "#abcdef", "on_dark": "#abcdef" }
             }})
+        );
+    }
+
+    #[test]
+    fn hidden_names_clear_the_override() {
+        for name in ["", "   ", "\u{200b}\u{2800}\u{feff}"] {
+            let content = json!({ "@a:example.org": { "displayname": name } });
+            let read = overrides(Some(&content));
+            assert_eq!(
+                read.first().unwrap().display_name,
+                OverrideTextView::Cleared
+            );
+        }
+        let content = json!({ "@a:example.org": { "displayname": "\u{200b}Alice" } });
+        assert_eq!(
+            overrides(Some(&content)).first().unwrap().display_name,
+            OverrideTextView::Set {
+                value: "\u{200b}Alice".to_owned()
+            }
         );
     }
 

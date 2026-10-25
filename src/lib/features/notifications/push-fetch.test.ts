@@ -71,6 +71,25 @@ test('a plaintext event is completed with its sender and room, with the token', 
   });
 });
 
+test.each(['', '   ', '\u200b\u2800\ufeff'])(
+  'a hidden push sender name uses the user ID (%j)',
+  async (displayname) => {
+    const completed = await completePushPayload(
+      bare,
+      fetcher({
+        [`${base}/event/$event`]: {
+          type: 'm.room.message',
+          sender: '@alice:example.org',
+          content: { body: 'hello' },
+        },
+        [`${base}/state/m.room.member/@alice:example.org`]: { displayname },
+      })
+    );
+
+    expect(completed?.sender_display_name).toBe('@alice:example.org');
+  }
+);
+
 test.each([false, true])('fetches rich text as plain text (encrypted: %s)', async (encrypted) => {
   const content = {
     msgtype: 'm.text',

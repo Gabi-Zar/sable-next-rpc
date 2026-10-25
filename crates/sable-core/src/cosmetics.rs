@@ -7,6 +7,7 @@ use matrix_sdk::ruma::events::{AnySyncStateEvent, StateEventType};
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedRoomId, OwnedUserId, RoomId, UserId};
 use matrix_sdk_base::deserialized_responses::RawAnySyncOrStrippedState;
+use sable_model::text::visible_name;
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -45,7 +46,7 @@ fn member_text(content: &Value, field: &str) -> Option<String> {
 
 fn shown_identity(content: &Value) -> (Option<String>, Option<String>) {
     (
-        member_text(content, "displayname"),
+        member_text(content, "displayname").and_then(visible_name),
         member_text(content, "avatar_url"),
     )
 }
@@ -74,8 +75,7 @@ impl Layer {
                 entry.on_light =
                     profile_hex_color(colors.and_then(|colors| colors.get("on_light")));
                 entry.on_dark = profile_hex_color(colors.and_then(|colors| colors.get("on_dark")));
-                entry.display_name = member_text(content, "displayname");
-                entry.avatar_url = member_text(content, "avatar_url");
+                (entry.display_name, entry.avatar_url) = shown_identity(content);
             }
             COLOR_EVENT => entry.color = profile_hex_color(content.get("color")),
             PRONOUNS_EVENT => entry.pronouns = pronoun_sets(content.get("pronouns")),
@@ -608,6 +608,17 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn hidden_space_names_are_not_inherited() {
+        let room = layer(&[(MEMBER_EVENT, ALICE, json!({ "displayname": "Alice" }))]);
+        let space = layer(&[(
+            MEMBER_EVENT,
+            ALICE,
+            json!({ "displayname": "\u{200b}\u{2800}" }),
+        )]);
+        assert!(resolve(&room, Some(&space)).is_empty());
     }
 
     #[test]

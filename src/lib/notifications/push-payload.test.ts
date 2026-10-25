@@ -41,6 +41,18 @@ test('a flattened notification (MSC4174) reads its top-level unread', () => {
   expect(flattened.unread).toBe(2);
 });
 
+test('a hidden push name falls back to the sender ID', () => {
+  const parsed = parsedPayload(
+    JSON.stringify({
+      room_id: '!room:example.org',
+      sender: '@alice:example.org',
+      sender_display_name: '\u200b\u2800',
+    })
+  );
+
+  expect(parsed.sender_display_name).toBe('@alice:example.org');
+});
+
 test('an event_id_only push names the room from what the app cached', () => {
   const showing = pushAlert(
     pushNotification({

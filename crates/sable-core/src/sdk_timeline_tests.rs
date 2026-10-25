@@ -3105,6 +3105,31 @@ async fn an_unavailable_homeserver_is_retryable_rather_than_a_logged_failure() {
 }
 
 #[tokio::test]
+async fn invisible_member_names_use_the_user_id() {
+    for name in ["\u{200b}", "\u{2800}", " \u{061c}\u{034f}\u{feff} "] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!names:example.org");
+        let factory = EventFactory::new().room(room_id).sender(*ALICE);
+        server.mock_room_state_encryption().plain().mount().await;
+        let builder = JoinedRoomBuilder::new(room_id)
+            .add_state_event(factory.member(*ALICE).display_name(name))
+            .add_state_event(factory.member(client.user_id().unwrap()))
+            .add_timeline_event(factory.text_msg("hello").event_id(event_id!("$hidden")));
+        let room = server.sync_room(&client, builder).await;
+        let member = room.get_member_no_sync(*ALICE).await.unwrap().unwrap();
+        assert_eq!(crate::view::member_view(&member).display_name, None);
+
+        let timeline = Arc::new(
+            build_room_timeline(&room, &TimelineFocusView::Live, false)
+                .await
+                .unwrap(),
+        );
+        assert_eq!(sender_names(&timeline).await, vec![None]);
+    }
+}
+
+#[tokio::test]
 async fn fetching_members_names_a_bridge_ghost_the_sync_never_shipped() {
     let server = MatrixMockServer::new().await;
     let client = server.client_builder().build().await;

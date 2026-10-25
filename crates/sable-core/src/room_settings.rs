@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use crate::Core;
 use crate::ResultExt;
 use crate::api::room_state::EnableEncryptionParams;
@@ -626,7 +628,10 @@ impl Core {
                     .and_then(|value| value.as_str())
                     .map(ToOwned::to_owned)
             };
-            let (display_name, avatar_url) = (text("displayname"), text("avatar_url"));
+            let (display_name, avatar_url) = (
+                text("displayname").and_then(visible_name),
+                text("avatar_url"),
+            );
             self.overlay_profile(&room_id, &user_id, display_name.clone(), avatar_url.clone())
                 .await;
             self.emit(CoreEvent::ProfileChanged {

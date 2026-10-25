@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -56,7 +58,7 @@ pub(crate) fn descriptions(state: &[Raw<AnyStateEvent>]) -> Vec<BotCommand> {
             let text = |field: &str| member.get(field).and_then(Value::as_str).map(str::to_owned);
             Some(BotCommandDescription {
                 sender: event.sender.clone(),
-                sender_name: text("displayname"),
+                sender_name: text("displayname").and_then(visible_name),
                 sender_avatar: text("avatar_url"),
                 content: event.content.clone(),
             })

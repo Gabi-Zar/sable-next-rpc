@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use std::collections::BTreeSet;
 
 use matrix_sdk::ruma::UInt;
@@ -432,7 +434,7 @@ pub(super) fn content(
         TimelineItemContent::MembershipChange(change) => TimelineItemContentView::Membership {
             user_id: change.user_id().to_owned(),
             change: membership_change(change.change()),
-            display_name: change.display_name(),
+            display_name: change.display_name().and_then(visible_name),
             reason: membership_reason(change.content()),
         },
 
@@ -441,8 +443,8 @@ pub(super) fn content(
             display_name: change
                 .displayname_change()
                 .map(|change| DisplayNameChangeView {
-                    old: change.old.clone(),
-                    new: change.new.clone(),
+                    old: change.old.clone().and_then(visible_name),
+                    new: change.new.clone().and_then(visible_name),
                 }),
             avatar: change.avatar_url_change().map(|change| AvatarChangeView {
                 old: change.old.as_ref().map(ToString::to_string),

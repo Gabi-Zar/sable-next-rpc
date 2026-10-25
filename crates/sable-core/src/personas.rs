@@ -799,7 +799,7 @@ pub(crate) async fn notification_profile(
                 );
             return Ok(Some(PerMessageProfileView {
                 id: Some(persona.id.clone()),
-                display_name: Some(persona.display_name.clone()),
+                display_name: sable_model::text::visible_name(persona.display_name.clone()),
                 avatar_url,
                 pronouns: persona.pronouns.clone(),
                 color_on_light: persona.color_on_light.clone(),

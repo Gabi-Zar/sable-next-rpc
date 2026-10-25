@@ -3,6 +3,7 @@
   import { i18n } from '#lib/i18n.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { isRecord } from '#lib/guards.js';
+  import { visibleName } from '#lib/model/model.js';
   import PhoneIcon from 'phosphor-svelte/lib/PhoneIcon';
   import PhoneDisconnectIcon from 'phosphor-svelte/lib/PhoneDisconnectIcon';
   import VideoCameraIcon from 'phosphor-svelte/lib/VideoCameraIcon';
@@ -44,7 +45,9 @@
         (content) => {
           if (!current || !isRecord(content)) return;
           profile = {
-            name: typeof content.displayname === 'string' ? content.displayname : incoming.sender,
+            name:
+              (typeof content.displayname === 'string' ? visibleName(content.displayname) : null) ??
+              incoming.sender,
             avatar: typeof content.avatar_url === 'string' ? content.avatar_url : null,
           };
         },

@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use crate::api::account::ReportUserParams;
 use crate::api::rooms::ReportParams;
 use std::collections::{HashMap, HashSet};
@@ -730,7 +732,12 @@ impl Core {
             .await
             .ok()
             .flatten()
-            .and_then(|member| member.display_name().map(ToOwned::to_owned));
+            .and_then(|member| {
+                member
+                    .display_name()
+                    .and_then(visible_name)
+                    .map(ToOwned::to_owned)
+            });
         let route = source.route().await.unwrap_or_default();
         let mut content = serde_json::Value::Object(forward_content_for_event(
             source_content,

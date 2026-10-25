@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use std::sync::Arc;
 
 use futures_util::{StreamExt, pin_mut};
@@ -478,7 +480,7 @@ impl Core {
         let Ok(user_id) = matrix_sdk::ruma::OwnedUserId::try_from(event.state_key.as_str()) else {
             return;
         };
-        let display_name = event.content.displayname.clone();
+        let display_name = event.content.displayname.clone().and_then(visible_name);
         let avatar_url = event.content.avatar_url.as_ref().map(ToString::to_string);
         self.overlay_profile(
             room.room_id(),

@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use crate::api::notifications::InboxFilter;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::Ordering;
@@ -361,7 +363,12 @@ impl Core {
             .await
             .ok()
             .flatten()
-            .and_then(|member| member.display_name().map(ToOwned::to_owned));
+            .and_then(|member| {
+                member
+                    .display_name()
+                    .and_then(visible_name)
+                    .map(ToOwned::to_owned)
+            });
         let encrypted = crate::rooms::room_maybe_encrypted(room);
         Some(Entry {
             room_id: room.room_id().to_owned(),
@@ -468,7 +475,7 @@ impl Core {
                 event_id: entry.event_id.to_string(),
                 ts: entry.ts,
                 sender: entry.sender.to_string(),
-                sender_name: entry.sender_name,
+                sender_name: entry.sender_name.and_then(visible_name),
                 body: entry.body,
                 highlight: entry.highlight,
                 is_direct: entry.is_direct,

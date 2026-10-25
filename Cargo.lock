@@ -7610,6 +7610,7 @@ name = "sable-push"
 version = "0.1.0"
 dependencies = [
  "sable-core",
+ "sable-model",
  "serde",
  "serde_json",
  "serde_with",

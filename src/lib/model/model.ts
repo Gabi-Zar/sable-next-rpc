@@ -64,6 +64,10 @@ export function parseSearchQuery(input: string): ParsedQuery {
   return JSON.parse(wasm.parseSearchQuery(input)) as ParsedQuery;
 }
 
+export function visibleName(name: string): string | null {
+  return wasm.visibleName(name) ?? null;
+}
+
 export function searchOperators(): SearchOperator[] {
   return JSON.parse(wasm.searchOperators()) as SearchOperator[];
 }

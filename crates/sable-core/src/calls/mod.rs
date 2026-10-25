@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 mod keys;
 mod membership;
 mod notify;
@@ -637,7 +639,12 @@ impl Core {
                                 .await
                                 .ok()
                                 .flatten()
-                                .and_then(|member| member.display_name().map(ToOwned::to_owned));
+                                .and_then(|member| {
+                                    member
+                                        .display_name()
+                                        .and_then(visible_name)
+                                        .map(ToOwned::to_owned)
+                                });
                             let room_name = room.cached_display_name().map(|name| name.to_string());
 
                             core.emit_if_current(

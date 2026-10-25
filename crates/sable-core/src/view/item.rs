@@ -1,3 +1,5 @@
+use sable_model::text::visible_name;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
@@ -424,9 +426,12 @@ pub async fn standalone_item(
         transaction_id: None,
         send_state: None,
         is_own,
-        sender_name: member
-            .as_ref()
-            .and_then(|member| member.display_name().map(ToOwned::to_owned)),
+        sender_name: member.as_ref().and_then(|member| {
+            member
+                .display_name()
+                .and_then(visible_name)
+                .map(ToOwned::to_owned)
+        }),
         sender_avatar: member
             .as_ref()
             .and_then(|member| member.avatar_url().map(ToString::to_string)),
@@ -513,7 +518,10 @@ pub fn timeline_item(
                 transaction_id: event.transaction_id().map(ToString::to_string),
                 send_state: event.send_state().map(send_state),
                 sender: Some(event.sender().to_owned()),
-                sender_name: profile.and_then(|p: &Profile| p.display_name.clone()),
+                sender_name: profile
+                    .and_then(|p: &Profile| p.display_name.as_deref())
+                    .and_then(visible_name)
+                    .map(str::to_owned),
                 sender_avatar: profile
                     .and_then(|p: &Profile| p.avatar_url.as_ref())
                     .map(ToString::to_string),
