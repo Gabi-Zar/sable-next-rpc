@@ -121,7 +121,7 @@ async function main() {
     console.info(`Validated ${ids.size} debug identifiers in ${symbols.size} native symbol files`);
     return;
   }
-  const args = ['debug-files', 'upload', '--include-sources', '--wait', '--require-all'];
+  const args = ['debug-files', 'upload', '--include-sources', '--wait'];
   for (const id of ids) args.push('--id', id);
   args.push(...symbols);
   execFileSync(SentryCli.getPath(), args, { stdio: 'inherit' });

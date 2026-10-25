@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFile, execFileSync, spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
+import { promisify } from 'node:util';
 import { collectSymbols } from './upload-sentry-symbols.mjs';
 
 test('finds app symbols and excludes dependencies and bundles', async () => {
@@ -99,6 +101,108 @@ test('fails when a symbol directory cannot be read', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test(
+  'accepts existing symbols and still fails on server processing errors',
+  {
+    skip: !['linux', 'darwin'].includes(process.platform) || spawnSync('cc', ['--version']).error,
+  },
+  async (t) => {
+    const root = await mkdtemp(join(tmpdir(), 'sable-symbol-upload-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    for (const [index, name] of ['sable_node', 'sable_audiofox'].entries()) {
+      const source = join(root, `${name}.c`);
+      const object = join(root, `${name}.o`);
+      await writeFile(source, `int fixture(void) { return ${index}; }`);
+      execFileSync('cc', ['-g', '-fPIC', '-c', source, '-o', object]);
+      execFileSync('cc', [
+        '-g',
+        ...(process.platform === 'darwin' ? ['-dynamiclib'] : ['-shared', '-Wl,--build-id']),
+        object,
+        '-o',
+        join(root, `${name}.node`),
+      ]);
+    }
+
+    let mode = 'existing';
+    let assembleCalls = 0;
+    const server = createServer(async (request, response) => {
+      response.setHeader('Content-Type', 'application/json');
+      if (request.url === '/api/0/organizations/test/chunk-upload/') {
+        response.end(
+          JSON.stringify({
+            url: `http://127.0.0.1:${server.address().port}/chunks/`,
+            chunksPerRequest: 64,
+            maxRequestSize: 32_000_000,
+            hashAlgorithm: 'sha1',
+            chunkSize: 1_000_000,
+            concurrency: 1,
+          })
+        );
+      } else if (request.url === '/api/0/projects/test/test/files/difs/assemble/') {
+        let body = '';
+        for await (const chunk of request) body += chunk;
+        const entries = Object.entries(JSON.parse(body));
+        assembleCalls++;
+        response.end(
+          JSON.stringify(
+            Object.fromEntries(
+              entries.map(([sha1, file]) => {
+                const existing = mode === 'existing' || file.name.includes('sable_audiofox');
+                const state = existing ? 'ok' : mode === 'error' ? 'error' : 'assembling';
+                return [
+                  sha1,
+                  {
+                    state: assembleCalls === 1 ? state : mode === 'error' ? 'error' : 'ok',
+                    missingChunks: [],
+                    detail: mode === 'error' && !existing ? 'Invalid debug data' : null,
+                    dif: {
+                      debugId: file.debug_id,
+                      objectName: file.name,
+                      cpuName: process.arch,
+                      sha1,
+                    },
+                  },
+                ];
+              })
+            )
+          )
+        );
+      } else {
+        response.writeHead(404);
+        response.end('{}');
+      }
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+    const upload = () =>
+      promisify(execFile)(
+        process.execPath,
+        [join(import.meta.dirname, 'upload-sentry-symbols.mjs'), root],
+        {
+          env: {
+            ...process.env,
+            VITE_SENTRY_DSN: 'https://public@example.invalid/1',
+            SENTRY_AUTH_TOKEN: 'test-token',
+            SENTRY_ORG: 'test',
+            SENTRY_PROJECT: 'test',
+            SENTRY_URL: `http://127.0.0.1:${server.address().port}`,
+            SENTRY_DISABLE_UPDATE_CHECK: '1',
+          },
+          timeout: 15_000,
+        }
+      );
+    assert.match((await upload()).stdout, /Nothing to upload, all files are on the server/);
+    assert.equal(assembleCalls, 1);
+    mode = 'mixed';
+    assembleCalls = 0;
+    assert.match((await upload()).stdout, /File processing complete/);
+    assert.equal(assembleCalls, 2);
+    mode = 'error';
+    assembleCalls = 0;
+    await assert.rejects(upload, /some symbols did not process correctly/);
+  }
+);
 
 test(
   'validates debug data and requires every build output',
