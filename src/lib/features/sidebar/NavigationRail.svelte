@@ -276,7 +276,7 @@
   }
 
   function sectionHref(key: string, root: string): string {
-    return spaceNavigationHref(root, spacePaths[key], mobile, root);
+    return mobile ? root : spaceNavigationHref(root, spacePaths[key], root);
   }
 
   function spaceName(name: string | null, roomId: string): string {
@@ -407,7 +407,7 @@
       href,
       activePrefix: href,
       roomId: space.room_id,
-      navigateHref: spaceNavigationHref(href, savedPath, mobile, lobby),
+      navigateHref: spaceNavigationHref(href, savedPath, lobby),
       initial: toInitials(name),
       avatar: space.avatar_url,
       label: name,
@@ -495,8 +495,6 @@
   let previousPath = '';
 
   afterNavigate(() => {
-    if (mobile) return;
-
     const kept = [...new URLSearchParams(page.url.search)].filter(([key]) => key !== 'event');
     const search = new URLSearchParams(kept).toString();
     const path = `${page.url.pathname}${search ? `?${search}` : ''}${page.url.hash}`;
@@ -504,8 +502,9 @@
       const href = resolve('/(app)/space/[spaceId]', {
         spaceId: roomPathParam(candidate, roomList.rooms),
       });
-      return path === href || path.startsWith(`${href}/`);
+      return path.startsWith(`${href}/`);
     });
+    if (mobile && !space) return;
     const key = sectionRoots.find(([, root]) => under(path, root))?.[0] ?? space?.room_id;
     const spaceParam = page.params.spaceId;
     const bounced = spaceParam
