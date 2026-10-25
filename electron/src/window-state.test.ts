@@ -46,7 +46,14 @@ test('treats a missing or corrupt file as no saved state', () => {
 test('rejects unusable bounds', () => {
   expect(sanitizeWindowState(null)).toBeUndefined();
   expect(sanitizeWindowState({ ...saved, width: 0 })).toBeUndefined();
+  expect(sanitizeWindowState({ ...saved, height: -1 })).toBeUndefined();
   expect(sanitizeWindowState({ ...saved, x: 'left' })).toBeUndefined();
+});
+
+test('round-trips a window smaller than the desktop minimum on a mobile display', () => {
+  const small = { ...saved, x: 0, y: 32, width: 360, height: 460 };
+  writeWindowState(path, small);
+  expect(readWindowState(path)).toEqual(small);
 });
 
 test('treats missing or mistyped flags as off', () => {
@@ -88,6 +95,14 @@ test('shrinks a window that is larger than the display', () => {
     y: 0,
     width: 1280,
     height: 720,
+  });
+});
+
+test('fits a restored window inside a mobile work area below the desktop minimum', () => {
+  const area = { x: 0, y: 32, width: 360, height: 460 };
+  expect(windowStateOnScreen(saved, [area])).toEqual({
+    ...saved,
+    ...area,
   });
 });
 

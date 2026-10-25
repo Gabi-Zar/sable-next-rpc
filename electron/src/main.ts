@@ -386,12 +386,13 @@ function createWindow(): BrowserWindow {
         screen.getAllDisplays().map((display) => display.workArea)
       )
     : undefined;
+  const { workArea } = restored ? screen.getDisplayMatching(restored) : screen.getPrimaryDisplay();
   const window = new BrowserWindow({
-    width: restored?.width ?? 1280,
-    height: restored?.height ?? 800,
+    width: Math.min(restored?.width ?? 1280, workArea.width),
+    height: Math.min(restored?.height ?? 800, workArea.height),
     ...(restored ? { x: restored.x, y: restored.y } : {}),
-    minWidth: MIN_WIDTH,
-    minHeight: MIN_HEIGHT,
+    minWidth: Math.min(MIN_WIDTH, workArea.width),
+    minHeight: Math.min(MIN_HEIGHT, workArea.height),
     show: false,
     autoHideMenuBar: true,
     ...(settings.customTitleBar &&

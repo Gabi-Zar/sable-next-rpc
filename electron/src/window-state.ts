@@ -24,7 +24,7 @@ export function sanitizeWindowState(value: unknown): WindowState | undefined {
   if (x === undefined || y === undefined || width === undefined || height === undefined) {
     return undefined;
   }
-  if (width < MIN_WIDTH || height < MIN_HEIGHT) return undefined;
+  if (width <= 0 || height <= 0) return undefined;
 
   return {
     x,
