@@ -50,13 +50,15 @@
     </a>
     <div class="youtube-player">
       {#if playing}
-        <iframe
-          src={youtubePlayerUrl(video)}
-          title={details.title}
-          allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-          referrerpolicy="strict-origin-when-cross-origin"
-          allowfullscreen
-        ></iframe>
+        {#await youtubePlayerUrl(video) then src}
+          <iframe
+            {src}
+            title={details.title}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+          ></iframe>
+        {/await}
       {:else}
         <button
           type="button"

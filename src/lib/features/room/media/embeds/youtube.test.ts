@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const config = vi.hoisted<{ embeds: { serviceUrl: string | null } }>(() => ({
+  embeds: { serviceUrl: 'https://embeds.test' },
+}));
+
+vi.mock('#lib/config/runtime-config.js', () => ({ runtimeConfig: () => Promise.resolve(config) }));
 
 import { parseYoutubeLink, youtubePlayerUrl, type YoutubeVideo } from './youtube';
+
+afterEach(() => {
+  config.embeds.serviceUrl = 'https://embeds.test';
+  vi.unstubAllGlobals();
+});
 
 describe('parseYoutubeLink', () => {
   it.each([
@@ -45,9 +56,34 @@ describe('youtubePlayerUrl', () => {
     start: 90,
   };
 
-  it('plays from the nocookie host at the start time', () => {
-    expect(youtubePlayerUrl(video)).toBe(
+  it.each(['http:', 'https:'])('plays directly over %s', async (protocol) => {
+    vi.stubGlobal('location', { protocol });
+    await expect(youtubePlayerUrl(video)).resolves.toBe(
       'https://www.youtube-nocookie.com/embed/MTn_bhTVr2U?autoplay=1&start=90'
     );
+  });
+
+  it.each(['tauri:', 'sable-app:'])('uses the embed service over %s', async (protocol) => {
+    vi.stubGlobal('location', { protocol });
+    await expect(youtubePlayerUrl(video)).resolves.toBe(
+      'https://embeds.test/_soliditas/embed/youtube?v=MTn_bhTVr2U&start=90'
+    );
+  });
+
+  it('plays directly without an embed service', async () => {
+    vi.stubGlobal('location', { protocol: 'tauri:' });
+    config.embeds.serviceUrl = null;
+    await expect(youtubePlayerUrl(video)).resolves.toBe(
+      'https://www.youtube-nocookie.com/embed/MTn_bhTVr2U?autoplay=1&start=90'
+    );
+  });
+
+  it.each([
+    ['https:', null, 'https://www.youtube-nocookie.com/embed/MTn_bhTVr2U?autoplay=1'],
+    ['tauri:', null, 'https://embeds.test/_soliditas/embed/youtube?v=MTn_bhTVr2U'],
+    ['tauri:', 0, 'https://embeds.test/_soliditas/embed/youtube?v=MTn_bhTVr2U&start=0'],
+  ] as const)('plays over %s from %s', async (protocol, start, expected) => {
+    vi.stubGlobal('location', { protocol });
+    await expect(youtubePlayerUrl({ ...video, start })).resolves.toBe(expected);
   });
 });

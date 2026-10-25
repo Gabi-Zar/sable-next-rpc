@@ -1,3 +1,4 @@
+import { runtimeConfig } from '#lib/config/runtime-config.js';
 import type {
   DearrowThumbnailFallback,
   YoutubeThumbnailPosition,
@@ -92,9 +93,18 @@ export function parseYoutubeLink(href: string): YoutubeVideo | null {
   };
 }
 
-export function youtubePlayerUrl(video: YoutubeVideo): string {
-  const url = new URL(`https://www.youtube-nocookie.com/embed/${video.id}`);
-  url.searchParams.set('autoplay', '1');
+export async function youtubePlayerUrl(video: YoutubeVideo): Promise<string> {
+  const service = ['http:', 'https:'].includes(location.protocol)
+    ? null
+    : (await runtimeConfig()).embeds.serviceUrl;
+  let url: URL;
+  if (service !== null) {
+    url = new URL(`${service}/_soliditas/embed/youtube`);
+    url.searchParams.set('v', video.id);
+  } else {
+    url = new URL(`https://www.youtube-nocookie.com/embed/${video.id}`);
+    url.searchParams.set('autoplay', '1');
+  }
   if (video.start !== null) url.searchParams.set('start', String(video.start));
   return url.href;
 }

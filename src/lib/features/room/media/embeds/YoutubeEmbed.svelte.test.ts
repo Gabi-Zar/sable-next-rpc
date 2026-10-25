@@ -6,6 +6,9 @@ import { tick } from 'svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
 vi.mock('#lib/core/context.js');
+vi.mock('#lib/config/runtime-config.js', () => ({
+  runtimeConfig: () => Promise.resolve({ embeds: { serviceUrl: 'https://embeds.test' } }),
+}));
 
 import type { UrlPreviewView } from '#src/generated/protocol';
 
@@ -31,14 +34,31 @@ async function settle(): Promise<void> {
   }
 }
 
-test('shows the title and plays the video in place', async () => {
+test.each([
+  [
+    'https://sable.test',
+    'aaaaaaaaaaa',
+    'https://www.youtube-nocookie.com/embed/aaaaaaaaaaa?autoplay=1&start=42',
+  ],
+  [
+    'tauri://localhost',
+    'ddddddddddd',
+    'https://embeds.test/_soliditas/embed/youtube?v=ddddddddddd&start=42',
+  ],
+  [
+    'sable-app://app',
+    'eeeeeeeeeee',
+    'https://embeds.test/_soliditas/embed/youtube?v=eeeeeeeeeee&start=42',
+  ],
+])('shows the title and plays the video in place on %s', async (origin, id, src) => {
+  vi.stubGlobal('location', new URL(origin));
   const fetch = vi.fn<typeof globalThis.fetch>(() =>
     Promise.resolve(Response.json({ title: 'A video', author_name: 'A channel' }))
   );
   vi.stubGlobal('fetch', fetch);
   const user = userEvent.setup();
   const { container } = render(YoutubeEmbed, {
-    url: 'https://youtu.be/aaaaaaaaaaa?t=42',
+    url: `https://youtu.be/${id}?t=42`,
     encrypted: false,
   });
   await settle();
@@ -48,21 +68,19 @@ test('shows the title and plays the video in place', async () => {
   );
   expect(screen.getByRole('link', { name: 'A channel A video' })).toHaveAttribute(
     'href',
-    'https://youtu.be/aaaaaaaaaaa?t=42'
+    `https://youtu.be/${id}?t=42`
   );
   const play = screen.getByRole('button', { name: 'Play A video' });
   expect(play.querySelector('img')).toHaveAttribute(
     'src',
-    'https://i.ytimg.com/vi/aaaaaaaaaaa/hqdefault.jpg'
+    `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
   );
   expect(container.querySelector('iframe')).not.toBeInTheDocument();
 
   await user.click(play);
+  await settle();
 
-  expect(container.querySelector('iframe')).toHaveAttribute(
-    'src',
-    'https://www.youtube-nocookie.com/embed/aaaaaaaaaaa?autoplay=1&start=42'
-  );
+  expect(container.querySelector('iframe')).toHaveAttribute('src', src);
 });
 
 const dearrowCases = [
