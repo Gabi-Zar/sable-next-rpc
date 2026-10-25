@@ -384,10 +384,9 @@ mod tests {
         );
         assert_eq!(split.via, ["a.example", "b.example"]);
         assert_eq!(parse_matrix_link(&split.href), Some(room("!opaque")));
-        assert!(
-            split_via("matrix:roomid/opaque#reserved?via=wrong.example")
-                .via
-                .is_empty()
+        assert_eq!(
+            split_via("matrix:roomid/opaque#reserved?via=wrong.example").via,
+            [] as [std::string::String; 0]
         );
     }
 }

@@ -1414,6 +1414,7 @@ async fn a_sticker_reaches_the_server_as_an_m_sticker_event() {
     assert_eq!(sent["body"], "blobwave");
 }
 
+#[expect(clippy::unwrap_used, reason = "test code")]
 fn attachment_bytes(bytes: &[u8]) -> Vec<u8> {
     let mut body = Vec::new();
     body.extend_from_slice(&u64::try_from(bytes.len()).unwrap().to_le_bytes());
@@ -1592,7 +1593,7 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
                     has_fallback: false,
                 }),
             };
-            send_media_reply(&core, room_id, kind, outgoing)
+            Box::pin(send_media_reply(&core, room_id, kind, outgoing))
                 .await
                 .unwrap();
 

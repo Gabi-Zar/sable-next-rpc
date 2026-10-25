@@ -1106,7 +1106,8 @@ mod tests {
         assert_eq!(u64::from(thumbnail.height), 450);
         assert_eq!(body, [9]);
         for length in 0..bytes.len() - 1 {
-            assert!(super::attachment_data(&mut &bytes[..length]).is_err());
+            super::attachment_data(&mut &bytes[..length])
+                .expect_err("a truncated attachment is rejected");
         }
     }
 

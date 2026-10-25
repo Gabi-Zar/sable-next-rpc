@@ -618,7 +618,7 @@ mod tests {
             ALICE,
             json!({ "displayname": "\u{200b}\u{2800}" }),
         )]);
-        assert!(resolve(&room, Some(&space)).is_empty());
+        assert_eq!(resolve(&room, Some(&space)), Vec::new());
     }
 
     #[test]

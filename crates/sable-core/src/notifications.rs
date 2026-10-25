@@ -3041,15 +3041,22 @@ mod tests {
     async fn seeded_cold_store(
         persisted: &PersistedSession,
         name: &str,
-    ) -> (std::path::PathBuf, std::path::PathBuf, FileSessionStore) {
-        let data_dir = std::env::temp_dir().join(format!("sable-{name}-{}", std::process::id()));
-        let store_dir = cold_push_store_dir(&data_dir);
+    ) -> (tempfile::TempDir, std::path::PathBuf, FileSessionStore) {
+        let data_dir = tempfile::Builder::new()
+            .prefix(&format!("sable-{name}-"))
+            .tempdir()
+            .unwrap();
+        let store_dir = cold_push_store_dir(data_dir.path());
         let seeded = crate::session::restore_client(store_dir.to_str().unwrap(), persisted, true)
             .await
             .unwrap();
         crate::session::restore_credentials(&seeded, persisted)
             .await
             .unwrap();
+        seeded
+            .encryption()
+            .wait_for_e2ee_initialization_tasks()
+            .await;
         drop(seeded);
         let store = FileSessionStore::new(&store_dir);
         store
@@ -3129,7 +3136,7 @@ mod tests {
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
         let persisted = oauth_session(&server);
-        let (data_dir, store_dir, store) =
+        let (_data_dir, store_dir, store) =
             seeded_cold_store(&persisted, "cold-push-corrupt-tokens").await;
         let saved = store.load().await.unwrap().unwrap();
         let logins = crate::credentials::LoginTokens::new(&store_dir);
@@ -3166,14 +3173,13 @@ mod tests {
         assert_eq!(client.session_tokens().unwrap(), repaired);
         assert_eq!(store.load().await.unwrap().unwrap(), saved);
         drop(client);
-        tokio::fs::remove_dir_all(data_dir).await.unwrap();
     }
 
     #[tokio::test]
     async fn a_cold_push_saves_the_tokens_it_refreshes() {
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
-        let (data_dir, store_dir, store) =
+        let (_data_dir, store_dir, store) =
             seeded_cold_store(&oauth_session(&server), "cold-push-refresh").await;
         mount_oauth_refresh(&server, 1, std::time::Duration::ZERO).await;
         mount_whoami(&server).await;
@@ -3185,14 +3191,13 @@ mod tests {
 
         assert_eq!(saved_refresh_token(&store, &store_dir).await, "new-refresh");
         drop(client);
-        tokio::fs::remove_dir_all(&data_dir).await.unwrap();
     }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn a_cold_push_cut_short_still_saves_the_rotated_tokens() {
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
-        let (data_dir, store_dir, store) =
+        let (_data_dir, store_dir, store) =
             seeded_cold_store(&oauth_session(&server), "cold-push-cut-short").await;
         mount_oauth_refresh(&server, 1, std::time::Duration::from_millis(1500)).await;
         mount_whoami(&server).await;
@@ -3218,7 +3223,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(saved_refresh_token(&store, &store_dir).await, "new-refresh");
-        tokio::fs::remove_dir_all(&data_dir).await.unwrap();
     }
 
     #[tokio::test]
@@ -3230,7 +3234,7 @@ mod tests {
 
         let server = MatrixMockServer::new().await;
         server.mock_versions().ok().mount().await;
-        let (data_dir, store_dir, store) =
+        let (_data_dir, store_dir, store) =
             seeded_cold_store(&oauth_session(&server), "cold-push-live-token").await;
         Mock::given(method("GET"))
             .and(path("/_matrix/client/v3/account/whoami"))
@@ -3254,7 +3258,6 @@ mod tests {
             "prev-refresh-token"
         );
         drop(client);
-        tokio::fs::remove_dir_all(&data_dir).await.unwrap();
     }
 
     #[tokio::test]
@@ -3272,7 +3275,7 @@ mod tests {
                 "device_id": "A", "access_token": "old-access", "refresh_token": "old-refresh"}
         }))
         .unwrap();
-        let (data_dir, store_dir, store) =
+        let (_data_dir, store_dir, store) =
             seeded_cold_store(&persisted, "cold-push-password").await;
         let saved = store.load().await.unwrap();
         Mock::given(method("GET"))
@@ -3300,7 +3303,6 @@ mod tests {
 
         assert_eq!(store.load().await.unwrap(), saved);
         drop(client);
-        tokio::fs::remove_dir_all(&data_dir).await.unwrap();
     }
 
     struct SharedLogin {
