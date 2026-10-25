@@ -830,9 +830,9 @@
   }
   async function markRead(eventId: string): Promise<void> {
     if (windowState.pinned) followingRead = true;
-    const fullyRead = eventId === latestEventId(timeline.items);
+    const fullyRead = !holdAtLatest && eventId === latestEventId(timeline.items);
     await onRead(eventId, fullyRead);
-    readUpTo = eventId;
+    if (!holdAtLatest) readUpTo = eventId;
     if (fullyRead) fullyReadAt = eventId;
     if (disposed) {
       settleFullyRead();

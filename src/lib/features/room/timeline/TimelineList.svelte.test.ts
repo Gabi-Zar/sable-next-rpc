@@ -2240,7 +2240,7 @@ test('the read marker waits for the latest message or for the reader to leave', 
 });
 
 test.each(['focused', 'unfocused', 'hidden'] as const)(
-  'with open-at-unread off the %s room reads the latest message and keeps the unread jump',
+  'with open-at-unread off the %s room sends a receipt for the latest message and keeps the read marker',
   async (activity) => {
     setPreference('openRoomsAtUnread', false);
     const focused = vi.spyOn(document, 'hasFocus').mockReturnValue(activity !== 'unfocused');
@@ -2277,7 +2277,7 @@ test.each(['focused', 'unfocused', 'hidden'] as const)(
     }
 
     await vi.waitFor(() => {
-      expect(read).toHaveBeenCalledWith('$new-11', true);
+      expect(read).toHaveBeenCalledWith('$new-11', false);
     });
     expect(element.scrollTop).toBe(element.scrollHeight - element.clientHeight);
     expect(jumps.mock.calls.some(([key]) => key?.includes('new-0'))).toBe(false);
