@@ -22,9 +22,9 @@ Object.assign(core.rpc.messages, {
 
 import LinkPreviewCard from './LinkPreviewCard.svelte';
 import LinkPreviewCardMediaHarness from './LinkPreviewCardMediaHarness.test.svelte';
-import type { StandaloneMedia } from './media-viewer-opener.svelte.js';
 import { mediaPreviewSettings } from '#lib/settings/media-previews.svelte.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
 function preview(overrides: Partial<UrlPreviewView> = {}): UrlPreviewView {
   return {
@@ -51,6 +51,7 @@ afterEach(() => {
   preferences.clientEmbeds = false;
   preferences.encryptedClientEmbeds = false;
   vi.restoreAllMocks();
+  mediaViewerState.close();
 });
 
 test('renders the resolved preview as a link', async () => {
@@ -249,10 +250,9 @@ test('an image-only preview renders inline instead of as a card', async () => {
   await Promise.resolve();
   await tick();
 
-  const link = screen.getByRole('link');
-  expect(link).not.toHaveClass('link-preview');
-  expect(link).toHaveAttribute('href', 'https://media.example/anim.gif');
-  expect(link.closest('.link-preview-inline')).toBeInTheDocument();
+  const button = screen.getByRole('button', { name: 'Open anim.gif' });
+  expect(button.parentElement?.parentElement).toHaveClass('link-preview-inline');
+  expect(button.closest('.link-preview')).not.toBeInTheDocument();
 });
 
 test('an image-only preview opens the media viewer instead of the url', async () => {
@@ -268,11 +268,9 @@ test('an image-only preview opens the media viewer instead of the url', async ()
       image_height: 240,
     })
   );
-  const opener = vi.fn<(item: StandaloneMedia) => void>();
   render(LinkPreviewCardMediaHarness, {
     url: 'https://media.example/anim.gif',
     joinRule: 'invite',
-    opener,
   });
 
   await tick();
@@ -281,22 +279,7 @@ test('an image-only preview opens the media viewer instead of the url', async ()
 
   expect(screen.queryByRole('link')).toBeNull();
   await userEvent.click(screen.getByRole('button', { name: /Open/ }));
-  expect(opener).toHaveBeenCalledWith({
-    kind: 'image',
-    filename: 'https://media.example/anim.gif',
-    caption: null,
-    html: null,
-    source: 'mxc://example.org/anim',
-    mime: 'image/gif',
-    width: 320,
-    height: 240,
-    size: null,
-    blurhash: null,
-    thumbnail: null,
-    spoiler: null,
-    animated: null,
-    sender: 'https://media.example/anim.gif',
-  });
+  expect(mediaViewerState.eventId).toBe('standalone-1');
 });
 
 test('a preview carrying a title stays a card even with an image', async () => {

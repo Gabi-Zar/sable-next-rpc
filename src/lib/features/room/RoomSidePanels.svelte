@@ -8,7 +8,7 @@
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import ThreadList from './conversation/ThreadList.svelte';
-  import type { MediaItem } from './media/media-viewer-types.js';
+  import type { MediaItem } from '#lib/ui/media/media-viewer-types.js';
   import RoomAttachments from './media/RoomAttachments.svelte';
   import MembersDrawer from './members/MembersDrawer.svelte';
   import RoomSearchPanel from './RoomSearchPanel.svelte';

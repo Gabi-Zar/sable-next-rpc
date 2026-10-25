@@ -2,7 +2,7 @@ import type { RoomAttachmentKind, RoomAttachmentView } from '#src/generated/prot
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
-import { galleryItemId } from './media-items.js';
+import { galleryItemId } from '#lib/ui/media/media-items.js';
 
 const PAGE_SIZE = 30;
 

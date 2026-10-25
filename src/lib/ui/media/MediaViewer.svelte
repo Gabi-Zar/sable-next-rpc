@@ -1,6 +1,4 @@
 <script module lang="ts">
-  export type { MediaItem } from './media-viewer-types';
-
   const lensSettings = $state({ zoom: 2, size: 192 });
 </script>
 
@@ -63,15 +61,13 @@
   import ArrowCounterClockwiseIcon from 'phosphor-svelte/lib/ArrowCounterClockwiseIcon';
   import EyeIcon from 'phosphor-svelte/lib/EyeIcon';
   import EyeSlashIcon from 'phosphor-svelte/lib/EyeSlashIcon';
+  import { mediaViewerState } from './media-viewer-state.svelte.js';
 
-  interface Props {
-    items: readonly MediaItem[];
-    selectedEventId: string;
-    onClose: () => void;
-    onJump?: (eventId: string) => void;
-  }
+  const items = mediaViewerState.items;
+  const selectedEventId = mediaViewerState.eventId;
+  const onClose = () => mediaViewerState.close();
+  const onJump = $derived(mediaViewerState.canJump ? mediaViewerState.onJump : undefined);
 
-  let { items, selectedEventId, onClose, onJump }: Props = $props();
   const core = useCoreClient();
   holdOverlayBack(
     () => item !== undefined,

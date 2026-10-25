@@ -1,7 +1,7 @@
 import type { TimelineItemView } from '#src/generated/protocol';
 import { isPdfAttachment } from '#lib/ui/pdf-attachment.js';
 
-import type { MediaItem } from './media-viewer-types.js';
+import type { MediaItem } from '#lib/ui/media/media-viewer-types.js';
 
 export function galleryItemId(eventId: string, index: number): string {
   return `${eventId}:gallery:${String(index)}`;

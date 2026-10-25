@@ -131,6 +131,8 @@
   import { hasUnread } from '#lib/rooms/unread.js';
   import { roomAtOffset } from '#lib/features/sidebar/visible-rooms.svelte.js';
   import { playSound, type NotificationSound } from '#lib/features/notifications/sound.js';
+  import MediaViewer from '#lib/ui/media/MediaViewer.svelte';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
   interface Props {
     children: Snippet;
@@ -1080,6 +1082,9 @@
     <AppShell>
       {@render children()}
     </AppShell>
+    {#if mediaViewerState.eventId}
+      <MediaViewer />
+    {/if}
     {#if preferences.callScreenPreview && callSession.active && callSession.views === 0 && callSession.rooms.length > 0}
       {#await import('#lib/features/call/ScreenSharePreview.svelte') then { default: ScreenSharePreview }}
         <ScreenSharePreview

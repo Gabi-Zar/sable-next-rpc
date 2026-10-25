@@ -33,7 +33,7 @@ const safeAreaOwners = new Set([
   'src/lib/features/sidebar/SidebarNav.svelte',
   'src/lib/ui/primitives/BottomSheet.svelte',
   'src/lib/ui/primitives/DialogFrame.svelte',
-  'src/lib/features/room/media/MediaViewer.svelte',
+  'src/lib/ui/media/MediaViewer.svelte',
   'src/lib/features/composer/StagedMediaViewer.svelte',
   'src/lib/features/call/ScreenSharePreview.svelte',
   'src/lib/features/auth/shared/AuthPage.svelte',

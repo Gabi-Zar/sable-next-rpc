@@ -40,8 +40,8 @@
   import { groupByMonth } from './attachment-groups';
   import { RoomAttachmentsPager } from './room-attachments-pager.svelte';
   import { parseMatrixLink, type MatrixLink } from '#lib/rooms/matrix-link.js';
-  import type { MediaItem } from './media-viewer-types';
-  import { galleryItemId } from './media-items.js';
+  import type { MediaItem } from '#lib/ui/media/media-viewer-types.js';
+  import { galleryItemId } from '#lib/ui/media/media-items.js';
   import { memberName } from '../members/members';
   import { formatDate } from '#lib/ui/date-time.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';

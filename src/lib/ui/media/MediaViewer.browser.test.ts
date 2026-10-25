@@ -16,6 +16,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 import type { MediaItem } from './media-viewer-types';
 import MediaViewer from './MediaViewer.svelte';
+import { mediaViewerState } from './media-viewer-state.svelte';
 
 const item: MediaItem = {
   kind: 'image',
@@ -55,6 +56,8 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'share', { value: () => Promise.resolve(), configurable: true });
 });
 
+const originalMediaViewerStateClose = mediaViewerState.close.bind(mediaViewerState);
+
 afterEach(async () => {
   vi.unstubAllGlobals();
   delete document.documentElement.dataset.clientDecorations;
@@ -62,15 +65,16 @@ afterEach(async () => {
   document.documentElement.style.removeProperty('--safe-area-inset-left');
   document.documentElement.style.removeProperty('--safe-area-inset-right');
   await page.viewport(414, 800);
+  mediaViewerState.close = originalMediaViewerStateClose;
+  mediaViewerState.close();
 });
 
 async function openViewer(width: number, height: number, onClose = vi.fn()) {
   await page.viewport(width, height);
-  const screen = await render(MediaViewer, {
-    items: [item],
-    selectedEventId: item.eventId,
-    onClose,
-  });
+  mediaViewerState.items = [item];
+  mediaViewerState.eventId = item.eventId;
+  mediaViewerState.close = onClose;
+  const screen = await render(MediaViewer);
   const viewer = screen.getByRole('dialog', { name: 'Media viewer', exact: true });
   await expect.poll(() => viewer.element().querySelector('.stage img')).not.toBeNull();
   return { screen, viewer, onClose };

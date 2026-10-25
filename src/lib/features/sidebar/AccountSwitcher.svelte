@@ -21,8 +21,7 @@
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import ProfileCard from '#lib/ui/primitives/ProfileCard.svelte';
-  import RoomMediaViewerDialog from '#lib/features/room/media/RoomMediaViewerDialog.svelte';
-  import { RoomMediaViewer } from '#lib/features/room/room-media-viewer.svelte.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import AccountMenuItems from './AccountMenuItems.svelte';
   import { AccountDirectory } from './account-directory.svelte.js';
@@ -39,7 +38,6 @@
 
   let { mode }: Props = $props();
   const core = useCoreClient();
-  const mediaViewer = new RoomMediaViewer(null);
   const presenceStore = usePresenceStore();
   const accountProfiles = new AccountDirectory(core);
   const signOut = new SignOutGuard(core);
@@ -185,7 +183,7 @@
         {displayName}
         userId={core.session?.user_id ?? ''}
         {avatarUrl}
-        onAvatarClick={(source, name) => mediaViewer.openProfile(source, name)}
+        onAvatarClick={(source, name) => mediaViewerState.openStandalone(source, name)}
         color={activeProfile?.hero_color ?? 'var(--primary-container)'}
         heroColor={activeProfile?.hero_color}
         heroBrightness={activeProfile?.hero_brightness}
@@ -267,8 +265,6 @@
 </DialogFrame>
 
 <SignOutWarningDialog guard={signOut} />
-
-<RoomMediaViewerDialog viewer={mediaViewer} />
 
 <style>
   .account-tool {

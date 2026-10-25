@@ -15,9 +15,11 @@ vi.mock('#lib/personas/personas.svelte.js', () => ({
 }));
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
-import { timelineMediaItems } from './media/media-items.js';
+import { timelineMediaItems } from '#lib/ui/media/media-items.js';
 import RoomPinMenuHarness from './RoomPinMenuHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
+import type { MediaItem } from '#lib/ui/media/media-viewer-types.ts';
 
 const core = baseCore;
 Object.assign(core.rpc.rooms, {
@@ -89,6 +91,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   core.fetchMedia.mockClear();
   core.session = null;
+  mediaViewerState.close();
 });
 
 test.each([
@@ -106,7 +109,9 @@ test.each([
     }));
   }
   const user = userEvent.setup({ delay: null });
-  const onOpenMedia = vi.fn();
+  const onOpenMedia = vi.fn((items: MediaItem[], eventId: string) => {
+    mediaViewerState.openPanel(items, eventId, true);
+  });
   const onJump = vi.fn();
   render(RoomPinMenuHarness, {
     menu: { roomId: '!room:example.org', members: [], canPin: false, onJump, onOpenMedia },

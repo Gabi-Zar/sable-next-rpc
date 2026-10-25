@@ -20,10 +20,12 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 import ThreadViewHarness from './ThreadViewHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
   core.fetchMedia.mockReset();
+  mediaViewerState.close();
 });
 
 function image(eventId: string, filename: string): TimelineItemView {

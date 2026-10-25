@@ -8,8 +8,11 @@
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
 
-  import { galleryItemId } from '../media/media-items.js';
-  import { spoilerVisibility, spoilerVisibilityKey } from '../media/spoiler-visibility.svelte.js';
+  import { galleryItemId } from '#lib/ui/media/media-items.js';
+  import {
+    spoilerVisibility,
+    spoilerVisibilityKey,
+  } from '#lib/ui/media/spoiler-visibility.svelte.js';
 
   import FormattedBody from '../messages/FormattedBody.svelte';
   import type { MatrixLink } from '#lib/rooms/matrix-link.js';

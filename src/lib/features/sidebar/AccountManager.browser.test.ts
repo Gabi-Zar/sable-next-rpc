@@ -28,7 +28,8 @@ import { core } from '#lib/core/__mocks__/context.js';
 import { goto } from '#lib/test-support/app-navigation.js';
 import { setPreference } from '#lib/settings/preferences.svelte.js';
 
-import AccountManager from './AccountManager.svelte';
+import AccountManagerHarness from './AccountManagerHarness.test.svelte';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 afterEach(async () => {
   getPresence.mockReset();
@@ -95,7 +96,7 @@ async function mount(initial: ProfileView, options: { saveFails?: () => boolean 
     cachedUserProfile: vi.fn(() => null),
   });
   core.commands = core;
-  const screen = await render(AccountManager);
+  const screen = await render(AccountManagerHarness);
   const bubble = () => {
     const node = document.querySelector<HTMLElement>('.status-bubble');
     if (!node) throw new Error('the status bubble is not rendered');
@@ -372,4 +373,6 @@ test.each([
     .element(screen.getByRole('dialog', { name: 'Media viewer', exact: true }))
     .toBeVisible();
   await expect.poll(() => core.fetchMedia).toHaveBeenCalledWith(source, 0, 0);
+
+  mediaViewerState.close();
 });

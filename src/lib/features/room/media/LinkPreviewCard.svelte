@@ -8,8 +8,8 @@
   import { imageMimeFromUrl } from './link-preview.js';
   import { previewSources, resolveUrlPreview } from './link-preview-cache';
   import { findLinkPresentation } from './link-presentations';
-  import { hasMediaViewerOpener, useMediaViewerOpener } from './media-viewer-opener.svelte.js';
   import { hasRoomMediaPreviews, useRoomMediaPreviews } from './room-media-previews.svelte.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
   interface Props {
     url: string;
@@ -55,7 +55,6 @@
   );
   const roomMedia = hasRoomMediaPreviews() ? useRoomMediaPreviews() : null;
   let mediaHidden = $derived(roomMedia?.hidden ?? false);
-  const openMediaViewer = hasMediaViewerOpener() ? useMediaViewerOpener() : null;
   let Presentation = $derived(preview && findLinkPresentation(url, preview));
   let imageHidden = $derived.by(() => {
     void url;
@@ -64,23 +63,14 @@
   });
 
   function openPreviewImage(): void {
-    if (openMediaViewer === null || preview === null || preview.image === null) return;
-    openMediaViewer({
-      kind: 'image',
-      filename: url,
-      caption: null,
-      html: null,
-      source: preview.image,
-      mime: preview.image_mime ?? imageMimeFromUrl(url),
-      width: preview.image_width,
-      height: preview.image_height,
-      size: null,
-      blurhash: null,
-      thumbnail: null,
-      spoiler: null,
-      animated: null,
-      sender: url,
-    });
+    if (preview === null || preview.image === null) return;
+    mediaViewerState.openStandalone(
+      preview.image,
+      url,
+      preview.image_mime ?? imageMimeFromUrl(url),
+      preview.image_width,
+      preview.image_height
+    );
   }
 </script>
 
@@ -109,7 +99,7 @@
     mime={preview.image_mime ?? imageMimeFromUrl(url)}
     bind:spoilerHidden={imageHidden}
     href={url}
-    onclick={openMediaViewer ? openPreviewImage : undefined}
+    onclick={openPreviewImage}
   />
 {:else if preview}
   <div
@@ -141,7 +131,7 @@
         intrinsicHeight={preview.image_height}
         bind:spoilerHidden={imageHidden}
         href={url}
-        onclick={openMediaViewer ? openPreviewImage : undefined}
+        onclick={openPreviewImage}
       />
     {/if}
     <a
