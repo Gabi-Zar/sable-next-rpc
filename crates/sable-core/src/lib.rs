@@ -94,7 +94,7 @@ use matrix_sdk::ruma::events::{AnyGlobalAccountDataEventContent, GlobalAccountDa
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{OwnedEventId, OwnedRoomId, RoomId};
 use matrix_sdk_ui::timeline::Timeline;
-use tokio::sync::{Mutex, RwLock, mpsc};
+use tokio::sync::{Mutex, RwLock, mpsc, watch};
 use url::Url;
 
 use protocol::{CoreEvent, RpcError, SubscriptionId};
@@ -185,6 +185,7 @@ pub struct Core {
     sync_suspended: AtomicBool,
     shut_down: AtomicBool,
     activity_lock: Mutex<()>,
+    stores_open: watch::Sender<bool>,
     server_search_enabled: AtomicBool,
     read_room: std::sync::Mutex<Option<OwnedRoomId>>,
     search_index: Mutex<search::MessageIndex>,
@@ -300,6 +301,7 @@ impl Core {
             sync_suspended: AtomicBool::new(false),
             shut_down: AtomicBool::new(false),
             activity_lock: Mutex::new(()),
+            stores_open: watch::Sender::new(true),
             server_search_enabled: AtomicBool::new(true),
             read_room: std::sync::Mutex::new(None),
             next_subscription: AtomicU32::new(1),
@@ -535,6 +537,7 @@ impl Core {
 
     #[cfg(target_os = "ios")]
     async fn close_stores(&self) {
+        self.stores_open.send_replace(false);
         for client in self.store_clients().await {
             if let Err(error) = client.pause().await {
                 tracing::warn!("closing the stores before suspension failed: {error}");
@@ -549,6 +552,11 @@ impl Core {
                 tracing::warn!("reopening the stores after suspension failed: {error}");
             }
         }
+        self.stores_open.send_replace(true);
+    }
+
+    pub(crate) async fn wait_for_stores(&self) {
+        let _ = self.stores_open.subscribe().wait_for(|open| *open).await;
     }
 
     pub(crate) async fn wait_until_active(&self) {

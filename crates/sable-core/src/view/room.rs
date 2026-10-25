@@ -316,7 +316,14 @@ pub async fn enrich_room_batch<S: BuildHasher>(
     diffs: &[eyeball_im::VectorDiff<RoomListItem>],
     room_cache: &mut HashMap<OwnedRoomId, RoomInfo, S>,
 ) {
-    let lookups = latest_items(diffs).into_iter().map(|item| {
+    enrich_rooms(latest_items(diffs), room_cache).await;
+}
+
+pub(crate) async fn enrich_rooms<'a, S: BuildHasher>(
+    rooms: impl IntoIterator<Item = &'a RoomListItem>,
+    room_cache: &mut HashMap<OwnedRoomId, RoomInfo, S>,
+) {
+    let lookups = rooms.into_iter().map(|item| {
         let previous = room_cache.get(item.room_id());
         async move { (item.room_id().to_owned(), room_info(item, previous).await) }
     });

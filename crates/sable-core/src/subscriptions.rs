@@ -11,8 +11,8 @@ use matrix_sdk::ruma::{EventId, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId, 
 use matrix_sdk::send_queue::RoomSendQueueUpdate;
 use matrix_sdk_base::event_cache::Event;
 use matrix_sdk_ui::eyeball_im::VectorDiff;
-use matrix_sdk_ui::room_list_service::RoomListLoadingState;
 use matrix_sdk_ui::room_list_service::filters::new_filter_non_left;
+use matrix_sdk_ui::room_list_service::{RoomListItem, RoomListLoadingState};
 use matrix_sdk_ui::timeline::{
     Error as TimelineError, EventSendState, SendTarget, Timeline, TimelineItem,
 };
@@ -99,10 +99,12 @@ impl Core {
                 .clone()
         };
 
+        self.wait_for_stores().await;
         let client = self.client().await?;
         let push_rules = self.push_rules().await?;
         let subscription = self.allocate_subscription();
         let core = self.clone();
+        let mut stores_open = self.stores_open.subscribe();
 
         let task = spawn(async move {
             let room_list = match sync_service.room_list_service().all_rooms().await {
@@ -129,6 +131,22 @@ impl Core {
             loop {
                 let held = batch.wait(Instant::now());
                 let diffs = tokio::select! {
+                    _ = stores_open.changed() => {
+                        if !*stores_open.borrow_and_update() {
+                            continue;
+                        }
+                        let rooms: Vec<_> = room_cache.iter()
+                            .filter(|(_, info)| info.children_stale)
+                            .filter_map(|(room_id, _)| client.get_room(room_id))
+                            .map(RoomListItem::from)
+                            .collect();
+                        view::enrich_rooms(&rooms, &mut room_cache).await;
+                        let diffs = rows.refresh(&rooms, &room_cache, &rules);
+                        if diffs.is_empty() {
+                            continue;
+                        }
+                        diffs
+                    }
                     () = due(held) => {
                         core.emit(CoreEvent::RoomListDiff {
                             subscription,
@@ -228,6 +246,7 @@ impl Core {
             hidden_events,
         }: SubscribeParams,
     ) -> Result<SubscribeOk, RpcError> {
+        self.wait_for_stores().await;
         let subscription = self.allocate_subscription();
         let live = matches!(focus, TimelineFocusView::Live);
         let room = self.room(&room_id).await?;

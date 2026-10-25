@@ -486,6 +486,163 @@ async fn unreadable_space_children_keep_the_last_edges() {
     assert!(cache[room_id].children_stale);
 }
 
+#[expect(clippy::unwrap_used, reason = "test code")]
+async fn space_client(server: &MatrixMockServer, store: &std::path::Path) -> matrix_sdk::Client {
+    let client = server
+        .client_builder()
+        .on_builder(|builder| builder.sqlite_store(store, None))
+        .build()
+        .await;
+    let state = |kind: &str, key: &str, content: serde_json::Value| {
+        Raw::new(&json!({
+            "type": kind, "state_key": key, "sender": "@alice:example.org",
+            "event_id": format!("${kind}{key}"), "origin_server_ts": 1, "content": content
+        }))
+        .unwrap()
+        .cast_unchecked()
+    };
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id!("!space:example.org"))
+                .add_state_event(state(
+                    "m.room.create",
+                    "",
+                    json!({"type": "m.space", "room_version": "10", "creator": "@alice:example.org"}),
+                ))
+                .add_state_event(state(
+                    "m.space.child",
+                    "!child:example.org",
+                    json!({"via": ["example.org"]}),
+                )),
+        )
+        .await;
+    client
+}
+
+#[expect(clippy::unwrap_used, reason = "test code")]
+async fn next_room_list_diff(
+    events: &mut tokio::sync::mpsc::UnboundedReceiver<CoreEvent>,
+    subscription: crate::protocol::SubscriptionId,
+) -> Vec<crate::protocol::VectorDiff<crate::protocol::RoomListItemView>> {
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            if let Some(CoreEvent::RoomListDiff {
+                subscription: current,
+                diffs,
+            }) = events.recv().await
+                && current == subscription
+            {
+                break diffs;
+            }
+        }
+    })
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn room_list_waits_for_stores_to_open() {
+    let server = MatrixMockServer::new().await;
+    let store = tempfile::tempdir().unwrap();
+    let client = space_client(&server, store.path()).await;
+    let (core, mut events) = core_with_events(&server, client.clone()).await;
+    core.stores_open.send_replace(false);
+    client.pause().await.unwrap();
+
+    let subscribing = tokio::spawn({
+        let core = core.clone();
+        async move { core.run(SubscribeRoomListParams {}).await }
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    assert!(!subscribing.is_finished());
+    assert!(core.push_rules.lock().await.is_none());
+
+    client.resume().await.unwrap();
+    core.stores_open.send_replace(true);
+    let SubscribeRoomListOk { subscription, .. } = subscribing.await.unwrap().unwrap();
+    let diffs = next_room_list_diff(&mut events, subscription).await;
+    let [crate::protocol::VectorDiff::Reset { values }] = diffs.as_slice() else {
+        panic!("expected initial room list, got {diffs:?}");
+    };
+    assert_eq!(values.len(), 1);
+    assert_eq!(values[0].space_children[0].room_id, "!child:example.org");
+    core.run(UnsubscribeParams { subscription }).await.unwrap();
+}
+
+#[tokio::test]
+async fn timeline_waits_for_stores_to_open() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!room:example.org");
+    server.sync_joined_room(&client, room_id).await;
+    server.mock_room_state_encryption().plain().mount().await;
+    let core = core(&server, client).await;
+    core.stores_open.send_replace(false);
+
+    let pending = core.run(SubscribeParams {
+        room_id: room_id.to_owned(),
+        focus: TimelineFocusView::Live,
+        hidden_events: false,
+    });
+    tokio::pin!(pending);
+    tokio::time::timeout(std::time::Duration::from_millis(200), &mut pending)
+        .await
+        .expect_err("subscribing waits for the stores");
+    assert!(core.timelines.lock().await.is_empty());
+
+    core.stores_open.send_replace(true);
+    let SubscribeOk { subscription, .. } =
+        tokio::time::timeout(std::time::Duration::from_secs(5), pending)
+            .await
+            .unwrap()
+            .unwrap();
+    core.run(UnsubscribeParams { subscription }).await.unwrap();
+}
+
+#[tokio::test]
+async fn room_list_retries_stale_spaces_when_stores_reopen() {
+    let server = MatrixMockServer::new().await;
+    let store = tempfile::tempdir().unwrap();
+    let client = space_client(&server, store.path()).await;
+    let (core, mut events) = core_with_events(&server, client).await;
+    let database =
+        rusqlite::Connection::open(store.path().join("matrix-sdk-state.sqlite3")).unwrap();
+    database
+        .execute_batch("ALTER TABLE state_event RENAME TO state_event_gone")
+        .unwrap();
+
+    let SubscribeRoomListOk { subscription, .. } =
+        core.run(SubscribeRoomListParams {}).await.unwrap();
+    let diffs = next_room_list_diff(&mut events, subscription).await;
+    let [crate::protocol::VectorDiff::Reset { values }] = diffs.as_slice() else {
+        panic!("expected initial room list, got {diffs:?}");
+    };
+    assert_eq!(values.len(), 1);
+    assert_eq!(values[0].space_children, Vec::new());
+
+    core.stores_open.send_replace(false);
+    database
+        .execute_batch("ALTER TABLE state_event_gone RENAME TO state_event")
+        .unwrap();
+    core.stores_open.send_replace(true);
+    let diffs = next_room_list_diff(&mut events, subscription).await;
+    let [crate::protocol::VectorDiff::Set { index: 0, value }] = diffs.as_slice() else {
+        panic!("expected recovered space, got {diffs:?}");
+    };
+    assert_eq!(value.space_children[0].room_id, "!child:example.org");
+
+    core.stores_open.send_replace(false);
+    core.stores_open.send_replace(true);
+    tokio::time::timeout(
+        std::time::Duration::from_millis(200),
+        next_room_list_diff(&mut events, subscription),
+    )
+    .await
+    .expect_err("a recovered space is not sent again");
+    core.run(UnsubscribeParams { subscription }).await.unwrap();
+}
+
 #[test]
 fn space_child_ties_follow_ruma_room_id_order() {
     let events = ["!z:example.org", "!a:example.org"].map(|room| {

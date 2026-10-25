@@ -6,10 +6,11 @@ use std::hash::BuildHasher;
 
 use matrix_sdk::ruma::push::Ruleset;
 use matrix_sdk::ruma::{OwnedRoomId, RoomId};
+use matrix_sdk_ui::room_list_service::RoomListItem;
 
 use crate::protocol::{RoomListItemView, VectorDiff};
 use crate::push_rules::room_settings;
-use crate::view::{RoomInfo, apply_diff, room_counts};
+use crate::view::{RoomInfo, apply_diff, room_counts, room_list_item};
 
 #[derive(Debug, Default)]
 pub(crate) struct RoomListRows {
@@ -49,6 +50,26 @@ impl RoomListRows {
                 row.highlight,
                 row.marked_unread,
             );
+            diffs.push(VectorDiff::Set {
+                index,
+                value: row.clone(),
+            });
+        }
+        diffs
+    }
+
+    pub(crate) fn refresh<S: BuildHasher>(
+        &mut self,
+        rooms: &[RoomListItem],
+        cache: &HashMap<OwnedRoomId, RoomInfo, S>,
+        rules: &Ruleset,
+    ) -> Vec<VectorDiff<RoomListItemView>> {
+        let mut diffs = Vec::new();
+        for (index, row) in self.rows.iter_mut().enumerate() {
+            let Some(room) = rooms.iter().find(|room| room.room_id() == row.room_id) else {
+                continue;
+            };
+            *row = room_list_item(room, cache, rules);
             diffs.push(VectorDiff::Set {
                 index,
                 value: row.clone(),
