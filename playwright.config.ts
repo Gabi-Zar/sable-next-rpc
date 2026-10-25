@@ -38,7 +38,7 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['setup'],
-      testIgnore: /(?:global\.(?:setup|teardown)|v1-migration\.spec|\.browser\.test)\.ts/,
+      testIgnore: /(?:global\.(?:setup|teardown)|v1-migration\.spec|\.test)\.ts/,
       use: devices['Desktop Chrome'],
     },
     {

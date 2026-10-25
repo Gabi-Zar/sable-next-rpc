@@ -21,7 +21,7 @@ for (const viewport of [
 
     const card = auth.setupCard;
     await expect(page).toHaveURL(/\/setup\/device$/, { timeout: 20_000 });
-    await expect(card.getByRole('heading', { name: "Confirm it's you" })).toBeVisible();
+    await expect(card.getByRole('heading', { name: 'Confirm it’s you' })).toBeVisible();
     await card.getByRole('button', { name: 'Reset my digital identity' }).click();
     await card.getByRole('checkbox', { name: 'I understand this cannot be undone' }).check();
     await card.getByRole('button', { name: 'Reset my digital identity' }).click();
@@ -32,7 +32,7 @@ for (const viewport of [
     );
     const keep = card.getByRole('button', { name: 'Continue' });
     await expect(keep).toBeDisabled();
-    await card.getByRole('checkbox', { name: "I've written it down" }).check();
+    await card.getByRole('checkbox', { name: 'I’ve written it down' }).check();
     await keep.click();
 
     await expect(page).toHaveURL(/\/setup\/notifications$/);

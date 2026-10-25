@@ -30,42 +30,6 @@ test('lists rooms that named us, and opens one', async ({ page, app, admin, gues
   await expect(page).toHaveURL((url) => url.pathname.endsWith(encodeURIComponent(roomId)));
 });
 
-test('filters notifications, and says so when nothing matches', async ({
-  page,
-  app,
-  homeserver,
-  admin,
-  guest,
-}) => {
-  const roomName = `Filtered ${String(Date.now())}`;
-  const third = await registerUser(
-    homeserver.baseUrl,
-    `third-${String(Date.now())}`,
-    LOGIN_PASSWORD
-  );
-  const roomId = await guest.createRoom({
-    name: roomName,
-    invite: [admin.userId, third.userId],
-  });
-  await admin.join(roomId);
-  await new MatrixAdmin(homeserver.baseUrl, third.accessToken, third.userId).join(roomId);
-  await guest.sendMessage(roomId, `${admin.userId}: over here`, {
-    'm.mentions': { user_ids: [admin.userId] },
-  });
-
-  await app.openInbox();
-  const inbox = page.getByRole('main');
-  const row = inbox.getByRole('listitem').filter({ hasText: roomName });
-  await expect(row).toBeVisible({ timeout: COLD_BOOT_TIMEOUT });
-
-  await inbox.getByRole('button', { name: 'Mentions' }).click();
-  await expect(page).toHaveURL(/\?filter=mentions$/);
-  await expect(row).toBeVisible();
-
-  await inbox.getByRole('button', { name: 'DMs' }).click();
-  await expect(inbox.getByRole('paragraph').filter({ hasText: 'No unread DMs.' })).toBeVisible();
-});
-
 test('answers a pending invitation from the invites tab', async ({ page, app, admin, guest }) => {
   const roomName = `Design crew ${String(Date.now())}`;
   const roomId = await guest.createRoom({
@@ -160,6 +124,43 @@ for (const { isSpace, approve } of [
 test.describe('on a pristine account', () => {
   test.use({ storageState: SIGNED_OUT });
 
+  test('filters notifications, and says so when nothing matches', async ({
+    page,
+    app,
+    homeserver,
+    freshLogin,
+    guest,
+  }) => {
+    const admin = await freshLogin();
+    const roomName = `Filtered ${String(Date.now())}`;
+    const third = await registerUser(
+      homeserver.baseUrl,
+      `third-${String(Date.now())}`,
+      LOGIN_PASSWORD
+    );
+    const roomId = await guest.createRoom({
+      name: roomName,
+      invite: [admin.userId, third.userId],
+    });
+    await admin.join(roomId);
+    await new MatrixAdmin(homeserver.baseUrl, third.accessToken, third.userId).join(roomId);
+    await guest.sendMessage(roomId, `${admin.userId}: over here`, {
+      'm.mentions': { user_ids: [admin.userId] },
+    });
+
+    await app.openInbox();
+    const inbox = page.getByRole('main');
+    const row = inbox.getByRole('listitem').filter({ hasText: roomName });
+    await expect(row).toBeVisible({ timeout: COLD_BOOT_TIMEOUT });
+
+    await inbox.getByRole('button', { name: 'Mentions' }).click();
+    await expect(page).toHaveURL(/\?filter=mentions$/);
+    await expect(row).toBeVisible();
+
+    await inbox.getByRole('button', { name: 'DMs' }).click();
+    await expect(inbox.getByRole('paragraph').filter({ hasText: 'No unread DMs.' })).toBeVisible();
+  });
+
   test('badges the inbox with what is waiting', async ({ page, app, freshLogin, guest }) => {
     test.setTimeout(120_000);
     const account = await freshLogin();
@@ -185,6 +186,6 @@ test.describe('on a pristine account', () => {
     });
     const rooms = page.locator('a[href="/rooms"]').first();
     await expect(rooms.locator('.unread-badge-count [aria-hidden="true"]')).toHaveText('1');
-    await expect(rooms).toHaveAccessibleDescription(/^1 (unread messages|mentions)$/);
+    await expect(rooms).toHaveAccessibleDescription('1 mention');
   });
 });

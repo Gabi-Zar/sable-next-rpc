@@ -52,13 +52,13 @@ async function openNotificationCount(context: BrowserContext): Promise<number> {
   });
 }
 
-async function cachedRoomName(page: Page, roomId: string): Promise<string | undefined> {
+async function cachedNotificationValue<T>(page: Page, key: string): Promise<T | undefined> {
   return page.evaluate(
     (id) =>
-      new Promise<string | undefined>((resolve, reject) => {
+      new Promise<T | undefined>((resolve, reject) => {
         const open = indexedDB.open('sable-notifications', 1);
         open.onerror = () => {
-          reject(open.error ?? new Error('room names unavailable'));
+          reject(open.error ?? new Error('notification cache unavailable'));
         };
         open.onsuccess = () => {
           const database = open.result;
@@ -70,15 +70,15 @@ async function cachedRoomName(page: Page, roomId: string): Promise<string | unde
           const request = database.transaction('room-names').objectStore('room-names').get(id);
           request.onsuccess = () => {
             database.close();
-            resolve(request.result as string | undefined);
+            resolve(request.result as T | undefined);
           };
           request.onerror = () => {
             database.close();
-            reject(request.error ?? new Error('room names unavailable'));
+            reject(request.error ?? new Error('notification cache unavailable'));
           };
         };
       }),
-    roomId
+    key
   );
 }
 
@@ -118,7 +118,9 @@ test('a push shows a notification naming the room the app cached', async ({
   await app.openRooms();
   await expect(app.roomLink(roomName)).toBeVisible({ timeout: 30_000 });
   // The worker names the room from what the app wrote; a push before that says "Sable".
-  await expect.poll(() => cachedRoomName(page, roomId), { timeout: 30_000 }).toBe(roomName);
+  await expect
+    .poll(() => cachedNotificationValue<string>(page, roomId), { timeout: 30_000 })
+    .toBe(roomName);
   const deliver = await leaveApp(context, page);
 
   const payload = JSON.stringify({
@@ -203,6 +205,14 @@ test('a push saying everything is read closes the notification it had shown', as
 
   await app.openRooms();
   await expect(app.roomLink(roomName)).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(
+      async () =>
+        (await cachedNotificationValue<{ clearOnRead: boolean }>(page, '\u0000push-content-policy'))
+          ?.clearOnRead,
+      { timeout: 30_000 }
+    )
+    .toBe(true);
   const deliver = await leaveApp(context, page);
 
   const push = (unread: number) =>
@@ -217,15 +227,8 @@ test('a push saying everything is read closes the notification it had shown', as
       })
     );
 
-  await expect
-    .poll(
-      async () => {
-        await push(3);
-        return openNotificationCount(context);
-      },
-      { timeout: 60_000 }
-    )
-    .toBe(1);
+  await push(3);
+  await expect.poll(() => openNotificationCount(context), { timeout: 60_000 }).toBe(1);
 
   await push(0);
   await expect.poll(() => openNotificationCount(context), { timeout: 30_000 }).toBe(0);

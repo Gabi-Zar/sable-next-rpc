@@ -49,7 +49,7 @@ test('QR verification completes and resets on touch devices', async ({
   const qr = dialog.getByRole('img', { name: 'Verification code' });
   await expect(scanner).toBeVisible();
   await expect(qr).toHaveCount(0);
-  await dialog.getByRole('button', { name: "Show this device's code" }).click();
+  await dialog.getByRole('button', { name: 'Show this device’s code' }).click();
   await expect(qr).toBeVisible();
 
   await emitVerification({ phase: 'reciprocated' });
@@ -60,6 +60,7 @@ test('QR verification completes and resets on touch devices', async ({
   await emitVerification({ phase: 'done' });
   await expect(dialog.getByText('Your device is verified.')).toBeVisible();
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toBeHidden();
 
   await emitVerification(
     { phase: 'choose', qr: fixture.code, can_scan: true, can_compare: true },

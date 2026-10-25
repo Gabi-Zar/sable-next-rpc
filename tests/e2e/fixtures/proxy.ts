@@ -28,11 +28,12 @@ type Stub = {
   times: number;
 };
 
-type Discovery = Record<string, { base_url?: string } | undefined>;
+type Discovery = { 'm.homeserver'?: { base_url?: string } };
+type DiscoveryResponse = Discovery & { well_known?: Discovery };
 
-function parseJson(payload: string): Discovery | undefined {
+function parseJson(payload: string): DiscoveryResponse | undefined {
   try {
-    return JSON.parse(payload) as Discovery;
+    return JSON.parse(payload) as DiscoveryResponse;
   } catch {
     return undefined;
   }
@@ -164,7 +165,10 @@ export class HomeserverProxy {
         headers,
       },
       (response) => {
-        if (path.startsWith('/.well-known/matrix/client')) {
+        if (
+          path.startsWith('/.well-known/matrix/client') ||
+          (incoming.method === 'POST' && path === '/_matrix/client/v3/login')
+        ) {
           this.rewriteWellKnown(response, outgoing).catch(() => outgoing.destroy());
           return;
         }
@@ -198,7 +202,7 @@ export class HomeserverProxy {
     for await (const chunk of response) chunks.push(chunk as Buffer);
     let payload = Buffer.concat(chunks).toString('utf8');
     const parsed = parseJson(payload);
-    const discovered = parsed?.['m.homeserver'];
+    const discovered = (parsed?.well_known ?? parsed)?.['m.homeserver'];
     if (parsed && discovered) {
       discovered.base_url = this.baseUrl;
       payload = JSON.stringify(parsed);

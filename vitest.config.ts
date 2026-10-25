@@ -64,8 +64,12 @@ export default mergeConfig(
           test: {
             name: 'node',
             environment: 'node',
-            include: ['src/**/*.test.ts', 'electron/src/**/*.test.ts'],
-            exclude: ['src/**/*.browser.test.ts', ...HAPPY_DOM_TESTS],
+            include: [
+              'src/**/*.test.ts',
+              'electron/src/**/*.test.ts',
+              'tests/e2e/fixtures/*.test.ts',
+            ],
+            exclude: ['**/*.browser.test.ts', ...HAPPY_DOM_TESTS],
           },
         },
         {
