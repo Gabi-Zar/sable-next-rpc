@@ -119,6 +119,9 @@ targets:
           lesbian: AppIconLesbian
           mlm: AppIconMlm
           pride: AppIconPride
+          ukraine: AppIconUkraine
+          palestine: AppIconPalestine
+          cuba: AppIconCuba
         # APP-ICON ALIASES END
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -193,7 +196,7 @@ targets:
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconPropeller AppIconAgender AppIconBisexual AppIconTrans AppIconTransgradient AppIconIntersex AppIconLesbian AppIconMlm AppIconPride
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIconPropeller AppIconAgender AppIconBisexual AppIconTrans AppIconTransgradient AppIconIntersex AppIconLesbian AppIconMlm AppIconPride AppIconUkraine AppIconPalestine AppIconCuba
       groups: [app]
     dependencies:
       - target: SableNotificationService

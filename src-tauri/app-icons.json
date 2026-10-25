@@ -59,6 +59,21 @@
       "id": "pride",
       "source": "icons/app-icons/pride.svg",
       "backgroundColor": "#1A1C28"
+    },
+    {
+      "id": "ukraine",
+      "source": "icons/app-icons/ukraine.svg",
+      "backgroundColor": "#1A1C28"
+    },
+    {
+      "id": "palestine",
+      "source": "icons/app-icons/palestine.svg",
+      "backgroundColor": "#1A1C28"
+    },
+    {
+      "id": "cuba",
+      "source": "icons/app-icons/cuba.svg",
+      "backgroundColor": "#1A1C28"
     }
   ]
 }

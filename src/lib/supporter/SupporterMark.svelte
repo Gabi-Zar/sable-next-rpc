@@ -3,6 +3,7 @@
   import {
     APP_ICON_STOPS,
     CRISP_PRIDE_STOPS,
+    FLAG_ICON_PATHS,
     GHOST_SABLE_PATH,
     SABLE_EYE_PATH,
     SABLE_PATHS,
@@ -30,6 +31,7 @@
   }: Partial<SupporterAppearance> = $props();
   const id = $props.id();
   let chosen = $derived(supporterVariant(variant));
+  let flagPaths = $derived(FLAG_ICON_PATHS[chosen]);
   let customizable = $derived(supportsSupporterColors(chosen));
   let customStops = $derived.by(() => {
     if (!customizable || !isSupporterColors(colors)) return null;
@@ -72,7 +74,13 @@
   xmlns="http://www.w3.org/2000/svg"
 >
   <defs>
-    {#if chosen === 'intersex'}
+    {#if flagPaths}
+      <pattern {id} width="512" height="512" patternUnits="userSpaceOnUse">
+        {#each flagPaths as path, index (index)}
+          <path fill={path.fill} d={path.d} />
+        {/each}
+      </pattern>
+    {:else if chosen === 'intersex'}
       <radialGradient {id} cx="50%" cy="54%" r="38%">
         {#each stops ?? [] as stop, index (index)}<stop
             offset={stop.offset}
@@ -118,10 +126,14 @@
         <path fill={stops ? 'url(#' + id + ')' : 'currentColor'} d={PAW_PATH} />
       {:else}
         <path
-          fill={stops ? 'url(#' + id + ')' : 'currentColor'}
+          fill={flagPaths || stops ? 'url(#' + id + ')' : 'currentColor'}
           d={chosen === 'ghost' ? GHOST_SABLE_PATH : SABLE_PATHS[0]}
         />
-        <path fill={backing} opacity="0.45" d={SABLE_PATHS[1]} />
+        <path
+          fill={flagPaths ? 'var(--supporter-black)' : backing}
+          opacity={flagPaths ? '0.2' : '0.45'}
+          d={SABLE_PATHS[1]}
+        />
       {/if}
       {#if chosen === 'propeller'}
         <path fill="var(--supporter-red)" d="M125 174C146 81 277 69 324 150L225 174Z" />

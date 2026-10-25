@@ -21,3 +21,16 @@ test('typing a hex colour commits it', async () => {
 
   expect(onChange).toHaveBeenCalledWith({ color: '#112233' });
 });
+
+test.each([
+  ['ukraine', 'Ukraine'],
+  ['palestine', 'Palestine'],
+  ['cuba', 'Cuba'],
+])('selects the %s donor badge', async (variant, label) => {
+  const onChange = vi.fn();
+  render(SupporterBadgePicker, { value: supporterAppearance(), onChange });
+
+  await userEvent.click(screen.getByRole('radio', { name: label }));
+
+  expect(onChange).toHaveBeenCalledWith({ variant });
+});

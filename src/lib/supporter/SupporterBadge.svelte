@@ -112,6 +112,9 @@
     mlmgradient: ['var(--supporter-mlm-green)', 'var(--supporter-mlm-indigo)'],
     pride: ['var(--supporter-rainbow-red)', 'var(--supporter-rainbow-violet)'],
     pridegradient: ['var(--supporter-rainbow-red)', 'var(--supporter-rainbow-violet)'],
+    ukraine: ['var(--supporter-ukraine-blue)', 'var(--supporter-ukraine-yellow)'],
+    palestine: ['var(--supporter-palestine-red)', 'var(--supporter-palestine-green)'],
+    cuba: ['var(--supporter-cuba-blue)', 'var(--supporter-cuba-red)'],
     ceo: ['var(--supporter-gold)', 'var(--supporter-gold)'],
   };
   let customStyle = $derived.by(() => {
@@ -144,9 +147,13 @@
               'mlmgradient',
               'pride',
               'pridegradient',
+              'ukraine',
+              'cuba',
             ].includes(variant)
           ? 'var(--supporter-white)'
-          : 'var(--supporter-card-bg)';
+          : variant === 'palestine'
+            ? 'var(--supporter-black)'
+            : 'var(--supporter-card-bg)';
     const mix = customCardColors
       ? ink === 'var(--supporter-white)'
         ? 'var(--supporter-black)'

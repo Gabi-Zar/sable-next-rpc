@@ -139,7 +139,7 @@
           {/snippet}
         </Tooltip>
       </div>
-      <p>{i18n.t('settings.aboutTagline')}</p>
+      <p>{i18n.t('settings.aboutTagline')} 🇵🇸 🇺🇦 🏳️‍⚧️</p>
       <div class="product-actions">
         <LinkButton href={SABLE_SOURCE_URL} target="_blank" rel="noopener noreferrer" size="small">
           <CodeIcon aria-hidden="true" />
