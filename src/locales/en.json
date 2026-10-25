@@ -3504,6 +3504,8 @@
     "capabilitiesExplain": "A widget is third-party code. Grant only what it needs; anything left unticked is refused.",
     "capabilitiesAllow": "Allow selected",
     "capabilitiesDeny": "Refuse all",
+    "capabilitiesRemember": "Remember approved permissions for this widget",
+    "capabilitiesForget": "Forget widget permissions",
     "capabilitySensitive": "Sensitive, off by default",
     "capabilityOpenId": "Prove who you are to its own server",
     "capabilityAlwaysOnScreen": "Stay on screen while you use other rooms",

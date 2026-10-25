@@ -4,19 +4,24 @@
   import DialogActions from '#lib/ui/primitives/DialogActions.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
 
-  import { capabilityLabel, isSensitiveCapability } from './capabilities.js';
+  import {
+    type CapabilityDecision,
+    capabilityLabel,
+    isSensitiveCapability,
+  } from './capabilities.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {
     open?: boolean;
     widgetName: string;
     requested: readonly string[];
-    onDecide: (approved: string[]) => void;
+    onDecide: (decision: CapabilityDecision) => void;
   }
 
   let { open = $bindable(false), widgetName, requested, onDecide }: Props = $props();
 
   let granted = $derived(requested.filter((capability) => !isSensitiveCapability(capability)));
+  let remember = $state(false);
 
   function toggle(capability: string): void {
     granted = granted.includes(capability)
@@ -24,16 +29,16 @@
       : [...granted, capability];
   }
 
-  function decide(approved: string[]): void {
+  function decide(approved: string[], persist = remember): void {
     open = false;
-    onDecide(approved);
+    onDecide({ approved, remember: persist });
   }
 </script>
 
 <DialogFrame
   {open}
   onOpenChange={(next) => {
-    if (!next) decide([]);
+    if (!next) decide([], false);
   }}
   variant="verification"
   label={i18n.t('widgets.capabilitiesTitle', { name: widgetName })}
@@ -64,6 +69,11 @@
         </li>
       {/each}
     </ul>
+
+    <label>
+      <input type="checkbox" bind:checked={remember} />
+      <span class="label">{i18n.t('widgets.capabilitiesRemember')}</span>
+    </label>
 
     <DialogActions>
       <Button

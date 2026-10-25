@@ -2,9 +2,11 @@
   import ArrowLeftIcon from 'phosphor-svelte/lib/ArrowLeftIcon';
   import GridFourIcon from 'phosphor-svelte/lib/GridFourIcon';
   import PlusIcon from 'phosphor-svelte/lib/PlusIcon';
+  import ShieldSlashIcon from 'phosphor-svelte/lib/ShieldSlashIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
   import { i18n } from '#lib/i18n.js';
+  import { removeLocalValue } from '#lib/platform/local-json.js';
   import ConfirmDialog from '#lib/ui/primitives/ConfirmDialog.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import PanelHeader from '#lib/ui/primitives/PanelHeader.svelte';
@@ -14,6 +16,11 @@
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
 
   import type { RoomWidget } from './widget-content.js';
+  import {
+    type CapabilityDecision,
+    approveCapabilities,
+    widgetPermissionKey,
+  } from './capabilities.js';
   import { templateWidgetUrl } from './widget-url.js';
   import IntegrationManagerDialog from './IntegrationManagerDialog.svelte';
   import WidgetCapabilitiesDialog from './WidgetCapabilitiesDialog.svelte';
@@ -93,23 +100,32 @@
   }
 
   interface PendingApproval {
+    key: string;
     widgetName: string;
     requested: string[];
-    settle: (approved: string[]) => void;
+    settle: (decision: CapabilityDecision) => void;
   }
 
   let approval = $state.raw<PendingApproval | null>(null);
 
-  function requestCapabilities(widgetName: string) {
-    return async (requested: Set<string>): Promise<Set<string>> => {
-      if (requested.size === 0) return new Set();
-
-      const approved = await new Promise<string[]>((settle) => {
-        approval = { widgetName, requested: [...requested], settle };
-      });
-      approval = null;
-      return new Set(approved);
-    };
+  function requestCapabilities(key: string, widgetName: string) {
+    return (requested: Set<string>): Promise<Set<string>> =>
+      approveCapabilities(
+        key,
+        requested,
+        (missing) =>
+          new Promise<CapabilityDecision>((settle) => {
+            approval = {
+              key,
+              widgetName,
+              requested: missing,
+              settle: (decision) => {
+                approval = null;
+                settle(decision);
+              },
+            };
+          })
+      );
   }
 
   let activeWidget = $derived(widgets.find((widget) => widget.id === activeId) ?? null);
@@ -123,6 +139,16 @@
         })
       : null
   );
+  let activeKey = $derived(
+    activeWidget && activeUrl ? widgetPermissionKey(userId, roomId, activeWidget, activeUrl) : null
+  );
+
+  $effect(() => {
+    const key = activeKey;
+    return () => {
+      if (approval?.key === key) approval.settle({ approved: [], remember: false });
+    };
+  });
 </script>
 
 <aside
@@ -154,21 +180,33 @@
       {/if}
     {/snippet}
     {#snippet suffix()}
+      {#if activeKey}
+        {@const key = activeKey}
+        <PanelHeaderButton
+          label={i18n.t('widgets.capabilitiesForget')}
+          onclick={() => {
+            removeLocalValue(key);
+            activeId = null;
+          }}
+        >
+          <ShieldSlashIcon />
+        </PanelHeaderButton>
+      {/if}
       <PanelHeaderButton label={i18n.t('widgets.close')} onclick={onClose}>
         <XIcon />
       </PanelHeaderButton>
     {/snippet}
   </PanelHeader>
 
-  {#if activeWidget && activeUrl}
-    {#key activeUrl}
+  {#if activeWidget && activeUrl && activeKey}
+    {#key activeKey}
       <div class="widgets-frame">
         <WidgetFrame
           {roomId}
           widgetId={activeWidget.id}
           url={activeUrl}
           name={activeWidget.name}
-          onCapabilities={requestCapabilities(activeWidget.name)}
+          onCapabilities={requestCapabilities(activeKey, activeWidget.name)}
         />
       </div>
     {/key}

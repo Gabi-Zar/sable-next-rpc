@@ -1,12 +1,30 @@
 // @vitest-environment happy-dom
 // @vitest-environment-options { "settings": { "disableIframePageLoading": true } }
 
-import { screen, within } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { renderWithTooltips } from '#lib/test-support/render-with-tooltips.js';
+import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
 import { userEvent } from '@testing-library/user-event';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 vi.mock('#lib/core/context.js');
+vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
+vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
+
+const drivers = vi.hoisted(() => [] as import('matrix-widget-api').WidgetDriver[]);
+
+vi.mock('matrix-widget-api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('matrix-widget-api')>();
+  return {
+    ...actual,
+    ClientWidgetApi: class extends actual.ClientWidgetApi {
+      constructor(...args: ConstructorParameters<typeof actual.ClientWidgetApi>) {
+        super(...args);
+        drivers.push(args[2]);
+      }
+    },
+  };
+});
 
 import { core } from '#lib/core/__mocks__/context.js';
 
@@ -16,8 +34,14 @@ import IntegrationManagerDialog from './IntegrationManagerDialog.svelte';
 import WidgetsPanel from './WidgetsPanel.svelte';
 import type { RoomWidget } from './widget-content.js';
 
+beforeEach(() => {
+  vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue(window);
+});
+
 afterEach(() => {
   localStorage.clear();
+  drivers.length = 0;
+  vi.restoreAllMocks();
 });
 
 const widgets: RoomWidget[] = [
@@ -98,6 +122,90 @@ test('the back button stops the widget and returns to the list', async () => {
 
   expect(container.querySelector('iframe')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Jitsi' })).toBeInTheDocument();
+});
+
+test('remembers selected permissions and asks for additional ones', async () => {
+  const user = userEvent.setup();
+  renderWithTooltips(WidgetsPanel, { ...commonProps, widgets, onClose: vi.fn() });
+  await user.click(screen.getByRole('button', { name: 'Jitsi' }));
+
+  const send = 'org.matrix.msc2762.send.event:m.room.message#m.image';
+  const openid = 'm.allow_openid';
+  const first = latestDriver().validateCapabilities(new Set([send, openid]));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getByRole('checkbox', { name: /Prove who you are/ })).not.toBeChecked();
+  const remember = within(dialog).getByRole('checkbox', {
+    name: 'Remember approved permissions for this widget',
+  });
+  expect(remember).not.toBeChecked();
+  await user.click(remember);
+  await user.click(within(dialog).getByRole('button', { name: 'Allow selected' }));
+  await expect(first).resolves.toEqual(new Set([send]));
+  await vi.waitFor(() => {
+    expect(document.body.style.pointerEvents).toBe('');
+  });
+
+  await user.click(screen.getByRole('button', { name: 'Back to widgets' }));
+  await user.click(screen.getByRole('button', { name: 'Jitsi' }));
+  const driver = latestDriver();
+  await expect(driver.validateCapabilities(new Set([send]))).resolves.toEqual(new Set([send]));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+  const additional = driver.validateCapabilities(new Set([send, openid]));
+  const next = await screen.findByRole('dialog');
+  expect(within(next).queryByRole('checkbox', { name: /Send messages/ })).not.toBeInTheDocument();
+  expect(within(next).getByRole('checkbox', { name: /Prove who you are/ })).not.toBeChecked();
+  await user.click(within(next).getByRole('button', { name: 'Refuse all' }));
+  await expect(additional).resolves.toEqual(new Set([send]));
+});
+
+test('forgetting permissions stops the widget and asks again on its next load', async () => {
+  const user = userEvent.setup();
+  renderWithTooltips(WidgetsPanel, { ...commonProps, widgets, onClose: vi.fn() });
+  await user.click(screen.getByRole('button', { name: 'Jitsi' }));
+
+  const requested = new Set(['m.sticker']);
+  const first = latestDriver().validateCapabilities(requested);
+  const dialog = await screen.findByRole('dialog');
+  await user.click(within(dialog).getByRole('checkbox', { name: /Remember approved permissions/ }));
+  await user.click(within(dialog).getByRole('button', { name: 'Allow selected' }));
+  await expect(first).resolves.toEqual(requested);
+  await vi.waitFor(() => {
+    expect(document.body.style.pointerEvents).toBe('');
+  });
+
+  await user.click(screen.getByRole('button', { name: 'Forget widget permissions' }));
+  expect(screen.queryByTitle('Jitsi')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Jitsi' }));
+  const reloaded = latestDriver().validateCapabilities(requested);
+  const next = await screen.findByRole('dialog');
+  await user.click(within(next).getByRole('button', { name: 'Refuse all' }));
+  await expect(reloaded).resolves.toEqual(new Set());
+});
+
+test('a changed widget cancels pending approval and starts a new frame', async () => {
+  const user = userEvent.setup();
+  const props = { ...commonProps, widgets, onClose: vi.fn() };
+  const { rerender } = render(WidgetsPanel, props, { wrapper: TooltipProvider });
+  await user.click(screen.getByRole('button', { name: 'Jitsi' }));
+  const iframe = screen.getByTitle('Jitsi');
+  const requested = new Set(['m.sticker']);
+  const pending = latestDriver().validateCapabilities(requested);
+  const dialog = await screen.findByRole('dialog');
+  await user.click(within(dialog).getByRole('checkbox', { name: /Remember approved permissions/ }));
+
+  await rerender({ widgets: [{ ...widgets[0], type: 'other' }] });
+
+  await vi.waitFor(() => {
+    expect(screen.getByTitle('Jitsi')).not.toBe(iframe);
+  });
+  await expect(pending).resolves.toEqual(new Set());
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByTitle('Jitsi')).not.toBe(iframe);
+  const changed = latestDriver().validateCapabilities(requested);
+  const next = await screen.findByRole('dialog');
+  await user.click(within(next).getByRole('button', { name: 'Refuse all' }));
+  await expect(changed).resolves.toEqual(new Set());
 });
 
 test('shows a remove action only when the caller can manage widgets', async () => {
@@ -289,3 +397,9 @@ test('the integration manager stays on its terms when accepting fails', async ()
   expect(await screen.findByText('Could not record your acceptance. Try again.')).toBeVisible();
   expect(integrationManagerUrl).not.toHaveBeenCalled();
 });
+
+function latestDriver(): import('matrix-widget-api').WidgetDriver {
+  const driver = drivers.at(-1);
+  if (!driver) throw new Error('no widget driver was created');
+  return driver;
+}

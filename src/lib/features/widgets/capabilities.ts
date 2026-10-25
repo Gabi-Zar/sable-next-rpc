@@ -1,3 +1,43 @@
+import { readJson, writeJson } from '#lib/platform/local-json.js';
+
+import type { RoomWidget } from './widget-content.js';
+
+export interface CapabilityDecision {
+  approved: string[];
+  remember: boolean;
+}
+
+export function widgetPermissionKey(
+  userId: string,
+  roomId: string,
+  widget: RoomWidget,
+  url: string
+): string {
+  return `sable-widget-capabilities:${JSON.stringify([userId, roomId, widget.id, widget.type, widget.url, url])}`;
+}
+
+export async function approveCapabilities(
+  key: string,
+  requested: Set<string>,
+  prompt: (requested: string[]) => Promise<CapabilityDecision>
+): Promise<Set<string>> {
+  const remembered = readJson<string[]>(
+    key,
+    (value) =>
+      Array.isArray(value) && value.every((capability) => typeof capability === 'string')
+        ? value
+        : [],
+    []
+  );
+  const missing = [...requested].filter((capability) => !remembered.includes(capability));
+  if (missing.length === 0) return new Set(requested);
+
+  const { approved, remember } = await prompt(missing);
+  const granted = new Set([...remembered, ...approved]);
+  if (remember) writeJson(key, [...granted]);
+  return new Set([...requested].filter((capability) => granted.has(capability)));
+}
+
 const OPENID = 'm.allow_openid';
 const SENSITIVE = new Set([OPENID, 'm.always_on_screen']);
 const SENSITIVE_PREFIX = 'org.matrix.msc3819.send.to_device:';
