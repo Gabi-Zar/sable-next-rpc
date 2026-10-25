@@ -32,6 +32,7 @@ import type {
 } from '../../src/lib/platform/file-dialog-types';
 
 import { deepLinksIn, deepLinkSchemes } from './deep-links';
+import { registerContextMenu } from './context-menu';
 import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
@@ -455,6 +456,7 @@ function createWindow(): BrowserWindow {
     event.preventDefault();
     window.webContents.toggleDevTools();
   });
+  registerContextMenu(window);
   window.webContents.on('did-navigate', () => {
     pageListening = false;
     cancelPicks();
