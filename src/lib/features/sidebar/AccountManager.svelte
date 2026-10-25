@@ -29,6 +29,7 @@
   import PresenceDot from '#lib/ui/primitives/PresenceDot.svelte';
   import StatusBadge from '#lib/ui/primitives/StatusBadge.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
+  import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import {
     LEGACY_STATUS_FIELDS,
@@ -48,6 +49,7 @@
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   const core = useCoreClient();
+  const presenceStore = usePresenceStore();
   const accountProfiles = new AccountDirectory(core);
   const signOut = new SignOutGuard(core);
   let switchingAccountId = $state<string | null>(null);
@@ -59,16 +61,14 @@
   let activeAccountId = $derived(core.session?.account_id);
   let activeUserId = $derived(core.session?.user_id ?? '');
   let displayName = $derived(profile?.display_name ?? activeUserId);
-  let userStatus = $derived(
-    resolveUserStatus(profile, { statusMessage: preferences.presenceStatusMessage })
-  );
+  let userStatus = $derived(resolveUserStatus(profile, presenceStore.get(activeUserId)));
   let profileColor = $derived(profile?.hero_color ?? 'var(--primary-container)');
   let presenceOptions = $derived<OptionCard<PresenceView>[]>([
     { value: 'online', label: i18n.t('presence.online') },
     { value: 'unavailable', label: i18n.t('presence.unavailable') },
     { value: 'offline', label: i18n.t('presence.offline') },
   ]);
-  let statusDraft = $state(preferences.presenceStatusMessage);
+  let statusDraft = $state('');
   let presenceDraft = $state<PresenceView>(preferences.presence);
   let statusOpen = $state(false);
   let statusSaving = $state(false);

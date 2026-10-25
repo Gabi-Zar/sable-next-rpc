@@ -3,6 +3,11 @@ import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
 import type { ProfileView } from '#src/generated/protocol';
+import type { PresenceEntry } from '#lib/rooms/presence.svelte.js';
+
+const { getPresence } = vi.hoisted(() => ({
+  getPresence: vi.fn<(userId: string) => PresenceEntry | null>(() => null),
+}));
 
 vi.mock('#lib/core/context.js', async () => {
   const mock = await import('#lib/core/__mocks__/context.js');
@@ -14,6 +19,10 @@ vi.mock('#lib/platform/overlay-back.svelte.js', async (importOriginal) => ({
 }));
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
+vi.mock('#lib/rooms/presence.svelte.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#lib/rooms/presence.svelte.js')>()),
+  usePresenceStore: () => ({ get: getPresence }),
+}));
 
 import { core } from '#lib/core/__mocks__/context.js';
 import { goto } from '#lib/test-support/app-navigation.js';
@@ -22,6 +31,7 @@ import { setPreference } from '#lib/settings/preferences.svelte.js';
 import AccountManager from './AccountManager.svelte';
 
 afterEach(async () => {
+  getPresence.mockReset();
   setPreference('presence', 'online');
   setPreference('presenceStatusMessage', '');
   setPreference('sendPresence', true);
@@ -173,6 +183,53 @@ for (const [name, width, height] of [
 }
 
 for (const sendPresence of [false, true]) {
+  test(`an account without a status ignores another account's saved message with presence sharing ${String(sendPresence)}`, async () => {
+    await page.viewport(1280, 800);
+    setPreference('sendPresence', sendPresence);
+    setPreference('presenceStatusMessage', 'Another account status');
+    const { screen, bubble } = await mount(profileWith({}));
+
+    await expect
+      .element(screen.getByRole('button', { pressed: true }))
+      .toHaveAccessibleName('Active account: Alice, @alice:example.test');
+    expect(document.querySelector('.profile-card')?.textContent).not.toContain(
+      'Another account status'
+    );
+    if (!sendPresence) {
+      expect(screen.getByRole('region', { name: 'Status', exact: true }).elements()).toHaveLength(
+        0
+      );
+      return;
+    }
+    expect(bubble().textContent).toContain('What are you up to?');
+    await userEvent.click(bubble());
+    await expect.element(screen.getByRole('textbox', { name: 'Status message' })).toHaveValue('');
+  });
+
+  test(`the account page falls back to its own presence status with presence sharing ${String(sendPresence)}`, async () => {
+    await page.viewport(1280, 800);
+    setPreference('sendPresence', sendPresence);
+    setPreference('presenceStatusMessage', 'Another account status');
+    getPresence.mockImplementation((userId) =>
+      userId === '@alice:example.test'
+        ? {
+            presence: 'online',
+            statusMessage: 'My presence status',
+            lastActiveAgo: null,
+            receivedAt: Date.now(),
+          }
+        : null
+    );
+    const { screen, bubble } = await mount(profileWith({}));
+    const status = () =>
+      sendPresence
+        ? bubble()
+        : screen.getByRole('region', { name: 'Status', exact: true }).element();
+
+    await expect.poll(() => status().textContent).toContain('My presence status');
+    expect(status().textContent).not.toContain('Another account status');
+  });
+
   test(`the account page shows the saved profile status with presence sharing ${String(sendPresence)}`, async () => {
     await page.viewport(1280, 800);
     setPreference('sendPresence', sendPresence);
