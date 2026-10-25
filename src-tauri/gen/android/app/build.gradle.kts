@@ -10,6 +10,7 @@ plugins {
 }
 
 val fossBuild = providers.environmentVariable("SABLE_FOSS").orNull == "1"
+val buildFlavor = providers.environmentVariable("SABLE_BUILD_FLAVOR").orNull
 
 sentry {
     org.set(System.getenv("SENTRY_ORG"))
@@ -36,10 +37,18 @@ fun sentryBuildConfigValue(name: String): String =
 android {
     compileSdk = 36
     System.getenv("ANDROID_NDK_VERSION")?.let { ndkVersion = it }
-    namespace = "moe.sable.next"
+    namespace = "moe.sable.client"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "moe.sable.next"
+        // Stable installs over Sable v1, which owns moe.sable.client.
+        applicationId = if (buildFlavor == "nightly") "moe.sable.next.nightly" else "moe.sable.client"
+        val appName = when (buildFlavor) {
+            "stable" -> "Sable"
+            "nightly" -> "Sable Nightly"
+            else -> "sable-next"
+        }
+        resValue("string", "app_name", appName)
+        resValue("string", "main_activity_title", appName)
         missingDimensionStrategy("push", if (fossBuild) "foss" else "gms")
         minSdk = 24
         targetSdk = 36

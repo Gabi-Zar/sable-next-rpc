@@ -21,6 +21,7 @@ fn main() {
     println!("cargo:rustc-env=SABLE_IDENTIFIER={identifier}");
     println!("cargo:rerun-if-env-changed=TAURI_CONFIG");
     println!("cargo:rerun-if-changed=tauri.conf.json");
+    println!("cargo:rerun-if-changed=tauri.android.conf.json");
 
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("linux") {
         println!("cargo:rustc-link-arg-bins=-Wl,--exclude-libs,ALL");
@@ -45,8 +46,12 @@ fn identifier() -> Option<String> {
             .as_str()
             .map(str::to_owned)
     };
+    let android = std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android");
     std::env::var("TAURI_CONFIG")
         .ok()
         .and_then(|config| read(&config))
+        .or_else(|| {
+            read(&std::fs::read_to_string("tauri.android.conf.json").ok()?).filter(|_| android)
+        })
         .or_else(|| read(&std::fs::read_to_string("tauri.conf.json").ok()?))
 }

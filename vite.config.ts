@@ -20,7 +20,12 @@ export default defineConfig({
     __SABLE_STABLE__: JSON.stringify(process.env.SABLE_BUILD_FLAVOR === 'stable'),
   },
   build: {
-    sourcemap: process.env.VITE_SENTRY_ENVIRONMENT === 'production' ? 'hidden' : true,
+    sourcemap:
+      process.env.SABLE_FOSS === '1'
+        ? false
+        : process.env.VITE_SENTRY_ENVIRONMENT === 'production'
+          ? 'hidden'
+          : true,
   },
   optimizeDeps: {
     exclude: ['phosphor-svelte'],

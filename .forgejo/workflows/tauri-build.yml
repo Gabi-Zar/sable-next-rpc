@@ -133,6 +133,17 @@ jobs:
         uses: ./.forgejo/actions/setup
         with:
           build: 'true'
+      - name: Build FOSS web assets
+        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
+        run: |
+          mv dist "$RUNNER_TEMP/dist"
+          mv .svelte-kit/output "$RUNNER_TEMP/svelte-kit-output"
+          env -u VITE_SENTRY_DSN -u VITE_SENTRY_ENVIRONMENT -u SENTRY_AUTH_TOKEN -u SENTRY_ORG \
+            -u SENTRY_PROJECT SABLE_FOSS=1 pnpm exec vite build
+          mv dist dist-foss
+          rm -rf .svelte-kit/output
+          mv "$RUNNER_TEMP/dist" dist
+          mv "$RUNNER_TEMP/svelte-kit-output" .svelte-kit/output
       # Matching the package naming keeps the nightly prune replacing old web
       # bundles in step with the desktop and mobile ones.
       - name: Attach web bundle to release
@@ -146,6 +157,7 @@ jobs:
           path: |
             .svelte-kit/output
             dist
+            dist-foss
             src/generated/wasm
           if-no-files-found: error
           retention-days: 7
@@ -403,39 +415,11 @@ jobs:
             'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
             'kotlin.daemon.jvmargs=-Xmx512m' \
             >> src-tauri/gen/android/gradle.properties
-      - name: Prepare in-place v1 upgrade identity
-        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
-        run: node scripts/ci/prepare-v1-release.mjs
       - name: Stamp release version into tauri.conf.json
         run: |
           args=''
           [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
           node scripts/ci/set-tauri-version.mjs "$VERSION" $args
-      - name: Prepare nightly Android package
-        if: ${{ needs.setup-release.outputs.nightly == 'true' }}
-        run: |
-          app_dir=src-tauri/gen/android/app
-          build_src_dir=src-tauri/gen/android/buildSrc
-          nightly_package_dir=moe/sable/next/nightly
-          nightly_source_dir="$RUNNER_TEMP/android-nightly-package"
-
-          # Tauri resolves sources from the active identifier's package path.
-          mkdir -p "$nightly_source_dir"
-          cp -a "$app_dir/src/main/java/moe/sable/next" "$nightly_source_dir/app"
-          cp -a "$build_src_dir/src/main/java/moe/sable/next" "$nightly_source_dir/buildSrc"
-          find "$nightly_source_dir" -type f -exec sed -i \
-            's/moe\.sable\.next/moe.sable.next.nightly/g' {} +
-          rm -rf "$app_dir/src/main/java/moe/sable/next" "$build_src_dir/src/main/java/moe/sable/next"
-          mkdir -p "$app_dir/src/main/java/moe/sable/next" "$build_src_dir/src/main/java/moe/sable/next"
-          mv "$nightly_source_dir/app" "$app_dir/src/main/java/$nightly_package_dir"
-          mv "$nightly_source_dir/buildSrc" "$build_src_dir/src/main/java/$nightly_package_dir"
-          sed -i 's/moe\.sable\.next/moe.sable.next.nightly/g' \
-            "$app_dir/build.gradle.kts" "$app_dir/src/main/AndroidManifest.xml" \
-            "$app_dir/src/main/res/xml/shortcuts.xml"
-          sed -i \
-            -e 's/Java_moe_sable_next_MainActivity/Java_moe_sable_next_nightly_MainActivity/g' \
-            -e 's#moe/sable/next/MainActivity#moe/sable/next/nightly/MainActivity#g' \
-            src-tauri/src/mobile.rs
       - name: Set up Android signing
         if: ${{ env.ANDROID_KEY_BASE64 != '' }}
         run: |
@@ -444,29 +428,12 @@ jobs:
           echo "password=$ANDROID_KEY_PASSWORD" >> keystore.properties
           base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/keystore.jks"
           echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
-      - name: Build FOSS Android APKs
-        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
-        env:
-          SABLE_FOSS: '1'
-        run: |
-          node scripts/release/fastlane-changelog.mjs "$VERSION" --check
-          unset VITE_SENTRY_DSN VITE_SENTRY_ENVIRONMENT SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT
-          mv src-tauri/capabilities/geolocation.json "$RUNNER_TEMP/geolocation.json"
-          pnpm tauri android build --config src-tauri/tauri.ci.conf.json --apk --split-per-abi \
-            --target aarch64 armv7 -- --no-default-features --features wry
-          mv "$RUNNER_TEMP/geolocation.json" src-tauri/capabilities/geolocation.json
-          for pair in 'arm64:aarch64' 'arm:armv7'; do
-            flavor="${pair%%:*}"
-            abi="${pair##*:}"
-            dir="src-tauri/gen/android/app/build/outputs/apk/$flavor/release"
-            apk="$(find "$dir" -name '*.apk' -type f | head -n 1)"
-            [ -n "$apk" ] || { echo "FOSS $abi APK not found" >&2; exit 1; }
-            mv "$apk" "$dir/sable-${VERSION}-android-${abi}-foss.apk"
-          done
       - name: Build Android bundles
         run: |
+          # Nightly's package ID comes from SABLE_BUILD_FLAVOR in build.gradle.kts:
+          # tauri.nightly.conf.json's identifier would move the Kotlin package.
           config_args=(--config src-tauri/tauri.ci.conf.json)
-          [ "$IS_NIGHTLY" = 'true' ] && config_args+=(--config src-tauri/tauri.nightly.conf.json)
+          [ "$IS_NIGHTLY" = 'true' ] || config_args+=(--config src-tauri/tauri.stable.conf.json)
           # shellcheck disable=SC2086 # ANDROID_TARGETS is a space-separated list.
           pnpm tauri android build "${config_args[@]}" --apk --aab --target $ANDROID_TARGETS
           symbol_dirs=()
@@ -479,6 +446,20 @@ jobs:
           [ -n "$aab" ] || { echo 'AAB not found' >&2; exit 1; }
           mv "$apk" "$(dirname "$apk")/sable-${VERSION}-android-universal.apk"
           mv "$aab" "$(dirname "$aab")/sable-${VERSION}-android-universal.aab"
+      # IzzyOnDroid runs the same script: keep the build steps in it, not here.
+      - name: Build FOSS Android APKs
+        if: ${{ needs.setup-release.outputs.nightly != 'true' }}
+        run: |
+          node scripts/release/fastlane-changelog.mjs "$VERSION" --check
+          pnpm android:build --version "$VERSION" --target aarch64 --target armv7 --web-dist dist-foss
+          for pair in 'arm64:aarch64' 'arm:armv7'; do
+            flavor="${pair%%:*}"
+            abi="${pair##*:}"
+            dir="src-tauri/gen/android/app/build/outputs/apk/$flavor/release"
+            apk="$(find "$dir" -name '*.apk' -type f | head -n 1)"
+            [ -n "$apk" ] || { echo "FOSS $abi APK not found" >&2; exit 1; }
+            mv "$apk" "$dir/sable-${VERSION}-android-${abi}-foss.apk"
+          done
       - name: Verify the APK is signed
         if: ${{ env.ANDROID_KEY_BASE64 != '' }}
         run: |
@@ -496,6 +477,32 @@ jobs:
       - name: Show sccache stats
         if: ${{ always() && env.RUSTC_WRAPPER != '' }}
         run: sccache --show-stats || true
+  android-reproducible:
+    name: Reproduce FOSS Android APK
+    needs: [setup-release, android]
+    if: ${{ !cancelled() && needs.android.result == 'success' && needs.setup-release.outputs.nightly != 'true' }}
+    runs-on: docker
+    container:
+      image: ubuntu:noble@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.setup-release.outputs.tag }}
+      VERSION: ${{ needs.setup-release.outputs.version }}
+    steps:
+      # Not actions/checkout: it needs Node, which the bare image lacks.
+      - name: Check out the tag
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git
+          git init -q /home/runner/work/Sable/Sable
+          cd /home/runner/work/Sable/Sable
+          git fetch -q --depth 1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "refs/tags/$TAG"
+          git checkout -q FETCH_HEAD
+      - name: Rebuild and compare
+        working-directory: /home/runner/work/Sable/Sable
+        run: scripts/ci/reproduce-android.sh "$VERSION"
   electron-linux:
     name: Linux x86_64 (Electron)
     needs: [setup-release, build-web]

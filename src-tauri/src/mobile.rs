@@ -16,7 +16,7 @@ static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
     unsafe_code,
     reason = "the export symbol is fixed by the JNI naming convention"
 )]
-pub extern "system" fn Java_moe_sable_next_MainActivity_nativeNetworkChanged(
+pub extern "system" fn Java_moe_sable_client_MainActivity_nativeNetworkChanged(
     _env: EnvUnowned,
     _this: JObject,
     unmetered: jni::sys::jboolean,
@@ -29,7 +29,7 @@ pub extern "system" fn Java_moe_sable_next_MainActivity_nativeNetworkChanged(
     unsafe_code,
     reason = "the export symbol is fixed by the JNI naming convention"
 )]
-pub extern "system" fn Java_moe_sable_next_MainActivity_nativeInitSystemBars(
+pub extern "system" fn Java_moe_sable_client_MainActivity_nativeInitSystemBars(
     mut env: EnvUnowned,
     _this: JObject,
 ) {
@@ -87,7 +87,7 @@ fn call_activity(
     let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
     vm.attach_current_thread(|env| {
         let result = env.call_static_method(
-            jni_str!("moe/sable/next/MainActivity"),
+            jni_str!("moe/sable/client/MainActivity"),
             JNIString::new(method),
             signature,
             &[value],

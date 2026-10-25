@@ -1,22 +1,27 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { delimiter, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { tauriVersionConfig } from '../ci/set-tauri-version.mjs';
 import { downloadVerified } from '../lib/download.mjs';
 
 const { values } = parseArgs({
   options: {
     help: { type: 'boolean', short: 'h' },
     version: { type: 'string', short: 'v' },
+    target: { type: 'string', short: 't', multiple: true },
+    'web-dist': { type: 'string' },
   },
 });
 
 function usage() {
-  console.log(`Usage: pnpm android:build [--version <version>]
+  console.log(`Usage: pnpm android:build [--version <version>] [--target <abi>]... [--web-dist <dir>]
 
-Builds a FOSS, split aarch64 Android APK. The version defaults to package.json.
-Requires pnpm, Rust, an Android SDK/NDK and tar.
+Builds the FOSS, per-ABI Android APKs exactly as the release workflow does.
+The version defaults to package.json, the target to aarch64 (also: armv7, i686, x86_64).
+--web-dist takes web assets already built without Sentry instead of building them.
+Requires pnpm, Rust, an Android SDK with the NDK pinned in .mise/config.toml, and tar.
 Installs wasm-bindgen-cli from Cargo.lock and Binaryen from .mise/mise.lock as needed.`);
 }
 
@@ -44,57 +49,81 @@ if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
   throw new Error(`--version must be a semver version (got ${version})`);
 }
 
-const lockfile = readFileSync('Cargo.lock', 'utf8');
-const wasmBindgenVersion = lockfile.match(/name = "wasm-bindgen"\r?\nversion = "([^"]+)"/)?.[1];
-if (!wasmBindgenVersion) throw new Error('Cargo.lock does not contain wasm-bindgen');
-
-run('rustup', ['target', 'add', 'wasm32-unknown-unknown', 'aarch64-linux-android']);
-
-const cargoBin = join(process.env.CARGO_HOME ?? join(homedir(), '.cargo'), 'bin');
-process.env.PATH = [cargoBin, process.env.PATH].filter(Boolean).join(delimiter);
-
-const binaryenBin = await ensureBinaryen();
-if (binaryenBin) process.env.PATH = [binaryenBin, process.env.PATH].filter(Boolean).join(delimiter);
-
-if (capture('wasm-bindgen', ['--version']) !== `wasm-bindgen ${wasmBindgenVersion}`) {
-  run('cargo', ['install', 'wasm-bindgen-cli', '--version', wasmBindgenVersion, '--locked']);
+const rustTargets = {
+  aarch64: 'aarch64-linux-android',
+  armv7: 'armv7-linux-androideabi',
+  i686: 'i686-linux-android',
+  x86_64: 'x86_64-linux-android',
+};
+const targets = values.target ?? ['aarch64'];
+for (const target of targets) {
+  if (!rustTargets[target]) throw new Error(`Unknown --target ${target}`);
 }
 
-const config = 'src-tauri/tauri.conf.json';
-const originalConfig = readFileSync(config, 'utf8');
+const ndkVersion = readFileSync('.mise/config.toml', 'utf8').match(
+  /^ANDROID_NDK_VERSION = "([^"]+)"/m
+)?.[1];
+if (!ndkVersion) throw new Error('.mise/config.toml does not pin ANDROID_NDK_VERSION');
+
+const projectRoot = process.cwd();
+const cargoHome = process.env.CARGO_HOME ?? join(homedir(), '.cargo');
+const rustupHome = process.env.RUSTUP_HOME ?? join(homedir(), '.rustup');
+// The release workflow sets these for its other bundles; the FOSS APK must not
+// depend on CI's secrets, nor on the NDK's strip.
+const ciOnly = new Set([
+  'VITE_SENTRY_DSN',
+  'VITE_SENTRY_ENVIRONMENT',
+  'SENTRY_AUTH_TOKEN',
+  'SENTRY_ORG',
+  'SENTRY_PROJECT',
+  'CARGO_PROFILE_RELEASE_DEBUG',
+  'CARGO_PROFILE_RELEASE_STRIP',
+]);
+const env = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !ciOnly.has(name))),
+  PATH: [join(cargoHome, 'bin'), process.env.PATH].filter(Boolean).join(delimiter),
+  SABLE_FOSS: '1',
+  SABLE_BUILD_FLAVOR: 'stable',
+  VITE_APP_VERSION: version,
+  ANDROID_NDK_VERSION: ndkVersion,
+  RUSTFLAGS: [
+    process.env.RUSTFLAGS,
+    `--remap-path-prefix=${projectRoot}=/usr/src/sable`,
+    `--remap-path-prefix=${cargoHome}=/usr/local/cargo`,
+    `--remap-path-prefix=${rustupHome}=/usr/local/rustup`,
+  ]
+    .filter(Boolean)
+    .join(' '),
+};
+
+run('rustup', ['target', 'add', ...targets.map((target) => rustTargets[target])]);
+
+const webDist = resolve(values['web-dist'] ?? 'dist');
+if (!values['web-dist']) await buildWeb();
+rmSync(join(webDist, 'deepfilternet3'), { recursive: true, force: true });
+rmSync(join(webDist, '_app/immutable/workers'), { recursive: true, force: true });
+
 const geolocation = 'src-tauri/capabilities/geolocation.json';
 const disabledGeolocation = `${geolocation}.android-build-disabled`;
 renameSync(geolocation, disabledGeolocation);
 
 try {
-  run('node', ['scripts/ci/set-tauri-version.mjs', version]);
-  const projectRoot = process.cwd();
-  const cargoHome = process.env.CARGO_HOME ?? join(homedir(), '.cargo');
-  const rustupHome = process.env.RUSTUP_HOME ?? join(homedir(), '.rustup');
-  const env = {
-    ...process.env,
-    SABLE_FOSS: '1',
-    SABLE_BUILD_FLAVOR: 'stable',
-    VITE_APP_VERSION: version,
-    RUSTFLAGS: [
-      process.env.RUSTFLAGS,
-      `--remap-path-prefix=${projectRoot}=/usr/src/sable`,
-      `--remap-path-prefix=${cargoHome}=/usr/local/cargo`,
-      `--remap-path-prefix=${rustupHome}=/usr/local/rustup`,
-    ]
-      .filter(Boolean)
-      .join(' '),
-  };
   run(
     'pnpm',
     [
       'tauri',
       'android',
       'build',
+      '--config',
+      'src-tauri/tauri.ci.conf.json',
+      '--config',
+      'src-tauri/tauri.stable.conf.json',
+      '--config',
+      JSON.stringify({ ...tauriVersionConfig(version), build: { frontendDist: webDist } }),
       '--apk',
       '--split-per-abi',
       '--target',
-      'aarch64',
+      ...targets,
       '--',
       '--no-default-features',
       '--features',
@@ -103,8 +132,24 @@ try {
     { env }
   );
 } finally {
-  writeFileSync(config, originalConfig);
   renameSync(disabledGeolocation, geolocation);
+}
+
+async function buildWeb() {
+  const lockfile = readFileSync('Cargo.lock', 'utf8');
+  const wasmBindgenVersion = lockfile.match(/name = "wasm-bindgen"\r?\nversion = "([^"]+)"/)?.[1];
+  if (!wasmBindgenVersion) throw new Error('Cargo.lock does not contain wasm-bindgen');
+
+  run('rustup', ['target', 'add', 'wasm32-unknown-unknown']);
+  const binaryenBin = await ensureBinaryen();
+  if (binaryenBin) env.PATH = [binaryenBin, env.PATH].join(delimiter);
+  const wasmBindgen = spawnSync('wasm-bindgen', ['--version'], { encoding: 'utf8', env });
+  if (wasmBindgen.stdout?.trim() !== `wasm-bindgen ${wasmBindgenVersion}`) {
+    run('cargo', ['install', 'wasm-bindgen-cli', '--version', wasmBindgenVersion, '--locked'], {
+      env,
+    });
+  }
+  run('pnpm', ['build'], { env });
 }
 
 async function ensureBinaryen() {

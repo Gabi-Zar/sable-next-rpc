@@ -11,8 +11,8 @@
 import { execFileSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-const PACKAGE = 'moe.sable.next.debug';
-const ACTIVITY = `${PACKAGE}/moe.sable.next.MainActivity`;
+const PACKAGE = 'moe.sable.client.debug';
+const ACTIVITY = `${PACKAGE}/moe.sable.client.MainActivity`;
 const HOMESERVER = process.env.HOMESERVER ?? 'http://localhost:28008';
 const DEVICE_HOMESERVER = process.env.HOMESERVER_FROM_DEVICE ?? 'http://10.0.2.2:28008';
 const TOKEN = process.env.REGISTRATION_TOKEN ?? 'sable-e2e';

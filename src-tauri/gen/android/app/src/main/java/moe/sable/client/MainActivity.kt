@@ -1,4 +1,4 @@
-package moe.sable.next
+package moe.sable.client
 
 import android.content.Intent
 import android.graphics.drawable.ColorDrawable

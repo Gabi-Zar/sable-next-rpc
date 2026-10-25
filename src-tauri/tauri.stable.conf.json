@@ -1,0 +1,18 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "plugins": {
+    "deep-link": {
+      "mobile": [
+        {
+          "scheme": ["moe.sable.app", "sable", "matrix"],
+          "appLink": false
+        },
+        {
+          "scheme": ["https"],
+          "host": "matrix.to",
+          "appLink": false
+        }
+      ]
+    }
+  }
+}

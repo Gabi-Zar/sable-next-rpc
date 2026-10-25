@@ -1,4 +1,4 @@
-package moe.sable.next
+package moe.sable.client
 
 import android.graphics.Bitmap
 import android.net.Uri

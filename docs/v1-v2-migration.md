@@ -80,11 +80,14 @@ with rotated tokens.
 
 ## Release configuration
 
-Stable builds run [prepare-v1-release.mjs](../scripts/ci/prepare-v1-release.mjs)
-to use v1's `moe.sable.client` identity. Development/nightly builds stay separate.
+Android's Kotlin package is v1's `moe.sable.client`
+([tauri.android.conf.json](../src-tauri/tauri.android.conf.json)), so stable keeps
+v1's component names. `build.gradle.kts` picks the package ID from
+`SABLE_BUILD_FLAVOR` (`moe.sable.next.nightly` for nightly, `.debug` for debug
+builds), and [tauri.stable.conf.json](../src-tauri/tauri.stable.conf.json) adds
+v1's callback schemes. Stable iOS bundles still run
+[prepare-v1-release.mjs](../scripts/ci/prepare-v1-release.mjs).
 Keep the original signing identity, a newer version number and the web origin.
-If the identity helper is removed, retain the production identity in the release
-configuration.
 
 Stable Linux builds keep WebKit because CEF cannot read v1's WebKit profile.
 Changing runtimes needs a separate profile migration.
