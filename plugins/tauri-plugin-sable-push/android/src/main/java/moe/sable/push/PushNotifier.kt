@@ -40,6 +40,7 @@ object PushNotifier {
     private const val NOISY_KEY = "moe.sable.noisy"
     private const val ENCRYPTED_FLAG = "moe.sable.encrypted"
     private const val DIRECT_FLAG = "moe.sable.direct"
+    private const val SENDER_NAME_KEY = "moe.sable.sender_name"
     private const val SENDER_AVATAR_KEY = "moe.sable.sender_avatar"
     private const val ROOM_AVATAR_KEY = "moe.sable.room_avatar"
     private const val OWN_AVATAR_KEY = "moe.sable.own_avatar"
@@ -59,6 +60,8 @@ object PushNotifier {
         val allowed = policy.showContent && (!encrypted || policy.showEncryptedContent)
         val body = notification.optJSONObject("content")?.optString("body")?.takeIf { it.isNotEmpty() }
         val revision = PushNotificationGate.revision(context, id)
+        attachMedia(context, notification, roomId,
+            content = notification.optJSONObject("content")?.takeIf { allowed })
         PushNotificationGate.post(context, id, revision) {
             post(context, notification, body.takeIf { allowed } ?: "New message", UUID.randomUUID().toString())
         }
@@ -145,6 +148,7 @@ object PushNotifier {
         val encrypted = notification.optString("type") == "m.room.encrypted"
         if (!encrypted) {
             if (isRing(notification)) {
+                attachMedia(context, notification, roomId, content = null)
                 PushNotificationGate.post(context, id, revision) { postIncomingCall(context, notification, notification) }
                 return
             }
@@ -180,6 +184,7 @@ object PushNotifier {
                     return
                 }
                 if (clear == null) {
+                    attachMedia(context, notification, roomId, content = null)
                     PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message", generation) }
                     return
                 }
@@ -190,6 +195,7 @@ object PushNotifier {
         }
         val quietly = (local is PushDecryptResult.NeedsKey && local.quietly) || activeElsewhere
         if (!quietly) {
+            attachMedia(context, notification, roomId, content = null)
             PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message", generation) }
             if (!store.showContent || !store.showEncryptedContent) {
                 PushDiagnostics.record(context, PushOutcome.HIDDEN_BY_SETTING, trace)
@@ -217,6 +223,7 @@ object PushNotifier {
         if (!store.notificationsEnabled) return
         val manager = context.getSystemService(NotificationManager::class.java)
         if (isRing(clear)) {
+            attachMedia(context, notification, notification.optString("room_id"), content = null)
             PushNotificationGate.post(context, id, revision) {
                 if (replacing) manager.cancel(id)
                 postIncomingCall(context, notification, clear)
@@ -260,22 +267,26 @@ object PushNotifier {
         content: JSONObject?,
     ) {
         val userId = notification.optString("user_id")
-        val deviceId = PushPolicy(context).deviceIdFor(userId) ?: return
-        val invite = isInvite(notification)
-        val sender = notification.optString("sender").takeIf { it.isNotEmpty() && !invite }
+        val deviceId = PushPolicy(context).deviceIdFor(userId).orEmpty()
+        val sender = notification.optString("sender").takeIf { it.isNotEmpty() }
         // Android 9 is where the system grants itself read access to a message's image URI.
         val image = content?.takeIf {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
                 (it.optString("msgtype") == "m.image" || it.optString("msgtype") == "m.video")
         }
-        if (sender == null && image == null) return
-        val media = PushPayloadDecryptor.media(context, userId, deviceId, roomId, sender, image) ?: return
-        val fields = listOf(
-            "sender" to SENDER_AVATAR_KEY,
-            "room" to ROOM_AVATAR_KEY,
-            "own_avatar" to OWN_AVATAR_KEY,
-            "own_name" to OWN_NAME_KEY,
-        )
+        val media = PushPayloadDecryptor.media(context, userId, deviceId, roomId, sender,
+            notification.optString("sender_display_name"), image) ?: return
+        val fields = if (isInvite(notification)) {
+            listOf("sender_name" to SENDER_NAME_KEY)
+        } else {
+            listOf(
+                "sender_name" to SENDER_NAME_KEY,
+                "sender" to SENDER_AVATAR_KEY,
+                "room" to ROOM_AVATAR_KEY,
+                "own_avatar" to OWN_AVATAR_KEY,
+                "own_name" to OWN_NAME_KEY,
+            )
+        }
         for ((field, key) in fields) {
             if (!media.isNull(field)) notification.put(key, media.getString(field))
         }
@@ -366,7 +377,7 @@ object PushNotifier {
     ) {
         val roomId = notification.optString("room_id")
         val eventId = notification.optString("event_id")
-        val sender = notification.optString("sender_display_name")
+        val sender = notification.optString(SENDER_NAME_KEY)
             .ifEmpty { notification.optString("sender") }
         val isInvite = isInvite(notification)
         val roomName = notification.optString("room_name")
@@ -508,9 +519,9 @@ object PushNotifier {
         val roomId = notification.optString("room_id")
         val userId = notification.optString("user_id")
         val eventId = event.optString("event_id").ifEmpty { notification.optString("event_id") }
-        val caller = notification.optString("sender_display_name")
-            .ifEmpty { notification.optString("room_name") }
+        val caller = notification.optString(SENDER_NAME_KEY)
             .ifEmpty { notification.optString("sender") }
+            .ifEmpty { notification.optString("room_name") }
             .ifEmpty { "Unknown caller" }
 
         val notifId = callNotificationId(userId, roomId)

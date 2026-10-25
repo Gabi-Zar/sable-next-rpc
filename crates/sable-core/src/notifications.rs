@@ -675,8 +675,14 @@ impl PushSession {
         .await
     }
 
-    pub async fn sender_name_override(&self, sender: &str) -> Option<String> {
-        crate::profile_overrides::notification_name(self.host.client(), sender).await
+    pub async fn sender_name(&self, sender: Option<&str>, payload_name: Option<&str>) -> String {
+        let override_name = match sender {
+            Some(sender) => {
+                crate::profile_overrides::notification_name(self.host.client(), sender).await
+            }
+            None => None,
+        };
+        push_sender_name(sender, override_name.as_deref().or(payload_name))
     }
 
     pub async fn fetch(&self, event_id: &str) -> PushFetchView {
@@ -746,11 +752,16 @@ impl PushSession {
     pub async fn media(
         &self,
         sender: Option<&str>,
+        payload_name: Option<&str>,
         content: Option<&serde_json::Value>,
     ) -> PushMedia {
+        let sender_name = self.sender_name(sender, payload_name).await;
         let client = self.host.client();
         let Some(room) = client.get_room(&self.room_id) else {
-            return PushMedia::default();
+            return PushMedia {
+                sender_name,
+                ..PushMedia::default()
+            };
         };
         let sender_url =
             match sender.and_then(|sender| matrix_sdk::ruma::UserId::parse(sender).ok()) {
@@ -811,6 +822,7 @@ impl PushSession {
             ),
         );
         PushMedia {
+            sender_name,
             sender: sender.map(|(path, _)| path),
             room: room.map(|(path, _)| path),
             image: image.map(|(path, mimetype)| PushImage { path, mimetype }),
@@ -944,6 +956,7 @@ pub(crate) async fn clear_push_media(store_dir: &std::path::Path) {
 #[cfg(not(target_family = "wasm"))]
 #[derive(Debug, Default, serde::Serialize)]
 pub struct PushMedia {
+    pub sender_name: String,
     pub sender: Option<String>,
     pub room: Option<String>,
     pub image: Option<PushImage>,
@@ -965,12 +978,24 @@ pub async fn cold_push_media(
     device_id: &str,
     room_id: &str,
     sender: Option<&str>,
+    payload_name: Option<&str>,
     content: Option<&serde_json::Value>,
 ) -> PushMedia {
     match PushSession::cached(&cold_push_store_dir(data_dir), user_id, device_id, room_id).await {
-        Some(session) => session.media(sender, content).await,
-        None => PushMedia::default(),
+        Some(session) => session.media(sender, payload_name, content).await,
+        None => PushMedia {
+            sender_name: push_sender_name(sender, payload_name),
+            ..PushMedia::default()
+        },
     }
+}
+
+#[must_use]
+pub fn push_sender_name(sender: Option<&str>, name: Option<&str>) -> String {
+    name.and_then(visible_name)
+        .or(sender)
+        .unwrap_or_default()
+        .to_owned()
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -2669,9 +2694,57 @@ mod tests {
             "A",
             COLD_ROOM,
             Some("@sender:example.org"),
+            None,
             content,
         )
         .await
+    }
+
+    #[tokio::test]
+    async fn push_sender_names_without_a_session() {
+        let data_dir = tempfile::tempdir().unwrap();
+        for (sender, name, expected) in [
+            (Some("@bob:example.org"), Some("Bob"), "Bob"),
+            (
+                Some("@bob:example.org"),
+                Some("\u{200b}\u{2800}"),
+                "@bob:example.org",
+            ),
+            (Some("@bob:example.org"), Some(" \t"), "@bob:example.org"),
+            (Some("@bob:example.org"), None, "@bob:example.org"),
+            (None, Some("Bob"), "Bob"),
+            (None, Some("\u{200b}"), ""),
+            (None, None, ""),
+        ] {
+            let media = super::cold_push_media(
+                data_dir.path(),
+                "@alice:example.org",
+                "A",
+                COLD_ROOM,
+                sender,
+                name,
+                None,
+            )
+            .await;
+            assert_eq!(media.sender_name, expected);
+            assert_eq!(
+                serde_json::to_value(media).unwrap()["sender_name"],
+                expected
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn push_sender_names_without_a_room() {
+        let fixture = ColdFixture::new("missing-room", cold_room_with_members(), None).await;
+        let mut session = session(&fixture).await;
+        session.room_id = room_id!("!missing:example.org").to_owned();
+        let media = session
+            .media(Some("@bob:example.org"), Some("\u{200b}\u{2800}"), None)
+            .await;
+        assert_eq!(media.sender_name, "@bob:example.org");
+        drop(session);
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
     #[tokio::test]
@@ -2695,7 +2768,11 @@ mod tests {
             panic!("the session must fetch the pushed event");
         };
         let media = session
-            .media(Some(&event.sender), Some(&event.content))
+            .media(
+                Some(&event.sender),
+                event.sender_display_name.as_deref(),
+                Some(&event.content),
+            )
             .await;
         assert_eq!(
             std::fs::read(media.image.unwrap().path).unwrap(),
@@ -2737,16 +2814,16 @@ mod tests {
         assert_eq!(
             session(&fixture)
                 .await
-                .sender_name_override("@sender:example.org")
+                .sender_name(Some("@sender:example.org"), Some("Payload"))
                 .await,
-            None
+            "Payload"
         );
         cache_key(client, &key).await;
         for (event_type, content, expected) in [
             (
                 UNSTABLE,
                 json!({"@sender:example.org":{"displayname":"Mum"}}),
-                Some("Mum"),
+                "Mum",
             ),
             (
                 UNSTABLE,
@@ -2755,19 +2832,24 @@ mod tests {
                     &json!({"@sender:example.org":{"displayname":"Dad"}}),
                 )
                 .unwrap(),
-                Some("Dad"),
+                "Dad",
             ),
             (
                 STABLE,
                 json!({"@sender:example.org":{"displayname":"Friend"}}),
-                Some("Friend"),
+                "Friend",
             ),
             (
                 STABLE,
                 json!({"@sender:example.org":{"displayname":null}}),
-                Some("@sender:example.org"),
+                "@sender:example.org",
             ),
-            (STABLE, json!({}), None),
+            (
+                STABLE,
+                json!({"@sender:example.org":{"displayname":"\u{200b}\u{2800}"}}),
+                "@sender:example.org",
+            ),
+            (STABLE, json!({}), "Payload"),
         ] {
             fixture
                 .server
@@ -2784,14 +2866,28 @@ mod tests {
             let session = session(&fixture).await;
             assert_eq!(
                 session
-                    .sender_name_override("@sender:example.org")
-                    .await
-                    .as_deref(),
+                    .sender_name(Some("@sender:example.org"), Some("Payload"))
+                    .await,
                 expected
             );
             assert_eq!(
-                session.sender_name_override("@nobody:example.org").await,
-                None
+                session.sender_name(Some("@nobody:example.org"), None).await,
+                "@nobody:example.org"
+            );
+            drop(session);
+            assert_eq!(
+                super::cold_push_media(
+                    &fixture.data_dir,
+                    "@alice:example.org",
+                    "A",
+                    COLD_ROOM,
+                    Some("@sender:example.org"),
+                    Some("Payload"),
+                    None,
+                )
+                .await
+                .sender_name,
+                expected
             );
         }
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();

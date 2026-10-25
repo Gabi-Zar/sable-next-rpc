@@ -11,6 +11,7 @@ import android.media.RingtoneManager
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.*
+import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,6 +36,10 @@ class PushNotifierTest {
         context = RuntimeEnvironment.getApplication()
         PushPolicy(context).showContent = true
         notificationManager = context.getSystemService(NotificationManager::class.java)
+        mockkObject(PushPayloadDecryptor)
+        every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } answers {
+            JSONObject().put("sender_name", arg<String?>(5).orEmpty())
+        }
 
         val launchIntent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
@@ -48,6 +53,11 @@ class PushNotifierTest {
                 }
             }
         )
+    }
+
+    @After
+    fun teardown() {
+        unmockkObject(PushPayloadDecryptor)
     }
 
     private fun shadowNotificationManager() = shadowOf(notificationManager)
@@ -817,6 +827,8 @@ class PushNotifierTest {
                     """{"type":"m.room.message","content":{"body":"fetched text"},"sender":"@bob:example.org",""" +
                         """"sender_display_name":"Bob","room_name":"Fetched room","room_avatar_url":null}"""
                 )
+            every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } returns
+                JSONObject().put("sender_name", "Bob")
             val payload = JSONObject().put("room_id", "!bare:example.org").put("event_id", "\$bare")
                 .put("user_id", "@alice:example.org").toString()
 
@@ -900,8 +912,8 @@ class PushNotifierTest {
         val contents = mutableListOf<JSONObject?>()
         mockkObject(PushPayloadDecryptor)
         try {
-            every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any()) } answers {
-                contents.add(arg(5))
+            every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } answers {
+                contents.add(arg(6))
                 JSONObject().put("own_name", "Alice").put("own_avatar", JSONObject.NULL)
             }
             PushNotifier.showFromPush(context, imagePush(room))
@@ -925,6 +937,78 @@ class PushNotifierTest {
         assertEquals("@bob:example.org", style.messages.last().person?.key)
         assertEquals("@alice:example.org", style.user.key)
         assertEquals("Alice", style.user.name)
+    }
+
+    @Test
+    fun senderNamesComeFromRustForEveryDelivery() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        PushPolicy(context).showEncryptedContent = true
+        every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } returns
+            JSONObject().put("sender_name", "Mum")
+        val clear = JSONObject().put("type", "m.room.message")
+            .put("content", JSONObject().put("body", "hello"))
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success(clear.toString())
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success(clear.toString())
+        for (delivery in listOf("warm", "plain", "fetched", "placeholder", "malformed", "local", "remote", "invite", "ring", "encrypted-ring")) {
+            notificationManager.cancelAll()
+            val notification = warmNotification("!$delivery:example.org", "\$event", "hello")
+                .put("sender", "@bob:example.org").put("sender_display_name", "Bob")
+                .put("type", "m.room.message")
+            every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+                PushDecryptResult.Success(clear.toString())
+            when (delivery) {
+                "fetched" -> notification.remove("type")
+                "placeholder", "malformed", "local", "remote", "encrypted-ring" -> {
+                    notification.put("type", "m.room.encrypted")
+                    if (delivery == "placeholder" || delivery == "remote") {
+                        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+                            PushDecryptResult.NeedsKey(quietly = false)
+                    }
+                    if (delivery == "malformed") {
+                        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+                            PushDecryptResult.Success("invalid")
+                    }
+                    if (delivery == "placeholder") PushPolicy(context).showEncryptedContent = false
+                    if (delivery == "encrypted-ring") {
+                        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+                            PushDecryptResult.Success(JSONObject().put("type", "m.rtc.notification")
+                                .put("content", JSONObject().put("notification_type", "ring")).toString())
+                    }
+                }
+                "invite" -> notification.put("type", "m.room.member")
+                    .put("content", JSONObject().put("membership", "invite"))
+                "ring" -> notification.put("type", "m.rtc.notification")
+                    .put("content", JSONObject().put("notification_type", "ring"))
+            }
+            if (delivery == "warm") PushNotifier.show(context, notification)
+            else PushNotifier.showFromPush(context, notification.toString())
+            val posted = notificationManager.activeNotifications.single().notification
+            when (delivery) {
+                "invite" -> assertEquals("Mum invites you to Room 1", posted.extras.getString(Notification.EXTRA_TEXT))
+                "ring", "encrypted-ring" -> assertEquals("Mum",
+                    posted.extras.getParcelable("android.callPerson", android.app.Person::class.java)?.name)
+                else -> {
+                    val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(posted)!!
+                    assertEquals(delivery, "Mum", style.messages.last().person?.name)
+                }
+            }
+            verify(atLeast = 1) { PushPayloadDecryptor.media(any(), "@alice:example.org", "ALICE",
+                "!$delivery:example.org", "@bob:example.org", "Bob", any()) }
+            PushPolicy(context).showEncryptedContent = true
+        }
+    }
+
+    @Test
+    fun anUnavailableResolverUsesTheSenderId() {
+        every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } returns null
+        val notification = warmNotification("!fallback:example.org", "\$fallback", "hello")
+            .put("sender", "@bob:example.org").put("sender_display_name", "\u200b\u2800")
+        PushNotifier.show(context, notification)
+        val style = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(
+            notificationManager.activeNotifications.single().notification)!!
+        assertEquals("@bob:example.org", style.messages.last().person?.name)
     }
 
     @Test

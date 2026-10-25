@@ -222,6 +222,7 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<
     device_id: JString<'frame>,
     room_id: JString<'frame>,
     sender: JString<'frame>,
+    payload_name: JString<'frame>,
     content: JString<'frame>,
 ) -> JString<'frame> {
     let result = unowned_env.with_env(|env: &mut Env<'frame>| -> Result<_, jni::errors::Error> {
@@ -230,6 +231,8 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<
         let device_id = device_id.to_string();
         let room_id = room_id.to_string();
         let sender = sender.to_string();
+        let sender = Some(sender.as_str()).filter(|sender| !sender.is_empty());
+        let payload_name = payload_name.to_string();
         let content = serde_json::from_str::<serde_json::Value>(&content.to_string()).ok();
         let media = async {
             bounded(
@@ -240,14 +243,22 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativePushMedia<
                     &user_id,
                     &device_id,
                     &room_id,
-                    Some(sender.as_str()).filter(|sender| !sender.is_empty()),
+                    sender,
+                    Some(&payload_name),
                     content.as_ref(),
                 ),
             )
             .await
-            .unwrap_or_default()
         };
-        let media = block_on(CORE.get().is_some(), media).unwrap_or_default();
+        let media = block_on(CORE.get().is_some(), media)
+            .flatten()
+            .unwrap_or_else(|| sable_core::notifications::PushMedia {
+                sender_name: sable_core::notifications::push_sender_name(
+                    sender,
+                    Some(&payload_name),
+                ),
+                ..Default::default()
+            });
 
         JString::from_str(env, serde_json::to_string(&media).unwrap_or_default())
     });

@@ -3,7 +3,7 @@
 use std::ffi::{CStr, CString, c_char};
 use std::path::Path;
 
-use sable_core::notifications::{ColdPush, PushImage, PushMedia, PushSession};
+use sable_core::notifications::{ColdPush, PushImage, PushMedia, PushSession, push_sender_name};
 use sable_core::protocol::{PushEventView, PushFetchView};
 use sable_core::session::AccountRegistry;
 use sable_core::store::{FileSessionStore, SessionStore};
@@ -163,8 +163,6 @@ struct RingEvent {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
     origin_server_ts: Option<u64>,
-    #[serde(default, deserialize_with = "present")]
-    sender: Option<Value>,
 }
 
 #[serde_as]
@@ -179,38 +177,20 @@ struct RingContent {
     lifetime: Option<u64>,
 }
 
-#[derive(Default, Deserialize)]
-struct Named {
-    #[serde(default, deserialize_with = "present")]
-    sender_display_name: Option<Value>,
-}
-
-fn ring(event: &Value, notification: &Value) -> Option<Value> {
+fn ring(event: &Value, caller: &str) -> Option<Value> {
     let event = RingEvent::deserialize(event).ok()?;
     if !RING_TYPES.contains(&event.kind.as_str()) || event.content.notification_type != "ring" {
         return None;
     }
     let sent = event.content.sender_ts.or(event.origin_server_ts)?;
     let lifetime = event.content.lifetime.unwrap_or(DEFAULT_RING_LIFETIME_MS);
-    let caller = Named::deserialize(notification)
-        .unwrap_or_default()
-        .sender_display_name
-        .filter(|name| {
-            name.as_str()
-                .is_none_or(|name| sable_model::text::visible_name(name).is_some())
-        })
-        .or(event.sender)
-        .as_ref()
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
     #[expect(
         clippy::cast_precision_loss,
         reason = "milliseconds since 1970 fit an f64 exactly for millennia"
     )]
     let expires_at = sent.saturating_add(lifetime) as f64 / 1000.0;
     serde_json::to_value(RingOut {
-        caller_name: caller,
+        caller_name: caller.to_owned(),
         expires_at,
     })
     .ok()
@@ -441,7 +421,16 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         ColdPush::Clear(clear) => serde_json::from_str(&clear).ok(),
         ColdPush::Unevaluated | ColdPush::NeedsKey { .. } | ColdPush::Undecryptable => None,
     };
-    if let Some(ring) = event.as_ref().and_then(|event| ring(event, notification)) {
+    let sender_id = target.sender.filter(|sender| !sender.is_empty());
+    let sender = match &session {
+        Some(session) => {
+            session
+                .sender_name(sender_id.as_deref(), target.sender_display_name.as_deref())
+                .await
+        }
+        None => push_sender_name(sender_id.as_deref(), target.sender_display_name.as_deref()),
+    };
+    if let Some(ring) = event.as_ref().and_then(|event| ring(event, &sender)) {
         return serde_json::to_value(RingPushOut {
             ring,
             room_id: room_id.to_owned(),
@@ -449,16 +438,6 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         })
         .ok();
     }
-    let sender_id = target.sender.filter(|sender| !sender.is_empty());
-    let override_name = match (sender_id.as_deref(), &session) {
-        (Some(sender), Some(session)) => session.sender_name_override(sender).await,
-        _ => None,
-    };
-    let sender = override_name
-        .or(target.sender_display_name)
-        .and_then(sable_model::text::visible_name)
-        .or_else(|| sender_id.clone())
-        .unwrap_or_default();
     let room_name = target.room_name.unwrap_or_default();
     let invite = event.as_ref().is_some_and(is_invite);
     let title = if invite {
@@ -499,7 +478,8 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     };
     let media = match (sender_id.as_deref(), &session) {
         (Some(sender), Some(session)) if !invite => {
-            Box::pin(session.media(Some(sender), content)).await
+            Box::pin(session.media(Some(sender), target.sender_display_name.as_deref(), content))
+                .await
         }
         _ => PushMedia::default(),
     };
@@ -666,21 +646,18 @@ mod tests {
             json!({"type":kind,"sender":"@bob:example.org","origin_server_ts":2_000,
                 "content":{"notification_type":notification_type}})
         };
-        let named = json!({"sender_display_name":"Bob"});
+        let named = "Bob";
 
         assert_eq!(
-            ring(
-                &event("org.matrix.msc4075.rtc.notification", "ring"),
-                &named
-            ),
+            ring(&event("org.matrix.msc4075.rtc.notification", "ring"), named),
             Some(json!({"caller_name":"Bob","expires_at":32.0}))
         );
-        assert!(ring(&event("m.rtc.notification", "notification"), &named).is_none());
-        assert!(ring(&event("m.room.message", "ring"), &named).is_none());
+        assert!(ring(&event("m.rtc.notification", "notification"), named).is_none());
+        assert!(ring(&event("m.room.message", "ring"), named).is_none());
         assert_eq!(
             ring(
                 &event("m.rtc.notification", "ring"),
-                &json!({ "sender_display_name": "\u{200b}\u{2800}" })
+                &push_sender_name(Some("@bob:example.org"), Some("\u{200b}\u{2800}"))
             ),
             Some(json!({ "caller_name": "@bob:example.org", "expires_at": 32.0 }))
         );
@@ -717,7 +694,7 @@ mod tests {
         assert_eq!(completed["sender_display_name"], "Bob");
         assert!(completed.get("room_avatar_url").is_none());
         assert_eq!(
-            ring(&completed, &completed),
+            ring(&completed, "Bob"),
             Some(json!({"caller_name":"Bob","expires_at":31.0}))
         );
     }
@@ -778,6 +755,7 @@ mod tests {
         assert_eq!(body(&payload).await, Some(json!("New message")));
         let ringing = json!({"user_id":"@alice:example.org","notification":{
             "room_id":"!room:example.org","type":"m.rtc.notification","sender":"@bob:example.org",
+            "sender_display_name":"\u{200b}\u{2800}",
             "content":{"notification_type":"ring","sender_ts":1_000,"lifetime":30_000}
         }});
         assert_eq!(
@@ -891,7 +869,7 @@ mod tests {
                 .as_object_mut()
                 .unwrap()
                 .extend(extra.as_object().unwrap().clone());
-            ring(&event, &json!({}))
+            ring(&event, "@bob:x")
         };
         let wrong = ring_of(
             json!({"notification_type": "ring", "sender_ts": "late", "lifetime": -1}),
@@ -912,7 +890,7 @@ mod tests {
         );
         let named = ring(
             &json!({"type": "m.rtc.notification", "sender": "@bob:x", "origin_server_ts": 1_000, "content": {"notification_type": "ring"}}),
-            &json!({"sender_display_name": null}),
+            "",
         );
         assert_eq!(named, Some(json!({"caller_name": "", "expires_at": 31.0})));
     }
