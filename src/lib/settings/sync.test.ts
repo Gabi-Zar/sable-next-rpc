@@ -224,16 +224,34 @@ describe('applySettings', () => {
     expect(applySettings(null, base, noThemes, [])).toBeNull();
   });
 
-  it('keeps a local theme that was too large to upload', () => {
-    const large = theme('large', oversized());
-    const local: StoredThemes = stored({ themes: [large], darkThemeId: 'large' });
-    const { content } = prepareSettings(base, stored({ themes: [theme('remote', 'body{}')] }));
+  it('applies remote default themes while keeping installed custom themes', () => {
+    const themes = [
+      { ...theme('light', 'body{}'), kind: 'light' as const },
+      theme('dark', 'body{}'),
+    ];
+    const local = stored({ themes, lightThemeId: 'light', darkThemeId: 'dark' });
+    const { content } = prepareSettings(base, stored({ themes }));
 
-    const applied = applySettings(content, base, local, ['large']);
+    const applied = applySettings(content, base, local, []);
 
-    expect(applied?.themes.themes.map((entry) => entry.id)).toEqual(['remote', 'large']);
-    expect(applied?.themes.darkThemeId).toBe('large');
+    expect(applied?.themes.themes).toEqual(themes);
+    expect(applied?.themes.lightThemeId).toBeNull();
+    expect(applied?.themes.darkThemeId).toBeNull();
   });
+
+  it.each(['lightThemeId', 'darkThemeId'] as const)(
+    'keeps %s selected when its local theme was too large to upload',
+    (key) => {
+      const large = theme('large', oversized());
+      const local: StoredThemes = stored({ themes: [large], [key]: 'large' });
+      const { content } = prepareSettings(base, stored({ themes: [theme('remote', 'body{}')] }));
+
+      const applied = applySettings(content, base, local, ['large']);
+
+      expect(applied?.themes.themes.map((entry) => entry.id)).toEqual(['remote', 'large']);
+      expect(applied?.themes[key]).toBe('large');
+    }
+  );
 
   describe('catalog themes', () => {
     const source = 'https://git.sable.moe/SableClient/themes/raw/branch/main/dark/night.sable.css';

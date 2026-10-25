@@ -238,8 +238,8 @@ function mergeThemes(
   return {
     themes,
     tweaks,
-    lightThemeId: keepId(remote.lightThemeId ?? current.lightThemeId, held),
-    darkThemeId: keepId(remote.darkThemeId ?? current.darkThemeId, held),
+    lightThemeId: keepId(remote.lightThemeId ?? keepId(current.lightThemeId, excluded), held),
+    darkThemeId: keepId(remote.darkThemeId ?? keepId(current.darkThemeId, excluded), held),
     enabledTweakIds: [
       ...remote.enabledTweakIds,
       ...current.enabledTweakIds.filter((id) => excluded.has(id) && !remoteTweakIds.has(id)),
