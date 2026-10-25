@@ -58,6 +58,8 @@ beforeEach(() => {
 afterEach(async () => {
   delete document.documentElement.dataset.clientDecorations;
   document.documentElement.style.removeProperty('--safe-area-inset-top');
+  document.documentElement.style.removeProperty('--safe-area-inset-left');
+  document.documentElement.style.removeProperty('--safe-area-inset-right');
   await page.viewport(414, 800);
 });
 
@@ -72,6 +74,27 @@ async function openViewer(width: number, height: number, onClose = vi.fn()) {
   await expect.poll(() => viewer.element().querySelector('.stage img')).not.toBeNull();
   return { screen, viewer, onClose };
 }
+
+test('viewer actions clear asymmetric safe areas', async () => {
+  const { viewer } = await openViewer(375, 560);
+  for (const width of [375, 1280]) {
+    await page.viewport(width, 560);
+    for (const [left, right] of [
+      [0, 48],
+      [48, 0],
+    ]) {
+      document.documentElement.style.setProperty('--safe-area-inset-top', '32px');
+      document.documentElement.style.setProperty('--safe-area-inset-left', `${left}px`);
+      document.documentElement.style.setProperty('--safe-area-inset-right', `${right}px`);
+      const node = viewer.element().querySelector('.actions');
+      if (!node) throw new Error('.actions is not rendered');
+      const actions = node.getBoundingClientRect();
+      expect(actions.left).toBeGreaterThanOrEqual(left);
+      expect(actions.right).toBeLessThanOrEqual(width - right);
+      expect(actions.top).toBeGreaterThanOrEqual(32);
+    }
+  }
+});
 
 for (const viewport of VIEWPORTS) {
   test(`viewer toolbar respects titlebar and safe-area offsets on ${viewport.name}`, async () => {

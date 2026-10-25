@@ -13,9 +13,42 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 import SettingsNavigator from './SettingsNavigator.svelte';
 import SettingsNavigatorHarness from './SettingsNavigatorHarness.test.svelte';
+import SettingsPanel from './SettingsPanel.svelte';
 
 afterEach(async () => {
+  for (const edge of ['top', 'right', 'bottom', 'left']) {
+    document.documentElement.style.removeProperty(`--safe-area-inset-${edge}`);
+  }
   await page.viewport(414, 800);
+});
+
+test('mobile settings clear asymmetric safe areas', async () => {
+  await page.viewport(375, 560);
+  Object.assign(core, { session: { user_id: '@me:example.org' }, encryption: null });
+  core.commands = core;
+  const screen = await render(SettingsPanel, { section: null });
+  const field = screen.getByRole('searchbox', { name: 'Search settings' });
+  await expect.element(field).toBeVisible();
+  for (const [width, left, right] of [
+    [375, 0, 48],
+    [375, 48, 0],
+    [768, 0, 48],
+    [1280, 48, 0],
+  ]) {
+    await page.viewport(width, 560);
+    document.documentElement.style.setProperty('--safe-area-inset-top', '32px');
+    document.documentElement.style.setProperty('--safe-area-inset-left', `${left}px`);
+    document.documentElement.style.setProperty('--safe-area-inset-right', `${right}px`);
+    for (const element of [
+      field.element(),
+      screen.getByRole('button', { name: 'Close', exact: true }).element(),
+    ]) {
+      const rect = element.getBoundingClientRect();
+      expect(rect.left).toBeGreaterThanOrEqual(left);
+      expect(rect.right).toBeLessThanOrEqual(width - right);
+      expect(rect.top).toBeGreaterThanOrEqual(32);
+    }
+  }
 });
 
 async function mount() {

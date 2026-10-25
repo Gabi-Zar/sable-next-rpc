@@ -344,9 +344,10 @@
   }
 
   .rail-shell {
-    --auth-card-width: min(24rem, calc(100vw - 3rem));
+    --auth-card-width: min(24rem, calc(100cqw - 2rem));
     --auth-rail-edge-fade: 1.5rem;
 
+    container-type: inline-size;
     isolation: isolate;
     min-width: 0;
     position: relative;
@@ -360,7 +361,7 @@
     inset-block: 0;
     pointer-events: none;
     position: absolute;
-    width: var(--auth-rail-edge-fade);
+    width: min(var(--auth-rail-edge-fade), max(0px, calc((100% - var(--auth-card-width)) / 2)));
     z-index: 3;
   }
 
@@ -508,11 +509,11 @@
   }
 
   .panel-nav.previous {
-    left: calc(50vw - var(--auth-card-width) / 2 - 2.625rem);
+    left: max(0px, calc(50% - var(--auth-card-width) / 2 - 2.625rem));
   }
 
   .panel-nav.next {
-    right: calc(50vw - var(--auth-card-width) / 2 - 2.625rem);
+    right: max(0px, calc(50% - var(--auth-card-width) / 2 - 2.625rem));
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -542,10 +543,6 @@
   }
 
   @media (width <= 48rem) {
-    .rail-shell {
-      --auth-card-width: min(24rem, calc(100vw - 5rem));
-    }
-
     .rail {
       scroll-snap-type: x mandatory;
       touch-action: pan-y;

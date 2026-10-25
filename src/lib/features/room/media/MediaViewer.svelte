@@ -1046,7 +1046,8 @@
     justify-content: space-between;
     min-width: 0;
     padding: calc(var(--space-200) + var(--safe-area-inset-top))
-      max(var(--space-300), var(--safe-left)) var(--space-200);
+      max(var(--space-300), var(--safe-right)) var(--space-200)
+      max(var(--space-300), var(--safe-left));
     position: relative;
     z-index: 1;
   }
@@ -1054,8 +1055,8 @@
   .bottom-bar {
     border-top: var(--border-width) solid var(--surface-container-line);
     justify-content: center;
-    padding: var(--space-200) max(var(--space-300), var(--safe-left))
-      calc(var(--space-200) + var(--safe-bottom));
+    padding: var(--space-200) max(var(--space-300), var(--safe-right))
+      calc(var(--space-200) + var(--safe-bottom)) max(var(--space-300), var(--safe-left));
   }
 
   .actions,
@@ -1347,12 +1348,13 @@
 
     .toolbar {
       padding: calc(var(--space-300) + var(--safe-area-inset-top))
-        max(var(--space-400), var(--safe-left)) var(--space-300);
+        max(var(--space-400), var(--safe-right)) var(--space-300)
+        max(var(--space-400), var(--safe-left));
     }
 
     .bottom-bar {
-      padding: var(--space-300) max(var(--space-400), var(--safe-left))
-        calc(var(--space-300) + var(--safe-bottom));
+      padding: var(--space-300) max(var(--space-400), var(--safe-right))
+        calc(var(--space-300) + var(--safe-bottom)) max(var(--space-400), var(--safe-left));
     }
 
     .zoom-controls {

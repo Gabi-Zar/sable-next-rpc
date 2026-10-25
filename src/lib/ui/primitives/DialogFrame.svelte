@@ -141,7 +141,7 @@
     left: 0;
     max-width: 68rem;
     overflow: hidden;
-    padding-block: var(--safe-top) var(--safe-bottom);
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
     top: 0;
     width: 100%;
   }
@@ -159,7 +159,8 @@
     color: var(--surface-on-container);
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--space-300) * 2);
     overflow: auto;
-    padding: var(--space-400);
+    padding: var(--space-400) calc(var(--space-400) + var(--safe-right)) var(--space-400)
+      calc(var(--space-400) + var(--safe-left));
 
     /* Bottom-anchored, so the home indicator would otherwise sit on the content. */
     padding-bottom: calc(var(--space-400) + var(--safe-bottom));
@@ -177,7 +178,7 @@
 
     max-height: calc(100dvh - var(--safe-top) - var(--space-300) * 2);
     overscroll-behavior: contain;
-    padding: 0 0 var(--safe-bottom);
+    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   }
 
   :global(.dialog-content-sheet:has(> div > [data-inset-owner~='bottom'])) {
@@ -188,10 +189,10 @@
     :global(.dialog-content-verification) {
       border-radius: var(--radius);
       bottom: auto;
-      left: 50%;
-      max-width: min(34rem, calc(100vw - 3rem));
+      left: calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
+      max-width: min(34rem, calc(100vw - 3rem - var(--safe-left) - var(--safe-right)));
       padding: var(--space-500);
-      top: 50%;
+      top: calc(50% + (var(--safe-top) - var(--safe-bottom)) / 2);
       transform: translate(-50%, -50%);
 
       /* The mobile rule sets `width: 100%`, which held the panel at its max
@@ -204,12 +205,12 @@
     :global(.dialog-content-settings) {
       border: var(--border-width) solid var(--surface-container-line);
       border-radius: var(--radius);
-      height: min(52rem, calc(100dvh - 3rem - var(--titlebar-height)));
-      left: 50%;
-      padding-block: 0;
-      top: calc(50% + var(--titlebar-height) / 2);
+      height: min(52rem, calc(100dvh - 3rem - var(--safe-top) - var(--safe-bottom)));
+      left: calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
+      padding: 0;
+      top: calc(50% + (var(--safe-top) - var(--safe-bottom)) / 2);
       transform: translate(-50%, -50%);
-      width: calc(100% - 3rem);
+      width: calc(100% - 3rem - var(--safe-left) - var(--safe-right));
     }
   }
 

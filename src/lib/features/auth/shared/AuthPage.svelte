@@ -38,7 +38,12 @@
     padding: var(--space-700) var(--space-600);
     padding-block: calc(var(--space-700) + var(--safe-top))
       calc(var(--space-700) + var(--safe-bottom));
-    padding-inline: max(var(--space-600), var(--safe-left)) max(var(--space-600), var(--safe-right));
+    padding-inline: calc(var(--space-600) + var(--safe-left))
+      calc(var(--space-600) + var(--safe-right));
+  }
+
+  .auth-page :global(.mobile-nav) {
+    inset: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   }
 
   .auth-content {
