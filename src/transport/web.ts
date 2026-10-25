@@ -474,6 +474,7 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
       filename,
       mime,
       bytes,
+      thumbnail,
       caption,
       formattedCaption,
       mentions,
@@ -493,6 +494,7 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
             filename,
             mime,
             bytes,
+            thumbnail: thumbnail ?? null,
             caption: caption ?? null,
             formattedCaption: formattedCaption ?? null,
             mentions: mentions ?? [],
@@ -505,7 +507,7 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
             spoiler: spoiler ?? false,
           },
         }),
-        [bytes.buffer]
+        [bytes.buffer, ...(thumbnail ? [thumbnail.bytes.buffer] : [])]
       );
     },
 
@@ -521,7 +523,10 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
       threadRoot,
       persona,
     }) {
-      const transfer = attachments.map((attachment) => attachment.bytes.buffer);
+      const transfer = attachments.flatMap(({ bytes, thumbnail }) => [
+        bytes.buffer,
+        ...(thumbnail ? [thumbnail.bytes.buffer] : []),
+      ]);
       await request<null>(
         (id) => ({
           id,

@@ -14,7 +14,7 @@ interface NativeCore {
   fetchMedia(source: string, width: number, height: number, background: boolean): Promise<Buffer>;
   forgetMedia(source: string): Promise<void>;
   sendAttachment(request: string, bytes: Uint8Array): Promise<void>;
-  sendGallery(request: string, items: string): Promise<void>;
+  sendGallery(request: string, bytes: Uint8Array): Promise<void>;
   uploadMedia(mime: string, bytes: Uint8Array): Promise<string>;
   subscribeEvents(onEvents: (json: string) => void): void;
 }

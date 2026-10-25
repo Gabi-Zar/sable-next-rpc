@@ -113,3 +113,31 @@ test('a cache reset goes through the core and still resolves when the core fails
   });
   expect(captureException).toHaveBeenCalledTimes(1);
 });
+
+test.each(['attachment', 'gallery'])('carries %s thumbnails as binary', async (kind) => {
+  invoke.mockResolvedValue(undefined);
+  const transport = createTauriTransport();
+  const attachment = {
+    filename: 'video.mp4',
+    mime: 'video/mp4',
+    bytes: new Uint8Array([1, 2]),
+    thumbnail: { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 },
+  };
+  if (kind === 'attachment') {
+    await transport.sendAttachment({ roomId: '!room:example.org', ...attachment });
+  } else {
+    await transport.sendGallery({
+      roomId: '!room:example.org',
+      attachments: [attachment, attachment],
+    });
+  }
+  const call = invoke.mock.calls.at(-1) ?? [];
+  expect(call[0]).toBe(kind === 'attachment' ? 'send_attachment' : 'send_gallery');
+  const bytes = call[1] as Uint8Array;
+  const header = new DataView(bytes.buffer);
+  expect(header.getBigUint64(0, true)).toBe(2n);
+  expect(header.getBigUint64(8, true)).toBe(3n);
+  expect(bytes.slice(24, 29)).toEqual(new Uint8Array([1, 2, 255, 216, 255]));
+  expect(decodeURIComponent(headersOf(call).request)).not.toContain('bytes');
+  if (kind === 'gallery') expect(bytes.slice(29)).toEqual(bytes.slice(0, 29));
+});

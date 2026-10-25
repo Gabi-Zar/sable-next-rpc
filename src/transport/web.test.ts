@@ -16,10 +16,12 @@ class FakePort {
   onmessage: ((message: MessageEvent) => void) | null = null;
   onmessageerror: (() => void) | null = null;
   posted: unknown[] = [];
+  transfers: Transferable[][] = [];
   respondToPings = false;
 
-  postMessage(message: unknown): void {
+  postMessage(message: unknown, transfer: Transferable[] = []): void {
     this.posted.push(message);
+    this.transfers.push(transfer);
     if (
       this.respondToPings &&
       message &&
@@ -181,6 +183,7 @@ test('preserves rich attachment captions and mentions across the worker transpor
   const transport = await load();
   const attachment = {
     roomId: '!room:example.org',
+    thumbnail: { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 },
     filename: 'photo.png',
     mime: 'image/png',
     bytes: new Uint8Array([1]),
@@ -197,6 +200,10 @@ test('preserves rich attachment captions and mentions across the worker transpor
   };
   const pending = transport.sendAttachment(attachment);
   expect(FakeSharedWorker.last?.port.posted).toContainEqual({ id: 1, attachment });
+  expect(FakeSharedWorker.last?.port.transfers).toContainEqual([
+    attachment.bytes.buffer,
+    attachment.thumbnail.bytes.buffer,
+  ]);
   FakeSharedWorker.last?.port.receive({ id: 1, uri: null });
   await pending;
   transport.close();
@@ -234,11 +241,12 @@ test('sends a gallery as one worker request', async () => {
   };
   const transport = await load();
   const first = new Uint8Array([1]);
+  const thumbnail = { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 };
   const second = new Uint8Array([2]);
   const pending = transport.sendGallery({
     roomId: '!room:example.org',
     attachments: [
-      { filename: 'one.png', mime: 'image/png', bytes: first },
+      { filename: 'one.png', mime: 'image/png', bytes: first, thumbnail },
       {
         filename: 'two.pdf',
         mime: 'application/pdf',
@@ -260,7 +268,7 @@ test('sends a gallery as one worker request', async () => {
     gallery: {
       roomId: '!room:example.org',
       attachments: [
-        { filename: 'one.png', mime: 'image/png', bytes: first },
+        { filename: 'one.png', mime: 'image/png', bytes: first, thumbnail },
         { filename: 'two.pdf', mime: 'application/pdf', bytes: second },
       ],
       caption: 'Weekend',
@@ -273,6 +281,11 @@ test('sends a gallery as one worker request', async () => {
       persona,
     },
   });
+  expect(FakeSharedWorker.last?.port.transfers).toContainEqual([
+    first.buffer,
+    thumbnail.bytes.buffer,
+    second.buffer,
+  ]);
   FakeSharedWorker.last?.port.receive({ id: 1, uri: null });
   await pending;
   transport.close();

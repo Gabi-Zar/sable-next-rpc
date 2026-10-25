@@ -13,7 +13,7 @@ export function rawInvoke<T>(
   if (
     typeof window !== 'undefined' &&
     osType() === 'android' &&
-    (command === 'send_attachment' || command === 'upload_media')
+    (command === 'send_attachment' || command === 'send_gallery' || command === 'upload_media')
   ) {
     return invoke<T>(`${command}_base64`, {
       request: { bytes: uint8ArrayToBase64(bytes), headers: encoded },

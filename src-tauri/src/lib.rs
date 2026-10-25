@@ -57,7 +57,7 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use sable_core::{
-    Core, GalleryAttachment,
+    Core,
     protocol::{CoreEvent, RpcError},
 };
 use tauri::{
@@ -179,6 +179,12 @@ struct Base64Invoke {
 trait Carried {
     fn header(&self, name: &str) -> Option<String>;
     fn bytes(&self) -> Result<Vec<u8>, RpcError>;
+
+    fn metadata<T: serde::de::DeserializeOwned>(&self) -> Result<T, RpcError> {
+        self.header("request")
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .ok_or(RpcError::InvalidMedia)
+    }
 }
 
 impl Carried for Base64Invoke {
@@ -212,11 +218,8 @@ async fn carried_attachment(
     core: &sable_core::Core,
     request: &impl Carried,
 ) -> Result<(), RpcError> {
-    let attachment = request
-        .header("request")
-        .and_then(|json| serde_json::from_str(&json).ok())
-        .ok_or(RpcError::InvalidMedia)?;
-    core.send_attachment(attachment, request.bytes()?).await
+    core.send_attachment(request.metadata()?, request.bytes()?)
+        .await
 }
 
 async fn carried_upload(
@@ -227,13 +230,22 @@ async fn carried_upload(
     core.upload_media(mime, request.bytes()?).await
 }
 
+async fn carried_gallery(core: &sable_core::Core, request: &impl Carried) -> Result<(), RpcError> {
+    core.send_gallery(request.metadata()?, request.bytes()?)
+        .await
+}
+
 #[tauri::command]
-async fn send_gallery(
+async fn send_gallery(state: State<'_, AppState>, request: Request<'_>) -> Result<(), RpcError> {
+    carried_gallery(&state.core, &request).await
+}
+
+#[tauri::command]
+async fn send_gallery_base64(
     state: State<'_, AppState>,
-    request: sable_core::protocol::SendGalleryRequest,
-    items: Vec<GalleryAttachment>,
+    request: Base64Invoke,
 ) -> Result<(), RpcError> {
-    state.core.send_gallery(request, items).await
+    carried_gallery(&state.core, &request).await
 }
 
 #[tauri::command]
@@ -1012,6 +1024,7 @@ pub fn run() {
             import_persona_avatar,
             send_attachment,
             send_gallery,
+            send_gallery_base64,
             send_attachment_base64,
             upload_media,
             upload_media_base64,

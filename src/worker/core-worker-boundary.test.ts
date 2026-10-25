@@ -1,3 +1,4 @@
+import { attachmentBytes } from '../transport/attachment-bytes';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { createCoreWorkerBoundary, type WorkerCore, type WorkerPort } from './core-worker-boundary';
@@ -96,6 +97,7 @@ test('passes rich attachment captions and mentions to the WASM core', async () =
   const port = new FakePort();
   boundary.connect(port);
   const bytes = new Uint8Array([1]);
+  const thumbnail = { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 };
   const formattedCaption = '<a href="https://matrix.to/#/@one:example.org">One</a>';
 
   await port.send({
@@ -105,6 +107,7 @@ test('passes rich attachment captions and mentions to the WASM core', async () =
       filename: 'photo.png',
       mime: 'image/png',
       bytes,
+      thumbnail,
       caption: 'One',
       inReplyTo: '$reply',
       silentReply: true,
@@ -134,7 +137,7 @@ test('passes rich attachment captions and mentions to the WASM core', async () =
       persona: null,
       spoiler: true,
     }),
-    bytes
+    attachmentBytes([{ bytes, thumbnail }])
   );
   expect(port.messages).toEqual([{ id: 1, uri: null }]);
 });
@@ -163,6 +166,7 @@ test('passes gallery items and shared metadata to the WASM core', async () => {
     color_on_dark: null,
     has_fallback: false,
   };
+  const thumbnail = { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 };
   const core = fakeCore();
   const sendGallery = vi.fn(() => Promise.resolve());
   core.sendGallery = sendGallery;
@@ -179,6 +183,7 @@ test('passes gallery items and shared metadata to the WASM core', async () => {
           filename: 'one.png',
           mime: 'image/png',
           bytes: new Uint8Array([1]),
+          thumbnail,
         },
         {
           filename: 'two.pdf',
@@ -213,10 +218,7 @@ test('passes gallery items and shared metadata to the WASM core', async () => {
       mentions_room: true,
       persona,
     }),
-    JSON.stringify([
-      { filename: 'one.png', mime: 'image/png', bytes: [1], info: null },
-      { filename: 'two.pdf', mime: 'application/pdf', bytes: [2], info: null },
-    ])
+    attachmentBytes([{ bytes: new Uint8Array([1]), thumbnail }, { bytes: new Uint8Array([2]) }])
   );
   expect(port.messages).toEqual([{ id: 1, uri: null }]);
 });

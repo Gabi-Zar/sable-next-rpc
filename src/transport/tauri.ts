@@ -1,3 +1,4 @@
+import { attachmentBytes } from './attachment-bytes';
 import * as Sentry from '@sentry/sveltekit';
 import { Channel, invoke } from '@tauri-apps/api/core';
 
@@ -82,6 +83,7 @@ export function createTauriTransport(): Transport {
       filename,
       mime,
       bytes,
+      thumbnail,
       caption,
       formattedCaption,
       mentions,
@@ -93,7 +95,7 @@ export function createTauriTransport(): Transport {
       persona,
       spoiler,
     }) {
-      await carry('send_attachment', bytes, {
+      await carry('send_attachment', attachmentBytes([{ bytes, thumbnail }]), {
         request: JSON.stringify({
           room_id: roomId,
           filename,
@@ -113,32 +115,24 @@ export function createTauriTransport(): Transport {
     },
 
     async sendGallery(gallery) {
-      try {
-        await invoke('send_gallery', {
-          request: {
-            room_id: gallery.roomId,
-            attachments: gallery.attachments.map(({ filename, mime, info = null }) => ({
-              filename,
-              mime,
-              info,
-            })),
-            caption: gallery.caption ?? null,
-            formatted_caption: gallery.formattedCaption ?? null,
-            mentions: gallery.mentions ?? [],
-            mentions_room: gallery.mentionsRoom ?? false,
-            in_reply_to: gallery.inReplyTo ?? null,
-            silent_reply: gallery.silentReply ?? false,
-            thread_root: gallery.threadRoot ?? null,
-            persona: gallery.persona ?? null,
-          },
-          items: gallery.attachments.map((attachment) => ({
-            ...attachment,
-            bytes: Array.from(attachment.bytes),
+      await carry('send_gallery', attachmentBytes(gallery.attachments), {
+        request: JSON.stringify({
+          room_id: gallery.roomId,
+          attachments: gallery.attachments.map(({ filename, mime, info = null }) => ({
+            filename,
+            mime,
+            info,
           })),
-        });
-      } catch (error) {
-        throw new CoreError(error as RpcError);
-      }
+          caption: gallery.caption ?? null,
+          formatted_caption: gallery.formattedCaption ?? null,
+          mentions: gallery.mentions ?? [],
+          mentions_room: gallery.mentionsRoom ?? false,
+          in_reply_to: gallery.inReplyTo ?? null,
+          silent_reply: gallery.silentReply ?? false,
+          thread_root: gallery.threadRoot ?? null,
+          persona: gallery.persona ?? null,
+        }),
+      });
     },
 
     uploadMedia(mime, bytes) {

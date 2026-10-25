@@ -41,7 +41,7 @@ export function createMedia(transport: () => Transport) {
       await validateAttachments([file]);
       const supported = await rpc.session.delayedEventsSupported();
       if (!supported) throw new CoreError({ code: 'delayed_events_unsupported' });
-      const [info, bytes] = await Promise.all([
+      const [measured, bytes] = await Promise.all([
         measureAttachment(file),
         file.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
       ]);
@@ -52,7 +52,7 @@ export function createMedia(transport: () => Transport) {
         mime: file.type || 'application/octet-stream',
         url,
         size: file.size,
-        info,
+        info: measured.info,
         spoiler,
         persona: $state.snapshot(persona),
         delay_ms: Math.max(0, dueTs - Date.now()),
@@ -66,7 +66,7 @@ export function createMedia(transport: () => Transport) {
     ): Promise<void> {
       const file = withResolvedMime(picked);
       await validateAttachments([file]);
-      const info = await measureAttachment(file);
+      const measured = await measureAttachment(file);
       const bytes = new Uint8Array(await file.arrayBuffer());
       await transport().sendAttachment({
         roomId,
@@ -79,7 +79,8 @@ export function createMedia(transport: () => Transport) {
         mentionsRoom: options.mentions?.room ?? false,
         inReplyTo: options.inReplyTo ?? null,
         silentReply: options.silentReply ?? false,
-        info,
+        info: measured.info,
+        thumbnail: measured.thumbnail,
         threadRoot: options.threadRoot ?? null,
         persona: $state.snapshot(options.persona ?? null),
         spoiler: options.spoiler ?? false,
@@ -94,13 +95,16 @@ export function createMedia(transport: () => Transport) {
       if (files.length < 2) throw new Error('A gallery needs at least two attachments');
       await validateAttachments(files);
       const attachments = await Promise.all(
-        files.map(withResolvedMime).map(async (file) => ({
-          roomId,
-          filename: file.name,
-          mime: file.type || 'application/octet-stream',
-          bytes: new Uint8Array(await file.arrayBuffer()),
-          info: await measureAttachment(file),
-        }))
+        files.map(withResolvedMime).map(async (file) => {
+          const measured = await measureAttachment(file);
+          return {
+            filename: file.name,
+            mime: file.type || 'application/octet-stream',
+            bytes: new Uint8Array(await file.arrayBuffer()),
+            info: measured.info,
+            thumbnail: measured.thumbnail,
+          };
+        })
       );
       await transport().sendGallery({
         roomId,

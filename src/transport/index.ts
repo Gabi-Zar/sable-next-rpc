@@ -5,11 +5,18 @@ import type {
   PerMessageProfileView,
 } from '#src/generated/protocol';
 
+export type AttachmentThumbnail = {
+  bytes: Uint8Array<ArrayBuffer>;
+  width: number;
+  height: number;
+};
+
 export type Attachment = {
   roomId: string;
   filename: string;
   mime: string;
   bytes: Uint8Array<ArrayBuffer>;
+  thumbnail?: AttachmentThumbnail | null;
   caption?: string | null;
   formattedCaption?: string | null;
   mentions?: string[];
@@ -35,7 +42,10 @@ export type Gallery = {
   persona?: PerMessageProfileView | null;
 };
 
-export type GalleryAttachment = Pick<Attachment, 'filename' | 'mime' | 'bytes' | 'info'>;
+export type GalleryAttachment = Pick<
+  Attachment,
+  'filename' | 'mime' | 'bytes' | 'info' | 'thumbnail'
+>;
 
 export class CoreError extends Error {
   constructor(readonly detail: RpcError) {

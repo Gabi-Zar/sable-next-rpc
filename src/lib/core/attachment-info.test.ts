@@ -25,7 +25,13 @@ function stubMediaElement(overrides: {
     removeAttribute() {},
     load() {},
     set src(_value: string) {
-      queueMicrotask(() => this.listeners.get(overrides.fail ? 'error' : 'loadedmetadata')?.());
+      queueMicrotask(() => {
+        if (overrides.fail) this.listeners.get('error')?.();
+        else {
+          this.listeners.get('loadedmetadata')?.();
+          this.listeners.get('loadeddata')?.();
+        }
+      });
     },
   };
 
@@ -34,7 +40,10 @@ function stubMediaElement(overrides: {
     delete (element as { videoHeight?: number }).videoHeight;
   }
 
-  vi.spyOn(document, 'createElement').mockReturnValue(element as unknown as HTMLElement);
+  const canvas = document.createElement('canvas');
+  vi.spyOn(document, 'createElement').mockImplementation((name) =>
+    name === 'canvas' ? canvas : (element as unknown as HTMLElement)
+  );
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:stub');
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
   return element;
@@ -51,14 +60,17 @@ test('an image reports the decoded dimensions', async () => {
   );
 
   await expect(measureAttachment(file('image/png'))).resolves.toEqual({
-    width: 1280,
-    height: 720,
-    duration_ms: null,
-    animated: false,
-    blurhash: null,
-    waveform: null,
-    voice: false,
-    audio_metadata: null,
+    info: {
+      width: 1280,
+      height: 720,
+      duration_ms: null,
+      animated: false,
+      blurhash: null,
+      waveform: null,
+      voice: false,
+      audio_metadata: null,
+    },
+    thumbnail: null,
   });
 });
 
@@ -77,8 +89,8 @@ test('a decodable image gets a blurhash', async () => {
   } as unknown as CanvasRenderingContext2D);
 
   const result = await measureAttachment(file('image/png'));
-  expect(typeof result?.blurhash).toBe('string');
-  expect(result?.blurhash).not.toBeNull();
+  expect(typeof result.info?.blurhash).toBe('string');
+  expect(result.info?.blurhash).not.toBeNull();
 });
 
 test('a GIF is animated, and a WebP is left undecided', async () => {
@@ -87,8 +99,12 @@ test('a GIF is animated, and a WebP is left undecided', async () => {
     vi.fn(() => Promise.resolve({ width: 8, height: 8, close: () => {} }))
   );
 
-  await expect(measureAttachment(file('image/gif'))).resolves.toMatchObject({ animated: true });
-  await expect(measureAttachment(file('image/webp'))).resolves.toMatchObject({ animated: null });
+  await expect(measureAttachment(file('image/gif'))).resolves.toMatchObject({
+    info: { animated: true },
+  });
+  await expect(measureAttachment(file('image/webp'))).resolves.toMatchObject({
+    info: { animated: null },
+  });
 });
 
 test('an undecodable image measures nothing rather than throwing', async () => {
@@ -97,49 +113,101 @@ test('an undecodable image measures nothing rather than throwing', async () => {
     vi.fn(() => Promise.reject(new Error('not an image')))
   );
 
-  await expect(measureAttachment(file('image/png'))).resolves.toBeNull();
+  await expect(measureAttachment(file('image/png'))).resolves.toEqual({
+    info: null,
+    thumbnail: null,
+  });
 });
 
 test('a video reports dimensions and a duration in milliseconds', async () => {
   stubMediaElement({ videoWidth: 1920, videoHeight: 1080, duration: 12.34 });
 
   await expect(measureAttachment(file('video/mp4'))).resolves.toEqual({
-    width: 1920,
-    height: 1080,
-    duration_ms: 12_340,
-    animated: null,
-    blurhash: null,
-    waveform: null,
-    voice: false,
-    audio_metadata: null,
+    info: {
+      width: 1920,
+      height: 1080,
+      duration_ms: 12_340,
+      animated: null,
+      blurhash: null,
+      waveform: null,
+      voice: false,
+      audio_metadata: null,
+    },
+    thumbnail: null,
   });
+});
+
+test('a video gets a JPEG thumbnail from its decoded frame', async () => {
+  const video = stubMediaElement({ videoWidth: 1920, videoHeight: 1080, duration: 12 });
+  const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
+  const drawImage = vi.fn();
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    drawImage,
+  } as unknown as CanvasRenderingContext2D);
+  const toBlob = vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+    callback(new Blob([new Uint8Array([255, 216, 255])], { type: 'image/jpeg' }));
+  });
+
+  await expect(measureAttachment(file('video/mp4'))).resolves.toMatchObject({
+    thumbnail: { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 },
+  });
+  expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 800, 450);
+  expect(toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/jpeg', 0.8);
+  expect(revokeObjectURL).toHaveBeenCalledWith('blob:stub');
+});
+
+test('a failed thumbnail keeps the video metadata', async () => {
+  stubMediaElement({ videoWidth: 320, videoHeight: 240, duration: 2 });
+  const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL');
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    drawImage: () => {},
+  } as unknown as CanvasRenderingContext2D);
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+    callback(null);
+  });
+
+  const { info, thumbnail } = await measureAttachment(file('video/mp4'));
+  expect(info).toMatchObject({ width: 320, height: 240, duration_ms: 2000 });
+  expect(thumbnail).toBeNull();
+  expect(revokeObjectURL).toHaveBeenCalledWith('blob:stub');
 });
 
 test('a live stream reporting an infinite duration measures nothing', async () => {
   stubMediaElement({ videoWidth: 0, videoHeight: 0, duration: Number.POSITIVE_INFINITY });
 
-  await expect(measureAttachment(file('video/mp4'))).resolves.toBeNull();
+  await expect(measureAttachment(file('video/mp4'))).resolves.toEqual({
+    info: null,
+    thumbnail: null,
+  });
 });
 
 test('audio reports a duration and no dimensions', async () => {
-  stubMediaElement({ duration: 5 });
+  const audio = stubMediaElement({ duration: 5 });
 
   await expect(measureAttachment(file('audio/ogg'))).resolves.toEqual({
-    width: null,
-    height: null,
-    duration_ms: 5000,
-    animated: null,
-    blurhash: null,
-    waveform: null,
-    voice: false,
-    audio_metadata: null,
+    info: {
+      width: null,
+      height: null,
+      duration_ms: 5000,
+      animated: null,
+      blurhash: null,
+      waveform: null,
+      voice: false,
+      audio_metadata: null,
+    },
+    thumbnail: null,
   });
+  expect(audio.preload).toBe('metadata');
+  expect([...audio.listeners.keys()]).toEqual(['loadedmetadata', 'error']);
 });
 
 test('media the browser rejects measures nothing rather than throwing', async () => {
   stubMediaElement({ duration: 5, fail: true });
 
-  await expect(measureAttachment(file('audio/ogg'))).resolves.toBeNull();
+  await expect(measureAttachment(file('audio/ogg'))).resolves.toEqual({
+    info: null,
+    thumbnail: null,
+  });
 });
 
 test('a file marked as a voice recording carries its waveform', async () => {
@@ -149,14 +217,17 @@ test('a file marked as a voice recording carries its waveform', async () => {
   markVoiceRecording(recording, [0, 0.5, 1], 5000);
 
   await expect(measureAttachment(recording)).resolves.toEqual({
-    width: null,
-    height: null,
-    duration_ms: 5000,
-    animated: null,
-    blurhash: null,
-    waveform: [0, 0.5, 1],
-    voice: true,
-    audio_metadata: null,
+    info: {
+      width: null,
+      height: null,
+      duration_ms: 5000,
+      animated: null,
+      blurhash: null,
+      waveform: [0, 0.5, 1],
+      voice: true,
+      audio_metadata: null,
+    },
+    thumbnail: null,
   });
   expect(createElement).not.toHaveBeenCalled();
 });
@@ -167,16 +238,21 @@ test('a recording with an unreadable duration keeps its voice marker and wavefor
   markVoiceRecording(recording, [0, 0.5, 1], 5000);
 
   await expect(measureAttachment(recording)).resolves.toMatchObject({
-    voice: true,
-    waveform: [0, 0.5, 1],
-    duration_ms: 5000,
+    info: {
+      voice: true,
+      waveform: [0, 0.5, 1],
+      duration_ms: 5000,
+    },
   });
 });
 
 test('a document is not measured at all', async () => {
   const createElement = vi.spyOn(document, 'createElement');
 
-  await expect(measureAttachment(file('application/pdf'))).resolves.toBeNull();
+  await expect(measureAttachment(file('application/pdf'))).resolves.toEqual({
+    info: null,
+    thumbnail: null,
+  });
   expect(createElement).not.toHaveBeenCalled();
 });
 

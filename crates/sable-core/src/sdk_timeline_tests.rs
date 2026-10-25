@@ -1414,6 +1414,14 @@ async fn a_sticker_reaches_the_server_as_an_m_sticker_event() {
     assert_eq!(sent["body"], "blobwave");
 }
 
+fn attachment_bytes(bytes: &[u8]) -> Vec<u8> {
+    let mut body = Vec::new();
+    body.extend_from_slice(&u64::try_from(bytes.len()).unwrap().to_le_bytes());
+    body.extend_from_slice(&[0; 16]);
+    body.extend_from_slice(bytes);
+    body
+}
+
 async fn send_media_reply(
     core: &Arc<Core>,
     room_id: &matrix_sdk::ruma::RoomId,
@@ -1435,17 +1443,11 @@ async fn send_media_reply(
                     outgoing,
                     spoiler: false,
                 },
-                vec![1, 2, 3],
+                attachment_bytes(&[1, 2, 3]),
             )
             .await?;
         }
         "gallery" => {
-            let attachment = || crate::GalleryAttachment {
-                filename: "picture.png".to_owned(),
-                mime: "image/png".to_owned(),
-                bytes: vec![1, 2, 3],
-                info: None,
-            };
             let view = || crate::protocol::GalleryAttachmentView {
                 filename: "picture.png".to_owned(),
                 mime: "image/png".to_owned(),
@@ -1459,7 +1461,7 @@ async fn send_media_reply(
                     formatted_caption: None,
                     outgoing,
                 },
-                vec![attachment(), attachment()],
+                [attachment_bytes(&[1, 2, 3]), attachment_bytes(&[1, 2, 3])].concat(),
             )
             .await?;
         }
@@ -1695,7 +1697,9 @@ async fn attachments_use_the_server_upload_limit_instead_of_100_mib() {
             "mime": "application/octet-stream",
         }))
         .unwrap();
-        let result = core.send_attachment(request, vec![0; file_size]).await;
+        let result = core
+            .send_attachment(request, attachment_bytes(&vec![0; file_size]))
+            .await;
         if u64::try_from(file_size).unwrap() > upload_size {
             assert!(matches!(result, Err(RpcError::InvalidMedia)));
         } else {
@@ -1763,20 +1767,11 @@ async fn a_gallery_mixing_a_picture_and_a_pdf_sends_each_as_its_own_itemtype() {
                 persona: None,
             },
         },
-        vec![
-            crate::GalleryAttachment {
-                filename: "beach.png".to_owned(),
-                mime: "image/png".to_owned(),
-                bytes: vec![1, 2, 3],
-                info: None,
-            },
-            crate::GalleryAttachment {
-                filename: "report.pdf".to_owned(),
-                mime: "application/pdf".to_owned(),
-                bytes: vec![4, 5, 6, 7],
-                info: None,
-            },
-        ],
+        [
+            attachment_bytes(&[1, 2, 3]),
+            attachment_bytes(&[4, 5, 6, 7]),
+        ]
+        .concat(),
     )
     .await
     .unwrap();
@@ -1808,6 +1803,97 @@ async fn a_gallery_mixing_a_picture_and_a_pdf_sends_each_as_its_own_itemtype() {
     assert_eq!(sent["itemtypes"][1]["info"]["mimetype"], "application/pdf");
     assert_eq!(sent["itemtypes"][1]["info"]["size"], 4);
     assert_eq!(sent["itemtypes"][1]["url"], "mxc://example.org/uploaded");
+}
+
+#[tokio::test]
+async fn videos_and_galleries_upload_their_thumbnails() {
+    for gallery in [false, true] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!video:example.org");
+        server.sync_joined_room(&client, room_id).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        server
+            .mock_authenticated_media_config()
+            .ok(matrix_sdk::ruma::uint!(4))
+            .mount()
+            .await;
+        server
+            .mock_upload()
+            .ok(matrix_sdk::ruma::mxc_uri!("mxc://example.org/uploaded"))
+            .mount()
+            .await;
+        server
+            .mock_room_send()
+            .ok(event_id!("$video"))
+            .mount()
+            .await;
+        let core = core_for(&server, client).await;
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&2_u64.to_le_bytes());
+        bytes.extend_from_slice(&3_u64.to_le_bytes());
+        bytes.extend_from_slice(&800_u32.to_le_bytes());
+        bytes.extend_from_slice(&450_u32.to_le_bytes());
+        bytes.extend_from_slice(&[1, 2, 255, 216, 255]);
+        let attachment = json!({"filename": "video.mp4", "mime": "video/mp4"});
+        if gallery {
+            core.send_gallery(
+                serde_json::from_value(json!({
+                    "room_id": room_id, "attachments": [attachment, attachment],
+                }))
+                .unwrap(),
+                [bytes.clone(), bytes].concat(),
+            )
+            .await
+            .unwrap();
+        } else {
+            core.send_attachment(
+                serde_json::from_value(json!({
+                    "room_id": room_id, "filename": "video.mp4", "mime": "video/mp4",
+                }))
+                .unwrap(),
+                bytes,
+            )
+            .await
+            .unwrap();
+        }
+        let sent = tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                let requests = server
+                    .server()
+                    .received_requests()
+                    .await
+                    .unwrap_or_default();
+                if let Some(request) = requests
+                    .iter()
+                    .find(|request| request.url.path().contains("/send/m.room.message/"))
+                {
+                    break request.body_json::<serde_json::Value>().unwrap();
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the video was sent");
+        let items = if gallery {
+            sent["itemtypes"].as_array().unwrap().clone()
+        } else {
+            vec![sent]
+        };
+        for item in items {
+            assert_eq!(item["info"]["thumbnail_url"], "mxc://example.org/uploaded");
+            assert_eq!(
+                item["info"]["thumbnail_info"],
+                json!({"w": 800, "h": 450, "size": 3, "mimetype": "image/jpeg"})
+            );
+        }
+        let requests = server.server().received_requests().await.unwrap();
+        assert!(
+            requests
+                .iter()
+                .any(|request| request.body == [255, 216, 255])
+        );
+    }
 }
 
 #[tokio::test]

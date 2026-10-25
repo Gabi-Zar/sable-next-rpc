@@ -13,17 +13,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('sends raw command bodies through Android JSON IPC', async () => {
-  vi.stubGlobal('window', {});
-  osType.mockReturnValue('android');
-  invoke.mockResolvedValue(undefined);
+test.each(['send_attachment', 'send_gallery', 'upload_media'])(
+  'sends %s through Android JSON IPC',
+  async (command) => {
+    vi.stubGlobal('window', {});
+    osType.mockReturnValue('android');
+    invoke.mockResolvedValue(undefined);
 
-  await rawInvoke('send_attachment', new Uint8Array([0, 1, 255]), { filename: 'été.png' });
+    await rawInvoke(command, new Uint8Array([0, 1, 255]), { filename: 'été.png' });
 
-  expect(invoke).toHaveBeenCalledWith('send_attachment_base64', {
-    request: { bytes: 'AAH/', headers: { filename: '%C3%A9t%C3%A9.png' } },
-  });
-});
+    expect(invoke).toHaveBeenCalledWith(`${command}_base64`, {
+      request: { bytes: 'AAH/', headers: { filename: '%C3%A9t%C3%A9.png' } },
+    });
+  }
+);
 
 test('keeps non-attachment raw commands unchanged on Android', async () => {
   vi.stubGlobal('window', {});

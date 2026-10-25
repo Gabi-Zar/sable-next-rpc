@@ -1,7 +1,8 @@
 import type { RpcError, CoreEvent } from '#src/generated/protocol';
 import type { Attachment, Gallery, GalleryAttachment } from '#src/transport';
 
-export type AttachmentRequest = Required<Attachment>;
+export type AttachmentRequest = Required<Omit<Attachment, 'thumbnail'>> &
+  Pick<Attachment, 'thumbnail'>;
 export type GalleryRequest = Required<Omit<Gallery, 'attachments'>> & {
   attachments: GalleryAttachment[];
 };

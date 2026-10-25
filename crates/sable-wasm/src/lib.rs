@@ -304,12 +304,11 @@ impl SableCore {
     ///
     /// Returns a JSON-encoded command error when an attachment is invalid or sending fails.
     #[wasm_bindgen(js_name = sendGallery)]
-    pub async fn send_gallery(&self, request: String, items: String) -> Result<(), String> {
+    pub async fn send_gallery(&self, request: String, bytes: Vec<u8>) -> Result<(), String> {
         let request = serde_json::from_str(&request)
             .map_err(|error| js_err(&self.core.failed("send_gallery", error)))?;
-        let items = serde_json::from_str(&items).map_err(|_| js_err(&RpcError::InvalidMedia))?;
         self.core
-            .send_gallery(request, items)
+            .send_gallery(request, bytes)
             .await
             .map_err(|error| js_err(&error))
     }

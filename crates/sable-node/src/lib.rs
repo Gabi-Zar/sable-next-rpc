@@ -289,15 +289,14 @@ impl SableCore {
         &self,
         env: &'env Env,
         request: String,
-        items: String,
+        bytes: Buffer,
     ) -> napi::Result<PromiseRaw<'env, ()>> {
         let core = self.core.clone();
+        let bytes = Vec::from(bytes);
         env.spawn_future(async move {
             let request = serde_json::from_str(&request)
                 .map_err(|error| js_err(&core.failed("send_gallery", error)))?;
-            let items =
-                serde_json::from_str(&items).map_err(|_| js_err(&RpcError::InvalidMedia))?;
-            core.send_gallery(request, items)
+            core.send_gallery(request, bytes)
                 .await
                 .map_err(|error| js_err(&error))
         })

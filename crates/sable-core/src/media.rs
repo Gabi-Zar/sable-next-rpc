@@ -6,7 +6,7 @@ use futures_util::StreamExt;
 use matrix_sdk::HttpError;
 use matrix_sdk::attachment::{
     AttachmentConfig, AttachmentInfo, BaseAudioInfo, BaseFileInfo, BaseImageInfo, BaseVideoInfo,
-    GalleryConfig, GalleryItemInfo,
+    GalleryConfig, GalleryItemInfo, Thumbnail,
 };
 use matrix_sdk::media::{MediaFormat, MediaRequestParameters, MediaThumbnailSettings};
 use matrix_sdk::ruma::api::Metadata;
@@ -43,12 +43,48 @@ const MEDIA_THUMBNAIL_TIMEOUT: Duration = Duration::from_secs(30);
 const MEDIA_RETRY_DELAYS: [Duration; 2] = [Duration::from_millis(500), Duration::from_millis(1500)];
 const UNSIZED_PROGRESS_STEP: u64 = 256 * 1024;
 
-#[derive(serde::Deserialize)]
-pub struct GalleryAttachment {
-    pub filename: String,
-    pub mime: String,
-    pub bytes: Vec<u8>,
-    pub info: Option<AttachmentInfoView>,
+fn attachment_data(bytes: &mut &[u8]) -> Result<(Vec<u8>, Option<Thumbnail>), RpcError> {
+    use std::io::Read;
+
+    let mut size = [0; 8];
+    let mut thumbnail_size = [0; 8];
+    let mut width = [0; 4];
+    let mut height = [0; 4];
+    bytes
+        .read_exact(&mut size)
+        .map_err(|_| RpcError::InvalidMedia)?;
+    bytes
+        .read_exact(&mut thumbnail_size)
+        .map_err(|_| RpcError::InvalidMedia)?;
+    bytes
+        .read_exact(&mut width)
+        .map_err(|_| RpcError::InvalidMedia)?;
+    bytes
+        .read_exact(&mut height)
+        .map_err(|_| RpcError::InvalidMedia)?;
+    let size = usize::try_from(u64::from_le_bytes(size)).map_err(|_| RpcError::InvalidMedia)?;
+    let thumbnail_size = u64::from_le_bytes(thumbnail_size);
+    let width = u32::from_le_bytes(width);
+    let height = u32::from_le_bytes(height);
+    let data = bytes
+        .split_off(..size)
+        .ok_or(RpcError::InvalidMedia)?
+        .to_vec();
+    let thumbnail = if thumbnail_size == 0 {
+        None
+    } else {
+        Some(Thumbnail {
+            size: UInt::try_from(thumbnail_size).map_err(|_| RpcError::InvalidMedia)?,
+            data: bytes
+                .split_off(..usize::try_from(thumbnail_size).map_err(|_| RpcError::InvalidMedia)?)
+                .ok_or(RpcError::InvalidMedia)?
+                .to_vec(),
+            content_type: mime::IMAGE_JPEG,
+            width: width.into(),
+            height: height.into(),
+        })
+    };
+    Ok((data, thumbnail))
 }
 
 impl Core {
@@ -423,8 +459,14 @@ impl Core {
     pub async fn send_attachment(
         &self,
         request: SendAttachmentRequest,
-        bytes: Vec<u8>,
+        payload: Vec<u8>,
     ) -> Result<(), RpcError> {
+        let mut body = payload.as_slice();
+        let (bytes, thumbnail) = attachment_data(&mut body)?;
+        if !body.is_empty() {
+            return Err(RpcError::InvalidMedia);
+        }
+        drop(payload);
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > self.max_upload_size().await? {
             return Err(RpcError::InvalidMedia);
         }
@@ -468,6 +510,7 @@ impl Core {
             )),
             reply,
             info: Some(attachment_info(&mime, &info, bytes.len())),
+            thumbnail,
             extra_content: attachment_extra_content(
                 persona.as_ref(),
                 request.spoiler,
@@ -493,18 +536,28 @@ impl Core {
     pub async fn send_gallery(
         &self,
         request: SendGalleryRequest,
-        attachments: Vec<GalleryAttachment>,
+        bytes: Vec<u8>,
     ) -> Result<(), RpcError> {
-        if attachments.len() != request.attachments.len() || attachments.len() < 2 {
+        if request.attachments.len() < 2 {
             return Err(RpcError::InvalidMedia);
         }
         let max_upload_size = self.max_upload_size().await?;
-        if attachments
-            .iter()
-            .any(|item| u64::try_from(item.bytes.len()).unwrap_or(u64::MAX) > max_upload_size)
-        {
+        let mut body = bytes.as_slice();
+        let attachments = request
+            .attachments
+            .into_iter()
+            .map(|item| {
+                let (bytes, thumbnail) = attachment_data(&mut body)?;
+                if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > max_upload_size {
+                    return Err(RpcError::InvalidMedia);
+                }
+                Ok((item, bytes, thumbnail))
+            })
+            .collect::<Result<Vec<_>, RpcError>>()?;
+        if !body.is_empty() {
             return Err(RpcError::InvalidMedia);
         }
+        drop(bytes);
         let extra = request
             .outgoing
             .persona
@@ -525,16 +578,16 @@ impl Core {
                 request.outgoing.thread_root,
                 request.outgoing.silent_reply,
             ));
-        for item in attachments {
+        for (item, bytes, thumbnail) in attachments {
             let mime: Mime = item.mime.parse().map_err(|_| RpcError::InvalidMedia)?;
-            let info = attachment_info(&mime, &item.info.unwrap_or_default(), item.bytes.len());
+            let info = attachment_info(&mime, &item.info.unwrap_or_default(), bytes.len());
             gallery = gallery.add_item(GalleryItemInfo {
                 filename: item.filename,
                 content_type: mime,
-                data: item.bytes,
+                data: bytes,
                 attachment_info: info,
                 caption: None,
-                thumbnail: None,
+                thumbnail,
                 extra_content: None,
             });
         }
@@ -1031,6 +1084,30 @@ mod tests {
 
     fn mime(value: &str) -> Mime {
         value.parse().expect("a test mime type")
+    }
+
+    #[test]
+    fn attachment_bytes_include_a_thumbnail() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&2_u64.to_le_bytes());
+        bytes.extend_from_slice(&3_u64.to_le_bytes());
+        bytes.extend_from_slice(&800_u32.to_le_bytes());
+        bytes.extend_from_slice(&450_u32.to_le_bytes());
+        bytes.extend_from_slice(&[1, 2, 255, 216, 255]);
+        bytes.extend_from_slice(&[9]);
+        let mut body = bytes.as_slice();
+        let (data, thumbnail) = super::attachment_data(&mut body).unwrap();
+        let thumbnail = thumbnail.unwrap();
+        assert_eq!(data, [1, 2]);
+        assert_eq!(thumbnail.data, [255, 216, 255]);
+        assert_eq!(thumbnail.content_type, mime::IMAGE_JPEG);
+        assert_eq!(u64::from(thumbnail.size), 3);
+        assert_eq!(u64::from(thumbnail.width), 800);
+        assert_eq!(u64::from(thumbnail.height), 450);
+        assert_eq!(body, [9]);
+        for length in 0..bytes.len() - 1 {
+            assert!(super::attachment_data(&mut &bytes[..length]).is_err());
+        }
     }
 
     #[test]

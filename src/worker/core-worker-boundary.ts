@@ -1,3 +1,4 @@
+import { attachmentBytes } from '../transport/attachment-bytes';
 import { createRpc } from '#src/generated/protocol';
 import type { RpcError, RpcResult, CoreEvent, SubscriptionId, Rpc } from '#src/generated/protocol';
 import type { WorkerMessage, WorkerRequest } from './protocol';
@@ -17,7 +18,7 @@ export type WorkerCore = {
   ): Promise<Uint8Array>;
   forgetMedia(source: string): Promise<void>;
   sendAttachment(request: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
-  sendGallery(request: string, items: string): Promise<void>;
+  sendGallery(request: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
   uploadMedia(mime: string, bytes: Uint8Array<ArrayBuffer>): Promise<string>;
   setActive(active: boolean): Promise<void>;
 };
@@ -244,6 +245,7 @@ export function createCoreWorkerBoundary(
             filename,
             mime,
             bytes,
+            thumbnail,
             caption,
             inReplyTo,
             silentReply,
@@ -271,7 +273,7 @@ export function createCoreWorkerBoundary(
               persona,
               spoiler,
             }),
-            bytes
+            attachmentBytes([{ bytes, thumbnail }])
           );
           port.postMessage({ id, uri: null } satisfies WorkerMessage);
           return;
@@ -306,14 +308,7 @@ export function createCoreWorkerBoundary(
               mentions_room: mentionsRoom,
               persona: persona ?? null,
             }),
-            JSON.stringify(
-              attachments.map(({ filename, mime, bytes, info = null }) => ({
-                filename,
-                mime,
-                bytes: Array.from(bytes),
-                info,
-              }))
-            )
+            attachmentBytes(attachments)
           );
           port.postMessage({ id, uri: null } satisfies WorkerMessage);
           return;

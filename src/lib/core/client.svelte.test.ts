@@ -2,14 +2,14 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 import { reportSessionFailure } from '#lib/observability/session-telemetry.js';
 
-import type { CoreEvent, SessionInfo } from '#src/generated/protocol';
-import { CoreError, type Transport } from '#src/transport';
+import type { AttachmentInfoView, CoreEvent, SessionInfo } from '#src/generated/protocol';
+import { CoreError, type GalleryAttachment, type Transport } from '#src/transport';
 
 import { recentSearches, rememberSearch } from '#lib/search/recent-searches.svelte.js';
 
 import { joinRoom } from './api/rooms.js';
 import { createCoreClient } from './client.svelte.js';
-import { markVoiceRecording } from './attachment-info.js';
+import * as attachmentInfo from './attachment-info.js';
 
 vi.mock('#lib/observability/session-telemetry.js', () => ({ reportSessionFailure: vi.fn() }));
 
@@ -607,7 +607,7 @@ test('sending a voice recording forwards its MIME type, duration, waveform and v
   fake.transport.sendAttachment = sendAttachment;
   const core = createCoreClient(() => fake.transport);
   const recording = new File(['recording'], 'voice.ogg', { type: 'audio/ogg' });
-  markVoiceRecording(recording, [0, 0.5, 1], 1250);
+  attachmentInfo.markVoiceRecording(recording, [0, 0.5, 1], 1250);
 
   await core.media.sendAttachment('!room:example.org', recording);
 
@@ -657,6 +657,7 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
     inReplyTo: '$reply:example.org',
     silentReply: false,
     info: null,
+    thumbnail: null,
     threadRoot: '$thread:example.org',
     persona: {
       id: 'hatchy',
@@ -670,6 +671,50 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
     spoiler: false,
   });
 });
+
+test.each(['attachment', 'gallery'] as const)(
+  'sending a video %s separates its thumbnail from metadata',
+  async (kind) => {
+    const info: AttachmentInfoView = {
+      width: 1920,
+      height: 1080,
+      duration_ms: 12000,
+      animated: null,
+      blurhash: null,
+      waveform: null,
+      voice: false,
+      audio_metadata: null,
+    };
+    const thumbnail = { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 };
+    const measure = vi
+      .spyOn(attachmentInfo, 'measureAttachment')
+      .mockResolvedValue({ info, thumbnail });
+    try {
+      const fake = fakeTransport();
+      const sent: GalleryAttachment[] = [];
+      fake.transport.sendAttachment = (attachment) => {
+        sent.push(attachment);
+        return Promise.resolve();
+      };
+      fake.transport.sendGallery = (gallery) => {
+        sent.push(...gallery.attachments);
+        return Promise.resolve();
+      };
+      const core = createCoreClient(() => fake.transport);
+      const file = new File(['video'], 'video.mp4', { type: 'video/mp4' });
+      if (kind === 'attachment') await core.media.sendAttachment('!room:example.org', file);
+      else await core.media.sendGallery('!room:example.org', [file, file]);
+      expect(sent).toHaveLength(kind === 'attachment' ? 1 : 2);
+      for (const attachment of sent) {
+        expect(attachment.info).toEqual(info);
+        expect(attachment.thumbnail).toBe(thumbnail);
+        expect(attachment.bytes).toEqual(new TextEncoder().encode('video'));
+      }
+    } finally {
+      measure.mockRestore();
+    }
+  }
+);
 
 test('scheduling an attachment uploads it before creating its delayed event', async () => {
   const fake = fakeTransport({

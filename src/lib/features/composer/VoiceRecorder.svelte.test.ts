@@ -88,7 +88,7 @@ test.each([
   expect(file.type).toBe('audio/ogg');
   expect(file.name).toBe('voice-message-2250.ogg');
   expect(file.size).toBeGreaterThan(0);
-  const info = await measureAttachment(file);
+  const { info } = await measureAttachment(file);
   expect(info).toMatchObject({ voice: true, duration_ms: 1250, audio_metadata: null });
   expect(info?.waveform).toHaveLength(40);
   expect(stopTrack).toHaveBeenCalledOnce();
