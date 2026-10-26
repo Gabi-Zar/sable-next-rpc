@@ -932,6 +932,14 @@
 <style>
   :global(.profile-mutual-menu) {
     --menu-max-height: min(32rem, 80dvh);
+
+    max-width: 300px;
+  }
+
+  :global(.profile-mutual-menu .menu-item) {
+    --menu-item-padding: var(--control-padding-150);
+
+    min-width: 0;
   }
 
   :global(.profile-mutual-menu .avatar-root) {
@@ -939,7 +947,6 @@
   }
 
   .profile-mutual-name {
-    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

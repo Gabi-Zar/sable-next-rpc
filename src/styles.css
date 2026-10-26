@@ -471,6 +471,8 @@ html {
   --control-height-small: var(--control-height-300);
   --control-height-medium: var(--control-height-400);
   --control-height-large: var(--control-height-500);
+  --control-padding-150: var(--space-150);
+  --control-padding-200: var(--space-200);
   --control-padding-300: var(--space-300);
   --control-padding-400: var(--space-400);
   --control-padding-500: var(--space-500);

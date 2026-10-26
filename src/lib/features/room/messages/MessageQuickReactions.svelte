@@ -73,12 +73,13 @@
     border: 0;
     border-radius: var(--radii-pill);
     cursor: pointer;
-    display: inline-flex;
-    font-size: var(--font-size-body);
+    display: inline-block;
+    font-size: var(--font-size-subheading);
     height: var(--control-height-300);
     justify-content: center;
     line-height: 1;
     min-width: var(--control-height-300);
+    text-box: trim-both cap alphabetic;
     user-select: none;
   }
 
