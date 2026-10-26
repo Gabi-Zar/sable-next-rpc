@@ -576,7 +576,7 @@ jobs:
             upload "$deb" "$api/debian/pool/$channel/main/upload"
           done
           for rpm in electron/release/*.rpm; do
-            upload "$rpm" "$api/rpm/$channel/upload"
+            upload "$rpm" "$api/rpm/$channel/upload?sign=true"
           done
 
   electron-macos:
