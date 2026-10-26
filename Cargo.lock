@@ -4651,7 +4651,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "anymap3",
  "as_variant",
@@ -4707,7 +4707,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-base"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "as_variant",
  "assert_matches",
@@ -4739,7 +4739,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-common"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "eyeball-im",
  "futures-core",
@@ -4762,7 +4762,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-crypto"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "aes",
  "as_variant",
@@ -4802,7 +4802,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-indexeddb"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -4835,7 +4835,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-qrcode"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "byteorder",
  "qrcode",
@@ -4847,7 +4847,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-sqlite"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "as_variant",
  "async-trait",
@@ -4875,7 +4875,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-store-encryption"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -4897,7 +4897,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "as_variant",
  "ctor",
@@ -4921,7 +4921,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test-macros"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4930,7 +4930,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test-utils"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "ctor",
  "tracing-subscriber",
@@ -4939,7 +4939,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-ui"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=b44d5400a165efc5ea970c3cd31f8cce29c2a730#b44d5400a165efc5ea970c3cd31f8cce29c2a730"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
 dependencies = [
  "as_variant",
  "async-rx",

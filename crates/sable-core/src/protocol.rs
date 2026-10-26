@@ -105,6 +105,7 @@ pub enum RpcError {
     /// A scanned code that is not a Matrix verification code.
     InvalidVerificationCode,
     InvalidMedia,
+    MessageTooLarge,
     /// A poll needs a question and between 1 and 20 answers.
     InvalidPoll,
     InvalidLocation,

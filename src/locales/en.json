@@ -2870,6 +2870,7 @@
     "sendRateLimited": "Too many messages just now. Try again in a moment.",
     "sendInvalidMedia": "That file could not be sent. Try a different file.",
     "sendFailed": "Could not send.",
+    "sendTooLarge": "This message is too large to send. Shorten it and try again.",
     "sendUnavailable": "Could not reach your homeserver.",
     "sendMediaServerUnavailable": "The media server is not responding.",
     "sendAccountLocked": "Your account is locked.",

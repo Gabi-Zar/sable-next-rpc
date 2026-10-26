@@ -1,11 +1,13 @@
-use std::{fmt::Display, sync::atomic::Ordering};
+use std::{error::Error, fmt::Display, sync::atomic::Ordering};
 
 use matrix_sdk::authentication::oauth::error::{
     OAuthClientRegistrationError, OAuthError, RequestTokenError,
 };
 use matrix_sdk::encryption::{recovery::RecoveryError, secret_storage::SecretStorageError};
 use matrix_sdk::ruma::api::error::{ErrorKind, RetryAfter};
+use matrix_sdk::send_queue::{RoomSendQueueError, RoomSendQueueStorageError};
 use matrix_sdk::{SendOutsideWasm, SyncOutsideWasm};
+use matrix_sdk_ui::timeline::Error as TimelineError;
 use web_time::SystemTime;
 
 use crate::protocol::RpcError;
@@ -85,9 +87,36 @@ pub(crate) trait ResultExt<T> {
     fn or_failed(self, core: &Core, label: &str) -> Result<T, RpcError>;
 }
 
-impl<T, E: Display> ResultExt<T> for Result<T, E> {
+impl<T, E: Error + 'static> ResultExt<T> for Result<T, E> {
     fn or_failed(self, core: &Core, label: &str) -> Result<T, RpcError> {
-        self.map_err(|error| core.failed(label, error))
+        self.map_err(|error| {
+            let mut cause = Some(&error as &(dyn Error + 'static));
+            while let Some(error) = cause {
+                if matches!(
+                    error.downcast_ref::<RoomSendQueueStorageError>(),
+                    Some(RoomSendQueueStorageError::EventTooLarge)
+                ) || error
+                    .downcast_ref::<matrix_sdk::Error>()
+                    .and_then(matrix_sdk::Error::client_api_error_kind)
+                    == Some(&ErrorKind::TooLarge)
+                {
+                    return RpcError::MessageTooLarge;
+                }
+                // Transparent SDK wrappers omit their inner error from source().
+                cause = if let Some(TimelineError::SendQueueError(inner)) =
+                    error.downcast_ref::<TimelineError>()
+                {
+                    Some(inner)
+                } else if let Some(RoomSendQueueError::StorageError(inner)) =
+                    error.downcast_ref::<RoomSendQueueError>()
+                {
+                    Some(inner)
+                } else {
+                    error.source()
+                };
+            }
+            core.failed(label, error)
+        })
     }
 }
 
@@ -332,7 +361,7 @@ mod tests {
             })
             .finish();
         let result = tracing::subscriber::with_default(subscriber, || {
-            Err::<(), _>("problem").or_failed(&core, "test_label")
+            Err::<(), _>(io::Error::other("problem")).or_failed(&core, "test_label")
         });
 
         assert!(matches!(result, Err(RpcError::Failed { .. })));

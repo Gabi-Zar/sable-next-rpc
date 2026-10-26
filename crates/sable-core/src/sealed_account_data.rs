@@ -139,6 +139,8 @@ impl std::fmt::Display for SealError {
     }
 }
 
+impl std::error::Error for SealError {}
+
 pub(crate) fn is_sealed(content: &serde_json::Value) -> bool {
     #[derive(Deserialize)]
     struct Sealed {

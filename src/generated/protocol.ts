@@ -1286,7 +1286,7 @@ export type RpcError = { code: "not_logged_in" } | { code: "unknown_subscription
  */
 { code: "interactive_auth_required"; stages: string[] } | { code: "unknown_verification" } |
 /**  A scanned code that is not a Matrix verification code. */
-{ code: "invalid_verification_code" } | { code: "invalid_media" } |
+{ code: "invalid_verification_code" } | { code: "invalid_media" } | { code: "message_too_large" } |
 /**  A poll needs a question and between 1 and 20 answers. */
 { code: "invalid_poll" } | { code: "invalid_location" } | { code: "invalid_key_export" } | { code: "encrypted_schedule_unsupported" } | { code: "delayed_events_unsupported" } | { code: "sliding_sync_unsupported" } | { code: "account_locked" } | { code: "account_suspended" } |
 /**  MSC2545 allows `[a-zA-Z0-9-_]`, at most 100 bytes, each once per pack. */

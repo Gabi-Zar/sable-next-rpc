@@ -13,6 +13,7 @@ test.each([
   ['denied', 'composer.sendDenied', false],
   ['rate_limited', 'composer.sendRateLimited', true],
   ['invalid_media', 'composer.sendInvalidMedia', false],
+  ['message_too_large', 'composer.sendTooLarge', false],
   ['unavailable', 'composer.sendUnavailable', true],
   ['media_server_unavailable', 'composer.sendMediaServerUnavailable', true],
   ['account_locked', 'composer.sendAccountLocked', false],
