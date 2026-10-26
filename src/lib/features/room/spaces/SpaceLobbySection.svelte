@@ -518,6 +518,7 @@
   .section {
     display: grid;
     gap: var(--space-200);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .section-header {
