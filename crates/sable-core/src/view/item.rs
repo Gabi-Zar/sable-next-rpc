@@ -360,6 +360,7 @@ pub fn aggregation_item(
 }
 
 pub async fn standalone_item(
+    core: &crate::Core,
     room: &Room,
     event: TimelineEvent,
     latest: Option<TimelineEvent>,
@@ -389,7 +390,31 @@ pub async fn standalone_item(
         _ => false,
     };
     let message_profile = per_message_profile(raw.content.as_ref());
-    let member = room.get_member_no_sync(&sender).await.ok().flatten();
+    let (sender_name, sender_avatar) = match room.get_member_no_sync(&sender).await.ok().flatten() {
+        Some(member) => (
+            member
+                .display_name()
+                .and_then(visible_name)
+                .map(ToOwned::to_owned),
+            member.avatar_url().map(ToString::to_string),
+        ),
+        None => {
+            let content = core
+                .room_state_event_content(
+                    room.room_id().to_owned(),
+                    "m.room.member".to_owned(),
+                    sender.to_string(),
+                )
+                .await
+                .ok()
+                .flatten();
+            let profile = crate::member_look::member_look(content.as_ref(), None);
+            (
+                profile.display_name.and_then(visible_name),
+                profile.avatar_url,
+            )
+        }
+    };
     let original = event
         .raw()
         .deserialize_as_unchecked::<RawFields>()
@@ -426,15 +451,8 @@ pub async fn standalone_item(
         transaction_id: None,
         send_state: None,
         is_own,
-        sender_name: member.as_ref().and_then(|member| {
-            member
-                .display_name()
-                .and_then(visible_name)
-                .map(ToOwned::to_owned)
-        }),
-        sender_avatar: member
-            .as_ref()
-            .and_then(|member| member.avatar_url().map(ToString::to_string)),
+        sender_name,
+        sender_avatar,
         timestamp: timestamp.0.into(),
         mention: content_mention(&item_content, is_own, own_user_id.as_deref(), highlighted),
         in_reply_to: in_reply_to(&item_content),

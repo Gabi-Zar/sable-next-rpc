@@ -1,5 +1,5 @@
 import { createContext } from 'svelte';
-import { createSubscriber } from 'svelte/reactivity';
+import { createSubscriber, SvelteMap } from 'svelte/reactivity';
 import type { TimelineItemView, Rpc } from '#src/generated/protocol';
 
 export type EventItemCommands = Pick<Rpc['timeline'], 'eventItems'>;
@@ -20,8 +20,9 @@ class EventItemSlot {
 }
 
 export class EventItems {
-  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- each slot is its own signal
-  readonly #items = new Map<string, EventItemSlot>();
+  readonly #items = new SvelteMap<string, EventItemSlot>();
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- eviction order nothing renders from
+  readonly #recent = new Set<string>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a request queue nothing renders from
   readonly #queued = new Map<string, Set<string>>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- retry bookkeeping nothing renders from
@@ -39,20 +40,21 @@ export class EventItems {
 
   #slot(key: string): EventItemSlot {
     let slot = this.#items.get(key);
-    if (slot) {
-      this.#items.delete(key);
-    } else {
+    if (!slot) {
       slot = new EventItemSlot();
       this.#evict();
+      this.#items.set(key, slot);
     }
-    this.#items.set(key, slot);
+    this.#recent.delete(key);
+    this.#recent.add(key);
     return slot;
   }
 
   #evict(): void {
     if (this.#items.size < MAX_EVENT_ITEMS) return;
-    for (const [key, slot] of this.#items) {
-      if (slot.watched) continue;
+    for (const key of this.#recent) {
+      if (this.#items.get(key)?.watched) continue;
+      this.#recent.delete(key);
       this.#items.delete(key);
       this.#failures.delete(key);
       return;
@@ -60,9 +62,15 @@ export class EventItems {
   }
 
   get(roomId: string, eventId: string): TimelineItemView | null | undefined {
-    const slot = this.#slot(this.#key(roomId, eventId));
-    slot.watch();
-    const found = slot.value;
+    const key = this.#key(roomId, eventId);
+    const slot = this.#items.get(key);
+    if (slot) {
+      this.#recent.delete(key);
+      this.#recent.add(key);
+      slot.watch();
+    }
+    const found = slot?.value;
+    // Create slot state in the queued flush so a derived reader can track it.
     if (found === undefined) this.#request(roomId, eventId);
     return found;
   }

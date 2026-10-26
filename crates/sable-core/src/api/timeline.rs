@@ -349,7 +349,7 @@ impl Handler for ListThreadsParams {
             threads
                 .chunk
                 .into_iter()
-                .map(|event| view::standalone_item(&room, event, None, push.as_ref())),
+                .map(|event| view::standalone_item(core, &room, event, None, push.as_ref())),
         )
         .await
         .into_iter()

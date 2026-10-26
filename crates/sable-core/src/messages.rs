@@ -875,7 +875,7 @@ impl Core {
                         .ok()?,
                 };
                 let latest = latest_valid_replacement(&event, &replacements).cloned();
-                standalone_item(room, event, latest, push).await
+                standalone_item(self, room, event, latest, push).await
             }))
             .await;
             items.extend(loaded.into_iter().flatten());
@@ -2183,6 +2183,105 @@ mod tests {
         assert_eq!(body, "new rules");
         assert_eq!(html, "<em>new</em> rules");
         assert!(edited);
+    }
+
+    async fn preview_core(server: &MatrixMockServer) -> Arc<Core> {
+        let client = server.client_builder().build().await;
+        let room = room_id!("!bookmarks:example.org");
+        server.sync_joined_room(&client, room).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        let event = json!({
+            "type": "m.room.message", "event_id": "$saved", "sender": "@alice:example.org",
+            "origin_server_ts": 1, "room_id": room,
+            "content": {"msgtype": "m.text", "body": "Saved message"}
+        });
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room}/event/$saved"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(event.clone()))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!("/_matrix/client/v1/rooms/{room}/threads")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": [event]})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v1/rooms/{room}/relations/$saved/m.replace"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": []})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room}/state/m.room.member/@alice:example.org"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "membership": "join", "displayname": "Room Alice",
+                "avatar_url": "mxc://example.org/alice"
+            })))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        core(server, client).await
+    }
+
+    #[tokio::test]
+    async fn event_items_and_thread_roots_share_missing_sender_state() {
+        use crate::api::timeline::ListThreadsParams;
+
+        let server = MatrixMockServer::new().await;
+        let core = preview_core(&server).await;
+        let room = room_id!("!bookmarks:example.org");
+        let items = core
+            .event_items(&room.to_owned(), &[event_id!("$saved").to_owned()])
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].sender_name.as_deref(), Some("Room Alice"));
+        assert_eq!(
+            items[0].sender_avatar.as_deref(),
+            Some("mxc://example.org/alice")
+        );
+
+        let threads = core
+            .run(ListThreadsParams {
+                room_id: room.to_owned(),
+                from: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(threads.roots.len(), 1);
+        assert_eq!(threads.roots[0].sender_name.as_deref(), Some("Room Alice"));
+        assert_eq!(
+            threads.roots[0].sender_avatar.as_deref(),
+            Some("mxc://example.org/alice")
+        );
+    }
+
+    #[tokio::test]
+    async fn event_items_fetch_missing_sender_state_in_a_left_room() {
+        use matrix_sdk_test::LeftRoomBuilder;
+
+        let server = MatrixMockServer::new().await;
+        let core = preview_core(&server).await;
+        let room = room_id!("!bookmarks:example.org");
+        server
+            .sync_room(&core.client().await.unwrap(), LeftRoomBuilder::new(room))
+            .await;
+
+        let items = core
+            .event_items(&room.to_owned(), &[event_id!("$saved").to_owned()])
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].sender_name.as_deref(), Some("Room Alice"));
+        assert_eq!(
+            items[0].sender_avatar.as_deref(),
+            Some("mxc://example.org/alice")
+        );
     }
 
     #[tokio::test]

@@ -119,7 +119,11 @@
             </Tooltip>
           </span>
           {#snippet message()}
-            <MessagePreview roomId={bookmark.room_id} eventId={bookmark.event_id}>
+            <MessagePreview
+              roomId={bookmark.room_id}
+              eventId={bookmark.event_id}
+              loadPreviewProfile
+            >
               {#snippet loading()}
                 <Skeleton class="preview-loading" />
               {/snippet}
