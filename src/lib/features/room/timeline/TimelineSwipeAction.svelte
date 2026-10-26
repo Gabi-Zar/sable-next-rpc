@@ -1,5 +1,5 @@
 <script lang="ts">
-  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpRightIcon';
+  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
   import PencilSimpleIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
 
   interface Props {

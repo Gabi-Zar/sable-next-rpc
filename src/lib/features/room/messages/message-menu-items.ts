@@ -16,7 +16,7 @@ import MarkUnreadIcon from 'phosphor-svelte/lib/CircleDashedIcon';
 import LinkIcon from 'phosphor-svelte/lib/LinkIcon';
 import LinkBreakIcon from 'phosphor-svelte/lib/LinkBreakIcon';
 import ReceiptIcon from 'phosphor-svelte/lib/EyeIcon';
-import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpRightIcon';
+import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
 import StealIcon from 'phosphor-svelte/lib/StickerIcon';
 import ThreadIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
 import TrashIcon from 'phosphor-svelte/lib/TrashIcon';

@@ -1,6 +1,6 @@
 <script lang="ts">
   import TrashIcon from 'phosphor-svelte/lib/TrashIcon';
-  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpRightIcon';
+  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
   import type { MemberView, ReactionGroup } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';

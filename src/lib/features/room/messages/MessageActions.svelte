@@ -1,6 +1,6 @@
 <script lang="ts">
   import IconContext from 'phosphor-svelte/lib/IconContext';
-  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpRightIcon';
+  import ReplyIcon from 'phosphor-svelte/lib/ArrowBendUpLeftIcon';
   import EditIcon from 'phosphor-svelte/lib/PencilSimpleIcon';
   import MoreIcon from 'phosphor-svelte/lib/DotsThreeIcon';
   import EmojiIcon from 'phosphor-svelte/lib/SmileyIcon';
