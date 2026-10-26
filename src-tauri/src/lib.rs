@@ -1088,6 +1088,8 @@ pub fn run() {
             #[cfg(target_os = "ios")]
             ios::set_system_bars_hidden,
             #[cfg(target_os = "android")]
+            mobile::copy_image_to_clipboard,
+            #[cfg(target_os = "android")]
             mobile::haptic_feedback,
             #[cfg(target_os = "android")]
             mobile::set_status_bar_light,

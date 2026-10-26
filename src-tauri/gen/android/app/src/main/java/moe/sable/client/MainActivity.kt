@@ -1,6 +1,8 @@
 package moe.sable.client
 
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.net.ConnectivityManager
@@ -9,10 +11,13 @@ import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.util.Log
+import android.util.Base64
 import android.webkit.WebView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.Keep
 import androidx.core.content.IntentCompat
+import androidx.core.content.FileProvider
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -20,6 +25,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import java.util.concurrent.FutureTask
 import moe.sable.push.ConversationShortcuts
 import org.json.JSONArray
 import org.json.JSONObject
@@ -256,6 +262,28 @@ class MainActivity : TauriActivity() {
       val activity = instance ?: return
       activity.runOnUiThread {
         activity.window.setBackgroundDrawable(ColorDrawable(color))
+      }
+    }
+
+    @Keep
+    @JvmStatic
+    fun copyImageToClipboardNative(image: String) {
+      val activity = checkNotNull(instance) { "Activity is unavailable" }
+      val directory = File(activity.cacheDir, "clipboard").apply { mkdirs() }
+      val file = File(directory, "image.png")
+      try {
+        file.writeBytes(Base64.decode(image, Base64.NO_WRAP))
+        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+        val copy = FutureTask {
+          activity.getSystemService(ClipboardManager::class.java).setPrimaryClip(
+            ClipData.newUri(activity.contentResolver, "Image", uri)
+          )
+        }
+        activity.runOnUiThread(copy)
+        copy.get()
+      } catch (error: Exception) {
+        file.delete()
+        throw error
       }
     }
 

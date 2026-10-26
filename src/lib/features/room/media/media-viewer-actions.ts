@@ -1,4 +1,5 @@
 import { saveImageToPhotos, shareFile, type SaveOutcome } from '#lib/platform/files.js';
+import { copyImage } from '#lib/platform/clipboard.js';
 import { isAndroid, isNativeMobile } from '#lib/platform/os.js';
 import { downloadUrl } from '#lib/ui/download.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
@@ -62,7 +63,7 @@ export class MediaViewerActions {
     if (!url) return;
     try {
       const png = this.#pngBlob(await (await fetch(url)).blob());
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+      await copyImage(png);
       toasts.info(this.messages().copied);
     } catch (error) {
       console.debug('[sable viewer] copy failed', error);
