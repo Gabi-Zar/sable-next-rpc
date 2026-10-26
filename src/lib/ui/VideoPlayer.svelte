@@ -61,7 +61,6 @@
   let awaitingPlay = $derived(!started && url === null);
   let posterFailed = $state<string | null>(null);
   let unsupportedUrl = $state<string | null>(null);
-  let unsupported = $derived(url !== null && unsupportedUrl === url);
   let aspectRatio = $derived(
     typeof width === 'number' &&
       typeof height === 'number' &&
@@ -181,7 +180,7 @@
         {retryLabel}
       </Button>
     </span>
-  {:else if url && unsupported}
+  {:else if url && unsupportedUrl === url}
     <span class="media-unsupported">
       {i18n.t('timeline.videoUnsupported')}
       <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
