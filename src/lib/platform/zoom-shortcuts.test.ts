@@ -31,8 +31,8 @@ function press(key: string, init: KeyboardEventInit = { ctrlKey: true }): Keyboa
   return event;
 }
 
-function scroll(deltaY: number): WheelEvent {
-  const event = new WheelEvent('wheel', { deltaY, cancelable: true });
+function scroll(deltaY: number, deltaMode = 0): WheelEvent {
+  const event = new WheelEvent('wheel', { deltaY, deltaMode, cancelable: true });
   // happy-dom drops modifier keys from `WheelEventInit`.
   Object.defineProperty(event, 'ctrlKey', { value: true });
   window.dispatchEvent(event);
@@ -69,6 +69,14 @@ test('ctrl and the wheel zoom one step per notch', async () => {
   expect(preferences.pageZoom).toBe(1.1);
   scroll(100);
   expect(preferences.pageZoom).toBe(1);
+});
+
+test('ctrl-wheel accepts line deltas', async () => {
+  stop = trackZoomShortcuts();
+  await Promise.resolve();
+
+  scroll(-7, 1);
+  expect(preferences.pageZoom).toBe(1.1);
 });
 
 test('turned off, the keys and wheel are still kept from the webview', async () => {

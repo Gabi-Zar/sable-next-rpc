@@ -20,6 +20,7 @@
   import { cursorAnchor, type CursorAnchor } from '#lib/ui/cursor-anchor.js';
   import { mouseContextMenu } from '#lib/ui/long-press.svelte.js';
   import { pixelatedImage } from '#lib/ui/pixelated.js';
+  import { wheelZoomFactor } from '#lib/ui/wheel-zoom.js';
   import {
     AXIS_LOCK_THRESHOLD,
     SWIPE_THRESHOLD,
@@ -359,13 +360,14 @@
     if (isPdf) {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      setZoom(zoom * (1 - event.deltaY * 0.01));
+      setZoom(zoom * wheelZoomFactor(event, event.deltaY, window.innerHeight));
       return;
     }
     if (!isImage || spoilerHidden) return;
     event.preventDefault();
+    const delta = lens ? event.deltaY || event.deltaX : event.deltaY;
+    const factor = wheelZoomFactor(event, delta, window.innerHeight);
     if (lens) {
-      const factor = 1 - (event.deltaY || event.deltaX) * 0.001;
       if (event.shiftKey) {
         lensSettings.size = Math.min(
           LENS_MAX_SIZE,
@@ -379,7 +381,7 @@
       }
       return;
     }
-    zoomTowards(event, zoom * (1 - event.deltaY * 0.001));
+    zoomTowards(event, zoom * factor);
   }
 
   const DOUBLE_TAP_MS = 300;

@@ -321,7 +321,7 @@ test('clamps pointer drag panning to the zoomed overflow', async () => {
   expect(img.style.transform).toContain('translate(0px, 0px)');
 });
 
-test('holding the mouse on a fitted image shows a lens that the wheel zooms and resizes', async () => {
+test('the lens zooms and resizes with a horizontal wheel', async () => {
   stubRects(rect(800, 600), rect(800, 600));
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   const img = await openImage();
@@ -342,11 +342,11 @@ test('holding the mouse on a fitted image shows a lens that the wheel zooms and 
   await user.pointer({ target: img, coords: { clientX: 400, clientY: 300 } });
   expect(lensImage()?.style.transform).toBe('translate(-704px, -504px)');
 
-  await fireEvent.wheel(stage(), { deltaY: -100 });
+  await fireEvent.wheel(stage(), { deltaX: -100 });
   expect(lensImage()?.style.width).toBe('1760px');
   expect(img.style.transform).toContain('scale(1)');
 
-  const shiftWheel = new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true });
+  const shiftWheel = new WheelEvent('wheel', { deltaX: -100, bubbles: true, cancelable: true });
   Object.defineProperty(shiftWheel, 'shiftKey', { value: true });
   await fireEvent(stage(), shiftWheel);
   expect(parseFloat(lens()?.style.width ?? '')).toBeCloseTo(211.2);
@@ -541,4 +541,22 @@ test('closes instead of throwing when the selected media is no longer in the tim
   expect(onClose).toHaveBeenCalled();
   expect(core.fetchMedia).not.toHaveBeenCalled();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('ctrl-wheel zooms the image in noticeably and back out', async () => {
+  stubRects(rect(800, 600), rect(1600, 1200));
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  const img = await openImage();
+  const zoomIn = new WheelEvent('wheel', { deltaY: -7, bubbles: true, cancelable: true });
+  Object.defineProperty(zoomIn, 'ctrlKey', { value: true });
+
+  await fireEvent(stage(), zoomIn);
+
+  expect(Number(img.style.transform.match(/scale\(([^)]+)\)/)?.[1])).toBeGreaterThan(1.05);
+
+  const zoomOut = new WheelEvent('wheel', { deltaY: 7, bubbles: true, cancelable: true });
+  Object.defineProperty(zoomOut, 'ctrlKey', { value: true });
+  await fireEvent(stage(), zoomOut);
+
+  expect(img.style.transform).toContain('scale(1)');
 });
