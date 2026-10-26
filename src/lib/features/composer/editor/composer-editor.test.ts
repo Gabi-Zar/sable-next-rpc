@@ -1530,6 +1530,23 @@ describe('enter inside a list', () => {
   });
 });
 
+test('selecting quote text toggles a quote past its trailing paragraph', () => {
+  const editor = open();
+  editor.setText('one\ntwo');
+  const target = view(editor);
+  target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+  editor.format('blockquote');
+  target.dispatch(
+    target.state.tr.setSelection(
+      TextSelection.create(target.state.doc, 2, target.state.doc.content.size - 1)
+    )
+  );
+
+  editor.format('blockquote');
+
+  expect(target.state.doc.toString()).toBe('doc(paragraph("one", hard_break, "two"), paragraph)');
+});
+
 describe('rich formatting shortcuts', () => {
   test('bold applies a rich text mark', () => {
     const editor = open();

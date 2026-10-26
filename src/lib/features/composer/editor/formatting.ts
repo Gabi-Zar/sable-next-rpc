@@ -1,4 +1,4 @@
-import { lift, setBlockType, toggleMark } from 'prosemirror-commands';
+import { setBlockType, toggleMark } from 'prosemirror-commands';
 import { InputRule, undoInputRule } from 'prosemirror-inputrules';
 import { diffChars } from 'diff';
 import {
@@ -17,8 +17,7 @@ import {
   type EditorState,
   type Transaction,
 } from 'prosemirror-state';
-import { canJoin, findWrapping } from 'prosemirror-transform';
-import { wrapIn } from 'prosemirror-commands';
+import { canJoin, findWrapping, liftTarget } from 'prosemirror-transform';
 
 import type { ShortcutId } from '#lib/ui/shortcuts/shortcuts.js';
 
@@ -254,7 +253,7 @@ export const formattingInputRules: readonly InputRule[] = [
   ),
 ];
 
-function isInside(state: EditorState, type: NodeType): boolean {
+function isInside(state: Pick<EditorState, 'selection'>, type: NodeType): boolean {
   const { $from } = state.selection;
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     if ($from.node(depth).type === type) return true;
@@ -302,10 +301,53 @@ const codeBlockCommand: Command = (state, dispatch) => {
 
 const liftListEntry = liftListItem(nodes.list_item);
 
-function toggleWrap(type: NodeType): Command {
-  return (state, dispatch, view) =>
-    isInside(state, type) ? lift(state, dispatch, view) : wrapIn(type)(state, dispatch, view);
-}
+const blockquoteCommand: Command = (state, dispatch) => {
+  const selection = TextSelection.between(state.selection.$anchor, state.selection.$head);
+  const { $from } = selection;
+  let { $to } = selection;
+  if (!selection.empty && $to.parentOffset === 0 && !$from.sameParent($to)) {
+    $to = Selection.near(state.doc.resolve($to.before()), -1).$to;
+  }
+  if ($to.pos > $from.pos && $to.nodeBefore?.type === nodes.hard_break) {
+    $to = state.doc.resolve($to.pos - 1);
+  }
+
+  let from = $from.start();
+  let to = $to.end();
+  $from.parent.forEach((node, offset) => {
+    const pos = $from.start() + offset;
+    if (node.type === nodes.hard_break && pos < $from.pos) from = pos + node.nodeSize;
+  });
+  $to.parent.forEach((node, offset) => {
+    const pos = $to.start() + offset;
+    if (node.type === nodes.hard_break && pos >= $to.pos) to = Math.min(to, pos);
+  });
+
+  const tr = state.tr;
+  if (to < $to.end()) tr.delete(to, to + 1).split(to);
+  if (from > $from.start()) {
+    tr.delete(from - 1, from).split(from - 1);
+    from++;
+    to++;
+  }
+  const range = tr.doc.resolve(from).blockRange(tr.doc.resolve(to));
+  if (!range) return false;
+  const clamp = (pos: number) => Math.max(from, Math.min(to, pos));
+  tr.setSelection(
+    TextSelection.create(tr.doc, clamp(tr.selection.anchor), clamp(tr.selection.head))
+  );
+  if (isInside(tr, nodes.blockquote)) {
+    const target = liftTarget(range);
+    if (target === null) return false;
+    tr.lift(range, target);
+  } else {
+    const wrapping = findWrapping(range, nodes.blockquote);
+    if (!wrapping) return false;
+    tr.wrap(range, wrapping);
+  }
+  dispatch?.(tr.scrollIntoView());
+  return true;
+};
 
 function enclosingDepth(state: EditorState, type: NodeType): number | null {
   const { $from } = state.selection;
@@ -418,7 +460,6 @@ const detailsCommand = insertNode(nodes.details, () => nodes.details.createAndFi
 
 const bulletListCommand = toggleList(nodes.bullet_list);
 const orderedListCommand = toggleList(nodes.ordered_list);
-const blockquoteCommand = toggleWrap(nodes.blockquote);
 
 export const formattingKeymap: Record<string, Command> = {
   'Shift-Tab': liftListEntry,
