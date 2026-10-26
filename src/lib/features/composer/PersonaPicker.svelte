@@ -12,7 +12,7 @@
   import { page } from '$app/state';
   import MessageReproxyDialog from '#lib/features/room/messages/MessageReproxyDialog.svelte';
   import { i18n } from '#lib/i18n.js';
-  import { resolvePersona } from '#lib/personas/persona.js';
+  import { resolvePersona, type ProxyMatch } from '#lib/personas/persona.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
@@ -34,9 +34,10 @@
       current: PerMessageProfileView | null;
       onChoose: (persona: PersonaView | null) => void;
     };
+    shorthandHint?: ProxyMatch;
   }
 
-  let { roomId, onBeforeOpen, edit }: Props = $props();
+  let { roomId, onBeforeOpen, edit, shorthandHint }: Props = $props();
   const personas = usePersonaStore();
   const roomList = useRoomList();
   const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
@@ -61,13 +62,15 @@
   let selected = $derived(personas.selectionFor(scopeTarget));
   let disabled = $derived(scopeTarget !== null && personas.disabledIn(scopeTarget));
   let active = $derived(
-    resolvePersona({
-      personas: personas.personas,
-      room: personas.associationFor(roomId),
-      spaces: spaces.order.map((id) => personas.associationFor(id)),
-      account: personas.selectionFor(null) ?? undefined,
-      now: Date.now(),
-    }) ?? null
+    shorthandHint?.persona ??
+      resolvePersona({
+        personas: personas.personas,
+        room: personas.associationFor(roomId),
+        spaces: spaces.order.map((id) => personas.associationFor(id)),
+        account: personas.selectionFor(null) ?? undefined,
+        now: Date.now(),
+      }) ??
+      null
   );
   let sortedPersonas = $derived(
     preferences.personaPickerSortOrder === 'recent'
@@ -86,10 +89,14 @@
   );
   let editOpen = $state(false);
   let activeAvatarUrl = $derived(
-    !!selected && !!active && selected.alternate_avatar_id
-      ? active.alternate_avatars?.find((avatar) => avatar.id === selected.alternate_avatar_id)
-          ?.avatar_url
-      : active?.avatar_url
+    !!active && shorthandHint?.trigger.alternate_avatar_id
+      ? active.alternate_avatars?.find(
+          (avatar) => avatar.id === shorthandHint.trigger.alternate_avatar_id
+        )?.avatar_url
+      : !!selected && !!active && selected.alternate_avatar_id
+        ? active.alternate_avatars?.find((avatar) => avatar.id === selected.alternate_avatar_id)
+            ?.avatar_url
+        : active?.avatar_url
   );
 
   function handleOpenChange(next: boolean): void {

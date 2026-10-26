@@ -18,8 +18,8 @@ const persona: PersonaView = {
   color_on_light: null,
   color_on_dark: null,
   triggers: [
-    { prefix: 'k:', suffix: null, keep_trigger: false },
-    { prefix: null, suffix: '-kr', keep_trigger: true },
+    { prefix: 'k:', suffix: null, keep_trigger: false, alternate_avatar_id: null },
+    { prefix: null, suffix: '-kr', keep_trigger: true, alternate_avatar_id: null },
   ],
   pluralkit: null,
   last_used: null,

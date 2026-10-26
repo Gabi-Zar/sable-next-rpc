@@ -266,7 +266,12 @@ async function addPersonaProxy(
       ...persona,
       triggers: [
         ...persona.triggers,
-        { prefix: proxy.prefix, suffix: proxy.suffix, keep_trigger: false },
+        {
+          prefix: proxy.prefix,
+          suffix: proxy.suffix,
+          keep_trigger: false,
+          alternate_avatar_id: null,
+        },
       ],
     },
     previous_id: proxy.id,

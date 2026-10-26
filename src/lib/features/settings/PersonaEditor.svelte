@@ -293,7 +293,7 @@
           <label class="field wrap">
             <span>{i18n.t('personas.triggerAlternateAvatar')}</span>
             <span
-              style="display: flex; flex-flow: row nowrap; gap: var(--space-100); align-items: center;"
+              style=" align-items: center;display: flex; flex-flow: row nowrap; gap: var(--space-100);"
             >
               <Select
                 value={trigger.alternate_avatar_id ?? ''}
