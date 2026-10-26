@@ -620,6 +620,82 @@ class PushNotifierTest {
     }
 
     @Test
+    fun showFromPush_fetchesCallContentWhenTheGatewayOmitsIt() {
+        val room = "!call-content:example.org"
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val notification = JSONObject().put("room_id", room).put("event_id", "\$ring")
+            .put("user_id", "@alice:example.org").put("type", "m.rtc.notification")
+
+        PushNotifier.showFromPush(context, notification.toString())
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+    }
+
+    @Test
+    fun showFromPush_fetchesTheCallKeyWhenAllPreviewsAreHidden() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val room = "!private-call:example.org"
+        val payload = encryptedPush(room, "\$ring")
+        PushPolicy(context).showContent = false
+        PushPolicy(context).showEncryptedContent = false
+
+        PushNotifier.showFromPush(context, payload)
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+        assertNotNull(incoming.notification.fullScreenIntent)
+        assertTrue(incoming.notification.flags and Notification.FLAG_INSISTENT != 0)
+    }
+
+    @Test
+    fun showFromPush_fetchesTheCallKeyWhenEncryptedPreviewsAreHidden() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val room = "!private-call:example.org"
+        val payload = encryptedPush(room, "\$ring")
+        PushPolicy(context).showContent = true
+        PushPolicy(context).showEncryptedContent = false
+
+        PushNotifier.showFromPush(context, payload)
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+        assertNotNull(incoming.notification.fullScreenIntent)
+        assertTrue(incoming.notification.flags and Notification.FLAG_INSISTENT != 0)
+    }
+
+    @Test
+    fun showFromPush_fetchesTheCallKeyWhenMessagePreviewsAreHidden() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val room = "!private-call:example.org"
+        val payload = encryptedPush(room, "\$ring")
+        PushPolicy(context).showContent = false
+        PushPolicy(context).showEncryptedContent = true
+
+        PushNotifier.showFromPush(context, payload)
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+        assertNotNull(incoming.notification.fullScreenIntent)
+        assertTrue(incoming.notification.flags and Notification.FLAG_INSISTENT != 0)
+    }
+
+    @Test
     fun showFromPush_keepsTheBaselineWhileAMissingKeyIsFetched() {
         mockkObject(PushPayloadDecryptor)
         try {

@@ -127,7 +127,7 @@ object PushNotifier {
             ?.extras?.getString(GENERATION_KEY) ?: UUID.randomUUID().toString()
         val activeElsewhere = store.quietWhenActiveElsewhere && deviceId != null &&
             PushPayloadDecryptor.activeElsewhere(context, userId, deviceId, roomId)
-        if (!notification.has("type") && eventId.isNotEmpty() && deviceId != null) {
+        if ((!notification.has("type") || !notification.has("content")) && eventId.isNotEmpty() && deviceId != null) {
             when (val fetched = PushPayloadDecryptor.fetch(context, userId, deviceId, roomId, eventId)) {
                 PushDecryptResult.Discard -> {
                     PushDiagnostics.record(context, PushOutcome.DISCARDED, trace)
@@ -197,10 +197,6 @@ object PushNotifier {
         if (!quietly) {
             attachMedia(context, notification, roomId, content = null)
             PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message", generation) }
-            if (!store.showContent || !store.showEncryptedContent) {
-                PushDiagnostics.record(context, PushOutcome.HIDDEN_BY_SETTING, trace)
-                return
-            }
         }
         if (deviceId == null) return
         val (clear, outcome) = decryptedEvent(context, notification, userId, deviceId)
