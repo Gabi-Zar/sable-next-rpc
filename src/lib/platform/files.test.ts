@@ -100,6 +100,31 @@ function stubElectron(bridge: Partial<ElectronBridge>): void {
   vi.stubGlobal('sableElectron', bridge satisfies Partial<ElectronBridge>);
 }
 
+test.each([
+  ['darwin', true],
+  ['win32', false],
+  ['linux', false],
+] as const)('Electron native sharing on %s is %s', async (platform, supported) => {
+  stubElectron({ platform });
+  expect(await sharesNatively()).toBe(supported);
+});
+
+test('Electron passes file bytes to its native share bridge', async () => {
+  const share = vi.fn().mockResolvedValue(undefined);
+  stubElectron({ platform: 'darwin', shareFile: share });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))));
+
+  await expect(shareFile('blob:wave', 'wave.png')).resolves.toBe('saved');
+  expect(share).toHaveBeenCalledWith({ name: 'wave.png', bytes: new Uint8Array([1, 2, 3]) });
+  expect(mocks.shareNative).not.toHaveBeenCalled();
+});
+
+test('Electron share failures are reported as failures', async () => {
+  stubElectron({ platform: 'darwin', shareFile: vi.fn().mockRejectedValue(new Error('failed')) });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1]))));
+  await expect(shareFile('blob:wave', 'wave.png')).resolves.toBe('failed');
+});
+
 test('the web build keeps the browser download, having no native dialog', () => {
   expect(savesNatively()).toBe(false);
 });

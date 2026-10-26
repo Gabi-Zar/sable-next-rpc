@@ -41,6 +41,7 @@ export interface ElectronBridge {
   unmuteScreenAudio(): Promise<void>;
   pickFiles(request: PickFilesRequest): Promise<PickedFile[] | null>;
   saveFile(request: SaveFileRequest): Promise<{ path: string } | null>;
+  shareFile(request: PickedFile): Promise<void>;
   checkForUpdate(): Promise<{ version: string; notes: string | undefined } | null>;
   downloadUpdate(onProgress: (percent: number) => void): Promise<void>;
   installUpdate(): Promise<void>;

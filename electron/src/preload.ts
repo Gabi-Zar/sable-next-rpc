@@ -105,6 +105,8 @@ contextBridge.exposeInMainWorld('sableElectron', {
     ipcRenderer.invoke('sable-pick-files', request) as Promise<PickedFile[] | null>,
   saveFile: (request: SaveFileRequest) =>
     ipcRenderer.invoke('sable-save-file', request) as Promise<{ path: string } | null>,
+  shareFile: (request: PickedFile) =>
+    ipcRenderer.invoke('sable-share-file', request) as Promise<void>,
   checkForUpdate: () =>
     ipcRenderer.invoke('sable-update-check') as Promise<{
       version: string;

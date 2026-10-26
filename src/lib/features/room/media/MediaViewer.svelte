@@ -27,6 +27,7 @@
     VELOCITY_THRESHOLD,
   } from '#lib/ui/swipe-gesture.js';
   import { savesNatively, sharesNatively, supportsPhotoLibrary } from '#lib/platform/files.js';
+  import { isElectron } from '#lib/platform/electron.js';
   import { setSystemBarsHidden } from '#lib/platform/system-bars.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
@@ -739,6 +740,13 @@
                 onclick={(event) => {
                   void mediaActions.share(event.currentTarget, nativeShare);
                 }}><ShareNetworkIcon /></IconButton
+              >
+            {:else if isElectron() && isImage}
+              <IconButton
+                label={i18n.t('viewer.copyImage')}
+                size="medium"
+                variant="ghost"
+                onclick={() => void mediaActions.copyImage()}><CopyIcon /></IconButton
               >
             {/if}
             <IconButton

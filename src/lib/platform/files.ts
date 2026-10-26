@@ -152,6 +152,8 @@ export async function saveImageToPhotos(
 }
 
 export async function sharesNatively(): Promise<boolean> {
+  const electron = electronBridge();
+  if (electron) return electron.platform === 'darwin';
   if (!isTauri()) return false;
   const { type } = await import('@tauri-apps/plugin-os');
   const os = type();
@@ -167,6 +169,11 @@ export async function shareFile(
   try {
     const name = filename.split(/[\\/]/).pop() || 'attachment';
     const bytes = new Uint8Array(await (await fetch(url)).arrayBuffer());
+    const electron = electronBridge();
+    if (electron) {
+      await electron.shareFile({ name, bytes });
+      return 'saved';
+    }
     const [
       { type },
       { appCacheDir, join },
