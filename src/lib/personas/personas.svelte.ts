@@ -1,16 +1,28 @@
 import { createContext } from 'svelte';
 
-import type { PersonaSelectionView, PersonaView } from '#src/generated/protocol';
+import type {
+  PersonaCatalogView,
+  PersonaSelectionView,
+  PersonaView,
+} from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
 import { reorderPersonas, type PersonaAssociation } from './persona.js';
 
 export class PersonaStore {
-  personas = $state.raw<PersonaView[]>([]);
-  account = $state<PersonaSelectionView | null>(null);
-  rooms = $state<Record<string, PersonaSelectionView>>({});
-  disabledRooms = $state.raw<string[]>([]);
+  private catalog = $state.raw<PersonaCatalogView>({
+    personas: [],
+    account: null,
+    rooms: {},
+    disabled_rooms: [],
+  });
+
+  readonly personas = $derived(this.catalog.personas);
+  readonly account = $derived(this.catalog.account);
+  readonly rooms = $derived(this.catalog.rooms);
+  readonly disabledRooms = $derived(this.catalog.disabled_rooms);
+
   loading = $state(false);
   error = $state<string | null>(null);
 
@@ -29,10 +41,7 @@ export class PersonaStore {
 
   private reset(): void {
     this.revision = this.core.accountRevision;
-    this.personas = [];
-    this.account = null;
-    this.rooms = {};
-    this.disabledRooms = [];
+    this.catalog = { personas: [], account: null, rooms: {}, disabled_rooms: [] };
     this.error = null;
     this.loaded = false;
     this.inFlight = null;
@@ -40,18 +49,16 @@ export class PersonaStore {
 
   private async fetch(): Promise<void> {
     const revision = this.revision;
+    const previous = this.catalog;
     this.loading = true;
     try {
       const catalog = await this.core.rpc.personas.list();
-      if (revision !== this.revision) return;
-      this.personas = catalog.personas;
-      this.account = catalog.account;
-      this.rooms = catalog.rooms;
-      this.disabledRooms = catalog.disabled_rooms;
+      if (revision !== this.revision || previous !== this.catalog) return;
+      this.catalog = catalog;
       this.loaded = true;
       this.error = null;
     } catch (cause) {
-      if (revision !== this.revision) return;
+      if (revision !== this.revision || previous !== this.catalog) return;
       console.warn('[sable personas] loading the catalog failed', cause);
       this.error = 'personas.loadFailed';
     } finally {
@@ -63,15 +70,17 @@ export class PersonaStore {
   }
 
   async save(persona: PersonaView, previousId: string | null = null): Promise<void> {
-    this.personas = await this.core.rpc.personas.save({
+    const personas = await this.core.rpc.personas.save({
       persona: $state.snapshot(persona),
       previous_id: previousId,
     });
+    this.catalog = { ...this.catalog, personas };
     if (previousId !== null && previousId !== persona.id) this.repoint(previousId, persona.id);
   }
 
   async remove(id: string): Promise<void> {
-    this.personas = await this.core.rpc.personas.remove({ id });
+    const personas = await this.core.rpc.personas.remove({ id });
+    this.catalog = { ...this.catalog, personas };
     this.repoint(id, null);
   }
 
@@ -82,7 +91,8 @@ export class PersonaStore {
   async reorder(from: number, to: number): Promise<void> {
     if (to < 0 || to >= this.personas.length || from === to) return;
     const ids = reorderPersonas(this.personas, from, to).map((persona) => persona.id);
-    this.personas = await this.core.rpc.personas.reorder({ ids });
+    const personas = await this.core.rpc.personas.reorder({ ids });
+    this.catalog = { ...this.catalog, personas };
   }
 
   selectionFor(roomId: string | null): PersonaSelectionView | null {
@@ -99,8 +109,13 @@ export class PersonaStore {
 
   async disable(roomId: string): Promise<void> {
     await this.core.rpc.personas.disableRoom({ room_id: roomId });
-    this.rooms = Object.fromEntries(Object.entries(this.rooms).filter(([key]) => key !== roomId));
-    if (!this.disabledIn(roomId)) this.disabledRooms = [...this.disabledRooms, roomId];
+    this.catalog = {
+      ...this.catalog,
+      rooms: Object.fromEntries(Object.entries(this.rooms).filter(([key]) => key !== roomId)),
+      disabled_rooms: this.disabledIn(roomId)
+        ? this.disabledRooms
+        : [...this.disabledRooms, roomId],
+    };
   }
 
   async select(
@@ -125,25 +140,31 @@ export class PersonaStore {
           };
 
     if (roomId === null) {
-      this.account = selection;
+      this.catalog = { ...this.catalog, account: selection };
       return;
     }
-    this.disabledRooms = this.disabledRooms.filter((key) => key !== roomId);
     const rest = Object.fromEntries(Object.entries(this.rooms).filter(([key]) => key !== roomId));
-    this.rooms = selection === null ? rest : { ...rest, [roomId]: selection };
+    this.catalog = {
+      ...this.catalog,
+      disabled_rooms: this.disabledRooms.filter((key) => key !== roomId),
+      rooms: selection === null ? rest : { ...rest, [roomId]: selection },
+    };
   }
 
   private repoint(from: string, to: string | null): void {
-    if (this.account?.persona_id === from) {
-      this.account = to === null ? null : { ...this.account, persona_id: to };
-    }
-
-    this.rooms = Object.fromEntries(
+    const account =
+      this.account?.persona_id === from
+        ? to === null
+          ? null
+          : { ...this.account, persona_id: to }
+        : this.account;
+    const rooms = Object.fromEntries(
       Object.entries(this.rooms).flatMap(([roomId, selection]) => {
         if (selection.persona_id !== from) return [[roomId, selection]];
         return to === null ? [] : [[roomId, { ...selection, persona_id: to }]];
       })
     );
+    this.catalog = { ...this.catalog, account, rooms };
   }
 }
 

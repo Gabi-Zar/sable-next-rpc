@@ -978,6 +978,7 @@ impl Core {
     }
 
     pub(crate) async fn restore_persona_backup(&self, backup: &str) -> Result<(), RpcError> {
+        let _guard = self.account_data_lock.lock().await;
         let catalog = catalog_from_backup(backup).ok_or(RpcError::InvalidBackup)?;
         self.put_global_account_data(
             GlobalAccountDataEventType::from(CATALOG_V3),
@@ -1021,6 +1022,7 @@ impl Core {
     }
 
     pub(crate) async fn personas(&self) -> Result<PersonaCatalogView, RpcError> {
+        let _guard = self.account_data_lock.lock().await;
         let mut rooms = BTreeMap::new();
         let mut disabled_rooms = Vec::new();
         for (room_id, association) in self.room_selections().await? {

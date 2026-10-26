@@ -55,6 +55,137 @@ async fn core_with_events(
     (core, events)
 }
 
+async fn persona_core(server: &MatrixMockServer, response: ResponseTemplate) -> Arc<Core> {
+    let client = server.client_builder().build().await;
+    let catalog_type = "fi.mau.msc4461.per_message_profiles.v3";
+    server
+        .mock_sync()
+        .ok_and_run(&client, |builder| {
+            builder.add_custom_global_account_data(json!({
+                "type": catalog_type,
+                "content": { "profiles": [{ "id": "stale", "displayname": "Stale" }] }
+            }));
+        })
+        .await;
+    Mock::given(method("GET"))
+        .and(path_regex(format!(
+            "/_matrix/client/v3/user/.*/account_data/{catalog_type}"
+        )))
+        .respond_with(response)
+        .mount(server.server())
+        .await;
+    Mock::given(method("GET"))
+        .and(path_regex(
+            "/_matrix/client/v3/user/.*/account_data/fyi.cisnt.permessageprofile.*",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(server.server())
+        .await;
+    core(server, client).await
+}
+
+#[tokio::test]
+async fn persona_save_preserves_the_server_catalog_before_sync() {
+    use crate::api::personas::SaveParams;
+
+    let server = MatrixMockServer::new().await;
+    let core = persona_core(
+        &server,
+        ResponseTemplate::new(200).set_body_json(json!({
+            "profiles": [{ "id": "remote", "displayname": "Remote" }]
+        })),
+    )
+    .await;
+    Mock::given(method("PUT"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let params = serde_json::from_value::<SaveParams>(json!({
+        "persona": { "id": "new", "display_name": "New", "pronouns": [], "triggers": [] }
+    }))
+    .unwrap();
+    let saved = core.run(params).await.unwrap();
+    assert_eq!(saved.len(), 2);
+    assert_eq!(saved[0].id, "remote");
+    assert_eq!(saved[1].id, "new");
+    let requests = server.server().received_requests().await.unwrap();
+    let write = requests
+        .iter()
+        .find(|request| request.method == "PUT")
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&write.body).unwrap();
+    assert_eq!(body["profiles"][0]["id"], "remote");
+    assert_eq!(body["profiles"][1]["id"], "new");
+}
+
+#[tokio::test]
+async fn persona_remove_and_reorder_read_the_server_catalog() {
+    use crate::api::personas::{RemoveParams, ReorderParams};
+
+    let server = MatrixMockServer::new().await;
+    let core = persona_core(&server, ResponseTemplate::new(200).set_body_json(json!({
+        "profiles": [{ "id": "remote", "displayname": "Remote" }, { "id": "removed", "displayname": "Removed" }]
+    }))).await;
+    Mock::given(method("PUT"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(2)
+        .mount(server.server())
+        .await;
+
+    let removed = core
+        .run(RemoveParams {
+            id: "removed".to_owned(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(removed.len(), 1);
+    assert_eq!(removed[0].id, "remote");
+    let reordered = core
+        .run(ReorderParams {
+            ids: vec!["removed".to_owned()],
+        })
+        .await
+        .unwrap();
+    assert_eq!(reordered.len(), 2);
+    assert_eq!(reordered[0].id, "removed");
+    assert_eq!(reordered[1].id, "remote");
+}
+
+#[tokio::test]
+async fn persona_mutations_do_not_write_when_the_catalog_read_fails() {
+    use crate::api::personas::{RemoveParams, ReorderParams};
+
+    let server = MatrixMockServer::new().await;
+    let core = persona_core(
+        &server,
+        ResponseTemplate::new(403).set_body_json(json!({
+            "errcode": "M_FORBIDDEN", "error": "Cannot read catalog"
+        })),
+    )
+    .await;
+    Mock::given(method("PUT"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(0)
+        .mount(server.server())
+        .await;
+
+    assert!(
+        core.run(RemoveParams {
+            id: "stale".to_owned()
+        })
+        .await
+        .is_err()
+    );
+    assert!(
+        core.run(ReorderParams {
+            ids: vec!["stale".to_owned()]
+        })
+        .await
+        .is_err()
+    );
+}
+
 #[tokio::test]
 async fn room_list_keeps_joined_rooms_redirected_to_a_joined_successor() {
     let server = MatrixMockServer::new().await;
