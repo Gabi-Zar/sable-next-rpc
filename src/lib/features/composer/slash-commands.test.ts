@@ -676,7 +676,7 @@ test('/pmpproxy appends a persona trigger', async () => {
   expect(rpc.personas.save).toHaveBeenCalledWith({
     persona: expect.objectContaining({
       id: 'alt',
-      triggers: [{ prefix: '✨:', suffix: null, keep_trigger: false }],
+      triggers: [{ prefix: '✨:', suffix: null, keep_trigger: false, alternate_avatar_id: null }],
     }) as unknown,
     previous_id: 'alt',
   });

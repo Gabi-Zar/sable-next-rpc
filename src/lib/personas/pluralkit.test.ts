@@ -73,7 +73,9 @@ describe('personaFromPluralkit', () => {
     ]);
     expect(persona.color_on_light).toBe('#7f5af0');
     expect(persona.color_on_dark).toBe('#7f5af0');
-    expect(persona.triggers).toEqual([{ prefix: 'k:', suffix: null, keep_trigger: false }]);
+    expect(persona.triggers).toEqual([
+      { prefix: 'k:', suffix: null, keep_trigger: false, alternate_avatar_id: null },
+    ]);
     expect(persona.pluralkit?.avatar_url).toBe('https://cdn.pluralkit.me/kris.png');
   });
 
@@ -119,7 +121,9 @@ describe('pluralkitPronounExtraction', () => {
     expect(persona.pronouns).toEqual([{ summary: 'they/she', language: null }]);
     expect(persona.color_on_light).toBe('#7f5af0');
     expect(persona.color_on_dark).toBe('#7f5af0');
-    expect(persona.triggers).toEqual([{ prefix: 'k:', suffix: null, keep_trigger: false }]);
+    expect(persona.triggers).toEqual([
+      { prefix: 'k:', suffix: null, keep_trigger: false, alternate_avatar_id: null },
+    ]);
     expect(persona.pluralkit?.avatar_url).toBe('https://cdn.pluralkit.me/kris.png');
   });
 
@@ -150,7 +154,9 @@ describe('pluralkitPronounExtraction', () => {
     expect(persona.pronouns).toEqual([{ summary: 'they/she', language: null }]);
     expect(persona.color_on_light).toBe('#7f5af0');
     expect(persona.color_on_dark).toBe('#7f5af0');
-    expect(persona.triggers).toEqual([{ prefix: 'k:', suffix: null, keep_trigger: false }]);
+    expect(persona.triggers).toEqual([
+      { prefix: 'k:', suffix: null, keep_trigger: false, alternate_avatar_id: null },
+    ]);
     expect(persona.pluralkit?.avatar_url).toBe('https://cdn.pluralkit.me/kris.png');
   });
 
@@ -167,7 +173,9 @@ describe('pluralkitPronounExtraction', () => {
     expect(persona.pronouns).toEqual([]);
     expect(persona.color_on_light).toBe('#7f5af0');
     expect(persona.color_on_dark).toBe('#7f5af0');
-    expect(persona.triggers).toEqual([{ prefix: 'k:', suffix: null, keep_trigger: false }]);
+    expect(persona.triggers).toEqual([
+      { prefix: 'k:', suffix: null, keep_trigger: false, alternate_avatar_id: null },
+    ]);
     expect(persona.pluralkit?.avatar_url).toBe('https://cdn.pluralkit.me/kris.png');
   });
 });
