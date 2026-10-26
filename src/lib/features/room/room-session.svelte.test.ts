@@ -145,6 +145,22 @@ test('widget removal cannot populate the next room with the previous room widget
   expect(session.widgets).toEqual([]);
 });
 
+test('a tombstoned room resolves its archive message without a replacement room', async () => {
+  const { roomState, session } = fixture();
+  roomState.event.mockResolvedValueOnce({ body: 'This room has been archived.' });
+  session.sync('!archived', true, 0);
+  await settle();
+
+  expect(roomState.event).toHaveBeenCalledWith({
+    room_id: '!archived',
+    event_type: 'm.room.tombstone',
+    state_key: '',
+  });
+  expect(session.tombstoneChecked).toBe(true);
+  expect(session.tombstoneReplacementId).toBeNull();
+  expect(session.tombstoneBody).toBe('This room has been archived.');
+});
+
 test('tombstone completion and member settings are cancelled on room change', async () => {
   const { roomState, session } = fixture();
   const tombstone = deferred<unknown>();

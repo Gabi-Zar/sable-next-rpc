@@ -1079,7 +1079,15 @@ impl Core {
         self.watch_cosmetics(&client, generation);
         self.watch_profile_changes(&client, generation);
         self.watch_redactions(&client);
-        self.track_session_handler(&client, crate::rooms::repair_unreadable_tombstones(&client));
+        let repair_client = client.clone();
+        self.track_session_task(
+            spawn(async move {
+                if let Err(error) = crate::rooms::migrate_saved_tombstones(&repair_client).await {
+                    tracing::warn!("could not migrate saved tombstones: {error}");
+                }
+            })
+            .abort_on_drop(),
+        );
         self.watch_bot_commands(&client, generation);
         self.watch_image_packs(&client, generation);
         self.watch_joined_invites(&client);
