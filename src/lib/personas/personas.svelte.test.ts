@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 
-import type { PersonaCatalogView, PersonaView } from '#src/generated/protocol';
+import type { CoreEvent, PersonaCatalogView, PersonaView } from '#src/generated/protocol';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
@@ -26,6 +26,7 @@ function catalog(personas: PersonaView[] = []): PersonaCatalogView {
 }
 
 function setup() {
+  const listeners = new Set<(event: CoreEvent) => void>();
   const rpc = {
     list: vi.fn().mockResolvedValue(catalog()),
     save: vi.fn(),
@@ -34,9 +35,36 @@ function setup() {
     disableRoom: vi.fn().mockResolvedValue(undefined),
     setSelection: vi.fn().mockResolvedValue(undefined),
   };
-  const core = { accountRevision: 0, rpc: { personas: rpc } };
-  return { rpc, store: new PersonaStore(core as unknown as CoreClient) };
+  const core = {
+    accountRevision: 0,
+    rpc: { personas: rpc },
+    subscribeEvents: (listener: (event: CoreEvent) => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+  return {
+    rpc,
+    store: new PersonaStore(core as unknown as CoreClient),
+    emit: (event: CoreEvent) => {
+      for (const listener of listeners) listener(event);
+    },
+  };
 }
+
+test('refreshes the catalog after a remote persona change', async () => {
+  const { rpc, store, emit } = setup();
+  await store.load();
+  const changed = persona('changed');
+  changed.avatar_url = 'mxc://example.org/avatar';
+  rpc.list.mockResolvedValueOnce(catalog([changed]));
+
+  emit({ type: 'personas_changed' });
+
+  await vi.waitFor(() => {
+    expect(store.personas).toEqual([changed]);
+  });
+});
 
 test('a delayed catalog cannot overwrite a save or selection', async () => {
   const { rpc, store } = setup();

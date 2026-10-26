@@ -57,6 +57,21 @@ async fn core_with_events(
     (core, events)
 }
 
+fn persona_json(id: &str, display_name: &str, avatar_url: Option<&str>) -> serde_json::Value {
+    json!({
+        "id": id,
+        "display_name": display_name,
+        "avatar_url": avatar_url,
+        "pronouns": [],
+        "color_on_light": null,
+        "color_on_dark": null,
+        "triggers": [],
+        "pluralkit": null,
+        "last_used": null,
+        "alternate_avatars": null
+    })
+}
+
 async fn persona_core(server: &MatrixMockServer, response: ResponseTemplate) -> Arc<Core> {
     let client = server.client_builder().build().await;
     let catalog_type = "fi.mau.msc4461.per_message_profiles.v3";
@@ -104,7 +119,8 @@ async fn persona_save_preserves_the_server_catalog_before_sync() {
         .mount(server.server())
         .await;
     let params = serde_json::from_value::<SaveParams>(json!({
-        "persona": { "id": "new", "display_name": "New", "pronouns": [], "triggers": [] }
+        "persona": persona_json("new", "New", None),
+        "base_persona": persona_json("new", "New", None)
     }))
     .unwrap();
     let saved = core.run(params).await.unwrap();
@@ -119,6 +135,44 @@ async fn persona_save_preserves_the_server_catalog_before_sync() {
     let body: serde_json::Value = serde_json::from_slice(&write.body).unwrap();
     assert_eq!(body["profiles"][0]["id"], "remote");
     assert_eq!(body["profiles"][1]["id"], "new");
+}
+
+#[tokio::test]
+async fn persona_save_merges_a_stale_edit_with_the_server_persona() {
+    use crate::api::personas::SaveParams;
+
+    let server = MatrixMockServer::new().await;
+    let core = persona_core(
+        &server,
+        ResponseTemplate::new(200).set_body_json(json!({
+            "profiles": [{
+                "id": "kris",
+                "displayname": "Kris",
+                "avatar_url": "mxc://example.org/new"
+            }]
+        })),
+    )
+    .await;
+    Mock::given(method("PUT"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(server.server())
+        .await;
+
+    let params = serde_json::from_value::<SaveParams>(json!({
+        "persona": persona_json("kris", "Kris Renamed", Some("mxc://example.org/old")),
+        "base_persona": persona_json("kris", "Kris", Some("mxc://example.org/old")),
+        "previous_id": "kris"
+    }))
+    .unwrap();
+
+    let saved = core.run(params).await.unwrap();
+
+    assert_eq!(saved[0].display_name, "Kris Renamed");
+    assert_eq!(
+        saved[0].avatar_url.as_deref(),
+        Some("mxc://example.org/new")
+    );
 }
 
 #[tokio::test]

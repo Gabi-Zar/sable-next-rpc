@@ -29,8 +29,9 @@ export function outgoingPersona(
         console.warn('[sable personas] latching failed', error);
       });
   }
+  const basePersona = { ...persona };
   persona.last_used = Date.now();
-  personas.save(persona, persona.id).catch((error: unknown) => {
+  personas.save(persona, persona.id, basePersona).catch((error: unknown) => {
     console.warn('[sable personas] updating timestamp failed', error);
   });
 

@@ -279,6 +279,8 @@ pub enum CoreEvent {
         event_type: String,
     },
 
+    PersonasChanged,
+
     SpaceSidebarChanged {
         items: Vec<SidebarItemView>,
     },

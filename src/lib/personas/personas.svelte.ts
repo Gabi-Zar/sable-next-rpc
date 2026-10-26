@@ -1,6 +1,7 @@
 import { createContext } from 'svelte';
 
 import type {
+  CoreEvent,
   PersonaCatalogView,
   PersonaSelectionView,
   PersonaView,
@@ -28,9 +29,20 @@ export class PersonaStore {
 
   private loaded = false;
   private inFlight: Promise<void> | null = null;
+  private refreshAfterFlight = false;
   private revision: number | null = null;
 
-  constructor(private readonly core: CoreClient) {}
+  constructor(private readonly core: CoreClient) {
+    this.core.subscribeEvents((event: CoreEvent) => {
+      if (event.type !== 'personas_changed') return;
+
+      if (this.inFlight !== null) {
+        this.refreshAfterFlight = true;
+        return;
+      }
+      void this.load(true);
+    });
+  }
 
   async load(force = false): Promise<void> {
     if (this.revision !== this.core.accountRevision) this.reset();
@@ -45,6 +57,7 @@ export class PersonaStore {
     this.error = null;
     this.loaded = false;
     this.inFlight = null;
+    this.refreshAfterFlight = false;
   }
 
   private async fetch(): Promise<void> {
@@ -65,13 +78,25 @@ export class PersonaStore {
       if (revision === this.revision) {
         this.loading = false;
         this.inFlight = null;
+        if (this.refreshAfterFlight) {
+          this.refreshAfterFlight = false;
+          void this.load(true);
+        }
       }
     }
   }
 
-  async save(persona: PersonaView, previousId: string | null = null): Promise<void> {
+  async save(
+    persona: PersonaView,
+    previousId: string | null = null,
+    basePersona: PersonaView | null = null
+  ): Promise<void> {
+    const replaced = previousId ?? persona.id;
+    const base =
+      basePersona ?? this.personas.find((existing) => existing.id === replaced) ?? persona;
     const personas = await this.core.rpc.personas.save({
       persona: $state.snapshot(persona),
+      base_persona: $state.snapshot(base),
       previous_id: previousId,
     });
     this.catalog = { ...this.catalog, personas };

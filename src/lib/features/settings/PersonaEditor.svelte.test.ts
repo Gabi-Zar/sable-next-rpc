@@ -46,7 +46,8 @@ test('removing a trigger keeps the remaining rows and saves them unchanged', asy
     expect.objectContaining({
       triggers: [{ prefix: null, suffix: '-kr', keep_trigger: true, alternate_avatar_id: null }],
     }),
-    'kris'
+    'kris',
+    persona
   );
 });
 
@@ -70,6 +71,7 @@ test('spaces inside a trigger survive saving while the outer edges are trimmed',
         { prefix: null, suffix: ' -kr', keep_trigger: true, alternate_avatar_id: null },
       ],
     }),
-    'kris'
+    'kris',
+    persona
   );
 });

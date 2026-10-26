@@ -31,7 +31,11 @@
   interface Props {
     open?: boolean;
     persona: PersonaView | null;
-    onSave: (persona: PersonaView, previousId: string | null) => Promise<void>;
+    onSave: (
+      persona: PersonaView,
+      previousId: string | null,
+      basePersona: PersonaView | null
+    ) => Promise<void>;
     onOpenChange: (open: boolean) => void;
   }
 
@@ -166,7 +170,8 @@
           pluralkit: persona?.pluralkit ?? null,
           last_used: persona?.last_used ?? null,
         },
-        persona?.id ?? null
+        persona?.id ?? null,
+        persona
       );
       onOpenChange(false);
     } catch (cause) {
