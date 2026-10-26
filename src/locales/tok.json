@@ -157,7 +157,8 @@
   },
   "personas": {
     "pickerOffGlobal": "ala",
-    "sortNameRecentlyUsed": "tenpo poka"
+    "sortNameRecentlyUsed": "tenpo poka",
+    "scopeSpace": "kulupu ni"
   },
   "composer": {
     "colorRemove": "o weka e kule",
