@@ -466,7 +466,7 @@ describe('typed Markdown', () => {
     ['__bold__', '<strong>bold</strong>'],
     ['**a*b**', '<strong>a*b</strong>'],
     ['**a *b* c**', '<strong>a <em>b</em> c</strong>'],
-    ['**a `b` c**', '<strong>a </strong><code>b</code><strong> c</strong>'],
+    ['**a `b` c**', '<strong>a <code>b</code> c</strong>'],
     ['`a` **b**', '<code>a</code> <strong>b</strong>'],
     ['**💜a*b**', '<strong>💜a*b</strong>'],
     ['[label](https://example.org)', '<a href="https://example.org">label</a>'],
@@ -503,12 +503,12 @@ describe('typed Markdown', () => {
     expect(serializeComposer(editor.state.doc).formatted).toBeNull();
   });
 
-  test('inline code preserves stored formatting', () => {
+  test('inline code keeps stored formatting', () => {
     const editor = open();
     editor.dispatch(editor.state.tr.addStoredMark(composerSchema.marks.strong.create()));
     type('`code` next');
     expect(serializeComposer(editor.state.doc).formatted).toBe(
-      '<code>code</code><strong> next</strong>'
+      '<strong><code>code</code> next</strong>'
     );
   });
 

@@ -137,7 +137,7 @@ test('typed Markdown handles formatting and literal delimiters', async () => {
     ['[label](https://example.org)', '<a href="https://example.org">label</a>'],
     ['``code ` tick`` next', '<code>code ` tick</code> next'],
     ['`code``', '`code``'],
-    ['**a `b` c** next', '<strong>a </strong><code>b</code><strong> c</strong> next'],
+    ['**a `b` c** next', '<strong>a <code>b</code> c</strong> next'],
   ]) {
     const { screen, composer, firstParagraph } = await mount(true);
     await userEvent.click(composer);

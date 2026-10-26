@@ -121,10 +121,10 @@ test('inline code on part of a word', () => {
   expect(tx(model)).toBe('<p>w<code>{or}|</code>d</p>');
 });
 
-test('inline code excludes other marks', () => {
+test('inline code keeps the surrounding marks', () => {
   const model = cm('<p><strong>w{or}|d</strong></p>');
   inlineCode(model);
-  expect(tx(model)).toBe('<p><strong>w</strong><code>{or}|</code><strong>d</strong></p>');
+  expect(tx(model)).toBe('<p><strong>w<code>{or}|</code>d</strong></p>');
 });
 
 test('a mark survives a soft line break', () => {
