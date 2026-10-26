@@ -18,6 +18,7 @@
 </script>
 
 <AppPageShell
+  maxWidth="100%"
   title={i18n.t(category.name)}
   description={category.description ? i18n.t(category.description) : undefined}
   density="compact"
@@ -51,7 +52,6 @@
 
 <style>
   :global(.settings-scroll .app-page-shell.settings-category) {
-    max-width: none;
     overflow: visible;
   }
 

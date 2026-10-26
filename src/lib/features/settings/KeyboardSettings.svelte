@@ -61,7 +61,12 @@
   }
 </script>
 
-<AppPageShell title={i18n.t('settings.keyboard')} density="compact" class="keyboard-settings-page">
+<AppPageShell
+  maxWidth="56rem"
+  title={i18n.t('settings.keyboard')}
+  density="compact"
+  class="keyboard-settings-page"
+>
   <div class="keyboard-settings">
     {#if rejected}
       <Alert variant="warning">{i18n.t('shortcuts.conflict', { name: rejected })}</Alert>
@@ -133,10 +138,6 @@
 </AppPageShell>
 
 <style>
-  :global(.app-page-shell.keyboard-settings-page) {
-    max-width: 56rem;
-  }
-
   .keyboard-settings {
     display: grid;
     gap: var(--space-400);

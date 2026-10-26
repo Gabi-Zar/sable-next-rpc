@@ -61,7 +61,12 @@
   }
 </script>
 
-<AppPageShell title={i18n.t('settings.account')} density="compact" class="account-settings">
+<AppPageShell
+  maxWidth="40rem"
+  title={i18n.t('settings.account')}
+  density="compact"
+  class="account-settings"
+>
   <div class="settings-stack">
     {#if error}<Alert variant="critical" aria-live="polite">{error}</Alert>{/if}
     {#if loading}
@@ -78,7 +83,6 @@
 
 <style>
   :global(main.app-page-shell.account-settings) {
-    max-width: 40rem;
     overflow: clip;
   }
 

@@ -13,6 +13,7 @@
     actions?: Snippet;
     children?: Snippet;
     density?: 'default' | 'compact';
+    maxWidth?: string;
   };
 
   const uid = $props.id();
@@ -25,6 +26,7 @@
     actions,
     children,
     density = 'default',
+    maxWidth,
   }: Props = $props();
 
   const pageMeta = hasPageMeta() ? usePageMeta() : null;
@@ -36,7 +38,10 @@
 
 <PageTitle title={`${title} - Sable`} />
 
-<main class={['app-page-shell', `app-page-shell-${density}`, className]}>
+<main
+  class={['app-page-shell', `app-page-shell-${density}`, className]}
+  style:--page-max-width={maxWidth}
+>
   <header class="app-page-header">
     <div>
       {#if eyebrow}<p class="app-page-eyebrow">{eyebrow}</p>{/if}
@@ -56,10 +61,14 @@
   }
 
   .app-page-shell {
-    margin: 0 auto;
-    max-width: 52rem;
+    --page-padding: var(--space-400);
+
     overflow: auto;
-    padding: var(--space-400);
+    padding: var(--page-padding);
+    padding-inline: max(
+      var(--page-padding),
+      calc((100% - var(--page-max-width)) / 2 + var(--page-padding))
+    );
     width: 100%;
   }
 
@@ -118,7 +127,7 @@
     }
 
     .app-page-shell {
-      padding: var(--space-500);
+      --page-padding: var(--space-500);
     }
   }
 </style>

@@ -70,7 +70,7 @@
     action,
   }: Props = $props();
 
-  let size = $derived<'small' | 'medium'>(compact ? 'small' : 'medium');
+  let size = $derived<'small' | 'large'>(compact ? 'small' : 'large');
   let neutral = $derived<'ghost' | 'secondary'>(compact ? 'ghost' : 'secondary');
   let devices = $derived(compact ? undefined : onSwitchDevice);
   const selectable = supportsDeviceSelection();
@@ -352,7 +352,6 @@
   }
 
   .controls:not(.compact) :global(.icon-button:not(.device-caret)) {
-    --button-height: var(--control-height-500);
     --button-icon-size: var(--size-x400);
   }
 
@@ -394,7 +393,7 @@
 
   .controls:not(.compact) .group :global(.btn) {
     --button-height: calc(
-      var(--control-height-500) - var(--space-050) * 2 - var(--border-width) * 2
+      var(--control-height-large) - var(--space-050) * 2 - var(--border-width) * 2
     );
 
     border-radius: max(0px, calc(var(--radius-outer) - var(--radius-padding)));
