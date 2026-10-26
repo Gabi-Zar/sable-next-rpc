@@ -424,23 +424,24 @@ export const formattingKeymap: Record<string, Command> = {
   'Shift-Tab': liftListEntry,
 };
 
-export const formattingShortcuts: Partial<Record<ShortcutId, Command>> = {
-  'composer.strong': toggleMark(marks.strong),
-  'composer.em': toggleMark(marks.em),
-  'composer.underline': toggleMark(marks.underline),
-  'composer.strike': toggleMark(marks.strike),
-  'composer.code': toggleMark(marks.code),
-  'composer.sub': toggleMark(marks.sub),
-  'composer.sup': toggleMark(marks.sup),
-  'composer.spoiler': toggleMark(marks.spoiler),
-  'composer.bullet_list': bulletListCommand,
-  'composer.ordered_list': orderedListCommand,
-  'composer.blockquote': blockquoteCommand,
-  'composer.heading1': headingCommand(1),
-  'composer.heading2': headingCommand(2),
-  'composer.heading3': headingCommand(3),
-  'composer.code_block': codeBlockCommand,
-};
+export const formattingShortcuts = {
+  'composer.strong': 'strong',
+  'composer.em': 'em',
+  'composer.underline': 'underline',
+  'composer.strike': 'strike',
+  'composer.code': 'code',
+  'composer.sub': 'sub',
+  'composer.sup': 'sup',
+  'composer.spoiler': 'spoiler',
+  'composer.bullet_list': 'bullet_list',
+  'composer.ordered_list': 'ordered_list',
+  'composer.blockquote': 'blockquote',
+  'composer.heading1': 'heading1',
+  'composer.heading2': 'heading2',
+  'composer.heading3': 'heading3',
+  'composer.code_block': 'code_block',
+  'composer.link': 'link',
+} satisfies Partial<Record<ShortcutId, FormatAction>>;
 
 export const splitListEntry = splitListItem(nodes.list_item);
 export const insideListItem = (state: EditorState): boolean => isInside(state, nodes.list_item);
