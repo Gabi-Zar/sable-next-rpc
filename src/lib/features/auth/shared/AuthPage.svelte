@@ -34,7 +34,10 @@
   .auth-page {
     display: flex;
     flex-direction: column;
-    min-height: 100%;
+    height: 100%;
+
+    /* The iOS edge-to-edge plugin pins the document scroll offset at zero. */
+    overflow-y: auto;
     padding: var(--space-700) var(--space-600);
     padding-block: calc(var(--space-700) + var(--safe-top))
       calc(var(--space-700) + var(--safe-bottom));
