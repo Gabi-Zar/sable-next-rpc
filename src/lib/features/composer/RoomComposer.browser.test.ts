@@ -285,8 +285,8 @@ test('formatting uses the footer space', async () => {
   await expect.poll(() => document.querySelector('.formatting')).toBeNull();
 });
 
-for (const width of [320, 520]) {
-  test(`formatting scrolls in a narrow ${String(width)}px composer`, async () => {
+for (const width of [320, 520, 768]) {
+  test(`formatting controls stay visible in a narrow ${String(width)}px composer`, async () => {
     await page.viewport(width, 812);
     const { screen } = await mount(true, {
       composerGifButton: false,
@@ -306,11 +306,16 @@ for (const width of [320, 520]) {
     } else {
       expect(strip.x).toBeGreaterThanOrEqual(plus.x + plus.width);
       expect(strip.x + strip.width).toBeLessThanOrEqual(actions.x);
-      expect(Math.abs(strip.y - actions.y)).toBeLessThanOrEqual(1);
     }
-    expect(rail.scrollWidth > rail.clientWidth).toBe(true);
-    rail.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, bubbles: true, cancelable: true }));
-    expect(rail.scrollLeft).toBeGreaterThan(0);
+    const composer = boxOf('.composer');
+    for (const button of rail.querySelectorAll('button')) {
+      await expect.element(button).toBeVisible();
+      const box = button.getBoundingClientRect();
+      expect(box.left).toBeGreaterThanOrEqual(Math.max(composer.left, 0));
+      expect(box.right).toBeLessThanOrEqual(Math.min(composer.right, window.innerWidth));
+      expect(box.top).toBeGreaterThanOrEqual(Math.max(composer.top, 0));
+      expect(box.bottom).toBeLessThanOrEqual(Math.min(composer.bottom, window.innerHeight));
+    }
     const highlight = screen.getByRole('button', { name: 'Highlight colour', exact: true });
     highlight.element().focus();
     await expect.element(highlight).toBeInViewport();

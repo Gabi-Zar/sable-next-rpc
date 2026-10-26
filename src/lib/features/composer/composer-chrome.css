@@ -134,13 +134,11 @@
 }
 
 @media (any-pointer: fine) {
-  @container (width >= 44rem) {
-    .composer-formatting .formatting {
-      flex-wrap: wrap;
-      height: auto;
-      justify-content: end;
-      overflow: visible;
-    }
+  .composer-formatting .formatting {
+    flex-wrap: wrap;
+    height: auto;
+    justify-content: end;
+    overflow: visible;
   }
 }
 
