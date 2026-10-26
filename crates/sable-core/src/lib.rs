@@ -559,6 +559,18 @@ impl Core {
         let _ = self.stores_open.subscribe().wait_for(|open| *open).await;
     }
 
+    /// Only short local reads belong here; network work would delay iOS suspension. Never call it
+    /// from a sync event handler: suspension holds the lock while it waits for sync to stop.
+    pub(crate) async fn with_open_stores<T>(&self, read: impl AsyncFnOnce() -> T) -> T {
+        loop {
+            self.wait_for_stores().await;
+            let _activity = self.activity_lock.lock().await;
+            if *self.stores_open.borrow() {
+                return read().await;
+            }
+        }
+    }
+
     pub(crate) async fn wait_until_active(&self) {
         loop {
             let woken = self.app_wake.notified();
@@ -688,9 +700,11 @@ impl Core {
 
     pub(crate) async fn account_data_types(&self) -> Result<Vec<String>, RpcError> {
         let client = self.client().await?;
-        let store = client.state_store();
         let mut types = self.account_data_types.lock().await.clone();
-        types.extend(account_data::stored_types(&client).await);
+        types.extend(
+            self.with_open_stores(async || account_data::stored_types(&client).await)
+                .await,
+        );
         match account_data::server_types(&client, presence::state(self.desired_presence())).await {
             Ok(listed) => {
                 for event_type in listed {
@@ -706,7 +720,15 @@ impl Core {
             if types.contains(*candidate) {
                 continue;
             }
-            if let Ok(Some(_)) = store.get_account_data_event((*candidate).into()).await {
+            if let Ok(Some(_)) = self
+                .with_open_stores(async || {
+                    client
+                        .state_store()
+                        .get_account_data_event((*candidate).into())
+                        .await
+                })
+                .await
+            {
                 types.insert((*candidate).to_owned());
             }
         }
@@ -781,7 +803,9 @@ impl Core {
         if let Some(rules) = cached.as_ref() {
             return Ok(rules.clone());
         }
-        let rules = push_rules::PushRules::load(&client).await;
+        let rules = self
+            .with_open_stores(async || push_rules::PushRules::load(&client).await)
+            .await;
         *cached = Some(rules.clone());
         Ok(rules)
     }

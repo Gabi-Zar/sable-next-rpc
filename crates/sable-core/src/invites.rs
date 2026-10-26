@@ -34,10 +34,14 @@ async fn pending_invite(room: Room) -> PendingInvite {
     }
 }
 
-pub(crate) async fn triage(client: &Client) -> Vec<InviteTriageView> {
-    let invites =
-        futures_util::future::join_all(client.invited_rooms().into_iter().map(pending_invite))
-            .await;
+pub(crate) async fn triage(core: &crate::Core, client: &Client) -> Vec<InviteTriageView> {
+    let invites = futures_util::future::join_all(
+        client
+            .invited_rooms()
+            .into_iter()
+            .map(|room| core.with_open_stores(async || pending_invite(room).await)),
+    )
+    .await;
 
     let own = client.user_id();
     let senders: HashSet<&OwnedUserId> = invites
@@ -52,12 +56,15 @@ pub(crate) async fn triage(client: &Client) -> Vec<InviteTriageView> {
         let store = client.state_store();
         let rooms = client.joined_rooms();
         let lookups = rooms.iter().map(|room| async move {
-            let joined = room.joined_user_ids().await.unwrap_or_default();
-            let bans = store
-                .get_user_ids(room.room_id(), RoomMemberships::BAN)
-                .await
-                .unwrap_or_default();
-            (joined, bans)
+            core.with_open_stores(async || {
+                let joined = room.joined_user_ids().await.unwrap_or_default();
+                let bans = store
+                    .get_user_ids(room.room_id(), RoomMemberships::BAN)
+                    .await
+                    .unwrap_or_default();
+                (joined, bans)
+            })
+            .await
         });
         for (joined, bans) in futures_util::future::join_all(lookups).await {
             known.extend(joined.into_iter().filter(|user| senders.contains(user)));
@@ -152,7 +159,11 @@ mod tests {
             })
             .await;
 
-        let mut invites = triage(&client).await;
+        let (core, _events) = crate::Core::new(
+            "invites",
+            Box::new(crate::store::MemorySessionStore::default()),
+        );
+        let mut invites = triage(&core, &client).await;
         invites.sort_by(|left, right| left.room_id.cmp(&right.room_id));
         let summary: Vec<_> = invites
             .iter()
@@ -209,8 +220,12 @@ mod tests {
             })
             .await;
 
+        let (core, _events) = crate::Core::new(
+            "invites",
+            Box::new(crate::store::MemorySessionStore::default()),
+        );
         assert_eq!(
-            triage(&client).await,
+            triage(&core, &client).await,
             [] as [crate::protocol::InviteTriageView; 0]
         );
         drop(server);

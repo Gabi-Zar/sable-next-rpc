@@ -254,9 +254,12 @@ impl CosmeticsCache {
     }
 }
 
-pub(crate) async fn space_parents(room: &matrix_sdk::Room) -> Vec<(OwnedRoomId, Vec<String>)> {
-    let events = room
-        .get_state_events(StateEventType::SpaceParent)
+pub(crate) async fn space_parents(
+    core: &Core,
+    room: &matrix_sdk::Room,
+) -> Vec<(OwnedRoomId, Vec<String>)> {
+    let events = core
+        .with_open_stores(async || room.get_state_events(StateEventType::SpaceParent).await)
         .await
         .unwrap_or_default();
     let claims = events
@@ -269,7 +272,7 @@ pub(crate) async fn space_parents(room: &matrix_sdk::Room) -> Vec<(OwnedRoomId, 
             serde_json::from_str::<crate::space_parents::ParentClaim>(raw.get()).ok()
         })
         .collect::<Vec<_>>();
-    crate::space_parents::validate(&room.client(), room.room_id(), &claims, true)
+    crate::space_parents::validate(core, &room.client(), room.room_id(), &claims, true)
         .await
         .into_iter()
         .filter_map(|parent| parent.room_id().map(|id| (id, parent.content.via)))
@@ -277,10 +280,11 @@ pub(crate) async fn space_parents(room: &matrix_sdk::Room) -> Vec<(OwnedRoomId, 
 }
 
 pub(crate) async fn unjoined_space_parents(
+    core: &Core,
     client: &matrix_sdk::Client,
     room: &matrix_sdk::Room,
 ) -> Vec<crate::protocol::SpaceParentView> {
-    space_parents(room)
+    space_parents(core, room)
         .await
         .into_iter()
         .filter(|(parent, _)| {
@@ -293,17 +297,18 @@ pub(crate) async fn unjoined_space_parents(
 }
 
 pub(crate) async fn first_space_parent(
+    core: &Core,
     client: &matrix_sdk::Client,
     room: &matrix_sdk::Room,
 ) -> Option<OwnedRoomId> {
-    if let Some(space) = crate::view::listing_spaces(client, room.room_id())
+    if let Some(space) = crate::view::listing_spaces(Some(core), client, room.room_id())
         .await
         .into_iter()
         .next()
     {
         return Some(space);
     }
-    space_parents(room)
+    space_parents(core, room)
         .await
         .into_iter()
         .next()
@@ -347,7 +352,7 @@ impl Core {
         let space_id = match space_id {
             Some(space_id) if space_id != room.room_id() => Some(space_id),
             Some(_) => None,
-            None => first_space_parent(client, room).await,
+            None => first_space_parent(self, client, room).await,
         };
         let space = space_id
             .as_ref()
@@ -391,7 +396,9 @@ impl Core {
             }
             Err(error) => {
                 tracing::warn!(room = %room.room_id(), %error, "room cosmetics read from the store after the state fetch failed");
-                stored_layer(room).await.unwrap_or_default()
+                self.with_open_stores(async || stored_layer(room).await)
+                    .await
+                    .unwrap_or_default()
             }
         }
     }
@@ -898,11 +905,13 @@ mod tests {
             .await;
         let room = client.get_room(room_id).unwrap();
 
-        let offered: Vec<(String, Vec<String>)> = super::unjoined_space_parents(&client, &room)
-            .await
-            .into_iter()
-            .map(|parent| (parent.room_id.to_string(), parent.via))
-            .collect();
+        let (core, _events) = Core::new("cosmetics", Box::new(MemorySessionStore::default()));
+        let offered: Vec<(String, Vec<String>)> =
+            super::unjoined_space_parents(&core, &client, &room)
+                .await
+                .into_iter()
+                .map(|parent| (parent.room_id.to_string(), parent.via))
+                .collect();
         assert_eq!(
             offered,
             [

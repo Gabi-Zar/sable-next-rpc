@@ -657,7 +657,9 @@ impl Core {
             .to_owned();
         // An invited room carries only stripped state, so the levels are
         // often absent. Spec defaults beat failing the whole command.
-        let power_levels = room.power_levels_or_default().await;
+        let power_levels = self
+            .with_open_stores(async || room.power_levels_or_default().await)
+            .await;
 
         Ok(view::room_permissions(&power_levels, &user_id))
     }
@@ -669,8 +671,8 @@ impl Core {
     ) -> Result<Vec<RoomStateEventView>, RpcError> {
         let client = self.client().await?;
         let room = self.room(room_id).await?;
-        let stored = room
-            .get_state_events(event_type.into())
+        let stored = self
+            .with_open_stores(async || room.get_state_events(event_type.into()).await)
             .await
             .map_err(|error| self.room_error("room_state_events", error))?;
 
@@ -730,8 +732,11 @@ impl Core {
         }
         let client = self.client().await?;
         let room = self.room(&room_id).await?;
-        let event = room
-            .get_state_event(event_type.clone().into(), &state_key)
+        let event = self
+            .with_open_stores(async || {
+                room.get_state_event(event_type.clone().into(), &state_key)
+                    .await
+            })
             .await
             .ok()
             .flatten();

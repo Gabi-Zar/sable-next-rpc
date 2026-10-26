@@ -196,6 +196,7 @@ impl std::fmt::Display for AdoptError {
 }
 
 pub(crate) async fn adopt_key(
+    core: &Core,
     client: &matrix_sdk::Client,
     store: &SecretStore,
 ) -> Result<(), AdoptError> {
@@ -209,7 +210,10 @@ pub(crate) async fn adopt_key(
         return Ok(());
     }
 
-    let key = match cached_key(client).await {
+    let key = match core
+        .with_open_stores(async || cached_key(client).await)
+        .await
+    {
         Some(key) => key,
         None => AccountDataKey::generate().map_err(AdoptError::Random)?,
     };
@@ -239,8 +243,8 @@ pub(crate) async fn read_document(
     client: &matrix_sdk::Client,
     event_type: &str,
     fetch: bool,
+    key: Option<AccountDataKey>,
 ) -> matrix_sdk::Result<SealedAccountDataView> {
-    let key = cached_key(client).await;
     let content = read_account_data(client, event_type, fetch).await?;
 
     let (content, state) = match content {
@@ -268,7 +272,10 @@ impl Core {
             return Err(RpcError::Unsupported);
         }
         let client = self.client().await?;
-        read_document(&client, event_type, true)
+        let key = self
+            .with_open_stores(async || cached_key(&client).await)
+            .await;
+        read_document(&client, event_type, true, key)
             .await
             .or_failed(self, "sealed_account_data")
     }
@@ -282,7 +289,10 @@ impl Core {
             return Err(RpcError::Unsupported);
         }
         let client = self.client().await?;
-        let content = match cached_key(&client).await {
+        let content = match self
+            .with_open_stores(async || cached_key(&client).await)
+            .await
+        {
             Some(key) => key
                 .seal(event_type, content)
                 .or_failed(self, "set_sealed_account_data_seal")?,
@@ -309,7 +319,7 @@ impl Core {
                 return;
             }
         };
-        if let Err(error) = adopt_key(client, &store).await {
+        if let Err(error) = adopt_key(self, client, &store).await {
             tracing::warn!("adopting the account data key failed: {error}");
             return;
         }
@@ -317,7 +327,9 @@ impl Core {
             event_type: ADK_SECRET.to_owned(),
         });
         self.emit(CoreEvent::EncryptionStatus {
-            status: crate::verification::encryption_status(client).await,
+            status: self
+                .with_open_stores(async || crate::verification::encryption_status(client).await)
+                .await,
         });
     }
 

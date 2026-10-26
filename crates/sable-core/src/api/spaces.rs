@@ -193,6 +193,6 @@ impl Handler for UnjoinedSpaceParentsParams {
     async fn run(self, core: &Arc<Core>) -> Result<Vec<SpaceParentView>, RpcError> {
         let client = core.client().await?;
         let room = core.room(&self.room_id).await?;
-        Ok(crate::cosmetics::unjoined_space_parents(&client, &room).await)
+        Ok(crate::cosmetics::unjoined_space_parents(core, &client, &room).await)
     }
 }

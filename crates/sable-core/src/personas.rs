@@ -775,7 +775,7 @@ pub(crate) async fn notification_profile(
             if let Some(association) = associations.get(room.as_str()) {
                 selections.push(association.clone());
             }
-            parents.extend(crate::view::listing_spaces(client, &room).await);
+            parents.extend(crate::view::listing_spaces(None, client, &room).await);
         }
         rooms = parents;
         if rooms.is_empty() {

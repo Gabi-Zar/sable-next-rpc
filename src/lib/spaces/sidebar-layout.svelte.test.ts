@@ -61,6 +61,50 @@ test('takes a layout another device wrote', async () => {
   expect(sidebar.items).toEqual([folder]);
 });
 
+test('keeps a sync layout when an older initial read finishes', async () => {
+  const read = Promise.withResolvers<SidebarItem[]>();
+  const harness = fakeCore({ sidebar: vi.fn(() => read.promise) });
+  const sidebar = new SpaceSidebar();
+  const starting = sidebar.start(harness.core);
+
+  harness.emit({ type: 'space_sidebar_changed', items: [folder] });
+  read.resolve([]);
+  await starting;
+
+  expect(sidebar.items).toEqual([folder]);
+  expect(harness.calls.setSidebar).not.toHaveBeenCalled();
+});
+
+test('does not save a layout before the initial read finishes', async () => {
+  const read = Promise.withResolvers<SidebarItem[]>();
+  const harness = fakeCore({ sidebar: vi.fn(() => read.promise) });
+  const sidebar = new SpaceSidebar();
+  const starting = sidebar.start(harness.core);
+
+  sidebar.write(lifted);
+
+  expect(harness.calls.setSidebar).not.toHaveBeenCalled();
+  read.resolve([folder]);
+  await starting;
+  expect(sidebar.items).toEqual([folder]);
+});
+
+test('does not save a fallback layout after a failed read', async () => {
+  const harness = fakeCore({ sidebar: vi.fn(() => Promise.reject(new Error('store closed'))) });
+  const sidebar = new SpaceSidebar();
+  vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+  await sidebar.start(harness.core);
+
+  sidebar.write(lifted);
+
+  expect(harness.calls.setSidebar).not.toHaveBeenCalled();
+  expect(sidebar.items).toEqual([]);
+
+  harness.emit({ type: 'space_sidebar_changed', items: [folder] });
+  sidebar.write(lifted);
+  expect(harness.calls.setSidebar).toHaveBeenCalledWith({ items: lifted });
+});
+
 test('shows a write before it is stored', async () => {
   const harness = fakeCore();
   const sidebar = new SpaceSidebar();

@@ -564,8 +564,8 @@ impl Handler for ReadMarkerParams {
 
     async fn run(self, core: &Arc<Core>) -> Result<Option<String>, RpcError> {
         let room = core.room(&self.room_id).await?;
-        let fully_read = room
-            .account_data_static::<FullyReadEventContent>()
+        let fully_read = core
+            .with_open_stores(async || room.account_data_static::<FullyReadEventContent>().await)
             .await
             .map_err(|error| core.room_error("read_marker", error))?
             .and_then(|raw| raw.deserialize().ok())

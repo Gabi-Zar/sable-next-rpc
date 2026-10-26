@@ -133,7 +133,8 @@ fn stored_items(items: &[SidebarItemView]) -> Vec<StoredItem> {
 
 impl Core {
     pub(crate) async fn space_sidebar(&self) -> Result<Vec<SidebarItemView>, RpcError> {
-        sidebar(&self.client().await?)
+        let client = self.client().await?;
+        self.with_open_stores(async || sidebar(&client).await)
             .await
             .or_failed(self, "space_sidebar")
     }
@@ -150,7 +151,7 @@ impl Core {
 
 /// # Errors
 ///
-/// Returns the store error when the account data cannot be read.
+/// Returns the store or deserialization error when the account data cannot be read.
 pub async fn sidebar(client: &Client) -> Result<Vec<SidebarItemView>, matrix_sdk::Error> {
     let raw = client
         .account()
@@ -158,10 +159,8 @@ pub async fn sidebar(client: &Client) -> Result<Vec<SidebarItemView>, matrix_sdk
         .await?;
 
     Ok(raw
-        .and_then(|raw| {
-            raw.deserialize_as_unchecked::<SidebarSpacesEventContent>()
-                .ok()
-        })
+        .map(|raw| raw.deserialize_as_unchecked::<SidebarSpacesEventContent>())
+        .transpose()?
         .as_ref()
         .map(items)
         .unwrap_or_default())
@@ -169,8 +168,8 @@ pub async fn sidebar(client: &Client) -> Result<Vec<SidebarItemView>, matrix_sdk
 
 /// # Errors
 ///
-/// Returns the store or homeserver error when the account data cannot be read
-/// back or written.
+/// Returns the homeserver or serialization error when the account data cannot be
+/// read back or written.
 pub async fn set_sidebar(
     client: &Client,
     items: &[SidebarItemView],
@@ -180,10 +179,8 @@ pub async fn set_sidebar(
         .account()
         .fetch_account_data(event_type.clone())
         .await?
-        .and_then(|raw| {
-            raw.deserialize_as_unchecked::<serde_json::Map<String, serde_json::Value>>()
-                .ok()
-        })
+        .map(|raw| raw.deserialize_as_unchecked::<serde_json::Map<String, serde_json::Value>>())
+        .transpose()?
         .unwrap_or_default();
 
     let content = SidebarPatch::new(items, extra);
@@ -373,7 +370,74 @@ mod server_tests {
     }
 
     #[tokio::test]
-    async fn writing_keeps_the_keys_it_does_not_model() {
+    async fn an_unreadable_layout_is_not_an_empty_layout() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        server
+            .mock_sync()
+            .ok_and_run(&client, |builder| {
+                builder.add_custom_global_account_data(json!({
+                    "type": "in.cinny.spaces",
+                    "content": { "sidebar": "invalid" }
+                }));
+            })
+            .await;
+
+        assert!(sidebar(&client).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn a_failed_server_read_prevents_a_layout_write() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        Mock::given(method("GET"))
+            .and(path_regex(
+                r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
+            ))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "errcode": "M_FORBIDDEN", "error": "denied"
+            })))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        Mock::given(method("PUT"))
+            .and(path_regex(
+                r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(0)
+            .mount(server.server())
+            .await;
+
+        assert!(set_sidebar(&client, &[]).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn an_unreadable_server_document_prevents_a_layout_write() {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        Mock::given(method("GET"))
+            .and(path_regex(
+                r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        Mock::given(method("PUT"))
+            .and(path_regex(
+                r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+            .expect(0)
+            .mount(server.server())
+            .await;
+
+        assert!(set_sidebar(&client, &[]).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn writing_keeps_the_server_keys_when_the_store_is_stale() {
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
         server
@@ -395,9 +459,9 @@ mod server_tests {
                 r"^/_matrix/client/v3/user/.*/account_data/in\.cinny\.spaces$",
             ))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
-                "sidebar": ["!one:example.org"],
-                "shortcut": ["!one:example.org"],
-                "org.example.other": { "kept": true }
+                "sidebar": ["!remote:example.org"],
+                "shortcut": ["!remote:example.org"],
+                "org.example.other": { "newer": true }
             })))
             .mount_as_scoped(server.server())
             .await;
@@ -408,8 +472,8 @@ mod server_tests {
             ))
             .and(body_partial_json(json!({
                 "sidebar": [{ "id": "f1", "name": "Work", "content": ["!two:example.org"] }],
-                "shortcut": ["!one:example.org"],
-                "org.example.other": { "kept": true }
+                "shortcut": ["!remote:example.org"],
+                "org.example.other": { "newer": true }
             })))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
             .expect(1)

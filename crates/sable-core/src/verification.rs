@@ -733,7 +733,7 @@ pub(crate) async fn encryption_status(client: &matrix_sdk::Client) -> Encryption
     }
 }
 
-pub(crate) async fn sign_out_safety(client: &matrix_sdk::Client) -> SignOutSafetyView {
+pub(crate) async fn sign_out_safety(core: &Core, client: &matrix_sdk::Client) -> SignOutSafetyView {
     let encryption = client.encryption();
     let backups = encryption.backups();
     let backup_uploaded = tokio::select! {
@@ -745,7 +745,9 @@ pub(crate) async fn sign_out_safety(client: &matrix_sdk::Client) -> SignOutSafet
     };
 
     SignOutSafetyView {
-        encryption: encryption_status(client).await,
+        encryption: core
+            .with_open_stores(async || encryption_status(client).await)
+            .await,
         backup_enabled: backups.are_enabled().await,
         backup_uploaded,
         has_encrypted_rooms: client

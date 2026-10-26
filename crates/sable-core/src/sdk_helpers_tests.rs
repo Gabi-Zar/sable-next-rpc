@@ -24,7 +24,9 @@ use crate::{
         RenameDeviceParams, ResetIdentityParams,
     },
     api::packs::{ListAllParams, ListOk, ListParams},
-    api::spaces::{AddParams, SetChildOrderParams, SetChildSuggestedParams, SetSidebarParams},
+    api::spaces::{
+        AddParams, SetChildOrderParams, SetChildSuggestedParams, SetSidebarParams, SidebarParams,
+    },
     api::timeline::{
         SubscribeOk, SubscribeParams, SubscribeRoomListOk, SubscribeRoomListParams,
         UnsubscribeParams,
@@ -670,6 +672,101 @@ async fn next_room_list_diff(
     })
     .await
     .unwrap()
+}
+
+#[tokio::test]
+async fn local_read_waits_for_open_stores() {
+    let server = MatrixMockServer::new().await;
+    let store = tempfile::tempdir().unwrap();
+    let client = space_client(&server, store.path()).await;
+    let core = core(&server, client.clone()).await;
+    core.stores_open.send_replace(false);
+    client.pause().await.unwrap();
+    let ran = std::sync::atomic::AtomicBool::new(false);
+
+    let pending = core.with_open_stores(async || {
+        assert!(*core.stores_open.borrow());
+        assert!(core.activity_lock.try_lock().is_err());
+        ran.store(true, std::sync::atomic::Ordering::SeqCst);
+        client.state_store().get_custom_value(b"missing").await
+    });
+    tokio::pin!(pending);
+    tokio::time::timeout(std::time::Duration::from_millis(200), &mut pending)
+        .await
+        .expect_err("the read waits for reopened stores");
+    assert!(!ran.load(std::sync::atomic::Ordering::SeqCst));
+
+    client.resume().await.unwrap();
+    core.stores_open.send_replace(true);
+    assert_eq!(pending.await.unwrap(), None);
+    assert!(ran.load(std::sync::atomic::Ordering::SeqCst));
+    assert!(core.activity_lock.try_lock().is_ok());
+}
+
+#[tokio::test]
+async fn space_sidebar_waits_for_stores_to_reopen() {
+    let server = MatrixMockServer::new().await;
+    let store = tempfile::tempdir().unwrap();
+    let client = space_client(&server, store.path()).await;
+    server
+        .mock_sync()
+        .ok_and_run(&client, |builder| {
+            builder.add_custom_global_account_data(json!({
+                "type": "in.cinny.spaces",
+                "content": { "sidebar": ["!second:example.org", "!space:example.org"] }
+            }));
+        })
+        .await;
+    let core = core(&server, client.clone()).await;
+    core.stores_open.send_replace(false);
+    client.pause().await.unwrap();
+
+    let pending = core.run(SidebarParams {});
+    tokio::pin!(pending);
+    tokio::time::timeout(std::time::Duration::from_millis(200), &mut pending)
+        .await
+        .expect_err("the layout read waits for reopened stores");
+
+    client.resume().await.unwrap();
+    core.stores_open.send_replace(true);
+    let items = pending.await.unwrap();
+    assert_eq!(
+        items,
+        vec![
+            crate::protocol::SidebarItemView::Space {
+                room_id: "!second:example.org".into(),
+            },
+            crate::protocol::SidebarItemView::Space {
+                room_id: "!space:example.org".into(),
+            },
+        ]
+    );
+}
+
+#[tokio::test]
+async fn space_sidebar_does_not_read_while_stores_are_closing() {
+    let server = MatrixMockServer::new().await;
+    let store = tempfile::tempdir().unwrap();
+    let client = space_client(&server, store.path()).await;
+    let core = core(&server, client.clone()).await;
+    let activity = core.activity_lock.lock().await;
+
+    let pending = core.run(SidebarParams {});
+    tokio::pin!(pending);
+    tokio::time::timeout(std::time::Duration::from_millis(200), &mut pending)
+        .await
+        .expect_err("the layout read waits for the activity transition");
+
+    core.stores_open.send_replace(false);
+    client.pause().await.unwrap();
+    drop(activity);
+    tokio::time::timeout(std::time::Duration::from_millis(200), &mut pending)
+        .await
+        .expect_err("the layout read waits for reopened stores");
+
+    client.resume().await.unwrap();
+    core.stores_open.send_replace(true);
+    assert!(pending.await.unwrap().is_empty());
 }
 
 #[tokio::test]

@@ -159,10 +159,9 @@ impl Core {
         room_id: &OwnedRoomId,
         event_type: &str,
     ) -> Result<Option<Value>, RpcError> {
+        let room = self.room(room_id).await?;
         Ok(self
-            .room(room_id)
-            .await?
-            .account_data(event_type.into())
+            .with_open_stores(async || room.account_data(event_type.into()).await)
             .await
             .map_err(|error| self.room_error("room_account_data", error))?
             .and_then(|raw| raw.get_field::<Value>("content").ok().flatten()))

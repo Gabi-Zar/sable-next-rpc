@@ -47,7 +47,8 @@ impl Handler for StatusParams {
     type Ok = EncryptionStatusView;
 
     async fn run(self, core: &Arc<Core>) -> Result<EncryptionStatusView, RpcError> {
-        Ok(encryption_status(&core.client().await?).await)
+        let client = core.client().await?;
+        Ok(core.with_open_stores(async || encryption_status(&client).await).await)
     }
 }
 
@@ -85,7 +86,7 @@ impl Handler for SignOutSafetyParams {
     type Ok = SignOutSafetyView;
 
     async fn run(self, core: &Arc<Core>) -> Result<SignOutSafetyView, RpcError> {
-        Ok(sign_out_safety(&core.client().await?).await)
+        Ok(sign_out_safety(core, &core.client().await?).await)
     }
 }
 

@@ -2694,7 +2694,11 @@ impl Core {
                 next = None;
                 break;
             };
-            let stored = match persist::load_chunk(&client, &position.room_id, position.chunk).await
+            let stored = match self
+                .with_open_stores(async || {
+                    persist::load_chunk(&client, &position.room_id, position.chunk).await
+                })
+                .await
             {
                 persist::ChunkRead::Found(stored) => stored,
                 persist::ChunkRead::Missing | persist::ChunkRead::Unreadable => {
@@ -2787,7 +2791,8 @@ impl Core {
             return Vec::new();
         };
 
-        ignored_user_ids(&client).await
+        self.with_open_stores(async || ignored_user_ids(&client).await)
+            .await
     }
 
     pub(crate) async fn restore_persisted_index(self: &Arc<Self>, client: &matrix_sdk::Client) {
@@ -2964,7 +2969,10 @@ impl Core {
                 }
             };
             let stored = match self.client().await {
-                Ok(client) => match persist::load_chunk(&client, room_id, chunk).await {
+                Ok(client) => match self
+                    .with_open_stores(async || persist::load_chunk(&client, room_id, chunk).await)
+                    .await
+                {
                     persist::ChunkRead::Found(stored) => stored,
                     persist::ChunkRead::Missing | persist::ChunkRead::Unreadable => {
                         persist::StoredChunk::new(Vec::new(), Vec::new())

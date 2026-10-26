@@ -167,7 +167,12 @@ async fn save(client: &matrix_sdk::Client, stored: &mut Stored) -> Result<(), Rp
     Ok(())
 }
 
-pub(crate) async fn receipt_ts(room: &Room) -> matrix_sdk::Result<u64> {
+struct StoredReceipts {
+    events: BTreeMap<OwnedEventId, Option<u64>>,
+    cached_ts: Option<u64>,
+}
+
+async fn stored_receipts(room: &Room) -> matrix_sdk::Result<StoredReceipts> {
     let user_id = room.own_user_id();
     let mut receipts = BTreeMap::new();
     for receipt_type in [ReceiptType::Read, ReceiptType::ReadPrivate] {
@@ -185,22 +190,48 @@ pub(crate) async fn receipt_ts(room: &Room) -> matrix_sdk::Result<u64> {
         }
     }
     if receipts.is_empty() {
-        return Ok(0);
+        return Ok(StoredReceipts {
+            events: receipts,
+            cached_ts: Some(0),
+        });
     }
     let targets: std::collections::BTreeSet<OwnedEventId> = receipts.keys().cloned().collect();
     let key = format!("sable.inbox.receipt.{}", room.room_id());
     let client = room.client();
-    let store = client.state_store();
-    if let Some(bytes) = store.get_custom_value(key.as_bytes()).await?
+    if let Some(bytes) = client
+        .state_store()
+        .get_custom_value(key.as_bytes())
+        .await?
         && let Ok((known, ts)) =
             serde_json::from_slice::<(std::collections::BTreeSet<OwnedEventId>, u64)>(&bytes)
         && known == targets
     {
+        return Ok(StoredReceipts {
+            events: receipts,
+            cached_ts: Some(ts),
+        });
+    }
+    Ok(StoredReceipts {
+        events: receipts,
+        cached_ts: None,
+    })
+}
+
+pub(crate) async fn receipt_ts(room: &Room) -> matrix_sdk::Result<u64> {
+    resolve_receipt_ts(room, stored_receipts(room).await?).await
+}
+
+async fn resolve_receipt_ts(room: &Room, stored: StoredReceipts) -> matrix_sdk::Result<u64> {
+    if let Some(ts) = stored.cached_ts {
         return Ok(ts);
     }
+    let targets: std::collections::BTreeSet<OwnedEventId> = stored.events.keys().cloned().collect();
+    let key = format!("sable.inbox.receipt.{}", room.room_id());
+    let client = room.client();
+    let store = client.state_store();
     let mut latest = 0;
     let mut resolved = true;
-    for (event_id, receipt_ts) in &receipts {
+    for (event_id, receipt_ts) in &stored.events {
         match room.load_or_fetch_event(event_id, None).await {
             Ok(event) => latest = latest.max(event_ts(&event).unwrap_or(0)),
             Err(error) => {
@@ -257,16 +288,23 @@ const fn is_dm_message(event: &AnySyncTimelineEvent) -> bool {
     )
 }
 
-async fn read_state(room: &Room) -> Result<RoomReadState, RpcError> {
-    let remaining = notified(room).await;
+async fn read_state(core: &Core, room: &Room) -> Result<RoomReadState, RpcError> {
+    let remaining = core.with_open_stores(async || notified(room).await).await;
     if remaining == 0 {
         return Ok(RoomReadState {
             receipt_ts: 0,
             remaining,
         });
     }
+    let receipt_ts = async {
+        let stored = core
+            .with_open_stores(async || stored_receipts(room).await)
+            .await?;
+        resolve_receipt_ts(room, stored).await
+    }
+    .await;
     Ok(RoomReadState {
-        receipt_ts: receipt_ts(room).await.map_err(|error| {
+        receipt_ts: receipt_ts.map_err(|error| {
             warn!("resolving the inbox read receipt failed: {error}");
             RpcError::Unavailable
         })?,
@@ -275,6 +313,7 @@ async fn read_state(room: &Room) -> Result<RoomReadState, RpcError> {
 }
 
 async fn backfill_candidates(
+    core: &Core,
     client: &matrix_sdk::Client,
     stored: &Stored,
     include_read: bool,
@@ -302,10 +341,10 @@ async fn backfill_candidates(
             ));
             continue;
         }
-        if notified(&room).await == 0 {
+        if core.with_open_stores(async || notified(&room).await).await == 0 {
             continue;
         }
-        let read = read_state(&room).await?;
+        let read = read_state(core, &room).await?;
         let scan = UnreadScan::for_room(
             stored.unread_scans.get(room.room_id()),
             read.receipt_ts,
@@ -394,7 +433,7 @@ impl Core {
             return Ok(0);
         }
         let _guard = self.inbox_lock.lock().await;
-        let mut stored = load(client).await?;
+        let mut stored = self.with_open_stores(async || load(client).await).await?;
         let added = merge(&mut stored.entries, fresh);
         stored.cursors.extend(cursors);
         stored.unread_scans.extend(unread_scans);
@@ -435,7 +474,7 @@ impl Core {
         before_ts: Option<u64>,
     ) -> Result<(Vec<InboxItemView>, bool), RpcError> {
         let client = self.client().await?;
-        let stored = load(&client).await?;
+        let stored = self.with_open_stores(async || load(&client).await).await?;
         let mut rooms: HashMap<OwnedRoomId, Option<(bool, RoomReadState)>> = HashMap::new();
         let limit = usize::try_from(limit).unwrap_or(usize::MAX);
         let mut items = Vec::new();
@@ -448,8 +487,11 @@ impl Core {
                     .filter(|room| room.state() == matrix_sdk::RoomState::Joined);
                 let state = match joined {
                     Some(room) => {
-                        let read = read_state(&room).await?;
-                        Some((is_dm(&room).await, read))
+                        let read = read_state(self, &room).await?;
+                        Some((
+                            self.with_open_stores(async || is_dm(&room).await).await,
+                            read,
+                        ))
                     }
                     None => None,
                 };
@@ -492,9 +534,9 @@ impl Core {
         crate::rooms::fill_own_members(&client)
             .await
             .or_failed(self, "inbox_memberships")?;
-        let stored = load(&client).await?;
+        let stored = self.with_open_stores(async || load(&client).await).await?;
         let every_encrypted = self.every_encrypted_event_pushed().await;
-        let candidates = backfill_candidates(&client, &stored, include_read).await?;
+        let candidates = backfill_candidates(self, &client, &stored, include_read).await?;
         drop(stored);
 
         let mut fresh = Vec::new();
