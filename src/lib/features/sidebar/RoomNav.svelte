@@ -1483,7 +1483,7 @@
     outline-offset: 2px;
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .room-nav {
       flex: 0 0 var(--room-nav-width);
       width: var(--room-nav-width);

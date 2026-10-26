@@ -310,7 +310,7 @@
     width: var(--icon-size-medium);
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     :global(.back-button) {
       display: none;
     }

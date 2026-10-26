@@ -179,7 +179,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .home-page {
       display: block;
     }

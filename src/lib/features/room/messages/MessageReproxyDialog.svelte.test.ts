@@ -5,6 +5,7 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import type { PersonaView } from '#src/generated/protocol';
+import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
 
 import MessageReproxyDialog from './MessageReproxyDialog.svelte';
 
@@ -31,8 +32,8 @@ test.each([
   { desktop: true, sheet: false },
   { desktop: false, sheet: true },
 ])('uses the draggable sheet only on mobile (desktop: $desktop)', async ({ desktop, sheet }) => {
-  vi.stubGlobal('matchMedia', () => ({
-    matches: desktop,
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query === BREAKPOINTS.wide && desktop,
     addEventListener: () => {},
     removeEventListener: () => {},
   }));

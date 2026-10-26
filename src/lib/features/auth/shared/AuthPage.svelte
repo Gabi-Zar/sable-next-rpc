@@ -75,7 +75,7 @@
     margin: 0;
   }
 
-  @media (width <= 48rem) {
+  @media (--compact-layout) {
     .auth-content {
       grid-template-rows: clamp(9rem, 18dvh, 12rem) auto;
     }

@@ -5,12 +5,6 @@ import { userEvent } from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
-vi.mock('svelte/reactivity', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('svelte/reactivity')>()),
-  MediaQuery: class {
-    current = true;
-  },
-}));
 
 import CallDeviceSettings from './CallDeviceSettings.svelte';
 import * as inputMeter from './input-meter';

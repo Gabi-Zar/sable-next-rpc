@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { MediaQuery } from 'svelte/reactivity';
   import { Select as BitsSelect } from 'bits-ui';
   import CaretDownIcon from 'phosphor-svelte/lib/CaretDownIcon';
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import type { ClassValue } from 'svelte/elements';
   import { i18n } from '#lib/i18n.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { overlayLayer } from '#lib/ui/overlay-layer.js';
   import BottomSheet from './BottomSheet.svelte';
   import Switcher, { getSettingsChoices, hasSettingsChoices } from './Switcher.svelte';
@@ -52,7 +51,7 @@
     onValueChange,
   }: Props = $props();
 
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   const inlineChoices = hasSettingsChoices() ? getSettingsChoices() : false;
   const useSwitcher = $derived(
     !forceDropdown &&

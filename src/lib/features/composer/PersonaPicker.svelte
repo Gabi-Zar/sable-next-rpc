@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { MediaQuery } from 'svelte/reactivity';
   import { Popover } from 'bits-ui';
   import UserSwitchIcon from 'phosphor-svelte/lib/UserSwitchIcon';
 
@@ -15,7 +14,7 @@
   import { resolvePersona, type ProxyMatch } from '#lib/personas/persona.js';
   import { usePersonaStore } from '#lib/personas/personas.svelte.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import BottomSheet from '#lib/ui/primitives/BottomSheet.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
@@ -40,7 +39,7 @@
   let { roomId, onBeforeOpen, edit, shorthandHint }: Props = $props();
   const personas = usePersonaStore();
   const roomList = useRoomList();
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
 
   let desktop = $derived(appLayout.current);
   let open = $state(false);

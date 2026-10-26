@@ -64,7 +64,7 @@
     margin: 0;
   }
 
-  @media (width >= 48rem) and (any-pointer: fine) {
+  @media (--app-layout) and (any-pointer: fine) {
     .editor {
       max-height: clamp(10rem, 30dvh, 20rem);
     }
@@ -73,6 +73,17 @@
   .editor.expanded {
     height: clamp(10rem, calc((100dvh - var(--keyboard-overlap)) / 2), 40rem);
     max-height: none;
+  }
+
+  @media (--compact-height) {
+    .editor,
+    .editor.expanded {
+      max-height: max(var(--target), calc((100dvh - var(--keyboard-overlap)) / 3));
+    }
+
+    .editor.expanded {
+      height: max(var(--target), calc((100dvh - var(--keyboard-overlap)) / 3));
+    }
   }
 
   .editor :global([contenteditable='true'] p + p) {

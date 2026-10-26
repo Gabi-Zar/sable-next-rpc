@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({ back: vi.fn() }));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 
+import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
 import { afterNavigate, goto } from '#lib/test-support/app-navigation.js';
 import { page, visit } from '#lib/test-support/app-state.js';
 vi.mock('$app/paths', () => ({
@@ -57,7 +58,9 @@ test.each([
 });
 
 test('leaving a space room on desktop opens the lobby rather than the index', async () => {
-  vi.stubGlobal('window', { matchMedia: () => ({ matches: true }) });
+  vi.stubGlobal('window', {
+    matchMedia: (query: string) => ({ matches: query === BREAKPOINTS.wide }),
+  });
   page.url = new URL('https://app.test/space/space/room');
   page.params = { spaceId: '!space' };
 

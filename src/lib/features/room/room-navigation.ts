@@ -7,7 +7,7 @@ import { page } from '$app/state';
 import type { RoomListItemView } from '#src/generated/protocol';
 
 import { findRoomByPathId, roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
-import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+import { matchesAppLayout } from '#lib/ui/app-layout.svelte.js';
 
 let enteredFrom: string | null = null;
 
@@ -22,7 +22,7 @@ function roomListPath(): string {
   if (page.url.pathname.startsWith('/direct/')) return resolve('direct');
   if (page.url.pathname.startsWith('/space/') && page.params.spaceId) {
     const spaceId = roomPathParamFromId(page.params.spaceId);
-    return window.matchMedia(BREAKPOINTS.appLayout).matches
+    return matchesAppLayout()
       ? resolve('/(app)/space/[spaceId]/lobby', { spaceId })
       : resolve('/(app)/space/[spaceId]', { spaceId });
   }
@@ -42,7 +42,7 @@ export async function leaveRoomView(): Promise<void> {
 }
 
 export function backToRoomList(): void {
-  if (window.matchMedia(BREAKPOINTS.appLayout).matches) {
+  if (matchesAppLayout()) {
     void leaveRoomView();
     return;
   }
@@ -58,13 +58,13 @@ export function isRoomSwitch(href: string): boolean {
     page.params.roomId !== undefined &&
     target !== page.url.pathname &&
     ROOM_PATH.test(target) &&
-    !window.matchMedia(BREAKPOINTS.appLayout).matches
+    !matchesAppLayout()
   );
 }
 
 export function goToPage(href: string): void {
   const samePage = new URL(href, page.url.href).pathname === page.url.pathname;
-  if (samePage && !window.matchMedia(BREAKPOINTS.appLayout).matches) {
+  if (samePage && !matchesAppLayout()) {
     void setPageState({ ...page.state, mobileDrawer: 'closed' }, true);
     return;
   }

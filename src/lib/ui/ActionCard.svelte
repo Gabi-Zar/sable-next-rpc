@@ -149,7 +149,7 @@
     width: var(--icon-size-small);
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .action-card {
       min-height: 12rem;
     }

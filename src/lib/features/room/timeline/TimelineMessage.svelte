@@ -851,7 +851,7 @@
     animation: jump-reduced var(--message-highlight-duration) steps(1, end);
   }
 
-  @media (width >= 48rem) and (any-hover: hover) and (any-pointer: fine) {
+  @media (--app-layout) and (any-hover: hover) and (any-pointer: fine) {
     /* Matches the base mention rule's specificity, so the gutter the row's
        negative margin assumes survives. */
     .message.mention-silent,
@@ -999,7 +999,7 @@
     display: none;
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .via.via-hidden {
       display: revert;
       opacity: 0;

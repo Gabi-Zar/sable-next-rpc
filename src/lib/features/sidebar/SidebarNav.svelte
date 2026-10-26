@@ -361,7 +361,7 @@
     width: 100%;
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .sidebar {
       height: 100dvh;
       left: 0;

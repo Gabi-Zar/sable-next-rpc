@@ -1,6 +1,7 @@
 import { sentrySvelteKit } from '@sentry/sveltekit/vite';
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vite';
 import { isAbsolute, relative, resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -80,6 +81,7 @@ export default defineConfig({
       release: { name: process.env.VITE_APP_VERSION },
     }),
     sveltekit({
+      preprocess: vitePreprocess(),
       compilerOptions: {
         // Force runes mode for the project, except for libraries. Can be removed in svelte 6.
         runes: ({ filename }) =>

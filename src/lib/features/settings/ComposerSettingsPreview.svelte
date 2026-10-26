@@ -20,7 +20,7 @@
   import { isVoiceRecordingSupported } from '#lib/features/composer/voice-recorder-support.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
@@ -28,7 +28,7 @@
   const uid = $props.id();
   const listboxId = `${uid}-listbox`;
   const voiceSupported = isVoiceRecordingSupported();
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   const roomyPointer = new MediaQuery('(width >= 32rem) and (any-pointer: fine)');
   const short = $derived(
     preferences.composerForm === 'short' ||

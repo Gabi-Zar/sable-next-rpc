@@ -1,11 +1,10 @@
-import { MediaQuery } from 'svelte/reactivity';
-import { BREAKPOINTS } from './breakpoints.js';
+import { AppLayout } from './app-layout.svelte.js';
 
 export function createMasterDetail<T extends string>(
   section: () => T | null,
   fallback: () => T | null
 ) {
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   const desktop = $derived(appLayout.current);
   const openSection = $derived(section() ?? (desktop ? fallback() : null));
   const showList = $derived(desktop || section() === null);

@@ -1,5 +1,6 @@
+import type {} from '@vitest/browser-playwright';
 import { afterEach, expect, test, vi } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { cdp, page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
@@ -16,6 +17,8 @@ function literal(text: string): string {
 }
 
 afterEach(async () => {
+  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  document.documentElement.style.removeProperty('--keyboard-height');
   document.body.removeAttribute('style');
   await page.viewport(414, 800);
   setPreference('composerForm', 'tall');
@@ -82,6 +85,34 @@ async function mount(
   };
   return { screen, composer, sent, editor, firstParagraph };
 }
+
+test('a multiline expanded composer fits above the landscape phone keyboard', async () => {
+  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: true });
+  await page.viewport(390, 844);
+  const { screen, composer, editor } = await mount(true, { composerForm: 'tall' });
+  await userEvent.click(screen.getByRole('button', { name: en.composer.expand }));
+  await expect.poll(() => document.querySelector('.editor.expanded')).not.toBeNull();
+  await page.viewport(844, 390);
+  document.documentElement.style.setProperty('--keyboard-height', '190px');
+  await userEvent.click(composer);
+  const data = new DataTransfer();
+  data.setData('text/plain', 'a line\n'.repeat(20));
+  editor().dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+  );
+  await expect.poll(() => document.querySelector('.composer-row.short')).not.toBeNull();
+  await expect.poll(() => editor().textContent).toContain('a line');
+  const row = document.querySelector('.composer-row') as HTMLElement;
+  expect(row.getBoundingClientRect().height).toBeLessThan(100);
+  const editorBox = editor().getBoundingClientRect();
+  const send = screen
+    .getByRole('button', { name: en.timeline.sendMessage })
+    .element()
+    .getBoundingClientRect();
+  expect(send.height).toBeGreaterThanOrEqual(40);
+  expect(send.top).toBeLessThan(editorBox.bottom);
+  expect(send.bottom).toBeGreaterThan(editorBox.top);
+});
 
 test.for([
   ['**', '<strong>test</strong>'],

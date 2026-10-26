@@ -41,7 +41,7 @@
     setPreference,
     type ImageMetadata,
   } from '#lib/settings/preferences.svelte.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { formatByteSize } from '#lib/ui/byte-size.js';
   import { cachedMediaUrl, holdMediaUrl, loadMediaUrl } from '#lib/ui/media-url.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
@@ -232,10 +232,11 @@
   const core = useCoreClient();
   const roomList = useRoomList();
   const personas = usePersonaStore();
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   const roomyPointer = new MediaQuery('(width >= 32rem) and (any-pointer: fine)');
   const composerShort = $derived(
-    preferences.composerForm === 'short' ||
+    appLayout.compactHeight ||
+      preferences.composerForm === 'short' ||
       (preferences.composerForm === 'adaptive' && roomyPointer.current)
   );
   const uid = $props.id();
@@ -296,7 +297,9 @@
   let measurerEl = $state<HTMLElement>();
   let multiline = $state(false);
   let pointerHidden = $state(false);
-  const shortLayout = $derived(composerShort && (!multiline || preferences.alwaysInlineEditor));
+  const shortLayout = $derived(
+    appLayout.compactHeight || (composerShort && (!multiline || preferences.alwaysInlineEditor))
+  );
   let layoutFrame: number | undefined;
   let empty = $state(true);
   let showPlaceholder = $state(true);

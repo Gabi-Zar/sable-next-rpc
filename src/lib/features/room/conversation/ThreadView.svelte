@@ -357,7 +357,7 @@
     padding-bottom: max(var(--space-200), var(--edge-inset-bottom));
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .thread-composer {
       --composer-band: calc(var(--sidebar-footer-height) - 2 * var(--space-300));
 

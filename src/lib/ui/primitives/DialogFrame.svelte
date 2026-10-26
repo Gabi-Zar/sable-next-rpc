@@ -150,11 +150,12 @@
   :global(.dialog-content-sheet) {
     --ghost-hover: var(--surface-container-hover);
     --ghost-active: var(--surface-container-active);
+    --sheet-inset-bottom: max(0px, calc(var(--safe-bottom) - var(--keyboard-overlap)));
 
     background: var(--surface-container);
     border: var(--border-width) solid var(--surface-container-line);
     border-radius: var(--radius) var(--radius) 0 0;
-    bottom: 0;
+    bottom: var(--keyboard-overlap);
     box-shadow: var(--shadow-dialog);
     color: var(--surface-on-container);
     max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--space-300) * 2);
@@ -163,7 +164,7 @@
       calc(var(--space-400) + var(--safe-left));
 
     /* Bottom-anchored, so the home indicator would otherwise sit on the content. */
-    padding-bottom: calc(var(--space-400) + var(--safe-bottom));
+    padding-bottom: calc(var(--space-400) + var(--sheet-inset-bottom));
     width: 100%;
   }
 
@@ -174,11 +175,9 @@
   }
 
   :global(.dialog-content-sheet) {
-    --sheet-inset-bottom: var(--safe-bottom);
-
-    max-height: calc(100dvh - var(--safe-top) - var(--space-300) * 2);
+    max-height: calc(100dvh - var(--safe-top) - var(--keyboard-overlap) - var(--space-300) * 2);
     overscroll-behavior: contain;
-    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+    padding: 0 var(--safe-right) var(--sheet-inset-bottom) var(--safe-left);
   }
 
   :global(.dialog-content-sheet:has(> div > [data-inset-owner~='bottom'])) {
@@ -201,7 +200,7 @@
     }
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     :global(.dialog-content-settings) {
       border: var(--border-width) solid var(--surface-container-line);
       border-radius: var(--radius);
@@ -323,7 +322,7 @@
     }
   }
 
-  @media (prefers-reduced-motion: no-preference) and (width >= 48rem) {
+  @media (prefers-reduced-motion: no-preference) and (--app-layout) {
     :global(html:not([data-reduced-motion='on']) .dialog-content-settings[data-state='open']) {
       animation: dialog-in var(--duration-fast) var(--ease-smooth-out);
     }

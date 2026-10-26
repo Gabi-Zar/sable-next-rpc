@@ -93,7 +93,7 @@
     overflow-wrap: anywhere;
   }
 
-  @media (width >= 768px) {
+  @media (--app-layout) {
     .toast-region {
       inset-inline: auto calc(var(--space-400) + var(--safe-right));
       margin-inline: 0;

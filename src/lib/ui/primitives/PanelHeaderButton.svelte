@@ -40,7 +40,7 @@
 <Tooltip {label} {trigger} />
 
 <style>
-  @media (width < 48rem), (pointer: coarse) {
+  @media (--compact-layout), (pointer: coarse) {
     :global(.panel-header-button) {
       --button-height: var(--control-height-touch);
     }

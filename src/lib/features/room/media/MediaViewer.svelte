@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { matchesAppLayout } from '#lib/ui/app-layout.svelte.js';
   import { Dialog } from 'bits-ui';
   import { SvelteMap } from 'svelte/reactivity';
   import { flushSync, onDestroy, tick, untrack } from 'svelte';
@@ -441,7 +442,7 @@
       event.pointerType === 'mouse' &&
       event.button === 0 &&
       !imageMenuOpen &&
-      window.matchMedia('(width >= 48rem)').matches
+      matchesAppLayout()
         ? { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
         : null;
     if (!isImage || spoilerHidden) return;
@@ -1259,7 +1260,7 @@
     right: max(0.25rem, var(--safe-right));
   }
 
-  @media (width < 48rem) {
+  @media (--compact-layout) {
     .stage.has-nav {
       --stage-padding-left: var(--space-200);
       --stage-padding-right: var(--space-200);
@@ -1340,7 +1341,7 @@
     color: var(--surface-var-on-container);
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     :global(.viewer) {
       background: color-mix(in srgb, var(--viewer-immersive) 90%, transparent);
     }

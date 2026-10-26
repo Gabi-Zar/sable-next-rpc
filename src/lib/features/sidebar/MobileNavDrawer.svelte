@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { MediaQuery } from 'svelte/reactivity';
   import { setPageState } from '#lib/platform/page-state.js';
   import { untrack, type Snippet } from 'svelte';
   import { page } from '$app/state';
@@ -16,7 +15,7 @@
     updateSwipeGesture,
     type SwipeGesture,
   } from '#lib/ui/swipe-gesture.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { backToRoomList, goToPage, isRoomSwitch } from '#lib/features/room/room-navigation.js';
   import CoreHealthBanner from '#lib/ui/CoreHealthBanner.svelte';
 
@@ -37,7 +36,7 @@
   let inertOpen = $state<boolean | undefined>();
   let inertTimer: ReturnType<typeof setTimeout> | undefined;
   let focusContentOnSettle = false;
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   /** Routes whose own index is the room list. Anywhere else the list would
       hide the page that was asked for behind an inert panel. Keyed on the path
       so room-list hydration cannot flash the sidebar over a room. */
@@ -383,7 +382,7 @@
     visibility: collapse;
   }
 
-  @media (width < 48rem) {
+  @media (--compact-layout) {
     .navigation-panel,
     .content-panel.with-quick-tools,
     .content-panel:has(> .content > :global([data-inset-owner~='bottom'])) {
@@ -402,7 +401,7 @@
     }
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .mobile-quick-tools {
       display: none;
     }
