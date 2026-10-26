@@ -13,6 +13,9 @@ import { core } from '#lib/core/__mocks__/context.js';
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/platform/system-bars.js', () => ({ setSystemBarsHidden: vi.fn() }));
 
+import * as files from '#lib/platform/files.js';
+import * as platformOs from '#lib/platform/os.js';
+
 import MediaViewer from './MediaViewer.svelte';
 import { spoilerVisibility, spoilerVisibilityKey } from './spoiler-visibility.svelte.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
@@ -110,6 +113,61 @@ async function swipe(from: number, to: number): Promise<void> {
     { pointerName: 'TouchA', target: stage(), coords: { clientX: 100, clientY: to } },
   ]);
 }
+
+async function openMobileImage(os: 'android' | 'ios') {
+  vi.spyOn(platformOs, 'isNativeMobile').mockReturnValue(true);
+  vi.spyOn(platformOs, 'isAndroid').mockReturnValue(os === 'android');
+  vi.spyOn(files, 'supportsPhotoLibrary').mockResolvedValue(true);
+  const photos = vi.spyOn(files, 'saveImageToPhotos').mockResolvedValue('saved');
+  const download = vi.spyOn(files, 'saveUrl').mockResolvedValue('saved');
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  await openImage();
+  return { photos, download };
+}
+
+test('iOS saves to Photos with one tap and labels the button accordingly', async () => {
+  const { photos, download } = await openMobileImage('ios');
+  await user.click(screen.getByRole('button', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledExactlyOnceWith(
+    expect.stringMatching(/^blob:/),
+    'photo.png',
+    'image/png'
+  );
+  expect(download).not.toHaveBeenCalled();
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+test('Android downloads an image with one tap', async () => {
+  const { photos, download } = await openMobileImage('android');
+  await user.click(screen.getByRole('button', { name: 'viewer.downloadImage' }));
+  expect(download).toHaveBeenCalledExactlyOnceWith(
+    expect.stringMatching(/^blob:/),
+    'photo.png',
+    true
+  );
+  expect(photos).not.toHaveBeenCalled();
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+test('both save destinations remain available in More actions', async () => {
+  const { photos, download } = await openMobileImage('ios');
+  await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToFiles' }));
+  expect(download).toHaveBeenCalledOnce();
+  expect(photos).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledOnce();
+  expect(download).toHaveBeenCalledOnce();
+});
+
+test('the iOS image context menu uses the same Photos save action', async () => {
+  const { photos, download } = await openMobileImage('ios');
+  await fireEvent.contextMenu(screen.getByRole('img'));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledOnce();
+  expect(download).not.toHaveBeenCalled();
+});
 
 test('renders a video attachment with a player and no zoom controls', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));

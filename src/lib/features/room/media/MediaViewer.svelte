@@ -198,11 +198,13 @@
     return 1;
   });
   let downloadLabel = $derived(
-    item?.kind === 'video'
-      ? i18n.t('viewer.downloadVideo')
-      : item?.kind === 'audio'
-        ? i18n.t('viewer.downloadAudio')
-        : i18n.t('viewer.downloadImage')
+    mediaActions.savesToPhotos
+      ? i18n.t('viewer.saveToPhotos')
+      : item?.kind === 'video'
+        ? i18n.t('viewer.downloadVideo')
+        : item?.kind === 'audio'
+          ? i18n.t('viewer.downloadAudio')
+          : i18n.t('viewer.downloadImage')
   );
 
   function clampCurrentPan(next: Vector2): Vector2 {
@@ -649,12 +651,6 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#snippet saveTrigger({ props }: { props: Record<string, unknown> })}
-  <IconButton {...props} label={downloadLabel} size="medium" variant="ghost">
-    <DownloadSimpleIcon />
-  </IconButton>
-{/snippet}
-
 {#if item}
   <Dialog.Root
     open
@@ -745,25 +741,12 @@
                 }}><ShareNetworkIcon /></IconButton
               >
             {/if}
-            {#if canSaveToPhotos && isImage}
-              <ActionMenu label={downloadLabel} trigger={saveTrigger}>
-                <ActionMenuItem onSelect={() => void mediaActions.download()}>
-                  <FileArrowDownIcon />
-                  {i18n.t('viewer.saveToFiles')}
-                </ActionMenuItem>
-                <ActionMenuItem onSelect={() => void mediaActions.saveToPhotos()}>
-                  <ImagesIcon />
-                  {i18n.t('viewer.saveToPhotos')}
-                </ActionMenuItem>
-              </ActionMenu>
-            {:else}
-              <IconButton
-                label={downloadLabel}
-                size="medium"
-                variant="ghost"
-                onclick={() => void mediaActions.download()}><DownloadSimpleIcon /></IconButton
-              >
-            {/if}
+            <IconButton
+              label={downloadLabel}
+              size="medium"
+              variant="ghost"
+              onclick={() => void mediaActions.save()}><DownloadSimpleIcon /></IconButton
+            >
             {#if isImage || isPdf || onJump}
               <ActionMenu label={i18n.t('timeline.moreActions')}>
                 {#snippet trigger({ props })}
@@ -774,6 +757,17 @@
                     variant="ghost"><DotsThreeIcon /></IconButton
                   >
                 {/snippet}
+                {#if canSaveToPhotos && isImage}
+                  <ActionMenuItem onSelect={() => void mediaActions.download()}>
+                    <FileArrowDownIcon />
+                    {i18n.t('viewer.saveToFiles')}
+                  </ActionMenuItem>
+                  <ActionMenuItem onSelect={() => void mediaActions.saveToPhotos()}>
+                    <ImagesIcon />
+                    {i18n.t('viewer.saveToPhotos')}
+                  </ActionMenuItem>
+                  <ActionMenuSeparator />
+                {/if}
                 {#if isImage}
                   <ActionMenuItem onSelect={() => void mediaActions.copyImage()}>
                     <CopyIcon />
@@ -942,7 +936,7 @@
                   <CopyIcon />
                   {i18n.t('viewer.copyImage')}
                 </ActionMenuItem>
-                <ActionMenuItem onSelect={() => void mediaActions.download()}>
+                <ActionMenuItem onSelect={() => void mediaActions.save()}>
                   <DownloadSimpleIcon />
                   {downloadLabel}
                 </ActionMenuItem>
