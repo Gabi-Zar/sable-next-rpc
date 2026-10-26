@@ -1445,6 +1445,7 @@ pub struct PersonaTriggerView {
     pub suffix: Option<String>,
     #[serde(default)]
     pub keep_trigger: bool,
+    pub alternate_avatar_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -48,6 +48,9 @@ struct TriggerIn {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
     keep_trigger: Option<bool>,
+    #[serde_as(as = "NonBlankVerbatim")]
+    #[serde(default, rename = "net.f0rest.alternate_avatar_id")]
+    alternate_avatar_id: Option<String>,
 }
 
 impl TriggerIn {
@@ -60,6 +63,7 @@ impl TriggerIn {
             prefix: self.prefix,
             suffix: self.suffix,
             keep_trigger: self.keep_trigger.unwrap_or(false),
+            alternate_avatar_id: self.alternate_avatar_id,
         })
     }
 }
@@ -88,6 +92,7 @@ impl TriggerV2In {
                 prefix: trigger.prefix,
                 suffix: trigger.suffix,
                 keep_trigger: false,
+                alternate_avatar_id: None,
             });
         let prefixes = self
             .prefix
@@ -97,6 +102,7 @@ impl TriggerV2In {
                 prefix: Some(prefix),
                 suffix: None,
                 keep_trigger: false,
+                alternate_avatar_id: None,
             });
         let suffixes = self
             .suffix
@@ -106,6 +112,7 @@ impl TriggerV2In {
                 prefix: None,
                 suffix: Some(suffix),
                 keep_trigger: false,
+                alternate_avatar_id: None,
             });
 
         circumfixes.chain(prefixes).chain(suffixes).collect()
@@ -345,6 +352,11 @@ struct TriggerOut {
     suffix: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     keep_trigger: bool,
+    #[serde(
+        rename = "net.f0rest.alternate_avatar_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    alternate_avatar_id: Option<String>,
 }
 
 impl From<&PersonaTriggerView> for TriggerOut {
@@ -353,6 +365,7 @@ impl From<&PersonaTriggerView> for TriggerOut {
             prefix: trigger.prefix.clone(),
             suffix: trigger.suffix.clone(),
             keep_trigger: trigger.keep_trigger,
+            alternate_avatar_id: trigger.alternate_avatar_id.clone(),
         }
     }
 }

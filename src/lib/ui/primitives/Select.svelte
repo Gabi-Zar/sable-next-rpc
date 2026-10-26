@@ -12,11 +12,13 @@
   import './form-control.css';
   import './menu.css';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
+  import MediaImage from '../MediaImage.svelte';
 
   type Item = {
     value: string;
     label: string;
     image?: string;
+    mediaImage?: string;
     imageClass?: ClassValue;
     labelClass?: ClassValue;
     disabled?: boolean;
@@ -79,6 +81,8 @@
       alt=""
       aria-hidden="true"
     />
+  {:else if item.mediaImage}
+    <MediaImage class="select-item-image" source={item.mediaImage} alt="" width={32} height={32} />
   {/if}
   <span class={['selection-label', item.labelClass]}>{item.label}</span>
   {#if selected}<CheckIcon class="select-check" aria-hidden="true" />{/if}

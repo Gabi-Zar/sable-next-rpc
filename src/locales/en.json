@@ -3292,8 +3292,10 @@
     "alternateAvatarsHint": "Add extra avatars to change the look of a profile without having to recreate it.",
     "alternateAvatarAdd": "Add alternate avatar",
     "alternateAvatarLabel": "Alternate avatar",
+    "alternateAvatarNone": "Default avatar",
     "alternateAvatarViewOn": "Set alternate avatars",
-    "alternateAvatarViewOff": "Back to profiles"
+    "alternateAvatarViewOff": "Back to profiles",
+    "triggerAlternateAvatar": "Avatar"
   },
   "call": {
     "participantVolume": "Volume for {{name}}",

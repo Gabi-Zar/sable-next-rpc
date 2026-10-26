@@ -33,7 +33,7 @@ function trigger(
   suffix: string | null = null,
   keep = false
 ): PersonaTriggerView {
-  return { prefix, suffix, keep_trigger: keep };
+  return { prefix, suffix, keep_trigger: keep, alternate_avatar_id: null };
 }
 
 describe('resolveProxy', () => {

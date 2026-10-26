@@ -791,6 +791,7 @@ export type PersonaTriggerView = {
 	prefix: string | null,
 	suffix: string | null,
 	keep_trigger: boolean,
+	alternate_avatar_id: string | null,
 };
 
 export type PersonaView = {

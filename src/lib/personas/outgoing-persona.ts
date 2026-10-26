@@ -34,11 +34,11 @@ export function outgoingPersona(
     console.warn('[sable personas] updating timestamp failed', error);
   });
 
+  const alternate_avatar_id =
+    proxied?.trigger.alternate_avatar_id ?? personaSelection?.alternate_avatar_id;
   const avatar_url =
-    (personaSelection?.alternate_avatar_id
-      ? persona.alternate_avatars?.find(
-          (avatar) => avatar.id == personaSelection.alternate_avatar_id
-        )
+    (alternate_avatar_id
+      ? persona.alternate_avatars?.find((avatar) => avatar.id == alternate_avatar_id)
       : undefined
     )?.avatar_url ?? persona.avatar_url;
 
