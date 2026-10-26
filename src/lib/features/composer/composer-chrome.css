@@ -59,8 +59,8 @@
 }
 
 .composer:has([contenteditable='true']:focus) {
-  border-color: var(--primary-main);
-  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring);
+  border-color: var(--focus-ring);
+  outline: var(--focus-ring-width) solid var(--focus-ring);
 }
 
 .composer-row {
@@ -243,10 +243,6 @@
   .composer-send[data-pressing] svg {
     transform: scale(1.3);
     transition: transform var(--press-ms) linear;
-  }
-
-  .composer {
-    transition: border-color var(--motion-fast) var(--motion-easing-standard);
   }
 }
 
