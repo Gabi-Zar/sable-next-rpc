@@ -16,10 +16,7 @@ use matrix_sdk_ui::timeline::{
 };
 use sable_model::jumbo;
 
-use crate::matrix_html::{
-    display_html, has_profile_fallback_html, strip_profile_fallback_body,
-    strip_profile_fallback_html,
-};
+use crate::matrix_html::{display_html, strip_profile_fallback_body, strip_profile_fallback_html};
 use crate::protocol::{
     AvatarChangeView, DisplayNameChangeView, PerMessageProfileView, PollAnswerView, PollView,
     TimelineItemContentView, UtdCauseView,
@@ -43,22 +40,11 @@ fn text_message(
         .as_ref()
         .and_then(|_| raw.formatted_body().map(ToOwned::to_owned))
         .or(formatted);
-    let known = formatted.as_deref().is_some_and(has_profile_fallback_html)
-        || profile.is_some_and(|profile| profile.has_fallback);
-    let body = strip_profile_fallback_body(
-        msgtype.body(),
-        profile.and_then(|profile| profile.display_name.as_deref()),
-        known,
-    );
-    // Runs without a parsed profile too: the marker alone is enough, and
-    // skipping it leaves the html naming a sender the body no longer does.
-    let formatted = formatted.map(|formatted| {
-        strip_profile_fallback_html(
-            &formatted,
-            profile.and_then(|profile| profile.display_name.as_deref()),
-            known,
-        )
-    });
+    let fallback = profile
+        .filter(|profile| profile.has_fallback)
+        .and_then(|profile| profile.display_name.as_deref());
+    let body = strip_profile_fallback_body(msgtype.body(), fallback);
+    let formatted = formatted.map(|formatted| strip_profile_fallback_html(&formatted, fallback));
     let html = display_html(&body, formatted.as_deref());
     let emote = matches!(msgtype, MessageType::Emote(_));
     let jumbo = (!emote)

@@ -32,10 +32,7 @@ use crate::Core;
 use crate::ResultExt;
 use crate::link_previews::BUNDLED_LINK_PREVIEWS;
 use crate::link_previews::LEGACY_BUNDLED_LINK_PREVIEWS;
-use crate::matrix_html::{
-    display_html, has_profile_fallback_html, strip_profile_fallback_body,
-    strip_profile_fallback_html,
-};
+use crate::matrix_html::{display_html, strip_profile_fallback_body, strip_profile_fallback_html};
 use crate::outgoing::message_content;
 use crate::personas::PER_MESSAGE_PROFILE;
 use crate::protocol::{
@@ -972,21 +969,18 @@ fn edit_version(event: &TimelineEvent, replacement: bool) -> Option<EditVersionV
         .and_then(serde_json::Value::as_str)
         .filter(|format| *format == "org.matrix.custom.html")
         .and_then(|_| content.get("formatted_body")?.as_str());
-    let profile = per_message_profile(Some(content));
-    let name = profile
+    let profile = per_message_profile(Some(content)).filter(|profile| profile.has_fallback);
+    let fallback = profile
         .as_ref()
         .and_then(|profile| profile.display_name.as_deref());
-    let known = formatted.is_some_and(has_profile_fallback_html)
-        || profile.as_ref().is_some_and(|profile| profile.has_fallback);
     let body = strip_profile_fallback_body(
         content
             .get("body")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default(),
-        name,
-        known,
+        fallback,
     );
-    let formatted = formatted.map(|formatted| strip_profile_fallback_html(formatted, name, known));
+    let formatted = formatted.map(|formatted| strip_profile_fallback_html(formatted, fallback));
 
     Some(EditVersionView {
         event_id: event.event_id()?.to_string(),

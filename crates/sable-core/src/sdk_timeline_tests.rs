@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use futures_util::{StreamExt, pin_mut};
 use matrix_sdk::{
@@ -149,7 +149,6 @@ async fn timeline_view_preserves_available_read_receipt_timestamps() {
     let view = crate::view::timeline_item(
         item,
         client.user_id(),
-        &BTreeSet::new(),
         &crate::view::Highlights::default(),
         &crate::view::LocalContent::default(),
     );
@@ -2226,7 +2225,6 @@ async fn timeline_views(
                 super::view::timeline_item(
                     item,
                     client.user_id(),
-                    &BTreeSet::new(),
                     &super::view::Highlights::default(),
                     &super::view::LocalContent::default(),
                 )
@@ -3621,7 +3619,6 @@ async fn sender_names(timeline: &Arc<matrix_sdk_ui::timeline::Timeline>) -> Vec<
             crate::view::timeline_item(
                 item,
                 None,
-                &BTreeSet::new(),
                 &crate::view::Highlights::default(),
                 &crate::view::LocalContent::default(),
             )
@@ -3990,7 +3987,6 @@ async fn a_mention_is_loud_from_the_ruleset_not_the_stamped_flag() {
             super::view::timeline_item(
                 item,
                 Some(&own_user_id),
-                &BTreeSet::new(),
                 &highlights,
                 &super::view::LocalContent::default(),
             )
@@ -4071,7 +4067,6 @@ async fn a_deleted_mention_is_not_highlighted() {
             super::view::timeline_item(
                 item,
                 Some(&own_user_id),
-                &BTreeSet::new(),
                 &super::view::Highlights::default(),
                 &super::view::LocalContent::default(),
             )
@@ -4157,7 +4152,6 @@ async fn a_live_redaction_drops_the_reactions() {
             super::view::timeline_item(
                 item,
                 Some(&own_user_id),
-                &BTreeSet::new(),
                 &super::view::Highlights::default(),
                 &super::view::LocalContent::default(),
             )
@@ -4417,7 +4411,6 @@ async fn a_local_echo_keeps_the_formatted_body_it_was_sent_with() {
                 super::view::timeline_item(
                     item,
                     client.user_id(),
-                    &BTreeSet::new(),
                     &super::view::Highlights::default(),
                     local_content,
                 )

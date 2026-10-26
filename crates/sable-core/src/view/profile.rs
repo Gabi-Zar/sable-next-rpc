@@ -10,39 +10,6 @@ use super::raw::{ObjectOnly, present};
 
 const PMP_KEYS: [&str; 2] = ["com.beeper.per_message_profile", "m.per_message_profile"];
 
-pub(super) fn relay_profile(content: Option<&serde_json::Value>) -> Option<PerMessageProfileView> {
-    let body = content?.get("body")?.as_str()?;
-    let name = relay_author(body)?;
-
-    Some(PerMessageProfileView {
-        id: None,
-        display_name: Some(name.to_owned()),
-        avatar_url: None,
-        pronouns: Vec::new(),
-        color_on_light: None,
-        color_on_dark: None,
-        has_fallback: true,
-    })
-}
-
-fn relay_author(body: &str) -> Option<&str> {
-    const MAX_NAME: usize = 64;
-
-    let line = body.lines().next()?;
-    let name = if let Some(rest) = line.strip_prefix('<') {
-        rest.split_once("> ")?.0
-    } else {
-        let name = line.split_once(": ")?.0;
-        if name.contains(['<', '>']) {
-            return None;
-        }
-        name
-    };
-
-    let trimmed = name.trim();
-    visible_name(trimmed).filter(|name| name.len() <= MAX_NAME)
-}
-
 #[serde_as]
 #[derive(Default, serde::Deserialize)]
 #[serde(default)]
@@ -114,40 +81,6 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn reads_the_author_a_relay_bot_writes_into_the_body() {
-        assert_eq!(relay_author("<Marie> salut"), Some("Marie"));
-        assert_eq!(relay_author("Marie: salut"), Some("Marie"));
-        assert_eq!(relay_author("<Marie Dupont> salut"), Some("Marie Dupont"));
-        assert_eq!(
-            relay_author("<Marie> salut\nsur deux lignes"),
-            Some("Marie")
-        );
-        assert_eq!(relay_author("Marie: a: b"), Some("Marie"));
-        assert_eq!(
-            relay_author("we shipped it: finally"),
-            Some("we shipped it")
-        );
-    }
-
-    #[test]
-    fn leaves_a_body_that_names_no_author() {
-        assert_eq!(relay_author("salut"), None);
-        assert_eq!(relay_author("<Marie>salut"), None);
-        assert_eq!(relay_author(": salut"), None);
-        assert_eq!(relay_author(&format!("{}: hi", "n".repeat(65))), None);
-        assert_eq!(relay_author("\nMarie: salut"), None);
-    }
-
-    #[test]
-    fn synthesises_a_profile_only_from_a_body_that_names_an_author() {
-        let named = relay_profile(Some(&json!({ "body": "<Marie> salut" }))).expect("profile");
-        assert_eq!(named.display_name.as_deref(), Some("Marie"));
-        assert!(named.has_fallback);
-        assert!(relay_profile(Some(&json!({ "body": "salut" }))).is_none());
-        assert!(relay_profile(Some(&json!({ "msgtype": "m.text" }))).is_none());
-    }
-
-    #[test]
     fn reads_a_per_message_profile_under_either_key() {
         let beeper = json!({ "com.beeper.per_message_profile": { "displayname": "Kris" } });
         let stable = json!({ "m.per_message_profile": { "displayname": "Kris" } });
@@ -196,7 +129,6 @@ mod tests {
             let content = json!({ "m.per_message_profile": { "displayname": name } });
             let profile = per_message_profile(Some(&content)).expect("a profile");
             assert_eq!(profile.display_name, None);
-            assert_eq!(relay_author(&format!("<{name}> hello")), None);
         }
     }
 

@@ -262,7 +262,6 @@ impl Core {
             ),
         };
         fill_sender_profiles(&room, &timeline);
-        let relays = Arc::new(room.service_members().unwrap_or_default());
         let overlay = Arc::new(std::sync::Mutex::new(TimelineOverlay::default()));
 
         // The SDK replaces its explicit-room set wholesale. Register before
@@ -309,13 +308,7 @@ impl Core {
             .iter()
             .map(|item| {
                 abort_rejected_redaction(&timeline, item);
-                view::timeline_item(
-                    item,
-                    own_user_id.as_deref(),
-                    &relays,
-                    &highlights,
-                    &local_content,
-                )
+                view::timeline_item(item, own_user_id.as_deref(), &highlights, &local_content)
             })
             .collect();
         // Seeded before the stream starts, so its diffs apply to this snapshot.
@@ -325,7 +318,6 @@ impl Core {
             .reset(items);
         let core = self.clone();
         let stream_user_id = own_user_id.clone();
-        let stream_relays = relays.clone();
         let stream_room = room.clone();
         let stream_timeline = timeline.clone();
         let stream_overlay = overlay.clone();
@@ -356,7 +348,6 @@ impl Core {
                             let value = view::timeline_item(
                                 item,
                                 stream_user_id.as_deref(),
-                                &stream_relays,
                                 &highlights,
                                 &stream_content,
                             );
@@ -409,7 +400,6 @@ impl Core {
                             view::timeline_item(
                                 item,
                                 stream_user_id.as_deref(),
-                                &stream_relays,
                                 &highlights,
                                 &stream_content,
                             )

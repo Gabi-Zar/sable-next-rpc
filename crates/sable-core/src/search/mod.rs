@@ -2237,8 +2237,10 @@ fn without_profile_name(body: &str, raw: Option<&serde_json::Value>) -> String {
     };
     crate::matrix_html::strip_profile_fallback_body(
         body,
-        profile.display_name.as_deref(),
-        profile.has_fallback,
+        profile
+            .display_name
+            .as_deref()
+            .filter(|_| profile.has_fallback),
     )
 }
 

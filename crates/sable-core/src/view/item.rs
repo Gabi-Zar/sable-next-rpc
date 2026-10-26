@@ -1,6 +1,6 @@
 use sable_model::text::visible_name;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use matrix_sdk::deserialized_responses::TimelineEvent;
@@ -32,7 +32,7 @@ use super::content::{content, raw_formatted_body};
 use super::diff::diff_values;
 use super::forward::{forward_meta, forwarded, original_content};
 use super::previews::{bundled_link_previews, link_previews_removed};
-use super::profile::{per_message_profile, relay_profile};
+use super::profile::per_message_profile;
 use super::raw::RawFields;
 use super::state::forum_title;
 use super::thread::{bundled_thread_summary, in_reply_to, msg_like, thread_summary};
@@ -458,7 +458,6 @@ fn message_profile(
     raw: &RawFields,
     local: Option<&LocalFields>,
     local_content: &LocalContent,
-    relays: &BTreeSet<OwnedUserId>,
 ) -> Option<PerMessageProfileView> {
     let pending_edit = event
         .event_id()
@@ -466,19 +465,12 @@ fn message_profile(
     pending_edit
         .map_or_else(|| per_message_profile(raw.content.as_ref()), Clone::clone)
         .or_else(|| local?.profile.clone())
-        .or_else(|| {
-            relays
-                .contains(event.sender())
-                .then(|| relay_profile(raw.content.as_ref()))
-                .flatten()
-        })
 }
 
 #[must_use]
 pub fn timeline_item(
     item: &Arc<TimelineItem>,
     own_user_id: Option<&UserId>,
-    relays: &BTreeSet<OwnedUserId>,
     highlights: &Highlights,
     local_content: &LocalContent,
 ) -> TimelineItemView {
@@ -499,7 +491,7 @@ pub fn timeline_item(
                 .and(event.transaction_id())
                 .and_then(|transaction_id| local_content.get(transaction_id));
             raw.echo_formatted_body = local.and_then(|fields| fields.formatted_body.clone());
-            let message_profile = message_profile(event, &raw, local, local_content, relays);
+            let message_profile = message_profile(event, &raw, local, local_content);
 
             let mention = mention(event, own_user_id, highlights.holds(&id, event));
             let bundled_link_previews = bundled_link_previews(raw.message());
