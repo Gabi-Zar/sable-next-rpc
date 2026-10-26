@@ -74,7 +74,7 @@
 <ProfileCard
   {displayName}
   {variant}
-  userId={accountLabel}
+  userId={accountId}
   avatarUrl={profile.avatar_url}
   avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
   {onAvatarClick}
