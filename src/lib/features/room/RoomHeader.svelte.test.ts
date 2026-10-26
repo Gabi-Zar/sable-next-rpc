@@ -3,7 +3,9 @@
 import { screen } from '@testing-library/svelte';
 import { renderWithTooltips } from '#lib/test-support/render-with-tooltips.js';
 import { userEvent } from '@testing-library/user-event';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+
+vi.mock('#lib/core/context.js');
 
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import RoomHeader from './RoomHeader.svelte';
@@ -130,4 +132,24 @@ test('the hidden events toggle appears only when enabled and flips the preferenc
     preferences.hiddenEventsHeaderToggle = false;
     preferences.showHiddenEvents = false;
   }
+});
+
+test('opens the room image from the header', async () => {
+  const onAvatar = vi.fn();
+  renderWithTooltips(RoomHeader, {
+    props: {
+      roomId: '!general:example.org',
+      roomName: 'General',
+      roomAvatar: 'mxc://example.org/room',
+      members,
+      isVoice: false,
+      callParticipants: [],
+      onBack: () => {},
+      onMembers: () => {},
+      onSearch: () => {},
+      onAvatar,
+    },
+  });
+  await userEvent.setup().click(screen.getByRole('button', { name: 'View General’s avatar' }));
+  expect(onAvatar).toHaveBeenCalledExactlyOnceWith('mxc://example.org/room', 'General');
 });

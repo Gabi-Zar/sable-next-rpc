@@ -360,3 +360,16 @@ test('mobile: switching shows progress and a failed switch can be retried', asyn
   await expect.poll(() => switchAccount.mock.calls.length).toBe(2);
   await expect.poll(() => goto.mock.calls.length).toBeGreaterThan(0);
 });
+
+test.each([
+  ['avatar_url', 'Alice'],
+  ['banner_url', 'View Alice’s banner'],
+])('opens own profile image %s', async (field, label) => {
+  const source = `mxc://example.test/${field}`;
+  const { screen } = await mount(profileWith({ [field]: source }));
+  await userEvent.click(screen.getByRole('button', { name: label, exact: true }));
+  await expect
+    .element(screen.getByRole('dialog', { name: 'Media viewer', exact: true }))
+    .toBeVisible();
+  await expect.poll(() => core.fetchMedia).toHaveBeenCalledWith(source, 0, 0);
+});

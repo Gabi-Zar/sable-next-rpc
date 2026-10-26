@@ -61,7 +61,8 @@
   import RoomTombstoneBanner from './RoomTombstoneBanner.svelte';
   import RoomReadReceipts from './timeline/RoomReadReceipts.svelte';
   import TimelineList from './timeline/TimelineList.svelte';
-  import MediaViewer, { type MediaItem } from './media/MediaViewer.svelte';
+  import type { MediaItem } from './media/media-viewer-types.js';
+  import RoomMediaViewerDialog from './media/RoomMediaViewerDialog.svelte';
   import { galleryEventId } from './media/media-items.js';
   import { provideMediaViewerOpener } from './media/media-viewer-opener.svelte.js';
   import { tagForLevel } from './settings/power-level-tags.js';
@@ -753,22 +754,7 @@
 
   function openProfileAvatar(source: string, displayName: string): void {
     closeProfile();
-    mediaViewer.openStandalone({
-      kind: 'image',
-      filename: displayName,
-      caption: null,
-      html: null,
-      source,
-      mime: null,
-      width: null,
-      height: null,
-      size: null,
-      blurhash: null,
-      thumbnail: null,
-      spoiler: null,
-      animated: null,
-      sender: displayName,
-    });
+    mediaViewer.openProfile(source, displayName);
   }
 
   function openPredecessor(): void {
@@ -961,6 +947,7 @@
       onMembers={toggleMembers}
       onSearch={openSearch}
       onTopic={() => (topicOpen = true)}
+      onAvatar={(source, name) => mediaViewer.openProfile(source, name)}
       {phone}
       actions={headerActions}
     >
@@ -1121,14 +1108,10 @@
     }}
   />
 
-  {#if mediaViewer.eventId}
-    <MediaViewer
-      items={mediaViewer.items}
-      selectedEventId={mediaViewer.eventId}
-      onClose={() => mediaViewer.close()}
-      onJump={mediaViewer.panelItems ? jumpFromViewer : undefined}
-    />
-  {/if}
+  <RoomMediaViewerDialog
+    viewer={mediaViewer}
+    onJump={mediaViewer.panelItems ? jumpFromViewer : undefined}
+  />
 </main>
 
 <style>

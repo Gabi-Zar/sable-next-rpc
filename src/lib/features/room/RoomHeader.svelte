@@ -40,6 +40,7 @@
     onMembers: () => void;
     onSearch: () => void;
     onTopic?: (() => void) | null;
+    onAvatar?: (source: string, displayName: string) => void;
     phone?: boolean;
     pins?: Snippet;
     actions?: Snippet;
@@ -64,6 +65,7 @@
     onMembers,
     onSearch,
     onTopic = null,
+    onAvatar,
     phone = false,
     pins,
     actions,
@@ -88,7 +90,23 @@
       <BackIcon />
     </PanelHeaderButton>
 
-    <Avatar class="room-avatar" id={roomId} src={roomAvatar} name={roomName} size="small" />
+    {#snippet avatar()}
+      <Avatar id={roomId} src={roomAvatar} name={roomName} size="small" />
+    {/snippet}
+    <span class="room-avatar">
+      {#if roomAvatar && onAvatar}
+        {@const source = roomAvatar}
+        {@const openAvatar = onAvatar}
+        <PanelHeaderButton
+          label={i18n.t('timeline.profileAvatar', { name: roomName })}
+          onclick={() => openAvatar(source, roomName)}
+        >
+          {@render avatar()}
+        </PanelHeaderButton>
+      {:else}
+        {@render avatar()}
+      {/if}
+    </span>
   {/snippet}
 
   {#snippet main()}
@@ -237,7 +255,7 @@
     outline-offset: var(--focus-ring-offset);
   }
 
-  :global(.avatar-root.room-avatar) {
+  .room-avatar {
     display: none;
   }
 
@@ -297,7 +315,7 @@
       display: none;
     }
 
-    :global(.avatar-root.room-avatar) {
+    .room-avatar {
       display: inline-flex;
     }
   }
