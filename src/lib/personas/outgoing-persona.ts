@@ -24,7 +24,12 @@ export function outgoingPersona(
   if (!persona) return { body, formatted, persona: null };
   if (proxied && preferences.personaLatching !== 'off') {
     void personas
-      .select(preferences.personaLatching === 'room' ? targetRoomId : null, proxied.persona.id)
+      .select(
+        preferences.personaLatching === 'room' ? targetRoomId : null,
+        proxied.persona.id,
+        null,
+        proxied.trigger.alternate_avatar_id ?? null
+      )
       .catch((error: unknown) => {
         console.warn('[sable personas] latching failed', error);
       });
