@@ -1046,6 +1046,7 @@
     "voiceMessageVolume": "Voice message volume",
     "mediaUnavailable": "Media unavailable",
     "mediaUnavailableDetail": "This media may have been deleted or its server is offline.",
+    "videoUnsupported": "This video format can't be played on this device",
     "openMedia": "Open {{name}}",
     "loadMedia": "Load media",
     "openMediaUnnamed": "Open media",
