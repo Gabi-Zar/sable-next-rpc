@@ -14,6 +14,7 @@ const MESSAGE_KINDS: ReadonlySet<string> = new Set([
   'live_location',
   'poll',
   'redacted',
+  'unable_to_decrypt',
 ]);
 const ANNOTATION_KINDS: ReadonlySet<string> = new Set([
   'date_divider',

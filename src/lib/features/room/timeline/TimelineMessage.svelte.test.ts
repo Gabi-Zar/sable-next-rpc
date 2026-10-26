@@ -297,6 +297,27 @@ test('keeps the sender header for an ordinary message', async () => {
   expect(document.querySelector('.emote')).toBeNull();
 });
 
+test('an undecryptable message keeps its sender and avatar', async () => {
+  render(TimelineItemHarness, {
+    props: {
+      core,
+      item: {
+        item: withRowFields({
+          ...item(false),
+          content: { kind: 'unable_to_decrypt', reason: 'unknown', session_id: null },
+        }),
+        collapsed: false,
+        roomId: '!room:example.org',
+      },
+    },
+  });
+  await tick();
+
+  expect(document.querySelector('header .sender')?.textContent).toBe('Alice');
+  expect(document.querySelector('.message-avatar')).toBeInTheDocument();
+  expect(document.querySelector('.message-main .undecryptable')).toBeInTheDocument();
+});
+
 test('strips a per-message-profile fallback from a thread summary', async () => {
   render(TimelineItemHarness, {
     props: {

@@ -259,7 +259,8 @@ impl TimelineItemContentView {
             | Self::Location { .. }
             | Self::LiveLocation { .. }
             | Self::Poll { .. }
-            | Self::Redacted { .. } => TimelineRowKind::Message,
+            | Self::Redacted { .. }
+            | Self::UnableToDecrypt { .. } => TimelineRowKind::Message,
             Self::DateDivider { .. } | Self::ReadMarker | Self::TimelineStart => {
                 TimelineRowKind::Annotation
             }
@@ -267,7 +268,6 @@ impl TimelineItemContentView {
             | Self::VerificationRequest
             | Self::Cute { .. }
             | Self::Malformed { .. }
-            | Self::UnableToDecrypt { .. }
             | Self::Membership { .. }
             | Self::ProfileChange { .. }
             | Self::StateEvent { .. }
@@ -695,7 +695,9 @@ mod tests {
     use matrix_sdk_base::store::QueueWedgeError;
     use serde_json::json;
 
-    use crate::protocol::{TimelineItemContentView, TimelineRowKind, TimelineVisibility};
+    use crate::protocol::{
+        TimelineItemContentView, TimelineRowKind, TimelineVisibility, UtdCauseView,
+    };
     use matrix_sdk::ruma::serde::Raw;
     use matrix_sdk::ruma::{OwnedEventId, OwnedTransactionId};
 
@@ -846,6 +848,15 @@ mod tests {
         assert_eq!(tombstone.row_kind(), TimelineRowKind::Message);
         assert!(!tombstone.redactable());
         assert!(!tombstone.forwardable());
+    }
+
+    #[test]
+    fn an_undecryptable_event_is_a_message_row() {
+        let utd = TimelineItemContentView::UnableToDecrypt {
+            reason: UtdCauseView::Unknown,
+            session_id: None,
+        };
+        assert_eq!(utd.row_kind(), TimelineRowKind::Message);
     }
 
     #[test]

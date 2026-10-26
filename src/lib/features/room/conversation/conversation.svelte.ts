@@ -544,12 +544,7 @@ export class Conversation {
     const items = this.#timeline.items;
     for (let index = items.length - 1; index >= 0; index--) {
       const item = items[index];
-      if (
-        !item.event_id ||
-        (!isMessageRow(item) && item.content.kind !== 'unable_to_decrypt') ||
-        item.content.kind === 'redacted'
-      )
-        continue;
+      if (!item.event_id || !isMessageRow(item) || item.content.kind === 'redacted') continue;
       await this.#toggleReaction(item.event_id, key, sourcePack);
       return;
     }

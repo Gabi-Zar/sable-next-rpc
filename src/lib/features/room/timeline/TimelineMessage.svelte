@@ -36,6 +36,7 @@
   import TimelineSwipeAction from './TimelineSwipeAction.svelte';
   import TimelineThreadSummary from './TimelineThreadSummary.svelte';
   import TimelineTransfer from './TimelineTransfer.svelte';
+  import UndecryptableNotice from './UndecryptableNotice.svelte';
 
   let {
     item,
@@ -533,6 +534,15 @@
             />
             {@render inlineReceiptSlot()}
           </div>
+        {:else if item.content.kind === 'unable_to_decrypt'}
+          <UndecryptableNotice
+            id={item.id}
+            cause={item.content.reason}
+            {roomId}
+            sessionId={item.content.session_id}
+            sender={item.sender}
+            threadRoot={item.thread_root}
+          />
         {:else}
           <div class={{ 'content-bubble': layout === 'bubble' && nonTextContent }}>
             <MessageBody

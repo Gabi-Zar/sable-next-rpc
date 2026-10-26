@@ -90,7 +90,6 @@
     color: var(--surface-var-on-container);
     font-size: var(--font-size-small);
     margin: 0;
-    margin-inline-start: calc(var(--avatar-size-small) + var(--space-250));
     max-width: 32rem;
     padding: var(--space-150) var(--space-200);
     width: fit-content;
