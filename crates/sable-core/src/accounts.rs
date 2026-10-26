@@ -980,6 +980,12 @@ impl Core {
         persisted: PersistedSession,
         reauth: Option<&PersistedAccount>,
     ) -> Result<SessionGeneration<'_>, RpcError> {
+        if let Err(RpcError::SlidingSyncUnsupported) = self.require_sliding_sync(&client).await {
+            if let Err(error) = client.logout().await {
+                tracing::warn!(?error, "could not log out a session without Sliding Sync");
+            }
+            return Err(RpcError::SlidingSyncUnsupported);
+        }
         // Pushes can find the login once it is persisted.
         let lease = session::store_lease(store_id).await;
         let generation = self.claim_session_generation().await;
