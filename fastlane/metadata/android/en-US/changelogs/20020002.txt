@@ -1,0 +1,6 @@
+- Keep other devices quiet while you are using Sable, until you have been away for a chosen time. Receiving a push no longer shows you as online.
+- Add an option to remember approved widget permissions.
+- Keep persona changes synchronized across devices without overwriting newer edits (#1393).
+- Fix the account page showing another account's saved status message.
+- Fix background Android calls with hidden previews (#1309).
+- Copy images to the Android clipboard (#1167).
