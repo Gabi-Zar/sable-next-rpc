@@ -216,10 +216,19 @@ pub fn merge_hierarchy_rooms(
                 .or_else(|| chunk.canonical_alias.take()),
             num_joined_members: chunk.num_joined_members,
             guest_can_join: chunk.guest_can_join,
-            children: if room.children.is_empty() {
-                std::mem::take(&mut chunk.children)
-            } else {
-                room.children.clone()
+            children: {
+                let mut children = std::mem::take(&mut chunk.children);
+                for edge in &room.children {
+                    match children
+                        .iter_mut()
+                        .find(|held| held.room_id == edge.room_id)
+                    {
+                        Some(held) => *held = edge.clone(),
+                        None => children.push(edge.clone()),
+                    }
+                }
+                children.retain(|edge| !edge.via.is_empty());
+                children
             },
             ..room.clone()
         };
@@ -496,6 +505,76 @@ mod tests {
         assert_eq!(merged[0].name.as_deref(), Some("Local"));
         assert_eq!(merged[0].topic.as_deref(), Some("t"));
         assert_eq!(merged[0].num_joined_members, Some(4));
+    }
+
+    #[test]
+    fn empty_local_children_preserve_fetched_rooms_and_subspaces() {
+        let fetched = [
+            room("!root", &["!a", "!space1"]),
+            room("!a", &[]),
+            room("!space1", &["!b"]),
+            room("!b", &[]),
+        ];
+        let merged = merge_hierarchy_rooms(&[room("!root", &[])], &fetched);
+        assert_eq!(
+            merged[0].children,
+            [edge("!a", false), edge("!space1", false)]
+        );
+        let sections = build_hierarchy_sections(&merged, "!root", &SectionInputs::default());
+        assert_eq!(
+            keys(&sections),
+            [
+                ("!root".to_owned(), vec!["!root/!a".to_owned()], 0),
+                (
+                    "!root/!space1".to_owned(),
+                    vec!["!root/!space1/!b".to_owned()],
+                    0
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn partial_local_children_update_metadata_and_preserve_fetched_edges() {
+        let fetched = [room("!root", &["!a", "!space1"])];
+        let mut local = room("!root", &["!a"]);
+        local.children[0].suggested = true;
+        local.children[0].via = vec!["local.example".to_owned()];
+
+        let merged = merge_hierarchy_rooms(&[local], &fetched);
+
+        assert_eq!(
+            merged[0].children,
+            [
+                SpaceChildEdge {
+                    via: vec!["local.example".to_owned()],
+                    ..edge("!a", true)
+                },
+                edge("!space1", false),
+            ]
+        );
+    }
+
+    #[test]
+    fn new_local_children_are_added_alongside_fetched_edges() {
+        let fetched = [room("!root", &["!a", "!space1"])];
+        let local = room("!root", &["!a", "!c"]);
+
+        let merged = merge_hierarchy_rooms(&[local], &fetched);
+
+        assert_eq!(
+            merged[0].children,
+            [edge("!a", false), edge("!space1", false), edge("!c", false)]
+        );
+    }
+
+    #[test]
+    fn an_explicitly_removed_child_does_not_return_from_the_hierarchy() {
+        let fetched = [room("!root", &["!a", "!b"])];
+        let mut local = room("!root", &["!a"]);
+        local.children[0].via.clear();
+        let merged = merge_hierarchy_rooms(&[local], &fetched);
+        assert_eq!(merged[0].children, [edge("!b", false)]);
     }
 
     #[test]
