@@ -226,8 +226,8 @@
                     }}
                   >
                     {roomsPacks.every(isChosen)
-                      ? i18n.t('emotes.unselectAll')
-                      : i18n.t('common.selectAll')}
+                      ? i18n.t('emotes.stopUsingAllEverywhere')
+                      : i18n.t('emotes.useAllEverywhere')}
                   </Button>
                 </div>
               </div>
