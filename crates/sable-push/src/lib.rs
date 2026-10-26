@@ -364,6 +364,16 @@ async fn clear_event(
     }
 }
 
+fn decrypted_event(push: ColdPush) -> Result<Option<Value>, DiscardOut> {
+    match push {
+        ColdPush::Discard | ColdPush::Unevaluated | ColdPush::NeedsKey { quietly: true } => {
+            Err(DiscardOut { discard: true })
+        }
+        ColdPush::Clear(clear) => Ok(serde_json::from_str(&clear).ok()),
+        ColdPush::NeedsKey { quietly: false } | ColdPush::Undecryptable => Ok(None),
+    }
+}
+
 #[expect(
     clippy::too_many_lines,
     reason = "policy and account are rechecked in order after each await"
@@ -416,10 +426,11 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     let target = PushTarget::deserialize(notification).ok()?;
     let ciphertext = target.kind.as_deref() == Some("m.room.encrypted");
     let encrypted = ciphertext || fetched_encrypted;
-    let event = match Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await {
-        ColdPush::Discard => return serde_json::to_value(DiscardOut { discard: true }).ok(),
-        ColdPush::Clear(clear) => serde_json::from_str(&clear).ok(),
-        ColdPush::Unevaluated | ColdPush::NeedsKey { .. } | ColdPush::Undecryptable => None,
+    let event = match decrypted_event(
+        Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await,
+    ) {
+        Ok(event) => event,
+        Err(discard) => return serde_json::to_value(discard).ok(),
     };
     let sender_id = target.sender.filter(|sender| !sender.is_empty());
     let sender = match &session {
@@ -638,6 +649,37 @@ mod tests {
             clear_event(None, &notification, false).await,
             ColdPush::Clear(notification.to_string())
         );
+    }
+
+    #[test]
+    fn filtered_unevaluated_and_quiet_key_pushes_tell_the_extension_to_discard() {
+        for push in [
+            ColdPush::Discard,
+            ColdPush::Unevaluated,
+            ColdPush::NeedsKey { quietly: true },
+        ] {
+            let discard = decrypted_event(push).err().unwrap();
+            assert_eq!(
+                serde_json::to_value(discard).unwrap(),
+                json!({"discard": true})
+            );
+        }
+    }
+
+    #[test]
+    fn decrypted_pushes_keep_content_and_decryption_failures_allow_fallbacks() {
+        let event = json!({"type":"m.room.message","content":{"body":"hello"}});
+        assert_eq!(
+            decrypted_event(ColdPush::Clear(event.to_string())).ok(),
+            Some(Some(event))
+        );
+        for push in [
+            ColdPush::Undecryptable,
+            ColdPush::NeedsKey { quietly: false },
+            ColdPush::Clear("invalid json".to_owned()),
+        ] {
+            assert!(matches!(decrypted_event(push), Ok(None)));
+        }
     }
 
     #[test]
