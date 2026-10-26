@@ -345,7 +345,7 @@
       var(--surface-container)
     );
 
-    background: var(--profile-card-ground);
+    background: var(--profile-panel-ground);
     border: var(--border-width) solid var(--profile-line);
     border-radius: var(--radius);
     color: var(--profile-ink);
@@ -475,7 +475,7 @@
     border: 0;
     border-radius: var(--radii-400);
     cursor: pointer;
-    display: inline-flex;
+    display: flex;
     flex: 0 0 var(--profile-avatar-size);
     height: var(--profile-avatar-size);
     padding: 0;
@@ -485,7 +485,7 @@
   :global(.profile-card-presence) {
     --presence-ring: var(--profile-card-ground);
 
-    bottom: var(--space-050);
+    bottom: 0;
     position: absolute;
     right: 0;
     z-index: 1;
@@ -589,11 +589,10 @@
   }
 
   .profile-card.profile-card-inset-body .profile-card-body {
-    background: var(--profile-panel-ground);
-    border: var(--border-width) solid var(--profile-line);
     border-radius: var(--radius-inner);
     margin: 0 var(--space-200);
-    padding: var(--space-200) var(--space-300);
+    padding: var(--space-200);
+    padding-block: var(--space-300) var(--space-200);
   }
 
   .profile-card-heading {
@@ -601,7 +600,7 @@
     display: flex;
     flex-flow: row wrap;
     gap: var(--space-100) var(--space-200);
-    margin-bottom: var(--space-100);
+    margin-bottom: var(--space-050);
   }
 
   .profile-card-heading :global(.btn:last-child) {
@@ -672,9 +671,9 @@
     display: flex;
     flex-wrap: wrap;
     font-size: var(--font-size-small);
-    gap: var(--space-100) var(--space-300);
+    gap: var(--space-050) var(--space-300);
     line-height: var(--line-height-small);
-    margin-top: var(--space-150);
+    margin-top: var(--space-250);
   }
 
   .profile-card-meta :global(svg) {
@@ -685,12 +684,12 @@
   /* Same gutter as the identity text, and framed only with a bio to hold: a lone
      misc-data line in a panel reads as an empty box. */
   .profile-card-panel {
-    margin: 0 var(--space-400) var(--space-300);
+    margin: 0 var(--space-300) var(--space-100);
   }
 
   .profile-card.profile-card-inset-body .profile-card-panel {
     margin-inline: 0;
-    margin-top: var(--space-200);
+    margin-top: var(--space-300);
   }
 
   /* Padding sits on the rows so the divider between them can reach
@@ -779,7 +778,7 @@
   }
 
   .profile-card.profile-card-inset-body .profile-card-composer {
-    padding: var(--space-200) 0 0;
+    padding: var(--space-400) 0 0;
   }
 
   .profile-card-below {
@@ -787,7 +786,7 @@
   }
 
   .profile-card.profile-card-inset-body .profile-card-below {
-    padding: var(--space-200) 0 0;
+    padding: var(--space-300) 0 0;
   }
 
   .profile-card-footer.divided {
