@@ -730,6 +730,7 @@
       miscOpen = !miscOpen;
       activeExtra = null;
     }}
+    size="small"
     block
   >
     {#if miscOpen}
