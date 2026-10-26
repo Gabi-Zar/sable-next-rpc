@@ -318,6 +318,8 @@
 <style>
   @media (pointer: fine) {
     .profile-card {
+      border: var(--border-width) solid var(--profile-line);
+      border-radius: var(--radius);
       user-select: text;
     }
   }
@@ -346,8 +348,6 @@
     );
 
     background: var(--profile-panel-ground);
-    border: var(--border-width) solid var(--profile-line);
-    border-radius: var(--radius);
     color: var(--profile-ink);
     overflow: hidden;
     position: relative;
@@ -654,7 +654,7 @@
 
   @media (pointer: coarse) {
     .profile-card-user-id {
-      min-height: var(--control-height-large);
+      min-height: var(--control-height-small);
     }
   }
 
