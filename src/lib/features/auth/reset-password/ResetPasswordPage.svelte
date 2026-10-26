@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import '#lib/features/auth/shared/auth-card.css';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
@@ -68,9 +69,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{i18n.t('auth.resetPasswordTitle')} - Sable</title>
-</svelte:head>
+<PageTitle title={`${i18n.t('auth.resetPasswordTitle')} - Sable`} />
 
 <AuthPage
   {hasLoggedInBefore}

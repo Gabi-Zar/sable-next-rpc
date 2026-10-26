@@ -2,6 +2,7 @@
   import type { ClassValue } from 'svelte/elements';
   import type { Snippet } from 'svelte';
   import { hasPageMeta, usePageMeta } from '#lib/core/page-meta.js';
+  import PageTitle from './PageTitle.svelte';
 
   type Props = {
     title: string;
@@ -27,24 +28,13 @@
   }: Props = $props();
 
   const pageMeta = hasPageMeta() ? usePageMeta() : null;
-  let previousTitle = '';
-
-  $effect.pre(() => {
-    previousTitle = document.title;
-  });
-
-  $effect(() => () => {
-    if (document.title === `${title} - Sable`) document.title = previousTitle;
-  });
 
   $effect(() => {
     if (pageMeta) pageMeta.title = title;
   });
 </script>
 
-<svelte:head>
-  <title>{title} - Sable</title>
-</svelte:head>
+<PageTitle title={`${title} - Sable`} />
 
 <main class={['app-page-shell', `app-page-shell-${density}`, className]}>
   <header class="app-page-header">

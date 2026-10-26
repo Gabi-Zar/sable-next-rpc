@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { onMount } from 'svelte';
   import { watchMatrixLinks } from '#lib/rooms/native-links.js';
   import { on } from 'svelte/events';
@@ -186,8 +187,9 @@
   }}
 />
 
+<PageTitle title="Sable" />
+
 <svelte:head>
-  <title>Sable</title>
   <link rel="icon" href={favicon} />
 </svelte:head>
 

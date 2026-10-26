@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import QrLinkDialog from '#lib/features/qr-login/QrLinkDialog.svelte';
   import '#lib/features/auth/shared/auth-card.css';
   import { goto } from '$app/navigation';
@@ -317,17 +318,11 @@
   }
 </script>
 
-<svelte:head>
-  <title>
-    {i18n.t(
-      isSetupRoute
-        ? 'setup.title'
-        : displayedStage === 0
-          ? 'auth.signInTitle'
-          : 'auth.createAccount'
-    )} - Sable
-  </title>
-</svelte:head>
+<PageTitle
+  title={`${i18n.t(
+    isSetupRoute ? 'setup.title' : displayedStage === 0 ? 'auth.signInTitle' : 'auth.createAccount'
+  )} - Sable`}
+/>
 
 {#snippet loginStageContent(showCreateAccount: boolean)}
   <LoginForm

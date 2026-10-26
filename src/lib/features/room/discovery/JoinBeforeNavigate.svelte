@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { goto } from '$app/navigation';
   import { untrack } from 'svelte';
 
@@ -157,9 +158,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{preview?.name ?? i18n.t('a11y.loading')} - Sable</title>
-</svelte:head>
+<PageTitle title={`${preview?.name ?? i18n.t('a11y.loading')} - Sable`} />
 
 <div class="wrapper" data-inset-owner="top">
   {#if !appLayout.current}

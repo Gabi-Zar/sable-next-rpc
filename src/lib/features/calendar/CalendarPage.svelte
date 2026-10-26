@@ -1,4 +1,5 @@
 <script module lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
   const remembered = { mode: 'agenda' as 'agenda' | 'month', monthStart: null as number | null };
 </script>
@@ -409,9 +410,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{roomName}</title>
-</svelte:head>
+<PageTitle title={roomName} />
 
 <main class="calendar-page" aria-label={i18n.t('calendar.label')} data-inset-owner="top">
   <PanelHeader title={roomName} titleSize="h1">

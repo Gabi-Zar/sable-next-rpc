@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { copyText } from '#lib/platform/clipboard.js';
   import * as Sentry from '@sentry/sveltekit';
   import { goto } from '$app/navigation';
@@ -64,9 +65,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{page.status} - Sable</title>
-</svelte:head>
+<PageTitle title={`${page.status} - Sable`} />
 
 <main class="error-page" aria-labelledby="error-title">
   <div class="error-content">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { matrixLinkAction } from '#lib/rooms/matrix-link.js';
   import { MediaQuery } from 'svelte/reactivity';
   import { onDestroy, onMount, untrack } from 'svelte';
@@ -797,9 +798,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{pageTitle}</title>
-</svelte:head>
+<PageTitle title={pageTitle} />
 
 {#snippet inlineEditor()}
   <InlineEdit {conversation} roomId={resolvedRoomId} />

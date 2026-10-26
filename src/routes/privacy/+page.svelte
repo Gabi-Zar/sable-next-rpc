@@ -1,6 +1,8 @@
-<svelte:head>
-  <title>Privacy Policy - Sable</title>
-</svelte:head>
+<script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
+</script>
+
+<PageTitle title="Privacy Policy - Sable" />
 
 <main class="privacy-page">
   <article class="privacy-content">

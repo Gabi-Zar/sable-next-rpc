@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -169,9 +170,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{i18n.t('nav.manageAccounts')} - Sable</title>
-</svelte:head>
+<PageTitle title={`${i18n.t('nav.manageAccounts')} - Sable`} />
 
 {#snippet statusBubble()}
   <button
