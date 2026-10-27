@@ -177,6 +177,7 @@
             : 'desktop-tool nav-tab-bottom'}"
           aria-label={i18n.t('nav.switchAccount')}
         >
+          <span class="nav-tab-hit-area" aria-hidden="true"></span>
           {@render ownAvatar()}
         </button>
       {/snippet}

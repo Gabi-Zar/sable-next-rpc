@@ -65,7 +65,7 @@
   {const Icon = $derived(PRIORITY_ICONS[mainPriority])}
   {#if mode === 'mobile'}
     <a
-      class="quick-tool mobile-tool alert-tool account-tool selection-layer priority-{mainPriority} {isCurrentPage
+      class="quick-tool mobile-tool alert-tool account-tool priority-{mainPriority} {isCurrentPage
         ? 'current'
         : ''}"
       href={resolve('/(app)/alerts')}
@@ -99,12 +99,12 @@
           <button
             {...mergeProps(tooltipProps, props)}
             type="button"
-            class="quick-tool priority-{mainPriority} nav-tab nav-tab-outlined selection-layer {mode ===
-            'compact'
+            class="quick-tool priority-{mainPriority} nav-tab nav-tab-outlined {mode === 'compact'
               ? 'compact-tool nav-tab-side'
               : 'desktop-tool nav-tab-bottom'}"
             aria-label={i18n.t('nav.alerts')}
           >
+            <span class="nav-tab-hit-area" aria-hidden="true"></span>
             <Icon weight={popoverOpen ? 'fill' : 'regular'} />
             {#if pendingAlerts > 1}
               <UnreadBadge
@@ -165,10 +165,6 @@
 
       :global(.unread-badge) {
         background-color: var(--success-main);
-      }
-
-      &::after {
-        opacity: 0;
       }
     }
 

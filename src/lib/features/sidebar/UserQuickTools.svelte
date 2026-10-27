@@ -113,6 +113,7 @@
       aria-label={i18n.t('shortcuts.paletteTitle')}
       onclick={() => (paletteState.open = true)}
     >
+      <span class="nav-tab-hit-area" aria-hidden="true"></span>
       <span class="tool-icon" aria-hidden="true"><ListMagnifyingGlassIcon /></span>
     </button>
   {/snippet}
@@ -180,6 +181,7 @@
           aria-current={toolActive ? 'page' : undefined}
           draggable="false"
         >
+          <span class="nav-tab-hit-area" aria-hidden="true"></span>
           <span class="tool-icon" aria-hidden="true"
             ><item.icon weight={toolActive ? 'fill' : 'regular'} /></span
           >
@@ -215,6 +217,7 @@
             aria-current={toolActive ? 'page' : undefined}
             draggable="false"
           >
+            <span class="nav-tab-hit-area" aria-hidden="true"></span>
             <span class="tool-icon" aria-hidden="true"
               ><item.icon weight={toolActive ? 'fill' : 'regular'} /></span
             >

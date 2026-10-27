@@ -576,6 +576,7 @@
     aria-describedby={describedBy(props, unreadId(item.roomId ?? item.href))}
     aria-current={active ? 'page' : undefined}
   >
+    <span class="nav-tab-hit-area" aria-hidden="true"></span>
     {@render itemBody(item, active)}
   </a>
 {/snippet}
@@ -602,6 +603,7 @@
     aria-expanded={createOpen}
     onclick={openCreateMenu}
   >
+    <span class="nav-tab-hit-area" aria-hidden="true"></span>
     <span class="icon" aria-hidden="true"
       ><PlusIcon weight={createOpen ? 'fill' : 'regular'} /></span
     >
@@ -715,6 +717,7 @@
       onToggleFolder?.(folder.id);
     }}
   >
+    <span class="nav-tab-hit-area" aria-hidden="true"></span>
     {@render folderTiles(folder)}
     {@render unreadMark(folderUnread(folder), false, unreadId(folder.id))}
   </button>
