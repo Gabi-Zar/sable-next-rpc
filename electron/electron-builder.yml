@@ -31,25 +31,6 @@ publish:
   provider: generic
   url: https://git.sable.moe/SableClient/sable-next/releases/download/${channel}
 
-electronLanguages:
-  - bg
-  - cs
-  - de
-  - en
-  - en_GB
-  - es
-  - es_419
-  - fr
-  - it
-  - nl
-  - pl
-  - pt_BR
-  - pt_PT
-  - ro
-  - th
-  - tr
-  - uk
-
 mac:
   artifactName: sable-${version}-${arch}.${ext}
   category: public.app-category.social-networking
