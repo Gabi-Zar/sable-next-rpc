@@ -1020,11 +1020,41 @@ class PushNotifierTest {
             .put("type", type)
             .put("content", JSONObject().put("notification_type", kind))
 
+        assertTrue(PushNotifier.isRing(event("m.rtc.invite", "ring")))
+        assertFalse(PushNotifier.isRing(event("m.rtc.invite", "notification")))
+        assertFalse(PushNotifier.isRing(JSONObject().put("type", "m.rtc.invite")))
         assertTrue(PushNotifier.isRing(event("m.rtc.notification", "ring")))
         assertTrue(PushNotifier.isRing(event("org.matrix.msc4075.rtc.notification", "ring")))
         assertFalse(PushNotifier.isRing(event("m.rtc.notification", "notification")))
         assertFalse(PushNotifier.isRing(event("m.room.message", "ring")))
         assertFalse(PushNotifier.isRing(JSONObject().put("type", "m.rtc.notification")))
+    }
+
+    @Test
+    fun plaintextCallInvitesAreValidatedBeforeRinging() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns PushDecryptResult.Discard
+        val notification = JSONObject()
+            .put("user_id", "@alice:example.org").put("room_id", "!call:example.org")
+            .put("event_id", "\$call").put("type", "m.rtc.invite")
+            .put("content", JSONObject().put("notification_type", "ring"))
+        PushNotifier.showFromPush(context, notification.toString())
+        verify(exactly = 1) { PushPayloadDecryptor.fetch(any(), "@alice:example.org", "ALICE", "!call:example.org", "\$call") }
+        assertTrue(notificationManager.activeNotifications.isEmpty())
+    }
+
+    @Test
+    fun validatedStableInvitesUseTheReceiverCallStyle() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.invite","content":{"notification_type":"ring","lifetime":1200}}""")
+        val notification = JSONObject().put("user_id", "@alice:example.org")
+            .put("room_id", "!stable:example.org").put("event_id", "\$stable")
+            .put("type", "m.rtc.invite").put("content", JSONObject())
+        PushNotifier.showFromPush(context, notification.toString())
+        val posted = notificationManager.activeNotifications.single().notification
+        assertEquals(Notification.CATEGORY_CALL, posted.category)
+        assertEquals(1200L, posted.timeoutAfter)
     }
 
     @Test
@@ -1189,8 +1219,12 @@ class PushNotifierTest {
                 }
                 "invite" -> notification.put("type", "m.room.member")
                     .put("content", JSONObject().put("membership", "invite"))
-                "ring" -> notification.put("type", "m.rtc.notification")
-                    .put("content", JSONObject().put("notification_type", "ring"))
+                "ring" -> {
+                    notification.put("type", "m.rtc.notification")
+                        .put("content", JSONObject().put("notification_type", "ring"))
+                    every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+                        PushDecryptResult.Success(notification.toString())
+                }
             }
             if (delivery == "warm") PushNotifier.show(context, notification)
             else PushNotifier.showFromPush(context, notification.toString())
@@ -1257,6 +1291,9 @@ class PushNotifierTest {
 
     @Test
     fun incomingCallsRepeatOnTheRingtoneChannelUntilTheirTimeout() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"org.matrix.msc4075.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
         PushNotifier.showFromPush(context, ringPayload("!r1:example.org", "\$ring"))
         val id = PushNotifier.callNotificationId("@alice:example.org", "!r1:example.org")
         val posted = shadowNotificationManager().getNotification(null, id)!!
@@ -1270,6 +1307,9 @@ class PushNotifierTest {
 
     @Test
     fun showFromPush_callAnnouncementStaysAnOrdinaryMessage() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"org.matrix.msc4075.rtc.notification","content":{"notification_type":"notification","lifetime":30000}}""")
         PushNotifier.showFromPush(
             context,
             ringPayload("!r1:example.org", "\$ann", notificationType = "notification")

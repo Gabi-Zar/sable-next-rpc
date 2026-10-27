@@ -91,7 +91,11 @@ fn complete(notification: &Value, event: &PushEventView) -> Option<Value> {
     Some(Value::Object(completed))
 }
 
-const RING_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.notification"];
+const RING_TYPES: [&str; 3] = [
+    "m.rtc.invite",
+    "m.rtc.notification",
+    "org.matrix.msc4075.rtc.notification",
+];
 const DEFAULT_RING_LIFETIME_MS: u64 = 30_000;
 
 #[derive(Serialize)]
@@ -420,7 +424,9 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
     let session = Box::pin(PushSession::open(root, &user, &device_id, room_id)).await;
     let mut issue = session.is_none().then_some("no_session");
     let fetched = match (target.kind.as_deref(), target.event_id.as_deref(), &session) {
-        (None, Some(event_id), Some(session)) if !event_id.is_empty() => {
+        (kind, Some(event_id), Some(session))
+            if !event_id.is_empty() && kind.is_none_or(|kind| RING_TYPES.contains(&kind)) =>
+        {
             Box::pin(session.fetch(event_id)).await
         }
         _ => PushFetchView::Unavailable,
@@ -436,6 +442,16 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
             (complete(notification, &event), event.encrypted, event.noisy)
         }
         PushFetchView::Unavailable => {
+            if target
+                .kind
+                .as_deref()
+                .is_some_and(|kind| RING_TYPES.contains(&kind))
+            {
+                return (
+                    serde_json::to_value(DiscardOut { discard: true }).ok(),
+                    None,
+                );
+            }
             if target.kind.is_none() {
                 issue = issue.or(Some("fetch_failed"));
             }
@@ -466,7 +482,20 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
         }
         None => push_sender_name(sender_id.as_deref(), target.sender_display_name.as_deref()),
     };
-    if let Some(ring) = event.as_ref().and_then(|event| ring(event, &sender)) {
+    if let Some(mut ring) = event.as_ref().and_then(|event| ring(event, &sender))
+        && let Some(content) = ring.as_object_mut()
+    {
+        content.insert(
+            "notification_event_id".to_owned(),
+            target.event_id.clone().into(),
+        );
+        let has_video = event
+            .as_ref()
+            .and_then(|event| event.get("content"))
+            .and_then(|content| content.get("m.call.intent"))
+            .and_then(serde_json::Value::as_str)
+            == Some("video");
+        content.insert("has_video".to_owned(), has_video.into());
         let ring = RingPushOut {
             ring,
             room_id: room_id.to_owned(),
@@ -760,6 +789,11 @@ mod tests {
             ring(&event("org.matrix.msc4075.rtc.notification", "ring"), named),
             Some(json!({"caller_name":"Bob","expires_at":32.0}))
         );
+        assert_eq!(
+            ring(&event("m.rtc.invite", "ring"), named),
+            Some(json!({"caller_name":"Bob","expires_at":32.0}))
+        );
+        assert!(ring(&event("m.rtc.invite", "notification"), named).is_none());
         assert!(ring(&event("m.rtc.notification", "notification"), named).is_none());
         assert!(ring(&event("m.room.message", "ring"), named).is_none());
         assert_eq!(
@@ -867,10 +901,8 @@ mod tests {
             "content":{"notification_type":"ring","sender_ts":1_000,"lifetime":30_000}
         }});
         assert_eq!(
-            rendered(&root, &ringing)
-                .await
-                .and_then(|value| value.get("ring").cloned()),
-            Some(json!({"caller_name":"@bob:example.org","expires_at":31.0}))
+            rendered(&root, &ringing).await,
+            Some(json!({"discard":true}))
         );
         store.clear().await.unwrap();
         assert!(rendered(&root, &payload).await.is_none());

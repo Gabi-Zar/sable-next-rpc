@@ -1,12 +1,17 @@
 import type {
   NativeCallCapabilities,
-  SystemCallAction,
+  SystemCallAction as NativeSystemCallAction,
 } from '@sableclient/tauri-plugin-livekit-mobile';
 
 import { isTauri } from '@tauri-apps/api/core';
 import { type as osType } from '@tauri-apps/plugin-os';
 
 import { isNativeMobile } from './os';
+
+export type SystemCallAction = NativeSystemCallAction & {
+  notificationEventId?: string;
+  hasVideo?: boolean;
+};
 
 export function hasNativeCalls(): boolean {
   try {

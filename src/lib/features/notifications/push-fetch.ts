@@ -3,7 +3,7 @@ import { uint8ArrayToBase64 } from 'uint8array-extras';
 import type { PushFetchView, WebPushValidation } from '#src/generated/protocol';
 
 import { isRecord } from '#lib/guards.js';
-import { visibleName } from '#lib/model/model.js';
+import { validateRtcInviteSnapshot, visibleName } from '#lib/model/model.js';
 
 import { pushContent, type PushNotification } from '#lib/notifications/push-payload.js';
 import type { PushSession } from '#lib/notifications/room-names.js';
@@ -16,6 +16,14 @@ export interface PushFetcher {
   fetch: typeof fetch;
   roomName: (roomId: string) => Promise<string | null>;
   decrypt: (roomId: string, eventId: string) => Promise<PushFetchView | null>;
+}
+
+export function isRtcInvite(notification: Pick<PushNotification, 'type'>): boolean {
+  return (
+    notification.type === 'm.rtc.invite' ||
+    notification.type === 'm.rtc.notification' ||
+    notification.type === 'org.matrix.msc4075.rtc.notification'
+  );
 }
 
 export function namesOnlyItsEvent(notification: PushNotification): boolean {
@@ -51,11 +59,12 @@ export async function completePushPayload(
 ): Promise<PushNotification | null> {
   const roomId = notification.room_id;
   const eventId = notification.event_id;
-  if (roomId === null || eventId === null) return notification;
+  if (roomId === null || eventId === null) return isRtcInvite(notification) ? null : notification;
 
   const room = `rooms/${encodeURIComponent(roomId)}`;
   const fetched = await request(fetcher, `${room}/event/${encodeURIComponent(eventId)}`);
   if (fetched.status === 403 || fetched.status === 404) {
+    if (isRtcInvite(notification)) return null;
     return {
       ...notification,
       type: 'm.room.member',
@@ -63,8 +72,15 @@ export async function completePushPayload(
       room_name: await fetcher.roomName(roomId),
     };
   }
-  const event = fetched.body;
-  if (!isRecord(event) || typeof event.type !== 'string') return notification;
+  const raw = fetched.body;
+  if (!isRecord(raw) || typeof raw.type !== 'string')
+    return isRtcInvite(notification) ? null : notification;
+  let event: Record<string, unknown> = raw;
+  if (isRtcInvite({ type: raw.type })) {
+    const prepared = await prepareRtcInvite(fetcher, roomId, eventId, event);
+    if (prepared === null) return null;
+    event = prepared;
+  }
   const sender = text(event.sender);
 
   const [member, storedName, stateName, roomAvatar] = await Promise.all([
@@ -83,7 +99,7 @@ export async function completePushPayload(
 
   let completed: PushNotification = {
     ...notification,
-    type: event.type,
+    type: text(event.type) ?? null,
     content: pushContent(event.content),
     sender_display_name: senderName ?? null,
     room_name:
@@ -109,6 +125,76 @@ export async function completePushPayload(
   return completed;
 }
 
+async function prepareRtcInvite(
+  fetcher: PushFetcher,
+  roomId: string,
+  eventId: string,
+  event: Record<string, unknown>
+): Promise<Record<string, unknown> | null> {
+  const fromApp = await fetcher.decrypt(roomId, eventId);
+  if (fromApp?.kind === 'discard') return null;
+  if (fromApp?.kind === 'event')
+    return { ...event, type: fromApp.event.type, content: fromApp.event.content };
+
+  const result = await request(
+    fetcher,
+    '/_matrix/client/unstable/org.matrix.simplified_msc3575/sync?timeout=0',
+    {
+      conn_id: `push-${crypto.randomUUID().slice(0, 8)}`,
+      room_subscriptions: {
+        [roomId]: {
+          timeline_limit: 0,
+          required_state: [
+            ['m.rtc.slot', '*'],
+            ['org.matrix.msc4143.rtc.slot', '*'],
+            ['m.room.power_levels', ''],
+            ['m.room.create', ''],
+            ['org.matrix.msc3401.call.member', '*'],
+            ['m.call.member', '*'],
+          ],
+        },
+      },
+      extensions: { 'org.matrix.msc4354.sticky_events': { enabled: true } },
+    }
+  );
+  if (!isRecord(result.body)) return null;
+  const rooms = isRecord(result.body.rooms) ? result.body.rooms : {};
+  const room = isRecord(rooms[roomId]) ? rooms[roomId] : {};
+  const extensions = isRecord(result.body.extensions) ? result.body.extensions : {};
+  const sticky = extensions['org.matrix.msc4354.sticky_events'] ?? extensions.sticky_events;
+  const stickyRooms = isRecord(sticky) && isRecord(sticky.rooms) ? sticky.rooms : {};
+  const stickyRoom = isRecord(stickyRooms[roomId]) ? stickyRooms[roomId] : {};
+  const state: unknown[] = Array.isArray(room.required_state) ? room.required_state : [];
+  const stickyEvents: unknown[] = Array.isArray(stickyRoom.events) ? stickyRoom.events : [];
+  const events = [...state, ...stickyEvents];
+  const valid = validateRtcInviteSnapshot(event, events, fetcher.session.userId, Date.now());
+  if (valid === null) return null;
+  const direct = await get(
+    fetcher,
+    `user/${encodeURIComponent(fetcher.session.userId)}/account_data/m.direct`
+  );
+  const content = isRecord(event.content) ? event.content : {};
+  const modern = event.type === 'm.rtc.invite' || content.slot_id !== undefined;
+  const ring = modern
+    ? isRecord(direct) &&
+      Object.values(direct).some((rooms) => Array.isArray(rooms) && rooms.includes(roomId))
+    : content.notification_type === 'ring';
+  const now = Date.now();
+  const remaining = valid.expires_at_ms - now;
+  if (remaining <= 0) return null;
+  return {
+    ...event,
+    content: {
+      ...content,
+      notification_type: ring ? 'ring' : 'notification',
+      sender_ts: now,
+      lifetime: remaining,
+      'm.call.intent': valid.has_video ? 'video' : 'audio',
+      body: 'Call started',
+    },
+  };
+}
+
 export async function fetchDeviceActivity(
   fetcher: Pick<PushFetcher, 'session' | 'fetch'>
 ): Promise<unknown> {
@@ -127,13 +213,18 @@ async function get(
 
 async function request(
   fetcher: Pick<PushFetcher, 'session' | 'fetch'>,
-  path: string
+  path: string,
+  body?: unknown
 ): Promise<{ status: number | null; body: unknown }> {
   try {
     const response = await fetcher.fetch(
-      `${fetcher.session.homeserver.replace(/\/$/, '')}/_matrix/client/v3/${path}`,
+      `${fetcher.session.homeserver.replace(/\/$/, '')}${path.startsWith('/') ? path : `/_matrix/client/v3/${path}`}`,
       {
-        headers: { Authorization: `Bearer ${fetcher.session.accessToken}` },
+        ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }),
+        headers: {
+          Authorization: `Bearer ${fetcher.session.accessToken}`,
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );

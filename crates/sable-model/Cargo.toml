@@ -16,7 +16,8 @@ idna = { workspace = true }
 percent-encoding = { workspace = true }
 pulldown-cmark = { workspace = true }
 regex-lite = { workspace = true }
-ruma-html = "0.9"
+ruma-html = { workspace = true }
+ruma-common = { workspace = true, features = ["client", "server"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }

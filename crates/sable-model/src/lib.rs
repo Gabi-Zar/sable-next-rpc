@@ -24,6 +24,7 @@ pub mod mfm;
 pub mod non_blank;
 pub mod notifications;
 pub mod power_levels;
+pub mod rtc_invites;
 pub mod search_filter;
 pub mod search_query;
 pub mod shortcodes;

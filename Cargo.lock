@@ -3890,15 +3890,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
@@ -4660,7 +4651,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "anymap3",
  "as_variant",
@@ -4716,7 +4707,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-base"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "as_variant",
  "assert_matches",
@@ -4748,7 +4739,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-common"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "eyeball-im",
  "futures-core",
@@ -4771,7 +4762,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-crypto"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "aes",
  "as_variant",
@@ -4811,7 +4802,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-indexeddb"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -4844,7 +4835,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-qrcode"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "byteorder",
  "qrcode",
@@ -4856,7 +4847,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-sqlite"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "as_variant",
  "async-trait",
@@ -4884,7 +4875,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-store-encryption"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -4906,7 +4897,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "as_variant",
  "ctor",
@@ -4930,7 +4921,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test-macros"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4939,7 +4930,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test-utils"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "ctor",
  "tracing-subscriber",
@@ -4948,7 +4939,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-ui"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2#0a29d1d46eaca976eec8ad87a174b54d5fdd3ce2"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=e850372fdb4c35a7282f2dff1c87917b33840c4f#e850372fdb4c35a7282f2dff1c87917b33840c4f"
 dependencies = [
  "as_variant",
  "async-rx",
@@ -6634,7 +6625,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -7137,8 +7128,7 @@ dependencies = [
 [[package]]
 name = "ruma"
 version = "0.17.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5883cf806b796aba27c7157a438a10df8904bb70511c2fac872c59a7823915f9"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "assign",
  "js_int",
@@ -7155,6 +7145,7 @@ dependencies = [
 [[package]]
 name = "ruma-client-api"
 version = "0.25.2"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "as_variant",
  "assign",
@@ -7176,8 +7167,7 @@ dependencies = [
 [[package]]
 name = "ruma-common"
 version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b496f80bc1cca375294fba5170bfb5d00f0de0ed655675dc72fa782643f54ea"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "as_variant",
  "base64 0.23.1",
@@ -7210,8 +7200,7 @@ dependencies = [
 [[package]]
 name = "ruma-events"
 version = "0.35.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28eb4aebc89f505550aad7dacaf86276d8041992836ff53e4cebfcb0165beec5"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "as_variant",
  "indexmap 2.14.2",
@@ -7232,8 +7221,7 @@ dependencies = [
 [[package]]
 name = "ruma-federation-api"
 version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc4279fed55a246c3382ca3289bc9081eec97ff6c047365f0a627e02655419bf"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "http",
  "http-auth",
@@ -7253,8 +7241,7 @@ dependencies = [
 [[package]]
 name = "ruma-html"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e27e35e6c36fa1abc4def766e474a0f2f709e87f1602d57ec34d41b09253da4"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "as_variant",
  "html5ever 0.39.0",
@@ -7265,8 +7252,7 @@ dependencies = [
 [[package]]
 name = "ruma-identifiers-validation"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e45211431fb8cc8fe7bfaea7b5535da758ba3f692543faa6df9255bbd5e3170c"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "js_int",
  "thiserror 2.0.21",
@@ -7275,8 +7261,7 @@ dependencies = [
 [[package]]
 name = "ruma-macros"
 version = "0.20.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0f3214335d3957e7e677d0425949ec6900b74d5b7b5b3736a8a7a9ab0fd11ef"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "as_variant",
  "cfg-if 1.0.5",
@@ -7292,8 +7277,7 @@ dependencies = [
 [[package]]
 name = "ruma-signatures"
 version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "800646996bcb7e57cd81602efcb6d46918bc6770d8fca15c7820c760f514c1b0"
+source = "git+https://github.com/ruma/ruma?rev=e03080c0790ba7b24ea37f9fd11794678cc975b0#e03080c0790ba7b24ea37f9fd11794678cc975b0"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
@@ -7576,6 +7560,7 @@ dependencies = [
  "percent-encoding",
  "pulldown-cmark",
  "regex-lite",
+ "ruma-common",
  "ruma-html",
  "serde",
  "serde_json",
@@ -9184,7 +9169,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-livekit-mobile"
 version = "0.2.0"
-source = "git+https://github.com/SableClient/tauri-plugin-livekit-mobile.git?rev=e4c676780652e347049821501b5ff94d8a9e9a57#e4c676780652e347049821501b5ff94d8a9e9a57"
+source = "git+https://github.com/SableClient/tauri-plugin-livekit-mobile.git?rev=13fbdc08bebe035065a05cd7a99041422cf38960#13fbdc08bebe035065a05cd7a99041422cf38960"
 dependencies = [
  "base64 0.22.1",
  "serde",

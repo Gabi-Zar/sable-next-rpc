@@ -16,6 +16,7 @@ use sable_model::bot_commands::{
 use sable_model::calendar::{self, CalendarItem, CalendarRsvpView, EventDraft};
 use sable_model::notifications::{self, NotificationModeView, PushNotification};
 use sable_model::power_levels::{self, PowerLevelLocation, RoomPowerLevelsView};
+use sable_model::rtc_invites::{self, InvitePresentation};
 use sable_model::search_filter::{self, SearchDirectory, SearchPerson, SearchRoom};
 use sable_model::sidebar::{self, DropInstruction, LayoutRef, SidebarItemView};
 use sable_model::spaces::{
@@ -109,6 +110,29 @@ pub fn parse_push_payload(raw: &str) -> Result<String, JsError> {
     json(&notifications::parse_push_payload(raw))
 }
 
+#[wasm_bindgen(js_name = validateRtcInviteSnapshot)]
+pub fn validate_rtc_invite_snapshot(
+    event: &str,
+    events: &str,
+    user_id: &str,
+    now_ms: f64,
+) -> Result<String, JsError> {
+    let event = decode::<serde_json::Value>(event)?;
+    let events = decode::<Vec<serde_json::Value>>(events)?;
+    if !now_ms.is_finite() || now_ms < 0.0 || now_ms.fract() != 0.0 {
+        return json(&Option::<InvitePresentation>::None);
+    }
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "validated non-negative whole milliseconds"
+    )]
+    let now_ms = now_ms as u64;
+    let presentation = rtc_invites::validate_snapshot(&event, &events, user_id, now_ms)
+        .and_then(|invite| InvitePresentation::from_invite(&invite, &events));
+    json(&presentation)
+}
+
 #[wasm_bindgen(js_name = webPushValidation)]
 pub fn web_push_validation(raw: &str) -> Result<String, JsError> {
     json(&notifications::web_push_validation(raw))
@@ -149,6 +173,7 @@ pub fn push_alert(
 }
 
 #[wasm_bindgen(js_name = activeElsewhere)]
+#[must_use]
 pub fn active_elsewhere(content: &str, own_device_id: &str, now_ms: f64) -> bool {
     #[expect(
         clippy::cast_possible_truncation,

@@ -22,6 +22,7 @@ import {
   acknowledgeWebPusher,
   completePushPayload,
   fetchDeviceActivity,
+  isRtcInvite,
   namesOnlyItsEvent,
   readPushFetch,
 } from '#lib/features/notifications/push-fetch.js';
@@ -235,7 +236,7 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
     await record('APP_FOCUSED', trace);
     return;
   }
-  const fetched = namesOnlyItsEvent(pushed);
+  const fetched = namesOnlyItsEvent(pushed) || isRtcInvite(pushed);
   const payload = fetched ? await fetchEvent(pushed) : pushed;
   if (!payload) {
     await record('DISCARDED', trace);
@@ -323,11 +324,11 @@ const FETCH_DEADLINE_MS = 10_000;
 
 async function fetchEvent(payload: PushNotification): Promise<PushNotification | null> {
   const session = await pushSession(payload.user_id ?? undefined);
-  if (!session) return payload;
+  if (!session) return isRtcInvite(payload) ? null : payload;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<PushNotification>((settle) => {
+  const deadline = new Promise<PushNotification | null>((settle) => {
     timer = setTimeout(() => {
-      settle(payload);
+      settle(isRtcInvite(payload) ? null : payload);
     }, FETCH_DEADLINE_MS);
   });
   const completed = completePushPayload(

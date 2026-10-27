@@ -1,18 +1,13 @@
-use std::collections::HashMap;
 use std::time::Duration;
 
+use matrix_sdk::ruma::events::rtc::notification::NotificationType;
 pub(crate) use matrix_sdk::ruma::events::rtc::notification::RtcNotificationEventContent;
-use matrix_sdk::ruma::events::rtc::notification::{CallIntent, NotificationType};
 use matrix_sdk::ruma::events::{Mentions, relation::Reference};
-use matrix_sdk::ruma::{
-    EventId, MilliSecondsSinceUnixEpoch, OwnedEventId, OwnedRoomId, OwnedUserId, RoomId, UserId,
-};
+use matrix_sdk::ruma::{EventId, MilliSecondsSinceUnixEpoch, OwnedUserId};
 
 pub(crate) const NOTIFICATION_EVENT_TYPE: &str = "org.matrix.msc4075.rtc.notification";
 pub(crate) const DECLINE_EVENT_TYPE: &str = "org.matrix.msc4310.rtc.decline";
 pub(crate) const NOTIFICATION_LIFETIME_MS: u64 = 30_000;
-pub(crate) const MAX_RING_TARGETS: usize = 8;
-const MAX_NOTIFICATION_LIFETIME_MS: u64 = 120_000;
 const ANNOUNCEMENT_FALLBACK_TEXT: &str = "Call started";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,7 +77,13 @@ pub(super) struct DeclineOut {
 pub(crate) fn is_call_event_type<T>(raw: &matrix_sdk::ruma::serde::Raw<T>) -> bool {
     matches!(
         raw.get_field::<String>("type").ok().flatten().as_deref(),
-        Some("m.rtc.notification" | NOTIFICATION_EVENT_TYPE | "m.rtc.decline" | DECLINE_EVENT_TYPE)
+        Some(
+            "m.rtc.invite"
+                | "m.rtc.notification"
+                | NOTIFICATION_EVENT_TYPE
+                | "m.rtc.decline"
+                | DECLINE_EVENT_TYPE
+        )
     )
 }
 
@@ -96,45 +97,6 @@ pub(crate) fn is_call_membership_event_type<T>(raw: &matrix_sdk::ruma::serde::Ra
                 "org.matrix.msc3401.call.member" | "m.call.member"
             ) || super::membership::is_rtc_member_type(&event_type)
         })
-}
-
-pub(crate) struct Incoming {
-    pub(crate) kind: NotificationKind,
-    pub(crate) expires_at: u64,
-    pub(crate) has_video: bool,
-}
-
-pub(crate) fn accept(
-    content: &RtcNotificationEventContent,
-    sender: &UserId,
-    own_user_id: &UserId,
-    origin_server_ts: u64,
-    now_ms: u64,
-) -> Option<Incoming> {
-    if sender == own_user_id {
-        return None;
-    }
-    let mentions = content.mentions.as_ref()?;
-    if !mentions.room && !mentions.user_ids.contains(own_user_id) {
-        return None;
-    }
-    let kind = match content.notification_type {
-        NotificationType::Ring => NotificationKind::Ring,
-        NotificationType::Notification => NotificationKind::Notification,
-        _ => return None,
-    };
-    let mut content = content.clone();
-    content.lifetime = content
-        .lifetime
-        .min(Duration::from_millis(MAX_NOTIFICATION_LIFETIME_MS));
-    let has_video = matches!(content.call_intent, Some(CallIntent::Video));
-    let origin_server_ts = MilliSecondsSinceUnixEpoch(origin_server_ts.try_into().ok()?);
-    let expires_at = content.expiration_ts(origin_server_ts, None).get().into();
-    (now_ms < expires_at).then_some(Incoming {
-        kind,
-        expires_at,
-        has_video,
-    })
 }
 
 pub(super) async fn make_decline_event(
@@ -182,33 +144,6 @@ pub(super) async fn make_decline_event(
     }
 }
 
-#[derive(Default)]
-pub(super) struct PendingCalls(HashMap<(OwnedRoomId, OwnedEventId), u64>);
-
-impl PendingCalls {
-    pub(super) fn insert(&mut self, room: &RoomId, event: &EventId, expires_at: u64, now: u64) {
-        self.0.retain(|_, expires_at| *expires_at > now);
-        self.0
-            .insert((room.to_owned(), event.to_owned()), expires_at);
-    }
-
-    pub(super) fn decline(
-        &mut self,
-        room: &RoomId,
-        event: &EventId,
-        sender: &UserId,
-        own: &UserId,
-        now: u64,
-    ) -> bool {
-        self.0.retain(|_, expires_at| *expires_at > now);
-        sender == own
-            && self
-                .0
-                .remove(&(room.to_owned(), event.to_owned()))
-                .is_some()
-    }
-}
-
 pub(super) fn parse(raw: &str) -> Option<matrix_sdk::ruma::events::AnySyncMessageLikeEvent> {
     let mut event: serde_json::Value = serde_json::from_str(raw).ok()?;
     match event.get("type")?.as_str()? {
@@ -233,340 +168,48 @@ pub(super) fn parse(raw: &str) -> Option<matrix_sdk::ruma::events::AnySyncMessag
 #[cfg(test)]
 mod tests {
     use matrix_sdk::ruma::{event_id, user_id};
-
-    use super::{Mentions, NotificationKind, accept, notification_content};
-
-    fn content(sender_ts: u64, lifetime: u64) -> super::RtcNotificationEventContent {
-        let mut content =
-            notification_content(event_id!("$membership"), NotificationKind::Ring, &[]);
-        content.sender_ts =
-            matrix_sdk::ruma::MilliSecondsSinceUnixEpoch(sender_ts.try_into().unwrap());
-        content.lifetime = std::time::Duration::from_millis(lifetime);
-        content
-    }
+    use serde_json::json;
 
     #[test]
-    fn test_our_own_notification_never_rings_us() {
-        let us = user_id!("@erwan:localhost");
-
-        assert!(accept(&content(1_000, 30_000), us, us, 1_000, 1_100).is_none());
-    }
-
-    #[test]
-    fn test_a_notification_mentioning_nobody_is_ignored() {
-        let mut content = content(1_000, 30_000);
-        content.mentions = Some(Mentions::default());
-
-        assert!(
-            accept(
-                &content,
-                user_id!("@bob:localhost"),
-                user_id!("@erwan:localhost"),
-                1_000,
-                1_100
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn test_a_named_mention_rings_only_the_named_user() {
-        let mut content = content(1_000, 30_000);
-        content.mentions = Some(Mentions::with_user_ids([
-            user_id!("@erwan:localhost").to_owned()
-        ]));
-        let sender = user_id!("@bob:localhost");
-
-        assert!(accept(&content, sender, user_id!("@erwan:localhost"), 1_000, 1_100).is_some());
-        assert!(accept(&content, sender, user_id!("@carol:localhost"), 1_000, 1_100).is_none());
-    }
-
-    #[test]
-    fn test_an_expired_notification_does_not_ring() {
-        assert!(
-            accept(
-                &content(1_000, 30_000),
-                user_id!("@bob:localhost"),
-                user_id!("@erwan:localhost"),
-                1_000,
-                40_000
-            )
-            .is_none()
-        );
-    }
-
-    #[test]
-    fn test_a_sender_clock_running_fast_cannot_extend_the_expiry() {
-        let incoming = accept(
-            &content(10_000_000, 30_000),
-            user_id!("@bob:localhost"),
-            user_id!("@erwan:localhost"),
-            1_000,
-            1_100,
-        )
-        .expect("the notification is still live against the server's own stamp");
-
-        assert_eq!(
-            incoming.expires_at, 31_000,
-            "origin_server_ts must win over a sender_ts far in the future"
-        );
-    }
-
-    #[test]
-    fn test_a_sender_clock_running_slow_falls_back_to_the_server_stamp() {
-        let incoming = accept(
-            &content(1_000, 30_000),
-            user_id!("@bob:localhost"),
-            user_id!("@erwan:localhost"),
-            10_000_000,
-            10_000_100,
-        )
-        .expect("a sender whose clock is behind must still ring");
-
-        assert_eq!(
-            incoming.expires_at, 10_030_000,
-            "MSC4075 takes the absolute difference, so a slow clock falls back too"
-        );
-    }
-
-    #[test]
-    fn test_a_lifetime_beyond_the_cap_is_clamped() {
-        let incoming = accept(
-            &content(1_000, 10_000_000),
-            user_id!("@bob:localhost"),
-            user_id!("@erwan:localhost"),
-            1_000,
-            1_100,
-        )
-        .expect("a long-lived notification is still valid, just clamped");
-
-        assert_eq!(incoming.expires_at, 121_000);
-    }
-
-    #[test]
-    fn test_a_ring_is_written_as_a_reference_to_the_membership() {
-        let content = notification_content(event_id!("$membership"), NotificationKind::Ring, &[]);
-
-        assert_eq!(content.notification_type, super::NotificationType::Ring);
-        assert_eq!(
-            content.relates_to.unwrap().event_id,
-            event_id!("$membership")
-        );
-        assert!(content.mentions.unwrap().room);
-    }
-
-    #[test]
-    fn test_a_ring_names_its_targets_so_a_low_power_caller_still_pushes() {
-        let peer = user_id!("@bob:localhost");
-        let content = notification_content(
-            event_id!("$membership"),
-            NotificationKind::Ring,
-            &[peer.to_owned()],
-        );
-
-        let mentions = content.mentions.unwrap();
-        assert!(mentions.room);
-        assert!(mentions.user_ids.contains(peer));
-    }
-
-    #[test]
-    fn test_a_group_notification_names_nobody() {
-        let content = notification_content(
-            event_id!("$membership"),
-            NotificationKind::Notification,
-            &[],
-        );
-
-        let mentions = content.mentions.unwrap();
-        assert!(mentions.room);
-        assert!(mentions.user_ids.is_empty());
-    }
-
-    #[test]
-    fn test_an_announcement_is_the_deployed_wire_shape_with_the_text_fallback() {
-        let raw =
-            super::announcement(event_id!("$membership"), NotificationKind::Ring, &[]).unwrap();
-        let mut content: serde_json::Value = raw.deserialize_as_unchecked().unwrap();
-        let sender_ts = content
-            .as_object_mut()
-            .unwrap()
-            .remove("sender_ts")
-            .unwrap();
-
-        assert!(sender_ts.is_u64());
-        assert_eq!(
-            content,
-            serde_json::json!({
-                "notification_type": "ring",
-                "lifetime": 30_000,
-                "m.mentions": { "room": true },
-                "m.relates_to": { "rel_type": "m.reference", "event_id": "$membership" },
-                "m.text": [{ "body": "Call started" }],
-            })
-        );
-    }
-
-    #[test]
-    fn test_a_targeted_ring_carries_its_user_ids_on_the_wire() {
+    fn legacy_announcements_keep_the_deployed_wire_format() {
         let raw = super::announcement(
             event_id!("$membership"),
-            NotificationKind::Ring,
-            &[user_id!("@bob:localhost").to_owned()],
+            super::NotificationKind::Ring,
+            &[user_id!("@bob:example.org").to_owned()],
         )
         .unwrap();
         let content: serde_json::Value = raw.deserialize_as_unchecked().unwrap();
-
+        assert_eq!(content["notification_type"], "ring");
         assert_eq!(
-            content["m.mentions"],
-            serde_json::json!({ "room": true, "user_ids": ["@bob:localhost"] })
+            content["m.mentions"]["user_ids"],
+            json!(["@bob:example.org"])
         );
+        assert_eq!(content["m.relates_to"]["event_id"], "$membership");
+        assert_eq!(content["m.text"], json!([{"body":"Call started"}]));
     }
 
     #[test]
-    fn test_a_decline_carries_its_reference_and_an_empty_mentions() {
-        let decline = matrix_sdk::ruma::events::rtc::decline::RtcDeclineEventContent::new(
-            event_id!("$notification").to_owned(),
-        );
-        assert_eq!(
-            serde_json::to_value(super::DeclineOut {
-                content: decline,
-                mentions: serde_json::Map::new(),
-            })
-            .unwrap(),
-            serde_json::json!({
-                "m.relates_to": { "rel_type": "m.reference", "event_id": "$notification" },
-                "m.mentions": {},
-            })
-        );
-    }
-
-    #[test]
-    fn test_only_call_event_types_reach_the_parser() {
-        for (event_type, expected) in [
-            ("m.rtc.notification", true),
-            (super::NOTIFICATION_EVENT_TYPE, true),
-            ("m.rtc.decline", true),
-            (super::DECLINE_EVENT_TYPE, true),
-            ("m.room.message", false),
-            ("m.reaction", false),
-        ] {
-            let raw = matrix_sdk::ruma::serde::Raw::new(&serde_json::json!({
-                "type": event_type, "event_id": "$e", "sender": "@bob:localhost",
-                "origin_server_ts": 1000, "content": {}
-            }))
-            .unwrap()
-            .cast_unchecked::<matrix_sdk::ruma::events::AnySyncMessageLikeEvent>();
-            assert_eq!(super::is_call_event_type(&raw), expected, "{event_type}");
-        }
-    }
-
-    #[test]
-    fn call_membership_event_types_are_recognised() {
-        for (event_type, expected) in [
-            ("org.matrix.msc3401.call.member", true),
-            ("m.call.member", true),
-            ("org.matrix.msc4143.rtc.member", true),
-            ("m.rtc.member", true),
-            ("m.rtc.notification", false),
-            ("m.room.member", false),
-        ] {
-            let raw = matrix_sdk::ruma::serde::Raw::new(&serde_json::json!({
-                "type": event_type, "event_id": "$e", "sender": "@bob:localhost",
-                "origin_server_ts": 1000, "state_key": "", "content": {}
-            }))
-            .unwrap()
-            .cast_unchecked::<matrix_sdk::ruma::events::AnySyncTimelineEvent>();
-            assert_eq!(
-                super::is_call_membership_event_type(&raw),
-                expected,
-                "{event_type}"
-            );
-        }
-    }
-
-    #[test]
-    fn stable_and_unstable_notifications_without_reference_are_accepted() {
-        for event_type in ["m.rtc.notification", super::NOTIFICATION_EVENT_TYPE] {
-            let raw = serde_json::json!({
-                "type": event_type, "event_id": "$ring", "sender": "@bob:localhost", "origin_server_ts": 1000,
-                "content": {"notification_type": "ring", "m.mentions": {"room": true}, "sender_ts": 1000, "lifetime": 30000}
-            });
-            let matrix_sdk::ruma::events::AnySyncMessageLikeEvent::RtcNotification(event) =
-                super::parse(&raw.to_string()).unwrap()
-            else {
-                panic!("notification");
-            };
-            assert!(
-                accept(
-                    &event.as_original().unwrap().content,
-                    user_id!("@bob:localhost"),
-                    user_id!("@erwan:localhost"),
-                    1000,
-                    1100
-                )
-                .is_some()
-            );
-        }
-    }
-
-    #[test]
-    fn non_ringing_legacy_notification_can_omit_lifetime() {
-        let raw = serde_json::json!({
-            "type": super::NOTIFICATION_EVENT_TYPE, "event_id": "$ring", "sender": "@bob:localhost", "origin_server_ts": 1000,
-            "content": {"notification_type": "notification", "m.mentions": {"room": true}, "sender_ts": 1000}
+    fn legacy_visual_notifications_can_omit_lifetime() {
+        let event = json!({
+            "type": super::NOTIFICATION_EVENT_TYPE, "event_id":"$legacy",
+            "sender":"@bob:example.org", "origin_server_ts":1000,
+            "content":{"notification_type":"notification", "sender_ts":1000,
+                "m.mentions":{"room":true}}
         });
-        assert!(super::parse(&raw.to_string()).is_some());
+        assert!(super::parse(&event.to_string()).is_some());
     }
 
     #[test]
-    fn decline_names_and_room_and_sender_scope() {
-        let own = user_id!("@erwan:localhost");
-        let room = matrix_sdk::ruma::room_id!("!room:localhost");
-        for event_type in ["m.rtc.decline", "org.matrix.msc4310.rtc.decline"] {
-            let raw = serde_json::json!({
-                "type": event_type, "event_id": "$decline", "sender": own, "origin_server_ts": 1000,
-                "content": {"m.relates_to": {"rel_type": "m.reference", "event_id": "$ring"}}
-            });
-            let matrix_sdk::ruma::events::AnySyncMessageLikeEvent::RtcDecline(event) =
-                super::parse(&raw.to_string()).unwrap()
-            else {
-                panic!("decline");
-            };
-            let event = event.as_original().unwrap();
-            let mut pending = super::PendingCalls::default();
-            pending.insert(room, event_id!("$ring"), 31000, 1000);
-            assert!(!pending.decline(
-                room,
-                &event.content.relates_to.event_id,
-                user_id!("@bob:localhost"),
-                own,
-                1100
-            ));
-            assert!(!pending.decline(
-                matrix_sdk::ruma::room_id!("!elsewhere:localhost"),
-                &event.content.relates_to.event_id,
-                &event.sender,
-                own,
-                1100
-            ));
-            assert!(pending.decline(
-                room,
-                &event.content.relates_to.event_id,
-                &event.sender,
-                own,
-                1100
-            ));
-            assert!(!pending.decline(
-                room,
-                &event.content.relates_to.event_id,
-                &event.sender,
-                own,
-                1100
-            ));
+    fn both_invite_names_are_call_events() {
+        for event_type in [
+            "m.rtc.invite",
+            "m.rtc.notification",
+            super::NOTIFICATION_EVENT_TYPE,
+            "m.rtc.decline",
+            super::DECLINE_EVENT_TYPE,
+        ] {
+            let raw = matrix_sdk::ruma::serde::Raw::new(&json!({"type":event_type})).unwrap();
+            assert!(super::is_call_event_type(&raw), "{event_type}");
         }
     }
 }
-
-#[cfg(test)]
-#[path = "notify_sdk_tests.rs"]
-mod sdk_tests;

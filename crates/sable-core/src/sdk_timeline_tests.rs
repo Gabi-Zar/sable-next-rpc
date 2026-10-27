@@ -2193,7 +2193,7 @@ async fn unread_reply_counts_persist_until_read() {
     let rules = matrix_sdk::ruma::push::Ruleset::server_default(&me);
     let joined = JoinedRoomBuilder::new(room_id)
         .add_state_event(factory.member(&me))
-        .add_state_event(factory.default_power_levels())
+        .add_state_event(factory.power_levels())
         .add_timeline_bulk([mention(event_id!("$one")), mention(event_id!("$two"))])
         .add_receipt(
             factory
@@ -4077,7 +4077,7 @@ async fn a_mention_is_loud_from_the_ruleset_not_the_stamped_flag() {
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
                     factory.member(*ALICE).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(
                     factory
@@ -4139,7 +4139,7 @@ async fn a_deleted_mention_is_not_highlighted() {
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
                     factory.member(*ALICE).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(
                     factory
@@ -4218,7 +4218,7 @@ async fn a_live_redaction_drops_the_reactions() {
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
                     factory.member(*ALICE).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(factory.text_msg("hey").event_id(target))
                 .add_timeline_event(
@@ -4303,7 +4303,7 @@ async fn a_redaction_the_server_rejects_restores_the_message() {
             JoinedRoomBuilder::new(room_id)
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(factory.text_msg("keep me").event_id(event_id!("$kept"))),
         )

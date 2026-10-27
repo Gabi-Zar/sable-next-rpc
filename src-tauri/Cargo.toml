@@ -101,7 +101,7 @@ tauri-plugin-geolocation = { version = "2.3.3", optional = true }
 tauri-plugin-notifications = { version = "0.5.0", git = "https://github.com/SableClient/tauri-plugin-notifications.git", rev = "8097a87cb78cc4bf47c819ed59be4080db319a97", default-features = false, features = [
   "push-notifications",
 ] }
-tauri-plugin-livekit-mobile = { version = "0.2.0", git = "https://github.com/SableClient/tauri-plugin-livekit-mobile.git", rev = "e4c676780652e347049821501b5ff94d8a9e9a57" }
+tauri-plugin-livekit-mobile = { version = "0.2.0", git = "https://github.com/SableClient/tauri-plugin-livekit-mobile.git", rev = "13fbdc08bebe035065a05cd7a99041422cf38960" }
 # Injects the --safe-area-inset-* custom properties: Android reports the system
 # bars to nobody, and `env()` there only covers a display cutout.
 tauri-plugin-edge-to-edge = { version = "0.3.3", git = "https://github.com/SableClient/tauri-plugin-edge-to-edge.git", rev = "33c6116c27be28c06df5a9d02231ecc5fdeb93c5" }

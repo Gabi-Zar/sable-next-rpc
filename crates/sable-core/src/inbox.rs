@@ -666,7 +666,7 @@ mod tests {
                 JoinedRoomBuilder::new(room_id)
                     .add_state_event(factory.member(client.user_id().unwrap()))
                     .add_state_event(factory.member(*ALICE))
-                    .add_state_event(factory.default_power_levels())
+                    .add_state_event(factory.power_levels())
                     .set_unread_notifications_count(
                         json!({"notification_count": notified, "highlight_count": notified}),
                     ),
@@ -1001,7 +1001,7 @@ mod tests {
                         JoinedRoomBuilder::new(&room_id)
                             .add_state_event(factory.member(client.user_id().unwrap()))
                             .add_state_event(factory.member(*ALICE))
-                            .add_state_event(factory.default_power_levels())
+                            .add_state_event(factory.power_levels())
                             .set_unread_notifications_count(
                                 json!({"notification_count": 1, "highlight_count": 1}),
                             ),

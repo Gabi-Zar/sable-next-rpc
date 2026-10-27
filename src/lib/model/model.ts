@@ -127,6 +127,17 @@ export function webPushValidation(raw: string | undefined): WebPushValidation | 
   return JSON.parse(wasm.webPushValidation(raw)) as WebPushValidation | null;
 }
 
+export function validateRtcInviteSnapshot(
+  event: unknown,
+  events: readonly unknown[],
+  userId: string,
+  nowMs: number
+): { expires_at_ms: number; has_video: boolean } | null {
+  return JSON.parse(
+    wasm.validateRtcInviteSnapshot(JSON.stringify(event), JSON.stringify(events), userId, nowMs)
+  ) as { expires_at_ms: number; has_video: boolean } | null;
+}
+
 export function pushContent(content: unknown): PushContent {
   return JSON.parse(wasm.pushContent(JSON.stringify(content ?? null))) as PushContent;
 }

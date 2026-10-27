@@ -136,7 +136,12 @@ object PushNotifier {
             PushDiagnostics.record(context, PushOutcome.REPLAY_DROPPED, trace)
             return
         }
-        if ((notification.optString("type").isEmpty() || notification.optJSONObject("content") == null) && deviceId != null) {
+        val rtcInvite = isRtcInvite(notification)
+        if (rtcInvite && deviceId == null) {
+            PushDiagnostics.record(context, PushOutcome.DISCARDED, trace)
+            return
+        }
+        if ((notification.optString("type").isEmpty() || notification.optJSONObject("content") == null || rtcInvite) && deviceId != null) {
             when (val fetched = PushPayloadDecryptor.fetch(context, userId, deviceId, roomId, eventId)) {
                 PushDecryptResult.Discard -> {
                     PushDiagnostics.record(context, PushOutcome.DISCARDED, trace)
@@ -157,9 +162,13 @@ object PushNotifier {
                         }
                     } else {
                         PushDiagnostics.record(context, PushOutcome.FETCH_FAILED, trace)
+                        if (rtcInvite) return
                     }
                 }
-                else -> PushDiagnostics.record(context, PushOutcome.FETCH_FAILED, trace)
+                else -> {
+                    PushDiagnostics.record(context, PushOutcome.FETCH_FAILED, trace)
+                    if (rtcInvite) return
+                }
             }
         }
         val encrypted = notification.optString("type") == "m.room.encrypted"
@@ -358,11 +367,13 @@ object PushNotifier {
         return false
     }
 
-    internal fun isRing(event: JSONObject): Boolean {
+    private fun isRtcInvite(event: JSONObject): Boolean {
         val type = event.optString("type")
-        if (type != RTC_NOTIFICATION_TYPE && type != RTC_NOTIFICATION_TYPE_UNSTABLE) return false
-        return event.optJSONObject("content")?.optString("notification_type") == "ring"
+        return type == "m.rtc.invite" || type == RTC_NOTIFICATION_TYPE || type == RTC_NOTIFICATION_TYPE_UNSTABLE
     }
+
+    internal fun isRing(event: JSONObject): Boolean =
+        isRtcInvite(event) && event.optJSONObject("content")?.optString("notification_type") == "ring"
 
     private fun isRedacted(event: JSONObject): Boolean =
         event.optJSONObject("unsigned")?.has("redacted_because") == true
@@ -575,6 +586,7 @@ object PushNotifier {
             this.flags = this.flags or Notification.FLAG_INSISTENT
         }
         NotificationManagerCompat.from(context).notify(notifId, incoming)
+        NotificationReceipts.record(context, roomNotificationId(userId, roomId), eventId)
         PushDiagnostics.record(context, PushOutcome.POSTED, traceOf(notification))
     }
 

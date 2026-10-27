@@ -71,6 +71,10 @@ pub(crate) struct State {
 }
 
 impl State {
+    pub(super) fn own_member(&self) -> CallMember {
+        self.own.clone()
+    }
+
     pub(super) const fn wire(&self) -> membership::RtcWire {
         self.own.wire
     }
@@ -283,7 +287,10 @@ fn content_at(
                 own.foci
                     .iter()
                     .map(|service| {
-                        Focus::Livekit(RumaLivekitFocus::new(room_id.to_string(), service.clone()))
+                        Focus::Livekit(RumaLivekitFocus::new(
+                            Some(room_id.to_string()),
+                            service.clone(),
+                        ))
                     })
                     .collect(),
                 Some(MilliSecondsSinceUnixEpoch(
@@ -454,6 +461,7 @@ async fn publish_membership(
 }
 
 async fn retract(core: &Core, room: &Room, own: &CallMember, delay: Option<String>) {
+    core.withdraw_call_invite(room, own, false).await;
     if let Some(delay) = delay
         && core.fire_hangup(delay).await.is_ok()
     {
@@ -951,7 +959,7 @@ async fn confirm_join(
         )
     };
     if !was_running {
-        core.announce_call(room, membership_event).await;
+        core.announce_call(room, membership_event, &own).await;
     }
     Some((publisher_id, backends))
 }

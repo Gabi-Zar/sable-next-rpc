@@ -481,12 +481,12 @@ async fn decrypt_push_event(
             let actions = decrypted.push_actions();
             return match actions {
                 None if every_encrypted => ColdPush::Unevaluated,
-                None => ColdPush::Clear(clear.event.json().get().to_owned()),
+                None => prepared_push_event(&room, clear.event.json().get(), false).await,
                 Some(actions) if notifies(actions) => {
                     let noisy = actions
                         .iter()
                         .any(|action| action.sound().is_some() || action.is_highlight());
-                    ColdPush::Clear(marked_noisy(clear.event.json().get(), noisy))
+                    prepared_push_event(&room, clear.event.json().get(), noisy).await
                 }
                 Some(_) => ColdPush::Discard,
             };
@@ -537,7 +537,7 @@ async fn decrypt_push_event(
                     != Some("m.room.encrypted") =>
             {
                 let noisy = item.is_noisy == Some(true) || item.has_mention == Some(true);
-                ColdPush::Clear(marked_noisy(clear.json().get(), noisy))
+                prepared_push_event(&room, clear.json().get(), noisy).await
             }
             _ => undecryptable,
         },
@@ -546,6 +546,49 @@ async fn decrypt_push_event(
         }
         Ok(NotificationStatus::EventNotFound) | Err(_) => undecryptable,
     }
+}
+
+fn is_rtc_invite(event: &serde_json::Value) -> bool {
+    matches!(
+        event["type"].as_str(),
+        Some("m.rtc.invite" | "m.rtc.notification" | "org.matrix.msc4075.rtc.notification")
+    )
+}
+
+async fn prepare_invite(room: &matrix_sdk::Room, event: &mut serde_json::Value) -> bool {
+    let Some(invite) = crate::calls::validate_invite(room, event).await else {
+        return false;
+    };
+    let now = u64::from(MilliSecondsSinceUnixEpoch::now().get());
+    let remaining = invite.expires_at_ms.saturating_sub(now);
+    if remaining == 0 {
+        return false;
+    }
+    // These fields describe local presentation; they are never sent back into the room.
+    let content = &mut event["content"];
+    content["notification_type"] = if invite.ring { "ring" } else { "notification" }.into();
+    content["sender_ts"] = now.into();
+    content["lifetime"] = remaining.into();
+    content["m.call.intent"] = if invite.has_video { "video" } else { "audio" }.into();
+    content["body"] = "Call started".into();
+    true
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn prepared_push_event(room: &matrix_sdk::Room, clear: &str, noisy: bool) -> ColdPush {
+    let Ok(mut event) = serde_json::from_str::<serde_json::Value>(clear) else {
+        return ColdPush::Undecryptable;
+    };
+    if !is_rtc_invite(&event) {
+        return ColdPush::Clear(marked_noisy(clear, noisy));
+    }
+    if !prepare_invite(room, &mut event).await {
+        return ColdPush::Discard;
+    }
+    let Ok(clear) = serde_json::to_string(&event) else {
+        return ColdPush::Undecryptable;
+    };
+    ColdPush::Clear(marked_noisy(&clear, noisy))
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -1218,9 +1261,29 @@ async fn fetch_push_event_with(
             PushFetchView::Discard
         }
         Ok(NotificationStatus::Event(item)) => {
+            let raw = match &item.raw_event {
+                RawNotificationEvent::Timeline(raw) => raw.json().get(),
+                RawNotificationEvent::Invite(raw) => raw.json().get(),
+            };
+            let normalized = if let Ok(mut raw) = serde_json::from_str::<serde_json::Value>(raw)
+                && is_rtc_invite(&raw)
+            {
+                let Some(room) = client.get_room(room_id) else {
+                    return PushFetchView::Discard;
+                };
+                if !prepare_invite(&room, &mut raw).await {
+                    return PushFetchView::Discard;
+                }
+                raw.get_mut("content").map(serde_json::Value::take)
+            } else {
+                None
+            };
             let Some(mut event) = push_event_view(*item) else {
                 return PushFetchView::Unavailable;
             };
+            if let Some(content) = normalized {
+                event.content = content;
+            }
             if event.sender_display_name.is_none() {
                 event.sender_display_name = Some(sender_name(client, room_id, &event.sender).await);
             }
@@ -2206,7 +2269,7 @@ mod tests {
         JoinedRoomBuilder::new(room_id!("!cold:example.org"))
             .add_state_event(factory.member(user_id!("@alice:example.org")))
             .add_state_event(factory.member(user_id!("@sender:example.org")))
-            .add_state_event(factory.default_power_levels())
+            .add_state_event(factory.power_levels())
     }
 
     #[tokio::test]
@@ -2268,7 +2331,7 @@ mod tests {
             .sender(user_id!("@sender:example.org"));
         JoinedRoomBuilder::new(room_id!("!cold:example.org"))
             .add_state_event(factory.member(user_id!("@sender:example.org")))
-            .add_state_event(factory.default_power_levels())
+            .add_state_event(factory.power_levels())
     }
 
     #[tokio::test]
@@ -2789,7 +2852,7 @@ mod tests {
                     .room_avatar()
                     .url(mxc_uri!("mxc://example.org/lounge")),
             )
-            .add_state_event(factory.default_power_levels());
+            .add_state_event(factory.power_levels());
         match account_data {
             Some(event) => room.add_account_data(event),
             None => room,
@@ -3625,5 +3688,78 @@ mod tests {
         .collect();
 
         assert!(accepted.is_empty(), "these are not gateways: {accepted:?}");
+    }
+
+    #[tokio::test]
+    async fn native_rtc_invites_use_validated_receiver_presentation() {
+        use wiremock::{
+            Mock, ResponseTemplate,
+            matchers::{method, path_regex},
+        };
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!push-call:example.org");
+        let own = client.user_id().unwrap().to_owned();
+        let sender = user_id!("@caller:example.org");
+        let factory = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id)
+            .sender(sender);
+        let room = server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id)
+                    .add_state_event(factory.member(&own))
+                    .add_state_event(factory.member(sender))
+                    .add_state_event(factory.power_levels()),
+            )
+            .await;
+        let now = u64::from(MilliSecondsSinceUnixEpoch::now().get());
+        let event = json!({
+            "type":"m.rtc.invite", "event_id":"$push-invite", "room_id":room_id,
+            "sender":sender, "origin_server_ts":now - 5_000,
+            "sticky":{"duration_ms":300_000},
+            "content":{"slot_id":"m.call#room", "sticky_key":"m.call#room",
+                "sender_ts":now - 5_000,"lifetime":90_000,
+                "notification_type":"ring", "m.mentions":{"user_ids":[own]}}
+        });
+        for withdrawn in [false, true] {
+            let mut events = vec![event.clone()];
+            if withdrawn {
+                let mut withdrawal = event.clone();
+                withdrawal["event_id"] = "$withdrawal".into();
+                withdrawal["origin_server_ts"] = now.into();
+                withdrawal["content"] = json!({"sticky_key":"m.call#room"});
+                events.push(withdrawal);
+            }
+            let response = json!({"pos":"push-state", "rooms":{room_id.as_str():{
+                "initial":true,"required_state":[{
+                    "type":"m.rtc.slot","state_key":"m.call#room","event_id":"$slot",
+                    "sender":sender,"origin_server_ts":now - 10_000,
+                    "content":{"status":"open","application":{"type":"m.call"}}
+                }]
+            }},"extensions":{"org.matrix.msc4354.sticky_events":{
+                "next_batch":"push-sticky","rooms":{room_id.as_str():{"events":events}}
+            }}});
+            let guard = Mock::given(method("POST"))
+                .and(path_regex("/sync$"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response))
+                .mount_as_scoped(server.server())
+                .await;
+            let prepared = super::prepared_push_event(&room, &event.to_string(), true).await;
+            if withdrawn {
+                assert_eq!(prepared, ColdPush::Discard);
+            } else {
+                let ColdPush::Clear(clear) = prepared else {
+                    panic!("active group invitation must notify");
+                };
+                let clear: serde_json::Value = serde_json::from_str(&clear).unwrap();
+                assert_eq!(clear["content"]["notification_type"], "notification");
+                assert_eq!(clear["content"]["body"], "Call started");
+                assert!(clear["content"]["lifetime"].as_u64().unwrap() <= 85_000);
+                assert_eq!(clear[super::NOISY_KEY], true);
+            }
+            drop(guard);
+        }
+        assert_eq!(event["content"]["notification_type"], "ring");
     }
 }

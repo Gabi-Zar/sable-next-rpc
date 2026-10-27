@@ -14,6 +14,7 @@ const ENCRYPTED_STICKY_DURATION_MS: u32 = 120_000;
 
 pub(super) struct StickySync {
     conn_id: String,
+    include_invite_state: bool,
     pos: Option<String>,
     since: Option<String>,
     pending: Vec<(Value, u64)>,
@@ -79,6 +80,17 @@ impl StickySync {
     pub(super) fn new(session: u32) -> Self {
         Self {
             conn_id: format!("call-{session}"),
+            include_invite_state: false,
+            pos: None,
+            since: None,
+            pending: Vec::new(),
+        }
+    }
+
+    pub(super) fn for_invites() -> Self {
+        Self {
+            conn_id: format!("call-invites-{}", ruma::TransactionId::new()),
+            include_invite_state: true,
             pos: None,
             since: None,
             pending: Vec::new(),
@@ -94,6 +106,19 @@ impl StickySync {
         subscription
             .required_state
             .push((StateEventType::RoomCreate, String::new()));
+        if self.include_invite_state {
+            for event_type in super::SLOT_TYPES {
+                subscription
+                    .required_state
+                    .push((event_type.into(), "*".to_owned()));
+            }
+            subscription
+                .required_state
+                .push(("org.matrix.msc3401.call.member".into(), "*".to_owned()));
+            subscription
+                .required_state
+                .push((StateEventType::RoomPowerLevels, String::new()));
+        }
         request
             .room_subscriptions
             .insert(room.room_id().to_owned(), subscription);
@@ -139,6 +164,14 @@ impl StickySync {
             );
         }
         if let Some(room_events) = response.rooms.get(room.room_id()) {
+            if self.include_invite_state {
+                events.extend(
+                    room_events
+                        .required_state
+                        .iter()
+                        .filter_map(|event| serde_json::from_str(event.json().get()).ok()),
+                );
+            }
             events.extend(
                 room_events
                     .timeline

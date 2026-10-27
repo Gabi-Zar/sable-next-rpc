@@ -75,7 +75,11 @@ pub struct PushAlert {
     pub invite: bool,
 }
 
-const RING_EVENT_TYPES: [&str; 2] = ["m.rtc.notification", "org.matrix.msc4075.rtc.notification"];
+const RING_EVENT_TYPES: [&str; 3] = [
+    "m.rtc.invite",
+    "m.rtc.notification",
+    "org.matrix.msc4075.rtc.notification",
+];
 const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
 /// A string that is not blank, kept as received; anything else reads as nothing.
@@ -669,6 +673,24 @@ mod tests {
         assert_eq!(shown.line.body, "Ada is calling");
         assert_eq!(shown.line.sender, None);
         assert!(shown.ring);
+    }
+
+    #[test]
+    fn stable_call_invites_use_the_receivers_presentation() {
+        let mut invite = PushNotification {
+            room_id: Some("!room:example.org".to_owned()),
+            event_type: Some("m.rtc.invite".to_owned()),
+            content: PushContent {
+                notification_type: Some("ring".to_owned()),
+                ..PushContent::default()
+            },
+            ..PushNotification::default()
+        };
+        assert!(alert(&invite, None, true).unwrap().ring);
+        invite.content.notification_type = Some("notification".to_owned());
+        assert!(!alert(&invite, None, true).unwrap().ring);
+        invite.content.notification_type = None;
+        assert!(!alert(&invite, None, true).unwrap().ring);
     }
 
     #[test]

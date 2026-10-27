@@ -154,7 +154,7 @@ async fn a_replayed_message_alerts_once() {
             &client,
             JoinedRoomBuilder::new(room_id)
                 .add_state_event(factory.member(client.user_id().unwrap()))
-                .add_state_event(factory.default_power_levels()),
+                .add_state_event(factory.power_levels()),
         )
         .await;
     let (core, mut events) = watching(&server, &client).await;
@@ -244,7 +244,7 @@ async fn a_message_delivered_late_by_a_resumed_sync_does_not_alert() {
             &client,
             JoinedRoomBuilder::new(room_id)
                 .add_state_event(factory.member(client.user_id().unwrap()))
-                .add_state_event(factory.default_power_levels()),
+                .add_state_event(factory.power_levels()),
         )
         .await;
     let (core, mut events) = watching(&server, &client).await;
@@ -343,7 +343,7 @@ async fn bridge_status_events_do_not_notify() {
                 JoinedRoomBuilder::new(room_id)
                     .add_state_event(factory.member(client.user_id().unwrap()))
                     .add_state_event(factory.member(bot))
-                    .add_state_event(factory.default_power_levels())
+                    .add_state_event(factory.power_levels())
                     .add_timeline_event(factory.text_msg("read").event_id(event_id!("$read")))
                     .add_receipt(
                         factory
@@ -452,7 +452,7 @@ async fn a_message_alerts_when_the_server_reports_no_counts() {
             &client,
             JoinedRoomBuilder::new(room_id)
                 .add_state_event(factory.member(client.user_id().unwrap()))
-                .add_state_event(factory.default_power_levels()),
+                .add_state_event(factory.power_levels()),
         )
         .await;
     let (core, mut events) = watching(&server, &client).await;
@@ -527,7 +527,7 @@ async fn sticker_notifications_do_not_block_sync_or_reappear_after_reading() {
                 &client,
                 JoinedRoomBuilder::new(room_id)
                     .add_state_event(factory.member(client.user_id().unwrap()))
-                    .add_state_event(factory.default_power_levels()),
+                    .add_state_event(factory.power_levels()),
             )
             .await;
         let (core, mut events) = watching(&server, &client).await;
