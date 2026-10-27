@@ -288,7 +288,7 @@ test('a reply notifies the author it answers', async () => {
   expect(sendMessage).toHaveBeenCalledWith(
     ROOM,
     'sure',
-    expect.objectContaining({ inReplyTo: '$one:example.org', silentReply: false })
+    expect.objectContaining({ in_reply_to: '$one:example.org', silent_reply: false })
   );
 });
 
@@ -334,7 +334,7 @@ test('muting the reply stops the mention', async () => {
   expect(sendMessage).toHaveBeenCalledWith(
     ROOM,
     'sure',
-    expect.objectContaining({ silentReply: true })
+    expect.objectContaining({ silent_reply: true })
   );
 });
 
@@ -368,7 +368,7 @@ test.each([
     );
     const { conversation } = fixture;
     const file = new File(['picture'], 'picture.png', { type: 'image/png' });
-    const mentions = { userIds: ['@bea:example.org'], room: false };
+    const mentions = { user_ids: ['@bea:example.org'], room: false };
 
     for (const kind of ['attachment', 'gallery', 'gif', 'location'] as const) {
       conversation.reply('$one:example.org');
@@ -538,7 +538,7 @@ test('a reply to an earlier version targets the edit and quotes its text', async
   expect(sendMessage).toHaveBeenCalledWith(
     ROOM,
     'typo',
-    expect.objectContaining({ inReplyTo: '$edit:example.org' })
+    expect.objectContaining({ in_reply_to: '$edit:example.org' })
   );
 });
 
@@ -555,7 +555,7 @@ test('editing a pending message uses its transaction ID', async () => {
     ROOM,
     null,
     'corrected',
-    expect.objectContaining({ transactionId: 'transaction-1' })
+    expect.objectContaining({ transaction_id: 'transaction-1' })
   );
 });
 
@@ -587,7 +587,7 @@ test('editing a file caption replaces the caption and keeps the attachment', asy
     ROOM,
     '$file',
     'the new code',
-    expect.objectContaining({ mediaCaption: true })
+    expect.objectContaining({ media_caption: true })
   );
 });
 
@@ -725,7 +725,7 @@ test('a pending edit follows its stable timeline ID after sync drops the transac
     ROOM,
     '$sent',
     'corrected',
-    expect.objectContaining({ transactionId: null })
+    expect.objectContaining({ transaction_id: null })
   );
 });
 
@@ -754,7 +754,7 @@ test('an empty caption edit keeps the attachment', async () => {
     ROOM,
     '$image',
     '',
-    expect.objectContaining({ mediaCaption: true })
+    expect.objectContaining({ media_caption: true })
   );
 });
 
@@ -1090,7 +1090,7 @@ test('a dismissed link is not previewed and the dismissal is spent by the send',
   expect(fixture.urlPreview).toHaveBeenCalledTimes(1);
   expect(fixture.urlPreview).toHaveBeenCalledWith({ url: 'https://b.example/', service: null });
   expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
-    noLinkPreviews: false,
+    no_link_previews: false,
   });
   expect(fixture.conversation.dismissedPreviews).toEqual([]);
 });
@@ -1104,8 +1104,8 @@ test('dismissing every link sends an explicit opt-out', async () => {
 
   expect(fixture.urlPreview).not.toHaveBeenCalled();
   expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
-    linkPreviews: [],
-    noLinkPreviews: true,
+    link_previews: [],
+    no_link_previews: true,
   });
 });
 

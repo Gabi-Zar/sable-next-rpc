@@ -630,7 +630,7 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
     caption: 'hey Member One :wave:',
     formattedCaption:
       'hey <a href="https://matrix.to/#/@one:example.org">Member One</a> <img data-mx-emoticon>',
-    mentions: { userIds: ['@one:example.org'], room: true },
+    mentions: { user_ids: ['@one:example.org'], room: true },
     inReplyTo: '$reply:example.org',
     threadRoot: '$thread:example.org',
     persona: {
@@ -788,7 +788,7 @@ test('sending a gallery forwards shared metadata and every attachment', async ()
   await core.media.sendGallery('!room:example.org', [first, second], {
     caption: 'Weekend',
     formattedCaption: '<strong>Weekend</strong>',
-    mentions: { userIds: ['@one:example.org'], room: true },
+    mentions: { user_ids: ['@one:example.org'], room: true },
     inReplyTo: '$reply',
     threadRoot: '$thread',
     persona,

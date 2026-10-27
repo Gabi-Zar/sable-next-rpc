@@ -9,12 +9,12 @@ import {
   type RegistrationFlowsView,
   type SessionInfo,
   type SyncStatus,
-  type MutualRoomView,
   type ProfilePropagationView,
   type ProfileView,
   type RegistrationResultView,
   type VerificationView,
   type Rpc,
+  type RpcResult,
   createRpc,
 } from '#src/generated/protocol';
 
@@ -119,7 +119,7 @@ async function resolveHomeserverInPage(
   return resolved;
 }
 
-export type UserRelations = { mutualRooms: MutualRoomView[]; ignored: boolean };
+export type UserRelations = RpcResult<Rpc['account']['userRelations']>;
 export type CoreStatus = 'idle' | 'starting' | 'signed-out' | 'authenticating' | 'ready' | 'error';
 export type CoreSession = SessionInfo;
 export type ActiveVerification = { userId: string; flowId: string; state: VerificationView };
@@ -702,10 +702,7 @@ export class CoreClient {
     }
 
     const response = await this.rpc.account.userRelations({ user_id: userId });
-    const relations = {
-      mutualRooms: response.mutual_rooms,
-      ignored: response.ignored,
-    };
+    const relations = response;
     this.relationsCache.set(userId, { accountId, relations });
     return relations;
   }

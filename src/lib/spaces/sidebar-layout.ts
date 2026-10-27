@@ -1,7 +1,6 @@
-import type { DropInstruction } from '#lib/ui/drag-list.js';
-import type { SidebarItemView } from '#src/generated/protocol';
+import type { DropInstruction, LayoutRef, SidebarItemView } from '#src/generated/protocol';
 
-import { applyLayoutDrop, type LayoutTarget } from '#lib/model/model.js';
+import { applyLayoutDrop } from '#lib/model/model.js';
 
 export {
   layoutSpaceIds,
@@ -18,11 +17,7 @@ export {
 export type SidebarItem = SidebarItemView;
 export type SidebarFolder = Extract<SidebarItemView, { kind: 'folder' }>;
 
-export type LayoutRef =
-  | { kind: 'space'; roomId: string; folderId?: string }
-  | { kind: 'folder'; folderId: string };
-
-export type { DropInstruction };
+export type { DropInstruction, LayoutRef };
 
 export const FOLDER_NAME_MAX_LENGTH = 200;
 
@@ -36,10 +31,10 @@ export function isFolder(item: SidebarItem): item is SidebarFolder {
 
 export function refsEqual(left: LayoutRef, right: LayoutRef): boolean {
   if (left.kind === 'folder' || right.kind === 'folder') {
-    return left.kind === 'folder' && right.kind === 'folder' && left.folderId === right.folderId;
+    return left.kind === 'folder' && right.kind === 'folder' && left.folder_id === right.folder_id;
   }
 
-  return left.roomId === right.roomId && left.folderId === right.folderId;
+  return left.room_id === right.room_id && left.folder_id === right.folder_id;
 }
 
 export function sameLayout(left: readonly SidebarItem[], right: readonly SidebarItem[]): boolean {
@@ -71,12 +66,6 @@ export function folderName(
   return names.length === 0 ? null : names.join(', ');
 }
 
-function layoutTarget(ref: LayoutRef): LayoutTarget {
-  return ref.kind === 'folder'
-    ? { kind: 'folder', folder_id: ref.folderId }
-    : { kind: 'space', room_id: ref.roomId, folder_id: ref.folderId ?? null };
-}
-
 export function applyDrop(
   items: readonly SidebarItem[],
   source: LayoutRef,
@@ -84,11 +73,5 @@ export function applyDrop(
   instruction: DropInstruction,
   folderId: () => string = newFolderId
 ): SidebarItem[] {
-  return applyLayoutDrop(
-    items,
-    layoutTarget(source),
-    layoutTarget(target),
-    instruction,
-    folderId()
-  );
+  return applyLayoutDrop(items, source, target, instruction, folderId());
 }
