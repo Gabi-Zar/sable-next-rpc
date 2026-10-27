@@ -477,6 +477,8 @@ struct SelectionOut {
     profile_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     valid_until: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    alternate_avatar_id: Option<String>,
 }
 
 impl From<&PersonaSelectionView> for SelectionOut {
@@ -484,6 +486,7 @@ impl From<&PersonaSelectionView> for SelectionOut {
         Self {
             profile_id: selection.persona_id.clone(),
             valid_until: selection.valid_until,
+            alternate_avatar_id: selection.alternate_avatar_id.clone()
         }
     }
 }
