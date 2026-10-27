@@ -19,7 +19,6 @@
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
 
   import { memberIdentity } from './members/members.js';
-  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
   const MAX_FACES = 3;
 
@@ -89,20 +88,8 @@
       <BackIcon />
     </PanelHeaderButton>
 
-    {#snippet avatar()}
-      <Avatar id={roomId} src={roomAvatar} name={roomName} size="small" />
-    {/snippet}
     <span class="room-avatar">
-      {#if roomAvatar}
-        <PanelHeaderButton
-          label={i18n.t('timeline.profileAvatar', { name: roomName })}
-          onclick={() => mediaViewerState.openStandalone(roomAvatar, roomName)}
-        >
-          {@render avatar()}
-        </PanelHeaderButton>
-      {:else}
-        {@render avatar()}
-      {/if}
+      <Avatar id={roomId} src={roomAvatar} openable={true} name={roomName} size="small" />
     </span>
   {/snippet}
 

@@ -484,8 +484,8 @@
           displayName={draft.name.trim() || userId}
           avatarUrl={avatarPreview ?? (draft.avatarRemoved ? null : profile.avatar_url)}
           bannerUrl={draft.banner}
-          avatarLabel={i18n.t(hasAvatar ? 'common.changeAvatar' : 'settings.uploadAvatar')}
           onAvatarEdit={() => avatarInput?.click()}
+          avatarEditLabel={i18n.t(hasAvatar ? 'common.changeAvatar' : 'settings.uploadAvatar')}
           color={draft.hero || senderColor(userId)}
           heroColor={draft.hero || null}
           heroBrightness={draft.hero ? draft.brightness : null}

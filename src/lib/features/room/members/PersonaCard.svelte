@@ -73,7 +73,6 @@
   {variant}
   userId={accountId}
   avatarUrl={profile.avatar_url}
-  avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
   color={senderColor(profile.id ?? displayName)}
   nameColorLight={profile.color_on_light}
   nameColorDark={profile.color_on_dark}

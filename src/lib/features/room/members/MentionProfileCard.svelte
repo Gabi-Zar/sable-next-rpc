@@ -802,7 +802,6 @@
     {displayName}
     {userId}
     {avatarUrl}
-    avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
     {color}
     heroColor={currentProfile?.hero_color}
     heroBrightness={currentProfile?.hero_brightness}

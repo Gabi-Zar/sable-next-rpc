@@ -13,10 +13,14 @@
 
   import { identityColor } from './identity-color.js';
   import { toInitials } from './initials.js';
+  import { mediaViewerState } from '../media/media-viewer-state.svelte.js';
+  import { i18n } from '#lib/i18n.js';
+  import Tooltip from './Tooltip.svelte';
 
   type AvatarSize = 'tiny' | 'small' | 'medium' | 'large';
   type Props = {
     src?: string | null;
+    openable?: boolean;
     alt?: string;
     id?: string | null;
     name?: string | null;
@@ -33,6 +37,7 @@
 
   let {
     src = null,
+    openable = false,
     alt,
     id = null,
     name,
@@ -87,14 +92,7 @@
   }
 </script>
 
-<Avatar.Root
-  {@attach isMxc && !original ? playOnHover : undefined}
-  bind:loadingStatus={() => loadingStatus, (value) => (imageStatus = value)}
-  class={['avatar-root', `avatar-${size}`, className]}
-  aria-hidden={decorative ? 'true' : undefined}
-  role={decorative ? undefined : 'img'}
-  aria-label={decorative ? undefined : accessibleLabel}
->
+{#snippet image()}
   {#if isMxc && src}
     <MediaImage
       class="avatar-image"
@@ -129,6 +127,34 @@
   {:else if src}
     <Avatar.Image {src} alt="" class="avatar-image" />
   {/if}
+{/snippet}
+
+<Avatar.Root
+  {@attach isMxc && !original ? playOnHover : undefined}
+  bind:loadingStatus={() => loadingStatus, (value) => (imageStatus = value)}
+  class={['avatar-root', `avatar-${size}`, className]}
+  aria-hidden={decorative ? 'true' : undefined}
+  role={decorative ? undefined : 'img'}
+  aria-label={decorative ? undefined : accessibleLabel}
+>
+  {#if openable && src && name}
+    {#snippet avatarButtonTrigger({ props: tooltipProps }: { props: Record<string, unknown> })}
+      <button
+        {...tooltipProps}
+        class="avatar-button"
+        type="button"
+        aria-label={i18n.t('common.viewAvatar', { name })}
+        onclick={() => mediaViewerState.openStandalone(src, name)}
+      >
+        {@render image()}
+      </button>
+    {/snippet}
+
+    <Tooltip label={i18n.t('common.viewAvatar', { name })} trigger={avatarButtonTrigger} />
+  {:else}
+    {@render image()}
+  {/if}
+
   <Avatar.Fallback
     class="avatar-fallback"
     style={plate ? `background: ${plate}; color: var(--avatar-identity-on-plate)` : undefined}
@@ -209,5 +235,15 @@
     display: flex;
     justify-content: center;
     text-transform: capitalize;
+  }
+
+  .avatar-button {
+    background: none;
+    border: 0;
+    border-radius: calc(var(--radius) - var(--border-width));
+    cursor: pointer;
+    height: 100%;
+    padding: 0;
+    width: 100%;
   }
 </style>

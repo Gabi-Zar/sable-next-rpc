@@ -12,7 +12,6 @@
   import Button from '#lib/ui/primitives/Button.svelte';
   import ConfirmDialog from '#lib/ui/primitives/ConfirmDialog.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
-  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
   interface Props {
     userId: string;
@@ -99,20 +98,7 @@
   {#if !loaded}
     <div role="status"><Spinner /></div>
   {:else}
-    {#if avatar_url}
-      <button
-        class="avatar-button"
-        type="button"
-        aria-label={`Open ${name}'s avatar`}
-        onclick={() => {
-          mediaViewerState.openStandalone(avatar_url, name);
-        }}
-      >
-        <Avatar id={userId} src={avatar_url} {name} size="large" />
-      </button>
-    {:else}
-      <Avatar id={userId} src={avatar_url} {name} size="large" />
-    {/if}
+    <Avatar id={userId} src={avatar_url} openable={true} {name} size="large" />
     <h1 id="user-link-title">{name}</h1>
     <p class="user-link-id">{userId}</p>
     {#if failed}
@@ -159,18 +145,5 @@
     color: var(--surface-var-on-container);
     margin: 0;
     overflow-wrap: anywhere;
-  }
-
-  .avatar-button {
-    background: none;
-    border: 0;
-    border-radius: 50%;
-    cursor: pointer;
-    padding: 0;
-  }
-
-  .avatar-button:focus-visible {
-    outline: 2px solid var(--primary-main);
-    outline-offset: 3px;
   }
 </style>

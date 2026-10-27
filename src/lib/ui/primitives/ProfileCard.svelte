@@ -30,8 +30,8 @@
     displayName: string;
     userId: string;
     avatarUrl?: string | null;
-    avatarLabel?: string;
     onAvatarEdit?: () => void;
+    avatarEditLabel?: string;
     color: string;
     /** The owner's own choice, so only this one tints the card. `color` also
         covers the id-derived fallback. */
@@ -64,8 +64,8 @@
     displayName,
     userId,
     avatarUrl = null,
-    avatarLabel,
     onAvatarEdit,
+    avatarEditLabel,
     color,
     pronouns,
     nameField,
@@ -108,11 +108,6 @@
       ink === BLACK ? (nameColorLight ?? nameColorDark) : (nameColorDark ?? nameColorLight);
     return palette && own ? nameColorOn(own, palette.ground) : null;
   });
-  let canOpenAvatar = $derived(Boolean(onAvatarEdit || avatarUrl));
-  function openAvatar(): void {
-    if (onAvatarEdit) onAvatarEdit();
-    else if (avatarUrl) mediaViewerState.openStandalone(avatarUrl, displayName);
-  }
   function openBanner(): void {
     if (banner) mediaViewerState.openStandalone(banner, displayName);
   }
@@ -184,35 +179,30 @@
   </div>
   <div class="profile-card-crest">
     <div class="profile-card-avatar-wrap">
-      {#if canOpenAvatar}
-        <button
-          class="profile-card-avatar-button"
-          type="button"
-          aria-label={avatarLabel ?? displayName}
-          onclick={openAvatar}
-        >
-          <Avatar
-            class="profile-card-avatar"
-            size="large"
-            src={avatarUrl}
-            name={displayName}
-            id={userId}
-            color={heroColor ? undefined : color}
-            original
-            decorative
-          />
-        </button>
-      {:else}
+      {#snippet avatar(openable: boolean)}
         <Avatar
           class="profile-card-avatar"
           size="large"
           src={avatarUrl}
+          {openable}
           name={displayName}
           id={userId}
           color={heroColor ? undefined : color}
           original
-          alt={displayName}
+          decorative
         />
+      {/snippet}
+      {#if onAvatarEdit}
+        <button
+          class="profile-card-avatar-edit-button"
+          type="button"
+          aria-label={avatarEditLabel}
+          onclick={onAvatarEdit}
+        >
+          {@render avatar(false)}
+        </button>
+      {:else}
+        {@render avatar(true)}
       {/if}
       {#if presence}<PresenceDot
           class="profile-card-presence"
@@ -469,7 +459,7 @@
     outline-offset: calc(-1 * var(--focus-ring-width));
   }
 
-  .profile-card-avatar-button {
+  .profile-card-avatar-edit-button {
     background: none;
     border: 0;
     border-radius: var(--radii-400);
@@ -490,7 +480,7 @@
     z-index: 1;
   }
 
-  .profile-card-avatar-button:focus-visible {
+  .profile-card-avatar-edit-button:focus-visible {
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
   }
