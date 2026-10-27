@@ -1,5 +1,5 @@
 ---
-	default: patch
-	---
-	
-	# Move donator badge styling to account settings
+default: patch
+---
+
+# Move donator badge styling to account settings
