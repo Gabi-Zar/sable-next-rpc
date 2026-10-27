@@ -47,7 +47,7 @@ COPY --from=build /src/target/release/sable-server /usr/local/bin/sable-server
 COPY --from=frontend /src/dist /srv/sable
 
 ENV SABLE_SERVER_FRONTEND_DIR=/srv/sable
-ENV SABLE_SERVER_DATA_DIR=/var/lib/sable
+ENV SABLE_SERVER_DATA_DIR=/var/lib/sable/data
 ENV SABLE_SERVER_LISTEN_ADDR=0.0.0.0:18008
 EXPOSE 18008
 VOLUME ["/var/lib/sable"]
