@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld('sableElectron', {
   minimizeWindow: () => {
     ipcRenderer.send('sable-window-minimize');
   },
+  showWindow: () => {
+    ipcRenderer.send('sable-window-show');
+  },
   toggleMaximizeWindow: () => {
     ipcRenderer.send('sable-window-toggle-maximize');
   },

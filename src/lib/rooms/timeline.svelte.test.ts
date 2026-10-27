@@ -241,6 +241,68 @@ test('a notified event in the live snapshot keeps the live timeline', async () =
   expect(timeline.mode).toEqual({ kind: 'live' });
 });
 
+test('a failed notification lookup preserves live messages and incoming updates', async () => {
+  const core = new FakeCore();
+  const context = Promise.withResolvers<Awaited<ReturnType<FakeCore['subscribeTimeline']>>>();
+  const subscribe = vi
+    .spyOn(core, 'subscribeTimeline')
+    .mockResolvedValueOnce({ subscription: 1, items: [item('latest')], aggregations: [] })
+    .mockReturnValueOnce(context.promise)
+    .mockRejectedValue(new Error('offline'));
+  const unsubscribe = vi.spyOn(core, 'unsubscribe');
+  const timeline = new RoomTimeline(core as unknown as CoreClient);
+  const opening = timeline.start('!room:example.org', null, false, false, '$notified');
+  await vi.waitFor(() => {
+    expect(subscribe).toHaveBeenCalledTimes(2);
+  });
+  core.emit({
+    type: 'timeline_diff',
+    subscription: 1,
+    diffs: [{ op: 'push_back', value: item('arrived') }],
+  });
+  context.reject(new Error('event unavailable'));
+  await opening;
+
+  expect(timeline.error).toBeNull();
+  expect(timeline.mode).toEqual({ kind: 'live' });
+  expect(timeline.items.map((entry) => entry.id)).toEqual(['latest', 'arrived']);
+  expect(timeline.subscriptionId).toBe(1);
+  expect(subscribe).toHaveBeenCalledTimes(2);
+  expect(unsubscribe).not.toHaveBeenCalled();
+  await timeline.stop();
+});
+
+test.each(['loaded', 'failed'])(
+  'ignores a late notification lookup that %s after switching rooms',
+  async (result) => {
+    const core = new FakeCore();
+    const context = Promise.withResolvers<Awaited<ReturnType<FakeCore['subscribeTimeline']>>>();
+    const subscribe = vi
+      .spyOn(core, 'subscribeTimeline')
+      .mockResolvedValueOnce({ subscription: 1, items: [item('old')], aggregations: [] })
+      .mockReturnValueOnce(context.promise)
+      .mockResolvedValueOnce({ subscription: 3, items: [item('new')], aggregations: [] });
+    const unsubscribe = vi.spyOn(core, 'unsubscribe');
+    const timeline = new RoomTimeline(core as unknown as CoreClient);
+    const opening = timeline.start('!old:example.org', null, false, false, '$notified');
+    await vi.waitFor(() => {
+      expect(subscribe).toHaveBeenCalledTimes(2);
+    });
+    await timeline.start('!new:example.org');
+    if (result === 'loaded')
+      context.resolve({ subscription: 2, items: [item('notified')], aggregations: [] });
+    else context.reject(new Error('unavailable'));
+    await opening;
+    expect(unsubscribe).toHaveBeenCalledTimes(result === 'loaded' ? 2 : 1);
+
+    expect(timeline.items.map((entry) => entry.id)).toEqual(['new']);
+    expect(timeline.subscriptionId).toBe(3);
+    expect(timeline.error).toBeNull();
+    expect(subscribe).toHaveBeenCalledTimes(3);
+    await timeline.stop();
+  }
+);
+
 test('requesting the context that is already open does not resubscribe', async () => {
   const core = new FakeCore();
   const timeline = new RoomTimeline(core as unknown as CoreClient);
@@ -448,7 +510,7 @@ test.each(['missing', 'failure'] as const)(
   }
 );
 
-test('falls back to live when the unread marker context cannot be loaded', async () => {
+test('keeps the live snapshot when the unread marker context cannot be loaded', async () => {
   const core = new FakeCore();
   const original = core.subscribeTimeline.bind(core);
   const subscribe = vi
@@ -461,7 +523,6 @@ test('falls back to live when the unread marker context cannot be loaded', async
   expect(subscribe.mock.calls.map(([, focus]) => focus)).toEqual([
     { kind: 'live' },
     { kind: 'event', event_id: '$read' },
-    { kind: 'live' },
   ]);
   expect(timeline.mode).toEqual({ kind: 'live' });
   expect(timeline.error).toBeNull();

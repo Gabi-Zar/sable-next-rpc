@@ -758,6 +758,8 @@
     root = false
   ): Promise<boolean> {
     if (!onRequestUnread) return false;
+    // The subscription already tried this context and kept its live snapshot.
+    if (timeline.mode.kind === 'live' && timeline.readMarkerEventId === target) return false;
     switchingToUnread = true;
     try {
       await onRequestUnread(target);

@@ -366,6 +366,9 @@ function windowOf(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | nul
 }
 
 ipcMain.on('sable-window-minimize', (event) => windowOf(event)?.minimize());
+ipcMain.on('sable-window-show', (event) => {
+  if (isAppFrame(event.senderFrame)) showMainWindow();
+});
 ipcMain.on('sable-window-toggle-maximize', (event) => {
   const window = windowOf(event);
   if (!window) return;

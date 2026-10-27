@@ -4,6 +4,7 @@ import { createContext } from 'svelte';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { recordDebugLog } from '#lib/observability/debug-log.svelte.js';
+import { electronBridge } from '#lib/platform/electron.js';
 import { watchNativePushMessages } from '#lib/platform/native-notifications.js';
 import { hasUnread, roomNotifications, type RoomUnread } from '#lib/rooms/unread.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -267,7 +268,9 @@ export class NotificationCenter {
     }
 
     notification.addEventListener('click', () => {
-      globalThis.focus();
+      const electron = electronBridge();
+      if (electron) electron.showWindow();
+      else globalThis.focus();
       notification.close();
       open(view.room_id, view.event_id);
     });

@@ -24,6 +24,7 @@ export interface ElectronBridge {
   setTrayUnread(unread: boolean): Promise<void>;
   applyWindowSettings(settings: DesktopWindowSettings): Promise<DesktopWindowState | null>;
   minimizeWindow(): void;
+  showWindow(): void;
   toggleMaximizeWindow(): void;
   closeWindow(): void;
   isWindowMaximized(): Promise<boolean>;
