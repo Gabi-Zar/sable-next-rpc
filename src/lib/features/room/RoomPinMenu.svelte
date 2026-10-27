@@ -21,7 +21,7 @@
   import MessagePreview from './messages/MessagePreview.svelte';
   import { opensFrom } from './messages/message-preview';
   import { timelineMediaItems } from '#lib/ui/media/media-items.js';
-  import type { MediaItem } from '#lib/ui/media/media-viewer-types.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
   const ESTIMATED_ROW = 120;
   const ROW_GAP = 8;
@@ -37,7 +37,6 @@
     onUnread?: (count: number) => void;
     triggerHidden?: boolean;
     onJump: (eventId: string) => void;
-    onOpenMedia: (items: MediaItem[], eventId: string) => void;
   }
 
   let {
@@ -49,7 +48,6 @@
     onUnread,
     triggerHidden = false,
     onJump,
-    onOpenMedia,
   }: Props = $props();
   const core = useCoreClient();
   const eventItems = useEventItems();
@@ -212,7 +210,7 @@
   function openMedia(eventId: string): void {
     const items = timelineMediaItems(ordered.flatMap((id) => entries.get(id) ?? []));
     open = false;
-    void afterOverlayPops().then(() => onOpenMedia(items, eventId));
+    void afterOverlayPops().then(() => mediaViewerState.openPanel(items, eventId, true));
   }
 </script>
 

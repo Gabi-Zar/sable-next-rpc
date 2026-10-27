@@ -19,7 +19,6 @@ import { timelineMediaItems } from '#lib/ui/media/media-items.js';
 import RoomPinMenuHarness from './RoomPinMenuHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
 import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
-import type { MediaItem } from '#lib/ui/media/media-viewer-types.ts';
 
 const core = baseCore;
 Object.assign(core.rpc.rooms, {
@@ -109,12 +108,10 @@ test.each([
     }));
   }
   const user = userEvent.setup({ delay: null });
-  const onOpenMedia = vi.fn((items: MediaItem[], eventId: string) => {
-    mediaViewerState.openPanel(items, eventId, true);
-  });
   const onJump = vi.fn();
+  const openPaneleSpy = vi.spyOn(mediaViewerState, 'openPanel');
   render(RoomPinMenuHarness, {
-    menu: { roomId: '!room:example.org', members: [], canPin: false, onJump, onOpenMedia },
+    menu: { roomId: '!room:example.org', members: [], canPin: false, onJump },
   });
 
   await user.click(screen.getByRole('button', { name: 'Pinned messages' }));
@@ -132,7 +129,11 @@ test.each([
   }
 
   await vi.waitFor(() => {
-    expect(onOpenMedia).toHaveBeenCalledWith(timelineMediaItems([secondImage, image]), '$image');
+    expect(openPaneleSpy).toHaveBeenCalledWith(
+      timelineMediaItems([secondImage, image]),
+      '$image',
+      true
+    );
   });
   const viewer = await screen.findByRole('dialog', { name: 'Media viewer' });
   expect(viewer).toHaveTextContent('2 of 2');
@@ -156,7 +157,6 @@ test('shows the total pin count on the button, even once the pins are read', asy
       members: [],
       canPin: false,
       onJump: vi.fn(),
-      onOpenMedia: vi.fn(),
     },
   });
 
@@ -175,7 +175,6 @@ test('reports the unread pin count and clears it once the pins are seen', async 
       members: [],
       canPin: false,
       onJump: vi.fn(),
-      onOpenMedia: vi.fn(),
       onUnread,
     },
   });

@@ -24,13 +24,13 @@
     profilePalette,
   } from './readable-color.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
+  import { mediaViewerState } from '../media/media-viewer-state.svelte.js';
 
   interface Props {
     displayName: string;
     userId: string;
     avatarUrl?: string | null;
     avatarLabel?: string;
-    onAvatarClick?: (source: string, displayName: string) => void;
     onAvatarEdit?: () => void;
     color: string;
     /** The owner's own choice, so only this one tints the card. `color` also
@@ -65,7 +65,6 @@
     userId,
     avatarUrl = null,
     avatarLabel,
-    onAvatarClick,
     onAvatarEdit,
     color,
     pronouns,
@@ -109,13 +108,13 @@
       ink === BLACK ? (nameColorLight ?? nameColorDark) : (nameColorDark ?? nameColorLight);
     return palette && own ? nameColorOn(own, palette.ground) : null;
   });
-  let canOpenAvatar = $derived(Boolean(onAvatarEdit ?? (avatarUrl && onAvatarClick)));
+  let canOpenAvatar = $derived(Boolean(onAvatarEdit || avatarUrl));
   function openAvatar(): void {
     if (onAvatarEdit) onAvatarEdit();
-    else if (avatarUrl) onAvatarClick?.(avatarUrl, displayName);
+    else if (avatarUrl) mediaViewerState.openStandalone(avatarUrl, displayName);
   }
   function openBanner(): void {
-    if (banner) onAvatarClick?.(banner, displayName);
+    if (banner) mediaViewerState.openStandalone(banner, displayName);
   }
 
   const nameId = $props.id();
@@ -156,7 +155,7 @@
   data-inset-owner={variant === 'sheet' ? 'bottom' : undefined}
 >
   <div class={['profile-card-cover', { 'has-banner': banner }]} style:background={color}>
-    {#if banner && onAvatarClick}
+    {#if banner}
       <button
         class="profile-card-banner-button"
         type="button"

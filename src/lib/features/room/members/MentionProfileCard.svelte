@@ -94,7 +94,6 @@
     pmp?: PerMessageProfileView | null;
     onOpenAccount?: () => void;
     onNestedMenuOpenChange?: (open: boolean) => void;
-    onAvatarClick?: (source: string, displayName: string) => void;
     onMatrixLink?: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
     onPowerLevelChange?: (roomId: string, userId: string, level: number) => void;
     failed?: boolean;
@@ -112,7 +111,6 @@
     pmp = null,
     onOpenAccount,
     onNestedMenuOpenChange,
-    onAvatarClick,
     onMatrixLink,
     onPowerLevelChange,
     failed = false,
@@ -794,7 +792,6 @@
     accountProfile={currentProfile}
     member={roomMember}
     {powerTags}
-    {onAvatarClick}
     {variant}
     below={profileBelow}
     headerAction={variant === 'popover' && canMessage ? messageAction : undefined}
@@ -806,7 +803,6 @@
     {userId}
     {avatarUrl}
     avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
-    {onAvatarClick}
     {color}
     heroColor={currentProfile?.hero_color}
     heroBrightness={currentProfile?.hero_brightness}

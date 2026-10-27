@@ -67,6 +67,7 @@ import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import MentionProfileCard from './MentionProfileCard.svelte';
 import MemberIdentityRow from './MemberIdentityRow.svelte';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 const emptyProfile: ProfileView = {
   user_id: '@alice:example.org',
@@ -246,7 +247,7 @@ test('leaves out the bio and metadata panels when the profile has neither', asyn
 });
 
 test('opens a profile avatar through viewer callback', async () => {
-  const onAvatarClick = vi.fn();
+  const openStandaloneSpy = vi.spyOn(mediaViewerState, 'openStandalone');
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   render(MentionProfileCard, {
     props: {
@@ -254,7 +255,6 @@ test('opens a profile avatar through viewer callback', async () => {
       roomId: '!room:example.org',
       member: null,
       profile: { ...emptyProfile, display_name: 'Alice', avatar_url: 'mxc://example.org/avatar' },
-      onAvatarClick,
     },
   });
   await tick();
@@ -263,7 +263,7 @@ test('opens a profile avatar through viewer callback', async () => {
   expect(avatarButton.querySelector('.avatar-root')).toHaveAttribute('aria-hidden', 'true');
   await user.click(avatarButton);
 
-  expect(onAvatarClick).toHaveBeenCalledWith('mxc://example.org/avatar', 'Alice');
+  expect(openStandaloneSpy).toHaveBeenCalledWith('mxc://example.org/avatar', 'Alice');
 });
 
 test('loads a member card avatar from the original media', async () => {

@@ -44,7 +44,6 @@
   import SignOutWarningDialog from './SignOutWarningDialog.svelte';
   import FormField from '#lib/ui/primitives/FormField.svelte';
   import ProfileCard from '#lib/ui/primitives/ProfileCard.svelte';
-  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
   import { AccountDirectory } from './account-directory.svelte.js';
@@ -220,7 +219,6 @@
       nameColorLight={profile?.name_color_light}
       nameColorDark={profile?.name_color_dark}
       crest={preferences.sendPresence ? statusBubble : undefined}
-      onAvatarClick={(source, name) => mediaViewerState.openStandalone(source, name)}
       actions={editProfile}
     />
     <Button variant="secondary" block onclick={() => void goto(resolve('settings'))}

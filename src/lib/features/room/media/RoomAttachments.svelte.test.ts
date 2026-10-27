@@ -12,6 +12,7 @@ vi.mock('#lib/core/context.js');
 import { core } from '#lib/core/__mocks__/context.js';
 
 import RoomAttachments from './RoomAttachments.svelte';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 const roomAttachments = vi.fn();
 Object.assign(core.rpc.rooms, { attachments: roomAttachments });
@@ -48,7 +49,6 @@ function file(eventId: string, filename: string, timestamp = MARCH): RoomAttachm
 function setup(
   props: {
     onJump?: () => void;
-    onOpenMedia?: () => void;
     onMatrixLink?: () => void;
     modal?: boolean;
   } = {}
@@ -59,7 +59,6 @@ function setup(
       members: [],
       modal: props.modal ?? false,
       onJump: props.onJump ?? vi.fn(),
-      onOpenMedia: props.onOpenMedia ?? vi.fn(),
       onMatrixLink: props.onMatrixLink ?? vi.fn(),
       onClose: vi.fn(),
     },
@@ -76,8 +75,8 @@ test('files are grouped by month, page on demand and open in the viewer', async 
     .mockResolvedValueOnce({ items: [], next_batch: null })
     .mockResolvedValueOnce({ items: [file('$a', 'notes.pdf')], next_batch: 'next' })
     .mockResolvedValueOnce({ items: [file('$b', 'slides.pdf', FEBRUARY)], next_batch: null });
-  const onOpenMedia = vi.fn();
-  setup({ onOpenMedia });
+  const openPanelSpy = vi.spyOn(mediaViewerState, 'openPanel');
+  setup();
   await vi.waitFor(() => {
     expect(roomAttachments).toHaveBeenCalledWith({
       room_id: '!room:example.org',
@@ -108,12 +107,13 @@ test('files are grouped by month, page on demand and open in the viewer', async 
   expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
 
   await user.click(openItem(/slides\.pdf/));
-  expect(onOpenMedia).toHaveBeenCalledWith(
+  expect(openPanelSpy).toHaveBeenCalledWith(
     [
       expect.objectContaining({ eventId: '$a', kind: 'file', filename: 'notes.pdf' }),
       expect.objectContaining({ eventId: '$b', kind: 'file', filename: 'slides.pdf' }),
     ],
-    '$b'
+    '$b',
+    true
   );
 });
 
@@ -189,17 +189,18 @@ test('a spoilered picture is never loaded and says why it is hidden', async () =
     ],
     next_batch: null,
   });
-  const onOpenMedia = vi.fn();
-  setup({ onOpenMedia });
+  const openPanelSpy = vi.spyOn(mediaViewerState, 'openPanel');
+  setup();
   const tile = await screen.findByRole('button', { name: /Spoiler: the ending/ });
 
   expect(tile.querySelector('.tile-placeholder')).toBeInTheDocument();
   expect(document.querySelector('.media-image')).not.toBeInTheDocument();
 
   await user.click(tile);
-  expect(onOpenMedia).toHaveBeenCalledWith(
+  expect(openPanelSpy).toHaveBeenCalledWith(
     [expect.objectContaining({ eventId: '$secret', spoiler: 'the ending' })],
-    '$secret'
+    '$secret',
+    true
   );
 });
 
@@ -248,20 +249,21 @@ test('each gallery item gets its own tile and opens by its own id', async () => 
     ],
     next_batch: null,
   });
-  const onOpenMedia = vi.fn();
-  setup({ onOpenMedia });
+  const openPanelSpy = vi.spyOn(mediaViewerState, 'openPanel');
+  setup();
   await vi.waitFor(() => {
     expect(tiles()).toHaveLength(2);
   });
 
   await user.click(tiles()[1]);
 
-  expect(onOpenMedia).toHaveBeenCalledWith(
+  expect(openPanelSpy).toHaveBeenCalledWith(
     [
       expect.objectContaining({ eventId: '$gallery:gallery:0' }),
       expect.objectContaining({ eventId: '$gallery:gallery:2' }),
     ],
-    '$gallery:gallery:2'
+    '$gallery:gallery:2',
+    true
   );
 });
 
@@ -323,16 +325,17 @@ test('an audio file opens in the viewer as audio', async () => {
     ],
     next_batch: null,
   });
-  const onOpenMedia = vi.fn();
-  setup({ onOpenMedia });
+  const openPanelSpy = vi.spyOn(mediaViewerState, 'openPanel');
+  setup();
   await vi.waitFor(() => {
     expect(roomAttachments).toHaveBeenCalledTimes(1);
   });
 
   await user.click(tab('Files'));
   await user.click(await screen.findByRole('button', { name: /memo\.ogg/ }));
-  expect(onOpenMedia).toHaveBeenCalledWith(
+  expect(openPanelSpy).toHaveBeenCalledWith(
     [expect.objectContaining({ kind: 'audio', filename: 'memo.ogg' })],
-    '$voice'
+    '$voice',
+    true
   );
 });

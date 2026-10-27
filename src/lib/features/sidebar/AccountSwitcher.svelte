@@ -21,7 +21,6 @@
   import { preferences } from '#lib/settings/preferences.svelte.js';
   import { resolveUserStatus } from '#lib/rooms/user-status.js';
   import ProfileCard from '#lib/ui/primitives/ProfileCard.svelte';
-  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import AccountMenuItems from './AccountMenuItems.svelte';
   import { AccountDirectory } from './account-directory.svelte.js';
@@ -183,7 +182,6 @@
         {displayName}
         userId={core.session?.user_id ?? ''}
         {avatarUrl}
-        onAvatarClick={(source, name) => mediaViewerState.openStandalone(source, name)}
         color={activeProfile?.hero_color ?? 'var(--primary-container)'}
         heroColor={activeProfile?.hero_color}
         heroBrightness={activeProfile?.hero_brightness}

@@ -10,6 +10,7 @@ import { core } from '#lib/core/__mocks__/context.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import ProfileCard from './ProfileCard.svelte';
+import { mediaViewerState } from '../media/media-viewer-state.svelte';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -44,19 +45,18 @@ test('keeps a real banner unblurred', () => {
 });
 
 test('opens the banner in the viewer, as the avatar does', async () => {
-  const onAvatarClick = vi.fn();
+  const openStandaloneSpy = vi.spyOn(mediaViewerState, 'openStandalone');
   render(ProfileCard, {
     displayName: 'Ana',
     userId: '@ana:example.org',
     color: '#abcdef',
     avatarUrl: 'mxc://example.org/ana',
     bannerUrl: 'mxc://example.org/banner',
-    onAvatarClick,
   });
 
   await userEvent.setup().click(screen.getByRole('button', { name: 'View Ana’s banner' }));
 
-  expect(onAvatarClick).toHaveBeenCalledWith('mxc://example.org/banner', 'Ana');
+  expect(openStandaloneSpy).toHaveBeenCalledWith('mxc://example.org/banner', 'Ana');
 });
 
 test('leaves the avatar fallback cover inert', () => {
@@ -65,7 +65,6 @@ test('leaves the avatar fallback cover inert', () => {
     userId: '@ana:example.org',
     color: '#abcdef',
     avatarUrl: 'mxc://example.org/ana',
-    onAvatarClick: vi.fn(),
   });
 
   expect(screen.queryByRole('button', { name: /banner/ })).not.toBeInTheDocument();

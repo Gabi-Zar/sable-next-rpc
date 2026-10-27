@@ -62,7 +62,6 @@
   import RoomTombstoneBanner from './RoomTombstoneBanner.svelte';
   import RoomReadReceipts from './timeline/RoomReadReceipts.svelte';
   import TimelineList from './timeline/TimelineList.svelte';
-  import { type MediaItem } from '#lib/ui/media/media-viewer-types.js';
   import { galleryEventId } from '#lib/ui/media/media-items.js';
   import { tagForLevel } from './settings/power-level-tags.js';
   import { memberListChanges } from './settings/member-list.svelte.js';
@@ -132,8 +131,15 @@
     return eventId === null;
   });
   let timelineFollowingLive = $state<boolean>(false);
+
   mediaViewerState.timelineItems = () => timeline.items;
-  mediaViewerState.onJump = jumpFromMediaViewer;
+  mediaViewerState.onJump = (eventId: string) => {
+    mediaViewerState.close();
+    if (!desktop) panels.attachmentsOpen = false;
+    void afterOverlayPops().then(() => {
+      jumpToEvent(galleryEventId(eventId));
+    });
+  };
 
   const callSupport = new RoomCallSupport(core, () => resolvedRoomId);
 
@@ -719,22 +725,6 @@
       });
   }
 
-  function openMedia(eventId: string): void {
-    mediaViewerState.open(eventId, true);
-  }
-
-  function openPanelMedia(items: MediaItem[], eventId: string): void {
-    mediaViewerState.openPanel(items, eventId, true);
-  }
-
-  function jumpFromMediaViewer(eventId: string): void {
-    mediaViewerState.close();
-    if (!desktop) panels.attachmentsOpen = false;
-    void afterOverlayPops().then(() => {
-      jumpToEvent(galleryEventId(eventId));
-    });
-  }
-
   function toggleThreads(): void {
     panels.toggleThreads();
   }
@@ -749,11 +739,6 @@
       return;
     }
     panels.toggleSearch();
-  }
-
-  function openProfileAvatar(source: string, displayName: string): void {
-    closeProfile();
-    mediaViewerState.openStandalone(source, displayName);
   }
 
   function openPredecessor(): void {
@@ -833,7 +818,7 @@
       members={memberLoader.members}
       onJumpToEvent={jumpToEvent}
       onJumpToLive={jumpToLive}
-      onOpenMedia={openMedia}
+      onOpenMedia={(eventId: string) => mediaViewerState.open(eventId, true)}
       onVotePoll={conversation.votePoll}
       onEndPoll={conversation.endPoll}
       readOnly={roomSession.permissions ? !roomSession.permissions.can_post : false}
@@ -946,7 +931,6 @@
       onMembers={toggleMembers}
       onSearch={openSearch}
       onTopic={() => (topicOpen = true)}
-      onAvatar={(source, name) => mediaViewerState.openStandalone(source, name)}
       {phone}
       actions={headerActions}
     >
@@ -960,7 +944,6 @@
           members={memberLoader.members}
           canPin={roomSession.permissions?.can_pin ?? false}
           onJump={jumpToEvent}
-          onOpenMedia={openPanelMedia}
         />
       {/snippet}
       {#snippet menu()}
@@ -1058,7 +1041,6 @@
     {canManageWidgets}
     onOpenThread={openThread}
     onJump={jumpToEvent}
-    onOpenMedia={openPanelMedia}
     onMatrixLink={handleMatrixLink}
     onMemberProfile={openProfile}
   />
@@ -1095,7 +1077,6 @@
     profile={memberProfile.profile}
     pmp={memberProfile.pmp}
     failed={memberProfile.failed}
-    onAvatarClick={openProfileAvatar}
     onMatrixLink={handleProfileLink}
     onPowerLevelChange={(target, userId, level) => {
       memberLoader.setPowerLevel(target, userId, level);

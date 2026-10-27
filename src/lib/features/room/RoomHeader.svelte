@@ -19,6 +19,7 @@
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
 
   import { memberIdentity } from './members/members.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
   const MAX_FACES = 3;
 
@@ -40,7 +41,6 @@
     onMembers: () => void;
     onSearch: () => void;
     onTopic?: (() => void) | null;
-    onAvatar?: (source: string, displayName: string) => void;
     phone?: boolean;
     pins?: Snippet;
     actions?: Snippet;
@@ -65,7 +65,6 @@
     onMembers,
     onSearch,
     onTopic = null,
-    onAvatar,
     phone = false,
     pins,
     actions,
@@ -94,12 +93,10 @@
       <Avatar id={roomId} src={roomAvatar} name={roomName} size="small" />
     {/snippet}
     <span class="room-avatar">
-      {#if roomAvatar && onAvatar}
-        {@const source = roomAvatar}
-        {@const openAvatar = onAvatar}
+      {#if roomAvatar}
         <PanelHeaderButton
           label={i18n.t('timeline.profileAvatar', { name: roomName })}
-          onclick={() => openAvatar(source, roomName)}
+          onclick={() => mediaViewerState.openStandalone(roomAvatar, roomName)}
         >
           {@render avatar()}
         </PanelHeaderButton>

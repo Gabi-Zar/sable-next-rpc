@@ -28,7 +28,6 @@
     headerAction?: Snippet;
     composer?: Snippet;
     variant?: 'popover' | 'sheet';
-    onAvatarClick?: (source: string, displayName: string) => void;
   }
 
   let {
@@ -42,7 +41,6 @@
     headerAction,
     composer,
     variant = 'popover',
-    onAvatarClick,
   }: Props = $props();
   const core = useCoreClient();
   let ownerProfile = $derived(accountProfile?.user_id === accountId ? accountProfile : null);
@@ -76,7 +74,6 @@
   userId={accountId}
   avatarUrl={profile.avatar_url}
   avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
-  {onAvatarClick}
   color={senderColor(profile.id ?? displayName)}
   nameColorLight={profile.color_on_light}
   nameColorDark={profile.color_on_dark}

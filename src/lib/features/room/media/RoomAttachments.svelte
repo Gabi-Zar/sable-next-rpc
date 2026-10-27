@@ -45,26 +45,18 @@
   import { memberName } from '../members/members';
   import { formatDate } from '#lib/ui/date-time.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
   interface Props {
     roomId: string;
     members: readonly MemberView[];
     modal?: boolean;
     onJump: (eventId: string) => void;
-    onOpenMedia: (items: MediaItem[], eventId: string) => void;
     onMatrixLink?: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
     onClose: () => void;
   }
 
-  let {
-    roomId,
-    members,
-    modal = false,
-    onJump,
-    onOpenMedia,
-    onMatrixLink,
-    onClose,
-  }: Props = $props();
+  let { roomId, members, modal = false, onJump, onMatrixLink, onClose }: Props = $props();
 
   const LINKS_PER_ROW = 3;
   const PREFETCH_BAND = '0px 0px 240px 0px';
@@ -229,7 +221,7 @@
   }
 
   function open(item: RoomAttachmentView): void {
-    onOpenMedia(viewerItems, attachmentKey(item));
+    mediaViewerState.openPanel(viewerItems, attachmentKey(item), true);
   }
 
   function afterClosing(action: () => void): void {
