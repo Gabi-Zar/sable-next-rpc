@@ -34,8 +34,9 @@
   import CheckIcon from 'phosphor-svelte/lib/CheckIcon';
   import CopySimpleIcon from 'phosphor-svelte/lib/CopySimpleIcon';
 
-  import { supporter } from '#lib/supporter/supporter.svelte.js';
   import HomeserverInfo from './HomeserverInfo.svelte';
+  import SupporterActivationSettings from './SupporterActivationSettings.svelte';
+  import { supporter } from '#lib/supporter/supporter.svelte.js';
 
   const core = useCoreClient();
   const version = `v${import.meta.env.VITE_APP_VERSION ?? 'dev'}`;
@@ -52,10 +53,6 @@
 
   const pendingUpdate = $derived(supportsAutoUpdate() ? desktopUpdate.update : null);
   const pendingStage = $derived(desktopUpdate.stage);
-
-  let badge = $derived(supporter.badge);
-  let waiting = $derived(supporter.status === 'waiting');
-  let checking = $derived(supporter.status === 'checking');
 
   let versionCopied = $state(false);
   async function copyVersion(): Promise<void> {
@@ -161,38 +158,10 @@
       </div>
     </div>
   </header>
-
+  {#if supporter.enabled}
+    <SupporterActivationSettings />
+  {/if}
   <svelte:boundary>
-    {#if supporter.enabled && !badge}
-      <SettingsSection title={i18n.t('settings.supporterTitle')} headingId="about-supporter">
-        <SettingsRow
-          id="supporter-verify"
-          title={i18n.t('settings.supporterVerify')}
-          description={waiting ? i18n.t('settings.supporterWaiting') : undefined}
-        >
-          {#if waiting}
-            <Button size="small" onclick={() => supporter.cancel()}>
-              {i18n.t('common.cancel')}
-            </Button>
-          {:else}
-            <Button size="small" onclick={() => void supporter.verify()}>
-              {i18n.t('common.verify')}
-            </Button>
-          {/if}
-        </SettingsRow>
-
-        <SettingsRow id="supporter-claim" title={i18n.t('settings.supporterClaim')}>
-          <Button
-            size="small"
-            loading={checking}
-            disabled={waiting}
-            onclick={() => void supporter.claim()}
-          >
-            {i18n.t('settings.supporterClaimAction')}
-          </Button>
-        </SettingsRow>
-      </SettingsSection>
-    {/if}
     <HomeserverInfo />
 
     {#snippet pending()}{/snippet}

@@ -757,7 +757,6 @@
     "sections": "Разделы настроек",
     "outlineLabel": "На этой странице: {{section}}",
     "copyLinkHint": "Нажмите и удерживайте настройку или заголовок, чтобы скопировать ссылку.",
-    "supporterVerify": "Подтвердить через Open Collective",
     "supporterWaiting": "Ожидание подтверждения Sable в Open Collective…",
     "supporterTimedOut": "Проверка не завершилась. Подтвердите доступ в Open Collective, затем проверьте значок.",
     "aboutUpToDate": "У вас установлена последняя версия Sable.",
