@@ -81,7 +81,7 @@ object PushNotifier {
         val roomId = notification.optString("room_id")
         val store = PushPolicy(context)
         val userId = notification.optString("user_id")
-            .ifEmpty { if (roomId.isEmpty()) "" else store.soleAccount().orEmpty() }
+            .ifEmpty { store.soleAccount().orEmpty() }
         if (userId.isNotEmpty()) notification.put("user_id", userId)
         val eventId = notification.optString("event_id")
         val trace = PushTrace(userId, roomId, eventId)
@@ -104,6 +104,10 @@ object PushNotifier {
                 dismissAccount(context, userId)
                 return
             }
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (store.clearOnRead && deviceId != null && reconcileRead(context, manager, userId, deviceId, roomId)) {
+                PushDiagnostics.record(context, PushOutcome.READ_DISMISSED, trace)
+            }
             PushDiagnostics.record(context, PushOutcome.MISSING_ROOM, trace)
             return
         }
@@ -112,6 +116,9 @@ object PushNotifier {
             return
         }
         val manager = context.getSystemService(NotificationManager::class.java)
+        if (store.clearOnRead && deviceId != null && reconcileRead(context, manager, userId, deviceId, roomId)) {
+            PushDiagnostics.record(context, PushOutcome.READ_DISMISSED, trace)
+        }
         val id = if (userId.isNotEmpty()) roomNotificationId(userId, roomId) else fallbackNotificationId(roomId)
         val revision = queuedRevision ?: PushNotificationGate.revision(context, id)
         if (notification.optJSONObject("counts")?.optInt("unread", -1) == 0) {
@@ -387,12 +394,35 @@ object PushNotifier {
     private const val EVENT_KEY = ConversationHistory.EVENT_KEY
     private const val ENCRYPTED_KEY = ConversationHistory.ENCRYPTED_KEY
     private const val ACCOUNT_KEY = ConversationHistory.ACCOUNT_KEY
+    private const val ROOM_KEY = ConversationHistory.ROOM_KEY
 
     private fun dismissAccount(context: Context, userId: String) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.activeNotifications
             .filter { it.tag == null && it.notification.extras.getString(ACCOUNT_KEY) == userId }
             .forEach { active -> PushNotificationGate.dismiss(context, active.id) { manager.cancel(active.id) } }
+    }
+
+    private fun reconcileRead(
+        context: Context,
+        manager: NotificationManager,
+        userId: String,
+        deviceId: String,
+        currentRoomId: String,
+    ): Boolean {
+        val shown = manager.activeNotifications.filter {
+            it.tag == null && it.notification.extras.getString(ACCOUNT_KEY) == userId
+        }
+        val rooms = shown.mapNotNull { it.notification.extras.getString(ROOM_KEY) }
+            .filter { it.isNotEmpty() && it != currentRoomId }
+            .distinct()
+        if (rooms.isEmpty()) return false
+        val read = PushPayloadDecryptor.readRooms(context, userId, deviceId, rooms.first(), rooms)
+            ?: return false
+        val readRooms = read.toSet()
+        val dismissed = shown.filter { it.notification.extras.getString(ROOM_KEY) in readRooms }
+        dismissed.forEach { active -> PushNotificationGate.dismiss(context, active.id) { manager.cancel(active.id) } }
+        return dismissed.isNotEmpty()
     }
 
     private fun post(
@@ -452,6 +482,7 @@ object PushNotifier {
             .setSmallIcon(iconId)
             .addExtras(Bundle().apply {
                 if (userId.isNotEmpty()) putString(ACCOUNT_KEY, userId)
+                if (roomId.isNotEmpty()) putString(ROOM_KEY, roomId)
             })
             .setContentTitle(title)
             .setContentText(body)

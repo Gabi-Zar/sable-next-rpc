@@ -913,14 +913,23 @@ class PushNotifierTest {
     }
 
     @Test
-    fun showFromPush_accountReadForAStrangerOrNobodyClearsNothing() {
+    fun showFromPush_accountReadForAStrangerClearsNothing() {
         PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
         PushNotifier.showFromPush(context, pushPayload("!one:example.org", "\$one"))
 
         PushNotifier.showFromPush(context, accountReadPayload("@stranger:example.org"))
-        PushNotifier.showFromPush(context, """{"notification":{"counts":{"unread":0}}}""")
 
         assertEquals(1, notificationManager.activeNotifications.size)
+    }
+
+    @Test
+    fun showFromPush_accountReadNamingNobodyClearsTheSoleAccount() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        PushNotifier.showFromPush(context, pushPayload("!one:example.org", "\$one"))
+
+        PushNotifier.showFromPush(context, """{"notification":{"counts":{"unread":0}}}""")
+
+        assertEquals(0, notificationManager.activeNotifications.size)
     }
 
     private fun accountReadPayload(userId: String): String = JSONObject().put("notification", JSONObject()

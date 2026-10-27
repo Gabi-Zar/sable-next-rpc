@@ -24,6 +24,7 @@ import {
   fetchDeviceActivity,
   isRtcInvite,
   namesOnlyItsEvent,
+  readPushRooms,
   readPushFetch,
 } from '#lib/features/notifications/push-fetch.js';
 import {
@@ -44,6 +45,7 @@ import { loadModel } from '#lib/model/model.js';
 import modelWasm from '#src/generated/wasm/sable_model_bg.wasm?url';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
+import { roomsToReconcile } from './read-reconcile.js';
 
 const worker = globalThis.self as unknown as ServiceWorkerGlobalScope;
 
@@ -112,7 +114,17 @@ async function receive(raw: string | undefined): Promise<void> {
     await watchWorkerOperation('push-validation', acknowledge(validation));
     return;
   }
-  await present(parsePushPayload(raw) ?? undefined);
+  const pushed = parsePushPayload(raw) ?? undefined;
+  await present(pushed);
+  if (
+    pushed &&
+    pushed.unread !== 0 &&
+    !isDiagnosticPush(pushed) &&
+    (await pushContentPolicy()).clearOnRead &&
+    (await reconcileRead(pushed))
+  ) {
+    await record('READ_DISMISSED', pushTrace(pushed));
+  }
 }
 
 async function acknowledge(validation: WebPushValidation): Promise<void> {
@@ -374,18 +386,37 @@ async function decryptInTab(
 
 async function closeRead(pushed: PushNotification): Promise<void> {
   if (!('getNotifications' in worker.registration)) return;
+  const userId = pushed.user_id;
   for (const notification of await worker.registration.getNotifications()) {
     const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
     if (pushed.room_id !== null && data?.roomId !== pushed.room_id) continue;
-    if (
-      pushed.user_id !== null &&
-      typeof data?.userId === 'string' &&
-      data.userId !== pushed.user_id
-    ) {
+    if (userId !== null && typeof data?.userId === 'string' && data.userId !== userId) {
       continue;
     }
     notification.close();
   }
+}
+
+async function reconcileRead(pushed: PushNotification): Promise<boolean> {
+  if (!('getNotifications' in worker.registration)) return false;
+  const session = await pushSession(pushed.user_id ?? undefined);
+  if (!session) return false;
+  const userId = pushed.user_id ?? session.userId;
+  const notifications = await worker.registration.getNotifications();
+  const rooms = roomsToReconcile(notifications, userId, pushed.room_id);
+  const read = await readPushRooms({ session, fetch: (input, init) => fetch(input, init) }, rooms);
+  if (read === null) return false;
+  const readRooms = new Set(read);
+  let closed = false;
+  for (const notification of notifications) {
+    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    if (data?.userId !== userId || typeof data.roomId !== 'string' || !readRooms.has(data.roomId)) {
+      continue;
+    }
+    notification.close();
+    closed = true;
+  }
+  return closed;
 }
 
 async function focused(): Promise<boolean> {

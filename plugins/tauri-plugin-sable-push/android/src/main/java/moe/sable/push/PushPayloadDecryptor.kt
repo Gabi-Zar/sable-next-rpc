@@ -2,6 +2,7 @@ package moe.sable.push
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONArray
 import org.json.JSONObject
 
 internal sealed interface PushDecryptResult {
@@ -77,6 +78,41 @@ internal object PushPayloadDecryptor {
             Log.i(TAG, "Device activity unavailable: ${error.message}")
             false
         }
+    }
+
+    private external fun nativeReadRooms(
+        storeDir: String,
+        userId: String,
+        deviceId: String,
+        seedRoomId: String,
+        roomIds: String,
+    ): String?
+
+    fun readRooms(
+        context: Context,
+        userId: String,
+        deviceId: String,
+        seedRoomId: String,
+        roomIds: List<String>,
+    ): List<String>? {
+        if (!available()) return null
+        val json = try {
+            nativeReadRooms(
+                context.dataDir.absolutePath,
+                userId,
+                deviceId,
+                seedRoomId,
+                JSONArray(roomIds).toString(),
+            )
+        } catch (error: Throwable) {
+            Log.i(TAG, "Read rooms unavailable: ${error.message}")
+            null
+        }
+        if (json.isNullOrEmpty()) return null
+        return runCatching {
+            val rooms = JSONArray(json)
+            List(rooms.length()) { rooms.getString(it) }
+        }.getOrNull()
     }
 
     private external fun nativePushMedia(

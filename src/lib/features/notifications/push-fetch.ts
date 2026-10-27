@@ -9,6 +9,7 @@ import { pushContent, type PushNotification } from '#lib/notifications/push-payl
 import type { PushSession } from '#lib/notifications/room-names.js';
 
 const REQUEST_TIMEOUT_MS = 8000;
+const READ_ROOMS_TIMEOUT_MS = 5000;
 const AVATAR_SIZE = 96;
 
 export interface PushFetcher {
@@ -204,6 +205,39 @@ export async function fetchDeviceActivity(
   );
 }
 
+export async function readPushRooms(
+  fetcher: Pick<PushFetcher, 'session' | 'fetch'>,
+  roomIds: readonly string[]
+): Promise<string[] | null> {
+  if (roomIds.length === 0) return [];
+  const filter = {
+    room: {
+      rooms: roomIds,
+      timeline: { limit: 0 },
+      state: { types: [] },
+      ephemeral: { types: [] },
+      account_data: { types: [] },
+    },
+    presence: { types: [] },
+    account_data: { types: [] },
+  };
+  const query = new URLSearchParams({
+    timeout: '0',
+    set_presence: 'offline',
+    filter: JSON.stringify(filter),
+  });
+  const { body } = await request(fetcher, `sync?${query}`, undefined, READ_ROOMS_TIMEOUT_MS);
+  const join = isRecord(body) && isRecord(body.rooms) ? body.rooms.join : undefined;
+  if (!isRecord(join)) return null;
+  return roomIds.filter((roomId) => {
+    const room = join[roomId];
+    if (!isRecord(room)) return room === undefined;
+    const unread = room.unread_notifications;
+    const count = isRecord(unread) ? unread.notification_count : undefined;
+    return count === undefined || count === 0;
+  });
+}
+
 async function get(
   fetcher: Pick<PushFetcher, 'session' | 'fetch'>,
   path: string
@@ -214,7 +248,8 @@ async function get(
 async function request(
   fetcher: Pick<PushFetcher, 'session' | 'fetch'>,
   path: string,
-  body?: unknown
+  body?: unknown,
+  timeoutMs = REQUEST_TIMEOUT_MS
 ): Promise<{ status: number | null; body: unknown }> {
   try {
     const response = await fetcher.fetch(
@@ -225,7 +260,7 @@ async function request(
           Authorization: `Bearer ${fetcher.session.accessToken}`,
           ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       }
     );
     return { status: response.status, body: response.ok ? await response.json() : null };

@@ -157,7 +157,7 @@ export async function pushContentPolicy(): Promise<PushContentPolicy> {
       content: stored?.content === true,
       encryptedContent: stored?.encryptedContent === true,
       notifyOnce: stored?.notifyOnce === true,
-      clearOnRead: stored?.clearOnRead === true,
+      clearOnRead: stored?.clearOnRead !== false,
       quietWhenActiveElsewhere: stored?.quietWhenActiveElsewhere === true,
     };
   } catch (error) {
@@ -166,7 +166,7 @@ export async function pushContentPolicy(): Promise<PushContentPolicy> {
       content: false,
       encryptedContent: false,
       notifyOnce: false,
-      clearOnRead: false,
+      clearOnRead: true,
       quietWhenActiveElsewhere: false,
     };
   }

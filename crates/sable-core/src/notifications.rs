@@ -1,17 +1,25 @@
 use sable_model::text::visible_name;
+#[cfg(not(target_family = "wasm"))]
+use std::time::Duration;
 
 use crate::api::push::PusherView;
 use crate::errors::CoreError;
 use matrix_sdk::Client;
 #[cfg(not(target_family = "wasm"))]
 use matrix_sdk::ruma::OwnedEventId;
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::ruma::api::client::filter::{FilterDefinition, RoomFilter};
 use matrix_sdk::ruma::api::client::push::{PusherIds, PusherInit, PusherKind};
 use matrix_sdk::ruma::api::client::state::get_state_event_for_key;
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::ruma::api::client::sync::sync_events;
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
 use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::events::TimelineEventType;
 #[cfg(not(target_family = "wasm"))]
 use matrix_sdk::ruma::events::room::encrypted::OriginalSyncRoomEncryptedEvent;
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::ruma::presence::PresenceState;
 use matrix_sdk::ruma::push::{Action, HttpPusherData, PushFormat};
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{EventId, MilliSecondsSinceUnixEpoch, OwnedUserId, RoomId};
@@ -712,6 +720,25 @@ pub struct PushSession {
 }
 
 #[cfg(not(target_family = "wasm"))]
+const READ_ROOMS_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[cfg(not(target_family = "wasm"))]
+fn read_rooms_from_sync(
+    joined: &std::collections::BTreeMap<matrix_sdk::ruma::OwnedRoomId, Option<u64>>,
+    room_ids: &[matrix_sdk::ruma::OwnedRoomId],
+) -> Vec<String> {
+    room_ids
+        .iter()
+        .filter(|room_id| {
+            joined
+                .get(*room_id)
+                .is_none_or(|count| count.is_none_or(|count| count == 0))
+        })
+        .map(ToString::to_string)
+        .collect()
+}
+
+#[cfg(not(target_family = "wasm"))]
 impl PushSession {
     pub async fn open(
         store_dir: &std::path::Path,
@@ -826,6 +853,60 @@ impl PushSession {
             device_id.as_str(),
             crate::probed_state::now_ms(),
         )
+    }
+
+    pub async fn read_rooms(&self, room_ids: &[String]) -> Option<Vec<String>> {
+        let room_ids = room_ids
+            .iter()
+            .map(|room_id| RoomId::parse(room_id).ok())
+            .collect::<Option<Vec<_>>>()?;
+        if room_ids.is_empty() {
+            return Some(Vec::new());
+        }
+
+        let mut filter = FilterDefinition::default();
+        filter.presence.types = Some(Vec::new());
+        filter.account_data.types = Some(Vec::new());
+        let mut rooms = RoomFilter::default();
+        rooms.rooms = Some(room_ids.clone());
+        rooms.timeline.limit = Some(matrix_sdk::ruma::uint!(0));
+        rooms.state.types = Some(Vec::new());
+        rooms.ephemeral.types = Some(Vec::new());
+        rooms.account_data.types = Some(Vec::new());
+        filter.room = rooms;
+
+        let response = tokio::time::timeout(
+            READ_ROOMS_TIMEOUT,
+            self.host.retry(|| async {
+                let mut request = sync_events::v3::Request::new();
+                request.filter = Some(sync_events::v3::Filter::FilterDefinition(filter.clone()));
+                request.timeout = Some(Duration::ZERO);
+                request.set_presence = PresenceState::Offline;
+                self.host
+                    .client()
+                    .send(request)
+                    .with_request_config(
+                        matrix_sdk::config::RequestConfig::short_retry()
+                            .timeout(READ_ROOMS_TIMEOUT),
+                    )
+                    .await
+            }),
+        )
+        .await
+        .ok()?
+        .ok()?;
+        let joined = response
+            .rooms
+            .join
+            .iter()
+            .map(|(room_id, room)| {
+                (
+                    room_id.clone(),
+                    room.unread_notifications.notification_count.map(u64::from),
+                )
+            })
+            .collect();
+        Some(read_rooms_from_sync(&joined, &room_ids))
     }
 
     #[must_use]
@@ -1634,6 +1715,31 @@ mod tests {
 
     fn ts(millis: u32) -> MilliSecondsSinceUnixEpoch {
         MilliSecondsSinceUnixEpoch(UInt::from(millis))
+    }
+
+    #[test]
+    fn filtered_sync_response_identifies_read_rooms() {
+        let rooms = vec![
+            room_id!("!zero:example.org").to_owned(),
+            room_id!("!unread:example.org").to_owned(),
+            room_id!("!missing-count:example.org").to_owned(),
+            room_id!("!absent:example.org").to_owned(),
+        ];
+        let joined = [
+            (room_id!("!zero:example.org").to_owned(), Some(0)),
+            (room_id!("!unread:example.org").to_owned(), Some(2)),
+            (room_id!("!missing-count:example.org").to_owned(), None),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(
+            super::read_rooms_from_sync(&joined, &rooms),
+            vec![
+                "!zero:example.org".to_owned(),
+                "!missing-count:example.org".to_owned(),
+                "!absent:example.org".to_owned(),
+            ]
+        );
     }
 
     #[test]

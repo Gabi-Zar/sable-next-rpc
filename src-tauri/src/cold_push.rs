@@ -211,6 +211,49 @@ pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeActiveElse
     result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
 }
 
+#[unsafe(no_mangle)]
+#[expect(unsafe_code, reason = "JNI entry point")]
+pub extern "system" fn Java_moe_sable_push_PushPayloadDecryptor_nativeReadRooms<'frame>(
+    mut unowned_env: EnvUnowned<'frame>,
+    _class: JClass<'frame>,
+    store_dir: JString<'frame>,
+    user_id: JString<'frame>,
+    device_id: JString<'frame>,
+    seed_room_id: JString<'frame>,
+    room_ids: JString<'frame>,
+) -> JString<'frame> {
+    let result = unowned_env.with_env(|env: &mut Env<'frame>| -> Result<_, jni::errors::Error> {
+        let data_dir = store_dir.to_string();
+        let user_id = user_id.to_string();
+        let device_id = device_id.to_string();
+        let seed_room_id = seed_room_id.to_string();
+        let room_ids = serde_json::from_str::<Vec<String>>(&room_ids.to_string()).ok();
+        let read = async {
+            let room_ids = room_ids?;
+            bounded(&data_dir, std::time::Duration::from_secs(5), async {
+                let session = sable_core::notifications::cold_push_session(
+                    std::path::Path::new(&data_dir),
+                    &user_id,
+                    &device_id,
+                    &seed_room_id,
+                )
+                .await?;
+                session.read_rooms(&room_ids).await
+            })
+            .await
+            .flatten()
+        };
+        let read = block_on(CORE.get().is_some(), read).flatten();
+        JString::from_str(
+            env,
+            read.map_or_else(String::new, |rooms| {
+                serde_json::to_string(&rooms).unwrap_or_default()
+            }),
+        )
+    });
+    result.resolve::<jni::errors::ThrowRuntimeExAndDefault>()
+}
+
 /// An empty `sender` skips the avatars, an empty `content` the message's image.
 #[unsafe(no_mangle)]
 #[expect(unsafe_code, reason = "JNI entry point")]

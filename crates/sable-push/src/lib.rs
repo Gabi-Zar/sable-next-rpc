@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, VecSkipError, serde_as};
 
-#[derive(Default, Deserialize)]
+#[derive(Deserialize)]
 #[serde(default)]
 #[expect(
     clippy::struct_excessive_bools,
@@ -25,6 +25,20 @@ struct Policy {
     notify_once: bool,
     clear_on_read: bool,
     quiet_when_active_elsewhere: bool,
+}
+
+impl Default for Policy {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            content: false,
+            encrypted_content: false,
+            sounds: false,
+            notify_once: false,
+            clear_on_read: true,
+            quiet_when_active_elsewhere: false,
+        }
+    }
 }
 
 fn policy(root: &Path) -> Policy {
@@ -81,6 +95,21 @@ fn notification(payload: &Value) -> &Value {
     payload.get("notification").unwrap_or(payload)
 }
 
+fn shown_rooms(payload: &Value) -> Vec<String> {
+    payload
+        .get("sable_shown_room_ids")
+        .and_then(Value::as_array)
+        .map(|rooms| {
+            rooms
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|room| !room.is_empty())
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// Sygnal's APNs payload names only the event; the fetched event fills in the rest.
 fn complete(notification: &Value, event: &PushEventView) -> Option<Value> {
     let mut completed = notification.as_object()?.clone();
@@ -109,6 +138,8 @@ struct RingPushOut {
     ring: Value,
     room_id: String,
     user_id: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    read_rooms: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -134,11 +165,15 @@ struct ContentPushOut {
     room_avatar: Option<String>,
     image: Option<PushImage>,
     members: Option<u64>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    read_rooms: Vec<String>,
 }
 
 #[derive(Serialize)]
 struct DiscardOut {
     discard: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    read_rooms: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -150,6 +185,12 @@ struct ReadOut {
 #[derive(Serialize)]
 struct ReadPushOut {
     read: ReadOut,
+    user_id: String,
+}
+
+#[derive(Serialize)]
+struct ReadRoomsOut {
+    read_rooms: Vec<String>,
     user_id: String,
 }
 
@@ -371,7 +412,10 @@ async fn clear_event(
 fn decrypted_event(push: ColdPush) -> Result<Option<Value>, DiscardOut> {
     match push {
         ColdPush::Discard | ColdPush::Unevaluated | ColdPush::NeedsKey { quietly: true } => {
-            Err(DiscardOut { discard: true })
+            Err(DiscardOut {
+                discard: true,
+                read_rooms: Vec::new(),
+            })
         }
         ColdPush::Clear(clear) => Ok(serde_json::from_str(&clear).ok()),
         ColdPush::NeedsKey { quietly: false } | ColdPush::Undecryptable => Ok(None),
@@ -418,11 +462,39 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
         };
         return (serde_json::to_value(read).ok(), None);
     }
+    let shown = shown_rooms(payload);
+    let reconcile = shown
+        .iter()
+        .filter(|shown_room| Some(shown_room.as_str()) != room_id)
+        .cloned()
+        .collect::<Vec<_>>();
+    let session_room = room_id.or_else(|| shown.first().map(String::as_str));
+    let session = match (session_room, room_id.is_some() || settings.clear_on_read) {
+        (Some(seed), true) => Box::pin(PushSession::open(root, &user, &device_id, seed)).await,
+        _ => None,
+    };
+    let mut issue = session.is_none().then_some("no_session");
+    let read_rooms = if settings.clear_on_read {
+        match session.as_ref() {
+            Some(session) => session.read_rooms(&reconcile).await.unwrap_or_default(),
+            None => Vec::new(),
+        }
+    } else {
+        Vec::new()
+    };
     let Some(room_id) = room_id else {
+        if !read_rooms.is_empty() {
+            return (
+                serde_json::to_value(ReadRoomsOut {
+                    read_rooms,
+                    user_id: user,
+                })
+                .ok(),
+                None,
+            );
+        }
         return (None, Some("payload"));
     };
-    let session = Box::pin(PushSession::open(root, &user, &device_id, room_id)).await;
-    let mut issue = session.is_none().then_some("no_session");
     let fetched = match (target.kind.as_deref(), target.event_id.as_deref(), &session) {
         (kind, Some(event_id), Some(session))
             if !event_id.is_empty() && kind.is_none_or(|kind| RING_TYPES.contains(&kind)) =>
@@ -434,7 +506,11 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
     let (completed, fetched_encrypted, fetched_noisy) = match fetched {
         PushFetchView::Discard => {
             return (
-                serde_json::to_value(DiscardOut { discard: true }).ok(),
+                serde_json::to_value(DiscardOut {
+                    discard: true,
+                    read_rooms,
+                })
+                .ok(),
                 None,
             );
         }
@@ -448,7 +524,11 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
                 .is_some_and(|kind| RING_TYPES.contains(&kind))
             {
                 return (
-                    serde_json::to_value(DiscardOut { discard: true }).ok(),
+                    serde_json::to_value(DiscardOut {
+                        discard: true,
+                        read_rooms,
+                    })
+                    .ok(),
                     None,
                 );
             }
@@ -468,7 +548,10 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
         Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await,
     ) {
         Ok(event) => event,
-        Err(discard) => return (serde_json::to_value(discard).ok(), None),
+        Err(mut discard) => {
+            discard.read_rooms = read_rooms;
+            return (serde_json::to_value(discard).ok(), None);
+        }
     };
     if encrypted && event.is_none() {
         issue = issue.or(Some("undecryptable"));
@@ -500,6 +583,7 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
             ring,
             room_id: room_id.to_owned(),
             user_id: user,
+            read_rooms,
         };
         return (serde_json::to_value(ring).ok(), None);
     }
@@ -577,6 +661,7 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
         room_avatar: media.room,
         image: media.image,
         members,
+        read_rooms,
     };
     (serde_json::to_value(content).ok(), issue)
 }
@@ -1019,6 +1104,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(account_read["read"], json!({"clear":true,"room_id":null}));
+        std::fs::write(
+            root.join("push-policy.json"),
+            r#"{"enabled":true,"content":true,"encrypted_content":false,"sounds":true}"#,
+        )
+        .unwrap();
+        let defaulted_account_read = rendered(&root, &push(json!({"counts":{"unread":0}})))
+            .await
+            .unwrap();
+        assert_eq!(defaulted_account_read["read"]["clear"], true);
         std::fs::write(root.join("push-policy.json"), policy(false).to_string()).unwrap();
         let kept = rendered(&root, &push(json!({"counts":{"unread":0}})))
             .await

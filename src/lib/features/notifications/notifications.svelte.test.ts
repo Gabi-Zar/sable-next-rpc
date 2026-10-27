@@ -47,9 +47,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function room(unread: number): RoomListItemView {
+function room(unread: number, roomId = '!room:example.org'): RoomListItemView {
   return withCounts({
-    room_id: '!room:example.org',
+    room_id: roomId,
     state: 'joined',
     unread,
     notifying: unread,
@@ -93,6 +93,22 @@ test('a room already read on another device retires a cold notification', () => 
   notifications.retireRead([room(0)]);
 
   expect(mocks.retire).toHaveBeenCalledExactlyOnceWith('@me:example.org', ['!room:example.org']);
+});
+
+test('batched posted alerts retain rooms read before the timer fires', () => {
+  vi.useFakeTimers();
+  const notifications = center();
+
+  notifications.retireRead([room(0, '!one:example.org')]);
+  notifications.retireRead([room(0, '!two:example.org')]);
+  mocks.retireRead.mockClear();
+
+  vi.advanceTimersByTime(1000);
+
+  expect(mocks.retireRead).toHaveBeenCalledExactlyOnceWith('@me:example.org', [
+    '!one:example.org',
+    '!two:example.org',
+  ]);
 });
 
 test('opening a room retires its alerts and tells the core to skip it', () => {

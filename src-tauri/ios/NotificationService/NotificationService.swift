@@ -48,9 +48,7 @@ final class NotificationService: UNNotificationServiceExtension {
         lock.unlock()
 
         guard let group = Bundle.main.object(forInfoDictionaryKey: "SableAppGroup") as? String,
-              let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group),
-              let data = try? JSONSerialization.data(withJSONObject: request.content.userInfo),
-              let payload = String(data: data, encoding: .utf8) else {
+              let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) else {
             finish(content)
             return
         }
@@ -58,75 +56,91 @@ final class NotificationService: UNNotificationServiceExtension {
         lock.lock()
         policyRoot = root.path
         lock.unlock()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = root.path.withCString { path in
-                payload.withCString { json in sable_push_render(path, json) }
-            }
-            guard let result else {
-                Self.log.error("render failed, showing the generic alert")
+        UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] delivered in
+            var userInfo = request.content.userInfo
+            userInfo["sable_shown_room_ids"] = Self.deliveredRooms(
+                delivered,
+                user: Self.conversationUser(request.content.userInfo)
+            )
+            guard let data = try? JSONSerialization.data(withJSONObject: userInfo),
+                  let payload = String(data: data, encoding: .utf8) else {
                 self?.finish(content)
                 return
             }
-            defer { sable_push_free(result) }
-            let bytes = Data(String(cString: result).utf8)
-            guard let rendered = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
-                self?.finish(content)
-                return
-            }
-            if rendered["discard"] as? Bool == true {
-                Self.log.info("discarded by push rules")
-                self?.suppress()
-                return
-            }
-            if let ring = rendered["ring"] as? [String: Any], let room = rendered["room_id"] as? String,
-               let user = rendered["user_id"] as? String {
-                self?.ring(ring, room: room, user: user, fallback: content)
-                return
-            }
-            if let read = rendered["read"] as? [String: Any], let user = rendered["user_id"] as? String {
-                self?.clearRead(read, user: user)
-                return
-            }
-            guard let body = rendered["body"] as? String,
-                  let updated = content.mutableCopy() as? UNMutableNotificationContent else {
-                self?.finish(content)
-                return
-            }
-            if let title = rendered["title"] as? String { updated.title = title }
-            updated.body = body
-            if let image = rendered["image"] as? [String: Any], let attachment = Self.attachment(image) {
-                updated.attachments = [attachment]
-            }
-            let invite = rendered["invite"] as? Bool == true
-            updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
-            if rendered["noisy"] as? Bool == true {
-                self?.lock.lock()
-                self?.noisy = true
-                self?.lock.unlock()
-            }
-            if rendered["active_elsewhere"] as? Bool == true {
-                self?.lock.lock()
-                self?.activeElsewhere = true
-                self?.lock.unlock()
-            }
-            guard let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String else {
-                self?.finish(updated)
-                return
-            }
-            updated.threadIdentifier = user + "\u{0}" + room
-            guard !invite, let intent = Self.intent(rendered, conversation: updated.threadIdentifier) else {
-                self?.finish(updated)
-                return
-            }
-            let interaction = INInteraction(intent: intent, response: nil)
-            interaction.direction = .incoming
-            interaction.donate { [weak self] error in
-                if error == nil {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let result = root.path.withCString { path in
+                    payload.withCString { json in sable_push_render(path, json) }
+                }
+                guard let result else {
+                    Self.log.error("render failed, showing the generic alert")
+                    self?.finish(content)
+                    return
+                }
+                defer { sable_push_free(result) }
+                let bytes = Data(String(cString: result).utf8)
+                guard let rendered = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
+                    self?.finish(content)
+                    return
+                }
+                if let rooms = rendered["read_rooms"] as? [String],
+                   let user = rendered["user_id"] as? String {
+                    self?.clearReadRooms(rooms, user: user)
+                }
+                if rendered["discard"] as? Bool == true {
+                    Self.log.info("discarded by push rules")
+                    self?.suppress()
+                    return
+                }
+                if let ring = rendered["ring"] as? [String: Any], let room = rendered["room_id"] as? String,
+                   let user = rendered["user_id"] as? String {
+                    self?.ring(ring, room: room, user: user, fallback: content)
+                    return
+                }
+                if let read = rendered["read"] as? [String: Any], let user = rendered["user_id"] as? String {
+                    self?.clearRead(read, user: user)
+                    return
+                }
+                guard let body = rendered["body"] as? String,
+                      let updated = content.mutableCopy() as? UNMutableNotificationContent else {
+                    self?.finish(content)
+                    return
+                }
+                if let title = rendered["title"] as? String { updated.title = title }
+                updated.body = body
+                if let image = rendered["image"] as? [String: Any], let attachment = Self.attachment(image) {
+                    updated.attachments = [attachment]
+                }
+                let invite = rendered["invite"] as? Bool == true
+                updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
+                if rendered["noisy"] as? Bool == true {
                     self?.lock.lock()
-                    self?.communication = intent
+                    self?.noisy = true
                     self?.lock.unlock()
                 }
-                self?.finish(updated)
+                if rendered["active_elsewhere"] as? Bool == true {
+                    self?.lock.lock()
+                    self?.activeElsewhere = true
+                    self?.lock.unlock()
+                }
+                guard let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String else {
+                    self?.finish(updated)
+                    return
+                }
+                updated.threadIdentifier = user + "\u{0}" + room
+                guard !invite, let intent = Self.intent(rendered, conversation: updated.threadIdentifier) else {
+                    self?.finish(updated)
+                    return
+                }
+                let interaction = INInteraction(intent: intent, response: nil)
+                interaction.direction = .incoming
+                interaction.donate { [weak self] error in
+                    if error == nil {
+                        self?.lock.lock()
+                        self?.communication = intent
+                        self?.lock.unlock()
+                    }
+                    self?.finish(updated)
+                }
             }
         }
     }
@@ -217,6 +231,21 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
+    private func clearReadRooms(_ rooms: [String], user: String) {
+        guard !rooms.isEmpty else { return }
+        UNUserNotificationCenter.current().getDeliveredNotifications { delivered in
+            let roomSet = Set(rooms)
+            let identifiers = delivered.filter { notification in
+                let parts = notification.request.content.threadIdentifier
+                    .split(separator: "\u{0}", maxSplits: 1, omittingEmptySubsequences: false)
+                return parts.count == 2 && parts[0] == user && roomSet.contains(String(parts[1]))
+            }.map { $0.request.identifier }
+            if !identifiers.isEmpty {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+            }
+        }
+    }
+
     private func suppress() {
         lock.lock()
         let handler = completion
@@ -277,15 +306,21 @@ final class NotificationService: UNNotificationServiceExtension {
         return completion != nil
     }
 
-    static func conversationThread(_ payload: [AnyHashable: Any]) -> String? {
-        var notification = payload["notification"] as? [String: Any]
+    private static func eventPayload(_ payload: [AnyHashable: Any]) -> [String: Any] {
+        if let notification = payload["notification"] as? [String: Any] { return notification }
         if let encoded = payload["notification"] as? String,
-           let data = encoded.data(using: .utf8) {
-            notification = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+           let data = encoded.data(using: .utf8),
+           let value = try? JSONSerialization.jsonObject(with: data),
+           let notification = value as? [String: Any] {
+            return notification
         }
-        let event = notification ?? payload.reduce(into: [String: Any]()) {
+        return payload.reduce(into: [String: Any]()) {
             if let key = $1.key as? String { $0[key] = $1.value }
         }
+    }
+
+    static func conversationUser(_ payload: [AnyHashable: Any]) -> String? {
+        let event = eventPayload(payload)
         var users = Set<String>()
         for candidate in [payload["user_id"], event["user_id"]] {
             if let user = candidate as? String, !user.isEmpty { users.insert(user) }
@@ -296,9 +331,25 @@ final class NotificationService: UNNotificationServiceExtension {
                 if let user = candidate as? String, !user.isEmpty { users.insert(user) }
             }
         }
-        guard users.count == 1, let user = users.first,
-              let room = event["room_id"] as? String, !room.isEmpty else { return nil }
+        guard users.count == 1 else { return nil }
+        return users.first
+    }
+
+    static func conversationThread(_ payload: [AnyHashable: Any]) -> String? {
+        let event = eventPayload(payload)
+        guard let user = conversationUser(payload) else { return nil }
+        guard let room = event["room_id"] as? String, !room.isEmpty else { return nil }
         return user + "\u{0}" + room
+    }
+
+    private static func deliveredRooms(_ delivered: [UNNotification], user: String?) -> [String] {
+        guard let user else { return [] }
+        return Array(Set(delivered.compactMap { notification in
+            let parts = notification.request.content.threadIdentifier
+                .split(separator: "\u{0}", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2, parts[0] == user else { return nil }
+            return String(parts[1]).isEmpty ? nil : String(parts[1])
+        }))
     }
 
     private func finish(_ content: UNNotificationContent) {

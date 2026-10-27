@@ -3,9 +3,14 @@ import { afterEach, expect, test } from 'vitest';
 import {
   expectPushActivation,
   pendingPushActivations,
+  pushContentPolicy,
   PUSH_ACTIVATION_TTL_MS,
   settlePushActivation,
 } from './room-names.js';
+
+test('missing push policy clears alerts by default', async () => {
+  await expect(pushContentPolicy()).resolves.toMatchObject({ clearOnRead: true });
+});
 
 afterEach(async () => {
   await settlePushActivation('@me:example.org');

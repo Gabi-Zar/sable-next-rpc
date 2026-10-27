@@ -8,6 +8,7 @@ import {
   fetchDeviceActivity,
   isRtcInvite,
   namesOnlyItsEvent,
+  readPushRooms,
   type PushFetcher,
   readPushFetch,
 } from './push-fetch';
@@ -47,6 +48,34 @@ test('only a push that names nothing but its event is fetched', () => {
   expect(namesOnlyItsEvent(bare)).toBe(true);
   expect(namesOnlyItsEvent({ ...bare, type: 'm.room.message' })).toBe(false);
   expect(namesOnlyItsEvent(pushNotification({ room_id: ROOM }))).toBe(false);
+});
+
+test('read room reconciliation uses filtered sync counts and fails closed', async () => {
+  const source = fetcher({
+    '/_matrix/client/v3/sync': {
+      next_batch: 's',
+      rooms: {
+        join: {
+          '!read:example.org': { unread_notifications: { notification_count: 0 } },
+          '!unread:example.org': { unread_notifications: { notification_count: 2 } },
+          '!missing-count:example.org': {},
+        },
+      },
+    },
+  });
+  await expect(
+    readPushRooms(source, [
+      '!read:example.org',
+      '!unread:example.org',
+      '!left:example.org',
+      '!missing-count:example.org',
+    ])
+  ).resolves.toEqual(['!read:example.org', '!left:example.org', '!missing-count:example.org']);
+  expect(source.fetch.mock.calls[0]?.[0]).toContain('set_presence=offline');
+  expect(source.fetch.mock.calls[0]?.[0]).toContain('timeout=0');
+
+  source.fetch.mockResolvedValue(Response.json({ next_batch: 's', rooms: { join: [] } }));
+  await expect(readPushRooms(source, ['!read:example.org'])).resolves.toBeNull();
 });
 
 test('a plaintext event is completed with its sender and room, with the token', async () => {
