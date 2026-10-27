@@ -138,6 +138,7 @@ export function registerNativePush(
     session?.device_id,
     accounts.map((account) => [account.user_id, account.device_id, account.needs_reauth]),
     selectedPushProvider(),
+    preferences.richPushPayloads,
   ]);
   if (queuedRegistration?.key === key) return queuedRegistration.result;
   const result = enqueue(async () => {

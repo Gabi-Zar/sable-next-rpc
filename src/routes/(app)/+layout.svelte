@@ -564,6 +564,7 @@
   $effect(() => {
     void core.accountRevision;
     void pushDeviceName;
+    void preferences.richPushPayloads;
     if (core.status !== 'ready') return;
     void unregisterVoipPusher(core);
 

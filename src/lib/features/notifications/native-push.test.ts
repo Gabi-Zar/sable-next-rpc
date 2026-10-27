@@ -18,7 +18,8 @@ vi.mock('#lib/platform/push.js', () => ({
   setPushDistributor: mocks.select,
 }));
 vi.mock('#lib/platform/notifications.js', () => ({ deliversNativePush: mocks.native }));
-vi.mock('#lib/settings/preferences.svelte.js', () => ({ preferences: { richPushPayloads: true } }));
+const preferences = vi.hoisted(() => ({ richPushPayloads: true }));
+vi.mock('#lib/settings/preferences.svelte.js', () => ({ preferences }));
 vi.mock('#lib/notifications/push-config.js', async (original) => ({
   ...(await original<typeof import('#lib/notifications/push-config.js')>()),
   pushConfig: mocks.config,
@@ -117,6 +118,17 @@ test('still registers a request that differs from the pending one', async () => 
     registerNativePush(override, other, accounts),
   ]);
   expect(mocks.register).toHaveBeenCalledTimes(2);
+});
+
+test('registers again when message text is turned off during a registration', async () => {
+  const first = registerNativePush(override, session, accounts);
+  preferences.richPushPayloads = false;
+  const second = registerNativePush(override, session, accounts);
+  await Promise.all([first, second]);
+  preferences.richPushPayloads = true;
+
+  expect(mocks.register).toHaveBeenCalledTimes(2);
+  expect(mocks.register.mock.lastCall?.[0].eventIdOnly).toBe(true);
 });
 
 test('declares every signed-in account, not only the active one', async () => {

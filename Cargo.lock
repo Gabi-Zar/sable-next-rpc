@@ -7032,6 +7032,7 @@ checksum = "16a1cfa75cc186dd73d5818e510e042e40927bccc9c236b061cea97e1eb08029"
 dependencies = [
  "base64 0.23.1",
  "bytes",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2",
@@ -7612,6 +7613,7 @@ version = "0.1.0"
 dependencies = [
  "sable-core",
  "sable-model",
+ "sentry",
  "serde",
  "serde_json",
  "serde_with",
@@ -7865,6 +7867,7 @@ checksum = "9fa951f4e644464ebfd2347a7ab03b0828c512d2448a76262cad2607b343dff4"
 dependencies = [
  "cfg_aliases",
  "httpdate",
+ "reqwest",
  "sentry-backtrace",
  "sentry-contexts",
  "sentry-core",

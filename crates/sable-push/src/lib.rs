@@ -378,37 +378,47 @@ fn decrypted_event(push: ColdPush) -> Result<Option<Value>, DiscardOut> {
     clippy::too_many_lines,
     reason = "policy and account are rechecked in order after each await"
 )]
-async fn render(root: &Path, payload: &Value) -> Option<Value> {
+async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) {
     let settings = policy(root);
     if !settings.enabled {
-        return None;
+        return (None, None);
     }
     let notification = notification(payload);
-    let target = PushTarget::deserialize(notification).ok()?;
-    let user = target
+    let Ok(target) = PushTarget::deserialize(notification) else {
+        return (None, Some("payload"));
+    };
+    let Some(user) = target
         .user_id
         .or_else(|| {
             PayloadUser::deserialize(payload)
                 .unwrap_or_default()
                 .user_id
         })
-        .as_ref()?
-        .as_str()?
-        .to_owned();
+        .as_ref()
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+    else {
+        return (None, Some("payload"));
+    };
     let room_id = target.room_id.as_deref().filter(|room| !room.is_empty());
-    let (account_id, device_id) = signed_in(root, &user).await?;
+    let Some((account_id, device_id)) = signed_in(root, &user).await else {
+        return (None, Some("no_account"));
+    };
     if target.counts.and_then(|counts| counts.unread) == Some(0) {
-        return serde_json::to_value(ReadPushOut {
+        let read = ReadPushOut {
             read: ReadOut {
                 clear: settings.clear_on_read,
                 room_id: room_id.map(str::to_owned),
             },
             user_id: user,
-        })
-        .ok();
+        };
+        return (serde_json::to_value(read).ok(), None);
     }
-    let room_id = room_id?;
+    let Some(room_id) = room_id else {
+        return (None, Some("payload"));
+    };
     let session = Box::pin(PushSession::open(root, &user, &device_id, room_id)).await;
+    let mut issue = session.is_none().then_some("no_session");
     let fetched = match (target.kind.as_deref(), target.event_id.as_deref(), &session) {
         (None, Some(event_id), Some(session)) if !event_id.is_empty() => {
             Box::pin(session.fetch(event_id)).await
@@ -416,22 +426,37 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         _ => PushFetchView::Unavailable,
     };
     let (completed, fetched_encrypted, fetched_noisy) = match fetched {
-        PushFetchView::Discard => return serde_json::to_value(DiscardOut { discard: true }).ok(),
+        PushFetchView::Discard => {
+            return (
+                serde_json::to_value(DiscardOut { discard: true }).ok(),
+                None,
+            );
+        }
         PushFetchView::Event { event } => {
             (complete(notification, &event), event.encrypted, event.noisy)
         }
-        PushFetchView::Unavailable => (None, false, false),
+        PushFetchView::Unavailable => {
+            if target.kind.is_none() {
+                issue = issue.or(Some("fetch_failed"));
+            }
+            (None, false, false)
+        }
     };
     let notification = completed.as_ref().unwrap_or(notification);
-    let target = PushTarget::deserialize(notification).ok()?;
+    let Ok(target) = PushTarget::deserialize(notification) else {
+        return (None, Some("payload"));
+    };
     let ciphertext = target.kind.as_deref() == Some("m.room.encrypted");
     let encrypted = ciphertext || fetched_encrypted;
     let event = match decrypted_event(
         Box::pin(clear_event(session.as_ref(), notification, ciphertext)).await,
     ) {
         Ok(event) => event,
-        Err(discard) => return serde_json::to_value(discard).ok(),
+        Err(discard) => return (serde_json::to_value(discard).ok(), None),
     };
+    if encrypted && event.is_none() {
+        issue = issue.or(Some("undecryptable"));
+    }
     let sender_id = target.sender.filter(|sender| !sender.is_empty());
     let sender = match &session {
         Some(session) => {
@@ -442,12 +467,12 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         None => push_sender_name(sender_id.as_deref(), target.sender_display_name.as_deref()),
     };
     if let Some(ring) = event.as_ref().and_then(|event| ring(event, &sender)) {
-        return serde_json::to_value(RingPushOut {
+        let ring = RingPushOut {
             ring,
             room_id: room_id.to_owned(),
             user_id: user,
-        })
-        .ok();
+        };
+        return (serde_json::to_value(ring).ok(), None);
     }
     let room_name = target.room_name.unwrap_or_default();
     let invite = event.as_ref().is_some_and(is_invite);
@@ -463,7 +488,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     // Recheck policy after decryption, which may overlap a settings change.
     let current = policy(root);
     if !current.enabled {
-        return None;
+        return (None, None);
     }
     let text = if invite {
         invite_body(&sender, &room_name)
@@ -497,7 +522,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
     let members = session.as_ref().and_then(PushSession::joined_members);
     drop(session);
     if signed_in(root, &user).await != Some((account_id, device_id)) {
-        return None;
+        return (None, None);
     }
     let noisy = event
         .as_ref()
@@ -506,7 +531,7 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         .unwrap_or(false)
         || fetched_noisy
         || rings(notification);
-    serde_json::to_value(ContentPushOut {
+    let content = ContentPushOut {
         title,
         body,
         text,
@@ -524,8 +549,8 @@ async fn render(root: &Path, payload: &Value) -> Option<Value> {
         room_avatar: media.room,
         image: media.image,
         members,
-    })
-    .ok()
+    };
+    (serde_json::to_value(content).ok(), issue)
 }
 
 /// # Safety
@@ -543,30 +568,68 @@ pub unsafe extern "C" fn sable_push_render(
     if root.is_null() || payload.is_null() {
         return std::ptr::null_mut();
     }
+    // SAFETY: the caller guarantees valid C strings for the duration of this call.
+    let Ok(root) = unsafe { CStr::from_ptr(root) }.to_str() else {
+        return std::ptr::null_mut();
+    };
     let rendered = std::panic::catch_unwind(|| {
-        // SAFETY: the caller guarantees valid C strings for the duration of this call.
-        let root = unsafe { CStr::from_ptr(root) }.to_str().ok()?;
         // SAFETY: same contract as root above.
-        let payload = unsafe { CStr::from_ptr(payload) }.to_str().ok()?;
-        let payload = serde_json::from_str(payload).ok()?;
-        let runtime = tokio::runtime::Builder::new_current_thread()
+        let payload = unsafe { CStr::from_ptr(payload) }.to_str().ok();
+        let Some(payload) = payload.and_then(|payload| serde_json::from_str(payload).ok()) else {
+            return (None, Some("payload"));
+        };
+        let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .ok()?;
-        let rendered = runtime.block_on(async {
+        else {
+            return (None, Some("runtime"));
+        };
+        runtime.block_on(async {
             sable_core::notifications::settle_refreshes(Box::pin(tokio::time::timeout(
                 std::time::Duration::from_secs(20),
                 render(Path::new(root), &payload),
             )))
             .await
-            .ok()
-            .flatten()
-        })?;
-        CString::new(rendered.to_string())
-            .ok()
-            .map(CString::into_raw)
+            .unwrap_or((None, Some("timeout")))
+        })
     });
-    rendered.ok().flatten().unwrap_or(std::ptr::null_mut())
+    let (rendered, issue) = rendered.unwrap_or((None, Some("panic")));
+    if let Some(issue) = issue {
+        report(Path::new(root), issue);
+    }
+    rendered
+        .and_then(|rendered| CString::new(rendered.to_string()).ok())
+        .map_or(std::ptr::null_mut(), CString::into_raw)
+}
+
+type Issue = &'static str;
+
+#[derive(Deserialize)]
+struct Reporting {
+    dsn: String,
+    environment: Option<String>,
+    release: Option<String>,
+}
+
+fn report(root: &Path, issue: Issue) {
+    let Some(reporting) = std::fs::read(root.join("sentry.json"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<Reporting>(&bytes).ok())
+    else {
+        return;
+    };
+    let Ok(dsn) = reporting.dsn.parse() else {
+        return;
+    };
+    let mut options = sentry::ClientOptions::default();
+    options.dsn = Some(dsn);
+    options.environment = reporting.environment.map(Into::into);
+    options.release = reporting.release.map(Into::into);
+    let _guard = sentry::init(options);
+    sentry::with_scope(
+        |scope| scope.set_tag("push.issue", issue),
+        || sentry::capture_message(&format!("iOS push: {issue}"), sentry::Level::Warning),
+    );
 }
 
 /// # Safety
@@ -585,6 +648,10 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    async fn rendered(root: &Path, payload: &Value) -> Option<Value> {
+        render(root, payload).await.0
+    }
 
     #[test]
     #[expect(unsafe_code, reason = "tests the extension C ABI with owned C strings")]
@@ -629,7 +696,7 @@ mod tests {
     #[tokio::test]
     async fn missing_policy_and_session_fail_closed() {
         assert!(
-            render(
+            rendered(
                 Path::new("/nonexistent-sable-push-test"),
                 &json!({"content":{"body":"private"}})
             )
@@ -770,7 +837,7 @@ mod tests {
             "room_id":"!room:example.org","type":"m.room.message","content":{"body":"private"}
         }});
         let body = async |payload: &Value| {
-            render(&root, payload)
+            rendered(&root, payload)
                 .await
                 .and_then(|value| value.get("body").cloned())
         };
@@ -779,7 +846,7 @@ mod tests {
             json!({"user_id":"@alice:example.org","room_id":"!room:example.org","event_id":"$e"});
         assert_eq!(body(&unfetchable).await, Some(json!("New message")));
         payload["user_id"] = json!("@other:example.org");
-        assert!(render(&root, &payload).await.is_none());
+        assert!(rendered(&root, &payload).await.is_none());
         payload["user_id"] = json!("@alice:example.org");
         payload["notification"]["type"] = json!("m.room.encrypted");
         assert_eq!(body(&payload).await, Some(json!("Encrypted message")));
@@ -787,7 +854,7 @@ mod tests {
         let mut expired = registry.clone();
         expired["accounts"][0]["needs_reauth"] = json!(true);
         store.save(expired.to_string().into_bytes()).await.unwrap();
-        assert!(render(&root, &payload).await.is_none());
+        assert!(rendered(&root, &payload).await.is_none());
         store.save(registry.to_string().into_bytes()).await.unwrap();
         std::fs::write(
             root.join("push-policy.json"),
@@ -801,13 +868,47 @@ mod tests {
             "content":{"notification_type":"ring","sender_ts":1_000,"lifetime":30_000}
         }});
         assert_eq!(
-            render(&root, &ringing)
+            rendered(&root, &ringing)
                 .await
                 .and_then(|value| value.get("ring").cloned()),
             Some(json!({"caller_name":"@bob:example.org","expires_at":31.0}))
         );
         store.clear().await.unwrap();
-        assert!(render(&root, &payload).await.is_none());
+        assert!(rendered(&root, &payload).await.is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_generic_alert_names_why_it_fell_back() {
+        let root =
+            std::env::temp_dir().join(format!("sable-push-issue-test-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let sygnal_event_id_only = json!({
+            "aps": {"alert": {"loc-key": "MSG_FROM_USER"}, "mutable-content": 1},
+            "user_id": "@alice:example.org", "room_id": "!room:example.org",
+            "event_id": "$e", "unread_count": 1
+        });
+        assert_eq!(render(&root, &sygnal_event_id_only).await, (None, None));
+
+        std::fs::write(root.join("push-policy.json"), r#"{"enabled":true}"#).unwrap();
+        assert_eq!(
+            render(&root, &sygnal_event_id_only).await,
+            (None, Some("no_account"))
+        );
+
+        let registry = json!({"version":1,"active_account_id":"a1","next_account_id":2,"accounts":[{
+            "account_id":"a1","store_id":"old","needs_reauth":false,
+            "session":{"homeserver":"https://example.org","credentials":{
+                "kind":"password","user_id":"@alice:example.org","device_id":"A","access_token":"test"
+            }}
+        }]});
+        FileSessionStore::new(&root)
+            .save(registry.to_string().into_bytes())
+            .await
+            .unwrap();
+        let (alert, issue) = render(&root, &sygnal_event_id_only).await;
+        assert_eq!(alert.unwrap()["body"], json!("New message"));
+        assert_eq!(issue, Some("no_session"));
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -830,7 +931,7 @@ mod tests {
             .unwrap();
         let push = |notification: Value| json!({"user_id":"@alice:example.org","notification":notification});
 
-        let message = render(
+        let message = rendered(
             &root,
             &push(json!({
                 "room_id":"!room:example.org","type":"m.room.message","event_id":"$e",
@@ -846,7 +947,7 @@ mod tests {
         assert_eq!(message["group"], true);
         assert_eq!(message["invite"], false);
 
-        let unnamed = render(
+        let unnamed = rendered(
             &root,
             &push(json!({
                 "room_id":"!dm:example.org","type":"m.room.message","sender":"@bob:example.org",
@@ -859,7 +960,7 @@ mod tests {
         assert_eq!(unnamed["title"], "@bob:example.org");
         assert_eq!(unnamed["group"], false);
 
-        let invite = render(
+        let invite = rendered(
             &root,
             &push(json!({
                 "room_id":"!room:example.org","type":"m.room.member","room_name":"Lounge",
@@ -873,7 +974,7 @@ mod tests {
         assert_eq!(invite["body"], "Bob invites you to Lounge");
         assert_eq!(invite["invite"], true);
 
-        let read = render(
+        let read = rendered(
             &root,
             &push(json!({"room_id":"!room:example.org","counts":{"unread":0}})),
         )
@@ -883,17 +984,17 @@ mod tests {
             read["read"],
             json!({"clear":true,"room_id":"!room:example.org"})
         );
-        let account_read = render(&root, &push(json!({"counts":{"unread":0}})))
+        let account_read = rendered(&root, &push(json!({"counts":{"unread":0}})))
             .await
             .unwrap();
         assert_eq!(account_read["read"], json!({"clear":true,"room_id":null}));
         std::fs::write(root.join("push-policy.json"), policy(false).to_string()).unwrap();
-        let kept = render(&root, &push(json!({"counts":{"unread":0}})))
+        let kept = rendered(&root, &push(json!({"counts":{"unread":0}})))
             .await
             .unwrap();
         assert_eq!(kept["read"]["clear"], false);
         assert!(
-            render(
+            rendered(
                 &root,
                 &json!({"user_id":"@other:example.org","notification":{"counts":{"unread":0}}})
             )

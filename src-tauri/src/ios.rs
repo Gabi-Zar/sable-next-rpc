@@ -91,7 +91,24 @@ pub fn set_sentry_enabled(enabled: bool) -> Result<(), String> {
             release: &*release
         ];
     }
-    Ok(())
+    share_sentry_consent(enabled)
+}
+
+/// The notification extension reports failures only while this file exists.
+fn share_sentry_consent(enabled: bool) -> Result<(), String> {
+    let path = shared_store_dir()?.join("sentry.json");
+    let Some(dsn) = option_env!("SENTRY_DSN").filter(|dsn| enabled && !dsn.is_empty()) else {
+        return match std::fs::remove_file(&path) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.to_string()),
+            _ => Ok(()),
+        };
+    };
+    let value = serde_json::json!({
+        "dsn": dsn,
+        "environment": option_env!("SENTRY_ENVIRONMENT"),
+        "release": option_env!("SENTRY_APP_VERSION"),
+    });
+    std::fs::write(path, value.to_string()).map_err(|error| error.to_string())
 }
 
 /// # Errors

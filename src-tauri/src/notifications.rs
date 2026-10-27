@@ -1013,6 +1013,12 @@ pub async fn register_push<R: Runtime>(
     config: PushConfig,
 ) -> Result<(), PushRegistrationError> {
     use sable_core::api::push::{PusherView, SetPusherParams, WebPusherSupportParams};
+    // The extension fetches the event itself, so the gateway never needs its text.
+    #[cfg(target_os = "ios")]
+    let config = PushConfig {
+        event_id_only: true,
+        ..config
+    };
     let _guard = PUSH_REGISTRATION_LOCK.lock().await;
     let root = push_store(app).map_err(|_| PushRegistrationError::Ledger)?;
     let (Some(user_id), Some(device_id)) = (config.user_id.clone(), config.device_id.clone())

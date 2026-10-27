@@ -1,6 +1,7 @@
 import CallKit
 import Foundation
 import Intents
+import os
 import StoreKit
 import UniformTypeIdentifiers
 import UserNotifications
@@ -18,6 +19,7 @@ final class NotificationService: UNNotificationServiceExtension {
     private static let inviteCategory = "sable-invite"
     private static let alertedAtKey = "sable_alerted_at"
     private static let notifyOnceWindow: TimeInterval = 5 * 60
+    private static let log = Logger(subsystem: "moe.sable.app.notifications", category: "push")
 
     override func didReceive(
         _ request: UNNotificationRequest,
@@ -59,7 +61,11 @@ final class NotificationService: UNNotificationServiceExtension {
             let result = root.path.withCString { path in
                 payload.withCString { json in sable_push_render(path, json) }
             }
-            guard let result else { self?.finish(content); return }
+            guard let result else {
+                Self.log.error("render failed, showing the generic alert")
+                self?.finish(content)
+                return
+            }
             defer { sable_push_free(result) }
             let bytes = Data(String(cString: result).utf8)
             guard let rendered = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
@@ -67,6 +73,7 @@ final class NotificationService: UNNotificationServiceExtension {
                 return
             }
             if rendered["discard"] as? Bool == true {
+                Self.log.info("discarded by push rules")
                 self?.suppress()
                 return
             }
@@ -350,6 +357,7 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     override func serviceExtensionTimeWillExpire() {
+        Self.log.error("time expired, showing the generic alert")
         lock.lock()
         let content = fallback
         communication = nil

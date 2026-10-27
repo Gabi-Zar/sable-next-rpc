@@ -476,7 +476,8 @@ async fn decrypt_push_event(
         matrix_sdk::deserialized_responses::TimelineEventKind::Decrypted(clear) => {
             let actions = decrypted.push_actions();
             return match actions {
-                None => ColdPush::Unevaluated,
+                None if every_encrypted => ColdPush::Unevaluated,
+                None => ColdPush::Clear(clear.event.json().get().to_owned()),
                 Some(actions) if notifies(actions) => {
                     let noisy = actions
                         .iter()
@@ -515,8 +516,15 @@ async fn decrypt_push_event(
         return undecryptable;
     };
     match notifications.get_notification(&room_id, &event_id).await {
-        Ok(NotificationStatus::Event(item)) if item.actions.is_none() => ColdPush::Unevaluated,
-        Ok(NotificationStatus::Event(item)) if !item.actions.as_deref().is_some_and(notifies) => {
+        Ok(NotificationStatus::Event(item)) if item.actions.is_none() && every_encrypted => {
+            ColdPush::Unevaluated
+        }
+        Ok(NotificationStatus::Event(item))
+            if item
+                .actions
+                .as_deref()
+                .is_some_and(|actions| !notifies(actions)) =>
+        {
             ColdPush::Discard
         }
         Ok(NotificationStatus::Event(item)) => match item.raw_event {
@@ -1164,6 +1172,13 @@ async fn fetch_push_event_with(
         {
             PushFetchView::Discard
         }
+        Ok(NotificationStatus::Event(item))
+            if item.actions.is_none()
+                && item.is_room_encrypted == Some(true)
+                && every_encrypted_event_pushed(client).await =>
+        {
+            PushFetchView::Discard
+        }
         Ok(NotificationStatus::Event(item)) => {
             let Some(mut event) = push_event_view(*item) else {
                 return PushFetchView::Unavailable;
@@ -1334,7 +1349,14 @@ pub(crate) fn gateway(url: &str) -> Result<String, CoreError> {
 }
 
 #[derive(serde::Serialize)]
+struct AlertOut {
+    #[serde(rename = "loc-key")]
+    loc_key: &'static str,
+}
+
+#[derive(serde::Serialize)]
 struct ApsOut {
+    alert: AlertOut,
     #[serde(rename = "mutable-content")]
     mutable_content: u8,
 }
@@ -1346,11 +1368,16 @@ struct DefaultPayloadOut {
     aps: Option<ApsOut>,
 }
 
-/// A gateway that builds the alert itself only starts the iOS notification extension when this asks for it.
-fn default_payload(user_id: String, mutable_content: bool) -> DefaultPayloadOut {
+/// Sygnal's `event_id_only` payload has no alert, and iOS drops a push without one.
+fn default_payload(user_id: String, ios: bool) -> DefaultPayloadOut {
     DefaultPayloadOut {
         user_id,
-        aps: mutable_content.then_some(ApsOut { mutable_content: 1 }),
+        aps: ios.then_some(ApsOut {
+            alert: AlertOut {
+                loc_key: "MSG_FROM_USER",
+            },
+            mutable_content: 1,
+        }),
     }
 }
 
@@ -1513,7 +1540,10 @@ mod tests {
         use super::default_payload;
         assert_eq!(
             serde_json::to_value(default_payload("@a:b".to_owned(), true)).unwrap(),
-            json!({ "user_id": "@a:b", "aps": { "mutable-content": 1 } })
+            json!({
+                "user_id": "@a:b",
+                "aps": { "alert": { "loc-key": "MSG_FROM_USER" }, "mutable-content": 1 }
+            })
         );
         assert_eq!(
             serde_json::to_value(default_payload("@a:b".to_owned(), false)).unwrap(),
@@ -2217,7 +2247,10 @@ mod tests {
             )
             .await;
 
-        assert_eq!(fixture.decrypt("A", &sticker).await, ColdPush::Unevaluated);
+        assert!(matches!(
+            fixture.decrypt("A", &sticker).await,
+            ColdPush::Clear(_)
+        ));
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
         let fixture = ColdFixture::new("fetched-member", cold_room_without_me(), None).await;
@@ -2246,8 +2279,24 @@ mod tests {
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
+    fn pushes_every_encrypted_event() -> Ruleset {
+        let mut rules = Ruleset::server_default(user_id!("@alice:example.org"));
+        rules.override_.insert(
+            serde_json::from_value::<ConditionalPushRule>(json!({
+                "rule_id": ".org.matrix.msc4028.encrypted_event",
+                "default": true,
+                "enabled": true,
+                "conditions": [{"kind": "event_match", "key": "type", "pattern": "m.room.encrypted"}],
+                "actions": ["notify"],
+            }))
+            .unwrap(),
+        );
+        rules
+    }
+
     #[tokio::test]
-    async fn a_cold_push_whose_rules_cannot_be_evaluated_is_not_a_plain_discard() {
+    async fn a_cold_push_whose_rules_cannot_be_evaluated_trusts_the_server_unless_it_pushes_everything()
+     {
         let fixture = ColdFixture::new("unevaluated", cold_room_without_me(), None).await;
         let message = fixture
             .push(
@@ -2255,7 +2304,24 @@ mod tests {
                 json!({"msgtype":"m.text", "body":"hello"}),
             )
             .await;
+        assert!(matches!(
+            fixture.decrypt("A", &message).await,
+            ColdPush::Clear(_)
+        ));
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
+        let fixture = ColdFixture::new(
+            "unevaluated-msc4028",
+            cold_room_without_me(),
+            Some(pushes_every_encrypted_event()),
+        )
+        .await;
+        let message = fixture
+            .push(
+                "m.room.message",
+                json!({"msgtype":"m.text", "body":"hello"}),
+            )
+            .await;
         assert_eq!(fixture.decrypt("A", &message).await, ColdPush::Unevaluated);
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
@@ -2355,19 +2421,12 @@ mod tests {
         );
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
-        let mut rules = Ruleset::server_default(user_id!("@alice:example.org"));
-        rules.override_.insert(
-            serde_json::from_value::<ConditionalPushRule>(json!({
-                "rule_id": ".org.matrix.msc4028.encrypted_event",
-                "default": true,
-                "enabled": true,
-                "conditions": [{"kind": "event_match", "key": "type", "pattern": "m.room.encrypted"}],
-                "actions": ["notify"],
-            }))
-            .unwrap(),
-        );
-        let fixture =
-            ColdFixture::new("needs-key-quietly", cold_room_with_members(), Some(rules)).await;
+        let fixture = ColdFixture::new(
+            "needs-key-quietly",
+            cold_room_with_members(),
+            Some(pushes_every_encrypted_event()),
+        )
+        .await;
         assert_eq!(
             fixture.decrypt_locally(&unknown).await,
             ColdPush::NeedsKey { quietly: true }
@@ -2391,27 +2450,27 @@ mod tests {
         fixture: &ColdFixture,
         event: &serde_json::Value,
     ) -> (wiremock::MockGuard, wiremock::MockGuard) {
-        mount_fetch_with(fixture, event, true).await
+        mount_fetch_with(fixture, event, true, false).await
     }
 
     async fn mount_fetch_with(
         fixture: &ColdFixture,
         event: &serde_json::Value,
         own_member: bool,
+        encrypted: bool,
     ) -> (wiremock::MockGuard, wiremock::MockGuard) {
         use matrix_sdk::ruma::api::client::sync::sync_events::v5;
 
         let mut room = v5::response::Room::new();
         room.initial = Some(true);
         room.timeline = vec![Raw::from_json_string(event.to_string()).unwrap()];
+        let factory = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id!("!cold:example.org"))
+            .sender(user_id!("@sender:example.org"));
         room.required_state = own_member
-            .then(|| {
-                matrix_sdk_test::event_factory::EventFactory::new()
-                    .room(room_id!("!cold:example.org"))
-                    .member(user_id!("@alice:example.org"))
-                    .into_raw()
-            })
+            .then(|| factory.member(user_id!("@alice:example.org")).into_raw())
             .into_iter()
+            .chain(encrypted.then(|| factory.room_encryption().into_raw()))
             .collect();
         let mut response = v5::Response::new("1".to_owned());
         response.rooms =
@@ -2422,12 +2481,14 @@ mod tests {
             .ok(response)
             .mount_as_scoped()
             .await;
-        let encryption = fixture
-            .server
-            .mock_room_state_encryption()
-            .plain()
-            .mount_as_scoped()
-            .await;
+        let encryption = fixture.server.mock_room_state_encryption();
+        let encryption = if encrypted {
+            encryption.encrypted()
+        } else {
+            encryption.plain()
+        }
+        .mount_as_scoped()
+        .await;
         (sync, encryption)
     }
 
@@ -2437,7 +2498,7 @@ mod tests {
         let message = json!({"type": "m.room.message", "event_id": "$unevaluated",
             "sender": "@sender:example.org", "origin_server_ts": 1,
             "content": {"msgtype": "m.text", "body": "rules unknown"}});
-        let _mocks = mount_fetch_with(&fixture, &message, false).await;
+        let _mocks = mount_fetch_with(&fixture, &message, false, false).await;
 
         let fetched = fetch_cold_push_event(
             &fixture.data_dir,
@@ -2452,6 +2513,32 @@ mod tests {
             matches!(fetched, PushFetchView::Event { .. }),
             "{fetched:?}"
         );
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_unevaluated_encrypted_event_is_discarded_when_every_encrypted_event_is_pushed() {
+        let fixture = ColdFixture::new(
+            "fetch-unevaluated-msc4028",
+            cold_room_without_me(),
+            Some(pushes_every_encrypted_event()),
+        )
+        .await;
+        let message = json!({"type": "m.room.message", "event_id": "$unevaluated",
+            "sender": "@sender:example.org", "origin_server_ts": 1,
+            "content": {"msgtype": "m.text", "body": "rules unknown"}});
+        let _mocks = mount_fetch_with(&fixture, &message, false, true).await;
+
+        let fetched = fetch_cold_push_event(
+            &fixture.data_dir,
+            "@alice:example.org",
+            "A",
+            COLD_ROOM,
+            "$unevaluated",
+        )
+        .await;
+
+        assert!(matches!(fetched, PushFetchView::Discard), "{fetched:?}");
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
