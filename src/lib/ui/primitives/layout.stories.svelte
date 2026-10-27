@@ -4,7 +4,7 @@
   import ShieldWarningIcon from 'phosphor-svelte/lib/ShieldWarningIcon';
   import BellIcon from 'phosphor-svelte/lib/BellIcon';
 
-  import Banner from './Banner.svelte';
+  import AlertBanner from './AlertBanner.svelte';
   import Button from './Button.svelte';
   import DialogFrame from './DialogFrame.svelte';
   import FormField from './FormField.svelte';
@@ -21,7 +21,7 @@
 
 <Story name="Banner" asChild>
   <div class="stack">
-    <Banner icon={ShieldWarningIcon}>
+    <AlertBanner icon={ShieldWarningIcon}>
       {#snippet title()}
         <p>"Unverified Device"</p>
       {/snippet}
@@ -32,8 +32,8 @@
         <Button variant="primary" size="small">Verify</Button>
         <Button variant="ghost" size="small">Later</Button>
       {/snippet}
-    </Banner>
-    <Banner icon={ShieldWarningIcon} tone="warning">
+    </AlertBanner>
+    <AlertBanner icon={ShieldWarningIcon} tone="warning">
       {#snippet title()}
         <p>"Update available"</p>
       {/snippet}
@@ -43,7 +43,7 @@
       {#snippet actions()}
         <Button variant="primary" size="small">Restart</Button>
       {/snippet}
-    </Banner>
+    </AlertBanner>
   </div>
 </Story>
 

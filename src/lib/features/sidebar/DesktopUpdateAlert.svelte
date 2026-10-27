@@ -81,7 +81,7 @@
     type AvailableUpdate,
   } from '#lib/platform/updates.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
-  import Banner from '#lib/ui/primitives/Banner.svelte';
+  import AlertBanner from '#lib/ui/primitives/AlertBanner.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import Progress from '#lib/ui/primitives/Progress.svelte';
   import type { Priority, PriorityProvider } from '#lib/features/sidebar/alerts.js';
@@ -105,7 +105,7 @@
   const version = $derived(update?.version ?? '');
 </script>
 
-<Banner icon={ArrowCircleUpIcon}>
+<AlertBanner icon={ArrowCircleUpIcon}>
   {#snippet title()}
     {bannerTitle}
   {/snippet}
@@ -141,4 +141,4 @@
       </Button>
     {/if}
   {/snippet}
-</Banner>
+</AlertBanner>

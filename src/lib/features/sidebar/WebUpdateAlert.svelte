@@ -40,7 +40,7 @@
   import { i18n } from '#lib/i18n.js';
   import { checkForWebUpdate, webUpdateState } from '#lib/platform/web-updates.svelte.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
-  import Banner from '#lib/ui/primitives/Banner.svelte';
+  import AlertBanner from '#lib/ui/primitives/AlertBanner.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import type { Priority, PriorityProvider } from '#lib/features/sidebar/alerts.js';
   import ArrowCircleUpIcon from 'phosphor-svelte/lib/ArrowCircleUpIcon';
@@ -63,7 +63,7 @@
   }
 </script>
 
-<Banner icon={ArrowCircleUpIcon}>
+<AlertBanner icon={ArrowCircleUpIcon}>
   {#snippet title()}
     {i18n.t('settings.updateBannerTitle')}
   {/snippet}
@@ -78,4 +78,4 @@
       {i18n.t('common.install')}
     </Button>
   {/snippet}
-</Banner>
+</AlertBanner>

@@ -42,7 +42,7 @@
   import { openSettingsOver } from '#lib/features/settings/settings-navigation.js';
   import { i18n } from '#lib/i18n.js';
   import { SETTINGS_DEVICES_SECTION } from '#lib/settings/registry.js';
-  import Banner from '#lib/ui/primitives/Banner.svelte';
+  import AlertBanner from '#lib/ui/primitives/AlertBanner.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import { persistedDismissal } from '#lib/ui/persisted-dismissal.svelte.js';
   import type { Priority, PriorityProvider } from '#lib/features/sidebar/alerts.js';
@@ -67,7 +67,7 @@
   }
 </script>
 
-<Banner icon={ShieldWarningIcon} tone="warning">
+<AlertBanner icon={ShieldWarningIcon} tone="warning">
   {#snippet title()}
     {bannerTitle}
   {/snippet}
@@ -84,4 +84,4 @@
       {i18n.t('common.verify')}
     </Button>
   {/snippet}
-</Banner>
+</AlertBanner>
