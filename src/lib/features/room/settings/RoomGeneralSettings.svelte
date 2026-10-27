@@ -255,7 +255,12 @@
         description={i18n.t('room.settingsAvatarHint')}
       >
         {#snippet before()}
-          <Avatar id={roomId} src={room?.avatar_url ?? null} name={room?.name ?? ''} />
+          <Avatar
+            id={roomId}
+            src={room?.avatar_url ?? null}
+            openable={true}
+            name={room?.name ?? ''}
+          />
         {/snippet}
         {#if canEditAvatar}
           <Button size="small" disabled={saving} onclick={() => avatarInput?.click()}>
