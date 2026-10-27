@@ -2069,6 +2069,7 @@ pub enum DiagnosticPushView {
     NoPusher,
     NoGateway,
     Rejected,
+    Unforwarded,
     Sent {
         event_id: String,
         accepted: Option<bool>,

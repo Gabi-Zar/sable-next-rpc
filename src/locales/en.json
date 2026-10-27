@@ -2443,6 +2443,7 @@
     "troubleshootLoopbackReceived": "A test push reached this device.",
     "troubleshootLoopbackMissing": "The test push did not reach this device within 30 seconds.",
     "troubleshootLoopbackRejected": "The gateway rejected this device’s push key. Registering again may fix it.",
+    "troubleshootLoopbackUnforwarded": "{{host}} could not pass the test push on to your push service, which may be down or limiting it. If this keeps happening, use a push service with its own Matrix gateway, such as ntfy or NextPush.",
     "troubleshootLoopbackFailed": "The test push could not be sent.",
     "troubleshootLoopbackHomeserver": "Your homeserver offers no way to send a test push.",
     "troubleshootLoopbackUnsupported": "Test pushes are not supported on this device yet.",

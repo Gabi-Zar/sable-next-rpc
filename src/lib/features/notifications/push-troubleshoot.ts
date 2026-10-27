@@ -154,6 +154,13 @@ async function loopback(
       };
     case 'rejected':
       return { check: 'loopback', state: 'fail', message: 'settings.troubleshootLoopbackRejected' };
+    case 'unforwarded':
+      return {
+        check: 'loopback',
+        state: 'fail',
+        message: 'settings.troubleshootLoopbackUnforwarded',
+        params: { host: host(pusher.gateway ?? '') },
+      };
     case 'sent':
       return (await awaitDiagnostic(deps, push.event_id))
         ? { check: 'loopback', state: 'pass', message: 'settings.troubleshootLoopbackReceived' }

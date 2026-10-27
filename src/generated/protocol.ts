@@ -257,7 +257,7 @@ export type DeviceView = {
 	last_seen_ip: string | null,
 };
 
-export type DiagnosticPushView = { kind: "no_pusher" } | { kind: "no_gateway" } | { kind: "rejected" } | { kind: "sent"; event_id: string; accepted: boolean | null };
+export type DiagnosticPushView = { kind: "no_pusher" } | { kind: "no_gateway" } | { kind: "rejected" } | { kind: "unforwarded" } | { kind: "sent"; event_id: string; accepted: boolean | null };
 
 export type DirectoryRoomType = "rooms" | "spaces";
 

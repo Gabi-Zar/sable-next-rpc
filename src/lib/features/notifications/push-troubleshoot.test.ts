@@ -160,6 +160,16 @@ test('a pushkey the gateway rejects fails the loopback', async () => {
   expect(results.loopback?.message).toBe('settings.troubleshootLoopbackRejected');
 });
 
+test('a gateway that cannot reach the push service fails the loopback', async () => {
+  const results = await run(
+    deps({ sendDiagnostic: () => Promise.resolve({ kind: 'unforwarded' }) })
+  );
+
+  expect(results.loopback?.state).toBe('fail');
+  expect(results.loopback?.message).toBe('settings.troubleshootLoopbackUnforwarded');
+  expect(results.loopback?.params).toEqual({ host: 'push.example' });
+});
+
 test('a gateway a browser cannot read from is a warning, not a failure', async () => {
   const results = await run(deps({ pingGateway: () => Promise.resolve(null) }));
 

@@ -89,8 +89,15 @@ where
     request().await.map_err(CoreError::backend)
 }
 
+pub enum GatewayAnswer {
+    Read(Vec<String>),
+    Opaque,
+    /// The gateway took the push but its push service refused or never answered.
+    Unforwarded,
+}
+
 #[cfg(not(target_family = "wasm"))]
-async fn notify(url: &str, body: &impl Serialize) -> Result<Option<Vec<String>>, CoreError> {
+async fn notify(url: &str, body: &impl Serialize) -> Result<GatewayAnswer, CoreError> {
     #[derive(serde::Deserialize)]
     struct NotifyResponse {
         #[serde(default)]
@@ -111,14 +118,20 @@ async fn notify(url: &str, body: &impl Serialize) -> Result<Option<Vec<String>>,
                 .body(body.clone())
                 .send()
                 .await
-                .and_then(matrix_sdk::reqwest::Response::error_for_status)
         },
         &NOTIFY_RETRY_DELAYS,
     )
     .await?;
+    if matches!(
+        response.status(),
+        http::StatusCode::BAD_GATEWAY | http::StatusCode::GATEWAY_TIMEOUT
+    ) {
+        return Ok(GatewayAnswer::Unforwarded);
+    }
+    let response = response.error_for_status().map_err(CoreError::backend)?;
     let bytes = response.bytes().await.map_err(CoreError::backend)?;
     let answer: NotifyResponse = serde_json::from_slice(&bytes).map_err(CoreError::backend)?;
-    Ok(Some(answer.rejected))
+    Ok(GatewayAnswer::Read(answer.rejected))
 }
 
 #[cfg(target_family = "wasm")]
@@ -131,7 +144,7 @@ extern "C" {
 /// Not reqwest: it parses the response URL with `expect_throw`, and a no-cors
 /// response is opaque with an empty one.
 #[cfg(target_family = "wasm")]
-async fn notify(url: &str, body: &impl Serialize) -> Result<Option<Vec<String>>, CoreError> {
+async fn notify(url: &str, body: &impl Serialize) -> Result<GatewayAnswer, CoreError> {
     let js_error = |error: wasm_bindgen::JsValue| CoreError::from(format!("{error:?}"));
     let init = web_sys::RequestInit::new();
     init.set_method("POST");
@@ -143,7 +156,7 @@ async fn notify(url: &str, body: &impl Serialize) -> Result<Option<Vec<String>>,
     wasm_bindgen_futures::JsFuture::from(js_fetch(&request))
         .await
         .map_err(js_error)?;
-    Ok(None)
+    Ok(GatewayAnswer::Opaque)
 }
 
 pub async fn ping_gateway(url: &str) -> Option<bool> {
@@ -157,8 +170,8 @@ pub async fn ping_gateway(url: &str) -> Option<bool> {
         serde_json::Map::new(),
     );
     match notify(&url, &body).await {
-        Ok(Some(_)) => Some(true),
-        Ok(None) => None,
+        Ok(GatewayAnswer::Read(_) | GatewayAnswer::Unforwarded) => Some(true),
+        Ok(GatewayAnswer::Opaque) => None,
         Err(error) => {
             tracing::warn!(%error, %url, "push gateway probe failed");
             Some(false)
@@ -237,21 +250,20 @@ pub async fn send_diagnostic_push(
 }
 
 #[must_use]
-pub fn delivery(
-    rejected: Option<Vec<String>>,
-    pushkey: &str,
-    event_id: String,
-) -> DiagnosticPushView {
-    match rejected {
-        Some(rejected) if rejected.iter().any(|key| key == pushkey) => DiagnosticPushView::Rejected,
-        Some(_) => DiagnosticPushView::Sent {
+pub fn delivery(answer: GatewayAnswer, pushkey: &str, event_id: String) -> DiagnosticPushView {
+    match answer {
+        GatewayAnswer::Read(rejected) if rejected.iter().any(|key| key == pushkey) => {
+            DiagnosticPushView::Rejected
+        }
+        GatewayAnswer::Read(_) => DiagnosticPushView::Sent {
             event_id,
             accepted: Some(true),
         },
-        None => DiagnosticPushView::Sent {
+        GatewayAnswer::Opaque => DiagnosticPushView::Sent {
             event_id,
             accepted: None,
         },
+        GatewayAnswer::Unforwarded => DiagnosticPushView::Unforwarded,
     }
 }
 
@@ -272,26 +284,50 @@ mod tests {
 
     #[cfg(not(target_family = "wasm"))]
     use super::retry_transient;
-    use super::{DIAGNOSTIC_EVENT_PREFIX, delivery, notify_body};
+    use super::{DIAGNOSTIC_EVENT_PREFIX, GatewayAnswer, delivery, notify_body};
     use crate::protocol::DiagnosticPushView;
 
     #[test]
     fn a_rejected_pushkey_is_reported_and_an_unreadable_answer_is_unknown() {
         assert!(matches!(
-            delivery(Some(vec!["key".to_owned()]), "key", "$e".to_owned()),
+            delivery(
+                GatewayAnswer::Read(vec!["key".to_owned()]),
+                "key",
+                "$e".to_owned()
+            ),
             DiagnosticPushView::Rejected
         ));
         assert!(matches!(
-            delivery(Some(vec!["other".to_owned()]), "key", "$e".to_owned()),
+            delivery(
+                GatewayAnswer::Read(vec!["other".to_owned()]),
+                "key",
+                "$e".to_owned()
+            ),
             DiagnosticPushView::Sent {
                 accepted: Some(true),
                 ..
             }
         ));
         assert!(matches!(
-            delivery(None, "key", "$e".to_owned()),
+            delivery(GatewayAnswer::Opaque, "key", "$e".to_owned()),
             DiagnosticPushView::Sent { accepted: None, .. }
         ));
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[tokio::test]
+    async fn a_gateway_that_cannot_reach_the_push_service_is_unforwarded() {
+        for status in [502, 504] {
+            let server = MockServer::start().await;
+            Mock::given(any())
+                .respond_with(ResponseTemplate::new(status))
+                .mount(&server)
+                .await;
+            let answer = super::notify(&server.uri(), &serde_json::json!({}))
+                .await
+                .unwrap();
+            assert!(matches!(answer, GatewayAnswer::Unforwarded));
+        }
     }
 
     #[test]
