@@ -47,6 +47,21 @@ test('adding a server appends it once', async () => {
   expect(commands.setData).toHaveBeenCalledTimes(1);
 });
 
+test('concurrent additions keep both servers', async () => {
+  let content: unknown = { servers: ['a.org'] };
+  const commands = {
+    data: vi.fn(() => Promise.resolve(content)),
+    setData: vi.fn(({ content: next }: { content: unknown }) => {
+      content = next;
+      return Promise.resolve(null);
+    }),
+  };
+
+  await Promise.all([addServer(commands, 'b.org'), addServer(commands, 'c.org')]);
+
+  expect(content).toEqual({ servers: ['a.org', 'b.org', 'c.org'] });
+});
+
 test('removing a server ignores case', async () => {
   const commands = fakeCommands({ servers: ['a.org', 'b.org'] });
 
