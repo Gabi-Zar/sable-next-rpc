@@ -34,6 +34,6 @@ test.each(['/search', '/search?q=hello&space=!space%3Aexample.org'])(
   'falls back to the lobby for an old saved search route: %s',
   (savedPath) => {
     expect(spaceIndexRedirect(root, savedPath, lobby, joined)).toBe(lobby);
-    expect(spaceNavigationHref(root, savedPath, lobby)).toBe(lobby);
+    expect(spaceNavigationHref(root, savedPath, false, lobby)).toBe(lobby);
   }
 );
