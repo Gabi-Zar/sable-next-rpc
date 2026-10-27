@@ -331,7 +331,9 @@ impl Core {
                 }
             }
         }
-        let stored = client.account().account_data_raw(wanted).await?;
+        let stored = self
+            .with_open_stores(async || client.account().account_data_raw(wanted).await)
+            .await?;
         if stored.is_some() {
             return Ok((stored, false));
         }
@@ -462,7 +464,7 @@ impl Core {
         let mut packs = Vec::new();
         let mut complete = true;
         let mut seen: BTreeSet<OwnedRoomId> = BTreeSet::from([room_id.to_owned()]);
-        let listing = crate::view::listing_spaces(client, room_id).await;
+        let listing = crate::view::listing_spaces(Some(self), client, room_id).await;
         let mut frontier = if listing.is_empty() { parents } else { listing };
 
         for _ in 0..MAX_SPACE_CHAIN {
@@ -482,7 +484,8 @@ impl Core {
                     let found = self
                         .room_packs(client, &space, ImagePackOriginView::Space, None, network)
                         .await;
-                    let listed_in = crate::view::listing_spaces(client, space.room_id()).await;
+                    let listed_in =
+                        crate::view::listing_spaces(Some(self), client, space.room_id()).await;
                     (space.room_id().to_owned(), found, listed_in)
                 })
                 .buffered(STATE_FETCH_CONCURRENCY)
@@ -610,8 +613,11 @@ impl Core {
     ) -> Result<(RoomPackState, bool), matrix_sdk::Error> {
         let mut stored = RoomPackState::default();
         for event_type in [ROOM_EMOTES, ROOM_IMAGE_PACK] {
-            for event in &room
-                .get_state_events(StateEventType::from(event_type))
+            for event in &self
+                .with_open_stores(async || {
+                    room.get_state_events(StateEventType::from(event_type))
+                        .await
+                })
                 .await?
             {
                 let json = match event {
@@ -624,7 +630,10 @@ impl Core {
                 }
             }
         }
-        for event in &room.get_state_events(StateEventType::SpaceParent).await? {
+        for event in &self
+            .with_open_stores(async || room.get_state_events(StateEventType::SpaceParent).await)
+            .await?
+        {
             let json = match event {
                 RawAnySyncOrStrippedState::Sync(raw) => raw.json(),
                 RawAnySyncOrStrippedState::Stripped(raw) => raw.json(),
@@ -714,6 +723,7 @@ impl Core {
         Ok(RoomPacks {
             packs,
             canonical_parents: crate::space_parents::validate(
+                self,
                 client,
                 room.room_id(),
                 &state.canonical_parents,

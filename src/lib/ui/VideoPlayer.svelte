@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DownloadSimpleIcon from 'phosphor-svelte/lib/DownloadSimpleIcon';
   import PlayIcon from 'phosphor-svelte/lib/PlayIcon';
 
   import type { VideoPlaybackView } from '#src/generated/protocol';
@@ -6,10 +7,12 @@
   import { i18n } from '#lib/i18n.js';
   import { savesNatively } from '#lib/platform/files.js';
   import { blurhashDataUrl } from '#lib/ui/blurhash.js';
+  import { downloadUrl } from '#lib/ui/download.js';
   import { cachedMediaUrl, holdMediaUrl, loadMediaUrl, retryMediaUrl } from '#lib/ui/media-url.js';
   import { mediaProgress } from '#lib/ui/media-progress.svelte.js';
   import { mediaRetryDelay } from '#lib/ui/media-retry.js';
   import Button from '#lib/ui/primitives/Button.svelte';
+  import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import { videoPlayback } from '#lib/ui/video-playback.js';
@@ -57,6 +60,7 @@
   let started = $derived(startedSource === source || video.autoplay);
   let awaitingPlay = $derived(!started && url === null);
   let posterFailed = $state<string | null>(null);
+  let unsupportedUrl = $state<string | null>(null);
   let aspectRatio = $derived(
     typeof width === 'number' &&
       typeof height === 'number' &&
@@ -143,6 +147,12 @@
     };
   });
 
+  function download(event: MouseEvent): void {
+    if (url === null || !savesNatively()) return;
+    event.preventDefault();
+    void downloadUrl(url, mediaLabel);
+  }
+
   function play(): void {
     startedSource = source;
   }
@@ -170,6 +180,15 @@
         {retryLabel}
       </Button>
     </span>
+  {:else if url && unsupportedUrl === url}
+    <span class="media-unsupported">
+      {i18n.t('timeline.videoUnsupported')}
+      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- an object URL for the media bytes, not a route -->
+      <LinkButton href={url} download={mediaLabel} size="small" onclick={download}>
+        <DownloadSimpleIcon aria-hidden="true" />
+        {i18n.t('common.download')}
+      </LinkButton>
+    </span>
   {:else if url}
     <video
       class="media-content media-video"
@@ -185,6 +204,9 @@
       height={height ?? undefined}
       style:aspect-ratio={aspectRatio}
       aria-label={mediaLabel}
+      onerror={() => {
+        unsupportedUrl = url;
+      }}
     >
       {filename}
     </video>
@@ -322,6 +344,19 @@
     margin-top: 0;
     object-fit: contain;
     width: 100%;
+  }
+
+  .media-unsupported {
+    align-items: center;
+    color: var(--surface-on-container);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-200);
+    inset: 0;
+    justify-content: center;
+    padding: var(--space-200);
+    position: absolute;
+    text-align: center;
   }
 
   .media-error {

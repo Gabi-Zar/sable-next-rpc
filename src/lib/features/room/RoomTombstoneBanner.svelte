@@ -63,7 +63,7 @@
     margin: 0;
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     :global(.tombstone-banner) {
       align-items: center;
       grid-template-columns: 1fr auto;

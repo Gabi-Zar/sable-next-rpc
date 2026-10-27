@@ -149,7 +149,7 @@
     }
   }
 
-  @media (width >= 48rem) and (any-hover: hover) and (any-pointer: fine) {
+  @media (--app-layout) and (any-hover: hover) and (any-pointer: fine) {
     .timeline {
       --line-height-body: 1.47;
     }

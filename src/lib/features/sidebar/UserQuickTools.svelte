@@ -280,6 +280,13 @@
     width: 100%;
   }
 
+  @media (--compact-height) {
+    .mobile-tools {
+      min-height: calc(var(--control-height-large) + var(--edge-inset-bottom));
+      padding-block: 0 var(--edge-inset-bottom);
+    }
+  }
+
   .mobile-tools-row {
     align-items: center;
     container-type: inline-size;

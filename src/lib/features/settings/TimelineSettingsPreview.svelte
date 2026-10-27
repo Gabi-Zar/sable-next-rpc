@@ -143,7 +143,7 @@
     padding-inline-start: calc(var(--avatar-size-small) + var(--timeline-row-gap));
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .timeline-preview {
       display: flex;
       flex-direction: column;

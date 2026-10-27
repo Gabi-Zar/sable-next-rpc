@@ -72,6 +72,34 @@ function failed(blocked: NonNullable<TimelineItemView['send_state']>): TimelineI
   });
 }
 
+test('an oversized failed echo offers retry and delete using its transaction id', async () => {
+  const onRetrySend = vi.fn();
+  const onCancelSend = vi.fn();
+  render(TimelineItemHarness, {
+    props: {
+      core,
+      item: {
+        item: failed({
+          status: 'failed',
+          error: 'M_TOO_LARGE: PDU exceeds 65535 bytes',
+          recoverable: false,
+          blocked: null,
+        }),
+        collapsed: false,
+        onRetrySend,
+        onCancelSend,
+      },
+    },
+  });
+  await tick();
+
+  expect(screen.getByText('M_TOO_LARGE: PDU exceeds 65535 bytes')).toBeInTheDocument();
+  await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(onRetrySend).toHaveBeenCalledWith('txn');
+  await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+  expect(onCancelSend).toHaveBeenCalledWith('txn');
+});
+
 test('a send blocked by a changed identity explains why and can go out anyway', async () => {
   const onRetrySend = vi.fn();
   render(TimelineItemHarness, {

@@ -996,6 +996,68 @@ mod tests {
         std::fs::remove_dir_all(directory).unwrap();
     }
 
+    #[tokio::test]
+    async fn a_login_without_sliding_sync_for_the_user_is_logged_out() {
+        use matrix_sdk::test_utils::mocks::MatrixMockServer;
+        use wiremock::{
+            Mock, ResponseTemplate,
+            matchers::{method, path},
+        };
+        let server = MatrixMockServer::new().await;
+        Mock::given(method("GET"))
+            .and(path("/_matrix/client/versions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "versions": ["v1.15"],
+                "unstable_features": {"org.matrix.simplified_msc3575": false},
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path(
+                "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync",
+            ))
+            .respond_with(ResponseTemplate::new(401))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/_matrix/client/v3/login"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "user_id": "@alice:example.org", "device_id": "FRESH", "access_token": "token",
+            })))
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/_matrix/client/v3/logout"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let directory = std::env::temp_dir().join(format!(
+            "sable-no-sss-{}",
+            matrix_sdk::ruma::TransactionId::new()
+        ));
+        let (core, _events) = Core::new(
+            directory.to_str().unwrap(),
+            Box::new(crate::store::MemorySessionStore::default()),
+        );
+
+        let outcome = core
+            .login(
+                server.server().uri(),
+                LoginIdentifier::User {
+                    user: "alice".to_owned(),
+                },
+                "pw".to_owned(),
+                None,
+            )
+            .await;
+
+        assert!(matches!(outcome, Err(RpcError::SlidingSyncUnsupported)));
+        assert!(core.accounts().await.unwrap().accounts.is_empty());
+        drop(core);
+        let _ = std::fs::remove_dir_all(directory);
+    }
+
     #[cfg(not(target_family = "wasm"))]
     #[tokio::test]
     async fn a_rejected_reauthentication_logs_the_issued_session_out() {

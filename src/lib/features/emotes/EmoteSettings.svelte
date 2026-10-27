@@ -164,7 +164,12 @@
   }
 </script>
 
-<AppPageShell title={i18n.t('settings.emotes')} density="compact" class="emote-settings-page">
+<AppPageShell
+  maxWidth="56rem"
+  title={i18n.t('settings.emotes')}
+  density="compact"
+  class="emote-settings-page"
+>
   <div class="emote-settings" bind:this={root}>
     {#if failed}
       <Alert variant="critical" role="alert">{i18n.t('emotes.saveFailed')}</Alert>
@@ -221,8 +226,8 @@
                     }}
                   >
                     {roomsPacks.every(isChosen)
-                      ? i18n.t('emotes.unselectAll')
-                      : i18n.t('common.selectAll')}
+                      ? i18n.t('emotes.stopUsingAllEverywhere')
+                      : i18n.t('emotes.useAllEverywhere')}
                   </Button>
                 </div>
               </div>
@@ -269,10 +274,6 @@
 </AppPageShell>
 
 <style>
-  :global(.app-page-shell.emote-settings-page) {
-    max-width: 56rem;
-  }
-
   .emote-settings {
     display: grid;
     gap: var(--space-300);

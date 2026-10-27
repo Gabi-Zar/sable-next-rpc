@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { resolve } from '$app/paths';
   import ChatCircleDotsIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
   import CompassIcon from 'phosphor-svelte/lib/CompassIcon';
@@ -46,9 +47,7 @@
   ];
 </script>
 
-<svelte:head>
-  <title>{i18n.t(titleKey)} - Sable</title>
-</svelte:head>
+<PageTitle title={`${i18n.t(titleKey)} - Sable`} />
 
 <main class="home-page" aria-labelledby="home-title">
   <section class="hero">
@@ -180,7 +179,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .home-page {
       display: block;
     }

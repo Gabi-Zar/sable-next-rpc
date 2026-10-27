@@ -61,7 +61,7 @@ for (const name of [
       });
       expect(overflowing).toEqual([]);
     }).toPass({ timeout: 5_000 });
-    await page.getByRole('button', { name: `Open ${name}'s profile`, exact: true }).click();
+    await page.getByRole('button', { name: `Open ${name}’s profile`, exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 }

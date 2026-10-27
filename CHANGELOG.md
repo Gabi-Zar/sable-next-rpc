@@ -1,5 +1,80 @@
 # Sable Changelog
 
+## 2.2.0 (2026-10-26)
+
+### Features
+
+* Keep other devices quiet while you are using Sable, until you have been away for a chosen time. Receiving a push no longer shows you as online.
+* Add an option to remember approved widget permissions.
+
+### Fixes
+
+* Keep persona changes synchronized across devices without overwriting newer edits (#1393).
+* Fix the account page showing another account's saved status message.
+* Fix background Android calls with hidden previews (#1309).
+* Copy images to the Android clipboard (#1167).
+* Stop Android alerts for filtered notifications (#872).
+* Fix Android notifications ignoring nicknames and showing invisible names.
+* Share audio from selected apps on macOS and from several apps at once on Windows. Keep audio capture from blocking the app.
+* Fix faded edges on the active sign-in card on narrow screens.
+* Show bookmark previews on the first visit (#1027).
+* Fix bridge bot notices showing part of their text as the sender name (#1374).
+* Fix calls ending after a short network loss instead of reconnecting.
+* Download the Chinese search dictionary on demand on desktop and web too, keeping it out of the app bundle.
+* Fix Chinese message search and download its dictionary on demand on Android and iOS.
+* Clarify bulk emoji pack subscriptions (#1329).
+* Fix right-click showing no edit menu in desktop text fields.
+* Add CSP to web builds and block framing and base URL injection.
+* Restore desktop image sharing actions (#1272).
+* Require separate device permissions for embedded sites and reject unsafe download filenames in Electron.
+* Fix controls overlapping the system status area on iPhone Duo.
+* Fix long emoji shortcodes overflowing the picker preview.
+* Fix Explore and voice control alignment (#1296).
+* Speed up touchpad pinch zoom (#1347).
+* Add Ukraine, Palestine, and Cuba app icons and donor badges.
+* Keep bold, italic, strikethrough and links on text that contains inline code.
+* Improve user profile card elements and style.
+* Let the sign-in and setup pages scroll on iOS.
+* Fix iOS alerts for encrypted messages excluded by notification rules.
+* Fix iOS notifications ignoring custom nicknames.
+* Fix crashes when reopening the iOS app after it was in the background.
+* Fix rooms missing from spaces after the iOS app returns from a long time in the background.
+* Fix saving emote and sticker packs whose shortcodes were made by other clients.
+* Keep long subspace names from widening the space lobby on phones.
+* Fix composer formatting shortcuts in Markdown mode (#1366).
+* Fix MAS device management after legacy SSO login and restore the devices dashboard (#1250).
+* Fix accounts migrated from Sable v1 taking a long time or failing to load on a slow connection.
+* Save mobile images with one tap (#1139).
+* Dismiss the mobile keyboard when scrolling the message timeline (#1321).
+* Fix switching spaces on mobile to restore the last visited room.
+* Keep oversized messages in the composer with an error (#1334).
+* Sign in to homeservers that enable Sliding Sync per user instead of reporting it as unsupported.
+* Keep phones compact in landscape (#1215).
+* Fix the desktop window exceeding the available screen area on Phosh and other small displays.
+* Keep saved personas when the catalog reloads (#1136).
+* Keep rooms and subspaces visible when the local space child list is incomplete (#1211).
+* Keep your sidebar space order when returning to the iOS app (#1391).
+* Fix quoting selected lines and toggling quotes with a trailing empty paragraph (#1365).
+* Fix rooms opened at the latest message staying unread.
+* Make the FOSS Android APK reproducible from the release tag, and ship it without Sentry.
+* respect 24 hour format in profile cards
+* Restore the room title after closing settings (#1333).
+* Wrap checkable menu option labels to avoid a missing text-node crash (#1341).
+* Fix dropdown control alignment with text fields and spacing around wrapped options.
+* Show push notification content after an app update. Fix profiles, room versions and web push on servers that send both profile capability names. Stop offering Founder as an assignable role.
+* Preserve saved sessions after temporary storage and token-refresh failures. Fix Electron crashes during shutdown and when its terminal closes.
+* Fix sidebar items bouncing when hovered near their edges.
+* Bring back the sidebar hover nudge without the bounce near item edges (#1282).
+* Sign the RPM packages so dnf can install them from the package registry (#1311).
+* Fix returning to the default light and dark themes with settings sync enabled.
+* Close tombstoned rooms without a replacement (#1161).
+* Offer a download when a video can't be played on this device instead of showing a blank player.
+* Fix missing thumbnails when sending videos individually or in galleries.
+* View room images and your own profile images at full size (#1377).
+* Fix invisible display names showing instead of the user ID.
+* Keep all composer formatting controls reachable on narrow desktop displays (#1209).
+* Fix YouTube embeds failing with error 153 in the desktop apps.
+
 ## 2.1.6 (2026-10-23)
 
 ### Fixes

@@ -22,7 +22,8 @@ export type MessageContent = Extract<
       | 'location'
       | 'live_location'
       | 'poll'
-      | 'redacted';
+      | 'redacted'
+      | 'unable_to_decrypt';
   }
 >;
 

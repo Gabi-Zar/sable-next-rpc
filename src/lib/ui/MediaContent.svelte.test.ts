@@ -289,6 +289,29 @@ test.each([
   }
 );
 
+test('a video the platform cannot decode offers a download instead', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  render(MediaContent, {
+    props: {
+      kind: 'video',
+      source: 'mxc://example.org/hevc',
+      mime: 'video/mp4',
+      filename: 'clip.mp4',
+    },
+  });
+
+  await settle();
+  await userEvent.click(screen.getByRole('button', { name: /^Play / }));
+  await settle();
+
+  document.querySelector('video')?.dispatchEvent(new Event('error'));
+  await settle();
+
+  expect(document.querySelector('video')).toBeNull();
+  expect(screen.getByText(/can't be played on this device/)).toBeTruthy();
+  expect(document.querySelector('a[download="clip.mp4"]')).not.toBeNull();
+});
+
 test('voice message speed button cycles the playback rate', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   render(MediaContent, {

@@ -483,7 +483,7 @@ html {
   --avatar-size-medium: var(--avatar-size-400);
   --avatar-size-large: var(--avatar-size-500);
   --avatar-identity-on-plate: #24232c;
-  --focus-ring-width: var(--border-width-600);
+  --focus-ring-width: var(--border-width-400);
   --focus-ring-offset: 0;
   --target: 2.5rem;
   --target-hit: 2.5rem;
@@ -520,6 +520,7 @@ html {
   --text-scale: 1;
   --titlebar-height: 0px;
   --header-height: 3.5rem;
+  --page-max-width: 52rem;
   --room-column-min-width: 24rem;
   --side-panel-min-width: 14rem;
   --resize-handle: 4px;

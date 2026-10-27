@@ -540,6 +540,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y build-essential libclang-dev libpipewire-0.3-dev pkg-config rpm
+          # The Electron binary links these even under ELECTRON_RUN_AS_NODE.
+          asound=$(apt-cache show libasound2t64 >/dev/null 2>&1 && echo libasound2t64 || echo libasound2)
+          sudo apt-get install --no-install-recommends -y libnss3 libgtk-3-0 libgbm1 "$asound"
       - name: Set up app
         uses: ./.forgejo/actions/setup
         with:
@@ -576,7 +579,7 @@ jobs:
             upload "$deb" "$api/debian/pool/$channel/main/upload"
           done
           for rpm in electron/release/*.rpm; do
-            upload "$rpm" "$api/rpm/$channel/upload"
+            upload "$rpm" "$api/rpm/$channel/upload?sign=true"
           done
 
   electron-macos:

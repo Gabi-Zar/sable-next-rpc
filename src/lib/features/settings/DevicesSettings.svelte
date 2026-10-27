@@ -297,7 +297,12 @@
   </IconButton>
 {/snippet}
 
-<AppPageShell title={i18n.t('settings.devicesTitle')} density="compact" class="devices-settings">
+<AppPageShell
+  maxWidth="56rem"
+  title={i18n.t('settings.devicesTitle')}
+  density="compact"
+  class="devices-settings"
+>
   {#if error}<Alert class="settings-error" variant="critical" role="alert">{error}</Alert>{/if}
 
   {#if newRecoveryKey}
@@ -694,10 +699,6 @@
   .device-seen {
     color: var(--surface-var-on-container);
     font-size: var(--font-size-small);
-  }
-
-  :global(.app-page-shell.devices-settings) {
-    max-width: 56rem;
   }
 
   .settings-stack {

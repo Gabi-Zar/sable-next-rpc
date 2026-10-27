@@ -15,6 +15,34 @@ function directory() {
   return { items: new EventItems({ eventItems }, () => '@me:x'), eventItems };
 }
 
+test('a cold derived reader updates when its first fetch completes', async () => {
+  const response = Promise.withResolvers<TimelineItemView[]>();
+  const eventItems = vi.fn(() => response.promise);
+  const items = new EventItems({ eventItems }, () => '@me:x');
+  let latest: TimelineItemView | null = null;
+  let pending = false;
+  const stop = $effect.root(() => {
+    const shown = $derived(items.get('!r', '$a') ?? null);
+    $effect(() => {
+      latest = shown;
+      pending = items.pending('!r', '$a');
+    });
+  });
+  flushSync();
+  await vi.waitFor(() => {
+    flushSync();
+    expect(pending).toBe(true);
+  });
+
+  response.resolve([item('$a')]);
+  await vi.waitFor(() => {
+    flushSync();
+    expect(latest).toEqual(item('$a'));
+    expect(pending).toBe(false);
+  });
+  stop();
+});
+
 test('a reader re-runs only for the event it reads', async () => {
   const { items } = directory();
   let runs = 0;
@@ -35,6 +63,16 @@ test('a reader re-runs only for the event it reads', async () => {
   flushSync();
   expect(runs).toBe(settled);
   stop();
+});
+
+test('pending reads do not evict cached events or request missing events', () => {
+  const { items, eventItems } = directory();
+  items.put('!r', [item('$cached')]);
+  for (let i = 0; i < MAX_EVENT_ITEMS; i++) {
+    expect(items.pending('!r', `$missing${i}`)).toBe(false);
+  }
+  expect(items.peek('!r', '$cached')).toEqual(item('$cached'));
+  expect(eventItems).not.toHaveBeenCalled();
 });
 
 test('the cache keeps the most recently used events', () => {

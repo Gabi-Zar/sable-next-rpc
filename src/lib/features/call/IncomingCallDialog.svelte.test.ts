@@ -35,7 +35,7 @@ beforeEach(() => {
   const matchMedia = window.matchMedia.bind(window);
   vi.spyOn(window, 'matchMedia').mockImplementation((query) => {
     const media = matchMedia(query);
-    if (query === BREAKPOINTS.appLayout) Object.defineProperty(media, 'matches', { value: false });
+    if (query === BREAKPOINTS.wide) Object.defineProperty(media, 'matches', { value: false });
     return media;
   });
 });

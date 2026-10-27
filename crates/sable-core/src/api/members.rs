@@ -57,7 +57,8 @@ impl Handler for ListParams {
         let room = core.room(&room_id).await?;
         let filter = membership_filter(&self.memberships);
         let members = if core.members_recently_loaded(&room_id) {
-            room.members_no_sync(filter).await
+            core.with_open_stores(async || room.members_no_sync(filter).await)
+                .await
         } else {
             room.members(filter).await
         }
@@ -65,7 +66,11 @@ impl Handler for ListParams {
         if room.are_members_synced() {
             core.note_members_loaded(&room_id);
         }
-        let power_levels = if room.power_levels().await.is_err() {
+        let power_levels = if core
+            .with_open_stores(async || room.power_levels().await)
+            .await
+            .is_err()
+        {
             let content = core
                 .room_state_event_content(room_id, "m.room.power_levels".to_owned(), String::new())
                 .await
@@ -125,10 +130,9 @@ impl Handler for PowerLevelsParams {
     type Ok = RoomPowerLevelsView;
 
     async fn run(self, core: &Arc<Core>) -> Result<RoomPowerLevelsView, RpcError> {
+        let room = core.room(&self.room_id).await?;
         let power_levels = core
-            .room(&self.room_id)
-            .await?
-            .power_levels_or_default()
+            .with_open_stores(async || room.power_levels_or_default().await)
             .await;
 
         Ok(view::room_power_levels(&power_levels))

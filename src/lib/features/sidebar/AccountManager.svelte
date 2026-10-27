@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
@@ -43,12 +44,15 @@
   import SignOutWarningDialog from './SignOutWarningDialog.svelte';
   import FormField from '#lib/ui/primitives/FormField.svelte';
   import ProfileCard from '#lib/ui/primitives/ProfileCard.svelte';
+  import RoomMediaViewerDialog from '#lib/features/room/media/RoomMediaViewerDialog.svelte';
+  import { RoomMediaViewer } from '#lib/features/room/room-media-viewer.svelte.js';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
   import { AccountDirectory } from './account-directory.svelte.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   const core = useCoreClient();
+  const mediaViewer = new RoomMediaViewer(null);
   const presenceStore = usePresenceStore();
   const accountProfiles = new AccountDirectory(core);
   const signOut = new SignOutGuard(core);
@@ -169,9 +173,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{i18n.t('nav.manageAccounts')} - Sable</title>
-</svelte:head>
+<PageTitle title={`${i18n.t('nav.manageAccounts')} - Sable`} />
 
 {#snippet statusBubble()}
   <button
@@ -220,6 +222,7 @@
       nameColorLight={profile?.name_color_light}
       nameColorDark={profile?.name_color_dark}
       crest={preferences.sendPresence ? statusBubble : undefined}
+      onAvatarClick={(source, name) => mediaViewer.openProfile(source, name)}
       actions={editProfile}
     />
     <Button variant="secondary" block onclick={() => void goto(resolve('settings'))}
@@ -396,6 +399,8 @@
     </DialogActions>
   </div>
 </DialogFrame>
+
+<RoomMediaViewerDialog viewer={mediaViewer} />
 
 <style>
   .account-manager {

@@ -46,6 +46,7 @@ impl ParentClaim {
 }
 
 pub(crate) async fn validate(
+    core: &crate::Core,
     client: &matrix_sdk::Client,
     child: &RoomId,
     claims: &[ParentClaim],
@@ -67,7 +68,11 @@ pub(crate) async fn validate(
                 StateEventType::RoomPowerLevels,
                 StateEventType::SpaceChild,
             ] {
-                for raw in room.get_state_events(kind).await.unwrap_or_default() {
+                for raw in core
+                    .with_open_stores(async || room.get_state_events(kind).await)
+                    .await
+                    .unwrap_or_default()
+                {
                     let raw = match raw {
                         RawAnySyncOrStrippedState::Sync(raw) => raw.json().to_owned(),
                         RawAnySyncOrStrippedState::Stripped(raw) => raw.json().to_owned(),

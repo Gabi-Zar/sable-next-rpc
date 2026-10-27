@@ -9,6 +9,7 @@
   import { profileSupporterAppearance } from '#lib/supporter/variants.js';
 
   import { i18n } from '#lib/i18n.js';
+  import { preferences } from '#lib/settings/preferences.svelte.js';
   import ProfileCard from '#lib/ui/primitives/ProfileCard.svelte';
 
   import { senderColor } from '../timeline/timeline-format';
@@ -58,6 +59,7 @@
       const time = new Intl.DateTimeFormat(undefined, {
         hour: 'numeric',
         minute: '2-digit',
+        hour12: !preferences.hour24Clock,
         timeZone: timezone,
       }).format(new Date());
       return { time, timezone };
@@ -72,7 +74,7 @@
 <ProfileCard
   {displayName}
   {variant}
-  userId={accountLabel}
+  userId={accountId}
   avatarUrl={profile.avatar_url}
   avatarLabel={i18n.t('timeline.profileAvatar', { name: displayName })}
   {onAvatarClick}

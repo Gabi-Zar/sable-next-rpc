@@ -8,6 +8,7 @@ import type { CoreClient } from '#lib/core/client.svelte.js';
 import { createMedia } from '#lib/core/media.svelte.js';
 import { useCoreClient } from '#lib/core/context.js';
 import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
+import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
 import DoubleTapReaction from './DoubleTapReaction.svelte';
 
 vi.mock('#lib/core/context.js', () => ({ useCoreClient: vi.fn() }));
@@ -59,7 +60,9 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
     const matchMedia = window.matchMedia.bind(window);
     vi.spyOn(window, 'matchMedia').mockImplementation((query) => {
       const media = matchMedia(query);
-      Object.defineProperty(media, 'matches', { value: layout === 'desktop' });
+      if (query === BREAKPOINTS.wide) {
+        Object.defineProperty(media, 'matches', { value: layout === 'desktop' });
+      }
       return media;
     });
     const call = vi.fn((method: string, params: { room_id?: string }) => {

@@ -783,15 +783,15 @@ export class ComposerEditor {
       compositionInputRules(),
       ...(rich ? [autolinks(), keymap(formattingKeymap)] : []),
       shortcutKeymap({
-        ...(rich
-          ? {
-              ...formattingShortcuts,
-              'composer.link': () => {
-                this.options.onLinkRequest();
-                return true;
-              },
-            }
-          : {}),
+        ...Object.fromEntries(
+          Object.entries(formattingShortcuts).map(([id, action]) => [
+            id,
+            () => {
+              this.format(action);
+              return true;
+            },
+          ])
+        ),
         'composer.toggleSource': () => {
           this.options.onSourceToggle(this.toggleSource());
           return true;

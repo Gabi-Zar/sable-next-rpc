@@ -10,11 +10,12 @@ export class RoomMediaViewer {
   items = $derived.by(() =>
     this.standaloneItem
       ? [this.standaloneItem]
-      : (this.panelItems ?? timelineMediaItems(this.timelineItems()))
+      : (this.panelItems ??
+        (this.timelineItems === null ? [] : timelineMediaItems(this.timelineItems())))
   );
   #standaloneSequence = 0;
 
-  constructor(private readonly timelineItems: () => readonly TimelineItemView[]) {}
+  constructor(private readonly timelineItems: (() => readonly TimelineItemView[]) | null) {}
 
   open(eventId: string): void {
     this.standaloneItem = null;
@@ -33,6 +34,25 @@ export class RoomMediaViewer {
     const standalone = { ...item, eventId: `standalone-${String(++this.#standaloneSequence)}` };
     this.standaloneItem = standalone;
     this.eventId = standalone.eventId;
+  }
+
+  openProfile(source: string, displayName: string): void {
+    this.openStandalone({
+      kind: 'image',
+      filename: displayName,
+      caption: null,
+      html: null,
+      source,
+      mime: null,
+      width: null,
+      height: null,
+      size: null,
+      blurhash: null,
+      thumbnail: null,
+      spoiler: null,
+      animated: null,
+      sender: displayName,
+    });
   }
 
   close(): void {

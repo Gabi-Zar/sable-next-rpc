@@ -3066,6 +3066,20 @@ mod tests {
         (data_dir, store_dir, store)
     }
 
+    /// The seeding client keeps fetching keys in the background after it is dropped, so
+    /// a count taken right away would also take in those late requests.
+    async fn settled_request_count(server: &MatrixMockServer) -> usize {
+        let mut count = server.server().received_requests().await.unwrap().len();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            let now = server.server().received_requests().await.unwrap().len();
+            if now == count {
+                return count;
+            }
+            count = now;
+        }
+    }
+
     async fn saved_refresh_token(store: &FileSessionStore, store_dir: &std::path::Path) -> String {
         let saved = store.load().await.unwrap().unwrap();
         let (accounts, _) =
@@ -3152,7 +3166,7 @@ mod tests {
             .unwrap()
             .path();
         std::fs::write(&path, b"corrupt tokens").unwrap();
-        let requests = server.server().received_requests().await.unwrap().len();
+        let requests = settled_request_count(&server).await;
 
         assert!(
             restore_push_client(&store_dir, OAUTH_USER, OAUTH_DEVICE)

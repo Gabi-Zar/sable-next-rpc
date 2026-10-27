@@ -34,7 +34,10 @@
   .auth-page {
     display: flex;
     flex-direction: column;
-    min-height: 100%;
+    height: 100%;
+
+    /* The iOS edge-to-edge plugin pins the document scroll offset at zero. */
+    overflow-y: auto;
     padding: var(--space-700) var(--space-600);
     padding-block: calc(var(--space-700) + var(--safe-top))
       calc(var(--space-700) + var(--safe-bottom));
@@ -72,7 +75,7 @@
     margin: 0;
   }
 
-  @media (width <= 48rem) {
+  @media (--compact-layout) {
     .auth-content {
       grid-template-rows: clamp(9rem, 18dvh, 12rem) auto;
     }

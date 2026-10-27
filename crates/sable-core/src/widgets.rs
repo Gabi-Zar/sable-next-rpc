@@ -356,8 +356,8 @@ impl Core {
         state_key: Option<&str>,
     ) -> Result<Vec<serde_json::Value>, RpcError> {
         let room = self.room(room_id).await?;
-        let events = room
-            .get_state_events(event_type.into())
+        let events = self
+            .with_open_stores(async || room.get_state_events(event_type.into()).await)
             .await
             .or_failed(self, "room_state_events_raw")?;
 
@@ -590,10 +590,9 @@ impl Core {
         room_id: &OwnedRoomId,
         event_type: &str,
     ) -> Result<Option<Value>, RpcError> {
+        let room = self.room(room_id).await?;
         let event = self
-            .room(room_id)
-            .await?
-            .account_data(event_type.into())
+            .with_open_stores(async || room.account_data(event_type.into()).await)
             .await
             .or_failed(self, "room_account_data_raw")?;
         Ok(event.and_then(|raw| {

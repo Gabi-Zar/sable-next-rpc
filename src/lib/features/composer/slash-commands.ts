@@ -2,6 +2,7 @@ import type {
   MemberView,
   MessageKind,
   PerMessageProfileView,
+  PersonaView,
   SlashInvocation,
   Rpc,
 } from '#src/generated/protocol';
@@ -235,19 +236,21 @@ async function addPersona(
   const avatar = persona.avatar ?? existing?.avatar_url ?? null;
   if (avatar !== null && !MXC_URI.test(avatar)) return usageError(name);
 
+  const next = {
+    id,
+    display_name: persona.name ?? existing?.display_name ?? id,
+    avatar_url: avatar,
+    pronouns: existing?.pronouns ?? [],
+    color_on_light: existing?.color_on_light ?? null,
+    color_on_dark: existing?.color_on_dark ?? null,
+    triggers: existing?.triggers ?? [],
+    pluralkit: existing?.pluralkit ?? null,
+    last_used: existing?.last_used ?? null,
+    alternate_avatars: existing?.alternate_avatars ?? null,
+  } satisfies PersonaView;
   await rpc.personas.save({
-    persona: {
-      id,
-      display_name: persona.name ?? existing?.display_name ?? id,
-      avatar_url: avatar,
-      pronouns: existing?.pronouns ?? [],
-      color_on_light: existing?.color_on_light ?? null,
-      color_on_dark: existing?.color_on_dark ?? null,
-      triggers: existing?.triggers ?? [],
-      pluralkit: existing?.pluralkit ?? null,
-      last_used: existing?.last_used ?? null,
-      alternate_avatars: existing?.alternate_avatars ?? null,
-    },
+    persona: next,
+    base_persona: existing ?? next,
     previous_id: existing ? id : null,
   });
   return DONE;
@@ -266,9 +269,15 @@ async function addPersonaProxy(
       ...persona,
       triggers: [
         ...persona.triggers,
-        { prefix: proxy.prefix, suffix: proxy.suffix, keep_trigger: false },
+        {
+          prefix: proxy.prefix,
+          suffix: proxy.suffix,
+          keep_trigger: false,
+          alternate_avatar_id: null,
+        },
       ],
     },
+    base_persona: persona,
     previous_id: proxy.id,
   });
   return DONE;

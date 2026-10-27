@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::api::rooms::DirectoryRoomType;
 use crate::api::rooms::PublicRoomsParams;
 use matrix_sdk::config::RequestConfig;
-use matrix_sdk::deserialized_responses::SyncOrStrippedState;
+use matrix_sdk::deserialized_responses::{RawAnySyncOrStrippedState, SyncOrStrippedState};
 use matrix_sdk::room::Room;
 use matrix_sdk::ruma::SpaceChildOrder;
 use matrix_sdk::ruma::api::FeatureFlag;
@@ -11,19 +11,16 @@ use matrix_sdk::ruma::api::client::directory::get_public_rooms_filtered;
 use matrix_sdk::ruma::api::client::membership::joined_rooms;
 use matrix_sdk::ruma::api::client::space::get_hierarchy;
 use matrix_sdk::ruma::directory::{Filter, RoomTypeFilter};
-use matrix_sdk::ruma::events::AnySyncTimelineEvent;
 use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::events::room::join_rules::{AllowRule, JoinRule, RoomJoinRulesEventContent};
 use matrix_sdk::ruma::events::room::tombstone::RoomTombstoneEventContent;
 use matrix_sdk::ruma::events::space::child::SpaceChildEventContent;
-use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{
     OwnedEventId, OwnedRoomId, OwnedServerName, RoomId, RoomOrAliasId, ServerName, UInt,
 };
 use matrix_sdk::send_queue::SendHandle;
 use matrix_sdk::{Client, EncryptionState, RoomMemberships, RoomState};
 use matrix_sdk_base::{RawStateEventWithKeys, RoomInfo, RoomInfoNotableUpdateReasons};
-use serde::{Deserialize, Serialize};
 
 use crate::ResultExt;
 use crate::api::rooms::PublicRoomsOk;
@@ -39,60 +36,47 @@ const DIRECTORY_PAGE_SIZE: u32 = 30;
 const OWN_MEMBER_FILL_MAX_MEMBERS: u64 = 50;
 const MEMBERSHIP_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// A tombstone whose replacement room is empty; everything else in it is kept as received.
-#[derive(Deserialize, Serialize)]
-struct UnreadableTombstone {
-    #[serde(rename = "type")]
-    kind: String,
-    state_key: String,
-    content: TombstoneContent,
-    #[serde(flatten)]
-    extra: serde_json::Map<String, serde_json::Value>,
-}
+const TOMBSTONE_MIGRATION_KEY: &[u8] = b"sable.migrations.tombstones";
 
-#[derive(Deserialize, Serialize)]
-struct TombstoneContent {
-    #[serde(default)]
-    replacement_room: String,
-    #[serde(flatten)]
-    extra: serde_json::Map<String, serde_json::Value>,
-}
+pub(crate) async fn migrate_saved_tombstones(client: &Client) -> Result<(), matrix_sdk::Error> {
+    let store = client.state_store();
+    if store
+        .get_custom_value(TOMBSTONE_MIGRATION_KEY)
+        .await?
+        .is_some()
+    {
+        return Ok(());
+    }
 
-pub(crate) fn repair_unreadable_tombstones(
-    client: &Client,
-) -> matrix_sdk::event_handler::EventHandlerHandle {
-    client.add_event_handler(|raw: Raw<AnySyncTimelineEvent>, room: Room| async move {
-        if raw.get_field::<String>("type").ok().flatten().as_deref() != Some("m.room.tombstone") {
-            return;
-        }
-        let Ok(mut event) = raw.deserialize_as_unchecked::<UnreadableTombstone>() else {
-            return;
-        };
-        let empty_replacement = event.kind == "m.room.tombstone"
-            && event.state_key.is_empty()
-            && event.content.replacement_room.is_empty();
-        if !empty_replacement || room.is_tombstoned() {
-            return;
-        }
-        event.content.replacement_room = room.room_id().to_string();
-        let Ok(sanitized) = Raw::new(&event) else {
-            return;
-        };
-        let Some(mut keys) =
-            RawStateEventWithKeys::try_from_raw_state_event(sanitized.cast_unchecked())
+    for room in client.rooms() {
+        let Some(raw) = room
+            .get_state_event(StateEventType::RoomTombstone, "")
+            .await?
         else {
-            return;
+            continue;
         };
-        let saved = room
-            .update_and_save_room_info(|mut info| {
-                info.handle_state_event(&mut keys);
-                (info, RoomInfoNotableUpdateReasons::NONE)
-            })
-            .await;
-        if let Err(error) = saved {
-            tracing::warn!("could not record an unreadable tombstone: {error}");
-        }
-    })
+        room.update_and_save_room_info(|mut info| {
+            match raw {
+                RawAnySyncOrStrippedState::Sync(raw) => {
+                    if let Some(mut event) = RawStateEventWithKeys::try_from_raw_state_event(raw) {
+                        info.handle_state_event(&mut event);
+                    }
+                }
+                RawAnySyncOrStrippedState::Stripped(raw) => {
+                    if let Some(mut event) = RawStateEventWithKeys::try_from_raw_state_event(raw) {
+                        info.handle_stripped_state_event(&mut event);
+                    }
+                }
+            }
+            (info, RoomInfoNotableUpdateReasons::NONE)
+        })
+        .await?;
+    }
+
+    store
+        .set_custom_value_no_read(TOMBSTONE_MIGRATION_KEY, vec![1])
+        .await?;
+    Ok(())
 }
 
 pub(crate) async fn reconcile_memberships(client: &Client) -> Result<(), matrix_sdk::Error> {
@@ -789,7 +773,6 @@ mod tests {
 
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
-        let _handle = super::repair_unreadable_tombstones(&client);
         let room_id = room_id!("!archived:example.org");
         server
             .sync_room(
@@ -808,10 +791,10 @@ mod tests {
 
         let room = client.get_room(room_id).unwrap();
         assert!(room.is_tombstoned());
+        assert!(room.successor_room().is_none());
     }
 
-    #[tokio::test]
-    async fn a_tombstone_without_a_replacement_still_closes_the_room() {
+    async fn sync_archived_room() -> (matrix_sdk::Client, matrix_sdk::Room) {
         use matrix_sdk::ruma::{room_id, serde::Raw};
         use matrix_sdk::test_utils::mocks::MatrixMockServer;
         use matrix_sdk_test::JoinedRoomBuilder;
@@ -819,25 +802,119 @@ mod tests {
 
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
-        let _handle = super::repair_unreadable_tombstones(&client);
         let room_id = room_id!("!archived:example.org");
         server
             .sync_room(
                 &client,
-                JoinedRoomBuilder::new(room_id).add_timeline_event(
+                JoinedRoomBuilder::new(room_id).add_state_event(
                     Raw::new(&json!({
                         "type": "m.room.tombstone", "state_key": "", "event_id": "$archive",
                         "sender": "@admin:example.org", "origin_server_ts": 1,
-                        "content": {"body": "This room has been archived."}
+                        "content": {"body": "Archived"}
                     }))
                     .unwrap()
                     .cast_unchecked(),
                 ),
             )
             .await;
-
         let room = client.get_room(room_id).unwrap();
+        (client, room)
+    }
+
+    #[tokio::test]
+    async fn a_synced_tombstone_without_a_replacement_closes_the_room() {
+        let (client, room) = sync_archived_room().await;
         assert!(room.is_tombstoned());
+        assert!(room.successor_room().is_none());
+        let row = crate::view::listless_room_list_item(
+            room,
+            &matrix_sdk::ruma::push::Ruleset::server_default(client.user_id().unwrap()),
+        )
+        .await;
+        assert!(row.is_tombstoned);
+    }
+
+    #[tokio::test]
+    async fn the_migration_restores_a_dropped_tombstone() {
+        let (client, room) = sync_archived_room().await;
+        room.update_and_save_room_info(|info| {
+            let mut saved = serde_json::to_value(info).unwrap();
+            saved["base_info"]["tombstone"] = serde_json::Value::Null;
+            (
+                serde_json::from_value(saved).unwrap(),
+                super::RoomInfoNotableUpdateReasons::NONE,
+            )
+        })
+        .await
+        .unwrap();
+        assert!(!room.is_tombstoned());
+
+        super::migrate_saved_tombstones(&client).await.unwrap();
+        assert!(room.is_tombstoned());
+        assert!(room.successor_room().is_none());
+        let saved = client
+            .state_store()
+            .get_room_infos(&matrix_sdk::store::RoomLoadSettings::default())
+            .await
+            .unwrap();
+        assert_eq!(
+            saved[0].tombstone().unwrap().body.as_deref(),
+            Some("Archived")
+        );
+    }
+
+    #[tokio::test]
+    async fn the_migration_removes_the_own_room_successor() {
+        let (client, room) = sync_archived_room().await;
+        room.update_and_save_room_info(|info| {
+            let mut saved = serde_json::to_value(info).unwrap();
+            saved["base_info"]["tombstone"]["PossiblyRedacted"]["content"]["replacement_room"] =
+                serde_json::json!(room.room_id());
+            (
+                serde_json::from_value(saved).unwrap(),
+                super::RoomInfoNotableUpdateReasons::NONE,
+            )
+        })
+        .await
+        .unwrap();
+        assert_eq!(room.successor_room().unwrap().room_id, room.room_id());
+
+        super::migrate_saved_tombstones(&client).await.unwrap();
+        assert!(room.is_tombstoned());
+        assert!(room.successor_room().is_none());
+        let saved = client
+            .state_store()
+            .get_room_infos(&matrix_sdk::store::RoomLoadSettings::default())
+            .await
+            .unwrap();
+        assert!(saved[0].tombstone().unwrap().replacement_room.is_none());
+    }
+
+    #[tokio::test]
+    async fn the_tombstone_migration_does_not_run_twice() {
+        let (client, room) = sync_archived_room().await;
+        super::migrate_saved_tombstones(&client).await.unwrap();
+        assert_eq!(
+            client
+                .state_store()
+                .get_custom_value(super::TOMBSTONE_MIGRATION_KEY)
+                .await
+                .unwrap(),
+            Some(vec![1]),
+        );
+        room.update_and_save_room_info(|info| {
+            let mut saved = serde_json::to_value(info).unwrap();
+            saved["base_info"]["tombstone"] = serde_json::Value::Null;
+            (
+                serde_json::from_value(saved).unwrap(),
+                super::RoomInfoNotableUpdateReasons::NONE,
+            )
+        })
+        .await
+        .unwrap();
+
+        super::migrate_saved_tombstones(&client).await.unwrap();
+        assert!(!room.is_tombstoned());
     }
 
     #[tokio::test]

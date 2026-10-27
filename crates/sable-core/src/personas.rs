@@ -32,6 +32,14 @@ const SELECTION_PREFIX: &str = "fyi.cisnt.permessageprofile";
 
 pub(crate) const PER_MESSAGE_PROFILE: &str = "com.beeper.per_message_profile";
 
+pub(crate) fn is_persona_event(event_type: &str) -> bool {
+    event_type == CATALOG_V3
+        || event_type == CATALOG_V2
+        || event_type
+            .strip_prefix(SELECTION_PREFIX)
+            .is_some_and(|scope| scope.starts_with('.'))
+}
+
 fn selection_event(scope: &str) -> GlobalAccountDataEventType {
     GlobalAccountDataEventType::from(format!("{SELECTION_PREFIX}.{scope}"))
 }
@@ -48,6 +56,9 @@ struct TriggerIn {
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(default)]
     keep_trigger: Option<bool>,
+    #[serde_as(as = "NonBlankVerbatim")]
+    #[serde(default, rename = "net.f0rest.alternate_avatar_id")]
+    alternate_avatar_id: Option<String>,
 }
 
 impl TriggerIn {
@@ -60,6 +71,7 @@ impl TriggerIn {
             prefix: self.prefix,
             suffix: self.suffix,
             keep_trigger: self.keep_trigger.unwrap_or(false),
+            alternate_avatar_id: self.alternate_avatar_id,
         })
     }
 }
@@ -88,6 +100,7 @@ impl TriggerV2In {
                 prefix: trigger.prefix,
                 suffix: trigger.suffix,
                 keep_trigger: false,
+                alternate_avatar_id: None,
             });
         let prefixes = self
             .prefix
@@ -97,6 +110,7 @@ impl TriggerV2In {
                 prefix: Some(prefix),
                 suffix: None,
                 keep_trigger: false,
+                alternate_avatar_id: None,
             });
         let suffixes = self
             .suffix
@@ -106,6 +120,7 @@ impl TriggerV2In {
                 prefix: None,
                 suffix: Some(suffix),
                 keep_trigger: false,
+                alternate_avatar_id: None,
             });
 
         circumfixes.chain(prefixes).chain(suffixes).collect()
@@ -345,6 +360,11 @@ struct TriggerOut {
     suffix: Option<String>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     keep_trigger: bool,
+    #[serde(
+        rename = "net.f0rest.alternate_avatar_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    alternate_avatar_id: Option<String>,
 }
 
 impl From<&PersonaTriggerView> for TriggerOut {
@@ -353,6 +373,7 @@ impl From<&PersonaTriggerView> for TriggerOut {
             prefix: trigger.prefix.clone(),
             suffix: trigger.suffix.clone(),
             keep_trigger: trigger.keep_trigger,
+            alternate_avatar_id: trigger.alternate_avatar_id.clone(),
         }
     }
 }
@@ -456,6 +477,8 @@ struct SelectionOut {
     profile_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     valid_until: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    alternate_avatar_id: Option<String>,
 }
 
 impl From<&PersonaSelectionView> for SelectionOut {
@@ -463,6 +486,7 @@ impl From<&PersonaSelectionView> for SelectionOut {
         Self {
             profile_id: selection.persona_id.clone(),
             valid_until: selection.valid_until,
+            alternate_avatar_id: selection.alternate_avatar_id.clone()
         }
     }
 }
@@ -762,7 +786,7 @@ pub(crate) async fn notification_profile(
             if let Some(association) = associations.get(room.as_str()) {
                 selections.push(association.clone());
             }
-            parents.extend(crate::view::listing_spaces(client, &room).await);
+            parents.extend(crate::view::listing_spaces(None, client, &room).await);
         }
         rooms = parents;
         if rooms.is_empty() {
@@ -965,6 +989,7 @@ impl Core {
     }
 
     pub(crate) async fn restore_persona_backup(&self, backup: &str) -> Result<(), RpcError> {
+        let _guard = self.account_data_lock.lock().await;
         let catalog = catalog_from_backup(backup).ok_or(RpcError::InvalidBackup)?;
         self.put_global_account_data(
             GlobalAccountDataEventType::from(CATALOG_V3),
@@ -1008,6 +1033,7 @@ impl Core {
     }
 
     pub(crate) async fn personas(&self) -> Result<PersonaCatalogView, RpcError> {
+        let _guard = self.account_data_lock.lock().await;
         let mut rooms = BTreeMap::new();
         let mut disabled_rooms = Vec::new();
         for (room_id, association) in self.room_selections().await? {
@@ -1031,6 +1057,7 @@ impl Core {
         &self,
         SaveParams {
             persona,
+            base_persona,
             previous_id,
         }: SaveParams,
     ) -> Result<Vec<PersonaView>, RpcError> {
@@ -1040,7 +1067,10 @@ impl Core {
 
         personas.retain(|existing| existing.id != persona.id || existing.id == replaced);
         match personas.iter_mut().find(|existing| existing.id == replaced) {
-            Some(existing) => *existing = persona.clone(),
+            Some(existing) => {
+                merge_persona(existing, &base_persona, &persona);
+                existing.id = persona.id.clone();
+            }
             None => personas.push(persona.clone()),
         }
 
@@ -1202,6 +1232,24 @@ impl Core {
     }
 }
 
+fn merge_persona(current: &mut PersonaView, base: &PersonaView, incoming: &PersonaView) {
+    let (Ok(Value::Object(base)), Ok(Value::Object(incoming)), Ok(Value::Object(mut merged))) = (
+        serde_json::to_value(base),
+        serde_json::to_value(incoming),
+        serde_json::to_value(&*current),
+    ) else {
+        return;
+    };
+    for (field, value) in incoming {
+        if base.get(&field) != Some(&value) {
+            merged.insert(field, value);
+        }
+    }
+    if let Ok(persona) = serde_json::from_value(Value::Object(merged)) {
+        *current = persona;
+    }
+}
+
 fn ensure_empty_mentions(content: &mut Value) {
     if let Some(object) = content.as_object_mut() {
         object
@@ -1241,6 +1289,18 @@ mod tests {
         personas_from_catalog(&json!({ "profiles": [value] }))
             .pop()
             .expect("a persona")
+    }
+
+    #[test]
+    fn persona_catalog_and_selection_events_are_persona_events() {
+        assert!(super::is_persona_event(
+            "fi.mau.msc4461.per_message_profiles.v3"
+        ));
+        assert!(super::is_persona_event(
+            "fyi.cisnt.permessageprofile.roomassociation"
+        ));
+        assert!(!super::is_persona_event("fyi.cisnt.permessageprofileother"));
+        assert!(!super::is_persona_event("m.direct"));
     }
 
     fn profile(display_name: &str, has_fallback: bool) -> PerMessageProfileView {

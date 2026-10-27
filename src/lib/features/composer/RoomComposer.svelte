@@ -41,7 +41,7 @@
     setPreference,
     type ImageMetadata,
   } from '#lib/settings/preferences.svelte.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { formatByteSize } from '#lib/ui/byte-size.js';
   import { cachedMediaUrl, holdMediaUrl, loadMediaUrl } from '#lib/ui/media-url.js';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
@@ -126,6 +126,7 @@
   import VoiceRecorder from './VoiceRecorder.svelte';
   import { isVoiceRecordingSupported } from './voice-recorder-support';
   import './composer-chrome.css';
+  import { resolveProxy, type ProxyMatch } from '#lib/personas/persona.js';
 
   interface Props {
     roomId: string;
@@ -231,10 +232,11 @@
   const core = useCoreClient();
   const roomList = useRoomList();
   const personas = usePersonaStore();
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   const roomyPointer = new MediaQuery('(width >= 32rem) and (any-pointer: fine)');
   const composerShort = $derived(
-    preferences.composerForm === 'short' ||
+    appLayout.compactHeight ||
+      preferences.composerForm === 'short' ||
       (preferences.composerForm === 'adaptive' && roomyPointer.current)
   );
   const uid = $props.id();
@@ -295,10 +297,14 @@
   let measurerEl = $state<HTMLElement>();
   let multiline = $state(false);
   let pointerHidden = $state(false);
-  const shortLayout = $derived(composerShort && (!multiline || preferences.alwaysInlineEditor));
+  const shortLayout = $derived(
+    appLayout.compactHeight || (composerShort && (!multiline || preferences.alwaysInlineEditor))
+  );
   let layoutFrame: number | undefined;
   let empty = $state(true);
   let showPlaceholder = $state(true);
+  let shorthandHint = $state<ProxyMatch | null>(null);
+  let shorthandHintTimeout: ReturnType<typeof setTimeout> | undefined;
   let activeFormats = $state.raw<FormatAction[]>([]);
   let activeColors = $state.raw<ActiveColors>({ fg: null, bg: null });
   let formattingOpen = $derived(preferences.formattingToolbar);
@@ -471,6 +477,7 @@
       if (change.docChanged) {
         typing.update(empty);
         scheduleDraftLinks();
+        scheduleShorthandHinting();
         scheduleLayout();
         draft.schedulePersist();
       }
@@ -564,6 +571,7 @@
   onDestroy(() => {
     if (layoutFrame !== undefined) cancelAnimationFrame(layoutFrame);
     if (draftLinksTimeout) clearTimeout(draftLinksTimeout);
+    if (shorthandHintTimeout) clearTimeout(shorthandHintTimeout);
     typing.stop();
     queue.dispose();
     draft.dispose();
@@ -737,6 +745,22 @@
       const doc = editor.doc();
       const message = doc ? (richSend ? serializeComposer(doc) : serializePlain(doc)) : null;
       draftLinks = message?.formatted ? previewableLinks(message.formatted, message.body) : [];
+    }, 300);
+  }
+
+  function scheduleShorthandHinting(): void {
+    if (shorthandHintTimeout) clearTimeout(shorthandHintTimeout);
+    shorthandHintTimeout = setTimeout(() => {
+      const doc = editor.doc();
+      const message = doc ? (richSend ? serializeComposer(doc) : serializePlain(doc)) : null;
+      if (preferences.personaProxying && preferences.personaPicker) {
+        if (message?.body) {
+          const proxy = resolveProxy(personas.personas, message.body);
+          shorthandHint = proxy ?? null;
+        } else {
+          shorthandHint = null;
+        }
+      }
     }, 300);
   }
 
@@ -1403,6 +1427,7 @@
                 edit={context?.kind === 'edit' && onEditPersona
                   ? { current: context.persona ?? null, onChoose: onEditPersona }
                   : undefined}
+                shorthandHint={shorthandHint ?? undefined}
               />
             {/snippet}
             <div class="composer-before" bind:this={beforeEl}>

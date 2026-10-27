@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { matchesAppLayout } from '#lib/ui/app-layout.svelte.js';
   import { Dialog } from 'bits-ui';
   import { SvelteMap } from 'svelte/reactivity';
   import { flushSync, onDestroy, tick, untrack } from 'svelte';
@@ -20,12 +21,14 @@
   import { cursorAnchor, type CursorAnchor } from '#lib/ui/cursor-anchor.js';
   import { mouseContextMenu } from '#lib/ui/long-press.svelte.js';
   import { pixelatedImage } from '#lib/ui/pixelated.js';
+  import { wheelZoomFactor } from '#lib/ui/wheel-zoom.js';
   import {
     AXIS_LOCK_THRESHOLD,
     SWIPE_THRESHOLD,
     VELOCITY_THRESHOLD,
   } from '#lib/ui/swipe-gesture.js';
   import { savesNatively, sharesNatively, supportsPhotoLibrary } from '#lib/platform/files.js';
+  import { isElectron } from '#lib/platform/electron.js';
   import { setSystemBarsHidden } from '#lib/platform/system-bars.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
@@ -197,11 +200,13 @@
     return 1;
   });
   let downloadLabel = $derived(
-    item?.kind === 'video'
-      ? i18n.t('viewer.downloadVideo')
-      : item?.kind === 'audio'
-        ? i18n.t('viewer.downloadAudio')
-        : i18n.t('viewer.downloadImage')
+    mediaActions.savesToPhotos
+      ? i18n.t('viewer.saveToPhotos')
+      : item?.kind === 'video'
+        ? i18n.t('viewer.downloadVideo')
+        : item?.kind === 'audio'
+          ? i18n.t('viewer.downloadAudio')
+          : i18n.t('viewer.downloadImage')
   );
 
   function clampCurrentPan(next: Vector2): Vector2 {
@@ -359,13 +364,14 @@
     if (isPdf) {
       if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
-      setZoom(zoom * (1 - event.deltaY * 0.01));
+      setZoom(zoom * wheelZoomFactor(event, event.deltaY, window.innerHeight));
       return;
     }
     if (!isImage || spoilerHidden) return;
     event.preventDefault();
+    const delta = lens ? event.deltaY || event.deltaX : event.deltaY;
+    const factor = wheelZoomFactor(event, delta, window.innerHeight);
     if (lens) {
-      const factor = 1 - (event.deltaY || event.deltaX) * 0.001;
       if (event.shiftKey) {
         lensSettings.size = Math.min(
           LENS_MAX_SIZE,
@@ -379,7 +385,7 @@
       }
       return;
     }
-    zoomTowards(event, zoom * (1 - event.deltaY * 0.001));
+    zoomTowards(event, zoom * factor);
   }
 
   const DOUBLE_TAP_MS = 300;
@@ -436,7 +442,7 @@
       event.pointerType === 'mouse' &&
       event.button === 0 &&
       !imageMenuOpen &&
-      window.matchMedia('(width >= 48rem)').matches
+      matchesAppLayout()
         ? { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
         : null;
     if (!isImage || spoilerHidden) return;
@@ -647,12 +653,6 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#snippet saveTrigger({ props }: { props: Record<string, unknown> })}
-  <IconButton {...props} label={downloadLabel} size="medium" variant="ghost">
-    <DownloadSimpleIcon />
-  </IconButton>
-{/snippet}
-
 {#if item}
   <Dialog.Root
     open
@@ -742,26 +742,20 @@
                   void mediaActions.share(event.currentTarget, nativeShare);
                 }}><ShareNetworkIcon /></IconButton
               >
-            {/if}
-            {#if canSaveToPhotos && isImage}
-              <ActionMenu label={downloadLabel} trigger={saveTrigger}>
-                <ActionMenuItem onSelect={() => void mediaActions.download()}>
-                  <FileArrowDownIcon />
-                  {i18n.t('viewer.saveToFiles')}
-                </ActionMenuItem>
-                <ActionMenuItem onSelect={() => void mediaActions.saveToPhotos()}>
-                  <ImagesIcon />
-                  {i18n.t('viewer.saveToPhotos')}
-                </ActionMenuItem>
-              </ActionMenu>
-            {:else}
+            {:else if isElectron() && isImage}
               <IconButton
-                label={downloadLabel}
+                label={i18n.t('viewer.copyImage')}
                 size="medium"
                 variant="ghost"
-                onclick={() => void mediaActions.download()}><DownloadSimpleIcon /></IconButton
+                onclick={() => void mediaActions.copyImage()}><CopyIcon /></IconButton
               >
             {/if}
+            <IconButton
+              label={downloadLabel}
+              size="medium"
+              variant="ghost"
+              onclick={() => void mediaActions.save()}><DownloadSimpleIcon /></IconButton
+            >
             {#if isImage || isPdf || onJump}
               <ActionMenu label={i18n.t('timeline.moreActions')}>
                 {#snippet trigger({ props })}
@@ -772,6 +766,17 @@
                     variant="ghost"><DotsThreeIcon /></IconButton
                   >
                 {/snippet}
+                {#if canSaveToPhotos && isImage}
+                  <ActionMenuItem onSelect={() => void mediaActions.download()}>
+                    <FileArrowDownIcon />
+                    {i18n.t('viewer.saveToFiles')}
+                  </ActionMenuItem>
+                  <ActionMenuItem onSelect={() => void mediaActions.saveToPhotos()}>
+                    <ImagesIcon />
+                    {i18n.t('viewer.saveToPhotos')}
+                  </ActionMenuItem>
+                  <ActionMenuSeparator />
+                {/if}
                 {#if isImage}
                   <ActionMenuItem onSelect={() => void mediaActions.copyImage()}>
                     <CopyIcon />
@@ -940,7 +945,7 @@
                   <CopyIcon />
                   {i18n.t('viewer.copyImage')}
                 </ActionMenuItem>
-                <ActionMenuItem onSelect={() => void mediaActions.download()}>
+                <ActionMenuItem onSelect={() => void mediaActions.save()}>
                   <DownloadSimpleIcon />
                   {downloadLabel}
                 </ActionMenuItem>
@@ -1255,7 +1260,7 @@
     right: max(0.25rem, var(--safe-right));
   }
 
-  @media (width < 48rem) {
+  @media (--compact-layout) {
     .stage.has-nav {
       --stage-padding-left: var(--space-200);
       --stage-padding-right: var(--space-200);
@@ -1336,7 +1341,7 @@
     color: var(--surface-var-on-container);
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     :global(.viewer) {
       background: color-mix(in srgb, var(--viewer-immersive) 90%, transparent);
     }

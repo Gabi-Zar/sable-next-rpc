@@ -1,0 +1,90 @@
+import type {} from '@vitest/browser-playwright';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { cdp, page } from 'vitest/browser';
+import { render } from 'vitest-browser-svelte';
+
+vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
+vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
+vi.mock('#lib/platform/overlay-back.svelte.js', () => ({ holdOverlayBack: () => {} }));
+
+import Harness from './BottomSheetHarness.test.svelte';
+
+beforeEach(async () => {
+  await page.viewport(844, 390);
+  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: true });
+  document.documentElement.dataset.tauriOs = 'ios';
+  document.documentElement.style.setProperty('--safe-area-inset-bottom', '21px');
+});
+
+afterEach(async () => {
+  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  delete document.documentElement.dataset.tauriOs;
+  document.documentElement.style.removeProperty('--keyboard-height');
+  document.documentElement.style.removeProperty('--safe-area-inset-left');
+  document.documentElement.style.removeProperty('--safe-area-inset-right');
+  document.documentElement.style.removeProperty('--safe-area-inset-bottom');
+  await page.viewport(414, 800);
+});
+
+test.each([
+  { os: 'ios', fullHeight: false, keyboard: 0, viewport: 390, bottom: 390 },
+  { os: 'ios', fullHeight: true, keyboard: 0, viewport: 390, bottom: 390 },
+  { os: 'android', fullHeight: false, keyboard: 0, viewport: 390, bottom: 390 },
+  { os: 'android', fullHeight: true, keyboard: 0, viewport: 390, bottom: 390 },
+  { os: 'ios', fullHeight: false, keyboard: 190, viewport: 390, bottom: 200 },
+  { os: 'ios', fullHeight: true, keyboard: 230, viewport: 390, bottom: 160 },
+  { os: 'android', fullHeight: false, keyboard: 190, viewport: 200, bottom: 200 },
+  { os: 'android', fullHeight: true, keyboard: 230, viewport: 160, bottom: 160 },
+])(
+  '$os sheet fits above a $keyboard px keyboard (full height: $fullHeight)',
+  async ({ os, fullHeight, keyboard, viewport, bottom }) => {
+    document.documentElement.dataset.tauriOs = os;
+    const screen = await render(Harness, { fullHeight });
+    const dialog = screen.getByRole('dialog', { name: 'Options' });
+    await expect.element(dialog).toBeVisible();
+
+    await page.viewport(844, viewport);
+    document.documentElement.style.setProperty('--keyboard-height', `${keyboard}px`);
+
+    const rect = dialog.element().getBoundingClientRect();
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    expect(rect.bottom).toBeCloseTo(bottom);
+  }
+);
+
+test.each([
+  { left: 44, right: 0, minLeft: 44, maxRight: 844 },
+  { left: 0, right: 44, minLeft: 0, maxRight: 800 },
+])('sheet input clears safe areas $left / $right', async ({ left, right, minLeft, maxRight }) => {
+  document.documentElement.style.setProperty('--safe-area-inset-left', `${left}px`);
+  document.documentElement.style.setProperty('--safe-area-inset-right', `${right}px`);
+  const screen = await render(Harness);
+  await expect.element(screen.getByRole('dialog', { name: 'Options' })).toBeVisible();
+
+  const input = screen.getByRole('textbox', { name: 'Filter' }).element().getBoundingClientRect();
+  expect(input.left).toBeGreaterThanOrEqual(minLeft);
+  expect(input.right).toBeLessThanOrEqual(maxRight);
+});
+
+test.each([
+  { keyboard: 0, fullHeight: false, lastBottom: 369 },
+  { keyboard: 0, fullHeight: true, lastBottom: 369 },
+  { keyboard: 190, fullHeight: false, lastBottom: 200 },
+  { keyboard: 230, fullHeight: true, lastBottom: 160 },
+])(
+  'last option scrolls clear of the home indicator and $keyboard px keyboard (full height: $fullHeight)',
+  async ({ keyboard, fullHeight, lastBottom }) => {
+    const screen = await render(Harness, { fullHeight });
+    const dialog = screen.getByRole('dialog', { name: 'Options' });
+    await expect.element(dialog).toBeVisible();
+    document.documentElement.style.setProperty('--keyboard-height', `${keyboard}px`);
+    dialog.element().scrollTop = dialog.element().scrollHeight;
+
+    const last = screen
+      .getByRole('button', { name: 'Option 12', exact: true })
+      .element()
+      .getBoundingClientRect();
+    expect(last.top).toBeGreaterThanOrEqual(dialog.element().getBoundingClientRect().top);
+    expect(last.bottom).toBeLessThanOrEqual(lastBottom);
+  }
+);

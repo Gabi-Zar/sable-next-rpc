@@ -105,6 +105,7 @@ pub enum RpcError {
     /// A scanned code that is not a Matrix verification code.
     InvalidVerificationCode,
     InvalidMedia,
+    MessageTooLarge,
     /// A poll needs a question and between 1 and 20 answers.
     InvalidPoll,
     InvalidLocation,
@@ -277,6 +278,8 @@ pub enum CoreEvent {
     AccountDataChanged {
         event_type: String,
     },
+
+    PersonasChanged,
 
     SpaceSidebarChanged {
         items: Vec<SidebarItemView>,
@@ -1445,6 +1448,7 @@ pub struct PersonaTriggerView {
     pub suffix: Option<String>,
     #[serde(default)]
     pub keep_trigger: bool,
+    pub alternate_avatar_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

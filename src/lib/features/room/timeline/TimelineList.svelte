@@ -1274,7 +1274,7 @@
     position: relative;
   }
 
-  @media (width >= 48rem) and (any-hover: hover) and (any-pointer: fine) {
+  @media (--app-layout) and (any-hover: hover) and (any-pointer: fine) {
     .timeline-content {
       --line-height-body: 1.47;
     }
@@ -1438,7 +1438,7 @@
     margin-inline-start: auto;
   }
 
-  @media (width < 48rem) {
+  @media (--compact-layout) {
     .unread-action {
       display: none;
     }

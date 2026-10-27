@@ -47,6 +47,7 @@ pub async fn restricted_parents(client: &Client, room: &Room) -> Vec<OwnedRoomId
 }
 
 pub async fn listing_spaces(
+    core: Option<&crate::Core>,
     client: &Client,
     room_id: &matrix_sdk::ruma::RoomId,
 ) -> Vec<OwnedRoomId> {
@@ -55,8 +56,14 @@ pub async fn listing_spaces(
         if space.is_tombstoned() {
             continue;
         }
-        let lists_room = space_children(&space)
-            .await
+        let children = match core {
+            Some(core) => {
+                core.with_open_stores(async || space_children(&space).await)
+                    .await
+            }
+            None => space_children(&space).await,
+        };
+        let lists_room = children
             .unwrap_or_default()
             .iter()
             .any(|edge| edge.room_id == room_id.as_str() && !edge.via.is_empty());

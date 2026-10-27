@@ -15,6 +15,9 @@ vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
   useRoomList: () => ({ rooms: [room] }),
 }));
 
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(new Date(2026, 5, 15, 12, 0));
+
 function local(at: Date, hour: string): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${String(at.getFullYear())}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${hour}`;

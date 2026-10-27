@@ -13,6 +13,9 @@ import { core } from '#lib/core/__mocks__/context.js';
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/platform/system-bars.js', () => ({ setSystemBarsHidden: vi.fn() }));
 
+import * as files from '#lib/platform/files.js';
+import * as platformOs from '#lib/platform/os.js';
+
 import MediaViewer from './MediaViewer.svelte';
 import { spoilerVisibility, spoilerVisibilityKey } from './spoiler-visibility.svelte.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
@@ -110,6 +113,61 @@ async function swipe(from: number, to: number): Promise<void> {
     { pointerName: 'TouchA', target: stage(), coords: { clientX: 100, clientY: to } },
   ]);
 }
+
+async function openMobileImage(os: 'android' | 'ios') {
+  vi.spyOn(platformOs, 'isNativeMobile').mockReturnValue(true);
+  vi.spyOn(platformOs, 'isAndroid').mockReturnValue(os === 'android');
+  vi.spyOn(files, 'supportsPhotoLibrary').mockResolvedValue(true);
+  const photos = vi.spyOn(files, 'saveImageToPhotos').mockResolvedValue('saved');
+  const download = vi.spyOn(files, 'saveUrl').mockResolvedValue('saved');
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  await openImage();
+  return { photos, download };
+}
+
+test('iOS saves to Photos with one tap and labels the button accordingly', async () => {
+  const { photos, download } = await openMobileImage('ios');
+  await user.click(screen.getByRole('button', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledExactlyOnceWith(
+    expect.stringMatching(/^blob:/),
+    'photo.png',
+    'image/png'
+  );
+  expect(download).not.toHaveBeenCalled();
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+test('Android downloads an image with one tap', async () => {
+  const { photos, download } = await openMobileImage('android');
+  await user.click(screen.getByRole('button', { name: 'viewer.downloadImage' }));
+  expect(download).toHaveBeenCalledExactlyOnceWith(
+    expect.stringMatching(/^blob:/),
+    'photo.png',
+    true
+  );
+  expect(photos).not.toHaveBeenCalled();
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+});
+
+test('both save destinations remain available in More actions', async () => {
+  const { photos, download } = await openMobileImage('ios');
+  await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToFiles' }));
+  expect(download).toHaveBeenCalledOnce();
+  expect(photos).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledOnce();
+  expect(download).toHaveBeenCalledOnce();
+});
+
+test('the iOS image context menu uses the same Photos save action', async () => {
+  const { photos, download } = await openMobileImage('ios');
+  await fireEvent.contextMenu(screen.getByRole('img'));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledOnce();
+  expect(download).not.toHaveBeenCalled();
+});
 
 test('renders a video attachment with a player and no zoom controls', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
@@ -321,7 +379,7 @@ test('clamps pointer drag panning to the zoomed overflow', async () => {
   expect(img.style.transform).toContain('translate(0px, 0px)');
 });
 
-test('holding the mouse on a fitted image shows a lens that the wheel zooms and resizes', async () => {
+test('the lens zooms and resizes with a horizontal wheel', async () => {
   stubRects(rect(800, 600), rect(800, 600));
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   const img = await openImage();
@@ -342,11 +400,11 @@ test('holding the mouse on a fitted image shows a lens that the wheel zooms and 
   await user.pointer({ target: img, coords: { clientX: 400, clientY: 300 } });
   expect(lensImage()?.style.transform).toBe('translate(-704px, -504px)');
 
-  await fireEvent.wheel(stage(), { deltaY: -100 });
+  await fireEvent.wheel(stage(), { deltaX: -100 });
   expect(lensImage()?.style.width).toBe('1760px');
   expect(img.style.transform).toContain('scale(1)');
 
-  const shiftWheel = new WheelEvent('wheel', { deltaY: -100, bubbles: true, cancelable: true });
+  const shiftWheel = new WheelEvent('wheel', { deltaX: -100, bubbles: true, cancelable: true });
   Object.defineProperty(shiftWheel, 'shiftKey', { value: true });
   await fireEvent(stage(), shiftWheel);
   expect(parseFloat(lens()?.style.width ?? '')).toBeCloseTo(211.2);
@@ -541,4 +599,22 @@ test('closes instead of throwing when the selected media is no longer in the tim
   expect(onClose).toHaveBeenCalled();
   expect(core.fetchMedia).not.toHaveBeenCalled();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('ctrl-wheel zooms the image in noticeably and back out', async () => {
+  stubRects(rect(800, 600), rect(1600, 1200));
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  const img = await openImage();
+  const zoomIn = new WheelEvent('wheel', { deltaY: -7, bubbles: true, cancelable: true });
+  Object.defineProperty(zoomIn, 'ctrlKey', { value: true });
+
+  await fireEvent(stage(), zoomIn);
+
+  expect(Number(img.style.transform.match(/scale\(([^)]+)\)/)?.[1])).toBeGreaterThan(1.05);
+
+  const zoomOut = new WheelEvent('wheel', { deltaY: 7, bubbles: true, cancelable: true });
+  Object.defineProperty(zoomOut, 'ctrlKey', { value: true });
+  await fireEvent(stage(), zoomOut);
+
+  expect(img.style.transform).toContain('scale(1)');
 });

@@ -217,7 +217,7 @@ mod tests {
         reason = "one sequential flow kept in a single function"
     )]
     async fn nested_reactions_are_ignored() {
-        use std::{collections::BTreeSet, sync::Arc};
+        use std::sync::Arc;
 
         use crate::{
             Core, api::timeline::TimelineFocusView, protocol::RpcError, session::Session,
@@ -302,7 +302,6 @@ mod tests {
                     crate::view::timeline_item(
                         item,
                         client.user_id(),
-                        &BTreeSet::new(),
                         &crate::view::Highlights::default(),
                         &crate::view::LocalContent::default(),
                     )
@@ -550,7 +549,6 @@ mod tests {
                 crate::view::timeline_item(
                     item,
                     client.user_id(),
-                    &std::collections::BTreeSet::new(),
                     &crate::view::Highlights::default(),
                     &crate::view::LocalContent::default(),
                 )

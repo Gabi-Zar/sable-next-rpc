@@ -56,6 +56,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   delete document.documentElement.dataset.clientDecorations;
   document.documentElement.style.removeProperty('--safe-area-inset-top');
   document.documentElement.style.removeProperty('--safe-area-inset-left');
@@ -74,6 +75,25 @@ async function openViewer(width: number, height: number, onClose = vi.fn()) {
   await expect.poll(() => viewer.element().querySelector('.stage img')).not.toBeNull();
   return { screen, viewer, onClose };
 }
+
+test.each(['win32', 'linux'])(
+  'Electron %s offers a working Copy image toolbar action',
+  async (platform) => {
+    vi.stubGlobal('sableElectron', { platform });
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+    const write = vi.spyOn(navigator.clipboard, 'write').mockResolvedValue(undefined);
+    try {
+      const { viewer } = await openViewer(1280, 800);
+      await userEvent.click(viewer.getByRole('button', { name: 'Copy image', exact: true }));
+      await expect.poll(() => write.mock.calls.length).toBe(1);
+      const clipboardItem = write.mock.calls[0][0][0];
+      expect((await clipboardItem.getType('image/png')).type).toBe('image/png');
+      expect(viewer.getByRole('button', { name: 'Share', exact: true }).elements()).toHaveLength(0);
+    } finally {
+      write.mockRestore();
+    }
+  }
+);
 
 test('viewer actions clear asymmetric safe areas', async () => {
   const { viewer } = await openViewer(375, 560);

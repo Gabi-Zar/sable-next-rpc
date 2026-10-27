@@ -72,6 +72,9 @@ impl Core {
                             );
                         }
                         core.remember_account_data_type(event_type.clone()).await;
+                        if crate::personas::is_persona_event(&event_type) {
+                            core.emit(CoreEvent::PersonasChanged);
+                        }
                         core.emit(CoreEvent::AccountDataChanged { event_type });
                     }
                 }

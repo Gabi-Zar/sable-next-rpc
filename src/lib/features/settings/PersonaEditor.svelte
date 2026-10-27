@@ -25,11 +25,17 @@
   import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
+  import Select from '#lib/ui/primitives/Select.svelte';
+  import ProhibitIcon from 'phosphor-svelte/lib/ProhibitIcon';
 
   interface Props {
     open?: boolean;
     persona: PersonaView | null;
-    onSave: (persona: PersonaView, previousId: string | null) => Promise<void>;
+    onSave: (
+      persona: PersonaView,
+      previousId: string | null,
+      basePersona: PersonaView | null
+    ) => Promise<void>;
     onOpenChange: (open: boolean) => void;
   }
 
@@ -85,7 +91,13 @@
   function addTrigger(): void {
     triggers = [
       ...triggers,
-      { prefix: '', suffix: null, keep_trigger: false, id: crypto.randomUUID() },
+      {
+        prefix: '',
+        suffix: null,
+        keep_trigger: false,
+        id: crypto.randomUUID(),
+        alternate_avatar_id: null,
+      },
     ];
   }
 
@@ -149,6 +161,7 @@
               prefix: trigger.prefix?.trimStart() || null,
               suffix: trigger.suffix?.trimEnd() || null,
               keep_trigger: trigger.keep_trigger,
+              alternate_avatar_id: trigger.alternate_avatar_id || null,
             }))
             .filter((trigger) => trigger.prefix !== null || trigger.suffix !== null),
           alternate_avatars: alternateAvatars.filter(
@@ -157,7 +170,8 @@
           pluralkit: persona?.pluralkit ?? null,
           last_used: persona?.last_used ?? null,
         },
-        persona?.id ?? null
+        persona?.id ?? null,
+        persona
       );
       onOpenChange(false);
     } catch (cause) {
@@ -280,6 +294,39 @@
                 triggers[index] = { ...trigger, keep_trigger: checked };
               }}
             />
+          </label>
+          <label class="field wrap">
+            <span>{i18n.t('personas.triggerAlternateAvatar')}</span>
+            <span
+              style=" align-items: center;display: flex; flex-flow: row nowrap; gap: var(--space-100);"
+            >
+              <Select
+                value={trigger.alternate_avatar_id ?? ''}
+                placeholder={i18n.t('personas.alternateAvatarNone')}
+                onValueChange={(value: string) => {
+                  triggers[index] = { ...trigger, alternate_avatar_id: value ?? null };
+                }}
+                items={[{ value: '', label: i18n.t('personas.alternateAvatarNone') }].concat(
+                  alternateAvatars.map((avatar) => {
+                    return {
+                      value: avatar.id,
+                      label: i18n.t('personas.alternateAvatarLabel'),
+                      mediaImage: avatar.avatar_url ?? undefined,
+                    };
+                  })
+                )}
+              ></Select>
+              {#if trigger.alternate_avatar_id && alternateAvatars.find((avatar) => avatar.id === trigger.alternate_avatar_id)}
+                <Avatar
+                  src={alternateAvatars.find((avatar) => avatar.id === trigger.alternate_avatar_id)
+                    ?.avatar_url}
+                  {name}
+                  size="small"
+                />
+              {:else}
+                <Avatar size="small"><ProhibitIcon /></Avatar>
+              {/if}
+            </span>
           </label>
           <div class="button">
             <IconButton
@@ -449,13 +496,18 @@
   @media (width < 34rem) {
     .trigger-row {
       grid-template-columns: 1fr 1fr auto;
-      grid-template-rows: auto auto var(--space-300) auto;
+      grid-template-rows: auto auto var(--space-300) auto var(--space-300) auto;
     }
 
     .trigger-row .field.wrap {
       grid-column: 1 / 4;
       grid-row: 4 / 5;
       grid-template-columns: 1fr auto;
+    }
+
+    /* hack sorry */
+    .trigger-row .field.wrap:nth-child(4) {
+      grid-row: 6 / 7;
     }
 
     fieldset {

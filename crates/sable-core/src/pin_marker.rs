@@ -131,10 +131,9 @@ impl Core {
         &self,
         room_id: &OwnedRoomId,
     ) -> Result<Option<PinMarker>, RpcError> {
+        let room = self.room(room_id).await?;
         let content = self
-            .room(room_id)
-            .await?
-            .account_data(PIN_MARKER_EVENT.into())
+            .with_open_stores(async || room.account_data(PIN_MARKER_EVENT.into()).await)
             .await
             .map_err(|error| self.room_error("pin_marker", error))?
             .and_then(|raw| raw.get_field::<Value>("content").ok().flatten());

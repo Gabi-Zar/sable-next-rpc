@@ -33,8 +33,12 @@ allow = [
   "Zlib",
 ]
 exceptions = [
-  { crate = "audiofox", allow = ["GPL-2.0-or-later WITH Classpath-exception-2.0"] },
-  { crate = "libbz2-rs-sys", allow = ["bzip2-1.0.6"] },
+  { crate = "audiofox", allow = [
+    "GPL-2.0-or-later WITH Classpath-exception-2.0",
+  ] },
+  { crate = "libbz2-rs-sys", allow = [
+    "bzip2-1.0.6",
+  ] },
 ]
 
 [bans]

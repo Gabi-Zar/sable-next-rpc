@@ -49,6 +49,10 @@
   outline-offset: 0.15rem;
 }
 
+.sender-identity-name.name-button {
+  font-weight: var(--font-weight-500);
+}
+
 .sender-identity-via {
   display: flex;
   flex-shrink: 1;

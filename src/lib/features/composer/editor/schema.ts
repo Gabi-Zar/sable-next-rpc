@@ -379,7 +379,7 @@ export const composerSchema = new Schema({
     },
     code: {
       code: true,
-      excludes: 'strong em strike code underline sub sup color bg_color link',
+      excludes: 'code sub sup color bg_color',
       parseDOM: [{ tag: 'code' }],
       toDOM: () => ['code', 0],
     },

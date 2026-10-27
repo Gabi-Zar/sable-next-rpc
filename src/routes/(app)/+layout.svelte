@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { MediaQuery } from 'svelte/reactivity';
   import { mediaPreviewSettings } from '#lib/settings/media-previews.svelte.js';
   import { onDestroy, onMount, tick, type Snippet, untrack } from 'svelte';
   import { on } from 'svelte/events';
@@ -7,7 +6,7 @@
   import AppShell from '#lib/features/sidebar/AppShell.svelte';
   import SettingsPanel from '#lib/features/settings/SettingsPanel.svelte';
   import { followSettingsLink } from '#lib/features/settings/settings-navigation.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { findRoomByPathId, provideRoomList, RoomList } from '#lib/rooms/room-list.svelte.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
@@ -288,7 +287,7 @@
     void goto(roomSectionPath(roomList.rooms, roomId));
     void callSession.join(roomId, { microphone: !preferences.callMicrophoneMuted, camera: false });
   }
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
 
   let wasSignedIn = false;
 

@@ -16,7 +16,7 @@
   import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
   import UsersThreeIcon from 'phosphor-svelte/lib/UsersThreeIcon';
   import { onDestroy, untrack } from 'svelte';
-  import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
   import { goto } from '$app/navigation';
   import { afterOverlayPops } from '#lib/platform/overlay-back.svelte.js';
@@ -45,7 +45,7 @@
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { backToRoomList } from '#lib/features/room/room-navigation.js';
 
   import {
@@ -106,7 +106,7 @@
   const closed = new SvelteSet<string>();
   const visibleLevels = new SvelteSet<string>();
 
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   const hierarchy = new SpaceHierarchyLoader(core);
   let fetched = $derived(hierarchy.fetched);
   let overrides = $state.raw<ChildOrderOverride[]>([]);

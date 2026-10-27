@@ -176,3 +176,25 @@ test('uses session logout for the active account even if it requires reauthentic
     expect(logout).toHaveBeenCalledOnce();
   });
 });
+
+test.each([
+  ['Current', 'mxc://example.org/avatar'],
+  ['timeline.profileBanner:Current', 'mxc://example.org/banner'],
+])('opens own profile image %s', async (label, source) => {
+  Object.assign(core, {
+    cachedUserProfile: () => ({
+      user_id: current.user_id,
+      display_name: 'Current',
+      avatar_url: 'mxc://example.org/avatar',
+      banner_url: 'mxc://example.org/banner',
+    }),
+  });
+  render(AccountSwitcher, { mode: 'desktop' }, { wrapper: TooltipProvider });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'nav.switchAccount' }));
+  await user.click(await screen.findByRole('button', { name: label }));
+  expect(await screen.findByRole('dialog', { name: 'viewer.title' })).toBeInTheDocument();
+  expect(core.fetchMedia).toHaveBeenCalledWith(source, 0, 0);
+  await user.click(screen.getByRole('button', { name: 'common.close' }));
+  expect(screen.queryByRole('dialog', { name: 'viewer.title' })).not.toBeInTheDocument();
+});

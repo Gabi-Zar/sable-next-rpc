@@ -11,6 +11,29 @@ use jni::{EnvUnowned, JavaVM, jni_sig, jni_str};
 
 static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
 
+#[tauri::command]
+pub async fn copy_image_to_clipboard(image: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
+        vm.attach_current_thread(|env| {
+            let image = env.new_string(image)?;
+            let result = env.call_static_method(
+                jni_str!("moe/sable/client/MainActivity"),
+                jni_str!("copyImageToClipboardNative"),
+                jni_sig!("(Ljava/lang/String;)V"),
+                &[JValue::Object(&image)],
+            );
+            if result.is_err() {
+                env.exception_clear();
+            }
+            result.map(|_| ())
+        })
+        .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
 #[unsafe(no_mangle)]
 #[expect(
     unsafe_code,

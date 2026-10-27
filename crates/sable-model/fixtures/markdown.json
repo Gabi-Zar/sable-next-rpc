@@ -872,5 +872,35 @@
       "user_ids": [],
       "room": false
     }
+  },
+  {
+    "markdown": "*`Hello` World*",
+    "pills": [],
+    "body": "*`Hello` World*",
+    "formatted_body": "<em><code>Hello</code> World</em>",
+    "mentions": {
+      "user_ids": [],
+      "room": false
+    }
+  },
+  {
+    "markdown": "**a `b` c** next",
+    "pills": [],
+    "body": "**a `b` c** next",
+    "formatted_body": "<strong>a <code>b</code> c</strong> next",
+    "mentions": {
+      "user_ids": [],
+      "room": false
+    }
+  },
+  {
+    "markdown": "[`x`](https://example.org)",
+    "pills": [],
+    "body": "[`x`](https://example.org)",
+    "formatted_body": "<code><a href=\"https://example.org\">x</a></code>",
+    "mentions": {
+      "user_ids": [],
+      "room": false
+    }
   }
 ]

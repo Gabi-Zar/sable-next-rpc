@@ -542,7 +542,7 @@
     animation: none;
   }
 
-  @media (width <= 48rem) {
+  @media (--compact-layout) {
     .rail {
       scroll-snap-type: x mandatory;
       touch-action: pan-y;

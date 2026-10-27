@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { i18n } from '#lib/i18n.js';
 
   interface Props {
@@ -11,6 +12,4 @@
   let pageTitle = $derived(title ?? (titleKey ? i18n.t(titleKey) : ''));
 </script>
 
-<svelte:head>
-  <title>{pageTitle} - Sable</title>
-</svelte:head>
+<PageTitle title={`${pageTitle} - Sable`} />

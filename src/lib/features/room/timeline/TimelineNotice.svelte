@@ -28,7 +28,6 @@
     type TimelineEventIndex,
   } from './timeline-event-index';
   import { formatDate, formatFullTimestamp, formatMessageTimestamp } from '#lib/ui/date-time.js';
-  import UndecryptableNotice from './UndecryptableNotice.svelte';
 
   const MAX_PIN_PREVIEWS = 4;
 
@@ -231,15 +230,6 @@
     </div>
     {@render stateTime()}
   </div>
-{:else if item.content.kind === 'unable_to_decrypt'}
-  <UndecryptableNotice
-    id={item.id}
-    cause={item.content.reason}
-    {roomId}
-    sessionId={item.content.session_id}
-    sender={item.sender}
-    threadRoot={item.thread_root}
-  />
 {:else if item.content.kind === 'call_invite' || item.content.kind === 'verification_request' || item.content.kind === 'cute' || item.content.kind === 'malformed'}
   <p class="state">
     {@render stateGutter()}

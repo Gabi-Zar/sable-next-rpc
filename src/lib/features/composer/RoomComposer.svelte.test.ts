@@ -1076,8 +1076,11 @@ test('a failed send offers a retry that sends the restored message', async () =>
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
-test('a refused send can be dismissed but not retried', async () => {
-  const refused = Object.assign(new Error('denied'), { detail: { code: 'denied' } });
+test.each([
+  ['denied', 'You do not have permission to send that here'],
+  ['message_too_large', 'This message is too large to send. Shorten it and try again.'],
+])('a %s send keeps the draft and can be dismissed but not retried', async (code, message) => {
+  const refused = Object.assign(new Error(code), { detail: { code } });
   writeDraft('!room:example.org', {
     doc: textDoc('hold on').toJSON(),
     staged: [],
@@ -1088,7 +1091,8 @@ test('a refused send can be dismissed but not retried', async () => {
 
   submit();
   const alert = await screen.findByRole('alert');
-  expect(alert).toHaveTextContent('You do not have permission to send that here');
+  expect(alert).toHaveTextContent(message);
+  expect(editorText()).toBe('hold on');
   expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
 
   await press(screen.getByRole('button', { name: 'Dismiss' }));

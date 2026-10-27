@@ -171,7 +171,7 @@ impl Core {
         }
         let client = self.client().await?;
         let room = self.room(&room_id).await?;
-        Ok(crate::cosmetics::first_space_parent(&client, &room)
+        Ok(crate::cosmetics::first_space_parent(self, &client, &room)
             .await
             .unwrap_or(room_id))
     }

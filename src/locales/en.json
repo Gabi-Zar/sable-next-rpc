@@ -1046,6 +1046,7 @@
     "voiceMessageVolume": "Voice message volume",
     "mediaUnavailable": "Media unavailable",
     "mediaUnavailableDetail": "This media may have been deleted or its server is offline.",
+    "videoUnsupported": "This video format can't be played on this device",
     "openMedia": "Open {{name}}",
     "loadMedia": "Load media",
     "openMediaUnnamed": "Open media",
@@ -2875,6 +2876,7 @@
     "sendRateLimited": "Too many messages just now. Try again in a moment.",
     "sendInvalidMedia": "That file could not be sent. Try a different file.",
     "sendFailed": "Could not send.",
+    "sendTooLarge": "This message is too large to send. Shorten it and try again.",
     "sendUnavailable": "Could not reach your homeserver.",
     "sendMediaServerUnavailable": "The media server is not responding.",
     "sendAccountLocked": "Your account is locked.",
@@ -3297,8 +3299,10 @@
     "alternateAvatarsHint": "Add extra avatars to change the look of a profile without having to recreate it.",
     "alternateAvatarAdd": "Add alternate avatar",
     "alternateAvatarLabel": "Alternate avatar",
+    "alternateAvatarNone": "Default avatar",
     "alternateAvatarViewOn": "Set alternate avatars",
-    "alternateAvatarViewOff": "Back to profiles"
+    "alternateAvatarViewOff": "Back to profiles",
+    "triggerAlternateAvatar": "Avatar"
   },
   "call": {
     "participantVolume": "Volume for {{name}}",
@@ -3700,7 +3704,8 @@
     "roomPacksTitle": "Packs from rooms",
     "roomPacksHint": "Turn a pack on to use it in every room, not just the one that publishes it.",
     "noRoomPacks": "None of your rooms publishes a pack yet.",
-    "unselectAll": "Unselect all",
+    "stopUsingAllEverywhere": "Stop using all everywhere",
+    "useAllEverywhere": "Use all everywhere",
     "useEverywhere": "Use {{name}} everywhere",
     "exportAll": "Export all",
     "stealOne": "Add emote to my pack",

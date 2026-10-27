@@ -980,6 +980,12 @@ impl Core {
         persisted: PersistedSession,
         reauth: Option<&PersistedAccount>,
     ) -> Result<SessionGeneration<'_>, RpcError> {
+        if let Err(RpcError::SlidingSyncUnsupported) = self.require_sliding_sync(&client).await {
+            if let Err(error) = client.logout().await {
+                tracing::warn!(?error, "could not log out a session without Sliding Sync");
+            }
+            return Err(RpcError::SlidingSyncUnsupported);
+        }
         // Pushes can find the login once it is persisted.
         let lease = session::store_lease(store_id).await;
         let generation = self.claim_session_generation().await;
@@ -1073,7 +1079,15 @@ impl Core {
         self.watch_cosmetics(&client, generation);
         self.watch_profile_changes(&client, generation);
         self.watch_redactions(&client);
-        self.track_session_handler(&client, crate::rooms::repair_unreadable_tombstones(&client));
+        let repair_client = client.clone();
+        self.track_session_task(
+            spawn(async move {
+                if let Err(error) = crate::rooms::migrate_saved_tombstones(&repair_client).await {
+                    tracing::warn!("could not migrate saved tombstones: {error}");
+                }
+            })
+            .abort_on_drop(),
+        );
         self.watch_bot_commands(&client, generation);
         self.watch_image_packs(&client, generation);
         self.watch_joined_invites(&client);

@@ -267,7 +267,7 @@
     : dismissing
       ? 'sheet-dismissing'
       : 'sheet-settling'}
-  contentStyle={`${background ? `background: ${background};` : ''} ${fullHeight || expanded ? 'height: calc(100dvh - var(--safe-top) - var(--space-300) * 2);' : ''} transform: translateY(${dismissing ? '100%' : `${String(dragOffset)}px`})`}
+  contentStyle={`${background ? `background: ${background};` : ''} ${fullHeight || expanded ? 'height: calc(100dvh - var(--safe-top) - var(--keyboard-overlap) - var(--space-300) * 2);' : ''} transform: translateY(${dismissing ? '100%' : `${String(dragOffset)}px`})`}
   {onOpenChange}
   {onOpenAutoFocus}
 >

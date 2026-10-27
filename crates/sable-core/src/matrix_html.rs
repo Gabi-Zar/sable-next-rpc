@@ -9,6 +9,7 @@ use matrix_sdk::ruma::html::{
     ElementAttributesSchemes, Html, ListBehavior, PropertiesNames, SanitizerConfig,
 };
 use matrix_sdk::ruma::{MatrixUri, MxcUri};
+use regex_lite::Regex;
 use sable_model::html::nests_too_deeply;
 
 pub use sable_model::html::preview_body;
@@ -588,91 +589,34 @@ fn rewrite_markup(formatted: &str) -> String {
     out
 }
 
+static PROFILE_FALLBACK_HTML: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    Regex::new(r#"<strong\s+data-mx-profile-fallback(?:="")?\s*>([^<]+): </strong\s*>"#).ok()
+});
+
 /// Strips the profile-name prefix MSC4144 senders prepend, which Sable renders itself.
 ///
 /// Must run before sanitising, which drops the marker attribute.
-/// The leading `<strong>` element and the text it wraps, when there is one.
-fn leading_strong(formatted: &str) -> Option<(&str, &str, usize)> {
-    let trimmed = formatted.trim_start();
-    let tag_end = trimmed.find('>')?;
-    let open_tag = trimmed.get(..=tag_end)?;
-    if !open_tag.starts_with("<strong") {
-        return None;
-    }
-    let close = trimmed.get(tag_end..)?.find("</strong>")?;
-    let text = trimmed.get(tag_end + 1..tag_end + close)?;
-    let rest = tag_end + close + "</strong>".len();
-    Some((open_tag, text, rest))
-}
-
 #[must_use]
-pub fn has_profile_fallback_html(formatted: &str) -> bool {
-    leading_strong(formatted)
-        .is_some_and(|(open_tag, _, _)| open_tag.contains("data-mx-profile-fallback"))
-}
-
-/// Unmarked senders are matched by profile name, or by `has_fallback` and a trailing colon.
-#[must_use]
-pub fn strip_profile_fallback_html(
-    formatted: &str,
-    display_name: Option<&str>,
-    known: bool,
-) -> String {
-    if let Some(name) = display_name.map(str::trim).filter(|name| !name.is_empty())
-        && let Some(body) = formatted
-            .trim_start()
-            .strip_prefix(&format!("&lt;{name}&gt; "))
-    {
-        return body.trim_start().to_owned();
-    }
-
-    if let Some(name) = display_name.map(str::trim).filter(|name| !name.is_empty()) {
-        if let Some(body) = formatted.trim_start().strip_prefix(&format!("{name}: ")) {
-            return body.trim_start().to_owned();
-        }
-        // A name with markup characters arrives entity-encoded in the html.
-        let encoded = html_escape::encode_text(name);
-        if encoded != name
-            && let Some(body) = formatted.trim_start().strip_prefix(&format!("{encoded}: "))
-        {
-            return body.trim_start().to_owned();
-        }
-    }
-
-    let Some((open_tag, text, rest)) = leading_strong(formatted) else {
+pub fn strip_profile_fallback_html(formatted: &str, fallback_name: Option<&str>) -> String {
+    let Some(name) = fallback_name else {
         return formatted.to_owned();
     };
-    // The fallback always carries the colon; without it this is the sender's
-    // own emphasis that happens to read like the profile name.
-    let labelled = text.trim_end().ends_with(':');
-    let label = text.trim().trim_end_matches(':').trim();
-    let named = labelled
-        && display_name
-            .map(str::trim)
-            .is_some_and(|name| !name.is_empty() && label == name);
-    let marked = open_tag.contains("data-mx-profile-fallback");
-    let fallback = marked || named || (known && labelled);
-    fallback
-        .then(|| formatted.trim_start().get(rest..))
-        .flatten()
-        .map_or_else(|| formatted.to_owned(), |body| body.trim_start().to_owned())
+    // Some senders set `has_fallback` but prefix the html without the marker.
+    if let Some(rest) = formatted.strip_prefix(&format!("{}: ", html_escape::encode_text(name))) {
+        return rest.to_owned();
+    }
+    PROFILE_FALLBACK_HTML.as_ref().map_or_else(
+        || formatted.to_owned(),
+        |fallback| fallback.replace_all(formatted, "").into_owned(),
+    )
 }
 
-/// The plain-text `Name: ` fallback. A known name that does not prefix the body cuts nothing.
 #[must_use]
-pub fn strip_profile_fallback_body(body: &str, display_name: Option<&str>, known: bool) -> String {
-    let name = display_name.map(str::trim).filter(|name| !name.is_empty());
-    if let Some(name) = name {
-        return body
-            .strip_prefix(&format!("{name}: "))
-            .or_else(|| body.strip_prefix(&format!("<{name}> ")))
-            .map_or_else(|| body.to_owned(), ToOwned::to_owned);
-    }
-    if !known {
-        return body.to_owned();
-    }
-    body.split_once(": ")
-        .map_or_else(|| body.to_owned(), |(_, rest)| rest.to_owned())
+pub fn strip_profile_fallback_body(body: &str, fallback_name: Option<&str>) -> String {
+    fallback_name
+        .and_then(|name| body.strip_prefix(&format!("{name}: ")))
+        .unwrap_or(body)
+        .to_owned()
 }
 
 fn sanitize(formatted: &str) -> String {
@@ -756,113 +700,43 @@ mod tests {
     fn strips_the_per_message_profile_fallback() {
         assert_eq!(
             strip_profile_fallback_html(
-                "<strong data-mx-profile-fallback>Kris: </strong>hello there",
-                None,
-                false
+                "<p><strong data-mx-profile-fallback>cat: </strong>Hello, World!</p>",
+                Some("cat")
             ),
-            "hello there"
+            "<p>Hello, World!</p>"
         );
-        assert_eq!(
-            strip_profile_fallback_body("Kris: hello there", Some("Kris"), false),
-            "hello there"
-        );
-        assert_eq!(
-            strip_profile_fallback_body("Kris: hello there", None, true),
-            "hello there"
-        );
-    }
-
-    #[test]
-    fn keeps_a_body_whose_colon_is_not_a_fallback() {
-        assert_eq!(
-            strip_profile_fallback_body("we shipped it: finally", Some("Robin"), true),
-            "we shipped it: finally"
-        );
-        assert_eq!(
-            strip_profile_fallback_body("Note: to self", Some("Kris"), true),
-            "Note: to self"
-        );
-    }
-
-    #[test]
-    fn keeps_bold_that_merely_repeats_the_profile_name() {
-        assert_eq!(
-            strip_profile_fallback_html("<strong>Kris</strong> is great", Some("Kris"), false),
-            "<strong>Kris</strong> is great"
-        );
-        assert_eq!(
-            strip_profile_fallback_html("<strong>Kris</strong> is great", Some("Kris"), true),
-            "<strong>Kris</strong> is great"
-        );
-    }
-
-    #[test]
-    fn strips_the_html_fallback_without_a_parsed_profile() {
         assert_eq!(
             strip_profile_fallback_html(
-                "<strong data-mx-profile-fallback>Kris: </strong>hi",
-                None,
-                true
+                "<strong data-mx-profile-fallback=\"\">a &amp; b: </strong>hi",
+                Some("a & b")
             ),
             "hi"
         );
-    }
-
-    #[test]
-    fn leaves_markup_without_the_fallback_marker_alone() {
         assert_eq!(
-            strip_profile_fallback_html("<strong>Kris: </strong>hello", Some("Robin"), false),
-            "<strong>Kris: </strong>hello"
-        );
-        assert_eq!(
-            strip_profile_fallback_body("Kris: hello", Some("Robin"), false),
-            "Kris: hello"
-        );
-        assert_eq!(
-            strip_profile_fallback_body("Kris: hello", None, false),
-            "Kris: hello"
+            strip_profile_fallback_body("cat: Hello, World!", Some("cat")),
+            "Hello, World!"
         );
     }
 
     #[test]
-    fn strips_an_unmarked_bold_prefix_that_names_the_profile() {
-        assert_eq!(
-            strip_profile_fallback_html("<strong>Alice: </strong>hello", Some("Alice"), false),
-            "hello"
-        );
-        assert_eq!(
-            strip_profile_fallback_html("<strong>Alice: </strong>hello", None, true),
-            "hello"
-        );
+    fn keeps_a_fallback_the_profile_does_not_declare() {
+        let marked = "<strong data-mx-profile-fallback>cat: </strong>hi";
+        assert_eq!(strip_profile_fallback_html(marked, None), marked);
+        assert_eq!(strip_profile_fallback_body("cat: hi", None), "cat: hi");
     }
 
     #[test]
-    fn strips_a_bare_prefix_that_names_the_profile() {
+    fn keeps_text_that_is_not_the_fallback() {
         assert_eq!(
-            strip_profile_fallback_html("Alice: hello there", Some("Alice"), true),
-            "hello there"
+            strip_profile_fallback_body("Note: to self", Some("cat")),
+            "Note: to self"
         );
         assert_eq!(
-            strip_profile_fallback_html("Alice: hello there", Some("Alice"), false),
-            "hello there"
+            strip_profile_fallback_html("<strong>cat: </strong>hi", Some("cat")),
+            "<strong>cat: </strong>hi"
         );
-        assert_eq!(
-            strip_profile_fallback_html("Alice &amp; Bob: hello", Some("Alice & Bob"), false),
-            "hello"
-        );
-        assert_eq!(
-            strip_profile_fallback_html("<em>Alice: </em>hello", Some("Alice"), false),
-            "<em>Alice: </em>hello"
-        );
-    }
-
-    #[test]
-    fn keeps_the_body_when_the_fallback_tag_is_unclosed() {
-        let malformed = "<strong data-mx-profile-fallback>Kris: hello";
-        assert_eq!(
-            strip_profile_fallback_html(malformed, Some("Kris"), true),
-            malformed
-        );
+        let unclosed = "<strong data-mx-profile-fallback>cat: hi";
+        assert_eq!(strip_profile_fallback_html(unclosed, Some("cat")), unclosed);
     }
 
     #[test]

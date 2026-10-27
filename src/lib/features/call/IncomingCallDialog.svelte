@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { MediaQuery } from 'svelte/reactivity';
   import { i18n } from '#lib/i18n.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { isRecord } from '#lib/guards.js';
@@ -11,7 +10,7 @@
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
 
   import type { IncomingCall } from './incoming-calls.svelte.js';
 
@@ -58,7 +57,7 @@
     };
   });
 
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   let open = $derived(call !== null);
   let variant = $derived(appLayout.current ? ('sheet' as const) : ('fullscreen' as const));
 </script>

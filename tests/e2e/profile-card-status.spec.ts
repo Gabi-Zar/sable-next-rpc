@@ -13,7 +13,7 @@ test.beforeEach(async ({ page, app, installRoomCore }) => {
   });
   await installRoomCore('ready');
   await app.openRoom('!room:example.test');
-  await page.getByRole('button', { name: "Open Alice's profile" }).last().click();
+  await page.getByRole('button', { name: 'Open Alice’s profile' }).last().click();
 });
 
 test('a hovered status leaves the message action clickable', async ({ page }) => {

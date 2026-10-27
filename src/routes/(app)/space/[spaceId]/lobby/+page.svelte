@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { page } from '$app/state';
 
   import JoinBeforeNavigate from '#lib/features/room/discovery/JoinBeforeNavigate.svelte';
@@ -11,9 +12,7 @@
   let space = $derived(findRoomByPathId(roomList.rooms, spaceId) ?? null);
 </script>
 
-<svelte:head>
-  <title>{space?.name ?? i18n.t('nav.lobby')} - Sable</title>
-</svelte:head>
+<PageTitle title={`${space?.name ?? i18n.t('nav.lobby')} - Sable`} />
 
 <main class="lobby-page">
   <div class="lobby-column">

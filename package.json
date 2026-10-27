@@ -1,6 +1,6 @@
 {
   "name": "sable-next",
-  "version": "2.1.6",
+  "version": "2.2.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "type": "module",
@@ -19,7 +19,7 @@
     "prepare": "svelte-kit sync || echo ''; node scripts/dev/install-git-hooks.mjs",
     "check:theme": "node scripts/check/theme-tokens.mjs",
     "check:locales": "node scripts/check/locale-keys.mjs",
-    "check": "svelte-kit sync && node scripts/check/theme-tokens.mjs && node scripts/check/timeline-scroll.mjs && node scripts/check/overlay-layers.mjs && node scripts/check/date-inputs.mjs && node scripts/check/locale-keys.mjs && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p src/service-worker/tsconfig.json && tsc -p tests/tsconfig.browser.json",
+    "check": "svelte-kit sync && node scripts/check/theme-tokens.mjs && node scripts/check/breakpoints.mjs && node scripts/check/timeline-scroll.mjs && node scripts/check/overlay-layers.mjs && node scripts/check/date-inputs.mjs && node scripts/check/locale-keys.mjs && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p src/service-worker/tsconfig.json && tsc -p tests/tsconfig.browser.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings --watch",
     "lint": "oxlint && oxlint --type-aware --ignore-pattern \"**/*.js\" --ignore-pattern \"**/*.mjs\" --ignore-pattern \"**/*.cjs\" && eslint . --cache --cache-strategy content --max-warnings 0",
     "lint:fix": "oxlint --fix && oxlint --type-aware --ignore-pattern '**/*.js' --ignore-pattern '**/*.mjs' --ignore-pattern '**/*.cjs' && eslint . --cache --cache-strategy content --fix",
@@ -99,6 +99,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
+    "@csstools/postcss-global-data": "4.0.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.0",
     "@sentry/cli": "3.8.0",
@@ -130,6 +131,8 @@
     "oxfmt": "^0.73.0",
     "oxlint": "^1.85.0",
     "oxlint-tsgolint": "7.0.2004",
+    "postcss": "^8.5.31",
+    "postcss-custom-media": "12.0.3",
     "postcss-html": "^2.0.0",
     "storybook": "10.6.2",
     "stylelint": "^17.15.0",

@@ -69,8 +69,12 @@
     editorOpen = true;
   }
 
-  async function save(persona: PersonaView, previousId: string | null): Promise<void> {
-    await personas.save(persona, previousId);
+  async function save(
+    persona: PersonaView,
+    previousId: string | null,
+    basePersona: PersonaView | null
+  ): Promise<void> {
+    await personas.save(persona, previousId, basePersona);
     error = null;
   }
 

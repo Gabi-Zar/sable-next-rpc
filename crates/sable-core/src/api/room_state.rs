@@ -435,10 +435,9 @@ impl Handler for AccountDataParams {
     type Ok = Option<Json>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Option<Json>, RpcError> {
+        let room = core.room(&self.room_id).await?;
         let event = core
-            .room(&self.room_id)
-            .await?
-            .account_data(self.event_type.into())
+            .with_open_stores(async || room.account_data(self.event_type.into()).await)
             .await
             .map_err(|error| core.room_error("room_account_data", error))?;
 

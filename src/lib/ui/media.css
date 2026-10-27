@@ -1,0 +1,3 @@
+@custom-media --compact-height (height < 30rem) and (pointer: coarse);
+@custom-media --app-layout (width >= 48rem) and (not (--compact-height));
+@custom-media --compact-layout not (--app-layout);

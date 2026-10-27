@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { goto } from '$app/navigation';
   import { untrack } from 'svelte';
 
@@ -25,12 +26,11 @@
   import PanelHeaderButton from '#lib/ui/primitives/PanelHeaderButton.svelte';
   import BackIcon from 'phosphor-svelte/lib/CaretLeftIcon';
   import { backToRoomList } from '../room-navigation';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import DoorIcon from 'phosphor-svelte/lib/DoorIcon';
   import DoorOpenIcon from 'phosphor-svelte/lib/DoorOpenIcon';
   import SealQuestionIcon from 'phosphor-svelte/lib/SealQuestionIcon';
   import SealCheckIcon from 'phosphor-svelte/lib/SealCheckIcon';
-  import { MediaQuery } from 'svelte/reactivity';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
 
   interface Props {
@@ -44,7 +44,7 @@
 
   const core = useCoreClient();
   const roomList = useRoomList();
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
 
   let preview = $state<RoomPreviewView | null>(null);
   let failed = $state(false);
@@ -157,9 +157,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{preview?.name ?? i18n.t('a11y.loading')} - Sable</title>
-</svelte:head>
+<PageTitle title={`${preview?.name ?? i18n.t('a11y.loading')} - Sable`} />
 
 <div class="wrapper" data-inset-owner="top">
   {#if !appLayout.current}
@@ -367,7 +365,7 @@
     min-width: 0;
     padding: var(--space-700) var(--space-600);
 
-    @media (width <= 48rem) {
+    @media (--compact-layout) {
       background-image: linear-gradient(to top, var(--primary-container) 0%, transparent 30%);
     }
   }

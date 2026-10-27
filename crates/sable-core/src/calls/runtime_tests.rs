@@ -1109,11 +1109,11 @@ fn a_screen_share_flag_is_top_level_and_leaves_the_membership_untouched() {
     for mode in [CallMode::Compatibility, CallMode::Matrix2] {
         let mut own = member(mode, 7, &["https://sfu.example.org"]);
         own.member_id = Some("member".to_owned());
-        let quiet = content(&room_id, &own, None);
+        let quiet = content_at(&room_id, &own, None, 9_000);
         assert!(quiet.get("org.sable.screen_sharing").is_none());
 
         own.screen_sharing = true;
-        let sharing = content(&room_id, &own, None);
+        let sharing = content_at(&room_id, &own, None, 9_000);
         assert_eq!(sharing["org.sable.screen_sharing"], true);
 
         let mut stripped = sharing.clone();

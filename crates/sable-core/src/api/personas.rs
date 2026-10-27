@@ -36,6 +36,7 @@ impl Handler for ListParams {
 #[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct SaveParams {
     pub persona: PersonaView,
+    pub base_persona: PersonaView,
     #[serde(default)]
     pub previous_id: Option<String>,
 }

@@ -37,6 +37,8 @@ export function sendFailure(cause: unknown): SendFailure {
       return { key: 'composer.sendRateLimited', retryable: true };
     case 'invalid_media':
       return { key: 'composer.sendInvalidMedia', retryable: false };
+    case 'message_too_large':
+      return { key: 'composer.sendTooLarge', retryable: false };
     case 'unavailable':
       return { key: 'composer.sendUnavailable', retryable: true };
     case 'media_server_unavailable':

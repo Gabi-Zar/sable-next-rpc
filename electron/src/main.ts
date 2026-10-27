@@ -37,6 +37,7 @@ import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
 import { writeDownload } from './downloads';
+import { shareFile } from './share';
 import * as screenAudio from './screen-audio';
 import { available as screenAudioAvailable } from './audiofox';
 import { screenShareStreams } from './screen-share';
@@ -553,6 +554,13 @@ ipcMain.handle('sable-save-file', async (event, request: unknown) => {
 
   await writeFile(filePath, bytes);
   return { path: filePath };
+});
+
+ipcMain.handle('sable-share-file', async (event, request: unknown) => {
+  if (!isAppFrame(event.senderFrame)) throw new Error('Invalid share origin');
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window) throw new Error('No share window');
+  await shareFile(window, app.getPath('userData'), request);
 });
 
 function cancelPicks(): void {

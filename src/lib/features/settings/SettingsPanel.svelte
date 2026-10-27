@@ -2,7 +2,7 @@
   import { afterNavigate, goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import type { Snippet } from 'svelte';
-  import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
+  import { matchesAppLayout } from '#lib/ui/app-layout.svelte.js';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import SettingsSectionContent from './SettingsSectionContent.svelte';
   import SettingsNavigator from './SettingsNavigator.svelte';
@@ -23,7 +23,7 @@
   );
 
   afterNavigate((navigation) => {
-    if (navigation.shallow || matchMedia(BREAKPOINTS.appLayout).matches) return;
+    if (navigation.shallow || matchesAppLayout()) return;
     visits.visit({
       type: navigation.type,
       delta: navigation.type === 'popstate' ? navigation.delta : undefined,
@@ -41,7 +41,7 @@
       return;
     }
     void goto(resolve('/(app)/rooms'), {
-      replace: !matchMedia(BREAKPOINTS.appLayout).matches,
+      replace: !matchesAppLayout(),
     });
   }
 

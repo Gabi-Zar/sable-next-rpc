@@ -1530,6 +1530,128 @@ describe('enter inside a list', () => {
   });
 });
 
+test('selecting quote text toggles a quote past its trailing paragraph', () => {
+  const editor = open();
+  editor.setText('one\ntwo');
+  const target = view(editor);
+  target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+  editor.format('blockquote');
+  target.dispatch(
+    target.state.tr.setSelection(
+      TextSelection.create(target.state.doc, 2, target.state.doc.content.size - 1)
+    )
+  );
+
+  editor.format('blockquote');
+
+  expect(target.state.doc.toString()).toBe('doc(paragraph("one", hard_break, "two"), paragraph)');
+});
+
+describe('rich formatting shortcuts', () => {
+  test('bold applies a rich text mark', () => {
+    const editor = open();
+    editor.setText('hello');
+    const target = view(editor);
+    target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+
+    press(editor, 'b', { mod: true });
+
+    expect(surface().querySelector('strong')?.textContent).toBe('hello');
+  });
+
+  test('spoilers request a reason', () => {
+    const onSpoilerRequest = vi.fn();
+    const editor = openWith({ onSpoilerRequest });
+
+    press(editor, 'h', { mod: true });
+
+    expect(onSpoilerRequest).toHaveBeenCalledOnce();
+  });
+});
+
+test('markdown bold shortcut inserts Markdown syntax', () => {
+  preferences.richTextComposer = false;
+  const editor = open();
+  editor.setText('hello');
+  const target = view(editor);
+  target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+
+  press(editor, 'b', { mod: true });
+
+  expect(editor.text()).toBe('**hello**');
+  expect(surface().querySelector('strong')).toBeNull();
+});
+
+test('markdown spoiler shortcut inserts syntax without requesting a reason', () => {
+  preferences.richTextComposer = false;
+  const onSpoilerRequest = vi.fn();
+  const editor = openWith({ onSpoilerRequest });
+  editor.setText('secret');
+  const target = view(editor);
+  target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+
+  press(editor, 'h', { mod: true });
+
+  expect(editor.text()).toBe('||secret||');
+  expect(onSpoilerRequest).not.toHaveBeenCalled();
+});
+
+test('source bold shortcut inserts Markdown syntax', () => {
+  const editor = open();
+  editor.setText('hello');
+  editor.toggleSource();
+  const target = view(editor);
+  target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+
+  press(editor, 'b', { mod: true });
+
+  expect(editor.text()).toBe('**hello**');
+  expect(surface().querySelector('strong')).toBeNull();
+});
+
+test('source spoiler shortcut inserts syntax without requesting a reason', () => {
+  const onSpoilerRequest = vi.fn();
+  const editor = openWith({ onSpoilerRequest });
+  editor.setText('secret');
+  editor.toggleSource();
+  const target = view(editor);
+  target.dispatch(target.state.tr.setSelection(new AllSelection(target.state.doc)));
+
+  press(editor, 'h', { mod: true });
+
+  expect(editor.text()).toBe('||secret||');
+  expect(onSpoilerRequest).not.toHaveBeenCalled();
+});
+
+test('link requests work in rich mode', () => {
+  const onLinkRequest = vi.fn();
+  const editor = openWith({ onLinkRequest });
+
+  press(editor, 'k', { mod: true, shift: true });
+
+  expect(onLinkRequest).toHaveBeenCalledOnce();
+});
+
+test('link requests work in markdown mode', () => {
+  preferences.richTextComposer = false;
+  const onLinkRequest = vi.fn();
+  const editor = openWith({ onLinkRequest });
+
+  press(editor, 'k', { mod: true, shift: true });
+
+  expect(onLinkRequest).toHaveBeenCalledOnce();
+});
+
+test('link requests work in source mode', () => {
+  const onLinkRequest = vi.fn();
+  const editor = openWith({ onLinkRequest });
+  editor.toggleSource();
+
+  press(editor, 'k', { mod: true, shift: true });
+
+  expect(onLinkRequest).toHaveBeenCalledOnce();
+});
+
 describe('markdown source mode', () => {
   test('leaves typed markdown as text', () => {
     const editor = open();

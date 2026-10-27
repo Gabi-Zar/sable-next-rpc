@@ -32,10 +32,7 @@ use crate::Core;
 use crate::ResultExt;
 use crate::link_previews::BUNDLED_LINK_PREVIEWS;
 use crate::link_previews::LEGACY_BUNDLED_LINK_PREVIEWS;
-use crate::matrix_html::{
-    display_html, has_profile_fallback_html, strip_profile_fallback_body,
-    strip_profile_fallback_html,
-};
+use crate::matrix_html::{display_html, strip_profile_fallback_body, strip_profile_fallback_html};
 use crate::outgoing::message_content;
 use crate::personas::PER_MESSAGE_PROFILE;
 use crate::protocol::{
@@ -878,7 +875,7 @@ impl Core {
                         .ok()?,
                 };
                 let latest = latest_valid_replacement(&event, &replacements).cloned();
-                standalone_item(room, event, latest, push).await
+                standalone_item(self, room, event, latest, push).await
             }))
             .await;
             items.extend(loaded.into_iter().flatten());
@@ -972,21 +969,18 @@ fn edit_version(event: &TimelineEvent, replacement: bool) -> Option<EditVersionV
         .and_then(serde_json::Value::as_str)
         .filter(|format| *format == "org.matrix.custom.html")
         .and_then(|_| content.get("formatted_body")?.as_str());
-    let profile = per_message_profile(Some(content));
-    let name = profile
+    let profile = per_message_profile(Some(content)).filter(|profile| profile.has_fallback);
+    let fallback = profile
         .as_ref()
         .and_then(|profile| profile.display_name.as_deref());
-    let known = formatted.is_some_and(has_profile_fallback_html)
-        || profile.as_ref().is_some_and(|profile| profile.has_fallback);
     let body = strip_profile_fallback_body(
         content
             .get("body")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default(),
-        name,
-        known,
+        fallback,
     );
-    let formatted = formatted.map(|formatted| strip_profile_fallback_html(formatted, name, known));
+    let formatted = formatted.map(|formatted| strip_profile_fallback_html(formatted, fallback));
 
     Some(EditVersionView {
         event_id: event.event_id()?.to_string(),
@@ -2189,6 +2183,105 @@ mod tests {
         assert_eq!(body, "new rules");
         assert_eq!(html, "<em>new</em> rules");
         assert!(edited);
+    }
+
+    async fn preview_core(server: &MatrixMockServer) -> Arc<Core> {
+        let client = server.client_builder().build().await;
+        let room = room_id!("!bookmarks:example.org");
+        server.sync_joined_room(&client, room).await;
+        server.mock_room_state_encryption().plain().mount().await;
+        let event = json!({
+            "type": "m.room.message", "event_id": "$saved", "sender": "@alice:example.org",
+            "origin_server_ts": 1, "room_id": room,
+            "content": {"msgtype": "m.text", "body": "Saved message"}
+        });
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room}/event/$saved"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(event.clone()))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!("/_matrix/client/v1/rooms/{room}/threads")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": [event]})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v1/rooms/{room}/relations/$saved/m.replace"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"chunk": []})))
+            .mount(server.server())
+            .await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room}/state/m.room.member/@alice:example.org"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "membership": "join", "displayname": "Room Alice",
+                "avatar_url": "mxc://example.org/alice"
+            })))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        core(server, client).await
+    }
+
+    #[tokio::test]
+    async fn event_items_and_thread_roots_share_missing_sender_state() {
+        use crate::api::timeline::ListThreadsParams;
+
+        let server = MatrixMockServer::new().await;
+        let core = preview_core(&server).await;
+        let room = room_id!("!bookmarks:example.org");
+        let items = core
+            .event_items(&room.to_owned(), &[event_id!("$saved").to_owned()])
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].sender_name.as_deref(), Some("Room Alice"));
+        assert_eq!(
+            items[0].sender_avatar.as_deref(),
+            Some("mxc://example.org/alice")
+        );
+
+        let threads = core
+            .run(ListThreadsParams {
+                room_id: room.to_owned(),
+                from: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(threads.roots.len(), 1);
+        assert_eq!(threads.roots[0].sender_name.as_deref(), Some("Room Alice"));
+        assert_eq!(
+            threads.roots[0].sender_avatar.as_deref(),
+            Some("mxc://example.org/alice")
+        );
+    }
+
+    #[tokio::test]
+    async fn event_items_fetch_missing_sender_state_in_a_left_room() {
+        use matrix_sdk_test::LeftRoomBuilder;
+
+        let server = MatrixMockServer::new().await;
+        let core = preview_core(&server).await;
+        let room = room_id!("!bookmarks:example.org");
+        server
+            .sync_room(&core.client().await.unwrap(), LeftRoomBuilder::new(room))
+            .await;
+
+        let items = core
+            .event_items(&room.to_owned(), &[event_id!("$saved").to_owned()])
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].sender_name.as_deref(), Some("Room Alice"));
+        assert_eq!(
+            items[0].sender_avatar.as_deref(),
+            Some("mxc://example.org/alice")
+        );
     }
 
     #[tokio::test]

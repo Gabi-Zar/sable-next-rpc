@@ -9,7 +9,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 import { autolinks } from './autolinks';
 import { activeMarks, formatCommands, formattingInputRules } from './formatting';
 import { markdownFormatCommands } from './markdown-format';
-import { composerSchema } from './schema';
+import { composerSchema, parseMatrixHtml } from './schema';
 import { serializeComposer } from './serialize';
 
 let view: EditorView | undefined;
@@ -270,6 +270,45 @@ test('the blockquote command lifts out of a quote instead of nesting another', (
   expect(editor.state.doc.toString()).toBe('doc(paragraph("quoted"))');
 });
 
+test('quoting selected lines leaves surrounding lines outside', () => {
+  const editor = open();
+  const doc = parseMatrixHtml('<p>one<br>two<br>three<br>four</p>');
+  editor.updateState(EditorState.create({ doc, selection: TextSelection.create(doc, 15, 6) }));
+
+  run('blockquote');
+
+  expect(editor.state.doc.toString()).toBe(
+    'doc(paragraph("one"), blockquote(paragraph("two", hard_break, "three")), paragraph("four"))'
+  );
+  run('blockquote');
+  expect(editor.state.doc.toString()).toBe(
+    'doc(paragraph("one"), paragraph("two", hard_break, "three"), paragraph("four"))'
+  );
+});
+
+test('a caret on an empty line quotes only that line', () => {
+  const editor = open();
+  const doc = parseMatrixHtml('<p>one<br><br>three</p>');
+  editor.updateState(EditorState.create({ doc, selection: TextSelection.create(doc, 5) }));
+
+  run('blockquote');
+
+  expect(editor.state.doc.toString()).toBe(
+    'doc(paragraph("one"), blockquote(paragraph), paragraph("three"))'
+  );
+  expect(editor.state.selection.empty).toBe(true);
+});
+
+test('select-all toggles a quote with its trailing empty paragraph', () => {
+  const editor = open();
+  const doc = parseMatrixHtml('<blockquote><p>quoted</p></blockquote><p></p>');
+  editor.updateState(EditorState.create({ doc, selection: new AllSelection(doc) }));
+
+  run('blockquote');
+
+  expect(editor.state.doc.toString()).toBe('doc(paragraph("quoted"), paragraph)');
+});
+
 test('the bullet_list command lifts out of a list from any item, not only the first', () => {
   const editor = open();
   type('one');
@@ -466,7 +505,7 @@ describe('typed Markdown', () => {
     ['__bold__', '<strong>bold</strong>'],
     ['**a*b**', '<strong>a*b</strong>'],
     ['**a *b* c**', '<strong>a <em>b</em> c</strong>'],
-    ['**a `b` c**', '<strong>a </strong><code>b</code><strong> c</strong>'],
+    ['**a `b` c**', '<strong>a <code>b</code> c</strong>'],
     ['`a` **b**', '<code>a</code> <strong>b</strong>'],
     ['**💜a*b**', '<strong>💜a*b</strong>'],
     ['[label](https://example.org)', '<a href="https://example.org">label</a>'],
@@ -503,12 +542,12 @@ describe('typed Markdown', () => {
     expect(serializeComposer(editor.state.doc).formatted).toBeNull();
   });
 
-  test('inline code preserves stored formatting', () => {
+  test('inline code keeps stored formatting', () => {
     const editor = open();
     editor.dispatch(editor.state.tr.addStoredMark(composerSchema.marks.strong.create()));
     type('`code` next');
     expect(serializeComposer(editor.state.doc).formatted).toBe(
-      '<code>code</code><strong> next</strong>'
+      '<strong><code>code</code> next</strong>'
     );
   });
 

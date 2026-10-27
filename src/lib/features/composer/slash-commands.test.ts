@@ -676,8 +676,9 @@ test('/pmpproxy appends a persona trigger', async () => {
   expect(rpc.personas.save).toHaveBeenCalledWith({
     persona: expect.objectContaining({
       id: 'alt',
-      triggers: [{ prefix: '✨:', suffix: null, keep_trigger: false }],
+      triggers: [{ prefix: '✨:', suffix: null, keep_trigger: false, alternate_avatar_id: null }],
     }) as unknown,
+    base_persona: persona,
     previous_id: 'alt',
   });
 });
@@ -818,6 +819,7 @@ test('/addpmp creates a profile from its named fields', async () => {
       display_name: 'Alt',
       avatar_url: 'mxc://example.org/a',
     }) as unknown,
+    base_persona: expect.objectContaining({ id: 'alt' }) as unknown,
     previous_id: null,
   });
 });

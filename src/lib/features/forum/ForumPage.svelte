@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import type { RoomPermissionsView } from '#src/generated/protocol';
   import { goto } from '$app/navigation';
@@ -248,9 +249,7 @@
   };
 </script>
 
-<svelte:head>
-  <title>{roomName}</title>
-</svelte:head>
+<PageTitle title={roomName} />
 
 <TimelineReadReceipt
   timeline={forumThreads.roomTimeline}

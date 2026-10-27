@@ -1,5 +1,6 @@
+import type {} from '@vitest/browser-playwright';
 import { afterEach, expect, test, vi } from 'vitest';
-import { page, userEvent } from 'vitest/browser';
+import { cdp, page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
@@ -16,6 +17,8 @@ function literal(text: string): string {
 }
 
 afterEach(async () => {
+  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: false });
+  document.documentElement.style.removeProperty('--keyboard-height');
   document.body.removeAttribute('style');
   await page.viewport(414, 800);
   setPreference('composerForm', 'tall');
@@ -83,6 +86,34 @@ async function mount(
   return { screen, composer, sent, editor, firstParagraph };
 }
 
+test('a multiline expanded composer fits above the landscape phone keyboard', async () => {
+  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: true });
+  await page.viewport(390, 844);
+  const { screen, composer, editor } = await mount(true, { composerForm: 'tall' });
+  await userEvent.click(screen.getByRole('button', { name: en.composer.expand }));
+  await expect.poll(() => document.querySelector('.editor.expanded')).not.toBeNull();
+  await page.viewport(844, 390);
+  document.documentElement.style.setProperty('--keyboard-height', '190px');
+  await userEvent.click(composer);
+  const data = new DataTransfer();
+  data.setData('text/plain', 'a line\n'.repeat(20));
+  editor().dispatchEvent(
+    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
+  );
+  await expect.poll(() => document.querySelector('.composer-row.short')).not.toBeNull();
+  await expect.poll(() => editor().textContent).toContain('a line');
+  const row = document.querySelector('.composer-row') as HTMLElement;
+  expect(row.getBoundingClientRect().height).toBeLessThan(100);
+  const editorBox = editor().getBoundingClientRect();
+  const send = screen
+    .getByRole('button', { name: en.timeline.sendMessage })
+    .element()
+    .getBoundingClientRect();
+  expect(send.height).toBeGreaterThanOrEqual(40);
+  expect(send.top).toBeLessThan(editorBox.bottom);
+  expect(send.bottom).toBeGreaterThan(editorBox.top);
+});
+
 test.for([
   ['**', '<strong>test</strong>'],
   ['*', '<em>test</em>'],
@@ -137,7 +168,7 @@ test('typed Markdown handles formatting and literal delimiters', async () => {
     ['[label](https://example.org)', '<a href="https://example.org">label</a>'],
     ['``code ` tick`` next', '<code>code ` tick</code> next'],
     ['`code``', '`code``'],
-    ['**a `b` c** next', '<strong>a </strong><code>b</code><strong> c</strong> next'],
+    ['**a `b` c** next', '<strong>a <code>b</code> c</strong> next'],
   ]) {
     const { screen, composer, firstParagraph } = await mount(true);
     await userEvent.click(composer);
@@ -285,8 +316,8 @@ test('formatting uses the footer space', async () => {
   await expect.poll(() => document.querySelector('.formatting')).toBeNull();
 });
 
-for (const width of [320, 520]) {
-  test(`formatting scrolls in a narrow ${String(width)}px composer`, async () => {
+for (const width of [320, 520, 768]) {
+  test(`formatting controls stay visible in a narrow ${String(width)}px composer`, async () => {
     await page.viewport(width, 812);
     const { screen } = await mount(true, {
       composerGifButton: false,
@@ -306,11 +337,16 @@ for (const width of [320, 520]) {
     } else {
       expect(strip.x).toBeGreaterThanOrEqual(plus.x + plus.width);
       expect(strip.x + strip.width).toBeLessThanOrEqual(actions.x);
-      expect(Math.abs(strip.y - actions.y)).toBeLessThanOrEqual(1);
     }
-    expect(rail.scrollWidth > rail.clientWidth).toBe(true);
-    rail.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, bubbles: true, cancelable: true }));
-    expect(rail.scrollLeft).toBeGreaterThan(0);
+    const composer = boxOf('.composer');
+    for (const button of rail.querySelectorAll('button')) {
+      await expect.element(button).toBeVisible();
+      const box = button.getBoundingClientRect();
+      expect(box.left).toBeGreaterThanOrEqual(Math.max(composer.left, 0));
+      expect(box.right).toBeLessThanOrEqual(Math.min(composer.right, window.innerWidth));
+      expect(box.top).toBeGreaterThanOrEqual(Math.max(composer.top, 0));
+      expect(box.bottom).toBeLessThanOrEqual(Math.min(composer.bottom, window.innerHeight));
+    }
     const highlight = screen.getByRole('button', { name: 'Highlight colour', exact: true });
     highlight.element().focus();
     await expect.element(highlight).toBeInViewport();

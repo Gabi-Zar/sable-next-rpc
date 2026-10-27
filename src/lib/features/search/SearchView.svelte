@@ -1315,7 +1315,7 @@
     white-space: nowrap;
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .hit-context:not([hidden]) {
       display: block;
     }

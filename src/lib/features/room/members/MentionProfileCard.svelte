@@ -191,6 +191,7 @@
       const time = new Intl.DateTimeFormat(undefined, {
         hour: 'numeric',
         minute: '2-digit',
+        hour12: !preferences.hour24Clock,
         timeZone: timezone,
       }).format(new Date());
       return { time, timezone };
@@ -729,6 +730,7 @@
       miscOpen = !miscOpen;
       activeExtra = null;
     }}
+    size="small"
     block
   >
     {#if miscOpen}

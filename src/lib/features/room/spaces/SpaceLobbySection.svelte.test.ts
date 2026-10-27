@@ -7,29 +7,8 @@ import { expect, test, vi } from 'vitest';
 import type { RoomJoinRuleView } from '#src/generated/protocol';
 
 import { buildHierarchySections, type HierarchyRoomView } from './space-hierarchy';
+import { sectionProps, space } from './lobby-section-fixtures';
 import SpaceLobbySection from './SpaceLobbySection.svelte';
-
-function space(roomId: string, joinRule: RoomJoinRuleView, children: string[]): HierarchyRoomView {
-  return {
-    room_id: roomId,
-    canonical_alias: null,
-    name: 'Sub',
-    topic: null,
-    avatar_url: null,
-    is_space: true,
-    num_joined_members: 3,
-    join_rule: joinRule,
-    allowed_room_ids: [],
-    guest_can_join: false,
-    children: children.map((child) => ({
-      room_id: child,
-      via: [],
-      order: null,
-      origin_server_ts: 0,
-      suggested: false,
-    })),
-  };
-}
 
 function mount(
   joinRule: RoomJoinRuleView,
@@ -47,41 +26,16 @@ function mount(
     joined: joinedIds,
     keepEmpty: ['!sub:example.org'],
   });
-  const noop = vi.fn();
-  render(SpaceLobbySection, {
-    section,
-    closed: room === null,
-    joinedIds: new Set(joinedIds),
-    joining: new Set<string>(),
-    knocked: new Set<string>(),
-    joinErrors: new Map<string, string>(),
-    canManage: rights.canManage ?? false,
-    canManageOwner: rights.canManageOwner ?? false,
-    canLeaveParent: () => true,
-    canDropInto: () => true,
-    label: (child: HierarchyRoomView) => child.name ?? child.room_id,
-    onToggle: noop,
-    onVisible: noop,
-    onOpen: noop,
-    onTopic,
-    onJoin,
-    onCopyLink: noop,
-    onRemove: noop,
-    dragList: { draggable: () => undefined, dropTarget: () => undefined } as never,
-    onDropRoom: noop,
-    onMove: noop,
-    moveTargets: [],
-    pinned: false,
-    joinedSpace: joinedIds.includes('!sub:example.org'),
-    onOpenLobby: noop,
-    onCreateIn: noop,
-    onTogglePin: noop,
-    onSetSuggested: noop,
-    onRetry: noop,
-    onMoveSubspace: noop,
-    onRemoveSubspace: noop,
-    onMoveTo: noop,
-  });
+  render(
+    SpaceLobbySection,
+    sectionProps(section, joinedIds, {
+      ...rights,
+      closed: room === null,
+      onTopic,
+      onJoin,
+      joinedSpace: joinedIds.includes('!sub:example.org'),
+    })
+  );
   return { onJoin, onTopic, user: userEvent.setup() };
 }
 

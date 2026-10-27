@@ -447,7 +447,7 @@ impl Handler for InviteTriageParams {
     type Ok = Vec<InviteTriageView>;
 
     async fn run(self, core: &Arc<Core>) -> Result<Vec<InviteTriageView>, RpcError> {
-        Ok(crate::invites::triage(&core.client().await?).await)
+        Ok(crate::invites::triage(core, &core.client().await?).await)
     }
 }
 

@@ -154,7 +154,13 @@ pub(crate) fn overrides(content: Option<&Value>) -> Vec<ProfileOverrideView> {
 
 #[cfg(not(target_family = "wasm"))]
 pub(crate) async fn notification_name(client: &matrix_sdk::Client, sender: &str) -> Option<String> {
-    let stored = stored_overrides(client, false).await.ok()?;
+    let stored = stored_overrides(
+        client,
+        false,
+        crate::sealed_account_data::cached_key(client),
+    )
+    .await
+    .ok()?;
     let entry = overrides(stored.content.as_ref())
         .into_iter()
         .find(|entry| entry.user_id == sender)?;
@@ -236,6 +242,7 @@ struct StoredOverrides {
 async fn stored_overrides(
     client: &matrix_sdk::Client,
     fetch: bool,
+    key: impl std::future::Future<Output = Option<crate::sealed_account_data::AccountDataKey>>,
 ) -> matrix_sdk::Result<StoredOverrides> {
     let stable =
         crate::sealed_account_data::read_account_data(client, PROFILE_OVERRIDES_EVENT, fetch)
@@ -249,9 +256,13 @@ async fn stored_overrides(
             can_seal: false,
         });
     }
-    let document =
-        crate::sealed_account_data::read_document(client, UNSTABLE_PROFILE_OVERRIDES_EVENT, fetch)
-            .await?;
+    let document = crate::sealed_account_data::read_document(
+        client,
+        UNSTABLE_PROFILE_OVERRIDES_EVENT,
+        fetch,
+        key.await,
+    )
+    .await?;
     Ok(StoredOverrides {
         content: document.content,
         sealed_type: true,
@@ -263,7 +274,10 @@ async fn stored_overrides(
 impl Core {
     async fn stored_overrides(&self) -> Result<StoredOverrides, RpcError> {
         use crate::ResultExt;
-        stored_overrides(&self.client().await?, true)
+        let client = self.client().await?;
+        let key =
+            self.with_open_stores(async || crate::sealed_account_data::cached_key(&client).await);
+        stored_overrides(&client, true, key)
             .await
             .or_failed(self, "profile_overrides")
     }

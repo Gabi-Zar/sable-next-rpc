@@ -2,6 +2,7 @@ import { type as osType } from '@tauri-apps/plugin-os';
 import { on } from 'svelte/events';
 
 import { PREFERENCE_RANGES, preferences, setPreference } from '#lib/settings/preferences.svelte.js';
+import { normalizeWheelDelta } from '#lib/ui/wheel-zoom.js';
 
 import { supportsDesktopWindow } from './window-decorations';
 
@@ -49,7 +50,7 @@ export function trackZoomShortcuts(): () => void {
       if (!event.ctrlKey || event.defaultPrevented) return;
       event.preventDefault();
       if (!preferences.zoomShortcuts) return;
-      wheel += event.deltaY;
+      wheel += normalizeWheelDelta(event.deltaY, event.deltaMode, window.innerHeight);
       if (Math.abs(wheel) < WHEEL_NOTCH) return;
       zoomTo(preferences.pageZoom - Math.sign(wheel) * STEP);
       wheel = 0;

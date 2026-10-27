@@ -43,9 +43,13 @@ impl Mark {
         }
     }
 
-    /// `code` excludes every other mark; every mark excludes its own type.
+    /// `code` excludes colours; every mark excludes its own type.
     const fn excludes(&self, other: &Self) -> bool {
-        matches!(self, Self::Code) || self.rank() == other.rank()
+        self.rank() == other.rank()
+            || matches!(
+                (self, other),
+                (Self::Code, Self::Color(_) | Self::BgColor(_))
+            )
     }
 }
 
@@ -502,10 +506,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn code_drops_every_other_mark_and_a_mark_cannot_join_code() {
+    fn code_keeps_other_marks_but_drops_colours() {
         let strong = vec![Mark::Strong, Mark::Link("u".to_owned())];
-        assert_eq!(add_mark(&strong, Mark::Code), vec![Mark::Code]);
-        assert_eq!(add_mark(&[Mark::Code], Mark::Spoiler), vec![Mark::Code]);
+        assert_eq!(
+            add_mark(&strong, Mark::Code),
+            vec![Mark::Strong, Mark::Code, Mark::Link("u".to_owned())]
+        );
+        assert_eq!(
+            add_mark(&[Mark::Color("#000000".to_owned())], Mark::Code),
+            vec![Mark::Code]
+        );
+        assert_eq!(
+            add_mark(&[Mark::Code], Mark::Color("#000000".to_owned())),
+            vec![Mark::Code]
+        );
     }
 
     #[test]

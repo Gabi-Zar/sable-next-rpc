@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { matrixLinkAction } from '#lib/rooms/matrix-link.js';
   import { MediaQuery } from 'svelte/reactivity';
   import { onDestroy, onMount, untrack } from 'svelte';
@@ -36,6 +37,7 @@
   import { provideRoomCosmetics, RoomCosmetics } from '#lib/rooms/room-cosmetics.svelte.js';
   import { activeRoomTimeline } from '#lib/rooms/timeline.svelte.js';
   import ScheduledMessages from '#lib/features/composer/ScheduledMessages.svelte';
+  import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { BREAKPOINTS } from '#lib/ui/breakpoints.js';
   import { composerClearance } from '#lib/ui/composer-clearance.svelte.js';
   import { PanelWidth } from '#lib/ui/panel-width.svelte.js';
@@ -60,7 +62,8 @@
   import RoomTombstoneBanner from './RoomTombstoneBanner.svelte';
   import RoomReadReceipts from './timeline/RoomReadReceipts.svelte';
   import TimelineList from './timeline/TimelineList.svelte';
-  import MediaViewer, { type MediaItem } from './media/MediaViewer.svelte';
+  import type { MediaItem } from './media/media-viewer-types.js';
+  import RoomMediaViewerDialog from './media/RoomMediaViewerDialog.svelte';
   import { galleryEventId } from './media/media-items.js';
   import { provideMediaViewerOpener } from './media/media-viewer-opener.svelte.js';
   import { tagForLevel } from './settings/power-level-tags.js';
@@ -383,7 +386,7 @@
   let pageTitle = $derived(
     mentionCount > 0 ? `(${mentionCount}) ${roomName} - Sable` : `${roomName} - Sable`
   );
-  const appLayout = new MediaQuery(BREAKPOINTS.appLayout);
+  const appLayout = new AppLayout();
   let phone = $derived(!appLayout.current);
   let pinsOpen = $state(false);
   let pinsUnread = $state(0);
@@ -752,22 +755,7 @@
 
   function openProfileAvatar(source: string, displayName: string): void {
     closeProfile();
-    mediaViewer.openStandalone({
-      kind: 'image',
-      filename: displayName,
-      caption: null,
-      html: null,
-      source,
-      mime: null,
-      width: null,
-      height: null,
-      size: null,
-      blurhash: null,
-      thumbnail: null,
-      spoiler: null,
-      animated: null,
-      sender: displayName,
-    });
+    mediaViewer.openProfile(source, displayName);
   }
 
   function openPredecessor(): void {
@@ -797,9 +785,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>{pageTitle}</title>
-</svelte:head>
+<PageTitle title={pageTitle} />
 
 {#snippet inlineEditor()}
   <InlineEdit {conversation} roomId={resolvedRoomId} />
@@ -962,6 +948,7 @@
       onMembers={toggleMembers}
       onSearch={openSearch}
       onTopic={() => (topicOpen = true)}
+      onAvatar={(source, name) => mediaViewer.openProfile(source, name)}
       {phone}
       actions={headerActions}
     >
@@ -1122,14 +1109,10 @@
     }}
   />
 
-  {#if mediaViewer.eventId}
-    <MediaViewer
-      items={mediaViewer.items}
-      selectedEventId={mediaViewer.eventId}
-      onClose={() => mediaViewer.close()}
-      onJump={mediaViewer.panelItems ? jumpFromViewer : undefined}
-    />
-  {/if}
+  <RoomMediaViewerDialog
+    viewer={mediaViewer}
+    onJump={mediaViewer.panelItems ? jumpFromViewer : undefined}
+  />
 </main>
 
 <style>
@@ -1174,7 +1157,7 @@
     padding-bottom: max(var(--space-200), var(--edge-inset-bottom));
   }
 
-  @media (width >= 48rem) {
+  @media (--app-layout) {
     .room-view {
       overflow-x: clip;
     }

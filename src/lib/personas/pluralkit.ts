@@ -79,6 +79,7 @@ function triggers(tags: PluralkitMember['proxy_tags']): PersonaTriggerView[] {
       prefix: tag.prefix ?? null,
       suffix: tag.suffix ?? null,
       keep_trigger: false,
+      alternate_avatar_id: null,
     }))
     .filter((trigger) => trigger.prefix !== null || trigger.suffix !== null);
 }

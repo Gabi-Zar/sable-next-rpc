@@ -136,7 +136,7 @@ class PushNotifierTest {
     }
 
     @Test
-    fun decryptionFinishingOutOfOrderUpdatesItsOwnMessage() {
+    fun decryptionFinishingOutOfOrderKeepsLatestMessageAndTargets() {
         val room = "!history:example.org"
         val state = PushPolicy(context)
         state.accounts = mapOf("@alice:example.org" to "DEVICE")
@@ -144,12 +144,15 @@ class PushNotifierTest {
         mockkObject(PushPayloadDecryptor)
         try {
             every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
-                PushNotifier.showFromPush(context, pushPayload(room, "\$second", "second"))
+                PushNotifier.showFromPush(context, pushPayload(room, "\$second", "second"), receivedAt = 2_000L)
                 PushDecryptResult.Success("""{"content":{"body":"first"}}""")
             }
             val payload = JSONObject(pushPayload(room, "\$first"))
             payload.getJSONObject("notification").put("type", "m.room.encrypted")
-            PushNotifier.showFromPush(context, payload.toString())
+            PushNotifier.showFromPush(context, payload.toString(), receivedAt = 1_000L)
+            val posted = notificationManager.activeNotifications.single().notification
+            assertTrue(posted.extras.getString(Notification.EXTRA_TEXT)!!.contains("second"))
+            assertEquals(2_000L, posted.`when`)
             val messages = androidx.core.app.NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(
                 notificationManager.activeNotifications.single().notification)!!.messages
             assertEquals(listOf("first", "second"), messages.map { it.text.toString() })
@@ -164,6 +167,23 @@ class PushNotifierTest {
                 assertEquals("\$second", extra.getString("event_id"))
             }
         } finally { unmockkObject(PushPayloadDecryptor) }
+    }
+
+    @Test
+    fun aWarmDeliveryDelayedByMediaKeepsReceiptOrder() {
+        val room = "!warm-history:example.org"
+        every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } answers {
+            every { PushPayloadDecryptor.media(any(), any(), any(), any(), any(), any(), any()) } returns null
+            PushNotifier.showFromPush(context, pushPayload(room, "\$second", "second"), receivedAt = 2_000L)
+            null
+        }
+
+        PushNotifier.show(context, warmNotification(room, "\$first", "first"), receivedAt = 1_000L)
+
+        assertEquals(listOf("first", "second"), shownTexts())
+        val posted = notificationManager.activeNotifications.single().notification
+        assertTrue(posted.extras.getString(Notification.EXTRA_TEXT)!!.contains("second"))
+        assertEquals(2_000L, posted.`when`)
     }
 
     @Test
@@ -495,7 +515,7 @@ class PushNotifierTest {
     }
 
     @Test
-    fun showFromPush_postsBaselineBeforeNativeDecryption() {
+    fun showFromPush_waitsForNativeDecryptionBeforeAlerting() {
         val state = PushPolicy(context)
         state.accounts = mapOf("@alice:example.org" to "DEVICE")
         state.showEncryptedContent = true
@@ -509,11 +529,11 @@ class PushNotifierTest {
             val payload = JSONObject(pushPayload("!enc:example.org", "\$enc"))
             payload.getJSONObject("notification").put("type", "m.room.encrypted")
             PushNotifier.showFromPush(context, payload.toString())
-            assertTrue("a slow native decrypt must not delay notification delivery", baselineWasVisible)
+            assertFalse(baselineWasVisible)
             val posted = shadowNotificationManager().getNotification(null, canonicalId("!enc:example.org"))!!
             assertTrue(posted.extras.getString(Notification.EXTRA_TEXT)!!.contains("decrypted"))
             assertEquals("Room 1", posted.extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE))
-            assertTrue(posted.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
+            assertTrue(posted.flags and Notification.FLAG_ONLY_ALERT_ONCE == 0)
         } finally {
             unmockkObject(PushPayloadDecryptor)
         }
@@ -620,7 +640,83 @@ class PushNotifierTest {
     }
 
     @Test
-    fun showFromPush_keepsTheBaselineWhileAMissingKeyIsFetched() {
+    fun showFromPush_fetchesCallContentWhenTheGatewayOmitsIt() {
+        val room = "!call-content:example.org"
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val notification = JSONObject().put("room_id", room).put("event_id", "\$ring")
+            .put("user_id", "@alice:example.org").put("type", "m.rtc.notification")
+
+        PushNotifier.showFromPush(context, notification.toString())
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+    }
+
+    @Test
+    fun showFromPush_fetchesTheCallKeyWhenAllPreviewsAreHidden() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val room = "!private-call:example.org"
+        val payload = encryptedPush(room, "\$ring")
+        PushPolicy(context).showContent = false
+        PushPolicy(context).showEncryptedContent = false
+
+        PushNotifier.showFromPush(context, payload)
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+        assertNotNull(incoming.notification.fullScreenIntent)
+        assertTrue(incoming.notification.flags and Notification.FLAG_INSISTENT != 0)
+    }
+
+    @Test
+    fun showFromPush_fetchesTheCallKeyWhenEncryptedPreviewsAreHidden() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val room = "!private-call:example.org"
+        val payload = encryptedPush(room, "\$ring")
+        PushPolicy(context).showContent = true
+        PushPolicy(context).showEncryptedContent = false
+
+        PushNotifier.showFromPush(context, payload)
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+        assertNotNull(incoming.notification.fullScreenIntent)
+        assertTrue(incoming.notification.flags and Notification.FLAG_INSISTENT != 0)
+    }
+
+    @Test
+    fun showFromPush_fetchesTheCallKeyWhenMessagePreviewsAreHidden() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        val room = "!private-call:example.org"
+        val payload = encryptedPush(room, "\$ring")
+        PushPolicy(context).showContent = false
+        PushPolicy(context).showEncryptedContent = true
+
+        PushNotifier.showFromPush(context, payload)
+
+        val incoming = notificationManager.activeNotifications.single()
+        assertEquals(PushNotifier.callNotificationId("@alice:example.org", room), incoming.id)
+        assertEquals(Notification.CATEGORY_CALL, incoming.notification.category)
+        assertNotNull(incoming.notification.fullScreenIntent)
+        assertTrue(incoming.notification.flags and Notification.FLAG_INSISTENT != 0)
+    }
+
+    @Test
+    fun showFromPush_waitsForAMissingKeyBeforeAlerting() {
         mockkObject(PushPayloadDecryptor)
         try {
             var baselineWasVisible = false
@@ -631,10 +727,133 @@ class PushNotifierTest {
                 PushDecryptResult.Success("""{"content":{"body":"after the key"}}""")
             }
             PushNotifier.showFromPush(context, encryptedPush("!slow:example.org", "\$slow"))
-            assertTrue(baselineWasVisible)
+            assertFalse(baselineWasVisible)
             val posted = shadowNotificationManager().getNotification(null, canonicalId("!slow:example.org"))!!
             assertTrue(posted.extras.getString(Notification.EXTRA_TEXT)!!.contains("after the key"))
         } finally { unmockkObject(PushPayloadDecryptor) }
+    }
+
+    @Test
+    fun showFromPush_discardsARedactedRichPushWithoutFetching() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+        val notification = JSONObject(pushPayload("!redacted:example.org", "\$redacted")).getJSONObject("notification")
+            .put("user_id", "@alice:example.org")
+            .put("unsigned", JSONObject().put("redacted_because", JSONObject()))
+
+        PushNotifier.showFromPush(context, notification.toString())
+
+        assertTrue(notificationManager.activeNotifications.isEmpty())
+        verify(exactly = 0) { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun showFromPush_discardsARedactedFetchedEvent() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.room.message","content":{},"unsigned":{"redacted_because":{}}}""")
+
+        PushNotifier.showFromPush(context, """{"room_id":"!redacted:example.org","event_id":"${'$'}redacted","user_id":"@alice:example.org"}""")
+
+        assertTrue(notificationManager.activeNotifications.isEmpty())
+    }
+
+    @Test
+    fun showFromPush_discardsARedactedLocallyDecryptedEvent() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"m.room.message","content":{},"unsigned":{"redacted_because":{}}}""")
+
+        PushNotifier.showFromPush(context, encryptedPush("!redacted:example.org", "\$redacted"))
+
+        assertTrue(notificationManager.activeNotifications.isEmpty())
+    }
+
+    @Test
+    fun showFromPush_discardsARedactedEventAfterFetchingItsKey() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
+            assertTrue(notificationManager.activeNotifications.isEmpty())
+            PushDecryptResult.Success("""{"type":"m.room.message","content":{},"unsigned":{"redacted_because":{}}}""")
+        }
+
+        PushNotifier.showFromPush(context, encryptedPush("!redacted:example.org", "\$redacted"))
+
+        assertTrue(notificationManager.activeNotifications.isEmpty())
+    }
+
+    @Test
+    fun showFromPush_doesNotFetchACompletePlainPush() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "DEVICE")
+
+        PushNotifier.showFromPush(context, pushPayload("!rich:example.org", "\$rich", "from the gateway"))
+
+        assertEquals(listOf("from the gateway"), shownTexts())
+        verify(exactly = 0) { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun showFromPush_doesNotFilterEventTypesAllowedByTheSdk() {
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"org.example.alert","content":{"body":"Custom alert"}}""")
+
+        PushNotifier.showFromPush(context, encryptedPush("!custom:example.org", "\$custom"))
+
+        assertEquals(listOf("Custom alert"), shownTexts())
+    }
+
+    @Test
+    fun showFromPush_doesNotAlertWhenAKeyFetchDiscardsTheEvent() {
+        val room = "!existing:example.org"
+        PushNotifier.showFromPush(context, pushPayload(room, "\$message"))
+        val previous = notificationManager.activeNotifications.single().notification
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
+            assertSame(previous, notificationManager.activeNotifications.single().notification)
+            PushDecryptResult.Discard
+        }
+
+        PushNotifier.showFromPush(context, encryptedPush(room, "\$filtered"))
+
+        assertSame(previous, notificationManager.activeNotifications.single().notification)
+    }
+
+    @Test
+    fun showFromPush_doesNotAlertWhenAKeyFetchCannotEvaluateTheRules() {
+        val room = "!existing:example.org"
+        PushNotifier.showFromPush(context, pushPayload(room, "\$message"))
+        val previous = notificationManager.activeNotifications.single().notification
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
+            assertSame(previous, notificationManager.activeNotifications.single().notification)
+            PushDecryptResult.DiscardUnevaluated
+        }
+
+        PushNotifier.showFromPush(context, encryptedPush(room, "\$filtered"))
+
+        assertSame(previous, notificationManager.activeNotifications.single().notification)
+    }
+
+    @Test
+    fun showFromPush_doesNotPostAFallbackWhenNotificationsAreDisabledDuringKeyFetch() {
+        val payload = encryptedPush("!disabled:example.org", "\$disabled")
+        every { PushPayloadDecryptor.decryptLocally(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.NeedsKey(quietly = false)
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
+            PushPolicy(context).notificationsEnabled = false
+            PushDecryptResult.Failure(PushOutcome.DECRYPT_FAILED)
+        }
+
+        PushNotifier.showFromPush(context, payload)
+
+        assertTrue(notificationManager.activeNotifications.isEmpty())
+    }
+
+    @Test
+    fun showFromPush_ignoresRoomCountUpdatesWithoutAnEvent() {
+        PushNotifier.showFromPush(context, """{"room_id":"!counts:example.org","user_id":"@alice:example.org","counts":{"unread":5}}""")
+        assertTrue(notificationManager.activeNotifications.isEmpty())
     }
 
     @Test
@@ -710,27 +929,18 @@ class PushNotifierTest {
     ).toString()
 
     @Test
-    fun showFromPush_lateDecryptionDoesNotResurrectDismissedOrSupersededAlerts() {
-        val state = PushPolicy(context)
-        state.accounts = mapOf("@alice:example.org" to "DEVICE")
-        state.showEncryptedContent = true
-        mockkObject(PushPayloadDecryptor)
-        try {
-            for (supersede in listOf(false, true)) {
-                every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
-                    notificationManager.cancel(canonicalId("!enc:example.org"))
-                    if (supersede) PushNotifier.showFromPush(context,
-                        pushPayload("!enc:example.org", "\$new", "newer message"))
-                    PushDecryptResult.Success("""{"content":{"body":"stale plaintext"}}""")
-                }
-                val payload = JSONObject(pushPayload("!enc:example.org", "\$old-$supersede"))
-                payload.getJSONObject("notification").put("type", "m.room.encrypted")
-                PushNotifier.showFromPush(context, payload.toString())
-                val posted = shadowNotificationManager().getNotification(null, canonicalId("!enc:example.org"))
-                if (supersede) assertTrue(posted!!.extras.getString(Notification.EXTRA_TEXT)!!.contains("newer message"))
-                else assertNull(posted)
+    fun showFromPush_lateDecryptionDoesNotResurrectADismissedAlert() {
+        val room = "!dismissed:example.org"
+        every { PushPayloadDecryptor.decrypt(any(), any(), any(), any(), any()) } answers {
+            PushNotificationGate.dismiss(context, canonicalId(room)) {
+                notificationManager.cancel(canonicalId(room))
             }
-        } finally { unmockkObject(PushPayloadDecryptor) }
+            PushDecryptResult.Success("""{"content":{"body":"stale plaintext"}}""")
+        }
+
+        PushNotifier.showFromPush(context, encryptedPush(room, "\$old"))
+
+        assertTrue(notificationManager.activeNotifications.isEmpty())
     }
 
     @Test

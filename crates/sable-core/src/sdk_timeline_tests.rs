@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use futures_util::{StreamExt, pin_mut};
 use matrix_sdk::{
@@ -149,7 +149,6 @@ async fn timeline_view_preserves_available_read_receipt_timestamps() {
     let view = crate::view::timeline_item(
         item,
         client.user_id(),
-        &BTreeSet::new(),
         &crate::view::Highlights::default(),
         &crate::view::LocalContent::default(),
     );
@@ -346,6 +345,119 @@ async fn a_failed_send_wedges_the_room_queue_until_it_is_re_enabled() {
     .await
     .expect("re-enabling drains the queue");
     drop(sending);
+}
+
+const MAX_EVENT_CONTENT_BYTES: usize = 65_536;
+
+#[tokio::test]
+async fn oversized_sends_return_message_too_large() {
+    use crate::api::messages::SendParams;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!oversized:example.org");
+    server.mock_room_state_encryption().plain().mount().await;
+    let room = server.sync_joined_room(&client, room_id).await;
+    room.send_queue().set_enabled(false);
+    let core = core_for(&server, client).await;
+
+    let result = core
+        .run(
+            serde_json::from_value::<SendParams>(json!({
+                "room_id": room_id,
+                "body": "x".repeat(MAX_EVENT_CONTENT_BYTES + 1),
+            }))
+            .unwrap(),
+        )
+        .await;
+
+    assert!(
+        matches!(result, Err(RpcError::MessageTooLarge)),
+        "{result:?}"
+    );
+    assert!(room.send_queue().subscribe().await.unwrap().0.is_empty());
+}
+
+#[tokio::test]
+async fn oversized_edits_return_message_too_large() {
+    use crate::api::messages::EditParams;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!oversized-edit:example.org");
+    let event_id = event_id!("$original");
+    let factory = EventFactory::new()
+        .room(room_id)
+        .sender(client.user_id().unwrap());
+    server.mock_room_state_encryption().plain().mount().await;
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg("original").event_id(event_id)),
+        )
+        .await;
+    room.send_queue().set_enabled(false);
+    let core = core_for(&server, client).await;
+    core.timeline(&room_id.to_owned()).await.unwrap();
+
+    let result = core
+        .run(
+            serde_json::from_value::<EditParams>(json!({
+                "room_id": room_id,
+                "event_id": event_id,
+                "body": "x".repeat(MAX_EVENT_CONTENT_BYTES + 1),
+                "formatted": null,
+            }))
+            .unwrap(),
+        )
+        .await;
+
+    assert!(
+        matches!(result, Err(RpcError::MessageTooLarge)),
+        "{result:?}"
+    );
+    assert!(room.send_queue().subscribe().await.unwrap().0.is_empty());
+}
+
+#[tokio::test]
+async fn oversized_direct_sends_return_message_too_large() {
+    use crate::api::messages::SendRawEventParams;
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!oversized-raw:example.org");
+    server.mock_room_state_encryption().plain().mount().await;
+    server.sync_joined_room(&client, room_id).await;
+    Mock::given(method("PUT"))
+        .and(path_regex("/_matrix/client/v3/rooms/.*/send/.*"))
+        .respond_with(ResponseTemplate::new(413).set_body_json(json!({
+            "errcode": "M_TOO_LARGE",
+            "error": "Event too large",
+        })))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    let core = core_for(&server, client).await;
+
+    let result = core
+        .run(
+            serde_json::from_value::<SendRawEventParams>(json!({
+                "room_id": room_id,
+                "event_type": "m.room.message",
+                "content": {
+                    "msgtype": "m.text",
+                    "body": "x".repeat(MAX_EVENT_CONTENT_BYTES + 1),
+                },
+            }))
+            .unwrap(),
+        )
+        .await;
+
+    assert!(
+        matches!(result, Err(RpcError::MessageTooLarge)),
+        "{result:?}"
+    );
 }
 
 #[tokio::test]
@@ -2226,7 +2338,6 @@ async fn timeline_views(
                 super::view::timeline_item(
                     item,
                     client.user_id(),
-                    &BTreeSet::new(),
                     &super::view::Highlights::default(),
                     &super::view::LocalContent::default(),
                 )
@@ -3621,7 +3732,6 @@ async fn sender_names(timeline: &Arc<matrix_sdk_ui::timeline::Timeline>) -> Vec<
             crate::view::timeline_item(
                 item,
                 None,
-                &BTreeSet::new(),
                 &crate::view::Highlights::default(),
                 &crate::view::LocalContent::default(),
             )
@@ -3990,7 +4100,6 @@ async fn a_mention_is_loud_from_the_ruleset_not_the_stamped_flag() {
             super::view::timeline_item(
                 item,
                 Some(&own_user_id),
-                &BTreeSet::new(),
                 &highlights,
                 &super::view::LocalContent::default(),
             )
@@ -4071,7 +4180,6 @@ async fn a_deleted_mention_is_not_highlighted() {
             super::view::timeline_item(
                 item,
                 Some(&own_user_id),
-                &BTreeSet::new(),
                 &super::view::Highlights::default(),
                 &super::view::LocalContent::default(),
             )
@@ -4157,7 +4265,6 @@ async fn a_live_redaction_drops_the_reactions() {
             super::view::timeline_item(
                 item,
                 Some(&own_user_id),
-                &BTreeSet::new(),
                 &super::view::Highlights::default(),
                 &super::view::LocalContent::default(),
             )
@@ -4417,7 +4524,6 @@ async fn a_local_echo_keeps_the_formatted_body_it_was_sent_with() {
                 super::view::timeline_item(
                     item,
                     client.user_id(),
-                    &BTreeSet::new(),
                     &super::view::Highlights::default(),
                     local_content,
                 )
