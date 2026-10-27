@@ -5,7 +5,6 @@
   import { i18n } from '#lib/i18n.js';
   import LockSimpleIcon from 'phosphor-svelte/lib/LockSimpleIcon';
   import DotsThreeVerticalIcon from 'phosphor-svelte/lib/DotsThreeVerticalIcon';
-  import MediaImage from '#lib/ui/MediaImage.svelte';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import ResizeHandle from '#lib/ui/primitives/ResizeHandle.svelte';
@@ -15,6 +14,7 @@
     setPreference,
   } from '#lib/settings/preferences.svelte.js';
   import { bannerChanges, readRoomBanner } from '#lib/features/room/room-banner.svelte.js';
+  import Banner from '#lib/ui/primitives/Banner.svelte';
 
   interface Props {
     activeSpace: RoomListItemView | null;
@@ -53,23 +53,22 @@
   });
 
   let bannerShown = $derived(banner !== null && !collapsed && preferences.showRoomBanners);
-  const { min: bannerMin, max: bannerMax } = PREFERENCE_RANGES.roomBannerHeight;
+  const { min, max } = PREFERENCE_RANGES.roomBannerHeight;
 </script>
 
 <div class="room-nav-top">
   {#if bannerShown && banner}
     <div class="room-banner" style:height={`${preferences.roomBannerHeight}px`}>
-      <MediaImage source={banner} alt="" width={640} height={190} class="room-banner-image" />
+      <Banner source={banner} name={title} width={640} height={190} />
       <ResizeHandle
         value={preferences.roomBannerHeight}
-        min={bannerMin}
-        max={bannerMax}
+        {min}
+        {max}
         label={i18n.t('nav.resizeRooms')}
         grow="down"
         step={16}
         shiftStep={64}
-        onResize={(next) =>
-          setPreference('roomBannerHeight', Math.max(bannerMin, Math.min(bannerMax, next)))}
+        onResize={(next) => setPreference('roomBannerHeight', Math.max(min, Math.min(max, next)))}
       />
     </div>
   {/if}
@@ -148,6 +147,7 @@
   }
 
   .room-banner :global(.room-banner-image),
+  .room-banner :global(.banner-button),
   .room-banner :global(img) {
     display: block;
     height: 100%;

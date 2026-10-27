@@ -24,7 +24,7 @@
     profilePalette,
   } from './readable-color.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
-  import { mediaViewerState } from '../media/media-viewer-state.svelte.js';
+  import Banner from './Banner.svelte';
 
   interface Props {
     displayName: string;
@@ -108,9 +108,6 @@
       ink === BLACK ? (nameColorLight ?? nameColorDark) : (nameColorDark ?? nameColorLight);
     return palette && own ? nameColorOn(own, palette.ground) : null;
   });
-  function openBanner(): void {
-    if (banner) mediaViewerState.openStandalone(banner, displayName);
-  }
 
   const nameId = $props.id();
   let copied = $state(false);
@@ -151,21 +148,7 @@
 >
   <div class={['profile-card-cover', { 'has-banner': banner }]} style:background={color}>
     {#if banner}
-      <button
-        class="profile-card-banner-button"
-        type="button"
-        aria-label={i18n.t('timeline.profileBanner', { name: displayName })}
-        onclick={openBanner}
-      >
-        <MediaImage
-          class="profile-card-banner"
-          source={banner}
-          alt=""
-          width={720}
-          height={240}
-          original={preferences.autoplayGifs}
-        />
-      </button>
+      <Banner source={banner} name={displayName} width={720} height={720} />
     {:else if cover}
       <MediaImage
         class={banner ? 'profile-card-banner' : 'profile-card-banner profile-card-banner-fallback'}
@@ -442,21 +425,6 @@
 
     background: var(--profile-card-ground);
     box-shadow: 0 0 0 0.25rem var(--profile-card-ground);
-  }
-
-  .profile-card-banner-button {
-    background: none;
-    border: 0;
-    cursor: pointer;
-    display: block;
-    height: 100%;
-    padding: 0;
-    width: 100%;
-  }
-
-  .profile-card-banner-button:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: calc(-1 * var(--focus-ring-width));
   }
 
   .profile-card-avatar-edit-button {
