@@ -287,6 +287,7 @@ pub async fn send_diagnostic_push(
     Ok(delivery(notify(&url, &body).await?, pushkey, event_id))
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn direct_delivery(accepted: bool, event_id: String) -> DiagnosticPushView {
     if accepted {
         DiagnosticPushView::Sent {
