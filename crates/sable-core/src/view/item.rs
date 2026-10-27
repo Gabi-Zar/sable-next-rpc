@@ -390,15 +390,16 @@ pub async fn standalone_item(
         _ => false,
     };
     let message_profile = per_message_profile(raw.content.as_ref());
-    let (sender_name, sender_avatar) = match room.get_member_no_sync(&sender).await.ok().flatten() {
-        Some(member) => (
-            member
-                .display_name()
-                .and_then(visible_name)
-                .map(ToOwned::to_owned),
-            member.avatar_url().map(ToString::to_string),
-        ),
-        None => {
+    let (sender_name, sender_avatar) =
+        if let Some(member) = room.get_member_no_sync(&sender).await.ok().flatten() {
+            (
+                member
+                    .display_name()
+                    .and_then(visible_name)
+                    .map(ToOwned::to_owned),
+                member.avatar_url().map(ToString::to_string),
+            )
+        } else {
             let content = core
                 .room_state_event_content(
                     room.room_id().to_owned(),
@@ -406,15 +407,13 @@ pub async fn standalone_item(
                     sender.to_string(),
                 )
                 .await
-                .ok()
-                .flatten();
+                .unwrap_or_default();
             let profile = crate::member_look::member_look(content.as_ref(), None);
             (
                 profile.display_name.and_then(visible_name),
                 profile.avatar_url,
             )
-        }
-    };
+        };
     let original = event
         .raw()
         .deserialize_as_unchecked::<RawFields>()
@@ -425,8 +424,7 @@ pub async fn standalone_item(
             .get_field::<serde_json::Value>("unsigned")
             .ok()
             .flatten()
-            .as_ref()
-            .and_then(bundled_thread_summary)
+            .and_then(|unsigned| bundled_thread_summary(&unsigned))
     });
 
     let mut view_content = content(

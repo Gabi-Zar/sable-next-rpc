@@ -486,7 +486,7 @@ impl From<&PersonaSelectionView> for SelectionOut {
         Self {
             profile_id: selection.persona_id.clone(),
             valid_until: selection.valid_until,
-            alternate_avatar_id: selection.alternate_avatar_id.clone()
+            alternate_avatar_id: selection.alternate_avatar_id.clone(),
         }
     }
 }
@@ -1069,7 +1069,7 @@ impl Core {
         match personas.iter_mut().find(|existing| existing.id == replaced) {
             Some(existing) => {
                 merge_persona(existing, &base_persona, &persona);
-                existing.id = persona.id.clone();
+                existing.id.clone_from(&persona.id);
             }
             None => personas.push(persona.clone()),
         }

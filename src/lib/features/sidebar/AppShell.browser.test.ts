@@ -1,6 +1,5 @@
-import type {} from '@vitest/browser-playwright';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { cdp, page } from 'vitest/browser';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
@@ -25,7 +24,7 @@ import Harness from './AppShellHarness.test.svelte';
 
 const shellCore = core as unknown as CoreClient;
 
-beforeEach(async () => {
+beforeEach(() => {
   Object.assign(core, {
     accounts: [],
     crashed: null,
@@ -33,11 +32,9 @@ beforeEach(async () => {
     verification: null,
   });
   visit('/inbox');
-  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: true });
 });
 
 afterEach(async () => {
-  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: false });
   document.documentElement.style.removeProperty('--safe-area-inset-left');
   document.documentElement.style.removeProperty('--safe-area-inset-right');
   document.documentElement.style.removeProperty('--safe-area-inset-bottom');
