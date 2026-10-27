@@ -53,6 +53,7 @@
   } from '#lib/settings/theme.js';
   import { shouldReduceMotion } from '#lib/ui/motion.js';
   import { ALERT_MODULES, provideAlertProviders } from '#lib/features/sidebar/alerts.js';
+  import ServerLogin from './ServerLogin.svelte';
 
   interface Props {
     children: Snippet;
@@ -60,12 +61,18 @@
 
   let { children }: Props = $props();
   const core = createCoreClient();
+  const serverMode = Boolean(import.meta.env.VITE_SABLE_SERVER_URL);
+  let serverAuthEndpoint = $state('/_sable/auth');
+  let serverAuthReady = $state(!serverMode);
+  let serverAuthenticated = $state(!serverMode);
+  let mounted = $state(false);
   provideCoreClient(core);
   const alertProviders = ALERT_MODULES.map((component) => component.priorityProvider());
   provideAlertProviders(alertProviders);
   let titlebar = $derived(titleBarKind(preferences.useCustomTitleBar));
 
   onMount(() => {
+    mounted = true;
     void hydrateCatalogThemes().then(updateCatalogThemes);
 
     if (isTauri()) {
@@ -86,7 +93,23 @@
       // eslint-disable-next-line svelte/no-navigation-without-resolve -- matrixLinkPath resolves the permalink route
       void goto(path);
     });
-    void core.start();
+    if (serverMode) {
+      const configured = import.meta.env.VITE_SABLE_SERVER_URL;
+      serverAuthEndpoint = new URL(
+        '/_sable/auth',
+        new URL(configured ?? window.location.href, window.location.href)
+      ).toString();
+      void fetch(serverAuthEndpoint, { credentials: 'include' })
+        .then((response) => {
+          serverAuthenticated = response.ok;
+        })
+        .catch(() => {
+          serverAuthenticated = false;
+        })
+        .finally(() => {
+          serverAuthReady = true;
+        });
+    }
     return () => {
       stopTrackingKeyboard();
       stopGuardingClicks();
@@ -97,6 +120,10 @@
       stopMatrixLinks();
       core.stop();
     };
+  });
+
+  $effect(() => {
+    if (mounted && serverAuthReady && serverAuthenticated) void core.start();
   });
 
   $effect(() => {
@@ -205,6 +232,15 @@
       <AccountLocked />
     {:else if core.restoreFailed}
       <SessionRestoreError />
+    {:else if serverMode && !serverAuthReady}
+      <main>Checking server session…</main>
+    {:else if serverMode && !serverAuthenticated}
+      <ServerLogin
+        endpoint={serverAuthEndpoint}
+        onAuthenticated={() => {
+          serverAuthenticated = true;
+        }}
+      />
     {:else}
       {@render children()}
     {/if}

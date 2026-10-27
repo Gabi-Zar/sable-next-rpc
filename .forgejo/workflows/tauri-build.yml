@@ -162,20 +162,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   docker:
-    name: Build image (${{ matrix.arch }})
+    name: Build ${{ matrix.image }} image (${{ matrix.arch }})
     needs: [setup-release, build-web]
-    runs-on: docker-arm64
-    timeout-minutes: 60
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
     strategy:
       fail-fast: true
       matrix:
-        arch: [amd64, arm64]
+        include:
+          - image: web
+            arch: amd64
+            runner: docker
+            file: packaging/docker/Dockerfile
+          - image: web
+            arch: arm64
+            runner: docker-arm64
+            file: packaging/docker/Dockerfile
+          - image: server
+            arch: amd64
+            runner: docker
+            file: packaging/server/Dockerfile
+          - image: server
+            arch: arm64
+            runner: docker-arm64
+            file: packaging/server/Dockerfile
     permissions:
       contents: read
       packages: write
     env:
       REGISTRY: git.sable.moe
       ARCH: ${{ matrix.arch }}
+      IMAGE_KIND: ${{ matrix.image }}
+      DOCKERFILE: ${{ matrix.file }}
       PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
       PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
     steps:
@@ -184,29 +202,27 @@ jobs:
         with:
           ref: ${{ needs.setup-release.outputs.ref }}
           persist-credentials: false
-      # The Dockerfile only copies `dist`, so the image reuses the bundle
-      # build-web already produced for the desktop packages.
+      # The web image reuses the bundle built for the desktop packages.
       - name: Download web assets
+        if: ${{ matrix.image == 'web' }}
         uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
         with:
           name: web-assets
       - name: Log in to the container registry
         run: echo "$PACKAGES_TOKEN" | docker login "$REGISTRY" --username "$PACKAGES_USER" --password-stdin
-      # Each job builds natively on a runner of its own architecture and pushes
-      # an untagged image by digest; `docker-manifest` joins them under the
-      # release tags. The docker-container driver is what registry cache needs.
+      # The manifest job combines the architecture-specific digests.
       - name: Build and push image by digest
         env:
           REVISION: ${{ github.sha }}
           VERSION: ${{ needs.setup-release.outputs.version }}
         run: |
-          # `github.repository` keeps the owner's capitals; an image reference cannot.
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
-          docker buildx create --name "ci-$GITHUB_RUN_ID-$ARCH" --driver docker-container --use
+          [ "$IMAGE_KIND" = web ] || image="$image-server"
+          docker buildx create --name "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --driver docker-container --use
           # Forgejo fails the push when both arch jobs upload the same layer at once.
           for attempt in 1 2 3; do
             docker buildx build . \
-              --file packaging/docker/Dockerfile \
+              --file "$DOCKERFILE" \
               --platform "linux/$ARCH" \
               --label "org.opencontainers.image.source=$FORGEJO_URL/$GITHUB_REPOSITORY" \
               --label "org.opencontainers.image.revision=$REVISION" \
@@ -222,18 +238,21 @@ jobs:
           node -p "require(process.env.RUNNER_TEMP + '/build-metadata.json')['containerimage.digest']" > "digests/$ARCH"
       - name: Remove the builder
         if: ${{ always() }}
-        run: docker buildx rm --force "ci-$GITHUB_RUN_ID-$ARCH" || true
+        run: docker buildx rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
       - name: Upload digest
         uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
         with:
-          name: image-digest-${{ matrix.arch }}
+          name: image-digest-${{ matrix.image }}-${{ matrix.arch }}
           path: digests/${{ matrix.arch }}
           if-no-files-found: error
           retention-days: 1
 
   docker-manifest:
-    name: Publish image manifest
+    name: Publish ${{ matrix.image }} image manifest
     needs: [setup-release, docker]
+    strategy:
+      matrix:
+        image: [web, server]
     runs-on: docker-arm64
     timeout-minutes: 10
     permissions:
@@ -243,6 +262,7 @@ jobs:
       REGISTRY: git.sable.moe
       PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
       PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      IMAGE_KIND: ${{ matrix.image }}
       NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
       VERSION: ${{ needs.setup-release.outputs.version }}
       SHA: ${{ github.sha }}
@@ -250,18 +270,19 @@ jobs:
       - name: Download amd64 digest
         uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
         with:
-          name: image-digest-amd64
+          name: image-digest-${{ matrix.image }}-amd64
           path: digests
       - name: Download arm64 digest
         uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
         with:
-          name: image-digest-arm64
+          name: image-digest-${{ matrix.image }}-arm64
           path: digests
       - name: Log in to the container registry
         run: echo "$PACKAGES_TOKEN" | docker login "$REGISTRY" --username "$PACKAGES_USER" --password-stdin
       - name: Create and push the multi-arch manifest
         run: |
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
+          [ "$IMAGE_KIND" = web ] || image="$image-server"
           if [ "$NIGHTLY" = 'true' ]; then
             tags=(dev "${SHA::7}")
           else

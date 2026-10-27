@@ -1,0 +1,8 @@
+.git
+.svelte-kit
+dist
+node_modules
+target
+test-results
+tests/e2e/.auth
+*.log
