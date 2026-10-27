@@ -294,6 +294,16 @@ pub(crate) struct RawPusher {
 }
 
 impl RawPusher {
+    pub(crate) fn endpoint(&self) -> Option<String> {
+        if self.kind.as_deref() != Some(PUSHER_KIND) {
+            return None;
+        }
+        self.data
+            .get("url")
+            .and_then(serde_json::Value::as_str)
+            .map(ToOwned::to_owned)
+    }
+
     pub(crate) fn gateway(&self) -> Option<String> {
         if self.kind.as_deref() == Some(PUSHER_KIND) {
             return None;
@@ -309,6 +319,7 @@ impl From<RawPusher> for RegisteredPusherView {
     fn from(pusher: RawPusher) -> Self {
         Self {
             gateway: pusher.gateway(),
+            endpoint: pusher.endpoint(),
             pushkey: pusher.pushkey,
             app_id: pusher.app_id,
             kind: pusher.kind,
@@ -503,7 +514,9 @@ mod tests {
         .expect("valid pusher");
 
         assert_eq!(pusher.gateway(), None);
-        assert_eq!(RegisteredPusherView::from(pusher).gateway, None);
+        let view = RegisteredPusherView::from(pusher);
+        assert_eq!(view.gateway, None);
+        assert_eq!(view.endpoint.as_deref(), Some("https://ntfy.example/sub/1"));
     }
 
     #[test]
@@ -520,6 +533,7 @@ mod tests {
             pusher.gateway().as_deref(),
             Some("https://ntfy.example/_matrix/push/v1/notify")
         );
+        assert_eq!(RegisteredPusherView::from(pusher).endpoint, None);
     }
 
     #[test]

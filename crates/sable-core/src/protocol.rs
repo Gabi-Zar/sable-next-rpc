@@ -2050,6 +2050,7 @@ pub struct RegisteredPusherView {
     /// Some pusher kinds validate through a handshake; absent elsewhere.
     pub activated: Option<bool>,
     pub gateway: Option<String>,
+    pub endpoint: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -2068,6 +2069,7 @@ pub enum ShareHistoryView {
 pub enum DiagnosticPushView {
     NoPusher,
     NoGateway,
+    Refused,
     Rejected,
     Unforwarded,
     Sent {

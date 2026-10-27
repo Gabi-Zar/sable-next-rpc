@@ -152,6 +152,12 @@ async function loopback(
         state: 'skip',
         message: 'settings.troubleshootLoopbackHomeserver',
       };
+    case 'refused':
+      return {
+        check: 'loopback',
+        state: 'skip',
+        message: 'settings.troubleshootLoopbackRefused',
+      };
     case 'rejected':
       return { check: 'loopback', state: 'fail', message: 'settings.troubleshootLoopbackRejected' };
     case 'unforwarded':
@@ -243,7 +249,14 @@ export async function* troubleshoot(deps: TroubleshootDeps): AsyncGenerator<Trou
   };
 
   if (gateway === null) {
-    yield { check: 'gateway', state: 'skip', message: 'settings.troubleshootGatewayHomeserver' };
+    yield pusher.activated === true && pusher.endpoint !== null
+      ? {
+          check: 'gateway',
+          state: 'pass',
+          message: 'settings.troubleshootGatewayActivated',
+          params: { host: host(pusher.endpoint) },
+        }
+      : { check: 'gateway', state: 'skip', message: 'settings.troubleshootGatewayHomeserver' };
   } else {
     const reached = await deps.pingGateway(gateway);
     const params = { host: host(gateway) };

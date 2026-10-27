@@ -97,6 +97,30 @@ pub enum GatewayAnswer {
 }
 
 #[cfg(not(target_family = "wasm"))]
+async fn notify_endpoint(url: &str, body: &impl Serialize) -> Result<bool, CoreError> {
+    let http = crate::tls::apply(matrix_sdk::reqwest::Client::builder())
+        .build()
+        .map_err(CoreError::backend)?;
+    let body = serde_json::to_string(body).map_err(CoreError::backend)?;
+    let response = retry_transient(
+        || async {
+            http.post(url)
+                .header(
+                    matrix_sdk::reqwest::header::CONTENT_TYPE,
+                    "application/json",
+                )
+                .header("TTL", "60")
+                .body(body.clone())
+                .send()
+                .await
+        },
+        &NOTIFY_RETRY_DELAYS,
+    )
+    .await?;
+    Ok(response.status().is_success())
+}
+
+#[cfg(not(target_family = "wasm"))]
 async fn notify(url: &str, body: &impl Serialize) -> Result<GatewayAnswer, CoreError> {
     #[derive(serde::Deserialize)]
     struct NotifyResponse {
@@ -240,6 +264,20 @@ pub async fn send_diagnostic_push(
     else {
         return Ok(DiagnosticPushView::NoPusher);
     };
+    #[cfg(not(target_family = "wasm"))]
+    if let Some(endpoint) = pusher.endpoint() {
+        let endpoint =
+            url::Url::parse(&endpoint).map_err(|_| "the web push endpoint is not a URL")?;
+        if endpoint.scheme() != "https" {
+            return Err("the web push endpoint must use https".into());
+        }
+        let event_id = format!("{DIAGNOSTIC_EVENT_PREFIX}{}", TransactionId::new());
+        let body = notify_body(&event_id, app_id, pushkey, pusher.data);
+        return Ok(direct_delivery(
+            notify_endpoint(endpoint.as_str(), &body).await?,
+            event_id,
+        ));
+    }
     let Some(url) = pusher.gateway() else {
         return Ok(DiagnosticPushView::NoGateway);
     };
@@ -247,6 +285,17 @@ pub async fn send_diagnostic_push(
     let event_id = format!("{DIAGNOSTIC_EVENT_PREFIX}{}", TransactionId::new());
     let body = notify_body(&event_id, app_id, pushkey, pusher.data);
     Ok(delivery(notify(&url, &body).await?, pushkey, event_id))
+}
+
+fn direct_delivery(accepted: bool, event_id: String) -> DiagnosticPushView {
+    if accepted {
+        DiagnosticPushView::Sent {
+            event_id,
+            accepted: Some(true),
+        }
+    } else {
+        DiagnosticPushView::Refused
+    }
 }
 
 #[must_use]
@@ -420,5 +469,67 @@ mod tests {
 
         result.unwrap_err();
         assert_eq!(attempts.load(Ordering::Relaxed), 1);
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[tokio::test]
+    async fn a_direct_push_is_sent_with_its_diagnostic_event_id() {
+        use wiremock::matchers::{body_json, header, method};
+
+        let server = MockServer::start().await;
+        let event_id = format!("{DIAGNOSTIC_EVENT_PREFIX}direct");
+        let body = notify_body(
+            &event_id,
+            "moe.sable.webpush",
+            "key",
+            serde_json::Map::new(),
+        );
+        Mock::given(method("POST"))
+            .and(header("content-type", "application/json"))
+            .and(header("ttl", "60"))
+            .and(body_json(serde_json::json!({
+                "notification": {
+                    "event_id": event_id.clone(),
+                    "room_id": "!sable-diagnostic:sable.invalid",
+                    "prio": "high",
+                    "devices": [{
+                        "app_id": "moe.sable.webpush",
+                        "pushkey": "key",
+                        "data": {}
+                    }]
+                }
+            })))
+            .respond_with(ResponseTemplate::new(201))
+            .mount(&server)
+            .await;
+
+        let accepted = super::notify_endpoint(&server.uri(), &body).await.unwrap();
+        assert!(accepted);
+        assert!(matches!(
+            super::direct_delivery(accepted, event_id),
+            DiagnosticPushView::Sent {
+                accepted: Some(true),
+                ..
+            }
+        ));
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[tokio::test]
+    async fn a_direct_push_refused_by_the_service_is_not_sent() {
+        let server = MockServer::start().await;
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(400))
+            .mount(&server)
+            .await;
+
+        let event_id = "$sable-diagnostic-refused";
+        let body = notify_body(event_id, "moe.sable.webpush", "key", serde_json::Map::new());
+        let accepted = super::notify_endpoint(&server.uri(), &body).await.unwrap();
+        assert!(!accepted);
+        assert!(matches!(
+            super::direct_delivery(accepted, event_id.to_owned()),
+            DiagnosticPushView::Refused
+        ));
     }
 }
