@@ -153,6 +153,10 @@
     --menu-item-gap: var(--space-300);
   }
 
+  .option[aria-selected='true'] {
+    background: var(--surface-container-active);
+  }
+
   .jump-list :global(.jump-avatar.glyph) {
     opacity: var(--opacity-p500);
   }
