@@ -161,7 +161,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         .register::<sable_model::spaces::SuggestedOverride>()
         .register::<sable_model::sidebar::LayoutRef>()
         .register::<sable_model::sidebar::DropInstruction>()
-        .register::<sable_model::notifications::OwnPresence>()
         .register::<sable_model::event_preview::EventPreview>()
         .register::<sable_model::power_levels::PermissionGroup>()
         .register::<sable_model::search_filter::ResolvedQuery>()

@@ -172,28 +172,9 @@ export async function pushContentPolicy(): Promise<PushContentPolicy> {
   }
 }
 
-const ACTIVE_AT_KEY = '\u0000active-at';
-
-export async function putActiveAt(at: number): Promise<void> {
-  try {
-    await transact('readwrite', (store) => store.put(at, ACTIVE_AT_KEY));
-  } catch (error) {
-    console.debug('[sable notifications] activity time not stored', error);
-  }
-}
-
-export async function activeAt(): Promise<number | null> {
-  try {
-    const stored = await transact<unknown>('readonly', (store) => store.get(ACTIVE_AT_KEY));
-    return typeof stored === 'number' ? stored : null;
-  } catch (error) {
-    console.debug('[sable notifications] activity time unreadable', error);
-    return null;
-  }
-}
-
 export interface PushSession {
   userId: string;
+  deviceId?: string;
   homeserver: string;
   accessToken: string;
 }
@@ -287,7 +268,12 @@ function readPushSession(value: unknown): PushSession | null {
   return typeof session?.userId === 'string' &&
     typeof session.homeserver === 'string' &&
     typeof session.accessToken === 'string'
-    ? { userId: session.userId, homeserver: session.homeserver, accessToken: session.accessToken }
+    ? {
+        userId: session.userId,
+        ...(typeof session.deviceId === 'string' ? { deviceId: session.deviceId } : {}),
+        homeserver: session.homeserver,
+        accessToken: session.accessToken,
+      }
     : null;
 }
 

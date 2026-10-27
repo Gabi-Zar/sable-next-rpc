@@ -507,8 +507,7 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
         .filter(|_| previews);
     let active_elsewhere = match &session {
         Some(session) if !invite && current.quiet_when_active_elsewhere => {
-            Box::pin(session.active_elsewhere(sable_core::notifications::inactive_here_ms(root)))
-                .await
+            Box::pin(session.active_elsewhere()).await
         }
         _ => false,
     };

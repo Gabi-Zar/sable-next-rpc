@@ -1,6 +1,6 @@
 import { uint8ArrayToBase64 } from 'uint8array-extras';
 
-import type { OwnPresence, PushFetchView, WebPushValidation } from '#src/generated/protocol';
+import type { PushFetchView, WebPushValidation } from '#src/generated/protocol';
 
 import { isRecord } from '#lib/guards.js';
 import { visibleName } from '#lib/model/model.js';
@@ -109,13 +109,13 @@ export async function completePushPayload(
   return completed;
 }
 
-export async function fetchOwnPresence(
+export async function fetchDeviceActivity(
   fetcher: Pick<PushFetcher, 'session' | 'fetch'>
-): Promise<OwnPresence | null> {
-  return (await get(
+): Promise<unknown> {
+  return get(
     fetcher,
-    `presence/${encodeURIComponent(fetcher.session.userId)}/status`
-  )) as OwnPresence | null;
+    `user/${encodeURIComponent(fetcher.session.userId)}/account_data/moe.sable.device_activity`
+  );
 }
 
 async function get(

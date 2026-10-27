@@ -149,17 +149,14 @@ pub fn push_alert(
 }
 
 #[wasm_bindgen(js_name = activeElsewhere)]
-pub fn active_elsewhere(presence: &str, inactive_here_ms: Option<f64>) -> Result<bool, JsError> {
+pub fn active_elsewhere(content: &str, own_device_id: &str, now_ms: f64) -> bool {
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "a non-negative whole number of milliseconds from Date.now()"
     )]
-    let inactive_here_ms = inactive_here_ms.map(|ms| ms.max(0.0) as u64);
-    Ok(notifications::active_elsewhere(
-        &decode::<notifications::OwnPresence>(presence)?,
-        inactive_here_ms,
-    ))
+    let now_ms = now_ms.max(0.0) as u64;
+    notifications::active_elsewhere_json(content, own_device_id, now_ms)
 }
 
 #[wasm_bindgen(js_name = slashCommandNames)]

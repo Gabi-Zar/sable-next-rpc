@@ -136,8 +136,6 @@ object PushNotifier {
             PushDiagnostics.record(context, PushOutcome.REPLAY_DROPPED, trace)
             return
         }
-        val activeElsewhere = store.quietWhenActiveElsewhere && deviceId != null &&
-            PushPayloadDecryptor.activeElsewhere(context, userId, deviceId, roomId)
         if ((notification.optString("type").isEmpty() || notification.optJSONObject("content") == null) && deviceId != null) {
             when (val fetched = PushPayloadDecryptor.fetch(context, userId, deviceId, roomId, eventId)) {
                 PushDecryptResult.Discard -> {
@@ -171,7 +169,7 @@ object PushNotifier {
                 PushNotificationGate.post(context, id, revision) { postIncomingCall(context, notification, notification) }
                 return
             }
-            if (activeElsewhere && !isInvite(notification)) {
+            if (quietForActiveElsewhere(context, store, notification)) {
                 PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, trace)
                 return
             }
@@ -198,7 +196,7 @@ object PushNotifier {
             is PushDecryptResult.Success -> {
                 PushDiagnostics.record(context, PushOutcome.DECRYPTED, trace)
                 val clear = runCatching { JSONObject(local.clearEventJson) }.getOrNull()
-                if (clear == null && activeElsewhere) {
+                if (clear == null && quietForActiveElsewhere(context, store, notification)) {
                     PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, trace)
                     return
                 }
@@ -207,22 +205,33 @@ object PushNotifier {
                     PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message") }
                     return
                 }
-                showDecrypted(context, notification, clear, id, revision, activeElsewhere)
+                showDecrypted(context, notification, clear, id, revision)
                 return
             }
             else -> {}
         }
-        val quietly = (local is PushDecryptResult.NeedsKey && local.quietly) || activeElsewhere
+        val quietly = local is PushDecryptResult.NeedsKey && local.quietly
         val (clear, outcome) = if (deviceId != null) {
             decryptedEvent(context, notification, userId, deviceId)
         } else null to PushOutcome.DECRYPT_FAILED
         PushDiagnostics.record(context, outcome, trace)
         if (clear != null) {
-            showDecrypted(context, notification, clear, id, revision, activeElsewhere)
+            showDecrypted(context, notification, clear, id, revision)
         } else if (!quietly && outcome != PushOutcome.DISCARDED && outcome != PushOutcome.RULES_UNEVALUATED) {
+            if (quietForActiveElsewhere(context, store, notification)) {
+                PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, trace)
+                return
+            }
             attachMedia(context, notification, roomId, content = null)
             PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message") }
         }
+    }
+
+    private fun quietForActiveElsewhere(context: Context, store: PushPolicy, notification: JSONObject): Boolean {
+        if (isInvite(notification) || !store.quietWhenActiveElsewhere) return false
+        val userId = notification.optString("user_id")
+        val deviceId = store.deviceIdFor(userId) ?: return false
+        return PushPayloadDecryptor.activeElsewhere(context, userId, deviceId, notification.optString("room_id"))
     }
 
     private fun showDecrypted(
@@ -231,7 +240,6 @@ object PushNotifier {
         clear: JSONObject,
         id: Int,
         revision: String,
-        activeElsewhere: Boolean,
     ) {
         val store = PushPolicy(context)
         if (!store.notificationsEnabled) return
@@ -246,7 +254,7 @@ object PushNotifier {
             }
             return
         }
-        if (activeElsewhere) {
+        if (quietForActiveElsewhere(context, store, notification)) {
             PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, traceOf(notification))
             return
         }

@@ -21,7 +21,7 @@ import {
 import {
   acknowledgeWebPusher,
   completePushPayload,
-  fetchOwnPresence,
+  fetchDeviceActivity,
   namesOnlyItsEvent,
   readPushFetch,
 } from '#lib/features/notifications/push-fetch.js';
@@ -31,7 +31,6 @@ import {
   type PushHistoryEntry,
 } from '#lib/notifications/push-history.js';
 import {
-  activeAt,
   pushContentPolicy,
   pendingPushActivations,
   pushSession,
@@ -312,14 +311,12 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
 
 async function inUseElsewhere(userId: string | undefined): Promise<boolean> {
   const session = await pushSession(userId);
-  if (!session) return false;
-  const [presence, usedAt] = await Promise.all([
-    fetchOwnPresence({ session, fetch: (input, init) => fetch(input, init) }),
-    activeAt(),
-  ]);
-  return (
-    presence !== null && activeElsewhere(presence, usedAt === null ? null : Date.now() - usedAt)
-  );
+  if (!session?.deviceId) return false;
+  const content = await fetchDeviceActivity({
+    session,
+    fetch: (input, init) => fetch(input, init),
+  });
+  return content !== null && activeElsewhere(content, session.deviceId, Date.now());
 }
 
 const FETCH_DEADLINE_MS = 10_000;

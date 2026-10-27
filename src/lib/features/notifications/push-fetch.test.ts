@@ -5,7 +5,7 @@ import type { PushFetchView } from '#src/generated/protocol';
 import {
   acknowledgeWebPusher,
   completePushPayload,
-  fetchOwnPresence,
+  fetchDeviceActivity,
   namesOnlyItsEvent,
   type PushFetcher,
   readPushFetch,
@@ -30,6 +30,7 @@ function fetcher(
   return {
     session: {
       userId: '@me:example.org',
+      deviceId: 'DEVICE',
       homeserver: 'https://hs.example/',
       accessToken: 'token',
     },
@@ -221,7 +222,12 @@ test('a tab answer is only trusted in the shape the core sends', () => {
   expect(readPushFetch(null)).toBeNull();
 });
 
-const session = { userId: '@me:example.org', homeserver: 'https://hs.example/', accessToken: 't' };
+const session = {
+  userId: '@me:example.org',
+  deviceId: 'DEVICE',
+  homeserver: 'https://hs.example/',
+  accessToken: 't',
+};
 const validation = { app_id: 'moe.sable.webpush', ack_token: 'tok' };
 
 test('the worker acknowledges a web push validation with the stored session', async () => {
@@ -256,13 +262,15 @@ test('an unreachable homeserver is asked again before giving up', async () => {
   expect(pause).toHaveBeenCalledTimes(2);
 });
 
-test("reads the account's own presence, or null when the server refuses", async () => {
-  const presence = { presence: 'online', last_active_ago: 1000 };
-  const answering = fetcher({ '/_matrix/client/v3/presence/@me:example.org/status': presence });
-  await expect(fetchOwnPresence(answering)).resolves.toEqual(presence);
+test('reads device activity, or null when the server refuses', async () => {
+  const activity = { devices: { DEVICE: { active: true, at: 1000 } } };
+  const answering = fetcher({
+    '/_matrix/client/v3/user/@me:example.org/account_data/moe.sable.device_activity': activity,
+  });
+  await expect(fetchDeviceActivity(answering)).resolves.toEqual(activity);
   expect(answering.fetch.mock.calls[0]?.[1]).toMatchObject({
     headers: { Authorization: 'Bearer token' },
   });
 
-  await expect(fetchOwnPresence(fetcher({}))).resolves.toBeNull();
+  await expect(fetchDeviceActivity(fetcher({}))).resolves.toBeNull();
 });

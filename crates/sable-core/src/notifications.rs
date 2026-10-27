@@ -342,7 +342,11 @@ impl PushHost {
 #[cfg(not(target_family = "wasm"))]
 const RESTORE_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
 #[cfg(not(target_family = "wasm"))]
-const PRESENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+const ACCOUNT_DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+const DEVICE_ACTIVITY_EVENT: &str = "moe.sable.device_activity";
+const DEVICE_ACTIVITY_PRUNE_MS: u64 = 7 * 24 * 60 * 60_000;
+const DEVICE_ACTIVITY_WRITE_INTERVAL_MS: u64 = 30_000;
 
 /// A core in this process opens the client, so a store never has two there. Without one, the
 /// push opens its own and never waits for, or blocks, the app.
@@ -557,44 +561,74 @@ fn marked_noisy(clear: &str, noisy: bool) -> String {
     serde_json::to_string(&event).unwrap_or_else(|_| clear.to_owned())
 }
 
-#[cfg(not(target_family = "wasm"))]
-const APP_ACTIVITY_FILE: &str = "app-activity.json";
-
-#[cfg(not(target_family = "wasm"))]
-#[derive(serde::Serialize, serde::Deserialize)]
-struct AppActivity {
+fn update_device_activity(
+    mut content: sable_model::notifications::DeviceActivity,
+    device_id: &str,
     active: bool,
-    at_ms: u64,
-}
-
-/// Read by the push handlers, which run without the app.
-#[cfg(not(target_family = "wasm"))]
-pub fn record_app_activity(store_dir: &std::path::Path, active: bool) {
-    let activity = AppActivity {
-        active,
-        at_ms: crate::probed_state::now_ms(),
-    };
-    let temporary = store_dir.join("app-activity.json.tmp");
-    let written = serde_json::to_vec(&activity)
-        .map_err(std::io::Error::other)
-        .and_then(|bytes| std::fs::write(&temporary, bytes))
-        .and_then(|()| std::fs::rename(&temporary, store_dir.join(APP_ACTIVITY_FILE)));
-    if let Err(error) = written {
-        tracing::debug!("app activity not recorded: {error}");
+    now_ms: u64,
+) -> Option<sable_model::notifications::DeviceActivity> {
+    if content.devices.get(device_id).is_some_and(|entry| {
+        entry.active == active
+            && now_ms >= entry.at
+            && now_ms - entry.at < DEVICE_ACTIVITY_WRITE_INTERVAL_MS
+    }) {
+        return None;
     }
+
+    content
+        .devices
+        .retain(|_, entry| now_ms.saturating_sub(entry.at) <= DEVICE_ACTIVITY_PRUNE_MS);
+    content.devices.insert(
+        device_id.to_owned(),
+        sable_model::notifications::DeviceActivityEntry { active, at: now_ms },
+    );
+    Some(content)
 }
 
-/// `Some(0)` while the app is in use, `None` when it never recorded any use.
-#[cfg(not(target_family = "wasm"))]
-#[must_use]
-pub fn inactive_here_ms(store_dir: &std::path::Path) -> Option<u64> {
-    let bytes = std::fs::read(store_dir.join(APP_ACTIVITY_FILE)).ok()?;
-    let activity = serde_json::from_slice::<AppActivity>(&bytes).ok()?;
-    Some(if activity.active {
-        0
-    } else {
-        crate::probed_state::now_ms().saturating_sub(activity.at_ms)
-    })
+pub(crate) async fn set_device_activity(core: &crate::Core, active: bool) {
+    let _guard = core.account_data_lock.lock().await;
+    let Ok(client) = core.client().await else {
+        tracing::debug!("device activity not recorded: not logged in");
+        return;
+    };
+    let Some(device_id) = client.device_id() else {
+        tracing::debug!("device activity not recorded: device ID unavailable");
+        return;
+    };
+    let current = match client
+        .account()
+        .fetch_account_data(DEVICE_ACTIVITY_EVENT.into())
+        .await
+    {
+        Ok(raw) => raw
+            .and_then(|raw| serde_json::from_str(raw.json().get()).ok())
+            .unwrap_or_default(),
+        Err(error) => {
+            tracing::debug!("device activity not read: {error}");
+            return;
+        }
+    };
+    let Some(content) = update_device_activity(
+        current,
+        device_id.as_str(),
+        active,
+        crate::probed_state::now_ms(),
+    ) else {
+        return;
+    };
+    let Ok(raw) = serde_json::value::to_raw_value(&content)
+        .map(Raw::<matrix_sdk::ruma::events::AnyGlobalAccountDataEventContent>::from_json)
+    else {
+        tracing::debug!("device activity not serialized");
+        return;
+    };
+    if let Err(error) = client
+        .account()
+        .set_account_data_raw(DEVICE_ACTIVITY_EVENT.into(), raw)
+        .await
+    {
+        tracing::debug!("device activity not written: {error}");
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -606,7 +640,7 @@ pub async fn cold_push_active_elsewhere(
 ) -> bool {
     let store_dir = cold_push_store_dir(data_dir);
     match PushSession::cached(&store_dir, user_id, device_id, room_id).await {
-        Some(session) => session.active_elsewhere(inactive_here_ms(&store_dir)).await,
+        Some(session) => session.active_elsewhere().await,
         None => false,
     }
 }
@@ -720,31 +754,35 @@ impl PushSession {
         }
     }
 
-    pub async fn active_elsewhere(&self, inactive_here_ms: Option<u64>) -> bool {
+    pub async fn active_elsewhere(&self) -> bool {
         let client = self.host.client();
-        let Some(user_id) = client.user_id() else {
+        let (Some(user_id), Some(device_id)) = (client.user_id(), client.device_id()) else {
             return false;
         };
         let Ok(response) = client
             .send(
-                matrix_sdk::ruma::api::client::presence::get_presence::v3::Request::new(
+                matrix_sdk::ruma::api::client::config::get_global_account_data::v3::Request::new(
                     user_id.to_owned(),
+                    DEVICE_ACTIVITY_EVENT.into(),
                 ),
             )
             .with_request_config(
-                matrix_sdk::config::RequestConfig::short_retry().timeout(PRESENCE_TIMEOUT),
+                matrix_sdk::config::RequestConfig::short_retry().timeout(ACCOUNT_DATA_TIMEOUT),
             )
             .await
         else {
             return false;
         };
-        let presence = sable_model::notifications::OwnPresence {
-            presence: response.presence.as_str().to_owned(),
-            last_active_ago: response
-                .last_active_ago
-                .map(|ago| u64::try_from(ago.as_millis()).unwrap_or(u64::MAX)),
+        let Ok(content) = serde_json::from_str::<sable_model::notifications::DeviceActivity>(
+            response.account_data.json().get(),
+        ) else {
+            return false;
         };
-        sable_model::notifications::active_elsewhere(&presence, inactive_here_ms)
+        sable_model::notifications::active_elsewhere(
+            &content,
+            device_id.as_str(),
+            crate::probed_state::now_ms(),
+        )
     }
 
     #[must_use]
@@ -1938,15 +1976,24 @@ mod tests {
     }
 
     #[test]
-    fn the_app_counts_as_in_use_until_it_records_leaving() {
-        let store_dir = tempfile::tempdir().unwrap();
-        assert_eq!(super::inactive_here_ms(store_dir.path()), None);
-
-        super::record_app_activity(store_dir.path(), true);
-        assert_eq!(super::inactive_here_ms(store_dir.path()), Some(0));
-
-        super::record_app_activity(store_dir.path(), false);
-        assert!(super::inactive_here_ms(store_dir.path()).is_some_and(|ms| ms < 60_000));
+    fn device_activity_updates_its_entry_and_prunes_old_devices() {
+        let now = super::DEVICE_ACTIVITY_PRUNE_MS + 1_000_000;
+        let content = super::update_device_activity(
+            serde_json::from_value(json!({
+                "devices": {
+                    "OWN": {"active": true, "at": now - 31_000},
+                    "OLD": {"active": true, "at": now - super::DEVICE_ACTIVITY_PRUNE_MS - 1}
+                }
+            }))
+            .unwrap(),
+            "OWN",
+            false,
+            now,
+        )
+        .unwrap();
+        assert!(!content.devices["OWN"].active);
+        assert!(!content.devices.contains_key("OLD"));
+        assert!(super::update_device_activity(content, "OWN", false, now + 1_000).is_none());
     }
 
     #[tokio::test]

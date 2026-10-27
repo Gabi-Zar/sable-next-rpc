@@ -466,11 +466,6 @@ impl Core {
         }
     }
 
-    #[cfg(not(target_family = "wasm"))]
-    pub fn record_app_activity(&self, active: bool) {
-        notifications::record_app_activity(std::path::Path::new(&self.store_id), active);
-    }
-
     pub async fn apply_app_activity(self: &Arc<Self>, active: bool) {
         let _serial = self.activity_lock.lock().await;
         if self.app_active.load(Ordering::Relaxed) != active {

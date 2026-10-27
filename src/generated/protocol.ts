@@ -692,11 +692,6 @@ export type OverrideColorView = { kind: "unset" } | { kind: "cleared" } | { kind
  */
 export type OverrideTextView = { kind: "unset" } | { kind: "cleared" } | { kind: "set"; value: string };
 
-export type OwnPresence = {
-	presence: string,
-	last_active_ago: number,
-};
-
 export type PackAddressView = {
 	room_id: string,
 	state_key: string,
@@ -2036,6 +2031,9 @@ export type Rpc = {
 	presence: PresenceView,
 	status_message?: string | null,
 }) => Promise<null>;
+    setDeviceActivity: (params: {
+	active: boolean,
+}) => Promise<null>;
     fetchPresence: (params: {
 	user_ids: string[],
 }) => Promise<null>;
@@ -3310,6 +3308,7 @@ export type RpcMethods = {
   'account.report_user': Rpc['account']['reportUser'];
   'account.deactivate_account': Rpc['account']['deactivateAccount'];
   'account.set_presence': Rpc['account']['setPresence'];
+  'account.set_device_activity': Rpc['account']['setDeviceActivity'];
   'account.fetch_presence': Rpc['account']['fetchPresence'];
   'account.search_user_directory': Rpc['account']['searchUserDirectory'];
   'account.dismissed_invites': Rpc['account']['dismissedInvites'];
@@ -3614,6 +3613,7 @@ export function createRpc(call: RpcCall): Rpc {
       reportUser: (params) => call('account.report_user', params) as ReturnType<Rpc['account']['reportUser']>,
       deactivateAccount: (params) => call('account.deactivate_account', params) as ReturnType<Rpc['account']['deactivateAccount']>,
       setPresence: (params) => call('account.set_presence', params) as ReturnType<Rpc['account']['setPresence']>,
+      setDeviceActivity: (params) => call('account.set_device_activity', params) as ReturnType<Rpc['account']['setDeviceActivity']>,
       fetchPresence: (params) => call('account.fetch_presence', params) as ReturnType<Rpc['account']['fetchPresence']>,
       searchUserDirectory: (params) => call('account.search_user_directory', params) as ReturnType<Rpc['account']['searchUserDirectory']>,
       dismissedInvites: (params = {}) => call('account.dismissed_invites', params) as ReturnType<Rpc['account']['dismissedInvites']>,

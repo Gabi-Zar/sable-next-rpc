@@ -883,7 +883,6 @@ fn registration_gateway<'a>(
     }
 }
 
-/// The transport Auto settled on: `unifiedpush` once it picked an installed distributor.
 #[cfg(mobile)]
 async fn active_provider<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
     app.notifications()

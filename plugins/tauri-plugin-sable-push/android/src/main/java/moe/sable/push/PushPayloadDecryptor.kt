@@ -74,7 +74,7 @@ internal object PushPayloadDecryptor {
         return try {
             nativeActiveElsewhere(context.dataDir.absolutePath, userId, deviceId, roomId)
         } catch (error: Throwable) {
-            Log.i(TAG, "Presence unavailable: ${error.message}")
+            Log.i(TAG, "Device activity unavailable: ${error.message}")
             false
         }
     }

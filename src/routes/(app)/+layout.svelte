@@ -106,7 +106,6 @@
   import {
     forgetPushSessions,
     PUSH_ACTIVATION_TTL_MS,
-    putActiveAt,
     putPushContentPolicy,
     putRoomModes,
     RoomNameWriter,
@@ -534,28 +533,41 @@
     const presence = preferences.sendPresence ? preferences.presence : 'offline';
     const away = presence === 'online' && (!active || idle);
     const status = preferences.sendPresence && message ? message : null;
-    // Other devices stay quiet while this one reports online.
-    const delay =
-      away && !idle && quietWhenActiveElsewhere
-        ? Number(preferences.pushInactiveTimeout) * 60_000
-        : PRESENCE_SETTLE_MS;
     const timer = setTimeout(() => {
       void core.rpc.account
         .setPresence({ presence: away ? 'unavailable' : presence, status_message: status })
         .catch((error: unknown) => {
           console.debug('[sable presence] presence not sent', error);
         });
-    }, delay);
+    }, PRESENCE_SETTLE_MS);
     return () => clearTimeout(timer);
   });
 
   $effect(() => {
-    if (!active) return;
-    void putActiveAt(Date.now());
-    const timer = setInterval(() => void putActiveAt(Date.now()), ACTIVE_AT_INTERVAL_MS);
+    void core.accountRevision;
+    const accountId = core.session?.account_id;
+    if (core.status !== 'ready' || !accountId) return;
+
+    const write = (isActive: boolean): void => {
+      deviceActivityWritten = isActive;
+      void core.rpc.account.setDeviceActivity({ active: isActive }).catch((error: unknown) => {
+        console.debug('[sable activity] device activity not written', error);
+      });
+    };
+    if (preferences.pushInactiveTimeout === 'off') {
+      if (deviceActivityWritten) write(false);
+      return;
+    }
+    if (active && !idle) {
+      write(true);
+      const timer = setInterval(() => write(true), DEVICE_ACTIVITY_INTERVAL_MS);
+      return () => clearInterval(timer);
+    }
+
+    const delay = !active && !idle ? Number(preferences.pushInactiveTimeout) * 60_000 : 0;
+    const timer = setTimeout(() => write(false), delay);
     return () => {
-      clearInterval(timer);
-      void putActiveAt(Date.now());
+      clearTimeout(timer);
     };
   });
 
@@ -876,7 +888,8 @@
 
   const NOTIFIED_ROOM_WAIT_MS = 10_000;
   const PRESENCE_SETTLE_MS = 2_000;
-  const ACTIVE_AT_INTERVAL_MS = 30_000;
+  const DEVICE_ACTIVITY_INTERVAL_MS = 60_000;
+  let deviceActivityWritten = false;
 
   $effect(() => {
     const accountId = core.session?.account_id;
@@ -909,9 +922,7 @@
   let documentVisible = $derived(windowActivity.visible);
   let active = $derived(windowActivity.active);
   let idle = $derived(windowActivity.idle);
-  let quietWhenActiveElsewhere = $derived(
-    preferences.sendPresence && preferences.pushInactiveTimeout !== 'off'
-  );
+  let quietWhenActiveElsewhere = $derived(preferences.pushInactiveTimeout !== 'off');
 
   $effect(() => {
     roomList.setPresentationActive(active);

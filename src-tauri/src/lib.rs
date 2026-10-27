@@ -595,7 +595,6 @@ fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::Sessi
 #[cfg(mobile)]
 fn set_mobile_activity(core: Arc<Core>, active: bool, stop_delay: std::time::Duration) {
     core.set_app_active(active);
-    core.record_app_activity(active);
     #[cfg(target_os = "ios")]
     let background_task = (!active).then(|| ios::BackgroundTask::begin("Pause sync"));
     tauri::async_runtime::spawn(async move {

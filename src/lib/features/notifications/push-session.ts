@@ -11,11 +11,11 @@ export function sharePushSession(core: SessionSharer): () => void {
   const share = async (): Promise<void> => {
     const session = core.session;
     if (!session) return;
-    const { user_id: userId, homeserver } = session;
+    const { user_id: userId, device_id: deviceId, homeserver } = session;
     try {
       const accessToken = await core.rpc.session.accessToken();
       if (accessToken === null) await forgetPushSession(userId);
-      else await putPushSession({ userId, homeserver, accessToken });
+      else await putPushSession({ userId, deviceId, homeserver, accessToken });
     } catch (error) {
       console.warn('[sable notifications] sharing push session failed', error);
     }

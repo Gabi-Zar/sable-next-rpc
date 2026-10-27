@@ -18,7 +18,11 @@ function sharer(token: string | null) {
   let listener: ((event: CoreEvent) => void) | null = null;
   const accessToken = vi.fn(() => Promise.resolve(token));
   const core = {
-    session: { user_id: '@me:example.org', homeserver: 'https://hs.example/' },
+    session: {
+      user_id: '@me:example.org',
+      device_id: 'DEVICE',
+      homeserver: 'https://hs.example/',
+    },
     rpc: { session: { accessToken } },
     subscribeEvents: (onEvent: (event: CoreEvent) => void) => {
       listener = onEvent;
@@ -38,6 +42,7 @@ test('the worker is handed the token, and handed it again when it is refreshed',
   await vi.waitFor(() => {
     expect(stored.put).toHaveBeenCalledWith({
       userId: '@me:example.org',
+      deviceId: 'DEVICE',
       homeserver: 'https://hs.example/',
       accessToken: 'token',
     });

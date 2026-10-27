@@ -33,6 +33,7 @@ domain! {
     report_user,
     deactivate_account,
     set_presence,
+    set_device_activity,
     fetch_presence,
     search_user_directory,
     dismissed_invites,
@@ -587,6 +588,21 @@ pub struct SetPresenceParams {
     pub presence: PresenceView,
     #[serde(default)]
     pub status_message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct SetDeviceActivityParams {
+    pub active: bool,
+}
+
+impl Handler for SetDeviceActivityParams {
+    type Ok = ();
+
+    async fn run(self, core: &Arc<Core>) -> Result<(), RpcError> {
+        crate::notifications::set_device_activity(core, self.active).await;
+        Ok(())
+    }
 }
 
 impl Handler for SetPresenceParams {

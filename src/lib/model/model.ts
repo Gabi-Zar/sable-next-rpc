@@ -22,7 +22,6 @@ import type {
   MfmColor,
   MfmUnixtime,
   NotificationModeView,
-  OwnPresence,
   ParsedQuery,
   PushAlert,
   PushContent,
@@ -153,8 +152,8 @@ export function pushAlert(
   ) as PushAlert | null;
 }
 
-export function activeElsewhere(presence: OwnPresence, inactiveHereMs: number | null): boolean {
-  return wasm.activeElsewhere(JSON.stringify(presence), inactiveHereMs ?? undefined);
+export function activeElsewhere(content: unknown, ownDeviceId: string, nowMs: number): boolean {
+  return wasm.activeElsewhere(JSON.stringify(content), ownDeviceId, nowMs);
 }
 
 export function slashCommandNames(): string[] {
