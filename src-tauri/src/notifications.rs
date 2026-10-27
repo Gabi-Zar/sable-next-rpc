@@ -883,14 +883,27 @@ fn registration_gateway<'a>(
     }
 }
 
+/// The transport Auto settled on: `unifiedpush` once it picked an installed distributor.
 #[cfg(mobile)]
-async fn distributor_gateway(
+async fn active_provider<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
+    app.notifications()
+        .push_transport()
+        .await
+        .inspect_err(|error| log::debug!("could not read the push transport: {error}"))
+        .ok()
+        .and_then(|transport| transport.provider)
+}
+
+#[cfg(mobile)]
+async fn distributor_gateway<R: Runtime>(
+    app: &AppHandle<R>,
     core: &Arc<sable_core::Core>,
     registration: &Registration,
     config: &PushConfig,
     server_vapid: Option<&str>,
 ) -> Option<String> {
-    if !asks_distributor_for_gateway(config, registration, server_vapid) {
+    let active = active_provider(app).await;
+    if !asks_distributor_for_gateway(config, registration, server_vapid, active.as_deref()) {
         return None;
     }
     discover_gateway(core, &registration.token).await
@@ -907,8 +920,12 @@ async fn discover_gateway(core: &Arc<sable_core::Core>, endpoint: &str) -> Optio
 }
 
 #[cfg(any(mobile, test))]
-fn prefers_distributor_gateway(config: &PushConfig, registration: &Registration) -> bool {
-    config.provider.as_deref() == Some("unifiedpush")
+fn prefers_distributor_gateway(
+    config: &PushConfig,
+    registration: &Registration,
+    active_provider: Option<&str>,
+) -> bool {
+    (config.provider.as_deref() == Some("unifiedpush") || active_provider == Some("unifiedpush"))
         && !config.gateway_override
         && is_unified_push_endpoint(&registration.token)
 }
@@ -926,9 +943,10 @@ fn asks_distributor_for_gateway(
     config: &PushConfig,
     registration: &Registration,
     server_vapid: Option<&str>,
+    active_provider: Option<&str>,
 ) -> bool {
     server_vapid.is_none()
-        && (prefers_distributor_gateway(config, registration)
+        && (prefers_distributor_gateway(config, registration, active_provider)
             || is_direct_unified_push(registration, config))
 }
 
@@ -977,7 +995,8 @@ async fn register_with_distributor<R: Runtime>(
         server_vapid.map_or_else(|| config.vapid_key.clone(), str::to_owned),
     ))
     .await?;
-    let Some(gateway) = distributor_gateway(core, &registration, config, server_vapid).await else {
+    let Some(gateway) = distributor_gateway(app, core, &registration, config, server_vapid).await
+    else {
         return Ok((registration, None));
     };
     Ok((without_keys(register(None).await?), Some(gateway)))
@@ -1266,7 +1285,7 @@ mod tests {
     }
 
     #[test]
-    fn only_a_chosen_unifiedpush_distributor_offers_its_gateway() {
+    fn only_an_installed_unifiedpush_distributor_offers_its_gateway() {
         let mut config: super::PushConfig = serde_json::from_value(serde_json::json!({
             "gateway_url": "https://sygnal.example/_matrix/push/v1/notify",
             "vapid_key": "key", "web_app_id": "web", "event_id_only": true,
@@ -1278,14 +1297,45 @@ mod tests {
             p256dh: Some("key".to_owned()),
             auth: Some("auth".to_owned()),
         };
-        assert!(super::prefers_distributor_gateway(&config, &registration));
+        assert!(super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            None
+        ));
         config.provider = Some("embedded".to_owned());
-        assert!(!super::prefers_distributor_gateway(&config, &registration));
+        assert!(!super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            None
+        ));
         config.provider = Some("auto".to_owned());
-        assert!(!super::prefers_distributor_gateway(&config, &registration));
+        assert!(!super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            None
+        ));
+        assert!(!super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            Some("fcm")
+        ));
+        assert!(!super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            Some("embedded")
+        ));
+        assert!(super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            Some("unifiedpush")
+        ));
         config.provider = Some("unifiedpush".to_owned());
         config.gateway_override = true;
-        assert!(!super::prefers_distributor_gateway(&config, &registration));
+        assert!(!super::prefers_distributor_gateway(
+            &config,
+            &registration,
+            None
+        ));
     }
 
     #[test]
@@ -1304,17 +1354,20 @@ mod tests {
         assert!(super::asks_distributor_for_gateway(
             &config,
             &registration,
+            None,
             None
         ));
         assert!(!super::asks_distributor_for_gateway(
             &config,
             &registration,
-            Some("server-key")
+            Some("server-key"),
+            None
         ));
         config.provider = Some("embedded".to_owned());
         assert!(!super::asks_distributor_for_gateway(
             &config,
             &registration,
+            None,
             None
         ));
 
