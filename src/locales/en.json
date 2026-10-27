@@ -819,7 +819,7 @@
     "addressPlaceholder": "@someone:server or #room:server",
     "addressInvalid": "Enter a user id like @someone:server or a room address like #room:server.",
     "failed": "The chat could not be created.",
-    "encryptionHint": "Turn off for bridged contacts. Cannot be turned on later.",
+    "encryptionHint": "Turn off only if the bridge does not support encryption. Once enabled, encryption cannot be turned off.",
     "submit": "Start chat",
     "confirmTitle": "Start a chat with {{name}}?",
     "confirmBody": "You do not have a chat with them yet. A new one will be created and they will be invited."
