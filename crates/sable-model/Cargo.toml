@@ -11,6 +11,7 @@ typegen = ["dep:specta", "dep:specta-typescript"]
 
 [dependencies]
 form_urlencoded = { workspace = true }
+icu_properties = { workspace = true }
 idna = { workspace = true }
 percent-encoding = { workspace = true }
 pulldown-cmark = { workspace = true }

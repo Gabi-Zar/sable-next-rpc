@@ -3218,7 +3218,15 @@ async fn an_unavailable_homeserver_is_retryable_rather_than_a_logged_failure() {
 
 #[tokio::test]
 async fn invisible_member_names_use_the_user_id() {
-    for name in ["\u{200b}", "\u{2800}", " \u{061c}\u{034f}\u{feff} "] {
+    for name in [
+        "\u{200b}",
+        "\u{2800}",
+        " \u{061c}\u{034f}\u{feff} ",
+        "\u{3164}",
+        "\u{2060}\u{2066}\u{2069}",
+        "\u{fe0f}\u{e0100}",
+        "\u{0085}",
+    ] {
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
         let room_id = room_id!("!names:example.org");

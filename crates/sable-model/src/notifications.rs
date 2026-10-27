@@ -497,7 +497,18 @@ mod tests {
 
     #[test]
     fn hidden_push_names_use_the_sender() {
-        for name in ["", "   ", "\u{200b}\u{2800}\u{feff}"] {
+        for name in [
+            "",
+            "   ",
+            "\u{200b}\u{2800}\u{feff}",
+            "\u{3164}",
+            "\u{2060}\u{2066}\u{2069}",
+            "\u{fe0f}\u{e0100}",
+            "\u{0085}",
+            "\u{0600}",
+            "\u{fff9}\u{fffa}\u{fffb}",
+            "\u{13430}",
+        ] {
             let push = parsed(&json!({
                 "room_id": "!r:x", "sender": "@alice:x", "sender_display_name": name,
             }));
