@@ -1,11 +1,9 @@
+import type { RoomUnreadView } from '#src/generated/protocol';
+
 export type UnreadBadgeMode = 'dot' | 'count';
 
-export interface UnreadBadgeCounts {
-  unread: number;
-  highlight: number;
-  marked?: boolean;
-  notifying?: number;
-}
+export type UnreadBadgeCounts = Pick<RoomUnreadView, 'unread' | 'highlight'> &
+  Partial<Pick<RoomUnreadView, 'marked' | 'notifying'>>;
 
 export interface UnreadBadgeSettings {
   showUnreadCounts: boolean;

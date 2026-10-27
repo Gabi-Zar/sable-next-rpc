@@ -160,8 +160,8 @@
     void editMessage(core.rpc, roomId, item.event_id, body, {
       formatted: formattedForEditing(content.html),
       kind: reproxyKind(content),
-      mediaCaption: media,
-      threadRoot: item.thread_root ?? null,
+      media_caption: media,
+      thread_root: item.thread_root ?? null,
       persona: persona ? projectPersona(persona, preferences.personaFallback && body !== '') : null,
     }).catch(failed('reproxy'));
   }

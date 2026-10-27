@@ -182,6 +182,11 @@ export type CallSupportView = {
 	can_join: boolean,
 };
 
+export type ChildOrderOverride = {
+	parent_id: string,
+	children: SpaceChildEdge[],
+};
+
 export type ComposerContent = {
 	body: string,
 	formatted_body: string | null,
@@ -264,6 +269,8 @@ export type DisplayNameChangeView = {
 	old: string | null,
 	new: string | null,
 };
+
+export type DropInstruction = "above" | "below" | "into";
 
 export type EditVersionView = {
 	event_id: string,
@@ -523,6 +530,12 @@ export type LatestEventView = {
 	event_id: string | null,
 };
 
+/**
+ *  What a drag picked up or landed on: a space, possibly inside a folder, or a
+ *  whole folder.
+ */
+export type LayoutRef = { kind: "space"; room_id: string; folder_id: string | null } | { kind: "folder"; folder_id: string };
+
 export type LiteralValue = boolean | number | string | RoomReference;
 
 export type LobbyAction = "join" | "knock";
@@ -678,6 +691,11 @@ export type OverrideColorView = { kind: "unset" } | { kind: "cleared" } | { kind
  *  the value, and an override that replaces it.
  */
 export type OverrideTextView = { kind: "unset" } | { kind: "cleared" } | { kind: "set"; value: string };
+
+export type OwnPresence = {
+	presence: string,
+	last_active_ago: number,
+};
 
 export type PackAddressView = {
 	room_id: string,
@@ -1479,6 +1497,18 @@ export type SearchTuning = {
 	max_events: number,
 };
 
+/**
+ *  What the sections depend on besides the rooms. `loaded: None` treats every
+ *  level as described; `keep_empty` names subspaces shown even without rooms.
+ */
+export type SectionInputs = {
+	loaded: string[] | null,
+	failed: string[],
+	keep_empty: string[],
+	joined: string[],
+	invited: string[],
+};
+
 export type SendAttachmentRequest = {
 	room_id: string,
 	filename: string,
@@ -1611,6 +1641,12 @@ export type StatusView = {
 };
 
 export type SubscriptionId = number;
+
+export type SuggestedOverride = {
+	parent_id: string,
+	room_id: string,
+	suggested: boolean,
+};
 
 export type SyncStatus = { state: "offline" } | { state: "syncing" } | { state: "live" } | { state: "error"; message: string };
 

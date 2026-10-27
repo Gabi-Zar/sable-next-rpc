@@ -52,7 +52,7 @@ import { stateEventText } from '#lib/features/room/timeline/state-event-text.js'
 import { isMessageRow } from '#lib/features/room/timeline/timeline-format.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-const NO_MENTIONS: OutgoingMentions = { userIds: [], room: false };
+const NO_MENTIONS: OutgoingMentions = { user_ids: [], room: false };
 
 export type ConversationSendResult = { kind: 'gifSearch'; query: string };
 
@@ -197,14 +197,15 @@ export class Conversation {
         edited?.event_id ?? (pending.eventId.startsWith('$') ? pending.eventId : null),
         body,
         {
-          transactionId: edited?.event_id ? null : edited?.transaction_id,
+          transaction_id: edited?.event_id ? null : edited?.transaction_id,
           formatted,
-          mentions,
+          mentions: [...mentions.user_ids],
+          mentions_room: mentions.room,
           kind: editedKind(edited),
-          mediaCaption: pending.mediaCaption,
-          threadRoot: this.#threadRoot,
+          media_caption: pending.mediaCaption,
+          thread_root: this.#threadRoot,
           persona: pending.persona ?? null,
-          forumTitle: this.forumTitle,
+          forum_title: this.forumTitle,
         }
       );
       this.forumTitle = '';
@@ -263,17 +264,18 @@ export class Conversation {
       dismissed
     );
     await sendMessage(this.#core.rpc, targetRoomId, outgoing.body, {
-      inReplyTo: pending?.eventId ?? null,
-      threadRoot: this.#threadRoot,
+      in_reply_to: pending?.eventId ?? null,
+      thread_root: this.#threadRoot,
       formatted: outgoing.formatted,
-      mentions: untouched || outcome.verbatim === true ? mentions : NO_MENTIONS,
-      silentReply: pending?.silentReply ?? false,
+      mentions: [...(untouched || outcome.verbatim === true ? mentions.user_ids : [])],
+      mentions_room: untouched || outcome.verbatim === true ? mentions.room : false,
+      silent_reply: pending?.silentReply ?? false,
       kind: outcome.msgtype,
       persona: outgoing.persona,
-      linkPreviews,
-      noLinkPreviews: suppressed,
-      imageSourcePacks,
-      forumTitle: this.#threadRoot === null && !pending?.eventId ? this.forumTitle : null,
+      link_previews: linkPreviews,
+      no_link_previews: suppressed,
+      image_source_packs: imageSourcePacks,
+      forum_title: this.#threadRoot === null && !pending?.eventId ? this.forumTitle : null,
     });
     this.forumTitle = '';
     this.context = null;
@@ -289,11 +291,12 @@ export class Conversation {
     await this.#beforeSend();
     const profile = this.#personaFor(targetRoomId, '', null).persona;
     await sendMessage(this.#core.rpc, targetRoomId, body, {
-      inReplyTo: pending?.eventId ?? null,
-      threadRoot: this.#threadRoot,
-      mentions: { userIds: [bot], room: false },
-      silentReply: pending?.silentReply ?? false,
-      botCommand: invocation,
+      in_reply_to: pending?.eventId ?? null,
+      thread_root: this.#threadRoot,
+      mentions: [bot],
+      mentions_room: false,
+      silent_reply: pending?.silentReply ?? false,
+      bot_command: invocation,
       persona: profile ? { ...profile, has_fallback: false } : null,
     });
     if (pending) this.context = null;
@@ -692,13 +695,14 @@ export class Conversation {
       if (body === null) break;
       await this.#beforeSend();
       await editMessage(this.#core.rpc, targetRoomId, item.event_id, body, {
-        transactionId: item.event_id ? null : item.transaction_id,
+        transaction_id: item.event_id ? null : item.transaction_id,
         formatted: rich?.formatted ?? null,
-        mentions: rich?.mentions,
+        mentions: [...(rich?.mentions.user_ids ?? [])],
+        mentions_room: rich?.mentions.room ?? false,
         kind: editedKind(item),
-        threadRoot: this.#threadRoot,
+        thread_root: this.#threadRoot,
         persona: item.per_message_profile ?? null,
-        forumTitle: item.forum_title ?? '',
+        forum_title: item.forum_title ?? '',
       });
       return;
     }
