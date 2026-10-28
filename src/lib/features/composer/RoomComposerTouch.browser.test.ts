@@ -15,10 +15,7 @@ afterEach(() => {
   setPreference('richTextComposer', true);
 });
 
-test('a multiline expanded composer fits above the landscape phone keyboard', async () => {
-  await page.viewport(390, 844);
-  setPreference('richTextComposer', true);
-  setPreference('composerForm', 'tall');
+async function mountComposer() {
   const core = createCoreStub({
     commands: {
       roomMembers: () => Promise.resolve([]),
@@ -31,7 +28,7 @@ test('a multiline expanded composer fits above the landscape phone keyboard', as
       packs: { list: () => Promise.resolve({ packs: [], complete: true }) },
     },
   }) as unknown as CoreClient;
-  const screen = await render(Harness, {
+  return render(Harness, {
     core,
     rooms: [],
     composer: {
@@ -41,6 +38,13 @@ test('a multiline expanded composer fits above the landscape phone keyboard', as
       onTyping: () => Promise.resolve(),
     },
   });
+}
+
+test('a multiline expanded composer fits above the landscape phone keyboard', async () => {
+  await page.viewport(390, 844);
+  setPreference('richTextComposer', true);
+  setPreference('composerForm', 'tall');
+  const screen = await mountComposer();
   const composer = screen.getByRole('combobox', { name: en.timeline.messagePlaceholder });
   await userEvent.click(screen.getByRole('button', { name: en.composer.expand }));
   await expect.poll(() => document.querySelector('.editor.expanded')).not.toBeNull();
@@ -66,4 +70,23 @@ test('a multiline expanded composer fits above the landscape phone keyboard', as
   expect(send.height).toBeGreaterThanOrEqual(40);
   expect(send.top).toBeLessThan(editorBox.bottom);
   expect(send.bottom).toBeGreaterThan(editorBox.top);
+});
+
+test('opening the keyboard keeps the portrait composer readable', async () => {
+  await page.viewport(390, 844);
+  setPreference('composerForm', 'tall');
+  const screen = await mountComposer();
+  await userEvent.click(screen.getByRole('combobox', { name: en.timeline.messagePlaceholder }));
+  await page.viewport(390, 400);
+  await expect.poll(() => document.querySelector('.composer-row.short')).not.toBeNull();
+  const row = document.querySelector<HTMLElement>('.composer-row.short');
+  const editor = row?.querySelector<HTMLElement>('.editor');
+  const controls = row?.querySelector<HTMLElement>('.composer-after');
+  if (!row || !editor || !controls) throw new Error('Missing composer elements');
+  expect(editor.getBoundingClientRect().width).toBeGreaterThan(
+    row.getBoundingClientRect().width * 0.8
+  );
+  expect(controls.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    editor.getBoundingClientRect().bottom
+  );
 });
