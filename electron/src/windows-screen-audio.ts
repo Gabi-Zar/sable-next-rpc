@@ -1,8 +1,9 @@
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
+import { app } from 'electron';
 
 interface NativeAudio {
-  startScreenAudio(frames: (data: Buffer) => void): void;
+  startScreenAudio(audioPid: number, frames: (data: Buffer) => void): void;
   stopScreenAudio(): void;
 }
 
@@ -20,8 +21,10 @@ export function start(value: unknown, frames: (data: Buffer) => void): void {
   const selection = value as Record<string, unknown>;
   if (selection.kind !== 'system') throw new Error('invalid audio selection');
   stop();
+  const audioPid = app.getAppMetrics().find((entry) => entry.name === 'Audio Service')?.pid;
+  if (!audioPid) throw new Error('Sable audio service is unavailable');
   const current = generation;
-  backend().startScreenAudio((data) => {
+  backend().startScreenAudio(audioPid, (data) => {
     if (generation === current) frames(data);
   });
 }
