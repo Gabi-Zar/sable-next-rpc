@@ -22,9 +22,22 @@ pub struct Config {
     pub client_ip_source: ClientIpSource,
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
+    #[serde(default = "default_max_active_users")]
+    pub max_active_users: usize,
+    #[serde(default)]
+    pub allowed_private_cidrs: Vec<String>,
     #[serde(default = "default_username")]
     pub username: String,
-    pub password_hash: String,
+    #[serde(default)]
+    pub password_hash: Option<String>,
+    #[serde(default)]
+    pub oidc_issuer: Option<String>,
+    #[serde(default)]
+    pub oidc_client_id: Option<String>,
+    #[serde(default)]
+    pub oidc_client_secret: Option<String>,
+    #[serde(default)]
+    pub oidc_auto_provision: bool,
     #[serde(default = "default_frontend_dir")]
     pub frontend_dir: PathBuf,
 }
@@ -62,6 +75,10 @@ fn default_public_url() -> String {
 
 fn default_data_dir() -> PathBuf {
     PathBuf::from("sable-server-data")
+}
+
+const fn default_max_active_users() -> usize {
+    128
 }
 
 fn default_username() -> String {

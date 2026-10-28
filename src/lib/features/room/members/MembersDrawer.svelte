@@ -7,6 +7,7 @@
   import XIcon from 'phosphor-svelte/lib/XIcon';
 
   import { i18n } from '#lib/i18n.js';
+  import { readText, writeText } from '#lib/platform/local-json.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
@@ -138,7 +139,7 @@
     width = Math.min(maxWidth, Math.max(MIN_WIDTH, next));
   }
 
-  const storedWidth = Number.parseInt(localStorage.getItem(WIDTH_STORAGE_KEY) ?? '', 10);
+  const storedWidth = Number.parseInt(readText(WIDTH_STORAGE_KEY) ?? '', 10);
   if (Number.isFinite(storedWidth)) resize(storedWidth);
 </script>
 
@@ -159,7 +160,7 @@
       homeEnd
       onResize={resize}
       onCommit={() => {
-        if (width !== null) localStorage.setItem(WIDTH_STORAGE_KEY, String(width));
+        if (width !== null) writeText(WIDTH_STORAGE_KEY, String(width));
       }}
     />
   {/if}

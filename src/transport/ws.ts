@@ -1,7 +1,7 @@
 import type { CoreEvent, RpcError } from '#src/generated/protocol';
 import { WebSocket as ReconnectingWebSocket } from 'partysocket';
 
-import { resetWebStorage } from '#lib/platform/session-storage.js';
+import { boundServerIdentity } from '#lib/notifications/room-names.js';
 import { CoreError, type Attachment, type Gallery, type Transport } from './index';
 import { attachmentBytes } from './attachment-bytes';
 
@@ -15,7 +15,7 @@ type Pending = {
 };
 
 type ServerMessage = {
-  server?: { version?: string; run_id?: string };
+  server?: { version?: string; run_id?: string; user_id?: string };
   event?: CoreEvent;
   seq?: number;
   run_id?: string;
@@ -37,6 +37,8 @@ function websocketUrl(url: string, runId: string | null, lastReceivedEvent: numb
   const parsed = new URL(url, location.href);
   if (parsed.protocol === 'http:') parsed.protocol = 'ws:';
   if (parsed.protocol === 'https:') parsed.protocol = 'wss:';
+  const identity = boundServerIdentity();
+  if (identity) parsed.searchParams.set('user_id', identity);
   if (runId) parsed.searchParams.set('run_id', runId);
   if (lastReceivedEvent > 0)
     parsed.searchParams.set('last_received_event', String(lastReceivedEvent));
@@ -89,6 +91,30 @@ export function createWsTransport(options: WsTransportOptions): Transport {
   let stalled = false;
   let runId: string | null = null;
   let lastReceivedEvent = 0;
+  let lastSessionRefresh = Date.now();
+  let sessionRefresh: Promise<void> | null = null;
+  let checkAfterRefresh = false;
+
+  function refreshSession(recheck = false): void {
+    if (closed) return;
+    if (sessionRefresh) {
+      checkAfterRefresh ||= recheck;
+      return;
+    }
+    sessionRefresh = fetchServer('/_sable/identity')
+      .then((response) => {
+        if (response.status === 401 || response.status === 403) location.reload();
+        else if (response.ok) lastSessionRefresh = Date.now();
+      })
+      .catch(() => {})
+      .finally(() => {
+        sessionRefresh = null;
+        if (checkAfterRefresh) {
+          checkAfterRefresh = false;
+          refreshSession();
+        }
+      });
+  }
 
   function handleMessage(text: string): void {
     let data: ServerMessage;
@@ -100,6 +126,12 @@ export function createWsTransport(options: WsTransportOptions): Transport {
     }
 
     if (data.server) {
+      const identity = boundServerIdentity();
+      if (identity && data.server.user_id !== identity) {
+        socket?.close();
+        location.reload();
+        return;
+      }
       runId = data.server.run_id ?? runId;
       checkServerBuild(data.server.version);
       return;
@@ -168,10 +200,12 @@ export function createWsTransport(options: WsTransportOptions): Transport {
       if (socket !== next) return;
       next.drainQueuedMessages();
       rejectPending('websocket closed');
+      refreshSession(true);
     };
   }
 
   function request(method: string, params: unknown): Promise<unknown> {
+    if (Date.now() - lastSessionRefresh >= 5 * 60_000) refreshSession();
     if (closed)
       return Promise.reject(new CoreError({ code: 'failed', log_id: 'transport closed' }));
     const id = nextId++;
@@ -191,7 +225,11 @@ export function createWsTransport(options: WsTransportOptions): Transport {
   }
 
   async function fetchServer(path: string, init?: RequestInit): Promise<Response> {
-    return fetch(httpUrl(options.url, path), { ...init, credentials: 'include' });
+    const identity = boundServerIdentity();
+    if (!identity) throw new Error('server identity unavailable');
+    const headers = new Headers(init?.headers);
+    headers.set('x-sable-user', identity);
+    return fetch(httpUrl(options.url, path), { ...init, headers, credentials: 'include' });
   }
 
   async function sendBinary(
@@ -224,7 +262,8 @@ export function createWsTransport(options: WsTransportOptions): Transport {
       if (width > 0 || height > 0) query.set('inline', 'true');
       if (!parsed) query.set('source', encodedBytes(source));
       const response = await fetchServer(
-        `/_sable/media/${encodeURIComponent(server)}/${encodeURIComponent(mediaId)}?${query}`
+        `/_sable/media/${encodeURIComponent(server)}/${encodeURIComponent(mediaId)}?${query}`,
+        { cache: 'no-store' }
       );
       if (!response.ok) throw await responseError(response);
       return new Uint8Array(await response.arrayBuffer());
@@ -315,9 +354,8 @@ export function createWsTransport(options: WsTransportOptions): Transport {
       return () => stallListeners.delete(listener);
     },
 
-    async resetCaches(accountIds) {
+    async resetCaches() {
       await request('session.reset_local_cache', {});
-      await resetWebStorage(accountIds);
     },
 
     deleteAccountStore() {

@@ -1,13 +1,7 @@
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
+import { readText, writeText } from '#lib/platform/local-json.js';
 
 export function persistedDismissal(key: string) {
-  let dismissedFor = $state(read(key));
+  let dismissedFor = $state(readText(key));
 
   return {
     get dismissedFor() {
@@ -15,11 +9,7 @@ export function persistedDismissal(key: string) {
     },
     dismiss(id: string | null): void {
       dismissedFor = id;
-      try {
-        if (id !== null) localStorage.setItem(key, id);
-      } catch (error) {
-        console.debug('[sable settings] dismissal not persisted', error);
-      }
+      if (id !== null) writeText(key, id);
     },
   };
 }

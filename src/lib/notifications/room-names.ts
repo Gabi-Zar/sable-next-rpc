@@ -1,4 +1,5 @@
 import type { NotificationModeView } from '#src/generated/protocol';
+import { bindServerNotificationOwner } from '#lib/platform/server-notification-owner.js';
 
 import { appendPushEntry, type PushHistoryEntry, readPushHistory } from './push-history';
 
@@ -52,9 +53,60 @@ export async function telemetryConsent(): Promise<boolean> {
   }
 }
 
-function open(): Promise<IDBDatabase> {
+let boundServerUser: string | null = null;
+
+export function boundServerIdentity(): string | null {
+  return boundServerUser;
+}
+
+export async function bindServerNotificationIdentity(): Promise<void> {
+  if (!import.meta.env.VITE_SABLE_SERVER_URL) return;
+  const current = await currentServerUser();
+  if (boundServerUser !== null && boundServerUser !== current) {
+    throw new Error('server identity changed');
+  }
+  if ('document' in globalThis) {
+    await clearPushSessionsInDatabase(DATABASE);
+    await bindServerNotificationOwner(current, clearServerPushSessions);
+  }
+  boundServerUser = current;
+}
+
+export async function currentServerUser(): Promise<string> {
+  const base = new URL(import.meta.env.VITE_SABLE_SERVER_URL ?? '/', globalThis.location.href);
+  const response = await fetch(new URL('/_sable/identity', base), {
+    credentials: 'include',
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error('server session unavailable');
+  const identity: unknown = await response.json();
+  if (
+    typeof identity !== 'object' ||
+    identity === null ||
+    !('id' in identity) ||
+    typeof identity.id !== 'string' ||
+    !/^(legacy|[0-9a-f-]{36})$/.test(identity.id)
+  ) {
+    throw new Error('invalid server identity');
+  }
+  return identity.id;
+}
+
+async function open(): Promise<IDBDatabase> {
+  let databaseName = DATABASE;
+  if (import.meta.env.VITE_SABLE_SERVER_URL) {
+    const id = await currentServerUser();
+    if ('document' in globalThis && (boundServerUser === null || boundServerUser !== id)) {
+      throw new Error('server identity changed');
+    }
+    databaseName += `-${id}`;
+  }
+  return openDatabase(databaseName);
+}
+
+function openDatabase(databaseName: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DATABASE, 1);
+    const request = indexedDB.open(databaseName, 1);
     request.onupgradeneeded = () => {
       request.result.createObjectStore(STORE);
     };
@@ -180,6 +232,35 @@ export interface PushSession {
 }
 
 const SESSION_PREFIX = '\u0000session:';
+
+/** Remove browser-held Matrix tokens when a server user leaves this profile. */
+export async function clearServerPushSessions(serverUserId: string): Promise<void> {
+  if (!/^(legacy|[0-9a-f-]{36})$/.test(serverUserId)) throw new Error('invalid server identity');
+  await Promise.all([
+    clearPushSessionsInDatabase(DATABASE),
+    clearPushSessionsInDatabase(`${DATABASE}-${serverUserId}`),
+  ]);
+}
+
+async function clearPushSessionsInDatabase(name: string): Promise<void> {
+  const database = await openDatabase(name);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(STORE, 'readwrite');
+      transaction
+        .objectStore(STORE)
+        .delete(IDBKeyRange.bound(SESSION_PREFIX, `${SESSION_PREFIX}\uffff`));
+      transaction.oncomplete = () => {
+        resolve();
+      };
+      transaction.onerror = transaction.onabort = () => {
+        reject(transaction.error ?? new Error('push sessions unavailable'));
+      };
+    });
+  } finally {
+    database.close();
+  }
+}
 
 export async function putPushSession(session: PushSession): Promise<void> {
   try {

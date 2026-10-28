@@ -20,7 +20,7 @@
   }
 
   let { titleKey = 'nav.home' }: Props = $props();
-  const hasLoggedInBefore = readReturningUser(localStorage);
+  const hasLoggedInBefore = readReturningUser();
   const supportHref = resolve('/(app)/to/[...permalink]', {
     permalink: roomPathParamFromId(SABLE_SUPPORT_ROOM),
   });

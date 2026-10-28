@@ -3,6 +3,9 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { i18n } from '#lib/i18n.js';
+  import Button from '#lib/ui/primitives/Button.svelte';
+  import { signOutServer } from '#lib/platform/server-session.js';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { useCoreClient } from '#lib/core/context.js';
   import AuthFlow from '#lib/features/auth/flow/AuthFlow.svelte';
@@ -19,6 +22,7 @@
       page.url.pathname.startsWith(registerPath) ||
       page.url.pathname.startsWith(setupPath)
   );
+  let serverSignOutFailed = $state(false);
   let accountSwitching = $state(true);
   let addingAccount = $derived(
     page.url.searchParams.has('addAccount') &&
@@ -49,5 +53,28 @@
 
 {#if authEntry}
   <AuthFlow />
+  {#if import.meta.env.VITE_SABLE_SERVER_URL && !core.session}
+    <div class="server-sign-out">
+      <Button
+        variant="secondary"
+        onclick={() =>
+          void signOutServer().catch(() => {
+            serverSignOutFailed = true;
+          })}
+      >
+        {i18n.t('settings.logoutServer')}
+      </Button>
+      {#if serverSignOutFailed}<p role="alert">{i18n.t('settings.logoutServerFailed')}</p>{/if}
+    </div>
+  {/if}
 {/if}
 {@render children()}
+
+<style>
+  .server-sign-out {
+    display: grid;
+    gap: var(--space-200);
+    justify-items: center;
+    margin: var(--space-400);
+  }
+</style>

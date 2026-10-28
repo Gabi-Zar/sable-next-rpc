@@ -1,4 +1,4 @@
-import { readJson, writeJson } from '#lib/platform/local-json.js';
+import { readJson, readText, writeJson, writeText } from '#lib/platform/local-json.js';
 
 const STORAGE_KEY = 'sable-call-volumes';
 const OUTPUT_KEY = 'sable-call-output-volume';
@@ -19,8 +19,7 @@ function parse(parsed: unknown): Record<string, number> {
 }
 
 function loadOutput(): number {
-  if (typeof localStorage === 'undefined') return 1;
-  const raw = localStorage.getItem(OUTPUT_KEY);
+  const raw = readText(OUTPUT_KEY);
   const stored = raw === null || raw.trim() === '' ? Number.NaN : Number(raw);
   return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 1;
 }
@@ -34,12 +33,7 @@ export function outputVolume(): number {
 
 export function setOutputVolume(volume: number): void {
   output.volume = Math.min(Math.max(volume, 0), 1);
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(OUTPUT_KEY, String(output.volume));
-  } catch (error) {
-    console.debug('[sable call] output volume not persisted', error);
-  }
+  writeText(OUTPUT_KEY, String(output.volume));
 }
 
 export function screenVolumeKey(userId: string): string {

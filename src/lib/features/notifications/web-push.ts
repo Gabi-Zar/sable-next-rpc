@@ -2,6 +2,7 @@ import { base64ToUint8Array, uint8ArrayToBase64 } from 'uint8array-extras';
 
 import { runtimeConfig } from '#lib/config/runtime-config.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { readText, removeLocalValue, writeText } from '#lib/platform/local-json.js';
 import { deliversWebPush } from '#lib/platform/notifications.js';
 import { activeServiceWorker } from '#lib/platform/service-worker.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -187,7 +188,7 @@ async function sync(core: CoreClient, override: PushOverride): Promise<void> {
   const { endpoint, keys } = subscription.toJSON();
   if (endpoint === undefined || !keys?.p256dh || !keys.auth) return;
 
-  const registered = localStorage.getItem(REGISTERED_ENDPOINT);
+  const registered = readText(REGISTERED_ENDPOINT);
   const eventIdOnly = !preferences.richPushPayloads;
   const name = pusherDisplayName(core);
   const marker = registrationMarker(accountId, endpoint, target, eventIdOnly, name);
@@ -213,7 +214,7 @@ async function sync(core: CoreClient, override: PushOverride): Promise<void> {
         append: false,
       },
     });
-    localStorage.setItem(REGISTERED_ENDPOINT, marker);
+    writeText(REGISTERED_ENDPOINT, marker);
     return;
   }
 
@@ -241,7 +242,7 @@ async function sync(core: CoreClient, override: PushOverride): Promise<void> {
       event_id_only: eventIdOnly,
     },
   });
-  localStorage.setItem(REGISTERED_ENDPOINT, marker);
+  writeText(REGISTERED_ENDPOINT, marker);
 }
 
 /** The p256dh of this browser's live subscription, which is the pushkey its
@@ -269,7 +270,7 @@ export async function dropPushSubscription(
   const registration = await navigator.serviceWorker
     .getRegistration()
     .catch(fallback(undefined, 'service worker registration unavailable'));
-  localStorage.removeItem(REGISTERED_ENDPOINT);
+  removeLocalValue(REGISTERED_ENDPOINT);
   const subscription = await registration?.pushManager.getSubscription();
   if (!subscription) return;
 

@@ -6,6 +6,7 @@
   import BackIcon from 'phosphor-svelte/lib/CaretLeftIcon';
 
   import { page } from '$app/state';
+  import { readText, writeText } from '#lib/platform/local-json.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { personaSpaces } from '#lib/features/composer/persona-spaces.js';
   import { readReceiptIsPrivate } from '#lib/settings/preferences.svelte.js';
@@ -80,7 +81,7 @@
   let timelineList = $state<TimelineList>();
   let panel = $state<HTMLElement>();
   const widthStorageKey = 'sable-thread-panel-width';
-  const storedWidth = Number.parseFloat(localStorage.getItem(widthStorageKey) ?? '');
+  const storedWidth = Number.parseFloat(readText(widthStorageKey) ?? '');
   let width = $state(Number.isFinite(storedWidth) ? clampThreadPanelWidth(storedWidth) : 27.5);
   const swipe = new SwipeBack({
     width: () => panel?.clientWidth ?? 0,
@@ -245,7 +246,7 @@
           Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
         )}
       onResize={(next) => (width = clampThreadPanelWidth(next))}
-      onCommit={() => localStorage.setItem(widthStorageKey, String(width))}
+      onCommit={() => writeText(widthStorageKey, String(width))}
     />
   {/if}
 

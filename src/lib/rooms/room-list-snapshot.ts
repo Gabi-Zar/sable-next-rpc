@@ -3,6 +3,7 @@ import type { RoomListItemView } from '#src/generated/protocol';
 const KEY_PREFIX = 'sable.room-list.';
 
 function storage(): Storage | null {
+  if (import.meta.env.VITE_SABLE_SERVER_URL) return null;
   try {
     return typeof localStorage === 'undefined' ? null : localStorage;
   } catch {

@@ -104,6 +104,8 @@
     screenVolumeKey,
   } from '#lib/features/call/participant-volumes.svelte.js';
   import {
+    boundServerIdentity,
+    currentServerUser,
     forgetPushSessions,
     PUSH_ACTIVATION_TTL_MS,
     putPushContentPolicy,
@@ -801,11 +803,29 @@
     if (!('serviceWorker' in navigator)) return stop;
 
     const off = on(navigator.serviceWorker, 'message', (event) => {
-      const message = (event as MessageEvent).data as
-        | { type?: string; text?: string; files?: File[] }
+      const workerMessage = event as MessageEvent;
+      const message = workerMessage.data as
+        | { type?: string; serverUserId?: string | null; text?: string; files?: File[] }
         | undefined;
-      if (message?.type === 'sable:share')
-        shareInbox.accept(message.text ?? '', message.files ?? []);
+      if (message?.type === 'sable:server-user') {
+        workerMessage.ports[0]?.postMessage(boundServerIdentity());
+      } else if (
+        message?.type === 'sable:share' &&
+        (!import.meta.env.VITE_SABLE_SERVER_URL ||
+          (message.serverUserId && message.serverUserId === boundServerIdentity()))
+      ) {
+        if (!import.meta.env.VITE_SABLE_SERVER_URL) {
+          shareInbox.accept(message.text ?? '', message.files ?? []);
+        } else {
+          void currentServerUser()
+            .then((identity) => {
+              if (identity === message.serverUserId && identity === boundServerIdentity()) {
+                shareInbox.accept(message.text ?? '', message.files ?? []);
+              }
+            })
+            .catch(() => {});
+        }
+      }
     });
     navigator.serviceWorker.controller?.postMessage({ type: 'sable:share-take' });
 

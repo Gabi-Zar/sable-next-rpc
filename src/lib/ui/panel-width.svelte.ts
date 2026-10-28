@@ -1,3 +1,5 @@
+import { readText, writeText } from '#lib/platform/local-json.js';
+
 export class PanelWidth {
   width = $state(0);
 
@@ -11,7 +13,7 @@ export class PanelWidth {
   }
 
   restore(): void {
-    const stored = Number.parseFloat(localStorage.getItem(this.storageKey) ?? '');
+    const stored = Number.parseFloat(readText(this.storageKey) ?? '');
     if (Number.isFinite(stored)) this.resize(stored);
   }
 
@@ -20,7 +22,7 @@ export class PanelWidth {
   }
 
   commit(): void {
-    localStorage.setItem(this.storageKey, String(this.width));
+    writeText(this.storageKey, String(this.width));
   }
 }
 

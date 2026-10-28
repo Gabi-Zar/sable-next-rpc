@@ -3,6 +3,11 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { CoreEvent } from '#src/generated/protocol';
 import { createWsTransport } from './ws';
 
+const identity = vi.hoisted(() => ({ current: 'legacy' }));
+vi.mock('#lib/notifications/room-names.js', () => ({
+  boundServerIdentity: () => identity.current,
+}));
+
 const reload = vi.fn();
 
 class FakeWebSocket extends EventTarget {
@@ -53,12 +58,17 @@ class FakeWebSocket extends EventTarget {
 beforeEach(() => {
   vi.useFakeTimers();
   reload.mockReset();
+  identity.current = 'legacy';
   FakeWebSocket.instances = [];
   vi.stubGlobal('location', {
     href: 'https://sable.test/rooms',
     reload,
   });
   vi.stubGlobal('WebSocket', FakeWebSocket);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => Promise.resolve(new Response(null, { status: 204 })))
+  );
   vi.stubGlobal('localStorage', {
     getItem: () => null,
     setItem: vi.fn(),
@@ -77,7 +87,7 @@ async function openTransport() {
   await vi.advanceTimersByTimeAsync(0);
   const socket = FakeWebSocket.instances[0];
   socket.open();
-  socket.receive({ server: { version: '0.1.0', run_id: 'run-1' } });
+  socket.receive({ server: { version: '0.1.0', run_id: 'run-1', user_id: 'legacy' } });
   return { transport, socket };
 }
 
@@ -87,7 +97,7 @@ test('maps websocket RPC replies and server errors', async () => {
   });
   await vi.advanceTimersByTimeAsync(0);
   const socket = FakeWebSocket.instances[0];
-  expect(socket.url).toBe('ws://server.test/ws');
+  expect(socket.url).toBe('ws://server.test/ws?user_id=legacy');
   socket.open();
 
   const reply = transport.call('session.restore', {});
@@ -107,7 +117,7 @@ test('reconnects with backoff and sends new calls after the socket returns', asy
   await vi.advanceTimersByTimeAsync(250);
 
   const reconnected = FakeWebSocket.instances[1];
-  expect(reconnected.url).toBe('ws://server.test/ws?run_id=run-1');
+  expect(reconnected.url).toBe('ws://server.test/ws?user_id=legacy&run_id=run-1');
   reconnected.open();
   const pending = transport.call('session.list_accounts', {});
   expect(reconnected.sent).toContain(
@@ -137,7 +147,7 @@ test('reconnects with the run id and last received event', async () => {
   socket.disconnect();
   await vi.advanceTimersByTimeAsync(250);
   expect(FakeWebSocket.instances[1].url).toBe(
-    'ws://server.test/ws?run_id=run-1&last_received_event=7'
+    'ws://server.test/ws?user_id=legacy&run_id=run-1&last_received_event=7'
   );
   transport.close();
 });
@@ -181,5 +191,37 @@ test('uses authenticated HTTP endpoints for media and binary sends', async () =>
   ).resolves.toBeUndefined();
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(socket.readyState).toBe(1);
+  transport.close();
+});
+
+test('reloads if a reconnect belongs to another server user', async () => {
+  const { transport, socket } = await openTransport();
+  socket.disconnect();
+  await vi.advanceTimersByTimeAsync(250);
+  const reconnected = FakeWebSocket.instances[1];
+  reconnected.open();
+  reconnected.receive({ server: { version: '0.1.0', run_id: 'other', user_id: 'different' } });
+  expect(reload).toHaveBeenCalledOnce();
+  transport.close();
+});
+
+test('refreshes the server session during active RPC use and returns to login on expiry', async () => {
+  const fetchMock = vi.mocked(fetch);
+  const { transport, socket } = await openTransport();
+  await vi.advanceTimersByTimeAsync(5 * 60_000);
+  const pending = transport.call('session.list_accounts', {});
+  socket.receive({ id: 1, ok: [] });
+  await pending;
+  await vi.waitFor(() => {
+    expect(fetchMock).toHaveBeenCalled();
+  });
+  const [url, init] = fetchMock.mock.calls[0];
+  expect(url).toBe('http://server.test/_sable/identity');
+  expect(new Headers(init?.headers).get('x-sable-user')).toBe('legacy');
+  fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
+  socket.disconnect();
+  await vi.waitFor(() => {
+    expect(reload).toHaveBeenCalled();
+  });
   transport.close();
 });

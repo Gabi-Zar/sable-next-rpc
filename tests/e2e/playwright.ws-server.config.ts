@@ -37,7 +37,7 @@ export default defineConfig({
   ],
   webServer: {
     cwd: process.cwd(),
-    command: `SABLE_SERVER_PASSWORD_HASH="$(printf 'password\\n' | ${serverBinary} hash-password)" SABLE_SERVER_LISTEN_ADDR=127.0.0.1:${serverPort} SABLE_SERVER_PUBLIC_URL=http://127.0.0.1:${serverPort} SABLE_SERVER_USERNAME=server SABLE_SERVER_FRONTEND_DIR=${process.cwd()}/dist SABLE_SERVER_DATA_DIR=${dataDir} ${serverBinary}`,
+    command: `SABLE_SERVER_PASSWORD_HASH="$(printf 'password\\n' | ${serverBinary} hash-password)" SABLE_SERVER_LISTEN_ADDR=127.0.0.1:${serverPort} SABLE_SERVER_PUBLIC_URL=http://127.0.0.1:${serverPort} SABLE_SERVER_USERNAME=server SABLE_SERVER_FRONTEND_DIR=${process.cwd()}/dist SABLE_SERVER_DATA_DIR=${dataDir} SABLE_SERVER_ALLOWED_PRIVATE_CIDRS='["127.0.0.1/32"]' ${serverBinary}`,
     url: `${serverOrigin}/healthz`,
     timeout: 120_000,
   },

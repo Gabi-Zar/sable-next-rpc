@@ -4,6 +4,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 
+vi.mock('#lib/notifications/room-names.js', () => ({ boundServerIdentity: () => 'legacy' }));
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
 vi.mock('#lib/settings/preferences.svelte.js', () => ({
   preferences: { sendPresence: false, presence: 'online' },
@@ -152,4 +153,35 @@ test('a signed-out account says so and offers to sign in again', async () => {
   await user.click(select);
   expect(onReauth).toHaveBeenCalledWith(signedOut);
   expect(onSwitch).not.toHaveBeenCalled();
+});
+
+test('server sign-out sends the bound server identity', async () => {
+  vi.stubEnv('VITE_SABLE_SERVER_URL', '/_sable/ws');
+  const fetchMock = vi.fn((_url: URL, _options: RequestInit) =>
+    Promise.resolve(new Response(null, { status: 500 }))
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  try {
+    render(AccountMenuItemsHarness, {
+      accounts,
+      profiles: directoryWith(() => Promise.reject(new Error('profile unavailable'))),
+      onSwitch: vi.fn(),
+      onLogoutAccount: vi.fn(),
+    });
+    const menu = await openMenu();
+    await user.click(within(menu).getByRole('menuitem', { name: 'settings.logoutServer' }));
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url.href).toContain('/_sable/logout');
+    expect(options).toMatchObject({
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'x-sable-user': 'legacy' },
+    });
+  } finally {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  }
 });

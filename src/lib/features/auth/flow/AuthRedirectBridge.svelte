@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { readText, removeLocalValue, writeText } from '#lib/platform/local-json.js';
+  import { readText, removeLocalValue, scopedKey, writeText } from '#lib/platform/local-json.js';
 
   import {
     callbackChannelName,
@@ -36,8 +36,8 @@
   }
 
   function handleStorage(event: StorageEvent): void {
-    if (event.key !== 'sable-registration-complete' || !event.newValue) return;
-    removeLocalValue(event.key);
+    if (event.key !== scopedKey('sable-registration-complete') || !event.newValue) return;
+    removeLocalValue('sable-registration-complete');
     onRegistrationComplete();
   }
 

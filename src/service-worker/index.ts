@@ -33,6 +33,7 @@ import {
   type PushHistoryEntry,
 } from '#lib/notifications/push-history.js';
 import {
+  currentServerUser,
   pushContentPolicy,
   pendingPushActivations,
   pushSession,
@@ -46,6 +47,7 @@ import modelWasm from '#src/generated/wasm/sable_model_bg.wasm?url';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
 import { roomsToReconcile } from './read-reconcile.js';
+import { belongsToServerUser, clientHasServerIdentity } from './push-scope.js';
 
 const worker = globalThis.self as unknown as ServiceWorkerGlobalScope;
 
@@ -115,7 +117,18 @@ async function receive(raw: string | undefined): Promise<void> {
     return;
   }
   const pushed = parsePushPayload(raw) ?? undefined;
-  await present(pushed);
+  const serverUserId = import.meta.env.VITE_SABLE_SERVER_URL ? await currentServerUser() : null;
+  if (serverUserId && pushed) {
+    if (
+      !(await belongsToServerUser(pushed.user_id, pushSession)) ||
+      (await currentServerUser()) !== serverUserId
+    ) {
+      await showFallback();
+      return;
+    }
+  }
+  await present(pushed, serverUserId);
+  if (serverUserId && (await currentServerUser()) !== serverUserId) return;
   if (
     pushed &&
     pushed.unread !== 0 &&
@@ -165,6 +178,7 @@ worker.addEventListener('message', (event) => {
 });
 
 interface StashedShare {
+  serverUserId: string | null;
   text: string;
   files: File[];
 }
@@ -181,6 +195,7 @@ worker.addEventListener('fetch', (event) => {
 const SHARE_HOLD_MS = 15_000;
 
 async function stashShare(event: FetchEvent): Promise<Response> {
+  const serverUserId = import.meta.env.VITE_SABLE_SERVER_URL ? await currentServerUser() : null;
   const form = await event.request.formData();
   const text = ['title', 'text', 'url']
     .map((field) => form.get(field))
@@ -189,7 +204,7 @@ async function stashShare(event: FetchEvent): Promise<Response> {
   const files = form.getAll('files').filter((value): value is File => value instanceof File);
 
   const id = crypto.randomUUID();
-  shares.set(id, { text, files });
+  shares.set(id, { serverUserId, text, files });
   event.waitUntil(watchWorkerOperation('share-hold', holdShare(id)));
 
   return Response.redirect(resolve('/(app)'), 303);
@@ -209,12 +224,25 @@ async function handShares(): Promise<void> {
   if (shares.size === 0) return;
 
   const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  const client = clients.at(0);
-  if (!client) return;
-
   for (const [id, share] of shares) {
+    let client: Client | undefined;
+    const serverUserId = share.serverUserId;
+    if (serverUserId === null) {
+      client = clients.at(0);
+    } else if ((await currentServerUser()) === serverUserId) {
+      const matches = await Promise.all(
+        clients.map((candidate) => clientHasServerIdentity(candidate, serverUserId))
+      );
+      client = clients.find((_, index) => matches[index]);
+    }
+    if (!client || shares.get(id) !== share) continue;
     shares.delete(id);
-    client.postMessage({ type: 'sable:share', text: share.text, files: share.files });
+    client.postMessage({
+      type: 'sable:share',
+      serverUserId: share.serverUserId,
+      text: share.text,
+      files: share.files,
+    });
   }
 }
 
@@ -222,7 +250,10 @@ function record(outcome: string, trace: Omit<PushHistoryEntry, 'at' | 'outcome'>
   return recordPush({ at: Date.now(), outcome, ...trace });
 }
 
-async function present(pushed: PushNotification | undefined): Promise<void> {
+async function present(
+  pushed: PushNotification | undefined,
+  serverUserId: string | null
+): Promise<void> {
   if (!pushed) {
     await record('INVALID_PAYLOAD');
     return;
@@ -318,6 +349,10 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
     ];
   }
 
+  if (serverUserId && (await currentServerUser()) !== serverUserId) {
+    await showFallback();
+    return;
+  }
   await worker.registration.showNotification(showing.title, options);
   await record('POSTED', trace);
 }
@@ -367,7 +402,9 @@ async function decryptInTab(
   userId: string
 ): Promise<PushFetchView | null> {
   const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const serverUserId = import.meta.env.VITE_SABLE_SERVER_URL ? await currentServerUser() : null;
   for (const client of clients) {
+    if (serverUserId !== null && !(await clientHasServerIdentity(client, serverUserId))) continue;
     const answer = await new Promise<PushFetchView | null>((settle) => {
       const channel = new MessageChannel();
       const timer = setTimeout(() => {
@@ -377,7 +414,9 @@ async function decryptInTab(
         clearTimeout(timer);
         settle(readPushFetch(event.data));
       };
-      client.postMessage({ type: 'sable:push-event', roomId, eventId, userId }, [channel.port2]);
+      client.postMessage({ type: 'sable:push-event', roomId, eventId, userId, serverUserId }, [
+        channel.port2,
+      ]);
     });
     if (answer !== null) return answer;
   }

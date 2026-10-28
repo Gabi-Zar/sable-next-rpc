@@ -54,6 +54,10 @@
   import { shouldReduceMotion } from '#lib/ui/motion.js';
   import { ALERT_MODULES, provideAlertProviders } from '#lib/features/sidebar/alerts.js';
   import ServerLogin from './ServerLogin.svelte';
+  import {
+    bindServerNotificationIdentity,
+    boundServerIdentity,
+  } from '#lib/notifications/room-names.js';
 
   interface Props {
     children: Snippet;
@@ -79,6 +83,25 @@
       document.documentElement.dataset.tauriOs = osType();
     }
 
+    const identityChannel =
+      serverMode && typeof BroadcastChannel !== 'undefined'
+        ? new BroadcastChannel('sable-server-identity')
+        : null;
+    if (identityChannel) {
+      identityChannel.onmessage = (event: MessageEvent<unknown>) => {
+        const current = boundServerIdentity();
+        if (
+          current &&
+          typeof event.data === 'string' &&
+          (event.data === 'logout' || event.data !== current)
+        ) {
+          core.stop();
+          window.location.reload();
+        }
+      };
+      const current = boundServerIdentity();
+      if (current) identityChannel.postMessage(current);
+    }
     const stopTrackingKeyboard = trackKeyboardInset();
     const stopGuardingClicks = guardTouchClicks();
     const stopInspectorShortcut = trackInspectorShortcut();
@@ -111,6 +134,7 @@
         });
     }
     return () => {
+      identityChannel?.close();
       stopTrackingKeyboard();
       stopGuardingClicks();
       stopInspectorShortcut();
@@ -123,7 +147,21 @@
   });
 
   $effect(() => {
-    if (mounted && serverAuthReady && serverAuthenticated) void core.start();
+    if (mounted && serverAuthReady && serverAuthenticated) {
+      void (async () => {
+        if (serverMode) {
+          const previouslyBound = boundServerIdentity();
+          await bindServerNotificationIdentity();
+          if (!previouslyBound) {
+            window.location.reload();
+            return;
+          }
+        }
+        await core.start();
+      })().catch(() => {
+        serverAuthenticated = false;
+      });
+    }
   });
 
   $effect(() => {
@@ -238,7 +276,7 @@
       <ServerLogin
         endpoint={serverAuthEndpoint}
         onAuthenticated={() => {
-          serverAuthenticated = true;
+          window.location.reload();
         }}
       />
     {:else}

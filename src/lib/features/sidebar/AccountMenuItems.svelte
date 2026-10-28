@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PresenceView, SessionInfo } from '#src/generated/protocol';
+  import { signOutServer } from '#lib/platform/server-session.js';
   import { i18n } from '#lib/i18n.js';
   import type { AccountDirectory } from './account-directory.svelte.js';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
@@ -47,6 +48,16 @@
   }: Props = $props();
   let presence = $derived(preferences.presence);
   const surface = useActionMenuSurface();
+
+  let serverSignOutFailed = $state(false);
+  async function requestServerSignOut(): Promise<void> {
+    serverSignOutFailed = false;
+    try {
+      await signOutServer();
+    } catch {
+      serverSignOutFailed = true;
+    }
+  }
 </script>
 
 {#if preferences.sendPresence}
@@ -141,6 +152,13 @@
       <span>{i18n.t('common.addAccount')}</span>
     </ActionMenuItem>
   </ActionMenuSub>
+{/if}
+{#if import.meta.env.VITE_SABLE_SERVER_URL}
+  <ActionMenuItem onSelect={() => void requestServerSignOut()}>
+    <SignOutIcon aria-hidden="true" />
+    <span>{i18n.t('settings.logoutServer')}</span>
+  </ActionMenuItem>
+  {#if serverSignOutFailed}<span role="alert">{i18n.t('settings.logoutServerFailed')}</span>{/if}
 {/if}
 <ActionMenuItem destructive onSelect={onLogout}>
   <SignOutIcon aria-hidden="true" />

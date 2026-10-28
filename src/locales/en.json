@@ -1711,6 +1711,8 @@
     "profileSaveFailed": "Could not save your profile changes.",
     "security": "Security",
     "logout": "Log out",
+    "logoutServer": "Log out of Sable server",
+    "logoutServerFailed": "Could not log out of the Sable server.",
     "logoutConfirmDescription": "Are you sure you want to log out?",
     "logoutWarning": {
       "title": "You could lose your encrypted messages",
