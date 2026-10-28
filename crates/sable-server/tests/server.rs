@@ -1,3 +1,11 @@
+#![expect(
+    clippy::assertions_on_result_states,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "test failures should stop the test at the failed assertion"
+)]
+
 use std::{net::SocketAddr, time::Duration};
 
 use axum_client_ip::ClientIpSource;
@@ -137,9 +145,10 @@ async fn receive_yawc_json(socket: &mut yawc::TcpWebSocket) -> Value {
         .await
         .expect("websocket message timeout")
         .expect("websocket closed");
-    if frame.opcode() != yawc::OpCode::Text {
-        panic!("expected a text websocket message")
-    };
+    assert!(
+        frame.opcode() == yawc::OpCode::Text,
+        "expected a text websocket message"
+    );
     serde_json::from_slice(frame.payload()).expect("JSON websocket message")
 }
 
@@ -459,7 +468,7 @@ async fn shutdown_cancels_in_flight_http_work() {
         tokio::time::sleep(Duration::from_millis(100)).await;
         assert!(std::process::Command::new("kill").args(["-TERM", &child.id().to_string()]).status().unwrap().success());
         let closed = tokio::time::timeout(Duration::from_secs(3), socket.next()).await.unwrap();
-        assert!(matches!(closed, None | Some(Ok(Message::Close(_))) | Some(Err(_))));
+        assert!(matches!(closed, None | Some(Ok(Message::Close(_)) | Err(_))));
         tokio::time::timeout(Duration::from_secs(4), async {
             loop {
                 if let Some(status) = child.try_wait().unwrap() { break status; }
@@ -661,7 +670,7 @@ async fn logout_closes_only_the_associated_websocket() {
         .unwrap();
     assert!(matches!(
         closed,
-        None | Some(Ok(Message::Close(_))) | Some(Err(_))
+        None | Some(Ok(Message::Close(_)) | Err(_))
     ));
     second
         .send(Message::Text(
@@ -881,7 +890,7 @@ async fn logout_cancels_in_flight_websocket_rpc() {
         .unwrap();
     assert!(matches!(
         closed,
-        None | Some(Ok(Message::Close(_))) | Some(Err(_))
+        None | Some(Ok(Message::Close(_)) | Err(_))
     ));
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(3), stalled.read(&mut buffer))
@@ -1058,7 +1067,7 @@ async fn disabling_user_blocks_existing_socket_and_session() {
         .unwrap();
     assert!(matches!(
         closed,
-        None | Some(Ok(Message::Close(_))) | Some(Err(_))
+        None | Some(Ok(Message::Close(_)) | Err(_))
     ));
     let status = reqwest::Client::new()
         .get(format!("{base}/_sable/auth"))

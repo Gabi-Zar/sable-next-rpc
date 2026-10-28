@@ -233,6 +233,9 @@
   let sending = $state(false);
   let sendFailed = $state<'send' | 'open' | null>(null);
   let confirmingDirect = $state(false);
+  $effect(() => {
+    onNestedMenuOpenChange?.(confirmingDirect);
+  });
   let homeserver = $derived(userId.slice(userId.indexOf(':') + 1));
   let elevated = $derived(roomMember !== null && roomMember.power_level >= 50);
   let roleTag = $derived(

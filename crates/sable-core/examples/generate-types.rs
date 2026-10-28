@@ -49,7 +49,7 @@ fn render(
     dt: &DataType,
 ) -> Result<String, specta_typescript::Error> {
     match dt {
-        DataType::Reference(reference) => exporter.reference(reference),
+        DataType::Reference(_) => exporter.reference(dt),
         DataType::Nullable(inner) => Ok(format!("{} | null", render(exporter, inner)?)),
         dt => exporter.inline(dt),
     }

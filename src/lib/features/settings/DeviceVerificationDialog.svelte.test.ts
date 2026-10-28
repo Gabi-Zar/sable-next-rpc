@@ -107,7 +107,9 @@ test('an error stays with its flow and clears when another flow takes over', asy
   Object.defineProperty(core, 'verification', {
     configurable: true,
     get: () => active.current,
-    set: (next: unknown) => (active.current = next),
+    set: (next: unknown) => {
+      active.current = next;
+    },
   });
   vi.mocked(core.rpc.encryption.confirmVerification).mockRejectedValueOnce(new Error('nope'));
   render(DeviceVerificationDialog);

@@ -39,7 +39,7 @@ afterEach(() => vi.restoreAllMocks());
 
 async function chooseRear() {
   const user = userEvent.setup();
-  const selector = await screen.findByRole('button', { name: 'Camera' });
+  const selector = await screen.findByRole('combobox', { name: 'Camera' });
   await waitFor(() => {
     expect(selector).toBeEnabled();
   });
@@ -70,9 +70,9 @@ test('keeps the selector available after a camera fails', async () => {
   render(VerificationQrScanner, { onScan: vi.fn() });
   await chooseRear();
   expect(await screen.findByRole('alert')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Camera' })).toBeEnabled();
+  expect(screen.getByRole('combobox', { name: 'Camera' })).toBeEnabled();
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: 'Camera' }));
+  await user.click(screen.getByRole('combobox', { name: 'Camera' }));
   await user.click(await screen.findByRole('option', { name: 'Front camera' }));
   await waitFor(() => {
     expect(getUserMedia).toHaveBeenCalledTimes(3);
@@ -109,5 +109,5 @@ test('continues scanning if device enumeration is unavailable', async () => {
     expect(play).toHaveBeenCalled();
   });
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Camera' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: 'Camera' })).not.toBeInTheDocument();
 });

@@ -78,7 +78,12 @@ test('toggling a loaded bookmark off passes the current state through', async ()
 
 test('toggling on without a load still tracks the new bookmark', async () => {
   const setBookmark = vi.fn(() => Promise.resolve(true));
-  const store = new Bookmarks(fakeCore(undefined, setBookmark));
+  const store = new Bookmarks(
+    fakeCore(
+      vi.fn(() => Promise.resolve([bookmark('!a:example.org', '$one')])),
+      setBookmark
+    )
+  );
 
   await store.toggle('!a:example.org', '$one');
 
@@ -111,9 +116,11 @@ test('a slow load cannot undo a toggle that raced it', async () => {
   );
 
   const stale = store.load();
-  await store.toggle('!a:example.org', '$one');
+  const toggle = store.toggle('!a:example.org', '$one');
+  await Promise.resolve();
   release([]);
   await stale;
+  await toggle;
 
   expect(store.has('!a:example.org', '$one')).toBe(true);
 
@@ -146,7 +153,7 @@ test('removing a bookmark drops it from entries immediately', async () => {
   expect(store.entries).toEqual([]);
 });
 
-test('adding a bookmark invalidates the list so the next load refetches it', async () => {
+test('adding a bookmark refreshes the list', async () => {
   const bookmarks = vi
     .fn()
     .mockImplementationOnce(() => Promise.resolve([]))
@@ -160,6 +167,21 @@ test('adding a bookmark invalidates the list so the next load refetches it', asy
 
   expect(bookmarks).toHaveBeenCalledTimes(2);
   expect(store.entries).toEqual([bookmark('!a:example.org', '$one')]);
+});
+
+test('adding a bookmark refreshes a list opened while the write is pending', async () => {
+  let finishWrite!: (value: boolean) => void;
+  const setBookmark = vi.fn(() => new Promise<boolean>((resolve) => (finishWrite = resolve)));
+  const saved = bookmark('!a:example.org', '$one');
+  const bookmarks = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([saved]);
+  const store = new Bookmarks(fakeCore(bookmarks, setBookmark));
+
+  const toggle = store.toggle('!a:example.org', '$one');
+  await store.load();
+  finishWrite(true);
+  await toggle;
+
+  expect(store.entries).toEqual([saved]);
 });
 
 test('a failed load is retried on the next call', async () => {

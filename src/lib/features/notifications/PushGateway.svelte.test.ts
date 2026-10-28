@@ -31,8 +31,8 @@ test('the distributor snaps back when switching fails', async () => {
   const user = userEvent.setup();
   render(PushGateway);
 
-  const trigger = () => screen.getByRole('button', { name: 'Notification distributor' });
-  await screen.findByRole('button', { name: 'Notification distributor' });
+  const trigger = () => screen.getByRole('combobox', { name: 'Notification distributor' });
+  await screen.findByRole('combobox', { name: 'Notification distributor' });
   expect(trigger()).toHaveTextContent('ntfy');
 
   await user.click(trigger());

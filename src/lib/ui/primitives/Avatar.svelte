@@ -24,6 +24,7 @@
     size?: AvatarSize;
     color?: string;
     decorative?: boolean;
+    initialsAsDecoration?: boolean;
     uniform?: boolean;
     recolor?: boolean;
     original?: boolean;
@@ -40,6 +41,7 @@
     size = 'medium',
     color,
     decorative = alt === undefined,
+    initialsAsDecoration = false,
     uniform = false,
     recolor = false,
     original = false,
@@ -131,13 +133,18 @@
   {/if}
   <Avatar.Fallback
     class="avatar-fallback"
+    data-decorative-initials={initialsAsDecoration && !children ? fallback : undefined}
     style={plate ? `background: ${plate}; color: var(--avatar-identity-on-plate)` : undefined}
   >
-    {#if children}{@render children()}{:else}{fallback}{/if}
+    {#if children}{@render children()}{:else if !initialsAsDecoration}{fallback}{/if}
   </Avatar.Fallback>
 </Avatar.Root>
 
 <style>
+  :global(.avatar-fallback[data-decorative-initials])::before {
+    content: attr(data-decorative-initials);
+  }
+
   :global(.avatar-root) {
     --avatar-size: var(--avatar-size-400);
 

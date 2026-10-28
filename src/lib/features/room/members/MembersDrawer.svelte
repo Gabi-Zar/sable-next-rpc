@@ -189,7 +189,7 @@
                 {...props}
                 type="button"
                 class="chip selection-open"
-                aria-label={i18n.t('timeline.memberFilter')}
+                aria-label={`${i18n.t('timeline.memberFilter')}: ${i18n.t(MEMBERSHIP_FILTER_LABELS[filter])}`}
               >
                 <FunnelIcon aria-hidden="true" />
                 <span>{i18n.t(MEMBERSHIP_FILTER_LABELS[filter])}</span>
@@ -214,7 +214,7 @@
               {...props}
               type="button"
               class="chip selection-open"
-              aria-label={i18n.t('timeline.memberSort')}
+              aria-label={`${i18n.t('timeline.memberSort')}: ${i18n.t(MEMBER_SORT_LABELS[sort])}`}
             >
               <span>{i18n.t(MEMBER_SORT_LABELS[sort])}</span>
               <ArrowsDownUpIcon aria-hidden="true" />

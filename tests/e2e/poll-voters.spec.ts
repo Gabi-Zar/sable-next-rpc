@@ -23,7 +23,7 @@ test('tapping a vote count opens who voted', async ({ page, app, admin, guest })
 
   const dialog = page.getByRole('dialog', { name: 'Voters' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText(GUEST_DISPLAY_NAME)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: GUEST_DISPLAY_NAME })).toBeVisible();
   await expect(dialog.getByRole('listitem')).toHaveCount(2);
 });
 

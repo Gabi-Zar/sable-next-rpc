@@ -87,7 +87,7 @@ test('tints the name from the profile and opens the profile card from the row', 
   const onProfile = vi.fn();
   render(MemberIdentityRow, { userId: '@bob:example.org', members, onProfile });
 
-  const row = screen.getByRole('button', { name: 'Open Bob’s profile' });
+  const row = screen.getByRole('button', { name: 'Bob' });
   await vi.waitFor(() => {
     expect(within(row).getByText('Bob')).toHaveClass('tinted');
   });

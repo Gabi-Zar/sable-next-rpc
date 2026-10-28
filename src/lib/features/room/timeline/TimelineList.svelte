@@ -178,7 +178,7 @@
     active = true,
     scrollLocked = false,
     nearLatest = $bindable(true),
-    /* eslint-disable-next-line no-useless-assignment, @typescript-eslint/no-unused-vars */
+    /* eslint-disable-next-line no-useless-assignment */
     followingLive = $bindable(false),
     typingUsers = [],
     footTrailing,

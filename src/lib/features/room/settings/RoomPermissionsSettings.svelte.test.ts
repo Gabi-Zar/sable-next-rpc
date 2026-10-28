@@ -224,7 +224,7 @@ test('uses tagged default roles in permission controls and opens their editor', 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room, permissions });
   await vi.waitFor(() => {
-    expect(screen.getByRole('button', { name: 'Invite' })).toHaveTextContent('Test');
+    expect(screen.getByRole('combobox', { name: 'Invite' })).toHaveTextContent('Test');
   });
 
   const row = screen
@@ -291,7 +291,7 @@ test('sets the level from which members stay listed whatever their presence (#49
 
   const user = userEvent.setup();
   render(RoomPermissionsSettings, { room, permissions });
-  const select = await screen.findByRole('button', { name: 'Always list' });
+  const select = await screen.findByRole('combobox', { name: 'Always list' });
   expect(select).toHaveTextContent('Anyone above Member');
 
   await user.click(select);

@@ -15,66 +15,68 @@
 </script>
 
 <SettingsSection title={i18n.t('settings.supporterTitle')} headingId="about-supporter">
-  {#if !!badge}
-    <SettingsRow
-      title={i18n.t('settings.supporterThanksTitle')}
-      description={i18n.t('settings.supporterThanksDescription')}
-    >
-      <Button
-        size="small"
-        onclick={() =>
-          goto(resolve(`settings/account?focus=account-supporter`), {
-            shallow: true,
-            replace: true,
-            state: { settings: { section: 'account', focus: 'account-supporter' } },
-          })}
+  <ul class="settings-rows">
+    {#if !!badge}
+      <SettingsRow
+        title={i18n.t('settings.supporterThanksTitle')}
+        description={i18n.t('settings.supporterThanksDescription')}
       >
-        {i18n.t('settings.supporterThanksButton')}
-      </Button>
-    </SettingsRow>
-  {:else}
-    <SettingsRow
-      id="supporter-beg"
-      title={i18n.t('settings.supporterBegTitle')}
-      description={i18n.t('settings.supporterBegDescription')}
-    >
-      <Button size="small" onclick={() => void supporter.verify()}>
-        {i18n.t('common.supportSable')}
-      </Button>
-    </SettingsRow>
-    <SettingsRow
-      id="supporter-verify"
-      title={i18n.t('settings.supporterVerifyTitle')}
-      description={waiting
-        ? i18n.t('settings.supporterWaiting')
-        : i18n.t('settings.supporterVerifyDescription')}
-    >
-      {#if waiting}
-        <Button size="small" onclick={() => supporter.cancel()}>
-          {i18n.t('common.cancel')}
+        <Button
+          size="small"
+          onclick={() =>
+            goto(resolve(`settings/account?focus=account-supporter`), {
+              shallow: true,
+              replace: true,
+              state: { settings: { section: 'account', focus: 'account-supporter' } },
+            })}
+        >
+          {i18n.t('settings.supporterThanksButton')}
         </Button>
-      {:else}
+      </SettingsRow>
+    {:else}
+      <SettingsRow
+        id="supporter-beg"
+        title={i18n.t('settings.supporterBegTitle')}
+        description={i18n.t('settings.supporterBegDescription')}
+      >
         <Button size="small" onclick={() => void supporter.verify()}>
-          {i18n.t('settings.supporterVerifyButton')}
+          {i18n.t('common.supportSable')}
         </Button>
-      {/if}
-      <Button
-        size="small"
-        loading={checking}
-        disabled={waiting}
-        onclick={() => void supporter.claim()}
+      </SettingsRow>
+      <SettingsRow
+        id="supporter-verify"
+        title={i18n.t('settings.supporterVerifyTitle')}
+        description={waiting
+          ? i18n.t('settings.supporterWaiting')
+          : i18n.t('settings.supporterVerifyDescription')}
       >
-        {i18n.t('settings.supporterVerifyClaim')}
-      </Button>
-    </SettingsRow>
+        {#if waiting}
+          <Button size="small" onclick={() => supporter.cancel()}>
+            {i18n.t('common.cancel')}
+          </Button>
+        {:else}
+          <Button size="small" onclick={() => void supporter.verify()}>
+            {i18n.t('settings.supporterVerifyButton')}
+          </Button>
+        {/if}
+        <Button
+          size="small"
+          loading={checking}
+          disabled={waiting}
+          onclick={() => void supporter.claim()}
+        >
+          {i18n.t('settings.supporterVerifyClaim')}
+        </Button>
+      </SettingsRow>
 
-    {#if supporter.status === 'none'}
-      <li class="settings-form status" aria-live="polite">{i18n.t('settings.supporterNone')}</li>
+      {#if supporter.status === 'none'}
+        <li class="settings-form status" aria-live="polite">{i18n.t('settings.supporterNone')}</li>
+      {/if}
+      {#if supporter.status === 'failed'}
+        <li class="settings-form error" role="alert">{i18n.t('settings.supporterTimedOut')}</li>
+      {:else if supporter.status === 'error'}
+        <li class="settings-form error" role="alert">{i18n.t('settings.supporterError')}</li>
+      {/if}
     {/if}
-    {#if supporter.status === 'failed'}
-      <li class="settings-form error" role="alert">{i18n.t('settings.supporterTimedOut')}</li>
-    {:else if supporter.status === 'error'}
-      <li class="settings-form error" role="alert">{i18n.t('settings.supporterError')}</li>
-    {/if}
-  {/if}
+  </ul>
 </SettingsSection>

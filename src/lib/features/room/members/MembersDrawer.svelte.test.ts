@@ -48,9 +48,10 @@ afterEach(() => {
 
 const user = userEvent.setup();
 const memberNames = () =>
-  screen
-    .queryAllByRole('button', { name: /^Open .*’s profile$/ })
-    .map((member) => member.querySelector('.member-name')?.textContent);
+  Array.from(
+    document.querySelectorAll('.member-identity-button'),
+    (member) => member.querySelector('.member-name')?.textContent
+  );
 const groups = () =>
   screen.queryAllByRole('heading', { level: 3 }).map((heading) => heading.textContent);
 const drawer = () => screen.getByRole('complementary');
@@ -99,7 +100,7 @@ test('sorts members by power then name and opens their profile', async () => {
   await tick();
 
   expect(memberNames()).toEqual(['Amy', 'Bob', 'Zoe']);
-  const amy = screen.getByRole('button', { name: 'Open Amy’s profile' });
+  const amy = screen.getByRole('button', { name: 'Amy' });
   await user.click(amy);
   expect(onMemberProfile).toHaveBeenCalledWith('@amy:example.org', amy);
 });
@@ -300,7 +301,7 @@ test('a membership tab loads again when the room members change', async () => {
     props: { loading: false, members, loadMembership, onClose: vi.fn(), onMemberProfile: vi.fn() },
   });
   const { rerender } = renderWithTooltips(MembersDrawer, props([]).props);
-  await user.click(screen.getByRole('button', { name: 'Filter members' }));
+  await user.click(screen.getByRole('button', { name: 'Filter members: Joined' }));
   await user.click(screen.getByRole('menuitem', { name: /Left/ }));
   await tick();
   expect(loadMembership).toHaveBeenCalledTimes(1);

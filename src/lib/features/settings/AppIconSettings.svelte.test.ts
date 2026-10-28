@@ -23,11 +23,11 @@ beforeEach(() => {
 });
 const user = userEvent.setup();
 
-const selectorTrigger = () => screen.getByRole('button', { name: 'App icon' });
+const selectorTrigger = () => screen.getByRole('combobox', { name: 'App icon' });
 
 async function setup(): Promise<HTMLElement> {
   render(AppIconSettings);
-  return screen.findByRole('button', { name: 'App icon' });
+  return screen.findByRole('combobox', { name: 'App icon' });
 }
 
 async function options(trigger: HTMLElement): Promise<HTMLElement[]> {

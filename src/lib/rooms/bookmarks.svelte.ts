@@ -47,6 +47,8 @@ export class Bookmarks {
     if (bookmarked) {
       this.#keys.add(key);
       this.#loaded = false;
+      if (this.#inFlight) await this.#inFlight;
+      await this.load();
     } else {
       this.#keys.delete(key);
       this.#entries = this.#entries.filter(

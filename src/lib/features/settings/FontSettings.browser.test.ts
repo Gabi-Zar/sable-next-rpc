@@ -60,17 +60,17 @@ test('desktop: keeps an existing custom font and its draft when switching modes'
   await userEvent.clear(field);
   await expect.element(field).toBeVisible();
   await userEvent.fill(field, 'IBM Plex Mono');
-  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
+  await userEvent.click(screen.getByRole('combobox', { name: 'Regular font', exact: true }));
   await userEvent.click(screen.getByRole('option', { name: 'System', exact: true }));
   await expect.poll(() => preferences.fontFamily).toBe('system-ui');
   expect(screen.getByRole('textbox').elements()).toHaveLength(0);
 
-  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
+  await userEvent.click(screen.getByRole('combobox', { name: 'Regular font', exact: true }));
   await userEvent.click(screen.getByRole('option', { name: 'Custom', exact: true }));
   await expect.element(field).toHaveValue('IBM Plex Mono');
   await expect.poll(() => preferences.fontFamily).toBe('IBM Plex Mono');
 
-  await userEvent.click(screen.getByRole('button', { name: 'Regular font', exact: true }));
+  await userEvent.click(screen.getByRole('combobox', { name: 'Regular font', exact: true }));
   await userEvent.click(screen.getByRole('option', { name: 'Default', exact: true }));
   await expect.poll(() => preferences.fontFamily).toBe('');
 });
@@ -139,7 +139,7 @@ test.each([
     await page.viewport(1280, 900);
     setPreference(key, family);
     const screen = await render(FontSettings);
-    const selector = screen.getByRole('button', { name: label, exact: true });
+    const selector = screen.getByRole('combobox', { name: label, exact: true });
     await expect.element(selector).toHaveTextContent('System');
     await userEvent.click(selector);
     await userEvent.click(screen.getByRole('option', { name: 'Custom', exact: true }));

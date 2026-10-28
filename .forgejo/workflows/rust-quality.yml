@@ -213,7 +213,7 @@ jobs:
 
       # Prebuilt, rather than a `cargo install` that compiles it every run.
       - name: Check dependency policy
-        run: mise exec aqua:EmbarkStudios/cargo-deny@0.20.2 -- cargo-deny check
+        run: mise exec aqua:EmbarkStudios/cargo-deny@0.20.2 -- cargo-deny --config .cargo/deny.toml check
 
       - name: Check Rust formatting
         if: ${{ !cancelled() }}

@@ -198,7 +198,7 @@
 <style>
   @media (width >= 42rem) {
     :global(.dialog-content-verification.calendar-event-dialog) {
-      max-width: min(40rem, calc(100vw - 3rem - var(--safe-left) - var(--safe-right)));
+      --dialog-max-width: 40rem;
     }
   }
 

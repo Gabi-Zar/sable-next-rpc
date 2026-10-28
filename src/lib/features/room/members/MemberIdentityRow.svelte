@@ -40,6 +40,7 @@
     secondary,
   }: Props = $props();
   const core = useCoreClient();
+  const profileDescriptionId = $props.id();
   const presenceStore = usePresenceStore();
   const roomCosmetics = useRoomCosmetics();
   const profile = new UserProfile(core, () => userId);
@@ -65,7 +66,14 @@
 
 {#snippet identity()}
   <span class="member-identity-avatar">
-    <Avatar src={avatarUrl} name={displayName} id={userId} size="small" />
+    <Avatar
+      src={avatarUrl}
+      name={displayName}
+      id={userId}
+      size="small"
+      decorative
+      initialsAsDecoration
+    />
     {#if presence && presence.presence !== 'offline'}
       <PresenceDot
         presence={presence.presence}
@@ -102,10 +110,12 @@
   <button
     type="button"
     class={['member-identity-row', 'member-identity-button', className]}
-    aria-label={profileLabel}
+    aria-label={displayName}
+    aria-describedby={profileDescriptionId}
     onclick={openProfile}
   >
     {@render identity()}
+    <span id={profileDescriptionId} class="screen-reader-only">{profileLabel}</span>
   </button>
 {:else}
   <div class={['member-identity-row', className]}>

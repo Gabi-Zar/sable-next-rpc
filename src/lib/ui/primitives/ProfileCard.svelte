@@ -654,7 +654,7 @@
 
   @media (pointer: coarse) {
     .profile-card-user-id {
-      min-height: var(--control-height-small);
+      min-height: 48px;
     }
   }
 
