@@ -13,7 +13,6 @@ final class NotificationService: UNNotificationServiceExtension {
     private var fallback: UNMutableNotificationContent?
     private var policyRoot: String?
     private var originalSound: UNNotificationSound?
-    private var noisy = false
     private var activeElsewhere = false
     private var communication: INSendMessageIntent?
     private static let messageCategory = "sable-message"
@@ -41,7 +40,6 @@ final class NotificationService: UNNotificationServiceExtension {
         completion = contentHandler
         fallback = content
         originalSound = request.content.sound
-        noisy = false
         activeElsewhere = false
         communication = nil
         policyRoot = nil
@@ -112,11 +110,6 @@ final class NotificationService: UNNotificationServiceExtension {
                 }
                 let invite = rendered["invite"] as? Bool == true
                 updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
-                if rendered["noisy"] as? Bool == true {
-                    self?.lock.lock()
-                    self?.noisy = true
-                    self?.lock.unlock()
-                }
                 if rendered["active_elsewhere"] as? Bool == true {
                     self?.lock.lock()
                     self?.activeElsewhere = true
@@ -354,7 +347,8 @@ final class NotificationService: UNNotificationServiceExtension {
 
     private func finish(_ content: UNNotificationContent) {
         let identity = Self.messageIdentity(content.userInfo)
-        let thread = Self.conversationThread(content.userInfo)
+        let thread = content.threadIdentifier.isEmpty
+            ? Self.conversationThread(content.userInfo) : content.threadIdentifier
         guard identity != nil || thread != nil else {
             complete(content)
             return
@@ -394,7 +388,6 @@ final class NotificationService: UNNotificationServiceExtension {
         completion = nil
         let root = policyRoot
         let sound = originalSound
-        let noisy = self.noisy
         let activeElsewhere = self.activeElsewhere
         let intent = communication
         communication = nil
@@ -405,12 +398,24 @@ final class NotificationService: UNNotificationServiceExtension {
             return
         }
         let now = Date().timeIntervalSince1970
-        let cooling = alertedAt.map { now >= $0 && now - $0 < Self.notifyOnceWindow } ?? false
+        let enabled = root?.withCString { sable_push_notify_once($0) } == true
+        let thread = updated.threadIdentifier.isEmpty
+            ? Self.conversationThread(updated.userInfo) : updated.threadIdentifier
+        let priorCooling = alertedAt.map { now >= $0 && now - $0 < Self.notifyOnceWindow } ?? false
+        let cooling: Bool
+        if enabled, !activeElsewhere, duplicates.isEmpty, updated.categoryIdentifier != Self.inviteCategory,
+           let root, let thread {
+            cooling = AlertCooldown.record(
+                root: root, thread: thread, now: now, window: Self.notifyOnceWindow
+            ) ?? priorCooling
+        } else {
+            cooling = false
+        }
         let quiet = !duplicates.isEmpty
             || activeElsewhere
-            || (cooling && !noisy && root?.withCString { sable_push_notify_once($0) } == true)
+            || cooling
         // Dropping the alert needs the filtering entitlement; until then it arrives silently.
-        if activeElsewhere { updated.interruptionLevel = .passive }
+        if activeElsewhere || cooling { updated.interruptionLevel = .passive }
         updated.sound = !quiet && root?.withCString { sable_push_sounds($0) } == true ? sound : nil
         if let stamp = quiet ? alertedAt : Optional(now) {
             updated.userInfo[Self.alertedAtKey] = stamp
