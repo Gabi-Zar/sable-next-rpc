@@ -355,10 +355,15 @@
 
 <style>
   :global(.menu-surface.pin-menu) {
-    --menu-max-height: min(28rem, 70dvh);
+    --menu-max-height: min(28rem, 70dvh, var(--bits-floating-available-height, 100dvh));
 
     gap: var(--space-200);
     width: min(28rem, calc(100vw - var(--space-500)));
+  }
+
+  :global(.pin-menu > .menu-scroll-content) {
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
   }
 
   :global(.pin-button) {
@@ -433,6 +438,8 @@
 
   .pin-list {
     height: min(24rem, 60dvh);
+    max-height: 100%;
+    min-height: 0;
   }
 
   .pin-row {
