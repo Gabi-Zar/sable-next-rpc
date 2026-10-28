@@ -139,6 +139,15 @@ async function bindgen(input, name, { optimize, features = [] }) {
   const generated = readFileSync(wasm);
   await WebAssembly.compile(generated);
 
+  // Validate instructions independently of the module's target_features section.
+  const validationInput = `${output}/${name}_bg.validation.wasm`;
+  try {
+    run('wasm-opt', [wasm, '--strip-target-features', '-o', validationInput]);
+    run('wasm-opt', [validationInput, '--all-features', '--disable-simd']);
+  } finally {
+    rmSync(validationInput, { force: true });
+  }
+
   return generated;
 }
 
