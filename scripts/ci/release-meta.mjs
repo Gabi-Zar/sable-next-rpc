@@ -33,7 +33,7 @@ function nightlyVersion(gitSha) {
   ].join('');
 
   const [, major, minor, patch] = match;
-  return `${major}.${minor}.${Number(patch) + 1}-nightly.${stamp}.${gitSha.slice(0, 12)}`;
+  return `${major}.${minor}.${Number(patch) + 1}-nightly.${stamp}.g${gitSha.slice(0, 12)}`;
 }
 
 function resolveReleaseMeta({ eventName, inputTag, gitRef, gitRefName, gitSha }) {

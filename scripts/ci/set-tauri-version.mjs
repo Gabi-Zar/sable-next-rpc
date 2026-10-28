@@ -3,7 +3,7 @@ import { parseArgs } from 'node:util';
 
 export function tauriVersionConfig(version, updaterEndpoint) {
   const nightlyVersion =
-    /^(\d+)\.(\d+)\.(\d+)-nightly\.(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.[0-9a-f]+)?$/.exec(
+    /^(\d+)\.(\d+)\.(\d+)-nightly\.(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.g?[0-9a-f]+)?$/.exec(
       version
     );
   const androidVersionCode = nightlyVersion
