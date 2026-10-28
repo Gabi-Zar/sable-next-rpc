@@ -219,7 +219,7 @@ jobs:
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
           [ "$IMAGE_KIND" = web ] || image="$image-server"
           docker context create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
-          docker buildx create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --name "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --driver docker-container --use
+          docker buildx create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --name "ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --driver docker-container --use
           # Forgejo fails the push when both arch jobs upload the same layer at once.
           for attempt in 1 2 3; do
             docker buildx build . \
@@ -240,7 +240,7 @@ jobs:
       - name: Remove the builder
         if: ${{ always() }}
         run: |
-          docker buildx rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
+          docker buildx rm --force "ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
           docker context rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
       - name: Upload digest
         uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
