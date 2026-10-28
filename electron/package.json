@@ -24,11 +24,11 @@
     "@vencord/venmic": "7.2.3"
   },
   "devDependencies": {
-    "@sentry/electron": "8.2.0",
+    "@sentry/electron": "8.3.0",
     "@types/node": "26.6.5",
     "electron": "45.0.0",
-    "electron-builder": "26.15.3",
-    "electron-updater": "6.8.9",
+    "electron-builder": "26.18.0",
+    "electron-updater": "6.8.11",
     "esbuild": "0.28.2",
     "typescript": "^6.0.3"
   }
