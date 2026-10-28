@@ -151,6 +151,26 @@ export async function saveImageToPhotos(
   return 'failed';
 }
 
+export async function saveVideoToPhotos(
+  url: string,
+  filename: string,
+  mime = mimeFromName(filename)
+): Promise<SaveOutcome> {
+  try {
+    const blob = await (await fetch(url)).blob();
+    const videoMime =
+      [mime, blob.type, mimeFromName(filename)].find((value) => value.startsWith('video/')) ??
+      'video/mp4';
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const name = withExtension(safeFileName(filename), videoMime);
+    await rawInvoke('save_media_to_photos', bytes, { filename: name, 'mime-type': videoMime });
+    return 'saved';
+  } catch (error) {
+    console.debug('[sable files] save video to photos failed', error);
+    return 'failed';
+  }
+}
+
 export async function sharesNatively(): Promise<boolean> {
   const electron = electronBridge();
   if (electron) return electron.platform === 'darwin';

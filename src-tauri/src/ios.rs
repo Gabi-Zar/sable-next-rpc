@@ -202,7 +202,11 @@ async fn authorize() -> Result<(), String> {
         .map_err(|error| error.to_string())?
 }
 
-fn write_to_photos(bytes: &[u8], filename: &str) -> Result<(), String> {
+fn write_to_photos(
+    bytes: &[u8],
+    filename: &str,
+    resource_type: PHAssetResourceType,
+) -> Result<(), String> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let leaf = std::path::Path::new(filename)
         .file_name()
@@ -219,13 +223,13 @@ fn write_to_photos(bytes: &[u8], filename: &str) -> Result<(), String> {
         let url = NSURL::fileURLWithPath(&path);
         let change: RcBlock<dyn Fn()> = RcBlock::new(move || {
             let request = PHAssetCreationRequest::creationRequestForAsset();
-            request.addResourceWithType_fileURL_options(PHAssetResourceType::Photo, &url, None);
+            request.addResourceWithType_fileURL_options(resource_type, &url, None);
         });
         PHPhotoLibrary::sharedPhotoLibrary()
             .performChangesAndWait_error(RcBlock::as_ptr(&change))
             .map_err(|error| {
                 format!(
-                    "failed to save image to Photos: {}",
+                    "failed to save media to Photos: {}",
                     error.localizedDescription()
                 )
             })
@@ -237,16 +241,20 @@ fn write_to_photos(bytes: &[u8], filename: &str) -> Result<(), String> {
 #[tauri::command]
 pub async fn save_media_to_photos(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("the image bytes must ride the request body".into());
+        return Err("the media bytes must ride the request body".into());
     };
     let filename = crate::decode_header(&request, "filename").ok_or("missing filename")?;
     let mime_type = crate::decode_header(&request, "mime-type").ok_or("missing mime-type")?;
-    if !mime_type.starts_with("image/") {
-        return Err("only images can be saved to Photos".into());
-    }
+    let resource_type = if mime_type.starts_with("image/") {
+        PHAssetResourceType::Photo
+    } else if mime_type.starts_with("video/") {
+        PHAssetResourceType::Video
+    } else {
+        return Err("only images and videos can be saved to Photos".into());
+    };
     let bytes = bytes.clone();
     authorize().await?;
-    tauri::async_runtime::spawn_blocking(move || write_to_photos(&bytes, &filename))
+    tauri::async_runtime::spawn_blocking(move || write_to_photos(&bytes, &filename, resource_type))
         .await
         .map_err(|error| error.to_string())?
 }

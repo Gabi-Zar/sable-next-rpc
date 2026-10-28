@@ -44,6 +44,7 @@ export type MessageActions = {
   onForward?: () => void;
   onRemoveLinkPreviews?: () => void;
   onDownload?: () => void;
+  onSaveToPhotos?: () => void;
   onFavoriteGif?: () => void;
   gifFavorited?: boolean;
   onStealEmotes?: () => void;
@@ -159,6 +160,14 @@ export function messageMenuRows(actions: MessageActions): MessageMenuRow[] {
       label: 'common.download',
       icon: DownloadIcon,
       run: actions.onDownload,
+    });
+  }
+  if (actions.onSaveToPhotos) {
+    rows.push({
+      key: 'save-to-photos',
+      label: 'viewer.saveToPhotos',
+      icon: DownloadIcon,
+      run: actions.onSaveToPhotos,
     });
   }
   if (actions.onFavoriteGif) {
