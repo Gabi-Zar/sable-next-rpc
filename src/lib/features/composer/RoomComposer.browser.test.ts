@@ -352,6 +352,19 @@ async function measure(editable: HTMLElement) {
   };
 }
 
+test('short composer gives text a full row on narrow screens', async () => {
+  await page.viewport(320, 800);
+  const { composer, editor } = await mount(true, { composerForm: 'short' });
+  await userEvent.fill(composer, 'Will this be fixed, and when?');
+  const layout = await measure(editor());
+  const row = editor().closest('.composer-row');
+  if (!row) throw new Error('Missing composer');
+  expect(editor().getBoundingClientRect().width).toBeGreaterThan(
+    row.getBoundingClientRect().width * 0.8
+  );
+  expect(layout.controlsTop).toBeGreaterThanOrEqual(layout.editorBottom);
+});
+
 for (const width of [320, 414, 1280]) {
   test(`long messages do not overlap the expand button at ${String(width)}px`, async () => {
     await page.viewport(width, 800);
