@@ -234,6 +234,17 @@ pub fn merge_hierarchy_rooms(
             ..room.clone()
         };
     }
+    for room in &mut merged {
+        room.children.sort_by(|left, right| {
+            match (&left.order, &right.order) {
+                (Some(left), Some(right)) => left.cmp(right),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => std::cmp::Ordering::Equal,
+            }
+            .then_with(|| left.origin_server_ts.cmp(&right.origin_server_ts))
+        });
+    }
     merged
 }
 
@@ -554,6 +565,24 @@ mod tests {
                 edge("!space1", false),
             ]
         );
+    }
+
+    #[test]
+    fn live_child_order_sorts_the_fetched_hierarchy() {
+        let mut fetched = room("!root", &["!a", "!b"]);
+        fetched.children[0].order = Some("a".to_owned());
+        fetched.children[1].order = Some("b".to_owned());
+        let mut local = fetched.clone();
+        local.children[1].order = Some(" ".to_owned());
+
+        let merged = merge_hierarchy_rooms(&[local], &[fetched]);
+        assert_eq!(merged[0].children[0].room_id, "!b");
+        let sections = build_hierarchy_sections(
+            &[merged[0].clone(), room("!a", &[]), room("!b", &[])],
+            "!root",
+            &SectionInputs::default(),
+        );
+        assert_eq!(sections[0].rooms[0].room.room_id, "!b");
     }
 
     #[test]
