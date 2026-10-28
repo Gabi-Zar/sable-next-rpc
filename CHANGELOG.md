@@ -1,5 +1,20 @@
 # Sable Changelog
 
+## 2.2.1 (2026-10-28)
+
+### Fixes
+
+* Fix Electron notification clicks and keep room messages visible when a notification's message is unavailable.
+* Keep Chromium locale files needed for video menu labels on Linux and Windows.
+* Fall back to the user ID when a display name has no visible text.
+* Move donator badge styling to account settings
+* When your homeserver sends pushes itself, as Continuwuity does, the notification troubleshooter now checks the push service and sends a test push.
+* Alerts now clear when their rooms are read on another device.
+* Only another Sable device in use keeps notifications quiet; other Matrix apps, bots and bridges being online no longer silence them.
+* Add a self-hosted server mode with persistent Matrix stores and Docker deployment.
+* Slightly change context menu layout, spacing and truncating.
+* The notification troubleshooter says when the push gateway could not pass the test push on to your push service.
+
 ## 2.2.0 (2026-10-26)
 
 ### Features
