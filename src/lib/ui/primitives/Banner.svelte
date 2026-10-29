@@ -22,7 +22,14 @@
     aria-label={i18n.t('common.viewBanner', { name })}
     onclick={() => mediaViewerState.openStandalone(source, name)}
   >
-    <MediaImage class="banner-image" {source} alt="" {width} {height} />
+    <MediaImage
+      class="banner-image"
+      {source}
+      alt=""
+      {width}
+      {height}
+      original={preferences.autoplayGifs}
+    />
   </button>
 {/snippet}
 
