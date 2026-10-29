@@ -31,6 +31,7 @@
     CallVideoRect,
   } from './call-transport';
   import { nativeVideoSlot } from './native-video-overlay';
+  import { callFullscreen } from './call-fullscreen.svelte.js';
   import {
     MAX_PARTICIPANT_VOLUME,
     participantVolume,
@@ -101,16 +102,14 @@
   let volumeOpen = $state(false);
   let revealed = $state(false);
   let element = $state<HTMLLIElement>();
-  let fullscreen = $state(false);
-  const fullscreenAvailable =
-    typeof document !== 'undefined' &&
-    document.fullscreenEnabled &&
-    typeof HTMLElement.prototype.requestFullscreen === 'function';
+  const fullscreen = callFullscreen(
+    () => element,
+    () => remoteSlot !== undefined
+  );
 
-  function toggleFullscreen(): void {
-    if (fullscreen) void document.exitFullscreen();
-    else void element?.requestFullscreen();
-  }
+  $effect(() => {
+    if (!videoOn) fullscreen.exit();
+  });
 
   function reveal(event: PointerEvent): void {
     if (event.pointerType !== 'touch') return;
@@ -197,11 +196,11 @@
       revealed,
       audible: screen && adjustable,
       'video-on': videoOn,
+      expanded: fullscreen.expanded,
       overlaid: videoOn && remoteSlot !== undefined,
     },
   ]}
   bind:this={element}
-  onfullscreenchange={() => (fullscreen = document.fullscreenElement === element)}
   onpointerup={reveal}
   oncontextmenu={openVolume}
 >
@@ -273,15 +272,15 @@
         {/if}
       </IconButton>
     {/if}
-    {#if screen && videoOn && fullscreenAvailable}
+    {#if screen && videoOn && fullscreen.available}
       <IconButton
         variant="ghost"
         size="small"
         class="tile-action"
-        label={i18n.t(fullscreen ? 'call.exitFullscreen' : 'call.fullscreen')}
-        onclick={toggleFullscreen}
+        label={i18n.t(fullscreen.active ? 'call.exitFullscreen' : 'call.fullscreen')}
+        onclick={fullscreen.toggle}
       >
-        {#if fullscreen}
+        {#if fullscreen.active}
           <CornersInIcon />
         {:else}
           <CornersOutIcon />
@@ -419,6 +418,14 @@
 
   .tile:fullscreen {
     border-radius: 0;
+  }
+
+  .tile.expanded {
+    border-radius: 0;
+    inset: 0;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+    position: fixed;
+    z-index: var(--layer-overlay);
   }
 
   .video {
@@ -571,6 +578,13 @@
     pointer-events: none;
     position: absolute;
     transition: opacity var(--motion-normal) var(--motion-easing-emphasized);
+  }
+
+  .expanded .actions {
+    inset-block-start: calc(var(--safe-top) + var(--space-200));
+    inset-inline-end: calc(var(--safe-right) + var(--space-200));
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .actions:focus-within,

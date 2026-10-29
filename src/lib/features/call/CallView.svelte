@@ -43,6 +43,7 @@
   } from './call-layout';
   import type { CallSession } from './call-session.svelte.js';
   import { callFailureKey, callStatusKey } from './call-status';
+  import { callFullscreen } from './call-fullscreen.svelte.js';
 
   interface Props {
     session: CallSession;
@@ -168,16 +169,10 @@
   } as const;
 
   let stage = $state<HTMLElement>();
-  let fullscreen = $state(false);
-  const fullscreenAvailable =
-    typeof document !== 'undefined' &&
-    document.fullscreenEnabled &&
-    typeof HTMLElement.prototype.requestFullscreen === 'function';
-
-  function toggleFullscreen(): void {
-    if (fullscreen) void document.exitFullscreen();
-    else void stage?.requestFullscreen();
-  }
+  const fullscreen = callFullscreen(
+    () => stage,
+    () => session.localVideo !== undefined || session.remoteVideo !== undefined
+  );
 
   let chromeVisible = $derived.by(() => {
     void settled;
@@ -210,7 +205,7 @@
   }
 
   function openCallSettings(event: MouseEvent): void {
-    if (fullscreen) void document.exitFullscreen();
+    fullscreen.exit();
     onOpenSettings?.(event);
   }
 
@@ -224,11 +219,9 @@
   });
 </script>
 
-<svelte:document onfullscreenchange={() => (fullscreen = document.fullscreenElement === stage)} />
-
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
-  class={['stage', { resting: !chromeVisible }]}
+  class={['stage', { resting: !chromeVisible, expanded: fullscreen.expanded }]}
   aria-label={i18n.t('call.title')}
   bind:this={stage}
   onpointermove={wake}
@@ -303,14 +296,14 @@
           {/if}
         </IconButton>
       {/if}
-      {#if fullscreenAvailable}
+      {#if fullscreen.available}
         <IconButton
           variant="secondary"
           size="small"
-          label={i18n.t(fullscreen ? 'call.exitFullscreen' : 'call.fullscreen')}
-          onclick={toggleFullscreen}
+          label={i18n.t(fullscreen.active ? 'call.exitFullscreen' : 'call.fullscreen')}
+          onclick={fullscreen.toggle}
         >
-          {#if fullscreen}
+          {#if fullscreen.active}
             <CornersInIcon weight="bold" />
           {:else}
             <CornersOutIcon weight="bold" />
@@ -500,6 +493,10 @@
 {/snippet}
 
 <style>
+  :global(body:has(> .stage.expanded, > .tile.expanded)) {
+    overflow: hidden;
+  }
+
   .stage {
     background: var(--surface-container);
     box-sizing: border-box;
@@ -515,6 +512,13 @@
 
   .stage.resting {
     cursor: none;
+  }
+
+  .stage.expanded {
+    inset: 0;
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+    position: fixed;
+    z-index: var(--layer-overlay);
   }
 
   .chrome {
@@ -540,6 +544,10 @@
     pointer-events: none;
     position: absolute;
     z-index: 2;
+  }
+
+  .expanded .top {
+    inset: var(--safe-top) var(--safe-right) auto var(--safe-left);
   }
 
   .top > * {
@@ -828,6 +836,10 @@
     font-size: var(--font-size-small);
     margin: 0;
     order: -1;
+  }
+
+  .expanded .dock {
+    margin-block-end: var(--safe-bottom);
   }
 
   .dock > :global(*) {

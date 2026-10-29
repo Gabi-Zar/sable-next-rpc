@@ -6,6 +6,8 @@ import { expect, test, vi } from 'vitest';
 import { flushSync } from 'svelte';
 import type { Room } from 'livekit-client';
 
+vi.mock('#lib/platform/overlay-back.svelte.js', () => ({ holdOverlayBack: vi.fn() }));
+
 import CallParticipantTile from './CallParticipantTile.svelte';
 
 function mountTile() {
@@ -124,6 +126,52 @@ test('a remote camera on a native call is a slot for its own native view', () =>
 
   unmount();
   expect(remoteVideo.clear).toHaveBeenCalledWith('TR_2');
+});
+
+test('expands native video without browser fullscreen support', async () => {
+  const remoteVideo = {
+    place: vi.fn(() => Promise.resolve()),
+    clear: vi.fn(() => Promise.resolve()),
+  };
+  const { container, rerender, unmount } = render(CallParticipantTile, {
+    participant: {
+      identity: 'bob',
+      screenShare: { id: 'TR_1', muted: false, subscribed: true },
+    },
+    source: 'screen',
+    room: undefined,
+    remoteVideo,
+    watchingScreen: true,
+    name: 'Bob',
+    userId: '@bob:example.org',
+    avatar: null,
+  });
+  const tile = screen.getByRole('listitem');
+  const slot = tile.querySelector('.video');
+  const user = userEvent.setup();
+
+  await user.click(screen.getByRole('button', { name: 'Full screen' }));
+  expect(tile.parentElement).toBe(document.body);
+  expect(tile).toHaveClass('expanded');
+  expect(tile.querySelector('.video')).toBe(slot);
+
+  await user.click(screen.getByRole('button', { name: 'Exit full screen' }));
+  expect(container).toContainElement(tile);
+  expect(tile).not.toHaveClass('expanded');
+
+  await user.click(screen.getByRole('button', { name: 'Full screen' }));
+  await user.keyboard('{Escape}');
+  expect(container).toContainElement(tile);
+
+  await user.click(screen.getByRole('button', { name: 'Full screen' }));
+  await rerender({ watchingScreen: false });
+  expect(container).toContainElement(tile);
+  expect(tile).not.toHaveClass('expanded');
+
+  await rerender({ watchingScreen: true });
+  await user.click(screen.getByRole('button', { name: 'Full screen' }));
+  unmount();
+  expect(tile).not.toBeInTheDocument();
 });
 
 test('the volume button still toggles the panel closed', async () => {
