@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 function cover(container: HTMLElement): HTMLElement | null {
-  return container.querySelector('.profile-card-banner');
+  return container.querySelector('.banner-image');
 }
 
 test('uses the avatar as a blurred cover when there is no banner', () => {
@@ -28,7 +28,7 @@ test('uses the avatar as a blurred cover when there is no banner', () => {
     avatarUrl: 'mxc://example.org/ana',
   });
 
-  expect(cover(container)).toHaveClass('profile-card-banner-fallback');
+  expect(cover(container)).toHaveClass('banner-image-fallback');
 });
 
 test('keeps a real banner unblurred', () => {
@@ -41,7 +41,7 @@ test('keeps a real banner unblurred', () => {
   });
 
   expect(cover(container)).toBeInTheDocument();
-  expect(cover(container)).not.toHaveClass('profile-card-banner-fallback');
+  expect(cover(container)).not.toHaveClass('banner-image-fallback');
 });
 
 test('opens the banner in the viewer, as the avatar does', async () => {
@@ -54,7 +54,7 @@ test('opens the banner in the viewer, as the avatar does', async () => {
     bannerUrl: 'mxc://example.org/banner',
   });
 
-  await userEvent.setup().click(screen.getByRole('button', { name: 'View Ana’s banner' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'View banner of Ana' }));
 
   expect(openStandaloneSpy).toHaveBeenCalledWith('mxc://example.org/banner', 'Ana');
 });

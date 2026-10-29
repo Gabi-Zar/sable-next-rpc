@@ -363,8 +363,8 @@ test('mobile: switching shows progress and a failed switch can be retried', asyn
 });
 
 test.each([
-  ['avatar_url', 'Alice'],
-  ['banner_url', 'View Alice’s banner'],
+  ['avatar_url', 'View avatar of Alice'],
+  ['banner_url', 'View banner of Alice'],
 ])('opens own profile image %s', async (field, label) => {
   const source = `mxc://example.test/${field}`;
   const { screen } = await mount(profileWith({ [field]: source }));

@@ -259,7 +259,7 @@ test('opens a profile avatar through viewer callback', async () => {
   });
   await tick();
 
-  const avatarButton = screen.getByRole('button', { name: 'View Alice’s avatar' });
+  const avatarButton = screen.getByRole('button', { name: 'View avatar of Alice' });
   expect(avatarButton.querySelector('.avatar-root')).toHaveAttribute('aria-hidden', 'true');
   await user.click(avatarButton);
 

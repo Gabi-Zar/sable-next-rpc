@@ -1,5 +1,6 @@
 <script lang="ts">
   import { i18n } from '#lib/i18n.ts';
+  import { preferences } from '#lib/settings/preferences.svelte.ts';
   import { mediaViewerState } from '../media/media-viewer-state.svelte';
   import MediaImage from '../MediaImage.svelte';
   import Tooltip from './Tooltip.svelte';

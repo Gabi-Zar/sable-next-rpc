@@ -151,7 +151,7 @@
       <Banner source={banner} name={displayName} width={720} height={240} />
     {:else if cover}
       <MediaImage
-        class={banner ? 'profile-card-banner' : 'profile-card-banner profile-card-banner-fallback'}
+        class={banner ? 'banner-image' : 'banner-image banner-image-fallback'}
         source={cover}
         alt=""
         width={720}
@@ -378,17 +378,17 @@
   }
 
   /* Both dimensions, so the ratio MediaImage sets inline stops applying. */
-  .profile-card-cover :global(.profile-card-banner) {
+  .profile-card-cover :global(.banner-image) {
     height: 100%;
     width: 100%;
   }
 
-  .profile-card-cover :global(.profile-card-banner img) {
+  .profile-card-cover :global(.banner-image img) {
     object-fit: cover;
     object-position: center;
   }
 
-  .profile-card-cover :global(.profile-card-banner-fallback img) {
+  .profile-card-cover :global(.banner-image-fallback img) {
     filter: blur(1.5rem) saturate(1.2);
     transform: scale(1.4);
   }

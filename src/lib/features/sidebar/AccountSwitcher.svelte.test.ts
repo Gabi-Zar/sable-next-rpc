@@ -177,8 +177,8 @@ test('uses session logout for the active account even if it requires reauthentic
 });
 
 test.each([
-  ['Current', 'mxc://example.org/avatar'],
-  ['timeline.profileBanner:Current', 'mxc://example.org/banner'],
+  ['common.viewAvatar:Current', 'mxc://example.org/avatar'],
+  ['common.viewBanner:Current', 'mxc://example.org/banner'],
 ])('opens own profile image %s', async (label, source) => {
   Object.assign(core, {
     cachedUserProfile: () => ({

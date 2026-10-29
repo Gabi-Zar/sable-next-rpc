@@ -150,6 +150,6 @@ test('opens the room image from the header', async () => {
       onSearch: () => {},
     },
   });
-  await userEvent.setup().click(screen.getByRole('button', { name: 'View General’s avatar' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'View avatar of General' }));
   expect(openStandaloneSpy).toHaveBeenCalledExactlyOnceWith('mxc://example.org/room', 'General');
 });

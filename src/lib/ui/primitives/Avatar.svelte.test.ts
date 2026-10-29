@@ -180,7 +180,7 @@ test('add button when openable prop is set to true', () => {
     },
   });
 
-  expect(root().querySelectorAll('.avatar-button')).toHaveLength(1);
+  expect(root().parentElement).toHaveClass('avatar-button');
 });
 
 test("don't add button when openable prop is set to false", () => {
@@ -193,5 +193,5 @@ test("don't add button when openable prop is set to false", () => {
     },
   });
 
-  expect(root().querySelectorAll('.avatar-button')).toHaveLength(0);
+  expect(root().parentElement).not.toHaveClass('avatar-button');
 });
