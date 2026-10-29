@@ -218,8 +218,17 @@ jobs:
         run: |
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
           [ "$IMAGE_KIND" = web ] || image="$image-server"
+          builder="ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
+          cleanup() {
+            docker buildx rm --force "$builder" || {
+              docker rm -f "buildx_buildkit_${builder}0" || true
+              docker volume rm "buildx_buildkit_${builder}0_state" || true
+            }
+            docker context rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
+          }
+          trap cleanup EXIT
           docker context create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
-          docker buildx create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --name "ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --driver docker-container --use
+          docker buildx create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --name "$builder" --driver docker-container --buildkitd-config .forgejo/buildkitd.toml --use
           # Forgejo fails the push when both arch jobs upload the same layer at once.
           for attempt in 1 2 3; do
             docker buildx build . \
@@ -240,7 +249,11 @@ jobs:
       - name: Remove the builder
         if: ${{ always() }}
         run: |
-          docker buildx rm --force "ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
+          builder="ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
+          docker buildx rm --force "$builder" || {
+            docker rm -f "buildx_buildkit_${builder}0" || true
+            docker volume rm "buildx_buildkit_${builder}0_state" || true
+          }
           docker context rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
       - name: Upload digest
         uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
