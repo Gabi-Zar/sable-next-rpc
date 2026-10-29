@@ -13,18 +13,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Set up signing
-      shell: bash
-      working-directory: ${{ github.workspace }}/src-tauri/gen/android
-      run: |
-        : "${ANDROID_KEY_BASE64:?ANDROID_KEY_BASE64 is required}"
-        : "${ANDROID_KEY_ALIAS:?ANDROID_KEY_ALIAS is required}"
-        : "${ANDROID_KEY_PASSWORD:?ANDROID_KEY_PASSWORD is required}"
-        echo "keyAlias=$ANDROID_KEY_ALIAS" > keystore.properties
-        echo "password=$ANDROID_KEY_PASSWORD" >> keystore.properties
-        base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/keystore.jks"
-        echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
-
     - name: Install Android build dependencies
       if: ${{ inputs.native == 'true' }}
       shell: bash
@@ -41,13 +29,18 @@ runs:
         # Skip the desktop GTK/WebKit dependencies.
         mise run --skip-deps tauri:setup:android
 
-    - name: Validate signing keystore
+    - name: Set up signing
       shell: bash
       working-directory: ${{ github.workspace }}/src-tauri/gen/android
       run: |
-        test -s keystore.properties
+        : "${ANDROID_KEY_BASE64:?ANDROID_KEY_BASE64 is required}"
+        : "${ANDROID_KEY_ALIAS:?ANDROID_KEY_ALIAS is required}"
+        : "${ANDROID_KEY_PASSWORD:?ANDROID_KEY_PASSWORD is required}"
+        base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/keystore.jks"
         mise exec -- keytool -list -keystore "$RUNNER_TEMP/keystore.jks" \
           -alias "$ANDROID_KEY_ALIAS" -storepass:env ANDROID_KEY_PASSWORD > /dev/null
+        printf 'keyAlias=%s\npassword=%s\nstoreFile=%s\n' \
+          "$ANDROID_KEY_ALIAS" "$ANDROID_KEY_PASSWORD" "$RUNNER_TEMP/keystore.jks" > keystore.properties
 
     - name: Configure Gradle cache
       id: revision
