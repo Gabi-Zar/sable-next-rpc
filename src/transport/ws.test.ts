@@ -194,6 +194,59 @@ test('uses authenticated HTTP endpoints for media and binary sends', async () =>
   transport.close();
 });
 
+test.each([
+  ['/_sable/ws', 'https://sable.test'],
+  ['http://server.test/ws?user_id=old#socket', 'http://server.test'],
+  ['https://server.test/ws', 'https://server.test'],
+  ['ws://server.test/ws', 'http://server.test'],
+  ['wss://server.test/ws', 'https://server.test'],
+])('fetches media over HTTP with query parameters using %s', async (url, origin) => {
+  const transport = createWsTransport({ url });
+  const bytes = new Uint8Array([1, 2, 3]);
+  const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(new Response(bytes)));
+  vi.stubGlobal('fetch', fetchMock);
+
+  try {
+    await expect(transport.fetchMedia('mxc://example.org/media', 96, 64, true)).resolves.toEqual(
+      bytes
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${origin}/_sable/media/example.org/media?width=96&height=64&background=true&inline=true`,
+      expect.objectContaining({ credentials: 'include', cache: 'no-store' })
+    );
+    const headers = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(headers.get('x-sable-user')).toBe('legacy');
+  } finally {
+    transport.close();
+  }
+});
+
+test.each([
+  ['mxc://example.org:8448/media', '/_sable/media/example.org%3A8448/media'],
+  ['{"url":"mxc://example.org/media","key":{"k":"secret"}}', '/_sable/media/media/source'],
+])('preserves the original media source %s', async (source, pathname) => {
+  const { transport } = await openTransport();
+  const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(new Response(new Uint8Array([1]))));
+  vi.stubGlobal('fetch', fetchMock);
+
+  try {
+    await transport.fetchMedia(source, 0, 0);
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.pathname).toBe(pathname);
+    expect(url.searchParams.get('width')).toBe('0');
+    expect(url.searchParams.get('height')).toBe('0');
+    expect(url.searchParams.has('inline')).toBe(false);
+    if (source.startsWith('{')) {
+      const encoded = url.searchParams.get('source') ?? '';
+      expect(atob(encoded.replaceAll('-', '+').replaceAll('_', '/'))).toBe(source);
+    } else {
+      expect(url.searchParams.has('source')).toBe(false);
+    }
+  } finally {
+    transport.close();
+  }
+});
+
 test('reloads if a reconnect belongs to another server user', async () => {
   const { transport, socket } = await openTransport();
   socket.disconnect();

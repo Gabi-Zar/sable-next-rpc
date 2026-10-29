@@ -47,9 +47,9 @@ function websocketUrl(url: string, runId: string | null, lastReceivedEvent: numb
 
 function httpUrl(url: string, path: string): string {
   const parsed = new URL(url, location.href);
-  parsed.pathname = path;
-  parsed.search = '';
-  return parsed.toString();
+  if (parsed.protocol === 'ws:') parsed.protocol = 'http:';
+  if (parsed.protocol === 'wss:') parsed.protocol = 'https:';
+  return new URL(path, parsed).toString();
 }
 
 function encodedBytes(value: string): string {
@@ -255,7 +255,7 @@ export function createWsTransport(options: WsTransportOptions): Transport {
 
     async fetchMedia(source, width, height, background = false) {
       const parsed = source.startsWith('mxc://') ? new URL(source) : null;
-      const server = parsed?.hostname ?? 'media';
+      const server = parsed?.host ?? 'media';
       const mediaId = parsed?.pathname.slice(1) ?? 'source';
       const query = new URLSearchParams({ width: String(width), height: String(height) });
       if (background) query.set('background', 'true');

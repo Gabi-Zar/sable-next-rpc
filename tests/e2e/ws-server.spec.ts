@@ -3,6 +3,7 @@ import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { expect, test, SIGNED_OUT } from './fixtures/test';
 import { LOGIN_PASSWORD, LOGIN_USERNAME } from './fixtures/loginAccount';
 import { homeserverStatePath } from './fixtures/runtime';
@@ -14,6 +15,11 @@ import { registerUser } from './fixtures/continuwuity';
 test.use({ storageState: SIGNED_OUT });
 
 const serverBinary = process.cwd() + '/target/debug/sable-server';
+const testImage = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64'
+);
+
 function passwordHash(): string {
   return execFileSync(serverBinary, ['hash-password'], {
     input: 'password\n',
@@ -52,6 +58,13 @@ async function signOutFromApp(page: import('@playwright/test').Page): Promise<vo
     .getByRole('button', { name: 'Log out' })
     .click();
   await expect(page).toHaveURL(/\/login$/, { timeout: 20_000 });
+}
+
+async function expectDecodedImage(image: import('@playwright/test').Locator): Promise<void> {
+  await expect(image).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(() => image.evaluate((node: HTMLImageElement) => node.complete && node.naturalWidth > 0))
+    .toBe(true);
 }
 
 async function unusedPort(): Promise<number> {
@@ -157,17 +170,13 @@ test('logs in, sends a message, and shows it in a second server client', async (
   await app.composer.press('Enter');
   await timeline.expectMessageSettled(body);
 
-  const image = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-    'base64'
-  );
   await page.locator('input[type="file"]').setInputFiles({
     name: 'server-mode.png',
     mimeType: 'image/png',
-    buffer: image,
+    buffer: testImage,
   });
   await app.composer.press('Enter');
-  await expect(timeline.image).toBeVisible({ timeout: 30_000 });
+  await expectDecodedImage(timeline.image.locator('img'));
 
   const secondContext = await browser.newContext({
     baseURL: new URL(page.url()).origin,
@@ -182,13 +191,98 @@ test('logs in, sends a message, and shows it in a second server client', async (
     await secondApp.openRoom(scratchRoom.roomId);
     await expect(secondApp.roomHeading(scratchRoom.name)).toBeVisible();
     await expect(secondTimeline.message(body)).toBeVisible({ timeout: 30_000 });
-    await expect(secondTimeline.image).toBeVisible({ timeout: 30_000 });
+    await expectDecodedImage(secondTimeline.image.locator('img'));
     const warmOpenMs = Math.round(performance.now() - warmStart);
     console.log(`open-ms cold=${String(coldOpenMs)} warm=${String(warmOpenMs)}`);
   } finally {
     await secondContext.close();
   }
   await signOutFromApp(page);
+});
+
+test('loads avatars and decrypts image attachments', async ({
+  app,
+  bootstrap,
+  page,
+  scratchRoom,
+  signIn,
+  timeline,
+}) => {
+  const avatar = await bootstrap.uploadMedia(testImage, 'image/png', 'avatar.png');
+  await bootstrap.request(
+    'PUT',
+    `client/v3/profile/${encodeURIComponent(bootstrap.userId)}/avatar_url`,
+    {
+      avatar_url: avatar,
+    }
+  );
+  await bootstrap.sendStateEvent(scratchRoom.roomId, 'm.room.avatar', '', { url: avatar });
+  const plain = await bootstrap.sendImage(scratchRoom.roomId, avatar, {
+    body: 'plain.png',
+    width: 1,
+    height: 1,
+    size: testImage.length,
+  });
+
+  const key = randomBytes(32);
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-ctr', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(testImage), cipher.final()]);
+  const url = await bootstrap.uploadMedia(ciphertext, 'application/octet-stream', 'encrypted');
+  const encrypted = await bootstrap.sendEvent(scratchRoom.roomId, 'm.room.message', {
+    msgtype: 'm.image',
+    body: 'encrypted.png',
+    file: {
+      url,
+      key: {
+        kty: 'oct',
+        alg: 'A256CTR',
+        ext: true,
+        key_ops: ['encrypt', 'decrypt'],
+        k: key.toString('base64url'),
+      },
+      iv: iv.toString('base64').replace(/=+$/, ''),
+      hashes: {
+        sha256: createHash('sha256').update(ciphertext).digest('base64').replace(/=+$/, ''),
+      },
+      v: 'v2',
+    },
+    info: { mimetype: 'image/png', w: 1, h: 1, size: testImage.length },
+  });
+
+  await signInToServer(page);
+  await signIn();
+  const plainImage = timeline.itemByEventId(plain).getByAltText('plain.png', { exact: true });
+  const encryptedImage = timeline
+    .itemByEventId(encrypted)
+    .getByAltText('encrypted.png', { exact: true });
+  try {
+    await app.openRoom(scratchRoom.roomId);
+    await expectDecodedImage(page.locator('.room-avatar img').first());
+    await expectDecodedImage(timeline.container.locator('.avatar-root img').first());
+    await expectDecodedImage(plainImage);
+    await expectDecodedImage(encryptedImage);
+
+    await page.reload();
+    await expectDecodedImage(page.locator('.room-avatar img').first());
+    await expectDecodedImage(encryptedImage);
+    await timeline
+      .itemByEventId(encrypted)
+      .getByRole('button', { name: 'Open encrypted.png' })
+      .click();
+    const viewer = page.getByRole('dialog', { name: 'Media viewer' });
+    await expectDecodedImage(viewer.locator('.stage img'));
+    const downloading = page.waitForEvent('download');
+    await viewer.getByRole('button', { name: 'Download image' }).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe('encrypted.png');
+    const downloadedPath = await download.path();
+    if (!downloadedPath) throw new Error('download did not produce a file');
+    expect(await readFile(downloadedPath)).toEqual(testImage);
+    await page.keyboard.press('Escape');
+  } finally {
+    await signOutFromApp(page);
+  }
 });
 
 test('logs in through OAuth, opens a room, and sends a message', async ({
@@ -270,6 +364,7 @@ test('switching server users refreshes other tabs and isolates stored preference
   try {
     await signInToServer(first);
     await second.goto('/');
+    await expect(second.getByLabel('Account provider', { exact: true })).toBeVisible();
     await expect
       .poll(async () =>
         first.evaluate(async () => {
@@ -320,7 +415,10 @@ test('switching server users refreshes other tabs and isolates stored preference
         ).status
     );
     expect(status).toBe(204);
-    await second.reload();
+    // Identity binding can reload this tab again before navigation finishes.
+    await second.evaluate(() => {
+      window.location.reload();
+    });
     await navigation;
     await expect
       .poll(async () =>
