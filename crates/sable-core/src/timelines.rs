@@ -251,15 +251,43 @@ impl Core {
         let Some(subscription) = subscription else {
             return self.timeline_for(room_id, thread_root).await;
         };
-        let timeline = self
+        let (timeline, subscribed_root) = self
             .subscriptions
             .lock()
             .await
             .get(&subscription)
-            .filter(|subscription| subscription.thread_root.as_ref() == thread_root)
-            .and_then(|subscription| subscription.timeline.clone())
+            .and_then(|subscription| {
+                subscription
+                    .timeline
+                    .clone()
+                    .map(|timeline| (timeline, subscription.thread_root.clone()))
+            })
             .ok_or(RpcError::UnknownSubscription)?;
         if timeline.room().room_id() != room_id {
+            return Err(RpcError::UnknownSubscription);
+        }
+        if subscribed_root.as_ref() == thread_root {
+            return Ok(timeline);
+        }
+        if subscribed_root.is_some() || !timeline.is_threaded() {
+            return Err(RpcError::UnknownSubscription);
+        }
+        let root = thread_root.ok_or(RpcError::UnknownSubscription)?;
+        // Event-focused timelines infer their thread from the target event.
+        let belongs = timeline
+            .items()
+            .await
+            .iter()
+            .filter_map(|item| item.as_event())
+            .any(|event| {
+                event.event_id() == Some(root.as_ref())
+                    || event
+                        .content()
+                        .as_msglike()
+                        .and_then(|message| message.thread_root.as_ref())
+                        == Some(root)
+            });
+        if !belongs {
             return Err(RpcError::UnknownSubscription);
         }
         Ok(timeline)

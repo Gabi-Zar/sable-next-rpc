@@ -1148,3 +1148,26 @@ test('a different thread in the same room resubscribes', async () => {
     { kind: 'thread', root_event_id: '$two' },
   ]);
 });
+
+test('retrying failed thread history makes a new pagination request', async () => {
+  const core = new FakeCore();
+  const subscribe = vi.spyOn(core, 'subscribeTimeline').mockResolvedValue({
+    subscription: 1,
+    items: [],
+    aggregations: [],
+  });
+  const page = vi
+    .spyOn(core, 'paginate')
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockRejectedValueOnce(new Error('still offline'));
+  const timeline = new RoomTimeline(core as unknown as CoreClient);
+  await timeline.startThread('!room:example.org', '$root');
+  await expect(timeline.paginateBackward(25)).rejects.toThrow('offline');
+  await timeline.retry();
+  expect(timeline.error).toBe('load_failed');
+  await timeline.retry();
+  expect(page).toHaveBeenCalledTimes(3);
+  expect(timeline.error).toBeNull();
+  expect(subscribe).toHaveBeenCalledOnce();
+  await timeline.stop();
+});

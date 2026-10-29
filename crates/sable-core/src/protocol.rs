@@ -232,6 +232,10 @@ pub enum CoreEvent {
         subscription: SubscriptionId,
         diffs: Vec<VectorDiff<TimelineItemView>>,
     },
+    ThreadsChanged {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        room_id: OwnedRoomId,
+    },
     TimelinePagination {
         subscription: SubscriptionId,
         loading: bool,

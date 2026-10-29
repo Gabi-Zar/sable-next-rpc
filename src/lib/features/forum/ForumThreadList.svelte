@@ -12,6 +12,8 @@
   interface Props {
     threads: readonly ForumThread[];
     loading: boolean;
+    failed?: boolean;
+    onRetry?: () => void;
     canLoadMore: boolean;
     onOpen: (eventId: string) => void;
     canDelete: (thread: ForumThread) => boolean;
@@ -28,6 +30,8 @@
   let {
     threads,
     loading,
+    failed = false,
+    onRetry,
     canLoadMore,
     onOpen,
     canDelete,
@@ -49,7 +53,14 @@
 </script>
 
 <div class="forum-thread-list" {@attach scrollHint}>
-  {#if threads.length === 0 && !loading}
+  {#if failed}
+    <div class="forum-thread-list-more" role="alert">
+      <span>{i18n.t('timeline.loadFailed')}</span>
+      <Button variant="secondary" size="small" onclick={onRetry}>{i18n.t('common.tryAgain')}</Button
+      >
+    </div>
+  {/if}
+  {#if threads.length === 0 && !loading && !failed}
     <p class="forum-thread-list-empty">{i18n.t('forum.empty')}</p>
   {:else if threads.length > 0}
     {#if pinnedThreads.length > 0}

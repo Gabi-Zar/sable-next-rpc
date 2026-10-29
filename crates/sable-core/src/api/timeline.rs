@@ -12,7 +12,10 @@ use matrix_sdk_ui::timeline::{RoomExt, TimelineFocus};
 use serde::{Deserialize, Serialize};
 
 use super::{Handler, Json};
-use crate::protocol::{RpcError, EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView, SubscriptionId, TimelineItemView};
+use crate::protocol::{
+    EditVersionView, PaginationDirection, PinReadStateView, RelationsView, RoomListItemView,
+    RpcError, SubscriptionId, TimelineItemView,
+};
 use crate::thread_receipts::thread_receipts;
 use crate::timelines::receipt_thread_root;
 use crate::widgets::RelationsFilter;
@@ -582,6 +585,9 @@ impl Handler for ReadMarkerParams {
 #[derive(Debug, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
 pub struct UnreadDiagnosticsParams {
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Vec<String>))]
+    pub thread_roots: Vec<OwnedEventId>,
     #[cfg_attr(feature = "typegen", specta(type = String))]
     pub room_id: OwnedRoomId,
 }
@@ -634,12 +640,22 @@ impl Handler for UnreadDiagnosticsParams {
     async fn run(self, core: &Arc<Core>) -> Result<UnreadDiagnosticsView, RpcError> {
         let room = core.room(&self.room_id).await?;
         let server = room.unread_notification_counts();
+        let mut threads = thread_receipts(&room)
+            .await
+            .into_iter()
+            .collect::<std::collections::BTreeMap<_, _>>();
+        if let Some(cache) = room.client().event_cache() {
+            for root in self.thread_roots {
+                if let Ok(Some(info)) = cache.thread_info(room.room_id(), &root).await {
+                    threads.insert(root, info.read_receipts);
+                }
+            }
+        }
         Ok(UnreadDiagnosticsView {
             main: read_diagnostics(&room.read_receipts()),
             server_notifications: count(server.notification_count),
             server_highlights: count(server.highlight_count),
-            threads: thread_receipts(&room)
-                .await
+            threads: threads
                 .into_iter()
                 .map(|(root, receipts)| ThreadReadDiagnostics {
                     root_event_id: root.to_string(),

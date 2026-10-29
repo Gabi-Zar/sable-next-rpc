@@ -1061,9 +1061,13 @@
 />
 
 {#if timeline.error && !emptyFailure}
-  <Alert class="timeline-error" variant="critical" role="alert"
-    >{i18n.t('timeline.loadFailed')}</Alert
-  >
+  <Alert class="timeline-error" variant="critical" role="alert">
+    {i18n.t('timeline.loadFailed')}
+    {#if onRetryLoad}
+      <Button type="button" onclick={() => void onRetryLoad?.()}>{i18n.t('common.tryAgain')}</Button
+      >
+    {/if}
+  </Alert>
 {/if}
 {#if resumeFailed}
   <Alert variant="critical" role="alert">

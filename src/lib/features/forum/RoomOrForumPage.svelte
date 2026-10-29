@@ -30,7 +30,7 @@
   }
 </script>
 
-{#if eventTimeline}
+{#if eventTimeline || page.url.searchParams.has('event') || page.state.notified}
   <RoomPage />
 {:else if room?.room_kind === 'forum'}
   <ForumPage {roomId} />

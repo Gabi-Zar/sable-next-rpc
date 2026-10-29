@@ -262,7 +262,7 @@
     {timeline}
     {focusEventId}
     threadRootId={rootEventId}
-    onRetryLoad={() => timeline.startThread(roomId, rootEventId)}
+    onRetryLoad={() => timeline.retry()}
     onJumpToLive={timeline.mode.kind === 'focused' ? () => void returnToThread() : undefined}
     {roomId}
     {members}

@@ -212,29 +212,38 @@ test('a reply opened on its context jumps back to the live thread', async () => 
   expect(startThread).toHaveBeenCalledTimes(2);
 });
 
-test('a failed subscription can be retried without replacing the composer', async () => {
-  let attempts = 0;
-  const start = vi.spyOn(RoomTimeline.prototype, 'startThread').mockImplementation(function (
-    this: RoomTimeline
-  ) {
-    this.mode = { kind: 'thread', rootEventId: '$root' };
-    attempts += 1;
-    this.error = attempts === 1 ? 'load_failed' : null;
-    this.hasSnapshot = attempts > 1;
-    if (attempts > 1) this.items = [image('$root', 'first.png')];
-    return Promise.resolve();
-  });
-  vi.spyOn(RoomTimeline.prototype, 'stop').mockResolvedValue();
-  const user = userEvent.setup();
-  const { container } = render(ThreadViewHarness, {
-    panel: { roomId: '!room:example.org', rootEventId: '$root', onClose: () => {} },
-  });
-  const composer = container.querySelector('.thread-composer');
-  await user.click(await screen.findByRole('button', { name: 'Try again' }));
-  expect(start).toHaveBeenCalledTimes(2);
-  expect(await screen.findByRole('heading', { name: 'first.png' })).toBeVisible();
-  expect(container.querySelector('.thread-composer')).toBe(composer);
-});
+test.each([false, true])(
+  'a failed thread can be retried without replacing the composer (cached=%s)',
+  async (cached) => {
+    let attempts = 0;
+    const start = vi.spyOn(RoomTimeline.prototype, 'startThread').mockImplementation(function (
+      this: RoomTimeline
+    ) {
+      this.mode = { kind: 'thread', rootEventId: '$root' };
+      attempts += 1;
+      this.error = attempts === 1 ? 'load_failed' : null;
+      this.hasSnapshot = cached || attempts > 1;
+      if (cached || attempts > 1) this.items = [image('$root', 'first.png')];
+      return Promise.resolve();
+    });
+    const retry = vi.spyOn(RoomTimeline.prototype, 'retry').mockImplementation(function (
+      this: RoomTimeline
+    ) {
+      return start.call(this, '!room:example.org', '$root');
+    });
+    vi.spyOn(RoomTimeline.prototype, 'stop').mockResolvedValue();
+    const user = userEvent.setup();
+    const { container } = render(ThreadViewHarness, {
+      panel: { roomId: '!room:example.org', rootEventId: '$root', onClose: () => {} },
+    });
+    const composer = container.querySelector('.thread-composer');
+    await user.click(await screen.findByRole('button', { name: 'Try again' }));
+    expect(start).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('heading', { name: 'first.png' })).toBeVisible();
+    expect(retry).toHaveBeenCalledOnce();
+    expect(container.querySelector('.thread-composer')).toBe(composer);
+  }
+);
 
 test.each([false, true])(
   'read-only threads hide restricted actions (sidePanel=%s)',

@@ -104,6 +104,7 @@ export class RoomTimeline {
   aggregations = $state.raw<TimelineItemView[]>([]);
   loading = $state(false);
   resumingLive = $state(false);
+  private failedPagination: 'backward' | 'forward' | null = null;
   hasSnapshot = $state(false);
   readMarkerEventId = $state<string | null>(null);
   forwardPagination = $state<ForwardPaginationState>('idle');
@@ -155,6 +156,17 @@ export class RoomTimeline {
 
   startThread(roomId: string, rootEventId: string): Promise<void> {
     return this.open(roomId, { kind: 'thread', rootEventId }, false);
+  }
+
+  async retry(): Promise<void> {
+    if (this.failedPagination !== null && this.subscription !== null) {
+      await (
+        this.failedPagination === 'backward' ? this.paginateBackward(25) : this.paginateForward(25)
+      ).catch(() => {});
+      return;
+    }
+    const target = this.target;
+    if (target) await this.open(target.roomId, target.mode, target.hiddenEvents, false, true);
   }
 
   startUnread(roomId: string, eventId: string, hiddenEvents = false): Promise<void> {
@@ -209,6 +221,7 @@ export class RoomTimeline {
 
     const session = this.session;
     this.target = target;
+    this.failedPagination = null;
     this.mode = mode;
     if (mode.kind === 'unread') this.readMarkerEventId = mode.eventId;
     this.forwardPagination = mode.kind === 'thread' ? 'end' : 'idle';
@@ -268,12 +281,14 @@ export class RoomTimeline {
       const response = await this.core.rpc.timeline.paginate({ subscription, direction, count });
       if (current()) {
         this.error = null;
+        this.failedPagination = null;
         this[state] = response.reached_end ? 'end' : 'idle';
       }
       return response.reached_end;
     } catch (error) {
       if (current()) {
         this.error = 'load_failed';
+        this.failedPagination = direction;
         this[state] = 'idle';
       }
       throw error;
