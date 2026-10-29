@@ -188,7 +188,10 @@ tasks.register<org.gradle.api.tasks.bundling.Tar>("archiveNativeRelease") {
             into("$target/gradle/app/src/main")
             exclude("jniLibs/**")
         }
-        from(files("tauri.build.gradle.kts", "tauri.properties")) { into("$target/gradle/app") }
+        // Packaging skips Cargo, which generates the JNI keep rules.
+        from(files("tauri.build.gradle.kts", "tauri.properties", "proguard-tauri.pro")) {
+            into("$target/gradle/app")
+        }
         from(rootProject.file("tauri.settings.gradle")) {
             into("$target/gradle")
             filter { line: String ->
@@ -216,6 +219,9 @@ tasks.register<org.gradle.api.tasks.bundling.Tar>("archiveNativeRelease") {
     inputs.property("identity", identity.map { it.getOrElse("") })
     doFirst {
         check(nativeDir.resolve("libapp_lib.so").isFile) { "Missing native library for $target" }
+        check(target != "aarch64" || file("proguard-tauri.pro").isFile) {
+            "Missing generated Tauri JNI keep rules"
+        }
         check(identity.all { it.isPresent && it.get().isNotBlank() }) { "Missing native build identity" }
         temporaryDir.resolve("identity").writeText((identity.map { it.get() } + target).joinToString("\n", postfix = "\n"))
     }

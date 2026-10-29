@@ -612,6 +612,10 @@ jobs:
               *-armv7-foss.apk) expected_code=$((version_code + 1)) ;;
             esac
             [ "$(mise exec -- apkanalyzer manifest version-code "$apk")" = "$expected_code" ] || exit 1
+            # Rust calls this method by name through JNI.
+            mise exec -- apkanalyzer dex code --class moe.sable.client.TauriActivity \
+              --method 'getPluginManager()Lapp/tauri/plugin/PluginManager;' "$apk" \
+              | grep -E '^\.method public (final )?getPluginManager\(\)Lapp/tauri/plugin/PluginManager;$'
           done
           apk="$out/apk/universal/release/sable-${VERSION}-android-universal.apk"
           aab="$out/bundle/universalRelease/sable-${VERSION}-android-universal.aab"
