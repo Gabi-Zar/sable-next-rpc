@@ -12,7 +12,9 @@
 
   const SCAN_INTERVAL_MS = 200;
   const MAX_FRAME_EDGE = 720;
-  const HEADER = [0x4d, 0x41, 0x54, 0x52, 0x49, 0x58];
+  const HEADERS = ['MATRIX', 'IO_ELEMENT_MSC4388'].map((header) =>
+    new TextEncoder().encode(header)
+  );
 
   let video = $state<HTMLVideoElement>();
   let failed = $state(false);
@@ -21,8 +23,8 @@
   let switching = $state(false);
   let switchCamera = $state<(deviceId: string) => void>(() => {});
 
-  function isVerificationCode(data: number[]): boolean {
-    return HEADER.every((byte, index) => data[index] === byte);
+  function isMatrixCode(data: number[]): boolean {
+    return HEADERS.some((header) => header.every((byte, index) => data[index] === byte));
   }
 
   onMount(() => {
@@ -96,7 +98,7 @@
         const found = jsQR(frame.data, frame.width, frame.height, {
           inversionAttempts: 'dontInvert',
         });
-        if (!found || !isVerificationCode(found.binaryData)) return;
+        if (!found || !isMatrixCode(found.binaryData)) return;
         stopped = true;
         stopStream();
         onScan(new Uint8Array(found.binaryData));
