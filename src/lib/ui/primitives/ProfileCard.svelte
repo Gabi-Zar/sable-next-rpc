@@ -172,7 +172,6 @@
           id={userId}
           color={heroColor ? undefined : color}
           original
-          decorative
         />
       {/snippet}
       {#if onAvatarEdit}
