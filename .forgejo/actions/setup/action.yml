@@ -14,6 +14,14 @@ inputs:
     description: rust-cache's shared-key.
     required: false
     default: 'wasm'
+  rust-cache-targets:
+    description: Cache compiled Cargo dependencies.
+    required: false
+    default: 'false'
+  rust-cache-save:
+    description: Allow cache writes outside main.
+    required: false
+    default: 'false'
   install-mise-tools:
     description: Whether to install tools declared in .mise/config.toml.
     required: false
@@ -37,6 +45,9 @@ runs:
         version: '2026.10.17'
         github_token: ''
         cache: true
+        # Include tools installed by later steps.
+        cache_save_post: ${{ inputs.install-mise-tools == 'false' }}
+        cache_key_prefix: ${{ inputs.install-mise-tools == 'false' && 'mise-deferred-v1' || 'mise-v1' }}
         env: false
         install: ${{ inputs.install-mise-tools }}
 
@@ -76,8 +87,8 @@ runs:
       with:
         shared-key: ${{ inputs.rust-cache-key }}
         cache-on-failure: true
-        cache-targets: false
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+        cache-targets: ${{ inputs.rust-cache-targets }}
+        save-if: ${{ github.ref == 'refs/heads/main' || inputs.rust-cache-save == 'true' }}
 
     - name: Install JavaScript dependencies
       shell: bash

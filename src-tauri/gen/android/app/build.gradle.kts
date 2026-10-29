@@ -157,6 +157,70 @@ rust {
     rootDirRel = "../../../../"
 }
 
+// Include Tauri's generated plugin settings so packaging does not rerun Cargo.
+tasks.register<org.gradle.api.tasks.bundling.Tar>("archiveNativeRelease") {
+    val target = providers.gradleProperty("nativeTarget").getOrElse("aarch64")
+    val abi = mapOf(
+        "aarch64" to "arm64-v8a", "armv7" to "armeabi-v7a",
+        "i686" to "x86", "x86_64" to "x86_64"
+    )[target] ?: error("Unknown nativeTarget: $target")
+    val nativeDir = file("src/main/jniLibs/$abi")
+
+    archiveFileName.set("android-native-$target.tar.gz")
+    destinationDirectory.set(rootProject.layout.buildDirectory.dir("native-artifacts"))
+    compression = org.gradle.api.tasks.bundling.Compression.GZIP
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+    from(nativeDir) { into("$target/jniLibs/$abi") }
+    from(temporaryDir) { into(target) }
+    if (target == "aarch64") {
+        val checkout = rootProject.projectDir.resolve("../../..").canonicalFile
+        val pluginPaths = rootProject.allprojects
+            .filter { it != rootProject && it != project }
+            .associate { dependency ->
+                val source = dependency.projectDir.canonicalFile
+                val path = if (source.toPath().startsWith(checkout.toPath())) {
+                    rootProject.projectDir.toPath().relativize(source.toPath()).toString()
+                } else ".ci-dependencies/${dependency.name}"
+                dependency.projectDir to path
+            }
+        from("src/main") {
+            into("$target/gradle/app/src/main")
+            exclude("jniLibs/**")
+        }
+        from(files("tauri.build.gradle.kts", "tauri.properties")) { into("$target/gradle/app") }
+        from(rootProject.file("tauri.settings.gradle")) {
+            into("$target/gradle")
+            filter { line: String ->
+                val portable = pluginPaths.entries.fold(line) { text, (source, path) ->
+                    text.replace(
+                        "new File(\"$source\")",
+                        "new File(settingsDir, '$path')"
+                    )
+                }
+                check(!portable.contains("new File(\"")) { "Unrecognized Tauri settings: $portable" }
+                portable
+            }
+        }
+        pluginPaths.filterValues { it.startsWith(".ci-dependencies/") }
+            .forEach { (source, path) ->
+                from(source) {
+                    into("$target/gradle/$path")
+                    exclude("build/**", ".gradle/**", ".git/**", "local.properties", "keystore.properties")
+                }
+            }
+    }
+    val identity = listOf("BUILD_REVISION", "VERSION", "SABLE_BUILD_FLAVOR").map {
+        providers.environmentVariable(it)
+    }
+    inputs.property("identity", identity.map { it.getOrElse("") })
+    doFirst {
+        check(nativeDir.resolve("libapp_lib.so").isFile) { "Missing native library for $target" }
+        check(identity.all { it.isPresent && it.get().isNotBlank() }) { "Missing native build identity" }
+        temporaryDir.resolve("identity").writeText((identity.map { it.get() } + target).joinToString("\n", postfix = "\n"))
+    }
+}
+
 configurations.all {
     resolutionStrategy.dependencySubstitution {
         substitute(module("com.google.crypto.tink:tink"))
