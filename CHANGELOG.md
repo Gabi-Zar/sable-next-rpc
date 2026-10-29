@@ -1,5 +1,25 @@
 # Sable Changelog
 
+## 2.2.2 (2026-10-29)
+
+### Fixes
+
+* Reload the account avatar after returning from a long background session.
+* Support Java 25 for Android builds.
+* Fix Android crashing on launch after updating to 2.2.1.
+* Build unsigned Android release APKs when no keystore is configured.
+* Fix conflicting device verification badges and stale verification warnings.
+* Convert emoticons such as `<3` and `:)` to emoji by default, with a Composer setting to turn it off.
+* Support iOS 15.4.
+* Fix blank screen shares in fullscreen on iOS.
+* Keep removed link previews hidden when editing a message.
+* Keep reply mentions when editing messages.
+* Support bundled link previews with encrypted thumbnails and preserve preview choices when editing messages.
+* Open device approval inside Sable on Android and iOS. Give background sync a three-second grace period and discard outdated pause requests.
+* Use `Sable/<version>` as the User-Agent for native and Electron HTTP requests.
+* Fix room icons, profile pictures, and chat images failing to load in server mode.
+* Fix thread loading, links to replies, and thread actions. Keep reply counts, previews, forum activity order, and unread status up to date.
+
 ## 2.2.1 (2026-10-28)
 
 ### Fixes
