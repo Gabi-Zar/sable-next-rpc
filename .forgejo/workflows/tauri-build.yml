@@ -30,6 +30,7 @@ env:
   SCCACHE_ENDPOINT: https://s3.erwanleboucher.dev
   SCCACHE_REGION: us-east-1
   SCCACHE_S3_USE_SSL: 'true'
+  SCCACHE_IGNORE_SERVER_IO_ERROR: '1'
 jobs:
   setup-release:
     name: Resolve release target
@@ -162,20 +163,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   docker:
-    name: Build image (${{ matrix.arch }})
+    name: Build ${{ matrix.image }} image (${{ matrix.arch }})
     needs: [setup-release, build-web]
-    runs-on: docker-arm64
-    timeout-minutes: 60
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
     strategy:
       fail-fast: true
       matrix:
-        arch: [amd64, arm64]
+        include:
+          - image: web
+            arch: amd64
+            runner: docker
+            file: packaging/docker/Dockerfile
+          - image: web
+            arch: arm64
+            runner: docker-arm64
+            file: packaging/docker/Dockerfile
+          - image: server
+            arch: amd64
+            runner: docker
+            file: packaging/server/Dockerfile
+          - image: server
+            arch: arm64
+            runner: docker-arm64
+            file: packaging/server/Dockerfile
     permissions:
       contents: read
       packages: write
     env:
       REGISTRY: git.sable.moe
       ARCH: ${{ matrix.arch }}
+      IMAGE_KIND: ${{ matrix.image }}
+      DOCKERFILE: ${{ matrix.file }}
       PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
       PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
     steps:
@@ -184,32 +203,40 @@ jobs:
         with:
           ref: ${{ needs.setup-release.outputs.ref }}
           persist-credentials: false
-      # The Dockerfile only copies `dist`, so the image reuses the bundle
-      # build-web already produced for the desktop packages.
+      # The web image reuses the bundle built for the desktop packages.
       - name: Download web assets
+        if: ${{ matrix.image == 'web' }}
         uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
         with:
           name: web-assets
       - name: Log in to the container registry
         run: echo "$PACKAGES_TOKEN" | docker login "$REGISTRY" --username "$PACKAGES_USER" --password-stdin
-      # Each job builds natively on a runner of its own architecture and pushes
-      # an untagged image by digest; `docker-manifest` joins them under the
-      # release tags. The docker-container driver is what registry cache needs.
-      - name: Build and push image by digest
+      # Pass digests through registry tags instead of artifact storage.
+      - name: Build and push architecture image
         env:
-          REVISION: ${{ github.sha }}
           VERSION: ${{ needs.setup-release.outputs.version }}
         run: |
-          # `github.repository` keeps the owner's capitals; an image reference cannot.
+          revision="$(git rev-parse HEAD)"
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
-          docker buildx create --name "ci-$GITHUB_RUN_ID-$ARCH" --driver docker-container --use
+          [ "$IMAGE_KIND" = web ] || image="$image-server"
+          builder="ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
+          cleanup() {
+            docker buildx rm --force "$builder" || {
+              docker rm -f "buildx_buildkit_${builder}0" || true
+              docker volume rm "buildx_buildkit_${builder}0_state" || true
+            }
+            docker context rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
+          }
+          trap cleanup EXIT
+          docker context create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
+          docker buildx create "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" --name "$builder" --driver docker-container --buildkitd-config .forgejo/buildkitd.toml --use
           # Forgejo fails the push when both arch jobs upload the same layer at once.
           for attempt in 1 2 3; do
             docker buildx build . \
-              --file packaging/docker/Dockerfile \
+              --file "$DOCKERFILE" \
               --platform "linux/$ARCH" \
               --label "org.opencontainers.image.source=$FORGEJO_URL/$GITHUB_REPOSITORY" \
-              --label "org.opencontainers.image.revision=$REVISION" \
+              --label "org.opencontainers.image.revision=$revision" \
               --label "org.opencontainers.image.version=$VERSION" \
               --cache-from "type=registry,ref=$image:buildcache-$ARCH" \
               --cache-to "type=registry,ref=$image:buildcache-$ARCH,mode=max,ignore-error=true" \
@@ -218,22 +245,30 @@ jobs:
             [ "$attempt" -lt 3 ] || exit 1
             sleep $((attempt * 10))
           done
-          mkdir digests
-          node -p "require(process.env.RUNNER_TEMP + '/build-metadata.json')['containerimage.digest']" > "digests/$ARCH"
+          digest="$(node -p "require(process.env.RUNNER_TEMP + '/build-metadata.json')['containerimage.digest']")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo 'Invalid image digest' >&2; exit 1; }
+          for attempt in 1 2 3; do
+            docker buildx imagetools create --prefer-index=false \
+              --tag "$image:ci-$GITHUB_RUN_ID-$ARCH" "$image@$digest" && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 5))
+          done
       - name: Remove the builder
         if: ${{ always() }}
-        run: docker buildx rm --force "ci-$GITHUB_RUN_ID-$ARCH" || true
-      - name: Upload digest
-        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
-        with:
-          name: image-digest-${{ matrix.arch }}
-          path: digests/${{ matrix.arch }}
-          if-no-files-found: error
-          retention-days: 1
+        run: |
+          builder="ci-builder-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH"
+          docker buildx rm --force "$builder" || {
+            docker rm -f "buildx_buildkit_${builder}0" || true
+            docker volume rm "buildx_buildkit_${builder}0_state" || true
+          }
+          docker context rm --force "ci-$GITHUB_RUN_ID-$IMAGE_KIND-$ARCH" || true
 
   docker-manifest:
-    name: Publish image manifest
+    name: Publish ${{ matrix.image }} image manifest
     needs: [setup-release, docker]
+    strategy:
+      matrix:
+        image: [web, server]
     runs-on: docker-arm64
     timeout-minutes: 10
     permissions:
@@ -243,48 +278,68 @@ jobs:
       REGISTRY: git.sable.moe
       PACKAGES_USER: ${{ secrets.PACKAGES_USER }}
       PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      IMAGE_KIND: ${{ matrix.image }}
       NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
       VERSION: ${{ needs.setup-release.outputs.version }}
       SHA: ${{ github.sha }}
     steps:
-      - name: Download amd64 digest
-        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
-        with:
-          name: image-digest-amd64
-          path: digests
-      - name: Download arm64 digest
-        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
-        with:
-          name: image-digest-arm64
-          path: digests
       - name: Log in to the container registry
         run: echo "$PACKAGES_TOKEN" | docker login "$REGISTRY" --username "$PACKAGES_USER" --password-stdin
       - name: Create and push the multi-arch manifest
         run: |
           image="$REGISTRY/${GITHUB_REPOSITORY,,}"
+          [ "$IMAGE_KIND" = web ] || image="$image-server"
           if [ "$NIGHTLY" = 'true' ]; then
             tags=(dev "${SHA::7}")
           else
             tags=(latest "$VERSION" "${VERSION%.*}")
           fi
+          sources=()
+          for arch in amd64 arm64; do
+            ref="$image:ci-$GITHUB_RUN_ID-$arch"
+            for attempt in 1 2 3; do
+              digest="$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}')" && break
+              [ "$attempt" -lt 3 ] || exit 1
+              sleep $((attempt * 5))
+            done
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Invalid digest for $ref" >&2; exit 1; }
+            sources+=("$image@$digest")
+          done
           tag_args=()
           for tag in "${tags[@]}"; do tag_args+=(--tag "$image:$tag"); done
-          docker buildx imagetools create "${tag_args[@]}" \
-            "$image@$(cat digests/amd64)" \
-            "$image@$(cat digests/arm64)"
+          for attempt in 1 2 3; do
+            docker buildx imagetools create "${tag_args[@]}" "${sources[@]}" && break
+            [ "$attempt" -lt 3 ] || exit 1
+            sleep $((attempt * 5))
+          done
           docker buildx imagetools inspect "$image:${tags[0]}"
+      - name: Remove published image staging tags
+        run: |
+          image="${GITHUB_REPOSITORY,,}"
+          [ "$IMAGE_KIND" = web ] || image="$image-server"
+          # Delete tags, not digests referenced by the published index.
+          for arch in amd64 arm64; do
+            tag="ci-$GITHUB_RUN_ID-$arch"
+            status="$(printf 'user = "%s:%s"\n' "$PACKAGES_USER" "$PACKAGES_TOKEN" | \
+              curl --config - --silent --show-error --connect-timeout 10 --max-time 30 \
+                --retry 3 --retry-delay 2 --output /dev/null --write-out '%{http_code}' \
+                --request DELETE "https://$REGISTRY/v2/$image/manifests/$tag")" || status=000
+            case "$status" in
+              202|404) ;;
+              *) echo "::warning::Could not remove staging tag $tag (HTTP $status)" ;;
+            esac
+          done
 
-  android-warm:
-    name: Warm Android ${{ matrix.target }}
+  android-native:
+    name: Build Android native ${{ matrix.target }}
     needs: [setup-release, build-web]
-    if: ${{ needs.setup-release.outputs.skip != 'true' && needs.setup-release.outputs.nightly != 'true' }}
+    if: ${{ needs.setup-release.outputs.skip != 'true' }}
     runs-on: docker
     timeout-minutes: 90
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
-        target: [aarch64, armv7, i686, x86_64]
+        target: ${{ fromJSON(needs.setup-release.outputs.nightly == 'true' && '["aarch64"]' || '["aarch64", "armv7", "i686", "x86_64"]') }}
     env:
       RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
       AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
@@ -292,6 +347,15 @@ jobs:
       VERSION: ${{ needs.setup-release.outputs.version }}
       MISE_ENV: tauri
       CARGO_BUILD_JOBS: '2'
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
+      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
+      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
+      UPDATER_ENDPOINT: ${{ needs.setup-release.outputs.nightly == 'true' && 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly/latest.json' || '' }}
       RUST_TARGETS: aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
       ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -312,70 +376,75 @@ jobs:
         uses: ./.forgejo/actions/setup
         with:
           rust: 'true'
-          rust-cache-key: tauri-android
+          rust-cache-key: ${{ env.RUSTC_WRAPPER == '' && format('tauri-android-{0}', matrix.target) || 'tauri-android' }}
+          rust-cache-targets: ${{ env.RUSTC_WRAPPER == '' }}
+          rust-cache-save: 'true'
           install-mise-tools: 'false'
-      - name: Set up Android SDK and NDK
-        run: mise run tauri:setup:android
+      - name: Set up Android
+        uses: ./.forgejo/actions/setup-android
+        with:
+          flavor: gms
       - name: Add Rust targets
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
           rustup target add $RUST_TARGETS
-      - name: Set up Gradle cache
-        uses: https://github.com/gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
-        with:
-          cache-provider: basic
-          cache-read-only: false
-      - name: Limit Gradle memory
-        run: |
-          printf '\n%s\n' \
-            'org.gradle.workers.max=1' \
-            'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
-            'kotlin.daemon.jvmargs=-Xmx512m' \
-            >> src-tauri/gen/android/gradle.properties
       - name: Stamp release version into tauri.conf.json
-        run: node scripts/ci/set-tauri-version.mjs "$VERSION"
-      - name: Set up Android signing
-        if: ${{ env.ANDROID_KEY_BASE64 != '' }}
         run: |
-          cd src-tauri/gen/android
-          echo "keyAlias=$ANDROID_KEY_ALIAS" > keystore.properties
-          echo "password=$ANDROID_KEY_PASSWORD" >> keystore.properties
-          base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/keystore.jks"
-          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+          args=()
+          [ -z "$UPDATER_ENDPOINT" ] || args+=("--updater-endpoint=$UPDATER_ENDPOINT")
+          node scripts/ci/set-tauri-version.mjs "$VERSION" "${args[@]}"
       - name: Build one ABI
-        run: pnpm tauri android build --config src-tauri/tauri.ci.conf.json --apk --target ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          config_args=(--config src-tauri/tauri.ci.conf.json)
+          [ "$IS_NIGHTLY" = 'true' ] || config_args+=(--config src-tauri/tauri.stable.conf.json)
+          pnpm tauri android build "${config_args[@]}" --apk --target "$TARGET"
+          case "$TARGET" in
+            aarch64) rust_target=aarch64-linux-android ;;
+            armv7) rust_target=armv7-linux-androideabi ;;
+            i686) rust_target=i686-linux-android ;;
+            x86_64) rust_target=x86_64-linux-android ;;
+            *) exit 1 ;;
+          esac
+          node scripts/ci/upload-sentry-symbols.mjs "target/$rust_target/release"
+          BUILD_REVISION="$(git rev-parse HEAD)" mise exec -- src-tauri/gen/android/gradlew \
+            -p src-tauri/gen/android :app:archiveNativeRelease -PnativeTarget="$TARGET" --console=plain
+          cp "src-tauri/gen/android/build/native-artifacts/android-native-$TARGET.tar.gz" .
+          sha256sum "android-native-$TARGET.tar.gz" > "android-native-$TARGET.tar.gz.sha256"
+      - name: Upload native libraries and Gradle inputs
+        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
+        with:
+          name: android-native-${{ matrix.target }}
+          path: |
+            android-native-${{ matrix.target }}.tar.gz
+            android-native-${{ matrix.target }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+          compression-level: 0
       - name: Show sccache stats
         if: ${{ always() && env.RUSTC_WRAPPER != '' }}
         run: sccache --show-stats || true
-  android:
-    name: Build Android
-    needs: [setup-release, build-web, android-warm]
-    if: ${{ !cancelled() && needs.setup-release.result == 'success' && needs.build-web.result == 'success' }}
+  android-foss:
+    name: Build FOSS Android ${{ matrix.target }}
+    needs: [setup-release, build-web]
+    if: ${{ needs.setup-release.outputs.skip != 'true' && needs.setup-release.outputs.nightly != 'true' }}
     runs-on: docker
-    timeout-minutes: 120
+    timeout-minutes: 90
     permissions:
-      contents: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64, armv7]
     env:
       RUSTC_WRAPPER: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID != '' && 'sccache' || '' }}
       AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_AWS_SECRET_ACCESS_KEY }}
-      TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
       MISE_ENV: tauri
       CARGO_BUILD_JOBS: '2'
-      RUST_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64-linux-android' || 'aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android' }}
-      # The same ABIs under the names `tauri android build --target` takes.
-      ANDROID_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64' || 'aarch64 armv7 i686 x86_64' }}
-      # Read by src-tauri/build.rs, which bakes them into the binary.
-      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
-      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
-      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
-      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
-      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
-      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
-      UPDATER_ENDPOINT: ${{ needs.setup-release.outputs.nightly == 'true' && 'https://git.sable.moe/SableClient/sable-next/releases/download/nightly/latest.json' || '' }}
       ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -389,56 +458,123 @@ jobs:
         uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
         with:
           name: web-assets
-      - name: Drop assets the native app never loads
-        run: rm -rf dist/deepfilternet3 dist/_app/immutable/workers
       - name: Set up app
         uses: ./.forgejo/actions/setup
         with:
           rust: 'true'
-          rust-cache-key: tauri-android
+          rust-cache-key: ${{ env.RUSTC_WRAPPER == '' && format('tauri-android-foss-{0}', matrix.target) || 'tauri-android-foss' }}
+          rust-cache-targets: ${{ env.RUSTC_WRAPPER == '' }}
+          rust-cache-save: 'true'
           install-mise-tools: 'false'
-      - name: Set up Android SDK and NDK
-        run: mise run tauri:setup:android
-      - name: Add Rust targets
-        run: |
-          # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
-          rustup target add $RUST_TARGETS
-      - name: Set up Gradle cache
-        uses: https://github.com/gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Set up Android
+        uses: ./.forgejo/actions/setup-android
         with:
-          cache-provider: basic
-          cache-read-only: false
-      - name: Limit Gradle memory
+          flavor: foss-${{ matrix.target }}
+      - name: Build FOSS APK
+        env:
+          TARGET: ${{ matrix.target }}
         run: |
-          printf '\n%s\n' \
-            'org.gradle.workers.max=1' \
-            'org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8' \
-            'kotlin.daemon.jvmargs=-Xmx512m' \
-            >> src-tauri/gen/android/gradle.properties
-      - name: Stamp release version into tauri.conf.json
+          node scripts/release/fastlane-changelog.mjs "$VERSION" --check
+          pnpm android:build --version "$VERSION" --target "$TARGET" --web-dist dist-foss
+          case "$TARGET" in
+            aarch64) flavor=arm64 ;;
+            armv7) flavor=arm ;;
+            *) exit 1 ;;
+          esac
+          dir="src-tauri/gen/android/app/build/outputs/apk/$flavor/release"
+          mapfile -t apks < <(find "$dir" -maxdepth 1 -name '*.apk' -type f)
+          [ "${#apks[@]}" -eq 1 ] || { echo 'Expected exactly one FOSS APK' >&2; exit 1; }
+          mkdir foss-apks
+          cp "${apks[0]}" "foss-apks/sable-${VERSION}-android-${TARGET}-foss.apk"
+      - name: Upload FOSS APK
+        uses: https://code.forgejo.org/forgejo/upload-artifact@cb8afe72b42edc798abfb8fcb556cf660d894245 # v5
+        with:
+          name: android-foss-${{ matrix.target }}
+          path: foss-apks/*.apk
+          if-no-files-found: error
+          retention-days: 7
+          overwrite: true
+      - name: Show sccache stats
+        if: ${{ always() && env.RUSTC_WRAPPER != '' }}
+        run: sccache --show-stats || true
+  android:
+    name: Build Android
+    needs: [setup-release, android-native, android-foss]
+    if: ${{ !cancelled() && needs.setup-release.result == 'success' && needs.android-native.result == 'success' && (needs.android-foss.result == 'success' || (needs.setup-release.outputs.nightly == 'true' && needs.android-foss.result == 'skipped')) }}
+    runs-on: docker
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.setup-release.outputs.tag }}
+      VERSION: ${{ needs.setup-release.outputs.version }}
+      MISE_ENV: tauri
+      ANDROID_TARGETS: ${{ needs.setup-release.outputs.nightly == 'true' && 'aarch64' || 'aarch64 armv7 i686 x86_64' }}
+      VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+      VITE_SENTRY_ENVIRONMENT: ${{ needs.setup-release.outputs.nightly == 'true' && 'preview' || 'production' }}
+      VITE_APP_VERSION: ${{ needs.setup-release.outputs.version }}
+      SABLE_BUILD_FLAVOR: ${{ needs.setup-release.outputs.nightly == 'true' && 'nightly' || 'stable' }}
+      IS_NIGHTLY: ${{ needs.setup-release.outputs.nightly }}
+      ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: https://github.com/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.setup-release.outputs.ref }}
+          persist-credentials: false
+      - name: Set up app
+        uses: ./.forgejo/actions/setup
+        with:
+          install-mise-tools: 'false'
+      - name: Set up Android
+        uses: ./.forgejo/actions/setup-android
+        with:
+          flavor: gms
+          native: 'false'
+      - name: Download native libraries and Gradle inputs
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          pattern: android-native-*
+          merge-multiple: true
+          path: native-archives
+      - name: Restore and validate native libraries
         run: |
-          args=''
-          [ -n "$UPDATER_ENDPOINT" ] && args="--updater-endpoint=$UPDATER_ENDPOINT"
-          node scripts/ci/set-tauri-version.mjs "$VERSION" $args
-      - name: Set up Android signing
-        if: ${{ env.ANDROID_KEY_BASE64 != '' }}
-        run: |
-          cd src-tauri/gen/android
-          echo "keyAlias=$ANDROID_KEY_ALIAS" > keystore.properties
-          echo "password=$ANDROID_KEY_PASSWORD" >> keystore.properties
-          base64 -d <<< "$ANDROID_KEY_BASE64" > "$RUNNER_TEMP/keystore.jks"
-          echo "storeFile=$RUNNER_TEMP/keystore.jks" >> keystore.properties
+          mkdir android-native
+          (cd native-archives && sha256sum --check ./*.sha256)
+          for archive in native-archives/*.tar.gz; do tar -xzf "$archive" -C android-native; done
+          rm -rf src-tauri/gen/android/app/src/main/jniLibs
+          for target in $ANDROID_TARGETS; do
+            printf '%s\n' "$(git rev-parse HEAD)" "$VERSION" "$SABLE_BUILD_FLAVOR" "$target" > "$RUNNER_TEMP/native-identity"
+            cmp "$RUNNER_TEMP/native-identity" "android-native/$target/identity"
+            case "$target" in
+              aarch64) abi=arm64-v8a; machine=183 ;;
+              armv7) abi=armeabi-v7a; machine=40 ;;
+              i686) abi=x86; machine=3 ;;
+              x86_64) abi=x86_64; machine=62 ;;
+              *) exit 1 ;;
+            esac
+            dir="android-native/$target/jniLibs/$abi"
+            [ -s "$dir/libapp_lib.so" ] || { echo "Missing native library: $target" >&2; exit 1; }
+            for library in "$dir"/*.so; do
+              readelf --file-header "$library"
+              [ "$(od -An -tu2 -j18 -N2 "$library" | tr -d ' ')" = "$machine" ] || exit 1
+            done
+            mkdir -p src-tauri/gen/android/app/src/main/jniLibs
+            cp -a "$dir" src-tauri/gen/android/app/src/main/jniLibs/
+          done
+          cp -a android-native/aarch64/gradle/. src-tauri/gen/android/
       - name: Build Android bundles
         run: |
-          # Nightly's package ID comes from SABLE_BUILD_FLAVOR in build.gradle.kts:
-          # tauri.nightly.conf.json's identifier would move the Kotlin package.
-          config_args=(--config src-tauri/tauri.ci.conf.json)
-          [ "$IS_NIGHTLY" = 'true' ] || config_args+=(--config src-tauri/tauri.stable.conf.json)
-          # shellcheck disable=SC2086 # ANDROID_TARGETS is a space-separated list.
-          pnpm tauri android build "${config_args[@]}" --apk --aab --target $ANDROID_TARGETS
-          symbol_dirs=()
-          for target in $RUST_TARGETS; do symbol_dirs+=("target/$target/release"); done
-          node scripts/ci/upload-sentry-symbols.mjs "${symbol_dirs[@]}"
+          abis=arm64-v8a
+          [ "$IS_NIGHTLY" = 'true' ] || abis=arm64-v8a,armeabi-v7a,x86,x86_64
+          mise exec -- src-tauri/gen/android/gradlew -p src-tauri/gen/android \
+            :app:assembleUniversalRelease :app:bundleUniversalRelease \
+            -PabiList="$abis" -x :app:rustBuildUniversalRelease --console=plain
           out='src-tauri/gen/android/app/build/outputs'
           apk="$(find "$out/apk/universal/release" -name '*.apk' -type f | head -n 1)"
           aab="$(find "$out/bundle/universalRelease" -name '*.aab' -type f | head -n 1)"
@@ -446,37 +582,63 @@ jobs:
           [ -n "$aab" ] || { echo 'AAB not found' >&2; exit 1; }
           mv "$apk" "$(dirname "$apk")/sable-${VERSION}-android-universal.apk"
           mv "$aab" "$(dirname "$aab")/sable-${VERSION}-android-universal.aab"
-      # IzzyOnDroid runs the same script: keep the build steps in it, not here.
-      - name: Build FOSS Android APKs
+      - name: Download FOSS APKs
         if: ${{ needs.setup-release.outputs.nightly != 'true' }}
+        uses: https://code.forgejo.org/forgejo/download-artifact@769f970437aa3291b13f35dc23fc87967d7fb19f # v7
+        with:
+          pattern: android-foss-*
+          merge-multiple: true
+          path: src-tauri/gen/android/app/build/outputs/foss
+      - name: Verify Android release bundles
         run: |
-          node scripts/release/fastlane-changelog.mjs "$VERSION" --check
-          pnpm android:build --version "$VERSION" --target aarch64 --target armv7 --web-dist dist-foss
-          for pair in 'arm64:aarch64' 'arm:armv7'; do
-            flavor="${pair%%:*}"
-            abi="${pair##*:}"
-            dir="src-tauri/gen/android/app/build/outputs/apk/$flavor/release"
-            apk="$(find "$dir" -name '*.apk' -type f | head -n 1)"
-            [ -n "$apk" ] || { echo "FOSS $abi APK not found" >&2; exit 1; }
-            mv "$apk" "$dir/sable-${VERSION}-android-${abi}-foss.apk"
-          done
-      - name: Verify the APK is signed
-        if: ${{ env.ANDROID_KEY_BASE64 != '' }}
-        run: |
-          apk="src-tauri/gen/android/app/build/outputs/apk/universal/release/sable-${VERSION}-android-universal.apk"
           sdk="$(mise exec -- printenv ANDROID_HOME)"
           apksigner="$(find "$sdk/build-tools" -name apksigner -type f | sort | tail -n 1)"
           [ -n "$apksigner" ] || { echo 'apksigner not found' >&2; exit 1; }
-          mise exec -- "$apksigner" verify --print-certs "$apk"
+          out=src-tauri/gen/android/app/build/outputs
+          mapfile -d '' apks < <(find "$out" -name 'sable-*.apk' -type f -print0)
+          expected=3
+          [ "$IS_NIGHTLY" != 'true' ] || expected=1
+          [ "${#apks[@]}" -eq "$expected" ] || { echo 'Missing release APKs' >&2; exit 1; }
+          version_code="$(node --input-type=module -e 'import { tauriVersionConfig } from "./scripts/ci/set-tauri-version.mjs"; console.log(tauriVersionConfig(process.env.VERSION).bundle.android.versionCode)')"
+          for apk in "${apks[@]}"; do
+            mise exec -- "$apksigner" verify --print-certs "$apk"
+            expected_id=moe.sable.client
+            [ "$IS_NIGHTLY" != 'true' ] || expected_id=moe.sable.next.nightly
+            [ "$(mise exec -- apkanalyzer manifest application-id "$apk")" = "$expected_id" ] || exit 1
+            [ "$(mise exec -- apkanalyzer manifest version-name "$apk")" = "$VERSION" ] || exit 1
+            expected_code="$version_code"
+            case "$apk" in
+              *-aarch64-foss.apk) expected_code=$((version_code + 2)) ;;
+              *-armv7-foss.apk) expected_code=$((version_code + 1)) ;;
+            esac
+            [ "$(mise exec -- apkanalyzer manifest version-code "$apk")" = "$expected_code" ] || exit 1
+            # Rust calls this method by name through JNI.
+            mise exec -- apkanalyzer dex code --class moe.sable.client.TauriActivity \
+              --method 'getPluginManager()Lapp/tauri/plugin/PluginManager;' "$apk" \
+              | grep -E '^\.method public (final )?getPluginManager\(\)Lapp/tauri/plugin/PluginManager;$'
+          done
+          apk="$out/apk/universal/release/sable-${VERSION}-android-universal.apk"
+          aab="$out/bundle/universalRelease/sable-${VERSION}-android-universal.aab"
+          for target in $ANDROID_TARGETS; do
+            case "$target" in
+              aarch64) abi=arm64-v8a ;;
+              armv7) abi=armeabi-v7a ;;
+              i686) abi=x86 ;;
+              x86_64) abi=x86_64 ;;
+              *) exit 1 ;;
+            esac
+            unzip -p "$apk" "lib/$abi/libapp_lib.so" > "$RUNNER_TEMP/packaged.so"
+            readelf --file-header "$RUNNER_TEMP/packaged.so"
+            unzip -p "$aab" "base/lib/$abi/libapp_lib.so" > "$RUNNER_TEMP/packaged.so"
+            readelf --file-header "$RUNNER_TEMP/packaged.so"
+          done
+          mise exec -- jarsigner -verify "$aab" | grep -F 'jar verified.'
       - name: Attach Android bundles to release
         run: |
           mapfile -d '' bundles < <(find src-tauri/gen/android/app/build/outputs -type f \
             -name 'sable-*' \( -name '*.apk' -o -name '*.aab' \) -print0)
           [ "${#bundles[@]}" -gt 0 ] || { echo 'No Android bundles found' >&2; exit 1; }
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
-      - name: Show sccache stats
-        if: ${{ always() && env.RUSTC_WRAPPER != '' }}
-        run: sccache --show-stats || true
   android-reproducible:
     name: Reproduce FOSS Android APK
     needs: [setup-release, android]
@@ -725,6 +887,10 @@ jobs:
           pnpm tauri ios init --ci
       - name: Download iOS frameworks
         run: pnpm ios:frameworks
+      - name: Test iOS notification cooldown
+        run: |
+          swiftc src-tauri/ios/NotificationService/AlertCooldown.swift src-tauri/ios/tests/AlertCooldownTests.swift -o "$RUNNER_TEMP/sable-alert-cooldown-tests"
+          "$RUNNER_TEMP/sable-alert-cooldown-tests"
       - name: Add Rust target
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.
@@ -1051,10 +1217,9 @@ jobs:
           node scripts/ci/forgejo-release.mjs download \
             --pattern "sable-${VERSION}-arm64.dmg" --dir dmg
           ls dmg | grep -q . || { echo 'The DMG is not on the release' >&2; exit 1; }
-      - name: Push the cask to the taps
+      - name: Push the cask to the Forgejo tap
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          HOMEBREW_GITHUB_TAP_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TAP_TOKEN }}
         run: |
           sha="$(sha256sum "dmg/sable-${VERSION}-arm64.dmg" | awk '{print $1}')"
           export GIT_TERMINAL_PROMPT=0
@@ -1066,27 +1231,14 @@ jobs:
               echo "::notice::The ${name} tap token is not set; skipping that tap."
               return 0
             fi
-            export GIT_CONFIG_COUNT=1
+            local auth
+            auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
+            echo "::add-mask::${auth}"
+            export GIT_CONFIG_COUNT=2
             export GIT_CONFIG_KEY_0="http.https://${url%%/*}/.extraHeader"
             export GIT_CONFIG_VALUE_0=''
-            if [ "${url%%/*}" = github.com ]; then
-              if ! command -v gh >/dev/null 2>&1; then
-                sudo apt-get update
-                sudo apt-get install --no-install-recommends -y gh
-              fi
-              export GH_TOKEN="$token"
-              GIT_CONFIG_GLOBAL="$(mktemp)"
-              export GIT_CONFIG_GLOBAL
-              trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT
-              gh auth setup-git --hostname github.com
-            else
-              local auth
-              auth="$(printf 'x-access-token:%s' "$token" | base64 | tr -d '\r\n')"
-              echo "::add-mask::${auth}"
-              export GIT_CONFIG_COUNT=2
-              export GIT_CONFIG_KEY_1="$GIT_CONFIG_KEY_0"
-              export GIT_CONFIG_VALUE_1="Authorization: Basic ${auth}"
-            fi
+            export GIT_CONFIG_KEY_1="$GIT_CONFIG_KEY_0"
+            export GIT_CONFIG_VALUE_1="Authorization: Basic ${auth}"
             rm -rf tap
             git clone --depth 1 "https://${url}" tap
             mkdir -p tap/Casks
@@ -1107,7 +1259,6 @@ jobs:
           )
 
           push_tap Forgejo "${HOMEBREW_TAP_TOKEN:-}" git.sable.moe/SableClient/homebrew-sable.git
-          push_tap GitHub "${HOMEBREW_GITHUB_TAP_TOKEN:-}" github.com/SableClient/homebrew-sable.git
   distribute-flathub:
     name: Open the Flathub update PR
     needs: [setup-release, electron-linux, github-bundles]

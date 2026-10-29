@@ -292,7 +292,7 @@ impl Core {
         );
     }
 
-    /// Two streams, one status, so either firing re-reads both.
+    /// Re-read the full status when verification, recovery, or backup changes.
     pub(crate) fn watch_encryption(self: &Arc<Self>, client: &matrix_sdk::Client, generation: u64) {
         let mut verification = client.encryption().verification_state();
         let recovery = client.encryption().recovery().state_stream();
@@ -377,6 +377,12 @@ impl Core {
                     let devices = crate::verification::local_own_devices(&watched).await;
                     if devices != known {
                         known.clone_from(&devices);
+                        core.emit_if_current(
+                            generation,
+                            CoreEvent::EncryptionStatus {
+                                status: crate::verification::encryption_status(&watched).await,
+                            },
+                        );
                         core.emit_if_current(generation, CoreEvent::DevicesChanged { devices });
                     }
                 }

@@ -237,4 +237,14 @@
     height: 1rem;
     width: 1rem;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    input[type='range']::-webkit-slider-runnable-track {
+      background-color: var(--primary-main);
+    }
+
+    input[type='range']::-moz-range-track {
+      background-color: var(--primary-main);
+    }
+  }
 </style>

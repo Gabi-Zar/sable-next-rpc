@@ -614,7 +614,6 @@ async fn download_persona_avatar(url: &str) -> Result<(String, Vec<u8>), RpcErro
     }
     // Do not send Matrix credentials to avatar hosts.
     let http = crate::tls::apply(matrix_sdk::reqwest::Client::builder())
-        .user_agent("Sable")
         .timeout(Duration::from_secs(30))
         .redirect(matrix_sdk::reqwest::redirect::Policy::limited(5))
         .build()
@@ -735,6 +734,7 @@ mod avatar_import_tests {
         assert_eq!(mime, "image/png");
         assert_eq!(bytes, [137, 80, 78, 71]);
         for request in server.received_requests().await.expect("requests") {
+            assert_eq!(request.headers["user-agent"], crate::USER_AGENT);
             assert!(!request.headers.contains_key("authorization"));
             assert!(!request.headers.contains_key("cookie"));
         }

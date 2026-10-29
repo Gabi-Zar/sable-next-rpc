@@ -6,6 +6,10 @@ use matrix_sdk::ruma::{OwnedMxcUri, OwnedRoomId};
 use serde_with::{DefaultOnError, serde_as};
 use std::collections::HashMap;
 
+pub(crate) fn is_preview_url(value: &str) -> bool {
+    url::Url::parse(value).is_ok_and(|url| matches!(url.scheme(), "http" | "https"))
+}
+
 pub(crate) fn preview_refused(error: &matrix_sdk::HttpError) -> bool {
     error
         .as_client_api_error()
@@ -56,9 +60,6 @@ pub(crate) struct PreviewData {
     #[serde(rename = "matched_url")]
     pub(crate) legacy_matched_url: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError")]
-    #[serde(rename = "og:url")]
-    pub(crate) url: Option<String>,
-    #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(rename = "og:title")]
     pub(crate) title: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError")]
@@ -68,7 +69,7 @@ pub(crate) struct PreviewData {
     #[serde(rename = "og:site_name")]
     pub(crate) site_name: Option<String>,
     #[serde_as(deserialize_as = "DefaultOnError")]
-    #[serde(rename = "matrix:image:encrypted")]
+    #[serde(rename = "matrix:image:encrypted", alias = "beeper:image:encryption")]
     pub(crate) encrypted_image: Option<matrix_sdk::ruma::events::room::EncryptedFile>,
     #[serde_as(deserialize_as = "DefaultOnError")]
     #[serde(rename = "og:image")]
@@ -172,10 +173,10 @@ pub(crate) fn url_preview(url: String, data: &serde_json::Value) -> Option<UrlPr
     Some(preview)
 }
 
-const MAX_PREVIEW_IMAGE_BYTES: usize = 8 * 1024 * 1024;
+const MAX_PREVIEW_IMAGE_BYTES: usize = 1024 * 1024;
 
-pub(crate) struct EncryptedPreviewImage {
-    file: serde_json::Value,
+pub(crate) struct PreviewImage {
+    source: MediaSource,
     size: u64,
 }
 
@@ -189,8 +190,8 @@ struct LinkPreviewBundleOut {
     stable_matched_url: Option<String>,
     #[serde(rename = "matched_url", skip_serializing_if = "Option::is_none")]
     legacy_matched_url: Option<String>,
-    #[serde(rename = "og:url")]
-    url: String,
+    #[serde(rename = "og:url", skip_serializing_if = "Option::is_none")]
+    url: Option<String>,
     #[serde(rename = "og:title", skip_serializing_if = "Option::is_none")]
     title: Option<String>,
     #[serde(rename = "og:description", skip_serializing_if = "Option::is_none")]
@@ -202,10 +203,17 @@ struct LinkPreviewBundleOut {
         skip_serializing_if = "Option::is_none"
     )]
     encrypted_image: Option<serde_json::Value>,
+    #[serde(
+        rename = "beeper:image:encryption",
+        skip_serializing_if = "Option::is_none"
+    )]
+    legacy_encrypted_image: Option<serde_json::Value>,
     #[serde(rename = "matrix:image:size", skip_serializing_if = "Option::is_none")]
-    encrypted_image_size: Option<u64>,
+    image_size: Option<u64>,
     #[serde(rename = "og:image", skip_serializing_if = "Option::is_none")]
     image: Option<String>,
+    #[serde(rename = "og:image:type", skip_serializing_if = "Option::is_none")]
+    image_type: Option<String>,
     #[serde(rename = "og:image:width", skip_serializing_if = "Option::is_none")]
     image_width: Option<u64>,
     #[serde(rename = "og:image:height", skip_serializing_if = "Option::is_none")]
@@ -233,29 +241,34 @@ struct LinkPreviewBundleOut {
 }
 
 impl LinkPreviewBundleOut {
-    fn new(
-        preview: &UrlPreviewView,
-        encrypted: Option<&EncryptedPreviewImage>,
-        stable: bool,
-    ) -> Self {
+    fn new(preview: &UrlPreviewView, image: Option<&PreviewImage>, stable: bool) -> Self {
         let video = preview.video.as_ref();
-        let encrypted_stable = encrypted.filter(|_| stable);
+        let encrypted = image.and_then(|image| match &image.source {
+            MediaSource::Encrypted(file) => serde_json::to_value(file).ok(),
+            MediaSource::Plain(_) => None,
+        });
         Self {
             stable_matched_url: stable.then(|| preview.url.clone()),
             legacy_matched_url: (!stable).then(|| preview.url.clone()),
-            url: preview.url.clone(),
+            url: (preview.title.is_some()
+                || preview.description.is_some()
+                || preview.site_name.is_some()
+                || image.is_some()
+                || video.is_some())
+            .then(|| preview.url.clone()),
             title: preview.title.clone(),
             description: preview.description.clone(),
             site_name: preview.site_name.clone(),
-            encrypted_image: encrypted_stable.map(|image| image.file.clone()),
-            encrypted_image_size: encrypted_stable.map(|image| image.size),
-            image: if encrypted.is_some() {
-                None
-            } else {
-                preview.image.clone()
-            },
-            image_width: preview.image_width,
-            image_height: preview.image_height,
+            encrypted_image: encrypted.clone().filter(|_| stable),
+            legacy_encrypted_image: encrypted.filter(|_| !stable),
+            image_size: image.map(|image| image.size),
+            image: image.and_then(|image| match &image.source {
+                MediaSource::Plain(uri) => Some(uri.to_string()),
+                MediaSource::Encrypted(_) => None,
+            }),
+            image_type: preview.image_mime.clone().filter(|_| image.is_some()),
+            image_width: preview.image_width.filter(|_| image.is_some()),
+            image_height: preview.image_height.filter(|_| image.is_some()),
             video: video.map(|video| video.source.clone()),
             video_type: video.and_then(|video| video.mime.clone()),
             video_width: video.and_then(|video| video.width),
@@ -269,7 +282,7 @@ impl LinkPreviewBundleOut {
 
 pub(crate) fn bundled_link_previews(
     previews: &[UrlPreviewView],
-    encrypted_images: &HashMap<String, EncryptedPreviewImage>,
+    images: &HashMap<String, PreviewImage>,
     stable: bool,
 ) -> Option<serde_json::Value> {
     if previews.is_empty() {
@@ -277,26 +290,27 @@ pub(crate) fn bundled_link_previews(
     }
     let bundles: Vec<_> = previews
         .iter()
-        .map(|preview| {
-            LinkPreviewBundleOut::new(preview, encrypted_images.get(&preview.url), stable)
-        })
+        .map(|preview| LinkPreviewBundleOut::new(preview, images.get(&preview.url), stable))
         .collect();
     serde_json::to_value(bundles).ok()
 }
 
 impl Core {
-    pub(crate) async fn encrypted_preview_images(
+    pub(crate) async fn prepare_preview_images(
         &self,
         room_id: &OwnedRoomId,
         previews: &[UrlPreviewView],
-    ) -> HashMap<String, EncryptedPreviewImage> {
+    ) -> HashMap<String, PreviewImage> {
         let mut images = HashMap::new();
+        if !previews.iter().any(|preview| preview.image.is_some()) {
+            return images;
+        }
         let Ok(room) = self.room(room_id).await else {
             return images;
         };
-        if !room.encryption_state().is_encrypted() {
+        let Ok(encrypted) = self.room_is_encrypted(&room).await else {
             return images;
-        }
+        };
         let client = room.client();
         for preview in previews {
             let Some(image) = preview
@@ -313,17 +327,28 @@ impl Core {
             let Ok(data) = client.media().get_media_content(&request, false).await else {
                 continue;
             };
-            if data.len() > MAX_PREVIEW_IMAGE_BYTES {
+            if data.is_empty() || data.len() > MAX_PREVIEW_IMAGE_BYTES {
                 continue;
             }
             let size = data.len() as u64;
-            let mut reader = std::io::Cursor::new(data);
-            let Ok(file) = client.upload_encrypted_file(&mut reader).await else {
-                continue;
+            let source = if encrypted {
+                let mut reader = std::io::Cursor::new(data);
+                let Ok(file) = client.upload_encrypted_file(&mut reader).await else {
+                    continue;
+                };
+                MediaSource::Encrypted(Box::new(file))
+            } else {
+                let mime = preview
+                    .image_mime
+                    .as_deref()
+                    .and_then(|mime| mime.parse::<mime::Mime>().ok())
+                    .unwrap_or(mime::APPLICATION_OCTET_STREAM);
+                let Ok(response) = client.media().upload(&mime, data, None).await else {
+                    continue;
+                };
+                MediaSource::Plain(response.content_uri)
             };
-            if let Ok(file) = serde_json::to_value(&file) {
-                images.insert(preview.url.clone(), EncryptedPreviewImage { file, size });
-            }
+            images.insert(preview.url.clone(), PreviewImage { source, size });
         }
         images
     }
@@ -333,53 +358,48 @@ impl Core {
 mod tests {
 
     #[test]
-    fn link_preview_bundles_omit_absent_fields_and_key_the_url_by_format() {
+    fn bundles_use_persistent_images_and_include_their_metadata() {
         let previews = [preview("https://example.org/")];
-        assert_eq!(
-            super::bundled_link_previews(&previews, &std::collections::HashMap::new(), true),
-            Some(serde_json::json!([{
-                "matrix:matched_url": "https://example.org/",
-                "og:url": "https://example.org/",
-                "og:title": "Title",
-                "og:image": "mxc://example.org/image",
-                "og:image:width": 640,
-                "og:video": "https://example.org/v.mp4",
-                "og:video:type": "video/mp4",
-                "og:video:height": 360,
-                "com.sable.theme_color": "#fff",
-            }]))
-        );
-        assert_eq!(
-            super::bundled_link_previews(&previews, &std::collections::HashMap::new(), false)
-                .expect("a bundle")[0]["matched_url"],
-            "https://example.org/"
-        );
-        assert!(
-            super::bundled_link_previews(&[], &std::collections::HashMap::new(), true).is_none()
-        );
+        let images = std::collections::HashMap::from([(
+            previews[0].url.clone(),
+            super::PreviewImage {
+                source: matrix_sdk::ruma::events::room::MediaSource::Plain(
+                    "mxc://example.org/persistent".into(),
+                ),
+                size: 42,
+            },
+        )]);
+        let stable = super::bundled_link_previews(&previews, &images, true).unwrap();
+        assert_eq!(stable[0]["matrix:matched_url"], "https://example.org/");
+        assert_eq!(stable[0]["og:image"], "mxc://example.org/persistent");
+        assert_eq!(stable[0]["matrix:image:size"], 42);
+        assert_eq!(stable[0]["og:image:type"], "image/png");
+        assert_eq!(stable[0]["og:image:width"], 640);
+        assert!(stable[0].get("og:description").is_none());
+        assert!(stable[0].get("matched_url").is_none());
+        let legacy = super::bundled_link_previews(&previews, &images, false).unwrap();
+        assert_eq!(legacy[0]["matched_url"], "https://example.org/");
+        assert!(legacy[0].get("matrix:matched_url").is_none());
+        assert!(super::bundled_link_previews(&[], &images, true).is_none());
     }
 
     #[test]
-    fn encrypted_preview_images_replace_the_plain_one_only_in_the_stable_bundle() {
-        let previews = [preview("https://example.org/")];
-        let encrypted = std::collections::HashMap::from([(
-            "https://example.org/".to_owned(),
-            super::EncryptedPreviewImage {
-                file: serde_json::json!({ "url": "mxc://example.org/enc" }),
-                size: 12,
-            },
-        )]);
-        let stable = super::bundled_link_previews(&previews, &encrypted, true).expect("a bundle");
-        assert_eq!(
-            stable[0]["matrix:image:encrypted"],
-            serde_json::json!({ "url": "mxc://example.org/enc" })
-        );
-        assert_eq!(stable[0]["matrix:image:size"], 12);
-        assert!(stable[0].get("og:image").is_none());
-
-        let legacy = super::bundled_link_previews(&previews, &encrypted, false).expect("a bundle");
-        assert!(legacy[0].get("matrix:image:encrypted").is_none());
-        assert!(legacy[0].get("og:image").is_none());
+    fn whitelist_only_entries_contain_just_the_matched_url() {
+        let mut preview = preview("https://example.org/");
+        preview.title = None;
+        preview.image = None;
+        preview.video = None;
+        preview.theme_color = None;
+        let previews = [preview];
+        for (stable, field) in [(true, "matrix:matched_url"), (false, "matched_url")] {
+            let bundles =
+                super::bundled_link_previews(&previews, &std::collections::HashMap::new(), stable)
+                    .unwrap();
+            assert_eq!(
+                bundles,
+                serde_json::json!([{ (field): "https://example.org/" }])
+            );
+        }
     }
 
     #[test]
@@ -449,53 +469,16 @@ mod tests {
         assert_eq!(preview.image_width, Some(640));
     }
 
-    #[test]
-    fn an_encrypted_preview_image_replaces_og_image_in_the_stable_field_only() {
-        let preview = crate::protocol::UrlPreviewView {
-            url: "https://example.org".to_owned(),
-            title: Some("Example".to_owned()),
-            description: None,
-            site_name: None,
-            image: Some("mxc://example.org/plain".to_owned()),
-            image_mime: None,
-            image_width: None,
-            image_height: None,
-            video: None,
-            theme_color: None,
-            card: None,
-            author_name: None,
-        };
-        let images = std::collections::HashMap::from([(
-            preview.url.clone(),
-            super::EncryptedPreviewImage {
-                file: serde_json::json!({ "url": "mxc://example.org/enc" }),
-                size: 42,
-            },
-        )]);
-
-        let previews = [preview];
-        let stable = super::bundled_link_previews(&previews, &images, true).unwrap();
-        assert_eq!(stable[0]["matrix:image:size"], 42);
-        assert_eq!(
-            stable[0]["matrix:image:encrypted"]["url"],
-            "mxc://example.org/enc"
-        );
-        assert!(stable[0].get("og:image").is_none());
-
-        let legacy = super::bundled_link_previews(&previews, &images, false).unwrap();
-        assert!(legacy[0].get("og:image").is_none());
-        assert!(legacy[0].get("matrix:image:encrypted").is_none());
-    }
-
     #[tokio::test]
     async fn soliditas_preview_asks_the_worker_with_the_url() {
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
-            matchers::{method, path, query_param},
+            matchers::{header, method, path, query_param},
         };
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/_soliditas/preview_url"))
+            .and(header("user-agent", crate::USER_AGENT))
             .and(query_param("url", "https://example.org/a?b=1&c=2"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(serde_json::json!({"og:title": "Hi"})),
@@ -553,7 +536,7 @@ mod tests {
             description: None,
             site_name: None,
             image: Some("mxc://example.org/image".to_owned()),
-            image_mime: None,
+            image_mime: Some("image/png".to_owned()),
             image_width: Some(640),
             image_height: None,
             video: Some(crate::protocol::UrlPreviewVideoView {

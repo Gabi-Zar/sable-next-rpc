@@ -381,4 +381,27 @@
       scale: 0.98;
     }
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    :global(.supporter-badge:hover .supporter-mark),
+    :global(.supporter-badge:focus-visible .supporter-mark),
+    :global(.supporter-badge[data-state='open'] .supporter-mark) {
+      filter: drop-shadow(0 0 var(--space-050) var(--supporter-accent-start));
+    }
+
+    :global(.supporter-card) {
+      background: var(--surface-container);
+      border: var(--border-width) solid var(--surface-var-container-line);
+    }
+
+    :global(.supporter-card[data-custom-colors]),
+    :global(.supporter-card[data-custom-colors] .supporter-card-donate) {
+      border-color: var(--surface-var-container-line);
+    }
+
+    :global(.supporter-card-donate) {
+      --button-container-hover: var(--supporter-button);
+      --button-container-active: var(--supporter-button);
+    }
+  }
 </style>

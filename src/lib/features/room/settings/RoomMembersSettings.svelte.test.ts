@@ -223,7 +223,7 @@ test('keeps a changed power level when the reload still returns the old one', as
     );
   expect(names()).toEqual(['Alice', 'Bob']);
 
-  const [, bobRole] = screen.getAllByRole('button', { name: 'Change role' });
+  const [, bobRole] = screen.getAllByRole('combobox', { name: 'Change role' });
   await user.click(bobRole);
   await user.click(await screen.findByRole('option', { name: /Moderator/ }));
 
@@ -248,7 +248,7 @@ test('offers the roles created in the room alongside the default ones', async ()
   });
   const user = await renderMembers({ ...permissions, can_change_power_levels: true });
 
-  const [, bobRole] = screen.getAllByRole('button', { name: 'Change role' });
+  const [, bobRole] = screen.getAllByRole('combobox', { name: 'Change role' });
   await user.click(bobRole);
   await user.click(await screen.findByRole('option', { name: /Helper/ }));
 
@@ -277,7 +277,7 @@ test('offers no role above your own and asks before lowering your own', async ()
     can_change_power_levels: true,
   });
   const roleOf = (name: string) =>
-    within(screen.getByText(name).closest('li') ?? document.body).getByRole('button', {
+    within(screen.getByText(name).closest('li') ?? document.body).getByRole('combobox', {
       name: 'Change role',
     });
 

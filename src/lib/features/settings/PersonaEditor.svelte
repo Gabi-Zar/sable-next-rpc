@@ -486,6 +486,7 @@
   .trigger-row .field {
     align-items: center;
     grid-row: 1 / 3;
+    grid-template-rows: auto auto;
     grid-template-rows: subgrid;
   }
 

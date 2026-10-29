@@ -36,8 +36,9 @@ read" is on.
    recipient `user_id`, and `room_id`. Never send keys or plaintext to the gateway.
    Omit `apns-collapse-id` or use an event-specific value. Read updates must also
    be alerts (`apns-push-type: alert`); the extension drops them.
-   A stock Sygnal builds its own alert and forwards only `room_id` and `event_id`, so
-   the pusher's `default_payload` asks for `mutable-content` and the extension fetches
+   The iOS pusher is always `event_id_only`, so the gateway never sees message text.
+   Sygnal then sends no alert, so the pusher's `default_payload` carries a generic one
+   and asks for `mutable-content`. The extension fetches
    and decrypts the event as a separate SDK process, beside a running app. It restores
    only the pushed room, with low-memory SQLite settings.
 4. Request the restricted `com.apple.developer.usernotifications.filtering`
@@ -56,7 +57,12 @@ read" is on.
 
 Sign out before switching existing private sessions to shared storage. Without
 App Group access or the first unlock after reboot, the extension cannot decrypt.
-Missing keys produce generic alerts.
+Missing keys produce generic alerts. A push whose rules cannot be evaluated is
+shown, unless the server pushes every encrypted event (MSC4028).
+
+Logs use the `os_log` subsystem `moe.sable.app.notifications`. With error reporting
+on, the app writes `sentry.json` to the shared folder and the extension reports
+generic fallbacks to Sentry.
 
 Messages group and clear by recipient/room. Duplicate checks also match event ID;
 replacements are silent. Cross-process deduplication is not atomic.

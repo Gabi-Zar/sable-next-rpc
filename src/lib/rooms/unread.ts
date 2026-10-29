@@ -1,11 +1,11 @@
-import type { NotificationModeView, RoomListItemView } from '#src/generated/protocol';
+import type {
+  NotificationModeView,
+  RoomListItemView,
+  RoomUnreadView,
+} from '#src/generated/protocol';
 
-export type UnreadCount = {
-  unread: number;
-  highlight: number;
-  marked?: boolean;
-  notifying?: number;
-};
+export type UnreadCount = Pick<RoomUnreadView, 'unread' | 'highlight'> &
+  Partial<Pick<RoomUnreadView, 'marked' | 'notifying'>>;
 
 export type RoomUnread = (room: RoomListItemView) => UnreadCount;
 

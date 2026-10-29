@@ -14,7 +14,7 @@ use matrix_sdk::ruma::push::{
     HighlightTweakValue, NewConditionalPushRule, NewPatternedPushRule, NewPushRule,
     NewSimplePushRule, PredefinedContentRuleId, PredefinedOverrideRuleId,
     PredefinedUnderrideRuleId, PushCondition, RoomMemberCountConditionData, RuleKind, Ruleset,
-    ScalarJsonValue, SoundTweakValue, Tweak,
+    ScalarJsonValue, SenderNotificationPermissionConditionData, SoundTweakValue, Tweak,
 };
 use matrix_sdk::ruma::{OwnedRoomId, RoomId};
 use tokio::sync::{RwLock, broadcast};
@@ -526,10 +526,43 @@ const SHAPE_PREFIX: &str = "moe.sable.shape.";
 const STICKER: &str = "moe.sable.sticker";
 const STICKER_DIRECT: &str = "moe.sable.sticker_one_to_one";
 const RING_ONE_TO_ONE: &str = "moe.sable.ring_one_to_one";
+const RTC_INVITE_TYPES: [(&str, &str, &str); 3] = [
+    (
+        "m.rtc.invite",
+        "moe.sable.rtc.invite_for_me",
+        "moe.sable.rtc.invite_for_room",
+    ),
+    (
+        "org.matrix.msc4075.rtc.notification",
+        "moe.sable.rtc.invite_for_me.unstable",
+        "moe.sable.rtc.invite_for_room.unstable",
+    ),
+    (
+        "m.rtc.notification",
+        "moe.sable.rtc.invite_for_me.legacy",
+        "moe.sable.rtc.invite_for_room.legacy",
+    ),
+];
+const RTC_INVITE_GUARDS: [(&str, &str); 3] = [
+    ("m.rtc.invite", "moe.sable.rtc.suppress_invite"),
+    (
+        "org.matrix.msc4075.rtc.notification",
+        "moe.sable.rtc.suppress_invite.unstable",
+    ),
+    ("m.rtc.notification", "moe.sable.rtc.suppress_invite.legacy"),
+];
+const RTC_SERVER_USER_RULES: [&str; 2] = [
+    ".m.rule.rtc.invite_for_me",
+    ".org.matrix.msc4075.rule.rtc.invite_for_me",
+];
+const RTC_SERVER_ROOM_RULES: [&str; 2] = [
+    ".m.rule.rtc.invite_for_room",
+    ".org.matrix.msc4075.rule.rtc.invite_for_room",
+];
 const SUPPRESS_BRIDGE_STATUS: &str = "moe.sable.suppress_bridge_status";
 const SUPPRESS_REACTIONS: &str = "moe.sable.suppress_reactions";
 /// A room rule matches every event, so these would notify in a room set to all messages.
-const SUPPRESSED_ROOM_EVENTS: [&str; 13] = [
+const SUPPRESSED_ROOM_EVENTS: [&str; 15] = [
     "m.room.name",
     "m.room.topic",
     "m.room.avatar",
@@ -543,6 +576,8 @@ const SUPPRESSED_ROOM_EVENTS: [&str; 13] = [
     "m.call.member",
     "org.matrix.msc4143.rtc.member",
     "m.rtc.member",
+    "m.rtc.decline",
+    "org.matrix.msc4310.rtc.decline",
 ];
 
 #[must_use]
@@ -574,7 +609,7 @@ pub fn plan_alignment(rules: &Ruleset) -> Vec<RuleWrite> {
 
     writes.extend(align_stickers(rules, false));
     writes.extend(align_stickers(rules, true));
-    writes.extend(align_direct_ring(rules));
+    writes.extend(align_rtc_invites(rules));
     writes.extend(silence_event_type(
         rules,
         SUPPRESS_BRIDGE_STATUS,
@@ -737,61 +772,204 @@ fn align_stickers(rules: &Ruleset, direct: bool) -> Vec<RuleWrite> {
     }
 }
 
-fn align_direct_ring(rules: &Ruleset) -> Vec<RuleWrite> {
-    let notify = event_notifies(rules, EventNotificationView::Calls).unwrap_or(true);
-    let actions = if notify {
-        event_actions(EventNotificationView::Calls)
+fn is_rtc_rule(rule_id: &str) -> bool {
+    RTC_SERVER_USER_RULES.contains(&rule_id)
+        || RTC_SERVER_ROOM_RULES.contains(&rule_id)
+        || RTC_INVITE_TYPES
+            .iter()
+            .any(|(_, user, room)| *user == rule_id || *room == rule_id)
+}
+
+fn rtc_server_rule<'a>(
+    rules: &'a Ruleset,
+    user: bool,
+    event_type: Option<&str>,
+) -> Option<&'a matrix_sdk::ruma::push::ConditionalPushRule> {
+    let ids = if user {
+        &RTC_SERVER_USER_RULES
     } else {
-        vec![]
+        &RTC_SERVER_ROOM_RULES
     };
-    match rules
+    ids.iter()
+        .filter_map(|id| rules.override_.get(*id))
+        .find(|rule| {
+            event_type.is_none_or(|event_type| {
+                rule.conditions.iter().any(|condition| match condition {
+                    PushCondition::EventPropertyIs(data) => {
+                        data.key == "type"
+                            && data.value == ScalarJsonValue::String(event_type.to_owned())
+                    }
+                    PushCondition::EventMatch(data) => {
+                        data.key == "type" && data.pattern == event_type
+                    }
+                    _ => false,
+                })
+            })
+        })
+}
+
+fn align_rtc_invites(rules: &Ruleset) -> Vec<RuleWrite> {
+    let mut writes = Vec::new();
+    if rules.override_.get(RING_ONE_TO_ONE).is_some() {
+        writes.push(RuleWrite::Delete {
+            kind: RuleKind::Override,
+            rule_id: RING_ONE_TO_ONE.to_owned(),
+        });
+    }
+    let user_condition = rules
+        .override_
+        .get(PredefinedOverrideRuleId::IsUserMention.as_str())
+        .or_else(|| rtc_server_rule(rules, true, None))
+        .and_then(|rule| {
+            rule.conditions.iter().find(|condition| {
+                matches!(condition, PushCondition::EventPropertyContains(data)
+                if data.key == "content.m\\.mentions.user_ids")
+            })
+        })
+        .cloned();
+    let mut after = rules
         .override_
         .iter()
-        .find(|rule| rule.rule_id == RING_ONE_TO_ONE)
-    {
-        None => {
-            let rule = NewPushRule::Override(NewConditionalPushRule::new(
-                RING_ONE_TO_ONE.to_owned(),
-                vec![
-                    PushCondition::RoomMemberCount(RoomMemberCountConditionData::new(
-                        matrix_sdk::ruma::uint!(2).into(),
-                    )),
-                    PushCondition::EventMatch(EventMatchConditionData::new(
-                        "type".to_owned(),
-                        crate::calls::NOTIFICATION_EVENT_TYPE.to_owned(),
-                    )),
-                    PushCondition::EventPropertyIs(EventPropertyIsConditionData::new(
-                        "content.notification_type".to_owned(),
-                        ScalarJsonValue::String("ring".to_owned()),
-                    )),
-                ],
-                actions,
-            ));
-            let after = rules
-                .override_
-                .iter()
-                .rev()
-                .find(|rule| !rule.default)
-                .map(|rule| rule.rule_id.clone());
-            vec![match after {
-                Some(after) => RuleWrite::PutAfter { rule, after },
-                None => RuleWrite::Put(rule),
-            }]
+        .rev()
+        .find(|rule| {
+            !rule.default
+                && rule.rule_id != RING_ONE_TO_ONE
+                && !is_rtc_rule(&rule.rule_id)
+                && !RTC_INVITE_GUARDS.iter().any(|(_, id)| *id == rule.rule_id)
+        })
+        .map(|rule| rule.rule_id.clone());
+    for (event_type, user_id, room_id) in RTC_INVITE_TYPES {
+        for (user, rule_id) in [(true, user_id), (false, room_id)] {
+            let Some(conditions) = rtc_invite_conditions(event_type, user, user_condition.as_ref())
+            else {
+                continue;
+            };
+            let source = rtc_server_rule(rules, user, Some(event_type))
+                .or_else(|| rtc_server_rule(rules, user, None));
+            let actions = source.map_or_else(
+                || {
+                    if event_notifies(rules, EventNotificationView::Calls).unwrap_or(true) {
+                        event_actions(EventNotificationView::Calls)
+                    } else {
+                        vec![]
+                    }
+                },
+                |rule| rule.actions.clone(),
+            );
+            let enabled = source.is_none_or(|rule| rule.enabled);
+            let existing = rules.override_.get(rule_id);
+            match existing {
+                None => {
+                    let rule = NewPushRule::Override(NewConditionalPushRule::new(
+                        rule_id.to_owned(),
+                        conditions,
+                        actions,
+                    ));
+                    writes.push(match &after {
+                        Some(after) => RuleWrite::PutAfter {
+                            rule,
+                            after: after.clone(),
+                        },
+                        None => RuleWrite::Put(rule),
+                    });
+                }
+                Some(rule) => {
+                    if serde_json::to_value(&rule.conditions).ok()
+                        != serde_json::to_value(&conditions).ok()
+                    {
+                        writes.push(RuleWrite::Put(NewPushRule::Override(
+                            NewConditionalPushRule::new(
+                                rule_id.to_owned(),
+                                conditions,
+                                actions.clone(),
+                            ),
+                        )));
+                    } else if serde_json::to_value(&rule.actions).ok()
+                        != serde_json::to_value(&actions).ok()
+                    {
+                        writes.push(RuleWrite::Actions {
+                            kind: RuleKind::Override,
+                            rule_id: rule_id.to_owned(),
+                            actions,
+                        });
+                    }
+                }
+            }
+            if existing.is_none_or(|rule| rule.enabled) != enabled {
+                writes.push(RuleWrite::Enabled {
+                    kind: RuleKind::Override,
+                    rule_id: rule_id.to_owned(),
+                    enabled,
+                });
+            }
+            after = Some(rule_id.to_owned());
         }
-        Some(rule) if rule.enabled && notifies(&rule.actions) == notify => vec![],
-        Some(_) => vec![
-            RuleWrite::Actions {
-                kind: RuleKind::Override,
-                rule_id: RING_ONE_TO_ONE.to_owned(),
-                actions,
-            },
-            RuleWrite::Enabled {
-                kind: RuleKind::Override,
-                rule_id: RING_ONE_TO_ONE.to_owned(),
-                enabled: true,
-            },
-        ],
     }
+    writes.extend(align_invite_guards(rules, after));
+    writes
+}
+
+fn rtc_invite_conditions(
+    event_type: &str,
+    user: bool,
+    user_condition: Option<&PushCondition>,
+) -> Option<Vec<PushCondition>> {
+    let mut conditions = vec![PushCondition::EventPropertyIs(
+        EventPropertyIsConditionData::new(
+            "type".to_owned(),
+            ScalarJsonValue::String(event_type.to_owned()),
+        ),
+    )];
+    if user {
+        conditions.push(user_condition?.clone());
+    } else {
+        conditions.extend([
+            PushCondition::EventPropertyIs(EventPropertyIsConditionData::new(
+                "content.m\\.mentions.room".to_owned(),
+                ScalarJsonValue::Bool(true),
+            )),
+            PushCondition::SenderNotificationPermission(
+                SenderNotificationPermissionConditionData::new("room".into()),
+            ),
+        ]);
+    }
+    Some(conditions)
+}
+
+fn align_invite_guards(rules: &Ruleset, mut after: Option<String>) -> Vec<RuleWrite> {
+    let mut writes = Vec::new();
+    // Invalid invites and withdrawals must not reach broad room rules.
+    for (event_type, rule_id) in RTC_INVITE_GUARDS {
+        let existing = rules.override_.get(rule_id);
+        if existing.is_none_or(|rule| !rule.actions.is_empty()) {
+            let rule = NewPushRule::Override(NewConditionalPushRule::new(
+                rule_id.to_owned(),
+                vec![PushCondition::EventPropertyIs(
+                    EventPropertyIsConditionData::new(
+                        "type".to_owned(),
+                        ScalarJsonValue::String(event_type.to_owned()),
+                    ),
+                )],
+                vec![],
+            ));
+            writes.push(match &after {
+                Some(after) => RuleWrite::PutAfter {
+                    rule,
+                    after: after.clone(),
+                },
+                None => RuleWrite::Put(rule),
+            });
+        }
+        if existing.is_some_and(|rule| !rule.enabled) {
+            writes.push(RuleWrite::Enabled {
+                kind: RuleKind::Override,
+                rule_id: rule_id.to_owned(),
+                enabled: true,
+            });
+        }
+        after = Some(rule_id.to_owned());
+    }
+    writes
 }
 
 fn silence_event_type(
@@ -935,10 +1113,22 @@ fn event_rule(rules: &Ruleset, event: EventNotificationView) -> Option<(RuleKind
             )]
         }
         EventNotificationView::Calls => {
-            vec![(
+            let mut candidates = vec![(
                 RuleKind::Underride,
                 PredefinedUnderrideRuleId::Call.as_str(),
-            )]
+            )];
+            candidates.extend(
+                RTC_SERVER_USER_RULES
+                    .into_iter()
+                    .chain(RTC_SERVER_ROOM_RULES)
+                    .chain(
+                        RTC_INVITE_TYPES
+                            .into_iter()
+                            .flat_map(|(_, user, room)| [user, room]),
+                    )
+                    .map(|id| (RuleKind::Override, id)),
+            );
+            candidates
         }
     };
     candidates
@@ -989,10 +1179,19 @@ pub fn plan_event(
     let (kind, rule_id) =
         event_rule(rules, event).ok_or("the server has no rule for this kind of event")?;
     let mut targets = vec![(kind, rule_id)];
-    if matches!(event, EventNotificationView::Calls)
-        && rules.get(RuleKind::Override, RING_ONE_TO_ONE).is_some()
-    {
-        targets.push((RuleKind::Override, RING_ONE_TO_ONE.to_owned()));
+    if matches!(event, EventNotificationView::Calls) {
+        for rule in rules
+            .override_
+            .iter()
+            .filter(|rule| is_rtc_rule(&rule.rule_id) || rule.rule_id == RING_ONE_TO_ONE)
+        {
+            if !targets
+                .iter()
+                .any(|(kind, id)| *kind == RuleKind::Override && *id == rule.rule_id)
+            {
+                targets.push((RuleKind::Override, rule.rule_id.clone()));
+            }
+        }
     }
     Ok(targets
         .into_iter()
@@ -1536,7 +1735,7 @@ mod tests {
         let event = Raw::new(&json!({
             "type": crate::calls::NOTIFICATION_EVENT_TYPE, "event_id": "$e", "room_id": room,
             "sender": "@them:example.org", "origin_server_ts": 0,
-            "content": {"notification_type": "ring", "m.mentions": {"room": true}, "sender_ts": 0, "lifetime": 30000},
+            "content": {"notification_type": "ring", "m.mentions": {"user_ids": [me()]}, "sender_ts": 0, "lifetime": 30000},
         }))
         .unwrap();
         super::notifies(rules.get_actions(&event, &context).await)
@@ -1548,13 +1747,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_ring_from_a_member_who_cannot_notify_the_room_rings_only_one_to_one() {
+    async fn a_named_invitation_does_not_depend_on_room_size() {
         let room = room_id!("!call:example.org");
-        assert!(!rings_in(&Ruleset::server_default(me()), room, 2).await);
-
         let rules = aligned();
         assert!(rings_in(&rules, room, 2).await);
-        assert!(!rings_in(&rules, room, 5).await);
+        assert!(rings_in(&rules, room, 5).await);
         assert!(plan_alignment(&rules).is_empty());
     }
 
@@ -2081,5 +2278,315 @@ mod tests {
             .shift_remove(".org.matrix.msc4028.encrypted_event");
         rules.override_.insert(rule(true, json!([])));
         assert!(!pushes_every_encrypted_event(&rules));
+    }
+
+    async fn invite_actions(
+        rules: &Ruleset,
+        event_type: &str,
+        mentions: serde_json::Value,
+        sender_power: i8,
+    ) -> Vec<super::Action> {
+        use matrix_sdk::ruma::power_levels::NotificationPowerLevels;
+        use matrix_sdk::ruma::push::{PushConditionPowerLevelsCtx, PushConditionRoomCtx};
+        use matrix_sdk::ruma::room_version_rules::{AuthorizationRules, RoomPowerLevelsRules};
+        use matrix_sdk::ruma::serde::Raw;
+
+        let context = PushConditionRoomCtx::new(
+            room_id!("!call:example.org").to_owned(),
+            5_u8.into(),
+            me().to_owned(),
+            "me".to_owned(),
+        )
+        .with_power_levels(PushConditionPowerLevelsCtx::new(
+            std::collections::BTreeMap::new(),
+            sender_power.into(),
+            NotificationPowerLevels::new(),
+            RoomPowerLevelsRules::new(&AuthorizationRules::V1, None),
+        ));
+        let event = Raw::new(&json!({
+            "type": event_type, "event_id": "$announcement", "sender": "@caller:example.org",
+            "room_id": "!call:example.org", "origin_server_ts": 1000,
+            "content": {
+                "slot_id": "m.call#room", "sender_ts": 1000, "lifetime": 90000,
+                "notification_type": "notification", "m.mentions": mentions,
+                "m.relates_to": {"rel_type": "m.reference", "event_id": "$membership"},
+                "m.text": [{"body": "Call started"}]
+            }
+        }))
+        .unwrap();
+        rules.get_actions(&event, &context).await.to_vec()
+    }
+
+    #[tokio::test]
+    async fn call_announcements_notify_without_becoming_mentions() {
+        let rules = aligned();
+        for (event_type, _, _) in super::RTC_INVITE_TYPES {
+            let actions = invite_actions(&rules, event_type, json!({"room": true}), 100).await;
+            assert!(super::notifies(&actions), "{event_type}");
+            assert!(
+                !actions.iter().any(super::Action::is_highlight),
+                "{event_type}"
+            );
+            assert_eq!(
+                serde_json::to_value(actions.iter().find_map(super::Action::sound)).unwrap(),
+                json!("ring")
+            );
+            assert!(!super::notifies(
+                &invite_actions(&rules, event_type, json!({"room": true}), 0).await
+            ));
+        }
+        let mention = invite_actions(&rules, "m.room.message", json!({"room": true}), 100).await;
+        assert!(mention.iter().any(super::Action::is_highlight));
+    }
+
+    #[tokio::test]
+    async fn invitations_target_users_without_room_notification_permission() {
+        let rules = aligned();
+        for (event_type, _, _) in super::RTC_INVITE_TYPES {
+            let actions = invite_actions(&rules, event_type, json!({"user_ids": [me()]}), 0).await;
+            assert!(super::notifies(&actions), "{event_type}");
+            assert!(!actions.iter().any(super::Action::is_highlight));
+            assert!(!super::notifies(
+                &invite_actions(
+                    &rules,
+                    event_type,
+                    json!({"user_ids": ["@someone:example.org"]}),
+                    0,
+                )
+                .await
+            ));
+            assert!(!super::notifies(
+                &invite_actions(&rules, event_type, json!({}), 100).await
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn invitation_rules_respect_mentions_only_mute_and_call_settings() {
+        let rules = aligned();
+        let room = room_id!("!call:example.org");
+        let mentions = applied(
+            rules.clone(),
+            plan_room_mode(&rules, room, false, Some(NotificationModeView::Mentions)),
+        );
+        let muted = applied(
+            rules.clone(),
+            plan_room_mode(&rules, room, false, Some(NotificationModeView::Mute)),
+        );
+        let off = applied(
+            rules.clone(),
+            plan_event(&rules, EventNotificationView::Calls, false).unwrap(),
+        );
+        for (event_type, _, _) in super::RTC_INVITE_TYPES {
+            for target in [json!({"room": true}), json!({"user_ids": [me()]})] {
+                assert!(super::notifies(
+                    &invite_actions(&mentions, event_type, target.clone(), 100).await
+                ));
+                assert!(!super::notifies(
+                    &invite_actions(&muted, event_type, target.clone(), 100).await
+                ));
+                assert!(!super::notifies(
+                    &invite_actions(&off, event_type, target, 100).await
+                ));
+            }
+        }
+        assert!(plan_alignment(&off).is_empty());
+    }
+
+    #[test]
+    fn invitation_alignment_preserves_server_rules_and_other_overrides() {
+        let mut rules = Ruleset::server_default(me());
+        let server: ConditionalPushRule = serde_json::from_value(json!({
+            "rule_id": ".m.rule.rtc.invite_for_me", "default": true, "enabled": true,
+            "conditions": [
+                {"kind": "event_property_is", "key": "type", "value": "m.rtc.invite"},
+                {"kind": "event_property_contains", "key": "content.m\\.mentions.user_ids", "value": me()}
+            ], "actions": []
+        })).unwrap();
+        let server_json = serde_json::to_value(&server).unwrap();
+        let mention_index = rules
+            .override_
+            .get_index_of(".m.rule.is_user_mention")
+            .unwrap();
+        rules.override_.insert(server);
+        rules
+            .override_
+            .move_index(rules.override_.len() - 1, mention_index);
+        let custom: ConditionalPushRule = serde_json::from_value(json!({
+            "rule_id": "another-client-custom-rule", "default": false, "enabled": false,
+            "conditions": [], "actions": ["notify", {"set_tweak": "highlight"}]
+        }))
+        .unwrap();
+        let custom_json = serde_json::to_value(&custom).unwrap();
+        rules.override_.insert(custom);
+        rules.override_.move_index(rules.override_.len() - 1, 1);
+        let aligned = applied(rules.clone(), plan_alignment(&rules));
+        assert_eq!(
+            serde_json::to_value(aligned.override_.get(".m.rule.rtc.invite_for_me").unwrap())
+                .unwrap(),
+            server_json
+        );
+        assert_eq!(
+            serde_json::to_value(aligned.override_.get("another-client-custom-rule").unwrap())
+                .unwrap(),
+            custom_json
+        );
+        assert!(
+            aligned
+                .override_
+                .get("moe.sable.rtc.invite_for_me")
+                .unwrap()
+                .actions
+                .is_empty()
+        );
+        assert!(
+            aligned
+                .override_
+                .get("moe.sable.rtc.invite_for_me.unstable")
+                .unwrap()
+                .actions
+                .is_empty()
+        );
+        assert!(plan_alignment(&aligned).is_empty());
+    }
+
+    #[test]
+    fn invitation_alignment_removes_the_old_room_size_bypass() {
+        let mut rules = Ruleset::server_default(me());
+        rules
+            .insert(
+                NewPushRule::Override(super::NewConditionalPushRule::new(
+                    super::RING_ONE_TO_ONE.to_owned(),
+                    vec![],
+                    vec![super::Action::Notify],
+                )),
+                None,
+                None,
+            )
+            .unwrap();
+        let rules = applied(rules.clone(), plan_alignment(&rules));
+        assert!(rules.override_.get(super::RING_ONE_TO_ONE).is_none());
+        assert!(plan_alignment(&rules).is_empty());
+    }
+
+    #[tokio::test]
+    async fn broad_room_rules_do_not_notify_for_withdrawals_or_invalid_targets() {
+        let rules = aligned();
+        let rules = applied(
+            rules.clone(),
+            plan_room_mode(
+                &rules,
+                room_id!("!call:example.org"),
+                false,
+                Some(NotificationModeView::All),
+            ),
+        );
+        for (event_type, _, _) in super::RTC_INVITE_TYPES {
+            for (mentions, power) in [
+                (json!({}), 100),
+                (json!({"room": true}), 0),
+                (json!({"user_ids": ["@other:example.org"]}), 100),
+            ] {
+                assert!(
+                    !super::notifies(&invite_actions(&rules, event_type, mentions, power).await),
+                    "{event_type}"
+                );
+            }
+            assert!(super::notifies(
+                &invite_actions(&rules, event_type, json!({"room": true}), 100).await
+            ));
+            assert!(super::notifies(
+                &invite_actions(&rules, event_type, json!({"user_ids": [me()]}), 0).await
+            ));
+        }
+        for event_type in ["m.rtc.decline", "org.matrix.msc4310.rtc.decline"] {
+            assert!(!super::notifies(
+                &invite_actions(&rules, event_type, json!({}), 100).await
+            ));
+        }
+    }
+
+    #[tokio::test]
+    async fn server_invitation_settings_are_mirrored_without_reenabling_disabled_rules() {
+        let mut rules = Ruleset::server_default(me());
+        for (id, enabled, target) in [
+            (
+                ".m.rule.rtc.invite_for_me",
+                false,
+                json!([
+                    {"kind": "event_property_contains", "key": "content.m\\.mentions.user_ids", "value": me()}
+                ]),
+            ),
+            (
+                ".m.rule.rtc.invite_for_room",
+                true,
+                json!([
+                    {"kind": "event_property_is", "key": "content.m\\.mentions.room", "value": true},
+                    {"kind": "sender_notification_permission", "key": "room"}
+                ]),
+            ),
+        ] {
+            let mut conditions =
+                vec![json!({"kind": "event_property_is", "key": "type", "value": "m.rtc.invite"})];
+            conditions.extend(target.as_array().unwrap().clone());
+            let rule: ConditionalPushRule = serde_json::from_value(json!({
+                "rule_id": id, "default": true, "enabled": enabled, "conditions": conditions,
+                "actions": ["notify", {"set_tweak": "sound", "value": "ring"}]
+            }))
+            .unwrap();
+            let index = rules
+                .override_
+                .get_index_of(".m.rule.is_user_mention")
+                .unwrap();
+            rules.override_.insert(rule);
+            rules.override_.move_index(rules.override_.len() - 1, index);
+        }
+        let rules = applied(rules.clone(), plan_alignment(&rules));
+        assert!(
+            !rules
+                .override_
+                .get(".m.rule.rtc.invite_for_me")
+                .unwrap()
+                .enabled
+        );
+        for (event_type, _, _) in super::RTC_INVITE_TYPES {
+            assert!(!super::notifies(
+                &invite_actions(&rules, event_type, json!({"user_ids": [me()]}), 0).await
+            ));
+            let actions = invite_actions(&rules, event_type, json!({"room": true}), 100).await;
+            assert!(super::notifies(&actions));
+            assert!(!actions.iter().any(super::Action::is_highlight));
+        }
+        let mut changed = rules;
+        changed
+            .set_actions(RuleKind::Override, ".m.rule.rtc.invite_for_room", vec![])
+            .unwrap();
+        let changed = applied(changed.clone(), plan_alignment(&changed));
+        for (event_type, _, _) in super::RTC_INVITE_TYPES {
+            assert!(!super::notifies(
+                &invite_actions(&changed, event_type, json!({"room": true}), 100).await
+            ));
+        }
+        assert!(plan_alignment(&changed).is_empty());
+    }
+
+    #[test]
+    fn calls_can_be_configured_without_the_legacy_call_rule() {
+        let mut rules = aligned();
+        rules
+            .underride
+            .shift_remove(PredefinedUnderrideRuleId::Call.as_str());
+        let rules = applied(
+            rules.clone(),
+            plan_event(&rules, EventNotificationView::Calls, false).unwrap(),
+        );
+        for rule in rules
+            .override_
+            .iter()
+            .filter(|rule| super::is_rtc_rule(&rule.rule_id))
+        {
+            assert!(rule.actions.is_empty());
+        }
+        assert!(plan_alignment(&rules).is_empty());
     }
 }

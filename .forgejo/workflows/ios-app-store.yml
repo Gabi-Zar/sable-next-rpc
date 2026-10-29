@@ -108,6 +108,10 @@ jobs:
           pnpm tauri ios init --ci --config "$APP_IDENTIFIER_CONFIG"
       - name: Download iOS frameworks
         run: pnpm ios:frameworks
+      - name: Test iOS notification cooldown
+        run: |
+          swiftc src-tauri/ios/NotificationService/AlertCooldown.swift src-tauri/ios/tests/AlertCooldownTests.swift -o "$RUNNER_TEMP/sable-alert-cooldown-tests"
+          "$RUNNER_TEMP/sable-alert-cooldown-tests"
       - name: Add Rust target
         run: |
           # shellcheck disable=SC2086 # RUST_TARGETS is a space-separated list.

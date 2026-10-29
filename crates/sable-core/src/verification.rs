@@ -13,9 +13,7 @@ use matrix_sdk::encryption::verification::{
     QrVerification, QrVerificationData, QrVerificationState, SasState, SasVerification,
     VerificationRequest, VerificationRequestState,
 };
-use matrix_sdk::encryption::{
-    CrossSigningResetAuthType, VerificationState, recovery::RecoveryState,
-};
+use matrix_sdk::encryption::{CrossSigningResetAuthType, recovery::RecoveryState};
 use matrix_sdk::executor::{JoinHandleExt, spawn};
 use matrix_sdk::ruma::api::client::uiaa::{AuthData, AuthType, Password, UserIdentifier};
 use matrix_sdk::ruma::events::GlobalAccountDataEventType;
@@ -330,6 +328,9 @@ impl Core {
                 core.emit_verification(&user_id, &flow_id, view);
 
                 if done {
+                    if sas.is_done() {
+                        core.refresh_verification_status(&user_id).await;
+                    }
                     break;
                 }
             }
@@ -367,6 +368,9 @@ impl Core {
                 core.emit_verification(&user_id, &flow_id, view);
 
                 if done {
+                    if qr.is_done() {
+                        core.refresh_verification_status(&user_id).await;
+                    }
                     break;
                 }
             }
@@ -386,6 +390,33 @@ impl Core {
             flow_id: flow_id.to_owned(),
             state,
         });
+    }
+
+    async fn refresh_verification_status(&self, user_id: &UserId) {
+        let Ok(client) = self.client().await else {
+            return;
+        };
+        if client.user_id() != Some(user_id) {
+            return;
+        }
+        // Done can arrive before the other device uploads our cross-signature.
+        for delay_ms in [0, 250, 500, 1000, 2000] {
+            if delay_ms > 0 {
+                matrix_sdk::sleep::sleep(Duration::from_millis(delay_ms)).await;
+            }
+            if let Err(error) = client.encryption().request_user_identity(user_id).await {
+                self.failed("verification_refresh_identity", error);
+                return;
+            }
+            if client
+                .encryption()
+                .get_own_device()
+                .await
+                .is_ok_and(|device| device.is_some_and(|device| device.is_cross_signed_by_owner()))
+            {
+                return;
+            }
+        }
     }
 
     pub(crate) async fn verification_request(
@@ -549,11 +580,12 @@ pub(crate) async fn own_devices(client: &matrix_sdk::Client) -> Vec<DeviceView> 
                 let crypto = encryption
                     .as_ref()
                     .and_then(|devices| devices.get(&device.device_id));
+                let is_own = Some(device.device_id.as_ref()) == own_device_id;
                 DeviceView {
-                    is_own: Some(device.device_id.as_ref()) == own_device_id,
+                    is_own,
                     is_verified: crypto
                         .as_ref()
-                        .is_some_and(matrix_sdk::encryption::identities::Device::is_verified),
+                        .is_some_and(|device| device_verified(device, is_own)),
                     cross_signed: crypto.as_ref().is_some_and(
                         matrix_sdk::encryption::identities::Device::is_cross_signed_by_owner,
                     ),
@@ -596,7 +628,7 @@ fn local_device_views(
         .devices()
         .map(|device| DeviceView {
             is_own: Some(device.device_id()) == own_device_id,
-            is_verified: device.is_verified(),
+            is_verified: device_verified(&device, Some(device.device_id()) == own_device_id),
             cross_signed: device.is_cross_signed_by_owner(),
             has_keys: true,
             display_name: device.display_name().map(str::to_owned),
@@ -605,6 +637,15 @@ fn local_device_views(
             last_seen_ip: None,
         })
         .collect()
+}
+
+fn device_verified(device: &matrix_sdk::encryption::identities::Device, is_own: bool) -> bool {
+    // Local key ownership alone does not cross-sign the current device.
+    if is_own {
+        device.is_cross_signed_by_owner()
+    } else {
+        device.is_verified()
+    }
 }
 
 fn sort_devices(views: &mut [DeviceView]) {
@@ -712,13 +753,18 @@ pub(crate) async fn encryption_status(client: &matrix_sdk::Client) -> Encryption
     let account_data_key = crate::sealed_account_data::cached_key(client)
         .await
         .is_some();
+    // The SDK's cached state can lag local verification; read stored signatures.
+    let verification = match encryption.get_own_device().await {
+        Ok(Some(device)) if device.is_cross_signed_by_owner() => VerificationStateView::Verified,
+        Ok(Some(device)) => match encryption.get_user_identity(device.user_id()).await {
+            Ok(Some(_)) => VerificationStateView::Unverified,
+            _ => VerificationStateView::Unknown,
+        },
+        _ => VerificationStateView::Unknown,
+    };
 
     EncryptionStatusView {
-        verification: match encryption.verification_state().get() {
-            VerificationState::Verified => VerificationStateView::Verified,
-            VerificationState::Unverified => VerificationStateView::Unverified,
-            VerificationState::Unknown => VerificationStateView::Unknown,
-        },
+        verification,
         recovery: match encryption.recovery().state() {
             RecoveryState::Enabled => RecoveryStateView::Enabled,
             RecoveryState::Disabled => RecoveryStateView::Disabled,

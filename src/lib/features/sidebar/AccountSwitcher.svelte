@@ -133,7 +133,7 @@
 </script>
 
 {#snippet ownAvatar()}
-  <Avatar size="small" src={avatarUrl} name={displayName} alt={displayName} />
+  <Avatar size="small" src={avatarUrl} name={displayName} alt={displayName} refreshOnResume />
   {#if ownPresence}
     <PresenceDot
       presence={ownPresence}
@@ -174,6 +174,7 @@
             : 'desktop-tool nav-tab-bottom'}"
           aria-label={i18n.t('nav.switchAccount')}
         >
+          <span class="nav-tab-hit-area" aria-hidden="true"></span>
           {@render ownAvatar()}
         </button>
       {/snippet}

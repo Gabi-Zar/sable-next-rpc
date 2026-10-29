@@ -60,6 +60,8 @@
   let verifying = $state<string | null>(null);
   let currentDevice = $derived(devices.find((device) => device.is_own));
   let cancelled = false;
+  let statusRevision = 0;
+  let devicesRevision = 0;
 
   const bulkSelected = new SvelteSet<string>();
   let bulkRemoving = $state(false);
@@ -104,6 +106,8 @@
   }
 
   async function refresh(): Promise<void> {
+    const requestedStatus = statusRevision;
+    const requestedDevices = devicesRevision;
     loading = true;
     error = null;
     try {
@@ -112,8 +116,8 @@
         core.rpc.encryption.devices(),
       ]);
       if (cancelled) return;
-      status = nextStatus;
-      devices = nextDevices.devices;
+      if (requestedStatus === statusRevision) status = nextStatus;
+      if (requestedDevices === devicesRevision) devices = nextDevices.devices;
       accountManagement = nextDevices.account_management;
       accountManagementUrl = nextDevices.account_management_url;
     } catch (cause) {
@@ -276,7 +280,14 @@
   $effect(() => {
     void refresh();
     const unsubscribe = core.subscribeEvents((event) => {
-      if (event.type === 'encryption_status') status = event.status;
+      if (event.type === 'encryption_status') {
+        statusRevision += 1;
+        status = event.status;
+      }
+      if (event.type === 'devices_changed') {
+        devicesRevision += 1;
+        devices = event.devices;
+      }
     });
     return () => {
       cancelled = true;

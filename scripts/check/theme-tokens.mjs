@@ -36,6 +36,8 @@ const safeAreaOwners = new Set([
   'src/lib/ui/media/MediaViewer.svelte',
   'src/lib/features/composer/StagedMediaViewer.svelte',
   'src/lib/features/call/ScreenSharePreview.svelte',
+  'src/lib/features/call/CallParticipantTile.svelte',
+  'src/lib/features/call/CallView.svelte',
   'src/lib/features/auth/shared/AuthPage.svelte',
 ]);
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { MediaQuery } from 'svelte/reactivity';
   import type { RoomPermissionsView } from '#src/generated/protocol';
@@ -94,14 +95,15 @@
 
   $effect(() => {
     autoFills = 0;
-    void forumThreads.start(resolvedRoomId);
+    const id = resolvedRoomId;
+    void untrack(() => forumThreads.start(id));
     return () => {
       void forumThreads.stop();
     };
   });
 
   $effect(() => {
-    if (forumThreads.threads.length > 0) return;
+    if (forumThreads.error || forumThreads.threads.length > 0) return;
     if (forumThreads.loading || forumThreads.backwardPagination !== 'idle') return;
     if (autoFills >= AUTO_FILL_ROUNDS) return;
     autoFills += 1;
@@ -298,8 +300,10 @@
       </div>
       <ForumThreadList
         threads={forumThreads.threads}
+        failed={forumThreads.error}
+        onRetry={() => void forumThreads.retry()}
         loading={forumThreads.loading || forumThreads.backwardPagination === 'loading'}
-        canLoadMore={forumThreads.backwardPagination === 'idle'}
+        canLoadMore={forumThreads.canLoadMore}
         onOpen={openThread}
         canDelete={canDeleteThread}
         onEdit={permissions?.can_post === false ? undefined : editThread}

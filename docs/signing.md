@@ -29,6 +29,9 @@ password=<password>
 storeFile=<absolute path to upload-keystore.jks>
 ```
 
+Release APKs built without `keystore.properties` are unsigned. Sign them before
+installation.
+
 ### Desktop auto-updater
 
 ```bash

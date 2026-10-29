@@ -6,7 +6,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
-  import { openExternalUrl } from '#lib/platform/external-links.js';
+  import { openExternalAuthUrl } from '#lib/platform/external-auth.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
@@ -207,7 +207,7 @@
     {:else if progress.stage === 'waiting_for_auth'}
       {@const uri = progress.verification_uri}
       <div class="qr-actions">
-        <Button variant="primary" class="qr-action" onclick={() => void openExternalUrl(uri)}>
+        <Button variant="primary" class="qr-action" onclick={() => void openExternalAuthUrl(uri)}>
           {i18n.t('qrLogin.openApproval')}
         </Button>
       </div>

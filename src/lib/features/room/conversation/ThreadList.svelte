@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import type { MemberView, TimelineItemView } from '#src/generated/protocol';
+  import { onMount, untrack } from 'svelte';
+  import { ThreadRoots } from '#lib/rooms/thread-roots.svelte.js';
+  import { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
+  import type { MemberView } from '#src/generated/protocol';
   import ThreadIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
   import ChatsIcon from 'phosphor-svelte/lib/ChatsIcon';
   import XIcon from 'phosphor-svelte/lib/XIcon';
@@ -33,34 +35,17 @@
   let { roomId, members, modal = false, onOpenThread, onClose }: Props = $props();
 
   const core = useCoreClient();
-  let roots = $state.raw<TimelineItemView[]>([]);
-  let nextBatch = $state<string | null>(null);
-  let loading = $state(false);
-  let failed = $state(false);
-  let generation = 0;
-
-  async function load(from: string | null): Promise<void> {
-    const run = ++generation;
-    loading = true;
-    failed = false;
-    try {
-      const page = await core.rpc.timeline.listThreads({ room_id: roomId, from });
-      if (run !== generation) return;
-      roots = from === null ? page.roots : [...roots, ...page.roots];
-      nextBatch = page.next_batch;
-    } catch (error) {
-      console.debug('[sable room] threads unavailable', error);
-      if (run === generation) failed = true;
-    } finally {
-      if (run === generation) loading = false;
-    }
-  }
+  const threads = new ThreadRoots(core);
+  const timeline = new RoomTimeline(core);
 
   $effect(() => {
-    void roomId;
-    roots = [];
-    nextBatch = null;
-    void load(null);
+    const id = roomId;
+    void untrack(() => timeline.start(id));
+    void untrack(() => threads.start(id));
+    return () => {
+      threads.stop();
+      void timeline.stop();
+    };
   });
 
   const panelWidth = new PanelWidth('sable-thread-list-width', 22, 16, 40);
@@ -98,9 +83,9 @@
     </PanelHeader>
 
     <div class="thread-list-body" {@attach scrollHint}>
-      {#if roots.length > 0}
+      {#if threads.items.length > 0}
         <ul>
-          {#each roots as root (root.id)}
+          {#each threads.items as root (root.id)}
             {@const rootId = root.event_id ?? root.id}
             {@const threadOpenLabel = i18n.t('timeline.threadOpen')}
             <li>
@@ -153,19 +138,23 @@
             </li>
           {/each}
         </ul>
-      {:else if !loading && !failed}
+      {:else if !threads.loading && !threads.error}
         <p class="thread-list-status">{i18n.t('timeline.threadsEmpty')}</p>
       {/if}
 
-      {#if failed}
+      {#if threads.error}
         <p class="thread-list-status" role="alert">{i18n.t('timeline.threadsFailed')}</p>
       {/if}
-      {#if loading}
+      {#if threads.loading}
         <div class="thread-list-loading"><Spinner small /></div>
-      {:else if nextBatch !== null || failed}
+      {:else if threads.nextBatch !== null || threads.error}
         <div class="thread-list-more">
-          <Button size="small" variant="secondary" onclick={() => void load(nextBatch)}>
-            {failed ? i18n.t('common.tryAgain') : i18n.t('timeline.threadsLoadMore')}
+          <Button
+            size="small"
+            variant="secondary"
+            onclick={() => void (threads.error ? threads.retry() : threads.loadMore())}
+          >
+            {threads.error ? i18n.t('common.tryAgain') : i18n.t('timeline.threadsLoadMore')}
           </Button>
         </div>
       {/if}

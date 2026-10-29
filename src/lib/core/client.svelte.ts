@@ -9,12 +9,12 @@ import {
   type RegistrationFlowsView,
   type SessionInfo,
   type SyncStatus,
-  type MutualRoomView,
   type ProfilePropagationView,
   type ProfileView,
   type RegistrationResultView,
   type VerificationView,
   type Rpc,
+  type RpcResult,
   createRpc,
 } from '#src/generated/protocol';
 
@@ -119,7 +119,7 @@ async function resolveHomeserverInPage(
   return resolved;
 }
 
-export type UserRelations = { mutualRooms: MutualRoomView[]; ignored: boolean };
+export type UserRelations = RpcResult<Rpc['account']['userRelations']>;
 export type CoreStatus = 'idle' | 'starting' | 'signed-out' | 'authenticating' | 'ready' | 'error';
 export type CoreSession = SessionInfo;
 export type ActiveVerification = { userId: string; flowId: string; state: VerificationView };
@@ -163,6 +163,7 @@ export class CoreClient {
   private startPromise: Promise<void> | null = null;
   private generation = 0;
   private encryptionEvents = 0;
+  private deviceEvents = 0;
   private readonly accountChannel =
     typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('sable-active-account');
   /* Nothing renders from these, and a reactive map would make every mounted
@@ -702,10 +703,7 @@ export class CoreClient {
     }
 
     const response = await this.rpc.account.userRelations({ user_id: userId });
-    const relations = {
-      mutualRooms: response.mutual_rooms,
-      ignored: response.ignored,
-    };
+    const relations = response;
     this.relationsCache.set(userId, { accountId, relations });
     return relations;
   }
@@ -913,6 +911,7 @@ export class CoreClient {
   private async primeEncryptionStatus(): Promise<void> {
     const revision = this.accountRevision;
     const reported = this.encryptionEvents;
+    const reportedDevices = this.deviceEvents;
     try {
       const [status, devices] = await Promise.all([
         this.rpc.encryption.status(),
@@ -920,7 +919,7 @@ export class CoreClient {
       ]);
       if (revision !== this.accountRevision) return;
       if (reported === this.encryptionEvents) this.encryption = status;
-      this.deviceList = devices.devices;
+      if (reportedDevices === this.deviceEvents) this.deviceList = devices.devices;
     } catch (error) {
       console.debug('[sable core] encryption status unavailable', error);
     }
@@ -1140,6 +1139,7 @@ export class CoreClient {
         this.encryption = event.status;
         return;
       case 'devices_changed':
+        this.deviceEvents += 1;
         this.deviceList = event.devices;
         return;
       case 'profile_changed':

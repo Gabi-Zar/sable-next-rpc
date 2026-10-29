@@ -18,7 +18,7 @@ build_tools=35.0.0
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends apksigcopier build-essential ca-certificates curl \
-  git openjdk-21-jdk-headless rustup unzip xz-utils
+  git openjdk-25-jdk-headless rustup unzip xz-utils
 
 downloads="$(mktemp -d)"
 curl -fsSLo "$downloads/node.tar.xz" \
@@ -38,7 +38,6 @@ sdkmanager "platforms;android-36" "build-tools;$build_tools" "ndk;$ndk_version"
 export NDK_HOME="$ANDROID_HOME/ndk/$ndk_version"
 
 # IzzyOnDroid builds unsigned, then copies the signature over from our APK.
-sed -ri '/signingConfigs.getBy/d' src-tauri/gen/android/app/build.gradle.kts
 corepack enable pnpm
 COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm install --frozen-lockfile
 pnpm android:build --version "$version"

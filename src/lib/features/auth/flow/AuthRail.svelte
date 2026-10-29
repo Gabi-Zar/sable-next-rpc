@@ -407,6 +407,7 @@
 
   .rail :global(.auth-card) {
     flex: 0 0 var(--auth-card-width);
+    min-width: 0;
     pointer-events: auto;
     position: relative;
     scroll-snap-align: center;

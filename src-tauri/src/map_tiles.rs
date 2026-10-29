@@ -102,7 +102,7 @@ async fn handle_request<R: Runtime>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let response = client(app)
+    let response = client()
         .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
         .get(tile.url())
         .send()
@@ -129,24 +129,18 @@ async fn handle_request<R: Runtime>(
     Ok(tile_response(bytes))
 }
 
-fn client<R: Runtime>(app: &AppHandle<R>) -> Option<&'static Client> {
+fn client() -> Option<&'static Client> {
     CLIENT
         .get_or_init(|| {
-            let user_agent = format!(
-                "Sable/{} (+https://app.sable.moe)",
-                app.package_info().version
-            );
-            sable_core::tls::apply(
-                Client::builder()
-                    .user_agent(user_agent)
-                    .connect_timeout(CONNECT_TIMEOUT)
-                    .timeout(REQUEST_TIMEOUT),
-            )
-            .build()
-            .inspect_err(|err| {
-                log::error!("tile client build failed, tiles will be blocked: {err}");
-            })
-            .ok()
+            sable_core::tls::apply(Client::builder())
+                .user_agent(format!("{} (+https://sable.moe)", sable_core::USER_AGENT))
+                .connect_timeout(CONNECT_TIMEOUT)
+                .timeout(REQUEST_TIMEOUT)
+                .build()
+                .inspect_err(|err| {
+                    log::error!("tile client build failed, tiles will be blocked: {err}");
+                })
+                .ok()
         })
         .as_ref()
 }

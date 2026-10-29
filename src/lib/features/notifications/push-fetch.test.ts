@@ -5,8 +5,10 @@ import type { PushFetchView } from '#src/generated/protocol';
 import {
   acknowledgeWebPusher,
   completePushPayload,
-  fetchOwnPresence,
+  fetchDeviceActivity,
+  isRtcInvite,
   namesOnlyItsEvent,
+  readPushRooms,
   type PushFetcher,
   readPushFetch,
 } from './push-fetch';
@@ -30,6 +32,7 @@ function fetcher(
   return {
     session: {
       userId: '@me:example.org',
+      deviceId: 'DEVICE',
       homeserver: 'https://hs.example/',
       accessToken: 'token',
     },
@@ -45,6 +48,34 @@ test('only a push that names nothing but its event is fetched', () => {
   expect(namesOnlyItsEvent(bare)).toBe(true);
   expect(namesOnlyItsEvent({ ...bare, type: 'm.room.message' })).toBe(false);
   expect(namesOnlyItsEvent(pushNotification({ room_id: ROOM }))).toBe(false);
+});
+
+test('read room reconciliation uses filtered sync counts and fails closed', async () => {
+  const source = fetcher({
+    '/_matrix/client/v3/sync': {
+      next_batch: 's',
+      rooms: {
+        join: {
+          '!read:example.org': { unread_notifications: { notification_count: 0 } },
+          '!unread:example.org': { unread_notifications: { notification_count: 2 } },
+          '!missing-count:example.org': {},
+        },
+      },
+    },
+  });
+  await expect(
+    readPushRooms(source, [
+      '!read:example.org',
+      '!unread:example.org',
+      '!left:example.org',
+      '!missing-count:example.org',
+    ])
+  ).resolves.toEqual(['!read:example.org', '!left:example.org', '!missing-count:example.org']);
+  expect(source.fetch.mock.calls[0]?.[0]).toContain('set_presence=offline');
+  expect(source.fetch.mock.calls[0]?.[0]).toContain('timeout=0');
+
+  source.fetch.mockResolvedValue(Response.json({ next_batch: 's', rooms: { join: [] } }));
+  await expect(readPushRooms(source, ['!read:example.org'])).resolves.toBeNull();
 });
 
 test('a plaintext event is completed with its sender and room, with the token', async () => {
@@ -221,7 +252,12 @@ test('a tab answer is only trusted in the shape the core sends', () => {
   expect(readPushFetch(null)).toBeNull();
 });
 
-const session = { userId: '@me:example.org', homeserver: 'https://hs.example/', accessToken: 't' };
+const session = {
+  userId: '@me:example.org',
+  deviceId: 'DEVICE',
+  homeserver: 'https://hs.example/',
+  accessToken: 't',
+};
 const validation = { app_id: 'moe.sable.webpush', ack_token: 'tok' };
 
 test('the worker acknowledges a web push validation with the stored session', async () => {
@@ -256,13 +292,174 @@ test('an unreachable homeserver is asked again before giving up', async () => {
   expect(pause).toHaveBeenCalledTimes(2);
 });
 
-test("reads the account's own presence, or null when the server refuses", async () => {
-  const presence = { presence: 'online', last_active_ago: 1000 };
-  const answering = fetcher({ '/_matrix/client/v3/presence/@me:example.org/status': presence });
-  await expect(fetchOwnPresence(answering)).resolves.toEqual(presence);
+test('reads device activity, or null when the server refuses', async () => {
+  const activity = { devices: { DEVICE: { active: true, at: 1000 } } };
+  const answering = fetcher({
+    '/_matrix/client/v3/user/@me:example.org/account_data/moe.sable.device_activity': activity,
+  });
+  await expect(fetchDeviceActivity(answering)).resolves.toEqual(activity);
   expect(answering.fetch.mock.calls[0]?.[1]).toMatchObject({
     headers: { Authorization: 'Bearer token' },
   });
 
-  await expect(fetchOwnPresence(fetcher({}))).resolves.toBeNull();
+  await expect(fetchDeviceActivity(fetcher({}))).resolves.toBeNull();
+});
+
+test('an RTC push must identify its room and event before presentation', async () => {
+  const source = fetcher({});
+  for (const missing of [{ room_id: null }, { event_id: null }]) {
+    expect(
+      await completePushPayload({ ...bare, type: 'm.rtc.invite', ...missing }, source)
+    ).toBeNull();
+  }
+  expect(source.fetch).not.toHaveBeenCalled();
+});
+
+test('RTC payloads request validation even when the push includes content', () => {
+  for (const type of [
+    'm.rtc.invite',
+    'm.rtc.notification',
+    'org.matrix.msc4075.rtc.notification',
+  ]) {
+    expect(isRtcInvite({ type })).toBe(true);
+  }
+  expect(isRtcInvite({ type: 'm.room.message' })).toBe(false);
+});
+
+function rtcSnapshot(event: Record<string, unknown>, status = 'open', withdrawn = false): unknown {
+  const now = Date.now();
+  const events = [event];
+  if (withdrawn)
+    events.push({
+      ...event,
+      event_id: '$withdrawal',
+      origin_server_ts: now,
+      content: { sticky_key: 'm.call#room' },
+    });
+  return {
+    pos: 'push-state',
+    rooms: {
+      [ROOM]: {
+        required_state: [
+          {
+            type: 'm.rtc.slot',
+            state_key: 'm.call#room',
+            content: { status, application: { type: 'm.call' } },
+          },
+          {
+            type: 'm.room.power_levels',
+            state_key: '',
+            content: { users_default: 0, notifications: { room: 50 } },
+          },
+        ],
+      },
+    },
+    extensions: { 'org.matrix.msc4354.sticky_events': { rooms: { [ROOM]: { events } } } },
+  };
+}
+
+function rtcEvent(): Record<string, unknown> {
+  const sent = Date.now() - 3000;
+  return {
+    type: 'm.rtc.invite',
+    event_id: '$event',
+    sender: '@alice:example.org',
+    origin_server_ts: sent,
+    sticky: { duration_ms: 300000 },
+    content: {
+      slot_id: 'm.call#room',
+      sticky_key: 'm.call#room',
+      sender_ts: sent,
+      lifetime: 90000,
+      'm.mentions': { user_ids: ['@me:example.org'] },
+    },
+  };
+}
+
+const stickyPath = '/_matrix/client/unstable/org.matrix.simplified_msc3575/sync';
+
+test.each([true, false])(
+  'plaintext RTC push works without an app tab (direct=%j)',
+  async (direct) => {
+    const event = rtcEvent();
+    const source = fetcher({
+      [`${base}/event/$event`]: event,
+      [stickyPath]: rtcSnapshot(event),
+      '/_matrix/client/v3/user/@me:example.org/account_data/m.direct': direct
+        ? { '@alice:example.org': [ROOM] }
+        : {},
+    });
+    const completed = await completePushPayload({ ...bare, type: 'm.rtc.invite' }, source);
+    expect(completed?.content).toMatchObject({
+      notification_type: direct ? 'ring' : 'notification',
+      body: 'Call started',
+    });
+    const request = source.fetch.mock.calls.find(([url]) =>
+      String(url).includes('simplified_msc3575')
+    );
+    expect(request?.[1]).toMatchObject({
+      method: 'POST',
+      headers: { Authorization: 'Bearer token' },
+    });
+  }
+);
+
+test('legacy group rings retain their explicit presentation', async () => {
+  const event = rtcEvent();
+  event.type = 'org.matrix.msc4075.rtc.notification';
+  event.content = {
+    sender_ts: Date.now() - 3000,
+    lifetime: 30000,
+    notification_type: 'ring',
+    'm.mentions': { user_ids: ['@me:example.org'] },
+  };
+  const source = fetcher({
+    [`${base}/event/$event`]: event,
+    [stickyPath]: rtcSnapshot(event),
+  });
+  expect((await completePushPayload(bare, source))?.content.notification_type).toBe('ring');
+});
+
+test.each(['closed', 'withdrawn', 'unavailable'])(
+  'an inactive RTC push is discarded (%s)',
+  async (reason) => {
+    const event = rtcEvent();
+    const source = fetcher({
+      [`${base}/event/$event`]: event,
+      ...(reason === 'unavailable'
+        ? {}
+        : {
+            [stickyPath]: rtcSnapshot(
+              event,
+              reason === 'closed' ? 'closed' : 'open',
+              reason === 'withdrawn'
+            ),
+          }),
+    });
+    expect(await completePushPayload({ ...bare, type: 'm.rtc.invite' }, source)).toBeNull();
+  }
+);
+
+test('an app tab supplies already validated RTC presentation', async () => {
+  const event = rtcEvent();
+  const source = fetcher(
+    { [`${base}/event/$event`]: event },
+    {
+      kind: 'event',
+      event: {
+        type: 'm.rtc.invite',
+        content: { notification_type: 'ring', lifetime: 85000 },
+        sender: '@alice:example.org',
+        sender_display_name: 'Alice',
+        room_name: 'Room',
+        room_avatar_url: null,
+        encrypted: false,
+        noisy: true,
+      },
+    }
+  );
+  expect((await completePushPayload(bare, source))?.content.notification_type).toBe('ring');
+  expect(source.fetch.mock.calls.some(([url]) => String(url).includes('simplified_msc3575'))).toBe(
+    false
+  );
 });

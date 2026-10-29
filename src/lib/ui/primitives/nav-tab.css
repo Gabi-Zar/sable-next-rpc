@@ -8,6 +8,7 @@
   cursor: pointer;
   display: flex;
   height: var(--avatar-size-400);
+  isolation: isolate;
   justify-content: center;
   position: relative;
   text-decoration: none;
@@ -16,6 +17,10 @@
 
 .nav-tab-outlined {
   border-color: var(--bg-container-line);
+}
+
+.nav-tab > .nav-tab-hit-area {
+  display: none;
 }
 
 .nav-tab-bottom[aria-current='page'],
@@ -136,8 +141,8 @@
 
   @media (any-hover: hover) and (any-pointer: fine) {
     /* Hit area stays put so the nudge can't bounce. */
-    html:not([data-reduced-motion='on']) .nav-tab::after {
-      content: '';
+    html:not([data-reduced-motion='on']) .nav-tab > .nav-tab-hit-area {
+      display: block;
       inset: calc(-1 * var(--border-width));
       position: absolute;
       z-index: -1;
@@ -147,7 +152,7 @@
       transform: translateX(0.125rem);
     }
 
-    html:not([data-reduced-motion='on']) .nav-tab-side:hover::after {
+    html:not([data-reduced-motion='on']) .nav-tab-side:hover > .nav-tab-hit-area {
       transform: translateX(-0.125rem);
     }
 
@@ -164,7 +169,7 @@
       transform: translateY(-0.1875rem);
     }
 
-    html:not([data-reduced-motion='on']) .nav-tab-bottom:hover::after {
+    html:not([data-reduced-motion='on']) .nav-tab-bottom:hover > .nav-tab-hit-area {
       transform: translateY(0.1875rem);
     }
 

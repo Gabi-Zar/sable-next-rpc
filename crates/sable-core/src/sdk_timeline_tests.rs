@@ -2193,7 +2193,7 @@ async fn unread_reply_counts_persist_until_read() {
     let rules = matrix_sdk::ruma::push::Ruleset::server_default(&me);
     let joined = JoinedRoomBuilder::new(room_id)
         .add_state_event(factory.member(&me))
-        .add_state_event(factory.default_power_levels())
+        .add_state_event(factory.power_levels())
         .add_timeline_bulk([mention(event_id!("$one")), mention(event_id!("$two"))])
         .add_receipt(
             factory
@@ -3218,7 +3218,15 @@ async fn an_unavailable_homeserver_is_retryable_rather_than_a_logged_failure() {
 
 #[tokio::test]
 async fn invisible_member_names_use_the_user_id() {
-    for name in ["\u{200b}", "\u{2800}", " \u{061c}\u{034f}\u{feff} "] {
+    for name in [
+        "\u{200b}",
+        "\u{2800}",
+        " \u{061c}\u{034f}\u{feff} ",
+        "\u{3164}",
+        "\u{2060}\u{2066}\u{2069}",
+        "\u{fe0f}\u{e0100}",
+        "\u{0085}",
+    ] {
         let server = MatrixMockServer::new().await;
         let client = server.client_builder().build().await;
         let room_id = room_id!("!names:example.org");
@@ -4069,7 +4077,7 @@ async fn a_mention_is_loud_from_the_ruleset_not_the_stamped_flag() {
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
                     factory.member(*ALICE).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(
                     factory
@@ -4131,7 +4139,7 @@ async fn a_deleted_mention_is_not_highlighted() {
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
                     factory.member(*ALICE).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(
                     factory
@@ -4210,7 +4218,7 @@ async fn a_live_redaction_drops_the_reactions() {
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
                     factory.member(*ALICE).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(factory.text_msg("hey").event_id(target))
                 .add_timeline_event(
@@ -4295,7 +4303,7 @@ async fn a_redaction_the_server_rejects_restores_the_message() {
             JoinedRoomBuilder::new(room_id)
                 .add_state_bulk([
                     factory.member(&own_user_id).into_raw(),
-                    factory.default_power_levels().into_raw(),
+                    factory.power_levels().into_raw(),
                 ])
                 .add_timeline_event(factory.text_msg("keep me").event_id(event_id!("$kept"))),
         )
@@ -5227,4 +5235,124 @@ async fn notification_replies_resolve_room_and_account_profiles() {
             expected
         );
     }
+}
+
+#[tokio::test]
+async fn thread_lists_are_notified_when_room_cache_changes() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!thread-updates:example.org");
+    server.sync_joined_room(&client, room_id).await;
+    server.mock_room_state_encryption().plain().mount().await;
+    let sync_service = Arc::new(SyncService::builder(client.clone()).build().await.unwrap());
+    let (core, mut events) = Core::new("test", Box::new(MemorySessionStore::default()));
+    *core.session.write().await = Some(Session {
+        account_id: "test".to_owned(),
+        client: client.clone(),
+        sync_service,
+        homeserver: server.server().uri(),
+        oauth: false,
+    });
+    core.run(SubscribeParams {
+        room_id: room_id.to_owned(),
+        focus: TimelineFocusView::Live,
+        hidden_events: false,
+    })
+    .await
+    .unwrap();
+    while events.try_recv().is_ok() {}
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id).add_timeline_event(
+                factory
+                    .text_msg("new reply")
+                    .event_id(event_id!("$new-reply"))
+                    .in_thread(event_id!("$root"), event_id!("$root")),
+            ),
+        )
+        .await;
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while let Some(event) = events.recv().await {
+            if matches!(event, CoreEvent::ThreadsChanged { room_id: id } if id == room_id) {
+                return;
+            }
+        }
+        panic!("event stream closed");
+    })
+    .await
+    .expect("room cache update must refresh thread discovery");
+}
+
+#[tokio::test]
+async fn thread_actions_accept_linked_context_only_for_its_inferred_root() {
+    let server = MatrixMockServer::new().await;
+    let client = server
+        .client_builder()
+        .on_builder(|builder| builder.with_threading_support(crate::session::THREADING_SUPPORT))
+        .build()
+        .await;
+    let room_id = room_id!("!linked-thread:example.org");
+    let root = event_id!("$root");
+    let target = event_id!("$older-reply");
+    let factory = EventFactory::new().room(room_id).sender(*ALICE);
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(factory.text_msg("root").event_id(root)),
+        )
+        .await;
+    server.mock_room_state_encryption().plain().mount().await;
+    server
+        .mock_room_event_context()
+        .match_event_id()
+        .ok(RoomContextResponseTemplate::new(
+            factory
+                .text_msg("older reply")
+                .event_id(target)
+                .in_thread(root, root)
+                .into_event(),
+        ))
+        .mount()
+        .await;
+    let core = core_for(&server, client).await;
+    let result = core
+        .run(SubscribeParams {
+            room_id: room_id.to_owned(),
+            focus: TimelineFocusView::Event {
+                event_id: target.to_owned(),
+            },
+            hidden_events: false,
+        })
+        .await
+        .unwrap();
+    let timeline = core
+        .subscribed_timeline(
+            &room_id.to_owned(),
+            Some(&root.to_owned()),
+            Some(result.subscription),
+        )
+        .await
+        .unwrap();
+    assert!(timeline.is_threaded());
+    assert!(matches!(
+        core.subscribed_timeline(
+            &room_id.to_owned(),
+            Some(&event_id!("$other").to_owned()),
+            Some(result.subscription)
+        )
+        .await,
+        Err(RpcError::UnknownSubscription)
+    ));
+    assert!(matches!(
+        core.subscribed_timeline(
+            &room_id!("!other:example.org").to_owned(),
+            Some(&root.to_owned()),
+            Some(result.subscription)
+        )
+        .await,
+        Err(RpcError::UnknownSubscription)
+    ));
 }

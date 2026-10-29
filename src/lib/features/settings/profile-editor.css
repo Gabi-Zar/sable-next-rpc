@@ -178,3 +178,16 @@
 .profile-section .timezone-row .btn {
   white-space: nowrap;
 }
+
+@supports not (color: color-mix(in srgb, black, white)) {
+  .profile-section .inline-edit,
+  .profile-section .color-controls .text-input {
+    --form-control-container: transparent;
+    --form-control-line: var(--surface-var-container-line);
+  }
+
+  .profile-section .inline-edit:hover:not(:focus),
+  .profile-section .color-controls .text-input:hover:not(:focus) {
+    --form-control-line: var(--surface-var-container-line);
+  }
+}

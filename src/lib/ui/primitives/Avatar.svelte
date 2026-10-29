@@ -28,9 +28,11 @@
     size?: AvatarSize;
     color?: string;
     decorative?: boolean;
+    initialsAsDecoration?: boolean;
     uniform?: boolean;
     recolor?: boolean;
     original?: boolean;
+    refreshOnResume?: boolean;
     class?: ClassValue;
     children?: Snippet;
   };
@@ -45,9 +47,11 @@
     size = 'medium',
     color,
     decorative = alt === undefined || openable === true,
+    initialsAsDecoration = false,
     uniform = false,
     recolor = false,
     original = false,
+    refreshOnResume = false,
     class: className = '',
     children,
   }: Props = $props();
@@ -112,6 +116,7 @@
         {uniform}
         tint={recolor}
         {original}
+        {refreshOnResume}
         pixelate={false}
         onloaded={() => {
           paintedSrc = src;
@@ -138,9 +143,10 @@
 
     <Avatar.Fallback
       class="avatar-fallback"
+      data-decorative-initials={initialsAsDecoration && !children ? fallback : undefined}
       style={plate ? `background: ${plate}; color: var(--avatar-identity-on-plate)` : undefined}
     >
-      {#if children}{@render children()}{:else}{fallback}{/if}
+      {#if children}{@render children()}{:else if !initialsAsDecoration}{fallback}{/if}
     </Avatar.Fallback>
   </Avatar.Root>
 {/snippet}
@@ -164,6 +170,10 @@
 {/if}
 
 <style>
+  :global(.avatar-fallback[data-decorative-initials])::before {
+    content: attr(data-decorative-initials);
+  }
+
   :global(.avatar-root) {
     --avatar-size: var(--avatar-size-400);
 

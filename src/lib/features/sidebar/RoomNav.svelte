@@ -179,9 +179,10 @@
   const presenceStore = usePresenceStore();
 
   function dmPeerId(room: RoomListItemView): string | null {
-    if (room.direct_targets.length === 0) return null;
     const own = core.session?.user_id;
-    return room.direct_targets.find((target) => target !== own) ?? room.direct_targets[0];
+    if (!own) return null;
+    const peers = room.direct_targets.filter((target) => target !== own);
+    return peers.length === 1 ? peers[0] : null;
   }
 
   const peerProfiles = new PeerProfiles(core);

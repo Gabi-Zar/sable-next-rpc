@@ -7,6 +7,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { supporter } from '#lib/supporter/supporter.svelte.js';
 
 import SupporterSettings from './SupporterSettings.svelte';
+import SupporterActivationSettings from './SupporterActivationSettings.svelte';
 
 vi.mock('#lib/core/context.js');
 
@@ -18,16 +19,16 @@ afterEach(() => {
 
 test('offers to verify with Open Collective', async () => {
   const verify = vi.spyOn(supporter, 'verify').mockResolvedValue();
-  render(SupporterSettings);
+  render(SupporterActivationSettings);
 
-  await userEvent.click(screen.getByRole('button', { name: 'Verify' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Verify with Open Collective' }));
 
   expect(verify).toHaveBeenCalledOnce();
 });
 
 test('lets someone fetch a badge that was issued by hand', async () => {
   const claim = vi.spyOn(supporter, 'claim').mockResolvedValue();
-  render(SupporterSettings);
+  render(SupporterActivationSettings);
 
   await userEvent.click(screen.getByRole('button', { name: 'Check' }));
 
@@ -36,7 +37,7 @@ test('lets someone fetch a badge that was issued by hand', async () => {
 
 test('reports when no badge was issued', () => {
   supporter.status = 'none';
-  render(SupporterSettings);
+  render(SupporterActivationSettings);
 
   expect(screen.getByText('No badge has been issued for this account.')).toBeInTheDocument();
 });
@@ -44,7 +45,7 @@ test('reports when no badge was issued', () => {
 test('shows progress and a cancel button while waiting', async () => {
   supporter.status = 'waiting';
   const cancel = vi.spyOn(supporter, 'cancel').mockImplementation(() => {});
-  render(SupporterSettings);
+  render(SupporterActivationSettings);
 
   expect(screen.getByText(/Waiting for you to approve/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -66,7 +67,7 @@ test('shows the active badge and lets it be removed', async () => {
 
 test('reports an incomplete verification without claiming there was no contribution', () => {
   supporter.status = 'failed';
-  render(SupporterSettings);
+  render(SupporterActivationSettings);
 
   expect(screen.getByRole('alert')).toHaveTextContent(
     'Verification did not finish. Complete approval on Open Collective, then check for your badge.'
@@ -75,7 +76,7 @@ test('reports an incomplete verification without claiming there was no contribut
 
 test('reports a verification error without blaming the Open Collective account', () => {
   supporter.status = 'error';
-  render(SupporterSettings);
+  render(SupporterActivationSettings);
 
   expect(screen.getByRole('alert')).toHaveTextContent(
     'Badge verification could not be completed. Please try again later.'

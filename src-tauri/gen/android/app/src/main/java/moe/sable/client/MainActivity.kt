@@ -25,7 +25,9 @@ import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
 import moe.sable.push.ConversationShortcuts
 import org.json.JSONArray
 import org.json.JSONObject
@@ -35,6 +37,7 @@ class MainActivity : TauriActivity() {
   private external fun nativeNetworkChanged(unmetered: Boolean)
   private var networkCallback: ConnectivityManager.NetworkCallback? = null
   private var fullscreenClient: FullscreenChromeClient? = null
+  private val authBrowser = AuthBrowser(this)
   private val fullscreenBackCallback = object : OnBackPressedCallback(false) {
     override fun handleOnBackPressed() {
       fullscreenClient?.exitFullscreen()
@@ -48,6 +51,7 @@ class MainActivity : TauriActivity() {
     instance = this
     onBackPressedDispatcher.addCallback(this, fullscreenBackCallback)
     runCatching { nativeInitSystemBars() }
+    AppLifecycle.start()
     startNetworkMonitor()
     stageShareIntent(intent)
   }
@@ -213,6 +217,7 @@ class MainActivity : TauriActivity() {
   }
 
   override fun onDestroy() {
+    authBrowser.close()
     networkCallback?.let {
       runCatching {
         getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(it)
@@ -230,6 +235,21 @@ class MainActivity : TauriActivity() {
     @Volatile private var instance: MainActivity? = null
     private var hiddenBarsDepth = 0
     private var shownBarsBehavior: Int? = null
+
+    @Keep
+    @JvmStatic
+    fun openAuthUrlNative(url: String) {
+      val activity = checkNotNull(instance) { "Activity is unavailable" }
+      val result = CompletableFuture<Unit>()
+      activity.runOnUiThread {
+        runCatching {
+          activity.authBrowser.open(Uri.parse(url)) { opened ->
+            opened.fold(result::complete) { result.completeExceptionally(it) }
+          }
+        }.onFailure { result.completeExceptionally(it) }
+      }
+      result.get(10, TimeUnit.SECONDS)
+    }
 
     @JvmStatic
     fun hapticFeedbackNative(strong: Boolean) {

@@ -19,7 +19,7 @@ required-features = ["typegen"]
 
 [dependencies]
 sable-model = { path = "../sable-model", version = "0.1.0" }
-matrix-sdk = { workspace = true, features = ["qrcode"] }
+matrix-sdk = { workspace = true, features = ["qrcode", "unstable-msc4388"] }
 qrcode = { version = "0.14.1", default-features = false }
 matrix-sdk-ui = { workspace = true }
 matrix-sdk-base = { workspace = true }
@@ -52,9 +52,9 @@ charabia = { version = "0.10", default-features = false, features = [
   "swedish-recomposition",
   "chinese-normalization",
 ] }
-jieba-rs = { version = "=0.10.4", default-features = false }
+jieba-rs = { version = "=0.11.0", default-features = false }
 rust-stemmers = "1.2"
-html-escape = "0.2"
+html-escape = "0.3"
 linkify = "0.11"
 regex-lite = { workspace = true }
 miniz_oxide = { version = "0.9.1", default-features = false, features = ["with-alloc"] }
@@ -115,7 +115,10 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 wiremock = "0.6"
 bs58 = "0.5"
-jieba-rs = { version = "=0.10.4", features = ["default-dict"], default-features = false }
+jieba-rs = { version = "=0.11.0", features = ["default-dict"], default-features = false }
+
+[build-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

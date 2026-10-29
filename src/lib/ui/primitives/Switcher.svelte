@@ -176,4 +176,10 @@
         width var(--duration-fast) var(--ease-smooth-out);
     }
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .switcher {
+      background: var(--surface-container);
+    }
+  }
 </style>

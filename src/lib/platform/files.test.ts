@@ -9,6 +9,7 @@ import {
   saveUrl,
   saveFile,
   saveImageToPhotos,
+  saveVideoToPhotos,
   savesNatively,
   shareFile,
   sharesNatively,
@@ -366,6 +367,19 @@ test('iOS sends image bytes to the native Photos command', async () => {
 
   expect(mocks.invoke).toHaveBeenCalledWith('save_media_to_photos', new Uint8Array([1, 2, 3]), {
     headers: { filename: 'photo.png', 'mime-type': 'image%2Fpng' },
+  });
+});
+
+test('iOS sends video bytes and their media type to Photos', async () => {
+  mocks.isTauri.mockReturnValue(true);
+  mocks.osType.mockReturnValue('ios');
+  mocks.invoke.mockResolvedValue(undefined);
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))));
+  await expect(saveVideoToPhotos('blob:video', 'clip.mov', 'video/quicktime')).resolves.toBe(
+    'saved'
+  );
+  expect(mocks.invoke).toHaveBeenCalledWith('save_media_to_photos', new Uint8Array([1, 2, 3]), {
+    headers: { filename: 'clip.mov', 'mime-type': 'video%2Fquicktime' },
   });
 });
 

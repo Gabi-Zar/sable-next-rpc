@@ -355,4 +355,10 @@
     justify-content: center;
     padding: var(--space-300);
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .live-dot {
+      box-shadow: 0 0 0 0.1875rem var(--success-main);
+    }
+  }
 </style>

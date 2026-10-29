@@ -2,9 +2,10 @@
 
 import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
-import { expect, test, vi } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 
 vi.mock('./call-telemetry', () => ({ CallTelemetry: vi.fn() }));
+vi.mock('#lib/platform/overlay-back.svelte.js', () => ({ holdOverlayBack: vi.fn() }));
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 
@@ -17,13 +18,30 @@ import type { CallParticipant } from './call-transport';
 import { idleTransportState } from './call-transport';
 import CallViewHarness from './CallViewHarness.test.svelte';
 
+afterEach(() => {
+  vi.restoreAllMocks();
+  Reflect.deleteProperty(HTMLElement.prototype, 'requestFullscreen');
+  Reflect.deleteProperty(document, 'fullscreenEnabled');
+});
+
+function mockBrowserFullscreen() {
+  const request = vi.fn(() => Promise.resolve());
+  Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+    configurable: true,
+    value: request,
+  });
+  Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, value: true });
+  return request;
+}
+
 const shared = { id: 's', muted: false, subscribed: true };
 
 function mountBothSharing(
   self: CallParticipant = { identity: 'me:AAAA', local: true, screenShare: shared },
   others: CallParticipant[] = [{ identity: 'me:BBBB', screenShare: shared }],
   otherUserId = '@there:x',
-  watchedScreenShareIds = [shared.id]
+  watchedScreenShareIds = [shared.id],
+  native = false
 ) {
   const toggleWatchScreenShare = vi.fn();
   let layout = $state.raw<CallPin>({ pinned: null, gridForced: false });
@@ -47,6 +65,9 @@ function mountBothSharing(
     canScreenShare: true,
     canSwitchCamera: false,
     localVideo: undefined,
+    remoteVideo: native
+      ? { place: vi.fn(() => Promise.resolve()), clear: vi.fn(() => Promise.resolve()) }
+      : undefined,
     rooms: [],
     members: [
       {
@@ -210,6 +231,43 @@ test('the call view counts itself as watching while it is on screen', () => {
   expect(session.views).toBe(1);
   unmount();
   expect(session.views).toBe(0);
+});
+
+test('exits native fullscreen before opening call settings', async () => {
+  const request = mockBrowserFullscreen();
+  const { container, session, rerender, unmount } = mountBothSharing(
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    true
+  );
+  const stage = screen.getByRole('region', { name: 'Call' });
+  const user = userEvent.setup();
+  await user.click(within(stage).getAllByRole('button', { name: 'Full screen' })[0]);
+  expect(request).not.toHaveBeenCalled();
+  expect(stage.parentElement).toBe(document.body);
+  expect(stage).toHaveClass('expanded');
+
+  const onOpenSettings = vi.fn();
+  await rerender({ session, members: [], onOpenSettings });
+  await user.click(screen.getByRole('button', { name: 'Call settings' }));
+  expect(onOpenSettings).toHaveBeenCalledOnce();
+  expect(container).toContainElement(stage);
+  expect(stage).not.toHaveClass('expanded');
+
+  await user.click(within(stage).getAllByRole('button', { name: 'Full screen' })[0]);
+  unmount();
+  expect(stage).not.toBeInTheDocument();
+});
+
+test('web call fullscreen still uses the browser API', async () => {
+  const request = mockBrowserFullscreen();
+  mountBothSharing();
+  const stage = screen.getByRole('region', { name: 'Call' });
+  await userEvent.setup().click(within(stage).getAllByRole('button', { name: 'Full screen' })[0]);
+  expect(request).toHaveBeenCalledOnce();
+  expect(request.mock.instances[0]).toBe(stage);
 });
 
 test('the debug overlay follows its own switch under developer tools', () => {

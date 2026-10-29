@@ -5,8 +5,9 @@ import type { PersonaStore } from '#lib/personas/personas.svelte.js';
 import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
 import { t } from '#lib/i18n.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
-import { saveBytes, savesNatively } from '#lib/platform/files.js';
+import { saveBytes, savesNatively, saveVideoToPhotos } from '#lib/platform/files.js';
 import { favoriteGifs, isFavorite, toggleFavorite } from '#lib/gif/favorites.svelte.js';
+import { isNativeMobile, isAndroid } from '#lib/platform/os.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import { gifFromProxiedMxc } from '#lib/gif/providers.js';
 import { downloadCandidates, emoteCandidates } from '#lib/features/emotes/steal-emotes.js';
@@ -139,6 +140,36 @@ export class MessageActionExecutor {
       } catch (error) {
         console.warn('[sable timeline] media download failed', error);
         toasts.error(t('errors.actionFailed'));
+      }
+    };
+
+    const saveVideoToLibrary = async (): Promise<void> => {
+      if (!policy.media || this.savingSource !== null) return;
+      this.savingSource = policy.media.source;
+      const slow = setTimeout(() => {
+        this.savingSlow = true;
+      }, SAVE_FEEDBACK_DELAY_MS);
+      try {
+        const bytes = await core.media.fetchMedia(policy.media.source, 0, 0);
+        const url = URL.createObjectURL(new Blob([bytes], { type: policy.media.mime ?? '' }));
+        try {
+          const outcome = await saveVideoToPhotos(
+            url,
+            policy.media.filename || 'video',
+            policy.media.mime ?? undefined
+          );
+          if (outcome === 'saved') toasts.info(t('viewer.saved'));
+          if (outcome === 'failed') toasts.error(t('errors.actionFailed'));
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        console.warn('[sable timeline] save to photos failed', error);
+        toasts.error(t('errors.actionFailed'));
+      } finally {
+        clearTimeout(slow);
+        this.savingSource = null;
+        this.savingSlow = false;
       }
     };
 
@@ -298,6 +329,10 @@ export class MessageActionExecutor {
             if (policy.media) void downloadMedia(policy.media);
           }
         : undefined,
+      onSaveToPhotos:
+        item.content.kind === 'video' && isNativeMobile() && !isAndroid()
+          ? () => void saveVideoToLibrary()
+          : undefined,
       gifFavorited: gif !== undefined && isFavorite(favoriteGifs(), gif),
       onFavoriteGif: gif
         ? () => {

@@ -10,6 +10,7 @@ allowBuilds:
   '@sentry/cli': true
   '@vencord/venmic': false
   cpu-features: false
+  core-js: false
   electron: true
   electron-winstaller: false
   esbuild: true

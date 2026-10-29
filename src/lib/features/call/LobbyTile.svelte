@@ -182,4 +182,14 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .tile.speaking.video-on::after {
+      box-shadow: inset 0 0 0 0.3125rem var(--success-main);
+    }
+
+    .tag {
+      background: rgb(0 0 0 / 62%);
+    }
+  }
 </style>

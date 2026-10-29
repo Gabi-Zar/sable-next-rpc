@@ -16,6 +16,7 @@ use sable_model::bot_commands::{
 use sable_model::calendar::{self, CalendarItem, CalendarRsvpView, EventDraft};
 use sable_model::notifications::{self, NotificationModeView, PushNotification};
 use sable_model::power_levels::{self, PowerLevelLocation, RoomPowerLevelsView};
+use sable_model::rtc_invites::{self, InvitePresentation};
 use sable_model::search_filter::{self, SearchDirectory, SearchPerson, SearchRoom};
 use sable_model::sidebar::{self, DropInstruction, LayoutRef, SidebarItemView};
 use sable_model::spaces::{
@@ -76,22 +77,10 @@ pub fn parse_bot_command(description: &str) -> Result<String, JsError> {
     json(&bot_commands::parse_description(&description))
 }
 
-#[wasm_bindgen(js_name = parseBotCommands)]
-pub fn parse_bot_commands(descriptions: &str) -> Result<String, JsError> {
-    json(&bot_commands::parse_descriptions(&decode::<
-        Vec<BotCommandDescription>,
-    >(descriptions)?))
-}
-
 #[wasm_bindgen(js_name = matchBotCommand)]
 pub fn match_bot_command(line: &str, commands: &str) -> Result<String, JsError> {
     let commands = decode::<Vec<BotCommand>>(commands)?;
     json(&bot_commands::match_bot_command(line, &commands))
-}
-
-#[wasm_bindgen(js_name = emptyDrafts)]
-pub fn empty_drafts(command: &str) -> Result<String, JsError> {
-    json(&bot_commands::empty_drafts(&decode::<BotCommand>(command)?))
 }
 
 #[wasm_bindgen(js_name = draftsFromText)]
@@ -119,6 +108,29 @@ pub fn literal_label(value: &str) -> Result<String, JsError> {
 #[wasm_bindgen(js_name = parsePushPayload)]
 pub fn parse_push_payload(raw: &str) -> Result<String, JsError> {
     json(&notifications::parse_push_payload(raw))
+}
+
+#[wasm_bindgen(js_name = validateRtcInviteSnapshot)]
+pub fn validate_rtc_invite_snapshot(
+    event: &str,
+    events: &str,
+    user_id: &str,
+    now_ms: f64,
+) -> Result<String, JsError> {
+    let event = decode::<serde_json::Value>(event)?;
+    let events = decode::<Vec<serde_json::Value>>(events)?;
+    if !now_ms.is_finite() || now_ms < 0.0 || now_ms.fract() != 0.0 {
+        return json(&Option::<InvitePresentation>::None);
+    }
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "validated non-negative whole milliseconds"
+    )]
+    let now_ms = now_ms as u64;
+    let presentation = rtc_invites::validate_snapshot(&event, &events, user_id, now_ms)
+        .and_then(|invite| InvitePresentation::from_invite(&invite, &events));
+    json(&presentation)
 }
 
 #[wasm_bindgen(js_name = webPushValidation)]
@@ -161,17 +173,15 @@ pub fn push_alert(
 }
 
 #[wasm_bindgen(js_name = activeElsewhere)]
-pub fn active_elsewhere(presence: &str, inactive_here_ms: Option<f64>) -> Result<bool, JsError> {
+#[must_use]
+pub fn active_elsewhere(content: &str, own_device_id: &str, now_ms: f64) -> bool {
     #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         reason = "a non-negative whole number of milliseconds from Date.now()"
     )]
-    let inactive_here_ms = inactive_here_ms.map(|ms| ms.max(0.0) as u64);
-    Ok(notifications::active_elsewhere(
-        &decode::<notifications::OwnPresence>(presence)?,
-        inactive_here_ms,
-    ))
+    let now_ms = now_ms.max(0.0) as u64;
+    notifications::active_elsewhere_json(content, own_device_id, now_ms)
 }
 
 #[wasm_bindgen(js_name = slashCommandNames)]
@@ -289,28 +299,6 @@ pub fn build_calendar_event(
         now_ms,
         time_zone,
     ))
-}
-
-#[wasm_bindgen(js_name = parseDuration)]
-#[must_use]
-pub fn parse_duration(value: &str) -> f64 {
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "a duration in milliseconds is far below 2^53"
-    )]
-    let ms = calendar::parse_duration(value) as f64;
-    ms
-}
-
-#[wasm_bindgen(js_name = formatDuration)]
-#[must_use]
-pub fn format_duration(ms: f64) -> String {
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "rounded to whole minutes anyway"
-    )]
-    let ms = ms as i64;
-    calendar::format_duration(ms)
 }
 
 #[wasm_bindgen(js_name = lobbyAction)]

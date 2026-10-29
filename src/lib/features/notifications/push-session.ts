@@ -3,7 +3,12 @@ import type { PushFetchView } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { isRecord } from '#lib/guards.js';
 
-import { forgetPushSession, putPushSession } from '#lib/notifications/room-names.js';
+import {
+  boundServerIdentity,
+  currentServerUser,
+  forgetPushSession,
+  putPushSession,
+} from '#lib/notifications/room-names.js';
 
 type SessionSharer = Pick<CoreClient, 'rpc' | 'session' | 'subscribeEvents'>;
 
@@ -11,11 +16,11 @@ export function sharePushSession(core: SessionSharer): () => void {
   const share = async (): Promise<void> => {
     const session = core.session;
     if (!session) return;
-    const { user_id: userId, homeserver } = session;
+    const { user_id: userId, device_id: deviceId, homeserver } = session;
     try {
       const accessToken = await core.rpc.session.accessToken();
       if (accessToken === null) await forgetPushSession(userId);
-      else await putPushSession({ userId, homeserver, accessToken });
+      else await putPushSession({ userId, deviceId, homeserver, accessToken });
     } catch (error) {
       console.warn('[sable notifications] sharing push session failed', error);
     }
@@ -31,6 +36,15 @@ export async function answerPushEvent(
   request: unknown
 ): Promise<PushFetchView | null> {
   if (!isRecord(request)) return null;
+  if (import.meta.env.VITE_SABLE_SERVER_URL) {
+    if (typeof request.serverUserId !== 'string' || request.serverUserId !== boundServerIdentity())
+      return null;
+    try {
+      if ((await currentServerUser()) !== request.serverUserId) return null;
+    } catch {
+      return null;
+    }
+  }
   const { roomId, eventId, userId } = request;
   if (typeof roomId !== 'string' || typeof eventId !== 'string') return null;
   if (typeof userId === 'string' && userId !== core.session?.user_id) return null;

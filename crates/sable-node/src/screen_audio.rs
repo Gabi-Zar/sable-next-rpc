@@ -14,12 +14,15 @@ type Frames = ThreadsafeFunction<Buffer, (), Buffer, Status, false, true, 8>;
 static SESSION: Mutex<Option<Capture>> = Mutex::new(None);
 
 #[napi]
-pub fn start_screen_audio(frames: Frames) -> napi::Result<()> {
+pub fn start_screen_audio(audio_pid: u32, frames: Frames) -> napi::Result<()> {
+    if audio_pid == 0 {
+        return Err(napi::Error::from_reason("invalid audio process"));
+    }
     stop_screen_audio();
     let selection = Selection::System { exclude: vec![] };
     let capture = Capture::start(
         &selection,
-        std::process::id(),
+        audio_pid,
         Box::new(move |chunk| {
             matches!(
                 frames.call(

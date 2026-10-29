@@ -1,5 +1,6 @@
 <script lang="ts">
   import { i18n } from '#lib/i18n.js';
+  import { readText, writeText } from '#lib/platform/local-json.js';
   import type { RoomListItemView } from '#src/generated/protocol';
   import { onMount } from 'svelte';
   import { afterNavigate, goto } from '$app/navigation';
@@ -171,7 +172,7 @@
   });
 
   onMount(() => {
-    const storedWidth = Number.parseInt(localStorage.getItem(ROOM_NAV_STORAGE_KEY) ?? '', 10);
+    const storedWidth = Number.parseInt(readText(ROOM_NAV_STORAGE_KEY) ?? '', 10);
     if (Number.isFinite(storedWidth)) roomNavWidth = clampRoomNavWidth(storedWidth);
   });
 
@@ -188,7 +189,7 @@
   }
 
   function persistRoomNavWidth() {
-    localStorage.setItem(ROOM_NAV_STORAGE_KEY, String(roomNavWidth));
+    writeText(ROOM_NAV_STORAGE_KEY, String(roomNavWidth));
   }
 
   function folderLabel(folder: SidebarFolder): string {

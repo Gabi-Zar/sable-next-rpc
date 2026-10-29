@@ -57,6 +57,7 @@ import {
 
 declare const __SABLE_CSP__: Record<string, string>;
 declare const __SABLE_IDENTIFIER__: string;
+declare const __SABLE_APP_VERSION__: string;
 
 ignoreBrokenPipes([process.stdout, process.stderr]);
 
@@ -65,6 +66,10 @@ const SCHEME = 'sable-app';
 const DEEP_LINK_SCHEMES = deepLinkSchemes(IDENTIFIER);
 const APP_ORIGIN = `${SCHEME}://app`;
 const PANIC_MARKER = 'SABLE_CORE_PANIC ';
+const USER_AGENT = `Sable/${__SABLE_APP_VERSION__}`;
+
+// Call libraries inspect navigator.userAgent to select Chromium workarounds.
+app.userAgentFallback = `${USER_AGENT} ${app.userAgentFallback}`;
 
 const devUrl = process.env.SABLE_DEV_URL;
 const distDir = resolve(app.getAppPath(), process.env.SABLE_DIST ?? '../dist');
@@ -366,6 +371,9 @@ function windowOf(event: IpcMainEvent | IpcMainInvokeEvent): BrowserWindow | nul
 }
 
 ipcMain.on('sable-window-minimize', (event) => windowOf(event)?.minimize());
+ipcMain.on('sable-window-show', (event) => {
+  if (isAppFrame(event.senderFrame)) showMainWindow();
+});
 ipcMain.on('sable-window-toggle-maximize', (event) => {
   const window = windowOf(event);
   if (!window) return;
@@ -680,6 +688,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
+    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+      details.requestHeaders['User-Agent'] = USER_AGENT;
+      callback({ requestHeaders: details.requestHeaders });
+    });
     registerDeepLinks();
     desktopTray.update(desktopWindowSettings.showSystemTrayIcon);
     core = startCore();

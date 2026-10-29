@@ -477,6 +477,8 @@ struct SelectionOut {
     profile_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     valid_until: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    alternate_avatar_id: Option<String>,
 }
 
 impl From<&PersonaSelectionView> for SelectionOut {
@@ -484,6 +486,7 @@ impl From<&PersonaSelectionView> for SelectionOut {
         Self {
             profile_id: selection.persona_id.clone(),
             valid_until: selection.valid_until,
+            alternate_avatar_id: selection.alternate_avatar_id.clone(),
         }
     }
 }
@@ -833,18 +836,18 @@ pub(crate) async fn notification_profile(
 }
 
 impl Core {
-    pub(crate) async fn edit_local_with_persona(
+    pub(crate) async fn edit_local_message(
         &self,
         room: &Room,
         transaction_id: &TransactionId,
         message: RoomMessageEventContentWithoutRelation,
-        profile: &PerMessageProfileView,
+        profile: Option<&PerMessageProfileView>,
     ) -> Result<bool, RpcError> {
         let (echoes, _updates) = room
             .send_queue()
             .subscribe()
             .await
-            .or_failed(self, "edit_local_with_persona")?;
+            .or_failed(self, "edit_local_message")?;
 
         let Some((serialized, handle)) = echoes.into_iter().find_map(|echo| {
             if echo.transaction_id != *transaction_id {
@@ -866,24 +869,31 @@ impl Core {
             .raw()
             .0
             .deserialize_as_unchecked::<Value>()
-            .or_failed(self, "edit_local_with_persona")?;
-        let mut value =
-            serde_json::to_value(&message).or_failed(self, "edit_local_with_persona")?;
-        if let Some(object) = value.as_object_mut()
-            && let Some(relation) = previous.get("m.relates_to")
-        {
-            object.insert("m.relates_to".to_owned(), relation.clone());
+            .or_failed(self, "edit_local_message")?;
+        let mut value = serde_json::to_value(&message).or_failed(self, "edit_local_message")?;
+        if let Some(object) = value.as_object_mut() {
+            for key in [
+                "m.relates_to",
+                crate::link_previews::BUNDLED_LINK_PREVIEWS,
+                crate::link_previews::LEGACY_BUNDLED_LINK_PREVIEWS,
+            ] {
+                if let Some(retained) = previous.get(key) {
+                    object.insert(key.to_owned(), retained.clone());
+                }
+            }
         }
-        stamp_profile(&mut value, profile);
+        if let Some(profile) = profile {
+            stamp_profile(&mut value, profile);
+        }
         ensure_empty_mentions(&mut value);
 
         let raw = Raw::<AnyMessageLikeEventContent>::from_json_string(value.to_string())
-            .or_failed(self, "edit_local_with_persona")?;
+            .or_failed(self, "edit_local_message")?;
 
         handle
             .edit_raw(raw, "m.room.message".to_owned())
             .await
-            .or_failed(self, "edit_local_with_persona")
+            .or_failed(self, "edit_local_message")
     }
 
     pub(crate) async fn edit_with_persona(
@@ -1066,7 +1076,7 @@ impl Core {
         match personas.iter_mut().find(|existing| existing.id == replaced) {
             Some(existing) => {
                 merge_persona(existing, &base_persona, &persona);
-                existing.id = persona.id.clone();
+                existing.id.clone_from(&persona.id);
             }
             None => personas.push(persona.clone()),
         }

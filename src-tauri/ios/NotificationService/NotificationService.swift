@@ -1,6 +1,8 @@
 import CallKit
+import CryptoKit
 import Foundation
 import Intents
+import os
 import StoreKit
 import UniformTypeIdentifiers
 import UserNotifications
@@ -11,13 +13,13 @@ final class NotificationService: UNNotificationServiceExtension {
     private var fallback: UNMutableNotificationContent?
     private var policyRoot: String?
     private var originalSound: UNNotificationSound?
-    private var noisy = false
     private var activeElsewhere = false
     private var communication: INSendMessageIntent?
     private static let messageCategory = "sable-message"
     private static let inviteCategory = "sable-invite"
     private static let alertedAtKey = "sable_alerted_at"
     private static let notifyOnceWindow: TimeInterval = 5 * 60
+    private static let log = Logger(subsystem: "moe.sable.app.notifications", category: "push")
 
     override func didReceive(
         _ request: UNNotificationRequest,
@@ -38,16 +40,13 @@ final class NotificationService: UNNotificationServiceExtension {
         completion = contentHandler
         fallback = content
         originalSound = request.content.sound
-        noisy = false
         activeElsewhere = false
         communication = nil
         policyRoot = nil
         lock.unlock()
 
         guard let group = Bundle.main.object(forInfoDictionaryKey: "SableAppGroup") as? String,
-              let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group),
-              let data = try? JSONSerialization.data(withJSONObject: request.content.userInfo),
-              let payload = String(data: data, encoding: .utf8) else {
+              let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) else {
             finish(content)
             return
         }
@@ -55,69 +54,86 @@ final class NotificationService: UNNotificationServiceExtension {
         lock.lock()
         policyRoot = root.path
         lock.unlock()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = root.path.withCString { path in
-                payload.withCString { json in sable_push_render(path, json) }
-            }
-            guard let result else { self?.finish(content); return }
-            defer { sable_push_free(result) }
-            let bytes = Data(String(cString: result).utf8)
-            guard let rendered = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
+        UNUserNotificationCenter.current().getDeliveredNotifications { [weak self] delivered in
+            var userInfo = request.content.userInfo
+            userInfo["sable_shown_room_ids"] = Self.deliveredRooms(
+                delivered,
+                user: Self.conversationUser(request.content.userInfo)
+            )
+            guard let data = try? JSONSerialization.data(withJSONObject: userInfo),
+                  let payload = String(data: data, encoding: .utf8) else {
                 self?.finish(content)
                 return
             }
-            if rendered["discard"] as? Bool == true {
-                self?.suppress()
-                return
-            }
-            if let ring = rendered["ring"] as? [String: Any], let room = rendered["room_id"] as? String {
-                self?.ring(ring, room: room, fallback: content)
-                return
-            }
-            if let read = rendered["read"] as? [String: Any], let user = rendered["user_id"] as? String {
-                self?.clearRead(read, user: user)
-                return
-            }
-            guard let body = rendered["body"] as? String,
-                  let updated = content.mutableCopy() as? UNMutableNotificationContent else {
-                self?.finish(content)
-                return
-            }
-            if let title = rendered["title"] as? String { updated.title = title }
-            updated.body = body
-            if let image = rendered["image"] as? [String: Any], let attachment = Self.attachment(image) {
-                updated.attachments = [attachment]
-            }
-            let invite = rendered["invite"] as? Bool == true
-            updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
-            if rendered["noisy"] as? Bool == true {
-                self?.lock.lock()
-                self?.noisy = true
-                self?.lock.unlock()
-            }
-            if rendered["active_elsewhere"] as? Bool == true {
-                self?.lock.lock()
-                self?.activeElsewhere = true
-                self?.lock.unlock()
-            }
-            guard let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String else {
-                self?.finish(updated)
-                return
-            }
-            updated.threadIdentifier = user + "\u{0}" + room
-            guard !invite, let intent = Self.intent(rendered, conversation: updated.threadIdentifier) else {
-                self?.finish(updated)
-                return
-            }
-            let interaction = INInteraction(intent: intent, response: nil)
-            interaction.direction = .incoming
-            interaction.donate { [weak self] error in
-                if error == nil {
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                let result = root.path.withCString { path in
+                    payload.withCString { json in sable_push_render(path, json) }
+                }
+                guard let result else {
+                    Self.log.error("render failed, showing the generic alert")
+                    self?.finish(content)
+                    return
+                }
+                defer { sable_push_free(result) }
+                let bytes = Data(String(cString: result).utf8)
+                guard let rendered = try? JSONSerialization.jsonObject(with: bytes) as? [String: Any] else {
+                    self?.finish(content)
+                    return
+                }
+                if let rooms = rendered["read_rooms"] as? [String],
+                   let user = rendered["user_id"] as? String {
+                    self?.clearReadRooms(rooms, user: user)
+                }
+                if rendered["discard"] as? Bool == true {
+                    Self.log.info("discarded by push rules")
+                    self?.suppress()
+                    return
+                }
+                if let ring = rendered["ring"] as? [String: Any], let room = rendered["room_id"] as? String,
+                   let user = rendered["user_id"] as? String {
+                    self?.ring(ring, room: room, user: user, fallback: content)
+                    return
+                }
+                if let read = rendered["read"] as? [String: Any], let user = rendered["user_id"] as? String {
+                    self?.clearRead(read, user: user)
+                    return
+                }
+                guard let body = rendered["body"] as? String,
+                      let updated = content.mutableCopy() as? UNMutableNotificationContent else {
+                    self?.finish(content)
+                    return
+                }
+                if let title = rendered["title"] as? String { updated.title = title }
+                updated.body = body
+                if let image = rendered["image"] as? [String: Any], let attachment = Self.attachment(image) {
+                    updated.attachments = [attachment]
+                }
+                let invite = rendered["invite"] as? Bool == true
+                updated.categoryIdentifier = invite ? Self.inviteCategory : Self.messageCategory
+                if rendered["active_elsewhere"] as? Bool == true {
                     self?.lock.lock()
-                    self?.communication = intent
+                    self?.activeElsewhere = true
                     self?.lock.unlock()
                 }
-                self?.finish(updated)
+                guard let user = rendered["user_id"] as? String, let room = rendered["room_id"] as? String else {
+                    self?.finish(updated)
+                    return
+                }
+                updated.threadIdentifier = user + "\u{0}" + room
+                guard !invite, let intent = Self.intent(rendered, conversation: updated.threadIdentifier) else {
+                    self?.finish(updated)
+                    return
+                }
+                let interaction = INInteraction(intent: intent, response: nil)
+                interaction.direction = .incoming
+                interaction.donate { [weak self] error in
+                    if error == nil {
+                        self?.lock.lock()
+                        self?.communication = intent
+                        self?.lock.unlock()
+                    }
+                    self?.finish(updated)
+                }
             }
         }
     }
@@ -208,6 +224,21 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
+    private func clearReadRooms(_ rooms: [String], user: String) {
+        guard !rooms.isEmpty else { return }
+        UNUserNotificationCenter.current().getDeliveredNotifications { delivered in
+            let roomSet = Set(rooms)
+            let identifiers = delivered.filter { notification in
+                let parts = notification.request.content.threadIdentifier
+                    .split(separator: "\u{0}", maxSplits: 1, omittingEmptySubsequences: false)
+                return parts.count == 2 && parts[0] == user && roomSet.contains(String(parts[1]))
+            }.map { $0.request.identifier }
+            if !identifiers.isEmpty {
+                UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: identifiers)
+            }
+        }
+    }
+
     private func suppress() {
         lock.lock()
         let handler = completion
@@ -216,24 +247,28 @@ final class NotificationService: UNNotificationServiceExtension {
         handler?(UNNotificationContent())
     }
 
-    private func ring(_ ring: [String: Any], room: String, fallback: UNMutableNotificationContent) {
+    private func ring(_ ring: [String: Any], room: String, user: String, fallback: UNMutableNotificationContent) {
         let caller = (ring["caller_name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Someone"
         guard let alert = fallback.mutableCopy() as? UNMutableNotificationContent else {
             finish(fallback)
             return
         }
         alert.body = "\(caller) is calling"
+        let eventId = ring["notification_event_id"] as? String
+        let uuid = eventId.map { Self.callUUID(user: user, room: room, event: $0) } ?? UUID()
         var payload: [AnyHashable: Any] = [
             "room_id": room,
-            "uuid": UUID().uuidString,
+            "uuid": uuid.uuidString,
             "caller_name": caller,
         ]
         if let expiresAt = ring["expires_at"] as? Double { payload["expires_at"] = expiresAt }
+        if let eventId { payload["notification_event_id"] = eventId }
+        payload["has_video"] = ring["has_video"] as? Bool ?? false
         Task { [weak self] in
             let storefront = await Storefront.current
             guard let self, isPending() else { return }
             guard let storefront,
-                  let region = Locale.autoupdatingCurrent.region?.identifier,
+                  let region = Locale.autoupdatingCurrent.regionCode,
                   !region.isEmpty, !storefront.countryCode.isEmpty,
                   region.uppercased() != "CN",
                   storefront.countryCode.uppercased() != "CHN" else {
@@ -250,21 +285,35 @@ final class NotificationService: UNNotificationServiceExtension {
         }
     }
 
+    private static func callUUID(user: String, room: String, event: String) -> UUID {
+        var bytes = Array(SHA256.hash(data: Data("\(user)\u{0}\(room)\u{0}\(event)".utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0f) | 0x80
+        bytes[8] = (bytes[8] & 0x3f) | 0x80
+        return UUID(uuid: (bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+                           bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]))
+    }
+
     private func isPending() -> Bool {
         lock.lock()
         defer { lock.unlock() }
         return completion != nil
     }
 
-    static func conversationThread(_ payload: [AnyHashable: Any]) -> String? {
-        var notification = payload["notification"] as? [String: Any]
+    private static func eventPayload(_ payload: [AnyHashable: Any]) -> [String: Any] {
+        if let notification = payload["notification"] as? [String: Any] { return notification }
         if let encoded = payload["notification"] as? String,
-           let data = encoded.data(using: .utf8) {
-            notification = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+           let data = encoded.data(using: .utf8),
+           let value = try? JSONSerialization.jsonObject(with: data),
+           let notification = value as? [String: Any] {
+            return notification
         }
-        let event = notification ?? payload.reduce(into: [String: Any]()) {
+        return payload.reduce(into: [String: Any]()) {
             if let key = $1.key as? String { $0[key] = $1.value }
         }
+    }
+
+    static func conversationUser(_ payload: [AnyHashable: Any]) -> String? {
+        let event = eventPayload(payload)
         var users = Set<String>()
         for candidate in [payload["user_id"], event["user_id"]] {
             if let user = candidate as? String, !user.isEmpty { users.insert(user) }
@@ -275,14 +324,31 @@ final class NotificationService: UNNotificationServiceExtension {
                 if let user = candidate as? String, !user.isEmpty { users.insert(user) }
             }
         }
-        guard users.count == 1, let user = users.first,
-              let room = event["room_id"] as? String, !room.isEmpty else { return nil }
+        guard users.count == 1 else { return nil }
+        return users.first
+    }
+
+    static func conversationThread(_ payload: [AnyHashable: Any]) -> String? {
+        let event = eventPayload(payload)
+        guard let user = conversationUser(payload) else { return nil }
+        guard let room = event["room_id"] as? String, !room.isEmpty else { return nil }
         return user + "\u{0}" + room
+    }
+
+    private static func deliveredRooms(_ delivered: [UNNotification], user: String?) -> [String] {
+        guard let user else { return [] }
+        return Array(Set(delivered.compactMap { notification in
+            let parts = notification.request.content.threadIdentifier
+                .split(separator: "\u{0}", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2, parts[0] == user else { return nil }
+            return String(parts[1]).isEmpty ? nil : String(parts[1])
+        }))
     }
 
     private func finish(_ content: UNNotificationContent) {
         let identity = Self.messageIdentity(content.userInfo)
-        let thread = Self.conversationThread(content.userInfo)
+        let thread = content.threadIdentifier.isEmpty
+            ? Self.conversationThread(content.userInfo) : content.threadIdentifier
         guard identity != nil || thread != nil else {
             complete(content)
             return
@@ -322,7 +388,6 @@ final class NotificationService: UNNotificationServiceExtension {
         completion = nil
         let root = policyRoot
         let sound = originalSound
-        let noisy = self.noisy
         let activeElsewhere = self.activeElsewhere
         let intent = communication
         communication = nil
@@ -333,12 +398,24 @@ final class NotificationService: UNNotificationServiceExtension {
             return
         }
         let now = Date().timeIntervalSince1970
-        let cooling = alertedAt.map { now >= $0 && now - $0 < Self.notifyOnceWindow } ?? false
+        let enabled = root?.withCString { sable_push_notify_once($0) } == true
+        let thread = updated.threadIdentifier.isEmpty
+            ? Self.conversationThread(updated.userInfo) : updated.threadIdentifier
+        let priorCooling = alertedAt.map { now >= $0 && now - $0 < Self.notifyOnceWindow } ?? false
+        let cooling: Bool
+        if enabled, !activeElsewhere, duplicates.isEmpty, updated.categoryIdentifier != Self.inviteCategory,
+           let root, let thread {
+            cooling = AlertCooldown.record(
+                root: root, thread: thread, now: now, window: Self.notifyOnceWindow
+            ) ?? priorCooling
+        } else {
+            cooling = false
+        }
         let quiet = !duplicates.isEmpty
             || activeElsewhere
-            || (cooling && !noisy && root?.withCString { sable_push_notify_once($0) } == true)
+            || cooling
         // Dropping the alert needs the filtering entitlement; until then it arrives silently.
-        if activeElsewhere { updated.interruptionLevel = .passive }
+        if activeElsewhere || cooling { updated.interruptionLevel = .passive }
         updated.sound = !quiet && root?.withCString { sable_push_sounds($0) } == true ? sound : nil
         if let stamp = quiet ? alertedAt : Optional(now) {
             updated.userInfo[Self.alertedAtKey] = stamp
@@ -350,6 +427,7 @@ final class NotificationService: UNNotificationServiceExtension {
     }
 
     override func serviceExtensionTimeWillExpire() {
+        Self.log.error("time expired, showing the generic alert")
         lock.lock()
         let content = fallback
         communication = nil

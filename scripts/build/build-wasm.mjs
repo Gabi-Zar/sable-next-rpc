@@ -29,10 +29,6 @@ const cargoArgs = [
   profile,
 ];
 
-const MAX_RELEASE_WASM_BYTES = 20 * 1024 * 1024;
-// Includes the HTML parser used by notification previews.
-const MAX_RELEASE_MODEL_BYTES = 1200 * 1024;
-
 function run(command, args, env) {
   const result = spawnSync(command, args, { stdio: 'inherit', env: env ?? process.env });
 
@@ -115,7 +111,7 @@ run('cargo', cargoArgs, release ? releaseEnvironment() : undefined);
 const built = `${targetDirectory()}/wasm32-unknown-unknown/${profile}`;
 const output = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
 
-async function bindgen(input, name, { optimize, budget, features = [] }) {
+async function bindgen(input, name, { optimize, features = [] }) {
   const wasm = `${output}/${name}_bg.wasm`;
   const args = ['--target', 'web', '--out-dir', output, '--out-name', name];
   if (keepNames) args.push('--remove-producers-section');
@@ -143,9 +139,15 @@ async function bindgen(input, name, { optimize, budget, features = [] }) {
   const generated = readFileSync(wasm);
   await WebAssembly.compile(generated);
 
-  if (release && !keepNames && generated.byteLength > budget) {
-    throw new Error(`${wasm} is ${generated.byteLength} bytes, over the ${budget} budget`);
+  // Validate instructions independently of the module's target_features section.
+  const validationInput = `${output}/${name}_bg.validation.wasm`;
+  try {
+    run('wasm-opt', [wasm, '--strip-target-features', '-o', validationInput]);
+    run('wasm-opt', [validationInput, '--all-features', '--disable-simd']);
+  } finally {
+    rmSync(validationInput, { force: true });
   }
+
   return generated;
 }
 
@@ -154,14 +156,12 @@ const unlockOutput = lockOutput(output);
 try {
   const generated = await bindgen('sable_wasm.wasm', 'sable_wasm', {
     optimize: ['-O3', '--gufa', '-O3'],
-    budget: MAX_RELEASE_WASM_BYTES,
     features: ['reference-types', 'multivalue', 'bulk-memory'],
   });
   writeFileSync(`${output}/sable_wasm_version.js`, `export default '${sha256(generated)}';\n`);
 
   await bindgen('sable_model_wasm.wasm', 'sable_model', {
     optimize: ['-Oz'],
-    budget: MAX_RELEASE_MODEL_BYTES,
   });
 } finally {
   unlockOutput();

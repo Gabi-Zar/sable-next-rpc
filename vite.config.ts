@@ -11,6 +11,7 @@ import { emojiDataPlugin } from './scripts/build/emoji-data-plugin.mjs';
 import { writeCspHeaders } from './scripts/build/csp.mjs';
 
 const wasmOutput = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
+const serverMode = Boolean(process.env.VITE_SABLE_SERVER_URL);
 const nativeMobile =
   process.env.NODE_ENV === 'production' &&
   ['android', 'ios'].includes(process.env.TAURI_ENV_PLATFORM ?? '');
@@ -21,6 +22,8 @@ export default defineConfig({
     __SABLE_STABLE__: JSON.stringify(process.env.SABLE_BUILD_FLAVOR === 'stable'),
   },
   build: {
+    target: process.env.TAURI_ENV_PLATFORM === 'ios' ? 'safari15.4' : undefined,
+    cssTarget: process.env.TAURI_ENV_PLATFORM === 'ios' ? 'safari15.4' : undefined,
     sourcemap:
       process.env.SABLE_FOSS === '1'
         ? false
@@ -81,6 +84,7 @@ export default defineConfig({
       release: { name: process.env.VITE_APP_VERSION },
     }),
     sveltekit({
+      csp: serverMode ? { mode: 'hash' } : undefined,
       preprocess: vitePreprocess(),
       compilerOptions: {
         // Force runes mode for the project, except for libraries. Can be removed in svelte 6.

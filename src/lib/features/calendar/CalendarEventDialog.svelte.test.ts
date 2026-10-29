@@ -51,15 +51,6 @@ async function save(): Promise<void> {
   await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 }
 
-test('gives the event editor enough desktop width for both date fields', async () => {
-  await open(null);
-
-  expect(screen.getByRole('dialog')).toHaveAttribute(
-    'style',
-    expect.stringContaining('max-width: min(40rem, calc(100vw - 3rem))')
-  );
-});
-
 test('shows Never for an event that does not repeat, and no until field', async () => {
   await open(null);
   expect(screen.getByLabelText('Repeats')).toHaveTextContent('Never');

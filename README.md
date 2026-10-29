@@ -204,20 +204,11 @@ Put Node, pnpm, Rust (with the `wasm32-unknown-unknown` target) and
 `wasm-bindgen-cli` (the version in `Cargo.lock`) on your `PATH`, then run
 `pnpm install` and `pnpm build`.
 
-## Customization
+## Self-hosting
 
-Edit [`static/config.json`](static/config.json) to customize homeservers and client
-defaults. With Docker, copy it to `config.json`, edit it, and mount it:
-
-```yaml
-services:
-  sable:
-    image: git.sable.moe/sableclient/sable-next:dev
-    ports:
-      - '8080:8080'
-    volumes:
-      - ./config.json:/app/config.json:ro
-```
+See the [web client guide](docs/web.md) for Docker and client configuration, or
+the [server mode guide](docs/server.md) to run Sable and its Matrix stores on
+your server.
 
 ## Apps
 

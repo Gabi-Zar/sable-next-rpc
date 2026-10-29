@@ -37,7 +37,7 @@ pub(crate) const fn proxy_configured() -> bool {
 #[cfg(all(not(target_os = "android"), not(target_family = "wasm")))]
 #[must_use = "returns the configured builder"]
 pub fn apply(builder: ClientBuilder) -> ClientBuilder {
-    with_proxy(builder)
+    with_proxy(builder.user_agent(crate::USER_AGENT))
 }
 
 #[cfg(target_family = "wasm")]
@@ -49,7 +49,7 @@ pub const fn apply(builder: ClientBuilder) -> ClientBuilder {
 #[cfg(target_os = "android")]
 #[must_use = "returns the configured builder"]
 pub fn apply(builder: ClientBuilder) -> ClientBuilder {
-    let builder = with_proxy(builder);
+    let builder = with_proxy(builder.user_agent(crate::USER_AGENT));
     let Some(config) = client_config() else {
         return builder;
     };
@@ -58,6 +58,7 @@ pub fn apply(builder: ClientBuilder) -> ClientBuilder {
 
 #[cfg(all(not(target_os = "android"), not(target_family = "wasm")))]
 pub(crate) fn apply_sdk(builder: matrix_sdk::ClientBuilder) -> matrix_sdk::ClientBuilder {
+    let builder = builder.user_agent(crate::USER_AGENT);
     match PROXY.get() {
         Some(url) => builder.proxy(url),
         None => builder,
@@ -71,12 +72,11 @@ pub(crate) const fn apply_sdk(builder: matrix_sdk::ClientBuilder) -> matrix_sdk:
 
 #[cfg(target_os = "android")]
 pub(crate) fn apply_sdk(builder: matrix_sdk::ClientBuilder) -> matrix_sdk::ClientBuilder {
-    let Ok(client) = apply(
-        matrix_sdk::reqwest::Client::builder()
-            .user_agent("matrix-rust-sdk")
-            .timeout(std::time::Duration::from_secs(30)),
-    )
-    .build() else {
+    let builder = builder.user_agent(crate::USER_AGENT);
+    let Ok(client) =
+        apply(matrix_sdk::reqwest::Client::builder().timeout(std::time::Duration::from_secs(30)))
+            .build()
+    else {
         return builder;
     };
     builder.http_client(client)

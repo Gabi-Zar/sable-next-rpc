@@ -7,7 +7,7 @@ import DevicesIcon from 'phosphor-svelte/lib/DevicesIcon';
 import LockIcon from 'phosphor-svelte/lib/LockIcon';
 import PaperPlaneTiltIcon from 'phosphor-svelte/lib/PaperPlaneTiltIcon';
 import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
-import { presentsInApp } from '#lib/platform/notifications.js';
+import { presentsInApp, pushPlatform } from '#lib/platform/notifications.js';
 import { PUSH_INACTIVE_TIMEOUTS } from '../preferences.svelte';
 import type { SettingOption, SettingsCategory } from '../registry';
 
@@ -83,6 +83,7 @@ export const notificationsCategory: SettingsCategory = {
       name: 'settings.richPushPayloads',
       description: 'settings.richPushPayloadsHint',
       type: 'boolean',
+      supported: () => pushPlatform() !== 'ios',
     },
     {
       key: 'notificationSounds',

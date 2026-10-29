@@ -52,3 +52,9 @@ test('keeps a forum in its specialized view normally', () => {
 
   expect(rendered).toEqual(['forum']);
 });
+
+test('a forum permalink uses the room event navigation', () => {
+  visit('/rooms/!forum:example.org?event=%24reply', { roomId: '!forum:example.org' });
+  render(RoomOrForumPage);
+  expect(rendered).toEqual(['room']);
+});

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import type { LayoutRef } from '#src/generated/protocol';
+
 import {
   applyDrop,
   sameLayout,
@@ -22,6 +24,14 @@ function space(roomId: string): SidebarItem {
 
 function folder(id: string, content: string[], name: string | null = null): SidebarItem {
   return { kind: 'folder', id, name, content };
+}
+
+function spaceRef(roomId: string, folderId: string | null = null): LayoutRef {
+  return { kind: 'space', room_id: roomId, folder_id: folderId };
+}
+
+function folderRef(folderId: string): LayoutRef {
+  return { kind: 'folder', folder_id: folderId };
 }
 
 const fixedId = (): string => 'new-folder';
@@ -67,8 +77,8 @@ describe('space order history', () => {
     const known = rememberSpaceIds([], ['!alpha', '!beta']);
     const dragged = applyDrop(
       mergeSpaces([], orderedKnownSpaceIds(known, ['!alpha', '!beta'])),
-      { kind: 'space', roomId: '!beta' },
-      { kind: 'space', roomId: '!alpha' },
+      spaceRef('!beta'),
+      spaceRef('!alpha'),
       'above'
     );
 
@@ -83,110 +93,95 @@ describe('applyDrop', () => {
   it('makes a folder out of two spaces', () => {
     const items = [space('!a'), space('!b'), space('!c')];
 
-    expect(
-      applyDrop(
-        items,
-        { kind: 'space', roomId: '!c' },
-        { kind: 'space', roomId: '!a' },
-        'into',
-        fixedId
-      )
-    ).toEqual([folder('new-folder', ['!a', '!c']), space('!b')]);
+    expect(applyDrop(items, spaceRef('!c'), spaceRef('!a'), 'into', fixedId)).toEqual([
+      folder('new-folder', ['!a', '!c']),
+      space('!b'),
+    ]);
   });
 
   it('adds a space to an existing folder', () => {
     const items = [folder('f', ['!a']), space('!b')];
 
-    expect(
-      applyDrop(items, { kind: 'space', roomId: '!b' }, { kind: 'folder', folderId: 'f' }, 'into')
-    ).toEqual([folder('f', ['!a', '!b'])]);
+    expect(applyDrop(items, spaceRef('!b'), folderRef('f'), 'into')).toEqual([
+      folder('f', ['!a', '!b']),
+    ]);
   });
 
   it('reorders top-level spaces above and below', () => {
     const items = [space('!a'), space('!b'), space('!c')];
 
-    expect(
-      applyDrop(items, { kind: 'space', roomId: '!c' }, { kind: 'space', roomId: '!a' }, 'above')
-    ).toEqual([space('!c'), space('!a'), space('!b')]);
-    expect(
-      applyDrop(items, { kind: 'space', roomId: '!a' }, { kind: 'space', roomId: '!b' }, 'below')
-    ).toEqual([space('!b'), space('!a'), space('!c')]);
+    expect(applyDrop(items, spaceRef('!c'), spaceRef('!a'), 'above')).toEqual([
+      space('!c'),
+      space('!a'),
+      space('!b'),
+    ]);
+    expect(applyDrop(items, spaceRef('!a'), spaceRef('!b'), 'below')).toEqual([
+      space('!b'),
+      space('!a'),
+      space('!c'),
+    ]);
   });
 
   it('drops a space beside one inside an open folder', () => {
     const items = [folder('f', ['!a', '!b']), space('!c')];
 
-    expect(
-      applyDrop(
-        items,
-        { kind: 'space', roomId: '!c' },
-        { kind: 'space', roomId: '!a', folderId: 'f' },
-        'below'
-      )
-    ).toEqual([folder('f', ['!a', '!c', '!b'])]);
+    expect(applyDrop(items, spaceRef('!c'), spaceRef('!a', 'f'), 'below')).toEqual([
+      folder('f', ['!a', '!c', '!b']),
+    ]);
   });
 
   it('reorders inside a folder', () => {
     const items = [folder('f', ['!a', '!b', '!c'])];
 
-    expect(
-      applyDrop(
-        items,
-        { kind: 'space', roomId: '!c', folderId: 'f' },
-        { kind: 'space', roomId: '!a', folderId: 'f' },
-        'above'
-      )
-    ).toEqual([folder('f', ['!c', '!a', '!b'])]);
+    expect(applyDrop(items, spaceRef('!c', 'f'), spaceRef('!a', 'f'), 'above')).toEqual([
+      folder('f', ['!c', '!a', '!b']),
+    ]);
   });
 
   it('takes a space out of its folder', () => {
     const items = [folder('f', ['!a', '!b']), space('!c')];
 
-    expect(
-      applyDrop(
-        items,
-        { kind: 'space', roomId: '!b', folderId: 'f' },
-        { kind: 'space', roomId: '!c' },
-        'below'
-      )
-    ).toEqual([folder('f', ['!a']), space('!c'), space('!b')]);
+    expect(applyDrop(items, spaceRef('!b', 'f'), spaceRef('!c'), 'below')).toEqual([
+      folder('f', ['!a']),
+      space('!c'),
+      space('!b'),
+    ]);
   });
 
   it('keeps the position when emptying the folder it is dropped beside', () => {
     const items = [space('!a'), folder('f', ['!b']), space('!c')];
 
-    expect(
-      applyDrop(
-        items,
-        { kind: 'space', roomId: '!b', folderId: 'f' },
-        { kind: 'folder', folderId: 'f' },
-        'below'
-      )
-    ).toEqual([space('!a'), space('!b'), space('!c')]);
+    expect(applyDrop(items, spaceRef('!b', 'f'), folderRef('f'), 'below')).toEqual([
+      space('!a'),
+      space('!b'),
+      space('!c'),
+    ]);
   });
 
   it('moves a folder as one entry when reordering', () => {
     const items = [space('!a'), folder('f', ['!b', '!c'])];
 
-    expect(
-      applyDrop(items, { kind: 'folder', folderId: 'f' }, { kind: 'space', roomId: '!a' }, 'above')
-    ).toEqual([folder('f', ['!b', '!c']), space('!a')]);
+    expect(applyDrop(items, folderRef('f'), spaceRef('!a'), 'above')).toEqual([
+      folder('f', ['!b', '!c']),
+      space('!a'),
+    ]);
   });
 
   it('keeps a folder name when it is dropped onto a loose space', () => {
     const items = [space('!a'), folder('f', ['!b'], 'Work')];
 
-    expect(
-      applyDrop(items, { kind: 'folder', folderId: 'f' }, { kind: 'space', roomId: '!a' }, 'into')
-    ).toEqual([folder('f', ['!a', '!b'], 'Work')]);
+    expect(applyDrop(items, folderRef('f'), spaceRef('!a'), 'into')).toEqual([
+      folder('f', ['!a', '!b'], 'Work'),
+    ]);
   });
 
   it('reorders a folder below a space', () => {
     const items = [folder('f', ['!b']), space('!a')];
 
-    expect(
-      applyDrop(items, { kind: 'folder', folderId: 'f' }, { kind: 'space', roomId: '!a' }, 'below')
-    ).toEqual([space('!a'), folder('f', ['!b'])]);
+    expect(applyDrop(items, folderRef('f'), spaceRef('!a'), 'below')).toEqual([
+      space('!a'),
+      folder('f', ['!b']),
+    ]);
   });
 
   it('lifts the last space out of a folder that sits last', () => {
@@ -198,30 +193,23 @@ describe('applyDrop', () => {
   it('merges one folder into another', () => {
     const items = [folder('f', ['!a']), folder('g', ['!b', '!c'])];
 
-    expect(
-      applyDrop(items, { kind: 'folder', folderId: 'g' }, { kind: 'folder', folderId: 'f' }, 'into')
-    ).toEqual([folder('f', ['!a', '!b', '!c'])]);
+    expect(applyDrop(items, folderRef('g'), folderRef('f'), 'into')).toEqual([
+      folder('f', ['!a', '!b', '!c']),
+    ]);
   });
 
   it('dissolves a folder dropped beside a space inside another', () => {
     const items = [folder('f', ['!a']), folder('g', ['!b'])];
 
-    expect(
-      applyDrop(
-        items,
-        { kind: 'folder', folderId: 'g' },
-        { kind: 'space', roomId: '!a', folderId: 'f' },
-        'above'
-      )
-    ).toEqual([folder('f', ['!b', '!a'])]);
+    expect(applyDrop(items, folderRef('g'), spaceRef('!a', 'f'), 'above')).toEqual([
+      folder('f', ['!b', '!a']),
+    ]);
   });
 
   it('ignores a drop onto itself', () => {
     const items = [space('!a'), space('!b')];
 
-    expect(
-      applyDrop(items, { kind: 'space', roomId: '!a' }, { kind: 'space', roomId: '!a' }, 'below')
-    ).toEqual(items);
+    expect(applyDrop(items, spaceRef('!a'), spaceRef('!a'), 'below')).toEqual(items);
   });
 });
 

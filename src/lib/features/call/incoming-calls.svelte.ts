@@ -1,6 +1,6 @@
 import type { CoreEvent } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
-import type { SystemCallAction } from '@sableclient/tauri-plugin-livekit-mobile';
+import type { SystemCallAction } from '#lib/platform/calls.js';
 import {
   endSystemCall,
   listenSystemCallActions,
@@ -37,10 +37,13 @@ export class IncomingCalls {
   readonly #reporting = new Set<string>();
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered from
   readonly #uuids = new Map<string, { uuid: string; answered: boolean }>();
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered from
+  readonly #finished = new Set<string>();
   readonly #onSystemAnswer: (answer: SystemAnswer) => void;
   #ringtone: Promise<NotificationSound> | undefined;
   #unsubscribe: (() => void) | undefined;
   #stopSystemActions: (() => void) | undefined;
+  #started = false;
 
   constructor(client: CoreClient, onSystemAnswer: (answer: SystemAnswer) => void = () => {}) {
     this.#client = client;
@@ -48,6 +51,7 @@ export class IncomingCalls {
   }
 
   start(): () => void {
+    this.#started = true;
     this.#unsubscribe = this.#client.subscribeEvents((event) => {
       this.#onEvent(event);
     });
@@ -55,7 +59,7 @@ export class IncomingCalls {
     void listenSystemCallActions((action) => {
       this.#onSystemAction(action);
     }).then((stop) => {
-      if (stopped) stop();
+      if (stopped || !this.#started) stop();
       else this.#stopSystemActions = stop;
     });
     return () => {
@@ -65,6 +69,7 @@ export class IncomingCalls {
   }
 
   stop(): void {
+    this.#started = false;
     this.#unsubscribe?.();
     this.#unsubscribe = undefined;
     this.#stopSystemActions?.();
@@ -75,6 +80,7 @@ export class IncomingCalls {
     this.#system.clear();
     this.#reporting.clear();
     this.#uuids.clear();
+    this.#finished.clear();
     this.calls = [];
     this.#syncRingtone();
   }
@@ -83,7 +89,8 @@ export class IncomingCalls {
     this.#drop(call.notificationEventId);
   }
 
-  async decline(call: IncomingCall): Promise<void> {
+  async decline(call: Pick<IncomingCall, 'roomId' | 'notificationEventId'>): Promise<void> {
+    if (this.#finished.has(call.notificationEventId)) return;
     this.#drop(call.notificationEventId);
     try {
       await this.#client.rpc.calls.decline({
@@ -101,6 +108,7 @@ export class IncomingCalls {
       return;
     }
     if (event.type !== 'incoming_call') return;
+    if (this.#finished.has(event.notification_event_id)) return;
     if (!event.ring && !preferences.ringForGroupCalls) return;
 
     const call: IncomingCall = {
@@ -136,26 +144,40 @@ export class IncomingCalls {
   }
 
   #onSystemAction(action: SystemCallAction): void {
+    if (!this.#started || (action.action !== 'answer' && action.action !== 'end')) return;
     const call = this.calls.find(
-      (entry) => this.#systemKey(entry.notificationEventId) === action.uuid
+      (entry) =>
+        this.#systemKey(entry.notificationEventId) === action.uuid ||
+        entry.notificationEventId === action.notificationEventId
     );
-    if (call) this.#system.delete(call.notificationEventId);
+    const notificationEventId = call?.notificationEventId ?? action.notificationEventId;
+    if (
+      this.#finished.has(action.uuid) ||
+      (notificationEventId !== undefined && this.#finished.has(notificationEventId))
+    ) {
+      return;
+    }
+    const roomId = call?.roomId ?? action.roomId;
+    if (!roomId) return;
     if (action.action === 'answer') {
-      const roomId = call?.roomId ?? action.roomId;
-      const callId = call ? this.#systemKey(call.notificationEventId) : action.uuid;
+      const callId = systemCallKey(notificationEventId ?? action.uuid, action.uuid);
       const reported = call && this.#uuids.get(call.notificationEventId);
       if (reported) reported.answered = true;
-      if (call) this.#drop(call.notificationEventId);
-      if (roomId) {
-        this.#onSystemAnswer({
-          uuid: action.uuid,
-          callId,
-          roomId,
-          hasVideo: call?.hasVideo ?? false,
-        });
+      this.#finished.add(action.uuid);
+      if (notificationEventId !== undefined) {
+        this.#system.delete(notificationEventId);
+        this.#drop(notificationEventId);
       }
-    } else if (action.action === 'end' && call) {
-      void this.decline(call);
+      this.#onSystemAnswer({
+        uuid: action.uuid,
+        callId,
+        roomId,
+        hasVideo: call?.hasVideo ?? action.hasVideo ?? false,
+      });
+    } else if (notificationEventId !== undefined) {
+      this.#system.delete(notificationEventId);
+      void this.decline({ roomId, notificationEventId });
+      this.#finished.add(action.uuid);
     }
   }
 
@@ -185,6 +207,7 @@ export class IncomingCalls {
   }
 
   #drop(notificationEventId: string): void {
+    this.#finished.add(notificationEventId);
     const timer = this.#timers.get(notificationEventId);
     if (timer !== undefined) {
       clearTimeout(timer);

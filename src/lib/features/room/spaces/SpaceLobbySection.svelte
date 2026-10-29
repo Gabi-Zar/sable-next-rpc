@@ -587,6 +587,7 @@
 
   .rooms {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     list-style: none;
     margin: 0;
     padding: 0;
@@ -638,6 +639,7 @@
     display: grid;
     flex: 1;
     gap: var(--space-050);
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
   }
 
@@ -647,6 +649,7 @@
     font-weight: var(--font-weight-medium);
     gap: var(--space-200);
     min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   .room-meta {

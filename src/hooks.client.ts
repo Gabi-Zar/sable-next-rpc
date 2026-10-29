@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/sveltekit';
 import type { ClientInit, HandleClientError } from '@sveltejs/kit/hooks';
 
 import { tolerateUnknownListeners } from '#lib/platform/tauri-events.js';
+import { installBrowserCompatibility } from '#lib/platform/browser-compat.js';
 import { syncTelemetryConsent } from '#lib/platform/telemetry.js';
 import { installDynamicImportRecovery } from '#lib/observability/dynamic-import-recovery.js';
 import { sanitizePayload, scrubMatrixIds, scrubMatrixUrl } from '#lib/observability/scrubbers.js';
@@ -102,6 +103,7 @@ syncTelemetryConsent(preferences.errorReporting);
 
 export const init: ClientInit = async () => {
   try {
+    await installBrowserCompatibility();
     await loadModel();
   } catch (error) {
     Sentry.captureException(error);

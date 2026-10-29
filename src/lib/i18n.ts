@@ -82,6 +82,11 @@ export const i18n = {
     trackTranslations();
     return i18next.t;
   },
+
+  get exists() {
+    trackTranslations();
+    return i18next.exists;
+  },
 };
 
 export function currentLocale(): string {

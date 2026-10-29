@@ -1,5 +1,15 @@
 import { expect, test } from './fixtures/test';
+import type { MatrixAdmin } from './fixtures/matrix';
 
+async function bookmarkCount(admin: MatrixAdmin): Promise<number> {
+  try {
+    const path = `client/v3/user/${encodeURIComponent(admin.userId)}/account_data/pl.chrome.bookmarks.index`;
+    const index = await admin.request<{ bookmark_ids: string[] }>('GET', path);
+    return index.bookmark_ids.length;
+  } catch {
+    return 0;
+  }
+}
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
 });
@@ -13,6 +23,7 @@ test('bookmarking a message surfaces it in the inbox and opens the event', async
   const roomId = await admin.createRoom({ name: roomName });
   const body = `Worth keeping ${String(Date.now())}`;
   const eventId = await admin.sendMessage(roomId, body);
+  const previousCount = await bookmarkCount(admin);
 
   await app.openRoom(roomId);
 
@@ -20,8 +31,12 @@ test('bookmarking a message surfaces it in the inbox and opens the event', async
     button: 'right',
   });
   await page.getByRole('menuitem', { name: 'Bookmark' }).click();
+  await expect.poll(() => bookmarkCount(admin)).toBeGreaterThan(previousCount);
 
-  await app.openBookmarks();
+  await page.getByRole('link', { name: 'Inbox' }).click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await page.getByRole('link', { name: 'Bookmarks', exact: true }).click();
+  await expect(page).toHaveURL(/\/bookmarks$/);
   const bookmarks = page.getByRole('region', { name: 'Bookmarks' });
   const row = bookmarks.getByRole('listitem').filter({ hasText: roomName });
   await expect(row).toBeVisible({ timeout: 15_000 });
@@ -41,6 +56,7 @@ test('removing a bookmark from the inbox takes it out of the list', async ({
   const roomId = await admin.createRoom({ name: roomName });
   const body = `Not worth keeping ${String(Date.now())}`;
   await admin.sendMessage(roomId, body);
+  const previousCount = await bookmarkCount(admin);
 
   await app.openRoom(roomId);
 
@@ -48,8 +64,12 @@ test('removing a bookmark from the inbox takes it out of the list', async ({
     button: 'right',
   });
   await page.getByRole('menuitem', { name: 'Bookmark' }).click();
+  await expect.poll(() => bookmarkCount(admin)).toBeGreaterThan(previousCount);
 
-  await app.openBookmarks();
+  await page.getByRole('link', { name: 'Inbox' }).click();
+  await expect(page).toHaveURL(/\/inbox$/);
+  await page.getByRole('link', { name: 'Bookmarks', exact: true }).click();
+  await expect(page).toHaveURL(/\/bookmarks$/);
   const bookmarks = page.getByRole('region', { name: 'Bookmarks' });
   const row = bookmarks.getByRole('listitem').filter({ hasText: roomName });
   await expect(row).toBeVisible({ timeout: 15_000 });

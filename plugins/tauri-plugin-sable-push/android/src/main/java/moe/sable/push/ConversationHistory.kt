@@ -8,6 +8,7 @@ internal object ConversationHistory {
     const val EVENT_KEY = "sable.push.event"
     const val ENCRYPTED_KEY = "sable.push.encrypted"
     const val ACCOUNT_KEY = "sable.push.account"
+    const val ROOM_KEY = "sable.push.room"
     const val FAILED_KEY = "sable.push.failed"
     const val LIMIT = 8
 

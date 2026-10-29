@@ -177,6 +177,26 @@ test('the iOS image context menu uses the same Photos save action', async () => 
   expect(download).not.toHaveBeenCalled();
 });
 
+test('iOS video viewer saves to Photos and offers saving to Files', async () => {
+  vi.spyOn(platformOs, 'isNativeMobile').mockReturnValue(true);
+  vi.spyOn(platformOs, 'isAndroid').mockReturnValue(false);
+  vi.spyOn(files, 'supportsPhotoLibrary').mockResolvedValue(true);
+  const photos = vi.spyOn(files, 'saveVideoToPhotos').mockResolvedValue('saved');
+  const download = vi.spyOn(files, 'saveUrl').mockResolvedValue('saved');
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  viewer.items = [videoItem];
+  viewer.eventId = '$video';
+  render(MediaViewer);
+  await vi.waitFor(() => {
+    expect(document.querySelector('video')).toBeInTheDocument();
+  });
+  await user.click(screen.getByRole('button', { name: 'viewer.saveToPhotos' }));
+  expect(photos).toHaveBeenCalledOnce();
+  await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'viewer.saveToFiles' }));
+  expect(download).toHaveBeenCalledOnce();
+});
+
 test('renders a video attachment with a player and no zoom controls', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   viewer.items = [videoItem];

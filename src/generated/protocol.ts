@@ -182,6 +182,11 @@ export type CallSupportView = {
 	can_join: boolean,
 };
 
+export type ChildOrderOverride = {
+	parent_id: string,
+	children: SpaceChildEdge[],
+};
+
 export type ComposerContent = {
 	body: string,
 	formatted_body: string | null,
@@ -211,7 +216,7 @@ export type CoreEvent = ({ type: "account_lock_changed"; account_id: string; loc
 	type: "sync_status",
 } & SyncStatus | ({ type: "session_ended"; reason: string }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; subscription?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "session_tokens_refreshed" }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; subscription?: never; total?: never; user_id?: never; user_ids?: never } |
 /**  One batch is one render, so it stays batched all the way to the UI. */
-({ type: "room_list_diff"; subscription: SubscriptionId; diffs: VectorDiff<RoomListItemView>[] }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "timeline_diff"; subscription: SubscriptionId; diffs: VectorDiff<TimelineItemView>[] }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "timeline_pagination"; subscription: SubscriptionId; loading: boolean; reached_start: boolean }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "timeline_aggregations"; subscription: SubscriptionId; items: TimelineItemView[] }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } |
+({ type: "room_list_diff"; subscription: SubscriptionId; diffs: VectorDiff<RoomListItemView>[] }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "timeline_diff"; subscription: SubscriptionId; diffs: VectorDiff<TimelineItemView>[] }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "threads_changed"; room_id: string }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; subscription?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "timeline_pagination"; subscription: SubscriptionId; loading: boolean; reached_start: boolean }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; items?: never; key?: never; key_index?: never; last_active_ago?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } | ({ type: "timeline_aggregations"; subscription: SubscriptionId; items: TimelineItemView[] }) & { account_id?: never; avatar_url?: never; backend_id?: never; backends?: never; coverage?: never; current?: never; devices?: never; diffs?: never; display_name?: never; download?: never; encrypted?: never; event?: never; event_type?: never; expires_at_ms?: never; fatal?: never; flow_id?: never; grant?: never; has_video?: never; identity?: never; key?: never; key_index?: never; last_active_ago?: never; loading?: never; locked?: never; members?: never; notification?: never; notification_event_id?: never; own?: never; presence?: never; progress?: never; publisher_id?: never; reached_start?: never; reason?: never; revision?: never; ring?: never; room_id?: never; room_name?: never; sender?: never; sender_name?: never; session?: never; source?: never; stage?: never; state?: never; status?: never; status_message?: never; total?: never; user_id?: never; user_ids?: never } |
 /**
  *  Our own user excluded. Absolute, so an empty list replaces the previous
  *  one. Sent for every joined room, since a room list row shows it too.
@@ -252,7 +257,7 @@ export type DeviceView = {
 	last_seen_ip: string | null,
 };
 
-export type DiagnosticPushView = { kind: "no_pusher" } | { kind: "no_gateway" } | { kind: "rejected" } | { kind: "sent"; event_id: string; accepted: boolean | null };
+export type DiagnosticPushView = { kind: "no_pusher" } | { kind: "no_gateway" } | { kind: "refused" } | { kind: "rejected" } | { kind: "unforwarded" } | { kind: "sent"; event_id: string; accepted: boolean | null };
 
 export type DirectoryRoomType = "rooms" | "spaces";
 
@@ -264,6 +269,8 @@ export type DisplayNameChangeView = {
 	old: string | null,
 	new: string | null,
 };
+
+export type DropInstruction = "above" | "below" | "into";
 
 export type EditVersionView = {
 	event_id: string,
@@ -522,6 +529,12 @@ export type LatestEventView = {
 	sending: boolean,
 	event_id: string | null,
 };
+
+/**
+ *  What a drag picked up or landed on: a space, possibly inside a folder, or a
+ *  whole folder.
+ */
+export type LayoutRef = { kind: "space"; room_id: string; folder_id: string | null } | { kind: "folder"; folder_id: string };
 
 export type LiteralValue = boolean | number | string | RoomReference;
 
@@ -1052,6 +1065,7 @@ export type RegisteredPusherView = {
 	/**  Some pusher kinds validate through a handshake; absent elsewhere. */
 	activated: boolean | null,
 	gateway: string | null,
+	endpoint: string | null,
 };
 
 export type RegistrationFlowsView = {
@@ -1479,6 +1493,18 @@ export type SearchTuning = {
 	max_events: number,
 };
 
+/**
+ *  What the sections depend on besides the rooms. `loaded: None` treats every
+ *  level as described; `keep_empty` names subspaces shown even without rooms.
+ */
+export type SectionInputs = {
+	loaded: string[] | null,
+	failed: string[],
+	keep_empty: string[],
+	joined: string[],
+	invited: string[],
+};
+
 export type SendAttachmentRequest = {
 	room_id: string,
 	filename: string,
@@ -1611,6 +1637,12 @@ export type StatusView = {
 };
 
 export type SubscriptionId = number;
+
+export type SuggestedOverride = {
+	parent_id: string,
+	room_id: string,
+	suggested: boolean,
+};
 
 export type SyncStatus = { state: "offline" } | { state: "syncing" } | { state: "live" } | { state: "error"; message: string };
 
@@ -1999,6 +2031,9 @@ export type Rpc = {
     setPresence: (params: {
 	presence: PresenceView,
 	status_message?: string | null,
+}) => Promise<null>;
+    setDeviceActivity: (params: {
+	active: boolean,
 }) => Promise<null>;
     fetchPresence: (params: {
 	user_ids: string[],
@@ -3181,6 +3216,7 @@ export type Rpc = {
 	room_id: string,
 }) => Promise<string | null>;
     unreadDiagnostics: (params: {
+	thread_roots?: string[],
 	room_id: string,
 }) => Promise<UnreadDiagnosticsView>;
     retryDecryption: (params: {
@@ -3274,6 +3310,7 @@ export type RpcMethods = {
   'account.report_user': Rpc['account']['reportUser'];
   'account.deactivate_account': Rpc['account']['deactivateAccount'];
   'account.set_presence': Rpc['account']['setPresence'];
+  'account.set_device_activity': Rpc['account']['setDeviceActivity'];
   'account.fetch_presence': Rpc['account']['fetchPresence'];
   'account.search_user_directory': Rpc['account']['searchUserDirectory'];
   'account.dismissed_invites': Rpc['account']['dismissedInvites'];
@@ -3578,6 +3615,7 @@ export function createRpc(call: RpcCall): Rpc {
       reportUser: (params) => call('account.report_user', params) as ReturnType<Rpc['account']['reportUser']>,
       deactivateAccount: (params) => call('account.deactivate_account', params) as ReturnType<Rpc['account']['deactivateAccount']>,
       setPresence: (params) => call('account.set_presence', params) as ReturnType<Rpc['account']['setPresence']>,
+      setDeviceActivity: (params) => call('account.set_device_activity', params) as ReturnType<Rpc['account']['setDeviceActivity']>,
       fetchPresence: (params) => call('account.fetch_presence', params) as ReturnType<Rpc['account']['fetchPresence']>,
       searchUserDirectory: (params) => call('account.search_user_directory', params) as ReturnType<Rpc['account']['searchUserDirectory']>,
       dismissedInvites: (params = {}) => call('account.dismissed_invites', params) as ReturnType<Rpc['account']['dismissedInvites']>,

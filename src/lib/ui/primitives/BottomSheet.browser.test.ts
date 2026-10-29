@@ -1,6 +1,5 @@
-import type {} from '@vitest/browser-playwright';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { cdp, page } from 'vitest/browser';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
@@ -11,13 +10,11 @@ import Harness from './BottomSheetHarness.test.svelte';
 
 beforeEach(async () => {
   await page.viewport(844, 390);
-  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: true });
   document.documentElement.dataset.tauriOs = 'ios';
   document.documentElement.style.setProperty('--safe-area-inset-bottom', '21px');
 });
 
 afterEach(async () => {
-  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: false });
   delete document.documentElement.dataset.tauriOs;
   document.documentElement.style.removeProperty('--keyboard-height');
   document.documentElement.style.removeProperty('--safe-area-inset-left');

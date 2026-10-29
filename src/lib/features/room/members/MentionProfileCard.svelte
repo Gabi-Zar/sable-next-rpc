@@ -231,6 +231,9 @@
   let sending = $state(false);
   let sendFailed = $state<'send' | 'open' | null>(null);
   let confirmingDirect = $state(false);
+  $effect(() => {
+    onNestedMenuOpenChange?.(confirmingDirect);
+  });
   let homeserver = $derived(userId.slice(userId.indexOf(':') + 1));
   let elevated = $derived(roomMember !== null && roomMember.power_level >= 50);
   let roleTag = $derived(
@@ -927,6 +930,14 @@
 <style>
   :global(.profile-mutual-menu) {
     --menu-max-height: min(32rem, 80dvh);
+
+    max-width: 300px;
+  }
+
+  :global(.profile-mutual-menu .menu-item) {
+    --menu-item-padding: var(--control-padding-150);
+
+    min-width: 0;
   }
 
   :global(.profile-mutual-menu .avatar-root) {
@@ -934,7 +945,6 @@
   }
 
   .profile-mutual-name {
-    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

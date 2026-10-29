@@ -1,3 +1,5 @@
+import { scopedKey } from '#lib/platform/local-json.js';
+
 const AFTER_LOGIN_KEY = 'sable-after-login-path';
 const AUTH_SEGMENTS = new Set(['login', 'register', 'reset-password', 'setup']);
 const ORIGIN = 'https://sable.invalid';
@@ -27,12 +29,14 @@ function storage(): Storage | null {
 
 export function rememberAfterLogin(url: Pick<URL, 'pathname' | 'search' | 'hash'>): void {
   const path = afterLoginPath(`${url.pathname}${url.search}${url.hash}`);
-  if (path) storage()?.setItem(AFTER_LOGIN_KEY, path);
+  const key = scopedKey(AFTER_LOGIN_KEY);
+  if (path && key !== null) storage()?.setItem(key, path);
 }
 
 export function takeAfterLogin(fallback: string): string {
   const store = storage();
-  const stored = store?.getItem(AFTER_LOGIN_KEY);
-  store?.removeItem(AFTER_LOGIN_KEY);
+  const key = scopedKey(AFTER_LOGIN_KEY);
+  const stored = key === null ? null : store?.getItem(key);
+  if (key !== null) store?.removeItem(key);
   return (stored && afterLoginPath(stored)) ?? fallback;
 }

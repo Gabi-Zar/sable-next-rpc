@@ -383,7 +383,7 @@ mod server_tests {
             })
             .await;
 
-        assert!(sidebar(&client).await.is_err());
+        sidebar(&client).await.unwrap_err();
     }
 
     #[tokio::test]

@@ -117,7 +117,7 @@
   {open}
   {onOpenChange}
   variant="verification"
-  contentStyle="max-width: min(40rem, calc(100vw - 3rem))"
+  contentClass="calendar-event-dialog"
   label={i18n.t(item ? 'calendar.editTitle' : 'calendar.newTitle')}
 >
   <form
@@ -196,6 +196,12 @@
 </DialogFrame>
 
 <style>
+  @media (width >= 42rem) {
+    :global(.dialog-content-verification.calendar-event-dialog) {
+      --dialog-max-width: 40rem;
+    }
+  }
+
   .calendar-form {
     display: grid;
     gap: var(--space-400);

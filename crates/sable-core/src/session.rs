@@ -799,6 +799,12 @@ fn metadata_with(redirect_uri: &Url, device_code: bool) -> Raw<ClientMetadata> {
         Localized::new(client_uri, []),
     );
     metadata.client_name = Some(Localized::new("Sable".to_owned(), []));
+    metadata.logo_uri = Some(Localized::new(
+        "https://docs.sable.moe/img/sable-logo.svg"
+            .try_into()
+            .unwrap(),
+        [],
+    ));
 
     Raw::new(&metadata).expect("client metadata serializes")
 }
@@ -917,6 +923,30 @@ mod tests {
         build_account_client, registered_redirect_uri, removable_account_store,
         repair_room_key_sharing, session_timeout,
     };
+
+    #[cfg(not(target_family = "wasm"))]
+    #[tokio::test]
+    async fn discovery_client_identifies_sable_in_sdk_requests() {
+        use wiremock::{
+            Mock, MockServer, ResponseTemplate,
+            matchers::{header, method, path},
+        };
+
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/_matrix/client/versions"))
+            .and(header("user-agent", crate::USER_AGENT))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(serde_json::json!({ "versions": ["v1.11"] })),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = super::discovery_client(&server.uri()).await.unwrap();
+        assert!(!client.server_versions().await.unwrap().is_empty());
+    }
 
     #[test]
     fn re_authentication_reuses_the_redirect_the_client_was_registered_with() {

@@ -987,10 +987,12 @@
   .lobby {
     display: grid;
     gap: var(--space-400);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .hero {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     padding: var(--space-500) 0 var(--space-100);
     position: relative;
@@ -1046,6 +1048,7 @@
     font-size: var(--font-size-heading);
     line-height: var(--line-height-heading);
     margin: var(--space-300) 0 0;
+    overflow-wrap: anywhere;
   }
 
   .topic {
@@ -1067,6 +1070,7 @@
     -webkit-line-clamp: 3;
     line-clamp: 3;
     overflow: hidden;
+    overflow-wrap: anywhere;
     white-space: pre-wrap;
   }
 

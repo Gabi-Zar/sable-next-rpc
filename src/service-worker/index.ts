@@ -21,8 +21,10 @@ import {
 import {
   acknowledgeWebPusher,
   completePushPayload,
-  fetchOwnPresence,
+  fetchDeviceActivity,
+  isRtcInvite,
   namesOnlyItsEvent,
+  readPushRooms,
   readPushFetch,
 } from '#lib/features/notifications/push-fetch.js';
 import {
@@ -31,7 +33,7 @@ import {
   type PushHistoryEntry,
 } from '#lib/notifications/push-history.js';
 import {
-  activeAt,
+  currentServerUser,
   pushContentPolicy,
   pendingPushActivations,
   pushSession,
@@ -44,6 +46,8 @@ import { loadModel } from '#lib/model/model.js';
 import modelWasm from '#src/generated/wasm/sable_model_bg.wasm?url';
 import type { PushFetchView } from '#src/generated/protocol';
 import { reportWorkerError, watchWorkerOperation } from './telemetry.js';
+import { roomsToReconcile } from './read-reconcile.js';
+import { belongsToServerUser, clientHasServerIdentity } from './push-scope.js';
 
 const worker = globalThis.self as unknown as ServiceWorkerGlobalScope;
 
@@ -112,7 +116,28 @@ async function receive(raw: string | undefined): Promise<void> {
     await watchWorkerOperation('push-validation', acknowledge(validation));
     return;
   }
-  await present(parsePushPayload(raw) ?? undefined);
+  const pushed = parsePushPayload(raw) ?? undefined;
+  const serverUserId = import.meta.env.VITE_SABLE_SERVER_URL ? await currentServerUser() : null;
+  if (serverUserId && pushed) {
+    if (
+      !(await belongsToServerUser(pushed.user_id, pushSession)) ||
+      (await currentServerUser()) !== serverUserId
+    ) {
+      await showFallback();
+      return;
+    }
+  }
+  await present(pushed, serverUserId);
+  if (serverUserId && (await currentServerUser()) !== serverUserId) return;
+  if (
+    pushed &&
+    pushed.unread !== 0 &&
+    !isDiagnosticPush(pushed) &&
+    (await pushContentPolicy()).clearOnRead &&
+    (await reconcileRead(pushed))
+  ) {
+    await record('READ_DISMISSED', pushTrace(pushed));
+  }
 }
 
 async function acknowledge(validation: WebPushValidation): Promise<void> {
@@ -153,6 +178,7 @@ worker.addEventListener('message', (event) => {
 });
 
 interface StashedShare {
+  serverUserId: string | null;
   text: string;
   files: File[];
 }
@@ -169,6 +195,7 @@ worker.addEventListener('fetch', (event) => {
 const SHARE_HOLD_MS = 15_000;
 
 async function stashShare(event: FetchEvent): Promise<Response> {
+  const serverUserId = import.meta.env.VITE_SABLE_SERVER_URL ? await currentServerUser() : null;
   const form = await event.request.formData();
   const text = ['title', 'text', 'url']
     .map((field) => form.get(field))
@@ -177,7 +204,7 @@ async function stashShare(event: FetchEvent): Promise<Response> {
   const files = form.getAll('files').filter((value): value is File => value instanceof File);
 
   const id = crypto.randomUUID();
-  shares.set(id, { text, files });
+  shares.set(id, { serverUserId, text, files });
   event.waitUntil(watchWorkerOperation('share-hold', holdShare(id)));
 
   return Response.redirect(resolve('/(app)'), 303);
@@ -197,12 +224,25 @@ async function handShares(): Promise<void> {
   if (shares.size === 0) return;
 
   const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  const client = clients.at(0);
-  if (!client) return;
-
   for (const [id, share] of shares) {
+    let client: Client | undefined;
+    const serverUserId = share.serverUserId;
+    if (serverUserId === null) {
+      client = clients.at(0);
+    } else if ((await currentServerUser()) === serverUserId) {
+      const matches = await Promise.all(
+        clients.map((candidate) => clientHasServerIdentity(candidate, serverUserId))
+      );
+      client = clients.find((_, index) => matches[index]);
+    }
+    if (!client || shares.get(id) !== share) continue;
     shares.delete(id);
-    client.postMessage({ type: 'sable:share', text: share.text, files: share.files });
+    client.postMessage({
+      type: 'sable:share',
+      serverUserId: share.serverUserId,
+      text: share.text,
+      files: share.files,
+    });
   }
 }
 
@@ -210,7 +250,10 @@ function record(outcome: string, trace: Omit<PushHistoryEntry, 'at' | 'outcome'>
   return recordPush({ at: Date.now(), outcome, ...trace });
 }
 
-async function present(pushed: PushNotification | undefined): Promise<void> {
+async function present(
+  pushed: PushNotification | undefined,
+  serverUserId: string | null
+): Promise<void> {
   if (!pushed) {
     await record('INVALID_PAYLOAD');
     return;
@@ -236,7 +279,7 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
     await record('APP_FOCUSED', trace);
     return;
   }
-  const fetched = namesOnlyItsEvent(pushed);
+  const fetched = namesOnlyItsEvent(pushed) || isRtcInvite(pushed);
   const payload = fetched ? await fetchEvent(pushed) : pushed;
   if (!payload) {
     await record('DISCARDED', trace);
@@ -306,31 +349,33 @@ async function present(pushed: PushNotification | undefined): Promise<void> {
     ];
   }
 
+  if (serverUserId && (await currentServerUser()) !== serverUserId) {
+    await showFallback();
+    return;
+  }
   await worker.registration.showNotification(showing.title, options);
   await record('POSTED', trace);
 }
 
 async function inUseElsewhere(userId: string | undefined): Promise<boolean> {
   const session = await pushSession(userId);
-  if (!session) return false;
-  const [presence, usedAt] = await Promise.all([
-    fetchOwnPresence({ session, fetch: (input, init) => fetch(input, init) }),
-    activeAt(),
-  ]);
-  return (
-    presence !== null && activeElsewhere(presence, usedAt === null ? null : Date.now() - usedAt)
-  );
+  if (!session?.deviceId) return false;
+  const content = await fetchDeviceActivity({
+    session,
+    fetch: (input, init) => fetch(input, init),
+  });
+  return content !== null && activeElsewhere(content, session.deviceId, Date.now());
 }
 
 const FETCH_DEADLINE_MS = 10_000;
 
 async function fetchEvent(payload: PushNotification): Promise<PushNotification | null> {
   const session = await pushSession(payload.user_id ?? undefined);
-  if (!session) return payload;
+  if (!session) return isRtcInvite(payload) ? null : payload;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<PushNotification>((settle) => {
+  const deadline = new Promise<PushNotification | null>((settle) => {
     timer = setTimeout(() => {
-      settle(payload);
+      settle(isRtcInvite(payload) ? null : payload);
     }, FETCH_DEADLINE_MS);
   });
   const completed = completePushPayload(
@@ -357,7 +402,9 @@ async function decryptInTab(
   userId: string
 ): Promise<PushFetchView | null> {
   const clients = await worker.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const serverUserId = import.meta.env.VITE_SABLE_SERVER_URL ? await currentServerUser() : null;
   for (const client of clients) {
+    if (serverUserId !== null && !(await clientHasServerIdentity(client, serverUserId))) continue;
     const answer = await new Promise<PushFetchView | null>((settle) => {
       const channel = new MessageChannel();
       const timer = setTimeout(() => {
@@ -367,7 +414,9 @@ async function decryptInTab(
         clearTimeout(timer);
         settle(readPushFetch(event.data));
       };
-      client.postMessage({ type: 'sable:push-event', roomId, eventId, userId }, [channel.port2]);
+      client.postMessage({ type: 'sable:push-event', roomId, eventId, userId, serverUserId }, [
+        channel.port2,
+      ]);
     });
     if (answer !== null) return answer;
   }
@@ -376,18 +425,37 @@ async function decryptInTab(
 
 async function closeRead(pushed: PushNotification): Promise<void> {
   if (!('getNotifications' in worker.registration)) return;
+  const userId = pushed.user_id;
   for (const notification of await worker.registration.getNotifications()) {
     const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
     if (pushed.room_id !== null && data?.roomId !== pushed.room_id) continue;
-    if (
-      pushed.user_id !== null &&
-      typeof data?.userId === 'string' &&
-      data.userId !== pushed.user_id
-    ) {
+    if (userId !== null && typeof data?.userId === 'string' && data.userId !== userId) {
       continue;
     }
     notification.close();
   }
+}
+
+async function reconcileRead(pushed: PushNotification): Promise<boolean> {
+  if (!('getNotifications' in worker.registration)) return false;
+  const session = await pushSession(pushed.user_id ?? undefined);
+  if (!session) return false;
+  const userId = pushed.user_id ?? session.userId;
+  const notifications = await worker.registration.getNotifications();
+  const rooms = roomsToReconcile(notifications, userId, pushed.room_id);
+  const read = await readPushRooms({ session, fetch: (input, init) => fetch(input, init) }, rooms);
+  if (read === null) return false;
+  const readRooms = new Set(read);
+  let closed = false;
+  for (const notification of notifications) {
+    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    if (data?.userId !== userId || typeof data.roomId !== 'string' || !readRooms.has(data.roomId)) {
+      continue;
+    }
+    notification.close();
+    closed = true;
+  }
+  return closed;
 }
 
 async function focused(): Promise<boolean> {

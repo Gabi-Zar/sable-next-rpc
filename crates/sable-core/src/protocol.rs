@@ -232,6 +232,10 @@ pub enum CoreEvent {
         subscription: SubscriptionId,
         diffs: Vec<VectorDiff<TimelineItemView>>,
     },
+    ThreadsChanged {
+        #[cfg_attr(feature = "typegen", specta(type = String))]
+        room_id: OwnedRoomId,
+    },
     TimelinePagination {
         subscription: SubscriptionId,
         loading: bool,
@@ -2050,6 +2054,7 @@ pub struct RegisteredPusherView {
     /// Some pusher kinds validate through a handshake; absent elsewhere.
     pub activated: Option<bool>,
     pub gateway: Option<String>,
+    pub endpoint: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -2068,7 +2073,9 @@ pub enum ShareHistoryView {
 pub enum DiagnosticPushView {
     NoPusher,
     NoGateway,
+    Refused,
     Rejected,
+    Unforwarded,
     Sent {
         event_id: String,
         accepted: Option<bool>,

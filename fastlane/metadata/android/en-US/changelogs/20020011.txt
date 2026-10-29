@@ -1,0 +1,5 @@
+- Fix Electron notification clicks and keep room messages visible when a notification's message is unavailable.
+- Keep Chromium locale files needed for video menu labels on Linux and Windows.
+- Fall back to the user ID when a display name has no visible text.
+- Move donator badge styling to account settings
+- When your homeserver sends pushes itself, as Continuwuity does, the notification troubleshooter now checks the push service and sends a test push.

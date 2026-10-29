@@ -925,6 +925,39 @@ test('a notification whose event is not loaded falls back to the unread marker',
   expect(jumps).toHaveBeenCalledWith(expect.stringContaining('marker'), 'start');
 });
 
+test('does not retry an unavailable notification', async () => {
+  const roomTimeline = timeline();
+  roomTimeline.items = [readMarker('marker'), item('latest')];
+  roomTimeline.readMarkerEventId = '$missing';
+  const requestUnread = vi.fn();
+  const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
+  render(TimelineListHarness, {
+    props: {
+      list: {
+        timeline: roomTimeline,
+        landingEventId: '$missing',
+        onRequestUnread: requestUnread,
+        onRequestHistory: () => Promise.resolve(true),
+        onRequestFuture: async () => {},
+        onRead: async () => {},
+      },
+    },
+  });
+
+  viewport();
+  await flushed();
+  await runAnimationFrames();
+
+  expect(requestUnread).not.toHaveBeenCalled();
+  expect(jumps).toHaveBeenCalledWith(
+    expect.stringContaining('latest'),
+    'start',
+    false,
+    expect.any(AbortSignal)
+  );
+  expect(document.querySelector('.timeline-empty')).toBeNull();
+});
+
 test('a notification whose event is not loaded opens its context and lands on it', async () => {
   const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
   const landed = vi.fn();

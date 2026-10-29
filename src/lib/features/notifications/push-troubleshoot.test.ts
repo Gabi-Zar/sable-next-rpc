@@ -19,6 +19,7 @@ const gatewayPusher: RegisteredPusherView = {
   device_display_name: 'Browser',
   activated: null,
   gateway: 'https://push.example/_matrix/push/v1/notify',
+  endpoint: null,
 };
 
 function deps(overrides: Partial<TroubleshootDeps> = {}): TroubleshootDeps {
@@ -94,17 +95,49 @@ test('a device the homeserver has no pusher for stops at the pusher', async () =
   expect(results.loopback?.state).toBe('skip');
 });
 
-test('a homeserver that delivers web push itself has no gateway to test', async () => {
+test('an activated homeserver-delivered pusher reports the subscription host', async () => {
   const results = await run(
     deps({
-      pushers: () => Promise.resolve([{ ...gatewayPusher, gateway: null, activated: true }]),
-      sendDiagnostic: () => Promise.resolve({ kind: 'no_gateway' }),
+      pushers: () =>
+        Promise.resolve([
+          {
+            ...gatewayPusher,
+            gateway: null,
+            endpoint: 'https://push.example/sub/1',
+            activated: true,
+          },
+        ]),
     })
   );
 
   expect(results.pusher?.message).toBe('settings.troubleshootPusherHomeserver');
-  expect(results.gateway?.state).toBe('skip');
-  expect(results.loopback?.message).toBe('settings.troubleshootLoopbackHomeserver');
+  expect(results.gateway).toMatchObject({
+    state: 'pass',
+    message: 'settings.troubleshootGatewayActivated',
+    params: { host: 'push.example' },
+  });
+  expect(results.loopback?.state).toBe('pass');
+});
+
+test('an unconfirmed homeserver-delivered pusher skips the gateway check', async () => {
+  const results = await run(
+    deps({
+      pushers: () =>
+        Promise.resolve([
+          {
+            ...gatewayPusher,
+            gateway: null,
+            endpoint: 'https://push.example/sub/1',
+          },
+        ]),
+      sendDiagnostic: () => Promise.resolve({ kind: 'no_gateway' }),
+    })
+  );
+
+  expect(results.gateway).toMatchObject({
+    state: 'skip',
+    message: 'settings.troubleshootGatewayHomeserver',
+  });
 });
 
 test('a dormant MSC4174 pusher fails the pusher check', async () => {
@@ -158,6 +191,46 @@ test('a pushkey the gateway rejects fails the loopback', async () => {
   const results = await run(deps({ sendDiagnostic: () => Promise.resolve({ kind: 'rejected' }) }));
 
   expect(results.loopback?.message).toBe('settings.troubleshootLoopbackRejected');
+});
+
+test('a push service that refuses direct tests skips the loopback', async () => {
+  const results = await run(deps({ sendDiagnostic: () => Promise.resolve({ kind: 'refused' }) }));
+
+  expect(results.loopback).toMatchObject({
+    state: 'skip',
+    message: 'settings.troubleshootLoopbackRefused',
+  });
+});
+
+test('an MSC4174 diagnostic push waits for delivery', async () => {
+  const results = await run(
+    deps({
+      pushers: () =>
+        Promise.resolve([
+          {
+            ...gatewayPusher,
+            gateway: null,
+            endpoint: 'https://push.example/sub/1',
+            activated: true,
+          },
+        ]),
+    })
+  );
+
+  expect(results.loopback).toMatchObject({
+    state: 'pass',
+    message: 'settings.troubleshootLoopbackReceived',
+  });
+});
+
+test('a gateway that cannot reach the push service fails the loopback', async () => {
+  const results = await run(
+    deps({ sendDiagnostic: () => Promise.resolve({ kind: 'unforwarded' }) })
+  );
+
+  expect(results.loopback?.state).toBe('fail');
+  expect(results.loopback?.message).toBe('settings.troubleshootLoopbackUnforwarded');
+  expect(results.loopback?.params).toEqual({ host: 'push.example' });
 });
 
 test('a gateway a browser cannot read from is a warning, not a failure', async () => {

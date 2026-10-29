@@ -38,6 +38,7 @@ import type { AutocompleteQuery } from '../autocomplete';
 import { filesFrom } from '#lib/composer/composer-files.js';
 import { autolinks } from './autolinks';
 import { compositionInputRules } from './composition-rules';
+import { emoticonInputRule } from './emoticons';
 import {
   activeColors,
   activeMarks,
@@ -771,6 +772,10 @@ export class ComposerEditor {
       inputRules({
         rules: [
           shortcodeInputRule(this.options.emotes),
+          emoticonInputRule(
+            () => preferences.emoticonToEmoji,
+            () => this.markdownMode()
+          ),
           ...(rich
             ? [
                 mfmTimeInputRule(composerSchema.nodes.mfm_time),

@@ -6,6 +6,13 @@ import viteConfig from './vite.config.ts';
 
 const COVERAGE_MINIMUM = 46;
 
+// Disabling CDP touch emulation loses headless Linux Chromium's fine pointer.
+const TOUCH_BROWSER_TESTS = [
+  'src/lib/features/composer/RoomComposerTouch.browser.test.ts',
+  'src/lib/features/sidebar/AppShell.browser.test.ts',
+  'src/lib/ui/primitives/BottomSheet.browser.test.ts',
+];
+
 const HAPPY_DOM_TESTS = [
   'src/lib/features/composer/VoiceRecorder.svelte.test.ts',
   'src/lib/features/composer/voice-recorder-encoder.test.ts',
@@ -93,7 +100,17 @@ export default mergeConfig(
                   enabled: true,
                   headless: true,
                   provider: playwright({ contextOptions: { reducedMotion: 'reduce' } }),
-                  instances: [{ browser: 'chromium' }],
+                  instances: [
+                    { browser: 'chromium', name: 'browser', exclude: TOUCH_BROWSER_TESTS },
+                    {
+                      browser: 'chromium',
+                      name: 'browser-touch',
+                      include: TOUCH_BROWSER_TESTS,
+                      provider: playwright({
+                        contextOptions: { reducedMotion: 'reduce', hasTouch: true },
+                      }),
+                    },
+                  ],
                   commands: {
                     emulateColorScheme: async (context, scheme: 'light' | 'dark') => {
                       await context.page.emulateMedia({ colorScheme: scheme });

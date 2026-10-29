@@ -120,6 +120,7 @@ async function openMenu(name: string): Promise<void> {
 
 beforeEach(() => {
   visit('/home', {});
+  core.session = { user_id: '@me:example.org' };
   roomsFixture.rooms = [];
   presenceFixture.entry = null;
   core.userProfile.mockReset();
@@ -950,6 +951,38 @@ test('a DM row shows the peer status once its profile arrives', async () => {
 
   expect(core.userProfile).toHaveBeenCalledWith('@bob:example.org');
   expect(roomTopics()).toEqual(['\u{1F680}Shipping']);
+});
+
+test('does not show our own or an arbitrary target status on a DM row', async () => {
+  visit('/direct');
+  presenceFixture.entry = { statusMessage: 'My status' };
+  roomsFixture.rooms = [
+    makeRoom({
+      room_id: '!self:example.org',
+      name: 'Self',
+      is_direct: true,
+      direct_targets: ['@me:example.org'],
+    }),
+    makeRoom({
+      room_id: '!group:example.org',
+      name: 'Group',
+      is_direct: true,
+      direct_targets: ['@alice:example.org', '@bob:example.org'],
+    }),
+  ];
+  await mountNav();
+  expect(roomTopics()).toEqual([]);
+});
+
+test('does not show a target status before the session is known', async () => {
+  visit('/direct');
+  core.session = null;
+  presenceFixture.entry = { statusMessage: 'My status' };
+  roomsFixture.rooms = [
+    makeRoom({ name: 'Chat', is_direct: true, direct_targets: ['@me:example.org'] }),
+  ];
+  await mountNav();
+  expect(roomTopics()).toEqual([]);
 });
 
 test('a DM row falls back to the peer presence message, and a topic still wins', async () => {

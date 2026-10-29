@@ -159,24 +159,32 @@ impl Handler for SendParams {
             .with_reply(&room_id, content, reply, thread_root.clone(), "send_reply")
             .await?;
 
-        let link_previews = self.link_previews;
-        let opt_out = self
-            .no_link_previews
+        let mut seen = std::collections::HashSet::new();
+        let had_previews = !self.link_previews.is_empty();
+        let link_previews: Vec<_> = self
+            .link_previews
+            .into_iter()
+            .filter(|preview| {
+                !self.no_link_previews
+                    && crate::link_previews::is_preview_url(&preview.url)
+                    && content.body().contains(&preview.url)
+                    && seen.insert(preview.url.clone())
+            })
+            .collect();
+        let opt_out = (self.no_link_previews || (had_previews && link_previews.is_empty()))
             .then(|| serde_json::Value::Array(Vec::new()));
-        let encrypted_images = core
-            .encrypted_preview_images(&room_id, &link_previews)
-            .await;
+        let images = core.prepare_preview_images(&room_id, &link_previews).await;
         let extra = extra_content(
             persona.as_ref().map(crate::personas::profile_extra_content),
             [
                 (
                     BUNDLED_LINK_PREVIEWS,
-                    bundled_link_previews(&link_previews, &encrypted_images, true)
+                    bundled_link_previews(&link_previews, &images, true)
                         .or_else(|| opt_out.clone()),
                 ),
                 (
                     LEGACY_BUNDLED_LINK_PREVIEWS,
-                    bundled_link_previews(&link_previews, &encrypted_images, false)
+                    bundled_link_previews(&link_previews, &images, false)
                         .or_else(|| opt_out.clone()),
                 ),
                 (

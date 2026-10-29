@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 
-import type { DeviceView, EncryptionStatusView, Rpc } from '#src/generated/protocol';
+import type { CoreEvent, DeviceView, EncryptionStatusView, Rpc } from '#src/generated/protocol';
 
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
@@ -78,6 +78,13 @@ const other2: DeviceView = {
   last_seen_ts: null,
   last_seen_ip: null,
 };
+
+function emit(event: CoreEvent): void {
+  const [listener] = baseCore.subscribeEvents.mock.lastCall as unknown as [
+    (event: CoreEvent) => void,
+  ];
+  listener(event);
+}
 
 async function renderDevices(devices: DeviceView[], managementUrl: string | null = null) {
   encryption.status.mockResolvedValue(status);
@@ -197,6 +204,60 @@ test('a session without device keys says so and offers no verification', async (
   expect(within(keyless).queryByRole('button', { name: 'Verify device' })).not.toBeInTheDocument();
   expect(within(unverified).getByText('Not verified')).toBeInTheDocument();
   expect(within(unverified).getByRole('button', { name: 'Verify device' })).toBeInTheDocument();
+});
+
+test('updates device badges when verification completes while settings is open', async () => {
+  await renderDevices([own, other2]);
+  const row = screen.getByText('Tablet').closest('li');
+  if (!row) throw new Error('the device row is not laid out');
+  expect(within(row).getByText('Not verified')).toBeInTheDocument();
+
+  emit({
+    type: 'devices_changed',
+    devices: [own, { ...other2, is_verified: true, cross_signed: true }],
+  });
+
+  await vi.waitFor(() => {
+    expect(within(row).getByText('Verified')).toBeInTheDocument();
+  });
+  expect(within(row).queryByRole('button', { name: 'Verify device' })).not.toBeInTheDocument();
+});
+
+test('keeps live trust updates when an older settings refresh finishes', async () => {
+  const user = await renderDevices([own]);
+  let finishStatus!: (value: EncryptionStatusView) => void;
+  let finishDevices!: (value: Awaited<ReturnType<Rpc['encryption']['devices']>>) => void;
+  encryption.status.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishStatus = resolve;
+      })
+  );
+  encryption.devices.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishDevices = resolve;
+      })
+  );
+  const section = screen.getByRole('heading', { name: 'Signed-in devices' }).closest('section');
+  const refresh = within(section ?? document.body).getByRole('button', { name: 'Refresh' });
+  await user.click(refresh);
+
+  emit({ type: 'encryption_status', status });
+  emit({ type: 'devices_changed', devices: [own, other1] });
+  finishStatus({ ...status, verification: 'unverified' });
+  finishDevices({
+    devices: [{ ...own, is_verified: false, cross_signed: false }],
+    account_management: false,
+    account_management_url: null,
+    oauth: false,
+  });
+
+  await vi.waitFor(() => {
+    expect(refresh).toBeEnabled();
+  });
+  expect(screen.queryByRole('button', { name: 'Verify device' })).not.toBeInTheDocument();
+  expect(screen.getByText('Phone')).toBeInTheDocument();
 });
 
 test('removing one device shows it is in progress until the list no longer has it', async () => {

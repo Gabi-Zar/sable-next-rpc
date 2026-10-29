@@ -12,6 +12,7 @@ crate-type = ["staticlib", "rlib"]
 [dependencies]
 sable-core = { path = "../sable-core", version = "0.1.0" }
 sable-model = { path = "../sable-model", version = "0.1.0" }
+sentry = { version = "0.49", default-features = false, features = ["reqwest"] }
 serde.workspace = true
 serde_json.workspace = true
 serde_with.workspace = true

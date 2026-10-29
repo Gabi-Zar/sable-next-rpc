@@ -1,17 +1,25 @@
 use sable_model::text::visible_name;
+#[cfg(not(target_family = "wasm"))]
+use std::time::Duration;
 
 use crate::api::push::PusherView;
 use crate::errors::CoreError;
 use matrix_sdk::Client;
 #[cfg(not(target_family = "wasm"))]
 use matrix_sdk::ruma::OwnedEventId;
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::ruma::api::client::filter::{FilterDefinition, RoomFilter};
 use matrix_sdk::ruma::api::client::push::{PusherIds, PusherInit, PusherKind};
 use matrix_sdk::ruma::api::client::state::get_state_event_for_key;
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::ruma::api::client::sync::sync_events;
 use matrix_sdk::ruma::events::AnySyncTimelineEvent;
 use matrix_sdk::ruma::events::StateEventType;
 use matrix_sdk::ruma::events::TimelineEventType;
 #[cfg(not(target_family = "wasm"))]
 use matrix_sdk::ruma::events::room::encrypted::OriginalSyncRoomEncryptedEvent;
+#[cfg(not(target_family = "wasm"))]
+use matrix_sdk::ruma::presence::PresenceState;
 use matrix_sdk::ruma::push::{Action, HttpPusherData, PushFormat};
 use matrix_sdk::ruma::serde::Raw;
 use matrix_sdk::ruma::{EventId, MilliSecondsSinceUnixEpoch, OwnedUserId, RoomId};
@@ -342,7 +350,11 @@ impl PushHost {
 #[cfg(not(target_family = "wasm"))]
 const RESTORE_WAIT: std::time::Duration = std::time::Duration::from_secs(5);
 #[cfg(not(target_family = "wasm"))]
-const PRESENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+const ACCOUNT_DATA_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+const DEVICE_ACTIVITY_EVENT: &str = "moe.sable.device_activity";
+const DEVICE_ACTIVITY_PRUNE_MS: u64 = 7 * 24 * 60 * 60_000;
+const DEVICE_ACTIVITY_WRITE_INTERVAL_MS: u64 = 30_000;
 
 /// A core in this process opens the client, so a store never has two there. Without one, the
 /// push opens its own and never waits for, or blocks, the app.
@@ -476,12 +488,13 @@ async fn decrypt_push_event(
         matrix_sdk::deserialized_responses::TimelineEventKind::Decrypted(clear) => {
             let actions = decrypted.push_actions();
             return match actions {
-                None => ColdPush::Unevaluated,
+                None if every_encrypted => ColdPush::Unevaluated,
+                None => prepared_push_event(&room, clear.event.json().get(), false).await,
                 Some(actions) if notifies(actions) => {
                     let noisy = actions
                         .iter()
                         .any(|action| action.sound().is_some() || action.is_highlight());
-                    ColdPush::Clear(marked_noisy(clear.event.json().get(), noisy))
+                    prepared_push_event(&room, clear.event.json().get(), noisy).await
                 }
                 Some(_) => ColdPush::Discard,
             };
@@ -515,8 +528,15 @@ async fn decrypt_push_event(
         return undecryptable;
     };
     match notifications.get_notification(&room_id, &event_id).await {
-        Ok(NotificationStatus::Event(item)) if item.actions.is_none() => ColdPush::Unevaluated,
-        Ok(NotificationStatus::Event(item)) if !item.actions.as_deref().is_some_and(notifies) => {
+        Ok(NotificationStatus::Event(item)) if item.actions.is_none() && every_encrypted => {
+            ColdPush::Unevaluated
+        }
+        Ok(NotificationStatus::Event(item))
+            if item
+                .actions
+                .as_deref()
+                .is_some_and(|actions| !notifies(actions)) =>
+        {
             ColdPush::Discard
         }
         Ok(NotificationStatus::Event(item)) => match item.raw_event {
@@ -525,7 +545,7 @@ async fn decrypt_push_event(
                     != Some("m.room.encrypted") =>
             {
                 let noisy = item.is_noisy == Some(true) || item.has_mention == Some(true);
-                ColdPush::Clear(marked_noisy(clear.json().get(), noisy))
+                prepared_push_event(&room, clear.json().get(), noisy).await
             }
             _ => undecryptable,
         },
@@ -534,6 +554,49 @@ async fn decrypt_push_event(
         }
         Ok(NotificationStatus::EventNotFound) | Err(_) => undecryptable,
     }
+}
+
+fn is_rtc_invite(event: &serde_json::Value) -> bool {
+    matches!(
+        event["type"].as_str(),
+        Some("m.rtc.invite" | "m.rtc.notification" | "org.matrix.msc4075.rtc.notification")
+    )
+}
+
+async fn prepare_invite(room: &matrix_sdk::Room, event: &mut serde_json::Value) -> bool {
+    let Some(invite) = crate::calls::validate_invite(room, event).await else {
+        return false;
+    };
+    let now = u64::from(MilliSecondsSinceUnixEpoch::now().get());
+    let remaining = invite.expires_at_ms.saturating_sub(now);
+    if remaining == 0 {
+        return false;
+    }
+    // These fields describe local presentation; they are never sent back into the room.
+    let content = &mut event["content"];
+    content["notification_type"] = if invite.ring { "ring" } else { "notification" }.into();
+    content["sender_ts"] = now.into();
+    content["lifetime"] = remaining.into();
+    content["m.call.intent"] = if invite.has_video { "video" } else { "audio" }.into();
+    content["body"] = "Call started".into();
+    true
+}
+
+#[cfg(not(target_family = "wasm"))]
+async fn prepared_push_event(room: &matrix_sdk::Room, clear: &str, noisy: bool) -> ColdPush {
+    let Ok(mut event) = serde_json::from_str::<serde_json::Value>(clear) else {
+        return ColdPush::Undecryptable;
+    };
+    if !is_rtc_invite(&event) {
+        return ColdPush::Clear(marked_noisy(clear, noisy));
+    }
+    if !prepare_invite(room, &mut event).await {
+        return ColdPush::Discard;
+    }
+    let Ok(clear) = serde_json::to_string(&event) else {
+        return ColdPush::Undecryptable;
+    };
+    ColdPush::Clear(marked_noisy(&clear, noisy))
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -549,44 +612,74 @@ fn marked_noisy(clear: &str, noisy: bool) -> String {
     serde_json::to_string(&event).unwrap_or_else(|_| clear.to_owned())
 }
 
-#[cfg(not(target_family = "wasm"))]
-const APP_ACTIVITY_FILE: &str = "app-activity.json";
-
-#[cfg(not(target_family = "wasm"))]
-#[derive(serde::Serialize, serde::Deserialize)]
-struct AppActivity {
+fn update_device_activity(
+    mut content: sable_model::notifications::DeviceActivity,
+    device_id: &str,
     active: bool,
-    at_ms: u64,
-}
-
-/// Read by the push handlers, which run without the app.
-#[cfg(not(target_family = "wasm"))]
-pub fn record_app_activity(store_dir: &std::path::Path, active: bool) {
-    let activity = AppActivity {
-        active,
-        at_ms: crate::probed_state::now_ms(),
-    };
-    let temporary = store_dir.join("app-activity.json.tmp");
-    let written = serde_json::to_vec(&activity)
-        .map_err(std::io::Error::other)
-        .and_then(|bytes| std::fs::write(&temporary, bytes))
-        .and_then(|()| std::fs::rename(&temporary, store_dir.join(APP_ACTIVITY_FILE)));
-    if let Err(error) = written {
-        tracing::debug!("app activity not recorded: {error}");
+    now_ms: u64,
+) -> Option<sable_model::notifications::DeviceActivity> {
+    if content.devices.get(device_id).is_some_and(|entry| {
+        entry.active == active
+            && now_ms >= entry.at
+            && now_ms - entry.at < DEVICE_ACTIVITY_WRITE_INTERVAL_MS
+    }) {
+        return None;
     }
+
+    content
+        .devices
+        .retain(|_, entry| now_ms.saturating_sub(entry.at) <= DEVICE_ACTIVITY_PRUNE_MS);
+    content.devices.insert(
+        device_id.to_owned(),
+        sable_model::notifications::DeviceActivityEntry { active, at: now_ms },
+    );
+    Some(content)
 }
 
-/// `Some(0)` while the app is in use, `None` when it never recorded any use.
-#[cfg(not(target_family = "wasm"))]
-#[must_use]
-pub fn inactive_here_ms(store_dir: &std::path::Path) -> Option<u64> {
-    let bytes = std::fs::read(store_dir.join(APP_ACTIVITY_FILE)).ok()?;
-    let activity = serde_json::from_slice::<AppActivity>(&bytes).ok()?;
-    Some(if activity.active {
-        0
-    } else {
-        crate::probed_state::now_ms().saturating_sub(activity.at_ms)
-    })
+pub(crate) async fn set_device_activity(core: &crate::Core, active: bool) {
+    let _guard = core.account_data_lock.lock().await;
+    let Ok(client) = core.client().await else {
+        tracing::debug!("device activity not recorded: not logged in");
+        return;
+    };
+    let Some(device_id) = client.device_id() else {
+        tracing::debug!("device activity not recorded: device ID unavailable");
+        return;
+    };
+    let current = match client
+        .account()
+        .fetch_account_data(DEVICE_ACTIVITY_EVENT.into())
+        .await
+    {
+        Ok(raw) => raw
+            .and_then(|raw| serde_json::from_str(raw.json().get()).ok())
+            .unwrap_or_default(),
+        Err(error) => {
+            tracing::debug!("device activity not read: {error}");
+            return;
+        }
+    };
+    let Some(content) = update_device_activity(
+        current,
+        device_id.as_str(),
+        active,
+        crate::probed_state::now_ms(),
+    ) else {
+        return;
+    };
+    let Ok(raw) = serde_json::value::to_raw_value(&content)
+        .map(Raw::<matrix_sdk::ruma::events::AnyGlobalAccountDataEventContent>::from_json)
+    else {
+        tracing::debug!("device activity not serialized");
+        return;
+    };
+    if let Err(error) = client
+        .account()
+        .set_account_data_raw(DEVICE_ACTIVITY_EVENT.into(), raw)
+        .await
+    {
+        tracing::debug!("device activity not written: {error}");
+    }
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -598,7 +691,7 @@ pub async fn cold_push_active_elsewhere(
 ) -> bool {
     let store_dir = cold_push_store_dir(data_dir);
     match PushSession::cached(&store_dir, user_id, device_id, room_id).await {
-        Some(session) => session.active_elsewhere(inactive_here_ms(&store_dir)).await,
+        Some(session) => session.active_elsewhere().await,
         None => false,
     }
 }
@@ -624,6 +717,25 @@ pub struct PushSession {
     host: push_cache::ColdHost,
     store_dir: std::path::PathBuf,
     room_id: matrix_sdk::ruma::OwnedRoomId,
+}
+
+#[cfg(not(target_family = "wasm"))]
+const READ_ROOMS_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[cfg(not(target_family = "wasm"))]
+fn read_rooms_from_sync(
+    joined: &std::collections::BTreeMap<matrix_sdk::ruma::OwnedRoomId, Option<u64>>,
+    room_ids: &[matrix_sdk::ruma::OwnedRoomId],
+) -> Vec<String> {
+    room_ids
+        .iter()
+        .filter(|room_id| {
+            joined
+                .get(*room_id)
+                .is_none_or(|count| count.is_none_or(|count| count == 0))
+        })
+        .map(ToString::to_string)
+        .collect()
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -712,31 +824,89 @@ impl PushSession {
         }
     }
 
-    pub async fn active_elsewhere(&self, inactive_here_ms: Option<u64>) -> bool {
+    pub async fn active_elsewhere(&self) -> bool {
         let client = self.host.client();
-        let Some(user_id) = client.user_id() else {
+        let (Some(user_id), Some(device_id)) = (client.user_id(), client.device_id()) else {
             return false;
         };
         let Ok(response) = client
             .send(
-                matrix_sdk::ruma::api::client::presence::get_presence::v3::Request::new(
+                matrix_sdk::ruma::api::client::config::get_global_account_data::v3::Request::new(
                     user_id.to_owned(),
+                    DEVICE_ACTIVITY_EVENT.into(),
                 ),
             )
             .with_request_config(
-                matrix_sdk::config::RequestConfig::short_retry().timeout(PRESENCE_TIMEOUT),
+                matrix_sdk::config::RequestConfig::short_retry().timeout(ACCOUNT_DATA_TIMEOUT),
             )
             .await
         else {
             return false;
         };
-        let presence = sable_model::notifications::OwnPresence {
-            presence: response.presence.as_str().to_owned(),
-            last_active_ago: response
-                .last_active_ago
-                .map(|ago| u64::try_from(ago.as_millis()).unwrap_or(u64::MAX)),
+        let Ok(content) = serde_json::from_str::<sable_model::notifications::DeviceActivity>(
+            response.account_data.json().get(),
+        ) else {
+            return false;
         };
-        sable_model::notifications::active_elsewhere(&presence, inactive_here_ms)
+        sable_model::notifications::active_elsewhere(
+            &content,
+            device_id.as_str(),
+            crate::probed_state::now_ms(),
+        )
+    }
+
+    pub async fn read_rooms(&self, room_ids: &[String]) -> Option<Vec<String>> {
+        let room_ids = room_ids
+            .iter()
+            .map(|room_id| RoomId::parse(room_id).ok())
+            .collect::<Option<Vec<_>>>()?;
+        if room_ids.is_empty() {
+            return Some(Vec::new());
+        }
+
+        let mut filter = FilterDefinition::default();
+        filter.presence.types = Some(Vec::new());
+        filter.account_data.types = Some(Vec::new());
+        let mut rooms = RoomFilter::default();
+        rooms.rooms = Some(room_ids.clone());
+        rooms.timeline.limit = Some(matrix_sdk::ruma::uint!(0));
+        rooms.state.types = Some(Vec::new());
+        rooms.ephemeral.types = Some(Vec::new());
+        rooms.account_data.types = Some(Vec::new());
+        filter.room = rooms;
+
+        let response = tokio::time::timeout(
+            READ_ROOMS_TIMEOUT,
+            self.host.retry(|| async {
+                let mut request = sync_events::v3::Request::new();
+                request.filter = Some(sync_events::v3::Filter::FilterDefinition(filter.clone()));
+                request.timeout = Some(Duration::ZERO);
+                request.set_presence = PresenceState::Offline;
+                self.host
+                    .client()
+                    .send(request)
+                    .with_request_config(
+                        matrix_sdk::config::RequestConfig::short_retry()
+                            .timeout(READ_ROOMS_TIMEOUT),
+                    )
+                    .await
+            }),
+        )
+        .await
+        .ok()?
+        .ok()?;
+        let joined = response
+            .rooms
+            .join
+            .iter()
+            .map(|(room_id, room)| {
+                (
+                    room_id.clone(),
+                    room.unread_notifications.notification_count.map(u64::from),
+                )
+            })
+            .collect();
+        Some(read_rooms_from_sync(&joined, &room_ids))
     }
 
     #[must_use]
@@ -1164,10 +1334,37 @@ async fn fetch_push_event_with(
         {
             PushFetchView::Discard
         }
+        Ok(NotificationStatus::Event(item))
+            if item.actions.is_none()
+                && item.is_room_encrypted == Some(true)
+                && every_encrypted_event_pushed(client).await =>
+        {
+            PushFetchView::Discard
+        }
         Ok(NotificationStatus::Event(item)) => {
+            let raw = match &item.raw_event {
+                RawNotificationEvent::Timeline(raw) => raw.json().get(),
+                RawNotificationEvent::Invite(raw) => raw.json().get(),
+            };
+            let normalized = if let Ok(mut raw) = serde_json::from_str::<serde_json::Value>(raw)
+                && is_rtc_invite(&raw)
+            {
+                let Some(room) = client.get_room(room_id) else {
+                    return PushFetchView::Discard;
+                };
+                if !prepare_invite(&room, &mut raw).await {
+                    return PushFetchView::Discard;
+                }
+                raw.get_mut("content").map(serde_json::Value::take)
+            } else {
+                None
+            };
             let Some(mut event) = push_event_view(*item) else {
                 return PushFetchView::Unavailable;
             };
+            if let Some(content) = normalized {
+                event.content = content;
+            }
             if event.sender_display_name.is_none() {
                 event.sender_display_name = Some(sender_name(client, room_id, &event.sender).await);
             }
@@ -1334,7 +1531,14 @@ pub(crate) fn gateway(url: &str) -> Result<String, CoreError> {
 }
 
 #[derive(serde::Serialize)]
+struct AlertOut {
+    #[serde(rename = "loc-key")]
+    loc_key: &'static str,
+}
+
+#[derive(serde::Serialize)]
 struct ApsOut {
+    alert: AlertOut,
     #[serde(rename = "mutable-content")]
     mutable_content: u8,
 }
@@ -1346,11 +1550,16 @@ struct DefaultPayloadOut {
     aps: Option<ApsOut>,
 }
 
-/// A gateway that builds the alert itself only starts the iOS notification extension when this asks for it.
-fn default_payload(user_id: String, mutable_content: bool) -> DefaultPayloadOut {
+/// Sygnal's `event_id_only` payload has no alert, and iOS drops a push without one.
+fn default_payload(user_id: String, ios: bool) -> DefaultPayloadOut {
     DefaultPayloadOut {
         user_id,
-        aps: mutable_content.then_some(ApsOut { mutable_content: 1 }),
+        aps: ios.then_some(ApsOut {
+            alert: AlertOut {
+                loc_key: "MSG_FROM_USER",
+            },
+            mutable_content: 1,
+        }),
     }
 }
 
@@ -1509,11 +1718,39 @@ mod tests {
     }
 
     #[test]
+    fn filtered_sync_response_identifies_read_rooms() {
+        let rooms = vec![
+            room_id!("!zero:example.org").to_owned(),
+            room_id!("!unread:example.org").to_owned(),
+            room_id!("!missing-count:example.org").to_owned(),
+            room_id!("!absent:example.org").to_owned(),
+        ];
+        let joined = [
+            (room_id!("!zero:example.org").to_owned(), Some(0)),
+            (room_id!("!unread:example.org").to_owned(), Some(2)),
+            (room_id!("!missing-count:example.org").to_owned(), None),
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(
+            super::read_rooms_from_sync(&joined, &rooms),
+            vec![
+                "!zero:example.org".to_owned(),
+                "!missing-count:example.org".to_owned(),
+                "!absent:example.org".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
     fn an_ios_default_payload_asks_for_the_notification_extension() {
         use super::default_payload;
         assert_eq!(
             serde_json::to_value(default_payload("@a:b".to_owned(), true)).unwrap(),
-            json!({ "user_id": "@a:b", "aps": { "mutable-content": 1 } })
+            json!({
+                "user_id": "@a:b",
+                "aps": { "alert": { "loc-key": "MSG_FROM_USER" }, "mutable-content": 1 }
+            })
         );
         assert_eq!(
             serde_json::to_value(default_payload("@a:b".to_owned(), false)).unwrap(),
@@ -1908,15 +2145,24 @@ mod tests {
     }
 
     #[test]
-    fn the_app_counts_as_in_use_until_it_records_leaving() {
-        let store_dir = tempfile::tempdir().unwrap();
-        assert_eq!(super::inactive_here_ms(store_dir.path()), None);
-
-        super::record_app_activity(store_dir.path(), true);
-        assert_eq!(super::inactive_here_ms(store_dir.path()), Some(0));
-
-        super::record_app_activity(store_dir.path(), false);
-        assert!(super::inactive_here_ms(store_dir.path()).is_some_and(|ms| ms < 60_000));
+    fn device_activity_updates_its_entry_and_prunes_old_devices() {
+        let now = super::DEVICE_ACTIVITY_PRUNE_MS + 1_000_000;
+        let content = super::update_device_activity(
+            serde_json::from_value(json!({
+                "devices": {
+                    "OWN": {"active": true, "at": now - 31_000},
+                    "OLD": {"active": true, "at": now - super::DEVICE_ACTIVITY_PRUNE_MS - 1}
+                }
+            }))
+            .unwrap(),
+            "OWN",
+            false,
+            now,
+        )
+        .unwrap();
+        assert!(!content.devices["OWN"].active);
+        assert!(!content.devices.contains_key("OLD"));
+        assert!(super::update_device_activity(content, "OWN", false, now + 1_000).is_none());
     }
 
     #[tokio::test]
@@ -2129,7 +2375,7 @@ mod tests {
         JoinedRoomBuilder::new(room_id!("!cold:example.org"))
             .add_state_event(factory.member(user_id!("@alice:example.org")))
             .add_state_event(factory.member(user_id!("@sender:example.org")))
-            .add_state_event(factory.default_power_levels())
+            .add_state_event(factory.power_levels())
     }
 
     #[tokio::test]
@@ -2191,7 +2437,7 @@ mod tests {
             .sender(user_id!("@sender:example.org"));
         JoinedRoomBuilder::new(room_id!("!cold:example.org"))
             .add_state_event(factory.member(user_id!("@sender:example.org")))
-            .add_state_event(factory.default_power_levels())
+            .add_state_event(factory.power_levels())
     }
 
     #[tokio::test]
@@ -2217,7 +2463,10 @@ mod tests {
             )
             .await;
 
-        assert_eq!(fixture.decrypt("A", &sticker).await, ColdPush::Unevaluated);
+        assert!(matches!(
+            fixture.decrypt("A", &sticker).await,
+            ColdPush::Clear(_)
+        ));
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
         let fixture = ColdFixture::new("fetched-member", cold_room_without_me(), None).await;
@@ -2246,8 +2495,24 @@ mod tests {
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
+    fn pushes_every_encrypted_event() -> Ruleset {
+        let mut rules = Ruleset::server_default(user_id!("@alice:example.org"));
+        rules.override_.insert(
+            serde_json::from_value::<ConditionalPushRule>(json!({
+                "rule_id": ".org.matrix.msc4028.encrypted_event",
+                "default": true,
+                "enabled": true,
+                "conditions": [{"kind": "event_match", "key": "type", "pattern": "m.room.encrypted"}],
+                "actions": ["notify"],
+            }))
+            .unwrap(),
+        );
+        rules
+    }
+
     #[tokio::test]
-    async fn a_cold_push_whose_rules_cannot_be_evaluated_is_not_a_plain_discard() {
+    async fn a_cold_push_whose_rules_cannot_be_evaluated_trusts_the_server_unless_it_pushes_everything()
+     {
         let fixture = ColdFixture::new("unevaluated", cold_room_without_me(), None).await;
         let message = fixture
             .push(
@@ -2255,7 +2520,24 @@ mod tests {
                 json!({"msgtype":"m.text", "body":"hello"}),
             )
             .await;
+        assert!(matches!(
+            fixture.decrypt("A", &message).await,
+            ColdPush::Clear(_)
+        ));
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
+        let fixture = ColdFixture::new(
+            "unevaluated-msc4028",
+            cold_room_without_me(),
+            Some(pushes_every_encrypted_event()),
+        )
+        .await;
+        let message = fixture
+            .push(
+                "m.room.message",
+                json!({"msgtype":"m.text", "body":"hello"}),
+            )
+            .await;
         assert_eq!(fixture.decrypt("A", &message).await, ColdPush::Unevaluated);
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
@@ -2355,19 +2637,12 @@ mod tests {
         );
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
 
-        let mut rules = Ruleset::server_default(user_id!("@alice:example.org"));
-        rules.override_.insert(
-            serde_json::from_value::<ConditionalPushRule>(json!({
-                "rule_id": ".org.matrix.msc4028.encrypted_event",
-                "default": true,
-                "enabled": true,
-                "conditions": [{"kind": "event_match", "key": "type", "pattern": "m.room.encrypted"}],
-                "actions": ["notify"],
-            }))
-            .unwrap(),
-        );
-        let fixture =
-            ColdFixture::new("needs-key-quietly", cold_room_with_members(), Some(rules)).await;
+        let fixture = ColdFixture::new(
+            "needs-key-quietly",
+            cold_room_with_members(),
+            Some(pushes_every_encrypted_event()),
+        )
+        .await;
         assert_eq!(
             fixture.decrypt_locally(&unknown).await,
             ColdPush::NeedsKey { quietly: true }
@@ -2391,27 +2666,27 @@ mod tests {
         fixture: &ColdFixture,
         event: &serde_json::Value,
     ) -> (wiremock::MockGuard, wiremock::MockGuard) {
-        mount_fetch_with(fixture, event, true).await
+        mount_fetch_with(fixture, event, true, false).await
     }
 
     async fn mount_fetch_with(
         fixture: &ColdFixture,
         event: &serde_json::Value,
         own_member: bool,
+        encrypted: bool,
     ) -> (wiremock::MockGuard, wiremock::MockGuard) {
         use matrix_sdk::ruma::api::client::sync::sync_events::v5;
 
         let mut room = v5::response::Room::new();
         room.initial = Some(true);
         room.timeline = vec![Raw::from_json_string(event.to_string()).unwrap()];
+        let factory = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id!("!cold:example.org"))
+            .sender(user_id!("@sender:example.org"));
         room.required_state = own_member
-            .then(|| {
-                matrix_sdk_test::event_factory::EventFactory::new()
-                    .room(room_id!("!cold:example.org"))
-                    .member(user_id!("@alice:example.org"))
-                    .into_raw()
-            })
+            .then(|| factory.member(user_id!("@alice:example.org")).into_raw())
             .into_iter()
+            .chain(encrypted.then(|| factory.room_encryption().into_raw()))
             .collect();
         let mut response = v5::Response::new("1".to_owned());
         response.rooms =
@@ -2422,12 +2697,14 @@ mod tests {
             .ok(response)
             .mount_as_scoped()
             .await;
-        let encryption = fixture
-            .server
-            .mock_room_state_encryption()
-            .plain()
-            .mount_as_scoped()
-            .await;
+        let encryption = fixture.server.mock_room_state_encryption();
+        let encryption = if encrypted {
+            encryption.encrypted()
+        } else {
+            encryption.plain()
+        }
+        .mount_as_scoped()
+        .await;
         (sync, encryption)
     }
 
@@ -2437,7 +2714,7 @@ mod tests {
         let message = json!({"type": "m.room.message", "event_id": "$unevaluated",
             "sender": "@sender:example.org", "origin_server_ts": 1,
             "content": {"msgtype": "m.text", "body": "rules unknown"}});
-        let _mocks = mount_fetch_with(&fixture, &message, false).await;
+        let _mocks = mount_fetch_with(&fixture, &message, false, false).await;
 
         let fetched = fetch_cold_push_event(
             &fixture.data_dir,
@@ -2452,6 +2729,32 @@ mod tests {
             matches!(fetched, PushFetchView::Event { .. }),
             "{fetched:?}"
         );
+        tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_unevaluated_encrypted_event_is_discarded_when_every_encrypted_event_is_pushed() {
+        let fixture = ColdFixture::new(
+            "fetch-unevaluated-msc4028",
+            cold_room_without_me(),
+            Some(pushes_every_encrypted_event()),
+        )
+        .await;
+        let message = json!({"type": "m.room.message", "event_id": "$unevaluated",
+            "sender": "@sender:example.org", "origin_server_ts": 1,
+            "content": {"msgtype": "m.text", "body": "rules unknown"}});
+        let _mocks = mount_fetch_with(&fixture, &message, false, true).await;
+
+        let fetched = fetch_cold_push_event(
+            &fixture.data_dir,
+            "@alice:example.org",
+            "A",
+            COLD_ROOM,
+            "$unevaluated",
+        )
+        .await;
+
+        assert!(matches!(fetched, PushFetchView::Discard), "{fetched:?}");
         tokio::fs::remove_dir_all(&fixture.data_dir).await.unwrap();
     }
 
@@ -2655,7 +2958,7 @@ mod tests {
                     .room_avatar()
                     .url(mxc_uri!("mxc://example.org/lounge")),
             )
-            .add_state_event(factory.default_power_levels());
+            .add_state_event(factory.power_levels());
         match account_data {
             Some(event) => room.add_account_data(event),
             None => room,
@@ -3491,5 +3794,78 @@ mod tests {
         .collect();
 
         assert!(accepted.is_empty(), "these are not gateways: {accepted:?}");
+    }
+
+    #[tokio::test]
+    async fn native_rtc_invites_use_validated_receiver_presentation() {
+        use wiremock::{
+            Mock, ResponseTemplate,
+            matchers::{method, path_regex},
+        };
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!push-call:example.org");
+        let own = client.user_id().unwrap().to_owned();
+        let sender = user_id!("@caller:example.org");
+        let factory = matrix_sdk_test::event_factory::EventFactory::new()
+            .room(room_id)
+            .sender(sender);
+        let room = server
+            .sync_room(
+                &client,
+                JoinedRoomBuilder::new(room_id)
+                    .add_state_event(factory.member(&own))
+                    .add_state_event(factory.member(sender))
+                    .add_state_event(factory.power_levels()),
+            )
+            .await;
+        let now = u64::from(MilliSecondsSinceUnixEpoch::now().get());
+        let event = json!({
+            "type":"m.rtc.invite", "event_id":"$push-invite", "room_id":room_id,
+            "sender":sender, "origin_server_ts":now - 5_000,
+            "sticky":{"duration_ms":300_000},
+            "content":{"slot_id":"m.call#room", "sticky_key":"m.call#room",
+                "sender_ts":now - 5_000,"lifetime":90_000,
+                "notification_type":"ring", "m.mentions":{"user_ids":[own]}}
+        });
+        for withdrawn in [false, true] {
+            let mut events = vec![event.clone()];
+            if withdrawn {
+                let mut withdrawal = event.clone();
+                withdrawal["event_id"] = "$withdrawal".into();
+                withdrawal["origin_server_ts"] = now.into();
+                withdrawal["content"] = json!({"sticky_key":"m.call#room"});
+                events.push(withdrawal);
+            }
+            let response = json!({"pos":"push-state", "rooms":{room_id.as_str():{
+                "initial":true,"required_state":[{
+                    "type":"m.rtc.slot","state_key":"m.call#room","event_id":"$slot",
+                    "sender":sender,"origin_server_ts":now - 10_000,
+                    "content":{"status":"open","application":{"type":"m.call"}}
+                }]
+            }},"extensions":{"org.matrix.msc4354.sticky_events":{
+                "next_batch":"push-sticky","rooms":{room_id.as_str():{"events":events}}
+            }}});
+            let guard = Mock::given(method("POST"))
+                .and(path_regex("/sync$"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(response))
+                .mount_as_scoped(server.server())
+                .await;
+            let prepared = super::prepared_push_event(&room, &event.to_string(), true).await;
+            if withdrawn {
+                assert_eq!(prepared, ColdPush::Discard);
+            } else {
+                let ColdPush::Clear(clear) = prepared else {
+                    panic!("active group invitation must notify");
+                };
+                let clear: serde_json::Value = serde_json::from_str(&clear).unwrap();
+                assert_eq!(clear["content"]["notification_type"], "notification");
+                assert_eq!(clear["content"]["body"], "Call started");
+                assert!(clear["content"]["lifetime"].as_u64().unwrap() <= 85_000);
+                assert_eq!(clear[super::NOISY_KEY], true);
+            }
+            drop(guard);
+        }
+        assert_eq!(event["content"]["notification_type"], "ring");
     }
 }

@@ -497,6 +497,7 @@
               id="account-status"
               class="inline-edit"
               bind:value={draft.status}
+              autocomplete="off"
               aria-label={i18n.t('settings.status')}
               placeholder={i18n.t('common.statusPlaceholder')}
               maxlength={MAX_STATUS_TEXT_BYTES}

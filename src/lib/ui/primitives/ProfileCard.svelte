@@ -289,6 +289,8 @@
 <style>
   @media (pointer: fine) {
     .profile-card {
+      border: var(--border-width) solid var(--profile-line);
+      border-radius: var(--radius);
       user-select: text;
     }
   }
@@ -317,8 +319,6 @@
     );
 
     background: var(--profile-panel-ground);
-    border: var(--border-width) solid var(--profile-line);
-    border-radius: var(--radius);
     color: var(--profile-ink);
     overflow: hidden;
     position: relative;
@@ -610,7 +610,7 @@
 
   @media (pointer: coarse) {
     .profile-card-user-id {
-      min-height: var(--control-height-large);
+      min-height: 48px;
     }
   }
 
@@ -771,5 +771,22 @@
   /* A tinted card brings its own ground, so the hero picks the name colour. */
   .profile-card.tinted .profile-card-name {
     color: var(--profile-name-on-hero, var(--profile-ink));
+  }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .profile-card {
+      --profile-line: var(--surface-var-container-line);
+      --profile-panel-ground: var(--surface-container);
+    }
+
+    .profile-card.tinted {
+      --profile-chip-line: var(--surface-var-container-line);
+      --pill-primary-hover: var(--surface-container-hover);
+      --profile-line: var(--surface-var-container-line);
+    }
+
+    .profile-card.profile-card-inset-body .profile-card-panel.framed {
+      box-shadow: inset 0 1px 2px var(--profile-ink);
+    }
   }
 </style>

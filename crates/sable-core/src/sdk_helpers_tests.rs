@@ -40,6 +40,151 @@ async fn core(server: &MatrixMockServer, client: matrix_sdk::Client) -> Arc<Core
     core_with_events(server, client).await.0
 }
 
+#[tokio::test]
+async fn preview_thumbnails_are_reuploaded_and_encrypted_for_encrypted_rooms() {
+    use matrix_sdk::ruma::events::room::EncryptedFile;
+
+    for encrypted in [false, true] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!preview:example.org");
+        server.sync_joined_room(&client, room_id).await;
+        server
+            .mock_authenticated_media_config()
+            .ok_default()
+            .mount()
+            .await;
+        if encrypted {
+            server
+                .mock_room_state_encryption()
+                .encrypted()
+                .mount()
+                .await;
+        } else {
+            server.mock_room_state_encryption().plain().mount().await;
+        }
+        let bytes = b"preview thumbnail";
+        Mock::given(method("GET"))
+            .and(path(
+                "/_matrix/client/v1/media/download/example.org/temporary",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(bytes))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/_matrix/media/v3/upload"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "content_uri": "mxc://example.org/persistent",
+            })))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        let preview = crate::link_previews::url_preview("https://example.org".to_owned(), &json!({
+            "og:title": "Example", "og:image": "mxc://example.org/temporary", "og:image:type": "image/png",
+        })).unwrap();
+        let previews = [preview];
+        let images = core
+            .prepare_preview_images(&room_id.to_owned(), &previews)
+            .await;
+        let bundles =
+            crate::link_previews::bundled_link_previews(&previews, &images, true).unwrap();
+        let legacy =
+            crate::link_previews::bundled_link_previews(&previews, &images, false).unwrap();
+        let requests = server.server().received_requests().await.unwrap();
+        let upload = requests
+            .iter()
+            .find(|request| request.url.path() == "/_matrix/media/v3/upload")
+            .unwrap();
+        if encrypted {
+            assert!(bundles[0].get("og:image").is_none());
+            assert!(legacy[0].get("og:image").is_none());
+            assert_eq!(
+                legacy[0]["beeper:image:encryption"],
+                bundles[0]["matrix:image:encrypted"]
+            );
+            assert!(legacy[0].get("matrix:image:encrypted").is_none());
+            assert!(bundles[0].get("beeper:image:encryption").is_none());
+            let file: EncryptedFile =
+                serde_json::from_value(bundles[0]["matrix:image:encrypted"].clone()).unwrap();
+            assert_eq!(file.url.as_str(), "mxc://example.org/persistent");
+            assert_ne!(upload.body, bytes);
+            let mut cursor = std::io::Cursor::new(&upload.body);
+            let mut reader =
+                matrix_sdk_base::crypto::AttachmentDecryptor::new(&mut cursor, file.into())
+                    .unwrap();
+            let mut decrypted = Vec::new();
+            std::io::Read::read_to_end(&mut reader, &mut decrypted).unwrap();
+            assert_eq!(decrypted, bytes);
+        } else {
+            assert_eq!(bundles[0]["og:image"], "mxc://example.org/persistent");
+            assert_eq!(upload.body, bytes);
+        }
+    }
+}
+
+#[tokio::test]
+async fn preview_thumbnail_failures_omit_images() {
+    for oversized in [false, true] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!preview:example.org");
+        server.sync_joined_room(&client, room_id).await;
+        server
+            .mock_authenticated_media_config()
+            .ok_default()
+            .mount()
+            .await;
+        server
+            .mock_room_state_encryption()
+            .encrypted()
+            .mount()
+            .await;
+        let bytes = vec![7; if oversized { 1024 * 1024 + 1 } else { 12 }];
+        Mock::given(method("GET"))
+            .and(path(
+                "/_matrix/client/v1/media/download/example.org/temporary",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(bytes))
+            .expect(1)
+            .mount(server.server())
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/_matrix/media/v3/upload"))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "errcode": "M_FORBIDDEN", "error": "Uploads disabled",
+            })))
+            .expect(u64::from(!oversized))
+            .mount(server.server())
+            .await;
+        let core = core(&server, client).await;
+        let preview = crate::link_previews::url_preview(
+            "https://example.org".to_owned(),
+            &json!({
+                "og:title": "Example", "og:image": "mxc://example.org/temporary",
+                "og:image:type": "image/png", "og:image:width": 640,
+            }),
+        )
+        .unwrap();
+        let previews = [preview];
+        let images = core
+            .prepare_preview_images(&room_id.to_owned(), &previews)
+            .await;
+        assert!(images.is_empty());
+        for stable in [false, true] {
+            let bundles =
+                crate::link_previews::bundled_link_previews(&previews, &images, stable).unwrap();
+            assert_eq!(bundles[0]["og:title"], "Example");
+            assert!(bundles[0].get("og:image").is_none());
+            assert!(bundles[0].get("og:image:type").is_none());
+            assert!(bundles[0].get("og:image:width").is_none());
+            assert!(bundles[0].get("matrix:image:encrypted").is_none());
+            assert!(bundles[0].get("beeper:image:encryption").is_none());
+        }
+    }
+}
+
 #[expect(clippy::unwrap_used, reason = "test code")]
 async fn core_with_events(
     server: &MatrixMockServer,
@@ -226,20 +371,16 @@ async fn persona_mutations_do_not_write_when_the_catalog_read_fails() {
         .mount(server.server())
         .await;
 
-    assert!(
-        core.run(RemoveParams {
-            id: "stale".to_owned()
-        })
-        .await
-        .is_err()
-    );
-    assert!(
-        core.run(ReorderParams {
-            ids: vec!["stale".to_owned()]
-        })
-        .await
-        .is_err()
-    );
+    core.run(RemoveParams {
+        id: "stale".to_owned(),
+    })
+    .await
+    .unwrap_err();
+    core.run(ReorderParams {
+        ids: vec!["stale".to_owned()],
+    })
+    .await
+    .unwrap_err();
 }
 
 #[tokio::test]
@@ -740,7 +881,7 @@ async fn local_read_waits_for_open_stores() {
 
     let pending = core.with_open_stores(async || {
         assert!(*core.stores_open.borrow());
-        assert!(core.activity_lock.try_lock().is_err());
+        core.activity_lock.try_lock().unwrap_err();
         ran.store(true, std::sync::atomic::Ordering::SeqCst);
         client.state_store().get_custom_value(b"missing").await
     });
@@ -754,7 +895,7 @@ async fn local_read_waits_for_open_stores() {
     core.stores_open.send_replace(true);
     assert_eq!(pending.await.unwrap(), None);
     assert!(ran.load(std::sync::atomic::Ordering::SeqCst));
-    assert!(core.activity_lock.try_lock().is_ok());
+    drop(core.activity_lock.try_lock().unwrap());
 }
 
 #[tokio::test]
@@ -820,7 +961,7 @@ async fn space_sidebar_does_not_read_while_stores_are_closing() {
 
     client.resume().await.unwrap();
     core.stores_open.send_replace(true);
-    assert!(pending.await.unwrap().is_empty());
+    assert_eq!(pending.await.unwrap(), []);
 }
 
 #[tokio::test]

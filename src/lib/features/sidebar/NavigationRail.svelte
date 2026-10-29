@@ -276,7 +276,7 @@
   }
 
   function sectionHref(key: string, root: string): string {
-    return mobile ? root : spaceNavigationHref(root, spacePaths[key], root);
+    return spaceNavigationHref(root, spacePaths[key], mobile, root);
   }
 
   function spaceName(name: string | null, roomId: string): string {
@@ -341,8 +341,8 @@
 
   function entryRef(item: SidebarItem): LayoutRef {
     return item.kind === 'space'
-      ? { kind: 'space', roomId: item.room_id }
-      : { kind: 'folder', folderId: item.id };
+      ? { kind: 'space', room_id: item.room_id, folder_id: null }
+      : { kind: 'folder', folder_id: item.id };
   }
 
   let contextIndex = $derived.by(() => {
@@ -357,7 +357,7 @@
     if (targetIndex < 0 || targetIndex >= entries.length) return;
 
     onReorder?.(
-      { kind: 'space', roomId: contextSpace.room_id },
+      { kind: 'space', room_id: contextSpace.room_id, folder_id: null },
       entryRef(entries[targetIndex]),
       direction === 'up' ? 'above' : 'below'
     );
@@ -407,7 +407,7 @@
       href,
       activePrefix: href,
       roomId: space.room_id,
-      navigateHref: spaceNavigationHref(href, savedPath, lobby),
+      navigateHref: spaceNavigationHref(href, savedPath, mobile, lobby),
       initial: toInitials(name),
       avatar: space.avatar_url,
       label: name,
@@ -495,6 +495,8 @@
   let previousPath = '';
 
   afterNavigate(() => {
+    if (mobile) return;
+
     const kept = [...new URLSearchParams(page.url.search)].filter(([key]) => key !== 'event');
     const search = new URLSearchParams(kept).toString();
     const path = `${page.url.pathname}${search ? `?${search}` : ''}${page.url.hash}`;
@@ -502,9 +504,8 @@
       const href = resolve('/(app)/space/[spaceId]', {
         spaceId: roomPathParam(candidate, roomList.rooms),
       });
-      return path.startsWith(`${href}/`);
+      return path === href || path.startsWith(`${href}/`);
     });
-    if (mobile && !space) return;
     const key = sectionRoots.find(([, root]) => under(path, root))?.[0] ?? space?.room_id;
     const spaceParam = page.params.spaceId;
     const bounced = spaceParam
@@ -575,6 +576,7 @@
     aria-describedby={describedBy(props, unreadId(item.roomId ?? item.href))}
     aria-current={active ? 'page' : undefined}
   >
+    <span class="nav-tab-hit-area" aria-hidden="true"></span>
     {@render itemBody(item, active)}
   </a>
 {/snippet}
@@ -601,6 +603,7 @@
     aria-expanded={createOpen}
     onclick={openCreateMenu}
   >
+    <span class="nav-tab-hit-area" aria-hidden="true"></span>
     <span class="icon" aria-hidden="true"
       ><PlusIcon weight={createOpen ? 'fill' : 'regular'} /></span
     >
@@ -646,7 +649,11 @@
 {#snippet spaceSlot(roomId: string, folderId?: string)}
   {@const item = spaceItem(roomId)}
   {#if item !== null}
-    {@const ref = { kind: 'space', roomId, folderId } satisfies LayoutRef}
+    {@const ref = {
+      kind: 'space',
+      room_id: roomId,
+      folder_id: folderId ?? null,
+    } satisfies LayoutRef}
     {#if folderId === undefined}
       <div
         class="rail-menu-anchor"
@@ -710,13 +717,14 @@
       onToggleFolder?.(folder.id);
     }}
   >
+    <span class="nav-tab-hit-area" aria-hidden="true"></span>
     {@render folderTiles(folder)}
     {@render unreadMark(folderUnread(folder), false, unreadId(folder.id))}
   </button>
 {/snippet}
 
 {#snippet closedFolder(folder: SidebarFolder)}
-  {@const ref = { kind: 'folder', folderId: folder.id } satisfies LayoutRef}
+  {@const ref = { kind: 'folder', folder_id: folder.id } satisfies LayoutRef}
   <div
     class={[
       'rail-slot',
@@ -752,7 +760,7 @@
 {/snippet}
 
 {#snippet openFolder(folder: SidebarFolder)}
-  {@const ref = { kind: 'folder', folderId: folder.id } satisfies LayoutRef}
+  {@const ref = { kind: 'folder', folder_id: folder.id } satisfies LayoutRef}
   <div
     class={[
       'folder-open',

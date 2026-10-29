@@ -1,4 +1,9 @@
-import { saveImageToPhotos, shareFile, type SaveOutcome } from '#lib/platform/files.js';
+import {
+  saveImageToPhotos,
+  saveVideoToPhotos,
+  shareFile,
+  type SaveOutcome,
+} from '#lib/platform/files.js';
 import { copyImage } from '#lib/platform/clipboard.js';
 import { isAndroid, isNativeMobile } from '#lib/platform/os.js';
 import { downloadUrl } from '#lib/ui/download.js';
@@ -27,7 +32,11 @@ export class MediaViewerActions {
 
   get savesToPhotos(): boolean {
     const { item } = this.target();
-    return isNativeMobile() && !isAndroid() && (item?.kind === 'image' || item?.kind === 'sticker');
+    return (
+      isNativeMobile() &&
+      !isAndroid() &&
+      (item?.kind === 'image' || item?.kind === 'sticker' || item?.kind === 'video')
+    );
   }
 
   async save(): Promise<void> {
@@ -80,7 +89,11 @@ export class MediaViewerActions {
   async saveToPhotos(): Promise<void> {
     const { url, item, fileName } = this.target();
     if (!url || !item) return;
-    this.#reportSave(await saveImageToPhotos(url, fileName || 'image', item.mime ?? undefined));
+    this.#reportSave(
+      item.kind === 'video'
+        ? await saveVideoToPhotos(url, fileName || 'video', item.mime ?? undefined)
+        : await saveImageToPhotos(url, fileName || 'image', item.mime ?? undefined)
+    );
   }
 
   async #pngBlob(blob: Blob): Promise<Blob> {

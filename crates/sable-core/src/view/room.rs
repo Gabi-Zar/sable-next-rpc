@@ -342,6 +342,9 @@ pub(super) fn latest_items(diffs: &[eyeball_im::VectorDiff<RoomListItem>]) -> Ve
 }
 
 pub async fn listless_room_list_item(room: Room, rules: &Ruleset) -> RoomListItemView {
+    if room.cached_display_name().is_none() {
+        let _ = room.display_name().await;
+    }
     let item = RoomListItem::from(room);
     let cache = HashMap::from([(item.room_id().to_owned(), room_info(&item, None).await)]);
     room_list_item(&item, &cache, rules)

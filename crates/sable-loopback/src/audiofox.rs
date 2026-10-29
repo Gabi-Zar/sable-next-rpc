@@ -50,7 +50,7 @@ fn sources(manager: &AudioManager, root_pid: u32) -> Result<Vec<AudioSource>, St
     let processes = process_table();
     let sources = manager.list().map_err(|error| error.to_string())?;
     #[cfg(target_os = "linux")]
-    let allowed = linux_sources(root_pid, processes)?;
+    let allowed = linux_sources(root_pid, &processes)?;
     let blocked: HashSet<_> = sources
         .iter()
         .filter(|source| {
@@ -195,10 +195,10 @@ struct LinuxNode {
 #[cfg(target_os = "linux")]
 fn linux_sources(
     root_pid: u32,
-    processes: HashMap<u32, Process>,
+    processes: &HashMap<u32, Process>,
 ) -> Result<HashMap<String, HashSet<u32>>, String> {
     use pipewire as pw;
-    use std::cell::{Cell, RefCell};
+    use std::cell::RefCell;
     use std::rc::Rc;
     pw::init();
     let mainloop = pw::main_loop::MainLoopRc::new(None).map_err(|error| error.to_string())?;
@@ -283,6 +283,23 @@ fn linux_sources(
             }
         })
         .register();
+    sync_linux_registry(&mainloop, &core)?;
+    Ok(filter_linux_sources(
+        root_pid,
+        processes,
+        &nodes.borrow(),
+        &clients.borrow(),
+    ))
+}
+
+#[cfg(target_os = "linux")]
+fn sync_linux_registry(
+    mainloop: &pipewire::main_loop::MainLoopRc,
+    core: &pipewire::core::CoreRc,
+) -> Result<(), String> {
+    use std::cell::Cell;
+    use std::rc::Rc;
+
     for _ in 0..2 {
         let done = Rc::new(Cell::new(false));
         let pending = core.sync(0).map_err(|error| error.to_string())?;
@@ -292,7 +309,7 @@ fn linux_sources(
                 let done = done.clone();
                 let mainloop = mainloop.clone();
                 move |id, seq| {
-                    if id == pw::core::PW_ID_CORE && seq == pending {
+                    if id == pipewire::core::PW_ID_CORE && seq == pending {
                         done.set(true);
                         mainloop.quit();
                     }
@@ -303,21 +320,30 @@ fn linux_sources(
             mainloop.run();
         }
     }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn filter_linux_sources(
+    root_pid: u32,
+    processes: &HashMap<u32, Process>,
+    nodes: &HashMap<u32, LinuxNode>,
+    clients: &HashMap<u32, u32>,
+) -> HashMap<String, HashSet<u32>> {
     let mut names: HashMap<String, HashSet<u32>> = HashMap::new();
     let mut blocked = HashSet::new();
-    let clients = clients.borrow();
-    for (id, node) in nodes.borrow().iter() {
+    for (id, node) in nodes {
         let pid = node
             .pid
             .or_else(|| node.client.and_then(|id| clients.get(&id).copied()));
-        if node.relay || pid.is_none_or(|pid| is_own(pid, root_pid, &processes)) {
+        if node.relay || pid.is_none_or(|pid| is_own(pid, root_pid, processes)) {
             blocked.insert(node.name.clone());
         } else {
             names.entry(node.name.clone()).or_default().insert(*id);
         }
     }
     names.retain(|name, _| !blocked.contains(name));
-    Ok(names)
+    names
 }
 
 #[cfg(test)]

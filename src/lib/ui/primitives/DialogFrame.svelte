@@ -189,7 +189,10 @@
       border-radius: var(--radius);
       bottom: auto;
       left: calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
-      max-width: min(34rem, calc(100vw - 3rem - var(--safe-left) - var(--safe-right)));
+      max-width: min(
+        var(--dialog-max-width, 34rem),
+        calc(100vw - 3rem - var(--safe-left) - var(--safe-right))
+      );
       padding: var(--space-500);
       top: calc(50% + (var(--safe-top) - var(--safe-bottom)) / 2);
       transform: translate(-50%, -50%);

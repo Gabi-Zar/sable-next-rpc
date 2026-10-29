@@ -752,7 +752,7 @@
               variant="ghost"
               onclick={() => void mediaActions.save()}><DownloadSimpleIcon /></IconButton
             >
-            {#if isImage || isPdf || onJump}
+            {#if isImage || isPdf || onJump || (canSaveToPhotos && item?.kind === 'video')}
               <ActionMenu label={i18n.t('timeline.moreActions')}>
                 {#snippet trigger({ props })}
                   <IconButton
@@ -762,7 +762,7 @@
                     variant="ghost"><DotsThreeIcon /></IconButton
                   >
                 {/snippet}
-                {#if canSaveToPhotos && isImage}
+                {#if canSaveToPhotos && (isImage || item?.kind === 'video')}
                   <ActionMenuItem onSelect={() => void mediaActions.download()}>
                     <FileArrowDownIcon />
                     {i18n.t('viewer.saveToFiles')}
@@ -1379,6 +1379,21 @@
 
     :global(.next) {
       right: 1.5rem;
+    }
+  }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    @media (--compact-layout) {
+      .toolbar,
+      .bottom-bar {
+        background: var(--surface-container);
+      }
+    }
+
+    @media (--app-layout) {
+      :global(.viewer) {
+        background: var(--viewer-immersive);
+      }
     }
   }
 </style>

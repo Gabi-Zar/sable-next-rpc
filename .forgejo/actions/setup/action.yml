@@ -14,6 +14,14 @@ inputs:
     description: rust-cache's shared-key.
     required: false
     default: 'wasm'
+  rust-cache-targets:
+    description: Cache compiled Cargo dependencies.
+    required: false
+    default: 'false'
+  rust-cache-save:
+    description: Allow cache writes outside main.
+    required: false
+    default: 'false'
   install-mise-tools:
     description: Whether to install tools declared in .mise/config.toml.
     required: false
@@ -28,15 +36,18 @@ runs:
     - name: Set up Node.js
       uses: https://github.com/actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
-        node-version: 24.22.0
+        node-version: 24.22.1
         cache: pnpm
 
     - name: Set up mise
-      uses: https://github.com/jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      uses: https://github.com/jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
       with:
-        version: '2026.10.11'
+        version: '2026.10.17'
         github_token: ''
         cache: true
+        # Include tools installed by later steps.
+        cache_save_post: ${{ inputs.install-mise-tools == 'false' }}
+        cache_key_prefix: ${{ inputs.install-mise-tools == 'false' && 'mise-deferred-v1' || 'mise-v1' }}
         env: false
         install: ${{ inputs.install-mise-tools }}
 
@@ -66,18 +77,18 @@ runs:
 
     - name: Install sccache
       if: ${{ inputs.rust == 'true' || (inputs.build == 'true' && steps.wasm.outputs.cache-hit != 'true') }}
-      uses: https://github.com/taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      uses: https://github.com/taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
       with:
         tool: sccache@0.18.0
 
     - name: Cache Rust artifacts
       if: ${{ inputs.rust == 'true' || (inputs.build == 'true' && steps.wasm.outputs.cache-hit != 'true') }}
-      uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      uses: https://github.com/Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       with:
         shared-key: ${{ inputs.rust-cache-key }}
         cache-on-failure: true
-        cache-targets: false
-        save-if: ${{ github.ref == 'refs/heads/main' }}
+        cache-targets: ${{ inputs.rust-cache-targets }}
+        save-if: ${{ github.ref == 'refs/heads/main' || inputs.rust-cache-save == 'true' }}
 
     - name: Install JavaScript dependencies
       shell: bash

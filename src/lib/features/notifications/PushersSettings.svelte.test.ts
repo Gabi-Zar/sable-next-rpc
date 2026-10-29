@@ -40,6 +40,7 @@ const gateway: RegisteredPusherView = {
   device_display_name: 'Element on phone',
   activated: null,
   gateway: 'https://ntfy.example.org/_matrix/push/v1/notify',
+  endpoint: null,
 };
 
 const ownServer: RegisteredPusherView = {
@@ -49,6 +50,7 @@ const ownServer: RegisteredPusherView = {
   device_display_name: 'This browser',
   activated: false,
   gateway: null,
+  endpoint: 'https://push.example/sub',
 };
 
 const unnamed: RegisteredPusherView = {
@@ -58,6 +60,7 @@ const unnamed: RegisteredPusherView = {
   device_display_name: null,
   activated: null,
   gateway: null,
+  endpoint: null,
 };
 
 afterEach(() => {

@@ -1,4 +1,4 @@
-import { readJson, writeJson } from '#lib/platform/local-json.js';
+import { readJson, removeLocalValue, writeJson } from '#lib/platform/local-json.js';
 
 const STORAGE_KEY = 'sable.search.recent';
 const LIMIT = 10;
@@ -35,7 +35,7 @@ export function rememberSearch(userId: string, query: string): void {
 export function clearRecentSearches(userId?: string): void {
   if (userId === undefined) {
     state.byAccount = {};
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+    removeLocalValue(STORAGE_KEY);
     return;
   }
   const { [userId]: _dropped, ...rest } = state.byAccount;

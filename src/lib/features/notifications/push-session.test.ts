@@ -5,11 +5,14 @@ import type { CoreEvent } from '#src/generated/protocol';
 const stored = vi.hoisted(() => ({
   put: vi.fn(() => Promise.resolve()),
   forget: vi.fn(() => Promise.resolve()),
+  identity: 'alice',
 }));
 
 vi.mock('#lib/notifications/room-names.js', () => ({
   putPushSession: stored.put,
   forgetPushSession: stored.forget,
+  boundServerIdentity: () => 'alice',
+  currentServerUser: () => Promise.resolve(stored.identity),
 }));
 
 import { answerPushEvent, sharePushSession } from './push-session';
@@ -18,7 +21,11 @@ function sharer(token: string | null) {
   let listener: ((event: CoreEvent) => void) | null = null;
   const accessToken = vi.fn(() => Promise.resolve(token));
   const core = {
-    session: { user_id: '@me:example.org', homeserver: 'https://hs.example/' },
+    session: {
+      user_id: '@me:example.org',
+      device_id: 'DEVICE',
+      homeserver: 'https://hs.example/',
+    },
     rpc: { session: { accessToken } },
     subscribeEvents: (onEvent: (event: CoreEvent) => void) => {
       listener = onEvent;
@@ -38,6 +45,7 @@ test('the worker is handed the token, and handed it again when it is refreshed',
   await vi.waitFor(() => {
     expect(stored.put).toHaveBeenCalledWith({
       userId: '@me:example.org',
+      deviceId: 'DEVICE',
       homeserver: 'https://hs.example/',
       accessToken: 'token',
     });
@@ -74,4 +82,27 @@ test('a tab only decrypts a push for the account it has open', async () => {
   ).toBeNull();
   expect(await answerPushEvent(core, { roomId: '!r' })).toBeNull();
   expect(pushEvent).toHaveBeenCalledTimes(1);
+});
+
+test('server tabs answer push requests only for their bound server user', async () => {
+  vi.stubEnv('VITE_SABLE_SERVER_URL', '/_sable/ws');
+  try {
+    const pushEvent = vi.fn(() => Promise.resolve({ kind: 'discard' as const }));
+    const core = {
+      session: { user_id: '@me:example.org' },
+      rpc: { notifications: { pushEvent } },
+    } as unknown as Parameters<typeof answerPushEvent>[0];
+    const request = { roomId: '!r', eventId: '$e', userId: '@me:example.org' };
+    expect(await answerPushEvent(core, request)).toBeNull();
+    expect(await answerPushEvent(core, { ...request, serverUserId: 'bob' })).toBeNull();
+    stored.identity = 'bob';
+    expect(await answerPushEvent(core, { ...request, serverUserId: 'alice' })).toBeNull();
+    stored.identity = 'alice';
+    expect(await answerPushEvent(core, { ...request, serverUserId: 'alice' })).toEqual({
+      kind: 'discard',
+    });
+    expect(pushEvent).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });

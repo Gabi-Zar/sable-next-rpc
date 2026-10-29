@@ -1,11 +1,16 @@
-import type { BookmarkView, InboxItemView, RoomListItemView } from '#src/generated/protocol';
+import type {
+  BookmarkView,
+  InboxFilter,
+  InboxItemView,
+  RoomListItemView,
+} from '#src/generated/protocol';
 
 import { formatTime } from '#lib/ui/date-time.js';
 import { currentLocale } from '#lib/i18n.js';
 import { hasUnread, type RoomUnread, roomUnread } from '#lib/rooms/unread.js';
 import type { UnreadCount } from '#lib/rooms/unread.js';
 
-export type NotificationFilter = 'all' | 'mentions' | 'direct';
+export type NotificationFilter = InboxFilter;
 export type InboxTab = 'notifications' | 'invites' | 'requests';
 
 export const NOTIFICATION_GROUP_LIMIT = 5;

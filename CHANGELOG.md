@@ -1,5 +1,40 @@
 # Sable Changelog
 
+## 2.2.2 (2026-10-29)
+
+### Fixes
+
+* Reload the account avatar after returning from a long background session.
+* Support Java 25 for Android builds.
+* Fix Android crashing on launch after updating to 2.2.1.
+* Build unsigned Android release APKs when no keystore is configured.
+* Fix conflicting device verification badges and stale verification warnings.
+* Convert emoticons such as `<3` and `:)` to emoji by default, with a Composer setting to turn it off.
+* Support iOS 15.4.
+* Fix blank screen shares in fullscreen on iOS.
+* Keep removed link previews hidden when editing a message.
+* Keep reply mentions when editing messages.
+* Support bundled link previews with encrypted thumbnails and preserve preview choices when editing messages.
+* Open device approval inside Sable on Android and iOS. Give background sync a three-second grace period and discard outdated pause requests.
+* Use `Sable/<version>` as the User-Agent for native and Electron HTTP requests.
+* Fix room icons, profile pictures, and chat images failing to load in server mode.
+* Fix thread loading, links to replies, and thread actions. Keep reply counts, previews, forum activity order, and unread status up to date.
+
+## 2.2.1 (2026-10-28)
+
+### Fixes
+
+* Fix Electron notification clicks and keep room messages visible when a notification's message is unavailable.
+* Keep Chromium locale files needed for video menu labels on Linux and Windows.
+* Fall back to the user ID when a display name has no visible text.
+* Move donator badge styling to account settings
+* When your homeserver sends pushes itself, as Continuwuity does, the notification troubleshooter now checks the push service and sends a test push.
+* Alerts now clear when their rooms are read on another device.
+* Only another Sable device in use keeps notifications quiet; other Matrix apps, bots and bridges being online no longer silence them.
+* Add a self-hosted server mode with persistent Matrix stores and Docker deployment.
+* Slightly change context menu layout, spacing and truncating.
+* The notification troubleshooter says when the push gateway could not pass the test push on to your push service.
+
 ## 2.2.0 (2026-10-26)
 
 ### Features

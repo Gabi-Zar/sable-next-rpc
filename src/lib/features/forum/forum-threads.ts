@@ -63,7 +63,9 @@ function isUnread(latest: TimelineItemView, currentUserId: string | null): boole
 
 export function collectForumThreads(
   items: readonly TimelineItemView[],
-  currentUserId: string | null
+  currentUserId: string | null,
+  latestEvents: readonly TimelineItemView[] = [],
+  unreadByRoot: ReadonlyMap<string, boolean> = new Map()
 ): ForumThread[] {
   const roots = new Map<string, TimelineItemView>();
   for (const item of items) {
@@ -72,7 +74,7 @@ export function collectForumThreads(
   }
 
   const latestReplies = new Map<string, TimelineItemView>();
-  for (const item of items) {
+  for (const item of [...items, ...latestEvents]) {
     const rootId = item.thread_root;
     if (rootId === null || item.event_id === rootId || !roots.has(rootId)) continue;
     const current = latestReplies.get(rootId);
@@ -81,7 +83,13 @@ export function collectForumThreads(
 
   const threads: ForumThread[] = [];
   for (const [rootId, root] of roots) {
-    const latestReply = latestReplies.get(rootId) ?? null;
+    const candidate = latestReplies.get(rootId) ?? null;
+    const latestReply =
+      candidate &&
+      (!root.thread_summary?.latest_event_id ||
+        candidate.event_id === root.thread_summary.latest_event_id)
+        ? candidate
+        : null;
     const latest = latestReply ?? root;
     threads.push({
       id: root.id,
@@ -103,7 +111,7 @@ export function collectForumThreads(
       lastBody:
         root.thread_summary?.latest_body ?? (latestReply ? bodyOf(latestReply.content) : null),
       lastSenderName: latestReply?.sender_name ?? latestReply?.sender ?? null,
-      unread: isUnread(latest, currentUserId),
+      unread: unreadByRoot.get(rootId) ?? isUnread(latest, currentUserId),
     });
   }
 

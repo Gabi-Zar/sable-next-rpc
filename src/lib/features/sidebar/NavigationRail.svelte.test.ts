@@ -263,6 +263,7 @@ test('opens a space on its lobby when there is nothing to restore', () => {
     spaceNavigationHref(
       '/space/!space%3Aexample.org',
       undefined,
+      false,
       '/space/!space%3Aexample.org/lobby'
     )
   ).toBe('/space/!space%3Aexample.org/lobby');
@@ -270,6 +271,7 @@ test('opens a space on its lobby when there is nothing to restore', () => {
     spaceNavigationHref(
       '/space/!space%3Aexample.org',
       '/home/!room%3Aexample.org',
+      false,
       '/space/!space%3Aexample.org/lobby'
     )
   ).toBe('/space/!space%3Aexample.org/lobby');
@@ -327,6 +329,7 @@ test('restores a space to its last desktop route', () => {
     spaceNavigationHref(
       '/space/!space%3Aexample.org',
       '/space/!space%3Aexample.org/!room%3Aexample.org?event=%24event',
+      false,
       '/space/!space%3Aexample.org/lobby'
     )
   ).toBe('/space/!space%3Aexample.org/!room%3Aexample.org?event=%24event');
@@ -334,6 +337,7 @@ test('restores a space to its last desktop route', () => {
     spaceNavigationHref(
       '/space/!space%3Aexample.org',
       '/home/!room%3Aexample.org',
+      false,
       '/space/!space%3Aexample.org/lobby'
     )
   ).toBe('/space/!space%3Aexample.org/lobby');
@@ -389,60 +393,15 @@ test('opens the lobby when a search route was saved by an older client', async (
   expect(tab('Space')).toHaveAttribute('href', '/space/!space%3Aexample.org/lobby');
 });
 
-test('opens the last room in a space on mobile', async () => {
+test('opens a space root on mobile even when it has a saved route', async () => {
   localStorage.setItem(
     'sable-space-paths',
     JSON.stringify({ '!space:example.org': '/space/!space%3Aexample.org/!room%3Aexample.org' })
   );
-  const onNavigate = vi.fn();
-  renderRail({ spaces: [space()], mobile: true, onNavigate });
-  await tick();
-
-  expect(tab('Space')).toHaveAttribute('href', '/space/!space%3Aexample.org/!room%3Aexample.org');
-  await user.click(tab('Space'));
-  expect(onNavigate).toHaveBeenCalledWith('/space/!space%3Aexample.org/!room%3Aexample.org');
-});
-
-test('records and restores the last space room on mobile after restarting', async () => {
-  const rail = renderRail({ spaces: [space()], mobile: true });
-  await tick();
-
-  visit('/space/!space%3Aexample.org/!room%3Aexample.org?event=%24event');
-  navigated();
-  visit('/rooms');
-  navigated();
-  await tick();
-
-  expect(savedSpacePaths()).toEqual({
-    '!space:example.org': '/space/!space%3Aexample.org/!room%3Aexample.org',
-  });
-  rail.unmount();
   renderRail({ spaces: [space()], mobile: true });
   await tick();
 
-  expect(tab('Space')).toHaveAttribute('href', '/space/!space%3Aexample.org/!room%3Aexample.org');
-});
-
-test.each([false, true])(
-  'opening a space index preserves its saved room (mobile=%s)',
-  async (mobile) => {
-    const previous = '/space/!space%3Aexample.org/!room%3Aexample.org';
-    localStorage.setItem('sable-space-paths', JSON.stringify({ '!space:example.org': previous }));
-    renderRail({ spaces: [space()], mobile });
-    await tick();
-
-    visit('/space/!space%3Aexample.org', { spaceId: '!space:example.org' });
-    navigated();
-
-    expect(savedSpacePaths()['!space:example.org']).toBe(previous);
-  }
-);
-
-test('opens the lobby on mobile when a space has no saved room', async () => {
-  renderRail({ spaces: [space()], mobile: true });
-  await tick();
-
-  expect(tab('Space')).toHaveAttribute('href', '/space/!space%3Aexample.org/lobby');
+  expect(tab('Space')).toHaveAttribute('href', '/space/!space%3Aexample.org');
 });
 
 test('orders spaces by the stored layout and appends unplaced ones', async () => {
@@ -640,10 +599,12 @@ test('long-pressing a top-level space opens its options menu', async () => {
 });
 
 test('restores the direct tab to its last desktop chat', () => {
-  expect(spaceNavigationHref('/direct', '/direct/!dm%3Aexample.org', '/direct')).toBe(
+  expect(spaceNavigationHref('/direct', '/direct/!dm%3Aexample.org', false, '/direct')).toBe(
     '/direct/!dm%3Aexample.org'
   );
-  expect(spaceNavigationHref('/direct', '/home/!room%3Aexample.org', '/direct')).toBe('/direct');
+  expect(spaceNavigationHref('/direct', '/home/!room%3Aexample.org', false, '/direct')).toBe(
+    '/direct'
+  );
 });
 
 test('opens the direct root on mobile even when it has a saved chat', async () => {

@@ -7,7 +7,7 @@ const assetsDir = join(import.meta.dirname, '../../static/deepfilternet3');
 const assets = [
   {
     path: 'v3/pkg/df_bg.wasm',
-    url: 'https://cdn.mezon.ai/AI/models/datas/noise_suppression/deepfilternet3/v3/pkg/df_bg.wasm',
+    source: join(import.meta.dirname, '../../vendor/deepfilternet/df_bg.wasm'),
     sha256: '440b5d12b6ea7d95008736f844221d7874ee15de5cb10d3015002470fdba0432',
   },
   {
@@ -17,13 +17,21 @@ const assets = [
   },
 ];
 
-/** @param {{ path: string; url: string; sha256: string }} asset */
-async function provision({ path, url, sha256: expected }) {
+/** @param {{ path: string; url?: string; source?: string; sha256: string }} asset */
+async function provision({ path, url, source, sha256: expected }) {
   const target = join(assetsDir, path);
   const existing = await readFile(target).catch(() => undefined);
   if (existing && sha256(existing) === expected) return;
 
-  const bytes = await downloadVerified(url, expected);
+  let bytes;
+  if (source) {
+    bytes = await readFile(source);
+    if (sha256(bytes) !== expected) throw new Error(`checksum mismatch for ${source}`);
+  } else if (url) {
+    bytes = await downloadVerified(url, expected);
+  } else {
+    throw new Error(`no source for ${path}`);
+  }
   await mkdir(dirname(target), { recursive: true });
   await writeFile(`${target}.tmp`, bytes);
   await rename(`${target}.tmp`, target);

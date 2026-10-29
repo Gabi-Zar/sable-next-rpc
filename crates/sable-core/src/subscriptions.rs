@@ -443,6 +443,28 @@ impl Core {
             (Vec::new(), None)
         };
 
+        let threads_task = self.client().await?.event_cache().map(|cache| {
+            let mut updates = cache.subscribe_to_room_generic_updates();
+            let core = self.clone();
+            let room_id = room_id.clone();
+            core.emit(CoreEvent::ThreadsChanged {
+                room_id: room_id.clone(),
+            });
+            spawn(async move {
+                loop {
+                    match updates.recv().await {
+                        Ok(update) if update.room_id != room_id => continue,
+                        Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                        Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                    }
+                    core.emit(CoreEvent::ThreadsChanged {
+                        room_id: room_id.clone(),
+                    });
+                }
+            })
+            .abort_on_drop()
+        });
+
         let mut subscriptions = self.subscriptions.lock().await;
         let Some(entry) = subscriptions.get_mut(&subscription) else {
             return Err(RpcError::Unavailable);
@@ -450,6 +472,7 @@ impl Core {
         entry.tasks = status_task
             .into_iter()
             .chain(aggregation_task)
+            .chain(threads_task)
             .chain([task])
             .collect();
         if let Some(status) = initial_status {

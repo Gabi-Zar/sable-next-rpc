@@ -91,7 +91,24 @@ pub fn set_sentry_enabled(enabled: bool) -> Result<(), String> {
             release: &*release
         ];
     }
-    Ok(())
+    share_sentry_consent(enabled)
+}
+
+/// The notification extension reports failures only while this file exists.
+fn share_sentry_consent(enabled: bool) -> Result<(), String> {
+    let path = shared_store_dir()?.join("sentry.json");
+    let Some(dsn) = option_env!("SENTRY_DSN").filter(|dsn| enabled && !dsn.is_empty()) else {
+        return match std::fs::remove_file(&path) {
+            Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.to_string()),
+            _ => Ok(()),
+        };
+    };
+    let value = serde_json::json!({
+        "dsn": dsn,
+        "environment": option_env!("SENTRY_ENVIRONMENT"),
+        "release": option_env!("SENTRY_APP_VERSION"),
+    });
+    std::fs::write(path, value.to_string()).map_err(|error| error.to_string())
 }
 
 /// # Errors
@@ -185,7 +202,11 @@ async fn authorize() -> Result<(), String> {
         .map_err(|error| error.to_string())?
 }
 
-fn write_to_photos(bytes: &[u8], filename: &str) -> Result<(), String> {
+fn write_to_photos(
+    bytes: &[u8],
+    filename: &str,
+    resource_type: PHAssetResourceType,
+) -> Result<(), String> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let leaf = std::path::Path::new(filename)
         .file_name()
@@ -202,13 +223,13 @@ fn write_to_photos(bytes: &[u8], filename: &str) -> Result<(), String> {
         let url = NSURL::fileURLWithPath(&path);
         let change: RcBlock<dyn Fn()> = RcBlock::new(move || {
             let request = PHAssetCreationRequest::creationRequestForAsset();
-            request.addResourceWithType_fileURL_options(PHAssetResourceType::Photo, &url, None);
+            request.addResourceWithType_fileURL_options(resource_type, &url, None);
         });
         PHPhotoLibrary::sharedPhotoLibrary()
             .performChangesAndWait_error(RcBlock::as_ptr(&change))
             .map_err(|error| {
                 format!(
-                    "failed to save image to Photos: {}",
+                    "failed to save media to Photos: {}",
                     error.localizedDescription()
                 )
             })
@@ -220,16 +241,20 @@ fn write_to_photos(bytes: &[u8], filename: &str) -> Result<(), String> {
 #[tauri::command]
 pub async fn save_media_to_photos(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
-        return Err("the image bytes must ride the request body".into());
+        return Err("the media bytes must ride the request body".into());
     };
     let filename = crate::decode_header(&request, "filename").ok_or("missing filename")?;
     let mime_type = crate::decode_header(&request, "mime-type").ok_or("missing mime-type")?;
-    if !mime_type.starts_with("image/") {
-        return Err("only images can be saved to Photos".into());
-    }
+    let resource_type = if mime_type.starts_with("image/") {
+        PHAssetResourceType::Photo
+    } else if mime_type.starts_with("video/") {
+        PHAssetResourceType::Video
+    } else {
+        return Err("only images and videos can be saved to Photos".into());
+    };
     let bytes = bytes.clone();
     authorize().await?;
-    tauri::async_runtime::spawn_blocking(move || write_to_photos(&bytes, &filename))
+    tauri::async_runtime::spawn_blocking(move || write_to_photos(&bytes, &filename, resource_type))
         .await
         .map_err(|error| error.to_string())?
 }
@@ -291,6 +316,7 @@ unsafe extern "C" {
     static UIBackgroundTaskInvalid: usize;
     static UIApplicationWillResignActiveNotification: &'static NSString;
     static UIApplicationDidEnterBackgroundNotification: &'static NSString;
+    static UIApplicationWillEnterForegroundNotification: &'static NSString;
     static UIApplicationDidBecomeActiveNotification: &'static NSString;
 }
 
@@ -306,6 +332,7 @@ pub(crate) fn in_background() -> bool {
 pub(crate) enum Lifecycle {
     ResignActive,
     EnterBackground,
+    EnterForeground,
     BecomeActive,
 }
 
@@ -324,6 +351,10 @@ pub(crate) fn observe_lifecycle(handler: impl Fn(Lifecycle) + 'static) {
             (
                 UIApplicationDidEnterBackgroundNotification,
                 Lifecycle::EnterBackground,
+            ),
+            (
+                UIApplicationWillEnterForegroundNotification,
+                Lifecycle::EnterForeground,
             ),
             (
                 UIApplicationDidBecomeActiveNotification,
@@ -349,6 +380,10 @@ pub(crate) fn observe_lifecycle(handler: impl Fn(Lifecycle) + 'static) {
 pub(crate) struct BackgroundTask(Arc<AtomicUsize>);
 
 impl BackgroundTask {
+    pub(crate) fn is_active(&self) -> bool {
+        self.0.load(Ordering::SeqCst) != unsafe { UIBackgroundTaskInvalid }
+    }
+
     /// Call on the main thread so the expiration handler cannot run before the identifier is stored.
     pub(crate) fn begin(name: &str) -> Self {
         let task = Arc::new(AtomicUsize::new(unsafe { UIBackgroundTaskInvalid }));

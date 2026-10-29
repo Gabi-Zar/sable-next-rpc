@@ -4,6 +4,7 @@ import { createContext } from 'svelte';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { recordDebugLog } from '#lib/observability/debug-log.svelte.js';
+import { electronBridge } from '#lib/platform/electron.js';
 import { watchNativePushMessages } from '#lib/platform/native-notifications.js';
 import { hasUnread, roomNotifications, type RoomUnread } from '#lib/rooms/unread.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
@@ -31,13 +32,13 @@ export class NotificationCenter {
   private open: OpenRoom | null = null;
   private reading: string | null = null;
   private retirePosted: ReturnType<typeof setTimeout> | undefined;
-  private readRooms: readonly string[] = [];
   private rooms: readonly RoomListItemView[] = [];
   private unreadFor: RoomUnread = roomNotifications;
   /* eslint-disable svelte/prefer-svelte-reactivity -- a write from a notification would subscribe whichever effect is running */
   private readonly pushed = new Map<string, string>();
   private readonly unread = new Set<string>();
   private readonly retired = new Set<string>();
+  private readonly readRooms = new Set<string>();
   private readonly invites = new Map<string, boolean>();
   private readonly presented = new Map<string, Notification[]>();
   /* eslint-enable svelte/prefer-svelte-reactivity */
@@ -81,7 +82,7 @@ export class NotificationCenter {
     this.nativePushGeneration += 1;
     clearTimeout(this.retirePosted);
     this.retirePosted = undefined;
-    this.readRooms = [];
+    this.readRooms.clear();
     this.rooms = [];
     this.pushed.clear();
     this.client = null;
@@ -143,12 +144,14 @@ export class NotificationCenter {
   }
 
   private retirePostedAlerts(roomIds: readonly string[]): void {
-    this.readRooms = roomIds;
+    for (const roomId of roomIds) this.readRooms.add(roomId);
     this.retirePosted ??= setTimeout(() => {
       this.retirePosted = undefined;
+      const readRooms = [...this.readRooms];
+      this.readRooms.clear();
       const userId = this.client?.session?.user_id;
       if (userId === undefined) return;
-      void retireReadAlerts(userId, this.readRooms).catch(failed('retiring read alerts'));
+      void retireReadAlerts(userId, readRooms).catch(failed('retiring read alerts'));
     }, POSTED_RETIRE_DELAY_MS);
   }
 
@@ -267,7 +270,9 @@ export class NotificationCenter {
     }
 
     notification.addEventListener('click', () => {
-      globalThis.focus();
+      const electron = electronBridge();
+      if (electron) electron.showWindow();
+      else globalThis.focus();
       notification.close();
       open(view.room_id, view.event_id);
     });

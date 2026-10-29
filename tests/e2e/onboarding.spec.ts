@@ -110,14 +110,15 @@ test('mobile hides neighboring cards and card navigation preserves page scroll',
     expect(visibleWidth).toBe(0);
   }
 
-  const before = await page.evaluate(() => {
-    window.scrollTo(0, 120);
-    return window.scrollY;
+  const scroller = page.locator('.auth-page');
+  const before = await scroller.evaluate((element) => {
+    element.scrollTop = 120;
+    return element.scrollTop;
   });
   expect(before).toBeGreaterThan(0);
   await auth.previousStageButton.click();
   await expect(page).toHaveURL(/\/setup\/profile$/);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   await auth.nextStageButton.click();
   await expect(page).toHaveURL(/\/setup\/notifications$/);
   await expect(auth.nextStageButton).toHaveCount(0);

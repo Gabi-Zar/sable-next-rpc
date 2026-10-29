@@ -124,6 +124,14 @@ export const composerCategory: SettingsCategory = {
       type: 'boolean',
     },
     {
+      key: 'emoticonToEmoji',
+      section: 'writing',
+      icon: SmileyIcon,
+      name: 'settings.emoticonToEmoji',
+      description: 'settings.emoticonToEmojiHint',
+      type: 'boolean',
+    },
+    {
       key: 'formattingToolbar',
       section: 'writing',
       icon: TextAaIcon,

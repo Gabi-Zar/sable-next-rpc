@@ -6,6 +6,9 @@ import type {
   CalendarEntryView,
   CalendarItem,
   CalendarRsvpView,
+  ChildOrderOverride,
+  DropInstruction,
+  LayoutRef,
   InvocationResult,
   EventDraft,
   EventPreview,
@@ -36,8 +39,9 @@ import type {
   SidebarItemView,
   PronounView,
   SearchOperator,
+  SectionInputs as SectionInputsView,
   SlashParse,
-  SpaceChildEdge,
+  SuggestedOverride,
   TargetSuggestion,
   ViaSplit,
   WebPushValidation,
@@ -88,19 +92,11 @@ export function parseBotCommand(view: BotCommandDescription): BotCommand | null 
   return JSON.parse(wasm.parseBotCommand(JSON.stringify(view))) as BotCommand | null;
 }
 
-export function parseBotCommands(views: readonly BotCommandDescription[]): BotCommand[] {
-  return JSON.parse(wasm.parseBotCommands(JSON.stringify(views))) as BotCommand[];
-}
-
 export function matchBotCommand(
   line: string,
   commands: readonly BotCommand[]
 ): BotCommandMatch | null {
   return JSON.parse(wasm.matchBotCommand(line, JSON.stringify(commands))) as BotCommandMatch | null;
-}
-
-export function emptyDrafts(command: BotCommand): ArgumentDrafts {
-  return JSON.parse(wasm.emptyDrafts(JSON.stringify(command))) as ArgumentDrafts;
 }
 
 export function draftsFromText(command: BotCommand, args: string): ArgumentDrafts {
@@ -131,6 +127,17 @@ export function webPushValidation(raw: string | undefined): WebPushValidation | 
   return JSON.parse(wasm.webPushValidation(raw)) as WebPushValidation | null;
 }
 
+export function validateRtcInviteSnapshot(
+  event: unknown,
+  events: readonly unknown[],
+  userId: string,
+  nowMs: number
+): { expires_at_ms: number; has_video: boolean } | null {
+  return JSON.parse(
+    wasm.validateRtcInviteSnapshot(JSON.stringify(event), JSON.stringify(events), userId, nowMs)
+  ) as { expires_at_ms: number; has_video: boolean } | null;
+}
+
 export function pushContent(content: unknown): PushContent {
   return JSON.parse(wasm.pushContent(JSON.stringify(content ?? null))) as PushContent;
 }
@@ -156,8 +163,8 @@ export function pushAlert(
   ) as PushAlert | null;
 }
 
-export function activeElsewhere(presence: unknown, inactiveHereMs: number | null): boolean {
-  return wasm.activeElsewhere(JSON.stringify(presence), inactiveHereMs ?? undefined);
+export function activeElsewhere(content: unknown, ownDeviceId: string, nowMs: number): boolean {
+  return wasm.activeElsewhere(JSON.stringify(content), ownDeviceId, nowMs);
 }
 
 export function slashCommandNames(): string[] {
@@ -240,14 +247,6 @@ export function buildCalendarEvent(
   ) as Record<string, unknown>;
 }
 
-export function parseDuration(value: unknown): number {
-  return typeof value === 'string' ? wasm.parseDuration(value) : 0;
-}
-
-export function formatDuration(ms: number): string {
-  return wasm.formatDuration(ms);
-}
-
 export function lobbyAction(
   joinRule: RoomJoinRuleView,
   invited: boolean,
@@ -281,7 +280,7 @@ export function buildHierarchySections(
   rootId: string,
   inputs: SectionInputs = {}
 ): HierarchySection[] {
-  const sets = {
+  const sets: SectionInputsView = {
     loaded: inputs.loaded === undefined ? null : [...inputs.loaded],
     failed: [...(inputs.failed ?? [])],
     keep_empty: [...(inputs.keepEmpty ?? [])],
@@ -302,7 +301,7 @@ export function joinCandidates(
 
 export function applyChildOverrides(
   rooms: readonly HierarchyRoomView[],
-  overrides: readonly { parent_id: string; children: readonly SpaceChildEdge[] }[]
+  overrides: readonly ChildOrderOverride[]
 ): HierarchyRoomView[] {
   return JSON.parse(
     wasm.applyChildOverrides(JSON.stringify(rooms), JSON.stringify(overrides))
@@ -311,16 +310,12 @@ export function applyChildOverrides(
 
 export function applySuggestedOverrides(
   rooms: readonly HierarchyRoomView[],
-  overrides: readonly { parent_id: string; room_id: string; suggested: boolean }[]
+  overrides: readonly SuggestedOverride[]
 ): HierarchyRoomView[] {
   return JSON.parse(
     wasm.applySuggestedOverrides(JSON.stringify(rooms), JSON.stringify(overrides))
   ) as HierarchyRoomView[];
 }
-
-export type LayoutTarget =
-  | { kind: 'space'; room_id: string; folder_id: string | null }
-  | { kind: 'folder'; folder_id: string };
 
 function items(value: string): SidebarItemView[] {
   return JSON.parse(value) as SidebarItemView[];
@@ -388,9 +383,9 @@ export function removeFromFolder(
 
 export function applyLayoutDrop(
   layout: readonly SidebarItemView[],
-  source: LayoutTarget,
-  target: LayoutTarget,
-  instruction: 'above' | 'below' | 'into',
+  source: LayoutRef,
+  target: LayoutRef,
+  instruction: DropInstruction,
   newFolderId: string
 ): SidebarItemView[] {
   return items(

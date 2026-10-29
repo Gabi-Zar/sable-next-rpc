@@ -75,8 +75,8 @@
 
 .menu-item {
   --menu-item-height: var(--control-height-300);
-  --menu-item-gap: var(--space-100);
-  --menu-item-padding: var(--control-padding-300);
+  --menu-item-gap: var(--space-200);
+  --menu-item-padding: var(--control-padding-200);
 
   align-items: center;
   appearance: none;

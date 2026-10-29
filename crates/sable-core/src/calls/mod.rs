@@ -1,12 +1,24 @@
-use sable_model::text::visible_name;
-
+mod invite_service;
+mod invites;
 mod keys;
 mod membership;
 mod notify;
+pub(crate) use invite_service::validate_invite;
 
-pub(crate) use notify::{
-    NOTIFICATION_EVENT_TYPE, is_call_event_type, is_call_membership_event_type,
-};
+pub(crate) struct ValidatedInvite {
+    pub(crate) ring: bool,
+    pub(crate) has_video: bool,
+    pub(crate) expires_at_ms: u64,
+}
+
+#[cfg(test)]
+mod invite_delivery_tests;
+#[cfg(test)]
+mod notify_sdk_tests;
+
+#[cfg(test)]
+pub(crate) use notify::NOTIFICATION_EVENT_TYPE;
+pub(crate) use notify::{is_call_event_type, is_call_membership_event_type};
 mod runtime;
 pub(crate) use runtime::State as CallRuntimeState;
 mod sfu;
@@ -37,8 +49,8 @@ use crate::ResultExt;
 use crate::api::calls::JoinOk;
 use crate::delayed_events::{self, DelayedEvent, DelayedEventsSupport};
 use crate::protocol::{
-    CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, CoreEvent,
-    RpcError, RtcTransportSource,
+    CallCompatibilityView, CallMemberView, CallMode, CallSessionId, CallSupportView, RpcError,
+    RtcTransportSource,
 };
 use crate::{CallSession, Core};
 
@@ -598,98 +610,7 @@ impl Core {
     }
 
     pub(crate) fn watch_incoming_calls(self: &Arc<Self>, client: &Client, generation: u64) {
-        let Some(own_user_id) = client.user_id().map(ToOwned::to_owned) else {
-            return;
-        };
-
-        let pending = Arc::new(tokio::sync::Mutex::new(notify::PendingCalls::default()));
-        let handle = client.add_event_handler({
-            let core = self.clone();
-            move |raw: Raw<matrix_sdk::ruma::events::AnySyncMessageLikeEvent>, room: Room| {
-                let core = core.clone();
-                let own_user_id = own_user_id.clone();
-                let pending = pending.clone();
-                async move {
-                    use matrix_sdk::ruma::events::{AnySyncMessageLikeEvent, SyncMessageLikeEvent};
-                    if !notify::is_call_event_type(&raw) {
-                        return;
-                    }
-                    let now = keys::now_ms();
-                    match notify::parse(raw.json().get()) {
-                        Some(AnySyncMessageLikeEvent::RtcNotification(
-                            SyncMessageLikeEvent::Original(event),
-                        )) => {
-                            let Some(incoming) = notify::accept(
-                                &event.content,
-                                &event.sender,
-                                &own_user_id,
-                                event.origin_server_ts.get().into(),
-                                now,
-                            ) else {
-                                return;
-                            };
-                            pending.lock().await.insert(
-                                room.room_id(),
-                                &event.event_id,
-                                incoming.expires_at,
-                                now,
-                            );
-                            let sender_name = room
-                                .get_member_no_sync(&event.sender)
-                                .await
-                                .ok()
-                                .flatten()
-                                .and_then(|member| {
-                                    member
-                                        .display_name()
-                                        .and_then(visible_name)
-                                        .map(ToOwned::to_owned)
-                                });
-                            let room_name = room.cached_display_name().map(|name| name.to_string());
-
-                            core.emit_if_current(
-                                generation,
-                                CoreEvent::IncomingCall {
-                                    room_id: room.room_id().to_owned(),
-                                    notification_event_id: event.event_id.to_string(),
-                                    sender: event.sender,
-                                    sender_name,
-                                    room_name,
-                                    ring: incoming.kind == notify::NotificationKind::Ring,
-                                    has_video: incoming.has_video,
-                                    expires_at_ms: incoming.expires_at,
-                                },
-                            );
-                        }
-                        Some(AnySyncMessageLikeEvent::RtcDecline(
-                            SyncMessageLikeEvent::Original(event),
-                        )) => {
-                            let declined = pending.lock().await.decline(
-                                room.room_id(),
-                                &event.content.relates_to.event_id,
-                                &event.sender,
-                                &own_user_id,
-                                now,
-                            );
-                            if declined {
-                                core.emit_if_current(
-                                    generation,
-                                    CoreEvent::IncomingCallEnded {
-                                        notification_event_id: event
-                                            .content
-                                            .relates_to
-                                            .event_id
-                                            .to_string(),
-                                    },
-                                );
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        });
-        self.track_session_handler(client, handle);
+        invite_service::watch(self, client, generation);
     }
 
     async fn retract_membership(
@@ -712,38 +633,150 @@ impl Core {
         }
     }
 
-    async fn ring_targets(&self, room: &Room) -> Vec<OwnedUserId> {
-        let own_user_id = room.own_user_id();
-        room.joined_user_ids()
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "serde_json::Value indexing returns Null for missing fields"
+    )]
+    async fn announce_call(
+        self: &Arc<Self>,
+        room: &Room,
+        membership_event_id: &EventId,
+        own: &CallMember,
+    ) {
+        let direct = room.is_direct().await.unwrap_or(false);
+        let mut users: Vec<String> = room
+            .joined_user_ids()
             .await
             .unwrap_or_default()
             .into_iter()
-            .filter(|user_id| user_id != own_user_id)
-            .take(notify::MAX_RING_TARGETS)
-            .collect()
-    }
-
-    async fn announce_call(self: &Arc<Self>, room: &Room, membership_event_id: &EventId) {
-        let kind = if room.is_direct().await.unwrap_or(false) {
-            notify::NotificationKind::Ring
-        } else {
-            notify::NotificationKind::Notification
-        };
-
-        let ring = match kind {
-            notify::NotificationKind::Ring => self.ring_targets(room).await,
-            notify::NotificationKind::Notification => Vec::new(),
-        };
-
-        let Some(raw) = notify::announcement(membership_event_id, kind, &ring) else {
+            .filter(|user| user != room.own_user_id())
+            .map(|user| user.to_string())
+            .collect();
+        users.sort();
+        users.dedup();
+        if direct && users.is_empty() {
             return;
-        };
-
-        if let Err(error) = room.send_raw(notify::NOTIFICATION_EVENT_TYPE, raw).await {
-            tracing::warn!(?error, "could not announce the call");
+        }
+        let slot = own.wire.slot();
+        let supported = room
+            .client()
+            .supports_sticky_events()
+            .await
+            .unwrap_or(false);
+        if supported
+            && ensure_open_slot(
+                room,
+                self.room_is_encrypted(room).await.unwrap_or(true),
+                own.wire,
+            )
+            .await
+        {
+            let content = invites::content(slot, direct, &users, membership_event_id.as_str());
+            let mut current = invites::Invitations::default();
+            current.slots.insert(slot.to_owned(), true);
+            let power_levels = room.power_levels_or_default().await;
+            for event in sticky::live_events(room) {
+                let event = event.into_value();
+                let allowed = event["sender"]
+                    .as_str()
+                    .and_then(|user| UserId::parse(user).ok())
+                    .is_some_and(|sender| power_levels.user_can_trigger_room_notification(&sender));
+                current.apply(&event, keys::now_ms(), allowed);
+            }
+            if current.duplicate(&content, &users, keys::now_ms()) {
+                return;
+            }
+            if let Err(error) = room
+                .send_raw(notify::NOTIFICATION_EVENT_TYPE, content)
+                .with_sticky_duration(Duration::from_millis(invites::STICKY_MS))
+                .await
+            {
+                tracing::warn!(?error, "could not invite the room to the call");
+            }
+        } else if own.mode == crate::protocol::CallMode::Legacy {
+            let kind = if direct {
+                notify::NotificationKind::Ring
+            } else {
+                notify::NotificationKind::Notification
+            };
+            let targets: Vec<_> = if direct {
+                users
+                    .iter()
+                    .filter_map(|user| UserId::parse(user).ok())
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            if let Some(raw) = notify::announcement(membership_event_id, kind, &targets)
+                && let Err(error) = room.send_raw(notify::NOTIFICATION_EVENT_TYPE, raw).await
+            {
+                tracing::warn!(?error, "could not announce the legacy call");
+            }
         }
     }
 
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "serde_json::Value indexing returns Null for missing fields"
+    )]
+    async fn withdraw_call_invite(&self, room: &Room, own: &CallMember, slot_closed: bool) {
+        if !room
+            .client()
+            .supports_sticky_events()
+            .await
+            .unwrap_or(false)
+        {
+            return;
+        }
+        let others = membership::active_members(room)
+            .await
+            .into_iter()
+            .any(|member| !member.is_own(&own.user_id, own.own_device_id()))
+            || sticky::live_events(room).into_iter().any(|event| {
+                membership::sticky_member(&event.into_value().to_string()).is_some_and(|member| {
+                    member.user_id != own.user_id
+                        || member.member_id.as_str() != own.member_id.as_deref().unwrap_or_default()
+                })
+            });
+        if others && !slot_closed {
+            return;
+        }
+        let duration = sticky::live_events(room)
+            .into_iter()
+            .map(sticky::Event::into_value)
+            .filter(|event| {
+                event["sender"].as_str() == Some(own.user_id.as_str())
+                    && event["content"]["slot_id"] == own.wire.slot()
+                    && matches!(
+                        event["type"].as_str(),
+                        Some(
+                            "m.rtc.invite" | "m.rtc.notification" | notify::NOTIFICATION_EVENT_TYPE
+                        )
+                    )
+            })
+            .filter_map(|event| {
+                event
+                    .get("sticky")
+                    .or_else(|| event.get("msc4354_sticky"))
+                    .and_then(|sticky| sticky["duration_ms"].as_u64())
+            })
+            .max()
+            .unwrap_or(invites::STICKY_MS)
+            .clamp(invites::STICKY_MS, 3_600_000);
+        let content = serde_json::json!({"msc4354_sticky_key": own.wire.slot()});
+        if let Err(error) = room
+            .send_raw(notify::NOTIFICATION_EVENT_TYPE, content)
+            .with_sticky_duration(Duration::from_millis(duration))
+            .await
+        {
+            tracing::warn!(?error, "could not withdraw the call invitation");
+        }
+    }
+
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "serde_json::Value indexing returns Null for missing fields"
+    )]
     pub(crate) async fn decline_call(
         &self,
         DeclineParams {
@@ -753,19 +786,53 @@ impl Core {
     ) -> Result<(), RpcError> {
         let event_id = EventId::parse(&notification_event_id).or_failed(self, "decline_call")?;
         let room = self.room(&room_id).await?;
-        let content = notify::make_decline_event(&room, &event_id)
-            .await
-            .or_failed(self, "decline_call")?;
-        let content = Raw::new(&notify::DeclineOut {
-            content,
-            mentions: serde_json::Map::new(),
-        })
-        .or_failed(self, "decline_call")?
-        .cast_unchecked();
-        room.send_raw(notify::DECLINE_EVENT_TYPE, content)
-            .await
-            .or_failed(self, "decline_call")?;
-
+        let value = if let Some(value) = sticky::live_events(&room)
+            .into_iter()
+            .map(sticky::Event::into_value)
+            .find(|value| value["event_id"].as_str() == Some(event_id.as_str()))
+        {
+            value
+        } else {
+            let event = room
+                .load_or_fetch_event(&event_id, None)
+                .await
+                .or_failed(self, "decline_call")?;
+            serde_json::from_str::<Value>(event.raw().json().get())
+                .or_failed(self, "decline_call")?
+        };
+        if value["content"].get("slot_id").is_some() || value["type"] == "m.rtc.invite" {
+            let (invite, _) = invite_service::active_invite(&room, &value)
+                .await
+                .ok_or_else(|| self.failed("decline_call", "the invitation is not active"))?;
+            let content = serde_json::json!({
+                "m.relates_to": {"rel_type": "m.reference", "event_id": event_id},
+                "m.mentions": {},
+                "msc4354_sticky_key": invite.id,
+            });
+            let sticky_duration = value
+                .get("sticky")
+                .or_else(|| value.get("msc4354_sticky"))
+                .and_then(|sticky| sticky["duration_ms"].as_u64())
+                .unwrap_or(invites::STICKY_MS)
+                .clamp(invites::STICKY_MS, 3_600_000);
+            room.send_raw(notify::DECLINE_EVENT_TYPE, content)
+                .with_sticky_duration(Duration::from_millis(sticky_duration))
+                .await
+                .or_failed(self, "decline_call")?;
+        } else {
+            let content = notify::make_decline_event(&room, &event_id)
+                .await
+                .or_failed(self, "decline_call")?;
+            let content = Raw::new(&notify::DeclineOut {
+                content,
+                mentions: serde_json::Map::new(),
+            })
+            .or_failed(self, "decline_call")?
+            .cast_unchecked();
+            room.send_raw(notify::DECLINE_EVENT_TYPE, content)
+                .await
+                .or_failed(self, "decline_call")?;
+        }
         Ok(())
     }
 
@@ -843,7 +910,13 @@ impl Core {
     }
 
     async fn hang_up(&self, call: &CallSession) -> Result<(), RpcError> {
-        let slot_closed = call.state.lock().await.left_because_slot_closed();
+        let (slot_closed, own) = {
+            let state = call.state.lock().await;
+            (state.left_because_slot_closed(), state.own_member())
+        };
+        if let Ok(room) = self.room(&call.room_id).await {
+            self.withdraw_call_invite(&room, &own, slot_closed).await;
+        }
         let delay_id = {
             let mut delay = call.delay_id.lock().await;
             delay.active = false;

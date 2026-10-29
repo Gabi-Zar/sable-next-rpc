@@ -86,7 +86,7 @@ test.each([
     ['callOutputDevice', 'USB speakers'],
     ['callCameraDevice', 'USB camera'],
   ]) {
-    await user.click(screen.getByRole('button', { name: `settings.${setting}` }));
+    await user.click(screen.getByRole('combobox', { name: `settings.${setting}` }));
     expect(await screen.findByRole('option', { name: label })).toBeInTheDocument();
     await user.keyboard('{Escape}');
   }

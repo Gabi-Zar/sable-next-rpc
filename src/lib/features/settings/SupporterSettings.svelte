@@ -13,9 +13,7 @@
   let name = $derived(core.session?.user_id.split(':', 1)[0]);
 
   let badge = $derived(supporter.badge);
-  let waiting = $derived(supporter.status === 'waiting');
   let refreshing = $derived(supporter.status === 'refreshing');
-  let checking = $derived(supporter.status === 'checking');
   let variantFailed = $state(false);
 
   async function selectAppearance(patch: Partial<SupporterAppearance>): Promise<void> {
@@ -28,7 +26,7 @@
   }
 </script>
 
-<SettingsSection title={i18n.t('settings.supporterTitle')} headingId="about-supporter">
+<SettingsSection title={i18n.t('settings.supporterTitle')} headingId="account-supporter">
   <ul class="settings-rows">
     {#if badge}
       <SettingsRow id="supporter-active" title={i18n.t('settings.supporterActive')}>
@@ -42,42 +40,6 @@
           {i18n.t('common.remove')}
         </Button>
       </SettingsRow>
-    {:else}
-      <SettingsRow
-        id="supporter-verify"
-        title={i18n.t('settings.supporterVerify')}
-        description={waiting ? i18n.t('settings.supporterWaiting') : undefined}
-      >
-        {#if waiting}
-          <Button size="small" onclick={() => supporter.cancel()}>
-            {i18n.t('common.cancel')}
-          </Button>
-        {:else}
-          <Button size="small" onclick={() => void supporter.verify()}>
-            {i18n.t('common.verify')}
-          </Button>
-        {/if}
-      </SettingsRow>
-    {/if}
-    {#if !badge}
-      <SettingsRow id="supporter-claim" title={i18n.t('settings.supporterClaim')}>
-        <Button
-          size="small"
-          loading={checking}
-          disabled={waiting}
-          onclick={() => void supporter.claim()}
-        >
-          {i18n.t('settings.supporterClaimAction')}
-        </Button>
-      </SettingsRow>
-    {/if}
-    {#if supporter.status === 'none'}
-      <li class="settings-form status" aria-live="polite">{i18n.t('settings.supporterNone')}</li>
-    {/if}
-    {#if supporter.status === 'failed'}
-      <li class="settings-form error" role="alert">{i18n.t('settings.supporterTimedOut')}</li>
-    {:else if supporter.status === 'error'}
-      <li class="settings-form error" role="alert">{i18n.t('settings.supporterError')}</li>
     {/if}
   </ul>
   {#if badge}

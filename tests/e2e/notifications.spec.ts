@@ -89,7 +89,7 @@ for (const opened of [false, true]) {
         {
           title: roomName,
           body: `${GUEST_DISPLAY_NAME}: ${body}`,
-          tag: `${admin.userId} ${roomId}`,
+          tag: '',
         },
       ]);
 

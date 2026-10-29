@@ -47,9 +47,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function room(unread: number): RoomListItemView {
+function room(unread: number, roomId = '!room:example.org'): RoomListItemView {
   return withCounts({
-    room_id: '!room:example.org',
+    room_id: roomId,
     state: 'joined',
     unread,
     notifying: unread,
@@ -58,7 +58,9 @@ function room(unread: number): RoomListItemView {
   } as RoomListItemView);
 }
 
-function center(): NotificationCenter {
+function center(
+  open: (roomId: string, eventId: string | null) => void = () => {}
+): NotificationCenter {
   const notifications = new NotificationCenter();
   notifications.start(
     {
@@ -69,7 +71,7 @@ function center(): NotificationCenter {
       },
       subscribeEvents: () => () => {},
     } as unknown as CoreClient,
-    () => {}
+    open
   );
   return notifications;
 }
@@ -91,6 +93,22 @@ test('a room already read on another device retires a cold notification', () => 
   notifications.retireRead([room(0)]);
 
   expect(mocks.retire).toHaveBeenCalledExactlyOnceWith('@me:example.org', ['!room:example.org']);
+});
+
+test('batched posted alerts retain rooms read before the timer fires', () => {
+  vi.useFakeTimers();
+  const notifications = center();
+
+  notifications.retireRead([room(0, '!one:example.org')]);
+  notifications.retireRead([room(0, '!two:example.org')]);
+  mocks.retireRead.mockClear();
+
+  vi.advanceTimersByTime(1000);
+
+  expect(mocks.retireRead).toHaveBeenCalledExactlyOnceWith('@me:example.org', [
+    '!one:example.org',
+    '!two:example.org',
+  ]);
 });
 
 test('opening a room retires its alerts and tells the core to skip it', () => {
@@ -398,6 +416,44 @@ test('rejecting an invite removes its entry from the SDK non-left room list', ()
 function message(eventId: string): NotificationView {
   return { ...invite(), event_id: eventId, body: 'Hello', noisy: true };
 }
+
+test.each(['browser', 'electron'])(
+  'clicking a %s notification opens its room and message',
+  async (platform) => {
+    const shown: BrowserNotification[] = [];
+    class BrowserNotification extends EventTarget {
+      static permission = 'granted';
+      close = vi.fn();
+      constructor() {
+        super();
+        shown.push(this);
+      }
+    }
+    vi.stubGlobal('Notification', BrowserNotification);
+    const focus = vi.fn();
+    const showWindow = vi.fn();
+    vi.stubGlobal('focus', focus);
+    if (platform === 'electron') vi.stubGlobal('sableElectron', { showWindow });
+    preferences.systemNotifications = true;
+    const open = vi.fn();
+    const notifications = center(open);
+
+    notifications.present(message('$one'));
+    notifications.present({ ...message('$two'), room_id: '!other:example.org' });
+    await vi.waitFor(() => {
+      expect(shown).toHaveLength(2);
+    });
+
+    shown[1].dispatchEvent(new Event('click'));
+
+    expect(showWindow).toHaveBeenCalledTimes(platform === 'electron' ? 1 : 0);
+    expect(focus).toHaveBeenCalledTimes(platform === 'browser' ? 1 : 0);
+    expect(shown[1].close).toHaveBeenCalledOnce();
+    expect(shown[0].close).not.toHaveBeenCalled();
+    expect(open).toHaveBeenCalledExactlyOnceWith('!other:example.org', '$two');
+    notifications.stop();
+  }
+);
 
 test('a message whose rule rings sounds every time, alert standing or not', () => {
   const notifications = center();

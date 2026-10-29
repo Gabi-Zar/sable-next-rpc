@@ -25,6 +25,7 @@ vi.mock('#lib/rooms/presence.svelte.js', async () => {
 });
 
 import { setPreference } from '#lib/settings/preferences.svelte.js';
+import { previewWhitelistEntry } from '../media/link-preview.js';
 
 import TimelineItemHarness from './TimelineItemHarness.test.svelte';
 import {
@@ -628,7 +629,56 @@ test('a message whose embeds were removed renders none, bundled or found', async
   });
   await tick();
 
-  expect(document.querySelector('a.link-preview')).toBeNull();
+  expect(document.querySelector('.link-preview')).toBeNull();
+  instance.unmount();
+  setPreference('urlPreviews', false);
+});
+
+test('whitelist-only entries preview only the selected links', async () => {
+  setPreference('urlPreviews', true);
+  const message = {
+    ...item(false),
+    content: {
+      kind: 'message' as const,
+      body: 'https://example.org/allowed https://example.org/omitted',
+      html: '<a href="https://example.org/allowed">allowed</a> <a href="https://example.org/omitted">omitted</a>',
+      emote: false,
+      notice: false,
+      edited: false,
+      jumbo: null,
+    },
+    bundled_link_previews: [previewWhitelistEntry('https://example.org/allowed')],
+  };
+  const instance = render(TimelineItemHarness, {
+    props: { core, item: { item: message, collapsed: false, encrypted: false } },
+  });
+  await vi.waitFor(() => {
+    expect(screen.getByRole('link', { name: 'https://example.org/allowed' })).toBeInTheDocument();
+  });
+  expect(document.querySelectorAll('.link-preview')).toHaveLength(1);
+  expect(core.rpc.messages.urlPreview).not.toHaveBeenCalledWith(
+    expect.objectContaining({ url: 'https://example.org/omitted' })
+  );
+  instance.unmount();
+  setPreference('urlPreviews', false);
+});
+
+test.each(['image', 'emote'] as const)('renders bundled previews on %s messages', async (kind) => {
+  setPreference('urlPreviews', true);
+  const url = `https://example.org/bundled-${kind}`;
+  const base = kind === 'image' ? imageItem() : item(false);
+  const message = {
+    ...base,
+    content: base.content.kind === 'message' ? { ...base.content, emote: true } : base.content,
+    bundled_link_previews: [{ ...previewWhitelistEntry(url), title: 'Bundled preview' }],
+  };
+  const instance = render(TimelineItemHarness, {
+    props: { core, item: { item: message, collapsed: false, encrypted: true } },
+  });
+  await vi.waitFor(() => {
+    expect(screen.getByRole('link', { name: 'Bundled preview' })).toHaveAttribute('href', url);
+  });
+  expect(core.rpc.messages.urlPreview).not.toHaveBeenCalledWith(expect.objectContaining({ url }));
   instance.unmount();
   setPreference('urlPreviews', false);
 });

@@ -220,7 +220,7 @@ jobs:
           fi
 
       - name: Run browser component tests
-        run: pnpm exec vitest run --project browser
+        run: pnpm exec vitest run --project browser --project browser-touch
 
       - name: Run Playwright tests
         if: ${{ github.event_name == 'pull_request' }}

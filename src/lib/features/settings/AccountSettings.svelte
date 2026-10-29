@@ -13,6 +13,8 @@
   import LinkDeviceSetting from './LinkDeviceSetting.svelte';
   import ProfileEditor from './ProfileEditor.svelte';
   import SettingsCategorySections from './SettingsCategorySections.svelte';
+  import { supporter } from '#lib/supporter/supporter.svelte.js';
+  import SupporterSettings from './SupporterSettings.svelte';
 
   const category = findCategory(SETTINGS_ACCOUNT_SECTION);
 
@@ -20,6 +22,7 @@
   let profile = $state.raw<ProfileView | null>(null);
   let loading = $state(true);
   let error = $state<string | null>(null);
+  let badge = $derived(supporter.badge);
 
   let userId = $derived(core.session?.user_id ?? '');
 
@@ -76,6 +79,10 @@
       {#if profile}<ExtendedProfileSettings {profile} />{/if}
       <LinkDeviceSetting />
       {#if category}<SettingsCategorySections {category} />{/if}
+
+      {#if supporter.enabled && badge}
+        <SupporterSettings />
+      {/if}
       <DeleteAccountSetting />
     {/if}
   </div>

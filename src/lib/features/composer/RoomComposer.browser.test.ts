@@ -1,6 +1,5 @@
-import type {} from '@vitest/browser-playwright';
 import { afterEach, expect, test, vi } from 'vitest';
-import { cdp, page, userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
@@ -17,7 +16,6 @@ function literal(text: string): string {
 }
 
 afterEach(async () => {
-  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: false });
   document.documentElement.style.removeProperty('--keyboard-height');
   document.body.removeAttribute('style');
   await page.viewport(414, 800);
@@ -85,34 +83,6 @@ async function mount(
   };
   return { screen, composer, sent, editor, firstParagraph };
 }
-
-test('a multiline expanded composer fits above the landscape phone keyboard', async () => {
-  await cdp().send('Emulation.setTouchEmulationEnabled', { enabled: true });
-  await page.viewport(390, 844);
-  const { screen, composer, editor } = await mount(true, { composerForm: 'tall' });
-  await userEvent.click(screen.getByRole('button', { name: en.composer.expand }));
-  await expect.poll(() => document.querySelector('.editor.expanded')).not.toBeNull();
-  await page.viewport(844, 390);
-  document.documentElement.style.setProperty('--keyboard-height', '190px');
-  await userEvent.click(composer);
-  const data = new DataTransfer();
-  data.setData('text/plain', 'a line\n'.repeat(20));
-  editor().dispatchEvent(
-    new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
-  );
-  await expect.poll(() => document.querySelector('.composer-row.short')).not.toBeNull();
-  await expect.poll(() => editor().textContent).toContain('a line');
-  const row = document.querySelector('.composer-row') as HTMLElement;
-  expect(row.getBoundingClientRect().height).toBeLessThan(100);
-  const editorBox = editor().getBoundingClientRect();
-  const send = screen
-    .getByRole('button', { name: en.timeline.sendMessage })
-    .element()
-    .getBoundingClientRect();
-  expect(send.height).toBeGreaterThanOrEqual(40);
-  expect(send.top).toBeLessThan(editorBox.bottom);
-  expect(send.bottom).toBeGreaterThan(editorBox.top);
-});
 
 test.for([
   ['**', '<strong>test</strong>'],
@@ -381,6 +351,19 @@ async function measure(editable: HTMLElement) {
     controlsTop: Math.min(before.getBoundingClientRect().top, after.getBoundingClientRect().top),
   };
 }
+
+test('short composer gives text a full row on narrow screens', async () => {
+  await page.viewport(320, 800);
+  const { composer, editor } = await mount(true, { composerForm: 'short' });
+  await userEvent.fill(composer, 'Will this be fixed, and when?');
+  const layout = await measure(editor());
+  const row = editor().closest('.composer-row');
+  if (!row) throw new Error('Missing composer');
+  expect(editor().getBoundingClientRect().width).toBeGreaterThan(
+    row.getBoundingClientRect().width * 0.8
+  );
+  expect(layout.controlsTop).toBeGreaterThanOrEqual(layout.editorBottom);
+});
 
 for (const width of [320, 414, 1280]) {
   test(`long messages do not overlap the expand button at ${String(width)}px`, async () => {

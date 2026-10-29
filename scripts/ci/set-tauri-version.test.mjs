@@ -41,7 +41,7 @@ test('stable updates exceed released standard and FOSS version codes', () => {
 
 test('nightly codes remain timestamp-based and stable stamping clears them', () => {
   withConfig((stamp) => {
-    const first = stamp('2.1.4-nightly.261022120000');
+    const first = stamp('2.1.4-nightly.261022120000.g099858128992');
     assert.equal(first.status, 0, first.stderr);
     const base = first.config.bundle.android.versionCode;
     assert.equal(base, Date.UTC(2026, 9, 22, 12) / 1000);

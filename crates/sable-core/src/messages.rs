@@ -110,6 +110,20 @@ fn latest_message(event: &serde_json::Value) -> Option<&serde_json::Value> {
     }
 }
 
+fn preview_keys(event: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+    let Some(content) = latest_message(event) else {
+        return serde_json::Map::new();
+    };
+    [BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS]
+        .into_iter()
+        .filter_map(|key| {
+            content
+                .get(key)
+                .map(|value| (key.to_owned(), value.clone()))
+        })
+        .collect()
+}
+
 pub(crate) fn previews_removed_edit(
     event_id: &EventId,
     event: &serde_json::Value,
@@ -179,6 +193,50 @@ fn pretty_json(raw: &str) -> String {
         .unwrap_or_else(|| raw.to_owned())
 }
 
+async fn retain_reply_mention(
+    room: &matrix_sdk::Room,
+    original: &serde_json::Value,
+    latest: &serde_json::Value,
+    edited: &mut EditedContent,
+) {
+    let Some(reply_id) = original
+        .pointer("/m.relates_to/m.in_reply_to/event_id")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|id| OwnedEventId::try_from(id).ok())
+    else {
+        return;
+    };
+    let Some(previous) = latest
+        .get("m.mentions")
+        .and_then(|value| serde_json::from_value::<Mentions>(value.clone()).ok())
+        .filter(|mentions| !mentions.user_ids.is_empty())
+    else {
+        return;
+    };
+    // An unavailable reply target must not prevent editing the message.
+    let Ok(reply) = room.load_or_fetch_event(&reply_id, None).await else {
+        return;
+    };
+    let Some(sender) = reply
+        .raw()
+        .get_field::<OwnedUserId>("sender")
+        .ok()
+        .flatten()
+        .filter(|sender| previous.user_ids.contains(sender))
+    else {
+        return;
+    };
+    let mentions = match edited {
+        EditedContent::RoomMessage(message) => &mut message.mentions,
+        EditedContent::MediaCaption { mentions, .. } => mentions,
+        EditedContent::PollStart { .. } => return,
+    };
+    mentions
+        .get_or_insert_with(Mentions::new)
+        .user_ids
+        .insert(sender);
+}
+
 impl Core {
     #[expect(clippy::too_many_arguments, reason = "mirrors the protocol fields")]
     pub(crate) async fn edit_message(
@@ -196,7 +254,7 @@ impl Core {
         persona: Option<PerMessageProfileView>,
         forum_title: Option<String>,
     ) -> Result<(), RpcError> {
-        let edited = edit_content(
+        let mut edited = edit_content(
             body,
             formatted,
             kind,
@@ -213,13 +271,31 @@ impl Core {
             _ => return Err(RpcError::Unsupported),
         };
         if let TimelineEventItemId::TransactionId(transaction_id) = &item_id {
-            let queued = match (&persona, &edited) {
-                (Some(persona), EditedContent::RoomMessage(message)) => {
-                    let room = self.room(room_id).await?;
-                    self.edit_local_with_persona(&room, transaction_id, message.clone(), persona)
-                        .await?
-                }
-                _ => false,
+            let room = self.room(room_id).await?;
+            let (echoes, _updates) = room
+                .send_queue()
+                .subscribe()
+                .await
+                .or_failed(self, "edit_message")?;
+            if let Some(echo) = echoes
+                .into_iter()
+                .find(|echo| echo.transaction_id == *transaction_id)
+                && let matrix_sdk::send_queue::LocalEchoContent::Event {
+                    serialized_event, ..
+                } = echo.content
+            {
+                let previous = serialized_event
+                    .raw()
+                    .0
+                    .deserialize_as_unchecked::<serde_json::Value>()
+                    .or_failed(self, "edit_message")?;
+                retain_reply_mention(&room, &previous, &previous, &mut edited).await;
+            }
+            let queued = if let EditedContent::RoomMessage(message) = &edited {
+                self.edit_local_message(&room, transaction_id, message.clone(), persona.as_ref())
+                    .await?
+            } else {
+                false
             };
             if !queued {
                 self.timeline_for(room_id, thread_root.as_ref())
@@ -230,8 +306,12 @@ impl Core {
             }
         } else if let TimelineEventItemId::EventId(event_id) = item_id {
             let room = self.room(room_id).await?;
-            let event = room
-                .load_or_fetch_event(&event_id, None)
+            let (event, replacements) = room
+                .load_or_fetch_event_with_relations(
+                    &event_id,
+                    Some(vec![RelationType::Replacement]),
+                    None,
+                )
                 .await
                 .or_failed(self, "edit_message")?;
             let content = raw_content(&event).ok_or(RpcError::Unsupported)?;
@@ -241,25 +321,30 @@ impl Core {
             {
                 return Err(RpcError::Unsupported);
             }
+            let original = event
+                .raw()
+                .deserialize_as_unchecked::<serde_json::Value>()
+                .or_failed(self, "edit_message")?;
+            let latest = latest_valid_replacement(&event, &replacements)
+                .unwrap_or(&event)
+                .raw()
+                .deserialize_as_unchecked::<serde_json::Value>()
+                .or_failed(self, "edit_message")?;
+            retain_reply_mention(
+                &room,
+                &content,
+                latest_message(&latest).ok_or(RpcError::Unsupported)?,
+                &mut edited,
+            )
+            .await;
             let content = room
                 .make_edit_event(&event_id, edited)
                 .await
                 .or_failed(self, "edit_message")?;
-            let retained = if media_caption {
-                room.load_or_fetch_event(&event_id, None)
-                    .await
-                    .ok()
-                    .and_then(|event| {
-                        event
-                            .raw()
-                            .deserialize_as_unchecked::<serde_json::Value>()
-                            .ok()
-                    })
-                    .map(|event| spoiler_keys(&event))
-                    .unwrap_or_default()
-            } else {
-                serde_json::Map::new()
-            };
+            let mut retained = preview_keys(&latest);
+            if media_caption {
+                retained.extend(spoiler_keys(&original));
+            }
             self.edit_with_persona(&room, &content, persona.as_ref(), forum_title, retained)
                 .await?;
         }
@@ -1685,6 +1770,227 @@ mod tests {
         core
     }
 
+    async fn sent_message(server: &MatrixMockServer) -> Value {
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                let requests = server.server().received_requests().await.unwrap();
+                if let Some(request) = requests
+                    .iter()
+                    .find(|request| request.url.path().contains("/send/m.room.message/"))
+                {
+                    break request.body_json().unwrap();
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn editing_replies_preserves_mentions_without_repinging() {
+        for media_caption in [false, true] {
+            for threaded in [false, true] {
+                for (ping, already_edited) in [(false, false), (true, false), (true, true)] {
+                    let server = MatrixMockServer::new().await;
+                    let client = server.client_builder().build().await;
+                    let sender = client.user_id().unwrap().to_owned();
+                    let room = room_id!("!reply-edits:example.org");
+                    let bob = user_id!("@bob:example.org");
+                    let carol = user_id!("@carol:example.org");
+                    server.sync_joined_room(&client, room).await;
+                    server.mock_room_state_encryption().plain().mount().await;
+                    let mut content = if media_caption {
+                        json!({"msgtype": "m.image", "body": "before", "filename": "photo.png", "url": "mxc://example.org/photo"})
+                    } else {
+                        json!({"msgtype": "m.text", "body": "before"})
+                    };
+                    content["m.relates_to"] = if threaded {
+                        json!({"rel_type": "m.thread", "event_id": "$root", "m.in_reply_to": {"event_id": "$target"}})
+                    } else {
+                        json!({"m.in_reply_to": {"event_id": "$target"}})
+                    };
+                    content["m.mentions"] =
+                        json!({"user_ids": if ping { vec![bob, carol] } else { vec![carol] }});
+                    let mut latest = content.clone();
+                    latest["m.mentions"] = json!({"user_ids": [carol]});
+                    let target = json!({"msgtype": "m.text", "body": "target"});
+                    for (id, event_sender, event_content) in [
+                        ("$original", sender.as_str(), content),
+                        ("$target", bob.as_str(), target),
+                    ] {
+                        Mock::given(method("GET"))
+                            .and(path(format!("/_matrix/client/v3/rooms/{room}/event/{id}")))
+                            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                                "type": "m.room.message", "event_id": id, "sender": event_sender,
+                                "origin_server_ts": 1, "room_id": room, "content": event_content,
+                            })))
+                            .mount(server.server())
+                            .await;
+                    }
+                    let replacements = if already_edited {
+                        vec![json!({
+                            "type": "m.room.message", "event_id": "$previous-edit", "sender": sender,
+                            "origin_server_ts": 2, "room_id": room,
+                            "content": {
+                                "msgtype": "m.text", "body": "* before", "m.mentions": {},
+                                "m.relates_to": {"rel_type": "m.replace", "event_id": "$original"},
+                                "m.new_content": latest,
+                            },
+                        })]
+                    } else {
+                        Vec::new()
+                    };
+                    Mock::given(method("GET"))
+                        .and(path(format!(
+                            "/_matrix/client/v1/rooms/{room}/relations/$original/m.replace"
+                        )))
+                        .respond_with(
+                            ResponseTemplate::new(200)
+                                .set_body_json(json!({"chunk": replacements})),
+                        )
+                        .mount(server.server())
+                        .await;
+                    server
+                        .mock_room_send()
+                        .ok(event_id!("$edited"))
+                        .expect(1)
+                        .mount()
+                        .await;
+                    let core = core(&server, client).await;
+                    core.run(crate::api::messages::EditParams {
+                        room_id: room.to_owned(),
+                        event_id: Some(event_id!("$original").to_owned()),
+                        transaction_id: None,
+                        body: "after".to_owned(),
+                        formatted: None,
+                        kind: crate::protocol::MessageKind::Text,
+                        media_caption,
+                        thread_root: threaded.then(|| event_id!("$root").to_owned()),
+                        mentions: Vec::new(),
+                        mentions_room: false,
+                        persona: None,
+                        forum_title: None,
+                    })
+                    .await
+                    .unwrap();
+                    let sent = sent_message(&server).await;
+                    assert_eq!(sent["m.new_content"]["body"], "after");
+                    assert_eq!(
+                        sent["m.new_content"]["m.mentions"],
+                        if ping && !already_edited {
+                            json!({"user_ids": [bob]})
+                        } else {
+                            json!({})
+                        }
+                    );
+                    assert_eq!(sent["m.mentions"], json!({}));
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn text_edits_preserve_removed_previews_from_the_latest_version() {
+        for field in [
+            super::BUNDLED_LINK_PREVIEWS,
+            super::LEGACY_BUNDLED_LINK_PREVIEWS,
+        ] {
+            for removed_after_send in [false, true] {
+                let server = MatrixMockServer::new().await;
+                let client = server.client_builder().build().await;
+                let sender = client.user_id().unwrap().to_owned();
+                let room = room_id!("!previews:example.org");
+                server.sync_joined_room(&client, room).await;
+                server.mock_room_state_encryption().plain().mount().await;
+                let mut original = json!({
+                    "type": "m.room.message", "event_id": "$original",
+                    "sender": sender, "origin_server_ts": 1, "room_id": room,
+                    "content": {"msgtype": "m.text", "body": "https://example.org"},
+                });
+                original["content"][field] = if removed_after_send {
+                    json!([{"matched_url": "https://example.org"}])
+                } else {
+                    json!([])
+                };
+                let replacements = if removed_after_send {
+                    vec![json!({
+                        "type": "m.room.message", "event_id": "$removed",
+                        "sender": sender, "origin_server_ts": 2, "room_id": room,
+                        "content": {
+                            "msgtype": "m.text", "body": "* https://example.org",
+                            "m.relates_to": {"rel_type": "m.replace", "event_id": "$original"},
+                            "m.new_content": {
+                                "msgtype": "m.text", "body": "https://example.org", (field): [],
+                            },
+                        },
+                    })]
+                } else {
+                    Vec::new()
+                };
+                Mock::given(method("GET"))
+                    .and(path(format!(
+                        "/_matrix/client/v3/rooms/{room}/event/$original"
+                    )))
+                    .respond_with(ResponseTemplate::new(200).set_body_json(original))
+                    .mount(server.server())
+                    .await;
+                Mock::given(method("GET"))
+                    .and(path(format!(
+                        "/_matrix/client/v1/rooms/{room}/relations/$original/m.replace"
+                    )))
+                    .respond_with(
+                        ResponseTemplate::new(200).set_body_json(json!({"chunk": replacements})),
+                    )
+                    .mount(server.server())
+                    .await;
+                let sent = Arc::new(Mutex::new(Value::Null));
+                let write = sent.clone();
+                Mock::given(method("PUT"))
+                    .and(wiremock::matchers::path_regex(format!(
+                        "/_matrix/client/v3/rooms/{room}/send/m.room.message/.*"
+                    )))
+                    .respond_with(move |request: &wiremock::Request| {
+                        *write.lock().unwrap() = serde_json::from_slice(&request.body).unwrap();
+                        ResponseTemplate::new(200).set_body_json(json!({"event_id": "$edited"}))
+                    })
+                    .expect(1)
+                    .mount(server.server())
+                    .await;
+                let core = core(&server, client).await;
+                core.run(crate::api::messages::EditParams {
+                    room_id: room.to_owned(),
+                    event_id: Some(event_id!("$original").to_owned()),
+                    transaction_id: None,
+                    body: "https://example.org extra text".to_owned(),
+                    formatted: None,
+                    kind: crate::protocol::MessageKind::Text,
+                    media_caption: false,
+                    thread_root: None,
+                    mentions: Vec::new(),
+                    mentions_room: false,
+                    persona: None,
+                    forum_title: None,
+                })
+                .await
+                .unwrap();
+                tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                    while sent.lock().unwrap().is_null() {
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap();
+                let sent = sent.lock().unwrap();
+                assert_eq!(sent["m.new_content"][field], json!([]));
+                assert_eq!(
+                    sent["m.new_content"]["body"],
+                    "https://example.org extra text"
+                );
+            }
+        }
+    }
+
     #[tokio::test]
     async fn pin_and_unpin_load_existing_server_state() {
         let server = MatrixMockServer::new().await;
@@ -2262,6 +2568,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn thread_lists_keep_server_counts_when_local_history_is_empty() {
+        use crate::api::timeline::ListThreadsParams;
+        let server = MatrixMockServer::new().await;
+        let core = preview_core(&server).await;
+        let room = room_id!("!bookmarks:example.org");
+        let client = core.client().await.unwrap();
+        let _cache = client
+            .event_cache()
+            .unwrap()
+            .thread(room, event_id!("$saved"))
+            .await
+            .unwrap();
+        Mock::given(method("GET"))
+            .and(path(format!("/_matrix/client/v1/rooms/{room}/threads")))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "chunk": [{
+                "type": "m.room.message", "event_id": "$saved", "sender": "@alice:example.org",
+                "origin_server_ts": 1, "room_id": room,
+                "content": {"msgtype": "m.text", "body": "Saved message"},
+                "unsigned": {"m.relations": {"m.thread": {"count": 2, "current_user_participated": false, "latest_event": {
+                    "event_id": "$latest", "type": "m.room.message", "sender": "@alice:example.org",
+                    "origin_server_ts": 2, "content": {"msgtype": "m.text", "body": "Latest reply"}
+                }}}}
+            }] })))
+            .with_priority(1)
+            .mount(server.server())
+            .await;
+        let result = core
+            .run(ListThreadsParams {
+                room_id: room.to_owned(),
+                from: None,
+            })
+            .await
+            .unwrap();
+        let summary = result.roots[0].thread_summary.as_ref().unwrap();
+        assert_eq!(summary.num_replies, 2);
+        assert_eq!(summary.latest_body.as_deref(), Some("Latest reply"));
+    }
+
+    #[tokio::test]
     async fn event_items_fetch_missing_sender_state_in_a_left_room() {
         use matrix_sdk_test::LeftRoomBuilder;
 
@@ -2344,6 +2689,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sending_previews_validates_the_whitelist_and_honors_optout() {
+        for opt_out in [false, true] {
+            let server = MatrixMockServer::new().await;
+            let client = server.client_builder().build().await;
+            client.send_queue().set_enabled(false).await;
+            let room_id = room_id!("!pending:example.org");
+            let room = server.sync_joined_room(&client, room_id).await;
+            let core = core(&server, client).await;
+            let preview = |url: &str| {
+                crate::link_previews::url_preview(
+                    url.to_owned(),
+                    &json!({
+                        "og:title": "Example"
+                    }),
+                )
+                .unwrap()
+            };
+            let params = serde_json::from_value::<crate::api::messages::SendParams>(json!({
+                "room_id": room_id,
+                "body": "https://example.org/allowed javascript:alert(1)",
+                "link_previews": [
+                    preview("https://example.org/allowed"),
+                    preview("https://example.org/allowed"),
+                    preview("https://example.org/absent"),
+                    preview("javascript:alert(1)"),
+                ],
+                "no_link_previews": opt_out,
+            }))
+            .unwrap();
+            core.run(params).await.unwrap();
+            let (echoes, _updates) = room.send_queue().subscribe().await.unwrap();
+            let matrix_sdk::send_queue::LocalEchoContent::Event {
+                serialized_event, ..
+            } = &echoes[0].content
+            else {
+                panic!("expected a queued message")
+            };
+            let content: Value = serialized_event.raw().0.deserialize_as_unchecked().unwrap();
+            for (field, matched_url) in [
+                (super::BUNDLED_LINK_PREVIEWS, "matrix:matched_url"),
+                (super::LEGACY_BUNDLED_LINK_PREVIEWS, "matched_url"),
+            ] {
+                let previews = content[field].as_array().unwrap();
+                assert_eq!(previews.len(), usize::from(!opt_out));
+                if !opt_out {
+                    assert_eq!(previews[0][matched_url], "https://example.org/allowed");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn editing_a_pending_reply_updates_the_queue_and_keeps_the_relation() {
         use crate::protocol::MessageKind;
         use matrix_sdk::ruma::events::relation::Reply;
@@ -2354,13 +2751,41 @@ mod tests {
         let room_id = room_id!("!pending:example.org");
         server.sync_joined_room(&client, room_id).await;
         server.mock_room_state_encryption().plain().mount().await;
+        Mock::given(method("GET"))
+            .and(path(format!(
+                "/_matrix/client/v3/rooms/{room_id}/event/$reply"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "type": "m.room.message", "event_id": "$reply", "sender": "@bob:example.org",
+                "origin_server_ts": 1, "room_id": room_id,
+                "content": {"msgtype": "m.text", "body": "target"},
+            })))
+            .mount(server.server())
+            .await;
         let core = core(&server, client).await;
         let timeline = core.timeline(&room_id.to_owned()).await.unwrap();
         let mut content = RoomMessageEventContent::text_plain("before");
+        content.mentions = Some(super::outgoing_mentions(
+            vec![user_id!("@bob:example.org").to_owned()],
+            false,
+        ));
         content.relates_to = Some(Relation::Reply(Reply::with_event_id(
             event_id!("$reply").to_owned(),
         )));
-        timeline.send(content.into()).await.unwrap();
+        timeline
+            .send_with_extra_content(
+                content.into(),
+                Some(
+                    [
+                        (super::BUNDLED_LINK_PREVIEWS.to_owned(), json!([])),
+                        (super::LEGACY_BUNDLED_LINK_PREVIEWS.to_owned(), json!([])),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            )
+            .await
+            .unwrap();
         let transaction_id = tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
                 if let Some(id) = timeline
@@ -2392,30 +2817,26 @@ mod tests {
         })
         .await
         .unwrap();
-        tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            loop {
-                let items = timeline.items().await;
-                if let Some(event) = items
-                    .iter()
-                    .filter_map(|item| item.as_event())
-                    .find(|event| {
-                        event
-                            .content()
-                            .as_message()
-                            .is_some_and(|message| message.body() == "after")
-                    })
-                {
-                    assert_eq!(
-                        event.content().in_reply_to().unwrap().event_id,
-                        event_id!("$reply")
-                    );
-                    break;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
+        let room = core.room(&room_id.to_owned()).await.unwrap();
+        let (echoes, _updates) = room.send_queue().subscribe().await.unwrap();
+        let matrix_sdk::send_queue::LocalEchoContent::Event {
+            serialized_event, ..
+        } = &echoes[0].content
+        else {
+            panic!("expected a queued message")
+        };
+        let content: Value = serialized_event.raw().0.deserialize_as_unchecked().unwrap();
+        assert_eq!(content["body"], "after");
+        assert_eq!(
+            content["m.relates_to"]["m.in_reply_to"]["event_id"],
+            "$reply"
+        );
+        assert_eq!(
+            content["m.mentions"]["user_ids"],
+            json!(["@bob:example.org"])
+        );
+        assert_eq!(content[super::BUNDLED_LINK_PREVIEWS], json!([]));
+        assert_eq!(content[super::LEGACY_BUNDLED_LINK_PREVIEWS], json!([]));
     }
 
     #[tokio::test]

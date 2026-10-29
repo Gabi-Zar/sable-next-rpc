@@ -6,6 +6,7 @@
   import { SABLE_DONATE_URL, SABLE_SOURCE_URL } from '#lib/config/links.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { restartSetup } from '#lib/features/auth/setup/setup-record.js';
+  import { writeText } from '#lib/platform/local-json.js';
   import { i18n } from '#lib/i18n.js';
   import { desktopUpdate, installPendingUpdate } from '#lib/platform/desktop-update.svelte.js';
   import {
@@ -19,7 +20,6 @@
   import { hostsServiceWorker } from '#lib/platform/service-worker.js';
   import { checkForWebUpdate } from '#lib/platform/web-updates.svelte.js';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
-  import { supporter } from '#lib/supporter/supporter.svelte.js';
   import SableBrandMark from '#lib/ui/SableBrandMark.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import Tooltip from '#lib/ui/primitives/Tooltip.svelte';
@@ -36,7 +36,8 @@
   import CopySimpleIcon from 'phosphor-svelte/lib/CopySimpleIcon';
 
   import HomeserverInfo from './HomeserverInfo.svelte';
-  import SupporterSettings from './SupporterSettings.svelte';
+  import SupporterActivationSettings from './SupporterActivationSettings.svelte';
+  import { supporter } from '#lib/supporter/supporter.svelte.js';
 
   const core = useCoreClient();
   const version = `v${import.meta.env.VITE_APP_VERSION ?? 'dev'}`;
@@ -81,7 +82,7 @@
     restarting = true;
     restartFailed = false;
     try {
-      await restartSetup(core, localStorage, session.user_id, session.device_id);
+      await restartSetup(core, { setItem: writeText }, session.user_id, session.device_id);
       await goto(resolve('setup'));
     } catch {
       restartFailed = true;
@@ -158,11 +159,9 @@
       </div>
     </div>
   </header>
-
   {#if supporter.enabled}
-    <SupporterSettings />
+    <SupporterActivationSettings />
   {/if}
-
   <svelte:boundary>
     <HomeserverInfo />
 
