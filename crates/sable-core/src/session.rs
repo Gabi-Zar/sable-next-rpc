@@ -770,12 +770,12 @@ fn metadata_with(redirect_uri: &Url, device_code: bool) -> Raw<ClientMetadata> {
         Some("localhost" | "127.0.0.1" | "[::1]")
     );
 
-    let (application_type, client_uri) = match redirect_uri.scheme() {
-        // MAS rejects an http `client_uri`. A loopback http redirect is a
-        // *native* client per RFC 8252, which is what a dev server is.
-        "http" if loopback => (ApplicationType::Native, canonical_client_uri()),
-        "https" | "http" => (ApplicationType::Web, origin_url(redirect_uri)),
-        scheme => (ApplicationType::Native, reverse_dns_url(scheme)),
+    let client_uri = Url::parse("https://sable.moe").expect("this is a valid URL");
+
+    let application_type = match redirect_uri.scheme() {
+        "http" if loopback => ApplicationType::Native,
+        "https" | "http" => ApplicationType::Web,
+        _ => ApplicationType::Native,
     };
 
     // RFC 8252 §7.3: a loopback redirect registers without its port; authorization uses the real URI.
@@ -802,7 +802,7 @@ fn metadata_with(redirect_uri: &Url, device_code: bool) -> Raw<ClientMetadata> {
     metadata.logo_uri = Some(Localized::new(
         "https://docs.sable.moe/img/sable-logo.svg"
             .try_into()
-            .unwrap(),
+            .expect("this is a valid URL"),
         [],
     ));
 
@@ -823,27 +823,6 @@ pub fn registered_redirect_uri(session: &PersistedSession, requested: &Url) -> U
         "moe.sable.next:/login"
     };
     Url::parse(legacy).unwrap_or_else(|_| requested.clone())
-}
-
-fn canonical_client_uri() -> Url {
-    #[expect(
-        clippy::expect_used,
-        reason = "this compile-time URL is part of the OAuth protocol contract"
-    )]
-    {
-        Url::parse("https://app.sable.moe").expect("static URL is valid")
-    }
-}
-
-/// `moe.sable.app` -> `https://app.sable.moe`
-fn reverse_dns_url(scheme: &str) -> Url {
-    let host = scheme.split('.').rev().collect::<Vec<_>>().join(".");
-    Url::parse(&format!("https://{host}")).unwrap_or_else(|_| canonical_client_uri())
-}
-
-fn origin_url(redirect_uri: &Url) -> Url {
-    Url::parse(&redirect_uri.origin().ascii_serialization())
-        .unwrap_or_else(|_| redirect_uri.clone())
 }
 
 /// # Errors
