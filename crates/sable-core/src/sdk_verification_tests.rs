@@ -12,7 +12,7 @@ use crate::{
         AcceptVerificationParams, ConfirmVerificationParams, RequestVerificationParams,
         ScanVerificationQrParams, StartSasVerificationParams,
     },
-    protocol::{CoreEvent, VerificationView},
+    protocol::{CoreEvent, EncryptionStatusView, VerificationStateView, VerificationView},
     session::Session,
     store::MemorySessionStore,
 };
@@ -22,15 +22,53 @@ struct Device {
     core: Arc<Core>,
     events: mpsc::UnboundedReceiver<CoreEvent>,
     states: Vec<(String, VerificationView)>,
+    encryption: Option<EncryptionStatusView>,
 }
 
 impl Device {
     fn drain(&mut self) {
         while let Ok(event) = self.events.try_recv() {
-            if let CoreEvent::Verification { flow_id, state, .. } = event {
-                self.states.push((flow_id, state));
+            match event {
+                CoreEvent::Verification { flow_id, state, .. } => {
+                    self.states.push((flow_id, state));
+                }
+                CoreEvent::EncryptionStatus { status } => self.encryption = Some(status),
+                _ => {}
             }
         }
+    }
+
+    #[expect(clippy::unwrap_used, reason = "test code")]
+    async fn assert_verified(&mut self) {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            while !self.encryption.as_ref().is_some_and(|status| {
+                matches!(status.verification, VerificationStateView::Verified)
+            }) {
+                if let CoreEvent::EncryptionStatus { status } = self.events.recv().await.unwrap() {
+                    self.encryption = Some(status);
+                }
+            }
+        })
+        .await
+        .unwrap();
+        let status = self
+            .core
+            .run(crate::api::encryption::StatusParams {})
+            .await
+            .unwrap();
+        assert!(
+            matches!(status.verification, VerificationStateView::Verified),
+            "{}: {status:?}",
+            self.client.device_id().unwrap()
+        );
+        let devices = crate::verification::local_own_devices(&self.client).await;
+        assert!(
+            devices
+                .iter()
+                .find(|device| device.is_own)
+                .unwrap()
+                .is_verified
+        );
     }
 
     fn last_live(&self) -> Option<&(String, VerificationView)> {
@@ -61,11 +99,14 @@ async fn device(server: &MatrixMockServer, id: &str) -> Device {
         oauth: false,
     });
     core.watch_incoming_verifications(&client);
+    core.watch_encryption(&client, 1);
+    core.watch_devices(&client, 1);
     Device {
         client,
         core,
         events,
         states: Vec::new(),
+        encryption: None,
     }
 }
 
@@ -107,6 +148,15 @@ async fn two_devices(
     cross_signed: bool,
 ) -> (Device, Device, Arc<Mutex<PendingToDeviceMessages>>) {
     server.mock_crypto_endpoints_preset().await;
+    // The SDK traffic capture cannot route wildcard secret requests.
+    wiremock::Mock::given(wiremock::matchers::method("PUT"))
+        .and(wiremock::matchers::path_regex(
+            "/sendToDevice/m.secret.request/",
+        ))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+        .with_priority(1)
+        .mount(server.server())
+        .await;
     let old = device(server, "AAAAAAAA").await;
     let new = device(server, "BBBBBBBB").await;
 
@@ -132,6 +182,56 @@ async fn two_devices(
 
     let queue = Arc::new(Mutex::new(PendingToDeviceMessages::default()));
     (old, new, queue)
+}
+
+#[tokio::test]
+async fn current_device_verification_requires_cross_signing() {
+    let server = MatrixMockServer::new().await;
+    let (_old, new, _queue) = two_devices(&server, true).await;
+    let own = new
+        .client
+        .encryption()
+        .get_own_device()
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(own.is_verified());
+    assert!(!own.is_cross_signed_by_owner());
+
+    let devices = crate::verification::local_own_devices(&new.client).await;
+    assert!(
+        !devices
+            .iter()
+            .find(|device| device.is_own)
+            .unwrap()
+            .is_verified
+    );
+    wiremock::Mock::given(wiremock::matchers::method("GET"))
+        .and(wiremock::matchers::path("/_matrix/client/v3/devices"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "devices": [{"device_id": "BBBBBBBB"}]
+            })),
+        )
+        .mount(server.server())
+        .await;
+    let devices = crate::verification::own_devices(&new.client).await;
+    assert!(
+        !devices
+            .iter()
+            .find(|device| device.is_own)
+            .unwrap()
+            .is_verified
+    );
+    let status = new
+        .core
+        .run(crate::api::encryption::StatusParams {})
+        .await
+        .unwrap();
+    assert!(matches!(
+        status.verification,
+        VerificationStateView::Unverified
+    ));
 }
 
 #[tokio::test]
@@ -329,11 +429,12 @@ async fn a_self_verification_completes_with_a_qr_code() {
         .unwrap();
     deliver(&server, &queue, &mut [&mut old, &mut new]).await;
 
-    for device in [&old, &new] {
+    for device in [&mut old, &mut new] {
         assert!(matches!(
             device.last_live().unwrap().1,
             VerificationView::Done
         ));
+        device.assert_verified().await;
     }
 }
 
@@ -449,12 +550,13 @@ async fn both_devices_choosing_emoji_at_once_converge_on_one_comparison() {
     }
     deliver(&server, &queue, &mut [&mut old, &mut new]).await;
 
-    for device in [&old, &new] {
+    for device in [&mut old, &mut new] {
         assert!(
             matches!(device.last_live().unwrap().1, VerificationView::Done),
             "{:?}",
             device.states
         );
+        device.assert_verified().await;
     }
 }
 

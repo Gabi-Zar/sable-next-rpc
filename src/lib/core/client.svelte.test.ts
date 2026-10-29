@@ -1515,7 +1515,7 @@ test('an onion homeserver leaves discovery to the Matrix core without a browser 
   expect(fake.called).toContainEqual({ method: 'auth.login_flows', params: { homeserver } });
 });
 
-test('a status reported while the first read is in flight is not overwritten by it', async () => {
+test('keeps newer trust events when the initial status read completes', async () => {
   const unknown = {
     verification: 'unknown',
     recovery: 'unknown',
@@ -1527,6 +1527,7 @@ test('a status reported while the first read is in flight is not overwritten by 
   const known = { ...unknown, verification: 'verified', recovery: 'enabled' } as const;
   let answer: (value: object) => void = () => {};
   const device = { device_id: 'LAPTOP' };
+  const verifiedDevice = { ...device, is_verified: true, cross_signed: true };
   const fake = fakeTransport({
     'session.restore': session,
     'session.list_accounts': [session],
@@ -1544,9 +1545,11 @@ test('a status reported while the first read is in flight is not overwritten by 
 
   await core.start();
   fake.emit({ type: 'encryption_status', status: known } as unknown as CoreEvent);
+  fake.emit({ type: 'devices_changed', devices: [verifiedDevice] } as unknown as CoreEvent);
   answer(unknown);
+  await new Promise((resolve) => setTimeout(resolve, 0));
   await vi.waitFor(() => {
-    expect(core.deviceList).toEqual([device]);
+    expect(core.deviceList).toEqual([verifiedDevice]);
   });
 
   expect(core.encryption).toEqual(known);
