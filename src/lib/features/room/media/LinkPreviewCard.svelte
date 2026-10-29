@@ -4,8 +4,9 @@
   import { useCoreClient } from '#lib/core/context.js';
   import MediaContent from '#lib/ui/MediaContent.svelte';
   import MediaImage from '#lib/ui/MediaImage.svelte';
+  import { preferences } from '#lib/settings/preferences.svelte.js';
 
-  import { imageMimeFromUrl } from './link-preview.js';
+  import { hasPreviewData, imageMimeFromUrl } from './link-preview.js';
   import { previewSources, resolveUrlPreview } from './link-preview-cache';
   import { findLinkPresentation } from './link-presentations';
   import { hasMediaViewerOpener, useMediaViewerOpener } from './media-viewer-opener.svelte.js';
@@ -23,12 +24,13 @@
   let sources = $derived(previewSources(encrypted));
 
   $effect(() => {
-    if (!sources.server && !sources.client) {
-      preview = null;
+    if (bundled !== null && hasPreviewData(bundled)) {
+      preview =
+        preferences.urlPreviews || preferences.clientEmbeds || sources.server ? bundled : null;
       return;
     }
-    if (bundled !== null) {
-      preview = bundled;
+    if (!sources.server && !sources.client) {
+      preview = null;
       return;
     }
 

@@ -110,20 +110,16 @@ fn latest_message(event: &serde_json::Value) -> Option<&serde_json::Value> {
     }
 }
 
-fn preview_suppression_keys(
-    event: &serde_json::Value,
-) -> serde_json::Map<String, serde_json::Value> {
+fn preview_keys(event: &serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
     let Some(content) = latest_message(event) else {
         return serde_json::Map::new();
     };
     [BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS]
         .into_iter()
         .filter_map(|key| {
-            let value = content.get(key)?;
-            value
-                .as_array()?
-                .is_empty()
-                .then(|| (key.to_owned(), value.clone()))
+            content
+                .get(key)
+                .map(|value| (key.to_owned(), value.clone()))
         })
         .collect()
 }
@@ -295,12 +291,11 @@ impl Core {
                     .or_failed(self, "edit_message")?;
                 retain_reply_mention(&room, &previous, &previous, &mut edited).await;
             }
-            let queued = match (&persona, &edited) {
-                (Some(persona), EditedContent::RoomMessage(message)) => {
-                    self.edit_local_with_persona(&room, transaction_id, message.clone(), persona)
-                        .await?
-                }
-                _ => false,
+            let queued = if let EditedContent::RoomMessage(message) = &edited {
+                self.edit_local_message(&room, transaction_id, message.clone(), persona.as_ref())
+                    .await?
+            } else {
+                false
             };
             if !queued {
                 self.timeline_for(room_id, thread_root.as_ref())
@@ -346,7 +341,7 @@ impl Core {
                 .make_edit_event(&event_id, edited)
                 .await
                 .or_failed(self, "edit_message")?;
-            let mut retained = preview_suppression_keys(&latest);
+            let mut retained = preview_keys(&latest);
             if media_caption {
                 retained.extend(spoiler_keys(&original));
             }
@@ -2694,6 +2689,58 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sending_previews_validates_the_whitelist_and_honors_optout() {
+        for opt_out in [false, true] {
+            let server = MatrixMockServer::new().await;
+            let client = server.client_builder().build().await;
+            client.send_queue().set_enabled(false).await;
+            let room_id = room_id!("!pending:example.org");
+            let room = server.sync_joined_room(&client, room_id).await;
+            let core = core(&server, client).await;
+            let preview = |url: &str| {
+                crate::link_previews::url_preview(
+                    url.to_owned(),
+                    &json!({
+                        "og:title": "Example"
+                    }),
+                )
+                .unwrap()
+            };
+            let params = serde_json::from_value::<crate::api::messages::SendParams>(json!({
+                "room_id": room_id,
+                "body": "https://example.org/allowed javascript:alert(1)",
+                "link_previews": [
+                    preview("https://example.org/allowed"),
+                    preview("https://example.org/allowed"),
+                    preview("https://example.org/absent"),
+                    preview("javascript:alert(1)"),
+                ],
+                "no_link_previews": opt_out,
+            }))
+            .unwrap();
+            core.run(params).await.unwrap();
+            let (echoes, _updates) = room.send_queue().subscribe().await.unwrap();
+            let matrix_sdk::send_queue::LocalEchoContent::Event {
+                serialized_event, ..
+            } = &echoes[0].content
+            else {
+                panic!("expected a queued message")
+            };
+            let content: Value = serialized_event.raw().0.deserialize_as_unchecked().unwrap();
+            for (field, matched_url) in [
+                (super::BUNDLED_LINK_PREVIEWS, "matrix:matched_url"),
+                (super::LEGACY_BUNDLED_LINK_PREVIEWS, "matched_url"),
+            ] {
+                let previews = content[field].as_array().unwrap();
+                assert_eq!(previews.len(), usize::from(!opt_out));
+                if !opt_out {
+                    assert_eq!(previews[0][matched_url], "https://example.org/allowed");
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn editing_a_pending_reply_updates_the_queue_and_keeps_the_relation() {
         use crate::protocol::MessageKind;
         use matrix_sdk::ruma::events::relation::Reply;
@@ -2725,7 +2772,20 @@ mod tests {
         content.relates_to = Some(Relation::Reply(Reply::with_event_id(
             event_id!("$reply").to_owned(),
         )));
-        timeline.send(content.into()).await.unwrap();
+        timeline
+            .send_with_extra_content(
+                content.into(),
+                Some(
+                    [
+                        (super::BUNDLED_LINK_PREVIEWS.to_owned(), json!([])),
+                        (super::LEGACY_BUNDLED_LINK_PREVIEWS.to_owned(), json!([])),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            )
+            .await
+            .unwrap();
         let transaction_id = tokio::time::timeout(std::time::Duration::from_secs(2), async {
             loop {
                 if let Some(id) = timeline
@@ -2757,40 +2817,26 @@ mod tests {
         })
         .await
         .unwrap();
-        tokio::time::timeout(std::time::Duration::from_secs(2), async {
-            loop {
-                let items = timeline.items().await;
-                if let Some(event) = items
-                    .iter()
-                    .filter_map(|item| item.as_event())
-                    .find(|event| {
-                        event
-                            .content()
-                            .as_message()
-                            .is_some_and(|message| message.body() == "after")
-                    })
-                {
-                    assert_eq!(
-                        event.content().in_reply_to().unwrap().event_id,
-                        event_id!("$reply")
-                    );
-                    assert_eq!(
-                        event
-                            .content()
-                            .as_message()
-                            .unwrap()
-                            .mentions()
-                            .unwrap()
-                            .user_ids,
-                        std::collections::BTreeSet::from([user_id!("@bob:example.org").to_owned()]),
-                    );
-                    break;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
+        let room = core.room(&room_id.to_owned()).await.unwrap();
+        let (echoes, _updates) = room.send_queue().subscribe().await.unwrap();
+        let matrix_sdk::send_queue::LocalEchoContent::Event {
+            serialized_event, ..
+        } = &echoes[0].content
+        else {
+            panic!("expected a queued message")
+        };
+        let content: Value = serialized_event.raw().0.deserialize_as_unchecked().unwrap();
+        assert_eq!(content["body"], "after");
+        assert_eq!(
+            content["m.relates_to"]["m.in_reply_to"]["event_id"],
+            "$reply"
+        );
+        assert_eq!(
+            content["m.mentions"]["user_ids"],
+            json!(["@bob:example.org"])
+        );
+        assert_eq!(content[super::BUNDLED_LINK_PREVIEWS], json!([]));
+        assert_eq!(content[super::LEGACY_BUNDLED_LINK_PREVIEWS], json!([]));
     }
 
     #[tokio::test]

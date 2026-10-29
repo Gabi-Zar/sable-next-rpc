@@ -1085,28 +1085,39 @@ test('a dismissed link is not previewed and the dismissal is spent by the send',
   setPreference('encryptedUrlPreviews', true);
   const fixture = setup([], '@kris:example.org');
   fixture.conversation.dismissPreview('https://a.example/');
-  await fixture.conversation.sendMessage(ROOM, 'a b', LINKS);
+  await fixture.conversation.sendMessage(ROOM, 'https://a.example/ https://b.example/', LINKS);
 
   expect(fixture.urlPreview).toHaveBeenCalledTimes(1);
   expect(fixture.urlPreview).toHaveBeenCalledWith({ url: 'https://b.example/', service: null });
   expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
+    link_previews: [expect.objectContaining({ url: 'https://b.example/', title: null })],
     no_link_previews: false,
   });
   expect(fixture.conversation.dismissedPreviews).toEqual([]);
 });
 
-test('dismissing every link sends an explicit opt-out', async () => {
+test.each([false, true])(
+  'dismissing every link sends an opt-out with generation=%s',
+  async (enabled) => {
+    setPreference('encryptedUrlPreviews', enabled);
+    const fixture = setup([], '@kris:example.org');
+    fixture.conversation.dismissPreview('https://a.example/');
+    fixture.conversation.dismissPreview('https://b.example/');
+    await fixture.conversation.sendMessage(ROOM, 'https://a.example/ https://b.example/', LINKS);
+
+    expect(fixture.urlPreview).not.toHaveBeenCalled();
+    expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
+      link_previews: [],
+      no_link_previews: true,
+    });
+  }
+);
+
+test('does not fetch previews for URLs absent from the body', async () => {
   setPreference('encryptedUrlPreviews', true);
   const fixture = setup([], '@kris:example.org');
-  fixture.conversation.dismissPreview('https://a.example/');
-  fixture.conversation.dismissPreview('https://b.example/');
   await fixture.conversation.sendMessage(ROOM, 'a b', LINKS);
-
   expect(fixture.urlPreview).not.toHaveBeenCalled();
-  expect(fixture.sendMessage.mock.calls[0]?.[2]).toMatchObject({
-    link_previews: [],
-    no_link_previews: true,
-  });
 });
 
 test.each([false, true])(

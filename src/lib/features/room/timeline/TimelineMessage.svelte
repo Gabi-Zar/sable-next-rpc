@@ -187,11 +187,15 @@
   let nonTextContent = $derived(item.content.kind !== 'message');
   let previewsRemoved = $derived(item.link_previews_removed === true);
   let bundledPreviews = $derived(previewsRemoved ? [] : item.bundled_link_previews);
-  let previewUrls = $derived(
-    item.content.kind === 'message' && !previewsRemoved
-      ? previewableLinks(item.content.html, item.content.body)
-      : []
-  );
+  let previewUrls = $derived.by(() => {
+    if (previewsRemoved || bundledPreviews.length > 0) return [];
+    const content = item.content;
+    if (content.kind === 'message' || content.kind === 'gallery')
+      return previewableLinks(content.html, content.body);
+    if (isMediaCaptionContent(content) && content.caption !== null)
+      return previewableLinks(content.html ?? '', content.caption);
+    return [];
+  });
   let receiptWidth = $state(0);
   let receiptsInline = $derived(
     (!nonTextContent || item.content.kind === 'redacted') &&
@@ -511,15 +515,6 @@
             {/if}
             {@render inlineReceiptSlot()}
           </div>
-          {#if bundledPreviews.length > 0}
-            {#each bundledPreviews as preview (preview.url)}
-              <LinkEmbed url={preview.url} bundled={preview} {encrypted} />
-            {/each}
-          {:else}
-            {#each previewUrls as url (url)}
-              <LinkEmbed {url} {encrypted} />
-            {/each}
-          {/if}
         {:else if item.content.kind === 'redacted'}
           <div
             class={{ 'content-bubble': layout === 'bubble', 'has-receipts': inlineReceipts }}
@@ -555,6 +550,14 @@
               {onSenderProfile}
             />
           </div>
+        {/if}
+        {#if !editor}
+          {#each bundledPreviews as preview (preview.url)}
+            <LinkEmbed url={preview.url} bundled={preview} {encrypted} />
+          {/each}
+          {#each previewUrls as url (url)}
+            <LinkEmbed {url} {encrypted} />
+          {/each}
         {/if}
         {#if threadTarget && onOpenThread}
           {@const target = threadTarget}

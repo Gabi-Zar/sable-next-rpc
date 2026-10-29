@@ -23,6 +23,7 @@ Object.assign(core.rpc.messages, {
 import LinkPreviewCard from './LinkPreviewCard.svelte';
 import LinkPreviewCardMediaHarness from './LinkPreviewCardMediaHarness.test.svelte';
 import type { StandaloneMedia } from './media-viewer-opener.svelte.js';
+import { previewWhitelistEntry } from './link-preview.js';
 import { mediaPreviewSettings } from '#lib/settings/media-previews.svelte.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
@@ -122,6 +123,44 @@ test('renders no bundled preview while url previews are disabled', () => {
     bundled: preview({ url: 'https://example.org/c' }),
   });
 
+  expect(screen.queryByRole('link')).not.toBeInTheDocument();
+});
+
+test.each([false, true])(
+  'bundled previews render with encrypted server lookups=%s',
+  async (server) => {
+    preferences.urlPreviews = !server;
+    preferences.encryptedUrlPreviews = server;
+    render(LinkPreviewCard, {
+      url: 'https://example.org/bundled-encrypted',
+      encrypted: true,
+      bundled: preview({ url: 'https://example.org/bundled-encrypted' }),
+    });
+    await tick();
+
+    expect(screen.getByRole('link', { name: 'Example' })).toBeInTheDocument();
+    expect(core.rpc.messages.urlPreview).not.toHaveBeenCalled();
+  }
+);
+
+test('a whitelist-only preview fetches metadata', async () => {
+  preferences.urlPreviews = true;
+  const url = 'https://example.org/whitelisted';
+  core.rpc.messages.urlPreview.mockResolvedValue(preview({ url }));
+  render(LinkPreviewCard, { url, encrypted: false, bundled: previewWhitelistEntry(url) });
+  await vi.waitFor(() => {
+    expect(screen.getByRole('link', { name: 'Example' })).toBeInTheDocument();
+  });
+  expect(core.rpc.messages.urlPreview).toHaveBeenCalledWith({ url, service: null });
+});
+
+test('a whitelist-only preview in an encrypted room still requires consent', async () => {
+  preferences.urlPreviews = true;
+  const url = 'https://example.org/whitelisted-private';
+  render(LinkPreviewCard, { url, encrypted: true, bundled: previewWhitelistEntry(url) });
+  await tick();
+
+  expect(core.rpc.messages.urlPreview).not.toHaveBeenCalled();
   expect(screen.queryByRole('link')).not.toBeInTheDocument();
 });
 

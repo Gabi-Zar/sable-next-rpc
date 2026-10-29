@@ -1,6 +1,30 @@
 import { parseMatrixLink } from '#lib/rooms/matrix-link.js';
+import type { UrlPreviewView } from '#src/generated/protocol';
 
 import { parseSettingsLink } from '../settings/settings-link';
+
+export function hasPreviewData(preview: UrlPreviewView): boolean {
+  return [preview.title, preview.description, preview.site_name, preview.image, preview.video].some(
+    (value) => value !== null
+  );
+}
+
+export function previewWhitelistEntry(url: string): UrlPreviewView {
+  return {
+    url,
+    title: null,
+    description: null,
+    site_name: null,
+    image: null,
+    image_mime: null,
+    image_width: null,
+    image_height: null,
+    video: null,
+    theme_color: null,
+    card: null,
+    author_name: null,
+  };
+}
 
 function isPreviewable(href: string): boolean {
   if (parseMatrixLink(href) || parseSettingsLink(href, location.origin)) return false;

@@ -42,7 +42,7 @@ import { knockPagePath } from '#lib/rooms/join-or-knock.js';
 import { gifFilename, proxiedGif, type GifResult } from '#lib/gif/providers.js';
 import { replyPreviewBody, type ReplyVersion } from '#lib/features/room/messages/reply-preview.js';
 import { isMediaCaptionContent } from '#lib/features/room/messages/media-caption.js';
-import { previewableLinks } from '#lib/features/room/media/link-preview.js';
+import { previewableLinks, previewWhitelistEntry } from '#lib/features/room/media/link-preview.js';
 import { previewSources, resolveUrlPreview } from '#lib/features/room/media/link-preview-cache.js';
 import { projectPersona } from '#lib/personas/persona.js';
 import type { PersonaStore } from '#lib/personas/personas.svelte.js';
@@ -146,15 +146,18 @@ export class Conversation {
     dismissed: readonly string[]
   ): Promise<{ previews: UrlPreviewView[]; suppressed: boolean }> {
     const sources = previewSources(this.#encrypted());
-    if (!sources.server && !sources.client) return { previews: [], suppressed: false };
     if (!html) return { previews: [], suppressed: false };
-    const links = previewableLinks(html, body);
+    const links = previewableLinks(html, body).filter((url) => body.includes(url));
     const wanted = links.filter((url) => !dismissed.includes(url));
     const previews = await Promise.all(
-      wanted.map((url) => resolveUrlPreview(this.#core.rpc.messages, url, sources))
+      wanted.map(
+        async (url) =>
+          (await resolveUrlPreview(this.#core.rpc.messages, url, sources)) ??
+          previewWhitelistEntry(url)
+      )
     );
     return {
-      previews: previews.filter((preview) => preview !== null),
+      previews,
       suppressed: links.length > 0 && wanted.length === 0,
     };
   }
