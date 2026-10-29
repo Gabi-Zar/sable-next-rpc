@@ -238,7 +238,8 @@ impl Core {
                 });
                 login.await
             } else {
-                let login = builder.generate();
+                let mut login = builder.generate();
+                login.with_msc4388_support();
                 let _watch = core.watch(false, login.subscribe_to_progress(), move |update| {
                     login_view(update, |state| generated(&flow_slots, state))
                 });
@@ -326,7 +327,8 @@ impl Core {
                 });
                 grant.await
             } else {
-                let grant = oauth.grant_login_with_qr_code().generate();
+                let mut grant = oauth.grant_login_with_qr_code().generate();
+                grant.with_msc4388_support();
                 let _watch = core.watch(true, grant.subscribe_to_progress(), move |update| {
                     grant_view(&flow_slots, update, |state| generated(&flow_slots, state))
                 });
@@ -397,7 +399,7 @@ impl Core {
 #[cfg(test)]
 mod tests {
     use matrix_sdk::authentication::oauth::qrcode::{
-        Msc4108IntentData, QRCodeGrantLoginError, QRCodeLoginError, QrCodeData,
+        Msc4108IntentData, QRCodeGrantLoginError, QRCodeLoginError, QrCodeData, QrCodeIntent,
     };
     use matrix_sdk::encryption::vodozemac::Curve25519PublicKey;
     use url::Url;
@@ -429,6 +431,21 @@ mod tests {
         assert_eq!(
             reciprocating_homeserver(&code(Msc4108IntentData::Login)),
             None
+        );
+    }
+
+    #[test]
+    fn a_2025_code_from_a_signed_in_device_names_its_homeserver() {
+        let data = QrCodeData::new_msc4388(
+            Curve25519PublicKey::from_bytes([7; 32]),
+            "session".to_owned(),
+            Url::parse("https://example.org/").unwrap(),
+            QrCodeIntent::Reciprocate,
+        )
+        .unwrap();
+        assert_eq!(
+            reciprocating_homeserver(&data).as_deref(),
+            Some("https://example.org/")
         );
     }
 
