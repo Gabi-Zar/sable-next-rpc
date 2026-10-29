@@ -799,6 +799,12 @@ fn metadata_with(redirect_uri: &Url, device_code: bool) -> Raw<ClientMetadata> {
         Localized::new(client_uri, []),
     );
     metadata.client_name = Some(Localized::new("Sable".to_owned(), []));
+    metadata.logo_uri = Some(Localized::new(
+        "https://docs.sable.moe/img/sable-logo.svg"
+            .try_into()
+            .unwrap(),
+        [],
+    ));
 
     Raw::new(&metadata).expect("client metadata serializes")
 }
