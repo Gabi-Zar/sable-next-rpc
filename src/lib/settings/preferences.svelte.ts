@@ -289,6 +289,7 @@ export interface Preferences {
   richTextComposer: boolean;
   composerSpellcheck: boolean;
   composerAutocapitalize: boolean;
+  emoticonToEmoji: boolean;
   composerGifButton: boolean;
   composerStickerButton: boolean;
   composerEmoteButton: boolean;
@@ -641,6 +642,7 @@ const DEFAULTS: Preferences = {
   richTextComposer: false,
   composerSpellcheck: true,
   composerAutocapitalize: true,
+  emoticonToEmoji: false,
   composerGifButton: true,
   composerStickerButton: true,
   composerEmoteButton: true,

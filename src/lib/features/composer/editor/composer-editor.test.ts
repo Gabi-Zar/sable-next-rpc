@@ -18,6 +18,7 @@ const defaultUserAgent = navigator.userAgent;
 afterEach(() => {
   preferences.enterForNewline = 'send';
   preferences.richTextComposer = true;
+  preferences.emoticonToEmoji = false;
   dispose?.();
   dispose = undefined;
   document.body.replaceChildren();
@@ -1455,6 +1456,139 @@ function type(editor: ComposerEditor, text: string): void {
     if (!handled) editorView.dispatch(editorView.state.tr.insertText(char, from, to));
   }
 }
+
+describe.each([false, true])('emoticon conversion (rich text: %s)', (rich) => {
+  beforeEach(() => {
+    preferences.richTextComposer = rich;
+    preferences.emoticonToEmoji = true;
+  });
+
+  test('converts emoticons and generated variants while typing', () => {
+    const editor = open();
+    type(editor, 'hello <3 :) =] :-] XD ');
+
+    expect(editor.doc()?.textContent).toBe('hello ❤️ 🙂 🙂 🙂 😆 ');
+    const doc = editor.doc();
+    if (!doc) throw new Error('no doc');
+    expect((rich ? serializeComposer(doc) : serializePlain(doc)).body).toBe('hello ❤️ 🙂 🙂 🙂 😆');
+  });
+
+  test('uses the current preference without remounting the editor', () => {
+    preferences.emoticonToEmoji = false;
+    const editor = open();
+    type(editor, '<3');
+    expect(editor.doc()?.textContent).toBe('<3');
+
+    preferences.emoticonToEmoji = true;
+    type(editor, ' :)');
+    expect(editor.doc()?.textContent).toBe('<3 🙂');
+
+    preferences.emoticonToEmoji = false;
+    type(editor, ' <3');
+    expect(editor.doc()?.textContent).toBe('<3 🙂 <3');
+  });
+
+  test('keeps emoji shortcodes available with emoticon conversion enabled', () => {
+    const editor = open();
+    type(editor, ':joy: :smile:');
+
+    expect(editor.doc()?.textContent).toBe('😂 😄');
+  });
+
+  test('Backspace restores the literal emoticon', () => {
+    const editor = open();
+    type(editor, '<3');
+    press(editor, 'Backspace');
+
+    expect(editor.doc()?.textContent).toBe('<3');
+    type(editor, ' ');
+    expect(editor.doc()?.textContent).toBe('<3 ');
+  });
+
+  test('leaves URLs, escaped emoticons and emoticons inside words alone', () => {
+    const editor = open();
+    const text = 'https://example.org/:) word<3 \\:D';
+    type(editor, text);
+
+    expect(editor.doc()?.textContent).toBe(text);
+  });
+
+  test('does not convert pasted text', () => {
+    const editor = open();
+    const data = new DataTransfer();
+    data.setData('text/plain', 'hello <3 :)');
+    const event = new Event('paste', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'clipboardData', { value: data });
+    surface().dispatchEvent(event);
+
+    expect(editor.doc()?.textContent).toBe('hello <3 :)');
+  });
+});
+
+describe('emoticon conversion in code', () => {
+  beforeEach(() => {
+    preferences.richTextComposer = true;
+    preferences.emoticonToEmoji = true;
+  });
+
+  test.each(['<p><code>code text</code></p>', '<pre>code text</pre>'])(
+    'leaves rich text code literal: %s',
+    (html) => {
+      const editor = open();
+      editor.setHtml(html);
+      const target = view(editor);
+      target.dispatch(target.state.tr.setSelection(TextSelection.create(target.state.doc, 6)));
+      type(editor, ':)');
+
+      expect(editor.doc()?.textContent).toBe('code :)text');
+    }
+  );
+
+  test.each(['`code ', '``code ', '```js\n', '~~~\n'])(
+    'leaves Markdown code literal after %j',
+    (prefix) => {
+      preferences.richTextComposer = false;
+      const editor = open();
+      type(editor, `${prefix}:)`);
+
+      expect(editor.doc()?.textContent).toBe(`${prefix}:)`);
+    }
+  );
+
+  test('converts outside a closed Markdown code span', () => {
+    preferences.richTextComposer = false;
+    const editor = open();
+    type(editor, '`:)` :)');
+
+    expect(editor.doc()?.textContent).toBe('`:)` 🙂');
+  });
+
+  test('does not convert with an active inline code mark', () => {
+    const editor = open();
+    editor.format('code');
+    type(editor, ':)');
+
+    expect(editor.doc()?.textContent).toBe(':)');
+  });
+
+  test('handles the source toggle and closed fences', () => {
+    const editor = open();
+    editor.toggleSource();
+    type(editor, '```\n:)\n```\n<3');
+
+    expect(editor.doc()?.textContent).toBe('```\n:)\n```\n❤️');
+  });
+
+  test('preserves formatting on the replacement', () => {
+    const editor = open();
+    editor.format('strong');
+    type(editor, ':)');
+    const doc = editor.doc();
+    if (!doc) throw new Error('no doc');
+
+    expect(serializeComposer(doc).formatted).toBe('<strong>🙂</strong>');
+  });
+});
 
 describe('block markup on a soft line', () => {
   test('enter after a fence typed below a soft break opens a block instead of sending', () => {

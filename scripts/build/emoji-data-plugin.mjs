@@ -1,3 +1,4 @@
+import { generateEmoticonPermutations } from 'emojibase';
 import compact from 'emojibase-data/en/compact.json' with { type: 'json' };
 import emojibaseShortcodes from 'emojibase-data/en/shortcodes/emojibase.json' with { type: 'json' };
 import joypixelsShortcodes from 'emojibase-data/en/shortcodes/joypixels.json' with { type: 'json' };
@@ -23,8 +24,17 @@ const groupOf = {
 
 function compileEmojiData() {
   const records = [];
+  const emoticons = new Map();
 
   for (const entry of compact) {
+    const bases = Array.isArray(entry.emoticon) ? entry.emoticon : [entry.emoticon];
+    for (const base of bases) {
+      if (!base) continue;
+      for (const variant of generateEmoticonPermutations(base, { isFace: /[:;8x%]/i.test(base) })) {
+        emoticons.set(variant, entry.unicode);
+      }
+    }
+
     const groupId = groupOf[entry.group ?? 8];
     if (groupId === undefined) continue;
 
@@ -43,7 +53,8 @@ function compileEmojiData() {
     records.push([entry.unicode, codes, keywords, groupIndex]);
   }
 
-  return `export const emojiRawRecords = ${JSON.stringify(records)};`;
+  return `export const emojiRawRecords = ${JSON.stringify(records)};
+export const emoticonEntries = ${JSON.stringify([...emoticons])};`;
 }
 
 /** @returns {import('vite').Plugin} */

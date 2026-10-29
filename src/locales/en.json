@@ -2192,6 +2192,8 @@
     "composerSpellcheckHint": "Underline misspelled words in the composer. Corrections come from your browser or system dictionary.",
     "composerAutocapitalize": "Capitalize sentences",
     "composerAutocapitalizeHint": "Start each sentence with a capital letter as you type. Only applies to on-screen keyboards.",
+    "emoticonToEmoji": "Convert emoticons to emoji",
+    "emoticonToEmojiHint": "Convert <3 to ❤️ and :) to 🙂 as you type. Backspace undoes a replacement.",
     "formattingToolbar": "Keep formatting toolbar open",
     "composerFormatButton": "Formatting button",
     "privacyTitle": "Privacy",
