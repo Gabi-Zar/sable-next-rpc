@@ -1418,6 +1418,14 @@ pub struct PerMessageProfileView {
     /// cannot read the profile.
     #[serde(default)]
     pub has_fallback: bool,
+    /// A (hopefully) short biography of this PMP (overrides extended profile)
+    pub biography: Option<String>,
+    /// A profile banner for this PMP (overrides extended profile)
+    pub banner_url: Option<String>,
+    /// Animal identity stuff (overrides extended profile)
+    pub is_animal: Option<String>,
+    pub has_animal: Option<String>,
+    pub animal_need: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1436,6 +1444,11 @@ pub struct PersonaView {
     #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
     pub last_used: Option<u64>,
     pub alternate_avatars: Option<Vec<PersonaAlternateAvatarView>>,
+    pub biography: Option<String>,
+    pub banner_url: Option<String>,
+    pub is_animal: Option<String>,
+    pub has_animal: Option<String>,
+    pub animal_need: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -165,6 +165,11 @@ test('passes gallery items and shared metadata to the WASM core', async () => {
     color_on_light: null,
     color_on_dark: null,
     has_fallback: false,
+    biography: null,
+    banner_url: null,
+    is_animal: null,
+    has_animal: null,
+    animal_need: null,
   };
   const thumbnail = { bytes: new Uint8Array([255, 216, 255]), width: 800, height: 450 };
   const core = fakeCore();

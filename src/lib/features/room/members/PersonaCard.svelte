@@ -2,8 +2,13 @@
   import type { Snippet } from 'svelte';
   import PronounPill from '#lib/ui/primitives/PronounPill.svelte';
   import type { MemberView, PerMessageProfileView, ProfileView } from '#src/generated/protocol';
+  import FormattedBody from '../messages/FormattedBody.svelte';
   import ClockIcon from 'phosphor-svelte/lib/ClockIcon';
   import ShieldIcon from 'phosphor-svelte/lib/ShieldIcon';
+  import HeartIcon from 'phosphor-svelte/lib/HeartIcon';
+
+  import type { MatrixLink } from '#lib/rooms/matrix-link.js';
+
   import { useCoreClient } from '#lib/core/context.js';
   import UserSupporterBadge from '#lib/supporter/UserSupporterBadge.svelte';
   import { profileSupporterAppearance } from '#lib/supporter/variants.js';
@@ -29,6 +34,7 @@
     composer?: Snippet;
     variant?: 'popover' | 'sheet';
     onAvatarClick?: (source: string, displayName: string) => void;
+    onMatrixLink?: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
   }
 
   let {
@@ -40,6 +46,7 @@
     powerTags = null,
     below,
     headerAction,
+    onMatrixLink,
     composer,
     variant = 'popover',
     onAvatarClick,
@@ -67,6 +74,24 @@
       return null;
     }
   });
+  let animalText = $derived.by(() => {
+    let identity: string;
+    if (profile.is_animal && profile.has_animal) {
+      identity = i18n.t('timeline.animalBoth', { is: profile.is_animal, has: profile.has_animal });
+    } else if (profile.is_animal) {
+      identity = i18n.t('timeline.animalIs', { is: profile.is_animal });
+    } else if (profile.has_animal) {
+      identity = i18n.t('timeline.animalHas', { has: profile.has_animal });
+    } else {
+      return null;
+    }
+
+    const need = profile.animal_need ?? 'headpats';
+    if (!need) return `${identity}!`;
+
+    return i18n.t('timeline.animalNeed', { identity, need });
+  });
+
   let displayName = $derived(profile.display_name ?? accountName);
 </script>
 
@@ -81,6 +106,8 @@
   nameColorLight={profile.color_on_light}
   nameColorDark={profile.color_on_dark}
   meta={localTime || roleTag ? metaRow : undefined}
+  children={profile.biography ? bioPanel : undefined}
+  bannerUrl={profile.banner_url}
   {below}
   {headerAction}
   {composer}
@@ -102,6 +129,17 @@
   {/snippet}
 </ProfileCard>
 
+{#snippet bioPanel()}
+  {#if profile.biography}
+    <FormattedBody
+      html={profile.biography}
+      senderTimezone={ownerProfile?.timezone}
+      keepMentionText
+      {onMatrixLink}
+    />
+  {/if}
+{/snippet}
+
 {#snippet metaRow()}
   {#if localTime}
     <span class="profile-meta-item">
@@ -116,6 +154,9 @@
       {#if roleTag.icon}<RoleTagIcon icon={roleTag.icon} class="profile-role-icon" />{/if}
       {roleTag.name}
     </span>
+  {/if}
+  {#if animalText}
+    <span class="profile-meta-item"><HeartIcon />{animalText}</span>
   {/if}
 {/snippet}
 

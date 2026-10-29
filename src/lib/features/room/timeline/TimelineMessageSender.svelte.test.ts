@@ -108,6 +108,11 @@ test('clicking the sender name mentions the account behind it', async () => {
             color_on_light: null,
             color_on_dark: null,
             has_fallback: false,
+            biography: null,
+            banner_url: null,
+            is_animal: null,
+            has_animal: null,
+            animal_need: null,
           },
         },
         collapsed: false,
@@ -157,6 +162,11 @@ test('a per-message profile takes the sender position and names the account behi
       color_on_light: '#4f7a3a',
       color_on_dark: '#9fd07c',
       has_fallback: false,
+      biography: null,
+      banner_url: null,
+      is_animal: null,
+      has_animal: null,
+      animal_need: null,
     },
   };
   render(TimelineItemHarness, {

@@ -238,6 +238,11 @@ test('sends a gallery as one worker request', async () => {
     color_on_light: null,
     color_on_dark: null,
     has_fallback: false,
+    biography: null,
+    banner_url: null,
+    is_animal: null,
+    has_animal: null,
+    animal_need: null,
   };
   const transport = await load();
   const first = new Uint8Array([1]);

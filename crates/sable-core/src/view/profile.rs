@@ -30,6 +30,21 @@ struct PerMessageProfileIn {
     color: Option<ProfileColorIn>,
     #[serde_as(deserialize_as = "DefaultOnError")]
     has_fallback: Option<bool>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "net.f0rest.biography")]
+    biography: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "net.f0rest.banner_url")]
+    banner_url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "net.f0rest.is_animal")]
+    pub is_animal: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "net.f0rest.has_animal")]
+    pub has_animal: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(rename = "net.f0rest.animal_need")]
+    pub animal_need: Option<String>,
 }
 
 #[serde_as]
@@ -71,6 +86,11 @@ pub(crate) fn per_message_profile(
         color_on_light: color.on_light,
         color_on_dark: color.on_dark,
         has_fallback: profile.has_fallback.unwrap_or(false),
+        biography: profile.biography,
+        banner_url: profile.banner_url,
+        is_animal: profile.is_animal,
+        has_animal: profile.has_animal,
+        animal_need: profile.animal_need,
     })
 }
 

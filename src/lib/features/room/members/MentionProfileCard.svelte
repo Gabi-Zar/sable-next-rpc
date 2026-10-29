@@ -798,6 +798,7 @@
     member={roomMember}
     {powerTags}
     {onAvatarClick}
+    {onMatrixLink}
     {variant}
     below={profileBelow}
     headerAction={variant === 'popover' && canMessage ? messageAction : undefined}

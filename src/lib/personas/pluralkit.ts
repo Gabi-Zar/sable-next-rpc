@@ -113,10 +113,15 @@ export function personaFromPluralkit(
       id: member.id,
       uuid: member.uuid ?? null,
       avatar_url: member.avatar_url ?? null,
-      description: member.description ?? null,
+      description: null,
     },
     last_used: null,
     alternate_avatars: null,
+    biography: null, // don't copy PK banners, privacy concern
+    banner_url: null,
+    is_animal: null,
+    has_animal: null,
+    animal_need: null,
   };
 }
 

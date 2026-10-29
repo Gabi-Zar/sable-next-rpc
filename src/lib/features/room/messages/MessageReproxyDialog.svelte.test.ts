@@ -21,6 +21,11 @@ function persona(id: string, display_name: string): PersonaView {
     pluralkit: null,
     last_used: null,
     alternate_avatars: null,
+    biography: null,
+    banner_url: null,
+    is_animal: null,
+    has_animal: null,
+    animal_need: null,
   };
 }
 

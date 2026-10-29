@@ -641,6 +641,11 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
       color_on_light: null,
       color_on_dark: null,
       has_fallback: false,
+      biography: null,
+      banner_url: null,
+      is_animal: null,
+      has_animal: null,
+      animal_need: null,
     },
   });
 
@@ -667,6 +672,11 @@ test('sending an attachment forwards its rich caption, mentions, reply, and thre
       color_on_light: null,
       color_on_dark: null,
       has_fallback: false,
+      biography: null,
+      banner_url: null,
+      is_animal: null,
+      has_animal: null,
+      animal_need: null,
     },
     spoiler: false,
   });
@@ -777,6 +787,11 @@ test('sending a gallery forwards shared metadata and every attachment', async ()
     color_on_light: null,
     color_on_dark: null,
     has_fallback: false,
+    biography: null,
+    banner_url: null,
+    is_animal: null,
+    has_animal: null,
+    animal_need: null,
   };
   const fake = fakeTransport();
   const sendGallery = vi.fn<Transport['sendGallery']>();

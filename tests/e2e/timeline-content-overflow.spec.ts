@@ -46,6 +46,11 @@ const cases: Record<string, TimelineItemView> = {
       color_on_light: null,
       color_on_dark: null,
       has_fallback: false,
+      biography: null,
+      banner_url: null,
+      is_animal: null,
+      has_animal: null,
+      animal_need: null,
     },
   },
   'link preview': {

@@ -217,6 +217,21 @@ struct PersonaIn {
     last_used: Option<u64>,
     #[serde(default, rename = "net.f0rest.alternate_avatars")]
     alternate_avatars: Option<Vec<AlternateAvatarIn>>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.biography")]
+    biography: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.banner_url")]
+    banner_url: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.is_animal")]
+    pub is_animal: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.has_animal")]
+    pub has_animal: Option<String>,
+    #[serde_as(deserialize_as = "DefaultOnError")]
+    #[serde(default, rename = "net.f0rest.animal_need")]
+    pub animal_need: Option<String>,
 }
 
 impl PersonaIn {
@@ -248,6 +263,11 @@ impl PersonaIn {
             pluralkit: self.pluralkit.and_then(PluralkitIn::into_view),
             last_used: self.last_used,
             alternate_avatars,
+            biography: self.biography,
+            banner_url: self.banner_url,
+            is_animal: self.is_animal,
+            has_animal: self.has_animal,
+            animal_need: self.animal_need,
         })
     }
 }
@@ -319,13 +339,52 @@ struct LookOut {
     pronouns: Vec<PronounOut>,
     #[serde(rename = "eu.she-a.color", skip_serializing_if = "Option::is_none")]
     colors: Option<ColorsOut>,
+    #[serde(
+        rename = "net.f0rest.biography",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub biography: Option<String>,
+    #[serde(
+        rename = "net.f0rest.banner_url",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub banner_url: Option<String>,
+    #[serde(
+        rename = "net.f0rest.is_animal",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub is_animal: Option<String>,
+    #[serde(
+        rename = "net.f0rest.has_animal",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub has_animal: Option<String>,
+    #[serde(
+        rename = "net.f0rest.animal_need",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub animal_need: Option<String>,
 }
 
 impl LookOut {
-    fn new(pronouns: &[PronounView], on_light: Option<&str>, on_dark: Option<&str>) -> Self {
+    fn new(
+        pronouns: &[PronounView],
+        on_light: Option<&str>,
+        on_dark: Option<&str>,
+        biography: Option<&str>,
+        banner_url: Option<&str>,
+        is_animal: Option<&str>,
+        has_animal: Option<&str>,
+        animal_need: Option<&str>,
+    ) -> Self {
         Self {
             pronouns: pronouns.iter().map(Into::into).collect(),
             colors: ColorsOut::new(on_light.map(str::to_owned), on_dark.map(str::to_owned)),
+            biography: biography.map(str::to_owned),
+            banner_url: banner_url.map(str::to_owned),
+            is_animal: is_animal.map(str::to_owned),
+            has_animal: has_animal.map(str::to_owned),
+            animal_need: animal_need.map(str::to_owned),
         }
     }
 }
@@ -429,6 +488,11 @@ impl From<&PersonaView> for PersonaOut {
                 &persona.pronouns,
                 persona.color_on_light.as_deref(),
                 persona.color_on_dark.as_deref(),
+                persona.biography.as_deref(),
+                persona.banner_url.as_deref(),
+                persona.is_animal.as_deref(),
+                persona.has_animal.as_deref(),
+                persona.animal_need.as_deref(),
             ),
             pluralkit: persona.pluralkit.as_ref().map(Into::into),
             triggers: persona.triggers.iter().map(Into::into).collect(),
@@ -608,6 +672,11 @@ pub(crate) fn profile_value(profile: &PerMessageProfileView) -> Value {
             &profile.pronouns,
             profile.color_on_light.as_deref(),
             profile.color_on_dark.as_deref(),
+            profile.biography.as_deref(),
+            profile.banner_url.as_deref(),
+            profile.is_animal.as_deref(),
+            profile.has_animal.as_deref(),
+            profile.animal_need.as_deref(),
         ),
         has_fallback: profile.has_fallback,
     };
@@ -829,6 +898,11 @@ pub(crate) async fn notification_profile(
                 color_on_light: persona.color_on_light.clone(),
                 color_on_dark: persona.color_on_dark.clone(),
                 has_fallback: false,
+                biography: None,
+                banner_url: None,
+                is_animal: None,
+                has_animal: None,
+                animal_need: None,
             }));
         }
     }

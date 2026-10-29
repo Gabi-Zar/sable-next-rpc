@@ -768,6 +768,14 @@ export type PerMessageProfileView = {
 	 *  cannot read the profile.
 	 */
 	has_fallback: boolean,
+	/**  A (hopefully) short biography of this PMP (overrides extended profile) */
+	biography: string | null,
+	/**  A profile banner for this PMP (overrides extended profile) */
+	banner_url: string | null,
+	/**  Animal identity stuff (overrides extended profile) */
+	is_animal: string | null,
+	has_animal: string | null,
+	animal_need: string | null,
 };
 
 export type PermissionGroup = {
@@ -818,6 +826,11 @@ export type PersonaView = {
 	pluralkit: PluralkitImportView | null,
 	last_used: number | null,
 	alternate_avatars: PersonaAlternateAvatarView[] | null,
+	biography: string | null,
+	banner_url: string | null,
+	is_animal: string | null,
+	has_animal: string | null,
+	animal_need: string | null,
 };
 
 export type PinReadStateView = {

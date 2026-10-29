@@ -247,6 +247,11 @@ async function addPersona(
     pluralkit: existing?.pluralkit ?? null,
     last_used: existing?.last_used ?? null,
     alternate_avatars: existing?.alternate_avatars ?? null,
+    biography: existing?.biography ?? null,
+    banner_url: existing?.banner_url ?? null,
+    is_animal: existing?.is_animal ?? null,
+    has_animal: existing?.has_animal ?? null,
+    animal_need: existing?.animal_need ?? null,
   } satisfies PersonaView;
   await rpc.personas.save({
     persona: next,

@@ -22,6 +22,8 @@
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
   import Switch from '#lib/ui/primitives/Switch.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
+  import TextArea from '#lib/ui/primitives/TextArea.svelte';
+  import MediaImage from '#lib/ui/MediaImage.svelte';
   import { hexColorOrEmpty } from '#lib/ui/hex-color.js';
   import ColorSetting from '#lib/ui/ColorSetting.svelte';
   import { uprightJpeg } from '#lib/ui/upright-jpeg.js';
@@ -51,6 +53,11 @@
   let alternateAvatars = $state<{ id: string; avatar_url: string | null }[]>([]);
   let saving = $state(false);
   let error = $state<string | null>(null);
+  let biography = $state('');
+  let banner_url = $state('');
+  let is_animal = $state('');
+  let has_animal = $state('');
+  let animal_need = $state('');
 
   $effect(() => {
     if (!open) return;
@@ -63,6 +70,11 @@
       triggers =
         persona?.triggers.map((trigger) => ({ ...trigger, id: crypto.randomUUID() })) ?? [];
       alternateAvatars = persona?.alternate_avatars ?? [];
+      biography = persona?.biography ?? '';
+      banner_url = persona?.banner_url ?? '';
+      is_animal = persona?.is_animal ?? '';
+      has_animal = persona?.has_animal ?? '';
+      animal_need = persona?.animal_need ?? '';
       error = null;
     });
   });
@@ -137,6 +149,27 @@
     }
   }
 
+  async function pickBanner(event: Event & { currentTarget: HTMLInputElement }): Promise<void> {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+
+    saving = true;
+    error = null;
+    try {
+      const upright = await uprightJpeg(file);
+      banner_url = await core.media.uploadMedia(
+        upright.type || 'image/*',
+        new Uint8Array(await upright.arrayBuffer())
+      );
+    } catch (cause) {
+      console.warn('[sable personas] uploading the picture failed', cause);
+      error = i18n.t('personas.saveFailed');
+    } finally {
+      saving = false;
+    }
+  }
+
   async function submit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const displayName = name.trim();
@@ -150,7 +183,7 @@
     try {
       await onSave(
         {
-          id: displayName,
+          id: persona?.id ?? crypto.randomUUID(),
           display_name: displayName,
           avatar_url: avatarUrl,
           pronouns: parsePronouns(pronouns),
@@ -169,6 +202,11 @@
           ),
           pluralkit: persona?.pluralkit ?? null,
           last_used: persona?.last_used ?? null,
+          biography: biography && biography.length < 2048 ? biography : null,
+          banner_url: banner_url ?? null,
+          is_animal: is_animal ?? null,
+          has_animal: has_animal ?? null,
+          animal_need: animal_need ?? null,
         },
         persona?.id ?? null,
         persona
@@ -382,6 +420,96 @@
       </Button>
     </fieldset>
 
+    <fieldset class="triggers">
+      <legend>{i18n.t('settings.profile')}</legend>
+
+      <label class="field">
+        <span>{i18n.t('settings.biography')}</span>
+        <TextArea
+          name="persona-biography"
+          bind:value={biography}
+          autocomplete="off"
+          maxlength={2048}
+        />
+      </label>
+
+      <label class="field">
+        <span>{i18n.t('settings.banner')}</span>
+        {#if banner_url}
+          <div class="profile-card-cover">
+            <MediaImage
+              class={banner_url
+                ? 'profile-card-banner'
+                : 'profile-card-banner profile-card-banner-fallback'}
+              alt=""
+              source={banner_url}
+              width={720}
+              height={240}
+              original={true}
+            />
+          </div>
+        {/if}
+        <div style="display: flex; flex-direction: row; gap: var(--space-200)">
+          <Button
+            variant="danger"
+            size="small"
+            disabled={!banner_url}
+            onclick={() => {
+              banner_url = '';
+            }}
+          >
+            {i18n.t('personas.avatarRemove')}
+          </Button>
+          <label class="file-button btn btn-secondary btn-small">
+            <input
+              use:nativeFilePicker
+              type="file"
+              accept="image/*"
+              onchange={(event) => void pickBanner(event)}
+            />
+            {i18n.t('common.chooseAPicture')}
+          </label>
+        </div>
+      </label>
+    </fieldset>
+
+    <fieldset class="triggers">
+      <legend>{i18n.t('settings.animalIdentity')}</legend>
+
+      <label class="field">
+        <span>{i18n.t('settings.animalIdentityWhatIs')}</span>
+        <TextInput
+          name="persona-animal-is"
+          bind:value={is_animal}
+          autocomplete="off"
+          placeholder={i18n.t('settings.animalIdentityWhatIsPlaceholder')}
+          maxlength={128}
+        />
+      </label>
+
+      <label class="field">
+        <span>{i18n.t('settings.animalIdentityWhatHas')}</span>
+        <TextInput
+          name="persona-animal-has"
+          bind:value={has_animal}
+          autocomplete="off"
+          placeholder={i18n.t('settings.animalIdentityWhatHasPlaceholder')}
+          maxlength={128}
+        />
+      </label>
+
+      <label class="field">
+        <span>{i18n.t('settings.animalIdentityWhatNeeds')}</span>
+        <TextInput
+          name="persona-animal-need"
+          bind:value={animal_need}
+          autocomplete="off"
+          placeholder={i18n.t('settings.animalIdentityWhatNeedsPlaceholder')}
+          maxlength={128}
+        />
+      </label>
+    </fieldset>
+
     <DialogActions>
       <Button
         variant="secondary"
@@ -521,5 +649,15 @@
     column-gap: var(--space-300);
     display: grid;
     grid-template-columns: 1fr auto auto;
+  }
+
+  .profile-card-cover {
+    height: 7rem;
+    overflow: hidden;
+  }
+
+  .profile-card-cover :global(.profile-card-banner img) {
+    object-fit: cover;
+    object-position: center;
   }
 </style>

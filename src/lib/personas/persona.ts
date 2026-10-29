@@ -14,6 +14,11 @@ export function projectPersona(persona: PersonaView, fallback: boolean): PerMess
     color_on_light: persona.color_on_light,
     color_on_dark: persona.color_on_dark,
     has_fallback: fallback,
+    biography: persona.biography,
+    banner_url: persona.banner_url,
+    is_animal: persona.is_animal,
+    has_animal: persona.has_animal,
+    animal_need: persona.animal_need,
   };
 }
 
