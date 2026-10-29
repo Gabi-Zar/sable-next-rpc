@@ -1,9 +1,14 @@
 import { EventEmitter } from 'node:events';
-import type { BrowserWindow, ContextMenuParams } from 'electron';
+import type {
+  BrowserWindow,
+  ContextMenuParams,
+  MenuItem,
+  MenuItemConstructorOptions,
+} from 'electron';
 import { beforeEach, expect, test, vi } from 'vitest';
 
 const { buildFromTemplate, popup } = vi.hoisted(() => ({
-  buildFromTemplate: vi.fn(),
+  buildFromTemplate: vi.fn<(template: MenuItemConstructorOptions[]) => { popup: () => void }>(),
   popup: vi.fn(),
 }));
 
@@ -17,7 +22,7 @@ beforeEach(() => {
 });
 
 function setup() {
-  const webContents = new EventEmitter();
+  const webContents = Object.assign(new EventEmitter(), { replaceMisspelling: vi.fn() });
   const window = { webContents } as unknown as BrowserWindow;
   registerContextMenu(window);
   return { webContents, window };
@@ -36,7 +41,7 @@ const editFlags: ContextMenuParams['editFlags'] = {
 
 test('opens a native edit menu for an empty composer with paste available', () => {
   const { webContents, window } = setup();
-  webContents.emit('context-menu', {}, { isEditable: true, editFlags });
+  webContents.emit('context-menu', {}, { isEditable: true, editFlags, dictionarySuggestions: [] });
   expect(buildFromTemplate).toHaveBeenCalledWith([
     { role: 'undo', enabled: false },
     { role: 'redo', enabled: false },
@@ -52,12 +57,13 @@ test('opens a native edit menu for an empty composer with paste available', () =
 
 test('updates available actions when text is selected and the clipboard is empty', () => {
   const { webContents } = setup();
-  webContents.emit('context-menu', {}, { isEditable: true, editFlags });
+  webContents.emit('context-menu', {}, { isEditable: true, editFlags, dictionarySuggestions: [] });
   webContents.emit(
     'context-menu',
     {},
     {
       isEditable: true,
+      dictionarySuggestions: [],
       editFlags: {
         ...editFlags,
         canUndo: true,
@@ -86,4 +92,29 @@ test('leaves non-editable areas to the app context menus', () => {
   webContents.emit('context-menu', {}, { isEditable: false, editFlags });
   expect(buildFromTemplate).not.toHaveBeenCalled();
   expect(popup).not.toHaveBeenCalled();
+});
+
+test('replaces a misspelled word with the chosen suggestion', () => {
+  const { webContents, window } = setup();
+  webContents.emit(
+    'context-menu',
+    {},
+    {
+      isEditable: true,
+      editFlags,
+      dictionarySuggestions: ['spelling', 'spieling'],
+    }
+  );
+
+  const template: MenuItemConstructorOptions[] = buildFromTemplate.mock.calls[0][0];
+  expect(template.slice(0, 4)).toMatchObject([
+    { label: 'spelling' },
+    { label: 'spieling' },
+    { type: 'separator' },
+    { role: 'undo', enabled: false },
+  ]);
+  for (const [index, suggestion] of ['spelling', 'spieling'].entries()) {
+    template[index].click?.({} as MenuItem, window, {});
+    expect(webContents.replaceMisspelling).toHaveBeenNthCalledWith(index + 1, suggestion);
+  }
 });
