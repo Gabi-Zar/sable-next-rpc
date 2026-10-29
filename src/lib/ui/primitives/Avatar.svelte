@@ -28,6 +28,7 @@
     uniform?: boolean;
     recolor?: boolean;
     original?: boolean;
+    refreshOnResume?: boolean;
     class?: ClassValue;
     children?: Snippet;
   };
@@ -45,6 +46,7 @@
     uniform = false,
     recolor = false,
     original = false,
+    refreshOnResume = false,
     class: className = '',
     children,
   }: Props = $props();
@@ -108,6 +110,7 @@
       {uniform}
       tint={recolor}
       {original}
+      {refreshOnResume}
       pixelate={false}
       onloaded={() => {
         paintedSrc = src;

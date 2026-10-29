@@ -29,6 +29,80 @@ afterEach(() => {
 const user = userEvent.setup({ delay: null });
 const retryButton = () => screen.getByRole('button', { name: /Retry/ });
 
+test('refreshes the account image after a long background session', async () => {
+  const now = vi.spyOn(Date, 'now');
+  now.mockReturnValue(1_000);
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  render(MediaImage, {
+    source: 'mxc://example.org/resumed-account',
+    alt: 'Account',
+    width: 96,
+    height: 96,
+    refreshOnResume: true,
+  });
+  await settle();
+  const before = screen.getByAltText('Account').getAttribute('src');
+  await fireEvent.load(screen.getByAltText('Account'));
+
+  window.dispatchEvent(new Event('pagehide'));
+  await settle();
+  now.mockReturnValue(61_000);
+  window.dispatchEvent(new Event('pageshow'));
+  await settle();
+
+  expect(core.fetchMedia).toHaveBeenCalledTimes(2);
+  expect(screen.getByAltText('Account').getAttribute('src')).not.toBe(before);
+  window.dispatchEvent(new Event('pageshow'));
+  await settle();
+  expect(core.fetchMedia).toHaveBeenCalledTimes(2);
+});
+
+test('keeps cached account images for short background sessions', async () => {
+  const now = vi.spyOn(Date, 'now');
+  now.mockReturnValue(1_000);
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  render(MediaImage, {
+    source: 'mxc://example.org/briefly-hidden-account',
+    alt: 'Account',
+    width: 96,
+    height: 96,
+    refreshOnResume: true,
+  });
+  await settle();
+  window.dispatchEvent(new Event('pagehide'));
+  await settle();
+  now.mockReturnValue(2_000);
+  window.dispatchEvent(new Event('pageshow'));
+  await settle();
+  expect(core.fetchMedia).toHaveBeenCalledTimes(1);
+});
+
+test('recovers an undecodable account avatar when the app resumes', async () => {
+  const now = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  render(MediaImage, {
+    source: 'mxc://example.org/invalidated-account',
+    alt: 'Account',
+    width: 96,
+    height: 96,
+    original: true,
+    refreshOnResume: true,
+  });
+  await settle();
+  await fireEvent.error(screen.getByAltText('Account'));
+  await settle();
+  expect(core.fetchMedia).toHaveBeenCalledTimes(1);
+
+  window.dispatchEvent(new Event('pagehide'));
+  await settle();
+  now.mockReturnValue(61_000);
+  window.dispatchEvent(new Event('pageshow'));
+  await settle();
+
+  expect(core.fetchMedia).toHaveBeenCalledTimes(2);
+  expect(screen.getByAltText('Account')).toHaveAttribute('src', expect.stringMatching(/^blob:/));
+});
+
 function find(selector: string): HTMLElement {
   const element = document.querySelector<HTMLElement>(selector);
   if (!element) throw new Error(`${selector} was not rendered`);

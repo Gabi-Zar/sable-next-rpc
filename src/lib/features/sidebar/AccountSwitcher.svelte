@@ -136,7 +136,7 @@
 </script>
 
 {#snippet ownAvatar()}
-  <Avatar size="small" src={avatarUrl} name={displayName} alt={displayName} />
+  <Avatar size="small" src={avatarUrl} name={displayName} alt={displayName} refreshOnResume />
   {#if ownPresence}
     <PresenceDot
       presence={ownPresence}

@@ -4,6 +4,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
   import { preferences } from '#lib/settings/preferences.svelte.js';
+  import { windowActivity } from '#lib/platform/window-activity.js';
   import { decodeBlurhashPixels } from '#lib/ui/blurhash.js';
   import { formatByteSize } from '#lib/ui/byte-size.js';
   import { dominantColor } from '#lib/ui/dominant-color.js';
@@ -54,6 +55,7 @@
     onloaded?: (url: string | null) => void;
     onfailed?: (source: string) => void;
     retryable?: boolean;
+    refreshOnResume?: boolean;
     uniform?: boolean;
     tint?: boolean;
     original?: boolean;
@@ -85,6 +87,7 @@
     onloaded,
     onfailed,
     retryable = false,
+    refreshOnResume = false,
     uniform = false,
     tint = false,
     original = false,
@@ -99,6 +102,8 @@
   const core = useCoreClient();
   let outcome = $state.raw<{ key: string; url: string | null; undecodable?: true } | null>(null);
   let backoff = $derived({ source, attempt: 0, forced: 0, manual: 0, automatic: 0, at: 0 });
+  let resume = $derived({ source, count: 0 });
+  let hiddenAt: number | null = null;
   let attempt = $derived(backoff.attempt);
   let forced = $derived(backoff.forced);
   let clock = $state(Date.now());
@@ -159,7 +164,7 @@
   let requestedWidth = $derived(asIs ? 0 : width);
   let requestedHeight = $derived(asIs ? 0 : height);
   let requestKey = $derived(
-    `${String(attempt)}:${String(requestedWidth)}x${String(requestedHeight)}:${requested}`
+    `${String(attempt)}:${String(requestedWidth)}x${String(requestedHeight)}:${requested}:${String(resume.count)}`
   );
   let url = $derived(
     outcome?.key === requestKey
@@ -253,6 +258,22 @@
   });
 
   $effect(() => {
+    if (!refreshOnResume) return;
+    if (!windowActivity.visible) {
+      hiddenAt ??= Date.now();
+      return;
+    }
+    if (hiddenAt === null) return;
+    const elapsed = Date.now() - hiddenAt;
+    hiddenAt = null;
+    if (elapsed < 30_000) return;
+    untrack(() => {
+      resume = { ...resume, count: resume.count + 1 };
+      backoff = { ...backoff, attempt: 0, forced: 0, automatic: 0, at: 0 };
+    });
+  });
+
+  $effect(() => {
     const current = backoff;
     const delay = automaticMediaRetryDelay(current.automatic);
     if (!failed || undecodable || delay === null) return;
@@ -285,7 +306,8 @@
     const release = holdMediaUrl(core, requestSource, requestWidth, requestHeight);
     if (
       outcome?.key === key ||
-      cachedMediaUrl(core, requestSource, requestWidth, requestHeight) !== undefined
+      (resume.count === 0 &&
+        cachedMediaUrl(core, requestSource, requestWidth, requestHeight) !== undefined)
     ) {
       return release;
     }
@@ -296,7 +318,10 @@
        derived then warns `derived_inert`, so the callbacks only touch snapshots. */
     const previous = untrack(() => backoff);
     const canRetry = untrack(() => retryable);
-    const load = attempt > 0 && forced === attempt ? retryMediaUrl : loadMediaUrl;
+    const load =
+      (resume.count > 0 && attempt === 0) || (attempt > 0 && forced === attempt)
+        ? retryMediaUrl
+        : loadMediaUrl;
     void load(core, requestSource, requestWidth, requestHeight, mime)
       .then((nextUrl) => {
         if (!active) return;

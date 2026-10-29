@@ -110,6 +110,24 @@ fn latest_message(event: &serde_json::Value) -> Option<&serde_json::Value> {
     }
 }
 
+fn preview_suppression_keys(
+    event: &serde_json::Value,
+) -> serde_json::Map<String, serde_json::Value> {
+    let Some(content) = latest_message(event) else {
+        return serde_json::Map::new();
+    };
+    [BUNDLED_LINK_PREVIEWS, LEGACY_BUNDLED_LINK_PREVIEWS]
+        .into_iter()
+        .filter_map(|key| {
+            let value = content.get(key)?;
+            value
+                .as_array()?
+                .is_empty()
+                .then(|| (key.to_owned(), value.clone()))
+        })
+        .collect()
+}
+
 pub(crate) fn previews_removed_edit(
     event_id: &EventId,
     event: &serde_json::Value,
@@ -230,8 +248,12 @@ impl Core {
             }
         } else if let TimelineEventItemId::EventId(event_id) = item_id {
             let room = self.room(room_id).await?;
-            let event = room
-                .load_or_fetch_event(&event_id, None)
+            let (event, replacements) = room
+                .load_or_fetch_event_with_relations(
+                    &event_id,
+                    Some(vec![RelationType::Replacement]),
+                    None,
+                )
                 .await
                 .or_failed(self, "edit_message")?;
             let content = raw_content(&event).ok_or(RpcError::Unsupported)?;
@@ -245,21 +267,19 @@ impl Core {
                 .make_edit_event(&event_id, edited)
                 .await
                 .or_failed(self, "edit_message")?;
-            let retained = if media_caption {
-                room.load_or_fetch_event(&event_id, None)
-                    .await
-                    .ok()
-                    .and_then(|event| {
-                        event
-                            .raw()
-                            .deserialize_as_unchecked::<serde_json::Value>()
-                            .ok()
-                    })
-                    .map(|event| spoiler_keys(&event))
-                    .unwrap_or_default()
-            } else {
-                serde_json::Map::new()
-            };
+            let original = event
+                .raw()
+                .deserialize_as_unchecked::<serde_json::Value>()
+                .or_failed(self, "edit_message")?;
+            let latest = latest_valid_replacement(&event, &replacements)
+                .unwrap_or(&event)
+                .raw()
+                .deserialize_as_unchecked::<serde_json::Value>()
+                .or_failed(self, "edit_message")?;
+            let mut retained = preview_suppression_keys(&latest);
+            if media_caption {
+                retained.extend(spoiler_keys(&original));
+            }
             self.edit_with_persona(&room, &content, persona.as_ref(), forum_title, retained)
                 .await?;
         }
@@ -1683,6 +1703,107 @@ mod tests {
             oauth: false,
         });
         core
+    }
+
+    #[tokio::test]
+    async fn text_edits_preserve_removed_previews_from_the_latest_version() {
+        for field in [
+            super::BUNDLED_LINK_PREVIEWS,
+            super::LEGACY_BUNDLED_LINK_PREVIEWS,
+        ] {
+            for removed_after_send in [false, true] {
+                let server = MatrixMockServer::new().await;
+                let client = server.client_builder().build().await;
+                let sender = client.user_id().unwrap().to_owned();
+                let room = room_id!("!previews:example.org");
+                server.sync_joined_room(&client, room).await;
+                server.mock_room_state_encryption().plain().mount().await;
+                let mut original = json!({
+                    "type": "m.room.message", "event_id": "$original",
+                    "sender": sender, "origin_server_ts": 1, "room_id": room,
+                    "content": {"msgtype": "m.text", "body": "https://example.org"},
+                });
+                original["content"][field] = if removed_after_send {
+                    json!([{"matched_url": "https://example.org"}])
+                } else {
+                    json!([])
+                };
+                let replacements = if removed_after_send {
+                    vec![json!({
+                        "type": "m.room.message", "event_id": "$removed",
+                        "sender": sender, "origin_server_ts": 2, "room_id": room,
+                        "content": {
+                            "msgtype": "m.text", "body": "* https://example.org",
+                            "m.relates_to": {"rel_type": "m.replace", "event_id": "$original"},
+                            "m.new_content": {
+                                "msgtype": "m.text", "body": "https://example.org", (field): [],
+                            },
+                        },
+                    })]
+                } else {
+                    Vec::new()
+                };
+                Mock::given(method("GET"))
+                    .and(path(format!(
+                        "/_matrix/client/v3/rooms/{room}/event/$original"
+                    )))
+                    .respond_with(ResponseTemplate::new(200).set_body_json(original))
+                    .mount(server.server())
+                    .await;
+                Mock::given(method("GET"))
+                    .and(path(format!(
+                        "/_matrix/client/v1/rooms/{room}/relations/$original/m.replace"
+                    )))
+                    .respond_with(
+                        ResponseTemplate::new(200).set_body_json(json!({"chunk": replacements})),
+                    )
+                    .mount(server.server())
+                    .await;
+                let sent = Arc::new(Mutex::new(Value::Null));
+                let write = sent.clone();
+                Mock::given(method("PUT"))
+                    .and(wiremock::matchers::path_regex(format!(
+                        "/_matrix/client/v3/rooms/{room}/send/m.room.message/.*"
+                    )))
+                    .respond_with(move |request: &wiremock::Request| {
+                        *write.lock().unwrap() = serde_json::from_slice(&request.body).unwrap();
+                        ResponseTemplate::new(200).set_body_json(json!({"event_id": "$edited"}))
+                    })
+                    .expect(1)
+                    .mount(server.server())
+                    .await;
+                let core = core(&server, client).await;
+                core.run(crate::api::messages::EditParams {
+                    room_id: room.to_owned(),
+                    event_id: Some(event_id!("$original").to_owned()),
+                    transaction_id: None,
+                    body: "https://example.org extra text".to_owned(),
+                    formatted: None,
+                    kind: crate::protocol::MessageKind::Text,
+                    media_caption: false,
+                    thread_root: None,
+                    mentions: Vec::new(),
+                    mentions_room: false,
+                    persona: None,
+                    forum_title: None,
+                })
+                .await
+                .unwrap();
+                tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                    while sent.lock().unwrap().is_null() {
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap();
+                let sent = sent.lock().unwrap();
+                assert_eq!(sent["m.new_content"][field], json!([]));
+                assert_eq!(
+                    sent["m.new_content"]["body"],
+                    "https://example.org extra text"
+                );
+            }
+        }
     }
 
     #[tokio::test]
