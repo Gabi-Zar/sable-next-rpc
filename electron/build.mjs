@@ -7,6 +7,9 @@ import { browserCsp } from '../scripts/build/csp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
+const appVersion =
+  process.env.VITE_APP_VERSION ||
+  JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const release = process.argv.includes('--release');
 const out = join(here, 'dist');
 
@@ -57,6 +60,7 @@ await build({
   define: {
     __SABLE_CSP__: JSON.stringify(policy),
     __SABLE_IDENTIFIER__: JSON.stringify(process.env.SABLE_IDENTIFIER ?? 'moe.sable.next'),
+    __SABLE_APP_VERSION__: JSON.stringify(appVersion),
     __SABLE_SENTRY__: JSON.stringify({
       dsn: process.env.VITE_SENTRY_DSN,
       environment: process.env.VITE_SENTRY_ENVIRONMENT,

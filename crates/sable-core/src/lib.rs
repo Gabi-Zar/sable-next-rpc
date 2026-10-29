@@ -78,6 +78,9 @@ pub mod webpush;
 
 pub use matrix_sdk::{Client as MatrixClient, reqwest, ruma};
 
+/// User-Agent for native HTTP requests.
+pub const USER_AGENT: &str = concat!("Sable/", env!("SABLE_APP_VERSION"));
+
 mod widgets;
 
 use std::{

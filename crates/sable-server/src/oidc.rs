@@ -22,6 +22,7 @@ impl Oidc {
     fn http_client(&self) -> Result<reqwest::Client, Box<dyn std::error::Error + Send + Sync>> {
         let issuer = url::Url::parse(&self.issuer)?;
         Ok(reqwest::ClientBuilder::new()
+            .user_agent(sable_core::USER_AGENT)
             .https_only(issuer.scheme() == "https")
             .redirect(reqwest::redirect::Policy::none())
             .timeout(std::time::Duration::from_secs(10))

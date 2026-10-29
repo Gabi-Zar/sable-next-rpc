@@ -21,7 +21,7 @@ if (sandboxed) {
   config = 'electron-builder.sandboxed.yml';
   identifier = 'moe.sable.client.sandboxed';
 }
-const env = { ...process.env, SABLE_IDENTIFIER: identifier };
+const env = { ...process.env, VITE_APP_VERSION: version, SABLE_IDENTIFIER: identifier };
 
 execFileSync(process.execPath, [join(here, 'build.mjs'), '--release'], { stdio: 'inherit', env });
 execFileSync(

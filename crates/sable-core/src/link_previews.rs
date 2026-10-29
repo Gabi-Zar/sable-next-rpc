@@ -491,11 +491,12 @@ mod tests {
     async fn soliditas_preview_asks_the_worker_with_the_url() {
         use wiremock::{
             Mock, MockServer, ResponseTemplate,
-            matchers::{method, path, query_param},
+            matchers::{header, method, path, query_param},
         };
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/_soliditas/preview_url"))
+            .and(header("user-agent", crate::USER_AGENT))
             .and(query_param("url", "https://example.org/a?b=1&c=2"))
             .respond_with(
                 ResponseTemplate::new(200).set_body_json(serde_json::json!({"og:title": "Hi"})),

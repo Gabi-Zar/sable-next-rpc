@@ -117,5 +117,8 @@ wiremock = "0.6"
 bs58 = "0.5"
 jieba-rs = { version = "=0.11.0", features = ["default-dict"], default-features = false }
 
+[build-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true
