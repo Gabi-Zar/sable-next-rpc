@@ -1299,4 +1299,28 @@
   .message.layout-bubble.own.align-own.collapsed .message-content > .receipt-slot {
     margin-inline-end: calc(-1 * (var(--avatar-size-small) + var(--space-250)));
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .placeholder-message :global(.skeleton),
+    .placeholder-copy,
+    :global(.skeleton.placeholder-avatar) {
+      background: var(--bg-container-hover);
+    }
+
+    .message.mention-silent {
+      background: var(--sec-container);
+    }
+
+    .message.mention-loud {
+      background: var(--warn-container);
+    }
+
+    .message.persona :global(.message-avatar .avatar-fallback) {
+      background: var(--surface-container);
+    }
+
+    .notice {
+      color: var(--surface-var-on-container);
+    }
+  }
 </style>

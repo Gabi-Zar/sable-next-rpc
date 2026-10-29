@@ -100,4 +100,10 @@
     position: absolute;
     right: 0;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .settings-preview-dock::before {
+      background: var(--surface-container);
+    }
+  }
 </style>

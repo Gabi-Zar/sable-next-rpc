@@ -505,4 +505,11 @@
   .pin-unreadable-open:hover {
     text-decoration: underline;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .pin-item.fresh,
+    .pin-item.fresh:is(:hover, :focus-within) {
+      background: var(--surface-container);
+    }
+  }
 </style>

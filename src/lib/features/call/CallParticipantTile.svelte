@@ -635,4 +635,19 @@
     inline-size: 2.5rem;
     text-align: end;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .tile {
+      --tile-scrim: rgb(0 0 0 / 62%);
+    }
+
+    .tile.speaking.video-on::after {
+      box-shadow: inset 0 0 0 0.3125rem var(--success-main);
+    }
+
+    .actions :global(.tile-action),
+    .stop-watching :global(.tile-action) {
+      --button-container-hover: rgb(0 0 0 / 80%);
+    }
+  }
 </style>

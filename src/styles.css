@@ -945,3 +945,9 @@ a:not([class]):hover {
 [data-scroll-more~='bottom'] {
   --scroll-fade-bottom: var(--space-500);
 }
+
+@supports not (color: color-mix(in srgb, black, white)) {
+  body.remote-theme {
+    --focus-ring: var(--primary-main);
+  }
+}

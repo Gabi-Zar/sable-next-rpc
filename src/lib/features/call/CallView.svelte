@@ -841,4 +841,18 @@
   .resting .dock {
     translate: 0 0.5rem;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .live-dot {
+      box-shadow: 0 0 0 0.1875rem var(--success-main);
+    }
+
+    .live-dot.reconnecting {
+      box-shadow: 0 0 0 0.1875rem var(--warn-main);
+    }
+
+    .live-dot.failed {
+      box-shadow: 0 0 0 0.1875rem var(--crit-main);
+    }
+  }
 </style>

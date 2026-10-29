@@ -1385,4 +1385,19 @@
       right: 1.5rem;
     }
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    @media (--compact-layout) {
+      .toolbar,
+      .bottom-bar {
+        background: var(--surface-container);
+      }
+    }
+
+    @media (--app-layout) {
+      :global(.viewer) {
+        background: var(--viewer-immersive);
+      }
+    }
+  }
 </style>

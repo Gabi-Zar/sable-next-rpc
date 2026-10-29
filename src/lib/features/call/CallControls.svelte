@@ -466,4 +466,10 @@
     gap: var(--space-100);
     justify-content: flex-start;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .controls:not(.compact) {
+      background: var(--surface-container);
+    }
+  }
 </style>

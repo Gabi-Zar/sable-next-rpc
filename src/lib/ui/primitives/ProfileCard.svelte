@@ -816,4 +816,21 @@
   .profile-card.tinted .profile-card-name {
     color: var(--profile-name-on-hero, var(--profile-ink));
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    .profile-card {
+      --profile-line: var(--surface-var-container-line);
+      --profile-panel-ground: var(--surface-container);
+    }
+
+    .profile-card.tinted {
+      --profile-chip-line: var(--surface-var-container-line);
+      --pill-primary-hover: var(--surface-container-hover);
+      --profile-line: var(--surface-var-container-line);
+    }
+
+    .profile-card.profile-card-inset-body .profile-card-panel.framed {
+      box-shadow: inset 0 1px 2px var(--profile-ink);
+    }
+  }
 </style>

@@ -104,4 +104,17 @@
   .pill-outline[data-state='open'] :global(svg) {
     color: currentcolor;
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    @media (any-hover: hover) and (any-pointer: fine) {
+      .pill-outline:hover:not([aria-expanded='true']) {
+        background: var(--bg-container-hover);
+      }
+    }
+
+    .pill-outline[aria-expanded='true'],
+    .pill-outline[data-state='open'] {
+      background: var(--bg-container-hover);
+    }
+  }
 </style>

@@ -8,9 +8,14 @@ vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 
 import ActionMenuHarness from './ActionMenuHarness.test.svelte';
+import { installBrowserCompatibility } from '#lib/platform/browser-compat.js';
+
+const nativeFindLast = Object.getOwnPropertyDescriptor(Array.prototype, 'findLast');
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  if (nativeFindLast) Reflect.defineProperty(Array.prototype, 'findLast', nativeFindLast);
 });
 
 function narrowViewport(): void {
@@ -21,7 +26,12 @@ function narrowViewport(): void {
   }));
 }
 
-test('a wide viewport opens the anchored menu, and Escape gives the page back', async () => {
+test.each(['native', 'polyfilled'])('Escape dismisses the menu with %s findLast', async (api) => {
+  if (api === 'polyfilled') {
+    Reflect.deleteProperty(Array.prototype, 'findLast');
+    vi.spyOn(CSS, 'supports').mockReturnValue(true);
+    await installBrowserCompatibility();
+  }
   const user = userEvent.setup();
   render(ActionMenuHarness, { onPick: vi.fn() });
 

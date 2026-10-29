@@ -153,4 +153,10 @@
 
     color: var(--profile-text-muted);
   }
+
+  @supports not (color: color-mix(in srgb, black, white)) {
+    :global(.persona-profile-pronoun-pill) {
+      --profile-text-muted: var(--bg-on-container);
+    }
+  }
 </style>
