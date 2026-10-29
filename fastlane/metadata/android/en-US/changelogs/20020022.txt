@@ -1,0 +1,8 @@
+- Reload the account avatar after returning from a long background session.
+- Support Java 25 for Android builds.
+- Fix Android crashing on launch after updating to 2.2.1.
+- Build unsigned Android release APKs when no keystore is configured.
+- Fix conflicting device verification badges and stale verification warnings.
+- Convert emoticons such as `<3` and `:)` to emoji by default, with a Composer setting to turn it off.
+- Support iOS 15.4.
+- Fix blank screen shares in fullscreen on iOS.
