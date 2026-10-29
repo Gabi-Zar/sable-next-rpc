@@ -82,7 +82,7 @@ android {
             isMinifyEnabled = false
         }
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("release").takeIf { it.storeFile != null }
             isMinifyEnabled = true
             packaging {
                 jniLibs.useLegacyPackaging = true

@@ -4,11 +4,9 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.11.0")
-        // Above the Tauri template's 1.9.25: the UnifiedPush connector the
-        // notifications plugin pulls in ships Kotlin 2.1 metadata, and 2.1.21
-        // still ICEs on MainActivity ("source must not be null").
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.0")
+        classpath("com.android.tools.build:gradle:8.13.2")
+        // Kotlin 2.3 rejects kotlinOptions in tauri-plugin-android-fs.
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21")
         classpath("com.google.gms:google-services:4.5.0")
     }
 }

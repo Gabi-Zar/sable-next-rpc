@@ -3,7 +3,7 @@
 
 [tools]
 # Android
-java = "temurin-21"
+java = "temurin-25"
 android-sdk = "22.0"
 
 [bootstrap.packages]

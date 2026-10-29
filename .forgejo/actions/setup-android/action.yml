@@ -26,6 +26,7 @@ runs:
       shell: bash
       run: |
         mise install
+        echo "JAVA_HOME=$(mise where java)" >> "$GITHUB_ENV"
         # Skip the desktop GTK/WebKit dependencies.
         mise run --skip-deps tauri:setup:android
 
