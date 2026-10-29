@@ -15,7 +15,7 @@ runs:
   steps:
     - name: Set up signing
       shell: bash
-      working-directory: src-tauri/gen/android
+      working-directory: ${{ github.workspace }}/src-tauri/gen/android
       run: |
         : "${ANDROID_KEY_BASE64:?ANDROID_KEY_BASE64 is required}"
         : "${ANDROID_KEY_ALIAS:?ANDROID_KEY_ALIAS is required}"
@@ -40,6 +40,14 @@ runs:
         mise install
         # Skip the desktop GTK/WebKit dependencies.
         mise run --skip-deps tauri:setup:android
+
+    - name: Validate signing keystore
+      shell: bash
+      working-directory: ${{ github.workspace }}/src-tauri/gen/android
+      run: |
+        test -s keystore.properties
+        mise exec -- keytool -list -keystore "$RUNNER_TEMP/keystore.jks" \
+          -alias "$ANDROID_KEY_ALIAS" -storepass:env ANDROID_KEY_PASSWORD > /dev/null
 
     - name: Configure Gradle cache
       id: revision
