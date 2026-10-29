@@ -3,15 +3,19 @@
 import { render, screen } from '@testing-library/svelte';
 import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
-import { expect, test, vi } from 'vitest';
+import { beforeEach, expect, test, vi } from 'vitest';
 
 import type { CoreEvent } from '#src/generated/protocol';
 
 vi.mock('#lib/core/context.js');
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
+vi.mock('#lib/platform/external-auth.js', () => ({
+  openExternalAuthUrl: vi.fn(() => Promise.resolve()),
+}));
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
+import { openExternalAuthUrl } from '#lib/platform/external-auth.js';
 
 let listener: ((event: CoreEvent) => void) | null = null;
 const core = Object.assign(baseCore, {
@@ -24,15 +28,32 @@ const core = Object.assign(baseCore, {
   startQrLogin: vi.fn(() => Promise.resolve()),
   startQrGrant: vi.fn(() => Promise.resolve()),
   qrCheckCode: vi.fn(() => Promise.resolve()),
+  qrGrantContinue: vi.fn(() => Promise.resolve()),
   cancelQr: vi.fn(() => Promise.resolve()),
 });
 
 import QrLinkDialog from './QrLinkDialog.svelte';
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 async function emit(progress: Extract<CoreEvent, { type: 'qr_login' }>['progress'], grant = true) {
   listener?.({ type: 'qr_login', grant, progress });
   await tick();
 }
+
+test('opens device approval through the authentication browser', async () => {
+  const user = userEvent.setup();
+  render(QrLinkDialog, { open: true, mode: 'grant' });
+
+  const uri = 'https://auth.example.org/device?user_code=ABCD';
+  await emit({ stage: 'waiting_for_auth', verification_uri: uri });
+  await user.click(screen.getByRole('button', { name: 'Open the approval page' }));
+
+  expect(openExternalAuthUrl).toHaveBeenCalledExactlyOnceWith(uri);
+  expect(core.cancelQr).not.toHaveBeenCalled();
+});
 
 test('points QR sign-in instructions to Account settings', async () => {
   const user = userEvent.setup();

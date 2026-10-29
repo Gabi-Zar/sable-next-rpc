@@ -316,6 +316,7 @@ unsafe extern "C" {
     static UIBackgroundTaskInvalid: usize;
     static UIApplicationWillResignActiveNotification: &'static NSString;
     static UIApplicationDidEnterBackgroundNotification: &'static NSString;
+    static UIApplicationWillEnterForegroundNotification: &'static NSString;
     static UIApplicationDidBecomeActiveNotification: &'static NSString;
 }
 
@@ -331,6 +332,7 @@ pub(crate) fn in_background() -> bool {
 pub(crate) enum Lifecycle {
     ResignActive,
     EnterBackground,
+    EnterForeground,
     BecomeActive,
 }
 
@@ -349,6 +351,10 @@ pub(crate) fn observe_lifecycle(handler: impl Fn(Lifecycle) + 'static) {
             (
                 UIApplicationDidEnterBackgroundNotification,
                 Lifecycle::EnterBackground,
+            ),
+            (
+                UIApplicationWillEnterForegroundNotification,
+                Lifecycle::EnterForeground,
             ),
             (
                 UIApplicationDidBecomeActiveNotification,
@@ -374,6 +380,10 @@ pub(crate) fn observe_lifecycle(handler: impl Fn(Lifecycle) + 'static) {
 pub(crate) struct BackgroundTask(Arc<AtomicUsize>);
 
 impl BackgroundTask {
+    pub(crate) fn is_active(&self) -> bool {
+        self.0.load(Ordering::SeqCst) != unsafe { UIBackgroundTaskInvalid }
+    }
+
     /// Call on the main thread so the expiration handler cannot run before the identifier is stored.
     pub(crate) fn begin(name: &str) -> Self {
         let task = Arc::new(AtomicUsize::new(unsafe { UIBackgroundTaskInvalid }));

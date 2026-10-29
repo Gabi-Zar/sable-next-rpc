@@ -184,6 +184,7 @@ pub struct Core {
     search_network: search::CrawlNetwork,
     search_foreground: AtomicBool,
     app_active: AtomicBool,
+    app_activity_revision: AtomicU64,
     app_wake: tokio::sync::Notify,
     sync_suspended: AtomicBool,
     shut_down: AtomicBool,
@@ -300,6 +301,7 @@ impl Core {
             search_network: search::CrawlNetwork::default(),
             search_foreground: AtomicBool::new(true),
             app_active: AtomicBool::new(true),
+            app_activity_revision: AtomicU64::new(0),
             app_wake: tokio::sync::Notify::new(),
             sync_suspended: AtomicBool::new(false),
             shut_down: AtomicBool::new(false),
@@ -462,15 +464,30 @@ impl Core {
         self.foreground_paginations.load(Ordering::Relaxed)
     }
 
-    pub fn set_app_active(&self, active: bool) {
+    pub fn set_app_active(&self, active: bool) -> u64 {
         self.app_active.store(active, Ordering::Relaxed);
+        let revision = self.app_activity_revision.fetch_add(1, Ordering::SeqCst) + 1;
         if active {
             self.app_wake.notify_waiters();
         }
+        revision
     }
 
     pub async fn apply_app_activity(self: &Arc<Self>, active: bool) {
+        self.apply_activity(active, None).await;
+    }
+
+    pub async fn apply_app_activity_if_current(self: &Arc<Self>, active: bool, revision: u64) {
+        self.apply_activity(active, Some(revision)).await;
+    }
+
+    async fn apply_activity(self: &Arc<Self>, active: bool, revision: Option<u64>) {
         let _serial = self.activity_lock.lock().await;
+        if revision
+            .is_some_and(|revision| self.app_activity_revision.load(Ordering::SeqCst) != revision)
+        {
+            return;
+        }
         if self.app_active.load(Ordering::Relaxed) != active {
             return;
         }

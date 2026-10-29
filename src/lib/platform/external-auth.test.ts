@@ -20,7 +20,8 @@ beforeEach(() => {
 });
 
 describe('authentication browsers', () => {
-  test('keeps registration fallback and account management inside iOS', async () => {
+  test.each(['ios', 'android'])('keeps authentication pages inside %s', async (platform) => {
+    native.platform.mockReturnValue(platform);
     await openExternalAuthUrl('https://matrix.example.org/register');
     expect(native.invoke).toHaveBeenCalledExactlyOnceWith('open_in_app_auth_url', {
       url: 'https://matrix.example.org/register',
@@ -28,7 +29,7 @@ describe('authentication browsers', () => {
   });
 
   test('keeps the external URL command on other native platforms', async () => {
-    native.platform.mockReturnValue('android');
+    native.platform.mockReturnValue('linux');
     await openExternalAuthUrl('https://matrix.example.org/register');
     expect(native.invoke).toHaveBeenCalledExactlyOnceWith('open_external_url', {
       url: 'https://matrix.example.org/register',

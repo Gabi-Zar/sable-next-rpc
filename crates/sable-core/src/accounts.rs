@@ -1978,6 +1978,33 @@ mod regression_tests {
     }
 
     #[tokio::test]
+    async fn a_stale_pause_cannot_stop_a_new_background_interval() {
+        use matrix_sdk_ui::sync_service::State;
+
+        let (_server, core, _room) = core_with_room().await;
+        core.set_app_active(true);
+        core.apply_app_activity(true).await;
+        let sync = core.sync_service().await.unwrap();
+
+        let serial = core.activity_lock.lock().await;
+        let old_revision = core.set_app_active(false);
+        let old_core = core.clone();
+        let old_pause = tokio::spawn(async move {
+            old_core
+                .apply_app_activity_if_current(false, old_revision)
+                .await;
+        });
+        core.set_app_active(true);
+        let revision = core.set_app_active(false);
+        drop(serial);
+        old_pause.await.unwrap();
+
+        assert!(!matches!(sync.state().get(), State::Idle));
+        core.apply_app_activity_if_current(false, revision).await;
+        assert!(matches!(sync.state().get(), State::Idle));
+    }
+
+    #[tokio::test]
     async fn a_sync_that_never_answers_is_restarted() {
         use std::time::Duration;
 

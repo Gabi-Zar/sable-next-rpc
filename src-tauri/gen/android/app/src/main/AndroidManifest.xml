@@ -7,6 +7,9 @@
 
     <queries>
         <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+        <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>
         <intent>
@@ -100,6 +103,10 @@
             </intent-filter>
             <!-- DEEP LINK PLUGIN. AUTO-GENERATED. DO NOT REMOVE. -->
         </activity>
+
+        <service
+            android:name=".AuthBrowserKeepAliveService"
+            android:exported="true" />
 
         <provider
           android:name="androidx.core.content.FileProvider"

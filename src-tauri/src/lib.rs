@@ -482,6 +482,8 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
     let pushing = core.clone();
     #[cfg(target_os = "android")]
     let _ = cold_push::CORE.set(core.clone());
+    #[cfg(target_os = "android")]
+    mobile::attach_activity(&core);
     tauri::async_runtime::spawn(restore_ahead_of_webview(core.clone()));
     app.manage(AppState {
         core,
@@ -551,31 +553,31 @@ fn hide_to_tray_on_close(window: &tauri::Window<BrowserEngine>, event: &tauri::W
 #[cfg(mobile)]
 const SYNC_STOP_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
 
-#[cfg(target_os = "android")]
-fn update_mobile_activity(window: &tauri::Window<BrowserEngine>, event: &tauri::WindowEvent) {
-    let active = match event {
-        tauri::WindowEvent::Suspended => false,
-        tauri::WindowEvent::Resumed => true,
-        _ => return,
-    };
-    if let Some(state) = window.try_state::<AppState>() {
-        set_mobile_activity(state.core.clone(), active, SYNC_STOP_DELAY);
-    }
-}
-
 #[cfg(target_os = "ios")]
 fn follow_ios_lifecycle(core: &Arc<Core>) {
+    use std::cell::RefCell;
+
     if ios::in_background() {
-        set_mobile_activity(core.clone(), false, std::time::Duration::ZERO);
+        set_mobile_activity(core.clone(), false);
     }
     let core = core.clone();
+    let preparation = RefCell::new(None);
     ios::observe_lifecycle(move |change| match change {
-        ios::Lifecycle::ResignActive => set_mobile_activity(core.clone(), false, SYNC_STOP_DELAY),
+        ios::Lifecycle::ResignActive => {
+            preparation
+                .borrow_mut()
+                .get_or_insert_with(|| ios::BackgroundTask::begin("Prepare sync pause"));
+        }
         ios::Lifecycle::EnterBackground => {
-            set_mobile_activity(core.clone(), false, std::time::Duration::ZERO);
+            let _preparation = preparation.borrow_mut().take();
+            set_mobile_activity(core.clone(), false);
+        }
+        ios::Lifecycle::EnterForeground => {
+            preparation.borrow_mut().take();
+            set_mobile_activity(core.clone(), true);
         }
         ios::Lifecycle::BecomeActive => {
-            set_mobile_activity(core.clone(), true, std::time::Duration::ZERO);
+            preparation.borrow_mut().take();
         }
     });
 }
@@ -593,15 +595,25 @@ fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::Sessi
 }
 
 #[cfg(mobile)]
-fn set_mobile_activity(core: Arc<Core>, active: bool, stop_delay: std::time::Duration) {
-    core.set_app_active(active);
+fn set_mobile_activity(core: Arc<Core>, active: bool) {
+    let revision = core.set_app_active(active);
     #[cfg(target_os = "ios")]
     let background_task = (!active).then(|| ios::BackgroundTask::begin("Pause sync"));
+    let stop_delay = SYNC_STOP_DELAY;
+    #[cfg(target_os = "ios")]
+    let stop_delay = if background_task
+        .as_ref()
+        .is_some_and(|task| !task.is_active())
+    {
+        std::time::Duration::ZERO
+    } else {
+        stop_delay
+    };
     tauri::async_runtime::spawn(async move {
         if !active {
             tokio::time::sleep(stop_delay).await;
         }
-        core.apply_app_activity(active).await;
+        core.apply_app_activity_if_current(active, revision).await;
         #[cfg(target_os = "ios")]
         drop(background_task);
     });
@@ -987,9 +999,6 @@ pub fn run() {
         .plugin(window_geometry::plugin())
         .on_window_event(hide_to_tray_on_close);
 
-    #[cfg(target_os = "android")]
-    let builder = builder.on_window_event(update_mobile_activity);
-
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = with_updates(builder);
 
@@ -1082,6 +1091,8 @@ pub fn run() {
             ios::save_media_to_photos,
             #[cfg(target_os = "ios")]
             ios::open_in_app_auth_url,
+            #[cfg(target_os = "android")]
+            mobile::open_in_app_auth_url,
             #[cfg(target_os = "ios")]
             ios::haptic_feedback,
             #[cfg(target_os = "ios")]

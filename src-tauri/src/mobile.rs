@@ -2,7 +2,7 @@
 // `Window.setStatusBarColor` is a no-op from API 35.
 // Tauri does not populate ndk-context, so MainActivity hands us the JavaVM on create.
 
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use jni::objects::{JObject, JValue};
 use jni::signature::MethodSignature;
@@ -10,6 +10,61 @@ use jni::strings::JNIString;
 use jni::{EnvUnowned, JavaVM, jni_sig, jni_str};
 
 static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
+static ACTIVITY: Mutex<(bool, Option<Weak<sable_core::Core>>)> = Mutex::new((true, None));
+
+pub(crate) fn attach_activity(core: &Arc<sable_core::Core>) {
+    let mut activity = ACTIVITY
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    activity.1 = Some(Arc::downgrade(core));
+    crate::set_mobile_activity(core.clone(), activity.0);
+}
+
+#[unsafe(no_mangle)]
+#[expect(unsafe_code, reason = "JNI entry point")]
+pub extern "system" fn Java_moe_sable_client_AppLifecycle_nativeActivityChanged(
+    _env: EnvUnowned,
+    _this: JObject,
+    active: jni::sys::jboolean,
+) {
+    let core = {
+        let mut activity = ACTIVITY
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        activity.0 = active;
+        activity.1.as_ref().and_then(Weak::upgrade)
+    };
+    if let Some(core) = core {
+        crate::set_mobile_activity(core, active);
+    }
+}
+
+#[tauri::command]
+pub async fn open_in_app_auth_url(url: String) -> Result<(), String> {
+    let parsed = tauri::Url::parse(&url).map_err(|_| "invalid authentication URL")?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err("authentication requires an HTTP or HTTPS URL".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
+        vm.attach_current_thread(|env| {
+            let url = env.new_string(parsed.as_str())?;
+            let result = env.call_static_method(
+                jni_str!("moe/sable/client/MainActivity"),
+                jni_str!("openAuthUrlNative"),
+                jni_sig!("(Ljava/lang/String;)V"),
+                &[JValue::Object(&url)],
+            );
+            if result.is_err() {
+                env.exception_clear();
+            }
+            result.map(|_| ())
+        })
+        .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
 
 #[tauri::command]
 pub async fn copy_image_to_clipboard(image: String) -> Result<(), String> {
