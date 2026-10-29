@@ -148,7 +148,7 @@
 >
   <div class={['profile-card-cover', { 'has-banner': banner }]} style:background={color}>
     {#if banner}
-      <Banner source={banner} name={displayName} width={720} height={720} />
+      <Banner source={banner} name={displayName} width={720} height={240} />
     {:else if cover}
       <MediaImage
         class={banner ? 'profile-card-banner' : 'profile-card-banner profile-card-banner-fallback'}
