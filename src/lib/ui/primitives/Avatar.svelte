@@ -238,11 +238,13 @@
   }
 
   .avatar-button {
+    align-items: center;
     background: none;
     border: 0;
     border-radius: calc(var(--radius) - var(--border-width));
     cursor: pointer;
     height: 100%;
+    justify-content: center;
     padding: 0;
     width: 100%;
   }
