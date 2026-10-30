@@ -3981,7 +3981,7 @@ async fn sliding_sync_room_summary_prefers_avatar_state_over_the_avatar_property
             "missing",
             room_id!("!sliding-avatar-missing:example.org"),
             None,
-            Some("mxc://example.org/stale-room-picture"),
+            None,
         ),
         (
             "cleared",
@@ -4072,6 +4072,66 @@ async fn sliding_sync_room_summary_prefers_avatar_state_over_the_avatar_property
             "{name} room summary"
         );
     }
+}
+
+#[tokio::test]
+async fn sliding_sync_hero_avatar_is_not_the_avatar_of_a_room_that_is_not_direct() {
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!sliding-hero-avatar:example.org");
+    let sliding_sync = client
+        .sliding_sync("hero-avatar")
+        .unwrap()
+        .build()
+        .await
+        .unwrap();
+    sliding_sync.add_room_subscriptions(&[room_id], None, true);
+    let stream = sliding_sync.sync();
+    pin_mut!(stream);
+
+    let response = Mock::given(method("POST"))
+        .and(path(
+            "/_matrix/client/unstable/org.matrix.simplified_msc3575/sync",
+        ))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "pos": "1",
+            "lists": {},
+            "rooms": {
+                room_id.to_string(): {
+                    "avatar": "mxc://example.org/alice",
+                    "heroes": [{
+                        "user_id": *ALICE,
+                        "displayname": "Alice",
+                        "avatar_url": "mxc://example.org/alice",
+                    }],
+                    "joined_count": 1,
+                    "invited_count": 1,
+                    "initial": true,
+                }
+            },
+            "extensions": {}
+        })))
+        .mount_as_scoped(server.server())
+        .await;
+    stream.next().await.unwrap().unwrap();
+    drop(response);
+
+    let item = matrix_sdk_ui::room_list_service::RoomListItem::from(
+        client.get_room(room_id).expect("subscribed room"),
+    );
+    let mut cache = std::collections::HashMap::new();
+    super::view::enrich_room_batch(
+        &[matrix_sdk_ui::eyeball_im::VectorDiff::Set {
+            index: 0,
+            value: item.clone(),
+        }],
+        &mut cache,
+    )
+    .await;
+    let summary =
+        super::view::room_list_item(&item, &cache, &matrix_sdk::ruma::push::Ruleset::new());
+    assert!(!summary.is_direct);
+    assert_eq!(summary.avatar_url, None);
 }
 
 #[tokio::test]

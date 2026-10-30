@@ -414,6 +414,7 @@ async fn room_avatar_url(room: &Room) -> Option<String> {
             .and_then(|content| content.url.clone())
     } else {
         room.avatar_url()
+            .filter(|_| room.state() != matrix_sdk::RoomState::Joined)
     };
 
     match avatar {
