@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { render } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import type { RoomListItemView } from '#src/generated/protocol';
@@ -24,7 +25,7 @@ vi.mock('#lib/features/calendar/CalendarPage.svelte', () => ({
   default: () => rendered.push('calendar'),
 }));
 
-import { visit } from '#lib/test-support/app-state.js';
+import { page, visit } from '#lib/test-support/app-state.js';
 
 import RoomOrForumPage from './RoomOrForumPage.svelte';
 
@@ -56,5 +57,21 @@ test('keeps a forum in its specialized view normally', () => {
 test('a forum permalink uses the room event navigation', () => {
   visit('/rooms/!forum:example.org?event=%24reply', { roomId: '!forum:example.org' });
   render(RoomOrForumPage);
+  expect(rendered).toEqual(['room']);
+});
+
+test('landing on a notification keeps the room mounted when its state is cleared', async () => {
+  const pageState = $state<{ notified?: string }>({ notified: '$event' });
+  Object.defineProperty(page, 'state', { configurable: true, get: () => pageState });
+  state.rooms = [
+    { room_id: '!room:example.org', room_kind: 'text' } as unknown as RoomListItemView,
+  ];
+  visit('/rooms/!room:example.org', { roomId: '!room:example.org' });
+  render(RoomOrForumPage);
+  expect(rendered).toEqual(['room']);
+
+  pageState.notified = undefined;
+  await tick();
+
   expect(rendered).toEqual(['room']);
 });
