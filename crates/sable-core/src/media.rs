@@ -519,12 +519,13 @@ impl Core {
             ..AttachmentConfig::default()
         };
 
-        self.room(&request.room_id)
-            .await?
-            .send_queue()
-            .send_attachment(request.filename, mime, bytes, config)
-            .await
-            .or_failed(self, "send_attachment")?;
+        let room = self.room(&request.room_id).await?;
+        Box::pin(
+            room.send_queue()
+                .send_attachment(request.filename, mime, bytes, config),
+        )
+        .await
+        .or_failed(self, "send_attachment")?;
 
         Ok(())
     }
