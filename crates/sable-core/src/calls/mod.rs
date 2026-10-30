@@ -402,6 +402,7 @@ pub(super) async fn ensure_open_slot(
     };
     room.send_state_event_raw(event_type, wire.slot(), raw.cast_unchecked())
         .await
+        .inspect_err(|error| tracing::warn!(?error, "could not open the call slot"))
         .is_ok()
 }
 
@@ -657,6 +658,11 @@ impl Core {
         if direct && users.is_empty() {
             return;
         }
+        let power_levels = room.power_levels_or_default().await;
+        if !direct && !power_levels.user_can_trigger_room_notification(room.own_user_id()) {
+            tracing::warn!("call invitation not sent: no permission to notify the room");
+            return;
+        }
         let slot = own.wire.slot();
         let supported = room
             .client()
@@ -674,7 +680,6 @@ impl Core {
             let content = invites::content(slot, direct, &users, membership_event_id.as_str());
             let mut current = invites::Invitations::default();
             current.slots.insert(slot.to_owned(), true);
-            let power_levels = room.power_levels_or_default().await;
             for event in sticky::live_events(room) {
                 let event = event.into_value();
                 let allowed = event["sender"]
@@ -693,7 +698,9 @@ impl Core {
             {
                 tracing::warn!(?error, "could not invite the room to the call");
             }
-        } else if own.mode == crate::protocol::CallMode::Legacy {
+        } else if own.mode == crate::protocol::CallMode::Matrix2 {
+            tracing::warn!("call invitation not sent: no open call slot or sticky event support");
+        } else {
             let kind = if direct {
                 notify::NotificationKind::Ring
             } else {
@@ -741,7 +748,7 @@ impl Core {
         if others && !slot_closed {
             return;
         }
-        let duration = sticky::live_events(room)
+        let Some(duration) = sticky::live_events(room)
             .into_iter()
             .map(sticky::Event::into_value)
             .filter(|event| {
@@ -754,15 +761,18 @@ impl Core {
                         )
                     )
             })
-            .filter_map(|event| {
+            .map(|event| {
                 event
                     .get("sticky")
                     .or_else(|| event.get("msc4354_sticky"))
                     .and_then(|sticky| sticky["duration_ms"].as_u64())
+                    .unwrap_or(invites::STICKY_MS)
             })
             .max()
-            .unwrap_or(invites::STICKY_MS)
-            .clamp(invites::STICKY_MS, 3_600_000);
+        else {
+            return;
+        };
+        let duration = duration.clamp(invites::STICKY_MS, 3_600_000);
         let content = serde_json::json!({"msc4354_sticky_key": own.wire.slot()});
         if let Err(error) = room
             .send_raw(notify::NOTIFICATION_EVENT_TYPE, content)

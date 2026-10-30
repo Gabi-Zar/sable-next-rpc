@@ -363,12 +363,11 @@ async fn present_invite(core: &Core, room: &Room, invite: &Invite, generation: u
         room.own_user_id().as_str(),
         room.is_direct().await.unwrap_or(false),
     );
-    let has_video = invite.event["content"]["m.call.intent"] == "video"
-        || sticky::live_events(room).into_iter().any(|event| {
-            let event = event.into_value();
-            event["content"]["slot_id"] == invite.slot
-                && event["content"]["application"]["intent"] == "m.video"
-        });
+    let events: Vec<_> = sticky::live_events(room)
+        .into_iter()
+        .map(sticky::Event::into_value)
+        .collect();
+    let has_video = invite.has_video(&events);
     core.emit_if_current(
         generation,
         CoreEvent::IncomingCall {

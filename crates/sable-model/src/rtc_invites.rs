@@ -131,6 +131,17 @@ pub struct Invite {
 
 impl Invite {
     #[must_use]
+    pub fn has_video(&self, events: &[Value]) -> bool {
+        self.event["content"]["m.call.intent"] == "video"
+            || events.iter().any(|event| {
+                is_rtc_member_type(kind(event))
+                    && event["content"]["slot_id"] == self.slot
+                    && (event["content"]["application"]["intent"] == "m.video"
+                        || event["content"]["application"]["m.call.intent"] == "video")
+            })
+    }
+
+    #[must_use]
     pub fn parse(value: &Value, now: u64) -> Option<Self> {
         if !invite_type(value) || value["unsigned"].get("redacted_because").is_some() {
             return None;
@@ -760,16 +771,9 @@ impl InvitePresentation {
         {
             return None;
         }
-        let has_video = invite.event["content"]["m.call.intent"] == "video"
-            || events.iter().any(|event| {
-                is_rtc_member_type(kind(event))
-                    && event["content"]["slot_id"] == invite.slot
-                    && (event["content"]["application"]["intent"] == "m.video"
-                        || event["content"]["application"]["m.call.intent"] == "video")
-            });
         Some(Self {
             expires_at_ms: invite.expires,
-            has_video,
+            has_video: invite.has_video(events),
         })
     }
 }
