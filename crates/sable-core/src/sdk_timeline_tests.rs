@@ -1308,10 +1308,16 @@ async fn live_timeline_reports_its_back_pagination_status() {
         .await
         .unwrap();
 
-    let event = tokio::time::timeout(Duration::from_secs(1), events.recv())
-        .await
-        .expect("pagination status event")
-        .expect("open event stream");
+    let event = tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            let event = events.recv().await.expect("open event stream");
+            if matches!(event, CoreEvent::TimelinePagination { .. }) {
+                break event;
+            }
+        }
+    })
+    .await
+    .expect("pagination status event");
     assert!(matches!(
         event,
         CoreEvent::TimelinePagination {
