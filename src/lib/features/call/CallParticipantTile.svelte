@@ -652,7 +652,7 @@
 
   @supports not (color: color-mix(in srgb, black, white)) {
     .tile {
-      --tile-scrim: rgb(0 0 0 / 62%);
+      --tile-scrim: var(--call-tile-scrim);
     }
 
     .tile.speaking.video-on::after {
@@ -661,7 +661,7 @@
 
     .actions :global(.tile-action),
     .stop-watching :global(.tile-action) {
-      --button-container-hover: rgb(0 0 0 / 80%);
+      --button-container-hover: var(--call-tile-scrim-hover);
     }
   }
 </style>

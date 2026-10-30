@@ -14,12 +14,17 @@ Component tests use Testing Library with happy-dom. The core is mocked in `src/l
 ## Static checks
 
 ```sh
-pnpm check       # theme-token, timeline-scroll, overlay-layer and date-input guards, svelte-check, tsc
-pnpm lint        # oxlint and eslint
-pnpm stylelint
+pnpm check        # svelte-check and TypeScript
+pnpm lint         # oxlint and eslint
+pnpm stylelint    # CSS rules and theme-token usage
 pnpm fmt:check
-pnpm knip        # unused files and exports
+pnpm knip         # unused files and exports
+pnpm check:locales # unused English translation candidates
 ```
+
+Stylelint checks token usage in components and custom-property references in `src/styles.css`. Vitest checks CSS and JavaScript breakpoint consistency.
+
+Locale analysis uses `i18next-cli` and its Svelte plugin through `i18next.config.ts`. The optional check exits nonzero when it finds candidates. Dynamic key families are preserved, but indirect label references can still be flagged; review candidates before deleting them. Run `pnpm exec i18next-cli status en --hide-translated` to check for missing English keys.
 
 ## Accessibility
 

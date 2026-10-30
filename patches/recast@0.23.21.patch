@@ -1,0 +1,15 @@
+diff --git a/lib/fast-path.js b/lib/fast-path.js
+index 0e7a50e3d51df159c903e76a7c4a80e8405dcae2..a7559ca31f9064c075dcc3b09da104120869d18c 100644
+--- a/lib/fast-path.js
++++ b/lib/fast-path.js
+@@ -376,6 +376,10 @@ FPp.needsParens = function (assumeExpressionContext) {
+                     var pp = PRECEDENCE[po];
+                     var no = node.operator;
+                     var np = PRECEDENCE[no];
++                    if ((po === "??" && (no === "||" || no === "&&")) ||
++                        (no === "??" && (po === "||" || po === "&&"))) {
++                        return true;
++                    }
+                     if (pp > np) {
+                         return true;
+                     }

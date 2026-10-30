@@ -189,7 +189,7 @@
     }
 
     .tag {
-      background: rgb(0 0 0 / 62%);
+      background: var(--call-tile-scrim);
     }
   }
 </style>

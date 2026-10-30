@@ -8,6 +8,14 @@ export default {
     'max-nesting-depth': 2,
     'selector-max-combinators': 3,
     'declaration-no-important': true,
+    'color-no-hex': true,
+    'function-disallowed-list': ['rgb', 'rgba', 'hsl', 'hsla'],
+    'declaration-property-value-allowed-list': {
+      'font-size': ['inherit', /^(?:var|max|min|clamp|calc)\(/],
+    },
+    'declaration-property-unit-disallowed-list': {
+      '/^(?:margin|padding)(?:-|$)|^(?:gap|row-gap|column-gap)$/': ['px', 'rem', 'em'],
+    },
 
     'defensive-css/require-prefers-reduced-motion': [true, { severity: 'error' }],
     'order/properties-alphabetical-order': true,
@@ -18,4 +26,16 @@ export default {
       },
     ],
   },
+  overrides: [
+    {
+      files: ['src/styles.css'],
+      rules: {
+        'color-no-hex': null,
+        'function-disallowed-list': null,
+        'declaration-property-value-allowed-list': null,
+        'declaration-property-unit-disallowed-list': null,
+        'no-unknown-custom-properties': true,
+      },
+    },
+  ],
 };

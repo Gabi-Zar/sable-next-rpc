@@ -25,4 +25,6 @@ minimumReleaseAgeExclude:
 patchedDependencies:
   '@sveltejs/kit@3.1.0': patches/@sveltejs__kit@3.1.0.patch
   livekit-client@2.23.0: patches/livekit-client@2.23.0.patch
+  # Backport https://github.com/benjamn/recast/pull/1442 until it is released.
+  recast@0.23.21: patches/recast@0.23.21.patch
   svelte@5.57.2: patches/svelte@5.57.2.patch

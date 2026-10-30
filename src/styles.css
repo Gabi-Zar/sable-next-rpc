@@ -231,6 +231,8 @@ html {
   --media-scrim-solid: rgb(0 0 0 / 100%);
   --media-scrim-hover: rgb(255 255 255 / 20%);
   --media-on-scrim: #fff;
+  --call-tile-scrim: rgb(0 0 0 / 62%);
+  --call-tile-scrim-hover: rgb(0 0 0 / 80%);
   --qr-dark: #000;
   --qr-light: #fff;
   --tc-link: initial;

@@ -3,6 +3,7 @@
   "workspaces": {
     ".": {
       "entry": [
+        "i18next.config.ts",
         "scripts/**/*.mjs",
         "tests/fixtures/generate-v1-crypto.mjs",
         "tests/e2e/global.setup.ts",
