@@ -4,13 +4,22 @@ use clap::{Arg, ArgAction, Command, CommandFactory, builder::ValueParser};
 use conduwuit_admin::AdminCommand;
 use serde_json::{Value, json};
 
+#[path = "sable_admin_commands/restrictions.rs"]
+mod restrictions;
+
 fn main() {
-	let tree: Vec<Value> = AdminCommand::command()
-		.get_subcommands()
-		.filter(|command| !command.is_hide_set())
-		.map(node)
-		.collect();
-	println!("{}", serde_json::to_string(&tree).expect("tree serializes"));
+    let tree: Vec<Value> = AdminCommand::command()
+        .get_subcommands()
+        .filter(|command| !command.is_hide_set())
+        .map(node)
+        .collect();
+    let root = std::env::args().nth(1).expect("checkout path is required");
+    let restrictions =
+        restrictions::read(std::path::Path::new(&root)).expect("command restrictions parse");
+    println!(
+        "{}",
+        json!({ "commands": tree, "restrictions": restrictions })
+    );
 }
 
 fn node(command: &Command) -> Value {

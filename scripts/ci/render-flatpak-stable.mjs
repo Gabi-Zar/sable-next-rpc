@@ -2,7 +2,7 @@
 // Pass "-" for an architecture that is not being published.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { assertSubstituted, flatpakFlavor, parseArches } from '../lib/flatpak.mjs';
+import { flatpakFlavor, parseArches, renderSources } from '../lib/flatpak.mjs';
 
 const { args, dir, id } = flatpakFlavor(process.argv.slice(2), 'stable');
 const [version, x86, arm] = args;
@@ -16,23 +16,11 @@ if (!version || !/^\d+\.\d+\.\d+$/.test(version) || !x86 || !arm) {
 
 const arches = parseArches(x86, arm, { sized: false });
 
-let manifest = readFileSync(`${dir}/${id}.yml.in`, 'utf8').replaceAll('@VERSION@', version);
-
-for (const [arch, values] of Object.entries(arches)) {
-  if (values) {
-    manifest = manifest.replaceAll(`@SHA256_${arch.toUpperCase()}@`, values.sha);
-    continue;
-  }
-  const block = new RegExp(
-    `      - type: archive\\n(?:        .*\\n|          .*\\n)*?        only-arches: \\[${arch}\\]\\n(?:        x-checker-data:\\n(?:          .*\\n)*)?`
-  );
-  if (!block.test(manifest)) {
-    throw new Error(`Could not find the ${arch} archive source to drop.`);
-  }
-  manifest = manifest.replace(block, '');
-}
-
-assertSubstituted(manifest);
+const manifest = renderSources(
+  readFileSync(`${dir}/${id}.yml.in`, 'utf8').replaceAll('@VERSION@', version),
+  arches,
+  'archive'
+);
 
 writeFileSync(`${dir}/${id}.yml`, manifest);
 console.log(`Rendered the stable Flatpak manifest for ${version}`);

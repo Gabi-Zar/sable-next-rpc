@@ -53,7 +53,7 @@ test('nightly codes remain timestamp-based and stable stamping clears them', () 
 
 test('unrepresentable versions fail without changing the config', () => {
   withConfig((stamp) => {
-    for (const version of ['210.0.0', '2.1000.0', '2.0.1000']) {
+    for (const version of ['210.0.0', '2.1000.0', '2.0.1000', '2.1.4garbage', '2.1', '2.01.4']) {
       const result = stamp(version);
       assert.notEqual(result.status, 0);
       assert.equal(result.config.bundle.android.versionCode, 1_792_670_400);

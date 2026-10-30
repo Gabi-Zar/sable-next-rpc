@@ -1000,7 +1000,7 @@ jobs:
             # Older entries would 404 once their nightly release is pruned.
             export ALTSTORE_MAX_VERSIONS="$NIGHTLY_KEEP"
             node scripts/ci/forgejo-release.mjs download \
-              --tag nightly --pattern altstore-source.json --dir .
+              --tag nightly --pattern altstore-source.json --dir . --optional
             [ -e altstore-source.json ] || \
               cp scripts/ci/templates/altstore-source-nightly.json altstore-source.json
           else
@@ -1047,7 +1047,6 @@ jobs:
           persist-credentials: false
       - name: Upload manifests to latest
         run: |
-          shopt -s nullglob
           node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'altstore-source.json' --dir .
           node scripts/ci/forgejo-release.mjs download \
@@ -1109,7 +1108,7 @@ jobs:
             --notes "$notes"
           for name in obtainium.json altstore-source.json; do
             node scripts/ci/forgejo-release.mjs download \
-              --tag "$TAG" --pattern "$name" --dir .
+              --tag "$TAG" --pattern "$name" --dir . --optional
             [ ! -e "$name" ] || \
               node scripts/ci/forgejo-release.mjs upload --tag nightly "$name"
           done
@@ -1123,8 +1122,8 @@ jobs:
               | grep -aoE 'download/nightly-[^/]+' | cut -d/ -f2 | tr '\n' ',')"
           done
           mkdir channel
-          node scripts/ci/forgejo-release.mjs download --tag nightly --pattern '*.json' --dir channel
-          node scripts/ci/forgejo-release.mjs download --tag nightly --pattern '*.yml' --dir channel
+          node scripts/ci/forgejo-release.mjs download --tag nightly --pattern '*.json' --dir channel --optional
+          node scripts/ci/forgejo-release.mjs download --tag nightly --pattern '*.yml' --dir channel --optional
           protect="$protect,$(cat channel/* | grep -oE 'download/nightly-[^/]+' \
             | cut -d/ -f2 | sort -u | tr '\n' ',')"
           node scripts/ci/forgejo-release.mjs prune --keep "$NIGHTLY_KEEP" --protect "$protect"
@@ -1150,7 +1149,6 @@ jobs:
           mkdir debs
           node scripts/ci/forgejo-release.mjs download \
             --pattern "sable-${VERSION}-amd64.deb" --dir debs
-          ls debs | grep -q . || { echo 'The x86_64 deb is not on the release' >&2; exit 1; }
       - name: Push to the AUR
         env:
           AUR_KEY: ${{ secrets.AUR_KEY }}
@@ -1223,7 +1221,6 @@ jobs:
           mkdir dmg
           node scripts/ci/forgejo-release.mjs download \
             --pattern "sable-${VERSION}-arm64.dmg" --dir dmg
-          ls dmg | grep -q . || { echo 'The DMG is not on the release' >&2; exit 1; }
       - name: Push the cask to the Forgejo tap
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -1291,7 +1288,6 @@ jobs:
           mkdir aab
           node scripts/ci/forgejo-release.mjs download \
             --pattern "sable-${VERSION}-android-universal.aab" --dir aab
-          ls aab | grep -q . || { echo 'The universal AAB is not on the release' >&2; exit 1; }
       - name: Prepare the release notes
         if: ${{ env.PLAY_SERVICE_ACCOUNT_JSON != '' }}
         id: notes

@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
+import { inc, parse, valid } from 'semver';
 
 function commitDate() {
   try {
@@ -16,8 +17,8 @@ function commitDate() {
 
 function nightlyVersion(gitSha) {
   const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
-  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
-  if (!match) {
+  const parsed = parse(version);
+  if (!parsed || parsed.prerelease.length > 0 || parsed.build.length > 0) {
     throw new Error(`package.json version must be stable SemVer (got: ${version})`);
   }
 
@@ -32,12 +33,12 @@ function nightlyVersion(gitSha) {
     pad(date.getUTCSeconds()),
   ].join('');
 
-  const [, major, minor, patch] = match;
-  return `${major}.${minor}.${Number(patch) + 1}-nightly.${stamp}.g${gitSha.slice(0, 12)}`;
+  return `${inc(parsed, 'patch')}-nightly.${stamp}.g${gitSha.slice(0, 12)}`;
 }
 
 function resolveReleaseMeta({ eventName, inputTag, gitRef, gitRefName, gitSha }) {
   if (eventName === 'workflow_dispatch' && inputTag) {
+    if (!valid(inputTag)) throw new Error(`Invalid release tag: ${inputTag}`);
     return { tag: inputTag, version: inputTag.replace(/^v/, ''), ref: inputTag, nightly: false };
   }
   if (gitRef === 'refs/heads/main') {
@@ -47,7 +48,7 @@ function resolveReleaseMeta({ eventName, inputTag, gitRef, gitRefName, gitSha })
     const version = nightlyVersion(gitSha);
     return { tag: `nightly-${version}`, version, ref: gitSha, nightly: true };
   }
-  if (/^v\d+\./.test(gitRefName)) {
+  if (gitRefName.startsWith('v') && valid(gitRefName)) {
     return { tag: gitRefName, version: gitRefName.replace(/^v/, ''), ref: gitRef, nightly: false };
   }
   throw new Error(`No release target for ref ${gitRef || '<none>'}`);

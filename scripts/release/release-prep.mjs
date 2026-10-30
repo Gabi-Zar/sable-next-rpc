@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parse } from 'semver';
 import { changelogSectionIn } from '../lib/changelog.mjs';
 
 /** The Fastlane changelog code is the version number times ten plus the ABI. */
@@ -13,9 +14,17 @@ export const METAINFO_FILES = [
 ];
 
 export function fastlaneChangelogs(version) {
-  const [major, minor, patch] = version.split('.').map(Number);
+  const { major, minor, patch } = stableVersion(version);
   const base = major * 1_000_000 + minor * 1_000 + patch;
   return Object.values(ABI_CODES).map((abi) => join(FASTLANE_DIR, `${base * 10 + abi}.txt`));
+}
+
+function stableVersion(version) {
+  const parsed = parse(version);
+  if (!parsed || parsed.prerelease.length > 0 || parsed.build.length > 0) {
+    throw new Error(`Expected a stable SemVer version (got ${version})`);
+  }
+  return parsed;
 }
 
 /** What a release tree is missing: the version bump, the changelog section, the Android changelogs and the Flatpak entries. */
@@ -60,7 +69,8 @@ export function releaseProblems(version, root = '.') {
 
 if (import.meta.main) {
   const version = process.argv[2];
-  if (!version || !/^\d+\.\d+\.\d+$/.test(version)) {
+  const parsed = version ? parse(version) : null;
+  if (!parsed || parsed.prerelease.length > 0 || parsed.build.length > 0) {
     console.error(`Usage: release-prep.mjs <version>  (got: ${version ?? '<none>'})`);
     process.exit(1);
   }

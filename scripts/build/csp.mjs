@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { parse } from 'parse5';
 
 const NATIVE_SOURCES = new Set([
   'ipc:',
@@ -24,9 +25,22 @@ export function browserCsp(directives) {
 
 /** @param {string} html */
 export function inlineScripts(html) {
-  return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(
-    ([, body]) => body
-  );
+  const document = parse(html, { sourceCodeLocationInfo: true });
+  const scripts = [];
+  function visit(node) {
+    if (node.tagName === 'script' && !node.attrs.some(({ name }) => name === 'src')) {
+      const location = node.sourceCodeLocation;
+      if (location?.startTag) {
+        scripts.push(
+          html.slice(location.startTag.endOffset, location.endTag?.startOffset ?? html.length)
+        );
+      }
+    }
+    // Template contents are inert and live in a separate DocumentFragment.
+    for (const child of node.childNodes ?? []) visit(child);
+  }
+  visit(document);
+  return scripts;
 }
 
 /** @param {Record<string, string>} directives @param {string[]} scripts */

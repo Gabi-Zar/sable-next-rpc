@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm, rename } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, rename, chmod, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
@@ -36,10 +36,103 @@ test('finds app symbols and excludes dependencies and bundles', async () => {
       'release/app',
       'release/app.pdb',
     ]);
+    assert.deepEqual(await collectSymbols(join(root, 'debug')), [join(root, 'debug/app')]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('keeps hidden outputs and dSYM boundaries with literal roots', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'sable-[symbols]-'));
+  try {
+    const files = [
+      '.cache/.abi/release/app',
+      '.cache/.abi/release/build/app',
+      'output/.nested/sable.exe',
+      'output/.nested/deps/app',
+      'output/incremental/app',
+      'output/Sable.dSYM/Contents/Resources/DWARF/app',
+      'output/Sentry.framework.dSYM/Contents/Resources/DWARF/app',
+      'output/file.dSYM',
+      'output/sable.pdb',
+    ];
+    for (const file of files) {
+      await mkdir(join(root, file, '..'), { recursive: true });
+      await writeFile(join(root, file), 'fixture');
+    }
+    await mkdir(join(root, 'output/app'));
+    const expected = [
+      '.cache/.abi/release/app',
+      'output/.nested/sable.exe',
+      'output/Sable.dSYM',
+      'output/sable.pdb',
+    ];
+    assert.deepEqual(
+      (await collectSymbols(root)).sort(),
+      expected.map((path) => join(root, path))
+    );
+    const local = relative(process.cwd(), root);
+    assert.deepEqual(
+      (await collectSymbols(local)).sort(),
+      expected.map((path) => join(local, path))
+    );
+    const dsym = join(root, 'output/Sable.dSYM');
+    assert.deepEqual(await collectSymbols(dsym), [join(dsym, 'Contents/Resources/DWARF/app')]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test(
+  'ignores symbolic-link outputs while allowing a symbolic-link root',
+  {
+    skip: process.platform === 'win32',
+  },
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'sable-symbols-'));
+    try {
+      await mkdir(join(root, 'release'));
+      await mkdir(join(root, 'links'));
+      await writeFile(join(root, 'release/app'), 'fixture');
+      await symlink(join(root, 'release/app'), join(root, 'links/app'));
+      await symlink(join(root, 'release'), join(root, 'linked-release'));
+      await symlink(join(root, 'release'), join(root, 'linked.dSYM'));
+      const alias = join(root, 'root-link');
+      await symlink(root, alias);
+      assert.deepEqual(await collectSymbols(root), [join(root, 'release/app')]);
+      assert.deepEqual(await collectSymbols(alias), [join(alias, 'release/app')]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+);
+
+test(
+  'propagates directory errors without opening dSYM bundle contents',
+  {
+    skip: process.platform === 'win32' || process.getuid?.() === 0,
+  },
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'sable-symbols-'));
+    const dsym = join(root, 'Sable.dSYM');
+    const blocked = join(root, 'blocked');
+    try {
+      await mkdir(dsym);
+      await chmod(dsym, 0);
+      assert.deepEqual(await collectSymbols(root), [dsym]);
+      await mkdir(blocked);
+      await chmod(blocked, 0);
+      await assert.rejects(collectSymbols(root), { code: 'EACCES' });
+      const file = join(root, 'file');
+      await writeFile(file, 'fixture');
+      await assert.rejects(collectSymbols(file), { code: 'ENOTDIR' });
+    } finally {
+      await chmod(dsym, 0o700).catch(() => {});
+      await chmod(blocked, 0o700).catch(() => {});
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+);
 
 test(
   'validates Electron addon debug data and matching macOS dSYMs',

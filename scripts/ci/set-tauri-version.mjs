@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
+import { parse, valid } from 'semver';
 
 export function tauriVersionConfig(version, updaterEndpoint) {
+  const parsed = parse(version);
+  if (!parsed) throw new Error(`Invalid semantic version: ${version}`);
   const nightlyVersion =
     /^(\d+)\.(\d+)\.(\d+)-nightly\.(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.g?[0-9a-f]+)?$/.exec(
       version
@@ -16,17 +19,9 @@ export function tauriVersionConfig(version, updaterEndpoint) {
         +nightlyVersion[9]
       ) / 1000
     : // Keep standard APKs on the same scale as previously released FOSS APKs.
-      version
-        .split(/[.-]/)
-        .slice(0, 3)
-        .reduce((code, part) => code * 1000 + Number(part), 0) * 10;
+      [parsed.major, parsed.minor, parsed.patch].reduce((code, part) => code * 1000 + part, 0) * 10;
 
-  if (
-    version
-      .split(/[.-]/)
-      .slice(1, 3)
-      .some((part) => Number(part) >= 1000)
-  ) {
+  if (parsed.minor >= 1000 || parsed.patch >= 1000) {
     throw new Error('Android versions require minor and patch numbers below 1000');
   }
 
@@ -56,7 +51,7 @@ if (import.meta.main) {
     allowPositionals: true,
   });
 
-  if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
+  if (!version || !valid(version)) {
     console.error(
       `Usage: set-tauri-version.mjs <version> [--updater-endpoint=<url>]  (got: ${version ?? '<none>'})`
     );

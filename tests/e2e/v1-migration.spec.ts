@@ -288,8 +288,9 @@ test('native carrier exports the complete v1 snapshot before publishing credenti
       ).fixtureCalls
   );
   expect(calls[0].cmd).toBe('v1_migration_complete');
-  expect(calls[1].cmd).toBe('begin_v1_migration');
-  expect(calls[1].args.sessions).toEqual([session]);
+  const changes = calls.filter((call) => call.cmd !== 'v1_migration_complete');
+  expect(changes[0].cmd).toBe('begin_v1_migration');
+  expect(changes[0].args.sessions).toEqual([session]);
   expect(calls.at(-1)?.cmd).toBe('finish_v1_migration');
   const batches = calls.filter((call) => call.cmd === 'import_v1_crypto_batch');
   expect(batches[0].args.store).toBe('core');

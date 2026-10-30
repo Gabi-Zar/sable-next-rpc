@@ -3,8 +3,11 @@ import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync
 import { homedir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import { valid } from 'semver';
+import { parse } from 'smol-toml';
 import { tauriVersionConfig } from '../ci/set-tauri-version.mjs';
 import { downloadVerified } from '../lib/download.mjs';
+import { cargoPackageVersion } from '../lib/cargo.mjs';
 
 const { values } = parseArgs({
   options: {
@@ -45,7 +48,7 @@ function capture(command, args) {
 const version = (
   values.version ?? JSON.parse(readFileSync('package.json', 'utf8')).version
 ).replace(/^v/, '');
-if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+if (!valid(version)) {
   throw new Error(`--version must be a semver version (got ${version})`);
 }
 
@@ -60,9 +63,7 @@ for (const target of targets) {
   if (!rustTargets[target]) throw new Error(`Unknown --target ${target}`);
 }
 
-const ndkVersion = readFileSync('.mise/config.toml', 'utf8').match(
-  /^ANDROID_NDK_VERSION = "([^"]+)"/m
-)?.[1];
+const ndkVersion = parse(readFileSync('.mise/config.toml', 'utf8')).env?.ANDROID_NDK_VERSION;
 if (!ndkVersion) throw new Error('.mise/config.toml does not pin ANDROID_NDK_VERSION');
 
 const projectRoot = process.cwd();
@@ -137,7 +138,7 @@ try {
 
 async function buildWeb() {
   const lockfile = readFileSync('Cargo.lock', 'utf8');
-  const wasmBindgenVersion = lockfile.match(/name = "wasm-bindgen"\r?\nversion = "([^"]+)"/)?.[1];
+  const wasmBindgenVersion = cargoPackageVersion(lockfile, 'wasm-bindgen');
   if (!wasmBindgenVersion) throw new Error('Cargo.lock does not contain wasm-bindgen');
 
   run('rustup', ['target', 'add', 'wasm32-unknown-unknown']);
@@ -153,20 +154,18 @@ async function buildWeb() {
 }
 
 async function ensureBinaryen() {
-  const lock = readFileSync('.mise/mise.lock', 'utf8');
-  const tool = lock.split('[[tools."github:WebAssembly/binaryen"]]')[1]?.split('[[tools.')[0];
-  const version = tool?.match(/^version = "([^"]+)"/m)?.[1];
+  const lock = parse(readFileSync('.mise/mise.lock', 'utf8'));
+  const tool = lock.tools?.['github:WebAssembly/binaryen']?.[0];
+  const version = tool?.version;
   if (!version) throw new Error('Binaryen is missing from .mise/mise.lock');
 
   const matches = (command) => capture(command, ['--version'])?.split(/\s+/)[2] === version;
   if (matches('wasm-opt')) return undefined;
 
   const platform = `${process.platform === 'darwin' ? 'macos' : process.platform}-${process.arch}`;
-  const entry = tool
-    .split(`[tools."github:WebAssembly/binaryen"."platforms.${platform}"]`)[1]
-    ?.split('\n[')[0];
-  const url = entry?.match(/^url = "([^"]+)"/m)?.[1];
-  const checksum = entry?.match(/^checksum = "sha256:([a-f0-9]{64})"/m)?.[1];
+  const entry = tool[`platforms.${platform}`];
+  const url = entry?.url;
+  const checksum = /^sha256:([a-f0-9]{64})$/.exec(entry?.checksum)?.[1];
   if (!url || !checksum) throw new Error(`No locked Binaryen download for ${platform}`);
 
   const cache = join(process.cwd(), 'node_modules/.cache/binaryen');

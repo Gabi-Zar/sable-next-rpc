@@ -1,13 +1,15 @@
 import { execFileSync } from 'node:child_process';
-import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { parse, stringify } from 'smol-toml';
 
 const tag = process.argv[2] ?? 'v26.9.0';
 const repository = 'https://forgejo.ellis.link/continuwuation/continuwuity.git';
 const output = join(import.meta.dirname, '../../src/lib/features/composer/admin-commands.json');
 const dump = join(import.meta.dirname, 'admin-commands-dump.rs');
+const restrictions = join(import.meta.dirname, 'sable_admin_commands/restrictions.rs');
 const checkout = join(
   process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'),
   'sable',
@@ -20,53 +22,31 @@ if (!existsSync(checkout)) {
   });
 }
 const manifest = join(checkout, 'xtask/Cargo.toml');
-const xtask = await readFile(manifest, 'utf8');
-const dependencies = '[dependencies]\nruma.workspace = true\nserde_json.workspace = true\n';
-if (!xtask.includes(dependencies)) {
-  if (!xtask.includes('[dependencies]\n')) throw new Error(`${manifest} has no [dependencies]`);
-  await writeFile(manifest, xtask.replace('[dependencies]\n', dependencies));
-}
+const xtask = parse(await readFile(manifest, 'utf8'));
+xtask.dependencies ??= {};
+Object.assign(xtask.dependencies, {
+  ruma: { workspace: true },
+  serde: { workspace: true },
+  serde_json: { workspace: true },
+  syn: { version: '2', features: ['full', 'visit'] },
+});
+await writeFile(manifest, stringify(xtask));
 await mkdir(join(checkout, 'xtask/examples'), { recursive: true });
 await copyFile(dump, join(checkout, 'xtask/examples/sable_admin_commands.rs'));
+await mkdir(join(checkout, 'xtask/examples/sable_admin_commands'), { recursive: true });
+await copyFile(restrictions, join(checkout, 'xtask/examples/sable_admin_commands/restrictions.rs'));
 
 execFileSync(
   'cargo',
   ['build', '--quiet', '-p', 'conduwuit', '-p', 'xtask', '--example', 'sable_admin_commands'],
   { cwd: checkout, stdio: 'inherit' }
 );
-const tree = JSON.parse(
-  execFileSync(join(checkout, 'target/debug/examples/sable_admin_commands'), {
+const generated = JSON.parse(
+  execFileSync(join(checkout, 'target/debug/examples/sable_admin_commands'), [checkout], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
 );
-
-const source = (path) => readFile(join(checkout, path), 'utf8');
-
-function restrictedGroups(adminRs) {
-  const groups = new Map();
-  for (const arm of adminRs.split(/\n\t\t\| /).slice(1)) {
-    const match = /^([A-Z][A-Za-z]*)\(command\) => \{?[\s\S]*?(\w+)::process/.exec(arm);
-    if (!match) continue;
-    groups.set(match[2], {
-      name: match[1].toLowerCase(),
-      restricted: /bail_restricted\(\)/.test(arm.split('::process')[0]),
-    });
-  }
-  if (groups.size === 0) throw new Error('found no command groups in src/admin/admin.rs');
-  return groups;
-}
-
-function restrictedHandlers(text) {
-  const names = [];
-  let current = null;
-  for (const line of text.split('\n')) {
-    const handler = /async fn (\w+)/.exec(line);
-    if (handler) current = handler[1];
-    if (current && /self\.bail_restricted\(\)/.test(line)) names.push(current);
-  }
-  return names;
-}
 
 function findAll(node, name) {
   const matches = [];
@@ -82,8 +62,8 @@ function markRestricted(node) {
   for (const child of node.children ?? []) markRestricted(child);
 }
 
-const root = { name: 'admin', children: tree };
-for (const [module, group] of restrictedGroups(await source('src/admin/admin.rs'))) {
+const root = { name: 'admin', children: generated.commands };
+for (const group of generated.restrictions) {
   const node = root.children.find((child) => child.name === group.name);
   if (!node) throw new Error(`no command group ${group.name}`);
   if (group.restricted) {
@@ -91,22 +71,16 @@ for (const [module, group] of restrictedGroups(await source('src/admin/admin.rs'
     continue;
   }
 
-  const files = (await readdir(join(checkout, 'src/admin', module))).filter((file) =>
-    file.endsWith('.rs')
-  );
-  for (const file of files) {
-    const path = `src/admin/${module}/${file}`;
-    for (const handler of restrictedHandlers(await source(path))) {
-      const matches = findAll(node, handler.replaceAll('_', '-'));
-      if (matches.length > 1) {
-        throw new Error(`${path}: ${handler} matches ${matches.length} commands`);
-      }
-      if (matches.length === 0) {
-        console.warn(`${path}: ${handler} is not a visible command, skipped`);
-        continue;
-      }
-      matches[0].restricted = true;
+  for (const handler of group.handlers) {
+    const matches = findAll(node, handler.replaceAll('_', '-'));
+    if (matches.length > 1) {
+      throw new Error(`${group.module}: ${handler} matches ${matches.length} commands`);
     }
+    if (matches.length === 0) {
+      console.warn(`${group.module}: ${handler} is not a visible command, skipped`);
+      continue;
+    }
+    matches[0].restricted = true;
   }
 }
 

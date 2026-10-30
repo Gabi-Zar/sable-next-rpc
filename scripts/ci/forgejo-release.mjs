@@ -1,5 +1,5 @@
 import { createWriteStream, openAsBlob } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, join, posix } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -76,11 +76,12 @@ async function listAssets(tag) {
   return release?.assets ?? [];
 }
 
-async function downloadAssets(tag, pattern, directory) {
-  const matcher = new RegExp(
-    `^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`
-  );
-  const assets = (await listAssets(tag)).filter((asset) => matcher.test(asset.name));
+async function downloadAssets(tag, pattern, directory, optional) {
+  const assets = (await listAssets(tag)).filter((asset) => posix.matchesGlob(asset.name, pattern));
+  if (assets.length === 0) {
+    if (optional) return;
+    throw new Error(`No asset of ${tag ?? 'the current release'} matches ${pattern}`);
+  }
   for (const asset of assets) {
     const response = await fetch(asset.browser_download_url, {
       headers: { Authorization: `token ${process.env.FORGEJO_TOKEN}` },
@@ -151,23 +152,26 @@ async function waitForAssets(tag, names, attempts, intervalMs) {
 }
 
 const { values: flags, positionals } = parseArgs({
-  options: Object.fromEntries(
-    [
-      'tag',
-      'sha',
-      'title',
-      'notes',
-      'prerelease',
-      'attempts',
-      'interval',
-      'names',
-      'pattern',
-      'dir',
-      'asset',
-      'keep',
-      'protect',
-    ].map((name) => [name, { type: 'string' }])
-  ),
+  options: {
+    optional: { type: 'boolean' },
+    ...Object.fromEntries(
+      [
+        'tag',
+        'sha',
+        'title',
+        'notes',
+        'prerelease',
+        'attempts',
+        'interval',
+        'names',
+        'pattern',
+        'dir',
+        'asset',
+        'keep',
+        'protect',
+      ].map((name) => [name, { type: 'string' }])
+    ),
+  },
   allowPositionals: true,
 });
 const [command, ...files] = positionals;
@@ -194,7 +198,7 @@ switch (command) {
     await uploadAssets(tag, files);
     break;
   case 'download':
-    await downloadAssets(tag, flags.pattern, flags.dir ?? '.');
+    await downloadAssets(tag, flags.pattern, flags.dir ?? '.', flags.optional);
     break;
   case 'edit':
     await editRelease(tag, {

@@ -1,16 +1,10 @@
-import {
-  closeSync,
-  openSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { execFile, spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs } from 'node:util';
+import { parseArgs, promisify } from 'node:util';
+import { lock } from 'proper-lockfile';
+import { cargoPackageVersion, cargoRustFlags } from '../lib/cargo.mjs';
 import { sha256 } from '../lib/download.mjs';
 
 const { release } = parseArgs({ options: { release: { type: 'boolean' } } }).values;
@@ -30,85 +24,52 @@ const cargoArgs = [
 ];
 
 function run(command, args, env) {
-  const result = spawnSync(command, args, { stdio: 'inherit', env: env ?? process.env });
-
-  if (result.status !== 0) throw new Error(`${command} failed with status ${result.status}`);
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: 'inherit', env: env ?? process.env });
+    child.once('error', reject);
+    child.once('close', (status, signal) => {
+      if (status === 0) resolve();
+      else reject(new Error(`${command} failed with ${signal ?? `status ${status}`}`));
+    });
+  });
 }
 
-function capture(command, args) {
-  const result = spawnSync(command, args, { encoding: 'utf8' });
+const execFileAsync = promisify(execFile);
 
-  if (result.status !== 0) throw new Error(`${command} failed with status ${result.status}`);
-  return result.stdout;
+async function capture(command, args) {
+  return (await execFileAsync(command, args, { encoding: 'utf8' })).stdout;
 }
 
-function releaseEnvironment() {
+async function releaseEnvironment() {
   const config = readFileSync('.cargo/config.toml', 'utf8');
-  const declared = config.match(
-    /\[target\.wasm32-unknown-unknown\][\s\S]*?rustflags\s*=\s*\[([\s\S]*?)\]/
-  )?.[1];
-
-  const flags = [...(declared ?? '').matchAll(/'([^']*)'|"((?:[^"\\]|\\.)*)"/g)].map((match) =>
-    match[1] === undefined ? match[2].replaceAll('\\"', '"') : match[1]
-  );
+  const flags = cargoRustFlags(config, 'wasm32-unknown-unknown');
   const cargoHome = process.env.CARGO_HOME ?? join(homedir(), '.cargo');
 
   flags.push(
     `--remap-path-prefix=${cargoHome}=/cargo`,
-    `--remap-path-prefix=${capture('rustc', ['--print', 'sysroot']).trim()}=/rust`,
+    `--remap-path-prefix=${(await capture('rustc', ['--print', 'sysroot'])).trim()}=/rust`,
     `--remap-path-prefix=${process.cwd()}=/sable`
   );
 
   return { ...process.env, CARGO_ENCODED_RUSTFLAGS: flags.join('\x1f') };
 }
 
-function targetDirectory() {
-  return JSON.parse(capture('cargo', ['metadata', '--no-deps', '--format-version', '1']))
+async function targetDirectory() {
+  return JSON.parse(await capture('cargo', ['metadata', '--no-deps', '--format-version', '1']))
     .target_directory;
 }
 
-function lockOutput(output) {
-  const lock = `${output}.lock`;
-  const wait = new Int32Array(new SharedArrayBuffer(4));
-
-  for (;;) {
-    try {
-      const descriptor = openSync(lock, 'wx');
-      writeFileSync(descriptor, String(process.pid));
-      closeSync(descriptor);
-      return () => unlinkSync(lock);
-    } catch (error) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST') {
-        const pid = Number(readFileSync(lock, 'utf8'));
-        if (Number.isSafeInteger(pid)) {
-          try {
-            process.kill(pid, 0);
-          } catch (error) {
-            if (error && typeof error === 'object' && 'code' in error && error.code === 'ESRCH') {
-              unlinkSync(lock);
-              continue;
-            }
-          }
-        }
-        Atomics.wait(wait, 0, 0, 100);
-        continue;
-      }
-      throw error;
-    }
-  }
-}
-
 const lockfile = readFileSync('Cargo.lock', 'utf8');
-const version = lockfile.match(/name = "wasm-bindgen"\r?\nversion = "([^"]+)"/)?.[1];
-const cli = spawnSync('wasm-bindgen', ['--version'], { encoding: 'utf8' });
+const version = cargoPackageVersion(lockfile, 'wasm-bindgen');
+const cli = await capture('wasm-bindgen', ['--version']).catch(() => '');
 
-if (!version || cli.status !== 0 || cli.stdout.trim() !== `wasm-bindgen ${version}`) {
+if (!version || cli.trim() !== `wasm-bindgen ${version}`) {
   throw new Error(`wasm-bindgen-cli must match Cargo.lock's wasm-bindgen ${version ?? 'version'}`);
 }
 
-run('cargo', cargoArgs, release ? releaseEnvironment() : undefined);
+await run('cargo', cargoArgs, release ? await releaseEnvironment() : undefined);
 
-const built = `${targetDirectory()}/wasm32-unknown-unknown/${profile}`;
+const built = `${await targetDirectory()}/wasm32-unknown-unknown/${profile}`;
 const output = process.env.SABLE_WASM_OUTPUT ?? 'src/generated/wasm';
 
 async function bindgen(input, name, { optimize, features = [] }) {
@@ -117,10 +78,10 @@ async function bindgen(input, name, { optimize, features = [] }) {
   if (keepNames) args.push('--remove-producers-section');
   else if (release) args.push('--remove-name-section', '--remove-producers-section');
   else args.push('--debug');
-  run('wasm-bindgen', [...args, `${built}/${input}`]);
+  await run('wasm-bindgen', [...args, `${built}/${input}`]);
 
   if (features.length > 0) {
-    const declared = capture('wasm-opt', ['--print-features', wasm]);
+    const declared = await capture('wasm-opt', ['--print-features', wasm]);
     for (const required of features) {
       if (!declared.includes(`--enable-${required}`)) {
         throw new Error(`the target_features section does not declare ${required}`);
@@ -131,7 +92,7 @@ async function bindgen(input, name, { optimize, features = [] }) {
   if (release) {
     const optimized = `${output}/${name}_bg.optimized.wasm`;
 
-    run('wasm-opt', [...optimize, ...(keepNames ? ['-g'] : []), wasm, '--output', optimized]);
+    await run('wasm-opt', [...optimize, ...(keepNames ? ['-g'] : []), wasm, '--output', optimized]);
     rmSync(wasm);
     renameSync(optimized, wasm);
   }
@@ -142,8 +103,8 @@ async function bindgen(input, name, { optimize, features = [] }) {
   // Validate instructions independently of the module's target_features section.
   const validationInput = `${output}/${name}_bg.validation.wasm`;
   try {
-    run('wasm-opt', [wasm, '--strip-target-features', '-o', validationInput]);
-    run('wasm-opt', [validationInput, '--all-features', '--disable-simd']);
+    await run('wasm-opt', [wasm, '--strip-target-features', '-o', validationInput]);
+    await run('wasm-opt', [validationInput, '--all-features', '--disable-simd']);
   } finally {
     rmSync(validationInput, { force: true });
   }
@@ -151,7 +112,12 @@ async function bindgen(input, name, { optimize, features = [] }) {
   return generated;
 }
 
-const unlockOutput = lockOutput(output);
+const unlockOutput = await lock(output, {
+  realpath: false,
+  // Earlier builders used a PID file at `${output}.lock`.
+  lockfilePath: `${output}.bindgen.lock`,
+  retries: { forever: true, minTimeout: 100, maxTimeout: 1000 },
+});
 
 try {
   const generated = await bindgen('sable_wasm.wasm', 'sable_wasm', {
@@ -164,5 +130,5 @@ try {
     optimize: ['-Oz'],
   });
 } finally {
-  unlockOutput();
+  await unlockOutput();
 }

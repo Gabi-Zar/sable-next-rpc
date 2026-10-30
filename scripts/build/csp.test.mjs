@@ -35,6 +35,17 @@ test('only inline script bodies receive bootstrap hashes', () => {
   assert.ok(!scriptPolicy.includes("'unsafe-eval'"));
 });
 
+test('HTML parsing excludes inert script text and preserves exact inline bytes', () => {
+  const body = '\r\nif (a < b) console.log("&amp;");\r\n';
+  const html = `<!-- <script>comment()</script> -->
+    <textarea><script>text()</script></textarea>
+    <noscript><script>disabled()</script></noscript>
+    <template><script>template()</script></template>
+    <script data-src="metadata">${body}</script>
+    <SCRIPT SRC = "/external.js">external()</SCRIPT>`;
+  assert.deepEqual(inlineScripts(html), [body]);
+});
+
 test('Cloudflare and Caddy receive the same policy, including nested page bootstraps', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'sable-csp-'));
   try {
