@@ -3,7 +3,7 @@ use sable_core::api::push::WebPusherView;
 #[cfg(any(mobile, test))]
 use sable_core::protocol::WebPushKeys;
 use sable_core::protocol::{NotificationView, RpcError};
-use sable_core::ruma::{EventId, MilliSecondsSinceUnixEpoch, owned_room_id, owned_user_id};
+use sable_core::ruma::{EventId, owned_room_id, owned_user_id};
 #[cfg(not(target_os = "android"))]
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -463,6 +463,7 @@ pub async fn handle_call<R: Runtime>(
     event: &sable_core::protocol::CoreEvent,
 ) {
     use sable_core::protocol::CoreEvent;
+    use sable_core::ruma::MilliSecondsSinceUnixEpoch;
     match event {
         CoreEvent::IncomingCall {
             room_id,
