@@ -93,6 +93,40 @@ test('closing from inside pops the entries it pushed, and no more', async () => 
   expect(fakeHistory.entries()).toBe(1);
 });
 
+test('closing a lower overlay leaves the one opened above it open', async () => {
+  const lower = render(Harness, { props: { open: true, onClose: vi.fn() } });
+  await settle();
+  const onCloseUpper = vi.fn();
+  render(Harness, { props: { open: true, onClose: onCloseUpper } });
+  await settle();
+
+  await lower.rerender({ open: false });
+  await settle();
+
+  expect(onCloseUpper).not.toHaveBeenCalled();
+  expect(fakeHistory.pageStub.state.overlay).toBe(2);
+
+  fakeHistory.go(-1);
+  await settle();
+
+  expect(onCloseUpper).toHaveBeenCalledTimes(1);
+  expect(fakeHistory.entries()).toBe(1);
+});
+
+test('the top overlay closing from inside also pops a lower one released before it', async () => {
+  const lower = render(Harness, { props: { open: true, onClose: vi.fn() } });
+  await settle();
+  const upper = render(Harness, { props: { open: true, onClose: vi.fn() } });
+  await settle();
+
+  await lower.rerender({ open: false });
+  await settle();
+  await upper.rerender({ open: false });
+  await settle();
+
+  expect(fakeHistory.entries()).toBe(1);
+});
+
 test('a back press with unsaved changes asks before closing', async () => {
   const asked: { proceed: () => void; stay?: () => void }[] = [];
   guard.leave.mockImplementation((proceed, stay) => {

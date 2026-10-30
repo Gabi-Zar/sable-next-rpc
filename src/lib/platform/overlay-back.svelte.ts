@@ -12,6 +12,7 @@ let pushed = 0;
 let pushing = 0;
 let queued = 0;
 let popped: Promise<void> = Promise.resolve();
+let released: number[] = [];
 const POP_FALLBACK_MS = 250;
 
 function popEntries(count: number): void {
@@ -34,6 +35,15 @@ function popEntries(count: number): void {
     });
     history.go(-total);
   });
+}
+
+function unwindReleased(): void {
+  let bottom = pushed;
+  while (released.includes(bottom)) bottom -= 1;
+  released = released.filter((depth) => depth < bottom);
+  if (bottom === pushed) return;
+  popEntries(pushed - bottom);
+  pushed = bottom;
 }
 
 export async function afterOverlayPops(): Promise<void> {
@@ -97,14 +107,22 @@ export function holdOverlayBack(open: () => boolean, close: () => void): void {
         return;
       }
 
-      popEntries(pushed - depth + 1);
+      if (depth < pushed) {
+        released.push(depth);
+        return;
+      }
+      popEntries(1);
       pushed = depth - 1;
+      unwindReleased();
     };
   });
 
   $effect(() => {
     const current = overlayBackDepth(page.state);
-    if (pushing === 0 && current < pushed) pushed = current;
+    if (pushing === 0 && current < pushed) {
+      pushed = current;
+      unwindReleased();
+    }
     if (held > 0 && current < held) {
       held = 0;
       const restore = rearm;
