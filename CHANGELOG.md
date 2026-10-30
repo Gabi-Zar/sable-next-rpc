@@ -1,5 +1,40 @@
 # Sable Changelog
 
+## 2.2.3 (2026-10-30)
+
+### Fixes
+
+* Fix Android SSO and QR approval pages not opening. Show an error if a QR approval page cannot be opened.
+* Use popups for OAuth and QR login on desktop and web, and in-app browsers on mobile. Add automatic closure and a desktop browser fallback.
+* Open profile avatars and banners in the media viewer throughout the app.
+* Notify room members about calls on homeservers without sticky events.
+* Open the existing DM when a chat link is opened during startup.
+* Stop overwriting downloads with the same name in the desktop app.
+* Turn off emoticon-to-emoji conversion by default; it stays available in Composer settings.
+* Update Flatpak builds to the Freedesktop 26.08 runtime and use its desktop-file-utils.
+* Make the FOSS Android APK reproducible regardless of the build directory.
+* Fix the Android keyboard closing when swipe-deleting text up to a mention in the composer.
+* Ring incoming calls on iOS when the App Store region is unknown.
+* Fix the iOS app crashing when a page reloads while it is still waiting for an answer from the app.
+* An alternate avatar picked in the persona picker is no longer reset when you send a message, including messages using a persona shorthand.
+* Adding a second account no longer wipes your installed and selected themes.
+* Fix Android and iOS crash and error reports never reaching Sentry. Report undecryptable messages from the Android and iOS apps.
+* Starting a verification from a dialog no longer cancels it or sends you back out of the settings section.
+* Keep per-message profiles that share an ID or a PluralKit name instead of deleting one on the next save.
+* Fix the message field shrinking to a single row between the buttons when the keyboard opens on some Android phones.
+* Start QR camera previews sooner and allow retrying failed camera startup.
+* Fix reaction history tracking, rank by usage over 30 days, and remove expired or duplicate entries. Move history and picker selection rules into Rust.
+* Stop saving text reactions in reaction history and remove ones already saved.
+* Show rooms removed from a space in the rooms without a space.
+* A private room that is not a direct message no longer shows the invited person's avatar as its icon.
+* Fix missing incoming call notifications and ringing across web, desktop, Android, and iOS.
+* Fix server-mode sign-outs on startup errors and revoke disabled users right away.
+* Keep spoiler images and videos hidden while uploading.
+* Place timeline day dividers by the time zone chosen in settings.
+* Fix YouTube embeds failing with error 153 in the desktop app.
+
+* Room topics now show spoilers, tables and math the way messages do, and bare links in them stay clickable.
+
 ## 2.2.2 (2026-10-29)
 
 ### Fixes
