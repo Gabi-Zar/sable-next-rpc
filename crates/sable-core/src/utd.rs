@@ -35,6 +35,7 @@ async fn report(client: Client, info: UnableToDecryptInfo) {
         .await
         .is_some_and(|status| status.is_complete());
     tracing::warn!(
+        reported = true,
         cause = ?info.cause,
         age = event_age(info.event_local_age_millis),
         own_identity_trusted = info.user_trusts_own_identity,

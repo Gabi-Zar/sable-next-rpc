@@ -9,7 +9,6 @@ import { on } from 'svelte/events';
 import { recordDebugLog } from '../lib/observability/debug-log.svelte.js';
 import {
   isReportableCoreWarning,
-  isUndecryptableToDevice,
   isExpectedCoreFailure,
   wasmErrorFingerprint,
   wasmErrorTitle,
@@ -315,7 +314,7 @@ export function createWebTransport(open: () => CoreConnection = openSharedWorker
           if (line.includes('session tokens:')) {
             Sentry.addBreadcrumb({ category: 'core.session', level: 'info', message: line.trim() });
           }
-          if (level === 'error' || isUndecryptableToDevice(line) || isReportableCoreWarning(line)) {
+          if (level === 'error' || isReportableCoreWarning(line)) {
             reportCoreError(line, () => {
               for (const listener of storageFailureListeners) listener();
             });

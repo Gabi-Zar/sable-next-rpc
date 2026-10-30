@@ -1,7 +1,6 @@
 import { scrubMatrixIds } from './scrubbers';
 
 const TITLE_LIMIT = 600;
-const OLM_ACCOUNT = 'matrix_sdk_crypto::olm::account:';
 
 export type WasmLogLevel = 'error' | 'warn' | 'info';
 
@@ -12,28 +11,24 @@ export function wasmLogLevel(line: string): WasmLogLevel {
   return 'info';
 }
 
-/** Only a warning in the SDK, but the room keys it carried are lost. */
-export function isUndecryptableToDevice(line: string): boolean {
-  return wasmLogLevel(line) === 'warn' && line.includes(OLM_ACCOUNT);
-}
-
-const REPORTABLE_WARNINGS = [
-  'unable to decrypt a message',
-  'no call media key has arrived',
-  'a call media key is still unresolved',
-  'ignoring a call media key',
-  'a call member did not receive the media key',
-  'some call members did not receive the media key',
-  'could not send the call media key',
-  'call member device is unknown',
+/**
+ * Only warnings in the SDK, but the room keys they carried are lost. Our own
+ * code marks such warnings with `reported = true` instead.
+ */
+const REPORTED_SDK_WARNINGS = [
+  'matrix_sdk_crypto::olm::account:',
   'matrix_sdk_crypto::session_manager::sessions:',
   'matrix_sdk_crypto::session_manager::group_sessions:',
   'matrix_sdk_crypto::gossiping::',
 ];
+const REPORTED_FIELD = /\sreported=true\b/;
 
 /** Warnings that explain a message or a call that could not be decrypted. */
 export function isReportableCoreWarning(line: string): boolean {
-  return wasmLogLevel(line) === 'warn' && REPORTABLE_WARNINGS.some((part) => line.includes(part));
+  return (
+    wasmLogLevel(line) === 'warn' &&
+    (REPORTED_FIELD.test(line) || REPORTED_SDK_WARNINGS.some((target) => line.includes(target)))
+  );
 }
 
 const UNREACHABLE =
@@ -55,6 +50,7 @@ export function wasmErrorTitle(line: string): string {
   const message = scrubMatrixIds(
     line
       .replace(/^\s*(?:ERROR|WARN)\s+/, '')
+      .replace(REPORTED_FIELD, '')
       .replace(/"?JsValue\([^]*$/, '')
       .replace(/\s+/g, ' ')
       .trim()

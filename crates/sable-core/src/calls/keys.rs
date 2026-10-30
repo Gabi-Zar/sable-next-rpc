@@ -407,6 +407,7 @@ impl KeyDistributor {
                     reached.push(target.clone());
                 }
                 Ok(None) => tracing::warn!(
+                    reported = true,
                     user_id = %target.user_id,
                     device_id = %device_id,
                     "call member device is unknown, cannot send it a media key"
@@ -447,6 +448,7 @@ impl KeyDistributor {
             Ok(failures) if failures.is_empty() => reached,
             Ok(failures) => {
                 tracing::warn!(
+                    reported = true,
                     count = failures.len(),
                     "some call members did not receive the media key"
                 );
@@ -459,7 +461,7 @@ impl KeyDistributor {
                 reached
             }
             Err(error) => {
-                tracing::warn!(?error, "could not send the call media key");
+                tracing::warn!(reported = true, ?error, "could not send the call media key");
                 reached.retain(|member| member.is_own(&self.user_id, &self.device_id));
                 reached
             }
@@ -481,6 +483,7 @@ fn warn_unreached(unreached: &[CallMember], known: &[CallMember]) {
         .filter(|member| !known.iter().any(|known| known.same_generation(member)))
     {
         tracing::warn!(
+            reported = true,
             user_id = %member.user_id,
             device_id = ?member.device_id,
             "a call member did not receive the media key"

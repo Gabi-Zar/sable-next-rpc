@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest';
 import {
   isExpectedCoreFailure,
   isReportableCoreWarning,
-  isUndecryptableToDevice,
   wasmErrorFingerprint,
   wasmErrorTitle,
   wasmLogLevel,
@@ -24,22 +23,6 @@ describe('wasmLogLevel', () => {
 
   test('does not read a level out of the message', () => {
     expect(wasmLogLevel('INFO sable_core: an ERROR was handled')).toBe('info');
-  });
-});
-
-describe('isUndecryptableToDevice', () => {
-  test('reads an Olm decryption warning as a lost to-device message', () => {
-    const line =
-      'WARN sync_once{conn_id="encryption"}:receive_sync_changes: matrix_sdk_crypto::olm::account: Failed to decrypt a non-pre-key message with all available sessions';
-    expect(isUndecryptableToDevice(line)).toBe(true);
-    expect(wasmErrorTitle(line)).toMatch(/^sync_once/);
-  });
-
-  test('leaves other crypto warnings alone', () => {
-    expect(isUndecryptableToDevice('WARN matrix_sdk_crypto::machine: careful')).toBe(false);
-    expect(
-      isUndecryptableToDevice('INFO matrix_sdk_crypto::olm::account: uploaded one-time keys')
-    ).toBe(false);
   });
 });
 
@@ -85,10 +68,10 @@ describe('wasmErrorFingerprint', () => {
 describe('isReportableCoreWarning', () => {
   test('reports the warnings that explain a failed decryption', () => {
     for (const line of [
-      'WARN sable_core::utd: unable to decrypt a message cause=Unknown',
-      'WARN sable_core::calls::runtime: no call media key has arrived from a member in the call',
-      'WARN sable_core::calls::keys: call member device is unknown, cannot send it a media key',
+      'WARN sable_core::utd: unable to decrypt a message reported=true cause=Unknown',
+      'WARN sable_core::calls::runtime: no call media key has arrived reported=true',
       'WARN matrix_sdk_crypto::session_manager::sessions: Failed to claim one-time keys',
+      'WARN sync_once{conn_id="encryption"}:receive_sync_changes: matrix_sdk_crypto::olm::account: Failed to decrypt a non-pre-key message with all available sessions',
     ]) {
       expect(isReportableCoreWarning(line)).toBe(true);
     }
@@ -96,9 +79,21 @@ describe('isReportableCoreWarning', () => {
 
   test('ignores other warnings and the same text at a lower level', () => {
     expect(isReportableCoreWarning('WARN sable_core: slow call')).toBe(false);
-    expect(isReportableCoreWarning('INFO sable_core::utd: unable to decrypt a message')).toBe(
+    expect(isReportableCoreWarning('WARN sable_core::utd: unable to decrypt a message')).toBe(
       false
     );
+    expect(isReportableCoreWarning('WARN matrix_sdk_crypto::machine: careful')).toBe(false);
+    expect(
+      isReportableCoreWarning('INFO sable_core::utd: unable to decrypt a message reported=true')
+    ).toBe(false);
+  });
+
+  test('keeps the marker out of the title', () => {
+    expect(
+      wasmErrorTitle(
+        'WARN sable_core::utd: unable to decrypt a message reported=true cause=Unknown'
+      )
+    ).toBe('sable_core::utd: unable to decrypt a message cause=Unknown');
   });
 });
 

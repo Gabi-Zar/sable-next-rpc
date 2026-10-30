@@ -1590,6 +1590,7 @@ fn emit_pending(
             {
                 pending.reported = true;
                 tracing::warn!(
+                    reported = true,
                     "a call media key is still unresolved after {UNRESOLVED_KEY_REPORT_MS}ms: {}",
                     unresolved_reason(&pending, &state.members)
                 );
@@ -1623,6 +1624,7 @@ fn report_silent_members(state: &mut State, now_ms: u64) {
             continue;
         }
         tracing::warn!(
+            reported = true,
             user_id = %member.user_id,
             device_id = ?member.device_id,
             mode = ?member.mode,
@@ -1676,15 +1678,27 @@ async fn receive_call_key(
         return;
     }
     if !content.session.is_legacy_room_call() {
-        tracing::warn!(sender = %sender, "ignoring a call media key for another session");
+        tracing::warn!(
+            reported = true,
+            sender = %sender,
+            "ignoring a call media key for another session"
+        );
         return;
     }
     let Some(payload) = content.key() else {
-        tracing::warn!(sender = %sender, "ignoring a call media key event without a key");
+        tracing::warn!(
+            reported = true,
+            sender = %sender,
+            "ignoring a call media key event without a key"
+        );
         return;
     };
     if keys::decode_key_for_wire(&payload.key, wire).is_none() {
-        tracing::warn!(sender = %sender, "ignoring a call media key with invalid encoding or length");
+        tracing::warn!(
+            reported = true,
+            sender = %sender,
+            "ignoring a call media key with invalid encoding or length"
+        );
         return;
     }
     tracing::debug!(
@@ -1693,11 +1707,19 @@ async fn receive_call_key(
         "received a call media key"
     );
     let Some(encryption) = encryption else {
-        tracing::warn!(sender = %sender, "ignoring a call media key sent in clear");
+        tracing::warn!(
+            reported = true,
+            sender = %sender,
+            "ignoring a call media key sent in clear"
+        );
         return;
     };
     let Some(device) = encryption.sender_device else {
-        tracing::warn!(sender = %sender, "ignoring a call media key from an unknown device");
+        tracing::warn!(
+            reported = true,
+            sender = %sender,
+            "ignoring a call media key from an unknown device"
+        );
         return;
     };
     if encryption.sender != sender
@@ -1706,6 +1728,7 @@ async fn receive_call_key(
             .is_some_and(|claimed| claimed != device.as_str())
     {
         tracing::warn!(
+            reported = true,
             sender = %sender,
             %device,
             claimed = ?content.claimed_device_id(),

@@ -156,14 +156,19 @@ fn scrub_log(mut log: sentry::protocol::Log) -> sentry::protocol::Log {
     log
 }
 
-/// Kept in step with `REPORTABLE_WARNINGS` in `src/lib/observability/wasm-log.ts`.
-const REPORTED_WARNING_TARGETS: &[&str] = &[
-    // Only a warning in the SDK, but the room keys it carried are lost.
+const IGNORED_TARGETS: &[&str] = &[
+    "matrix_sdk_base::room::display_name",
+    "matrix_sdk::latest_events",
+    "matrix_sdk::http_client",
+];
+
+/// Only warnings in the SDK, but the room keys they carried are lost. Our own
+/// code marks such warnings with `reported = true` instead.
+const REPORTED_SDK_WARNINGS: &[&str] = &[
     "matrix_sdk_crypto::olm::account",
-    "matrix_sdk_crypto::session_manager",
+    "matrix_sdk_crypto::session_manager::sessions",
+    "matrix_sdk_crypto::session_manager::group_sessions",
     "matrix_sdk_crypto::gossiping",
-    "sable_core::utd",
-    "sable_core::calls::keys",
 ];
 
 pub fn tracing_filter(
@@ -171,22 +176,22 @@ pub fn tracing_filter(
 ) -> sentry::integrations::tracing::EventFilter {
     use sentry::integrations::tracing::EventFilter;
 
-    if metadata
-        .target()
-        .starts_with("matrix_sdk_base::room::display_name")
-        || metadata.target().starts_with("matrix_sdk::latest_events")
-        || metadata.target().starts_with("matrix_sdk::http_client")
+    let (target, level) = (metadata.target(), metadata.level());
+    if IGNORED_TARGETS
+        .iter()
+        .any(|ignored| target.starts_with(ignored))
     {
         return EventFilter::Ignore;
     }
-    if *metadata.level() == tracing::Level::WARN
-        && REPORTED_WARNING_TARGETS
-            .iter()
-            .any(|target| metadata.target().starts_with(target))
+    if *level == tracing::Level::WARN
+        && (metadata.fields().field("reported").is_some()
+            || REPORTED_SDK_WARNINGS
+                .iter()
+                .any(|reported| target.starts_with(reported)))
     {
         return EventFilter::Event | EventFilter::Log;
     }
-    match *metadata.level() {
+    match *level {
         tracing::Level::ERROR => EventFilter::Event | EventFilter::Log,
         tracing::Level::WARN => EventFilter::Breadcrumb | EventFilter::Log,
         _ => EventFilter::Ignore,
@@ -323,7 +328,7 @@ mod tests {
                 target: "matrix_sdk_crypto::olm::account",
                 "Failed to decrypt a non-pre-key message with all available sessions"
             );
-            tracing::warn!(target: "sable_core::utd", "unable to decrypt a message");
+            tracing::warn!(target: "sable_core::utd", reported = true, "unable to decrypt a message");
             tracing::warn!(target: "matrix_sdk_crypto::machine", "a routine warning");
         });
         let envelopes = transport.0.lock().unwrap();
