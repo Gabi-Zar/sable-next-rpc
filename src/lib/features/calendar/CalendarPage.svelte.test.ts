@@ -23,6 +23,9 @@ vi.mock('#lib/features/room/room-navigation.js', () => ({
   trackRoomEntry: vi.fn(),
 }));
 
+vi.useFakeTimers({ toFake: ['Date'] });
+vi.setSystemTime(new Date(2026, 5, 15, 12, 0));
+
 function local(at: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${String(at.getFullYear())}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T20:00:00`;
