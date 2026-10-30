@@ -3856,10 +3856,10 @@ mod tests {
                 assert_eq!(prepared, ColdPush::Discard);
             } else {
                 let ColdPush::Clear(clear) = prepared else {
-                    panic!("active group invitation must notify");
+                    panic!("active invitation must notify");
                 };
                 let clear: serde_json::Value = serde_json::from_str(&clear).unwrap();
-                assert_eq!(clear["content"]["notification_type"], "notification");
+                assert_eq!(clear["content"]["notification_type"], "ring");
                 assert_eq!(clear["content"]["body"], "Call started");
                 assert!(clear["content"]["lifetime"].as_u64().unwrap() <= 85_000);
                 assert_eq!(clear[super::NOISY_KEY], true);

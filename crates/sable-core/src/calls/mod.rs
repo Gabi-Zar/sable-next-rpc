@@ -800,7 +800,12 @@ impl Core {
             serde_json::from_str::<Value>(event.raw().json().get())
                 .or_failed(self, "decline_call")?
         };
-        if value["content"].get("slot_id").is_some() || value["type"] == "m.rtc.invite" {
+        let value = invite_service::invite_event(&room, &value)
+            .await
+            .ok_or_else(|| self.failed("decline_call", "could not read the invitation"))?;
+        if (value["content"].get("slot_id").is_some() || value["type"] == "m.rtc.invite")
+            && invites::Invite::parse(&value, keys::now_ms()).is_none_or(|invite| invite.modern)
+        {
             let (invite, _) = invite_service::active_invite(&room, &value)
                 .await
                 .ok_or_else(|| self.failed("decline_call", "the invitation is not active"))?;

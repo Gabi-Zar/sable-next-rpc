@@ -1,4 +1,4 @@
-import type { NotificationView, RoomListItemView } from '#src/generated/protocol';
+import type { CoreEvent, NotificationView, RoomListItemView } from '#src/generated/protocol';
 
 import { createContext } from 'svelte';
 
@@ -14,6 +14,7 @@ import { parsePushPayload, webPushValidation } from '#lib/notifications/push-pay
 import { body, enabled, title } from './present';
 import { retireReadAlerts, retireRoomAlerts } from './retire';
 import { playNotificationSound } from './sound';
+import { roomTag } from './tag';
 
 export const settingsChanges = $state({ version: 0 });
 
@@ -41,9 +42,15 @@ export class NotificationCenter {
   private readonly readRooms = new Set<string>();
   private readonly invites = new Map<string, boolean>();
   private readonly presented = new Map<string, Notification[]>();
+  private readonly callAlerts = new Map<
+    string,
+    { timer: ReturnType<typeof setTimeout>; shown: Promise<() => void> }
+  >();
   /* eslint-enable svelte/prefer-svelte-reactivity */
 
   start(core: CoreClient, open: OpenRoom): void {
+    for (const id of this.callAlerts.keys()) this.closeCall(id);
+    void closeExpiredCalls().catch(failed('closing expired calls'));
     this.stopEvents?.();
     this.stopNativePush?.();
     this.client = core;
@@ -54,6 +61,8 @@ export class NotificationCenter {
         return;
       }
       if (event.type === 'notification') this.present(event.notification);
+      if (event.type === 'incoming_call') this.showCall(event);
+      if (event.type === 'incoming_call_ended') this.closeCall(event.notification_event_id);
     });
     const generation = ++this.nativePushGeneration;
     void watchNativePushMessages((message) => {
@@ -75,6 +84,7 @@ export class NotificationCenter {
   }
 
   stop(): void {
+    for (const id of this.callAlerts.keys()) this.closeCall(id);
     this.stopEvents?.();
     this.stopEvents = null;
     this.stopNativePush?.();
@@ -92,6 +102,69 @@ export class NotificationCenter {
     this.retired.clear();
     this.invites.clear();
     this.presented.clear();
+  }
+
+  private showCall(event: Extract<CoreEvent, { type: 'incoming_call' }>): void {
+    const remaining = event.expires_at_ms - Date.now();
+    if (!enabled() || remaining <= 0 || this.callAlerts.has(event.notification_event_id)) return;
+    const open = this.open;
+    const userId = this.client?.session?.user_id;
+    const tag = `${roomTag(userId, event.room_id)}:${event.notification_event_id}`;
+    const options: NotificationOptions = {
+      body: event.ring ? 'Incoming call' : 'Call started',
+      tag,
+      silent: true,
+      data: {
+        roomId: event.room_id,
+        userId,
+        eventId: null,
+        call: true,
+        callEventId: event.notification_event_id,
+        callExpiresAtMs: event.expires_at_ms,
+      },
+    };
+    const name = preferences.notificationContent
+      ? (event.sender_name ?? event.room_name ?? event.sender)
+      : 'Sable';
+    const shown = callBanner(name, options, () => {
+      const electron = electronBridge();
+      if (electron) electron.showWindow();
+      else globalThis.focus();
+      open?.(event.room_id, null);
+      this.closeCall(event.notification_event_id);
+    }).catch((error: unknown) => {
+      failed('showing incoming call')(error);
+      return () => {};
+    });
+    const timer = setTimeout(() => {
+      this.closeCall(event.notification_event_id);
+    }, remaining);
+    this.callAlerts.set(event.notification_event_id, { timer, shown });
+  }
+
+  private closeCall(id: string): void {
+    const userId = this.client?.session?.user_id;
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker
+        .getRegistration()
+        .then(async (registration) => {
+          for (const notification of (await registration?.getNotifications()) ?? []) {
+            const data = notification.data as
+              | { call?: boolean; callEventId?: string; eventId?: string; userId?: string }
+              | undefined;
+            if (data?.call && (data.callEventId ?? data.eventId) === id && data.userId === userId)
+              notification.close();
+          }
+        })
+        .catch(failed('closing incoming call'));
+    }
+    const alert = this.callAlerts.get(id);
+    if (!alert) return;
+    this.callAlerts.delete(id);
+    clearTimeout(alert.timer);
+    void alert.shown.then((close) => {
+      close();
+    });
   }
 
   readRoom(roomId: string | null): void {
@@ -297,6 +370,41 @@ async function avatar(core: CoreClient, view: NotificationView): Promise<string>
     failed('loading notification avatar')(error);
     return FALLBACK_ICON;
   });
+}
+
+async function callBanner(
+  title: string,
+  options: NotificationOptions,
+  open: () => void
+): Promise<() => void> {
+  try {
+    const notification = new Notification(title, options);
+    notification.addEventListener('click', open);
+    return () => {
+      notification.close();
+    };
+  } catch {
+    const registration = await navigator.serviceWorker.getRegistration();
+    await registration?.showNotification(title, options);
+    return () => {
+      void registration
+        ?.getNotifications({ tag: options.tag })
+        .then((notifications) => {
+          for (const notification of notifications) notification.close();
+        })
+        .catch(failed('closing incoming call'));
+    };
+  }
+}
+
+async function closeExpiredCalls(): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration || !('getNotifications' in registration)) return;
+  for (const notification of await registration.getNotifications()) {
+    const data = notification.data as { call?: boolean; callExpiresAtMs?: number } | undefined;
+    if (data?.call && (data.callExpiresAtMs ?? 0) <= Date.now()) notification.close();
+  }
 }
 
 async function showFromWorker(title: string, options: NotificationOptions): Promise<void> {

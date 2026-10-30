@@ -121,15 +121,7 @@ object PushNotifier {
         }
         val id = if (userId.isNotEmpty()) roomNotificationId(userId, roomId) else fallbackNotificationId(roomId)
         val revision = queuedRevision ?: PushNotificationGate.revision(context, id)
-        if (notification.optJSONObject("counts")?.optInt("unread", -1) == 0) {
-            if (!store.clearOnRead) {
-                PushDiagnostics.record(context, PushOutcome.READ_KEPT, trace)
-                return
-            }
-            PushDiagnostics.record(context, PushOutcome.READ_DISMISSED, trace)
-            PushNotificationGate.dismiss(context, id) { manager.cancel(id) }
-            return
-        }
+        if (eventId.isEmpty() && dismissReadUpdate(context, notification, id)) return
         if (eventId.isEmpty()) {
             PushDiagnostics.record(context, PushOutcome.NO_CONTENT, trace)
             return
@@ -180,6 +172,7 @@ object PushNotifier {
         }
         val encrypted = notification.optString("type") == "m.room.encrypted"
         if (!encrypted) {
+            if (!isRtcInvite(notification) && dismissReadUpdate(context, notification, id)) return
             if (isRing(notification)) {
                 attachMedia(context, notification, roomId, content = null)
                 PushNotificationGate.post(context, id, revision) { postIncomingCall(context, notification, notification) }
@@ -217,6 +210,7 @@ object PushNotifier {
                     return
                 }
                 if (clear == null) {
+                    if (dismissReadUpdate(context, notification, id)) return
                     attachMedia(context, notification, roomId, content = null)
                     PushNotificationGate.post(context, id, revision) { post(context, notification, "Encrypted message") }
                     return
@@ -234,6 +228,7 @@ object PushNotifier {
         if (clear != null) {
             showDecrypted(context, notification, clear, id, revision)
         } else if (!quietly && outcome != PushOutcome.DISCARDED && outcome != PushOutcome.RULES_UNEVALUATED) {
+            if (dismissReadUpdate(context, notification, id)) return
             if (quietForActiveElsewhere(context, store, notification)) {
                 PushDiagnostics.record(context, PushOutcome.ACTIVE_ELSEWHERE, trace)
                 return
@@ -250,6 +245,18 @@ object PushNotifier {
         return PushPayloadDecryptor.activeElsewhere(context, userId, deviceId, notification.optString("room_id"))
     }
 
+    private fun dismissReadUpdate(context: Context, notification: JSONObject, id: Int): Boolean {
+        if (notification.optJSONObject("counts")?.optInt("unread", -1) != 0) return false
+        if (PushPolicy(context).clearOnRead) {
+            PushDiagnostics.record(context, PushOutcome.READ_DISMISSED, traceOf(notification))
+            val manager = context.getSystemService(NotificationManager::class.java)
+            PushNotificationGate.dismiss(context, id) { manager.cancel(id) }
+        } else {
+            PushDiagnostics.record(context, PushOutcome.READ_KEPT, traceOf(notification))
+        }
+        return true
+    }
+
     private fun showDecrypted(
         context: Context,
         notification: JSONObject,
@@ -263,6 +270,7 @@ object PushNotifier {
             PushDiagnostics.record(context, PushOutcome.DISCARDED, traceOf(notification))
             return
         }
+        if (!isRtcInvite(clear) && dismissReadUpdate(context, notification, id)) return
         if (isRing(clear)) {
             attachMedia(context, notification, notification.optString("room_id"), content = null)
             PushNotificationGate.post(context, id, revision) {

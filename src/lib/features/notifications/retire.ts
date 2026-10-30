@@ -34,7 +34,10 @@ async function closePresented(userId: string, roomIds: ReadonlySet<string>): Pro
 
   const tags = new Set([...roomIds].map((roomId) => roomTag(userId, roomId)));
   for (const notification of await registration.getNotifications()) {
-    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    const data = notification.data as
+      | { roomId?: unknown; userId?: unknown; call?: boolean; callExpiresAtMs?: number }
+      | undefined;
+    if (data?.call && (data.callExpiresAtMs ?? 0) > Date.now()) continue;
     const postedForRoom =
       typeof data?.roomId === 'string' &&
       roomIds.has(data.roomId) &&

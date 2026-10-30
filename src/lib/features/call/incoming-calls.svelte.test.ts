@@ -146,17 +146,21 @@ test('an incoming call is surfaced', () => {
   expect(calls.calls[0].sender).toBe('@bob:example.org');
 });
 
-test('a group call is silent until the reader asks to be rung for them', () => {
+test('group invitations stay visible when group ringing is disabled', () => {
+  system.platform = 'web';
   const { client, emit } = harness();
   const calls = new IncomingCalls(client);
   calls.start();
 
   emit(incoming({ ring: false }));
-  expect(calls.calls).toHaveLength(0);
+  expect(calls.calls).toHaveLength(1);
+  expect(system.report).not.toHaveBeenCalled();
+  expect(system.play).not.toHaveBeenCalled();
 
   preferences.ringForGroupCalls = true;
   emit(incoming({ ring: false }));
   expect(calls.calls).toHaveLength(1);
+  expect(system.report).toHaveBeenCalledOnce();
 });
 
 test('an already-expired notification never appears', () => {

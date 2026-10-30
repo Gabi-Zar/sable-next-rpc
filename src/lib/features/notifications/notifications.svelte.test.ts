@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import type { NotificationView, RoomListItemView } from '#src/generated/protocol';
+import type { CoreEvent, NotificationView, RoomListItemView } from '#src/generated/protocol';
 
 const mocks = vi.hoisted(() => ({
   retire: vi.fn().mockResolvedValue(undefined),
@@ -59,7 +59,8 @@ function room(unread: number, roomId = '!room:example.org'): RoomListItemView {
 }
 
 function center(
-  open: (roomId: string, eventId: string | null) => void = () => {}
+  open: (roomId: string, eventId: string | null) => void = () => {},
+  subscribeEvents: (listener: (event: CoreEvent) => void) => () => void = () => () => {}
 ): NotificationCenter {
   const notifications = new NotificationCenter();
   notifications.start(
@@ -69,12 +70,84 @@ function center(
         push: { ackWebPusher: mocks.ackWebPusher },
         session: { setReadRoom: mocks.setReadRoom },
       },
-      subscribeEvents: () => () => {},
+      subscribeEvents,
     } as unknown as CoreClient,
     open
   );
   return notifications;
 }
+
+test('calls post silent system banners even in the open room and close on cancellation or expiry', async () => {
+  vi.useFakeTimers();
+  const close = vi.fn();
+  const show = vi.fn();
+  class BrowserNotification extends EventTarget {
+    static permission = 'granted';
+    constructor(title: string, options: NotificationOptions) {
+      super();
+      show(title, options);
+    }
+    close = close;
+  }
+  vi.stubGlobal('Notification', BrowserNotification);
+  preferences.systemNotifications = true;
+  preferences.notificationContent = true;
+  let emit!: (event: CoreEvent) => void;
+  const notifications = center(
+    () => {},
+    (listener) => {
+      emit = listener;
+      return () => {};
+    }
+  );
+  notifications.readRoom('!room:example.org');
+  const incoming: CoreEvent = {
+    type: 'incoming_call',
+    room_id: '!room:example.org',
+    notification_event_id: '$call',
+    sender: '@bob:example.org',
+    sender_name: 'Bob',
+    room_name: 'Room',
+    ring: true,
+    has_video: false,
+    expires_at_ms: Date.now() + 30000,
+  };
+  emit(incoming);
+  emit(incoming);
+  expect(show).toHaveBeenCalledExactlyOnceWith(
+    'Bob',
+    expect.objectContaining({
+      body: 'Incoming call',
+      silent: true,
+      tag: '@me:example.org !room:example.org:$call',
+    })
+  );
+  expect(mocks.sound).not.toHaveBeenCalled();
+  emit({ type: 'incoming_call_ended', notification_event_id: '$call' });
+  await Promise.resolve();
+  expect(close).toHaveBeenCalledOnce();
+  emit({ ...incoming, notification_event_id: '$next' });
+  await vi.advanceTimersByTimeAsync(30000);
+  expect(close).toHaveBeenCalledTimes(2);
+  notifications.stop();
+});
+
+test('startup removes expired call banners left by background push', async () => {
+  const expired = { data: { call: true, callExpiresAtMs: Date.now() - 1 }, close: vi.fn() };
+  const active = { data: { call: true, callExpiresAtMs: Date.now() + 90000 }, close: vi.fn() };
+  vi.stubGlobal('navigator', {
+    serviceWorker: {
+      getRegistration: () =>
+        Promise.resolve({ getNotifications: () => Promise.resolve([expired, active]) }),
+    },
+  });
+  const notifications = center();
+  await vi.waitFor(() => {
+    expect(expired.close).toHaveBeenCalledOnce();
+  });
+  expect(active.close).not.toHaveBeenCalled();
+  notifications.stop();
+});
 
 test('a room read after it was unread retires its alerts', () => {
   const notifications = center();

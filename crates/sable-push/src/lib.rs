@@ -452,7 +452,8 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
     let Some((account_id, device_id)) = signed_in(root, &user).await else {
         return (None, Some("no_account"));
     };
-    if target.counts.and_then(|counts| counts.unread) == Some(0) {
+    let zero_unread = target.counts.and_then(|counts| counts.unread) == Some(0);
+    if zero_unread && target.event_id.as_deref().is_none_or(str::is_empty) {
         let read = ReadPushOut {
             read: ReadOut {
                 clear: settings.clear_on_read,
@@ -553,6 +554,22 @@ async fn render(root: &Path, payload: &Value) -> (Option<Value>, Option<Issue>) 
             return (serde_json::to_value(discard).ok(), None);
         }
     };
+    if zero_unread
+        && !event.as_ref().is_some_and(|event| {
+            event["type"]
+                .as_str()
+                .is_some_and(|kind| RING_TYPES.contains(&kind))
+        })
+    {
+        let read = ReadPushOut {
+            read: ReadOut {
+                clear: settings.clear_on_read,
+                room_id: Some(room_id.to_owned()),
+            },
+            user_id: user,
+        };
+        return (serde_json::to_value(read).ok(), None);
+    }
     if encrypted && event.is_none() {
         issue = issue.or(Some("undecryptable"));
     }
@@ -1028,13 +1045,14 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
-    #[tokio::test]
-    async fn titles_invites_and_read_pushes_follow_the_android_alerts() {
-        let root =
-            std::env::temp_dir().join(format!("sable-push-shape-test-{}", std::process::id()));
+    async fn shape_root(name: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!("sable-push-{name}-{}", std::process::id()));
         std::fs::create_dir_all(&root).unwrap();
-        let policy = |clear_on_read: bool| json!({"enabled":true,"content":true,"encrypted_content":false,"sounds":true,"clear_on_read":clear_on_read});
-        std::fs::write(root.join("push-policy.json"), policy(true).to_string()).unwrap();
+        let policy = json!({
+            "enabled":true, "content":true, "encrypted_content":false, "sounds":true,
+            "clear_on_read":true
+        });
+        std::fs::write(root.join("push-policy.json"), policy.to_string()).unwrap();
         let registry = json!({"version":1,"active_account_id":"a1","next_account_id":2,"accounts":[{
             "account_id":"a1","store_id":"old","needs_reauth":false,
             "session":{"homeserver":"https://example.org","credentials":{
@@ -1045,11 +1063,23 @@ mod tests {
             .save(registry.to_string().into_bytes())
             .await
             .unwrap();
-        let push = |notification: Value| json!({"user_id":"@alice:example.org","notification":notification});
+        root
+    }
+
+    fn shape_push(notification: Value) -> Value {
+        Value::Object(serde_json::Map::from_iter([
+            ("user_id".to_owned(), "@alice:example.org".into()),
+            ("notification".to_owned(), notification),
+        ]))
+    }
+
+    #[tokio::test]
+    async fn titles_and_invites_follow_the_android_alerts() {
+        let root = shape_root("alerts").await;
 
         let message = rendered(
             &root,
-            &push(json!({
+            &shape_push(json!({
                 "room_id":"!room:example.org","type":"m.room.message","event_id":"$e",
                 "room_name":"Lounge","sender":"@bob:example.org","sender_display_name":"Bob",
                 "content":{"body":"hi"}
@@ -1065,7 +1095,7 @@ mod tests {
 
         let unnamed = rendered(
             &root,
-            &push(json!({
+            &shape_push(json!({
                 "room_id":"!dm:example.org","type":"m.room.message","sender":"@bob:example.org",
                 "sender_display_name":"\u{200b}\u{2800}",
                 "content":{"body":"hi"}
@@ -1078,7 +1108,7 @@ mod tests {
 
         let invite = rendered(
             &root,
-            &push(json!({
+            &shape_push(json!({
                 "room_id":"!room:example.org","type":"m.room.member","room_name":"Lounge",
                 "sender":"@bob:example.org","sender_display_name":"Bob",
                 "content":{"membership":"invite"}
@@ -1089,10 +1119,16 @@ mod tests {
         assert_eq!(invite["title"], "New Invitation");
         assert_eq!(invite["body"], "Bob invites you to Lounge");
         assert_eq!(invite["invite"], true);
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
+    #[tokio::test]
+    async fn read_pushes_follow_the_android_alerts() {
+        let root = shape_root("reads").await;
+        let policy = |clear_on_read: bool| json!({"enabled":true,"content":true,"encrypted_content":false,"sounds":true,"clear_on_read":clear_on_read});
         let read = rendered(
             &root,
-            &push(json!({"room_id":"!room:example.org","counts":{"unread":0}})),
+            &shape_push(json!({"room_id":"!room:example.org","counts":{"unread":0}})),
         )
         .await
         .unwrap();
@@ -1100,7 +1136,28 @@ mod tests {
             read["read"],
             json!({"clear":true,"room_id":"!room:example.org"})
         );
-        let account_read = rendered(&root, &push(json!({"counts":{"unread":0}})))
+        let message_read = rendered(
+            &root,
+            &shape_push(json!({
+                "room_id":"!room:example.org", "event_id":"$read", "type":"m.room.message",
+                "counts":{"unread":0}, "content":{"body":"already read"}
+            })),
+        )
+        .await
+        .unwrap();
+        assert_eq!(message_read["read"]["clear"], true);
+        let unvalidated_call = rendered(
+            &root,
+            &shape_push(json!({
+                "room_id":"!room:example.org", "event_id":"$call", "type":"m.rtc.invite",
+                "counts":{"unread":0}
+            })),
+        )
+        .await
+        .unwrap();
+        assert_eq!(unvalidated_call["discard"], true);
+        assert!(unvalidated_call.get("read").is_none());
+        let account_read = rendered(&root, &shape_push(json!({"counts":{"unread":0}})))
             .await
             .unwrap();
         assert_eq!(account_read["read"], json!({"clear":true,"room_id":null}));
@@ -1109,12 +1166,12 @@ mod tests {
             r#"{"enabled":true,"content":true,"encrypted_content":false,"sounds":true}"#,
         )
         .unwrap();
-        let defaulted_account_read = rendered(&root, &push(json!({"counts":{"unread":0}})))
+        let defaulted_account_read = rendered(&root, &shape_push(json!({"counts":{"unread":0}})))
             .await
             .unwrap();
         assert_eq!(defaulted_account_read["read"]["clear"], true);
         std::fs::write(root.join("push-policy.json"), policy(false).to_string()).unwrap();
-        let kept = rendered(&root, &push(json!({"counts":{"unread":0}})))
+        let kept = rendered(&root, &shape_push(json!({"counts":{"unread":0}})))
             .await
             .unwrap();
         assert_eq!(kept["read"]["clear"], false);

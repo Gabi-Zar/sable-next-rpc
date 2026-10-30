@@ -132,7 +132,7 @@ fn matches_key(event: &Value, key: &StickyKey) -> bool {
             == Some(key.sticky_key.as_str())
 }
 
-fn enqueue<T>(send: &UnboundedSender<Event>, room: Room, raw: &Raw<T>) {
+async fn enqueue<T>(send: &UnboundedSender<Event>, room: Room, raw: &Raw<T>) {
     let relevant = notify::is_call_event_type(raw)
         || notify::is_call_membership_event_type(raw)
         || raw
@@ -142,7 +142,10 @@ fn enqueue<T>(send: &UnboundedSender<Event>, room: Room, raw: &Raw<T>) {
             .is_some_and(|kind| {
                 kind == "m.room.redaction" || super::SLOT_TYPES.contains(&kind.as_str())
             });
-    if relevant && let Ok(value) = serde_json::from_str(raw.json().get()) {
+    if relevant
+        && let Ok(value) = serde_json::from_str(raw.json().get())
+        && let Some(value) = invite_event(&room, &value).await
+    {
         let _ = send.send((room, value, Instant::now()));
     }
 }
@@ -153,14 +156,14 @@ pub(super) fn watch(core: &Arc<Core>, client: &Client, generation: u64) {
     let handler = client.add_event_handler(move |raw: Raw<AnySyncMessageLikeEvent>, room: Room| {
         let send = messages.clone();
         async move {
-            enqueue(&send, room, &raw);
+            enqueue(&send, room, &raw).await;
         }
     });
     core.track_session_handler(client, handler);
     let handler = client.add_event_handler(move |raw: Raw<AnySyncStateEvent>, room: Room| {
         let send = send.clone();
         async move {
-            enqueue(&send, room, &raw);
+            enqueue(&send, room, &raw).await;
         }
     });
     core.track_session_handler(client, handler);
@@ -333,21 +336,17 @@ fn emit_ended(core: &Core, generation: u64, ids: Vec<String>) {
     }
 }
 
-async fn present_invite(core: &Core, room: &Room, invite: Invite, generation: u64) {
+async fn present_invite(core: &Core, room: &Room, invite: &Invite, generation: u64) -> bool {
     let Ok(raw) = Raw::new(&invite.event) else {
-        return;
+        return true;
     };
-    if !room
-        .event_push_actions(&raw)
-        .await
-        .ok()
-        .flatten()
-        .is_some_and(|actions| crate::push_rules::notifies(&actions))
-    {
-        return;
+    match room.event_push_actions(&raw).await {
+        Ok(Some(actions)) if crate::push_rules::notifies(&actions) => {}
+        Ok(Some(_)) => return true,
+        Ok(None) | Err(_) => return false,
     }
     let Ok(sender) = matrix_sdk::ruma::UserId::parse(&invite.sender) else {
-        return;
+        return true;
     };
     let sender_name = room
         .get_member_no_sync(&sender)
@@ -360,11 +359,10 @@ async fn present_invite(core: &Core, room: &Room, invite: Invite, generation: u6
                 .and_then(sable_model::text::visible_name)
                 .map(str::to_owned)
         });
-    let ring = if invite.modern {
-        room.is_direct().await.unwrap_or(false)
-    } else {
-        invite.event["content"]["notification_type"] == "ring"
-    };
+    let ring = invite.should_ring(
+        room.own_user_id().as_str(),
+        room.is_direct().await.unwrap_or(false),
+    );
     let has_video = invite.event["content"]["m.call.intent"] == "video"
         || sticky::live_events(room).into_iter().any(|event| {
             let event = event.into_value();
@@ -375,7 +373,7 @@ async fn present_invite(core: &Core, room: &Room, invite: Invite, generation: u6
         generation,
         CoreEvent::IncomingCall {
             room_id: room.room_id().to_owned(),
-            notification_event_id: invite.id,
+            notification_event_id: invite.id.clone(),
             sender,
             sender_name,
             room_name: room.cached_display_name().map(|name| name.to_string()),
@@ -384,6 +382,7 @@ async fn present_invite(core: &Core, room: &Room, invite: Invite, generation: u6
             expires_at_ms: invite.expires,
         },
     );
+    true
 }
 
 async fn reconcile_room(core: &Core, room: &Room, watched: &mut WatchedRoom, generation: u64) {
@@ -399,8 +398,56 @@ async fn reconcile_room(core: &Core, room: &Room, watched: &mut WatchedRoom, gen
         .reconcile(room.own_user_id().as_str(), keys::now_ms());
     emit_ended(core, generation, ends);
     for invite in starts {
-        present_invite(core, room, invite, generation).await;
+        if !present_invite(core, room, &invite, generation).await {
+            watched.invitations.retry(&invite.id);
+        }
     }
+}
+
+// Megolm decryption omits the outer sticky envelope. Recover it before deciding
+// whether a deployed invitation used the regular-event fallback.
+pub(super) async fn invite_event(room: &Room, event: &Value) -> Option<Value> {
+    let mut event = event.clone();
+    if !matches!(
+        event["type"].as_str(),
+        Some("m.rtc.invite" | "m.rtc.notification" | notify::NOTIFICATION_EVENT_TYPE)
+    ) || event["content"].get("slot_id").is_none()
+        || event.get("sticky").is_some()
+        || event.get("msc4354_sticky").is_some()
+    {
+        return Some(event);
+    }
+    if let Some(current) = sticky::live_events(room)
+        .into_iter()
+        .map(sticky::Event::into_value)
+        .find(|current| current["event_id"] == event["event_id"])
+    {
+        return Some(current);
+    }
+    let id = matrix_sdk::ruma::EventId::parse(event["event_id"].as_str()?).ok()?;
+    let response = room
+        .client()
+        .send(
+            matrix_sdk::ruma::api::client::room::get_room_event::v3::Request::new(
+                room.room_id().to_owned(),
+                id,
+            ),
+        )
+        .await
+        .ok()?;
+    let source: Value = serde_json::from_str(response.event.json().get()).ok()?;
+    if source["event_id"] != event["event_id"]
+        || source["sender"] != event["sender"]
+        || source["unsigned"].get("redacted_because").is_some()
+    {
+        return None;
+    }
+    for field in ["sticky", "msc4354_sticky"] {
+        if let Some(value) = source.get(field) {
+            event[field] = value.clone();
+        }
+    }
+    Some(event)
 }
 
 pub(super) async fn active_invite(
@@ -408,7 +455,8 @@ pub(super) async fn active_invite(
     event: &Value,
 ) -> Option<(super::invites::Invite, Vec<Value>)> {
     let now = keys::now_ms();
-    let modern = event["content"].get("slot_id").is_some() || event["type"] == "m.rtc.invite";
+    let event = &invite_event(room, event).await?;
+    let modern = Invite::parse(event, now)?.modern;
     let mut values = if modern {
         let mut sync = sticky::StickySync::for_invites();
         let events = sync.sync(room, Duration::ZERO).await.ok()?;
@@ -476,11 +524,10 @@ pub(crate) async fn validate_invite(room: &Room, event: &Value) -> Option<Valida
     }
     let presentation = sable_model::rtc_invites::InvitePresentation::from_invite(&invite, &values)?;
     Some(ValidatedInvite {
-        ring: if invite.modern {
-            room.is_direct().await.unwrap_or(false)
-        } else {
-            event["content"]["notification_type"] == "ring"
-        },
+        ring: invite.should_ring(
+            room.own_user_id().as_str(),
+            room.is_direct().await.unwrap_or(false),
+        ),
         has_video: presentation.has_video,
         expires_at_ms: presentation.expires_at_ms,
     })
@@ -509,6 +556,48 @@ mod tests {
                 "content":{"status":"open", "application":{"type":"m.call"}}
             })).unwrap().cast_unchecked(),
         )).await
+    }
+
+    #[tokio::test]
+    async fn decrypted_invites_recover_their_original_sticky_envelope() {
+        let server = MatrixMockServer::new().await;
+        let room = cached_open_room(&server).await;
+        let now = keys::now_ms();
+        let clear = json!({"type":"org.matrix.msc4075.rtc.notification", "event_id":"$encrypted",
+            "sender":"@caller:example.org", "origin_server_ts":now,
+            "content":{"slot_id":"m.call#ROOM", "msc4354_sticky_key":"m.call#ROOM",
+                "sender_ts":now,"lifetime":90000,"notification_type":"ring",
+                "m.mentions":{"user_ids":[room.own_user_id()]}}});
+        for (sticky, redacted) in [(true, false), (false, false), (false, true)] {
+            let mut source = json!({"type":"m.room.encrypted", "event_id":"$encrypted",
+                "sender":"@caller:example.org", "content":{"ciphertext":"encrypted"}});
+            if sticky {
+                source["msc4354_sticky"] = json!({"duration_ms":300_000});
+            }
+            if redacted {
+                source["unsigned"] = json!({"redacted_because":{"type":"m.room.redaction"}});
+            }
+            let guard = Mock::given(method("GET"))
+                .and(path(format!(
+                    "/_matrix/client/v3/rooms/{}/event/$encrypted",
+                    room.room_id()
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_json(source))
+                .mount_as_scoped(server.server())
+                .await;
+            let recovered = super::invite_event(&room, &clear).await;
+            if redacted {
+                assert!(recovered.is_none());
+            } else {
+                let recovered = recovered.unwrap();
+                assert_eq!(
+                    super::Invite::parse(&recovered, now).unwrap().modern,
+                    sticky
+                );
+                assert_eq!(recovered["content"], clear["content"]);
+            }
+            drop(guard);
+        }
     }
 
     fn pending(room: &matrix_sdk::Room) -> WatchedRoom {

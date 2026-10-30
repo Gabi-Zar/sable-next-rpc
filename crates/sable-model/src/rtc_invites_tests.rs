@@ -125,6 +125,82 @@ fn deployed_slot_invites_and_pre_slot_announcements_are_distinct() {
 }
 
 #[test]
+fn deployed_non_sticky_invites_keep_their_slot_and_ring() {
+    let mut event = invite("$fallback", OTHER, 1_000);
+    event["type"] = super::NOTIFICATION_EVENT_TYPE.into();
+    event.as_object_mut().unwrap().remove("sticky");
+    event["content"]["msc4354_sticky_key"] = event["content"]["sticky_key"].take();
+    event["content"]
+        .as_object_mut()
+        .unwrap()
+        .remove("sticky_key");
+    event["content"]["notification_type"] = "ring".into();
+    event["content"]["m.mentions"] = json!({"user_ids":[ME]});
+    let parsed = Invite::parse(&event, 1_000).expect("reference SDK non-sticky fallback");
+    assert!(!parsed.modern);
+    assert_eq!(parsed.slot, SLOT);
+    let mut state = Invitations::default();
+    state.apply(&event, 1_000, false);
+    assert_eq!(state.reconcile(ME, 1_000).0.len(), 1);
+    assert!(super::validate_snapshot(&event, &[], ME, 1_000).is_some());
+    state.apply(&member("$joined", ME, "join", 1_100), 1_100, false);
+    assert_eq!(state.reconcile(ME, 1_100).1, ["$fallback"]);
+
+    let mut invalid = event.clone();
+    invalid["msc4354_sticky"] = json!({"duration_ms":0});
+    assert!(Invite::parse(&invalid, 1_000).is_none());
+    invalid = event.clone();
+    invalid["content"]["msc4354_sticky_key"] = "other-slot".into();
+    assert!(Invite::parse(&invalid, 1_000).is_none());
+    event["type"] = "m.rtc.invite".into();
+    assert!(Invite::parse(&event, 1_000).is_none());
+}
+
+#[test]
+fn targeted_invites_ring_without_direct_room_account_data() {
+    let mut event = invite("$targeted", OTHER, 1_000);
+    event["content"]["m.mentions"] = json!({"user_ids":[ME]});
+    let targeted = Invite::parse(&event, 1_000).unwrap();
+    assert!(targeted.should_ring(ME, false));
+    assert!(!targeted.should_ring("@someone:example.org", false));
+
+    event["content"]["m.mentions"] = json!({"room":true});
+    let group = Invite::parse(&event, 1_000).unwrap();
+    assert!(!group.should_ring(ME, false));
+    assert!(group.should_ring(ME, true));
+}
+
+#[test]
+fn legacy_declines_on_another_device_stop_ringing() {
+    let event = json!({
+        "type":super::NOTIFICATION_EVENT_TYPE, "event_id":"$legacy", "sender":OTHER,
+        "origin_server_ts":1000, "content":{"sender_ts":1000, "lifetime":30000,
+            "notification_type":"ring", "m.mentions":{"user_ids":[ME]}}
+    });
+    let mut state = Invitations::default();
+    assert_eq!(start(&mut state, &event, 1000).len(), 1);
+    let declined = json!({"type":super::DECLINE_EVENT_TYPE, "event_id":"$decline",
+        "sender":ME, "origin_server_ts":1100,
+        "content":{"m.relates_to":{"rel_type":"m.reference","event_id":"$legacy"}}});
+    state.apply(&declined, 1100, false);
+    assert_eq!(state.reconcile(ME, 1100).1, ["$legacy"]);
+    assert!(state.reconcile(ME, 1200).0.is_empty());
+    let mut early = Invitations::default();
+    early.apply(&declined, 1100, false);
+    assert!(start(&mut early, &event, 1200).is_empty());
+}
+
+#[test]
+fn unpresented_invites_can_retry() {
+    let event = invite("$retry", OTHER, 1000);
+    let mut state = state();
+    assert_eq!(start(&mut state, &event, 1000).len(), 1);
+    state.retry("$retry");
+    assert_eq!(state.reconcile(ME, 1100).0.len(), 1);
+    assert!(state.reconcile(ME, 1200).0.is_empty());
+}
+
+#[test]
 fn room_mentions_require_permission_at_receipt() {
     let event = invite("$invite", OTHER, 1_000);
     let mut state = state();

@@ -132,13 +132,22 @@ pub struct Invite {
 impl Invite {
     #[must_use]
     pub fn parse(value: &Value, now: u64) -> Option<Self> {
-        if !invite_type(value) {
+        if !invite_type(value) || value["unsigned"].get("redacted_because").is_some() {
             return None;
         }
         let content = value.get("content")?.as_object()?;
-        let modern = content.contains_key("slot_id")
-            || kind(value) == "m.rtc.invite"
-            || sticky_key(&value["content"]).is_some();
+        // The deployed SDK keeps slot/key fields when falling back to a regular event.
+        let legacy = kind(value) != "m.rtc.invite"
+            && value.get("sticky").is_none()
+            && value.get("msc4354_sticky").is_none()
+            && matches!(
+                content.get("notification_type").and_then(Value::as_str),
+                Some("ring" | "notification")
+            );
+        let modern = !legacy
+            && (content.contains_key("slot_id")
+                || kind(value) == "m.rtc.invite"
+                || sticky_key(&value["content"]).is_some());
         let slot = if modern {
             let slot = content.get("slot_id")?.as_str()?;
             if slot.is_empty()
@@ -154,9 +163,27 @@ impl Invite {
             }
             slot
         } else {
-            match content.get("notification_type")?.as_str()? {
-                "ring" | "notification" => "m.call#ROOM",
-                _ => return None,
+            if !matches!(
+                content.get("notification_type").and_then(Value::as_str),
+                Some("ring" | "notification")
+            ) {
+                return None;
+            }
+            if let Some(slot) = content.get("slot_id") {
+                let slot = slot.as_str().filter(|slot| !slot.is_empty())?;
+                if (content.contains_key("sticky_key")
+                    || content.contains_key("msc4354_sticky_key"))
+                    && sticky_key(&value["content"]) != Some(slot)
+                {
+                    return None;
+                }
+                slot
+            } else {
+                if content.contains_key("sticky_key") || content.contains_key("msc4354_sticky_key")
+                {
+                    return None;
+                }
+                "m.call#ROOM"
             }
         };
         if !valid_mentions(&value["content"]) {
@@ -196,6 +223,18 @@ impl Invite {
         self.event["origin_server_ts"].as_u64().unwrap_or_default()
     }
 
+    #[must_use]
+    pub fn should_ring(&self, user: &str, direct: bool) -> bool {
+        if self.modern {
+            direct
+                || self.event["content"]["m.mentions"]["user_ids"]
+                    .as_array()
+                    .is_some_and(|users| users.iter().any(|id| id.as_str() == Some(user)))
+        } else {
+            self.event["content"]["notification_type"] == "ring"
+        }
+    }
+
     fn targets(&self, user: &str) -> bool {
         let mentions = &self.event["content"]["m.mentions"];
         user != self.sender
@@ -218,6 +257,7 @@ struct Entry {
 pub struct Invitations {
     entries: HashMap<MapKey, Entry>,
     legacy: HashMap<String, Invite>,
+    legacy_declines: HashMap<(String, String), u64>,
     redacted: HashMap<String, u64>,
     seen: HashMap<String, u64>,
     shown: BTreeMap<String, Invite>,
@@ -282,14 +322,14 @@ impl Invitations {
         if self.redacted.contains_key(id) {
             return;
         }
+        if self.apply_legacy_decline(value, now) {
+            return;
+        }
         if invite_type(value)
-            && value["content"].get("slot_id").is_none()
-            && kind(value) != "m.rtc.invite"
-            && sticky_key(&value["content"]).is_none()
+            && let Some(mut invite) = Invite::parse(value, now)
+            && !invite.modern
         {
-            if self.legacy.len() < MAX_ENTRIES
-                && let Some(mut invite) = Invite::parse(value, now)
-            {
+            if self.legacy.len() < MAX_ENTRIES {
                 invite.room_allowed = room_allowed;
                 self.legacy.entry(id.to_owned()).or_insert(invite);
             }
@@ -332,6 +372,33 @@ impl Invitations {
                 removed: false,
             },
         );
+    }
+
+    fn apply_legacy_decline(&mut self, value: &Value, now: u64) -> bool {
+        if !decline_type(value)
+            || sticky_key(&value["content"]).is_some()
+            || value["content"]["m.relates_to"]["rel_type"] != "m.reference"
+        {
+            return false;
+        }
+        let (Some(sender), Some(target), Some(origin)) = (
+            value["sender"].as_str(),
+            value["content"]["m.relates_to"]["event_id"].as_str(),
+            value["origin_server_ts"].as_u64(),
+        ) else {
+            return false;
+        };
+        if ruma_common::UserId::parse(sender).is_err()
+            || ruma_common::EventId::parse(target).is_err()
+            || self.legacy_declines.len() >= MAX_ENTRIES
+        {
+            return false;
+        }
+        self.legacy_declines.insert(
+            (sender.to_owned(), target.to_owned()),
+            origin.min(now).saturating_add(MAX_LIFETIME_MS),
+        );
+        true
     }
 
     pub fn remove(&mut self, id: &str, now: u64) {
@@ -404,6 +471,14 @@ impl Invitations {
     }
 
     fn acted(&self, invite: &Invite, user: &str, now: u64) -> bool {
+        if !invite.modern
+            && self
+                .legacy_declines
+                .get(&(user.to_owned(), invite.id.clone()))
+                .is_some_and(|expires| *expires > now)
+        {
+            return true;
+        }
         self.entries
             .values()
             .filter(|entry| !entry.removed && entry.expires > now)
@@ -461,6 +536,7 @@ impl Invitations {
         self.legacy
             .retain(|_, invite| invite.expires.saturating_add(MAX_STICKY_MS) > now);
         self.redacted.retain(|_, expires| *expires > now);
+        self.legacy_declines.retain(|_, expires| *expires > now);
         self.seen.retain(|_, expires| *expires > now);
         let mut invites: Vec<_> = self
             .entries
@@ -530,6 +606,11 @@ impl Invitations {
             .collect();
         self.shown = next;
         (starts, ends)
+    }
+
+    pub fn retry(&mut self, id: &str) {
+        self.seen.remove(id);
+        self.shown.retain(|_, invite| invite.id != id);
     }
 
     #[must_use]

@@ -391,7 +391,7 @@ test.each([true, false])(
     });
     const completed = await completePushPayload({ ...bare, type: 'm.rtc.invite' }, source);
     expect(completed?.content).toMatchObject({
-      notification_type: direct ? 'ring' : 'notification',
+      notification_type: 'ring',
       body: 'Call started',
     });
     const request = source.fetch.mock.calls.find(([url]) =>
@@ -418,6 +418,28 @@ test('legacy group rings retain their explicit presentation', async () => {
     [stickyPath]: rtcSnapshot(event),
   });
   expect((await completePushPayload(bare, source))?.content.notification_type).toBe('ring');
+});
+
+test('deployed non-sticky call pushes work without sliding sync or direct room data', async () => {
+  const event = rtcEvent();
+  event.type = 'org.matrix.msc4075.rtc.notification';
+  delete event.sticky;
+  event.content = {
+    slot_id: 'm.call#ROOM',
+    msc4354_sticky_key: 'm.call#ROOM',
+    sender_ts: Date.now() - 3000,
+    lifetime: 90000,
+    notification_type: 'ring',
+    'm.mentions': { user_ids: ['@me:example.org'] },
+  };
+  const source = fetcher({
+    [`${base}/event/$event`]: event,
+    [`${base}/state`]: [],
+  });
+  expect((await completePushPayload(bare, source))?.content.notification_type).toBe('ring');
+  expect(source.fetch.mock.calls.some(([url]) => String(url).includes('simplified_msc3575'))).toBe(
+    false
+  );
 });
 
 test.each(['closed', 'withdrawn', 'unavailable'])(

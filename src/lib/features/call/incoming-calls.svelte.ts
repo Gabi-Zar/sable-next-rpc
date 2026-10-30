@@ -109,7 +109,6 @@ export class IncomingCalls {
     }
     if (event.type !== 'incoming_call') return;
     if (this.#finished.has(event.notification_event_id)) return;
-    if (!event.ring && !preferences.ringForGroupCalls) return;
 
     const call: IncomingCall = {
       roomId: event.room_id,
@@ -135,7 +134,7 @@ export class IncomingCalls {
         this.#drop(call.notificationEventId);
       }, remaining)
     );
-    void this.#raiseSystemCall(call);
+    if (call.ring || preferences.ringForGroupCalls) void this.#raiseSystemCall(call);
     this.#syncRingtone();
   }
 
@@ -228,6 +227,7 @@ export class IncomingCalls {
       preferences.incomingCallSound &&
       this.calls.some(
         (call) =>
+          (call.ring || preferences.ringForGroupCalls) &&
           !this.#system.has(call.notificationEventId) &&
           !this.#reporting.has(call.notificationEventId)
       );

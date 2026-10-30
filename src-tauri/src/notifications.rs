@@ -3,7 +3,7 @@ use sable_core::api::push::WebPusherView;
 #[cfg(any(mobile, test))]
 use sable_core::protocol::WebPushKeys;
 use sable_core::protocol::{NotificationView, RpcError};
-use sable_core::ruma::{EventId, owned_room_id, owned_user_id};
+use sable_core::ruma::{EventId, MilliSecondsSinceUnixEpoch, owned_room_id, owned_user_id};
 #[cfg(not(target_os = "android"))]
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -454,6 +454,80 @@ pub async fn show<R: Runtime>(
     post_android(app, view).await;
     #[cfg(not(target_os = "android"))]
     show_generic(app, core, view).await;
+}
+
+#[cfg(desktop)]
+pub async fn handle_call<R: Runtime>(
+    app: &AppHandle<R>,
+    core: &sable_core::Core,
+    event: &sable_core::protocol::CoreEvent,
+) {
+    use sable_core::protocol::CoreEvent;
+    match event {
+        CoreEvent::IncomingCall {
+            room_id,
+            notification_event_id,
+            sender,
+            sender_name,
+            ring,
+            expires_at_ms,
+            ..
+        } => {
+            let now = u64::from(MilliSecondsSinceUnixEpoch::now().get());
+            let remaining = expires_at_ms.saturating_sub(now);
+            if !core.notifications_enabled() || remaining == 0 {
+                return;
+            }
+            let id = java_hash(&format!("call:{notification_event_id}"));
+            let title = if core.notification_content() {
+                sender_name.clone().unwrap_or_else(|| sender.to_string())
+            } else {
+                "Sable".to_owned()
+            };
+            let Some(user_id) = core.user_id().await else {
+                return;
+            };
+            let builder = app
+                .notifications()
+                .builder()
+                .id(id)
+                .title(title)
+                .body(if *ring {
+                    "Incoming call"
+                } else {
+                    "Call started"
+                })
+                .silent()
+                .auto_cancel()
+                .extra("user_id", user_id.as_str())
+                .extra("room_id", room_id.as_str());
+            #[cfg(target_os = "linux")]
+            let builder = if let Some(icon) = linux_icon(app) {
+                builder.icon(icon)
+            } else {
+                builder
+            };
+            if let Err(error) = builder.show().await {
+                log::warn!("could not show incoming call: {error}");
+                return;
+            }
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(remaining)).await;
+                remove_posted(&app, vec![id]).await;
+            });
+        }
+        CoreEvent::IncomingCallEnded {
+            notification_event_id,
+        } => {
+            remove_posted(
+                app,
+                vec![java_hash(&format!("call:{notification_event_id}"))],
+            )
+            .await;
+        }
+        _ => {}
+    }
 }
 
 #[cfg(target_os = "android")]

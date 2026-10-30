@@ -859,6 +859,15 @@ fn spawn_event_pump<R: tauri::Runtime>(
     tauri::async_runtime::spawn(async move {
         let mut batch = Vec::new();
         while events.recv_many(&mut batch, EVENT_BATCH_LIMIT).await > 0 {
+            #[cfg(desktop)]
+            for event in &batch {
+                if matches!(
+                    event,
+                    CoreEvent::IncomingCall { .. } | CoreEvent::IncomingCallEnded { .. }
+                ) {
+                    notifications::handle_call(&notifier, &pushing, event).await;
+                }
+            }
             let showing: Vec<_> = batch
                 .iter()
                 .filter_map(|event| match event {

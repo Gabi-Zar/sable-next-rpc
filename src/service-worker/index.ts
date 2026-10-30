@@ -26,6 +26,7 @@ import {
   namesOnlyItsEvent,
   readPushRooms,
   readPushFetch,
+  type CompletedPushNotification,
 } from '#lib/features/notifications/push-fetch.js';
 import {
   isDiagnosticPush,
@@ -269,7 +270,7 @@ async function present(
       console.debug('[sable service-worker] app badge not set', error);
     });
   }
-  if (pushed.unread === 0 && (await pushContentPolicy()).clearOnRead) {
+  if (pushed.unread === 0 && pushed.event_id === null && (await pushContentPolicy()).clearOnRead) {
     await closeRead(pushed);
     await record('READ_DISMISSED', trace);
     return;
@@ -279,10 +280,16 @@ async function present(
     await record('APP_FOCUSED', trace);
     return;
   }
-  const fetched = namesOnlyItsEvent(pushed) || isRtcInvite(pushed);
-  const payload = fetched ? await fetchEvent(pushed) : pushed;
+  const fetched =
+    namesOnlyItsEvent(pushed) || isRtcInvite(pushed) || pushed.type === 'm.room.encrypted';
+  const payload: CompletedPushNotification | null = fetched ? await fetchEvent(pushed) : pushed;
   if (!payload) {
     await record('DISCARDED', trace);
+    return;
+  }
+  if (payload.unread === 0 && !isRtcInvite(payload) && (await pushContentPolicy()).clearOnRead) {
+    await closeRead(payload);
+    await record('READ_DISMISSED', trace);
     return;
   }
   if (fetched) await record(payload.type ? 'FETCHED' : 'FETCH_FAILED', trace);
@@ -332,6 +339,9 @@ async function present(
       userId: payload.user_id ?? undefined,
       eventId: showing.event_id,
       invite: showing.invite,
+      call: isRtcInvite(payload),
+      callEventId: isRtcInvite(payload) ? showing.event_id : undefined,
+      callExpiresAtMs: isRtcInvite(payload) ? (payload.callExpiresAtMs ?? now + 120000) : undefined,
       alertedAt: renotify ? now : alertedAt,
     },
   };
@@ -369,11 +379,11 @@ async function inUseElsewhere(userId: string | undefined): Promise<boolean> {
 
 const FETCH_DEADLINE_MS = 10_000;
 
-async function fetchEvent(payload: PushNotification): Promise<PushNotification | null> {
+async function fetchEvent(payload: PushNotification): Promise<CompletedPushNotification | null> {
   const session = await pushSession(payload.user_id ?? undefined);
   if (!session) return isRtcInvite(payload) ? null : payload;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<PushNotification | null>((settle) => {
+  const deadline = new Promise<CompletedPushNotification | null>((settle) => {
     timer = setTimeout(() => {
       settle(isRtcInvite(payload) ? null : payload);
     }, FETCH_DEADLINE_MS);
@@ -427,7 +437,10 @@ async function closeRead(pushed: PushNotification): Promise<void> {
   if (!('getNotifications' in worker.registration)) return;
   const userId = pushed.user_id;
   for (const notification of await worker.registration.getNotifications()) {
-    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    const data = notification.data as
+      | { roomId?: unknown; userId?: unknown; call?: boolean; callExpiresAtMs?: number }
+      | undefined;
+    if (data?.call && (data.callExpiresAtMs ?? 0) > Date.now()) continue;
     if (pushed.room_id !== null && data?.roomId !== pushed.room_id) continue;
     if (userId !== null && typeof data?.userId === 'string' && data.userId !== userId) {
       continue;
@@ -448,7 +461,10 @@ async function reconcileRead(pushed: PushNotification): Promise<boolean> {
   const readRooms = new Set(read);
   let closed = false;
   for (const notification of notifications) {
-    const data = notification.data as { roomId?: unknown; userId?: unknown } | undefined;
+    const data = notification.data as
+      | { roomId?: unknown; userId?: unknown; call?: boolean; callExpiresAtMs?: number }
+      | undefined;
+    if (data?.call && (data.callExpiresAtMs ?? 0) > Date.now()) continue;
     if (data?.userId !== userId || typeof data.roomId !== 'string' || !readRooms.has(data.roomId)) {
       continue;
     }

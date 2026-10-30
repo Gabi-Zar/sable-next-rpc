@@ -1315,6 +1315,24 @@ class PushNotifierTest {
     }
 
     @Test
+    fun callPushesWithZeroUnreadStillRingAfterFetchingTheirEvent() {
+        PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
+        every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns
+            PushDecryptResult.Success("""{"type":"org.matrix.msc4075.rtc.notification","content":{"notification_type":"ring","lifetime":30000}}""")
+        for (knownType in listOf(false, true)) {
+            val roomId = "!call-$knownType:example.org"
+            val payload = JSONObject(ringPayload(roomId, "\$ring-$knownType"))
+            val notification = payload.getJSONObject("notification")
+            notification.put("counts", JSONObject().put("unread", 0))
+            if (!knownType) { notification.remove("type"); notification.remove("content") }
+            PushNotifier.showFromPush(context, payload.toString())
+            val id = PushNotifier.callNotificationId("@alice:example.org", roomId)
+            assertNotNull(shadowNotificationManager().getNotification(null, id))
+            notificationManager.cancel(id)
+        }
+    }
+
+    @Test
     fun showFromPush_callAnnouncementStaysAnOrdinaryMessage() {
         PushPolicy(context).accounts = mapOf("@alice:example.org" to "ALICE")
         every { PushPayloadDecryptor.fetch(any(), any(), any(), any(), any()) } returns

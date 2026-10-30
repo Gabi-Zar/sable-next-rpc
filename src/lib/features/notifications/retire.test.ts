@@ -86,3 +86,33 @@ test('asks nothing of the platform when no room is read', async () => {
 
   expect(mocks.dismissRead).not.toHaveBeenCalled();
 });
+
+test('reading a room retires messages while keeping its active call banner', async () => {
+  const message = {
+    data: { roomId: '!room:example.org', userId: '@me:example.org' },
+    tag: '',
+    close: vi.fn(),
+  };
+  const call = {
+    data: { ...message.data, call: true, callExpiresAtMs: Date.now() + 90000 },
+    tag: '@me:example.org !room:example.org:$call',
+    close: vi.fn(),
+  };
+  const expired = {
+    data: { ...call.data, callExpiresAtMs: Date.now() - 1 },
+    tag: '',
+    close: vi.fn(),
+  };
+  vi.stubGlobal('navigator', {
+    serviceWorker: {
+      getRegistration: () =>
+        Promise.resolve({
+          getNotifications: () => Promise.resolve([message, call, expired]),
+        }),
+    },
+  });
+  await retireReadAlerts('@me:example.org', ['!room:example.org']);
+  expect(message.close).toHaveBeenCalledOnce();
+  expect(call.close).not.toHaveBeenCalled();
+  expect(expired.close).toHaveBeenCalledOnce();
+});

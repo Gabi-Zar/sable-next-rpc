@@ -123,6 +123,97 @@ async fn incoming_event(
 }
 
 #[tokio::test]
+async fn deployed_non_sticky_invites_reach_the_call_handler_and_push_validation() {
+    use crate::protocol::CoreEvent;
+    use matrix_sdk::ruma::serde::Raw;
+    use matrix_sdk_test::{JoinedRoomBuilder, event_factory::EventFactory};
+
+    let server = MatrixMockServer::new().await;
+    let client = server.client_builder().build().await;
+    let room_id = room_id!("!fallback:example.org");
+    server.mock_room_state_encryption().plain().mount().await;
+    let own = client.user_id().unwrap();
+    let factory = EventFactory::new().room(room_id).sender(own);
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_state_event(factory.member(own))
+                .add_state_event(factory.power_levels()),
+        )
+        .await;
+    let (core, mut events) = Core::new("fallback", Box::new(MemorySessionStore::default()));
+    core.watch_incoming_calls(
+        &client,
+        core.session_generation
+            .load(std::sync::atomic::Ordering::SeqCst),
+    );
+    let now = super::keys::now_ms();
+    let event = json!({
+        "type":"org.matrix.msc4075.rtc.notification", "event_id":"$fallback",
+        "room_id":room_id, "sender":"@caller:example.org", "origin_server_ts":now,
+        "content":{"slot_id":"m.call#ROOM", "msc4354_sticky_key":"m.call#ROOM",
+            "notification_type":"ring", "sender_ts":now, "lifetime":90_000,
+            "m.mentions":{"user_ids":[own]}}
+    });
+    assert!(!room.is_direct().await.unwrap());
+    Mock::given(method("GET"))
+        .and(path(format!(
+            "/_matrix/client/v3/rooms/{room_id}/event/$fallback"
+        )))
+        .respond_with(ResponseTemplate::new(200).set_body_json(event.clone()))
+        .mount(server.server())
+        .await;
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id)
+                .add_timeline_event(Raw::new(&event).unwrap().cast_unchecked()),
+        )
+        .await;
+    assert!(
+        matches!(incoming_event(&mut events, "non-sticky fallback rings").await,
+        CoreEvent::IncomingCall { notification_event_id, ring: true, .. } if notification_event_id == "$fallback")
+    );
+    let validated = super::invite_service::validate_invite(&room, &event)
+        .await
+        .unwrap();
+    assert!(validated.ring);
+    let sync_service = Arc::new(SyncService::builder(client.clone()).build().await.unwrap());
+    *core.session.write().await = Some(Session {
+        account_id: "fallback".to_owned(),
+        client: client.clone(),
+        sync_service,
+        homeserver: server.server().uri(),
+        oauth: false,
+    });
+    Mock::given(method("PUT"))
+        .and(path_regex(r"/send/org\.matrix\.msc4310\.rtc\.decline/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"event_id":"$declined"})))
+        .expect(1)
+        .mount(server.server())
+        .await;
+    core.run(DeclineParams {
+        room_id: room_id.to_owned(),
+        notification_event_id: "$fallback".to_owned(),
+    })
+    .await
+    .unwrap();
+    let requests = server.received_requests().await.unwrap();
+    let decline = requests
+        .iter()
+        .find(|request| request.method.as_str() == "PUT")
+        .unwrap();
+    assert!(
+        !decline
+            .url
+            .query_pairs()
+            .any(|(key, _)| key.contains("sticky"))
+    );
+    core.session_tasks.lock().unwrap().clear();
+}
+
+#[tokio::test]
 async fn sticky_only_invites_are_cancelled_by_withdrawals_and_cross_device_actions() {
     use crate::protocol::CoreEvent;
     use matrix_sdk::ruma::serde::Raw;
@@ -181,7 +272,7 @@ async fn sticky_only_invites_are_cancelled_by_withdrawals_and_cross_device_actio
         });
         sticky_update(&room, vec![invite.clone()]).await;
         assert!(
-            matches!(incoming_event(&mut events, &format!("{action}: incoming")).await, CoreEvent::IncomingCall { notification_event_id, .. } if notification_event_id == id)
+            matches!(incoming_event(&mut events, &format!("{action}: incoming")).await, CoreEvent::IncomingCall { notification_event_id, ring: true, .. } if notification_event_id == id)
         );
         let mut update = json!({
             "event_id":format!("$acted{index}"), "origin_server_ts":now + 1,

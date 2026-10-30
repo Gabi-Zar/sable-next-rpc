@@ -19,6 +19,8 @@ export interface PushFetcher {
   decrypt: (roomId: string, eventId: string) => Promise<PushFetchView | null>;
 }
 
+export type CompletedPushNotification = PushNotification & { callExpiresAtMs?: number };
+
 export function isRtcInvite(notification: Pick<PushNotification, 'type'>): boolean {
   return (
     notification.type === 'm.rtc.invite' ||
@@ -57,7 +59,7 @@ export function readPushFetch(value: unknown): PushFetchView | null {
 export async function completePushPayload(
   notification: PushNotification,
   fetcher: PushFetcher
-): Promise<PushNotification | null> {
+): Promise<CompletedPushNotification | null> {
   const roomId = notification.room_id;
   const eventId = notification.event_id;
   if (roomId === null || eventId === null) return isRtcInvite(notification) ? null : notification;
@@ -98,7 +100,7 @@ export async function completePushPayload(
     text(isRecord(roomAvatar) ? roomAvatar.url : undefined) ??
     text(isRecord(member) ? member.avatar_url : undefined);
 
-  let completed: PushNotification = {
+  let completed: CompletedPushNotification = {
     ...notification,
     type: text(event.type) ?? null,
     content: pushContent(event.content),
@@ -106,6 +108,9 @@ export async function completePushPayload(
     room_name:
       storedName ?? text(isRecord(stateName) ? stateName.name : undefined) ?? senderName ?? null,
     icon: avatar === undefined ? null : ((await thumbnail(fetcher, avatar)) ?? null),
+    callExpiresAtMs: isRtcInvite({ type: text(event.type) ?? null })
+      ? rtcExpiry(event.content)
+      : undefined,
   };
 
   if (event.type === 'm.room.encrypted') {
@@ -119,11 +124,24 @@ export async function completePushPayload(
         sender_display_name: decrypted.event.sender_display_name ?? senderName ?? null,
         room_name: completed.room_name ?? text(decrypted.event.room_name) ?? null,
         decrypted: true,
+        callExpiresAtMs: isRtcInvite({ type: decrypted.event.type })
+          ? rtcExpiry(decrypted.event.content)
+          : undefined,
       };
     }
   }
 
   return completed;
+}
+
+function rtcExpiry(content: unknown): number | undefined {
+  if (
+    !isRecord(content) ||
+    typeof content.sender_ts !== 'number' ||
+    typeof content.lifetime !== 'number'
+  )
+    return undefined;
+  return content.sender_ts + content.lifetime;
 }
 
 async function prepareRtcInvite(
@@ -137,48 +155,62 @@ async function prepareRtcInvite(
   if (fromApp?.kind === 'event')
     return { ...event, type: fromApp.event.type, content: fromApp.event.content };
 
-  const result = await request(
-    fetcher,
-    '/_matrix/client/unstable/org.matrix.simplified_msc3575/sync?timeout=0',
-    {
-      conn_id: `push-${crypto.randomUUID().slice(0, 8)}`,
-      room_subscriptions: {
-        [roomId]: {
-          timeline_limit: 0,
-          required_state: [
-            ['m.rtc.slot', '*'],
-            ['org.matrix.msc4143.rtc.slot', '*'],
-            ['m.room.power_levels', ''],
-            ['m.room.create', ''],
-            ['org.matrix.msc3401.call.member', '*'],
-            ['m.call.member', '*'],
-          ],
+  const content = isRecord(event.content) ? event.content : {};
+  const legacy =
+    event.type !== 'm.rtc.invite' &&
+    event.sticky === undefined &&
+    event.msc4354_sticky === undefined &&
+    (content.notification_type === 'ring' || content.notification_type === 'notification');
+  let events: unknown[];
+  if (legacy) {
+    const state = await get(fetcher, `rooms/${encodeURIComponent(roomId)}/state`);
+    if (!Array.isArray(state)) return null;
+    events = state;
+  } else {
+    const result = await request(
+      fetcher,
+      '/_matrix/client/unstable/org.matrix.simplified_msc3575/sync?timeout=0',
+      {
+        conn_id: `push-${crypto.randomUUID().slice(0, 8)}`,
+        room_subscriptions: {
+          [roomId]: {
+            timeline_limit: 0,
+            required_state: [
+              ['m.rtc.slot', '*'],
+              ['org.matrix.msc4143.rtc.slot', '*'],
+              ['m.room.power_levels', ''],
+              ['m.room.create', ''],
+              ['org.matrix.msc3401.call.member', '*'],
+              ['m.call.member', '*'],
+            ],
+          },
         },
-      },
-      extensions: { 'org.matrix.msc4354.sticky_events': { enabled: true } },
-    }
-  );
-  if (!isRecord(result.body)) return null;
-  const rooms = isRecord(result.body.rooms) ? result.body.rooms : {};
-  const room = isRecord(rooms[roomId]) ? rooms[roomId] : {};
-  const extensions = isRecord(result.body.extensions) ? result.body.extensions : {};
-  const sticky = extensions['org.matrix.msc4354.sticky_events'] ?? extensions.sticky_events;
-  const stickyRooms = isRecord(sticky) && isRecord(sticky.rooms) ? sticky.rooms : {};
-  const stickyRoom = isRecord(stickyRooms[roomId]) ? stickyRooms[roomId] : {};
-  const state: unknown[] = Array.isArray(room.required_state) ? room.required_state : [];
-  const stickyEvents: unknown[] = Array.isArray(stickyRoom.events) ? stickyRoom.events : [];
-  const events = [...state, ...stickyEvents];
+        extensions: { 'org.matrix.msc4354.sticky_events': { enabled: true } },
+      }
+    );
+    if (!isRecord(result.body)) return null;
+    const rooms = isRecord(result.body.rooms) ? result.body.rooms : {};
+    const room = isRecord(rooms[roomId]) ? rooms[roomId] : {};
+    const extensions = isRecord(result.body.extensions) ? result.body.extensions : {};
+    const sticky = extensions['org.matrix.msc4354.sticky_events'] ?? extensions.sticky_events;
+    const stickyRooms = isRecord(sticky) && isRecord(sticky.rooms) ? sticky.rooms : {};
+    const stickyRoom = isRecord(stickyRooms[roomId]) ? stickyRooms[roomId] : {};
+    const state: unknown[] = Array.isArray(room.required_state) ? room.required_state : [];
+    const stickyEvents: unknown[] = Array.isArray(stickyRoom.events) ? stickyRoom.events : [];
+    events = [...state, ...stickyEvents];
+  }
   const valid = validateRtcInviteSnapshot(event, events, fetcher.session.userId, Date.now());
   if (valid === null) return null;
   const direct = await get(
     fetcher,
     `user/${encodeURIComponent(fetcher.session.userId)}/account_data/m.direct`
   );
-  const content = isRecord(event.content) ? event.content : {};
-  const modern = event.type === 'm.rtc.invite' || content.slot_id !== undefined;
+  const modern = !legacy && (event.type === 'm.rtc.invite' || content.slot_id !== undefined);
+  const mentions = isRecord(content['m.mentions']) ? content['m.mentions'] : {};
   const ring = modern
-    ? isRecord(direct) &&
-      Object.values(direct).some((rooms) => Array.isArray(rooms) && rooms.includes(roomId))
+    ? (Array.isArray(mentions.user_ids) && mentions.user_ids.includes(fetcher.session.userId)) ||
+      (isRecord(direct) &&
+        Object.values(direct).some((rooms) => Array.isArray(rooms) && rooms.includes(roomId)))
     : content.notification_type === 'ring';
   const now = Date.now();
   const remaining = valid.expires_at_ms - now;

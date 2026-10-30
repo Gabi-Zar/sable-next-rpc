@@ -394,6 +394,10 @@ impl Core {
         self.notification_content.load(Ordering::Relaxed)
     }
 
+    pub async fn user_id(&self) -> Option<ruma::OwnedUserId> {
+        self.client().await.ok()?.user_id().map(ToOwned::to_owned)
+    }
+
     #[must_use]
     pub fn notification_encrypted_content(&self) -> bool {
         self.notification_encrypted_content.load(Ordering::Relaxed)
