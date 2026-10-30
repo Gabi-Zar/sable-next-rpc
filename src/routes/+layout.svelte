@@ -57,6 +57,8 @@
   import {
     bindServerNotificationIdentity,
     boundServerIdentity,
+    isServerAuthenticationFailure,
+    ServerSessionError,
   } from '#lib/notifications/room-names.js';
 
   interface Props {
@@ -124,10 +126,14 @@
       ).toString();
       void fetch(serverAuthEndpoint, { credentials: 'include' })
         .then((response) => {
+          if (!response.ok && response.status !== 401 && response.status !== 403)
+            throw new ServerSessionError(response.status);
           serverAuthenticated = response.ok;
         })
-        .catch(() => {
-          serverAuthenticated = false;
+        .catch((error: unknown) => {
+          console.error('[sable server] session check failed', error);
+          core.restoreFailed = true;
+          core.status = 'error';
         })
         .finally(() => {
           serverAuthReady = true;
@@ -152,14 +158,21 @@
         if (serverMode) {
           const previouslyBound = boundServerIdentity();
           await bindServerNotificationIdentity();
+          // Stores read user-scoped storage at import; reload so they see this user.
           if (!previouslyBound) {
             window.location.reload();
             return;
           }
         }
         await core.start();
-      })().catch(() => {
-        serverAuthenticated = false;
+      })().catch((error: unknown) => {
+        if (isServerAuthenticationFailure(error)) {
+          serverAuthenticated = false;
+          return;
+        }
+        console.error('[sable server] startup failed', error);
+        core.restoreFailed = true;
+        core.status = 'error';
       });
     }
   });

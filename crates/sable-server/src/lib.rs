@@ -54,7 +54,7 @@ use tower_sessions::{Expiry, Session, SessionManagerLayer, cookie::SameSite};
 
 use crate::{
     auth::{Auth, logout as destroy_session},
-    config::Config,
+    config::{Config, is_loopback_url},
     sessions::SessionMemoryStore,
 };
 
@@ -72,8 +72,15 @@ const MAX_USER_CONNECTIONS: usize = 16;
 const MAX_USER_RPC_TASKS: usize = 16;
 const MAX_USER_HTTP_REQUESTS: usize = 16;
 const MAX_USER_UPLOADS: usize = 2;
+const REQUEST_BODY_TIMEOUT: Duration = Duration::from_secs(30);
 
 type OidcTransactions = Arc<Mutex<HashMap<String, (Instant, IpAddr, oidc::Transaction)>>>;
+
+#[derive(Clone)]
+enum SessionRevocation {
+    Session(tower_sessions::session::Id),
+    User(String),
+}
 
 #[derive(Clone)]
 pub struct Server {
@@ -88,7 +95,7 @@ pub struct Server {
     public_url: Arc<str>,
     client_ip_source: ClientIpSource,
     sessions: SessionMemoryStore,
-    session_revocations: broadcast::Sender<tower_sessions::session::Id>,
+    session_revocations: broadcast::Sender<SessionRevocation>,
     shutdown: watch::Sender<bool>,
     connections: Arc<Semaphore>,
     rpc_tasks: Arc<Semaphore>,
@@ -206,10 +213,15 @@ impl RuntimeManager {
                 if self.shutting_down.load(Ordering::Acquire) {
                     return Err(std::io::Error::other("server shutting down"));
                 }
-                if let Some(parent) = path.parent() {
-                    create_private_dir(parent)?;
-                }
-                UserRuntime::new(path)
+                let (core, core_events) = tokio::task::spawn_blocking(move || {
+                    if let Some(parent) = path.parent() {
+                        create_private_dir(parent)?;
+                    }
+                    UserRuntime::build(path)
+                })
+                .await
+                .map_err(std::io::Error::other)??;
+                Ok(UserRuntime::from_parts(core, core_events))
             })
             .await?;
         if self.shutting_down.load(Ordering::Acquire) {
@@ -273,18 +285,19 @@ impl Server {
                     client_id: client_id.clone(),
                     client_secret: client_secret.clone(),
                     redirect_uri: format!("{}/_sable/oidc/callback", config.public_url),
+                    metadata: Mutex::new(None),
                 }))
             }
             _ => return Err("OIDC issuer, client ID and client secret must all be set".into()),
         };
         if let Some(provider) = &oidc {
             let issuer = url::Url::parse(&provider.issuer)?;
-            let loopback = matches!(issuer.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
+            let loopback = is_loopback_url(&issuer);
             if issuer.scheme() != "https" && !(issuer.scheme() == "http" && loopback) {
                 return Err("OIDC issuer must use HTTPS unless it is a loopback address".into());
             }
             let public = url::Url::parse(&config.public_url)?;
-            let loopback = matches!(public.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
+            let loopback = is_loopback_url(&public);
             if public.scheme() != "https" && !(public.scheme() == "http" && loopback) {
                 return Err(
                     "OIDC public URL must use HTTPS unless it is a loopback address".into(),
@@ -295,31 +308,18 @@ impl Server {
             config.data_dir.clone(),
             config.max_active_users,
         )?);
-        let registry_path = config.data_dir.join("users.json");
-        let watcher = Arc::downgrade(&runtimes);
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(2));
-            loop {
-                interval.tick().await;
-                let Some(manager) = watcher.upgrade() else {
-                    break;
-                };
-                if let Ok(registry) = users::UserRegistry::load(&registry_path) {
-                    manager.stop_disabled(&registry).await;
-                }
-            }
-        });
+        let auth = Arc::new(Auth::new(
+            Arc::<str>::from(config.username),
+            config.password_hash,
+            config.data_dir.join("users.json"),
+        )?);
         let server = Self {
             runtimes,
             _instance_lock: instance_lock,
             oidc,
             oidc_auto_provision: config.oidc_auto_provision,
             oidc_transactions: Arc::new(Mutex::new(HashMap::new())),
-            auth: Arc::new(Auth::new(
-                Arc::<str>::from(config.username),
-                config.password_hash,
-                config.data_dir.join("users.json"),
-            )?),
+            auth,
             version: Arc::from(env!("CARGO_PKG_VERSION")),
             frontend: Arc::new(Frontend::load(config.frontend_dir)),
             public_url: Arc::from(config.public_url),
@@ -332,6 +332,31 @@ impl Server {
             http_requests: Arc::new(Semaphore::new(MAX_HTTP_REQUESTS)),
             password_checks: Arc::new(Semaphore::new(MAX_PASSWORD_CHECKS)),
         };
+        let watcher = Arc::downgrade(&server.runtimes);
+        let auth_watcher = Arc::downgrade(&server.auth);
+        let revocations = server.session_revocations.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(2));
+            loop {
+                interval.tick().await;
+                let Some(manager) = watcher.upgrade() else {
+                    break;
+                };
+                let Some(auth) = auth_watcher.upgrade() else {
+                    break;
+                };
+                match auth.reload_if_changed().await {
+                    Ok(Some((registry, revoked))) => {
+                        for user_id in revoked {
+                            let _ = revocations.send(SessionRevocation::User(user_id));
+                        }
+                        manager.stop_disabled(&registry).await;
+                    }
+                    Ok(None) => {}
+                    Err(error) => tracing::warn!(%error, "could not reload user registry"),
+                }
+            }
+        });
         Ok(server)
     }
 
@@ -401,6 +426,9 @@ impl Server {
             .merge(protected)
             .fallback_service(static_files)
             .layer(RequestBodyLimitLayer::new(MAX_UPLOAD_SIZE))
+            .layer(tower_http::timeout::RequestBodyTimeoutLayer::new(
+                REQUEST_BODY_TIMEOUT,
+            ))
             .layer(axum::extract::DefaultBodyLimit::max(MAX_UPLOAD_SIZE))
             .layer(SetResponseHeaderLayer::overriding(
                 header::X_CONTENT_TYPE_OPTIONS,
@@ -461,11 +489,27 @@ fn create_private_dir(path: &std::path::Path) -> std::io::Result<()> {
 
 impl UserRuntime {
     fn new(data_dir: PathBuf) -> std::io::Result<Arc<Self>> {
+        let (core, core_events) = Self::build(data_dir)?;
+        Ok(Self::from_parts(core, core_events))
+    }
+
+    fn build(
+        data_dir: PathBuf,
+    ) -> std::io::Result<(
+        Arc<Core>,
+        tokio::sync::mpsc::UnboundedReceiver<sable_core::protocol::CoreEvent>,
+    )> {
         create_private_dir(&data_dir)?;
-        let (core, mut core_events) = Core::new(
+        Ok(Core::new(
             data_dir.to_string_lossy().into_owned(),
             Box::new(ExclusiveFileSessionStore::new(data_dir)),
-        );
+        ))
+    }
+
+    fn from_parts(
+        core: Arc<Core>,
+        mut core_events: tokio::sync::mpsc::UnboundedReceiver<sable_core::protocol::CoreEvent>,
+    ) -> Arc<Self> {
         let (events, _) = broadcast::channel(EVENT_BUFFER);
         let runtime = Arc::new(Self {
             core,
@@ -490,7 +534,7 @@ impl UserRuntime {
                 runtime.publish_event(event).await;
             }
         });
-        Ok(runtime)
+        runtime
     }
 
     async fn publish_event(&self, event: sable_core::protocol::CoreEvent) {
@@ -635,6 +679,22 @@ async fn oidc_start(
     let Some(oidc) = &server.oidc else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    {
+        let mut transactions = server.oidc_transactions.lock().await;
+        transactions.retain(|_, (created, _, _)| created.elapsed() < Duration::from_secs(600));
+        if let Some(previous) = oidc_cookie(&headers) {
+            transactions.remove(previous);
+        }
+        if transactions.len() >= 1024
+            || transactions
+                .values()
+                .filter(|(_, owner, _)| *owner == ip)
+                .count()
+                >= 5
+        {
+            return StatusCode::SERVICE_UNAVAILABLE.into_response();
+        }
+    }
     let Ok((url, transaction)) = oidc.start().await else {
         return StatusCode::BAD_GATEWAY.into_response();
     };
@@ -776,7 +836,9 @@ async fn logout(State(server): State<Server>, session: Session) -> Response {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     if let Some(id) = id {
-        let _ = server.session_revocations.send(id);
+        let _ = server
+            .session_revocations
+            .send(SessionRevocation::Session(id));
     }
     StatusCode::NO_CONTENT.into_response()
 }
@@ -901,8 +963,6 @@ async fn run_protected_request(
     if !valid_session().await {
         return unauthorized().into_response();
     }
-    let mut interval = tokio::time::interval(Duration::from_secs(2));
-    interval.tick().await;
     let response = next.run(request);
     tokio::pin!(response);
     loop {
@@ -912,13 +972,15 @@ async fn run_protected_request(
             }
             revoked = revocations.recv() => {
                 match revoked {
-                    Ok(id) if id == session_id => return unauthorized().into_response(),
+                    Ok(SessionRevocation::Session(id)) if id == session_id => {
+                        return unauthorized().into_response();
+                    }
+                    Ok(SessionRevocation::User(id)) if id == user_id => {
+                        return unauthorized().into_response();
+                    }
                     Err(_) => return unauthorized().into_response(),
                     _ => {}
                 }
-            }
-            _ = interval.tick() => {
-                if !valid_session().await { return unauthorized().into_response(); }
             }
         }
     }
@@ -1023,7 +1085,7 @@ async fn handle_socket(
     runtime: Arc<UserRuntime>,
     session_id: tower_sessions::session::Id,
     user_id: String,
-    mut revocations: broadcast::Receiver<tower_sessions::session::Id>,
+    mut revocations: broadcast::Receiver<SessionRevocation>,
     query: ResumeQuery,
     _connection: tokio::sync::OwnedSemaphorePermit,
     _user_connection: tokio::sync::OwnedSemaphorePermit,
@@ -1042,8 +1104,6 @@ async fn handle_socket(
     let (sink, mut stream) = socket.split();
     let (outgoing, messages) = mpsc::channel(OUTGOING_BUFFER);
     let writer = tokio::spawn(write_socket(sink, messages));
-    let mut session_check = tokio::time::interval(Duration::from_secs(2));
-    session_check.tick().await;
     let mut receiver = {
         let greeting = greet(&server.version, &runtime, &user_id, &query, &outgoing);
         tokio::pin!(greeting);
@@ -1052,13 +1112,17 @@ async fn handle_socket(
                 _ = shutdown.changed() => { writer.abort(); return; }
                 revoked = revocations.recv() => {
                     match revoked {
-                        Ok(id) if id == session_id => { writer.abort(); return; }
+                        Ok(SessionRevocation::Session(id)) if id == session_id => {
+                            writer.abort();
+                            return;
+                        }
+                        Ok(SessionRevocation::User(id)) if id == user_id => {
+                            writer.abort();
+                            return;
+                        }
                         Err(_) => { writer.abort(); return; }
                         _ => {}
                     }
-                }
-                _ = session_check.tick() => {
-                    if !valid_session().await { writer.abort(); return; }
                 }
                 result = &mut greeting => {
                     let Some(receiver) = result else { writer.abort(); return; };
@@ -1077,7 +1141,8 @@ async fn handle_socket(
             _ = shutdown.changed() => break,
             revoked = revocations.recv() => {
                 match revoked {
-                    Ok(id) if id == session_id => break,
+                    Ok(SessionRevocation::Session(id)) if id == session_id => break,
+                    Ok(SessionRevocation::User(id)) if id == user_id => break,
                     Err(_) => break,
                     _ => {}
                 }
@@ -1125,9 +1190,6 @@ async fn handle_socket(
                     }
                     Err(broadcast::error::RecvError::Closed) => break,
                 }
-            }
-            _ = session_check.tick() => {
-                if !valid_session().await { break; }
             }
             _ = ping.tick() => {
                 if last_received.elapsed() > PING_TIMEOUT

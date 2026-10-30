@@ -70,6 +70,16 @@ async function responseError(response: Response): Promise<CoreError> {
   }
 }
 
+const RELOAD_KEY = 'sable-server-last-reload';
+const RELOAD_INTERVAL_MS = 30_000;
+
+function guardedReload(): void {
+  const last = Number(sessionStorage.getItem(RELOAD_KEY));
+  if (Date.now() - last < RELOAD_INTERVAL_MS) return;
+  sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+  location.reload();
+}
+
 function checkServerBuild(version?: string): void {
   const expectedVersion = import.meta.env.VITE_SABLE_SERVER_VERSION;
   if (!expectedVersion || !version || expectedVersion === version) return;
@@ -103,10 +113,12 @@ export function createWsTransport(options: WsTransportOptions): Transport {
     }
     sessionRefresh = fetchServer('/_sable/identity')
       .then((response) => {
-        if (response.status === 401 || response.status === 403) location.reload();
+        if (response.status === 401 || response.status === 403) guardedReload();
         else if (response.ok) lastSessionRefresh = Date.now();
       })
-      .catch(() => {})
+      .catch((error: unknown) => {
+        console.debug('[sable transport] server session refresh failed', error);
+      })
       .finally(() => {
         sessionRefresh = null;
         if (checkAfterRefresh) {
@@ -129,7 +141,7 @@ export function createWsTransport(options: WsTransportOptions): Transport {
       const identity = boundServerIdentity();
       if (identity && data.server.user_id !== identity) {
         socket?.close();
-        location.reload();
+        guardedReload();
         return;
       }
       runId = data.server.run_id ?? runId;
@@ -137,7 +149,7 @@ export function createWsTransport(options: WsTransportOptions): Transport {
       return;
     }
     if (data.reset) {
-      location.reload();
+      guardedReload();
       return;
     }
     if (data.event) {

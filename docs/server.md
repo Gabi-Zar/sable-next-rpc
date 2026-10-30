@@ -43,8 +43,9 @@ docker run -d --name sable-server --restart unless-stopped \
 ```
 
 Put an HTTPS reverse proxy in front of the server. The session cookie is secure,
-so HTTPS is required outside local development. Back up the data directory; it
-contains the Matrix stores and encryption keys.
+so HTTPS is required outside loopback local development. Non-loopback `http`
+`public_url` values are rejected because browsers will not keep the login cookie.
+Back up the data directory; it contains the Matrix stores and encryption keys.
 
 ## Binary
 
@@ -82,7 +83,7 @@ to the working directory unless absolute.
 | Environment variable                 | TOML field              | Default                  | Description                                                                               |
 | ------------------------------------ | ----------------------- | ------------------------ | ----------------------------------------------------------------------------------------- |
 | `SABLE_SERVER_LISTEN_ADDR`           | `listen_addr`           | `127.0.0.1:18008`        | Address and port to listen on. The image sets `0.0.0.0:18008`.                            |
-| `SABLE_SERVER_PUBLIC_URL`            | `public_url`            | `http://127.0.0.1:18008` | Browser-visible HTTP or HTTPS origin, without a path. Set this explicitly behind a proxy. |
+| `SABLE_SERVER_PUBLIC_URL`            | `public_url`            | `http://127.0.0.1:18008` | Browser-visible origin without a path; HTTP is allowed only for loopback. Set this explicitly behind a proxy. |
 | `SABLE_SERVER_CLIENT_IP_SOURCE`      | `client_ip_source`      | `ConnectInfo`            | Source of the client IP for rate limiting.                                                |
 | `SABLE_SERVER_DATA_DIR`              | `data_dir`              | `sable-server-data`      | Directory for persistent data. The image sets `/var/lib/sable/data`.                      |
 | `SABLE_SERVER_ALLOWED_PRIVATE_CIDRS` | `allowed_private_cidrs` | `[]`                     | Private IP addresses or CIDR ranges that all users may access.                            |
@@ -96,7 +97,8 @@ to the working directory unless absolute.
 | `SABLE_SERVER_FRONTEND_DIR`          | `frontend_dir`          | `dist`                   | Directory containing the server-mode frontend. The image sets `/srv/sable`.               |
 
 If `public_url` is left at its default while `listen_addr` changes, it defaults
-to `http://<listen_addr>`. Set it to the public origin in container and proxy
+to `http://<listen_addr>`. That derived URL is valid only when the listen
+address is loopback; set an HTTPS public origin for container and proxy
 deployments. Quote the password hash in shell commands: it contains `$`.
 Account stores are created alongside `data_dir`, so its parent must also be
 writable and included in backups.

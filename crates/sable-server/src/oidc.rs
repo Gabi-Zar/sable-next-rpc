@@ -4,12 +4,16 @@ use openidconnect::{
     core::{CoreAuthenticationFlow, CoreClient, CoreProviderMetadata},
     reqwest,
 };
+use tokio::sync::Mutex;
+
+const METADATA_TTL: std::time::Duration = std::time::Duration::from_hours(1);
 
 pub struct Oidc {
     pub issuer: String,
     pub client_id: String,
     pub client_secret: String,
     pub redirect_uri: String,
+    pub(crate) metadata: Mutex<Option<(std::time::Instant, CoreProviderMetadata)>>,
 }
 
 pub struct Transaction {
@@ -54,10 +58,7 @@ impl Oidc {
     pub async fn start(
         &self,
     ) -> Result<(String, Transaction), Box<dyn std::error::Error + Send + Sync>> {
-        let http = self.http_client()?;
-        let issuer = IssuerUrl::new(self.issuer.clone())?;
-        let metadata = CoreProviderMetadata::discover_async(issuer, &http).await?;
-        self.validate_endpoints(&metadata)?;
+        let metadata = self.metadata().await?;
         let client = CoreClient::from_provider_metadata(
             metadata,
             ClientId::new(self.client_id.clone()),
@@ -89,9 +90,7 @@ impl Oidc {
         transaction: Transaction,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let http = self.http_client()?;
-        let issuer = IssuerUrl::new(self.issuer.clone())?;
-        let metadata = CoreProviderMetadata::discover_async(issuer, &http).await?;
-        self.validate_endpoints(&metadata)?;
+        let metadata = self.metadata().await?;
         let client = CoreClient::from_provider_metadata(
             metadata,
             ClientId::new(self.client_id.clone()),
@@ -108,10 +107,32 @@ impl Oidc {
         let claims = token.claims(&client.id_token_verifier(), &nonce)?;
         Ok(claims.subject().as_str().to_owned())
     }
+
+    async fn metadata(
+        &self,
+    ) -> Result<CoreProviderMetadata, Box<dyn std::error::Error + Send + Sync>> {
+        if let Some((created, metadata)) = self.metadata.lock().await.as_ref()
+            && created.elapsed() < METADATA_TTL
+        {
+            return Ok(metadata.clone());
+        }
+        let http = self.http_client()?;
+        let issuer = IssuerUrl::new(self.issuer.clone())?;
+        let metadata = CoreProviderMetadata::discover_async(issuer, &http).await?;
+        self.validate_endpoints(&metadata)?;
+        let mut cached = self.metadata.lock().await;
+        if let Some((created, previous)) = cached.as_ref()
+            && created.elapsed() < METADATA_TTL
+        {
+            return Ok(previous.clone());
+        }
+        *cached = Some((std::time::Instant::now(), metadata.clone()));
+        Ok(metadata)
+    }
 }
 
 fn secure_endpoint(url: &url::Url, local_provider: bool) -> bool {
-    let loopback = matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"));
+    let loopback = crate::config::is_loopback_url(url);
     url.username().is_empty()
         && url.password().is_none()
         && (url.scheme() == "https" || (local_provider && url.scheme() == "http" && loopback))

@@ -55,6 +55,27 @@ export async function telemetryConsent(): Promise<boolean> {
 
 let boundServerUser: string | null = null;
 
+export class ServerSessionError extends Error {
+  constructor(readonly status: number) {
+    super(`server session unavailable (${status})`);
+    this.name = 'ServerSessionError';
+  }
+}
+
+export class ServerIdentityChangedError extends Error {
+  constructor() {
+    super('server identity changed');
+    this.name = 'ServerIdentityChangedError';
+  }
+}
+
+export function isServerAuthenticationFailure(error: unknown): boolean {
+  return (
+    error instanceof ServerIdentityChangedError ||
+    (error instanceof ServerSessionError && (error.status === 401 || error.status === 403))
+  );
+}
+
 export function boundServerIdentity(): string | null {
   return boundServerUser;
 }
@@ -63,7 +84,7 @@ export async function bindServerNotificationIdentity(): Promise<void> {
   if (!import.meta.env.VITE_SABLE_SERVER_URL) return;
   const current = await currentServerUser();
   if (boundServerUser !== null && boundServerUser !== current) {
-    throw new Error('server identity changed');
+    throw new ServerIdentityChangedError();
   }
   if ('document' in globalThis) {
     await clearPushSessionsInDatabase(DATABASE);
@@ -78,7 +99,7 @@ export async function currentServerUser(): Promise<string> {
     credentials: 'include',
     cache: 'no-store',
   });
-  if (!response.ok) throw new Error('server session unavailable');
+  if (!response.ok) throw new ServerSessionError(response.status);
   const identity: unknown = await response.json();
   if (
     typeof identity !== 'object' ||

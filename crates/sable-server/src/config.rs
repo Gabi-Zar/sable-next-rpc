@@ -55,13 +55,32 @@ impl Config {
         if config.public_url == default_public_url() && config.listen_addr != DEFAULT_LISTEN_ADDR {
             config.public_url = format!("http://{}", config.listen_addr);
         }
-        let url = Url::parse(&config.public_url)
-            .map_err(|_| "SABLE_SERVER_PUBLIC_URL must be a valid URL")?;
-        if !matches!(url.scheme(), "http" | "https") || url.host().is_none() || url.path() != "/" {
-            return Err("SABLE_SERVER_PUBLIC_URL must be an http(s) origin".into());
-        }
-        config.public_url = url.origin().ascii_serialization();
+        config.public_url = validate_public_url(&config.public_url)?;
         Ok(config)
+    }
+}
+
+fn validate_public_url(
+    public_url: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let url = Url::parse(public_url).map_err(|_| "SABLE_SERVER_PUBLIC_URL must be a valid URL")?;
+    if !matches!(url.scheme(), "http" | "https") || url.host().is_none() || url.path() != "/" {
+        return Err("SABLE_SERVER_PUBLIC_URL must be an http(s) origin".into());
+    }
+    if url.scheme() == "http" && !is_loopback_url(&url) {
+        return Err(
+            "SABLE_SERVER_PUBLIC_URL must use HTTPS unless it is a loopback address".into(),
+        );
+    }
+    Ok(url.origin().ascii_serialization())
+}
+
+pub(crate) fn is_loopback_url(url: &Url) -> bool {
+    match url.host() {
+        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(address)) => address.is_loopback(),
+        Some(url::Host::Ipv6(address)) => address.is_loopback(),
+        None => false,
     }
 }
 
@@ -91,4 +110,29 @@ const fn default_client_ip_source() -> ClientIpSource {
 
 fn default_frontend_dir() -> PathBuf {
     PathBuf::from("dist")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_public_url;
+
+    #[test]
+    fn rejects_non_loopback_http_public_urls() {
+        let error = validate_public_url("http://192.0.2.1:18008").unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "SABLE_SERVER_PUBLIC_URL must use HTTPS unless it is a loopback address"
+        );
+    }
+
+    #[test]
+    fn accepts_loopback_http_public_urls() {
+        for url in [
+            "http://localhost:18008",
+            "http://127.0.0.2:18008",
+            "http://[::1]:18008",
+        ] {
+            assert!(validate_public_url(url).is_ok(), "{url}");
+        }
+    }
 }

@@ -1,6 +1,7 @@
 use std::{
+    io,
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, Mutex, MutexGuard, PoisonError},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -21,7 +22,73 @@ const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$P+eI2tfGQ1sd90
 pub struct Auth {
     username: Arc<str>,
     password_hash: Option<Arc<str>>,
-    users_path: PathBuf,
+    registry: Arc<RegistryCache>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct RegistryStamp {
+    modified: Option<SystemTime>,
+    length: Option<u64>,
+}
+
+struct RegistryCache {
+    path: PathBuf,
+    current: Mutex<(RegistryStamp, Arc<UserRegistry>)>,
+}
+
+impl RegistryCache {
+    fn new(path: PathBuf) -> io::Result<Self> {
+        let current = (file_stamp(&path)?, Arc::new(UserRegistry::load(&path)?));
+        Ok(Self {
+            path,
+            current: Mutex::new(current),
+        })
+    }
+
+    fn current(&self) -> MutexGuard<'_, (RegistryStamp, Arc<UserRegistry>)> {
+        self.current.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn snapshot(&self) -> Arc<UserRegistry> {
+        self.current().1.clone()
+    }
+
+    fn reload(&self) -> io::Result<Option<(Arc<UserRegistry>, Vec<String>)>> {
+        let stamp = file_stamp(&self.path)?;
+        if self.current().0 == stamp {
+            return Ok(None);
+        }
+        let registry = Arc::new(UserRegistry::load(&self.path)?);
+        let (_, previous) = std::mem::replace(&mut *self.current(), (stamp, registry.clone()));
+        let revoked = previous
+            .users
+            .iter()
+            .filter(|old| !old.disabled)
+            .filter(|old| {
+                registry
+                    .users
+                    .iter()
+                    .find(|new| new.id == old.id)
+                    .is_none_or(|new| new.disabled || new.session_version != old.session_version)
+            })
+            .map(|user| user.id.clone())
+            .collect();
+        Ok(Some((registry, revoked)))
+    }
+}
+
+fn file_stamp(path: &std::path::Path) -> io::Result<RegistryStamp> {
+    match std::fs::metadata(path) {
+        Ok(metadata) => Ok(RegistryStamp {
+            modified: metadata.modified().ok(),
+            length: Some(metadata.len()),
+        }),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(RegistryStamp {
+            modified: None,
+            length: None,
+        }),
+        Err(error) => Err(error),
+    }
 }
 
 impl Auth {
@@ -30,7 +97,8 @@ impl Auth {
         password_hash: Option<String>,
         users_path: PathBuf,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let users = UserRegistry::load(&users_path)?;
+        let registry = Arc::new(RegistryCache::new(users_path)?);
+        let users = registry.snapshot();
         let username = username.into();
         let password_hash = password_hash.map(Arc::<str>::from);
         if users
@@ -51,8 +119,15 @@ impl Auth {
         Ok(Self {
             username,
             password_hash,
-            users_path,
+            registry,
         })
+    }
+
+    pub async fn reload_if_changed(&self) -> io::Result<Option<(Arc<UserRegistry>, Vec<String>)>> {
+        let registry = self.registry.clone();
+        tokio::task::spawn_blocking(move || registry.reload())
+            .await
+            .map_err(io::Error::other)?
     }
 
     pub async fn authenticate(&self, session: &Session) -> Option<String> {
@@ -73,12 +148,12 @@ impl Auth {
             .flatten()?;
         let version = session.get::<u64>(SESSION_VERSION).await.ok().flatten()?;
         if (id == LEGACY_USER_ID && self.password_hash.is_some() && version == 0)
-            || UserRegistry::load(&self.users_path).is_ok_and(|users| {
-                users
-                    .users
-                    .iter()
-                    .any(|user| user.id == id && !user.disabled && user.session_version == version)
-            })
+            || self
+                .registry
+                .snapshot()
+                .users
+                .iter()
+                .any(|user| user.id == id && !user.disabled && user.session_version == version)
         {
             Some(id)
         } else {
@@ -98,12 +173,16 @@ impl Auth {
                 .as_ref()
                 .map(|hash| (LEGACY_USER_ID.to_owned(), hash.to_string(), 0))
         } else {
-            UserRegistry::load(&self.users_path).ok().and_then(|users| {
-                users
-                    .users
-                    .into_iter()
-                    .find(|user| !user.disabled && user.username.as_deref() == Some(username))
-                    .and_then(|user| Some((user.id, user.password_hash?, user.session_version)))
+            self.registry.snapshot().users.iter().find_map(|user| {
+                if !user.disabled && user.username.as_deref() == Some(username) {
+                    Some((
+                        user.id.clone(),
+                        user.password_hash.clone()?,
+                        user.session_version,
+                    ))
+                } else {
+                    None
+                }
             })
         };
         let known = user.is_some();
@@ -125,17 +204,17 @@ impl Auth {
 
     pub fn local_enabled(&self) -> bool {
         self.password_hash.is_some()
-            || UserRegistry::load(&self.users_path).is_ok_and(|users| {
-                users
-                    .users
-                    .iter()
-                    .any(|user| !user.disabled && user.password_hash.is_some())
-            })
+            || self
+                .registry
+                .snapshot()
+                .users
+                .iter()
+                .any(|user| !user.disabled && user.password_hash.is_some())
     }
 
     pub fn oidc_user(&self, issuer: &str, subject: &str) -> Option<String> {
-        UserRegistry::load(&self.users_path)
-            .ok()?
+        self.registry
+            .snapshot()
             .users
             .iter()
             .find(|user| {
@@ -149,12 +228,18 @@ impl Auth {
     }
 
     pub async fn provision_oidc(&self, issuer: String, subject: String) -> Option<String> {
-        let path = self.users_path.clone();
-        tokio::task::spawn_blocking(move || UserRegistry::provision_oidc(&path, &issuer, &subject))
-            .await
-            .ok()?
-            .ok()
-            .flatten()
+        let path = self.registry.path.clone();
+        let user_id = tokio::task::spawn_blocking(move || {
+            UserRegistry::provision_oidc(&path, &issuer, &subject)
+        })
+        .await
+        .ok()?
+        .ok()
+        .flatten();
+        if let Err(error) = self.reload_if_changed().await {
+            tracing::warn!(%error, "could not reload user registry after provisioning");
+        }
+        user_id
     }
 
     pub async fn login(
@@ -166,11 +251,7 @@ impl Auth {
         let version = if user_id == LEGACY_USER_ID {
             0
         } else {
-            let users = UserRegistry::load(&self.users_path).map_err(|error| {
-                tower_sessions::session::Error::Store(
-                    tower_sessions::session_store::Error::Backend(error.to_string()),
-                )
-            })?;
+            let users = self.registry.snapshot();
             users
                 .users
                 .iter()
@@ -223,13 +304,35 @@ mod tests {
             Some(id.as_str())
         );
         UserRegistry::set_disabled(&path, &id, true).unwrap();
+        let (_, revoked) = auth.reload_if_changed().await.unwrap().unwrap();
+        assert_eq!(revoked, vec![id.clone()]);
         assert!(auth.authenticate(&session).await.is_none());
         UserRegistry::set_disabled(&path, &id, false).unwrap();
+        auth.reload_if_changed().await.unwrap();
         assert!(auth.authenticate(&session).await.is_none());
         assert!(auth.login(&session, &id, Some(0)).await.is_err());
         auth.login(&session, &id, Some(1)).await.unwrap();
         UserRegistry::set_password(&path, &id, hash.to_owned()).unwrap();
+        auth.reload_if_changed().await.unwrap();
         assert!(auth.authenticate(&session).await.is_none());
         assert!(auth.login(&session, &id, Some(1)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn authentication_uses_the_cached_registry() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("users.json");
+        let hash = "$argon2id$v=19$m=19456,t=2,p=1$P+eI2tfGQ1sd90QtbQ8wFA$Obgt2lytjJYQTynFGGi4Lu+2hlyyipgjDot5QXzqxjs";
+        let id = UserRegistry::add_local(&path, "alice", hash).unwrap();
+        let auth = Auth::new("legacy", None, path.clone()).unwrap();
+        let session = Session::new(None, Arc::new(MemoryStore::default()), None);
+        auth.login(&session, &id, None).await.unwrap();
+
+        std::fs::remove_file(path).unwrap();
+
+        assert_eq!(
+            auth.authenticate(&session).await.as_deref(),
+            Some(id.as_str())
+        );
     }
 }

@@ -3,8 +3,11 @@ import {
   boundServerIdentity,
 } from '#lib/notifications/room-names.js';
 
+// Stores read their scoped keys at import, so the identity must be bound first.
 if (import.meta.env.VITE_SABLE_SERVER_URL && 'document' in globalThis) {
-  await bindServerNotificationIdentity().catch(() => {});
+  await bindServerNotificationIdentity().catch((error: unknown) => {
+    console.debug('[sable server] identity not bound before sign-in', error);
+  });
 }
 
 function optionalStorage(): Storage | null {
@@ -74,6 +77,6 @@ export function writeJson(key: string, value: unknown, failure?: string): void {
     const scoped = scopedKey(key);
     if (scoped !== null) optionalStorage()?.setItem(scoped, JSON.stringify(value));
   } catch (error) {
-    if (failure !== undefined) console.debug(failure, error);
+    if (failure !== undefined) console.warn(failure, error);
   }
 }

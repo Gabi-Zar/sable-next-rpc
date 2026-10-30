@@ -9,6 +9,7 @@ vi.mock('#lib/notifications/room-names.js', () => ({
 }));
 
 const reload = vi.fn();
+const reloadStorage = new Map<string, string>();
 
 class FakeWebSocket extends EventTarget {
   static instances: FakeWebSocket[] = [];
@@ -58,6 +59,7 @@ class FakeWebSocket extends EventTarget {
 beforeEach(() => {
   vi.useFakeTimers();
   reload.mockReset();
+  reloadStorage.clear();
   identity.current = 'legacy';
   FakeWebSocket.instances = [];
   vi.stubGlobal('location', {
@@ -72,6 +74,10 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', {
     getItem: () => null,
     setItem: vi.fn(),
+  });
+  vi.stubGlobal('sessionStorage', {
+    getItem: (key: string) => reloadStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => reloadStorage.set(key, value),
   });
 });
 
@@ -155,7 +161,11 @@ test('reconnects with the run id and last received event', async () => {
 test('reloads after the server cannot replay the event gap', async () => {
   const { transport, socket } = await openTransport();
   socket.receive({ reset: true });
+  socket.receive({ reset: true });
   expect(reload).toHaveBeenCalledOnce();
+  vi.advanceTimersByTime(30_000);
+  socket.receive({ reset: true });
+  expect(reload).toHaveBeenCalledTimes(2);
   transport.close();
 });
 

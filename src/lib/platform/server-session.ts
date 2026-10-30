@@ -11,12 +11,7 @@ export async function signOutServer(): Promise<void> {
     headers: { 'x-sable-user': identity },
   });
   if (!response.ok) throw new Error('Server sign out failed');
-  await Promise.all([
-    clearServerNotifications(),
-    clearServerPushSessions(identity).catch((error: unknown) => {
-      console.debug('[sable notifications] could not clear push credentials', error);
-    }),
-  ]);
+  await Promise.all([clearServerNotifications(), clearServerPushSessions(identity)]);
   if (typeof BroadcastChannel !== 'undefined') {
     const channel = new BroadcastChannel('sable-server-identity');
     channel.postMessage('logout');

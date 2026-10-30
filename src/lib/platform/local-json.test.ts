@@ -71,11 +71,11 @@ test('logs a failed write only when given a message', () => {
       throw new Error('quota');
     },
   });
-  const debug = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
   writeJson('key', 1);
-  expect(debug).not.toHaveBeenCalled();
+  expect(warn).not.toHaveBeenCalled();
 
   writeJson('key', 1, '[sable test] not persisted');
-  expect(debug).toHaveBeenCalledWith('[sable test] not persisted', expect.any(Error));
+  expect(warn).toHaveBeenCalledWith('[sable test] not persisted', expect.any(Error));
 });
