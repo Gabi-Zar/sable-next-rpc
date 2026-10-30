@@ -6,6 +6,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { existingChatPath, roomSectionPath } from '#lib/rooms/permalink.js';
   import { hasDirectRoom, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -29,8 +30,8 @@
   let failed = $state(false);
   let confirming = $state(false);
 
-  let name = $derived(profile?.display_name ?? userId);
-  let avatar_url = $derived<string | null>(profile?.avatar_url ?? null);
+  let name = $derived(profileOverrides.name(userId, profile?.display_name ?? userId));
+  let avatar_url = $derived(profileOverrides.avatar(userId, profile?.avatar_url ?? null));
 
   $effect(() => {
     const wanted = userId;

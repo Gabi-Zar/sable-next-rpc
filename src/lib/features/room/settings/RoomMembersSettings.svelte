@@ -29,6 +29,7 @@
     MEMBER_SORT_LABELS,
     groupMembers,
     matchesFilter,
+    memberName,
     membershipFor,
     type MembershipFilter,
   } from '#lib/rooms/member-listing.js';
@@ -190,10 +191,6 @@
     } finally {
       inviting = null;
     }
-  }
-
-  function memberName(member: MemberView): string {
-    return member.display_name ?? member.user_id;
   }
 
   async function load(): Promise<void> {

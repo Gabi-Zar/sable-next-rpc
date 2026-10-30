@@ -5,6 +5,7 @@
   import type { MemberView, RoomListItemView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
+  import { memberName } from '#lib/rooms/member-listing.js';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import IconButton from '#lib/ui/primitives/IconButton.svelte';
@@ -91,7 +92,7 @@
     if (acceptsType(parameter.schema, 'user_id')) {
       for (const member of members) {
         if (member.membership !== 'join') continue;
-        options.push({ value: member.user_id, label: member.display_name ?? member.user_id });
+        options.push({ value: member.user_id, label: memberName(member) });
       }
     }
     for (const room of rooms) {

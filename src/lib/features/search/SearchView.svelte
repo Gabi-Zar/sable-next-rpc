@@ -506,7 +506,9 @@
 
 {#snippet contextLine(line: SearchContextView)}
   <span class="hit-context" hidden={line.body.startsWith('mxc://')}>
-    <span class="hit-context-sender">{senders.identity(line.sender).displayName}</span>
+    <span class="hit-context-sender"
+      >{profileOverrides.name(line.sender, senders.identity(line.sender).displayName)}</span
+    >
     {line.body}
   </span>
 {/snippet}
@@ -738,7 +740,10 @@
               {#each group.hits as hit (hit.event_id)}
                 {@const snippet = snippetAround(hit.body, terms)}
                 {@const openLabel = i18n.t('search.openResultFrom', {
-                  sender: senders.identity(hit.sender).displayName,
+                  sender: profileOverrides.name(
+                    hit.sender,
+                    senders.identity(hit.sender).displayName
+                  ),
                   room: roomList.labelFor(hit.room_id),
                   time: formatFullTimestamp(hit.origin_server_ts),
                 })}

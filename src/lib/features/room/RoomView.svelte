@@ -18,6 +18,7 @@
     provideRoomAbbreviations,
     RoomAbbreviations,
   } from './room-abbreviations.svelte.js';
+  import { memberName } from './members/members.js';
   import { provideRoomMemberNames } from './members/room-member-names.js';
   import { notifiedRelation } from './messages/notified-relation.js';
   import { PinnedEvents, providePinnedEvents } from './timeline/pinned-events.svelte.js';
@@ -392,7 +393,7 @@
   let typingUsers = $derived(
     preferences.hideTypingIndicators
       ? []
-      : typingUserIds.map((userId) => ({ userId, name: memberDisplayName(userId) }))
+      : typingUserIds.map((userId) => ({ userId, name: memberName(memberLoader.members, userId) }))
   );
 
   $effect(() => {
@@ -595,7 +596,6 @@
       ? profileOverrides.name(userId, known ?? userId)
       : (known ?? null);
   }
-
   /** RoomPage is mounted by the home, direct and space routes alike, so the
       current path has to survive the rewrite. */
   function roomUrl(eventId: string | null): string {

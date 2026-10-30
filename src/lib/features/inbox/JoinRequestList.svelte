@@ -4,6 +4,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { memberName } from '#lib/rooms/member-listing.js';
   import { roomLabel, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -108,9 +109,9 @@
     {#each pending as request (key(request))}
       {@const member = request.member}
       <li>
-        <Avatar id={member.user_id} name={member.display_name ?? member.user_id} size="small" />
+        <Avatar id={member.user_id} name={memberName(member)} size="small" />
         <div class="identity">
-          <span class="name">{member.display_name ?? member.user_id}</span>
+          <span class="name">{memberName(member)}</span>
           <span class="user-id">{member.user_id}</span>
           <span class="room">{roomLabel(request.room)}</span>
         </div>

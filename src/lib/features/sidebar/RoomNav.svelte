@@ -24,6 +24,7 @@
   import HashIcon from 'phosphor-svelte/lib/HashIcon';
   import HouseIcon from 'phosphor-svelte/lib/HouseIcon';
   import SquaresFourIcon from 'phosphor-svelte/lib/SquaresFourIcon';
+  import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import { cursorAnchor, type CursorAnchor } from '#lib/ui/cursor-anchor.js';
   import { longPress, mouseContextMenu } from '#lib/ui/long-press.svelte.js';
   import { isDeclining } from '#lib/rooms/invites.svelte.js';
@@ -669,8 +670,8 @@
                     {@const profile = peerProfiles.get(userId)}
                     <Avatar
                       class="voice-face"
-                      src={profile?.avatar_url ?? null}
-                      name={profile?.display_name ?? userId}
+                      src={profileOverrides.avatar(userId, profile?.avatar_url ?? null)}
+                      name={profileOverrides.name(userId, profile?.display_name ?? userId)}
                       id={userId}
                     />
                   {/each}

@@ -1,6 +1,7 @@
 import { SvelteMap } from 'svelte/reactivity';
 
 import type { CoreClient } from '#lib/core/client.svelte.js';
+import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
 import { senderName } from './inbox';
 
 const MAX_ATTEMPTS = 3;
@@ -29,6 +30,6 @@ export class DisplayNames {
         }
       );
     }
-    return this.#names.get(userId) ?? senderName(userId);
+    return profileOverrides.name(userId, this.#names.get(userId) ?? senderName(userId));
   }
 }
