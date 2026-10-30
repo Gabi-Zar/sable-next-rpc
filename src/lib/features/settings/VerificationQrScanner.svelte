@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
 
   import { i18n } from '#lib/i18n.js';
+  import Button from '#lib/ui/primitives/Button.svelte';
   import Select from '#lib/ui/primitives/Select.svelte';
 
   interface Props {
@@ -11,6 +12,7 @@
   let { onScan }: Props = $props();
 
   const SCAN_INTERVAL_MS = 200;
+  const STARTUP_TIMEOUT_MS = 10_000;
   const MAX_FRAME_EDGE = 720;
   const HEADERS = ['MATRIX', 'IO_ELEMENT_MSC4388'].map((header) =>
     new TextEncoder().encode(header)
@@ -30,6 +32,7 @@
   onMount(() => {
     let stream: MediaStream | undefined;
     let timer: ReturnType<typeof setInterval> | undefined;
+    let startupTimer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     let generation = 0;
     const canvas = document.createElement('canvas');
@@ -37,9 +40,19 @@
 
     function stopStream(): void {
       clearInterval(timer);
+      clearTimeout(startupTimer);
       stream?.getTracks().forEach((track) => track.stop());
       stream = undefined;
       if (video) video.srcObject = null;
+    }
+
+    function fail(current: number, error: unknown): void {
+      if (stopped || current !== generation) return;
+      console.warn('[sable settings] QR camera startup failed', error);
+      generation += 1;
+      stopStream();
+      failed = true;
+      switching = false;
     }
 
     async function start(deviceId?: string): Promise<void> {
@@ -53,18 +66,19 @@
           audio: false,
           video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' },
         });
-      } catch {
-        if (!stopped && current === generation) {
-          failed = true;
-          switching = false;
-        }
+      } catch (error) {
+        fail(current, error);
         return;
       }
-      if (stopped || current !== generation || !video || !context) {
+      if (stopped || current !== generation || !video) {
         next.getTracks().forEach((track) => track.stop());
         return;
       }
       stream = next;
+      if (!context) {
+        fail(current, new Error('Camera frame capture is unavailable'));
+        return;
+      }
       selectedCamera = next.getVideoTracks()[0]?.getSettings().deviceId ?? deviceId ?? '';
       // Camera labels and additional devices may only be available after permission is granted.
       void navigator.mediaDevices.enumerateDevices?.().then(
@@ -75,18 +89,31 @@
         },
         () => {}
       );
-      const { default: jsQR } = await import('jsqr');
-      if (stopped || current !== generation) return;
       const element = video;
-      element.srcObject = next;
-      await element.play().catch((error: unknown) => {
-        console.debug('[sable settings] camera preview did not start', error);
-      });
+      startupTimer = setTimeout(() => {
+        fail(current, new Error('Camera scanner startup timed out'));
+      }, STARTUP_TIMEOUT_MS);
+      let jsQR: typeof import('jsqr').default;
+      try {
+        element.srcObject = next;
+        await element.play();
+        if (stopped || current !== generation) return;
+        ({ default: jsQR } = await import('jsqr'));
+      } catch (error) {
+        fail(current, error);
+        return;
+      }
       if (stopped || current !== generation) return;
       switching = false;
 
       timer = setInterval(() => {
-        if (!element.videoWidth) return;
+        if (
+          element.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+          !element.videoWidth ||
+          !element.videoHeight
+        )
+          return;
+        clearTimeout(startupTimer);
         const scale = Math.min(
           1,
           MAX_FRAME_EDGE / Math.max(element.videoWidth, element.videoHeight)
@@ -130,10 +157,12 @@
   />
 {/if}
 <div class="verification-scanner" hidden={failed}>
-  <video bind:this={video} muted playsinline aria-label={i18n.t('settings.scanningQr')}></video>
+  <video bind:this={video} autoplay muted playsinline aria-label={i18n.t('settings.scanningQr')}
+  ></video>
 </div>
 {#if failed}
   <p class="verification-scanner-failed" role="alert">{i18n.t('settings.cameraUnavailable')}</p>
+  <Button onclick={() => switchCamera(selectedCamera)}>{i18n.t('common.retry')}</Button>
 {:else}
   <p class="verification-scanner-hint" role="status">{i18n.t('settings.scanningQr')}</p>
 {/if}

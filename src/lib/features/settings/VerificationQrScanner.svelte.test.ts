@@ -26,6 +26,7 @@ function setup() {
     Object.defineProperties(this, {
       videoWidth: { configurable: true, value: 640 },
       videoHeight: { configurable: true, value: 480 },
+      readyState: { configurable: true, value: HTMLMediaElement.HAVE_CURRENT_DATA },
     });
     return Promise.resolve();
   });
@@ -46,8 +47,70 @@ function setup() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   decode.mockReset().mockReturnValue(null);
+});
+
+test('releases the camera and allows retry when playback fails', async () => {
+  const { front, rear, play, getUserMedia } = setup();
+  play.mockRejectedValueOnce(new DOMException('Playback blocked', 'NotAllowedError'));
+  render(VerificationQrScanner, { onScan: vi.fn() });
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+  expect(front.stop).toHaveBeenCalledOnce();
+  expect(decode).not.toHaveBeenCalled();
+
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Retry' }));
+  await waitFor(() => {
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+  expect(getUserMedia).toHaveBeenLastCalledWith({
+    audio: false,
+    video: { deviceId: { exact: 'front' } },
+  });
+  expect(rear.stop).not.toHaveBeenCalled();
+});
+
+test.each(['pending playback', 'missing frames'])(
+  'releases the camera when startup times out: %s',
+  async (failure) => {
+    vi.useFakeTimers();
+    const { front, play } = setup();
+    play.mockImplementation(() =>
+      failure === 'pending playback' ? new Promise(() => {}) : Promise.resolve()
+    );
+    render(VerificationQrScanner, { onScan: vi.fn() });
+    await vi.waitFor(() => {
+      expect(play).toHaveBeenCalledOnce();
+    });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+    expect(front.stop).toHaveBeenCalledOnce();
+    expect(decode).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
+  }
+);
+
+test('ignores a playback failure after unmount', async () => {
+  const { front, play } = setup();
+  let reject!: (error: Error) => void;
+  play.mockReturnValueOnce(
+    new Promise((_, fail) => {
+      reject = fail;
+    })
+  );
+  const { unmount } = render(VerificationQrScanner, { onScan: vi.fn() });
+  await waitFor(() => {
+    expect(play).toHaveBeenCalledOnce();
+  });
+  unmount();
+  reject(new Error('Old playback failed'));
+  await Promise.resolve();
+  expect(front.stop).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
 test.each(['MATRIX', 'IO_ELEMENT_MSC4388'])(
