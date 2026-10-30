@@ -93,6 +93,7 @@ export default mergeConfig(
               optimizeDeps: { include: ['katex'] },
               test: {
                 name: 'browser',
+                maxWorkers: 4,
                 include: ['src/**/*.browser.test.ts', 'tests/e2e/fixtures/*.browser.test.ts'],
                 setupFiles: ['./tests/vitest-browser-setup.ts'],
                 expect: { poll: { timeout: 5000 } },
