@@ -198,7 +198,7 @@
         private_receipt: readReceiptIsPrivate(),
         thread_root: null,
         subscription: null,
-        fully_read: false,
+        fully_read: true,
       });
       return true;
     } catch (error) {
@@ -225,7 +225,7 @@
         private_receipt: readReceiptIsPrivate(),
         thread_root: null,
         subscription: null,
-        fully_read: false,
+        fully_read: true,
       });
       for (const candidate of covered) readNow.add(candidate.event_id);
       await tick();

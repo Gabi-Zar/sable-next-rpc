@@ -583,11 +583,11 @@
       timeline.readMarkerEventId
     );
     const landingPending = landingEventId !== null && onRequestUnread !== undefined;
-    if (
-      !entries.some(({ value }) => value.item.content.kind === 'read_marker') &&
-      !entryFor(landingEventId) &&
-      !landingPending
-    ) {
+    const markerEntry = () =>
+      unread.active
+        ? entries.find(({ value }) => value.item.content.kind === 'read_marker')
+        : undefined;
+    if (!markerEntry() && !entryFor(landingEventId) && !landingPending) {
       revealed = true;
     }
     await initializingUnread;
@@ -602,7 +602,7 @@
       return;
     }
     const landingEntry = () => entryFor(landingEventId);
-    const unreadEntry = entries.find(({ value }) => value.item.content.kind === 'read_marker');
+    const unreadEntry = markerEntry();
     if (!unreadEntry && !landingEntry() && !landingPending) revealed = true;
     filling = true;
     try {

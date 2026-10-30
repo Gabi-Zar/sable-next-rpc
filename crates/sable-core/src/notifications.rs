@@ -1079,8 +1079,23 @@ impl PushSession {
             .await;
         if let Err(error) = &sent {
             tracing::warn!("notification receipt not sent: {error}");
+            return false;
         }
-        sent.is_ok()
+        if thread == ReceiptThread::Main
+            && let Err(error) = self
+                .host
+                .retry(|| {
+                    room.send_single_receipt(
+                        ReceiptType::FullyRead,
+                        ReceiptThread::Unthreaded,
+                        event_id.clone(),
+                    )
+                })
+                .await
+        {
+            tracing::warn!("notification read marker not moved: {error}");
+        }
+        true
     }
 }
 
@@ -3287,6 +3302,15 @@ mod tests {
                 .expect(1)
                 .mount()
                 .await;
+            fixture
+                .server
+                .mock_send_receipt(ReceiptType::FullyRead)
+                .expect_access_token("test-token")
+                .match_event_id(event_id!("$notified"))
+                .ok()
+                .expect(1)
+                .mount()
+                .await;
 
             assert!(
                 session(&fixture)
@@ -3316,6 +3340,13 @@ mod tests {
             .match_event_id(event_id!("$notified"))
             .ok()
             .expect(1)
+            .mount()
+            .await;
+        fixture
+            .server
+            .mock_send_receipt(ReceiptType::FullyRead)
+            .ok()
+            .expect(0)
             .mount()
             .await;
 

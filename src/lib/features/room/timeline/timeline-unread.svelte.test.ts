@@ -199,3 +199,11 @@ test('starts a new unread target after reading the first batch', async () => {
   expect(unread.readEventId).toBe('$first');
   expect(unread.blocking).toBe(true);
 });
+
+test('a read marker in a read room does not start an unread run', async () => {
+  const unread = new TimelineUnread();
+  await unread.initialize([message('read'), marker(), message('latest')], false);
+  expect(unread.active).toBe(false);
+  expect(unread.firstEventId).toBeNull();
+  expect(unread.blocking).toBe(false);
+});

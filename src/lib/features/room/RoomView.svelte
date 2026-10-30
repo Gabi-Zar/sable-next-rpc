@@ -684,7 +684,7 @@
       private_receipt: readReceiptIsPrivate(),
       thread_root: null,
       subscription: null,
-      fully_read: false,
+      fully_read: true,
     });
     list?.dismissUnread();
   }

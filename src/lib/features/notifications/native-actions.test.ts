@@ -70,7 +70,7 @@ test('a reply is sent and the room is read', async () => {
     private_receipt: false,
     thread_root: null,
     subscription: null,
-    fully_read: false,
+    fully_read: true,
   });
 });
 
@@ -89,7 +89,7 @@ test('marking read sends no message', async () => {
     private_receipt: true,
     thread_root: null,
     subscription: null,
-    fully_read: false,
+    fully_read: true,
   });
 });
 

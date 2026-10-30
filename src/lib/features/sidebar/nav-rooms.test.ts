@@ -81,7 +81,7 @@ test('marks only rooms that are actually unread', () => {
         private_receipt: false,
         thread_root: null,
         subscription: null,
-        fully_read: false,
+        fully_read: true,
       },
     ],
     [
@@ -91,7 +91,7 @@ test('marks only rooms that are actually unread', () => {
         private_receipt: false,
         thread_root: null,
         subscription: null,
-        fully_read: false,
+        fully_read: true,
       },
     ],
   ]);
@@ -114,7 +114,7 @@ test('a private reader still marks rooms read, just without telling them', () =>
         private_receipt: true,
         thread_root: null,
         subscription: null,
-        fully_read: false,
+        fully_read: true,
       },
     ],
   ]);

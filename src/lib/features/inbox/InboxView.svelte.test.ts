@@ -159,6 +159,6 @@ test('a room behind the badge with nothing in the feed still gets a row', async 
     private_receipt: false,
     thread_root: null,
     subscription: null,
-    fully_read: false,
+    fully_read: true,
   });
 });

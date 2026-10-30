@@ -482,8 +482,10 @@ impl Handler for MarkReadParams {
                 .await
                 .or_failed(core, "build_mark_read_timeline")?;
             receipt_sent(core, main.mark_as_read(receipt_type).await)?;
-            receipt_sent(core, timeline
-                .mark_as_read(ReceiptType::FullyRead).await)?;
+            if self.fully_read {
+                receipt_sent(core, timeline
+                    .mark_as_read(ReceiptType::FullyRead).await)?;
+            }
             return Ok(());
         };
 

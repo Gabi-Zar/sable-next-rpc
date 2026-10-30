@@ -29,7 +29,7 @@ export function markRoomsRead(
         private_receipt: privateReceipt,
         thread_root: null,
         subscription: null,
-        fully_read: false,
+        fully_read: true,
       })
       .catch((error: unknown) => {
         console.warn('[sable nav] mark as read failed', error);

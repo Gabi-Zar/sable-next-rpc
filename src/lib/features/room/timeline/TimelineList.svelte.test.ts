@@ -783,6 +783,7 @@ test('a timeline with an unread marker reveals on it without waiting for history
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         onRequestHistory: history,
         onRequestFuture: async () => {},
         onRead: async () => {},
@@ -796,6 +797,33 @@ test('a timeline with an unread marker reveals on it without waiting for history
 
   expect(timelineViewport().classList.contains('initial')).toBe(false);
   expect(jumps.mock.calls.some(([key]) => key?.includes('marker'))).toBe(true);
+});
+
+test('a read room with a lagging read marker opens at the latest message and moves the marker', async () => {
+  const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
+  const roomTimeline = timeline();
+  roomTimeline.items = [item('yesterday'), readMarker('marker'), item('today'), item('latest')];
+  const read = vi.fn().mockResolvedValue(undefined);
+  render(TimelineListHarness, {
+    props: {
+      list: {
+        timeline: roomTimeline,
+        onRequestHistory: () => Promise.resolve(true),
+        onRequestFuture: async () => {},
+        onRead: read,
+      },
+    },
+  });
+
+  viewport();
+  await flushed();
+  await runAnimationFrames();
+
+  expect(jumps).not.toHaveBeenCalledWith(expect.stringContaining('marker'), 'start');
+  expect(screen.queryByRole('button', { name: 'Jump to unread' })).not.toBeInTheDocument();
+  await vi.waitFor(() => {
+    expect(read).toHaveBeenCalledWith('$latest', true);
+  });
 });
 
 test('a notification lands on its event in the live timeline, not on the unread marker', async () => {
@@ -838,6 +866,7 @@ test('a notification lands on its event once it arrives after the room opened', 
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$late',
         onLanded: landed,
         onRequestHistory: () => Promise.resolve(true),
@@ -910,6 +939,7 @@ test('a notification whose event is not loaded falls back to the unread marker',
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$elsewhere',
         onRequestHistory: () => Promise.resolve(true),
         onRequestFuture: () => Promise.resolve(),
@@ -935,6 +965,7 @@ test('does not retry an unavailable notification', async () => {
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$missing',
         onRequestUnread: requestUnread,
         onRequestHistory: () => Promise.resolve(true),
@@ -973,6 +1004,7 @@ test('a notification whose event is not loaded opens its context and lands on it
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$elsewhere',
         onLanded: landed,
         onRequestUnread: requestUnread,
@@ -2532,6 +2564,7 @@ test('a notification below unread keeps the bar and blocks receipts until jumpin
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$new-10',
         onRequestHistory: () => Promise.resolve(true),
         onRequestFuture: async () => {},
@@ -2573,6 +2606,7 @@ test('a notification below unread sends the receipt once the reader reaches the 
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$new-10',
         onRequestHistory: () => Promise.resolve(true),
         onRequestFuture: async () => {},
@@ -2684,6 +2718,7 @@ test('marking the unread bar as read keeps it on failure and clears it on succes
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$new-10',
         onRequestHistory: () => Promise.resolve(true),
         onRequestFuture: async () => {},
@@ -2715,6 +2750,7 @@ test('Escape jumps to the latest message and marks the room read', async () => {
     props: {
       list: {
         timeline: roomTimeline,
+        hasUnread: true,
         landingEventId: '$new-10',
         onRequestHistory: () => Promise.resolve(true),
         onRequestFuture: async () => {},
