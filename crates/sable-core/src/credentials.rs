@@ -152,14 +152,17 @@ impl LoginTokens {
     }
 
     pub(crate) fn forget(&self, account_id: &str) {
-        let prefix = format!("{account_id}.");
         let Ok(entries) = std::fs::read_dir(&self.directory) else {
             return;
         };
         for entry in entries.flatten() {
-            if entry.file_name().to_string_lossy().starts_with(&prefix)
-                && let Err(error) = std::fs::remove_file(entry.path())
-            {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            let matches_account = name
+                .strip_suffix(".json")
+                .and_then(|name| name.rsplit_once('.'))
+                .is_some_and(|(account, device)| account == account_id && !device.is_empty());
+            if matches_account && let Err(error) = std::fs::remove_file(entry.path()) {
                 tracing::warn!("could not forget a login's tokens: {error}");
             }
         }
@@ -213,6 +216,26 @@ mod tests {
         );
         logins.forget_all();
         assert!(logins.read("a2", "OLD").unwrap().is_none());
+    }
+
+    #[test]
+    fn forget_does_not_remove_a_dotted_account_id_prefix() {
+        let base = tempfile::tempdir().unwrap();
+        let logins = LoginTokens::new(base.path());
+
+        logins.save("a1", "OLD", &tokens("old")).unwrap();
+        logins.save("a1.extra", "OLD", &tokens("dotted")).unwrap();
+        logins.forget("a1");
+
+        assert!(logins.read("a1", "OLD").unwrap().is_none());
+        assert_eq!(
+            logins
+                .read("a1.extra", "OLD")
+                .unwrap()
+                .unwrap()
+                .access_token,
+            "dotted"
+        );
     }
 
     #[test]
