@@ -9,6 +9,7 @@ vi.mock('#lib/core/context.js');
 
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import RoomHeader from './RoomHeader.svelte';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 const members = [
   {
@@ -135,7 +136,7 @@ test('the hidden events toggle appears only when enabled and flips the preferenc
 });
 
 test('opens the room image from the header', async () => {
-  const onAvatar = vi.fn();
+  const openStandaloneSpy = vi.spyOn(mediaViewerState, 'openStandalone');
   renderWithTooltips(RoomHeader, {
     props: {
       roomId: '!general:example.org',
@@ -147,9 +148,8 @@ test('opens the room image from the header', async () => {
       onBack: () => {},
       onMembers: () => {},
       onSearch: () => {},
-      onAvatar,
     },
   });
-  await userEvent.setup().click(screen.getByRole('button', { name: 'View General’s avatar' }));
-  expect(onAvatar).toHaveBeenCalledExactlyOnceWith('mxc://example.org/room', 'General');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'View avatar of General' }));
+  expect(openStandaloneSpy).toHaveBeenCalledExactlyOnceWith('mxc://example.org/room', 'General');
 });

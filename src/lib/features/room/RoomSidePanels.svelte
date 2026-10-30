@@ -8,7 +8,6 @@
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
   import { toasts } from '#lib/ui/toasts.svelte.js';
   import ThreadList from './conversation/ThreadList.svelte';
-  import type { MediaItem } from './media/media-viewer-types.js';
   import RoomAttachments from './media/RoomAttachments.svelte';
   import MembersDrawer from './members/MembersDrawer.svelte';
   import RoomSearchPanel from './RoomSearchPanel.svelte';
@@ -26,7 +25,6 @@
     canManageWidgets: boolean;
     onOpenThread: (rootEventId: string) => void;
     onJump: (eventId: string) => void;
-    onOpenMedia: (items: MediaItem[], eventId: string) => void;
     onMatrixLink: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
     onMemberProfile: (userId: string, anchor: HTMLElement) => void;
   }
@@ -41,7 +39,6 @@
     canManageWidgets,
     onOpenThread,
     onJump,
-    onOpenMedia,
     onMatrixLink,
     onMemberProfile,
   }: Props = $props();
@@ -108,7 +105,6 @@
     members={memberLoader.members}
     modal={!desktop}
     {onJump}
-    {onOpenMedia}
     {onMatrixLink}
     onClose={() => (panels.attachmentsOpen = false)}
   />

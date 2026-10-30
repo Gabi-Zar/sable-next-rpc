@@ -26,8 +26,7 @@ vi.mock('#lib/platform/overlay-back.svelte.js', () => ({
 }));
 
 import { core } from '#lib/core/__mocks__/context.js';
-import TooltipProvider from '#lib/ui/primitives/TooltipProvider.svelte';
-import AccountSwitcher from './AccountSwitcher.svelte';
+import AccountSwitcherHarness from './AccountSwitcherHarness.test.svelte';
 
 const current = {
   account_id: 'current',
@@ -72,7 +71,7 @@ beforeEach(() => {
 
 async function requestLogout(userId: string) {
   const user = userEvent.setup();
-  render(AccountSwitcher, { mode: 'desktop' }, { wrapper: TooltipProvider });
+  render(AccountSwitcherHarness);
 
   await user.click(screen.getByRole('button', { name: 'nav.switchAccount' }));
   await user.click(screen.getByRole('menuitem', { name: 'nav.switchAccount' }));
@@ -178,8 +177,8 @@ test('uses session logout for the active account even if it requires reauthentic
 });
 
 test.each([
-  ['Current', 'mxc://example.org/avatar'],
-  ['timeline.profileBanner:Current', 'mxc://example.org/banner'],
+  ['common.viewAvatar:Current', 'mxc://example.org/avatar'],
+  ['common.viewBanner:Current', 'mxc://example.org/banner'],
 ])('opens own profile image %s', async (label, source) => {
   Object.assign(core, {
     cachedUserProfile: () => ({
@@ -189,7 +188,7 @@ test.each([
       banner_url: 'mxc://example.org/banner',
     }),
   });
-  render(AccountSwitcher, { mode: 'desktop' }, { wrapper: TooltipProvider });
+  render(AccountSwitcherHarness);
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'nav.switchAccount' }));
   await user.click(await screen.findByRole('button', { name: label }));

@@ -7,28 +7,20 @@
 
   import { EventItems, provideEventItems } from './messages/event-items.svelte.js';
   import { RoomScopes, provideRoomScopes } from './messages/message-scope.svelte.js';
-  import MediaViewer, { type MediaItem } from './media/MediaViewer.svelte';
+  import MediaViewer from '#lib/ui/media/MediaViewer.svelte';
   import RoomPinMenu from './RoomPinMenu.svelte';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
   let { menu }: { menu: ComponentProps<typeof RoomPinMenu> } = $props();
   const core = useCoreClient();
   provideEventItems(new EventItems(core.rpc.timeline, () => core.session?.account_id ?? null));
   provideRoomScopes(new RoomScopes(core));
   provideBookmarks(new Bookmarks(core.rpc.account));
-  let items = $state.raw<MediaItem[]>([]);
-  let selectedEventId = $state<string | null>(null);
 </script>
 
 <TooltipProvider>
-  <RoomPinMenu
-    {...menu}
-    onOpenMedia={(next, eventId) => {
-      items = next;
-      selectedEventId = eventId;
-      menu.onOpenMedia(next, eventId);
-    }}
-  />
-  {#if selectedEventId}
-    <MediaViewer {items} {selectedEventId} onClose={() => (selectedEventId = null)} />
+  <RoomPinMenu {...menu} />
+  {#if mediaViewerState.eventId}
+    <MediaViewer />
   {/if}
 </TooltipProvider>

@@ -24,14 +24,14 @@
     profilePalette,
   } from './readable-color.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
+  import Banner from './Banner.svelte';
 
   interface Props {
     displayName: string;
     userId: string;
     avatarUrl?: string | null;
-    avatarLabel?: string;
-    onAvatarClick?: (source: string, displayName: string) => void;
     onAvatarEdit?: () => void;
+    avatarEditLabel?: string;
     color: string;
     /** The owner's own choice, so only this one tints the card. `color` also
         covers the id-derived fallback. */
@@ -64,9 +64,8 @@
     displayName,
     userId,
     avatarUrl = null,
-    avatarLabel,
-    onAvatarClick,
     onAvatarEdit,
+    avatarEditLabel,
     color,
     pronouns,
     nameField,
@@ -109,14 +108,6 @@
       ink === BLACK ? (nameColorLight ?? nameColorDark) : (nameColorDark ?? nameColorLight);
     return palette && own ? nameColorOn(own, palette.ground) : null;
   });
-  let canOpenAvatar = $derived(Boolean(onAvatarEdit ?? (avatarUrl && onAvatarClick)));
-  function openAvatar(): void {
-    if (onAvatarEdit) onAvatarEdit();
-    else if (avatarUrl) onAvatarClick?.(avatarUrl, displayName);
-  }
-  function openBanner(): void {
-    if (banner) onAvatarClick?.(banner, displayName);
-  }
 
   const nameId = $props.id();
   let copied = $state(false);
@@ -156,25 +147,11 @@
   data-inset-owner={variant === 'sheet' ? 'bottom' : undefined}
 >
   <div class={['profile-card-cover', { 'has-banner': banner }]} style:background={color}>
-    {#if banner && onAvatarClick}
-      <button
-        class="profile-card-banner-button"
-        type="button"
-        aria-label={i18n.t('timeline.profileBanner', { name: displayName })}
-        onclick={openBanner}
-      >
-        <MediaImage
-          class="profile-card-banner"
-          source={banner}
-          alt=""
-          width={720}
-          height={240}
-          original={preferences.autoplayGifs}
-        />
-      </button>
+    {#if banner}
+      <Banner source={banner} name={displayName} width={720} height={240} />
     {:else if cover}
       <MediaImage
-        class={banner ? 'profile-card-banner' : 'profile-card-banner profile-card-banner-fallback'}
+        class={banner ? 'banner-image' : 'banner-image banner-image-fallback'}
         source={cover}
         alt=""
         width={720}
@@ -185,35 +162,29 @@
   </div>
   <div class="profile-card-crest">
     <div class="profile-card-avatar-wrap">
-      {#if canOpenAvatar}
-        <button
-          class="profile-card-avatar-button"
-          type="button"
-          aria-label={avatarLabel ?? displayName}
-          onclick={openAvatar}
-        >
-          <Avatar
-            class="profile-card-avatar"
-            size="large"
-            src={avatarUrl}
-            name={displayName}
-            id={userId}
-            color={heroColor ? undefined : color}
-            original
-            decorative
-          />
-        </button>
-      {:else}
+      {#snippet avatar(openable: boolean)}
         <Avatar
           class="profile-card-avatar"
           size="large"
           src={avatarUrl}
+          {openable}
           name={displayName}
           id={userId}
           color={heroColor ? undefined : color}
           original
-          alt={displayName}
         />
+      {/snippet}
+      {#if onAvatarEdit}
+        <button
+          class="profile-card-avatar-edit-button"
+          type="button"
+          aria-label={avatarEditLabel}
+          onclick={onAvatarEdit}
+        >
+          {@render avatar(false)}
+        </button>
+      {:else}
+        {@render avatar(true)}
       {/if}
       {#if presence}<PresenceDot
           class="profile-card-presence"
@@ -407,17 +378,17 @@
   }
 
   /* Both dimensions, so the ratio MediaImage sets inline stops applying. */
-  .profile-card-cover :global(.profile-card-banner) {
+  .profile-card-cover :global(.banner-image) {
     height: 100%;
     width: 100%;
   }
 
-  .profile-card-cover :global(.profile-card-banner img) {
+  .profile-card-cover :global(.banner-image img) {
     object-fit: cover;
     object-position: center;
   }
 
-  .profile-card-cover :global(.profile-card-banner-fallback img) {
+  .profile-card-cover :global(.banner-image-fallback img) {
     filter: blur(1.5rem) saturate(1.2);
     transform: scale(1.4);
   }
@@ -455,22 +426,7 @@
     box-shadow: 0 0 0 0.25rem var(--profile-card-ground);
   }
 
-  .profile-card-banner-button {
-    background: none;
-    border: 0;
-    cursor: pointer;
-    display: block;
-    height: 100%;
-    padding: 0;
-    width: 100%;
-  }
-
-  .profile-card-banner-button:focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring);
-    outline-offset: calc(-1 * var(--focus-ring-width));
-  }
-
-  .profile-card-avatar-button {
+  .profile-card-avatar-edit-button {
     background: none;
     border: 0;
     border-radius: var(--radii-400);
@@ -491,7 +447,7 @@
     z-index: 1;
   }
 
-  .profile-card-avatar-button:focus-visible {
+  .profile-card-avatar-edit-button:focus-visible {
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
   }

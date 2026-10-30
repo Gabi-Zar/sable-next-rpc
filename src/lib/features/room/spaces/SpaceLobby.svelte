@@ -694,6 +694,7 @@
     <Avatar
       id={spaceId}
       src={space?.avatar_url ?? null}
+      openable={true}
       name={space?.name ?? ''}
       size="large"
       uniform

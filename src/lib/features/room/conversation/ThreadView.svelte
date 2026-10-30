@@ -23,8 +23,8 @@
   import ConversationComposer from './ConversationComposer.svelte';
   import InlineEdit from './InlineEdit.svelte';
   import { Conversation } from './conversation.svelte.js';
-  import { timelineMediaItems } from '../media/media-items.js';
-  import MediaViewer from '../media/MediaViewer.svelte';
+  import { timelineMediaItems } from '#lib/ui/media/media-items.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
   import { replyPreviewBody } from '../messages/reply-preview.js';
   import TimelineList from '../timeline/TimelineList.svelte';
   import {
@@ -87,7 +87,6 @@
     width: () => panel?.clientWidth ?? 0,
     onDismiss: () => onClose(),
   });
-  let mediaEventId = $state<string | null>(null);
 
   const core = useCoreClient();
   const personas = usePersonaStore();
@@ -275,7 +274,10 @@
     {onMatrixLink}
     onMentionUser={(userId, name) => composer?.insertMention(userId, name)}
     {onCopyLink}
-    onOpenMedia={(eventId) => (mediaEventId = eventId)}
+    onOpenMedia={(eventId) =>
+      mediaViewerState.openPanel(timelineMediaItems(timeline.items), eventId, (target) => {
+        timelineList?.jumpToEvent(target);
+      })}
     onRequestHistory={requestHistory}
     onRequestFuture={requestFuture}
     onRead={markRead}
@@ -308,13 +310,6 @@
     />
   </div>
 </section>
-{#if mediaEventId}
-  <MediaViewer
-    items={timelineMediaItems(timeline.items)}
-    selectedEventId={mediaEventId}
-    onClose={() => (mediaEventId = null)}
-  />
-{/if}
 
 <style>
   .thread-view {

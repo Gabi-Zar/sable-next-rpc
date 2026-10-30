@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 
 import type { TimelineItemView } from '#src/generated/protocol';
 import { RoomTimeline } from '#lib/rooms/timeline.svelte.js';
+import { TimelineWindow } from '#lib/timeline/timeline-window.js';
 
 vi.mock('#lib/core/context.js');
 vi.mock('#lib/rooms/room-list.svelte.js', () => ({ useRoomList: () => ({ rooms: [] }) }));
@@ -20,10 +21,12 @@ import { core } from '#lib/core/__mocks__/context.js';
 
 import ThreadViewHarness from './ThreadViewHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
   core.fetchMedia.mockReset();
+  mediaViewerState.close();
 });
 
 function image(eventId: string, filename: string): TimelineItemView {
@@ -289,3 +292,26 @@ test.each([false, true])(
     expect(screen.getByRole('menuitem', { name: 'Copy message' })).toBeVisible();
   }
 );
+
+test('jumping from thread media scrolls the thread to that message', async () => {
+  vi.spyOn(RoomTimeline.prototype, 'startThread').mockImplementation(function (this: RoomTimeline) {
+    this.items = [image('$first', 'first.png'), image('$second', 'second.png')];
+    this.hasSnapshot = true;
+    return Promise.resolve();
+  });
+  vi.spyOn(RoomTimeline.prototype, 'stop').mockResolvedValue();
+  const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo').mockResolvedValue(true);
+  const user = userEvent.setup();
+  render(ThreadViewHarness, {
+    panel: { roomId: '!room:example.org', rootEventId: '$root', onClose: () => {} },
+  });
+  await user.click(await screen.findByRole('button', { name: 'Open second.png' }));
+  jumps.mockClear();
+  await user.click(screen.getByRole('button', { name: 'More actions' }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Jump to message' }));
+  await vi.waitFor(() => {
+    expect(jumps).toHaveBeenCalled();
+  });
+  expect(mediaViewerState.eventId).toBeNull();
+  expect(screen.getByRole('region', { name: 'Thread' })).toBeInTheDocument();
+});

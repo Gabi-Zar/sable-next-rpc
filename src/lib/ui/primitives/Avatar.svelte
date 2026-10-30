@@ -13,10 +13,14 @@
 
   import { identityColor } from './identity-color.js';
   import { toInitials } from './initials.js';
+  import { mediaViewerState } from '../media/media-viewer-state.svelte.js';
+  import { i18n } from '#lib/i18n.js';
+  import Tooltip from './Tooltip.svelte';
 
   type AvatarSize = 'tiny' | 'small' | 'medium' | 'large';
   type Props = {
     src?: string | null;
+    openable?: boolean;
     alt?: string;
     id?: string | null;
     name?: string | null;
@@ -35,13 +39,14 @@
 
   let {
     src = null,
+    openable = false,
     alt,
     id = null,
     name,
     initials,
     size = 'medium',
     color,
-    decorative = alt === undefined,
+    decorative = alt === undefined || openable === true,
     initialsAsDecoration = false,
     uniform = false,
     recolor = false,
@@ -91,57 +96,78 @@
   }
 </script>
 
-<Avatar.Root
-  {@attach isMxc && !original ? playOnHover : undefined}
-  bind:loadingStatus={() => loadingStatus, (value) => (imageStatus = value)}
-  class={['avatar-root', `avatar-${size}`, className]}
-  aria-hidden={decorative ? 'true' : undefined}
-  role={decorative ? undefined : 'img'}
-  aria-label={decorative ? undefined : accessibleLabel}
->
-  {#if isMxc && src}
-    <MediaImage
-      class="avatar-image"
-      style={tint ? `background: ${tint}` : undefined}
-      source={src}
-      alt=""
-      width={96}
-      height={96}
-      {uniform}
-      tint={recolor}
-      {original}
-      {refreshOnResume}
-      pixelate={false}
-      onloaded={() => {
-        paintedSrc = src;
-        failedSrc = null;
-      }}
-      onfailed={(source) => (failedSrc = source)}
-    />
-    {#if hovered && !original}
+{#snippet avatar()}
+  <Avatar.Root
+    {@attach isMxc && !original ? playOnHover : undefined}
+    bind:loadingStatus={() => loadingStatus, (value) => (imageStatus = value)}
+    class={['avatar-root', `avatar-${size}`, className]}
+    aria-hidden={decorative ? 'true' : undefined}
+    role={decorative ? undefined : 'img'}
+    aria-label={decorative ? undefined : accessibleLabel}
+  >
+    {#if isMxc && src}
       <MediaImage
         class="avatar-image"
-        style={animatedSrc === src ? undefined : 'opacity: 0'}
+        style={tint ? `background: ${tint}` : undefined}
         source={src}
         alt=""
         width={96}
         height={96}
-        original
+        {uniform}
+        tint={recolor}
+        {original}
+        {refreshOnResume}
         pixelate={false}
-        onloaded={(url) => void checkAnimated(src, url)}
+        onloaded={() => {
+          paintedSrc = src;
+          failedSrc = null;
+        }}
+        onfailed={(source) => (failedSrc = source)}
       />
+      {#if hovered && !original}
+        <MediaImage
+          class="avatar-image"
+          style={animatedSrc === src ? undefined : 'opacity: 0'}
+          source={src}
+          alt=""
+          width={96}
+          height={96}
+          original
+          pixelate={false}
+          onloaded={(url) => void checkAnimated(src, url)}
+        />
+      {/if}
+    {:else if src}
+      <Avatar.Image {src} alt="" class="avatar-image" />
     {/if}
-  {:else if src}
-    <Avatar.Image {src} alt="" class="avatar-image" />
-  {/if}
-  <Avatar.Fallback
-    class="avatar-fallback"
-    data-decorative-initials={initialsAsDecoration && !children ? fallback : undefined}
-    style={plate ? `background: ${plate}; color: var(--avatar-identity-on-plate)` : undefined}
-  >
-    {#if children}{@render children()}{:else if !initialsAsDecoration}{fallback}{/if}
-  </Avatar.Fallback>
-</Avatar.Root>
+
+    <Avatar.Fallback
+      class="avatar-fallback"
+      data-decorative-initials={initialsAsDecoration && !children ? fallback : undefined}
+      style={plate ? `background: ${plate}; color: var(--avatar-identity-on-plate)` : undefined}
+    >
+      {#if children}{@render children()}{:else if !initialsAsDecoration}{fallback}{/if}
+    </Avatar.Fallback>
+  </Avatar.Root>
+{/snippet}
+
+{#if openable && src && name}
+  {#snippet avatarButtonTrigger({ props: tooltipProps }: { props: Record<string, unknown> })}
+    <button
+      {...tooltipProps}
+      class="avatar-button"
+      type="button"
+      aria-label={i18n.t('common.viewAvatar', { name })}
+      onclick={() => mediaViewerState.openStandalone(src, name)}
+    >
+      {@render avatar()}
+    </button>
+  {/snippet}
+
+  <Tooltip label={i18n.t('common.viewAvatar', { name })} trigger={avatarButtonTrigger} />
+{:else}
+  {@render avatar()}
+{/if}
 
 <style>
   :global(.avatar-fallback[data-decorative-initials])::before {
@@ -219,5 +245,17 @@
     display: flex;
     justify-content: center;
     text-transform: capitalize;
+  }
+
+  .avatar-button {
+    align-items: center;
+    background: none;
+    border: 0;
+    border-radius: calc(var(--radius) - var(--border-width));
+    cursor: pointer;
+    height: 100%;
+    justify-content: center;
+    padding: 0;
+    width: 100%;
   }
 </style>

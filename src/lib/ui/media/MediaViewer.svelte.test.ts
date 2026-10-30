@@ -5,7 +5,7 @@ import { userEvent } from '@testing-library/user-event';
 import { tick } from 'svelte';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import type { MediaItem } from './MediaViewer.svelte';
+import type { MediaItem } from '#lib/ui/media/media-viewer-types.js';
 
 vi.mock('#lib/core/context.js');
 
@@ -19,7 +19,9 @@ import * as platformOs from '#lib/platform/os.js';
 import MediaViewer from './MediaViewer.svelte';
 import { spoilerVisibility, spoilerVisibilityKey } from './spoiler-visibility.svelte.js';
 import { toasts } from '#lib/ui/toasts.svelte.js';
+import { imageItem as timelineImage } from '#lib/features/room/timeline/timeline-item-fixtures.js';
 import { setSystemBarsHidden } from '#lib/platform/system-bars.js';
+import { mediaViewerState as viewer } from './media-viewer-state.svelte.js';
 
 const imageItem: MediaItem = {
   kind: 'image',
@@ -85,10 +87,14 @@ function rect(width: number, height: number): DOMRect {
   return new DOMRect(0, 0, width, height);
 }
 
+const originalViewerClose = viewer.close.bind(viewer);
+
 afterEach(() => {
   spoilerVisibility.clear();
   core.fetchMedia.mockReset();
   vi.restoreAllMocks();
+  viewer.close = originalViewerClose;
+  viewer.close();
 });
 
 const user = userEvent.setup();
@@ -103,7 +109,10 @@ async function openImage(
   items: MediaItem[] = [imageItem],
   onClose = () => {}
 ): Promise<HTMLElement> {
-  render(MediaViewer, { items, selectedEventId: '$image', onClose });
+  viewer.items = items;
+  viewer.eventId = '$image';
+  viewer.close = onClose;
+  render(MediaViewer);
   return screen.findByRole('img');
 }
 
@@ -176,7 +185,9 @@ test('iOS video viewer saves to Photos and offers saving to Files', async () => 
   const photos = vi.spyOn(files, 'saveVideoToPhotos').mockResolvedValue('saved');
   const download = vi.spyOn(files, 'saveUrl').mockResolvedValue('saved');
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
-  render(MediaViewer, { items: [videoItem], selectedEventId: '$video', onClose: () => {} });
+  viewer.items = [videoItem];
+  viewer.eventId = '$video';
+  render(MediaViewer);
   await vi.waitFor(() => {
     expect(document.querySelector('video')).toBeInTheDocument();
   });
@@ -189,7 +200,9 @@ test('iOS video viewer saves to Photos and offers saving to Files', async () => 
 
 test('renders a video attachment with a player and no zoom controls', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
-  render(MediaViewer, { items: [videoItem], selectedEventId: '$video', onClose: () => {} });
+  viewer.items = [videoItem];
+  viewer.eventId = '$video';
+  render(MediaViewer);
 
   await vi.waitFor(() => {
     expect(document.querySelector('video')).toBeInTheDocument();
@@ -202,18 +215,16 @@ test('renders a video attachment with a player and no zoom controls', async () =
 
 test('a spoiler opened in the viewer loads blurred without exposing its caption', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
-  render(MediaViewer, {
-    items: [
-      {
-        ...imageItem,
-        caption: 'Secret ending',
-        source: 'mxc://example.org/spoiler',
-        spoiler: 'Ending',
-      },
-    ],
-    selectedEventId: '$image',
-    onClose: () => {},
-  });
+  viewer.items = [
+    {
+      ...imageItem,
+      caption: 'Secret ending',
+      source: 'mxc://example.org/spoiler',
+      spoiler: 'Ending',
+    },
+  ];
+  viewer.eventId = '$image';
+  render(MediaViewer);
   await tick();
   await vi.waitFor(() => {
     expect(document.querySelector('.stage img.spoilered')).toBeInTheDocument();
@@ -236,11 +247,9 @@ test('a spoiler already revealed in the timeline opens unblurred', async () => {
     spoilerVisibilityKey('$image', 'mxc://example.org/spoiler', 'Ending'),
     false
   );
-  render(MediaViewer, {
-    items: [{ ...imageItem, source: 'mxc://example.org/spoiler', spoiler: 'Ending' }],
-    selectedEventId: '$image',
-    onClose: () => {},
-  });
+  viewer.items = [{ ...imageItem, source: 'mxc://example.org/spoiler', spoiler: 'Ending' }];
+  viewer.eventId = '$image';
+  render(MediaViewer);
   expect(await screen.findByRole('img')).not.toHaveClass('spoilered');
   expect(document.querySelector('.stage .media-image-spoiler')).not.toBeInTheDocument();
 });
@@ -262,11 +271,9 @@ test('an ordinary viewer image can be locally hidden and revealed without closin
 
 test('a hidden video still waits for reveal before fetching', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
-  render(MediaViewer, {
-    items: [{ ...videoItem, spoiler: 'Ending' }],
-    selectedEventId: '$video',
-    onClose: () => {},
-  });
+  viewer.items = [{ ...videoItem, spoiler: 'Ending' }];
+  viewer.eventId = '$video';
+  render(MediaViewer);
   await tick();
   expect(core.fetchMedia).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: /Ending/ }));
@@ -277,7 +284,9 @@ test('a hidden video still waits for reveal before fetching', async () => {
 
 test('renders an audio attachment with a player', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
-  render(MediaViewer, { items: [audioItem], selectedEventId: '$audio', onClose: () => {} });
+  viewer.items = [audioItem];
+  viewer.eventId = '$audio';
+  render(MediaViewer);
 
   await vi.waitFor(() => {
     expect(document.querySelector('audio')).toBeInTheDocument();
@@ -289,17 +298,16 @@ test('renders an audio attachment with a player', async () => {
 test('jumps to the selected message from More', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   const onJump = vi.fn();
-  render(MediaViewer, {
-    items: [imageItem],
-    selectedEventId: '$image',
-    onClose: vi.fn(),
-    onJump,
-  });
+  viewer.openPanel([imageItem], '$image', onJump);
+  render(MediaViewer);
 
   await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
   await user.click(await screen.findByRole('menuitem', { name: 'common.jumpToMessage' }));
 
-  expect(onJump).toHaveBeenCalledExactlyOnceWith('$image');
+  await vi.waitFor(() => {
+    expect(onJump).toHaveBeenCalledExactlyOnceWith('$image');
+  });
+  expect(viewer.eventId).toBeNull();
 });
 
 test('right-clicking the image offers to copy it and confirms the copy', async () => {
@@ -440,11 +448,9 @@ test('the lens keeps its size and zoom for the next image', async () => {
   const hold = async (img: HTMLElement) =>
     user.pointer({ keys: '[MouseLeft>]', target: img, coords: { clientX: 200, clientY: 150 } });
 
-  const first = render(MediaViewer, {
-    items: [imageItem],
-    selectedEventId: '$image',
-    onClose: () => {},
-  });
+  viewer.items = [imageItem];
+  viewer.eventId = '$image';
+  const first = render(MediaViewer);
   await hold(await screen.findByRole('img'));
   const size = lens()?.style.width;
   const zoomed = lensImage()?.style.width;
@@ -458,7 +464,9 @@ test('the lens keeps its size and zoom for the next image', async () => {
   expect(tunedZoom).not.toBe(zoomed);
   first.unmount();
 
-  render(MediaViewer, { items: [imageItem], selectedEventId: '$image', onClose: () => {} });
+  viewer.items = [imageItem];
+  viewer.eventId = '$image';
+  render(MediaViewer);
   await hold(await screen.findByRole('img'));
 
   expect(lens()?.style.width).toBe(tunedSize);
@@ -610,7 +618,10 @@ test('a short swipe springs back instead of dismissing', async () => {
 test('closes instead of throwing when the selected media is no longer in the timeline', async () => {
   core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
   const onClose = vi.fn();
-  render(MediaViewer, { items: [], selectedEventId: '$image', onClose });
+  viewer.items = [];
+  viewer.eventId = '$image';
+  viewer.close = onClose;
+  render(MediaViewer);
 
   await tick();
 
@@ -635,4 +646,46 @@ test('ctrl-wheel zooms the image in noticeably and back out', async () => {
   await fireEvent(stage(), zoomOut);
 
   expect(img.style.transform).toContain('scale(1)');
+});
+
+test('updates the selected image without remounting', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  viewer.openPanel(
+    [imageItem, { ...imageItem, eventId: '$second', source: 'mxc://example.org/second' }],
+    '$image'
+  );
+  render(MediaViewer);
+  await screen.findByRole('dialog');
+  viewer.eventId = '$second';
+  await vi.waitFor(() => {
+    expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/second', 0, 0);
+  });
+  viewer.openStandalone('mxc://example.org/avatar', 'Bob');
+  await vi.waitFor(() => {
+    expect(core.fetchMedia).toHaveBeenCalledWith('mxc://example.org/avatar', 0, 0);
+  });
+  expect(screen.getByRole('dialog')).toHaveTextContent('Bob');
+});
+
+test('closes when the displayed media is removed from the timeline', async () => {
+  let entries = $state([timelineImage()]);
+  viewer.open('$item', () => entries);
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  render(MediaViewer);
+  await screen.findByRole('dialog');
+  entries = [];
+  await vi.waitFor(() => {
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  expect(viewer.eventId).toBeNull();
+});
+
+test('clears the jump action when standalone media replaces timeline media', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array(new ArrayBuffer()));
+  viewer.openPanel([imageItem], '$image', vi.fn());
+  render(MediaViewer);
+  await screen.findByRole('dialog');
+  viewer.openStandalone('mxc://example.org/profile', 'Bob');
+  await user.click(screen.getByRole('button', { name: 'timeline.moreActions' }));
+  expect(screen.queryByRole('menuitem', { name: 'common.jumpToMessage' })).not.toBeInTheDocument();
 });

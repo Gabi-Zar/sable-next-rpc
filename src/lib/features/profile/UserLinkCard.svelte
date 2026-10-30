@@ -8,7 +8,6 @@
   import { i18n } from '#lib/i18n.js';
   import { existingChatPath, roomSectionPath } from '#lib/rooms/permalink.js';
   import { hasDirectRoom, useRoomList } from '#lib/rooms/room-list.svelte.js';
-  import MediaViewer, { type MediaItem } from '#lib/features/room/media/MediaViewer.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import ConfirmDialog from '#lib/ui/primitives/ConfirmDialog.svelte';
@@ -31,28 +30,7 @@
   let confirming = $state(false);
 
   let name = $derived(profile?.display_name ?? userId);
-  let avatarOpen = $state(false);
-  let avatar = $derived<MediaItem | null>(
-    profile?.avatar_url
-      ? {
-          kind: 'image',
-          filename: name,
-          caption: null,
-          html: null,
-          source: profile.avatar_url,
-          mime: null,
-          width: null,
-          height: null,
-          size: null,
-          blurhash: null,
-          thumbnail: null,
-          spoiler: null,
-          animated: null,
-          eventId: 'profile-avatar',
-          sender: name,
-        }
-      : null
-  );
+  let avatar_url = $derived<string | null>(profile?.avatar_url ?? null);
 
   $effect(() => {
     const wanted = userId;
@@ -120,20 +98,7 @@
   {#if !loaded}
     <div role="status"><Spinner /></div>
   {:else}
-    {#if avatar}
-      <button
-        class="avatar-button"
-        type="button"
-        aria-label={`Open ${name}'s avatar`}
-        onclick={() => {
-          avatarOpen = true;
-        }}
-      >
-        <Avatar id={userId} src={profile?.avatar_url} {name} size="large" />
-      </button>
-    {:else}
-      <Avatar id={userId} src={profile?.avatar_url} {name} size="large" />
-    {/if}
+    <Avatar id={userId} src={avatar_url} openable={true} {name} size="large" />
     <h1 id="user-link-title">{name}</h1>
     <p class="user-link-id">{userId}</p>
     {#if failed}
@@ -156,14 +121,6 @@
     void message();
   }}
 />
-
-{#if avatarOpen && avatar}
-  <MediaViewer
-    items={[avatar]}
-    selectedEventId={avatar.eventId}
-    onClose={() => (avatarOpen = false)}
-  />
-{/if}
 
 <style>
   .user-link {
@@ -188,18 +145,5 @@
     color: var(--surface-var-on-container);
     margin: 0;
     overflow-wrap: anywhere;
-  }
-
-  .avatar-button {
-    background: none;
-    border: 0;
-    border-radius: 50%;
-    cursor: pointer;
-    padding: 0;
-  }
-
-  .avatar-button:focus-visible {
-    outline: 2px solid var(--primary-main);
-    outline-offset: 3px;
   }
 </style>

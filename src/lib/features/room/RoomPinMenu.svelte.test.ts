@@ -15,9 +15,10 @@ vi.mock('#lib/personas/personas.svelte.js', () => ({
 }));
 
 import { core as baseCore } from '#lib/core/__mocks__/context.js';
-import { timelineMediaItems } from './media/media-items.js';
+import { timelineMediaItems } from '#lib/ui/media/media-items.js';
 import RoomPinMenuHarness from './RoomPinMenuHarness.test.svelte';
 import { withRowFields } from '#lib/features/room/timeline/row-fixtures.js';
+import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.ts';
 
 const core = baseCore;
 Object.assign(core.rpc.rooms, {
@@ -89,6 +90,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   core.fetchMedia.mockClear();
   core.session = null;
+  mediaViewerState.close();
 });
 
 test.each([
@@ -106,10 +108,10 @@ test.each([
     }));
   }
   const user = userEvent.setup({ delay: null });
-  const onOpenMedia = vi.fn();
   const onJump = vi.fn();
+  const openPaneleSpy = vi.spyOn(mediaViewerState, 'openPanel');
   render(RoomPinMenuHarness, {
-    menu: { roomId: '!room:example.org', members: [], canPin: false, onJump, onOpenMedia },
+    menu: { roomId: '!room:example.org', members: [], canPin: false, onJump },
   });
 
   await user.click(screen.getByRole('button', { name: 'Pinned messages' }));
@@ -127,7 +129,11 @@ test.each([
   }
 
   await vi.waitFor(() => {
-    expect(onOpenMedia).toHaveBeenCalledWith(timelineMediaItems([secondImage, image]), '$image');
+    expect(openPaneleSpy).toHaveBeenCalledWith(
+      timelineMediaItems([secondImage, image]),
+      '$image',
+      expect.any(Function)
+    );
   });
   const viewer = await screen.findByRole('dialog', { name: 'Media viewer' });
   expect(viewer).toHaveTextContent('2 of 2');
@@ -151,7 +157,6 @@ test('shows the total pin count on the button, even once the pins are read', asy
       members: [],
       canPin: false,
       onJump: vi.fn(),
-      onOpenMedia: vi.fn(),
     },
   });
 
@@ -170,7 +175,6 @@ test('reports the unread pin count and clears it once the pins are seen', async 
       members: [],
       canPin: false,
       onJump: vi.fn(),
-      onOpenMedia: vi.fn(),
       onUnread,
     },
   });

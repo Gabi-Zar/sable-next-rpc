@@ -62,10 +62,6 @@
   import RoomTombstoneBanner from './RoomTombstoneBanner.svelte';
   import RoomReadReceipts from './timeline/RoomReadReceipts.svelte';
   import TimelineList from './timeline/TimelineList.svelte';
-  import type { MediaItem } from './media/media-viewer-types.js';
-  import RoomMediaViewerDialog from './media/RoomMediaViewerDialog.svelte';
-  import { galleryEventId } from './media/media-items.js';
-  import { provideMediaViewerOpener } from './media/media-viewer-opener.svelte.js';
   import { tagForLevel } from './settings/power-level-tags.js';
   import { memberListChanges } from './settings/member-list.svelte.js';
   import { provideSenderRoles, type SenderRole } from './members/sender-roles.js';
@@ -76,7 +72,6 @@
   import { RoomSession } from './room-session.svelte.js';
   import { MemberProfile } from './members/member-profile.svelte.js';
   import { RoomPanels } from './room-panels.svelte.js';
-  import { RoomMediaViewer } from './room-media-viewer.svelte.js';
   import { TombstoneJoin } from './room-tombstone-join.svelte.js';
   import RoomCallStage from './RoomCallStage.svelte';
   import RoomVoiceChat from './RoomVoiceChat.svelte';
@@ -84,6 +79,7 @@
   import RoomDialogs from './RoomDialogs.svelte';
   import { RoomCallSupport } from './room-call-support.svelte.js';
   import { refreshRoomMembers } from './room-member-refresh.svelte.js';
+  import { mediaViewerState } from '#lib/ui/media/media-viewer-state.svelte.js';
 
   interface Props {
     roomId: string;
@@ -134,7 +130,6 @@
     return eventId === null;
   });
   let timelineFollowingLive = $state<boolean>(false);
-  const mediaViewer = new RoomMediaViewer(() => timeline.items);
 
   const callSupport = new RoomCallSupport(core, () => resolvedRoomId);
 
@@ -337,7 +332,6 @@
   provideRoomAbbreviations(abbreviations);
   const mediaPreviews = new RoomMediaPreviews(() => resolvedRoom?.join_rule ?? null);
   provideRoomMediaPreviews(mediaPreviews);
-  provideMediaViewerOpener((item) => mediaViewer.openStandalone(item));
   $effect(() => {
     void mediaPreviews.load(resolvedRoomId);
   });
@@ -721,22 +715,6 @@
       });
   }
 
-  function openMedia(eventId: string): void {
-    mediaViewer.open(eventId);
-  }
-
-  function openPanelMedia(items: MediaItem[], eventId: string): void {
-    mediaViewer.openPanel(items, eventId);
-  }
-
-  function jumpFromViewer(eventId: string): void {
-    mediaViewer.close();
-    if (!desktop) panels.attachmentsOpen = false;
-    void afterOverlayPops().then(() => {
-      jumpToEvent(galleryEventId(eventId));
-    });
-  }
-
   function toggleThreads(): void {
     panels.toggleThreads();
   }
@@ -751,11 +729,6 @@
       return;
     }
     panels.toggleSearch();
-  }
-
-  function openProfileAvatar(source: string, displayName: string): void {
-    closeProfile();
-    mediaViewer.openProfile(source, displayName);
   }
 
   function openPredecessor(): void {
@@ -835,7 +808,8 @@
       members={memberLoader.members}
       onJumpToEvent={jumpToEvent}
       onJumpToLive={jumpToLive}
-      onOpenMedia={openMedia}
+      onOpenMedia={(eventId: string) =>
+        mediaViewerState.open(eventId, () => timeline.items, jumpToEvent)}
       onVotePoll={conversation.votePoll}
       onEndPoll={conversation.endPoll}
       readOnly={roomSession.permissions ? !roomSession.permissions.can_post : false}
@@ -948,7 +922,6 @@
       onMembers={toggleMembers}
       onSearch={openSearch}
       onTopic={() => (topicOpen = true)}
-      onAvatar={(source, name) => mediaViewer.openProfile(source, name)}
       {phone}
       actions={headerActions}
     >
@@ -962,7 +935,6 @@
           members={memberLoader.members}
           canPin={roomSession.permissions?.can_pin ?? false}
           onJump={jumpToEvent}
-          onOpenMedia={openPanelMedia}
         />
       {/snippet}
       {#snippet menu()}
@@ -1060,7 +1032,6 @@
     {canManageWidgets}
     onOpenThread={openThread}
     onJump={jumpToEvent}
-    onOpenMedia={openPanelMedia}
     onMatrixLink={handleMatrixLink}
     onMemberProfile={openProfile}
   />
@@ -1097,7 +1068,6 @@
     profile={memberProfile.profile}
     pmp={memberProfile.pmp}
     failed={memberProfile.failed}
-    onAvatarClick={openProfileAvatar}
     onMatrixLink={handleProfileLink}
     onPowerLevelChange={(target, userId, level) => {
       memberLoader.setPowerLevel(target, userId, level);
@@ -1107,11 +1077,6 @@
         openProfile(memberProfile.userId, memberProfile.anchor);
       }
     }}
-  />
-
-  <RoomMediaViewerDialog
-    viewer={mediaViewer}
-    onJump={mediaViewer.panelItems ? jumpFromViewer : undefined}
   />
 </main>
 

@@ -169,3 +169,29 @@ test('a touch on the row does not fetch the original', async () => {
 
   expect(root().querySelectorAll('.avatar-image')).toHaveLength(1);
 });
+
+test('add button when openable prop is set to true', () => {
+  render(Avatar, {
+    props: {
+      src: 'mxc://example.org/avatar',
+      name: 'Sable',
+      id: '@sable:example.org',
+      openable: true,
+    },
+  });
+
+  expect(root().parentElement).toHaveClass('avatar-button');
+});
+
+test("don't add button when openable prop is set to false", () => {
+  render(Avatar, {
+    props: {
+      src: 'mxc://example.org/avatar',
+      name: 'Sable',
+      id: '@sable:example.org',
+      openable: false,
+    },
+  });
+
+  expect(root().parentElement).not.toHaveClass('avatar-button');
+});

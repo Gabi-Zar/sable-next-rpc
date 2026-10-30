@@ -24,7 +24,6 @@
     powerTags?: PowerLevelTagMap | null;
     profile?: ProfileView | null;
     pmp?: PerMessageProfileView | null;
-    onAvatarClick?: (source: string, displayName: string) => void;
     onMatrixLink?: (link: MatrixLink, anchor: HTMLAnchorElement) => void;
     onPowerLevelChange?: (roomId: string, userId: string, level: number) => void;
     failed?: boolean;
@@ -43,7 +42,6 @@
     powerTags = null,
     profile = null,
     pmp = null,
-    onAvatarClick,
     onMatrixLink,
     onPowerLevelChange,
     failed = false,
@@ -98,7 +96,6 @@
         {pmp}
         onOpenAccount={onOpenMainAccount}
         onNestedMenuOpenChange={(open) => (nestedMenuOpen = open)}
-        {onAvatarClick}
         {onMatrixLink}
         {onPowerLevelChange}
         {failed}

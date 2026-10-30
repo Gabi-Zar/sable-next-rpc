@@ -10,13 +10,14 @@ import { core } from '#lib/core/__mocks__/context.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import ProfileCard from './ProfileCard.svelte';
+import { mediaViewerState } from '../media/media-viewer-state.svelte';
 
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
 function cover(container: HTMLElement): HTMLElement | null {
-  return container.querySelector('.profile-card-banner');
+  return container.querySelector('.banner-image');
 }
 
 test('uses the avatar as a blurred cover when there is no banner', () => {
@@ -27,7 +28,7 @@ test('uses the avatar as a blurred cover when there is no banner', () => {
     avatarUrl: 'mxc://example.org/ana',
   });
 
-  expect(cover(container)).toHaveClass('profile-card-banner-fallback');
+  expect(cover(container)).toHaveClass('banner-image-fallback');
 });
 
 test('keeps a real banner unblurred', () => {
@@ -40,23 +41,22 @@ test('keeps a real banner unblurred', () => {
   });
 
   expect(cover(container)).toBeInTheDocument();
-  expect(cover(container)).not.toHaveClass('profile-card-banner-fallback');
+  expect(cover(container)).not.toHaveClass('banner-image-fallback');
 });
 
 test('opens the banner in the viewer, as the avatar does', async () => {
-  const onAvatarClick = vi.fn();
+  const openStandaloneSpy = vi.spyOn(mediaViewerState, 'openStandalone');
   render(ProfileCard, {
     displayName: 'Ana',
     userId: '@ana:example.org',
     color: '#abcdef',
     avatarUrl: 'mxc://example.org/ana',
     bannerUrl: 'mxc://example.org/banner',
-    onAvatarClick,
   });
 
-  await userEvent.setup().click(screen.getByRole('button', { name: 'View Ana’s banner' }));
+  await userEvent.setup().click(screen.getByRole('button', { name: 'View banner of Ana' }));
 
-  expect(onAvatarClick).toHaveBeenCalledWith('mxc://example.org/banner', 'Ana');
+  expect(openStandaloneSpy).toHaveBeenCalledWith('mxc://example.org/banner', 'Ana');
 });
 
 test('leaves the avatar fallback cover inert', () => {
@@ -65,7 +65,6 @@ test('leaves the avatar fallback cover inert', () => {
     userId: '@ana:example.org',
     color: '#abcdef',
     avatarUrl: 'mxc://example.org/ana',
-    onAvatarClick: vi.fn(),
   });
 
   expect(screen.queryByRole('button', { name: /banner/ })).not.toBeInTheDocument();

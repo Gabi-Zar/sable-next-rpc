@@ -17,7 +17,6 @@
   import { nativeFilePicker } from '#lib/platform/native-file-picker.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
-  import MediaImage from '#lib/ui/MediaImage.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import FormField from '#lib/ui/primitives/FormField.svelte';
   import OptionCards from '#lib/ui/primitives/OptionCards.svelte';
@@ -42,6 +41,7 @@
   import RoomSpacesSettings from './RoomSpacesSettings.svelte';
   import RoomUpgradeSettings from './RoomUpgradeSettings.svelte';
   import { canSendState } from './permission-groups';
+  import Banner from '#lib/ui/primitives/Banner.svelte';
 
   interface Props {
     room: RoomListItemView | null;
@@ -239,7 +239,9 @@
 
 {#snippet bannerPreview()}
   {#if banner}
-    <MediaImage source={banner} alt="" width={160} height={90} class="banner-preview" />
+    <div class="banner-preview">
+      <Banner source={banner} {name} width={160} height={90} />
+    </div>
   {/if}
 {/snippet}
 
@@ -255,7 +257,12 @@
         description={i18n.t('room.settingsAvatarHint')}
       >
         {#snippet before()}
-          <Avatar id={roomId} src={room?.avatar_url ?? null} name={room?.name ?? ''} />
+          <Avatar
+            id={roomId}
+            src={room?.avatar_url ?? null}
+            openable={true}
+            name={room?.name ?? ''}
+          />
         {/snippet}
         {#if canEditAvatar}
           <Button size="small" disabled={saving} onclick={() => avatarInput?.click()}>
@@ -457,14 +464,13 @@
     margin: 0;
   }
 
-  .section :global(.media-image.banner-preview) {
+  .section .banner-preview :global(.media-image) {
     border-radius: var(--radius);
     flex: none;
     height: 2.5rem;
     max-width: none;
     object-fit: cover;
     overflow: hidden;
-    width: 4.5rem;
   }
 
   .avatar-input {

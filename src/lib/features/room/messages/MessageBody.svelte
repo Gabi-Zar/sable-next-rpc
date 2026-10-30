@@ -18,8 +18,11 @@
   import EmoteCard from './EmoteCard.svelte';
   import LinkEmbed from '../media/embeds/LinkEmbed.svelte';
   import TimelineGallery from '../timeline/TimelineGallery.svelte';
-  import { galleryItemId } from '../media/media-items.js';
-  import { spoilerVisibility, spoilerVisibilityKey } from '../media/spoiler-visibility.svelte.js';
+  import { galleryItemId } from '#lib/ui/media/media-items.js';
+  import {
+    spoilerVisibility,
+    spoilerVisibilityKey,
+  } from '#lib/ui/media/spoiler-visibility.svelte.js';
   import TimelineLocation from '../timeline/TimelineLocation.svelte';
   import { memberName } from '../members/members.js';
   import { redactedLabel } from './redacted-label';
