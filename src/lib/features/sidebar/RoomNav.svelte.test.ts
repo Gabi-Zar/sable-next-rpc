@@ -526,7 +526,7 @@ test('the unspaced section leaves out rooms a joined space claims', async () => 
       space_children: [
         {
           room_id: '!claimed:example.org',
-          via: [],
+          via: ['example.org'],
           order: null,
           origin_server_ts: 1,
           suggested: false,
@@ -552,7 +552,7 @@ test('a claim from a space that is not joined keeps the room in the unspaced sec
       space_children: [
         {
           room_id: '!claimed:example.org',
-          via: [],
+          via: ['example.org'],
           order: null,
           origin_server_ts: 1,
           suggested: false,

@@ -125,7 +125,13 @@ test.each([
     const parent = {
       ...space(),
       space_children: [
-        { room_id: child.room_id, via: [], order: null, origin_server_ts: 1, suggested: false },
+        {
+          room_id: child.room_id,
+          via: ['example.org'],
+          order: null,
+          origin_server_ts: 1,
+          suggested: false,
+        },
       ],
     };
     const rooms = [

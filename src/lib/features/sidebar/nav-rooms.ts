@@ -4,7 +4,9 @@ export function claimedRoomIds(rooms: readonly RoomListItemView[]): Set<string> 
   return new Set(
     rooms
       .filter(isActiveSpace)
-      .flatMap((space) => space.space_children.map((child) => child.room_id))
+      .flatMap((space) =>
+        space.space_children.filter((child) => child.via.length > 0).map((child) => child.room_id)
+      )
   );
 }
 

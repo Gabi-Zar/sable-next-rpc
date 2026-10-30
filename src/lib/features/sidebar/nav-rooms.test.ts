@@ -30,24 +30,42 @@ test('only joined spaces claim their children', () => {
     room({
       room_id: '!joined',
       room_kind: 'space',
-      space_children: [{ room_id: '!child' }] as RoomListItemView['space_children'],
+      space_children: [
+        { room_id: '!child', via: ['example.org'] },
+      ] as RoomListItemView['space_children'],
     }),
     room({
       room_id: '!invited',
       room_kind: 'space',
       state: 'invited',
-      space_children: [{ room_id: '!other' }] as RoomListItemView['space_children'],
+      space_children: [
+        { room_id: '!other', via: ['example.org'] },
+      ] as RoomListItemView['space_children'],
     }),
     room({
       room_id: '!tombstoned',
       room_kind: 'space',
       is_tombstoned: true,
-      space_children: [{ room_id: '!replaced' }] as RoomListItemView['space_children'],
+      space_children: [
+        { room_id: '!replaced', via: ['example.org'] },
+      ] as RoomListItemView['space_children'],
     }),
     room({ room_id: '!plain' }),
   ]);
 
   expect([...claimed]).toEqual(['!child']);
+});
+
+test('a child removed from its space is not claimed', () => {
+  const claimed = claimedRoomIds([
+    room({
+      room_id: '!space',
+      room_kind: 'space',
+      space_children: [{ room_id: '!removed', via: [] }] as RoomListItemView['space_children'],
+    }),
+  ]);
+
+  expect(claimed.size).toBe(0);
 });
 
 test('tombstoned spaces are not active sidebar spaces', () => {
