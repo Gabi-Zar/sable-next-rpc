@@ -62,7 +62,7 @@ describe('parsePluralkitExport', () => {
 
 describe('personaFromPluralkit', () => {
   it('maps the member onto a persona', () => {
-    const persona = personaFromPluralkit(member, 'mxc://example.org/kris');
+    const persona = personaFromPluralkit('kris', member, 'mxc://example.org/kris');
 
     expect(persona.id).toBe('kris');
     expect(persona.display_name).toBe('Kris');
@@ -80,18 +80,18 @@ describe('personaFromPluralkit', () => {
   });
 
   it('falls back to the name when there is no display name', () => {
-    const persona = personaFromPluralkit({ ...member, display_name: '  ' }, null);
+    const persona = personaFromPluralkit('kris', { ...member, display_name: '  ' }, null);
     expect(persona.display_name).toBe('kris');
   });
 
   it('drops a colour PluralKit did not set', () => {
-    const persona = personaFromPluralkit({ ...member, color: null }, null);
+    const persona = personaFromPluralkit('kris', { ...member, color: null }, null);
     expect(persona.color_on_light).toBeNull();
   });
 });
 
 describe('matchImported', () => {
-  const imported = personaFromPluralkit(member, null);
+  const imported = personaFromPluralkit('kris', member, null);
   const handwritten: PersonaView = { ...imported, id: 'other', pluralkit: null };
 
   it('matches on the PluralKit uuid even after a rename', () => {
@@ -110,6 +110,7 @@ describe('matchImported', () => {
 describe('pluralkitPronounExtraction', () => {
   it('maps the member onto a persona', () => {
     const persona = personaFromPluralkit(
+      'kris',
       { ...member, display_name: 'Kris (they/she)', pronouns: undefined },
       'mxc://example.org/kris',
       { extractPronouns: true }
@@ -129,6 +130,7 @@ describe('pluralkitPronounExtraction', () => {
 
   it('reads several groups and less common forms from the display name', () => {
     const persona = personaFromPluralkit(
+      'kris',
       { ...member, display_name: 'Kris (it/its) [ey/em/eir/eirs]', pronouns: undefined },
       null,
       { extractPronouns: true }
@@ -143,6 +145,7 @@ describe('pluralkitPronounExtraction', () => {
 
   it('name pronouns override stored pronouns', () => {
     const persona = personaFromPluralkit(
+      'kris',
       { ...member, display_name: 'Kris (they/she)', pronouns: 'evil/bad' },
       'mxc://example.org/kris',
       { extractPronouns: true }
@@ -162,6 +165,7 @@ describe('pluralkitPronounExtraction', () => {
 
   it('no pronoun extraction when disabled', () => {
     const persona = personaFromPluralkit(
+      'kris',
       { ...member, display_name: 'Kris (they/she)', pronouns: undefined },
       'mxc://example.org/kris',
       { extractPronouns: false }

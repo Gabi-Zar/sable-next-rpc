@@ -39,6 +39,8 @@ vi.mock('#lib/personas/personas.svelte.js', () => ({
   usePersonaStore: () => ({ personas: mocks.list, loading: false, error: null, ...mocks }),
 }));
 
+import { personaFromPluralkit } from '#lib/personas/pluralkit.js';
+
 import PersonaSettings from './PersonaSettings.svelte';
 
 const SYSTEM_LABEL = 'System ID';
@@ -112,13 +114,27 @@ test('imports the members of a PluralKit export file', async () => {
   await vi.waitFor(() => {
     expect(mocks.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        id: 'Member',
         triggers: [expect.objectContaining({ prefix: 'm:' })],
       }),
       null
     );
   });
   expect(await screen.findByText('Imported 1 member.')).toBeInTheDocument();
+});
+
+test('a member sharing a name with another profile gets its own id', async () => {
+  mocks.save.mockResolvedValue();
+  mocks.load.mockResolvedValue();
+  mocks.list = [
+    { ...personaFromPluralkit('Member', { id: 'other', name: 'Member' }, null), pluralkit: null },
+  ];
+  render(PersonaSettings);
+  await choose(0, JSON.stringify({ members: [{ id: 'abcde', name: 'Member' }] }));
+
+  await vi.waitFor(() => {
+    expect(mocks.save).toHaveBeenCalledOnce();
+  });
+  expect(mocks.save.mock.calls[0]?.[0].id).not.toBe('Member');
 });
 
 test('reports an export file that holds no members', async () => {

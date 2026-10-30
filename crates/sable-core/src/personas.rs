@@ -294,12 +294,26 @@ fn personas_from_catalog(content: &Value) -> Vec<PersonaView> {
         .and_then(|catalog| catalog.profiles)
         .or_else(|| Wrapped::deserialize(content).ok()?.content?.profiles);
 
-    let mut seen = BTreeSet::new();
-    profiles
+    let personas: Vec<_> = profiles
         .into_iter()
         .flatten()
         .filter_map(PersonaIn::into_view)
-        .filter(|persona| seen.insert(persona.id.clone()))
+        .collect();
+    let mut taken: BTreeSet<_> = personas.iter().map(|persona| persona.id.clone()).collect();
+    let mut seen = BTreeSet::new();
+    personas
+        .into_iter()
+        .map(|mut persona| {
+            if !seen.insert(persona.id.clone()) {
+                let mut n = 2;
+                while taken.contains(&format!("{}-{n}", persona.id)) {
+                    n += 1;
+                }
+                persona.id = format!("{}-{n}", persona.id);
+                taken.insert(persona.id.clone());
+            }
+            persona
+        })
         .collect()
 }
 
@@ -1598,19 +1612,26 @@ mod tests {
     }
 
     #[test]
-    fn a_repeated_id_keeps_its_first_entry() {
+    fn a_repeated_id_is_kept_under_a_free_id() {
         let catalog = json!({
             "profiles": [
                 { "id": "kris", "displayname": "Kris" },
-                { "id": "sam", "displayname": "Sam" },
+                { "id": "kris-2", "displayname": "Sam" },
                 { "id": "kris", "displayname": "Other Kris" },
             ],
         });
-        let names: Vec<_> = personas_from_catalog(&catalog)
+        let ids: Vec<_> = personas_from_catalog(&catalog)
             .into_iter()
-            .map(|persona| persona.display_name)
+            .map(|persona| (persona.id, persona.display_name))
             .collect();
-        assert_eq!(names, vec!["Kris", "Sam"]);
+        assert_eq!(
+            ids,
+            vec![
+                ("kris".to_owned(), "Kris".to_owned()),
+                ("kris-2".to_owned(), "Sam".to_owned()),
+                ("kris-3".to_owned(), "Other Kris".to_owned()),
+            ]
+        );
     }
 
     #[test]

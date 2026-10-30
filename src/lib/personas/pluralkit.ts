@@ -89,6 +89,7 @@ export type PluralkitImportOptions = {
 };
 
 export function personaFromPluralkit(
+  id: string,
   member: PluralkitMember,
   avatarUrl: string | null,
   options: PluralkitImportOptions = {}
@@ -103,7 +104,7 @@ export function personaFromPluralkit(
   }
 
   return {
-    id: member.name,
+    id,
     display_name: display_name || member.name,
     avatar_url: avatarUrl,
     pronouns: pronoun_set,
