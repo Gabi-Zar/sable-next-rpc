@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { delimiter, join, resolve } from 'node:path';
+import { delimiter, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { valid } from 'semver';
 import { parse } from 'smol-toml';
@@ -120,7 +120,10 @@ try {
       '--config',
       'src-tauri/tauri.stable.conf.json',
       '--config',
-      JSON.stringify({ ...tauriVersionConfig(version), build: { frontendDist: webDist } }),
+      JSON.stringify({
+        ...tauriVersionConfig(version),
+        build: { frontendDist: relative('src-tauri', webDist) },
+      }),
       '--apk',
       '--split-per-abi',
       '--target',

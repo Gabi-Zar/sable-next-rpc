@@ -471,7 +471,9 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           node scripts/release/fastlane-changelog.mjs "$VERSION" --check
-          pnpm android:build --version "$VERSION" --target "$TARGET" --web-dist dist-foss
+          rm -rf dist
+          mv dist-foss dist
+          pnpm android:build --version "$VERSION" --target "$TARGET" --web-dist dist
           case "$TARGET" in
             aarch64) flavor=arm64 ;;
             armv7) flavor=arm ;;
