@@ -98,6 +98,10 @@ pub(super) enum Token {
         datetime: String,
         label: String,
     },
+    Math {
+        latex: String,
+        display: bool,
+    },
     Open(Mark),
     Close(u8),
     /// Closes a link, keeping the source after its label in case MFM claims
@@ -120,6 +124,10 @@ pub(super) enum Inline {
         label: String,
         marks: Vec<Mark>,
     },
+    Math {
+        latex: String,
+        marks: Vec<Mark>,
+    },
     Pill(usize),
 }
 
@@ -129,7 +137,8 @@ impl Inline {
             Self::Text(_, marks)
             | Self::Break(marks)
             | Self::Image { marks, .. }
-            | Self::Time { marks, .. } => marks,
+            | Self::Time { marks, .. }
+            | Self::Math { marks, .. } => marks,
             Self::Pill(_) => &[],
         }
     }
@@ -211,7 +220,7 @@ fn link_end(pieces: &[Piece], open: usize, hi: usize) -> usize {
     hi
 }
 
-/// markdown-it's raw source for `pieces`, one char per entry; escaped punctuation keeps its backslash.
+/// markdown-it's raw source for `pieces`, one char per entry. Escaped punctuation keeps its backslash, and a space an entity wrote is no space.
 fn projection(pieces: &[Piece], lo: usize, hi: usize, limit: usize) -> Vec<(char, usize)> {
     let mut chars = Vec::new();
     for (index, piece) in pieces.iter().enumerate().take(hi).skip(lo) {
@@ -223,7 +232,14 @@ fn projection(pieces: &[Piece], lo: usize, hi: usize, limit: usize) -> Vec<(char
                 if glyph.literal && glyph.c.is_ascii_punctuation() {
                     chars.push(('\\', index));
                 }
-                chars.push((glyph.c, index));
+                chars.push((
+                    if glyph.literal && glyph.c.is_whitespace() {
+                        '&'
+                    } else {
+                        glyph.c
+                    },
+                    index,
+                ));
             }
             Piece::Token(Token::Code(code)) => {
                 chars.push(('`', index));
@@ -479,6 +495,10 @@ pub(super) fn fold(tokens: Vec<Token>) -> Vec<Inline> {
             Token::Time { datetime, label } => nodes.push(Inline::Time {
                 datetime,
                 label,
+                marks: marks.clone(),
+            }),
+            Token::Math { latex, .. } => nodes.push(Inline::Math {
+                latex,
                 marks: marks.clone(),
             }),
             Token::Open(mark) => marks = add_mark(&marks, mark),

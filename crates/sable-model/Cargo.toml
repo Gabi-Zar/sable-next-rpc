@@ -15,6 +15,7 @@ html-escape = "0.3"
 icu_properties = { workspace = true }
 jiff = { workspace = true }
 idna = { workspace = true }
+linkify = "0.11"
 pulldown-cmark = { workspace = true }
 regex-lite = { workspace = true }
 ruma-html = { workspace = true }

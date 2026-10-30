@@ -6,6 +6,8 @@ import type {
   CalendarEntryView,
   CalendarItem,
   CalendarRsvpView,
+  ComposerContent,
+  ComposerPill,
   ChildOrderOverride,
   DropInstruction,
   LayoutRef,
@@ -504,4 +506,23 @@ export function shortcodeWithoutExtension(fileName: string): string {
 
 export function reactionKey(content: unknown): string | null {
   return wasm.reactionKey(JSON.stringify(content ?? null)) ?? null;
+}
+
+export function markdownToContent(
+  markdown: string,
+  pills: readonly ComposerPill[]
+): ComposerContent {
+  return JSON.parse(wasm.markdownToContent(markdown, JSON.stringify(pills))) as ComposerContent;
+}
+
+export function markdownToDoc(markdown: string, pills: readonly ComposerPill[]): unknown {
+  return JSON.parse(wasm.markdownToDoc(markdown, JSON.stringify(pills)));
+}
+
+export function topicToHtml(topic: string): string {
+  return wasm.topicToHtml(topic);
+}
+
+export function receiverFormats(text: string): boolean {
+  return wasm.receiverFormats(text);
 }

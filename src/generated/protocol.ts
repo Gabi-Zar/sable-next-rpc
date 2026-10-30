@@ -199,7 +199,7 @@ export type ComposerMentions = {
 };
 
 /**  A mention or emote picked from a suggestion rather than typed. */
-export type ComposerPill = { kind: "mention"; user_id: string; name: string; via: string[] } | { kind: "emote"; shortcode: string; url: string; body: string | null };
+export type ComposerPill = { kind: "mention"; user_id: string; name: string; via: string[] } | { kind: "emote"; shortcode: string; url: string; body: string | null } | { kind: "image"; src: string; alt: string; title: string };
 
 /**
  *  Held in a shown notification's data and read back by the next push for the

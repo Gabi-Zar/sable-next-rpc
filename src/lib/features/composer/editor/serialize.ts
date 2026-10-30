@@ -1,10 +1,7 @@
-import MarkdownIt, { type StateInline } from 'markdown-it';
 import {
   defaultMarkdownSerializer,
-  MarkdownParser,
   MarkdownSerializer,
   type MarkdownSerializerState,
-  type ParseSpec,
 } from 'prosemirror-markdown';
 import {
   DOMSerializer,
@@ -15,13 +12,16 @@ import {
 } from 'prosemirror-model';
 
 import type { OutgoingMentions } from '#lib/core/client.svelte.js';
-import type { ComposerContent, ImageSourcePackReferenceView } from '#src/generated/protocol';
+import { markdownToContent, markdownToDoc, receiverFormats } from '#lib/model/model.js';
+import type {
+  ComposerContent,
+  ComposerPill,
+  ImageSourcePackReferenceView,
+} from '#src/generated/protocol';
 
 import { mfmUnixtime, parseMfmColor, parseMfmUnixtime, utcFallbackLabel } from '../time-markup';
-import { mathPlugin } from './math';
-import { mfmPlugin } from './mfm';
 import { isMscLink, linkMscs } from './msc-links';
-import { codeLanguage, composerSchema, parseMatrixHtml, ROOM_PING } from './schema';
+import { composerSchema, parseMatrixHtml, ROOM_PING } from './schema';
 import { docToMarkdown } from './to-markdown';
 
 export type ComposerMessage = Omit<ComposerContent, 'formatted_body' | 'mentions'> & {
@@ -73,8 +73,20 @@ function boldBlock(state: MarkdownSerializerState, node: ProseMirrorNode): void 
 const markdown = new MarkdownSerializer(
   {
     ...defaultMarkdownSerializer.nodes,
-    text: (state, node) => {
-      state.text(node.text ?? '', false);
+    text: (state, node, parent, index) => {
+      const joined = (neighbour: number): boolean =>
+        neighbour >= 0 &&
+        neighbour < parent.childCount &&
+        composerSchema.marks.strike.isInSet(parent.child(neighbour).marks) !== undefined;
+      let text = node.text ?? '';
+      if (composerSchema.marks.strike.isInSet(node.marks)) {
+        if (!joined(index - 1)) text = text.replace(/^~/, '\\~');
+        if (!joined(index + 1)) text = text.replace(/~$/, '\\~');
+      }
+      const lineStart =
+        index === 0 || parent.child(index - 1).type === composerSchema.nodes.hard_break;
+      if (lineStart) text = text.replace(/^~~~/, '\\~~~');
+      state.text(text, false);
     },
     /* The default writes markdown's `\\` hard-break escape, which shows up as
        a stray backslash in clients that only render the plain body. */
@@ -543,175 +555,10 @@ export function mentionsOf(doc: ProseMirrorNode): OutgoingMentions {
   return { user_ids: [...userIds], room: mentionsRoom(doc) };
 }
 
-const tokenizer = MarkdownIt('commonmark', { html: false })
-  .enable(['strikethrough', 'table'])
-  .use(mfmPlugin)
-  .use(mathPlugin);
-
-const RECEIVER_FORMATS = new Set([
-  'em_open',
-  'strong_open',
-  's_open',
-  'code_inline',
-  'spoiler_open',
-]);
-
-const quoteRules = new MarkdownIt('commonmark').block.ruler;
-quoteRules.enableOnly('blockquote');
-const [parseBlockquote] = quoteRules.getRules('');
-tokenizer.block.ruler.at(
-  'blockquote',
-  (state, startLine, endLine, silent) => {
-    const start = state.bMarks[startLine] + state.tShift[startLine];
-    if (!/^>[ \t]/.test(state.src.slice(start, state.eMarks[startLine]))) return false;
-    return parseBlockquote(state, startLine, endLine, silent);
-  },
-  { alt: ['paragraph', 'reference', 'blockquote'] }
-);
-
-function receiverFormats(text: string): boolean {
-  return tokenizer
-    .parseInline(text, {})
-    .some((token) => token.children?.some((child) => RECEIVER_FORMATS.has(child.type)));
-}
-
-tokenizer.block.ruler.before(
-  'heading',
-  'subtext',
-  (state, startLine, _endLine, silent) => {
-    if (state.sCount[startLine] - state.blkIndent >= 4) return false;
-    const start = state.bMarks[startLine] + state.tShift[startLine];
-    const max = state.eMarks[startLine];
-    const match = /^-#[ \t]+(\S.*)$/.exec(state.src.slice(start, max));
-    if (!match) return false;
-    if (silent) return true;
-
-    state.line = startLine + 1;
-    state.push('subtext_open', 'sub', 1);
-    const inline = state.push('inline', '', 0);
-    inline.content = match[1].trim();
-    inline.children = [];
-    state.push('subtext_close', 'sub', -1);
-    return true;
-  },
-  { alt: ['paragraph', 'reference', 'blockquote'] }
-);
-
-const TEXT_STOPS = new Set(Array.from('\n!#$%&*+-:<=>@[\\]^_`{}~|', (char) => char.charCodeAt(0)));
-
-tokenizer.inline.ruler.at('text', (state, silent) => {
-  let pos = state.pos;
-  while (pos < state.posMax && !TEXT_STOPS.has(state.src.charCodeAt(pos))) pos++;
-  if (pos === state.pos) return false;
-  if (!silent) state.pending += state.src.slice(state.pos, pos);
-  state.pos = pos;
-  return true;
-});
-
-function spoilerClose(state: StateInline, from: number, max: number): number {
-  const { src, pos } = state;
-  for (let index = from; index + 2 <= max; index += 1) {
-    if (src[index] === '\\') index += 1;
-    else if (src[index] === '`') {
-      state.pos = index;
-      state.md.inline.skipToken(state);
-      index = state.pos - 1;
-      state.pos = pos;
-    } else if (src.startsWith('||', index)) return index;
-  }
-  return -1;
-}
-
-tokenizer.inline.ruler.before('text', 'spoiler', (state, silent) => {
-  const start = state.pos;
-  if (!state.src.startsWith('||', start)) return false;
-  const close = spoilerClose(state, start + 2, state.posMax);
-  if (close < 0) return false;
-  const inner = state.src.slice(start + 2, close);
-  if (inner === '' || /^\s|\s$/.test(inner)) return false;
-
-  if (!silent) {
-    const max = state.posMax;
-    state.pos = start + 2;
-    state.posMax = close;
-    state.push('spoiler_open', 'span', 1);
-    state.md.inline.tokenize(state);
-    state.push('spoiler_close', 'span', -1);
-    state.posMax = max;
-  }
-  state.pos = close + 2;
-  return true;
-});
-
-const PARSE_TOKENS: Record<string, ParseSpec> = {
-  paragraph: { block: 'paragraph' },
-  blockquote: { block: 'blockquote' },
-  list_item: { block: 'list_item' },
-  bullet_list: { block: 'bullet_list' },
-  ordered_list: {
-    block: 'ordered_list',
-    getAttrs: (token) => ({ order: Number(token.attrGet('start') ?? '1') || 1 }),
-  },
-  heading: {
-    block: 'heading',
-    getAttrs: (token) => ({ level: Math.min(6, Number(token.tag.slice(1))) }),
-  },
-  subtext: { block: 'subtext' },
-  math_block: { node: 'math_block', getAttrs: (token) => ({ latex: token.content }) },
-  math_inline: { node: 'math_inline', getAttrs: (token) => ({ latex: token.content }) },
-  code_block: { block: 'code_block', noCloseToken: true },
-  fence: {
-    block: 'code_block',
-    noCloseToken: true,
-    getAttrs: (token) => ({ language: codeLanguage(token.info.trim().split(/\s+/)[0] ?? '') }),
-  },
-  hardbreak: { node: 'hard_break' },
-  softbreak: { node: 'hard_break' },
-  em: { mark: 'em' },
-  strong: { mark: 'strong' },
-  s: { mark: 'strike' },
-  spoiler: { mark: 'spoiler' },
-  code_inline: { mark: 'code', noCloseToken: true },
-  link: { mark: 'link', getAttrs: (token) => ({ href: token.attrGet('href') ?? '' }) },
-  hr: { node: 'horizontal_rule' },
-  mfm_time: {
-    node: 'mfm_time',
-    getAttrs: (token) => ({ datetime: token.content, label: utcFallbackLabel(token.content) }),
-  },
-  mfm_fg: {
-    mark: 'color',
-    getAttrs: (token) => ({ value: token.attrGet('value') ?? '' }),
-  },
-  mfm_bg: {
-    mark: 'bg_color',
-    getAttrs: (token) => ({ value: token.attrGet('value') ?? '' }),
-  },
-  image: {
-    node: 'image',
-    getAttrs: (token) => ({
-      src: token.attrGet('src') ?? '',
-      alt: token.children?.map((child) => child.content).join('') ?? '',
-      title: token.attrGet('title') ?? '',
-    }),
-  },
-  table: { block: 'table' },
-  thead: { ignore: true },
-  tbody: { ignore: true },
-  tr: { block: 'table_row' },
-  th: { block: 'table_header' },
-  td: { block: 'table_cell' },
-};
-
-const markdownParser = new MarkdownParser(
-  composerSchema,
-  tokenizer as unknown as ConstructorParameters<typeof MarkdownParser>[1],
-  PARSE_TOKENS
-);
-
 const ATOM_PLACEHOLDER = '\uFFFC';
 
-function parseMarkdown(source: string): ProseMirrorNode {
-  return markdownParser.parse(source.replaceAll('¯\\_(ツ)_/¯', '¯\\\\\\_(ツ)\\_/¯'));
+function parseMarkdown(source: string, pills: readonly ComposerPill[] = []): ProseMirrorNode {
+  return composerSchema.nodeFromJSON(markdownToDoc(source, pills));
 }
 
 export function atomText(node: ProseMirrorNode): string {
@@ -725,15 +572,6 @@ export function atomText(node: ProseMirrorNode): string {
   if (node.type === composerSchema.nodes.math_block) return `$$${node.attrs.latex as string}$$`;
   return (node.attrs.name as string | undefined) ?? '';
 }
-
-const PLACEHOLDER_ATOMS = new Set([
-  composerSchema.nodes.mfm_time,
-  composerSchema.nodes.mention,
-  composerSchema.nodes.emoticon,
-  composerSchema.nodes.room_ping,
-  composerSchema.nodes.math_inline,
-  composerSchema.nodes.image,
-]);
 
 /** The literal characters the user typed, with the atoms spelled back out. */
 export function plainTextOf(doc: ProseMirrorNode): string {
@@ -757,18 +595,71 @@ export function commandTextOf(doc: ProseMirrorNode): string {
   return plainTextOf(fenceCodeBlocks(doc));
 }
 
-function markdownSourceOf(doc: ProseMirrorNode): { source: string; atoms: ProseMirrorNode[] } {
+function pillOf(node: ProseMirrorNode): ComposerPill | null {
+  if (node.type === composerSchema.nodes.mention) {
+    return {
+      kind: 'mention',
+      user_id: node.attrs.userId as string,
+      name: node.attrs.name as string,
+      via: node.attrs.via as string[],
+    };
+  }
+  if (node.type === composerSchema.nodes.emoticon) {
+    return {
+      kind: 'emote',
+      shortcode: node.attrs.shortcode as string,
+      url: node.attrs.url as string,
+      body: node.attrs.body as string | null,
+    };
+  }
+  if (node.type === composerSchema.nodes.image) {
+    return {
+      kind: 'image',
+      src: node.attrs.src as string,
+      alt: node.attrs.alt as string,
+      title: node.attrs.title as string,
+    };
+  }
+  return null;
+}
+
+function markdownSourceOf(doc: ProseMirrorNode): {
+  source: string;
+  atoms: ProseMirrorNode[];
+  pills: ComposerPill[];
+} {
   const { hard_break: hardBreak } = composerSchema.nodes;
   const atoms: ProseMirrorNode[] = [];
+  const pills: ComposerPill[] = [];
 
   const source = doc.textBetween(0, doc.content.size, '\n\n', (node) => {
     if (node.type === hardBreak) return '\n';
-    if (!PLACEHOLDER_ATOMS.has(node.type)) return '';
-    atoms.push(node);
+    const pill = pillOf(node);
+    if (!pill) return atomText(node);
+    if (pill.kind !== 'image') atoms.push(node);
+    pills.push(pill);
     return ATOM_PLACEHOLDER;
   });
 
-  return { source, atoms };
+  return { source, atoms, pills };
+}
+
+function sameAtom(a: ProseMirrorNode, b: ProseMirrorNode): boolean {
+  return (
+    a.type === b.type &&
+    a.attrs.userId === b.attrs.userId &&
+    a.attrs.shortcode === b.attrs.shortcode
+  );
+}
+
+/** The nodes a pill parsed back into, replaced by the atoms they came from. */
+function restoreAtoms(node: ProseMirrorNode, atoms: ProseMirrorNode[]): ProseMirrorNode {
+  if (node.type === composerSchema.nodes.mention || node.type === composerSchema.nodes.emoticon) {
+    const at = atoms.findIndex((atom) => sameAtom(atom, node));
+    return at < 0 ? node : atoms.splice(at, 1)[0].mark(node.marks);
+  }
+  if (node.isLeaf) return node;
+  return node.copy(Fragment.fromArray(node.children.map((child) => restoreAtoms(child, atoms))));
 }
 
 function spliceAtoms(node: ProseMirrorNode, atoms: ProseMirrorNode[]): ProseMirrorNode {
@@ -801,29 +692,13 @@ function spliceAtoms(node: ProseMirrorNode, atoms: ProseMirrorNode[]): ProseMirr
 
 /** Plain-text mode: what was typed is the body, parsed as markdown for the HTML. */
 export function serializePlain(doc: ProseMirrorNode): ComposerMessage {
-  const body = plainTextOf(doc).replaceAll('\u00a0', ' ').trim();
   const imageSourcePacks = imageSourcePacksOf(doc);
-  if (body === '')
-    return {
-      body,
-      formatted: null,
-      mentions: mentionsOf(doc),
-      ...(imageSourcePacks.length > 0 && { imageSourcePacks }),
-    };
-
-  const { source, atoms } = markdownSourceOf(doc);
-  const parsed = linkMscs(
-    withoutTrailingParagraph(
-      flattenRoomPings(spliceAtoms(parseMarkdown(source.replaceAll('\u00a0', ' ').trim()), atoms))
-    )
-  );
+  const { source, pills } = markdownSourceOf(doc);
+  const { body, formatted_body: formatted, mentions } = markdownToContent(source, pills);
   return {
     body,
-    formatted:
-      isPlain(parsed) && plainTextOf(parsed) === body && !receiverFormats(body)
-        ? null
-        : html(parsed),
-    mentions: mentionsOf(parsed),
+    formatted,
+    mentions,
     ...(imageSourcePacks.length > 0 && { imageSourcePacks }),
   };
 }
@@ -848,8 +723,8 @@ export function plainEditDoc(body: string, html: string): ProseMirrorNode {
 }
 
 export function richFromPlain(doc: ProseMirrorNode): ProseMirrorNode {
-  const { source, atoms } = markdownSourceOf(doc);
-  return spliceAtoms(parseMarkdown(source.trim()), atoms);
+  const { source, atoms, pills } = markdownSourceOf(doc);
+  return restoreAtoms(parseMarkdown(source, pills), atoms);
 }
 
 export function markdownSlice(text: string): Slice {

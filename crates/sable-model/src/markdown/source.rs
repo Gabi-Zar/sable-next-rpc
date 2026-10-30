@@ -98,6 +98,58 @@ fn is_autolink(content: &str) -> bool {
         .is_some_and(|(user, host)| !user.is_empty() && host.contains('.'))
 }
 
+/// The length of the `](destination "title")` that opens `rest`, when it is one:
+/// what is inside it is no inline syntax of its own.
+fn link_tail(rest: &str) -> Option<usize> {
+    let bytes = rest.as_bytes();
+    let blank = |at: usize| {
+        at + bytes
+            .iter()
+            .skip(at)
+            .take_while(|byte| matches!(byte, b' ' | b'\t'))
+            .count()
+    };
+    if !rest.starts_with("](") {
+        return None;
+    }
+    let mut at = blank(2);
+    if bytes.get(at) == Some(&b'<') {
+        at += 1 + tail(rest, at + 1).find(['>', '\n'])?;
+        at += usize::from(bytes.get(at) == Some(&b'>'));
+    } else {
+        let mut depth = 0_usize;
+        while let Some(&byte) = bytes.get(at) {
+            match byte {
+                b'\\' => at += 1,
+                b'(' => depth += 1,
+                b')' if depth == 0 => break,
+                b')' => depth -= 1,
+                b' ' | b'\t' | b'\n' => break,
+                _ => {}
+            }
+            at += 1;
+        }
+    }
+    at = blank(at);
+    if let Some(&open) = bytes
+        .get(at)
+        .filter(|byte| matches!(byte, b'"' | b'\'' | b'('))
+    {
+        let close = if open == b'(' { b')' } else { open };
+        at += 1;
+        while let Some(&byte) = bytes.get(at) {
+            at += 1;
+            match byte {
+                b'\\' => at += 1,
+                byte if byte == close => break,
+                _ => {}
+            }
+        }
+        at = blank(at);
+    }
+    (bytes.get(at) == Some(&b')')).then_some(at + 1)
+}
+
 /// A line start pulldown-cmark would read as the start of an HTML block.
 fn opens_html(content: &str) -> bool {
     content.starts_with('<')
@@ -114,6 +166,8 @@ struct Line {
     /// them: its quote markers, with each list marker as spaces.
     prefix: String,
     subtext: bool,
+    /// Whether a list marker on this line starts an item, which no earlier paragraph continues.
+    item: bool,
 }
 
 /// Tilde runs as markdown-it reads them: a single `~` is text, a run of three is a lone `~` beside `~~`.
@@ -137,6 +191,14 @@ fn split_tildes(content: &str) -> String {
             let end = rest.find('>').map_or(rest.len(), |end| end + 1);
             out.push_str(head(rest, end));
             at += end;
+            continue;
+        }
+        if c == ']'
+            && code.is_none()
+            && let Some(tail_len) = link_tail(rest)
+        {
+            out.push_str(head(rest, tail_len));
+            at += tail_len;
             continue;
         }
         if c == '`' {
@@ -222,6 +284,7 @@ fn prepare_line(
                 out.push_str(rest);
                 return info;
             }
+            info.item = true;
             let taken = spaces + marker;
             let next = advance(head(rest, taken), column);
             info.prefix.push_str(&" ".repeat(next - column));
@@ -240,9 +303,6 @@ fn prepare_line(
             out.push_str(&split_tildes(content));
         }
         info.subtext = is_subtext(content);
-        if content.trim().is_empty() {
-            info.quotes = 0;
-        }
         return info;
     }
 }
@@ -274,6 +334,13 @@ fn open_code_after(line: &str, mut open: Option<usize>) -> Option<usize> {
     while let Some(&byte) = bytes.get(at) {
         if byte == b'\\' && open.is_none() {
             at += 2;
+            continue;
+        }
+        if byte == b']'
+            && open.is_none()
+            && let Some(length) = link_tail(tail(line, at))
+        {
+            at += length;
             continue;
         }
         if byte == b'`' {
@@ -412,6 +479,7 @@ struct Prepared {
     out: String,
     quotes: usize,
     fence: Option<Fence>,
+    closed_fence: Option<Fence>,
     open_code: Option<usize>,
     table: bool,
     pipe_next: bool,
@@ -422,20 +490,25 @@ struct Prepared {
 impl Prepared {
     /// Copies a line inside a fenced code block as it is; false once `line`
     /// has left the fence's container, which ends the fence too.
-    fn fenced(&mut self, line: &str, blank: bool, content: &str, offset: usize) -> bool {
+    fn fenced(&mut self, line: &str, blank: bool, content: &str) -> bool {
         let Some(open) = &self.fence else {
             return false;
         };
-        if !blank && offset < open.offset {
+        let fenced = content.trim_start_matches([' ', '\t']);
+        let reach = line.len() - fenced.len();
+        if !blank && !fenced.trim().is_empty() && reach < open.offset {
             self.fence = None;
             return false;
         }
-        let closing = content
+        let closing = fenced
             .bytes()
             .take_while(|byte| *byte == open.marker)
             .count();
-        if closing >= open.run && tail(content, closing).trim().is_empty() {
-            self.fence = None;
+        if reach.saturating_sub(open.offset) <= 3
+            && closing >= open.run
+            && tail(fenced, closing).trim().is_empty()
+        {
+            self.closed_fence = self.fence.take();
         }
         self.out.push_str(line);
         true
@@ -488,14 +561,17 @@ impl Prepared {
         let blank = line.trim().is_empty();
         let content = content_of(line);
         let offset = line.len() - content.len();
-        if self.fenced(line, blank, content, offset) {
+        let after_fence = self.closed_fence.take().is_some();
+        if self.fenced(line, blank, content) {
             return;
         }
+        let mut set_apart = false;
         if let Some(prefix) = self.blank_after.take()
             && !blank
         {
             self.out.push_str(&prefix);
             self.out.push('\n');
+            set_apart = true;
         }
         let after_table = self.table || self.pipe_next;
         if self.table_row(line, blank, content, offset) {
@@ -516,9 +592,17 @@ impl Prepared {
         }
         let previous_blank = previous.is_none_or(|previous| previous.trim().is_empty());
         let in_paragraph = !previous_blank
+            && !after_fence
+            && !set_apart
+            && previous.is_some_and(|previous| {
+                indent(previous) == 0 && content_of(previous).len() == previous.len()
+            })
             && !after_table
             && !container_before
-            && !previous.is_some_and(|previous| content_of(previous).starts_with('#'));
+            && !previous.is_some_and(|previous| {
+                let content = content_of(previous);
+                content.starts_with('#') || is_rule(content)
+            });
         let mut rewritten = String::with_capacity(line.len() + 2);
         let info = prepare_line(
             line,
@@ -529,7 +613,9 @@ impl Prepared {
         );
         self.quotes = info.quotes;
         if info.subtext && !self.table {
-            if !previous_blank {
+            let continues = !info.item
+                && !previous.is_none_or(|previous| content_of(previous).trim().is_empty());
+            if continues {
                 self.out.push_str(&info.prefix);
                 self.out.push('\n');
             }
@@ -557,7 +643,8 @@ pub(super) fn prepare(source: &str) -> String {
         out: String::with_capacity(source.len() + 16),
         ..Prepared::default()
     };
-    for (index, line) in lines.iter().enumerate() {
+    let mut index = 0;
+    while let Some(line) = lines.get(index) {
         if index > 0 {
             prepared.out.push('\n');
         }
@@ -566,6 +653,7 @@ pub(super) fn prepare(source: &str) -> String {
             .and_then(|previous| lines.get(previous))
             .copied();
         prepared.line(line, previous, lines.get(index + 1).copied());
+        index += 1;
     }
     prepared.out
 }

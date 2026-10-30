@@ -77,7 +77,7 @@
   import FormattedBody from '../messages/FormattedBody.svelte';
   import { splitVia } from '#lib/rooms/join-address.js';
   import type { MatrixLink } from '#lib/rooms/matrix-link.js';
-  import { topicHtml } from '../topic-html';
+  import { topicToHtml } from '#lib/model/model.js';
   import type { AddExistingKind } from './add-existing';
   import LeaveRoomDialog from '../LeaveRoomDialog.svelte';
   import LobbyRoomPlaceholder from './LobbyRoomPlaceholder.svelte';
@@ -932,7 +932,7 @@
     {/if}
     <div class="topic-full" {@attach scrollHint}>
       <FormattedBody
-        html={topicHtml((topicRoom ? topicRoom.topic : space?.topic) ?? '')}
+        html={topicToHtml((topicRoom ? topicRoom.topic : space?.topic) ?? '')}
         onMatrixLink={openTopicLink}
       />
     </div>

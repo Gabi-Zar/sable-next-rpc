@@ -6,7 +6,7 @@
 
   import FormattedBody from './messages/FormattedBody.svelte';
   import type { MatrixLink } from '../../rooms/matrix-link';
-  import { topicHtml } from './topic-html';
+  import { topicToHtml } from '#lib/model/model.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
 
   interface Props {
@@ -24,7 +24,7 @@
   <div class="topic-dialog">
     <h2>{roomName}</h2>
     <div class="topic-full" {@attach scrollHint}>
-      <FormattedBody html={topicHtml(topic)} {onMatrixLink} />
+      <FormattedBody html={topicToHtml(topic)} {onMatrixLink} />
     </div>
     <DialogActions>
       <Button

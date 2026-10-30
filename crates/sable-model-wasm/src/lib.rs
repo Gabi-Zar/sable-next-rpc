@@ -15,6 +15,7 @@ use sable_model::bot_commands::{
 };
 use sable_model::calendar::{self, CalendarItem, CalendarRsvpView, EventDraft};
 use sable_model::emote_picker::{self, EmoteRecentsInput};
+use sable_model::markdown::{self, ComposerPill};
 use sable_model::notifications::{self, NotificationModeView, PushNotification};
 use sable_model::power_levels::{self, PowerLevelLocation, RoomPowerLevelsView};
 use sable_model::rtc_invites::{self, InvitePresentation};
@@ -208,6 +209,34 @@ pub fn slash_command_names() -> Result<String, JsError> {
 #[wasm_bindgen(js_name = parseSlash)]
 pub fn parse_slash(body: &str, formatted: Option<String>, now_ms: f64) -> Result<String, JsError> {
     json(&slash::parse_slash(body, formatted.as_deref(), now_ms))
+}
+
+#[wasm_bindgen(js_name = markdownToContent)]
+pub fn markdown_to_content(markdown: &str, pills: &str) -> Result<String, JsError> {
+    json(&markdown::markdown_to_content(
+        markdown,
+        &decode::<Vec<ComposerPill>>(pills)?,
+    ))
+}
+
+#[wasm_bindgen(js_name = topicToHtml)]
+#[must_use]
+pub fn topic_to_html(topic: &str) -> String {
+    markdown::topic_to_html(topic)
+}
+
+#[wasm_bindgen(js_name = markdownToDoc)]
+pub fn markdown_to_doc(markdown: &str, pills: &str) -> Result<String, JsError> {
+    json(&markdown::markdown_to_doc(
+        markdown,
+        &decode::<Vec<ComposerPill>>(pills)?,
+    ))
+}
+
+#[wasm_bindgen(js_name = receiverFormats)]
+#[must_use]
+pub fn receiver_formats(text: &str) -> bool {
+    markdown::receiver_formats(text)
 }
 
 #[wasm_bindgen(js_name = pronounSets)]

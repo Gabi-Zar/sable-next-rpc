@@ -16,7 +16,7 @@
   import Spinner from '#lib/ui/primitives/Spinner.svelte';
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
   import FormattedBody from '../messages/FormattedBody.svelte';
-  import { topicHtml } from '../topic-html';
+  import { topicToHtml } from '#lib/model/model.js';
   import { scrollHint } from '#lib/ui/scroll-hint.js';
   import RoomIcon from '#lib/ui/primitives/RoomIcon.svelte';
   import UserIcon from 'phosphor-svelte/lib/UserIcon';
@@ -249,7 +249,7 @@
         {/if}
         {#if preview?.topic}
           <div class="join-topic" {@attach scrollHint}>
-            <FormattedBody html={topicHtml(preview.topic)} />
+            <FormattedBody html={topicToHtml(preview.topic)} />
           </div>
         {/if}
         {#if failedAction}

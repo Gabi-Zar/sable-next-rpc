@@ -100,6 +100,13 @@ fn pill_node(pill: &ComposerPill) -> Node {
                 Vec::new(),
             )
         }
+        ComposerPill::Image { src, alt, title } => {
+            let mut attrs = vec![("src", src.clone()), ("alt", alt.clone())];
+            if !title.is_empty() {
+                attrs.push(("title", title.clone()));
+            }
+            element("img", attrs, Vec::new())
+        }
     }
 }
 
@@ -122,6 +129,11 @@ fn inline_node(node: &Inline, pills: &[ComposerPill]) -> Option<Node> {
             "time",
             vec![("datetime", datetime.clone())],
             vec![Node::Text(label.clone())],
+        ),
+        Inline::Math { latex, .. } => element(
+            "span",
+            vec![("data-mx-maths", latex.clone())],
+            vec![element("code", Vec::new(), vec![Node::Text(latex.clone())])],
         ),
         Inline::Pill(index) => pill_node(pills.get(*index)?),
     })
@@ -194,6 +206,11 @@ fn block_node(block: &Block<Vec<Inline>>, pills: &[ComposerPill]) -> Node {
             element("pre", Vec::new(), vec![code])
         }
         Block::Rule => element("hr", Vec::new(), Vec::new()),
+        Block::Math(latex) => element(
+            "div",
+            vec![("data-mx-maths", latex.clone())],
+            vec![element("code", Vec::new(), vec![Node::Text(latex.clone())])],
+        ),
         Block::List { order, items } => {
             let (tag, attrs) = match order {
                 None => ("ul", Vec::new()),

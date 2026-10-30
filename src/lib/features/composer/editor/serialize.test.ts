@@ -122,19 +122,6 @@ test('typed LaTeX is sent as data-mx-maths with the source as body', () => {
   expect(rich.formatted).toBe(expected);
 });
 
-test('plain mode turns a $$ block into display math', () => {
-  const source = '$$\n\\int_0^1 f\n$$';
-  const message = serializePlain(textDoc(source));
-  expect(message.body).toBe(source);
-  expect(message.formatted).toBe('<div data-mx-maths="\\int_0^1 f"><code>\\int_0^1 f</code></div>');
-});
-
-test('prices and escapes are not LaTeX', () => {
-  for (const source of ['costs $5 and $6', '\\$x$', 'a$x$', '$ x $', '$x$5', '$$']) {
-    expect(serializePlain(textDoc(source)).formatted ?? '').not.toContain('data-mx-maths');
-  }
-});
-
 test('an existing time element survives a rich-text edit', () => {
   const message = serializeComposer(
     parseMatrixHtml('<time datetime="1970-01-01T00:00:00Z">old label</time>')
@@ -622,116 +609,6 @@ test('a soft break keeps its formatting and leaves no escape in the body', () =>
 });
 
 describe('plain text mode', () => {
-  test('the body is what was typed and the html is parsed from it', () => {
-    const message = serializePlain(docOf(para(composerSchema.text('say **hi** now'))));
-
-    expect(message.body).toBe('say **hi** now');
-    expect(message.formatted).toBe('say <strong>hi</strong> now');
-  });
-
-  test('markdown characters are not escaped back into the body', () => {
-    const message = serializePlain(docOf(para(composerSchema.text('a *b* c'))));
-    expect(message.body).toBe('a *b* c');
-  });
-
-  test('plain prose sends without a formatted body', () => {
-    const message = serializePlain(docOf(para(composerSchema.text('just words'))));
-
-    expect(message.body).toBe('just words');
-    expect(message.formatted).toBeNull();
-  });
-
-  test.each([
-    ['\\*like so*', '<span>*</span>like so<span>*</span>'],
-    ['\\*like so\\*', '<span>*</span>like so<span>*</span>'],
-    ['\\`code\\`', '<span>`</span>code<span>`</span>'],
-    ['\\_text\\_', '<span>_</span>text<span>_</span>'],
-    ['\\# heading', '# heading'],
-    ['one \\\\ two', 'one \\ two'],
-    ['\\[label](https://example.org)', '[label](https://example.org)'],
-    ['\\<tag>', '&lt;tag&gt;'],
-    ['&amp;', '&amp;'],
-    ['\\&amp;', '&amp;amp;'],
-    ['&#42;literal*', '<span>*</span>literal<span>*</span>'],
-  ])('Markdown escapes and entities in %j render as text', (source, rendered) => {
-    const message = serializePlain(textDoc(source));
-
-    expect(message.body).toBe(source);
-    expect(message.formatted).toBe(rendered);
-    expect(plainTextOf(plainEditDoc(message.body, message.formatted ?? ''))).toBe(source);
-  });
-
-  test('the shrug keeps its arm', () => {
-    const message = serializePlain(textDoc('top ¯\\_(ツ)_/¯ bottom'));
-
-    expect(message.body).toBe('top ¯\\_(ツ)_/¯ bottom');
-    expect(message.formatted).toBeNull();
-    expect(plainTextOf(richFromPlain(textDoc('¯\\_(ツ)_/¯')))).toBe('¯\\_(ツ)_/¯');
-  });
-
-  test('all ASCII punctuation can be escaped', () => {
-    for (let codePoint = 33; codePoint <= 126; codePoint += 1) {
-      const character = String.fromCharCode(codePoint);
-      if (/[a-z0-9]/i.test(character)) continue;
-      const message = serializePlain(textDoc(`\\${character}`));
-      expect(message.formatted, character).not.toBeNull();
-      expect(plainTextOf(parseMatrixHtml(message.formatted ?? '')), character).toBe(character);
-    }
-  });
-
-  test.each(['C:\\path', '\\a', '\\→', 'trailing \\'])(
-    'a literal backslash in %j stays visible',
-    (source) => {
-      const message = serializePlain(textDoc(source));
-      expect(message.body).toBe(source);
-      expect(message.formatted).toBeNull();
-    }
-  );
-
-  test.each([
-    ['\\$[unixtime 0]', '<span>$</span>[unixtime 0]'],
-    ['$\\[unixtime 0]', '<span>$</span>[unixtime 0]'],
-    ['\\$[fg.color=f00 red]', '<span>$</span>[fg.color=f00 red]'],
-    ['**hi** \\$[unixtime 0]', '<strong>hi</strong> <span>$</span>[unixtime 0]'],
-    [
-      '\\$[unixtime 0] and \\$[fg.color=f00 red]',
-      '<span>$</span>[unixtime 0] and <span>$</span>[fg.color=f00 red]',
-    ],
-  ])('escaped MFM in %j stays literal in HTML', (source, rendered) => {
-    const message = serializePlain(textDoc(source));
-    expect(message.body).toBe(source);
-    expect(message.formatted).toBe(rendered);
-    expect(plainTextOf(plainEditDoc(message.body, message.formatted ?? ''))).toBe(source);
-  });
-
-  test('strikethrough parses even though commonmark leaves it off', () => {
-    const message = serializePlain(docOf(para(composerSchema.text('a ~~b~~ c'))));
-    expect(message.formatted).toBe('a <del>b</del> c');
-  });
-
-  test('double bars parse to a Matrix spoiler', () => {
-    const message = serializePlain(docOf(para(composerSchema.text('the ||butler **did**|| it'))));
-
-    expect(message.body).toBe('the ||butler **did**|| it');
-    expect(message.formatted).toBe(
-      'the <span data-mx-spoiler="">butler </span><strong><span data-mx-spoiler="">did</span></strong> it'
-    );
-  });
-
-  test('double bars around spaces or nothing stay text', () => {
-    for (const typed of ['a || b || c', 'a |||| b', 'a || b', 'x|y']) {
-      expect(serializePlain(docOf(para(composerSchema.text(typed)))).formatted, typed).toBeNull();
-    }
-  });
-
-  test('inline and fenced code produce Matrix HTML', () => {
-    const inline = serializePlain(docOf(para(composerSchema.text('`const x = 1`'))));
-    const block = serializePlain(docOf(para(composerSchema.text('```\nconst x = 1;\n```'))));
-
-    expect(inline.formatted).toBe('<code>const x = 1</code>');
-    expect(block.formatted).toBe('<pre><code>const x = 1;</code></pre>');
-  });
-
   test('a mention keeps its user id and renders as a matrix.to link', () => {
     const who = mention.create({ userId: '@amp:example.org', name: 'amp' });
     const message = serializePlain(docOf(para([who, composerSchema.text(' hi')])));

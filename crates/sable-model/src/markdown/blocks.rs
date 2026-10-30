@@ -23,6 +23,7 @@ pub(super) enum Block<I> {
         text: String,
     },
     Rule,
+    Math(String),
     List {
         order: Option<u64>,
         items: Vec<Vec<Self>>,
@@ -36,6 +37,26 @@ pub(super) struct Cell<I> {
 }
 
 impl<I> Block<I> {
+    pub fn contents<'a>(&'a self, out: &mut Vec<&'a I>) {
+        match self {
+            Self::Paragraph(content) | Self::Heading(_, content) | Self::Subtext(content) => {
+                out.push(content);
+            }
+            Self::Quote(children) => {
+                for child in children {
+                    child.contents(out);
+                }
+            }
+            Self::List { items, .. } => {
+                for child in items.iter().flatten() {
+                    child.contents(out);
+                }
+            }
+            Self::Table(rows) => out.extend(rows.iter().flatten().map(|cell| &cell.content)),
+            Self::Code { .. } | Self::Rule | Self::Math(_) => {}
+        }
+    }
+
     pub fn map<J>(self, f: &mut dyn FnMut(I) -> J) -> Block<J> {
         fn all<I, J>(blocks: Vec<Block<I>>, f: &mut dyn FnMut(I) -> J) -> Vec<Block<J>> {
             blocks.into_iter().map(|block| block.map(f)).collect()
@@ -47,6 +68,7 @@ impl<I> Block<I> {
             Self::Quote(children) => Block::Quote(all(children, f)),
             Self::Code { language, text } => Block::Code { language, text },
             Self::Rule => Block::Rule,
+            Self::Math(latex) => Block::Math(latex),
             Self::List { order, items } => Block::List {
                 order,
                 items: items.into_iter().map(|item| all(item, f)).collect(),
@@ -81,7 +103,10 @@ fn glyphs(text: &str, literal: bool) -> Vec<Glyph> {
 
 /// `text` as pulldown-cmark read it from `range`; entities and escapes are literal, except `\|` in a table cell.
 fn read_glyphs(text: &str, source: &str, range: Range<usize>, bare_pipes: bool) -> Vec<Glyph> {
-    let literal = |c: char| !(bare_pipes && c == '|');
+    let entity = source
+        .get(range.clone())
+        .is_some_and(|raw| raw.starts_with('&'));
+    let literal = |c: char| entity || !(bare_pipes && c == '|');
     if source.get(range.clone()) != Some(text) {
         return text
             .chars()
@@ -144,6 +169,13 @@ struct Inlines {
 impl Inlines {
     fn text(&mut self, text: &str, literal: bool) {
         self.tokens.push(Token::Text(glyphs(text, literal)));
+    }
+
+    fn math(&mut self, latex: &str, display: bool) {
+        self.tokens.push(Token::Math {
+            latex: latex.trim().to_owned(),
+            display,
+        });
     }
 
     fn link_start(&mut self, source: &str, range: &Range<usize>, link_type: LinkType, dest: &str) {
@@ -213,6 +245,11 @@ impl Inlines {
                 let glyphs = read_glyphs(&text, source, range, self.bare_pipes);
                 self.tokens.push(Token::Text(glyphs));
             }
+            Event::InlineMath(latex) => self.math(&latex, false),
+            Event::DisplayMath(latex) if latex.trim().is_empty() => {
+                self.text(source.get(range).unwrap_or_default(), false);
+            }
+            Event::DisplayMath(latex) => self.math(&latex, true),
             Event::Code(code) => self.tokens.push(Token::Code(code.into_string())),
             Event::InlineHtml(html) | Event::Html(html) => self.text(&html, false),
             Event::SoftBreak | Event::HardBreak => line_break(&mut self.tokens, source, range),
@@ -333,6 +370,15 @@ fn subtext(mut line: Vec<Token>) -> Result<Vec<Token>, Vec<Token>> {
 /// A paragraph, or the subtext it is: [`prepare`] gives every subtext line a
 /// paragraph of its own.
 fn paragraphs(tokens: Vec<Token>) -> Vec<Block<Vec<Token>>> {
+    if let [
+        Token::Math {
+            latex,
+            display: true,
+        },
+    ] = tokens.as_slice()
+    {
+        return vec![Block::Math(latex.clone())];
+    }
     if tokens.iter().any(|token| matches!(token, Token::Break(_))) {
         return vec![Block::Paragraph(tokens)];
     }
@@ -530,7 +576,11 @@ fn blocks_until(events: &mut Events<'_>, source: &str) -> Vec<Block<Vec<Token>>>
 
 pub(super) fn parse(source: &str) -> Vec<Block<Vec<Token>>> {
     let prepared = prepare(source);
-    let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
+    let mut options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
+    // Math delimiters cannot be told apart from the `$` of `$[fn ...]`, which would pair with one.
+    if !prepared.contains("$[") {
+        options |= Options::ENABLE_MATH;
+    }
     let mut events = Parser::new_ext(&prepared, options)
         .into_offset_iter()
         .peekable();
