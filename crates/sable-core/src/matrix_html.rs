@@ -4,12 +4,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{LazyLock, Mutex, PoisonError};
 
 use ammonia::{Builder, UrlRelative};
+use html5ever::tree_builder::{NodeOrText, TreeSink};
 use linkify::{LinkFinder, LinkKind};
 use matrix_sdk::ruma::html::{
     ElementAttributesSchemes, Html, ListBehavior, PropertiesNames, SanitizerConfig,
 };
 use matrix_sdk::ruma::{MatrixUri, MxcUri};
 use regex_lite::Regex;
+use sable_model::color::is_hex_color;
 use sable_model::html::nests_too_deeply;
 
 pub use sable_model::html::preview_body;
@@ -107,13 +109,6 @@ fn tag_attributes() -> HashMap<&'static str, HashSet<&'static str>> {
     ])
 }
 
-fn is_matrix_hex_color(value: &str) -> bool {
-    let Some(digits) = value.strip_prefix('#') else {
-        return false;
-    };
-    matches!(digits.len(), 3 | 6) && digits.bytes().all(|digit| digit.is_ascii_hexdigit())
-}
-
 fn is_language_class(value: &str) -> bool {
     let mut classes = value.split_whitespace().peekable();
     if classes.peek().is_none() {
@@ -165,7 +160,7 @@ fn sanitizer() -> Builder<'static> {
             (_, "class") => is_language_class(value).then(|| value.into()),
             ("sub", "data-md") => (value == "-#").then(|| value.into()),
             (_, "data-mx-color" | "data-mx-bg-color") => {
-                is_matrix_hex_color(value).then(|| value.into())
+                is_hex_color(value, &[3, 6]).then(|| value.into())
             }
             _ => Some(value.into()),
         });
@@ -489,104 +484,32 @@ const LINKIFY_SKIP_ELEMENTS: [&str; 9] = [
     "a", "code", "mx-reply", "noscript", "pre", "script", "style", "textarea", "time",
 ];
 
-fn markup_span_end(formatted: &str, start: usize) -> usize {
-    let Some(rest) = formatted.get(start..) else {
-        return formatted.len();
-    };
-    if rest.starts_with("<!--") {
-        return rest
-            .find("-->")
-            .map_or(formatted.len(), |at| start + at + "-->".len());
-    }
-
-    let mut quote = None;
-    for (offset, character) in rest.char_indices().skip(1) {
-        match (quote, character) {
-            (None, '"' | '\'') => quote = Some(character),
-            (Some(open), _) if open == character => quote = None,
-            (None, '>') => return start + offset + 1,
-            _ => {}
+fn rewrite_markup(formatted: &str) -> Html {
+    let html = Html::parse(formatted);
+    let mut pending: Vec<_> = html.children().collect();
+    while let Some(node) = pending.pop() {
+        if node
+            .as_element()
+            .is_some_and(|element| LINKIFY_SKIP_ELEMENTS.contains(&element.name.local.as_ref()))
+        {
+            continue;
         }
-    }
-    formatted.len()
-}
-
-fn tag_name(tag: &str) -> Option<(String, bool)> {
-    let body = tag.strip_prefix('<')?;
-    let (body, closing) = body
-        .strip_prefix('/')
-        .map_or((body, false), |rest| (rest, true));
-    let name: String = body
-        .chars()
-        .take_while(|character| character.is_ascii_alphanumeric() || *character == '-')
-        .map(|character| character.to_ascii_lowercase())
-        .collect();
-    (!name.is_empty()).then_some((name, closing))
-}
-
-fn rewrite_text_run(run: &str) -> String {
-    let decoded = html_escape::decode_html_entities(run);
-    let rendered = render_plain_text(&decoded);
-    if rendered == escape_html(&decoded) {
-        run.to_owned()
-    } else {
-        rendered
-    }
-}
-
-fn rewrite_markup(formatted: &str) -> String {
-    let mut out = String::with_capacity(formatted.len());
-    let mut run_start = 0;
-    let mut cursor = 0;
-    let mut skip: Option<(String, usize)> = None;
-
-    while let Some(offset) = formatted.get(cursor..).and_then(|rest| rest.find('<')) {
-        let start = cursor + offset;
-        let run = formatted.get(run_start..start).unwrap_or_default();
-        if skip.is_none() {
-            out.push_str(&rewrite_text_run(run));
-        } else {
-            out.push_str(run);
+        let Some(text) = node.as_text() else {
+            pending.extend(node.children());
+            continue;
+        };
+        let text = text.borrow();
+        let rendered = render_plain_text(&text);
+        if rendered == escape_html(&text) {
+            continue;
         }
-
-        let end = markup_span_end(formatted, start);
-        let tag = formatted.get(start..end).unwrap_or_default();
-        out.push_str(tag);
-
-        if let Some((name, closing)) = tag_name(tag) {
-            let self_closing = tag.trim_end_matches('>').trim_end().ends_with('/');
-            match &mut skip {
-                Some((open, depth)) if *open == name => {
-                    if closing {
-                        *depth -= 1;
-                        if *depth == 0 {
-                            skip = None;
-                        }
-                    } else if !self_closing {
-                        *depth += 1;
-                    }
-                }
-                None if !closing
-                    && !self_closing
-                    && LINKIFY_SKIP_ELEMENTS.contains(&name.as_str()) =>
-                {
-                    skip = Some((name, 1));
-                }
-                _ => {}
-            }
+        let replacement = Html::parse(&rendered);
+        for child in replacement.children() {
+            html.append_before_sibling(&node, NodeOrText::AppendNode(child));
         }
-
-        run_start = end;
-        cursor = end.max(start + 1);
+        html.remove_from_parent(&node);
     }
-
-    let tail = formatted.get(run_start..).unwrap_or_default();
-    if skip.is_none() {
-        out.push_str(&rewrite_text_run(tail));
-    } else {
-        out.push_str(tail);
-    }
-    out
+    html
 }
 
 static PROFILE_FALLBACK_HTML: LazyLock<Option<Regex>> = LazyLock::new(|| {
@@ -623,7 +546,7 @@ fn sanitize(formatted: &str) -> String {
     if nests_too_deeply(formatted) {
         return String::new();
     }
-    let html = Html::parse(&rewrite_markup(formatted));
+    let html = rewrite_markup(formatted);
     html.sanitize_with(&MATRIX_POLICY);
     SANITIZER.clean(&html.to_string()).to_string()
 }
@@ -643,17 +566,14 @@ pub fn display_html(body: &str, formatted: Option<&str>) -> String {
         return html.clone();
     }
     let html = render_html(body, Some(formatted));
-    if cache.len() >= DISPLAY_HTML_CACHE_ENTRIES {
-        cache.clear();
-    }
     cache.insert(key, html.clone());
     html
 }
 
 const DISPLAY_HTML_CACHE_ENTRIES: usize = 2048;
 
-static DISPLAY_HTML_CACHE: LazyLock<Mutex<HashMap<(String, String), String>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static DISPLAY_HTML_CACHE: LazyLock<Mutex<hashlink::LruCache<(String, String), String>>> =
+    LazyLock::new(|| Mutex::new(hashlink::LruCache::new(DISPLAY_HTML_CACHE_ENTRIES)));
 
 fn render_html(body: &str, formatted: Option<&str>) -> String {
     let sanitized = formatted.map(sanitize);
@@ -1523,6 +1443,23 @@ mod tests {
     }
 
     #[test]
+    fn markup_linkifying_uses_html_text_boundaries() {
+        let html = display_html(
+            "",
+            Some("<p title=\"not > a tag\">2 < 3 https://example.org/a</p>"),
+        );
+
+        assert!(html.contains("2 &lt; 3 <a href=\"https://example.org/a\""));
+    }
+
+    #[test]
+    fn a_self_closing_non_void_element_keeps_its_html_meaning() {
+        let html = display_html("", Some("<code/>https://example.org/a</code>"));
+
+        assert_eq!(html, "<code>https://example.org/a</code>");
+    }
+
+    #[test]
     fn markup_linkifying_keeps_a_query_that_arrived_as_an_entity() {
         let html = display_html("", Some("<p>https://example.org/a?x=1&amp;y=2</p>"));
 
@@ -1533,7 +1470,7 @@ mod tests {
     fn markup_without_a_link_is_left_byte_identical() {
         let markup = "<p>plain <strong>text</strong> &amp; more</p>";
 
-        assert_eq!(rewrite_markup(markup), markup);
+        assert_eq!(rewrite_markup(markup).to_string(), markup);
     }
 
     #[test]

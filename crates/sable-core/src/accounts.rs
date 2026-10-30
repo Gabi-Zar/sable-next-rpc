@@ -2953,7 +2953,6 @@ mod regression_tests {
             CachedTimeline {
                 timeline: timeline.clone(),
                 hidden_events: false,
-                last_access: 0,
             },
         );
         assert!(Arc::ptr_eq(

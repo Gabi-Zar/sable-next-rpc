@@ -2,15 +2,19 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::OnceLock,
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
+use http_cache_semantics::{AfterResponse, BeforeRequest, CacheOptions, CachePolicy};
 use sable_core::reqwest::Client;
 use tauri::{
     AppHandle, Manager, Runtime, UriSchemeContext, UriSchemeResponder,
     http::{HeaderValue, Request, Response, StatusCode, header},
 };
 use tokio::sync::Semaphore;
+
+mod cache;
+use cache::CachedTile;
 
 pub const TILE_URI_SCHEME: &str = "sable-tiles";
 
@@ -49,7 +53,9 @@ pub fn cleanup_cache<R: Runtime>(app: &AppHandle<R>) {
     let Ok(dir) = cache_dir(app) else { return };
     tauri::async_runtime::spawn_blocking(move || {
         for tile in walk_tiles(&dir) {
-            if !is_fresh(&tile) {
+            let fresh = CachedTile::load_policy(&tile)
+                .is_some_and(|policy| !policy.is_stale(SystemTime::now()));
+            if !fresh && !is_fresh(&tile) {
                 let _ = fs::remove_file(tile);
             }
         }
@@ -91,10 +97,42 @@ async fn handle_request<R: Runtime>(
     path: &str,
 ) -> Result<Response<Vec<u8>>, StatusCode> {
     let tile = Tile::parse(path).ok_or(StatusCode::NOT_FOUND)?;
-    let cache_path = cache_dir(app).ok().map(|dir| tile.cache_path(&dir));
+    let legacy_path = cache_dir(app).ok().map(|dir| tile.cache_path(&dir));
+    let cache_path = legacy_path
+        .as_ref()
+        .map(|path| path.with_extension("cache"));
+    let mut cached = match cache_path.clone() {
+        Some(path) => blocking(move || CachedTile::load(&path)).await,
+        None => None,
+    };
+    let client = client().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let mut request = client
+        .get(tile.url())
+        .build()
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
-    if let Some(bytes) = cache_path.as_deref().and_then(read_fresh) {
-        return Ok(tile_response(bytes));
+    if let Some(tile) = cached.as_ref() {
+        match tile.policy.before_request(&request, SystemTime::now()) {
+            BeforeRequest::Fresh(_) => {
+                return Ok(tile_response(
+                    tile.body.clone(),
+                    Some(tile.policy.time_to_live(SystemTime::now())),
+                ));
+            }
+            BeforeRequest::Stale {
+                request: conditional,
+                matches,
+            } => {
+                *request.headers_mut() = conditional.headers;
+                if !matches {
+                    cached = None;
+                }
+            }
+        }
+    } else if let Some(path) = legacy_path
+        && let Some((bytes, remaining)) = blocking(move || read_fresh(&path)).await
+    {
+        return Ok(tile_response(bytes, Some(remaining)));
     }
 
     let _permit = LANE
@@ -102,31 +140,81 @@ async fn handle_request<R: Runtime>(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let response = client()
-        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?
-        .get(tile.url())
-        .send()
+    let response = client
+        .execute(request.try_clone().ok_or(StatusCode::BAD_GATEWAY)?)
         .await
         .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
-    if !response.status().is_success() {
-        return Err(StatusCode::BAD_GATEWAY);
-    }
     if let Some(reason) = response.headers().get("x-blocked") {
         log::warn!("openstreetmap tile request blocked: {reason:?}");
         return Err(StatusCode::BAD_GATEWAY);
     }
 
-    let bytes = response
-        .bytes()
-        .await
-        .map_err(|_| StatusCode::BAD_GATEWAY)?
-        .to_vec();
+    let now = SystemTime::now();
+    let (policy, reused) = if let Some(tile) = cached {
+        match tile.revalidate(&request, &response, now) {
+            AfterResponse::NotModified(policy, _) => (policy, Some(tile.body)),
+            AfterResponse::Modified(policy, _) => (policy, None),
+        }
+    } else {
+        (
+            CachePolicy::new_options(
+                &request,
+                &response,
+                now,
+                CacheOptions {
+                    shared: false,
+                    ..CacheOptions::default()
+                },
+            ),
+            None,
+        )
+    };
+    let bytes = match reused {
+        Some(bytes) => bytes,
+        None if response.status().is_success() => response
+            .bytes()
+            .await
+            .map_err(|_| StatusCode::BAD_GATEWAY)?
+            .to_vec(),
+        None => return Err(StatusCode::BAD_GATEWAY),
+    };
+    let lifetime = policy
+        .is_storable()
+        .then(|| policy.time_to_live(SystemTime::now()));
 
     if let Some(path) = cache_path {
-        write_cache(&path, &bytes);
+        let entry = policy.is_storable().then(|| CachedTile {
+            policy,
+            body: bytes.clone(),
+        });
+        persist(path, entry);
     }
-    Ok(tile_response(bytes))
+    Ok(tile_response(bytes, lifetime))
+}
+
+fn persist(path: PathBuf, entry: Option<CachedTile>) {
+    tauri::async_runtime::spawn_blocking(move || match entry {
+        Some(entry) => {
+            if let Err(err) = entry.save(&path) {
+                log::debug!("tile cache write failed: {err}");
+            }
+        }
+        None => {
+            if let Err(err) = fs::remove_file(&path) {
+                log::debug!("tile cache removal failed: {err}");
+            }
+        }
+    });
+}
+
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Option<T> + Send + 'static,
+) -> Option<T> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .ok()
+        .flatten()
 }
 
 fn client() -> Option<&'static Client> {
@@ -145,13 +233,17 @@ fn client() -> Option<&'static Client> {
         .as_ref()
 }
 
-fn tile_response(bytes: Vec<u8>) -> Response<Vec<u8>> {
+fn tile_response(bytes: Vec<u8>, lifetime: Option<Duration>) -> Response<Vec<u8>> {
     let mut response = Response::new(bytes);
     let headers = response.headers_mut();
     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("image/png"));
     headers.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=604800"),
+        lifetime
+            .and_then(|lifetime| {
+                HeaderValue::from_str(&format!("public, max-age={}", lifetime.as_secs())).ok()
+            })
+            .unwrap_or_else(|| HeaderValue::from_static("no-store")),
     );
     response
 }
@@ -176,19 +268,10 @@ fn is_fresh(path: &Path) -> bool {
     modified.elapsed().is_ok_and(|age| age < CACHE_TTL)
 }
 
-fn read_fresh(path: &Path) -> Option<Vec<u8>> {
-    is_fresh(path).then(|| fs::read(path).ok()).flatten()
-}
-
-fn write_cache(path: &Path, bytes: &[u8]) {
-    let Some(parent) = path.parent() else { return };
-    if fs::create_dir_all(parent).is_err() {
-        return;
-    }
-    let temp = path.with_extension("png.part");
-    if fs::write(&temp, bytes).is_ok() && fs::rename(&temp, path).is_err() {
-        let _ = fs::remove_file(&temp);
-    }
+fn read_fresh(path: &Path) -> Option<(Vec<u8>, Duration)> {
+    let age = fs::metadata(path).ok()?.modified().ok()?.elapsed().ok()?;
+    let remaining = CACHE_TTL.checked_sub(age)?;
+    Some((fs::read(path).ok()?, remaining))
 }
 
 fn walk_tiles(dir: &Path) -> Vec<PathBuf> {

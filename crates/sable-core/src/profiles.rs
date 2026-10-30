@@ -1,3 +1,4 @@
+use sable_model::color::is_hex_color;
 use sable_model::text::visible_name;
 
 use matrix_sdk::ruma::OwnedUserId;
@@ -75,9 +76,7 @@ pub(crate) fn profile_hex_color(value: Option<&serde_json::Value>) -> Option<Str
 }
 
 fn hex_color(color: String) -> Option<String> {
-    let digits = color.strip_prefix('#').unwrap_or_default();
-    (matches!(digits.len(), 3 | 6) && digits.bytes().all(|digit| digit.is_ascii_hexdigit()))
-        .then_some(color)
+    is_hex_color(&color, &[3, 6]).then_some(color)
 }
 
 /// A structured field reads as its default unless it is an object.

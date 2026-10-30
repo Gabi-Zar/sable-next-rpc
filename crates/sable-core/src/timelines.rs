@@ -28,7 +28,7 @@ use crate::view::{CUTE_EVENT_MSGTYPE, aggregation_item};
 use crate::{CachedTimeline, Core, SubscriptionKind, ThreadKey};
 
 const MAX_CACHED_INACTIVE_TIMELINES: usize = 4;
-const MAX_CACHED_THREAD_TIMELINES: usize = 4;
+pub(crate) const MAX_CACHED_THREAD_TIMELINES: usize = 4;
 const MAX_RELATION_DEPTH: usize = 4;
 
 /// The events an aggregation row may be built from, so a reaction on a thread
@@ -170,11 +170,12 @@ impl Core {
             .ok_or(RpcError::UnknownRoom)?;
         {
             let mut timelines = self.timelines.lock().await;
-            if let Some(cached) = timelines.get_mut(room_id)
+            if let Some(cached) = timelines.get(room_id)
                 && cached.hidden_events == hidden_events
             {
-                cached.last_access = self.next_timeline_access();
-                return Ok(cached.timeline.clone());
+                let timeline = cached.timeline.clone();
+                timelines.to_back(room_id);
+                return Ok(timeline);
             }
         }
 
@@ -197,10 +198,11 @@ impl Core {
             })
             .collect::<std::collections::HashSet<_>>();
         let mut timelines = self.timelines.lock().await;
-        match timelines.get_mut(room_id) {
+        match timelines.get(room_id) {
             Some(cached) if cached.hidden_events == hidden_events => {
-                cached.last_access = self.next_timeline_access();
-                Ok(cached.timeline.clone())
+                let timeline = cached.timeline.clone();
+                timelines.to_back(room_id);
+                Ok(timeline)
             }
             _ => {
                 let inactive = timelines
@@ -210,8 +212,7 @@ impl Core {
                 if inactive >= MAX_CACHED_INACTIVE_TIMELINES
                     && let Some(evicted) = timelines
                         .iter()
-                        .filter(|(id, _)| !subscribed_room_ids.contains(*id))
-                        .min_by_key(|(_, cached)| cached.last_access)
+                        .find(|(id, _)| !subscribed_room_ids.contains(*id))
                         .map(|(id, _)| id.clone())
                 {
                     timelines.remove(&evicted);
@@ -221,7 +222,6 @@ impl Core {
                     CachedTimeline {
                         timeline: timeline.clone(),
                         hidden_events,
-                        last_access: self.next_timeline_access(),
                     },
                 );
                 Ok(timeline)
@@ -316,7 +316,6 @@ impl Core {
         {
             let mut threads = self.thread_timelines.lock().await;
             if let Some(cached) = threads.get_mut(&key) {
-                cached.last_access = self.next_timeline_access();
                 return Ok(cached.timeline.clone());
             }
         }
@@ -332,24 +331,14 @@ impl Core {
 
         let mut threads = self.thread_timelines.lock().await;
         if let Some(cached) = threads.get_mut(&key) {
-            cached.last_access = self.next_timeline_access();
             return Ok(cached.timeline.clone());
         }
 
-        if threads.len() >= MAX_CACHED_THREAD_TIMELINES
-            && let Some(evicted) = threads
-                .iter()
-                .min_by_key(|(_, cached)| cached.last_access)
-                .map(|(id, _)| id.clone())
-        {
-            threads.remove(&evicted);
-        }
         threads.insert(
             key,
             CachedTimeline {
                 timeline: timeline.clone(),
                 hidden_events: false,
-                last_access: self.next_timeline_access(),
             },
         );
         Ok(timeline)

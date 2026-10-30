@@ -58,6 +58,12 @@ pub fn quick_reactions(frequent: &[String], limit: usize) -> Vec<String> {
         .collect()
 }
 
+/// Free-text reactions can hold secrets such as a pasted recovery key, so history keeps only emoji and emotes.
+#[must_use]
+pub fn rememberable_reaction(key: &str) -> bool {
+    key.starts_with("mxc://") || unicode_emoji(&reaction_identity(key))
+}
+
 fn unicode_emoji(key: &str) -> bool {
     let emoji = CodePointSetData::new::<Emoji>();
     let component = CodePointSetData::new::<EmojiComponent>();

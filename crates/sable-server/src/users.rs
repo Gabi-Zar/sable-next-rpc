@@ -178,7 +178,6 @@ impl UserRegistry {
     }
 
     fn update(path: &Path, update: impl FnOnce(&mut Self) -> io::Result<()>) -> io::Result<()> {
-        use std::io::Write;
         let parent = path
             .parent()
             .ok_or_else(|| io::Error::other("missing registry directory"))?;
@@ -192,27 +191,9 @@ impl UserRegistry {
         let mut registry = Self::load(path)?;
         update(&mut registry)?;
         registry.validate()?;
-        let temporary = parent.join(format!(".users-{}.tmp", Uuid::new_v4()));
-        let result = (|| {
-            let mut options = std::fs::OpenOptions::new();
-            options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                options.mode(0o600);
-            }
-            let mut file = options.open(&temporary)?;
-            serde_json::to_writer_pretty(&mut file, &registry).map_err(io::Error::other)?;
-            file.write_all(b"\n")?;
-            file.sync_all()?;
-            std::fs::rename(&temporary, path)?;
-            std::fs::File::open(parent)?.sync_all()?;
-            Ok(())
-        })();
-        if result.is_err() {
-            let _ = std::fs::remove_file(&temporary);
-        }
-        result
+        let mut bytes = serde_json::to_vec_pretty(&registry).map_err(io::Error::other)?;
+        bytes.push(b'\n');
+        sable_core::store::write_atomic_private(path, &bytes)
     }
 
     pub fn validate(&self) -> io::Result<()> {

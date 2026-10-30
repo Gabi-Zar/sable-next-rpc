@@ -1,3 +1,4 @@
+use backon::Retryable;
 use std::io::Read;
 use std::time::Duration;
 
@@ -849,23 +850,18 @@ async fn media_timeout<T>(
         .map_err(|elapsed| matrix_sdk::Error::UnknownError(Box::new(elapsed)))
 }
 
-async fn with_retries<T, Fut>(mut attempt: impl FnMut() -> Fut) -> matrix_sdk::Result<T>
+async fn with_retries<T, Fut>(attempt: impl FnMut() -> Fut) -> matrix_sdk::Result<T>
 where
     Fut: std::future::Future<Output = matrix_sdk::Result<T>>,
 {
-    let mut delays = MEDIA_RETRY_DELAYS.into_iter();
-    loop {
-        match attempt().await {
-            Err(error) if is_transient(&error) => {
-                let Some(delay) = delays.next() else {
-                    return Err(error);
-                };
-                tracing::debug!("media request failed, retrying in {delay:?}: {error}");
-                matrix_sdk::sleep::sleep(delay).await;
-            }
-            result => return result,
-        }
-    }
+    attempt
+        .retry(MEDIA_RETRY_DELAYS.into_iter())
+        .when(is_transient)
+        .notify(|error, delay| {
+            tracing::debug!("media request failed, retrying in {delay:?}: {error}");
+        })
+        .sleep(matrix_sdk::sleep::sleep)
+        .await
 }
 
 fn is_transient(error: &matrix_sdk::Error) -> bool {

@@ -2,8 +2,9 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
+use ashpd::desktop::settings::Settings;
+use futures_util::StreamExt;
 use tauri::{AppHandle, Emitter, Runtime, Theme};
-use zbus::zvariant::OwnedValue;
 
 const NAMESPACE: &str = "org.freedesktop.appearance";
 const KEY: &str = "color-scheme";
@@ -22,10 +23,6 @@ fn theme_for(raw: u32) -> Option<Option<Theme>> {
         2 => Some(Some(Theme::Light)),
         _ => None,
     }
-}
-
-fn parse(value: OwnedValue) -> Option<Option<Theme>> {
-    theme_for(u32::try_from(value).ok()?)
 }
 
 /// Blocks for the first update, then keeps the last one until the channel has
@@ -87,38 +84,27 @@ pub fn follow<R: Runtime>(app: AppHandle<R>) {
         }
     });
 
-    std::thread::spawn(move || {
-        let Ok(connection) = zbus::blocking::Connection::session() else {
+    tauri::async_runtime::spawn(async move {
+        let Ok(settings) = Settings::new().await else {
             return;
         };
-        let Ok(proxy) = zbus::blocking::Proxy::new(
-            &connection,
-            "org.freedesktop.portal.Desktop",
-            "/org/freedesktop/portal/desktop",
-            "org.freedesktop.portal.Settings",
-        ) else {
+        // Keep unknown values distinct from the portal's explicit "no preference".
+        let Ok(mut changes) = settings
+            .receive_setting_changed_with_args::<u32>(NAMESPACE, KEY)
+            .await
+        else {
             return;
         };
-        let Ok(changes) = proxy.receive_signal("SettingChanged") else {
-            return;
-        };
-        if let Some(theme) = proxy
-            .call::<_, _, OwnedValue>("ReadOne", &(NAMESPACE, KEY))
+        if let Some(theme) = settings
+            .read::<u32>(NAMESPACE, KEY)
+            .await
             .ok()
-            .and_then(parse)
+            .and_then(theme_for)
         {
             let _ = tx.send(theme);
         }
-        for message in changes {
-            let Ok((namespace, key, value)) =
-                message.body().deserialize::<(String, String, OwnedValue)>()
-            else {
-                continue;
-            };
-            if namespace != NAMESPACE || key != KEY {
-                continue;
-            }
-            if let Some(theme) = parse(value) {
+        while let Some(value) = changes.next().await {
+            if let Some(theme) = value.ok().and_then(theme_for) {
                 let _ = tx.send(theme);
             }
         }

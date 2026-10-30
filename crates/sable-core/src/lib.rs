@@ -120,7 +120,6 @@ pub struct Core {
     events: mpsc::UnboundedSender<CoreEvent>,
     next_subscription: AtomicU32,
     next_log_id: AtomicU64,
-    next_timeline_access: AtomicU64,
     next_registration_attempt: AtomicU64,
     session_generation: AtomicU64,
     account_locked: AtomicBool,
@@ -173,8 +172,8 @@ pub struct Core {
     pack_cache: Mutex<image_packs::PackCache>,
     calendars: Mutex<HashMap<OwnedRoomId, calendar::RoomCalendar>>,
     push_rules: Mutex<Option<Arc<push_rules::PushRules>>>,
-    timelines: Mutex<HashMap<OwnedRoomId, CachedTimeline>>,
-    thread_timelines: Mutex<HashMap<ThreadKey, CachedTimeline>>,
+    timelines: Mutex<hashlink::LinkedHashMap<OwnedRoomId, CachedTimeline>>,
+    thread_timelines: Mutex<hashlink::LruCache<ThreadKey, CachedTimeline>>,
     notification_content: AtomicBool,
     notification_encrypted_content: AtomicBool,
     notification_sounds: AtomicBool,
@@ -229,7 +228,6 @@ type ThreadKey = (OwnedRoomId, OwnedEventId);
 struct CachedTimeline {
     timeline: Arc<Timeline>,
     hidden_events: bool,
-    last_access: u64,
 }
 
 enum PendingLogin {
@@ -313,7 +311,6 @@ impl Core {
             next_subscription: AtomicU32::new(1),
             foreground_paginations: AtomicU32::new(0),
             next_log_id: AtomicU64::new(1),
-            next_timeline_access: AtomicU64::new(1),
             next_registration_attempt: AtomicU64::new(1),
             session_generation: AtomicU64::new(1),
             key_backup_downloads: tokio::sync::Semaphore::new(1),
@@ -355,8 +352,10 @@ impl Core {
             pack_cache: Mutex::new(image_packs::PackCache::default()),
             calendars: Mutex::new(HashMap::new()),
             push_rules: Mutex::new(None),
-            timelines: Mutex::new(HashMap::new()),
-            thread_timelines: Mutex::new(HashMap::new()),
+            timelines: Mutex::new(hashlink::LinkedHashMap::new()),
+            thread_timelines: Mutex::new(hashlink::LruCache::new(
+                timelines::MAX_CACHED_THREAD_TIMELINES,
+            )),
             search_index: Mutex::new(search::MessageIndex::new()),
             search_crawl: Mutex::new(search::CrawlProgress::default()),
             server_search: Mutex::new(search::ServerSearch::default()),
@@ -618,10 +617,6 @@ impl Core {
 
     pub(crate) fn allocate_subscription(&self) -> SubscriptionId {
         SubscriptionId(self.next_subscription.fetch_add(1, Ordering::Relaxed))
-    }
-
-    pub(crate) fn next_timeline_access(&self) -> u64 {
-        self.next_timeline_access.fetch_add(1, Ordering::Relaxed)
     }
 
     pub(crate) async fn accounts(&self) -> Result<AccountRegistry, RpcError> {

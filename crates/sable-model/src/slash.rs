@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::color::is_hex_color;
 use crate::matrix_link::parse_join_address;
 use crate::member_look::{FieldEdit, MemberLookEdit, PronounView};
 use crate::text::{has_space, is_space, trim, trim_start, words};
@@ -290,12 +291,6 @@ fn is_mxc(value: &str) -> bool {
         .is_some_and(|rest| !rest.is_empty() && !has_space(rest))
 }
 
-fn is_hex_color(value: &str) -> bool {
-    value
-        .strip_prefix('#')
-        .is_some_and(|hex| hex.len() == 6 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
-}
-
 fn non_empty(text: &str) -> Option<String> {
     (!text.is_empty()).then(|| text.to_owned())
 }
@@ -311,17 +306,7 @@ fn unique(tokens: impl IntoIterator<Item = String>) -> Vec<String> {
 }
 
 fn escape_html(text: &str) -> String {
-    let mut escaped = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => escaped.push_str("&amp;"),
-            '<' => escaped.push_str("&lt;"),
-            '>' => escaped.push_str("&gt;"),
-            '"' => escaped.push_str("&quot;"),
-            _ => escaped.push(c),
-        }
-    }
-    escaped
+    html_escape::encode_double_quoted_attribute(text).into_owned()
 }
 
 /// The composer's HTML after its own `/name `, or `None` if it does not start
@@ -392,7 +377,7 @@ pub fn color_update(text: &str) -> Option<MemberLookEdit> {
     };
     let edit = if is_reset(&value) {
         FieldEdit::Clear
-    } else if is_hex_color(&value) {
+    } else if is_hex_color(&value, &[6]) {
         FieldEdit::Set { value }
     } else {
         return None;

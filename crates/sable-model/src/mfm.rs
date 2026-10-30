@@ -1,8 +1,13 @@
 //! The MFM subset the composer expands: `$[fg.color=…]`, `$[bg.color=…]`, `$[unixtime …]`. Offsets are UTF-16 code units.
 
+use std::sync::LazyLock;
+
+use jiff::{SignedDuration, civil::DateTime, fmt::temporal::Pieces};
+use regex_lite::Regex;
 use serde::Serialize;
 
-use crate::civil::{MS_PER_DAY, date, format_ms, unix_day};
+use crate::civil::{format_datetime, format_ms};
+use crate::color::is_hex_color;
 use crate::text::{trim, trim_start};
 
 const MFM_SPAN_LIMIT: usize = 2048;
@@ -43,28 +48,25 @@ fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
 }
 
-fn is_hex_run(text: &str) -> bool {
-    (text.len() == 3 || text.len() == 6) && text.bytes().all(|byte| byte.is_ascii_hexdigit())
-}
-
 #[must_use]
 pub fn is_opaque_matrix_color(value: &str) -> bool {
-    value.strip_prefix('#').is_some_and(is_hex_run)
+    is_hex_color(value, &[3, 6])
 }
 
 /// `#abc`, `abc`, `#aabbcc` or `aabbcc` as `#aabbcc`.
 #[must_use]
 pub fn normalize_mfm_hex(value: &str) -> Option<String> {
-    let digits = value
-        .strip_prefix('#')
-        .unwrap_or(value)
-        .to_ascii_lowercase();
-    if !is_hex_run(&digits) {
+    let mut color = value.to_ascii_lowercase();
+    if !color.starts_with('#') {
+        color.insert(0, '#');
+    }
+    if !is_hex_color(&color, &[3, 6]) {
         return None;
     }
-    if digits.len() == 6 {
-        return Some(format!("#{digits}"));
+    if color.len() == 7 {
+        return Some(color);
     }
+    let digits = color.get(1..)?;
     Some(digits.chars().fold("#".to_owned(), |mut hex, digit| {
         hex.push(digit);
         hex.push(digit);
@@ -233,91 +235,47 @@ pub fn unixtime_datetime(seconds: &str) -> Option<String> {
     Some(format!("{}Z", format_ms(seconds * 1000)?))
 }
 
-fn digits(text: &str, count: usize) -> Option<i64> {
-    let run = text.get(..count)?;
-    if !run.bytes().all(|byte| byte.is_ascii_digit()) {
-        return None;
-    }
-    run.parse().ok()
-}
-
-/// `+hh:mm`, `+hhmm` or `Z` as minutes east of UTC and their canonical text.
-fn offset_of(offset: &str) -> Option<(i64, String)> {
-    if offset.eq_ignore_ascii_case("z") {
-        return Some((0, "Z".to_owned()));
-    }
-    let sign = match offset.as_bytes().first()? {
-        b'+' => 1,
-        b'-' => -1,
-        _ => return None,
-    };
-    let rest = offset.get(1..)?;
-    let rest = match rest.len() {
-        5 if rest.as_bytes().get(2) == Some(&b':') => {
-            format!("{}{}", rest.get(..2)?, rest.get(3..)?)
-        }
-        4 => rest.to_owned(),
-        _ => return None,
-    };
-    let hours = digits(&rest, 2)?;
-    let minutes = digits(rest.get(2..)?, 2)?;
-    if hours > 23 || minutes > 59 {
-        return None;
-    }
-    if hours == 0 && minutes == 0 {
-        return Some((0, "Z".to_owned()));
-    }
-    let text = format!(
-        "{}{hours:02}:{minutes:02}",
-        if sign > 0 { '+' } else { '-' }
-    );
-    Some((sign * (hours * 60 + minutes), text))
-}
+#[expect(
+    clippy::expect_used,
+    reason = "a literal pattern, compiled by every zoned datetime test"
+)]
+static ZONED_DATETIME: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"\A([0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2})(?::([0-5][0-9])(?:\.[0-9]+)?)?([Zz]|[+-](?:[01][0-9]|2[0-3]):?[0-5][0-9])\z",
+    )
+    .expect("the zoned datetime pattern is valid")
+});
 
 /// `YYYY-MM-DDTHH:MM[:SS[.fff]](Z|±HH[:]MM)`, checked as a real date.
 fn zoned_parts(value: &str) -> Option<(String, i64)> {
-    let bytes = value.as_bytes();
-    let separators = [(4, b'-'), (7, b'-'), (13, b':')];
-    if separators
-        .iter()
-        .any(|&(at, byte)| bytes.get(at) != Some(&byte))
-        || !matches!(bytes.get(10), Some(b'T' | b't'))
-    {
+    // Keep the accepted grammar stricter than Jiff's and discard fractions of any length.
+    let parts = ZONED_DATETIME.captures(value)?;
+    let local = parts.get(1)?.as_str();
+    let second = parts.get(2).map_or("00", |part| part.as_str());
+    let offset = parts.get(3)?.as_str();
+    let normalized = format!("{local}:{second}{offset}");
+    let pieces = Pieces::parse(&normalized).ok()?;
+    let local = pieces.date().to_datetime(pieces.time()?);
+    if local.year() < 1 {
         return None;
     }
-    let year = digits(value, 4)?;
-    let month = digits(value.get(5..)?, 2)?;
-    let day = digits(value.get(8..)?, 2)?;
-    let hour = digits(value.get(11..)?, 2)?;
-    let minute = digits(value.get(14..)?, 2)?;
-    let mut rest = value.get(16..)?;
-    let mut second = 0;
-    if let Some(seconds) = rest.strip_prefix(':') {
-        second = digits(seconds, 2)?;
-        rest = seconds.get(2..)?;
-        if let Some(fraction) = rest.strip_prefix('.') {
-            let run = fraction.bytes().take_while(u8::is_ascii_digit).count();
-            if run == 0 {
-                return None;
-            }
-            rest = fraction.get(run..)?;
+    let offset = pieces.to_numeric_offset()?;
+    // Civil durations retain dates near year 9999 that exceed Jiff's timestamp range.
+    let instant = local
+        .duration_since(DateTime::constant(1970, 1, 1, 0, 0, 0, 0))
+        .checked_sub(SignedDuration::from_secs(i64::from(offset.seconds())))?;
+    let offset = if offset.seconds() == 0 {
+        "Z".to_owned()
+    } else {
+        let text = offset.to_string();
+        if text.len() == 3 {
+            format!("{text}:00")
+        } else {
+            text
         }
-    }
-    let (offset_minutes, offset) = offset_of(rest)?;
-    let day_start = unix_day(date(year, month, day).filter(|day| day.year() >= 1)?);
-    if hour > 23 || minute > 59 || second > 59 {
-        return None;
-    }
-    let datetime = format!(
-        "{}-{}-{}T{}:{}:{second:02}{offset}",
-        value.get(..4)?,
-        value.get(5..7)?,
-        value.get(8..10)?,
-        value.get(11..13)?,
-        value.get(14..16)?
-    );
-    let instant =
-        day_start * MS_PER_DAY + ((hour * 60 + minute - offset_minutes) * 60 + second) * 1000;
+    };
+    let datetime = format!("{}{offset}", format_datetime(local));
+    let instant = i64::try_from(instant.as_millis()).ok()?;
     Some((datetime, instant))
 }
 
@@ -471,5 +429,66 @@ mod tests {
             parse_zoned_datetime("0001-01-01T00:00Z").map(|zoned| zoned.instant),
             Some(-62_135_596_800_000)
         );
+    }
+
+    #[test]
+    fn zoned_dates_keep_the_local_clock_and_discard_fractional_seconds() {
+        for (value, canonical, instant) in [
+            (
+                "1970-01-01t01:00:00.12345678901234567890+0100",
+                "1970-01-01T01:00:00+01:00",
+                0,
+            ),
+            ("1970-01-01T00:00:00.999z", "1970-01-01T00:00:00Z", 0),
+            ("1970-01-01T00:00-0000", "1970-01-01T00:00:00Z", 0),
+            (
+                "1970-01-01T00:00+23:59",
+                "1970-01-01T00:00:00+23:59",
+                -86_340_000,
+            ),
+        ] {
+            assert_eq!(
+                parse_zoned_datetime(value),
+                Some(ZonedInstant {
+                    instant,
+                    datetime: canonical.to_owned(),
+                }),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn zoned_dates_reject_jiff_extensions_outside_the_composer_grammar() {
+        for value in [
+            "2026-01-01T00:00+02",
+            "2026-01-01T00:00+02:00:00",
+            "2026-01-01T00:00+23:60",
+            "2026-01-01T00:00-2400",
+            "2026-01-01T00:00Z[UTC]",
+            "+002026-01-01T00:00Z",
+            "2026-01-01T00:00.5Z",
+            "2026-01-01T00:00Z\n",
+        ] {
+            assert_eq!(parse_zoned_datetime(value), None, "{value}");
+        }
+    }
+
+    #[test]
+    fn zoned_dates_cover_the_full_four_digit_year_range() {
+        for (value, instant) in [
+            ("0001-01-01T00:00:00+23:59", -62_135_683_140_000),
+            ("9999-12-31T23:59:59Z", 253_402_300_799_000),
+            ("9999-12-31T23:59:59-23:59", 253_402_387_139_000),
+        ] {
+            assert_eq!(
+                parse_zoned_datetime(value),
+                Some(ZonedInstant {
+                    instant,
+                    datetime: value.to_owned(),
+                }),
+                "{value}"
+            );
+        }
     }
 }

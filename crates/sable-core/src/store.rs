@@ -28,6 +28,58 @@ impl StoreError {
     }
 }
 
+/// Atomically and durably replaces a file, retaining its permissions or the normal creation mode.
+///
+/// # Errors
+/// Returns an error if the temporary file cannot be written or published.
+#[cfg(not(target_family = "wasm"))]
+pub fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    publish(path, bytes, 0o666)
+}
+
+/// Like [`write_atomic`], but a newly created file is readable by its owner only.
+///
+/// # Errors
+/// Returns an error if the temporary file cannot be written or published.
+#[cfg(not(target_family = "wasm"))]
+pub fn write_atomic_private(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    publish(path, bytes, 0o600)
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[cfg_attr(
+    not(unix),
+    expect(unused_variables, reason = "creation modes are unix only")
+)]
+fn publish(path: &std::path::Path, bytes: &[u8], mode: u32) -> std::io::Result<()> {
+    use std::io::Write;
+
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    let mut builder = tempfile::Builder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(mode));
+    }
+    let mut temporary = builder.tempfile_in(parent)?;
+    match std::fs::metadata(path) {
+        Ok(metadata) => temporary
+            .as_file()
+            .set_permissions(metadata.permissions())?,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    temporary.write_all(bytes)?;
+    temporary.as_file().sync_all()?;
+    temporary.persist(path).map_err(|error| error.error)?;
+    #[cfg(unix)]
+    std::fs::File::open(parent)?.sync_all()?;
+    Ok(())
+}
+
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 pub trait SessionStore: SendOutsideWasm + SyncOutsideWasm + 'static {
@@ -248,7 +300,69 @@ impl SessionStore for MemorySessionStore {
 
 #[cfg(all(test, not(target_family = "wasm")))]
 mod tests {
-    use super::{FileSessionStore, SessionStore};
+    use super::{FileSessionStore, SessionStore, write_atomic, write_atomic_private};
+
+    #[test]
+    fn concurrent_atomic_writers_publish_complete_files_without_leftovers() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("media");
+        let ready = std::sync::Barrier::new(8);
+        std::thread::scope(|scope| {
+            for byte in 0..8 {
+                let (path, ready) = (&path, &ready);
+                scope.spawn(move || {
+                    ready.wait();
+                    write_atomic(path, &vec![byte; 16 * 1024]).unwrap();
+                    let saved = std::fs::read(path).unwrap();
+                    assert_eq!(saved.len(), 16 * 1024);
+                    assert!(saved.iter().all(|byte| *byte == saved[0]));
+                });
+            }
+        });
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn atomic_writes_preserve_creation_and_existing_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let reference = dir.path().join("reference");
+        let path = dir.path().join("policy.json");
+        let mode =
+            |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        std::fs::write(&reference, b"old").unwrap();
+        write_atomic(&path, b"first").unwrap();
+        assert_eq!(mode(&path), mode(&reference));
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
+        write_atomic(&path, b"replacement").unwrap();
+        assert_eq!(mode(&path), 0o640);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn private_atomic_writes_create_owner_only_files() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("users.json");
+        write_atomic_private(&path, b"secret").unwrap();
+        assert_eq!(
+            std::fs::metadata(path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+
+    #[test]
+    fn a_failed_atomic_publish_cleans_its_temporary_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("occupied");
+        std::fs::create_dir(&path).unwrap();
+        assert!(write_atomic(&path, b"replacement").is_err());
+        assert!(path.is_dir());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 1);
+    }
 
     #[tokio::test]
     async fn exclusive_store_retries_after_an_unavailable_directory_without_losing_credentials() {

@@ -254,11 +254,14 @@ checksum = "fb5dfbc6d8d2675589ccbe4d0fd61df2419075625f8c1a62325e718e2b0049f9"
 name = "app"
 version = "2.2.2"
 dependencies = [
+ "ashpd",
  "base64 0.23.1",
  "block2",
  "cef",
  "enigo",
+ "futures-util",
  "gtk",
+ "http-cache-semantics",
  "jni 0.22.4",
  "libc",
  "libloading 0.9.0",
@@ -277,6 +280,7 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
+ "serde_with",
  "tauri",
  "tauri-build",
  "tauri-codegen",
@@ -3853,10 +3857,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-cache-semantics"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0603b99309a1e404c2c0945650c0f775b50bb72ac90ae570cb93f9ff05d9efe7"
+dependencies = [
+ "http",
+ "http-serde",
+ "reqwest 0.13.5",
+ "serde",
+ "time",
+]
+
+[[package]]
 name = "http-range-header"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9171a2ea8a68358193d15dd5d70c1c10a2afc3e7e4c5bc92bc9f025cebd7359c"
+
+[[package]]
+name = "http-serde"
+version = "2.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f056c8559e3757392c8d091e796416e4649d8e49e88b8d76df6c002f05027fd"
+dependencies = [
+ "http",
+ "serde",
+]
 
 [[package]]
 name = "httparse"
@@ -8235,15 +8262,18 @@ dependencies = [
  "aes",
  "ammonia",
  "async-trait",
+ "backon",
  "base64 0.23.1",
  "bs58",
  "charabia",
  "ctr",
  "futures-util",
  "getrandom 0.4.3",
+ "hashlink",
  "hkdf 0.13.0",
  "hmac 0.13.0",
  "html-escape",
+ "html5ever 0.39.0",
  "http",
  "jieba-rs",
  "js-sys",
@@ -8255,6 +8285,7 @@ dependencies = [
  "matrix-sdk-test",
  "matrix-sdk-test-utils",
  "matrix-sdk-ui",
+ "matrix_indexed_db_futures",
  "mime",
  "miniz_oxide 0.9.1",
  "pastey",
@@ -8325,9 +8356,10 @@ name = "sable-model"
 version = "0.1.0"
 dependencies = [
  "form_urlencoded",
+ "html-escape",
  "icu_properties",
  "idna",
- "percent-encoding",
+ "jiff",
  "pulldown-cmark",
  "regex-lite",
  "ruma-common",
@@ -8337,7 +8369,6 @@ dependencies = [
  "serde_with",
  "specta",
  "specta-typescript",
- "time",
  "unicode-segmentation",
 ]
 

@@ -1,14 +1,22 @@
 //! Commet calendar events (RFC 8984 `JSCalendar`), expanded as wall-clock times without a time zone database.
 
+use jiff::{
+    Span,
+    civil::{Date, DateTime, Weekday},
+};
 use serde::de::{IntoDeserializer, value};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
 use serde_with::{DefaultOnError, serde_as};
-use time::Date;
 
-use crate::civil::{MS_PER_DAY, date, format_ms, month_length, unix_day, weekday};
+use crate::civil::{MS_PER_DAY, date, format_datetime, format_ms};
 
 const MINUTE_MS: i64 = 60_000;
+const MS_PER_SECOND: i64 = 1000;
+const SECONDS_PER_MINUTE: i64 = 60;
+const SECONDS_PER_HOUR: i64 = 60 * SECONDS_PER_MINUTE;
+const SECONDS_PER_DAY: i64 = 24 * SECONDS_PER_HOUR;
+const SECONDS_PER_WEEK: i64 = 7 * SECONDS_PER_DAY;
 const MAX_STEPS: u32 = 100_000;
 const WEEKDAYS: [&str; 7] = ["su", "mo", "tu", "we", "th", "fr", "sa"];
 const UNMODELLED_PARTS: [&str; 7] = [
@@ -152,15 +160,16 @@ pub fn parse_duration(value: &str) -> i64 {
             }
             Some(())
         };
-        unit(&mut rest, 'W', 7 * 86_400)?;
-        unit(&mut rest, 'D', 86_400)?;
+        unit(&mut rest, 'W', SECONDS_PER_WEEK)?;
+        unit(&mut rest, 'D', SECONDS_PER_DAY)?;
         if let Some(time) = rest.strip_prefix('T') {
             rest = time;
-            unit(&mut rest, 'H', 3600)?;
-            unit(&mut rest, 'M', 60)?;
+            unit(&mut rest, 'H', SECONDS_PER_HOUR)?;
+            unit(&mut rest, 'M', SECONDS_PER_MINUTE)?;
             unit(&mut rest, 'S', 1)?;
         }
-        rest.is_empty().then_some(total_seconds.checked_mul(1000)?)
+        rest.is_empty()
+            .then_some(total_seconds.checked_mul(MS_PER_SECOND)?)
     }
     read(value).unwrap_or(0)
 }
@@ -187,48 +196,23 @@ pub fn format_duration(ms: i64) -> String {
     format!("P{date}{time}")
 }
 
-/// `YYYY-MM-DDTHH:MM[:SS]` as its fields, without checking them.
-fn wall_fields(local: &str) -> Option<[i64; 6]> {
+/// A calendar wall time, from year 100 on, without an offset or fractional seconds.
+fn wall_datetime(local: &str) -> Option<DateTime> {
     let bytes = local.as_bytes();
     if !matches!(bytes.len(), 16 | 19)
         || [(4, b'-'), (7, b'-'), (10, b'T'), (13, b':')]
             .iter()
             .any(|&(at, byte)| bytes.get(at) != Some(&byte))
-        || (bytes.len() == 19 && bytes.get(16) != Some(&b':'))
+        || (bytes.len() == 19 && (bytes.get(16) != Some(&b':') || local.get(17..) == Some("60")))
     {
         return None;
     }
-    let field = |at: usize, len: usize| -> Option<i64> {
-        let run = local.get(at..at + len)?;
-        run.bytes()
-            .all(|byte| byte.is_ascii_digit())
-            .then(|| run.parse().ok())?
-    };
-    let second = if bytes.len() == 19 { field(17, 2)? } else { 0 };
-    Some([
-        field(0, 4)?,
-        field(5, 2)?,
-        field(8, 2)?,
-        field(11, 2)?,
-        field(14, 2)?,
-        second,
-    ])
+    let at: DateTime = local.parse().ok()?;
+    (at.year() >= 100).then_some(at)
 }
 
-/// A date the calendar can place, from year 100 on.
-fn is_real_date_time(local: &str) -> bool {
-    wall_fields(local).is_some_and(|[year, month, day, hour, minute, second]| {
-        year >= 100
-            && date(year, month, day).is_some()
-            && hour <= 23
-            && minute <= 59
-            && second <= 59
-    })
-}
-
-fn wall_ms([year, month, day, hour, minute, second]: [i64; 6]) -> Option<i64> {
-    let days = unix_day(date(year, month, day)?);
-    Some(days * MS_PER_DAY + ((hour * 60 + minute) * 60 + second) * 1000)
+fn days_after(at: DateTime, days: i64) -> Option<DateTime> {
+    at.checked_add(Span::new().try_days(days).ok()?).ok()
 }
 
 fn weekday_index(value: Option<&Value>) -> Option<u8> {
@@ -466,7 +450,7 @@ struct EventIn {
 pub fn read_entry(event_id: &str, sender: &str, event: &Value) -> Option<CalendarItem> {
     let raw = event.as_object()?;
     let fields = EventIn::deserialize(event).ok()?;
-    if fields.uid.is_empty() || !is_real_date_time(&fields.start) {
+    if fields.uid.is_empty() || wall_datetime(&fields.start).is_none() {
         return None;
     }
     Some(CalendarItem {
@@ -485,40 +469,44 @@ pub fn read_entry(event_id: &str, sender: &str, event: &Value) -> Option<Calenda
     })
 }
 
-/// Array `at` on the weeks of a month a weekday falls in.
-fn nth_match(matches: &[i64], nth: f64) -> Option<i64> {
+/// Preserve the array-index coercion used for existing fractional ordinals.
+fn weekday_ordinal(nth: f64) -> Option<i8> {
     let index = if nth > 0.0 { nth - 1.0 } else { nth }.trunc();
-    if !index.is_finite() || index.abs() > 64.0 {
+    let ordinal = if index >= 0.0 { index + 1.0 } else { index };
+    if !(-5.0..=5.0).contains(&ordinal) {
         return None;
     }
     #[expect(
         clippy::cast_possible_truncation,
-        reason = "a whole number of at most 64 converts exactly"
+        reason = "a whole ordinal between -5 and 5 converts exactly"
     )]
-    let index = index as i64;
-    let at = if index >= 0 {
-        index
-    } else {
-        i64::try_from(matches.len()).ok()? + index
-    };
-    matches.get(usize::try_from(at).ok()?).copied()
+    Some(ordinal as i8)
 }
 
 fn month_days(month_start: Date, rule: &Recurrence) -> Vec<i64> {
-    let length = month_length(month_start);
+    let length = i64::from(month_start.days_in_month());
     let mut days: Vec<i64> = rule
         .by_month_day
         .iter()
         .map(|&day| if day > 0 { day } else { length + day + 1 })
         .filter(|date| (1..=length).contains(date))
         .collect();
-    let first_weekday = i64::from(month_start.weekday().number_days_from_sunday());
     for n_day in &rule.by_day {
-        let first = (i64::from(n_day.day) - first_weekday + 7) % 7 + 1;
-        let matches: Vec<i64> = (first..=length).step_by(7).collect();
+        let Some(weekday) = i8::try_from(n_day.day % 7)
+            .ok()
+            .and_then(|day| Weekday::from_sunday_zero_offset(day).ok())
+        else {
+            continue;
+        };
+        let nth_date = |ordinal| {
+            month_start
+                .nth_weekday_of_month(ordinal, weekday)
+                .ok()
+                .map(|date| i64::from(date.day()))
+        };
         match n_day.nth {
-            None => days.extend(matches),
-            Some(nth) => days.extend(nth_match(&matches, nth)),
+            None => days.extend((1..=5).filter_map(nth_date)),
+            Some(nth) => days.extend(weekday_ordinal(nth).and_then(nth_date)),
         }
     }
     days.sort_unstable();
@@ -545,22 +533,20 @@ pub fn wall_times(item: &CalendarItem, before: &str) -> Vec<String> {
     let Some(rule) = item.recurrence.as_ref().filter(|rule| rule.modelled) else {
         return found;
     };
-    let Some(fields) = wall_fields(&item.start) else {
+    let Some(first) = wall_datetime(&item.start) else {
         return found;
     };
-    let [year, month, day, hour, minute, second] = fields;
-    let Some(first) = wall_ms(fields) else {
-        return found;
-    };
-    let clock = ((hour * 60 + minute) * 60 + second) * 1000;
+    let (year, month, day) = (
+        i64::from(first.year()),
+        i64::from(first.month()),
+        i64::from(first.day()),
+    );
     let interval = i64::from(rule.interval);
-    let push = |found: &mut Vec<String>, at: i64| -> bool {
+    let push = |found: &mut Vec<String>, at: DateTime| -> bool {
         if at <= first {
             return true;
         }
-        let Some(local) = format_ms(at) else {
-            return false;
-        };
+        let local = format_datetime(at);
         if local.as_str() >= before || full(found) {
             return false;
         }
@@ -574,9 +560,11 @@ pub fn wall_times(item: &CalendarItem, before: &str) -> Vec<String> {
         let amount = interval * period;
         let keep_going = match rule.frequency {
             Frequency::Weekly if !rule.by_day.is_empty() => {
-                let start_day = first.div_euclid(MS_PER_DAY);
                 let first_day = i64::from(rule.first_day_of_week);
-                let week_start = first - (weekday(start_day) - first_day + 7) % 7 * MS_PER_DAY;
+                let weekday = i64::from(first.weekday().to_sunday_zero_offset());
+                let Some(week_start) = days_after(first, -((weekday - first_day + 7) % 7)) else {
+                    break;
+                };
                 let mut offsets: Vec<i64> = rule
                     .by_day
                     .iter()
@@ -585,10 +573,8 @@ pub fn wall_times(item: &CalendarItem, before: &str) -> Vec<String> {
                 offsets.sort_unstable();
                 offsets.dedup();
                 offsets.into_iter().all(|offset| {
-                    push(
-                        &mut found,
-                        week_start + ((period - 1) * interval * 7 + offset) * MS_PER_DAY,
-                    )
+                    days_after(week_start, (period - 1) * interval * 7 + offset)
+                        .is_some_and(|at| push(&mut found, at))
                 })
             }
             Frequency::Monthly if !rule.by_day.is_empty() || !rule.by_month_day.is_empty() => {
@@ -596,14 +582,16 @@ pub fn wall_times(item: &CalendarItem, before: &str) -> Vec<String> {
                 let in_year = year + index.div_euclid(12);
                 let in_month = index.rem_euclid(12) + 1;
                 date(in_year, in_month, 1).is_some_and(|month_start| {
-                    let start_day = unix_day(month_start);
-                    month_days(month_start, rule)
-                        .into_iter()
-                        .all(|day| push(&mut found, (start_day + day - 1) * MS_PER_DAY + clock))
+                    month_days(month_start, rule).into_iter().all(|day| {
+                        date(in_year, in_month, day)
+                            .is_some_and(|date| push(&mut found, date.to_datetime(first.time())))
+                    })
                 })
             }
-            Frequency::Daily => push(&mut found, first + amount * MS_PER_DAY),
-            Frequency::Weekly => push(&mut found, first + amount * 7 * MS_PER_DAY),
+            Frequency::Daily => days_after(first, amount).is_some_and(|at| push(&mut found, at)),
+            Frequency::Weekly => {
+                days_after(first, amount * 7).is_some_and(|at| push(&mut found, at))
+            }
             Frequency::Monthly | Frequency::Yearly => {
                 let months = if rule.frequency == Frequency::Monthly {
                     amount
@@ -613,11 +601,10 @@ pub fn wall_times(item: &CalendarItem, before: &str) -> Vec<String> {
                 let index = month - 1 + months;
                 let (in_year, in_month) = (year + index.div_euclid(12), index.rem_euclid(12) + 1);
                 date(in_year, in_month, 1).is_some_and(|month_start| {
-                    day > month_length(month_start)
-                        || push(
-                            &mut found,
-                            (unix_day(month_start) + day - 1) * MS_PER_DAY + clock,
-                        )
+                    // Recurrences skip missing dates rather than constraining them to month end.
+                    day > i64::from(month_start.days_in_month())
+                        || date(in_year, in_month, day)
+                            .is_some_and(|date| push(&mut found, date.to_datetime(first.time())))
                 })
             }
         };
@@ -862,6 +849,83 @@ mod tests {
     }
 
     #[test]
+    fn calendar_starts_keep_the_wall_time_grammar() {
+        for start in [
+            "2026-01-01T00+01",
+            "2026-01-01t00:00",
+            "2026-01-01 00:00",
+            "2026-01-01T00:00Z",
+            "2026-01-01T00:00:60",
+            "2026-01-01T00:00:00.1",
+            "2026-01-01T24:00",
+            "0000-01-01T00:00",
+        ] {
+            assert!(
+                read_entry("$e", "@a:x", &json!({"uid": "u", "start": start})).is_none(),
+                "{start}"
+            );
+        }
+        for start in ["0100-01-01T00:00", "9999-12-31T23:59:59"] {
+            assert_eq!(item(&json!({"uid": "u", "start": start})).start, start);
+        }
+    }
+
+    #[test]
+    fn yearly_leap_days_are_skipped_without_clamping() {
+        let event = item(&json!({
+            "uid": "u", "start": "2024-02-29T09:00",
+            "recurrenceRules": [{"frequency": "yearly", "count": 3}]
+        }));
+        assert_eq!(
+            wall_times(&event, "9999"),
+            [
+                "2024-02-29T09:00",
+                "2028-02-29T09:00:00",
+                "2032-02-29T09:00:00"
+            ]
+        );
+    }
+
+    #[test]
+    fn daily_wall_times_keep_the_clock_across_a_dst_transition() {
+        let event = item(&json!({
+            "uid": "u", "start": "2026-03-28T09:00", "timeZone": "Europe/Paris",
+            "recurrenceRules": [{"frequency": "daily", "count": 3}]
+        }));
+        assert_eq!(
+            wall_times(&event, "9999"),
+            [
+                "2026-03-28T09:00",
+                "2026-03-29T09:00:00",
+                "2026-03-30T09:00:00"
+            ]
+        );
+    }
+
+    #[test]
+    fn recurrence_stops_at_the_date_range_and_large_intervals() {
+        let event = item(&json!({
+            "uid": "u", "start": "9999-12-30T09:00",
+            "recurrenceRules": [{"frequency": "daily", "count": 3}]
+        }));
+        assert_eq!(
+            wall_times(&event, "9999-12-31T23:59:59"),
+            ["9999-12-30T09:00", "9999-12-31T09:00:00"]
+        );
+        for frequency in ["daily", "weekly", "monthly", "yearly"] {
+            let event = item(&json!({
+                "uid": "u", "start": "2026-01-01T09:00",
+                "recurrenceRules": [{"frequency": frequency, "interval": u32::MAX, "count": 2}]
+            }));
+            assert_eq!(
+                wall_times(&event, "9999"),
+                ["2026-01-01T09:00"],
+                "{frequency}"
+            );
+        }
+    }
+
+    #[test]
     fn weekly_days_and_monthly_nth_days_expand() {
         let weekly = item(&json!({
             "uid": "u", "start": "2026-10-01T20:00:00",
@@ -887,6 +951,32 @@ mod tests {
                 "2026-03-27T18:00:00"
             ]
         );
+    }
+
+    #[test]
+    fn monthly_weekdays_preserve_fractional_ordinals_and_skip_missing_fifths() {
+        for (nth, january, february) in [
+            (0.5, Some(1), Some(5)),
+            (-0.5, Some(1), Some(5)),
+            (2.75, Some(8), Some(12)),
+            (-1.75, Some(29), Some(26)),
+            (5.0, Some(29), None),
+            (-5.0, Some(1), None),
+            (6.0, None, None),
+        ] {
+            let event = item(&json!({
+                "uid": "u", "start": "2026-01-01T09:00",
+                "recurrenceRules": [{"frequency": "monthly", "byDay": [{"day": "th", "nthOfPeriod": nth}]}]
+            }));
+            let rule = event.recurrence.unwrap();
+            for (month, expected) in [(1, january), (2, february)] {
+                assert_eq!(
+                    month_days(Date::new(2026, month, 1).unwrap(), &rule),
+                    expected.into_iter().collect::<Vec<_>>(),
+                    "month {month}, ordinal {nth}"
+                );
+            }
+        }
     }
 
     #[test]

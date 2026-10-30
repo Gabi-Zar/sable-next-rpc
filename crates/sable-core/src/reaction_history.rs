@@ -1,4 +1,4 @@
-use sable_model::emote_picker::reaction_identity as identity;
+use sable_model::emote_picker::{reaction_identity as identity, rememberable_reaction};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -41,7 +41,7 @@ impl History {
                 .as_str()
                 .or_else(|| value.get("emoji")?.as_str())
                 .or_else(|| value.get(0)?.as_str());
-            let Some(key) = key.filter(|key| !key.is_empty()) else {
+            let Some(key) = key.filter(|key| rememberable_reaction(key)) else {
                 continue;
             };
             // Old totals have no dates, so seed them with one use.
@@ -136,6 +136,9 @@ impl History {
     }
 
     fn remember(&mut self, key: &str, device: &str, now: u64) {
+        if !rememberable_reaction(key) {
+            return;
+        }
         let key_id = identity(key);
         let mut entry = self
             .entries
@@ -336,11 +339,10 @@ mod tests {
     #[test]
     fn duplicate_variants_share_a_counter_but_skin_tones_remain_distinct() {
         let mut history = History::default();
-        for key in ["❤", "❤️", "❤︎", "👍", "👍🏽", "mxc://example.org/cat", "hello"]
-        {
+        for key in ["❤", "❤️", "❤︎", "👍", "👍🏽", "mxc://example.org/cat"] {
             history.remember(key, "phone", NOW);
         }
-        assert_eq!(history.entries.len(), 5);
+        assert_eq!(history.entries.len(), 4);
         assert_eq!(history.entries.first().unwrap().total, 3);
         let restored = History::read(&history.content(), NOW);
         assert_eq!(restored.keys(), history.keys());
@@ -377,6 +379,21 @@ mod tests {
     }
 
     #[test]
+    fn text_reactions_are_never_stored_and_old_ones_are_purged() {
+        let key = "EsTc 1234 abcd efgh";
+        let mut history = History::read(
+            &json!({"recent_emoji": [
+                {"emoji": key, "total": 3}, {"emoji": "🔥", "total": 1}, "+1", "1"
+            ]}),
+            NOW,
+        );
+        history.remember("hello", "phone", NOW);
+        history.remember("😂😂", "phone", NOW);
+        assert_eq!(history.keys(), ["🔥"]);
+        assert!(!history.content().to_string().contains(key));
+    }
+
+    #[test]
     fn malformed_future_and_repeated_buckets_do_not_inflate_the_ranking() {
         let usage = json!({"day": 100, "device": "phone", "count": 2, "last_used": NOW});
         let history = History::read(
@@ -396,7 +413,7 @@ mod tests {
     fn storage_keeps_only_the_top_hundred_reactions_and_thirty_days_per_device() {
         let mut history = History::default();
         for index in 0..150 {
-            history.remember(&format!("text {index}"), "phone", NOW + index);
+            history.remember(&format!("mxc://example.org/{index}"), "phone", NOW + index);
         }
         for day in 1..90 {
             history.remember("🔥", "phone", NOW + day * DAY_MS);

@@ -3,6 +3,7 @@ use crate::protocol::{RpcError, UrlPreviewVideoView, UrlPreviewView};
 use matrix_sdk::media::{MediaFormat, MediaRequestParameters};
 use matrix_sdk::ruma::events::room::MediaSource;
 use matrix_sdk::ruma::{OwnedMxcUri, OwnedRoomId};
+use sable_model::color::is_hex_color;
 use serde_with::{DefaultOnError, serde_as};
 use std::collections::HashMap;
 
@@ -127,9 +128,7 @@ impl PreviewData {
 
     pub(crate) fn valid_theme_color(&self) -> Option<String> {
         let color = self.theme_color.as_deref()?;
-        let digits = color.strip_prefix('#')?;
-        (matches!(digits.len(), 3 | 4 | 6 | 8) && digits.chars().all(|c| c.is_ascii_hexdigit()))
-            .then(|| color.to_owned())
+        is_hex_color(color, &[3, 4, 6, 8]).then(|| color.to_owned())
     }
 
     pub(crate) fn valid_card(&self) -> Option<String> {

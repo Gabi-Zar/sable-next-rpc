@@ -1268,11 +1268,15 @@ async fn cached_push_media(
     .ok()?
     .ok()?;
     let mimetype = image_mimetype(&bytes)?;
-    tokio::fs::create_dir_all(directory).await.ok()?;
-    // Another push may be reading the same file while this one writes it.
-    let partial = path.with_extension(format!("{}.partial", std::process::id()));
-    tokio::fs::write(&partial, bytes).await.ok()?;
-    tokio::fs::rename(&partial, &path).await.ok()?;
+    let directory = directory.to_owned();
+    let destination = path.clone();
+    tokio::task::spawn_blocking(move || {
+        std::fs::create_dir_all(directory)?;
+        crate::store::write_atomic(&destination, &bytes)
+    })
+    .await
+    .ok()?
+    .ok()?;
     Some((path.to_str()?.to_owned(), mimetype))
 }
 

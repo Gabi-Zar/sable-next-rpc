@@ -551,7 +551,7 @@ mod tests {
         ResolvedQuery, SearchAttachment, SearchDirectory, SearchFilter, SearchPerson, SearchRoom,
         resolve, resolve_room_target, suggest_person, suggest_room,
     };
-    use crate::civil::{MS_PER_DAY, date, unix_day};
+    use crate::civil::{MS_PER_DAY, date};
     use crate::search_query::parse_search_query;
     use crate::spaces::SpaceChildEdge;
 
@@ -625,7 +625,11 @@ mod tests {
         let months = i64::from(year) * 12 + i64::from(month) - 1;
         let first =
             date(months.div_euclid(12), months.rem_euclid(12) + 1, 1).expect("a real month");
-        (unix_day(first) + i64::from(day) - 1) * MS_PER_DAY
+        first
+            .duration_since(jiff::civil::Date::constant(1970, 1, 1))
+            .as_secs()
+            * 1000
+            + (i64::from(day) - 1) * MS_PER_DAY
     }
 
     fn at(year: i32, month: u32, day: u32) -> Option<u64> {

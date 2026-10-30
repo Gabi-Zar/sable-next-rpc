@@ -32,7 +32,10 @@ use axum::{
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_extra::{
     TypedHeader,
-    headers::authorization::{Authorization, Basic},
+    headers::{
+        Cookie, HeaderMapExt,
+        authorization::{Authorization, Basic},
+    },
 };
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 use clap::{Parser, Subcommand};
@@ -683,7 +686,7 @@ async fn oidc_start(
         let mut transactions = server.oidc_transactions.lock().await;
         transactions.retain(|_, (created, _, _)| created.elapsed() < Duration::from_secs(600));
         if let Some(previous) = oidc_cookie(&headers) {
-            transactions.remove(previous);
+            transactions.remove(&previous);
         }
         if transactions.len() >= 1024
             || transactions
@@ -702,7 +705,7 @@ async fn oidc_start(
     let mut transactions = server.oidc_transactions.lock().await;
     transactions.retain(|_, (created, _, _)| created.elapsed() < Duration::from_secs(600));
     if let Some(previous) = oidc_cookie(&headers) {
-        transactions.remove(previous);
+        transactions.remove(&previous);
     }
     if transactions.len() >= 1024
         || transactions
@@ -723,14 +726,11 @@ async fn oidc_start(
     response
 }
 
-fn oidc_cookie(headers: &HeaderMap) -> Option<&str> {
+fn oidc_cookie(headers: &HeaderMap) -> Option<String> {
     headers
-        .get(header::COOKIE)?
-        .to_str()
-        .ok()?
-        .split(';')
-        .map(str::trim)
-        .find_map(|part| part.strip_prefix("__Host-sable_oidc="))
+        .typed_get::<Cookie>()?
+        .get("__Host-sable_oidc")
+        .map(ToOwned::to_owned)
 }
 
 async fn oidc_callback(
@@ -746,7 +746,7 @@ async fn oidc_callback(
     let Some(cookie) = cookie else {
         return StatusCode::BAD_REQUEST.into_response();
     };
-    let transaction = server.oidc_transactions.lock().await.remove(cookie);
+    let transaction = server.oidc_transactions.lock().await.remove(&cookie);
     let Some((created, _, transaction)) = transaction else {
         return StatusCode::BAD_REQUEST.into_response();
     };
@@ -1665,6 +1665,18 @@ async fn shutdown_signal() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn oidc_cookie_is_read_from_multiple_cookie_headers() {
+        let mut headers = HeaderMap::new();
+        headers.append(header::COOKIE, HeaderValue::from_static("other=value"));
+        headers.append(
+            header::COOKIE,
+            HeaderValue::from_static("another=value; __Host-sable_oidc=transaction"),
+        );
+        assert_eq!(oidc_cookie(&headers).as_deref(), Some("transaction"));
+        assert_eq!(oidc_cookie(&HeaderMap::new()), None);
+    }
 
     #[test]
     fn instance_lock_prevents_concurrent_server_or_removal() {

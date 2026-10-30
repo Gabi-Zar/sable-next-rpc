@@ -1,6 +1,5 @@
-use std::borrow::Cow;
-
-use percent_encoding::percent_decode_str;
+use ruma_common::matrix_uri::MatrixId;
+use ruma_common::{MatrixToUri, MatrixUri};
 use serde::Serialize;
 
 use crate::text::is_space;
@@ -28,116 +27,37 @@ pub struct ViaSplit {
     pub via: Vec<String>,
 }
 
-/// `decodeURIComponent`: a broken escape or invalid UTF-8 refuses the segment.
-fn decode_component(segment: &str) -> Option<String> {
-    let broken = segment.split('%').skip(1).any(|rest| {
-        !rest
-            .get(..2)
-            .is_some_and(|hex| hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
-    });
-    if broken {
-        return None;
-    }
-    percent_decode_str(segment)
-        .decode_utf8()
-        .ok()
-        .map(Cow::into_owned)
-}
-
-fn decoded_segment(segments: &[&str], index: usize) -> Option<String> {
-    segments
-        .get(index)
-        .filter(|segment| !segment.is_empty())
-        .and_then(|segment| decode_component(segment))
-}
-
-/// The path of a `matrix:` URI, without its query or fragment.
-fn parse_path(path: &str) -> Option<MatrixLink> {
-    // The authority is reserved, not a routing server. Empty authorities are valid too.
-    let path = if let Some(rest) = path.strip_prefix("//") {
-        rest.split_once('/')?.1
-    } else {
-        path
-    };
-    let segments: Vec<&str> = path.split('/').collect();
-    let kind = *segments.first()?;
-    let id = decoded_segment(&segments, 1)?;
-
-    if (kind == "u" || kind == "user") && segments.len() == 2 {
-        return Some(MatrixLink::User {
-            user_id: format!("@{id}"),
-        });
-    }
-    let sigil = match kind {
-        "r" | "room" => '#',
-        "roomid" => '!',
-        _ => return None,
-    };
-    let room_id = format!("{sigil}{id}");
-    if segments.len() == 2 {
-        return Some(MatrixLink::Room { room_id });
-    }
-    let event_kind = *segments.get(2)?;
-    let event_id = decoded_segment(&segments, 3)?;
-    ((event_kind == "e" || event_kind == "event") && segments.len() == 4).then(|| {
-        MatrixLink::Event {
-            room_id,
-            event_id: format!("${event_id}"),
-        }
-    })
-}
-
-fn strip_scheme<'a>(href: &'a str, scheme: &str) -> Option<&'a str> {
-    let head = href.get(..scheme.len())?;
-    head.eq_ignore_ascii_case(scheme)
-        .then(|| href.get(scheme.len()..))
-        .flatten()
-}
-
-/// `matrix.to` keeps `?via=` inside the fragment, so the first `?` there starts
-/// the query; no Matrix id contains one.
-fn parse_matrix_to(href: &str) -> Option<MatrixLink> {
-    let rest = strip_scheme(href, "https://")?;
-    let (authority, after) = rest.split_at(rest.find(['/', '?', '#']).unwrap_or(rest.len()));
-    if !authority.eq_ignore_ascii_case("matrix.to") {
-        return None;
-    }
-    let fragment = after.strip_prefix("/#/")?;
-    let path = fragment.split('?').next()?;
-    let segments: Vec<&str> = path.split('/').collect();
-    let first = decoded_segment(&segments, 0)?;
-    if first.starts_with('@') && segments.len() == 1 {
-        return Some(MatrixLink::User { user_id: first });
-    }
-    if !first.starts_with('!') && !first.starts_with('#') {
-        return None;
-    }
-    if segments.len() == 1 {
-        return Some(MatrixLink::Room { room_id: first });
-    }
-    if segments.len() != 2 {
-        return None;
-    }
-    let event_id = decoded_segment(&segments, 1)?;
-    event_id.starts_with('$').then_some(MatrixLink::Event {
-        room_id: first,
-        event_id,
-    })
-}
-
 #[must_use]
 pub fn parse_matrix_link(href: &str) -> Option<MatrixLink> {
-    strip_scheme(href, "matrix:").map_or_else(
-        || parse_matrix_to(href),
-        |rest| parse_path(rest.split(['?', '#']).next().unwrap_or(rest)),
-    )
+    let id = MatrixUri::parse(href)
+        .map(|uri| uri.id().clone())
+        .or_else(|_| MatrixToUri::parse(href).map(|uri| uri.id().clone()))
+        .ok()?;
+    Some(match id {
+        MatrixId::User(user_id) => MatrixLink::User {
+            user_id: user_id.into(),
+        },
+        MatrixId::Room(room_id) => MatrixLink::Room {
+            room_id: room_id.into(),
+        },
+        MatrixId::RoomAlias(room_id) => MatrixLink::Room {
+            room_id: room_id.into(),
+        },
+        MatrixId::Event(room_id, event_id) => MatrixLink::Event {
+            room_id: room_id.into(),
+            event_id: event_id.into(),
+        },
+        _ => return None,
+    })
 }
 
 /// The servers a link names to route a room through, and the link without them.
 #[must_use]
 pub fn split_via(href: &str) -> ViaSplit {
     // In matrix: URIs the query precedes the fragment; matrix.to puts it inside.
-    let native_uri = strip_scheme(href, "matrix:").is_some();
+    let native_uri = href
+        .get(..7)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("matrix:"));
     let fragment_start = if native_uri { href.find('#') } else { None };
     let (resource, fragment) = href.split_at(fragment_start.unwrap_or(href.len()));
     let after_hash = if native_uri {
@@ -354,13 +274,11 @@ mod tests {
     #[test]
     fn malformed_uri_paths_are_not_truncated_into_valid_links() {
         for href in [
-            "matrix:/u/alice:example.org",
             "matrix:////u/alice:example.org",
             "matrix://reserved.example",
             "matrix:u/",
             "matrix:u/%FF",
             "matrix:u/%ZZ",
-            "matrix:u/alice:example.org/",
             "https://matrix.to/#@alice:example.org",
             "https://matrix.to/#/@alice:example.org/extra",
             "https://matrix.to/#/!room:example.org/$event/extra",
@@ -368,6 +286,26 @@ mod tests {
             "https://user@matrix.to/#/!room:example.org",
             "https://matrix.to:8443/#/!room:example.org",
             "http://matrix.to/#/!room:example.org",
+        ] {
+            assert_eq!(parse_matrix_link(href), None, "{href}");
+        }
+    }
+
+    #[test]
+    fn ruma_accepts_optional_path_slashes() {
+        for href in ["matrix:/u/alice:example.org", "matrix:u/alice:example.org/"] {
+            assert_eq!(parse_matrix_link(href), Some(user("@alice:example.org")));
+        }
+    }
+
+    #[test]
+    fn ruma_rejects_previously_tolerated_identifiers_and_unknown_queries() {
+        for href in [
+            "matrix:u/alice",
+            "matrix:r/lobby",
+            "https://matrix.to/#/@alice",
+            "matrix:u/alice:example.org?unknown=value",
+            "https://matrix.to/#/!room:example.org?action=join",
         ] {
             assert_eq!(parse_matrix_link(href), None, "{href}");
         }

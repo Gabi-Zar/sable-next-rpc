@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use ruma_common::ServerName;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Map, Value};
@@ -566,30 +567,9 @@ fn is_identifier(text: &str, sigil: char, server_required: bool) -> bool {
     local_ok && server_ok
 }
 
-fn is_port(port: &str) -> bool {
-    port.is_empty()
-        || port.strip_prefix(':').is_some_and(|number| {
-            (1..=5).contains(&number.len()) && number.chars().all(|c| c.is_ascii_digit())
-        })
-}
-
 /// A hostname, an IPv4 address or a bracketed IPv6 one, and an optional port.
 fn is_server_name(text: &str) -> bool {
-    if let Some(rest) = text.strip_prefix('[') {
-        return rest.split_once(']').is_some_and(|(address, port)| {
-            !address.is_empty()
-                && address
-                    .chars()
-                    .all(|c| c.is_ascii_hexdigit() || c == ':' || c == '.')
-                && is_port(port)
-        });
-    }
-    let (host, port) = text.split_at(text.find(':').unwrap_or(text.len()));
-    !host.is_empty()
-        && host
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
-        && is_port(port)
+    <&ServerName>::try_from(text).is_ok()
 }
 
 fn integer(text: &str) -> Option<i64> {
@@ -1178,6 +1158,18 @@ mod tests {
         assert!(is_server_name("[::1]:8448"));
         assert!(!is_server_name("exa mple.org"));
         assert!(!is_server_name("example.org:123456"));
+        for invalid in [
+            "[abc]",
+            "[::::]",
+            "[127.0.0.1]",
+            "example.org:65536",
+            ":8448",
+        ] {
+            assert!(!is_server_name(invalid), "{invalid}");
+        }
+        for valid in ["[2001:db8::1]:65535", "127.0.0.1:0", "example.org:65535"] {
+            assert!(is_server_name(valid), "{valid}");
+        }
     }
 
     #[test]

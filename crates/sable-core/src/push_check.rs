@@ -1,3 +1,6 @@
+#[cfg(not(target_family = "wasm"))]
+use backon::Retryable;
+
 use crate::errors::CoreError;
 use matrix_sdk::Client;
 use matrix_sdk::ruma::TransactionId;
@@ -71,22 +74,18 @@ fn transient(error: &matrix_sdk::reqwest::Error) -> bool {
 }
 
 #[cfg(not(target_family = "wasm"))]
-async fn retry_transient<T, F, Fut>(mut request: F, delays: &[Duration]) -> Result<T, CoreError>
+async fn retry_transient<T, F, Fut>(request: F, delays: &[Duration]) -> Result<T, CoreError>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, matrix_sdk::reqwest::Error>>,
 {
-    for delay in delays {
-        match request().await {
-            Ok(value) => return Ok(value),
-            Err(error) if transient(&error) => {
-                tracing::debug!(%error, "retrying push gateway request");
-                matrix_sdk::sleep::sleep(*delay).await;
-            }
-            Err(error) => return Err(CoreError::backend(error)),
-        }
-    }
-    request().await.map_err(CoreError::backend)
+    request
+        .retry(delays.iter().copied())
+        .when(transient)
+        .notify(|error, _| tracing::debug!(%error, "retrying push gateway request"))
+        .sleep(matrix_sdk::sleep::sleep)
+        .await
+        .map_err(CoreError::backend)
 }
 
 pub enum GatewayAnswer {

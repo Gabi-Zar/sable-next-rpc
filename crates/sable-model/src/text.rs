@@ -1,22 +1,12 @@
 use icu_properties::{
     CodePointMapData, CodePointSetData,
-    props::{DefaultIgnorableCodePoint, GeneralCategory},
+    props::{DefaultIgnorableCodePoint, GeneralCategory, WhiteSpace},
 };
 
 /// JavaScript's `\s`, which is not quite Unicode `White_Space`: the inputs this
 /// crate parses were typed into the web page and split there before.
-pub(crate) const fn is_space(c: char) -> bool {
-    matches!(
-        c,
-        '\t' | '\n' | '\u{0b}' | '\u{0c}' | '\r' | ' ' | '\u{a0}' | '\u{1680}' | '\u{2000}'
-            ..='\u{200a}'
-                | '\u{2028}'
-                | '\u{2029}'
-                | '\u{202f}'
-                | '\u{205f}'
-                | '\u{3000}'
-                | '\u{feff}'
-    )
+pub(crate) fn is_space(c: char) -> bool {
+    c == '\u{feff}' || (c != '\u{0085}' && CodePointSetData::new::<WhiteSpace>().contains(c))
 }
 
 pub(crate) fn has_space(text: &str) -> bool {
@@ -74,7 +64,19 @@ pub(crate) fn span(text: &str, from: usize, to: usize) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::visible_name;
+    use super::{is_space, trim, visible_name, words};
+
+    #[test]
+    fn command_whitespace_keeps_javascript_rules() {
+        assert!(is_space('\u{feff}'));
+        assert!(!is_space('\u{0085}'));
+        assert!(!is_space('\u{180e}'));
+        assert_eq!(
+            words("one\u{feff}two\u{0085}three"),
+            ["one", "two\u{0085}three"]
+        );
+        assert_eq!(trim("\u{feff}\u{2009}hello\u{3000}"), "hello");
+    }
 
     #[test]
     fn hidden_names_have_no_display_name() {

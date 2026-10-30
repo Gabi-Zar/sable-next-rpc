@@ -185,35 +185,27 @@ use crate::protocol::{CoreEvent, RpcError};
 
 type AccountDataContent = Option<Raw<AnyGlobalAccountDataEventContent>>;
 
-#[derive(Default)]
 pub(crate) struct PackCache {
     account_data: HashMap<String, AccountDataContent>,
-    rooms: HashMap<OwnedRoomId, (RoomPackState, u64)>,
-    uses: u64,
+    rooms: hashlink::LruCache<OwnedRoomId, RoomPackState>,
+}
+
+impl Default for PackCache {
+    fn default() -> Self {
+        Self {
+            account_data: HashMap::new(),
+            rooms: hashlink::LruCache::new(MAX_CACHED_ROOMS),
+        }
+    }
 }
 
 impl PackCache {
     fn room(&mut self, room_id: &RoomId) -> Option<RoomPackState> {
-        self.uses += 1;
-        let uses = self.uses;
-        self.rooms.get_mut(room_id).map(|(state, used)| {
-            *used = uses;
-            state.clone()
-        })
+        self.rooms.get(room_id).cloned()
     }
 
     fn remember_room(&mut self, room_id: OwnedRoomId, state: RoomPackState) {
-        self.uses += 1;
-        self.rooms.insert(room_id, (state, self.uses));
-        if self.rooms.len() > MAX_CACHED_ROOMS
-            && let Some(oldest) = self
-                .rooms
-                .iter()
-                .min_by_key(|(_, (_, used))| *used)
-                .map(|(room_id, _)| room_id.clone())
-        {
-            self.rooms.remove(&oldest);
-        }
+        self.rooms.insert(room_id, state);
     }
 
     pub(crate) fn forget_room(&mut self, room_id: &RoomId, event_type: &str) {

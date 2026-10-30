@@ -136,8 +136,7 @@ pub fn device_pusher<R: Runtime>(
 fn save_pushers(root: &std::path::Path, pushers: &[RegisteredPusher]) -> Result<(), RpcError> {
     std::fs::create_dir_all(root).map_err(|_| RpcError::Unavailable)?;
     let bytes = serde_json::to_vec(pushers).map_err(|_| RpcError::Unavailable)?;
-    std::fs::write(root.join("pushers.tmp"), bytes).map_err(|_| RpcError::Unavailable)?;
-    std::fs::rename(root.join("pushers.tmp"), root.join("pushers.json"))
+    sable_core::store::write_atomic(&root.join("pushers.json"), &bytes)
         .map_err(|_| RpcError::Unavailable)
 }
 

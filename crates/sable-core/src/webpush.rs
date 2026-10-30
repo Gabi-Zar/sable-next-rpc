@@ -1,21 +1,16 @@
-//! MSC4174 web push: the homeserver encrypts and delivers. Requests are hand-rolled because Ruma
-//! cannot express the pusher kind.
+//! MSC4174 web push. The homeserver encrypts and delivers, and custom pusher data stays raw.
 
 use crate::api::push::WebPusherView;
 use crate::errors::CoreError;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use http::{self, header::CONTENT_TYPE};
 use matrix_sdk::SupportedPathBuilder;
 use matrix_sdk::{Client, HttpResult};
 use ruma::api::{
-    BytesBody, EmptyBody, IncomingResponse, MatrixVersion, Metadata, OutgoingRequest, auth_scheme,
-    client::discovery::get_capabilities,
-    error::{DeserializationError, IntoHttpError},
-    path_builder::{PathBuilder, StablePathSelector, VersionHistory},
+    Metadata, auth_scheme, client::discovery::get_capabilities, error::IntoHttpError,
+    path_builder::PathBuilder,
 };
-use ruma::http_headers::APPLICATION_JSON;
 use ruma::push::PushFormat;
 
 use crate::protocol::RegisteredPusherView;
@@ -71,7 +66,7 @@ pub async fn set_pusher(client: &Client, mut pusher: WebPusherView) -> Result<()
     client
         .send(SetWebPusher { body })
         .await
-        .map(|EmptyResponse| ())
+        .map(|response| drop(response.body))
         .map_err(CoreError::backend)
 }
 
@@ -138,68 +133,41 @@ fn pusher_body(
     })
 }
 
-#[derive(Clone, Debug)]
-struct SetWebPusher {
-    body: JsonValue,
-}
+use set_web_pusher::Request as SetWebPusher;
 
-impl Metadata for SetWebPusher {
-    const METHOD: http::Method = http::Method::POST;
-    const RATE_LIMITED: bool = true;
-    type Authentication = auth_scheme::AccessToken;
-    type PathBuilder = VersionHistory;
-    const PATH_BUILDER: VersionHistory = VersionHistory::new(
-        &[],
-        &[
-            (
-                StablePathSelector::Version(MatrixVersion::V1_0),
-                "/_matrix/client/r0/pushers/set",
-            ),
-            (
-                StablePathSelector::Version(MatrixVersion::V1_1),
-                "/_matrix/client/v3/pushers/set",
-            ),
-        ],
-        None,
-        None,
-    );
-}
+mod set_web_pusher {
+    use ruma::{
+        api::{auth_scheme::AccessToken, request},
+        metadata,
+    };
 
-impl OutgoingRequest for SetWebPusher {
-    type Body = BytesBody;
-    type EndpointError = ruma::api::error::Error;
-    type IncomingResponse = EmptyResponse;
+    type Response = super::empty_response::Response;
 
-    fn try_into_http_request_inner(
-        self,
-        base_url: &str,
-        path_builder_input: <VersionHistory as PathBuilder>::Input<'_>,
-    ) -> Result<http::Request<Self::Body>, IntoHttpError> {
-        http::Request::builder()
-            .method(Self::METHOD)
-            .uri(Self::make_endpoint_url(
-                path_builder_input,
-                base_url,
-                &[],
-                "",
-            )?)
-            .header(CONTENT_TYPE, APPLICATION_JSON)
-            .body(BytesBody(serde_json::to_vec(&self.body)?))
-            .map_err(Into::into)
+    metadata! {
+        method: POST,
+        rate_limited: true,
+        authentication: AccessToken,
+        history: {
+            1.0 => "/_matrix/client/r0/pushers/set",
+            1.1 => "/_matrix/client/v3/pushers/set",
+        }
+    }
+
+    #[request]
+    pub(super) struct Request {
+        #[ruma_api(body)]
+        pub body: serde_json::Value,
     }
 }
 
-/// For bodies the endpoint defines but the client doesn't care about.
-#[derive(Debug)]
-struct EmptyResponse;
+mod empty_response {
+    use ruma::api::response;
 
-impl IncomingResponse for EmptyResponse {
-    type EndpointError = ruma::api::error::Error;
-
-    fn try_from_http_response_inner(
-        _: http::Response<&[u8]>,
-    ) -> Result<Self, DeserializationError> {
-        Ok(Self)
+    /// Accepts successful responses without requiring a JSON body.
+    #[response]
+    pub struct Response {
+        #[ruma_api(raw_body)]
+        pub body: Vec<u8>,
     }
 }
 
@@ -215,69 +183,42 @@ pub async fn pushers(client: &Client) -> Result<Vec<RegisteredPusherView>, CoreE
 }
 
 pub(crate) async fn raw_pushers(client: &Client) -> Result<Vec<RawPusher>, CoreError> {
-    let Webpushers { pushers } = client
-        .send(ListWebPushers)
+    let response = client
+        .send(ListWebPushers {})
         .await
         .map_err(CoreError::backend)?;
 
-    Ok(pushers)
+    Ok(response.pushers)
 }
 
-/// Read raw: ruma's `Pusher` carries neither a custom kind nor `activated`.
-#[derive(Clone, Debug, Default)]
-struct ListWebPushers;
+use list_web_pushers::Request as ListWebPushers;
 
-impl Metadata for ListWebPushers {
-    const METHOD: http::Method = http::Method::GET;
-    const RATE_LIMITED: bool = false;
-    type Authentication = auth_scheme::AccessToken;
-    type PathBuilder = VersionHistory;
-    const PATH_BUILDER: VersionHistory = VersionHistory::new(
-        &[],
-        &[
-            (
-                StablePathSelector::Version(MatrixVersion::V1_0),
-                "/_matrix/client/r0/pushers",
-            ),
-            (
-                StablePathSelector::Version(MatrixVersion::V1_1),
-                "/_matrix/client/v3/pushers",
-            ),
-        ],
-        None,
-        None,
-    );
-}
+mod list_web_pushers {
+    use ruma::{
+        api::{auth_scheme::AccessToken, request, response},
+        metadata,
+    };
 
-impl OutgoingRequest for ListWebPushers {
-    type Body = EmptyBody;
-    type EndpointError = ruma::api::error::Error;
-    type IncomingResponse = Webpushers;
+    metadata! {
+        method: GET,
+        rate_limited: false,
+        authentication: AccessToken,
+        history: {
+            1.0 => "/_matrix/client/r0/pushers",
+            1.1 => "/_matrix/client/v3/pushers",
+        }
+    }
 
-    fn try_into_http_request_inner(
-        self,
-        base_url: &str,
-        path_builder_input: <VersionHistory as PathBuilder>::Input<'_>,
-    ) -> Result<http::Request<Self::Body>, IntoHttpError> {
-        http::Request::builder()
-            .method(Self::METHOD)
-            .uri(Self::make_endpoint_url(
-                path_builder_input,
-                base_url,
-                &[],
-                "",
-            )?)
-            .body(EmptyBody)
-            .map_err(Into::into)
+    #[request]
+    pub(super) struct Request {}
+
+    #[response]
+    pub struct Response {
+        pub pushers: Vec<super::RawPusher>,
     }
 }
 
-#[derive(Deserialize)]
-struct RawPushers {
-    pushers: Vec<RawPusher>,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RawPusher {
     pub(crate) pushkey: String,
     pub(crate) app_id: String,
@@ -329,22 +270,6 @@ impl From<RawPusher> for RegisteredPusherView {
     }
 }
 
-#[derive(Debug)]
-struct Webpushers {
-    pushers: Vec<RawPusher>,
-}
-
-impl IncomingResponse for Webpushers {
-    type EndpointError = ruma::api::error::Error;
-
-    fn try_from_http_response_inner(
-        response: http::Response<&[u8]>,
-    ) -> Result<Self, DeserializationError> {
-        let RawPushers { pushers } = serde_json::from_slice(response.body())?;
-        Ok(Self { pushers })
-    }
-}
-
 /// # Errors
 ///
 /// When the homeserver rejects the acknowledgement.
@@ -352,21 +277,22 @@ pub async fn ack(client: &Client, app_id: String, ack_token: String) -> Result<(
     client
         .send(AckWebPusher { app_id, ack_token })
         .await
-        .map(|EmptyResponse| ())
+        .map(|response| drop(response.body))
         .map_err(CoreError::backend)
 }
 
-#[derive(Serialize)]
-struct AckBodyOut {
-    app_id: String,
-    ack_token: String,
-}
+use acknowledge_web_pusher::Request as AckWebPusher;
 
-/// Returns the token the validation push carried.
-#[derive(Clone, Debug)]
-struct AckWebPusher {
-    app_id: String,
-    ack_token: String,
+mod acknowledge_web_pusher {
+    use ruma::api::request;
+
+    type Response = super::empty_response::Response;
+
+    #[request]
+    pub(super) struct Request {
+        pub app_id: String,
+        pub ack_token: String,
+    }
 }
 
 impl Metadata for AckWebPusher {
@@ -376,35 +302,6 @@ impl Metadata for AckWebPusher {
     type PathBuilder = UnstablePath;
     const PATH_BUILDER: UnstablePath =
         UnstablePath("/_matrix/client/unstable/org.matrix.msc4174/pushers/ack");
-}
-
-impl OutgoingRequest for AckWebPusher {
-    type Body = BytesBody;
-    type EndpointError = ruma::api::error::Error;
-    type IncomingResponse = EmptyResponse;
-
-    fn try_into_http_request_inner(
-        self,
-        base_url: &str,
-        path_builder_input: <UnstablePath as PathBuilder>::Input<'_>,
-    ) -> Result<http::Request<Self::Body>, IntoHttpError> {
-        let body = AckBodyOut {
-            app_id: self.app_id,
-            ack_token: self.ack_token,
-        };
-
-        http::Request::builder()
-            .method(Self::METHOD)
-            .uri(Self::make_endpoint_url(
-                path_builder_input,
-                base_url,
-                &[],
-                "",
-            )?)
-            .header(CONTENT_TYPE, APPLICATION_JSON)
-            .body(BytesBody(serde_json::to_vec(&body)?))
-            .map_err(Into::into)
-    }
 }
 
 /// Unstable endpoints do not negotiate versions.
@@ -441,9 +338,10 @@ mod tests {
     use std::borrow::Cow;
     use std::collections::BTreeSet;
 
-    use matrix_sdk::ruma::api::OutgoingRequestExt;
+    use http::header::CONTENT_TYPE;
     use matrix_sdk::ruma::api::SupportedVersions;
     use matrix_sdk::ruma::api::auth_scheme::SendAccessToken;
+    use matrix_sdk::ruma::api::{MatrixVersion, OutgoingRequestExt};
     use serde_json::json;
 
     use super::*;
@@ -464,6 +362,16 @@ mod tests {
             versions: values.iter().copied().collect(),
             features: BTreeSet::new(),
         })
+    }
+
+    #[test]
+    fn successful_write_responses_do_not_require_json() {
+        for body in [b"".as_slice(), b"{}", b"not JSON"] {
+            let response = http::Response::builder().body(body).expect("a response");
+            let parsed = <empty_response::Response as ruma::api::IncomingResponse>::try_from_http_response_inner(response)
+                .expect("the write response body is ignored");
+            assert_eq!(parsed.body, body);
+        }
     }
 
     #[test]
@@ -581,7 +489,7 @@ mod tests {
 
     #[test]
     fn the_pushers_list_is_a_bare_get() {
-        let http_request: http::Request<Vec<u8>> = ListWebPushers
+        let http_request: http::Request<Vec<u8>> = ListWebPushers {}
             .try_into_http_request(
                 "https://homeserver.example",
                 SendAccessToken::IfRequired("token"),
