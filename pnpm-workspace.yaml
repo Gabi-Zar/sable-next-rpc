@@ -18,6 +18,7 @@ allowBuilds:
   protobufjs: false
   ssh2: false
   workerd: true
+  '@swc/core': false
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - '@sableclient/*'
