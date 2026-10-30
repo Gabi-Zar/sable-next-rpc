@@ -5368,3 +5368,70 @@ async fn thread_actions_accept_linked_context_only_for_its_inferred_root() {
         Err(RpcError::UnknownSubscription)
     ));
 }
+
+#[tokio::test]
+async fn redacting_a_topic_the_server_already_stripped_leaves_the_room_without_topic() {
+    let server = MatrixMockServer::new().await;
+    let directory = tempfile::tempdir().unwrap();
+    let client = server
+        .client_builder()
+        .on_builder(|builder| builder.sqlite_store(directory.path(), None))
+        .build()
+        .await;
+    let room_id = room_id!("!redacted-topic:example.org");
+    let topic = json!({
+        "type": "m.room.topic",
+        "state_key": "",
+        "sender": ALICE.to_string(),
+        "event_id": "$topic",
+        "origin_server_ts": 1_000_000,
+        "content": {},
+    });
+    server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id).add_state_event(
+                matrix_sdk::ruma::serde::Raw::new(&topic)
+                    .unwrap()
+                    .cast_unchecked(),
+            ),
+        )
+        .await;
+    assert_eq!(client.get_room(room_id).unwrap().topic(), None);
+
+    let redaction = json!({
+        "type": "m.room.redaction",
+        "sender": ALICE.to_string(),
+        "event_id": "$redaction",
+        "origin_server_ts": 2_000_000,
+        "redacts": "$topic",
+        "content": { "redacts": "$topic" },
+    });
+    let room = server
+        .sync_room(
+            &client,
+            JoinedRoomBuilder::new(room_id).add_timeline_event(
+                matrix_sdk::ruma::serde::Raw::new(&redaction)
+                    .unwrap()
+                    .cast_unchecked(),
+            ),
+        )
+        .await;
+
+    assert_eq!(room.topic(), None);
+    let stored = client
+        .state_store()
+        .get_state_event(
+            room_id,
+            matrix_sdk::ruma::events::StateEventType::RoomTopic,
+            "",
+        )
+        .await
+        .unwrap()
+        .expect("the redacted topic is kept");
+    assert!(
+        serde_json::to_value(stored).unwrap()["unsigned"]
+            .get("redacted_because")
+            .is_some()
+    );
+}
