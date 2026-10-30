@@ -1052,6 +1052,12 @@ jobs:
             --tag "$TAG" --pattern 'altstore-source.json' --dir .
           node scripts/ci/forgejo-release.mjs download \
             --tag "$TAG" --pattern 'obtainium.json' --dir .
+          node scripts/ci/forgejo-release.mjs download \
+            --tag "$TAG" --pattern "sable-$VERSION-x64.exe" --dir .
+          node scripts/ci/forgejo-release.mjs download \
+            --tag "$TAG" --pattern "sable-$VERSION-x64.msi" --dir .
+          mv "sable-$VERSION-x64.exe" sable-windows-x86_64-setup.exe
+          mv "sable-$VERSION-x64.msi" sable-windows-x86_64.msi
 
           git tag -f latest "$SHA"
           git push --force \
@@ -1067,7 +1073,8 @@ jobs:
             --tag latest \
             --title 'Latest stable' \
             --notes "Stable manifests for $VERSION. Bundles live on the $TAG release."
-          node scripts/ci/forgejo-release.mjs upload --tag latest altstore-source.json obtainium.json
+          node scripts/ci/forgejo-release.mjs upload --tag latest altstore-source.json obtainium.json \
+            sable-windows-x86_64-setup.exe sable-windows-x86_64.msi
   publish-nightly-channel:
     name: Refresh nightly channel metadata
     needs: [setup-release, obtainium, altstore]
