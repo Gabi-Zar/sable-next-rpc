@@ -33,7 +33,7 @@ mkdir -p "$ANDROID_HOME/cmdline-tools"
 unzip -q "$downloads/tools.zip" -d "$ANDROID_HOME/cmdline-tools"
 mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
 export PATH="/opt/node-v$node_version-linux-x64/bin:$HOME/.cargo/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/build-tools/$build_tools:$PATH"
-yes | sdkmanager --licenses >/dev/null
+(yes || true) | sdkmanager --licenses >/dev/null
 sdkmanager "platforms;android-36" "build-tools;$build_tools" "ndk;$ndk_version"
 export NDK_HOME="$ANDROID_HOME/ndk/$ndk_version"
 
