@@ -157,7 +157,7 @@ fn scrub_log(mut log: sentry::protocol::Log) -> sentry::protocol::Log {
 }
 
 /// Kept in step with `REPORTABLE_WARNINGS` in `src/lib/observability/wasm-log.ts`.
-const REPORTABLE_WARNINGS: [&str; 5] = [
+const REPORTED_WARNING_TARGETS: &[&str] = &[
     // Only a warning in the SDK, but the room keys it carried are lost.
     "matrix_sdk_crypto::olm::account",
     "matrix_sdk_crypto::session_manager",
@@ -180,7 +180,7 @@ pub fn tracing_filter(
         return EventFilter::Ignore;
     }
     if *metadata.level() == tracing::Level::WARN
-        && REPORTABLE_WARNINGS
+        && REPORTED_WARNING_TARGETS
             .iter()
             .any(|target| metadata.target().starts_with(target))
     {
