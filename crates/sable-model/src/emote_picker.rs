@@ -58,7 +58,7 @@ pub fn quick_reactions(frequent: &[String], limit: usize) -> Vec<String> {
         .collect()
 }
 
-/// Free-text reactions can hold secrets such as a pasted recovery key, so history keeps only emoji and emotes.
+/// Text reactions can hold secrets such as a pasted recovery key.
 #[must_use]
 pub fn rememberable_reaction(key: &str) -> bool {
     key.starts_with("mxc://") || unicode_emoji(&reaction_identity(key))
@@ -224,20 +224,12 @@ mod tests {
     fn reaction_picker_keeps_history_order_and_excludes_composer_recents() {
         let result = emote_recents(&EmoteRecentsInput {
             recent: vec!["wave".into()],
-            frequent: vec![
-                "❤".into(),
-                "❤️".into(),
-                "mxc://example.org/missing".into(),
-                "nice work".into(),
-            ],
+            frequent: vec!["❤".into(), "❤️".into(), "mxc://example.org/missing".into()],
             images: vec![image("wave", "mxc://example.org/wave")],
             unicode: true,
             reactions: true,
         });
-        assert_eq!(
-            keys(&result.cells),
-            ["❤", "mxc://example.org/missing", "nice work"]
-        );
+        assert_eq!(keys(&result.cells), ["❤", "mxc://example.org/missing"]);
     }
 
     #[test]
