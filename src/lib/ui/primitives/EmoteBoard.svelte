@@ -1,7 +1,12 @@
 <script lang="ts">
   import { MediaQuery } from 'svelte/reactivity';
   import { innerWidth } from 'svelte/reactivity/window';
-  import type { ImagePackView, ImageUsageView, PackImageView } from '#src/generated/protocol';
+  import type {
+    EmoteCell as Cell,
+    ImagePackView,
+    ImageUsageView,
+    PackImageView,
+  } from '#src/generated/protocol';
   import { useCoreClient } from '#lib/core/context.js';
   import GifGrid from '#lib/gif/GifGrid.svelte';
   import type { GifProviderSetting, GifResult, GifsConfig } from '#lib/gif/providers.js';
@@ -25,7 +30,8 @@
   import { tick, untrack } from 'svelte';
 
   import { emojiGroups, searchReactionEmoji, shortcodeFor } from '#lib/emoji/emoji.js';
-  import { readRecentReactions, rememberReaction } from '#lib/emoji/recents.svelte.js';
+  import { RecentReactions } from '#lib/emoji/recents.svelte.js';
+  import { emoteRecents } from '#lib/model/model.js';
   import { readRecent, rememberEmote } from '#lib/emoji/recent-packs.svelte.js';
 
   interface Props {
@@ -60,8 +66,8 @@
     onPickGif,
   }: Props = $props();
   const core = useCoreClient();
+  const history = new RecentReactions(core);
 
-  type Cell = { emoji: string } | { image: PackImageView };
   type PickerRow =
     | { id: string; kind: 'lead' }
     | { id: string; kind: 'header'; label: string; pack: ImagePackView | null }
@@ -87,7 +93,6 @@
   let loading = $state(true);
   let failed = $state(false);
   let recent = $derived(readRecent(tab === 'sticker' ? 'sticker' : 'emoticon'));
-  let recentReactions = $derived(uniqueReactions());
   let preview = $state.raw<{ image: PackImageView; pack: ImagePackView } | null>(null);
   let activeCell = $state.raw<{ section: string; index: number }>({ section: '', index: 0 });
   let gridWidth = $state(0);
@@ -162,10 +167,6 @@
       .filter((section) => section.images.length > 0);
   });
 
-  let packOf = $derived(
-    new Map(sections.flatMap((section) => section.images.map((image) => [image, section.pack])))
-  );
-
   let searching = $derived(query.trim() !== '');
   /** Search is by emote, so matches arrive as one flat list across packs. */
   let matchedImages = $derived(
@@ -179,38 +180,25 @@
       : []
   );
 
-  let recentImages = $derived.by(() => {
-    if (query.trim() !== '') return [];
-    const all = sections.flatMap((section) => section.images);
-    return recent
-      .map(
-        (key) =>
-          all.find((image) => image.url === key) ?? all.find((image) => image.shortcode === key)
-      )
-      .filter((image): image is PackImageView => image !== undefined)
-      .slice(0, 16);
-  });
-
   let emojiTab = $derived(unicode && tab === 'emoticon');
+
+  let recents = $derived(
+    searching || gifTab
+      ? { images: [], cells: [] }
+      : emoteRecents({
+          recent,
+          frequent: history.current,
+          images: sections.flatMap((section) => section.images),
+          unicode: emojiTab,
+          reactions,
+        })
+  );
+  let recentImages = $derived(recents.images);
+  let frequentCells = $derived(recents.cells);
 
   let searchEmojis = $derived(
     emojiTab && searching ? searchReactionEmoji(query.trim(), 96).map((entry) => entry.emoji) : []
   );
-
-  let frequentCells = $derived.by((): Cell[] => {
-    if (searching || gifTab) return [];
-    const images = recentImages
-      .filter((image) => !emojiTab || !recentReactions.includes(image.url))
-      .map((image): Cell => ({ image }));
-    if (!emojiTab) return images;
-    const all = sections.flatMap((section) => section.images);
-    const recent = recentReactions.map((emoji): Cell => {
-      const image = all.find((candidate) => candidate.url === emoji);
-      return image ? { image } : { emoji };
-    });
-    const cells = reactions ? recent : recent.filter((cell) => !isUnresolvedImage(cell));
-    return [...cells, ...images];
-  });
 
   let groupSections = $derived(
     emojiTab && !searching
@@ -458,24 +446,18 @@
     return () => observer.disconnect();
   }
 
-  function isUnresolvedImage(cell: Cell): boolean {
-    return 'emoji' in cell && cell.emoji.startsWith('mxc://');
-  }
-
-  function uniqueReactions(): string[] {
-    return [...new Set(readRecentReactions())];
-  }
-
   function cellLabel(cell: Cell): string {
-    return 'image' in cell ? `:${cell.image.shortcode}:` : (shortcodeFor(cell.emoji) ?? cell.emoji);
+    return cell.image !== undefined
+      ? `:${cell.image.shortcode}:`
+      : (shortcodeFor(cell.emoji) ?? cell.emoji);
   }
 
   function pickCell(cell: Cell, keepOpen: boolean): void {
-    if ('image' in cell) {
+    if (cell.image !== undefined) {
       pick(cell.image, keepOpen);
       return;
     }
-    rememberReaction(cell.emoji);
+    if (!reactions) rememberEmote(cell.emoji);
     onPickUnicode?.(cell.emoji, keepOpen);
   }
 
@@ -578,12 +560,15 @@
   }
 
   function showPreview(image: PackImageView, pack: ImagePackView | null): void {
-    const owner = pack ?? packOf.get(image);
+    const owner =
+      pack ??
+      sections.find((section) => section.images.some((candidate) => candidate.url === image.url))
+        ?.pack;
     if (owner) preview = { image, pack: owner };
   }
 
   function pick(image: PackImageView, keepOpen: boolean): void {
-    rememberEmote(image.url, tab === 'sticker' ? 'sticker' : 'emoticon');
+    if (!reactions) rememberEmote(image.url, tab === 'sticker' ? 'sticker' : 'emoticon');
     onPick(image, tab as ImageUsageView, keepOpen);
   }
 
@@ -759,7 +744,7 @@
                     >
                       {#each row.cells as cell, column (column)}
                         {@const index = row.start + column}
-                        {@const source = 'image' in cell ? cell.image.url : cell.emoji}
+                        {@const source = cell.image !== undefined ? cell.image.url : cell.emoji}
                         {@const label = cellLabel(cell)}
                         <Tooltip {label}>
                           {#snippet trigger({ props })}
@@ -775,10 +760,10 @@
                                 pickCell(cell, event.shiftKey);
                               }}
                               onpointerenter={() => {
-                                if ('image' in cell) showPreview(cell.image, null);
+                                if (cell.image !== undefined) showPreview(cell.image, null);
                               }}
                               onfocus={() => {
-                                if ('image' in cell) showPreview(cell.image, null);
+                                if (cell.image !== undefined) showPreview(cell.image, null);
                               }}
                               {@attach focusWhenPending(row.section, index)}
                             >

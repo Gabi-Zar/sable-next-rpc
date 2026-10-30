@@ -17,10 +17,9 @@ import {
 import { adoptRoomIconOverrides, roomIconOverrides } from '#lib/rooms/room-appearance.svelte.js';
 import { adoptQuietRooms, quietRooms } from '#lib/rooms/quiet-rooms.svelte.js';
 import { readRecent, writeRecent } from '#lib/emoji/recent-packs.svelte.js';
-import { adoptRecentReactions, recentReactionEntries } from '#lib/emoji/recents.svelte.js';
 import { SpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
 
-import { draftsDocumentFor, recentEmojiDocument, workspaceDocument } from './sync-documents';
+import { draftsDocumentFor, workspaceDocument } from './sync-documents';
 
 const draftsDocument = draftsDocumentFor('');
 
@@ -42,7 +41,6 @@ function reset(): void {
   adoptRecentGifs([]);
   adoptRoomIconOverrides([]);
   adoptQuietRooms([]);
-  adoptRecentReactions([]);
   clearDrafts();
   localStorage.clear();
 }
@@ -179,20 +177,5 @@ describe('the drafts document', () => {
     draftsDocument.adopt({ v: 1, drafts: { '!room:example.org': { type: 'next' } } });
 
     expect(readDraft('!room:example.org')?.doc).toEqual({ type: 'next' });
-  });
-});
-
-describe('the recent emoji document', () => {
-  it('writes the shape the spec defines', () => {
-    adoptRecentReactions([{ emoji: '🐈', total: 3 }]);
-
-    expect(recentEmojiDocument.snapshot().content).toEqual({
-      recent_emoji: [{ emoji: '🐈', total: 3 }],
-    });
-  });
-
-  it('reads what an older client wrote as pairs', () => {
-    expect(recentEmojiDocument.adopt({ recent_emoji: [['🐈', 3]] })).toBe(true);
-    expect(recentReactionEntries()).toEqual([{ emoji: '🐈', total: 3 }]);
   });
 });

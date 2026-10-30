@@ -46,6 +46,7 @@ pub mod protocol;
 pub mod push_check;
 pub mod push_rules;
 mod qr_login;
+mod reaction_history;
 mod reactions;
 mod registration;
 mod room_keys;

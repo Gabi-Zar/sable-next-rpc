@@ -19,11 +19,6 @@ import {
 import { adoptQueue, parseQueue, scheduledQueue } from '#lib/composer/scheduled-queue.svelte.js';
 import { adoptQuietRooms, parseQuietRooms, quietRooms } from '#lib/rooms/quiet-rooms.svelte.js';
 import { parseShortcodes, readRecent, writeRecent } from '#lib/emoji/recent-packs.svelte.js';
-import {
-  adoptRecentReactions,
-  parseRecentReactions,
-  recentReactionEntries,
-} from '#lib/emoji/recents.svelte.js';
 import type { SpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
 
 import type { SyncedDocument } from './account-sync.svelte.js';
@@ -39,7 +34,6 @@ import { v1SettingsFallback, v1WorkspaceFallback } from '#lib/migrations/v1/docu
 
 export const WORKSPACE_ACCOUNT_DATA_TYPE = 'moe.sable.next.workspace';
 export const DRAFTS_ACCOUNT_DATA_TYPE = 'moe.sable.next.drafts';
-export const RECENT_EMOJI_ACCOUNT_DATA_TYPE = 'm.recent_emoji';
 export const SCHEDULED_ACCOUNT_DATA_TYPE = 'moe.sable.next.scheduled';
 
 const DOCUMENT_VERSION = 1;
@@ -158,21 +152,6 @@ export function scheduledDocumentFor(accountId: string): SyncedDocument {
     },
   };
 }
-
-export const recentEmojiDocument: SyncedDocument = {
-  eventType: RECENT_EMOJI_ACCOUNT_DATA_TYPE,
-
-  snapshot: () => ({ content: { recent_emoji: recentReactionEntries() } }),
-
-  adopt(content) {
-    if (content === null || typeof content !== 'object' || Array.isArray(content)) {
-      return recentReactionEntries().length === 0;
-    }
-
-    adoptRecentReactions(parseRecentReactions((content as Record<string, unknown>).recent_emoji));
-    return true;
-  },
-};
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value)

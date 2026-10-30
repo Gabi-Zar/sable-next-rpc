@@ -3,7 +3,8 @@
   import { RoomPacks } from '#lib/emoji/room-packs.svelte.js';
   import { i18n } from '#lib/i18n.js';
   import { shortcodeFor } from '#lib/emoji/emoji.js';
-  import { readRecentReactions, rememberReaction } from '#lib/emoji/recents.svelte.js';
+  import { RecentReactions } from '#lib/emoji/recents.svelte.js';
+  import { quickReactions } from '#lib/model/model.js';
   import MediaImage from '#lib/ui/MediaImage.svelte';
 
   import { isCustomReaction, reactionEmoteLabel } from './reaction-emote-label.js';
@@ -17,13 +18,9 @@
 
   let { count, onReact, roomId, roomy = false }: Props = $props();
   const core = useCoreClient();
+  const history = new RecentReactions(core);
   const packs = new RoomPacks(core, () => roomId);
-  let recents = $derived(readRecentReactions().slice(0, count));
-
-  function react(emoji: string): void {
-    rememberReaction(emoji);
-    onReact(emoji);
-  }
+  let recents = $derived(quickReactions(history.current, count));
 </script>
 
 {#if recents.length > 0}
@@ -35,7 +32,7 @@
         class="quick-reaction"
         aria-label={isCustomReaction(emoji) ? label : (shortcodeFor(emoji) ?? emoji)}
         onclick={() => {
-          react(emoji);
+          onReact(emoji);
         }}
       >
         {#if isCustomReaction(emoji)}

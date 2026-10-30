@@ -48,7 +48,10 @@ export function createCoreStub<T extends Record<string, unknown> & { rpc?: RpcOv
     rpc: mockRpc(
       {
         members: { powerLevelTags: vi.fn(() => Promise.resolve({})) },
-        messages: { reactionShortcodes: vi.fn(() => Promise.resolve([])) },
+        messages: {
+          reactionShortcodes: vi.fn(() => Promise.resolve([])),
+          frequentReactions: vi.fn(() => Promise.resolve([])),
+        },
         room_state: {
           event: vi.fn(() => Promise.resolve(null)),
           memberListThreshold: vi.fn(() => Promise.resolve(null)),

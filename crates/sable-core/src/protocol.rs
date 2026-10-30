@@ -4,6 +4,9 @@ use matrix_sdk::ruma::{
     OwnedUserId,
 };
 pub use sable_model::calendar::{CalendarRsvpView, RsvpStatusView};
+pub use sable_model::emote_picker::{
+    ImageSourcePackView, ImageUsageView, PackImageInfoView, PackImageView,
+};
 pub use sable_model::event_preview::ReplyFallbackView;
 pub use sable_model::markdown::{ComposerContent, ComposerMentions, ComposerPill};
 pub use sable_model::member_look::{FieldEdit, PronounView};
@@ -2285,17 +2288,6 @@ pub enum ImagePackOriginView {
     Space,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct PackImageView {
-    pub shortcode: String,
-    pub url: String,
-    pub body: Option<String>,
-    pub usage: Vec<ImageUsageView>,
-    pub info: Option<PackImageInfoView>,
-    pub source_pack: Option<ImageSourcePackView>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct ReactionShortcodeView {
@@ -2305,39 +2297,9 @@ pub struct ReactionShortcodeView {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
-pub struct ImageSourcePackView {
-    pub room_id: String,
-    pub state_key: String,
-    pub shortcode: String,
-    pub via: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
 pub struct ImageSourcePackReferenceView {
     pub url: String,
     pub source: ImageSourcePackView,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(default)]
-pub struct PackImageInfoView {
-    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
-    pub width: Option<u32>,
-    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
-    pub height: Option<u32>,
-    pub mimetype: Option<String>,
-    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Number>))]
-    pub size: Option<u32>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[cfg_attr(feature = "typegen", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum ImageUsageView {
-    Emoticon,
-    Sticker,
 }
 
 #[derive(Debug, Clone, Serialize)]

@@ -61,6 +61,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  writeRecent([]);
+  writeRecent([], 'sticker');
+  core.rpc.messages.frequentReactions.mockResolvedValue([]);
   core.fetchMedia.mockReset();
   vi.restoreAllMocks();
 });
@@ -275,4 +278,33 @@ test('announces what enter will react with', async () => {
   await fireEvent.keyDown(search, { key: 'ArrowRight' });
 
   expect(status?.textContent).not.toContain('React with');
+});
+
+test('recent custom emotes saved under both a shortcode and a URL appear once', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  writeRecent(['wave', 'mxc://example.org/wave']);
+  const view = render(EmoteBoard, {
+    props: { roomId: '!room:example.org', unicode: true, onPick: vi.fn() },
+  });
+  await vi.waitFor(() => {
+    expect(
+      view.container.querySelectorAll('[data-section="recent"] [aria-label=":wave:"]')
+    ).toHaveLength(1);
+  });
+});
+
+test('the reaction picker uses the core ranking beyond six entries without composer history', async () => {
+  core.fetchMedia.mockResolvedValue(new Uint8Array([1]));
+  writeRecent(['mxc://example.org/wink']);
+  const keys = ['😂', '❤️', '👍', '✅', '🔥', '🎉', 'mxc://example.org/wave'];
+  core.rpc.messages.frequentReactions.mockResolvedValue(keys);
+  const view = render(EmoteBoard, {
+    props: { roomId: '!room:example.org', unicode: true, reactions: true, onPick: vi.fn() },
+  });
+  await vi.waitFor(() => {
+    const cells = view.container.querySelectorAll('[data-section="recent"] [role="gridcell"]');
+    expect(cells).toHaveLength(7);
+    expect(cells[6]).toHaveAttribute('aria-label', ':wave:');
+  });
+  expect(view.container.querySelector('[data-section="recent"] [aria-label=":wink:"]')).toBeNull();
 });

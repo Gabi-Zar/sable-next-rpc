@@ -285,6 +285,21 @@ export type EmojiView = {
 	description: string,
 };
 
+export type EmoteCell = ({ emoji: string }) & { image?: never } | ({ image: PackImageView }) & { emoji?: never };
+
+export type EmoteRecents = {
+	images: PackImageView[],
+	cells: EmoteCell[],
+};
+
+export type EmoteRecentsInput = {
+	recent: string[],
+	frequent: string[],
+	images: PackImageView[],
+	unicode: boolean,
+	reactions: boolean,
+};
+
 export type EncryptionStatusView = {
 	/**  Whether *this* device is signed by our own identity. */
 	verification: VerificationStateView,
@@ -2615,6 +2630,9 @@ export type Rpc = {
 	room_id: string,
 	event_id: string,
 }) => Promise<ReactionShortcodeView[]>;
+    frequentReactions: (params: {
+	legacy?: unknown | null,
+}) => Promise<string[]>;
     setTyping: (params: {
 	room_id: string,
 	typing: boolean,
@@ -3437,6 +3455,7 @@ export type RpcMethods = {
   'messages.send_gesture': Rpc['messages']['sendGesture'];
   'messages.url_preview': Rpc['messages']['urlPreview'];
   'messages.reaction_shortcodes': Rpc['messages']['reactionShortcodes'];
+  'messages.frequent_reactions': Rpc['messages']['frequentReactions'];
   'messages.set_typing': Rpc['messages']['setTyping'];
   'messages.media_config': Rpc['messages']['mediaConfig'];
   'notifications.settings': Rpc['notifications']['settings'];
@@ -3754,6 +3773,7 @@ export function createRpc(call: RpcCall): Rpc {
       sendGesture: (params) => call('messages.send_gesture', params) as ReturnType<Rpc['messages']['sendGesture']>,
       urlPreview: (params) => call('messages.url_preview', params) as ReturnType<Rpc['messages']['urlPreview']>,
       reactionShortcodes: (params) => call('messages.reaction_shortcodes', params) as ReturnType<Rpc['messages']['reactionShortcodes']>,
+      frequentReactions: (params) => call('messages.frequent_reactions', params) as ReturnType<Rpc['messages']['frequentReactions']>,
       setTyping: (params) => call('messages.set_typing', params) as ReturnType<Rpc['messages']['setTyping']>,
       mediaConfig: (params = {}) => call('messages.media_config', params) as ReturnType<Rpc['messages']['mediaConfig']>,
     },

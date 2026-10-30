@@ -13,6 +13,7 @@ pub mod bot_commands;
 pub mod calendar;
 mod civil;
 mod emoji_properties;
+pub mod emote_picker;
 pub mod event_preview;
 pub mod field;
 pub mod html;

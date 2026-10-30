@@ -68,7 +68,6 @@
   import { accountSync } from '#lib/settings/account-sync.svelte.js';
   import {
     draftsDocumentFor,
-    recentEmojiDocument,
     scheduledDocumentFor,
     settingsDocument,
     workspaceDocument,
@@ -321,7 +320,6 @@
     settingsDocument,
     workspaceDocument(spaceSidebar),
     draftsDocumentFor(core.session?.account_id ?? ''),
-    recentEmojiDocument,
     scheduledDocumentFor(core.session?.account_id ?? ''),
   ]);
 

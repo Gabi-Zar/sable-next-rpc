@@ -65,6 +65,7 @@ domain! {
     send_gesture,
     url_preview,
     reaction_shortcodes,
+    frequent_reactions,
     set_typing,
     media_config,
 }
@@ -643,7 +644,7 @@ impl Handler for ReactParams {
             }
         };
         let shortcode = reaction_shortcode(&key, shortcode.as_deref());
-        if let Some(source) = image_source_pack_extra(&key, source_pack) {
+        let added = if let Some(source) = image_source_pack_extra(&key, source_pack) {
             timeline
                 .toggle_reaction_with_extra_content(
                     &TimelineEventItemId::EventId(event_id),
@@ -658,7 +659,7 @@ impl Handler for ReactParams {
                     ),
                 )
                 .await
-                .or_failed(core, "react")?;
+                .or_failed(core, "react")?
         } else {
             timeline
                 .toggle_reaction_with_extra_content(
@@ -670,7 +671,10 @@ impl Handler for ReactParams {
                     ),
                 )
                 .await
-                .or_failed(core, "react")?;
+                .or_failed(core, "react")?
+        };
+        if added && let Err(error) = core.remember_reaction(&key).await {
+            tracing::warn!("reaction history could not be saved: {error:?}");
         }
 
         Ok(())
@@ -1141,6 +1145,22 @@ impl Handler for UrlPreviewParams {
             .data
             .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw.get()).ok())
             .and_then(|data| url_preview(url, &data)))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "typegen", derive(specta::Type), specta(inline))]
+pub struct FrequentReactionsParams {
+    #[serde(default)]
+    #[cfg_attr(feature = "typegen", specta(type = Option<specta_typescript::Unknown>))]
+    pub legacy: Option<serde_json::Value>,
+}
+
+impl Handler for FrequentReactionsParams {
+    type Ok = Vec<String>;
+
+    async fn run(self, core: &Arc<Core>) -> Result<Self::Ok, RpcError> {
+        core.frequent_reactions(self.legacy).await
     }
 }
 

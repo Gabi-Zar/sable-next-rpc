@@ -70,6 +70,7 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
         return Promise.reject(new Error('invalid room ID'));
       }
       if (method === 'packs.list_all') return Promise.resolve(packs);
+      if (method === 'messages.frequent_reactions') return Promise.resolve([]);
       throw new Error(`Unexpected call: ${method}`);
     });
     const transport = { call, fetchMedia: () => new Promise(() => {}) } as unknown as Transport;
@@ -88,6 +89,8 @@ describe.each(['mobile', 'desktop'])('%s picker', (layout) => {
     await fireEvent.click(choice);
 
     expect(preferences.doubleTapReaction).toBe(reaction);
-    expect(call).toHaveBeenCalledExactlyOnceWith('packs.list_all', {});
+    expect(call.mock.calls.filter(([method]) => method === 'packs.list_all')).toEqual([
+      ['packs.list_all', {}],
+    ]);
   });
 });

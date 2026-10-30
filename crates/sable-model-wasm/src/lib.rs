@@ -14,6 +14,7 @@ use sable_model::bot_commands::{
     self, ArgumentDrafts, BotCommand, BotCommandDescription, LiteralValue,
 };
 use sable_model::calendar::{self, CalendarItem, CalendarRsvpView, EventDraft};
+use sable_model::emote_picker::{self, EmoteRecentsInput};
 use sable_model::notifications::{self, NotificationModeView, PushNotification};
 use sable_model::power_levels::{self, PowerLevelLocation, RoomPowerLevelsView};
 use sable_model::rtc_invites::{self, InvitePresentation};
@@ -38,6 +39,21 @@ fn json(value: &impl serde::Serialize) -> Result<String, JsError> {
 /// not decode is a bug there: it is thrown rather than read as a default.
 fn decode<T: DeserializeOwned>(text: &str) -> Result<T, JsError> {
     serde_json::from_str(text).map_err(|error| JsError::new(&format!("sable-model: {error}")))
+}
+
+#[wasm_bindgen(js_name = quickReactions)]
+pub fn quick_reactions(frequent: &str, limit: usize) -> Result<String, JsError> {
+    json(&emote_picker::quick_reactions(
+        &decode::<Vec<String>>(frequent)?,
+        limit,
+    ))
+}
+
+#[wasm_bindgen(js_name = emoteRecents)]
+pub fn emote_recents(input: &str) -> Result<String, JsError> {
+    json(&emote_picker::emote_recents(&decode::<EmoteRecentsInput>(
+        input,
+    )?))
 }
 
 #[wasm_bindgen(js_name = searchOperators)]

@@ -2,17 +2,6 @@ import { expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 
-vi.hoisted(() => {
-  localStorage.setItem(
-    'sable-recent-reactions',
-    JSON.stringify([
-      { emoji: 'mxc://example.test/partyparrot', total: 3 },
-      { emoji: 'this is a long text reaction', total: 2 },
-      { emoji: '🔥', total: 1 },
-    ])
-  );
-});
-
 vi.mock('#lib/core/context.js', async () => {
   const mock = await import('#lib/core/__mocks__/context.js');
   return { useCoreClient: () => mock.core, provideCoreClient: vi.fn() };
@@ -36,6 +25,11 @@ import EmoteBoard from './EmoteBoard.svelte';
 async function mountBoard() {
   await page.viewport(1280, 900);
   Object.assign(core, { fetchMedia: vi.fn().mockResolvedValue(new Uint8Array()) });
+  core.rpc.messages.frequentReactions.mockResolvedValue([
+    'mxc://example.test/partyparrot',
+    'this is a long text reaction',
+    '🔥',
+  ]);
   const screen = await render(EmoteBoard, {
     roomId: '!room:example.test',
     unicode: true,

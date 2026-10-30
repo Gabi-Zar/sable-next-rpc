@@ -3,7 +3,6 @@ import { emojiRawRecords } from 'virtual:sable-emoji-data';
 import type { EmojiGroupId } from './emoji-groups.js';
 import { emojiGroupOrder } from './emoji-groups.js';
 
-export { QUICK_REACTIONS } from './quick-reactions.js';
 export type { EmojiGroupId } from './emoji-groups.js';
 
 export interface ReactionEmoji {

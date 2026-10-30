@@ -12,6 +12,8 @@ import type {
   InvocationResult,
   EventDraft,
   EventPreview,
+  EmoteRecents,
+  EmoteRecentsInput,
   HierarchyRoomView,
   HierarchySection,
   JoinAddress,
@@ -66,6 +68,14 @@ export function loadModel(source?: Promise<Response>): Promise<unknown> {
 
 export function parseSearchQuery(input: string): ParsedQuery {
   return JSON.parse(wasm.parseSearchQuery(input)) as ParsedQuery;
+}
+
+export function quickReactions(frequent: readonly string[], limit: number): string[] {
+  return JSON.parse(wasm.quickReactions(JSON.stringify(frequent), limit)) as string[];
+}
+
+export function emoteRecents(input: EmoteRecentsInput): EmoteRecents {
+  return JSON.parse(wasm.emoteRecents(JSON.stringify(input))) as EmoteRecents;
 }
 
 export function visibleName(name: string): string | null {

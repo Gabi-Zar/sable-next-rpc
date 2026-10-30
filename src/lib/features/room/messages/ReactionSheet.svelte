@@ -2,7 +2,6 @@
   import type { PackImageView } from '#src/generated/protocol';
 
   import { i18n } from '#lib/i18n.js';
-  import { rememberReaction } from '#lib/emoji/recents.svelte.js';
   import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import type { CursorAnchor } from '#lib/ui/cursor-anchor.js';
   import BottomSheet from '#lib/ui/primitives/BottomSheet.svelte';
@@ -27,7 +26,6 @@
     sourcePack: PackImageView['source_pack'] = null,
     keepOpen = false
   ): void {
-    rememberReaction(key);
     if (!keepOpen) open = false;
     onPick(key, sourcePack);
   }

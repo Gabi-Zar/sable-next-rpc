@@ -129,7 +129,7 @@ function core(): CoreClient {
     },
     rpc: {
       members: { list: () => Promise.resolve(members) },
-      messages: { mediaConfig },
+      messages: { mediaConfig, frequentReactions: () => Promise.resolve([]) },
       room_state: { botCommands: () => Promise.resolve(botCommands) },
       personas: {
         list: () => Promise.resolve({ personas: [], account: null, rooms: {}, disabled_rooms: [] }),

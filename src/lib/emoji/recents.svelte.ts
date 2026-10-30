@@ -1,63 +1,52 @@
-import { readJson, writeJson } from '#lib/platform/local-json.js';
+import type { CoreClient } from '#lib/core/client.svelte.js';
+import { readJson, removeLocalValue } from '#lib/platform/local-json.js';
 
-import { QUICK_REACTIONS } from './quick-reactions';
+export const REACTION_HISTORY_EVENT = 'm.recent_emoji';
+const DAY_MS = 86_400_000;
 
-export interface RecentReaction {
-  emoji: string;
-  total: number;
-}
+export class RecentReactions {
+  current = $state.raw<string[]>([]);
 
-const STORAGE_KEY = 'sable-recent-reactions';
-const LIMIT = 6;
-const MAX_ENTRIES = 100;
-
-const state = $state<{ entries: RecentReaction[] }>({ entries: load() });
-
-function load(): RecentReaction[] {
-  return readJson(STORAGE_KEY, parseRecentReactions, []);
-}
-
-export function parseRecentReactions(value: unknown): RecentReaction[] {
-  if (!Array.isArray(value)) return [];
-
-  const entries = value.flatMap((entry): RecentReaction[] => {
-    if (typeof entry === 'string') return [{ emoji: entry, total: 1 }];
-    if (Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'number') {
-      return [{ emoji: entry[0], total: entry[1] }];
-    }
-    if (entry === null || typeof entry !== 'object') return [];
-    const record = entry as Partial<RecentReaction>;
-    return typeof record.emoji === 'string' && typeof record.total === 'number'
-      ? [{ emoji: record.emoji, total: record.total }]
-      : [];
-  });
-  return entries.filter(
-    (entry, index) => entries.findIndex(({ emoji }) => emoji === entry.emoji) === index
-  );
-}
-
-export function recentReactionEntries(): RecentReaction[] {
-  return state.entries;
-}
-
-export function readRecentReactions(): string[] {
-  const recent = state.entries.map((entry) => entry.emoji);
-  return [...recent, ...QUICK_REACTIONS.filter((entry) => !recent.includes(entry))].slice(0, LIMIT);
-}
-
-export function rememberReaction(emoji: string): void {
-  const previous = state.entries.find((entry) => entry.emoji === emoji);
-  write([
-    { emoji, total: (previous?.total ?? 0) + 1 },
-    ...state.entries.filter((entry) => entry.emoji !== emoji),
-  ]);
-}
-
-export function adoptRecentReactions(entries: RecentReaction[]): void {
-  write(entries);
-}
-
-function write(entries: RecentReaction[]): void {
-  state.entries = entries.slice(0, MAX_ENTRIES);
-  writeJson(STORAGE_KEY, state.entries, '[sable reactions] recents not persisted');
+  constructor(core: Pick<CoreClient, 'rpc' | 'session' | 'subscribeEvents'>) {
+    $effect(() => {
+      const accountId = core.session?.account_id;
+      this.current = [];
+      let live = true;
+      let revision = 0;
+      const load = (): void => {
+        const request = ++revision;
+        void core.rpc.messages
+          .frequentReactions({ legacy: readJson('sable-recent-reactions', (value) => value, null) })
+          .then((entries) => {
+            removeLocalValue('sable-recent-reactions');
+            if (live && request === revision) this.current = entries;
+          })
+          .catch((error: unknown) => {
+            console.debug('[sable reactions] history unavailable', accountId, error);
+          });
+      };
+      let timer: ReturnType<typeof setTimeout>;
+      const nextDay = (): void => {
+        timer = setTimeout(
+          () => {
+            load();
+            nextDay();
+          },
+          DAY_MS - (Date.now() % DAY_MS)
+        );
+      };
+      load();
+      nextDay();
+      const stop = core.subscribeEvents((event) => {
+        if (event.type === 'account_data_changed' && event.event_type === REACTION_HISTORY_EVENT) {
+          load();
+        }
+      });
+      return () => {
+        live = false;
+        clearTimeout(timer);
+        stop();
+      };
+    });
+  }
 }
