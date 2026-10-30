@@ -1,11 +1,11 @@
 id: moe.sable.next.electron
 
 runtime: org.freedesktop.Platform
-runtime-version: '25.08'
+runtime-version: '26.08'
 sdk: org.freedesktop.Sdk
 
 base: org.electronjs.Electron2.BaseApp
-base-version: '25.08'
+base-version: '26.08'
 
 command: sable-electron
 
@@ -13,7 +13,6 @@ finish-args:
   - --socket=fallback-x11
   - --socket=wayland
   - --share=ipc
-  - --device=dri
   - --share=network
   - --socket=pulseaudio
   - --filesystem=xdg-run/pipewire-0
