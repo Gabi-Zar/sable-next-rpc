@@ -267,11 +267,8 @@ final class NotificationService: UNNotificationServiceExtension {
         Task { [weak self] in
             let storefront = await Storefront.current
             guard let self, isPending() else { return }
-            guard let storefront,
-                  let region = Locale.autoupdatingCurrent.regionCode,
-                  !region.isEmpty, !storefront.countryCode.isEmpty,
-                  region.uppercased() != "CN",
-                  storefront.countryCode.uppercased() != "CHN" else {
+            guard storefront?.countryCode.uppercased() != "CHN",
+                  Locale.autoupdatingCurrent.regionCode?.uppercased() != "CN" else {
                 finish(alert)
                 return
             }
