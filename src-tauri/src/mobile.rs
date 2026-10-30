@@ -4,12 +4,13 @@
 
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 
-use jni::objects::{JObject, JValue};
+use jni::objects::{Global, JClass, JObject, JValue};
 use jni::signature::MethodSignature;
 use jni::strings::JNIString;
 use jni::{EnvUnowned, JavaVM, jni_sig, jni_str};
 
 static JAVA_VM: OnceLock<JavaVM> = OnceLock::new();
+static MAIN_ACTIVITY: OnceLock<Global<JClass<'static>>> = OnceLock::new();
 static ACTIVITY: Mutex<(bool, Option<Weak<sable_core::Core>>)> = Mutex::new((true, None));
 
 pub(crate) fn attach_activity(core: &Arc<sable_core::Core>) {
@@ -47,10 +48,13 @@ pub async fn open_in_app_auth_url(url: String) -> Result<(), String> {
     }
     tauri::async_runtime::spawn_blocking(move || {
         let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
+        let class = MAIN_ACTIVITY
+            .get()
+            .ok_or("activity class not initialized")?;
         vm.attach_current_thread(|env| {
             let url = env.new_string(parsed.as_str())?;
             let result = env.call_static_method(
-                jni_str!("moe/sable/client/MainActivity"),
+                class,
                 jni_str!("openAuthUrlNative"),
                 jni_sig!("(Ljava/lang/String;)V"),
                 &[JValue::Object(&url)],
@@ -70,10 +74,13 @@ pub async fn open_in_app_auth_url(url: String) -> Result<(), String> {
 pub async fn copy_image_to_clipboard(image: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
+        let class = MAIN_ACTIVITY
+            .get()
+            .ok_or("activity class not initialized")?;
         vm.attach_current_thread(|env| {
             let image = env.new_string(image)?;
             let result = env.call_static_method(
-                jni_str!("moe/sable/client/MainActivity"),
+                class,
                 jni_str!("copyImageToClipboardNative"),
                 jni_sig!("(Ljava/lang/String;)V"),
                 &[JValue::Object(&image)],
@@ -109,13 +116,18 @@ pub extern "system" fn Java_moe_sable_client_MainActivity_nativeNetworkChanged(
 )]
 pub extern "system" fn Java_moe_sable_client_MainActivity_nativeInitSystemBars(
     mut env: EnvUnowned,
-    _this: JObject,
+    this: JObject,
 ) {
-    let _ = env.with_env(|env| {
+    env.with_env(|env| {
         let vm = env.get_java_vm()?;
+        // Native worker threads cannot look up application classes by name.
+        let class = env.get_object_class(&this)?;
+        let class = env.new_global_ref(class)?;
+        let _ = MAIN_ACTIVITY.set(class);
         let _ = JAVA_VM.set(vm);
         Ok::<_, jni::errors::Error>(())
-    });
+    })
+    .resolve::<jni::errors::ThrowRuntimeExAndDefault>();
 }
 
 /// `light` asks for the icon treatment a light background needs: dark icons.
@@ -163,13 +175,11 @@ fn call_activity(
     value: JValue,
 ) -> Result<(), String> {
     let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
+    let class = MAIN_ACTIVITY
+        .get()
+        .ok_or("activity class not initialized")?;
     vm.attach_current_thread(|env| {
-        let result = env.call_static_method(
-            jni_str!("moe/sable/client/MainActivity"),
-            JNIString::new(method),
-            signature,
-            &[value],
-        );
+        let result = env.call_static_method(class, JNIString::new(method), signature, &[value]);
         if result.is_err() {
             env.exception_clear();
         }

@@ -36,6 +36,7 @@ import QrLinkDialog from './QrLinkDialog.svelte';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(openExternalAuthUrl).mockResolvedValue(undefined);
 });
 
 async function emit(progress: Extract<CoreEvent, { type: 'qr_login' }>['progress'], grant = true) {
@@ -52,6 +53,29 @@ test('opens device approval through the authentication browser', async () => {
   await user.click(screen.getByRole('button', { name: 'Open the approval page' }));
 
   expect(openExternalAuthUrl).toHaveBeenCalledExactlyOnceWith(uri);
+  expect(core.cancelQr).not.toHaveBeenCalled();
+});
+
+test('shows approval browser errors and allows retrying without cancelling the link', async () => {
+  const user = userEvent.setup();
+  vi.mocked(openExternalAuthUrl).mockRejectedValueOnce('activity class not found');
+  render(QrLinkDialog, { open: true, mode: 'grant' });
+
+  const uri = 'https://auth.example.org/device?user_code=ABCD';
+  await emit({ stage: 'waiting_for_auth', verification_uri: uri });
+  const button = screen.getByRole('button', { name: 'Open the approval page' });
+  await user.click(button);
+
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    'Could not open the approval page. Try again.'
+  );
+  expect(button).toBeEnabled();
+  expect(core.cancelQr).not.toHaveBeenCalled();
+
+  await user.click(button);
+  expect(openExternalAuthUrl).toHaveBeenCalledTimes(2);
+  expect(openExternalAuthUrl).toHaveBeenLastCalledWith(uri);
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(core.cancelQr).not.toHaveBeenCalled();
 });
 

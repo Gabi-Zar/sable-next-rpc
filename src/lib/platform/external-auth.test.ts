@@ -28,12 +28,33 @@ describe('authentication browsers', () => {
     });
   });
 
-  test('keeps the external URL command on other native platforms', async () => {
-    native.platform.mockReturnValue('linux');
-    await openExternalAuthUrl('https://matrix.example.org/register');
-    expect(native.invoke).toHaveBeenCalledExactlyOnceWith('open_external_url', {
-      url: 'https://matrix.example.org/register',
-    });
+  test.each(['linux', 'windows', 'macos'])(
+    'uses the external URL command on %s',
+    async (platform) => {
+      native.platform.mockReturnValue(platform);
+      await openExternalAuthUrl('https://matrix.example.org/register');
+      expect(native.invoke).toHaveBeenCalledExactlyOnceWith('open_external_url', {
+        url: 'https://matrix.example.org/register',
+      });
+    }
+  );
+
+  test('opens approval synchronously outside Tauri', async () => {
+    native.isTauri.mockReturnValue(false);
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+    try {
+      const pending = openExternalAuthUrl('https://auth.example.org/device');
+      expect(open).toHaveBeenCalledExactlyOnceWith(
+        'https://auth.example.org/device',
+        '_blank',
+        'noopener'
+      );
+      await pending;
+      expect(native.invoke).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   test('returns the iOS authentication callback', async () => {

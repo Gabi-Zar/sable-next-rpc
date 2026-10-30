@@ -34,12 +34,15 @@
   );
   const checkCodeId = $props.id();
   let checkCode = $state('');
+  let openingApproval = $state(false);
+  let approvalError = $state(false);
 
   $effect(() => {
     if (!open) return;
     untrack(() => {
       flow.reset();
       checkCode = '';
+      approvalError = false;
     });
     return flow.listen();
   });
@@ -120,6 +123,20 @@
 
   function focusOnMount(node: HTMLElement): void {
     node.focus();
+  }
+
+  async function openApproval(url: string): Promise<void> {
+    if (openingApproval) return;
+    openingApproval = true;
+    approvalError = false;
+    try {
+      await openExternalAuthUrl(url);
+    } catch (error) {
+      console.warn('[sable qr] approval browser failed', error);
+      approvalError = true;
+    } finally {
+      openingApproval = false;
+    }
   }
 </script>
 
@@ -206,8 +223,16 @@
       <p class="wait" aria-hidden="true">{i18n.t('qrLogin.waiting')}</p>
     {:else if progress.stage === 'waiting_for_auth'}
       {@const uri = progress.verification_uri}
+      {#if approvalError}
+        <Alert variant="critical" role="alert">{i18n.t('qrLogin.openApprovalFailed')}</Alert>
+      {/if}
       <div class="qr-actions">
-        <Button variant="primary" class="qr-action" onclick={() => void openExternalAuthUrl(uri)}>
+        <Button
+          variant="primary"
+          class="qr-action"
+          disabled={openingApproval}
+          onclick={() => void openApproval(uri)}
+        >
           {i18n.t('qrLogin.openApproval')}
         </Button>
       </div>

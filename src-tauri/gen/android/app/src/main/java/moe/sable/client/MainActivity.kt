@@ -50,7 +50,9 @@ class MainActivity : TauriActivity() {
     super.onCreate(savedInstanceState)
     instance = this
     onBackPressedDispatcher.addCallback(this, fullscreenBackCallback)
-    runCatching { nativeInitSystemBars() }
+    runCatching { nativeInitSystemBars() }.onFailure {
+      Log.e("Sable", "Could not initialize the native Activity bridge", it)
+    }
     AppLifecycle.start()
     startNetworkMonitor()
     stageShareIntent(intent)
@@ -251,6 +253,7 @@ class MainActivity : TauriActivity() {
       result.get(10, TimeUnit.SECONDS)
     }
 
+    @Keep
     @JvmStatic
     fun hapticFeedbackNative(strong: Boolean) {
       val activity = instance ?: return
@@ -264,6 +267,7 @@ class MainActivity : TauriActivity() {
 
     // The bars stay transparent under edge-to-edge and the webview paints them,
     // so only the icon contrast is left. setStatusBarColor is a no-op from API 35.
+    @Keep
     @JvmStatic
     fun setStatusBarLightNative(light: Boolean) {
       val activity = instance ?: return
@@ -277,6 +281,7 @@ class MainActivity : TauriActivity() {
     // The inset host pads the webview's parent to the keyboard's final height as
     // soon as the IME animation starts, and that band shows the window
     // background, which follows the system theme rather than the app's.
+    @Keep
     @JvmStatic
     fun setWindowBackgroundNative(color: Int) {
       val activity = instance ?: return
@@ -307,6 +312,7 @@ class MainActivity : TauriActivity() {
       }
     }
 
+    @Keep
     @JvmStatic
     fun setNavigationBarLightNative(light: Boolean) {
       val activity = instance ?: return
@@ -317,6 +323,7 @@ class MainActivity : TauriActivity() {
       }
     }
 
+    @Keep
     @JvmStatic
     fun setSystemBarsHiddenNative(hidden: Boolean) {
       val activity = instance ?: return
@@ -340,6 +347,7 @@ class MainActivity : TauriActivity() {
       }
     }
 
+    @Keep
     @JvmStatic
     fun setSentryEnabledNative(enabled: Boolean) {
       val activity = instance ?: return
