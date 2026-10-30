@@ -367,6 +367,7 @@ struct LookOut {
 }
 
 impl LookOut {
+    #[expect(clippy::too_many_arguments, reason = "mirrors the protocol fields")]
     fn new(
         pronouns: &[PronounView],
         on_light: Option<&str>,
@@ -800,6 +801,34 @@ fn catalog_from_backup(backup: &str) -> Option<Value> {
 }
 
 #[cfg(not(target_family = "wasm"))]
+async fn space_associations(
+    client: &matrix_sdk::Client,
+    room_id: &matrix_sdk::ruma::RoomId,
+    associations: &BTreeMap<String, RoomAssociation>,
+) -> Vec<RoomAssociation> {
+    let mut rooms = vec![room_id.to_owned()];
+    let mut seen = BTreeSet::new();
+    let mut selections = Vec::new();
+    for _ in 0..=4 {
+        let mut parents = Vec::new();
+        for room in rooms {
+            if !seen.insert(room.clone()) {
+                continue;
+            }
+            if let Some(association) = associations.get(room.as_str()) {
+                selections.push(association.clone());
+            }
+            parents.extend(crate::view::listing_spaces(None, client, &room).await);
+        }
+        rooms = parents;
+        if rooms.is_empty() {
+            break;
+        }
+    }
+    selections
+}
+
+#[cfg(not(target_family = "wasm"))]
 pub(crate) async fn notification_profile(
     client: &matrix_sdk::Client,
     room_id: &matrix_sdk::ruma::RoomId,
@@ -843,25 +872,7 @@ pub(crate) async fn notification_profile(
         .as_ref()
         .map(personas_from_catalog)
         .unwrap_or_default();
-    let mut rooms = vec![room_id.to_owned()];
-    let mut seen = BTreeSet::new();
-    let mut selections = Vec::new();
-    for _ in 0..=4 {
-        let mut parents = Vec::new();
-        for room in rooms {
-            if !seen.insert(room.clone()) {
-                continue;
-            }
-            if let Some(association) = associations.get(room.as_str()) {
-                selections.push(association.clone());
-            }
-            parents.extend(crate::view::listing_spaces(None, client, &room).await);
-        }
-        rooms = parents;
-        if rooms.is_empty() {
-            break;
-        }
-    }
+    let mut selections = space_associations(client, room_id, &associations).await;
     selections.extend(account.map(RoomAssociation::Persona));
     let now = u64::from(matrix_sdk::ruma::MilliSecondsSinceUnixEpoch::now().0);
     for association in selections {
@@ -1393,6 +1404,11 @@ mod tests {
             color_on_light: None,
             color_on_dark: None,
             has_fallback,
+            biography: None,
+            banner_url: None,
+            is_animal: None,
+            has_animal: None,
+            animal_need: None,
         }
     }
 

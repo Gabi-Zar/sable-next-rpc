@@ -1239,6 +1239,11 @@ mod tests {
             color_on_light: None,
             color_on_dark: None,
             has_fallback: true,
+            biography: None,
+            banner_url: None,
+            is_animal: None,
+            has_animal: None,
+            animal_need: None,
         };
         let both = attachment_extra_content(Some(&profile), true, None).expect("both properties");
         assert_eq!(both["com.beeper.per_message_profile"]["id"], "hatchy");
@@ -1255,6 +1260,11 @@ mod tests {
             color_on_light: None,
             color_on_dark: None,
             has_fallback: true,
+            biography: None,
+            banner_url: None,
+            is_animal: None,
+            has_animal: None,
+            animal_need: None,
         };
         let profile = attachment_profile(&profile);
 

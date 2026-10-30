@@ -1551,7 +1551,7 @@ async fn send_media_reply(
 
     match kind {
         "attachment" => {
-            core.send_attachment(
+            Box::pin(core.send_attachment(
                 SendAttachmentRequest {
                     room_id: room_id.to_owned(),
                     filename: "picture.png".to_owned(),
@@ -1563,7 +1563,7 @@ async fn send_media_reply(
                     spoiler: false,
                 },
                 attachment_bytes(&[1, 2, 3]),
-            )
+            ))
             .await?;
         }
         "gallery" => {
@@ -1709,6 +1709,11 @@ async fn media_replies_preserve_silent_mentions_on_the_wire() {
                     color_on_light: None,
                     color_on_dark: None,
                     has_fallback: false,
+                    biography: None,
+                    banner_url: None,
+                    is_animal: None,
+                    has_animal: None,
+                    animal_need: None,
                 }),
             };
             Box::pin(send_media_reply(&core, room_id, kind, outgoing))
@@ -1816,9 +1821,8 @@ async fn attachments_use_the_server_upload_limit_instead_of_100_mib() {
             "mime": "application/octet-stream",
         }))
         .unwrap();
-        let result = core
-            .send_attachment(request, attachment_bytes(&vec![0; file_size]))
-            .await;
+        let result =
+            Box::pin(core.send_attachment(request, attachment_bytes(&vec![0; file_size]))).await;
         if u64::try_from(file_size).unwrap() > upload_size {
             assert!(matches!(result, Err(RpcError::InvalidMedia)));
         } else {
@@ -1966,12 +1970,14 @@ async fn videos_and_galleries_upload_their_thumbnails() {
             .await
             .unwrap();
         } else {
-            core.send_attachment(
-                serde_json::from_value(json!({
-                    "room_id": room_id, "filename": "video.mp4", "mime": "video/mp4",
-                }))
-                .unwrap(),
-                bytes,
+            Box::pin(
+                core.send_attachment(
+                    serde_json::from_value(json!({
+                        "room_id": room_id, "filename": "video.mp4", "mime": "video/mp4",
+                    }))
+                    .unwrap(),
+                    bytes,
+                ),
             )
             .await
             .unwrap();

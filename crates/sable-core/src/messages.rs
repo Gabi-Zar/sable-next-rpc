@@ -1675,6 +1675,11 @@ mod tests {
             color_on_light: None,
             color_on_dark: None,
             has_fallback: true,
+            biography: None,
+            banner_url: None,
+            is_animal: None,
+            has_animal: None,
+            animal_need: None,
         };
         let edit = super::reprofiled_edit(event_id!("$event"), &gallery, Some(&persona)).unwrap();
 
